@@ -99,7 +99,7 @@ Two practical options:
   - No real tool execution; you only score that single output and its token usage.  
   - Simpler to implement but less faithful to the real chat/tool loop; token counts may not reflect production.
 
-Recommendation: **Option A** so that the optimized prompt is tested in the same tool-calling setting as LocalWriter.
+Recommendation: **Option A** so that the optimized prompt is tested in the same tool-calling setting as WriterAgent.
 
 **Mock tools: full set available, subset in use.** You can implement mocks for the **full** Writer tool set (e.g. all of `WRITER_TOOLS` from [core/document_tools.py](core/document_tools.py)) so the harness is realistic, but (a) your **dataset tasks** only require a subset (e.g. get_document_content, apply_document_content, find_text, maybe list_styles). That already tests “can the model handle this subset?” (b) You can also **parameterize which tools are passed to the model** per run: e.g. pass only 3 tools, or 5, or the full set. That lets you analyze “how many is too many” (see below) without reimplementing mocks.
 
@@ -128,7 +128,7 @@ Result: MIPROv2 will propose alternative instructions, evaluate each on your met
 
 ### 5. LM and endpoint
 
-- Use the **same OpenAI-compatible endpoint** as LocalWriter (e.g. Ollama, OpenRouter, or your current API). Configure DSPy with `dspy.LM(..., api_base=..., api_key=...)` so optimization runs against the same model/endpoint you care about.  
+- Use the **same OpenAI-compatible endpoint** as WriterAgent (e.g. Ollama, OpenRouter, or your current API). Configure DSPy with `dspy.LM(..., api_base=..., api_key=...)` so optimization runs against the same model/endpoint you care about.  
 - Run optimization in a **separate Python script** (e.g. under `scripts/` or `prompt_opt/`), not inside the LibreOffice extension. No need to wire DSPy into [core/api.py](core/api.py); the script only needs to call your endpoint.
 
 ### 6. Extracting and using the optimized prompt
@@ -152,7 +152,7 @@ Result: MIPROv2 will propose alternative instructions, evaluate each on your met
   - `requirements.txt`: `dspy-ai` (and any deps for your endpoint).
 2. **Judge and gold**: The judge (in `eval_core.JudgeModule` / `score_with_judge`) handles all task types: structural (e.g. table, cleanup) and creative (e.g. resume, rewriting). It uses weighted accuracy/formatting/naturalness and optional gold references from `gold_standards.json`. Generate gold once with `run_eval_multi.py --generate-golds` for better judge consistency.
 3. **Run optimization** (e.g. `python run_optimize.py`). Use `auto="light"` first to limit cost; inspect the winning instruction and metric scores, then try `"medium"` if needed.
-4. **Apply the result**: Copy the best instruction from the saved program into `DEFAULT_CHAT_SYSTEM_PROMPT` in [core/constants.py](core/constants.py) (or merge with `FORMAT_RULES` as you do now). Test in LocalWriter with the same evaluation tasks to confirm behavior and token usage.
+4. **Apply the result**: Copy the best instruction from the saved program into `DEFAULT_CHAT_SYSTEM_PROMPT` in [core/constants.py](core/constants.py) (or merge with `FORMAT_RULES` as you do now). Test in WriterAgent with the same evaluation tasks to confirm behavior and token usage.
 5. **Documentation**: See `scripts/prompt_optimization/README.md` for how to run the optimizer, the judge-based metric (`--judge`, gold standards), and how to update constants.py from the output.
 
 ---

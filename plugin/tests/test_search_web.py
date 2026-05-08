@@ -4,9 +4,9 @@
 """
 Standalone CLI harness to exercise the vendored smolagents-based web search agent.
 
-This does NOT require LibreOffice or LocalWriter's UNO context. It talks directly
+This does NOT require LibreOffice or WriterAgent's UNO context. It talks directly
 to OpenRouter using an OpenAI-compatible HTTP API, and uses the same
-ToolCallingAgent + DuckDuckGo + VisitWebpage tool stack as LocalWriter's
+ToolCallingAgent + DuckDuckGo + VisitWebpage tool stack as WriterAgent's
 `search_web` tool.
 
 Usage:

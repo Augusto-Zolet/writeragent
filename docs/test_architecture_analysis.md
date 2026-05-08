@@ -1,5 +1,5 @@
 # Test Architecture & Coverage Strategy
-## WriterAgent / LocalWriter - State of Testing Analysis
+## WriterAgent / WriterAgent - State of Testing Analysis
 
 ### 1. Executive Summary
 

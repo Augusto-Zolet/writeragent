@@ -114,7 +114,7 @@ class WebResearchTool(ToolCalcWebResearchBase, ToolDrawWebResearchBase):
         raw_mb = get_config_int(ctx.ctx, "web_cache_max_mb")
         cache_max_mb = 0 if raw_mb <= 0 else max(1, min(500, raw_mb))
         cache_max_age_days = get_config_int(ctx.ctx, "web_cache_validity_days")
-        cache_path = os.path.join(udir, "localwriter_web_cache.db") if (udir and cache_max_mb > 0) else None
+        cache_path = os.path.join(udir, "writeragent_web_cache.db") if (udir and cache_max_mb > 0) else None
 
         smol_model = WriterAgentSmolModel(LlmClient(config, ctx.ctx), max_tokens=max_tokens, status_callback=status_callback)
 

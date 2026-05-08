@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check-setup.sh — Verify the LocalWriter development stack.
+# check-setup.sh — Verify the WriterAgent development stack.
 #
 # Usage:
 #   ./scripts/check-setup.sh          Check everything
@@ -25,7 +25,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 echo ""
-echo -e "${BOLD}LocalWriter — Development Stack Check${NC}"
+echo -e "${BOLD}WriterAgent — Development Stack Check${NC}"
 echo "======================================"
 echo ""
 

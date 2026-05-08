@@ -227,9 +227,9 @@ def main():
     build_dir = os.path.join(PROJECT_ROOT, "build", "generated")
 
     # Read Tools -> Options enable flag
-    enable_options = os.environ.get("LOCALWRITER_ENABLE_OPTIONS", "1") == "1"
+    enable_options = os.environ.get("WRITERAGENT_ENABLE_OPTIONS", "1") == "1"
     if not enable_options:
-        print("  LOCALWRITER_ENABLE_OPTIONS is false. Skipping Tools -> Options generation.")
+        print("  WRITERAGENT_ENABLE_OPTIONS is false. Skipping Tools -> Options generation.")
 
     # 1. Addons.xcu (menus) — run first to collect conditional menus
     addons_xcu_path = os.path.join(build_dir, "Addons.xcu")

@@ -181,7 +181,7 @@ Add these two branches to finish the implementation:
 
 ### Manual Testing Steps
 
-1. **Open** LibreOffice Writer with the LocalWriter extension sidebar.
+1. **Open** LibreOffice Writer with the WriterAgent extension sidebar.
 2. **Normal chat (no tools)**: Type *"What is 2+2?"* — Verify the flat loop still handles streaming just fine.
 3. **Single NO-ASYNC tool**: Type *"What does the first paragraph say?"* — Notice no freeze.
 4. **ASYNC tool (the main goal!)**: Type *"Search DuckDuckGo for LibreOffice 24.2 release date"* — Notice it says "Running: web_research", and the UI allows you to click, type, and interact. It doesn't freeze the cursor! Optionally enable "Show search thinking" in Settings and verify the text appears.

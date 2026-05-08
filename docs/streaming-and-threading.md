@@ -1,6 +1,6 @@
 # Streaming, Tool Calling, and Request Batching: How the APIs Work
 
-This document explains how OpenAI-compatible chat APIs handle **streaming**, **tool calling**, and **request batching**, and how **reasoning/thinking** appears in streams. It is aimed at developers who need to implement or debug clients (e.g. LocalWriter’s chat sidebar).
+This document explains how OpenAI-compatible chat APIs handle **streaming**, **tool calling**, and **request batching**, and how **reasoning/thinking** appears in streams. It is aimed at developers who need to implement or debug clients (e.g. WriterAgent’s chat sidebar).
 
 References: OpenAI [Streaming](https://platform.openai.com/docs/api-reference/streaming), [Tool calling](https://platform.openai.com/docs/guides/function-calling). Your endpoint may have its own docs for streaming and reasoning tokens.
 
@@ -197,7 +197,7 @@ If you have an API key for your endpoint, you can verify how streaming, tool cal
 ### 5.3 How to run tests
 
 - **Manual:** Use `curl` or a small script: set `Authorization: Bearer <OPENROUTER_API_KEY>`, `Content-Type: application/json`, body with `model`, `messages`, `stream: true`, and optionally `tools` and `reasoning`. Parse SSE line by line and log each chunk (or key fields).
-- **In LocalWriter:** Set your endpoint URL and API key in Settings; use a reasoning model if your endpoint supports it. Observe the sidebar to see when thinking vs content appears.
+- **In WriterAgent:** Set your endpoint URL and API key in Settings; use a reasoning model if your endpoint supports it. Observe the sidebar to see when thinking vs content appears.
 
 Once you’ve run these tests, you can document the **actual** chunk shapes and order in this file or in a short “streaming notes” section so the implementation can be aligned with real responses.
 
@@ -217,7 +217,7 @@ This avoids adding the heavy `openai` dependency to the LibreOffice extension wh
 
 ## 7. Event Loop and UI Threading
 
-LibreOffice’s UI (VCL) is single-threaded. To keep the UI responsive during long-running network operations, LocalWriter uses a **flat event loop** architecture on the main thread, combined with worker threads that push messages to a single `queue.Queue`.
+LibreOffice’s UI (VCL) is single-threaded. To keep the UI responsive during long-running network operations, WriterAgent uses a **flat event loop** architecture on the main thread, combined with worker threads that push messages to a single `queue.Queue`.
 
 **The Architecture:**
 
@@ -237,11 +237,11 @@ This flat architecture avoids nested callbacks and makes state transitions expli
 
 ### Overview
 
-When the LLM finishes a stream and requests tools (`"stream_done"`), LocalWriter must execute them. Some tools (like modifying the spreadsheet) must run synchronously on the main thread because LibreOffice UNO calls are not thread-safe. Other tools (like Web Research) must run on a background thread because they do heavy network I/O and would freeze the UI.
+When the LLM finishes a stream and requests tools (`"stream_done"`), WriterAgent must execute them. Some tools (like modifying the spreadsheet) must run synchronously on the main thread because LibreOffice UNO calls are not thread-safe. Other tools (like Web Research) must run on a background thread because they do heavy network I/O and would freeze the UI.
 
 ### The `next_tool` Queuing System
 
-To handle both sync and async tools without freezing the UI, LocalWriter uses an internal dispatch queue:
+To handle both sync and async tools without freezing the UI, WriterAgent uses an internal dispatch queue:
 
 1. **Queueing:** When `"stream_done"` is received with `tool_calls`, the calls are added to a `pending_tools` list, and a `("next_tool",)` message is pushed onto the queue.
 2. **Dispatching:** The main loop picks up `"next_tool"`. It pops the first tool from `pending_tools`:
@@ -251,9 +251,9 @@ To handle both sync and async tools without freezing the UI, LocalWriter uses an
 4. **Next Round:** When `"next_tool"` finds an empty `pending_tools` list, all tools are finished. The loop increments the round counter and spawns a new LLM worker to send the results back to the model.
 
 This sequentializes tool execution while guaranteeing the UI never freezes during network-bound tool operations.
-# localwriter2 Threading Bug Fix: Why the "Background Thread" Was Actually Freezing/Crashing the UI
+# writeragent2 Threading Bug Fix: Why the "Background Thread" Was Actually Freezing/Crashing the UI
 
-You noticed that [localwriter2](file:///home/keithcu/Desktop/Python/localwriter/localwriter2) already contained a `threading.Thread` call in [panel_factory.py](file:///home/keithcu/Desktop/Python/localwriter/localwriter2/plugin/modules/chatbot/panel_factory.py) with the comment `Run in background thread to avoid UI freeze`. It's understandable to wonder why we needed to introduce a complex queuing system if the work was already happening off the main thread.
+You noticed that [writeragent2](file:///home/keithcu/Desktop/Python/writeragent/writeragent2) already contained a `threading.Thread` call in [panel_factory.py](file:///home/keithcu/Desktop/Python/writeragent/writeragent2/plugin/modules/chatbot/panel_factory.py) with the comment `Run in background thread to avoid UI freeze`. It's understandable to wonder why we needed to introduce a complex queuing system if the work was already happening off the main thread.
 
 The short answer is: **the previous implementation threw everything onto a raw background worker, causing illegal, non-thread-safe modifications to LibreOffice's VCL (Visual Components Library) and UNO services, which frequently results in deadlocks (hard freezes) and memory corruption (segfaults/crashes).**
 
@@ -263,7 +263,7 @@ Here is a detailed breakdown of the original bug and how our new architecture fi
 
 ## The Original Implementation (The Bug)
 
-In [localwriter2/plugin/modules/chatbot/panel_factory.py](file:///home/keithcu/Desktop/Python/localwriter/localwriter2/plugin/modules/chatbot/panel_factory.py), clicking "Send" fired [actionPerformed](file:///home/keithcu/Desktop/Python/localwriter/plugin/chat_panel.py#1108-1113) on the main LibreOffice UI thread. The original code immediately delegated all work to a background thread like this:
+In [writeragent2/plugin/modules/chatbot/panel_factory.py](file:///home/keithcu/Desktop/Python/writeragent/writeragent2/plugin/modules/chatbot/panel_factory.py), clicking "Send" fired [actionPerformed](file:///home/keithcu/Desktop/Python/writeragent/plugin/chat_panel.py#1108-1113) on the main LibreOffice UI thread. The original code immediately delegated all work to a background thread like this:
 
 ```python
 # The Old Way
@@ -290,16 +290,16 @@ The VCL often "catches" these illegal crosses and attempts to wait on a lock, re
 
 To solve this we implemented the **Flat Event Loop** pattern, which properly separates duties.
 
-Instead of throwing the entire process on a background thread, the main thread maintains control, but we offload only the safe, slow pieces. To do this, we updated [panel_factory.py](file:///home/keithcu/Desktop/Python/localwriter/localwriter2/plugin/modules/chatbot/panel_factory.py) to stop launching its own thread, and execute [_do_send()](file:///home/keithcu/Desktop/Python/localwriter/plugin/chat_panel.py#296-617) directly on the Main Thread.
+Instead of throwing the entire process on a background thread, the main thread maintains control, but we offload only the safe, slow pieces. To do this, we updated [panel_factory.py](file:///home/keithcu/Desktop/Python/writeragent/writeragent2/plugin/modules/chatbot/panel_factory.py) to stop launching its own thread, and execute [_do_send()](file:///home/keithcu/Desktop/Python/writeragent/plugin/chat_panel.py#296-617) directly on the Main Thread.
 
-### How [_do_send()](file:///home/keithcu/Desktop/Python/localwriter/plugin/chat_panel.py#296-617) Works Now
-Inside [panel.py](file:///home/keithcu/Desktop/Python/localwriter/plugin/chat_panel.py), the [_do_send()](file:///home/keithcu/Desktop/Python/localwriter/plugin/chat_panel.py#296-617) establishes a cross-thread `queue.Queue()`.
+### How [_do_send()](file:///home/keithcu/Desktop/Python/writeragent/plugin/chat_panel.py#296-617) Works Now
+Inside [panel.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/chat_panel.py), the [_do_send()](file:///home/keithcu/Desktop/Python/writeragent/plugin/chat_panel.py#296-617) establishes a cross-thread `queue.Queue()`.
 
 1. **The Network Worker:**
-   We launch a `def worker()` background thread whose *only* job is connecting to the API and fetching chunks via [chat_event_stream](file:///home/keithcu/Desktop/Python/localwriter/localwriter2/plugin/modules/chatbot/streaming.py#21-114). It pushes UI updates and Tool requests into the queue as standard Python objects. It touches zero UNO objects.
+   We launch a `def worker()` background thread whose *only* job is connecting to the API and fetching chunks via [chat_event_stream](file:///home/keithcu/Desktop/Python/writeragent/writeragent2/plugin/modules/chatbot/streaming.py#21-114). It pushes UI updates and Tool requests into the queue as standard Python objects. It touches zero UNO objects.
 
 2. **The Main Thread Pumping Loop:**
-   The [_do_send()](file:///home/keithcu/Desktop/Python/localwriter/plugin/chat_panel.py#296-617) method acts as a message loop **on the main thread**:
+   The [_do_send()](file:///home/keithcu/Desktop/Python/writeragent/plugin/chat_panel.py#296-617) method acts as a message loop **on the main thread**:
    ```python
    while not self.stop_requested:
        # Wait max 100ms for network/tool results
@@ -317,15 +317,15 @@ Because we are doing `q.get(timeout=0.1)` followed by `toolkit.processEventsToId
 
 ### The `next_tool` Queuing System
 The final piece of the puzzle handles slow external tools (like Web Research or Image Generation).
-If we executed [web_research](file:///home/keithcu/Desktop/Python/localwriter/plugin/modules/core/document_tools.py#213-291) on the main thread, the `processEventsToIdle` loop would halt until the search returned, freezing the UI again.
+If we executed [web_research](file:///home/keithcu/Desktop/Python/writeragent/plugin/modules/core/document_tools.py#213-291) on the main thread, the `processEventsToIdle` loop would halt until the search returned, freezing the UI again.
 
 Our solution is the `next_tool` dispatcher:
 - When a tool is popped from the queue, we check `if name in ASYNC_TOOLS`.
 - **Sync Tools (UNO calls):** Run instantly on the main thread, avoiding VCL crashes.
-- **Async Tools (Network/OS calls):** A new minimal daemon thread is launched to execute the tool, pushing a [("tool_done", result)](file:///home/keithcu/Desktop/Python/localwriter/localwriter2/plugin/modules/chatbot/panel_factory.py#393-404) message back onto the queue when finished. The Main event loop keeps ticking and pumping the UI while it waits for the async tool thread to return.
+- **Async Tools (Network/OS calls):** A new minimal daemon thread is launched to execute the tool, pushing a [("tool_done", result)](file:///home/keithcu/Desktop/Python/writeragent/writeragent2/plugin/modules/chatbot/panel_factory.py#393-404) message back onto the queue when finished. The Main event loop keeps ticking and pumping the UI while it waits for the async tool thread to return.
 
 ## Summary
 
-The original [localwriter2](file:///home/keithcu/Desktop/Python/localwriter/localwriter2) attempted to dodge UI freezes by forcing the entire program state onto a background thread, which ironically caused deadlocks and crashes because LibreOffice does not allow cross-thread UI/Document manipulation.
+The original [writeragent2](file:///home/keithcu/Desktop/Python/writeragent/writeragent2) attempted to dodge UI freezes by forcing the entire program state onto a background thread, which ironically caused deadlocks and crashes because LibreOffice does not allow cross-thread UI/Document manipulation.
 
 Our new architecture keeps the orchestration safely on the main thread while using threading purely for I/O and explicitly pumping LibreOffice events (`processEventsToIdle`). This guarantees a perfectly responsive sidebar without compromising application stability.

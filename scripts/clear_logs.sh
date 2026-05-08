@@ -1,17 +1,17 @@
 #!/bin/bash
-# Clear all LocalWriter log files in every known location.
-# Filenames: localwriter_debug.log, localwriter_agent.log (see core/logging.py).
+# Clear all WriterAgent log files in every known location.
+# Filenames: writeragent_debug.log, writeragent_agent.log (see core/logging.py).
 
 LO="${HOME}/.config/libreoffice"
 rm -f \
-  "${HOME}/localwriter_debug.log" \
-  "${HOME}/localwriter_agent.log" \
-  "${LO}/4/user/localwriter_debug.log" \
-  "${LO}/4/user/localwriter_agent.log" \
-  "${LO}/4/user/config/localwriter_debug.log" \
-  "${LO}/4/user/config/localwriter_agent.log" \
-  "${LO}/24/user/localwriter_debug.log" \
-  "${LO}/24/user/localwriter_agent.log" \
-  "${LO}/24/user/config/localwriter_debug.log" \
-  "${LO}/24/user/config/localwriter_agent.log"
+  "${HOME}/writeragent_debug.log" \
+  "${HOME}/writeragent_agent.log" \
+  "${LO}/4/user/writeragent_debug.log" \
+  "${LO}/4/user/writeragent_agent.log" \
+  "${LO}/4/user/config/writeragent_debug.log" \
+  "${LO}/4/user/config/writeragent_agent.log" \
+  "${LO}/24/user/writeragent_debug.log" \
+  "${LO}/24/user/writeragent_agent.log" \
+  "${LO}/24/user/config/writeragent_debug.log" \
+  "${LO}/24/user/config/writeragent_agent.log"
 echo "Logs deleted."

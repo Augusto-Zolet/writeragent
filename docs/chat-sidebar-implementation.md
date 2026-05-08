@@ -2,7 +2,7 @@
 
 **Goal:** Move "Chat with Document" from a menu item to a sidebar panel (or right-dockable toolbar) so users can have it persistently visible on the right side of Writer.
 
-**Current state:** The sidebar panel is **working**. "Chat with Document" appears in the LocalWriter deck in Writer's sidebar with Response area, Ask field, and Send button. The menu item can remain as fallback.
+**Current state:** The sidebar panel is **working**. "Chat with Document" appears in the WriterAgent deck in Writer's sidebar with Response area, Ask field, and Send button. The menu item can remain as fallback.
 
 ---
 
@@ -17,7 +17,7 @@
 
 2. **Create the panel window with ContainerWindowProvider + XDL** (not manual Toolkit/UnoControl):
    - In `getRealInterface()`, get the extension base URL via `PackageInformationProvider.getPackageLocation(EXTENSION_ID)`.
-   - Use `ContainerWindowProvider.createContainerWindow(dialog_url, "", parent_window, None)` with the path to your XDL (e.g. `LocalWriterDialogs/ChatPanelDialog.xdl`).
+   - Use `ContainerWindowProvider.createContainerWindow(dialog_url, "", parent_window, None)` with the path to your XDL (e.g. `WriterAgentDialogs/ChatPanelDialog.xdl`).
    - **Critical:** After `createContainerWindow()` returns, call **`setVisible(True)`** on the returned window. The sidebar framework does not make the panel content visible; without this call the panel shows only the title bar and empty white space.
 
 3. **Config:**
@@ -33,9 +33,9 @@
 
 Logging is in `chat_panel.py` (`_debug_log`, `_debug_log_paths`). Log files are written to (first that succeeds):
 
-- LibreOffice user config dir: `localwriter_chat_debug.log` (same folder as `localwriter.json`, e.g. `~/.config/libreoffice/4/user/` on Linux)
-- `~/localwriter_chat_debug.log`
-- `/tmp/localwriter_chat_debug.log`
+- LibreOffice user config dir: `writeragent_chat_debug.log` (same folder as `writeragent.json`, e.g. `~/.config/libreoffice/4/user/` on Linux)
+- `~/writeragent_chat_debug.log`
+- `/tmp/writeragent_chat_debug.log`
 
 Log points: `createUIElement`, `getRealInterface`, `_getOrCreatePanelRootWindow` (dialog_url, before/after `createContainerWindow`), `_wireSendButton`, and any exception with traceback.
 
@@ -44,8 +44,8 @@ Log points: `createUIElement`, `getRealInterface`, `_getOrCreatePanelRootWindow`
 | File | Role |
 |------|------|
 | `chat_panel.py` | ChatPanelFactory, ChatPanelElement, ChatToolPanel, SendButtonListener; ContainerWindowProvider + setVisible(True) |
-| `LocalWriterDialogs/ChatPanelDialog.xdl` | Panel UI (response, query, send); `withtitlebar="false"` |
-| `registry/org/openoffice/Office/UI/Sidebar.xcu` | LocalWriter deck + ChatPanel; `WantsAWT` true |
+| `WriterAgentDialogs/ChatPanelDialog.xdl` | Panel UI (response, query, send); `withtitlebar="false"` |
+| `registry/org/openoffice/Office/UI/Sidebar.xcu` | WriterAgent deck + ChatPanel; `WantsAWT` true |
 | `registry/org/openoffice/Office/UI/Factories.xcu` | ChatPanelFactory registration |
 | `META-INF/manifest.xml` | Registers chat_panel.py, Sidebar.xcu, Factories.xcu |
 
@@ -131,7 +131,7 @@ ApplicationName, ContextName, visible|hidden
 **🔴 Configuration Issues (historical)**
 - **Empty Titles**: Initially had empty `<value></value>` for deck and panel titles
 - **Context Format**: `WriterVariants` vs `com.sun.star.text.TextDocument` confusion
-- **Deck Management**: Custom deck (`LocalWriterDeck`) vs existing deck (`PropertyDeck`) tradeoffs
+- **Deck Management**: Custom deck (`WriterAgentDeck`) vs existing deck (`PropertyDeck`) tradeoffs
 
 ### Key Technical Insights
 
@@ -197,20 +197,20 @@ def _debug_log(ctx, msg):
 def _debug_log_paths(ctx):
     """Multiple fallback locations"""
     paths = []
-    # User config directory (same as localwriter.json)
+    # User config directory (same as writeragent.json)
     try:
         path_settings = ctx.getServiceManager().createInstanceWithContext(
             "com.sun.star.util.PathSettings", ctx)
         user_config = getattr(path_settings, "UserConfig", "")
         if user_config.startswith("file://"):
             user_config = str(uno.fileUrlToSystemPath(user_config))
-        paths.append(os.path.join(user_config, "localwriter_chat_debug.log"))
+        paths.append(os.path.join(user_config, "writeragent_chat_debug.log"))
     except Exception:
         pass
     # Fallback locations
     paths.extend([
-        os.path.expanduser("~/localwriter_chat_debug.log"),
-        "/tmp/localwriter_chat_debug.log"
+        os.path.expanduser("~/writeragent_chat_debug.log"),
+        "/tmp/writeragent_chat_debug.log"
     ])
     return paths
 ```
@@ -326,10 +326,10 @@ Reference: Sidebar.xcu snippet (deck + panel):
 
 ### Extension File Layout
 
-For LocalWriter, add:
+For WriterAgent, add:
 
 ```
-localwriter/
+writeragent/
 ├── registry/
 │   └── org/
 │       └── openoffice/
@@ -387,7 +387,7 @@ Simpler approach:
 ## Recommended Implementation Path
 
 **Option A – New Sidebar Deck (preferred for UX)**
-1. Create `registry/org/openoffice/Office/UI/Sidebar.xcu` with LocalWriter deck + Chat panel
+1. Create `registry/org/openoffice/Office/UI/Sidebar.xcu` with WriterAgent deck + Chat panel
 2. Create `Factories.xcu` registering `ChatPanelFactory`
 3. Implement `ChatPanelFactory` (XUIElementFactory) and `ChatPanel` (XToolPanel) in Python
 4. Panel UI: query field, Send button, response area (multiline, read-only)
@@ -414,7 +414,7 @@ Simpler approach:
 | `registry/org/openoffice/Office/UI/Sidebar.xcu` | Deck + panel; include `WantsAWT` true |
 | `registry/org/openoffice/Office/UI/Factories.xcu` | ChatPanelFactory registration |
 | `chat_panel.py` | ChatPanelFactory, ChatPanelElement, ChatToolPanel; ContainerWindowProvider + setVisible(True) |
-| `LocalWriterDialogs/ChatPanelDialog.xdl` | Panel UI; `dlg:withtitlebar="false"` |
+| `WriterAgentDialogs/ChatPanelDialog.xdl` | Panel UI; `dlg:withtitlebar="false"` |
 | `META-INF/manifest.xml` | Register chat_panel.py, Sidebar.xcu, Factories.xcu |
 | `build.sh` | Include `chat_panel.py`, `registry/` in zip |
 | `Addons.xcu` | Optional: keep Chat with Document menu as fallback |
@@ -432,7 +432,7 @@ Simpler approach:
 
 ---
 
-## Existing LocalWriter Code to Reuse
+## Existing WriterAgent Code to Reuse
 
 - `get_full_document_text(model, max_chars)` – gets document text
 - `stream_completion(prompt, system_prompt, max_tokens, api_type, append_callback)` – API call

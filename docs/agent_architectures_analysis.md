@@ -1,10 +1,10 @@
 # The Core Tension: API Brains vs. CLI Experts
 
-In the evolution of AI-powered writing assistants like **LocalWriter** and **LibreAssist**, we are witnessing a fundamental split in architectural philosophy. This "core tension" isn't just about code—it's about where the "intelligence" lives, how much it knows about its host, and the friction it introduces to the user.
+In the evolution of AI-powered writing assistants like **WriterAgent** and **LibreAssist**, we are witnessing a fundamental split in architectural philosophy. This "core tension" isn't just about code—it's about where the "intelligence" lives, how much it knows about its host, and the friction it introduces to the user.
 
 ---
 
-## 1. The API-Native "Integrated Resident" (LocalWriter)
+## 1. The API-Native "Integrated Resident" (WriterAgent)
 
 The API approach treats the AI as a resident of the application. The plugin manages the connection to a "Grand Brain" (Gemini, Claude, GPT) via a thin web pipe.
 
@@ -39,14 +39,14 @@ The CLI approach treats the office suite as just another "folder" in a broader f
 
 The most exciting future isn't choosing one, but building a **Hybrid Orchestrator**.
 
-In this model, **LocalWriter** acts as the "Social Brain":
+In this model, **WriterAgent** acts as the "Social Brain":
 1.  It handles the UI, the streaming, and the basic "native" edits via API.
 2.  It uses its **Tool Registry** as a bridge.
 3.  When a task is too complex (e.g., "Research the history of X and generate a 50-page report"), it **delegates** to the "CLI Expert."
 
 ### **The "Handover" Protocol**
 The "Handover" is the most robust way to leverage "free amazing Python code." 
-*   **Step 1**: LocalWriter creates a "Safe Backup" of the file.
+*   **Step 1**: WriterAgent creates a "Safe Backup" of the file.
 *   **Step 2**: It passes the file path and user intent to the CLI Agent.
 *   **Step 3**: It enters a "Monitor Mode" (UI spinner).
 *   **Step 4**: Upon completion, it compares the file timestamps, detects the change, and reloads the document.
@@ -59,6 +59,6 @@ The ultimate tension is that **Office Files are complicated**.
 API-based agents interact with the *Object Model* (Logical structure). 
 CLI-based agents interact with the *File Format* (Physical bytes).
 
-As agents get smarter, the physical bytes (XML/Zip) matter less, and the logical intent matters more. Eventually, we might not "hand over" a file at all—we might hand over an **MCP Session**, where the CLI agent "talks" to the LocalWriter API to perform its expert work.
+As agents get smarter, the physical bytes (XML/Zip) matter less, and the logical intent matters more. Eventually, we might not "hand over" a file at all—we might hand over an **MCP Session**, where the CLI agent "talks" to the WriterAgent API to perform its expert work.
 
-**This makes LocalWriter's MCP Server the most strategic part of your codebase.** It turns your "Integrated Resident" into a "Host" that any external "Expert" can plug into.
+**This makes WriterAgent's MCP Server the most strategic part of your codebase.** It turns your "Integrated Resident" into a "Host" that any external "Expert" can plug into.

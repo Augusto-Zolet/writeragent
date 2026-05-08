@@ -1,12 +1,12 @@
 # Agent Search: Autonomous Sub-Agent Web Searching
 
-This document outlines the architecture and implementation of the **web search** capabilities in LocalWriter. The goal has been to provide the main AI agent with a robust tool to search the internet, navigate pages, and return a synthesized answer, all while keeping external dependencies to a minimum. 
+This document outlines the architecture and implementation of the **web search** capabilities in WriterAgent. The goal has been to provide the main AI agent with a robust tool to search the internet, navigate pages, and return a synthesized answer, all while keeping external dependencies to a minimum. 
 
 ---
 
 ## 1. Purpose and Architecture
 
-- **Purpose**: Add a `search_web` tool to the main LocalWriter agent allowing it to perform autonomous web research.
+- **Purpose**: Add a `search_web` tool to the main WriterAgent agent allowing it to perform autonomous web research.
 - **Sub-Agent Approach**: Instead of having the main agent issue individual search queries and fetch URLs—which consumes significant context and risks derailing the main task—the `search_web` tool delegates the entire research task to an autonomous **sub-agent**.
 - **Smolagents**: We have **vendored** parts of the Hugging Face `smolagents` library (specifically the `ToolCallingAgent` and supporting models/tools) to power this sub-agent. The sub-agent runs its own ReAct loop to iteratively search, read, and synthesize information until it finds the answer.
 
@@ -25,18 +25,18 @@ The original `smolagents` web tools (`DuckDuckGoSearchTool` and `VisitWebpageToo
 - **Parsing**: Replaced `beautifulsoup4` and `markdownify` with custom subclasses of standard `html.parser.HTMLParser` to extract search results and strip tags for page content reading.
 
 ### LlmClient Wrapper
-To ensure the sub-agent uses the exact same model, endpoint, and API keys as the rest of LocalWriter, we created `LocalWriterSmolModel` (in `core/smol_model.py`). This class extends the `smolagents` base `Model` class but overrides `generate()` to proxy all requests directly to LocalWriter's existing `core.api.LlmClient`. For CLI testing without LibreOffice we also provide `OpenRouterSmolModel` in `scripts/test_search_web.py`, which talks directly to OpenRouter’s OpenAI-compatible HTTP API.
+To ensure the sub-agent uses the exact same model, endpoint, and API keys as the rest of WriterAgent, we created `WriterAgentSmolModel` (in `core/smol_model.py`). This class extends the `smolagents` base `Model` class but overrides `generate()` to proxy all requests directly to WriterAgent's existing `core.api.LlmClient`. For CLI testing without LibreOffice we also provide `OpenRouterSmolModel` in `scripts/test_search_web.py`, which talks directly to OpenRouter’s OpenAI-compatible HTTP API.
 
 ### The `search_web` Tool
 Exposed in `core/document_tools.py`, the `search_web` tool accepts a `query` and an optional `rationale`. When invoked:
-1. It instantiates the `LocalWriterSmolModel`.
+1. It instantiates the `WriterAgentSmolModel`.
 2. It initializes a `ToolCallingAgent` equipped with the zero-dependency DuckDuckGo and Webpage Visitor tools.
 3. It kicks off the `smolagents` run loop, which autonomously researches the query until it calls the `final_answer` tool or hits a timeout/max-steps limit.
 4. It catches the final answer and returns it to the main agent as JSON: `{"status": "ok", "result": "<answer>"}` (or `{"status": "error", "message": "..."}` on failure/timeout).
 
 ## 3. Vendored Files Overview
 
-To facilitate the sub-agent without burdening LocalWriter with dependencies, we've pulled in a specific subset of the `smolagents` library. Here is an overview of what each file does and its importance to the project:
+To facilitate the sub-agent without burdening WriterAgent with dependencies, we've pulled in a specific subset of the `smolagents` library. Here is an overview of what each file does and its importance to the project:
 
 ### Significant Files
 
@@ -50,7 +50,7 @@ This file defines the base `Tool` class and the infrastructure for exposing Pyth
 This file houses the actual tools that the web search sub-agent relies on to achieve its goals. Most notably, it contains `DuckDuckGoSearchTool` for querying the web and `VisitWebpageTool` for scraping actual page content. We have completely overhauled this file to use only standard Python libraries (`urllib.request` and `html.parser`), eliminating the need for `requests`, `beautifulsoup4`, or `markdownify`.
 
 **`core/smol_model.py`**
-This is a custom file specific to LocalWriter, acting as the bridge between `smolagents` and our existing `core/api.py`. It provides the `LocalWriterSmolModel` class, which implements the `smolagents.models.Model` interface but delegates all LLM generation logic strictly to our `LlmClient`. This ensures the sub-agent uses the exact same model preferences, API keys, and enterprise endpoints configured by the user.
+This is a custom file specific to WriterAgent, acting as the bridge between `smolagents` and our existing `core/api.py`. It provides the `WriterAgentSmolModel` class, which implements the `smolagents.models.Model` interface but delegates all LLM generation logic strictly to our `LlmClient`. This ensures the sub-agent uses the exact same model preferences, API keys, and enterprise endpoints configured by the user.
 
 ### Trivial / Supporting Files
 
@@ -69,7 +69,7 @@ This is a custom file specific to LocalWriter, acting as the bridge between `smo
 **What is Done:**
 - **Vendoring core files**: Copied `agents.py`, `models.py`, `tools.py`, `default_tools.py`, etc. to `plugin/contrib/smolagents`.
 - **Tool Adaptation**: Completely rewrote `DuckDuckGoSearchTool` and `VisitWebpageTool` in `default_tools.py` to use `urllib.request` and standard library parsers, with a realistic Firefox user agent to reduce 403s.
-- **Model Wrapper**: Built `LocalWriterSmolModel` (`core/smol_model.py`) to connect the sub-agent directly to LocalWriter's existing `LlmClient`.
+- **Model Wrapper**: Built `WriterAgentSmolModel` (`core/smol_model.py`) to connect the sub-agent directly to WriterAgent's existing `LlmClient`.
 - **Tool Registration**: Registered the `search_web` task in `core/document_tools.py` executing the ReAct loop inline.
 - **YAML/Jinja2 removal for ToolCallingAgent**: Replaced `populate_template()` in `ToolCallingAgent.initialize_system_prompt()` with `_render_toolcalling_system_prompt()` and prompts in `toolcalling_agent_prompts.py` using simple placeholders. The search_web path no longer depends on Jinja2.
 - **Optional Rich/logging**: `monitoring.py` and `agents.py` use lightweight stubs when `rich` is absent; the search_web path logs to stderr/stdout only, and our `Console` stub ignores Rich-only kwargs like `style=...`.

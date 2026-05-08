@@ -1,12 +1,12 @@
 # Next Steps for AI Horde Integration
 
-This document outlines future improvements for the AI Horde integration in LocalWriter, prioritized by user impact.
+This document outlines future improvements for the AI Horde integration in WriterAgent, prioritized by user impact.
 
 ## High Impact / UX
 
 ### 1. Real-time Progress Feedback
-**Problem**: Generating an image can take minutes (queue + processing), but the sidebar status only shows "Running..." without updates. The [AiHordeClient](file:///home/keithcu/Desktop/Python/localwriter/core/aihordeclient/__init__.py#162-1146) already receives progress events (e.g., "Queue position 12", "Processing 45%"), but these are only logged to debug files.
-**Task**: Thread the status callback from `AiHordeImageProvider` -> [SimpleInformer](file:///home/keithcu/Desktop/Python/localwriter/core/image_service.py#66-84) -> [ChatPanel](file:///home/keithcu/Desktop/Python/localwriter/chat_panel.py#956-976) status bar so users see live updates.
+**Problem**: Generating an image can take minutes (queue + processing), but the sidebar status only shows "Running..." without updates. The [AiHordeClient](file:///home/keithcu/Desktop/Python/writeragent/core/aihordeclient/__init__.py#162-1146) already receives progress events (e.g., "Queue position 12", "Processing 45%"), but these are only logged to debug files.
+**Task**: Thread the status callback from `AiHordeImageProvider` -> [SimpleInformer](file:///home/keithcu/Desktop/Python/writeragent/core/image_service.py#66-84) -> [ChatPanel](file:///home/keithcu/Desktop/Python/writeragent/chat_panel.py#956-976) status bar so users see live updates.
 
 ### 2. "Check Kudos Balance" Button
 **Problem**: Users can't easily verify if their API key is working or check their kudos balance without visiting the Horde website.
@@ -28,7 +28,7 @@ This document outlines future improvements for the AI Horde integration in Local
 ## Code Quality
 
 ### 6. Cleanup Vestigial Constants
-**Task**: Rename `__HORDE_CLIENT_NAME__ = "AiHordeForGimp"` in [core/aihordeclient/__init__.py](file:///home/keithcu/Desktop/Python/localwriter/core/aihordeclient/__init__.py) to `"LocalWriter"`.
+**Task**: Rename `__HORDE_CLIENT_NAME__ = "AiHordeForGimp"` in [core/aihordeclient/__init__.py](file:///home/keithcu/Desktop/Python/writeragent/core/aihordeclient/__init__.py) to `"WriterAgent"`.
 
-### 7. Refactor [SimpleInformer](file:///home/keithcu/Desktop/Python/localwriter/core/image_service.py#66-84)
-**Task**: The [SimpleInformer](file:///home/keithcu/Desktop/Python/localwriter/core/image_service.py#66-84) class inside [ImageService](file:///home/keithcu/Desktop/Python/localwriter/core/image_service.py#118-184) is a minimal mock. It should be refactored to be more robust and better integrated with the [ChatPanel](file:///home/keithcu/Desktop/Python/localwriter/chat_panel.py#956-976)'s status control system.
+### 7. Refactor [SimpleInformer](file:///home/keithcu/Desktop/Python/writeragent/core/image_service.py#66-84)
+**Task**: The [SimpleInformer](file:///home/keithcu/Desktop/Python/writeragent/core/image_service.py#66-84) class inside [ImageService](file:///home/keithcu/Desktop/Python/writeragent/core/image_service.py#118-184) is a minimal mock. It should be refactored to be more robust and better integrated with the [ChatPanel](file:///home/keithcu/Desktop/Python/writeragent/chat_panel.py#956-976)'s status control system.

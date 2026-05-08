@@ -1,10 +1,10 @@
 # Applying LibreOffice Styles with LLMs
 
-When integrating Large Language Models (LLMs) with LibreOffice using LocalWriter, you can seamlessly apply existing LibreOffice document styles by instructing the AI to output specifically formatted HTML. This avoids the limitations of basic Markdown and gives the LLM full access to the rich styling of your template.
+When integrating Large Language Models (LLMs) with LibreOffice using WriterAgent, you can seamlessly apply existing LibreOffice document styles by instructing the AI to output specifically formatted HTML. This avoids the limitations of basic Markdown and gives the LLM full access to the rich styling of your template.
 
 ## How It Works
 
-LocalWriter applies LLM-generated formatting by saving the response to an HTML/Markdown file and importing it using LibreOffice's `HTML (StarWriter)` filter. Therefore, LibreOffice's native HTML class-to-style mapping rules apply automatically.
+WriterAgent applies LLM-generated formatting by saving the response to an HTML/Markdown file and importing it using LibreOffice's `HTML (StarWriter)` filter. Therefore, LibreOffice's native HTML class-to-style mapping rules apply automatically.
 
 You can have the LLM map directly to your existing styles using the standard HTML `class` attribute.
 
@@ -38,7 +38,7 @@ To reliably get the LLM to use your styles, you need to provide it with instruct
 
 ### 1. Dynamic Discovery via Tools
 
-In newer versions of LocalWriter, the LLM has access to a `list_styles()` tool. You can instruct the agent in your prompt to first call this tool to learn what styles are available before writing its HTML formatting.
+In newer versions of WriterAgent, the LLM has access to a `list_styles()` tool. You can instruct the agent in your prompt to first call this tool to learn what styles are available before writing its HTML formatting.
 
 **Pros:**
 * Always accurate and up-to-date with whatever document the user is currently editing.
@@ -64,7 +64,7 @@ Another approach is to proactively inject the list of available document styles 
 
 A balanced solution is to use proactive context injection, but **filter the list of styles provided**. 
 
-Instead of sending every available style, LocalWriter could:
+Instead of sending every available style, WriterAgent could:
 1. Only inject styles that are currently *in use* within the document.
 2. Only inject custom (user-defined) styles, excluding built-in LibreOffice defaults (`Standard`, `Heading 1`, etc.).
 3. Allow the user to define a specific subset of "preferred styles" in their Settings that always get injected.
@@ -77,7 +77,7 @@ If the LLM needs a style outside of this injected "shortlist", it can rely on th
 
 ## Editing Styles Dynamically
 
-LocalWriter also provides tools for the LLM to inspect and modify existing document styles directly.
+WriterAgent also provides tools for the LLM to inspect and modify existing document styles directly.
 
 ### The `update_style` Tool
 

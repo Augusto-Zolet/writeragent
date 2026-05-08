@@ -1,6 +1,6 @@
-# LocalWriter Handover Notes (Multimodal AI Integration)
+# WriterAgent Handover Notes (Multimodal AI Integration)
 
-This document provides a comprehensive brain dump of the work performed to integrate multimodal image generation and editing into LocalWriter. It is intended to help resume work in a fresh context.
+This document provides a comprehensive brain dump of the work performed to integrate multimodal image generation and editing into WriterAgent. It is intended to help resume work in a fresh context.
 
 ## Current Architecture State
 
@@ -25,13 +25,13 @@ Integrated into [core/document_tools.py](core/document_tools.py) and available t
 - **text_model**: The chat/text model. Stored in config as `text_model`; backward compatibility: read `text_model` or `model`. Used by chat, Extend/Edit Selection, and `get_api_config()` (exposed to LlmClient as `"model"`).
 - **image_model**: The model used for image generation when `image_provider=endpoint`. Same endpoint and API key as chat (from Settings); only this model id differs. Stored as `image_model`; LRU list `image_model_lru` for recently used image models.
 
-**Settings dialog** ([LocalWriterDialogs/SettingsDialog.xdl](LocalWriterDialogs/SettingsDialog.xdl))  
+**Settings dialog** ([WriterAgentDialogs/SettingsDialog.xdl](WriterAgentDialogs/SettingsDialog.xdl))  
 - **Tabbed**: Chat/Text tab and Image Generation tab.
 - **Chat/Text tab**: Endpoint, **Text/Chat Model** (combobox, LRU `model_lru`), **Image model (same endpoint as chat)** (combobox, LRU `image_model_lru`), API key, API type, temperature, chat max tokens, context length, additional instructions.
 - **Image tab**: **Provider (aihorde / same as chat)**, AI Horde API key, width/height, steps, max wait, NSFW options, auto gallery, insert frame, translate prompt options.
 - If the tabbed dialog fails to load in some LibreOffice versions, the XML uses `dlg:tabpagecontainer` / `dlg:tabpage`; fallback or alternate layout may be needed.
 
-**Chat sidebar** ([LocalWriterDialogs/ChatPanelDialog.xdl](LocalWriterDialogs/ChatPanelDialog.xdl), [chat_panel.py](chat_panel.py))  
+**Chat sidebar** ([WriterAgentDialogs/ChatPanelDialog.xdl](WriterAgentDialogs/ChatPanelDialog.xdl), [chat_panel.py](chat_panel.py))  
 - **AI Model** (combobox): Text/chat model; on send writes to `text_model` and updates `model_lru`.
 - **Image model (same endpoint as chat)** (combobox): Image model; on send writes to `image_model` and updates `image_model_lru`.
 - Additional instructions are **not** in the sidebar; they are read from config (`additional_instructions`) when building the system prompt. Configure them in Settings only.
@@ -97,4 +97,4 @@ The backend exposes a single `generate_image(prompt, **kwargs)`; when `source_im
 - **AI Horde Client**: [core/aihordeclient/](core/aihordeclient/) — low-level API (async submit, queue, poll, download). See [`AGENTS.md`](../AGENTS.md) for a short project overview.
 - **Text vs image model**: [core/config.py](core/config.py) — `get_text_model(ctx)` for chat model; `get_api_config(ctx)` returns `"model"` for LlmClient. Image model is `image_model` (used when `image_provider=endpoint`).
 - **Image extraction**: `get_selected_image_base64(model, ctx=None)` in [core/image_tools.py](core/image_tools.py) — bridge for Img2Img. Pass `ctx` from the chat panel or MainJob for Calc.
-- **Error logging**: `localwriter_debug.log`; UI shows errors if `createDialog` or image generation fails.
+- **Error logging**: `writeragent_debug.log`; UI shows errors if `createDialog` or image generation fails.

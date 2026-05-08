@@ -1,6 +1,6 @@
 # Writer prompt optimization with DSPy
 
-This folder implements the DSPy-based optimization of `DEFAULT_CHAT_SYSTEM_PROMPT` for LocalWriter (see plan in repo).
+This folder implements the DSPy-based optimization of `DEFAULT_CHAT_SYSTEM_PROMPT` for WriterAgent (see plan in repo).
 
 ## Setup
 
@@ -77,7 +77,7 @@ Mock tools in `tools_lo.py` implement `get_document_content`, `apply_document_co
 
 ## Applying the result
 
-After a run, open `optimized_writer_prompt.json` and copy the optimized instruction text into `core/constants.py` as `DEFAULT_CHAT_SYSTEM_PROMPT` (or merge with `FORMAT_RULES` as in the current prompt). Then test in LocalWriter with the same evaluation tasks.
+After a run, open `optimized_writer_prompt.json` and copy the optimized instruction text into `core/constants.py` as `DEFAULT_CHAT_SYSTEM_PROMPT` (or merge with `FORMAT_RULES` as in the current prompt). Then test in WriterAgent with the same evaluation tasks.
 
 ## Multi-model evaluation (intelligence per dollar)
 

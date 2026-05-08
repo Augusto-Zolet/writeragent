@@ -1,9 +1,9 @@
-# Langchain & smolagents Integration Plan for LocalWriter
+# Langchain & smolagents Integration Plan for WriterAgent
 
-This document outlines a phased development plan to integrate `langchain-core` and adapt code from `smolagents` into LocalWriter, starting with basic conversation history and progressively adding more advanced memory, tools, and agentic features.
+This document outlines a phased development plan to integrate `langchain-core` and adapt code from `smolagents` into WriterAgent, starting with basic conversation history and progressively adding more advanced memory, tools, and agentic features.
 
 ## Goal Description
-Enhance LocalWriter's AI capabilities by replacing manual prompt construction with `langchain-core`'s robust memory and agent abstractions, while vendoring and adapting secure, zero-dependency code from `smolagents`. This will allow the AI to "remember" past interactions, provide a seamless chat experience, and eventually perform complex multi-step document operations autonomously.
+Enhance WriterAgent's AI capabilities by replacing manual prompt construction with `langchain-core`'s robust memory and agent abstractions, while vendoring and adapting secure, zero-dependency code from `smolagents`. This will allow the AI to "remember" past interactions, provide a seamless chat experience, and eventually perform complex multi-step document operations autonomously.
 
 ## Proposed Changes
 
@@ -13,8 +13,8 @@ Enhance LocalWriter's AI capabilities by replacing manual prompt construction wi
 - **Dependency Management**: 
   - Add `langchain-core` (and potentially `langchain` or specific provider packages) to the project requirements.
   - Ensure compatibility with LibreOffice's bundled Python environment.
-- **Refactor [core/api.py](file:///home/keithcu/Desktop/Python/localwriter/core/api.py)**:
-  - Implement a custom LangChain `BaseChatModel` wrapper (`LocalWriterLangChainModel`) around the existing `LlmClient`. This avoids the bloat of native provider packages (like `langchain-openai` which brings heavy dependencies like `httpx`) and retains our LibreOffice-optimized streaming loop, connection pooling, and error mapping.
+- **Refactor [core/api.py](file:///home/keithcu/Desktop/Python/writeragent/core/api.py)**:
+  - Implement a custom LangChain `BaseChatModel` wrapper (`WriterAgentLangChainModel`) around the existing `LlmClient`. This avoids the bloat of native provider packages (like `langchain-openai` which brings heavy dependencies like `httpx`) and retains our LibreOffice-optimized streaming loop, connection pooling, and error mapping.
   - Introduce `ConversationBufferMemory` to automatically manage the message history.
 - **Update `chat_panel.py`**:
   - Instead of rebuilding the context string manually via `get_document_context_for_chat` with every message, inject the document state as a dynamic system prompt or context variable within a LangChain `Runnable` or `Chain`.
@@ -23,7 +23,7 @@ Enhance LocalWriter's AI capabilities by replacing manual prompt construction wi
 **Objective**: Allow chats to persist across LibreOffice restarts.
 
 - **Storage Mechanism**:
-  - Implement a local storage solution (e.g., a simple JSON file per document URL under `~/.config/libreoffice/4/user/config/localwriter_chat_history/` or an **SQLite database** — Python’s `sqlite3` is stdlib on all major OSes, so no extra dependency).
+  - Implement a local storage solution (e.g., a simple JSON file per document URL under `~/.config/libreoffice/4/user/config/writeragent_chat_history/` or an **SQLite database** — Python’s `sqlite3` is stdlib on all major OSes, so no extra dependency).
   - Use LangChain's `BaseChatMessageHistory` interface (e.g., `FileChatMessageHistory` or a custom implementation) to load and save messages.
 - **Session Management**:
   - Tie conversation histories to document URLs (`doc.getURL()`).
@@ -45,7 +45,7 @@ Enhance LocalWriter's AI capabilities by replacing manual prompt construction wi
   - Default: **stdlib only** (no Chroma, FAISS, sqlite-vector). Pure-Python vector store: cosine in a loop, in-memory dict, copy logic from `langchain_core.vectorstores.in_memory` and use pure-Python cosine. **Caveat**: per-element Python math will run slowly for large vectors or many comparisons; acceptable for small stores or MVP only.
   - **When we need performance**: At some point we may **depend on a system (or venv) install of NumPy**. NumPy is not in system Python by default and is a large add, but doing Python calculations per dimension over many vectors is a bad idea and will be slow. Design the store so that **if NumPy is available** we use it for similarity (and optionally batch/streaming); if not, fall back to pure-Python. Document that for heavier RAG use, users can point LibreOffice at a venv with NumPy (and optionally hnsw-lite) installed.
   - **Optional — more efficient index**: For faster search when the working set is in memory (e.g. recent N days loaded into RAM), vendor a small HNSW (e.g. **hnsw-lite**). Use NumPy for distance when available; fall back to pure-Python when not. Use only for the in-memory index path.
-- **Embeddings**: Prefer **embedding APIs from the same providers** LocalWriter already uses, so RAG works with no extra dependencies and the same credentials:
+- **Embeddings**: Prefer **embedding APIs from the same providers** WriterAgent already uses, so RAG works with no extra dependencies and the same credentials:
   - **OpenRouter**: `POST https://openrouter.ai/api/v1/embeddings` with the same API key as chat; `model` selects the embedding model (list via models API).
   - **Together AI**: `POST {endpoint}/embeddings` (e.g. `https://api.together.xyz/v1/embeddings`), OpenAI-compatible; same API key; models include BGE, M2-BERT (2k/8k/32k context).
   - **Ollama**: `POST {ollama_base}/api/embed` (e.g. `http://localhost:11434/api/embed`); no key; `model` e.g. `nomic-embed-text`, `embeddinggemma`, `all-minilm`.
@@ -55,7 +55,7 @@ Enhance LocalWriter's AI capabilities by replacing manual prompt construction wi
 
 #### Embedding APIs from existing providers
 
-Many embedding models are available through the same gateways LocalWriter already uses for chat. Using them for Phase 4 RAG avoids extra dependencies and reuses endpoint + API key.
+Many embedding models are available through the same gateways WriterAgent already uses for chat. Using them for Phase 4 RAG avoids extra dependencies and reuses endpoint + API key.
 
 - **OpenRouter**
   - Endpoint: `POST https://openrouter.ai/api/v1/embeddings`.
@@ -116,7 +116,7 @@ Keeping this in mind makes it easier to choose stdlib-friendly storage (e.g. SQL
 ## Research: `langchain-community`
 
 **Value it can add:**
-`langchain-community` provides a massive collection of third-party integrations. For LocalWriter, its main value would be ready-made components for Phase 2 (e.g., `SQLChatMessageHistory` to store conversations in SQLite) and Phase 4 (various document loaders, text splitters, and vector store wrappers).
+`langchain-community` provides a massive collection of third-party integrations. For WriterAgent, its main value would be ready-made components for Phase 2 (e.g., `SQLChatMessageHistory` to store conversations in SQLite) and Phase 4 (various document loaders, text splitters, and vector store wrappers).
 
 **Dependency weight and NumPy:**
 While it offers convenience, `langchain-community` is a very heavy package. A basic `pip install langchain-community` pulls in numerous dependencies including `SQLAlchemy`, `PyYAML`, `requests`, `aiohttp`, `dataclasses-json`, and **`numpy`**.
@@ -135,18 +135,18 @@ Based on a review of the `langchain-community` codebase, here are specific compo
 #### Future Possibilities (Catalog of Ideas)
 While we don't need these immediately for the core LibreOffice integration, the repository contains a massive collection of reference implementations we could vendor if users request specific features:
 - **Document Loaders (170+ integrations)**: If we ever want to allow users to load data into LibreOffice from external sources, there are ready-made classes for Cloud Drives (Google Drive, OneDrive, S3), Workspaces (Confluence, Notion, Slack), and file formats (PDFs, ePub, Dataframes).
-- **Agent Orchestration and Tools (via `smolagents`)**: We have actively begun vendoring and integrating `smolagents` into LocalWriter to handle complex, multi-step sub-agent tasks. This serves as a lightweight alternative to heavier `langchain` paradigms:
-  - **ToolCallingAgent & Memory (`smolagents.agents`, `smolagents.memory`)**: We've vendored the core `ToolCallingAgent` and its associated memory structures structure (`ActionStep`). We bridged this to LocalWriter's existing `LlmClient` via a custom `LocalWriterSmolModel` wrapper, allowing for autonomous ReAct loops (like web searching) without polluting the main LangChain agent's context.
+- **Agent Orchestration and Tools (via `smolagents`)**: We have actively begun vendoring and integrating `smolagents` into WriterAgent to handle complex, multi-step sub-agent tasks. This serves as a lightweight alternative to heavier `langchain` paradigms:
+  - **ToolCallingAgent & Memory (`smolagents.agents`, `smolagents.memory`)**: We've vendored the core `ToolCallingAgent` and its associated memory structures structure (`ActionStep`). We bridged this to WriterAgent's existing `LlmClient` via a custom `WriterAgentSmolModel` wrapper, allowing for autonomous ReAct loops (like web searching) without polluting the main LangChain agent's context.
   - **Zero-Dependency Web Tools (`smolagents/default_tools.py`)**: We adapted their `DuckDuckGoSearchTool` and `VisitWebpageTool` to use pure `urllib.request` and standard library `html.parser`, bypassing external dependencies like `requests`, `beautifulsoup4`, or `markdownify`.
   - **Secure Local Python Execution (`smolagents.local_python_executor`)**: (Future Candidate) This zero-dependency gem uses Python's `ast` to safely evaluate Python code with strict bounds (preventing dangerous imports, limiting loops). We can vendor this to give our AI a `python_interpreter` tool for processing LibreCalc data safely without heavy sandboxes.
-  - **Web Browsing (`smolagents/vision_web_browser.py`)**: Currently uses `selenium` and `helium`. For LocalWriter, we should conceptually port the interaction logic (like `_escape_xpath_string` and semantic navigation) to a PyCDP (Chrome) or Marionette (Firefox) backend for a lightweight, dependency-free browser automation implementation.
+  - **Web Browsing (`smolagents/vision_web_browser.py`)**: Currently uses `selenium` and `helium`. For WriterAgent, we should conceptually port the interaction logic (like `_escape_xpath_string` and semantic navigation) to a PyCDP (Chrome) or Marionette (Firefox) backend for a lightweight, dependency-free browser automation implementation.
 - **Retrievers (40+ strategies)**: Beyond standard vector search, it contains implementations for Lexical/Keyword search (BM25, TF-IDF, SVM) and Hybrid approaches, which we could adapt for local document search.
 - **Third-Party Model Integrations**: Communication plates for nearly every LLM provider, providing a solid reference if we ever need to expand our `LlmClient` to support obscure model gateways.
 
 ---
 
 ## Architecture Decision: Custom Wrapper vs. Provider Packages
-We will proceed with writing a custom LangChain wrapper (`LocalWriterLangChainModel`) around our existing `LlmClient` rather than importing heavy provider packages like `langchain-openai` or `langchain-ollama`. LocalWriter runs in LibreOffice's constrained Python environment; keeping dependencies minimal (just `langchain-core`) is critical to avoid bloat and cross-platform installation issues, while allowing us to keep our custom UI streaming loops and connection management.
+We will proceed with writing a custom LangChain wrapper (`WriterAgentLangChainModel`) around our existing `LlmClient` rather than importing heavy provider packages like `langchain-openai` or `langchain-ollama`. WriterAgent runs in LibreOffice's constrained Python environment; keeping dependencies minimal (just `langchain-core`) is critical to avoid bloat and cross-platform installation issues, while allowing us to keep our custom UI streaming loops and connection management.
 
 For Phase 4 (RAG), the **vector store is vendored**: stdlib-only (pure-Python cosine) by default so it runs with no extra deps, but **per-element Python math will be slow** for large stores. Design for an **optional NumPy path**: when NumPy is available (system or venv), use it for similarity and batch operations; document that heavier RAG use may require pointing LibreOffice at a venv with NumPy installed. Persistence: binary vectors (`struct`) + JSON (or SQLite for metadata/chunk text; see note above). Support **streaming search** for large data. Optional: vendor HNSW (e.g. hnsw-lite) with NumPy when available. No Chroma, FAISS, or sqlite-vector. Embeddings for RAG are supplied by the same providers (OpenRouter, Together, Ollama) via a small embedding client that reuses endpoint and API key; a local embedder remains an optional fallback.
 
@@ -224,7 +224,7 @@ for dist, node in results:
 - **M=25–40**: Higher recall, slower and more memory.
 - **ef_construction=200**: Solid default; increase (e.g. 300–500) for better graph quality if build time is acceptable.
 
-### How this fits the LocalWriter plan
+### How this fits the WriterAgent plan
 
 - **When to use**: For the **in-memory index** path in Phase 4: when we load a subset of vectors (e.g. “recent 30 days”) into RAM and want **fast approximate search** instead of a linear scan. We can vendor hnsw-lite (or depend on it in a venv with NumPy) and use it as the in-memory index; use NumPy for distance when available, pure-Python fallback when not.
 - **Persistence**: hnsw-lite does not persist the graph by default. We would need to implement save/load (e.g. serialize the graph and metadata to our binary+JSON format) or build the index on load from our stored vectors.

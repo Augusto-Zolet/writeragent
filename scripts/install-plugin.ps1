@@ -1,4 +1,4 @@
-# Build and install the LocalWriter extension (.oxt).
+# Build and install the WriterAgent extension (.oxt).
 #
 # Adapted from mcp-libre/scripts/install-plugin.sh.
 #
@@ -272,7 +272,7 @@ function Install-ToCache {
 
 Write-Host ""
 Write-Host "========================================"
-Write-Host "  LocalWriter Plugin Installer"
+Write-Host "  WriterAgent Plugin Installer"
 Write-Host "========================================"
 Write-Host ""
 

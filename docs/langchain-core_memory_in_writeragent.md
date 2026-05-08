@@ -1,9 +1,9 @@
 ---
-name: LangChain-core memory in LocalWriter
-overview: Integrate langchain-core’s conversation memory into LocalWriter’s chat sidebar, starting with in-memory per-document history and extending to persistent and summarizing memory, while continuing to use smolagents only for specialized sub-agents like web search.
+name: LangChain-core memory in WriterAgent
+overview: Integrate langchain-core’s conversation memory into WriterAgent’s chat sidebar, starting with in-memory per-document history and extending to persistent and summarizing memory, while continuing to use smolagents only for specialized sub-agents like web search.
 todos:
   - id: wrap-llmclient-langchain-model
-    content: Create LocalWriterLangChainModel in core/api.py that adapts LlmClient to LangChain BaseChatModel, preserving streaming and error handling.
+    content: Create WriterAgentLangChainModel in core/api.py that adapts LlmClient to LangChain BaseChatModel, preserving streaming and error handling.
     status: pending
   - id: add-inmemory-history
     content: Introduce an in-memory BaseChatMessageHistory keyed by document URL and integrate it via RunnableWithMessageHistory in chat sidebar and menu chat flows.
@@ -35,27 +35,27 @@ isProject: false
 - **Step trace, not chat memory**: Smolagents’ `ToolCallingAgent` tracks an internal list of `ActionStep` objects (thought → tool call → observation) for a single agent run. This is great for debugging and reasoning within that run, but it:
   - Is not designed as a general-purpose chat history API.
   - Does not provide pluggable storage or persistent sessions across restarts.
-- **Best use in LocalWriter**: Keep smolagents for self-contained sub-agents (like your `web_research` tool) where the agent’s internal step list is sufficient and short-lived.
+- **Best use in WriterAgent**: Keep smolagents for self-contained sub-agents (like your `web_research` tool) where the agent’s internal step list is sufficient and short-lived.
 
-### Conclusion for LocalWriter
+### Conclusion for WriterAgent
 
 - **Use LangChain-core for user-facing chat memory** (sidebar/menu Chat with Document): it gives you structured, pluggable, and eventually persistent history.
 - **Keep smolagents as-is** for the web-search sub-agent and any future specialized tools; its memory is orthogonal and already integrated.
 
-## Integration design for LocalWriter
+## Integration design for WriterAgent
 
 ### 1. Wrap `LlmClient` in a LangChain chat model
 
 - **File**: `[core/api.py](core/api.py)`.
 - **Action**:
-  - Implement `LocalWriterLangChainModel` subclassing LangChain’s `BaseChatModel`, delegating send/stream to existing `LlmClient` while preserving your connection pooling and streaming loop.
+  - Implement `WriterAgentLangChainModel` subclassing LangChain’s `BaseChatModel`, delegating send/stream to existing `LlmClient` while preserving your connection pooling and streaming loop.
   - Map LangChain `BaseMessage` ↔ your current request format (system, user, assistant, tool messages).
 
 ### 2. Introduce in-memory, per-document chat history (Phase 1)
 
 - **Scope**: Only the main chat (sidebar + menu) for Writer/Calc/Draw.
 - **Design**:
-  - Use `RunnableWithMessageHistory` around a simple chain: `prompt_template | LocalWriterLangChainModel`.
+  - Use `RunnableWithMessageHistory` around a simple chain: `prompt_template | WriterAgentLangChainModel`.
   - Implement a lightweight `BaseChatMessageHistory` using an in-memory dict: key = `(document_url, chat_panel_id or "default")`, value = list of messages.
 - **Prompting**:
   - Keep your existing document context behavior from `core/document.py`:
@@ -77,7 +77,7 @@ isProject: false
 
 ### 4. Persistent history across LibreOffice restarts (Phase 2)
 
-- **Storage choice**: Use stdlib `sqlite3` (preferred) or JSON files in the same config area as `localwriter.json`.
+- **Storage choice**: Use stdlib `sqlite3` (preferred) or JSON files in the same config area as `writeragent.json`.
 - **Action**:
   - Implement a custom `SQLiteChatMessageHistory` or `FileChatMessageHistory` compatible with `BaseChatMessageHistory`:
     - Schema: `(id, document_url, role, content, created_at, run_id)` or equivalent.
@@ -92,7 +92,7 @@ isProject: false
 - **Action**:
   - Either use LangChain’s summary-buffer-style memory abstraction, or implement your own summarization step:
     - Track an approximate token count for stored messages (e.g., using your existing token limits in `chat_context_length`).
-    - When history grows beyond a threshold, run a short summarizer chain (using `LocalWriterLangChainModel`) over the oldest portion of the history.
+    - When history grows beyond a threshold, run a short summarizer chain (using `WriterAgentLangChainModel`) over the oldest portion of the history.
     - Replace those old messages with a single `SystemMessage` or `AIMessage` containing a brief summary, and keep recent turns verbatim.
   - Expose `memory_strategy` and `max_memory_tokens` in Settings (as outlined in `docs/dev/langchain-plan.md`).
 
@@ -106,7 +106,7 @@ isProject: false
 ### 7. Configuration and UX
 
 - **Settings**:
-  - Add optional keys to `localwriter.json` (and Settings dialog) for:
+  - Add optional keys to `writeragent.json` (and Settings dialog) for:
     - `memory_enabled` (bool), default true.
     - `memory_persistence` ("in_memory" | "sqlite").
     - `max_memory_tokens` and `memory_strategy` ("buffer" | "summary").

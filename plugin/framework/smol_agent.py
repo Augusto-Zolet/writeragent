@@ -119,7 +119,7 @@ class WriterAgentSmolModel(Model):
         super().__init__(**kwargs)
         self.api = llm_client
         self.max_tokens = max_tokens
-        self.model_id = self.api.config.get("model", "localwriter/model")
+        self.model_id = self.api.config.get("model")
         self._status_callback = status_callback
 
     def generate(self, messages, stop_sequences=None, response_format=None, tools_to_call_from=None, **kwargs):

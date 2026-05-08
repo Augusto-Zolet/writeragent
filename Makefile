@@ -1,4 +1,4 @@
-# Makefile — LocalWriter extension build & dev tools.
+# Makefile — WriterAgent extension build & dev tools.
 # Copyright (c) 2024 John Balis
 # Copyright (c) 2025-2026 quazardous (registries, build system)
 # Copyright (c) 2026 KeithCu (modifications and relicensing)
@@ -170,7 +170,7 @@ fix-uno:
 
 docker-build:
 	UID=$$(id -u) GID=$$(id -g) docker compose -f builder/docker-compose.yml up --build
-	@echo "Done: build/localwriter.oxt"
+	@echo "Done: build/writeragent.oxt"
 
 auto-translate:
 	@echo "Regenerating translation templates (.pot)..."; \

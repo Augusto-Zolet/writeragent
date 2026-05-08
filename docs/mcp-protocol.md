@@ -7,7 +7,7 @@ MCP (Model Context Protocol) is a standard for exposing tool sets to external AI
 directory in this repo is an existing standalone extension that implements a similar HTTP API
 for LibreOffice.
 
-LocalWriter now includes an **MCP HTTP server** built in: users who install LocalWriter can
+WriterAgent now includes an **MCP HTTP server** built in: users who install WriterAgent can
 use it as an embedded AI editing tool (the sidebar) **and** as a source of document tools
 for external AI clients. This document describes what was implemented, how it works, and
 what to consider doing next.
@@ -24,7 +24,7 @@ The MCP server is **implemented and opt-in** (default off). Summary:
 - **Document targeting**: **`X-Document-URL`** HTTP header. The server resolves the target document by iterating `desktop.getComponents()` and matching `getURL()` to the header. If the header is absent, it falls back to the active document. `GET /documents` returns all open documents with URLs and types so clients can discover targets. This avoids races when multiple documents or users are involved; “active document only” was not used.
 - **Config**: `mcp_enabled` (default false), `mcp_port` (default 8765). Documented in `core/config.py`.
 - **Settings**: MCP section on **Page 1** of the Settings dialog (no separate tab): “Enable MCP Server” checkbox, Port field, “Localhost only, no auth.” label. Dialog layout was compacted so short fields share rows and the OK button sits at the bottom with minimal gap.
-- **Menu**: “Toggle MCP Server” and “MCP Server Status” under LocalWriter. Status dialog shows RUNNING/STOPPED, port, URL, and health check.
+- **Menu**: “Toggle MCP Server” and “MCP Server Status” under WriterAgent. Status dialog shows RUNNING/STOPPED, port, URL, and health check.
 - **Auto-start**: When the user saves Settings with MCP enabled, the server (and timer) start if not already running.
 - **Icons**: Six PNGs copied from `libreoffice-mcp-extension/icons/` to `assets/` (for possible future dynamic menu icons).
 - **Import fix**: `XTimerListener` is imported only inside `_start_mcp_timer()` so that the Python loader can load `main.py` for registry info without requiring UNO.
@@ -35,12 +35,12 @@ See **AGENTS.md** (Section “MCP Server — DONE”) and the code in `main.py`,
 
 ## What Had Already Been Done (Writer Tools, Pre-MCP)
 
-Before building the MCP server itself, the Writer tool set was expanded so that LocalWriter's
+Before building the MCP server itself, the Writer tool set was expanded so that WriterAgent's
 embedded AI (and future MCP clients) have a richer set of operations to work with.
 
 ### New file: `core/writer_ops.py`
 
-Ported from `libreoffice-mcp-extension/pythonpath/uno_bridge.py` and adapted to LocalWriter's
+Ported from `libreoffice-mcp-extension/pythonpath/uno_bridge.py` and adapted to WriterAgent's
 `(model, ctx, args) → JSON string` function signatures. Contains both implementations and
 `WRITER_OPS_TOOLS` schemas (OpenAI function-calling format).
 
@@ -92,9 +92,9 @@ is straightforward.
 The HTTP server exposes:
 
 ```
-GET /health     → {"status": "ok", "name": "LocalWriter MCP"}   — alive check (identifies our server)
+GET /health     → {"status": "ok", "name": "WriterAgent MCP"}   — alive check (identifies our server)
 GET /tools      → {"tools": [...], "count": N}  — tool list for target document (use X-Document-URL or active doc)
-GET /           → {"name": "LocalWriter", "instructions": "...", "tools_count": N}  — system prompt for target document
+GET /           → {"name": "WriterAgent", "instructions": "...", "tools_count": N}  — system prompt for target document
 GET /documents  → {"documents": [{"url": "...", "type": "writer"|"calc"|"draw"}, ...]}  — list open documents for X-Document-URL
 POST /tools/{name}  → JSON result  — execute tool (send X-Document-URL header to target a document)
 ```
@@ -102,7 +102,7 @@ POST /tools/{name}  → JSON result  — execute tool (send X-Document-URL heade
 `GET /tools` returns the tool list for the **target document** (from `X-Document-URL` header
 or the active document). Each tool has `name`, `description`, and `parameters` (JSON Schema).
 
-`GET /` returns **agent instructions** (system prompt) for the target document. LocalWriter
+`GET /` returns **agent instructions** (system prompt) for the target document. WriterAgent
 uses `get_chat_system_prompt_for_document(doc)` from `core/constants.py` — Writer, Calc, and
 Draw each have the right prompt. No separate AGENT.md file; the instructions are built in. The same prompts used by the
 sidebar chat (tool usage, formatting rules, workflow) are served to external clients.
@@ -118,7 +118,7 @@ The extension's HTTP API is **not** the Anthropic MCP specification. Real MCP us
 - **Discovery**: Claude Desktop reads `~/.config/claude/claude_desktop_config.json` which
   lists MCP servers by command path
 
-What the extension implements (and what LocalWriter implements) is a simpler custom
+What the extension implements (and what WriterAgent implements) is a simpler custom
 HTTP REST API. Claude Desktop **cannot** talk to it natively — it expects stdio/SSE.
 
 **However**, Cursor's MCP support does accept HTTP-based servers. And any custom AI client
@@ -126,11 +126,11 @@ or script can call the REST API directly with plain `curl` or `requests`.
 
 For genuine Claude Desktop integration, two paths exist:
 
-**Path A — stdio proxy script** (~30 lines, no changes to LocalWriter):
+**Path A — stdio proxy script** (~30 lines, no changes to WriterAgent):
 
 ```python
 #!/usr/bin/env python3
-# mcp_proxy.py — stdio MCP adapter for LocalWriter's HTTP server
+# mcp_proxy.py — stdio MCP adapter for WriterAgent's HTTP server
 import sys, json, requests
 
 def main():
@@ -159,7 +159,7 @@ Register in `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "localwriter": {
+    "writeragent": {
       "command": "python3",
       "args": ["/path/to/mcp_proxy.py"]
     }
@@ -216,7 +216,7 @@ By having a background Python thread repeatedly schedule an `XCallback`, we guar
 
 ## Existing Pattern to Reuse
 
-LocalWriter already has the correct threading pattern in `core/async_stream.py`:
+WriterAgent already has the correct threading pattern in `core/async_stream.py`:
 
 - **Worker thread** puts items on a `queue.Queue`.
 - **Main thread** runs `run_stream_drain_loop()` — a `while not job_done` loop that calls
@@ -286,7 +286,7 @@ See `core/mcp_server.py` for the full implementation. Dispatch pattern: `_resolv
 
 ## Tool List for External Clients
 
-When the MCP server is enabled, external clients will see all tools that LocalWriter exposes
+When the MCP server is enabled, external clients will see all tools that WriterAgent exposes
 to its own embedded AI:
 
 **Writer**: `get_document_content`, `apply_document_content`, `find_text`,
@@ -343,7 +343,7 @@ These three functions handle the full port lifecycle. Copy them into `core/mcp_s
 def _probe_health(host, port, timeout=2):
     """Probe /health endpoint. Returns True if OUR server responds."""
     # Uses http.client.HTTPConnection — no extra dependencies.
-    # Checks for "LocalWriter MCP" in response body to distinguish from
+    # Checks for "WriterAgent MCP" in response body to distinguish from
     # other HTTP servers on the same port.
 
 def _is_port_bound(host, port, timeout=1):
@@ -417,8 +417,8 @@ class MCPAutoStartJob(unohelper.Base, XJob, XServiceInfo):
         return ()
 ```
 
-Adapt: use LocalWriter's existing `localwriter.json` config key `mcp_enabled` instead of
-the LO native registry. Register this in `META-INF/manifest.xml` alongside LocalWriter's
+Adapt: use WriterAgent's existing `writeragent.json` config key `mcp_enabled` instead of
+the LO native registry. Register this in `META-INF/manifest.xml` alongside WriterAgent's
 existing jobs. The `onFirstVisibleTask` trigger is already used by the standalone extension
 and does not conflict.
 
@@ -426,7 +426,7 @@ and does not conflict.
 
 #### 5. Icons — copy directly
 
-The six icon files in `libreoffice-mcp-extension/icons/` can be copied into LocalWriter's
+The six icon files in `libreoffice-mcp-extension/icons/` can be copied into WriterAgent's
 `assets/` folder:
 
 - `running_16.png` / `running_26.png`
@@ -444,7 +444,7 @@ Start with static icons in `Addons.xcu` and add dynamic switching later.
 
 #### 6. Menu entries — adapt from `Addons.xcu`
 
-Add a `MCP Server` submenu under LocalWriter's existing `LocalWriter` top-level menu:
+Add a `MCP Server` submenu under WriterAgent's existing `WriterAgent` top-level menu:
 
 ```xml
 <node oor:name="N003" oor:op="replace">
@@ -458,9 +458,9 @@ Add a `MCP Server` submenu under LocalWriter's existing `LocalWriter` top-level 
 </node>
 ```
 
-Add the corresponding dispatch cases to LocalWriter's existing `trigger()` / dispatch
+Add the corresponding dispatch cases to WriterAgent's existing `trigger()` / dispatch
 handler in `main.py`. No new UNO component registration needed — these commands go through
-LocalWriter's existing `XDispatch` implementation.
+WriterAgent's existing `XDispatch` implementation.
 
 ---
 
@@ -469,13 +469,13 @@ LocalWriter's existing `XDispatch` implementation.
 The standalone extension registers a `Tools > Options > MCP Server` page via
 `XContainerWindowEventHandler`. This is more work to integrate (requires `OptionsDialog.xcu`
 and `MCPServerConfig.xcs/xcu`) and uses the LO native config registry rather than
-LocalWriter's `localwriter.json`.
+WriterAgent's `writeragent.json`.
 
-**Recommendation**: skip this. Instead, add a new "MCP Server" tab to LocalWriter's existing
-`LocalWriterDialogs/SettingsDialog.xdl` (which already uses the `dlg:page` multi-page
+**Recommendation**: skip this. Instead, add a new "MCP Server" tab to WriterAgent's existing
+`WriterAgentDialogs/SettingsDialog.xdl` (which already uses the `dlg:page` multi-page
 approach). The config reads/writes go through the existing `get_config()` / `set_config()`
 in `core/config.py`. This is ~60 lines of XDL and ~30 lines of Python, consistent with how
-LocalWriter already handles settings.
+WriterAgent already handles settings.
 
 ---
 
@@ -486,12 +486,12 @@ LocalWriter already handles settings.
 | `uno_bridge.py` | Reference for future UNO operations (heading tree, text frames). Already covered in AGENTS.md. |
 | `ai_interface.py` | HTTP server structure and CORS headers — rewrite as `core/mcp_server.py` (simpler, no `get_mcp_server()` indirection). |
 | `mcp_server.py` | Tool schema catalog — cherry-pick when adding future Writer/Calc tools. |
-| `MCPServerConfig.xcs/xcu` | Skip — LocalWriter uses `localwriter.json`. |
-| `OptionsDialog.xcu` | Skip — use LocalWriter's existing Settings dialog tab instead. |
-| `dialogs/MCPSettings.xdl` | Reference only — adapt controls into LocalWriter's SettingsDialog.xdl. |
+| `MCPServerConfig.xcs/xcu` | Skip — WriterAgent uses `writeragent.json`. |
+| `OptionsDialog.xcu` | Skip — use WriterAgent's existing Settings dialog tab instead. |
+| `dialogs/MCPSettings.xdl` | Reference only — adapt controls into WriterAgent's SettingsDialog.xdl. |
 | `description.xml` | Skip — different extension identity. |
 | `Addons.xcu` (theirs) | Reference for menu XML structure — adapt to `org.extension.writeragent:` URLs. |
-| `ProtocolHandler.xcu` (theirs) | Skip — LocalWriter already has its own protocol handler. |
+| `ProtocolHandler.xcu` (theirs) | Skip — WriterAgent already has its own protocol handler. |
 
 ---
 
@@ -499,7 +499,7 @@ LocalWriter already handles settings.
 
 The standalone extension has no `AGENT.md` (the file doesn't exist — `GET /` returns empty
 instructions). So this comparison is entirely about tool `description` strings in
-`mcp_server.py` vs LocalWriter's descriptions in `core/writer_ops.py`,
+`mcp_server.py` vs WriterAgent's descriptions in `core/writer_ops.py`,
 `core/format_support.py`, and `core/constants.py`.
 
 ---
@@ -516,7 +516,7 @@ Their descriptions often embed a critical behavioral note directly in the one-li
 "Duplicate a paragraph (with style) after itself."
 ```
 
-LocalWriter's `apply_document_content` with `target="search"` automatically preserves
+WriterAgent's `apply_document_content` with `target="search"` automatically preserves
 character-level formatting (fonts, colors, bold, background colors) when the replacement is
 plain text — but the description doesn't say so. An AI that doesn't know this will
 unnecessarily re-specify formatting it read from the document, or avoid the `search` target
@@ -533,7 +533,7 @@ Their `resolve_bookmark` says "(bookmarks are stable across edits)" — this tel
 *why* it should prefer bookmarks over paragraph indices. The reason matters more than the
 mechanism.
 
-LocalWriter doesn't have the bookmark/locator system yet, but the same principle applies
+WriterAgent doesn't have the bookmark/locator system yet, but the same principle applies
 to existing descriptions. For example, `list_styles` says "they may be localized" — that's
 good. The `find_text` description mentions "LO strips search string to plain to match" — that
 explains a gotcha that would otherwise produce confusing failures. This is the right instinct;
@@ -548,7 +548,7 @@ Their tools include brief usage hints inline with parameter definitions:
 "count": {"description": "Consecutive paragraphs to duplicate (default: 1)"}
 ```
 
-LocalWriter's parameter descriptions are generally good (especially `apply_document_content`
+WriterAgent's parameter descriptions are generally good (especially `apply_document_content`
 which is quite thorough). The new `writer_ops.py` tools could be tighter in a few spots.
 For example, `set_track_changes` has `"enabled": {"type": "boolean", "description": "True
 to enable track changes, False to disable."}` — functional but doesn't say when to use it.
@@ -560,30 +560,30 @@ to enable track changes, False to disable."}` — functional but doesn't say whe
 #### 4. `search_in_document` returns surrounding context paragraphs
 
 Their `search_in_document` has a `context_paragraphs` parameter (default: 1) that returns
-N paragraphs around each match. LocalWriter's `find_text` returns only `{start, end, text}`
+N paragraphs around each match. WriterAgent's `find_text` returns only `{start, end, text}`
 per match. When the AI is trying to decide "is this the right occurrence?", having context
 helps avoid blind replacements.
 
 **Suggested addition**: add an optional `context` integer parameter to `find_text` that
 returns the `context` characters before and after each match (simpler than paragraph-based
-since LocalWriter uses character offsets). Zero or absent = current behavior (no change to
+since WriterAgent uses character offsets). Zero or absent = current behavior (no change to
 existing callers).
 
 #### 5. `refresh_indexes` and `update_fields`
 
 These two maintenance tools (`"Refresh all document indexes (TOC, alphabetical, etc.)"` and
-`"Refresh all text fields (dates, page numbers, cross-refs)"`) are missing from LocalWriter
+`"Refresh all text fields (dates, page numbers, cross-refs)"`) are missing from WriterAgent
 entirely. They are a natural follow-up after AI edits that add headings, sections, or dates.
 The implementations in `uno_bridge.py` are ~10 lines each. Worth adding when doing the
 document-tree session.
 
 ---
 
-### Where LocalWriter is already ahead
+### Where WriterAgent is already ahead
 
 #### 1. System prompt provides overarching workflow
 
-LocalWriter's `DEFAULT_CHAT_SYSTEM_PROMPT` in `core/constants.py` provides the AI with
+WriterAgent's `DEFAULT_CHAT_SYSTEM_PROMPT` in `core/constants.py` provides the AI with
 high-level workflow guidance before any tool call happens:
 
 ```
@@ -595,7 +595,7 @@ The standalone extension has none of this — their `AGENT.md` was never written
 behavioral hint has to live inside individual tool descriptions, which is less efficient and
 harder to update.
 
-For LocalWriter's MCP server, `GET /` should serve the existing system prompt (per the
+For WriterAgent's MCP server, `GET /` should serve the existing system prompt (per the
 "Client Discovery" section above). This gives external clients the same preparation the
 embedded AI gets.
 
@@ -603,7 +603,7 @@ embedded AI gets.
 
 `"DO NOT escape HTML entities: Send <h1> NOT &lt;h1&gt;"` is a LibreOffice-specific gotcha
 that the standalone extension ignores entirely because it doesn't use the Markdown/HTML
-import path. LocalWriter's system prompt covers this thoroughly and correctly.
+import path. WriterAgent's system prompt covers this thoroughly and correctly.
 
 #### 3. `find_text` "LO strips to plain" warning
 
@@ -614,7 +614,7 @@ behavior when a formatted-text search fails.
 
 #### 4. `apply_document_content` description is more complete
 
-LocalWriter's description covers the full range of targets in one sentence and cross-
+WriterAgent's description covers the full range of targets in one sentence and cross-
 references `find_text` for the range workflow. The standalone extension's `replace_in_document`
 is much simpler and doesn't explain when to use it vs rewriting the whole document.
 
@@ -639,7 +639,7 @@ apply_document_content markup, or use set_paragraph_style (see uno_bridge) for d
 
 ---
 
-### What they have that LocalWriter lacks and should eventually add
+### What they have that WriterAgent lacks and should eventually add
 
 In priority order:
 
@@ -649,7 +649,7 @@ In priority order:
 2. **`context_paragraphs` / `context` in search** — find_text returns bare offsets; adding
    surrounding context helps the AI verify it found the right place. Low effort.
 
-3. **`set_paragraph_style` (direct)** — currently in LocalWriter as dead code. The `list_styles`
+3. **`set_paragraph_style` (direct)** — currently in WriterAgent as dead code. The `list_styles`
    tool makes this useful: AI discovers style names, then applies them directly. Consider
    re-exposing it now that `list_styles` exists.
 
@@ -668,8 +668,8 @@ current functionality.
 ### MCP / protocol
 
 - **Stdio proxy for Claude Desktop** (Path A in “Critical distinction” above): small script
-  that talks JSON-RPC over stdio to Claude and forwards to LocalWriter’s HTTP server. No
-  change to LocalWriter; lets Claude Desktop use LocalWriter as an MCP server.
+  that talks JSON-RPC over stdio to Claude and forwards to WriterAgent’s HTTP server. No
+  change to WriterAgent; lets Claude Desktop use WriterAgent as an MCP server.
 - **JSON-RPC in the server** (Path B): optional `POST /` with `method=tools/list` etc. for
   clients that expect strict MCP JSON-RPC instead of REST. Only if a client needs it.
 - **Dynamic menu state**: menu item label “Start MCP Server” / “Stop MCP Server” and icon
@@ -689,7 +689,7 @@ current functionality.
 - **`refresh_indexes` / `update_fields`**: short helpers (~10 lines each) to refresh TOC
   and fields after structural edits. Good follow-up when doing document-tree work.
 - **`set_paragraph_style` (direct)**: re-expose so the AI can apply a style by name after
-  `list_styles`. Other items from “What they have that LocalWriter lacks” (e.g. document
+  `list_styles`. Other items from “What they have that WriterAgent lacks” (e.g. document
   protection, document properties) as needed.
 
 ### Other

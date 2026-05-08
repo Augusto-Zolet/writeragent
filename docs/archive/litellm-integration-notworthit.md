@@ -1,6 +1,6 @@
 # LiteLLM Integration — What We Took From It
 
-This document records what LocalWriter learned from [LiteLLM](https://github.com/BerriAI/litellm) and where to verify it in both our codebase and theirs. A reviewer can use the references below to find the same logic locally.
+This document records what WriterAgent learned from [LiteLLM](https://github.com/BerriAI/litellm) and where to verify it in both our codebase and theirs. A reviewer can use the references below to find the same logic locally.
 
 ---
 

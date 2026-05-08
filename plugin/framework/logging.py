@@ -54,7 +54,7 @@ _watchdog_threshold_sec = 30
 DEBUG_LOG_FILENAME = "writeragent_debug.log"
 AGENT_LOG_FILENAME = "writeragent_agent.log"
 FALLBACK_DEBUG = os.path.join(os.path.expanduser("~"), "writeragent_debug.log")
-FALLBACK_AGENT = os.path.join(os.path.expanduser("~"), "localwriter_agent.log")
+FALLBACK_AGENT = os.path.join(os.path.expanduser("~"), "writeragent_agent.log")
 
 LOG_REDACT_AUDIO_PLACEHOLDER = "<audio base64 data truncated, length=%d>"
 LOG_REDACT_IMAGE_PLACEHOLDER = "<image base64 data truncated, length=%d>"
@@ -181,7 +181,7 @@ def _install_global_exception_hooks():
 
     _original_excepthook = sys.excepthook
 
-    def _localwriter_excepthook(exc_type, exc_value, exc_tb):
+    def _writeragent_excepthook(exc_type, exc_value, exc_tb):
         try:
             tb_lines = traceback.format_exception(exc_type, exc_value, exc_tb)
             msg = "Unhandled exception:\n" + "".join(tb_lines)
@@ -198,12 +198,12 @@ def _install_global_exception_hooks():
         except Exception:
             pass
 
-    sys.excepthook = _localwriter_excepthook
+    sys.excepthook = _writeragent_excepthook
 
     if getattr(threading, "excepthook", None) is not None:
         _original_threading_excepthook = threading.excepthook
 
-        def _localwriter_threading_excepthook(args):
+        def _writeragent_threading_excepthook(args):
             try:
                 msg = "Unhandled exception in thread %s: %s\n%s" % (getattr(args, "thread", None), getattr(args, "exc_type", args), "".join(traceback.format_exception(args.exc_type, args.exc_value, args.exc_traceback)) if getattr(args, "exc_type", None) else "")
                 try:
@@ -220,7 +220,7 @@ def _install_global_exception_hooks():
             except Exception:
                 pass
 
-        threading.excepthook = _localwriter_threading_excepthook
+        threading.excepthook = _writeragent_threading_excepthook
 
 
 def _get_agent_path():

@@ -110,7 +110,7 @@ Debugging relied on `writeragent_debug.log` lines: `getHeightForWidth deck_hint=
 
 ---
 
-## Comparison: fully programmatic layout (e.g. localwriter2-style)
+## Comparison: fully programmatic layout (e.g. writeragent2-style)
 
 Some projects drop XDL and place every control with raw pixel math. That can work for a **minimal** toolbar, but it tends to drop controls (model selectors, checkboxes, image rows) or duplicate a lot of boilerplate. WriterAgent keeps **XDL as the declarative source** and a **single resize listener** for dynamic height and horizontal fill.
 

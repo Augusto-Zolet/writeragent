@@ -287,7 +287,6 @@ Copyright (c) 2026 KeithCu (modifications and relicensing)
 The documents below are specialized reports, configuration guides, and future integration plans that are not linked in the main sections above.
 
 - **🛠️ Development & Tooling**
-  - [Config Guide](CONFIG_EXAMPLES.md)
   - [Evaluation & Benchmarking Plan](docs/eval-dev-plan.md)
   - [Agent Architectures Analysis](docs/agent_architectures_analysis.md)
   - [Architecture: LangChain Integration Plan](docs/langchain-plan.md)

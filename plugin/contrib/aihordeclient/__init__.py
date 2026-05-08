@@ -10,7 +10,7 @@
 # https://github.com/ikks/aihorde-client/blob/main/LICENSE
 # Copied over 2/17/2026
 #
-# MODIFICATIONS FOR LOCALWRITER 02-22-2026
+# MODIFICATIONS FOR WRITERAGENT 02-22-2026
 # - Integrated with project core: uses core.api.sync_request, core.logging for debug/exceptions,
 #   and core.constants.USER_AGENT.
 # - Removed asyncio/abc dependencies: switched to synchronous patterns suitable for

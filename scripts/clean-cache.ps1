@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Clean / repair the LibreOffice extension cache for localwriter.
+    Clean / repair the LibreOffice extension cache for writeragent.
 
 .DESCRIPTION
     Fixes common cache corruption issues: revoked flags, stale lock files,

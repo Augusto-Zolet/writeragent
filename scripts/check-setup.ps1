@@ -1,4 +1,4 @@
-# check-setup.ps1 — Verify the LocalWriter development stack (Windows).
+# check-setup.ps1 — Verify the WriterAgent development stack (Windows).
 #
 # Usage:
 #   .\scripts\check-setup.ps1
@@ -28,7 +28,7 @@ function Write-Fail($msg) {
 $ProjectRoot = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
 
 Write-Host ""
-Write-Host "LocalWriter - Development Stack Check" -ForegroundColor White
+Write-Host "WriterAgent - Development Stack Check" -ForegroundColor White
 Write-Host "======================================"
 Write-Host ""
 
@@ -223,10 +223,10 @@ if (Test-Path "$ProjectRoot\vendor") {
     Write-Warn "vendor/ missing - run: make vendor"
 }
 
-$oxtPath = Join-Path $ProjectRoot "build\localwriter.oxt"
+$oxtPath = Join-Path $ProjectRoot "build\writeragent.oxt"
 if (Test-Path $oxtPath) {
     $oxtSize = (Get-Item $oxtPath).Length
-    Write-Ok "build/localwriter.oxt exists ($oxtSize bytes)"
+    Write-Ok "build/writeragent.oxt exists ($oxtSize bytes)"
 } else {
     Write-Warn "No .oxt built yet - run: make build"
 }

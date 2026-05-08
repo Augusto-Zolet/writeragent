@@ -257,7 +257,7 @@ class HttpModule(ModuleBase):
                 status = b2.get_status()
                 msgbox(ctx, "WriterAgent", _("MCP server started") + "\n{0}".format(status.get("url", "")))
             else:
-                msgbox(ctx, "WriterAgent", _("MCP server failed to start") + "\n" + _("Check ~/localwriter.log"))
+                msgbox(ctx, "WriterAgent", _("MCP server failed to start") + "\n" + _("Check ~/writeragent.log"))
 
     def _action_server_status(self):
         from plugin.framework.dialogs import msgbox, add_dialog_label, add_dialog_edit, add_dialog_button

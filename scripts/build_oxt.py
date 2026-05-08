@@ -290,7 +290,7 @@ def main():
         help="Modules to include (default: auto-discover all)")
     parser.add_argument(
         "--output", default="build/WriterAgent.oxt",
-        help="Output file (default: build/localwriter.oxt)")
+        help="Output file (default: build/writeragent.oxt)")
     parser.add_argument(
         "--repack", action="store_true",
         help="Only re-zip build/bundle/ (skip assembly)")

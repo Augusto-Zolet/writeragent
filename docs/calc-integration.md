@@ -1,12 +1,12 @@
 ---
 name: Calc Support from LibreCalc AI
-overview: "Calc support (chat/tools) is now implemented in LocalWriter, reusing and adapting the in-process Calc UNO layer, tool set, and error detector from libre_calc_ai-1.0.2."
+overview: "Calc support (chat/tools) is now implemented in WriterAgent, reusing and adapting the in-process Calc UNO layer, tool set, and error detector from libre_calc_ai-1.0.2."
 status: "COMPLETE (Feb 2026)"
 todos: []
 isProject: false
 ---
 
-Calc support (chat/tools) is now fully integrated into LocalWriter. We have reused the following components from [libre_calc_ai-1.0.2](libre_calc_ai-1.0.2/) in-process, translated and adapted for LocalWriter's architecture.
+Calc support (chat/tools) is now fully integrated into WriterAgent. We have reused the following components from [libre_calc_ai-1.0.2](libre_calc_ai-1.0.2/) in-process, translated and adapted for WriterAgent's architecture.
 
 ---
 
@@ -115,12 +115,12 @@ All planned modules are implemented in `core/` and integrated into the **Chat Si
 
 ---
 
-## 10. Integration with LocalWriter (no bridge)
+## 10. Integration with WriterAgent (no bridge)
 
 - **Entry point:** Chat from Calc uses the same sidebar/menu as Writer; `ctx` comes from the UNO component (panel or MainJob). Both pass `ctx` into `get_document_context_for_chat` so the extension context is always used.
 - **Single process:** All Calc code runs in LO’s Python. No BridgeServer, BridgeClient, or subprocess.
 - **LlmClient:** Reuse [core/api.py](core/api.py) (streaming, tool-calling, reasoning). Pass **CALC_TOOLS** and `execute_calc_tool` when the active document is a spreadsheet.
-- **UI:** Same sidebar (LocalWriter deck) and menu for Writer and Calc; ContextList includes `com.sun.star.sheet.SpreadsheetDocument`. Response area + input + Send/Stop. No PyQt5.
+- **UI:** Same sidebar (WriterAgent deck) and menu for Writer and Calc; ContextList includes `com.sun.star.sheet.SpreadsheetDocument`. Response area + input + Send/Stop. No PyQt5.
 - **Undo:** Undo grouping for AI edits is out of scope for now (Writer has the same limitation).
 
 ---
@@ -144,10 +144,10 @@ Optional: a single `core/calc.py` that re-exports the public API (get_calc_conte
 
 ## 12. What not to take from libre_calc_ai
 
-- **interface.py** (script entry, subprocess launch, bridge server): Not needed; LocalWriter uses UNO service/sidebar.
+- **interface.py** (script entry, subprocess launch, bridge server): Not needed; WriterAgent uses UNO service/sidebar.
 - **BridgeServer / BridgeClient:** Not needed; everything in-process.
 - **PyQt5 UI (main_window, chat_widget, settings_dialog):** Not needed; use LO sidebar/XDL.
-- **Their config (settings.json, .env, multi-provider):** Keep LocalWriter config (localwriter.json, single endpoint); optional env overrides only if you want.
+- **Their config (settings.json, .env, multi-provider):** Keep WriterAgent config (writeragent.json, single endpoint); optional env overrides only if you want.
 - **event_listener.py:** Only needed if you want “auto-refresh on document change”; can be added later with UNO listeners in-process.
 
 ---

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build and install the LocalWriter extension (.oxt).
+# Build and install the WriterAgent extension (.oxt).
 #
 # Adapted from mcp-libre/scripts/install-plugin.sh.
 #
@@ -279,7 +279,7 @@ install_to_cache() {
 
 echo ""
 echo "========================================"
-echo "  LocalWriter Plugin Installer"
+echo "  WriterAgent Plugin Installer"
 echo "========================================"
 echo ""
 

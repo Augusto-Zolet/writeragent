@@ -1,5 +1,5 @@
 #!/bin/bash
-# Clean / repair the LibreOffice extension cache for localwriter.
+# Clean / repair the LibreOffice extension cache for writeragent.
 #
 # Adapted from mcp-libre/scripts/clean-cache.sh.
 #
