@@ -9,9 +9,13 @@
 
 A LibreOffice extension (Python + UNO) that adds generative AI editing to Writer, Calc, and Draw.
 
-**Week 1:** Initial fork, sidebar chat, multi-turn tools, and async streaming [here](https://keithcu.com/wordpress/?p=5060).
-**Week 2 & 3:** MCP, research sub-agent, voice support, and evaluation dashboard [here](https://keithcu.com/wordpress/?p=5112).
-**Week 4-6:** State machines, formal verification, and specialized toolsets [here](https://keithcu.com/wordpress/?p=5245).
+### The Evolution of WriterAgent
+A weekly chronicle of building a professional AI suite inside LibreOffice:
+
+- **Week 1:** [Initial fork, sidebar chat, multi-turn tools, and async streaming](https://keithcu.com/wordpress/?p=5060).
+- **Week 2 & 3:** [MCP, research sub-agent, voice support, and evaluation dashboard](https://keithcu.com/wordpress/?p=5112).
+- **Week 4-6:** [State machines, formal verification, and specialized toolsets](https://keithcu.com/wordpress/?p=5245).
+- **Week 6 & 7:** Async grammar checking, MathML/TeX support, and 34-language multi-model translation review (Draft).
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/KeithCu/writeragent)
 
@@ -33,25 +37,32 @@ Please note, the prompts to free models are often saved and used for training pu
 
 Another option is [Together.AI](https://www.together.ai/), which also has a variety of high-performance and intelligent cost-effective models with a generous, private,  free tier.
 
-### 2. Intelligent Document Interaction (LO-DOM)
+### 2. Powerful Feature Suites
 
-More than just a chatbot, this is a "Document Agent." It doesn't just read your text; it understands the structure—headings, bookmarks, cell ranges, and styles—via a recursive **LO-DOM (Document Object Model)**. **Its primary job is to act on your behalf**, performing complex edits that would otherwise take dozens of manual clicks. The LLMs are given document object relationships, which allow them to reason about structure and perform complex edits.
+##### 🖋️ Writer & Professional Publishing
+- **Real-time Grammar Checker**: An experimental, asynchronous proofreader with a **sentence cache** and **Unicode-aware splitting**. Includes **Token-aware Overlap Repair** to fix "LLM slop" and ensure surgical replacements. [Read the Plan](docs/realtime-grammar-checker-plan.md).
+- **Math & LaTeX**: **MathML** and **TeX** delimiters are automatically turned into **editable LibreOffice Math formulas** (OLE objects). [Design Docs](docs/libreoffice-html-math-dev-plan.md) & [Extraction Logic](docs/math-extraction-editing-dev-plan.md).
+- **Advanced Editing**: Supports rich text, page layout, shapes, charts, bookmarks, fields, footnotes, and track-changes. [Specialized Toolsets](docs/writer-specialized-toolsets.md) & [Writer Tools Deep Dive](docs/writer_tools_analysis.md).
+- **Format Preservation**: Uses a "surgical" replacement method that preserves existing bold, italics, highlights, and font sizes.
+- **Reference Guides**: [Footnotes](docs/footnotes-api-reference.md), [Bookmarks](docs/bookmarks-api-reference.md), [Page Layout](docs/page-api-reference.md), [Track Changes](docs/writer-tracking-api-reference.md), and [Section Replace Options](docs/section-replace-options.md).
 
-#### Features
+#### 📊 Calc & Data Intelligence
+- **=PROMPT() Function**: Run AI prompts directly within spreadsheet cells.
+- **Deep Analysis**: Analyze **pivot tables** and detect **complex logical errors** across massive datasets. [Analysis Tools](docs/calc-analysis-tools.md).
+- **Rich Text Cells**: Paste **HTML** (bold, links, breaks) into a **single cell** using advanced StarWriter import paths.
+- **Batch Range Edits**: Apply formulas and formatting in bulk. [Specialized Toolsets](docs/calc-specialized-toolsets.md).
+- **Advanced Features**: [Conditional Formatting](docs/calc-conditional-formatting.md), [Sheet Filtering (AutoFilter)](docs/calc-sheet-filter.md), and [Native Python Support](docs/native_python_in_calc.md). (See also: [Enabling NumPy](docs/enabling_numpy_in_libreoffice.md)).
 
-- **Sidebar Panel**: A dedicated deck in the right sidebar for multi-turn chat. It supports tool-calling to read and edit the document directly. Chat history is automatically saved and restored using an ID, ensuring the conversation follows the document even if renamed or moved.
-- **Responsive streaming & interleaved tools**: A background thread and queue keep the LibreOffice UI responsive  while reasoning, text, and multi-turn tool calls stream and execute. Uses **[Hermes](https://github.com/NousResearch/hermes-agent)** JSON and tool-call parsing logic for robustness against model misbehaviors.
-- **Nested tool-calling API**: The full LibreOffice API would overwhelm any model and bloat context, so the tool-calling is broken up into a simple API with commonly used-tools, and specialized toolsets that LLMs can request to switch into. Via this design, the extension currently supports: rich text and page layout, shapes, charts, bookmarks, fields, footnotes, forms, comments, and track-changes for Writer, and most of the common features for Calc. See [Writer-specialized-toolsets.md](docs/writer-specialized-toolsets.md), [Calc](docs/calc-specialized-toolsets.md) and [Draw/Impress](docs/draw-impress-specialized-toolsets.md) for details and current status. 
-- **Audio Recording**: Integrated cross-platform voice support directly in the sidebar.
-- **Image Generation**: Generate from chat or edit selected images (Img2Img) using AI Horde or your configured endpoint.
-- **Calc =PROMPT() Function & Specialized Intelligence**: Run AI prompts directly within spreadsheet cells. Beyond simple formulas, WriterAgent can analyze **pivot tables** and detect **complex logical errors** in spreadsheets.
-- **Calc rich text in one cell**: The `insert_cell_html` tool pastes **HTML** into a **single cell** on the active sheet (inline bold, italics, links, line breaks) using the same StarWriter import path as Writer, then a transferable paste—see [docs/calc-specialized-toolsets.md](docs/calc-specialized-toolsets.md#rich-html-in-a-single-cell).
-- **Calc batch edits**: Range tools (`write_formula_range`, `set_cell_style`, and similar) apply formulas, bulk data, and formats in one shot instead of cell-by-cell.
-- **Librarian onboarding agent**: For new users, a Librarian / Welcome sub-agent chats with the user to learn preferences (name and favorite colors) and give tips. The librarian and general chat agent use the `upsert_memory` tool to store user preferences.
-- **Multilingual & HiDPI**: Ships with support for 34 locales (`de`, `es`, `fr`, `it`, `ja`, `ko`, `pl`, `pt`, `ru`, `zh_CN`, `zh_TW`, `hi_IN`, `id`, `bn_IN`, `ur_PK`, `nl`, `sv`, `da`, `fi`, `ca`, `el`, `cs`, `hu`, `ro`, `nb_NO`, `nn_NO`, `uk`, `tr`, `sk`, `bg`, `hr`, `lt`, `lv`, `et`); The localization is maintained via an **automated AI-driven pipeline** (with a review mode for comparing results from different models.) Optimized for modern high-resolution displays using device-independent units.
-- **Writer math in HTML**: **MathML** (`<math>…</math>`) and common **TeX** delimiters (`$…$`, `$$…$$`, `\(...\)`, `\[...\]`) are turned into **editable LibreOffice Math** formulas (OLE objects), not screenshots. Details: [libreoffice-html-math-dev-plan.md](docs/libreoffice-html-math-dev-plan.md).
-- **Real-time grammar checker**: An experimental Linguistic2-backed grammar proofreader runs **asynchronously**—results show up shortly after you type. It utilizes a **sentence cache** and **Unicode-aware sentence splitting**. To handle LLM "sloppiness," it features **Token-aware Overlap Repair**: if a model flags a single word but suggests a multi-word fix repeating other words, the engine automatically reconciles the overlap for a clean, surgical replacement. Enable in Settings - Doc.
-- **LibreOffice Resource**: Many models know LibreOffice well, so you can ask questions like: *What is the page gutter feature?*
+#### 🌐 Multi-modal & Research
+- **Web Research**: Powered by a private, vendored **smolagents** loop. [Web Research Loop](docs/agent-search.md) & [Search Integration](docs/search-engine-integration.md).
+- **Audio & Voice**: Integrated cross-platform voice recording. [Audio Architecture](docs/audio-architecture.md).
+- **Image Generation**: Generate or edit (Img2Img) images. [Image Generation Guide](docs/image-generation.md).
+
+#### 🧠 The Intelligence Core (LO-DOM)
+- **Document Object Model (LO-DOM)**: A recursive model that understands structural relationships. [LO-DOM Semantic Tree](docs/lo-dom-semantic-tree.md).
+- **Specialized Toolsets**: A nested API design that prevents context bloat. [Smol vs. Main Chat Tooling](docs/smol-main-chat-tool-architecture.md).
+- **Persistent Memory**: [Agent Memory & Skills](docs/agent-memory-and-skills.md) and [Librarian Onboarding](docs/librarian-agentic-onboarding.md).
+- **34 Locales**: Automated AI-driven translation and review pipeline. [Localization Pipeline](docs/localization.md).
 
 #### Showcase
 Hermes-Agent with Claude Opus 4.6 and the Web Research sub-agent:
@@ -91,9 +102,7 @@ WriterAgent is "format-aware." Unlike simpler plugins that strip away your hard 
 - **Legacy Support**: Optimized to work perfectly even on older versions of LibreOffice (pre-26.2) where native Markdown support is unavailable.
 - **Tracked Changes Support**: Proper handling of tracked deletions, and streamed rewrite with single-undo.
 
-### Ongoing Challenge: Styles vs. Custom Formatting
-
-One of the unique challenges of building an AI assistant for a rich word processor, unlike a plain-text code editor, is the multiple ways of applying formatting. Eventually, we will encourage models to output properly classed HTML that maps to your LibreOffice template. See [LLM_STYLES.md](LLM_STYLES.md).
+One of the unique challenges of building an AI assistant for a rich word processor, unlike a plain-text code editor, is the multiple ways of applying formatting. Eventually, we will encourage models to output properly classed HTML that maps to your LibreOffice template. See [LLM_STYLES.md](LLM_STYLES.md) and [Styles & Formatting](docs/llm-styles.md).
 
 ### 6. MCP Server (Optional)
 
@@ -110,35 +119,36 @@ You can plug in **external agent backends** so that Chat with Document uses an e
 - **[Hermes ACP Integration](https://github.com/NousResearch/hermes-agent)**: Spawns Hermes locally as a subprocess using the Agent Communication Protocol (ACP) via stdio.
 - **HITL (Approve/Reject)**: If a backend requests approval for a tool call, a dialog appears for the user.
 
-## Built for Professional Reliability
+### 3. Architecture
+WriterAgent is engineered for professional-grade reliability, moving beyond simple script-based plugins. [WriterAgent Architecture Overview](docs/writeragent-architecture.md) & [Sidebar Implementation Guide](docs/chat-sidebar-implementation.md).
 
-WriterAgent is engineered like a standalone application, prioritizing stability.
-
-- **Engineered with Finite State Machines**: Complex AI interactions are managed by a Finite State Machine (FSM). This architecture breaks down the extension's behavior into small, isolated, and testable units of logic. This ensures that multi-turn tool calling is predictable and robust, even as the codebase grows. See [Formal Verification](docs/formal_verification.md).
-- **Modern Software Standards**: Advanced static type checking and a comprehensive test suite.
-- **Robust Parsing & JSON Repair**: Utilizes a multi-stage parsing pipeline inspired by **[Hermes Agent](https://github.com/NousResearch/hermes-agent)** and the vendored **[json-repair](https://github.com/mangiucas/json-repair)** library. This enables the agent to successfully parse tool calls even when models make slight syntax errors (like missing quotes or truncated braces) or output Python-style literals (single quotes, `None`, `True`/`False`).
+- **Finite State Machine (FSM)**: All complex AI interactions are managed by a pure FSM. This architecture breaks down the extension's behavior into small, isolated, and testable units of logic. See [Formal Verification](docs/formal_verification.md).
+- **JSON Repair**: Uses a multi-stage parsing pipeline (inspired by **Hermes**) and **json-repair** to handle model syntax errors or Python-style literals. [LLM Hacks & Workarounds](docs/llm-hacks.md).
+- **Async Threading**: A custom worker-pool and queue system keep the LibreOffice UI responsive during heavy reasoning. [Streaming & Threading](docs/streaming-and-threading.md) & [Threading Architecture](docs/threading_architecture.md).
+- **Static Analysis**: [Type Checking](docs/type-checking.md) with (**`ty`**, **Mypy**, and **Pyright**).
+- **Comprehensive Test Suite**: Over 500 tests ensuring stability. [Test Architecture](docs/test_architecture_analysis.md).
 
 ![State Machine Architecture](Showcase/full_super_unified_complete.png)
 
 ## Credits & Collaboration
 
-WriterAgent stands on the shoulders of giants. We'd like to give massive credit to:
+WriterAgent stands on the shoulders of giants. We'd like to give credit to:
 
 **[LibreCalc AI Assistant](https://extensions.libreoffice.org/en/extensions/show/99509)**
 
-Their pioneering work on AI support for LibreOffice provided the foundation and inspiration for our enhanced Calc integration. We've built upon their excellent tools to create more ambitious and performance-oriented spreadsheet features. We sent multiple emails thanking them and asking to work together but haven't heard back.
+Their work on AI support for LibreOffice Calc provided the foundation and inspiration for our integration. We sent multiple emails thanking them and asking to collaborate but haven't heard back.
 
 **[LibreOffice MCP Extension](https://github.com/quazardous/mcp-libre)**
 
-Their work on an embedded MCP (Model Context Protocol) server for LibreOffice was an invaluable reference for expanding WriterAgent's Writer tool set. From their project we adapted production-quality UNO implementations for style inspection, comment management, track-changes control, and table editing — resulting in 12 new Writer tools now available to WriterAgent's embedded AI. We also used their patterns for server lifecycle, health-check probing, and port utilities when we added WriterAgent's built-in MCP HTTP server. We're grateful for the high-quality open work.
+Their work on an embedded MCP (Model Context Protocol) server for LibreOffice was an invaluable reference for providing the back-end interface to WriterAgent's tool set. We used their Makefile system, modular discoverable service registry, tool registry.
 
 **[Hermes Agent](https://github.com/NousResearch/hermes-agent)**
 
-Their client-side tool call parsers and robust JSON repair strategies (adapted from `environments/tool_call_parsers/` and `cron/jobs.py`) provide the foundation for our `plugin/contrib/tool_call_parsers/` module. This allows local inference models to trigger structured tool loops even when they slightly deviate from strict JSON syntax.
+Client-side tool call parsers and JSON repair.
 
 **[latex2mathml](https://github.com/roniemartinez/latex2mathml)**
 
-**latex2mathml** converts LaTeX to MathML in pure Python. WriterAgent vendors it so that when models send TeX-delimited math inside HTML for `apply_document_content`, we can turn it into MathML and feed the same LibreOffice-backed path used for native `<math>` islands (`plugin/modules/writer/math_mml_convert.py`). We are grateful for a small, permissively licensed bridge.
+**latex2mathml** converts LaTeX to MathML.
 
 ## Recent Progress & Benchmarks (Apr 2026)
 
@@ -270,3 +280,14 @@ Copyright (c) 2024 John Balis
 Copyright (c) 2025-2026 quazardous (config, registries, build system)
 Copyright (c) 2026 LibreCalc AI Assistant (Calc integration features, originally MIT)
 Copyright (c) 2026 KeithCu (modifications and relicensing)
+
+---
+
+## 📚 Documentation Index
+The documents below are specialized reports, configuration guides, and future integration plans that are not linked in the main sections above.
+
+- **🛠️ Development & Tooling**
+  - [Config Guide](CONFIG_EXAMPLES.md)
+  - [Evaluation & Benchmarking Plan](docs/eval-dev-plan.md)
+  - [Agent Architectures Analysis](docs/agent_architectures_analysis.md)
+  - [Architecture: LangChain Integration Plan](docs/langchain-plan.md)
