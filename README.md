@@ -9,6 +9,19 @@
 
 A LibreOffice extension (Python + UNO) that adds generative AI editing to Writer, Calc, and Draw.
 
+![GPLv3+](https://img.shields.io/badge/License-GPL%20v3%2B-blue.svg) ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue.svg)
+
+## 📑 Table of Contents
+- [1. Local-First & Flexible](#1-local-first--flexible)
+- [2. Powerful Feature Suites](#2-powerful-feature-suites)
+- [3. Web Research & Fact-Checking](#3-web-research--fact-checking-local--private)
+- [4. High-Fidelity Editing & Formatting](#5-high-fidelity-editing--formatting)
+- [5. MCP Server](#6-mcp-server-optional)
+- [6. Agent Backends](#7-agent-backends)
+- [7. Architecture](#3-architecture)
+- [8. Roadmap & Future](#-roadmap--future-vision)
+- [9. Credits & Collaboration](#credits--collaboration)
+
 ### The Evolution of WriterAgent
 A weekly chronicle of building a professional AI suite inside LibreOffice:
 
@@ -44,6 +57,7 @@ Another option is [Together.AI](https://www.together.ai/), which also has a vari
 - **Math & LaTeX**: **MathML** and **TeX** delimiters are automatically turned into **editable LibreOffice Math formulas** (OLE objects). [Design Docs](docs/libreoffice-html-math-dev-plan.md) & [Extraction Logic](docs/math-extraction-editing-dev-plan.md).
 - **Advanced Editing**: Supports rich text, page layout, shapes, charts, bookmarks, fields, footnotes, and track-changes. [Specialized Toolsets](docs/writer-specialized-toolsets.md) & [Writer Tools Deep Dive](docs/writer_tools_analysis.md).
 - **Format Preservation**: Uses a "surgical" replacement method that preserves existing bold, italics, highlights, and font sizes.
+- **Extend & Edit Selection**: Quick shortcuts (**`Ctrl+Q`** to extend, **`Ctrl+E`** to rewrite) that act directly on your highlighted text.
 - **Reference Guides**: [Footnotes](docs/footnotes-api-reference.md), [Bookmarks](docs/bookmarks-api-reference.md), [Page Layout](docs/page-api-reference.md), [Track Changes](docs/writer-tracking-api-reference.md), and [Section Replace Options](docs/section-replace-options.md).
 
 #### 📊 Calc & Data Intelligence
@@ -86,14 +100,9 @@ It's better than a standard Google search box because it understands natural lan
 - **Complex Tasks**: "Write a long and pretty summary of After the Software Wars, according to Wikipedia."
 - **Real-time Data**: Ask it to find the current price of a specific item and it can update your document with current data.
 
-### 4. Extend & Edit Selection (Writer)
 
-Two Writer shortcuts act on the current selection:
 
-- **Extend selection** (`Ctrl+Q`): The model continues the selected text. Ideal for drafting emails, stories, or generating lists.
-- **Edit selection** (`Ctrl+E`): Prompt the model to rewrite your selection according to specific instructions (e.g., "make this more formal", "translate to Spanish").
-
-### 5. High-Fidelity Editing & Formatting
+### 4. High-Fidelity Editing & Formatting
 
 WriterAgent is "format-aware." Unlike simpler plugins that strip away your hard work, our engine is designed to respect your document's visual integrity.
 
@@ -104,7 +113,7 @@ WriterAgent is "format-aware." Unlike simpler plugins that strip away your hard 
 
 One of the unique challenges of building an AI assistant for a rich word processor, unlike a plain-text code editor, is the multiple ways of applying formatting. Eventually, we will encourage models to output properly classed HTML that maps to your LibreOffice template. See [LLM_STYLES.md](LLM_STYLES.md) and [Styles & Formatting](docs/llm-styles.md).
 
-### 6. MCP Server (Optional)
+### 5. MCP Server (Optional)
 
 When enabled in **WriterAgent > Settings**, an HTTP server runs on localhost and exposes the same Writer/Calc/Draw tools to external AI clients (Cursor, Claude Desktop, etc.).
 
@@ -112,14 +121,14 @@ When enabled in **WriterAgent > Settings**, an HTTP server runs on localhost and
 - **Targeting**: Clients target a document via the `**X-Document-URL`** header.
 - **Hybrid AI Orchestrator Model**: This exposes the entire toolset to external agents while maintaining the document as the single source of truth.
 
-### 7. Agent Backends
+### 6. Agent Backends
 
 You can plug in **external agent backends** so that Chat with Document uses an external process (e.g. Hermes or others) instead of the built-in LLM.
 
 - **[Hermes ACP Integration](https://github.com/NousResearch/hermes-agent)**: Spawns Hermes locally as a subprocess using the Agent Communication Protocol (ACP) via stdio.
 - **HITL (Approve/Reject)**: If a backend requests approval for a tool call, a dialog appears for the user.
 
-### 3. Architecture
+### 7. Architecture
 WriterAgent is engineered for professional-grade reliability, moving beyond simple script-based plugins. [WriterAgent Architecture Overview](docs/writeragent-architecture.md) & [Sidebar Implementation Guide](docs/chat-sidebar-implementation.md).
 
 - **Finite State Machine (FSM)**: All complex AI interactions are managed by a pure FSM. This architecture breaks down the extension's behavior into small, isolated, and testable units of logic. See [Formal Verification](docs/formal_verification.md).
@@ -130,7 +139,16 @@ WriterAgent is engineered for professional-grade reliability, moving beyond simp
 
 ![State Machine Architecture](Showcase/full_super_unified_complete.png)
 
-## Credits & Collaboration
+## 8. 🚀 Roadmap & Future Vision
+Our primary focus is deep **LibreOffice Fidelity**—systematically closing the gap between the AI's capabilities and the full breadth of the UNO API to ensure the agent can manipulate every professional feature the suite offers.
+
+Our application-specific roadmap is focused on closing the remaining gaps in the LibreOffice API surface:
+- **🖋️ Writer**: We are expanding from text and style management into complex document automation, including **Mail Merge** (CSV/DB/Sheets), **Bibliographies**, and **Watermark** support. We are also evolving our **Sections** tools from read-only navigation to a full lifecycle suite (multi-column layouts, conditional visibility, and password protection).
+- **📊 Calc**: Beyond cell and sheet manipulation, we are targeting advanced data modeling. This includes **Macros & VBA compatibility**, **Scenarios (what-if analysis)**, and **External Data** integration (SQL/Web queries). We are also working toward interactive controls like **Table Slicers** and comprehensive **Sheet Protection**.
+- **🎨 Draw & Impress**: We are moving toward full presentation mastery by adding support for **Slide Animations**, **Layer Management**, and **Slide Show Controls**. High-priority multimedia support, including **Audio/Video insertion** and **3D Shape** manipulation, will round out the creative suite.
+
+Building on this foundation, we are eventually working on **Long-Document and Multi-Document Support**. Handling 100+ page documents is a complex engineering challenge; it will require internal caching, **page-at-a-time navigation** system that allows the agent to move through large files while maintaining awareness of nested elements. For **Multi-Document Support**, we are leveraging the LibreOffice Desktop service to discover and coordinate between all open documents, and eventually expanding the agent's scope to operate on a **directory of files** to synthesize information across Writer reports, Calc sheets, and Draw presentations.
+## 9. Credits & Collaboration
 
 WriterAgent stands on the shoulders of giants. We'd like to give credit to:
 
