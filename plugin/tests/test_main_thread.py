@@ -289,29 +289,21 @@ def test_make_callback_instance_notify(monkeypatch):
         # Clear queue
         default_executor._work_queue.get_nowait()
 
-def test_poke_vcl(monkeypatch):
-    import sys
-    mock_uno = MagicMock()
-    mock_uno.Any.return_value = "AnyVal"
-    monkeypatch.setitem(sys.modules, 'uno', mock_uno)
-
+def test_poke_vcl():
     default_executor._async_callback_service = MagicMock()
     default_executor._callback_instance = MagicMock()
 
-    # Success case
-    default_executor._poke_main_thread()
-    default_executor._async_callback_service.addCallback.assert_called_with(default_executor._callback_instance, "AnyVal")
-
-    # Failure case 1: Any fails, retry without
-    default_executor._async_callback_service.addCallback.side_effect = [Exception("error"), None]
+    # Success: steady-state path is addCallback(callback, None) only (PyUNO rejects uno.Any userData here).
     default_executor._poke_main_thread()
     default_executor._async_callback_service.addCallback.assert_called_with(default_executor._callback_instance, None)
 
-    # Failure case 2: Both fail
+    # Failure: unexpected addCallback error — log at WARNING, no uno.Any fallback.
+    default_executor._async_callback_service.addCallback.reset_mock()
     default_executor._async_callback_service.addCallback.side_effect = Exception("error")
     with patch('plugin.framework.queue_executor.log.warning') as mock_warn:
         default_executor._poke_main_thread()
         mock_warn.assert_called_once()
+    default_executor._async_callback_service.addCallback.assert_called_once_with(default_executor._callback_instance, None)
 
     default_executor._async_callback_service = None
     default_executor._poke_main_thread() # Should do nothing
