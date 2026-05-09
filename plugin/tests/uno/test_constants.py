@@ -46,6 +46,17 @@ def test_writer_chat_prompt_opens_with_persona_and_color_guidance():
     assert "LibreOffice Writer assistant" in prompt
     assert "thoughtful use of color" in prompt
 
+
+def test_writer_chat_prompt_fix_this_grammar_defaults():
+    model = MagicMock()
+    model.supportsService.return_value = False
+    prompt = get_chat_system_prompt_for_document(model)
+    assert '"fix this"' in prompt
+    assert "synonym or equivalent" in prompt
+    assert "spelling and grammar" in prompt
+    assert "current sentence" in prompt
+    assert "context" in prompt
+
 def test_get_chat_system_prompt_for_document_calc():
     model = MagicMock()
     def supportsService(service):
