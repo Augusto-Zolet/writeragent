@@ -417,8 +417,8 @@ msgid "MCP server failed to start"
 msgstr "MCP 伺服器啟動失敗"
 
 #: plugin/modules/http/__init__.py
-msgid "Check ~/localwriter.log"
-msgstr "請檢查 ~/localwriter.log"
+msgid "Check ~/writeragent.log"
+msgstr "請檢查 ~/writeragent.log"
 
 #: plugin/modules/http/__init__.py
 msgid "MCP server is not running"

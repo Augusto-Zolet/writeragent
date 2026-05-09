@@ -448,8 +448,8 @@ msgid "MCP server failed to start"
 msgstr "Pornirea serverului MCP a eșuat"
 
 #: plugin/modules/http/__init__.py
-msgid "Check ~/localwriter.log"
-msgstr "Verificați ~/localwriter.log"
+msgid "Check ~/writeragent.log"
+msgstr "Verificați ~/writeragent.log"
 
 #: plugin/modules/http/__init__.py
 msgid "MCP server is not running"

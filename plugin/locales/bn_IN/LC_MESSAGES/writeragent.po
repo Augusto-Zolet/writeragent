@@ -443,8 +443,8 @@ msgid "MCP server failed to start"
 msgstr "MCP সার্ভার শুরু করতে ব্যর্থ হয়েছে"
 
 #: plugin/modules/http/__init__.py
-msgid "Check ~/localwriter.log"
-msgstr "~/localwriter.log পরীক্ষা করুন"
+msgid "Check ~/writeragent.log"
+msgstr "~/writeragent.log পরীক্ষা করুন"
 
 #: plugin/modules/http/__init__.py
 msgid "MCP server is not running"

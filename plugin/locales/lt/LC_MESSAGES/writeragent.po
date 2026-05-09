@@ -440,8 +440,8 @@ msgid "MCP server failed to start"
 msgstr "Nepavyko paleisti MCP serverio"
 
 #: plugin/modules/http/__init__.py
-msgid "Check ~/localwriter.log"
-msgstr "Patikrinkite ~/localwriter.log"
+msgid "Check ~/writeragent.log"
+msgstr "Patikrinkite ~/writeragent.log"
 
 #: plugin/modules/http/__init__.py
 msgid "MCP server is not running"

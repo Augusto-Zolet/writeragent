@@ -447,8 +447,8 @@ msgid "MCP server failed to start"
 msgstr "MCPサーバーの起動に失敗しました"
 
 #: plugin/modules/http/__init__.py
-msgid "Check ~/localwriter.log"
-msgstr "~/localwriter.log を確認してください"
+msgid "Check ~/writeragent.log"
+msgstr "~/writeragent.log を確認してください"
 
 #: plugin/modules/http/__init__.py
 msgid "MCP server is not running"

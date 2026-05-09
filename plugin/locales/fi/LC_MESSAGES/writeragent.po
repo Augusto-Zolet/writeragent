@@ -442,8 +442,8 @@ msgid "MCP server failed to start"
 msgstr "MCP-palvelimen käynnistys epäonnistui"
 
 #: plugin/modules/http/__init__.py
-msgid "Check ~/localwriter.log"
-msgstr "Tarkista ~/localwriter.log"
+msgid "Check ~/writeragent.log"
+msgstr "Tarkista ~/writeragent.log"
 
 #: plugin/modules/http/__init__.py
 msgid "MCP server is not running"
