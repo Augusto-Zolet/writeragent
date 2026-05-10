@@ -865,7 +865,7 @@ def fetch_available_models(endpoint, ctx=None, api_key_override: str | None = No
 
     req_headers: dict[str, str] = {}
     if ctx is not None:
-        from plugin.framework.auth import AuthError, build_auth_headers, resolve_auth_for_config
+        from plugin.framework.client.auth import AuthError, build_auth_headers, resolve_auth_for_config
 
         if api_key_override is not None:
             api_key = str(api_key_override).strip()

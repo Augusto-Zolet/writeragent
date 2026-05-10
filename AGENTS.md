@@ -80,7 +80,7 @@ Restart LibreOffice after **`make deploy`**.
 
 All wire behavior—dev/release system prefix, date prefix on first system message, leaked `<|…|>` token stripping, logging/redaction, **50ms minimum between sends** on an `LlmClient` instance, Anthropic/Gemini shims, local HTTPS retry—is implemented in [`plugin/framework/client/llm_client.py`](plugin/framework/client/llm_client.py). Read that file when changing requests.
 
-Persistent connections: [`plugin/ai/service.py`](plugin/ai/service.py). Per-endpoint auth and headers: [`plugin/framework/auth.py`](plugin/framework/auth.py).
+Persistent connections: [`plugin/ai/service.py`](plugin/ai/service.py). Per-endpoint auth and headers: [`plugin/framework/client/auth.py`](plugin/framework/client/auth.py).
 
 Fallback parsing when the API returns text without `tool_calls`: `get_parser_for_model` → [`plugin/contrib/tool_call_parsers/`](plugin/contrib/tool_call_parsers/). **Smolagents** post-processing goes through [`WriterAgentSmolModel`](plugin/chatbot/smol_agent.py) only (wire details in [docs/smol-main-chat-tool-architecture.md](docs/smol-main-chat-tool-architecture.md)). Hermes: leading `/` messages on ACP skip `[DOCUMENT CONTENT]` wrapping; spawn `hermes acp`—use full path to `hermes` if `PATH` in LibreOffice is narrow.
 

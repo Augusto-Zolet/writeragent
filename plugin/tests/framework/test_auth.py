@@ -1,14 +1,14 @@
 import pytest
 from unittest.mock import patch
 
-from plugin.framework.auth import (
+from plugin.framework.client.auth import (
     AuthError,
     _resolve_provider_id,
     resolve_auth_for_config,
     build_auth_headers,
 )
 
-@patch("plugin.framework.auth.normalize_endpoint_url")
+@patch("plugin.framework.client.auth.normalize_endpoint_url")
 def test_resolve_provider_id_with_hint(mock_normalize):
     """Test that explicit provider hint skips host detection."""
     # The normalization logic should not even matter if a valid hint is provided
@@ -27,7 +27,7 @@ def test_resolve_provider_id_with_hint(mock_normalize):
     assert _resolve_provider_id("https://api.openai.com", "unknown_hint") == "openai"
 
 
-@patch("plugin.framework.auth.normalize_endpoint_url")
+@patch("plugin.framework.client.auth.normalize_endpoint_url")
 def test_resolve_provider_id_by_url(mock_normalize):
     """Test host matching for known providers."""
 
@@ -51,7 +51,7 @@ def test_resolve_provider_id_by_url(mock_normalize):
     assert _resolve_provider_id("HTTPS://API.OPENAI.COM") == "openai"
 
 
-@patch("plugin.framework.auth.normalize_endpoint_url")
+@patch("plugin.framework.client.auth.normalize_endpoint_url")
 def test_resolve_provider_id_custom_fallback(mock_normalize):
     """Test that an unknown URL without a valid hint returns 'custom'."""
     mock_normalize.return_value = "https://my-own-endpoint.com/v1"
@@ -59,8 +59,8 @@ def test_resolve_provider_id_custom_fallback(mock_normalize):
     assert _resolve_provider_id("https://my-own-endpoint.com/v1") == "custom"
 
 
-@patch("plugin.framework.auth.normalize_endpoint_url")
-@patch("plugin.framework.auth.get_provider_from_endpoint")
+@patch("plugin.framework.client.auth.normalize_endpoint_url")
+@patch("plugin.framework.client.auth.get_provider_from_endpoint")
 def test_resolve_auth_for_config_known_provider(mock_get_provider, mock_normalize):
     mock_normalize.return_value = "https://openrouter.ai/api/v1"
     mock_get_provider.return_value = "openrouter"
@@ -141,8 +141,8 @@ def test_build_auth_headers_empty_key():
     assert "Authorization" not in headers
 
 
-@patch("plugin.framework.auth.normalize_endpoint_url")
-@patch("plugin.framework.auth.get_provider_from_endpoint")
+@patch("plugin.framework.client.auth.normalize_endpoint_url")
+@patch("plugin.framework.client.auth.get_provider_from_endpoint")
 def test_resolve_auth_for_config_local_no_api_key(mock_get_provider, mock_normalize):
     mock_normalize.return_value = "http://localhost:11434"
     mock_get_provider.return_value = "ollama"
@@ -160,8 +160,8 @@ def test_resolve_auth_for_config_local_no_api_key(mock_get_provider, mock_normal
     assert result["header_style"] == "none"
 
 
-@patch("plugin.framework.auth.normalize_endpoint_url")
-@patch("plugin.framework.auth.get_provider_from_endpoint")
+@patch("plugin.framework.client.auth.normalize_endpoint_url")
+@patch("plugin.framework.client.auth.get_provider_from_endpoint")
 def test_resolve_auth_for_config_custom_no_api_key(mock_get_provider, mock_normalize):
     mock_normalize.return_value = "http://my-custom-endpoint:8080/v1"
     mock_get_provider.return_value = None
@@ -178,7 +178,7 @@ def test_resolve_auth_for_config_custom_no_api_key(mock_get_provider, mock_norma
     assert result["header_style"] == "bearer"  # custom defaults to bearer style
 
 
-@patch("plugin.framework.auth.normalize_endpoint_url")
+@patch("plugin.framework.client.auth.normalize_endpoint_url")
 def test_resolve_auth_for_config_missing_endpoint(mock_normalize):
     mock_normalize.return_value = ""
     api_config = {}
@@ -190,8 +190,8 @@ def test_resolve_auth_for_config_missing_endpoint(mock_normalize):
     assert "No endpoint configured" in str(exc_info.value)
 
 
-@patch("plugin.framework.auth.normalize_endpoint_url")
-@patch("plugin.framework.auth.get_provider_from_endpoint")
+@patch("plugin.framework.client.auth.normalize_endpoint_url")
+@patch("plugin.framework.client.auth.get_provider_from_endpoint")
 def test_resolve_auth_for_config_missing_api_key_known_provider(mock_get_provider, mock_normalize):
     mock_normalize.return_value = "https://api.openai.com/v1"
     mock_get_provider.return_value = "openai"
@@ -210,7 +210,7 @@ def test_resolve_auth_for_config_missing_api_key_known_provider(mock_get_provide
     assert "No API key configured" in str(exc_info.value)
 
 
-@patch("plugin.framework.auth.normalize_endpoint_url")
+@patch("plugin.framework.client.auth.normalize_endpoint_url")
 def test_resolve_auth_for_config_is_openrouter_flag(mock_normalize):
     """Test that `is_openrouter` bypasses URL detection entirely."""
     mock_normalize.return_value = "https://completely.different.url"

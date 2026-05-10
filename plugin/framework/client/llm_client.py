@@ -93,7 +93,7 @@ from plugin.framework.async_stream import accumulate_delta
 from plugin.framework.constants import APP_REFERER, APP_TITLE, LLM_DEV_BUILD_SYSTEM_PREFIX, should_prepend_dev_llm_system_prefix
 
 from plugin.framework.logging import init_logging, redact_sensitive_payload_for_log
-from plugin.framework.auth import resolve_auth_for_config, build_auth_headers, AuthError
+from plugin.framework.client.auth import resolve_auth_for_config, build_auth_headers, AuthError
 from plugin.framework.errors import NetworkError
 from plugin.framework.config import get_url_hostname, get_url_path_and_query
 

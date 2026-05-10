@@ -42,7 +42,7 @@ try:
     import sys
     sys.path.append(str(Path(__file__).resolve().parent.parent))
     
-    from plugin.framework.auth import resolve_auth_for_config, build_auth_headers
+    from plugin.framework.client.auth import resolve_auth_for_config, build_auth_headers
     from plugin.framework.config import get_config, get_config_dict
     from plugin.framework.constants import USER_AGENT, APP_REFERER, APP_TITLE
 except ImportError:

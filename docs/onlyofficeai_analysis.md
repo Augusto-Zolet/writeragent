@@ -97,7 +97,7 @@ OnlyOffice runs macros in document context via `Asc.Editor.callCommand` / `callM
 - **Capability bitmasks** (e.g. tools / chat / image flags).
 - **Proxy vs direct** (`isUseProxy`) for CORS/network—relevant for enterprise LibreOffice deployments with odd HTTP paths.
 
-WriterAgent aligns on capabilities via [`ModelCapability`](plugin/framework/constants.py) (`IntFlag`) and provider logic in [`plugin/framework/auth.py`](plugin/framework/auth.py) / [`LlmClient`](plugin/framework/client/llm_client.py).
+WriterAgent aligns on capabilities via [`ModelCapability`](plugin/framework/constants.py) (`IntFlag`) and provider logic in [`plugin/framework/client/auth.py`](plugin/framework/client/auth.py) / [`LlmClient`](plugin/framework/client/llm_client.py).
 
 ### 4.3 Tool registration (`RegisteredFunction` → OpenAI-shaped `tools`)
 
@@ -278,7 +278,7 @@ Derived from `helpers.js` unique `name` values (re-verify when refreshing). “C
 ## 10. Implemented WriterAgent improvements (inspired by OnlyOffice-style thinking)
 
 1. **`ModelCapability`** — [`plugin/framework/constants.py`](plugin/framework/constants.py).
-2. **Native shims** — Anthropic `/v1/messages`, Gemini `v1beta`, stream quirks; legacy Bearer fallback — [`plugin/framework/client/llm_client.py`](plugin/framework/client/llm_client.py), [`plugin/framework/auth.py`](plugin/framework/auth.py).
+2. **Native shims** — Anthropic `/v1/messages`, Gemini `v1beta`, stream quirks; legacy Bearer fallback — [`plugin/framework/client/llm_client.py`](plugin/framework/client/llm_client.py), [`plugin/framework/client/auth.py`](plugin/framework/client/auth.py).
 3. **Stream line handling** — `iterate_sse` + delta patches — [`plugin/framework/client/stream_normalizer.py`](plugin/framework/client/stream_normalizer.py).
 4. **Form tools** — [`plugin/writer/forms.py`](plugin/writer/forms.py).
 
