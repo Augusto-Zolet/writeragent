@@ -19,7 +19,9 @@
 from plugin.framework.module_base import ModuleBase
 
 from . import bookmarks, tree, proximity
-from .specialized import index, forms
+from .locale import ai_grammar_proofreader, grammar_locale_registry, grammar_proofread_engine, linguistic_index
+from .math import html_math_segment, math_formula_insert, math_mml_convert
+from .images import images, image_tools, image_utils
 from . import base, specialized_core, styles, tracking
 
 
@@ -32,7 +34,7 @@ class WriterModule(ModuleBase):
         # Initialize core Writer services via auto-discovery
 
         # Order matters: tree needs bookmarks, proximity/index need tree
-        for module in (bookmarks, tree, proximity, index):
+        for module in (bookmarks, tree, proximity, linguistic_index):
             services.auto_discover(module)
 
         # Register tools automatically for the entire package
