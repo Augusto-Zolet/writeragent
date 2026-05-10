@@ -258,7 +258,7 @@ Some Writer tools intentionally use `**tier = "extended"`** (or `core`) so users
 ## 4. Testing and operations
 
 - **Default tool list:** Specialized tools must **not** appear in `get_schemas(..., doc=...)` without overriding `exclude_tiers`.
-- **Registration checks:** Use `get_tools(..., exclude_tiers=())` (and a real or mock `doc` as required by `uno_services`) to assert that table tools and other specialized tools are registered. See `[plugin/tests/smoke_writer_tools.py](../../plugin/tests/smoke_writer_tools.py)` and `[plugin/tests/test_tool_registry.py](../../plugin/tests/test_tool_registry.py)` (`TestExcludeSpecializedTiers`).
+- **Registration checks:** Use `get_tools(..., exclude_tiers=())` (and a real or mock `doc` as required by `uno_services`) to assert that table tools and other specialized tools are registered. See `[plugin/tests/modules/writer/smoke_writer_tools.py](../../plugin/tests/modules/writer/smoke_writer_tools.py)` and `[plugin/tests/framework/test_tool.py](../../plugin/tests/framework/test_tool.py)` (`TestExcludeSpecializedTiers`).
 - **Run tests from the WriterAgent repo root** (`make test`), not from `nelson-mcp/` (different project and pytest layout).
 
 ---

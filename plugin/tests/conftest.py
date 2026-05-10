@@ -44,6 +44,19 @@ def _create_mock_module(name):
     sys.modules[name] = mod
     return mod
 
+
+class MockBase:
+    pass
+
+# Unique mock classes for UNO interfaces to avoid TypeError during multiple inheritance
+class MockXProofreader: pass
+class MockXSupportedLocales: pass
+class MockXServiceDisplayName: pass
+class MockXServiceInfo: pass
+class MockXServiceName: pass
+class MockPropertyValue: pass
+
+
 @pytest.fixture(autouse=True)
 def _disable_dev_llm_prefix_for_deterministic_http_tests():
     """Real dev bundles prepend a system prompt; keep unit test request JSON stable."""
@@ -58,21 +71,31 @@ com = _create_mock_module("com")
 sun = _create_mock_module("com.sun")
 star = _create_mock_module("com.sun.star")
 sys.modules["com.sun.star"].__path__ = []  # Make it act as a package
+
 awt = _create_mock_module("com.sun.star.awt")
-text = _create_mock_module("com.sun.star.text")
-sys.modules["com.sun.star.text"].__path__ = []
-sys.modules["com.sun.star.text.TextContentAnchorType"] = _create_mock_module("com.sun.star.text.TextContentAnchorType")
-
-sheet = _create_mock_module("com.sun.star.sheet")
-table = _create_mock_module("com.sun.star.table")
-
-class MockBase:
-    pass
-
 setattr(awt, "Point", MockBase)
 setattr(awt, "Size", MockBase)
 setattr(awt, "FontWeight", MockBase)
 setattr(awt, "FontSlant", MockBase)
+
+text = _create_mock_module("com.sun.star.text")
+sys.modules["com.sun.star.text"].__path__ = []
+sys.modules["com.sun.star.text.TextContentAnchorType"] = _create_mock_module("com.sun.star.text.TextContentAnchorType")
+setattr(sys.modules["com.sun.star.text.TextContentAnchorType"], "AS_CHARACTER", MockBase)
+setattr(sys.modules["com.sun.star.text.TextContentAnchorType"], "AT_FRAME", MockBase)
+
+linguistic = _create_mock_module("com.sun.star.linguistic2")
+setattr(linguistic, "XProofreader", MockXProofreader)
+setattr(linguistic, "XSupportedLocales", MockXSupportedLocales)
+
+beans = _create_mock_module("com.sun.star.beans")
+setattr(beans, "PropertyValue", MockPropertyValue)
+
+sheet = _create_mock_module("com.sun.star.sheet")
+setattr(sheet, "ConditionOperator", MockBase)
+setattr(sheet, "ConditionOperator2", MockBase)
+
+table = _create_mock_module("com.sun.star.table")
 
 lang = _create_mock_module("com.sun.star.lang")
 
@@ -82,6 +105,9 @@ class MockXEventListener:
 
 
 setattr(lang, "XEventListener", MockXEventListener)
+setattr(lang, "XServiceDisplayName", MockXServiceDisplayName)
+setattr(lang, "XServiceInfo", MockXServiceInfo)
+setattr(lang, "XServiceName", MockXServiceName)
 
 
 class MockXActionListener:
@@ -109,8 +135,3 @@ setattr(awt, "XItemListener", MockXItemListener)
 setattr(awt, "XKeyListener", MockXKeyListener)
 setattr(awt, "XTextListener", MockXTextListener)
 setattr(awt, "XWindowListener", MockXWindowListener)
-
-setattr(sys.modules["com.sun.star.text.TextContentAnchorType"], "AS_CHARACTER", MockBase)
-
-setattr(sheet, "ConditionOperator", MockBase)
-setattr(sheet, "ConditionOperator2", MockBase)

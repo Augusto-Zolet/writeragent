@@ -32,8 +32,8 @@ def _oor_name(elem: ET.Element) -> str | None:
 
 
 def _repo_root() -> str:
-    # plugin/tests/<this_file> -> writeragent repo root
-    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
+    # plugin/tests/modules/writer/grammar/<this_file> -> writeragent repo root
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
 
 
 def _child_node(parent: ET.Element, name: str) -> ET.Element:
