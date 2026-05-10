@@ -260,7 +260,7 @@ By adopting concolic execution (CrossHair) and Design by Contract (`deal`), we c
    - Used across all document types
    - Verify format preservation invariants
 
-3. **`plugin/framework/schema_convert.py`**
+3. **`plugin/framework/tool.py`** (`to_openai_schema` / `to_mcp_schema` / `_normalize_schema_for_strict_providers`)
    - JSON schema transformations
    - Tool parameter validation
    - Prove schema equivalence properties
