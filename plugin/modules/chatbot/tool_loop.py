@@ -389,7 +389,7 @@ class ToolCallingMixin:
 
         def run():
             try:
-                from plugin.framework.llm_concurrency import llm_request_lane
+                from plugin.framework.queue_executor import llm_request_lane
 
                 with llm_request_lane():
                     response = client.stream_request_with_tools(self.session.messages, max_tokens, tools=tools, append_callback=lambda t: q.put((StreamQueueKind.CHUNK, t)), append_thinking_callback=lambda t: q.put((StreamQueueKind.THINKING, t)), stop_checker=lambda: self.stop_requested)
@@ -420,7 +420,7 @@ class ToolCallingMixin:
         def run_final():
             last_streamed = []
             try:
-                from plugin.framework.llm_concurrency import llm_request_lane
+                from plugin.framework.queue_executor import llm_request_lane
 
                 def append_c(c):
                     q.put((StreamQueueKind.CHUNK, c))

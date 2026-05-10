@@ -66,7 +66,7 @@ def filter_for_writer(tools):
 
 
 def make_schemas(tools):
-    from plugin.framework.schema_convert import to_openai_schema
+    from plugin.framework.tool import to_openai_schema
     return [to_openai_schema(t) for t in tools]
 
 

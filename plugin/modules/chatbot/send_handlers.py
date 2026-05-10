@@ -321,7 +321,7 @@ class SendHandlersMixin:
             try:
                 from plugin.framework.constants import CORE_DIRECTIVES
                 from plugin.framework.config import as_bool
-                from plugin.framework.llm_concurrency import llm_request_lane
+                from plugin.framework.queue_executor import llm_request_lane
 
                 # Lean system prompt for external agents: instructions + MCP connection info
                 mcp_url = self._get_mcp_url()

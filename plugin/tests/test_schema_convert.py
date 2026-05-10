@@ -1,7 +1,6 @@
 import json
 
-from plugin.framework.schema_convert import to_openai_schema, to_mcp_schema, _normalize_schema_for_strict_providers
-from plugin.framework.tool import ToolBase
+from plugin.framework.tool import ToolBase, _normalize_schema_for_strict_providers, to_mcp_schema, to_openai_schema
 
 class DummyTool(ToolBase):
     name = "dummy_tool"

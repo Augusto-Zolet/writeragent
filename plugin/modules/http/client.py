@@ -21,6 +21,7 @@ Takes a config dict (from plugin.framework.config.get_api_config) and UNO ctx.
 
 import logging
 import collections
+import copy
 import json
 import re
 import time
@@ -68,6 +69,25 @@ def _prepend_dev_build_system_prefix_to_messages(messages: list) -> None:
         return
 
 
+# Keys WriterAgent builds; openrouter_chat_extra must not replace these.
+OPENROUTER_CHAT_EXTRA_BLOCKLIST: frozenset[str] = frozenset({"messages", "tools", "tool_choice", "stream"})
+
+
+def merge_openrouter_chat_extra(base: dict[str, Any], extra: dict[str, Any] | None) -> None:
+    """Merge *extra* into *base* in place. Skips blocklisted keys; recurses into dict values."""
+    if not extra:
+        return
+    for key, val in extra.items():
+        if key in OPENROUTER_CHAT_EXTRA_BLOCKLIST:
+            continue
+        if key in base and isinstance(base[key], dict) and isinstance(val, dict):
+            merge_openrouter_chat_extra(base[key], val)
+        elif isinstance(val, dict):
+            base[key] = copy.deepcopy(val)
+        else:
+            base[key] = val
+
+
 # accumulate_delta is required for tool-calling: it merges streaming deltas into message_snapshot so full tool_calls (with function.arguments) are available.
 from plugin.framework.streaming_deltas import accumulate_delta
 from plugin.framework.constants import APP_REFERER, APP_TITLE, LLM_DEV_BUILD_SYSTEM_PREFIX, should_prepend_dev_llm_system_prefix
@@ -81,7 +101,6 @@ from plugin.modules.http.errors import format_error_message, _format_http_error_
 from plugin.modules.http.ssl_helpers import get_unverified_ssl_context, get_verified_ssl_context, _is_certificate_verify_error, _is_local_host
 from plugin.modules.http.stream_normalizer import iterate_sse, _extract_thinking_from_delta, _normalize_message_content, _normalize_delta
 from plugin.modules.http.requests import sync_request
-from plugin.framework.openrouter_chat_extra import merge_openrouter_chat_extra
 
 log = logging.getLogger(__name__)
 

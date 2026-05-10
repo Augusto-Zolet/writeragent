@@ -18,7 +18,7 @@ from typing import Any, Literal
 
 from plugin.framework.errors import safe_json_loads
 from plugin.framework.utils import normalize_endpoint_url
-from plugin.framework.schema_convert import to_openai_schema
+from plugin.framework.tool import to_openai_schema
 from plugin.modules.http.client import LlmClient
 from plugin.modules.writer.content import ApplyDocumentContent, GetDocumentContent
 

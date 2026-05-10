@@ -139,7 +139,7 @@ UNO helpers are split: [`uno_context.py`](plugin/framework/uno_context.py), [`do
 
 - Paths: Linux `~/.config/libreoffice/{4,24}/user/writeragent.json`; macOS `~/Library/Application Support/LibreOffice/4/user/`; Windows `%APPDATA%\LibreOffice\4\user\`.
 - **`set_config`:** skips write and `config:changed` when unchanged. Unknown keys via `get_config` / `get_config_int` → **`CONFIG_KEY_NOT_FOUND`** with `details["key"]`.
-- **OpenRouter merge:** optional `openrouter_chat_extra` — [`plugin/framework/openrouter_chat_extra.py`](plugin/framework/openrouter_chat_extra.py); blocked keys include `messages`, `tools`, `tool_choice`, `stream`.
+- **OpenRouter merge:** optional `openrouter_chat_extra` — [`merge_openrouter_chat_extra`](plugin/modules/http/client.py); blocked keys include `messages`, `tools`, `tool_choice`, `stream`.
 - **Settings UI:** **`core`** must stay skipped in auto-generated tabs ([`manifest_registry.py`](scripts/manifest_registry.py) + [`legacy_ui.py`](plugin/modules/chatbot/legacy_ui.py) agree) or Settings crashes (`btn_tab_core`).
 - Defaults and provider tables: [`plugin/framework/default_models.py`](plugin/framework/default_models.py). **`chat_max_tool_rounds`:** empty string → fallback 25 with debug log.
 - **Chat-related keys:** `chat_context_length`, `chat_max_tokens`, `additional_instructions` (see [`plugin/framework/config.py`](plugin/framework/config.py), [`plugin/framework/constants.py`](plugin/framework/constants.py)).

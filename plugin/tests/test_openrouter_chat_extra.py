@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from plugin.framework.openrouter_chat_extra import (
+from plugin.modules.http.client import (
     OPENROUTER_CHAT_EXTRA_BLOCKLIST,
     merge_openrouter_chat_extra,
 )

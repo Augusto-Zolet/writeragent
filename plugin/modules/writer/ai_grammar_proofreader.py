@@ -467,7 +467,7 @@ def _errors_to_uno_tuple(norms: Sequence[NormalizedProofError]) -> tuple[Any, ..
 def _run_llm_and_cache(ctx: Any, full_text: str, n_start: int, n_end: int, enqueue_seq: int, inflight_key: str, grammar_bcp47: str, partial_sentence: bool = False) -> None:
     try:
         from plugin.framework.config import get_api_config, get_config_bool, get_config_str, get_text_model
-        from plugin.framework.llm_concurrency import is_agent_active, llm_request_lane
+        from plugin.framework.queue_executor import is_agent_active, llm_request_lane
         from plugin.modules.writer import grammar_proofread_engine as engine
         from plugin.modules.writer.grammar_locale_registry import grammar_english_name_for_bcp47
 

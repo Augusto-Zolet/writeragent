@@ -3,7 +3,7 @@ from __future__ import annotations
 import threading
 import time
 
-from plugin.framework import llm_concurrency as lc
+import plugin.framework.queue_executor as lc
 
 
 def test_agent_session_marks_active_with_nesting() -> None:
