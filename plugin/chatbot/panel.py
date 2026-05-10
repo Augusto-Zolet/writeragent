@@ -34,7 +34,7 @@ from plugin.framework.logging import update_activity_state
 from plugin.framework.queue_executor import QueueExecutor
 from plugin.chatbot.history_db import get_chat_history
 
-# Recording available only if audio_recorder (and contrib/audio) is present
+# Recording available only if audio_recorder (and plugin/contrib/audio) is present
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:

@@ -42,15 +42,15 @@ _ext_root = _this_file
 if _ext_root not in sys.path:
     sys.path.insert(0, _ext_root)
 
-# Add contrib (and contrib/audio for sounddevice when recording is enabled) so this file can be loaded by LibreOffice
+# Add contrib (and plugin/contrib/audio for sounddevice when recording is enabled) so this file can be loaded by LibreOffice
 _vendor_dir = os.path.join(_ext_root, "contrib")
 if _vendor_dir not in sys.path:
     sys.path.insert(0, _vendor_dir)
-_audio_dir = os.path.join(_ext_root, "contrib", "audio")
+_audio_dir = os.path.join(_ext_root, "plugin", "contrib", "audio")
 if _audio_dir not in sys.path:
     sys.path.insert(0, _audio_dir)
 
-# Recording available only if audio_recorder (and thus contrib/audio) is present
+# Recording available only if audio_recorder (and thus plugin/contrib/audio) is present
 try:
     from plugin.chatbot.audio_recorder import AudioRecorder  # noqa: F401
 
@@ -116,7 +116,7 @@ def _initialize_extension_paths(ctx):
 
         # Audio paths (only if needed)
         if HAS_RECORDING:
-            audio_dir = os.path.join(ext_path, "contrib", "audio")
+            audio_dir = os.path.join(ext_path, "plugin", "contrib", "audio")
             if audio_dir not in sys.path:
                 sys.path.insert(0, audio_dir)
 

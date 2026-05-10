@@ -39,7 +39,7 @@ EXTENSION_NAME = WriterAgent
 # Create Makefile.local with e.g. USE_DOCKER = 1
 -include Makefile.local
 
-# Set NO_RECORDING=1 to build without voice recording (excludes contrib/audio, audio_recorder.py).
+# Set NO_RECORDING=1 to build without voice recording (excludes plugin/contrib/audio, audio_recorder.py).
 NO_RECORDING ?= 0
 
 # Set USE_DOCKER=1 to build via Docker instead of local Python/PyYAML.
@@ -110,7 +110,7 @@ help:
 	@echo "  make build                  Build .oxt with plugin/tests (runs ty + ruff, then gettext/UI steps)"
 	@echo "  make openrouter-catalog     Fetch Orca slim OpenRouter catalog + refresh default_models.py (network)"
 	@echo "  make release                Run make test first, then build .oxt without bundled tests"
-	@echo "  make build-no-recording     Build .oxt without voice recording (no contrib/audio, no Record button)"
+	@echo "  make build-no-recording     Build .oxt without voice recording (no plugin/contrib/audio, no Record button)"
 	@echo "  make xcu                    Generate XCS/XCU from config schemas"
 	@echo "  make clean                  Remove build artifacts"
 	@echo ""

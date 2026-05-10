@@ -7,7 +7,7 @@ try:
 except OSError:
     pytest.skip("PortAudio library not found", allow_module_level=True)
 
-sys.path.insert(0, os.path.abspath("contrib"))
+sys.path.insert(0, os.path.abspath("plugin/contrib/audio"))
 try:
     import sounddevice as sd
     print("sounddevice version:", sd.__version__)

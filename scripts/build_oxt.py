@@ -182,13 +182,13 @@ def assemble_bundle(base_dir, modules, no_recording=False, with_tests=False):
     files = collect_files(base_dir, include, with_tests=with_tests)
 
     if no_recording:
-        # Exclude voice recording: audio_recorder.py and entire contrib/audio/
+        # Exclude voice recording: audio_recorder.py and entire plugin/contrib/audio/
         files = [
             f for f in files
             if f != "plugin/chatbot/audio_recorder.py"
-            and not f.startswith("contrib/audio/")
+            and not f.startswith("plugin/contrib/audio/")
         ]
-        print("  No-recording build: excluded audio_recorder.py and contrib/audio/")
+        print("  No-recording build: excluded audio_recorder.py and plugin/contrib/audio/")
 
     count = 0
     for f in files:
@@ -303,7 +303,7 @@ def main():
         help="Only re-zip build/bundle/ (skip assembly)")
     parser.add_argument(
         "--no-recording", action="store_true",
-        help="Exclude voice recording: do not bundle contrib/audio/ or plugin/chatbot/audio_recorder.py")
+        help="Exclude voice recording: do not bundle plugin/contrib/audio/ or plugin/chatbot/audio_recorder.py")
     parser.add_argument(
         "--no-tests", action="store_true",
         help="Exclude plugin/tests/ and testing_runner.py (for release builds)")
