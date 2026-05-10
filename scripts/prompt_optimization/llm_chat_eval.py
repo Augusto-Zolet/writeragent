@@ -73,7 +73,7 @@ _FIND_TEXT_SCHEMA = SimpleNamespace(
 def build_eval_tool_schemas(include_draw: bool = False, include_calc: bool = False) -> list[dict[str, Any]]:
     """OpenAI function schemas for eval tools. include_draw for shapes, include_calc for
     sorting/tax column tests (see CalcStringState in string_eval_tools.py).
-    Matches production names from plugin/modules/calc/cells.py and plugin/framework/document.py."""
+    Matches production names from plugin/modules/calc/cells.py and plugin/modules/doc/document_helpers.py."""
     g = GetDocumentContent()
     a = ApplyDocumentContent()
     schemas = [

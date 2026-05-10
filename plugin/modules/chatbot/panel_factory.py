@@ -605,7 +605,7 @@ class ChatPanelElement(unohelper.Base, XUIElement):
     def _setup_sessions(self, model, extra_instructions):
         """Creates the document and web research chat sessions."""
         from plugin.framework.constants import get_chat_system_prompt_for_document
-        from plugin.framework.document import get_document_property, set_document_property
+        from plugin.modules.doc.document_helpers import get_document_property, set_document_property
 
         # This resolves model logic internally
         system_prompt = get_chat_system_prompt_for_document(model, extra_instructions or "")
@@ -651,7 +651,7 @@ class ChatPanelElement(unohelper.Base, XUIElement):
             # Save it to the instance so panel_wiring can use it for QueryTextListener
             self.send_listener = send_listener
 
-            from plugin.framework.document import get_document_type, DocumentType
+            from plugin.modules.doc.document_helpers import get_document_type, DocumentType
 
             doc_type = get_document_type(model)
             if doc_type == DocumentType.CALC:

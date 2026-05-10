@@ -192,7 +192,7 @@ def _uno_model_probe_for_log(model: Any) -> str:
     except Exception:
         pass
     try:
-        from plugin.framework.document import get_document_type
+        from plugin.modules.doc.document_helpers import get_document_type
 
         return "impl=%s doc_type=%s" % (impl, get_document_type(model).name)
     except Exception:
@@ -605,7 +605,7 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
             except Exception as e:
                 frame_exc = e
 
-        from plugin.framework.document import is_writer, is_calc, is_draw
+        from plugin.modules.doc.document_helpers import is_writer, is_calc, is_draw
 
         if model and (is_writer(model) or is_calc(model) or is_draw(model)):
             return model
@@ -769,7 +769,7 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
     # _transcribe_audio_async is provided by SendHandlersMixin.
 
     def _get_doc_type_str(self, model):
-        from plugin.framework.document import get_document_type, DocumentType
+        from plugin.modules.doc.document_helpers import get_document_type, DocumentType
 
         doc_type = get_document_type(model)
         if doc_type == DocumentType.CALC:

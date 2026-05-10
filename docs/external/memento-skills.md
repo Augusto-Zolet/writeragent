@@ -77,7 +77,7 @@ Adding Memento-style features transforms WriterAgent from a **reactive** tool to
 
 **Next Steps Recommended**:
 - [ ] Uncomment [MemoryTool](cci:2://file:///home/keithcu/Desktop/Python/writeragent/plugin/modules/chatbot/memory.py:34:0-106:67) and `SkillTools` in [plugin/modules/chatbot/__init__.py](cci:7://file:///home/keithcu/Desktop/Python/writeragent/plugin/modules/chatbot/__init__.py:0:0-0:0).
-- [ ] Wire the `[AGENT MEMORY]` injection in [plugin/framework/document.py](cci:7://file:///home/keithcu/Desktop/Python/writeragent/plugin/framework/document.py:0:0-0:0).
+- [ ] Wire the `[AGENT MEMORY]` injection in [plugin/modules/doc/document_helpers.py](cci:7://file:///home/keithcu/Desktop/Python/writeragent/plugin/modules/doc/document_helpers.py:0:0-0:0).
 - [ ] Create a prototype "Librarian" prompt in `constants.py` for "Profile/Onboarding" mode.
 
 ---

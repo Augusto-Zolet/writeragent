@@ -2,7 +2,7 @@ from plugin.tests.testing_utils import setup_uno_mocks
 
 setup_uno_mocks()
 
-from plugin.framework.document import (
+from plugin.modules.doc.document_helpers import (
     WriterCompoundUndo,
     WriterStreamedRewriteSession,
     build_writer_rewrite_prompt,

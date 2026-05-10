@@ -120,7 +120,7 @@ class TestChatModelLogic(unittest.TestCase):
         doc_mock = MagicMock()
 
         # We need to correctly patch the checks used in _do_send to identify the document
-        with patch.object(self.listener, '_get_document_model', return_value=doc_mock),              patch('plugin.framework.document.is_calc', return_value=True),              patch('plugin.framework.document.is_writer', return_value=False),              patch('plugin.framework.document.is_draw', return_value=False):
+        with patch.object(self.listener, '_get_document_model', return_value=doc_mock),              patch('plugin.modules.doc.document_helpers.is_calc', return_value=True),              patch('plugin.modules.doc.document_helpers.is_writer', return_value=False),              patch('plugin.modules.doc.document_helpers.is_draw', return_value=False):
 
             # Since _do_send manipulates response_control internally, we don't assert its text, just the side effect terminal state.
             self.listener._do_send()

@@ -291,7 +291,7 @@ del _
 def get_greeting_for_document(model):
     """Return a greeting relevant to the document type."""
     from plugin.framework.i18n import _
-    from plugin.framework.document import is_calc, is_draw
+    from plugin.modules.doc.document_helpers import is_calc, is_draw
 
     if is_calc(model):
         return _(DEFAULT_CALC_GREETING)
@@ -305,7 +305,7 @@ def get_chat_system_prompt_for_document(model, additional_instructions="", ctx=N
     """Single source of truth for chat system prompt. Use this so Writer vs Calc prompt cannot be mixed.
     model: document model (Writer, Calc, or Draw). additional_instructions: optional extra text appended.
     Callers must pass the document that is being chatted about."""
-    from plugin.framework.document import is_calc, is_draw
+    from plugin.modules.doc.document_helpers import is_calc, is_draw
 
     if is_calc(model):
         from plugin.modules.calc.base import ToolCalcSpecialBase

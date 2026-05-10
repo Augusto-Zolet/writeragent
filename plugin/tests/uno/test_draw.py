@@ -198,7 +198,7 @@ def test_get_draw_context_for_chat():
             pytest.skip("Requires LibreOffice document from native runner")
     except ImportError:
         pass
-    from plugin.framework.document import get_draw_context_for_chat
+    from plugin.modules.doc.document_helpers import get_draw_context_for_chat
     ctx_str = get_draw_context_for_chat(_test_doc, 8000, _test_ctx)
     has_doc_type = "Draw Document" in ctx_str or "Impress Presentation" in ctx_str
     has_total = "Total" in ctx_str and ("Pages" in ctx_str or "Slides" in ctx_str)

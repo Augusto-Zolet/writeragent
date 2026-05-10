@@ -27,7 +27,7 @@
 | Tool loop / chat FSM | [`plugin/modules/chatbot/tool_loop.py`](plugin/modules/chatbot/tool_loop.py), [`plugin/modules/chatbot/tool_loop_state.py`](plugin/modules/chatbot/tool_loop_state.py) |
 | HTTP / LLM | [`plugin/modules/http/client.py`](plugin/modules/http/client.py) (`make_chat_request`, `request_with_tools`, token stripping, shims, pacing) |
 | Tools registry | [`plugin/framework/tool.py`](plugin/framework/tool.py) |
-| UNO document helpers | [`plugin/framework/document.py`](plugin/framework/document.py) |
+| UNO document helpers | [`plugin/modules/doc/document_helpers.py`](plugin/modules/doc/document_helpers.py) |
 | Config / keys / LRU | [`plugin/framework/config.py`](plugin/framework/config.py) |
 | Dialogs / XDL helpers | [`plugin/modules/chatbot/dialogs.py`](plugin/modules/chatbot/dialogs.py) |
 | Async UI drain | [`plugin/framework/async_stream.py`](plugin/framework/async_stream.py), [`plugin/framework/uno_context.py`](plugin/framework/uno_context.py) (`get_toolkit`) |
@@ -44,7 +44,7 @@
 **WriterAgent** is a LibreOffice extension (Python + UNO) for Writer, Calc, and Draw (Impress paths where registered).
 
 - **Chat:** Sidebar + menu chat (Writer/Calc deck; Draw per code paths)—multi-turn, tools, history (SQLite when available, else JSON under `writeragent_history.db.d/`).
-- **Extend / Edit selection:** Writer uses `get_string_without_tracked_deletions()` for prompts; undo/session details in [`plugin/framework/document.py`](plugin/framework/document.py).
+- **Extend / Edit selection:** Writer uses `get_string_without_tracked_deletions()` for prompts; undo/session details in [`plugin/modules/doc/document_helpers.py`](plugin/modules/doc/document_helpers.py).
 - **Settings:** `writeragent.json` under the LibreOffice user profile—see **Config** in [Tips](#tips-and-sharp-edges); keys and validation in [`plugin/framework/config.py`](plugin/framework/config.py).
 - **Memory (experimental):** [`plugin/modules/chatbot/memory.py`](plugin/modules/chatbot/memory.py); `MEMORY_GUIDANCE` in [`plugin/framework/constants.py`](plugin/framework/constants.py)—full notes [docs/agent-memory-and-skills.md](docs/agent-memory-and-skills.md).
 - **Calc:** `=PROMPT()` — [`plugin/prompt_function.py`](plugin/prompt_function.py).
@@ -97,7 +97,7 @@ Fallback parsing when the API returns text without `tool_calls`: `get_parser_for
 - **Threading:** [`run_in_background`](plugin/framework/worker_pool.py) instead of raw `threading.Thread`; long external processes → [`AsyncProcess`](plugin/framework/process_manager.py).
 - **Errors:** `WriterAgentException` / **`format_error_payload`** ([`plugin/framework/errors.py`](plugin/framework/errors.py)); tools via `_tool_error`. Do not assume **`DocumentCache`**—it is not active.
 
-UNO helpers are split: [`uno_context.py`](plugin/framework/uno_context.py), [`document.py`](plugin/framework/document.py), [`dialogs.py`](plugin/modules/chatbot/dialogs.py)—no monolithic `uno_helpers.py`.
+UNO helpers are split: [`uno_context.py`](plugin/framework/uno_context.py), [`document_helpers.py`](plugin/modules/doc/document_helpers.py), [`dialogs.py`](plugin/modules/chatbot/dialogs.py)—no monolithic `uno_helpers.py`.
 
 ---
 
@@ -147,7 +147,7 @@ UNO helpers are split: [`uno_context.py`](plugin/framework/uno_context.py), [`do
 ### Logging / MCP / misc
 
 - Logs: same directory as `writeragent.json` (else `~/writeragent_debug.log`). **`redact_sensitive_payload_for_log`** on HTTP debug ([`plugin/framework/logging.py`](plugin/framework/logging.py)).
-- **MCP:** HTTP threads → main-thread [`drain_mcp_queue`](plugin/modules/http/mcp_protocol.py); **`X-Document-URL`** for targeting—[`document.py`](plugin/framework/document.py). Start/stop from [`plugin/main.py`](plugin/main.py) bootstrap / [`HttpModule`](plugin/modules/http/__init__.py)—localhost, no auth.
+- **MCP:** HTTP threads → main-thread [`drain_mcp_queue`](plugin/modules/http/mcp_protocol.py); **`X-Document-URL`** for targeting—[`document_helpers.py`](plugin/modules/doc/document_helpers.py). Start/stop from [`plugin/main.py`](plugin/main.py) bootstrap / [`HttpModule`](plugin/modules/http/__init__.py)—localhost, no auth.
 - **Images:** endpoint uses **`get_image_model`** (not chat model); [`plugin/modules/writer/image_utils.py`](plugin/modules/writer/image_utils.py), [`plugin/modules/writer/image_tools.py`](plugin/modules/writer/image_tools.py); [docs/image-generation.md](docs/image-generation.md).
 - **Outline / navigation helpers:** ignore stale **DocumentCache** mentions in comments—cache class is not active.
 - **Settings ↔ XDL:** `MainJob._get_settings_field_specs()` in [`plugin/main.py`](plugin/main.py) must match control names.

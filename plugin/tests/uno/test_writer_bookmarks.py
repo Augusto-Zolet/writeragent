@@ -11,7 +11,7 @@ try:
 
     from plugin.testing_runner import setup, teardown, native_test
     from plugin.framework.uno_context import get_desktop
-    from plugin.framework.document import DocumentService
+    from plugin.modules.doc.document_helpers import DocumentService
     from plugin.framework.event_bus import EventBus
     from plugin.modules.writer.bookmarks import BookmarkService
 except ImportError:

@@ -160,7 +160,7 @@ def get_text_cursor_at_range(model, start, end):
         if start is None or end is None:
             raise WriterError(f"Invalid start ({start}) or end ({end}) offset", code="WRITER_INVALID_OFFSETS", details={"operation": "get_text_cursor_at_range", "start": start, "end": end})
 
-        from plugin.framework.document import get_document_length
+        from plugin.modules.doc.document_helpers import get_document_length
 
         doc_len = get_document_length(model)
         start = max(0, min(start, doc_len))

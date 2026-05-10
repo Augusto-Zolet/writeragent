@@ -65,7 +65,7 @@ Together they let the model accumulate stable context (memory) and codify workfl
 
 | Aspect | Hermes (upstream) | WriterAgent (this repo) |
 |--------|--------------------|-------------------------|
-| **Seeing memory without tool calls** | Yes — **injected** into system prompt (frozen snapshot per session build). | **Not yet** — injection in [`document.py`](../plugin/framework/document.py) is **commented out**; the model would only see file contents if it calls **`memory` + `read`** (or you inject manually). |
+| **Seeing memory without tool calls** | Yes — **injected** into system prompt (frozen snapshot per session build). | **Not yet** — injection in [`document_helpers.py`](../plugin/modules/doc/document_helpers.py) is **commented out**; the model would only see file contents if it calls **`memory` + `read`** (or you inject manually). |
 | **Memory tool’s main job** | **Write** (and optional **read** for live vs snapshot). | Same **API** (`add` / `replace` / `remove` / `read`), but without injection, **`read` becomes the only way** to load from disk in-chat. |
 | **Background “save memories?” agent** | Yes — periodic **second agent** after responses. | **Not implemented.** |
 
@@ -209,7 +209,7 @@ Descriptions in list results are truncated to **1024** characters.
 | Piece | State |
 |-------|--------|
 | **Tool registration** | In [`plugin/modules/chatbot/__init__.py`](../plugin/modules/chatbot/__init__.py), `auto_discover` for the memory and skills modules is **commented out**. The tools are not loaded via the chatbot module until that is enabled. |
-| **Document context injection** | In [`plugin/framework/document.py`](../plugin/framework/document.py), code that could inject memory text into chat context (e.g. `[AGENT MEMORY]`) is **commented out**. |
+| **Document context injection** | In [`plugin/modules/doc/document_helpers.py`](../plugin/modules/doc/document_helpers.py), code that could inject memory text into chat context (e.g. `[AGENT MEMORY]`) is **commented out**. |
 | **Tests** | [`plugin/tests/test_agent_memory_skills.py`](../plugin/tests/test_agent_memory_skills.py) exercises the tools but is marked **`@unittest.skip`**. |
 
 Enabling the feature typically means uncommenting registration (and optionally injection), then re-running tests with skips removed.

@@ -1,5 +1,5 @@
 
-from plugin.framework.document import (
+from plugin.modules.doc.document_helpers import (
     normalize_linebreaks,
     _normalize_doc_url,
     _inject_markers_into_excerpt

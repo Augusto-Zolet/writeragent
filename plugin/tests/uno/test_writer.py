@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 from typing import Any
 
-from plugin.framework.document import (
+from plugin.modules.doc.document_helpers import (
     build_heading_tree,
     resolve_locator,
     get_paragraph_ranges,
@@ -127,7 +127,7 @@ def test_ensure_heading_bookmarks():
             pytest.skip("Requires LibreOffice document from native runner")
     except ImportError:
         pass
-    from plugin.framework.document import ensure_heading_bookmarks
+    from plugin.modules.doc.document_helpers import ensure_heading_bookmarks
     ensure_heading_bookmarks(_test_doc)
     bookmarks = _test_doc.getBookmarks()
     bnames = bookmarks.getElementNames()
@@ -153,7 +153,7 @@ def test_get_paragraph_ranges():
 
 @native_test
 def test_get_string_without_tracked_deletions_hides_deleted_text():
-    from plugin.framework.document import get_string_without_tracked_deletions
+    from plugin.modules.doc.document_helpers import get_string_without_tracked_deletions
     import uno
 
     desktop = get_desktop(_test_ctx)
@@ -190,7 +190,7 @@ def test_get_string_without_tracked_deletions_hides_deleted_text():
 
 @native_test
 def test_writer_streamed_rewrite_session_collapses_chunked_edit():
-    from plugin.framework.document import (
+    from plugin.modules.doc.document_helpers import (
         WriterStreamedRewriteSession,
         get_string_without_tracked_deletions,
     )
@@ -294,7 +294,7 @@ def test_writer_structural_and_tree_service():
     from plugin.modules.writer.tree import TreeService
     from plugin.modules.writer.bookmarks import BookmarkService
     from plugin.framework.event_bus import EventBus
-    from plugin.framework.document import DocumentService
+    from plugin.modules.doc.document_helpers import DocumentService
     events = EventBus()
     doc_svc = DocumentService()
     services = SimpleNamespace()

@@ -4,7 +4,7 @@ import sys
 from plugin.tests.testing_utils import setup_uno_mocks, ElementStub, WriterDocStub
 setup_uno_mocks()
 
-from plugin.framework.document import (
+from plugin.modules.doc.document_helpers import (
     build_heading_tree,
     resolve_locator,
     get_paragraph_ranges
@@ -124,7 +124,7 @@ class MockServices:
     def __init__(self, doc):
         from types import SimpleNamespace
 
-        from plugin.framework.document import DocumentService
+        from plugin.modules.doc.document_helpers import DocumentService
         from plugin.framework.event_bus import EventBus
         from plugin.modules.writer.proximity import ProximityService
         from plugin.modules.writer.bookmarks import BookmarkService

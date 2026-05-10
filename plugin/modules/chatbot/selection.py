@@ -34,7 +34,7 @@ def _extend_writer(services, ctx, doc):
     from .dialogs import msgbox
     from plugin.framework.async_stream import run_stream_async
     from plugin.framework.config import get_api_config
-    from plugin.framework.document import WriterCompoundUndo, get_string_without_tracked_deletions
+    from plugin.modules.doc.document_helpers import WriterCompoundUndo, get_string_without_tracked_deletions
     from plugin.modules.http.client import LlmClient
 
     try:
@@ -219,7 +219,7 @@ def _edit_writer(services, ctx, doc):
     from .dialogs import msgbox
     from plugin.framework.async_stream import run_stream_async
     from plugin.framework.config import get_api_config
-    from plugin.framework.document import build_writer_rewrite_prompt, get_string_without_tracked_deletions, WriterStreamedRewriteSession
+    from plugin.modules.doc.document_helpers import build_writer_rewrite_prompt, get_string_without_tracked_deletions, WriterStreamedRewriteSession
     from plugin.modules.http.client import LlmClient
 
     try:

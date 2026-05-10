@@ -69,7 +69,7 @@ class MockWriterIndexService:
 
 class MockServices:
     def __init__(self, doc):
-        from plugin.framework.document import DocumentService
+        from plugin.modules.doc.document_helpers import DocumentService
         from plugin.framework.event_bus import EventBus
         self.events = EventBus()
         # DocumentService does not take constructor arguments; it uses the

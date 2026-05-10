@@ -264,7 +264,7 @@ class SendHandlersMixin:
 
     def _execute_agent_backend_effect(self: SendHandlerHost, query_text: str, model: Any, doc_type_str: str, current_state: "SendHandlerState", interpreter: "EffectInterpreter") -> None:
         from plugin.framework.config import get_config, get_config_int
-        from plugin.framework.document import get_document_context_for_chat
+        from plugin.modules.doc.document_helpers import get_document_context_for_chat
         from plugin.modules.agent_backend import get_backend
 
         document_url = ""
@@ -430,7 +430,7 @@ class SendHandlersMixin:
             delattr(self, "_active_run_librarian")
 
         from plugin.main import get_tools
-        from plugin.framework.document import is_calc, is_draw
+        from plugin.modules.doc.document_helpers import is_calc, is_draw
 
         q: queue.Queue[Any] = queue.Queue()
         # Read show_thinking before spawning the thread so apply_chunk can use it

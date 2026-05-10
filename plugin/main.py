@@ -180,7 +180,7 @@ def bootstrap(ctx=None):
 
         # 3. Core Services (Framework)
         from plugin.framework.config import ConfigService
-        from plugin.framework.document import DocumentService
+        from plugin.modules.doc.document_helpers import DocumentService
         from plugin.modules.writer.format import FormatService
         from plugin.framework.event_bus import get_event_bus
 
@@ -243,7 +243,7 @@ def bootstrap(ctx=None):
 def _register_core_handlers():
     """Register core application handlers during bootstrap."""
     from plugin.modules.chatbot.legacy_ui import settings_box, show_eval_dashboard
-    from plugin.framework.document import is_writer, is_calc, is_draw
+    from plugin.modules.doc.document_helpers import is_writer, is_calc, is_draw
     import importlib
 
     def _open_settings():
@@ -694,7 +694,7 @@ class MainBootstrapJob(unohelper.Base, XJobExecutor, XJob):
             return
 
         model = get_active_document(self.ctx)
-        from plugin.framework.document import get_document_type, DocumentType
+        from plugin.modules.doc.document_helpers import get_document_type, DocumentType
 
         doc_type = get_document_type(model)
         if doc_type == DocumentType.WRITER:
