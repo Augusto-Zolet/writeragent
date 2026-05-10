@@ -18,9 +18,13 @@
 
 from plugin.framework.module_base import ModuleBase
 
-from . import tree, proximity, styles, tracking, page, search, structural, outline, navigation, target_resolver
-from .specialized import bookmarks, forms, charts, comments, shapes, indexes, textframes, fields, embedded
-from .locale import ai_grammar_proofreader, grammar_locale_registry, grammar_proofread_engine, linguistic_index
+# Load subpackages for tool registration side effects before auto_discover_package.
+from . import tree, proximity
+from . import styles, tracking, page, search, structural, outline, navigation, target_resolver  # noqa: F401
+from .specialized import bookmarks
+from .specialized import forms, charts, comments, shapes, indexes, textframes, fields, embedded  # noqa: F401
+from .locale import linguistic_index
+from .locale import ai_grammar_proofreader, grammar_locale_registry, grammar_proofread_engine  # noqa: F401
 
 
 class WriterModule(ModuleBase):

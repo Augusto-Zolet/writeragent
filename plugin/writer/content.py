@@ -297,7 +297,6 @@ class CloneHeadingBlock(ToolBaseDummy):
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        from . import format as format_support
         from com.sun.star.text.ControlCharacter import PARAGRAPH_BREAK  # type: ignore
 
         para_index = _resolve_para_index(ctx, kwargs)
@@ -398,7 +397,6 @@ class GetDocumentStats(ToolBase):
     tier = "core"
 
     def execute(self, ctx, **kwargs):
-        from . import format as format_support
         doc = ctx.doc
         doc_svc = ctx.services.document
 

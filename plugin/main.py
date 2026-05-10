@@ -330,10 +330,10 @@ def _run_test_suite(test_func, doc_checker, test_name):
     
     print(f"DEBUG: _run_test_suite entry. name={test_name}")
     if not _tests_bundled():
-        print(f"DEBUG: _run_test_suite: tests not bundled!")
+        print("DEBUG: _run_test_suite: tests not bundled!")
         _show_tests_unavailable(test_name)
         return
-    print(f"DEBUG: _run_test_suite: tests are bundled.")
+    print("DEBUG: _run_test_suite: tests are bundled.")
 
     ctx = get_ctx()
     try:

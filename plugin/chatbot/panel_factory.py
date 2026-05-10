@@ -32,9 +32,11 @@ import unohelper
 # Ensure the extension's install directory is on sys.path
 # so that "plugin.xxx" imports work correctly. This file lives at
 # plugin/chatbot/panel_factory.py; the extension root (directory
-# containing the "plugin" package) is 4 levels up from here.
+# containing the "plugin" package) is 3 dirname steps up — not 4:
+# unopkg extracts to .../WriterAgent.oxt/plugin/chatbot/... and adding
+# the parent of WriterAgent.oxt breaks ``import plugin``.
 _this_file = os.path.abspath(__file__)
-for _i in range(4):
+for _i in range(3):
     _this_file = os.path.dirname(_this_file)
 _ext_root = _this_file
 if _ext_root not in sys.path:
@@ -57,7 +59,6 @@ except ImportError:
     HAS_RECORDING = False
 
 from plugin.framework.logging import start_watchdog_thread, init_logging
-from plugin.chatbot.panel import ChatSession, SendButtonListener, StopButtonListener, ClearButtonListener
 from plugin.chatbot.dialogs import get_optional as get_optional_control, get_checkbox_state, set_checkbox_state, set_control_text, set_control_enabled, set_control_visible
 from plugin.framework.uno_context import get_extension_url, get_extension_path
 from plugin.chatbot.panel_wiring import _wireControls as wire_chatpanel_controls
@@ -604,6 +605,8 @@ class ChatPanelElement(unohelper.Base, XUIElement):
 
     def _setup_sessions(self, model, extra_instructions):
         """Creates the document and web research chat sessions."""
+        # Deferred: importing panel.py at module load breaks unopkg (writeRegistryInfo) — heavy stack.
+        from plugin.chatbot.panel import ChatSession
         from plugin.framework.constants import get_chat_system_prompt_for_document
         from plugin.doc.document_helpers import get_document_property, set_document_property
 
@@ -627,6 +630,8 @@ class ChatPanelElement(unohelper.Base, XUIElement):
 
     def _wire_buttons(self, controls, model, active_greeting):
         """Wires up the Send, Stop, Clear, and Research toggle buttons."""
+        from plugin.chatbot.panel import ClearButtonListener, SendButtonListener, StopButtonListener
+
         send_listener = None
         try:
             send_listener = SendButtonListener(
