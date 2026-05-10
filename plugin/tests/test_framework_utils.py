@@ -7,7 +7,7 @@ from plugin.framework.worker_pool import run_in_background
 from plugin.framework.errors import WorkerPoolError
 from plugin.framework.async_stream import StreamQueueKind, run_stream_drain_loop
 from plugin.framework.logging import SafeLogger, safe_log_exception
-from plugin.framework.utils import normalize_endpoint_url
+from plugin.framework.config import normalize_endpoint_url
 
 class TestNormalizeEndpointUrl:
     def test_strips_trailing_v1(self):

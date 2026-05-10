@@ -14,8 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Tuple
 
-from plugin.framework.config import get_provider_from_endpoint
-from plugin.framework.utils import normalize_endpoint_url
+from plugin.framework.config import get_provider_from_endpoint, normalize_endpoint_url
 from plugin.framework.errors import ConfigError
 
 

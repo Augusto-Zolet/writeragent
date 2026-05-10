@@ -5,7 +5,6 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 from plugin.framework.constants import APP_REFERER, APP_TITLE, USER_AGENT
 from plugin.framework.errors import NetworkError
-from plugin.framework.utils import get_url_hostname
 from plugin.modules.http.ssl_helpers import get_verified_ssl_context, get_unverified_ssl_context, _is_local_host, _is_certificate_verify_error
 from plugin.modules.http.errors import _format_http_error_response, format_error_message
 
@@ -49,7 +48,7 @@ def sync_request(url, data=None, headers=None, timeout=10, parse_json=True):
 
     full_url = getattr(req, "full_url", url)
     parsed = urlparse(str(full_url))
-    host = get_url_hostname(str(full_url))
+    host = parsed.hostname or ""
     is_local_https = parsed.scheme.lower() == "https" and _is_local_host(host)
 
     def _read_with_context(context):

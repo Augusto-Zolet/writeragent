@@ -24,7 +24,7 @@ import gettext
 import logging
 from typing import Any, Optional, cast
 
-from plugin.framework.utils import get_plugin_dir
+from plugin.framework.constants import get_plugin_dir
 
 log = logging.getLogger("writeragent.i18n")
 

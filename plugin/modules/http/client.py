@@ -95,7 +95,7 @@ from plugin.framework.constants import APP_REFERER, APP_TITLE, LLM_DEV_BUILD_SYS
 from plugin.framework.logging import init_logging, redact_sensitive_payload_for_log
 from plugin.framework.auth import resolve_auth_for_config, build_auth_headers, AuthError
 from plugin.framework.errors import NetworkError
-from plugin.framework.utils import get_url_hostname, get_url_path_and_query
+from plugin.framework.config import get_url_hostname, get_url_path_and_query
 
 from plugin.modules.http.errors import format_error_message, _format_http_error_response
 from plugin.modules.http.ssl_helpers import get_unverified_ssl_context, get_verified_ssl_context, _is_certificate_verify_error, _is_local_host

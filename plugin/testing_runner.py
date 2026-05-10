@@ -236,7 +236,7 @@ def run_all_tests(ctx: Any) -> str:
         log.warning("run_all_tests: bootstrap failed (in-LO tool tests may fail): %s", e)
 
     import os
-    from plugin.framework.utils import get_plugin_dir
+    from plugin.framework.constants import get_plugin_dir
     import importlib.util
 
     tests_dir = os.path.join(get_plugin_dir(), "tests", "uno")

@@ -19,9 +19,19 @@ from __future__ import annotations
 from enum import IntFlag
 from typing import Any
 
+import os
+
 APP_REFERER = "https://github.com/KeithCu/writeragent"
 APP_TITLE = "WriterAgent"
 USER_AGENT = f"{APP_TITLE} ({APP_REFERER})"
+
+
+def get_plugin_dir():
+    """Returns the absolute path to the plugin/ directory."""
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+PLUGIN_DIR = get_plugin_dir()
 
 
 # Model capabilities bitmasks (compatible with OnlyOfficeAI values)

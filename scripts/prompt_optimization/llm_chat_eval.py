@@ -17,7 +17,7 @@ from types import SimpleNamespace
 from typing import Any, Literal
 
 from plugin.framework.errors import safe_json_loads
-from plugin.framework.utils import normalize_endpoint_url
+from plugin.framework.config import normalize_endpoint_url
 from plugin.framework.tool import to_openai_schema
 from plugin.modules.http.client import LlmClient
 from plugin.modules.writer.content import ApplyDocumentContent, GetDocumentContent

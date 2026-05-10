@@ -23,7 +23,23 @@ from plugin.modules.calc.bridge import CalcBridge
 from plugin.modules.calc.analyzer import SheetAnalyzer
 from plugin.framework.uno_context import get_active_document as get_active_doc
 from plugin.framework.errors import UnoObjectError, check_disposed, safe_call, safe_uno_call
-from plugin.framework.utils import normalize_linebreaks
+
+
+def normalize_linebreaks(text: str | None) -> str:
+    """Ensure all linebreaks use \n (LF).
+
+    Some UNO APIs (especially on Windows) or clipboard paths can return \r\n
+    or \r. This ensures consistent offsets and string length for the LLM.
+    """
+    if text is None:
+        return ""
+    # Normalize \r\n -> \n
+    text = text.replace("\r\n", "\n")
+    # Normalize \n\r (rare but possible) -> \n
+    text = text.replace("\n\r", "\n")
+    # Normalize remaining \r -> \n
+    text = text.replace("\r", "\n")
+    return text
 
 
 class HeadingTreeNode(TypedDict):

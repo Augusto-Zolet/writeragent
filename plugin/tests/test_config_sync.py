@@ -1,5 +1,5 @@
 import sys
-from plugin.framework.utils import get_plugin_dir
+from plugin.framework.constants import get_plugin_dir
 import os
 import json
 import tempfile
@@ -293,7 +293,7 @@ class TestFetchAvailableModelsCache(unittest.TestCase):
     def test_fetch_available_models_sends_bearer_when_ctx_and_api_key(self):
         """GET /v1/models must use the same per-endpoint key as chat (LocalAI, etc.)."""
         from plugin.framework import config as cfg
-        from plugin.framework.utils import normalize_endpoint_url
+        from plugin.framework.config import normalize_endpoint_url
 
         ctx = MagicMock()
         with tempfile.TemporaryDirectory() as tmp:
@@ -345,7 +345,7 @@ class TestFetchAvailableModelsCache(unittest.TestCase):
     def test_fetch_available_models_override_used_not_config_file(self):
         """Settings passes live api_key field; override must win over api_keys_by_endpoint."""
         from plugin.framework import config as cfg
-        from plugin.framework.utils import normalize_endpoint_url
+        from plugin.framework.config import normalize_endpoint_url
 
         ctx = MagicMock()
         with tempfile.TemporaryDirectory() as tmp:
@@ -383,7 +383,7 @@ class TestFetchAvailableModelsCache(unittest.TestCase):
 
     def test_fetch_override_and_saved_key_separate_cache(self):
         from plugin.framework import config as cfg
-        from plugin.framework.utils import normalize_endpoint_url
+        from plugin.framework.config import normalize_endpoint_url
 
         ctx = MagicMock()
         with tempfile.TemporaryDirectory() as tmp:

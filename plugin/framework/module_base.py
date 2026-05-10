@@ -23,7 +23,7 @@ import os
 from abc import ABC
 from typing import Any, cast
 
-from plugin.framework.utils import get_plugin_dir
+from plugin.framework.constants import get_plugin_dir
 
 log = logging.getLogger("writeragent.module_base")
 
