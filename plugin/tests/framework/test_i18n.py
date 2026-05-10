@@ -1,4 +1,3 @@
-import os
 import unittest
 import gettext
 from gettext import NullTranslations
@@ -8,6 +7,7 @@ import plugin.framework.i18n as i18n_module
 import sys
 
 from plugin.framework.config import WriterAgentConfig, _build_validated_config_export
+from plugin.framework.constants import get_locales_dir
 
 # PO-header junk mistakenly saved into config via gettext/translation bugs (i18n + load path)
 PO_JUNK = "Project-Id-Version: WriterAgent 1.0\nReport-Msgid-Bugs-To: x\n"
@@ -211,14 +211,14 @@ class TestI18n(unittest.TestCase):
 
     def test_i18n_translation_loading(self):
         """gettext can load writeragent.mo and translate 'Built-in' to German (Integriert)."""
-        localedir = os.path.join(os.path.abspath("."), "plugin", "locales")
+        localedir = get_locales_dir()
         translation = gettext.translation("writeragent", localedir, languages=["de"], fallback=True)
         self.assertEqual(translation.gettext("Built-in"), "Integriert")
         self.assertEqual(translation.gettext("Backend"), "Backend")
 
     def test_i18n_translation_loading_korean(self):
         """gettext can load writeragent.mo and translate 'Built-in' to Korean."""
-        localedir = os.path.join(os.path.abspath("."), "plugin", "locales")
+        localedir = get_locales_dir()
         translation = gettext.translation("writeragent", localedir, languages=["ko"], fallback=True)
         self.assertEqual(translation.gettext("Built-in"), "내장")
 

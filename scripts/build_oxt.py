@@ -53,7 +53,6 @@ ALWAYS_INCLUDE_PLUGIN = [
     "plugin/mcp/",
     "plugin/chatbot/",
     "plugin/agent_backend/",
-    "plugin/locales/",
     "plugin/lib/",
     "plugin/contrib/",
 ]
@@ -66,6 +65,7 @@ RELEASE_INCLUDE_PLUGIN = [
 
 ALWAYS_INCLUDE_ROOT = [
     "contrib/",
+    "locales/",
 ]
 
 # Auto-discover all top-level module directories
@@ -108,7 +108,7 @@ def should_exclude(path, with_tests=False):
     if path_norm.startswith("plugin/tests/") or path_norm == "plugin/tests":
         return not with_tests
     # gettext source/template only; runtime loads .mo (see plugin/framework/i18n.py)
-    if path_norm.startswith("plugin/locales/") and (
+    if path_norm.startswith("locales/") and (
         path_norm.endswith(".po") or path_norm.endswith(".pot")
     ):
         return True

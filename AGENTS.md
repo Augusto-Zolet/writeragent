@@ -179,7 +179,7 @@ UNO helpers are split: [`uno_context.py`](plugin/framework/uno_context.py), [`do
 | Calc filters / formatting | [docs/calc-conditional-formatting.md](docs/calc-conditional-formatting.md), [docs/calc-sheet-filter.md](docs/calc-sheet-filter.md) |
 | Agent Search / Web | [docs/agent-search.md](docs/agent-search.md) |
 | MCP protocol | [docs/mcp-protocol.md](docs/mcp-protocol.md) |
-| Localization / translations / `make extract-strings` | [docs/localization.md](docs/localization.md), [plugin/locales/README.md](plugin/locales/README.md) |
+| Localization / translations / `make extract-strings` | [docs/localization.md](docs/localization.md), [locales/README.md](locales/README.md) |
 | Audio Architecture | [docs/audio-architecture.md](docs/audio-architecture.md) |
 | Image generation | [docs/image-generation.md](docs/image-generation.md) |
 | Math / HTML import design | [docs/libreoffice-html-math-dev-plan.md](docs/libreoffice-html-math-dev-plan.md), [docs/math-extraction-editing-dev-plan.md](docs/math-extraction-editing-dev-plan.md) |

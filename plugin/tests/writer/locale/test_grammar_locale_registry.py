@@ -2,7 +2,7 @@
 # Copyright (c) 2026 KeithCu
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Tests for AI grammar BCP-47 registry (parity with ``plugin/locales``)."""
+"""Tests for AI grammar BCP-47 registry (parity with shipped gettext ``locales/``)."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ import re
 from types import SimpleNamespace
 from typing import Any
 
+from plugin.framework.constants import get_locales_dir
 from plugin.writer.locale import grammar_proofread_engine as eng
 from plugin.writer.locale.grammar_locale_registry import (
     GRAMMAR_REGISTRY_LOCALE_TAGS,
@@ -19,12 +20,10 @@ from plugin.writer.locale.grammar_locale_registry import (
     normalize_uno_locale_to_bcp47,
 )
 
-# Folder names under ``plugin/locales`` that are translation targets (excludes en; English uses POT as msgid).
+# Folder names under repo-root ``locales/`` that are translation targets (excludes en; English uses POT as msgid).
 _GETTEXT_LOCALE_DIRS: frozenset[str] = frozenset(
     n
-    for n in os.listdir(
-        os.path.join(os.path.dirname(__file__), "..", "..", "..", "locales")
-    )
+    for n in os.listdir(get_locales_dir())
     if re.match(r"^[a-z]{2,3}(_[A-Z]{2})?$", n)
 )
 
@@ -74,7 +73,7 @@ def _uno_locale(lang: str, country: str) -> Any:
 
 def test_grammar_tags_match_gettext_folders() -> None:
     assert _FOLDERS_TO_TAG.keys() == _GETTEXT_LOCALE_DIRS, (
-        f"Update _FOLDERS_TO_TAG or ``plugin/locales``: missing/extra: "
+        f"Update _FOLDERS_TO_TAG or ``locales/``: missing/extra: "
         f"{_GETTEXT_LOCALE_DIRS.symmetric_difference(_FOLDERS_TO_TAG.keys())}"
     )
     for _folder, expected in _FOLDERS_TO_TAG.items():

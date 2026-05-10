@@ -2,13 +2,13 @@
 # Copyright (c) 2026 KeithCu
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""BCP-47 labels for the AI grammar proofreader, aligned with shipped gettext ``plugin/locales``."""
+"""BCP-47 labels for the AI grammar proofreader, aligned with shipped gettext ``locales/``."""
 
 from __future__ import annotations
 
 from typing import Any
 
-# One canonical tag per folder under ``plugin/locales/`` (plus en-US, en-GB; English has no ``en`` dir).
+# One canonical tag per folder under repo-root ``locales/`` (plus en-US, en-GB; English has no ``en`` dir).
 # Order: English first, then alphabetical by BCP-47. Must match ``LinguisticWriterAgentGrammar.xcu``.
 #
 # * ``pt`` → ``pt-BR`` (user docs may set ``pt-PT``; ``normalize_uno_locale_to_bcp47`` maps any ``pt`` to ``pt-BR``)

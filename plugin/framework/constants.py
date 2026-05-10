@@ -30,6 +30,11 @@ def get_plugin_dir():
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+def get_locales_dir():
+    """Absolute path to gettext ``locales/`` (sibling of ``plugin/`` in repo and in the .oxt bundle)."""
+    return os.path.join(os.path.dirname(get_plugin_dir()), "locales")
+
+
 PLUGIN_DIR = get_plugin_dir()
 
 

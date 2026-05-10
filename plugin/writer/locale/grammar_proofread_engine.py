@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 _grammar_diag = logging.getLogger("writeragent.grammar")
 
 # Re-export: hyphenated tags for ``LinguisticWriterAgentGrammar.xcu`` and tests (see
-# ``grammar_locale_registry`` — same list as ``plugin/locales`` + ``en`` variants).
+# ``grammar_locale_registry`` — same list as repo-root ``locales/`` + ``en`` variants).
 GRAMMAR_REGISTRY_LOCALE_TAGS: tuple[str, ...] = _GRAMMAR_REGISTRY_LOCALE_TAGS
 
 _CACHE_LOCK = threading.Lock()
