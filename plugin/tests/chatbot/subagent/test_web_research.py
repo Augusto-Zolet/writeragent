@@ -1,37 +1,53 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-"""
-Standalone CLI harness to exercise the vendored smolagents-based web search agent.
-
-This does NOT require LibreOffice or WriterAgent's UNO context. It talks directly
-to OpenRouter using an OpenAI-compatible HTTP API, and uses the same
-ToolCallingAgent + DuckDuckGo + VisitWebpage tool stack as WriterAgent's
-`search_web` tool.
-
-Usage:
-
-  export OPENROUTER_API_KEY="sk-or-..."
-  python -m scripts.test_search_web "What is the latest stable Python release and when was it released?"
-
-You can pass a custom --max-tokens if desired, and override the model with --model.
-"""
+# WriterAgent - combined tests for web research functionality
 
 import argparse
 import json
 import os
-from plugin.framework.constants import get_plugin_dir
 import sys
 import time
+from types import SimpleNamespace
 from typing import Any
 
+from plugin.chatbot.web_research import (
+    _apply_web_search_query_override,
+    _norm_research_query,
+    _web_search_query_from_arguments,
+    WebResearchToolCallingAgent,
+)
+from plugin.chatbot.web_research_chat import (
+    web_research_engine_chat_block,
+    web_search_engine_step_chat_text,
+)
+from plugin.contrib.smolagents.agents import ToolCallingAgent
+from plugin.contrib.smolagents.default_tools import DuckDuckGoSearchTool, VisitWebpageTool
+from plugin.contrib.smolagents.utils import AgentParsingError
+from plugin.contrib.smolagents.models import (
+    ChatMessage,
+    ChatMessageToolCall,
+    ChatMessageToolCallFunction,
+    MessageRole,
+    Model,
+    TokenUsage,
+)
+from plugin.framework.constants import get_plugin_dir
+from unittest.mock import MagicMock, patch
+
 import pytest
+
 pytest.importorskip("requests")
 import requests
 
 
-# Default OpenRouter model for the search sub-agent CLI.
+# =============================================================================
+# Default OpenRouter model for the search sub-agent CLI
+# =============================================================================
+
 DEFAULT_OPENROUTER_MODEL = "nvidia/nemotron-3-nano-30b-a3b"
+
+
+# =============================================================================
+# Project root path setup for CLI
+# =============================================================================
 
 
 def _add_project_root_to_path() -> None:
@@ -43,20 +59,10 @@ def _add_project_root_to_path() -> None:
 
 _add_project_root_to_path()
 
-from plugin.contrib.smolagents.models import (  # type: ignore  # noqa: E402
-    ChatMessage,
-    ChatMessageToolCall,
-    ChatMessageToolCallFunction,
-    MessageRole,
-    Model,
-    TokenUsage,
-)
-from plugin.contrib.smolagents.utils import AgentParsingError  # type: ignore  # noqa: E402
-from plugin.contrib.smolagents.agents import ToolCallingAgent  # type: ignore  # noqa: E402
-from plugin.contrib.smolagents.default_tools import (  # type: ignore  # noqa: E402
-    DuckDuckGoSearchTool,
-    VisitWebpageTool,
-)
+
+# =============================================================================
+# OpenRouterSmolModel - Minimal smolagents Model for OpenRouter
+# =============================================================================
 
 
 class OpenRouterSmolModel(Model):
@@ -203,6 +209,11 @@ class OpenRouterSmolModel(Model):
         return msg
 
 
+# =============================================================================
+# CLI main for search_web
+# =============================================================================
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Test the smolagents-based web search agent via OpenRouter.")
     parser.add_argument("query", help="Natural language question to research on the web.")
@@ -257,3 +268,124 @@ def main(argv: list[str] | None = None) -> int:
 if __name__ == "__main__":
     raise SystemExit(main())
 
+
+# =============================================================================
+# Web research chat block formatting tests (from test_web_research_chat.py)
+# =============================================================================
+
+
+def test_step_zero_matches_legacy_engine_block():
+    q = "best pizza test"
+    a = web_search_engine_step_chat_text(q, 0, approval_required=False)
+    b = web_research_engine_chat_block(q, approval_required=False)
+    assert a == b
+    assert "[Web search]" in a
+    assert "[Additional web search]" not in a
+
+
+def test_step_one_is_additional_not_duplicate_full_header():
+    q = "refined query"
+    first = web_search_engine_step_chat_text(q, 0, approval_required=False)
+    second = web_search_engine_step_chat_text(q, 1, approval_required=False)
+    assert "[Additional web search]" in second
+    assert second.count("[Web search]") == 0
+    assert "[Web search]" in first
+    assert first != second
+
+
+def test_step_zero_approval_uses_approval_header():
+    q = "x"
+    t = web_search_engine_step_chat_text(q, 0, approval_required=True)
+    assert "approval" in t.lower() or "Approval" in t
+
+
+def test_step_index_negative_treated_as_first():
+    q = "q"
+    assert web_search_engine_step_chat_text(q, -1, approval_required=False) == web_search_engine_step_chat_text(
+        q, 0, approval_required=False
+    )
+
+
+def test_norm_research_query_collapses_whitespace_and_case():
+    assert _norm_research_query("  Best  Pizza \n") == _norm_research_query("best pizza")
+    assert _norm_research_query("") == ""
+
+
+# =============================================================================
+# Web research query override tests (from test_web_research_query_override.py)
+# =============================================================================
+
+
+def test_web_search_query_from_dict():
+    assert _web_search_query_from_arguments({"query": "hello"}) == "hello"
+    assert _web_search_query_from_arguments({}) == ""
+
+
+def test_web_search_query_from_json_string():
+    assert _web_search_query_from_arguments('{"query": "from json"}') == "from json"
+
+
+def test_web_search_query_from_invalid_string():
+    assert _web_search_query_from_arguments("not json") == ""
+    assert _web_search_query_from_arguments(None) == ""
+
+
+def test_apply_override_dict_mutable():
+    step = SimpleNamespace(arguments={"query": "old", "x": 1})
+    assert _apply_web_search_query_override(step, "new") is False
+    assert step.arguments == {"query": "new", "x": 1}
+
+
+def test_apply_override_json_string():
+    step = SimpleNamespace(arguments='{"query": "old"}')
+    assert _apply_web_search_query_override(step, "edited") is True
+    assert step.arguments == {"query": "edited"}
+
+
+def test_apply_override_invalid_json_string():
+    step = SimpleNamespace(arguments="<<<")
+    assert _apply_web_search_query_override(step, "only-override") is True
+    assert step.arguments == {"query": "only-override"}
+
+
+def test_apply_override_non_dict_non_string():
+    step = SimpleNamespace(arguments=["list"])
+    assert _apply_web_search_query_override(step, "fallback") is True
+    assert step.arguments == {"query": "fallback"}
+
+
+# =============================================================================
+# Web research step budget tests (from test_web_research_step_budget.py)
+# =============================================================================
+
+
+def test_web_research_augment_messages_includes_used_and_remaining():
+    model = MagicMock()
+    agent = WebResearchToolCallingAgent(tools=[], model=model, max_steps=10)
+    agent.step_number = 3
+
+    # Test case 1: Appending when last message is NOT a user message
+    base = [ChatMessage(role=MessageRole.SYSTEM, content="sys")]
+    out = agent.augment_messages_for_step(base)
+    assert len(out) == 2
+    last = out[-1]
+    assert last.role == MessageRole.USER
+    text = str(last.content)
+    assert "2 step(s) used" in text
+    assert "8 step(s) remaining" in text
+    assert "maximum 10" in text
+
+    # Test case 2: Merging when last message IS a user message
+    base2 = [ChatMessage(role=MessageRole.USER, content="prior")]
+    out2 = agent.augment_messages_for_step(base2)
+    assert len(out2) == 1
+    text2 = str(out2[0].content)
+    assert "2 step(s) used" in text2
+    assert "prior" in text2
+
+
+def test_tool_calling_agent_default_augment_is_identity():
+    model = MagicMock()
+    agent = ToolCallingAgent(tools=[], model=model, max_steps=5)
+    base = [ChatMessage(role=MessageRole.SYSTEM, content=[{"type": "text", "text": "sys"}])]
+    assert agent.augment_messages_for_step(base) is base
