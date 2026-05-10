@@ -34,7 +34,8 @@ sys.modules['com.sun.star.ui.UIElementType'].TOOLPANEL = 1
 sys.path.insert(0, get_plugin_dir())
 
 # To avoid top-level mock pollution, we import these inside the test or use targeted patches
-from plugin.chatbot.panel_factory import SendButtonListener
+# SendButtonListener lives in panel.py; panel_factory no longer re-exports it (lazy import for unopkg).
+from plugin.chatbot.panel import SendButtonListener
 from plugin.chatbot.dialogs import set_control_text, get_control_text
 
 class TestChatModelLogic(unittest.TestCase):
