@@ -349,7 +349,7 @@ The sidebar now updates `model_lru@<endpoint>` when the user picks a model (same
 ## 🌐 Integration & Ecosystem
 
 ### 14. **MCP Protocol Enhancements** 📡
-**Files**: `plugin/networking/mcp_protocol.py`
+**Files**: `plugin/mcp/mcp_protocol.py`
 **Status**: Functional but expandable
 
 - [ ] Add specialized tool opt-in for MCP

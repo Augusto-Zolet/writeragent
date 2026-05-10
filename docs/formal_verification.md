@@ -138,7 +138,7 @@ The following summarizes the implemented modules and the simplified patterns we 
    - Simple enum-based events and union effects
    - Test coverage in `plugin/tests/test_send_state.py`
 
-4. **MCP State Machine** (`plugin/networking/mcp_state.py`)
+4. **MCP State Machine** (`plugin/mcp/mcp_state.py`)
    - HTTP protocol state management
    - Document resolution and tool execution workflows
    - Uses dataclasses for structured effects

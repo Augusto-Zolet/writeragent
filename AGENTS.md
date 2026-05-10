@@ -25,7 +25,7 @@
 | Bootstrap, settings apply, MCP bootstrap | [`plugin/main.py`](plugin/main.py) |
 | Sidebar, send, document resolution | [`plugin/chatbot/panel_factory.py`](plugin/chatbot/panel_factory.py), [`plugin/chatbot/panel.py`](plugin/chatbot/panel.py) |
 | Tool loop / chat FSM | [`plugin/chatbot/tool_loop.py`](plugin/chatbot/tool_loop.py), [`plugin/chatbot/tool_loop_state.py`](plugin/chatbot/tool_loop_state.py) |
-| HTTP / LLM | [`plugin/networking/client.py`](plugin/networking/client.py) (`make_chat_request`, `request_with_tools`, token stripping, shims, pacing) |
+| HTTP / LLM | [`plugin/mcp/client.py`](plugin/mcp/client.py) (`make_chat_request`, `request_with_tools`, token stripping, shims, pacing) |
 | Tools registry | [`plugin/framework/tool.py`](plugin/framework/tool.py) |
 | UNO document helpers | [`plugin/doc/document_helpers.py`](plugin/doc/document_helpers.py) |
 | Config / keys / LRU | [`plugin/framework/config.py`](plugin/framework/config.py) |
@@ -78,7 +78,7 @@ Restart LibreOffice after **`make deploy`**.
 
 ## HTTP / LLM (summary)
 
-All wire behavior—dev/release system prefix, date prefix on first system message, leaked `<|…|>` token stripping, logging/redaction, **50ms minimum between sends** on an `LlmClient` instance, Anthropic/Gemini shims, local HTTPS retry—is implemented in [`plugin/networking/client.py`](plugin/networking/client.py). Read that file when changing requests.
+All wire behavior—dev/release system prefix, date prefix on first system message, leaked `<|…|>` token stripping, logging/redaction, **50ms minimum between sends** on an `LlmClient` instance, Anthropic/Gemini shims, local HTTPS retry—is implemented in [`plugin/mcp/client.py`](plugin/mcp/client.py). Read that file when changing requests.
 
 Persistent connections: [`plugin/ai/service.py`](plugin/ai/service.py). Per-endpoint auth and headers: [`plugin/framework/auth.py`](plugin/framework/auth.py).
 
@@ -139,7 +139,7 @@ UNO helpers are split: [`uno_context.py`](plugin/framework/uno_context.py), [`do
 
 - Paths: Linux `~/.config/libreoffice/{4,24}/user/writeragent.json`; macOS `~/Library/Application Support/LibreOffice/4/user/`; Windows `%APPDATA%\LibreOffice\4\user\`.
 - **`set_config`:** skips write and `config:changed` when unchanged. Unknown keys via `get_config` / `get_config_int` → **`CONFIG_KEY_NOT_FOUND`** with `details["key"]`.
-- **OpenRouter merge:** optional `openrouter_chat_extra` — [`merge_openrouter_chat_extra`](plugin/networking/client.py); blocked keys include `messages`, `tools`, `tool_choice`, `stream`.
+- **OpenRouter merge:** optional `openrouter_chat_extra` — [`merge_openrouter_chat_extra`](plugin/mcp/client.py); blocked keys include `messages`, `tools`, `tool_choice`, `stream`.
 - **Settings UI:** **`core`** must stay skipped in auto-generated tabs ([`manifest_registry.py`](scripts/manifest_registry.py) + [`legacy_ui.py`](plugin/chatbot/legacy_ui.py) agree) or Settings crashes (`btn_tab_core`).
 - Defaults and provider tables: [`plugin/framework/default_models.py`](plugin/framework/default_models.py). **`chat_max_tool_rounds`:** empty string → fallback 25 with debug log.
 - **Chat-related keys:** `chat_context_length`, `chat_max_tokens`, `additional_instructions` (see [`plugin/framework/config.py`](plugin/framework/config.py), [`plugin/framework/constants.py`](plugin/framework/constants.py)).
@@ -147,7 +147,7 @@ UNO helpers are split: [`uno_context.py`](plugin/framework/uno_context.py), [`do
 ### Logging / MCP / misc
 
 - Logs: same directory as `writeragent.json` (else `~/writeragent_debug.log`). **`redact_sensitive_payload_for_log`** on HTTP debug ([`plugin/framework/logging.py`](plugin/framework/logging.py)).
-- **MCP:** HTTP threads → main-thread [`drain_mcp_queue`](plugin/networking/mcp_protocol.py); **`X-Document-URL`** for targeting—[`document_helpers.py`](plugin/doc/document_helpers.py). Start/stop from [`plugin/main.py`](plugin/main.py) bootstrap / [`HttpModule`](plugin/networking/__init__.py)—localhost, no auth.
+- **MCP:** HTTP threads → main-thread [`drain_mcp_queue`](plugin/mcp/mcp_protocol.py); **`X-Document-URL`** for targeting—[`document_helpers.py`](plugin/doc/document_helpers.py). Start/stop from [`plugin/main.py`](plugin/main.py) bootstrap / [`McpModule`](plugin/mcp/__init__.py)—localhost, no auth.
 - **Images:** endpoint uses **`get_image_model`** (not chat model); [`image_utils.py`](plugin/writer/image_utils.py), [`image_tools.py`](plugin/writer/image_tools.py); [docs/image-generation.md](docs/image-generation.md).
 - **Outline / navigation helpers:** ignore stale **DocumentCache** mentions in comments—cache class is not active.
 - **Settings ↔ XDL:** `MainJob._get_settings_field_specs()` in [`plugin/main.py`](plugin/main.py) must match control names.

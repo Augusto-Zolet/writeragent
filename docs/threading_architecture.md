@@ -18,7 +18,7 @@ This is the core concurrency bridge. Because background threads (like the HTTP s
 *   **Synchronization:** The calling background thread blocks on a `threading.Event()` (`_WorkItem.event.wait()`) until the main thread picks up the item, executes it, and sets the result or exception. This provides a synchronous feel to the caller while executing safely on the UI thread.
 *   **Safety:** A `threading.Lock` (`_init_lock`) protects the lazy initialization of the AsyncCallback UNO service.
 
-### 2. HTTP Server and MCP Protocol (`plugin/networking/`)
+### 2. HTTP Server and MCP Protocol (`plugin/mcp/`)
 
 The plugin runs an embedded HTTP server to provide a local API and support the Model Context Protocol (MCP).
 

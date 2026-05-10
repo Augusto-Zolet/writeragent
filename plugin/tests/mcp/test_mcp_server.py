@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import json
 from io import BytesIO
 
-from plugin.networking.mcp_protocol import MCPProtocolHandler
+from plugin.mcp.mcp_protocol import MCPProtocolHandler
 
 class MockHandler:
     """Mock GenericRequestHandler for testing."""

@@ -21,7 +21,7 @@ import logging
 import os
 import time
 
-from plugin.networking.requests import sync_request
+from plugin.mcp.requests import sync_request
 from plugin.framework.config import user_config_dir
 
 log = logging.getLogger(__name__)

@@ -17,12 +17,12 @@
 """Legacy operations for Writer (Extend/Edit Selection)."""
 
 from plugin.framework.config import get_config_int, get_config_str, get_text_model, get_api_config, validate_api_config, get_current_endpoint, update_lru_history
-from plugin.networking.errors import format_error_message
+from plugin.mcp.errors import format_error_message
 from plugin.framework.async_stream import run_stream_completion_async
 from plugin.chatbot.dialogs import msgbox
 from plugin.framework.i18n import _
 from plugin.framework.config import set_config
-from plugin.networking.client import LlmClient
+from plugin.mcp.client import LlmClient
 from plugin.doc.document_helpers import WriterCompoundUndo, WriterStreamedRewriteSession, build_writer_rewrite_prompt, get_string_without_tracked_deletions
 
 

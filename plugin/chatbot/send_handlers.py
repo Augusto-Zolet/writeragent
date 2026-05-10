@@ -16,7 +16,7 @@ import logging
 from typing import TYPE_CHECKING, Protocol, Any, Callable, TypeVar
 
 if TYPE_CHECKING:
-    from plugin.networking.client import LlmClient
+    from plugin.mcp.client import LlmClient
     from plugin.chatbot.panel import ChatSession
     from plugin.chatbot.state_machine import SendHandlerState, EffectInterpreter
 
@@ -91,7 +91,7 @@ class SendHandlersMixin:
 
         if not self.client:
             from plugin.framework.config import get_api_config
-            from plugin.networking.client import LlmClient
+            from plugin.mcp.client import LlmClient
 
             api_config = get_api_config(self.ctx)
             self.client = LlmClient(api_config, self.ctx)

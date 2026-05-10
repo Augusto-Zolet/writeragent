@@ -6,7 +6,7 @@ import time
 import socket
 from unittest.mock import MagicMock
 
-from plugin.networking import NetworkingModule
+from plugin.mcp import McpModule
 
 
 def get_free_port():
@@ -19,9 +19,9 @@ def get_free_port():
 
 @pytest.fixture(scope="module")
 def mcp_server():
-    """Start the HTTP server using NetworkingModule with mocked services."""
-    # Reset NetworkingModule singletons to ensure a clean state for this test module
-    import plugin.networking as http_mod
+    """Start the HTTP server using McpModule with mocked services."""
+    # Reset McpModule singletons to ensure a clean state for this test module
+    import plugin.mcp as http_mod
     with http_mod._http_peer_lock:
         http_mod._primary_http_module = None
         http_mod._shared_registry = None
@@ -71,9 +71,9 @@ def mcp_server():
     }
     services.config = config_svc
 
-    # Initialize NetworkingModule
-    http_module = NetworkingModule()
-    http_module.name = "http"
+    # Initialize McpModule
+    http_module = McpModule()
+    http_module.name = "mcp"
     http_module.initialize(services)
     http_module.start_background(services)
     

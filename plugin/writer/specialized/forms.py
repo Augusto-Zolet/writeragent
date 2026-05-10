@@ -286,7 +286,7 @@ class GenerateForm(ToolWriterFormBase):
 
     def execute(self, ctx, **kwargs):
         from plugin.framework.config import get_api_config
-        from plugin.networking.client import LlmClient
+        from plugin.mcp.client import LlmClient
 
         description = kwargs.get("description")
         config = get_api_config(ctx.ctx)

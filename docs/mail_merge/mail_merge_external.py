@@ -62,7 +62,7 @@ class ExternalMailMergeSystem:
                 'draw': 'plugin/draw',
                 'calc': 'plugin/calc',
                 'chatbot': 'plugin/chatbot',
-                'http': 'plugin/networking'
+                'http': 'plugin/mcp'
             }
         
         result = {}

@@ -25,15 +25,15 @@ from plugin.framework.module_base import ModuleBase
 log = logging.getLogger("writeragent.http")
 
 # LibreOffice may call bootstrap() more than once (e.g. sidebar vs menu UNO contexts). Each run
-# constructs a new NetworkingModule(), which would otherwise create a second registry and try to
+# constructs a new McpModule(), which would otherwise create a second registry and try to
 # bind the same port. The first instance is canonical; later instances reuse its registry/server.
-_primary_http_module: "NetworkingModule | None" = None
+_primary_http_module: "McpModule | None" = None
 _shared_registry: Any = None
 _shared_http_server: Any = None
 _http_peer_lock = threading.Lock()
 
 
-class NetworkingModule(ModuleBase):
+class McpModule(ModuleBase):
     """Manages the shared HTTP server and route registry.
 
     Other modules (chatbot, doc) register routes via the
@@ -46,7 +46,7 @@ class NetworkingModule(ModuleBase):
     def initialize(self, services):
         global _primary_http_module, _shared_registry, _shared_http_server
 
-        from plugin.networking.routes import HttpRouteRegistry
+        from plugin.mcp.routes import HttpRouteRegistry
 
         with _http_peer_lock:
             if _primary_http_module is not None:
@@ -59,7 +59,7 @@ class NetworkingModule(ModuleBase):
                 self._mcp_routes_registered = prim._mcp_routes_registered
                 self._srv_lock = prim._srv_lock
                 services.register("http_routes", self._registry)
-                log.info("NetworkingModule initialize: reusing primary HTTP/MCP (mcp_enabled=%s, server=%s)", services.config.proxy_for(self.name).get("mcp_enabled"), "running" if (_shared_http_server and _shared_http_server.is_running()) else "stopped")
+                log.info("McpModule initialize: reusing primary HTTP/MCP (mcp_enabled=%s, server=%s)", services.config.proxy_for(self.name).get("mcp_enabled"), "running" if (_shared_http_server and _shared_http_server.is_running()) else "stopped")
                 return
 
             self._registry = HttpRouteRegistry()
@@ -79,7 +79,7 @@ class NetworkingModule(ModuleBase):
 
             # MCP endpoints
             mcp_enabled = services.config.proxy_for(self.name).get("mcp_enabled")
-            log.info("NetworkingModule initialize: mcp_enabled=%s", mcp_enabled)
+            log.info("McpModule initialize: mcp_enabled=%s", mcp_enabled)
             if mcp_enabled:
                 self._register_mcp_routes(services)
 
@@ -102,11 +102,13 @@ class NetworkingModule(ModuleBase):
 
     def _on_config_changed(self, **data):
         key = data.get("key", "")
-        # Non-http keys: ignore. Per-key http.* below. Empty key = bulk save (e.g. Settings OK).
-        if key and not key.startswith("http."):
+        prefix = f"{self.name}."
+        # Ignore keys owned by other modules; empty key = bulk save (e.g. Settings OK).
+        if key and not key.startswith(prefix):
             return
+        toggle_key = f"{prefix}mcp_enabled"
         # MCP lifecycle: explicit toggle, or bulk apply (Settings dialog does not pass key).
-        if key and key not in ("http.mcp_enabled",) and key != "":
+        if key and key != toggle_key and key != "":
             return
 
         cfg = self._services.config.proxy_for(self.name)
@@ -125,7 +127,7 @@ class NetworkingModule(ModuleBase):
 
     def _start_server(self, services):
         global _shared_http_server
-        from plugin.networking.server import HttpServer
+        from plugin.mcp.server import HttpServer
 
         with self._srv_lock:
             bound = self._bound_http_server()
@@ -175,7 +177,7 @@ class NetworkingModule(ModuleBase):
 
     def _register_mcp_routes(self, services):
         log.info("Registering MCP routes (SSE, /mcp, /debug)...")
-        from plugin.networking.mcp_protocol import MCPProtocolHandler
+        from plugin.mcp.mcp_protocol import MCPProtocolHandler
 
         self._mcp_protocol = MCPProtocolHandler(services)
         p = self._mcp_protocol

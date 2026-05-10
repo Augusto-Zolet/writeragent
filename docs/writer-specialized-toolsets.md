@@ -224,7 +224,7 @@ flowchart LR
 **Call sites (default listing):**
 
 - Chat: `[plugin/chatbot/tool_loop.py](../../plugin/chatbot/tool_loop.py)` — `get_schemas("openai", doc=model)` (no `exclude_tiers` → default exclusion).
-- MCP: `[plugin/networking/mcp_protocol.py](../../plugin/networking/mcp_protocol.py)` — `get_schemas("mcp", doc=doc)` (same).
+- MCP: `[plugin/mcp/mcp_protocol.py](../../plugin/mcp/mcp_protocol.py)` — `get_schemas("mcp", doc=doc)` (same).
 
 **Execution:** `ToolRegistry.execute` is unchanged; any registered name can still be invoked if the caller passes it.
 

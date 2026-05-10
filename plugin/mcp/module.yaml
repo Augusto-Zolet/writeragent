@@ -1,4 +1,4 @@
-name: networking
+name: mcp
 title: MCP
 provides_services: [http_routes]
 requires: [config, events]

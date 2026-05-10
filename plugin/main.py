@@ -80,8 +80,8 @@ from plugin.framework.uno_context import get_active_document, get_extension_url
 # ---------------------------------------------------------------------------
 
 
-class NetworkingMcpActions(Protocol):
-    """``plugin.networking`` entry points used from main for MCP menu commands."""
+class McpModuleActions(Protocol):
+    """``plugin.mcp`` entry points used from main for MCP menu commands."""
 
     name: str | None
 
@@ -220,7 +220,7 @@ def bootstrap(ctx=None):
 
         _modules.extend(ModuleLoader.load_modules(_services))
 
-        # 6. Background phase: modules that start listeners/servers (e.g. NetworkingModule when MCP enabled)
+        # 6. Background phase: modules that start listeners/servers (e.g. McpModule when MCP enabled)
         for mod in _modules:
             mod.start_background(_services)
 
@@ -616,10 +616,10 @@ def _update_menu_icons():
         log.warning("_update_menu_icons: outer exception: %s", e)
 
 
-def _get_http_module(ctx=None) -> NetworkingMcpActions | None:
+def _get_http_module(ctx=None) -> McpModuleActions | None:
     for mod in _modules:
-        if mod.name == "networking":
-            return cast("NetworkingMcpActions", mod)
+        if mod.name == "mcp":
+            return cast("McpModuleActions", mod)
     return None
 
 
