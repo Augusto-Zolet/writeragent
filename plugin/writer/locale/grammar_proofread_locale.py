@@ -46,6 +46,17 @@ def safe_get_config_bool(ctx: Any, key: str, default: bool = False) -> bool:
         _log.warning("[grammar] safe_get_config_bool failed for key %s: %s", key, e)
         return default
 
+
+def safe_get_config_int(ctx: Any, key: str, default: int = 0) -> int:
+    """Safely read an integer config value, returning default on failure."""
+    from plugin.framework.config import get_config_int
+
+    try:
+        return get_config_int(ctx, key)
+    except Exception as e:
+        _log.warning("[grammar] safe_get_config_int failed for key %s: %s", key, e)
+        return default
+
 # ---------------------------------------------------------------------------
 # Shipped BCP-47 registry + UNO CharLocale bridging
 # ---------------------------------------------------------------------------

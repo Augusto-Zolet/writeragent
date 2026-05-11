@@ -15,7 +15,6 @@ from typing import Any, Literal, Mapping
 
 from .grammar_proofread_cache import cache_get_sentence, cache_put_sentence, ignored_rules_snapshot
 from .grammar_proofread_locale import (
-    GRAMMAR_BATCH_MAX_SENTENCES,
     GRAMMAR_BATCH_SYSTEM_PROMPT_TEMPLATE,
     GRAMMAR_PROOFREAD_MAX_RESPONSE_TOKENS,
     GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS,
@@ -25,6 +24,7 @@ from .grammar_proofread_locale import (
     parse_grammar_batch_json,
     parse_grammar_json,
     safe_get_config_bool,
+    safe_get_config_int,
 )
 from .grammar_proofread_text import normalize_errors_for_text, split_into_sentences
 
@@ -253,15 +253,16 @@ def run_llm_and_cache_batch(
         client = LlmClient(get_api_config(ctx), ctx)
 
         # Batch or Single?
-        force_single = safe_get_config_bool(ctx, "doc.grammar_proofreader_force_single_sentence", True)
+        batch_size = safe_get_config_int(ctx, "doc.grammar_proofreader_batch_sentences", 1)
+        batch_size = max(1, min(8, batch_size))
 
-        if len(valid_items) > 1 and not force_single:
+        if len(valid_items) > 1 and batch_size > 1:
             # Batch mode - chunked to avoid hitting LLM output token limits
             sys_prompt = GRAMMAR_BATCH_SYSTEM_PROMPT_TEMPLATE.format(lang_name=_lang, bcp47=grammar_bcp47)
             ignored = ignored_rules_snapshot()
 
-            for i in range(0, len(valid_items), GRAMMAR_BATCH_MAX_SENTENCES):
-                chunk = valid_items[i : i + GRAMMAR_BATCH_MAX_SENTENCES]
+            for i in range(0, len(valid_items), batch_size):
+                chunk = valid_items[i : i + batch_size]
                 # Format as numbered list
                 user_content = "\n".join(f"{idx+1}. {text}" for idx, (_it, text) in enumerate(chunk))
 

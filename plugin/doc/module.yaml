@@ -33,12 +33,14 @@ config:
     label: Pause grammar while chat/agent runs
     helper: "When on, AI grammar skips background requests while sidebar chat or agent runs, to avoid concurrent API calls."
 
-  grammar_proofreader_force_single_sentence:
-    type: boolean
-    default: true
-    widget: checkbox
-    label: Force single sentence (disable batching)
-    helper: "When on, each sentence is sent in its own independent LLM request. This is slower and more expensive but much more reliable for models with heavy reasoning overhead."
+  grammar_proofreader_batch_sentences:
+    type: int
+    default: 1
+    min: 1
+    max: 8
+    widget: number
+    label: Grammar batch sentences
+    helper: "Number of sentences to send per LLM request (1-8). 1 (default) is most reliable; higher values are faster and cheaper but may hit token limits or cause model errors."
 
   chat_enter_key_sends_message:
     type: boolean

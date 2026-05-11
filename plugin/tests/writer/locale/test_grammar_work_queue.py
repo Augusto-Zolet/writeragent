@@ -297,7 +297,8 @@ def test_run_llm_and_cache_batch_success() -> None:
     """Verify that multiple items are batched and results are stored in cache."""
     ctx = MagicMock()
     # Mock config to enable checker
-    with patch("plugin.writer.locale.grammar_work_queue.safe_get_config_bool", side_effect=lambda ctx, key, default=False: False if "force_single" in key else True), \
+    with patch("plugin.writer.locale.grammar_work_queue.safe_get_config_int", return_value=4), \
+         patch("plugin.writer.locale.grammar_work_queue.safe_get_config_bool", return_value=True), \
          patch("plugin.framework.config.get_config_str", return_value="test-model"), \
          patch("plugin.framework.config.get_text_model", return_value="test-model"), \
          patch("plugin.framework.config.get_api_config", return_value={}), \
@@ -342,7 +343,8 @@ def test_run_llm_and_cache_batch_success() -> None:
 def test_run_llm_and_cache_batch_mismatch_fallback() -> None:
     """Verify fallback to individual processing if LLM returns wrong number of results."""
     ctx = MagicMock()
-    with patch("plugin.writer.locale.grammar_work_queue.safe_get_config_bool", side_effect=lambda ctx, key, default=False: False if "force_single" in key else True), \
+    with patch("plugin.writer.locale.grammar_work_queue.safe_get_config_int", return_value=4), \
+         patch("plugin.writer.locale.grammar_work_queue.safe_get_config_bool", return_value=True), \
          patch("plugin.framework.config.get_config_str", return_value="test-model"), \
          patch("plugin.framework.config.get_text_model", return_value="test-model"), \
          patch("plugin.framework.config.get_api_config", return_value={}), \
@@ -371,9 +373,8 @@ def test_run_llm_and_cache_batch_mismatch_fallback() -> None:
 def test_run_llm_and_cache_batch_chunking() -> None:
     """Verify that large batches are split into smaller chunks."""
     ctx = MagicMock()
-    # Mock GRAMMAR_BATCH_MAX_SENTENCES to something small for testing
-    with patch("plugin.writer.locale.grammar_work_queue.GRAMMAR_BATCH_MAX_SENTENCES", 2), \
-         patch("plugin.writer.locale.grammar_work_queue.safe_get_config_bool", side_effect=lambda ctx, key, default=False: False if "force_single" in key else True), \
+    with patch("plugin.writer.locale.grammar_work_queue.safe_get_config_int", return_value=2), \
+         patch("plugin.writer.locale.grammar_work_queue.safe_get_config_bool", return_value=True), \
          patch("plugin.framework.config.get_config_str", return_value="test-model"), \
          patch("plugin.framework.config.get_text_model", return_value="test-model"), \
          patch("plugin.framework.config.get_api_config", return_value={}), \
@@ -417,11 +418,12 @@ def test_run_llm_and_cache_batch_chunking() -> None:
         assert mock_put.call_count == 5
 
 
-def test_run_llm_and_cache_batch_forced_single() -> None:
-    """Verify that multiple items are processed individually when force_single is True."""
+def test_run_llm_and_cache_batch_size_1() -> None:
+    """Verify that multiple items are processed individually when batch_size is 1."""
     ctx = MagicMock()
-    # Mock force_single to True (the default)
-    with patch("plugin.writer.locale.grammar_work_queue.safe_get_config_bool", side_effect=lambda ctx, key, default=True: True), \
+    # Mock batch_size to 1 (the default)
+    with patch("plugin.writer.locale.grammar_work_queue.safe_get_config_int", return_value=1), \
+         patch("plugin.writer.locale.grammar_work_queue.safe_get_config_bool", return_value=True), \
          patch("plugin.framework.config.get_config_str", return_value="test-model"), \
          patch("plugin.framework.config.get_text_model", return_value="test-model"), \
          patch("plugin.framework.config.get_api_config", return_value={}), \
