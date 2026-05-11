@@ -333,7 +333,7 @@ Two tables: **product / hardening** (user-visible or systemic improvements) and 
 | T4 | Locale normalization roundtrips | Add tests in `test_grammar_proofread_locale.py` verifying `en_US`→`en-US`, `fr_FR`→`fr-FR`, `de_DE`→`de-DE`, `zh_CN`→`zh-CN` normalization, and confirm unsupported locales return empty `getLocales()` list. |
 | T5 | Stale sequence race condition | Add test `test_stale_sequence_race_skips_superseded` in `test_ai_grammar_proofreader_worker.py`: enqueue item A, then B (same `inflight_key`, `enqueue_seq+1`), ensure A is skipped during drain and only B is processed/cached. |
 | T6 | Duplicate substring guard | Add regression test `test_duplicate_substring_normalization` in `test_grammar_proofread_locale.py`: verify `normalize_errors_for_text` correctly anchors errors when the same substring (e.g., `"the the"`) appears multiple times in a sentence. |
-| T7 | Whitespace normalization | Add test `test_strip_zero_width_chars` in `test_grammar_proofread_text.py`: verify `split_into_sentences` strips `` (CR), `` (FF), `` (VT), ` ` (NUL) and normalizes `	` (tab) to space. |
+| T7 | Whitespace normalization | Add test `test_strip_zero_width_chars` in `test_grammar_proofread_text.py`: verify `split_into_sentences` strips carriage return (CR), form feed (FF), vertical tab (VT), NUL, and normalizes tab to space. |
 | T8 | Trailing punctuation normalization | Add test `test_trailing_punct_compaction` in `test_grammar_proofread_cache.py`: verify `_normalize_for_sentence_cache` maps `"Hello!?"` → `"Hello!"`, `"Hello?.."` → `"Hello?"`, and `"Test..."` → `"Test."` for cache key sharing. |
 
 ---
