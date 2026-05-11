@@ -152,7 +152,7 @@ While sentence-scoped checking is excellent for localized grammar, it inherently
 - **Pinned sentence text on enqueue**: Each [`GrammarWorkItem`](../plugin/writer/locale/grammar_work_queue.py) carries **`proofread_sentence_text`** — the exact sentence segment chosen during `doProofreading`. The worker uses it for LLM + cache and **does not** call `split_into_sentences` again on the slice, avoiding BreakIterator disagreements between substring vs full-buffer splits.
 - **Sentence cache**: Cache is keyed by **individual sentence** text (locale + fingerprint, trailing whitespace stripped via `rstrip()`). `MAX_CACHE_SIZE` is **2048**. `split_into_sentences` ([`grammar_proofread_text.py`](../plugin/writer/locale/grammar_proofread_text.py)) uses a **hybrid approach**: for Western/CJK languages, LibreOffice `BreakIterator` plus abbreviation merging (**short Title-case tokens** and **`GRAMMAR_ABBREV_DOT_WORDS`** in [`grammar_proofread_locale.py`](../plugin/writer/locale/grammar_proofread_locale.py), e.g. `approx`, `dept`, `prof`); for Thai, Lao, and Khmer, [`split_sentence_chunks_by_separator_regex`](../plugin/writer/locale/grammar_proofread_locale.py) on whitespace **includes** the delimiter run on each segment so the LLM can see spacing. Each sentence segment **includes trailing whitespace up to the next sentence** so double spaces between sentences are visible to the model; cache keys still normalize via `_normalize_for_sentence_cache`. On **lookup** (`doProofreading`): each sentence is checked independently — if **all** are cached, combined errors are returned immediately (no enqueue); on **partial hit**, cached errors are returned immediately while uncached sentences are enqueued **one queue item per sentence**. On **worker execution** (`_run_llm_and_cache`): **one LLM request per uncached sentence** (pathological multi-fragment slices without pinned text may still split).
 
-  New (2026-05): For **incomplete** sentences (no terminator), `cache_put_sentence` performs a cheap newest-first scan (max 10 recent entries) to evict any incomplete strict-prefix predecessors for the same locale. This prevents LRU churn when a user types a long sentence incrementally ("The qu" → "The quick brown fox..."). Complete sentences are protected and never evicted. The common case collapses to 1 LRU slot. See `test_sentence_cache_incomplete_prefix_compaction`.
+  **Incomplete-prefix compaction:** See **#7: Cache Prefix Compaction** (§6 Code Quality → 7.2 Medium Priority) — newest-first bounded scan, locale-only scan budget, evict all matching incomplete strict-prefix predecessors per put.
 - **LLM**: [`LlmClient.chat_completion_sync`](../plugin/framework/client/llm_client.py) with `response_format={"type":"json_object"}` on the OpenAI-compatible path (Together, OpenRouter, etc.; see docstring on `make_chat_request`), a system prompt (**`GRAMMAR_SYSTEM_PROMPT_TEMPLATE`** in [`grammar_proofread_locale.py`](../plugin/writer/locale/grammar_proofread_locale.py)) requiring a single JSON object `{"errors":[{"wrong","correct","type","reason"},...]}` (schema description in English) plus the **document language** (BCP-47 and English name from the registry), and user message the **checked sentence text** for that worker item (one sentence per request in normal prose). The prompt explicitly asks for errors in the order they appear. For threshold-allowed partial slices, the prompt adds a conservative note that input may be partial. Parser: [`parse_grammar_json`](../plugin/writer/locale/grammar_proofread_locale.py) uses `safe_json_loads` then `json_repair` (with logging) when needed.
 - **Offset Normalization**: `normalize_errors_for_text` uses **`search_pos` tracking** to handle multiple occurrences of the same erroneous text within a window. If ordered scan fails and a global `find` matches **before** `search_pos`, that item is **skipped** (avoids anchoring duplicate substrings to the wrong occurrence).
 - **Traversal whitespace**: `_apply_proofreading_end_positions` and initial empty-result advancement use Unicode **`str.isspace()`**, not ASCII space only, so tabs/NBSP between sentences advance Writer’s next position correctly.
@@ -233,6 +233,140 @@ The standalone [`GrammarChecker.py`](../GrammarChecker.py) (root of repo) was us
 14. **Accessibility / UX copy**: Clear user-facing text that grammar is **asynchronous** (squiggles after pause); link to Writing aids selection when multiple proofreaders exist.
 15. **LanguageTool-class local checking (research)**: Phased roadmap for a **Python-first** checker consuming LT-open rule data toward LanguageTool-grade quality over time, **without JVM** in-stack (`nlprule`/fork accelerator optional). See [docs/languagetool-local-parity-phased-plan.md](languagetool-local-parity-phased-plan.md).
 16. **Parallel grammar worker (optional)**: On paragraph handoff many sentences enqueue at once; processing remains **one sentence after another** on a single worker thread. Future option: limited parallelism for **distinct** `inflight_key` items within one batch while respecting `llm_request_lane`.
+17. **Batched LLM Requests (Latency/Cost)**: Currently, each uncached sentence triggers a separate synchronous LLM request. Future enhancement: batch multiple sentences (e.g., a JSON array of sentences) into a single LLM prompt to reduce network latency and system prompt token costs.
+18. **Queue LIFO/Visibility Priority**: The single sequential worker can get clogged if a user scrolls through a long document (enqueueing many sentences) and then starts typing a new sentence. Consider a LIFO-ish priority queue or a mechanism to flush/deprioritize work items that are no longer visible on screen, ensuring the currently active typing area gets checked first.
+
+--- 
+
+## 6. Code Quality Improvements (Non-Feature)
+
+This section tracks **code health** improvements: simplification, robustness, and maintainability **without** adding user-facing features. These are candidate tasks for cleanup sprints or when refactoring adjacent areas.
+
+### 7.1 High Priority (Correctness & Robustness)
+
+| # | Task | File | Lines | Impact | Effort |
+|---|------|------|-------|--------|--------|
+| 1 | Fix `_GRAMMAR_DISABLED_NOTICE_EMITTED` global state bug | `ai_grammar_proofreader.py` | 258-260 | Never resets on re-enable → disabled message stops appearing | 5 min |
+| 2 | Reduce exception swallowing in `doProofreading` | `ai_grammar_proofreader.py` | 310-510 | Hard to debug failures; masks real problems | 30 min |
+| 3 | Extract `time.sleep` into patchable helper | `ai_grammar_proofreader.py` | 22-24 | Tests shouldn't patch internal `time` import | 10 min |
+| 4 | Remove duplicate `unohelper` import | `ai_grammar_proofreader.py` | 30, 476 | First import unused; shadows second | 2 min |
+| 5 | Use `re.escape()` for `_sterm_class` regex | `grammar_proofread_locale.py` | 290-300 | Prevents subtle bugs with special regex chars | 5 min |
+
+**Details:**
+
+**#1: Global State Bug**
+The module-level `_GRAMMAR_DISABLED_NOTICE_EMITTED` flag is set to `True` when grammar is disabled, but **never reset to `False`** when re-enabled. This means the "grammar disabled" log message appears only once per session, even if the user toggles the feature off and on.
+
+**Fix:** Add `_GRAMMAR_DISABLED_NOTICE_EMITTED = False` after the disabled check in `doProofreading` (line ~263).
+
+**#2: Exception Swallowing**
+The `doProofreading` method has ~6 nested try-except blocks, many of which only log warnings and continue. This masks real problems like config read failures or UNO struct creation errors. Consider extracting helper functions (`_safe_init_logging`, `_safe_get_config`, `_safe_build_result`) to reduce nesting and make failures more explicit.
+
+**#3: Testability**
+Tests currently patch `time.sleep` at the module level. Extract into `_sleep(seconds)` helper that tests can patch instead.
+
+**#4: Dead Import**
+Line 30 imports `unohelper` but it's unused. The actual import is at line 476. Remove line 30.
+
+**#5: Regex Safety**
+The `_sterm_class` regex is built by manual escaping which is fragile. Use `re.escape(_sterm_chars)` instead.
+
+---
+
+### 7.2 Medium Priority (Simplification & Clarity)
+
+| # | Task | File | Lines | Impact | Effort |
+|---|------|------|-------|--------|--------|
+| 6 | Consolidate redundant logging in `enqueue()` | `grammar_work_queue.py` | 320-330 | 3 log lines for same operation | 15 min |
+| 7 | Cache prefix compaction (incomplete sentence LRU) — **shipped** | `grammar_proofread_cache.py` | ~133–164 (`cache_put_sentence`) | Supersedes old “one predecessor / awkward scan” issues; see **#7** details | Done |
+| 8 | Split `doProofreading` into smaller functions | `ai_grammar_proofreader.py` | 270-470 | ~200 line function; hard to follow | 45 min |
+| 9 | Partial locale tuple on failure | `ai_grammar_proofreader.py` | 108-122 | All-or-nothing: one failure → empty tuple | 15 min |
+| 10 | Pre-compile regex patterns | `grammar_proofread_text.py` | Various | Minor performance + clarity | 10 min |
+
+**Details:**
+
+**#6: Redundant Logging**
+`GrammarWorkQueue.enqueue()` emits: (1) `log.info` with full details, (2) `grammar_obs` with same data, (3) more logs inside `tail_enqueue_operation`. Consolidate to one structured log call.
+
+**#7: Cache Prefix Compaction**
+
+**Problem (historical):** Each incomplete fragment (`The`, `The qu`, …) gets its own fingerprint key. Without compaction, incremental typing would leave **many** LRU slots for one logical sentence. Earlier implementations removed **at most one** predecessor per put (spurious `break`), applied the bounded-scan counter in an awkward order relative to locale filtering, or materialized `list(_SENTENCE_CACHE.items())[::-1]` on every put.
+
+**Fix shipped:** [`grammar_proofread_cache.py`](../plugin/writer/locale/grammar_proofread_cache.py) — on **`cache_put_sentence`** when the normalized text is still **incomplete** (no sentence terminator), walk the sentence `OrderedDict` **newest-first** via `reversed(_SENTENCE_CACHE.items())` (no list copy; Python 3.11+ reverses the items view) so the stub the user is replacing is usually hit **early** when repeatedly typing in the same sentence. Apply **`sentence_cache_key_prefix(locale)`** before advancing **`MAX_RECENT_INCOMPLETE_SCAN` (10)** so the budget counts **only** keys for that locale (`sent|<locale>|…`). Collect **all** strict-prefix incomplete predecessors that match within that window and remove them after the scan. Eviction uses **`should_evict_incomplete_prefix_predecessor`** — **complete** sentences are never removed by this path. **Not** the same policy as queue **`deduplicate_grammar_batch`** (no cross–sentence-start prefix relation across different `inflight_key`s).
+
+**Regression tests:** [`test_sentence_cache_incomplete_prefix_compaction`](../plugin/tests/writer/locale/test_grammar_proofread_engine.py), [`test_sentence_cache_locale_isolation`](../plugin/tests/writer/locale/test_grammar_proofread_engine.py).
+
+**#8: Large Function**
+`doProofreading` (~200 lines) mixes: UNO setup, config checks, sentence splitting, cache lookup, queue management, result building. Split into:
+- `_check_enabled_and_locale()`
+- `_get_work_spans()`
+- `_process_span_cache()`
+- `_build_and_return_result()`
+
+**#9: Partial Locale Tuple**
+If one locale in `GRAMMAR_REGISTRY_LOCALE_TAGS` fails to create a UNO struct, the entire `_locale_tuple()` returns empty tuple. Better to continue and return partial list.
+
+**#10: Regex Pre-compilation**
+Patterns like `GRAMMAR_WHITESPACE_RUN_RE` are defined as raw strings then used in `re.compile()` calls. Could pre-compile at module level.
+
+---
+
+### 7.3 Low Priority (Nice-to-Have)
+
+| # | Task | File | Impact |
+|---|------|------|--------|
+| 11 | Use `@dataclass` for ProofreadingResult helper | `ai_grammar_proofreader.py` | Cleaner code |
+| 12 | Add type hints for UNO struct returns | Various | Better IDE support |
+| 13 | Unify `is_stale()` and `inflight_superseded()` | `grammar_work_queue.py` | DRY |
+| 14 | Improve docstrings for complex algorithms | `grammar_proofread_text.py` | Maintainability |
+| 15 | Add revision history to module docstrings | All | Traceability |
+
+**Details:**
+
+**#13: Unify Stale Functions**
+`is_stale(latest_seq: Mapping[str, int], item: GrammarWorkItem)` and `inflight_superseded(latest_seq: Mapping[str, int], inflight_key: str, enqueue_seq: int)` do nearly the same thing. Could be one function with overloaded signatures or a helper that takes the key extraction as a parameter.
+
+---
+
+### 7.4 Structural Suggestions
+
+#### 7.4.1 Error Handling Strategy
+
+Adopt a **tiered error handling** approach instead of the current "log and continue everywhere" pattern:
+
+| Level | Action | Example |
+|-------|--------|---------|
+| **Fatal** | Raise / return None | UNO module missing, `createUnoStruct` fails |
+| **Recoverable** | Log ERROR + return empty/default | Config read fails, locale not supported |
+| **Diagnostic** | Log INFO/DEBUG + continue | Cache miss, queue deduplication |
+
+Currently, too many recoverable errors are silently swallowed with just a warning log.
+
+#### 7.4.2 Logging Discipline
+
+- Use **structured logging** consistently (the `grammar_obs` calls are good)
+- Avoid **duplicate log messages** (same event logged at different levels)
+- Use appropriate log levels:
+  - `DEBUG`: Per-sentence cache hits/misses, queue operations
+  - `INFO`: High-level state changes (enabled/disabled, worker start/stop)
+  - `WARNING`: Recoverable failures (config errors, partial failures)
+  - `ERROR`: Unrecoverable failures that degrade functionality
+
+#### 7.4.3 Testing Considerations
+
+- **Avoid patching internal imports** in tests (e.g., don't patch `time.sleep` at module level)
+- **Extract side effects** into injectable helpers
+- **Prefer pure functions** where possible (e.g., `deduplicate_grammar_batch`, `should_evict_incomplete_prefix_predecessor`)
+
+---
+
+### 7.5 Quick Wins (Under 5 minutes)
+
+1. **Remove dead import:** `import unohelper` at line 30 of `ai_grammar_proofreader.py`
+2. **Fix regex escaping:** Use `re.escape()` in `grammar_proofread_locale.py`
+3. **Reset global flag:** Add `_GRAMMAR_DISABLED_NOTICE_EMITTED = False` after disabled block
+4. **Extract sleep:** Wrap `time.sleep()` in `_sleep()` helper
+5. **Partial locale:** Change `return ()` to `continue` in `_locale_tuple()` loop
 
 ### Docs / agents
 
@@ -241,7 +375,7 @@ The standalone [`GrammarChecker.py`](../GrammarChecker.py) (root of repo) was us
 
 ---
 
-## 6. Revision history (high level)
+## 8. Revision history (high level)
 
 - **Earlier draft**: Described a separate sidebar polling + chat-append path; that direction was **dropped** in favor of native linguistic grammar plus existing **Chat with Document** for conversational help.
 - **2026-04 (Late)**: Paragraph-level batching was attempted then reverted; cache uses **slice fingerprints** (Lightproof-adjacent ideas, see §3).
