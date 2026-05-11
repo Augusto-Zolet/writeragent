@@ -49,7 +49,7 @@ if os.path.isdir(_vendor_plugin) and _vendor_plugin not in sys.path:
     sys.path.insert(0, _vendor_plugin)
 
 import unohelper
-from typing import TYPE_CHECKING, Any, Protocol, cast
+from typing import TYPE_CHECKING, Any, Callable, Protocol, cast
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -102,7 +102,7 @@ _services = None
 log = logging.getLogger(__name__)
 
 # Action handler registry
-_ACTION_HANDLERS = {}
+_ACTION_HANDLERS: dict[str, Callable[..., Any]] = {}
 
 
 def register_action_handler(module_name, action_name, handler_func):

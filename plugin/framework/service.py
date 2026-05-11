@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from abc import ABC
 from dataclasses import dataclass
-from typing import Any, Generic, List, Protocol, TypeVar
+from typing import Any, Generic, List, Protocol, TypeVar, cast
 
 
 # ── FSM State Markers ─────────────────────────────────────────────
@@ -113,7 +113,12 @@ class ServiceRegistry:
             if issubclass(obj, ServiceBase) and obj is not ServiceBase and obj.__module__ == module.__name__ and not inspect.isabstract(obj) and getattr(obj, "name", None):
                 try:
                     # Instantiate by passing the registry itself as 'services'
-                    svc_instance = (obj)(self) if hasattr(obj, "__init__") else (obj)()  # type: ignore
+                    # We check if __init__ is overridden; if so, we pass self (the registry).
+                    # Otherwise we call the default constructor.
+                    if obj.__init__ is not object.__init__:
+                        svc_instance = cast(Any, obj)(self)
+                    else:
+                        svc_instance = obj()
                     self.register(obj.name, svc_instance)
                 except (TypeError, ValueError, ImportError) as e:
                     log.error("Failed to instantiate service %s (TypeError/ValueError/ImportError): %s", obj.__name__, e)

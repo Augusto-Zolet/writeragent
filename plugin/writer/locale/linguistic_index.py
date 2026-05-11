@@ -318,7 +318,7 @@ class IndexService(ServiceBase):
         if cached is not None:
             return cached
         try:
-            import snowballstemmer  # type: ignore
+            import snowballstemmer  # type: ignore[import-untyped]
 
             s = snowballstemmer.stemmer(lang)
             self._stemmers[lang] = s
