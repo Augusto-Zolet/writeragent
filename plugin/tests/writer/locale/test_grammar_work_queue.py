@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from plugin.writer.locale.grammar_proofread_engine import (
+from plugin.writer.locale.grammar_work_queue import (
     GrammarWorkItem,
     deduplicate_grammar_batch,
 )
@@ -22,7 +22,7 @@ def _make_item(
 ) -> GrammarWorkItem:
     """Helper to build a work item with sensible defaults."""
     if not inflight_key:
-        inflight_key = f"{doc_id}|{locale}"
+        inflight_key = f"{doc_id}|{locale}|0"
     return GrammarWorkItem(
         ctx=None,
         full_text=text,
@@ -38,7 +38,7 @@ def _make_item(
 
 def test_mid_sentence_typing_dedup() -> None:
     """Mid-sentence edits are not prefix-related; same inflight_key must supersede."""
-    key = "doc1|en-US"
+    key = "doc1|en-US|0"
     items = [
         _make_item("Hello world.", seq=1, inflight_key=key),
         _make_item("Hello Xworld.", seq=2, inflight_key=key),
@@ -76,7 +76,7 @@ def test_prefix_dedup_different_paragraphs() -> None:
 
 def test_supersede_same_key() -> None:
     """Same inflight_key with different sequences -> only highest seq survives."""
-    key = "doc1|en-US"
+    key = "doc1|en-US|0"
     items = [
         _make_item("Same text.", seq=1, inflight_key=key),
         _make_item("Same text.", seq=3, inflight_key=key),
@@ -89,7 +89,7 @@ def test_supersede_same_key() -> None:
 
 def test_mixed_dedup() -> None:
     """Combination of prefix dedup + supersede in one batch."""
-    key = "doc_short|en-US"
+    key = "doc_short|en-US|0"
     items = [
         # Two versions of the same key (supersede: keep seq=5)
         _make_item("Short.", seq=3, doc_id="doc_short", inflight_key=key),
@@ -157,4 +157,69 @@ def test_reverse_prefix_chain_executes_only_latest() -> None:
     assert item.enqueue_seq == 10
     assert item.full_text[item.n_start : item.n_end] == "W"
 
+
+def test_two_sentences_same_document_distinct_inflight_keys_survive() -> None:
+    """Paragraph handoff enqueues one item per sentence; keys include sentence_start so both remain."""
+    items = [
+        GrammarWorkItem(
+            ctx=None,
+            full_text="First. Second.",
+            n_start=0,
+            n_end=6,
+            grammar_bcp47="en-US",
+            partial_sentence=False,
+            doc_id="doc1",
+            inflight_key="doc1|en-US|0",
+            enqueue_seq=1,
+        ),
+        GrammarWorkItem(
+            ctx=None,
+            full_text="First. Second.",
+            n_start=7,
+            n_end=14,
+            grammar_bcp47="en-US",
+            partial_sentence=False,
+            doc_id="doc1",
+            inflight_key="doc1|en-US|7",
+            enqueue_seq=2,
+        ),
+    ]
+    result = deduplicate_grammar_batch(items)
+    assert len(result) == 2
+
+
+def test_two_sentences_string_prefix_collision_both_survive() -> None:
+    """Regression: ``deduplicate_grammar_batch`` must not apply text-prefix rules across *different* ``inflight_key`` values.
+
+    Historical bug: grouping by (doc, locale) and dropping prefix-related slices removed
+    the first sentence when the second sentence's text extended the first (e.g. ``No.``
+    vs ``No problem today.``). Fix: dedup by ``inflight_key`` only (see comments above
+    ``deduplicate_grammar_batch`` in ``grammar_work_queue.py``).
+    """
+    items = [
+        GrammarWorkItem(
+            ctx=None,
+            full_text="No. No problem today.",
+            n_start=0,
+            n_end=3,
+            grammar_bcp47="en-US",
+            partial_sentence=False,
+            doc_id="doc1",
+            inflight_key="doc1|en-US|0",
+            enqueue_seq=1,
+        ),
+        GrammarWorkItem(
+            ctx=None,
+            full_text="No. No problem today.",
+            n_start=4,
+            n_end=len("No. No problem today."),
+            grammar_bcp47="en-US",
+            partial_sentence=False,
+            doc_id="doc1",
+            inflight_key="doc1|en-US|4",
+            enqueue_seq=2,
+        ),
+    ]
+    result = deduplicate_grammar_batch(items)
+    assert len(result) == 2
 
