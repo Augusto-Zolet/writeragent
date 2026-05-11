@@ -179,6 +179,7 @@ class ToolBase(ABC):
     intent: str | None = None
     is_mutation: bool | None = None
     long_running: bool = False
+    doc_types: list[str] | None = None
 
     def detects_mutation(self):
         """Return True if the tool mutates the document."""
@@ -447,11 +448,8 @@ class ToolRegistry:
             if not filter_doc_type:
                 return True
 
-            has_uno = hasattr(t, "uno_services") and t.uno_services is not None
-            has_types = hasattr(t, "doc_types") and t.doc_types is not None
-
             is_supported = False
-            if has_uno:
+            if t.uno_services is not None:
                 if doc is not None and hasattr(doc, "supportsService"):
                     for svc in t.uno_services:
                         try:
@@ -463,12 +461,12 @@ class ToolRegistry:
                 if is_supported:
                     return True
 
-            if has_types:
+            if t.doc_types is not None:
                 if doc_type is not None and doc_type in t.doc_types:
                     return True
                 return False
 
-            return not has_uno
+            return t.uno_services is None
 
         tools = [t for t in tools if supports_doc(t)]
 
@@ -596,10 +594,7 @@ class ToolRegistry:
 
             # Check document compatibility using uno_services or fallback doc_types
             is_supported = False
-            has_uno = hasattr(tool, "uno_services") and tool.uno_services is not None
-            has_types = hasattr(tool, "doc_types") and tool.doc_types is not None
-
-            if has_uno:
+            if tool.uno_services is not None:
                 if ctx.doc and hasattr(ctx.doc, "supportsService"):
                     for svc in tool.uno_services:
                         try:
@@ -609,11 +604,11 @@ class ToolRegistry:
                         except Exception:
                             pass
 
-            if not is_supported and has_types:
+            if not is_supported and tool.doc_types is not None:
                 if ctx.doc_type and ctx.doc_type in tool.doc_types:
                     is_supported = True
 
-            if not has_uno and not has_types:
+            if tool.uno_services is None and tool.doc_types is None:
                 is_supported = True  # universal tool
 
             if not is_supported:
