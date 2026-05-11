@@ -556,7 +556,7 @@ def generate_manifest_xml(modules, output_path):
         ('application/vnd.sun.star.uno-component;type=Python', 'plugin/main.py'),
         ('application/vnd.sun.star.uno-component;type=Python', 'plugin/prompt_function.py'),
         ('application/vnd.sun.star.uno-component;type=Python', 'plugin/chatbot/panel_factory.py'),
-        ('application/vnd.sun.star.uno-component;type=Python', 'plugin/writer/ai_grammar_proofreader.py'),
+        ('application/vnd.sun.star.uno-component;type=Python', 'plugin/writer/locale/ai_grammar_proofreader.py'),
         (
             'application/vnd.sun.star.configuration-data',
             'registry/org/openoffice/Office/LinguisticWriterAgentGrammar.xcu',

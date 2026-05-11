@@ -56,8 +56,8 @@ except ImportError:
 # INFO once when grammar is off (Writer still calls doProofreading); reset when enabled again.
 _GRAMMAR_DISABLED_NOTICE_EMITTED = False
 
-from .grammar_proofread_cache import cache_get_sentence, ignore_rule_add, ignore_rules_clear, ignored_rules_snapshot
-from .grammar_proofread_locale import (
+from plugin.writer.locale.grammar_proofread_cache import cache_get_sentence, ignore_rule_add, ignore_rules_clear, ignored_rules_snapshot
+from plugin.writer.locale.grammar_proofread_locale import (
     GRAMMAR_PARTIAL_MIN_NONSPACE_CHARS,  # noqa: F401 — module API for tests (`proofreader.GRAMMAR_*`)
     GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS,  # noqa: F401
     GRAMMAR_REGISTRY_LOCALE_TAGS,
@@ -66,13 +66,13 @@ from .grammar_proofread_locale import (
     looks_complete_sentence,
     normalize_uno_locale_to_bcp47,
 )
-from .grammar_proofread_text import (
+from plugin.writer.locale.grammar_proofread_text import (
     NormalizedProofError,
     candidate_sentence_spans_for_proofreading,
     filter_sentence_spans_for_thresholds,
     grammar_inflight_key,
 )
-from .grammar_work_queue import (
+from plugin.writer.locale.grammar_work_queue import (
     GrammarWorkItem,
     GrammarWorkQueue as _GrammarWorkQueue,  # noqa: F401 — test hook ``proofreader._GrammarWorkQueue``
     emit_grammar_status,
