@@ -15,6 +15,7 @@ from typing import Any, Literal, Mapping
 
 from .grammar_proofread_cache import cache_get_sentence, cache_put_sentence, ignored_rules_snapshot
 from .grammar_proofread_locale import (
+    GRAMMAR_BATCH_MAX_SENTENCES,
     GRAMMAR_BATCH_SYSTEM_PROMPT_TEMPLATE,
     GRAMMAR_PROOFREAD_MAX_RESPONSE_TOKENS,
     GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS,
@@ -252,72 +253,79 @@ def run_llm_and_cache_batch(
         client = LlmClient(get_api_config(ctx), ctx)
 
         # Batch or Single?
-        if len(valid_items) > 1:
-            # Batch mode
+        force_single = safe_get_config_bool(ctx, "doc.grammar_proofreader_force_single_sentence", True)
+
+        if len(valid_items) > 1 and not force_single:
+            # Batch mode - chunked to avoid hitting LLM output token limits
             sys_prompt = GRAMMAR_BATCH_SYSTEM_PROMPT_TEMPLATE.format(lang_name=_lang, bcp47=grammar_bcp47)
-            # Format as numbered list
-            user_content = "\n".join(f"{idx+1}. {text}" for idx, (_it, text) in enumerate(valid_items))
-
-            grammar_obs("worker_llm_batch_request", item_count=len(valid_items), total_len=len(user_content))
-            messages = [{"role": "system", "content": sys_prompt}, {"role": "user", "content": user_content}]
-            
-            request_start = time.monotonic()
-            emit_grammar_status("request", f"Batch of {len(valid_items)}", result="LLM batch request")
-            with llm_request_lane():
-                content = client.chat_completion_sync(messages, max_tokens=max_tok * 2, model=model or None, response_format={"type": "json_object"}, prepend_dev_build_system_prefix=False)
-            elapsed_ms = int((time.monotonic() - request_start) * 1000)
-
-            batch_results = parse_grammar_batch_json(content or "")
-            if len(batch_results) != len(valid_items):
-                log.warning("[grammar] LLM batch result count mismatch: expected %s, got %s. Falling back to individual processing for this batch.", len(valid_items), len(batch_results))
-                # Fallback: process individually
-                for item, text in valid_items:
-                    run_llm_and_cache(ctx, item.full_text, item.n_start, item.n_end, item.enqueue_seq, item.inflight_key, grammar_bcp47, item.partial_sentence, proofread_sentence_text=text, grammar_queue=gq)
-                return
-
-            # Store results
             ignored = ignored_rules_snapshot()
-            for idx, (item, text) in enumerate(valid_items):
-                if gq.inflight_superseded(item.inflight_key, item.enqueue_seq):
+
+            for i in range(0, len(valid_items), GRAMMAR_BATCH_MAX_SENTENCES):
+                chunk = valid_items[i : i + GRAMMAR_BATCH_MAX_SENTENCES]
+                # Format as numbered list
+                user_content = "\n".join(f"{idx+1}. {text}" for idx, (_it, text) in enumerate(chunk))
+
+                grammar_obs("worker_llm_batch_request", item_count=len(chunk), total_len=len(user_content))
+                messages = [{"role": "system", "content": sys_prompt}, {"role": "user", "content": user_content}]
+                
+                request_start = time.monotonic()
+                emit_grammar_status("request", f"Batch of {len(chunk)}", result="LLM batch request")
+                with llm_request_lane():
+                    # We use max_tok * 4 as a ceiling for the whole batch response
+                    # to accommodate models that use heavy reasoning tokens.
+                    content = client.chat_completion_sync(messages, max_tokens=max_tok * 4, model=model or None, response_format={"type": "json_object"}, prepend_dev_build_system_prefix=False)
+                elapsed_ms = int((time.monotonic() - request_start) * 1000)
+
+                batch_results = parse_grammar_batch_json(content or "")
+                if len(batch_results) != len(chunk):
+                    log.warning("[grammar] LLM batch result count mismatch for chunk: expected %s, got %s. Falling back to individual processing for this chunk.", len(chunk), len(batch_results))
+                    # Fallback: process only this chunk individually
+                    for item, text in chunk:
+                        run_llm_and_cache(ctx, item.full_text, item.n_start, item.n_end, item.enqueue_seq, item.inflight_key, grammar_bcp47, item.partial_sentence, proofread_sentence_text=text, grammar_queue=gq)
                     continue
-                
-                sent_results = batch_results[idx]
-                norms = normalize_errors_for_text(text, 0, len(text), sent_results, ignored, ctx, grammar_bcp47)
-                cache_put_sentence(grammar_bcp47, text, [asdict(n) for n in norms])
-                
-                issue_word = "issue" if len(norms) == 1 else "issues"
-                emit_grammar_status("complete", text, result=f"{len(norms)} {issue_word}", elapsed_ms=elapsed_ms // len(valid_items))
+
+                # Store results for this chunk
+                for idx, (item, text) in enumerate(chunk):
+                    if gq.inflight_superseded(item.inflight_key, item.enqueue_seq):
+                        continue
+                    
+                    sent_results = batch_results[idx]
+                    norms = normalize_errors_for_text(text, 0, len(text), sent_results, ignored, ctx, grammar_bcp47)
+                    cache_put_sentence(grammar_bcp47, text, [asdict(n) for n in norms])
+                    
+                    issue_word = "issue" if len(norms) == 1 else "issues"
+                    emit_grammar_status("complete", text, result=f"{len(norms)} {issue_word}", elapsed_ms=elapsed_ms // len(chunk))
 
         else:
-            # Single item mode (classic)
-            item, llm_text = valid_items[0]
-            if len(llm_text) > GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS:
-                llm_text = llm_text[:GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS]
-            
-            use_partial = item.partial_sentence or not looks_complete_sentence(llm_text)
-            sys_prompt = GRAMMAR_SYSTEM_PROMPT_TEMPLATE.format(lang_name=_lang, bcp47=grammar_bcp47)
-            if use_partial:
-                sys_prompt += " The input may be a partial sentence; prefer conservative grammar suggestions and avoid broad rewrites."
-            
-            grammar_obs("worker_llm_request_prepare", enqueue_seq=item.enqueue_seq, llm_text_len=len(llm_text), llm_preview=slice_preview_debug(llm_text, 96))
-            messages = [{"role": "system", "content": sys_prompt}, {"role": "user", "content": llm_text}]
-            
-            request_start = time.monotonic()
-            emit_grammar_status("request", llm_text, result="LLM request")
-            with llm_request_lane():
-                content = client.chat_completion_sync(messages, max_tokens=max_tok, model=model or None, response_format={"type": "json_object"}, prepend_dev_build_system_prefix=False)
-            elapsed_ms = int((time.monotonic() - request_start) * 1000)
+            # Single item mode (or forced single)
+            for item, llm_text in valid_items:
+                if len(llm_text) > GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS:
+                    llm_text = llm_text[:GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS]
+                
+                use_partial = item.partial_sentence or not looks_complete_sentence(llm_text)
+                sys_prompt = GRAMMAR_SYSTEM_PROMPT_TEMPLATE.format(lang_name=_lang, bcp47=grammar_bcp47)
+                if use_partial:
+                    sys_prompt += " The input may be a partial sentence; prefer conservative grammar suggestions and avoid broad rewrites."
+                
+                grammar_obs("worker_llm_request_prepare", enqueue_seq=item.enqueue_seq, llm_text_len=len(llm_text), llm_preview=slice_preview_debug(llm_text, 96))
+                messages = [{"role": "system", "content": sys_prompt}, {"role": "user", "content": llm_text}]
+                
+                request_start = time.monotonic()
+                emit_grammar_status("request", llm_text, result="LLM request")
+                with llm_request_lane():
+                    content = client.chat_completion_sync(messages, max_tokens=max_tok, model=model or None, response_format={"type": "json_object"}, prepend_dev_build_system_prefix=False)
+                elapsed_ms = int((time.monotonic() - request_start) * 1000)
 
-            if gq.inflight_superseded(item.inflight_key, item.enqueue_seq):
-                return
+                if gq.inflight_superseded(item.inflight_key, item.enqueue_seq):
+                    continue
 
-            sent_results = parse_grammar_json(content or "")
-            ignored = ignored_rules_snapshot()
-            norms = normalize_errors_for_text(llm_text, 0, len(llm_text), sent_results, ignored, ctx, grammar_bcp47)
-            cache_put_sentence(grammar_bcp47, llm_text, [asdict(n) for n in norms])
-            
-            issue_word = "issue" if len(norms) == 1 else "issues"
-            emit_grammar_status("complete", llm_text, result=f"{len(norms)} {issue_word}", elapsed_ms=elapsed_ms)
+                sent_results = parse_grammar_json(content or "")
+                ignored = ignored_rules_snapshot()
+                norms = normalize_errors_for_text(llm_text, 0, len(llm_text), sent_results, ignored, ctx, grammar_bcp47)
+                cache_put_sentence(grammar_bcp47, llm_text, [asdict(n) for n in norms])
+                
+                issue_word = "issue" if len(norms) == 1 else "issues"
+                emit_grammar_status("complete", llm_text, result=f"{len(norms)} {issue_word}", elapsed_ms=elapsed_ms)
 
     except Exception as e:
         log.error("[grammar] worker batch failed: %s", e, exc_info=True)

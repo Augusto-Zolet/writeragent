@@ -20,7 +20,7 @@ from unittest.mock import MagicMock, patch
 from dataclasses import asdict
 
 
-def _item(seq: int, key: str = "d|en-US|0") -> GrammarWorkItem:
+def _item(seq: int, key: str = "d|en-US|k1") -> GrammarWorkItem:
     return GrammarWorkItem(
         ctx=None,
         full_text="x",
@@ -44,7 +44,7 @@ def _make_item(
 ) -> GrammarWorkItem:
     """Helper to build a work item with sensible defaults."""
     if not inflight_key:
-        inflight_key = f"{doc_id}|{locale}|0"
+        inflight_key = f"{doc_id}|{locale}|k1"
     return GrammarWorkItem(
         ctx=None,
         full_text=text,
@@ -59,17 +59,20 @@ def _make_item(
 
 
 def test_mid_sentence_typing_dedup() -> None:
-    """Mid-sentence edits are not prefix-related; same inflight_key must supersede."""
-    key = "doc1|en-US|0"
+    """Incomplete sentences share a stable key and should supersede."""
+    from plugin.writer.locale.grammar_proofread_text import grammar_inflight_key
+    # All incomplete sentences in a doc share the same key
+    key = grammar_inflight_key("doc1", "en-US", "H", is_complete=False)
+    assert key == "doc1|en-US|INCOMPLETE_WRITER_AGENT_INTERNAL_STRING"
+    assert key == grammar_inflight_key("doc1", "en-US", "Hello world", is_complete=False)
+    
     items = [
-        _make_item("Hello world.", seq=1, inflight_key=key),
-        _make_item("Hello Xworld.", seq=2, inflight_key=key),
-        _make_item("Hello XYworld.", seq=3, inflight_key=key),
+        _make_item("Hello", seq=1, inflight_key=key),
+        _make_item("Hello world", seq=2, inflight_key=key),
     ]
     result = deduplicate_grammar_batch(items)
     assert len(result) == 1
-    assert result[0].enqueue_seq == 3
-    assert result[0].full_text[result[0].n_start : result[0].n_end] == "Hello XYworld."
+    assert result[0].enqueue_seq == 2
 
 
 def test_prefix_dedup_typing_sequence() -> None:
@@ -98,7 +101,7 @@ def test_prefix_dedup_different_paragraphs() -> None:
 
 def test_supersede_same_key() -> None:
     """Same inflight_key with different sequences -> only highest seq survives."""
-    key = "doc1|en-US|0"
+    key = "doc1|en-US|k1"
     items = [
         _make_item("Same text.", seq=1, inflight_key=key),
         _make_item("Same text.", seq=3, inflight_key=key),
@@ -111,7 +114,7 @@ def test_supersede_same_key() -> None:
 
 def test_mixed_dedup() -> None:
     """Combination of prefix dedup + supersede in one batch."""
-    key = "doc_short|en-US|0"
+    key = "doc_short|en-US|k1"
     items = [
         # Two versions of the same key (supersede: keep seq=5)
         _make_item("Short.", seq=3, doc_id="doc_short", inflight_key=key),
@@ -181,31 +184,40 @@ def test_reverse_prefix_chain_executes_only_latest() -> None:
 
 
 def test_two_sentences_same_document_distinct_inflight_keys_survive() -> None:
-    """Paragraph handoff enqueues one item per sentence; keys include sentence_start so both remain."""
+    """Different sentences should have different keys (based on their text) and both remain."""
+    from plugin.writer.locale.grammar_proofread_text import grammar_inflight_key
+    s1 = "First sentence."
+    s2 = "Second sentence."
+    key1 = grammar_inflight_key("doc1", "en-US", s1, is_complete=True)
+    key2 = grammar_inflight_key("doc1", "en-US", s2, is_complete=True)
+    
+    assert key1 != key2
+    
     items = [
-        GrammarWorkItem(
-            ctx=None,
-            full_text="First. Second.",
-            n_start=0,
-            n_end=6,
-            grammar_bcp47="en-US",
-            partial_sentence=False,
-            doc_id="doc1",
-            inflight_key="doc1|en-US|0",
-            enqueue_seq=1,
-        ),
-        GrammarWorkItem(
-            ctx=None,
-            full_text="First. Second.",
-            n_start=7,
-            n_end=14,
-            grammar_bcp47="en-US",
-            partial_sentence=False,
-            doc_id="doc1",
-            inflight_key="doc1|en-US|7",
-            enqueue_seq=2,
-        ),
+        _make_item(s1, seq=1, inflight_key=key1),
+        _make_item(s2, seq=2, inflight_key=key2),
     ]
+    result = deduplicate_grammar_batch(items)
+    assert len(result) == 2
+
+
+def test_paragraph_collision_survives_dedup() -> None:
+    """Two different complete sentences with same relative start (handled by text-based keys) survive."""
+    from plugin.writer.locale.grammar_proofread_text import grammar_inflight_key
+    
+    s1 = "Paragraph one is unique."
+    s2 = "Paragraph two is also unique."
+    
+    key1 = grammar_inflight_key("doc1", "en-US", s1, is_complete=True)
+    key2 = grammar_inflight_key("doc1", "en-US", s2, is_complete=True)
+    
+    assert key1 != key2
+    
+    items = [
+        _make_item(s1, seq=1, inflight_key=key1),
+        _make_item(s2, seq=2, inflight_key=key2),
+    ]
+    
     result = deduplicate_grammar_batch(items)
     assert len(result) == 2
 
@@ -249,17 +261,17 @@ def test_two_sentences_string_prefix_collision_both_survive() -> None:
 
 def test_record_enqueue_latest_updates_map() -> None:
     d, out_of_order, prev_bad = record_enqueue_latest({}, _item(1))
-    assert d["d|en-US|0"] == 1
+    assert d["d|en-US|k1"] == 1
     assert out_of_order is False
     assert prev_bad is None
 
 
 def test_record_enqueue_latest_detects_out_of_order() -> None:
-    d = {"d|en-US|0": 10}
+    d = {"d|en-US|k1": 10}
     d2, out_of_order, prev_bad = record_enqueue_latest(d, _item(5))
     assert out_of_order is True
     assert prev_bad == 10
-    assert d2["d|en-US|0"] == 5
+    assert d2["d|en-US|k1"] == 5
 
 
 def test_tail_enqueue_operation() -> None:
@@ -285,7 +297,7 @@ def test_run_llm_and_cache_batch_success() -> None:
     """Verify that multiple items are batched and results are stored in cache."""
     ctx = MagicMock()
     # Mock config to enable checker
-    with patch("plugin.framework.config.get_config_bool", return_value=True), \
+    with patch("plugin.writer.locale.grammar_work_queue.safe_get_config_bool", side_effect=lambda ctx, key, default=False: False if "force_single" in key else True), \
          patch("plugin.framework.config.get_config_str", return_value="test-model"), \
          patch("plugin.framework.config.get_text_model", return_value="test-model"), \
          patch("plugin.framework.config.get_api_config", return_value={}), \
@@ -330,7 +342,7 @@ def test_run_llm_and_cache_batch_success() -> None:
 def test_run_llm_and_cache_batch_mismatch_fallback() -> None:
     """Verify fallback to individual processing if LLM returns wrong number of results."""
     ctx = MagicMock()
-    with patch("plugin.framework.config.get_config_bool", return_value=True), \
+    with patch("plugin.writer.locale.grammar_work_queue.safe_get_config_bool", side_effect=lambda ctx, key, default=False: False if "force_single" in key else True), \
          patch("plugin.framework.config.get_config_str", return_value="test-model"), \
          patch("plugin.framework.config.get_text_model", return_value="test-model"), \
          patch("plugin.framework.config.get_api_config", return_value={}), \
@@ -354,3 +366,94 @@ def test_run_llm_and_cache_batch_mismatch_fallback() -> None:
 
         # Should have fallen back to run_llm_and_cache for each
         assert mock_single_run.call_count == 2
+
+
+def test_run_llm_and_cache_batch_chunking() -> None:
+    """Verify that large batches are split into smaller chunks."""
+    ctx = MagicMock()
+    # Mock GRAMMAR_BATCH_MAX_SENTENCES to something small for testing
+    with patch("plugin.writer.locale.grammar_work_queue.GRAMMAR_BATCH_MAX_SENTENCES", 2), \
+         patch("plugin.writer.locale.grammar_work_queue.safe_get_config_bool", side_effect=lambda ctx, key, default=False: False if "force_single" in key else True), \
+         patch("plugin.framework.config.get_config_str", return_value="test-model"), \
+         patch("plugin.framework.config.get_text_model", return_value="test-model"), \
+         patch("plugin.framework.config.get_api_config", return_value={}), \
+         patch("plugin.framework.queue_executor.llm_request_lane"), \
+         patch("plugin.framework.client.llm_client.LlmClient") as mock_client_cls, \
+         patch("plugin.writer.locale.grammar_work_queue.cache_get_sentence", return_value=None), \
+         patch("plugin.writer.locale.grammar_work_queue.cache_put_sentence") as mock_put, \
+         patch("plugin.writer.locale.grammar_work_queue.emit_grammar_status"), \
+         patch("plugin.writer.locale.grammar_work_queue.normalize_errors_for_text") as mock_norm, \
+         patch("plugin.writer.locale.grammar_work_queue.ignored_rules_snapshot", return_value=set()):
+
+        mock_client = mock_client_cls.return_value
+        # Mock LLM response with results count that matches chunks
+        # Chunk 1 (2 items), Chunk 2 (2 items), Chunk 3 (1 item)
+        mock_client.chat_completion_sync.side_effect = [
+            '{"results": [{"errors": []}, {"errors": []}]}',
+            '{"results": [{"errors": []}, {"errors": []}]}',
+            '{"results": [{"errors": []}]}',
+        ]
+        mock_norm.return_value = []
+
+        # 5 items, batch size 2 -> 3 chunks (2, 2, 1)
+        items = [
+            GrammarWorkItem(ctx=ctx, full_text=f"Sent {i}.", n_start=0, n_end=10, grammar_bcp47="en-US", partial_sentence=False, doc_id="d1", inflight_key=f"k{i}", enqueue_seq=i, proofread_sentence_text=f"Sent {i}.")
+            for i in range(5)
+        ]
+
+        run_llm_and_cache_batch(items)
+
+        # 3 chunks -> 3 LLM calls
+        assert mock_client.chat_completion_sync.call_count == 3
+        
+        # Verify first call had 2 sentences
+        args, _ = mock_client.chat_completion_sync.call_args_list[0]
+        assert "1. Sent 0.\n2. Sent 1." in args[0][1]["content"]
+
+        # Verify third call had 1 sentence
+        args, _ = mock_client.chat_completion_sync.call_args_list[2]
+        assert "1. Sent 4." in args[0][1]["content"]
+
+        assert mock_put.call_count == 5
+
+
+def test_run_llm_and_cache_batch_forced_single() -> None:
+    """Verify that multiple items are processed individually when force_single is True."""
+    ctx = MagicMock()
+    # Mock force_single to True (the default)
+    with patch("plugin.writer.locale.grammar_work_queue.safe_get_config_bool", side_effect=lambda ctx, key, default=True: True), \
+         patch("plugin.framework.config.get_config_str", return_value="test-model"), \
+         patch("plugin.framework.config.get_text_model", return_value="test-model"), \
+         patch("plugin.framework.config.get_api_config", return_value={}), \
+         patch("plugin.framework.queue_executor.llm_request_lane"), \
+         patch("plugin.framework.client.llm_client.LlmClient") as mock_client_cls, \
+         patch("plugin.writer.locale.grammar_work_queue.cache_get_sentence", return_value=None), \
+         patch("plugin.writer.locale.grammar_work_queue.cache_put_sentence") as mock_put, \
+         patch("plugin.writer.locale.grammar_work_queue.emit_grammar_status"), \
+         patch("plugin.writer.locale.grammar_work_queue.normalize_errors_for_text") as mock_norm, \
+         patch("plugin.writer.locale.grammar_work_queue.ignored_rules_snapshot", return_value=set()):
+
+        mock_client = mock_client_cls.return_value
+        mock_client.chat_completion_sync.return_value = '{"errors": []}'
+        mock_norm.return_value = []
+
+        # 3 items -> should result in 3 separate LLM calls
+        items = [
+            GrammarWorkItem(ctx=ctx, full_text=f"S{i}.", n_start=0, n_end=3, grammar_bcp47="en-US", partial_sentence=False, doc_id="d1", inflight_key=f"k{i}", enqueue_seq=i, proofread_sentence_text=f"S{i}.")
+            for i in range(3)
+        ]
+
+        run_llm_and_cache_batch(items)
+
+        # 3 items -> 3 LLM calls
+        assert mock_client.chat_completion_sync.call_count == 3
+        
+        # Verify first call used the single sentence prompt (not batch prompt)
+        args, _ = mock_client.chat_completion_sync.call_args_list[0]
+        # args[0] is messages
+        # args[0][0] is the system message
+        assert "Reply with a single JSON object only" in args[0][0]["content"]
+        assert "results" not in args[0][0]["content"] # Batch prompt contains "results"
+        assert "S0." == args[0][1]["content"] # args[0][1] is the user message
+
+        assert mock_put.call_count == 3

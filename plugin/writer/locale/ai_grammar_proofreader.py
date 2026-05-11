@@ -345,8 +345,8 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
         """Enqueue uncached sentences for background processing."""
         for sent_start, sent_end, sent_text in uncached_spans:
             seq = next_enqueue_seq()
-            inflight_key = _grammar_inflight_key(a_doc_id, loc_key, sent_start)
             complete_sentence = _looks_complete_sentence(sent_text)
+            inflight_key = _grammar_inflight_key(a_doc_id, loc_key, sent_text, complete_sentence)
             _grammar_obs(
                 "do_proofreading_enqueue",
                 doc_id=a_doc_id,

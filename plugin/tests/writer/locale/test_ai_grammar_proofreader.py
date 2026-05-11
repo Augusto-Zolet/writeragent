@@ -243,12 +243,15 @@ class TestTypingIntegration:
         pr = _make_proofreader()
         enqueued_items = []
         mock_queue_fixture.enqueue.side_effect = lambda item: enqueued_items.append(item)
+        # For incomplete sentences, the key is stable even for short typing bursts
         texts = ["The quick brown fox", "The quick brown fox j"]
         for text in texts:
             pr.doProofreading("test-doc", text, mock_locale_fixture, 0, len(text), ())
-        assert len(enqueued_items) >= 1
+        assert len(enqueued_items) >= 2
         keys = {item.inflight_key for item in enqueued_items}
+        # Both share the 'INCOMPLETE_WRITER_AGENT_INTERNAL_STRING' key
         assert len(keys) == 1
+        assert "INCOMPLETE_WRITER_AGENT_INTERNAL_STRING" in list(keys)[0]
 
     def test_slow_typing_cache_hit(self, mock_config_fixture, mock_locale_fixture, mock_queue_fixture):
         pr = _make_proofreader()
