@@ -95,6 +95,8 @@ class ChatSession:
         self.session_id = session_id
         self.db = None
         self.messages = []
+        self.base_system_prompt = system_prompt or ""
+        self.document_context = ""
 
         self.active_specialized_domain = None
 
@@ -111,10 +113,24 @@ class ChatSession:
                     log.error("ChatSession history load error: %s" % e)
 
         # If no history, or system prompt forced
-        if not self.messages and system_prompt:
-            self.messages.append({"role": "system", "content": system_prompt})
+        if not self.messages and self.base_system_prompt:
+            self.set_system_context(self.base_system_prompt, "")
             if self.db:
-                self.db.add_message("system", system_prompt)
+                self.db.add_message("system", self.messages[0]["content"])
+
+    def set_system_context(self, base_prompt, doc_text=""):
+        """Update the system prompt and document context, combining them into the first message."""
+        self.base_system_prompt = base_prompt
+        self.document_context = doc_text
+        
+        content = base_prompt
+        if doc_text:
+            content += f"\n\n[DOCUMENT CONTENT]\n{doc_text}\n[END DOCUMENT]"
+            
+        if not self.messages or self.messages[0]["role"] != "system":
+            self.messages.insert(0, {"role": "system", "content": content})
+        else:
+            self.messages[0]["content"] = content
 
     def add_user_message(self, content):
         self.messages.append({"role": "user", "content": content})
@@ -139,35 +155,17 @@ class ChatSession:
         # Note: We do NOT persist tool results to history_db.
         # This keeps the persistent history clean of tool formatting requirements.
 
-    def update_document_context(self, doc_text):
-        """Update or insert the document context as a system message.
-        Replaces the existing document context if present, otherwise appends."""
-        context_marker = "[DOCUMENT CONTENT]"
-        context_msg = "%s\n%s\n[END DOCUMENT]" % (context_marker, doc_text)
-
-        # Check if we already have a document context message
-        for i, msg in enumerate(self.messages):
-            if msg["role"] == "system" and context_marker in (msg.get("content") or ""):
-                self.messages[i]["content"] = context_msg
-                return
-        # Insert after the first system prompt
-        insert_at = 1 if self.messages and self.messages[0]["role"] == "system" else 0
-        self.messages.insert(insert_at, {"role": "system", "content": context_msg})
-
     def clear(self):
         """Reset to just the system prompt."""
-        system = None
-        for msg in self.messages:
-            if msg["role"] == "system" and "[DOCUMENT CONTENT]" not in (msg.get("content") or ""):
-                system = msg
-                break
         self.messages = []
+        self.document_context = ""
         if self.db:
             self.db.clear()
-        if system:
-            self.messages.append(system)
+            
+        if self.base_system_prompt:
+            self.set_system_context(self.base_system_prompt, "")
             if self.db:
-                self.db.add_message("system", system["content"])
+                self.db.add_message("system", self.messages[0]["content"])
 
 
 # ---------------------------------------------------------------------------

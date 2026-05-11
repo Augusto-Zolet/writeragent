@@ -245,8 +245,8 @@ class ToolCallingMixin:
             self._terminal_status = "Error"
             return
 
+        # base_prompt will be set after reading the document context
         extra_instructions = get_config_str(self.ctx, "additional_instructions")
-        self.session.messages[0]["content"] = get_chat_system_prompt_for_document(model, extra_instructions, ctx=self.ctx)
 
         if self.model_selector:
             selected_model = self.model_selector.getText()
@@ -289,7 +289,9 @@ class ToolCallingMixin:
             doc_text = get_document_context_for_chat(model, max_context, include_end=True, include_selection=True, ctx=self.ctx)
             log.debug("_do_send: document context length=%d" % len(doc_text))
             agent_log("chat_panel.py:doc_context", "Document context for AI", data={"doc_length": len(doc_text), "doc_prefix_first_200": (doc_text or "")[:200], "max_context": max_context}, hypothesis_id="B")
-            self.session.update_document_context(doc_text)
+            
+            base_prompt = get_chat_system_prompt_for_document(model, extra_instructions, ctx=self.ctx)
+            self.session.set_system_context(base_prompt, doc_text)
         except UnoObjectError as e:
             log.error("Document unavailable: %s" % e, extra={"context": "document_context"})
             self._append_response("\n[Document closed or unavailable.]\n")
@@ -502,7 +504,9 @@ class ToolCallingMixin:
                 if doc:
                     max_ctx = get_config_int(self.ctx, "chat_context_length")
                     doc_text = get_document_context_for_chat(doc, max_ctx, include_end=True, include_selection=True, ctx=self.ctx)
-                    self.session.update_document_context(doc_text)
+                    extra_instructions = get_config_str(self.ctx, "additional_instructions")
+                    base_prompt = get_chat_system_prompt_for_document(doc, extra_instructions, ctx=self.ctx)
+                    self.session.set_system_context(base_prompt, doc_text)
             except Exception:
                 pass
 

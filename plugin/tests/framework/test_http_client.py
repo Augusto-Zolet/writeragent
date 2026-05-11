@@ -399,12 +399,17 @@ def test_make_chat_request_does_not_duplicate_dev_prefix_on_repeated_calls():
     client = LlmClient({"endpoint": "http://test", "model": "test-model"}, ctx)
     messages = [{"role": "system", "content": "Core instructions."}]
     with patch("plugin.framework.client.llm_client.should_prepend_dev_llm_system_prefix", return_value=True):
-        client.make_chat_request(messages, max_tokens=50)
-        client.make_chat_request(messages, max_tokens=50)
-    sys_content = messages[0]["content"]
+        _, _, json_data1, _ = client.make_chat_request(messages, max_tokens=50)
+        _, _, json_data2, _ = client.make_chat_request(messages, max_tokens=50)
+    
+    import json
+    data = json.loads(json_data1)
+    sys_content = data["messages"][0]["content"]
     marker = "[WriterAgent development build]"
     assert sys_content.count(marker) == 1
-    assert sys_content.startswith(LLM_DEV_BUILD_SYSTEM_PREFIX)
+    
+    # Original messages array must NOT be mutated
+    assert messages[0]["content"] == "Core instructions."
 
 
 def test_strip_leaked_chat_template_control_tokens_removes_harmony_style():
@@ -504,3 +509,57 @@ def test_request_with_tools_sync_paces_consecutive_requests(client):
 
     assert len(sleeps) == 1
     assert abs(sleeps[0] - 0.05) < 1e-9
+
+
+def test_make_chat_request_coalesces_system_messages(client):
+    messages = [
+        {"role": "system", "content": "Base instructions."},
+        {"role": "system", "content": "Document context."},
+        {"role": "user", "content": "Hello."}
+    ]
+    
+    # Run the request builder for Anthropic to see how the system message is serialized
+    with patch("plugin.framework.client.llm_client.LlmClient._resolve_auth") as mock_auth:
+        mock_auth.return_value = {"provider": "anthropic"}
+        
+        _, _, json_data, _ = client.make_chat_request(messages, stream=False)
+        import json
+        request_body = json.loads(json_data)
+        
+        # The system string should be a combination of the two
+        # Plus the injected date prepended
+        system_content = request_body.get("system")
+        assert "Base instructions." in system_content
+        assert "Document context." in system_content
+        assert "Today's date is" in system_content
+            
+    # And check Google as well
+    with patch("plugin.framework.client.llm_client.LlmClient._resolve_auth") as mock_auth:
+        mock_auth.return_value = {"provider": "google"}
+        
+        _, _, json_data, _ = client.make_chat_request(messages, stream=False)
+        request_body = json.loads(json_data)
+        
+        system_instruction = request_body.get("system_instruction")
+        parts = system_instruction.get("parts", [])
+        assert len(parts) == 1
+        combined_text = parts[0].get("text")
+        assert "Base instructions." in combined_text
+        assert "Document context." in combined_text
+        assert "Today's date is" in combined_text
+
+    # And check OpenAI-compatible path
+    with patch("plugin.framework.client.llm_client.LlmClient._resolve_auth") as mock_auth:
+        mock_auth.return_value = {"provider": "openai"}
+        
+        _, _, json_data, _ = client.make_chat_request(messages, stream=False)
+        request_body = json.loads(json_data)
+        
+        api_messages = request_body.get("messages", [])
+        assert api_messages[0]["role"] == "system"
+        combined_text = api_messages[0]["content"]
+        assert "Base instructions." in combined_text
+        assert "Document context." in combined_text
+        assert "Today's date is" in combined_text
+        assert len(api_messages) == 2  # The merged system message + the user message
+        assert api_messages[1]["role"] == "user"

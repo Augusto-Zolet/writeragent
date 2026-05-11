@@ -366,6 +366,33 @@ class LlmClient:
         model_name = model or self.config.get("model", "")
         temperature = self.config.get("temperature", 0.5)
 
+        # 0. Coalesce consecutive system messages to prevent dropping instructions in shims
+        # This is a robustness safety net. Typically, this shouldn't happen because we compose 
+        # the base prompt and document context at creation in `tool_loop.py`. If we see this log 
+        # firing, we should investigate what is generating multiple system messages. If it never fires,
+        # we could consider removing this one day.
+        # We work on a new list to avoid modifying the caller's session
+        coalesced_messages: list[Any] = []
+        coalesced_any = False
+        for m in messages:
+            if coalesced_messages and m.get("role") == "system" and coalesced_messages[-1].get("role") == "system":
+                prev_content = coalesced_messages[-1].get("content", "")
+                curr_content = m.get("content", "")
+                if not isinstance(prev_content, str) or not isinstance(curr_content, str):
+                    err_msg = "make_chat_request: System message content is not a string. Multimodal system prompts are not supported by the coalescer."
+                    log.error(err_msg)
+                    raise ValueError(err_msg)
+
+                coalesced_messages[-1]["content"] = prev_content + "\n\n" + curr_content
+                coalesced_any = True
+            else:
+                coalesced_messages.append(dict(m) if isinstance(m, dict) else m)
+        
+        if coalesced_any:
+            log.error("make_chat_request: Coalesced multiple consecutive system messages. This is a fallback and shouldn't typically happen.")
+            
+        messages = coalesced_messages
+
         # 1. Inject date into the first system message if present, or add one.
         # This is done before native shims so all providers see the current date.
         today = datetime.date.today().strftime("%A, %Y-%m-%d")

@@ -39,6 +39,13 @@ class MockSession:
     def __init__(self):
         self.messages = []
 
+    def set_system_context(self, base_prompt, doc_text=""):
+        content = f"{base_prompt}\n\n[DOCUMENT CONTENT]\n{doc_text}\n[END DOCUMENT]"
+        if not self.messages or self.messages[0]["role"] != "system":
+            self.messages.insert(0, {"role": "system", "content": content})
+        else:
+            self.messages[0]["content"] = content
+
     def add_assistant_message(self, content=None, tool_calls=None):
         msg = {"role": "assistant"}
         if content:
@@ -53,9 +60,6 @@ class MockSession:
             "tool_call_id": call_id,
             "content": result
         })
-
-    def update_document_context(self, context_text):
-        pass
 
 class FakePanel(ToolCallingMixin):
     """A minimal mock implementation of the Chatbot panel that uses ToolCallingMixin."""

@@ -20,8 +20,8 @@ class MockSession:
     def __init__(self):
         self.messages = [{"role": "system", "content": "test"}]
 
-    def update_document_context(self, text):
-        pass
+    def set_system_context(self, base_prompt, doc_text=""):
+        self.messages[0]["content"] = f"{base_prompt}\n\n[DOCUMENT CONTENT]\n{doc_text}\n[END DOCUMENT]"
 
     def add_user_message(self, text):
         pass
