@@ -1,0 +1,23 @@
+set pagination off
+set debuginfod enabled on
+set print pretty on
+set breakpoint pending on
+set logging file /home/keithcu/Desktop/Python/writeragent/gdb-catch-uno.log
+set logging overwrite on
+set logging enabled on
+
+handle SIGABRT stop print nopass
+break gcc3::raiseException
+commands
+  silent
+  echo \n=== HIT gcc3::raiseException ===\n
+  bt 28
+  continue
+end
+
+run
+
+echo \n=== STOPPED AFTER SIGNAL/EXIT ===\n
+bt full
+thread apply all bt 30
+quit

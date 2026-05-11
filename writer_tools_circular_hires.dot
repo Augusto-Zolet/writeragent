@@ -1,0 +1,77 @@
+digraph WriterTools {
+    // Use circo engine for circular layout
+    layout=circo;
+    overlap=false;
+    splines=true;
+    
+    node [shape=box, style=filled, fontname="Arial", fontsize=12];
+    edge [arrowsize=0.7, penwidth=2.0];
+    
+    // Main Toolset - Center with blue fill
+    MainTools [label="Main Toolset\nget_document_content\napply_document_content\nget_selection\nset_selection\nget_document_info\nlist_styles\nget_style_info\nstyles_apply\nget_document_stats\nget_document_tree\nget_heading_children\nnavigate_heading\nget_surroundings\nsearch_in_document\nget_index_stats\ndelegate_to_specialized_writer_toolset", 
+               fillcolor="#4a90e2", fontcolor="white", 
+               width=2.5, height=3.5, fixedsize=true];
+    
+    // Specialized Tools - Arrange in circle
+    BookmarksTools [label="Bookmarks\nlist_bookmarks\ncleanup_bookmarks\ncreate_bookmark\ndelete_bookmark\nrename_bookmark\nget_bookmark\nresolve_bookmark", 
+                   fillcolor="#50c878", fontcolor="white"];
+    
+    FieldsTools [label="Fields\nfields_update_all\nupdate_fields_alias\nfields_list\nfields_delete\nfields_insert", 
+                fillcolor="#50c878", fontcolor="white"];
+    
+    IndexesTools [label="Indexes\nindexes_update_all\nrefresh_indexes_alias\nindexes_list\nindexes_create\nindexes_add_mark", 
+                 fillcolor="#50c878", fontcolor="white"];
+    
+    StructuralTools [label="Structural\nlist_sections\ngoto_page\nget_page_objects\nread_section", 
+                     fillcolor="#50c878", fontcolor="white"];
+    
+    PageTools [label="Page\nget_page_style_properties\nset_page_style_properties\nget_header_footer_text\nset_header_footer_text\nget_page_columns\nset_page_columns\ninsert_page_break", 
+              fillcolor="#50c878", fontcolor="white"];
+    
+    TextFramesTools [label="Text Frames\nlist_text_frames\nget_text_frame_info\nset_text_frame_properties", 
+                     fillcolor="#50c878", fontcolor="white"];
+    
+    EmbeddedTools [label="Embedded\nembedded_insert\nembedded_edit", 
+                  fillcolor="#50c878", fontcolor="white"];
+    
+    ImagesTools [label="Images\ngenerate_image\nlist_images\nget_image_info\nset_image_properties\ndownload_image\ninsert_image\ndelete_image\nreplace_image", 
+                fillcolor="#50c878", fontcolor="white"];
+    
+    ShapesTools [label="Shapes\ncreate_shape\nedit_shape\ndelete_shape\nget_draw_summary\nlist_writer_images\nconnect_shapes\ngroup_shapes", 
+                fillcolor="#50c878", fontcolor="white"];
+    
+    ChartsTools [label="Charts\nlist_charts\nget_chart_info\ncreate_chart\nedit_chart\ndelete_chart", 
+                fillcolor="#50c878", fontcolor="white"];
+    
+    TrackingTools [label="Tracking\ntrack_changes_start\ntrack_changes_stop\ntrack_changes_list\ntrack_changes_show\ntrack_changes_accept\ntrack_changes_reject", 
+                   fillcolor="#50c878", fontcolor="white"];
+    
+    FootnotesTools [label="Footnotes\nfootnotes_insert\nfootnotes_list\nfootnotes_edit\nfootnotes_delete\nfootnotes_settings_get\nfootnotes_settings_update", 
+                   fillcolor="#50c878", fontcolor="white"];
+    
+    WebResearchTools [label="Web Research\nweb_search\nvisit_webpage", 
+                     fillcolor="#50c878", fontcolor="white"];
+    
+    CommentsTools [label="Comments\nlist_comments\nadd_comment\ndelete_comment\nresolve_comment\ncomment_workflow", 
+                  fillcolor="#50c878", fontcolor="white"];
+    
+    FormsTools [label="Forms\ncreate_form_control\ncreate_form\ngenerate_form\nlist_form_controls\nedit_form_control\ndelete_form_control", 
+               fillcolor="#50c878", fontcolor="white"];
+    
+    // Connections - Star pattern from center
+    MainTools -> BookmarksTools [dir=both];
+    MainTools -> FieldsTools [dir=both];
+    MainTools -> IndexesTools [dir=both];
+    MainTools -> StructuralTools [dir=both];
+    MainTools -> PageTools [dir=both];
+    MainTools -> TextFramesTools [dir=both];
+    MainTools -> EmbeddedTools [dir=both];
+    MainTools -> ImagesTools [dir=both];
+    MainTools -> ShapesTools [dir=both];
+    MainTools -> ChartsTools [dir=both];
+    MainTools -> TrackingTools [dir=both];
+    MainTools -> FootnotesTools [dir=both];
+    MainTools -> WebResearchTools [dir=both];
+    MainTools -> CommentsTools [dir=both];
+    MainTools -> FormsTools [dir=both];
+}

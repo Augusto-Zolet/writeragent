@@ -65,6 +65,8 @@ from plugin.writer.locale.grammar_proofread_locale import (
     count_nonspace_chars,
     looks_complete_sentence,
     normalize_uno_locale_to_bcp47,
+    safe_get_config_bool,
+    safe_init_logging,
 )
 from plugin.writer.locale.grammar_proofread_text import (
     NormalizedProofError,
@@ -153,38 +155,24 @@ def ensure_writeragent_proofreader_configured(ctx: Any) -> None:
     list). The Linguistic ``GrammarCheckers`` XCU is bundled in the default OXT; users still pick the
     active grammar checker under Tools → Options → Language Settings → Writing aids.
     """
-    from plugin.framework.config import get_config_bool
-    from plugin.framework.logging import init_logging
-
-    try:
-        init_logging(ctx)
-    except Exception as e:
-        log.warning("[grammar] ensure_proofreader_selection: init_logging: %s", e, exc_info=True)
+    safe_init_logging(ctx)
     log.info("[grammar] ensure_proofreader_selection: entry")
     if uno_mod is None:
         log.warning("[grammar] ensure_proofreader_selection: uno module missing, skipping")
         return
-    try:
-        enabled = get_config_bool(ctx, "doc.grammar_proofreader_enabled")
-    except Exception as e:
-        log.warning("[grammar] ensure_proofreader_selection: cannot read doc.grammar_proofreader_enabled: %s", e, exc_info=True)
-        return
+    enabled = safe_get_config_bool(ctx, "doc.grammar_proofreader_enabled")
     if not enabled:
         log.info("[grammar] ensure_proofreader_selection: Doc-tab AI grammar off (enable on Doc tab to use the checker)")
         return
     log.info("[grammar] Doc-tab AI grammar on — if Writer does not underline yet, set WriterAgent as the active grammar checker under Tools → Options → Language Settings → Writing aids for the document language (same locales as the extension’s UI translation set).")
 
 
-def _build_empty_result(proofreader: Any, a_document_identifier: Any, a_text: str, a_locale: Any, n_start_of_sentence_position: int, n_suggested_behind_end_of_sentence_position: int) -> Any:
+def _create_empty_result(proofreader: Any, a_document_identifier: Any, a_text: str, a_locale: Any, n_start_of_sentence_position: int, n_suggested_behind_end_of_sentence_position: int) -> Any:
     """Initialize ProofreadingResult (sentence bounds aligned with Lightproof)."""
     if uno_mod is None:
         raise RuntimeError("uno not available")
     try:
         a_res = cast("Any", uno_mod.createUnoStruct("com.sun.star.linguistic2.ProofreadingResult"))
-    except Exception as e:
-        log.exception("[grammar] _build_empty_result: createUnoStruct ProofreadingResult failed: %s", e)
-        raise
-    try:
         a_res.aDocumentIdentifier = a_document_identifier
         a_res.aText = a_text
         a_res.aLocale = a_locale
@@ -193,6 +181,7 @@ def _build_empty_result(proofreader: Any, a_document_identifier: Any, a_text: st
         a_res.aProperties = ()
         a_res.xProofreader = proofreader
         a_res.aErrors = ()
+
         # Default: follow LO’s suggested end + Lightproof-style space adjustment (see
         # ``_apply_proofreading_end_positions`` when we cover a computed sentence span).
         n_next = n_suggested_behind_end_of_sentence_position
@@ -206,7 +195,7 @@ def _build_empty_result(proofreader: Any, a_document_identifier: Any, a_text: st
         a_res.nBehindEndOfSentencePosition = n_next
         return a_res
     except Exception as e:
-        log.exception("[grammar] _build_empty_result: filling ProofreadingResult failed: %s", e)
+        log.exception("[grammar] _create_empty_result failed: %s", e)
         raise
 
 
@@ -251,6 +240,7 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
         del args
         super().__init__()
         self.ctx = ctx
+        safe_init_logging(ctx)
         self._implementation_name = IMPLEMENTATION_NAME
         self._supported_service_names = (SERVICE_NAME,)
         try:
@@ -291,12 +281,7 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
 
     def _check_enabled_and_locale(self, a_doc_id: str, a_text: str, a_locale: Any, n_start: int, n_suggested_end: int) -> str | None:
         """Return BCP47 locale if grammar checking is enabled and locale is supported, else None."""
-        from plugin.framework.config import get_config_bool
-        try:
-            enabled = get_config_bool(self.ctx, "doc.grammar_proofreader_enabled")
-        except Exception as e:
-            log.warning("[grammar] doProofreading: could not read doc.grammar_proofreader_enabled -> off: %s", e, exc_info=True)
-            enabled = False
+        enabled = safe_get_config_bool(self.ctx, "doc.grammar_proofreader_enabled")
 
         loc_raw = _locale_key(a_locale)
         grammar_bcp47 = normalize_uno_locale_to_bcp47(a_locale)
@@ -397,15 +382,10 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
         if uno_mod is None:
             log.warning("[grammar] doProofreading: uno_mod is None (import failed)")
             raise RuntimeError("uno not available")
+
         a_res: Any = None
         try:
-            from plugin.framework.logging import init_logging
-            try:
-                init_logging(self.ctx)
-            except Exception as e:
-                log.warning("[grammar] doProofreading: init_logging: %s", e, exc_info=True)
-
-            a_res = _build_empty_result(self, aDocumentIdentifier, aText, aLocale, nStartOfSentencePosition, nSuggestedBehindEndOfSentencePosition)
+            a_res = _create_empty_result(self, aDocumentIdentifier, aText, aLocale, nStartOfSentencePosition, nSuggestedBehindEndOfSentencePosition)
 
             loc_key = self._check_enabled_and_locale(aDocumentIdentifier, aText, aLocale, nStartOfSentencePosition, nSuggestedBehindEndOfSentencePosition)
             if not loc_key:
@@ -431,29 +411,15 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
 
             combined_errors, uncached_spans = self._process_cache_hits(aDocumentIdentifier, loc_key, work_spans)
 
+            if combined_errors:
+                a_res.aErrors = _cached_errors_to_uno_tuple(tuple(combined_errors))
+
             if not uncached_spans:
-                try:
-                    a_res.aErrors = _cached_errors_to_uno_tuple(tuple(combined_errors))
-                    _grammar_obs("do_proofreading_cache_all_hit", doc_id=aDocumentIdentifier, grammar_bcp47=loc_key, sentence_count=len(work_spans), error_count=len(combined_errors))
-                except Exception as e:
-                    log.exception("[grammar] doProofreading: per-sentence cache HIT path failed: %s", e)
-                    try:
-                        a_res.aErrors = ()
-                    except Exception:
-                        pass
+                _grammar_obs("do_proofreading_cache_all_hit", doc_id=aDocumentIdentifier, grammar_bcp47=loc_key, sentence_count=len(work_spans), error_count=len(combined_errors))
                 return a_res
 
-            if combined_errors:
-                try:
-                    a_res.aErrors = _cached_errors_to_uno_tuple(tuple(combined_errors))
-                except Exception as e:
-                    log.exception("[grammar] doProofreading: partial cache path failed: %s", e)
-
             cached_ct = len(work_spans) - len(uncached_spans)
-            if cached_ct > 0:
-                miss_reason = "partial_miss"
-            else:
-                miss_reason = "all_uncached"
+            miss_reason = "partial_miss" if cached_ct > 0 else "all_uncached"
 
             _grammar_obs(
                 "do_proofreading_cache_partial_hit",
@@ -470,20 +436,12 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
             return a_res
 
         except Exception as e:
-            log.exception("[grammar] doProofreading failed (returning empty errors if possible): %s", e)
+            log.exception("[grammar] doProofreading failed: %s", e)
             if a_res is not None:
-                try:
-                    a_res.aErrors = ()
-                except Exception:
-                    pass
                 return a_res
-            try:
-                from plugin.framework.logging import init_logging
 
-                init_logging(self.ctx)
-            except Exception:
-                pass
-            return _build_empty_result(self, aDocumentIdentifier, aText, aLocale, nStartOfSentencePosition, nSuggestedBehindEndOfSentencePosition)
+            # Absolute fallback: try to return a fresh empty result if possible
+            return _create_empty_result(self, aDocumentIdentifier, aText, aLocale, nStartOfSentencePosition, nSuggestedBehindEndOfSentencePosition)
 
     def ignoreRule(self, aRuleIdentifier: str, aLocale: Any) -> None:
         try:

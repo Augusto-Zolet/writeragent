@@ -25,6 +25,27 @@ from plugin.framework.json_utils import safe_json_loads
 
 _log = logging.getLogger("writeragent.grammar")
 
+
+def safe_init_logging(ctx: Any) -> None:
+    """Safely initialize logging using the framework's init_logging."""
+    from plugin.framework.logging import init_logging
+
+    try:
+        init_logging(ctx)
+    except Exception as e:
+        _log.warning("[grammar] safe_init_logging failed: %s", e)
+
+
+def safe_get_config_bool(ctx: Any, key: str, default: bool = False) -> bool:
+    """Safely read a boolean config value, returning default on failure."""
+    from plugin.framework.config import get_config_bool
+
+    try:
+        return get_config_bool(ctx, key)
+    except Exception as e:
+        _log.warning("[grammar] safe_get_config_bool failed for key %s: %s", key, e)
+        return default
+
 # ---------------------------------------------------------------------------
 # Shipped BCP-47 registry + UNO CharLocale bridging
 # ---------------------------------------------------------------------------
