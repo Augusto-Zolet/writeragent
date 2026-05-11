@@ -322,7 +322,6 @@ class GrammarWorkQueue:
             self._latest_seq, out_of_order, superseded_prev_seq = record_enqueue_latest(self._latest_seq, item)
             if out_of_order:
                 log.error("[grammar] queue enqueue: out-of-order seq detected for key=%s: incoming seq=%s < latest seq=%s; stale detection may be unreliable", item.inflight_key, item.enqueue_seq, superseded_prev_seq)
-        log.info("[grammar] queue enqueue doc_id=%s locale=%s seq=%s key=%s len=%s preview=%r", item.doc_id, item.grammar_bcp47, item.enqueue_seq, item.inflight_key, len(item.full_text[item.n_start : item.n_end]), self._slice_preview(item))
         grammar_obs("queue_enqueue", doc_id=item.doc_id, locale=item.grammar_bcp47, seq=item.enqueue_seq, inflight_key=item.inflight_key, n_start=item.n_start, n_end=item.n_end, slice_len=len(item.full_text[item.n_start : item.n_end]), partial_sentence=item.partial_sentence, preview=slice_preview_debug(item.full_text[item.n_start : item.n_end]))  # fmt: skip
 
         with self._q.mutex:
@@ -330,7 +329,6 @@ class GrammarWorkQueue:
             op = tail_enqueue_operation(tail, item)
             if op == "replace_tail":
                 assert tail is not None
-                log.info("[grammar] queue replace-at-tail key=%s: seq=%s replacing older seq=%s", item.inflight_key, item.enqueue_seq, tail.enqueue_seq)
                 grammar_obs("queue_replace_tail", inflight_key=item.inflight_key, new_seq=item.enqueue_seq, old_seq=tail.enqueue_seq)
                 self._q.queue[-1] = item
             elif op == "append":
@@ -338,7 +336,7 @@ class GrammarWorkQueue:
                 self._q.unfinished_tasks += 1
                 self._q.not_empty.notify()
             else:
-                log.info("[grammar] queue skip-stale-tail key=%s: incoming seq=%s <= existing seq=%s", item.inflight_key, item.enqueue_seq, tail.enqueue_seq if tail else None)
+                grammar_obs("queue_skip_stale_tail", inflight_key=item.inflight_key, incoming_seq=item.enqueue_seq, existing_seq=tail.enqueue_seq if tail else None)
 
         self._ensure_worker()
 
