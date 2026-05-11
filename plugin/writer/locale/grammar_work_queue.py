@@ -234,7 +234,7 @@ def run_llm_and_cache_batch(
 
             # Only keep uncached ones
             for sent_text in to_process:
-                if cache_get_sentence(grammar_bcp47, sent_text) is None:
+                if cache_get_sentence(grammar_bcp47, sent_text, ctx=ctx) is None:
                     valid_items.append((item, sent_text))
 
         if not valid_items:
@@ -292,7 +292,7 @@ def run_llm_and_cache_batch(
                     
                     sent_results = batch_results[idx]
                     norms = normalize_errors_for_text(text, 0, len(text), sent_results, ignored, ctx, grammar_bcp47)
-                    cache_put_sentence(grammar_bcp47, text, [asdict(n) for n in norms])
+                    cache_put_sentence(grammar_bcp47, text, [asdict(n) for n in norms], ctx=ctx)
                     
                     issue_word = "issue" if len(norms) == 1 else "issues"
                     emit_grammar_status("complete", text, result=f"{len(norms)} {issue_word}", elapsed_ms=elapsed_ms // len(chunk))
@@ -323,7 +323,7 @@ def run_llm_and_cache_batch(
                 sent_results = parse_grammar_json(content or "")
                 ignored = ignored_rules_snapshot()
                 norms = normalize_errors_for_text(llm_text, 0, len(llm_text), sent_results, ignored, ctx, grammar_bcp47)
-                cache_put_sentence(grammar_bcp47, llm_text, [asdict(n) for n in norms])
+                cache_put_sentence(grammar_bcp47, llm_text, [asdict(n) for n in norms], ctx=ctx)
                 
                 issue_word = "issue" if len(norms) == 1 else "issues"
                 emit_grammar_status("complete", llm_text, result=f"{len(norms)} {issue_word}", elapsed_ms=elapsed_ms)

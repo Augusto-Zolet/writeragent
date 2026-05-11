@@ -13,6 +13,7 @@ import collections
 import threading
 from typing import Any
 
+from .grammar_persistence import get_persistence
 from .grammar_proofread_locale import GRAMMAR_CACHE_NORMALIZATION_RE, fingerprint_for_text, looks_complete_sentence
 
 _CACHE_LOCK = threading.Lock()
@@ -26,10 +27,14 @@ MAX_RECENT_INCOMPLETE_SCAN = 10
 _SENTENCE_CACHE: collections.OrderedDict[str, tuple[str, str, bool, list[dict[str, Any]]]] = collections.OrderedDict()
 
 
-def cache_clear() -> None:
+def cache_clear(ctx: Any | None = None) -> None:
     """Clear proofreading cache (e.g. tests)."""
     with _CACHE_LOCK:
         _SENTENCE_CACHE.clear()
+    if ctx:
+        p = get_persistence(ctx)
+        if p:
+            p.clear()
 
 
 def ignore_rules_clear() -> None:
@@ -116,21 +121,32 @@ def make_sentence_key(locale_key: str, sentence: str) -> str:
     return f"{sentence_cache_key_prefix(locale_key)}{sentence_identity_fp(sentence)}"
 
 
-def cache_get_sentence(locale_key: str, sentence: str) -> list[dict[str, Any]] | None:
+def cache_get_sentence(locale_key: str, sentence: str, ctx: Any | None = None) -> list[dict[str, Any]] | None:
     """Return cached errors for this exact sentence (relative to sentence start = 0)."""
     key = make_sentence_key(locale_key, sentence)
     with _CACHE_LOCK:
         hit = _SENTENCE_CACHE.get(key)
-        if not hit:
-            return None
-        cached_fp, _canon, _is_complete, errors = hit
-        if cached_fp != sentence_identity_fp(sentence):
-            return None
-        _SENTENCE_CACHE.move_to_end(key)
-        return list(errors)
+        if hit:
+            cached_fp, _canon, _is_complete, errors = hit
+            if cached_fp == sentence_identity_fp(sentence):
+                _SENTENCE_CACHE.move_to_end(key)
+                return list(errors)
+
+    # Persistence fallback
+    if ctx:
+        p = get_persistence(ctx)
+        if p:
+            fp = sentence_identity_fp(sentence)
+            persisted = p.get(fp)
+            if persisted is not None:
+                # Populate memory cache so future hits are faster
+                cache_put_sentence(locale_key, sentence, persisted, ctx=None)
+                return list(persisted)
+
+    return None
 
 
-def cache_put_sentence(locale_key: str, sentence: str, errors: list[dict[str, Any]]) -> None:
+def cache_put_sentence(locale_key: str, sentence: str, errors: list[dict[str, Any]], ctx: Any | None = None) -> None:
     """Cache errors for this sentence text (errors must have offsets relative to sentence start)."""
     canon = _normalize_for_sentence_cache(sentence)
     fp = fingerprint_for_text(canon)
@@ -141,6 +157,11 @@ def cache_put_sentence(locale_key: str, sentence: str, errors: list[dict[str, An
     with _CACHE_LOCK:
         _SENTENCE_CACHE[key] = (fp, canon, is_complete, [dict(e) for e in clipped])
         _SENTENCE_CACHE.move_to_end(key)
+
+        if ctx:
+            p = get_persistence(ctx)
+            if p:
+                p.put(fp, locale_key, canon, [dict(e) for e in clipped])
 
         if not is_complete:
             prefix = sentence_cache_key_prefix(locale_key)
@@ -165,7 +186,6 @@ def cache_put_sentence(locale_key: str, sentence: str, errors: list[dict[str, An
             _SENTENCE_CACHE.popitem(last=False)
 
 
-def clear_sentence_cache() -> None:
+def clear_sentence_cache(ctx: Any | None = None) -> None:
     """Clear sentence cache (for tests)."""
-    with _CACHE_LOCK:
-        _SENTENCE_CACHE.clear()
+    cache_clear(ctx)

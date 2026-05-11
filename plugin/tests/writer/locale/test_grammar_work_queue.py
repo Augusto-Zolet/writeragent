@@ -16,7 +16,7 @@ from plugin.writer.locale.grammar_work_queue import (
     tail_enqueue_operation,
 )
 from plugin.writer.locale.grammar_proofread_text import NormalizedProofError
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, ANY
 from dataclasses import asdict
 
 
@@ -335,9 +335,9 @@ def test_run_llm_and_cache_batch_success() -> None:
         # Verify cache_put_sentence was called for each sentence
         assert mock_put.call_count == 2
         # First call: "They is here." -> one error
-        mock_put.assert_any_call("en-US", "They is here.", [{"n_error_start": 5, "n_error_length": 2, "suggestions": ("are",), "short_comment": "grammar", "full_comment": "grammar", "rule_identifier": "wa_grammar_0_0f61208a"}])
+        mock_put.assert_any_call("en-US", "They is here.", [{"n_error_start": 5, "n_error_length": 2, "suggestions": ("are",), "short_comment": "grammar", "full_comment": "grammar", "rule_identifier": "wa_grammar_0_0f61208a"}], ctx=ANY)
         # Second call: "All good." -> no errors
-        mock_put.assert_any_call("en-US", "All good.", [])
+        mock_put.assert_any_call("en-US", "All good.", [], ctx=ANY)
 
 
 def test_run_llm_and_cache_batch_mismatch_fallback() -> None:

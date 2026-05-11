@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import pytest
+from unittest.mock import patch
 from plugin.writer.locale import grammar_proofread_cache as gc
 from plugin.writer.locale.grammar_proofread_cache import _normalize_for_sentence_cache
 
@@ -172,3 +173,24 @@ def test_cache_hit_with_trailing_whitespace() -> None:
     assert result is not None
     assert len(result) == 1
     assert result[0]["n_error_start"] == 0
+
+def test_cache_persistence_fallback() -> None:
+    """Test that cache_get_sentence falls back to persistence and populates memory cache."""
+    from unittest.mock import MagicMock
+    from plugin.writer.locale.grammar_persistence import GrammarPersistence
+    
+    ctx = MagicMock()
+    mock_p = MagicMock(spec=GrammarPersistence)
+    errors = [{"wrong": "test", "correct": "TEST", "n_error_start": 0, "n_error_length": 4}]
+    mock_p.get.return_value = errors
+    
+    with patch("plugin.writer.locale.grammar_proofread_cache.get_persistence", return_value=mock_p):
+        # 1. Get from persistence (memory miss)
+        got = gc.cache_get_sentence("en-US", "Persistence test.", ctx=ctx)
+        assert got == errors
+        mock_p.get.assert_called_once()
+        
+        # 2. Subsequent call should hit memory (mock_p.get NOT called again)
+        got2 = gc.cache_get_sentence("en-US", "Persistence test.", ctx=ctx)
+        assert got2 == errors
+        assert mock_p.get.call_count == 1
