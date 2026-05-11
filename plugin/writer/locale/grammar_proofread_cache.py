@@ -143,18 +143,20 @@ def cache_put_sentence(locale_key: str, sentence: str, errors: list[dict[str, An
         _SENTENCE_CACHE.move_to_end(key)
 
         if not is_complete:
+            prefix = sentence_cache_key_prefix(locale_key)
             scan_count = 0
             to_remove: list[str] = []
-            prefix = sentence_cache_key_prefix(locale_key)
-            for k, v in list(_SENTENCE_CACHE.items())[::-1]:
-                if scan_count >= MAX_RECENT_INCOMPLETE_SCAN:
-                    break
+            # Newest-first: typing chains keep superseded incompletes near the LRU end;
+            # bounded scan finds the immediate predecessor quickly.
+            # Prefix filter before scan_count — budget counts this locale only.
+            for k, v in reversed(_SENTENCE_CACHE.items()):
                 if not k.startswith(prefix):
                     continue
+                if scan_count >= MAX_RECENT_INCOMPLETE_SCAN:
+                    break
                 _other_fp, other_canon, other_complete, _ = v
                 if should_evict_incomplete_prefix_predecessor(other_complete=other_complete, other_canon=other_canon, new_canon=canon):
                     to_remove.append(k)
-                    break
                 scan_count += 1
             for k in to_remove:
                 _SENTENCE_CACHE.pop(k, None)
