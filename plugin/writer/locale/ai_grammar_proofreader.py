@@ -311,7 +311,6 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
 
         _GRAMMAR_DISABLED_NOTICE_EMITTED = False
         if grammar_bcp47 is None:
-            log.info("[grammar] doProofreading: locale not in WriterAgent registry: %s", loc_raw)
             _grammar_obs("do_proofreading_skip", reason="locale_not_registered", doc_id=a_doc_id, len_aText=len(a_text), n_start_lo=n_start, n_suggested_behind_end=n_suggested_end, locale_raw=loc_raw)
             return None
 
@@ -323,7 +322,6 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
         raw_spans = candidate_sentence_spans_for_proofreading(self.ctx, loc_key, a_text, n_start, n_suggested_end)
         work_spans = filter_sentence_spans_for_thresholds(raw_spans)
         if not work_spans:
-            log.info("[grammar] doProofreading: no eligible sentences (overlap/threshold) n_start=%s", n_start)
             _grammar_obs(
                 "do_proofreading_skip",
                 reason="no_eligible_sentences_or_incomplete_short",
@@ -364,7 +362,6 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
             seq = next_enqueue_seq()
             inflight_key = _grammar_inflight_key(a_doc_id, loc_key, sent_start)
             complete_sentence = _looks_complete_sentence(sent_text)
-            log.info("[grammar] cache MISS enqueue sentence seq=%s key=%s len=%s", seq, inflight_key, len(sent_text))
             _grammar_obs(
                 "do_proofreading_enqueue",
                 doc_id=a_doc_id,
@@ -431,23 +428,12 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
                 n_suggested_behind_end=nSuggestedBehindEndOfSentencePosition,
                 n_next=getattr(a_res, "nStartOfNextSentencePosition", None),
             )
-            log.info(
-                "[grammar] doProofreading doc_id=%r len_text=%s locale=%s lo_range=[%s,%s) covered_end=%s sentences=%s",
-                aDocumentIdentifier,
-                len(aText),
-                loc_key,
-                nStartOfSentencePosition,
-                nSuggestedBehindEndOfSentencePosition,
-                covered_end,
-                len(work_spans),
-            )
 
             combined_errors, uncached_spans = self._process_cache_hits(aDocumentIdentifier, loc_key, work_spans)
 
             if not uncached_spans:
                 try:
                     a_res.aErrors = _cached_errors_to_uno_tuple(tuple(combined_errors))
-                    log.info("[grammar] per-sentence cache ALL HIT: %s sentence(s), %s error(s)", len(work_spans), len(combined_errors))
                     _grammar_obs("do_proofreading_cache_all_hit", doc_id=aDocumentIdentifier, grammar_bcp47=loc_key, sentence_count=len(work_spans), error_count=len(combined_errors))
                 except Exception as e:
                     log.exception("[grammar] doProofreading: per-sentence cache HIT path failed: %s", e)
@@ -465,10 +451,8 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
 
             cached_ct = len(work_spans) - len(uncached_spans)
             if cached_ct > 0:
-                log.info("[grammar] per-sentence cache PARTIAL HIT: %s cached, %s uncached", cached_ct, len(uncached_spans))
                 miss_reason = "partial_miss"
             else:
-                log.info("[grammar] per-sentence cache MISS (all %s sentence(s) uncached)", len(uncached_spans))
                 miss_reason = "all_uncached"
 
             _grammar_obs(

@@ -187,13 +187,11 @@ def run_llm_and_cache(
             log.warning("[grammar] worker: get_config_bool pause_during_agent: %s", e, exc_info=True)
             pause_during_agent = False
         if pause_during_agent and is_agent_active():
-            log.info("[grammar] worker skipped: agent active and pause_during_agent enabled")
             grammar_obs("worker_skip", reason="pause_during_agent", enqueue_seq=enqueue_seq, inflight_key=inflight_key)
             return
         slice_txt = full_text[n_start:n_end]
         grammar_obs("worker_slice", enqueue_seq=enqueue_seq, inflight_key=inflight_key, grammar_bcp47=grammar_bcp47, partial_sentence=partial_sentence, n_start=n_start, n_end=n_end, slice_len=len(slice_txt), slice_preview=slice_preview_debug(slice_txt))
         if len(slice_txt) > GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS:
-            log.info("[grammar] worker skipped: slice len %s > GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS %s", len(slice_txt), GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS)
             grammar_obs("worker_skip", reason="slice_exceeds_safety_max_chars", slice_len=len(slice_txt), max_chars=GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS)
             return
         if proofread_sentence_text:
@@ -209,7 +207,6 @@ def run_llm_and_cache(
             else:
                 to_process = [txt for _off, txt in sentences]
                 if len(to_process) > 1:
-                    log.info("[grammar] worker: slice split into %s parts; processing each separately", len(to_process))
                     grammar_obs("worker_multi_fragment_slice", enqueue_seq=enqueue_seq, fragment_count=len(to_process))
 
         uncached_texts: list[str] = []
@@ -217,7 +214,6 @@ def run_llm_and_cache(
             if cache_get_sentence(grammar_bcp47, sent_text) is None:
                 uncached_texts.append(sent_text)
         if not uncached_texts:
-            log.info("[grammar] worker skipped: all sentence(s) already cached (race) len=%s", len(slice_txt))
             grammar_obs("worker_skip", reason="all_sentences_cached_race", enqueue_seq=enqueue_seq, slice_len=len(slice_txt))
             return
 
@@ -243,12 +239,6 @@ def run_llm_and_cache(
                 sys_prompt += " The input may be a partial sentence; prefer conservative grammar suggestions and avoid broad rewrites."
             grammar_obs("worker_llm_request_prepare", enqueue_seq=enqueue_seq, llm_text_len=len(llm_text), llm_preview=slice_preview_debug(llm_text, 96))
             messages = [{"role": "system", "content": sys_prompt}, {"role": "user", "content": llm_text}]
-            log.info(
-                "[grammar] LLM request (one sentence) llm_text_len=%s max_tokens=%s model=%s",
-                len(llm_text),
-                max_tok,
-                model or "(default text model)",
-            )
             request_start = time.monotonic()
             emit_grammar_status("request", llm_text, result="LLM request")
             with llm_request_lane():
@@ -256,11 +246,9 @@ def run_llm_and_cache(
             elapsed_ms = int((time.monotonic() - request_start) * 1000)
             log.debug("[grammar] LLM raw response length=%s", len(content or ""))
             if gq.inflight_superseded(inflight_key, enqueue_seq):
-                log.info("[grammar] worker skip cache_put: superseded during LLM seq=%s key=%s", enqueue_seq, inflight_key)
                 grammar_obs("worker_skip", reason="superseded_during_llm", enqueue_seq=enqueue_seq, inflight_key=inflight_key)
                 continue
             items = parse_grammar_json(content or "")
-            log.info("[grammar] parsed %s error item(s) from JSON", len(items))
             ignored = ignored_rules_snapshot()
             norms = normalize_errors_for_text(llm_text, 0, len(llm_text), items, ignored, ctx, grammar_bcp47)
             total_norms += len(norms)
@@ -269,7 +257,6 @@ def run_llm_and_cache(
             issue_word = "issue" if len(norms) == 1 else "issues"
             emit_grammar_status("complete", llm_text, result=f"{len(norms)} {issue_word}", elapsed_ms=elapsed_ms)
 
-        log.info("[grammar] cached errors for %s uncached sentence(s), slice len=%s", len(uncached_texts), len(slice_txt))
         grammar_obs(
             "worker_cache_put_done",
             enqueue_seq=enqueue_seq,
@@ -363,19 +350,15 @@ class GrammarWorkQueue:
                     batch.append(more)
                 except queue.Empty:
                     break
-            log.info("[grammar] queue drain: batch_size=%s", len(batch))
             grammar_obs("queue_drain_batch", batch_size=len(batch), seqs=tuple(x.enqueue_seq for x in batch), keys=tuple(x.inflight_key for x in batch))
             survivors = deduplicate_grammar_batch(batch)
-            log.info("[grammar] queue drain: survivors=%s", len(survivors))
             grammar_obs("queue_drain_survivors", survivor_count=len(survivors), seqs=tuple(x.enqueue_seq for x in survivors))
             for item in survivors:
                 latest = self._latest_seq_for(item.inflight_key)
                 if self._is_stale(item):
-                    log.info("[grammar] queue stale-skip doc_id=%s locale=%s seq=%s latest=%s key=%s preview=%r", item.doc_id, item.grammar_bcp47, item.enqueue_seq, latest, item.inflight_key, self._slice_preview(item))
                     grammar_obs("queue_stale_skip", doc_id=item.doc_id, locale=item.grammar_bcp47, seq=item.enqueue_seq, latest_seq=latest, inflight_key=item.inflight_key)
                     continue
                 try:
-                    log.info("[grammar] queue execute doc_id=%s locale=%s seq=%s latest=%s key=%s len=%s preview=%r", item.doc_id, item.grammar_bcp47, item.enqueue_seq, latest, item.inflight_key, len(item.full_text[item.n_start : item.n_end]), self._slice_preview(item))
                     grammar_obs("queue_execute", doc_id=item.doc_id, locale=item.grammar_bcp47, seq=item.enqueue_seq, latest_seq=latest, inflight_key=item.inflight_key, n_start=item.n_start, n_end=item.n_end, slice_len=len(item.full_text[item.n_start : item.n_end]), partial_sentence=item.partial_sentence)
                     run_llm_and_cache(
                         item.ctx,
