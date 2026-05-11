@@ -20,7 +20,6 @@ from .grammar_proofread_locale import (
     GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS,
     GRAMMAR_SYSTEM_PROMPT_TEMPLATE,
     GRAMMAR_WORKER_PAUSE_TIMEOUT_S,
-    is_whitespace_sentence_locale,
     looks_complete_sentence,
     parse_grammar_batch_json,
     parse_grammar_json,
