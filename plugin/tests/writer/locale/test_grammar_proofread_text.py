@@ -90,6 +90,32 @@ def test_split_abbreviation_not_sentence_boundary() -> None:
     sents = gt.split_into_sentences(None, "en-US", "This is approx. the value.")
     assert len(sents) == 1, f"Expected 1 sentence for approx, got {len(sents)}: {sents}"
 
+def test_split_into_sentences_terminates_when_bi_stuck_on_abbrev() -> None:
+    # Regression: text like "...UNO. <content>" was observed in production to make
+    # bi.endOfSentence return a position <= the abbreviation period the inner loop was
+    # trying to skip past, spinning forever. The main thread froze inside doProofreading
+    # so LibreOffice could not close, and the debug log grew to hundreds of MB.
+    text = "Foo UNO. bar baz."
+    period_idx = text.index(".")  # 7
+
+    call_count = {"n": 0}
+
+    class StuckBI:
+        def endOfSentence(self, _t, pos, _locale):
+            call_count["n"] += 1
+            assert call_count["n"] < 50, f"split_into_sentences looped ({call_count['n']} endOfSentence calls)"
+            if pos <= period_idx:
+                return period_idx + 1
+            return period_idx
+
+    with patch("plugin.writer.locale.grammar_proofread_text.get_break_iterator_and_locale", return_value=(StuckBI(), "en-US")):
+        sents = gt.split_into_sentences(None, "en-US", text)
+
+    assert sents, "must return at least one sentence span"
+    last_start, last_text = sents[-1]
+    assert last_start + len(last_text) == len(text)
+
+
 def test_overlap_forward_expansion() -> None:
     full = "I went to the store."
     items = [{"wrong": "to", "correct": "to the", "type": "grammar"}]

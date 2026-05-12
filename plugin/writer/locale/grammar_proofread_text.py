@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import logging
-import re
 from dataclasses import dataclass
 from typing import Any, Iterable, Sequence
 
@@ -102,10 +101,16 @@ def split_into_sentences(ctx: Any, locale_key: str, text: str) -> list[tuple[int
                     while k < len(text) and text[k].isspace():
                         k += 1
                     # Use BreakIterator from there to find the real sentence end
-                    end_pos = bi.endOfSentence(text, k, locale)
-                    grammar_obs("split_abbrev_skip", word=word, abbrev_len=abbrev_len, i=i, k=k, new_end_pos=end_pos)
-                    if end_pos <= pos:
+                    new_end = bi.endOfSentence(text, k, locale)
+                    grammar_obs("split_abbrev_skip", word=word, abbrev_len=abbrev_len, i=i, k=k, new_end_pos=new_end)
+                    # Forward-progress guard: BreakIterator has been observed to return
+                    # a position <= the abbreviation period itself (e.g. UNO. followed
+                    # by text it cannot bound), which spun this inner loop forever and
+                    # bloated the debug log to hundreds of MB. Bail out when that happens.
+                    if new_end <= end_pos:
                         end_pos = len(text)
+                        break
+                    end_pos = new_end
                     continue
             break
 
