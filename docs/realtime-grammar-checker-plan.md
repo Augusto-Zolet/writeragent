@@ -193,6 +193,13 @@ The native grammar checker pairs **sentence-bound work units** with **sentence-l
 - **Sentence-level gating**: grammar checks run when the slice looks like a complete sentence (terminal punctuation heuristic with multilingual marks such as `. ! ? … ؟ 。 ！ ？ ।`) **or** when partial text reaches `GRAMMAR_PARTIAL_MIN_NONSPACE_CHARS` (15 non-space chars). Short incomplete fragments are skipped before cache/worker scheduling.
 - **Pinned sentence text on enqueue**: Each [`GrammarWorkItem`](../plugin/writer/locale/grammar_work_queue.py) carries **`proofread_sentence_text`** — the exact sentence segment chosen during `doProofreading`. The worker uses it for LLM + cache and **does not** call `split_into_sentences` again on the slice, avoiding BreakIterator disagreements between substring vs full-buffer splits.
 
+#### Sentence splitting and abbreviation handling
+
+- **Sentence splitting**: Uses LibreOffice's UNO `com.sun.star.i18n.BreakIterator` as the primary sentence boundary detector. This provides locale-aware sentence splitting for all supported scripts (Latin, Cyrillic, CJK, Arabic, etc.).
+- **Abbreviation detection**: Dynamic rule-based approach in [`word_before_period_is_abbrev()`](../plugin/writer/locale/grammar_proofread_locale.py) — **no hard-coded lists**. Returns the **alpha character count** (1-6) for text abbreviations (Unicode-aware via `isalpha()`; internal punctuation like dots in `U.S.A.` does **not** count toward the limit), returns **1** for pure numbers (any length, with separators), or **0** for non-abbreviations.
+- **Abbreviation extension logic**: When BreakIterator identifies a period as a potential sentence boundary, the code checks if the preceding word is an abbreviation (alpha count > 0). If so, it skips past the period to `i + 1`, advances past any whitespace, then calls `BreakIterator.endOfSentence()` from that clean position to find the true sentence end. This avoids infinite loops while correctly handling cases like `Dr. Johnson asked...` as a single sentence.
+- **Why not spaCy**: Evaluated spaCy for abbreviation detection but rejected it because its tokenization data and models contained email addresses, personal data, and other extraneous content. The dynamic character-counting approach is simpler, more maintainable, privacy-preserving, and works universally across all scripts without large static tables or external dependencies.
+
 #### Sentence cache
 
 - **In-memory LRU**: Keyed by sentence fingerprint (locale + text hash). `MAX_CACHE_SIZE` is **2048**.

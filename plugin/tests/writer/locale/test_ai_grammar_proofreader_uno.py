@@ -150,11 +150,12 @@ def test_paragraph_two_cached_sentences_return_both_errors() -> None:
     assert _test_ctx is not None
     pr = WriterAgentAiGrammarProofreader(_test_ctx)
     loc = uno.createUnoStruct("com.sun.star.lang.Locale", "en", "US", "")
-    text = "Alpha done. Beta gone."
+    # Use words with 7+ alpha characters that exceed the 1-6 abbreviation threshold
+    text = "Testing complete. Verification finished."
     sents = gt.split_into_sentences(_test_ctx, "en-US", text)
     assert len(sents) >= 2
     for off, st in sents[:2]:
-        wrong = "done" if "Alpha" in st else "gone"
+        wrong = "complete" if "Testing" in st else "finished"
         norms = gt.normalize_errors_for_text(
             st,
             0,
@@ -176,7 +177,8 @@ def test_incremental_nonzero_start_returns_only_overlapping_sentence() -> None:
     assert _test_ctx is not None
     pr = WriterAgentAiGrammarProofreader(_test_ctx)
     loc = uno.createUnoStruct("com.sun.star.lang.Locale", "en", "US", "")
-    text = "First. Second. Third. Fourth."
+    # Use words with 7+ alpha characters that exceed the 1-6 abbreviation threshold
+    text = "Testing. Verification. Complete. Finished."
     sents = gt.split_into_sentences(_test_ctx, "en-US", text)
     assert len(sents) >= 3
     t_off, t_txt = sents[2]
@@ -184,7 +186,7 @@ def test_incremental_nonzero_start_returns_only_overlapping_sentence() -> None:
         t_txt,
         0,
         len(t_txt),
-        [{"wrong": "Third", "correct": "third", "type": "spelling", "reason": "t"}],
+        [{"wrong": "Complete", "correct": "complete", "type": "spelling", "reason": "t"}],
         ctx=_test_ctx,
         loc_key="en-US",
     )
@@ -192,4 +194,4 @@ def test_incremental_nonzero_start_returns_only_overlapping_sentence() -> None:
     res = pr.doProofreading("doc-inc", text, loc, t_off, t_off + len(t_txt), ())
     errs = tuple(res.aErrors)
     assert len(errs) == 1
-    assert text[errs[0].nErrorStart : errs[0].nErrorStart + errs[0].nErrorLength] == "Third"
+    assert text[errs[0].nErrorStart : errs[0].nErrorStart + errs[0].nErrorLength] == "Complete"

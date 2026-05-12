@@ -11,6 +11,17 @@ import re
 from dataclasses import dataclass
 from typing import Any, Iterable, Sequence
 
+log = logging.getLogger("writeragent.grammar")
+
+
+def grammar_obs(event: str, **fields: Any) -> None:
+    """DEBUG-only observability (grep ``[grammar] obs`` in logs)."""
+    if not log.isEnabledFor(logging.DEBUG):
+        return
+    kv = " ".join(f"{k}={v!r}" for k, v in fields.items())
+    log.debug("[grammar] obs %s %s", event, kv)
+
+
 from .grammar_proofread_locale import (
     GRAMMAR_PARTIAL_MIN_NONSPACE_CHARS,
     GRAMMAR_WHITESPACE_RUN_RE,
@@ -23,7 +34,6 @@ from .grammar_proofread_locale import (
     word_before_period_is_abbrev,
 )
 
-_grammar_diag = logging.getLogger("writeragent.grammar")
 _TOKEN_RE = re.compile(r"\w+|\W+")
 
 # ---------------------------------------------------------------------------
@@ -86,11 +96,19 @@ def split_into_sentences(ctx: Any, locale_key: str, text: str) -> list[tuple[int
                 while j >= pos and not text[j].isspace() and text[j] not in ".!?":
                     j -= 1
                 word = text[j + 1 : i]
-                if word_before_period_is_abbrev(word):
-                    next_end = bi.endOfSentence(text, end_pos, locale)
-                    if next_end > end_pos:
-                        end_pos = next_end
-                        continue
+                abbrev_len = word_before_period_is_abbrev(word)  # Returns alpha char count (1-6) or 1 for pure numbers
+                grammar_obs("word_before_period_is_abbrev", word=word, abbrev_len=abbrev_len, text_preview=text[pos:pos+60])
+                if abbrev_len > 0:  # >0 means it's an abbreviation or number
+                    # Skip past the period and any whitespace
+                    k = i + 1
+                    while k < len(text) and text[k].isspace():
+                        k += 1
+                    # Use BreakIterator from there to find the real sentence end
+                    end_pos = bi.endOfSentence(text, k, locale)
+                    grammar_obs("split_abbrev_skip", word=word, abbrev_len=abbrev_len, i=i, k=k, new_end_pos=end_pos)
+                    if end_pos <= pos:
+                        end_pos = len(text)
+                    continue
             break
 
         ws_end = extend_through_trailing_whitespace(text, end_pos)
@@ -215,7 +233,7 @@ def anchor_wrong_in_window(window: str, wrong: str, search_pos: int, *, wrong_id
     if rel < 0:
         return None
     if rel < search_pos:
-        _grammar_diag.debug("[grammar] normalize_errors_for_text: skipped out-of-order duplicate wrong=%r idx=%s search_pos=%s", wrong, wrong_idx, search_pos)
+        grammar_obs("normalize_skip_duplicate", wrong=wrong, wrong_idx=wrong_idx, search_pos=search_pos)
         return None
     return rel
 
@@ -285,5 +303,5 @@ def normalize_errors_for_text(full_text: str, n_slice_start: int, n_slice_end: i
         try:
             results.append(NormalizedProofError(n_error_start=pos, n_error_length=length, suggestions=sugg, short_comment=short[:500], full_comment=full[:2000], rule_identifier=rule_id))
         except Exception as e:
-            _grammar_diag.warning("[grammar] normalize_errors_for_text: skipped item idx=%s: %s", idx, e, exc_info=True)
+            grammar_obs("normalize_error", idx=idx, error=str(e))
     return results

@@ -323,34 +323,32 @@ def looks_complete_sentence(text: str) -> bool:
 # ---------------------------------------------------------------------------
 # Abbreviations before "." (BreakIterator sentence extension)
 # ---------------------------------------------------------------------------
+# Test sentence to use I keep here to make it easy to copy (DO NOT DELETE): Dr. Johnson asked, when are you coming over?
 
-GRAMMAR_ABBREV_DOT_WORDS: frozenset[str] = frozenset(
-    {
-        "approx",
-        "assoc",
-        "dept",
-        "prof",
-        "univ",
-        "ext",
-        "fig",
-        "vol",
-        "misc",
-        "vs",
-        "etc",
-        "mr",
-        "mrs",
-        "dr",
-        "ms",
-    }
-)
-
-
-def word_before_period_is_abbrev(word: str) -> bool:
+def word_before_period_is_abbrev(word: str) -> int:
+    """Returns >0 if word is an abbreviation or number (not a sentence terminator), else 0.
+    
+    For abbreviations, returns the alpha character count (1-6 alphabetic characters, 
+    Unicode-aware via `isalpha()`; internal punctuation like dots in `U.S.A.` does 
+    NOT count toward the limit). For pure numbers, returns 1 (non-zero to indicate 
+    "treat as abbreviation" even though there are no alpha chars).
+    
+    Works for abbreviations worldwide: U.S.A., Ph.D., e.g., i.e., USA, etc, Mr, Dr, No., a.m., РФ, etc.
+    Also handles numbers: 123, 123.45, 1,234, etc.
+    """
     if not word:
-        return False
-    if word.lower() in GRAMMAR_ABBREV_DOT_WORDS:
-        return True
-    return 0 < len(word) <= 3 and word[0].isupper()
+        return 0
+    # Count alphabetic characters
+    alpha_count = sum(1 for ch in word if ch.isalpha())
+    # Check if it's a pure number (no alpha chars, but has digits)
+    if alpha_count == 0:
+        if any(ch.isdigit() for ch in word):
+            return 1  # Pure number - return 1 to indicate "treat as abbrev"
+    # Text abbreviations: 1-6 alphabetic characters
+    if 1 <= alpha_count <= 6:
+        return alpha_count
+    _log.debug("[grammar] obs word_before_period_is_abbrev REJECT word=%r alpha_count=%d", word, alpha_count)
+    return 0
 
 
 # ---------------------------------------------------------------------------
