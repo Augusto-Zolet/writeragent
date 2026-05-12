@@ -334,10 +334,9 @@ Two tables: **product / hardening** (user-visible or systemic improvements) and 
 | P14 | Parallel grammar worker | Optional limited parallelism across **distinct** documents while respecting `llm_request_lane`. |
 | P15 | Queue priority / visibility | Prefer currently edited or visible ranges over scroll-induced backlog (related to **C5**). |
 | P16 | Remove obsolete timeout config | Clean up `doc.grammar_proofreader_wait_timeout_ms` from `plugin/doc/module.yaml` and UI — the proofreader return path no longer uses it, and it clutters settings. |
-| P17 | Configurable LLM max tokens | Expose the hardcoded **2048** max output tokens as `doc.grammar_proofreader_max_tokens` so users can tune for different endpoints or models. |
+| P17 | Configurable LLM max tokens | Expose the hardcoded **3072** max output tokens as `doc.grammar_proofreader_max_tokens` so users can tune for different endpoints or models. |
 | P18 | Configurable max chars | Move `GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS` (8192) to a config key `doc.grammar_proofreader_max_chars`; allows tuning for very long sentences without code changes. |
 | P19 | Batch size validation | Enforce `1 <= doc.grammar_proofreader_batch_sentences <= 8` at config read time; log **WARNING** if out of range and clamp to bounds. |
-| P20 | Model fallback clarity | When `doc.grammar_proofreader_model` is empty, log **INFO**: `"Using chat text model: {model_name}"` so users know which endpoint grammar requests are sent to. |
 | P23 | Regional locale opt-out | Allow specific locales (e.g., `en-AU`, `pt-PT`) to opt-out of normalization to the "base" language if regional grammar nuances are significant. |
 
 ### Code health and maintainability

@@ -20,8 +20,8 @@ class FakeBI:
         res = MagicMock()
         m = re.compile(r"\w+|\W+").match(text, pos)
         if m:
-            res.startPos = pos + m.start()
-            res.endPos = pos + m.end()
+            res.startPos = m.start()
+            res.endPos = m.end()
         else:
             res.startPos = pos
             res.endPos = len(text)
