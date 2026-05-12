@@ -237,6 +237,32 @@ The native grammar checker pairs **sentence-bound work units** with **sentence-l
 - **Memory warm-up**: `cache_get_sentence` promotes persistence hits to the memory LRU cache via `_populate_memory_cache_only`. This ensures subsequent re-traversals of the same sentence are handled in memory without repeated disk I/O.
 - **UI responsiveness**: Persistence writes in `cache_put_sentence` are performed outside the global `_CACHE_LOCK`, ensuring slow disk I/O does not block the foreground proofreading pass.
 
+> [!NOTE]
+> **Alternative: Document-embedded Cache (Proposed)**
+> We are considering an alternative persistence strategy: instead of a global SQLite database, the grammar checker would maintain an in-memory cache per document and persist it directly *inside* the `.odt` file.
+> 
+> - **Mechanism**: 
+>   - **Load**: On document open (or first grammar call), load the cached errors from a hidden document property or a custom stream within the ODF package.
+>   - **Run**: Use an in-memory cache for the duration of the session.
+>   - **Save**: Hook into the `onPrepareSave` event to serialize the current cache back into the document.
+> - **Storage Optimization (Avoiding Bloat)**:
+>   - **Full Data for Errors**: Store the full error payload (wrong/correct text, suggestions, reasons) only for sentences that have issues.
+>   - **Hashes for Clean Sentences**: For sentences with zero errors, store only their **fingerprint hash**. This allows the engine to recognize "I've checked this and it's perfect" with minimal storage overhead (e.g., 8-16 bytes per clean sentence).
+> - **Pruning Strategies**:
+>   - **Session Survival (Efficient)**: Only persist entries (both error payloads and clean hashes) that were actually requested during the current session. This naturally prunes deleted text with $O(1)$ overhead on save. *Note*: The risk of "prematurely pruning unread sections" is mitigated if the host application (LibreOffice) traverses the entire document on open/check.
+> - **Cache vs. Official List**:
+>   - **If it's just a cache**: (A performance optimization to avoid LLM costs), SQLite is superior because it shares knowledge across *all* documents.
+>   - **If it's an "Official List"**: (A record of "the AI has reviewed this and these are the results"), then it *belongs* in the document. This turns the cache into a persistent "Grammar State" that ensures the document looks the same on every machine.
+> - **Advantages**:
+>   - **No Global Limit**: We don't have to worry about a global 5000-entry limit; each file manages its own cache size.
+>   - **Portability**: If you send the document to a colleague (who also has WriterAgent), they see the squiggles immediately without re-triggering LLM calls.
+>   - **Isolation**: Work on "Document A" doesn't evict cache entries for "Document B".
+> - **Implementation Note**: The current architecture already uses **fingerprint hashes** (`fingerprint_for_text`) as the primary key for all sentence cache lookups (memory and SQLite). Adding a document-embedded layer would require zero refactoring of the core logic; it would simply be another persistence backend that stores and retrieves these existing hashes.
+> - **Personal Opinion**: 
+>   If we treat this purely as a **cache**, SQLite is better because it's more efficient for the user's total workflow (boilerplate text is checked once for all files). But if we want WriterAgent to provide a **consistent experience across collaborators**, document-embedding is the only way to ensure two people see the same underlines without double-spending tokens. 
+>   **The Trade-off**: The primary risk is **privacy and bloat**. If a user checks a sensitive document and then shares the `.odt`, the cached text snippets might be recoverable from the file metadata even if the visible text is changed.
+
+
 #### LLM wire format and parser
 
 - **LLM**: [`LlmClient.chat_completion_sync`](../plugin/framework/client/llm_client.py) with `response_format={"type":"json_object"}` on the OpenAI-compatible path (Together, OpenRouter, etc.; see docstring on `make_chat_request`), a system prompt (**`GRAMMAR_SYSTEM_PROMPT_TEMPLATE`** in [`grammar_proofread_locale.py`](../plugin/writer/locale/grammar_proofread_locale.py)) requiring a single JSON object `{"errors":[{"wrong","correct","type","reason"},...]}` (schema description in English) plus the **document language** (BCP-47 and English name from the registry), and user message the **checked sentence text** for that worker item (one sentence per request in normal prose). The prompt explicitly asks for errors in the order they appear. For threshold-allowed partial slices, the prompt adds a conservative note that input may be partial. Parser: [`parse_grammar_json`](../plugin/writer/locale/grammar_proofread_locale.py) uses `safe_json_loads` then `json_repair` (with logging) when needed.
@@ -337,6 +363,7 @@ Two tables: **product / hardening** (user-visible or systemic improvements) and 
 | P17 | Configurable LLM max tokens | Expose the hardcoded **3072** max output tokens as `doc.grammar_proofreader_max_tokens` so users can tune for different endpoints or models. |
 | P18 | Configurable max chars | Move `GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS` (8192) to a config key `doc.grammar_proofreader_max_chars`; allows tuning for very long sentences without code changes. |
 | P19 | Batch size validation | Enforce `1 <= doc.grammar_proofreader_batch_sentences <= 8` at config read time; log **WARNING** if out of range and clamp to bounds. |
+| P20 | Document-embedded cache | Research `onPrepareSave` + `DocumentProperties` / ODF custom stream for per-document grammar persistence (see [Proposed Alternative](#alternative-document-embedded-cache-proposed)). |
 | P23 | Regional locale opt-out | Allow specific locales (e.g., `en-AU`, `pt-PT`) to opt-out of normalization to the "base" language if regional grammar nuances are significant. |
 
 ### Code health and maintainability
