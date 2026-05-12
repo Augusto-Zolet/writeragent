@@ -116,6 +116,92 @@ def test_split_into_sentences_terminates_when_bi_stuck_on_abbrev() -> None:
     assert last_start + len(last_text) == len(text)
 
 
+def test_split_into_sentences_terminates_when_bi_returns_same_pos() -> None:
+    # Defends the outer-loop guard at grammar_proofread_text.py "if end_pos <= pos".
+    # Realistic LO limitation: BreakIterator for a script/locale whose ICU data is not
+    # installed (e.g. Thai on a US system, rare African scripts) can return the same
+    # position it was given, signalling "no sentence boundary found here".
+    text = "Some text without any terminator BI understands"
+
+    class StuckBI:
+        calls = 0
+
+        def endOfSentence(self, _t, pos, _locale):
+            type(self).calls += 1
+            assert type(self).calls < 50, f"split_into_sentences looped ({type(self).calls} endOfSentence calls)"
+            return pos
+
+    with patch("plugin.writer.locale.grammar_proofread_text.get_break_iterator_and_locale", return_value=(StuckBI(), "en-US")):
+        sents = gt.split_into_sentences(None, "en-US", text)
+
+    assert sents, "must return at least one sentence span"
+    last_start, last_text = sents[-1]
+    assert last_start + len(last_text) == len(text)
+
+
+def test_tokenize_terminates_when_bi_word_boundary_does_not_advance() -> None:
+    # Defends the _tokenize guard "if res.endPos <= start: ... break".
+    # Without this guard, an under-equipped BreakIterator that returns endPos == start
+    # would spin _tokenize forever during normalize_errors_for_text overlap expansion.
+    text = "alpha beta gamma"
+
+    class StuckWordBI:
+        calls = 0
+
+        def getWordBoundary(self, _t, pos, _locale, _wt, _dir):
+            type(self).calls += 1
+            assert type(self).calls < 50, f"_tokenize looped ({type(self).calls} getWordBoundary calls)"
+            res = MagicMock()
+            res.startPos = pos
+            res.endPos = pos
+            return res
+
+        def endOfSentence(self, t, _pos, _locale):
+            return len(t)
+
+    toks = gt._tokenize(text, StuckWordBI(), "en-US")
+    assert toks == [text], "stuck BI should produce a single fallback token covering the rest"
+
+
+def test_split_into_sentences_handles_bi_past_end() -> None:
+    # Some BreakIterator implementations may return a position past len(text)
+    # (one-past-end with extra slack). Python slice clamping makes this safe;
+    # this test pins that contract so a future refactor that adds explicit
+    # indexing (e.g. text[end_pos] instead of slicing) would surface here.
+    text = "Short text."
+
+    class PastEndBI:
+        def endOfSentence(self, t, _pos, _locale):
+            return len(t) + 5
+
+    with patch("plugin.writer.locale.grammar_proofread_text.get_break_iterator_and_locale", return_value=(PastEndBI(), "en-US")):
+        sents = gt.split_into_sentences(None, "en-US", text)
+
+    assert len(sents) == 1
+    assert sents[0][0] == 0
+    assert sents[0][1] == text
+
+
+def test_split_into_sentences_thai_text_on_non_thai_locale() -> None:
+    # Realistic LO limitation: user types Thai script in a document whose CharLocale
+    # is en-US (or any non-Thai locale). BI uses en-US rules, finds no Latin sentence
+    # terminator in the Thai text, and returns len(text) immediately. The whole buffer
+    # should become one sentence and the call must terminate cleanly (no abbreviation
+    # heuristic confusion from Thai characters).
+    text = "\u0e2a\u0e27\u0e31\u0e2a\u0e14\u0e35 \u0e04\u0e23\u0e31\u0e1a"  # "sawatdi khrap"
+
+    class WholeBufferBI:
+        def endOfSentence(self, t, _pos, _locale):
+            return len(t)
+
+    with patch("plugin.writer.locale.grammar_proofread_text.get_break_iterator_and_locale", return_value=(WholeBufferBI(), "en-US")):
+        sents = gt.split_into_sentences(None, "en-US", text)
+
+    assert len(sents) == 1
+    assert sents[0][0] == 0
+    assert sents[0][1] == text
+
+
 def test_overlap_forward_expansion() -> None:
     full = "I went to the store."
     items = [{"wrong": "to", "correct": "to the", "type": "grammar"}]
