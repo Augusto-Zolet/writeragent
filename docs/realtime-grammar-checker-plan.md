@@ -141,6 +141,32 @@ While sentence-scoped checking is excellent for localized grammar, it inherently
 
 ---
 
+### Internationalization and Locale Support
+
+WriterAgent is designed to be a "world-class" checker, leveraging the LLM's multilingual capabilities alongside native LibreOffice linguistic tools.
+
+#### Strategy: "Native splitting + LLM checking"
+
+1.  **Sentence Splitting**: We use `com.sun.star.i18n.BreakIterator` for standard scripts. This is the "gold standard" for locale-aware splitting in LibreOffice.
+2.  **Special Cases**: 
+    - **Thai/Lao/Khmer**: Use whitespace-run splitting as a fallback since standard sentence BI is often unreliable for these scripts.
+    - **Abbreviations**: A dynamic alpha-count heuristic (`word_before_period_is_abbrev`) handles `Dr.`, `U.S.A.`, etc., across many languages without static lists.
+3.  **Prompting**: The system prompt is in English but explicitly identifies the target language by name and BCP-47 tag. It instructs the LLM to provide the "reason" in the same language as the text.
+4.  **Normalization**: Locales like `de-AT` are normalized to `de-DE` for the sentence cache. This ensures that common phrases ("Guten Tag.") share a cache entry regardless of regional settings, though it can be opted-out if regional nuances are critical.
+
+#### Known Nuances
+
+| Language / Script | Logic | Note |
+|-------------------|-------|------|
+| **Latin / Cyrillic / Greek** | BreakIterator + Heuristic | Standard punctuation-based splitting. |
+| **CJK (Japanese/Chinese/Korean)** | BreakIterator | Uses ideographic full stops (`。`) and other full-width terminals. |
+| **Thai / Lao / Khmer** | Whitespace-run split | No spaces between words; spaces used as sentence/phrase breaks. |
+| **Arabic / Hebrew / Urdu** | BreakIterator | RTL scripts with specific terminals (`؟`, `۔`). |
+| **German / French / etc.** | Abbrev Heuristic | Handles ordinals (German `1.`) as abbreviations to prevent splitting. |
+
+---
+
+
 ### Design principles (Lightproof-inspired)
 
 The native grammar checker pairs **sentence-bound work units** with **sentence-level caching** (Lightproof-inspired scheduling ideas, evolved):
@@ -312,6 +338,7 @@ Two tables: **product / hardening** (user-visible or systemic improvements) and 
 | P18 | Configurable max chars | Move `GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS` (8192) to a config key `doc.grammar_proofreader_max_chars`; allows tuning for very long sentences without code changes. |
 | P19 | Batch size validation | Enforce `1 <= doc.grammar_proofreader_batch_sentences <= 8` at config read time; log **WARNING** if out of range and clamp to bounds. |
 | P20 | Model fallback clarity | When `doc.grammar_proofreader_model` is empty, log **INFO**: `"Using chat text model: {model_name}"` so users know which endpoint grammar requests are sent to. |
+| P23 | Regional locale opt-out | Allow specific locales (e.g., `en-AU`, `pt-PT`) to opt-out of normalization to the "base" language if regional grammar nuances are significant. |
 
 ### Code health and maintainability
 
@@ -329,6 +356,8 @@ Two tables: **product / hardening** (user-visible or systemic improvements) and 
 | C11 | Module docstrings | Add `"""Real-time grammar proofreading via UNO XProofreader + LLM."""` docstrings to `ai_grammar_proofreader.py`, `grammar_work_queue.py`, and `grammar_proofread_cache.py` for better IDE support and maintainability. |
 | C12 | Constants documentation | Document all `GRAMMAR_*` constants in `grammar_proofread_locale.py` with **units**, **default values**, and **rationale** (e.g., why 8192 chars, why 2048 tokens) as inline comments or a module-level docstring section. |
 | C13 | Remove dead code | Delete any remaining references to `doc.grammar_proofreader_wait_timeout_ms` (config reads, UI bindings, validation) that are now defunct. |
+| C14 | Tokenization fallback investigation | BreakIterator should always be available; if the `_TOKEN_RE` fallback is hit, investigate why. Consider script-specific regexes for scripts without spaces (though Thai/Lao/Khmer have their own splitting path). |
+| C15 | Update normalization comment | Correct the stale comment in `_normalize_for_sentence_cache` (grammar_proofread_cache.py) which claims it uses a subset of terminators. |
 
 ### Tests
 
