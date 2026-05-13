@@ -404,7 +404,7 @@ def test_run_llm_and_cache_batch_mismatch_fallback() -> None:
          patch("plugin.writer.locale.grammar_work_queue.cache_get_sentence", return_value=None), \
          patch("plugin.writer.locale.grammar_work_queue.cache_put_sentence"), \
          patch("plugin.writer.locale.grammar_work_queue.emit_grammar_status"), \
-         patch("plugin.writer.locale.grammar_work_queue.run_llm_and_cache") as mock_single_run:
+         patch.object(GrammarWorkQueue, "enqueue") as mock_enqueue:
 
         mock_client = mock_client_cls.return_value
         # Mock LLM response with only 1 result instead of 2
@@ -415,10 +415,13 @@ def test_run_llm_and_cache_batch_mismatch_fallback() -> None:
             GrammarWorkItem(ctx=ctx, full_text="S2.", n_start=4, n_end=7, grammar_bcp47="en-US", partial_sentence=False, doc_id="d1", inflight_key="k2", enqueue_seq=2, proofread_sentence_text="S2."),
         ]
 
-        run_llm_and_cache_batch(items)
+        # Use the singleton instance since run_llm_and_cache_batch uses it
+        from plugin.writer.locale.grammar_work_queue import grammar_queue
+        with patch.object(grammar_queue, "enqueue", mock_enqueue):
+            run_llm_and_cache_batch(items)
 
-        # Should have fallen back to run_llm_and_cache for each
-        assert mock_single_run.call_count == 2
+        # Should have fallen back to requeue for each
+        assert mock_enqueue.call_count == 2
 
 
 def test_run_llm_and_cache_batch_chunking() -> None:
@@ -623,9 +626,9 @@ def test_locale_mismatch_requeue_not_superseded_by_newer_same_sentence_zh_cn_key
 
             run_llm_and_cache_batch([item], grammar_queue=gq)
 
-        assert mock_client_inst.chat_completion_sync.call_count == 2, "detect + ja-JP grammar must run despite newer seq on zh-CN key after detect"
-        mock_apply.assert_called_once_with(ctx, doc_id, sent, "ja-JP")
-        assert mock_cache_put.call_count == 2
+            assert mock_client_inst.chat_completion_sync.call_count == 2, "detect + ja-JP grammar must run despite newer seq on zh-CN key after detect"
+            mock_apply.assert_called_once_with(ctx, doc_id, sent, "ja-JP")
+            assert mock_cache_put.call_count == 2
         assert mock_cache_put.call_args_list[0][0][0] == "ja-JP"
         assert mock_cache_put.call_args_list[1][0][0] == "zh-CN"
     finally:
@@ -666,23 +669,17 @@ def test_locale_mismatch_batch_splits_and_double_caches(
         mock_apply.assert_called_once_with(ctx, "d1", "日本語の文章。", "ja-JP")
     
         # 2. Verify cache puts:
-        # - item 2 ja-JP
-        # - item 2 zh-CN (loop breaker)
-        # - item 1 zh-CN (original batch)
-        assert mock_cache_put.call_count == 3
+        # - item 2 zh-CN (loop breaker from requeue)
+        # - item 1 zh-CN (grammar result)
+        assert mock_cache_put.call_count == 2
         
-        # Check item 2 ja-JP
+        # Check item 2 zh-CN loop breaker
         args, _ = mock_cache_put.call_args_list[0]
-        assert args[0] == "ja-JP"
-        assert args[1] == "日本語の文章。"
-        
-        # Check item 2 zh-CN
-        args, _ = mock_cache_put.call_args_list[1]
         assert args[0] == "zh-CN"
-        assert args[1] == "日本語の文章。"
+        assert args[2] == []
         
-        # Check item 1 zh-CN
-        args, _ = mock_cache_put.call_args_list[2]
+        # Check item 1 zh-CN result
+        args, _ = mock_cache_put.call_args_list[1]
         assert args[0] == "zh-CN"
         assert args[1] == "Sentence 1."
 
@@ -719,20 +716,18 @@ def test_locale_mismatch_batch_cached_detection_double_caches(
             mock_apply.assert_called_once_with(ctx, "d1", sent2_text, "ja-JP")
         
             # 2. Verify cache puts:
-            # - item 2 ja-JP
-            # - item 2 zh-CN (loop breaker)
-            # - item 1 zh-CN
-            assert mock_cache_put.call_count == 3
+            # - item 2 zh-CN (loop breaker from requeue)
+            # - item 1 zh-CN (grammar result)
+            assert mock_cache_put.call_count == 2
             
-            # Check item 2 ja-JP
+            # Check item 2 zh-CN loop breaker
             args, _ = mock_cache_put.call_args_list[0]
-            assert args[0] == "ja-JP"
-            assert args[1] == sent2_text
+            assert args[0] == "zh-CN"
+            assert args[2] == []
             
-            # Check item 2 zh-CN
+            # Check item 1 zh-CN result
             args, _ = mock_cache_put.call_args_list[1]
             assert args[0] == "zh-CN"
-            assert args[1] == sent2_text
     finally:
         _lang_detect_cache.pop(sent2_text, None)
         _lang_detect_cache.pop("Sentence 1.", None)
