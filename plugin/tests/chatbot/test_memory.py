@@ -72,6 +72,23 @@ class TestMemory(unittest.TestCase):
         with open(user_memory_path, "r", encoding="utf-8") as f:
             self.assertIn('"user_name": "Keith"', f.read())
 
+    def test_memory_tool_execute_skips_redundant_write(self):
+        inner_ctx = object()
+        tctx = _ToolContextLike(inner_ctx)
+        tool = MemoryTool()
+
+        with patch("plugin.chatbot.memory.user_config_dir", return_value=self.tmp_dir):
+            # First write
+            tool.execute(tctx, key="color", content="blue")
+
+            # Patch MemoryStore.write to track calls
+            with patch("plugin.chatbot.memory.MemoryStore.write") as mock_write:
+                result = tool.execute(tctx, key="color", content="blue")
+
+        self.assertEqual(result.get("status"), "ok")
+        self.assertIn("already up to date", result.get("message", ""))
+        mock_write.assert_not_called()
+
     def test_format_upsert_memory_chat_line_shows_key_and_value(self):
         line = format_upsert_memory_chat_line({"key": "nickname", "content": "Bob"})
         self.assertIn("nickname", line)

@@ -541,3 +541,62 @@ def test_do_send_uses_document_chat_after_librarian_flag_clears():
     assert listener._in_librarian_mode is False
     listener._run_librarian.assert_not_called()
     listener._do_send_chat_with_tools.assert_called_once()
+
+
+class TestSmolMixedToolCalls(unittest.TestCase):
+    def test_mixing_regular_tool_and_final_answer_tool_succeeds(self):
+        """Verify that we can now mix a regular tool call and a final answer tool call in one turn."""
+        from plugin.contrib.smolagents.memory import ActionStep
+        from plugin.contrib.smolagents.models import (
+            ChatMessage,
+            ChatMessageToolCall,
+            ChatMessageToolCallFunction,
+        )
+        from plugin.contrib.smolagents.agents import ActionOutput
+
+        # 1. Setup tools
+        ctx = MagicMock()
+        stub_tool = _StubTool()
+        adapted_stub = SmolToolAdapter(stub_tool, ctx, safe=False)
+
+        # 2. Setup agent
+        model = MagicMock()
+        agent = ToolCallingAgent(
+            tools=[adapted_stub], model=model, final_answer_tool_name="reply_to_user"
+        )
+
+        # 3. Mock model to return BOTH calls
+        chat_msg = ChatMessage(
+            role=MessageRole.ASSISTANT,
+            content="",
+            tool_calls=[
+                ChatMessageToolCall(
+                    id="call_1",
+                    type="function",
+                    function=ChatMessageToolCallFunction(
+                        name="stub", arguments={"p": "value1"}
+                    ),
+                ),
+                ChatMessageToolCall(
+                    id="call_2",
+                    type="function",
+                    function=ChatMessageToolCallFunction(
+                        name="reply_to_user", arguments={"answer": "Finished!"}
+                    ),
+                ),
+            ],
+        )
+        model.generate.return_value = chat_msg
+
+        # 4. Run the agent stream for one step
+        memory_step = ActionStep(step_number=1, timing=Timing(start_time=time.time()))
+
+        # Before our fix, this would raise AgentExecutionError
+        outputs = list(agent._step_stream(memory_step))
+
+        # 5. Verify outputs
+        # Should have ActionOutput with is_final_answer=True
+        final_outputs = [o for o in outputs if isinstance(o, ActionOutput)]
+        self.assertEqual(len(final_outputs), 1)
+        self.assertTrue(final_outputs[0].is_final_answer)
+        self.assertEqual(final_outputs[0].output, "Finished!")

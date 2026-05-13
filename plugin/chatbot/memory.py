@@ -143,6 +143,9 @@ class MemoryTool(ToolBase):
         current_dict[parts[-1]] = content
 
         new_content = json.dumps(parsed, indent=2, ensure_ascii=False)
+        if new_content == current:
+            return {"status": "ok", "message": f"Memory for '{key}' is already up to date."}
+
         try:
             store.write(target, new_content)
             return {"status": "ok", "message": f"Upserted key '{key}' in memory."}
