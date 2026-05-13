@@ -264,9 +264,6 @@ WRITE & FORMAT:
 - sort_range: Sort a range by a column (ascending/descending, optional header row).
 - delete_structure: Remove rows or columns at specific positions.
 
-SHEET MANAGEMENT:
-- list_sheets, switch_sheet, create_sheet: List, switch to, or create sheets.
-
 CHART:
 - create_chart: Create a chart from a data range (bar, column, line, pie, scatter).
 

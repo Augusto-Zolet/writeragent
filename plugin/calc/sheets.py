@@ -24,6 +24,7 @@ appropriate helper class per call using ``ctx.doc``.
 import logging
 
 from plugin.framework.errors import ToolExecutionError, UnoObjectError
+from plugin.framework.tool import ToolBase
 from plugin.calc.base import ToolCalcSheetBase
 from plugin.calc.bridge import CalcBridge
 from plugin.calc.analyzer import SheetAnalyzer
@@ -112,12 +113,14 @@ class CreateSheet(ToolCalcSheetBase):
             raise ToolExecutionError(str(e)) from e
 
 
-class GetSheetSummary(ToolCalcSheetBase):
+class GetSheetSummary(ToolBase):
     """Return a summary of a sheet."""
 
     name = "get_sheet_summary"
     description = "Returns a comprehensive summary of the active or specified sheet: used area, column headers, charts, merged cells, annotations, and shapes."
     parameters = {"type": "object", "properties": {"sheet_name": {"type": "string", "description": "Sheet name (active sheet if empty)"}}, "required": []}
+    uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
+    tier = "extended"
     is_mutation = False
 
     def execute(self, ctx, **kwargs):
