@@ -46,7 +46,7 @@ class TestGrammarPersistence(unittest.TestCase):
         db_path = os.path.join(self.tmp_dir, "test_grammar_old_schema.db")
         text = "This sentence should not remain in SQLite."
         fp = fingerprint_for_text(text)
-        errors = [{"wrong": "sentence", "correct": "Sentence", "type": "grammar", "reason": "capitalize"}]
+        errors = [{"n_error_start": 0, "n_error_length": 8, "suggestions": ["Sentence"], "short_comment": "capitalize"}]
 
         with sqlite3.connect(db_path) as conn:
             conn.execute("""
@@ -55,13 +55,15 @@ class TestGrammarPersistence(unittest.TestCase):
                     locale TEXT,
                     text TEXT,
                     errors_json TEXT,
-                    last_used INTEGER
+                    last_used INTEGER,
+                    version INTEGER DEFAULT 1
                 )
             """)
             conn.execute("CREATE INDEX idx_last_used ON sentence_cache(last_used)")
+            # Use version=2 (current) to ensure it's not cleared by _migrate_version
             conn.execute(
-                "INSERT INTO sentence_cache (fingerprint, locale, text, errors_json, last_used) VALUES (?, ?, ?, ?, ?)",
-                (fp, "en-US", text, json.dumps(errors), 123),
+                "INSERT INTO sentence_cache (fingerprint, locale, text, errors_json, last_used, version) VALUES (?, ?, ?, ?, ?, ?)",
+                (fp, "en-US", text, json.dumps([{"s": 0, "l": 8, "g": ["Sentence"], "c": "capitalize"}]), 123, 2),
             )
             conn.commit()
 
@@ -88,7 +90,7 @@ class TestGrammarPersistence(unittest.TestCase):
             columns = [row[1] for row in conn.execute("PRAGMA table_info(sentence_cache)").fetchall()]
             row = conn.execute("SELECT * FROM sentence_cache WHERE fingerprint = ?", (fp,)).fetchone()
 
-        self.assertEqual(columns, ["fingerprint", "locale", "errors_json", "last_used"])
+        self.assertEqual(set(columns), {"fingerprint", "locale", "errors_json", "last_used", "version"})
         self.assertIsNotNone(row)
         self.assertNotIn(text, [str(value) for value in row])
 
@@ -212,9 +214,10 @@ class TestGrammarPersistence(unittest.TestCase):
         args = mock_set.call_args[0]
         self.assertIs(args[0], model)
         written = json.loads(str(args[2]))
-        self.assertIn("fp1", written)
-        self.assertIn("fp2", written)
-        self.assertEqual(written["fp2"], [])
+        self.assertEqual(written.get("version"), 2)
+        self.assertIn("fp1", written.get("bad", {}))
+        self.assertIn("fp2", written.get("good", []))
+        self.assertEqual(written["bad"]["fp1"][0]["s"], 0)
 
     def test_document_event_on_save_triggers_persist(self) -> None:
         """documentEventOccured with OnSave should drive set_document_property.
@@ -245,7 +248,7 @@ class TestGrammarPersistence(unittest.TestCase):
         args = mock_set.call_args[0]
         self.assertIs(args[0], model)
         written = json.loads(str(args[2]))
-        self.assertIn("fp_save", written)
+        self.assertIn("fp_save", written.get("good", []))
 
     def test_document_event_on_unload_triggers_teardown(self) -> None:
         """documentEventOccured with OnUnload should teardown and clear the cache."""

@@ -272,7 +272,10 @@ GRAMMAR_TRAILING_CLOSERS: frozenset[str] = frozenset((
 
 
 def fingerprint_for_text(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8", errors="surrogatepass")).hexdigest()
+    # Truncate to 24 hex characters (96 bits). Sufficiently collision-resistant
+    # for sentence-level caching while reducing storage footprint.
+    return hashlib.sha256(text.encode("utf-8", errors="surrogatepass")).hexdigest()[:24]
+
 
 
 def last_meaningful_char(text: str) -> str:

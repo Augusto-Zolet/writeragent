@@ -292,6 +292,22 @@ The native grammar checker pairs **sentence-bound work units** with **sentence-l
 >
 > The first three are nearly free wins and additive; the last two are only worth doing if real-world documents start hitting the 900 KB cap.
 >
+> **Decision (2025):**
+> - **Fingerprint size: 96-bit (24 hex characters)**. Collision probability at 5,000 sentences is ~1 in 10²¹ — effectively **never** in practice. This is the chosen balance: excellent safety margin with **62.5% size reduction** from 64-bit. 80-bit (20 chars) offers ~68.75% savings with ~1 in 10¹⁶ collision probability, which is still astronomically unlikely but was rejected because a hash mismatch could cause a sentence to incorrectly show or hide errors. 96-bit pushes the risk to "practically never" for any realistic document size.
+> - **Split clean/dirty storage: yes**. Clean sentences (the majority) are stored as a single concatenated string of fingerprints under a `"good"` or `"clean"` key, eliminating per-key JSON overhead. For a 5,000-sentence all-clean document, this reduces the payload from ~355 KB to ~120 KB (24 chars × 5000 = 120,000 bytes for the concatenated fingerprints, vs ~70 bytes × 5000 = ~350,000 bytes for the original per-key format plus commas). That's a **~66% reduction** for the clean set alone. Dirty sentences remain in a map under a `"bad"` or `"dirty"` key with compact error-dict keys.
+> - **Compact error keys: yes**. Use `s`, `l`, `g`, `c`, `f`, `r` for the six error fields, saving ~43 bytes per error.
+>
+> **v2 payload example:**
+> ```json
+> {
+>   "v": 2,
+>   "good": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8...",
+>   "bad": {
+>     "a1b2c3d4e5f6a7b8c9d0e1": [{"s":4,"l":3,"g":["fix"],"c":"Err","f":"Detail","r":"wa_1"}]
+>   }
+> }
+> ```
+>
 > **Implementation reuse.** The architecture already keyed all sentence cache lookups on `fingerprint_for_text`, so adding `DocumentPersistence` didn't require core refactoring — it's just another `GrammarPersistence` backend.
 >
 > **Why not `setattr` on the UNO model wrapper?** State is held in a module-level `_doc_persistence_instances: dict[doc_id, DocumentPersistence]`, with `OnUnload` / dispose dropping the entry so the object (and its in-memory cache) becomes unreachable. Hanging it on the PyUNO `XModel` wrapper via Python `setattr` is rejected: wrapper identity is not stable across threads/call paths, it creates ref cycles with the model, and it's harder to unit-test.
@@ -400,7 +416,7 @@ Two tables: **product / hardening** (user-visible or systemic improvements) and 
 | P18 | Configurable max chars | Move `GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS` (8192) to a config key `doc.grammar_proofreader_max_chars`; allows tuning for very long sentences without code changes. |
 | P19 | Batch size validation | Enforce `1 <= doc.grammar_proofreader_batch_sentences <= 8` at config read time; log **WARNING** if out of range and clamp to bounds. |
 | P20 | ✅ Document-embedded cache | **Shipped as default.** `USE_SQLITE_CACHE = False` in [`grammar_persistence.py`](../plugin/writer/locale/grammar_persistence.py) + user-defined property `WriterAgentGrammarCache`; see [Document-embedded cache — design notes](#document-embedded-cache-default) and Sentence cache bullets. |
-| P21 | Compact document-embedded payload | Implement the three near-free wins listed in [Document-embedded cache — design notes](#document-embedded-cache-default): truncated fingerprint (64-bit or 128-bit b64), short error-dict keys (`s`/`l`/`g`/`c`/`f`/`r`), and a split `{"v":2,"clean":"...","dirty":{...}}` shape that strips quoted-key + `[]` overhead from clean sentences. Bump payload version; old caches can be discarded on load mismatch. |
+| P21 | Compact document-embedded payload | **Decision finalized: 96-bit fingerprints + split clean/dirty + compact keys.** Implement v2 payload with 24-hex-character fingerprints (96-bit), store all clean sentences as a concatenated string under `"good"`, dirty sentences under `"bad"` with compact error keys (`s`/`l`/`g`/`c`/`f`/`r`). Bump payload version to `2`; old caches are discarded on load mismatch (cache-only data, no migration needed). See [Size-optimization options](#size-optimization-options-deferred-p21-in-the-backlog) for full rationale. |
 | P22 | Embedded cache: full-document retention on save | Today `_persist_to_udprops` only writes sentences in `_session_accessed` (touched this session). Document sections that were never scrolled into view can drop after a save. Either persist `_memory_cache` in full when small enough, or always re-include previously persisted fingerprints we haven't explicitly invalidated. Trade-off vs cap and edit-detection cost. |
 | P23 | Surface `USE_SQLITE_CACHE` as a user-facing option | Doc-tab toggle (or a single advanced setting) so users can opt into the global SQLite cache when they want cross-document reuse and don't mind machine-local state, instead of editing source. |
 | P24 | Regional locale opt-out | Allow specific locales (e.g., `en-AU`, `pt-PT`) to opt-out of normalization to the "base" language if regional grammar nuances are significant. |

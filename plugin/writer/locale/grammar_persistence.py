@@ -25,9 +25,45 @@ log = logging.getLogger("writeragent.grammar")
 # When True (default): global SQLite or JSON-under-profile cache (existing behavior).
 # When False: ``get_persistence(ctx, doc_id)`` returns ``DocumentPersistence`` keyed by
 # document id; sentence cache layer bypasses the global LRU (see ``grammar_proofread_cache``).
-USE_SQLITE_CACHE = True
+USE_SQLITE_CACHE = False
 
+GRAMMAR_CACHE_VERSION = 2
 GRAMMAR_DOC_CACHE_UDPROP = "WriterAgentGrammarCache"
+
+# Storage key mapping for error objects to reduce JSON footprint.
+_ERROR_KEY_MAP = {
+    "n_error_start": "s",
+    "n_error_length": "l",
+    "suggestions": "g",
+    "short_comment": "c",
+    "full_comment": "f",
+    "rule_identifier": "r",
+}
+_REV_ERROR_KEY_MAP = {v: k for k, v in _ERROR_KEY_MAP.items()}
+
+
+def _compress_error(err: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy of the error dict with shortened keys for storage."""
+    out = {}
+    for k, v in err.items():
+        short = _ERROR_KEY_MAP.get(k)
+        if short:
+            out[short] = v
+        else:
+            out[k] = v
+    return out
+
+
+def _decompress_error(err: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy of the error dict with long keys restored for runtime."""
+    out = {}
+    for k, v in err.items():
+        long = _REV_ERROR_KEY_MAP.get(k)
+        if long:
+            out[long] = v
+        else:
+            out[k] = v
+    return out
 
 try:
     import sqlite3
@@ -158,6 +194,21 @@ class SQLitePersistence(GrammarPersistence):
         super().__init__(ctx, db_path)
         self._init_db()
 
+    def _migrate_version(self, conn: Any) -> None:
+        try:
+            cols = [str(row[1]) for row in conn.execute("PRAGMA table_info(sentence_cache)").fetchall()]
+            if "version" not in cols:
+                conn.execute("ALTER TABLE sentence_cache ADD COLUMN version INTEGER DEFAULT 1")
+            
+            # If any rows have an older version, clear them as fingerprints and formats have changed.
+            cursor = conn.execute("SELECT count(*) FROM sentence_cache WHERE version < ?", (GRAMMAR_CACHE_VERSION,))
+            old_count = cursor.fetchone()[0]
+            if old_count > 0:
+                log.info("[grammar] SQLitePersistence: clearing %s old-version cache entries (v < %s)", old_count, GRAMMAR_CACHE_VERSION)
+                conn.execute("DELETE FROM sentence_cache WHERE version < ?", (GRAMMAR_CACHE_VERSION,))
+        except Exception as e:
+            log.warning("[grammar] SQLitePersistence version migration failed: %s", e)
+
     def _init_db(self) -> None:
         if not HAS_SQLITE or sqlite3 is None:
             return
@@ -169,9 +220,11 @@ class SQLitePersistence(GrammarPersistence):
                         fingerprint TEXT PRIMARY KEY,
                         locale TEXT,
                         errors_json TEXT,
-                        last_used INTEGER
+                        last_used INTEGER,
+                        version INTEGER DEFAULT 1
                     )
                 """)
+                self._migrate_version(conn)
                 self._migrate_drop_text_column(conn)
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_last_used ON sentence_cache(last_used)")
                 conn.commit()
@@ -191,10 +244,11 @@ class SQLitePersistence(GrammarPersistence):
                     fingerprint TEXT PRIMARY KEY,
                     locale TEXT,
                     errors_json TEXT,
-                    last_used INTEGER
+                    last_used INTEGER,
+                    version INTEGER DEFAULT 1
                 );
-                INSERT INTO sentence_cache_new (fingerprint, locale, errors_json, last_used)
-                    SELECT fingerprint, locale, errors_json, last_used FROM sentence_cache;
+                INSERT INTO sentence_cache_new (fingerprint, locale, errors_json, last_used, version)
+                    SELECT fingerprint, locale, errors_json, last_used, version FROM sentence_cache;
                 DROP TABLE sentence_cache;
                 ALTER TABLE sentence_cache_new RENAME TO sentence_cache;
             """)
@@ -207,12 +261,15 @@ class SQLitePersistence(GrammarPersistence):
             return None
         try:
             with sqlite3.connect(self.base_path) as conn:
-                cursor = conn.execute("SELECT errors_json FROM sentence_cache WHERE fingerprint = ?", (fp,))
+                cursor = conn.execute("SELECT errors_json FROM sentence_cache WHERE fingerprint = ? AND version = ?", (fp, GRAMMAR_CACHE_VERSION))
                 row = cursor.fetchone()
                 if row:
                     conn.execute("UPDATE sentence_cache SET last_used = ? WHERE fingerprint = ?", (int(time.time()), fp))
                     conn.commit()
-                    return json.loads(row[0])
+                    raw_errors = json.loads(row[0])
+                    if isinstance(raw_errors, list):
+                        return [_decompress_error(e) for e in raw_errors]
+                    return []
         except Exception as e:
             log.debug("[grammar] SQLitePersistence get failed: %s", e)
         return None
@@ -221,15 +278,17 @@ class SQLitePersistence(GrammarPersistence):
         if not HAS_SQLITE or sqlite3 is None:
             return
         try:
-            errors_json = json.dumps(errors)
+            compressed = [_compress_error(e) for e in errors]
+            errors_json = json.dumps(compressed)
             with sqlite3.connect(self.base_path) as conn:
                 conn.execute("""
-                    INSERT INTO sentence_cache (fingerprint, locale, errors_json, last_used)
-                    VALUES (?, ?, ?, ?)
+                    INSERT INTO sentence_cache (fingerprint, locale, errors_json, last_used, version)
+                    VALUES (?, ?, ?, ?, ?)
                     ON CONFLICT(fingerprint) DO UPDATE SET
                         errors_json = excluded.errors_json,
-                        last_used = excluded.last_used
-                """, (fp, locale, errors_json, int(time.time())))
+                        last_used = excluded.last_used,
+                        version = excluded.version
+                """, (fp, locale, errors_json, int(time.time()), GRAMMAR_CACHE_VERSION))
                 conn.commit()
         except Exception as e:
             log.warning("[grammar] SQLitePersistence put failed: %s", e)
@@ -439,14 +498,31 @@ class DocumentPersistence(GrammarPersistence):
                 log.debug("[grammar] DocumentPersistence: no cached property on doc_id=%s", self._doc_id[:32] if self._doc_id else "")
                 return
             data = json.loads(raw)
-            if isinstance(data, dict):
-                with self._lock:
-                    self._memory_cache = {}
-                    for k, v in data.items():
-                        if isinstance(v, list):
-                            self._memory_cache[str(k)] = [dict(e) for e in v if isinstance(e, dict)]
-                    loaded_count = len(self._memory_cache)
-                log.debug("[grammar] DocumentPersistence: loaded %s sentences from udprop (doc_id=%s)", loaded_count, self._doc_id[:32] if self._doc_id else "")
+            if not isinstance(data, dict):
+                return
+            
+            version = data.get("version", 1)
+            if version < GRAMMAR_CACHE_VERSION:
+                log.info("[grammar] DocumentPersistence: ignoring old-version cache (v=%s < %s) on doc_id=%s", version, GRAMMAR_CACHE_VERSION, self._doc_id[:32] if self._doc_id else "")
+                return
+
+            with self._lock:
+                self._memory_cache = {}
+                # Good sentences (no errors)
+                good = data.get("good")
+                if isinstance(good, list):
+                    for fp in good:
+                        self._memory_cache[str(fp)] = []
+                
+                # Bad sentences (with errors)
+                bad = data.get("bad")
+                if isinstance(bad, dict):
+                    for fp, compressed_errors in bad.items():
+                        if isinstance(compressed_errors, list):
+                            self._memory_cache[str(fp)] = [_decompress_error(e) for e in compressed_errors if isinstance(e, dict)]
+                
+                loaded_count = len(self._memory_cache)
+            log.debug("[grammar] DocumentPersistence: loaded %s sentences from udprop (doc_id=%s, v=%s)", loaded_count, self._doc_id[:32] if self._doc_id else "", version)
         except Exception as e:
             log.warning("[grammar] DocumentPersistence: load user property failed: %s", e)
 
@@ -457,13 +533,27 @@ class DocumentPersistence(GrammarPersistence):
             return
         try:
             with self._lock:
-                pruned = {k: self._memory_cache[k] for k in self._session_accessed if k in self._memory_cache}
-            payload = json.dumps(pruned)
+                good_fps = []
+                bad_map = {}
+                for fp in self._session_accessed:
+                    if fp in self._memory_cache:
+                        errs = self._memory_cache[fp]
+                        if not errs:
+                            good_fps.append(fp)
+                        else:
+                            bad_map[fp] = [_compress_error(e) for e in errs]
+            
+            payload_dict = {
+                "version": GRAMMAR_CACHE_VERSION,
+                "good": good_fps,
+                "bad": bad_map,
+            }
+            payload = json.dumps(payload_dict)
             if len(payload) > 900_000:
                 log.warning("[grammar] DocumentPersistence: cache JSON too large (%s bytes), skip write", len(payload))
                 return
             set_document_property(self._model, GRAMMAR_DOC_CACHE_UDPROP, payload)
-            log.debug("[grammar] DocumentPersistence: saved %s sentences (%s bytes) to udprop (doc_id=%s)", len(pruned), len(payload), self._doc_id[:32] if self._doc_id else "")
+            log.debug("[grammar] DocumentPersistence: saved %s sentences (%s bytes) to udprop (doc_id=%s, v=%s)", len(good_fps) + len(bad_map), len(payload), self._doc_id[:32] if self._doc_id else "", GRAMMAR_CACHE_VERSION)
         except Exception as e:
             log.warning("[grammar] DocumentPersistence: save user property failed: %s", e)
 
