@@ -30,7 +30,7 @@ from typing import Any
 
 from plugin.calc.sheet_filter_criteria import FILTER_OPERATOR2_LABELS, filter_operator2_code_to_name, parse_sheet_filter_criterion
 from plugin.framework.errors import ToolExecutionError, UnoObjectError
-from plugin.calc.base import ToolCalcSheetFilterBase
+from plugin.calc.base import ToolCalcSheetBase
 from plugin.calc.bridge import CalcBridge
 
 logger = logging.getLogger("writeragent.calc")
@@ -131,12 +131,12 @@ _CRITERION_ITEM_SCHEMA: dict[str, Any] = {
 }
 
 
-class ApplySheetFilter(ToolCalcSheetFilterBase):
+class ApplySheetFilter(ToolCalcSheetBase):
     """Apply a standard sheet filter (AutoFilter-style) on a cell range."""
 
     name = "apply_sheet_filter"
     intent = "edit"
-    description = "Hide rows that do not match a standard Calc filter (not conditional formatting). delegate_to_specialized_calc_toolset(domain='sheet_filter'). One column per criterion; chain with connection (AND default) after the first."
+    description = "Hide rows that do not match a standard Calc filter (not conditional formatting). delegate_to_specialized_calc_toolset(domain='sheets'). One column per criterion; chain with connection (AND default) after the first."
     parameters = {
         "type": "object",
         "description": "See criteria for AND/OR chaining.",
@@ -181,12 +181,12 @@ class ApplySheetFilter(ToolCalcSheetFilterBase):
             raise ToolExecutionError(str(e)) from e
 
 
-class ClearSheetFilter(ToolCalcSheetFilterBase):
+class ClearSheetFilter(ToolCalcSheetBase):
     """Remove the standard filter from a range (show all rows again)."""
 
     name = "clear_sheet_filter"
     intent = "edit"
-    description = "Remove the active standard sheet filter on a range so all rows show again. Use the same range_name (and contains_header) as apply_sheet_filter. delegate_to_specialized_calc_toolset(domain='sheet_filter')."
+    description = "Remove the active standard sheet filter on a range so all rows show again. Use the same range_name (and contains_header) as apply_sheet_filter. delegate_to_specialized_calc_toolset(domain='sheets')."
     parameters = {
         "type": "object",
         "properties": {"range_name": {"type": "string", "description": "Same data range string used when applying the filter (e.g. 'A1:D20')."}, "contains_header": {"type": "boolean", "description": "Should match apply_sheet_filter (default true)."}},
@@ -220,12 +220,12 @@ class ClearSheetFilter(ToolCalcSheetFilterBase):
             raise ToolExecutionError(str(e)) from e
 
 
-class GetSheetFilter(ToolCalcSheetFilterBase):
+class GetSheetFilter(ToolCalcSheetBase):
     """Read back current filter criteria for a range (round-trip debugging)."""
 
     name = "get_sheet_filter"
     intent = "navigate"
-    description = "Return active filter criteria and contains_header for a range, or empty if none. delegate_to_specialized_calc_toolset(domain='sheet_filter')."
+    description = "Return active filter criteria and contains_header for a range, or empty if none. delegate_to_specialized_calc_toolset(domain='sheets')."
     parameters = {"type": "object", "properties": {"range_name": {"type": "string", "description": "Same range as apply_sheet_filter."}}, "required": ["range_name"]}
 
     def execute(self, ctx, **kwargs):

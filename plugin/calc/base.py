@@ -59,13 +59,10 @@ class ToolCalcConditionalBase(ToolCalcSpecialBase):
     uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
 
 
-class ToolCalcSheetFilterBase(ToolCalcSpecialBase):
-    specialized_domain = "sheet_filter"
-    intent = "edit"
-    uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
-
 
 class ToolCalcSheetBase(ToolCalcSpecialBase):
+    """Base for sheet operations and sheet filtering (AutoFilter)."""
+
     specialized_domain = "sheets"
     intent = "edit"
     uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
@@ -74,6 +71,18 @@ class ToolCalcSheetBase(ToolCalcSpecialBase):
 class ToolCalcPivotBase(ToolCalcSpecialBase):
     specialized_domain = "pivot_tables"
     intent = "analyze"
+    uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
+
+
+class ToolCalcRangeBase(ToolCalcSpecialBase):
+    specialized_domain = "ranges"
+    intent = "edit"
+    uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
+
+
+class ToolCalcSearchBase(ToolCalcSpecialBase):
+    specialized_domain = "search"
+    intent = "navigate"
     uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
 
 

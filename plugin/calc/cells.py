@@ -27,6 +27,7 @@ import logging
 from plugin.framework.errors import ToolExecutionError
 from plugin.framework.tool import ToolBase
 from plugin.calc.bridge import CalcBridge
+from plugin.calc.base import ToolCalcRangeBase
 from plugin.calc.inspector import CellInspector
 from plugin.calc.manipulator import CellManipulator
 
@@ -276,7 +277,7 @@ class MergeCells(ToolBase):
         return {"status": "ok", "message": f"Merged cells in {len(rn)} ranges"}
 
 
-class SortRange(ToolBase):
+class SortRange(ToolCalcRangeBase):
     """Sort a range by a column."""
 
     name = "sort_range"

@@ -6,7 +6,7 @@ This document describes **sheet data filtering** in LibreOffice Calc: hiding row
 
 ## 1. User-facing behavior (extension tools)
 
-Sheet filter tools live in the **specialized** tier with domain **`sheet_filter`**. The main chat agent does not see them in the default tool list; use **`delegate_to_specialized_calc_toolset`** with `domain: "sheet_filter"`. See [calc-specialized-toolsets.md](calc-specialized-toolsets.md).
+Sheet filter tools live in the **specialized** tier with domain **`sheets`**. The main chat agent does not see them in the default tool list; use **`delegate_to_specialized_calc_toolset`** with `domain: "sheets"`. See [calc-specialized-toolsets.md](calc-specialized-toolsets.md).
 
 | Tool | Role |
 |------|------|
@@ -14,7 +14,7 @@ Sheet filter tools live in the **specialized** tier with domain **`sheet_filter`
 | `clear_sheet_filter` | Remove the filter on that range (show all rows again). |
 | `get_sheet_filter` | Read back active criteria (round-trip / debugging). |
 
-Implementation: [`plugin/calc/sheet_filter.py`](../plugin/calc/sheet_filter.py). Base class: `ToolCalcSheetFilterBase` in [`plugin/calc/base.py`](../plugin/calc/base.py). Operator labels and JSON → `TableFilterField2` parsing: [`plugin/calc/sheet_filter_criteria.py`](../plugin/calc/sheet_filter_criteria.py).
+Implementation: [`plugin/calc/sheet_filter.py`](../plugin/calc/sheet_filter.py). Base class: `ToolCalcSheetBase` in [`plugin/calc/base.py`](../plugin/calc/base.py). Operator labels and JSON → `TableFilterField2` parsing: [`plugin/calc/sheet_filter_criteria.py`](../plugin/calc/sheet_filter_criteria.py).
 
 ---
 

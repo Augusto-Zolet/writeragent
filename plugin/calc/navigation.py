@@ -7,7 +7,7 @@
 
 import logging
 
-from plugin.framework.tool import ToolBase
+from plugin.calc.base import ToolCalcRangeBase
 from plugin.calc.address_utils import index_to_column
 
 log = logging.getLogger("nelson.calc")
@@ -18,7 +18,7 @@ def _range_address_str(ra):
     return "%s%d:%s%d" % (index_to_column(ra.StartColumn), ra.StartRow + 1, index_to_column(ra.EndColumn), ra.EndRow + 1)
 
 
-class ListNamedRanges(ToolBase):
+class ListNamedRanges(ToolCalcRangeBase):
     """List all named ranges in the spreadsheet."""
 
     name = "list_named_ranges"

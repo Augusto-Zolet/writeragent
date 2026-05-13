@@ -8,7 +8,7 @@
 from plugin.framework.errors import UnoObjectError
 import logging
 
-from plugin.framework.tool import ToolBase
+from plugin.calc.base import ToolCalcSearchBase
 
 log = logging.getLogger("nelson.calc")
 
@@ -35,7 +35,7 @@ def _cell_address_str(cell):
     return "%s%d" % (index_to_column(col), row + 1)
 
 
-class SearchInSpreadsheet(ToolBase):
+class SearchInSpreadsheet(ToolCalcSearchBase):
     """Search for text in the spreadsheet."""
 
     name = "search_in_spreadsheet"
@@ -53,7 +53,6 @@ class SearchInSpreadsheet(ToolBase):
         "required": ["pattern"],
     }
     uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
-    tier = "core"
 
     def execute(self, ctx, **kwargs):
         pattern = kwargs.get("pattern", "")
@@ -96,7 +95,7 @@ class SearchInSpreadsheet(ToolBase):
         return {"status": "ok", "matches": matches, "count": len(matches)}
 
 
-class ReplaceInSpreadsheet(ToolBase):
+class ReplaceInSpreadsheet(ToolCalcSearchBase):
     """Find and replace in the spreadsheet."""
 
     name = "replace_in_spreadsheet"
@@ -114,7 +113,6 @@ class ReplaceInSpreadsheet(ToolBase):
         "required": ["search", "replace"],
     }
     uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
-    tier = "core"
     is_mutation = True
 
     def execute(self, ctx, **kwargs):

@@ -155,6 +155,7 @@ The default tool list hides advanced Calc features (Pivot Tables, Conditional Fo
 When the user needs those, call delegate_to_specialized_calc_toolset with:
 domain one of: {domains} —
 and a `task` string that fully specifies what the sub-agent must do. The sub-agent has full tool access for that domain.
+Basic sheet operations and sheet filtering (AutoFilter) tools are located in the `sheets` domain.
 """
 
 DRAW_SPECIALIZED_DELEGATION_TEMPLATE = """SPECIALIZED DRAW (nested tools):
@@ -261,7 +262,6 @@ WRITE & FORMAT:
 - insert_cell_html: Paste HTML into one cell on the active sheet as rich text (bold, italic, links, line breaks—same import as Writer). Plain write_formula_range cannot do this. One cell only; no images. Does not replace set_style for whole-table borders/number formats—combine as needed.
 
 - merge_cells: Merge a range (e.g. headers); then write and style with write_formula_range/set_style.
-- sort_range: Sort a range by a column (ascending/descending, optional header row).
 - delete_structure: Remove rows or columns at specific positions.
 
 CHART:
