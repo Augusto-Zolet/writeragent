@@ -1,18 +1,8 @@
 # WriterAgent
 
-> [!IMPORTANT]
-> **Please update to version 0.7.2 or later.** Initial versions of WriterAgent did not include proper version information, meaning LibreOffice will never notify you that WriterAgent is out of date. Starting with version 0.7.2, the extension includes it, and a weekly update check to keep you informed of new releases. This version also includes many bug fixes and new features. Please update now to get the best experience and future notifications.
-
-**Note:** We are excited to announce an official release of the extension! However, the [version on the LibreOffice site](https://extensions.libreoffice.org/en/extensions/show/99526) is **updated less frequently** than this repository. For the **newest builds with the latest features and fixes**, please use the GitHub release from this repo instead.
-
 ![WriterAgent logo](https://raw.githubusercontent.com/KeithCu/writeragent/master/extension/assets/logo.png)
 
 A LibreOffice extension (Python + UNO) that adds generative AI editing to Writer, Calc, and Draw.
-
-> [!NOTE]
-> **Update May 11, 2026:** Removed `dspy` from `pyproject.toml` to remove dependencies like `litellm`. Run `uv sync` to update your `.venv`. If you want to do prompt optimization, install manually.
-
-![GPLv3+](https://img.shields.io/badge/License-GPL%20v3%2B-blue.svg) ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue.svg)
 
 ## 📑 Table of Contents
 - [1. Local-First & Flexible](#1-local-first--flexible)
@@ -265,6 +255,9 @@ For detailed configuration examples, see [CONFIG_EXAMPLES.md](CONFIG_EXAMPLES.md
 
 ### Local Development
 
+> [!NOTE]
+> **Update May 11, 2026:** Removed `dspy` from `pyproject.toml` to remove dependencies like `litellm`. Run `uv sync` to update your `.venv`. If you want to do prompt optimization, install manually.
+
 **Prerequisites:** Python 3.11+, [uv](https://docs.astral.sh/uv/), and LibreOffice with `unopkg` on your PATH. Run `make check-setup` to verify.
 
 ```bash
@@ -291,6 +284,8 @@ make help
 ![Sonnet 4.6 architecture diagram](Showcase/Sonnet46ArchDiagram.jpg)
 
 ## License
+
+![GPLv3+](https://img.shields.io/badge/License-GPL%20v3%2B-blue.svg) ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue.svg)
 
 WriterAgent is released under the **GNU General Public License v3 (or later)**. See `LICENSE` for the full text.
 
