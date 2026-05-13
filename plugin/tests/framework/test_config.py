@@ -601,6 +601,8 @@ class TestNormalizeEndpointUrl():
         # Test that /v4 is stripped for Z.ai
         assert normalize_endpoint_url("https://api.z.ai/v4") == "https://api.z.ai"
         assert normalize_endpoint_url("https://z.ai/v4") == "https://z.ai"
+        # Test that /v4 is stripped even for deeper paths (Z.ai coding endpoint)
+        assert normalize_endpoint_url("https://api.z.ai/api/coding/paas/v4") == "https://api.z.ai/api/coding/paas"
         # Test that /v1 is also stripped for Z.ai (as a fallback)
         assert normalize_endpoint_url("https://api.z.ai/v1") == "https://api.z.ai"
 
