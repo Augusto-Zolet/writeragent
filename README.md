@@ -31,7 +31,7 @@ A weekly chronicle of building a professional AI suite inside LibreOffice:
 - **Week 1:** [Initial fork, sidebar chat, multi-turn tools, and async streaming](https://keithcu.com/wordpress/?p=5060).
 - **Week 2 & 3:** [MCP, research sub-agent, voice support, and evaluation dashboard](https://keithcu.com/wordpress/?p=5112).
 - **Week 4-6:** [State machines, formal verification, and specialized toolsets](https://keithcu.com/wordpress/?p=5245).
-- **Week 6 & 7:** Async grammar checking, MathML/TeX support, and 34-language multi-model translation review (Draft).
+- **Week 6 & 7:** [Async grammar checking and TeX import support](https://keithcu.com/wordpress/?p=5276).
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/KeithCu/writeragent)
 
