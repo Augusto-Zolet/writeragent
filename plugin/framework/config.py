@@ -19,22 +19,22 @@
 Configuration logic for WriterAgent.
 Reads/writes writeragent.json in LibreOffice's user config directory.
 """
-import os
+import dataclasses
 import ipaddress
-import urllib.parse
 import json
 import logging
-import dataclasses
+import os
 import time
+import urllib.parse
 from typing import Any, Callable, Dict, cast
 
-from plugin.framework.service import ServiceBase
-from plugin.framework.event_bus import global_event_bus
-from plugin.framework.uno_context import get_ctx
-from plugin.framework.default_models import DEFAULT_MODELS, resolve_model_id, get_provider_defaults
-from plugin.framework.errors import ConfigError, NetworkError, safe_call
 from plugin.framework.constants import ModelCapability, get_plugin_dir
+from plugin.framework.default_models import DEFAULT_MODELS, get_provider_defaults, resolve_model_id
+from plugin.framework.errors import ConfigError, NetworkError, safe_call
+from plugin.framework.event_bus import global_event_bus
 from plugin.framework.i18n import _
+from plugin.framework.service import ServiceBase
+from plugin.framework.uno_context import get_ctx
 
 try:
     from plugin._manifest import MODULES
@@ -55,20 +55,21 @@ except ImportError:
 uno: Any = _uno_mod
 unohelper: Any = _unohelper_mod
 
-
 from plugin.framework.url_utils import (
     get_api_version_suffix,
-    normalize_endpoint_url,
-    get_url_hostname,
     get_url_domain,
+    get_url_hostname,
     get_url_path,
-    get_url_query_dict,
     get_url_path_and_query,
+    get_url_query_dict,
     is_pdf_url,
+    normalize_endpoint_url,
 )
 
 log = logging.getLogger(__name__)
 
+
+# --- Module constants ---
 
 CONFIG_FILENAME = "writeragent.json"
 
@@ -113,6 +114,9 @@ ENDPOINT_PRESETS = [
 AI_SIMPLE_FIELDS = {"endpoint", "text_model", "image_model", "stt_model", "temperature", "chat_max_tokens", "chat_context_length", "request_timeout", "additional_instructions", "aihorde_api_key", "image_provider", "nsfw", "censor_nsfw", "max_wait"}
 
 
+# --- Path / profile ---
+
+
 def _config_path(ctx):
     """Return the absolute path to writeragent.json."""
     if ctx is None:
@@ -137,6 +141,9 @@ def user_config_dir(ctx):
         return os.path.dirname(p) if p else None
     except Exception as e:
         raise ConfigError(f"Failed to resolve config dir: {e}", "CONFIG_DIR_ERROR") from e
+
+
+# --- MODULES / manifest schema ---
 
 
 def _get_schema_default(key):
@@ -180,6 +187,9 @@ def _dotted_fallback_keys(key):
                 if fname == key:
                     yield f"{mod_name}.{fname}"
                     break
+
+
+# --- WriterAgentConfig ---
 
 
 @dataclasses.dataclass
@@ -369,6 +379,9 @@ class WriterAgentConfig:
         return out
 
 
+# --- Default resolution ---
+
+
 def _resolve_default(key):
     """Resolve default for key: schema first, then central dict. Safe fallbacks for None."""
     if key == "log_level":
@@ -396,6 +409,8 @@ def _resolve_default(key):
     # Strict check: if not in schema and not a recognized dynamic pattern, it's a bug.
     raise ConfigError(f"Missing config key {key!r}: not a WriterAgentConfig field, MODULES default, or LRU pattern.", "CONFIG_KEY_NOT_FOUND", details={"key": key})
 
+
+# --- Validated JSON cache ---
 
 # In-memory configuration cache so we don't open/parse/validate writeragent.json
 # on every single get_config access.
@@ -475,6 +490,9 @@ def _get_validated_config_dict(ctx):
     except OSError as e:
         log.error("Error reading %s: %s", config_file_path, e)
         return {}
+
+
+# --- Core config I/O ---
 
 
 def get_config(ctx, key):
@@ -638,6 +656,9 @@ def remove_config(ctx, key):
         raise ConfigError(f"Failed to remove config key: {e}", "CONFIG_SAVE_ERROR") from e
 
 
+# --- Parsing helpers ---
+
+
 def as_bool(value):
     """Parse a value as boolean (handles str, int, float)."""
     if isinstance(value, bool):
@@ -661,6 +682,9 @@ def _safe_int(value, default):
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+# --- Endpoint and provider ---
 
 
 def get_provider_from_endpoint(endpoint):
@@ -697,6 +721,14 @@ def get_provider_from_endpoint(endpoint):
     if "api.z.ai" in url or "z.ai" in url:
         return "zai"
     return None
+
+
+def get_endpoint_presets():
+    """Return list of (label, url) for endpoint selector, in display order."""
+    return list(ENDPOINT_PRESETS)
+
+
+# --- Model catalog and audio cache ---
 
 
 def get_model_capability(ctx, model_id, endpoint):
@@ -755,10 +787,7 @@ def set_native_audio_support(ctx, model_id, endpoint, supported):
     set_config(ctx, "audio_support_map", cache)
 
 
-# GET {base}/v1/models — memoized for the lifetime of this Python process (LibreOffice
-# session). Key is normalized URL, or ``url + "\\x1f" + api_key`` when ``ctx`` is passed
-# (same host, different keys must not share cache). Value is model id list or None after failure.
-
+# --- Resolved model getters (text / STT / grammar) ---
 
 
 def get_text_model(ctx):
@@ -796,23 +825,7 @@ def is_grammar_enabled(ctx):
     return get_config_bool_safe(ctx, "doc.grammar_proofreader_enabled")
 
 
-def get_endpoint_presets():
-    """Return list of (label, url) for endpoint selector, in display order."""
-    return list(ENDPOINT_PRESETS)
-
-
-
-
-
-def validate_api_config(config):
-    """Validate API config dict (from get_api_config). Returns (ok: bool, error_message: str)."""
-    endpoint = (config.get("endpoint") or "").strip()
-    if not endpoint:
-        return (False, "Please set Endpoint in Settings.")
-    model = (config.get("model") or "").strip()
-    if not model:
-        return (False, "Please set Model in Settings.")
-    return (True, "")
+# --- Image model ---
 
 
 def get_image_model(ctx):
@@ -855,7 +868,7 @@ def set_image_model(ctx, val, update_lru=True):
             update_lru_history(ctx, val_str, "image_model_lru", get_current_endpoint(ctx))
 
 
-
+# --- Per-endpoint API keys ---
 
 
 def get_api_key_for_endpoint(ctx, endpoint):
@@ -875,6 +888,9 @@ def set_api_key_for_endpoint(ctx, endpoint, key):
     normalized = normalize_endpoint_url(endpoint or "")
     data[normalized] = str(key)
     set_config(ctx, "api_keys_by_endpoint", data)
+
+
+# --- Bundled API config ---
 
 
 def get_api_config(ctx):
@@ -907,4 +923,12 @@ def get_api_config(ctx):
     return api_config
 
 
-
+def validate_api_config(config):
+    """Validate API config dict (from get_api_config). Returns (ok: bool, error_message: str)."""
+    endpoint = (config.get("endpoint") or "").strip()
+    if not endpoint:
+        return (False, "Please set Endpoint in Settings.")
+    model = (config.get("model") or "").strip()
+    if not model:
+        return (False, "Please set Model in Settings.")
+    return (True, "")
