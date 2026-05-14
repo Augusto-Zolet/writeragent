@@ -22,11 +22,14 @@ from plugin.framework.config import (
     AI_SIMPLE_FIELDS,
 )
 
+_unohelper_mod: Any
 try:
     import unohelper as _unohelper_impl
-    unohelper: Any = _unohelper_impl
+    _unohelper_mod = _unohelper_impl
 except ImportError:
-    unohelper: Any = None
+    _unohelper_mod = None
+unohelper: Any = _unohelper_mod
+
 
 log = logging.getLogger(__name__)
 

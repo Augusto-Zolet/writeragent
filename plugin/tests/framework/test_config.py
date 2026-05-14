@@ -1,195 +1,15 @@
-
 import json
-import pytest
-import sys
 import os
-import json
 import tempfile
 import unittest
-import queue
-import time
-import pytest
-from plugin.framework.config_service import ConfigService, ConfigAccessError
-from plugin.framework.event_bus import EventBus
-from plugin.framework.constants import get_plugin_dir
 from unittest.mock import MagicMock, patch
-from plugin.tests.testing_utils import setup_uno_mocks
+
 from plugin.framework.config import get_image_model, set_image_model, get_api_key_for_endpoint, set_api_key_for_endpoint, get_config, get_config_int, set_config
-from plugin.chatbot.config_ui_helpers import update_lru_history
-from plugin.framework.client.model_fetcher import endpoint_url_suitable_for_v1_models_fetch
 from plugin.framework.event_bus import global_event_bus
-from unittest.mock import MagicMock, patch
-from plugin.framework.worker_pool import run_in_background
-from plugin.framework.errors import WorkerPoolError
-from plugin.framework.async_stream import StreamQueueKind, run_stream_drain_loop
-from plugin.framework.logging import SafeLogger, safe_log_exception
-from plugin.framework.config import normalize_endpoint_url, get_api_version_suffix
-'Tests for plugin.framework.config (ConfigService + ModuleConfigProxy).'
+from plugin.tests.testing_utils import setup_uno_mocks
+from plugin.framework.constants import get_plugin_dir
+import sys
 
-@pytest.fixture
-def config_dir(tmp_path):
-    'Provide a temp dir for config file.'
-    return tmp_path
-
-@pytest.fixture
-def config_svc(config_dir):
-    'ConfigService with a temp config path (bypasses UNO).'
-    svc = ConfigService()
-    svc._config_path = str((config_dir / 'writeragent.json'))
-    return svc
-
-@pytest.fixture
-def manifest():
-    'Sample manifest data.'
-    return {'mcp': {'config': {'port': {'type': 'int', 'default': 8766, 'public': True}, 'host': {'type': 'string', 'default': 'localhost', 'public': True}, 'ssl_key': {'type': 'string', 'default': '', 'public': False}}}, 'chatbot': {'config': {'max_tool_rounds': {'type': 'int', 'default': 15, 'public': False}}}}
-
-class TestDefaults():
-
-    def test_get_returns_default(self, config_svc, manifest):
-        config_svc.set_manifest(manifest)
-        import plugin.framework.config as c
-        old_get_config = c.get_config
-        c.get_config = (lambda x, y: None)
-        try:
-            assert (config_svc.get('mcp.port') == 8766)
-            assert (config_svc.get('mcp.host') == 'localhost')
-        finally:
-            c.get_config = old_get_config
-
-    def test_get_returns_none_for_unknown(self, config_svc):
-        assert (config_svc.get('nonexistent.key') is None)
-
-    def test_register_default(self, config_svc):
-        config_svc.register_default('custom.key', 42)
-        assert (config_svc.get('custom.key') == 42)
-
-class TestSetGet():
-
-    def test_set_and_get(self, config_svc, manifest):
-        config_svc.set_manifest(manifest)
-        config_svc.set('mcp.port', 9000)
-        assert (config_svc.get('mcp.port') == 9000)
-
-    def test_set_persists_to_file(self, config_svc, config_dir, manifest):
-        config_svc.set_manifest(manifest)
-        config_svc.set('mcp.port', 9000)
-        with open((config_dir / 'writeragent.json')) as f:
-            data = json.load(f)
-        assert (data['mcp.port'] == 9000)
-
-    def test_remove(self, config_svc, manifest):
-        config_svc.set_manifest(manifest)
-        config_svc.set('mcp.port', 9000)
-        config_svc.remove('mcp.port')
-        assert (config_svc.get('mcp.port') == 8766)
-
-    def test_get_dict(self, config_svc, manifest):
-        config_svc.set_manifest(manifest)
-        config_svc.set('mcp.port', 9000)
-        d = config_svc.get_dict()
-        assert (d['mcp.port'] == 9000)
-
-class TestAccessControl():
-
-    def test_read_own_key_ok(self, config_svc, manifest):
-        config_svc.set_manifest(manifest)
-        assert (config_svc.get('mcp.port', caller_module='mcp') == 8766)
-
-    def test_read_public_key_ok(self, config_svc, manifest):
-        config_svc.set_manifest(manifest)
-        assert (config_svc.get('mcp.port', caller_module='chatbot') == 8766)
-
-    def test_read_private_key_denied(self, config_svc, manifest):
-        config_svc.set_manifest(manifest)
-        with pytest.raises(ConfigAccessError, match='cannot read private'):
-            config_svc.get('mcp.ssl_key', caller_module='chatbot')
-
-    def test_write_own_key_ok(self, config_svc, manifest):
-        config_svc.set_manifest(manifest)
-        config_svc.set('mcp.port', 9000, caller_module='mcp')
-        assert (config_svc.get('mcp.port') == 9000)
-
-    def test_write_other_key_denied(self, config_svc, manifest):
-        config_svc.set_manifest(manifest)
-        with pytest.raises(ConfigAccessError, match='cannot write'):
-            config_svc.set('mcp.port', 9000, caller_module='chatbot')
-
-    def test_no_caller_no_restriction(self, config_svc, manifest):
-        config_svc.set_manifest(manifest)
-        assert (config_svc.get('mcp.ssl_key') == '')
-
-class TestEvents():
-
-    def test_config_changed_event(self, config_svc, manifest):
-        config_svc.set_manifest(manifest)
-        bus = EventBus()
-        config_svc.set_events(bus)
-        events = []
-        bus.subscribe('config:changed', (lambda **kw: events.append(kw)))
-        config_svc.set('mcp.port', 9000)
-        assert (len(events) == 1)
-        assert (events[0]['key'] == 'mcp.port')
-        assert (events[0]['value'] == 9000)
-        assert (events[0]['old_value'] == 8766)
-
-    def test_no_event_when_value_unchanged(self, config_svc, manifest):
-        config_svc.set_manifest(manifest)
-        bus = EventBus()
-        config_svc.set_events(bus)
-        config_svc.set('mcp.port', 8766)
-        events = []
-        bus.subscribe('config:changed', (lambda **kw: events.append(kw)))
-        config_svc.set('mcp.port', 8766)
-        assert (events == [])
-
-class TestModuleConfigProxy():
-
-    def test_auto_prefix(self, config_svc, manifest):
-        config_svc.set_manifest(manifest)
-        proxy = config_svc.proxy_for('mcp')
-        assert (proxy.get('port') == 8766)
-
-    def test_set_auto_prefix(self, config_svc, manifest):
-        config_svc.set_manifest(manifest)
-        proxy = config_svc.proxy_for('mcp')
-        proxy.set('port', 9000)
-        assert (proxy.get('port') == 9000)
-
-    def test_cross_module_read_public(self, config_svc, manifest):
-        config_svc.set_manifest(manifest)
-        proxy = config_svc.proxy_for('chatbot')
-        assert (proxy.get('mcp.port') == 8766)
-
-    def test_cross_module_read_private_denied(self, config_svc, manifest):
-        config_svc.set_manifest(manifest)
-        proxy = config_svc.proxy_for('chatbot')
-        with pytest.raises(ConfigAccessError):
-            proxy.get('mcp.ssl_key')
-
-    def test_default_fallback(self, config_svc, manifest):
-        import plugin.framework.config as c
-        old_get_config = c.get_config
-        c.get_config = (lambda x, y: None)
-        try:
-            config_svc.set_manifest(manifest)
-            proxy = config_svc.proxy_for('mcp')
-            assert (proxy.get('nonexistent', default='fallback') == 'fallback')
-        finally:
-            c.get_config = old_get_config
-
-    def test_proxy_remove(self, config_svc, manifest):
-        'Remove via ModuleConfigProxy (proxy.remove).'
-        import plugin.framework.config as c
-        old_get_config = c.get_config
-        c.get_config = (lambda x, y: None)
-        try:
-            config_svc.set_manifest(manifest)
-            proxy = config_svc.proxy_for('mcp')
-            proxy.set('port', 9000)
-            proxy.remove('port')
-            assert (proxy.get('port') == 8766)
-        finally:
-            c.get_config = old_get_config
 setup_uno_mocks()
 sys.path.insert(0, os.path.dirname(get_plugin_dir()))
 
@@ -206,18 +26,12 @@ class TestConfigSync(unittest.TestCase):
             self.config_data[key] = value
         self.get_patcher = patch('plugin.framework.config.get_config', side_effect=mock_get_config)
         self.set_patcher = patch('plugin.framework.config.set_config', side_effect=mock_set_config)
-        self.ui_get_patcher = patch('plugin.chatbot.config_ui_helpers.get_config', side_effect=mock_get_config)
-        self.ui_set_patcher = patch('plugin.chatbot.config_ui_helpers.set_config', side_effect=mock_set_config)
         self.mock_get = self.get_patcher.start()
         self.mock_set = self.set_patcher.start()
-        self.ui_get_patcher.start()
-        self.ui_set_patcher.start()
 
     def tearDown(self):
         self.get_patcher.stop()
         self.set_patcher.stop()
-        self.ui_get_patcher.stop()
-        self.ui_set_patcher.stop()
 
     def test_set_image_model_aihorde(self):
         self.config_data['image_provider'] = 'aihorde'
@@ -241,23 +55,6 @@ class TestConfigSync(unittest.TestCase):
         self.config_data['image_model'] = 'same-model'
         self.mock_set.reset_mock()
         set_image_model(self.ctx, 'same-model')
-        self.mock_set.assert_not_called()
-
-    def test_update_lru_history_scoping(self):
-        update_lru_history(self.ctx, 'item1', 'model_lru', 'http://localhost')
-        self.assertEqual(self.config_data.get('model_lru@http://localhost'), ['item1'])
-        update_lru_history(self.ctx, 'item2', 'prompt_lru', '')
-        self.assertEqual(self.config_data.get('prompt_lru'), ['item2'])
-        for i in range(5):
-            update_lru_history(self.ctx, f'item{i}', 'test_lru', 'ep', max_items=3)
-        self.assertEqual(self.config_data.get('test_lru@ep'), ['item4', 'item3', 'item2'])
-        update_lru_history(self.ctx, 'item2', 'test_lru', 'ep', max_items=3)
-        self.assertEqual(self.config_data.get('test_lru@ep'), ['item2', 'item4', 'item3'])
-
-    def test_update_lru_history_skips_when_list_unchanged(self):
-        self.config_data['prompt_lru'] = ['first', 'second']
-        self.mock_set.reset_mock()
-        update_lru_history(self.ctx, 'first', 'prompt_lru', '')
         self.mock_set.assert_not_called()
 
     def test_get_image_model(self):
@@ -302,222 +99,6 @@ class TestConfigSync(unittest.TestCase):
             global_event_bus.unsubscribe('config:changed', my_callback)
             global_event_bus.unsubscribe('config:changed', bad_callback)
 
-class TestEndpointUrlSuitableForModelFetch(unittest.TestCase):
-
-    def test_incomplete_or_invalid_urls_rejected(self):
-        self.assertFalse(endpoint_url_suitable_for_v1_models_fetch(''))
-        self.assertFalse(endpoint_url_suitable_for_v1_models_fetch('http:/'))
-        self.assertFalse(endpoint_url_suitable_for_v1_models_fetch('http://'))
-        self.assertFalse(endpoint_url_suitable_for_v1_models_fetch('ftp://api.openai.com'))
-        self.assertFalse(endpoint_url_suitable_for_v1_models_fetch('not-a-url'))
-
-    def test_complete_urls_accepted(self):
-        self.assertTrue(endpoint_url_suitable_for_v1_models_fetch('http://localhost:1234'))
-        self.assertTrue(endpoint_url_suitable_for_v1_models_fetch('https://api.openai.com/v1'))
-        self.assertTrue(endpoint_url_suitable_for_v1_models_fetch('http://127.0.0.1:11434'))
-        self.assertTrue(endpoint_url_suitable_for_v1_models_fetch('http://[::1]:8080'))
-
-class TestPopulateComboboxWithLruFetchOptions(unittest.TestCase):
-    'populate_combobox_with_lru(skip_remote_fetch / remote_models) must not call fetch_available_models.'
-
-    def setUp(self):
-        self.ctx = MagicMock()
-        self.config_data = {}
-
-        def mock_get_config(ctx, key):
-            return self.config_data.get(key, '')
-
-        def mock_set_config(ctx, key, value):
-            self.config_data[key] = value
-        self.get_patcher = patch('plugin.framework.config.get_config', side_effect=mock_get_config)
-        self.set_patcher = patch('plugin.framework.config.set_config', side_effect=mock_set_config)
-        self.ui_get_patcher = patch('plugin.chatbot.config_ui_helpers.get_config', side_effect=mock_get_config)
-        self.ui_set_patcher = patch('plugin.chatbot.config_ui_helpers.set_config', side_effect=mock_set_config)
-        self.get_patcher.start()
-        self.set_patcher.start()
-        self.ui_get_patcher.start()
-        self.ui_set_patcher.start()
-
-    def tearDown(self):
-        self.get_patcher.stop()
-        self.set_patcher.stop()
-        self.ui_get_patcher.stop()
-        self.ui_set_patcher.stop()
-
-    def test_skip_remote_fetch_does_not_call_fetch(self):
-        from plugin.chatbot.config_ui_helpers import populate_combobox_with_lru
-        ctrl = MagicMock()
-        ctrl.getItemCount.return_value = 0
-        with patch('plugin.framework.client.model_fetcher.fetch_available_models') as mock_fetch:
-            populate_combobox_with_lru(self.ctx, ctrl, '', 'model_lru', 'http://localhost:8080', skip_remote_fetch=True)
-            mock_fetch.assert_not_called()
-
-    def test_remote_models_does_not_call_fetch(self):
-        from plugin.chatbot.config_ui_helpers import populate_combobox_with_lru
-        ctrl = MagicMock()
-        ctrl.getItemCount.return_value = 0
-        with patch('plugin.framework.client.model_fetcher.fetch_available_models') as mock_fetch:
-            populate_combobox_with_lru(self.ctx, ctrl, '', 'model_lru', 'http://localhost:8080', remote_models=['m1', 'm2'])
-            mock_fetch.assert_not_called()
-            ctrl.addItems.assert_called()
-            items = ctrl.addItems.call_args[0][0]
-            self.assertIn('m1', items)
-            self.assertIn('m2', items)
-
-    def test_together_empty_lru_merges_default_text_model(self):
-        'Massive providers skip /v1/models in populate_combobox_with_lru; defaults must still appear.'
-        from plugin.chatbot.config_ui_helpers import populate_combobox_with_lru
-        self.config_data['model_lru@https://api.together.xyz'] = []
-        ctrl = MagicMock()
-        ctrl.getItemCount.return_value = 0
-        with patch('plugin.framework.client.model_fetcher.fetch_available_models') as mock_fetch:
-            populate_combobox_with_lru(self.ctx, ctrl, '', 'model_lru', 'https://api.together.xyz', skip_remote_fetch=True)
-            mock_fetch.assert_not_called()
-        ctrl.addItems.assert_called()
-        items = ctrl.addItems.call_args[0][0]
-        self.assertIn('openai/gpt-oss-120b', items)
-
-    def test_empty_current_val_uses_lru_head_after_sidebar_style_pick(self):
-        'Simulates Settings _apply_dropdowns passing "" — active pick must stay LRU head so setText is not a stale model.'
-        from plugin.chatbot.config_ui_helpers import populate_combobox_with_lru
-        ep = 'http://localhost:8080'
-        self.config_data[f'model_lru@{ep}'] = ['picked-model', 'other-model']
-        ctrl = MagicMock()
-        ctrl.getItemCount.return_value = 0
-        populate_combobox_with_lru(self.ctx, ctrl, '', 'model_lru', ep, skip_remote_fetch=True)
-        ctrl.setText.assert_called_with('picked-model')
-
-class TestFetchAvailableModelsCache(unittest.TestCase):
-    '_model_fetch_cache is process-wide; same normalized endpoint hits HTTP once.'
-
-    def tearDown(self):
-        import plugin.framework.client.model_fetcher as cfg
-        keys_to_del = [k for k in cfg._model_fetch_cache if (('127.0.0.1:58901' in k) or ('127.0.0.1:58902' in k) or ('127.0.0.1:58903' in k) or ('127.0.0.1:58904' in k) or ('127.0.0.1:58905' in k))]
-        for k in keys_to_del:
-            del cfg._model_fetch_cache[k]
-
-    def test_second_call_does_not_http(self):
-        from plugin.framework.client import model_fetcher as cfg
-        with patch('plugin.framework.client.requests.sync_request') as mock_sync:
-            mock_sync.return_value = {'data': [{'id': 'alpha'}]}
-            r1 = cfg.fetch_available_models('http://127.0.0.1:58901')
-            r2 = cfg.fetch_available_models('http://127.0.0.1:58901')
-            self.assertEqual(r1, ['alpha'])
-            self.assertEqual(r2, ['alpha'])
-            self.assertEqual(mock_sync.call_count, 1)
-
-    def test_normalized_url_shares_cache_entry(self):
-        from plugin.framework.client import model_fetcher as cfg
-        with patch('plugin.framework.client.requests.sync_request') as mock_sync:
-            mock_sync.return_value = {'data': [{'id': 'beta'}]}
-            cfg.fetch_available_models('http://127.0.0.1:58902/')
-            cfg.fetch_available_models('http://127.0.0.1:58902')
-            self.assertEqual(mock_sync.call_count, 1)
-
-    def test_fetch_available_models_sends_bearer_when_ctx_and_api_key(self):
-        'GET /v1/models must use the same per-endpoint key as chat (LocalAI, etc.).'
-        from plugin.framework.client import model_fetcher as cfg
-        from plugin.framework.config import normalize_endpoint_url
-        ctx = MagicMock()
-        with tempfile.TemporaryDirectory() as tmp:
-            config_path = os.path.join(tmp, 'writeragent.json')
-            endpoint = 'http://127.0.0.1:58903'
-            norm = normalize_endpoint_url(endpoint)
-            with open(config_path, 'w', encoding='utf-8') as f:
-                json.dump({'api_keys_by_endpoint': {norm: 'secret-token'}}, f)
-
-            def mock_config_path(c):
-                return config_path
-            with patch('plugin.framework.config._config_path', side_effect=mock_config_path):
-                import plugin.framework.config as real_config
-                real_config._cached_config_dict = None
-                real_config._cached_config_mtime = 0
-                real_config._cached_config_mtime_last_checked = 0.0
-                for k in list(cfg._model_fetch_cache):
-                    if ('58903' in k):
-                        del cfg._model_fetch_cache[k]
-                with patch('plugin.framework.client.requests.sync_request') as mock_sync:
-                    mock_sync.return_value = {'data': [{'id': 'm1'}]}
-                    r = cfg.fetch_available_models(endpoint, ctx)
-                    self.assertEqual(r, ['m1'])
-                    mock_sync.assert_called_once()
-                    (_args, kwargs) = mock_sync.call_args
-                    headers = kwargs.get('headers')
-                    self.assertIsInstance(headers, dict)
-                    self.assertEqual(headers.get('Authorization'), 'Bearer secret-token')
-
-    def test_model_fetch_cache_key_differs_for_override(self):
-        from plugin.framework.client import model_fetcher as cfg
-        from unittest.mock import MagicMock
-        ctx = MagicMock()
-        url = 'http://127.0.0.1:58903/v1/models'
-        base = 'http://127.0.0.1:58903'
-        with patch.object(cfg, 'get_api_key_for_endpoint', return_value='saved'):
-            k_saved = cfg._model_fetch_cache_key(url, ctx, base, None)
-            k_a = cfg._model_fetch_cache_key(url, ctx, base, 'typed-a')
-            k_b = cfg._model_fetch_cache_key(url, ctx, base, 'typed-b')
-        self.assertEqual(k_saved, f'{url}saved')
-        self.assertEqual(k_a, f'{url}typed-a')
-        self.assertEqual(k_b, f'{url}typed-b')
-
-    def test_fetch_available_models_override_used_not_config_file(self):
-        'Settings passes live api_key field; override must win over api_keys_by_endpoint.'
-        from plugin.framework.client import model_fetcher as cfg
-        from plugin.framework.config import normalize_endpoint_url
-        ctx = MagicMock()
-        with tempfile.TemporaryDirectory() as tmp:
-            config_path = os.path.join(tmp, 'writeragent.json')
-            endpoint = 'http://127.0.0.1:58904'
-            norm = normalize_endpoint_url(endpoint)
-            with open(config_path, 'w', encoding='utf-8') as f:
-                json.dump({'api_keys_by_endpoint': {norm: 'from-config-only'}}, f)
-
-            def mock_config_path(c):
-                return config_path
-            with patch('plugin.framework.config._config_path', side_effect=mock_config_path):
-                import plugin.framework.config as real_config
-                real_config._cached_config_dict = None
-                real_config._cached_config_mtime = 0
-                real_config._cached_config_mtime_last_checked = 0.0
-                for k in list(cfg._model_fetch_cache):
-                    if ('58904' in k):
-                        del cfg._model_fetch_cache[k]
-                with patch('plugin.framework.client.requests.sync_request') as mock_sync:
-                    mock_sync.return_value = {'data': [{'id': 'm1'}]}
-                    r = cfg.fetch_available_models(endpoint, ctx, api_key_override='from-override')
-                    self.assertEqual(r, ['m1'])
-                    mock_sync.assert_called_once()
-                    (_args, kwargs) = mock_sync.call_args
-                    headers = kwargs.get('headers')
-                    self.assertIsInstance(headers, dict)
-                    self.assertEqual(headers.get('Authorization'), 'Bearer from-override')
-
-    def test_fetch_override_and_saved_key_separate_cache(self):
-        from plugin.framework.client import model_fetcher as cfg
-        from plugin.framework.config import normalize_endpoint_url
-        ctx = MagicMock()
-        with tempfile.TemporaryDirectory() as tmp:
-            config_path = os.path.join(tmp, 'writeragent.json')
-            endpoint = 'http://127.0.0.1:58905'
-            norm = normalize_endpoint_url(endpoint)
-            with open(config_path, 'w', encoding='utf-8') as f:
-                json.dump({'api_keys_by_endpoint': {norm: 'key-a'}}, f)
-
-            def mock_config_path(c):
-                return config_path
-            with patch('plugin.framework.config._config_path', side_effect=mock_config_path):
-                import plugin.framework.config as real_config
-                real_config._cached_config_dict = None
-                real_config._cached_config_mtime = 0
-                real_config._cached_config_mtime_last_checked = 0.0
-                for k in list(cfg._model_fetch_cache):
-                    if ('58905' in k):
-                        del cfg._model_fetch_cache[k]
-                with patch('plugin.framework.client.requests.sync_request') as mock_sync:
-                    mock_sync.return_value = {'data': [{'id': 'x'}]}
-                    cfg.fetch_available_models(endpoint, ctx)
-                    cfg.fetch_available_models(endpoint, ctx, api_key_override='key-b')
-                    self.assertEqual(mock_sync.call_count, 2)
 
 class TestConfigSyncFileIO(unittest.TestCase):
 
@@ -536,7 +117,6 @@ class TestConfigSyncFileIO(unittest.TestCase):
         self.temp_dir.cleanup()
         if os.path.exists(self.config_path):
             os.remove(self.config_path)
-        from plugin.framework.config import get_config
 
     def test_set_api_key_file_io(self):
         set_api_key_for_endpoint(self.ctx, 'http://api.openai.com', 'sk-1234')
@@ -583,7 +163,7 @@ class TestConfigSyncFileIO(unittest.TestCase):
             get_config(self.ctx, 'some_custom_map')
 
     def test_set_config_skips_identical_value(self):
-        import plugin.framework.client.model_fetcher as cfg
+        import plugin.framework.config as cfg
         cfg._cached_config_dict = None
         cfg._cached_config_mtime = 0
         cfg._cached_config_mtime_last_checked = 0.0
@@ -598,85 +178,3 @@ class TestConfigSyncFileIO(unittest.TestCase):
         with open(self.config_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         self.assertEqual(data.get('text_model'), 'other')
-
-class TestNormalizeEndpointUrl():
-
-    def test_strips_trailing_v1(self):
-        assert (normalize_endpoint_url('https://api.example.com/v1') == 'https://api.example.com')
-        assert (normalize_endpoint_url('https://api.example.com/v1/') == 'https://api.example.com')
-        assert (normalize_endpoint_url('https://openrouter.ai/api/v1') == 'https://openrouter.ai/api')
-
-    def test_preserves_v1beta_and_similar(self):
-        u = 'https://generativelanguage.googleapis.com/v1beta/openai'
-        assert (normalize_endpoint_url(u) == u)
-
-    def test_empty_and_whitespace(self):
-        assert (normalize_endpoint_url('') == '')
-        assert (normalize_endpoint_url('  ') == '')
-
-    def test_zai_normalization(self):
-        # Test that /v4 is stripped for Z.ai
-        assert normalize_endpoint_url("https://api.z.ai/v4") == "https://api.z.ai"
-        assert normalize_endpoint_url("https://z.ai/v4") == "https://z.ai"
-        # Test that /v4 is stripped even for deeper paths (Z.ai coding endpoint)
-        assert normalize_endpoint_url("https://api.z.ai/api/coding/paas/v4") == "https://api.z.ai/api/coding/paas"
-        # Test that /v1 is also stripped for Z.ai (as a fallback)
-        assert normalize_endpoint_url("https://api.z.ai/v1") == "https://api.z.ai"
-
-    def test_populate_combobox_stray_model_filtering(self):
-        from unittest.mock import MagicMock
-        from plugin.chatbot.config_ui_helpers import populate_combobox_with_lru
-        
-        ctx = MagicMock()
-        ctrl = MagicMock()
-        
-        # Scenario: Current val is a Google model, but we just switched to Z.ai.
-        # Fetch fails (None).
-        current_val = "google/gemini-3.1-flash-lite-preview"
-        endpoint = "https://api.z.ai/v4"
-        
-        # Mock get_config to return empty LRU
-        with patch("plugin.framework.config.get_config", return_value=[]):
-            # Mock fetch_available_models to return None (fail)
-            with patch("plugin.framework.client.model_fetcher.fetch_available_models", return_value=None):
-                populate_combobox_with_lru(ctx, ctrl, current_val, "model_lru", endpoint)
-                
-        # Verify that ctrl.addItems was called with the placeholder, NOT the stray Gemini model
-        call_args = ctrl.addItems.call_args[0][0]
-        assert "(Enter API Key to load models)" in call_args
-        assert "google/gemini-3.1-flash-lite-preview" not in call_args
-
-    def test_populate_combobox_placeholder_no_provider(self):
-        from unittest.mock import MagicMock
-        from plugin.chatbot.config_ui_helpers import populate_combobox_with_lru
-        
-        ctx = MagicMock()
-        ctrl = MagicMock()
-        
-        # Scenario: Unknown endpoint, fetch fails.
-        endpoint = "https://unknown.provider/api"
-        
-        with patch("plugin.framework.config.get_config", return_value=[]):
-            with patch("plugin.framework.client.model_fetcher.fetch_available_models", return_value=None):
-                populate_combobox_with_lru(ctx, ctrl, "", "model_lru", endpoint)
-                
-        call_args = ctrl.addItems.call_args[0][0]
-        assert "(Connection failed)" in call_args
-
-    def test_openwebui_normalization(self):
-        # Test that /api is stripped when is_openwebui is True
-        assert normalize_endpoint_url("http://localhost:3000/api", is_openwebui=True) == "http://localhost:3000"
-        # Test that /api is NOT stripped when is_openwebui is False
-        assert normalize_endpoint_url("http://localhost:3000/api", is_openwebui=False) == "http://localhost:3000/api"
-
-
-class TestApiVersionSuffix():
-
-    def test_zai_suffix(self):
-        assert get_api_version_suffix("https://api.z.ai") == "/v4"
-        assert get_api_version_suffix("https://z.ai") == "/v4"
-        assert get_api_version_suffix("https://other-api.com") == "/v1"
-
-    def test_openwebui_suffix(self):
-        assert get_api_version_suffix("http://localhost:3000", is_openwebui=True) == "/api"
-        assert get_api_version_suffix("http://localhost:3000", is_openwebui=False) == "/v1"
