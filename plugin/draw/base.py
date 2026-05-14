@@ -33,6 +33,7 @@ class ToolDrawSpecialBase(ToolBase):
     tier = "specialized"
     specialized_domain: ClassVar[str | None] = None
     specialized_domain_description: ClassVar[str | None] = None
+    required_core_tools: ClassVar[frozenset[str] | None] = None
 
 
 # --- Domain-Specific Base Classes ---

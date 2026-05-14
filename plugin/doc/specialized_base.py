@@ -91,9 +91,18 @@ class DelegateToSpecializedBase(ToolBase):
         all_tools = registry.get_tools(filter_doc_type=False, exclude_tiers=())
 
         domain_tools = []
+        required_core = set()
         for t in all_tools:
             # Check if it's a subclass of our specific base and matches the domain
             if isinstance(t, self._special_base_class) and getattr(t, "specialized_domain", None) == domain:
+                domain_tools.append(t)
+                req = getattr(t, "required_core_tools", None)
+                if req:
+                    required_core.update(req)
+
+        # Add required core tools for this domain
+        for t in all_tools:
+            if getattr(t, "tier", None) == "core" and t.name in required_core:
                 domain_tools.append(t)
 
         if not domain_tools:

@@ -182,6 +182,7 @@ class ToolBase(ABC):
     is_mutation: bool | None = None
     long_running: bool = False
     doc_types: list[str] | None = None
+    required_core_tools: ClassVar[frozenset[str] | None] = None
 
     def detects_mutation(self):
         """Return True if the tool mutates the document."""
@@ -485,12 +486,25 @@ class ToolRegistry:
         if active_domain:
             # If an active domain is set, restrict the list ONLY to the specialized tools
             # for that domain and the finish tool. Do not include normal default-tier tools.
+            # However, we also include any core tools explicitly requested by the domain.
+
+            # First, find which core tools are required by any tool in this domain
+            required_core = set()
+            for t in tools:
+                if _is_specialized_domain_tool(t, active_domain):
+                    req = getattr(t, "required_core_tools", None)
+                    if req:
+                        required_core.update(req)
+
             filtered_tools = []
             for t in tools:
                 if _is_specialized_domain_tool(t, active_domain):
                     filtered_tools.append(t)
                 # FIXME, these strings should be calculated or handled another way
                 elif getattr(t, "name", "") in ["final_answer", "specialized_workflow_finished", "reply_to_user"]:
+                    filtered_tools.append(t)
+                # Dynamically include core tools required for this domain
+                elif getattr(t, "tier", None) == "core" and t.name in required_core:
                     filtered_tools.append(t)
             tools = filtered_tools
         else:
