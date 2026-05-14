@@ -1,6 +1,6 @@
 import pytest
 import unittest
-from plugin.framework.url_utils import normalize_endpoint_url, get_api_version_suffix
+from plugin.framework.url_utils import normalize_endpoint_url, get_api_version_suffix, get_url_query_dict
 
 class TestNormalizeEndpointUrl():
 
@@ -42,3 +42,23 @@ class TestApiVersionSuffix():
     def test_openwebui_suffix(self):
         assert get_api_version_suffix("http://localhost:3000", is_openwebui=True) == "/api"
         assert get_api_version_suffix("http://localhost:3000", is_openwebui=False) == "/v1"
+
+class TestGetUrlQueryDict:
+    def test_normal_query(self):
+        url = "https://example.com?a=1&b=2"
+        assert get_url_query_dict(url) == {'a': ['1'], 'b': ['2']}
+
+    def test_multiple_values(self):
+        url = "https://example.com?a=1&a=2"
+        assert get_url_query_dict(url) == {'a': ['1', '2']}
+
+    def test_no_query(self):
+        url = "https://example.com"
+        assert get_url_query_dict(url) == {}
+
+    def test_encoded_characters(self):
+        url = "https://example.com?q=hello%20world"
+        assert get_url_query_dict(url) == {'q': ['hello world']}
+
+    def test_empty_input(self):
+        assert get_url_query_dict("") == {}

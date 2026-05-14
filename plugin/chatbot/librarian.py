@@ -20,6 +20,7 @@ class SwitchToDocumentModeTool(ToolBase):
     parameters = {"type": "object", "properties": {"message": {"type": "string", "description": "A final friendly message to the user before switching."}}, "required": ["message"]}
     # Hide from the default main-chat tool surface; librarian onboarding owns this tool.
     tier = "specialized_control"
+    is_final_answer_tool = True
     is_mutation = False
     long_running = False
 

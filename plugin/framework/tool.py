@@ -181,6 +181,7 @@ class ToolBase(ABC):
     intent: str | None = None
     is_mutation: bool | None = None
     long_running: bool = False
+    is_final_answer_tool: bool = False
     doc_types: list[str] | None = None
     required_core_tools: ClassVar[frozenset[str] | None] = None
 
@@ -302,6 +303,7 @@ class ToolBaseDummy:
     """
 
     name: str | None = None
+    is_final_answer_tool: bool = False
 
     def _tool_error(self, message, code="TOOL_EXECUTION_ERROR", **details):
         """Standardized JSON payload for tool errors."""
@@ -500,8 +502,7 @@ class ToolRegistry:
             for t in tools:
                 if _is_specialized_domain_tool(t, active_domain):
                     filtered_tools.append(t)
-                # FIXME, these strings should be calculated or handled another way
-                elif getattr(t, "name", "") in ["final_answer", "specialized_workflow_finished", "reply_to_user"]:
+                elif getattr(t, "is_final_answer_tool", False):
                     filtered_tools.append(t)
                 # Dynamically include core tools required for this domain
                 elif getattr(t, "tier", None) == "core" and t.name in required_core:

@@ -141,16 +141,16 @@ def _web_cache_set(db_path: str, kind: str, key: str, value: str, max_size_bytes
             "INSERT OR REPLACE INTO web_cache (kind, key, value, size, created_at) VALUES (?, ?, ?, ?, ?)",
             (kind, key, value, size, now),
         )
-        while True:
-            total = conn.execute("SELECT COALESCE(SUM(size), 0) FROM web_cache").fetchone()[0]
-            if total <= max_size_bytes:
-                break
-            row = conn.execute(
-                "SELECT kind, key FROM web_cache ORDER BY created_at ASC LIMIT 1"
-            ).fetchone()
-            if not row:
-                break
-            conn.execute("DELETE FROM web_cache WHERE kind = ? AND key = ?", row)
+        total = conn.execute("SELECT COALESCE(SUM(size), 0) FROM web_cache").fetchone()[0]
+        if total > max_size_bytes:
+            to_delete = []
+            for r_kind, r_key, r_size in conn.execute("SELECT kind, key, size FROM web_cache ORDER BY created_at ASC"):
+                to_delete.append((r_kind, r_key))
+                total -= r_size
+                if total <= max_size_bytes:
+                    break
+            if to_delete:
+                conn.executemany("DELETE FROM web_cache WHERE kind = ? AND key = ?", to_delete)
         conn.commit()
 
     _web_cache_with_connection(db_path, do_set)
@@ -213,6 +213,7 @@ class PythonInterpreterTool(Tool):
 class FinalAnswerTool(Tool):
     name = "final_answer"
     description = "Provides a final answer to the given problem."
+    is_final_answer_tool = True
     inputs = {"answer": {"type": "any", "description": "The final answer to the problem"}}
     output_type = "any"
 

@@ -80,6 +80,7 @@ class SmolToolAdapter(SmolTool):
         self._main_thread_sync = main_thread_sync
         self.name = cast("str", tool.name or "")
         self.description = tool.description
+        self.is_final_answer_tool = getattr(tool, "is_final_answer_tool", False)
         params = getattr(tool, "parameters", None) or {}
         self.inputs = to_smol_inputs(params, style=inputs_style)
         if output_type is not None:

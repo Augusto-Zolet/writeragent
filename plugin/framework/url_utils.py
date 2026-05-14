@@ -64,10 +64,12 @@ def get_url_path(url):
         return ""
 
 def get_url_query_dict(url):
-    """Return query parameters as dict."""
+    """Return query parameters as dict (values are lists)."""
+    if not url:
+        return {}
     try:
         parsed = urllib.parse.urlparse(url)
-        return dict(urllib.parse.parse_qsl(parsed.query))
+        return urllib.parse.parse_qs(parsed.query)
     except ValueError:
         return {}
 

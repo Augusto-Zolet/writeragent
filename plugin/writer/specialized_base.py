@@ -183,6 +183,7 @@ class SpecializedWorkflowFinished(ToolBase):
     description = "Provides a final answer to the given task and exits the specialized toolset mode."
     parameters = {"type": "object", "properties": {"answer": {"type": "string", "description": "The final answer to the task."}}, "required": ["answer"]}
     tier = "specialized_control"
+    is_final_answer_tool = True
 
     def execute(self, ctx, **kwargs):
         # Allow the main LLM loop to exit specialized mode
