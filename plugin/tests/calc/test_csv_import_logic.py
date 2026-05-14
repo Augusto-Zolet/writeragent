@@ -135,5 +135,25 @@ class TestFormulaParsingLogic(unittest.TestCase):
         result = _parse_formula_or_values_string(s)
         self.assertEqual(result, ["a", "", "b"])
 
+    def test_single_cell_range_comma_prose_is_literal(self):
+        from plugin.calc.manipulator import _parse_formula_or_values_string
+        s = "Hello ケイス, this is a test."
+        self.assertIsNone(_parse_formula_or_values_string(s, single_cell_range=True))
+        self.assertEqual(
+            _parse_formula_or_values_string(s, single_cell_range=False),
+            ["Hello ケイス", "this is a test."],
+        )
+
+    def test_single_cell_range_comment_with_comma(self):
+        from plugin.calc.manipulator import _parse_formula_or_values_string
+        s = "Note: see section 3, paragraph 2."
+        self.assertIsNone(_parse_formula_or_values_string(s, single_cell_range=True))
+
+    def test_single_cell_range_semicolon_prose_is_literal(self):
+        from plugin.calc.manipulator import _parse_formula_or_values_string
+        s = "Left; right"
+        self.assertIsNone(_parse_formula_or_values_string(s, single_cell_range=True))
+        self.assertEqual(_parse_formula_or_values_string(s, single_cell_range=False), ["Left", "right"])
+
 if __name__ == "__main__":
     unittest.main()

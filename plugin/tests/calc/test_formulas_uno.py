@@ -61,6 +61,23 @@ def test_write_formula_range():
     assert active_sheet.getCellByPosition(1, 0).getString() == "Batch", "Batch write cell 1 failed"
     assert active_sheet.getCellByPosition(1, 1).getString() == "Batch", "Batch write cell 2 failed"
 
+    # Single cell: commas in comments / prose must not split into multiple "cells"
+    comment = "Note: see section 3, paragraph 2."
+    res_comment = _execute_calc_tool("write_formula_range", {"range_name": "C1", "formula_or_values": comment})
+    assert res_comment.get("status") == "ok", f"write_formula_range comment failed: {res_comment}"
+    assert active_sheet.getCellByPosition(2, 0).getString() == comment, "Comma in single-cell comment mangled"
+
+    jp_sentence = "Hello ケイス, this is a test."
+    res_jp = _execute_calc_tool("write_formula_range", {"range_name": ["D1"], "formula_or_values": jp_sentence})
+    assert res_jp.get("status") == "ok", f"write_formula_range JP sentence failed: {res_jp}"
+    assert active_sheet.getCellByPosition(3, 0).getString() == jp_sentence, "Comma in single-cell prose mangled"
+
+    # Two cells in one contiguous range: comma-separated row still maps one field per cell
+    res_two = _execute_calc_tool("write_formula_range", {"range_name": "E1:F1", "formula_or_values": "Left,Right"})
+    assert res_two.get("status") == "ok", f"write_formula_range two-cell CSV failed: {res_two}"
+    assert active_sheet.getCellByPosition(4, 0).getString() == "Left", "E1 should be first CSV field"
+    assert active_sheet.getCellByPosition(5, 0).getString() == "Right", "F1 should be second CSV field"
+
 
 @native_test
 def test_formulas_error_detector():

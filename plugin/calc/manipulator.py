@@ -55,7 +55,7 @@ logger = logging.getLogger("writeragent.calc")
 # ── Helper ─────────────────────────────────────────────────────────────
 
 
-def _parse_formula_or_values_string(s: str):
+def _parse_formula_or_values_string(s: str, *, single_cell_range: bool = False):
     """Parse *formula_or_values* when it arrives as a JSON string or as a
     raw semicolon-separated string.
 
@@ -64,6 +64,12 @@ def _parse_formula_or_values_string(s: str):
     ``'Name;Category;Value'``.  Without this, write_formula_range would
     write the whole string as one value per cell.  We normalise
     LibreOffice-style semicolon separators and return a flat list.
+
+    Args:
+        s: Raw string from the tool caller.
+        single_cell_range: True when ``write_formula_range`` targets exactly
+            one cell (range corners coincide). Passed so Case 2 does not treat
+            ordinary prose (commas, semicolons) as CSV columns for that cell.
 
     Returns:
         A flat list of values, or *None* if *s* should be treated as a
@@ -125,7 +131,29 @@ def _parse_formula_or_values_string(s: str):
                 rows = list(reader)
                 if rows:
                     if len(rows) == 1:
-                        # 1D row
+                        # Case 2a: single logical CSV row (possibly multiple fields).
+                        #
+                        # Bug we fix: csv.reader splits on the data delimiter, so a
+                        # one-cell write like "Hello, world" becomes two fields and
+                        # write_formula_range then errors ("Array has N values but range
+                        # has 1 cells") or would mis-split if we padded silently.
+                        #
+                        # When *single_cell_range* is True, a single line with multiple
+                        # fields is ambiguous (real CSV row vs sentence with commas /
+                        # semicolons). We treat it as literal text for that one cell.
+                        #
+                        # Tradeoff: you cannot use a raw comma-separated *row* string
+                        # to mean "many columns" into a single cell—use a contiguous
+                        # range (e.g. A1:B1) or a JSON array for exact per-cell values.
+                        #
+                        # Multiline CSV is unchanged: len(rows) > 1 still returns a 2D
+                        # list below and write_formula_range expands the anchor cell.
+                        #
+                        # Future: optional tool flag (csv_mode / literal_string);
+                        # tighter heuristics (quoted fields, uniform column counts, tabs);
+                        # JSON arrays remain the precise N-value path.
+                        if single_cell_range and len(rows[0]) > 1:
+                            return None
                         return [val.strip() for val in rows[0]]
                     else:
                         # 2D array representing multiline CSV
@@ -554,9 +582,19 @@ class CellManipulator:
             num_cols = end[0] - start[0] + 1
             total_cells = num_rows * num_cols
 
+            # True when this invocation writes exactly one cell (parse_range_string
+            # corners match). Passed into string parsing so we do not run the CSV
+            # "single row → many fields" path for prose/comments that contain commas
+            # or semicolons—csv.reader cannot tell that from an intentional CSV row.
+            #
+            # Note: range_name ["A1","B1"] in the tool loops two *separate* one-cell
+            # writes with the same string each time; that is not the same as one write
+            # to contiguous A1:B1.
+            single_cell_range = start == end
+
             # Normalise string-as-array from AI callers.
             if isinstance(formula_or_values, str):
-                parsed = _parse_formula_or_values_string(formula_or_values)
+                parsed = _parse_formula_or_values_string(formula_or_values, single_cell_range=single_cell_range)
                 if parsed is not None:
                     formula_or_values = parsed
 
