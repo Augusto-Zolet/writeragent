@@ -31,7 +31,6 @@ A LibreOffice extension (Python + UNO) that adds generative AI editing to Writer
 - [Architecture](#architecture)
 - [Roadmap & Future Vision](#roadmap--future-vision)
 - [Credits & Collaboration](#credits--collaboration)
-- [Quick Start](#-quick-start)
 - [Installation & Setup](#installation--setup)
 - [Contributing](#contributing)
 - [License](#license)
@@ -41,11 +40,6 @@ A LibreOffice extension (Python + UNO) that adds generative AI editing to Writer
 ## Local-First & Flexible
 
 Unlike proprietary office suites that lock you into a single cloud provider and **send all your data to their servers**, WriterAgent is **local-first**. You can run fast, private models locally (via Ollama, LM Studio, or local servers) ensuring your documents never leave your machine. If you choose to use cloud APIs, you can switch between providers (e.g., OpenRouter, Together.AI) in less than 2 seconds, maintaining full control over your data.
-
-### For the GPU-poor
-If you don't have a powerful GPU or an API key, consider [OpenRouter](https://openrouter.ai/collections/free-models) (free models, but prompts may be used for training) or [Together.AI](https://www.together.ai/) (generous private free tier).
-
-
 ---
 
 ## Powerful Feature Suites
@@ -158,15 +152,19 @@ You can plug in **external agent backends** so that Chat with Document uses an e
 
 ## Architecture
 
+![State Machine Architecture](Showcase/full_super_unified_complete.png)
+*Figure 1: Unified state machine architecture for AI tool interactions.*
+
 WriterAgent is engineered for professional-grade reliability, moving beyond simple script-based plugins. [WriterAgent Architecture Overview](docs/writeragent-architecture.md) & [Sidebar Implementation Guide](docs/chat-sidebar-implementation.md).
+
 
 - **Finite State Machine (FSM)**: All complex AI interactions are managed by a pure FSM. This architecture breaks down the extension's behavior into small, isolated, and testable units of logic. See [Formal Verification](docs/formal_verification.md).
 - **JSON Repair**: Uses a multi-stage parsing pipeline (inspired by **Hermes**) and **json-repair** to handle model syntax errors or Python-style literals. [LLM Hacks & Workarounds](docs/llm-hacks.md).
 - **Async Threading**: A custom worker-pool and queue system keep the LibreOffice UI responsive during heavy reasoning. [Streaming & Threading](docs/streaming-and-threading.md) & [Threading Architecture](docs/threading_architecture.md).
 - **Static Analysis**: [Type Checking](docs/type-checking.md) with (`ty`, `Mypy`, and `Pyright`).
+
 - **Comprehensive Test Suite**: Over 500 tests ensuring stability. [Test Architecture](docs/test_architecture_analysis.md).
 
-![State Machine Architecture](Showcase/full_super_unified_complete.png)
 
 ---
 
