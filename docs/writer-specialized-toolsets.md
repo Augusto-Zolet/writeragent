@@ -157,7 +157,7 @@ While the "Fat API" approach drastically reduces tool count and could potentiall
 
 ### 1.3 What "success" looks like under the Delegation model
 
-- The **main** sidebar chat sees `core` / `extended` tools plus the **gateway** `delegate_to_specialized_writer_toolset`, not the full set of table/style/chart/… tools.
+- The **main** sidebar chat sees **core**-tier tools (default main list) plus the **gateway** `delegate_to_specialized_writer_toolset`, not the full set of table/style/chart/… tools.
 - When the model (or product logic) calls the gateway with a **domain** and **task**, the system dynamically grants access to that domain's focused toolset.
 - **MCP** and **direct `execute(tool_name, …)`** remain able to run any registered tool by name (registry does not block execution by tier).
 - **Tests** can enumerate specialized tools with `exclude_tiers=()` when registration needs to be asserted.
@@ -175,7 +175,7 @@ We currently support two alternative implementations for the `delegate_to_specia
 **Approach B: In-Place Tool Switching (`USE_SUB_AGENT = False`)**
 
 - The gateway tool simply sets an active domain flag on the current session and immediately returns control to the main chat model with a message like: `"Tool call switched to '{domain}'..."`.
-- On the next turn, the main chat model receives *only* the specialized tools for that domain, plus a custom `final_answer` tool (designed to perfectly mimic the smolagents exit approach). All normal core/extended tools are hidden to keep the context clean and make the sub-task easy for the model.
+- On the next turn, the main chat model receives *only* the specialized tools for that domain, plus a custom `final_answer` tool (designed to perfectly mimic the smolagents exit approach). All normal default-tier (**core**) tools are hidden to keep the context clean and make the sub-task easy for the model.
 - The model continues its reasoning within the same context and explicitly calls `final_answer` when the sub-task is complete, which clears the active domain and restores the default toolset.
 
 ---
@@ -248,10 +248,10 @@ Block `WRITER_SPECIALIZED_DELEGATION` is prepended into `DEFAULT_CHAT_SYSTEM_PRO
 
 ### 3.4 Exceptions: tools that stay on the main list
 
-Some Writer tools intentionally use `**tier = "extended"`** (or `core`) so users do not need delegation for common actions, for example:
+Some Writer tools intentionally use the default main-chat tier (**`tier = "core"`**, `ToolBase` default) so users do not need delegation for common actions, for example:
 
 - **Track changes:** `[plugin/writer/tracking.py](../../plugin/writer/tracking.py)` — `set_track_changes`, `get_tracked_changes`, `manage_tracked_changes` (nelson-aligned behavior; combined accept/reject in `manage_tracked_changes`).
-- **Style apply:** `[plugin/writer/styles.py](../../plugin/writer/styles.py)` — `apply_style` subclasses `plugin.framework.tool_base.ToolBase` with `tier = "extended"`.
+- **Style apply / update:** `[plugin/writer/styles.py](../../plugin/writer/styles.py)` — `apply_style` and `update_style` subclass [`plugin.framework.tool.ToolBase`](../../plugin/framework/tool.py) with the default **`core`** tier.
 
 **Style discovery** (`list_styles`, `get_style_info`) remains under `ToolWriterStyleBase` (specialized) so the main list does not duplicate large style catalog traffic; the prompt steers toward delegation or other discovery when needed.
 
@@ -274,7 +274,7 @@ Some Writer tools intentionally use `**tier = "extended"`** (or `core`) so users
 
 | Domain / area               | WriterAgent status      | Module & tools                                                                                                                                                                                                                                     | Extended LO API (gaps)                                                                                 |
 | --------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| **Styles**                  | ✅ Implemented           | `styles.py`: ListStyles, GetStyleInfo, UpdateStyle; ApplyStyle (extended tier, main chat)                                                                                                                                                          | Advanced typography: ligatures/special chars, kerning/tracking, OpenType features, font embedding      |
+| **Styles**                  | ✅ Implemented           | `styles.py`: ListStyles, GetStyleInfo, UpdateStyle; ApplyStyle (core tier, main chat)                                                                                                                                                          | Advanced typography: ligatures/special chars, kerning/tracking, OpenType features, font embedding      |
 | **Page**                    | ✅ Implemented           | `page.py`: Get/SetPageStyleProperties, Get/SetHeaderFooterText, Get/SetPageColumns, InsertPageBreak                                                                                                                                                | Custom page layouts; page backgrounds (see Watermark row)                                              |
 | **Text frames**             | ✅ Implemented           | `textframes.py`: ListTextFrames, GetTextFrameInfo, SetTextFrameProperties                                                                                                                                                                          | —                                                                                                      |
 | **Embedded OLE**            | ✅ Implemented           | `embedded.py`: EmbeddedInsert, EmbeddedEdit                                                                                                                                                                                                        | —                                                                                                      |

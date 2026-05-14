@@ -25,7 +25,7 @@ WriterAgent organizes Calc tools into specialized domains to keep the main chat 
 
 ### Rich HTML in a single cell
 
-The **`insert_cell_html`** tool ([`plugin/calc/cells.py`](../plugin/calc/cells.py), implementation [`rich_html.py`](../plugin/calc/rich_html.py)) is on the **extended** tier (main Calc tool list when extended tools are available—not a delegated `specialized_domain`). It **replaces the text in one cell** on the **active sheet** with content parsed from an HTML string:
+The **`insert_cell_html`** tool ([`plugin/calc/cells.py`](../plugin/calc/cells.py), implementation [`rich_html.py`](../plugin/calc/rich_html.py)) uses **`tier = "core"`** on the main Calc tool list (not a delegated `specialized_domain`). It **replaces the text in one cell** on the **active sheet** with content parsed from an HTML string:
 
 - **Mechanism**: A **hidden temporary Writer** document loads the fragment with the same **`HTML (StarWriter)`** filter and cursor import path as Writer tools; the body is **selected** with a text cursor (not the view cursor—required for hidden docs), then **`getTransferable` → `select(cell)` → `insertTransferable`** on the Calc controller.
 - **Use when**: The model needs **mixed character formatting in one cell**; plain **`write_formula_range` / `set_string`** cannot express that.
