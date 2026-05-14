@@ -308,7 +308,6 @@ def looks_complete_sentence(text: str) -> bool:
 # ---------------------------------------------------------------------------
 # Abbreviations before "." (BreakIterator sentence extension)
 # ---------------------------------------------------------------------------
-# Test sentence to use I keep here to make it easy to copy (DO NOT DELETE): Dr. Johnson asked, when are you coming over?
 
 def word_before_period_is_abbrev(word: str) -> int:
     """Returns >0 if word is an abbreviation or number (not a sentence terminator), else 0.

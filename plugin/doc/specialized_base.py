@@ -118,7 +118,18 @@ class DelegateToSpecializedBase(ToolBase):
             canvas = format_shapes_canvas_context(getattr(ctx, "doc", None))
             if canvas:
                 shapes_canvas = canvas
-        instructions = f"You are a specialized {self._agent_label} agent focused on the '{domain}' domain. You have a focused set of tools to accomplish your task. Use them to fulfill the user's request.{footnotes_hint}{shapes_canvas}"
+
+        calc_ctx = ""
+        if self._agent_label == "Calc" and getattr(ctx, "doc", None):
+            from plugin.doc.document_helpers import get_calc_context_for_chat
+
+            try:
+                # Provide sheet names, active sheet, and used range summary to the sub-agent
+                calc_ctx = "\n\n[SPREADSHEET CONTEXT]\n" + get_calc_context_for_chat(ctx.doc, ctx=ctx.ctx)
+            except Exception as e:
+                log.warning("Failed to get Calc context for sub-agent: %s", e)
+
+        instructions = f"You are a specialized {self._agent_label} agent focused on the '{domain}' domain. You have a focused set of tools to accomplish your task. Use them to fulfill the user's request.{footnotes_hint}{shapes_canvas}{calc_ctx}"
 
         agent = build_toolcalling_agent(ctx, smol_tools, instructions=instructions, final_answer_tool_name="specialized_workflow_finished", examples_block=SPECIALIZED_EXAMPLES_BLOCK, status_callback=status_callback)
 

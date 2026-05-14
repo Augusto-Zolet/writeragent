@@ -211,6 +211,7 @@ class GetSheetSummary(ToolBase):
     """Return a summary of a sheet."""
 
     name = "get_sheet_summary"
+    tier = "core"
     description = "Returns a comprehensive summary of the active or specified sheet: used area, column headers, charts, merged cells, annotations, and shapes."
     parameters = {"type": "object", "properties": {"sheet_name": {"type": "string", "description": "Sheet name (active sheet if empty)"}}, "required": []}
     uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
