@@ -18,6 +18,7 @@ import os
 import shutil
 import sys
 import zipfile
+import subprocess
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -154,7 +155,7 @@ def remap_path(f):
     return f
 
 
-def assemble_bundle(base_dir, modules, no_recording=False, with_tests=False):
+def assemble_bundle(base_dir, modules, no_recording=False, with_tests=False, dry_run_strip=False, strip=False):
     """Copy all files into build/bundle/ with final archive paths."""
     bundle_path = os.path.join(base_dir, BUNDLE_DIR)
 
@@ -258,8 +259,145 @@ def assemble_bundle(base_dir, modules, no_recording=False, with_tests=False):
                 f.write(content)
             print("  Release build: stripped Debug menu from Addons.xcu")
 
+    if strip or not with_tests or dry_run_strip:
+        strip_production_code(bundle_path, dry_run=dry_run_strip)
+
     print("Assembled %d files in %s" % (count, BUNDLE_DIR))
     return count
+
+
+def strip_production_code(bundle_path, dry_run=False):
+    """Remove print, log.debug, log.info, and grammar_obs calls from Python files in the bundle.
+    Uses AST to find line ranges and removes them while preserving comments.
+    """
+    import ast
+    action = "Dry run: would strip" if dry_run else "Stripping"
+    print(f"  {action} debug/obs code from {bundle_path} using AST...")
+
+    for root, _, filenames in os.walk(bundle_path):
+        for fn in filenames:
+            if not fn.endswith(".py"):
+                continue
+            path = os.path.join(root, fn)
+            rel_path = os.path.relpath(path, bundle_path).replace(os.sep, "/")
+            if rel_path == "plugin/testing_runner.py" or rel_path.startswith("plugin/tests/"):
+                continue
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                    lines = content.splitlines(keepends=True)
+                
+                tree = ast.parse(content)
+
+                # 1. Build parent map and identify all nodes to remove
+                parent_map = {}
+                for node in ast.walk(tree):
+                    for child in ast.iter_child_nodes(node):
+                        parent_map[child] = node
+                
+                nodes_to_remove = []
+
+                class FindVisitor(ast.NodeVisitor):
+                    def visit_Expr(self, node):
+                        if isinstance(node.value, ast.Call):
+                            call = node.value
+                            func_name = None
+                            if isinstance(call.func, ast.Name):
+                                func_name = call.func.id
+                            elif isinstance(call.func, ast.Attribute):
+                                if isinstance(call.func.value, ast.Name) and call.func.value.id in ("log", "logger"):
+                                    func_name = f"{call.func.value.id}.{call.func.attr}"
+                            
+                            if func_name in (
+                                "print", "pprint", 
+                                "log.debug", "log.info", 
+                                "logger.debug", "logger.info",
+                                "grammar_obs", "_grammar_obs"
+                            ):
+                                nodes_to_remove.append(node)
+                        self.generic_visit(node)
+
+                FindVisitor().visit(tree)
+                if not nodes_to_remove:
+                    continue
+
+                # 2. Decide for each node: delete or replace with pass?
+                replacements = {} # line_index -> new_text
+                to_delete = set() # line_index
+                
+                # Helper to find which list a node belongs to
+                def get_container(node):
+                    parent = parent_map.get(node)
+                    if not parent: return None
+                    for attr in ("body", "orelse", "finalbody"):
+                        if hasattr(parent, attr):
+                            container = getattr(parent, attr)
+                            if isinstance(container, list) and node in container:
+                                return container
+                    if isinstance(parent, ast.Try):
+                        for handler in parent.handlers:
+                            if node in handler.body:
+                                return handler.body
+                    return None
+
+                for node in nodes_to_remove:
+                    start = getattr(node, "lineno")
+                    end = getattr(node, "end_lineno", start)
+                    idx = start - 1
+                    original_line = lines[idx]
+                    indent = original_line[:len(original_line) - len(original_line.lstrip())]
+
+                    if dry_run:
+                        rel_path = os.path.relpath(path, bundle_path)
+                        snippet = original_line.strip()
+                        if end > start: snippet += f" ... (spans {end-start+1} lines)"
+                        print(f"    [DryRun] {rel_path}: L{start}-{end}: {snippet}")
+                        continue
+
+                    # Determine if we NEED a pass
+                    container = get_container(node)
+                    needs_pass = False
+                    if container and not isinstance(parent_map.get(node), ast.Module):
+                        # Count how many in this container are NOT being removed
+                        remaining = [s for s in container if s not in nodes_to_remove]
+                        if not remaining:
+                            # This block will be empty. We need EXACTLY ONE pass.
+                            # We'll pick the first node in the container that's being removed.
+                            first_removed = next(s for s in container if s in nodes_to_remove)
+                            if node == first_removed:
+                                needs_pass = True
+
+                    if needs_pass:
+                        replacements[idx] = f"{indent}pass  # stripped\n"
+                    else:
+                        to_delete.add(idx)
+                    
+                    # Mark multi-line parts for deletion
+                    for i in range(start, end):
+                        to_delete.add(i)
+
+                if dry_run:
+                    continue
+
+                # 3. Reconstruct the file
+                new_lines = []
+                for i, line in enumerate(lines):
+                    if i in to_delete and i not in replacements:
+                        continue
+                    if i in replacements:
+                        new_lines.append(replacements[i])
+                    else:
+                        new_lines.append(line)
+                
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write("".join(new_lines))
+
+            except Exception as e:
+                # Some files might be vendored or have weird syntax; skip with warning
+                if "match" not in str(e): # Ignore expected match/case issues if using older python to build
+                    print(f"    SKIPPING {fn}: {e}")
+
+    print("  Done: Stripped debug/obs calls from bundle.")
 
 
 def zip_bundle(base_dir, output):
@@ -307,6 +445,12 @@ def main():
     parser.add_argument(
         "--no-tests", action="store_true",
         help="Exclude plugin/tests/ and testing_runner.py (for release builds)")
+    parser.add_argument(
+        "--dry-run-strip", action="store_true",
+        help="Show what code would be stripped without actually removing it")
+    parser.add_argument(
+        "--strip", action="store_true",
+        help="Force stripping debug/obs code even if tests are included")
     args = parser.parse_args()
 
     if not args.repack:
@@ -315,6 +459,8 @@ def main():
             PROJECT_ROOT, modules,
             no_recording=args.no_recording,
             with_tests=not args.no_tests,
+            dry_run_strip=args.dry_run_strip,
+            strip=args.strip
         )
 
     return zip_bundle(PROJECT_ROOT, args.output)

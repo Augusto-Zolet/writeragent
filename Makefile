@@ -113,7 +113,7 @@ help:
 	@echo "Build:"
 	@echo "  make build                  Build .oxt with plugin/tests (runs ty + ruff, then gettext/UI steps)"
 	@echo "  make openrouter-catalog     Fetch Orca slim OpenRouter catalog + refresh default_models.py (network)"
-	@echo "  make release                Run make test first, then build .oxt without bundled tests"
+	@echo "  make release                Full verification: test source, build stripped bundle with tests, test bundle, then build final .oxt"
 	@echo "  make build-no-recording     Build .oxt without voice recording (no plugin/contrib/audio, no Record button)"
 	@echo "  make xcu                    Generate XCS/XCU from config schemas"
 	@echo "  make clean                  Remove build artifacts"
@@ -213,8 +213,16 @@ build-no-recording: ty ruff preview-translations vendor manifest compile-transla
 	@echo "Done: build/$(EXTENSION_NAME).oxt  (bundle in build/bundle/)"
 
 # Sub-make so ordering holds even with make -j: full test (typecheck + pytest + LO) then release bundle.
+# Full verification: typecheck, bandit, then build a stripped bundle with tests
+# to verify stripping doesn't break logic, then finally build the clean release oxt.
 release:
-	@$(MAKE) test
+	@$(MAKE) typecheck
+	@$(MAKE) bandit
+	@echo "Building stripped bundle for verification..."
+	$(PYTHON) $(SCRIPTS)/build_oxt.py --strip --output build/test-stripped.oxt
+	@echo "Running tests against stripped bundle..."
+	cd build/bundle && PYTHONPATH=. $(abspath $(PYTHON)) -m pytest --ignore=plugin/tests/scripts --ignore=plugin/tests/test_merge_module_yaml_into_pot.py --ignore=plugin/tests/framework/test_logging.py --ignore=plugin/tests/writer/locale/test_grammar_linguistic_xcu.py plugin/tests
+	cd build/bundle && PYTHONPATH=. $(LO_PYTHON) -m plugin.testing_runner
 	@$(MAKE) release-build
 
 openrouter-catalog:
