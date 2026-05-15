@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Launch a system text editor on writeragent.json (cross-platform).
 
-Invoked from legacy settings UI (``legacy_ui``), not chat-specific logic.
+Invoked from settings UI (``dialog_views``), not chat-specific logic.
 """
 
 from __future__ import annotations

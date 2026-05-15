@@ -222,11 +222,11 @@ class TestI18n(unittest.TestCase):
         translation = gettext.translation("writeragent", localedir, languages=["ko"], fallback=True)
         self.assertEqual(translation.gettext("Built-in"), "내장")
 
-    def test_legacy_ui_imports(self):
-        """Import legacy_ui with full UNO; otherwise expect ImportError (headless pytest)."""
+    def test_dialog_views_imports(self):
+        """Import dialog_views with full UNO; otherwise expect ImportError (headless pytest)."""
         try:
-            from plugin.chatbot import legacy_ui
-            self.assertIsNotNone(legacy_ui)
+            from plugin.chatbot import dialog_views
+            self.assertIsNotNone(dialog_views)
         except ImportError as e:
             err = str(e)
             self.assertTrue(

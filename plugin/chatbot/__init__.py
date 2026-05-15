@@ -16,7 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """AI chat sidebar module.
 
-Also hosts shared LibreOffice UNO UI helpers (`dialogs`, `listeners`, `legacy_ui`, `settings_dialog`) used by bootstrap, MCP, and other modules—not only the sidebar deck.
+Also hosts shared LibreOffice UNO UI helpers (`dialogs`, `listeners`, `dialog_views`, `settings_dialog`) used by bootstrap, MCP, and other modules—not only the sidebar deck.
 """
 
 import logging

@@ -39,18 +39,33 @@ log = logging.getLogger(__name__)
 def get_settings_field_specs(ctx):
     """Return field specs for Settings dialog (single source for dialog and apply keys)."""
     log.debug("get_settings_field_specs entry")
-    current_endpoint_for_specs = get_current_endpoint(ctx)
-    field_specs = [
+    current_endpoint = get_current_endpoint(ctx)
+    
+    field_specs = []
+    field_specs.extend(_get_core_field_specs(ctx, current_endpoint))
+    field_specs.extend(_get_image_field_specs(ctx))
+    field_specs.extend(_get_module_field_specs(ctx))
+    
+    return field_specs
+
+
+def _get_core_field_specs(ctx, current_endpoint):
+    return [
         {"name": "endpoint", "value": get_config_str(ctx, "endpoint")},
         {"name": "request_timeout", "value": str(get_config_int(ctx, "request_timeout")), "type": "int"},
         {"name": "text_model", "value": str(get_config(ctx, "text_model") or get_config(ctx, "model") or "")},
-        {"name": "image_model", "value": str(get_image_model(ctx))},
-        {"name": "stt_model", "value": str(get_config(ctx, "stt_model") or "")},
-        {"name": "api_key", "value": str(get_api_key_for_endpoint(ctx, current_endpoint_for_specs))},
+        {"name": "api_key", "value": str(get_api_key_for_endpoint(ctx, current_endpoint))},
         {"name": "temperature", "value": str(get_config_float(ctx, "temperature")), "type": "float"},
         {"name": "chat_max_tokens", "value": str(get_config_int(ctx, "chat_max_tokens")), "type": "int"},
         {"name": "chat_context_length", "value": str(get_config_int(ctx, "chat_context_length")), "type": "int"},
         {"name": "additional_instructions", "value": get_config_str(ctx, "additional_instructions")},
+        {"name": "stt_model", "value": str(get_config(ctx, "stt_model") or "")},
+    ]
+
+
+def _get_image_field_specs(ctx):
+    return [
+        {"name": "image_model", "value": str(get_image_model(ctx))},
         {"name": "use_aihorde", "value": "true" if get_config(ctx, "image_provider") == "aihorde" else "false", "type": "bool"},
         {"name": "aihorde_api_key", "value": str(get_config(ctx, "aihorde_api_key") or "")},
         {"name": "image_base_size", "value": str(get_config_int(ctx, "image_base_size")), "type": "int"},
@@ -67,6 +82,9 @@ def get_settings_field_specs(ctx):
         {"name": "seed", "value": get_config_str(ctx, "seed")},
     ]
 
+
+def _get_module_field_specs(ctx):
+    field_specs = []
     try:
         from plugin._manifest import MODULES
 
@@ -90,7 +108,6 @@ def get_settings_field_specs(ctx):
                 ctrl_id = f"{prefix}__{field_name}"
                 config_key = f"{m_name}.{field_name}"
 
-                str(schema.get("default", ""))
                 val = get_config(ctx, config_key)
                 opts = schema.get("options", [])
 
@@ -108,10 +125,8 @@ def get_settings_field_specs(ctx):
                 if provider_path and isinstance(provider_path, str):
                     try:
                         field["options"] = _call_options_provider(ctx, provider_path)
-                    except (ImportError, AttributeError, TypeError, ValueError) as e:
-                        log.error(f"Failed to resolve options_provider {provider_path}: {e}")
                     except Exception as e:
-                        log.error(f"ConfigError in options_provider {provider_path}: {e}")
+                        log.error(f"Failed to resolve options_provider {provider_path}: {e}")
                 elif schema.get("options"):
                     field["options"] = schema["options"]
 
@@ -126,7 +141,6 @@ def get_settings_field_specs(ctx):
                 field_specs.append(field)
     except ImportError:
         pass
-
     return field_specs
 
 
@@ -134,83 +148,62 @@ def apply_settings_result(ctx, result):
     """Apply settings dialog result to config. Shared by Writer and Calc."""
     from plugin.chatbot.config_ui_helpers import update_lru_history
 
-    # Keys to set directly from result; derived from dialog field specs (exclude specially handled ones)
-    _apply_skip = ("endpoint", "api_key", "use_aihorde")
-    apply_keys = [f["name"] for f in get_settings_field_specs(ctx) if f["name"] not in _apply_skip]
+    field_specs = get_settings_field_specs(ctx)
+    field_specs_by_name = {f["name"]: f for f in field_specs}
+    int_field_names = {f["name"] for f in field_specs if f.get("type") == "int"}
 
-    # Resolve endpoint first so LRU updates use the endpoint being saved
+    # Resolve endpoint first
     effective_endpoint = endpoint_from_selector_text(result.get("endpoint", "")) if "endpoint" in result else get_current_endpoint(ctx)
     if "endpoint" in result and effective_endpoint:
         set_config(ctx, "endpoint", effective_endpoint)
+        update_lru_history(ctx, effective_endpoint, "endpoint_lru", "")
+    
     current_endpoint = effective_endpoint or get_current_endpoint(ctx)
 
-    # Build type map so we always save int fields as integers (never float/string)
-    _field_specs = get_settings_field_specs(ctx)
-    _int_field_names = {f["name"] for f in _field_specs if f.get("type") == "int"}
-    _field_specs_by_name = {f["name"]: f for f in _field_specs}
+    # Apply most keys directly
+    _apply_skip = ("endpoint", "api_key", "use_aihorde")
+    for key, val in result.items():
+        if key in _apply_skip or key not in field_specs_by_name:
+            continue
+            
+        spec = field_specs_by_name[key]
+        save_key = key.replace("__", ".")
+        
+        # Type conversion
+        if key in int_field_names:
+            try:
+                val = int(float(val))
+            except (ValueError, TypeError):
+                pass
+        
+        # Map translated label back to value
+        if "options" in spec and val:
+            for opt in spec["options"]:
+                if isinstance(opt, dict):
+                    lbl = opt.get("label", opt.get("value", ""))
+                    if _(lbl) == str(val):
+                        val = opt.get("value", lbl)
+                        break
 
-    # Set keys from result (endpoint, api_key, use_aihorde handled below)
-    for key in apply_keys:
-        if key in result:
-            val = result[key]
+        # Special validation for temperature
+        if save_key == "temperature":
+            try:
+                f_val = float(val)
+                if f_val > 1.0:
+                    from .dialog_views import msgbox
+                    msgbox(ctx, _("Invalid Setting"), _("Temperature must be <= 1.0"))
+                    continue
+                if f_val < 0:
+                    val = -1.0
+            except (ValueError, TypeError):
+                pass
 
-            # Map module__field to module.field for saving in JSON
-            save_key = key.replace("__", ".")
+        set_config(ctx, save_key, val)
+        _update_lru_for_key(ctx, key, val, current_endpoint)
 
-            # Always save int-type fields as Python int (support float/string on read, persist as int)
-            if key in _int_field_names:
-                try:
-                    val = int(float(val))
-                except (ValueError, TypeError):
-                    pass
-
-            # Map translated display label back to stored value for select/combo widgets
-            spec = _field_specs_by_name.get(key)
-            if spec and "options" in spec and val:
-                for opt in spec["options"]:
-                    if isinstance(opt, dict):
-                        # The UI showed the translated label, so we must compare against _(label)
-                        lbl = opt.get("label", opt.get("value", ""))
-                        if _(lbl) == str(val):
-                            val = opt.get("value", lbl)
-                            break
-
-            # Special validation for temperature
-            if save_key == "temperature":
-                try:
-                    f_val = float(val)
-                    if f_val > 1.0:
-                        from .dialogs import msgbox
-
-                        msgbox(ctx, _("Invalid Setting"), _("Temperature must be <= 1.0"))
-                        continue
-                    if f_val < 0:
-                        val = -1.0
-                except (ValueError, TypeError):
-                    pass
-
-            set_config(ctx, save_key, val)
-
-            # Update LRU history
-            if key == "text_model" and val:
-                update_lru_history(ctx, val, "model_lru", current_endpoint)
-            elif key == "stt_model" and val:
-                update_lru_history(ctx, val, "audio_model_lru", current_endpoint)
-            elif key == "image_model" and val:
-                set_image_model(ctx, val)
-            elif key == "additional_instructions" and val:
-                update_lru_history(ctx, val, "prompt_lru", "")
-            elif key == "image_base_size" and val:
-                update_lru_history(ctx, str(val), "image_base_size_lru", "")
-
-    # Handle provider toggle from checkbox
+    # Handle special toggles and keys
     if "use_aihorde" in result:
-        provider = "aihorde" if result["use_aihorde"] else "endpoint"
-        set_config(ctx, "image_provider", provider)
-
-    # Update endpoint_lru when user changed endpoint (endpoint already set above)
-    if "endpoint" in result and effective_endpoint:
-        update_lru_history(ctx, effective_endpoint, "endpoint_lru", "")
+        set_config(ctx, "image_provider", "aihorde" if result["use_aihorde"] else "endpoint")
 
     if "api_key" in result:
         set_api_key_for_endpoint(ctx, current_endpoint, result["api_key"])
@@ -218,37 +211,41 @@ def apply_settings_result(ctx, result):
     global_event_bus.emit("config:changed", ctx=ctx)
 
 
-def _call_options_provider(ctx, provider_path):
-    """Import a module and call a function to get options.
+def _update_lru_for_key(ctx, key, val, current_endpoint):
+    from plugin.chatbot.config_ui_helpers import update_lru_history
+    
+    if not val:
+        return
+        
+    if key == "text_model":
+        update_lru_history(ctx, val, "model_lru", current_endpoint)
+    elif key == "stt_model":
+        update_lru_history(ctx, val, "audio_model_lru", current_endpoint)
+    elif key == "image_model":
+        set_image_model(ctx, val)
+    elif key == "additional_instructions":
+        update_lru_history(ctx, val, "prompt_lru", "")
+    elif key == "image_base_size":
+        update_lru_history(ctx, str(val), "image_base_size_lru", "")
 
-    provider_path format: "plugin.framework.ai:get_text_instance_options"
-    The function receives the ServiceRegistry as its argument.
-    """
+
+def _call_options_provider(ctx, provider_path):
+    """Import a module and call a function to get options."""
     log.debug(f"_call_options_provider: {provider_path}")
     try:
         module_path, func_name = provider_path.rsplit(":", 1)
         import importlib
-
         mod = importlib.import_module(module_path)
         func = getattr(mod, func_name)
 
         from plugin.main import get_services
-
         services = get_services()
         options = func(services)
         log.debug(f"_call_options_provider success: {len(options)} options returned")
         return options
-    except (ImportError, AttributeError, ValueError) as e:
-        log.error(f"_call_options_provider load FAILED for {provider_path}: {e}")
-        import traceback
-
-        log.error(traceback.format_exc())
-        raise
     except Exception as e:
-        log.error(f"_call_options_provider execution FAILED for {provider_path}: {e}")
+        log.error(f"_call_options_provider FAILED for {provider_path}: {e}")
         import traceback
-
         log.error(traceback.format_exc())
         from plugin.framework.errors import ConfigError
-
         raise ConfigError(f"Options provider {provider_path} failed: {e}") from e

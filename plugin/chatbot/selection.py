@@ -207,7 +207,7 @@ def _show_edit_input():
     Uses the shared EditInputDialog.xdl (legacy_ui.input_box) so menu and shortcut share the same UI.
     """
     from plugin.framework.uno_context import get_ctx
-    from .legacy_ui import input_box
+    from .dialog_views import input_box
 
     ctx = get_ctx()
     user_input, extra_instructions = input_box(ctx, "Please enter edit instructions!", "Input", "")
