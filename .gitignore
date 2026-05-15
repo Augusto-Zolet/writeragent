@@ -51,6 +51,7 @@ description.xml
 .coverage
 
 # Accidentally added directories
+LibreAI/
 cursor-libreoffice/
 libreoffice-skill-repo/
 lightproof/
