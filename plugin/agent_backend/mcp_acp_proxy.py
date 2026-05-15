@@ -62,7 +62,7 @@ class MCPACPProxy(AgentBackend):
                 self._mcp_url = path
             else:
                 # Try to get MCP URL from http config
-                mcp_port = get_config(self._ctx, "http.mcp_port") or 8765
+                mcp_port = get_config(self._ctx, "mcp.mcp_port") or 8765
                 self._mcp_url = f"http://localhost:{mcp_port}/mcp"
         except Exception as e:
             log.warning(f"Failed to load config: {e}")

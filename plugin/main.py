@@ -431,8 +431,8 @@ def get_menu_text(command):
         "chatbot.extend_selection": _("Extend Selection"),
         "chatbot.edit_selection": _("Edit Selection"),
         "main.settings": _("Settings"),
-        "http.toggle_server": _("Toggle MCP Server"),
-        "http.server_status": _("MCP Server Status"),
+        "mcp.toggle_server": _("Toggle MCP Server"),
+        "mcp.server_status": _("MCP Server Status"),
         "main.NoOp": "Debug",  # Excluded from translation per user request
         "main.RunFormatTests": _("Run format tests"),
         "main.RunCalcTests": _("Run calc tests"),
@@ -712,9 +712,9 @@ class MainBootstrapJob(unohelper.Base, XJobExecutor, XJob):
             return False
 
         if args == "ToggleMCPServer":
-            _dispatch_command("http.toggle_server")
+            _dispatch_command("mcp.toggle_server")
         elif args == "MCPStatus":
-            _dispatch_command("http.server_status")
+            _dispatch_command("mcp.server_status")
         else:
             _dispatch_command("main." + args)
         return True

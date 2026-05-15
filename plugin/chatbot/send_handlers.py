@@ -328,7 +328,7 @@ class SendHandlersMixin:
 
                 # Check if MCP is enabled; if so, tell the agent about it.
                 mcp_instructions = ""
-                if mcp_url and as_bool(get_config(self.ctx, "http.mcp_enabled")):
+                if mcp_url and as_bool(get_config(self.ctx, "mcp.mcp_enabled")):
                     mcp_instructions = (
                         f"\n\n[MCP SERVER AVAILABLE]\nA Model Context Protocol (MCP) server is running at: {mcp_url}\nYou can discover and use all LibreOffice tools (Writer, Calc, Draw) via this server.\nTarget the current document by passing the 'X-Document-URL' header: {document_url}\n"
                     )
@@ -577,9 +577,9 @@ class SendHandlersMixin:
         try:
             from plugin.framework.config import get_config
 
-            port = get_config(self.ctx, "http.mcp_port") or 8765
-            host = get_config(self.ctx, "http.host") or "localhost"
-            use_ssl = get_config(self.ctx, "http.use_ssl")
+            port = get_config(self.ctx, "mcp.mcp_port") or 8765
+            host = get_config(self.ctx, "mcp.host") or "localhost"
+            use_ssl = get_config(self.ctx, "mcp.use_ssl")
             scheme = "https" if use_ssl else "http"
             return f"{scheme}://{host}:{port}"
         except (ValueError, TypeError) as e:

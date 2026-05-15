@@ -91,7 +91,7 @@ endif
 
 # ── Phony targets ────────────────────────────────────────────────────────────
 
-.PHONY: help build build-no-recording release release-build repack repack-deploy manifest xcu clean \
+.PHONY: help build build-no-recording release release-build repack repack-deploy register-built-oxt manifest xcu clean \
         openrouter-catalog \
         install install-force uninstall cache \
         dev-deploy dev-deploy-remove \
@@ -113,13 +113,13 @@ help:
 	@echo "Build:"
 	@echo "  make build                  Build .oxt with plugin/tests (runs ty + ruff, then gettext/UI steps)"
 	@echo "  make openrouter-catalog     Fetch Orca slim OpenRouter catalog + refresh default_models.py (network)"
-	@echo "  make release                Full verification: test source, build stripped bundle with tests, test bundle, then build final .oxt"
+	@echo "  make release                Full verification: test source, build stripped bundle with tests, test bundle, build final .oxt, then register (unopkg; no LO start)"
 	@echo "  make build-no-recording     Build .oxt without voice recording (no plugin/contrib/audio, no Record button)"
 	@echo "  make xcu                    Generate XCS/XCU from config schemas"
 	@echo "  make clean                  Remove build artifacts"
 	@echo ""
 	@echo "Install:"
-	@echo "  make deploy                 Build + reinstall + stop (add writer/calc/draw/impress to launch)"
+	@echo "  make deploy                 Build + register extension (stop LO, unopkg remove/add); add writer/calc/draw/impress to also launch LO"
 	@echo "  make install                Build + install via unopkg"
 	@echo "  make install-force          Build + install (no prompts)"
 	@echo "  make uninstall              Remove extension via unopkg"
@@ -224,6 +224,7 @@ release:
 	cd build/bundle && PYTHONPATH=. $(abspath $(PYTHON)) -m pytest --ignore=plugin/tests/scripts --ignore=plugin/tests/test_merge_module_yaml_into_pot.py --ignore=plugin/tests/framework/test_logging.py --ignore=plugin/tests/writer/locale/test_grammar_linguistic_xcu.py plugin/tests
 	cd build/bundle && PYTHONPATH=. $(LO_PYTHON) -m plugin.testing_runner
 	@$(MAKE) release-build
+	@$(MAKE) register-built-oxt
 
 openrouter-catalog:
 	$(PYTHON) scripts/sync_orca_openrouter_catalog.py
@@ -241,13 +242,19 @@ repack:
 	$(PYTHON) $(SCRIPTS)/build_oxt.py --repack --output build/$(EXTENSION_NAME).oxt
 	@echo "Done: build/$(EXTENSION_NAME).oxt"
 
-repack-deploy: repack
+repack-deploy: repack register-built-oxt
+	@$(if $(SELECTED_COMPONENT),$(MAKE) lo-start-log COMPONENT=$(SELECTED_COMPONENT))
+
+# Stop LibreOffice if running, then unopkg remove + add build/$(EXTENSION_NAME).oxt.
+# Does not start LO (use ``make deploy`` with writer/calc/draw/impress, or ``make lo-start``).
+register-built-oxt:
+	@echo "Registering build/$(EXTENSION_NAME).oxt..."
 	$(MAKE) lo-kill
 	@rm -f $(LO_CONF)/.lock $(LO_CONF)/user/.lock
 	-unopkg remove org.extension.writeragent 2>/dev/null
 	unopkg add build/$(EXTENSION_NAME).oxt
 	@rm -f $(HOME_DIR)/writeragent.log
-	@$(if $(SELECTED_COMPONENT),$(MAKE) lo-start-log COMPONENT=$(SELECTED_COMPONENT))
+	@echo "Registered org.extension.writeragent (start LibreOffice manually to load it)."
 
 manifest:
 	$(PYTHON) $(SCRIPTS)/generate_manifest.py
@@ -380,12 +387,7 @@ lo-restart:
 	rm -f $(LO_CONF)/.lock $(LO_CONF)/user/.lock
 	$(MAKE) lo-start
 
-deploy: build
-	$(MAKE) lo-kill
-	@rm -f $(LO_CONF)/.lock $(LO_CONF)/user/.lock
-	-unopkg remove org.extension.writeragent 2>/dev/null
-	unopkg add build/$(EXTENSION_NAME).oxt
-	@rm -f $(HOME_DIR)/writeragent.log
+deploy: build register-built-oxt
 	@$(if $(SELECTED_COMPONENT),$(MAKE) lo-start-log COMPONENT=$(SELECTED_COMPONENT))
 
 writer calc draw impress:

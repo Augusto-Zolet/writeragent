@@ -48,7 +48,7 @@
               <value xml:lang="en-US">Toggle MCP Server</value>
             </prop>
             <prop oor:name="URL">
-              <value>org.extension.writeragent:http.toggle_server</value>
+              <value>org.extension.writeragent:mcp.toggle_server</value>
             </prop>
             <prop oor:name="Target" oor:type="xs:string">
               <value>_self</value>
@@ -59,7 +59,7 @@
               <value xml:lang="en-US">MCP Server Status</value>
             </prop>
             <prop oor:name="URL">
-              <value>org.extension.writeragent:http.server_status</value>
+              <value>org.extension.writeragent:mcp.server_status</value>
             </prop>
             <prop oor:name="Target" oor:type="xs:string">
               <value>_self</value>
