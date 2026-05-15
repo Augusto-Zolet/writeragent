@@ -9,7 +9,8 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
-from plugin.writer.locale.grammar_persistence import JSONPersistence, SQLitePersistence, get_persistence, HAS_SQLITE
+from plugin.writer.locale.grammar_persistence import get_persistence, HAS_SQLITE, GRAMMAR_CACHE_VERSION
+from plugin.writer.locale.grammar_persistence_sqlite import JSONPersistence, SQLitePersistence
 from plugin.writer.locale.grammar_proofread_locale import fingerprint_for_text
 
 class TestGrammarPersistence(unittest.TestCase):
@@ -116,6 +117,75 @@ class TestGrammarPersistence(unittest.TestCase):
         self.assertIsNone(p2.get(fp))
         self.assertEqual(len(os.listdir(dir_path)), 0)
 
+    def test_sqlite_persistence_null_optimization(self):
+        db_path = os.path.join(self.tmp_dir, "test_null.db")
+        p = SQLitePersistence(self.ctx, db_path)
+        
+        # 1. Put sentence with NO errors
+        p.put("fp_good", "en-US", [])
+        
+        # Verify DB has NULL
+        import sqlite3
+        with sqlite3.connect(db_path) as conn:
+            row = conn.execute("SELECT errors_json FROM sentence_cache WHERE fingerprint = ?", ("fp_good",)).fetchone()
+            self.assertIsNone(row[0], "Should store NULL for empty errors")
+            
+        # Verify Get returns []
+        self.assertEqual(p.get("fp_good"), [])
+
+        # 2. Put sentence WITH errors
+        errs = [{"n_error_start": 0, "n_error_length": 5, "suggestions": ["Hello"]}]
+        p.put("fp_bad", "en-US", errs)
+        
+        # Verify DB has compressed JSON
+        with sqlite3.connect(db_path) as conn:
+            row = conn.execute("SELECT errors_json FROM sentence_cache WHERE fingerprint = ?", ("fp_bad",)).fetchone()
+            self.assertIsNotNone(row[0])
+            data = json.loads(row[0])
+            self.assertIn("s", data[0], "Should be compressed (key mapping)")
+            
+        # Verify Get returns decompressed errors
+        got = p.get("fp_bad")
+        self.assertEqual(got, errs)
+        self.assertIn("n_error_start", got[0])
+
+    def test_json_persistence_optimized(self):
+        dir_path = os.path.join(self.tmp_dir, "cache_opt.d")
+        p = JSONPersistence(self.ctx, dir_path)
+        
+        # 1. Put sentence
+        errs = [{"n_error_start": 0, "n_error_length": 5, "suggestions": ["Hello"]}]
+        p.put("fp1", "en-US", errs)
+        
+        # Verify file content
+        file_path = os.path.join(dir_path, "fp1.json")
+        with open(file_path, "r") as f:
+            data = json.load(f)
+            self.assertEqual(data["version"], GRAMMAR_CACHE_VERSION)
+            self.assertEqual(data["locale"], "en-US")
+            self.assertNotIn("fingerprint", data, "Should not store redundant fingerprint")
+            self.assertIn("s", data["errors"][0], "Errors should be compressed")
+            
+        # Verify Get
+        self.assertEqual(p.get("fp1"), errs)
+
+    def test_json_persistence_versioning(self):
+        dir_path = os.path.join(self.tmp_dir, "cache_ver.d")
+        os.makedirs(dir_path, exist_ok=True)
+        
+        # Create an old version file manually
+        old_data = {
+            "version": GRAMMAR_CACHE_VERSION - 1,
+            "errors": [{"s": 0}]
+        }
+        file_path = os.path.join(dir_path, "old.json")
+        with open(file_path, "w") as f:
+            json.dump(old_data, f)
+            
+        p = JSONPersistence(self.ctx, dir_path)
+        # Get should return None (ignore old version)
+        self.assertIsNone(p.get("old"))
+
     def test_json_persistence_does_not_persist_sentence_text(self):
         dir_path = os.path.join(self.tmp_dir, "test_grammar_no_text_cache.d")
         p = JSONPersistence(self.ctx, dir_path)
@@ -135,8 +205,8 @@ class TestGrammarPersistence(unittest.TestCase):
     def test_sqlite_pruning(self):
         db_path = os.path.join(self.tmp_dir, "test_pruning.db")
         # Patch limits for testing
-        with patch("plugin.writer.locale.grammar_persistence.CACHE_LIMIT", 5), \
-             patch("plugin.writer.locale.grammar_persistence.PRUNE_TARGET", 2):
+        with patch("plugin.writer.locale.grammar_persistence_sqlite.CACHE_LIMIT", 5), \
+             patch("plugin.writer.locale.grammar_persistence_sqlite.PRUNE_TARGET", 2):
             p = SQLitePersistence(self.ctx, db_path)
             for i in range(10):
                 txt = f"Sentence {i}"
@@ -152,8 +222,8 @@ class TestGrammarPersistence(unittest.TestCase):
 
     def test_json_pruning(self):
         dir_path = os.path.join(self.tmp_dir, "test_json_pruning.d")
-        with patch("plugin.writer.locale.grammar_persistence.CACHE_LIMIT", 5), \
-             patch("plugin.writer.locale.grammar_persistence.PRUNE_TARGET", 2):
+        with patch("plugin.writer.locale.grammar_persistence_sqlite.CACHE_LIMIT", 5), \
+             patch("plugin.writer.locale.grammar_persistence_sqlite.PRUNE_TARGET", 2):
             p = JSONPersistence(self.ctx, dir_path)
             for i in range(10):
                 txt = f"Sentence {i}"
