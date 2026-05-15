@@ -189,7 +189,7 @@ class WriterCompoundUndo:
         try:
             um.leaveUndoContext()
         except Exception as e:
-            self._log.warning("leaveUndoContext failed: %s", e)
+            self._log.exception("leaveUndoContext failed")
 
 
 class WriterStreamedRewriteSession:
@@ -242,7 +242,7 @@ class WriterStreamedRewriteSession:
                 self.text_range.setString(self.generated_text)
                 return None
             except Exception as commit_error:
-                logging.getLogger(__name__).warning("Failed to collapse streamed edit into one tracked change: %s", commit_error)
+                logging.getLogger(__name__).exception("Failed to collapse streamed edit into one tracked change")
 
                 fallback_errors: list[str] = []
                 try:
@@ -422,7 +422,7 @@ def resolve_document_by_url(ctx, url):
                 logging.getLogger(__name__).debug("resolve_document_by_url element error: %s", type(e).__name__)
                 continue
     except Exception as e:
-        logging.getLogger(__name__).warning("resolve_document_by_url enumeration error: %s", type(e).__name__)
+        logging.getLogger(__name__).exception("resolve_document_by_url enumeration error")
     return (None, None)
 
 
@@ -699,11 +699,11 @@ def get_calc_context_for_chat(model, max_context=8000, ctx=None):
                         ctx_str += ", ".join([str(c["value"]) if c["value"] is not None else "" for c in row]) + "\n"
 
         return ctx_str
-    except UnoObjectError as e:
-        logging.getLogger(__name__).warning("get_calc_context_for_chat error: %s", e)
+    except UnoObjectError:
+        logging.getLogger(__name__).exception("get_calc_context_for_chat error")
         return "[Unable to read Calc spreadsheet context. The document may be locked or initializing.]"
-    except Exception as e:
-        logging.getLogger(__name__).warning("get_calc_context_for_chat exception: %s", type(e).__name__)
+    except Exception:
+        logging.getLogger(__name__).exception("get_calc_context_for_chat exception")
         return "[Unable to read Calc spreadsheet context. The document may be locked or initializing.]"
 
 
@@ -762,11 +762,11 @@ def get_draw_context_for_chat(model, max_context=8000, ctx=None):
                     pass
 
         return ctx_str
-    except UnoObjectError as e:
-        logging.getLogger(__name__).warning("get_draw_context_for_chat error: %s", e)
+    except UnoObjectError:
+        logging.getLogger(__name__).exception("get_draw_context_for_chat error")
         return "[Unable to read Draw/Impress context. The document may be locked or initializing.]"
-    except Exception as e:
-        logging.getLogger(__name__).warning("get_draw_context_for_chat exception: %s", type(e).__name__)
+    except Exception:
+        logging.getLogger(__name__).exception("get_draw_context_for_chat exception")
         return "[Unable to read Draw/Impress context. The document may be locked or initializing.]"
 
 
@@ -828,8 +828,8 @@ def find_paragraph_for_range(match_range, para_ranges, text_obj=None):
                     low = mid + 1
                 else:
                     return mid
-    except UnoObjectError as e:
-        logging.getLogger(__name__).warning("find_paragraph_for_range error: %s", e)
+    except UnoObjectError:
+        logging.getLogger(__name__).exception("find_paragraph_for_range error")
     return 0
 
 
@@ -864,8 +864,8 @@ def build_heading_tree(model) -> HeadingTreeNode:
                 stack[-1]["body_paragraphs"] += 1
             para_index += 1
         return root
-    except UnoObjectError as e:
-        logging.getLogger(__name__).warning("build_heading_tree error: %s", e)
+    except UnoObjectError:
+        logging.getLogger(__name__).exception("build_heading_tree error")
         return {"level": 0, "text": "root", "para_index": -1, "children": [], "body_paragraphs": 0}
 
 
@@ -915,8 +915,8 @@ def ensure_heading_bookmarks(model):
             bookmark_map[idx] = name
 
         return bookmark_map
-    except UnoObjectError as e:
-        logging.getLogger(__name__).warning("ensure_heading_bookmarks error: %s", e)
+    except UnoObjectError:
+        logging.getLogger(__name__).exception("ensure_heading_bookmarks error")
         return {}
 
 
@@ -933,8 +933,8 @@ def resolve_locator(model, locator: str):
         parts = []
         try:
             parts = [int(p) for p in loc_value.split(".")]
-        except Exception as e:
-            logging.getLogger(__name__).warning("resolve_locator heading parse error: %s", type(e).__name__)
+        except Exception:
+            logging.getLogger(__name__).exception("resolve_locator heading parse error")
             return {"para_index": 0}
 
         tree = build_heading_tree(model)
@@ -1025,8 +1025,8 @@ class DocumentService(ServiceBase):
                 safe_call(vc.gotoRange, "Restore view cursor", saved, False)
                 safe_call(model.unlockControllers, "Unlock controllers")
             return page
-        except UnoObjectError as e:
-            logging.getLogger(__name__).warning("get_page_for_paragraph error: %s", e)
+        except UnoObjectError:
+            logging.getLogger(__name__).exception("get_page_for_paragraph error")
             return 1
 
     def get_page_count(self, model):
@@ -1045,8 +1045,8 @@ class DocumentService(ServiceBase):
                 safe_call(vc.gotoRange, "Restore view cursor", saved, False)
                 safe_call(model.unlockControllers, "Unlock controllers")
             return count
-        except UnoObjectError as e:
-            logging.getLogger(__name__).warning("get_page_count error: %s", e)
+        except UnoObjectError:
+            logging.getLogger(__name__).exception("get_page_count error")
             return 0
 
     def doc_key(self, doc):

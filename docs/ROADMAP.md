@@ -285,13 +285,25 @@ When refactoring, ensure these provider-specific behaviors are isolated:
 **Status**: In Progress
 
 - [ ] Audit all error codes for consistency
-- [ ] **Standardize on `log.exception("Context")`** inside `except` blocks to ensure stacktraces are captured for debugging.
+- [✅] **Standardize on `log.exception("Context")`** inside `except` blocks to ensure stacktraces are captured for debugging.
 - [✅] Enhance `SafeLogger` in `logging.py` to support `exception()` method.
-- [✅] Port key modules (`tool_loop.py`, `document_helpers.py`, `service.py`) to the new logging pattern.
+- [✅] Port key modules (`tool_loop.py`, `document_helpers.py`, `service.py`, `format.py`) to the new logging pattern.
 - [ ] Standardize error message formats
 - [ ] Add missing error codes for new features
 - [ ] Improve error context reporting
 - [ ] Add error recovery patterns
+
+#### Advice for standardizing logging (The "Essence"):
+> [!TIP]
+> **When to use `log.exception()` (Stacktraces):**
+> 1. **UNO/LibreOffice Boundaries**: Use it where code interacts with the document (cursors, enumerations, table/sheet access). These often fail with opaque UNO errors (e.g., `getCount` failed), and a stacktrace is the only way to identify which specific internal object or state was problematic.
+> 2. **Top-Level User Actions**: For complex orchestrations (like `Extend Selection`, `Web Research`, or `Transcription`), log the exception at the worker thread boundary or entry point. This captures the entire "why" of a user-facing failure.
+> 3. **Mutations**: Any code that changes document state (like `ensure_heading_bookmarks`) should capture traces on failure to help debug corruption or lock-out issues.
+>
+> **When to stay with `log.error()` (No Stacktraces):**
+> 1. **Routine Network Errors**: Timeouts, 503s, or "Model not found" errors are standard. A stacktrace usually just shows library internals (e.g., `requests` or `urllib3`) which adds noise without diagnostic value.
+> 2. **JSON Parsing**: If `safe_json_loads` fails, the raw payload is almost always the only context needed.
+> 3. **Config/LRU Issues**: Missing keys or minor persistence hiccups are self-explanatory.
 
 **Impact**: Better debugging and user experience
 **Dependencies**: None

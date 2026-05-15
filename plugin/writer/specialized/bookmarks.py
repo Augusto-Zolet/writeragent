@@ -54,7 +54,7 @@ class BookmarkService(ServiceBase):
                 if para_idx >= 0:
                     result[para_idx] = name
         except Exception as e:
-            log.error("Failed to get MCP bookmark map: %s", e)
+            log.exception("Failed to get MCP bookmark map")
 
         return result
 
@@ -134,7 +134,7 @@ class BookmarkService(ServiceBase):
                 except Exception:
                     pass
         except Exception as e:
-            log.error("Failed to cleanup bookmarks: %s", e)
+            log.exception("Failed to cleanup bookmarks")
         return removed
 
 

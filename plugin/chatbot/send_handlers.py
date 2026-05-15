@@ -108,7 +108,7 @@ class SendHandlersMixin:
             return transcript_text
 
         except Exception as e:
-            log.error("Transcription error in _transcribe_audio: %s", e)
+            log.exception("Transcription error in _transcribe_audio")
             self._append_response("\n" + _("[Transcription error: {0}]").format(str(e)) + "\n")
             raise e
         finally:
@@ -289,7 +289,7 @@ class SendHandlersMixin:
             if isinstance(e, (DisposedException, RuntimeException, UnoException)):
                 log.debug("Failed to build document context for agent backend (likely disposed): %s", e)
             else:
-                log.error("Failed to build document context for agent backend: %s", e)
+                log.exception("Failed to build document context for agent backend")
             self._append_response("\n" + _("[Document context error: {0}]").format(str(e)) + "\n")
             self._terminal_status = "Error"
             self._set_status(_("Error"))
@@ -343,7 +343,7 @@ class SendHandlersMixin:
                 with llm_request_lane():
                     adapter.send(queue=q, user_message=query_text, document_context=doc_context, document_url=document_url, system_prompt=lean_system_prompt, mcp_url=mcp_url, stop_checker=lambda: self.stop_requested)
             except Exception as e:
-                log.error("Agent backend ERROR in _do_send_via_agent_backend [backend: %s, doc: %s]: %s", backend_id, doc_type_str, e)
+                log.exception("Agent backend ERROR in _do_send_via_agent_backend [backend: %s, doc: %s]", backend_id, doc_type_str)
                 from plugin.framework.errors import format_error_payload
 
                 q.put((StreamQueueKind.ERROR, format_error_payload(e)))
@@ -556,7 +556,7 @@ class SendHandlersMixin:
 
                     q.put((StreamQueueKind.STREAM_DONE, {}))
             except Exception as e:
-                log.error("Web/Librarian path ERROR in _run_web_research [doc: %s]: %s", doc_type, e)
+                log.exception("Web/Librarian path ERROR in _run_web_research [doc: %s]", doc_type)
                 from plugin.framework.errors import format_error_payload
 
                 q.put((StreamQueueKind.ERROR, format_error_payload(e)))

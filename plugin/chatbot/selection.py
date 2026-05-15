@@ -86,7 +86,7 @@ def _extend_writer(services, ctx, doc):
 
     def on_error(e):
         try:
-            log.error("Extend selection failed: %s", e)
+            log.exception("Extend selection failed")
             msgbox(ctx, _("WriterAgent: Extend Selection"), str(e))
         finally:
             compound_undo.close()
@@ -170,7 +170,7 @@ def _extend_calc(services, ctx, doc):
                         log.debug("Failed to append text to Calc cell (likely disposed): %s", e)
 
         def on_error(e):
-            log.error("Extend selection (calc) failed: %s", e)
+            log.exception("Extend selection (calc) failed")
             msgbox(ctx, _("WriterAgent: Extend Selection"), str(e))
 
         run_stream_async(ctx, client, msgs, tools=None, apply_chunk_fn=apply_chunk, on_done_fn=run_next_cell, on_error_fn=on_error, max_tokens=max_tokens)
@@ -286,7 +286,7 @@ def _edit_writer(services, ctx, doc):
 
             if isinstance(recovery_err, (DisposedException, RuntimeException, UnoException)):
                 log.debug("Failed to restore original text (likely disposed): %s", recovery_err)
-        log.error("Edit selection failed: %s", e)
+        log.exception("Edit selection failed")
         msgbox(ctx, _("WriterAgent: Edit Selection"), str(e))
 
     api_config = get_api_config(ctx)
@@ -398,7 +398,7 @@ def _edit_calc(services, ctx, doc):
 
                 if isinstance(recovery_err, (DisposedException, RuntimeException, UnoException)):
                     log.debug("Failed to restore original cell text (likely disposed): %s", recovery_err)
-            log.error("Edit selection (calc) failed: %s", e)
+            log.exception("Edit selection (calc) failed")
             msgbox(ctx, _("WriterAgent: Edit Selection"), str(e))
 
         run_stream_async(ctx, client, msgs, tools=None, apply_chunk_fn=apply_chunk, on_done_fn=run_next_cell, on_error_fn=on_error, max_tokens=max_tok)

@@ -261,8 +261,8 @@ def html_to_plain_text(html_string, ctx, config_svc=None):
             cursor.gotoStart(False)
             cursor.gotoEnd(True)
             return cursor.getString().strip()
-    except Exception as exc:
-        log.debug("html_to_plain_text failed: %s", exc)
+    except Exception:
+        log.exception("html_to_plain_text failed")
         return html_string.strip()
     finally:
         if temp_doc is not None:
@@ -638,8 +638,8 @@ def find_text_ranges(model, ctx, search, start=0, limit=None, case_sensitive=Tru
                 break
             found = model.findNext(found, sd)
         return matches
-    except Exception as exc:
-        log.debug("find_text_ranges failed: %s", exc)
+    except Exception:
+        log.exception("find_text_ranges failed")
         return []
 
 
