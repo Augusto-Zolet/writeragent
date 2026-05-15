@@ -53,7 +53,7 @@ def strip_leaked_chat_template_control_tokens(content: str | None) -> str:
 
 
 def _prepend_dev_build_system_prefix_to_messages(messages: list) -> None:
-    """If this is a non-release bundle, prepend a dev-oriented line to the first str system message."""
+    """If this is a non-release bundle, prepend a dev-oriented line to the first system message."""
     if not should_prepend_dev_llm_system_prefix():
         return
     prefix = LLM_DEV_BUILD_SYSTEM_PREFIX
@@ -61,12 +61,23 @@ def _prepend_dev_build_system_prefix_to_messages(messages: list) -> None:
         if m.get("role") != "system":
             continue
         c = m.get("content")
-        if not isinstance(c, str):
-            continue
-        if c.startswith(prefix):
+        if isinstance(c, str):
+            if c.startswith(prefix):
+                return
+            m["content"] = f"{prefix}\n\n{c}"
             return
-        m["content"] = f"{prefix}\n\n{c}"
-        return
+        if isinstance(c, list):
+            # Prepend to the first text block if it doesn't already have it
+            for item in c:
+                if isinstance(item, dict) and item.get("type") == "text":
+                    text = item.get("text", "")
+                    if text.startswith(prefix):
+                        return
+                    item["text"] = f"{prefix}\n\n{text}" if text else prefix
+                    return
+            # No text block? Insert one at the beginning
+            c.insert(0, {"type": "text", "text": prefix})
+            return
 
 
 # Keys WriterAgent builds; openrouter_chat_extra must not replace these.
@@ -424,11 +435,25 @@ class LlmClient:
             if coalesced_messages and m.get("role") == "system" and coalesced_messages[-1].get("role") == "system":
                 prev_content = coalesced_messages[-1].get("content", "")
                 curr_content = m.get("content", "")
-                if not isinstance(prev_content, str) or not isinstance(curr_content, str):
-                    err_msg = "make_chat_request: System message content is not a string."
-                    log.error(err_msg)
-                    raise ValueError(err_msg)
-                coalesced_messages[-1]["content"] = prev_content + "\n\n" + curr_content
+
+                # Merge logic supporting both str and list content
+                if isinstance(prev_content, str) and isinstance(curr_content, str):
+                    coalesced_messages[-1]["content"] = prev_content + "\n\n" + curr_content
+                else:
+                    # Normalize both to list and extend
+                    merged = []
+                    if isinstance(prev_content, str):
+                        merged.append({"type": "text", "text": prev_content})
+                    elif isinstance(prev_content, list):
+                        merged.extend(prev_content)
+
+                    if isinstance(curr_content, str):
+                        merged.append({"type": "text", "text": curr_content})
+                    elif isinstance(curr_content, list):
+                        merged.extend(curr_content)
+                    
+                    coalesced_messages[-1]["content"] = merged
+
                 coalesced_any = True
             else:
                 coalesced_messages.append(dict(m) if isinstance(m, dict) else m)
@@ -457,11 +482,46 @@ class LlmClient:
                 )
                 if not already_has_date_line:
                     system_message["content"] = f"{date_msg}\n\n{old_content}" if old_content else date_msg
+            elif isinstance(old_content, list):
+                already_has_date_line = False
+                text_item = None
+                for item in old_content:
+                    if isinstance(item, dict) and item.get("type") == "text":
+                        if text_item is None:
+                            text_item = item
+                        t = item.get("text", "")
+                        if date_msg in t or "Today's date is " in t:
+                            already_has_date_line = True
+                            break
+                
+                if not already_has_date_line:
+                    if text_item:
+                        t = text_item.get("text", "")
+                        text_item["text"] = f"{date_msg}\n\n{t}" if t else date_msg
+                    else:
+                        old_content.insert(0, {"type": "text", "text": date_msg})
         else:
             messages.insert(0, {"role": "system", "content": date_msg})
 
         if prepend_dev_build_system_prefix:
             _prepend_dev_build_system_prefix_to_messages(messages)
+
+        # 2. Flatten system message back to string if it only contains text (for max compatibility)
+        for m in messages:
+            if m.get("role") == "system":
+                content = m.get("content")
+                if isinstance(content, list):
+                    all_text = []
+                    only_text = True
+                    for item in content:
+                        if isinstance(item, dict) and item.get("type") == "text":
+                            all_text.append(item.get("text", ""))
+                        else:
+                            only_text = False
+                            break
+                    if only_text:
+                        m["content"] = "\n\n".join(all_text)
+                break
 
         model_name = model or self.config.get("model", "")
         temperature = self.config.get("temperature", 0.5)

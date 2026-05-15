@@ -118,10 +118,8 @@ class WebResearchTool(ToolCalcWebResearchBase, ToolDrawWebResearchBase):
 
         smol_model = WriterAgentSmolModel(LlmClient(config, ctx.ctx), max_tokens=max_tokens, status_callback=status_callback)
 
-        import datetime
 
-        today = datetime.date.today().strftime("%A, %Y-%m-%d")
-        base_intro = f"You are a research assistant. Today's date is {today}. Use the conversation context provided below to resolve any ambiguity in the user's query."
+        base_intro = "You are a research assistant. Use the conversation context provided below to resolve any ambiguity in the user's query."
         tool_steps_budget = max_steps - 1
         budget_text = (
             f"Step limit: at most {max_steps} agent steps total (each step is one tool call, "

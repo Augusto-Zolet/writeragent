@@ -236,7 +236,9 @@ def test_make_chat_request_system_content_can_be_list():
     assert headers["Content-Type"] == "application/json"
 
     decoded = json.loads(body.decode("utf-8"))
-    assert decoded["messages"][0]["content"] == structured_system_content
+    # System message content is now flattened to string if it only contains text
+    assert isinstance(decoded["messages"][0]["content"], str)
+    assert "Existing structured system content" in decoded["messages"][0]["content"]
 
 
 def test_stream_request_with_tools_tls_retry():
@@ -633,3 +635,65 @@ def test_anthropic_shim(client):
         assert data["system"].endswith("You are a helpful assistant.")
         assert data["messages"] == [{"role": "user", "content": "Hello!"}]
         assert data["max_tokens"] == 100
+
+
+def test_make_chat_request_coalesces_mixed_system_messages(client):
+    """Ensure merging string and list-based system messages works without error."""
+    messages = [
+        {"role": "system", "content": "Base instructions."},
+        {"role": "system", "content": [{"type": "text", "text": "Document context."}]},
+        {"role": "user", "content": "Hello."}
+    ]
+
+    with patch("plugin.framework.client.llm_client.LlmClient._resolve_auth") as mock_auth:
+        mock_auth.return_value = {"provider": "openai"}
+        _, _, json_data, _ = client.make_chat_request(messages, stream=False)
+        data = json.loads(json_data)
+
+        sys_msg = data["messages"][0]
+        assert sys_msg["role"] == "system"
+        # System message content is now flattened to string if it only contains text
+        assert isinstance(sys_msg["content"], str)
+
+        # Verify both parts are present
+        all_text = sys_msg["content"]
+        assert "Base instructions." in all_text
+        assert "Document context." in all_text
+        assert "Today's date is" in all_text
+
+
+def test_prepend_dev_build_prefix_supports_list_content():
+    from plugin.framework.client.llm_client import _prepend_dev_build_system_prefix_to_messages
+    from plugin.framework.constants import LLM_DEV_BUILD_SYSTEM_PREFIX
+
+    messages = [
+        {"role": "system", "content": [{"type": "text", "text": "Existing text."}]}
+    ]
+
+    with patch("plugin.framework.client.llm_client.should_prepend_dev_llm_system_prefix", return_value=True):
+        _prepend_dev_build_system_prefix_to_messages(messages)
+
+    content = messages[0]["content"]
+    assert isinstance(content, list)
+    assert content[0]["text"].startswith(LLM_DEV_BUILD_SYSTEM_PREFIX)
+    assert "Existing text." in content[0]["text"]
+
+
+def test_make_chat_request_flattens_system_message(client):
+    """Ensure that list-based system messages are flattened to strings if they only contain text."""
+    messages = [
+        {"role": "system", "content": [{"type": "text", "text": "Part 1"}, {"type": "text", "text": "Part 2"}]},
+        {"role": "user", "content": "Hi"}
+    ]
+    
+    with patch("plugin.framework.client.llm_client.LlmClient._resolve_auth") as mock_auth:
+        mock_auth.return_value = {"provider": "openai"}
+        _, _, json_data, _ = client.make_chat_request(messages, stream=False)
+        data = json.loads(json_data)
+        
+        sys_msg = data["messages"][0]
+        assert sys_msg["role"] == "system"
+        assert isinstance(sys_msg["content"], str)
+        assert "Part 1" in sys_msg["content"]
+        assert "Part 2" in sys_msg["content"]
+        assert "Today's date is" in sys_msg["content"]

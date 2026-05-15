@@ -16,16 +16,15 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import logging
 import threading
-import traceback
 import uno
 from com.sun.star.awt import XItemListener, XTextListener
 
 from plugin.framework.errors import format_error_payload, UnoObjectError
-from plugin.framework.uno_context import get_desktop, get_active_document, get_extension_url, get_toolkit
+from plugin.framework.uno_context import get_active_document, get_extension_url, get_toolkit
 from plugin.framework.i18n import _
 from plugin.framework.config import get_config, get_current_endpoint, set_config, get_config_str, as_bool
 from plugin.framework.client.model_fetcher import get_text_model
-from plugin.framework.logging import init_logging, agent_log
+from plugin.framework.logging import init_logging
 from plugin.chatbot.config_ui_helpers import populate_combobox_with_lru, update_lru_history
 from plugin.chatbot.history_db import HAS_SQLITE
 
@@ -257,16 +256,20 @@ class SettingsDialog:
 
                 field_type = field.get("type", "text")
                 if field_type == "int":
-                    try: result[name] = int(float(val))
-                    except: result[name] = val
+                    try:
+                        result[name] = int(float(val))
+                    except (ValueError, TypeError):
+                        result[name] = val
                 elif field_type == "bool":
                     if is_checkbox_control(ctrl):
                         result[name] = get_checkbox_state(ctrl) == 1
                     else:
                         result[name] = as_bool(val)
                 elif field_type == "float":
-                    try: result[name] = float(val)
-                    except: result[name] = val
+                    try:
+                        result[name] = float(val)
+                    except (ValueError, TypeError):
+                        result[name] = val
                 else:
                     result[name] = val
             except Exception as e:

@@ -35,7 +35,7 @@
 | Errors / `safe_json_loads` | [`plugin/framework/errors.py`](plugin/framework/errors.py) |
 | Weekly extension update check | [`plugin/chatbot/extension_update_check.py`](plugin/chatbot/extension_update_check.py) |
 
-**Layout:** `plugin/` → `framework/` (config, service, state, logging), `modules/` (ai, chatbot—including shared UNO dialogs/listeners/settings UI, writer, calc, draw, http), [`extension/`](extension/) (OXT resources, [`WriterAgentDialogs/`](extension/WriterAgentDialogs/), [`idl/`](extension/idl/), [`metadata/`](extension/metadata/)), [`scripts/`](scripts/), [`Makefile`](Makefile), [`pyproject.toml`](pyproject.toml).
+**Layout:** `plugin/` → `framework/` (config, service, state, logging), `modules/` (ai, chatbot—including shared UNO dialogs/listeners/dialog_views/settings_dialog UI, writer, calc, draw, http), [`extension/`](extension/) (OXT resources, [`WriterAgentDialogs/`](extension/WriterAgentDialogs/), [`idl/`](extension/idl/), [`metadata/`](extension/metadata/)), [`scripts/`](scripts/), [`Makefile`](Makefile), [`pyproject.toml`](pyproject.toml).
 
 ---
 
@@ -122,8 +122,8 @@ UNO helpers are split: [`uno_context.py`](plugin/framework/uno_context.py), [`do
 - **AppFont** for geometry; explicit layout—no flex. **TabListener** must subclass **`unohelper.Base`** + **`XActionListener`**—see pattern in [`plugin/chatbot/dialogs.py`](plugin/chatbot/dialogs.py).
 - **ListBox/ComboBox:** set **`StringItemList`**, not only `.Text`.
 - **`translate_dialog`:** [`dialogs.py`](plugin/chatbot/dialogs.py). Chat sidebar does **not** re-translate on every `config:changed`—only at wiring/load.
-- **`legacy_ui`:** do not pass saved config through gettext (empty string → PO garbage). **`_(msg)`** requires `str` ([`plugin/framework/i18n.py`](plugin/framework/i18n.py)).
-- **`legacy_ui.input_box`:** if `execute()` is false (ESC/close), **do not** `dispose()` the dialog again—**double dispose can segfault** LibreOffice.
+- **`dialog_views`**: do not pass saved config through gettext (empty string → PO garbage). **`_(msg)`** requires `str` ([`plugin/framework/i18n.py`](plugin/framework/i18n.py)).
+- **`dialog_views.input_box`**: if `execute()` is false (ESC/close), **do not** `dispose()` the dialog again—**double dispose can segfault** LibreOffice.
 
 ### Tools / Writer / Calc
 
@@ -140,7 +140,7 @@ UNO helpers are split: [`uno_context.py`](plugin/framework/uno_context.py), [`do
 - Paths: Linux `~/.config/libreoffice/{4,24}/user/writeragent.json`; macOS `~/Library/Application Support/LibreOffice/4/user/`; Windows `%APPDATA%\LibreOffice\4\user\`.
 - **`set_config`:** skips write and `config:changed` when unchanged. Unknown keys via `get_config` / `get_config_int` → **`CONFIG_KEY_NOT_FOUND`** with `details["key"]`.
 - **OpenRouter merge:** optional `openrouter_chat_extra` — [`merge_openrouter_chat_extra`](plugin/framework/client/llm_client.py); blocked keys include `messages`, `tools`, `tool_choice`, `stream`.
-- **Settings UI:** **`core`** must stay skipped in auto-generated tabs ([`manifest_registry.py`](scripts/manifest_registry.py) + [`legacy_ui.py`](plugin/chatbot/legacy_ui.py) agree) or Settings crashes (`btn_tab_core`).
+- **Settings UI:** **`core`** must stay skipped in auto-generated tabs ([`manifest_registry.py`](scripts/manifest_registry.py) + [`dialog_views.py`](plugin/chatbot/dialog_views.py) agree) or Settings crashes (`btn_tab_core`).
 - Defaults and provider tables: [`plugin/framework/default_models.py`](plugin/framework/default_models.py). **`chat_max_tool_rounds`:** empty string → fallback 25 with debug log.
 - **Chat-related keys:** `chat_context_length`, `chat_max_tokens`, `additional_instructions` (see [`plugin/framework/config.py`](plugin/framework/config.py), [`plugin/framework/constants.py`](plugin/framework/constants.py)).
 
