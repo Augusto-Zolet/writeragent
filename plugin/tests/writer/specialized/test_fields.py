@@ -57,9 +57,7 @@ def test_fields_list_with_items(mock_ctx):
 
     # Setup a mock property set info for properties extraction
     mock_prop_set_info = MagicMock()
-    mock_prop = MagicMock()
-    mock_prop.Name = "NumberingType"
-    mock_prop_set_info.getProperties.return_value = [mock_prop]
+    mock_prop_set_info.hasPropertyByName.side_effect = lambda name: name == "NumberingType"
     mock_field.getPropertySetInfo.return_value = mock_prop_set_info
     mock_field.getPropertyValue.return_value = 4
 
