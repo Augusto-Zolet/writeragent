@@ -11,12 +11,10 @@ import queue
 import threading
 import time
 import collections
-from collections import deque, namedtuple, defaultdict
+from collections import defaultdict
 from dataclasses import asdict, dataclass, replace
-from typing import Any, Literal, Mapping, TYPE_CHECKING
+from typing import Any, Literal, Mapping
 
-if TYPE_CHECKING:
-    from .grammar_fsm_state import GrammarEvent
 
 from . import (
     grammar_proofread_cache,
