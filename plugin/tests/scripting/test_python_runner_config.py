@@ -35,6 +35,8 @@ class TestPythonRunnerConfig(unittest.TestCase):
         
         run_python_dialog()
         mock_get.assert_called_with(mock_ctx_val, "last_python_script_writer")
+        # Note: the test mocks get_config_str, so we don't strictly test the default value here
+        # but we can verify the key is correct.
         mock_set.assert_called_with(mock_ctx_val, "last_python_script_writer", "print('hello')")
 
         # Test Calc
@@ -54,6 +56,13 @@ class TestPythonRunnerConfig(unittest.TestCase):
         run_python_dialog()
         mock_get.assert_called_with(mock_ctx_val, "last_python_script_draw")
         mock_set.assert_called_with(mock_ctx_val, "last_python_script_draw", "print('hello')")
+
+    def test_config_defaults(self):
+        from plugin.framework.config import WriterAgentConfig
+        config = WriterAgentConfig()
+        self.assertTrue(config.last_python_script_writer.startswith("# Python Writer script"))
+        self.assertTrue(config.last_python_script_calc.startswith("# Python Calc script"))
+        self.assertTrue(config.last_python_script_draw.startswith("# Python Draw/Impress script"))
 
 if __name__ == '__main__':
     unittest.main()
