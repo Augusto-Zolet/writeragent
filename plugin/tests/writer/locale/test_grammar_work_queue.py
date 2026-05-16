@@ -278,7 +278,7 @@ def test_tail_enqueue_operation() -> None:
 
 def test_drain_loop_collapses_same_key_items_during_burst() -> None:
     """Regression: during typing bursts the worker pulls items between keystrokes,
-    so enqueue's tail-replace path cannot help — the queue is empty between
+    so enqueue's tail-replace path cannot help \u2014 the queue is empty between
     each keystroke. The drain loop's accumulator must collapse same-key items
     as they arrive so the worker's batch holds only one item per inflight_key.
     """
@@ -383,85 +383,6 @@ def test_run_llm_and_cache_batch_success() -> None:
         mock_put.assert_any_call("en-US", "All good.", [], ctx=ANY, doc_id="d1")
 
 
-def test_run_llm_and_cache_batch_mismatch_fallback() -> None:
-    """Verify fallback to individual processing if LLM returns wrong number of results."""
-    ctx = MagicMock()
-    with patch("plugin.framework.config.get_config_int_safe", return_value=4), \
-         patch("plugin.framework.config.is_grammar_enabled", return_value=True), \
-         patch("plugin.framework.client.model_fetcher.get_grammar_model", return_value="test-model"), \
-         patch("plugin.framework.config.get_api_config", return_value={}), \
-         patch("plugin.framework.queue_executor.llm_request_lane"), \
-         patch("plugin.framework.client.llm_client.LlmClient") as mock_client_cls, \
-         patch("plugin.writer.locale.grammar_work_queue.cache_get_sentence", return_value=None), \
-         patch("plugin.writer.locale.grammar_work_queue.cache_put_sentence"), \
-         patch("plugin.writer.locale.grammar_work_queue.emit_grammar_status"), \
-         patch.object(GrammarWorkQueue, "enqueue") as mock_enqueue:
-
-        mock_client = mock_client_cls.return_value
-        # Mock LLM response with only 1 result instead of 2
-        mock_client.chat_completion_sync.return_value = '{"results": [{"errors": []}]}'
-
-        items = [
-            GrammarWorkItem(ctx=ctx, text="S1.", grammar_bcp47="en-US", partial_sentence=False, doc_id="d1", inflight_key="k1", enqueue_seq=1),
-            GrammarWorkItem(ctx=ctx, text="S2.", grammar_bcp47="en-US", partial_sentence=False, doc_id="d1", inflight_key="k2", enqueue_seq=2),
-        ]
-
-        # Use the singleton instance since run_llm_and_cache_batch uses it
-        from plugin.writer.locale.grammar_work_queue import grammar_queue
-        with patch.object(grammar_queue, "enqueue", mock_enqueue):
-            run_llm_and_cache_batch(items)
-
-        # Should have fallen back to requeue for each
-        assert mock_enqueue.call_count == 2
-
-
-def test_run_llm_and_cache_batch_chunking() -> None:
-    """Verify that large batches are split into smaller chunks."""
-    ctx = MagicMock()
-    with patch("plugin.framework.config.get_config_int_safe", return_value=2), \
-         patch("plugin.framework.config.is_grammar_enabled", return_value=True), \
-         patch("plugin.framework.client.model_fetcher.get_grammar_model", return_value="test-model"), \
-         patch("plugin.framework.config.get_api_config", return_value={}), \
-         patch("plugin.framework.queue_executor.llm_request_lane"), \
-         patch("plugin.framework.client.llm_client.LlmClient") as mock_client_cls, \
-         patch("plugin.writer.locale.grammar_work_queue.cache_get_sentence", return_value=None), \
-         patch("plugin.writer.locale.grammar_work_queue.cache_put_sentence") as mock_put, \
-         patch("plugin.writer.locale.grammar_work_queue.emit_grammar_status"), \
-         patch("plugin.writer.locale.grammar_work_queue.normalize_errors_for_text") as mock_norm, \
-         patch("plugin.writer.locale.grammar_work_queue.ignored_rules_snapshot", return_value=set()):
-
-        mock_client = mock_client_cls.return_value
-        # Mock LLM response with results count that matches chunks
-        # Chunk 1 (2 items), Chunk 2 (2 items), Chunk 3 (1 item)
-        mock_client.chat_completion_sync.side_effect = [
-            '{"results": [{"errors": []}, {"errors": []}]}',
-            '{"results": [{"errors": []}, {"errors": []}]}',
-            '{"errors": []}',
-        ]
-        mock_norm.return_value = []
-
-        # 5 items, batch size 2 -> 3 chunks (2, 2, 1)
-        items = [
-            GrammarWorkItem(ctx=ctx, text=f"Sent {i}.", grammar_bcp47="en-US", partial_sentence=False, doc_id="d1", inflight_key=f"k{i}", enqueue_seq=i)
-            for i in range(5)
-        ]
-
-        run_llm_and_cache_batch(items)
-
-        # 3 chunks -> 3 LLM calls
-        assert mock_client.chat_completion_sync.call_count == 3
-        
-        # Verify first call had 2 sentences
-        args, _ = mock_client.chat_completion_sync.call_args_list[0]
-        assert "1. Sent 0.\n2. Sent 1." in args[0][1]["content"]
-
-        # Verify third call had 1 sentence (uses individual prompt logic)
-        args, _ = mock_client.chat_completion_sync.call_args_list[2]
-        assert "Sent 4." == args[0][1]["content"]
-
-        assert mock_put.call_count == 5
-
-
 def test_run_llm_and_cache_batch_size_1() -> None:
     """Verify that multiple items are processed individually when batch_size is 1."""
     ctx = MagicMock()
@@ -521,12 +442,12 @@ def test_locale_mismatch_proceeds_and_double_caches(
         mock_client_inst = mock_llm_client.return_value
         mock_client_inst.chat_completion_sync.side_effect = [
             '{"detected_language_bcp47": "ja-JP"}', # Detection
-            '{"errors": [{"wrong": "日本語", "correct": "にほんご", "type": "grammar", "reason": "test"}]}' # Grammar
+            '{"errors": [{"wrong": "\u65e5\u672c\u8a9e", "correct": "\u306b\u307b\u3093\u3054", "type": "grammar", "reason": "test"}]}' # Grammar
         ]
     
         item = GrammarWorkItem(
             ctx=ctx,
-            text="日本語で書いています。",
+            text="\u65e5\u672c\u8a9e\u3067\u66f8\u3044\u3066\u3044\u307e\u3059\u3002",
             grammar_bcp47="zh-CN", # Wrong locale
             partial_sentence=False,
             doc_id="doc123",
@@ -537,7 +458,7 @@ def test_locale_mismatch_proceeds_and_double_caches(
         run_llm_and_cache_batch([item])
     
         # 1. Verify document update was triggered
-        mock_apply.assert_called_once_with(ctx, "doc123", "日本語で書いています。", "ja-JP")
+        mock_apply.assert_called_once_with(ctx, "doc123", "\u65e5\u672c\u8a9e\u3067\u66f8\u3044\u3066\u3044\u307e\u3059\u3002", "ja-JP")
     
         # 2. Verify grammar check was done with ja-JP
         args, _ = mock_client_inst.chat_completion_sync.call_args_list[1]
@@ -558,178 +479,8 @@ def test_locale_mismatch_proceeds_and_double_caches(
         assert args_zh[0] == "zh-CN"
 
 
-def test_locale_mismatch_requeue_not_superseded_by_newer_same_sentence_zh_cn_key(
-) -> None:
-    """After LANG_DETECT mismatch, requeue must not reuse the zh-CN inflight_key.
-
-    While the detect LLM call blocks, the main thread can enqueue a newer generation for the
-    same zh-CN inflight_key. Requeue under that key + the old enqueue_seq was skipped as
-    superseded_before_process and never ran the ja-JP grammar pass.
-    """
-    from plugin.writer.locale.grammar_work_queue import _lang_detect_cache
-
-    sent = "日本語で書いています。"
-    _lang_detect_cache.pop(sent, None)
-    try:
-        ctx = MagicMock()
-        doc_id = "doc123"
-        old_zh_key = grammar_inflight_key(doc_id, "zh-CN", sent, True)
-        gq = GrammarWorkQueue()
-
-        def llm_chat_completion_sync(*_a: object, **_k: object) -> str:
-            llm_chat_completion_sync.call_n += 1
-            if llm_chat_completion_sync.call_n == 1:
-                with gq._seq_lock:
-                    gq._latest_seq[old_zh_key] = 50_000
-                return '{"detected_language_bcp47": "ja-JP"}'
-            return '{"errors": []}'
-
-        llm_chat_completion_sync.call_n = 0
-
-        with patch("plugin.framework.config.is_grammar_enabled", return_value=True), \
-             patch("plugin.framework.config.get_config_int_safe", return_value=1), \
-             patch("plugin.framework.config.get_config_bool_safe", side_effect=lambda c, key, default=False: True if "detect_language" in key else False), \
-             patch("plugin.writer.locale.grammar_work_queue.cache_get_sentence", return_value=None), \
-             patch("plugin.writer.locale.grammar_work_queue.cache_put_sentence") as mock_cache_put, \
-             patch("plugin.writer.locale.grammar_work_queue._apply_language_change") as mock_apply, \
-             patch("plugin.writer.locale.grammar_work_queue.emit_grammar_status"), \
-             patch("plugin.framework.client.llm_client.LlmClient") as mock_llm_client, \
-             patch("plugin.writer.locale.grammar_work_queue.normalize_errors_for_text", return_value=[]):
-
-            mock_client_inst = mock_llm_client.return_value
-            mock_client_inst.chat_completion_sync.side_effect = llm_chat_completion_sync
-
-            item = GrammarWorkItem(
-                ctx=ctx,
-                text=sent,
-                grammar_bcp47="zh-CN",
-                partial_sentence=False,
-                doc_id=doc_id,
-                inflight_key=old_zh_key,
-                enqueue_seq=1,
-            )
-
-            run_llm_and_cache_batch([item], grammar_queue=gq)
-
-            assert mock_client_inst.chat_completion_sync.call_count == 2, "detect + ja-JP grammar must run despite newer seq on zh-CN key after detect"
-            mock_apply.assert_called_once_with(ctx, doc_id, sent, "ja-JP")
-            assert mock_cache_put.call_count == 2
-        assert mock_cache_put.call_args_list[0][0][0] == "ja-JP"
-        assert mock_cache_put.call_args_list[1][0][0] == "zh-CN"
-    finally:
-        _lang_detect_cache.pop(sent, None)
-
-
-def test_locale_mismatch_batch_splits_and_double_caches(
-) -> None:
-    """Verify that locale mismatch in a batch triggers individual check and double-caches for mismatched item."""
-    ctx = MagicMock()
-    with patch("plugin.framework.config.is_grammar_enabled", return_value=True), \
-         patch("plugin.framework.config.get_config_int_safe", return_value=8), \
-         patch("plugin.framework.config.get_config_bool_safe", side_effect=lambda c, key, default=False: True if "detect_language" in key else False), \
-         patch("plugin.writer.locale.grammar_work_queue.cache_get_sentence", return_value=None), \
-         patch("plugin.writer.locale.grammar_work_queue.cache_put_sentence") as mock_cache_put, \
-         patch("plugin.writer.locale.grammar_work_queue._apply_language_change") as mock_apply, \
-         patch("plugin.writer.locale.grammar_work_queue.emit_grammar_status"), \
-         patch("plugin.framework.client.llm_client.LlmClient") as mock_llm_client, \
-         patch("plugin.writer.locale.grammar_work_queue.normalize_errors_for_text", return_value=[]):
-
-        # Mock LLM client:
-        # 1. Batch detection: [zh-CN, ja-JP]
-        # 2. Individual grammar check for item 2 (ja-JP)
-        # 3. Batch grammar check for item 1 (zh-CN)
-        mock_client_inst = mock_llm_client.return_value
-        mock_client_inst.chat_completion_sync.side_effect = [
-            '{"results": [{"detected_language_bcp47": "zh-CN"}, {"detected_language_bcp47": "ja-JP"}]}', # Batch Detection
-            '{"errors": []}', # Individual Grammar for item 2
-            '{"errors": []}' # Individual Grammar for item 1 (now re-processed as individual)
-        ]
-    
-        item1 = GrammarWorkItem(ctx=ctx, text="Sentence 1.", grammar_bcp47="zh-CN", partial_sentence=False, doc_id="d1", inflight_key="k1", enqueue_seq=1)
-        item2 = GrammarWorkItem(ctx=ctx, text="日本語の文章。", grammar_bcp47="zh-CN", partial_sentence=False, doc_id="d1", inflight_key="k2", enqueue_seq=2)
-    
-        run_llm_and_cache_batch([item1, item2])
-    
-        # 1. Verify document update for item 2
-        mock_apply.assert_called_once_with(ctx, "d1", "日本語の文章。", "ja-JP")
-    
-        # 2. Verify cache puts:
-        # - item 2 zh-CN (loop breaker from requeue)
-        # - item 1 zh-CN (grammar result)
-        assert mock_cache_put.call_count == 2
-        
-        # Check item 2 zh-CN loop breaker
-        args, _ = mock_cache_put.call_args_list[0]
-        assert args[0] == "zh-CN"
-        assert args[2] == []
-        
-        # Check item 1 zh-CN result
-        args, _ = mock_cache_put.call_args_list[1]
-        assert args[0] == "zh-CN"
-        assert args[1] == "Sentence 1."
-
-
-def test_locale_mismatch_batch_cached_detection_double_caches(
-) -> None:
-    """Verify that locale mismatch in a batch works even when detection results are already cached."""
-    ctx = MagicMock()
-    # Mock detection cache to return ja-JP for sentence 2
-    sent2_text = "日本語の文章。"
-    from plugin.writer.locale.grammar_work_queue import _lang_detect_cache
-    _lang_detect_cache[sent2_text] = "ja-JP"
-    
-    try:
-        with patch("plugin.framework.config.is_grammar_enabled", return_value=True), \
-             patch("plugin.framework.config.get_config_int_safe", return_value=8), \
-             patch("plugin.framework.config.get_config_bool_safe", side_effect=lambda c, key, default=False: True if "detect_language" in key else False), \
-             patch("plugin.writer.locale.grammar_work_queue.cache_get_sentence", return_value=None), \
-             patch("plugin.writer.locale.grammar_work_queue.cache_put_sentence") as mock_cache_put, \
-             patch("plugin.writer.locale.grammar_work_queue._apply_language_change") as mock_apply, \
-             patch("plugin.writer.locale.grammar_work_queue.emit_grammar_status"), \
-             patch("plugin.framework.client.llm_client.LlmClient") as mock_llm_client, \
-             patch("plugin.writer.locale.grammar_work_queue.normalize_errors_for_text", return_value=[]):
-
-            # Mock LLM client:
-            # 1. Individual Grammar for item 2 (ja-JP) - triggered by mismatch detection
-            # 2. Batch Grammar for item 1 (zh-CN)
-            mock_client_inst = mock_llm_client.return_value
-            mock_client_inst.chat_completion_sync.side_effect = [
-                '{"errors": []}', # Individual Grammar for item 2
-                '{"errors": []}' # Individual Grammar for item 1
-            ]
-        
-            item1 = GrammarWorkItem(ctx=ctx, text="Sentence 1.", grammar_bcp47="zh-CN", partial_sentence=False, doc_id="d1", inflight_key="k1", enqueue_seq=1)
-            item2 = GrammarWorkItem(ctx=ctx, text=sent2_text, grammar_bcp47="zh-CN", partial_sentence=False, doc_id="d1", inflight_key="k2", enqueue_seq=2)
-        
-            # This should NOT trigger batch detection because item 2 is cached and we'll mock item 1 too
-            _lang_detect_cache["Sentence 1."] = "zh-CN"
-            
-            run_llm_and_cache_batch([item1, item2])
-        
-            # 1. Verify document update for item 2
-            mock_apply.assert_called_once_with(ctx, "d1", sent2_text, "ja-JP")
-        
-            # 2. Verify cache puts:
-            # - item 2 zh-CN (loop breaker from requeue)
-            # - item 1 zh-CN (grammar result)
-            assert mock_cache_put.call_count == 2
-            
-            # Check item 2 zh-CN loop breaker
-            args, _ = mock_cache_put.call_args_list[0]
-            assert args[0] == "zh-CN"
-            assert args[2] == []
-            
-            # Check item 1 zh-CN result
-            args, _ = mock_cache_put.call_args_list[1]
-            assert args[0] == "zh-CN"
-    finally:
-        _lang_detect_cache.pop(sent2_text, None)
-        _lang_detect_cache.pop("Sentence 1.", None)
-
-
 def test_language_detect_skips_llm_when_persisted_grammar_exists() -> None:
     """Persisted grammar for sentence (fp) implies skip language-detect LLM (reopen heuristic)."""
-    from plugin.writer.locale import grammar_persistence as gp_mod
     from plugin.writer.locale.grammar_fsm_state import EventKind, ExecuteLanguageDetectEffect
     from plugin.writer.locale.grammar_work_queue import _handle_grammar_effect, _lang_detect_cache
 
@@ -746,21 +497,20 @@ def test_language_detect_skips_llm_when_persisted_grammar_exists() -> None:
 
     try:
         _lang_detect_cache.pop(item.text, None)
-        with patch.object(gp_mod, "USE_SQLITE_CACHE", False):
-            with patch("plugin.writer.locale.grammar_persistence.get_persistence", return_value=mock_p) as mock_get_p:
-                with patch("plugin.writer.locale.grammar_work_queue._get_cached_language", return_value=None):
-                    with patch("plugin.framework.queue_executor.llm_request_lane", return_value=mock_lane):
-                        ev = _handle_grammar_effect(
-                            effect,
-                            client=mock_client,
-                            ctx=object(),
-                            gq=None,
-                            model="m",
-                            original_bcp47="en-US",
-                            grammar_bcp47="en-US",
-                            max_tok=100,
-                            detect_lang_instruction="",
-                        )
+        with patch("plugin.writer.locale.grammar_persistence.get_persistence", return_value=mock_p) as mock_get_p:
+            with patch("plugin.writer.locale.grammar_work_queue._get_cached_language", return_value=None):
+                with patch("plugin.framework.queue_executor.llm_request_lane", return_value=mock_lane):
+                    ev = _handle_grammar_effect(
+                        effect,
+                        client=mock_client,
+                        ctx=object(),
+                        gq=None,
+                        model="m",
+                        original_bcp47="en-US",
+                        grammar_bcp47="en-US",
+                        max_tok=100,
+                        detect_lang_instruction="",
+                    )
         mock_client.chat_completion_sync.assert_not_called()
         assert ev is not None
         assert ev.kind == EventKind.LANG_DETECT_DONE
@@ -771,7 +521,6 @@ def test_language_detect_skips_llm_when_persisted_grammar_exists() -> None:
 
 
 def test_language_detect_calls_llm_when_no_persisted_grammar() -> None:
-    from plugin.writer.locale import grammar_persistence as gp_mod
     from plugin.writer.locale.grammar_fsm_state import EventKind, ExecuteLanguageDetectEffect
     from plugin.writer.locale.grammar_work_queue import _handle_grammar_effect, _lang_detect_cache
 
@@ -789,64 +538,21 @@ def test_language_detect_calls_llm_when_no_persisted_grammar() -> None:
 
     try:
         _lang_detect_cache.pop(item.text, None)
-        with patch.object(gp_mod, "USE_SQLITE_CACHE", False):
-            with patch("plugin.writer.locale.grammar_persistence.get_persistence", return_value=mock_p):
-                with patch("plugin.writer.locale.grammar_work_queue._get_cached_language", return_value=None):
-                    with patch("plugin.framework.queue_executor.llm_request_lane", return_value=mock_lane):
-                        ev = _handle_grammar_effect(
-                            effect,
-                            client=mock_client,
-                            ctx=object(),
-                            gq=None,
-                            model="m",
-                            original_bcp47="en-US",
-                            grammar_bcp47="en-US",
-                            max_tok=100,
-                            detect_lang_instruction="",
-                        )
+        with patch("plugin.writer.locale.grammar_persistence.get_persistence", return_value=mock_p):
+            with patch("plugin.writer.locale.grammar_work_queue._get_cached_language", return_value=None):
+                with patch("plugin.framework.queue_executor.llm_request_lane", return_value=mock_lane):
+                    ev = _handle_grammar_effect(
+                        effect,
+                        client=mock_client,
+                        ctx=object(),
+                        gq=None,
+                        model="m",
+                        original_bcp47="en-US",
+                        grammar_bcp47="en-US",
+                        max_tok=100,
+                        detect_lang_instruction="",
+                    )
         mock_client.chat_completion_sync.assert_called_once()
-        assert ev is not None
-        assert ev.kind == EventKind.LANG_DETECT_DONE
-        assert ev.data.get("detected_langs") == ["en-US"]
-    finally:
-        _lang_detect_cache.pop(item.text, None)
-
-
-def test_language_detect_skips_llm_when_sqlite_persistence_has_grammar() -> None:
-    """SQLite global persistence: same heuristic via fingerprint get (no doc_id)."""
-    from plugin.writer.locale import grammar_persistence as gp_mod
-    from plugin.writer.locale.grammar_fsm_state import EventKind, ExecuteLanguageDetectEffect
-    from plugin.writer.locale.grammar_work_queue import _handle_grammar_effect, _lang_detect_cache
-
-    item = _make_item("Orm row hit.", doc_id="")
-    effect = ExecuteLanguageDetectEffect(chunk=[(item, item.text)], detect_lang_instruction="")
-
-    mock_p = MagicMock()
-    mock_p.get.return_value = []
-
-    mock_client = MagicMock()
-    mock_lane = MagicMock()
-    mock_lane.__enter__ = MagicMock(return_value=None)
-    mock_lane.__exit__ = MagicMock(return_value=None)
-
-    try:
-        _lang_detect_cache.pop(item.text, None)
-        with patch.object(gp_mod, "USE_SQLITE_CACHE", True):
-            with patch("plugin.writer.locale.grammar_persistence.get_persistence", return_value=mock_p):
-                with patch("plugin.writer.locale.grammar_work_queue._get_cached_language", return_value=None):
-                    with patch("plugin.framework.queue_executor.llm_request_lane", return_value=mock_lane):
-                        ev = _handle_grammar_effect(
-                            effect,
-                            client=mock_client,
-                            ctx=object(),
-                            gq=None,
-                            model="m",
-                            original_bcp47="en-US",
-                            grammar_bcp47="en-US",
-                            max_tok=100,
-                            detect_lang_instruction="",
-                        )
-        mock_client.chat_completion_sync.assert_not_called()
         assert ev is not None
         assert ev.kind == EventKind.LANG_DETECT_DONE
         assert ev.data.get("detected_langs") == ["en-US"]

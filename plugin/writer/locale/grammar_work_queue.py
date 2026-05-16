@@ -187,7 +187,6 @@ def deduplicate_grammar_batch(batch: list[GrammarWorkItem]) -> list[GrammarWorkI
     best_by_key: dict[str, GrammarWorkItem] = {}
     for item in batch:
         prev = best_by_key.get(item.inflight_key)
-        # Same physical sentence / typing line: inflight_key matches → keep newer snapshot only.
         if prev is None or item.enqueue_seq > prev.enqueue_seq:
             best_by_key[item.inflight_key] = item
         elif prev is not None and item.enqueue_seq < prev.enqueue_seq:
@@ -323,14 +322,11 @@ def _persisted_grammar_skip_lang_detect(ctx: Any, doc_id: str, text: str) -> boo
     as language-resolved for this session. Wrong-locale clean rows could skip redetect.
     """
     try:
-        from .grammar_persistence import USE_SQLITE_CACHE, get_persistence
+        from .grammar_persistence import get_persistence
 
-        fp = sentence_identity_fp(text)
-        if USE_SQLITE_CACHE:
-            p = get_persistence(ctx)
-            return p is not None and p.get(fp) is not None
         if not doc_id:
             return False
+        fp = sentence_identity_fp(text)
         p = get_persistence(ctx, doc_id)
         return p is not None and p.get(fp) is not None
     except Exception as e:
@@ -496,7 +492,7 @@ def _handle_process_grammar_results_effect(effect: Any, ec: GrammarEffectContext
                 second_text = tstrip
 
     if n_written:
-        preview_src = f"{first_text} · {second_text}" if second_text else first_text
+        preview_src = f"{first_text} \u00b7 {second_text}" if second_text else first_text
         iw = "issue" if total_issues == 1 else "issues"
         sw = "sentence" if n_written == 1 else "sentences"
         emit_grammar_status(
@@ -804,7 +800,7 @@ class GrammarWorkQueue:
         compact = " ".join(item.text.split())
         if len(compact) <= max_len:
             return compact
-        return f"{compact[:max_len]}…"
+        return f"{compact[:max_len]}\u2026"
 
     def _latest_seq_for(self, inflight_key: str) -> int | None:
         with self._seq_lock:
@@ -866,7 +862,7 @@ class GrammarWorkQueue:
             # Collapse same-key items as they arrive instead of appending all of
             # them to a list and dedup-ing at the end. During typing bursts the
             # worker pulls items in microseconds, so the queue is empty between
-            # keystrokes and ``enqueue``'s tail-replace path can't help — without
+            # keystrokes and ``enqueue``'s tail-replace path can't help \u2014 without
             # this dict the batch routinely held 20+ identical INCOMPLETE keys.
             batch_by_key: dict[str, GrammarWorkItem] = {first.inflight_key: first}
             while True:

@@ -51,7 +51,7 @@ def test_normalize_for_sentence_cache() -> None:
     assert norm("Are you there?") == "Are you there?"
     assert norm("Are you there?!") == "Are you there?"
     assert norm("Really!!!") == "Really!"
-    assert norm("Wait……") == "Wait…"
+    assert norm("Wait……") == "Wait\u2026"
     assert norm("结束。") == "结束。"
     assert norm("结束。！？") == "结束。"
     assert norm("Hello, world.") == "Hello, world."
@@ -177,40 +177,36 @@ def test_cache_hit_with_trailing_whitespace() -> None:
 def test_cache_persistence_fallback() -> None:
     """Test that cache_get_sentence falls back to persistence and populates memory cache."""
     from unittest.mock import MagicMock
-    from plugin.writer.locale.grammar_persistence import GrammarPersistence
+    from plugin.writer.locale.grammar_persistence import DocumentPersistence
     
     ctx = MagicMock()
-    mock_p = MagicMock(spec=GrammarPersistence)
+    mock_p = MagicMock(spec=DocumentPersistence)
     errors = [{"wrong": "test", "correct": "TEST", "n_error_start": 0, "n_error_length": 4}]
     mock_p.get.return_value = errors
     
     with patch("plugin.writer.locale.grammar_proofread_cache.get_persistence", return_value=mock_p):
         # 1. Get from persistence (memory miss)
-        got = gc.cache_get_sentence("en-US", "Persistence test.", ctx=ctx)
+        got = gc.cache_get_sentence("en-US", "Persistence test.", ctx=ctx, doc_id="doc1")
         assert got == errors
         mock_p.get.assert_called_once()
         
         # 2. Subsequent call should hit memory (mock_p.get NOT called again)
-        got2 = gc.cache_get_sentence("en-US", "Persistence test.", ctx=ctx)
+        got2 = gc.cache_get_sentence("en-US", "Persistence test.", ctx=ctx, doc_id="doc1")
         assert got2 == errors
         assert mock_p.get.call_count == 1
 
 
-def test_document_mode_skips_global_lru() -> None:
-    """When ``USE_SQLITE_CACHE`` is False and ``doc_id`` is set, only document persistence is used."""
+def test_document_mode_populates_memory_cache() -> None:
+    """When a doc_id is set, it uses document persistence but still populates memory cache for speed."""
     from unittest.mock import MagicMock
+    from plugin.writer.locale.grammar_persistence import DocumentPersistence
 
-    from plugin.writer.locale.grammar_persistence import GrammarPersistence
-
-    ctx = object()
-    mock_p = MagicMock(spec=GrammarPersistence)
+    ctx = MagicMock()
+    mock_p = MagicMock(spec=DocumentPersistence)
     mock_p.get.return_value = [{"n_error_start": 0, "n_error_length": 1, "rule_identifier": "t"}]
 
-    with (
-        patch("plugin.writer.locale.grammar_proofread_cache.USE_SQLITE_CACHE", False),
-        patch("plugin.writer.locale.grammar_proofread_cache.get_persistence", return_value=mock_p) as mock_gp,
-    ):
+    with patch("plugin.writer.locale.grammar_proofread_cache.get_persistence", return_value=mock_p) as mock_gp:
         got = gc.cache_get_sentence("en-US", "Hello.", ctx=ctx, doc_id="uid-1")
         assert got is not None
-        assert len(gc._SENTENCE_CACHE) == 0
+        assert len(gc._SENTENCE_CACHE) == 1
         mock_gp.assert_called_once_with(ctx, "uid-1")

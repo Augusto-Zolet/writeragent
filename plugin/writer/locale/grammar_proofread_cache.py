@@ -13,7 +13,7 @@ import collections
 import threading
 from typing import Any
 
-from .grammar_persistence import USE_SQLITE_CACHE, clear_all_document_persistence, get_persistence
+from .grammar_persistence import clear_all_document_persistence, get_persistence
 from .grammar_proofread_locale import GRAMMAR_CACHE_NORMALIZATION_RE, fingerprint_for_text, looks_complete_sentence
 
 _CACHE_LOCK = threading.Lock()
@@ -33,11 +33,7 @@ def cache_clear(ctx: Any | None = None, doc_id: str | None = None) -> None:
         _SENTENCE_CACHE.clear()
     if not ctx:
         return
-    if USE_SQLITE_CACHE:
-        p = get_persistence(ctx)
-        if p:
-            p.clear()
-    elif doc_id:
+    if doc_id:
         p = get_persistence(ctx, doc_id)
         if p:
             p.clear()
@@ -71,7 +67,7 @@ def _normalize_for_sentence_cache(text: str) -> str:
 
     The regex below matches a **subset** of ``grammar_proofread_locale.GRAMMAR_SENTENCE_TERMINATORS``
     (common scripts only). ``looks_complete_sentence`` uses the full STerm set for eviction
-    vs incomplete-prefix compaction — keys may still normalize via this narrower pattern.
+    vs incomplete-prefix compaction \u2014 keys may still normalize via this narrower pattern.
     """
     s = text.rstrip()
     if not s:
@@ -153,14 +149,6 @@ def _populate_memory_cache_only(locale_key: str, sentence: str, errors: list[dic
 
 def cache_get_sentence(locale_key: str, sentence: str, ctx: Any | None = None, doc_id: str | None = None) -> list[dict[str, Any]] | None:
     """Return cached errors for this exact sentence (relative to sentence start = 0)."""
-    if not USE_SQLITE_CACHE and ctx and doc_id:
-        p = get_persistence(ctx, doc_id)
-        if not p:
-            return None
-        fp = sentence_identity_fp(sentence)
-        persisted = p.get(fp)
-        return list(persisted) if persisted is not None else None
-
     key = make_sentence_key(locale_key, sentence)
     with _CACHE_LOCK:
         hit = _SENTENCE_CACHE.get(key)
@@ -170,12 +158,13 @@ def cache_get_sentence(locale_key: str, sentence: str, ctx: Any | None = None, d
                 _SENTENCE_CACHE.move_to_end(key)
                 return list(errors)
 
-    if ctx:
-        p = get_persistence(ctx)
+    if ctx and doc_id:
+        p = get_persistence(ctx, doc_id)
         if p:
             fp = sentence_identity_fp(sentence)
             persisted = p.get(fp)
             if persisted is not None:
+                # Warm memory cache
                 _populate_memory_cache_only(locale_key, sentence, persisted)
                 return list(persisted)
 
@@ -190,22 +179,16 @@ def cache_put_sentence(
     doc_id: str | None = None,
 ) -> None:
     """Cache errors for this sentence text (errors must have offsets relative to sentence start)."""
-    if not USE_SQLITE_CACHE and ctx and doc_id:
-        # Document mode: no global LRU or incomplete-prefix compaction (those scan _SENTENCE_CACHE only).
-        canon = _normalize_for_sentence_cache(sentence)
-        fp = fingerprint_for_text(canon)
-        clipped = _clip_errors_to_canonical_length(errors, len(canon))
-        p = get_persistence(ctx, doc_id)
-        if p:
-            p.put(fp, locale_key, [dict(e) for e in clipped])
-        return
-
+    # Always populate memory cache for current session speed
     fp, canon, is_complete, key, clipped_errors = _populate_memory_cache_only(locale_key, sentence, errors)
 
-    if ctx:
-        p = get_persistence(ctx)
+    if ctx and doc_id:
+        p = get_persistence(ctx, doc_id)
         if p:
             p.put(fp, locale_key, [dict(e) for e in clipped_errors])
+        # Note: document mode skips incomplete-sentence prefix compaction logic (scans _SENTENCE_CACHE only)
+        # but we still performed _populate_memory_cache_only above.
+        return
 
     if not is_complete:
         with _CACHE_LOCK:
@@ -214,7 +197,7 @@ def cache_put_sentence(
             to_remove: list[str] = []
             # Newest-first: typing chains keep superseded incompletes near the LRU end;
             # bounded scan finds the immediate predecessor quickly.
-            # Prefix filter before scan_count — budget counts this locale only.
+            # Prefix filter before scan_count \u2014 budget counts this locale only.
             for k, v in reversed(_SENTENCE_CACHE.items()):
                 if not k.startswith(prefix):
                     continue

@@ -2,29 +2,23 @@
 # Copyright (c) 2026 KeithCu
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Persistent storage for grammar check results (SQLite with JSON fallback).
+"""Persistent storage for grammar check results in user-defined document properties.
 
-When ``USE_SQLITE_CACHE`` is False, per-document persistence stores sentence results in
-user-defined document properties and keeps a process-local map keyed by ``RuntimeUID``
-(see ``aDocumentIdentifier`` in the proofreader); ``OnUnload`` / dispose removes map
-entries so instances can be garbage-collected.
+Per-document persistence stores sentence results in user-defined document properties
+and keeps a process-local map keyed by ``RuntimeUID`` (see ``aDocumentIdentifier``
+in the proofreader); ``OnUnload`` / dispose removes map entries so instances can
+be garbage-collected.
 """
 
 from __future__ import annotations
 
 import json
 import logging
-import os
 import threading
 from abc import ABC, abstractmethod
 from typing import Any
 
 log = logging.getLogger("writeragent.grammar")
-
-# When True (default): global SQLite or JSON-under-profile cache (existing behavior).
-# When False: ``get_persistence(ctx, doc_id)`` returns ``DocumentPersistence`` keyed by
-# document id; sentence cache layer bypasses the global LRU (see ``grammar_proofread_cache``).
-USE_SQLITE_CACHE = False
 
 GRAMMAR_CACHE_VERSION = 2
 GRAMMAR_DOC_CACHE_UDPROP = "WriterAgentGrammarCache"
@@ -64,15 +58,6 @@ def _decompress_error(err: dict[str, Any]) -> dict[str, Any]:
             out[k] = v
     return out
 
-# SQLite detection moved to grammar_persistence_sqlite, but we keep a local check
-# for HAS_SQLITE to avoid top-level circular imports while still allowing
-# the factory to decide between SQLite and JSON.
-try:
-    import sqlite3
-    HAS_SQLITE = True
-except ImportError:
-    sqlite3 = None  # type: ignore
-    HAS_SQLITE = False
 
 _unohelper: Any = None
 _XDocumentEventListener: Any = None
@@ -86,12 +71,6 @@ try:
     _HAVE_UNO_DOC_EVENTS = True
 except ImportError:
     pass
-
-CACHE_LIMIT = 5000
-PRUNE_TARGET = 4000
-
-_persistence_instance: GrammarPersistence | None = None
-_persistence_init_lock = threading.Lock()
 
 _doc_persistence_instances: dict[str, "DocumentPersistence"] = {}
 _doc_map_lock = threading.Lock()
@@ -186,10 +165,6 @@ class GrammarPersistence(ABC):
             self.prune()
         except Exception as e:
             log.warning("[grammar] persistence prune failed: %s", e)
-
-
-
-
 
 
 def _dispatch_doc_event(outer: "DocumentPersistence", event_name: str) -> None:
@@ -391,40 +366,8 @@ class DocumentPersistence(GrammarPersistence):
             self._session_accessed.clear()
 
 
-def _get_sqlite_singleton(ctx: Any) -> GrammarPersistence | None:
-    global _persistence_instance
-    if _persistence_instance is not None:
-        return _persistence_instance
-    if ctx is None:
-        return None
-    with _persistence_init_lock:
-        if _persistence_instance is not None:
-            return _persistence_instance
-        from plugin.framework.config import user_config_dir
-
-        try:
-            config_dir = user_config_dir(ctx)
-            if not config_dir:
-                return None
-            if HAS_SQLITE:
-                from .grammar_persistence_sqlite import SQLitePersistence
-                db_path = os.path.join(config_dir, "writeragent_grammar.db")
-                _persistence_instance = SQLitePersistence(ctx, db_path)
-            else:
-                from .grammar_persistence_sqlite import JSONPersistence
-                dir_path = os.path.join(config_dir, "writeragent_grammar_cache.d")
-                _persistence_instance = JSONPersistence(ctx, dir_path)
-            _persistence_instance.ensure_pruned()
-            return _persistence_instance
-        except Exception as e:
-            log.warning("[grammar] get_persistence failed: %s", e)
-            return None
-
-
 def get_persistence(ctx: Any, doc_id: str | None = None) -> GrammarPersistence | None:
-    """Return persistence: global SQLite/JSON when ``USE_SQLITE_CACHE`` else per-document."""
-    if USE_SQLITE_CACHE:
-        return _get_sqlite_singleton(ctx)
+    """Return per-document persistence for grammar sentence cache."""
     if ctx is None or not doc_id:
         return None
     with _doc_map_lock:
@@ -438,8 +381,6 @@ def get_persistence(ctx: Any, doc_id: str | None = None) -> GrammarPersistence |
 
 def clear_all_document_persistence(ctx: Any) -> None:
     """Remove every ``DocumentPersistence`` (listeners + map); for tests / reset without doc_id."""
-    if USE_SQLITE_CACHE:
-        return
     with _doc_map_lock:
         snap = list(_doc_persistence_instances.values())
         _doc_persistence_instances.clear()
