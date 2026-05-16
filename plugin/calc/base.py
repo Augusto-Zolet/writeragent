@@ -84,7 +84,7 @@ class ToolCalcRangeBase(ToolCalcSpecialBase):
 
 class ToolCalcSearchBase(ToolCalcSpecialBase):
     specialized_domain = "search"
-    specialized_domain_description: ClassVar[str | None] = "Search for text or values across the entire spreadsheet."
+    specialized_domain_description: ClassVar[str | None] = "Search for text or values or replace across the entire spreadsheet."
     intent = "navigate"
 
 
@@ -105,3 +105,14 @@ class ToolCalcSpecialTracking(ToolCalcSpecialBase):
     specialized_domain: ClassVar[str | None] = "tracking"
     specialized_domain_description: ClassVar[str | None] = "Manage and review tracked changes in the spreadsheet."
     intent = "review"
+
+
+class ToolCalcPythonBase(ToolCalcSpecialBase):
+    """External venv Python (numpy/pandas stack); marker for delegation prompts."""
+
+    specialized_domain: ClassVar[str | None] = "python"
+    specialized_domain_description: ClassVar[str | None] = (
+        "Run Python in the user-configured venv (subprocess). Assign output to variable `result` for JSON return."
+    )
+    intent = "analyze"
+    required_core_tools: ClassVar[frozenset[str] | None] = frozenset()

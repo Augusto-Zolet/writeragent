@@ -101,6 +101,9 @@ def _get_module_field_specs(ctx):
 
                 if schema.get("internal") or schema.get("widget") == "list_detail":
                     continue
+                # Action-only controls (e.g. Test) exist in XDL but are not load/save fields.
+                if schema.get("settings_persist") is False:
+                    continue
 
                 prefix = m_name.replace(".", "_")
                 ctrl_id = f"{prefix}__{field_name}"

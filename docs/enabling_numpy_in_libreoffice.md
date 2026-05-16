@@ -91,13 +91,15 @@ The user never leaves LibreOffice. They never see a terminal. The extension mana
 
 ### What the user configures
 
-A single setting in **Settings → Python**:
+A single setting in **Settings → Python** (UI label; implementation lives in `plugin/scripting/` to avoid a `python/` package directory):
 
 | Setting | Description | Example |
 |---------|-------------|---------|
-| `python_venv_path` | Absolute path to an existing Python venv directory | `~/.writeragent_venv` or `/home/user/data-science-venv` |
+| `scripting.python_venv_path` | Absolute path to an existing Python venv directory | `~/.writeragent_venv` or `/home/user/data-science-venv` |
 
 If the path is empty, the Python execution feature is disabled. No automatic venv creation — the user brings their own. This is the simplest initial approach and avoids all the ABI/pip bootstrapping complexity from Strategies 1–2 above.
+
+**Shipped today:** the chat tool **`run_venv_python_script`** (`plugin/calc/venv_python.py`) runs user code in that venv via a subprocess (`plugin/scripting/run_venv_code.py`). It appears when the model uses **`delegate_to_specialized_writer_toolset` / `delegate_to_specialized_calc_toolset` / `delegate_to_specialized_draw_toolset`** with **`domain="python"`** (and the Impress delegate, where registered). Assign JSON-serializable output to **`result`**; there is no UNO API inside the child process.
 
 ### What the user experiences
 
@@ -493,15 +495,18 @@ Example workflow:
 
 ### 3.8 Settings UI integration
 
-A new Python section in the Settings dialog:
+A **Python** tab in the Settings dialog (module id `scripting`, package path `plugin/scripting/`):
 
 | Control | Type | Config key | Default |
 |---------|------|------------|---------|
-| Enable Python execution | Checkbox | `python_exec_enabled` | `True` |
-| Python venv path | TextField + Browse button | `python_venv_path` | `""` (empty = disabled) |
-| Execution timeout (seconds) | NumericField | `python_exec_timeout` | `120` |
+| Enable Python execution | Checkbox | `python_exec_enabled` | `True` (planned; not on initial Python tab) |
+| Python venv path | TextField | `scripting.python_venv_path` | `""` (empty = disabled) |
+| Test | Button | _(action only; not persisted)_ | Runs a quick `python -c` smoke check on the path shown in the field |
+| Execution timeout (seconds) | NumericField | `python_exec_timeout` | `120` (planned) |
 
-The Browse button opens a directory picker dialog. On confirmation, the extension validates:
+Initial implementation: text field plus **Test** (no directory picker yet). The Test action validates that the path is a directory, resolves `bin/python` or `Scripts\\python.exe`, and runs a trivial subprocess check (same ideas as the Browse-flow validation below).
+
+A directory picker (Browse) was deferred; when added, on confirmation the extension would validate:
 1. The path exists and is a directory.
 2. `bin/python` (or `Scripts/python.exe` on Windows) exists and is executable.
 3. Optionally: runs `venv_python --version` to display the Python version to the user.

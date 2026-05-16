@@ -403,7 +403,7 @@ def generate_xdl(module_name, config_fields, title=None,
     if inline_children:
         inline_names = ",".join(
             child_m["name"] for child_m, child_cfg in inline_children
-            if any(not s.get("internal") and s.get("widget", "text") != "list_detail"
+            if any(not s.get("internal") and s.get("widget", "text") != "list_detail" and s.get("settings_persist") is not False
                    for s in child_cfg.values()))
         ET.SubElement(board, _dlg("text"), {
             _dlg("id"): "__inline_modules__",
@@ -431,6 +431,9 @@ def generate_xdl(module_name, config_fields, title=None,
     for fi, (field_name, schema) in enumerate(field_items):
         # Internal fields are stored in registry but not shown in UI
         if schema.get("internal"):
+            continue
+        # Action-only fields (e.g. Settings Test) live only on SettingsDialog.xdl (manifest_registry).
+        if schema.get("settings_persist") is False:
             continue
 
         widget = schema.get("widget", "text")
@@ -487,7 +490,7 @@ def generate_xdl(module_name, config_fields, title=None,
             # Skip children with no visible config fields
             visible_fields = [
                 (fn, s) for fn, s in child_config.items()
-                if not s.get("internal") and s.get("widget", "text") != "list_detail"
+                if not s.get("internal") and s.get("widget", "text") != "list_detail" and s.get("settings_persist") is not False
             ]
             if not visible_fields:
                 continue

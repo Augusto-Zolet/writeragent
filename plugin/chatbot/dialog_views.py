@@ -103,6 +103,7 @@ class SettingsDialog:
         self._dlg = None
         self._endpoint_listener = None
         self._api_key_listener = None
+        self._scripting_venv_test_listener = None
 
     def show(self):
         """Execute the settings dialog and apply results."""
@@ -159,8 +160,12 @@ class SettingsDialog:
         edit_config_btn = get_optional(self._dlg, "btn_edit_config_json")
         if edit_config_btn:
             edit_config_btn.addActionListener(EditConfigListener(self._ctx))
-            
+
         self._setup_module_tabs()
+        test_venv_btn = get_optional(self._dlg, "scripting__test_venv")
+        if test_venv_btn:
+            self._scripting_venv_test_listener = ScriptingVenvTestListener(self._ctx, self._dlg)
+            test_venv_btn.addActionListener(self._scripting_venv_test_listener)
 
     def _setup_module_tabs(self):
         try:
@@ -283,6 +288,14 @@ class SettingsDialog:
                 ak.removeTextListener(self._api_key_listener)
         if self._endpoint_listener:
             self._endpoint_listener.close()
+        if self._scripting_venv_test_listener and self._dlg is not None:
+            test_venv_btn = get_optional(self._dlg, "scripting__test_venv")
+            if test_venv_btn and hasattr(test_venv_btn, "removeActionListener"):
+                try:
+                    test_venv_btn.removeActionListener(self._scripting_venv_test_listener)
+                except Exception:
+                    pass
+            self._scripting_venv_test_listener = None
         if self._dlg:
             self._dlg.dispose()
 
@@ -300,6 +313,37 @@ class EditConfigListener(BaseActionListener):
     def on_action_performed(self, rEvent):
         from .external_editor import open_writeragent_json_in_editor
         open_writeragent_json_in_editor(self._ctx)
+
+
+class ScriptingVenvTestListener(BaseActionListener):
+    """Settings → Python: run a quick subprocess check using the path in the text field (saved or not)."""
+
+    def __init__(self, ctx, dlg):
+        self._ctx = ctx
+        self._dlg = dlg
+
+    def on_action_performed(self, rEvent):
+        from plugin.framework.queue_executor import post_to_main_thread
+        from plugin.framework.worker_pool import run_in_background
+        from plugin.scripting.venv_probe import probe_venv_path
+
+        path_ctrl = get_optional(self._dlg, "scripting__python_venv_path")
+        raw = get_control_text(path_ctrl) if path_ctrl else ""
+
+        def work():
+            try:
+                ok, msg = probe_venv_path(raw)
+            except Exception as e:
+                ok, msg = False, str(e)
+                log.exception("Scripting venv probe failed")
+
+            def ui():
+                title = _("Venv OK") if ok else _("Venv check failed")
+                msgbox(self._ctx, title, msg)
+
+            post_to_main_thread(ui)
+
+        run_in_background(work, name="settings-venv-test")
 
 
 class ApiKeyTextListener(BaseListener, XTextListener):
@@ -524,7 +568,7 @@ def setup_module_tabs(dlg):
             if not isinstance(m_config, dict):
                 continue
             for schema in m_config.values():
-                if isinstance(schema, dict) and not schema.get("internal") and schema.get("widget") != "list_detail":
+                if isinstance(schema, dict) and not schema.get("internal") and schema.get("widget") != "list_detail" and schema.get("settings_persist") is not False:
                     has_visible = True
                     break
             

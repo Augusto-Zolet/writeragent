@@ -334,6 +334,10 @@ def _is_specialized_domain_tool(t: Any, active_domain: str) -> bool:
     """True if *t* is a Writer/Calc/Draw specialized tool for *active_domain*."""
     if getattr(t, "specialized_domain", None) != active_domain:
         return False
+    # Cross-app specialized tools (e.g. external venv Python) register once but must
+    # appear under delegate_to_specialized_writer/calc/draw_toolset(domain=...) for any doc.
+    if getattr(t, "specialized_cross_cutting", False):
+        return True
     from plugin.writer.specialized_base import ToolWriterSpecialBase
     from plugin.calc.base import ToolCalcSpecialBase
     from plugin.draw.base import ToolDrawSpecialBase

@@ -1,0 +1,23 @@
+name: scripting
+title: Python
+requires: [config]
+
+config:
+  python_venv_path:
+    type: string
+    default: ""
+    widget: text
+    label: Python venv path
+    helper: Absolute path to a venv (contains bin/python or Scripts/python.exe).
+    width: 200
+    inline: true
+
+  test_venv:
+    type: string
+    default: ""
+    widget: button
+    label: Test
+    inline_no_label: true
+    settings_persist: false
+    x: 314
+    width: 48

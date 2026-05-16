@@ -55,6 +55,7 @@ ALWAYS_INCLUDE_PLUGIN = [
     "plugin/agent_backend/",
     "plugin/lib/",
     "plugin/contrib/",
+    "plugin/scripting/",
 ]
 
 # Only included when --with-tests (make release)

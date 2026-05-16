@@ -84,26 +84,12 @@ class DelegateToSpecializedBase(ToolBase):
         if status_callback:
             status_callback(f"Delegating to specialized agent ({domain})...")
 
-        # Gather tools for the requested domain
+        # Gather tools for the requested domain (same rules as main chat ``active_domain``).
+        # Must use ``ToolRegistry.get_tools(..., active_domain=...)`` so cross-app tools
+        # (e.g. ``RunVenvPythonScript`` with ``specialized_cross_cutting``) are included;
+        # ``isinstance(..., _special_base_class)`` alone misses Calc-registered tools on Writer delegate.
         registry = ctx.services.get("tools")
-
-        # Get ALL registered tools
-        all_tools = registry.get_tools(filter_doc_type=False, exclude_tiers=())
-
-        domain_tools = []
-        required_core = set()
-        for t in all_tools:
-            # Check if it's a subclass of our specific base and matches the domain
-            if isinstance(t, self._special_base_class) and getattr(t, "specialized_domain", None) == domain:
-                domain_tools.append(t)
-                req = getattr(t, "required_core_tools", None)
-                if req:
-                    required_core.update(req)
-
-        # Add required core tools for this domain
-        for t in all_tools:
-            if getattr(t, "tier", None) == "core" and t.name in required_core:
-                domain_tools.append(t)
+        domain_tools = registry.get_tools(doc=getattr(ctx, "doc", None), active_domain=domain, exclude_tiers=())
 
         if not domain_tools:
             return self._tool_error(f"No specialized tools found for domain '{domain}'. Ensure the tools are implemented and registered.")

@@ -701,6 +701,29 @@ def test_is_specialized_domain_tool_helper():
     assert _is_specialized_domain_tool(d, "draw_test_domain") is True
 
 
+def test_cross_cutting_venv_python_matches_python_domain():
+    from plugin.calc.venv_python import RunVenvPythonScript
+
+    r = RunVenvPythonScript()
+    assert _is_specialized_domain_tool(r, "python") is True
+    assert _is_specialized_domain_tool(r, "tables") is False
+
+
+def test_run_venv_python_script_in_schemas_for_writer_when_domain_python(registry):
+    from plugin.calc.venv_python import RunVenvPythonScript
+
+    registry.register(RunVenvPythonScript())
+    mock_writer = MagicMock()
+
+    def supports(svc):
+        return svc == "com.sun.star.text.TextDocument"
+
+    mock_writer.supportsService = supports
+    names = [s["function"]["name"] for s in registry.get_schemas("openai", doc=mock_writer, active_domain="python")]
+    assert "run_venv_python_script" in names
+    assert "specialized_workflow_finished" in names
+
+
 def test_active_domain_schemas_include_calc_and_draw(registry):
     """Calc/Draw specialized tools must appear when active_domain matches (in-place mode)."""
     registry.register(DummyCalcSpecialTool())
@@ -807,3 +830,43 @@ def test_draw_specialized_delegation_sub_agent(
     smol_tools = call_args.kwargs.get("tools", [])
     smol_tool_names = [t.name for t in smol_tools]
     assert "dummy_draw_special_tool" in smol_tool_names
+
+
+@patch("plugin.doc.specialized_base.USE_SUB_AGENT", True)
+@patch("plugin.doc.specialized_base.build_toolcalling_agent")
+@patch("plugin.doc.specialized_base.SmolAgentExecutor")
+def test_writer_delegate_python_includes_cross_cutting_venv_tool(mock_executor_cls, mock_build, registry):
+    """Writer delegate must pick up Calc-registered ``run_venv_python_script`` (specialized_cross_cutting)."""
+    from plugin.calc.venv_python import RunVenvPythonScript
+    from plugin.writer.specialized_base import DelegateToSpecializedWriter
+
+    registry.register(RunVenvPythonScript())
+
+    mock_doc = MagicMock()
+
+    def supports(svc):
+        return svc == "com.sun.star.text.TextDocument"
+
+    mock_doc.supportsService = supports
+
+    ctx = MagicMock()
+    ctx.services = {"tools": registry}
+    ctx.doc = mock_doc
+    ctx.ctx = MagicMock()
+    ctx.status_callback = None
+    ctx.append_thinking_callback = None
+
+    mock_build.return_value = MagicMock()
+    mock_exec = MagicMock()
+    mock_exec.execute_safe.return_value = "done"
+    mock_executor_cls.return_value = mock_exec
+
+    gw = DelegateToSpecializedWriter()
+    result = gw.execute(ctx, domain="python", task="compute primes")
+
+    assert result["status"] == "ok"
+    assert result["result"] == "done"
+    tools_passed = mock_build.call_args[0][1]
+    names = [t.name for t in tools_passed]
+    assert "run_venv_python_script" in names
+    assert "specialized_workflow_finished" in names
