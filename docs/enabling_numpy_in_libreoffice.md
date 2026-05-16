@@ -617,3 +617,396 @@ We can leverage or vendor specific utility modules from the **Hermes agent** to 
 *   **Key features:**
     *   Standardizing on ~50KB (`DEFAULT_MAX_BYTES`) for large tool outputs (like Pandas dataframes or terminal logs).
     *   `_coerce_positive_int`: Defensive parsing of configuration values.
+
+---
+
+## 7. Auto-Generated Tool Proxy API
+
+### 7.1 Vision
+
+User scripts running in the venv subprocess should be able to call WriterAgent's existing tool-calling APIs as simple Python methods — no UNO knowledge, no manual JSON-RPC wiring:
+
+```python
+import numpy as np
+from writeragent_api import footnote
+
+# Compute in the user's venv (numpy, pandas, whatever they have)
+data = np.random.normal(0, 1, 100)
+mean_val = float(data.mean())
+
+# Call WriterAgent tools — proxied back to LibreOffice via JSON-RPC
+footnote.insert(note_type="footnote", text=f"Computed mean: {mean_val:.4f}")
+```
+
+> [!IMPORTANT]
+> **Domain-scoped, not open-ended.** A script does **not** see every tool WriterAgent has — that would overwhelm the LLM's context window with hundreds of tool schemas and make the prompt unmanageable. Instead, each `run_venv_python_script` invocation is **delegated to a single specialized domain** (e.g. `footnotes`, `bookmarks`, `calc_data`, or `core` when no specialized domain is needed). The proxy module injected into the worker only contains the tools for **that domain**. This mirrors the existing `delegate_to_specialized_writer_toolset(domain="footnotes")` pattern: the LLM picks the domain, the host generates a domain-scoped proxy, and the script can only call those tools.
+
+The proxy module (`writeragent_api.py`) is **auto-generated** from the existing `ToolBase` subclass metadata at build time. Every tool's `name`, `description`, `parameters` (JSON Schema), and `required` fields are already machine-readable — the codegen script just translates them into Python function signatures. The codegen emits **all** domains into a single file; the worker harness then exposes only the active domain's namespace at runtime.
+
+### 7.2 Architecture
+
+```
+User's venv Python (subprocess)             LibreOffice Process
+┌──────────────────────────────┐           ┌──────────────────────────────┐
+│  import numpy as np          │           │  PythonWorkerManager         │
+│  data = np.random.normal()   │           │                              │
+│                              │           │  ┌────────────────────────┐  │
+│  from writeragent_api        │  JSON-RPC │  │  ToolRegistry          │  │
+│       import footnote        │  request  │  │    .execute(           │  │
+│                              │ ────────→ │  │      "footnotes_insert"│  │
+│  footnote.insert(            │           │  │      ctx, **kwargs)    │  │
+│    note_type="footnote",     │  JSON-RPC │  │                        │  │
+│    text="See source."        │  response │  │    → UNO calls         │  │
+│  )                           │ ←──────── │  │    → result dict       │  │
+│                              │           │  └────────────────────────┘  │
+└──────────────────────────────┘           └──────────────────────────────┘
+```
+
+The proxy methods in the subprocess are thin wrappers that:
+1. Serialize the function call as a JSON-RPC message on **stdout**
+2. Block waiting for a response on **stdin**
+3. Deserialize and return the result (or raise on error)
+
+The `PythonWorkerManager` on the LibreOffice side intercepts `tool_call` messages (vs normal `code_result` messages), dispatches them through the existing `ToolRegistry.execute()`, and sends the result back.
+
+### 7.3 JSON Schema → Python Signature Mapping
+
+Every `ToolBase` subclass already carries a `parameters` dict in JSON Schema format. The mapping to Python function signatures is mechanical:
+
+| JSON Schema `type` | Python type hint | Default (when optional) |
+|---|---|---|
+| `"string"` | `str` | `""` |
+| `"integer"` | `int` | `0` |
+| `"boolean"` | `bool` | `True` or `False` (from schema `default` or type default) |
+| `"number"` | `float` | `0.0` |
+| `"object"` | `dict` | `{}` |
+| `"array"` | `list` | `[]` |
+
+Parameters in the `required` list become **positional arguments**. All others become **keyword-only arguments** (after `*`) with sensible defaults derived from the schema or the type's zero value.
+
+#### Example: `FootnotesInsert` tool schema → generated function
+
+**Source tool** ([`plugin/writer/specialized/footnotes.py`](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/specialized/footnotes.py)):
+```python
+class FootnotesInsert(ToolWriterFootnoteBase):
+    name = "footnotes_insert"
+    parameters = {
+        "type": "object",
+        "properties": {
+            "note_type": {"type": "string", "enum": ["footnote", "endnote"], ...},
+            "text":      {"type": "string", ...},
+            "label":     {"type": "string", ...},
+            "insert_after_text": {"type": "string", ...},
+            "occurrence": {"type": "integer", ...},
+            "case_sensitive": {"type": "boolean", ...},
+        },
+        "required": ["note_type", "text"],
+    }
+```
+
+**Generated proxy function:**
+```python
+def insert(note_type: str, text: str, *, label: str = "",
+           insert_after_text: str = "", occurrence: int = 0,
+           case_sensitive: bool = True) -> dict:
+    """Inserts a new footnote or endnote. Without insert_after_text, uses
+    the current view cursor. ..."""
+    return _rpc_call("footnotes_insert",
+                     note_type=note_type, text=text, label=label,
+                     insert_after_text=insert_after_text,
+                     occurrence=occurrence, case_sensitive=case_sensitive)
+```
+
+### 7.4 Tool Grouping Strategy
+
+Tools are grouped into proxy namespaces by **name prefix** (the part before the first `_` in tool names that share a common prefix pattern). The codegen strips the group prefix from method names:
+
+| Tool `name` | Proxy namespace | Method name |
+|---|---|---|
+| `footnotes_insert` | `footnote` | `insert()` |
+| `footnotes_list` | `footnote` | `list()` |
+| `footnotes_edit` | `footnote` | `edit()` |
+| `footnotes_delete` | `footnote` | `delete()` |
+| `footnotes_settings_get` | `footnote` | `settings_get()` |
+| `footnotes_settings_update` | `footnote` | `settings_update()` |
+| `bookmarks_insert` | `bookmark` | `insert()` |
+| `bookmarks_list` | `bookmark` | `list()` |
+| `write_formula_range` | `calc` | `write_formula_range()` |
+
+The grouping can also be derived from the **base class hierarchy** (e.g. `ToolWriterFootnoteBase` → `footnote` namespace), which is more reliable for tools whose name prefixes don't follow the `domain_action` pattern. The codegen script supports both strategies.
+
+### 7.5 Codegen Script
+
+A build-time script that introspects the `ToolRegistry` and emits `writeragent_api.py`:
+
+```python
+#!/usr/bin/env python3
+"""Generate writeragent_api.py — Python proxy module for venv subprocess tool calls.
+
+Usage: python scripts/generate_tool_proxies.py > plugin/scripting/writeragent_api.py
+"""
+import textwrap
+from collections import defaultdict
+from plugin.framework.tool import ToolBase
+
+JSON_TO_PYTHON = {
+    "string": "str", "integer": "int", "boolean": "bool",
+    "number": "float", "object": "dict", "array": "list",
+}
+
+DEFAULTS_BY_TYPE = {
+    "string": '""', "integer": "0", "boolean": "True",
+    "number": "0.0", "object": "{}", "array": "[]",
+}
+
+
+def _param_default(schema: dict) -> str:
+    """Derive a Python default value from a JSON Schema property."""
+    if "default" in schema:
+        return repr(schema["default"])
+    return DEFAULTS_BY_TYPE.get(schema.get("type", ""), "None")
+
+
+def schema_to_signature(tool: ToolBase) -> tuple[list[str], list[str]]:
+    """Convert a tool's JSON Schema parameters to Python positional and keyword args."""
+    props = (tool.parameters or {}).get("properties", {})
+    required = set((tool.parameters or {}).get("required", []))
+
+    positional, keyword = [], []
+    for param_name, schema in props.items():
+        py_type = JSON_TO_PYTHON.get(schema.get("type", ""), "Any")
+        if param_name in required:
+            positional.append(f"{param_name}: {py_type}")
+        else:
+            default = _param_default(schema)
+            keyword.append(f"{param_name}: {py_type} = {default}")
+    return positional, keyword
+
+
+def generate_proxy_function(tool: ToolBase, short_name: str) -> str:
+    """Emit one proxy function for a tool."""
+    pos, kw = schema_to_signature(tool)
+    if kw:
+        all_params = ", ".join(pos + ["*"] + kw)
+    else:
+        all_params = ", ".join(pos)
+
+    all_param_names = list((tool.parameters or {}).get("properties", {}).keys())
+    kwargs_body = ", ".join(f"{p}={p}" for p in all_param_names)
+
+    # Truncate description to first sentence for the docstring
+    desc = (tool.description or "").split(". ")[0] + "."
+
+    return textwrap.dedent(f'''\
+    def {short_name}({all_params}) -> dict:
+        """{desc}"""
+        return _rpc_call("{tool.name}", {kwargs_body})
+    ''')
+
+
+def group_tools(tools: list[ToolBase]) -> dict[str, list[tuple[str, ToolBase]]]:
+    """Group tools by namespace prefix, stripping the prefix from method names."""
+    groups: dict[str, list[tuple[str, ToolBase]]] = defaultdict(list)
+    for tool in tools:
+        name = tool.name or ""
+        # Split on first underscore: "footnotes_insert" -> ("footnotes", "insert")
+        if "_" in name:
+            prefix, rest = name.split("_", 1)
+            # Singularize common plurals for nicer namespace names
+            namespace = prefix.rstrip("s") if prefix.endswith("s") else prefix
+        else:
+            namespace = "tools"
+            rest = name
+        groups[namespace].append((rest, tool))
+    return dict(groups)
+
+
+def generate_module(tools: list[ToolBase]) -> str:
+    """Generate the complete writeragent_api.py module."""
+    groups = group_tools(tools)
+
+    lines = [
+        '"""Auto-generated WriterAgent tool proxy API.',
+        '',
+        'Generated by scripts/generate_tool_proxies.py — DO NOT EDIT.',
+        'Provides Python-native access to WriterAgent tools from venv subprocess scripts.',
+        '"""',
+        'import json, sys, threading, uuid',
+        '',
+        '',
+        '# ── RPC transport ──────────────────────────────────────────────',
+        '_lock = threading.Lock()',
+        '',
+        '',
+        'def _rpc_call(tool_name: str, **kwargs) -> dict:',
+        '    """Send a tool call to the LibreOffice host and block for the result."""',
+        '    call_id = str(uuid.uuid4())',
+        '    request = {"type": "tool_call", "id": call_id, "tool": tool_name, "args": kwargs}',
+        '    with _lock:',
+        '        sys.stdout.write(json.dumps(request) + "\\n")',
+        '        sys.stdout.flush()',
+        '        # Block for response (host writes to our stdin)',
+        '        line = sys.stdin.readline()',
+        '    if not line:',
+        '        raise ConnectionError("Lost connection to LibreOffice host")',
+        '    response = json.loads(line)',
+        '    if response.get("status") == "error":',
+        '        raise RuntimeError(response.get("message", response.get("error", "Unknown error")))',
+        '    return response',
+        '',
+        '',
+    ]
+
+    for namespace, tool_list in sorted(groups.items()):
+        # Emit a class that acts as a namespace
+        lines.append(f'class _{namespace.title()}Proxy:')
+        lines.append(f'    """Proxy for {namespace} tools."""')
+        lines.append('')
+
+        for short_name, tool in tool_list:
+            # Generate method (indented inside the class)
+            pos, kw = schema_to_signature(tool)
+            if kw:
+                all_params = "self, " + ", ".join(pos + ["*"] + kw)
+            else:
+                all_params = "self, " + ", ".join(pos)
+
+            all_param_names = list((tool.parameters or {}).get("properties", {}).keys())
+            kwargs_body = ", ".join(f"{p}={p}" for p in all_param_names)
+
+            desc = (tool.description or "").split(". ")[0] + "."
+
+            lines.append(f'    def {short_name}({all_params}) -> dict:')
+            lines.append(f'        """{desc}"""')
+            lines.append(f'        return _rpc_call("{tool.name}", {kwargs_body})')
+            lines.append('')
+
+        # Singleton instance
+        lines.append(f'{namespace} = _{namespace.title()}Proxy()')
+        lines.append('')
+        lines.append('')
+
+    return "\n".join(lines)
+```
+
+### 7.6 Build Integration
+
+```makefile
+# Makefile
+proxy-stubs:
+	$(PYTHON) scripts/generate_tool_proxies.py > plugin/scripting/writeragent_api.py
+```
+
+The generated file ships inside the OXT. The worker harness makes it importable:
+
+```python
+# In worker_harness.py — add to sys.path so user scripts can import it
+sys.path.insert(0, os.path.join(_ext_dir, "..", "scripting"))
+```
+
+### 7.7 Bidirectional RPC Protocol Extension
+
+The existing worker protocol is unidirectional (host sends code → worker returns result). To support tool proxies, the protocol becomes **bidirectional**:
+
+#### Message types (worker → host)
+
+| `type` | Meaning | Fields |
+|---|---|---|
+| `"code_result"` | Normal script result (existing) | `id`, `status`, `result`, `stdout` |
+| `"tool_call"` | Proxy requesting a tool execution | `id`, `tool`, `args` |
+
+#### Message types (host → worker)
+
+| `type` | Meaning | Fields |
+|---|---|---|
+| `"execute"` | Run code (existing) | `id`, `code` |
+| `"tool_result"` | Response to a `tool_call` | `id`, `status`, `result` or `error` |
+
+#### Host-side changes (`PythonWorkerManager`)
+
+```python
+# In the read loop that processes worker stdout:
+def _process_worker_message(self, msg: dict, ctx: ToolContext) -> dict | None:
+    """Handle a message from the worker subprocess."""
+    if msg.get("type") == "tool_call":
+        # Worker is requesting a tool execution — dispatch through the registry
+        tool_name = msg["tool"]
+        args = msg.get("args", {})
+        call_id = msg["id"]
+
+        try:
+            result = self._registry.execute(tool_name, ctx, **args)
+        except Exception as e:
+            result = {"status": "error", "message": str(e)}
+
+        # Send the result back to the worker's stdin
+        response = {"type": "tool_result", "id": call_id, **result}
+        self._proc.stdin.write(json.dumps(response) + "\n")
+        self._proc.stdin.flush()
+
+        # Continue reading — the worker hasn't finished its script yet
+        return None  # signal: keep reading
+
+    # Normal code result — return to caller
+    return msg
+```
+
+### 7.8 Which Tools to Expose — Domain-Scoped Delegation
+
+The proxy API is **not** a flat list of every tool in the registry. Exposing all tools would:
+- Blow up the LLM prompt (each tool's full JSON Schema must be included for the LLM to generate correct calls).
+- Create a confusing API surface where footnote tools sit next to pivot table tools.
+- Widen the security surface unnecessarily.
+
+Instead, the proxy follows the **same domain delegation model** the chat sidebar already uses:
+
+1. **The LLM picks a domain.** When the LLM decides a task needs Python + document manipulation, it calls `delegate_to_specialized_writer_toolset(domain="footnotes")` (or `"bookmarks"`, `"calc_data"`, `"core"`, etc.) — exactly as it does today for non-Python specialized work.
+2. **The host generates a domain-scoped prompt.** The `PythonWorkerManager` calls `registry.get_tools(active_domain="footnotes")` to get only the tools for that domain. Their schemas are serialized into the system prompt so the LLM knows what's callable.
+3. **The worker only sees that domain's proxy.** The auto-generated `writeragent_api.py` contains classes for every domain, but at startup the worker harness receives a `domain` field in the initial handshake and only imports/exposes the matching namespace (e.g. `from writeragent_api import footnote`). All other namespaces remain inaccessible.
+4. **Host-side enforcement.** Even if a script somehow constructs a raw `_rpc_call("some_other_tool", ...)`, the host's `_process_worker_message` checks the tool name against the active domain's whitelist and rejects calls outside it.
+
+#### Domain → proxy namespace mapping
+
+| Delegation domain | Proxy namespace available | Example tools |
+|---|---|---|
+| `"footnotes"` | `footnote` | `insert()`, `list()`, `edit()`, `delete()`, `settings_get()`, `settings_update()` |
+| `"bookmarks"` | `bookmark` | `insert()`, `list()`, `delete()` |
+| `"comments"` | `comment` | `insert()`, `list()`, `edit()`, `delete()` |
+| `"core"` | `doc` | `get_document_tree()`, `apply_document_content()`, etc. |
+| `"calc_data"` | `calc` | `write_formula_range()`, `read_range()`, `set_style()` |
+
+When no specialized domain is needed (pure computation that just returns `result`), the LLM delegates with `domain="python"` as today — no proxy tools are injected, and the script has no document access.
+
+#### Filtering rules within a domain
+
+- **Tier:** Include `core` tools only when `domain="core"`. Include `specialized` tools for the matching domain. Always skip `specialized_control` (internal orchestration like `specialized_workflow_finished`).
+- **Document type:** Only include tools compatible with the current document's UNO services.
+- **Safety:** Mutation tools are clearly marked in generated docstrings. The host can optionally require `approval_callback` for proxy-initiated mutations.
+
+### 7.9 Future: Type Stubs for IDE Completion
+
+The codegen script can also emit a `.pyi` stub file so users get autocomplete in their IDE:
+
+```python
+# writeragent_api.pyi (type stub)
+class _FootnoteProxy:
+    def insert(self, note_type: str, text: str, *, label: str = "",
+               insert_after_text: str = "", occurrence: int = 0,
+               case_sensitive: bool = True) -> dict: ...
+    def list(self, note_type: str) -> dict: ...
+    def edit(self, note_type: str, index: int, *, text: str = "",
+             label: str = "") -> dict: ...
+    def delete(self, note_type: str, index: int) -> dict: ...
+    def settings_get(self, note_type: str) -> dict: ...
+    def settings_update(self, note_type: str, properties: dict) -> dict: ...
+
+footnote: _FootnoteProxy
+
+class _CalcProxy:
+    def write_formula_range(self, range: str, values: list) -> dict: ...
+    ...
+
+calc: _CalcProxy
+```
+
+This means the user gets full IDE support (autocomplete, type checking, hover docs) even though the actual execution happens over RPC.
