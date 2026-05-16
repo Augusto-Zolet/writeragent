@@ -374,7 +374,7 @@ class ListPages(ToolBase):
 
         bridge = DrawBridge(ctx.doc)
         pages = bridge.get_pages()
-        return {"status": "ok", "pages": [f"Page {i}" for i in range(pages.getCount())], "count": pages.getCount()}
+        return {"status": "ok", "pages": [f"Page {i}" for i in range(pages.getCount())], "count": pages.getCount(), "active_page_index": ctx.active_page_index}
 
 
 class GetDrawSummary(ToolDrawShapeBase):
@@ -390,9 +390,20 @@ class GetDrawSummary(ToolDrawShapeBase):
 
         bridge = DrawBridge(ctx.doc)
         idx = kwargs.get("page_index")
-        page = bridge.get_pages().getByIndex(idx) if idx is not None else bridge.get_active_page()
+        
+        # Use provided index or resolved active index from context
+        actual_idx = idx if idx is not None else ctx.active_page_index
+        if actual_idx is None:
+             actual_idx = bridge.get_active_page_index()
+
+        try:
+            page = bridge.get_pages().getByIndex(actual_idx)
+        except Exception:
+            return self._tool_error("Invalid page index: %s" % actual_idx)
+
         if page is None:
-            return self._tool_error("No draw page available or invalid page index.")
+            return self._tool_error("No draw page available.")
+
         shapes = []
         for i in range(page.getCount()):
             s = page.getByIndex(i)
@@ -400,7 +411,8 @@ class GetDrawSummary(ToolDrawShapeBase):
             if hasattr(s, "getString"):
                 info["text"] = s.getString()
             shapes.append(info)
-        return {"status": "ok", "page_index": idx, "shapes": shapes}
+
+        return {"status": "ok", "page_index": actual_idx, "shapes": shapes}
 
 
 class DrawShapes:
@@ -626,6 +638,7 @@ class CreateShape(ToolDrawShapeBase):
             "font_size": {"type": "number", "description": "Font size in points"},
             "font_name": {"type": "string", "description": "Font family name"},
             "rotation_angle": {"type": "number", "description": "Rotation angle in degrees"},
+            "page_index": {"type": "integer", "description": "0-based page index (active page if omitted)"},
         },
         "required": ["shape_type", "x", "y", "width", "height"],
     }
@@ -638,12 +651,24 @@ class CreateShape(ToolDrawShapeBase):
         from com.sun.star.awt import Point, Size
 
         bridge = DrawBridge(ctx.doc)
+        
+        # Resolve page
+        idx = kwargs.get("page_index")
+        actual_idx = idx if idx is not None else ctx.active_page_index
+        if actual_idx is None:
+            actual_idx = bridge.get_active_page_index()
+
+        try:
+            page = bridge.get_pages().getByIndex(actual_idx)
+        except Exception:
+            return self._tool_error("Invalid page index: %s" % actual_idx)
+
+        if page is None:
+            return self._tool_error("No draw page available.")
+
         type_map = {"rectangle": "RectangleShape", "ellipse": "EllipseShape", "text": "TextShape", "line": "LineShape", "connector": "ConnectorShape"}
         shape_type_raw = kwargs["shape_type"]
 
-        page = bridge.get_active_page()
-        if page is None:
-            return self._tool_error("No draw page available.")
         _log_create_shape_page_context(ctx.doc, bridge, page)
         _log_writer_document_shape_context(ctx.doc)
 
@@ -723,8 +748,8 @@ class EditShape(ToolDrawShapeBase):
     parameters = {
         "type": "object",
         "properties": {
-            "shape_index": {"type": "integer", "description": "Index of the shape"},
-            "page_index": {"type": "integer", "description": "Page index"},
+            "shape_index": {"type": "integer", "description": "0-based index of the shape on the page"},
+            "page_index": {"type": "integer", "description": "0-based page index (active page if omitted)"},
             "x": {"type": "integer", "description": "X position (100ths of mm)"},
             "y": {"type": "integer", "description": "Y position (100ths of mm)"},
             "width": {"type": "integer", "description": "Width (100ths of mm)"},
@@ -750,9 +775,18 @@ class EditShape(ToolDrawShapeBase):
 
         bridge = DrawBridge(ctx.doc)
         idx = kwargs.get("page_index")
-        page = bridge.get_pages().getByIndex(idx) if idx is not None else bridge.get_active_page()
+        actual_idx = idx if idx is not None else ctx.active_page_index
+        if actual_idx is None:
+            actual_idx = bridge.get_active_page_index()
+
+        try:
+            page = bridge.get_pages().getByIndex(actual_idx)
+        except Exception:
+            return self._tool_error("Invalid page index: %s" % actual_idx)
+
         if page is None:
-            return self._tool_error("No draw page available or invalid page index.")
+            return self._tool_error("No draw page available.")
+
         shape = page.getByIndex(kwargs["shape_index"])
         if "x" in kwargs or "y" in kwargs:
             from com.sun.star.awt import Point
@@ -767,7 +801,7 @@ class EditShape(ToolDrawShapeBase):
 
         _apply_shape_properties(shape, kwargs)
 
-        return {"status": "ok", "message": "Shape updated"}
+        return {"status": "ok", "message": "Shape updated", "page_index": actual_idx}
 
 
 class ConnectShapes(ToolDrawShapeBase):

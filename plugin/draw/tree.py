@@ -37,21 +37,19 @@ class GetDrawTree(ToolBase):
 
         bridge = DrawBridge(ctx.doc)
         idx = kwargs.get("page_index")
-        page = bridge.get_pages().getByIndex(idx) if idx is not None else bridge.get_active_page()
-        if page is None:
-            return self._tool_error("No draw page available or invalid page index.")
-
-        # Try to resolve actual page index if active page was used
-        actual_idx = idx
+        
+        # Use provided index or resolved active index from context
+        actual_idx = idx if idx is not None else ctx.active_page_index
         if actual_idx is None:
-            try:
-                pages = bridge.get_pages()
-                for i in range(pages.getCount()):
-                    if pages.getByIndex(i) == page:
-                        actual_idx = i
-                        break
-            except Exception:
-                pass
+             actual_idx = bridge.get_active_page_index()
+
+        try:
+            page = bridge.get_pages().getByIndex(actual_idx)
+        except Exception:
+            return self._tool_error("Invalid page index: %s" % actual_idx)
+
+        if page is None:
+            return self._tool_error("No draw page available.")
 
         return {"status": "ok", "page_index": actual_idx, "tree": self._build_shape_tree(page)}
 

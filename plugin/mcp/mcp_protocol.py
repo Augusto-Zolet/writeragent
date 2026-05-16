@@ -497,7 +497,16 @@ class MCPProtocolHandler:
 
         from plugin.framework.tool import ToolContext
 
-        context = ToolContext(doc=doc, ctx=ctx, doc_type=doc_type, services=self.services, caller="mcp")
+        active_page_idx = None
+        if doc_type in ("draw", "impress"):
+            try:
+                from plugin.draw.bridge import DrawBridge
+                active_page_idx = DrawBridge(doc).get_active_page_index()
+            except Exception:
+                pass
+
+        context = ToolContext(doc=doc, ctx=ctx, doc_type=doc_type, services=self.services, caller="mcp", active_page_index=active_page_idx)
+
 
         t0 = time.perf_counter()
         result = self.tool_registry.execute(tool_name, context, **arguments)
@@ -540,7 +549,16 @@ class MCPProtocolHandler:
 
         from plugin.framework.tool import ToolContext
 
-        context = ToolContext(doc=doc, ctx=ctx, doc_type=doc_type, services=self.services, caller="mcp")
+        active_page_idx = None
+        if doc_type in ("draw", "impress"):
+            try:
+                from plugin.draw.bridge import DrawBridge
+                active_page_idx = DrawBridge(doc).get_active_page_index()
+            except Exception:
+                pass
+
+        context = ToolContext(doc=doc, ctx=ctx, doc_type=doc_type, services=self.services, caller="mcp", active_page_index=active_page_idx)
+
 
         t0 = time.perf_counter()
         result = self.tool_registry.execute(tool_name, context, **arguments)

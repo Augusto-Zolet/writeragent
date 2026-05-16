@@ -127,6 +127,7 @@ class ToolContext:
     doc_type: str
     services: Any
     caller: str
+    active_page_index: int | None
     status_callback: Callable[[str], None] | None
     append_thinking_callback: Callable[[str], None] | None
     stop_checker: Callable[[], bool] | None
@@ -134,14 +135,15 @@ class ToolContext:
     chat_append_callback: Callable[[str], None] | None
     set_active_domain_callback: Callable[[str | None], None] | None
 
-    __slots__ = ("doc", "ctx", "doc_type", "services", "caller", "status_callback", "append_thinking_callback", "stop_checker", "approval_callback", "chat_append_callback", "set_active_domain_callback")
+    __slots__ = ("doc", "ctx", "doc_type", "services", "caller", "active_page_index", "status_callback", "append_thinking_callback", "stop_checker", "approval_callback", "chat_append_callback", "set_active_domain_callback")
 
-    def __init__(self, doc, ctx, doc_type, services, caller="", status_callback=None, append_thinking_callback=None, stop_checker=None, approval_callback=None, chat_append_callback=None, set_active_domain_callback=None):
+    def __init__(self, doc, ctx, doc_type, services, caller="", active_page_index=None, status_callback=None, append_thinking_callback=None, stop_checker=None, approval_callback=None, chat_append_callback=None, set_active_domain_callback=None):
         self.doc = doc
         self.ctx = ctx
         self.doc_type = doc_type
         self.services = services
         self.caller = caller
+        self.active_page_index = active_page_index
         self.status_callback = status_callback
         self.append_thinking_callback = append_thinking_callback
         self.stop_checker = stop_checker

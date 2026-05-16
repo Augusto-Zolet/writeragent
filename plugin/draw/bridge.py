@@ -72,20 +72,20 @@ class DrawBridge:
             shapes.append(page.getByIndex(i))
         return shapes
 
-    def create_slide(self, index=None):
+    def create_slide(self, index=None, switch=True):
         """Creates a new slide (page) at the specified index."""
         pages = self.get_pages()
         if index is None:
             index = pages.getCount()
         new_page = pages.insertNewByIndex(index)
-        # insertNewByIndex does not reliably activate the new page; follow-up tools
-        # (create_shape with page=None, etc.) use getCurrentPage — make selection explicit.
-        controller = self.doc.getCurrentController()
-        if controller is not None and hasattr(controller, "setCurrentPage"):
-            try:
-                controller.setCurrentPage(new_page)
-            except Exception as exc:
-                logger.debug("setCurrentPage after insert failed: %s", exc)
+        
+        if switch:
+            controller = self.doc.getCurrentController()
+            if controller is not None and hasattr(controller, "setCurrentPage"):
+                try:
+                    controller.setCurrentPage(new_page)
+                except Exception as exc:
+                    logger.debug("setCurrentPage after insert failed: %s", exc)
         return new_page
 
     def delete_slide(self, index):
@@ -110,15 +110,24 @@ class DrawBridge:
         return new_page
 
     def get_active_page_index(self):
-        page = self.get_active_page()
-        if page:
-            # LibreOffice API to get page index can be indirect.
-            # In Draw, getNumber() - 1 is often the index.
-            if hasattr(page, "getNumber"):
-                return page.getNumber() - 1
-            # Fallback
-            pages = self.get_pages()
-            for i in range(pages.getCount()):
-                if pages.getByIndex(i) == page:
-                    return i
+        try:
+            page = self.get_active_page()
+            if page:
+                # In Draw, getNumber() - 1 is often the index.
+                if hasattr(page, "getNumber"):
+                    try:
+                        return page.getNumber() - 1
+                    except Exception:
+                        pass
+                
+                # Fallback: compare pages by identity or index
+                import uno
+                pages = self.get_pages()
+                count = pages.getCount()
+                for i in range(count):
+                    p = pages.getByIndex(i)
+                    if p == page or (hasattr(uno, "areSame") and getattr(uno, "areSame")(p, page)):
+                        return i
+        except Exception:
+            logger.debug("get_active_page_index failed", exc_info=True)
         return 0

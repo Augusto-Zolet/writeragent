@@ -59,7 +59,9 @@ def teardown_draw_tests(ctx):
 def _exec_tool(name, args):
     from plugin.main import get_tools
     from plugin.framework.tool import ToolContext
-    tctx = ToolContext(_test_doc, _test_ctx, "draw", {}, "test")
+    
+    active_idx = _active_draw_page_index()
+    tctx = ToolContext(_test_doc, _test_ctx, "draw", get_tools()._services, "test", active_page_index=active_idx)
     res = get_tools().execute(name, tctx, **args)
     return json.dumps(res) if isinstance(res, dict) else res
 

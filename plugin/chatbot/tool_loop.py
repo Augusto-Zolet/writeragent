@@ -227,12 +227,21 @@ class ToolCallingMixin:
                     except Exception as ex:
                         log.warning("tool_loop: web_research approval setup failed: %s", ex)
 
+                active_page_idx = None
+                if doc_type_str in ("draw", "impress"):
+                    try:
+                        from plugin.draw.bridge import DrawBridge
+                        active_page_idx = DrawBridge(doc).get_active_page_index()
+                    except Exception:
+                        log.debug("execute_fn: failed to get active page index for %s", doc_type_str)
+
                 tctx = ToolContext(
                     doc=doc,
                     ctx=ctx,
                     doc_type=doc_type_str,
                     services=_get_tools()._services,
                     caller="chat",
+                    active_page_index=active_page_idx,
                     status_callback=status_callback,
                     append_thinking_callback=append_thinking_callback,
                     stop_checker=stop_checker,
