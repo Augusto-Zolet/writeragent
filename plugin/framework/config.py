@@ -222,8 +222,7 @@ class WriterAgentConfig:
         "        {\"position\": i, \"prime\": sympy.prime(i)}\n"
         "        for i in range(1000, 1006)\n"
         "    ]\n"
-        "}\n\n"
-        "print(\"Generated primes 1000\u20131005 ready for table insertion.\")"
+        "}"
     )
 
     # Store arbitrary module.yaml config entries
