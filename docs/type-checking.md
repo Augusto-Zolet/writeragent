@@ -166,7 +166,7 @@ Roughly **40+** files were edited; groupings below match the original tracking n
 
 **Calc**
 
-- [`plugin/calc/analyzer.py`](../plugin/calc/analyzer.py), [`error_detector.py`](../plugin/calc/error_detector.py), [`formulas.py`](../plugin/calc/formulas.py), [`inspector.py`](../plugin/calc/inspector.py), [`legacy.py`](../plugin/calc/legacy.py), [`manipulator.py`](../plugin/calc/manipulator.py)
+- [`plugin/calc/analyzer.py`](../plugin/calc/analyzer.py), [`error_detector.py`](../plugin/calc/error_detector.py), [`formulas.py`](../plugin/calc/formulas.py), [`inspector.py`](../plugin/calc/inspector.py), [`editselection.py`](../plugin/calc/editselection.py), [`manipulator.py`](../plugin/calc/manipulator.py)
 
 **Chatbot / sidebar**
 

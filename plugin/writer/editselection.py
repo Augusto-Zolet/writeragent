@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""Legacy operations for Writer (Extend/Edit Selection)."""
+"""Operations for Writer (Extend/Edit Selection)."""
 
 from plugin.framework.config import get_config_int, get_config_str, get_api_config, validate_api_config, get_current_endpoint
 from plugin.framework.client.model_fetcher import get_text_model

@@ -15,7 +15,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""Legacy operations for Calc (Extend/Edit Selection)."""
+"""Operations for Calc (Extend/Edit Selection)."""
 
 from plugin.framework.config import get_config_int, get_config_str, get_api_config, validate_api_config
 from plugin.framework.client.errors import format_error_message
