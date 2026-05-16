@@ -224,6 +224,9 @@ class WriterAgentConfig:
         "    ]\n"
         "}"
     )
+    last_python_script_writer: str = last_python_script
+    last_python_script_calc: str = last_python_script
+    last_python_script_draw: str = last_python_script
 
     # Store arbitrary module.yaml config entries
     _extra_config: Dict[str, Any] = dataclasses.field(default_factory=dict)

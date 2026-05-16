@@ -378,15 +378,27 @@ def run_python_dialog(uno_ctx: Any = None) -> None:
     if uno_ctx is None:
         uno_ctx = get_ctx()
     
+    desktop = get_desktop(uno_ctx)
+    doc = desktop.getCurrentComponent()
+    
+    config_key = "last_python_script"
+    if doc:
+        if is_calc(doc):
+            config_key = "last_python_script_calc"
+        elif is_writer(doc):
+            config_key = "last_python_script_writer"
+        elif is_draw(doc):
+            config_key = "last_python_script_draw"
+    
     # Load last script from config
-    initial_code = get_config_str(uno_ctx, "last_python_script")
+    initial_code = get_config_str(uno_ctx, config_key)
     
     code = show_python_input_dialog(uno_ctx, initial_text=initial_code)
     if not code:
         return
         
     # Save the script to config for next time
-    set_config(uno_ctx, "last_python_script", code)
+    set_config(uno_ctx, config_key, code)
 
     # Run the code
     try:
@@ -400,8 +412,6 @@ def run_python_dialog(uno_ctx: Any = None) -> None:
                 msgbox(uno_ctx, _("Success"), _("Script executed successfully, but returned no result and produced no output."))
                 return
 
-            desktop = get_desktop(uno_ctx)
-            doc = desktop.getCurrentComponent()
             if not doc:
                 return
 
