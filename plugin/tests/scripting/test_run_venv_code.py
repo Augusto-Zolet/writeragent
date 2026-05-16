@@ -33,14 +33,30 @@ def test_parse_stdout_for_result():
     assert r == {"a": 1}
 
 
-def test_run_code_empty_config():
+def test_run_code_no_path_no_interpreter():
     ctx = MagicMock()
     with patch("plugin.scripting.run_venv_code.get_config_str", return_value=""):
-        out = run_code_in_user_venv(ctx, "result = 1")
+        with patch("plugin.scripting.run_venv_code.resolve_libreoffice_python", return_value=None):
+            out = run_code_in_user_venv(ctx, "result = 1")
     assert out["status"] == "error"
-    assert "No Python venv" in out["message"]
+    assert "Could not resolve" in out["message"]
 
 
+def test_run_code_fallback_process_interpreter():
+    ctx = MagicMock()
+
+    class Proc:
+        returncode = 0
+        stdout = "__WRITERAGENT_VENV_RESULT__7\n"
+        stderr = ""
+
+    with patch("plugin.scripting.run_venv_code.get_config_str", return_value=""):
+        with patch("plugin.scripting.run_venv_code.resolve_libreoffice_python", return_value="/fake/lo/bin/python"):
+            with patch("plugin.scripting.run_venv_code.subprocess.run", return_value=Proc()) as run_mock:
+                out = run_code_in_user_venv(ctx, "result = 1 + 6", timeout_sec=30)
+    assert out["status"] == "ok"
+    assert out["result"] == 7
+    run_mock.assert_called_once()
 def test_run_code_whitespace_only():
     ctx = MagicMock()
     with patch("plugin.scripting.run_venv_code.get_config_str", return_value="/v"):

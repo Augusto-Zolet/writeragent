@@ -30,17 +30,13 @@ class RunVenvPythonScript(ToolCalcPythonBase):
 
     name = "run_venv_python_script"
     specialized_cross_cutting: ClassVar[bool] = True
-    description = (
-        "Run Python code in the external venv configured under Settings → Python (scripting.python_venv_path). "
-        "Uses a subprocess (not LibreOffice's embedded Python). Assign your output to variable `result` "
-        "(JSON-serializable); it is returned in the tool response. Optional timeout seconds (default 120, max 600)."
-    )
+    description = "Run Python code. Set `result` to a JSON-serializable return value. Optional timeout_sec (default 120, max 600)."
     parameters = {
         "type": "object",
         "properties": {
             "code": {
                 "type": "string",
-                "description": "Python source to execute in the venv. Set `result` to a JSON-serializable value.",
+                "description": "Python source. Set `result` to the return value (JSON-serializable).",
             },
             "timeout_sec": {
                 "type": "integer",

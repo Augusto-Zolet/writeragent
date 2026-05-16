@@ -11,7 +11,22 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from typing import Optional, Tuple
+
+
+def resolve_libreoffice_python() -> Optional[str]:
+    """Return ``sys.executable`` if it names a real file (no other heuristics).
+
+    Under PyUNO this is normally the office-bundled Python; on broken installs it
+    may be wrong or missing — callers surface an error and the user can set a venv.
+    """
+    exe = (getattr(sys, "executable", None) or "").strip()
+    if not exe or not os.path.isfile(exe):
+        return None
+    if os.name != "nt" and not os.access(exe, os.X_OK):
+        return None
+    return exe
 
 
 def resolve_venv_python(venv_dir: str) -> Optional[str]:
@@ -60,7 +75,13 @@ def run_venv_self_check(python_exe: str, timeout: float = 10.0) -> Tuple[bool, s
 def probe_venv_path(venv_dir: str, timeout: float = 10.0) -> Tuple[bool, str]:
     """Resolve *venv_dir* and run a self-check; single entry for UI and tests."""
     if not venv_dir or not str(venv_dir).strip():
-        return False, "Enter a venv directory path."
+        exe = resolve_libreoffice_python()
+        if not exe:
+            return False, "No process interpreter: sys.executable is missing, not a file, or not executable. Set a venv path in Settings → Python, or fix the LibreOffice install."
+        ok, msg = run_venv_self_check(exe, timeout=timeout)
+        if ok:
+            return True, f"LibreOffice process Python ({exe}) responds OK."
+        return ok, msg
     expanded = os.path.expanduser(os.path.expandvars(str(venv_dir).strip()))
     if not os.path.isdir(expanded):
         return False, f"Not a directory: {expanded}"

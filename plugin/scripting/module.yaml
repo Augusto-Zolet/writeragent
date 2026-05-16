@@ -8,7 +8,7 @@ config:
     default: ""
     widget: text
     label: Python venv path
-    helper: Absolute path to a venv (contains bin/python or Scripts/python.exe).
+    helper: If set, runs tools in that venv (bin/python or Scripts/python.exe). If empty, run_venv_python_script uses this process's sys.executable (basic stdlib); use a venv for numpy/pandas.
     width: 200
     inline: true
 

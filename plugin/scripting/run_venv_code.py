@@ -5,7 +5,7 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-"""Run user Python in a configured venv via subprocess (no UNO in child)."""
+"""Run user Python via subprocess: configured venv, or ``sys.executable`` when venv path is empty (no UNO in child)."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ import tempfile
 from typing import Any, Dict, Tuple
 
 from plugin.framework.config import get_config_str
-from plugin.scripting.venv_probe import resolve_venv_python
+from plugin.scripting.venv_probe import resolve_libreoffice_python, resolve_venv_python
 
 log = logging.getLogger(__name__)
 
@@ -73,23 +73,30 @@ def run_code_in_user_venv(
     *,
     timeout_sec: int = 120,
 ) -> Dict[str, Any]:
-    """Execute *code* in ``scripting.python_venv_path``; return a dict for the LLM tool."""
+    """Execute *code* in the configured venv, or in ``sys.executable`` when the venv path is empty."""
     if not (code or "").strip():
         return {"status": "error", "message": "No code provided."}
 
     venv_dir = get_config_str(uno_ctx, "scripting.python_venv_path").strip()
-    if not venv_dir:
-        return {
-            "status": "error",
-            "message": "No Python venv configured. Set scripting.python_venv_path in Settings → Python.",
-        }
-
-    exe = resolve_venv_python(venv_dir)
-    if not exe:
-        return {
-            "status": "error",
-            "message": f"No python executable found under configured venv: {venv_dir!r}",
-        }
+    if venv_dir:
+        exe = resolve_venv_python(venv_dir)
+        if not exe:
+            return {
+                "status": "error",
+                "message": f"No python executable found under configured venv: {venv_dir!r}",
+            }
+        log.debug("run_venv_code: using venv interpreter under %s", venv_dir)
+    else:
+        exe = resolve_libreoffice_python()
+        if not exe:
+            return {
+                "status": "error",
+                "message": (
+                    "Could not resolve a Python interpreter (sys.executable missing, not a file, or not executable). "
+                    "Set scripting.python_venv_path in Settings → Python for a dedicated venv, or fix the LibreOffice install."
+                ),
+            }
+        log.debug("run_venv_code: using process interpreter %s (no venv path set)", exe)
 
     if timeout_sec < 1:
         timeout_sec = 1
@@ -118,7 +125,7 @@ def run_code_in_user_venv(
     except subprocess.TimeoutExpired:
         return {"status": "error", "message": f"Timed out after {timeout_sec}s."}
     except OSError as e:
-        return {"status": "error", "message": f"Failed to spawn venv Python: {e}"}
+        return {"status": "error", "message": f"Failed to spawn Python: {e}"}
     finally:
         try:
             os.unlink(tmp_path)
@@ -131,7 +138,7 @@ def run_code_in_user_venv(
     if proc.returncode != 0:
         tail = stderr or stdout.strip()
         tail = tail[:800] + ("…" if len(tail) > 800 else "")
-        msg = f"Venv Python exited with code {proc.returncode}."
+        msg = f"Python exited with code {proc.returncode}."
         if tail:
             msg = f"{msg}\n{tail}"
         return {"status": "error", "message": msg, "stdout": stdout.strip(), "stderr": stderr}

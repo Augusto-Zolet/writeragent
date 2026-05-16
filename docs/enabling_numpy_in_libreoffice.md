@@ -99,7 +99,7 @@ A single setting in **Settings → Python** (UI label; implementation lives in `
 
 If the path is empty, the Python execution feature is disabled. No automatic venv creation — the user brings their own. This is the simplest initial approach and avoids all the ABI/pip bootstrapping complexity from Strategies 1–2 above.
 
-**Shipped today:** the chat tool **`run_venv_python_script`** (`plugin/calc/venv_python.py`) runs user code in that venv via a subprocess (`plugin/scripting/run_venv_code.py`). It appears when the model uses **`delegate_to_specialized_writer_toolset` / `delegate_to_specialized_calc_toolset` / `delegate_to_specialized_draw_toolset`** with **`domain="python"`** (and the Impress delegate, where registered). Assign JSON-serializable output to **`result`**; there is no UNO API inside the child process.
+**Shipped today:** the chat tool **`run_venv_python_script`** (`plugin/calc/venv_python.py`) runs user code via a subprocess (`plugin/scripting/run_venv_code.py`): the configured venv if **`scripting.python_venv_path`** is set, otherwise **`sys.executable`** from the LibreOffice process (no extra path heuristics). It appears when the model uses **`delegate_to_specialized_writer_toolset` / `delegate_to_specialized_calc_toolset` / `delegate_to_specialized_draw_toolset`** with **`domain="python"`** (and the Impress delegate, where registered). Assign JSON-serializable output to **`result`**; there is no UNO API inside the child process.
 
 ### What the user experiences
 
