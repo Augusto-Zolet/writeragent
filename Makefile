@@ -92,6 +92,7 @@ endif
 # ── Phony targets ────────────────────────────────────────────────────────────
 
 .PHONY: help build build-no-recording release release-build repack repack-deploy register-built-oxt manifest xcu clean \
+        proxy-stubs \
         openrouter-catalog \
         install install-force uninstall cache \
         dev-deploy dev-deploy-remove \
@@ -258,6 +259,9 @@ register-built-oxt:
 
 manifest:
 	$(PYTHON) $(SCRIPTS)/generate_manifest.py
+
+proxy-stubs:
+	$(PYTHON) scripts/generate_tool_proxies.py > plugin/scripting/writeragent_api.py
 
 xcu: manifest
 

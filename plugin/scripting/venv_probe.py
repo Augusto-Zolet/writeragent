@@ -44,10 +44,26 @@ def resolve_venv_python(venv_dir: str) -> Optional[str]:
 
 
 def run_venv_self_check(python_exe: str, timeout: float = 10.0) -> Tuple[bool, str]:
-    """Run ``python -c "print('ok')"``; return (success, user-facing message)."""
+    """Run a diagnostic script; return (success, user-facing message)."""
+    # Diagnostic script to gather version and package info
+    script = (
+        "import sys, json; "
+        "res = {'v': sys.version.split()[0]}; "
+        "pkgs = {}; "
+        "for p in ['numpy', 'pandas', 'scipy', 'sklearn', 'matplotlib']: "
+        "  try: "
+        "    m = __import__(p); "
+        "    v = getattr(m, '__version__', 'present'); "
+        "    pkgs[p] = str(v); "
+        "  except ImportError: "
+        "    pkgs[p] = None; "
+        "res['p'] = pkgs; "
+        "print(json.dumps(res))"
+    )
+
     try:
         proc = subprocess.run(
-            [python_exe, "-c", "print('ok')"],
+            [python_exe, "-c", script],
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -67,9 +83,48 @@ def run_venv_self_check(python_exe: str, timeout: float = 10.0) -> Tuple[bool, s
         return False, msg
 
     out = (proc.stdout or "").strip()
-    if out != "ok":
+    # Find the last line that looks like JSON in case there's noise (e.g. from imports)
+    json_line = ""
+    for line in out.splitlines():
+        if line.strip().startswith('{"v":'):
+            json_line = line.strip()
+            break
+    if not json_line and out.strip().startswith('{'):
+        json_line = out.strip().splitlines()[-1]
+
+    if not json_line:
         return False, f"Unexpected output from test run: {out!r}"
-    return True, "Venv Python responds OK."
+
+    try:
+        import json
+
+        data = json.loads(json_line)
+        version = data.get("v", "unknown")
+        packages = data.get("p", {})
+
+        msg_lines = [f"Python {version} responds OK."]
+
+        found = []
+        missing = []
+        # Specifically highlight requested ones first
+        requested = ["numpy", "pandas"]
+        others = [p for p in packages if p not in requested]
+
+        for p in requested + others:
+            ver = packages.get(p)
+            if ver:
+                found.append(f"{p} ({ver})" if ver != "present" else p)
+            else:
+                missing.append(p)
+
+        if found:
+            msg_lines.append(f"Packages: {', '.join(found)}")
+        if missing:
+            msg_lines.append(f"Missing: {', '.join(missing)}")
+
+        return True, "\n".join(msg_lines)
+    except Exception as e:
+        return False, f"Failed to parse diagnostic output: {e}\nRaw output: {out!r}"
 
 
 def probe_venv_path(venv_dir: str, timeout: float = 10.0) -> Tuple[bool, str]:

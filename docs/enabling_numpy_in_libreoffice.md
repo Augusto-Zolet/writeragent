@@ -969,11 +969,13 @@ Instead, the proxy follows the **same domain delegation model** the chat sidebar
 
 | Delegation domain | Proxy namespace available | Example tools |
 |---|---|---|
-| `"footnotes"` | `footnote` | `insert()`, `list()`, `edit()`, `delete()`, `settings_get()`, `settings_update()` |
-| `"bookmarks"` | `bookmark` | `insert()`, `list()`, `delete()` |
-| `"comments"` | `comment` | `insert()`, `list()`, `edit()`, `delete()` |
-| `"core"` | `doc` | `get_document_tree()`, `apply_document_content()`, etc. |
-| `"calc_data"` | `calc` | `write_formula_range()`, `read_range()`, `set_style()` |
+| `"footnotes"` | `footnote` | `insert()`, `list()`, `edit()`, `delete()` |
+| `"bookmarks"` | `bookmark` | `create()`, `list()`, `delete()` |
+| `"comments"` | `comment` | `add_cell_comment()`, `list_comments()` |
+| `"writer"` | `writer` | `get_document_tree()`, `apply_document_content()` |
+| `"calc"` | `calc` | `read_cell_range()`, `write_formula_range()` |
+| `"draw"` | `draw` | `add_slide()`, `get_draw_tree()` |
+| `"core"` | `core` | `web_research()`, `upsert_memory()` |
 
 When no specialized domain is needed (pure computation that just returns `result`), the LLM delegates with `domain="python"` as today — no proxy tools are injected, and the script has no document access.
 

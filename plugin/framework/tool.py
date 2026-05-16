@@ -134,10 +134,12 @@ class ToolContext:
     approval_callback: Callable[[str], bool] | None
     chat_append_callback: Callable[[str], None] | None
     set_active_domain_callback: Callable[[str | None], None] | None
+    active_domain: str | None
+    python_tool_domain: str | None
 
-    __slots__ = ("doc", "ctx", "doc_type", "services", "caller", "active_page_index", "status_callback", "append_thinking_callback", "stop_checker", "approval_callback", "chat_append_callback", "set_active_domain_callback")
+    __slots__ = ("doc", "ctx", "doc_type", "services", "caller", "active_page_index", "status_callback", "append_thinking_callback", "stop_checker", "approval_callback", "chat_append_callback", "set_active_domain_callback", "active_domain", "python_tool_domain")
 
-    def __init__(self, doc, ctx, doc_type, services, caller="", active_page_index=None, status_callback=None, append_thinking_callback=None, stop_checker=None, approval_callback=None, chat_append_callback=None, set_active_domain_callback=None):
+    def __init__(self, doc, ctx, doc_type, services, caller="", active_page_index=None, status_callback=None, append_thinking_callback=None, stop_checker=None, approval_callback=None, chat_append_callback=None, set_active_domain_callback=None, active_domain=None, python_tool_domain=None):
         self.doc = doc
         self.ctx = ctx
         self.doc_type = doc_type
@@ -150,6 +152,8 @@ class ToolContext:
         self.approval_callback = approval_callback
         self.chat_append_callback = chat_append_callback
         self.set_active_domain_callback = set_active_domain_callback
+        self.active_domain = active_domain
+        self.python_tool_domain = python_tool_domain
 
 
 class ToolBase(ABC):
@@ -332,7 +336,16 @@ class ToolBaseDummy:
 
 def _is_specialized_domain_tool(t: Any, active_domain: str) -> bool:
     """True if *t* is a Writer/Calc/Draw specialized tool for *active_domain*."""
-    if getattr(t, "specialized_domain", None) != active_domain:
+    # Support composite domains like "python:writer"
+    active_domain_base = active_domain.split(":")[0] if ":" in active_domain else active_domain
+    tool_domain = getattr(t, "specialized_domain", None)
+
+    if tool_domain != active_domain_base:
+        # If the tool matches the subdomain exactly, and we are in a composite domain, include it.
+        if ":" in active_domain:
+            subdomain = active_domain.split(":")[1]
+            if tool_domain == subdomain:
+                return True
         return False
     # Cross-app specialized tools (e.g. external venv Python) register once but must
     # appear under delegate_to_specialized_writer/calc/draw_toolset(domain=...) for any doc.

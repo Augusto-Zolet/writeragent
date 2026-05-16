@@ -130,6 +130,7 @@ class ChatSession:
         self.document_context = ""
 
         self.active_specialized_domain = None
+        self.python_tool_domain = None
 
         if session_id:
             try:

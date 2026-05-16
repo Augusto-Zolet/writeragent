@@ -49,7 +49,19 @@ class DelegateToSpecializedBase(ToolBase):
             if domain:
                 domains.append(domain)
 
-        self.parameters = {"type": "object", "properties": {"domain": {"type": "string", "enum": domains, "description": "The specialized domain to activate."}, "task": {"type": "string", "description": DELEGATE_SPECIALIZED_TASK_PARAM_HINT}}, "required": ["domain", "task"]}
+        self.parameters = {
+            "type": "object",
+            "properties": {
+                "domain": {"type": "string", "enum": domains, "description": "The specialized domain to activate."},
+                # python_tool_domain: enable when domain-scoped writeragent_api proxy (venv → LO RPC) is tested.
+                # "python_tool_domain": {
+                #     "type": "string",
+                #     "description": "Optional domain for tools to expose to Python, e.g. 'core', or a specialized domain like 'footnotes'. Required when domain='python' to specify tool access for the script.",
+                # },
+                "task": {"type": "string", "description": DELEGATE_SPECIALIZED_TASK_PARAM_HINT},
+            },
+            "required": ["domain", "task"],
+        }
 
     def is_async(self):
         """Run in a background thread so the main-thread queue/drain loop isn't blocked."""
@@ -57,6 +69,7 @@ class DelegateToSpecializedBase(ToolBase):
 
     def execute(self, ctx, **kwargs):
         domain = kwargs.get("domain")
+        python_tool_domain = kwargs.get("python_tool_domain")
         task = kwargs.get("task")
 
         status_callback = getattr(ctx, "status_callback", None)
@@ -72,7 +85,7 @@ class DelegateToSpecializedBase(ToolBase):
             # Tell the main LLM loop to switch tools for the next round
             callback = getattr(ctx, "set_active_domain_callback", None)
             if callback:
-                callback(domain)
+                callback(domain, python_tool_domain=python_tool_domain)
 
             msg = _("Tool call switched to '{0}'. You are in a specialized toolset mode. You must call 'specialized_workflow_finished' when done to restore the full set of APIs.").format(domain)
 

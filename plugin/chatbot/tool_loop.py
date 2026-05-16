@@ -163,14 +163,16 @@ class ToolCallingMixin:
             return
 
         # Callback for updating active domain in the session
-        def set_active_domain(domain):
+        def set_active_domain(domain, python_tool_domain=None):
             if hasattr(self, "session") and self.session:
                 self.session.active_specialized_domain = domain
-                log.debug("_do_send: updated active specialized domain to: %s", domain)
+                self.session.python_tool_domain = python_tool_domain
+                log.debug("_do_send: updated active specialized domain to: %s (python_tool_domain: %s)", domain, python_tool_domain)
 
         try:
             log.debug("_do_send: loading %s schema..." % doc_type_str)
             active_domain = getattr(self.session, "active_specialized_domain", None) if hasattr(self, "session") else None
+            python_tool_domain = getattr(self.session, "python_tool_domain", None) if hasattr(self, "session") else None
             active_tools = get_tools().get_schemas("openai", doc=model, active_domain=active_domain)
 
             def execute_fn(name, args, doc, ctx, status_callback=None, append_thinking_callback=None, stop_checker=None):
@@ -248,6 +250,8 @@ class ToolCallingMixin:
                     approval_callback=approval_cb,
                     chat_append_callback=chat_append_cb if needs_web_research_ui else None,
                     set_active_domain_callback=set_active_domain,
+                    active_domain=active_domain,
+                    python_tool_domain=python_tool_domain,
                 )
                 try:
                     res = _get_tools().execute(name, tctx, **args)

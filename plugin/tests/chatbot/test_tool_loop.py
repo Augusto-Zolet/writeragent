@@ -616,10 +616,10 @@ def test_specialized_delegation_sub_agent_mode(
     assert call_args is not None
     smol_tools = call_args.kwargs.get("tools", [])
 
-    # The sub-agent should only receive dummy_table_tool, NOT final_answer
+    # Sub-agent gets domain tools plus specialized_workflow_finished (active_domain registry rules).
     smol_tool_names = [t.name for t in smol_tools]
     assert "dummy_table_tool" in smol_tool_names
-    assert "specialized_workflow_finished" not in smol_tool_names
+    assert "specialized_workflow_finished" in smol_tool_names
 
 
 @patch(

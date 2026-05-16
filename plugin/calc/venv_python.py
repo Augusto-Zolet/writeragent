@@ -58,4 +58,4 @@ class RunVenvPythonScript(ToolCalcPythonBase):
             t = int(float(timeout_sec))
         except (TypeError, ValueError):
             t = 120
-        return run_code_in_user_venv(ctx.ctx, code, timeout_sec=t)
+        return run_code_in_user_venv(ctx.ctx, code, timeout_sec=t, active_domain=ctx.active_domain, python_tool_domain=ctx.python_tool_domain)
