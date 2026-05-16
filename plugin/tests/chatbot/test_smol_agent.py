@@ -260,6 +260,10 @@ def test_to_smol_inputs_specialized_preserves_enum_and_default_type():
                 "enum": ["a", "b"],
                 "description": "pick",
             },
+            "optional_param": {
+                "type": "string",
+                "description": "optional",
+            },
         },
         "required": ["domain"],
     }
@@ -267,6 +271,9 @@ def test_to_smol_inputs_specialized_preserves_enum_and_default_type():
     assert inputs["domain"]["enum"] == ["a", "b"]
     assert inputs["domain"]["type"] == "any"
     assert inputs["domain"]["description"] == "pick"
+    assert inputs["domain"]["nullable"] is False
+    assert inputs["optional_param"]["nullable"] is True
+
 
 
 class _StubTool(ToolBase):
@@ -307,6 +314,47 @@ def test_smol_tool_adapter_safe_async_uses_execute_safe():
     adapter = SmolToolAdapter(tool, ctx, safe=True, main_thread_sync=True, inputs_style="specialized")
     adapter.forward(p="x")
     tool.execute_safe.assert_called_once()
+
+
+def test_smol_tool_adapter_handles_positional_arguments():
+    ctx = MagicMock()
+    tool = _StubTool()
+    tool.execute = MagicMock(return_value={"status": "ok"})
+    adapter = SmolToolAdapter(tool, ctx, safe=False, inputs_style="librarian")
+
+    # Positional string argument should map to the first input key 'p'
+    out = adapter.forward("positional_value")
+    tool.execute.assert_called_once()
+    _, kwargs = tool.execute.call_args
+    assert kwargs.get("p") == "positional_value"
+
+    # Positional dict argument should be merged
+    tool.execute.reset_mock()
+    out = adapter.forward({"p": "dict_value", "extra": 42})
+    tool.execute.assert_called_once()
+    _, kwargs = tool.execute.call_args
+    assert kwargs.get("p") == "dict_value"
+    assert kwargs.get("extra") == 42
+
+
+def test_smol_tool_adapter_resolves_dynamic_parameters():
+    class DynamicTool(_StubTool):
+        def get_parameters(self, doc_type):
+            if doc_type == "writer":
+                return {
+                    "type": "object",
+                    "properties": {"writer_param": {"type": "string"}},
+                    "required": ["writer_param"],
+                }
+            return self.parameters
+
+    ctx = MagicMock()
+    ctx.doc_type = "writer"
+    tool = DynamicTool()
+    adapter = SmolToolAdapter(tool, ctx, safe=False, inputs_style="specialized")
+    
+    assert "writer_param" in adapter.inputs
+    assert "p" not in adapter.inputs
 
 
 @patch("plugin.chatbot.smol_agent.ToolCallingAgent")

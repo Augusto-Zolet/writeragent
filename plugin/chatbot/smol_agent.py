@@ -59,11 +59,13 @@ def to_smol_inputs(parameters: dict[str, Any] | None, *, style: SmolInputsStyle 
             out[p_name] = {"type": p_schema.get("type", "string"), "description": p_schema.get("description", ""), "nullable": p_name not in required}
         return out
 
+    required = set(schema.get("required") or [])
     out_sp: dict[str, dict[str, Any]] = {}
     for param_name, spec in props.items():
         merged = dict(spec)
         merged["type"] = spec.get("type", "any")
         merged["description"] = spec.get("description", "")
+        merged["nullable"] = param_name not in required
         out_sp[param_name] = merged
     return out_sp
 
@@ -82,6 +84,8 @@ class SmolToolAdapter(SmolTool):
         self.description = tool.description
         self.is_final_answer_tool = getattr(tool, "is_final_answer_tool", False)
         params = getattr(tool, "parameters", None) or {}
+        if hasattr(tool, "get_parameters") and callable(tool.get_parameters):
+            params = tool.get_parameters(tctx.doc_type) or params
         self.inputs = to_smol_inputs(params, style=inputs_style)
         if output_type is not None:
             self.output_type = output_type
@@ -94,7 +98,16 @@ class SmolToolAdapter(SmolTool):
     def __call__(self, *args: Any, sanitize_inputs_outputs: bool = False, **kwargs: Any) -> Any:
         return super().__call__(*args, sanitize_inputs_outputs=sanitize_inputs_outputs, **kwargs)
 
-    def forward(self, **kwargs: Any) -> Any:
+    def forward(self, *args: Any, **kwargs: Any) -> Any:
+        # Handle positional args robustly
+        if len(args) == 1 and isinstance(args[0], dict):
+            kwargs = {**args[0], **kwargs}
+        elif args:
+            input_keys = list(self.inputs.keys())
+            for i, val in enumerate(args):
+                if i < len(input_keys):
+                    kwargs[input_keys[i]] = val
+
         tool = self._inner_tool
         ctx = self._inner_tctx
         if not self._safe:

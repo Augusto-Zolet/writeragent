@@ -174,18 +174,13 @@ def format_result_for_writer(result: Any) -> str:
                 if table:
                     html_parts.append(f"<h3>{key}</h3>")
                     html_parts.append(table)
-            elif isinstance(val, str):
-                escaped = val.replace("\n", "<br>")
+            else:
+                escaped = str(val).replace("\n", "<br>")
                 lower_key = str(key).lower()
                 if lower_key in priority_keys:
                     html_parts.append(f"<p><b>{escaped}</b></p>")
                 else:
                     html_parts.append(f"<p><b>{key}:</b> {escaped}</p>")
-            elif isinstance(val, dict) and val:
-                # Recurse one level for nested dicts? For now just stringify.
-                html_parts.append(f"<p><b>{key}:</b> {val}</p>")
-            else:
-                html_parts.append(f"<p><b>{key}:</b> {val}</p>")
         
         return "\n".join(html_parts)
 
