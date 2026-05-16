@@ -78,10 +78,11 @@ Unlike proprietary office suites that lock you into a single cloud provider and 
 ### 🐍 Local Python Execution
 
 - **Execute Python**: Use your own virtual environment to access libraries like `numpy`, `pandas`, `scipy`, `matplotlib`, `sympy`, and more.
-- **Enable it**: Set your venv path in **Settings → Python**.
+- **Enable it**: Set your venv path in **Settings → Python**. Works in Writer, Calc, and Draw / Impress.
 - **Agentic Analysis**: The AI can run computations and return structured results (as JSON) to update your document.
-- **Cross-App**: Works in Writer, Calc, and Draw.
-- **Safety & Isolation**: Code runs safely in a separate process using your existing environment—nothing is installed into LibreOffice itself. The code is evaluated by a [custom AST-based executor](plugin/contrib/smolagents/local_python_executor.py) that acts as a secure sandbox. This interpreter manually evaluates Python nodes while strictly blocking dangerous modules (like `os`, `subprocess`, or `sys`) and functions (like `eval` or `exec`), ensuring that the AI can only perform safe, mathematical, and data-processing tasks.
+- **Safety & Isolation**: Code runs safely in a separate process, nothing is installed in LibreOffice itself. The code is evaluated by a [custom AST-based executor](plugin/contrib/smolagents/local_python_executor.py) that acts as a secure sandbox,  blocking dangerous modules (like `os`, `subprocess`, or `sys`) and functions (like `eval` or `exec`), ensuring that the AI can only perform safe, mathematical, and data-processing tasks from known libraries.
+- **New Calc Function**: In Calc, use =PYTHON() to run Python / Numpy.
+
 
 
 ### 🎨 Showcase
