@@ -161,14 +161,11 @@ def format_result_for_writer(result: Any) -> str:
 
     if isinstance(result, dict):
         html_parts = []
-        # Priority keys to show at the top without a bold label if they are strings
-        priority_keys = ("summary", "summary_text", "message", "text", "result")
+        # Priority keys to show without a bold label if they are strings
+        priority_keys = ("title", "summary", "summary_text", "message", "text", "result")
         
-        # Sort keys: priority first, then others alphabetically. Skip underscores.
-        sorted_keys = sorted(
-            [k for k in result.keys() if not str(k).startswith("_")],
-            key=lambda k: (k not in priority_keys, str(k).lower())
-        )
+        # Use original insertion order. Skip underscores.
+        sorted_keys = [k for k in result.keys() if not str(k).startswith("_")]
 
         for key in sorted_keys:
             val = result[key]
@@ -179,8 +176,9 @@ def format_result_for_writer(result: Any) -> str:
                     html_parts.append(table)
             elif isinstance(val, str):
                 escaped = val.replace("\n", "<br>")
-                if str(key).lower() in priority_keys:
-                    html_parts.append(f"<p>{escaped}</p>")
+                lower_key = str(key).lower()
+                if lower_key in priority_keys:
+                    html_parts.append(f"<p><b>{escaped}</b></p>")
                 else:
                     html_parts.append(f"<p><b>{key}:</b> {escaped}</p>")
             elif isinstance(val, dict) and val:

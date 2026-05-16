@@ -28,20 +28,34 @@ class TestPythonRunnerFormatting(unittest.TestCase):
         expected = '<table border="1"><thead><tr><th>Name</th><th>Age</th></tr></thead><tbody><tr><td>Alice</td><td>30</td></tr><tr><td>Bob</td><td>25</td></tr></tbody></table>'
         self.assertEqual(format_result_for_writer(data), expected)
 
-    def test_format_complex_dict(self):
+    def test_format_complex_dict_order(self):
+        # We now respect insertion order strictly.
         data = {
-            "summary_text": "Hello\nWorld",
+            "title": "My Title",
             "data": [{"A": 1}],
-            "total": 100
+            "total": 100,
+            "summary_text": "Finish"
         }
-        # summary_text should be first, no bold label.
-        # data should be table.
-        # total should be bold label.
         res = format_result_for_writer(data)
-        self.assertIn("<p>Hello<br>World</p>", res)
-        self.assertIn("<h3>data</h3>", res)
-        self.assertIn('<table border="1">', res)
-        self.assertIn("<p><b>total:</b> 100</p>", res)
+        
+        # Order should be: title, data, total, summary_text
+        title_idx = res.find("My Title")
+        data_idx = res.find("data")
+        total_idx = res.find("total")
+        summary_idx = res.find("Finish")
+        
+        self.assertLess(title_idx, data_idx)
+        self.assertLess(data_idx, total_idx)
+        self.assertLess(total_idx, summary_idx)
+        
+        # Priority keys (title, summary_text) should NOT have labels
+        # but SHOULD be bold
+        self.assertIn("<p><b>My Title</b></p>", res)
+        self.assertIn("<p><b>Finish</b></p>", res)
+        self.assertNotIn("<b>title:</b>", res)
+        self.assertNotIn("<b>summary_text:</b>", res)
+        # Non-priority keys SHOULD have labels
+        self.assertIn("<b>total:</b>", res)
 
     def test_empty_or_none(self):
         self.assertEqual(format_result_for_writer(None), "")
