@@ -56,7 +56,6 @@ Unlike proprietary office suites that lock you into a single cloud provider and 
 ### 📊 Calc
 
 - **=PROMPT() Function**: Run AI prompts directly within spreadsheet cells.
-- **=PYTHON() Function**: Execute Python code directly from cells using your configured venv. Use `result = ...` to return a value; pass a range as the second argument (e.g. `=PYTHON("result = sum(data)", A1:A10)`) to inject values as a flat `data` list.
 - **Deep Analysis**: Analyze **pivot tables** and detect **complex logical errors** across massive datasets. [Analysis Tools](docs/calc-analysis-tools.md).
 - **Rich Text Cells**: Paste **HTML** (bold, links, breaks) into a **single cell** using advanced StarWriter import paths.
 - **Batch Range Edits**: Apply formulas and formatting in bulk. [Specialized Toolsets](docs/calc-specialized-toolsets.md).
