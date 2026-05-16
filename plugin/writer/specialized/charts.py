@@ -35,26 +35,21 @@ log = logging.getLogger("writeragent.writer")
 _ALL_CHART_DOCS = ["com.sun.star.text.TextDocument", "com.sun.star.sheet.SpreadsheetDocument", "com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
 
 
-class ListCharts(CalcListCharts, ToolBaseDummy):
-    name = "list_charts"
+class ListCharts(CalcListCharts, ToolBaseDummy):  # type: ignore[misc]  # dual base: Calc tool + registry skip marker
     uno_services = _ALL_CHART_DOCS
 
 
-class GetChartInfo(CalcGetChartInfo, ToolBaseDummy):
-    name = "get_chart_info"
+class GetChartInfo(CalcGetChartInfo, ToolBaseDummy):  # type: ignore[misc]
     uno_services = _ALL_CHART_DOCS
 
 
-class CreateChart(CalcCreateChart, ToolBaseDummy):
-    name = "create_chart"
+class CreateChart(CalcCreateChart, ToolBaseDummy):  # type: ignore[misc]
     uno_services = _ALL_CHART_DOCS
 
 
-class EditChart(CalcEditChart, ToolBaseDummy):
-    name = "edit_chart"
+class EditChart(CalcEditChart, ToolBaseDummy):  # type: ignore[misc]
     uno_services = _ALL_CHART_DOCS
 
 
-class DeleteChart(CalcDeleteChart, ToolBaseDummy):
-    name = "delete_chart"
+class DeleteChart(CalcDeleteChart, ToolBaseDummy):  # type: ignore[misc]
     uno_services = _ALL_CHART_DOCS

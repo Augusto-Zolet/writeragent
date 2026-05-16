@@ -584,7 +584,8 @@ class CreateChart(ToolBase):
             pass
 
         try:
-            from com.sun.star.text.TextContentAnchorType import AS_CHARACTER
+            from com.sun.star.text.TextContentAnchorType import AS_CHARACTER, AT_PARAGRAPH
+
             # If we didn't already set AT_PARAGRAPH in the catch block, try setting AS_CHARACTER now
             if chart_obj.AnchorType != AT_PARAGRAPH:
                 chart_obj.AnchorType = AS_CHARACTER

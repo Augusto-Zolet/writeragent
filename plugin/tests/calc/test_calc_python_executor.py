@@ -34,10 +34,13 @@ def test_assignment():
     # Verify it's in the state
     assert executor.executor.state["y"] == 100
 
-def test_persistence():
-    executor = PythonExecutor("test_url")
-    executor.execute_with_return("z = 5")
-    assert executor.execute_with_return("z + 10") == 15
+def test_no_persistence_across_executor_instances():
+    e1 = PythonExecutor("test_url")
+    e1.execute_with_return("z = 5")
+    e2 = PythonExecutor("test_url")
+    from plugin.framework.errors import WriterAgentException
+    with pytest.raises(WriterAgentException):
+        e2.execute_with_return("z + 10")
 
 def test_fn_definition():
     executor = PythonExecutor("test_url")
@@ -65,13 +68,6 @@ c.inc()
 """
     assert executor.execute_with_return(code) == 2
 
-def test_reset():
-    executor = PythonExecutor("test_url")
-    executor.execute_with_return("a = 1")
-    assert executor.executor.state["a"] == 1
-    executor.reset()
-    assert "a" not in executor.executor.state
-
 def test_syntax_error():
     executor = PythonExecutor("test_url")
     from plugin.framework.errors import WriterAgentException
@@ -94,10 +90,10 @@ def test_tool_integration():
     assert res1["status"] == "ok"
     assert res1["result"] == 42
     
-    # Second call (persistence check)
-    res2 = tool.execute(ctx, script="val + 8")
-    assert res2["status"] == "ok"
-    assert res2["result"] == 50
+    # Second call: fresh environment (no val from first call)
+    from plugin.framework.errors import WriterAgentException
+    with pytest.raises(WriterAgentException):
+        tool.execute(ctx, script="val + 8")
 
 def test_formatting():
     """format_result stringifies custom objects; class must live in executor env (same snippet)."""

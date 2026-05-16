@@ -19,10 +19,9 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""Pure Python execution engine for Calc formulas and scripts.
+"""In-process Python execution for Calc/Writer (LocalPythonExecutor sandbox).
 
-Implements an AST-based 'pop-and-eval' trick to allow Python scripts to behave
-like formulas by returning the value of the last expression.
+Each tool call uses a fresh executor instance so variables do not leak across invocations.
 """
 
 import logging
@@ -41,14 +40,10 @@ CALC_AUTHORIZED_IMPORTS = ["math", "datetime", "random", "json", "re", "collecti
 
 
 class PythonExecutor:
-    """Handles the execution of Python code with document awareness locally in a secure sandbox."""
+    """Runs Python in LO's embedded interpreter with document helpers (stdlib-only imports)."""
 
     def __init__(self, doc_url: str):
         self.doc_url = doc_url
-        self.executor = LocalPythonExecutor(additional_authorized_imports=CALC_AUTHORIZED_IMPORTS)
-
-    def reset(self):
-        """Resets the environment to its initial state."""
         self.executor = LocalPythonExecutor(additional_authorized_imports=CALC_AUTHORIZED_IMPORTS)
 
     def inject_helpers(self, bridge: CalcBridge, manipulator: CellManipulator, inspector: CellInspector):
@@ -59,16 +54,13 @@ class PythonExecutor:
             try:
                 if ":" in addr:
                     data = inspector.read_range(addr)
-                    # Convert to simple list-of-lists of values
                     return [[cell["value"] for cell in row] for row in data]
-                else:
-                    sheet = bridge.get_active_sheet()
-                    return manipulator.safe_get_cell_value(sheet, addr)
+                sheet = bridge.get_active_sheet()
+                return manipulator.safe_get_cell_value(sheet, addr)
             except Exception as e:
                 logger.error("lp_helper error for address %s: %s", addr, e)
                 return None
 
-        # Aliases for convenience
         def set_range_helper(addr: str, data: Any):
             """Write values back to the spreadsheet."""
             return manipulator.write_formula_range(addr, data)
@@ -77,92 +69,57 @@ class PythonExecutor:
 
     def format_result(self, result: Any) -> Any:
         """Processes the result for storage and display."""
-        # Handle 1D/2D lists specifically for Calc
-        if isinstance(result, (list, tuple)):
-            if result and not isinstance(result[0], (list, tuple)):
-                pass
-
-        # Ensure we don't return un-serializable objects as raw references if possible
         if hasattr(result, "__dict__") and not isinstance(result, (list, tuple, dict, str, int, float, bool)):
             try:
                 return f"<Result: {str(result)}>"
             except Exception:
                 return f"<Object: {type(result).__name__}>"
-
         return result
 
     def execute_with_return(self, code_snippet: str) -> Any:
-        """
-        Executes the given code snippet using the AST sandbox wrapper.
-        The executor natively passes back the value of the final evaluated expression.
-        """
+        """Execute *code_snippet*; return the last expression value (REPL-style ``_`` is not kept for the next call)."""
         try:
             code_output = self.executor(code_snippet)
             result = code_output.output
-
-            # Store the result in '_' just like a REPL
-            if result is not None:
-                self.executor.send_variables({"_": result})
-
             return self.format_result(result)
-
         except InterpreterError as e:
             logger.exception("Sandbox execution error: \n%s", code_snippet)
-            raise WriterAgentException(f"Execution Error: {str(e)}", code="PYTHON_EXECUTION_ERROR")
+            raise WriterAgentException(f"Execution Error: {str(e)}", code="PYTHON_EXECUTION_ERROR") from e
         except WriterAgentException:
             raise
         except Exception as e:
             logger.exception("Error executing Python code: \n%s", code_snippet)
-            raise WriterAgentException(f"Execution Error: {str(e)}", code="PYTHON_EXECUTION_ERROR")
-
-
-# Global cache: one PythonExecutor per document URL
-_EXECUTOR_ENV_CACHE: dict[str, PythonExecutor] = {}
-
-
-def get_executor_for_doc(doc_url: str) -> PythonExecutor:
-    """Retrieves or creates a PythonExecutor for the given document."""
-    if doc_url not in _EXECUTOR_ENV_CACHE:
-        _EXECUTOR_ENV_CACHE[doc_url] = PythonExecutor(doc_url)
-    return _EXECUTOR_ENV_CACHE[doc_url]
+            raise WriterAgentException(f"Execution Error: {str(e)}", code="PYTHON_EXECUTION_ERROR") from e
 
 
 class ExecutePythonScript(ToolBaseDummy):
-    """Executes a Python script in a persistent document-specific environment."""
+    """Executes Python in LibreOffice's sandbox (no numpy); fresh environment every call."""
 
     name = "execute_python_script"
     intent = "analyze"
     description = (
-        "Executes a Python script within a persistent document-specific environment. "
-        "The value of the last expression or assignment in the script is returned. "
-        "Helpers: lp('A1:B10') reads range, set_range('C1', data) writes result. "
-        "Variables defined in one call persist for subsequent calls on the same document."
+        "Executes a Python script in LibreOffice's embedded interpreter (stdlib sandbox, not the user venv). "
+        "The value of the last expression is returned. Each call starts with a clean environment. "
+        "Helpers: lp('A1:B10') reads range, set_range('C1', data) writes result."
     )
     parameters = {
         "type": "object",
         "properties": {
             "script": {"type": "string", "description": "The Python code to execute."},
             "target_range": {"type": "string", "description": "Optional: Cell range (e.g. 'A1') to write the script result to."},
-            "reset": {"type": "boolean", "description": "If true, resets the Python environment for this document before executing.", "default": False},
         },
         "required": ["script"],
     }
-    # Available in Calc and Writer
     uno_services = ["com.sun.star.sheet.SpreadsheetDocument", "com.sun.star.text.TextDocument"]
-    is_mutation = True  # Set to True because it can use set_range!
+    is_mutation = True
 
     def execute(self, ctx, **kwargs):
         script = kwargs.get("script", "")
-        reset = kwargs.get("reset", False)
         target_range = kwargs.get("target_range")
 
         doc_url = ctx.doc.getURL() or "untitled"
-        executor = get_executor_for_doc(doc_url)
+        executor = PythonExecutor(doc_url)
 
-        if reset:
-            executor.reset()
-
-        # Inject standard Calc helpers for this call
         bridge = CalcBridge(ctx.doc)
         manipulator = CellManipulator(bridge)
         inspector = CellInspector(bridge)
@@ -170,7 +127,6 @@ class ExecutePythonScript(ToolBaseDummy):
 
         result = executor.execute_with_return(script)
 
-        # If target_range is specified, write back
         write_status = ""
         if target_range and result is not None:
             try:

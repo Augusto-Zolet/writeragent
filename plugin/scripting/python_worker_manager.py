@@ -1,0 +1,154 @@
+# WriterAgent - AI Writing Assistant for LibreOffice
+# Copyright (c) 2026 KeithCu (modifications and relicensing)
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+"""Persistent venv subprocess with a fresh namespace on every execute (see worker_harness.py)."""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import select
+import signal
+import subprocess
+import threading
+import time
+import uuid
+from typing import Any, IO
+
+log = logging.getLogger(__name__)
+
+_HARNESS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "worker_harness.py")
+_instances: dict[str, PythonWorkerManager] = {}
+_registry_lock = threading.Lock()
+
+
+class PythonWorkerManager:
+    """One warm child process per resolved Python executable path."""
+
+    def __init__(self, exe: str, env: dict[str, str]) -> None:
+        self.exe = exe
+        self.env = dict(env)
+        self._proc: subprocess.Popen[str] | None = None
+        self._io_lock = threading.Lock()
+
+    @classmethod
+    def get(cls, exe: str, env: dict[str, str]) -> PythonWorkerManager:
+        """Return the singleton worker for *exe* (caller should pass a scrubbed env dict)."""
+        with _registry_lock:
+            mgr = _instances.get(exe)
+            if mgr is None:
+                mgr = cls(exe, dict(env))
+                _instances[exe] = mgr
+            return mgr
+
+    @classmethod
+    def shutdown_all(cls) -> None:
+        """Terminate all workers (tests / extension teardown)."""
+        with _registry_lock:
+            for mgr in list(_instances.values()):
+                mgr._terminate_worker()
+            _instances.clear()
+
+    def execute(self, code: str, *, data: Any = None, timeout_sec: int = 120) -> dict[str, Any]:
+        """Run *code* in the warm worker; state from prior calls is not visible."""
+        request: dict[str, Any] = {"id": str(uuid.uuid4()), "code": code}
+        if data is not None:
+            request["data"] = data
+        line = json.dumps(request, default=str) + "\n"
+
+        with self._io_lock:
+            for attempt in range(2):
+                try:
+                    self._ensure_running()
+                    assert self._proc is not None and self._proc.stdin is not None and self._proc.stdout is not None
+                    stdin = self._proc.stdin
+                    stdout = self._proc.stdout
+                    stdin.write(line)
+                    stdin.flush()
+                    response_line = self._read_response_line(stdout, timeout_sec)
+                    if not response_line:
+                        raise RuntimeError("Worker closed stdout without a response")
+                    response = json.loads(response_line)
+                    return self._normalize_response(response)
+                except (BrokenPipeError, json.JSONDecodeError, RuntimeError, subprocess.TimeoutExpired) as e:
+                    log.warning("Python worker failed (attempt %s): %s", attempt + 1, e)
+                    self._terminate_worker()
+                    if attempt == 1:
+                        return {"status": "error", "message": f"Python worker failed: {e}"}
+            return {"status": "error", "message": "Python worker failed"}
+
+    def _normalize_response(self, response: dict[str, Any]) -> dict[str, Any]:
+        if response.get("status") == "ok":
+            return {
+                "status": "ok",
+                "result": response.get("result"),
+                "stdout": (response.get("stdout") or "").strip(),
+                "stderr": "",
+            }
+        msg = response.get("message") or response.get("error") or "Unknown worker error"
+        tb = response.get("traceback")
+        if tb and isinstance(tb, str):
+            msg = f"{msg}\n{tb.strip()}"
+        out: dict[str, Any] = {
+            "status": "error",
+            "message": str(msg),
+            "stdout": (response.get("stdout") or "").strip(),
+        }
+        return out
+
+    def _ensure_running(self) -> None:
+        if self._proc is not None and self._proc.poll() is None:
+            return
+        self._terminate_worker()
+        popen_kw: dict[str, Any] = {
+            "stdin": subprocess.PIPE,
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.PIPE,
+            "text": True,
+            "env": self.env,
+            "bufsize": 1,
+        }
+        if os.name != "nt":
+            popen_kw["preexec_fn"] = os.setsid
+        self._proc = subprocess.Popen([self.exe, _HARNESS_PATH], **popen_kw)
+        log.debug("Started Python worker pid=%s exe=%s", self._proc.pid, self.exe)
+
+    def _read_response_line(self, stdout: IO[str], timeout_sec: int) -> str:
+        assert self._proc is not None
+        end = time.time() + timeout_sec
+        while time.time() < end:
+            remaining = end - time.time()
+            ready, _, _ = select.select([stdout], [], [], min(1.0, remaining))
+            if ready:
+                line = stdout.readline()
+                if line:
+                    return line
+            if self._proc.poll() is not None:
+                break
+        raise subprocess.TimeoutExpired(cmd=self.exe, timeout=timeout_sec)
+
+    def _terminate_worker(self) -> None:
+        proc = self._proc
+        self._proc = None
+        if proc is None:
+            return
+        try:
+            if proc.poll() is None:
+                if os.name == "nt":
+                    proc.kill()
+                else:
+                    try:
+                        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                    except ProcessLookupError:
+                        proc.kill()
+            proc.wait(timeout=5)
+        except (subprocess.TimeoutExpired, ProcessLookupError, OSError):
+            try:
+                proc.kill()
+            except OSError:
+                pass

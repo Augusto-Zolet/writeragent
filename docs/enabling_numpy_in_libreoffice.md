@@ -40,12 +40,12 @@ Rather than creating or bootstrapping a Python environment internally, the exten
 ### The Safe Way (Out-of-Process Execution / Persistent RPC)
 Instead of importing `numpy` inside the LibreOffice Python instance, we never mix memory. We shell out to the `python` executable located *inside* the user's venv.
 
-1. **Persistent Worker**: We spawn the process once and keep it alive (using the `PythonWorkerManager` singleton).
-2. **Notebook State**: We maintain the execution state (`globals()`) across calls, allowing for multi-step data analysis.
-3. **RPC**: Communication happens over stdin/stdout using JSON-RPC.
+1. **Persistent worker process**: [`PythonWorkerManager`](plugin/scripting/python_worker_manager.py) spawns the venv `python` once and keeps it alive.
+2. **Fresh namespace per execute**: [`worker_harness.py`](plugin/scripting/worker_harness.py) runs each request in a new `globals()` dict — no variables carry over between `run_venv_python_script` / `=PYTHON()` calls (Writer vs Calc, or successive chat turns).
+3. **JSON line protocol**: One request per line on stdin, one response per line on stdout (tool RPC from venv → LO is **not** wired yet; see [§7](#7-future-venv--libreoffice-tool-rpc-deferred)).
 
-**Pros**: Completely sidesteps ABI issues. `Numpy` will never crash LibreOffice. Supports any Python version (3.11–3.14). State persistence enables complex multi-turn workflows.
-**Cons**: Requires the user to have a venv ready.
+**Pros**: Completely sidesteps ABI issues. NumPy will not crash LibreOffice. Supports any Python version the user installs in their venv. Reusing the process avoids spawn overhead on every call.
+**Cons**: Requires the user to have a venv ready. Multi-step notebook workflows must re-pass data in code or via `data` / `data_range` — there is no shared kernel state across calls.
 
 ---
 
@@ -99,7 +99,9 @@ A single setting in **Settings → Python** (UI label; implementation lives in `
 
 If the path is empty, the Python execution feature is disabled. No automatic venv creation — the user brings their own. This is the simplest initial approach and avoids all the ABI/pip bootstrapping complexity from Strategies 1–2 above.
 
-**Shipped today:** the chat tool **`run_venv_python_script`** (`plugin/calc/venv_python.py`) runs user code via a subprocess (`plugin/scripting/run_venv_code.py`): the configured venv if **`scripting.python_venv_path`** is set, otherwise **`sys.executable`** from the LibreOffice process (no extra path heuristics). It appears when the model uses **`delegate_to_specialized_writer_toolset` / `delegate_to_specialized_calc_toolset` / `delegate_to_specialized_draw_toolset`** with **`domain="python"`** (and the Impress delegate, where registered). Assign JSON-serializable output to **`result`**; there is no UNO API inside the child process.
+**Shipped today:** the chat tool **`run_venv_python_script`** (`plugin/calc/venv_python.py`) and Calc **`=PYTHON()`** both go through a **single path**: [`run_code_in_user_venv`](plugin/scripting/run_venv_code.py) → [`PythonWorkerManager`](plugin/scripting/python_worker_manager.py) → [`worker_harness.py`](plugin/scripting/worker_harness.py) in the configured venv (or **`sys.executable`** when **`scripting.python_venv_path`** is empty). Each call gets a **clean namespace**; the child process stays warm. Assign JSON-serializable output to **`result`**. There is no UNO API inside the child process today (future: §7).
+
+**In-process (separate path):** [`execute_python_script`](plugin/calc/python_executor.py) runs in LibreOffice with `LocalPythonExecutor` (stdlib sandbox, `lp()` / `set_range` helpers). It also starts **fresh on every call** — no per-document variable cache.
 
 ### What the user experiences
 
@@ -118,23 +120,15 @@ If the path is empty, the Python execution feature is disabled. No automatic ven
 │                    LibreOffice Process                    │
 │                                                          │
 │  ┌─────────────┐    ┌──────────────────────────────────┐ │
-│  │  LLM / Chat │───▶│  Tool: run_python_script         │ │
-│  │  (tool loop) │    │  (async, specialized domain)     │ │
+│  │  LLM / Chat │───▶│  run_venv_python_script / =PYTHON │ │
+│  │  (tool loop) │    │  → run_code_in_user_venv (one path)│ │
 │  └─────────────┘    └──────────┬───────────────────────┘ │
 │                                │                         │
 │                     ┌──────────▼───────────────────────┐ │
-│                     │  Safety Gate                     │ │
-│                     │  ├─ AST pre-scan (blocklist)     │ │
-│                     │  ├─ Timeout / resource limits    │ │
-│                     │  └─ Import whitelist check       │ │
-│                     └──────────┬───────────────────────┘ │
-│                                │                         │
-│                     ┌──────────▼───────────────────────┐ │
 │                     │  PythonWorkerManager             │ │
-│                     │  (Persistent Subprocess)         │ │
-│                     │  venv/bin/python                  │ │
-│                     │  worker_harness.py                │ │
-│                     │  stdin/stdout JSON-RPC            │ │
+│                     │  warm venv process               │ │
+│                     │  worker_harness: fresh globals   │ │
+│                     │  per request (JSON lines)        │ │
 │                     └──────────┬───────────────────────┘ │
 │                                │                         │
 │                     ┌──────────▼───────────────────────┐ │
@@ -220,7 +214,7 @@ class RunPythonScript(ToolBase):
 
 The extension already ships `local_python_executor.py` (in `plugin/contrib/smolagents/`) as part of the OXT package on disk. The worker harness is a small script that the venv's Python runs directly from the extension's install path — it just imports the executor from next door. No copying, no build step, no extra packaging. The venv provides the Python interpreter; the extension provides the safety layer.
 
-#### Worker harness (`plugin/python/worker_harness.py`)
+#### Worker harness (`plugin/scripting/worker_harness.py`) — **implemented**
 
 Runs in the user's venv Python. Imports `local_python_executor.py` from the extension's own install directory. The venv's `ast` module parses the code (so 3.14 syntax works), and the venv's packages are importable (so numpy/pandas work), but dangerous modules are blocked by the executor.
 
@@ -314,39 +308,17 @@ def execute_code(executor: LocalPythonExecutor, code: str) -> dict:
         return {"status": "error", "error": str(e), "stdout": ""}
 
 def main():
-    # To support state persistence (§4.3), we initialize the executor ONCE
-    # outside the loop. The state dictionary persists between lines.
-    executor = LocalPythonExecutor(
-        additional_authorized_imports=DEFAULT_AUTHORIZED_IMPORTS,
-        timeout_seconds=120,
-    )
-    executor.send_tools({})
-
     for line in sys.stdin:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            request = json.loads(line)
-            if request.get("command") == "reset":
-                # Clear variables for a new session
-                executor.state = {}
-                response = {"status": "ok", "message": "State reset"}
-            else:
-                response = execute_code(executor, request["code"])
-
-            response["id"] = request.get("id", "")
-        except Exception as e:
-            response = {"status": "error", "error": str(e), "id": ""}
-
-        sys.stdout.write(json.dumps(response) + "\n")
-        sys.stdout.flush()
-
-if __name__ == "__main__":
-    main()
+        ...
+        request = json.loads(line)
+        # Fresh namespace every request (see plugin/scripting/worker_harness.py)
+        response = _execute_request(request["code"], request.get("data"))
+        ...
 ```
 
-#### Subprocess management (in `plugin/python/python_exec.py`)
+The **shipped** harness uses full `exec()` in the venv (not `LocalPythonExecutor`), so numpy/pandas and modern syntax work unchanged. See the source file for serialization of numpy/pandas results.
+
+#### Subprocess management (`plugin/scripting/python_worker_manager.py`) — **implemented**
 
 The tool resolves the harness path from the extension's own install directory and spawns the venv Python to run it. Borrowing robust execution patterns from the **Hermes agent**, we include environment scrubbing, UTF-8 enforcement, and bytecode suppression:
 
@@ -438,27 +410,20 @@ The **import whitelist is the primary control surface**: `numpy`, `pandas`, `sci
 
 > **Note:** The restricted executor is not a perfect sandbox (Python is too dynamic for language-level sandboxing to be 100% airtight). The subprocess boundary provides the true isolation — even if someone finds an escape path in the AST walker, they're in a separate process with no access to LibreOffice's memory or UNO objects.
 
-### 3.5 State Persistence and Session Management
+### 3.5 Warm process, fresh state (shipped)
 
-The implementation uses a **Persistent Worker** model to enable notebook-style state persistence within a chat session.
+| Layer | Behavior |
+|-------|----------|
+| **`PythonWorkerManager`** | One subprocess per resolved venv `python` executable; respawns on crash/timeout. |
+| **`worker_harness.py`** | On each `{"id", "code", "data"?}` line, builds a **new** namespace, runs code, returns `result` (or error). |
+| **Isolation** | Automatic — no `reset` command, no LLM flag, no chat-Clear hook. Writer → Calc → next call never sees prior globals. |
+| **Trade-off** | Faster than spawn-per-call; no notebook-style `df` reuse across tool invocations unless the LLM re-reads data or passes `data` / `data_range`. |
 
-#### 1. `PythonWorkerManager` (Extension Side)
-A singleton class in `plugin/python/python_exec.py` manages the subprocess:
-*   **Process Lifecycle**: Spawns the venv Python with the `worker_harness.py` on first use.
-*   **Persistence**: Keeps the process alive across multiple `run_python_script` calls.
-*   **Health Checks**: Automatically restarts the worker if it crashes.
-*   **Serialization**: Handles JSON-RPC communication over stdin/stdout.
+**Future (optional):** opt-in session persistence (e.g. same chat session ID reuses one namespace) would be an explicit product decision, not the default.
 
-#### 2. Notebook-Style State (Worker Side)
-The `worker_harness.py` maintains a single `LocalPythonExecutor` instance. Variables created in one turn (e.g., a Pandas DataFrame) persist and are available in subsequent turns, enabling complex workflows like:
-1. Turn 1: `df = pd.read_csv("large_data.csv")`
-2. Turn 2: `result = df.groupby("category").sum().to_dict()`
+#### In-process `execute_python_script`
 
-#### 3. Session Isolation
-To prevent state bleed between different chat sidebars or new conversations:
-*   **Session ID**: Each chat session has a unique ID.
-*   **Reset Command**: When a new session starts (or the user resets the chat), the extension sends `{"command": "reset"}`.
-*   **State Clear**: The harness clears the `executor.state` dictionary, providing a clean slate while keeping the process warm.
+Same isolation policy: each tool call constructs a new [`PythonExecutor`](plugin/calc/python_executor.py) (new `LocalPythonExecutor`). Stdlib-only imports; use the venv path for numpy.
 
 ### 3.7 LLM integration — the two-phase pattern
 
@@ -620,9 +585,13 @@ We can leverage or vendor specific utility modules from the **Hermes agent** to 
 
 ---
 
-## 7. Auto-Generated Tool Proxy API
+## 7. Future: venv ↔ LibreOffice tool RPC (deferred)
 
-### 7.1 Vision
+> **Status:** **Not implemented.** [`writeragent_api.py`](plugin/scripting/writeragent_api.py) is generated and documents the intended API, but the warm worker does **not** dispatch `tool_call` lines yet. User scripts must return `result` and let the LLM call Calc/Writer tools in a second phase. The old one-shot `VenvInteractiveRunner` bridge was removed in favor of a single execution path through `PythonWorkerManager`.
+>
+> **When implementing**, extend `PythonWorkerManager.execute()` read loop to handle worker stdout lines where `type == "tool_call"`, dispatch via `ToolRegistry.execute()` (with domain whitelist), write `tool_result` JSON to worker stdin, and only return to the caller when the harness emits the final `code_result` line. Keep **fresh namespace per top-level execute**; tool RPC happens *inside* one request. Do not add a separate `reset` command.
+
+### 7.1 Vision (planned)
 
 User scripts running in the venv subprocess should be able to call WriterAgent's existing tool-calling APIs as simple Python methods — no UNO knowledge, no manual JSON-RPC wiring:
 
@@ -667,7 +636,7 @@ The proxy methods in the subprocess are thin wrappers that:
 2. Block waiting for a response on **stdin**
 3. Deserialize and return the result (or raise on error)
 
-The `PythonWorkerManager` on the LibreOffice side intercepts `tool_call` messages (vs normal `code_result` messages), dispatches them through the existing `ToolRegistry.execute()`, and sends the result back.
+When built, `PythonWorkerManager` would intercept `tool_call` messages (vs normal result lines), dispatch through `ToolRegistry.execute()`, and write responses to the worker's stdin.
 
 ### 7.3 JSON Schema → Python Signature Mapping
 
@@ -1017,16 +986,250 @@ This means the user gets full IDE support (autocomplete, type checking, hover do
 
 ## 8. The `=PYTHON()` Calc Function
 
-While the LLM uses the `run_python_script` tool for background analysis, users can also trigger the same secure, out-of-process execution directly from a spreadsheet formula using the `=PYTHON()` function.
+Users and the LLM can run Python from Calc via the **`=PYTHON()`** add-in formula. The chat path is **`run_venv_python_script`** ([`plugin/calc/venv_python.py`](../plugin/calc/venv_python.py)); both use the same venv subprocess runner ([`plugin/scripting/run_venv_code.py`](../plugin/scripting/run_venv_code.py)).
+
+Configure **Settings → Python** → `scripting.python_venv_path` (see [Python Venv Proxy](#python-venv-proxy--user--developer-specification) above). If empty, the extension falls back to LibreOffice’s `sys.executable`.
+
+### Formula parameters
+
+IDL: `string python( [in] string code, [in] any data );` in [`extension/idl/XPromptFunction.idl`](../extension/idl/XPromptFunction.idl). Rebuild [`extension/XPromptFunction.rdb`](../extension/XPromptFunction.rdb) after IDL changes (`scripts/rebuild_xprompt_rdb.sh` or `unoidl-write` when the LibreOffice SDK is installed).
+
+| Arg | Name | Required | Role |
+|-----|------|----------|------|
+| 0 | `code` | Yes | Python source. Assign the cell value to **`result`** (or rely on the last expression if you set `_`; the runner prefers `result`). |
+| 1 | `data` | No | Optional cell range. Values are injected as variable **`data`** before your code runs (see [Data handoff and shaping](#data-handoff-and-shaping) below). |
 
 ### Usage
-`=PYTHON("result = 3 ** 8")`
 
-### Why this is powerful:
-- **Persistent State**: The function uses the same persistent `PythonWorkerManager` as the LLM tools. Variables defined in one cell's code are available to other cells evaluated in the same session.
-- **ABI Stability**: Since it uses Strategy 3 (Out-of-Process Execution), it will **never crash LibreOffice** even when using heavy binary libraries like NumPy or Pandas.
-- **Safe Evaluation**: The code is evaluated by the same AST-based executor (adapted from `smolagents`), ensuring that formulas cannot access sensitive system resources like the filesystem or network.
-- **No-Code to Low-Code**: You can use the `=PROMPT()` function to ask the AI to "Write a Python function to do X," and then paste that code into a `=PYTHON()` cell for high-performance symbolic or numerical computation.
+```text
+=PYTHON("result = 3 ** 8")
+=PYTHON("result = sum(data)", A1:A10)
+=PYTHON("import numpy as np; result = float(np.sum(data))", A1:C10)
+```
+
+### How it runs (implementation)
+
+- **Out-of-process**: `=PYTHON()` uses the same warm worker as `run_venv_python_script` (Strategy 3). NumPy/Pandas stay in the venv; LibreOffice’s embedded interpreter is not used for formula evaluation.
+- **Full Python in the venv**: Not sandboxed by `LocalPythonExecutor`. Isolation is the **process boundary** plus a **fresh namespace per evaluation**.
+- **No cross-cell persistence**: Variables from one `=PYTHON` cell are **not** visible in another (by design).
+- **In-process chat tool**: [`execute_python_script`](../plugin/calc/python_executor.py) is separate — stdlib sandbox, `lp()` helpers, fresh state per call; not used by `=PYTHON()`.
+
+### Why this is useful
+
+- **ABI stability** with user-provided venvs and heavy C extensions.
+- **Beginner-friendly data**: optional second argument → `sum(data)` on a row or column without pandas.
+- **No-code bridge**: `=PROMPT("Write a Python formula…")` can produce a pasteable `=PYTHON(...)` string (see [§9](#9-vision-the-code-oracle--self-modifying-spreadsheets)).
+
+### Comparison with LibrePythonista (`PY.C` and `lp()`)
+
+[LibrePythonista](https://github.com/Amourspirit/python_libre_pythonista_ext) uses a **different** Calc integration: Python lives in a **cell code editor**, and the visible formula is metadata, not the program text.
+
+```mermaid
+flowchart LR
+  subgraph writeragent [WriterAgent =PYTHON]
+    F1["=PYTHON(code, data?)"]
+    F1 --> Venv["venv subprocess"]
+    Venv --> Inject["inject data list"]
+  end
+  subgraph librepy [LibrePythonista PY.C]
+    F2["=PY.C(SHEET(), CELL(...), extras?)"]
+    F2 --> LO["LO embedded Python"]
+    LO --> Editor["code from cell editor"]
+    Editor --> LP["lp('range', collapse=...)"]
+  end
+```
+
+**LibrePythonista formula:** `PY.C(sheetIdx, cAddress, extras?)` ([`XPy.idl`](https://github.com/Amourspirit/python_libre_pythonista_ext/blob/main/oxt/sources/XPy.idl))
+
+| Arg | Name | Optional | Role |
+|-----|------|----------|------|
+| 0 | `sheetIdx` | No | Sheet index (typically `SHEET()`) |
+| 1 | `cAddress` | No | Cell address (typically `CELL("ADDRESS")`) — which Python cell is running |
+| 2 | `extras` | Yes | Optional range whose changes **trigger recalculation** of this formula |
+
+There is **no code string** on the add-in; source is stored via the LibrePy UI.
+
+**LibrePythonista in-code helper:** `lp(addr, **kwargs)` ([`lp_mod.py`](https://github.com/Amourspirit/python_libre_pythonista_ext/blob/main/oxt/pythonpath/libre_pythonista_lib/doc/calc/doc/sheet/cell/code/mod_helper/lp_mod.py))
+
+| Parameter | Role |
+|-----------|------|
+| `addr` (required) | `A1`, `B1:C5`, `Sheet1.A1`, named range, database range |
+| `collapse=True` | Trim trailing empty rows so growing tables auto-expand |
+| `column_types={...}` | Column hints (e.g. `"date"`) for pandas conversion |
+| (headers) | Auto-detected when the first row is all strings; ranges return **pandas DataFrames** |
+
+**Capability comparison** (post-`code` / data surface — compare features, not arg index):
+
+| Capability | WriterAgent `data` (arg 1) | LibrePythonista |
+|------------|---------------------------|-----------------|
+| Pass one range into Python | Yes — flat list or 2D list | `lp("A1:B10")` inside code |
+| Multiple ranges in one formula | No (single `data` only) | Yes — multiple `lp()` calls |
+| Named ranges | Only if referenced as the 2nd arg | `lp("MyRange")` |
+| Dynamic table / trim empty rows | No | `collapse=True` on `lp()` |
+| Typed date columns | Raw Calc values | `column_types` + pandas |
+| Return type for ranges | `list` / `list[list]` | `pandas.DataFrame` |
+| Recalc when inputs change | Calc depends on `data` range | `extras` + references inside `lp()` |
+| Cell context (“where am I?”) | Not exposed | `sheetIdx` + `cAddress` |
+| Execution environment | User venv (numpy-safe) | LO embedded Python + pip bootstrap |
+
+**What we kept:** a **two-argument** formula (`code` + optional `data`) fits “paste Python in the formula bar + venv numpy”. Flat 1D shaping for single rows/columns is intentional ([`normalize_python_data_shape`](../plugin/calc/calc_addin_data.py)).
+
+**What we did not copy:** `PY.C`’s sheet/address metadata, in-LO pandas bootstrap, or mandatory `lp()` for every read. For AST-based in-process patterns and a shared cell environment, see [`docs/native_python_in_calc.md`](native_python_in_calc.md).
+
+### Code in the formula bar vs code outside the cell
+
+LibreOffice Calc does **not** ship a Python cell code editor. That UI is **entirely extension-defined**. LibrePythonista builds a parallel product surface on top of Calc:
+
+| | **WriterAgent `=PYTHON()`** | **LibrePythonista** |
+|---|---------------------------|---------------------|
+| Where users edit | Formula bar (or wizard): code is a **string inside** `=PYTHON("…")` | **LibrePy** menu → Insert Python; **Edit Code** on the cell; optional experimental editor in extension options |
+| What the cell displays | The full formula including source | A short formula such as `=PY.C(SHEET(),CELL("ADDRESS"), extras?)` — metadata only |
+| Where source lives | Inside the `.ods` as part of the formula | **Outside** the formula: per-cell source managed by `PySourceManager` (document JSON under an LP root URI, cell custom properties, code names, listeners) |
+| Editor technology | Stock Calc input line | XDL dialog and/or a **separate subprocess** webview editor (`lp_py_editor`, optional `librepythonista-python-editor` package) with syntax highlighting |
+
+So “python in cells” for LibrePythonista really means **python bound to cells**, not python typed into the visible formula. WriterAgent’s model is **python in the formula** — closer to `=PROMPT("…")` than to `PY.C`.
+
+**Why code-in-formula is a good starting point**
+
+- **Each cell can be a small function:** inputs via literals, the optional `data` range, or references to other cells; output via `result`. Standard spreadsheet composition (`=PYTHON(..., A1:A10)` next to `=AVERAGE(B1:B10)`) chains behavior without a shared notebook kernel.
+- **Transparent and portable:** the logic travels with the sheet; copy/paste and version control see the formula. No hidden sidecar unless you add one later.
+- **Aligns with AI generation:** `=PROMPT("write a PYTHON formula…")` can emit a single pasteable `=PYTHON("…")` string.
+- **Fits the venv path:** execution already shells out; the formula only needs to pass a string and optional range.
+
+**When external storage + editor wins**
+
+- **Long scripts** (dozens of lines): formula length, escaping quotes, and the input line become painful.
+- **Multi-line editing** with indentation, completion, and debugging — LibrePythonista’s editor subprocess exists for this.
+- **Stable cell address** while refactoring code: LP keeps source keyed by cell identity; you edit code without rewriting a giant escaped string.
+- **Notebook-style globals** across cells: LP’s shared `PyModule` and `lp()` cache; WriterAgent does not persist state across `=PYTHON` calls today (see [How it runs](#how-it-runs-implementation)).
+
+**Design stance:** treat each `=PYTHON` cell as a **pure function** when you can (`data` in → `result` out). You often do **not** need code outside the cell if sheets are built as pipelines of small formulas. Reach for external storage when scripts grow or UX demands an IDE-like editor — not as the default for every user.
+
+### Could WriterAgent add a LibrePythonista-style editor?
+
+**Not required for numpy or venv execution** — only for authoring comfort. Below is a realistic effort sketch based on LibrePythonista’s architecture ([`py_source_manager.py`](https://github.com/Amourspirit/python_libre_pythonista_ext/blob/main/oxt/pythonpath/libre_pythonista_lib/doc/calc/doc/sheet/cell/code/py_source_manager.py), [`py_edit_cell_job.py`](https://github.com/Amourspirit/python_libre_pythonista_ext/blob/main/oxt/ext_code/jobs/py_edit_cell_job.py), [`lp_py_editor`](https://github.com/Amourspirit/python_libre_pythonista_ext/tree/main/oxt/pythonpath/libre_pythonista_lib/dialog/webview/lp_py_editor)) versus what WriterAgent already has ([`plugin/chatbot/dialogs.py`](../plugin/chatbot/dialogs.py) XDL loading, [`EditInputDialog.xdl`](../extension/WriterAgentDialogs/EditInputDialog.xdl) multiline field, [`prompt_function.py`](../plugin/calc/prompt_function.py)).
+
+#### Tier 1 — “Edit formula code” dialog (small–medium, ~1–2 weeks)
+
+**Idea:** Calc menu or context action on the active cell: if the formula is `=PYTHON(...)`, open a modal XDL dialog with a large multiline `Edit` control, show the **decoded** Python body, on OK rewrite `=PYTHON("…", optional range)`.
+
+**Reuse today**
+
+- `DialogProvider` + XDL pattern (same as Settings and [`input_box`](../plugin/chatbot/dialog_views.py)).
+- Formula parsing: extract string arg 0 (watch escaped `"` and `;` inside strings).
+- Execution unchanged: still `prompt_function.python(code, data)`.
+
+**Work**
+
+- New `PythonEditDialog.xdl` + listener.
+- Register Calc menu item / dispatch handler in [`plugin/main.py`](../plugin/main.py) (WriterAgent already uses `XJob` / menu dispatch for other actions).
+- Robust stringify when writing back (`repr` / escape for formula bar).
+- Tests: round-trip parse/write; UNO test optional.
+
+**Limits:** code still lives **inside** the formula; very long source hits Calc formula length and readability ceilings. No syntax highlighting unless you embed a rich control (hard in UNO).
+
+#### Tier 2 — Hybrid: short formula + stored source (medium, ~3–6 weeks)
+
+**Idea:** Cell shows `=PYTHON_ID("a1b2c3", A1:A10)` or keep `=PYTHON` but arg 0 is a **key**; body stored in document custom properties, a named JSON blob in `settings.xml` / user storage, or a side file under the document URL (LibrePythonista uses document-scoped JSON via `cmd_lp_doc_json_file` and related commands).
+
+**Work**
+
+- Storage API (per doc + cell address): read/write/delete source; migrate on copy/paste row.
+- `prompt_function.python`: if `code` looks like a key or starts with `#`, resolve from store.
+- Editor dialog (Tier 1) edits store, not a 4 KB formula string.
+- Recalc: formula still references `data` range; optional third arg later for LP-style `extras`.
+- Tests for save/load, rename sheet, delete cell.
+
+**Value:** best balance for “code outside the cell” without cloning LibrePythonista.
+
+#### Tier 3 — LibrePythonista parity (large, many months)
+
+LibrePythonista’s surface area is not “a few dialogs” — it includes:
+
+- **Insert Python** workflow that installs controls, sets `PY.C` array formulas, and registers cell listeners.
+- **`PySourceManager`** + CQRS command/query layers for cell props, code names, shapes, sheet activation, modify triggers.
+- **In-LO execution** with shared `PyModule`, `lp()`, pandas, pip bootstrap — different from WriterAgent’s venv subprocess model.
+- **Webview editor subprocess** (IPC, optional debugpy, theme sync).
+
+Porting that wholesale while keeping WriterAgent’s venv/numpy story would duplicate maintenance. Reasonable only if Calc-native Python becomes a primary product pillar.
+
+#### Suggested path for WriterAgent
+
+1. **Now:** document and promote the **function-per-cell** pattern (`data` + `result` + cell references).
+2. **Next incremental win:** Tier 1 dialog (“Edit PYTHON code”) — low risk, immediate UX gain for long one-liners and small blocks.
+3. **If users outgrow formula length:** Tier 2 storage + short formula reference — design keys and migration before investing in a webview editor.
+4. **Defer:** Tier 3 unless committed to a Calc-first Python product competing with LibrePythonista on its own terms.
+
+| Tier | User sees | Code location | Rough effort | Fits venv `=PYTHON`? |
+|------|-----------|---------------|--------------|----------------------|
+| 0 (today) | Formula bar only | Inside `=PYTHON("…")` | Done | Yes |
+| 1 | Edit dialog | Still in formula | Small–medium | Yes |
+| 2 | Edit dialog | Document store; short formula | Medium | Yes |
+| 3 | LP-like menus, webview IDE | LP-style infrastructure | Very large | Only if execution model aligned |
+
+### Data handoff and shaping
+
+**`=PYTHON()`** and **`run_venv_python_script`** (LLM tool, **Calc only**) inject range values as **`data`**. In Writer and Draw, the LLM tool exposes only **`code`** and **`timeout_sec`** — no `data` injection; use document tools for content.
+
+**Examples**
+
+- **One row or column:** `=PYTHON("result = sum(data)", A1:A10)` → flat `[v1, v2, …]` so `sum`, `max`, and list comprehensions work without indexing.
+- **2D block:** `=PYTHON("result = sum(sum(row) for row in data)", A1:C10)` — see shape table below.
+- **NumPy (venv):** `import numpy as np; result = float(np.sum(data))` for flat or 2D lists.
+- **LLM tool (Calc):** optional **`data_range`** (A1, read on host) or **`data`** (array). `data_range` wins if both are set.
+
+**Calc vs Writer (LLM tool)**
+
+| Context | `data` / `data_range` in schema? | Injected in subprocess? |
+|---------|----------------------------------|-------------------------|
+| Calc chat, `domain=python` | Yes | Yes, when provided |
+| Writer / Draw chat, `domain=python` | No | Never — avoids `sum(data)` confusion |
+| `=PYTHON(code, range)` | 2nd arg is the range | Yes |
+
+**How `data` is shaped (beginner-first)**
+
+Conversion: [`plugin/calc/calc_addin_data.py`](../plugin/calc/calc_addin_data.py). Goal: tutorials can use **`sum(data)`**, not `sum(data[0])`.
+
+| Range you pass | `data` in Python | Example | LibrePythonista analogue |
+|----------------|------------------|---------|-------------------------|
+| Single cell `A1` | `[value]` | `sum(data)` | `lp("A1")` → scalar |
+| One row `A1:E1` or column `A1:A10` | `[v1, v2, …]` (flat) | `sum(data)` | `lp("A1:E1")` → DataFrame |
+| Rectangle `A1:C5` (both dimensions > 1) | `[[row1…], [row2…], …]` row-major | `sum(sum(row) for row in data)` or NumPy | `lp("A1:C5")` → DataFrame |
+
+Empty cells → `None`. Cap: `MAX_PYTHON_DATA_CELLS` (default 250 000).
+
+**Why not always flat?** A block like `A1:C3` is two-dimensional; flattening would lose row structure. For true 2D blocks we keep list-of-rows.
+
+**Gaps vs LibrePythonista (workarounds today)**
+
+- **No `lp()` in `=PYTHON`** — only one range via arg 1. Multi-range: use multiple cells, the chat tool with `data_range`, or future host-side `lp()` bridge (not implemented).
+- **No `collapse`** — pass a tighter range or drop trailing `None`/empty rows in Python.
+- **No auto-DataFrame** — `import pandas as pd; df = pd.DataFrame(data)` (set `columns=` if the first row is headers).
+
+**Limitations (may revisit)**
+
+- `sum(data)` on a 2D block sums rows, not all cells — use nested `sum` or NumPy.
+- Ragged ranges: 1D vs 2D uses max column count.
+- Mixed types and date serials pass through as Calc returns them.
+
+**Pipeline**
+
+1. Calc passes the range as UNO 2D sequences (tuple of tuples in PyUNO).
+2. [`calc_addin_data_to_python`](../plugin/calc/calc_addin_data.py) → JSON-serializable structure.
+3. [`PythonWorkerManager`](../plugin/scripting/python_worker_manager.py) sends `data` in the JSON request; [`worker_harness.py`](../plugin/scripting/worker_harness.py) injects it as variable `data` in a fresh namespace.
+
+Same shaping for `=PYTHON()` and Calc-side `run_venv_python_script` when a range is supplied.
+
+### Should we add more formula parameters?
+
+| Idea | Effort | Value | Status |
+|------|--------|-------|--------|
+| Optional 3rd arg `extras` (extra recalc dependency, LP-style) | Medium (IDL + tests) | Low unless recalc needed without reading `data` | Not planned |
+| `collapse` on `data` conversion | Low–medium | Medium for growing tables | Not implemented |
+| Host `lp()` bridge for venv `=PYTHON` | High | High for multi-range formulas | Not implemented |
+| `timeout_sec` on the formula | Low | Medium for runaway scripts | LLM tool only today |
+
+**Recommendation:** keep **`code` + optional `data`** until a concrete user story appears; document LibrePythonista differences and workarounds above. Revisit an `lp()` bridge if multi-range `=PYTHON` becomes common.
 
 ---
 
@@ -1048,56 +1251,25 @@ The LLM (primed with knowledge of the `=PYTHON()` tool) can respond with a funct
 
 ---
 
-## 10. Technical Spec: Data Handoff (Spreadsheet → Python) — implemented
+## 10. Technical Spec: Data Handoff (Spreadsheet → Python)
 
-**`=PYTHON()`** (Calc formula) and **`run_venv_python_script`** (LLM tool, **Calc only**) can inject cell-range values as a variable named **`data`**. In Writer and Draw, the LLM tool does not expose or inject `data` — use document tools for content, Python for computation only.
+Moved into [§8 — The `=PYTHON()` Calc Function](#8-the-python-calc-function) (*Data handoff and shaping*, *Comparison with LibrePythonista*). That section is the single source of truth for formula parameters, `data` shaping, and LibrePythonista comparison.
 
-### IDL / formula
-`string python( [in] string code, [in] any data );` in [`extension/idl/XPromptFunction.idl`](../extension/idl/XPromptFunction.idl). Rebuild [`extension/XPromptFunction.rdb`](../extension/XPromptFunction.rdb) after IDL changes (`scripts/rebuild_xprompt_rdb.sh` or `unoidl-write` when the LibreOffice SDK is installed).
+---
 
-### Usage
-- **Calc formula (one row or column)**: `=PYTHON("result = sum(data)", A1:A10)` — values arrive as a **flat list** `[v1, v2, …]`, so ordinary Python (`sum`, `max`, list comprehensions) works without indexing.
-- **Calc formula (2D block)**: `=PYTHON("result = sum(sum(row) for row in data)", A1:C10)` — see shape rules below.
-- **With NumPy** (optional venv): `import numpy as np; result = float(np.sum(data))` works for both flat lists and 2D lists.
-- **LLM tool (Calc only)**: `run_venv_python_script` accepts optional **`data_range`** (A1 notation, read on the host) or **`data`** (nested or flat array). `data_range` wins if both are set.
-- **LLM tool (Writer / Draw)**: schema is **`code`** and **`timeout_sec` only** — no `data` variable is injected. Read or edit the document with normal Writer/Draw tools, then run Python for math or transforms on values you pass in `code` / `result`.
+## Implementation notes (2026-05)
 
-### Calc vs Writer (LLM tool)
+**Done**
 
-| Context | `data` / `data_range` in tool schema? | Injected in subprocess? |
-|---------|--------------------------------------|-------------------------|
-| Calc chat, `domain=python` | Yes | Yes, when provided |
-| Writer / Draw chat, `domain=python` | No (hidden from schema) | Never — avoids `sum(data)` confusion |
-| `=PYTHON(code, range)` formula | N/A (second arg is the range) | Yes in Calc |
+- [`plugin/scripting/worker_harness.py`](plugin/scripting/worker_harness.py) — long-lived worker loop; `exec()` in a **new namespace per request**; numpy/pandas result serialization.
+- [`plugin/scripting/python_worker_manager.py`](plugin/scripting/python_worker_manager.py) — singleton per venv executable; stdin/stdout JSON; restart on failure.
+- [`plugin/scripting/run_venv_code.py`](plugin/scripting/run_venv_code.py) — **only** entry for venv execution (removed temp-file spawn and `VenvInteractiveRunner`).
+- [`plugin/calc/python_executor.py`](plugin/calc/python_executor.py) — in-process tool creates a **new** `PythonExecutor` per call; removed document URL cache and `reset` parameter.
 
-This split is intentional: spreadsheet ranges are a Calc concept. Revisit if we add Writer-native tabular data later.
+**Consider later**
 
-### How `data` is shaped (beginner-first)
-
-Conversion lives in [`plugin/calc/calc_addin_data.py`](../plugin/calc/calc_addin_data.py). The goal is that most tutorials can use **`sum(data)`**, not `sum(data[0])`.
-
-| Range you pass | `data` in Python | Example |
-|----------------|------------------|---------|
-| Single cell `A1` | `[value]` | `sum(data)` → that cell |
-| One row `A1:E1` or one column `A1:A10` | `[v1, v2, …]` (flat) | `sum(data)`, `max(data)` |
-| Rectangle `A1:C5` (both width and height > 1) | `[[row1…], [row2…], …]` (2D, row-major) | `sum(sum(row) for row in data)` or NumPy |
-
-Empty cells become `None`. There is a size cap (`MAX_PYTHON_DATA_CELLS`, default 250 000 cells).
-
-**Why not always flat?** A block like `A1:C3` is genuinely two-dimensional; flattening would lose which values share a row. For blocks we keep a list-of-rows so you can do per-row logic (`data[0]`, `len(data)`, etc.).
-
-**Limitations (may revisit later):**
-- **`sum(data)` on a 2D block** does not sum all cells — `data` is a list of rows, not numbers. Use `sum(sum(row) for row in data)` or NumPy.
-- **Ragged ranges** (unequal row lengths) are rare from Calc but, if present, use the max column count when deciding 1D vs 2D.
-- **Mixed types** (numbers, text, errors) pass through as-is; cast in your script if needed.
-- **Dates** may arrive as floats (serial date numbers) depending on cell format — same as Calc’s `getDataArray()` behavior.
-
-### Pipeline
-1. **Calc handoff**: Range values arrive as UNO 2D sequences (tuple of tuples in PyUNO).
-2. **Conversion**: UNO → JSON-serializable Python; shape normalization as in the table above.
-3. **Venv injection**: [`plugin/scripting/run_venv_code.py`](../plugin/scripting/run_venv_code.py) prepends `data = json.loads(...)` in the temp script before user code runs.
-
-### Benefits
-- No manual string formatting of sheet data in the formula.
-- Numbers stay numeric through the UNO bridge and JSON round-trip.
-- Same `data` shaping for `=PYTHON()` and Calc-side `run_venv_python_script` when a range is supplied.
+- **Tool RPC (§7):** bidirectional harness ↔ `PythonWorkerManager` so `writeragent_api` works inside one execute.
+- **Optional session persistence:** opt-in reuse of namespace within one chat session (not default).
+- **Harness safety mode:** optional `LocalPythonExecutor` in the venv child for stricter import blocking (trade-off vs full numpy ergonomics).
+- **Worker idle shutdown:** terminate venv process after N minutes idle to free memory.
+- **Formula `timeout_sec`:** parity with the LLM tool for `=PYTHON()`.
