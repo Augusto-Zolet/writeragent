@@ -1053,18 +1053,40 @@ The LLM (primed with knowledge of the `=PYTHON()` tool) can respond with a funct
 **`=PYTHON()`** and **`run_venv_python_script`** inject cell-range values as a variable named **`data`**.
 
 ### IDL / formula
-`string python( [in] string code, [in] any data );` in [`extension/idl/XPromptFunction.idl`](../extension/idl/XPromptFunction.idl). Rebuild [`extension/XPromptFunction.rdb`](../extension/XPromptFunction.rdb) after IDL changes (`idlc` + `regmerge` when the LibreOffice SDK is installed).
+`string python( [in] string code, [in] any data );` in [`extension/idl/XPromptFunction.idl`](../extension/idl/XPromptFunction.idl). Rebuild [`extension/XPromptFunction.rdb`](../extension/XPromptFunction.rdb) after IDL changes (`scripts/rebuild_xprompt_rdb.sh` or `unoidl-write` when the LibreOffice SDK is installed).
 
 ### Usage
-- **Calc formula**: `=PYTHON("import numpy as np; result = float(np.std(data))", C1:C50)` — second argument is an optional range; values become `data` (list of rows) in the venv subprocess.
-- **LLM tool**: `run_venv_python_script` accepts optional **`data_range`** (A1 notation, read on the host) or **`data`** (2D array). `data_range` wins if both are set.
+- **Calc formula (one row or column)**: `=PYTHON("result = sum(data)", A1:A10)` — values arrive as a **flat list** `[v1, v2, …]`, so ordinary Python (`sum`, `max`, list comprehensions) works without indexing.
+- **Calc formula (2D block)**: `=PYTHON("result = sum(sum(row) for row in data)", A1:C10)` — see shape rules below.
+- **With NumPy** (optional venv): `import numpy as np; result = float(np.sum(data))` works for both flat lists and 2D lists.
+- **LLM tool**: `run_venv_python_script` accepts optional **`data_range`** (A1 notation, read on the host) or **`data`** (nested or flat array). `data_range` wins if both are set.
+
+### How `data` is shaped (beginner-first)
+
+Conversion lives in [`plugin/calc/calc_addin_data.py`](../plugin/calc/calc_addin_data.py). The goal is that most tutorials can use **`sum(data)`**, not `sum(data[0])`.
+
+| Range you pass | `data` in Python | Example |
+|----------------|------------------|---------|
+| Single cell `A1` | `[value]` | `sum(data)` → that cell |
+| One row `A1:E1` or one column `A1:A10` | `[v1, v2, …]` (flat) | `sum(data)`, `max(data)` |
+| Rectangle `A1:C5` (both width and height > 1) | `[[row1…], [row2…], …]` (2D, row-major) | `sum(sum(row) for row in data)` or NumPy |
+
+Empty cells become `None`. There is a size cap (`MAX_PYTHON_DATA_CELLS`, default 250 000 cells).
+
+**Why not always flat?** A block like `A1:C3` is genuinely two-dimensional; flattening would lose which values share a row. For blocks we keep a list-of-rows so you can do per-row logic (`data[0]`, `len(data)`, etc.).
+
+**Limitations (may revisit later):**
+- **`sum(data)` on a 2D block** does not sum all cells — `data` is a list of rows, not numbers. Use `sum(sum(row) for row in data)` or NumPy.
+- **Ragged ranges** (unequal row lengths) are rare from Calc but, if present, use the max column count when deciding 1D vs 2D.
+- **Mixed types** (numbers, text, errors) pass through as-is; cast in your script if needed.
+- **Dates** may arrive as floats (serial date numbers) depending on cell format — same as Calc’s `getDataArray()` behavior.
 
 ### Pipeline
 1. **Calc handoff**: Range values arrive as UNO 2D sequences (tuple of tuples in PyUNO).
-2. **Conversion**: [`plugin/calc/calc_addin_data.py`](../plugin/calc/calc_addin_data.py) → JSON-serializable `list[list]` (empty cells → `None`; cap `MAX_PYTHON_DATA_CELLS`). Single-row **or** single-column ranges are folded to one row `[[v1, v2, …]]` so `sum(data[0])` sums the whole range; true 2D blocks stay row-major.
+2. **Conversion**: UNO → JSON-serializable Python; shape normalization as in the table above.
 3. **Venv injection**: [`plugin/scripting/run_venv_code.py`](../plugin/scripting/run_venv_code.py) prepends `data = json.loads(...)` in the temp script before user code runs.
 
 ### Benefits
 - No manual string formatting of sheet data in the formula.
 - Numbers stay numeric through the UNO bridge and JSON round-trip.
-- Same `data` name for `=PYTHON()` and agent-driven `run_venv_python_script`.
+- Same `data` name and shaping for `=PYTHON()` and `run_venv_python_script`.

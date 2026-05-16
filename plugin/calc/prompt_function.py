@@ -101,7 +101,7 @@ class PromptFunction(unohelper.Base, _XPromptFunctionBase):  # pyright: ignore[r
             if nArgument == 0:
                 return "The Python code to execute. Assign output to 'result'."
             elif nArgument == 1:
-                return "Optional cell range; values are available as the variable data in the script."
+                return "Optional cell range; values are injected as data (flat list for one row or column)."
         return ""
 
     def getArgumentName(self, aProgrammaticName, nArgument):

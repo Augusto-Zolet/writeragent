@@ -20,7 +20,7 @@ def test_resolve_python_data_prefers_data_range():
         insp.read_range.return_value = [[{"value": 1}, {"value": 2}]]
         py_data, err = _resolve_python_data(ctx, data_range="A1:B1", data=[[99]])
         assert err is None
-        assert py_data == [[1, 2]]
+        assert py_data == [1, 2]
         insp.read_range.assert_called_once_with("A1:B1")
 
 
@@ -28,7 +28,7 @@ def test_resolve_python_data_uses_data_param():
     ctx = MagicMock()
     py_data, err = _resolve_python_data(ctx, data_range=None, data=[[1, 2]])
     assert err is None
-    assert py_data == [[1, 2]]
+    assert py_data == [1, 2]
 
 
 @patch("plugin.calc.venv_python.run_code_in_user_venv")
@@ -36,8 +36,8 @@ def test_execute_passes_data(mock_run):
     mock_run.return_value = {"status": "ok", "result": 1}
     tool = RunVenvPythonScript()
     ctx = ToolContext(doc=MagicMock(), ctx=MagicMock(), doc_type="calc", services=MagicMock())
-    with patch("plugin.calc.venv_python._resolve_python_data", return_value=([[10]], None)):
-        out = tool.execute(ctx, code="result = data[0][0]")
+    with patch("plugin.calc.venv_python._resolve_python_data", return_value=([10], None)):
+        out = tool.execute(ctx, code="result = data[0]")
     assert out["status"] == "ok"
     mock_run.assert_called_once()
-    assert mock_run.call_args.kwargs["data"] == [[10]]
+    assert mock_run.call_args.kwargs["data"] == [10]

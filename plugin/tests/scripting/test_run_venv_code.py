@@ -140,14 +140,20 @@ def test_interactive_runner_python_tool_domain_whitelist(mock_select, mock_popen
     assert mock_registry.execute.call_args[0][0] == "writer_tool"
 
 
-def test_build_runner_script_injects_data():
-    script = _build_runner_script("result = sum(data[0])", data=[[1, 2], [3, 4]])
+def test_build_runner_script_injects_data_flat():
+    script = _build_runner_script("result = sum(data)", data=[1, 2, 3, 4])
     assert "data = _json.loads" in script
-    assert "result = sum(data[0])" in script
-    assert "__WRITERAGENT_VENV_RESULT__" in script
+    assert "result = sum(data)" in script
     ns: dict = {}
     exec(script, ns)  # noqa: S102 — test fixture only
-    assert ns.get("_wa") == 3
+    assert ns.get("_wa") == 10
+
+
+def test_build_runner_script_injects_data_2d():
+    script = _build_runner_script("result = sum(sum(r) for r in data)", data=[[1, 2], [3, 4]])
+    ns: dict = {}
+    exec(script, ns)  # noqa: S102 — test fixture only
+    assert ns.get("_wa") == 10
 
 
 def test_build_runner_script_no_data_omits_preamble():

@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from plugin.calc.base import ToolCalcPythonBase
 from plugin.calc.bridge import CalcBridge
-from plugin.calc.calc_addin_data import check_python_data_size, values_from_inspector_range
+from plugin.calc.calc_addin_data import check_python_data_size, finalize_python_data, values_from_inspector_range
 from plugin.calc.inspector import CellInspector
 from plugin.scripting.run_venv_code import run_code_in_user_venv
 
@@ -28,13 +28,6 @@ _ALL_VENV_DOCS = [
 ]
 
 
-def _normalize_tool_data(raw: Any) -> list | list[list] | Any:
-    """Normalize LLM ``data`` parameter (Gemini may send a single string)."""
-    if isinstance(raw, str):
-        return [raw]
-    return raw
-
-
 def _resolve_python_data(ctx: ToolContext, *, data_range: str | None, data: Any) -> tuple[Any | None, str | None]:
     """Return (py_data, error_message). ``data_range`` wins over ``data`` when both set."""
     py_data: Any | None = None
@@ -47,7 +40,7 @@ def _resolve_python_data(ctx: ToolContext, *, data_range: str | None, data: Any)
         except Exception as e:
             return None, f"Failed to read data_range: {e}"
     elif data is not None:
-        py_data = _normalize_tool_data(data)
+        py_data = finalize_python_data(data)
 
     if py_data is not None:
         size_err = check_python_data_size(py_data)
@@ -63,7 +56,7 @@ class RunVenvPythonScript(ToolCalcPythonBase):
     specialized_cross_cutting: ClassVar[bool] = True
     description = (
         "Run Python code. Set `result` to a JSON-serializable return value. "
-        "Optional data_range (e.g. B1:B10) injects cell values as `data` (list of rows). "
+        "Optional data_range (e.g. B1:B10) injects cell values as `data` (flat list for one row/column). "
         "Alternatively pass `data` directly after read_cell_range. Optional timeout_sec (default 120, max 600)."
     )
     parameters = {

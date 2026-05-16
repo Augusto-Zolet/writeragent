@@ -56,12 +56,12 @@ def test_prompt_function_python_execution():
         # Range data forwarded
         mock_run.reset_mock()
         mock_run.return_value = {"status": "ok", "result": 3}
-        res = func.python("result = sum(data[0])", ((1.0,), (2.0,), (3.0,)))
+        res = func.python("result = sum(data)", ((1.0,), (2.0,), (3.0,)))
         assert res == 6
         mock_run.assert_called_once()
         call_kw = mock_run.call_args
-        assert call_kw[0][3] == "result = sum(data[0])"
-        assert call_kw[1]["data"] == [[1.0, 2.0, 3.0]]
+        assert call_kw[0][3] == "result = sum(data)"
+        assert call_kw[1]["data"] == [1.0, 2.0, 3.0]
 
         # Error case
         mock_run.return_value = {"status": "error", "message": "Syntax error"}

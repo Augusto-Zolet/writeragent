@@ -39,28 +39,47 @@ def _is_row_sequence(value: Any) -> bool:
     return True
 
 
-def normalize_python_data_shape(grid: list[list[Any]]) -> list[list[Any]]:
-    """Make single-row and single-column ranges easy to use in formulas.
+def normalize_python_data_shape(grid: list[list[Any]]) -> list[Any] | list[list[Any]]:
+    """Shape range data for beginner-friendly formulas like ``sum(data)``.
 
-    Calc passes an N×1 column as N one-cell rows. For ``sum(data[0])`` to sum the
-  whole column (same as a horizontal row range), fold columns into one row.
+    - Single row, single column, or one cell → flat ``[v1, v2, …]`` so ``sum(data)`` works.
+    - True 2D block (both dimensions > 1) → row-major ``list[list]`` (see docs for summing).
     """
     if not grid:
-        return [[]]
+        return []
     nrows = len(grid)
     ncols = max((len(row) for row in grid), default=0)
-    if nrows == 1 or ncols != 1:
+    if nrows > 1 and ncols > 1:
         return grid
-    return [[row[0] if row else None for row in grid]]
+    if nrows == 1:
+        return list(grid[0])
+    if ncols == 1:
+        return [row[0] if row else None for row in grid]
+    return list(grid[0]) if grid else []
 
 
-def calc_addin_data_to_python(value: Any) -> list[list[Any]] | list[Any] | Any | None:
+def finalize_python_data(raw: Any) -> list[Any] | list[list[Any]] | None:
+    """Normalize tool/API ``data`` that may already be a nested list from the LLM."""
+    if raw is None:
+        return None
+    if isinstance(raw, str):
+        return [raw]
+    if not isinstance(raw, (list, tuple)):
+        return [raw]
+    if not raw:
+        return []
+    first = raw[0]
+    if isinstance(first, (list, tuple)):
+        return normalize_python_data_shape([list(row) for row in raw])
+    return list(raw)
+
+
+def calc_addin_data_to_python(value: Any) -> list[Any] | list[list[Any]] | None:
     """Convert a Calc ``=PYTHON()`` second argument into plain Python data.
 
     - Missing / void → ``None`` (no ``data`` injection).
-    - Single cell scalar → ``[[value]]``.
-    - Single row or column → ``[[v1, v2, ...]]`` (so ``sum(data[0])`` covers the range).
-    - General 2D range → ``list[list]`` of cell values (row-major).
+    - Single cell, row, or column → flat ``[v1, v2, …]`` (``sum(data)``, ``max(data)``, etc.).
+    - 2D block (e.g. A1:C5) → ``list[list]`` row-major.
     """
     if value is None:
         return None
@@ -68,11 +87,11 @@ def calc_addin_data_to_python(value: Any) -> list[list[Any]] | list[Any] | Any |
     value = _unwrap_cell(value)
 
     if not _is_row_sequence(value):
-        return [[value]]
+        return [value]
 
     rows = list(value)
     if not rows:
-        return [[]]
+        return []
 
     first = rows[0]
     if _is_row_sequence(first):
@@ -106,7 +125,7 @@ def check_python_data_size(data: Any, *, max_cells: int = MAX_PYTHON_DATA_CELLS)
     return None
 
 
-def values_from_inspector_range(range_data: list[list[dict]]) -> list[list[Any]]:
+def values_from_inspector_range(range_data: list[list[dict]]) -> list[Any] | list[list[Any]]:
     """Strip ``CellInspector.read_range`` dicts to a 2D value list."""
     grid = [[cell.get("value") for cell in row] for row in range_data]
     return normalize_python_data_shape(grid)
