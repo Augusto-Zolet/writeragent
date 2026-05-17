@@ -116,7 +116,7 @@ class ToolWriterPythonBase(ToolWriterSpecialBase):
 
     specialized_domain: ClassVar[str | None] = "python"
     specialized_domain_description: ClassVar[str | None] = (
-        "Run Python in the user-configured venv (subprocess)."
+        "Run Python / Numpy in the user-configured venv (subprocess)."
     )
 
 

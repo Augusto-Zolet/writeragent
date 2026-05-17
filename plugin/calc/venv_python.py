@@ -35,7 +35,7 @@ _PARAMETERS_CALC = {
     "properties": {
         "code": {
             "type": "string",
-            "description": "Python source. Set `result` to the return value (JSON-serializable).",
+            "description": "Python / Numpy source. Set `result` to the return value (JSON-serializable).",
         },
         "data_range": {
             "type": "string",
@@ -59,7 +59,7 @@ _PARAMETERS_NON_CALC = {
     "properties": {
         "code": {
             "type": "string",
-            "description": "Python source. Set `result` to the return value (JSON-serializable).",
+            "description": "Python / Numpy source. Set `result` to the return value (JSON-serializable).",
         },
         "timeout_sec": {
             "type": "integer",
