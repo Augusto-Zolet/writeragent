@@ -160,29 +160,56 @@ class DrawDocState:
         self.shapes: list[dict[str, Any]] = []
         self._next_index = 0
 
-    def create_shape(self, shape_type: str = "rectangle", text: str = "", x: int = 1000, y: int = 1000, width: int = 2000, height: int = 1000, **kwargs: Any) -> dict[str, Any]:
-        """Mock create_shape for flowchart and basic shapes."""
-        idx = self._next_index
-        self._next_index += 1
+    def upsert_shape(self, action: str = "create", shape_index: int | None = None, shape_type: str = "rectangle", text: str = "", x: int = 1000, y: int = 1000, width: int = 2000, height: int = 1000, **kwargs: Any) -> dict[str, Any]:
+        """Mock upsert_shape for flowchart and basic shapes."""
+        if action == "create":
+            idx = self._next_index
+            self._next_index += 1
 
-        shape = {
-            "index": idx,
-            "type": shape_type,
-            "text": text,
-            "x": x,
-            "y": y,
-            "width": width,
-            "height": height,
-            "custom_shape_type": shape_type if "flowchart" in shape_type.lower() else None,
-        }
-        self.shapes.append(shape)
-        return {
-            "status": "ok",
-            "message": f"Created {shape_type}",
-            "shape_index": idx,
-            "page_index": 0,
-            "shape_count_after": len(self.shapes),
-        }
+            shape = {
+                "index": idx,
+                "type": shape_type,
+                "text": text,
+                "x": x,
+                "y": y,
+                "width": width,
+                "height": height,
+                "custom_shape_type": shape_type if "flowchart" in shape_type.lower() else None,
+            }
+            self.shapes.append(shape)
+            return {
+                "status": "ok",
+                "message": f"Created {shape_type}",
+                "shape_index": idx,
+                "page_index": 0,
+                "shape_count_after": len(self.shapes),
+            }
+        elif action == "edit":
+            if shape_index is None:
+                return {"status": "error", "message": "shape_index is required for edit"}
+            
+            # Find the shape in self.shapes by index
+            found_shape = None
+            for s in self.shapes:
+                if s["index"] == shape_index:
+                    found_shape = s
+                    break
+            
+            if not found_shape:
+                return {"status": "error", "message": f"Shape index {shape_index} not found"}
+            
+            if "x" in kwargs: found_shape["x"] = kwargs["x"]
+            if "y" in kwargs: found_shape["y"] = kwargs["y"]
+            if "width" in kwargs: found_shape["width"] = kwargs["width"]
+            if "height" in kwargs: found_shape["height"] = kwargs["height"]
+            if "text" in kwargs: found_shape["text"] = kwargs["text"]
+            
+            return {
+                "status": "ok",
+                "message": "Shape updated",
+                "page_index": 0,
+            }
+        return {"status": "error", "message": f"Unknown action {action}"}
 
     def get_draw_tree(self, **kwargs: Any) -> dict[str, Any]:
         """Returns semantic tree (DOM) matching production GetDrawTree."""
@@ -333,8 +360,8 @@ def dispatch_string_tool(state: StringDocState | DrawDocState | CalcStringState,
             else:
                 res = {"status": "error", "message": f"Unknown Calc tool: {name}"}
         elif isinstance(state, DrawDocState):
-            if name == "create_shape":
-                res = state.create_shape(**args)
+            if name == "upsert_shape":
+                res = state.upsert_shape(**args)
             elif name in ("get_draw_tree", "get_draw_summary"):
                 if name == "get_draw_tree":
                     res = state.get_draw_tree(**args)
@@ -356,10 +383,10 @@ def dispatch_string_tool(state: StringDocState | DrawDocState | CalcStringState,
                 )
             else:
                 # Forward unknown to Draw or Calc if it looks like one (for mixed evals)
-                if name in ("create_shape", "get_draw_tree", "get_draw_summary"):
+                if name in ("upsert_shape", "get_draw_tree", "get_draw_summary"):
                     draw_state = DrawDocState()
-                    if name == "create_shape":
-                        res = draw_state.create_shape(**args)
+                    if name == "upsert_shape":
+                        res = draw_state.upsert_shape(**args)
                     elif name == "get_draw_tree":
                         res = draw_state.get_draw_tree(**args)
                     else:

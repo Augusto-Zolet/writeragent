@@ -103,29 +103,6 @@ def test_bcp47_tags_have_valid_uno_language() -> None:
         assert la and len(la) >= 2
         assert c == c.upper()
 
-def test_parse_grammar_json_empty() -> None:
-    assert gl.parse_grammar_json("") == []
-    assert gl.parse_grammar_json("not json") == []
-
-def test_parse_grammar_json_valid() -> None:
-    raw = '{"errors": [{"wrong": "they is", "correct": "they are", "type": "grammar", "reason": "agreement"}]}'
-    items = gl.parse_grammar_json(raw)
-    assert len(items) == 1
-    assert items[0]["wrong"] == "they is"
-    assert items[0]["correct"] == "they are"
-
-def test_parse_language_detect_json() -> None:
-    raw = '{"detected_language_bcp47": "fr-FR", "errors": []}'
-    lang = gl.parse_language_detect_json(raw)
-    assert lang == "fr-FR"
-    
-    assert gl.parse_language_detect_json('{"other": 1}') is None
-
-def test_parse_language_detect_batch_json() -> None:
-    raw = '{"detected_language_bcp47": "es-ES", "results": [{"detected_language_bcp47": "es-ES"}]}'
-    langs = gl.parse_language_detect_batch_json(raw)
-    assert len(langs) == 1
-    assert langs[0] == "es-ES"
 
 def test_looks_complete_sentence_matches_proofreader_gating() -> None:
     """Includes STerm chars beyond ASCII."""

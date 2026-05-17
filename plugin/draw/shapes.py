@@ -617,18 +617,21 @@ _CREATE_SHAPE_SHAPE_TYPE_DESC = (
 )
 
 
-class CreateShape(ToolDrawShapeBase):
-    name = "create_shape"
-    description = "Creates a new shape on the active page."
+class UpsertShape(ToolDrawShapeBase):
+    name = "upsert_shape"
+    description = "Creates a new shape or modifies an existing shape on a page."
     parameters = {
         "type": "object",
         "properties": {
-            "shape_type": {"type": "string", "description": _CREATE_SHAPE_SHAPE_TYPE_DESC},
-            "x": {"type": "integer", "description": "X position (100ths of mm)"},
-            "y": {"type": "integer", "description": "Y position (100ths of mm)"},
-            "width": {"type": "integer", "description": "Width (100ths of mm)"},
-            "height": {"type": "integer", "description": "Height (100ths of mm)"},
-            "text": {"type": "string", "description": "Initial text"},
+            "action": {"type": "string", "enum": ["create", "edit"], "description": "Action to perform: 'create' a new shape, or 'edit' an existing one."},
+            "shape_index": {"type": "integer", "description": "0-based index of the shape on the page (required only for action='edit')"},
+            "page_index": {"type": "integer", "description": "0-based page index (active page if omitted)"},
+            "shape_type": {"type": "string", "description": _CREATE_SHAPE_SHAPE_TYPE_DESC + " (required only for action='create')"},
+            "x": {"type": "integer", "description": "X position (100ths of mm) (required only for action='create')"},
+            "y": {"type": "integer", "description": "Y position (100ths of mm) (required only for action='create')"},
+            "width": {"type": "integer", "description": "Width (100ths of mm) (required only for action='create')"},
+            "height": {"type": "integer", "description": "Height (100ths of mm) (required only for action='create')"},
+            "text": {"type": "string", "description": "Text content"},
             "bg_color": {"type": "string", "description": "Alias for fill_color. Hex (#FF0000) or name (red)"},
             "fill_color": {"type": "string", "description": "Fill color. Hex (#FF0000) or name (red)"},
             "fill_style": {"type": "string", "enum": ["solid", "transparent", "none"], "description": "Fill style"},
@@ -638,18 +641,36 @@ class CreateShape(ToolDrawShapeBase):
             "font_size": {"type": "number", "description": "Font size in points"},
             "font_name": {"type": "string", "description": "Font family name"},
             "rotation_angle": {"type": "number", "description": "Rotation angle in degrees"},
-            "page_index": {"type": "integer", "description": "0-based page index (active page if omitted)"},
         },
-        "required": ["shape_type", "x", "y", "width", "height"],
+        "required": ["action"],
     }
     uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
     doc_types = ["draw", "impress"]
     is_mutation = True
 
+    def validate(self, *, doc_type: str | None = None, **kwargs):
+        action = kwargs.get("action")
+        if not action:
+            return False, "Missing required parameter: 'action' must be 'create' or 'edit'"
+        
+        if action == "create":
+            required = ["shape_type", "x", "y", "width", "height"]
+            for r in required:
+                if r not in kwargs:
+                    return False, f"Parameter '{r}' is required when action is 'create'"
+        elif action == "edit":
+            if "shape_index" not in kwargs:
+                return False, "Parameter 'shape_index' is required when action is 'edit'"
+        else:
+            return False, f"Unknown action: '{action}'. Must be 'create' or 'edit'"
+            
+        return True, None
+
     def execute(self, ctx, **kwargs):
         from plugin.draw.bridge import DrawBridge
         from com.sun.star.awt import Point, Size
 
+        action = kwargs["action"]
         bridge = DrawBridge(ctx.doc)
         
         # Resolve page
@@ -666,142 +687,97 @@ class CreateShape(ToolDrawShapeBase):
         if page is None:
             return self._tool_error("No draw page available.")
 
-        type_map = {"rectangle": "RectangleShape", "ellipse": "EllipseShape", "text": "TextShape", "line": "LineShape", "connector": "ConnectorShape"}
-        shape_type_raw = kwargs["shape_type"]
+        if action == "create":
+            type_map = {"rectangle": "RectangleShape", "ellipse": "EllipseShape", "text": "TextShape", "line": "LineShape", "connector": "ConnectorShape"}
+            shape_type_raw = kwargs["shape_type"]
 
-        _log_create_shape_page_context(ctx.doc, bridge, page)
-        _log_writer_document_shape_context(ctx.doc)
+            _log_create_shape_page_context(ctx.doc, bridge, page)
+            _log_writer_document_shape_context(ctx.doc)
 
-        position = Point(kwargs["x"], kwargs["y"])
-        size = Size(kwargs["width"], kwargs["height"])
+            position = Point(kwargs["x"], kwargs["y"])
+            size = Size(kwargs["width"], kwargs["height"])
 
-        is_custom_shape = False
-        custom_shape_type = ""
+            is_custom_shape = False
+            custom_shape_type = ""
 
-        # Determine UNO type
-        if shape_type_raw in type_map:
-            uno_type = type_map[shape_type_raw]
-        elif "." in shape_type_raw or shape_type_raw.endswith("Shape"):
-            uno_type = shape_type_raw
-        else:
-            # Fallback to CustomShape for things like 'octagon', 'smiley', 'heart'
-            uno_type = "CustomShape"
-            is_custom_shape = True
-            custom_shape_type = shape_type_raw
+            # Determine UNO type
+            if shape_type_raw in type_map:
+                uno_type = type_map[shape_type_raw]
+            elif "." in shape_type_raw or shape_type_raw.endswith("Shape"):
+                uno_type = shape_type_raw
+            else:
+                # Fallback to CustomShape for things like 'octagon', 'smiley', 'heart'
+                uno_type = "CustomShape"
+                is_custom_shape = True
+                custom_shape_type = shape_type_raw
 
-        log.debug("create_shape branch: raw=%r resolved_uno=%r is_custom_catalog=%s catalog_name=%r (rectangle path uses RectangleShape + no enhanced geometry; octagon uses CustomShape + geometry before add)", shape_type_raw, uno_type, is_custom_shape, custom_shape_type if is_custom_shape else None)
+            log.debug("upsert_shape (create) branch: raw=%r resolved_uno=%r is_custom_catalog=%s catalog_name=%r", shape_type_raw, uno_type, is_custom_shape, custom_shape_type if is_custom_shape else None)
 
-        draw_shapes = DrawShapes()
+            draw_shapes = DrawShapes()
 
-        try:
-            shape, geometry_applied, geometry_error = draw_shapes.safe_create_shape(
-                ctx.doc,
-                page,
-                uno_type,
-                position,
-                size,
-                custom_shape_type=None,  # Do not apply geometry before anchoring to avoid Writer clearing bugs
-            )
-            if is_custom_shape and geometry_applied:
-                _log_shape_uno_snapshot("after_custom_geometry", shape)
-        except DrawError as e:
-            return self._tool_error(e.message)
+            try:
+                shape, geometry_applied, geometry_error = draw_shapes.safe_create_shape(
+                    ctx.doc,
+                    page,
+                    uno_type,
+                    position,
+                    size,
+                    custom_shape_type=None,
+                )
+                if is_custom_shape and geometry_applied:
+                    _log_shape_uno_snapshot("after_custom_geometry", shape)
+            except DrawError as e:
+                return self._tool_error(e.message)
 
-        _try_writer_at_page_shape_finalize(ctx.doc, bridge, page, shape)
-        _try_writer_reapply_position_after_anchor(ctx.doc, shape, position, size)
+            _try_writer_at_page_shape_finalize(ctx.doc, bridge, page, shape)
+            _try_writer_reapply_position_after_anchor(ctx.doc, shape, position, size)
 
-        # Apply geometry securely AFTER anchoring
-        if is_custom_shape and custom_shape_type:
-            geometry_applied, geometry_error = _apply_enhanced_custom_shape_type(shape, custom_shape_type)
-            if not geometry_applied:
-                log.warning("create_shape: Failed to apply EnhancedCustomShapeGeometry post-anchor")
+            # Apply geometry securely AFTER anchoring
+            if is_custom_shape and custom_shape_type:
+                geometry_applied, geometry_error = _apply_enhanced_custom_shape_type(shape, custom_shape_type)
+                if not geometry_applied:
+                    log.warning("upsert_shape (create): Failed to apply EnhancedCustomShapeGeometry post-anchor")
 
-        _apply_shape_properties(shape, kwargs)
-        _try_writer_invalidate_and_pump(ctx.doc)
-        _try_writer_select_created_shape(ctx.doc, shape)
-        _log_shape_uno_snapshot("after_formatting", shape)
-        if is_custom_shape:
-            _log_custom_shape_geometry_dump(shape, "after_formatting")
-        _log_shape_property_names_sample(shape, "after_formatting")
+            _apply_shape_properties(shape, kwargs)
+            _try_writer_invalidate_and_pump(ctx.doc)
+            _try_writer_select_created_shape(ctx.doc, shape)
+            _log_shape_uno_snapshot("after_formatting", shape)
+            if is_custom_shape:
+                _log_custom_shape_geometry_dump(shape, "after_formatting")
+            _log_shape_property_names_sample(shape, "after_formatting")
 
-        page_index = _page_index_for(bridge, page)
-        shape_count_after = page.getCount()
-        shape_index = shape_count_after - 1
+            page_index = _page_index_for(bridge, page)
+            shape_count_after = page.getCount()
+            shape_index = shape_count_after - 1
 
-        log.debug("create_shape: page_index=%s shape_index=%s shape_type=%s is_custom=%s geometry_applied=%s", page_index, shape_index, shape_type_raw, is_custom_shape, geometry_applied)
+            log.debug("upsert_shape (create): page_index=%s shape_index=%s shape_type=%s is_custom=%s geometry_applied=%s", page_index, shape_index, shape_type_raw, is_custom_shape, geometry_applied)
 
-        result: dict = {"status": "ok", "message": f"Created {shape_type_raw}", "shape_index": shape_index, "page_index": page_index, "shape_count_after": shape_count_after}
-        if is_custom_shape:
-            result["custom_shape_engine"] = _ENHANCED_CUSTOM_SHAPE_ENGINE
-            result["geometry_applied"] = bool(geometry_applied)
-            if geometry_error:
-                result["geometry_error"] = geometry_error
-                result["warning"] = f"Custom shape geometry failed: {geometry_error}"
+            result: dict = {"status": "ok", "message": f"Created {shape_type_raw}", "shape_index": shape_index, "page_index": page_index, "shape_count_after": shape_count_after}
+            if is_custom_shape:
+                result["custom_shape_engine"] = _ENHANCED_CUSTOM_SHAPE_ENGINE
+                result["geometry_applied"] = bool(geometry_applied)
+                if geometry_error:
+                    result["geometry_error"] = geometry_error
+                    result["warning"] = f"Custom shape geometry failed: {geometry_error}"
 
-        return result
+            return result
 
+        elif action == "edit":
+            try:
+                shape = page.getByIndex(kwargs["shape_index"])
+            except Exception as e:
+                return self._tool_error(f"Failed to find shape at index {kwargs['shape_index']}: {str(e)}")
 
-class EditShape(ToolDrawShapeBase):
-    name = "edit_shape"
-    intent = "edit"
-    description = "Modifies properties of an existing shape."
-    parameters = {
-        "type": "object",
-        "properties": {
-            "shape_index": {"type": "integer", "description": "0-based index of the shape on the page"},
-            "page_index": {"type": "integer", "description": "0-based page index (active page if omitted)"},
-            "x": {"type": "integer", "description": "X position (100ths of mm)"},
-            "y": {"type": "integer", "description": "Y position (100ths of mm)"},
-            "width": {"type": "integer", "description": "Width (100ths of mm)"},
-            "height": {"type": "integer", "description": "Height (100ths of mm)"},
-            "text": {"type": "string", "description": "Text content"},
-            "bg_color": {"type": "string", "description": "Alias for fill_color. Hex (#FF0000) or name (red)"},
-            "fill_color": {"type": "string", "description": "Fill color. Hex (#FF0000) or name (red)"},
-            "fill_style": {"type": "string", "enum": ["solid", "transparent", "none"], "description": "Fill style"},
-            "line_color": {"type": "string", "description": "Line border color"},
-            "line_width": {"type": "integer", "description": "Line width (100ths of mm)"},
-            "text_color": {"type": "string", "description": "Text character color"},
-            "font_size": {"type": "number", "description": "Font size in points"},
-            "font_name": {"type": "string", "description": "Font family name"},
-            "rotation_angle": {"type": "number", "description": "Rotation angle in degrees"},
-        },
-        "required": ["shape_index"],
-    }
-    uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
-    is_mutation = True
+            if "x" in kwargs or "y" in kwargs:
+                pos = shape.getPosition()
+                shape.setPosition(Point(kwargs.get("x", pos.X), kwargs.get("y", pos.Y)))
+            if "width" in kwargs or "height" in kwargs:
+                size = shape.getSize()
+                shape.setSize(Size(kwargs.get("width", size.Width), kwargs.get("height", size.Height)))
 
-    def execute(self, ctx, **kwargs):
-        from plugin.draw.bridge import DrawBridge
+            _apply_shape_properties(shape, kwargs)
 
-        bridge = DrawBridge(ctx.doc)
-        idx = kwargs.get("page_index")
-        actual_idx = idx if idx is not None else ctx.active_page_index
-        if actual_idx is None:
-            actual_idx = bridge.get_active_page_index()
-
-        try:
-            page = bridge.get_pages().getByIndex(actual_idx)
-        except Exception:
-            return self._tool_error("Invalid page index: %s" % actual_idx)
-
-        if page is None:
-            return self._tool_error("No draw page available.")
-
-        shape = page.getByIndex(kwargs["shape_index"])
-        if "x" in kwargs or "y" in kwargs:
-            from com.sun.star.awt import Point
-
-            pos = shape.getPosition()
-            shape.setPosition(Point(kwargs.get("x", pos.X), kwargs.get("y", pos.Y)))
-        if "width" in kwargs or "height" in kwargs:
-            from com.sun.star.awt import Size
-
-            size = shape.getSize()
-            shape.setSize(Size(kwargs.get("width", size.Width), kwargs.get("height", size.Height)))
-
-        _apply_shape_properties(shape, kwargs)
-
-        return {"status": "ok", "message": "Shape updated", "page_index": actual_idx}
+            return {"status": "ok", "message": "Shape updated", "page_index": actual_idx}
 
 
 class ConnectShapes(ToolDrawShapeBase):

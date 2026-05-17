@@ -22,6 +22,7 @@ from . import (
     grammar_proofread_text,
     grammar_persistence,
     grammar_fsm_state,
+    grammar_proofread_json,
 )
 
 from plugin.framework import queue_executor, event_bus, config
@@ -335,7 +336,7 @@ def _handle_lang_detect_effect(effect: Any, ec: GrammarEffectContext) -> grammar
             with queue_executor.llm_request_lane():
                 detect_content = ec.client.chat_completion_sync(detect_messages, max_tokens=100 * len(effect.chunk), model=ec.model or None, response_format={"type": "json_object"}, prepend_dev_build_system_prefix=False)
 
-            parsed_langs = grammar_proofread_locale.parse_language_detect_batch_json(detect_content or "")
+            parsed_langs = grammar_proofread_json.parse_language_detect_batch_json(detect_content or "")
             if len(parsed_langs) == len(effect.chunk):
                 for idx, d_lang in enumerate(parsed_langs):
                     if d_lang:
@@ -350,7 +351,7 @@ def _handle_lang_detect_effect(effect: Any, ec: GrammarEffectContext) -> grammar
             with queue_executor.llm_request_lane():
                 detect_content = ec.client.chat_completion_sync(detect_messages, max_tokens=50, model=ec.model or None, response_format={"type": "json_object"}, prepend_dev_build_system_prefix=False)
 
-            parsed_lang = grammar_proofread_locale.parse_language_detect_json(detect_content or "")
+            parsed_lang = grammar_proofread_json.parse_language_detect_json(detect_content or "")
             if parsed_lang:
                 _put_cached_language(text, parsed_lang)
                 detected_langs[0] = parsed_lang
@@ -379,7 +380,7 @@ def _handle_grammar_check_effect(effect: Any, ec: GrammarEffectContext) -> gramm
             content = ec.client.chat_completion_sync(messages, max_tokens=ec.max_tok * grammar_proofread_locale.GRAMMAR_BATCH_MAX_SENTENCES, model=ec.model or None, response_format={"type": "json_object"}, prepend_dev_build_system_prefix=False)
         elapsed_ms = int((time.monotonic() - request_start) * 1000)
 
-        batch_results = grammar_proofread_locale.parse_grammar_batch_json(content or "")
+        batch_results = grammar_proofread_json.parse_grammar_batch_json(content or "")
         return grammar_fsm_state.GrammarEvent(grammar_fsm_state.EventKind.GRAMMAR_CHECK_DONE, data={"results": batch_results, "elapsed_ms": elapsed_ms})
     else:
         item, text = effect.chunk[0]
@@ -397,7 +398,7 @@ def _handle_grammar_check_effect(effect: Any, ec: GrammarEffectContext) -> gramm
             content = ec.client.chat_completion_sync(messages, max_tokens=ec.max_tok, model=ec.model or None, response_format={"type": "json_object"}, prepend_dev_build_system_prefix=False)
         elapsed_ms = int((time.monotonic() - request_start) * 1000)
 
-        sent_results = grammar_proofread_locale.parse_grammar_json(content or "")
+        sent_results = grammar_proofread_json.parse_grammar_json(content or "")
         return grammar_fsm_state.GrammarEvent(grammar_fsm_state.EventKind.GRAMMAR_CHECK_DONE, data={"results": [sent_results] if content else [], "elapsed_ms": elapsed_ms})
 
 

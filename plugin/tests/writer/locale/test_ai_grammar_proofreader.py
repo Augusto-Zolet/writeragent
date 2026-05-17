@@ -158,7 +158,7 @@ def test_run_llm_skips_split_when_proofread_sentence_text_set() -> None:
         patch("plugin.framework.client.llm_client.LlmClient") as client_cls,
         patch("plugin.writer.locale.ai_grammar_proofreader.time.sleep"),
         patch("plugin.writer.locale.grammar_proofread_text.split_into_sentences", side_effect=_split_must_not_run),
-        patch("plugin.writer.locale.grammar_proofread_locale.parse_grammar_json", return_value=[]),
+        patch("plugin.writer.locale.grammar_proofread_json.parse_grammar_json", return_value=[]),
         patch("plugin.writer.locale.grammar_proofread_text.normalize_errors_for_text", return_value=[]),
         patch("plugin.writer.locale.grammar_proofread_cache.cache_put_sentence"),
     ):
@@ -181,7 +181,7 @@ def test_partial_sentence_adds_prompt_note() -> None:
         patch("plugin.framework.queue_executor.llm_request_lane") as lane_ctx,
         patch("plugin.framework.client.llm_client.LlmClient") as client_cls,
         patch("plugin.writer.locale.ai_grammar_proofreader.time.sleep"),
-        patch("plugin.writer.locale.grammar_proofread_locale.parse_grammar_json", return_value=[]),
+        patch("plugin.writer.locale.grammar_proofread_json.parse_grammar_json", return_value=[]),
         patch("plugin.writer.locale.grammar_proofread_text.normalize_errors_for_text", return_value=[]),
         patch("plugin.writer.locale.grammar_proofread_cache.cache_put_sentence"),
     ):

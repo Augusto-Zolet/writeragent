@@ -85,11 +85,13 @@ def build_eval_tool_schemas(include_draw: bool = False, include_calc: bool = Fal
         # Minimal schemas for shapes (full production schemas in main codebase)
         schemas.extend([
             {
-                "name": "create_shape",
-                "description": "Create a shape on the draw page (supports flowchart-* types, rectangle, etc.). Returns shape_index and status.",
+                "name": "upsert_shape",
+                "description": "Create or edit a shape on the draw page. Returns shape_index and status.",
                 "parameters": {
                     "type": "object",
                     "properties": {
+                        "action": {"type": "string", "enum": ["create", "edit"]},
+                        "shape_index": {"type": "integer"},
                         "shape_type": {"type": "string", "description": "rectangle, flowchart-process, ellipse, etc."},
                         "text": {"type": "string", "description": "Text content for the shape."},
                         "x": {"type": "integer"},
@@ -97,7 +99,7 @@ def build_eval_tool_schemas(include_draw: bool = False, include_calc: bool = Fal
                         "width": {"type": "integer"},
                         "height": {"type": "integer"},
                     },
-                    "required": ["shape_type"],
+                    "required": ["action"],
                 },
             },
             {

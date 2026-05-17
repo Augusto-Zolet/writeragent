@@ -18,8 +18,7 @@
 
 import logging
 from ..specialized_base import ToolWriterShapeBase
-from plugin.draw.shapes import CreateShape as DrawCreateShape
-from plugin.draw.shapes import EditShape as DrawEditShape
+from plugin.draw.shapes import UpsertShape as DrawUpsertShape
 from plugin.draw.shapes import DeleteShape as DrawDeleteShape
 from plugin.draw.shapes import GetDrawSummary as DrawGetDrawSummary
 from plugin.draw.shapes import ConnectShapes as DrawConnectShapes
@@ -35,16 +34,11 @@ log = logging.getLogger("writeragent.writer")
 _WRITER_DRAW_SHAPE_DOCS = ["com.sun.star.text.TextDocument", "com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
 
 
-class CreateShape(DrawCreateShape, ToolWriterShapeBase):
-    name = "create_shape"
+class UpsertShape(DrawUpsertShape, ToolWriterShapeBase):
+    name = "upsert_shape"
     uno_services = _WRITER_DRAW_SHAPE_DOCS
     # Specialized for all document types (use delegate_to_specialized_*_toolset(domain=shapes)).
     tier = "specialized"
-
-
-class EditShape(DrawEditShape, ToolWriterShapeBase):
-    name = "edit_shape"
-    uno_services = _WRITER_DRAW_SHAPE_DOCS
 
 
 class DeleteShape(DrawDeleteShape, ToolWriterShapeBase):

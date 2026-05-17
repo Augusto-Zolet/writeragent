@@ -49,7 +49,6 @@ DOMAIN_TOOLS = {   'bookmark': [   'cleanup_bookmarks',
                 'read_cell_range',
                 'set_style',
                 'write_formula_range'],
-    'chart': ['create_chart', 'delete_chart', 'edit_chart', 'get_chart_info', 'list_charts'],
     'comment': [   'add_cell_comment',
                    'delete_cell_comment',
                    'delete_comment',
@@ -58,7 +57,14 @@ DOMAIN_TOOLS = {   'bookmark': [   'cleanup_bookmarks',
                    'resolve_comment',
                    'workflow'],
     'conditional_formatting': ['add_conditional_format', 'list_conditional_formats', 'remove_conditional_formats'],
-    'core': ['specialized_workflow_finished', 'upsert_memory', 'web_research'],
+    'core': [   'create_chart',
+                'delete_chart',
+                'edit_chart',
+                'get_chart_info',
+                'list_charts',
+                'specialized_workflow_finished',
+                'upsert_memory',
+                'web_research'],
     'draw': [   'add_slide',
                 'delegate_to_specialized_draw_toolset',
                 'delete_slide',
@@ -107,13 +113,12 @@ DOMAIN_TOOLS = {   'bookmark': [   'cleanup_bookmarks',
     'python': ['run_venv_python_script'],
     'range': ['list_named_ranges', 'sort_range'],
     'search': ['replace_in_spreadsheet', 'search_in_spreadsheet'],
-    'shape': [   'create_shape',
-                 'delete_shape',
-                 'edit_shape',
+    'shape': [   'delete_shape',
                  'get_draw_summary',
                  'list_writer_images',
                  'shapes_connect',
-                 'shapes_group'],
+                 'shapes_group',
+                 'upsert_shape'],
     'sheet': [   'apply_sheet_filter',
                  'clear_sheet_filter',
                  'create_sheet',
@@ -230,32 +235,6 @@ class _CalcProxy:
 calc = _CalcProxy()
 
 
-class _ChartProxy:
-    """Proxy for chart tools."""
-
-    def create_chart(self, chart_type: str, *, data_range: str = "", title: str = "", is_3d: bool = True, stacked: bool = True, percent: bool = True, x_axis_title: str = "", y_axis_title: str = "", legend_position: str = "", has_legend: bool = True, subtitle: str = "", position: str = "") -> dict:
-        """Creates a chart in the current context."""
-        return _rpc_call("create_chart", data_range=data_range, chart_type=chart_type, title=title, is_3d=is_3d, stacked=stacked, percent=percent, x_axis_title=x_axis_title, y_axis_title=y_axis_title, legend_position=legend_position, has_legend=has_legend, subtitle=subtitle, position=position)
-
-    def delete_chart(self, chart_name: str) -> dict:
-        """Delete a chart by name.."""
-        return _rpc_call("delete_chart", chart_name=chart_name)
-
-    def edit_chart(self, chart_name: str, *, data_range: str = "", chart_type: str = "", title: str = "", is_3d: bool = True, stacked: bool = True, percent: bool = True, x_axis_title: str = "", y_axis_title: str = "", legend_position: str = "", has_legend: bool = True, subtitle: str = "", position: str = "") -> dict:
-        """Edit a chart's properties: title, 3D mode, stacking, legend, axes, etc.."""
-        return _rpc_call("edit_chart", data_range=data_range, chart_type=chart_type, title=title, is_3d=is_3d, stacked=stacked, percent=percent, x_axis_title=x_axis_title, y_axis_title=y_axis_title, legend_position=legend_position, has_legend=has_legend, subtitle=subtitle, position=position, chart_name=chart_name)
-
-    def get_chart_info(self, chart_name: str) -> dict:
-        """Get detailed info about a chart: type, title, ranges (if Calc), axis titles, and legend properties.."""
-        return _rpc_call("get_chart_info", chart_name=chart_name)
-
-    def list_charts(self) -> dict:
-        """List all charts in the current context (active sheet, document, or slide) with name, title, and type.."""
-        return _rpc_call("list_charts")
-
-chart = _ChartProxy()
-
-
 class _CommentProxy:
     """Proxy for comment tools."""
 
@@ -310,6 +289,26 @@ conditional_formatting = _ConditionalFormattingProxy()
 
 class _CoreProxy:
     """Proxy for core tools."""
+
+    def create_chart(self, chart_type: str, *, data_range: str = "", title: str = "", is_3d: bool = True, stacked: bool = True, percent: bool = True, x_axis_title: str = "", y_axis_title: str = "", legend_position: str = "", has_legend: bool = True, subtitle: str = "", position: str = "") -> dict:
+        """Creates a chart in the current context."""
+        return _rpc_call("create_chart", data_range=data_range, chart_type=chart_type, title=title, is_3d=is_3d, stacked=stacked, percent=percent, x_axis_title=x_axis_title, y_axis_title=y_axis_title, legend_position=legend_position, has_legend=has_legend, subtitle=subtitle, position=position)
+
+    def delete_chart(self, chart_name: str) -> dict:
+        """Delete a chart by name.."""
+        return _rpc_call("delete_chart", chart_name=chart_name)
+
+    def edit_chart(self, chart_name: str, *, data_range: str = "", chart_type: str = "", title: str = "", is_3d: bool = True, stacked: bool = True, percent: bool = True, x_axis_title: str = "", y_axis_title: str = "", legend_position: str = "", has_legend: bool = True, subtitle: str = "", position: str = "") -> dict:
+        """Edit a chart's properties: title, 3D mode, stacking, legend, axes, etc.."""
+        return _rpc_call("edit_chart", data_range=data_range, chart_type=chart_type, title=title, is_3d=is_3d, stacked=stacked, percent=percent, x_axis_title=x_axis_title, y_axis_title=y_axis_title, legend_position=legend_position, has_legend=has_legend, subtitle=subtitle, position=position, chart_name=chart_name)
+
+    def get_chart_info(self, chart_name: str) -> dict:
+        """Get detailed info about a chart: type, title, ranges (if Calc), axis titles, and legend properties.."""
+        return _rpc_call("get_chart_info", chart_name=chart_name)
+
+    def list_charts(self) -> dict:
+        """List all charts in the current context (active sheet, document, or slide) with name, title, and type.."""
+        return _rpc_call("list_charts")
 
     def specialized_workflow_finished(self, answer: str) -> dict:
         """Provides a final answer to the given task and exits the specialized toolset mode.."""
@@ -671,17 +670,9 @@ class _ShapeProxy:
         """Connect two shapes on the same page with a connector.."""
         return _rpc_call("shapes_connect", start_shape_index=start_shape_index, end_shape_index=end_shape_index, page_index=page_index, line_color=line_color, line_width=line_width)
 
-    def create_shape(self, shape_type: str, x: int, y: int, width: int, height: int, *, text: str = "", bg_color: str = "", fill_color: str = "", fill_style: str = "", line_color: str = "", line_width: int = 0, text_color: str = "", font_size: float = 0.0, font_name: str = "", rotation_angle: float = 0.0, page_index: int = 0) -> dict:
-        """Creates a new shape on the active page.."""
-        return _rpc_call("create_shape", shape_type=shape_type, x=x, y=y, width=width, height=height, text=text, bg_color=bg_color, fill_color=fill_color, fill_style=fill_style, line_color=line_color, line_width=line_width, text_color=text_color, font_size=font_size, font_name=font_name, rotation_angle=rotation_angle, page_index=page_index)
-
     def delete_shape(self, shape_index: int, *, page_index: int = 0) -> dict:
         """Deletes a shape by index.."""
         return _rpc_call("delete_shape", shape_index=shape_index, page_index=page_index)
-
-    def edit_shape(self, shape_index: int, *, page_index: int = 0, x: int = 0, y: int = 0, width: int = 0, height: int = 0, text: str = "", bg_color: str = "", fill_color: str = "", fill_style: str = "", line_color: str = "", line_width: int = 0, text_color: str = "", font_size: float = 0.0, font_name: str = "", rotation_angle: float = 0.0) -> dict:
-        """Modifies properties of an existing shape.."""
-        return _rpc_call("edit_shape", shape_index=shape_index, page_index=page_index, x=x, y=y, width=width, height=height, text=text, bg_color=bg_color, fill_color=fill_color, fill_style=fill_style, line_color=line_color, line_width=line_width, text_color=text_color, font_size=font_size, font_name=font_name, rotation_angle=rotation_angle)
 
     def get_draw_summary(self, *, page_index: int = 0) -> dict:
         """Returns a summary of shapes on the active or specified page.."""
@@ -694,6 +685,10 @@ class _ShapeProxy:
     def list_writer_images(self) -> dict:
         """List images and graphic objects in the Writer document (names, sizes, titles)."""
         return _rpc_call("list_writer_images")
+
+    def upsert_shape(self, action: str, *, shape_index: int = 0, page_index: int = 0, shape_type: str = "", x: int = 0, y: int = 0, width: int = 0, height: int = 0, text: str = "", bg_color: str = "", fill_color: str = "", fill_style: str = "", line_color: str = "", line_width: int = 0, text_color: str = "", font_size: float = 0.0, font_name: str = "", rotation_angle: float = 0.0) -> dict:
+        """Creates a new shape or modifies an existing shape on a page.."""
+        return _rpc_call("upsert_shape", action=action, shape_index=shape_index, page_index=page_index, shape_type=shape_type, x=x, y=y, width=width, height=height, text=text, bg_color=bg_color, fill_color=fill_color, fill_style=fill_style, line_color=line_color, line_width=line_width, text_color=text_color, font_size=font_size, font_name=font_name, rotation_angle=rotation_angle)
 
 shape = _ShapeProxy()
 

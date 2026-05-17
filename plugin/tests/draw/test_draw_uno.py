@@ -99,7 +99,7 @@ def test_list_pages():
 
 
 @native_test
-def test_create_and_verify_shape():
+def test_upsert_and_verify_shape():
     try:
         import pytest
         if _test_doc is None:
@@ -124,17 +124,18 @@ def test_create_and_verify_shape():
         active_page = _test_doc.getDrawPages().getByIndex(0)
     initial_shape_count = active_page.getCount()
 
-    result = _exec_tool("create_shape", {
+    result = _exec_tool("upsert_shape", {
+        "action": "create",
         "shape_type": "rectangle",
         "x": 1000, "y": 1000, "width": 5000, "height": 3000,
         "text": "Hello Draw",
         "bg_color": "#FF0000"
     })
     data = json.loads(result)
-    assert data.get("status") == "ok", f"create_shape failed: {result}"
+    assert data.get("status") == "ok", f"upsert_shape create failed: {result}"
 
     new_shape_count = active_page.getCount()
-    assert new_shape_count == initial_shape_count + 1, "Shape count did not increase after create_shape"
+    assert new_shape_count == initial_shape_count + 1, "Shape count did not increase after upsert_shape"
 
     # Query the created shape's Position and Size properties via UNO
     created_shape = active_page.getByIndex(new_shape_count - 1)
@@ -158,13 +159,14 @@ def test_create_and_verify_shape():
     assert shape_id is not None, "Summary missing the created rectangle"
 
     # 3. Edit shape
-    result = _exec_tool("edit_shape", {
+    result = _exec_tool("upsert_shape", {
+        "action": "edit",
         "shape_index": shape_id,
         "x": 3000, "y": 3000,
         "bg_color": "#00FF00"
     })
     data = json.loads(result)
-    assert data.get("status") == "ok", f"edit_shape failed: {result}"
+    assert data.get("status") == "ok", f"upsert_shape edit failed: {result}"
 
     # 4. Delete shape
     result = _exec_tool("delete_shape", {"shape_index": shape_id})
@@ -187,7 +189,8 @@ def test_create_custom_shape_octagon():
         active_page = _test_doc.getDrawPages().getByIndex(0)
     initial_shape_count = active_page.getCount()
 
-    result = _exec_tool("create_shape", {
+    result = _exec_tool("upsert_shape", {
+        "action": "create",
         "shape_type": "octagon",
         "x": 1000,
         "y": 1000,
@@ -198,7 +201,7 @@ def test_create_custom_shape_octagon():
         "line_width": 100,
     })
     data = json.loads(result)
-    assert data.get("status") == "ok", f"create_shape octagon failed: {result}"
+    assert data.get("status") == "ok", f"upsert_shape octagon failed: {result}"
     assert data.get("geometry_applied") is True, data
     assert "warning" not in data, data
 
@@ -272,7 +275,8 @@ def test_get_draw_tree():
         pass
 
     # Ensure there is at least one shape to build a tree with
-    _exec_tool("create_shape", {
+    _exec_tool("upsert_shape", {
+        "action": "create",
         "shape_type": "rectangle",
         "x": 1000, "y": 1000, "width": 5000, "height": 3000,
         "text": "Tree Shape",
@@ -321,3 +325,31 @@ def test_insert_math_draw():
     assert shape.CLSID == "078B7ABA-54FC-457F-8551-6147e776a997"
     sz = shape.getSize()
     assert sz.Width >= 400 and sz.Height >= 300, f"expected plausible size, got {sz.Width}x{sz.Height}"
+
+
+@native_test
+def test_upsert_shape_validation():
+    from plugin.main import get_tools
+    upsert_shape_tool = get_tools().get("upsert_shape")
+    assert upsert_shape_tool is not None
+
+    # Test validation when action is missing
+    ok, err = upsert_shape_tool.validate()
+    assert not ok
+    assert "Missing required parameter" in err
+
+    # Test validation when action='create' but missing required parameters
+    ok, err = upsert_shape_tool.validate(action="create")
+    assert not ok
+    assert "required when action is 'create'" in err
+
+    # Test validation when action='edit' but missing shape_index
+    ok, err = upsert_shape_tool.validate(action="edit")
+    assert not ok
+    assert "Parameter 'shape_index' is required" in err
+
+    # Test validation when action='create' and all required parameters are present
+    ok, err = upsert_shape_tool.validate(action="create", shape_type="rectangle", x=1000, y=1000, width=5000, height=3000)
+    assert ok
+    assert err is None
+
