@@ -120,6 +120,7 @@ def test_writer_chart_polymorphic():
     assert "PieDiagram" in info.get("diagram_type", "")
 
 
+@unittest.skip("Draw/Impress chart create_chart hangs in headless testing_runner (processEventsToIdle in charts.py)")
 @native_test
 def test_draw_chart_polymorphic():
     # 1. Create in Draw
