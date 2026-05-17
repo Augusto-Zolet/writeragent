@@ -51,3 +51,40 @@ def test_parse_language_detect_batch_json() -> None:
     langs = gj.parse_language_detect_batch_json(raw)
     assert len(langs) == 1
     assert langs[0] == "es-ES"
+
+
+def test_compress_and_decompress_error() -> None:
+    original = {
+        "n_error_start": 10,
+        "n_error_length": 5,
+        "suggestions": ["hello", "hi"],
+        "short_comment": "comment",
+        "full_comment": "long comment",
+        "rule_identifier": "rule1",
+        "extra_key": "stays_same",
+    }
+    compressed = gj.compress_error(original)
+    assert compressed == {
+        "s": 10,
+        "l": 5,
+        "g": ["hello", "hi"],
+        "c": "comment",
+        "f": "long comment",
+        "r": "rule1",
+        "extra_key": "stays_same",
+    }
+    decompressed = gj.decompress_error(compressed)
+    assert decompressed == original
+
+
+def test_fingerprint_for_text() -> None:
+    text1 = "This is a sentence."
+    text2 = "This is another sentence."
+    fp1 = gj.fingerprint_for_text(text1)
+    fp2 = gj.fingerprint_for_text(text2)
+    assert len(fp1) == 24
+    assert len(fp2) == 24
+    assert fp1 != fp2
+    # Deterministic check
+    assert fp1 == gj.fingerprint_for_text(text1)
+

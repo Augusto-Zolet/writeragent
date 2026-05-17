@@ -10,6 +10,7 @@ the main locale policy to ensure cleaner separation of concerns.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 from typing import Any, Mapping, cast
@@ -19,6 +20,46 @@ import json_repair
 from plugin.framework.json_utils import safe_json_loads
 
 _log = logging.getLogger("writeragent.grammar")
+
+
+def fingerprint_for_text(text: str) -> str:
+    """Truncate to 24 hex characters (96 bits) for stable collision-resistant sentence caching."""
+    return hashlib.sha256(text.encode("utf-8", errors="surrogatepass")).hexdigest()[:24]
+
+# Storage key mapping for error objects to reduce JSON footprint.
+_ERROR_KEY_MAP = {
+    "n_error_start": "s",
+    "n_error_length": "l",
+    "suggestions": "g",
+    "short_comment": "c",
+    "full_comment": "f",
+    "rule_identifier": "r",
+}
+_REV_ERROR_KEY_MAP = {v: k for k, v in _ERROR_KEY_MAP.items()}
+
+
+def compress_error(err: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy of the error dict with shortened keys for storage."""
+    out = {}
+    for k, v in err.items():
+        short = _ERROR_KEY_MAP.get(k)
+        if short:
+            out[short] = v
+        else:
+            out[k] = v
+    return out
+
+
+def decompress_error(err: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy of the error dict with long keys restored for runtime."""
+    out = {}
+    for k, v in err.items():
+        long = _REV_ERROR_KEY_MAP.get(k)
+        if long:
+            out[long] = v
+        else:
+            out[k] = v
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -171,3 +212,5 @@ def parse_language_detect_batch_json(content: str) -> list[str | None]:
         lang = res.get("detected_language_bcp47")
         out.append(str(lang) if isinstance(lang, str) else None)
     return out
+
+

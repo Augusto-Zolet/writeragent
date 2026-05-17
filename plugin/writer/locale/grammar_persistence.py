@@ -20,43 +20,11 @@ from typing import Any
 
 log = logging.getLogger("writeragent.grammar")
 
+from . import grammar_proofread_json
+
 GRAMMAR_CACHE_VERSION = 2
 GRAMMAR_DOC_CACHE_UDPROP = "WriterAgentGrammarCache"
 
-# Storage key mapping for error objects to reduce JSON footprint.
-_ERROR_KEY_MAP = {
-    "n_error_start": "s",
-    "n_error_length": "l",
-    "suggestions": "g",
-    "short_comment": "c",
-    "full_comment": "f",
-    "rule_identifier": "r",
-}
-_REV_ERROR_KEY_MAP = {v: k for k, v in _ERROR_KEY_MAP.items()}
-
-
-def _compress_error(err: dict[str, Any]) -> dict[str, Any]:
-    """Return a copy of the error dict with shortened keys for storage."""
-    out = {}
-    for k, v in err.items():
-        short = _ERROR_KEY_MAP.get(k)
-        if short:
-            out[short] = v
-        else:
-            out[k] = v
-    return out
-
-
-def _decompress_error(err: dict[str, Any]) -> dict[str, Any]:
-    """Return a copy of the error dict with long keys restored for runtime."""
-    out = {}
-    for k, v in err.items():
-        long = _REV_ERROR_KEY_MAP.get(k)
-        if long:
-            out[long] = v
-        else:
-            out[k] = v
-    return out
 
 
 _unohelper: Any = None
@@ -296,7 +264,7 @@ class DocumentPersistence(GrammarPersistence):
                 if isinstance(bad, dict):
                     for fp, compressed_errors in bad.items():
                         if isinstance(compressed_errors, list):
-                            self._memory_cache[str(fp)] = [_decompress_error(e) for e in compressed_errors if isinstance(e, dict)]
+                             self._memory_cache[str(fp)] = [grammar_proofread_json.decompress_error(e) for e in compressed_errors if isinstance(e, dict)]
                 
                 loaded_count = len(self._memory_cache)
             log.debug("[grammar] DocumentPersistence: loaded %s sentences from udprop (doc_id=%s, v=%s)", loaded_count, self._doc_id[:32] if self._doc_id else "", version)
@@ -318,7 +286,7 @@ class DocumentPersistence(GrammarPersistence):
                         if not errs:
                             good_fps.append(fp)
                         else:
-                            bad_map[fp] = [_compress_error(e) for e in errs]
+                             bad_map[fp] = [grammar_proofread_json.compress_error(e) for e in errs]
             
             payload_dict = {
                 "version": GRAMMAR_CACHE_VERSION,

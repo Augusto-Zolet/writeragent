@@ -21,11 +21,11 @@ def grammar_obs(event: str, **fields: Any) -> None:
     log.debug("[grammar] obs %s %s", event, kv)
 
 
+from . import grammar_proofread_json
 from .grammar_proofread_locale import (
     GRAMMAR_PARTIAL_MIN_NONSPACE_CHARS,
     GRAMMAR_WHITESPACE_RUN_RE,
     count_nonspace_chars,
-    fingerprint_for_text,
     is_whitespace_sentence_locale,
     looks_complete_sentence,
     split_sentence_chunks_by_separator_regex,
@@ -134,7 +134,7 @@ def grammar_inflight_key(a_document_identifier: str, loc_key: str, sent_text: st
     """
     if is_complete:
         # Complete sentences are stable and unique.
-        context = fingerprint_for_text(sent_text)[:16]
+        context = grammar_proofread_json.fingerprint_for_text(sent_text)[:16]
     else:
         # All incomplete sentences in a document share one key to ensure only the
         # latest one is processed (superseding old typing drafts).
@@ -297,7 +297,7 @@ def normalize_errors_for_text(full_text: str, n_slice_start: int, n_slice_end: i
         if any(not (span[1] <= o[0] or span[0] >= o[1]) for o in used_spans):
             continue
         used_spans.append(span)
-        rule_id = f"wa_grammar_{idx}_{fingerprint_for_text(wrong)[:8]}"
+        rule_id = f"wa_grammar_{idx}_{grammar_proofread_json.fingerprint_for_text(wrong)[:8]}"
         if rule_id in ignored:
             continue
         sugg = (correct,) if correct else ()

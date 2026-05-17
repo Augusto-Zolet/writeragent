@@ -9,7 +9,6 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from plugin.writer.locale.grammar_persistence import get_persistence, GRAMMAR_CACHE_VERSION
-from plugin.writer.locale.grammar_proofread_locale import fingerprint_for_text
 
 class TestGrammarPersistence(unittest.TestCase):
     def setUp(self):
