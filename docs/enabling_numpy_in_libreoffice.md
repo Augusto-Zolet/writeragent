@@ -13,17 +13,9 @@ This document outlines what it takes to get `numpy` functioning properly in your
 ---
 
 ## Strategy 1: The LibrePythonista Approach (Pip Bootstrapping)
-Instead of trying to ship `numpy` inside the `.oxt` extension file, the extension ships with `pip` and installs `numpy` directly into LibreOffice's environment at runtime.
+Instead of trying to ship `numpy` inside the `.oxt` extension file, the extension could ship with `pip` and attempt to dynamically install packages into LibreOffice's runtime environment at startup.
 
-### What it takes:
-1. Bundle a script like `get-pip.py` or a `pip` `.whl` inside your `.oxt`.
-2. On extension startup, resolve the physical path to LibreOffice's python (using `sys.executable` or inferring it from `uno.__file__`).
-3. Determine a safe user-writable path (handling quirks for Windows, macOS, Flatpak sandbox boundaries).
-4. Run a background process: `[sys.executable, 'get-pip.py', '--target', safe_path]`.
-5. Run a second background process: `[sys.executable, '-m', 'pip', 'install', 'numpy', '--target', safe_path]`.
-6. At the top of your extension script, `sys.path.append(safe_path)` and then `import numpy`.
-
-*(Note: LibrePythonista contains over 2,000 lines of code specifically dedicated to handling the weird edge cases of OS and Flatpak paths to make this reliable).*
+**Status**: **Rejected**. While LibrePythonista adopts this pip bootstrapping strategy to download compiled packages dynamically to the user's filesystem, it requires thousands of lines of path resolution code to handle complex host environments (such as Flatpak sandbox boundaries, macOS permissions, and Windows program folder restrictions). This introduces immense architectural complexity and a high risk of runtime failures. We reject this in favor of keeping the extension simple, robust, and completely isolated from embedded interpreter complications.
 
 ---
 
@@ -74,8 +66,7 @@ Instead of importing `numpy` inside the LibreOffice Python instance, you never m
 **Pros**: Completely sidesteps ABI issues and embedded interpreter limits. `Numpy` will never crash LibreOffice because the two Python interpreters never mix memory. 
 **Cons**: Slower execution due to file/socket I/O overhead. Requires you to handle subprocess lifecycles reliably.
 
----
----
+
 
 # Python Venv Proxy — User & Developer Specification
 
@@ -1074,7 +1065,7 @@ There is **no code string** on the add-in; source is stored via the LibrePy UI.
 
 **What we kept:** a **two-argument** formula (`code` + optional `data`) fits “paste Python in the formula bar + venv numpy”. Flat 1D shaping for single rows/columns is intentional ([`normalize_python_data_shape`](../plugin/calc/calc_addin_data.py)).
 
-**What we did not copy:** `PY.C`’s sheet/address metadata, in-LO pandas bootstrap, or mandatory `lp()` for every read. For AST-based in-process patterns and a shared cell environment, see [`docs/native_python_in_calc.md`](native_python_in_calc.md).
+**What we did not copy:** `PY.C`’s sheet/address metadata, in-LO pandas bootstrap, or mandatory `lp()` for every read.
 
 ### Code in the formula bar vs code outside the cell
 

@@ -180,7 +180,7 @@ Our primary focus is deep **LibreOffice Fidelity**—systematically closing the 
 Our application-specific roadmap is focused on closing the remaining gaps in the LibreOffice API surface:
 
 - **🖋️ Writer**: We are expanding from text and style management into complex document automation, including **Mail Merge** (CSV/DB/Sheets), **Bibliographies**, and **Watermark** support. We are also evolving our **Sections** tools from read-only navigation to a full lifecycle suite (multi-column layouts, conditional visibility, and password protection).
-- **📊 Calc**: Beyond cell and sheet manipulation, we are targeting advanced data modeling. This includes **Macros & VBA compatibility**, **Scenarios (what-if analysis)**, and **External Data** integration (SQL/Web queries). We are also working toward interactive controls like **Table Slicers**, comprehensive **Sheet Protection**, and experimental **Python/NumPy** support ([Native Python](docs/native_python_in_calc.md), [NumPy](docs/enabling_numpy_in_libreoffice.md)).
+- **📊 Calc**: Beyond cell and sheet manipulation, we are targeting advanced data modeling. This includes **Macros & VBA compatibility**, **Scenarios (what-if analysis)**, and **External Data** integration (SQL/Web queries). We are also working toward interactive controls like **Table Slicers**, comprehensive **Sheet Protection**, and [**Python/NumPy**](docs/enabling_numpy_in_libreoffice.md) support.
 
 - **🎨 Draw & Impress**: We are moving toward full presentation mastery by adding support for **Slide Animations**, **Layer Management**, and **Slide Show Controls**. High-priority multimedia support, including **Audio/Video insertion** and **3D Shape** manipulation, will round out the creative suite.
 
