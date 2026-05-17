@@ -65,7 +65,7 @@ def _execute_request(code: str, data: Any | None) -> dict[str, Any]:
     try:
         with contextlib.redirect_stdout(stdout_io):
             compiled = compile(code, "<writeragent_worker>", "exec")
-            exec(compiled, namespace, namespace)  # noqa: S102 — intentional user code in venv child
+            exec(compiled, namespace, namespace)  # nosec B102 # noqa: S102 — intentional user code in venv child
         result = namespace.get("result", namespace.get("_"))
         return {
             "status": "ok",

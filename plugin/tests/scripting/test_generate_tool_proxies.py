@@ -8,7 +8,10 @@ root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.pa
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-from scripts.generate_tool_proxies import schema_to_signature, group_tools, generate_module
+try:
+    from scripts.generate_tool_proxies import schema_to_signature, group_tools, generate_module
+except ImportError:
+    pytest.skip("scripts module not available (e.g., in bundled release builds)", allow_module_level=True)
 
 class MockTool:
     def __init__(self, name, description, parameters, specialized_domain=None, tier="specialized"):

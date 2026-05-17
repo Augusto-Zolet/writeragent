@@ -10,7 +10,7 @@ from plugin.tests.testing_utils import setup_uno_mocks
 setup_uno_mocks()
 
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from plugin.framework.uno_context import get_desktop
 from plugin.writer.math.latex_dialog import insert_latex_math_dialog
@@ -20,11 +20,12 @@ from plugin.testing_runner import native_test, setup, teardown
 
 _test_doc: Any = None
 _test_ctx: Any = None
+_desktop_patcher: Any = None
 
 
 @setup
 def setup_latex_dialog_tests(ctx: Any) -> None:
-    global _test_doc, _test_ctx
+    global _test_doc, _test_ctx, _desktop_patcher
     _test_ctx = ctx
     import uno
 
@@ -39,10 +40,20 @@ def setup_latex_dialog_tests(ctx: Any) -> None:
     )
     assert _test_doc is not None
 
+    mock_desktop = MagicMock()
+    mock_desktop.getCurrentComponent.return_value = _test_doc
+    _desktop_patcher = patch(
+        "plugin.writer.math.latex_dialog.get_desktop", return_value=mock_desktop
+    )
+    _desktop_patcher.start()
+
 
 @teardown
 def teardown_latex_dialog_tests(ctx: Any) -> None:
-    global _test_doc, _test_ctx
+    global _test_doc, _test_ctx, _desktop_patcher
+    if _desktop_patcher:
+        _desktop_patcher.stop()
+        _desktop_patcher = None
     if _test_doc:
         _test_doc.close(True)
     _test_doc = None
