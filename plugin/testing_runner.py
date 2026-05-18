@@ -372,7 +372,7 @@ def main() -> int:
                             pass
             except Exception:
                 pass
-            desktop.terminate()
+            #desktop.terminate()
     except Exception:
         pass
 

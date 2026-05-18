@@ -163,23 +163,38 @@ class WriterCompoundUndo:
 
     def __init__(self, doc, title: str) -> None:
         self._log = logging.getLogger(__name__)
+        self._title = title
         self._undo_manager = None
         self._open = False
         try:
             if not hasattr(doc, "getUndoManager"):
+                self._log.warning("WriterCompoundUndo: doc has no getUndoManager, undo grouping skipped (title=%r)", title)
                 return
             um = doc.getUndoManager()
             if um is None:
+                self._log.warning("WriterCompoundUndo: getUndoManager() returned None, undo grouping skipped (title=%r)", title)
                 return
+            # Probe undo manager state to detect prior unclosed contexts (best-effort; UNO may not expose these).
+            try:
+                is_in_ctx = um.isInContext()
+                undo_enabled = um.isUndoEnabled()
+                self._log.info("WriterCompoundUndo: pre-enter state isInContext=%s isUndoEnabled=%s (title=%r)", is_in_ctx, undo_enabled, title)
+            except Exception as probe_e:
+                self._log.debug("WriterCompoundUndo: could not probe undo manager state: %s", probe_e)
             um.enterUndoContext(title)
             self._undo_manager = um
             self._open = True
+            # Log after success so we always see this when the context is live.
+            self._log.info("WriterCompoundUndo: context entered %r", title)
         except Exception as e:
-            self._log.debug("enterUndoContext skipped: %s", e)
+            # Upgrade from debug to warning so failures are visible without debug logging.
+            # "Insert $1" in the undo menu means this context was never opened.
+            self._log.warning("WriterCompoundUndo: enterUndoContext failed, undo grouping disabled (title=%r): %s", title, e)
 
     def close(self) -> None:
         """End the compound undo context if :meth:`__init__` opened one."""
         if not self._open:
+            self._log.debug("WriterCompoundUndo.close: already closed or never opened (title=%r)", self._title)
             return
         self._open = False
         um = self._undo_manager
@@ -187,9 +202,10 @@ class WriterCompoundUndo:
         if um is None:
             return
         try:
+            self._log.info("WriterCompoundUndo: leaving context %r", self._title)
             um.leaveUndoContext()
         except Exception:
-            self._log.exception("leaveUndoContext failed")
+            self._log.exception("leaveUndoContext failed (title=%r)", self._title)
 
 
 class WriterStreamedRewriteSession:
@@ -210,6 +226,8 @@ class WriterStreamedRewriteSession:
         except Exception:
             self.was_recording = False
 
+        _log = logging.getLogger(__name__)
+        _log.info("WriterStreamedRewriteSession: was_recording=%s, compound_undo open=%s", self.was_recording, self._compound_undo._open)
         try:
             if self.was_recording:
                 self.doc.setPropertyValue("RecordChanges", False)

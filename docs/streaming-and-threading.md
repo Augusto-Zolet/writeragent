@@ -233,6 +233,15 @@ LibreOffice’s UI (VCL) is single-threaded. To keep the UI responsive during lo
 
 This flat architecture avoids nested callbacks and makes state transitions explicit.
 
+> [!WARNING]
+> **`job_done` ownership invariant:** `job_done[0]` must **only** be written by the drain loop (main thread) when it processes a terminal queue item (`STREAM_DONE`, `ERROR`, or `STOPPED`). The worker thread must never set `job_done[0] = True` directly, even in a `finally` block.
+>
+> **Why this matters:** Setting `job_done[0] = True` from the worker thread races with the drain loop's `while not job_done[0]` check. A fast-returning worker (common for short LLM responses) can set the flag before the main thread dequeues and processes the `STREAM_DONE` item. The drain loop then exits without ever calling `on_done` — which means cleanup callbacks such as `leaveUndoContext()` are never invoked, leaving LibreOffice's `XUndoManager` with an open, orphaned context. All subsequent text insertions are recorded under that context as `"Insert $1"` and the undo stack is permanently corrupted for that document session.
+>
+> The worker's `finally` block should only post the sentinel `(STREAM_DONE, None)` to the queue (which guarantees the drain loop unblocks). The drain loop itself sets `job_done[0] = True` when it processes that item.
+
+
+
 ## 8. Tool Execution and Queuing
 
 ### Overview

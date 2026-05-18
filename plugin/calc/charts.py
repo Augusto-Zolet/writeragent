@@ -484,7 +484,7 @@ class CreateChart(ToolBase):
         chart_doc.setDiagram(chart_doc.createInstance(service))
 
         _apply_chart_styling(chart_doc, **kwargs)
-        _process_events()
+        #_process_events() causes a hang in tests
         return {"status": "ok", "message": f"Chart '{name}' created in Calc.", "chart_name": name}
 
     def _create_writer_chart(self, ctx, rect, service, **kwargs):

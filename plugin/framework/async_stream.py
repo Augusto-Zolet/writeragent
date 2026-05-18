@@ -364,11 +364,19 @@ def run_async_worker_with_drain(
 
             q.put((StreamQueueKind.ERROR, format_error_payload(e)))
         finally:
-            # Terminal sentinel so the drain loop always unblocks, even if
-            # the worker forgot. A late sentinel after STOPPED/ERROR is
-            # harmless because the loop has already exited.
+            # Terminal sentinel so the drain loop always unblocks even if the
+            # worker forgot to post one. A duplicate sentinel after STOPPED/ERROR
+            # is harmless — the drain loop exits on the first terminal item it
+            # processes, not on this flag.
+            #
+            # Do NOT set job_done[0] = True here. job_done must only be written
+            # by the drain loop (main thread) so it always drains the STREAM_DONE
+            # item — and thus fires on_done / on_error — before exiting. Setting
+            # it here races with the drain loop: a fast worker can set job_done
+            # before the main thread dequeues STREAM_DONE, causing on_done to be
+            # skipped entirely (which leaves XUndoManager contexts open, corrupting
+            # the undo stack with "Insert $1" entries).
             q.put((StreamQueueKind.STREAM_DONE, None))
-            job_done[0] = True
 
     from plugin.framework.uno_context import get_toolkit
 
@@ -390,6 +398,10 @@ def run_async_worker_with_drain(
             except TypeError:
                 # Fallback for callbacks that don't take any arguments.
                 on_done_fn()
+        # Return True so _handle_stream_done_like sets job_done[0] and the
+        # drain loop exits. This is the sole exit path now that the worker
+        # thread no longer sets job_done directly (see worker_wrapper comment).
+        return True
 
     def _noop_error(_payload: Any) -> None:
         return None
