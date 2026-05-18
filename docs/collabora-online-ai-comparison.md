@@ -210,74 +210,9 @@ Reference sketches for **gaps** or patterns not yet wrapped as tools. Snippets m
 
 ### A. Dynamic Calc Function Catalog (`list_calc_functions`) — Implemented in plugin
 
-```python
-def get_calc_function_catalog(ctx) -> list[dict[str, Any]]:
-    """Queries Calc function descriptions for LLM system prompts."""
-    smgr = ctx.getServiceManager()  # or ctx component from tool context
-    func_descr_service = smgr.createInstanceWithContext(
-        "com.sun.star.sheet.FunctionDescriptions", ctx
-    )
-    catalog = []
-    for i in range(func_descr_service.getCount()):
-        try:
-            props = func_descr_service.getByIndex(i)
-            func_data = {prop.Name: prop.Value for prop in props}
-            arguments = func_data.get("Arguments", ())
-            arg_list = [
-                {"name": a.Name, "description": a.Description, "optional": a.IsOptional}
-                for a in arguments
-            ]
-            catalog.append({
-                "name": func_data.get("Name", ""),
-                "description": func_data.get("Description", ""),
-                "category_id": func_data.get("Category", 0),
-                "arguments": arg_list,
-            })
-        except Exception:
-            continue
-    return catalog
-```
 
 ### B. Formula Pre-evaluation (`evaluate_formula`) — Implemented in plugin
 
-```python
-import datetime
-import logging
-
-log = logging.getLogger(__name__)
-
-def evaluate_calc_formula(ctx, formula_string: str) -> dict[str, Any]:
-    """Evaluate a Calc formula on a temporary sheet; remove sheet before return."""
-    if not formula_string.startswith("="):
-        formula_string = "=" + formula_string
-    doc = ctx.doc
-    sheets = doc.getSheets()
-    temp_sheet_name = f"__wa_eval_{int(datetime.datetime.now().timestamp())}__"
-    try:
-        sheets.insertNewByName(temp_sheet_name, sheets.getCount())
-        cell = sheets.getByName(temp_sheet_name).getCellByPosition(0, 0)
-        cell.setFormula(formula_string)
-        error_code = cell.Error
-        if error_code != 0:
-            return {"status": "error", "error_code": error_code}
-        from com.sun.star.table.CellContentType import VALUE, TEXT
-        result_type = cell.getType()
-        if result_type == VALUE:
-            result = cell.getValue()
-        elif result_type == TEXT:
-            result = cell.getString()
-        else:
-            result = cell.getString()
-        return {"status": "ok", "formula": formula_string, "result": result, "result_type": str(result_type)}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-    finally:
-        try:
-            if sheets.hasByName(temp_sheet_name):
-                sheets.removeByName(temp_sheet_name)
-        except Exception as cleanup_err:
-            log.error("Failed to cleanup evaluation sheet: %s", cleanup_err)
-```
 
 ### C. Unified Slide Transform (`transform_document_structure`) — not yet in plugin
 

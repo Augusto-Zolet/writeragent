@@ -124,7 +124,9 @@ CALC_WORKFLOW = """WORKFLOW:
 
 CALC_FORMULA_SYNTAX = """FORMULA SYNTAX: LibreOffice uses semicolon (;) as the formula argument separator in formulas.
 - Correct: =SUM(A1:A10), =IF(A1>0;B1;C1)
-- Wrong: =SUM(A1,A10), =IF(A1>0,"Yes","No") (no commas in formulas)"""
+- Wrong: =SUM(A1,A10), =IF(A1>0,"Yes","No") (no commas in formulas)
+- Write `=PYTHON("result = ..."; A1:A10)` in cells to calculate/run Python (omit the second argument if no sheet data is needed, e.g. `=PYTHON("result = 2**10")`).
+Note: this code executes in an isolated sandbox with no direct access to LibreOffice data, so it must be passed in."""
 
 MEMORY_GUIDANCE = """MEMORY:
 You have a persistent file-backed memory tool.
@@ -305,6 +307,8 @@ def _get_specialized_domains_str(base_cls) -> str:
         domain = getattr(cls, "specialized_domain", None)
         desc = getattr(cls, "specialized_domain_description", None)
         if domain:
+            if base_cls.__name__ == "ToolCalcSpecialBase" and domain == "python":
+                continue
             if desc:
                 lines.append(f"- {domain}: {desc}")
             else:

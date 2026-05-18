@@ -47,6 +47,8 @@ class DelegateToSpecializedBase(ToolBase):
         for cls in self._special_base_class.__subclasses__():
             domain = getattr(cls, "specialized_domain", None)
             if domain:
+                if self._agent_label == "Calc" and domain == "python":
+                    continue
                 domains.append(domain)
 
         self.parameters = {
