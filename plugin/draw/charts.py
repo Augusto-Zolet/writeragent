@@ -58,6 +58,6 @@ class DeleteChart(CalcDeleteChart, ToolBaseDummy):  # type: ignore[misc]
     uno_services = _ALL_CHART_DOCS
 
 
-class ManageCharts(CalcManageCharts, ToolDrawChartBase):
+class ManageCharts(CalcManageCharts, ToolDrawChartBase):  # type: ignore[misc]
     uno_services = _ALL_CHART_DOCS
 

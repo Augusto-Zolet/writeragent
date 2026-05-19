@@ -83,6 +83,16 @@ class ToolCalcPivotBase(ToolCalcSpecialBase):
     intent = "analyze"
 
 
+class ToolCalcChartBase(ToolCalcSpecialBase):
+    """Charts domain (``manage_charts``); shared implementation also serves Writer/Draw via union ``uno_services`` on the concrete tool."""
+
+    specialized_domain = "charts"
+    specialized_domain_description: ClassVar[str | None] = (
+        "Create and edit charts on the active sheet or embedded chart in the document."
+    )
+    intent = "edit"
+
+
 class ToolCalcRangeBase(ToolCalcSpecialBase):
     specialized_domain = "ranges"
     specialized_domain_description: ClassVar[str | None] = "Bulk operations on cell ranges (sort, advanced find/replace)."

@@ -185,3 +185,110 @@ class TestConfigSyncFileIO(unittest.TestCase):
         with open(self.config_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         self.assertEqual(data.get('text_model'), 'other')
+
+
+class TestRobustNumericParsing(unittest.TestCase):
+
+    def test_parse_int_robust(self):
+        from plugin.framework.config import parse_int_robust
+
+        # Test standard integers
+        self.assertEqual(parse_int_robust(8765), 8765)
+        self.assertEqual(parse_int_robust(0), 0)
+        self.assertEqual(parse_int_robust(-42), -42)
+
+        # Test standard floats
+        self.assertEqual(parse_int_robust(8765.0), 8765)
+        self.assertEqual(parse_int_robust(8765.99), 8765)
+
+        # Test string integers
+        self.assertEqual(parse_int_robust("8765"), 8765)
+        self.assertEqual(parse_int_robust(" 8765 "), 8765)
+
+        # Test string floats
+        self.assertEqual(parse_int_robust("8765.0"), 8765)
+        self.assertEqual(parse_int_robust("8765.00"), 8765)
+        self.assertEqual(parse_int_robust("8765.7"), 8765)
+
+        # Test European decimal commas (like German locale)
+        self.assertEqual(parse_int_robust("8765,0"), 8765)
+        self.assertEqual(parse_int_robust("8765,00"), 8765)
+        self.assertEqual(parse_int_robust("8765,5"), 8765)
+
+        # Test invalid inputs raise ValueError
+        with self.assertRaises(ValueError):
+            parse_int_robust(None)
+        with self.assertRaises(ValueError):
+            parse_int_robust("")
+        with self.assertRaises(ValueError):
+            parse_int_robust("   ")
+        with self.assertRaises(ValueError):
+            parse_int_robust("invalid")
+
+    def test_parse_float_robust(self):
+        from plugin.framework.config import parse_float_robust
+
+        # Test standard floats
+        self.assertEqual(parse_float_robust(7.5), 7.5)
+        self.assertEqual(parse_float_robust(0.0), 0.0)
+
+        # Test standard integers
+        self.assertEqual(parse_float_robust(7), 7.0)
+
+        # Test string floats
+        self.assertEqual(parse_float_robust("7.5"), 7.5)
+        self.assertEqual(parse_float_robust(" 7.5 "), 7.5)
+
+        # Test European decimal commas
+        self.assertEqual(parse_float_robust("7,5"), 7.5)
+        self.assertEqual(parse_float_robust("0,25"), 0.25)
+
+        # Test invalid inputs raise ValueError
+        with self.assertRaises(ValueError):
+            parse_float_robust(None)
+        with self.assertRaises(ValueError):
+            parse_float_robust("")
+        with self.assertRaises(ValueError):
+            parse_float_robust("   ")
+        with self.assertRaises(ValueError):
+            parse_float_robust("invalid")
+
+    def test_config_validate_type_casting(self):
+        from plugin.framework.config import WriterAgentConfig
+
+        # Test standard dataclass type casting
+        config = WriterAgentConfig.from_dict({
+            "chat_context_length": "8000,0",  # String with European decimal comma
+            "temperature": "0,7",  # String with European decimal comma
+            "chat_max_tokens": 16384.0,  # Float instead of int
+            "image_steps": "30",  # String int
+        })
+        config.validate()
+
+        self.assertEqual(config.chat_context_length, 8000)
+        self.assertEqual(config.temperature, 0.7)
+        self.assertEqual(config.chat_max_tokens, 16384)
+        self.assertEqual(config.image_steps, 30)
+
+        # Test _extra_config dynamic YAML schema type casting (e.g. mcp.mcp_port)
+        # First let's patch MODULES to contain a mock module schema
+        mock_modules = [{
+            "name": "mcp",
+            "config": {
+                "mcp_port": {
+                    "type": "int",
+                    "default": 8765
+                },
+                "mcp_host": {
+                    "type": "string",
+                    "default": "localhost"
+                }
+            }
+        }]
+        with patch("plugin.framework.config.MODULES", mock_modules):
+            config_with_extra = WriterAgentConfig.from_dict({
+                "mcp.mcp_port": "8765,00",  # German locale format
+            })
+            config_with_extra.validate()
+
+            self.assertEqual(config_with_extra._extra_config.get("mcp.mcp_port"), 8765)

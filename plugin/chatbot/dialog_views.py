@@ -22,7 +22,7 @@ from com.sun.star.awt import XItemListener, XTextListener
 from plugin.framework.errors import format_error_payload, UnoObjectError
 from plugin.framework.uno_context import get_active_document, get_extension_url, get_toolkit
 from plugin.framework.i18n import _
-from plugin.framework.config import get_config, get_current_endpoint, set_config, get_config_str, as_bool
+from plugin.framework.config import get_config, get_current_endpoint, set_config, get_config_str, as_bool, parse_int_robust, parse_float_robust
 from plugin.framework.client.model_fetcher import get_text_model
 from plugin.framework.logging import init_logging
 from plugin.chatbot.config_ui_helpers import populate_combobox_with_lru, update_lru_history
@@ -262,8 +262,8 @@ class SettingsDialog:
                 field_type = field.get("type", "text")
                 if field_type == "int":
                     try:
-                        result[name] = int(float(val))
-                    except (ValueError, TypeError):
+                        result[name] = parse_int_robust(val)
+                    except ValueError:
                         result[name] = val
                 elif field_type == "bool":
                     if is_checkbox_control(ctrl):
@@ -272,8 +272,8 @@ class SettingsDialog:
                         result[name] = as_bool(val)
                 elif field_type == "float":
                     try:
-                        result[name] = float(val)
-                    except (ValueError, TypeError):
+                        result[name] = parse_float_robust(val)
+                    except ValueError:
                         result[name] = val
                 else:
                     result[name] = val

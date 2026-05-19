@@ -35,13 +35,17 @@ The **`insert_cell_html`** tool ([`plugin/calc/cells.py`](../plugin/calc/cells.p
 
 To reduce LLM tool-calling context overhead and prevent tool selection dilution, the five individual chart tools (`list_charts`, `get_chart_info`, `create_chart`, `edit_chart`, `delete_chart`) have been consolidated into a single **experimental** unified tool: **`manage_charts`** ([`plugin/calc/charts.py`](../plugin/calc/charts.py)):
 
-- **Tiers and Visibility**:
-  - **Calc**: Registered as a **core** tier tool (`manage_charts` is directly available in the main chatbot sidebar).
-  - **Draw/Impress**: Registered as a **specialized** tier tool inside the specialized `charts` domain.
-  - **Writer**: Registered as a **specialized/dummy** tool (hidden from the main chatbot sidebar).
+- **Tiers and Visibility**: **`tier = specialized`**, `domain = charts` on Calc (`ToolCalcChartBase`), Writer (`ToolWriterChartBase`), and Draw (`ToolDrawChartBase`) — same pattern as shapes (`upsert_shape`). One registry slot per name (last module load wins); union `uno_services` on Writer/Draw wrappers. **All apps** use `delegate_to_specialized_{calc|writer|draw}_toolset(domain="charts")`, not the main chat list. Per-app core tier (Calc-only) needs registry multi-bind — see `ManageCharts` docstring in [`charts.py`](../plugin/calc/charts.py).
 - **Style and Color Support**: Supports arbitrary background color (`bg_color`) and data series color styling (`colors` array or single `color` / `series_color` string). Colors are parsed dynamically and can be CSS/X11 names (e.g., `green`, `darkgreen`, `yellow`), hex values with or without the `#` prefix (e.g., `#0f0`, `#00FF00`, `00ff00`), or functional RGB/RGBA syntax (e.g., `rgba(255, 0, 0, 0.5)`).
 - **Mechanism**: The unified tool accepts a mandatory `action` parameter (`"list"`, `"get_info"`, `"create"`, `"edit"`, `"delete"`) and routes execution to the underlying individual chart tool classes.
 - **Developer Ergonomics**: The underlying individual tools still inherit from `ToolBaseDummy`. If a developer wants to switch back to fine-grained independent tools, they simply swap their base class from `ToolBaseDummy` back to `ToolBase` (or `ToolDrawChartBase`), and the registry will auto-discover and expose them immediately.
+
+### Formulas & Range Writing API Comparison (`write_formula_range` vs. `set_cell_formula`)
+
+WriterAgent's `write_formula_range` tool takes a different design approach than Collabora's `set_cell_formula` tool:
+- **WriterAgent (`write_formula_range`)**: **Range-centric bulk writing**. Operates directly via programmatic PyUNO `setDataArray()` and `setFormulaArray()`. Accepts structured rectangular datasets (tuples, 2D arrays, or raw CSV blocks) and commits them in a single transaction. This is highly efficient for generating tables and does not affect the active UI cursor selection.
+- **Collabora (`set_cell_formula`)**: **Coordinate-centric scattered writing**. Sequentially dispatches `.uno:GoToCell` and `.uno:EnterString` for each discrete `{cell, formula}` pair. While flexible for scattered cells, it is highly verbose for LLMs to generate, performs expensive UI updates, and hijacks the user's cursor selection.
+- **Decision & Parity Plan**: We retain the range-centric PyUNO API for performance and cursor/focus safety. In the future, we plan to adopt Collabora's capability for scattered updates by supporting a batch parameter in `write_formula_range` or adding a dedicated `write_cell_batch` tool that retrieves and updates discrete `XCell` objects programmatically, without utilizing UI dispatches.
 
 ---
 

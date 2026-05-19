@@ -347,6 +347,36 @@ class TestExcludeSpecializedTiers:
         assert "fake_tool" in names
         assert "spec_tool" in names
 
+class TestManageChartsSpecializedTier:
+    """manage_charts is specialized on all apps; use delegate domain=charts."""
+
+    @pytest.fixture
+    def chart_registry(self):
+        from plugin.calc.charts import ManageCharts
+
+        return _make_registry(ManageCharts())
+
+    def test_manage_charts_hidden_from_main_chat_calc(self, chart_registry):
+        doc = TestingFactory.create_doc(doc_type="calc", content=[])
+        names = {t.name for t in chart_registry.get_tools(doc=doc)}
+        assert "manage_charts" not in names
+
+    def test_manage_charts_hidden_from_main_chat_writer(self, chart_registry):
+        doc = TestingFactory.create_doc(doc_type="writer", content=[])
+        names = {t.name for t in chart_registry.get_tools(doc=doc)}
+        assert "manage_charts" not in names
+
+    def test_manage_charts_in_charts_domain_calc(self, chart_registry):
+        doc = TestingFactory.create_doc(doc_type="calc", content=[])
+        names = {t.name for t in chart_registry.get_tools(doc=doc, active_domain="charts")}
+        assert "manage_charts" in names
+
+    def test_manage_charts_openai_schema_excluded_by_default(self, chart_registry):
+        doc = TestingFactory.create_doc(doc_type="calc", content=[])
+        tool_names = {s["function"]["name"] for s in chart_registry.get_schemas("openai", doc=doc)}
+        assert "manage_charts" not in tool_names
+
+
 class TestLibrarianToolVisibility:
     def test_librarian_tools_are_hidden_by_default_in_main_chat_schema(self):
         from plugin.chatbot.librarian import (

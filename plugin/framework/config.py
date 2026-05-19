@@ -100,6 +100,96 @@ def _safe_int(value, default):
         return default
 
 
+def parse_int_robust(val) -> int:
+    """Robustly parse an integer value from a string, float, or other type,
+    handling locale-specific decimal commas (like "8765,0" in German)."""
+    if isinstance(val, int):
+        return val
+    if isinstance(val, float):
+        return int(val)
+    if val is None:
+        raise ValueError("Cannot parse None as int")
+
+    s = str(val).strip()
+    if not s:
+        raise ValueError("Cannot parse empty string as int")
+
+    # Try normal int parsing first
+    try:
+        return int(s)
+    except (ValueError, TypeError):
+        pass
+
+    # Handle European decimal commas by replacing ',' with '.'
+    # but only if there is a single comma and it looks like a decimal separator
+    # e.g., "8765,0" -> "8765.0"
+    if "," in s:
+        cleaned = s.replace(",", ".")
+        try:
+            return int(float(cleaned))
+        except (ValueError, TypeError):
+            pass
+
+    # Try float parsing and conversion
+    try:
+        return int(float(s))
+    except (ValueError, TypeError) as e:
+        raise ValueError(f"Could not robustly parse integer from {val!r}") from e
+
+
+def parse_float_robust(val) -> float:
+    """Robustly parse a float value from a string, int, or other type,
+    handling locale-specific decimal commas (like "1,5" in German)."""
+    if isinstance(val, (int, float)):
+        return float(val)
+    if val is None:
+        raise ValueError("Cannot parse None as float")
+
+    s = str(val).strip()
+    if not s:
+        raise ValueError("Cannot parse empty string as float")
+
+    try:
+        return float(s)
+    except (ValueError, TypeError):
+        pass
+
+    if "," in s:
+        cleaned = s.replace(",", ".")
+        try:
+            return float(cleaned)
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"Could not robustly parse float from {val!r}") from e
+
+    raise ValueError(f"Could not robustly parse float from {val!r}")
+
+
+def _get_schema_type(key: str) -> str | None:
+    """Return type ('int', 'float', 'boolean', 'string') for key from MODULES."""
+    if not MODULES:
+        return None
+    if "." in key:
+        mod_name, field_name = key.split(".", 1)
+        for m in MODULES:
+            if isinstance(m, dict) and m.get("name") == mod_name:
+                config = m.get("config", {})
+                if isinstance(config, dict):
+                    for fname, schema in config.items():
+                        if fname == field_name and isinstance(schema, dict):
+                            t = schema.get("type")
+                            return str(t) if t is not None else None
+        return None
+    for m in MODULES:
+        if isinstance(m, dict):
+            config = m.get("config", {})
+            if isinstance(config, dict):
+                for fname, schema in config.items():
+                    if fname == key and isinstance(schema, dict):
+                        t = schema.get("type")
+                        return str(t) if t is not None else None
+    return None
+
+
 def _is_lru_list_config_key(key: str) -> bool:
     if key in _LRU_LIST_CONFIG_KEY_PREFIXES:
         return True
@@ -239,6 +329,8 @@ class WriterAgentConfig:
         """Perform validation of config keys and emit warnings or fix values."""
         # Clean up any translated headers that incorrectly made it into config
         for f in dataclasses.fields(self):
+            if f.name == "_extra_config":
+                continue
             val = getattr(self, f.name)
             if isinstance(val, str) and "Project-Id-Version:" in val:
                 log.debug("config validate: stripped PO/header from dataclass field %r (len=%s)", f.name, len(val))
@@ -247,16 +339,47 @@ class WriterAgentConfig:
                     setattr(self, f.name, "-1")
                 else:
                     setattr(self, f.name, "")
-                # Default seed should be -1, not empty string.
-                if f.name == "seed":
-                    setattr(self, f.name, "-1")
-                else:
-                    setattr(self, f.name, "")
 
+        # Cast standard types robustly
+        for f in dataclasses.fields(self):
+            if f.name == "_extra_config":
+                continue
+            val = getattr(self, f.name)
+            if f.type is int:
+                try:
+                    setattr(self, f.name, parse_int_robust(val))
+                except ValueError:
+                    if f.default is not dataclasses.MISSING:
+                        setattr(self, f.name, f.default)
+            elif f.type is float:
+                try:
+                    setattr(self, f.name, parse_float_robust(val))
+                except ValueError:
+                    if f.default is not dataclasses.MISSING:
+                        setattr(self, f.name, f.default)
+
+        # Clean up and cast extra keys from module schemas robustly
         for k, v in list(self._extra_config.items()):
             if isinstance(v, str) and "Project-Id-Version:" in v:
                 log.debug("config validate: stripped PO/header from extra key %r (len=%s)", k, len(v))
                 self._extra_config[k] = ""
+                v = ""
+
+            t = _get_schema_type(k)
+            if t == "int":
+                try:
+                    self._extra_config[k] = parse_int_robust(v)
+                except ValueError:
+                    default_val = _get_schema_default(k)
+                    self._extra_config[k] = default_val if default_val is not None else v
+            elif t == "float":
+                try:
+                    self._extra_config[k] = parse_float_robust(v)
+                except ValueError:
+                    default_val = _get_schema_default(k)
+                    self._extra_config[k] = default_val if default_val is not None else v
+            elif t == "boolean":
+                self._extra_config[k] = as_bool(v)
 
         self.endpoint = normalize_endpoint_url(str(self.endpoint or ""), is_openwebui=self.is_openwebui)
 
@@ -403,8 +526,8 @@ def get_config_int(ctx, key) -> int:
     if v == "":
         raise ConfigError(f"Missing config key {key!r}: not a WriterAgentConfig field, MODULES default, or LRU pattern.", "CONFIG_KEY_NOT_FOUND", details={"key": key})
     try:
-        return int(float(cast("Any", v)))
-    except (ValueError, TypeError) as e:
+        return parse_int_robust(v)
+    except ValueError as e:
         raise ConfigError(f"Config key {key!r} has non-integer value: {v!r}", "CONFIG_TYPE_ERROR") from e
 
 
@@ -447,8 +570,8 @@ def get_config_float(ctx, key) -> float:
     Throws ConfigError if key is not found."""
     v = get_config(ctx, key)
     try:
-        return float(cast("Any", v))
-    except (ValueError, TypeError) as e:
+        return parse_float_robust(v)
+    except ValueError as e:
         raise ConfigError(f"Config key {key!r} has non-float value: {v!r}", "CONFIG_TYPE_ERROR") from e
 
 

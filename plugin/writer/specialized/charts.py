@@ -22,6 +22,7 @@ tools (embedded chart / sheet-style APIs), not a dedicated chart2 Writer-only mo
 
 import logging
 from plugin.framework.tool import ToolBaseDummy
+from ..specialized_base import ToolWriterChartBase
 from plugin.calc.charts import (
     ListCharts as CalcListCharts,
     GetChartInfo as CalcGetChartInfo,
@@ -33,8 +34,8 @@ from plugin.calc.charts import (
 
 log = logging.getLogger("writeragent.writer")
 
-# Union services: Writer wrappers share tool names with Calc; last registration wins,
-# so both must be listed or spreadsheets fail ToolRegistry.execute compatibility.
+# Union services: same name as Calc/Draw ``manage_charts``; last registration wins, so include
+# all chart-capable document services (cf. ``plugin.writer.specialized.shapes``).
 _ALL_CHART_DOCS = [
     "com.sun.star.text.TextDocument",
     "com.sun.star.sheet.SpreadsheetDocument",
@@ -63,6 +64,6 @@ class DeleteChart(CalcDeleteChart, ToolBaseDummy):  # type: ignore[misc]
     uno_services = _ALL_CHART_DOCS
 
 
-class ManageCharts(CalcManageCharts, ToolBaseDummy):  # type: ignore[misc]
+class ManageCharts(CalcManageCharts, ToolWriterChartBase):  # type: ignore[misc]
     uno_services = _ALL_CHART_DOCS
 

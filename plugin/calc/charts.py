@@ -24,7 +24,8 @@ Enhanced to support Writer and Draw documents, 3D, stacking, and rich properties
 import logging
 
 from plugin.framework.errors import ToolExecutionError
-from plugin.framework.tool import ToolBase, ToolBaseDummy
+from plugin.framework.tool import ToolBaseDummy
+from plugin.calc.base import ToolCalcChartBase
 from plugin.calc.bridge import CalcBridge
 import uno
 
@@ -891,8 +892,21 @@ class DeleteChart(ToolBaseDummy):
         return {"status": "ok", "deleted": chart_name}
 
 
-class ManageCharts(ToolBase):
-    """Manage charts: list all charts, get chart details, create a chart, edit chart properties, or delete a chart in the current context."""
+class ManageCharts(ToolCalcChartBase):
+    """Manage charts: list, get_info, create, edit, or delete in the current context.
+
+    Calc/Writer/Draw each register ``ManageCharts`` with their chart specialized base (like ``upsert_shape`` in
+    shapes); ``ToolRegistry`` keeps one instance per name (last module load wins). Writer/Draw set union
+    ``uno_services`` so registration order does not drop other document types. Legacy ``list_charts`` etc. stay
+    ``ToolBaseDummy`` (disabled in favor of this tool).
+
+    Future (per-app tiers and a growing API, e.g. full 3D):
+    - Registry: store ``list[ToolBase]`` per name and resolve via ``supportsService`` instead of last-wins.
+    - Or ``get_tier(doc_type)`` on a single class if multi-bind is too heavy.
+    - Schema: ``get_parameters(doc_type)`` / ``get_description(doc_type)`` so Calc keeps ``data_range`` while
+      Writer/Draw omit it; add a 3D block (view angle, perspective, wall/floor) when UNO paths beyond ``is_3d`` exist.
+    - Sub-agent: richer ``required_core_tools`` or a domain preamble when the consolidated schema grows.
+    """
 
     name = "manage_charts"
     intent = "edit"

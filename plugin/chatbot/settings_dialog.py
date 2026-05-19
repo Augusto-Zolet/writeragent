@@ -25,6 +25,7 @@ from plugin.framework.config import (
     get_config_int,
     get_config_float,
     get_config_str,
+    parse_int_robust,
 )
 from plugin.framework.client.model_fetcher import get_image_model, set_image_model
 from plugin.chatbot.config_ui_helpers import endpoint_from_selector_text
@@ -173,8 +174,8 @@ def apply_settings_result(ctx, result):
         # Type conversion
         if key in int_field_names:
             try:
-                val = int(float(val))
-            except (ValueError, TypeError):
+                val = parse_int_robust(val)
+            except ValueError:
                 pass
         
         # Map translated label back to value
