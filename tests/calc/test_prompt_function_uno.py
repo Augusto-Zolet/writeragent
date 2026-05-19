@@ -50,14 +50,14 @@ def test_prompt_function_python_execution():
         # Success case
         mock_run.return_value = {"status": "ok", "result": 42}
         res = func.python("result = 21 * 2")
-        assert res == 42
+        assert res == 42.0
         mock_run.assert_called_with(func.ctx, run_code_in_user_venv, func.ctx, "result = 21 * 2", data=None)
 
         # Range data forwarded
         mock_run.reset_mock()
         mock_run.return_value = {"status": "ok", "result": 6}
         res = func.python("result = sum(data)", ((1.0,), (2.0,), (3.0,)))
-        assert res == 6
+        assert res == 6.0
         mock_run.assert_called_once()
         call_kw = mock_run.call_args
         assert call_kw[0][3] == "result = sum(data)"
@@ -72,10 +72,17 @@ def test_prompt_function_python_execution():
         mock_run.reset_mock()
         mock_run.return_value = {"status": "ok", "result": [2, 3, 5]}
         res = func.python("some code")
-        assert res == ((2,), (3,), (5,))
+        assert res == ((2.0,), (3.0,), (5.0,))
 
         # 2D array return matrix formatting
         mock_run.reset_mock()
         mock_run.return_value = {"status": "ok", "result": [[2, 3], [5, 7]]}
         res = func.python("some code")
-        assert res == ((2, 3), (5, 7))
+        assert res == ((2.0, 3.0), (5.0, 7.0))
+
+        # 1000th-1005th primes sequence return test with auto-imported sp
+        mock_run.reset_mock()
+        mock_run.return_value = {"status": "ok", "result": [7919, 7927, 7933, 7937, 7949, 7951]}
+        res = func.python("[sp.prime(x) for x in range(1000, 1006)]")
+        assert res == ((7919.0,), (7927.0,), (7933.0,), (7937.0,), (7949.0,), (7951.0,))
+        mock_run.assert_called_with(func.ctx, run_code_in_user_venv, func.ctx, "[sp.prime(x) for x in range(1000, 1006)]", data=None)

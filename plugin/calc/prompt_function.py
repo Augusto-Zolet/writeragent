@@ -58,6 +58,29 @@ import logging
 log = logging.getLogger(__name__)
 
 
+def to_calc_compatible(val):
+    """Recursively convert Python values into LibreOffice Calc supported types.
+
+    Calc cells only support float (UNO double), str (UNO string), and bool (UNO boolean).
+    Crucially, Calc matrix formulas do NOT support integer (UNO long) types and will
+    throw #VALUE! if a sequence contains integers/longs.
+    """
+    if val is None:
+        return ""
+    if isinstance(val, bool):
+        return val
+    # Check bool before int, as isinstance(True, int) is True
+    if isinstance(val, int):
+        return float(val)
+    if isinstance(val, float):
+        return val
+    if isinstance(val, str):
+        return val
+    if isinstance(val, (list, tuple)):
+        return tuple(to_calc_compatible(item) for item in val)
+    return str(val)
+
+
 class PromptFunction(unohelper.Base, _XPromptFunctionBase):  # pyright: ignore[reportGeneralTypeIssues] — runtime IDL base from LO  # pyrefly: ignore[invalid-inheritance]
     def __init__(self, ctx):
         log.debug("=== PromptFunction.__init__ called ===")
@@ -192,27 +215,41 @@ class PromptFunction(unohelper.Base, _XPromptFunctionBase):  # pyright: ignore[r
         log.debug("=== PromptFunction.PYTHON(%r, data=%r) called ===", code, data)
         try:
             py_data = calc_addin_data_to_python(data)
+            log.debug("PYTHON parsed py_data: %r", py_data)
             if py_data is not None:
                 size_err = check_python_data_size(py_data)
                 if size_err:
-                    return f"Error: {size_err}"
+                    ret = f"Error: {size_err}"
+                    log.debug("PYTHON returning size error: %r", ret)
+                    return ret
             res = run_blocking_in_thread(self.ctx, run_code_in_user_venv, self.ctx, code, data=py_data)
+            log.debug("PYTHON res from worker: %r", res)
             if res.get("status") == "ok":
                 result = res.get("result")
+                log.debug("PYTHON raw result: %r (type: %s)", result, type(result).__name__)
                 if isinstance(result, (list, tuple)):
                     if not result:
-                        return ((),)
-                    first = result[0]
-                    if isinstance(first, (list, tuple)):
-                        return tuple(tuple(row) for row in result)
+                        ret = ((),)
                     else:
-                        return tuple((val,) for val in result)
-                return result
+                        first = result[0]
+                        if isinstance(first, (list, tuple)):
+                            ret = tuple(tuple(row) for row in result)
+                        else:
+                            ret = tuple((val,) for val in result)
+                else:
+                    ret = result
+                final_ret = to_calc_compatible(ret)
+                log.debug("PYTHON returning success sequence: %r (type: %s)", final_ret, type(final_ret).__name__)
+                return final_ret
             else:
-                return f"Error: {res.get('message') or res.get('error')}"
+                err_msg = f"Error: {res.get('message') or res.get('error')}"
+                log.debug("PYTHON returning worker error: %r", err_msg)
+                return err_msg
         except Exception as e:
-            log.error("PYTHON error: %s" % str(e))
-            return format_error_for_display(e)
+            log.exception("PYTHON unexpected error during execution")
+            err_msg = format_error_for_display(e)
+            log.debug("PYTHON returning exception wrapper: %r", err_msg)
+            return err_msg
 
     # XServiceInfo implementation
     def getImplementationName(self):

@@ -250,22 +250,35 @@ IDL: `any python( [in] string code, [in] any data );` in [`extension/idl/XPrompt
 | 0 | `code` | Yes | Python source; evaluated result is returned |
 | 1 | `data` | No | Optional range → variable **`data`** ([Data handoff](#data-handoff-and-shaping)) |
 
-### Return Types and Matrix (Array) Formulas
+### Return Types, Coercion, and Matrix (Array) Formulas
 
-Since the return type is declared as `any`, `=PYTHON()` functions as a union type:
-* **Scalar Return (Direct / No Spilling)**:
-  If your Python code evaluates to a single value (string, float, int, bool), `=PYTHON` returns it as a scalar. Calc simply displays it in the formula cell normally.
-* **Matrix Return (Array / Multi-Cell Spill)**:
-  If your Python code evaluates to a list/sequence (e.g. `[2, 3, 5, 7]`), it is formatted as a 2D tuple matrix of tuples. 
-  To spill this data across multiple adjacent cells:
-  1. Select the target range of cells (e.g. `B1:B10`).
-  2. Type your formula, e.g. `=PYTHON("[sp.prime(int(x)) for x in data]"; A1:A10)`.
-  3. Press **`Ctrl + Shift + Enter`** to enter it as a native **Matrix Formula**. Calc will spill the returned elements down the selected column!
+The return type in the IDL is declared as `any` to allow a dynamic union of return types, maximizing compatibility with both standard (single-cell) and matrix formulas.
+
+#### 1. The LibreOffice Type-Coercion Quirk (The `#VALUE!` Trap)
+LibreOffice Calc operates strictly on double-precision floats (`double`/`float`), strings (`string`/`str`), and booleans (`boolean`/`bool`) for cell values.
+* **The issue:** Python integers (`int`) returned from a script are marshaled by PyUNO as a sequence of `long`s (e.g. `sequence<sequence<long>>`).
+* **The consequence:** Calc's formula engine lacks type coercion for integer matrices, immediately throwing a `#VALUE!` error in the sheet.
+* **The resolution:** Every return value from `=PYTHON()` is recursively filtered through a coercion pipeline (`to_calc_compatible`):
+  - `int` -> `float` (coerced to UNO `double`)
+  - `None` -> `""` (coerced to empty cell)
+  - `bool`, `float`, and `str` are preserved as is.
+  - Lists and tuples are recursively converted to tuples of these Calc-supported types.
+
+#### 2. Normal (Single-Cell) Formulas vs. Matrix (Array) Formulas
+Depending on the Python return structure and Calc's cell formula context:
+
+* **Scalar Return (Normal Enter)**:
+  If the Python code evaluates to a scalar (e.g., `3 ** 8` or a string `str([2, 3, 5])`), `=PYTHON()` returns it directly. Typing the formula and hitting **Enter** works perfectly and displays the result directly in a single cell.
+* **Matrix Return (Spill / Multi-Cell)**:
+  If the Python code evaluates to a list or tuple (e.g., `[sp.prime(x) for x in range(1000, 1006)]`), it represents a matrix. 
+  - To display this array, you **must** use Calc's native **Matrix Formula** mechanism by highlighting the target cell range (e.g. `A1:A6`), typing the formula, and pressing **`Ctrl + Shift + Enter`** (instead of just Enter). This tells Calc to allocate a grid block and distribute the returned 2D sequence elements across the selected range.
+  - *Note:* If a 2D sequence is returned to a normal single-cell formula without `Ctrl + Shift + Enter`, Calc will display a `#VALUE!` error because a single non-matrix cell is forbidden from holding an array. To view a 1D list in a single cell, wrap it in `str(...)` inside Python to return it as a single string scalar.
 
 ### Usage
 
 ```text
 =PYTHON("3 ** 8")
+=PYTHON("str([sp.prime(x) for x in range(1000, 1006)])")   (Returns as single-cell string)
 =PYTHON("np.mean(data)"; A1:A10)
 =PYTHON("[sp.prime(int(x)) for x in data]"; A1:A10)  (Enter as Matrix Formula via Ctrl+Shift+Enter)
 =PYTHON("import pandas as pd; df = pd.DataFrame(data); df[0].mean()"; A1:C10)
