@@ -16,6 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import os
 import sys
+import threading
 
 # Ensure the extension's install directory is on sys.path
 # so that "plugin.xxx" imports work correctly.
@@ -50,12 +51,54 @@ from plugin.framework.config import get_config, get_api_config, get_config_int
 from plugin.framework.client.llm_client import LlmClient
 from plugin.framework.async_stream import run_blocking_in_thread
 from plugin.framework.client.errors import format_error_for_display
-from plugin.calc.calc_addin_data import calc_addin_data_to_python, check_python_data_size
+from plugin.calc.calc_addin_data import calc_addin_data_to_python, check_python_data_size, count_cells
 from plugin.scripting.run_venv_code import run_code_in_user_venv
 
 import logging
 
 log = logging.getLogger(__name__)
+
+# Calc legacy add-in bridge accepts scalar double/string returns only. List results are
+# emitted one scalar per formula evaluation (matrix block or repeated recalc).
+_MATRIX_SCALAR_SESSIONS = threading.local()
+
+
+def _flatten_result_values(result):
+    """Row-major flattening for list / nested list worker results."""
+    if not isinstance(result, (list, tuple)):
+        return [result]
+    if not result:
+        return []
+    if isinstance(result[0], (list, tuple)):
+        flat = []
+        for row in result:
+            flat.extend(row)
+        return flat
+    return list(result)
+
+
+def _is_scalar_index_arg(py_data: list | list[list] | None) -> bool:
+    """True when arg 1 is one number (matrix index), not a data range."""
+    if py_data is None:
+        return False
+    if count_cells(py_data) != 1:
+        return False
+    first = py_data[0]
+    return not isinstance(first, (list, tuple))
+
+
+def _coerce_index(value) -> int:
+    if value is None:
+        return 0
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str) and value.strip():
+        return int(float(value))
+    raise ValueError(f"index must be numeric, got {value!r}")
 
 
 def to_calc_compatible(val):
@@ -77,8 +120,94 @@ def to_calc_compatible(val):
     if isinstance(val, str):
         return val
     if isinstance(val, (list, tuple)):
+        inner = val[0] if val else None
+        if isinstance(inner, (list, tuple)):
+            return tuple(tuple(to_calc_compatible(cell) for cell in row) for row in val)
         return tuple(to_calc_compatible(item) for item in val)
     return str(val)
+
+
+def _session_key(ctx, code: str):
+    doc_url = ""
+    sheet_name = ""
+    try:
+        smgr = ctx.ServiceManager
+        desktop = smgr.createInstanceWithContext("com.sun.star.frame.Desktop", ctx)
+        doc = desktop.getCurrentComponent()
+        if doc is not None:
+            doc_url = getattr(doc, "getURL", lambda: "")() or ""
+            ctrl = getattr(doc, "getCurrentController", lambda: None)()
+            if ctrl is not None:
+                sheet = ctrl.getActiveSheet()
+                if sheet is not None:
+                    sheet_name = sheet.getName()
+    except Exception:
+        pass
+    return (doc_url, sheet_name, code)
+
+
+class _WorkerResultSession:
+    """Caches one worker list result across multiple =PYTHON() calls in a recalc pass."""
+
+    __slots__ = ("raw", "flat", "next_index")
+
+    def __init__(self, raw, flat: list):
+        self.raw = raw
+        self.flat = tuple(flat)
+        self.next_index = 0
+
+
+def _get_or_create_worker_session(ctx, code: str, worker_data, res: dict):
+    """Reuse one successful list worker result for repeated add-in calls (matrix fill)."""
+    if res.get("status") != "ok":
+        return None
+    result = res.get("result")
+    if not isinstance(result, (list, tuple)):
+        return None
+    flat = [to_calc_compatible(v) for v in _flatten_result_values(result)]
+    sessions = getattr(_MATRIX_SCALAR_SESSIONS, "sessions", None)
+    if sessions is None:
+        _MATRIX_SCALAR_SESSIONS.sessions = {}
+        sessions = _MATRIX_SCALAR_SESSIONS.sessions
+    key = (_session_key(ctx, code), repr(worker_data))
+    state = sessions.get(key)
+    if not isinstance(state, _WorkerResultSession) or state.flat != tuple(flat):
+        state = _WorkerResultSession(result, flat)
+        sessions[key] = state
+    return state
+
+
+def _scalar_for_list_result(ctx, code: str, result, *, worker_data=None) -> float | str | bool:
+    """Return one Calc scalar per invocation when the worker produced a list."""
+    flat: list = [to_calc_compatible(v) for v in _flatten_result_values(result)]
+    if not flat:
+        return ""
+    key = (_session_key(ctx, code), repr(worker_data))
+    sessions = getattr(_MATRIX_SCALAR_SESSIONS, "sessions", None) or {}
+    state = sessions.get(key)
+    if not isinstance(state, _WorkerResultSession) or state.flat != tuple(flat):
+        state = _WorkerResultSession(result, flat)
+        sessions[key] = state
+    idx = state.next_index
+    state.next_index = idx + 1
+    if state.next_index >= len(state.flat):
+        sessions.pop(key, None)
+    if 0 <= idx < len(state.flat):
+        return state.flat[idx]
+    return state.flat[-1] if state.flat else ""
+
+
+def finalize_python_return(ctx, code: str, result, *, index_arg=None, worker_data=None):
+    """Map worker result to a single value Calc's add-in bridge accepts."""
+    if isinstance(result, (list, tuple)):
+        if index_arg is not None:
+            flat = _flatten_result_values(result)
+            idx = _coerce_index(index_arg)
+            if idx < 0 or idx >= len(flat):
+                return f"Error: index {idx} out of range (result length {len(flat)})"
+            return to_calc_compatible(flat[idx])
+        return _scalar_for_list_result(ctx, code, result, worker_data=worker_data)
+    return to_calc_compatible(result)
 
 
 class PromptFunction(unohelper.Base, _XPromptFunctionBase):  # pyright: ignore[reportGeneralTypeIssues] — runtime IDL base from LO  # pyrefly: ignore[invalid-inheritance]
@@ -124,7 +253,10 @@ class PromptFunction(unohelper.Base, _XPromptFunctionBase):  # pyright: ignore[r
             if nArgument == 0:
                 return "The Python code to execute. Assign output to 'result'."
             elif nArgument == 1:
-                return "Optional cell range; values are injected as data (flat list for one row or column)."
+                return (
+                    "Optional range injected as data, or a single-cell index for matrix "
+                    "formulas (e.g. ROW(A1)-ROW($A$1))."
+                )
         return ""
 
     def getArgumentName(self, aProgrammaticName, nArgument):
@@ -216,30 +348,33 @@ class PromptFunction(unohelper.Base, _XPromptFunctionBase):  # pyright: ignore[r
         try:
             py_data = calc_addin_data_to_python(data)
             log.debug("PYTHON parsed py_data: %r", py_data)
-            if py_data is not None:
+            index_arg = None
+            worker_data = py_data
+            if py_data is not None and _is_scalar_index_arg(py_data):
+                index_arg = py_data[0]
+                worker_data = None
+            elif py_data is not None:
                 size_err = check_python_data_size(py_data)
                 if size_err:
                     ret = f"Error: {size_err}"
                     log.debug("PYTHON returning size error: %r", ret)
                     return ret
-            res = run_blocking_in_thread(self.ctx, run_code_in_user_venv, self.ctx, code, data=py_data)
+            # Synchronous: =PYTHON() runs during Calc recalc; UI event pumping from
+            # run_blocking_in_thread can re-enter the formula engine and yield #VALUE!.
+            sessions = getattr(_MATRIX_SCALAR_SESSIONS, "sessions", None) or {}
+            cache_key = (_session_key(self.ctx, code), repr(worker_data))
+            cached = sessions.get(cache_key)
+            if isinstance(cached, _WorkerResultSession) and cached.next_index < len(cached.flat):
+                res = {"status": "ok", "result": cached.raw}
+            else:
+                res = run_code_in_user_venv(self.ctx, code, data=worker_data)
+                _get_or_create_worker_session(self.ctx, code, worker_data, res)
             log.debug("PYTHON res from worker: %r", res)
             if res.get("status") == "ok":
                 result = res.get("result")
                 log.debug("PYTHON raw result: %r (type: %s)", result, type(result).__name__)
-                if isinstance(result, (list, tuple)):
-                    if not result:
-                        ret = ((),)
-                    else:
-                        first = result[0]
-                        if isinstance(first, (list, tuple)):
-                            ret = tuple(tuple(row) for row in result)
-                        else:
-                            ret = tuple((val,) for val in result)
-                else:
-                    ret = result
-                final_ret = to_calc_compatible(ret)
-                log.debug("PYTHON returning success sequence: %r (type: %s)", final_ret, type(final_ret).__name__)
+                final_ret = finalize_python_return(self.ctx, code, result, index_arg=index_arg, worker_data=worker_data)
+                log.debug("PYTHON returning scalar: %r (type: %s)", final_ret, type(final_ret).__name__)
                 return final_ret
             else:
                 err_msg = f"Error: {res.get('message') or res.get('error')}"

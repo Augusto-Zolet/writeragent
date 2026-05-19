@@ -38,7 +38,6 @@ def test_prompt_function_metadata():
 @native_test
 def test_prompt_function_python_execution():
     from plugin.calc.prompt_function import PromptFunction
-    from plugin.scripting.run_venv_code import run_code_in_user_venv
     import unittest.mock
     
     func = PromptFunction(_ctx)
@@ -46,12 +45,12 @@ def test_prompt_function_python_execution():
     # Mock run_blocking_in_thread to avoid actual subprocess spawning in this test
     # or we can let it run if sys.executable is used.
     
-    with unittest.mock.patch("plugin.calc.prompt_function.run_blocking_in_thread") as mock_run:
+    with unittest.mock.patch("plugin.calc.prompt_function.run_code_in_user_venv") as mock_run:
         # Success case
         mock_run.return_value = {"status": "ok", "result": 42}
         res = func.python("result = 21 * 2")
         assert res == 42.0
-        mock_run.assert_called_with(func.ctx, run_code_in_user_venv, func.ctx, "result = 21 * 2", data=None)
+        mock_run.assert_called_with(func.ctx, "result = 21 * 2", data=None)
 
         # Range data forwarded
         mock_run.reset_mock()
@@ -60,7 +59,7 @@ def test_prompt_function_python_execution():
         assert res == 6.0
         mock_run.assert_called_once()
         call_kw = mock_run.call_args
-        assert call_kw[0][3] == "result = sum(data)"
+        assert call_kw[0][1] == "result = sum(data)"
         assert call_kw[1]["data"] == [1.0, 2.0, 3.0]
 
         # Error case
@@ -72,17 +71,17 @@ def test_prompt_function_python_execution():
         mock_run.reset_mock()
         mock_run.return_value = {"status": "ok", "result": [2, 3, 5]}
         res = func.python("some code")
-        assert res == ((2.0,), (3.0,), (5.0,))
+        assert res == 2.0
 
         # 2D array return matrix formatting
         mock_run.reset_mock()
         mock_run.return_value = {"status": "ok", "result": [[2, 3], [5, 7]]}
         res = func.python("some code")
-        assert res == ((2.0, 3.0), (5.0, 7.0))
+        assert res == 2.0
 
         # 1000th-1005th primes sequence return test with auto-imported sp
         mock_run.reset_mock()
         mock_run.return_value = {"status": "ok", "result": [7919, 7927, 7933, 7937, 7949, 7951]}
         res = func.python("[sp.prime(x) for x in range(1000, 1006)]")
-        assert res == ((7919.0,), (7927.0,), (7933.0,), (7937.0,), (7949.0,), (7951.0,))
-        mock_run.assert_called_with(func.ctx, run_code_in_user_venv, func.ctx, "[sp.prime(x) for x in range(1000, 1006)]", data=None)
+        assert res == 7919.0
+        mock_run.assert_called_with(func.ctx, "[sp.prime(x) for x in range(1000, 1006)]", data=None)
