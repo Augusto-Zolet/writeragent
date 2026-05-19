@@ -20,6 +20,7 @@ import logging
 
 from plugin.doc.specialized_base import DelegateToSpecializedBase
 from plugin.calc.base import ToolCalcSpecialBase
+from plugin.framework.constants import DELEGATION_PUBLIC_WEB_HINT, DELEGATION_USER_FILE_DATA_HINT
 
 log = logging.getLogger("writeragent.calc")
 
@@ -33,9 +34,9 @@ class DelegateToSpecializedCalc(DelegateToSpecializedBase):
 
     name = "delegate_to_specialized_calc_toolset"
     description = (
-        "Delegates a specialized task to a sub-agent with a focused toolset. Use this for complex Calc operations "
-        "(images, pivot tables, form controls on the active sheet, track changes via domain=tracking, etc.). "
-        "For cross-file reads in the same folder, use domain=document_research."
+        f"Delegates a specialized Calc task. document_research {DELEGATION_USER_FILE_DATA_HINT}; "
+        f"web_research {DELEGATION_PUBLIC_WEB_HINT}. "
+        "Also: images, pivot, sheets, forms, tracking, etc."
     )
 
     uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]

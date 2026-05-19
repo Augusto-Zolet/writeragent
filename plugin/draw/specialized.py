@@ -20,6 +20,7 @@ import logging
 
 from plugin.doc.specialized_base import DelegateToSpecializedBase
 from plugin.draw.base import ToolDrawSpecialBase
+from plugin.framework.constants import DELEGATION_PUBLIC_WEB_HINT, DELEGATION_USER_FILE_DATA_HINT
 
 log = logging.getLogger("writeragent.draw")
 
@@ -33,10 +34,9 @@ class DelegateToSpecializedDraw(DelegateToSpecializedBase):
 
     name = "delegate_to_specialized_draw_toolset"
     description = (
-        "Delegates a specialized task to a sub-agent with a focused toolset. Domains include shapes, charts, forms, "
-        "math (domain='math'), headers/footers, speaker notes (domain='speaker_notes'), slide transitions and layouts "
-        "(domain='slide_transitions'), slide masters (domain='slide_masters'), web research, and similar focused work. "
-        "For cross-file reads in the same folder, use domain=document_research."
+        f"Delegates a specialized Draw task. document_research {DELEGATION_USER_FILE_DATA_HINT}; "
+        f"web_research {DELEGATION_PUBLIC_WEB_HINT}. "
+        "Also: shapes, charts, forms, math, slide transitions, slide masters, etc."
     )
 
     uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]

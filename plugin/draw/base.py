@@ -18,6 +18,7 @@
 
 from typing import ClassVar
 
+from plugin.framework.constants import DELEGATION_PUBLIC_WEB_HINT, DELEGATION_USER_FILE_DATA_HINT
 from plugin.framework.tool import ToolBase
 
 
@@ -41,14 +42,12 @@ class ToolDrawSpecialBase(ToolBase):
 
 class ToolDrawWebResearchBase(ToolDrawSpecialBase):
     specialized_domain: ClassVar[str | None] = "web_research"
-    specialized_domain_description: ClassVar[str | None] = "Search the web for information to help with the drawing or presentation."
+    specialized_domain_description: ClassVar[str | None] = DELEGATION_PUBLIC_WEB_HINT
 
 
 class ToolDrawDocumentResearchBase(ToolDrawSpecialBase):
     specialized_domain: ClassVar[str | None] = "document_research"
-    specialized_domain_description: ClassVar[str | None] = (
-        "Read other files in the same folder as this drawing via document_research delegation."
-    )
+    specialized_domain_description: ClassVar[str | None] = DELEGATION_USER_FILE_DATA_HINT
 
 
 class ToolDrawChartBase(ToolDrawSpecialBase):

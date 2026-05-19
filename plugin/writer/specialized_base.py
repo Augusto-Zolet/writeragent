@@ -22,7 +22,7 @@ from typing import ClassVar
 from plugin.framework.tool import ToolBase
 from plugin.calc.base import ToolCalcSpecialBase
 from plugin.draw.base import ToolDrawFormBase
-from plugin.framework.constants import USE_SUB_AGENT
+from plugin.framework.constants import DELEGATION_PUBLIC_WEB_HINT, DELEGATION_USER_FILE_DATA_HINT, USE_SUB_AGENT
 from plugin.doc.specialized_base import DelegateToSpecializedBase
 
 log = logging.getLogger("writeragent.writer")
@@ -58,14 +58,9 @@ class DelegateToSpecializedWriter(DelegateToSpecializedBase):
     name = "delegate_to_specialized_writer_toolset"
     description = (
         "Delegates a specialized task to a sub-agent with a focused toolset. "
-        "Use this for specialized complex Writer operations like manipulating "
-        "charts, fields, styles (list, edit, create), page (margins, headers/footers, columns, page breaks), "
-        "textframes (list_text_frames, get_text_frame_info, set_text_frame_properties), "
-        "embedded objects, shapes, indexes, "
-        "bookmarks, track changes (tracking), footnotes/endnotes (domain=footnotes), "
-        "form templates and controls (domain=forms), "
-        "or in-document image work (domain=images: generate, list, insert, replace images, etc.). "
-        "For cross-file reads in the same folder, use domain=document_research."
+        f"document_research {DELEGATION_USER_FILE_DATA_HINT}; web_research {DELEGATION_PUBLIC_WEB_HINT}. "
+        "Also: charts, fields, styles, page, textframes, embedded (active doc OLE only), shapes, indexes, "
+        "bookmarks, tracking, footnotes, forms, images."
     )
 
     uno_services = ["com.sun.star.text.TextDocument"]
@@ -97,7 +92,7 @@ class ToolWriterTextFramesBase(ToolWriterSpecialBase):
 
 class ToolWriterEmbeddedBase(ToolWriterSpecialBase):
     specialized_domain: ClassVar[str | None] = "embedded"
-    specialized_domain_description: ClassVar[str | None] = "Manage embedded OLE objects like spreadsheets or formulas."
+    specialized_domain_description: ClassVar[str | None] = "OLE in active doc only (not sibling files on disk)."
     intent = "edit"
 
 
@@ -181,14 +176,12 @@ class ToolWriterFormBase(ToolWriterSpecialBase, ToolCalcSpecialBase, ToolDrawFor
 
 class ToolWriterWebResearchBase(ToolWriterSpecialBase):
     specialized_domain: ClassVar[str | None] = "web_research"
-    specialized_domain_description: ClassVar[str | None] = "Search the web for information to help with the document."
+    specialized_domain_description: ClassVar[str | None] = DELEGATION_PUBLIC_WEB_HINT
 
 
 class ToolWriterDocumentResearchBase(ToolWriterSpecialBase):
     specialized_domain: ClassVar[str | None] = "document_research"
-    specialized_domain_description: ClassVar[str | None] = (
-        "Read other files in the same folder as this document via document_research delegation."
-    )
+    specialized_domain_description: ClassVar[str | None] = DELEGATION_USER_FILE_DATA_HINT
 
 
 class SpecializedWorkflowFinished(ToolBase):

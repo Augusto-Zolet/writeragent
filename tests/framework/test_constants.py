@@ -90,6 +90,31 @@ def test_get_core_directives_writer():
     assert "delegate_to_specialized_writer_toolset" in directives
     assert 'domain="python"' in directives
     assert "apply_document_content" in directives
+    assert 'domain="document_research"' in directives
+    assert "to research (my / our) personal documents" in directives
+    assert "to research public topics" in directives
+    assert 'domain="web_research") first to find information' not in directives
+
+
+def test_writer_chat_prompt_delegation_routing_local_vs_web():
+    model = MagicMock()
+    model.supportsService.return_value = False
+    prompt = get_chat_system_prompt_for_document(model)
+    assert "to research (my / our) personal documents" in prompt
+    assert "to research public topics" in prompt
+    assert "OLE in active doc only" in prompt
+
+
+def test_calc_core_directives_local_before_web():
+    assert 'domain="document_research"' in CALC_CORE_DIRECTIVES
+    assert "to research (my / our) personal documents" in CALC_CORE_DIRECTIVES
+    assert 'domain="web_research") first to find information' not in CALC_CORE_DIRECTIVES
+
+
+def test_draw_core_directives_local_before_web():
+    assert 'domain="document_research"' in DRAW_CORE_DIRECTIVES
+    assert "to research (my / our) personal documents" in DRAW_CORE_DIRECTIVES
+    assert 'domain="web_research") first to find information' not in DRAW_CORE_DIRECTIVES
 
 
 def test_get_core_directives_calc():
