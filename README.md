@@ -47,11 +47,10 @@ Unlike proprietary office suites that lock you into a single cloud provider and 
 
 ### 🖋️ Writer
 
-- **Real-time Grammar Checker**: An experimental, asynchronous proofreader with a **sentence cache** and **Unicode-aware splitting**. Includes **Token-aware Overlap Repair** to fix "LLM slop" and ensure surgical replacements. Persistent storage of good/bad sentences with document. [Read the Plan](docs/realtime-grammar-checker-plan.md).
-- **Math & LaTeX**: **MathML** and **TeX** delimiters are automatically turned into **editable LibreOffice Math formulas** (OLE objects). See [docs/math-tex.md](docs/math-tex.md).
 - **Advanced Editing**: Supports rich text, [page layout](docs/page-api-reference.md), [shapes](docs/shape_support.md), charts, [bookmarks](docs/bookmarks-api-reference.md), fields, [footnotes](docs/footnotes-api-reference.md), and [track-changes](docs/writer-tracking-api-reference.md). Tool delegation feature explained in [Writer Specialized Toolset](docs/writer-specialized-toolsets.md).
 - **Format Preservation**: Uses a "surgical" replacement method that preserves existing bold, italics, highlights, and font sizes.
-- **Extend & Edit Selection**: Quick shortcuts (**`Ctrl+Q`** to extend, **`Ctrl+E`** to rewrite) that act directly on your highlighted text.
+- **Real-time Grammar Checker**: An experimental, asynchronous proofreader with a **sentence cache** and **Unicode-aware splitting**. Includes **Token-aware Overlap Repair** to fix "LLM slop" and ensure surgical replacements. Persistent storage of good/bad sentences with document. Enable in **Settings → Doc → Enable AI grammar checker (Writer)** (off by default); underlines appear shortly after you pause typing. [Read the Plan](docs/realtime-grammar-checker-plan.md).
+- **Math & LaTeX**: **MathML** and **TeX** delimiters are automatically turned into **editable LibreOffice Math formulas** (OLE objects). Use `\(...\)` / `$...$` for inline and `$$...$$` / `\[...\]` for display in chat or HTML content; prefer `\(...\)` over bare `$` near numbers. See [docs/math-tex.md](docs/math-tex.md).
 
 ### 📊 Calc
 
@@ -74,6 +73,7 @@ Unlike proprietary office suites that lock you into a single cloud provider and 
 - **Persistent Memory**: [Agent Memory & Skills](docs/agent-memory-and-skills.md) and [Librarian Onboarding](docs/librarian-agentic-onboarding.md).
 - **34 Locales**: Automated AI-driven translation and review pipeline. [Localization Pipeline](docs/localization.md).
 - **Multilingual Grammar**: An optional feature that uses the LLM to identify and correct the underlying text language when typing in multiple languages, before running the grammar checker.
+- **Cross-Document Research**: Say **my** or **our** in the sidebar (e.g. *“pull Q4 from our budget spreadsheet”*) to read other files in the same folder as your saved document; edits stay on the active doc. [Multi-document plan](docs/multi-document-dev-plan.md).
 
 ### 🐍 Local Python Execution (in version 0.8.0)
 
@@ -200,7 +200,9 @@ Our application-specific roadmap is focused on closing the remaining gaps in the
 
 - **🎨 Draw & Impress**: We are moving toward full presentation mastery by adding support for **Slide Animations**, **Layer Management**, and **Slide Show Controls**. High-priority multimedia support, including **Audio/Video insertion** and **3D Shape** manipulation, will round out the creative suite.
 
-Building on this foundation, we are eventually working on **Long-Document and Multi-Document Support**. Handling 100+ page documents is a complex engineering challenge; it will require internal caching, a **page-at-a-time navigation** system that allows the agent to move through large files while maintaining awareness of nested elements. For **Multi-Document Support**, we are leveraging the LibreOffice Desktop service to discover and coordinate between all open documents, and eventually expanding the agent's scope to operate on a **directory of files** to synthesize information across Writer reports, Calc sheets, and Draw presentations.
+**Cross-document reads (shipped):** Sidebar chat can already discover and read sibling Writer, Calc, and Draw files in the same folder as your saved document (see [multi-document plan](docs/multi-document-dev-plan.md)). Still ahead: configurable extra directories, `@` mention UI, headless opens, and broader directory-wide synthesis.
+
+Building on this foundation, we are working on **long-document navigation** for 100+ page files—internal caching and a **page-at-a-time** system so the agent can move through large files while keeping awareness of nested elements.
 
 ---
 
