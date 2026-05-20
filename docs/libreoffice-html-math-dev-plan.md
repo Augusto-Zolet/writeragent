@@ -17,7 +17,7 @@ The goal is to add **editable math support** to WriterAgent's HTML import path f
 
 **Shipped modules (WriterAgent):** `html_math_segment.py` (MathML + TeX segmentation), `math_mml_convert.py` (MathML + LaTeX→MathML→StarMath), `math_formula_insert.py`, orchestration in `format_support.py` (`html_fragment_contains_mixed_math`, `content_has_markup` TeX patterns); vendored **`latex2mathml`** via `requirements-vendor.txt` (see `pyproject.toml` dev group for typecheck); tests under `plugin/tests/` and `plugin/tests/uno/`; agent context in `AGENTS.md`; model hints in `plugin/framework/constants.py` (`WRITER_APPLY_DOCUMENT_HTML_RULES`) and `plugin/writer/content.py` (`ApplyDocumentContent`).
 
-**Next priorities (pick from):** Phase 3 quality; Phase 1 backlog (test matrix, optional `warnings` in tool return); optional `"".join` for `apply_document_content` list `content`; policy for true multi-line / `mtable` vs global `newline` stripping; trim DEBUG logging; upstream LO Writer OLE + `newline` rendering; optional KaTeX annotation fallback.
+**Next priorities (pick from):** Phase 3 quality; Phase 1 backlog (test matrix, optional `warnings` in tool return); optional `"".join` for `apply_document_content` list `content`; policy for true multi-line / `mtable` vs global `newline` stripping; trim DEBUG logging; upstream LO Writer OLE + `newline` rendering; optional KaTeX annotation fallback; TexMaths-inspired UX/interop ([TexMaths feature review](#texmaths-feature-review-porting-candidates)).
 
 ## Problem statement
 
@@ -503,6 +503,7 @@ The implementation could become an open-ended parser project.
 - [ ] Phase 2 stretch: KaTeX `<annotation encoding="application/x-tex">` retry on failed MathML import
 - [ ] Phase 3: robustness
 - [ ] Trim DEBUG logging when stable
+- [ ] TexMaths-inspired provenance, edit-selected, legacy interop ([TexMaths feature review](#texmaths-feature-review-porting-candidates))
 
 ## Reviewer checklist
 
@@ -524,11 +525,121 @@ Work **after** Phase 2 (core) should assume:
 - **Testing rule:** extend matrix rows and tool JSON when adding features.
 - **Fallback rule:** never silently lose formulas (unchanged).
 
+## TexMaths feature review (porting candidates)
+
+**Reference tree:** local copy at `/home/keithcu/Desktop/Python/TexMaths` (upstream [SourceForge](https://sourceforge.net/projects/texmaths/), [homepage](http://roland65.free.fr/texmaths/)). **Implementation language:** LibreOffice **StarBasic** (`.xba`) + dialog XML (`.xdl`), not Python — any “port” means **reimplement in WriterAgent’s Python/UNO stack**, not wrapping the extension.
+
+This section records which TexMaths ideas are worth adopting given WriterAgent’s **chosen math model**: **editable LibreOffice Math objects** (StarMath via `latex2mathml` + LO MathML import), not external LaTeX → PNG/SVG images.
+
+### Architecture comparison
+
+| Aspect | TexMaths | WriterAgent (today) |
+|--------|----------|---------------------|
+| Equation output | PNG or SVG **graphics** (`latex` / `xelatex` → `dvipng` / `dvisvgm`) | **Native** `TextEmbeddedObject` (Math CLSID) |
+| Source storage | LaTeX + params in shape `Title`/`Description` or `TexMathsArgs` (`TexMaths/TexMathsTools.xba` `ReadAttributes` / `SetAttributes`) | Original TeX/MathML **discarded** after insert; only StarMath remains |
+| Edit loop | Select image → dialog → recompile | `apply_document_content` with TeX/MathML; menu **Insert LaTeX Math** ([`latex_dialog.py`](../plugin/writer/math/latex_dialog.py)) |
+| Full LaTeX | Yes (any `\begin{}` environment, preamble, `\usepackage`) | **Subset** via vendored `latex2mathml` ([`math_mml_convert.py`](../plugin/writer/math/math_mml_convert.py)) |
+| External deps | TeX distribution + dvipng or dvisvgm | None for math typesetting |
+| Impress / Draw | First-class | Writer math import path; limited elsewhere |
+| Agent / MCP | None | Tools + chat; math in HTML rules ([`constants.py`](../plugin/framework/constants.py)) |
+
+```mermaid
+flowchart TB
+  subgraph texmaths [TexMaths]
+    T1[LaTeX in dialog] --> T2[latex/xelatex subprocess]
+    T2 --> T3[PNG or SVG image in doc]
+    T3 --> T4[LaTeX stored on image metadata]
+  end
+  subgraph writeragent [WriterAgent]
+    W1[TeX or MathML in HTML / dialog] --> W2[latex2mathml + LO MathML import]
+    W2 --> W3[Editable LO Math object]
+    W3 --> W4[StarMath only in document]
+  end
+```
+
+**Strategic takeaway:** Do **not** port TexMaths’s core pipeline (external TeX → raster/vector images) as the default. It fights the agent edit loop, breaks on snap/flatpak (no external programs), and duplicates work already done better for AI-authored documents via native math. Selectively port **UX**, **metadata**, and **legacy interop** ideas instead.
+
+### Worth porting (prioritized)
+
+#### High — aligns with agent math roadmap
+
+| TexMaths feature | Where in TexMaths | WriterAgent gap | Suggested port |
+|------------------|-------------------|-----------------|--------------|
+| **Persist LaTeX source on insert** | `SetAttributes` stores `sEqCode` in shape metadata | TeX lost after insert ([math-extraction-editing-dev-plan.md](math-extraction-editing-dev-plan.md) §7) | On `insert_writer_math_formula`, write optional `UserDefinedAttributes` / doc property: original TeX + `display_block`. Enables edit rounds without StarMath→TeX guesswork. |
+| **Edit selected equation** | Select image → Equations macro loads LaTeX | `insert_latex_math_dialog` only inserts; no selection prefill | Menu/tool: if cursor on Math CLSID object, read stored TeX (or StarMath fallback) → [`latex_dialog.py`](../plugin/writer/math/latex_dialog.py) → replace object. |
+| **Selection → equation** (“Text to LaTeX”) | Help §11: select plain LaTeX in Writer → one-click convert | Same conversion path, no selection shortcut | Writer menu/MCP: `getSelection()` string → `convert_latex_to_starmath` → insert/replace. Small UX win for power users. |
+| **Read legacy TexMaths / OOoLatex** | `ReadAttributes` supports `TexMathsArgs`, `OOoLatexArgs`, `Title=TexMaths` | No interop with existing academic `.odt` | UNO helper + optional tool: detect graphic with TexMaths metadata, return LaTeX to model, offer “convert to native math” (one-shot or batch). Critical for documents that already use TexMaths. |
+
+#### Medium — UX and document features
+
+| TexMaths feature | Notes | Suggested port |
+|------------------|-------|----------------|
+| **Symbol palette (300+ buttons)** | `TexMathsEquations_Dlg` + `icons/symbols-*` | Extend LaTeX dialog with tabbed symbol inserts (reuse icon→snippet map from TexMaths or a curated subset). Low risk; helps humans and could inform prompt examples. |
+| **Equation history** | Newer releases (0.51+): previous equations in editor | Today: single `last_latex_input` in config | LRU list in `writeragent.json` (same pattern as `model_lru`); show in dialog. |
+| **Numbered display equations** | `TexMathsNumberedEquations.xba`, caption left/right | No dedicated numbered block tool | Writer tool: insert display math + auto caption/field (`seq` / numbering fields). Overlaps footnote/caption tooling — coordinate with [`plugin/writer/specialized/`](../plugin/writer/specialized/). |
+| **Per-document “preamble” for the model** | `TexMathsPreamble` in `UserDefinedProperties` | Agent has no doc-local macro packages | Store optional **document math hints** (e.g. “use `\bm{}` for bold vectors”) in doc properties for inclusion in `[DOCUMENT CONTENT]` — not a full LaTeX preamble engine. |
+| **Named equations** | `sEqName` in attributes (Impress animations) | — | Optional name tag on insert; `find_text` / structured outline for “equation E1”. |
+| **Recompile all (batch refresh)** | `TexMathsRecompileEquations.xba` | N/A for images | Once TeX provenance exists: batch re-run `convert_latex_to_starmath` for all stored TeX (e.g. after `latex2mathml` upgrade). Writer-only; scope like TexMaths (skip headers/tables or document limits). |
+
+#### Medium — optional fallback path
+
+| TexMaths feature | Notes | Suggested port |
+|------------------|-------|----------------|
+| **LaTeX → image when native conversion fails** | External `latex` + `dvisvgm` | **Optional** tool: insert SVG/PNG **only** on `convert_latex_to_starmath` failure. Off by default; binary paths like TexMaths SysConfig. Subprocess pattern similar to [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md) if implemented. |
+| **Transparent / themed PNG/SVG** | TexMaths transparency + symbol color for dark UI | Only relevant for image fallback; low priority. |
+
+#### Low — defer or skip
+
+| TexMaths feature | Why skip or defer |
+|------------------|-------------------|
+| **Text mode (Impress inline, TexMaths fonts)** | Different rendering model; Impress not primary; 0.52.x fixes show fragility. |
+| **Full SysConfig / path wizard** | Only needed for external TeX toolchain; avoid unless image fallback ships. |
+| **LaTeX / XeLaTeX / LuaLaTeX compiler choice** | Image-path only. |
+| **MS Word vertical-align compatibility** | Export niche; maintenance burden. |
+| **`\input` / `\include` of sibling `.tex` files** | Agent can read files via tools; no macro special case. |
+| **NotebookBar toolbar buttons** | WriterAgent uses sidebar/MCP; register actions only if users ask. |
+| **StarBasic `makepkg` / `.oxt` packaging** | Irrelevant — WriterAgent OXT already ships Python math stack. |
+
+### Already covered (do not re-port)
+
+| Capability | WriterAgent |
+|------------|-------------|
+| LaTeX entry UI | [`latex_dialog.py`](../plugin/writer/math/latex_dialog.py) + `writer.insert_latex_dialog` |
+| TeX in HTML → editable math | [`html_math_segment.py`](../plugin/writer/html_math_segment.py), [`format_support.py`](../plugin/writer/format_support.py) |
+| Display vs inline | `display_block` on insert + delimiter rules in prompts |
+| LLM-driven authoring | `apply_document_content` with structured math rules |
+
+### Suggested implementation order
+
+1. **Provenance:** store original TeX on insert (unblocks everything else).
+2. **Edit selected + selection→math** (menu + optional MCP tool).
+3. **Legacy TexMaths read/convert** (interop for existing documents).
+4. **Symbol palette + history** (dialog polish).
+5. **Numbered equations + batch reconvert** (Writer tools).
+6. **Optional external LaTeX→image fallback** (only if product accepts TeX-install dependency).
+
+See also: [math-extraction-editing-dev-plan.md](math-extraction-editing-dev-plan.md) (extract/edit loop), [image-generation.md](image-generation.md) (if image fallback shares insert-image paths).
+
+### TexMaths modules (reference tree)
+
+| Module (under `TexMaths/TexMaths/`) | Role |
+|--------|------|
+| `TexMathsEquations.xba` | Main insert/edit; calls compile script |
+| `TexMathsEquations_Dlg.xba` | Large equation editor + symbol tabs |
+| `TexMathsTools.xba` | Attributes, clipboard graphic import, path helpers |
+| `TexMathsSysConfig.xba` | External program paths, compiler, shortcuts |
+| `TexMathsRecompileEquations.xba` | Batch parameter refresh |
+| `TexMathsNumberedEquations.xba` | Numbered blocks in Writer |
+| `TexMathsPreamble.xba` | Per-document LaTeX preamble UI |
+| `help/help.en` | User-facing feature list |
+
 ## Related documents
 
 - Research and architecture proposal: `docs/libreoffice-html-math-proposal.md`
+- Math extraction and edit loops: `docs/math-extraction-editing-dev-plan.md`
 - Writer HTML import + math orchestration: `plugin/writer/format_support.py`
 - MathML + TeX segmentation: `plugin/writer/html_math_segment.py`
 - MathML → StarMath + Writer newline mitigation; LaTeX (`latex2mathml`) → MathML → StarMath: `plugin/writer/math_mml_convert.py`
 - Formula OLE insert: `plugin/writer/math_formula_insert.py`
 - Vendored `latex2mathml`: `requirements-vendor.txt` (and dev mirror in `pyproject.toml` for typecheck)
+- TexMaths reference review (UX/interop, not image pipeline): [TexMaths feature review](#texmaths-feature-review-porting-candidates) in this document
