@@ -91,7 +91,7 @@ def test_get_core_directives_writer():
     assert 'domain="python"' in directives
     assert "apply_document_content" in directives
     assert 'domain="document_research"' in directives
-    assert "to research (my / our) personal documents" in directives
+    assert "to use information from (my / our) personal or business documents" in directives
     assert "to research public topics" in directives
     assert 'domain="web_research") first to find information' not in directives
 
@@ -100,20 +100,20 @@ def test_writer_chat_prompt_delegation_routing_local_vs_web():
     model = MagicMock()
     model.supportsService.return_value = False
     prompt = get_chat_system_prompt_for_document(model)
-    assert "to research (my / our) personal documents" in prompt
+    assert "to use information from (my / our) personal or business documents" in prompt
     assert "to research public topics" in prompt
     assert "OLE in active doc only" in prompt
 
 
 def test_calc_core_directives_local_before_web():
     assert 'domain="document_research"' in CALC_CORE_DIRECTIVES
-    assert "to research (my / our) personal documents" in CALC_CORE_DIRECTIVES
+    assert "to use information from (my / our) personal or business documents" in CALC_CORE_DIRECTIVES
     assert 'domain="web_research") first to find information' not in CALC_CORE_DIRECTIVES
 
 
 def test_draw_core_directives_local_before_web():
     assert 'domain="document_research"' in DRAW_CORE_DIRECTIVES
-    assert "to research (my / our) personal documents" in DRAW_CORE_DIRECTIVES
+    assert "to use information from (my / our) personal or business documents" in DRAW_CORE_DIRECTIVES
     assert 'domain="web_research") first to find information' not in DRAW_CORE_DIRECTIVES
 
 
@@ -139,3 +139,16 @@ def test_get_core_directives_draw():
     assert "delegate_to_specialized_draw_toolset" in directives
     assert 'domain="python"' in directives
     assert "apply_document_content" not in directives
+
+
+def test_core_directives_prohibit_asking_user_to_paste():
+    # Writer
+    assert "MUST NOT ask the user where to find it" in WRITER_CORE_DIRECTIVES
+    assert "MUST immediately call delegate_to_specialized_writer_toolset(domain=\"document_research\")" in WRITER_CORE_DIRECTIVES
+    # Calc
+    assert "MUST NOT ask the user where the file is stored" in CALC_CORE_DIRECTIVES
+    assert "MUST immediately call delegate_to_specialized_calc_toolset(domain=\"document_research\")" in CALC_CORE_DIRECTIVES
+    # Draw
+    assert "MUST NOT ask the user where the file is stored" in DRAW_CORE_DIRECTIVES
+    assert "MUST immediately call delegate_to_specialized_draw_toolset(domain=\"document_research\")" in DRAW_CORE_DIRECTIVES
+

@@ -101,21 +101,28 @@ def should_prepend_dev_llm_system_prefix() -> bool:
 
 
 # Research routing (short); domain bullets use these strings as-is.
-DELEGATION_USER_FILE_DATA_HINT = "to research (my / our) personal documents"
+DELEGATION_USER_FILE_DATA_HINT = "to use information from (my / our) personal or business documents"
 DELEGATION_PUBLIC_WEB_HINT = "to research public topics"
 
 # General directives shared across all AI interfaces
 WRITER_CORE_DIRECTIVES = f"""When asked to answer a question or create or explain something, assume the user wants the
 information to be inserted into the document. Use the apply_document_content tool to insert content
 into LibreOffice so the user can edit it further.
-When the user wants {DELEGATION_USER_FILE_DATA_HINT}, delegate_to_specialized_writer_toolset(domain="document_research").
+When the user wants {DELEGATION_USER_FILE_DATA_HINT}:
+- You MUST NOT ask the user where to find it, or to upload, paste, its contents.
+- You MUST immediately call delegate_to_specialized_writer_toolset(domain="document_research") to locate and do any research task on their personal files.
 When the user wants {DELEGATION_PUBLIC_WEB_HINT}, delegate_to_specialized_writer_toolset(domain="web_research").
+
 When asked to make a script or run Python, use delegate_to_specialized_writer_toolset(domain="python") first to find information."""
 
-CALC_CORE_DIRECTIVES = f"""When the user wants {DELEGATION_USER_FILE_DATA_HINT}, delegate_to_specialized_calc_toolset(domain="document_research").
+CALC_CORE_DIRECTIVES = f"""When the user wants {DELEGATION_USER_FILE_DATA_HINT} (including when the user refers to any other file, document, spreadsheet, or sheet by name or path, e.g. "my spreadsheet", "read cell a9 from PythonInCalc", "summary.odt", etc., or asks to pull, read, search, or reference data from them):
+- You MUST NOT ask the user where the file is stored, how to find it, or to upload, paste, or share its contents.
+- You MUST immediately call delegate_to_specialized_calc_toolset(domain="document_research") to locate and read the files.
 When the user wants {DELEGATION_PUBLIC_WEB_HINT}, delegate_to_specialized_calc_toolset(domain="web_research")."""
 
-DRAW_CORE_DIRECTIVES = f"""When the user wants {DELEGATION_USER_FILE_DATA_HINT}, delegate_to_specialized_draw_toolset(domain="document_research").
+DRAW_CORE_DIRECTIVES = f"""When the user wants {DELEGATION_USER_FILE_DATA_HINT} (including when the user refers to any other file, document, spreadsheet, or sheet by name or path, e.g. "my spreadsheet", "read cell a9 from PythonInCalc", "summary.odt", etc., or asks to pull, read, search, or reference data from them):
+- You MUST NOT ask the user where the file is stored, how to find it, or to upload, paste, or share its contents.
+- You MUST immediately call delegate_to_specialized_draw_toolset(domain="document_research") to locate and read the files.
 When the user wants {DELEGATION_PUBLIC_WEB_HINT}, delegate_to_specialized_draw_toolset(domain="web_research").
 When asked to make a script or run Python, use delegate_to_specialized_draw_toolset(domain="python") first to find information."""
 
