@@ -161,7 +161,16 @@ class DelegateToSpecializedBase(ToolBase):
             except Exception as e:
                 log.warning("Failed to get Calc context for sub-agent: %s", e)
 
-        instructions = f"You are a specialized {self._agent_label} agent focused on the '{domain}' domain. You have a focused set of tools to accomplish your task. Use them to fulfill the user's request.{footnotes_hint}{shapes_canvas}{charts_hint}{calc_ctx}"
+        document_research_hint = (
+            " Match described file(s) via list_nearby_files; delegate_read_document per file."
+            if domain == "document_research"
+            else ""
+        )
+        instructions = (
+            f"You are a specialized {self._agent_label} agent focused on the '{domain}' domain. "
+            f"You have a focused set of tools to accomplish your task. Use them to fulfill the user's request."
+            f"{footnotes_hint}{shapes_canvas}{charts_hint}{calc_ctx}{document_research_hint}"
+        )
 
         agent = build_toolcalling_agent(ctx, smol_tools, instructions=instructions, final_answer_tool_name="specialized_workflow_finished", examples_block=SPECIALIZED_EXAMPLES_BLOCK, status_callback=status_callback)
 

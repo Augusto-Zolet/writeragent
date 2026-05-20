@@ -54,7 +54,7 @@ class ToolCalcWebResearchBase(ToolCalcSpecialBase):
 
 class ToolCalcDocumentResearchBase(ToolCalcSpecialBase):
     specialized_domain = "document_research"
-    specialized_domain_description: ClassVar[str | None] = DELEGATION_USER_FILE_DATA_HINT
+    specialized_domain_description: ClassVar[str | None] = f"{DELEGATION_USER_FILE_DATA_HINT}; one delegation for file(s), sub-agent matches descriptions"
 
 
 class ToolCalcCommentBase(ToolCalcSpecialBase):

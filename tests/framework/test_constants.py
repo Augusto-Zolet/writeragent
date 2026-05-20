@@ -7,6 +7,7 @@ from plugin.framework.constants import (
     get_greeting_for_document,
     get_chat_system_prompt_for_document,
     get_core_directives,
+    get_specialized_delegation_for_model,
     WRITER_CORE_DIRECTIVES,
     CALC_CORE_DIRECTIVES,
     DRAW_CORE_DIRECTIVES,
@@ -156,11 +157,25 @@ def test_get_core_directives_draw():
 def test_core_directives_prohibit_asking_user_to_paste():
     # Writer
     assert "MUST NOT ask the user where to find it" in WRITER_CORE_DIRECTIVES
-    assert "MUST immediately call delegate_to_specialized_writer_toolset(domain=\"document_research\")" in WRITER_CORE_DIRECTIVES
+    assert 'delegate_to_specialized_writer_toolset(domain="document_research") once' in WRITER_CORE_DIRECTIVES
+    assert "described file(s)" in WRITER_CORE_DIRECTIVES
     # Calc
     assert "MUST NOT ask the user where the file is stored" in CALC_CORE_DIRECTIVES
-    assert "MUST immediately call delegate_to_specialized_calc_toolset(domain=\"document_research\")" in CALC_CORE_DIRECTIVES
+    assert 'delegate_to_specialized_calc_toolset(domain="document_research") once' in CALC_CORE_DIRECTIVES
+    assert "described file(s)" in CALC_CORE_DIRECTIVES
     # Draw
     assert "MUST NOT ask the user where the file is stored" in DRAW_CORE_DIRECTIVES
-    assert "MUST immediately call delegate_to_specialized_draw_toolset(domain=\"document_research\")" in DRAW_CORE_DIRECTIVES
+    assert 'delegate_to_specialized_draw_toolset(domain="document_research") once' in DRAW_CORE_DIRECTIVES
+    assert "described file(s)" in DRAW_CORE_DIRECTIVES
+
+
+def test_document_research_multi_file_delegation_in_prompts():
+    model = MagicMock()
+    model.supportsService.return_value = False
+    block = get_specialized_delegation_for_model(model)
+    assert "document_research:" in block
+    assert "file(s)" in block
+    for directives in (WRITER_CORE_DIRECTIVES, CALC_CORE_DIRECTIVES, DRAW_CORE_DIRECTIVES):
+        assert "described file(s)" in directives
+        assert "once with" in directives or "once with their" in directives
 

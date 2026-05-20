@@ -140,7 +140,7 @@ Implementation uses two nested smol runs (outer, then inner per file). Both call
 
 Headless / out-of-process readers (Phase 4), when added, expose the **same logical read API** to the **inner** sub-agent; only the transport to LO changes.
 
-**Phase 0 prompt:** `document_research` to research (my / our) personal documents; `web_research` to research public topics. `embedded` is active-doc OLE only.
+**Phase 0 prompt:** `document_research` to research (my / our) personal documents; `web_research` to research public topics. `embedded` is active-doc OLE only. Main chat: one delegation with described **file(s)** and task (vague labels OK); outer agent matches via `list_nearby_files`.
 
 ---
 
