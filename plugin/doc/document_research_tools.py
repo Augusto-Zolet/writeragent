@@ -23,7 +23,9 @@ class ListNearbyFiles(ToolBase):
 
     name = "list_nearby_files"
     description = (
-        "List LibreOffice files in the same folder as the active document (newest first). "
+        "List files in the same folder as the active document (newest first). "
+        "Default file_kind documents: LibreOffice formats (.odt, .ods, .odp, .odg, flat XML, templates). "
+        "file_kind images: .png, .jpg, .jpeg, .gif, .webp, .bmp, .svg only (discovery; not readable via delegate_read_document). "
         "Excludes the active file. Optional filter is a case-insensitive substring on the basename."
     )
     tier = "specialized"
@@ -34,6 +36,11 @@ class ListNearbyFiles(ToolBase):
         "type": "object",
         "properties": {
             "filter": {"type": "string", "description": "Optional basename substring (e.g. 'budget')."},
+            "file_kind": {
+                "type": "string",
+                "enum": ["documents", "images"],
+                "description": "documents (default): office files. images: photos/diagrams in the folder.",
+            },
         },
         "required": [],
     }
@@ -45,8 +52,11 @@ class ListNearbyFiles(ToolBase):
         from plugin.framework.queue_executor import execute_on_main_thread
 
         filt = kwargs.get("filter")
+        file_kind = kwargs.get("file_kind") or "documents"
+        if file_kind not in ("documents", "images"):
+            return {"status": "error", "message": f"Invalid file_kind {file_kind!r}; use documents or images."}
 
         def _run() -> dict[str, Any]:
-            return list_nearby_files(ctx.ctx, ctx.doc, filter=filt)
+            return list_nearby_files(ctx.ctx, ctx.doc, filter=filt, file_kind=file_kind)
 
         return execute_on_main_thread(_run)

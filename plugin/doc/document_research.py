@@ -36,7 +36,20 @@ NEARBY_FILE_EXTENSIONS = frozenset(
     }
 )
 
-DocTypeGuess = Literal["writer", "calc", "draw", "unknown"]
+NEARBY_IMAGE_EXTENSIONS = frozenset(
+    {
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".webp",
+        ".bmp",
+        ".svg",
+    }
+)
+
+FileKind = Literal["documents", "images"]
+DocTypeGuess = Literal["writer", "calc", "draw", "image", "unknown"]
 
 _DEFAULT_MAX_ENTRIES = 100
 
@@ -62,11 +75,24 @@ _EXTENSION_DOC_TYPE: dict[str, DocTypeGuess] = {
     ".otp": "draw",
     ".fodp": "draw",
     ".odg": "draw",
+    ".png": "image",
+    ".jpg": "image",
+    ".jpeg": "image",
+    ".gif": "image",
+    ".webp": "image",
+    ".bmp": "image",
+    ".svg": "image",
 }
 
 
+def _extensions_for_file_kind(file_kind: FileKind) -> frozenset[str]:
+    if file_kind == "images":
+        return NEARBY_IMAGE_EXTENSIONS
+    return NEARBY_FILE_EXTENSIONS
+
+
 def guess_doc_type_from_path(path: str) -> DocTypeGuess:
-    """Map a filesystem path extension to writer/calc/draw."""
+    """Map a filesystem path extension to writer/calc/draw/image."""
     ext = os.path.splitext(path)[1].lower()
     return _EXTENSION_DOC_TYPE.get(ext, "unknown")
 
@@ -139,8 +165,13 @@ def resolve_listing_directory(ctx: Any, active_model: Any) -> str | None:
     return get_work_directory(ctx)
 
 
-def _collect_open_file_urls(ctx: Any, *, exclude_path: str | None) -> dict[str, str]:
-    """Map normalized path -> file URL for open LO components."""
+def _collect_open_file_urls(
+    ctx: Any,
+    *,
+    exclude_path: str | None,
+    extensions: frozenset[str],
+) -> dict[str, str]:
+    """Map normalized path -> file URL for open LO components matching *extensions*."""
     from plugin.framework.uno_context import get_desktop
 
     out: dict[str, str] = {}
@@ -167,7 +198,7 @@ def _collect_open_file_urls(ctx: Any, *, exclude_path: str | None) -> dict[str, 
             if exclude_norm and _normalize_path(path) == exclude_norm:
                 continue
             ext = os.path.splitext(path)[1].lower()
-            if ext not in NEARBY_FILE_EXTENSIONS:
+            if ext not in extensions:
                 continue
             out[_normalize_path(path)] = str(url)
     except Exception:
@@ -178,6 +209,7 @@ def _collect_open_file_urls(ctx: Any, *, exclude_path: str | None) -> dict[str, 
 def _scan_directory(
     directory: str,
     *,
+    extensions: frozenset[str],
     filter_substring: str | None,
     exclude_path: str | None,
     open_paths: dict[str, str],
@@ -198,7 +230,7 @@ def _scan_directory(
         if _should_skip_filename(name):
             continue
         ext = os.path.splitext(name)[1].lower()
-        if ext not in NEARBY_FILE_EXTENSIONS:
+        if ext not in extensions:
             continue
         if filter_lower and filter_lower not in name.lower():
             continue
@@ -287,21 +319,27 @@ def list_nearby_files(
     active_model: Any,
     *,
     filter: str | None = None,
+    file_kind: FileKind = "documents",
     max_entries: int = _DEFAULT_MAX_ENTRIES,
 ) -> dict[str, Any]:
-    """List nearby office files for the outer document_research agent.
+    """List nearby files for the outer document_research agent.
+
+    *file_kind* ``documents`` (default): LibreOffice office formats only.
+    *file_kind* ``images``: image files only (listable; not readable via delegate_read_document).
 
     Returns a dict with ``files``, ``truncated``, and optional ``listing_root``.
     """
+    extensions = _extensions_for_file_kind(file_kind)
     active_path = get_document_path(active_model)
     exclude_path = _normalize_path(active_path) if active_path else None
-    open_paths = _collect_open_file_urls(ctx, exclude_path=exclude_path)
+    open_paths = _collect_open_file_urls(ctx, exclude_path=exclude_path, extensions=extensions)
 
     listing_root = resolve_listing_directory(ctx, active_model)
     if listing_root:
         try:
             files, truncated = _scan_directory(
                 listing_root,
+                extensions=extensions,
                 filter_substring=filter,
                 exclude_path=exclude_path,
                 open_paths=open_paths,
@@ -327,6 +365,7 @@ def resolve_path_or_name(
     path_or_name: str,
     *,
     filter: str | None = None,
+    file_kind: FileKind = "documents",
 ) -> tuple[str | None, str | None]:
     """Resolve a path or basename to an absolute path and file URL.
 
@@ -340,7 +379,9 @@ def resolve_path_or_name(
         norm = _normalize_path(raw)
         return norm, _path_to_file_url(norm)
 
-    listing = list_nearby_files(ctx, active_model, filter=filter or raw, max_entries=_DEFAULT_MAX_ENTRIES)
+    listing = list_nearby_files(
+        ctx, active_model, filter=filter or raw, file_kind=file_kind, max_entries=_DEFAULT_MAX_ENTRIES
+    )
     if listing.get("status") != "ok":
         return None, listing.get("message", "Could not resolve file")
 

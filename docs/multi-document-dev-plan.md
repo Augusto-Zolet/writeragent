@@ -58,18 +58,20 @@ Listing tools return a consistent shape (TypedDict or dataclass in `plugin/doc/n
 | `url` | `str` | `file:///…` for LO + MCP parity |
 | `modified` | `float` | mtime; used for newest-first sort |
 | `size_bytes` | `int` | Optional; used in Phase 3+ large-file heuristic |
-| `doc_type_guess` | `"writer"` \| `"calc"` \| `"draw"` \| `"unknown"` | From extension |
+| `doc_type_guess` | `"writer"` \| `"calc"` \| `"draw"` \| `"image"` \| `"unknown"` | From extension |
 | `is_open` | `bool` | Desktop already has this URL |
 
 **Exclude** the active document’s path from `list_nearby_files` results (do not offer “read self as sibling”).
 
 ### Extension allowlist
 
-Single constant `NEARBY_FILE_EXTENSIONS` in [`plugin/doc/nearby.py`](../plugin/doc/nearby.py), referenced by tests:
+Constants in [`plugin/doc/document_research.py`](../plugin/doc/document_research.py), referenced by tests. `list_nearby_files` takes optional **`file_kind`**: `"documents"` (default) or `"images"` (mutually exclusive listing modes).
 
-**Include:** `.odt`, `.ott`, `.ods`, `.ots`, `.odp`, `.otp`, `.odg`, `.fodt`, `.fods`, `.fodp`
+**`file_kind=documents`** — `NEARBY_FILE_EXTENSIONS`: `.odt`, `.ott`, `.ods`, `.ots`, `.odp`, `.otp`, `.odg`, `.fodt`, `.fods`, `.fodp`
 
-**Exclude by convention:** LibreOffice lock/temp files (`~$*`), `*.tmp`, `*.bak`, and non-LO extensions.
+**`file_kind=images`** — `NEARBY_IMAGE_EXTENSIONS`: `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.bmp`, `.svg` (discovery only; not readable via `delegate_read_document`)
+
+**Exclude by convention:** LibreOffice lock/temp files (`~$*`), `*.tmp`, `*.bak`, and extensions outside the selected allowlist.
 
 ### `open_document_for_read(path | url) -> (model, doc_type)`
 

@@ -13,6 +13,7 @@ import pytest
 
 from plugin.doc.document_research import (
     NEARBY_FILE_EXTENSIONS,
+    NEARBY_IMAGE_EXTENSIONS,
     close_document_research_document,
     guess_doc_type_from_path,
     get_document_directory,
@@ -27,6 +28,7 @@ def test_guess_doc_type_from_path():
     assert guess_doc_type_from_path("/tmp/Budget_2026.ods") == "calc"
     assert guess_doc_type_from_path("/tmp/Report.odt") == "writer"
     assert guess_doc_type_from_path("/tmp/Slides.odp") == "draw"
+    assert guess_doc_type_from_path("/tmp/photo.png") == "image"
     assert guess_doc_type_from_path("/tmp/readme.txt") == "unknown"
 
 
@@ -134,6 +136,71 @@ def test_nearby_extensions_constant():
     assert ".ods" in NEARBY_FILE_EXTENSIONS
     assert ".odt" in NEARBY_FILE_EXTENSIONS
     assert ".tmp" not in NEARBY_FILE_EXTENSIONS
+    assert ".png" not in NEARBY_FILE_EXTENSIONS
+
+
+def test_nearby_image_extensions_constant():
+    assert ".png" in NEARBY_IMAGE_EXTENSIONS
+    assert ".jpg" in NEARBY_IMAGE_EXTENSIONS
+    assert ".ods" not in NEARBY_IMAGE_EXTENSIONS
+
+
+def test_list_nearby_files_excludes_images_by_default():
+    with tempfile.TemporaryDirectory() as tmp:
+        ods = os.path.join(tmp, "Budget.ods")
+        png = os.path.join(tmp, "photo.png")
+        jpg = os.path.join(tmp, "scan.jpg")
+        for path in (ods, png, jpg):
+            with open(path, "wb"):
+                pass
+        model = MagicMock()
+        ctx = MagicMock()
+        with patch("plugin.doc.document_research.get_document_path", return_value=None):
+            with patch("plugin.doc.document_research._collect_open_file_urls", return_value={}):
+                with patch("plugin.doc.document_research.resolve_listing_directory", return_value=tmp):
+                    result = list_nearby_files(ctx, model)
+        assert result["status"] == "ok"
+        names = [f["name"] for f in result["files"]]
+        assert names == ["Budget.ods"]
+        assert "photo.png" not in names
+        assert "scan.jpg" not in names
+
+
+def test_list_nearby_files_file_kind_images():
+    with tempfile.TemporaryDirectory() as tmp:
+        ods = os.path.join(tmp, "Budget.ods")
+        png = os.path.join(tmp, "photo.png")
+        for path in (ods, png):
+            with open(path, "wb"):
+                pass
+        model = MagicMock()
+        ctx = MagicMock()
+        with patch("plugin.doc.document_research.get_document_path", return_value=None):
+            with patch("plugin.doc.document_research._collect_open_file_urls", return_value={}):
+                with patch("plugin.doc.document_research.resolve_listing_directory", return_value=tmp):
+                    result = list_nearby_files(ctx, model, file_kind="images")
+        assert result["status"] == "ok"
+        names = [f["name"] for f in result["files"]]
+        assert names == ["photo.png"]
+        assert result["files"][0]["doc_type_guess"] == "image"
+        assert "Budget.ods" not in names
+
+
+def test_list_nearby_files_file_kind_documents_explicit():
+    with tempfile.TemporaryDirectory() as tmp:
+        ods = os.path.join(tmp, "Budget.ods")
+        png = os.path.join(tmp, "photo.png")
+        for path in (ods, png):
+            with open(path, "wb"):
+                pass
+        model = MagicMock()
+        ctx = MagicMock()
+        with patch("plugin.doc.document_research.get_document_path", return_value=None):
+            with patch("plugin.doc.document_research._collect_open_file_urls", return_value={}):
+                with patch("plugin.doc.document_research.resolve_listing_directory", return_value=tmp):
+                    result = list_nearby_files(ctx, model, file_kind="documents")
+        assert result["status"] == "ok"
+        assert [f["name"] for f in result["files"]] == ["Budget.ods"]
 
 
 def test_close_document_research_document_skips_reused_open():

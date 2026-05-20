@@ -162,7 +162,8 @@ class DelegateToSpecializedBase(ToolBase):
                 log.warning("Failed to get Calc context for sub-agent: %s", e)
 
         document_research_hint = (
-            " Match described file(s) via list_nearby_files; delegate_read_document per file."
+            " Match described file(s) via list_nearby_files (file_kind=images for photos/diagrams); "
+            "delegate_read_document per office file only."
             if domain == "document_research"
             else ""
         )
