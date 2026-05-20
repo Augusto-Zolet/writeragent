@@ -395,7 +395,7 @@ def test_build_toolcalling_agent_wires_max_tokens_and_steps(
         examples_block="examples",
         status_callback=None,
     )
-    mock_llm.assert_called_once_with({"model": "test/model"}, ctx.ctx)
+    mock_llm.assert_called_once_with({"model": "test/model"}, ctx.ctx, cancellation_scope=ctx.send_cancellation)
     assert mock_wsm.call_args.kwargs["max_tokens"] == 512
     tca_kw = mock_tca.call_args.kwargs
     assert tca_kw["max_steps"] == 12

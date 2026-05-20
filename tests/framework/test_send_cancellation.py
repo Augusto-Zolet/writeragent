@@ -106,3 +106,40 @@ def test_agent_session_yields_send_cancellation():
     with agent_session() as scope:
         assert isinstance(scope, SendCancellation)
         assert not scope.is_cancelled()
+
+
+def test_smol_executor_aborts_before_next_step_when_cancelled():
+    from plugin.chatbot.smol_agent import SmolAgentExecutor
+    from plugin.contrib.smolagents.memory import FinalAnswerStep
+    from plugin.framework.errors import ToolExecutionError
+
+    scope = SendCancellation()
+    ctx = MagicMock()
+    ctx.stop_checker = scope.is_cancelled
+    agent = MagicMock()
+    step1 = MagicMock()
+    step1.__class__.__name__ = "ActionStep"
+    step2 = MagicMock()
+    step2.__class__.__name__ = "ActionStep"
+
+    def fake_run(_task, stream=True):
+        yield step1
+        scope.cancel()
+        yield step2
+        yield FinalAnswerStep(output="should not run")
+
+    agent.run.return_value = fake_run("t")
+    executor = SmolAgentExecutor(ctx)
+    with pytest.raises(ToolExecutionError) as exc_info:
+        executor.run(agent, "task")
+    assert exc_info.value.code == "USER_STOPPED"
+    agent.interrupt.assert_called_once()
+
+
+def test_stop_checker_stays_true_after_panel_clears_scope_reference():
+    from plugin.framework.queue_executor import bind_send_stop_checker
+
+    scope = SendCancellation()
+    stop_checker = bind_send_stop_checker(scope, lambda: False)
+    scope.cancel()
+    assert stop_checker() is True

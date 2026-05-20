@@ -181,6 +181,13 @@ class SmolAgentExecutor:
         self.append_thinking_callback = getattr(ctx, "append_thinking_callback", None)
         self.stop_checker = getattr(ctx, "stop_checker", None)
 
+    def _abort_if_stopped(self, agent: Any) -> None:
+        if self.stop_checker and self.stop_checker():
+            interrupt = getattr(agent, "interrupt", None)
+            if callable(interrupt):
+                interrupt()
+            raise ToolExecutionError("Task stopped by user.", code="USER_STOPPED")
+
     def run(self, agent, task: str, tool_call_handler: Callable[[ToolCall], Any] | None = None) -> Any:
         """Run the agent and stream its steps.
 
@@ -199,11 +206,15 @@ class SmolAgentExecutor:
             ToolExecutionError: If the task is stopped by the user or an error occurs.
         """
         final_ans = None
-        run_stream = cast("Iterable", agent.run(task, stream=True))
+        stream_iter = iter(cast("Iterable", agent.run(task, stream=True)))
 
-        for step in run_stream:
-            if self.stop_checker and self.stop_checker():
-                raise ToolExecutionError("Task stopped by user.", code="USER_STOPPED")
+        while True:
+            self._abort_if_stopped(agent)
+            try:
+                step = next(stream_iter)
+            except StopIteration:
+                break
+            self._abort_if_stopped(agent)
 
             if isinstance(step, ToolCall):
                 if tool_call_handler:
@@ -283,5 +294,6 @@ def build_toolcalling_agent(ctx: ToolContext, tools: Sequence[SmolTool], *, inst
     max_steps = get_config_int(uno_ctx, "chat_max_tool_rounds")
 
     stop_checker = getattr(ctx, "stop_checker", None)
-    smol_model = WriterAgentSmolModel(LlmClient(config, uno_ctx), max_tokens=max_tokens, status_callback=status_callback, stop_checker=stop_checker)
+    cancel_scope = getattr(ctx, "send_cancellation", None)
+    smol_model = WriterAgentSmolModel(LlmClient(config, uno_ctx, cancellation_scope=cancel_scope), max_tokens=max_tokens, status_callback=status_callback, stop_checker=stop_checker)
     return ToolCallingAgent(tools=list(tools), model=smol_model, max_steps=max_steps, instructions=instructions, final_answer_tool_name=final_answer_tool_name, system_prompt_examples=examples_block)

@@ -42,6 +42,7 @@ def run_inner_read_agent(parent_ctx: ToolContext, opened_model: Any, doc_type: s
         status_callback=parent_ctx.status_callback,
         append_thinking_callback=parent_ctx.append_thinking_callback,
         stop_checker=parent_ctx.stop_checker,
+        send_cancellation=getattr(parent_ctx, "send_cancellation", None),
         read_only_target=True,
     )
 

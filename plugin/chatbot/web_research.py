@@ -117,7 +117,8 @@ class WebResearchTool(ToolCalcWebResearchBase, ToolDrawWebResearchBase):
         cache_path = os.path.join(udir, "writeragent_web_cache.db") if (udir and cache_max_mb > 0) else None
 
         stop_checker = getattr(ctx, "stop_checker", None)
-        smol_model = WriterAgentSmolModel(LlmClient(config, ctx.ctx), max_tokens=max_tokens, status_callback=status_callback, stop_checker=stop_checker)
+        cancel_scope = getattr(ctx, "send_cancellation", None)
+        smol_model = WriterAgentSmolModel(LlmClient(config, ctx.ctx, cancellation_scope=cancel_scope), max_tokens=max_tokens, status_callback=status_callback, stop_checker=stop_checker)
 
 
         base_intro = "You are a research assistant. Use the conversation context provided below to resolve any ambiguity in the user's query."
@@ -150,6 +151,8 @@ class WebResearchTool(ToolCalcWebResearchBase, ToolDrawWebResearchBase):
 
         def tool_call_handler(step):
             nonlocal web_search_step_index
+            if stop_checker and stop_checker():
+                return format_error_payload(ToolExecutionError("Web search stopped by user.", code="USER_STOPPED"))
             status_msg = ""
             if step.name == "web_search":
                 q = _web_search_query_from_arguments(step.arguments)

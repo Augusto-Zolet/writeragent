@@ -389,10 +389,15 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
             scope = getattr(self, "_send_cancellation", None)
             if scope is not None:
                 scope.cancel()
-            else:
-                self._stop_requested_fallback = True
+            self._stop_requested_fallback = True
         else:
             self._stop_requested_fallback = False
+
+    def resolve_stop_checker(self):
+        """Stable stop predicate for worker threads (survives clearing ``_send_cancellation``)."""
+        from plugin.framework.queue_executor import bind_send_stop_checker
+
+        return bind_send_stop_checker(getattr(self, "_send_cancellation", None), lambda: self._stop_requested_fallback)
 
     def sync_audio_slice(self):
         """Mirror :attr:`audio_recorder.state` into the composite (strategy A)."""
@@ -780,8 +785,7 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
                 scope = getattr(self, "_send_cancellation", None)
                 if scope is not None:
                     scope.cancel()
-                else:
-                    self.stop_requested = True
+                self._stop_requested_fallback = True
 
             case _:
                 log.debug("SendButtonListener: unhandled effect type %s", type(effect).__name__)

@@ -263,13 +263,53 @@ This sequentializes tool execution while guaranteeing the UI never freezes durin
 
 ### Stop / cancellation
 
-Each sidebar **Send** runs under a **`SendCancellation`** scope ([`plugin/framework/queue_executor.py`](../plugin/framework/queue_executor.py) `agent_session()`). **Stop** calls `scope.cancel()` once, which:
+Each sidebar **Send** runs under a **`SendCancellation`** scope ([`plugin/framework/queue_executor.py`](../plugin/framework/queue_executor.py) `agent_session()`). **Stop** calls `scope.cancel()` once.
 
-- Sets the cancelled flag (drain loops and `stop_checker` / `stop_requested` on the panel).
-- Calls `stop()` on every **`LlmClient`** created during that send (main chat and smolagents sub-agents).
-- Cancels pending main-thread queue work and runs registered agent-backend `stop()` hooks.
+#### What `scope.cancel()` does
 
-Sub-agents must not run long HTTP on the main thread; `delegate_read_document` opens/closes on the main thread only and runs the inner read agent on the async worker.
+- Sets a **thread-safe** cancelled flag (`scope.is_cancelled()`).
+- Calls `stop()` on every **`LlmClient`** registered for that send (closes the persistent HTTP socket so blocking reads fail fast).
+- Cancels pending main-thread queue work ([`QueueExecutor.cancel_pending_work`](../plugin/framework/queue_executor.py)) and runs registered agent-backend `stop()` hooks.
+
+#### Why the first implementation looked fixed but was not
+
+The initial **`SendCancellation`** change fixed the symptom users noticed on the **main thread** (sidebar buttons and drain loop exit) but **web research and other smolagents sub-agents kept running steps in the background**. That was not a race; the worker thread genuinely still believed the send was active.
+
+Two separate bugs caused that:
+
+1. **Stop checker cleared when the UI “finished”**
+
+   Web research runs in a **background worker** (`run_search` in [`send_handlers.py`](../plugin/chatbot/send_handlers.py)) while the **main thread** runs `run_stream_drain_loop`. When the user clicked Stop, the drain loop saw `stop_checker()` → true and exited. `_do_send` then returned and the `finally` in [`panel.py`](../plugin/chatbot/panel.py) set **`_send_cancellation = None`**.
+
+   The worker still used `stop_checker=lambda: self.stop_requested`. After the scope pointer was cleared, `stop_requested` fell back to **`_stop_requested_fallback`**, which was still **False** (only `scope.cancel()` had run—it does not set the fallback unless Stop goes through the panel path). So from step 5 onward the sub-agent’s `SmolAgentExecutor` loop thought nothing was cancelled and kept calling the model.
+
+   **Fix:** pass a **stable** predicate: `scope.is_cancelled` (bound method on the same `SendCancellation` object), via [`bind_send_stop_checker()`](../plugin/framework/queue_executor.py) / [`SendButtonListener.resolve_stop_checker()`](../plugin/chatbot/panel.py). Capture that when starting the worker; do not re-read `panel._send_cancellation` from the worker after the drain exits.
+
+2. **Sub-agent `LlmClient` never registered for `stop()`**
+
+   Auto-registration used a **`contextvars.ContextVar`** set in `agent_session()` on the **main thread**. Python does **not** copy that context into new `threading.Thread` workers. The web-research worker therefore constructed `LlmClient` with **no scope**, so `scope.cancel()` never called `stop()` on the sub-agent’s connection—HTTP could run to completion for the current step and the agent continued.
+
+   **Fix:** pass **`send_cancellation`** on [`ToolContext`](../plugin/framework/tool.py) and **`cancellation_scope=...`** into [`LlmClient.__init__`](../plugin/framework/client/llm_client.py) from [`build_toolcalling_agent`](../plugin/chatbot/smol_agent.py) / [`web_research.py`](../plugin/chatbot/web_research.py).
+
+3. **Smolagents only checked stop between full steps**
+
+   [`SmolAgentExecutor`](../plugin/chatbot/smol_agent.py) used `for step in agent.run(stream=True)`, which calls `next()` on the stream **before** the stop check at the top of the loop body—so one whole step always runs after the previous check. That is acceptable only if (1) and (2) are correct. Additionally, on stop we now call **`agent.interrupt()`** (sets `interrupt_switch` in vendored smolagents) and check stop **before** each `next()`.
+
+#### Correct wiring checklist (for new code)
+
+| Need | Do this |
+|------|---------|
+| Main-thread drain / streaming | `stop_checker=self.resolve_stop_checker()` (not `lambda: self.stop_requested` alone). |
+| Background worker (web research, async tool) | At worker start: `stop_checker = self.resolve_stop_checker()` and `cancel_scope = self._send_cancellation`; pass both into `ToolContext(..., stop_checker=stop_checker, send_cancellation=cancel_scope)`. |
+| New `LlmClient` on a worker | `LlmClient(config, ctx, cancellation_scope=ctx.send_cancellation)` (or register manually on the scope). |
+| Long-running smol sub-agent | Use [`SmolAgentExecutor`](../plugin/chatbot/smol_agent.py); do not hand-roll `agent.run` without the same stop/interrupt behavior. |
+| UNO + HTTP (document research) | Open/close document on main thread only; run inner smol agent on the **async worker**—never wrap the whole agent in `execute_on_main_thread`. |
+
+Tests: [`tests/framework/test_send_cancellation.py`](../tests/framework/test_send_cancellation.py) (stable checker after scope cleared, executor abort before next step).
+
+#### Related threading rule
+
+Sub-agents must not run long HTTP on the main thread; [`delegate_read_document`](../plugin/doc/document_research_specialized.py) opens/closes on the main thread only and runs the inner read agent on the async worker.
 
 # writeragent2 Threading Bug Fix: Why the "Background Thread" Was Actually Freezing/Crashing the UI
 

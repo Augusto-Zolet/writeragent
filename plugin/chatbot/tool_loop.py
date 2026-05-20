@@ -87,6 +87,9 @@ class ToolLoopHost(Protocol):
     image_model_selector: Any
     audio_wav_path: str | None
     stop_requested: bool
+
+    def resolve_stop_checker(self) -> Callable[[], bool]: ...
+
     sidebar_state: Any
     _terminal_status: str
 
@@ -241,6 +244,7 @@ class ToolCallingMixin:
                     except Exception:
                         log.debug("execute_fn: failed to get active page index for %s", doc_type_str)
 
+                cancel_scope = getattr(self, "_send_cancellation", None)
                 tctx = ToolContext(
                     doc=doc,
                     ctx=ctx,
@@ -250,12 +254,13 @@ class ToolCallingMixin:
                     active_page_index=active_page_idx,
                     status_callback=status_callback,
                     append_thinking_callback=append_thinking_callback,
-                    stop_checker=stop_checker,
+                    stop_checker=stop_checker if stop_checker is not None else self.resolve_stop_checker(),
                     approval_callback=approval_cb,
                     chat_append_callback=chat_append_cb if (needs_web_research_ui or needs_document_research_ui) else None,
                     set_active_domain_callback=set_active_domain,
                     active_domain=active_domain,
                     python_tool_domain=python_tool_domain,
+                    send_cancellation=cancel_scope,
                 )
                 try:
                     res = _get_tools().execute(name, tctx, **args)
@@ -415,7 +420,7 @@ class ToolCallingMixin:
         def run():
             try:
                 with llm_request_lane():
-                    response = client.stream_request_with_tools(self.session.messages, max_tokens, tools=tools, append_callback=lambda t: q.put((StreamQueueKind.CHUNK, t)), append_thinking_callback=lambda t: q.put((StreamQueueKind.THINKING, t)), stop_checker=lambda: self.stop_requested)
+                    response = client.stream_request_with_tools(self.session.messages, max_tokens, tools=tools, append_callback=lambda t: q.put((StreamQueueKind.CHUNK, t)), append_thinking_callback=lambda t: q.put((StreamQueueKind.THINKING, t)), stop_checker=self.resolve_stop_checker())
                 if self.stop_requested:
                     q.put((StreamQueueKind.STOPPED,))
                 else:
@@ -448,7 +453,7 @@ class ToolCallingMixin:
                     q.put((StreamQueueKind.THINKING, t))
 
                 with llm_request_lane():
-                    client.stream_chat_response(self.session.messages, max_tokens, append_c, append_t, stop_checker=lambda: self.stop_requested)
+                    client.stream_chat_response(self.session.messages, max_tokens, append_c, append_t, stop_checker=self.resolve_stop_checker())
                 if self.stop_requested:
                     q.put((StreamQueueKind.STOPPED,))
                 else:
@@ -584,9 +589,9 @@ class ToolCallingMixin:
                             self._active_q.put((StreamQueueKind.TOOL_THINKING, msg))
 
                         if self._active_supports_status:
-                            res = self._active_execute_tool_fn(func_name, func_args, self._active_model, self.ctx, status_callback=tool_status_callback, append_thinking_callback=tool_thinking_callback, stop_checker=lambda: self.stop_requested)
+                            res = self._active_execute_tool_fn(func_name, func_args, self._active_model, self.ctx, status_callback=tool_status_callback, append_thinking_callback=tool_thinking_callback, stop_checker=self.resolve_stop_checker())
                         else:
-                            res = self._active_execute_tool_fn(func_name, func_args, self._active_model, self.ctx, stop_checker=lambda: self.stop_requested)
+                            res = self._active_execute_tool_fn(func_name, func_args, self._active_model, self.ctx, stop_checker=self.resolve_stop_checker())
                         self._active_q.put((StreamQueueKind.TOOL_DONE, call_id, func_name, func_args_str, res))
                     except Exception as e:
 
@@ -766,7 +771,7 @@ class ToolCallingMixin:
                 on_error=self._handle_stream_error,
                 on_status_fn=self._set_status,
                 ctx=self.ctx,
-                stop_checker=lambda: self.stop_requested,
+                stop_checker=self.resolve_stop_checker(),
                 show_search_thinking=show_search_thinking,
                 on_approval_required=self._on_tool_loop_approval_required,
             )

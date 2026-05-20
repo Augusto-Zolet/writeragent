@@ -88,6 +88,19 @@ def get_current_send_cancellation() -> SendCancellation | None:
     return _current_send_cancellation.get()
 
 
+def bind_send_stop_checker(scope: SendCancellation | None, fallback: Callable[[], bool] | None = None) -> Callable[[], bool]:
+    """Return a stop predicate tied to *scope*, not the panel field.
+
+    Worker threads must use this (or ``scope.is_cancelled``) so Stop stays latched after
+    the main thread clears ``panel._send_cancellation`` when the drain loop exits.
+    """
+    if scope is not None:
+        return scope.is_cancelled
+    if fallback is not None:
+        return fallback
+    return lambda: False
+
+
 @contextmanager
 def agent_session() -> Generator[SendCancellation, None, None]:
     """Mark a chat/agent session as active and expose a :class:`SendCancellation` scope."""

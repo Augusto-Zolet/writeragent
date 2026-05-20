@@ -63,6 +63,8 @@ class SendHandlerHost(Protocol):
     ctx: Any
     client: "LlmClient | None"
     stop_requested: bool
+
+    def resolve_stop_checker(self) -> Callable[[], bool]: ...
     _in_librarian_mode: bool
     session: "ChatSession"
     response_control: Any
@@ -177,7 +179,7 @@ class SendHandlersMixin:
             # BUT, it's better to refactor the workers to use the passed queue.
             worker_fn()
 
-        run_async_worker_with_drain(self.ctx, worker_wrapper, apply_chunk, on_stream_done, on_error, on_status_fn=self._set_status, stop_checker=lambda: self.stop_requested, on_stopped_fn=on_stopped, name="chatbot-send-handler", q=q)
+        run_async_worker_with_drain(self.ctx, worker_wrapper, apply_chunk, on_stream_done, on_error, on_status_fn=self._set_status, stop_checker=self.resolve_stop_checker(), on_stopped_fn=on_stopped, name="chatbot-send-handler", q=q)
 
     def _do_send_direct_image(self: SendHandlerHost, query_text: str, model: Any) -> None:
         interpreter = EffectInterpreter(self)
@@ -221,7 +223,8 @@ class SendHandlersMixin:
 
                 from plugin.main import get_tools
 
-                tctx = ToolContext(doc=model, ctx=self.ctx, stop_checker=lambda: self.stop_requested, doc_type="writer", services=get_tools()._services, caller="chat", status_callback=lambda t: q.put((StreamQueueKind.STATUS, t)))
+                cancel_scope = getattr(self, "_send_cancellation", None)
+                tctx = ToolContext(doc=model, ctx=self.ctx, stop_checker=self.resolve_stop_checker(), doc_type="writer", services=get_tools()._services, caller="chat", status_callback=lambda t: q.put((StreamQueueKind.STATUS, t)), send_cancellation=cancel_scope)
                 try:
 
 
@@ -349,7 +352,7 @@ class SendHandlersMixin:
                     lean_system_prompt += "\n\n" + extra
 
                 with llm_request_lane():
-                    adapter.send(queue=q, user_message=query_text, document_context=doc_context, document_url=document_url, system_prompt=lean_system_prompt, mcp_url=mcp_url, stop_checker=lambda: self.stop_requested)
+                    adapter.send(queue=q, user_message=query_text, document_context=doc_context, document_url=document_url, system_prompt=lean_system_prompt, mcp_url=mcp_url, stop_checker=self.resolve_stop_checker())
             except Exception as e:
                 log.exception("Agent backend ERROR in _do_send_via_agent_backend [backend: %s, doc: %s]", backend_id, doc_type_str)
 
@@ -455,6 +458,8 @@ class SendHandlersMixin:
 
         def run_search():
             doc_type = "calc" if is_calc(model) else "draw" if is_draw(model) else "writer"
+            cancel_scope = getattr(self, "_send_cancellation", None)
+            stop_checker = self.resolve_stop_checker()
             try:
                 # If librarian mode, clear active_run_librarian and run librarian
 
@@ -487,7 +492,7 @@ class SendHandlersMixin:
                         q.put((StreamQueueKind.STOPPED,))
                     return (bool(getattr(event, "approved", False)), getattr(event, "query_override", None))
 
-                tctx = ToolContext(doc=model, ctx=self.ctx, stop_checker=lambda: self.stop_requested, doc_type=doc_type, services=get_tools()._services, caller="chat", status_callback=status_cb, append_thinking_callback=thinking_cb, approval_callback=approval_cb, chat_append_callback=chat_append_cb)
+                tctx = ToolContext(doc=model, ctx=self.ctx, stop_checker=stop_checker, doc_type=doc_type, services=get_tools()._services, caller="chat", status_callback=status_cb, append_thinking_callback=thinking_cb, approval_callback=approval_cb, chat_append_callback=chat_append_cb, send_cancellation=cancel_scope)
 
                 if is_librarian:
                     res = get_tools().execute("librarian_onboarding", tctx, bypass_thread_guard=False, **{"query": query_text, "history_text": history_text})

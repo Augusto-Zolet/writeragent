@@ -74,6 +74,8 @@ class FakePanel(ToolCallingMixin):
             audio=AudioRecorderState(status="idle"),
         )
         self.stop_requested = False
+        self._stop_requested_fallback = False
+        self._send_cancellation = None
         self.audio_wav_path = None
         self.image_model_selector = Mock()
         self._append_response = Mock()
@@ -81,6 +83,11 @@ class FakePanel(ToolCallingMixin):
         self._spawn_llm_worker = Mock()
         self._spawn_final_stream = Mock()
         self._terminal_status = "Ready"
+
+    def resolve_stop_checker(self):
+        from plugin.framework.queue_executor import bind_send_stop_checker
+
+        return bind_send_stop_checker(getattr(self, "_send_cancellation", None), lambda: self._stop_requested_fallback)
 
 def setup_mock_panel():
     ctx = MagicMock()

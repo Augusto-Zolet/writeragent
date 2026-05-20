@@ -248,7 +248,7 @@ class OllamaShim(OpenAIShim):
 class LlmClient:
     """LLM API client. Takes config dict from get_api_config(ctx) and UNO ctx."""
 
-    def __init__(self, config, ctx):
+    def __init__(self, config, ctx, cancellation_scope=None):
         self.config = config
         self.ctx = ctx
         self._persistent_conn = None
@@ -256,13 +256,14 @@ class LlmClient:
         self._ssl_fallback_hosts = set()
         self._last_llm_request_sent_monotonic = 0.0
         self._shims: dict[str, BaseProviderShim] = {}
-        scope = None
-        try:
-            from plugin.framework.queue_executor import get_current_send_cancellation
+        scope = cancellation_scope
+        if scope is None:
+            try:
+                from plugin.framework.queue_executor import get_current_send_cancellation
 
-            scope = get_current_send_cancellation()
-        except Exception:
-            log.debug("LlmClient: could not resolve send cancellation scope", exc_info=True)
+                scope = get_current_send_cancellation()
+            except Exception:
+                log.debug("LlmClient: could not resolve send cancellation scope", exc_info=True)
         if scope is not None:
             scope.register_client(self)
 
