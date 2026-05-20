@@ -70,7 +70,17 @@ def msgbox(ctx, title, message):
         smgr = ctx.getServiceManager()
         toolkit = smgr.createInstanceWithContext("com.sun.star.awt.Toolkit", ctx)
         box = toolkit.createMessageBox(window, 1, 1, _(title), _(message))  # INFOBOX, OK button
-        box.execute()
+        log.debug("msgbox execute start title=%s", title)
+        try:
+            box.execute()
+        finally:
+            try:
+                box.dispose()
+            except Exception:
+                log.debug("msgbox dispose failed", exc_info=True)
+        if hasattr(toolkit, "processEventsToIdle"):
+            toolkit.processEventsToIdle()
+        log.debug("msgbox execute done title=%s", title)
     except Exception:
         log.exception("MSGBOX fallback - %s: %s", title, message)
 

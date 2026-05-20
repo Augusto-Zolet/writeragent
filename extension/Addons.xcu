@@ -76,6 +76,20 @@
               <value>_self</value>
             </prop>
           </node>
+          <node oor:name="M3d_nb" oor:op="replace">
+            <prop oor:name="Title">
+              <value xml:lang="en-US">Import Jupyter Notebook...</value>
+            </prop>
+            <prop oor:name="URL">
+              <value>org.extension.writeragent:scripting.import_ipynb</value>
+            </prop>
+            <prop oor:name="Context" oor:type="xs:string">
+              <value>com.sun.star.text.TextDocument</value>
+            </prop>
+            <prop oor:name="Target" oor:type="xs:string">
+              <value>_self</value>
+            </prop>
+          </node>
           <node oor:name="M3e" oor:op="replace">
             <prop oor:name="Title">
               <value xml:lang="en-US">Insert LaTeX Math...</value>

@@ -137,7 +137,12 @@ if $NUKE; then
 
     rm -rf "$CACHE_DIR/cache"
     rm -f "$CACHE_DIR/uno_packages.pmap" 2>/dev/null
+    # Stale extensions.pmap can point at deleted TMP_EXTENSIONS dirs and break unopkg bind.
+    LO_USER_DIR="$(dirname "$CACHE_DIR")"
+    rm -f "$LO_USER_DIR/extensions/tmp/extensions.pmap" 2>/dev/null
+    rm -rf "$LO_USER_DIR/extensions/tmp/extensions/"*.tmp_ 2>/dev/null || true
     echo "[OK] Cache wiped: $CACHE_DIR/cache"
+    echo "[OK] Cleared extensions/tmp deployment pmap and ghost .tmp_ dirs"
     echo "    Restart LibreOffice to regenerate, then reinstall extensions."
     exit 0
 fi

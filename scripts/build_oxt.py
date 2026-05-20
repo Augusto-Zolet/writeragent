@@ -55,6 +55,7 @@ ALWAYS_INCLUDE_PLUGIN = [
     "plugin/lib/",
     "plugin/contrib/",
     "plugin/scripting/",
+    "plugin/notebook/",
 ]
 
 # Only included when --with-tests (make release)

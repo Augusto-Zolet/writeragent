@@ -254,6 +254,8 @@ register-built-oxt:
 	$(MAKE) lo-kill
 	@rm -f $(LO_CONF)/.lock $(LO_CONF)/user/.lock
 	-unopkg remove org.extension.writeragent 2>/dev/null
+	@rm -f $(LO_CONF)/user/extensions/tmp/extensions.pmap
+	@$(RM_RF) "$(LO_CONF)/user/extensions/tmp/extensions/"*.tmp_
 	unopkg add build/$(EXTENSION_NAME).oxt
 	@rm -f $(HOME_DIR)/writeragent.log $(HOME_DIR)/writeragent_agent.log $(HOME_DIR)/writeragent_debug.log
 	@rm -f $(LO_CONF)/user/writeragent_debug.log $(LO_CONF)/user/writeragent_agent.log
@@ -352,6 +354,8 @@ endif
 
 nuke-cache-force:
 	$(RM_RF) "$(LO_CONF)/user/uno_packages/cache"
+	rm -f "$(LO_CONF)/user/extensions/tmp/extensions.pmap"
+	@$(RM_RF) "$(LO_CONF)/user/extensions/tmp/extensions/"*.tmp_
 	rm -f "$(LO_CONF)/.lock"
 
 # ── Translation ──────────────────────────────────────────────────────────────

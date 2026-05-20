@@ -14,6 +14,7 @@ For a short executive summary, see [WriterAgent architecture — Scientific Pyth
 6. [The `=PYTHON()` Calc function](#6-the-python-calc-function) <!-- anchor: the-python-calc-function -->
    - [NumPy serialization](#numpy-serialization)
 7. [Deferred roadmap](#7-deferred-roadmap)
+   - [Jupyter notebook import (`.ipynb`)](#jupyter-notebook-import-ipynb)
 8. [Implementation status](#8-implementation-status)
 
 ---
@@ -169,8 +170,12 @@ plugin/
 │   ├── venv_python.py            # run_venv_python_script tool
 │   ├── python_executor.py        # In-process execute_python_script
 │   └── calc_addin_data.py        # Range → data shaping for =PYTHON / tool
-└── contrib/smolagents/
-    └── local_python_executor.py  # Vendored AST sandbox (shipped in OXT)
+├── contrib/smolagents/
+│   └── local_python_executor.py  # Vendored AST sandbox (shipped in OXT)
+└── contrib/nbformat/             # Vendored .ipynb reader (nbformat v4 only; see below)
+    ├── reader.py
+    ├── notebooknode.py
+    └── v4/rwbase.py              # rejoin_lines / split_lines / strip_transient
 ```
 
 ### Config
@@ -441,6 +446,45 @@ Tier 1 reuses existing `DialogProvider` / XDL patterns ([`plugin/chatbot/dialogs
 
 Prioritized future work (LO profiling gate, Tier 0 crossings, host pack/unpack, cache, deferred 2b/3) lives in [NumPy serialization](numpy-serialization.md#future-work--serialization-performance). Native host-extension packaging notes live there too: [Building host native extensions (Cython)](numpy-serialization.md#building-host-native-extensions-cython).
 
+### Jupyter notebook import (`.ipynb`)
+
+> **Status (2026-05):** Vendored **nbformat v4 read path** in [`plugin/contrib/nbformat/`](../plugin/contrib/nbformat/) (BSD-3-Clause subset of [jupyter/nbformat](https://github.com/jupyter/nbformat)). Public API: `read_ipynb(path)`, `reads(json_string)` → `NotebookNode` with `rejoin_lines` applied (multi-line `source`, stream `text`, MIME bundles).
+
+| Shipped | Deferred |
+|---------|----------|
+| nbformat **v4** JSON read, `rejoin_lines`, `strip_transient` | Run buttons / kernel execution on imported cells |
+| **Writer import:** Tools → **Import Jupyter Notebook…** — [`plugin/notebook/writer_importer.py`](../plugin/notebook/writer_importer.py): markdown/raw/outputs as **body text** (Heading 2/3 + Preformatted); **one** code **TextField** per code cell on the draw page | Markdown rendered as HTML in body; notebook PNG insert (disabled during import perf work) |
+| Unit tests: [`tests/contrib/test_nbformat_read.py`](../tests/contrib/test_nbformat_read.py) | **nbformat v3** and older upgrade ([`nbformat/v4/convert.py`](https://github.com/jupyter/nbformat/blob/main/nbformat/v4/convert.py) in upstream) — revisit when users need legacy notebooks |
+| | JSON schema validation (`fastjsonschema`), `traitlets`, `jupyter_core` |
+| | Notebook **kernel** (shared session in warm worker), Run buttons, export to `.ipynb` |
+
+**Why vendored, not PyPI:** Same pattern as [`local_python_executor.py`](../plugin/contrib/smolagents/local_python_executor.py) — no extra deps in the OXT, LO-embedded Python stays light. Do not `pip install nbformat` into LibreOffice.
+
+**v3 note:** `reads()` raises `NBFormatError` if `nbformat` ≠ 4. To support v3 `.ipynb`, port upstream `v4/convert.py` (drop `traitlets` logging) into `plugin/contrib/nbformat/` and call `upgrade()` before `rejoin_lines`.
+
+#### Debugging import (slow or “frozen” UI)
+
+Import runs on LibreOffice’s **MainThread**. Large notebooks used to create many draw-page **ControlShapes** (slow layout); the importer now uses **one shape per code cell** and puts read-only content in the document body.
+
+**Log file:** `writeragent_debug.log` next to `writeragent.json` (e.g. `~/.config/libreoffice/4/user/` or `.../24/user/`). Set `"log_level": "DEBUG"` in `writeragent.json` (or **INFO** for progress lines only).
+
+**What to tail:**
+
+```bash
+tail -f ~/.config/libreoffice/4/user/writeragent_debug.log
+```
+
+| Log line | Meaning |
+|----------|---------|
+| `notebook import start` | Import began after file pick |
+| `notebook import read_ipynb cells=N` | JSON parse finished |
+| `notebook import progress cell=30/120` | Still running (INFO every 10 cells) |
+| `notebook import add step=text_field ...` | Per-shape UNO timing (DEBUG) |
+| `notebook import slow UNO add` | Single add took ≥2s (WARNING) |
+| `notebook import complete` | Finished; success dialog should follow |
+
+**Performance (2026-05):** **~1 draw-page shape per code cell** (editable source); markdown, raw, and outputs go to Writer body text with headings. Stack cursor for O(1) positioning; 50k char truncation; output cap 200/cell; PNG draw-page insert kept in a `''' ... '''` block in `writer_importer.py` (disabled). No `lockControllers()` during bulk import. UI flushed after import and around `msgbox`.
+
 ### Other enhancements
 
 - **OooDev / ScriptForge:** optional venv install for UNO-from-Python; or keep compute-in-venv + document-via-tools (recommended).
@@ -464,6 +508,7 @@ Prioritized future work (LO profiling gate, Tier 0 crossings, host pack/unpack, 
 | **Tier 2 `f64_blob`** | [`payload_codec.py`](../plugin/scripting/payload_codec.py) — host pack/unpack (stdlib); child `frombuffer`; **≥10 cells** + all numeric-coercible |
 | Calc ingress | [`pack_calc_data_for_wire`](../plugin/calc/calc_addin_data.py) |
 | Bench + tests | [`scripts/bench_serialization.py`](../scripts/bench_serialization.py), [`tests/scripting/test_payload_codec.py`](../tests/scripting/test_payload_codec.py), [`tests/scripting/test_run_venv_code.py`](../tests/scripting/test_run_venv_code.py) |
+| Vendored **nbformat v4** reader | [`plugin/contrib/nbformat/`](../plugin/contrib/nbformat/), [`tests/contrib/test_nbformat_read.py`](../tests/contrib/test_nbformat_read.py) |
 
 See [NumPy serialization](numpy-serialization.md) for behavior, benchmarks, optimization tiers, and native host-extension notes.
 
@@ -472,3 +517,4 @@ See [NumPy serialization](numpy-serialization.md) for behavior, benchmarks, opti
 - **Serialization next steps** — [Future work](numpy-serialization.md#future-work--serialization-performance): LO profile first, Tier 0, opaque blob, float32, pandas egress, worker cache; Tier 2b codecs; optional [Cython `vec_pack`](numpy-serialization.md#building-host-native-extensions-cython) (not started).
 - Venv ↔ LO **tool RPC** ([§7](#7-deferred-roadmap)) — [`writeragent_api.py`](../plugin/scripting/writeragent_api.py) stubs only.
 - Managed venv (Strategy 2), session persistence, worker idle shutdown, per-formula `timeout_sec`, Python edit dialog tiers 1–3.
+- **Notebook product** — Writer import/export UI, shared kernel, interactive cells ([Jupyter notebook import](#jupyter-notebook-import-ipynb) — parser only today).

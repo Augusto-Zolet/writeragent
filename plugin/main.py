@@ -265,6 +265,12 @@ def _register_core_handlers():
 
     register_action_handler("scripting", "run_python_dialog", _run_python)
 
+    def _import_ipynb():
+        from plugin.notebook.import_dialog import run_import_ipynb_dialog
+        run_import_ipynb_dialog(get_ctx())
+
+    register_action_handler("scripting", "import_ipynb", _import_ipynb)
+
     def _insert_latex():
         from plugin.writer.math.latex_dialog import insert_latex_math_dialog
         insert_latex_math_dialog(get_ctx())
@@ -452,6 +458,7 @@ def get_menu_text(command):
         "main.RunDrawTests": _("Run draw tests"),
         "main.EvaluationDashboard": _("Evaluation Dashboard"),
         "scripting.run_python_dialog": _("Run Python Script..."),
+        "scripting.import_ipynb": _("Import Jupyter Notebook..."),
         "writer.insert_latex_dialog": _("Insert LaTeX Math..."),
     }
 
