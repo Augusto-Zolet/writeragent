@@ -849,6 +849,21 @@ current functionality.
   `list_styles`. Other items from “What they have that WriterAgent lacks” (e.g. document
   protection, document properties) as needed.
 
+### Dynamic Domain Discovery ("Learn-on-the-Fly")
+
+To solve the "monstrous schema" problem (60+ specialized tools) without over-burdening the MCP host's context or relying on unreliable `list_changed` notifications, we could implement a **Manual Discovery Pattern**.
+
+*   **The Idea:** Instead of listing every specialized tool in `tools/list`, we provide a "Toolbox Discovery" tool.
+*   **The Tools:**
+    1.  `get_domain_toolbox(domain)` — Returns a human-readable text summary of all tool schemas for a specific domain (e.g., `shapes`, `styles`).
+    2.  `execute_specialized_tool(tool_name, arguments)` — A generic executor that takes a JSON blob of arguments and runs the tool via the existing `ToolRegistry`.
+*   **The Workflow:** 
+    1.  The host model sees it needs to edit a shape.
+    2.  It calls `get_domain_toolbox(domain="shapes")`.
+    3.  The server returns the documentation for `create_shape`, `edit_shape`, etc.
+    4.  The host "learns" the API on-the-fly and calls `execute_specialized_tool` with the correct parameters.
+*   **Benefit:** Zero schema bloat on the host, no refetching required, and it leverages the server's existing validation logic.
+
 ### Other
 
 - **Auto-start on LO launch**: optional `XJob` with `onFirstVisibleTask` that starts the
