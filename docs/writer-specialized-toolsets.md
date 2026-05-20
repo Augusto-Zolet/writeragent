@@ -424,6 +424,34 @@ UI restriction worth surfacing in tool errors: a section **cannot** be hidden wh
 - `set_section_visibility(name, visible, condition?)`
 - `set_section_footnote_scope(name, ...)`
 
+### 6.9 Feature: Structural Integrity & Object Preservation
+
+WriterAgent must ensure that rich document objects—images, shapes, charts, and OLE objects—are not lost during bulk document transformations (e.g., "translate the whole document").
+
+#### The Challenge: The "HTML Destruction" Problem
+When the agent uses `get_document_content(scope='full')` and then `apply_document_content(target='full_document')`, it effectively performs a "destructive update." 
+1.  **HTML Export**: LibreOffice's HTML filter extracts images to temporary local files.
+2.  **LLM Cycle**: The LLM receives text and image tags (`<img src="...">`) but lacks the actual binary data.
+3.  **Destructive Apply**: `target='full_document'` clears the document before importing the new HTML. If the image links are broken or the objects were "shapes" (which aren't well-represented in HTML), they are gone forever.
+
+#### Strategy 1: Tokenized Placeholder Protocol (Recommended)
+This approach "protects" objects by replacing them with stable markers that the LLM is instructed to preserve.
+*   **Export (Tokenization)**: Before the HTML is sent to the LLM, the `FormatService` scans for `GraphicObjects` and `CustomShapes`. It replaces them in the HTML with tokens like `[[WA_OBJECT_IMG_001]]` and stores the original UNO object references in a session-bound lookup table.
+*   **Preservation**: The system prompt instructs the agent: *"You will see object markers like [[WA_OBJECT_*]]. These represent images and shapes. You MUST preserve these markers in their exact relative positions during translation or editing."*
+*   **Import (Restoration)**: During `apply_document_content`, the system intercepts the tokens and re-inserts the **original** UNO objects from the lookup table at the correct anchors. This ensures binary data and complex shape properties remain identical.
+
+#### Strategy 2: Structural Paragraph Patching (The "Non-Destructive" Path)
+Instead of replacing the whole document, the agent uses its structural awareness to perform surgical edits.
+*   **Workflow**: The agent uses `get_document_tree` to identify paragraph and heading blocks.
+*   **Batching**: It translates the document block-by-block (similar to the "Batch Section Rewriting" feature).
+*   **Application**: It uses `target='search'` or `target='selection'` to update the text within specific ranges.
+*   **Integrity**: Because the agent never calls `full_document` replace, any images anchored "To Page" or "To Paragraph" that were not part of the edited text remain perfectly untouched.
+
+#### Strategy 3: Base64 Embedding (Small Assets Only)
+The `FormatService` can be updated to embed images as Base64 data URLs inside the HTML.
+*   **Constraint**: This is only viable for small icons or diagrams. Large high-res images will exceed the token limits of most LLMs and slow down the request significantly.
+*   **Usage**: Best used as a fallback for objects that cannot be easily tokenized.
+
 #### References
 
 - TextSection service: [api.libreoffice.org TextSection](https://api.libreoffice.org/docs/idl/ref/servicecom_1_1sun_1_1star_1_1text_1_1TextSection.html).
@@ -456,7 +484,50 @@ This design trades a second LLM hop (delegation) for a **cleaner main conversati
 
 ---
 
-## 8. References
+## 8. Prior art: Kyber (Interlink Bridge)
+
+Review of [`Kyber_Complete_v24/`](../Kyber_Complete_v24/) (v2.4, local Ollama, EU/GDPR positioning). Kyber is **not** a peer architecture: it is an external **tkinter** paste-in/out assistant plus optional LibreOffice Basic macros, while WriterAgent is a native sidebar with UNO tool-calling. Kyber’s large `backend/` stack (kiosk, industrial IoT) is out of scope here.
+
+**Already covered in WriterAgent (no need to copy):** local endpoint presets (`ENDPOINT_PRESETS`), extend/edit selection, `get_document_tree` / `apply_style`, indexes/TOC tools, page tools, Calc `detect_and_explain_errors`, gettext i18n.
+
+### 8.1 Ideas worth adopting (future)
+
+| Priority | Kyber idea | WriterAgent direction |
+| -------- | ---------- | --------------------- |
+| High | **Task presets** — one-click prompts for improve, business letter, administrative notice, meeting minutes, Calc explain/budget/report (see `PROMPTS` in `kyber_for_libreoffice_v24.py`) | Sidebar chips or menu items + `task_templates` resources; reuse `LlmClient` / selection paths — not a new HTTP stack |
+| Medium–high | **Document Cleaner workflow** — LLM JSON analyze → cleanup profile (letter / report / minutes / notice / custom) → human preview → apply | New **structure cleanup** specialized domain or wizard: analyze → preview → UNO via `apply_style`, indexes, page tools. **Do not** ship Basic macros as the primary path |
+| Medium | **HCB (Human Commit Boundary)** — explicit preview before bulk structural edits | Confirmation panel before first mutation in a cleanup batch (similar to web-research approval in `panel_factory.py`) |
+| Medium (niche) | **Behördenhelfer** — block-by-block official-document form (`extras/behoerdenhelfer_v2.html`) | Optional XDL/HTML sidebar for EU public admin; defer unless product targets that segment |
+| Low | Local **Ollama onboarding** copy (`check_ollama`, recommended model sizes) | Enrich connection-error / first-run hints in settings |
+
+Smallest ROI if implementing later: **presets only**, then Cleaner wizard.
+
+### 8.2 Document Cleaner → existing tools
+
+Kyber generates LibreOffice Basic from analysis JSON (`headings`, `body_paragraphs`, etc.). WriterAgent should orchestrate the same outcomes with UNO:
+
+| Kyber macro operation | WriterAgent tools |
+| --------------------- | ----------------- |
+| Heading styles by paragraph index | `get_document_tree` + `apply_style` |
+| Remove direct formatting on body paragraphs | Styles domain / agent recipe (may need an explicit tool) |
+| Insert TOC | `indexes` specialized tools (`ContentIndex`) |
+| Page break / first page on H1 | [`plugin/writer/page.py`](../plugin/writer/page.py) |
+| Table header row styling | Table tools |
+| Footer page number | Page / header-footer tools |
+
+**Gap:** Kyber’s single-shot JSON analysis and profile → operation list is an **orchestration** layer, not missing low-level UNO capability.
+
+### 8.3 Not worth porting
+
+- Standalone tkinter app or paste-only workflow
+- Basic macro generator as default delivery (locale-fragile: `Überschrift` vs `Heading`)
+- `kyber_backend_v5` / `kyber_nano` (kiosk, team DB, OPC-UA, MQTT)
+- Duplicate Ollama/LM Studio preset list
+- Shallow LO Python macros in `install/kyber_linux_setup.sh` (subset of extend/edit selection)
+
+---
+
+## 9. References
 
 For complete LibreOffice Writer UNO API documentation:
 

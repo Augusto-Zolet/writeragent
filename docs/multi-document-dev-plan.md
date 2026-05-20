@@ -501,11 +501,16 @@ flowchart LR
     *   Update `DELEGATION_USER_FILE_DATA_HINT` in [`plugin/framework/constants.py`](../plugin/framework/constants.py) to instruct the main agent: *"When inserting information extracted from nearby files, use footnotes or explicit text references (e.g., 'Source: Budget_2026.ods') to cite the origin."*
     *   Ensure the inner agent always returns the `path` and `name` alongside the extracted facts (currently `DelegateReadDocument` returns `{ status, path, doc_type, result }`).
 
-#### 7.4 Multi-File Comparison (Diffing)
-*   **Concept:** Compare versions of documents (e.g., "What changed between v1 and v2?").
-*   **Implementation:** The outer agent already supports calling `delegate_read_document` multiple times. To formalize diffing:
+#### 7.4 Multi-File Comparison (Native LO Compare)
+*   **Concept:** Compare versions of documents (e.g., "What changed between v1 and v2?") using LibreOffice's built-in comparison engine.
+*   **Implementation:** 
     *   Create a specialized tool `CompareDocuments(path_a, path_b)` in [`plugin/doc/nearby_tools.py`](../plugin/doc/nearby_tools.py).
-    *   Internally, it runs the inner read agent on both files to get their outlines/content, then locally runs a lightweight text diff (e.g., Python's `difflib`) to summarize changes, returning a compact diff string to the outer agent. This saves the outer LLM from having to hold two massive documents in its context window simultaneously.
+    *   **Logic:**
+        1. Open `path_b` (the "newer" version) hidden.
+        2. Use `XDispatchHelper` to execute `.uno:CompareDocuments` on the frame of `path_b`, passing the URL of `path_a` as the "original" document.
+        3. LibreOffice automatically generates **Tracked Changes (Redlines)** in `path_b`.
+        4. The sub-agent then uses the existing `get_redline_summary` (Writer) or `get_change_track` (Calc) tools to extract a high-level summary of exactly what was added, deleted, or changed.
+    *   **Benefit:** Provides a far more accurate and "office-native" understanding of changes than a raw text diff, including formatting and structural changes. This saves the LLM from having to hold two massive documents in its context window simultaneously.
 
 ---
 
