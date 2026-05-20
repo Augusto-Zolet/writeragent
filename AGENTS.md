@@ -183,7 +183,7 @@ UNO helpers are split: [`uno_context.py`](plugin/framework/uno_context.py), [`do
 | Localization / translations / `make extract-strings` | [docs/localization.md](docs/localization.md), [locales/README.md](locales/README.md) |
 | Audio Architecture | [docs/audio-architecture.md](docs/audio-architecture.md) |
 | Image generation | [docs/image-generation.md](docs/image-generation.md) |
-| Math / HTML import design | [docs/libreoffice-html-math-dev-plan.md](docs/libreoffice-html-math-dev-plan.md), [docs/math-extraction-editing-dev-plan.md](docs/math-extraction-editing-dev-plan.md) |
+| Math / HTML import design | [docs/math-tex.md](docs/math-tex.md) |
 | Grammar pipeline (cache, queue) | [docs/realtime-grammar-checker-plan.md](docs/realtime-grammar-checker-plan.md) |
 | Test Architecture | [docs/test_architecture_analysis.md](docs/test_architecture_analysis.md) |
 | LLM Hacks & Workarounds | [docs/llm-hacks.md](docs/llm-hacks.md) |

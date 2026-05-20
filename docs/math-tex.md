@@ -1,10 +1,8 @@
-# Dev Plan: HTML Math -> Editable LibreOffice Math
+# Math, LaTeX, and TeX in WriterAgent
 
 ## Purpose
 
-This document turns the research in `docs/libreoffice-html-math-proposal.md` into an execution plan that a coding agent can implement incrementally and that a human reviewer can use to track scope, milestones, and acceptance criteria.
-
-The goal is to add **editable math support** to WriterAgent's HTML import path for LibreOffice Writer.
+Canonical design and execution reference for **editable math** in WriterAgent: HTML/LaTeX/TeX import into LibreOffice Writer, shipped implementation status, reverse extraction roadmap, and TexMaths interop ideas. Consolidated from the former proposal, dev plan, and extraction plan (2026-05).
 
 ## Current status (read this first)
 
@@ -49,6 +47,56 @@ These are explicitly out of scope for the first implementation:
 - broad redesign of the current HTML import system
 - automatic repair of every malformed or unsupported formula
 
+## Background and rationale
+
+WriterAgent's HTML import uses LibreOffice's HTML filter (`insertDocumentFromURL(..., FilterName="HTML (StarWriter)")`). That works for prose, headings, lists, and tables, but **not** for turning HTML-embedded math into editable LibreOffice Math objects.
+
+> Do not try to make HTML import "understand equations".
+> Instead, extract math from the HTML, convert it to StarMath, and insert real LibreOffice formula objects.
+
+### Why LibreOffice Math objects (not HTML filter math)
+
+1. **LibreOffice Math is editable through command strings** — `Formula` on `com.sun.star.formula.FormulaProperties` is StarMath markup; the programmatic target is a Writer formula object, not HTML with math inside it.
+
+2. **MathML imports only through dedicated math paths** — `Tools > Import Formula`, clipboard MathML import, etc. MathML and StarMath are not fully compatible; some imports need revision. This is separate from generic HTML import.
+
+3. **Generic HTML/XHTML is not a dependable math round-trip** — HTML with embedded math is not reliably converted to editable formula objects during normal document conversion.
+
+### Web math input forms
+
+Most web math appears as:
+
+- literal MathML: `<math ...>...</math>`
+- KaTeX output: HTML plus embedded MathML (`htmlAndMathml` default)
+- MathJax output: MathML serialization when present
+- raw TeX delimiters: `$...$`, `$$...$$`, `\(...\)`, `\[...\]`
+
+The task is **detect math islands inside HTML**, then convert through a math-aware pipeline — not teach the HTML filter math.
+
+### Conversion strategy (forward path)
+
+**Preferred target:** StarMath on the Writer object's `Formula` property (editable, native, no browser rendering).
+
+**Preferred MathML path:** Let LibreOffice convert — write temp `.mml`, import via LO Math, read back `Formula`, insert Writer formula object. Caveat: complex MathML may need cleanup.
+
+**Fallback if UNO MathML import is brittle:** Small internal MathML→StarMath subset (identifiers, operators, scripts, fractions, roots, fences, rows, matrices, simple integrals/sums) — **not built**; LO path proved sufficient.
+
+### Why this fits WriterAgent
+
+Math is a **specialized preprocessor** in front of `format_support.py` HTML import — not a rewrite of the whole stack. Math has its own representation, failure modes, and insertion semantics (see also [writer-specialized-toolsets.md](writer-specialized-toolsets.md); equations ship on core `apply_document_content`, not a separate specialized domain).
+
+### External references (research)
+
+- LibreOffice Help, [Import Formula](https://help.libreoffice.org/latest/en-US/text/smath/01/06020000.html)
+- LibreOffice Math Guide 25.2, [Exporting and importing](https://books.libreoffice.org/en/MG252/MG25205-ExportingImporting.html)
+- LibreOffice Math Features: <https://help.libreoffice.org/latest/en-US/text/smath/main0503.html>
+- SDK API, [FormulaProperties](https://api.libreoffice.org/docs/idl/ref/servicecom_1_1sun_1_1star_1_1formula_1_1FormulaProperties.html)
+- KaTeX options (`htmlAndMathml`): <https://katex.org/docs/options>
+- MathJax MathML: <https://docs.mathjax.org/en/latest/output/mathml.html>
+- [MathML import into LibreOffice](https://stackoverflow.com/questions/10300067/how-to-load-and-mathml-formula-into-libreoffice)
+- [MathML lost in HTML/XHTML conversion](https://stackoverflow.com/questions/73396787/losing-mathml-when-converting-from-html-to-docx-using-libreoffice)
+
+
 ## User-visible definition of success
 
 The feature is successful when all of the following are true:
@@ -92,6 +140,21 @@ The new import pipeline should be:
 Do not try to teach the generic HTML filter to understand equations.
 
 Instead, build a thin math-aware layer in front of the existing HTML import system.
+
+
+### Input detection precedence
+
+When multiple representations exist in one fragment, prefer the most structured source (left-to-right scan: earliest `<math` or TeX opener wins):
+
+1. explicit MathML (`<math>`)
+2. KaTeX or MathJax embedded MathML
+3. preserved original TeX in attributes/annotations (backlog: auto-mine on MathML failure)
+4. raw TeX delimiters in plain text
+
+### Inline vs display math
+
+- **Inline:** formula object at cursor within the paragraph.
+- **Display:** paragraph breaks around the object so it stands on its own line.
 
 ### Preferred conversion target
 
@@ -525,6 +588,181 @@ Work **after** Phase 2 (core) should assume:
 - **Testing rule:** extend matrix rows and tool JSON when adding features.
 - **Fallback rule:** never silently lose formulas (unchanged).
 
+## Math extraction and edit loops (roadmap)
+
+**Status:** Not implemented end-to-end. **Import** (TeX/MathML → editable LO Math) is shipped; see phases above.
+
+## Extraction problem
+
+Models interact with Writer through tools (notably `apply_document_content`) using **HTML fragments** that may contain:
+
+- **TeX** in `$…$`, `$$…$$`, `\(...\)`, `\[...\]`, or
+- **Presentation MathML** in `<math>…</math>`.
+
+The extension **normalizes** both into **LibreOffice Math** embedded objects (`TextEmbeddedObject` with the Math CLSID) by way of **StarMath** command text (`Formula` on the embedded model). See:
+
+- Segmentation: [`plugin/writer/html_math_segment.py`](../plugin/writer/html_math_segment.py)
+- Conversion: [`plugin/writer/math_mml_convert.py`](../plugin/writer/math_mml_convert.py) (`convert_latex_to_starmath`, `convert_mathml_to_starmath`)
+- Insertion: [`plugin/writer/math_formula_insert.py`](../plugin/writer/math_formula_insert.py)
+- Orchestration: [`plugin/writer/format_support.py`](../plugin/writer/format_support.py) (`_insert_mixed_html_and_math_at_cursor`)
+
+For a **second turn** (“edit this equation”), the model needs a **stable, prompt-friendly** representation of what is in the document. Today:
+
+- **Input** path (TeX / MathML → object) is implemented.
+- **Output** path (object → TeX or MathML for the model) is **not** a single supported product feature; document context and HTML export paths generally do not round-trip formulas as structured TeX/MathML the model originally sent.
+
+This gap blocks reliable **math-aware edit**, **refactor**, and **verbatim reuse** of equations in multi-turn agent flows.
+
+---
+
+## Extraction goals and non-goals
+
+### Goals (prioritized)
+
+1. **Extract** inline/display formula objects from Writer text into a form suitable for LLM prompts and tool arguments (prefer **TeX** per product guidance in `WRITER_APPLY_DOCUMENT_HTML_RULES`; **MathML** as secondary interchange).
+2. **Deterministic behavior** where possible: same document state → same serialized math (modulo known equivalences).
+3. **Safe degradation**: if conversion fails, surface **StarMath** or a short diagnostic string rather than silent wrong math.
+4. **Performance**: batch extraction for “all math in range” must not dominate chat latency; use hidden docs / caching only where measured necessary.
+
+### Non-goals (initial phases)
+
+- Bit-identical round-trip **TeX → LO → TeX** for arbitrary LaTeX (impossible in general; same as `latex2mathml` subset story).
+- Replacing LibreOffice’s Math engine or fixing upstream MathML import quirks (track separately; see existing `newline` collapse notes in `math_mml_convert.py`).
+- **Calc** cell formula strings (spreadsheet `=…`) — out of scope here; this doc is **Writer embedded math** only.
+
+---
+
+## Canonical internal representation
+
+After import, the **authoritative** in-document form is **StarMath** on the embedded object (`inner.Formula`), not the original TeX/MathML string (those are discarded once insertion succeeds).
+
+Implications:
+
+- Any “get it back out” pipeline starts from **UNO traversal** → read `Formula` → optional **StarMath → TeX/MathML** conversion layer.
+- **Provenance** (original model TeX) is **lost** unless we add side channels (see §7).
+
+---
+
+## Extraction architecture (target)
+
+```mermaid
+flowchart TB
+  subgraph doc [Writer document]
+    emb[TextEmbeddedObject Math CLSID]
+  end
+  subgraph extract [Extraction layer new]
+    walk[Enumerate text portions / embedded objects]
+    read[Read Formula StarMath]
+  end
+  subgraph serialize [Serialization optional]
+    st2tex[StarMath to TeX heuristics or LO export]
+    st2mml[StarMath or LO to MathML]
+    lib[Third-party MathML to TeX]
+  end
+  emb --> walk --> read
+  read --> st2tex
+  read --> st2mml
+  st2mml --> lib
+```
+
+**Phase 0 — Inventory**
+
+- Document UNO APIs used to iterate `XText` content and detect `TextEmbeddedObject` with [`math_formula_insert.MATH_CLSID`](../plugin/writer/math_formula_insert.py).
+- Confirm whether `getEmbeddedObject().Formula` is always sufficient for read-back on saved/reopened documents (expect yes for our insert path; verify edge cases: undo, ODF round-trip, clipboard).
+
+**Phase 1 — StarMath export (MVP)**
+
+- Implement a pure-Python (or UNO-only) helper: given `ctx` + `XTextDocument`, return ordered list of `{anchor_index_or_range, starmath, display_block_guess}` for formulas in a **paragraph range** or **selection**.
+- Wire to **debug** or **internal API** first; no new user-facing tool until schemas and error contracts are stable.
+
+**Phase 2 — Prompt-facing TeX or MathML**
+
+- **Option A — StarMath → TeX:** LibreOffice / ODF may expose export filters (MathML, LaTeX) from formula documents — **spike in headless LO** before committing. If only StarMath is available, maintain a **small** translator for common constructs or accept StarMath-in-prompt with a system note (last resort for models).
+- **Option B — MathML intermediate:** Export formula to MathML (if UNO/filter supports it), then optional **MathML → TeX** via a **lightweight** dependency (see **§5** — favor **small wheels**, avoid Saxon in-extension unless justified).
+- **Option C — Dual payload in prompts:** `starmath` + `suggested_tex` when converter confident.
+
+Acceptance: golden UNO tests on documents created via existing HTML math import (reuse patterns from [`plugin/tests/uno/test_writer_mathml_import.py`](../plugin/tests/uno/test_writer_mathml_import.py)).
+
+**Phase 3 — Edit loop integration**
+
+- **Extend / Edit selection** and **get_document_content** (or a dedicated `get_math_in_range` tool): include extracted TeX (or MathML) in structured JSON so the model can emit updated `apply_document_content` HTML that **targets** the same formula (by index, bookmark, or content signature — **design choice**; avoid fragile plain-text-only matching across objects).
+- Define **mutation** semantics: replace-in-place embedded object vs delete+insert; preserve paragraph structure for display math.
+
+---
+
+## Python libraries for reverse conversion and codebases to consider
+
+Everything here is **outside** WriterAgent’s tree unless noted. Use for **MathML → TeX** (after you obtain MathML from LO or elsewhere), **testing**, or **spikes** — not as decisions to bundle without license, size, and LO-runtime Python reviews.
+
+| Name | PyPI / source | Role | Typical deps | Extension fit |
+|------|---------------|------|----------------|-----------------|
+| **mathml-to-latex** | [PyPI](https://pypi.org/project/mathml-to-latex/), [asnunes/py-mathml-to-latex](https://github.com/asnunes/py-mathml-to-latex) | Presentation MathML string → LaTeX string (`MathMLToLaTeX().convert`). Port of the JS **mathml-to-latex**. | Effectively **none** on modern Python (wheel ~32 KiB). | **First spike** for in-extension or offline eval: small, MIT. |
+| **mml2tex** | [PyPI](https://pypi.org/project/mml2tex/) | Wraps **[transpect/mml2tex](https://github.com/transpect/mml2tex)** XSLT via Python. | **`lxml`**, pinned **`saxonche`**. | **Poor default for OXT:** heavy stack; better for **developer machines / CI** proving coverage on hard MathML. |
+| **mathml2latex** | [PyPI](https://pypi.org/project/mathml2latex/), [KiaismAgre/mathml2latex](https://github.com/KiaismAgre/mathml2latex) | BS4-based Presentation MathML → LaTeX. | **beautifulsoup4**. | **Reference / narrow cases:** last release **2019**; audit before any dependency. |
+| **mathml2tex** (davidchern) | [GitHub davidchern/mathml2tex](https://github.com/davidchern/mathml2tex) | Rule / BS-style MathML → TeX subset. | Usually **bs4**-class stack. | Treat like **mathml2latex**: useful ideas, verify license + tests. |
+| **latex2mathml** (upstream) | [roniemartinez/latex2mathml](https://github.com/roniemartinez/latex2mathml) | **Forward only** (TeX → MathML). No inverse API. | Pure Python (already a WriterAgent dependency on **import**). | Use **`tests/` fixtures** as **golden pairs** for round-trip experiments (`TeX → MathML → ? → TeX′`), not as reverse engine. |
+| **SymPy** | [sympy](https://pypi.org/project/sympy/) | `latex(expr)` and MathML **printers** from symbolic expressions. | Large package. | **Wrong primary tool:** not a general “parse arbitrary `<math>` document fragment → LaTeX” pipeline; only if you already have a **SymPy** `Expr`. |
+
+**In-repo building blocks (not reverse converters):**
+
+- [`math_mml_convert.py`](../plugin/writer/math_mml_convert.py) — `convert_mathml_to_starmath`, `convert_latex_to_starmath`; reuse for **forward** tests and for understanding **StarMath** shape after LO import.
+- [`math_formula_insert.MATH_CLSID`](../plugin/writer/math_formula_insert.py) — identify embedded objects during UNO walks.
+
+**Suggested evaluation order:** (1) UNO-only: read `Formula` (StarMath) and ship that in prompts if models tolerate it; (2) if TeX is required, try **mathml-to-latex** after any LO MathML export spike; (3) use **mml2tex** off-extension to judge quality ceiling; (4) mine **latex2mathml** tests + **mathml2latex** / **mathml2tex** source for edge-case ideas before writing a custom walker.
+
+---
+
+## Extraction risks and constraints
+
+| Risk | Mitigation |
+|------|------------|
+| Extension Python baseline (e.g. 3.10) | Any new dependency must support that baseline; no stdlib features from 3.11+ without guards. |
+| Dependency weight | Prefer stdlib + LO; second choice small pure-Python; avoid bundling Saxon/lxml stacks unless offline evaluation proves need. |
+| Ambiguous StarMath → TeX | Document known non-invertible cases; tests with tolerance; never claim full LaTeX equivalence. |
+| Security / prompt injection | Serialized math is still user/attacker-controlled text; treat like any document excerpt (length caps, redaction policy consistent with chat context). |
+
+---
+
+## Optional: preserving original model TeX
+
+If product requires **verbatim** original TeX for legal or reproducibility reasons:
+
+- **User-defined properties** on the paragraph or a hidden **bookmark + JSON** payload (fragile across edits).
+- **OLE user fields** / custom metadata on the embedded object (if UNO exposes writable bags — needs spike).
+- **Sidecar** `writeragent.json` or per-doc auxiliary file (deployment and sync cost).
+
+Default recommendation: **do not** block Phase 1–2 on provenance; add if a concrete product asks.
+
+---
+
+## KaTeX / MathJax annotations (fast path when present)
+
+When future HTML import accepts MathML with `<annotation encoding="application/x-tex">`, **prefer extracting annotation text** when round-tripping that fragment (see dev-plan backlog in [math-tex.md](math-tex.md)). This avoids inventing TeX from Presentation MathML. **Orthogonal** to UNO StarMath read but should be **one code path** in the eventual “serialize math for prompt” function.
+
+---
+
+## Extraction deliverables checklist
+
+- [ ] UNO enumerator for Math embedded objects + `Formula` read-back + unit/UNO tests.
+- [ ] Serialization strategy chosen (A/B/C) with written rationale and dependency list.
+- [ ] Prompt/tool contract: JSON shape, max length, error when conversion fails.
+- [ ] Integration point documented in `AGENTS.md` and this document once shipped.
+- [ ] No regression to HTML import path (existing tests green).
+
+---
+
+## Extraction references (LibreOffice / UNO)
+
+Consult current DevGuide / API for:
+
+- `com.sun.star.text.TextEmbeddedObject`
+- Formula document service and `Formula` property
+- Any `XEmbeddedObject` or storage export APIs for Math → MathML
+
+Exact service names vary by LO version; **verify against the versions you ship for**.
+
+---
+
 ## TexMaths feature review (porting candidates)
 
 **Reference tree:** local copy at `/home/keithcu/Desktop/Python/TexMaths` (upstream [SourceForge](https://sourceforge.net/projects/texmaths/), [homepage](http://roland65.free.fr/texmaths/)). **Implementation language:** LibreOffice **StarBasic** (`.xba`) + dialog XML (`.xdl`), not Python — any “port” means **reimplement in WriterAgent’s Python/UNO stack**, not wrapping the extension.
@@ -565,7 +803,7 @@ flowchart TB
 
 | TexMaths feature | Where in TexMaths | WriterAgent gap | Suggested port |
 |------------------|-------------------|-----------------|--------------|
-| **Persist LaTeX source on insert** | `SetAttributes` stores `sEqCode` in shape metadata | TeX lost after insert ([math-extraction-editing-dev-plan.md](math-extraction-editing-dev-plan.md) §7) | On `insert_writer_math_formula`, write optional `UserDefinedAttributes` / doc property: original TeX + `display_block`. Enables edit rounds without StarMath→TeX guesswork. |
+| **Persist LaTeX source on insert** | `SetAttributes` stores `sEqCode` in shape metadata | TeX lost after insert ([Optional: preserving original model TeX](#optional-preserving-original-model-tex)) | On `insert_writer_math_formula`, write optional `UserDefinedAttributes` / doc property: original TeX + `display_block`. Enables edit rounds without StarMath→TeX guesswork. |
 | **Edit selected equation** | Select image → Equations macro loads LaTeX | `insert_latex_math_dialog` only inserts; no selection prefill | Menu/tool: if cursor on Math CLSID object, read stored TeX (or StarMath fallback) → [`latex_dialog.py`](../plugin/writer/math/latex_dialog.py) → replace object. |
 | **Selection → equation** (“Text to LaTeX”) | Help §11: select plain LaTeX in Writer → one-click convert | Same conversion path, no selection shortcut | Writer menu/MCP: `getSelection()` string → `convert_latex_to_starmath` → insert/replace. Small UX win for power users. |
 | **Read legacy TexMaths / OOoLatex** | `ReadAttributes` supports `TexMathsArgs`, `OOoLatexArgs`, `Title=TexMaths` | No interop with existing academic `.odt` | UNO helper + optional tool: detect graphic with TexMaths metadata, return LaTeX to model, offer “convert to native math” (one-shot or batch). Critical for documents that already use TexMaths. |
@@ -618,7 +856,7 @@ flowchart TB
 5. **Numbered equations + batch reconvert** (Writer tools).
 6. **Optional external LaTeX→image fallback** (only if product accepts TeX-install dependency).
 
-See also: [math-extraction-editing-dev-plan.md](math-extraction-editing-dev-plan.md) (extract/edit loop), [image-generation.md](image-generation.md) (if image fallback shares insert-image paths).
+See also: [Math extraction and edit loops](#math-extraction-and-edit-loops-roadmap), [image-generation.md](image-generation.md) (if image fallback shares insert-image paths).
 
 ### TexMaths modules (reference tree)
 
@@ -633,13 +871,25 @@ See also: [math-extraction-editing-dev-plan.md](math-extraction-editing-dev-plan
 | `TexMathsPreamble.xba` | Per-document LaTeX preamble UI |
 | `help/help.en` | User-facing feature list |
 
-## Related documents
+## Code map and related files
 
-- Research and architecture proposal: `docs/libreoffice-html-math-proposal.md`
-- Math extraction and edit loops: `docs/math-extraction-editing-dev-plan.md`
-- Writer HTML import + math orchestration: `plugin/writer/format_support.py`
-- MathML + TeX segmentation: `plugin/writer/html_math_segment.py`
-- MathML → StarMath + Writer newline mitigation; LaTeX (`latex2mathml`) → MathML → StarMath: `plugin/writer/math_mml_convert.py`
-- Formula OLE insert: `plugin/writer/math_formula_insert.py`
-- Vendored `latex2mathml`: `requirements-vendor.txt` (and dev mirror in `pyproject.toml` for typecheck)
-- TexMaths reference review (UX/interop, not image pipeline): [TexMaths feature review](#texmaths-feature-review-porting-candidates) in this document
+| Area | Path |
+|------|------|
+| HTML + math orchestration | [`plugin/writer/format_support.py`](../plugin/writer/format_support.py) |
+| MathML + TeX segmentation | [`plugin/writer/html_math_segment.py`](../plugin/writer/html_math_segment.py) |
+| MathML / LaTeX conversion | [`plugin/writer/math_mml_convert.py`](../plugin/writer/math_mml_convert.py) |
+| Formula OLE insert | [`plugin/writer/math_formula_insert.py`](../plugin/writer/math_formula_insert.py) |
+| LaTeX dialog | [`plugin/writer/math/latex_dialog.py`](../plugin/writer/math/latex_dialog.py) |
+| Model / tool hints | [`plugin/framework/constants.py`](../plugin/framework/constants.py), [`plugin/writer/content.py`](../plugin/writer/content.py) |
+| Vendored `latex2mathml` | `requirements-vendor.txt` (dev mirror in `pyproject.toml` for typecheck) |
+| Image fallback (optional) | [image-generation.md](image-generation.md) |
+| Agent orientation | [`AGENTS.md`](../AGENTS.md) |
+| TexMaths UX/interop ideas | [TexMaths feature review](#texmaths-feature-review-porting-candidates) |
+
+## Document history
+
+| Date | Change |
+|------|--------|
+| 2026-04-29 | Extraction roadmap drafted (former `math-extraction-editing-dev-plan.md`). |
+| 2026-04 | HTML math Phases 0–2 shipped (former proposal + dev plan). |
+| 2026-05-20 | Consolidated into `math-tex.md`; source docs removed. |
