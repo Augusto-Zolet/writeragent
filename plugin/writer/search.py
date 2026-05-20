@@ -19,8 +19,8 @@
 import logging
 
 from plugin.framework.tool import ToolBase, ToolBaseDummy
+from plugin.writer.paragraph_search import search_paragraph_texts
 from . import format as format_support
-import re as re_mod
 
 
 log = logging.getLogger("writeragent.writer")
@@ -65,7 +65,6 @@ class SearchInDocument(ToolBase):
         doc = ctx.doc
         doc_svc = ctx.services.document
         para_ranges = doc_svc.get_paragraph_ranges(doc)
-        para_count = len(para_ranges)
 
         # Read paragraph texts once
         para_texts = []
@@ -78,51 +77,19 @@ class SearchInDocument(ToolBase):
             except Exception:
                 para_texts.append("")
 
-        # Compile regex if needed
-        compiled = None
-        if use_regex:
-            flags = 0 if case_sensitive else re_mod.IGNORECASE
-            try:
-                compiled = re_mod.compile(pattern, flags)
-            except re_mod.error as e:
-                return {"status": "error", "error": "Invalid regex: %s" % e}
-
-        # Search within paragraphs
-        matches = []
-        total_count = 0
-
-        for i, ptext in enumerate(para_texts):
-            if not ptext:
-                continue
-
-            if use_regex and compiled is not None:
-                for m in compiled.finditer(ptext):
-                    total_count += 1
-                    if len(matches) < max_results:
-                        matches.append(_build_match(m.group(), i, context_paragraphs, para_count, para_texts))
-            else:
-                haystack = ptext if case_sensitive else ptext.lower()
-                needle = pattern if case_sensitive else pattern.lower()
-                step = max(1, len(needle))
-                pos = 0
-                while True:
-                    pos = haystack.find(needle, pos)
-                    if pos == -1:
-                        break
-                    total_count += 1
-                    if len(matches) < max_results:
-                        matches.append(_build_match(ptext[pos : pos + len(pattern)], i, context_paragraphs, para_count, para_texts))
-                    pos += step
+        try:
+            matches, total_count = search_paragraph_texts(
+                pattern,
+                para_texts,
+                regex=use_regex,
+                case_sensitive=case_sensitive,
+                max_results=max_results,
+                context_paragraphs=context_paragraphs,
+            )
+        except ValueError as e:
+            return {"status": "error", "error": str(e)}
 
         return {"status": "ok", "matches": matches, "count": total_count}
-
-
-def _build_match(text, para_idx, ctx_paras, para_count, para_texts):
-    """Build a single match result with context paragraphs."""
-    ctx_lo = max(0, para_idx - ctx_paras)
-    ctx_hi = min(para_count, para_idx + ctx_paras + 1)
-    context = [{"index": j, "text": para_texts[j]} for j in range(ctx_lo, ctx_hi)]
-    return {"text": text, "paragraph_index": para_idx, "context": context}
 
 
 class AdvancedSearch(ToolBaseDummy):

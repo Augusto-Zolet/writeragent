@@ -9,17 +9,9 @@ import logging
 
 from plugin.calc.base import ToolCalcSearchBase
 from plugin.calc.calc_utils import resolve_sheet
+from plugin.calc.spreadsheet_search import search_spreadsheet_cells
 
 log = logging.getLogger("nelson.calc")
-
-
-def _cell_address_str(cell):
-    """Return 'A1'-style address from a cell."""
-    from plugin.calc.address_utils import index_to_column
-
-    col = cell.getCellAddress().Column
-    row = cell.getCellAddress().Row
-    return "%s%d" % (index_to_column(col), row + 1)
 
 
 class SearchInSpreadsheet(ToolCalcSearchBase):
@@ -51,33 +43,15 @@ class SearchInSpreadsheet(ToolCalcSearchBase):
         max_results = kwargs.get("max_results", 50)
         all_sheets = kwargs.get("all_sheets", False)
 
-        doc = ctx.doc
-        matches = []
-
-        if all_sheets:
-            sheets_obj = doc.getSheets()
-            targets = [(sheets_obj.getByName(n), n) for n in sheets_obj.getElementNames()]
-        else:
-            sheet = resolve_sheet(doc, kwargs.get("sheet_name"))
-            targets = [(sheet, sheet.getName())]
-
-        for sheet, sname in targets:
-            sd = sheet.createSearchDescriptor()
-            sd.SearchString = pattern
-            sd.SearchRegularExpression = bool(use_regex)
-            sd.SearchCaseSensitive = bool(case_sensitive)
-
-            found = sheet.findAll(sd)
-            if found is None:
-                continue
-
-            for i in range(found.getCount()):
-                if len(matches) >= max_results:
-                    break
-                cell = found.getByIndex(i)
-                matches.append({"sheet": sname, "cell": _cell_address_str(cell), "value": cell.getString()})
-            if len(matches) >= max_results:
-                break
+        matches = search_spreadsheet_cells(
+            ctx.doc,
+            pattern,
+            regex=use_regex,
+            case_sensitive=case_sensitive,
+            max_results=max_results,
+            all_sheets=all_sheets,
+            sheet_name=kwargs.get("sheet_name"),
+        )
 
         return {"status": "ok", "matches": matches, "count": len(matches)}
 

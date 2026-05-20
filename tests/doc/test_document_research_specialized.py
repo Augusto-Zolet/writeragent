@@ -14,7 +14,7 @@ from plugin.draw.specialized import DelegateToSpecializedDraw
 from plugin.framework.tool import ToolBase, ToolContext, ToolRegistry
 from tests.chatbot.test_tool_loop import _mock_get_config_int_for_sub_agent
 from plugin.writer.specialized_base import DelegateToSpecializedWriter, SpecializedWorkflowFinished
-from plugin.doc.document_research_tools import ListNearbyFiles
+from plugin.doc.document_research_tools import GrepNearbyFiles, ListNearbyFiles
 
 
 class _MutatingTool(ToolBase):
@@ -49,11 +49,13 @@ def test_document_research_in_draw_delegate_enum():
 def test_document_research_tools_registered_with_cross_cutting():
     r = ToolRegistry(services={})
     r.register(ListNearbyFiles())
+    r.register(GrepNearbyFiles())
     r.register(DelegateReadDocument())
     r.register(SpecializedWorkflowFinished())
     tools = r.get_tools(doc=MagicMock(), active_domain="document_research", exclude_tiers=())
     names = {t.name for t in tools}
     assert "list_nearby_files" in names
+    assert "grep_nearby_files" in names
     assert "delegate_read_document" in names
     assert "specialized_workflow_finished" in names
 
@@ -98,6 +100,7 @@ def test_document_research_outer_delegation_gets_document_research_tools(
 ):
     r = ToolRegistry(services={})
     r.register(ListNearbyFiles())
+    r.register(GrepNearbyFiles())
     r.register(DelegateReadDocument())
     r.register(SpecializedWorkflowFinished())
     r.register(DelegateToSpecializedWriter())
@@ -120,6 +123,7 @@ def test_document_research_outer_delegation_gets_document_research_tools(
     smol_tools = mock_agent_class.call_args.kwargs.get("tools", [])
     names = {t.name for t in smol_tools}
     assert "list_nearby_files" in names
+    assert "grep_nearby_files" in names
     assert "delegate_read_document" in names
 
 

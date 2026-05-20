@@ -481,6 +481,34 @@ flowchart LR
 
 ---
 
+### Phase 7 — Advanced Workflows (Future)
+
+**Goal:** Move beyond simple reading to powerful cross-document aggregation and provenance.
+
+#### 7.1 Cross-Document Search ("Office Grep") — **shipped**
+
+*   **Concept:** A dedicated tool for the outer `document_research` sub-agent to find keywords across multiple files without manually delegating to each one sequentially.
+*   **Implementation:** [`grep_nearby_files`](plugin/doc/document_research_tools.py) in [`plugin/doc/document_research_grep.py`](../plugin/doc/document_research_grep.py). Args: `pattern`, optional `file_subset` (basename token such as `budget` → `*budget*.od*` via `list_nearby_files`), caps (`max_files`, `max_results_per_file`, `max_total_results`). Opens each candidate hidden+read-only, searches by type (Writer paragraphs, Calc `findAll` all sheets, Draw shape text with shape cap), returns snippet previews, closes hidden opens, calls `processEventsToIdle` between files. Prefer grep before `delegate_read_document` when locating which file contains a keyword (hint in [`specialized_base.py`](../plugin/doc/specialized_base.py)).
+*   **Tests:** [`tests/doc/test_document_research_grep.py`](../tests/doc/test_document_research_grep.py), [`tests/doc/test_document_research_grep_uno.py`](../tests/doc/test_document_research_grep_uno.py).
+
+#### 7.2 Metadata Caching ("Librarian's Index")
+*   **Concept:** "Remember" the structure of nearby files so the agent can answer "Which document has the Q3 numbers?" instantly.
+*   **Implementation:** Expand the Phase 6 polish concept. Create `plugin/doc/nearby_cache.py` (using SQLite or JSON). When `open_document_for_read` is used, extract and cache the `get_document_tree` (Writer) or `get_sheet_summary` (Calc) keyed by `(path, st_mtime)`. Modify `list_nearby_files` to optionally return this cached structural summary in the `FileEntry` so the outer agent sees what's inside files without opening them.
+
+#### 7.3 Automatic Citations & Provenance
+*   **Concept:** When facts are pulled from sibling files, automatically cite the source.
+*   **Implementation:** This is primarily a prompt engineering and main-agent workflow update.
+    *   Update `DELEGATION_USER_FILE_DATA_HINT` in [`plugin/framework/constants.py`](../plugin/framework/constants.py) to instruct the main agent: *"When inserting information extracted from nearby files, use footnotes or explicit text references (e.g., 'Source: Budget_2026.ods') to cite the origin."*
+    *   Ensure the inner agent always returns the `path` and `name` alongside the extracted facts (currently `DelegateReadDocument` returns `{ status, path, doc_type, result }`).
+
+#### 7.4 Multi-File Comparison (Diffing)
+*   **Concept:** Compare versions of documents (e.g., "What changed between v1 and v2?").
+*   **Implementation:** The outer agent already supports calling `delegate_read_document` multiple times. To formalize diffing:
+    *   Create a specialized tool `CompareDocuments(path_a, path_b)` in [`plugin/doc/nearby_tools.py`](../plugin/doc/nearby_tools.py).
+    *   Internally, it runs the inner read agent on both files to get their outlines/content, then locally runs a lightweight text diff (e.g., Python's `difflib`) to summarize changes, returning a compact diff string to the outer agent. This saves the outer LLM from having to hold two massive documents in its context window simultaneously.
+
+---
+
 ## Calc-specific scenarios (acceptance checks)
 
 Use these to validate design and tests (Phase 0 targets #1–#5):
@@ -507,15 +535,16 @@ Use these to validate design and tests (Phase 0 targets #1–#5):
 
 | Area | Path |
 | ---- | ---- |
-| Catalog + hidden open | [`plugin/doc/nearby.py`](../plugin/doc/nearby.py) |
-| Outer tools | [`plugin/doc/nearby_tools.py`](../plugin/doc/nearby_tools.py) — `list_nearby_files` |
-| Inner + `delegate_read_document` | [`plugin/doc/nearby_specialized.py`](../plugin/doc/nearby_specialized.py) |
+| Catalog + hidden open | [`plugin/doc/document_research.py`](../plugin/doc/document_research.py) |
+| Outer tools | [`plugin/doc/document_research_tools.py`](../plugin/doc/document_research_tools.py) — `list_nearby_files`, `grep_nearby_files` |
+| Grep library | [`plugin/doc/document_research_grep.py`](../plugin/doc/document_research_grep.py) |
+| Inner + `delegate_read_document` | [`plugin/doc/document_research_specialized.py`](../plugin/doc/document_research_specialized.py) |
 | Module `auto_discover` | [`plugin/doc/__init__.py`](../plugin/doc/__init__.py) |
 | Domain enum markers | [`plugin/writer/specialized_base.py`](../plugin/writer/specialized_base.py) (`ToolWriterDocumentResearchBase`), [`plugin/calc/base.py`](../plugin/calc/base.py), [`plugin/draw/base.py`](../plugin/draw/base.py) |
 | Delegate gateway + document_research guard | [`plugin/doc/specialized_base.py`](../plugin/doc/specialized_base.py) |
 | `read_only_target` + registry guard | [`plugin/framework/tool.py`](../plugin/framework/tool.py) |
-| Unit tests | [`plugin/tests/doc/test_nearby.py`](../tests/doc/test_nearby.py), [`test_nearby_specialized.py`](../tests/doc/test_nearby_specialized.py) |
-| UNO tests | [`plugin/tests/doc/test_nearby_uno.py`](../tests/doc/test_nearby_uno.py) |
+| Unit tests | [`tests/doc/test_document_research.py`](../tests/doc/test_document_research.py), [`test_document_research_specialized.py`](../tests/doc/test_document_research_specialized.py), [`test_document_research_grep.py`](../tests/doc/test_document_research_grep.py) |
+| UNO tests | [`tests/doc/test_document_research_uno.py`](../tests/doc/test_document_research_uno.py), [`test_document_research_grep_uno.py`](../tests/doc/test_document_research_grep_uno.py) |
 
 ### Later phases
 
@@ -562,6 +591,7 @@ Per [AGENTS.md](../AGENTS.md): matching `test_*.py` names; run `make test` befor
 
 | Date | Phase / change | PR / notes |
 | ---- | -------------- | ---------- |
+| 2026-05-20 | **Phase 7.1 shipped:** `grep_nearby_files` + `document_research_grep.py`; shared Writer/Calc search helpers; CPU caps + `processEventsToIdle` between files | — |
 | 2026-05-19 | **Chat status (open-only):** tool + preview blocks for `delegate_read_document` via `chat_append_callback` — [`document_research_chat.py`](../plugin/chatbot/document_research_chat.py), [`specialized_base.py`](../plugin/doc/specialized_base.py), [`tool_loop.py`](../plugin/chatbot/tool_loop.py) | — |
 | 2026-05-17 | **Phase 0 shipped:** `nearby.py`, `nearby_tools.py`, `nearby_specialized.py`; `document_research` on Writer/Calc/Draw delegates; two-tier smol (outer list/delegate_read, inner `READ_TOOLS_BY_DOC_TYPE`); `ToolContext.read_only_target` + `READ_ONLY_TARGET`; untitled → Work path then open-docs fallback; tests in `tests/doc/test_nearby*.py` | — |
 | *(prior)* | Plan refresh: Phase 0 = full two-tier delegation; phases renumbered 0–6; data contracts, threading, edge cases | — |
