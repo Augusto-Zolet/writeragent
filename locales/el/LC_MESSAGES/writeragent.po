@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-18 18:32-0400\n"
+"POT-Creation-Date: 2026-05-19 21:05-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Greek <LL@li.org>\n"
@@ -19,10 +19,10 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Workspace reads require sub-agent delegation (USE_SUB_AGENT). Enable sub-"
-"agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
+"sub-agents in configuration."
 msgstr ""
-"Οι αναγνώσεις του χώρου εργασίας απαιτούν ανάθεση σε υπο-πράκτορα "
+"Οι αναγνώσεις έρευνας εγγράφου απαιτούν ανάθεση σε υπο-πράκτορα "
 "(USE_SUB_AGENT). Ενεργοποιήστε τους υπο-πράκτορες στις ρυθμίσεις."
 
 #: plugin/doc/specialized_base.py
@@ -430,7 +430,8 @@ msgstr "Ο πράκτορας ζητά έγκριση"
 msgid "Proceed with this action?"
 msgstr "Να προχωρήσετε με αυτή την ενέργεια;"
 
-#: plugin/chatbot/dialogs.py plugin/chatbot/web_research_chat.py
+#: plugin/chatbot/dialogs.py plugin/chatbot/document_research_chat.py
+#: plugin/chatbot/web_research_chat.py
 #, python-format
 msgid "Tool: %s"
 msgstr "Εργαλείο: %s"
@@ -462,6 +463,11 @@ msgstr "Αντιγραφή URL"
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
 msgstr "Σφάλμα: Το εργαλειοθήκη δεν είναι διαθέσιμο"
+
+#: plugin/chatbot/document_research_chat.py
+#, python-format
+msgid "Opening '%s' for read-only access."
+msgstr "Άνοιγμα του '%s' για πρόσβαση μόνο για ανάγνωση."
 
 #: plugin/chatbot/panel.py
 msgid "Accept"
@@ -542,18 +548,6 @@ msgstr "Η θερμοκρασία πρέπει να είναι <= 1.0"
 #, python-format
 msgid "This search query '%s' will be sent to the search engine."
 msgstr "Αυτό το ερώτημα αναζήτησης '%s' θα αποσταλεί στη μηχανή αναζήτησης."
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search — approval required]"
-msgstr "[Αναζήτηση στον ιστό — απαιτείται έγκριση]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search]"
-msgstr "[Αναζήτηση στον ιστό]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Additional web search]"
-msgstr "[Πρόσθετη αναζήτηση στον ιστό]"
 
 #: plugin/chatbot/web_research_chat.py
 msgid "[Web research]"

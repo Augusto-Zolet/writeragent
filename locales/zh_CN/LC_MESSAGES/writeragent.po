@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-18 18:32-0400\n"
+"POT-Creation-Date: 2026-05-19 21:05-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Chinese (Simplified) <LL@li.org>\n"
@@ -19,9 +19,9 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Workspace reads require sub-agent delegation (USE_SUB_AGENT). Enable sub-"
-"agents in configuration."
-msgstr "工作区读取需要子代理委派 (USE_SUB_AGENT)。请在配置中启用子代理。"
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
+"sub-agents in configuration."
+msgstr "文档研究读取需要子代理委派 (USE_SUB_AGENT)。请在配置中启用子代理。"
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -392,7 +392,8 @@ msgstr "代理请求批准"
 msgid "Proceed with this action?"
 msgstr "继续此操作吗？"
 
-#: plugin/chatbot/dialogs.py plugin/chatbot/web_research_chat.py
+#: plugin/chatbot/dialogs.py plugin/chatbot/document_research_chat.py
+#: plugin/chatbot/web_research_chat.py
 #, python-format
 msgid "Tool: %s"
 msgstr "工具：%s"
@@ -424,6 +425,11 @@ msgstr "复制 URL"
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
 msgstr "错误：工具包不可用"
+
+#: plugin/chatbot/document_research_chat.py
+#, python-format
+msgid "Opening '%s' for read-only access."
+msgstr "正在以只读方式打开“%s”。"
 
 #: plugin/chatbot/panel.py
 msgid "Accept"
@@ -496,18 +502,6 @@ msgstr "温度必须 ≤ 1.0"
 #, python-format
 msgid "This search query '%s' will be sent to the search engine."
 msgstr "此搜索查询 '%s' 将发送到搜索引擎。"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search — approval required]"
-msgstr "[网络搜索 — 需要批准]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search]"
-msgstr "[网络搜索]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Additional web search]"
-msgstr "[额外网络搜索]"
 
 #: plugin/chatbot/web_research_chat.py
 msgid "[Web research]"

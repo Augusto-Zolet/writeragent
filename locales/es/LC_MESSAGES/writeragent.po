@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-18 18:32-0400\n"
+"POT-Creation-Date: 2026-05-19 21:05-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Spanish <LL@li.org>\n"
@@ -18,11 +18,11 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Workspace reads require sub-agent delegation (USE_SUB_AGENT). Enable sub-"
-"agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
+"sub-agents in configuration."
 msgstr ""
-"Las lecturas del espacio de trabajo requieren delegación de subagente "
-"(USE_SUB_AGENT). Habilite los subagentes en la configuración."
+"Las lecturas de investigación de documentos requieren delegación de "
+"subagentes (USE_SUB_AGENT). Habilite los subagentes en la configuración."
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -418,7 +418,8 @@ msgstr "El agente solicita aprobación"
 msgid "Proceed with this action?"
 msgstr "¿Proceder con esta acción?"
 
-#: plugin/chatbot/dialogs.py plugin/chatbot/web_research_chat.py
+#: plugin/chatbot/dialogs.py plugin/chatbot/document_research_chat.py
+#: plugin/chatbot/web_research_chat.py
 #, python-format
 msgid "Tool: %s"
 msgstr "Herramienta: %s"
@@ -450,6 +451,11 @@ msgstr "Copiar URL"
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
 msgstr "Error: Conjunto de herramientas no disponible"
+
+#: plugin/chatbot/document_research_chat.py
+#, python-format
+msgid "Opening '%s' for read-only access."
+msgstr "Abriendo «%s» para acceso de solo lectura."
 
 #: plugin/chatbot/panel.py
 msgid "Accept"
@@ -530,18 +536,6 @@ msgstr "La temperatura debe ser <= 1.0"
 #, python-format
 msgid "This search query '%s' will be sent to the search engine."
 msgstr "Esta consulta de búsqueda '%s' se enviará al motor de búsqueda."
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search — approval required]"
-msgstr "[Búsqueda web — se requiere aprobación]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search]"
-msgstr "[Búsqueda web]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Additional web search]"
-msgstr "[Búsqueda web adicional]"
 
 #: plugin/chatbot/web_research_chat.py
 msgid "[Web research]"

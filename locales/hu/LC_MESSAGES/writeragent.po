@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-18 18:32-0400\n"
+"POT-Creation-Date: 2026-05-19 21:05-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Hungarian <LL@li.org>\n"
@@ -19,11 +19,11 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Workspace reads require sub-agent delegation (USE_SUB_AGENT). Enable sub-"
-"agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
+"sub-agents in configuration."
 msgstr ""
-"A munkaterület-olvasások alügynök-delegálást igényelnek (USE_SUB_AGENT). "
-"Engedélyezze az alügynököket a konfigurációban."
+"A dokumentumkutatási olvasások alügynöki delegálást igényelnek "
+"(USE_SUB_AGENT). Engedélyezze az alügynököket a konfigurációban."
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -418,7 +418,8 @@ msgstr "Az ügynök jóváhagyást kér"
 msgid "Proceed with this action?"
 msgstr "Folytatja ezt a műveletet?"
 
-#: plugin/chatbot/dialogs.py plugin/chatbot/web_research_chat.py
+#: plugin/chatbot/dialogs.py plugin/chatbot/document_research_chat.py
+#: plugin/chatbot/web_research_chat.py
 #, python-format
 msgid "Tool: %s"
 msgstr "Eszköz: %s"
@@ -450,6 +451,11 @@ msgstr "URL másolása"
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
 msgstr "Hiba: Az eszközkészlet nem érhető el"
+
+#: plugin/chatbot/document_research_chat.py
+#, python-format
+msgid "Opening '%s' for read-only access."
+msgstr "„%s” megnyitása csak olvasható módban."
 
 #: plugin/chatbot/panel.py
 msgid "Accept"
@@ -530,18 +536,6 @@ msgstr "A hőmérséklet értéke legfeljebb 1.0 lehet"
 #, python-format
 msgid "This search query '%s' will be sent to the search engine."
 msgstr "A(z) '%s' keresési lekérdezés el lesz küldve a keresőmotornak."
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search — approval required]"
-msgstr "[Webes keresés – jóváhagyás szükséges]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search]"
-msgstr "[Webes keresés]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Additional web search]"
-msgstr "[További webes keresés]"
 
 #: plugin/chatbot/web_research_chat.py
 msgid "[Web research]"

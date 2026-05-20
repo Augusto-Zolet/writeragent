@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-18 18:32-0400\n"
+"POT-Creation-Date: 2026-05-19 21:05-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Latvian <LL@li.org>\n"
@@ -19,10 +19,10 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Workspace reads require sub-agent delegation (USE_SUB_AGENT). Enable sub-"
-"agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
+"sub-agents in configuration."
 msgstr ""
-"Darbvietas lasījumiem ir nepieciešama apakšaģenta deleģēšana "
+"Dokumentu izpētes lasījumiem ir nepieciešama apakšaģenta deleģēšana "
 "(USE_SUB_AGENT). Iespējojiet apakšaģentus konfigurācijā."
 
 #: plugin/doc/specialized_base.py
@@ -418,7 +418,8 @@ msgstr "Aģents pieprasa apstiprinājumu"
 msgid "Proceed with this action?"
 msgstr "Vai turpināt šo darbību?"
 
-#: plugin/chatbot/dialogs.py plugin/chatbot/web_research_chat.py
+#: plugin/chatbot/dialogs.py plugin/chatbot/document_research_chat.py
+#: plugin/chatbot/web_research_chat.py
 #, python-format
 msgid "Tool: %s"
 msgstr "Rīks: %s"
@@ -450,6 +451,11 @@ msgstr "Kopēt URL"
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
 msgstr "Kļūda: rīkkopa nav pieejama"
+
+#: plugin/chatbot/document_research_chat.py
+#, python-format
+msgid "Opening '%s' for read-only access."
+msgstr "Atver '%s' lasīšanai tikai režīmā."
 
 #: plugin/chatbot/panel.py
 msgid "Accept"
@@ -530,18 +536,6 @@ msgstr "Temperatūrai jābūt <= 1.0"
 #, python-format
 msgid "This search query '%s' will be sent to the search engine."
 msgstr "Šis meklēšanas vaicājums '%s' tiks nosūtīts uz meklētājprogrammu."
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search — approval required]"
-msgstr "[Tīmekļa meklēšana — nepieciešams apstiprinājums]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search]"
-msgstr "[Tīmekļa meklēšana]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Additional web search]"
-msgstr "[Papildu tīmekļa meklēšana]"
 
 #: plugin/chatbot/web_research_chat.py
 msgid "[Web research]"

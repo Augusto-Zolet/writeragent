@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-18 18:32-0400\n"
+"POT-Creation-Date: 2026-05-19 21:05-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Turkish <LL@li.org>\n"
@@ -19,10 +19,10 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Workspace reads require sub-agent delegation (USE_SUB_AGENT). Enable sub-"
-"agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
+"sub-agents in configuration."
 msgstr ""
-"Çalışma alanı okumaları alt aracı yetkilendirmesi (USE_SUB_AGENT) "
+"Belge araştırması okumaları alt aracı yetkilendirmesi (USE_SUB_AGENT) "
 "gerektirir. Yapılandırmadan alt aracıları etkinleştirin."
 
 #: plugin/doc/specialized_base.py
@@ -421,7 +421,8 @@ msgstr "Ajan onay istiyor"
 msgid "Proceed with this action?"
 msgstr "Bu işleme devam edilsin mi?"
 
-#: plugin/chatbot/dialogs.py plugin/chatbot/web_research_chat.py
+#: plugin/chatbot/dialogs.py plugin/chatbot/document_research_chat.py
+#: plugin/chatbot/web_research_chat.py
 #, python-format
 msgid "Tool: %s"
 msgstr "Araç: %s"
@@ -453,6 +454,11 @@ msgstr "URL'yi kopyala"
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
 msgstr "Hata: Araç takımı kullanılamıyor"
+
+#: plugin/chatbot/document_research_chat.py
+#, python-format
+msgid "Opening '%s' for read-only access."
+msgstr "'%s' salt okunur erişim için açılıyor."
 
 #: plugin/chatbot/panel.py
 msgid "Accept"
@@ -532,18 +538,6 @@ msgstr "Sıcaklık <= 1.0 olmalıdır"
 #, python-format
 msgid "This search query '%s' will be sent to the search engine."
 msgstr "Bu arama sorgusu '%s' arama motoruna gönderilecek."
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search — approval required]"
-msgstr "[Web araması — onay gerekli]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search]"
-msgstr "[Web araması]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Additional web search]"
-msgstr "[Ek web araması]"
 
 #: plugin/chatbot/web_research_chat.py
 msgid "[Web research]"

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-18 18:32-0400\n"
+"POT-Creation-Date: 2026-05-19 21:05-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Norwegian Bokmål <LL@li.org>\n"
@@ -19,11 +19,11 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Workspace reads require sub-agent delegation (USE_SUB_AGENT). Enable sub-"
-"agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
+"sub-agents in configuration."
 msgstr ""
-"Arbeidsområdelesinger krever delegering til underagent (USE_SUB_AGENT). "
-"Aktiver underagenter i konfigurasjonen."
+"Dokumentundersøkelseslesinger krever delegering til underagent "
+"(USE_SUB_AGENT). Aktiver underagenter i konfigurasjonen."
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -417,7 +417,8 @@ msgstr "Agenten ber om godkjenning"
 msgid "Proceed with this action?"
 msgstr "Fortsette med denne handlingen?"
 
-#: plugin/chatbot/dialogs.py plugin/chatbot/web_research_chat.py
+#: plugin/chatbot/dialogs.py plugin/chatbot/document_research_chat.py
+#: plugin/chatbot/web_research_chat.py
 #, python-format
 msgid "Tool: %s"
 msgstr "Verktøy: %s"
@@ -449,6 +450,11 @@ msgstr "Kopier URL"
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
 msgstr "Feil: Verktøysett utilgjengelig"
+
+#: plugin/chatbot/document_research_chat.py
+#, python-format
+msgid "Opening '%s' for read-only access."
+msgstr "Åpner «%s» for skrivebeskyttet tilgang."
 
 #: plugin/chatbot/panel.py
 msgid "Accept"
@@ -529,18 +535,6 @@ msgstr "Temperatur må være <= 1.0"
 #, python-format
 msgid "This search query '%s' will be sent to the search engine."
 msgstr "Dette søket '%s' vil bli sendt til søkemotoren."
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search — approval required]"
-msgstr "[Nettsøk — godkjenning kreves]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search]"
-msgstr "[Nettsøk]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Additional web search]"
-msgstr "[Tilleggsnettsøk]"
 
 #: plugin/chatbot/web_research_chat.py
 msgid "[Web research]"

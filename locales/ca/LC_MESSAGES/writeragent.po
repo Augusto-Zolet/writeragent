@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-18 18:32-0400\n"
+"POT-Creation-Date: 2026-05-19 21:05-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Catalan <LL@li.org>\n"
@@ -19,10 +19,10 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Workspace reads require sub-agent delegation (USE_SUB_AGENT). Enable sub-"
-"agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
+"sub-agents in configuration."
 msgstr ""
-"Les lectures de l'espai de treball requereixen delegació de subagent "
+"Les lectures de recerca de documents requereixen la delegació d'un subagent "
 "(USE_SUB_AGENT). Habiliteu els subagents a la configuració."
 
 #: plugin/doc/specialized_base.py
@@ -420,7 +420,8 @@ msgstr "L'agent sol·licita aprovació"
 msgid "Proceed with this action?"
 msgstr "Voleu continuar amb aquesta acció?"
 
-#: plugin/chatbot/dialogs.py plugin/chatbot/web_research_chat.py
+#: plugin/chatbot/dialogs.py plugin/chatbot/document_research_chat.py
+#: plugin/chatbot/web_research_chat.py
 #, python-format
 msgid "Tool: %s"
 msgstr "Eina: %s"
@@ -452,6 +453,11 @@ msgstr "Copia l'URL"
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
 msgstr "Error: el joc d'eines no està disponible"
+
+#: plugin/chatbot/document_research_chat.py
+#, python-format
+msgid "Opening '%s' for read-only access."
+msgstr "S'està obrint «%s» per a accés de només lectura."
 
 #: plugin/chatbot/panel.py
 msgid "Accept"
@@ -532,18 +538,6 @@ msgstr "La temperatura ha de ser <= 1.0"
 #, python-format
 msgid "This search query '%s' will be sent to the search engine."
 msgstr "Aquesta consulta de cerca '%s' s'enviarà al motor de cerca."
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search — approval required]"
-msgstr "[Cerca web — cal aprovació]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search]"
-msgstr "[Cerca web]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Additional web search]"
-msgstr "[Cerca web addicional]"
 
 #: plugin/chatbot/web_research_chat.py
 msgid "[Web research]"

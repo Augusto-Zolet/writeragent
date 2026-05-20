@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-18 18:32-0400\n"
+"POT-Creation-Date: 2026-05-19 21:05-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Czech <LL@li.org>\n"
@@ -19,10 +19,10 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Workspace reads require sub-agent delegation (USE_SUB_AGENT). Enable sub-"
-"agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
+"sub-agents in configuration."
 msgstr ""
-"Čtení z pracovního prostoru vyžaduje delegování na podřízeného agenta "
+"Čtení výzkumu dokumentu vyžaduje delegování na podřízeného agenta "
 "(USE_SUB_AGENT). Povolte podřízené agenty v konfiguraci."
 
 #: plugin/doc/specialized_base.py
@@ -417,7 +417,8 @@ msgstr "Agent vyžaduje schválení"
 msgid "Proceed with this action?"
 msgstr "Pokračovat v této akci?"
 
-#: plugin/chatbot/dialogs.py plugin/chatbot/web_research_chat.py
+#: plugin/chatbot/dialogs.py plugin/chatbot/document_research_chat.py
+#: plugin/chatbot/web_research_chat.py
 #, python-format
 msgid "Tool: %s"
 msgstr "Nástroj: %s"
@@ -449,6 +450,11 @@ msgstr "Kopírovat URL"
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
 msgstr "Chyba: Sada nástrojů není k dispozici"
+
+#: plugin/chatbot/document_research_chat.py
+#, python-format
+msgid "Opening '%s' for read-only access."
+msgstr "Otevírám „%s“ pro přístup pouze pro čtení."
 
 #: plugin/chatbot/panel.py
 msgid "Accept"
@@ -528,18 +534,6 @@ msgstr "Teplota musí být <= 1.0"
 #, python-format
 msgid "This search query '%s' will be sent to the search engine."
 msgstr "Tento vyhledávací dotaz „%s“ bude odeslán vyhledávači."
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search — approval required]"
-msgstr "[Webové vyhledávání — vyžaduje schválení]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search]"
-msgstr "[Webové vyhledávání]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Additional web search]"
-msgstr "[Další webové vyhledávání]"
 
 #: plugin/chatbot/web_research_chat.py
 msgid "[Web research]"

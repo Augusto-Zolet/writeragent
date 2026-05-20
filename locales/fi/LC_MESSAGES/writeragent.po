@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-18 18:32-0400\n"
+"POT-Creation-Date: 2026-05-19 21:05-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Finnish <LL@li.org>\n"
@@ -19,11 +19,11 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Workspace reads require sub-agent delegation (USE_SUB_AGENT). Enable sub-"
-"agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
+"sub-agents in configuration."
 msgstr ""
-"Työtilan lukeminen edellyttää aliedustajan valtuutusta (USE_SUB_AGENT). Ota "
-"aliedustajat käyttöön asetuksista."
+"Asiakirjan tutkimusluvut vaativat aliedustajan delegointia (USE_SUB_AGENT). "
+"Ota aliedustajat käyttöön asetuksista."
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -414,7 +414,8 @@ msgstr "Agentti pyytää hyväksyntää"
 msgid "Proceed with this action?"
 msgstr "Jatketaanko toimintoa?"
 
-#: plugin/chatbot/dialogs.py plugin/chatbot/web_research_chat.py
+#: plugin/chatbot/dialogs.py plugin/chatbot/document_research_chat.py
+#: plugin/chatbot/web_research_chat.py
 #, python-format
 msgid "Tool: %s"
 msgstr "Työkalu: %s"
@@ -446,6 +447,11 @@ msgstr "Kopioi URL-osoite"
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
 msgstr "Virhe: Työkalupakki ei käytettävissä"
+
+#: plugin/chatbot/document_research_chat.py
+#, python-format
+msgid "Opening '%s' for read-only access."
+msgstr "Avataan '%s' vain luku -tilassa."
 
 #: plugin/chatbot/panel.py
 msgid "Accept"
@@ -524,18 +530,6 @@ msgstr "Lämpötilan on oltava <= 1.0"
 #, python-format
 msgid "This search query '%s' will be sent to the search engine."
 msgstr "Tämä hakukysely '%s' lähetetään hakukoneelle."
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search — approval required]"
-msgstr "[Verkkohaku — vaatii hyväksynnän]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search]"
-msgstr "[Verkkohaku]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Additional web search]"
-msgstr "[Lisäverkkohaku]"
 
 #: plugin/chatbot/web_research_chat.py
 msgid "[Web research]"

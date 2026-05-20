@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-18 18:32-0400\n"
+"POT-Creation-Date: 2026-05-19 21:05-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Estonian <LL@li.org>\n"
@@ -19,11 +19,11 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Workspace reads require sub-agent delegation (USE_SUB_AGENT). Enable sub-"
-"agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
+"sub-agents in configuration."
 msgstr ""
-"Tööruumi lugemised nõuavad alamagendi delegeerimist (USE_SUB_AGENT). Luba "
-"alamagendid konfiguratsioonis."
+"Dokumendi uurimiseks on vajalik alamagendi delegeerimine (USE_SUB_AGENT). "
+"Lubage alamagendid seadistustes."
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -414,7 +414,8 @@ msgstr "Agent taotleb kinnitust"
 msgid "Proceed with this action?"
 msgstr "Kas jätkata selle toiminguga?"
 
-#: plugin/chatbot/dialogs.py plugin/chatbot/web_research_chat.py
+#: plugin/chatbot/dialogs.py plugin/chatbot/document_research_chat.py
+#: plugin/chatbot/web_research_chat.py
 #, python-format
 msgid "Tool: %s"
 msgstr "Tööriist: %s"
@@ -446,6 +447,11 @@ msgstr "Kopeeri URL"
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
 msgstr "Viga: tööriistakomplekt pole saadaval"
+
+#: plugin/chatbot/document_research_chat.py
+#, python-format
+msgid "Opening '%s' for read-only access."
+msgstr "Avatakse '%s' kirjutuskaitstud režiimis."
 
 #: plugin/chatbot/panel.py
 msgid "Accept"
@@ -524,18 +530,6 @@ msgstr "Temperatuur peab olema <= 1.0"
 #, python-format
 msgid "This search query '%s' will be sent to the search engine."
 msgstr "See otsingupäring '%s' saadetakse otsingumootorisse."
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search — approval required]"
-msgstr "[Veebiotsing — vajab kinnitust]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search]"
-msgstr "[Veebiotsing]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Additional web search]"
-msgstr "[Täiendav veebiotsing]"
 
 #: plugin/chatbot/web_research_chat.py
 msgid "[Web research]"

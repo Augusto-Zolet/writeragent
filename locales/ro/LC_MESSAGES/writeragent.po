@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-18 18:32-0400\n"
+"POT-Creation-Date: 2026-05-19 21:05-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Romanian <LL@li.org>\n"
@@ -19,11 +19,11 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Workspace reads require sub-agent delegation (USE_SUB_AGENT). Enable sub-"
-"agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
+"sub-agents in configuration."
 msgstr ""
-"Citirile din spațiul de lucru necesită delegarea către un sub-agent "
-"(USE_SUB_AGENT). Activați sub-agenții în configurație."
+"Citirile pentru cercetarea documentului necesită delegarea către un sub-"
+"agent (USE_SUB_AGENT). Activați sub-agenții în configurație."
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -422,7 +422,8 @@ msgstr "Agentul solicită aprobarea"
 msgid "Proceed with this action?"
 msgstr "Continuați cu această acțiune?"
 
-#: plugin/chatbot/dialogs.py plugin/chatbot/web_research_chat.py
+#: plugin/chatbot/dialogs.py plugin/chatbot/document_research_chat.py
+#: plugin/chatbot/web_research_chat.py
 #, python-format
 msgid "Tool: %s"
 msgstr "Instrument: %s"
@@ -454,6 +455,11 @@ msgstr "Copiază URL-ul"
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
 msgstr "Eroare: Setul de instrumente nu este disponibil"
+
+#: plugin/chatbot/document_research_chat.py
+#, python-format
+msgid "Opening '%s' for read-only access."
+msgstr "Se deschide „%s” pentru acces doar în citire."
 
 #: plugin/chatbot/panel.py
 msgid "Accept"
@@ -534,18 +540,6 @@ msgstr "Temperatura trebuie să fie <= 1.0"
 #, python-format
 msgid "This search query '%s' will be sent to the search engine."
 msgstr "Această interogare de căutare „%s” va fi trimisă motorului de căutare."
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search — approval required]"
-msgstr "[Căutare web — este necesară aprobarea]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search]"
-msgstr "[Căutare web]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Additional web search]"
-msgstr "[Căutare web suplimentară]"
 
 #: plugin/chatbot/web_research_chat.py
 msgid "[Web research]"

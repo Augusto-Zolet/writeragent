@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-18 18:32-0400\n"
+"POT-Creation-Date: 2026-05-19 21:05-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Japanese <LL@li.org>\n"
@@ -18,11 +18,11 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Workspace reads require sub-agent delegation (USE_SUB_AGENT). Enable sub-"
-"agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
+"sub-agents in configuration."
 msgstr ""
-"ワークスペースの読み取りにはサブエージェントの委任（USE_SUB_AGENT）が必要で"
-"す。設定でサブエージェントを有効にしてください。"
+"ドキュメントのリサーチ読み取りにはサブエージェントの委任（USE_SUB_AGENT）が必"
+"要です。設定でサブエージェントを有効にしてください。"
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -419,7 +419,8 @@ msgstr "エージェントが承認を要求"
 msgid "Proceed with this action?"
 msgstr "このアクションを続行しますか?"
 
-#: plugin/chatbot/dialogs.py plugin/chatbot/web_research_chat.py
+#: plugin/chatbot/dialogs.py plugin/chatbot/document_research_chat.py
+#: plugin/chatbot/web_research_chat.py
 #, python-format
 msgid "Tool: %s"
 msgstr "ツール: %s"
@@ -451,6 +452,11 @@ msgstr "URLをコピー"
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
 msgstr "エラー: ツールキットが利用できません"
+
+#: plugin/chatbot/document_research_chat.py
+#, python-format
+msgid "Opening '%s' for read-only access."
+msgstr "'%s' を読み取り専用で開いています。"
 
 #: plugin/chatbot/panel.py
 msgid "Accept"
@@ -531,18 +537,6 @@ msgstr "Temperatureは1.0以下である必要があります"
 #, python-format
 msgid "This search query '%s' will be sent to the search engine."
 msgstr "この検索クエリ '%s' が検索エンジンに送信されます。"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search — approval required]"
-msgstr "[ウェブ検索 — 承認が必要です]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search]"
-msgstr "[ウェブ検索]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Additional web search]"
-msgstr "[追加のウェブ検索]"
 
 #: plugin/chatbot/web_research_chat.py
 msgid "[Web research]"

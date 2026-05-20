@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-18 18:32-0400\n"
+"POT-Creation-Date: 2026-05-19 21:05-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Hindi <LL@li.org>\n"
@@ -19,11 +19,11 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Workspace reads require sub-agent delegation (USE_SUB_AGENT). Enable sub-"
-"agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
+"sub-agents in configuration."
 msgstr ""
-"वर्कस्पेस रीड्स के लिए सब-एजेंट डेलिगेशन (USE_SUB_AGENT) की आवश्यकता है। कॉन्फ़िगरेशन में सब-"
-"एजेंट सक्षम करें।"
+"दस्तावेज़ अनुसंधान रीड्स के लिए उप-एजेंट प्रतिनिधिमंडल (USE_SUB_AGENT) की आवश्यकता है। "
+"कॉन्फ़िगरेशन में उप-एजेंटों को सक्षम करें।"
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -411,7 +411,8 @@ msgstr "एजेंट अनुमोदन का अनुरोध कर�
 msgid "Proceed with this action?"
 msgstr "क्या इस क्रिया के साथ आगे बढ़ें?"
 
-#: plugin/chatbot/dialogs.py plugin/chatbot/web_research_chat.py
+#: plugin/chatbot/dialogs.py plugin/chatbot/document_research_chat.py
+#: plugin/chatbot/web_research_chat.py
 #, python-format
 msgid "Tool: %s"
 msgstr "टूल: %s"
@@ -443,6 +444,11 @@ msgstr "URL कॉपी करें"
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
 msgstr "त्रुटि: टूलकिट अनुपलब्ध है"
+
+#: plugin/chatbot/document_research_chat.py
+#, python-format
+msgid "Opening '%s' for read-only access."
+msgstr "'%s' को केवल-पठनीय (read-only) एक्सेस के लिए खोला जा रहा है।"
 
 #: plugin/chatbot/panel.py
 msgid "Accept"
@@ -520,18 +526,6 @@ msgstr "तापमान <= 1.0 होना चाहिए"
 #, python-format
 msgid "This search query '%s' will be sent to the search engine."
 msgstr "यह खोज क्वेरी '%s' सर्च इंजन को भेजी जाएगी।"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search — approval required]"
-msgstr "[वेब खोज — अनुमोदन आवश्यक]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search]"
-msgstr "[वेब खोज]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Additional web search]"
-msgstr "[अतिरिक्त वेब खोज]"
 
 #: plugin/chatbot/web_research_chat.py
 msgid "[Web research]"

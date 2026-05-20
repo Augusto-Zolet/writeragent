@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-18 18:32-0400\n"
+"POT-Creation-Date: 2026-05-19 21:05-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Croatian <LL@li.org>\n"
@@ -19,11 +19,11 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Workspace reads require sub-agent delegation (USE_SUB_AGENT). Enable sub-"
-"agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
+"sub-agents in configuration."
 msgstr ""
-"Čitanja radnog prostora zahtijevaju delegiranje pod-agenta (USE_SUB_AGENT). "
-"Omogućite pod-agente u konfiguraciji."
+"Čitanja istraživanja dokumenta zahtijevaju delegiranje pod-agentu "
+"(USE_SUB_AGENT). Omogućite pod-agente u konfiguraciji."
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -417,7 +417,8 @@ msgstr "Agent traži odobrenje"
 msgid "Proceed with this action?"
 msgstr "Nastaviti s ovom radnjom?"
 
-#: plugin/chatbot/dialogs.py plugin/chatbot/web_research_chat.py
+#: plugin/chatbot/dialogs.py plugin/chatbot/document_research_chat.py
+#: plugin/chatbot/web_research_chat.py
 #, python-format
 msgid "Tool: %s"
 msgstr "Alat: %s"
@@ -449,6 +450,11 @@ msgstr "Kopiraj URL"
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
 msgstr "Pogreška: Alatna traka nije dostupna"
+
+#: plugin/chatbot/document_research_chat.py
+#, python-format
+msgid "Opening '%s' for read-only access."
+msgstr "Otvaranje '%s' za pristup samo za čitanje."
 
 #: plugin/chatbot/panel.py
 msgid "Accept"
@@ -529,18 +535,6 @@ msgstr "Temperatura mora biti <= 1.0"
 #, python-format
 msgid "This search query '%s' will be sent to the search engine."
 msgstr "Ovaj upit za pretraživanje '%s' bit će poslan tražilici."
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search — approval required]"
-msgstr "[Web pretraživanje — potrebno odobrenje]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web search]"
-msgstr "[Web pretraživanje]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Additional web search]"
-msgstr "[Dodatno web pretraživanje]"
 
 #: plugin/chatbot/web_research_chat.py
 msgid "[Web research]"
