@@ -14,12 +14,7 @@ from typing import Any, ClassVar, Literal
 
 from plugin.framework.tool import ToolBase, ToolContext
 from plugin.doc.document_research import list_nearby_files
-from plugin.doc.document_research_grep import (
-    DEFAULT_GREP_MAX_FILES,
-    DEFAULT_GREP_MAX_RESULTS_PER_FILE,
-    DEFAULT_GREP_MAX_TOTAL_RESULTS,
-    grep_nearby_files,
-)
+from plugin.doc.document_research_grep import grep_nearby_files
 
 log = logging.getLogger(__name__)
 
@@ -92,22 +87,6 @@ class GrepNearbyFiles(ToolBase):
             },
             "regex": {"type": "boolean", "description": "Treat pattern as regular expression (default: false)."},
             "case_sensitive": {"type": "boolean", "description": "Case-sensitive search (default: false)."},
-            "max_files": {
-                "type": "integer",
-                "description": f"Maximum files to scan (default: {DEFAULT_GREP_MAX_FILES}).",
-            },
-            "max_results_per_file": {
-                "type": "integer",
-                "description": f"Snippet cap per file (default: {DEFAULT_GREP_MAX_RESULTS_PER_FILE}).",
-            },
-            "max_total_results": {
-                "type": "integer",
-                "description": f"Stop after this many snippets total (default: {DEFAULT_GREP_MAX_TOTAL_RESULTS}).",
-            },
-            "context_paragraphs": {
-                "type": "integer",
-                "description": "Writer: paragraphs of context around each match (default: 1).",
-            },
         },
         "required": ["pattern"],
     }
@@ -125,10 +104,6 @@ class GrepNearbyFiles(ToolBase):
         file_subset = kwargs.get("file_subset")
         regex = bool(kwargs.get("regex", False))
         case_sensitive = bool(kwargs.get("case_sensitive", False))
-        max_files = int(kwargs.get("max_files", DEFAULT_GREP_MAX_FILES))
-        max_results_per_file = int(kwargs.get("max_results_per_file", DEFAULT_GREP_MAX_RESULTS_PER_FILE))
-        max_total_results = int(kwargs.get("max_total_results", DEFAULT_GREP_MAX_TOTAL_RESULTS))
-        context_paragraphs = int(kwargs.get("context_paragraphs", 1))
 
         def _run() -> dict[str, Any]:
             return grep_nearby_files(
@@ -139,10 +114,6 @@ class GrepNearbyFiles(ToolBase):
                 file_subset=str(file_subset) if file_subset else None,
                 regex=regex,
                 case_sensitive=case_sensitive,
-                max_files=max_files,
-                max_results_per_file=max_results_per_file,
-                max_total_results=max_total_results,
-                context_paragraphs=context_paragraphs,
                 stop_checker=ctx.stop_checker,
                 status_callback=ctx.status_callback,
             )

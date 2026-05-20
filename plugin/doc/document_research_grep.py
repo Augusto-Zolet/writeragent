@@ -28,7 +28,7 @@ from plugin.writer.paragraph_search import search_paragraph_texts
 
 log = logging.getLogger(__name__)
 
-DEFAULT_GREP_MAX_FILES = 10
+DEFAULT_GREP_MAX_FILES = 50
 DEFAULT_GREP_MAX_RESULTS_PER_FILE = 5
 DEFAULT_GREP_MAX_TOTAL_RESULTS = 30
 _DRAW_GREP_SHAPE_CAP = 200
@@ -39,7 +39,6 @@ def resolve_grep_candidates(
     active_model: Any,
     *,
     file_subset: str | None = None,
-    max_files: int = DEFAULT_GREP_MAX_FILES,
 ) -> tuple[list[FileEntry], bool, str | None]:
     """Return (candidates, truncated_files, error_message).
 
@@ -77,8 +76,8 @@ def resolve_grep_candidates(
     closed_files = [f for f in files if not f.get("is_open")]
     ordered = open_files + closed_files
 
-    truncated_files = listing_truncated or len(ordered) > max_files
-    return ordered[:max_files], truncated_files, None
+    truncated_files = listing_truncated or len(ordered) > DEFAULT_GREP_MAX_FILES
+    return ordered[:DEFAULT_GREP_MAX_FILES], truncated_files, None
 
 
 def _grep_text_in_writer(
@@ -89,7 +88,6 @@ def _grep_text_in_writer(
     regex: bool = False,
     case_sensitive: bool = False,
     max_results: int,
-    context_paragraphs: int,
 ) -> tuple[list[dict[str, Any]], int]:
     doc_svc = services.document
     para_ranges = doc_svc.get_paragraph_ranges(model)
@@ -110,7 +108,7 @@ def _grep_text_in_writer(
             regex=regex,
             case_sensitive=case_sensitive,
             max_results=max_results,
-            context_paragraphs=context_paragraphs,
+            context_paragraphs=2,  # Always include 2 paragraphs of context for Writer matches
         )
     except ValueError as e:
         raise ValueError(str(e)) from e
@@ -284,7 +282,6 @@ def _search_opened_document(
     regex: bool,
     case_sensitive: bool,
     max_results_per_file: int,
-    context_paragraphs: int,
 ) -> tuple[list[dict[str, Any]], int, bool, str | None]:
     """Return (matches, match_count, partial, error_message)."""
     partial = False
@@ -297,7 +294,6 @@ def _search_opened_document(
                 regex=regex,
                 case_sensitive=case_sensitive,
                 max_results=max_results_per_file,
-                context_paragraphs=context_paragraphs,
             )
             return matches, count, False, None
         if doc_type == "calc":
@@ -346,10 +342,6 @@ def grep_nearby_files(
     file_subset: str | None = None,
     regex: bool = False,
     case_sensitive: bool = False,
-    max_files: int = DEFAULT_GREP_MAX_FILES,
-    max_results_per_file: int = DEFAULT_GREP_MAX_RESULTS_PER_FILE,
-    max_total_results: int = DEFAULT_GREP_MAX_TOTAL_RESULTS,
-    context_paragraphs: int = 1,
     stop_checker: Callable[[], bool] | None = None,
     status_callback: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
@@ -358,18 +350,12 @@ def grep_nearby_files(
     if not pattern:
         return {"status": "error", "message": "pattern is required"}
 
-    max_files = max(1, int(max_files))
-    max_results_per_file = max(1, int(max_results_per_file))
-    max_total_results = max(1, int(max_total_results))
-    context_paragraphs = max(0, int(context_paragraphs))
-
     subset_norm = str(file_subset).strip() if file_subset else None
 
     candidates, truncated_files, list_err = resolve_grep_candidates(
         ctx,
         active_model,
         file_subset=subset_norm,
-        max_files=max_files,
     )
     if list_err:
         return {"status": "error", "message": list_err}
@@ -384,7 +370,7 @@ def grep_nearby_files(
         if stop_checker and stop_checker():
             stopped_early = True
             break
-        if total_snippets >= max_total_results:
+        if total_snippets >= DEFAULT_GREP_MAX_TOTAL_RESULTS:
             stopped_early = True
             break
 
@@ -407,7 +393,7 @@ def grep_nearby_files(
             _process_events_if_available(ctx)
             continue
 
-        per_file_limit = min(max_results_per_file, max_total_results - total_snippets)
+        per_file_limit = min(DEFAULT_GREP_MAX_RESULTS_PER_FILE, DEFAULT_GREP_MAX_TOTAL_RESULTS - total_snippets)
         try:
             matches, match_count, partial, search_err = _search_opened_document(
                 model,
@@ -417,7 +403,6 @@ def grep_nearby_files(
                 regex=regex,
                 case_sensitive=case_sensitive,
                 max_results_per_file=per_file_limit,
-                context_paragraphs=context_paragraphs,
             )
         finally:
             close_document_research_document(model, opened_for_document_research=opened_for_document_research)
@@ -443,7 +428,7 @@ def grep_nearby_files(
         hits.append(hit_entry)
         total_snippets += len(matches)
 
-        if total_snippets >= max_total_results:
+        if total_snippets >= DEFAULT_GREP_MAX_TOTAL_RESULTS:
             stopped_early = True
             break
 

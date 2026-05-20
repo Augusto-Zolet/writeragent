@@ -131,7 +131,6 @@ def test_grep_writer_paragraph_snippet():
         get_services(),
         "Q4",
         file_subset="notes",
-        context_paragraphs=1,
     )
     after = _desktop_component_count(_test_ctx)
 
