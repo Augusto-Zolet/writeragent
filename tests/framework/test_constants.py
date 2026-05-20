@@ -105,6 +105,18 @@ def test_writer_chat_prompt_delegation_routing_local_vs_web():
     assert "OLE in active doc only" in prompt
 
 
+def test_specialized_delegation_block_is_single_line():
+    from plugin.framework.constants import get_specialized_delegation_for_model, get_specialized_delegation_tool_hint
+    from plugin.writer.specialized_base import ToolWriterSpecialBase
+
+    model = MagicMock()
+    model.supportsService.return_value = False
+    block = get_specialized_delegation_for_model(model)
+    assert "SPECIALIZED WRITER" in block
+    assert "\n" not in block
+    assert get_specialized_delegation_tool_hint(ToolWriterSpecialBase, "Writer") == block
+
+
 def test_calc_core_directives_local_before_web():
     assert 'domain="document_research"' in CALC_CORE_DIRECTIVES
     assert "to use information from (my / our) personal or business documents" in CALC_CORE_DIRECTIVES

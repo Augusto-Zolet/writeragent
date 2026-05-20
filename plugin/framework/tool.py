@@ -117,6 +117,17 @@ def to_mcp_schema(tool, *, doc_type: str | None = None):
         input_schema["type"] = "object"
     desc = tool.get_description(doc_type)
 
+    agent_label = getattr(tool, "_agent_label", None)
+    special_base = getattr(tool, "_special_base_class", None)
+    if agent_label and special_base is not None:
+        from plugin.framework.constants import format_specialized_domains_description, get_specialized_delegation_tool_hint
+
+        hint = get_specialized_delegation_tool_hint(special_base, agent_label)
+        desc = f"{desc} {hint}".strip() if desc else hint
+        props = input_schema.get("properties")
+        if isinstance(props, dict) and "domain" in props and isinstance(props["domain"], dict):
+            props["domain"]["description"] = format_specialized_domains_description(special_base, agent_label=agent_label)
+
     return {"name": tool.name, "description": desc, "inputSchema": input_schema}
 
 

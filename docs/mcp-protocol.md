@@ -49,6 +49,32 @@ This section is the important mental model for integrating Cursor, LM Studio, or
 
 It does **not** receive dozens of low-level UNO tools (`list_styles`, page margin APIs, chart editors, etc.) as separate MCP tools.
 
+### Where delegation guidance lives (MCP vs sidebar chat)
+
+Sidebar chat injects the same specialized-delegation block into the **system prompt** via [`get_chat_system_prompt_for_document()`](../plugin/framework/constants.py) (`WRITER_SPECIALIZED_DELEGATION_TEMPLATE` and siblings, with a dynamic `domain: description` list).
+
+MCP hosts do **not** get that system prompt by default. Instead, **`tools/list`** enriches the gateway tool only (see [`to_mcp_schema()`](../plugin/framework/tool.py)):
+
+| Field | What the host sees |
+|--------|-------------------|
+| **`delegate_to_specialized_*_toolset` → `description`** | Short tool summary + full delegation template (semicolon-separated domains, `task` rules for Writer, **same single-line text as chat**) |
+| **`inputSchema.properties.domain.description`** | `domain one of:` plus the same semicolon-separated domain list (enum values stay in `enum`) |
+| **`inputSchema.properties.task.description`** | [`DELEGATE_SPECIALIZED_TASK_PARAM_HINT`](../plugin/framework/constants.py) (Writer’s detailed `task` rules are in the tool `description`) |
+
+OpenAI/chat tool schemas are **not** duplicated this way—the sidebar already has the system prompt.
+
+Other MCP surfaces (for integrators):
+
+| Surface | Status | Delegation / routing hints |
+|---------|--------|----------------------------|
+| **`tools/list`** | Implemented | **Primary** — use the delegate gateway tool metadata above |
+| **`initialize` → `instructions`** | Short transport stub only | Does not include full chat prompt or domain list today |
+| **`prompts/list` / `prompts/get`** | Empty | Could expose full system prompt later; not implemented |
+| **`resources/list` / `resources/read`** | Empty | Not used for guidance |
+| **`GET /`** | Server name, version, routes | Does **not** return agent instructions (older docs were wrong) |
+
+If a client ignores `initialize.instructions` and only binds tools from `tools/list`, the delegate tool entry is the intended place to learn **which `domain` to pick** and **how to write `task`**.
+
 ### What happens when the host calls `delegate`
 
 With [`USE_SUB_AGENT = True`](../plugin/framework/constants.py) (current default), `delegate_to_specialized_writer_toolset` does **not** “switch tools” on the MCP host. Instead WriterAgent:
@@ -209,25 +235,17 @@ is straightforward.
 
 ## How Clients Discover Tools and Context (implemented)
 
-### Endpoints
+### Live MCP (JSON-RPC on `/mcp`)
 
-The HTTP server exposes:
+Use **`POST /mcp`** with JSON-RPC 2.0:
 
-```
-GET /health     → {"status": "ok", "name": "WriterAgent MCP"}   — alive check (identifies our server)
-GET /tools      → {"tools": [...], "count": N}  — tool list for target document (use X-Document-URL or active doc)
-GET /           → {"name": "WriterAgent", "instructions": "...", "tools_count": N}  — system prompt for target document
-GET /documents  → {"documents": [{"url": "...", "type": "writer"|"calc"|"draw"}, ...]}  — list open documents for X-Document-URL
-POST /tools/{name}  → JSON result  — execute tool (send X-Document-URL header to target a document)
-```
+- **`initialize`** — protocol handshake; `result.instructions` is a short WriterAgent/MCP workflow stub (not the full sidebar system prompt).
+- **`tools/list`** — core-tier tools for the target document (`X-Document-URL` header or active document). Each tool has `name`, `description`, and `inputSchema`. Specialized domains are documented on **`delegate_to_specialized_{writer|calc|draw}_toolset`** (see [Where delegation guidance lives](#where-delegation-guidance-lives-mcp-vs-sidebar-chat)).
+- **`tools/call`** — run a tool on the LibreOffice main thread.
 
-`GET /tools` returns the tool list for the **target document** (from `X-Document-URL` header
-or the active document). Each tool has `name`, `description`, and `parameters` (JSON Schema).
+Supporting HTTP routes: **`GET /health`**, **`GET /`** (server info and `mcp_endpoint` when enabled—not agent instructions).
 
-`GET /` returns **agent instructions** (system prompt) for the target document. WriterAgent
-uses `get_chat_system_prompt_for_document(doc)` from `core/constants.py` — Writer, Calc, and
-Draw each have the right prompt. No separate AGENT.md file; the instructions are built in. The same prompts used by the
-sidebar chat (tool usage, formatting rules, workflow) are served to external clients.
+> **Historical REST API:** `GET /tools`, `GET /documents`, `POST /tools/{name}` described in older notes are **not** the current transport. The live server is JSON-RPC on `/mcp` only (see [Current HTTP MCP](#current-http-mcp-2026)).
 
 ---
 

@@ -177,35 +177,31 @@ Prioritize what reduces future user steering."""
 DELEGATE_SPECIALIZED_TASK_PARAM_HINT = "Instructions for the sub-agent: it has the full tool/API surface for this domain (all parameters). Be specific enough to use that power—vague tasks leave choices underspecified."
 
 # Shape catalog size: LibreOffice core maps ~400+ preset names (e.g. svx EnhancedCustomShapeTypeNames.cxx).
-WRITER_SPECIALIZED_DELEGATION_TEMPLATE = """SPECIALIZED WRITER (nested tools):
-The default tool list hides deep Writer features.
-When the user needs those, call delegate_to_specialized_writer_toolset with:
-domain one of:
-{domains}
-and a `task` string that fully specifies what the sub-agent must do. The sub-agent only sees tools for that domain, but they are the real tools: **full parameter lists and full LibreOffice/UNO access** for that area (nothing is dumbed down for the sub-agent).
+# Single-line blocks: MCP tool descriptions and many clients do not render newlines inside JSON strings.
+WRITER_SPECIALIZED_DELEGATION_TEMPLATE = (
+    "SPECIALIZED WRITER (nested tools): The default tool list hides deep Writer features. "
+    "When the user needs those, call delegate_to_specialized_writer_toolset with: domain one of: {domains} "
+    "and a `task` string that fully specifies what the sub-agent must do. The sub-agent only sees tools for that domain, "
+    "but they are the real tools: **full parameter lists and full LibreOffice/UNO access** for that area (nothing is dumbed down for the sub-agent). "
+    "Rules for `task`: Treat it as a complete natural-language specification, not a summary. Enumerate what must be true "
+    "(types, layout, numbers, colors, style names, anchors, text). If the user was vague, state explicit defaults in the task rather than leaving them undefined. "
+    "Prefer **concrete, capability-rich** instructions over \"minimal\" or \"basic\" when the user is open to it: name specific variants "
+    "(e.g. exact shape presets, styles, or operations) so the sub-agent can use the full API instead of picking a boring default. "
+    "Example (domain=shapes): `upsert_shape` can use on the order of **400+** distinct preset `shape_type` strings. "
+    "Example (domain=footnotes): Quote the **exact** document sentence or unique substring where the note must attach so the sub-agent can know where to put the footnote anchor."
+)
 
-Rules for `task`:
-- Treat it as a complete natural-language specification, not a summary. Enumerate what must be true (types, layout, numbers, colors, style names, anchors, text). If the user was vague, state explicit defaults in the task rather than leaving them undefined.
-- Prefer **concrete, capability-rich** instructions over "minimal" or "basic" when the user is open to it: name specific variants (e.g. exact shape presets, styles, or operations) so the sub-agent can use the full API instead of picking a boring default.
-- Example (domain=shapes): `upsert_shape` can use on the order of **400+** distinct preset `shape_type` strings.
-- Example (domain=footnotes): Quote the **exact** document sentence or unique substring where the note must attach so the sub-agent can know where to put the footnote anchor.
-"""
+CALC_SPECIALIZED_DELEGATION_TEMPLATE = (
+    "SPECIALIZED CALC (nested tools): The default tool list hides advanced Calc features. "
+    "When the user needs those, call delegate_to_specialized_calc_toolset with: domain one of: {domains} "
+    "and a `task` string that fully specifies what the sub-agent must do. The sub-agent has full tool access for that domain."
+)
 
-CALC_SPECIALIZED_DELEGATION_TEMPLATE = """SPECIALIZED CALC (nested tools):
-The default tool list hides advanced Calc features.
-When the user needs those, call delegate_to_specialized_calc_toolset with:
-domain one of:
-{domains}
-and a `task` string that fully specifies what the sub-agent must do. The sub-agent has full tool access for that domain.
-"""
-
-DRAW_SPECIALIZED_DELEGATION_TEMPLATE = """SPECIALIZED DRAW (nested tools):
-The default tool list hides advanced Draw/Impress features.
-When the user needs those, call delegate_to_specialized_draw_toolset with:
-domain one of:
-{domains}
-and a `task` string that fully specifies what the sub-agent must do. The sub-agent has full tool access for that domain.
-"""
+DRAW_SPECIALIZED_DELEGATION_TEMPLATE = (
+    "SPECIALIZED DRAW (nested tools): The default tool list hides advanced Draw/Impress features. "
+    "When the user needs those, call delegate_to_specialized_draw_toolset with: domain one of: {domains} "
+    "and a `task` string that fully specifies what the sub-agent must do. The sub-agent has full tool access for that domain."
+)
 
 DEFAULT_CHAT_SYSTEM_PROMPT_TEMPLATE = f"""You are a LibreOffice Writer assistant who produces polished, professional documents with thoughtful use of color and formatting.
 Honor any stated memory preferences for color, etc.
@@ -335,19 +331,58 @@ DEFAULT_CALC_CHAT_SYSTEM_PROMPT = ""
 DEFAULT_DRAW_CHAT_SYSTEM_PROMPT = ""
 
 
-def _get_specialized_domains_str(base_cls) -> str:
-    """Build a bulleted list of 'domain: description' for specialized toolsets."""
-    lines = []
+def _get_specialized_domains_str(base_cls, *, agent_label: str | None = None) -> str:
+    """Build a semicolon-separated 'domain: description' list for specialized toolsets (inline-safe)."""
+    parts = []
     for cls in base_cls.__subclasses__():
         domain = getattr(cls, "specialized_domain", None)
         desc = getattr(cls, "specialized_domain_description", None)
         if domain:
+            if agent_label == "Calc" and domain == "python":
+                continue
             if desc:
-                lines.append(f"- {domain}: {desc}")
+                parts.append(f"{domain}: {desc}")
             else:
-                lines.append(f"- {domain}")
-    return "\n".join(sorted(lines))
-DEFAULT_DRAW_CHAT_SYSTEM_PROMPT = ""
+                parts.append(domain)
+    return "; ".join(sorted(parts))
+
+
+def _specialized_delegation_template_for_label(agent_label: str) -> str:
+    if agent_label == "Calc":
+        return CALC_SPECIALIZED_DELEGATION_TEMPLATE
+    if agent_label == "Draw":
+        return DRAW_SPECIALIZED_DELEGATION_TEMPLATE
+    return WRITER_SPECIALIZED_DELEGATION_TEMPLATE
+
+
+def get_specialized_delegation_for_model(model) -> str:
+    """Specialized-delegation block for chat system prompt (same text as MCP delegate tool hint)."""
+    from plugin.doc.document_helpers import is_calc, is_draw
+
+    if is_calc(model):
+        from plugin.calc.base import ToolCalcSpecialBase
+
+        return get_specialized_delegation_tool_hint(ToolCalcSpecialBase, "Calc")
+    if is_draw(model):
+        from plugin.draw.base import ToolDrawSpecialBase
+
+        return get_specialized_delegation_tool_hint(ToolDrawSpecialBase, "Draw")
+    from plugin.writer.specialized_base import ToolWriterSpecialBase
+
+    return get_specialized_delegation_tool_hint(ToolWriterSpecialBase, "Writer")
+
+
+def format_specialized_domains_description(special_base_class, *, agent_label: str | None = None) -> str:
+    """Domain enum help for MCP/OpenAPI (matches chat / delegate hint domain list)."""
+    domains = _get_specialized_domains_str(special_base_class, agent_label=agent_label)
+    return f"domain one of: {domains}" if domains else "The specialized domain to activate."
+
+
+def get_specialized_delegation_tool_hint(special_base_class, agent_label: str) -> str:
+    """Full specialized-delegation guidance (sidebar system prompt and MCP ``tools/list``)."""
+    domains_str = _get_specialized_domains_str(special_base_class, agent_label=agent_label)
+    template = _specialized_delegation_template_for_label(agent_label)
+    return template.format(domains=domains_str)
 
 
 # Dummy gettext function for string extraction tools (xgettext)
@@ -384,11 +419,9 @@ def get_chat_system_prompt_for_document(model, additional_instructions="", ctx=N
     Callers must pass the document that is being chatted about."""
     from plugin.doc.document_helpers import is_calc, is_draw
 
-    if is_calc(model):
-        from plugin.calc.base import ToolCalcSpecialBase
+    delegation = get_specialized_delegation_for_model(model)
 
-        domains_str = _get_specialized_domains_str(ToolCalcSpecialBase)
-        delegation = CALC_SPECIALIZED_DELEGATION_TEMPLATE.format(domains=domains_str)
+    if is_calc(model):
         base = DEFAULT_CALC_CHAT_SYSTEM_PROMPT_TEMPLATE.replace("{specialized_delegation}", delegation)
         base = base.replace("{core_directives}", CALC_CORE_DIRECTIVES)
 
@@ -396,10 +429,6 @@ def get_chat_system_prompt_for_document(model, additional_instructions="", ctx=N
         if not DEFAULT_CALC_CHAT_SYSTEM_PROMPT:
             DEFAULT_CALC_CHAT_SYSTEM_PROMPT = base
     elif is_draw(model):
-        from plugin.draw.base import ToolDrawSpecialBase
-
-        domains_str = _get_specialized_domains_str(ToolDrawSpecialBase)
-        delegation = DRAW_SPECIALIZED_DELEGATION_TEMPLATE.format(domains=domains_str)
         base = DEFAULT_DRAW_CHAT_SYSTEM_PROMPT_TEMPLATE.replace("{specialized_delegation}", delegation)
         base = base.replace("{core_directives}", DRAW_CORE_DIRECTIVES)
 
@@ -407,11 +436,6 @@ def get_chat_system_prompt_for_document(model, additional_instructions="", ctx=N
         if not DEFAULT_DRAW_CHAT_SYSTEM_PROMPT:
             DEFAULT_DRAW_CHAT_SYSTEM_PROMPT = base
     else:
-        # Generate domain list dynamically
-        from plugin.writer.specialized_base import ToolWriterSpecialBase
-
-        domains_str = _get_specialized_domains_str(ToolWriterSpecialBase)
-        delegation = WRITER_SPECIALIZED_DELEGATION_TEMPLATE.format(domains=domains_str)
         base = DEFAULT_CHAT_SYSTEM_PROMPT_TEMPLATE.replace("{specialized_delegation}", delegation)
         base = base.replace("{core_directives}", WRITER_CORE_DIRECTIVES)
 

@@ -114,6 +114,36 @@ def test_normalize_schema_none_dict():
     assert _normalize_schema_for_strict_providers("string") == "string"
 
 
+def test_to_mcp_schema_delegate_writer_includes_specialized_delegation_hint():
+    from plugin.writer.specialized_base import DelegateToSpecializedWriter
+
+    tool = DelegateToSpecializedWriter()
+    openai_schema = to_openai_schema(tool)
+    mcp_schema = to_mcp_schema(tool)
+
+    assert "SPECIALIZED WRITER" not in openai_schema["function"]["description"]
+    assert "SPECIALIZED WRITER" in mcp_schema["description"]
+    assert "bookmarks:" in mcp_schema["description"]
+    assert "Rules for `task`" in mcp_schema["description"]
+    assert "400+" in mcp_schema["description"]
+    assert "\n" not in mcp_schema["description"]
+    domain_desc = mcp_schema["inputSchema"]["properties"]["domain"]["description"]
+    assert "domain one of:" in domain_desc
+    assert "bookmarks:" in domain_desc
+    assert "\n" not in domain_desc
+    assert mcp_schema["inputSchema"]["properties"]["domain"]["description"] != "The specialized domain to activate."
+
+
+def test_to_mcp_schema_delegate_calc_domain_list_omits_python():
+    from plugin.calc.specialized import DelegateToSpecializedCalc
+
+    mcp_schema = to_mcp_schema(DelegateToSpecializedCalc())
+    domain_desc = mcp_schema["inputSchema"]["properties"]["domain"]["description"]
+    assert "SPECIALIZED CALC" in mcp_schema["description"]
+    assert "python" not in mcp_schema["inputSchema"]["properties"]["domain"]["enum"]
+    assert "python:" not in domain_desc
+
+
 def test_update_style_schema_emits_no_additional_properties_keyword():
     """xAI/OpenRouter reject nested additionalProperties; UpdateStyle uses exhaustive properties only."""
     from plugin.writer.styles import UpdateStyle
