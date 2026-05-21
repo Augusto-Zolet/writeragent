@@ -32,6 +32,19 @@ what to consider doing next.
 
 **Document targeting:** `X-Document-URL` header on MCP requests (see below).
 
+### Live smoke test (running LibreOffice)
+
+Use [`scripts/mcp_live_smoke.py`](../scripts/mcp_live_smoke.py) when LibreOffice is already open with WriterAgent and MCP enabled. It does **not** start `soffice`; it checks `/health`, `tools/list`, then calls `apply_document_content` with plain text at `target=end` (default) so you can confirm edits **on screen** in the active Writer window. The chat sidebar shows `[MCP Result]` for JSON-RPC `tools/call` (not for `--use-debug`). Default host is **localhost** (port 8765).
+
+```bash
+python scripts/mcp_live_smoke.py
+python scripts/mcp_live_smoke.py --text "Hello from MCP"
+python scripts/mcp_live_smoke.py --document-url 'vnd.libreoffice:...'
+python scripts/mcp_live_smoke.py --use-debug   # POST /debug call_tool (localhost only)
+```
+
+**Localhost debug shortcut:** `POST /debug` with `{"action":"call_tool","tool":"…","args":{…}}` runs a tool without the full MCP client handshake. Restricted to `127.0.0.1` / `::1`. Same port as MCP; see `handle_debug_post` in [`plugin/mcp/mcp_protocol.py`](../plugin/mcp/mcp_protocol.py).
+
 ### OPTIONS `/mcp` (CORS preflight)
 
 Browser and streamable-HTTP MCP clients send **`OPTIONS /mcp`** before `POST /mcp`. The server responds with **HTTP 204** and an **empty body** — that is **success**, not an error. Logs that only show `HTTP/1.0 204 No Content` (or `HTTP/1.1 204`) are normal; you must inspect the **response headers** (DevTools → Network → Headers, or `curl -i`).
