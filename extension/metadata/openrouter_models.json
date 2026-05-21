@@ -1,6 +1,53 @@
 {
-  "updated_at": "2026-05-15T01:50:44.442Z",
+  "updated_at": "2026-05-20T16:50:55.812Z",
   "models": [
+    {
+      "id": "google/gemini-3.5-flash",
+      "name": "Gemini 3.5 Flash",
+      "author_name": "Google",
+      "input_modalities": [
+        "audio",
+        "file",
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "google/gemini-3.5-flash-20260519",
+      "created_at": "2026-05-19T12:30:00.426Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": 3e-07,
+        "audio_input": 3e-06,
+        "image_input": 1.5e-06,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": 9e-06,
+        "text_cache_read": 1.5e-07,
+        "text_cache_write": 8.3333e-08,
+        "text_input": 1.5e-06,
+        "text_output": 9e-06
+      }
+    },
     {
       "id": "anthropic/claude-opus-4.7-fast",
       "name": "Claude Opus 4.7 (Fast)",
@@ -45,8 +92,8 @@
       }
     },
     {
-      "id": "inclusionai/ring-2.6-1t:free",
-      "name": "Ring-2.6-1T (free)",
+      "id": "inclusionai/ring-2.6-1t",
+      "name": "Ring-2.6-1T",
       "author_name": "inclusionAI",
       "input_modalities": [
         "text"
@@ -55,7 +102,7 @@
         "text"
       ],
       "reasoning": true,
-      "variant": "free",
+      "variant": "standard",
       "version_id": "inclusionai/ring-2.6-1t-20260508",
       "created_at": "2026-05-08T13:37:20.749Z",
       "context_length": 262144,
@@ -66,6 +113,7 @@
         "presence_penalty",
         "reasoning",
         "repetition_penalty",
+        "response_format",
         "seed",
         "stop",
         "temperature",
@@ -76,7 +124,18 @@
       ],
       "chat_completions": true,
       "native_web_search": false,
-      "pricing": null
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1.5e-08,
+        "text_cache_write": null,
+        "text_input": 7.5e-08,
+        "text_output": 6.25e-07
+      }
     },
     {
       "id": "google/gemini-3.1-flash-lite",
@@ -568,6 +627,7 @@
         "frequency_penalty",
         "include_reasoning",
         "logit_bias",
+        "logprobs",
         "max_tokens",
         "min_p",
         "presence_penalty",
@@ -581,6 +641,7 @@
         "tool_choice",
         "tools",
         "top_k",
+        "top_logprobs",
         "top_p"
       ],
       "chat_completions": true,
@@ -592,10 +653,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.056e-07,
+        "text_cache_read": 1.53733e-07,
         "text_cache_write": null,
-        "text_input": 1.604e-07,
-        "text_output": 1.055083e-06
+        "text_input": 1.7604e-07,
+        "text_output": 1.08305e-06
       }
     },
     {
@@ -690,10 +751,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2.5e-07,
+        "text_cache_read": 1.85e-07,
         "text_cache_write": null,
-        "text_input": 4.186e-07,
-        "text_output": 2.71e-06
+        "text_input": 4.30429e-07,
+        "text_output": 2.907143e-06
       }
     },
     {
@@ -826,10 +887,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2.18602e-07,
+        "text_cache_read": 2.07135e-07,
         "text_cache_write": null,
-        "text_input": 1.653273e-06,
-        "text_output": 3.373455e-06
+        "text_input": 1.587333e-06,
+        "text_output": 3.244333e-06
       }
     },
     {
@@ -877,10 +938,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 3.0444e-08,
+        "text_cache_read": 2.88e-08,
         "text_cache_write": null,
-        "text_input": 1.456e-07,
-        "text_output": 2.922e-07
+        "text_input": 1.52333e-07,
+        "text_output": 2.88833e-07
       }
     },
     {
@@ -947,10 +1008,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 6e-08,
+        "text_cache_read": 1.5e-08,
         "text_cache_write": null,
-        "text_input": 3e-07,
-        "text_output": 2.5e-06
+        "text_input": 7.5e-08,
+        "text_output": 6.25e-07
       }
     },
     {
@@ -1130,10 +1191,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.6e-08,
+        "text_cache_read": 2e-09,
         "text_cache_write": null,
-        "text_input": 8e-08,
-        "text_output": 2.4e-07
+        "text_input": 1e-08,
+        "text_output": 3e-08
       }
     },
     {
@@ -1184,10 +1245,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.93571e-07,
+        "text_cache_read": 1.91875e-07,
         "text_cache_write": null,
-        "text_input": 8.96471e-07,
-        "text_output": 3.920294e-06
+        "text_input": 9.02105e-07,
+        "text_output": 3.928684e-06
       }
     },
     {
@@ -1325,10 +1386,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2.67786e-07,
+        "text_cache_read": 2.772e-07,
         "text_cache_write": null,
-        "text_input": 1.295882e-06,
-        "text_output": 4.132941e-06
+        "text_input": 1.320556e-06,
+        "text_output": 4.205556e-06
       }
     },
     {
@@ -1465,8 +1526,8 @@
         "reasoning_output": null,
         "text_cache_read": 8.25e-08,
         "text_cache_write": null,
-        "text_input": 1.47857e-07,
-        "text_output": 4.18571e-07
+        "text_input": 1.45625e-07,
+        "text_output": 4.1625e-07
       }
     },
     {
@@ -1939,8 +2000,8 @@
         "reasoning_output": null,
         "text_cache_read": 5.975e-08,
         "text_cache_write": null,
-        "text_input": 3.77e-07,
-        "text_output": 1.542857e-06
+        "text_input": 3.965e-07,
+        "text_output": 1.6e-06
       }
     },
     {
@@ -2612,7 +2673,7 @@
         "reasoning_output": null,
         "text_cache_read": 1.20313e-07,
         "text_cache_write": null,
-        "text_input": 2e-07,
+        "text_input": 1.98625e-07,
         "text_output": 1.29375e-06
       }
     },
@@ -3043,10 +3104,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 3.29e-07,
+        "text_cache_read": 3.53e-07,
         "text_cache_write": null,
-        "text_input": 5.415e-07,
-        "text_output": 3.44e-06
+        "text_input": 5.46667e-07,
+        "text_output": 3.495e-06
       }
     },
     {
@@ -3096,10 +3157,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 6.1692e-08,
+        "text_cache_read": 8.8333e-08,
         "text_cache_write": null,
-        "text_input": 2.82059e-07,
-        "text_output": 1.25e-06
+        "text_input": 2.82833e-07,
+        "text_output": 1.243778e-06
       }
     },
     {
@@ -3176,8 +3237,8 @@
         "reasoning_output": null,
         "text_cache_read": 2.22917e-07,
         "text_cache_write": null,
-        "text_input": 9.09375e-07,
-        "text_output": 2.85125e-06
+        "text_input": 9.06667e-07,
+        "text_output": 2.831333e-06
       }
     },
     {
@@ -3359,7 +3420,7 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2.3333e-08,
+        "text_cache_read": 2e-08,
         "text_cache_write": null,
         "text_input": 1e-07,
         "text_output": 3e-07
@@ -3452,8 +3513,8 @@
         "reasoning_output": null,
         "text_cache_read": 1.33182e-07,
         "text_cache_write": null,
-        "text_input": 5.32857e-07,
-        "text_output": 2.703571e-06
+        "text_input": 5.3e-07,
+        "text_output": 2.670833e-06
       }
     },
     {
@@ -3637,8 +3698,8 @@
         "reasoning_output": null,
         "text_cache_read": 1e-08,
         "text_cache_write": null,
-        "text_input": 8.5e-08,
-        "text_output": 4.26e-07
+        "text_input": 8.0917e-08,
+        "text_output": 4.21667e-07
       }
     },
     {
@@ -4276,6 +4337,7 @@
         "presence_penalty",
         "reasoning",
         "repetition_penalty",
+        "response_format",
         "seed",
         "stop",
         "temperature",
@@ -4838,52 +4900,6 @@
         "text_cache_write": 6.25e-06,
         "text_input": 5e-06,
         "text_output": 2.5e-05
-      }
-    },
-    {
-      "id": "x-ai/grok-4.1-fast",
-      "name": "Grok 4.1 Fast",
-      "author_name": "xAI",
-      "input_modalities": [
-        "file",
-        "image",
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": true,
-      "variant": "standard",
-      "version_id": "x-ai/grok-4.1-fast",
-      "created_at": "2025-11-19T21:25:02.724Z",
-      "context_length": 2000000,
-      "supported_parameters": [
-        "include_reasoning",
-        "logprobs",
-        "max_tokens",
-        "reasoning",
-        "response_format",
-        "seed",
-        "structured_outputs",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_logprobs",
-        "top_p"
-      ],
-      "chat_completions": true,
-      "native_web_search": true,
-      "pricing": {
-        "audio_cache_write": null,
-        "audio_input": null,
-        "image_input": null,
-        "image_output": null,
-        "per_request": null,
-        "reasoning_output": null,
-        "text_cache_read": 5e-08,
-        "text_cache_write": null,
-        "text_input": 2e-07,
-        "text_output": 5e-07
       }
     },
     {
@@ -6230,52 +6246,6 @@
       }
     },
     {
-      "id": "x-ai/grok-4-fast",
-      "name": "Grok 4 Fast",
-      "author_name": "xAI",
-      "input_modalities": [
-        "file",
-        "image",
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": true,
-      "variant": "standard",
-      "version_id": "x-ai/grok-4-fast",
-      "created_at": "2025-09-19T00:01:30.267Z",
-      "context_length": 2000000,
-      "supported_parameters": [
-        "include_reasoning",
-        "logprobs",
-        "max_tokens",
-        "reasoning",
-        "response_format",
-        "seed",
-        "structured_outputs",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_logprobs",
-        "top_p"
-      ],
-      "chat_completions": true,
-      "native_web_search": true,
-      "pricing": {
-        "audio_cache_write": null,
-        "audio_input": null,
-        "image_input": null,
-        "image_output": null,
-        "per_request": null,
-        "reasoning_output": null,
-        "text_cache_read": 5e-08,
-        "text_cache_write": null,
-        "text_input": 2e-07,
-        "text_output": 5e-07
-      }
-    },
-    {
       "id": "alibaba/tongyi-deepresearch-30b-a3b",
       "name": "Tongyi DeepResearch 30B A3B",
       "author_name": "alibaba",
@@ -6752,51 +6722,6 @@
       }
     },
     {
-      "id": "x-ai/grok-code-fast-1",
-      "name": "Grok Code Fast 1",
-      "author_name": "xAI",
-      "input_modalities": [
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": true,
-      "variant": "standard",
-      "version_id": "x-ai/grok-code-fast-1",
-      "created_at": "2025-08-26T20:08:47.000Z",
-      "context_length": 256000,
-      "supported_parameters": [
-        "include_reasoning",
-        "logprobs",
-        "max_tokens",
-        "reasoning",
-        "response_format",
-        "seed",
-        "stop",
-        "structured_outputs",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_logprobs",
-        "top_p"
-      ],
-      "chat_completions": true,
-      "native_web_search": false,
-      "pricing": {
-        "audio_cache_write": null,
-        "audio_input": null,
-        "image_input": null,
-        "image_output": null,
-        "per_request": null,
-        "reasoning_output": null,
-        "text_cache_read": 2e-08,
-        "text_cache_write": null,
-        "text_input": 2e-07,
-        "text_output": 1.5e-06
-      }
-    },
-    {
       "id": "deepseek/deepseek-chat-v3.1",
       "name": "DeepSeek V3.1",
       "author_name": "DeepSeek",
@@ -7050,6 +6975,7 @@
         "presence_penalty",
         "reasoning",
         "repetition_penalty",
+        "response_format",
         "seed",
         "stop",
         "temperature",
@@ -7286,10 +7212,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.20571e-07,
+        "text_cache_read": 1.575e-07,
         "text_cache_write": null,
-        "text_input": 1.254e-07,
-        "text_output": 5.31e-07
+        "text_input": 1.24889e-07,
+        "text_output": 5.56667e-07
       }
     },
     {
@@ -8092,52 +8018,6 @@
       }
     },
     {
-      "id": "x-ai/grok-4",
-      "name": "Grok 4",
-      "author_name": "xAI",
-      "input_modalities": [
-        "file",
-        "image",
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": true,
-      "variant": "standard",
-      "version_id": "x-ai/grok-4-07-09",
-      "created_at": "2025-07-09T19:01:29.595Z",
-      "context_length": 256000,
-      "supported_parameters": [
-        "include_reasoning",
-        "logprobs",
-        "max_tokens",
-        "reasoning",
-        "response_format",
-        "seed",
-        "structured_outputs",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_logprobs",
-        "top_p"
-      ],
-      "chat_completions": true,
-      "native_web_search": true,
-      "pricing": {
-        "audio_cache_write": null,
-        "audio_input": null,
-        "image_input": null,
-        "image_output": null,
-        "per_request": null,
-        "reasoning_output": null,
-        "text_cache_read": 7.5e-07,
-        "text_cache_write": null,
-        "text_input": 3e-06,
-        "text_output": 1.5e-05
-      }
-    },
-    {
       "id": "mistralai/mistral-small-3.2-24b-instruct",
       "name": "Mistral Small 3.2 24B",
       "author_name": "Mistral",
@@ -8364,96 +8244,6 @@
         "text_cache_write": null,
         "text_input": 2e-05,
         "text_output": 8e-05
-      }
-    },
-    {
-      "id": "x-ai/grok-3-mini",
-      "name": "Grok 3 Mini",
-      "author_name": "xAI",
-      "input_modalities": [
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": true,
-      "variant": "standard",
-      "version_id": "x-ai/grok-3-mini",
-      "created_at": "2025-06-10T19:20:45.198Z",
-      "context_length": 131072,
-      "supported_parameters": [
-        "include_reasoning",
-        "logprobs",
-        "max_tokens",
-        "reasoning",
-        "response_format",
-        "seed",
-        "stop",
-        "structured_outputs",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_logprobs",
-        "top_p"
-      ],
-      "chat_completions": true,
-      "native_web_search": false,
-      "pricing": {
-        "audio_cache_write": null,
-        "audio_input": null,
-        "image_input": null,
-        "image_output": null,
-        "per_request": null,
-        "reasoning_output": null,
-        "text_cache_read": 1.125e-07,
-        "text_cache_write": null,
-        "text_input": 4.5e-07,
-        "text_output": 2.25e-06
-      }
-    },
-    {
-      "id": "x-ai/grok-3",
-      "name": "Grok 3",
-      "author_name": "xAI",
-      "input_modalities": [
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": false,
-      "variant": "standard",
-      "version_id": "x-ai/grok-3",
-      "created_at": "2025-06-10T19:15:08.007Z",
-      "context_length": 131072,
-      "supported_parameters": [
-        "frequency_penalty",
-        "logprobs",
-        "max_tokens",
-        "presence_penalty",
-        "response_format",
-        "seed",
-        "stop",
-        "structured_outputs",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_logprobs",
-        "top_p"
-      ],
-      "chat_completions": true,
-      "native_web_search": false,
-      "pricing": {
-        "audio_cache_write": null,
-        "audio_input": null,
-        "image_input": null,
-        "image_output": null,
-        "per_request": null,
-        "reasoning_output": null,
-        "text_cache_read": 1e-06,
-        "text_cache_write": null,
-        "text_input": 4e-06,
-        "text_output": 2e-05
       }
     },
     {
@@ -9271,94 +9061,6 @@
       }
     },
     {
-      "id": "x-ai/grok-3-mini-beta",
-      "name": "Grok 3 Mini Beta",
-      "author_name": "xAI",
-      "input_modalities": [
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": true,
-      "variant": "standard",
-      "version_id": "x-ai/grok-3-mini-beta",
-      "created_at": "2025-04-09T23:09:55.305Z",
-      "context_length": 131072,
-      "supported_parameters": [
-        "include_reasoning",
-        "logprobs",
-        "max_tokens",
-        "reasoning",
-        "response_format",
-        "seed",
-        "stop",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_logprobs",
-        "top_p"
-      ],
-      "chat_completions": true,
-      "native_web_search": false,
-      "pricing": {
-        "audio_cache_write": null,
-        "audio_input": null,
-        "image_input": null,
-        "image_output": null,
-        "per_request": null,
-        "reasoning_output": null,
-        "text_cache_read": 1.125e-07,
-        "text_cache_write": null,
-        "text_input": 4.5e-07,
-        "text_output": 2.25e-06
-      }
-    },
-    {
-      "id": "x-ai/grok-3-beta",
-      "name": "Grok 3 Beta",
-      "author_name": "xAI",
-      "input_modalities": [
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": false,
-      "variant": "standard",
-      "version_id": "x-ai/grok-3-beta",
-      "created_at": "2025-04-09T23:07:48.450Z",
-      "context_length": 131072,
-      "supported_parameters": [
-        "frequency_penalty",
-        "logprobs",
-        "max_tokens",
-        "presence_penalty",
-        "response_format",
-        "seed",
-        "stop",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_logprobs",
-        "top_p"
-      ],
-      "chat_completions": true,
-      "native_web_search": false,
-      "pricing": {
-        "audio_cache_write": null,
-        "audio_input": null,
-        "image_input": null,
-        "image_output": null,
-        "per_request": null,
-        "reasoning_output": null,
-        "text_cache_read": 1e-06,
-        "text_cache_write": null,
-        "text_input": 4e-06,
-        "text_output": 2e-05
-      }
-    },
-    {
       "id": "meta-llama/llama-4-scout",
       "name": "Llama 4 Scout",
       "author_name": "Meta",
@@ -9497,8 +9199,8 @@
         "reasoning_output": null,
         "text_cache_read": null,
         "text_cache_write": null,
-        "text_input": 2.46667e-07,
-        "text_output": 4.26667e-07
+        "text_input": 2.01667e-07,
+        "text_output": 4.25333e-07
       }
     },
     {
@@ -9828,8 +9530,10 @@
         "presence_penalty",
         "reasoning",
         "repetition_penalty",
+        "response_format",
         "seed",
         "stop",
+        "structured_outputs",
         "temperature",
         "tool_choice",
         "tools",
@@ -10013,8 +9717,8 @@
         "reasoning_output": null,
         "text_cache_read": 4.73333e-07,
         "text_cache_write": null,
-        "text_input": 4.26333e-07,
-        "text_output": 7.44667e-07
+        "text_input": 4.26533e-07,
+        "text_output": 7.44867e-07
       }
     },
     {
@@ -10773,8 +10477,8 @@
         "reasoning_output": null,
         "text_cache_read": 1.1125e-07,
         "text_cache_write": null,
-        "text_input": 8.5e-08,
-        "text_output": 1.1875e-07
+        "text_input": 9.4571e-08,
+        "text_output": 1.26714e-07
       }
     },
     {
@@ -10842,7 +10546,6 @@
       "supported_parameters": [
         "frequency_penalty",
         "logit_bias",
-        "logprobs",
         "max_tokens",
         "min_p",
         "presence_penalty",
@@ -10855,7 +10558,6 @@
         "tool_choice",
         "tools",
         "top_k",
-        "top_logprobs",
         "top_p"
       ],
       "chat_completions": true,
