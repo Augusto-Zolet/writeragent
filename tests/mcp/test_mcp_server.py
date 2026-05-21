@@ -118,6 +118,26 @@ def test_send_cors_headers_allowed():
         allow = headers_dict["Access-Control-Allow-Headers"].lower()
         assert "x-document-url" in allow
         assert "mcp-protocol-version" in allow
+        expose = headers_dict["Access-Control-Expose-Headers"]
+        assert "Mcp-Session-Id" in expose
+        assert "Mcp-Protocol-Version" in expose
+
+
+def test_send_cors_headers_preflight_mode():
+    from plugin.mcp.cors import send_cors_headers
+
+    handler = MockHandler(
+        {
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Headers": "content-type, Mcp-Protocol-Version",
+        }
+    )
+    send_cors_headers(handler, preflight=True)
+    headers_dict = dict(handler.sent_headers)
+    assert headers_dict.get("Access-Control-Max-Age") == "86400"
+    assert "mcp-protocol-version" in headers_dict["Access-Control-Allow-Headers"].lower()
+    assert "Mcp-Protocol-Version" in headers_dict["Access-Control-Expose-Headers"]
+
 
 def test_send_cors_headers_rejected():
     """Test shared CORS helper rejects unsafe origins."""

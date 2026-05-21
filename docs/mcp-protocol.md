@@ -34,9 +34,9 @@ what to consider doing next.
 
 ### OPTIONS `/mcp` (CORS preflight)
 
-Browser and streamable-HTTP MCP clients send **`OPTIONS /mcp`** before `POST /mcp`. The server responds with **HTTP 204** and an **empty body** — that is correct; integrators must not expect JSON on preflight.
+Browser and streamable-HTTP MCP clients send **`OPTIONS /mcp`** before `POST /mcp`. The server responds with **HTTP 204** and an **empty body** — that is **success**, not an error. Logs that only show `HTTP/1.0 204 No Content` (or `HTTP/1.1 204`) are normal; you must inspect the **response headers** (DevTools → Network → Headers, or `curl -i`).
 
-CORS must allow every header the client names in `Access-Control-Request-Headers`, including **`mcp-protocol-version`** (and often `Content-Type`, `Mcp-Session-Id`, `X-Document-URL`). Implementation: [`plugin/mcp/cors.py`](../plugin/mcp/cors.py), used from [`plugin/mcp/server.py`](../plugin/mcp/server.py) and [`plugin/mcp/mcp_protocol.py`](../plugin/mcp/mcp_protocol.py).
+CORS must allow every header the client names in `Access-Control-Request-Headers`, including **`Mcp-Protocol-Version`** / `mcp-protocol-version` (and often `Content-Type`, `Mcp-Session-Id`, `X-Document-URL`). POST responses also send **`Mcp-Protocol-Version`** and expose it via **`Access-Control-Expose-Headers`** so browser JavaScript can read session and version headers. Implementation: [`plugin/mcp/cors.py`](../plugin/mcp/cors.py), used from [`plugin/mcp/server.py`](../plugin/mcp/server.py) and [`plugin/mcp/mcp_protocol.py`](../plugin/mcp/mcp_protocol.py).
 
 Verify preflight from a shell:
 
@@ -44,10 +44,31 @@ Verify preflight from a shell:
 curl -i -X OPTIONS 'http://localhost:8765/mcp' \
   -H 'Origin: http://localhost:3000' \
   -H 'Access-Control-Request-Method: POST' \
-  -H 'Access-Control-Request-Headers: content-type, mcp-protocol-version'
+  -H 'Access-Control-Request-Headers: content-type, Mcp-Protocol-Version, Mcp-Session-Id'
 ```
 
-Expect `204`, `Access-Control-Allow-Headers` containing `mcp-protocol-version`, and (for allowed origins) `Access-Control-Allow-Origin` reflecting the `Origin` value.
+Expect:
+
+- Status **`204`**, empty body
+- **`Access-Control-Allow-Origin`** reflecting the `Origin` value (loopback hosts only: `localhost`, `127.0.0.1`, `[::1]`)
+- **`Access-Control-Allow-Headers`** containing `Mcp-Protocol-Version` (any casing)
+- **`Access-Control-Expose-Headers`**: `Mcp-Session-Id, Mcp-Protocol-Version`
+
+**Troubleshooting — OPTIONS succeeds but MCP never connects**
+
+1. In the browser Network tab, confirm a **`POST /mcp`** appears **after** OPTIONS. If POST is missing, the browser rejected preflight (wrong `Allow-Headers`, missing `Allow-Origin`, or non-loopback `Origin`).
+2. On POST, check response headers include **`Mcp-Session-Id`** (after `initialize`) and **`Mcp-Protocol-Version`**, and that **`Access-Control-Expose-Headers`** lists both (otherwise JS cannot read them).
+3. Ensure the client URL includes the **`/mcp`** path and MCP is enabled in Settings.
+
+**Debug log patterns** (`writeragent_debug.log`, Settings → `log_level` **DEBUG** recommended):
+
+| Log line | Meaning |
+|----------|---------|
+| `[MCP-CORS] OPTIONS /mcp … safe=False` or `allow_origin=omit` | Browser Origin is not loopback — POST will be blocked client-side; server never sees POST. |
+| `[MCP-CORS] OPTIONS /mcp` only, **no** `[MCP-HTTP] POST /mcp` | Preflight reached server; **POST never arrived** (CORS or client config). |
+| `[MCP-HTTP] POST /mcp` but **no** `[MCP] <<< initialize` | POST hit HTTP layer then failed parsing, routing, or protocol version (see `rejected unsupported Mcp-Protocol-Version`). |
+| `[MCP-HTTP] POST /mcp` + `[MCP] <<< initialize` + `[MCP] >>> initialize -> 200` | Server side OK; failure is likely in the host app reading session headers or later JSON-RPC calls. |
+| `[MCP-HTTP] no route for POST /mcp` | Wrong path or MCP routes not registered (server started without `mcp_enabled`). |
 
 > **Historical note:** Sections below that describe `GET /tools`, `POST /tools/{name}`, and `core/mcp_server.py` refer to an older REST-style API. The live server uses JSON-RPC on `/mcp` only.
 

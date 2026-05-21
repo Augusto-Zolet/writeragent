@@ -31,12 +31,39 @@ import uuid
 from plugin.framework.queue_executor import QueueExecutor
 from plugin.framework.errors import WriterAgentException, safe_json_loads
 from plugin.mcp.cors import send_cors_headers
+from plugin.mcp.http_trace import log_mcp_transport_entry, log_unsupported_protocol_version
 from plugin.mcp.mcp_state import MCPState, MCPStateStr, EventKind, MCPEvent, ParseRequestEffect, ResolveDocumentEffect, ExecuteToolEffect, StreamResponseEffect, SendErrorEffect, next_state
 
 log = logging.getLogger("writeragent.mcp.protocol")
 
 # MCP protocol version we advertise
 MCP_PROTOCOL_VERSION = "2025-11-25"
+_SUPPORTED_HTTP_PROTOCOL_VERSIONS = frozenset({MCP_PROTOCOL_VERSION, "2024-11-05"})
+
+
+def _get_request_protocol_version(handler) -> str | None:
+    for name in ("Mcp-Protocol-Version", "mcp-protocol-version", "MCP-Protocol-Version"):
+        value = handler.headers.get(name)
+        if value:
+            return value.strip()
+    return None
+
+
+def _validate_http_protocol_version(handler):
+    """Return (status, jsonrpc_body) when the HTTP Mcp-Protocol-Version header is unsupported."""
+    requested = _get_request_protocol_version(handler)
+    if requested is None or requested in _SUPPORTED_HTTP_PROTOCOL_VERSIONS:
+        return None
+    log_unsupported_protocol_version(handler, requested)
+    return (400, _jsonrpc_error(None, _INVALID_REQUEST, "Unsupported MCP-Protocol-Version: %s" % requested))
+
+
+def _send_mcp_response_headers(handler, *, session_id: str | None = None) -> None:
+    """CORS plus streamable-HTTP MCP headers on every MCP transport response."""
+    send_cors_headers(handler, preflight=False)
+    handler.send_header("Mcp-Protocol-Version", MCP_PROTOCOL_VERSION)
+    if session_id:
+        handler.send_header("Mcp-Session-Id", session_id)
 
 
 # Backpressure — one tool execution at a time
@@ -110,6 +137,12 @@ class MCPProtocolHandler:
 
     def handle_mcp_post(self, handler):
         """POST /mcp — MCP streamable-http (JSON-RPC 2.0)."""
+        log_mcp_transport_entry(handler, "mcp")
+        version_error = _validate_http_protocol_version(handler)
+        if version_error is not None:
+            status, response = version_error
+            self._send_json(handler, status, response)
+            return
         body = self._read_body(handler)
         if body is None:
             return
@@ -118,6 +151,7 @@ class MCPProtocolHandler:
 
     def handle_mcp_sse(self, handler):
         """GET /mcp — SSE notification stream (keepalive)."""
+        log_mcp_transport_entry(handler, "mcp-sse")
         accept = handler.headers.get("Accept", "")
         if "text/event-stream" not in accept:
             self._send_json(handler, 406, {"error": "Not Acceptable: must Accept text/event-stream"})
@@ -125,14 +159,15 @@ class MCPProtocolHandler:
         handler.send_response(200)
         handler.send_header("Content-Type", "text/event-stream")
         handler.send_header("Cache-Control", "no-cache")
-        send_cors_headers(handler, preflight=False)
+        _send_mcp_response_headers(handler)
         handler.end_headers()
         self._run_sse_keepalive_loop(handler)
 
     def handle_mcp_delete(self, handler):
         """DELETE /mcp — session termination."""
+        log_mcp_transport_entry(handler, "mcp")
         handler.send_response(200)
-        send_cors_headers(handler, preflight=False)
+        _send_mcp_response_headers(handler)
         handler.end_headers()
 
     def handle_sse_stream(self, handler):
@@ -143,7 +178,7 @@ class MCPProtocolHandler:
             handler.send_header("Cache-Control", "no-cache")
             handler.send_header("Connection", "keep-alive")
             handler.send_header("X-Accel-Buffering", "no")
-            send_cors_headers(handler, preflight=False)
+            _send_mcp_response_headers(handler)
             handler.end_headers()
             log.info("[SSE] GET stream opened")
             self._run_sse_keepalive_loop(handler)
@@ -187,6 +222,12 @@ class MCPProtocolHandler:
 
     def handle_sse_post(self, handler):
         """POST /sse or /messages — streamable HTTP (same as /mcp)."""
+        log_mcp_transport_entry(handler, "sse")
+        version_error = _validate_http_protocol_version(handler)
+        if version_error is not None:
+            status, response = version_error
+            self._send_json(handler, status, response)
+            return
         body = self._read_body(handler)
         if body is None:
             return
@@ -199,13 +240,13 @@ class MCPProtocolHandler:
         result = self._process_jsonrpc(msg, document_url=document_url)
         if result is None:
             handler.send_response(202)
-            send_cors_headers(handler, preflight=False)
+            _send_mcp_response_headers(handler)
             handler.end_headers()
             return
 
         status, response = result
         handler.send_response(status)
-        send_cors_headers(handler, preflight=False)
+        _send_mcp_response_headers(handler)
         handler.send_header("Content-Type", "application/json")
         handler.end_headers()
         out = json.dumps(response, ensure_ascii=False, default=str)
@@ -288,7 +329,7 @@ class MCPProtocolHandler:
                 self._send_json(handler, 200, responses)
             else:
                 handler.send_response(202)
-                send_cors_headers(handler, preflight=False)
+                _send_mcp_response_headers(handler)
                 handler.end_headers()
             return
 
@@ -296,9 +337,7 @@ class MCPProtocolHandler:
         result = self._process_jsonrpc(msg, document_url=document_url)
         if result is None:
             handler.send_response(202)
-            send_cors_headers(handler, preflight=False)
-            if _mcp_session_id:
-                handler.send_header("Mcp-Session-Id", _mcp_session_id)
+            _send_mcp_response_headers(handler, session_id=_mcp_session_id)
             handler.end_headers()
             return
         status, response = result
@@ -307,10 +346,8 @@ class MCPProtocolHandler:
             _mcp_session_id = str(uuid.uuid4())
 
         handler.send_response(status)
-        send_cors_headers(handler, preflight=False)
+        _send_mcp_response_headers(handler, session_id=_mcp_session_id)
         handler.send_header("Content-Type", "application/json")
-        if _mcp_session_id:
-            handler.send_header("Mcp-Session-Id", _mcp_session_id)
         handler.end_headers()
         out = json.dumps(response, ensure_ascii=False, default=str, indent=2)
         log.info("[MCP] >>> %s (id=%s) -> %d", method, req_id, status)
@@ -650,7 +687,7 @@ class MCPProtocolHandler:
     def _send_json(self, handler, status, data):
         """Send a JSON response via an HTTP handler."""
         handler.send_response(status)
-        send_cors_headers(handler, preflight=False)
+        _send_mcp_response_headers(handler)
         handler.send_header("Content-Type", "application/json")
         handler.end_headers()
         handler.wfile.write(json.dumps(data, ensure_ascii=False, default=str).encode("utf-8"))

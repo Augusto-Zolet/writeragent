@@ -30,6 +30,7 @@ from plugin.framework.url_utils import get_url_path, get_url_query_dict
 from plugin.framework.errors import safe_json_loads
 from plugin.framework.worker_pool import run_in_background
 from plugin.mcp.cors import send_cors_headers
+from plugin.mcp.http_trace import log_cors_preflight, log_http_request, log_no_route
 
 log = logging.getLogger("writeragent.framework.http_server")
 
@@ -49,6 +50,7 @@ class _ThreadedHTTPServer(socketserver.ThreadingMixIn, HTTPServer):
 class GenericRequestHandler(BaseHTTPRequestHandler):
     """HTTP request handler that dispatches to registered routes."""
 
+    protocol_version = "HTTP/1.1"
     route_registry = None  # HttpRouteRegistry, set by HttpServer.start()
 
     def do_GET(self):
@@ -61,15 +63,19 @@ class GenericRequestHandler(BaseHTTPRequestHandler):
         self._dispatch("DELETE")
 
     def do_OPTIONS(self):
+        path = get_url_path(self.path)
+        log_cors_preflight(self, path)
         self.send_response(204)
         send_cors_headers(self, preflight=True)
         self.end_headers()
 
     def _dispatch(self, method):
         path = get_url_path(self.path)
+        log_http_request(self, method, path)
         route = self.route_registry.match(method, path) if self.route_registry else None
 
         if route is None:
+            log_no_route(self, method, path)
             from plugin.framework.errors import WriterAgentException, format_error_payload
 
             err = WriterAgentException("Not found", code="NOT_FOUND", details={"path": path})

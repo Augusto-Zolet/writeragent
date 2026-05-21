@@ -18,17 +18,18 @@
 
 import re
 
-# Streamable-HTTP MCP clients preflight with mcp-protocol-version; SSE may use Last-Event-ID.
+# Streamable-HTTP MCP clients preflight with Mcp-Protocol-Version; SSE may use Last-Event-ID.
 _BASE_ALLOW_HEADERS = (
     "Content-Type",
     "Authorization",
     "Mcp-Session-Id",
     "X-Document-URL",
-    "mcp-protocol-version",
-    "MCP-Protocol-Version",
+    "Mcp-Protocol-Version",
     "Last-Event-ID",
     "Accept",
 )
+
+_EXPOSE_HEADERS = "Mcp-Session-Id, Mcp-Protocol-Version"
 
 _ORIGIN_RE = re.compile(r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$")
 
@@ -58,9 +59,10 @@ def send_cors_headers(handler, *, preflight: bool = False) -> None:
     origin = handler.headers.get("Origin")
     if origin and is_safe_origin(origin):
         handler.send_header("Access-Control-Allow-Origin", origin)
+        handler.send_header("Vary", "Origin")
     handler.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
     requested = handler.headers.get("Access-Control-Request-Headers") if preflight else None
     handler.send_header("Access-Control-Allow-Headers", merge_allow_headers(requested))
-    handler.send_header("Access-Control-Expose-Headers", "Mcp-Session-Id")
+    handler.send_header("Access-Control-Expose-Headers", _EXPOSE_HEADERS)
     if preflight:
         handler.send_header("Access-Control-Max-Age", PREFLIGHT_MAX_AGE)
