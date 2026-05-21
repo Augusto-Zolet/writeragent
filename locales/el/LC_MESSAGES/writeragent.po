@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-19 21:05-0400\n"
+"POT-Creation-Date: 2026-05-21 15:02-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Greek <LL@li.org>\n"
@@ -19,8 +19,8 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
-"sub-agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable"
+" sub-agents in configuration."
 msgstr ""
 "Οι αναγνώσεις έρευνας εγγράφου απαιτούν ανάθεση σε υπο-πράκτορα "
 "(USE_SUB_AGENT). Ενεργοποιήστε τους υπο-πράκτορες στις ρυθμίσεις."
@@ -28,13 +28,51 @@ msgstr ""
 #: plugin/doc/specialized_base.py
 #, python-brace-format
 msgid ""
-"Tool call switched to '{0}'. You are in a specialized toolset mode. You must "
-"call 'specialized_workflow_finished' when done to restore the full set of "
+"Tool call switched to '{0}'. You are in a specialized toolset mode. You must"
+" call 'specialized_workflow_finished' when done to restore the full set of "
 "APIs."
 msgstr ""
 "Η κλήση εργαλείου άλλαξε σε '{0}'. Βρίσκεστε σε λειτουργία εξειδικευμένου "
 "συνόλου εργαλείων. Πρέπει να καλέσετε το 'specialized_workflow_finished' "
 "όταν τελειώσετε για να επαναφέρετε το πλήρες σύνολο των API."
+
+#: plugin/notebook/import_dialog.py
+msgid "Import Jupyter Notebook"
+msgstr "Εισαγωγή Jupyter Notebook"
+
+#: plugin/notebook/import_dialog.py
+msgid "Jupyter Notebook"
+msgstr "Jupyter Notebook"
+
+#: plugin/notebook/import_dialog.py
+msgid "All files"
+msgstr "Όλα τα αρχεία"
+
+#: plugin/notebook/import_dialog.py
+msgid "Open a Writer document first."
+msgstr "Ανοίξτε πρώτα ένα έγγραφο του Writer."
+
+#: plugin/notebook/import_dialog.py
+msgid "Import Notebook is only supported in LibreOffice Writer."
+msgstr "Η εισαγωγή Notebook υποστηρίζεται μόνο στο LibreOffice Writer."
+
+#: plugin/notebook/import_dialog.py
+#, python-brace-format
+msgid "Failed to import notebook: {error}"
+msgstr "Αποτυχία εισαγωγής του notebook: {error}"
+
+#: plugin/notebook/import_dialog.py
+#, python-brace-format
+msgid ""
+"Imported notebook.\n"
+"Cells: {cells} (code: {code}, markdown: {markdown})\n"
+"Code input fields in document: {shapes}\n"
+"Output images: {images}"
+msgstr ""
+"Το notebook εισήχθη.\n"
+"Κελιά: {cells} (κώδικας: {code}, markdown: {markdown})\n"
+"Πεδία εισαγωγής κώδικα στο έγγραφο: {shapes}\n"
+"Εικόνες εξόδου: {images}"
 
 #: plugin/contrib/aihordeclient/__init__.py plugin/chatbot/panel.py
 msgid "Starting..."
@@ -166,7 +204,8 @@ msgstr ""
 
 #: plugin/contrib/aihordeclient/__init__.py
 #, python-brace-format
-msgid "Please try another model. {0} would take more time than you configured."
+msgid ""
+"Please try another model. {0} would take more time than you configured."
 msgstr ""
 "Παρακαλώ δοκιμάστε ένα άλλο μοντέλο. Το {0} θα απαιτούσε περισσότερο χρόνο "
 "από αυτόν που έχετε διαμορφώσει."
@@ -235,7 +274,8 @@ msgstr ""
 
 #: plugin/framework/constants.py
 msgid ""
-"AI: I can help you with formulas, data analysis, and colorful charts. Try me!"
+"AI: I can help you with formulas, data analysis, and colorful charts. Try "
+"me!"
 msgstr ""
 "AI: Μπορώ να σας βοηθήσω με τύπους, ανάλυση δεδομένων και πολύχρωμα "
 "διαγράμματα. Δοκιμάστε με!"
@@ -295,7 +335,8 @@ msgstr ""
 "Ρυθμίσεις."
 
 #: plugin/framework/client/errors.py
-msgid "Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
+msgid ""
+"Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
 msgstr ""
 "Η σύνδεση απορρίφθηκε. Είναι ενεργός ο τοπικός διακομιστής AI (Ollama/LM "
 "Studio);"
@@ -303,7 +344,8 @@ msgstr ""
 #: plugin/framework/client/errors.py
 msgid "DNS Error. Could not resolve the endpoint URL."
 msgstr ""
-"Σφάλμα DNS. Δεν ήταν δυνατή η ανάλυση της διεύθυνσης URL του τελικού σημείου."
+"Σφάλμα DNS. Δεν ήταν δυνατή η ανάλυση της διεύθυνσης URL του τελικού "
+"σημείου."
 
 #: plugin/framework/client/errors.py
 #, python-brace-format
@@ -533,8 +575,8 @@ msgid ""
 "[Model {0} does not support native audio. Please select an STT Model in "
 "Settings.]"
 msgstr ""
-"[Το μοντέλο {0} δεν υποστηρίζει εγγενή ήχο. Παρακαλούμε επιλέξτε ένα μοντέλο "
-"STT στις Ρυθμίσεις.]"
+"[Το μοντέλο {0} δεν υποστηρίζει εγγενή ήχο. Παρακαλούμε επιλέξτε ένα μοντέλο"
+" STT στις Ρυθμίσεις.]"
 
 #: plugin/chatbot/settings_dialog.py
 msgid "Invalid Setting"
@@ -585,8 +627,8 @@ msgid ""
 "No editor found (install Kate or Gedit, or set EDITOR). Path:\n"
 "{0}"
 msgstr ""
-"Δεν βρέθηκε επεξεργαστής κειμένου (εγκαταστήστε το Kate ή το Gedit, ή ορίστε "
-"τη μεταβλητή EDITOR). Διαδρομή: {0}"
+"Δεν βρέθηκε επεξεργαστής κειμένου (εγκαταστήστε το Kate ή το Gedit, ή ορίστε"
+" τη μεταβλητή EDITOR). Διαδρομή: {0}"
 
 #: plugin/chatbot/external_editor.py
 #, python-brace-format
@@ -614,10 +656,11 @@ msgstr "[Το υποσύστημα του πράκτορα '{0}' δεν βρέθ
 
 #: plugin/chatbot/send_handlers.py
 #, python-brace-format
-msgid "[Agent backend '{0}' is not available. Check Settings (path, install).]"
+msgid ""
+"[Agent backend '{0}' is not available. Check Settings (path, install).]"
 msgstr ""
-"[Το υποσύστημα του πράκτορα '{0}' δεν είναι διαθέσιμο. Ελέγξτε τις Ρυθμίσεις "
-"(διαδρομή, εγκατάσταση).]"
+"[Το υποσύστημα του πράκτορα '{0}' δεν είναι διαθέσιμο. Ελέγξτε τις Ρυθμίσεις"
+" (διαδρομή, εγκατάσταση).]"
 
 #: plugin/chatbot/send_handlers.py
 #, python-brace-format
@@ -785,8 +828,10 @@ msgid "MCP server failed to start"
 msgstr "Αποτυχία εκκίνησης του διακομιστή MCP"
 
 #: plugin/mcp/__init__.py
-msgid "Check ~/writeragent.log"
-msgstr "Ελέγξτε το ~/writeragent.log"
+msgid "Check writeragent_debug.log in your LibreOffice user config folder"
+msgstr ""
+"Ελέγξτε το αρχείο writeragent_debug.log στον φάκελο ρυθμίσεων χρήστη του "
+"LibreOffice"
 
 #: plugin/mcp/__init__.py
 msgid "MCP server is not running"
@@ -859,6 +904,10 @@ msgstr "Πίνακας ελέγχου αξιολόγησης"
 #: plugin/main.py
 msgid "Run Python Script..."
 msgstr "Εκτέλεση σεναρίου Python..."
+
+#: plugin/main.py
+msgid "Import Jupyter Notebook..."
+msgstr "Εισαγωγή Jupyter Notebook..."
 
 #: plugin/main.py
 msgid "Insert LaTeX Math..."
@@ -1082,8 +1131,8 @@ msgid "Path / URL"
 msgstr "Διαδρομή / URL"
 
 msgid ""
-"Path to backend CLI (e.g. aider) or ACP server URL (e.g. http://"
-"localhost:8000 for Hermes). Empty = try default."
+"Path to backend CLI (e.g. aider) or ACP server URL (e.g. "
+"http://localhost:8000 for Hermes). Empty = try default."
 msgstr ""
 "Διαδρομή προς το CLI του backend (π.χ. aider) ή URL διακομιστή ACP (π.χ. "
 "http://localhost:8000 για το Hermes). Κενό = προσπάθεια χρήσης του "
@@ -1093,7 +1142,8 @@ msgid "Extra arguments"
 msgstr "Επιπλέον ορίσματα"
 
 msgid "Optional arguments for the selected backend (space-separated)."
-msgstr "Προαιρετικά ορίσματα για το επιλεγμένο backend (διαχωρισμένα με κενά)."
+msgstr ""
+"Προαιρετικά ορίσματα για το επιλεγμένο backend (διαχωρισμένα με κενά)."
 
 msgid "ACP agent name"
 msgstr "Όνομα πράκτορα ACP"
@@ -1180,25 +1230,13 @@ msgstr "Ενεργοποίηση ελέγχου γραμματικής AI (Write
 
 msgid ""
 "When on, WriterAgent registers its AI grammar proofreader with Linguistic; "
-"checked text uses your API (Tools → Options → AI). Underlines appear shortly "
-"after you pause typing. Off by default."
+"checked text uses your API (Tools → Options → AI). Underlines appear shortly"
+" after you pause typing. Off by default."
 msgstr ""
-"Όταν είναι ενεργοποιημένο, το WriterAgent καταχωρεί τον διορθωτή γραμματικής "
-"AI στο Linguistic· το κείμενο που ελέγχεται χρησιμοποιεί το API σας "
+"Όταν είναι ενεργοποιημένο, το WriterAgent καταχωρεί τον διορθωτή γραμματικής"
+" AI στο Linguistic· το κείμενο που ελέγχεται χρησιμοποιεί το API σας "
 "(Εργαλεία → Επιλογές → AI). Οι υπογραμμίσεις εμφανίζονται λίγο μετά τη "
 "διακοπή της πληκτρολόγησης. Απενεργοποιημένο από προεπιλογή."
-
-msgid "Grammar check wait timeout (ms)"
-msgstr "Χρονικό όριο αναμονής ελέγχου γραμματικής (ms)"
-
-msgid ""
-"Reserved for possible future use. The proofreader returns immediately on "
-"cache miss (async); results appear on a later Writer pass once the sentence "
-"cache is filled."
-msgstr ""
-"Δεσμευμένο για μελλοντική χρήση. Ο διορθωτής επιστρέφει αμέσως σε περίπτωση "
-"αστοχίας της προσωρινής μνήμης (ασύγχρονα)· τα αποτελέσματα εμφανίζονται σε "
-"επόμενο πέρασμα του Writer μόλις συμπληρωθεί η προσωρινή μνήμη προτάσεων."
 
 msgid "Grammar check model (optional)"
 msgstr "Μοντέλο ελέγχου γραμματικής (προαιρετικό)"
@@ -1251,8 +1289,8 @@ msgid ""
 "When on, Enter in the sidebar query runs the same action as Send; "
 "Shift+Enter inserts a newline. When off, Enter inserts a newline."
 msgstr ""
-"Όταν είναι ενεργοποιημένο, το Enter στο ερώτημα της πλευρικής στήλης εκτελεί "
-"την ίδια ενέργεια με την Αποστολή· το Shift+Enter εισάγει μια νέα γραμμή. "
+"Όταν είναι ενεργοποιημένο, το Enter στο ερώτημα της πλευρικής στήλης εκτελεί"
+" την ίδια ενέργεια με την Αποστολή· το Shift+Enter εισάγει μια νέα γραμμή. "
 "Όταν είναι απενεργοποιημένο, το Enter εισάγει μια νέα γραμμή."
 
 msgid "Draw and Impress tools"
@@ -1268,14 +1306,26 @@ msgid "Enable MCP Server"
 msgstr "Ενεργοποίηση διακομιστή MCP"
 
 msgid ""
-"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable "
-"HTTP)."
+"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable"
+" HTTP)."
 msgstr ""
-"Μόνο localhost, χωρίς έλεγχο ταυτότητας. Οι πελάτες χρησιμοποιούν το http://"
-"localhost:<port>/mcp (HTTP με δυνατότητα ροής)."
+"Μόνο localhost, χωρίς έλεγχο ταυτότητας. Οι πελάτες χρησιμοποιούν το "
+"http://localhost:<port>/mcp (HTTP με δυνατότητα ροής)."
 
 msgid "MCP Port"
 msgstr "Θύρα MCP"
+
+msgid "Allow CORS from local origins"
+msgstr "Να επιτρέπεται το CORS από τοπικές πηγές"
+
+msgid ""
+"Automatic for .local, .lan, .home.arpa, .internal, and LAN IPs in the "
+"browser Origin. For other hosts, add mcp.cors_allowed_origins in "
+"writeragent.json."
+msgstr ""
+"Αυτόματα για .local, .lan, .home.arpa, .internal και IP τοπικού δικτύου "
+"(LAN) στο Origin του περιηγητή. Για άλλους κεντρικούς υπολογιστές, προσθέστε"
+" το mcp.cors_allowed_origins στο writeragent.json."
 
 msgid "Python"
 msgstr "Python"
@@ -1288,13 +1338,23 @@ msgid ""
 "empty, run_venv_python_script uses this process's sys.executable (basic "
 "stdlib); use a venv for numpy/pandas."
 msgstr ""
-"Αν οριστεί, εκτελεί εργαλεία σε αυτό το venv (bin/python ή Scripts/"
-"python.exe). Αν είναι κενό, το run_venv_python_script χρησιμοποιεί το "
-"sys.executable αυτής της διεργασίας (βασική stdlib)· χρησιμοποιήστε ένα venv "
-"για numpy/pandas."
+"Αν οριστεί, εκτελεί εργαλεία σε αυτό το venv (bin/python ή "
+"Scripts/python.exe). Αν είναι κενό, το run_venv_python_script χρησιμοποιεί "
+"το sys.executable αυτής της διεργασίας (βασική stdlib)· χρησιμοποιήστε ένα "
+"venv για numpy/pandas."
 
 msgid "Test"
 msgstr "Δοκιμή"
+
+msgid "Python script timeout (seconds)"
+msgstr "Χρονικό όριο δέσμης ενεργειών Python (δευτερόλεπτα)"
+
+msgid ""
+"Wall-clock limit for Run Python Script, =PYTHON(), and "
+"run_venv_python_script."
+msgstr ""
+"Χρονικό όριο τοίχου για το Run Python Script, =PYTHON() και "
+"run_venv_python_script."
 
 msgid "Writer document tools (including navigation and search)"
 msgstr ""

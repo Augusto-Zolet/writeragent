@@ -62,7 +62,12 @@ def is_private_browser_origin(origin: str) -> bool:
     normalized = normalize_cors_origin(origin)
     if not normalized:
         return False
-    parsed = urlparse(normalized)
+    # Spoofed bracket hostnames (e.g. [::1].evil.net) must not crash the handler;
+    # stdlib urlparse raises ValueError on invalid IPv6 URL syntax.
+    try:
+        parsed = urlparse(normalized)
+    except ValueError:
+        return False
     host = parsed.hostname
     if not host:
         return False

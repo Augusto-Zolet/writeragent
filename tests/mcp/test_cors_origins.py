@@ -55,6 +55,15 @@ def test_is_private_browser_origin_rejects_public():
     assert not is_private_browser_origin("http://localhost.attacker.com")
 
 
+def test_is_private_browser_origin_rejects_malformed_ipv6_brackets():
+    assert not is_private_browser_origin("https://[::1].evil.net")
+
+
+def test_is_safe_origin_rejects_malformed_ipv6_brackets():
+    set_allow_private_origins(True)
+    assert not is_safe_origin("https://[::1].evil.net")
+
+
 def test_is_safe_origin_private_when_enabled():
     set_allow_private_origins(True)
     assert is_safe_origin("https://localai.local")

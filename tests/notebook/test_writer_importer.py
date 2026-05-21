@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import inspect
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
+
+import pytest
 
 from plugin.notebook.writer_importer import (
     _ImportStackCursor,
@@ -28,6 +32,15 @@ from plugin.notebook.writer_importer import (
     format_output_text,
     import_ipynb_to_writer,
 )
+
+
+def _writer_importer_import_logging_present() -> bool:
+    """True when notebook import log.info/debug exist (stripped in ``make release`` bundles)."""
+    try:
+        source = Path(inspect.getfile(import_ipynb_to_writer)).read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return 'log.info("notebook import start' in source
 
 
 def test_format_stream_output():
@@ -219,6 +232,10 @@ def test_append_body_text_block_single_paragraph():
     body_text.insertControlCharacter.assert_not_called()
 
 
+@pytest.mark.skipif(
+    not _writer_importer_import_logging_present(),
+    reason="Release bundle strips log.info/log.debug; import logging verified in source tree only",
+)
 def test_import_ipynb_to_writer_logs(tmp_path, monkeypatch):
     ipynb = tmp_path / "tiny.ipynb"
     ipynb.write_text(

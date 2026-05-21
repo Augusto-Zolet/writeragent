@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-19 21:05-0400\n"
+"POT-Creation-Date: 2026-05-21 15:02-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Turkish <LL@li.org>\n"
@@ -19,8 +19,8 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
-"sub-agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable"
+" sub-agents in configuration."
 msgstr ""
 "Belge araştırması okumaları alt aracı yetkilendirmesi (USE_SUB_AGENT) "
 "gerektirir. Yapılandırmadan alt aracıları etkinleştirin."
@@ -28,13 +28,52 @@ msgstr ""
 #: plugin/doc/specialized_base.py
 #, python-brace-format
 msgid ""
-"Tool call switched to '{0}'. You are in a specialized toolset mode. You must "
-"call 'specialized_workflow_finished' when done to restore the full set of "
+"Tool call switched to '{0}'. You are in a specialized toolset mode. You must"
+" call 'specialized_workflow_finished' when done to restore the full set of "
 "APIs."
 msgstr ""
-"Araç çağrısı '{0}' olarak değiştirildi. Özel bir araç seti modundasınız. Tam "
-"API setini geri yüklemek için işiniz bittiğinde "
+"Araç çağrısı '{0}' olarak değiştirildi. Özel bir araç seti modundasınız. Tam"
+" API setini geri yüklemek için işiniz bittiğinde "
 "'specialized_workflow_finished' komutunu çağırmalısınız."
+
+#: plugin/notebook/import_dialog.py
+msgid "Import Jupyter Notebook"
+msgstr "Jupyter Notebook'u İçe Aktar"
+
+#: plugin/notebook/import_dialog.py
+msgid "Jupyter Notebook"
+msgstr "Jupyter Notebook"
+
+#: plugin/notebook/import_dialog.py
+msgid "All files"
+msgstr "Tüm dosyalar"
+
+#: plugin/notebook/import_dialog.py
+msgid "Open a Writer document first."
+msgstr "Önce bir Writer belgesi açın."
+
+#: plugin/notebook/import_dialog.py
+msgid "Import Notebook is only supported in LibreOffice Writer."
+msgstr ""
+"Notebook içe aktarma işlemi yalnızca LibreOffice Writer'da desteklenir."
+
+#: plugin/notebook/import_dialog.py
+#, python-brace-format
+msgid "Failed to import notebook: {error}"
+msgstr "Notebook içe aktarılamadı: {error}"
+
+#: plugin/notebook/import_dialog.py
+#, python-brace-format
+msgid ""
+"Imported notebook.\n"
+"Cells: {cells} (code: {code}, markdown: {markdown})\n"
+"Code input fields in document: {shapes}\n"
+"Output images: {images}"
+msgstr ""
+"Notebook içe aktarıldı.\n"
+"Hücreler: {cells} (kod: {code}, markdown: {markdown})\n"
+"Belgedeki kod giriş alanları: {shapes}\n"
+"Çıktı görselleri: {images}"
 
 #: plugin/contrib/aihordeclient/__init__.py plugin/chatbot/panel.py
 msgid "Starting..."
@@ -69,8 +108,9 @@ msgid ""
 "At this moment we can not process your request, please try again later.  If "
 "this is happening for a long period of time, please let us know via Discord"
 msgstr ""
-"Şu anda isteğinizi işleme alamıyoruz, lütfen daha sonra tekrar deneyin. Eğer "
-"bu durum uzun süredir devam ediyorsa, lütfen Discord üzerinden bize bildirin"
+"Şu anda isteğinizi işleme alamıyoruz, lütfen daha sonra tekrar deneyin. Eğer"
+" bu durum uzun süredir devam ediyorsa, lütfen Discord üzerinden bize "
+"bildirin"
 
 #: plugin/contrib/aihordeclient/__init__.py
 msgid "Problem requesting kudos"
@@ -89,8 +129,8 @@ msgid ""
 "You have made too many requests, please wait for them to finish, and try "
 "again later"
 msgstr ""
-"Çok fazla istekte bulundunuz, lütfen tamamlanmalarını bekleyin ve daha sonra "
-"tekrar deneyin"
+"Çok fazla istekte bulundunuz, lütfen tamamlanmalarını bekleyin ve daha sonra"
+" tekrar deneyin"
 
 #: plugin/contrib/aihordeclient/__init__.py
 #, python-brace-format
@@ -161,7 +201,8 @@ msgstr "Bu model, mevcut yapılandırmanızdan daha fazla zaman alıyor."
 
 #: plugin/contrib/aihordeclient/__init__.py
 #, python-brace-format
-msgid "Please try another model. {0} would take more time than you configured."
+msgid ""
+"Please try another model. {0} would take more time than you configured."
 msgstr ""
 "Lütfen başka bir model deneyin. {0} yapılandırdığınızdan daha fazla zaman "
 "alacaktır."
@@ -230,7 +271,8 @@ msgstr ""
 
 #: plugin/framework/constants.py
 msgid ""
-"AI: I can help you with formulas, data analysis, and colorful charts. Try me!"
+"AI: I can help you with formulas, data analysis, and colorful charts. Try "
+"me!"
 msgstr ""
 "YZ: Formüller, veri analizi ve renkli grafikler konusunda size yardımcı "
 "olabilirim. Beni deneyin!"
@@ -288,10 +330,11 @@ msgstr ""
 "artırmayı deneyin."
 
 #: plugin/framework/client/errors.py
-msgid "Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
+msgid ""
+"Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
 msgstr ""
-"Bağlantı Reddedildi. Yerel yapay zeka sunucunuz (Ollama/LM Studio) çalışıyor "
-"mu?"
+"Bağlantı Reddedildi. Yerel yapay zeka sunucunuz (Ollama/LM Studio) çalışıyor"
+" mu?"
 
 #: plugin/framework/client/errors.py
 msgid "DNS Error. Could not resolve the endpoint URL."
@@ -575,8 +618,7 @@ msgid ""
 "No editor found (install Kate or Gedit, or set EDITOR). Path:\n"
 "{0}"
 msgstr ""
-"Düzenleyici bulunamadı (Kate veya Gedit kurun ya da EDITOR değişkenini "
-"ayarlayın). Yol:\n"
+"Düzenleyici bulunamadı (Kate veya Gedit kurun ya da EDITOR değişkenini ayarlayın). Yol:\n"
 "{0}"
 
 #: plugin/chatbot/external_editor.py
@@ -605,7 +647,8 @@ msgstr "['{0}' aracı arka ucu bulunamadı.]"
 
 #: plugin/chatbot/send_handlers.py
 #, python-brace-format
-msgid "[Agent backend '{0}' is not available. Check Settings (path, install).]"
+msgid ""
+"[Agent backend '{0}' is not available. Check Settings (path, install).]"
 msgstr ""
 "['{0}' aracı arka ucu kullanılamıyor. Ayarları kontrol edin (yol, kurulum).]"
 
@@ -773,8 +816,10 @@ msgid "MCP server failed to start"
 msgstr "MCP sunucusu başlatılamadı"
 
 #: plugin/mcp/__init__.py
-msgid "Check ~/writeragent.log"
-msgstr "~/writeragent.log dosyasını kontrol edin"
+msgid "Check writeragent_debug.log in your LibreOffice user config folder"
+msgstr ""
+"LibreOffice kullanıcı yapılandırma klasörünüzdeki writeragent_debug.log "
+"dosyasını kontrol edin"
 
 #: plugin/mcp/__init__.py
 msgid "MCP server is not running"
@@ -847,6 +892,10 @@ msgstr "Değerlendirme Panosu"
 #: plugin/main.py
 msgid "Run Python Script..."
 msgstr "Python Betiğini Çalıştır..."
+
+#: plugin/main.py
+msgid "Import Jupyter Notebook..."
+msgstr "Jupyter Notebook'u İçe Aktar..."
 
 #: plugin/main.py
 msgid "Insert LaTeX Math..."
@@ -1070,11 +1119,11 @@ msgid "Path / URL"
 msgstr "Yol / URL"
 
 msgid ""
-"Path to backend CLI (e.g. aider) or ACP server URL (e.g. http://"
-"localhost:8000 for Hermes). Empty = try default."
+"Path to backend CLI (e.g. aider) or ACP server URL (e.g. "
+"http://localhost:8000 for Hermes). Empty = try default."
 msgstr ""
-"Arka uç CLI yolu (ör. aider) veya ACP sunucu URL'si (ör. Hermes için http://"
-"localhost:8000). Boş = varsayılanı dene."
+"Arka uç CLI yolu (ör. aider) veya ACP sunucu URL'si (ör. Hermes için "
+"http://localhost:8000). Boş = varsayılanı dene."
 
 msgid "Extra arguments"
 msgstr "Ek argümanlar"
@@ -1165,25 +1214,13 @@ msgstr "Yapay zeka dil bilgisi denetleyicisini etkinleştir (Writer)"
 
 msgid ""
 "When on, WriterAgent registers its AI grammar proofreader with Linguistic; "
-"checked text uses your API (Tools → Options → AI). Underlines appear shortly "
-"after you pause typing. Off by default."
+"checked text uses your API (Tools → Options → AI). Underlines appear shortly"
+" after you pause typing. Off by default."
 msgstr ""
 "Açık olduğunda, WriterAgent yapay zeka dil bilgisi denetleyicisini "
 "Linguistic ile kaydeder; denetlenen metin API'nizi kullanır (Araçlar → "
 "Seçenekler → Yapay Zeka). Alt çizgiler yazmayı bıraktıktan kısa bir süre "
 "sonra görünür. Varsayılan olarak kapalıdır."
-
-msgid "Grammar check wait timeout (ms)"
-msgstr "Dil bilgisi denetimi bekleme zaman aşımı (ms)"
-
-msgid ""
-"Reserved for possible future use. The proofreader returns immediately on "
-"cache miss (async); results appear on a later Writer pass once the sentence "
-"cache is filled."
-msgstr ""
-"Gelecekte olası kullanım için ayrılmıştır. Denetleyici, önbellek "
-"isabetsizliğinde (eşzamansız) hemen geri döner; sonuçlar cümle önbelleği "
-"dolduğunda sonraki bir Writer geçişinde görünür."
 
 msgid "Grammar check model (optional)"
 msgstr "Dil bilgisi denetimi modeli (isteğe bağlı)"
@@ -1223,8 +1260,8 @@ msgid ""
 "automatically."
 msgstr ""
 "Etkinleştirildiğinde, yapay zekadan her cümlenin dilini belgede kullanılan "
-"yerel ayarlara göre doğrulamasını ister. Dil yanlışsa, dil özelliği otomatik "
-"olarak güncellenir."
+"yerel ayarlara göre doğrulamasını ister. Dil yanlışsa, dil özelliği otomatik"
+" olarak güncellenir."
 
 msgid "Enter key sends sidebar chat message"
 msgstr "Enter tuşu kenar çubuğu sohbet iletisini gönderir"
@@ -1250,14 +1287,26 @@ msgid "Enable MCP Server"
 msgstr "MCP Sunucusunu Etkinleştir"
 
 msgid ""
-"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable "
-"HTTP)."
+"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable"
+" HTTP)."
 msgstr ""
-"Yalnızca localhost, kimlik doğrulaması yok. İstemciler http://localhost:"
-"<port>/mcp (akış destekli HTTP) adresini kullanır."
+"Yalnızca localhost, kimlik doğrulaması yok. İstemciler "
+"http://localhost:<port>/mcp (akış destekli HTTP) adresini kullanır."
 
 msgid "MCP Port"
 msgstr "MCP Bağlantı Noktası"
+
+msgid "Allow CORS from local origins"
+msgstr "Yerel kaynaklardan CORS'a izin ver"
+
+msgid ""
+"Automatic for .local, .lan, .home.arpa, .internal, and LAN IPs in the "
+"browser Origin. For other hosts, add mcp.cors_allowed_origins in "
+"writeragent.json."
+msgstr ""
+".local, .lan, .home.arpa, .internal ve tarayıcı Origin'indeki LAN IP'leri "
+"için otomatik. Diğer ana bilgisayarlar için writeragent.json dosyasına "
+"mcp.cors_allowed_origins ekleyin."
 
 msgid "Python"
 msgstr "Python"
@@ -1270,12 +1319,22 @@ msgid ""
 "empty, run_venv_python_script uses this process's sys.executable (basic "
 "stdlib); use a venv for numpy/pandas."
 msgstr ""
-"Ayarlanırsa, araçları bu venv içinde çalıştırır (bin/python veya Scripts/"
-"python.exe). Boşsa, run_venv_python_script bu sürecin sys.executable "
-"değerini (temel stdlib) kullanır; numpy/pandas için bir venv kullanın."
+"Ayarlanırsa, araçları bu venv içinde çalıştırır (bin/python veya "
+"Scripts/python.exe). Boşsa, run_venv_python_script bu sürecin sys.executable"
+" değerini (temel stdlib) kullanır; numpy/pandas için bir venv kullanın."
 
 msgid "Test"
 msgstr "Sına"
+
+msgid "Python script timeout (seconds)"
+msgstr "Python betiği zaman aşımı (saniye)"
+
+msgid ""
+"Wall-clock limit for Run Python Script, =PYTHON(), and "
+"run_venv_python_script."
+msgstr ""
+"Python Betiğini Çalıştır, =PYTHON() ve run_venv_python_script için duvar "
+"saati sınırı."
 
 msgid "Writer document tools (including navigation and search)"
 msgstr "Writer belge araçları (gezinme ve arama dahil)"

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-19 21:05-0400\n"
+"POT-Creation-Date: 2026-05-21 15:02-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Portuguese <LL@li.org>\n"
@@ -19,8 +19,8 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
-"sub-agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable"
+" sub-agents in configuration."
 msgstr ""
 "As leituras de pesquisa de documentos requerem delegação de subagente "
 "(USE_SUB_AGENT). Ative os subagentes na configuração."
@@ -28,14 +28,52 @@ msgstr ""
 #: plugin/doc/specialized_base.py
 #, python-brace-format
 msgid ""
-"Tool call switched to '{0}'. You are in a specialized toolset mode. You must "
-"call 'specialized_workflow_finished' when done to restore the full set of "
+"Tool call switched to '{0}'. You are in a specialized toolset mode. You must"
+" call 'specialized_workflow_finished' when done to restore the full set of "
 "APIs."
 msgstr ""
 "Chamada de ferramenta alterada para '{0}'. Você está em um modo de conjunto "
 "de ferramentas especializado. Você deve chamar "
 "'specialized_workflow_finished' ao terminar para restaurar o conjunto "
 "completo de APIs."
+
+#: plugin/notebook/import_dialog.py
+msgid "Import Jupyter Notebook"
+msgstr "Importar Jupyter Notebook"
+
+#: plugin/notebook/import_dialog.py
+msgid "Jupyter Notebook"
+msgstr "Jupyter Notebook"
+
+#: plugin/notebook/import_dialog.py
+msgid "All files"
+msgstr "Todos os ficheiros"
+
+#: plugin/notebook/import_dialog.py
+msgid "Open a Writer document first."
+msgstr "Abra primeiro um documento do Writer."
+
+#: plugin/notebook/import_dialog.py
+msgid "Import Notebook is only supported in LibreOffice Writer."
+msgstr "A importação de Notebooks só é suportada no LibreOffice Writer."
+
+#: plugin/notebook/import_dialog.py
+#, python-brace-format
+msgid "Failed to import notebook: {error}"
+msgstr "Falha ao importar o notebook: {error}"
+
+#: plugin/notebook/import_dialog.py
+#, python-brace-format
+msgid ""
+"Imported notebook.\n"
+"Cells: {cells} (code: {code}, markdown: {markdown})\n"
+"Code input fields in document: {shapes}\n"
+"Output images: {images}"
+msgstr ""
+"Notebook importado.\n"
+"Células: {cells} (código: {code}, markdown: {markdown})\n"
+"Campos de entrada de código no documento: {shapes}\n"
+"Imagens de saída: {images}"
 
 #: plugin/contrib/aihordeclient/__init__.py plugin/chatbot/panel.py
 msgid "Starting..."
@@ -69,8 +107,8 @@ msgid ""
 "this is happening for a long period of time, please let us know via Discord"
 msgstr ""
 "Neste momento não podemos processar o seu pedido, por favor tente novamente "
-"mais tarde. Se isto continuar a acontecer durante um longo período de tempo, "
-"por favor informe-nos através do Discord"
+"mais tarde. Se isto continuar a acontecer durante um longo período de tempo,"
+" por favor informe-nos através do Discord"
 
 #: plugin/contrib/aihordeclient/__init__.py
 msgid "Problem requesting kudos"
@@ -81,8 +119,8 @@ msgid ""
 "The Horde is in maintenance mode, please try again later, if you have tried "
 "and the service does not respond for hours, please contact via Discord"
 msgstr ""
-"A Horde está em modo de manutenção, por favor tente novamente mais tarde. Se "
-"já tentou e o serviço não responde durante horas, por favor contacte-nos "
+"A Horde está em modo de manutenção, por favor tente novamente mais tarde. Se"
+" já tentou e o serviço não responde durante horas, por favor contacte-nos "
 "através do Discord"
 
 #: plugin/contrib/aihordeclient/__init__.py
@@ -108,7 +146,8 @@ msgstr "Encontrámos um erro, ainda assim: "
 
 #: plugin/contrib/aihordeclient/__init__.py
 msgid "No longer valid, please try again.  Your request took too long"
-msgstr "Já não é válido, tente novamente. O seu pedido demorou demasiado tempo"
+msgstr ""
+"Já não é válido, tente novamente. O seu pedido demorou demasiado tempo"
 
 #: plugin/contrib/aihordeclient/__init__.py
 msgid "Contacting the Horde..."
@@ -163,9 +202,11 @@ msgstr "Este modelo demora mais tempo do que a sua configuração atual."
 
 #: plugin/contrib/aihordeclient/__init__.py
 #, python-brace-format
-msgid "Please try another model. {0} would take more time than you configured."
+msgid ""
+"Please try another model. {0} would take more time than you configured."
 msgstr ""
-"Por favor, tente outro modelo. {0} demoraria mais tempo do que o configurado."
+"Por favor, tente outro modelo. {0} demoraria mais tempo do que o "
+"configurado."
 
 #: plugin/contrib/aihordeclient/__init__.py
 msgid "Please try again later."
@@ -205,8 +246,8 @@ msgid ""
 "You may need to reduce your settings or choose another model, or you may "
 "have been censored. Horde message"
 msgstr ""
-"Poderá ter de reduzir as suas definições ou escolher outro modelo, ou poderá "
-"ter sido censurado. Mensagem da Horde"
+"Poderá ter de reduzir as suas definições ou escolher outro modelo, ou poderá"
+" ter sido censurado. Mensagem da Horde"
 
 #: plugin/contrib/aihordeclient/__init__.py
 msgid " generated by "
@@ -226,12 +267,13 @@ msgid ""
 "AI: I can edit or translate your document instantly with professional "
 "formatting and color. Try me!"
 msgstr ""
-"IA: Posso editar ou traduzir seu documento instantaneamente com formatação e "
-"cores profissionais. Experimente!"
+"IA: Posso editar ou traduzir seu documento instantaneamente com formatação e"
+" cores profissionais. Experimente!"
 
 #: plugin/framework/constants.py
 msgid ""
-"AI: I can help you with formulas, data analysis, and colorful charts. Try me!"
+"AI: I can help you with formulas, data analysis, and colorful charts. Try "
+"me!"
 msgstr ""
 "IA: Posso ajudar com fórmulas, análise de dados e gráficos coloridos. "
 "Experimente!"
@@ -250,7 +292,8 @@ msgid ""
 "without seeing or changing your document. Let's chat."
 msgstr ""
 "IA: Posso realizar pesquisas na web para responder a qualquer pergunta ou "
-"resumir uma página da web, sem ver ou alterar seu documento. Vamos conversar."
+"resumir uma página da web, sem ver ou alterar seu documento. Vamos "
+"conversar."
 
 #: plugin/framework/client/errors.py
 #, python-brace-format
@@ -287,7 +330,8 @@ msgstr ""
 "solicitação' nas Configurações."
 
 #: plugin/framework/client/errors.py
-msgid "Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
+msgid ""
+"Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
 msgstr ""
 "Conexão recusada. O seu servidor de IA local (Ollama/LM Studio) está em "
 "execução?"
@@ -495,8 +539,8 @@ msgid ""
 "[No compatible LibreOffice document (Writer, Calc, or Draw) found in the "
 "active window.]"
 msgstr ""
-"[Não foi encontrado nenhum documento LibreOffice compatível (Writer, Calc ou "
-"Draw) na janela ativa.]"
+"[Não foi encontrado nenhum documento LibreOffice compatível (Writer, Calc ou"
+" Draw) na janela ativa.]"
 
 #: plugin/chatbot/panel.py
 #, python-brace-format
@@ -574,8 +618,7 @@ msgid ""
 "No editor found (install Kate or Gedit, or set EDITOR). Path:\n"
 "{0}"
 msgstr ""
-"Nenhum editor encontrado (instale o Kate ou Gedit, ou defina a variável "
-"EDITOR). Caminho:\n"
+"Nenhum editor encontrado (instale o Kate ou Gedit, ou defina a variável EDITOR). Caminho:\n"
 "{0}"
 
 #: plugin/chatbot/external_editor.py
@@ -604,7 +647,8 @@ msgstr "[Backend do agente '{0}' não encontrado.]"
 
 #: plugin/chatbot/send_handlers.py
 #, python-brace-format
-msgid "[Agent backend '{0}' is not available. Check Settings (path, install).]"
+msgid ""
+"[Agent backend '{0}' is not available. Check Settings (path, install).]"
 msgstr ""
 "[O backend do agente '{0}' não está disponível. Verifique as Configurações "
 "(caminho, instalação).]"
@@ -651,9 +695,9 @@ msgid ""
 "A newer WriterAgent (%s) is available. Use Tools → Extension Manager to "
 "check for updates and install the latest extension."
 msgstr ""
-"Uma versão mais recente do WriterAgent (%s) está disponível. Use Ferramentas "
-"→ Gerenciador de Extensões para verificar atualizações e instalar a extensão "
-"mais recente."
+"Uma versão mais recente do WriterAgent (%s) está disponível. Use Ferramentas"
+" → Gerenciador de Extensões para verificar atualizações e instalar a "
+"extensão mais recente."
 
 #: plugin/chatbot/librarian.py
 msgid "Switching to document mode..."
@@ -775,8 +819,10 @@ msgid "MCP server failed to start"
 msgstr "Falha ao iniciar o servidor MCP"
 
 #: plugin/mcp/__init__.py
-msgid "Check ~/writeragent.log"
-msgstr "Verifique ~/writeragent.log"
+msgid "Check writeragent_debug.log in your LibreOffice user config folder"
+msgstr ""
+"Verifique o ficheiro writeragent_debug.log na pasta de configuração de "
+"utilizador do LibreOffice"
 
 #: plugin/mcp/__init__.py
 msgid "MCP server is not running"
@@ -849,6 +895,10 @@ msgstr "Painel de avaliação"
 #: plugin/main.py
 msgid "Run Python Script..."
 msgstr "Executar script Python..."
+
+#: plugin/main.py
+msgid "Import Jupyter Notebook..."
+msgstr "Importar Jupyter Notebook..."
 
 #: plugin/main.py
 msgid "Insert LaTeX Math..."
@@ -1072,11 +1122,11 @@ msgid "Path / URL"
 msgstr "Caminho / URL"
 
 msgid ""
-"Path to backend CLI (e.g. aider) or ACP server URL (e.g. http://"
-"localhost:8000 for Hermes). Empty = try default."
+"Path to backend CLI (e.g. aider) or ACP server URL (e.g. "
+"http://localhost:8000 for Hermes). Empty = try default."
 msgstr ""
-"Caminho para a CLI do backend (ex: aider) ou URL do servidor ACP (ex: http://"
-"localhost:8000 para o Hermes). Vazio = tentar o padrão."
+"Caminho para a CLI do backend (ex: aider) ou URL do servidor ACP (ex: "
+"http://localhost:8000 para o Hermes). Vazio = tentar o padrão."
 
 msgid "Extra arguments"
 msgstr "Argumentos extras"
@@ -1169,24 +1219,12 @@ msgstr "Ativar corretor gramatical por IA (Writer)"
 
 msgid ""
 "When on, WriterAgent registers its AI grammar proofreader with Linguistic; "
-"checked text uses your API (Tools → Options → AI). Underlines appear shortly "
-"after you pause typing. Off by default."
+"checked text uses your API (Tools → Options → AI). Underlines appear shortly"
+" after you pause typing. Off by default."
 msgstr ""
 "Quando ativado, o WriterAgent registra seu corretor gramatical por IA no "
 "Linguístico; o texto verificado usa sua API (Ferramentas → Opções → IA). Os "
 "sublinhados aparecem logo após você parar de digitar. Desativado por padrão."
-
-msgid "Grammar check wait timeout (ms)"
-msgstr "Tempo limite de espera da verificação gramatical (ms)"
-
-msgid ""
-"Reserved for possible future use. The proofreader returns immediately on "
-"cache miss (async); results appear on a later Writer pass once the sentence "
-"cache is filled."
-msgstr ""
-"Reservado para possível uso futuro. O corretor retorna imediatamente em caso "
-"de falha no cache (assíncrono); os resultados aparecem em uma passagem "
-"posterior do Writer assim que o cache de frases for preenchido."
 
 msgid "Grammar check model (optional)"
 msgstr "Modelo de verificação gramatical (opcional)"
@@ -1213,8 +1251,8 @@ msgid ""
 "reliable; higher values are faster and cheaper but may hit token limits or "
 "cause model errors."
 msgstr ""
-"Número de frases a enviar por pedido ao LLM (1-8). 1 (predefinição) é o mais "
-"fiável; valores mais elevados são mais rápidos e económicos, mas podem "
+"Número de frases a enviar por pedido ao LLM (1-8). 1 (predefinição) é o mais"
+" fiável; valores mais elevados são mais rápidos e económicos, mas podem "
 "atingir limites de tokens ou causar erros no modelo."
 
 msgid "Detect and correct sentence language"
@@ -1253,14 +1291,26 @@ msgid "Enable MCP Server"
 msgstr "Ativar servidor MCP"
 
 msgid ""
-"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable "
-"HTTP)."
+"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable"
+" HTTP)."
 msgstr ""
-"Apenas localhost, sem autenticação. Os clientes usam http://localhost:<port>/"
-"mcp (HTTP com suporte a streaming)."
+"Apenas localhost, sem autenticação. Os clientes usam "
+"http://localhost:<port>/mcp (HTTP com suporte a streaming)."
 
 msgid "MCP Port"
 msgstr "Porta MCP"
+
+msgid "Allow CORS from local origins"
+msgstr "Permitir CORS de origens locais"
+
+msgid ""
+"Automatic for .local, .lan, .home.arpa, .internal, and LAN IPs in the "
+"browser Origin. For other hosts, add mcp.cors_allowed_origins in "
+"writeragent.json."
+msgstr ""
+"Automático para .local, .lan, .home.arpa, .internal e IPs de LAN na Origem "
+"do navegador. Para outros hosts, adicione mcp.cors_allowed_origins em "
+"writeragent.json."
 
 msgid "Python"
 msgstr "Python"
@@ -1273,12 +1323,22 @@ msgid ""
 "empty, run_venv_python_script uses this process's sys.executable (basic "
 "stdlib); use a venv for numpy/pandas."
 msgstr ""
-"Se definido, executa ferramentas nesse venv (bin/python ou Scripts/"
-"python.exe). Se vazio, run_venv_python_script usa o sys.executable deste "
-"processo (stdlib básica); use um venv para numpy/pandas."
+"Se definido, executa ferramentas nesse venv (bin/python ou "
+"Scripts/python.exe). Se vazio, run_venv_python_script usa o sys.executable "
+"deste processo (stdlib básica); use um venv para numpy/pandas."
 
 msgid "Test"
 msgstr "Testar"
+
+msgid "Python script timeout (seconds)"
+msgstr "Tempo limite do script Python (segundos)"
+
+msgid ""
+"Wall-clock limit for Run Python Script, =PYTHON(), and "
+"run_venv_python_script."
+msgstr ""
+"Limite de tempo de parede para Executar Script Python, =PYTHON() e "
+"run_venv_python_script."
 
 msgid "Writer document tools (including navigation and search)"
 msgstr "Ferramentas de documento do Writer (incluindo navegação e pesquisa)"

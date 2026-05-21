@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-19 21:05-0400\n"
+"POT-Creation-Date: 2026-05-21 15:02-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Estonian <LL@li.org>\n"
@@ -19,8 +19,8 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
-"sub-agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable"
+" sub-agents in configuration."
 msgstr ""
 "Dokumendi uurimiseks on vajalik alamagendi delegeerimine (USE_SUB_AGENT). "
 "Lubage alamagendid seadistustes."
@@ -28,13 +28,51 @@ msgstr ""
 #: plugin/doc/specialized_base.py
 #, python-brace-format
 msgid ""
-"Tool call switched to '{0}'. You are in a specialized toolset mode. You must "
-"call 'specialized_workflow_finished' when done to restore the full set of "
+"Tool call switched to '{0}'. You are in a specialized toolset mode. You must"
+" call 'specialized_workflow_finished' when done to restore the full set of "
 "APIs."
 msgstr ""
 "Tööriista väljakutse lülitus režiimile '{0}'. Olete spetsiaalses "
 "tööriistakomplekti režiimis. Täieliku API-de komplekti taastamiseks peate "
 "töö lõpetamisel kutsuma funktsiooni 'specialized_workflow_finished'."
+
+#: plugin/notebook/import_dialog.py
+msgid "Import Jupyter Notebook"
+msgstr "Impordi Jupyter Notebook"
+
+#: plugin/notebook/import_dialog.py
+msgid "Jupyter Notebook"
+msgstr "Jupyter Notebook"
+
+#: plugin/notebook/import_dialog.py
+msgid "All files"
+msgstr "Kõik failid"
+
+#: plugin/notebook/import_dialog.py
+msgid "Open a Writer document first."
+msgstr "Ava esmalt Writeri dokument."
+
+#: plugin/notebook/import_dialog.py
+msgid "Import Notebook is only supported in LibreOffice Writer."
+msgstr "Notebooki importimine on toetatud ainult LibreOffice Writeris."
+
+#: plugin/notebook/import_dialog.py
+#, python-brace-format
+msgid "Failed to import notebook: {error}"
+msgstr "Notebooki importimine ebaõnnestus: {error}"
+
+#: plugin/notebook/import_dialog.py
+#, python-brace-format
+msgid ""
+"Imported notebook.\n"
+"Cells: {cells} (code: {code}, markdown: {markdown})\n"
+"Code input fields in document: {shapes}\n"
+"Output images: {images}"
+msgstr ""
+"Notebook imporditud.\n"
+"Lahtreid: {cells} (kood: {code}, markdown: {markdown})\n"
+"Koodi sisestusvälju dokumendis: {shapes}\n"
+"Väljundpilte: {images}"
 
 #: plugin/contrib/aihordeclient/__init__.py plugin/chatbot/panel.py
 msgid "Starting..."
@@ -67,8 +105,8 @@ msgid ""
 "At this moment we can not process your request, please try again later.  If "
 "this is happening for a long period of time, please let us know via Discord"
 msgstr ""
-"Hetkel ei saa me sinu päringut töödelda, palun proovi hiljem uuesti. Kui see "
-"kestab pikemat aega, anna meile sellest Discordi kaudu teada"
+"Hetkel ei saa me sinu päringut töödelda, palun proovi hiljem uuesti. Kui see"
+" kestab pikemat aega, anna meile sellest Discordi kaudu teada"
 
 #: plugin/contrib/aihordeclient/__init__.py
 msgid "Problem requesting kudos"
@@ -159,7 +197,8 @@ msgstr "See mudel võtab rohkem aega kui teie praegune konfiguratsioon."
 
 #: plugin/contrib/aihordeclient/__init__.py
 #, python-brace-format
-msgid "Please try another model. {0} would take more time than you configured."
+msgid ""
+"Please try another model. {0} would take more time than you configured."
 msgstr ""
 "Palun proovige teist mudelit. {0} võtaks rohkem aega kui konfigureerisite."
 
@@ -227,7 +266,8 @@ msgstr ""
 
 #: plugin/framework/constants.py
 msgid ""
-"AI: I can help you with formulas, data analysis, and colorful charts. Try me!"
+"AI: I can help you with formulas, data analysis, and colorful charts. Try "
+"me!"
 msgstr ""
 "AI: Saan teid aidata valemite, andmeanalüüsi ja värviliste diagrammidega. "
 "Proovige mind!"
@@ -283,7 +323,8 @@ msgstr ""
 "Päringu aegumine. Proovige sätetes „Request Timeout“ väärtust suurendada."
 
 #: plugin/framework/client/errors.py
-msgid "Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
+msgid ""
+"Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
 msgstr ""
 "Ühendusest keelduti. Kas teie kohalik AI-server (Ollama/LM Studio) töötab?"
 
@@ -490,8 +531,8 @@ msgid ""
 "[No compatible LibreOffice document (Writer, Calc, or Draw) found in the "
 "active window.]"
 msgstr ""
-"[Aktiivses aknas ei leitud ühtegi ühilduvat LibreOffice'i dokumenti (Writer, "
-"Calc või Draw).]"
+"[Aktiivses aknas ei leitud ühtegi ühilduvat LibreOffice'i dokumenti (Writer,"
+" Calc või Draw).]"
 
 #: plugin/chatbot/panel.py
 #, python-brace-format
@@ -508,8 +549,8 @@ msgid ""
 "[Internal Error: Could not identify document type for {0}. Please report "
 "this!]"
 msgstr ""
-"[Sisemine viga: dokumendi tüüpi {0} ei õnnestunud tuvastada. Palun teavitage "
-"sellest!]"
+"[Sisemine viga: dokumendi tüüpi {0} ei õnnestunud tuvastada. Palun teavitage"
+" sellest!]"
 
 #: plugin/chatbot/panel.py
 #, python-brace-format
@@ -596,7 +637,8 @@ msgstr "[Agendi taustaprogrammi '{0}' ei leitud.]"
 
 #: plugin/chatbot/send_handlers.py
 #, python-brace-format
-msgid "[Agent backend '{0}' is not available. Check Settings (path, install).]"
+msgid ""
+"[Agent backend '{0}' is not available. Check Settings (path, install).]"
 msgstr ""
 "[Agendi taustaprogramm '{0}' pole saadaval. Kontrollige sätteid (asukoht, "
 "install).]"
@@ -765,8 +807,10 @@ msgid "MCP server failed to start"
 msgstr "MCP-serveri käivitamine ebaõnnestus"
 
 #: plugin/mcp/__init__.py
-msgid "Check ~/writeragent.log"
-msgstr "Kontrolli ~/writeragent.log"
+msgid "Check writeragent_debug.log in your LibreOffice user config folder"
+msgstr ""
+"Kontrolli writeragent_debug.log faili oma LibreOffice'i kasutaja seadistuste"
+" kaustas"
 
 #: plugin/mcp/__init__.py
 msgid "MCP server is not running"
@@ -839,6 +883,10 @@ msgstr "Hindamise töölaud"
 #: plugin/main.py
 msgid "Run Python Script..."
 msgstr "Käivita Pythoni skript..."
+
+#: plugin/main.py
+msgid "Import Jupyter Notebook..."
+msgstr "Impordi Jupyter Notebook..."
 
 #: plugin/main.py
 msgid "Insert LaTeX Math..."
@@ -1062,11 +1110,11 @@ msgid "Path / URL"
 msgstr "Tee / URL"
 
 msgid ""
-"Path to backend CLI (e.g. aider) or ACP server URL (e.g. http://"
-"localhost:8000 for Hermes). Empty = try default."
+"Path to backend CLI (e.g. aider) or ACP server URL (e.g. "
+"http://localhost:8000 for Hermes). Empty = try default."
 msgstr ""
-"Tee taustaprogrammi CLI-le (nt aider) või ACP-serveri URL (nt http://"
-"localhost:8000 Hermes'i jaoks). Tühi = proovi vaikimisi."
+"Tee taustaprogrammi CLI-le (nt aider) või ACP-serveri URL (nt "
+"http://localhost:8000 Hermes'i jaoks). Tühi = proovi vaikimisi."
 
 msgid "Extra arguments"
 msgstr "Lisargumendid"
@@ -1156,25 +1204,13 @@ msgstr "Luba tehisintellektil põhinev grammatikakontroll (Writer)"
 
 msgid ""
 "When on, WriterAgent registers its AI grammar proofreader with Linguistic; "
-"checked text uses your API (Tools → Options → AI). Underlines appear shortly "
-"after you pause typing. Off by default."
+"checked text uses your API (Tools → Options → AI). Underlines appear shortly"
+" after you pause typing. Off by default."
 msgstr ""
 "Kui see on sisse lülitatud, registreerib WriterAgent oma tehisintellektil "
 "põhineva grammatikakontrolli keeletööriistade hulgas; kontrollitud tekst "
 "kasutab teie API-t (Tööriistad → Sätted → AI). Allajoonimised ilmuvad veidi "
 "pärast kirjutamise peatamist. Vaikimisi väljas."
-
-msgid "Grammar check wait timeout (ms)"
-msgstr "Grammatikakontrolli ooteaeg (ms)"
-
-msgid ""
-"Reserved for possible future use. The proofreader returns immediately on "
-"cache miss (async); results appear on a later Writer pass once the sentence "
-"cache is filled."
-msgstr ""
-"Reserveeritud võimalikuks tuleviku kasutuseks. Kontrollija vastab vahemälu "
-"puudumisel viivitamatult (asünkroonselt); tulemused ilmuvad Writeri "
-"järgmisel läbimisel, kui lausete vahemälu on täidetud."
 
 msgid "Grammar check model (optional)"
 msgstr "Grammatikakontrolli mudel (valikuline)"
@@ -1213,8 +1249,8 @@ msgid ""
 "document's used locales. If incorrect, the language property is updated "
 "automatically."
 msgstr ""
-"Kui see on sisse lülitatud, palub see tehisintellektil kontrollida iga lause "
-"keelt vastavalt dokumendis kasutatud keeleseadetele. Kui keel on vale, "
+"Kui see on sisse lülitatud, palub see tehisintellektil kontrollida iga lause"
+" keelt vastavalt dokumendis kasutatud keeleseadetele. Kui keel on vale, "
 "uuendatakse keeleomadust automaatselt."
 
 msgid "Enter key sends sidebar chat message"
@@ -1241,14 +1277,26 @@ msgid "Enable MCP Server"
 msgstr "Luba MCP-server"
 
 msgid ""
-"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable "
-"HTTP)."
+"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable"
+" HTTP)."
 msgstr ""
-"Ainult localhost, autentimine puudub. Kliendid kasutavad aadressi http://"
-"localhost:<port>/mcp (voogedastatav HTTP)."
+"Ainult localhost, autentimine puudub. Kliendid kasutavad aadressi "
+"http://localhost:<port>/mcp (voogedastatav HTTP)."
 
 msgid "MCP Port"
 msgstr "MCP-port"
+
+msgid "Allow CORS from local origins"
+msgstr "Luba CORS kohalikest allikatest"
+
+msgid ""
+"Automatic for .local, .lan, .home.arpa, .internal, and LAN IPs in the "
+"browser Origin. For other hosts, add mcp.cors_allowed_origins in "
+"writeragent.json."
+msgstr ""
+"Automaatne .local, .lan, .home.arpa, .internal ja LAN-i IP-aadresside jaoks "
+"brauseri päritolus (Origin). Muude hostide puhul lisage "
+"mcp.cors_allowed_origins faili writeragent.json."
 
 msgid "Python"
 msgstr "Python"
@@ -1261,12 +1309,23 @@ msgid ""
 "empty, run_venv_python_script uses this process's sys.executable (basic "
 "stdlib); use a venv for numpy/pandas."
 msgstr ""
-"Kui määratud, käivitab tööriistad selles venv-is (bin/python või Scripts/"
-"python.exe). Kui tühi, kasutab run_venv_python_script selle protsessi "
-"sys.executable'i (põhiline stdlib); kasuta venv-i numpy/pandas jaoks."
+"Kui määratud, käivitab tööriistad selles venv-is (bin/python või "
+"Scripts/python.exe). Kui tühi, kasutab run_venv_python_script selle "
+"protsessi sys.executable'i (põhiline stdlib); kasuta venv-i numpy/pandas "
+"jaoks."
 
 msgid "Test"
 msgstr "Test"
+
+msgid "Python script timeout (seconds)"
+msgstr "Pythoni skripti ajalõpp (sekundites)"
+
+msgid ""
+"Wall-clock limit for Run Python Script, =PYTHON(), and "
+"run_venv_python_script."
+msgstr ""
+"Pythoni skripti käivitamise, =PYTHON() ja run_venv_python_script "
+"funktsioonide ajalimiit."
 
 msgid "Writer document tools (including navigation and search)"
 msgstr "Writeri dokumenditööriistad (sh navigeerimine ja otsing)"

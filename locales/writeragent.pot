@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-19 21:06-0400\n"
+"POT-Creation-Date: 2026-05-21 15:02-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -29,6 +29,40 @@ msgid ""
 "Tool call switched to '{0}'. You are in a specialized toolset mode. You must"
 " call 'specialized_workflow_finished' when done to restore the full set of "
 "APIs."
+msgstr ""
+
+#: plugin/notebook/import_dialog.py
+msgid "Import Jupyter Notebook"
+msgstr ""
+
+#: plugin/notebook/import_dialog.py
+msgid "Jupyter Notebook"
+msgstr ""
+
+#: plugin/notebook/import_dialog.py
+msgid "All files"
+msgstr ""
+
+#: plugin/notebook/import_dialog.py
+msgid "Open a Writer document first."
+msgstr ""
+
+#: plugin/notebook/import_dialog.py
+msgid "Import Notebook is only supported in LibreOffice Writer."
+msgstr ""
+
+#: plugin/notebook/import_dialog.py
+#, python-brace-format
+msgid "Failed to import notebook: {error}"
+msgstr ""
+
+#: plugin/notebook/import_dialog.py
+#, python-brace-format
+msgid ""
+"Imported notebook.\n"
+"Cells: {cells} (code: {code}, markdown: {markdown})\n"
+"Code input fields in document: {shapes}\n"
+"Output images: {images}"
 msgstr ""
 
 #: plugin/contrib/aihordeclient/__init__.py plugin/chatbot/panel.py
@@ -716,7 +750,7 @@ msgid "MCP server failed to start"
 msgstr ""
 
 #: plugin/mcp/__init__.py
-msgid "Check ~/writeragent.log"
+msgid "Check writeragent_debug.log in your LibreOffice user config folder"
 msgstr ""
 
 #: plugin/mcp/__init__.py
@@ -789,6 +823,10 @@ msgstr ""
 
 #: plugin/main.py
 msgid "Run Python Script..."
+msgstr ""
+
+#: plugin/main.py
+msgid "Import Jupyter Notebook..."
 msgstr ""
 
 #: plugin/main.py
@@ -1106,15 +1144,6 @@ msgid ""
 " after you pause typing. Off by default."
 msgstr ""
 
-msgid "Grammar check wait timeout (ms)"
-msgstr ""
-
-msgid ""
-"Reserved for possible future use. The proofreader returns immediately on "
-"cache miss (async); results appear on a later Writer pass once the sentence "
-"cache is filled."
-msgstr ""
-
 msgid "Grammar check model (optional)"
 msgstr ""
 
@@ -1175,6 +1204,15 @@ msgstr ""
 msgid "MCP Port"
 msgstr ""
 
+msgid "Allow CORS from local origins"
+msgstr ""
+
+msgid ""
+"Automatic for .local, .lan, .home.arpa, .internal, and LAN IPs in the "
+"browser Origin. For other hosts, add mcp.cors_allowed_origins in "
+"writeragent.json."
+msgstr ""
+
 msgid "Python"
 msgstr ""
 
@@ -1188,6 +1226,14 @@ msgid ""
 msgstr ""
 
 msgid "Test"
+msgstr ""
+
+msgid "Python script timeout (seconds)"
+msgstr ""
+
+msgid ""
+"Wall-clock limit for Run Python Script, =PYTHON(), and "
+"run_venv_python_script."
 msgstr ""
 
 msgid "Writer document tools (including navigation and search)"

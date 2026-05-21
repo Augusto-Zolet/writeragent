@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-19 21:05-0400\n"
+"POT-Creation-Date: 2026-05-21 15:02-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Finnish <LL@li.org>\n"
@@ -19,8 +19,8 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
-"sub-agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable"
+" sub-agents in configuration."
 msgstr ""
 "Asiakirjan tutkimusluvut vaativat aliedustajan delegointia (USE_SUB_AGENT). "
 "Ota aliedustajat käyttöön asetuksista."
@@ -28,13 +28,51 @@ msgstr ""
 #: plugin/doc/specialized_base.py
 #, python-brace-format
 msgid ""
-"Tool call switched to '{0}'. You are in a specialized toolset mode. You must "
-"call 'specialized_workflow_finished' when done to restore the full set of "
+"Tool call switched to '{0}'. You are in a specialized toolset mode. You must"
+" call 'specialized_workflow_finished' when done to restore the full set of "
 "APIs."
 msgstr ""
 "Työkalukutsu vaihdettu tilaan '{0}'. Olet erikoistyökalutilassa. Sinun on "
 "kutsuttava 'specialized_workflow_finished', kun olet valmis, jotta voit "
 "palauttaa täyden API-joukon."
+
+#: plugin/notebook/import_dialog.py
+msgid "Import Jupyter Notebook"
+msgstr "Tuo Jupyter-muistikirja"
+
+#: plugin/notebook/import_dialog.py
+msgid "Jupyter Notebook"
+msgstr "Jupyter-muistikirja"
+
+#: plugin/notebook/import_dialog.py
+msgid "All files"
+msgstr "Kaikki tiedostot"
+
+#: plugin/notebook/import_dialog.py
+msgid "Open a Writer document first."
+msgstr "Avaa ensin Writer-asiakirja."
+
+#: plugin/notebook/import_dialog.py
+msgid "Import Notebook is only supported in LibreOffice Writer."
+msgstr "Muistikirjan tuonti on tuettu vain LibreOffice Writerissa."
+
+#: plugin/notebook/import_dialog.py
+#, python-brace-format
+msgid "Failed to import notebook: {error}"
+msgstr "Muistikirjan tuonti epäonnistui: {error}"
+
+#: plugin/notebook/import_dialog.py
+#, python-brace-format
+msgid ""
+"Imported notebook.\n"
+"Cells: {cells} (code: {code}, markdown: {markdown})\n"
+"Code input fields in document: {shapes}\n"
+"Output images: {images}"
+msgstr ""
+"Muistikirja tuotu.\n"
+"Soluja: {cells} (koodia: {code}, markdownia: {markdown})\n"
+"Koodin syöttökenttiä asiakirjassa: {shapes}\n"
+"Tulostekuvia: {images}"
 
 #: plugin/contrib/aihordeclient/__init__.py plugin/chatbot/panel.py
 msgid "Starting..."
@@ -159,7 +197,8 @@ msgstr "Tämä malli vie enemmän aikaa kuin nykyinen asetuksesi."
 
 #: plugin/contrib/aihordeclient/__init__.py
 #, python-brace-format
-msgid "Please try another model. {0} would take more time than you configured."
+msgid ""
+"Please try another model. {0} would take more time than you configured."
 msgstr "Kokeile toista mallia. {0} vie enemmän aikaa kuin olet määrittänyt."
 
 #: plugin/contrib/aihordeclient/__init__.py
@@ -226,7 +265,8 @@ msgstr ""
 
 #: plugin/framework/constants.py
 msgid ""
-"AI: I can help you with formulas, data analysis, and colorful charts. Try me!"
+"AI: I can help you with formulas, data analysis, and colorful charts. Try "
+"me!"
 msgstr ""
 "AI: Voin auttaa sinua kaavojen, data-analyysin ja värikkäiden kaavioiden "
 "kanssa. Kokeile minua!"
@@ -282,7 +322,8 @@ msgstr ""
 "asetuksista."
 
 #: plugin/framework/client/errors.py
-msgid "Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
+msgid ""
+"Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
 msgstr ""
 "Yhteys evätty. Onko paikallinen tekoälypalvelimesi (Ollama/LM Studio) "
 "käynnissä?"
@@ -567,8 +608,7 @@ msgid ""
 "No editor found (install Kate or Gedit, or set EDITOR). Path:\n"
 "{0}"
 msgstr ""
-"Editoria ei löytynyt (asenna Kate tai Gedit, tai määritä EDITOR-"
-"ympäristömuuttuja). Polku:\n"
+"Editoria ei löytynyt (asenna Kate tai Gedit, tai määritä EDITOR-ympäristömuuttuja). Polku:\n"
 "{0}"
 
 #: plugin/chatbot/external_editor.py
@@ -597,7 +637,8 @@ msgstr "[Agent-taustajärjestelmää '{0}' ei löytynyt.]"
 
 #: plugin/chatbot/send_handlers.py
 #, python-brace-format
-msgid "[Agent backend '{0}' is not available. Check Settings (path, install).]"
+msgid ""
+"[Agent backend '{0}' is not available. Check Settings (path, install).]"
 msgstr ""
 "[Agent-taustajärjestelmä '{0}' ei ole käytettävissä. Tarkista asetukset "
 "(polku, asennus).]"
@@ -767,8 +808,8 @@ msgid "MCP server failed to start"
 msgstr "MCP-palvelimen käynnistys epäonnistui"
 
 #: plugin/mcp/__init__.py
-msgid "Check ~/writeragent.log"
-msgstr "Tarkista ~/writeragent.log"
+msgid "Check writeragent_debug.log in your LibreOffice user config folder"
+msgstr "Tarkista writeragent_debug.log LibreOffice-käyttäjäasetuskansiostasi"
 
 #: plugin/mcp/__init__.py
 msgid "MCP server is not running"
@@ -841,6 +882,10 @@ msgstr "Arvioinnin koontinäyttö"
 #: plugin/main.py
 msgid "Run Python Script..."
 msgstr "Suorita Python-skripti..."
+
+#: plugin/main.py
+msgid "Import Jupyter Notebook..."
+msgstr "Tuo Jupyter-muistikirja..."
 
 #: plugin/main.py
 msgid "Insert LaTeX Math..."
@@ -1064,8 +1109,8 @@ msgid "Path / URL"
 msgstr "Polku / URL"
 
 msgid ""
-"Path to backend CLI (e.g. aider) or ACP server URL (e.g. http://"
-"localhost:8000 for Hermes). Empty = try default."
+"Path to backend CLI (e.g. aider) or ACP server URL (e.g. "
+"http://localhost:8000 for Hermes). Empty = try default."
 msgstr ""
 "Taustajärjestelmän CLI-polku (esim. aider) tai ACP-palvelimen URL-osoite "
 "(esim. http://localhost:8000 Hermesille). Tyhjä = kokeile oletusta."
@@ -1161,25 +1206,13 @@ msgstr "Ota käyttöön tekoälypohjainen kieliopin tarkistus (Writer)"
 
 msgid ""
 "When on, WriterAgent registers its AI grammar proofreader with Linguistic; "
-"checked text uses your API (Tools → Options → AI). Underlines appear shortly "
-"after you pause typing. Off by default."
+"checked text uses your API (Tools → Options → AI). Underlines appear shortly"
+" after you pause typing. Off by default."
 msgstr ""
 "Kun tämä on päällä, WriterAgent rekisteröi tekoälypohjaisen kieliopin "
-"tarkistimensa Linguistic-palveluun; tarkistettu teksti käyttää API-avaintasi "
-"(Työkalut → Asetukset → AI). Alleviivaus ilmestyy pian kirjoitustauon "
+"tarkistimensa Linguistic-palveluun; tarkistettu teksti käyttää API-avaintasi"
+" (Työkalut → Asetukset → AI). Alleviivaus ilmestyy pian kirjoitustauon "
 "jälkeen. Oletuksena pois päältä."
-
-msgid "Grammar check wait timeout (ms)"
-msgstr "Kieliopin tarkistuksen viive (ms)"
-
-msgid ""
-"Reserved for possible future use. The proofreader returns immediately on "
-"cache miss (async); results appear on a later Writer pass once the sentence "
-"cache is filled."
-msgstr ""
-"Varattu mahdollista tulevaa käyttöä varten. Tarkistin palauttaa tulokset "
-"välittömästi välimuistivirheen sattuessa (asynkroninen); tulokset näkyvät "
-"Writerin myöhemmässä tarkistusvaiheessa, kun lausevälimuisti on täytetty."
 
 msgid "Grammar check model (optional)"
 msgstr "Kieliopin tarkistusmalli (valinnainen)"
@@ -1195,8 +1228,8 @@ msgid ""
 "runs, to avoid concurrent API calls."
 msgstr ""
 "Kun tämä on päällä, tekoälypohjainen kieliopin tarkistus ohittaa "
-"taustapyynnöt, kun sivupalkin chat tai agentti on käynnissä, jotta vältetään "
-"samanaikaiset API-kutsut."
+"taustapyynnöt, kun sivupalkin chat tai agentti on käynnissä, jotta vältetään"
+" samanaikaiset API-kutsut."
 
 msgid "Grammar batch sentences"
 msgstr "Kieliopin eräkäsittelylauseet"
@@ -1246,14 +1279,26 @@ msgid "Enable MCP Server"
 msgstr "Ota MCP-palvelin käyttöön"
 
 msgid ""
-"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable "
-"HTTP)."
+"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable"
+" HTTP)."
 msgstr ""
-"Vain localhost, ei todennusta. Asiakasohjelmat käyttävät osoitetta http://"
-"localhost:<port>/mcp (suoratoistettava HTTP)."
+"Vain localhost, ei todennusta. Asiakasohjelmat käyttävät osoitetta "
+"http://localhost:<port>/mcp (suoratoistettava HTTP)."
 
 msgid "MCP Port"
 msgstr "MCP-portti"
+
+msgid "Allow CORS from local origins"
+msgstr "Salli CORS paikallisista lähteistä"
+
+msgid ""
+"Automatic for .local, .lan, .home.arpa, .internal, and LAN IPs in the "
+"browser Origin. For other hosts, add mcp.cors_allowed_origins in "
+"writeragent.json."
+msgstr ""
+"Automaattinen .local-, .lan-, .home.arpa-, .internal- ja lähiverkon IP-"
+"osoitteille selaimen alkuperässä (Origin). Lisää muut isäntäkoneet tiedoston"
+" writeragent.json kohtaan mcp.cors_allowed_origins."
 
 msgid "Python"
 msgstr "Python"
@@ -1266,13 +1311,23 @@ msgid ""
 "empty, run_venv_python_script uses this process's sys.executable (basic "
 "stdlib); use a venv for numpy/pandas."
 msgstr ""
-"Jos asetettu, suorittaa työkalut kyseisessä virtuaaliympäristössä (bin/"
-"python tai Scripts/python.exe). Jos tyhjä, run_venv_python_script käyttää "
-"tämän prosessin sys.executable-polkua (perus-stdlib); käytä "
+"Jos asetettu, suorittaa työkalut kyseisessä virtuaaliympäristössä "
+"(bin/python tai Scripts/python.exe). Jos tyhjä, run_venv_python_script "
+"käyttää tämän prosessin sys.executable-polkua (perus-stdlib); käytä "
 "virtuaaliympäristöä, jos tarvitset numpya tai pandasia."
 
 msgid "Test"
 msgstr "Testi"
+
+msgid "Python script timeout (seconds)"
+msgstr "Python-skriptin aikakatkaisu (sekuntia)"
+
+msgid ""
+"Wall-clock limit for Run Python Script, =PYTHON(), and "
+"run_venv_python_script."
+msgstr ""
+"Suoritusaikaraja toiminnoille Run Python Script, =PYTHON() ja "
+"run_venv_python_script."
 
 msgid "Writer document tools (including navigation and search)"
 msgstr "Writer-asiakirjatyökalut (mukaan lukien siirtyminen ja haku)"

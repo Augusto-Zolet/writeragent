@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-19 21:05-0400\n"
+"POT-Creation-Date: 2026-05-21 15:02-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Norwegian Nynorsk <LL@li.org>\n"
@@ -19,8 +19,8 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
-"sub-agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable"
+" sub-agents in configuration."
 msgstr ""
 "Dokumentundersøkingar krev delegering til underagent (USE_SUB_AGENT). "
 "Aktiver underagentar i oppsettet."
@@ -28,13 +28,51 @@ msgstr ""
 #: plugin/doc/specialized_base.py
 #, python-brace-format
 msgid ""
-"Tool call switched to '{0}'. You are in a specialized toolset mode. You must "
-"call 'specialized_workflow_finished' when done to restore the full set of "
+"Tool call switched to '{0}'. You are in a specialized toolset mode. You must"
+" call 'specialized_workflow_finished' when done to restore the full set of "
 "APIs."
 msgstr ""
 "Verktøykall bytta til '{0}'. Du er i ein spesialisert verktøymodus. Du må "
 "kalle 'specialized_workflow_finished' når du er ferdig for å gjenopprette "
 "det fulle settet med API-ar."
+
+#: plugin/notebook/import_dialog.py
+msgid "Import Jupyter Notebook"
+msgstr "Importer Jupyter Notebook"
+
+#: plugin/notebook/import_dialog.py
+msgid "Jupyter Notebook"
+msgstr "Jupyter Notebook"
+
+#: plugin/notebook/import_dialog.py
+msgid "All files"
+msgstr "Alle filer"
+
+#: plugin/notebook/import_dialog.py
+msgid "Open a Writer document first."
+msgstr "Opne eit Writer-dokument først."
+
+#: plugin/notebook/import_dialog.py
+msgid "Import Notebook is only supported in LibreOffice Writer."
+msgstr "Import av Notebook er berre støtta i LibreOffice Writer."
+
+#: plugin/notebook/import_dialog.py
+#, python-brace-format
+msgid "Failed to import notebook: {error}"
+msgstr "Klarte ikkje å importere notebook: {error}"
+
+#: plugin/notebook/import_dialog.py
+#, python-brace-format
+msgid ""
+"Imported notebook.\n"
+"Cells: {cells} (code: {code}, markdown: {markdown})\n"
+"Code input fields in document: {shapes}\n"
+"Output images: {images}"
+msgstr ""
+"Importert notebook.\n"
+"Celler: {cells} (kode: {code}, markdown: {markdown})\n"
+"Kodefelt i dokumentet: {shapes}\n"
+"Utbiletfiler: {images}"
 
 #: plugin/contrib/aihordeclient/__init__.py plugin/chatbot/panel.py
 msgid "Starting..."
@@ -97,8 +135,8 @@ msgid ""
 "Seems that «{}» has problems, double check it, create a new one or join "
 "Discord to ask for help"
 msgstr ""
-"Det ser ut til at «{}» har problem, dobbeltsjekk det, opprett eit nytt eller "
-"bli med på Discord for å be om hjelp"
+"Det ser ut til at «{}» har problem, dobbeltsjekk det, opprett eit nytt eller"
+" bli med på Discord for å be om hjelp"
 
 #: plugin/contrib/aihordeclient/__init__.py
 msgid "We hit an error, still: "
@@ -160,7 +198,8 @@ msgstr "Denne modellen tek lengre tid enn den noverande konfigurasjonen din."
 
 #: plugin/contrib/aihordeclient/__init__.py
 #, python-brace-format
-msgid "Please try another model. {0} would take more time than you configured."
+msgid ""
+"Please try another model. {0} would take more time than you configured."
 msgstr ""
 "Prøv ein annan modell. {0} vil ta lengre tid enn det du har konfigurert."
 
@@ -228,7 +267,8 @@ msgstr ""
 
 #: plugin/framework/constants.py
 msgid ""
-"AI: I can help you with formulas, data analysis, and colorful charts. Try me!"
+"AI: I can help you with formulas, data analysis, and colorful charts. Try "
+"me!"
 msgstr ""
 "AI: Eg kan hjelpe deg med formlar, dataanalyse og fargerike diagram. Prøv "
 "meg!"
@@ -247,7 +287,8 @@ msgid ""
 "without seeing or changing your document. Let's chat."
 msgstr ""
 "AI: Eg kan gjere nettsøk for å svare på kva som helst spørsmål, eller "
-"oppsummere ei nettside, utan å sjå eller endre dokumentet ditt. La oss prate."
+"oppsummere ei nettside, utan å sjå eller endre dokumentet ditt. La oss "
+"prate."
 
 #: plugin/framework/client/errors.py
 #, python-brace-format
@@ -284,8 +325,10 @@ msgstr ""
 "innstillingane."
 
 #: plugin/framework/client/errors.py
-msgid "Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
-msgstr "Tilkobling nekta. Køyrer den lokale AI-tenaren din (Ollama/LM Studio)?"
+msgid ""
+"Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
+msgstr ""
+"Tilkobling nekta. Køyrer den lokale AI-tenaren din (Ollama/LM Studio)?"
 
 #: plugin/framework/client/errors.py
 msgid "DNS Error. Could not resolve the endpoint URL."
@@ -500,8 +543,8 @@ msgid ""
 "[Internal Error: Document type changed from {0} to {1}! Please file an "
 "error.]"
 msgstr ""
-"[Intern feil: Dokumenttypen er endra frå {0} til {1}! Ver venleg og meld frå "
-"om feilen.]"
+"[Intern feil: Dokumenttypen er endra frå {0} til {1}! Ver venleg og meld frå"
+" om feilen.]"
 
 #: plugin/chatbot/panel.py
 #, python-brace-format
@@ -599,7 +642,8 @@ msgstr "[Agent-bakende '{0}' vart ikkje funnen.]"
 
 #: plugin/chatbot/send_handlers.py
 #, python-brace-format
-msgid "[Agent backend '{0}' is not available. Check Settings (path, install).]"
+msgid ""
+"[Agent backend '{0}' is not available. Check Settings (path, install).]"
 msgstr ""
 "[Agent-bakende '{0}' er ikkje tilgjengeleg. Kontroller innstillingar (bane, "
 "installasjon).]"
@@ -770,8 +814,8 @@ msgid "MCP server failed to start"
 msgstr "Klarte ikkje starta MCP-tenar"
 
 #: plugin/mcp/__init__.py
-msgid "Check ~/writeragent.log"
-msgstr "Sjekk ~/writeragent.log"
+msgid "Check writeragent_debug.log in your LibreOffice user config folder"
+msgstr "Sjekk writeragent_debug.log i LibreOffice-brukarmappa di"
 
 #: plugin/mcp/__init__.py
 msgid "MCP server is not running"
@@ -844,6 +888,10 @@ msgstr "Evalueringspanel"
 #: plugin/main.py
 msgid "Run Python Script..."
 msgstr "Køyr Python-skript..."
+
+#: plugin/main.py
+msgid "Import Jupyter Notebook..."
+msgstr "Importer Jupyter Notebook..."
 
 #: plugin/main.py
 msgid "Insert LaTeX Math..."
@@ -1067,11 +1115,11 @@ msgid "Path / URL"
 msgstr "Sti / URL"
 
 msgid ""
-"Path to backend CLI (e.g. aider) or ACP server URL (e.g. http://"
-"localhost:8000 for Hermes). Empty = try default."
+"Path to backend CLI (e.g. aider) or ACP server URL (e.g. "
+"http://localhost:8000 for Hermes). Empty = try default."
 msgstr ""
-"Sti til backend-CLI (t.d. aider) eller ACP-tenar-URL (t.d. http://"
-"localhost:8000 for Hermes). Tom = prøv standard."
+"Sti til backend-CLI (t.d. aider) eller ACP-tenar-URL (t.d. "
+"http://localhost:8000 for Hermes). Tom = prøv standard."
 
 msgid "Extra arguments"
 msgstr "Ekstra argument"
@@ -1160,25 +1208,13 @@ msgstr "Aktiver AI-grammatikkontroll (Writer)"
 
 msgid ""
 "When on, WriterAgent registers its AI grammar proofreader with Linguistic; "
-"checked text uses your API (Tools → Options → AI). Underlines appear shortly "
-"after you pause typing. Off by default."
+"checked text uses your API (Tools → Options → AI). Underlines appear shortly"
+" after you pause typing. Off by default."
 msgstr ""
 "Når denne er på, registrerer WriterAgent sin AI-grammatikkontrollør med "
 "Linguistic; kontrollert tekst brukar API-et ditt (Verktøy → Val → AI). "
 "Understrekingar dukkar opp kort tid etter at du tek ein pause i skrivinga. "
 "Av som standard."
-
-msgid "Grammar check wait timeout (ms)"
-msgstr "Tidsavbrot for grammatikkontroll (ms)"
-
-msgid ""
-"Reserved for possible future use. The proofreader returns immediately on "
-"cache miss (async); results appear on a later Writer pass once the sentence "
-"cache is filled."
-msgstr ""
-"Reservert for mogleg framtidig bruk. Kontrolløren returnerer umiddelbart ved "
-"cache-bom (asynkront); resultata dukkar opp i ein seinare Writer-gjennomgang "
-"når setningscachen er fylt."
 
 msgid "Grammar check model (optional)"
 msgstr "Modell for grammatikkontroll (valfri)"
@@ -1243,14 +1279,26 @@ msgid "Enable MCP Server"
 msgstr "Aktiver MCP-tenar"
 
 msgid ""
-"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable "
-"HTTP)."
+"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable"
+" HTTP)."
 msgstr ""
-"Berre localhost, inga autentisering. Klientar brukar http://localhost:<port>/"
-"mcp (strøymbar HTTP)."
+"Berre localhost, inga autentisering. Klientar brukar "
+"http://localhost:<port>/mcp (strøymbar HTTP)."
 
 msgid "MCP Port"
 msgstr "MCP-port"
+
+msgid "Allow CORS from local origins"
+msgstr "Tillat CORS frå lokale opphav"
+
+msgid ""
+"Automatic for .local, .lan, .home.arpa, .internal, and LAN IPs in the "
+"browser Origin. For other hosts, add mcp.cors_allowed_origins in "
+"writeragent.json."
+msgstr ""
+"Automatisk for .local, .lan, .home.arpa, .internal og LAN-IP-ar i "
+"nettlesaren sin Origin. For andre vertar, legg til mcp.cors_allowed_origins "
+"i writeragent.json."
 
 msgid "Python"
 msgstr "Python"
@@ -1263,12 +1311,22 @@ msgid ""
 "empty, run_venv_python_script uses this process's sys.executable (basic "
 "stdlib); use a venv for numpy/pandas."
 msgstr ""
-"Viss sett, køyrer verktøy i det venv-et (bin/python eller Scripts/"
-"python.exe). Viss tomt, brukar run_venv_python_script prosessen sin "
+"Viss sett, køyrer verktøy i det venv-et (bin/python eller "
+"Scripts/python.exe). Viss tomt, brukar run_venv_python_script prosessen sin "
 "sys.executable (grunnleggjande stdlib); bruk eit venv for numpy/pandas."
 
 msgid "Test"
 msgstr "Test"
+
+msgid "Python script timeout (seconds)"
+msgstr "Tidsavbrot for Python-skript (sekund)"
+
+msgid ""
+"Wall-clock limit for Run Python Script, =PYTHON(), and "
+"run_venv_python_script."
+msgstr ""
+"Tidsgrense for køyring av Python-skript, =PYTHON() og "
+"run_venv_python_script."
 
 msgid "Writer document tools (including navigation and search)"
 msgstr "Verktøy for Writer-dokument (inkludert navigasjon og søk)"
