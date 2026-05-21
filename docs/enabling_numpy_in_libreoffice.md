@@ -172,6 +172,9 @@ plugin/
 │   └── calc_addin_data.py        # Range → data shaping for =PYTHON / tool
 ├── contrib/smolagents/
 │   └── local_python_executor.py  # Vendored AST sandbox (shipped in OXT)
+├── notebook/                     # Writer .ipynb import (menu + UNO importer)
+│   ├── import_dialog.py          # File picker, completion msgbox
+│   └── writer_importer.py        # Cell loop, body text, code fields, images
 └── contrib/nbformat/             # Vendored .ipynb reader (nbformat v4 only; see below)
     ├── reader.py
     ├── notebooknode.py
@@ -448,29 +451,75 @@ Prioritized future work (LO profiling gate, Tier 0 crossings, host pack/unpack, 
 
 ### Jupyter notebook import (`.ipynb`)
 
-> **Status (2026-05):** Vendored **nbformat v4 read path** in [`plugin/contrib/nbformat/`](../plugin/contrib/nbformat/) (BSD-3-Clause subset of [jupyter/nbformat](https://github.com/jupyter/nbformat)). Public API: `read_ipynb(path)`, `reads(json_string)` → `NotebookNode` with `rejoin_lines` applied (multi-line `source`, stream `text`, MIME bundles).
+WriterAgent can **read** Jupyter notebooks (nbformat v4) and **import** them into an open LibreOffice Writer document. This is separate from the venv NumPy bridge: imported code cells are editable **form TextFields** in the document; they are **not** executed against a Jupyter kernel unless the user runs Python elsewhere.
 
-| Shipped | Deferred |
-|---------|----------|
-| nbformat **v4** JSON read, `rejoin_lines`, `strip_transient` | Run buttons / kernel execution on imported cells |
-| **Writer import:** Tools → **Import Jupyter Notebook…** — [`plugin/notebook/writer_importer.py`](../plugin/notebook/writer_importer.py): markdown/raw/outputs as **body text** (Heading 2/3 + Preformatted); **one** in-flow code **TextField** per code cell; **PNG/JPEG** outputs embedded in the “Output” section via `TextGraphicObject` + [`image_tools.py`](../plugin/writer/images/image_tools.py) | Markdown rendered as HTML in body; batched background decode + main-thread insert (see below) |
-| Unit tests: [`tests/contrib/test_nbformat_read.py`](../tests/contrib/test_nbformat_read.py) | **nbformat v3** and older upgrade ([`nbformat/v4/convert.py`](https://github.com/jupyter/nbformat/blob/main/nbformat/v4/convert.py) in upstream) — revisit when users need legacy notebooks |
-| | JSON schema validation (`fastjsonschema`), `traitlets`, `jupyter_core` |
-| | Notebook **kernel** (shared session in warm worker), Run buttons, export to `.ipynb` |
+#### Shipped vs deferred
 
-**Why vendored, not PyPI:** Same pattern as [`local_python_executor.py`](../plugin/contrib/smolagents/local_python_executor.py) — no extra deps in the OXT, LO-embedded Python stays light. Do not `pip install nbformat` into LibreOffice.
+| Shipped (2026-05) | Deferred |
+|-------------------|----------|
+| Vendored **nbformat v4** read — [`plugin/contrib/nbformat/`](../plugin/contrib/nbformat/): `read_ipynb(path)`, `reads(json_string)` → `NotebookNode` with `rejoin_lines` (multi-line `source`, stream `text`, MIME bundles) | **nbformat v3** upgrade ([`nbformat/v4/convert.py`](https://github.com/jupyter/nbformat/blob/main/nbformat/v4/convert.py) in upstream) |
+| Menu: **Tools → Import Jupyter Notebook…** — [`import_dialog.py`](../plugin/notebook/import_dialog.py) (file picker, Writer-only check, stats msgbox) | Full CommonMark/HTML renderer for all markdown (only HTML-tagged cells today) |
+| Import engine — [`writer_importer.py`](../plugin/notebook/writer_importer.py): per-cell headings, body text, in-flow code fields, embedded plot images | Run buttons / re-execute imported cells |
+| Output images: `image/png`, `image/jpeg` in `display_data` / `execute_result` | Batched background decode queue (see [Image loading](#image-loading-and-ui-threading)) |
+| Tests: [`tests/contrib/test_nbformat_read.py`](../tests/contrib/test_nbformat_read.py), [`tests/notebook/test_writer_importer.py`](../tests/notebook/test_writer_importer.py), [`tests/writer/test_image_tools_safe_property.py`](../tests/writer/test_image_tools_safe_property.py) | JSON schema validation (`fastjsonschema`), `traitlets`, `jupyter_core` |
+| | Export back to `.ipynb`, shared **kernel** with venv worker |
+
+**Why vendored nbformat, not PyPI:** Same pattern as [`local_python_executor.py`](../plugin/contrib/smolagents/local_python_executor.py) — no extra deps in the OXT; LO embedded Python stays light. Do not `pip install nbformat` into LibreOffice.
 
 **v3 note:** `reads()` raises `NBFormatError` if `nbformat` ≠ 4. To support v3 `.ipynb`, port upstream `v4/convert.py` (drop `traitlets` logging) into `plugin/contrib/nbformat/` and call `upgrade()` before `rejoin_lines`.
 
+#### How to use
+
+1. Open a **Writer** document (empty or existing — import appends at the end).
+2. **Tools → Import Jupyter Notebook…** (registered from [`plugin/notebook/`](../plugin/notebook/) via manifest).
+3. Pick a `.ipynb` file.
+4. Wait for the completion dialog (cells / code fields / image counts). Large notebooks run on the **main thread**; the UI may pause — see [Debugging](#debugging-import-slow-or-frozen-ui).
+
+After `make deploy`, restart LibreOffice so the menu handler loads.
+
+#### Document layout (per notebook cell)
+
+For each cell in order, the importer appends to the **document body**:
+
+| Cell type | Structure in Writer |
+|-----------|-------------------|
+| **All cells** | **Heading 2** — `Cell N: Markdown` / `Cell N: Code [In [k]]` / `Cell N: Raw` |
+| **markdown** | If source contains HTML tags (e.g. Colab badge `<a>…<img>…`): **HTML (StarWriter)** import via [`insert_html_at_cursor`](../plugin/writer/ops.py). Otherwise **Text Body** plain text (`# headings`, etc.) |
+| **code** | **Heading 3** “Code” → in-flow **TextField** (`nb_cell_{index}_code`, multiline) → optional **Heading 3** “Output” → preformatted stdout/stderr/errors → embedded **images** |
+| **raw** | **Text Body** — raw cell source |
+
+**Code fields (in-flow, not draw page):** Each code cell gets one `com.sun.star.form.component.TextField` inside a `ControlShape`, anchored **`AS_CHARACTER`**, inserted with `text.insertTextContent` at **document end** after the “Code” heading — same pattern as Writer [`CreateFormControl`](../plugin/writer/specialized/forms.py). Height scales with line count (capped); width ~140 mm (`_DEFAULT_WIDTH` in 1/100 mm).
+
+**Text outputs:** Stream, error tracebacks (ANSI stripped), and `text/plain` from `execute_data` / `execute_result` go to **Preformatted Text**, **one paragraph per block** (internal newlines preserved — not one Writer paragraph per line).
+
+**Paragraph styles:** English names (`Heading 2`, `Text Body`, `Preformatted Text`) are resolved against the document’s **ParagraphStyles** (case-insensitive) before apply; missing styles fall back quietly (no traceback spam on localized templates).
+
+**Images:** For each `image/png` or `image/jpeg` in cell outputs, base64 is decoded to a temp file and inserted via [`insert_image_at_locator`](../plugin/writer/images/image_tools.py) (uses `PropertySetInfo` for `GraphicURL` — **never** `hasattr` on UNO properties, which raised `UnknownPropertyException`). Embedded only (not linked). Inserted in the **Output** section after any text output. PNG size from IHDR (width capped at 140 mm).
+
+**HTML / remote images:** Colab badges use `https://` image URLs inside HTML. LibreOffice loads those at import time if network access works; offline import may show the link without the badge graphic.
+
+#### Limits and stats
+
+| Limit | Value |
+|-------|--------|
+| Text per block (source or output) | 50 000 chars — suffix `[… truncated for import …]` |
+| Outputs per code cell | 200 (extra outputs dropped with WARNING log) |
+| Image base64 decode | 8 MB per image |
+| Progress logging | INFO every 10 cells |
+
+`import_ipynb_to_writer` returns stats: `cells`, `markdown`, `code`, `raw`, `shapes` (code fields), `images`, `outputs`, and legacy `controls` (= `shapes`). The completion dialog shows cells, code-field count, and image count.
+
+#### Page-count bug (draw page, fixed 2026-05)
+
+An early importer placed code `ControlShape`s on the Writer **draw page** via `XDrawPage.add()` **without** setting `AnchorType`. Writer defaulted to **as-character** anchoring at the **current text cursor**, which was still inside the first cell **Heading 2** after the first markdown cell. Every subsequent code field was nested in that heading with `text:soft-page-break` between controls — e.g. **144 code cells → ~184 pages** (`meta:page-count` matched cell count).
+
+**Fix:** Code fields and images use **in-flow** `insertTextContent` at document end (`gotoEnd` before each insert). Do **not** revive draw-page stacking for notebook code without `AnchorType=AT_PAGE` and page-aware placement ([`plugin/draw/shapes.py`](../plugin/draw/shapes.py) `_try_writer_anchor_shape_before_add`).
+
 #### Debugging import (slow or “frozen” UI)
 
-Import runs on LibreOffice’s **MainThread**. Code fields are inserted in the **document flow** at the end of the body (same pattern as [`forms.py`](../plugin/writer/specialized/forms.py) Writer `CreateFormControl`), not stacked on the draw page. Read-only markdown, raw, and outputs use body text with headings.
+Import runs on LibreOffice’s **MainThread** (menu handler → `import_ipynb_to_writer`). There is no background import job yet.
 
-**Draw-page pitfall (fixed 2026-05):** An earlier path called `XDrawPage.add(ControlShape)` without `AnchorType=AT_PAGE`. Writer anchored every code field as-character inside the **first** cell heading, adding ~one soft page break per control (e.g. 144 code cells → ~184 pages). Re-enabling PNG import on the draw page must set `AT_PAGE` before `add` (see [`plugin/draw/shapes.py`](../plugin/draw/shapes.py) `_try_writer_anchor_shape_before_add`).
-
-**Log file:** `writeragent_debug.log` next to `writeragent.json` (e.g. `~/.config/libreoffice/4/user/` or `.../24/user/`). Set `"log_level": "DEBUG"` in `writeragent.json` (or **INFO** for progress lines only).
-
-**What to tail:**
+**Log file:** `writeragent_debug.log` next to `writeragent.json` (e.g. `~/.config/libreoffice/4/user/` or `.../24/user/`). Set `"log_level": "DEBUG"` in `writeragent.json` (or **INFO** for progress only).
 
 ```bash
 tail -f ~/.config/libreoffice/4/user/writeragent_debug.log
@@ -481,26 +530,24 @@ tail -f ~/.config/libreoffice/4/user/writeragent_debug.log
 | `notebook import start` | Import began after file pick |
 | `notebook import read_ipynb cells=N` | JSON parse finished |
 | `notebook import progress cell=30/120` | Still running (INFO every 10 cells) |
-| `notebook import add step=text_field ...` | Per-shape UNO timing (DEBUG) |
-| `notebook import slow UNO add` | Single add took ≥2s (WARNING) |
-| `notebook import complete` | Finished; success dialog should follow |
+| `notebook import add step=code_field` / `step=image` | Per-control UNO timing (DEBUG) |
+| `notebook import slow UNO add` | Single insert ≥2 s (WARNING) |
+| `notebook import complete` | Finished; completion msgbox follows |
 
-**Performance (2026-05):** **~1 in-flow control per code cell** (editable source); markdown, raw, and outputs go to Writer body text with headings (one paragraph per block, newlines preserved). **Images:** `image/png` and `image/jpeg` in cell outputs are decoded (max 8 MB base64), written to a temp file, and inserted as embedded `TextGraphicObject` in the Output section (width capped at 140 mm; PNG dimensions read from IHDR). 50k char truncation on text; output cap 200/cell. No `lockControllers()` during bulk import. UI flushed after import and around `msgbox`.
+[`flush_ui_idle`](../plugin/notebook/writer_importer.py) calls `processEventsToIdle()` after import and around the msgbox. No `lockControllers()` during bulk import.
 
-#### LibreOffice image loading and “background” work
+#### Image loading and UI threading
 
-Research summary (UNO / extension practice — there is **no** documented async “load image in background” API for Writer import):
+There is **no** documented LibreOffice UNO API for “load this image in the background” during Writer import. Relevant pieces:
 
-| Layer | What LO offers | WriterAgent implication |
-|-------|----------------|-------------------------|
-| **GraphicProvider** (`com.sun.star.graphic.GraphicProvider`, `queryGraphic`) | Synchronous load from URL into `XGraphic` ([LO Programming ch.8](https://flywire.github.io/lo-p/08-Graphic_Content.html)) | Same work happens when setting `GraphicURL` on `TextGraphicObject` — still on the thread that touches UNO |
-| **InsertGraphic dispatch** (`.uno:InsertGraphic`, `AsLink`) | UI command; can link user files ([`image_tools._dispatch_insert_linked_graphic`](../plugin/writer/images/image_tools.py)) | Not used for notebook embeds (temp decoded bytes must be embedded) |
-| **UNO threading** | UNO document APIs are **not** thread-safe; background threads that call UNO risk crashes/UI corruption ([`queue_executor.py`](../plugin/framework/queue_executor.py), Stack Overflow “Python UNO and Threads”) | Notebook import stays on **MainThread**; optional **worker** may only do CPU work (base64 decode, write temp files) then post results to main via `execute_on_main_thread` / `AsyncCallback` |
-| **UI responsiveness** | `XToolkit.processEventsToIdle()` between chunks | Already used in [`flush_ui_idle`](../plugin/notebook/writer_importer.py) every N cells; same pattern can batch image inserts |
+| Layer | What LO offers | WriterAgent today |
+|-------|----------------|-------------------|
+| **GraphicProvider** (`queryGraphic`) | Synchronous load from URL ([LO Programming ch.8](https://flywire.github.io/lo-p/08-Graphic_Content.html)) | Setting `GraphicURL` on `TextGraphicObject` does the same work on the calling thread |
+| **`.uno:InsertGraphic`** (`AsLink`) | Dispatch insert; good for user files ([`image_tools`](../plugin/writer/images/image_tools.py)) | Not used for notebook plots (temp files must embed) |
+| **UNO threading** | Document APIs are **not** thread-safe ([`queue_executor.py`](../plugin/framework/queue_executor.py)) | All `insertTextContent` / `GraphicURL` on **main thread** |
+| **UI pump** | `XToolkit.processEventsToIdle()` | After import; can be extended to every *k* images |
 
-**Practical pattern for large notebooks (future):** (1) background thread: decode base64 → temp paths queue; (2) main thread: dequeue paths, `insertTextContent`, `processEventsToIdle` every *k* images. **Not implemented yet** — current import decodes and inserts synchronously on the main thread (acceptable for typical plot outputs; very large notebooks may still stutter).
-
-**Draw-page images:** Do **not** use `XDrawPage.add` without `AnchorType=AT_PAGE` ([`draw/shapes.py`](../plugin/draw/shapes.py)); the old draw-page notebook path caused controls/images to anchor inside the first heading and inflate page count.
+**Future optimization (not implemented):** Worker thread only for base64 decode + temp file writes; queue paths to main thread for `insertTextContent` + `processEventsToIdle` every *k* images. Acceptable for typical tutorial notebooks synchronously; very image-heavy imports may stutter.
 
 ### Other enhancements
 
@@ -526,6 +573,7 @@ Research summary (UNO / extension practice — there is **no** documented async 
 | Calc ingress | [`pack_calc_data_for_wire`](../plugin/calc/calc_addin_data.py) |
 | Bench + tests | [`scripts/bench_serialization.py`](../scripts/bench_serialization.py), [`tests/scripting/test_payload_codec.py`](../tests/scripting/test_payload_codec.py), [`tests/scripting/test_run_venv_code.py`](../tests/scripting/test_run_venv_code.py) |
 | Vendored **nbformat v4** reader | [`plugin/contrib/nbformat/`](../plugin/contrib/nbformat/), [`tests/contrib/test_nbformat_read.py`](../tests/contrib/test_nbformat_read.py) |
+| **Writer `.ipynb` import** | [`plugin/notebook/`](../plugin/notebook/) (`import_dialog.py`, `writer_importer.py`), [`tests/notebook/test_writer_importer.py`](../tests/notebook/test_writer_importer.py) |
 
 See [NumPy serialization](numpy-serialization.md) for behavior, benchmarks, optimization tiers, and native host-extension notes.
 
@@ -534,4 +582,4 @@ See [NumPy serialization](numpy-serialization.md) for behavior, benchmarks, opti
 - **Serialization next steps** — [Future work](numpy-serialization.md#future-work--serialization-performance): LO profile first, Tier 0, opaque blob, float32, pandas egress, worker cache; Tier 2b codecs; optional [Cython `vec_pack`](numpy-serialization.md#building-host-native-extensions-cython) (not started).
 - Venv ↔ LO **tool RPC** ([§7](#7-deferred-roadmap)) — [`writeragent_api.py`](../plugin/scripting/writeragent_api.py) stubs only.
 - Managed venv (Strategy 2), session persistence, worker idle shutdown, per-formula `timeout_sec`, Python edit dialog tiers 1–3.
-- **Notebook product** — Writer import/export UI, shared kernel, interactive cells ([Jupyter notebook import](#jupyter-notebook-import-ipynb) — parser only today).
+- **Notebook product** — export to `.ipynb`, shared kernel, Run on imported cells, HTML markdown rendering ([Jupyter notebook import](#jupyter-notebook-import-ipynb) — Writer import shipped; execution loop deferred).

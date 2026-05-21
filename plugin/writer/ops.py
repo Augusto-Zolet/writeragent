@@ -79,6 +79,7 @@ def insert_html_at_cursor(cursor, html_content):
 
         import tempfile
         import os
+        import uno
         from com.sun.star.beans import PropertyValue
 
         with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as tmp:
@@ -86,7 +87,7 @@ def insert_html_at_cursor(cursor, html_content):
             tmp_path = tmp.name
 
         try:
-            file_url = "file://" + tmp_path.replace("\\", "/")
+            file_url = uno.systemPathToFileUrl(tmp_path)
             props = (PropertyValue(Name="FilterName", Value="HTML (StarWriter)"),)
             cursor.insertDocumentFromURL(file_url, props)
         finally:

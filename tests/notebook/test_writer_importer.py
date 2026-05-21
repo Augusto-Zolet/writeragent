@@ -10,11 +10,15 @@ from plugin.notebook.writer_importer import (
     _MAX_IMAGE_DECODE_BYTES,
     _MAX_IMPORT_TEXT_CHARS,
     _append_body_text_block,
+    _append_body_paragraph,
     _coerce_notebook_text,
     _decode_notebook_image,
+    _looks_like_html,
     _notebook_image_payload,
     _png_pixel_size,
     _prepare_display_text,
+    _resolve_para_style,
+    _wrap_html_fragment,
     format_all_outputs,
     format_output_text,
     import_ipynb_to_writer,
@@ -133,6 +137,39 @@ def _writer_doc_mock():
     return doc, body_text, body_cursor
 
 
+def test_looks_like_html_detects_tags():
+    assert _looks_like_html('<a href="https://example.com">x</a>') is True
+    assert _looks_like_html("## Plain markdown\n\nno tags") is False
+
+
+def test_wrap_html_fragment_adds_body():
+    wrapped = _wrap_html_fragment("<p>Hi</p>")
+    assert "<html>" in wrapped and "<body>" in wrapped and "<p>Hi</p>" in wrapped
+
+
+def test_resolve_para_style_case_insensitive():
+    doc = MagicMock()
+    para_styles = MagicMock()
+    para_styles.hasByName.side_effect = lambda n: n == "Text Body"
+    para_styles.getElementNames.return_value = ["Text Body", "Heading 2"]
+    families = MagicMock()
+    families.getByName.return_value = para_styles
+    doc.getStyleFamilies.return_value = families
+    assert _resolve_para_style(doc, "text body") == "Text Body"
+
+
+def test_append_body_paragraph_applies_resolved_style():
+    doc, body_text, body_cursor = _writer_doc_mock()
+    body_cursor.getString.return_value = ""
+    para_styles = MagicMock()
+    para_styles.hasByName.return_value = True
+    families = MagicMock()
+    families.getByName.return_value = para_styles
+    doc.getStyleFamilies.return_value = families
+    _append_body_paragraph(doc, "hello", "Text Body", lead_break=False)
+    body_cursor.setPropertyValue.assert_called_with("ParaStyleName", "Text Body")
+
+
 def test_append_body_text_block_single_paragraph():
     doc, body_text, body_cursor = _writer_doc_mock()
     body_cursor.getString.return_value = ""
@@ -200,6 +237,42 @@ def test_import_ipynb_code_cells_use_insert_text_content(tmp_path, monkeypatch):
     assert body_text.insertTextContent.call_count == 2
 
 
+def test_import_ipynb_markdown_html_uses_insert_html(tmp_path, monkeypatch):
+    ipynb = tmp_path / "html_md.ipynb"
+    ipynb.write_text(
+        '{"nbformat":4,"nbformat_minor":5,"metadata":{},"cells":['
+        '{"cell_type":"markdown","metadata":{},"source":'
+        '"<a href=\\"https://colab.research.google.com/\\">Open</a>"}'
+        "]}",
+        encoding="utf-8",
+    )
+
+    doc, body_text, _ = _writer_doc_mock()
+    html_calls: list[str] = []
+
+    class FakeSize:
+        def __init__(self, w, h):
+            self.Width = w
+            self.Height = h
+
+    doc.createInstance.side_effect = lambda service: MagicMock()
+    monkeypatch.setattr("plugin.notebook.writer_importer.Size", FakeSize)
+
+    def fake_insert_html(cursor, html):
+        html_calls.append(html)
+        return True
+
+    monkeypatch.setattr("plugin.writer.ops.insert_html_at_cursor", fake_insert_html)
+
+    stats = import_ipynb_to_writer(doc, str(ipynb))
+
+    assert stats["markdown"] == 1
+    assert len(html_calls) == 1
+    assert "<a href=" in html_calls[0]
+    inserted_text = [args[0][1] for args in body_text.insertString.call_args_list]
+    assert not any("<a href=" in t for t in inserted_text)
+
+
 def test_import_ipynb_inserts_image_output(tmp_path, monkeypatch):
     # Minimal valid 1x1 PNG base64
     png_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
@@ -224,15 +297,14 @@ def test_import_ipynb_inserts_image_output(tmp_path, monkeypatch):
     body_text.insertTextContent.side_effect = lambda cursor, content, absorb: insert_calls.append(content)
     monkeypatch.setattr("plugin.notebook.writer_importer.Size", FakeSize)
     monkeypatch.setattr(
-        "plugin.notebook.writer_importer._create_embedded_graphic",
-        lambda model, inside, url: MagicMock(),
+        "plugin.notebook.writer_importer.insert_image_at_locator",
+        lambda ctx, model, path, **kw: MagicMock(),
     )
-    monkeypatch.setattr("plugin.notebook.writer_importer._apply_graphic_properties", lambda *a, **k: None)
-    monkeypatch.setattr("plugin.notebook.writer_importer._file_url_for_path", lambda p: "file:///tmp/x.png")
 
-    stats = import_ipynb_to_writer(doc, str(ipynb))
+    ctx = MagicMock()
+    stats = import_ipynb_to_writer(doc, str(ipynb), ctx=ctx)
 
     assert stats["code"] == 1
     assert stats["images"] == 1
     assert stats["shapes"] == 1
-    assert len(insert_calls) == 2  # code field + image
+    assert len(insert_calls) == 1  # code field only; image via insert_image_at_locator

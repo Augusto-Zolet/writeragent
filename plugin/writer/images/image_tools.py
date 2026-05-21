@@ -147,6 +147,42 @@ def _selection_graphic_object(model):
         return None
 
 
+def _has_uno_property(obj: Any, name: str) -> bool:
+    """True if *name* exists on the UNO PropertySet (never use hasattr on UNO attrs)."""
+    try:
+        psi = obj.getPropertySetInfo()
+        if psi is not None and hasattr(psi, "hasPropertyByName"):
+            return bool(psi.hasPropertyByName(name))
+    except Exception:
+        pass
+    return False
+
+
+def _safe_set_property(obj: Any, name: str, value: Any) -> bool:
+    if not _has_uno_property(obj, name):
+        return False
+    try:
+        obj.setPropertyValue(name, value)
+        return True
+    except Exception as ex:
+        logger.debug("_safe_set_property %s failed: %s", name, ex)
+        return False
+
+
+def _graphic_from_provider(ctx: Any, file_url: str) -> Any | None:
+    try:
+        ctx_any = cast("Any", ctx)
+        smgr = ctx_any.ServiceManager
+        gp = smgr.createInstanceWithContext("com.sun.star.graphic.GraphicProvider", ctx_any)
+        if gp is None:
+            return None
+        props = (PropertyValue(Name="URL", Value=file_url),)
+        return gp.queryGraphic(props)
+    except Exception as ex:
+        logger.debug("_graphic_from_provider failed: %s", ex)
+        return None
+
+
 def _dispatch_insert_linked_graphic(ctx, model, file_url):
     """
     Insert a linked image via .uno:InsertGraphic (LO 6.1+).
@@ -168,16 +204,19 @@ def _dispatch_insert_linked_graphic(ctx, model, file_url):
         return None
 
 
-def _create_embedded_graphic(model, inside: str, file_url: str):
+def _create_embedded_graphic(model, inside: str, file_url: str, ctx: Any | None = None):
     if inside in ("writer", "web"):
         graphic = model.createInstance(_WRITER_GRAPHIC_SERVICE)
     else:
         graphic = model.createInstance(_DRAW_GRAPHIC_SERVICE)
-    if hasattr(graphic, "GraphicURL"):
-        graphic.GraphicURL = file_url
-    else:
-        graphic.setPropertyValue("GraphicURL", file_url)
-    return graphic
+    if graphic is None:
+        raise RuntimeError(f"Failed to create graphic instance for {inside}")
+    if _safe_set_property(graphic, "GraphicURL", file_url):
+        return graphic
+    xgraphic = _graphic_from_provider(ctx, file_url) if ctx is not None else None
+    if xgraphic is not None and _safe_set_property(graphic, "Graphic", xgraphic):
+        return graphic
+    raise RuntimeError("Could not assign GraphicURL or Graphic to embedded graphic")
 
 
 def insert_image(ctx, model, img_path, width_px, height_px, title="", description="", add_to_gallery=True, add_frame=False):
@@ -217,11 +256,11 @@ def insert_image_at_locator(ctx, model, img_path, width_mm=80, height_mm=80, tit
             file_url = _file_url_for_path(img_path)
             graphic = _dispatch_insert_linked_graphic(ctx, model, file_url)
             if graphic is None:
-                graphic = _insert_embedded_at_writer_cursor(model, img_path, width_units, height_units, title, description, text_cursor)
+                graphic = _insert_embedded_at_writer_cursor(model, img_path, width_units, height_units, title, description, text_cursor, ctx=ctx)
             else:
                 _apply_graphic_properties(graphic, width=width_units, height=height_units, title=title, description=description, inside=inside)
         else:
-            graphic = _insert_embedded_at_writer_cursor(model, img_path, width_units, height_units, title, description, text_cursor)
+            graphic = _insert_embedded_at_writer_cursor(model, img_path, width_units, height_units, title, description, text_cursor, ctx=ctx)
         return graphic
 
     _insert_image_to_drawpage(ctx, model, inside, img_path, width_units, height_units, title, description)
@@ -236,10 +275,10 @@ def _place_view_cursor_at_text_range(model, text_cursor):
         logger.debug("_place_view_cursor_at_text_range: %s", e)
 
 
-def _insert_embedded_at_writer_cursor(model, img_path, width, height, title, description, text_cursor=None):
+def _insert_embedded_at_writer_cursor(model, img_path, width, height, title, description, text_cursor=None, ctx: Any | None = None):
     doc_text = model.getText()
     file_url = _file_url_for_path(img_path)
-    image = _create_embedded_graphic(model, "writer", file_url)
+    image = _create_embedded_graphic(model, "writer", file_url, ctx=ctx)
     _apply_graphic_properties(image, width=width, height=height, title=title, description=description, inside="writer")
 
     if text_cursor is not None:
@@ -275,7 +314,7 @@ def _insert_image_to_writer(ctx, model, img_path, width, height, title, descript
             return
         logger.debug("_insert_image_to_writer: linked dispatch failed, embedding fallback")
 
-    _insert_embedded_at_writer_cursor(model, img_path, width, height, title, description)
+    _insert_embedded_at_writer_cursor(model, img_path, width, height, title, description, ctx=ctx)
 
 
 def _insert_frame(ctx, model, img_path, width, height, title, description):
@@ -312,7 +351,7 @@ def _insert_frame(ctx, model, img_path, width, height, title, description):
         logger.debug("_insert_frame: linked dispatch failed, embedding fallback")
 
     file_url = _file_url_for_path(img_path)
-    image = _create_embedded_graphic(model, "writer", file_url)
+    image = _create_embedded_graphic(model, "writer", file_url, ctx=ctx)
     _apply_graphic_properties(image, width=width, height=height, title=title, description=description, inside="writer")
     text_frame.insertTextContent(frame_cursor, image, False)
     if title:
@@ -426,10 +465,10 @@ def replace_graphic_source(ctx, model, graphic, img_path, width_units=None, heig
         return True
 
     file_url = _file_url_for_path(img_path)
-    if hasattr(graphic, "GraphicURL"):
-        graphic.GraphicURL = file_url
-    else:
-        graphic.setPropertyValue("GraphicURL", file_url)
+    if not _safe_set_property(graphic, "GraphicURL", file_url) and ctx is not None:
+        xgraphic = _graphic_from_provider(ctx, file_url)
+        if xgraphic is not None:
+            _safe_set_property(graphic, "Graphic", xgraphic)
     if title is not None or description is not None:
         _apply_graphic_properties(
             graphic,

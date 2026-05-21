@@ -22,7 +22,13 @@ from com.sun.star.awt import Point, Size
 from com.sun.star.text.TextContentAnchorType import AS_CHARACTER
 
 from plugin.contrib.nbformat import read_ipynb
-from plugin.writer.images.image_tools import _apply_graphic_properties, _create_embedded_graphic, _file_url_for_path, _mm_to_units
+from plugin.writer.images.image_tools import (
+    _apply_graphic_properties,
+    _create_embedded_graphic,
+    _file_url_for_path,
+    _mm_to_units,
+    insert_image_at_locator,
+)
 
 log = logging.getLogger("writeragent.notebook")
 
@@ -51,6 +57,7 @@ _STYLE_OUTPUT = "Preformatted Text"
 _STYLE_BODY = "Text Body"
 
 _PARAGRAPH_BREAK = 0  # com.sun.star.text.ControlCharacter.PARAGRAPH_BREAK
+_HTML_TAG_RE = re.compile(r"<\s*[a-zA-Z]", re.DOTALL)
 
 
 def _mono_ms(t0: float) -> int:
@@ -239,6 +246,7 @@ def _insert_image_in_flow(
     raw: bytes,
     mime: str,
     images_before: int,
+    ctx: Any | None = None,
 ) -> bool:
     """Embed notebook image output in document flow at body end (TextGraphicObject)."""
     suffix = _IMAGE_MIME_SUFFIX.get(mime, ".png")
@@ -249,21 +257,37 @@ def _insert_image_in_flow(
             tmp.write(raw)
             tmp_path = tmp.name
         w_units, h_units = _display_size_units(raw, mime)
-        image = _create_embedded_graphic(doc, "writer", _file_url_for_path(tmp_path))
-        _apply_graphic_properties(
-            image,
-            width=w_units,
-            height=h_units,
-            title="Notebook output",
-            description=mime,
-            anchor_type=AS_CHARACTER,
-            inside="writer",
-        )
+        w_mm = w_units / 100.0
+        h_mm = h_units / 100.0
         text = doc.getText()
         cursor = text.createTextCursor()
         cursor.gotoEnd(False)
         t_add = time.monotonic()
-        text.insertTextContent(cursor, image, False)
+        if ctx is not None:
+            graphic = insert_image_at_locator(
+                ctx,
+                doc,
+                tmp_path,
+                width_mm=w_mm,
+                height_mm=h_mm,
+                title="Notebook output",
+                description=mime,
+                text_cursor=cursor,
+            )
+            if graphic is None:
+                raise RuntimeError("insert_image_at_locator returned None")
+        else:
+            image = _create_embedded_graphic(doc, "writer", _file_url_for_path(tmp_path), ctx=ctx)
+            _apply_graphic_properties(
+                image,
+                width=w_units,
+                height=h_units,
+                title="Notebook output",
+                description=mime,
+                anchor_type=AS_CHARACTER,
+                inside="writer",
+            )
+            text.insertTextContent(cursor, image, False)
         add_ms = _mono_ms(t_add)
         _log_shape_add(
             step="image",
@@ -297,7 +321,14 @@ def _outputs_contain_image(outputs: list[Any]) -> bool:
     return False
 
 
-def _import_image_outputs_in_flow(doc: Any, outputs: list[Any], cell_index: int, *, images_before: int) -> int:
+def _import_image_outputs_in_flow(
+    doc: Any,
+    outputs: list[Any],
+    cell_index: int,
+    *,
+    images_before: int,
+    ctx: Any | None = None,
+) -> int:
     """Insert image/png/jpeg outputs in the document body. Returns number of images added."""
     added = 0
     out_list = outputs or []
@@ -315,7 +346,7 @@ def _import_image_outputs_in_flow(doc: Any, outputs: list[Any], cell_index: int,
             continue
         mime, b64 = payload
         raw = _decode_notebook_image(b64)
-        if raw and _insert_image_in_flow(doc, raw=raw, mime=mime, images_before=images_before + added):
+        if raw and _insert_image_in_flow(doc, raw=raw, mime=mime, images_before=images_before + added, ctx=ctx):
             added += 1
         else:
             log.debug("notebook import cell=%d skip image mime=%s", cell_index, mime)
@@ -372,6 +403,34 @@ def flush_ui_idle(ctx: Any | None) -> None:
         log.debug("processEventsToIdle failed", exc_info=True)
 
 
+def _resolve_para_style(doc: Any, style_name: str | None) -> str | None:
+    """Map English style label to a name that exists in this document (locale-safe)."""
+    if not style_name:
+        return None
+    try:
+        para_styles = doc.getStyleFamilies().getByName("ParagraphStyles")
+        if para_styles.hasByName(style_name):
+            return style_name
+        lower = style_name.lower()
+        for name in para_styles.getElementNames():
+            if name.lower() == lower:
+                return name
+    except Exception:
+        log.debug("notebook import could not enumerate ParagraphStyles for %r", style_name)
+    return None
+
+
+def _looks_like_html(text: str) -> bool:
+    return bool(_HTML_TAG_RE.search((text or "").strip()))
+
+
+def _wrap_html_fragment(html: str) -> str:
+    body = (html or "").strip()
+    if re.search(r"(?is)<\s*html\b", body):
+        return body
+    return f"<html><body>{body}</body></html>"
+
+
 def _doc_body_nonempty(doc: Any) -> bool:
     try:
         text = doc.getText()
@@ -393,11 +452,12 @@ def _append_body_paragraph(doc: Any, content: str, para_style: str | None, *, le
     if lead_break and _doc_body_nonempty(doc):
         text.insertControlCharacter(cursor, _PARAGRAPH_BREAK, False)
         cursor.gotoEnd(False)
-    if para_style:
+    resolved = _resolve_para_style(doc, para_style)
+    if resolved:
         try:
-            cursor.ParaStyleName = para_style
+            cursor.setPropertyValue("ParaStyleName", resolved)
         except Exception:
-            log.debug("ParaStyleName %s failed, using default", para_style, exc_info=True)
+            log.debug("notebook import ParaStyleName %r not applied", resolved)
     text.insertString(cursor, content, False)
 
 
@@ -413,6 +473,29 @@ def _append_body_text_block(
     if not display:
         return
     _append_body_paragraph(doc, display, para_style, lead_break=lead_break)
+
+
+def _append_markdown_cell(doc: Any, source: str, *, lead_break: bool) -> None:
+    """Markdown cell: HTML fragments via StarWriter filter; else plain text body."""
+    display, _ = _prepare_display_text(source)
+    if not display:
+        return
+    if _looks_like_html(display):
+        text = doc.getText()
+        cursor = text.createTextCursor()
+        cursor.gotoEnd(False)
+        if lead_break and _doc_body_nonempty(doc):
+            text.insertControlCharacter(cursor, _PARAGRAPH_BREAK, False)
+            cursor.gotoEnd(False)
+        from plugin.writer.ops import insert_html_at_cursor
+
+        try:
+            insert_html_at_cursor(cursor, _wrap_html_fragment(display))
+        except Exception:
+            log.exception("notebook import HTML insert failed; falling back to plain text")
+            _append_body_paragraph(doc, display, _STYLE_BODY, lead_break=False)
+    else:
+        _append_body_text_block(doc, display, _STYLE_BODY, lead_break=lead_break)
 
 
 def _append_cell_heading(doc: Any, title: str, *, lead_break: bool) -> None:
@@ -516,7 +599,7 @@ def import_ipynb_to_writer(doc: Any, path: str, ctx: Any | None = None) -> dict[
         "controls": 0,
     }
 
-    _import_cells(doc, nb, stats, cell_count, run_t0)
+    _import_cells(doc, nb, stats, cell_count, run_t0, ctx=ctx)
     flush_ui_idle(ctx)
 
     stats["controls"] = stats["shapes"]
@@ -537,6 +620,7 @@ def _import_cells(
     stats: dict[str, int],
     cell_count: int,
     run_t0: float,
+    ctx: Any | None = None,
 ) -> None:
     first_cell = True
     for idx, cell in enumerate(nb.cells):
@@ -562,7 +646,7 @@ def _import_cells(
 
         if cell_type == "markdown":
             stats["markdown"] += 1
-            _append_body_text_block(doc, source, _STYLE_BODY, lead_break=True)
+            _append_markdown_cell(doc, source, lead_break=True)
         elif cell_type == "code":
             stats["code"] += 1
             _append_section_heading(doc, "Code")
@@ -579,7 +663,7 @@ def _import_cells(
                 if out_text.strip():
                     stats["outputs"] += len([o for o in outputs if format_output_text(o).strip()])
                     _append_body_text_block(doc, out_text, _STYLE_OUTPUT, lead_break=True)
-                images_added = _import_image_outputs_in_flow(doc, outputs, idx, images_before=stats["images"])
+                images_added = _import_image_outputs_in_flow(doc, outputs, idx, images_before=stats["images"], ctx=ctx)
                 stats["images"] += images_added
         else:
             stats["raw"] += 1
