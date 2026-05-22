@@ -17,7 +17,7 @@ log = logging.getLogger("writeragent.mcp.cors")
 
 MCP_CORS_ORIGINS_KEY = "mcp.cors_allowed_origins"
 
-_PRIVATE_SUFFIXES = (".local", ".lan", ".home.arpa", ".internal")
+_PRIVATE_SUFFIXES = (".local", ".lan", ".home.arpa", ".internal", ".intern")
 
 _extra_allowed_origins: frozenset[str] = frozenset()
 _allow_private_origins: bool = True

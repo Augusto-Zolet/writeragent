@@ -85,7 +85,7 @@ Unlike proprietary office suites that lock you into a single cloud provider and 
 - **New Calc Formula**: Use `=PYTHON(3 ** 8")` or pass a range: `=PYTHON("sum(data)", A1:A10)`. The **`data`** variable is a special list containing the cell values, dynamically injected into your Python script's execution namespace at runtime. [Data Handoff Guide](docs/enabling_numpy_in_libreoffice.md#data-handoff-and-shaping)).
 - **Shared Code Cell**: (*In version 0.8.3.*) You can store your code in a cell (e.g., `A1`) and reference it across multiple formulas (e.g., `=PYTHON($A$1; B1)`). 
 - **Safety & Isolation**: Code runs safely in a separate process and is evaluated by a [custom AST-based executor](plugin/contrib/smolagents/local_python_executor.py) (adapted from [Hugging Face smolagents](https://github.com/huggingface/smolagents)) that acts as a secure sandbox which blocks dangerous modules (like `os`, `subprocess`, or `sys`) and functions (like `eval` or `exec`), ensuring that the AI can only perform safe, mathematical, and data-processing tasks. 
-- **High performance**: Compact [binary blob serialization for numbers](docs/numpy-serialization.md), 5× faster and 50% smaller than standard JSON lists.
+- **High performance**: Compact pickle Protocol 5 + Split-grid [binary blob serialization for numbers](docs/numpy-serialization.md), 10× faster and 50% smaller than standard JSON lists.
 
 
 ### 🎨 Showcase

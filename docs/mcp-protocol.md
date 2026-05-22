@@ -73,7 +73,7 @@ Browser MCP clients send an `Origin` header (e.g. `https://localai.local`). The 
 
 **Settings → MCP → Allow CORS from local/private browser origins** (`mcp.cors_allow_private_origins`, default **on**): automatically allows Origins whose host is:
 
-- A suffix: `.local`, `.lan`, `.home.arpa`, `.internal` (e.g. `https://localai.local`, `http://nas.lan:8080`)
+- A suffix: `.local`, `.lan`, `.home.arpa`, `.internal`, `.intern` (e.g. `https://localai.local`, `http://nas.lan:8080`, `https://localai.intern:3000`)
 - A private or link-local IP in the Origin (e.g. `http://192.168.1.50:3000`)
 
 **Loopback** (`localhost`, `127.0.0.1`, `[::1]`) is always allowed without the checkbox.

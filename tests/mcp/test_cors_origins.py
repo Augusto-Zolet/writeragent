@@ -41,6 +41,7 @@ def test_is_private_browser_origin_suffixes():
     assert is_private_browser_origin("http://nas.lan:8080")
     assert is_private_browser_origin("https://app.home.arpa")
     assert is_private_browser_origin("https://tool.internal")
+    assert is_private_browser_origin("https://tool.intern")
 
 
 def test_is_private_browser_origin_private_ip():
@@ -53,6 +54,7 @@ def test_is_private_browser_origin_rejects_public():
     assert not is_private_browser_origin("https://evil.localhost")
     assert not is_private_browser_origin("https://localai.local.com")
     assert not is_private_browser_origin("http://localhost.attacker.com")
+    assert not is_private_browser_origin("https://intern.evil.com")
 
 
 def test_is_private_browser_origin_rejects_malformed_ipv6_brackets():

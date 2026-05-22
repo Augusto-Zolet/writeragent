@@ -24,7 +24,7 @@ config:
     default: true
     widget: checkbox
     label: Allow CORS from local origins
-    helper: "Automatic for .local, .lan, .home.arpa, .internal, and LAN IPs in the browser Origin. For other hosts, add mcp.cors_allowed_origins in writeragent.json."
+    helper: "Automatic for .local, .lan, .home.arpa, .internal, .intern, and LAN IPs in the browser Origin. For other hosts, add mcp.cors_allowed_origins in writeragent.json."
     public: true
   cors_allowed_origins:
     type: list
