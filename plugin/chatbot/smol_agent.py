@@ -81,7 +81,11 @@ class SmolToolAdapter(SmolTool):
         self._safe = safe
         self._main_thread_sync = main_thread_sync
         self.name = cast("str", tool.name or "")
-        self.description = tool.description
+        doc_type = getattr(tctx, "doc_type", None)
+        if hasattr(tool, "get_description") and callable(tool.get_description):
+            self.description = tool.get_description(doc_type)
+        else:
+            self.description = tool.description
         self.is_final_answer_tool = getattr(tool, "is_final_answer_tool", False)
         params = getattr(tool, "parameters", None) or {}
         if hasattr(tool, "get_parameters") and callable(tool.get_parameters):

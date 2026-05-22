@@ -866,6 +866,7 @@ def test_writer_delegate_python_includes_cross_cutting_venv_tool(mock_executor_c
     ctx = MagicMock()
     ctx.services = {"tools": registry}
     ctx.doc = mock_doc
+    ctx.doc_type = "writer"
     ctx.ctx = MagicMock()
     ctx.status_callback = None
     ctx.append_thinking_callback = None
@@ -880,7 +881,13 @@ def test_writer_delegate_python_includes_cross_cutting_venv_tool(mock_executor_c
 
     assert result["status"] == "ok"
     assert result["result"] == "done"
+    instructions = mock_build.call_args.kwargs["instructions"]
+    assert "DO NOT IMPORT" in instructions
+    assert "does not inject spreadsheet" in instructions
     tools_passed = mock_build.call_args[0][1]
     names = [t.name for t in tools_passed]
     assert "run_venv_python_script" in names
     assert "specialized_workflow_finished" in names
+    venv_tool = next(t for t in tools_passed if t.name == "run_venv_python_script")
+    assert "does not inject spreadsheet" in venv_tool.description
+    assert "Optional data_range" not in venv_tool.description

@@ -49,12 +49,14 @@ Unlike proprietary office suites that lock you into a single cloud provider and 
 
 - **Advanced Editing**: Supports rich text, [page layout](docs/page-api-reference.md), [shapes](docs/shape_support.md), charts, [bookmarks](docs/bookmarks-api-reference.md), fields, [footnotes](docs/footnotes-api-reference.md), and [track-changes](docs/writer-tracking-api-reference.md). Tool delegation feature explained in [Writer Specialized Toolset](docs/writer-specialized-toolsets.md).
 - **Format Preservation**: Uses a "surgical" replacement method that preserves existing bold, italics, highlights, and font sizes.
+- **Agentic Analysis**: The AI can run Numpy computations and return structured results (as JSON) to update your document.
 - **Real-time Grammar Checker**: An experimental, asynchronous proofreader with a **sentence cache** and **Unicode-aware splitting**. Includes **Token-aware Overlap Repair** to fix "LLM slop" and ensure surgical replacements. Persistent storage of good/bad sentences with document. Enable in **Settings → Doc → Enable AI grammar checker (Writer)** (off by default); underlines appear shortly after you pause typing. [Read the Plan](docs/realtime-grammar-checker-plan.md).
 - **Math & LaTeX**: **MathML** and **TeX** delimiters are automatically turned into **editable LibreOffice Math formulas** (OLE objects). Use `\(...\)` / `$...$` for inline and `$$...$$` / `\[...\]` for display in chat or HTML content; prefer `\(...\)` over bare `$` near numbers. See [docs/math-tex.md](docs/math-tex.md).
 
 ### 📊 Calc
 
-- **=PROMPT() Function**: Run AI prompts directly within spreadsheet cells.
+- **=PROMPT() Function**: Run AI prompts within spreadsheet cells.
+- **=PYTHON() Function**: Run Numpy within spreadsheet cells. `=PYTHON("sp.prime(data)", A10)`
 - **Deep Analysis**: Analyze **pivot tables** and detect **complex logical errors** across massive datasets. [Analysis Tools](docs/calc-analysis-tools.md).
 - **Rich Text Cells**: Paste **HTML** (bold, links, breaks) into a **single cell** using advanced StarWriter import paths.
 - **Batch Range Edits**: Apply formulas and formatting in bulk. [Specialized Toolsets](docs/calc-specialized-toolsets.md).
@@ -79,11 +81,11 @@ Unlike proprietary office suites that lock you into a single cloud provider and 
 
 - **Execute Python**: Use your own virtual environment (running any version of Python) to access libraries like `numpy`, `pandas`, etc.
 - **Enable it**: Set path in **Settings → Python**. Exposed to LLMs in Writer, Calc, and Draw / Impress.
-- **Agentic Analysis**: The AI can run computations and return structured results (as JSON) to update your document.
-- **New Calc Formula**: Use `=PYTHON("result = 3 ** 8")` or pass a range: `=PYTHON("result = sum(data)", A1:A10)`. The **`data`** variable is a special list containing the cell values, dynamically injected into your Python script's execution namespace at runtime (flat 1D list for rows/columns, 2D list for rectangles—see [Data Handoff Guide](docs/enabling_numpy_in_libreoffice.md#data-handoff-and-shaping)).
+- **Agentic Analysis**: The AI can run Numpy computations and return structured results (as JSON) to update your document.
+- **New Calc Formula**: Use `=PYTHON(3 ** 8")` or pass a range: `=PYTHON("sum(data)", A1:A10)`. The **`data`** variable is a special list containing the cell values, dynamically injected into your Python script's execution namespace at runtime. [Data Handoff Guide](docs/enabling_numpy_in_libreoffice.md#data-handoff-and-shaping)).
 - **Shared Code Cell**: (*In version 0.8.3.*) You can store your code in a cell (e.g., `A1`) and reference it across multiple formulas (e.g., `=PYTHON($A$1; B1)`). 
-- **Safety & Isolation**: Code runs safely in a separate process and is evaluated by a [custom AST-based executor](plugin/contrib/smolagents/local_python_executor.py) (adapted from [Hugging Face smolagents](https://github.com/huggingface/smolagents)) that acts as a secure sandbox which blocks dangerous modules (like `os`, `subprocess`, or `sys`) and functions (like `eval` or `exec`), ensuring that the AI can only perform safe, mathematical, and data-processing tasks. 0.2 ms overhead for small data exchanges. Compact binary blob serialization — 5× faster and 50% smaller than standard JSON lists.
-
+- **Safety & Isolation**: Code runs safely in a separate process and is evaluated by a [custom AST-based executor](plugin/contrib/smolagents/local_python_executor.py) (adapted from [Hugging Face smolagents](https://github.com/huggingface/smolagents)) that acts as a secure sandbox which blocks dangerous modules (like `os`, `subprocess`, or `sys`) and functions (like `eval` or `exec`), ensuring that the AI can only perform safe, mathematical, and data-processing tasks. 
+- **High performance**: Compact [binary blob serialization for numbers](docs/numpy-serialization.md), 5× faster and 50% smaller than standard JSON lists.
 
 
 ### 🎨 Showcase

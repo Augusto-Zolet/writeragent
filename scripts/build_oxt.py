@@ -29,6 +29,7 @@ ALWAYS_INCLUDE_EXTENSION = [
     "extension/ProtocolHandler.xcu",
     "extension/Addons.xcu",
     "extension/Accelerators.xcu",
+    "extension/XPythonFunction.rdb",
     "extension/XPromptFunction.rdb",
     "extension/Jobs.xcu",
     "extension/registration/",

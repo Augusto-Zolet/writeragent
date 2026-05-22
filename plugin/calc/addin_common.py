@@ -15,7 +15,12 @@ import unohelper
 
 
 def ensure_addin_paths() -> None:
-    """Insert extension root and plugin/ on sys.path (idempotent)."""
+    """Insert extension root and plugin/ on sys.path (idempotent).
+
+    Calc UNO entry modules (``python_addin`` / ``prompt_addin``) must duplicate this
+    bootstrap inline before any ``from plugin...`` import — ``unopkg`` loads them without
+    ``plugin`` on ``sys.path`` yet.
+    """
     calc_dir = os.path.dirname(os.path.abspath(__file__))
     plugin_dir = os.path.dirname(calc_dir)
     ext_root = os.path.dirname(plugin_dir)

@@ -7,11 +7,18 @@
 from __future__ import annotations
 
 import logging
+import os
+import sys
 from typing import Any
 
-from plugin.calc.addin_common import ensure_addin_paths
-
-ensure_addin_paths()
+# unopkg writeRegistryInfo imports this file before ``plugin`` is on sys.path; cannot
+# import addin_common first (same bootstrap as legacy prompt_function.py / main.py).
+_calc_dir = os.path.dirname(os.path.abspath(__file__))
+_plugin_dir = os.path.dirname(_calc_dir)
+_ext_root = os.path.dirname(_plugin_dir)
+for _path in (_ext_root, _plugin_dir, _calc_dir):
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
 
 import unohelper  # noqa: E402
 

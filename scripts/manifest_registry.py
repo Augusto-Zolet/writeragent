@@ -552,6 +552,7 @@ def generate_manifest_xml(modules, output_path):
 
     # Static entries (always present)
     entries = [
+        ('application/vnd.sun.star.uno-typelibrary;type=RDB', 'XPythonFunction.rdb'),
         ('application/vnd.sun.star.uno-typelibrary;type=RDB', 'XPromptFunction.rdb'),
         ('application/vnd.sun.star.uno-component;type=Python', 'plugin/main.py'),
         ('application/vnd.sun.star.uno-component;type=Python', 'plugin/calc/python_addin.py'),

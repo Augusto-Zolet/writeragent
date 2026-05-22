@@ -239,7 +239,7 @@ function Install-ToCache {
     $deployed++
 
     # extension/ resources -> .oxt root
-    foreach ($f in @("Addons.xcu", "Accelerators.xcu", "description.xml", "XPromptFunction.rdb")) {
+    foreach ($f in @("Addons.xcu", "Accelerators.xcu", "description.xml", "XPythonFunction.rdb", "XPromptFunction.rdb")) {
         $src = Join-Path $ProjectRoot "extension\$f"
         if (Test-Path $src) {
             Copy-Item -Path $src -Destination (Join-Path $extDir $f) -Force

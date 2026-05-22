@@ -156,12 +156,32 @@ CALC_WORKFLOW = """WORKFLOW:
 3. Use the tools to perform the operation. Always use ranges for multiple cells to reduce calls and improve efficiency.
 4. Give a short confirmation; when you changed cells, mention the range or addresses (e.g. "Wrote totals in B5:B8")."""
 
-CALC_FORMULA_SYNTAX = """FORMULA SYNTAX: LibreOffice uses semicolon (;) as the formula argument separator in formulas.
+# Shared venv Python prompt text (run_venv_python_script, =PYTHON(), delegate domain=python).
+PYTHON_VENV_AUTO_IMPORTS_ALIASES = "`numpy` (as `np`), `sympy` (as `sp`), `pandas` (as `pd`), and standard library `math`"
+
+PYTHON_VENV_AUTO_IMPORTS_TOOL_NOTE = f"Note: {PYTHON_VENV_AUTO_IMPORTS_ALIASES} are automatically imported. "
+
+PYTHON_VENV_AUTO_IMPORTS_PROMPT_LINE = (
+    f"Note: {PYTHON_VENV_AUTO_IMPORTS_ALIASES} are automatically imported. "
+    "DO NOT IMPORT numpy, pandas, sympy, or math."
+)
+
+
+def python_specialized_sub_agent_hint(agent_label: str) -> str:
+    """Smol sub-agent instructions suffix for delegate_to_specialized_* (domain=\"python\")."""
+    if agent_label == "Calc":
+        data_hint = " You may pass data_range or data into run_venv_python_script so the script receives variable `data`."
+    else:
+        data_hint = " run_venv_python_script does not inject spreadsheet `data`—use document tools for content."
+    return f" PYTHON (venv): {PYTHON_VENV_AUTO_IMPORTS_PROMPT_LINE}{data_hint}"
+
+
+CALC_FORMULA_SYNTAX = f"""FORMULA SYNTAX: LibreOffice uses semicolon (;) as the formula argument separator in formulas.
 - Correct: =SUM(A1:A10), =IF(A1>0;B1;C1)
 - Wrong: =SUM(A1,A10), =IF(A1>0,"Yes","No") (no commas in formulas)
 - Write `=PYTHON("result = ..."; A1:A10)` in cells to calculate/run Python (omit the second argument if no data is needed, e.g. `=PYTHON("result = 2**10")`).
 Note: this code executes in an isolated sandbox with no direct access to LibreOffice data, so it must be passed in.
-Note: `numpy` (as `np`), `sympy` (as `sp`), `pandas` (as `pd`), and `math` are automatically imported. DO NOT IMPORT numpy, pandas, sympy or math.
+{PYTHON_VENV_AUTO_IMPORTS_PROMPT_LINE}
 - Example: `=PYTHON("result = np.sum(data)"; A1:A10)`.
 
 """

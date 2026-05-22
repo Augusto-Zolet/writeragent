@@ -16,6 +16,7 @@ from plugin.calc.base import ToolCalcPythonBase
 from plugin.calc.bridge import CalcBridge
 from plugin.calc.calc_addin_data import check_python_data_size, finalize_python_data, pack_calc_data_for_wire, values_from_inspector_range
 from plugin.calc.inspector import CellInspector
+from plugin.framework.constants import PYTHON_VENV_AUTO_IMPORTS_TOOL_NOTE
 from plugin.scripting.run_venv_code import run_code_in_user_venv
 
 if TYPE_CHECKING:
@@ -63,17 +64,15 @@ _PARAMETERS_NON_CALC = {
 
 _DESCRIPTION_CALC = (
     "Run Python code. Set `result` to a JSON-serializable return value. "
-    "Note: common libraries like `numpy` (as `np`), `sympy` (as `sp`), `pandas` (as `pd`), and standard library `math` "
-    "are automatically imported. "
-    "Optional data_range (e.g. B1:B10) injects cell values as `data` (flat list for one row/column). "
+    + PYTHON_VENV_AUTO_IMPORTS_TOOL_NOTE
+    + "Optional data_range (e.g. B1:B10) injects cell values as `data` (flat list for one row/column). "
     "Alternatively pass `data` directly after read_cell_range."
 )
 
 _DESCRIPTION_NON_CALC = (
     "Run Python code in the configured venv. Set `result` to a JSON-serializable return value. "
-    "Note: common libraries like `numpy` (as `np`), `sympy` (as `sp`), `pandas` (as `pd`), and standard library `math` "
-    "are automatically imported. "
-    "Use document tools to read or change the file; this tool does not inject spreadsheet `data`."
+    + PYTHON_VENV_AUTO_IMPORTS_TOOL_NOTE
+    + "Use document tools to read or change the file; this tool does not inject spreadsheet `data`."
 )
 
 

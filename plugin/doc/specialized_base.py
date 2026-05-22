@@ -20,7 +20,7 @@ import logging
 from typing import Any, cast, Type, ClassVar
 
 from plugin.framework.tool import ToolBase
-from plugin.framework.constants import DELEGATE_SPECIALIZED_TASK_PARAM_HINT, USE_SUB_AGENT
+from plugin.framework.constants import DELEGATE_SPECIALIZED_TASK_PARAM_HINT, USE_SUB_AGENT, python_specialized_sub_agent_hint
 from plugin.framework.i18n import _
 from plugin.contrib.smolagents.toolcalling_agent_prompts import SPECIALIZED_EXAMPLES_BLOCK
 from plugin.chatbot.smol_agent import build_toolcalling_agent, SmolAgentExecutor, SmolToolAdapter
@@ -173,10 +173,11 @@ class DelegateToSpecializedBase(ToolBase):
             if domain == "images"
             else ""
         )
+        python_hint = python_specialized_sub_agent_hint(self._agent_label) if domain == "python" else ""
         instructions = (
             f"You are a specialized {self._agent_label} agent focused on the '{domain}' domain. "
             f"You have a focused set of tools to accomplish your task. Use them to fulfill the user's request."
-            f"{footnotes_hint}{shapes_canvas}{charts_hint}{calc_ctx}{document_research_hint}{images_hint}"
+            f"{footnotes_hint}{shapes_canvas}{charts_hint}{calc_ctx}{document_research_hint}{images_hint}{python_hint}"
         )
 
         agent = build_toolcalling_agent(ctx, smol_tools, instructions=instructions, final_answer_tool_name="specialized_workflow_finished", examples_block=SPECIALIZED_EXAMPLES_BLOCK, status_callback=status_callback)

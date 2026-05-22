@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Rebuild extension/XPromptFunction.rdb from Calc add-in IDL (python + prompt).
+# Rebuild Calc add-in typelibraries from IDL (one .rdb per interface; unoidl-write
+# only retains the last IDL when several are passed to a single output file).
 # Requires LibreOffice SDK (libreoffice-fresh-sdk): unoidl-write
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 IDL_PYTHON="$ROOT/extension/idl/XPythonFunction.idl"
 IDL_PROMPT="$ROOT/extension/idl/XPromptFunction.idl"
-RDB="$ROOT/extension/XPromptFunction.rdb"
+RDB_PYTHON="$ROOT/extension/XPythonFunction.rdb"
+RDB_PROMPT="$ROOT/extension/XPromptFunction.rdb"
 SDK_HOME="${OO_SDK_HOME:-/usr/lib/libreoffice/sdk}"
 UNOIDLWRITE="${SDK_HOME}/bin/unoidl-write"
 
@@ -24,6 +26,8 @@ for f in "$URE_TYPES" "$OFFICE_TYPES"; do
   fi
 done
 
-rm -f "$RDB"
-"$UNOIDLWRITE" "$URE_TYPES" "$OFFICE_TYPES" "$IDL_PYTHON" "$IDL_PROMPT" "$RDB"
-echo "Wrote $RDB ($(wc -c <"$RDB") bytes) from XPythonFunction.idl + XPromptFunction.idl"
+rm -f "$RDB_PYTHON" "$RDB_PROMPT"
+"$UNOIDLWRITE" "$URE_TYPES" "$OFFICE_TYPES" "$IDL_PYTHON" "$RDB_PYTHON"
+"$UNOIDLWRITE" "$URE_TYPES" "$OFFICE_TYPES" "$IDL_PROMPT" "$RDB_PROMPT"
+echo "Wrote $RDB_PYTHON ($(wc -c <"$RDB_PYTHON") bytes) from XPythonFunction.idl"
+echo "Wrote $RDB_PROMPT ($(wc -c <"$RDB_PROMPT") bytes) from XPromptFunction.idl"

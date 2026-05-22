@@ -8,6 +8,8 @@ from plugin.framework.constants import (
     get_chat_system_prompt_for_document,
     get_core_directives,
     get_specialized_delegation_for_model,
+    python_specialized_sub_agent_hint,
+    PYTHON_VENV_AUTO_IMPORTS_PROMPT_LINE,
     WRITER_CORE_DIRECTIVES,
     CALC_CORE_DIRECTIVES,
     DRAW_CORE_DIRECTIVES,
@@ -167,6 +169,20 @@ def test_core_directives_prohibit_asking_user_to_paste():
     assert "MUST NOT ask the user where the file is stored" in DRAW_CORE_DIRECTIVES
     assert 'delegate_to_specialized_draw_toolset(domain="document_research") once' in DRAW_CORE_DIRECTIVES
     assert "described file(s)" in DRAW_CORE_DIRECTIVES
+
+
+def test_python_specialized_sub_agent_hint_writer():
+    hint = python_specialized_sub_agent_hint("Writer")
+    assert PYTHON_VENV_AUTO_IMPORTS_PROMPT_LINE in hint
+    assert "DO NOT IMPORT" in hint
+    assert "does not inject spreadsheet" in hint
+    assert "data_range" not in hint
+
+
+def test_python_specialized_sub_agent_hint_calc():
+    hint = python_specialized_sub_agent_hint("Calc")
+    assert "DO NOT IMPORT" in hint
+    assert "data_range" in hint
 
 
 def test_document_research_multi_file_delegation_in_prompts():
