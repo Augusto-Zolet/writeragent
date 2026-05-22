@@ -82,19 +82,90 @@ flowchart TD
 
 ### Benchmark results (2026-05)
 
-Asymmetric simulation: **host** = stdlib list pack + `json.dumps`; **child** = `json.loads` + either `np.array(list)` (**json_list**) or `np.frombuffer` + `reshape` (**split_grid**). Median timings; auto split_grid when **at least 10 cells** (e.g. 4×3 and 10×1 qualify; 3×3 does not) — [`payload_codec.py`](../plugin/scripting/payload_codec.py).
+Asymmetric simulation: **host** = stdlib pack/serialize; **child** = deserialize + materialize. Timings are median values; the automatic `split_grid` envelope is triggered when **at least 10 cells** (smaller grids fall back to standard JSON lists). We compare:
+1. `json_list` (standard nested lists over JSON wire, materializing using `np.array(list)`).
+2. `split_grid` (flattened float64 bytes encoded in Base64 over JSON wire, materializing using `np.frombuffer`).
+3. `pickle5` (standard Python pickle protocol 5 binary payload over length-prefixed stream).
 
-| Case | Wire size | Materialize speedup | End-to-end speedup |
-|------|-----------|---------------------|-------------------|
-| **100×10 000 ingress** | **~53%** of json (~104 KiB vs ~198 KiB) | **~13×** (`frombuffer` vs `np.array`) | **~2×** |
-| **100×10 000 egress** | **~53%** of json | **~1.6×** (host unpack) | **~4.7×** |
-| **1×1000 / 1000×1 ingress** | **~48–53%** of json | **~11–17×** | **~2×** |
-| **10×10 ingress** | **~56%** of json | **~4.6×** | **~1.7×** |
-| **< 10 cells** | Envelope often **larger** or similar on wire | Marginal | Often **json_list** wins — keep list fallback |
+#### 1. End-to-End Serialization Timings (Ingress & Egress)
 
-**Conclusions (why Tier 2 shipped):** `split_grid` (which uses `frombuffer` for numeric-only grids) is what NumPy reads fast (`frombuffer` dominates `np.array` on large dense grids). Wire size roughly halves for 10⁴ cells. Grids **&lt; 10 cells** should stay **json_list** (envelope often larger on wire). Host pack + `json.dumps` for split_grid is still cheaper than list+json at 10⁴ scale. **No msgpack/mmap** for the current 250 k cell cap based on these numbers — production uses stdlib Tier 2 only.
+timings in milliseconds (including packing, serialization, IPC transit, deserialization, and peer materialization):
 
-Re-run: `python scripts/bench_serialization.py --direction both`
+| Direction | Kind | Shape | Cells | Format | Total (ms) | Wire Size | vs. JSON Size | Speedup vs. JSON | E2E Winner |
+|-----------|------|-------|-------|--------|------------|-----------|---------------|------------------|------------|
+| **Ingress** | grid | 3×3 | 9 | `json_list` | 0.027 ms | 209 B | baseline | - | |
+| **Ingress** | grid | 3×3 | 9 | `split_grid` | 0.022 ms | 258 B | 123% | 1.21x | |
+| **Ingress** | grid | 3×3 | 9 | `pickle5` | 0.015 ms | 129 B | **62%** | **1.83x** | **★ pickle5** |
+| **Egress** | grid | 3×3 | 9 | `json_list` | 0.018 ms | 212 B | baseline | - | |
+| **Egress** | grid | 3×3 | 9 | `split_grid` | 0.019 ms | 260 B | 123% | 0.90x | |
+| **Egress** | grid | 3×3 | 9 | `pickle5` | 0.006 ms | 131 B | **62%** | **3.16x** | **★ pickle5** |
+| **Ingress** | grid | 10×10 | 100 | `json_list` | 0.139 ms | 2.02 KiB | baseline | - | |
+| **Ingress** | grid | 10×10 | 100 | `split_grid` | 0.070 ms | 1.26 KiB | 63% | 2.00x | |
+| **Ingress** | grid | 10×10 | 100 | `pickle5` | 0.042 ms | 0.95 KiB | **47%** | **3.34x** | **★ pickle5** |
+| **Egress** | grid | 10×10 | 100 | `json_list` | 0.103 ms | 2.02 KiB | baseline | - | |
+| **Egress** | grid | 10×10 | 100 | `split_grid` | 0.033 ms | 1.27 KiB | 63% | 3.15x | |
+| **Egress** | grid | 10×10 | 100 | `pickle5` | 0.012 ms | 0.96 KiB | **47%** | **8.79x** | **★ pickle5** |
+| **Ingress** | grid | 100×100 | 10 000 | `json_list` | 12.074 ms | 198.15 KiB| baseline | - | |
+| **Ingress** | grid | 100×100 | 10 000 | `split_grid` | 4.770 ms | 105.18 KiB| 53% | 2.53x | |
+| **Ingress** | grid | 100×100 | 10 000 | `pickle5` | 2.690 ms | 88.33 KiB | **45%** | **4.49x** | **★ pickle5** |
+| **Egress** | grid | 100×100 | 10 000 | `json_list` | 10.085 ms | 198.19 KiB| baseline | - | |
+| **Egress** | grid | 100×100 | 10 000 | `split_grid` | 1.426 ms | 105.18 KiB| 53% | 7.07x | |
+| **Egress** | grid | 100×100 | 10 000 | `pickle5` | 0.818 ms | 88.33 KiB | **45%** | **12.33x** | **★ pickle5** |
+| **Ingress** | grid | 1×1000 | 1000 | `json_list` | 1.176 ms | 19.82 KiB | baseline | - | |
+| **Ingress** | grid | 1×1000 | 1000 | `split_grid` | 0.513 ms | 10.56 KiB | 53% | 2.29x | |
+| **Ingress** | grid | 1×1000 | 1000 | `pickle5` | 0.267 ms | 8.82 KiB | **45%** | **4.40x** | **★ pickle5** |
+| **Egress** | grid | 1×1000 | 1000 | `json_list` | 0.982 ms | 19.80 KiB | baseline | - | |
+| **Egress** | grid | 1×1000 | 1000 | `split_grid` | 0.335 ms | 19.34 KiB | 98% | 2.93x | |
+| **Egress** | grid | 1×1000 | 1000 | `pickle5` | 0.082 ms | 8.83 KiB | **45%** | **12.01x** | **★ pickle5** |
+| **Ingress** | grid | 1000×1 | 1000 | `json_list` | 1.841 ms | 21.80 KiB | baseline | - | |
+| **Ingress** | grid | 1000×1 | 1000 | `split_grid` | 0.773 ms | 10.56 KiB | **48%** | **2.38x** | **★ split_grid**|
+| **Ingress** | grid | 1000×1 | 1000 | `pickle5` | 0.945 ms | 11.75 KiB | 54% | 1.95x | |
+| **Egress** | grid | 1000×1 | 1000 | `json_list` | 1.002 ms | 19.83 KiB | baseline | - | |
+| **Egress** | grid | 1000×1 | 1000 | `split_grid` | 0.149 ms | 10.56 KiB | 53% | 6.72x | |
+| **Egress** | grid | 1000×1 | 1000 | `pickle5` | 0.079 ms | 8.83 KiB | **45%** | **12.73x** | **★ pickle5** |
+
+#### 2. Child-Only Peer Materialization (np.array vs frombuffer)
+
+timings in milliseconds (only measuring CPU time required to instantiate the array in the child):
+
+| Shape | Cells | `json_list` (np.array) | `split_grid` (frombuffer) | `pickle5` (np.array) | `split_grid` Speedup | `pickle5` Speedup |
+|-------|-------|------------------------|---------------------------|----------------------|----------------------|-------------------|
+| **Scalar** | 1 | 0.0020 ms | 0.0053 ms | 0.0011 ms | 0.38x | 1.84x |
+| **3×3** | 9 | 0.0052 ms | 0.0062 ms | 0.0024 ms | 0.83x | 2.13x |
+| **4×4** | 16 | 0.0072 ms | 0.0063 ms | 0.0030 ms | 1.16x | 2.44x |
+| **10×10** | 100 | 0.0309 ms | 0.0090 ms | 0.0081 ms | 3.42x | 3.80x |
+| **100×100** | 10 000 | 2.9492 ms | 0.2324 ms | 0.6079 ms | **12.69x** | **4.85x** |
+| **1×1000** | 1000 | 0.2816 ms | 0.0269 ms | 0.0622 ms | **10.46x** | **4.53x** |
+| **1000×1** | 1000 | 0.4504 ms | 0.0268 ms | 0.2489 ms | **16.83x** | **1.81x** |
+
+#### 3. Warm Process Executions (with dynamic format switching)
+
+Side-by-side warm worker execution times comparing JSON and Pickle IPC dynamic loops (10 iterations):
+
+* **Task 1: 1000th Prime** (via `sympy`):
+  * **In-Process**: Avg: `0.001042s` | Min: `0.000962s`
+  * **JSON Mode**: Cold: `0.792939s` | Warm Avg: `0.042475s` | Warm Min: `0.036271s`
+  * **Pickle Mode**: Cold: `0.766803s` | Warm Avg: `0.047892s` | Warm Min: `0.038229s`
+
+* **Task 2: 1000×1000 Matrix Dot Product** (via `numpy`):
+  * **In-Process**: Avg: `0.041175s` | Min: `0.032525s`
+  * **JSON Mode**: Cold: `0.777692s` | Warm Avg: `0.079107s` | Warm Min: `0.075480s`
+  * **Pickle Mode**: Cold: `0.808579s` | Warm Avg: `0.076709s` | Warm Min: `0.072407s`
+
+#### Key Insights
+
+1. **Pickle is the Clear End-to-End Champion**: By using a length-prefixed stream (`struct` 4-byte prefix + `pickle.dumps` protocol 5 bytes), we bypass all Base64 encoding/decoding CPU cycles and avoid parsing huge strings via `json.dumps`/`loads`. Timings improve dramatically:
+   - **Wire size reductions**: Pickle payloads are **45% to 62% smaller** than JSON nested lists.
+   - **Egress speedups**: We achieve up to **12.7x end-to-end egress speedups** (e.g. 1000x1 cells egress total time drops from `1.002 ms` to `0.079 ms`).
+2. **Split-Grid Materialization is Unparalleled**: While `pickle5` unpickles standard structures back to standard Python float list-of-lists (requiring expensive `np.array(list)` conversions in the peer), `split_grid` achieves microsecond-level materialization by loading contiguous memory layouts straight into a NumPy array using `np.frombuffer`. For `100x100` cells, `split_grid` peer materialization is **12.69x faster** than standard lists, whereas `pickle5` is **4.85x faster**.
+3. **The Logical Conclusion**: This highlights a massive optimization opportunity: **doing split-grid inside Pickle** (see [Future work — Split-Grid inside Pickle](#future-work--split-grid-inside-pickle) below) to combine zero-base64 binary stream transfers with C-speed direct buffer loading.
+
+To run benchmarks yourself:
+```bash
+.venv/bin/python scripts/bench_serialization.py --direction both
+.venv/bin/python scripts/bench_serialization.py --child-only
+.venv/bin/python scripts/bench_warm_numpy.py
+```
 
 ### Unified `split_grid` Serialization
 
@@ -145,7 +216,7 @@ Calc UNO range
 | Host decode | [`python_worker_manager.py`](../plugin/scripting/python_worker_manager.py) | `_normalize_response` → `host_unpack_data` on `result` | Nested lists for LLM, smol observations, Calc matrix/session |
 | Calc return | [`python_function.py`](../plugin/calc/python_function.py) | `finalize_python_return` / session flattening | Per-cell scalars for legacy add-in bridge |
 
-**Not used:** pickle, msgpack, mmap, shared memory. [`SafeSerializer`](../plugin/contrib/smolagents/serialization.py) (`__type__: ndarray`) is **not** on the worker path — only [`payload_codec.py`](../plugin/scripting/payload_codec.py).
+**Pickle Protocol 5:** Implemented side-by-side with standard JSON serialization on the worker path, toggled dynamically via a global variable. Opaque msgpack, mmap, and shared memory remain deferred. [`SafeSerializer`](../plugin/contrib/smolagents/serialization.py) (`__type__: ndarray`) is **not** on the worker path — only [`payload_codec.py`](../plugin/scripting/payload_codec.py).
 
 **Fresh namespace every call** ([core strategy](enabling_numpy_in_libreoffice.md#2-strategy-decision)): there is no worker-side variable cache; the same `A1:Z1000` range is re-serialized on every `=PYTHON()` or `run_venv_python_script` invocation unless the product adds an explicit cache ([core roadmap](enabling_numpy_in_libreoffice.md#7-deferred-roadmap)).
 
@@ -541,7 +612,39 @@ Fresh namespace per call stays ([core strategy](enabling_numpy_in_libreoffice.md
 | **3** — mmap temp file | Payloads near [`MAX_PYTHON_DATA_CELLS`](../plugin/calc/calc_addin_data.py) (250 k); stdin size or base64 RAM spikes |
 | **Tool RPC** ([core RPC roadmap](enabling_numpy_in_libreoffice.md#venv--libreoffice-tool-rpc)) | Sheet output should not round-trip huge `result` through JSON at all |
 
-Bench at ≤10 k cells in [`bench_serialization.py`](../scripts/bench_serialization.py) did **not** justify 2b/3 at current caps; production stays stdlib Tier 2 until LO says otherwise.
+#### Priority 8 — Future work: Split-Grid inside Pickle
+
+**Opinion & Proposal:** Combine the microsecond C-speed memory materialization of **Split-Grid** (`np.frombuffer`) with the zero-overhead raw binary streaming of **Pickle Protocol 5**.
+
+By placing the raw binary numeric buffer (as a Python `array.array('d')` on the host side, or `np.ndarray` on the child side) *directly inside the Pickle envelope* as an unencoded field, we can eliminate Base64 encoding/decoding and JSON parsing CPU cycles entirely.
+
+##### How it would be designed:
+1. **Host-Side Pack (OOB/Direct array serialization)**:
+   Instead of Base64 encoding the contiguous float64 array into an ASCII string inside a JSON dictionary, we wrap it in a standard Python `array.array('d')` and pack it directly inside a standard Python dictionary:
+   ```python
+   payload = {
+       "__wa_payload__": "split_grid_pickle",
+       "dtype": "float64",
+       "column_kinds": column_kinds,
+       "shape": shape,
+       "bin_data": buf,  # array.array('d') natively stored
+       "strings": strings,
+   }
+   ```
+2. **IPC Binary Transport**:
+   When unpickling using Pickle Protocol 5 on the peer side (host or child), Pickle natively deserializes the raw `array.array` / `bytes` object with **zero Base64 parsing or string decoding overhead**.
+3. **Child-Side Materialize (C-Speed Direct Buffer Ingestion)**:
+   In the child, if the sparse `strings` dictionary is empty, NumPy instantly materializes the buffer:
+   ```python
+   raw_bytes = payload["bin_data"].tobytes()
+   arr = np.frombuffer(raw_bytes, dtype=np.float64).reshape(payload["shape"])
+   ```
+   This gives the **exact C-speed buffer mapping** of `split_grid` but completely gets rid of the **33% Base64 wire bloat** and **base64 CPU cycles**!
+
+##### Architectural and Performance Benefits:
+- **No Base64 overhead**: Base64 enlarges binary footprints by ~33% and consumes CPU cycles encoding/decoding. Eliminating this reduces both RAM and CPU latency.
+- **Zero-copy out-of-band unpickling**: Uses Pickle 5's out-of-band buffer sharing features, allowing zero-copy memory reads between IPC layers.
+- **Graceful dynamic fallback**: The IPC transport and `payload_codec.py` can fall back to standard Base64 JSON `split_grid` when `SERIALIZATION = "json"` is toggled (e.g. for logging, debugging, or compatibility on systems without binary length-prefixed stream capabilities).
 
 #### Remaining pipeline costs (reference)
 

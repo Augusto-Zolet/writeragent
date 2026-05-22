@@ -2,7 +2,7 @@
 """
 Benchmark Warm Process vs In-Process NumPy/SymPy execution.
 Finds the 1000th prime and performs matrix multiplication.
-Includes a true warmup and multiple iterations for accurate data.
+Compares both JSON and Pickle warm-process execution dynamically side-by-side.
 """
 
 import sys
@@ -17,6 +17,7 @@ sys.path.insert(0, str(project_root))
 
 from plugin.scripting.python_worker_manager import PythonWorkerManager
 from plugin.scripting.venv_probe import resolve_venv_python, resolve_libreoffice_python
+
 
 def find_config_path():
     """Find writeragent.json in standard LibreOffice profile locations."""
@@ -40,6 +41,7 @@ def find_config_path():
             return p
     return None
 
+
 def get_venv_path_from_config():
     config_path = find_config_path()
     if not config_path:
@@ -52,11 +54,13 @@ def get_venv_path_from_config():
     except Exception:
         return None
 
+
 def prime_code(n):
     return f"""
 import sympy
 result = int(sympy.prime({n}))
 """
+
 
 def matrix_code(size):
     return f"""
@@ -66,6 +70,7 @@ b = np.random.rand({size}, {size})
 c = np.dot(a, b)
 result = float(np.sum(c))
 """
+
 
 def benchmark_in_process_prime(n, iterations=10):
     try:
@@ -82,6 +87,7 @@ def benchmark_in_process_prime(n, iterations=10):
         return res, sum(times) / len(times), min(times)
     except ImportError:
         return None, None, None
+
 
 def benchmark_in_process_matrix(size, iterations=10):
     try:
@@ -104,6 +110,7 @@ def benchmark_in_process_matrix(size, iterations=10):
     except ImportError:
         return None, None, None
 
+
 def benchmark_worker(mgr, code, iterations=10):
     # Warmup
     mgr.execute(code)
@@ -118,6 +125,28 @@ def benchmark_worker(mgr, code, iterations=10):
     if resp["status"] == "ok":
         return resp["result"], sum(times) / len(times), min(times)
     return None, None, None
+
+
+def run_benchmark_for_format(exe, code, format_name, iterations=10):
+    """Run worker benchmark with dynamic payload_codec.SERIALIZATION setting."""
+    from plugin.scripting import payload_codec
+    
+    # Dynamically set serialization global
+    payload_codec.SERIALIZATION = format_name
+    mgr = PythonWorkerManager.get(exe, {}, serialization=format_name)
+    
+    # 1. Cold start
+    mgr._terminate_worker()
+    start_cold = time.perf_counter()
+    mgr.execute(code)
+    end_cold = time.perf_counter()
+    cold_sec = end_cold - start_cold
+    
+    # 2. Warm start
+    res, avg_sec, min_sec = benchmark_worker(mgr, code, iterations)
+    
+    return cold_sec, avg_sec, min_sec
+
 
 def main():
     print("--- WriterAgent Warm Process Benchmark (with Warmup) ---")
@@ -150,33 +179,34 @@ def main():
     else:
         print("  In-Process: N/A (SymPy not installed)")
 
-    mgr = PythonWorkerManager(exe, {})
-    mgr._terminate_worker()
-    
-    # Cold start (no warmup)
-    start_cold = time.perf_counter()
-    resp_cold = mgr.execute(p_code)
-    end_cold = time.perf_counter()
-    print(f"  Cold Start: {end_cold - start_cold:.6f}s")
+    # Run JSON mode
+    cold_json, avg_json, min_json = run_benchmark_for_format(exe, p_code, "json", iters)
+    print(f"  JSON Mode : Cold: {cold_json:.6f}s | Warm Avg: {avg_json:.6f}s | Warm Min: {min_json:.6f}s")
 
-    res_w, avg_w, min_w = benchmark_worker(mgr, p_code, iters)
-    if avg_w is not None:
-        print(f"  Warm Start: Avg: {avg_w:.6f}s | Min: {min_w:.6f}s")
-    else:
-        print("  Warm Start: Error executing prime task")
+    # Run Pickle mode
+    cold_pickle, avg_pickle, min_pickle = run_benchmark_for_format(exe, p_code, "pickle", iters)
+    print(f"  Pickle Mode: Cold: {cold_pickle:.6f}s | Warm Avg: {avg_pickle:.6f}s | Warm Min: {min_pickle:.6f}s")
 
     # 2. Matrix Task
     print(f"\n[Task 2: {m_size}x{m_size} Matrix ({iters} iterations)]")
     res_in_m, avg_in_m, min_in_m = benchmark_in_process_matrix(m_size, iters)
     if avg_in_m is not None:
         print(f"  In-Process: Avg: {avg_in_m:.6f}s | Min: {min_in_m:.6f}s")
+    else:
+        print("  In-Process: N/A (NumPy not installed)")
 
-    res_w_m, avg_w_m, min_w_m = benchmark_worker(mgr, m_code, iters)
-    if avg_w_m is not None:
-        print(f"  Warm Start: Avg: {avg_w_m:.6f}s | Min: {min_w_m:.6f}s")
+    # Run JSON mode
+    cold_json_m, avg_json_m, min_json_m = run_benchmark_for_format(exe, m_code, "json", iters)
+    print(f"  JSON Mode : Cold: {cold_json_m:.6f}s | Warm Avg: {avg_json_m:.6f}s | Warm Min: {min_json_m:.6f}s")
 
-    mgr._terminate_worker()
+    # Run Pickle mode
+    cold_pickle_m, avg_pickle_m, min_pickle_m = run_benchmark_for_format(exe, m_code, "pickle", iters)
+    print(f"  Pickle Mode: Cold: {cold_pickle_m:.6f}s | Warm Avg: {avg_pickle_m:.6f}s | Warm Min: {min_pickle_m:.6f}s")
+
+    # Teardown workers
+    PythonWorkerManager.shutdown_all()
     print("\nBenchmark complete.")
+
 
 if __name__ == "__main__":
     main()

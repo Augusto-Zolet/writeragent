@@ -25,6 +25,8 @@ from typing import Any, Literal, cast
 
 log = logging.getLogger(__name__)
 
+SERIALIZATION = "pickle"  # Can be "pickle" or "json"
+
 # --- Wire kind (JSON-safe dict tag) -----------------------------------------------
 
 PAYLOAD_SPLIT_GRID = "split_grid"
