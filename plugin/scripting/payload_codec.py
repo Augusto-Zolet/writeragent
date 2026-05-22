@@ -39,6 +39,83 @@ MAX_BENCH_CELLS = 10_000
 """Upper cap for benchmark grids (production may use calc_addin MAX_PYTHON_DATA_CELLS)."""
 
 ForceBinary = Literal["auto", "always", "never"]
+SPLIT_GRID_WIRE_DTYPE = "float64"
+ColumnKind = Literal["int", "float"]
+
+
+def _iter_grid_cells(grid: list[Any] | list[list[Any]]):
+    if not grid:
+        return
+    if isinstance(grid[0], (list, tuple)):
+        for row in grid:
+            for val in row:
+                yield val
+    else:
+        for val in grid:
+            yield val
+
+
+def _cell_forces_float_column(val: Any) -> bool:
+    """True when this column must use the float64 lane (floats and empty/None → NaN)."""
+    return isinstance(val, float) or val is None
+
+
+def column_kinds_for_grid(grid: list[Any] | list[list[Any]]) -> list[ColumnKind]:
+    """Policy helper (tests): per-column int/float from source types; mirrors host_pack_split_grid."""
+    if not grid:
+        return []
+    if isinstance(grid[0], (list, tuple)):
+        ncols = max((len(r) for r in grid), default=0)
+        kinds: list[ColumnKind] = ["int"] * ncols
+        for row in grid:
+            for c in range(ncols):
+                val = row[c] if c < len(row) else None
+                if _cell_forces_float_column(val):
+                    kinds[c] = "float"
+        return kinds
+    kinds_1d: list[ColumnKind] = ["int"]
+    for val in grid:
+        if _cell_forces_float_column(val):
+            kinds_1d[0] = "float"
+    return kinds_1d
+
+
+def envelope_column_kinds(envelope: dict[str, Any], *, ncols: int) -> list[ColumnKind]:
+    """Per-column unpack kinds; falls back for legacy integer_values / int64 wire."""
+    kinds = envelope.get("column_kinds")
+    if isinstance(kinds, list) and len(kinds) == ncols:
+        out: list[ColumnKind] = []
+        for k in kinds:
+            out.append("int" if k == "int" else "float")
+        return out
+    if envelope.get("integer_values") or (
+        envelope.get("dtype") == "int64" and "column_kinds" not in envelope
+    ):
+        return ["int"] * ncols
+    return ["float"] * ncols
+
+
+def _host_cell_from_float(val: float, *, column_kind: ColumnKind) -> Any:
+    if math.isnan(val):
+        return None
+    if column_kind == "int":
+        return int(val)
+    return val
+
+
+def _apply_column_kinds_to_ndarray(arr: Any, column_kinds: list[ColumnKind], *, ncols: int, is_1d: bool) -> Any:
+    """Cast float64 ndarray columns to int64 where pack declared int (NumPy trusts column metadata)."""
+    import numpy as np
+
+    if is_1d:
+        if column_kinds[0] == "int":
+            return arr.astype(np.int64)
+        return arr
+    out = arr.copy()
+    for c, kind in enumerate(column_kinds):
+        if kind == "int":
+            out[:, c] = out[:, c].astype(np.int64)
+    return out
 
 
 def describe_wire_value(obj: Any, *, sample: int = 3) -> str:
@@ -48,7 +125,7 @@ def describe_wire_value(obj: Any, *, sample: int = 3) -> str:
         strings = obj.get("strings") or {}
         return (
             f"split_grid shape={obj.get('shape')} cells={wire_cell_count(obj)} "
-            f"strings={len(strings)} b64_chars={len(b64)}"
+            f"column_kinds={obj.get('column_kinds')} strings={len(strings)} b64_chars={len(b64)}"
         )
     if obj is None:
         return "None"
@@ -264,25 +341,29 @@ def host_pack_split_grid(grid: list[Any] | list[list[Any]]) -> dict[str, Any]:
     if not grid:
         return {
             "__wa_payload__": PAYLOAD_SPLIT_GRID,
-            "dtype": "float64",
+            "dtype": SPLIT_GRID_WIRE_DTYPE,
+            "column_kinds": [],
             "shape": [0],
             "b64": "",
             "strings": {},
         }
-        
-    is_2d = isinstance(grid[0], (list, tuple))
+
     buf = array.array("d")
-    strings = {}
-    
+    strings: dict[str, str] = {}
+    is_2d = isinstance(grid[0], (list, tuple))
+
     if is_2d:
         nrows = len(grid)
         ncols = max((len(r) for r in grid), default=0)
+        column_kinds: list[ColumnKind] = ["int"] * ncols
         idx = 0
         for r in range(nrows):
             row = grid[r]
             row_len = len(row)
             for c in range(ncols):
                 val = row[c] if c < row_len else None
+                if _cell_forces_float_column(val):
+                    column_kinds[c] = "float"
                 if val is None:
                     buf.append(math.nan)
                 elif isinstance(val, bool):
@@ -293,13 +374,15 @@ def host_pack_split_grid(grid: list[Any] | list[list[Any]]) -> dict[str, Any]:
                     buf.append(math.nan)
                     strings[str(idx)] = val
                 else:
-                    # Any other object, serialize as string to be safe
                     buf.append(math.nan)
                     strings[str(idx)] = str(val)
                 idx += 1
         shape = [nrows, ncols]
     else:
+        column_kinds = ["int"]
         for idx, val in enumerate(grid):
+            if _cell_forces_float_column(val):
+                column_kinds[0] = "float"
             if val is None:
                 buf.append(math.nan)
             elif isinstance(val, bool):
@@ -313,17 +396,19 @@ def host_pack_split_grid(grid: list[Any] | list[list[Any]]) -> dict[str, Any]:
                 buf.append(math.nan)
                 strings[str(idx)] = str(val)
         shape = [len(grid)]
-        
+
     envelope = {
         "__wa_payload__": PAYLOAD_SPLIT_GRID,
-        "dtype": "float64",
+        "dtype": SPLIT_GRID_WIRE_DTYPE,
+        "column_kinds": column_kinds,
         "shape": shape,
         "b64": base64.b64encode(buf.tobytes()).decode("ascii"),
         "strings": strings,
     }
-    
+
     log.debug(
-        "payload_codec host_pack split_grid shape=%s cells=%s strings=%s b64_chars=%s",
+        "payload_codec host_pack split_grid column_kinds=%s shape=%s cells=%s strings=%s b64_chars=%s",
+        column_kinds,
         shape,
         len(buf),
         len(strings),
@@ -365,7 +450,11 @@ def host_pack_data(
 def host_unpack_split_grid(envelope: dict[str, Any], *, as_nested_list: bool = True) -> list[Any] | list[list[Any]]:
     """Decode split_grid envelope on host (stdlib only). Reconstructs list or list of lists."""
     raw = base64.b64decode(envelope["b64"])
-    buf = array.array("d")
+    legacy_int64_wire = envelope.get("dtype") == "int64" and "column_kinds" not in envelope
+    if legacy_int64_wire:
+        buf = array.array("q")
+    else:
+        buf = array.array("d")
     buf.frombytes(raw)
     shape = envelope["shape"]
     if len(shape) == 1:
@@ -375,20 +464,22 @@ def host_unpack_split_grid(envelope: dict[str, Any], *, as_nested_list: bool = T
     else:
         nrows, ncols = shape[0], shape[1]
         is_1d = False
-    
+
     strings = envelope.get("strings", {})
-    
+    column_kinds = envelope_column_kinds(envelope, ncols=ncols)
+
     flat_list = []
     for i in range(len(buf)):
         val = buf[i]
         str_idx = str(i)
+        col = 0 if is_1d else i % ncols
         if str_idx in strings:
             flat_list.append(strings[str_idx])
-        elif math.isnan(val):
-            flat_list.append(None)
-        else:
+        elif legacy_int64_wire:
             flat_list.append(val)
-            
+        else:
+            flat_list.append(_host_cell_from_float(val, column_kind=column_kinds[col]))
+
     if not as_nested_list or is_1d:
         return flat_list
         
@@ -426,33 +517,40 @@ def child_unpack_split_grid(envelope: dict[str, Any]) -> Any:
         import math
         
         raw = base64.b64decode(envelope["b64"])
-        dtype = np.dtype(envelope.get("dtype", "float64"))
-        
+        legacy_int64_wire = envelope.get("dtype") == "int64" and "column_kinds" not in envelope
+        wire_np_dtype = np.int64 if legacy_int64_wire else np.float64
+        column_kinds = envelope_column_kinds(envelope, ncols=ncols)
+
         strings = envelope.get("strings", {})
         if not strings:
-            # OPTIMIZATION: Purely numeric grid!
-            # Materialize directly via np.frombuffer at microsecond C-speed, bypassing Python loops!
             if is_1d:
-                arr = np.frombuffer(raw, dtype=dtype)
+                arr = np.frombuffer(raw, dtype=wire_np_dtype)
             else:
-                arr = np.frombuffer(raw, dtype=dtype).reshape((nrows, ncols))
+                arr = np.frombuffer(raw, dtype=wire_np_dtype).reshape((nrows, ncols))
+            if not legacy_int64_wire:
+                arr = _apply_column_kinds_to_ndarray(arr, column_kinds, ncols=ncols, is_1d=is_1d)
             log.debug(
-                "payload_codec child_unpack split_grid optimized -> ndarray shape=%s",
+                "payload_codec child_unpack split_grid optimized -> ndarray shape=%s dtype=%s column_kinds=%s",
                 arr.shape,
+                arr.dtype,
+                column_kinds,
             )
             return arr
-            
-        arr = np.frombuffer(raw, dtype=dtype)
+
+        arr = np.frombuffer(raw, dtype=wire_np_dtype)
         flat_list = arr.tolist()
-        
+
         for i in range(len(flat_list)):
             val = flat_list[i]
             str_idx = str(i)
+            col = 0 if is_1d else i % ncols
             if str_idx in strings:
                 flat_list[i] = strings[str_idx]
             elif math.isnan(val):
                 flat_list[i] = None
-                
+            elif column_kinds[col] == "int":
+                flat_list[i] = int(val)
+
         if is_1d:
             log.debug(
                 "payload_codec child_unpack split_grid reconstructed 1D list size=%s strings=%s",
@@ -511,24 +609,31 @@ def child_unpack_data(wire: Any) -> Any:
 
 
 def child_pack_split_grid(arr: Any) -> dict[str, Any]:
-    """Pack ndarray as split_grid for JSON wire (venv)."""
+    """Pack ndarray as split_grid for JSON wire (venv). Numeric lane is always float64 bytes."""
     import numpy as np
 
     try:
         if not isinstance(arr, np.ndarray):
-            arr = np.asarray(arr, dtype=np.float64)
-        contiguous = np.ascontiguousarray(arr, dtype=np.float64)
+            arr = np.asarray(arr)
+        ncols = int(arr.shape[1]) if arr.ndim == 2 else 1
+        if np.issubdtype(arr.dtype, np.integer):
+            column_kinds: list[ColumnKind] = ["int"] * ncols
+        else:
+            column_kinds = ["float"] * ncols
+        wire_arr = np.ascontiguousarray(arr, dtype=np.float64)
         envelope = {
             "__wa_payload__": PAYLOAD_SPLIT_GRID,
-            "dtype": "float64",
-            "shape": list(contiguous.shape),
-            "b64": base64.b64encode(contiguous.tobytes()).decode("ascii"),
+            "dtype": SPLIT_GRID_WIRE_DTYPE,
+            "column_kinds": column_kinds,
+            "shape": list(wire_arr.shape),
+            "b64": base64.b64encode(wire_arr.tobytes()).decode("ascii"),
             "strings": {},
         }
         log.debug(
-            "payload_codec child_pack split_grid egress shape=%s cells=%s b64_chars=%s",
-            contiguous.shape,
-            contiguous.size,
+            "payload_codec child_pack split_grid column_kinds=%s shape=%s cells=%s b64_chars=%s",
+            column_kinds,
+            wire_arr.shape,
+            wire_arr.size,
             len(envelope["b64"]),
         )
         return envelope

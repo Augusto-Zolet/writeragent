@@ -102,6 +102,67 @@ def test_round_trip_child_split_grid_host_list():
     assert back[2][3] == pytest.approx(11.0)
 
 
+def test_column_kinds_from_cell_types():
+    from plugin.scripting.payload_codec import column_kinds_for_grid
+
+    assert column_kinds_for_grid([[100, 541], [101, 547]]) == ["int", "int"]
+    assert column_kinds_for_grid([[100, 1.5], [101, 2.5]]) == ["int", "float"]
+    assert column_kinds_for_grid([[1.5, 2.0]]) == ["float", "float"]
+    assert column_kinds_for_grid([[1, None]]) == ["int", "float"]
+    assert column_kinds_for_grid([[1, "x"]]) == ["int", "int"]
+
+
+def test_host_unpack_restores_integer_grid():
+    grid = [[100, 541], [101, 547], [102, 557], [103, 563], [104, 569], [105, 571], [106, 577]]
+    wire = host_pack_data(grid, force="always")
+    assert wire["dtype"] == "float64"
+    assert wire["column_kinds"] == ["int", "int"]
+    back = host_unpack_data(wire, as_nested_list=True)
+    assert back == grid
+    assert all(isinstance(cell, int) for row in back for cell in row)
+
+
+def test_host_unpack_mixed_int_float_columns():
+    grid = [[100, 1.5], [101, 2.5], [102, 3.5], [103, 4.5], [104, 5.5]]
+    wire = host_pack_data(grid, force="always")
+    assert wire["column_kinds"] == ["int", "float"]
+    back = host_unpack_data(wire, as_nested_list=True)
+    assert back[0] == [100, 1.5]
+    assert isinstance(back[0][0], int)
+    assert isinstance(back[0][1], float)
+    assert back[1][0] == 101
+
+
+def test_child_pack_integer_ndarray_sets_column_kinds():
+    np = pytest.importorskip("numpy")
+    from plugin.scripting.payload_codec import child_pack_result
+
+    wire = child_pack_result(np.arange(12, dtype=np.int64).reshape(3, 4), force="always")
+    assert wire["dtype"] == "float64"
+    assert wire["column_kinds"] == ["int", "int", "int", "int"]
+    back = host_unpack_data(wire, as_nested_list=True)
+    assert back[0][0] == 0
+    assert isinstance(back[0][0], int)
+
+
+def test_legacy_int64_wire_still_unpacks():
+    """Envelopes written before integer_values used dtype=int64 bytes."""
+    import array
+    import base64
+
+    from plugin.scripting.payload_codec import PAYLOAD_SPLIT_GRID
+
+    legacy = {
+        "__wa_payload__": PAYLOAD_SPLIT_GRID,
+        "dtype": "int64",
+        "shape": [5, 2],
+        "b64": base64.b64encode(array.array("q", list(range(1, 11))).tobytes()).decode("ascii"),
+        "strings": {},
+    }
+    back = host_unpack_data(legacy, as_nested_list=True)
+    assert back == [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]]
+
+
 def test_none_becomes_nan_in_split_grid():
     np = pytest.importorskip("numpy")
     wire = host_pack_data([[1.0, None, 3.0]], force="always")

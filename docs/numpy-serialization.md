@@ -14,7 +14,7 @@ For numeric and mixed-type grids, the compute bridge implements high-performance
 
 | Piece | Purely Numeric Split-Grid | Mixed-Type Split-Grid |
 |-------|----------------------------|-----------------------|
-| **Wire Payload** | `{"__wa_payload__": "split_grid", "dtype": "float64", "shape": [r, c], "b64": "...", "strings": {}}` | `{"__wa_payload__": "split_grid", "dtype": "float64", "shape": [r, c], "b64": "...", "strings": {"idx": "val"}}` |
+| **Wire Payload** | `{"__wa_payload__": "split_grid", "dtype": "float64", "column_kinds": ["int", "int"], "shape": [r, c], "b64": "...", "strings": {}}` | `{"__wa_payload__": "split_grid", "dtype": "float64", "column_kinds": ["int", "float"], "shape": [r, c], "b64": "...", "strings": {"idx": "val"}}` |
 | **Host Packing** | Flattens grid cells to float64; empty cells become `math.nan`. Converts directly to standard `array.array` and encodes base64. Sparse `strings` dict is empty `{}`. | Flattens grid; numbers become float64, empty cells/strings become `math.nan` in binary array. Strings are registered in parallel in a sparse `strings` index map. |
 | **Child Unpacking** | **Optimized C-Speed Path**: Sees that the sparse `strings` dictionary is empty and materializes a NumPy `ndarray` directly using `np.frombuffer` in one step. Bypasses all Python list/loop transpositions! | Decodes base64 to buffer; loads via `np.frombuffer`. Converts to Python list via C-level `.tolist()`, replaces `nan` with `None`, and overlays sparse strings from the index map. |
 | **Compatibility** | Namespace receives a NumPy ndarray (ideal for math operations). | Namespace receives a standard nested list of lists (fully backward compatible for all sheets and scripts). |
@@ -99,7 +99,8 @@ Production wiring (2026-05):
 |----------|------|
 | [`plugin/scripting/payload_codec.py`](../plugin/scripting/payload_codec.py) | Single source: pack/unpack, threshold, `describe_wire_value` for logs |
 | [`plugin/calc/calc_addin_data.py`](../plugin/calc/calc_addin_data.py) | `pack_calc_data_for_wire()` after range read; `count_cells()` understands split_grid envelopes |
-| [`plugin/calc/python_function.py`](../plugin/calc/python_function.py) | `=PYTHON()` ingress pack + `host_unpack_data` on large list results for matrix/session |
+| [`plugin/scripting/python_worker_manager.py`](../plugin/scripting/python_worker_manager.py) | `_normalize_response`: `host_unpack_data` on worker `result` (all callers); respects `column_kinds` |
+| [`plugin/calc/python_function.py`](../plugin/calc/python_function.py) | `=PYTHON()` ingress pack + matrix/session flattening (result already unpacked) |
 | [`plugin/calc/venv_python.py`](../plugin/calc/venv_python.py) | Chat tool ingress pack |
 | [`plugin/scripting/venv_sandbox.py`](../plugin/scripting/venv_sandbox.py) | `child_unpack_data` before inject; `child_pack_result` in `serialize_result` |
 | [`tests/scripting/test_payload_codec.py`](../tests/scripting/test_payload_codec.py) | Unit tests (threshold, round-trip, mixed text → lists) |
@@ -123,7 +124,7 @@ Calc UNO range
   → serialize_result → child_pack_result (child: split_grid or list for large numeric result)
   → json.dumps(response)         (child: text line to host)
   → json.loads(response)         (host)
-  → host_unpack_data where needed (host: split_grid → nested lists for Calc matrix / LLM)
+  → _normalize_response → host_unpack_data (host: split_grid → nested lists for Calc / LLM / UI)
   → finalize_python_return / write_formula_range
 ```
 
@@ -134,7 +135,8 @@ Calc UNO range
 | Host encode | [`python_worker_manager.py`](../plugin/scripting/python_worker_manager.py) | `json.dumps` of request dict | Smaller line for blob; still O(cells) base64 |
 | Child unpack | [`venv_sandbox.py`](../plugin/scripting/venv_sandbox.py) | `frombuffer` + `reshape` → ndarray | ~13× faster materialize vs `np.array(list)` at 10⁶ cells (bench) |
 | Return | [`serialize_result`](../plugin/scripting/venv_sandbox.py) | `child_pack_result` for ndarray/list; DataFrame still `to_dict(orient="records")` | Large ndarray egress as blob, not `.tolist()` |
-| Calc return | [`python_function.py`](../plugin/calc/python_function.py) | `host_unpack_data` when expanding matrix results | Lists only where Calc needs per-cell scalars |
+| Host decode | [`python_worker_manager.py`](../plugin/scripting/python_worker_manager.py) | `_normalize_response` → `host_unpack_data` on `result` | Nested lists for LLM, smol observations, Calc matrix/session |
+| Calc return | [`python_function.py`](../plugin/calc/python_function.py) | `finalize_python_return` / session flattening | Per-cell scalars for legacy add-in bridge |
 
 **Not used:** pickle, msgpack, mmap, shared memory. [`SafeSerializer`](../plugin/contrib/smolagents/serialization.py) (`__type__: ndarray`) is **not** on the worker path — only [`payload_codec.py`](../plugin/scripting/payload_codec.py).
 

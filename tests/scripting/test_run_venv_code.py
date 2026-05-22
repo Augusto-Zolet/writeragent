@@ -162,6 +162,7 @@ def test_manager_unpacks_prime_tuple_list():
 
     assert not is_split_grid(r["result"])
     assert r["result"] == [[100, 541], [101, 547], [102, 557], [103, 563], [104, 569], [105, 571], [106, 577]]
+    assert all(isinstance(cell, int) for row in r["result"] for cell in row)
     PythonWorkerManager.shutdown_all()
 
 
