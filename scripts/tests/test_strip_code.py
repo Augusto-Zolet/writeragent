@@ -78,3 +78,46 @@ def test_strip_production_code_dry_run(tmp_path: Path) -> None:
     # 3. Read back and assert no changes were written
     code = test_file.read_text(encoding="utf-8")
     assert code == original_code
+
+
+def test_strip_deal_decorators_and_imports(tmp_path: Path) -> None:
+    # 1. Create a mock Python file with deal contracts and fallback imports
+    test_file = tmp_path / "mock_file.py"
+    original_code = (
+        "try:\n"
+        "    import deal\n"
+        "except ImportError:\n"
+        "    class _DummyDeal:\n"
+        "        def __getattr__(self, name):\n"
+        "            return lambda *args, **kwargs: lambda f: f\n"
+        "    deal = _DummyDeal()\n"
+        "\n"
+        "import math\n"
+        "\n"
+        "@deal.pre(lambda x: x > 0)\n"
+        "@deal.post(lambda r: r is not None)\n"
+        "def some_function(x):\n"
+        "    return math.sqrt(x)\n"
+        "\n"
+        "@deal.pure\n"
+        "async def some_async_func():\n"
+        "    return 42\n"
+    )
+    test_file.write_text(original_code, encoding="utf-8")
+
+    # 2. Run stripping
+    strip_production_code(str(tmp_path), dry_run=False)
+
+    # 3. Read it back and assert it is stripped correctly
+    stripped_code = test_file.read_text(encoding="utf-8")
+    expected_code = (
+        "\n"
+        "import math\n"
+        "\n"
+        "def some_function(x):\n"
+        "    return math.sqrt(x)\n"
+        "\n"
+        "async def some_async_func():\n"
+        "    return 42\n"
+    )
+    assert stripped_code == expected_code

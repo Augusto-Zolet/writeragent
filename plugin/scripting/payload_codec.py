@@ -25,6 +25,14 @@ from typing import Any, Literal, cast
 
 log = logging.getLogger(__name__)
 
+try:
+    import deal  # type: ignore
+except ImportError:
+    class _DummyDeal:
+        def __getattr__(self, name: str) -> Any:
+            return lambda *args, **kwargs: lambda f: f
+    deal = cast(Any, _DummyDeal())
+
 # --- Wire kind (JSON-safe dict tag) -----------------------------------------------
 
 PAYLOAD_SPLIT_GRID = "split_grid"
@@ -235,6 +243,23 @@ def _cell_for_json(value: Any) -> Any:
     return value
 
 
+@deal.pre(lambda grid: isinstance(grid, (list, tuple)))
+@deal.post(lambda result: (
+    isinstance(result, tuple) and len(result) == 4 and
+    isinstance(result[0], array.array) and
+    isinstance(result[1], dict) and
+    isinstance(result[2], list) and
+    isinstance(result[3], list)
+))
+@deal.ensure(lambda grid, result: (
+    (not grid) == (len(result[0]) == 0 and result[1] == {} and result[2] == [] and result[3] == [0])
+))
+@deal.ensure(lambda grid, result: (
+    all(isinstance(k, int) for k in result[1].keys())
+))
+@deal.ensure(lambda grid, result: (
+    len(result[2]) == (0 if not grid else (result[3][1] if len(result[3]) == 2 else 1))
+))
 def _flatten_grid_to_components(
     grid: list[Any] | list[list[Any]]
 ) -> tuple[array.array, dict[int, str], list[ColumnKind], list[int]]:
@@ -343,6 +368,16 @@ def _flatten_grid_to_components(
     return buf, strings, column_kinds, shape
 
 
+@deal.pre(lambda grid: isinstance(grid, (list, tuple)))
+@deal.post(lambda result: isinstance(result, dict))
+@deal.ensure(lambda grid, result: (
+    result.get("__wa_payload__") == PAYLOAD_SPLIT_GRID and
+    result.get("dtype") == SPLIT_GRID_WIRE_DTYPE and
+    isinstance(result.get("column_kinds"), list) and
+    isinstance(result.get("shape"), list) and
+    isinstance(result.get("strings"), dict) and
+    isinstance(result.get("buffer"), bytes)
+))
 def host_pack_split_grid(
     grid: list[Any] | list[list[Any]],
 ) -> dict[str, Any]:
@@ -406,6 +441,13 @@ def host_pack_data(
         raise
 
 
+@deal.pre(lambda envelope, as_nested_list=True: (
+    isinstance(envelope, dict) and
+    envelope.get("__wa_payload__") == PAYLOAD_SPLIT_GRID and
+    isinstance(envelope.get("buffer"), bytes) and
+    isinstance(envelope.get("shape"), list)
+))
+@deal.post(lambda result: isinstance(result, list))
 def host_unpack_split_grid(envelope: dict[str, Any], *, as_nested_list: bool = True) -> list[Any] | list[list[Any]]:
     """Decode split_grid envelope on host (stdlib only). Reconstructs list or list of lists."""
     buf = array.array("d")
@@ -457,6 +499,13 @@ def is_split_grid(obj: Any) -> bool:
     return isinstance(obj, dict) and obj.get("__wa_payload__") == PAYLOAD_SPLIT_GRID
 
 
+@deal.pre(lambda envelope: (
+    isinstance(envelope, dict) and
+    envelope.get("__wa_payload__") == PAYLOAD_SPLIT_GRID and
+    isinstance(envelope.get("buffer"), bytes) and
+    isinstance(envelope.get("shape"), list)
+))
+@deal.post(lambda result: result is not None)
 def child_unpack_split_grid(envelope: dict[str, Any]) -> Any:
     """Decode split_grid envelope in child. Returns ndarray if purely numeric, else nested lists/lists."""
     try:

@@ -40,6 +40,16 @@ def should_skip_strip(rel_path: str) -> bool:
     return False
 
 
+def _is_deal_decorator(node: ast.AST) -> bool:
+    """Determine if an AST node is a decorator under the 'deal' namespace (e.g. @deal.pre)."""
+    curr = node
+    if isinstance(curr, ast.Call):
+        curr = curr.func
+    while isinstance(curr, ast.Attribute):
+        curr = curr.value
+    return isinstance(curr, ast.Name) and curr.id == "deal"
+
+
 def strip_production_code(bundle_path: str, dry_run: bool = False) -> None:
     """Remove print, log.debug, log.info, and grammar_obs calls from Python files in the bundle.
 
@@ -89,6 +99,39 @@ def strip_production_code(bundle_path: str, dry_run: bool = False) -> None:
                                 "grammar_obs", "_grammar_obs"
                             ):
                                 nodes_to_remove.append(node)
+                        self.generic_visit(node)
+
+                    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+                        for dec in node.decorator_list:
+                            if _is_deal_decorator(dec):
+                                nodes_to_remove.append(dec)
+                        self.generic_visit(node)
+
+                    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+                        for dec in node.decorator_list:
+                            if _is_deal_decorator(dec):
+                                nodes_to_remove.append(dec)
+                        self.generic_visit(node)
+
+                    def visit_Try(self, node: ast.Try) -> None:
+                        # Check if any statement in the body is an import of 'deal'
+                        for stmt in node.body:
+                            if isinstance(stmt, ast.Import) and any(alias.name == "deal" for alias in stmt.names):
+                                nodes_to_remove.append(node)
+                                return
+                            if isinstance(stmt, ast.ImportFrom) and stmt.module == "deal":
+                                nodes_to_remove.append(node)
+                                return
+                        self.generic_visit(node)
+
+                    def visit_Import(self, node: ast.Import) -> None:
+                        if any(alias.name == "deal" for alias in node.names):
+                            nodes_to_remove.append(node)
+                        self.generic_visit(node)
+
+                    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+                        if node.module == "deal":
+                            nodes_to_remove.append(node)
                         self.generic_visit(node)
 
                 FindVisitor().visit(tree)
