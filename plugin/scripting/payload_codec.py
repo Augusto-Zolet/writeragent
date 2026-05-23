@@ -447,33 +447,48 @@ def child_unpack_split_grid(envelope: dict[str, Any]) -> Any:
             log.debug("payload_codec child_unpack split_grid optimized -> ndarray shape=%s dtype=%s", arr.shape, arr.dtype)
             return arr
 
-        # Path for mixed-type grids with strings
-        flat_list = np.frombuffer(raw, dtype=np.float64).tolist()
+        # Path for mixed-type grids with strings: Vectorized Object-Masking Strategy.
+        #
+        # --- Why this Vectorized Object-Masking Strategy? ---
+        # Homogeneous numeric arrays (float64) cannot natively store Python 'None' or
+        # string types. Converting the array to an 'object' type array at C-speed
+        # (arr.astype(object)) allows holding arbitrary Python types. We then use
+        # vectorized boolean masks to perform C-level bulk modifications, bypassing
+        # slow cell-by-cell loops, modulo operations, and manual type-coercion in Python.
+        arr = np.frombuffer(raw, dtype=np.float64)
+        if not is_1d:
+            arr = arr.reshape((nrows, ncols))
 
-        # Split branch packing loops to completely bypass division/modulo arithmetic
-        # and integer checking when there are no integer columns.
+        # 1. Bulk-replace NaN values with None using a C-level boolean mask
+        nan_mask = np.isnan(arr)
+        obj_arr = arr.astype(object)
+        obj_arr[nan_mask] = None
+
+        # 2. Vectorized Column-Wise Integer Casting
+        # Rather than checking index-level column types inside the main cell iteration
+        # (which requires modulo index maths 'i % ncols'), we iterate once per column.
+        # We then cast only the valid (non-None) elements in that column at C-speed.
         col_is_int = [k == "int" for k in column_kinds]
-        any_int = any(col_is_int)
+        if any(col_is_int):
+            for c, is_int in enumerate(col_is_int):
+                if is_int:
+                    col_slice = obj_arr[:, c] if not is_1d else obj_arr
+                    col_nan_mask = nan_mask[:, c] if not is_1d else nan_mask
+                    valid_mask = ~col_nan_mask
+                    # Vectorized astype(int) casts valid float objects to Python ints in C
+                    col_slice[valid_mask] = col_slice[valid_mask].astype(int)
 
-        if not any_int:
-            for i, val in enumerate(flat_list):
-                if i in strings:
-                    flat_list[i] = strings[i]
-                elif math.isnan(val):
-                    flat_list[i] = None
-        else:
-            for i, val in enumerate(flat_list):
-                if i in strings:
-                    flat_list[i] = strings[i]
-                elif math.isnan(val):
-                    flat_list[i] = None
-                elif col_is_int[0 if is_1d else i % ncols]:
-                    flat_list[i] = int(val)
+        # 3. Sparse Strings Overlay
+        # The 'strings' dictionary is sparse and indexes values row-major (flat 1D).
+        # We get a flat 1D view of the object array (zero-copy ravel) to execute
+        # the direct, low-overhead string insertions without coordinate math.
+        if strings:
+            flat_obj = obj_arr.ravel()
+            for idx, val in strings.items():
+                flat_obj[idx] = val
 
-        if is_1d:
-            return flat_list
-
-        return [flat_list[r * ncols : (r + 1) * ncols] for r in range(nrows)]
+        # 4. Instant 2D list materialization at C-speed
+        return obj_arr.tolist()
     except Exception:
         log.exception("payload_codec child_unpack split_grid failed for envelope %s", describe_wire_value(envelope))
         raise
