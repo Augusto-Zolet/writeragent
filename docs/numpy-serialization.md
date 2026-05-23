@@ -377,7 +377,7 @@ Calc UNO range
 
 | Stage | Module | What happens | Large dense numeric `data` (shipped path) |
 |-------|--------|--------------|-------------------------------------------|
-| Range read | [`calc_addin_data.py`](../plugin/calc/calc_addin_data.py) | Cell scalars in nested lists; cap 250 000 cells | O(cells) once at read |
+| Range read | [`calc_addin_data.py`](../plugin/calc/calc_addin_data.py) | Cell scalars in nested lists; cap from Settings `scripting.python_max_data_cells` (default 250 000) | O(cells) once at read |
 | Host pack | [`payload_codec.py`](../plugin/scripting/payload_codec.py) | `array` buffer envelope when ≥10 numeric cells | One pass; wire ~40% size vs JSON list (bench) |
 | Host encode | [`python_worker_manager.py`](../plugin/scripting/python_worker_manager.py) | `pickle.dumps` of request dict | Small binary payload; completely avoids Base64 |
 | Child unpack | [`venv_sandbox.py`](../plugin/scripting/venv_sandbox.py) | `frombuffer` + `reshape` → ndarray | ~168× faster materialize vs `np.array(list)` at 10⁴ cells (bench) |
@@ -404,7 +404,7 @@ With the highly optimized pure-Python/NumPy vectorized object-masking strategy i
 
 ### Benchmark checklist (regression / future optimizations)
 
-Re-run when changing [`payload_codec.py`](../plugin/scripting/payload_codec.py) or considering vendored codecs or mmap. **Standalone bench (outside LO):** [`scripts/bench_serialization.py`](../scripts/bench_serialization.py) — asymmetric host (stdlib) vs child (NumPy), ingress and egress, scalar/list/ndarray sizes up to 10 000 cells; compares JSON lists vs `split_grid` (`np.frombuffer` + `reshape` for numeric). Production policy matches bench defaults (`BINARY_MIN_CELLS = 10`).
+Re-run when changing [`payload_codec.py`](../plugin/scripting/payload_codec.py) or considering vendored codecs or mmap. **Standalone bench (outside LO):** [`scripts/bench_serialization.py`](../scripts/bench_serialization.py) — asymmetric host (stdlib) vs child (NumPy), ingress and egress, scalar/list/ndarray sizes up to 100 000 cells (includes 20 000×5); compares JSON lists vs `split_grid` (`np.frombuffer` + `reshape` for numeric). Production policy matches bench defaults (`BINARY_MIN_CELLS = 10`).
 
 ```bash
 python scripts/bench_serialization.py --direction both
@@ -507,7 +507,7 @@ Fresh namespace per call stays ([core strategy](enabling_numpy_in_libreoffice.md
 | Strategy | Invest when |
 |----------|-------------|
 | **Vendored Codecs** (orjson / msgpack on host) | Whole-line `json.dumps` / `json.loads` dominates after Priority 1 |
-| **Mmap** (temp file) | Payloads near `MAX_PYTHON_DATA_CELLS` (250 k); stdin size or base64 RAM spikes |
+| **Mmap** (temp file) | Payloads near `scripting.python_max_data_cells` (default 250 k, Settings → Python); stdin size or base64 RAM spikes |
 | **Tool RPC** ([core RPC roadmap](enabling_numpy_in_libreoffice.md#venv--libreoffice-tool-rpc)) | Sheet output should not round-trip huge `result` through JSON at all |
 
 #### Completed: Split-Grid inside Pickle Optimization & May 2026 Micro-Optimizations

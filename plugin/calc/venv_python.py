@@ -17,6 +17,7 @@ from plugin.calc.bridge import CalcBridge
 from plugin.calc.calc_addin_data import check_python_data_size, finalize_python_data, pack_calc_data_for_wire, values_from_inspector_range
 from plugin.calc.inspector import CellInspector
 from plugin.framework.constants import PYTHON_VENV_AUTO_IMPORTS_TOOL_NOTE
+from plugin.scripting.data_limits import configured_python_max_data_cells
 from plugin.scripting.run_venv_code import run_code_in_user_venv
 
 if TYPE_CHECKING:
@@ -91,7 +92,7 @@ def _resolve_python_data(ctx: ToolContext, *, data_range: str | None, data: Any)
         py_data = finalize_python_data(data)
 
     if py_data is not None:
-        size_err = check_python_data_size(py_data)
+        size_err = check_python_data_size(py_data, max_cells=configured_python_max_data_cells(ctx.ctx))
         if size_err:
             return None, size_err
         py_data = pack_calc_data_for_wire(py_data)

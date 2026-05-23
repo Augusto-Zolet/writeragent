@@ -30,3 +30,13 @@ config:
     widget: number
     label: Python script timeout (seconds)
     helper: Wall-clock limit for Run Python Script, =PYTHON(), and run_venv_python_script.
+
+  python_max_data_cells:
+    type: int
+    default: 250000
+    min: 1000
+    max: 2000000
+    widget: number
+    label: Max Calc data cells
+    helper: Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger values use more RAM and time; UNO range read still dominates.
+    public: true

@@ -11,10 +11,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from plugin.scripting.data_limits import python_max_data_cells_default
 from plugin.scripting.payload_codec import host_pack_data, is_split_grid, wire_cell_count
-
-# Cap passed to venv subprocess (JSON size / eval time); ~500x500 sheet.
-MAX_PYTHON_DATA_CELLS = 250_000
 
 
 def _unwrap_cell(value: Any, true_strings: set[str] | None = None, false_strings: set[str] | None = None) -> Any:
@@ -141,11 +139,20 @@ def count_cells(data: Any) -> int:
     return len(data)
 
 
-def check_python_data_size(data: Any, *, max_cells: int = MAX_PYTHON_DATA_CELLS) -> str | None:
-    """Return an error message if *data* exceeds *max_cells*, else ``None``."""
+def check_python_data_size(
+    data: Any,
+    *,
+    max_cells: int | None = None,
+) -> str | None:
+    """Return an error message if *data* exceeds *max_cells*, else ``None``.
+
+    *max_cells* defaults to schema default for ``scripting.python_max_data_cells``; callers with
+    UNO context should pass ``configured_python_max_data_cells(ctx)``.
+    """
+    limit = python_max_data_cells_default() if max_cells is None else max_cells
     n = count_cells(data)
-    if n > max_cells:
-        return f"Data range has {n} cells; maximum is {max_cells}."
+    if n > limit:
+        return f"Data range has {n} cells; maximum is {limit}."
     return None
 
 

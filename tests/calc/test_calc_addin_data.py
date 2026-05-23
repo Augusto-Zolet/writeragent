@@ -9,7 +9,6 @@
 import pytest
 
 from plugin.calc.calc_addin_data import (
-    MAX_PYTHON_DATA_CELLS,
     calc_addin_data_to_python,
     check_python_data_size,
     count_cells,
@@ -17,6 +16,7 @@ from plugin.calc.calc_addin_data import (
     pack_calc_data_for_wire,
     values_from_inspector_range,
 )
+from plugin.scripting.data_limits import python_max_data_cells_default
 from plugin.scripting.payload_codec import is_split_grid, wire_cell_count
 
 
@@ -62,7 +62,7 @@ def test_count_cells_flat():
 def test_check_python_data_size_rejects_large():
     big = [[0] * 1000 for _ in range(300)]
     assert count_cells(big) == 300_000
-    err = check_python_data_size(big, max_cells=MAX_PYTHON_DATA_CELLS)
+    err = check_python_data_size(big, max_cells=python_max_data_cells_default())
     assert err is not None
     assert "300000" in err or "300,000" in err.replace(",", "")
 

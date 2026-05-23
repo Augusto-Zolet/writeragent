@@ -34,8 +34,8 @@ PAYLOAD_SPLIT_GRID = "split_grid"
 BINARY_MIN_CELLS = 10
 """Use split_grid when total cell count is at least this (10+ cells)."""
 
-MAX_BENCH_CELLS = 10_000
-"""Upper cap for benchmark grids (production may use calc_addin MAX_PYTHON_DATA_CELLS)."""
+MAX_BENCH_CELLS = 100_000
+"""Upper cap for benchmark grids (scripts/bench_serialization.py; production cap is scripting.python_max_data_cells)."""
 
 ForceBinary = Literal["auto", "always", "never"]
 SPLIT_GRID_WIRE_DTYPE = "float64"

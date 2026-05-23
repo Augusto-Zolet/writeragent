@@ -262,6 +262,7 @@ def grid_shapes() -> list[tuple[int, int, str]]:
         (1000, 1, "grid"),
         (10, 1, "list1d"),
         (100, 1, "list1d"),
+        (20_000, 5, "grid"),  # 100_000 cells — all numeric via make_grid
     ]
     out: list[tuple[int, int, str]] = []
     for nrows, ncols, kind in specs:

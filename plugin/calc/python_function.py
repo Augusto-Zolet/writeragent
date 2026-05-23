@@ -14,6 +14,7 @@ from typing import Any
 from plugin.calc.calc_addin_data import calc_addin_data_to_python, check_python_data_size, count_cells, pack_calc_data_for_wire
 from plugin.framework.errors import format_error_payload
 from plugin.framework.i18n import _
+from plugin.scripting.data_limits import configured_python_max_data_cells
 from plugin.scripting.payload_codec import is_split_grid
 from plugin.scripting.run_venv_code import run_code_in_user_venv
 
@@ -191,7 +192,7 @@ def execute_python_addin(
         if py_data is not None and is_scalar_index_arg(py_data) and not is_split_grid(py_data):
             index_arg = py_data[0]
         if py_data is not None:
-            size_err = check_python_data_size(py_data)
+            size_err = check_python_data_size(py_data, max_cells=configured_python_max_data_cells(ctx))
             if size_err:
                 ret = f"Error: {size_err}"
                 log.debug("PYTHON returning size error: %r", ret)
