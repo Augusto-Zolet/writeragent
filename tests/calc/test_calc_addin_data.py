@@ -97,7 +97,7 @@ def test_finalize_python_data_already_flat():
 def test_pack_calc_data_for_wire_uses_split_grid_for_4x4():
     """Calc-sized numeric range uses split_grid when cell count >= BINARY_MIN_CELLS."""
     grid = [[float(r * 10 + c) for c in range(4)] for r in range(4)]
-    wire = pack_calc_data_for_wire(grid)
+    wire = pack_calc_data_for_wire(grid, force="always")
     assert is_split_grid(wire)
     assert count_cells(wire) == 16
     assert wire_cell_count(wire) == 16
@@ -106,7 +106,7 @@ def test_pack_calc_data_for_wire_uses_split_grid_for_4x4():
 def test_pack_calc_data_for_wire_uses_list_below_threshold():
     """3x3 Calc range stays nested list on wire (below split_grid threshold)."""
     grid = [[float(i)] * 3 for i in range(3)]
-    wire = pack_calc_data_for_wire(grid)
+    wire = pack_calc_data_for_wire(grid, force="never")
     assert isinstance(wire, list)
     assert not is_split_grid(wire)
 

@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 from plugin.scripting.data_limits import python_max_data_cells_default
-from plugin.scripting.payload_codec import host_pack_data, is_split_grid, wire_cell_count
+from plugin.scripting.payload_codec import ForceBinary, host_pack_data, is_split_grid, wire_cell_count
 
 
 def _unwrap_cell(value: Any, true_strings: set[str] | None = None, false_strings: set[str] | None = None) -> Any:
@@ -116,11 +116,15 @@ def calc_addin_data_to_python(
     return normalize_python_data_shape(grid)
 
 
-def pack_calc_data_for_wire(py_data: list[Any] | list[list[Any]] | None) -> Any:
+def pack_calc_data_for_wire(
+    py_data: list[Any] | list[list[Any]] | None,
+    *,
+    force: ForceBinary = "auto",
+) -> Any:
     """Pack Calc ``data`` for the venv worker (json list or split_grid when dense numeric)."""
     if py_data is None:
         return None
-    return host_pack_data(py_data)
+    return host_pack_data(py_data, force=force)
 
 
 def count_cells(data: Any) -> int:

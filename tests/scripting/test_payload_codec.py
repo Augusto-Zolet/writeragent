@@ -72,19 +72,19 @@ def test_host_module_does_not_import_numpy_at_module_level():
 )
 def test_should_use_binary_envelope_boundary(shape: tuple[int, ...], force: str, expected: bool) -> None:
     """BINARY_MIN_CELLS=10: 9 cells use nested lists; 10+ use split_grid when force=auto."""
-    assert should_use_binary_envelope(shape, force=force) is expected
+    assert should_use_binary_envelope(shape, min_cells=10, force=force) is expected
 
 
 def test_binary_envelope_skip_reason_below_threshold() -> None:
     """Policy helper explains why a 3x3 grid skips split_grid."""
-    reason = binary_envelope_skip_reason((3, 3), force="auto")
+    reason = binary_envelope_skip_reason((3, 3), min_cells=10, force="auto")
     assert reason is not None
     assert "10" in reason
 
 
 def test_host_pack_auto_uses_split_grid_for_4x3():
     grid = [[1.0, 4.0, 5.0], [23.0, 4.0, 4.0], [5.0, 4.0, 4.0], [4.0, 5.0, 4.0]]
-    wire = host_pack_data(grid, force="auto")
+    wire = host_pack_data(grid, min_cells=10, force="auto")
     assert isinstance(wire, dict)
     assert wire["__wa_payload__"] == PAYLOAD_SPLIT_GRID
     assert wire["shape"] == [4, 3]
@@ -92,14 +92,14 @@ def test_host_pack_auto_uses_split_grid_for_4x3():
 
 def test_host_pack_auto_uses_list_for_3x3():
     grid = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]
-    wire = host_pack_data(grid, force="auto")
+    wire = host_pack_data(grid, min_cells=10, force="auto")
     assert isinstance(wire, list)
     assert wire[0][0] == 1.0
 
 
 def test_host_pack_auto_uses_split_grid_for_4x4():
     grid = [[float(i)] * 4 for i in range(4)]
-    wire = host_pack_data(grid, force="auto")
+    wire = host_pack_data(grid, min_cells=10, force="auto")
     assert isinstance(wire, dict)
     assert wire["__wa_payload__"] == PAYLOAD_SPLIT_GRID
     assert wire["shape"] == [4, 4]
@@ -489,7 +489,7 @@ def test_bool_col_11_split_grid_sums() -> None:
     pattern = (True, True, True, False, True, False, True, False, True, True, False)
     # Column range: calc_addin flattens to 1D before pack (same as =PYTHON(code;D1:D11)).
     uno_col = tuple((v,) for v in pattern)
-    wire = pack_calc_data_for_wire(calc_addin_data_to_python(uno_col))
+    wire = pack_calc_data_for_wire(calc_addin_data_to_python(uno_col), force="always")
     assert is_split_grid(wire)
     assert wire_cell_count(wire) == 11
     assert wire["shape"] == [11]
@@ -502,12 +502,12 @@ def test_bool_col_11_split_grid_sums() -> None:
 def test_split_grid_boundary_exactly_10_cells() -> None:
     """BINARY_MIN_CELLS: 10 cells pack as split_grid; 9 stay nested list."""
     grid_2x5 = [[float(r * 5 + c + 1) for c in range(5)] for r in range(2)]
-    wire_10 = host_pack_data(grid_2x5)
+    wire_10 = host_pack_data(grid_2x5, min_cells=10)
     assert is_split_grid(wire_10)
     assert wire_cell_count(wire_10) == 10
 
     grid_3x3 = [[float(r * 3 + c + 1) for c in range(3)] for r in range(3)]
-    wire_9 = host_pack_data(grid_3x3)
+    wire_9 = host_pack_data(grid_3x3, min_cells=10)
     assert not is_split_grid(wire_9)
 
 
@@ -516,7 +516,7 @@ def test_split_grid_flat_row_10_shape() -> None:
     np = pytest.importorskip("numpy")
     from plugin.calc.calc_addin_data import calc_addin_data_to_python, pack_calc_data_for_wire
 
-    wire = pack_calc_data_for_wire(calc_addin_data_to_python((tuple(float(i + 1) for i in range(10)),)))
+    wire = pack_calc_data_for_wire(calc_addin_data_to_python((tuple(float(i + 1) for i in range(10)),)), force="always")
     assert is_split_grid(wire)
     assert wire["shape"] == [10]
     arr = child_unpack_data(wire)
@@ -728,6 +728,7 @@ def test_split_grid_lattice_promotion_comprehensive():
     grid4 = [[10], [None], [20]]
     wire = host_pack_data(grid4, force="always")
     assert wire["column_kinds"] == ["float"]  # promoted to float because strings is empty and has None
+
 
 
 
