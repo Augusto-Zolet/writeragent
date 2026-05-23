@@ -52,7 +52,7 @@ flowchart TD
   subgraph child [Child Process venv]
     Pickle --> Unpickle[pickle.loads]
     Unpickle --> Envelope2[Envelope Dict]
-    Envelope2 -->|"buffer" (bytes)| Buff[np.frombuffer float64]
+    Envelope2 -->|"'buffer' (bytes)"| Buff[np.frombuffer float64]
     Buff --> List[tolist C-level]
     List --> Patch[Patch math.nan to None]
     Kinds --> Patch2[Restore int types using column_kinds]
