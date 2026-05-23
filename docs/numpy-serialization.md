@@ -107,7 +107,7 @@ This section documents **behavior** for real inputs (rectangular Calc ranges and
 
 #### Future work — logical string coercion at Calc ingress (not implemented)
 
-**Status:** deferred; manual tests use numeric **`1`/`0`** in [`tests/fixtures/serialization_tests.csv`](../tests/fixtures/serialization_tests.csv) because CSV import does not evaluate `=TRUE()` as a formula.
+**Status:** deferred; manual tests use numeric **`1`/`0`** in [`tests/fixtures/serialization_tests.xlsx`](../tests/fixtures/serialization_tests.xlsx) because XLSX import does not evaluate `=TRUE()` as a formula.
 
 When a user enters a real logical in Calc (`TRUE` in the formula bar), the add-in bridge usually delivers **`1.0`/`0.0`** (VALUE cells). That already works with `np.sum` and split_grid. Coercion is **not** needed for normal spreadsheet use.
 
@@ -128,7 +128,7 @@ The gap is **text that looks like a logical or formula** after import/paste:
 1. **How narrow?** Exact `=TRUE()`/`=FALSE()` only (safest) vs `"TRUE"`/`"FALSE"` display strings vs localized (`WAHR`/`FALSC`) vs case-insensitive `"True"`.
 2. **False positives:** a text column containing the word `TRUE` as a label must stay `str` in mixed grids; broad rules are risky.
 3. **Relationship to `1.0`/`0.0`:** ingress may see floats for real logicals; no change needed. Optional: treat `1.0`/`0.0` in all-bool contexts — probably **not** worth it.
-4. **Tests:** extend [`tests/calc/test_calc_addin_data.py`](../tests/calc/test_calc_addin_data.py); keep [`tests/fixtures/serialization_tests.csv`](../tests/fixtures/serialization_tests.csv) on `1`/`0` or add a case that documents post-coercion behavior if product fix lands.
+4. **Tests:** extend [`tests/calc/test_calc_addin_data.py`](../tests/calc/test_calc_addin_data.py); keep [`tests/fixtures/serialization_tests.xlsx`](../tests/fixtures/serialization_tests.xlsx) on `1`/`0` or add a case that documents post-coercion behavior if product fix lands.
 
 **Related fixes already shipped:** nested generator expressions in [`local_python_executor.evaluate_generatorexp`](../plugin/contrib/smolagents/local_python_executor.py) (mixed-grid `sum(v for row in data …)`); dynamic input columns in [`scripts/generate_serialization_test_csv.py`](../scripts/generate_serialization_test_csv.py).
 
@@ -394,7 +394,7 @@ Add timing (debug menu, `testing_runner`, or temporary logs) on realistic sheets
 
 Possible deliverable: minimal LO harness (debug menu or UNO test) that prints legs A–D for one `=PYTHON()` call on a large numeric range.
 
-**Manual spreadsheet suite:** [`tests/fixtures/serialization_tests.csv`](../tests/fixtures/serialization_tests.csv) — one Calc sheet with Calc oracle vs `#=PYTHON(...)` and PASS/FAIL compare formulas. Regenerate with `python scripts/generate_serialization_test_csv.py`. Cases defined in [`tests/calc/serialization_cases.py`](../tests/calc/serialization_cases.py).
+**Manual spreadsheet suite:** [`tests/fixtures/serialization_tests.xlsx`](../tests/fixtures/serialization_tests.xlsx) — one Calc sheet (import from XLSX) with Calc oracle vs `=PYTHON(...)` and PASS/FAIL compare formulas (`python_formula` is the last column). Regenerate with `python scripts/generate_serialization_test_csv.py`. Cases defined in [`tests/calc/serialization_cases.py`](../tests/calc/serialization_cases.py).
 
 #### Priority 2 — Less data on the wire (best ROI, no protocol change)
 
