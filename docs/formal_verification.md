@@ -38,6 +38,192 @@ We evaluate the current Python verification ecosystem strictly for its utility o
 *   **How it Works:** CrossHair hooks into the Python interpreter. As a function executes, CrossHair maintains two states: a concrete state (actual values) and a symbolic state (Z3 equations representing the path constraints). When it encounters a branch (e.g., `if len(url) > 10:`), it queries the Z3 SMT solver: *"Is there an input that satisfies the current path constraints AND makes `len(url) > 10` false?"* If so, it forks the execution and explores both paths.
 *   **Why it Fits Our Code:** Because it runs the actual CPython interpreter, it handles "magic", standard libraries, and complex types perfectly. It essentially exhaustively searches for a combination of inputs that will raise an unhandled exception or violate a `deal` contract. It trades mathematical certainty (it will time out on infinite state spaces) for immense practical utility in finding edge-case counterexamples.
 
+#### CrossHair `check` vs `cover` (same engine, different goals)
+
+CrossHair exposes two CLI commands that share the same symbolic engine but optimize for different outcomes:
+
+| Command | Question it answers | Needs `@deal` contracts? | Typical output |
+|---------|---------------------|--------------------------|----------------|
+| **`crosshair check`** | Can I find inputs that **violate** a pre/post/ensure? | Yes (or asserts) | `file.py:line: error:` counterexamples; `info: Confirmed` / `Not confirmed` / `Unable to meet precondition` |
+| **`crosshair cover`** | What inputs **exercise more bytecode paths**? | No | Printable example calls, e.g. `host_pack_split_grid([])` |
+
+**`check` — contract verification**
+
+- Targets functions with `@deal` decorators (auto-discovered).
+- **Pass** means no counterexample was found in the time budget—not a full mathematical proof.
+- **`Not confirmed`** is normal for complex ensures: CrossHair explored paths without finding a violation, but did not prove the property for all inputs.
+- **`Unable to meet precondition`** means CrossHair could not synthesize valid inputs (common for `ndarray` parameters).
+- Only **`file.py:line: error:`** lines are hard failures (counterexamples).
+
+**`cover` — path exploration / example generation**
+
+`cover` answers a different question than `check`: *“What weird inputs actually run through this code, and which branches do they hit?”* It is closest to **guided fuzzing for coverage**, not to proving invariants.
+
+##### What CrossHair is doing
+
+1. Pick a function in the target module (when you pass a file, it walks **all** top-level functions, not just `@deal`-decorated ones).
+2. Synthesize symbolic arguments (lists, dicts, ints, empty strings, etc.) using the same SMT engine as `check`.
+3. **Execute your real Python** with those arguments.
+4. Score each input by how many **new bytecodes** (or paths, with `--coverage_type=path`) it executed.
+5. Print the best examples as **copy-pasteable call syntax**, one per line, usually ordered from most to least new coverage.
+
+It never evaluates `@deal.pre` / `@deal.post` / `@deal.ensure`. A line like `host_pack_split_grid([])` is simply CrossHair saying: *“I ran this; it taught me about a code path.”* It is **not** saying the result was correct, round-tripped, or safe for production wire data.
+
+##### Three kinds of output (learn to tell them apart)
+
+When you run `make crosshair-cover` or pipe raw `crosshair cover -v` through [`scripts/crosshair_stream.py`](../scripts/crosshair_stream.py), you see three categories:
+
+| Category | Raw CrossHair shape | Filter tag | Meaning |
+|----------|---------------------|------------|---------|
+| **Example call** | `host_pack_split_grid([])` | `[COVER EXAMPLE]` | Callable with concrete args; use these to extend pytest |
+| **Exploration noise** | `payload_codec child_unpack split_grid failed for envelope dict(keys=[])` | `[COVER EXPLORE]` | Your code ran, hit a branch, logged or caught an exception—**expected** during fuzzing |
+| **Hard crash** | Python traceback / `TypeError:` at end of run | `[COVER FATAL]` | CrossHair itself broke (e.g. unsupported type hint)—fix tooling or annotations |
+
+**Example calls** — printable invocations CrossHair found useful for coverage:
+
+```text
+host_pack_split_grid([])
+host_pack_split_grid([0])
+is_numeric_grid([False])
+child_unpack_data([])
+should_use_binary_envelope((), min_cells=0, force='always')
+```
+
+How to read them:
+
+- **Empty containers** (`[]`, `{}`, `()`) — exercises early-return / empty-grid paths.
+- **Degenerate shapes** (`[[]]`, `[False]`, nested junk) — probes type branches in flatten/unpack.
+- **Garbage dicts** passed to unpack — CrossHair is not building valid split_grid envelopes; it is stress-testing `is_split_grid`, pre-checks, and error handlers.
+- **Weird keyword combos** (`min_cells=0`, `force='never'`) — hits policy branches in `host_pack_data` / `should_use_binary_envelope`.
+
+These are **starting points for tests**, not oracles. You still decide the expected result (round-trip, `ValueError`, etc.).
+
+**Exploration noise** — your module’s logging and `try/except` firing on bad inputs:
+
+```text
+payload_codec: uneven row lengths [1, 0] in 2D grid ...
+payload_codec child_unpack split_grid failed for envelope dict(keys=['shape'])
+payload_codec child_unpack failed for wire list[2] sample=[False, -10]
+```
+
+Why this appears:
+
+- CrossHair ** executes real code**; [`payload_codec.py`](../plugin/scripting/payload_codec.py) logs at `error`/`exception` before re-raising or returning.
+- Invalid envelopes are **supposed** to fail inside `child_unpack_split_grid`; CrossHair counts that as “I reached this branch.”
+- This is **not** a failed pytest run and **not** a `check` counterexample—unless an **uncaught** exception escapes or CrossHair prints `: error:` (that is `check`, not `cover`).
+
+**Fatals** — CrossHair stopped analyzing (tooling limit, not your contract):
+
+```text
+TypeError: typing.Literal['int', 'float', 'bool'] is not a module, class, method, or function.
+```
+
+WriterAgent fixed this for `payload_codec` by using `str` in public signatures instead of `Literal` in parameters CrossHair must proxy. If `cover` dies with a traceback, fix annotations or narrow the target file—do not treat it as a serialization bug.
+
+##### Filtered live output (`make crosshair-cover`)
+
+```bash
+make crosshair-cover
+# same as:
+crosshair cover -v plugin/scripting/payload_codec.py 2>&1 | python scripts/crosshair_stream.py cover
+```
+
+Sample filtered stream:
+
+```text
+[COVER EXAMPLE          ] host_pack_split_grid([])
+[COVER EXAMPLE          ] host_pack_split_grid([0])
+[COVER EXPLORE          ] payload_codec child_unpack split_grid failed for envelope dict(keys=[])
+[COVER EXAMPLE          ] child_unpack_data({})
+
+=== CrossHair COVER DONE (exit 0) ===
+  lines read: 842 (suppressed 800)
+  examples=42 explore=38 errors=0
+```
+
+- **`examples=`** — distinct call lines worth saving as test ideas.
+- **`explore=`** — log/exception paths hit (noise, but confirms branches exist).
+- **`errors=0`** — CrossHair did not crash; exit 0 does **not** mean your invariants hold.
+
+Use `-q` on the formatter for examples + fatals only; `--raw` to see every suppressed `choose_possible` line from `crosshair -v`.
+
+##### Turning `cover` results into tests
+
+CrossHair can emit stub pytest files:
+
+```bash
+crosshair cover --example_output_format=pytest \
+    plugin.scripting.payload_codec.host_pack_split_grid
+```
+
+That produces tests of the form `assert foo(args) == <whatever it got>`. **Do not commit blindly**—CrossHair records observed behavior, not required behavior. Workflow:
+
+1. Run `cover` on a function or module; collect `[COVER EXAMPLE]` lines.
+2. For each interesting call, decide the **oracle** (round-trip equals input, raises `ValueError`, returns empty envelope, etc.).
+3. Add to [`tests/scripting/test_payload_codec.py`](../tests/scripting/test_payload_codec.py) or [`test_serialization_verification.py`](../tests/scripting/test_serialization_verification.py) with an explicit assert.
+4. Use `check` + `@deal` on the same paths if you want concolic search for contract violations.
+
+##### When to use `cover` vs `check`
+
+| Goal | Use |
+|------|-----|
+| Prove no `@deal` violation found (in time budget) | `check` |
+| Find inputs that hit rarely used branches | `cover` |
+| Validate round-trip / Calc semantics | pytest oracles ([`VERIFICATION_GRIDS`](../tests/scripting/test_serialization_verification.py)) |
+| CI gate on correctness | `make verify-serialization` (`check` on full module + pytest) |
+| Brainstorm edge-case inputs after a refactor | `cover` on full module |
+
+**`cover` does not replace `check` or round-trip tests.** It tells you *where the code has been*; `check` tells you whether *contracts broke*; pytest tells you whether *product behavior matches intent*.
+
+##### Scope and cost (WriterAgent defaults)
+
+- **`make crosshair-cover`** runs on the **entire** [`plugin/scripting/payload_codec.py`](../plugin/scripting/payload_codec.py) with **no** `--per_condition_timeout`—correctness over speed; can take a long time.
+- **`make crosshair-check`** is the contract pass on the same file; use both when hardening serialization.
+
+**WriterAgent reference module:** [`plugin/scripting/payload_codec.py`](../plugin/scripting/payload_codec.py) — see [`docs/serialization-verification-plan.md`](serialization-verification-plan.md).
+
+**CrossHair + `typing.Literal`:** CrossHair cannot proxy `Literal[...]` in parameter annotations (it calls `get_type_hints` on the literal itself). Use `str` in function signatures and keep `ColumnKind = Literal[...]` for casts/comments only (fixed in `payload_codec.py`).
+
+#### Live output while CrossHair runs
+
+CrossHair without ``-v`` can stay silent for tens of seconds per condition. Pipe **``crosshair -v``** through [`scripts/crosshair_stream.py`](../scripts/crosshair_stream.py); it keeps milestone lines and suppresses SMT spam (``choose_possible``, stack traces).
+
+```bash
+# Pipe mode (recommended — full module, no time limit)
+crosshair check -v --report_all plugin/scripting/payload_codec.py 2>&1 \
+    | python scripts/crosshair_stream.py check
+
+crosshair cover -v plugin/scripting/payload_codec.py 2>&1 \
+    | python scripts/crosshair_stream.py cover
+
+# Quieter: only counterexamples + final banner
+crosshair check -v --report_all plugin/scripting/payload_codec.py 2>&1 \
+    | python scripts/crosshair_stream.py check -q
+
+make verify-serialization   # pytest oracles + crosshair-check
+make crosshair-check
+make crosshair-cover
+```
+
+Sample filtered **`check`** output:
+
+```text
+[CHECK PROGRESS        ] analyzing host_pack_split_grid
+[CHECK PROGRESS        ] post: isinstance(result, dict)
+[CHECK NOT_CONFIRMED   ] payload_codec.py:396
+  -> confirmed=0 not_confirmed=1 unable=0 errors=0 progress=2
+```
+
+Sample filtered **`cover`** output:
+
+```text
+[COVER EXAMPLE         ] host_pack_split_grid([])
+[COVER EXPLORE         ] payload_codec child_unpack split_grid failed for envelope dict(keys=[])
+  -> examples=12 explore=8 errors=0
+```
+
+See the **`cover`** subsection above for how to interpret examples vs exploration noise vs fatals.
+
 ### C. Bounded Model Checking (ESBMC-Python)
 [ESBMC](https://github.com/esbmc/esbmc) uses Bounded Model Checking. It translates Python into a lower-level intermediate representation (IR) and "unrolls" loops up to a specific depth ($k$). It then converts the unrolled program into a single massive SMT formula to check for safety properties (e.g., buffer overflows, division by zero).
 *   **Utility:** Excellent for verifying highly complex, isolated algorithms (like our Calc cell range parsers) up to a bounded size, but overkill for standard API plumbing.

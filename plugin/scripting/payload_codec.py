@@ -52,6 +52,7 @@ MAX_BENCH_CELLS = 100_000
 ForceBinary = str
 SPLIT_GRID_WIRE_DTYPE = "float64"
 ColumnKind = Literal["int", "float", "bool"]
+"""Wire column kind tag. Use ``str`` in function annotations (CrossHair cannot proxy ``Literal``)."""
 
 
 def _is_grid_sequence(grid: object) -> bool:
@@ -67,19 +68,24 @@ def _is_grid_sequence(grid: object) -> bool:
 
 
 def _is_split_grid_envelope(envelope: object) -> bool:
-    return (
-        isinstance(envelope, dict)
-        and envelope.get("__wa_payload__") == PAYLOAD_SPLIT_GRID
-        and isinstance(envelope.get("shape"), list)
-        and (isinstance(envelope.get("buffer"), bytes) or isinstance(envelope.get("b64"), str))
-    )
+    if not isinstance(envelope, dict):
+        return False
+    env_dict = cast("dict[str, Any]", envelope)
+    if env_dict.get("__wa_payload__") != PAYLOAD_SPLIT_GRID:
+        return False
+    shape = env_dict.get("shape")
+    if not isinstance(shape, list) or len(shape) not in (1, 2):
+        return False
+    if not all(isinstance(d, int) and d >= 0 for d in shape):
+        return False
+    return isinstance(env_dict.get("buffer"), bytes) or isinstance(env_dict.get("b64"), str)
 
 
 def _is_ndarray(obj: object) -> bool:
     return type(obj).__name__ == "ndarray" and type(obj).__module__ == "numpy"
 
 
-def column_kinds_for_grid(grid: list[Any] | list[list[Any]]) -> list[ColumnKind]:
+def column_kinds_for_grid(grid: list[Any] | list[list[Any]]) -> list[str]:
     """Policy helper (tests): per-column int/float/bool from source types; mirrors host_pack_split_grid."""
     try:
         _, _, kinds, _ = _flatten_grid_to_components(grid)
@@ -88,7 +94,7 @@ def column_kinds_for_grid(grid: list[Any] | list[list[Any]]) -> list[ColumnKind]
         return []
 
 
-def _uniform_column_kind(kinds: list[ColumnKind]) -> ColumnKind | None:
+def _uniform_column_kind(kinds: list[str]) -> str | None:
     """Return the kind when every column matches; else None (mixed columns)."""
     if not kinds:
         return None
@@ -96,32 +102,32 @@ def _uniform_column_kind(kinds: list[ColumnKind]) -> ColumnKind | None:
     return first if all(k == first for k in kinds) else None
 
 
-def envelope_column_kinds(envelope: dict[str, Any], *, ncols: int) -> list[ColumnKind]:
+def envelope_column_kinds(envelope: dict[str, Any], *, ncols: int) -> list[str]:
     """Per-column unpack kinds from wire ``column_kinds``."""
     kinds = envelope.get("column_kinds")
     if isinstance(kinds, list) and len(kinds) == ncols:
-        return cast("list[ColumnKind]", ["int" if k == "int" else ("bool" if k == "bool" else "float") for k in kinds])
-    return cast("list[ColumnKind]", ["float"] * ncols)
+        return ["int" if k == "int" else ("bool" if k == "bool" else "float") for k in kinds]
+    return ["float"] * ncols
 
 
-def envelope_uniform_column_kind(envelope: dict[str, Any], *, ncols: int) -> ColumnKind | None:
+def envelope_uniform_column_kind(envelope: dict[str, Any], *, ncols: int) -> str | None:
     """Decode-only: all-int or all-float fast path when ``column_kinds`` are uniform; None if mixed."""
     return _uniform_column_kind(envelope_column_kinds(envelope, ncols=ncols))
 
 
-def _host_cell_from_float(val: float, *, column_kind: ColumnKind) -> Any:
+def _host_cell_from_float(val: float, *, kind: str) -> Any:
     if math.isnan(val):
         return None
-    return int(val) if column_kind == "int" else val
+    return int(val) if kind == "int" else val
 
 
 def _apply_column_kinds_to_ndarray(
     arr: Any,
-    column_kinds: list[ColumnKind],
+    column_kinds: list[str],
     *,
     ncols: int,
     is_1d: bool,
-    uniform: ColumnKind | None = None,
+    uniform: str | None = None,
 ) -> Any:
     """Cast float64 ndarray columns to int64 where pack declared int (NumPy trusts column metadata)."""
     import numpy as np
@@ -282,7 +288,7 @@ def _cell_for_json(value: Any) -> Any:
 @deal.raises(ValueError)
 def _flatten_grid_to_components(
     grid: list
-) -> tuple[array.array, dict[int, str], list[ColumnKind], list[int]]:
+) -> tuple[array.array, dict[int, str], list[str], list[int]]:
     """Flatten 1D/2D grid to float64 array, strings dict, column kinds, and shape."""
     if not grid:
         return array.array("d"), {}, [], [0]
@@ -368,11 +374,11 @@ def _flatten_grid_to_components(
             process_cell(val, 0, idx)
 
     # Map the final column states to ColumnKind strings with single-pass promotions
-    column_kinds: list[ColumnKind] = []
+    column_kinds: list[str] = []
     for c in range(num_cols):
         state = column_states[c]
         if state == 3:
-            kind: ColumnKind = "float"
+            kind = "float"
         elif state == 1:
             kind = "bool"
         else:
@@ -468,6 +474,7 @@ def host_pack_data(
 
 @deal.pre(lambda envelope, *_, **__: _is_split_grid_envelope(envelope))
 @deal.post(lambda result: isinstance(result, list))
+@deal.raises(ValueError)
 def host_unpack_split_grid(envelope: dict[str, Any], *, as_nested_list: bool = True) -> list[Any] | list[list[Any]]:
     """Decode split_grid envelope on host (stdlib only). Reconstructs list or list of lists."""
     buf = array.array("d")
@@ -522,12 +529,7 @@ def host_unpack_data(wire: Any, *, as_nested_list: bool = True) -> Any:
 
 
 def is_split_grid(obj: Any) -> bool:
-    return (
-        isinstance(obj, dict) and
-        obj.get("__wa_payload__") == PAYLOAD_SPLIT_GRID and
-        (isinstance(obj.get("buffer"), bytes) or isinstance(obj.get("b64"), str)) and
-        isinstance(obj.get("shape"), list)
-    )
+    return _is_split_grid_envelope(obj)
 
 
 @deal.pre(lambda envelope: _is_split_grid_envelope(envelope))
@@ -632,7 +634,7 @@ def child_unpack_data(wire: Any) -> Any:
                     return int(val)
                 return val
         elif isinstance(unpacked, (list, tuple)):
-            if len(unpacked) == 1 and not (type(unpacked[0]) in (list, tuple)):
+            if len(unpacked) == 1 and type(unpacked[0]) not in (list, tuple):
                 val = unpacked[0]
                 if isinstance(val, float) and val.is_integer():
                     return int(val)
@@ -677,9 +679,9 @@ def child_pack_split_grid(arr: Any) -> dict[str, Any]:
             arr = np.asarray(arr)
         ncols = int(arr.shape[1]) if arr.ndim == 2 else 1
         if np.issubdtype(arr.dtype, np.integer):
-            column_kinds = cast("list[ColumnKind]", ["int"] * ncols)
+            column_kinds = ["int"] * ncols
         else:
-            column_kinds = cast("list[ColumnKind]", ["float"] * ncols)
+            column_kinds = ["float"] * ncols
         wire_arr = np.ascontiguousarray(arr, dtype=np.float64)
         envelope: dict[str, Any] = {
             "__wa_payload__": PAYLOAD_SPLIT_GRID,

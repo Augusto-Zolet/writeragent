@@ -108,31 +108,41 @@ Functions with keyword-only parameters use `@deal.pre(lambda arg, *_, **__: ...)
 # Runtime invariant tests (fast)
 make verify-serialization
 
-# Or pytest directly (CrossHair test skipped if tool not installed)
-pytest tests/scripting/test_serialization_verification.py -v
+# CrossHair on full module (slow; no per-condition timeout — correctness over speed)
+make crosshair-check
+make crosshair-cover
 
-# CrossHair on core Tier-0 functions (slower)
-crosshair check plugin.scripting.payload_codec._flatten_grid_to_components --per_condition_timeout=10
-crosshair check plugin.scripting.payload_codec.host_pack_split_grid --per_condition_timeout=10
-crosshair check plugin.scripting.payload_codec.host_unpack_split_grid --per_condition_timeout=10
-crosshair check plugin.scripting.payload_codec.child_unpack_split_grid --per_condition_timeout=10
-
-# Full module scan with report
-crosshair check plugin/scripting/payload_codec.py --per_condition_timeout=8 --report_all
+# Or pipe manually
+crosshair check -v --report_all plugin/scripting/payload_codec.py 2>&1 \
+    | python scripts/crosshair_stream.py check
 ```
 
 **Targeting:** use fully-qualified function names or a file path. There is no `--include` flag in current CrossHair; contracts are auto-discovered from `deal` (no `--contracts` flag needed).
 
 ### Interpreting CrossHair output
 
-| Message | Meaning |
-|---------|---------|
-| `Confirmed over all paths` | Condition proven for explored paths |
-| `Not confirmed` | No counterexample found, but not proven (common for complex ensures) |
-| `Unable to meet precondition` | CrossHair could not synthesize valid inputs (e.g. ndarray for `child_pack_split_grid`) |
-| `: error:` | **Counterexample** — contract violation; must fix |
+| Message | Command | Meaning |
+|---------|---------|---------|
+| `Confirmed over all paths` | `check` | Condition proven for explored paths |
+| `Not confirmed` | `check` | No counterexample found, but not proven (common for complex ensures) |
+| `Unable to meet precondition` | `check` | CrossHair could not synthesize valid inputs (e.g. ndarray for `child_pack_split_grid`) |
+| `: error:` | `check` | **Counterexample** — contract violation; must fix |
+| `host_pack_split_grid([])` | `cover` | **Example call** — input that added coverage; not an correctness assertion |
+| `payload_codec child_unpack ... failed` | `cover` | **Exploration noise** — bad input hit your log/except path; normal during fuzzing |
+| Traceback at end | `cover` | **Fatal** — CrossHair crashed (often type-hint limits); not a contract failure |
+
+Full **`cover`** semantics (examples vs noise vs fatals, pytest workflow): [`docs/formal_verification.md`](formal_verification.md) § CrossHair `cover`.
 
 The pytest CrossHair hook fails only on `: error:` lines (counterexamples), not on `Not confirmed`.
+
+**Live dashboard:** pipe ``crosshair -v`` through the formatter (see [`docs/formal_verification.md`](formal_verification.md)):
+
+```bash
+crosshair check -v --report_all plugin/scripting/payload_codec.py 2>&1 \
+    | python scripts/crosshair_stream.py check
+make verify-serialization
+make crosshair-check
+```
 
 ### Existing test coverage
 

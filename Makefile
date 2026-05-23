@@ -441,8 +441,20 @@ test:
 	@$(MAKE) test-run
 	@$(MAKE) bandit
 
+CROSSHAIR_MODULE = plugin/scripting/payload_codec.py
+
 verify-serialization:
-	$(PYTHON) -m pytest tests/scripting/test_serialization_verification.py -v
+	@echo "=== Pytest oracles ==="
+	$(PYTHON) -m pytest tests/scripting/test_serialization_verification.py -k "not crosshair" -q
+	@echo "=== CrossHair check (full module, live filtered) ==="
+	$(MAKE) crosshair-check
+
+# CrossHair on entire module files (correctness over speed; see docs/formal_verification.md)
+crosshair-check:
+	.venv/bin/crosshair check -v --report_all $(CROSSHAIR_MODULE) 2>&1 | $(PYTHON) scripts/crosshair_stream.py check
+
+crosshair-cover:
+	.venv/bin/crosshair cover -v $(CROSSHAIR_MODULE) 2>&1 | $(PYTHON) scripts/crosshair_stream.py cover
 
 # ── POC extension ───────────────────────────────────────────────────────────
 

@@ -44,14 +44,7 @@ VERIFICATION_GRIDS = [
     ],
 ]
 
-CROSSHAIR_TARGETS = [
-    "plugin.scripting.payload_codec._flatten_grid_to_components",
-    "plugin.scripting.payload_codec.host_pack_split_grid",
-    "plugin.scripting.payload_codec.host_unpack_split_grid",
-    "plugin.scripting.payload_codec.child_unpack_split_grid",
-]
-
-_CROSSHAIR_ERROR_RE = re.compile(r": error:")
+CROSSHAIR_MODULE = "plugin/scripting/payload_codec.py"
 
 
 def _find_crosshair() -> str | None:
@@ -95,6 +88,9 @@ def test_jagged_grid_raises_value_error() -> None:
         _flatten_grid_to_components(jagged)
 
 
+_CROSSHAIR_ERROR_RE = re.compile(r": error:")
+
+
 def test_crosshair_verification_if_available() -> None:
     """Run CrossHair concolic verification if the tool is installed in the environment."""
     crosshair_path = _find_crosshair()
@@ -105,13 +101,13 @@ def test_crosshair_verification_if_available() -> None:
         [
             crosshair_path,
             "check",
-            *CROSSHAIR_TARGETS,
-            "--per_condition_timeout=10",
+            "-v",
             "--report_all",
+            CROSSHAIR_MODULE,
         ],
         capture_output=True,
         text=True,
-        timeout=300,
+        timeout=3600,
     )
 
     combined = f"{result.stdout}\n{result.stderr}".strip()

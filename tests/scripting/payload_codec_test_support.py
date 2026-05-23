@@ -97,7 +97,7 @@ def legacy_b64_host_unpack_split_grid(envelope: dict[str, Any]) -> list[Any] | l
         column_kinds = envelope_column_kinds(envelope, ncols=ncols)
         flat_list = [
             strings[str(i)] if str(i) in strings else
-            _host_cell_from_float(val, column_kind=column_kinds[0 if is_1d else i % ncols])
+            _host_cell_from_float(val, kind=column_kinds[0 if is_1d else i % ncols])
             for i, val in enumerate(buf)
         ]
 
