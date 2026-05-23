@@ -101,7 +101,7 @@ def should_prepend_dev_llm_system_prefix() -> bool:
 
 
 # Research routing (short); domain bullets use these strings as-is.
-DELEGATION_USER_FILE_DATA_HINT = "to use information from (my / our) personal or business documents"
+DELEGATION_USER_FILE_DATA_HINT = "to use information that is not in the current document, and may be in (my / our) personal or business documents"
 DELEGATION_PUBLIC_WEB_HINT = "to research public topics"
 
 

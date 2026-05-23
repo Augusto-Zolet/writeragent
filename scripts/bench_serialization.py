@@ -599,14 +599,15 @@ def main() -> None:
 
     print(
         "\nColumn guide:\n"
+        "  direction     ingress = Host -> Child (LibreOffice Host sending data into the sandboxed Child worker).\n"
+        "                egress = Child -> Host (sandboxed Child worker returning data back to the LibreOffice Host).\n"
         "  wire_format   json_list = nested floats in JSON (slow materialize).\n"
         "                split_grid = compact base64 float64 with sparse strings in JSON (fast materialize).\n"
         "                pickle5 = Split-Grid inside Pickle without Base64, raw binary bytes (fastest materialize).\n"
         "  wire_KiB      Line/payload size on the wire for this row.\n"
         "  vs_json_wire  On comparing rows: size vs paired json_list row "
         "(same shape/direction). json_list row shows 'baseline (json)'.\n"
-        "  materialize   ingress: child np.array(list) vs frombuffer(split_grid). "
-        "egress: host unpack to lists.\n"
+        "  materialize   timings for rebuilding data: ingress (child np.array or frombuffer) / egress (host unpack to lists).\n"
         "  mat_x, total_x, e2e_faster  Shown only for speedups relative to the baseline.\n"
         "  mat_x         Speedup factor (e.g. 4.74x): json_list materialize / format materialize.\n"
         "  total_x       Speedup factor (e.g. 2.06x): json_list total_ms / format total_ms.\n"

@@ -162,9 +162,18 @@ class DelegateToSpecializedBase(ToolBase):
                 log.warning("Failed to get Calc context for sub-agent: %s", e)
 
         document_research_hint = (
-            " Prefer grep_nearby_files to locate which file contains a keyword before delegate_read_document. "
-            "Match described file(s) via list_nearby_files (file_kind=images for photos/diagrams); "
-            "delegate_read_document per office file only."
+            "\n\nDocument research workflow:\n"
+            "To do the task (summarize, extract, analyze, answer from document content), use delegate_read_document. "
+            "That opens the file and runs one or more sub-agents with full read tools on that document — this is the main path.\n"
+            "To find the proper filename when the user gives a partial or inexact name, use list_nearby_files first. "
+            "use file_kind=images on list_nearby_files for photos/images."
+            "Pass filter with a substring from their description (e.g. filter='budget' for \"the budget spreadsheet\"), "
+            "then delegate_read_document on the matched file name. One delegate_read_document per office file.\n"
+            "When you are unsure which file — the task names a keyword but no filename "
+            "(e.g. \"documents that mention dspy\") — use grep_nearby_files to see which nearby files match. "
+            "It returns snippet only, not enough for any real work; use it only for file name discovery, then delegate_read_document for the real task on that document.\n"
+            "Do not use grep_nearby_files when list_nearby_files can resolve the filename (including partial matches, or when you already know "
+            "If you know which file(s) to read — go straight to the one or more calls to delegate_read_document instead.\n"
             if domain == "document_research"
             else ""
         )
