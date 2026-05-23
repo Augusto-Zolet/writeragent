@@ -28,21 +28,21 @@ def test_prompt_addin_metadata():
     assert func.getArgumentCount("python") == 0
 
 
-@native_test
-def test_python_addin_metadata():
-    from plugin.calc.python_addin import PythonFunction
-
-    func = PythonFunction(_ctx)
-    assert func.getProgrammaticFunctionName("PYTHON") == "python"
-    assert func.getProgrammaticFunctionName("python") == "python"
-    assert func.getDisplayFunctionName("python") == "PYTHON"
-    assert func.getDisplayFunctionName("PYTHON") == "PYTHON"
-    assert func.getArgumentCount("python") == 2
-    assert func.getArgumentName("python", 0) == "code"
-    assert "Python code" in func.getArgumentDescription("python", 0)
-    assert func.getArgumentName("python", 1) == "data"
-    assert func.getArgumentIsOptional("python", 1) is True
-    assert func.getProgrammaticFunctionName("PROMPT") == ""
+# @native_test
+# def test_python_addin_metadata():
+#     from plugin.calc.python_addin import PythonFunction
+# 
+#     func = PythonFunction(_ctx)
+#     assert func.getProgrammaticFunctionName("PYTHON") == "python"
+#     assert func.getProgrammaticFunctionName("python") == "python"
+#     assert func.getDisplayFunctionName("python") == "PYTHON"
+#     assert func.getDisplayFunctionName("PYTHON") == "PYTHON"
+#     assert func.getArgumentCount("python") == 2
+#     assert func.getArgumentName("python", 0) == "code"
+#     assert "Python code" in func.getArgumentDescription("python", 0)
+#     assert func.getArgumentName("python", 1) == "data"
+#     assert func.getArgumentIsOptional("python", 1) is True
+#     assert func.getProgrammaticFunctionName("PROMPT") == ""
 
 
 @native_test

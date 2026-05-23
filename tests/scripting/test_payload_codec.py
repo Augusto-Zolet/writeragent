@@ -585,3 +585,76 @@ def test_1d_mixed_child_returns_list() -> None:
     out = child_unpack_data(host_pack_data(grid, force="always"))
     assert out == [1.5, "banana", None, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5]
 
+
+def test_split_grid_numpy_scalars_in_lists():
+    """Verify that lists containing NumPy scalar types are serialized numerically instead of stringified."""
+    np = pytest.importorskip("numpy")
+    grid = [[np.float64(1.5), np.int64(7)], [np.float64(2.5), np.int64(8)]]
+    
+    # Pack on host/child using split_grid
+    wire = host_pack_data(grid, force="always")
+    assert isinstance(wire, dict)
+    assert wire["__wa_payload__"] == PAYLOAD_SPLIT_GRID
+    assert wire["column_kinds"] == ["float", "int"]
+    assert wire["strings"] == {}  # NumPy scalars should NOT be treated as strings!
+    
+    # Round-trip check
+    unpacked = child_unpack_data(wire)
+    assert isinstance(unpacked, np.ndarray)
+    assert unpacked[0, 0] == pytest.approx(1.5)
+    assert unpacked[0, 1] == pytest.approx(7.0)
+
+
+def test_split_grid_boolean_roundtrip_fidelity():
+    """Verify that boolean columns roundtrip perfectly to True/False in mixed grids under the 'bool' ColumnKind."""
+    np = pytest.importorskip("numpy")
+    
+    # 2D mixed grid containing booleans, strings, and None
+    grid = [
+        [True, "apple", 10],
+        [False, "banana", 20],
+        [True, "cherry", None],
+        [None, "date", 40]
+    ]
+    
+    # 1. Test column kinds computed correctly
+    kinds = payload_codec.column_kinds_for_grid(grid)
+    assert kinds == ["bool", "int", "int"]  # column 0 is bool, column 2 has None and ints so remains int
+    
+    # 2. Test round-trip unpacking in child
+    wire = host_pack_data(grid, force="always")
+    assert wire["column_kinds"] == ["bool", "int", "int"]
+    child_unpacked = child_unpack_data(wire)
+    assert isinstance(child_unpacked, list)
+    assert child_unpacked[0] == [True, "apple", 10]
+    assert child_unpacked[1] == [False, "banana", 20]
+    assert child_unpacked[2] == [True, "cherry", None]
+    assert child_unpacked[3] == [None, "date", 40]
+    
+    # 3. Test round-trip unpacking on host
+    host_unpacked = host_unpack_data(wire, as_nested_list=True)
+    assert host_unpacked == grid
+
+
+def test_split_grid_numpy_bool_scalars():
+    """Verify that NumPy bool_ scalars are correctly identified as booleans."""
+    np = pytest.importorskip("numpy")
+    grid = [[np.bool_(True)], [np.bool_(False)]]
+    wire = host_pack_data(grid, force="always")
+    assert wire["column_kinds"] == ["bool"]
+    unpacked = child_unpack_data(wire)
+    assert isinstance(unpacked, np.ndarray)
+    assert unpacked.dtype == np.bool_
+    assert unpacked[0, 0] == True
+    assert unpacked[1, 0] == False
+
+
+def test_split_grid_empty_and_edge_cases():
+    """Verify that empty and edge case shapes are handled gracefully without errors."""
+    # 1. 2D grid with empty row [[]]
+    wire = host_pack_data([[]], force="always")
+    assert wire["shape"] == [1, 0]
+    assert wire["buffer"] == b""
+    assert wire["column_kinds"] == []
+
+

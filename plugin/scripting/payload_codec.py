@@ -39,23 +39,16 @@ MAX_BENCH_CELLS = 100_000
 
 ForceBinary = Literal["auto", "always", "never"]
 SPLIT_GRID_WIRE_DTYPE = "float64"
-ColumnKind = Literal["int", "float"]
+ColumnKind = Literal["int", "float", "bool"]
 
 
 def column_kinds_for_grid(grid: list[Any] | list[list[Any]]) -> list[ColumnKind]:
-    """Policy helper (tests): per-column int/float from source types; mirrors host_pack_split_grid."""
-    if not grid:
-        return []
-    is_2d = isinstance(grid[0], (list, tuple))
-    if is_2d:
-        ncols = max((len(r) for r in grid), default=0)
-        kinds = cast("list[ColumnKind]", ["int"] * ncols)
-        for row in grid:
-            for c, val in enumerate(row):
-                if isinstance(val, float) or val is None:
-                    kinds[c] = "float"
+    """Policy helper (tests): per-column int/float/bool from source types; mirrors host_pack_split_grid."""
+    try:
+        _, _, kinds, _ = _flatten_grid_to_components(grid)
         return kinds
-    return cast("list[ColumnKind]", ["float" if any(isinstance(val, float) or val is None for val in grid) else "int"])
+    except Exception:
+        return []
 
 
 def _uniform_column_kind(kinds: list[ColumnKind]) -> ColumnKind | None:
@@ -70,7 +63,7 @@ def envelope_column_kinds(envelope: dict[str, Any], *, ncols: int) -> list[Colum
     """Per-column unpack kinds from wire ``column_kinds``."""
     kinds = envelope.get("column_kinds")
     if isinstance(kinds, list) and len(kinds) == ncols:
-        return cast("list[ColumnKind]", ["int" if k == "int" else "float" for k in kinds])
+        return cast("list[ColumnKind]", ["int" if k == "int" else ("bool" if k == "bool" else "float") for k in kinds])
     return cast("list[ColumnKind]", ["float"] * ncols)
 
 
@@ -100,10 +93,16 @@ def _apply_column_kinds_to_ndarray(
         uniform = _uniform_column_kind(column_kinds)
     if uniform == "int":
         return arr.astype(np.int64)
+    if uniform == "bool":
+        return arr.astype(np.bool_)
     if uniform == "float":
         return arr
     if is_1d:
-        return arr.astype(np.int64) if column_kinds[0] == "int" else arr
+        if column_kinds[0] == "int":
+            return arr.astype(np.int64)
+        if column_kinds[0] == "bool":
+            return arr.astype(np.bool_)
+        return arr
 
     # If it's a mixed 2D ndarray, it must remain float64 to hold float columns.
     # Casting individual columns is a no-op (coerced back to float64 on assignment).
@@ -186,6 +185,10 @@ def is_numeric_coercible(value: Any) -> bool:
     """
     if value is None or isinstance(value, (bool, int, float)):
         return True
+    # Fast direct type inspection for NumPy scalar types on the child side without module-level imports
+    tname = type(value).__name__
+    if tname.startswith(("int", "float", "bool", "uint")):
+        return True
     if isinstance(value, str):
         return not value.strip()
     return False
@@ -243,16 +246,20 @@ def _append_cell_to_split_grid(
     """Write one cell into the split_grid float64 buffer and optional strings map."""
     if val is None:
         buf_append(math.nan)
-        column_kinds[col_idx] = "float"
-    elif val is True or val is False:
+    elif val is True or val is False or type(val).__name__.startswith("bool"):
         buf_append(float(val))
     else:
         t = type(val)
+        tname = t.__name__
         if t is float:
             buf_append(cast("float", val))
             column_kinds[col_idx] = "float"
         elif t is int:
             buf_append(float(cast("int", val)))
+        elif tname.startswith(("int", "float", "uint")) or isinstance(val, (int, float)):
+            buf_append(float(val))
+            if tname.startswith("float") or isinstance(val, float):
+                column_kinds[col_idx] = "float"
         else:
             buf_append(math.nan)
             strings[cell_idx] = cast("str", val) if t is str else str(val)
@@ -289,20 +296,35 @@ def _flatten_grid_to_components(
     buf = array.array("d")
     strings: dict[int, str] = {}
     column_kinds = cast("list[ColumnKind]", ["int"] * (ncols if is_2d else 1))
+    
+    column_has_none = [False] * (ncols if is_2d else 1)
+    column_has_bool = [False] * (ncols if is_2d else 1)
+    column_has_int = [False] * (ncols if is_2d else 1)
+    column_has_float = [False] * (ncols if is_2d else 1)
+    
     buf_append = buf.append
-
-    # This should never happen: we no longer pad rows with len(row) < ncols. Calc ranges and
-    # normalized tool data are rectangular; uneven nested lists are rejected above.
-    #
-    # Previously (removed): for jagged grids, a second loop used
-    #     val = row[c] if c < row_len else None
-    # to fill missing columns with None. That path was defensive only.
 
     idx = 0
     rows = grid if is_2d else [grid]
     for row in rows:
         for c, val in enumerate(row):
             col_idx = c if is_2d else 0
+            if val is None:
+                column_has_none[col_idx] = True
+            elif val is True or val is False or type(val).__name__.startswith("bool"):
+                column_has_bool[col_idx] = True
+            else:
+                t = type(val)
+                if t is float:
+                    column_has_float[col_idx] = True
+                elif t is int:
+                    column_has_int[col_idx] = True
+                elif isinstance(val, (int, float)):
+                    if isinstance(val, float):
+                        column_has_float[col_idx] = True
+                    else:
+                        column_has_int[col_idx] = True
+                        
             _append_cell_to_split_grid(
                 val,
                 buf_append=buf_append,
@@ -312,6 +334,22 @@ def _flatten_grid_to_components(
                 cell_idx=idx,
             )
             idx += 1
+
+    # Apply our lattice promotions
+    for c in range(len(column_kinds)):
+        if column_has_float[c] or column_kinds[c] == "float":
+            column_kinds[c] = "float"
+        elif column_has_bool[c] and not column_has_int[c]:
+            column_kinds[c] = "bool"
+        else:
+            column_kinds[c] = "int"
+
+    # If purely numeric grid (strings is empty), any column with None must be promoted to "float"
+    # to avoid NumPy casting errors on NaN values.
+    if not strings:
+        for c in range(len(column_kinds)):
+            if column_has_none[c]:
+                column_kinds[c] = "float"
 
     return buf, strings, column_kinds, shape
 
@@ -396,14 +434,20 @@ def host_unpack_split_grid(envelope: dict[str, Any], *, as_nested_list: bool = T
     if not strings and uniform is not None:
         if uniform == "int":
             flat_list = [None if math.isnan(v) else int(v) for v in buf]
+        elif uniform == "bool":
+            flat_list = [None if math.isnan(v) else (v == 1.0) for v in buf]
         else:
             flat_list = [None if math.isnan(v) else v for v in buf]
     else:
         column_kinds = envelope_column_kinds(envelope, ncols=ncols)
-        col_is_int = [k == "int" for k in column_kinds]
+        col_kind = [column_kinds[0 if is_1d else i % ncols] for i in range(len(buf))]
         flat_list = [
             strings[i] if i in strings else 
-            (None if math.isnan(val) else (int(val) if col_is_int[0 if is_1d else i % ncols] else val))
+            (None if math.isnan(val) else (
+                True if col_kind[i] == "bool" and val == 1.0 else
+                False if col_kind[i] == "bool" and val == 0.0 else
+                int(val) if col_kind[i] == "int" else val
+            ))
             for i, val in enumerate(buf)
         ]
 
@@ -466,19 +510,23 @@ def child_unpack_split_grid(envelope: dict[str, Any]) -> Any:
         obj_arr = arr.astype(object)
         obj_arr[nan_mask] = None
 
-        # 2. Vectorized Column-Wise Integer Casting
+        # 2. Vectorized Column-Wise Casting
         # Rather than checking index-level column types inside the main cell iteration
         # (which requires modulo index maths 'i % ncols'), we iterate once per column.
         # We then cast only the valid (non-None) elements in that column at C-speed.
         col_is_int = [k == "int" for k in column_kinds]
-        if any(col_is_int):
-            for c, is_int in enumerate(col_is_int):
+        col_is_bool = [k == "bool" for k in column_kinds]
+        if any(col_is_int) or any(col_is_bool):
+            for c, (is_int, is_bool) in enumerate(zip(col_is_int, col_is_bool)):
+                col_slice = obj_arr[:, c] if not is_1d else obj_arr
+                col_nan_mask = nan_mask[:, c] if not is_1d else nan_mask
+                valid_mask = ~col_nan_mask
                 if is_int:
-                    col_slice = obj_arr[:, c] if not is_1d else obj_arr
-                    col_nan_mask = nan_mask[:, c] if not is_1d else nan_mask
-                    valid_mask = ~col_nan_mask
                     # Vectorized astype(int) casts valid float objects to Python ints in C
                     col_slice[valid_mask] = col_slice[valid_mask].astype(int)
+                elif is_bool:
+                    # Vectorized astype(bool) casts valid float objects to Python bools in C
+                    col_slice[valid_mask] = col_slice[valid_mask].astype(bool)
 
         # 3. Sparse Strings Overlay
         # The 'strings' dictionary is sparse and indexes values row-major (flat 1D).
