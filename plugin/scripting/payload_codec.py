@@ -268,102 +268,59 @@ def _flatten_grid_to_components(
     strings: dict[int, str] = {}
     buf_append = buf.append
 
-    # Column states: 0 = Empty/None, 1 = Bool, 2 = Int, 3 = Float
+    # --- Fast path setup -------------------------------------------------
     num_cols = ncols if is_2d else 1
-    column_states = [0] * num_cols
+    column_states = [0] * num_cols          # 0=None, 1=bool, 2=int, 3=float
     column_has_none = [False] * num_cols
 
-    idx = 0
+    def process_cell(val: Any, c: int, idx: int) -> None:
+        """Append value and update per-column type state (identity checks first)."""
+        if val is None:
+            buf_append(math.nan)
+            column_has_none[c] = True
+        elif val is True or val is False:
+            buf_append(float(val))
+            if column_states[c] == 0:
+                column_states[c] = 1
+        elif type(val) is int:
+            buf_append(float(val))
+            if column_states[c] < 2:
+                column_states[c] = 2
+        elif type(val) is float:
+            buf_append(val)
+            column_states[c] = 3
+        else:
+            t = type(val)
+            tname = t.__name__
+            if tname.startswith("bool"):
+                buf_append(float(cast("Any", val)))
+                if column_states[c] == 0:
+                    column_states[c] = 1
+            elif tname.startswith(("int", "uint")):
+                buf_append(float(cast("Any", val)))
+                if column_states[c] < 2:
+                    column_states[c] = 2
+            elif tname.startswith("float"):
+                buf_append(float(cast("Any", val)))
+                column_states[c] = 3
+            else:
+                buf_append(math.nan)
+                strings[idx] = cast("str", val) if t is str else str(val)
+
+    # --- Main flattening loops -------------------------------------------
     if is_2d:
-        # Dedicated regular 2D rectangular grid loop (avoids is_2d and index conditional branching in hot path)
         grid_2d = cast("list[list[Any]]", grid)
+        # After the rectangular validation above, all rows have identical length.
+        # Use direct enumeration without per-cell is_2d branching.
+        idx = 0
         for row in grid_2d:
             for c, val in enumerate(row):
-                t = type(val)
-                if t is float:
-                    buf_append(cast("float", val))
-                    column_states[c] = 3
-                elif t is int:
-                    buf_append(float(cast("int", val)))
-                    if column_states[c] < 2:
-                        column_states[c] = 2
-                elif t is bool:
-                    buf_append(float(cast("bool", val)))
-                    if column_states[c] == 0:
-                        column_states[c] = 1
-                elif val is None:
-                    buf_append(math.nan)
-                    column_has_none[c] = True
-                else:
-                    tname = t.__name__
-                    if tname.startswith(("int", "uint")):
-                        buf_append(float(cast("Any", val)))
-                        if column_states[c] < 2:
-                            column_states[c] = 2
-                    elif tname.startswith("float"):
-                        buf_append(float(cast("Any", val)))
-                        column_states[c] = 3
-                    elif tname.startswith("bool"):
-                        buf_append(float(cast("Any", val)))
-                        if column_states[c] == 0:
-                            column_states[c] = 1
-                    elif isinstance(val, (int, float)):
-                        # Defensive fallback
-                        fval = float(cast("Any", val))
-                        buf_append(fval)
-                        if isinstance(val, float):
-                            column_states[c] = 3
-                        else:
-                            if column_states[c] < 2:
-                                column_states[c] = 2
-                    else:
-                        buf_append(math.nan)
-                        strings[idx] = cast("str", val) if t is str else str(val)
+                process_cell(val, c, idx)
                 idx += 1
     else:
-        # Dedicated 1D grid loop (maps all elements to column state 0)
         grid_1d = cast("list[Any]", grid)
-        for val in grid_1d:
-            t = type(val)
-            if t is float:
-                buf_append(cast("float", val))
-                column_states[0] = 3
-            elif t is int:
-                buf_append(float(cast("int", val)))
-                if column_states[0] < 2:
-                    column_states[0] = 2
-            elif t is bool:
-                buf_append(float(cast("bool", val)))
-                if column_states[0] == 0:
-                    column_states[0] = 1
-            elif val is None:
-                buf_append(math.nan)
-                column_has_none[0] = True
-            else:
-                tname = t.__name__
-                if tname.startswith(("int", "uint")):
-                    buf_append(float(cast("Any", val)))
-                    if column_states[0] < 2:
-                        column_states[0] = 2
-                elif tname.startswith("float"):
-                    buf_append(float(cast("Any", val)))
-                    column_states[0] = 3
-                elif tname.startswith("bool"):
-                    buf_append(float(cast("Any", val)))
-                    if column_states[0] == 0:
-                        column_states[0] = 1
-                elif isinstance(val, (int, float)):
-                    fval = float(cast("Any", val))
-                    buf_append(fval)
-                    if isinstance(val, float):
-                        column_states[0] = 3
-                    else:
-                        if column_states[0] < 2:
-                            column_states[0] = 2
-                else:
-                    buf_append(math.nan)
-                    strings[idx] = cast("str", val) if t is str else str(val)
-            idx += 1
+        for idx, val in enumerate(grid_1d):
+            process_cell(val, 0, idx)
 
     # Map the final column states to ColumnKind strings with single-pass promotions
     column_kinds: list[ColumnKind] = []
