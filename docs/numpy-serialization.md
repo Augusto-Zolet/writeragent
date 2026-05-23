@@ -720,3 +720,21 @@ UNO read → Py list per cell → host_pack (array.tobytes) → pickle.dumps (pr
 | Same range every recalc | Priority 2 (ROW index), Priority 6 (cache) |
 | Giant `result` in chat | Priority 2 (Tier 0), tool RPC |
 | DataFrame `.to_dict` | Priority 5 |
+
+---
+
+### Advanced IPC Framing and Infrastructure Notes (May 2026 Refinements)
+
+#### 1. Length-Prefixed IPC Framing Protocol
+To guarantee complete frame assembly over asynchronous UNIX pipe crossings without risk of partial buffer corruption, `PythonWorkerManager` and `worker_harness.py` operate on an explicit length-prefixed protocol:
+- **Write Frame**: Every request/response dictionary is serialized via Pickle5. The binary payload length `N` is packed into a 4-byte big-endian unsigned integer header (`struct.pack("!I", N)`). The header is written to the pipe first, followed immediately by the `N` raw bytes of the Pickle5 stream.
+- **Read Frame**: The receiving peer reads exactly 4 bytes to unpack the payload size `N`. It then executes an exact blocking `_read_exact(N)` loop utilizing `select.select` and `stdout.read` to reconstruct the complete payload body before executing `pickle.loads(payload)`. This prevents asynchronous pipe truncation under high numeric workloads.
+
+#### 2. Venv ↔ LibreOffice Tool RPC Status (Current vs. Intended)
+- **Current Status (Production)**: The tool RPC path is **deferred**. The sandboxed child execution environment operates as a pure data-in/data-out pipeline. There is no active UNO bridge or runtime execution connection from the sandboxed venv back into LibreOffice during script evaluation. Instead, the model acts as a two-phase agent: (1) calls `run_venv_python_script` to do heavy NumPy/Pandas computation in the sandboxed venv and reads `result`; (2) invokes normal LibreOffice chat tools (`write_formula_range`, `create_chart`) in the host to write the computed data into the document.
+- **Intended Future State**: The worker harness will support bidirectional `tool_call` messaging. Stubs in `writeragent_api.py` (e.g. `footnote.insert(...)`) will write JSON-RPC lines on stdout. `PythonWorkerManager` will intercept these mid-execution, execute the matching host UNO tool, write the `tool_result` back to the worker's stdin, and resume the script execution until the final result is completed.
+
+#### 3. Data Limit Interaction
+The maximum number of cells allowed to cross the serialization boundary is strictly governed by the **Settings → Python** key `scripting.python_max_data_cells` (default **250,000**, clamp **1,000–2,000,000**).
+- **Early Enforcement**: To avoid wasteful CPU cycles flattening and serializing ranges that exceed user parameters, data caps are checked and enforced **before** serialization begins.
+- **Execution Path**: Inside `calc_addin_data.py`, `check_python_data_size` measures the cell counts of the resolved range, raising a descriptive error early if the boundary is exceeded, protecting host memory from base64/array expansions.

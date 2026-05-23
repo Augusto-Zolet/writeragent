@@ -8,10 +8,11 @@
 """Wire codec for Calc/chat data crossing the LO host (plain Python) and venv (NumPy).
 
 Large 2D grids (numeric or mixed numeric-text) use Strategy 3 ``split_grid``: the entire
-grid is serialized as a single contiguous double-precision flat float64 array (base64-encoded)
-plus a parallel sparse JSON strings dictionary. When the strings dictionary is empty,
-NumPy in the child process ingests that via C-speed ``frombuffer`` + ``reshape`` — a direct
-memory view over decoded bytes without any Python list/loop transpositions.
+grid is serialized as a single contiguous double-precision flat float64 array (stored as raw
+binary bytes) plus a parallel sparse integer-keyed strings dictionary. When the strings
+dictionary is empty, NumPy in the child process ingests that via C-speed ``frombuffer`` +
+``reshape`` — a direct zero-copy memory view over raw buffer bytes without any Python list/loop
+transpositions or Base64 decoding overhead.
 
 Adjust thresholds below if product policy changes; bench and production share this module.
 """
@@ -234,37 +235,6 @@ def _cell_for_json(value: Any) -> Any:
     return value
 
 
-def _append_cell_to_split_grid(
-    val: Any,
-    *,
-    buf_append: Any,
-    strings: dict[int, str],
-    column_kinds: list[ColumnKind],
-    col_idx: int,
-    cell_idx: int,
-) -> None:
-    """Write one cell into the split_grid float64 buffer and optional strings map."""
-    if val is None:
-        buf_append(math.nan)
-    elif val is True or val is False or type(val).__name__.startswith("bool"):
-        buf_append(float(val))
-    else:
-        t = type(val)
-        tname = t.__name__
-        if t is float:
-            buf_append(cast("float", val))
-            column_kinds[col_idx] = "float"
-        elif t is int:
-            buf_append(float(cast("int", val)))
-        elif tname.startswith(("int", "float", "uint")) or isinstance(val, (int, float)):
-            buf_append(float(val))
-            if tname.startswith("float") or isinstance(val, float):
-                column_kinds[col_idx] = "float"
-        else:
-            buf_append(math.nan)
-            strings[cell_idx] = cast("str", val) if t is str else str(val)
-
-
 def _flatten_grid_to_components(
     grid: list[Any] | list[list[Any]]
 ) -> tuple[array.array, dict[int, str], list[ColumnKind], list[int]]:
@@ -275,10 +245,11 @@ def _flatten_grid_to_components(
     first = grid[0]
     is_2d = isinstance(first, (list, tuple))
     if is_2d:
-        nrows = len(grid)
-        ncols = max((len(r) for r in grid), default=0)
+        grid_2d = cast("list[list[Any]]", grid)
+        nrows = len(grid_2d)
+        ncols = max((len(r) for r in grid_2d), default=0)
         shape = [nrows, ncols]
-        row_lens = [len(row) for row in grid]
+        row_lens = [len(row) for row in grid_2d]
         if len(set(row_lens)) > 1:
             # Uneven nested-list row lengths should never happen for Calc ranges (rectangular UNO blocks).
             log.error(
@@ -295,61 +266,122 @@ def _flatten_grid_to_components(
 
     buf = array.array("d")
     strings: dict[int, str] = {}
-    column_kinds = cast("list[ColumnKind]", ["int"] * (ncols if is_2d else 1))
-    
-    column_has_none = [False] * (ncols if is_2d else 1)
-    column_has_bool = [False] * (ncols if is_2d else 1)
-    column_has_int = [False] * (ncols if is_2d else 1)
-    column_has_float = [False] * (ncols if is_2d else 1)
-    
     buf_append = buf.append
 
+    # Column states: 0 = Empty/None, 1 = Bool, 2 = Int, 3 = Float
+    num_cols = ncols if is_2d else 1
+    column_states = [0] * num_cols
+    column_has_none = [False] * num_cols
+
     idx = 0
-    rows = grid if is_2d else [grid]
-    for row in rows:
-        for c, val in enumerate(row):
-            col_idx = c if is_2d else 0
-            if val is None:
-                column_has_none[col_idx] = True
-            elif val is True or val is False or type(val).__name__.startswith("bool"):
-                column_has_bool[col_idx] = True
-            else:
+    if is_2d:
+        # Dedicated regular 2D rectangular grid loop (avoids is_2d and index conditional branching in hot path)
+        grid_2d = cast("list[list[Any]]", grid)
+        for row in grid_2d:
+            for c, val in enumerate(row):
                 t = type(val)
                 if t is float:
-                    column_has_float[col_idx] = True
+                    buf_append(cast("float", val))
+                    column_states[c] = 3
                 elif t is int:
-                    column_has_int[col_idx] = True
-                elif isinstance(val, (int, float)):
-                    if isinstance(val, float):
-                        column_has_float[col_idx] = True
+                    buf_append(float(cast("int", val)))
+                    if column_states[c] < 2:
+                        column_states[c] = 2
+                elif t is bool:
+                    buf_append(float(cast("bool", val)))
+                    if column_states[c] == 0:
+                        column_states[c] = 1
+                elif val is None:
+                    buf_append(math.nan)
+                    column_has_none[c] = True
+                else:
+                    tname = t.__name__
+                    if tname.startswith(("int", "uint")):
+                        buf_append(float(cast("Any", val)))
+                        if column_states[c] < 2:
+                            column_states[c] = 2
+                    elif tname.startswith("float"):
+                        buf_append(float(cast("Any", val)))
+                        column_states[c] = 3
+                    elif tname.startswith("bool"):
+                        buf_append(float(cast("Any", val)))
+                        if column_states[c] == 0:
+                            column_states[c] = 1
+                    elif isinstance(val, (int, float)):
+                        # Defensive fallback
+                        fval = float(cast("Any", val))
+                        buf_append(fval)
+                        if isinstance(val, float):
+                            column_states[c] = 3
+                        else:
+                            if column_states[c] < 2:
+                                column_states[c] = 2
                     else:
-                        column_has_int[col_idx] = True
-                        
-            _append_cell_to_split_grid(
-                val,
-                buf_append=buf_append,
-                strings=strings,
-                column_kinds=column_kinds,
-                col_idx=col_idx,
-                cell_idx=idx,
-            )
+                        buf_append(math.nan)
+                        strings[idx] = cast("str", val) if t is str else str(val)
+                idx += 1
+    else:
+        # Dedicated 1D grid loop (maps all elements to column state 0)
+        grid_1d = cast("list[Any]", grid)
+        for val in grid_1d:
+            t = type(val)
+            if t is float:
+                buf_append(cast("float", val))
+                column_states[0] = 3
+            elif t is int:
+                buf_append(float(cast("int", val)))
+                if column_states[0] < 2:
+                    column_states[0] = 2
+            elif t is bool:
+                buf_append(float(cast("bool", val)))
+                if column_states[0] == 0:
+                    column_states[0] = 1
+            elif val is None:
+                buf_append(math.nan)
+                column_has_none[0] = True
+            else:
+                tname = t.__name__
+                if tname.startswith(("int", "uint")):
+                    buf_append(float(cast("Any", val)))
+                    if column_states[0] < 2:
+                        column_states[0] = 2
+                elif tname.startswith("float"):
+                    buf_append(float(cast("Any", val)))
+                    column_states[0] = 3
+                elif tname.startswith("bool"):
+                    buf_append(float(cast("Any", val)))
+                    if column_states[0] == 0:
+                        column_states[0] = 1
+                elif isinstance(val, (int, float)):
+                    fval = float(cast("Any", val))
+                    buf_append(fval)
+                    if isinstance(val, float):
+                        column_states[0] = 3
+                    else:
+                        if column_states[0] < 2:
+                            column_states[0] = 2
+                else:
+                    buf_append(math.nan)
+                    strings[idx] = cast("str", val) if t is str else str(val)
             idx += 1
 
-    # Apply our lattice promotions
-    for c in range(len(column_kinds)):
-        if column_has_float[c] or column_kinds[c] == "float":
-            column_kinds[c] = "float"
-        elif column_has_bool[c] and not column_has_int[c]:
-            column_kinds[c] = "bool"
+    # Map the final column states to ColumnKind strings with single-pass promotions
+    column_kinds: list[ColumnKind] = []
+    for c in range(num_cols):
+        state = column_states[c]
+        if state == 3:
+            kind: ColumnKind = "float"
+        elif state == 1:
+            kind = "bool"
         else:
-            column_kinds[c] = "int"
+            kind = "int"
 
-    # If purely numeric grid (strings is empty), any column with None must be promoted to "float"
-    # to avoid NumPy casting errors on NaN values.
-    if not strings:
-        for c in range(len(column_kinds)):
-            if column_has_none[c]:
-                column_kinds[c] = "float"
+        # If purely numeric grid (strings is empty), any column with None must be promoted to "float"
+        # to avoid NumPy casting errors on NaN values.
+        if not strings and column_has_none[c]:
+            kind = "float"
+
+        column_kinds.append(kind)
 
     return buf, strings, column_kinds, shape
 

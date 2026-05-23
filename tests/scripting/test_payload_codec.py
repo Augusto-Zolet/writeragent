@@ -658,3 +658,76 @@ def test_split_grid_empty_and_edge_cases():
     assert wire["column_kinds"] == []
 
 
+def test_split_grid_pure_numeric_fast_path():
+    """Verify the purely numeric fast path where strings dictionary is empty."""
+    np = pytest.importorskip("numpy")
+    grid = [[10.5, 20.5], [30.5, 40.5]]
+    
+    wire = host_pack_data(grid, force="always")
+    assert wire["strings"] == {}
+    assert wire["column_kinds"] == ["float", "float"]
+    
+    unpacked = child_unpack_data(wire)
+    assert isinstance(unpacked, np.ndarray)
+    assert unpacked.shape == (2, 2)
+    assert unpacked[1, 0] == pytest.approx(30.5)
+
+
+def test_split_grid_logical_coercion_at_calc_ingress():
+    """Verify that logical strings like "TRUE" and "FALSE" are coerced to bools during unwrap."""
+    from plugin.calc.calc_addin_data import _unwrap_cell, calc_addin_data_to_python
+    
+    true_strings = {"=TRUE()", "TRUE", "True", "=WAHR()", "WAHR"}
+    false_strings = {"=FALSE()", "FALSE", "False", "=FALSCH()", "FALSCH"}
+    
+    # 1. Test unwrap cell directly
+    assert _unwrap_cell("TRUE", true_strings, false_strings) is True
+    assert _unwrap_cell("=WAHR()", true_strings, false_strings) is True
+    assert _unwrap_cell("FALSCH", true_strings, false_strings) is False
+    assert _unwrap_cell("banana", true_strings, false_strings) == "banana"
+    
+    # 2. Test grid ingestion coercion
+    raw_grid = [["TRUE", "FALSCH"], ["banana", 100.0]]
+    coerced = calc_addin_data_to_python(raw_grid, true_strings, false_strings)
+    assert coerced == [[True, False], ["banana", 100.0]]
+
+
+def test_split_grid_single_cell_scalar_coercion():
+    """Verify automatic scalar extraction and whole float to integer coercion for single cells."""
+    np = pytest.importorskip("numpy")
+    
+    # 1. 1-element list with a whole number float should become python int
+    assert child_unpack_data([100.0]) == 100
+    assert isinstance(child_unpack_data([100.0]), int)
+    
+    # 2. 1-element list with real float remains float
+    assert child_unpack_data([3.14]) == pytest.approx(3.14)
+    assert isinstance(child_unpack_data([3.14]), float)
+    
+    # 3. 1-element ndarray with integer float
+    arr = np.array([42.0])
+    assert child_unpack_data(arr) == 42
+    assert isinstance(child_unpack_data(arr), int)
+
+
+def test_split_grid_lattice_promotion_comprehensive():
+    """Verify structural type promotions and kinds behavior for all scenarios."""
+    # 1. Boolean-only column keeps bool kind in mixed grid
+    grid1 = [[True, "apple"], [False, "banana"], [None, "cherry"]]
+    assert payload_codec.column_kinds_for_grid(grid1) == ["bool", "int"]
+    
+    # 2. Boolean mixed with integers becomes int
+    grid2 = [[True], [10], [False]]
+    assert payload_codec.column_kinds_for_grid(grid2) == ["int"]
+    
+    # 3. Integer mixed with float becomes float
+    grid3 = [[10], [1.5], [20]]
+    assert payload_codec.column_kinds_for_grid(grid3) == ["float"]
+    
+    # 4. Purely numeric grid (no strings) with None forces float
+    grid4 = [[10], [None], [20]]
+    wire = host_pack_data(grid4, force="always")
+    assert wire["column_kinds"] == ["float"]  # promoted to float because strings is empty and has None
+
+
+
