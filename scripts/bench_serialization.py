@@ -30,6 +30,7 @@ from plugin.scripting.payload_codec import (  # noqa: E402
     host_pack_data,
     host_unpack_data,
     should_use_binary_envelope,
+    fast_flatten_grid_2d,
 )
 
 import base64
@@ -464,6 +465,11 @@ def main() -> None:
     p.add_argument("--json", action="store_true", dest="json_out")
     args = p.parse_args()
     force: ForceBinary = args.force_binary
+
+    if fast_flatten_grid_2d is not None:
+        print(">>> Using Cython accelerator for Split-Grid packing.\n")
+    else:
+        print(">>> Using Pure Python for Split-Grid packing.\n")
 
     if args.child_only:
         print(

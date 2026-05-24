@@ -11,12 +11,14 @@ from __future__ import annotations
 
 import math
 import sys
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
 import hypothesis.strategies as st
 from hypothesis import strategies
 
+import plugin.scripting.payload_codec as pc
 from plugin.calc.calc_addin_data import normalize_python_data_shape
 from plugin.scripting.payload_codec import (
     BINARY_MIN_CELLS,
@@ -28,7 +30,43 @@ from plugin.scripting.payload_codec import (
     is_multi_data,
     is_numeric_grid,
     is_split_grid,
+    fast_flatten_grid_2d,
 )
+
+
+@contextmanager
+def cython_accelerator_context(enabled: bool):
+    """Context manager to temporarily enable/disable the Cython accelerator."""
+    orig_2d = pc.fast_flatten_grid_2d
+    orig_1d = pc.fast_flatten_grid_1d
+    if not enabled:
+        pc.fast_flatten_grid_2d = None
+        pc.fast_flatten_grid_1d = None
+    try:
+        yield
+    finally:
+        pc.fast_flatten_grid_2d = orig_2d
+        pc.fast_flatten_grid_1d = orig_1d
+
+
+def assert_cython_vs_python_parity(
+    grid: list[Any] | list[list[Any]],
+    code: str,
+    *,
+    label: str = "",
+) -> None:
+    """Run worker code twice: once with Cython and once with Pure Python. Assert parity."""
+    if pc.fast_flatten_grid_2d is None and pc.fast_flatten_grid_1d is None:
+        # Skip if Cython not available on this platform/build
+        return
+
+    with cython_accelerator_context(enabled=True):
+        result_cython = run_venv_roundtrip(grid, code, pack_force="always")
+
+    with cython_accelerator_context(enabled=False):
+        result_python = run_venv_roundtrip(grid, code, pack_force="always")
+
+    assert_semantically_equal(result_cython, result_python, label=f"{label} (Cython vs Python)")
 from plugin.scripting.python_worker_manager import PythonWorkerManager
 from plugin.scripting.worker_harness import _execute_request
 from tests.calc.serialization_cases import SerializationCase, all_serialization_cases

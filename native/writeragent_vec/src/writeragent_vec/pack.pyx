@@ -15,6 +15,7 @@ from cpython.list cimport PyList_GET_ITEM, PyList_GET_SIZE
 from cpython.float cimport PyFloat_AsDouble, PyFloat_Check
 from cpython.long cimport PyLong_AsLong, PyLong_Check
 from cpython.bool cimport PyBool_Check
+from cpython.exc cimport PyErr_Occurred, PyErr_Clear
 
 cdef extern from "Python.h":
     int PyObject_TypeCheck(object, PyObject*)
@@ -59,35 +60,124 @@ def fast_flatten_grid_2d(list grid, int ncols):
                 has_non_numeric = True
                 buf_view[idx] = c_nan
                 strings[idx] = val
-            elif not has_non_numeric:
-                # Fast path: numeric
-                if PyFloat_Check(val):
-                    fval = PyFloat_AsDouble(val)
-                    buf_view[idx] = fval
-                    if <int>column_states[c] != 3:
-                        column_states[c] = 3
-                elif PyLong_Check(val):
-                    fval = <double>PyLong_AsLong(val)
-                    buf_view[idx] = fval
-                    st = <int>column_states[c]
-                    if st < 2:
-                        column_states[c] = 2
-                elif PyBool_Check(val):
-                    fval = 1.0 if val else 0.0
-                    buf_view[idx] = fval
-                    st = <int>column_states[c]
-                    if st == 0:
-                        column_states[c] = 1
-                else:
-                    # Fallback for complex/other types
+            else:
+                # Try to get as double (robust against numpy scalars)
+                fval = PyFloat_AsDouble(val)
+                if fval == -1.0 and PyErr_Occurred():
+                    PyErr_Clear()
+                    # Truly non-numeric
                     has_non_numeric = True
                     buf_view[idx] = c_nan
-                    strings[idx] = PyObject_Str(val)
-            else:
-                # Already non-numeric mode
-                buf_view[idx] = c_nan
-                strings[idx] = PyObject_Str(val)
+                    strings[idx] = val if PyUnicode_Check(val) else PyObject_Str(val)
+                else:
+                    buf_view[idx] = fval
+                    # Determine state for column_states
+                    st = <int>column_states[c]
+                    if st != 3:
+                        if PyFloat_Check(val):
+                            column_states[c] = 3
+                        elif PyBool_Check(val):
+                            if st == 0:
+                                column_states[c] = 1
+                        elif PyLong_Check(val):
+                            if st < 2:
+                                column_states[c] = 2
+                        else:
+                            # Robust check for numpy scalars or other numeric types
+                            dtype = getattr(val, "dtype", None)
+                            if dtype is not None:
+                                kind = getattr(dtype, "kind", None)
+                                if kind == "f":
+                                    column_states[c] = 3
+                                elif kind == "i" or kind == "u":
+                                    if st < 2:
+                                        column_states[c] = 2
+                                elif kind == "b":
+                                    if st == 0:
+                                        column_states[c] = 1
+                                else:
+                                    # unknown numeric type, fallback to float
+                                    column_states[c] = 3
+                            else:
+                                # unknown numeric type, fallback to float
+                                column_states[c] = 3
             
             idx += 1
+            
+    return buf, strings, column_states, column_has_none, has_non_numeric
+
+def fast_flatten_grid_1d(list grid):
+    """
+    Cython-accelerated 1D grid flattening.
+    Returns (buffer_bytes, strings, column_states, column_has_none, has_non_numeric)
+    """
+    cdef int ncells = PyList_GET_SIZE(grid)
+    
+    # We use a double array for the buffer
+    import array
+    cdef object buf = array.array('d', [0.0] * ncells)
+    cdef double[:] buf_view = buf
+    
+    cdef dict strings = {}
+    cdef list column_states = [0]
+    cdef list column_has_none = [False]
+    cdef bint has_non_numeric = False
+    
+    cdef int idx = 0
+    cdef object val
+    cdef double fval
+    cdef int st
+    
+    for idx in range(ncells):
+        val = <object>PyList_GET_ITEM(grid, idx)
+        
+        if val is None:
+            buf_view[idx] = c_nan
+            column_has_none[0] = True
+        elif PyUnicode_Check(val):
+            has_non_numeric = True
+            buf_view[idx] = c_nan
+            strings[idx] = val
+        else:
+            # Try to get as double (robust against numpy scalars)
+            fval = PyFloat_AsDouble(val)
+            if fval == -1.0 and PyErr_Occurred():
+                PyErr_Clear()
+                # Truly non-numeric
+                has_non_numeric = True
+                buf_view[idx] = c_nan
+                strings[idx] = val if PyUnicode_Check(val) else PyObject_Str(val)
+            else:
+                buf_view[idx] = fval
+                # Determine state for column_states
+                st = <int>column_states[0]
+                if st != 3:
+                    if PyFloat_Check(val):
+                        column_states[0] = 3
+                    elif PyBool_Check(val):
+                        if st == 0:
+                            column_states[0] = 1
+                    elif PyLong_Check(val):
+                        if st < 2:
+                            column_states[0] = 2
+                    else:
+                        # Robust check for numpy scalars or other numeric types
+                        dtype = getattr(val, "dtype", None)
+                        if dtype is not None:
+                            kind = getattr(dtype, "kind", None)
+                            if kind == "f":
+                                column_states[0] = 3
+                            elif kind == "i" or kind == "u":
+                                if st < 2:
+                                    column_states[0] = 2
+                            elif kind == "b":
+                                if st == 0:
+                                    column_states[0] = 1
+                            else:
+                                # unknown numeric type, fallback to float
+                                column_states[0] = 3
+                        else:
+                            # unknown numeric type, fallback to float
+                            column_states[0] = 3
             
     return buf, strings, column_states, column_has_none, has_non_numeric

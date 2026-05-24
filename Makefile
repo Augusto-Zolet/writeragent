@@ -288,9 +288,10 @@ native:
 		strip plugin/contrib/vec_pack/*.so 2>/dev/null || true; \
 	fi
 	echo "try:" > plugin/contrib/vec_pack/__init__.py
-	echo "    from .pack import fast_flatten_grid_2d" >> plugin/contrib/vec_pack/__init__.py
+	echo "    from .pack import fast_flatten_grid_2d, fast_flatten_grid_1d" >> plugin/contrib/vec_pack/__init__.py
 	echo "except ImportError:" >> plugin/contrib/vec_pack/__init__.py
 	echo "    fast_flatten_grid_2d = None" >> plugin/contrib/vec_pack/__init__.py
+	echo "    fast_flatten_grid_1d = None" >> plugin/contrib/vec_pack/__init__.py
 
 # Convenience target to build with Cython accelerator
 build-native: native build

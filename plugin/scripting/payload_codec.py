@@ -21,8 +21,6 @@ from __future__ import annotations
 import array
 import logging
 import math
-import sys
-import os
 from typing import Any, Literal, cast
 
 log = logging.getLogger(__name__)
@@ -30,16 +28,24 @@ log = logging.getLogger(__name__)
 # --- Optional Cython accelerator --------------------------------------------------
 
 fast_flatten_grid_2d: Any = None
+fast_flatten_grid_1d: Any = None
 try:
     # Try to import from plugin.contrib.vec_pack
-    from plugin.contrib.vec_pack import fast_flatten_grid_2d as _fast_flatten
-    fast_flatten_grid_2d = _fast_flatten
+    from plugin.contrib.vec_pack import (
+        fast_flatten_grid_1d as _fast_1d,
+        fast_flatten_grid_2d as _fast_2d,
+    )
+
+    fast_flatten_grid_2d = _fast_2d
+    fast_flatten_grid_1d = _fast_1d
     log.debug("payload_codec: Cython accelerator loaded successfully")
 except ImportError:
     # Fallback to absolute import if needed (for some environments)
     try:
-        import writeragent_vec as _wv
+        import writeragent_vec as _wv  # type: ignore
+
         fast_flatten_grid_2d = _wv.fast_flatten_grid_2d
+        fast_flatten_grid_1d = _wv.fast_flatten_grid_1d
         log.debug("payload_codec: Cython accelerator loaded via absolute import")
     except ImportError:
         pass
@@ -521,24 +527,33 @@ def _flatten_grid_to_components(
                     idx += 1
     else:
         grid_1d = cast("list[Any]", grid)
-        for idx, val in enumerate(grid_1d):
-            if val is None:
-                buf_append(nan)
-                column_has_none[0] = True
-            elif type(val) is str:
-                has_non_numeric = True
-                _append_cell_slow(val, 0, idx)
-            elif not has_non_numeric:
-                try:
-                    fval = float(val)
-                    buf_append(fval)
-                    if column_states[0] != 3:
-                        _flatten_update_column_state(column_states, 0, val)
-                except (TypeError, ValueError):
+        use_stdlib = True
+        if fast_flatten_grid_1d is not None:
+            try:
+                buf, strings, column_states, column_has_none, has_non_numeric = fast_flatten_grid_1d(grid_1d)
+                use_stdlib = False
+            except Exception as e:
+                log.debug("payload_codec: Cython 1D accelerator failed, falling back to stdlib: %s", e)
+
+        if use_stdlib:
+            for idx, val in enumerate(grid_1d):
+                if val is None:
+                    buf_append(nan)
+                    column_has_none[0] = True
+                elif type(val) is str:
                     has_non_numeric = True
                     _append_cell_slow(val, 0, idx)
-            else:
-                _append_cell_slow(val, 0, idx)
+                elif not has_non_numeric:
+                    try:
+                        fval = float(val)
+                        buf_append(fval)
+                        if column_states[0] != 3:
+                            _flatten_update_column_state(column_states, 0, val)
+                    except (TypeError, ValueError):
+                        has_non_numeric = True
+                        _append_cell_slow(val, 0, idx)
+                else:
+                    _append_cell_slow(val, 0, idx)
 
     # Map the final column states to ColumnKind strings with single-pass promotions
     column_kinds: list[str] = []
@@ -867,7 +882,12 @@ def _child_unpack_single_data(wire: Any) -> Any:
     return unpacked
 
 
-@deal.pre(lambda wire, *_, **__: _is_any_payload_envelope(wire) or isinstance(wire, (list, tuple, dict, str, int, float, bool)) or wire is None)
+@deal.pre(
+    lambda wire, *_, **__: _is_any_payload_envelope(wire)
+    or isinstance(wire, (list, tuple, dict, str, int, float, bool))
+    or wire is None
+    or (hasattr(wire, "__class__") and wire.__class__.__name__ == "ndarray")
+)
 @deal.post(lambda result, *_, **__: result is not None)
 @deal.raises(ValueError, TypeError, AttributeError)
 def child_unpack_data(wire: Any) -> Any:
