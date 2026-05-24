@@ -4,13 +4,39 @@
 
   var editor = null;
   var pendingCode = "";
-  var windowTitle = "PYTHON Editor";
+  var statusClearTimer = null;
 
-  function setStatus(text) {
+  function setStatus(text, kind) {
     var el = document.getElementById("status");
-    if (el) {
-      el.textContent = text || "";
+    if (!el) {
+      return;
     }
+    if (statusClearTimer) {
+      clearTimeout(statusClearTimer);
+      statusClearTimer = null;
+    }
+    el.textContent = text || "";
+    el.classList.remove("status-ok", "status-error");
+    if (kind === "ok") {
+      el.classList.add("status-ok");
+    } else if (kind === "error") {
+      el.classList.add("status-error");
+    }
+  }
+
+  function formatErrorMessage(msg) {
+    var text = msg.message || "Error";
+    if (msg.traceback) {
+      var lines = String(msg.traceback).split("\n");
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim();
+        if (line) {
+          text = text + " — " + line;
+          break;
+        }
+      }
+    }
+    return text;
   }
 
   function setDataBinding(text) {
@@ -31,7 +57,7 @@
     pendingCode = code || "";
     if (editor) {
       editor.setValue(pendingCode);
-      setStatus("");
+      setStatus("", "");
     }
   }
 
@@ -61,9 +87,12 @@
           setDataBinding(msg.data_binding || "");
           applyLoad(msg.code || "");
         } else if (msg.type === "saved") {
-          setStatus(msg.save_as_plain ? "Saved as plain text." : "Saved.");
+          setStatus(msg.save_as_plain ? "Saved as plain text." : "Saved.", "ok");
+          statusClearTimer = setTimeout(function () {
+            setStatus("", "");
+          }, 3000);
         } else if (msg.type === "error") {
-          setStatus(msg.message || "Error");
+          setStatus(formatErrorMessage(msg), "error");
         }
       }
     }).catch(function () { /* api not ready */ });
@@ -92,7 +121,7 @@
     var saveAsPlain = plainEl ? plainEl.checked : false;
     if (window.pywebview && window.pywebview.api) {
       window.pywebview.api.notify_save(code, saveAsPlain);
-      setStatus("Saving…");
+      setStatus("Saving…", "");
     }
   });
 
@@ -106,6 +135,6 @@
   if (typeof require !== "undefined") {
     initMonaco();
   } else {
-    setStatus("Monaco loader missing.");
+    setStatus("Monaco loader missing.", "error");
   }
 })();

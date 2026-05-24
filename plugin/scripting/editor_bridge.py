@@ -119,7 +119,9 @@ class EditorSession:
         if stdout is None:
             return
         try:
-            while not self._closed.is_set() and self._proc.poll() is None:
+            while not self._closed.is_set():
+                if self._proc.poll() is not None:
+                    break
                 ready, _, _ = select.select([stdout], [], [], 0.5)
                 if not ready:
                     continue

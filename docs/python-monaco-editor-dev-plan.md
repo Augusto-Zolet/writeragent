@@ -2,7 +2,9 @@
 
 Architectural design for the **LibrePythonista-style Monaco editor** in WriterAgent.
 
-**Status (session 1 complete, verified):** Calc menu **Edit Python in Cell…** opens a Monaco/pywebview window in the user venv, edits any selected cell (empty or existing `=PYTHON()`), and writes back `=PYTHON("…")` on Save. Pipe IPC, bundled Monaco, formula parse/rebuild, venv-only spawn, and full-traceback failure dialogs are implemented. See `plugin/scripting/` and `plugin/calc/python_editor.py`.
+**Status (session 1 complete, Phase 2A lifecycle + save feedback):** Calc menu **Edit Python in Cell…** opens a Monaco/pywebview window in the user venv, edits any selected cell (empty or existing `=PYTHON()`), and writes back `=PYTHON("…")` on Save. WM close (title-bar X) sends `closed` immediately so LibreOffice clears the session; Save shows green/red toolbar status. Pipe IPC, bundled Monaco, formula parse/rebuild, venv-only spawn, and full-traceback failure dialogs are implemented. See `plugin/scripting/` and `plugin/calc/python_editor.py`.
+
+**`=PYTHON()` is not localized:** The Calc add-in always registers the English function name `PYTHON` (programmatic `python`). Formulas stored by Calc must use that token in `getFormula()` / `FormulaLocal`. A localized alias (e.g. a translated function name) is a **bug** in add-in registration — do **not** add `FormulaOpCodeMapper` workarounds in the editor or formula parser.
 
 **Session 1 fixes (post-MVP):** venv path required (no LibreOffice embedded Python for the editor); `resolve_venv_python` tries `bin/python`, `bin/python3`, and `bin/python3.*`; `ready` is sent only after `window.events.loaded` / `shown` (not before `webview.start()`); child uses `http_server=True` with **absolute** path to `assets/editor/index.html` (relative `index.html` resolves against `plugin/scripting/` and 404s); probe/save failures show child stderr + Python tracebacks via [`editor_diagnostics.py`](../plugin/scripting/editor_diagnostics.py).
 
@@ -119,7 +121,8 @@ tests/
 ├── calc/test_python_editor_save_modes.py
 └── scripting/
     ├── test_editor_protocol.py
-    └── test_editor_diagnostics.py
+    ├── test_editor_diagnostics.py
+    └── test_editor_main_closed.py
 ```
 
 ---
@@ -131,7 +134,9 @@ tests/
 3. `make deploy`, restart LibreOffice, open Calc.
 4. Select any cell (empty or `=PYTHON("result = 1")`).
 5. **WriterAgent → Edit Python in Cell…** — Monaco window should open.
-6. Edit, **Save** — cell should become/update `=PYTHON("…")` and recalc.
+6. Edit, **Save** — cell should become/update `=PYTHON("…")` and recalc; toolbar shows green **Saved.** briefly.
+7. Close the editor with the window **X** (not Cancel), reopen immediately — should **not** show “already open.”
+8. On save error (if reproducible), toolbar shows red error text and the editor stays open.
 
 **If it fails:** the msgbox should include child stderr and a Python traceback. Also check `writeragent_debug.log` under the LO user profile (`writeragent.json` directory). Common causes: wrong venv path in Settings, pywebview not installed in *that* venv, or missing display/GTK backend on Linux.
 
@@ -145,17 +150,16 @@ Session 1 proves the **pipe + subprocess + Monaco** spine. The work below is ord
 
 **Goal:** Make the existing flow feel finished, not prototype.
 
-| Task | Detail |
-|------|--------|
-| **Window lifecycle** | Today Cancel calls `destroy()` but closing the window with the WM close button may leave LO thinking a session is active until the pipe reader sees EOF. Wire `window.events.closed` (pywebview) to send `closed` and call `set_active_session(None)` on the LO side. Add a guard in `open_python_cell_editor` if the child died without `closed`. |
-| **Save feedback** | `saved` already reaches JS; add Monaco marker clear, brief green status, optional auto-close on success (config key later). On `error`, show message in toolbar and do **not** close the editor. |
-| **Localized `PYTHON` name** | [`python_formula_edit.py`](../plugin/calc/python_formula_edit.py) only matches English `PYTHON`. Use the same `FormulaOpCodeMapper` pattern as [`python_addin.py`](../plugin/calc/python_addin.py) to accept localized function tokens before parse/rebuild. Extend [`tests/calc/test_python_formula_edit.py`](../tests/calc/test_python_formula_edit.py) with synthetic localized prefixes (mock mapper output). |
-| **Context menu** | Duplicate menu entry under Calc cell context in [`extension/Addons.xcu`](../extension/Addons.xcu) (same URL as menubar). Users expect right-click on a `=PYTHON()` cell. |
-| **stderr logging** | Session 1 surfaces child stderr in failure msgboxes (64KB tail) and logs probe/spawn errors. Optional: continuous stderr drain to `writeragent_debug.log` while the editor runs. |
+| Task | Detail | Status |
+|------|--------|--------|
+| **Window lifecycle** | Wire `window.events.closed` (pywebview) to send `closed`; bridge clears session when child exits. | **Done** |
+| **Save feedback** | Green status on `saved` (auto-clear ~3s); red status on `error` with message; editor stays open. | **Done** |
+| **Context menu** | Duplicate menu entry under Calc cell context in [`extension/Addons.xcu`](../extension/Addons.xcu) (same URL as menubar). Users expect right-click on a `=PYTHON()` cell. | |
+| **stderr logging** | Session 1 surfaces child stderr in failure msgboxes (64KB tail) and logs probe/spawn errors. Optional: continuous stderr drain to `writeragent_debug.log` while the editor runs. | |
 
 **Protocol:** no new message types required.
 
-**Tests:** unit tests for localized formula head; optional UNO smoke “open editor on fixture sheet” only if stable in CI.
+**Tests:** [`tests/scripting/test_editor_main_closed.py`](../tests/scripting/test_editor_main_closed.py); optional UNO smoke “open editor on fixture sheet” only if stable in CI.
 
 ---
 
@@ -288,7 +292,7 @@ Consider a top-level `seq: int` on all messages once 2B is in place so async val
 
 | Layer | What to add |
 |-------|-------------|
-| **Unit** | `validate` compile helper; localized formula heads; Jedi completion formatting (no LO) |
+| **Unit** | `validate` compile helper; Jedi completion formatting (no LO) |
 | **Integration** | subprocess test: spawn `editor_main.py`, write `ready`/`load`, read responses (headless skip if no display); optional probe test against a fixture venv with pywebview |
 | **UNO** | range picker happy path; optional “edit cell → save → recalc” one-shot |
 | **Manual** | checklist in §7 extended per phase; Flatpak row when 2F ships |
@@ -324,6 +328,7 @@ flowchart TD
 ### Success criteria for “editor feature complete”
 
 - **Session 1 (done):** native LO + configured venv with pywebview: menubar **Edit Python in Cell…**, edit any selected Calc cell, Save updates `=PYTHON()` and recalc; failures show full tracebacks.
+- **Phase 2A (partial):** WM close clears session; save toolbar feedback (green/red).
 - **Later:** context menu, range insert, squiggles, Jedi completions, theme sync, Flatpak spawn.
 - `make test` green; typecheck clean; no UNO calls off main thread in bridge code paths.
 
@@ -339,20 +344,5 @@ flowchart TD
 | Unparsed PYTHON (e.g. `=PYTHON(A1; B1)`) | Blocked with msgbox — cannot safely preserve data args |
 | Single session | Second open while editor running shows “already open” |
 | Child `sys.path` | [`editor_main.py`](../plugin/scripting/editor_main.py) bootstraps repo root so `plugin.scripting.editor_protocol` imports |
-| Save errors to UI | Bridge sends `error` + `traceback` to child (Monaco toolbar handling in 2A) |
-
-
----
-
-## 9. Appendix: Learnings from Rich Text Sidebar Embedding
-
-The following architectural "landmines" were discovered during parallel work on the native sidebar embedding (PR #91) and are applicable to any native UI work in LibreOffice.
-
-### The "Lazy Peer" Lifecycle
-LibreOffice (VCL) realizes GUI window handles (peers) lazily. Calling `initialize()` or `setVisible()` on a container that hasn't been rendered yet will fail or cause recursion.
-*   **The Pattern:** Always use an `XWindowListener` and wait for the `windowShown` event.
-*   **The Recursive Trap:** Calling `setVisible(True)` inside a synchronous event handler can trigger nested events. 
-*   **The Fix:** Use `post_to_main_thread` (QueueExecutor) to defer the actual embedding to the next event loop turn.
-
-### WebView vs. Writer-as-UI
-While `pywebview` is excellent for floating IDE windows (Monaco), for **docked sidebar** content, an embedded Writer document is the preferred path for zero-latency, theme-aware rich text.
+| Save errors to UI | Bridge sends `error` + `traceback` to child; red toolbar status (Phase 2A) |
+| Formula function name | Always English `PYTHON`; localized tokens are a bug, not supported |

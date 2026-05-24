@@ -20,6 +20,8 @@ _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 _ready_lock = threading.Lock()
 _ready_sent = False
+_closed_lock = threading.Lock()
+_closed_sent = False
 
 
 def _bootstrap_plugin_import_path() -> None:
@@ -76,6 +78,21 @@ def _send_ready_once() -> None:
         log.info("editor_main: sent ready")
 
 
+def _send_closed_once() -> None:
+    """Tell LibreOffice the editor session ended (Cancel, WM close, or process exit)."""
+    global _shutting_down, _closed_sent
+    with _closed_lock:
+        if _closed_sent:
+            return
+        _shutting_down = True
+        _closed_sent = True
+    try:
+        _write_parent({"type": "closed"})
+        log.info("editor_main: sent closed")
+    except Exception:
+        log.debug("editor_main: closed write failed", exc_info=True)
+
+
 def _pipe_reader_loop() -> None:
     global _shutting_down
     stdin = sys.stdin.buffer
@@ -119,20 +136,25 @@ class MonacoEditorApi:
         _write_parent({"type": "save", "code": code, "save_as_plain": bool(save_as_plain)})
 
     def notify_cancel(self) -> None:
-        global _shutting_down
-        _shutting_down = True
-        _write_parent({"type": "closed"})
+        _send_closed_once()
         try:
             self._window.destroy()
         except Exception:
             pass
 
 
-def _bind_gui_ready(window: Any) -> None:
-    """Fire ``ready`` only after the webview window is shown (not before ``start()``)."""
+def _bind_window_events(window: Any) -> None:
+    """Fire ``ready`` after show; ``closed`` when the user closes the window (WM X button)."""
     events = getattr(window, "events", None)
     if events is None:
         return
+    closed_ev = getattr(events, "closed", None)
+    if closed_ev is not None:
+        try:
+            closed_ev += _send_closed_once
+            log.info("editor_main: hooked window.events.closed")
+        except Exception:
+            log.debug("editor_main: could not hook events.closed", exc_info=True)
     for name in ("loaded", "shown"):
         ev = getattr(events, name, None)
         if ev is None:
@@ -171,7 +193,7 @@ def main() -> None:
         _fatal(f"webview.create_window failed: {e}", exc=e)
 
     api.set_window(window)
-    _bind_gui_ready(window)
+    _bind_window_events(window)
 
     start_kw: dict[str, Any] = {"debug": False, "http_server": True}
     gui = os.environ.get("WRITERAGENT_PYWEBVIEW_GUI", "").strip()
@@ -183,11 +205,7 @@ def main() -> None:
     except Exception as e:
         _fatal(f"webview.start failed: {e}", exc=e)
     finally:
-        if not _shutting_down:
-            try:
-                _write_parent({"type": "closed"})
-            except Exception:
-                pass
+        _send_closed_once()
 
 
 if __name__ == "__main__":

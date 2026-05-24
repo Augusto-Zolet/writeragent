@@ -2,7 +2,13 @@
 # Copyright (c) 2026 KeithCu (modifications and relicensing)
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Parse and rebuild ``=PYTHON()`` formula strings for the Monaco cell editor."""
+"""Parse and rebuild ``=PYTHON()`` formula strings for the Monaco cell editor.
+
+The add-in function name is always the English token ``PYTHON`` (programmatic name
+``python``). Calc must not store a localized alias in ``getFormula()`` / ``FormulaLocal``;
+if it does, treat that as a bug in the add-in registration, not something this module
+should accept or translate.
+"""
 
 from __future__ import annotations
 

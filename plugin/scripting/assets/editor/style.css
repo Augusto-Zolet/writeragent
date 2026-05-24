@@ -50,6 +50,22 @@ html, body {
   opacity: 0.85;
 }
 
+#status.status-ok {
+  color: #1a7f37;
+  font-weight: 500;
+  opacity: 1;
+}
+
+#status.status-error {
+  color: #cf222e;
+  font-weight: 500;
+  opacity: 1;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 #editor {
   height: calc(100% - 42px);
   width: 100%;
