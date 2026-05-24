@@ -22,6 +22,8 @@ _ready_lock = threading.Lock()
 _ready_sent = False
 _closed_lock = threading.Lock()
 _closed_sent = False
+_window: Any = None
+
 
 
 def _bootstrap_plugin_import_path() -> None:
@@ -81,11 +83,10 @@ def _send_ready_once() -> None:
 
 def _send_closed_once() -> None:
     """Tell LibreOffice the editor session ended (Cancel, WM close, or process exit)."""
-    global _shutting_down, _closed_sent
+    global _closed_sent
     with _closed_lock:
         if _closed_sent:
             return
-        _shutting_down = True
         _closed_sent = True
     try:
         _write_parent({"type": "closed"})
@@ -111,6 +112,13 @@ def _pipe_reader_loop() -> None:
         log.exception("Editor pipe reader failed")
     finally:
         _shutting_down = True
+        log.info("editor_main: stdin reader finished; destroying window to exit event loop")
+        try:
+            if _window is not None:
+                _window.destroy()
+        except Exception:
+            pass
+
 
 
 class MonacoEditorApi:
@@ -127,7 +135,18 @@ class MonacoEditorApi:
         batch: list[dict[str, Any]] = []
         while True:
             try:
-                batch.append(_ui_queue.get_nowait())
+                msg = _ui_queue.get_nowait()
+                batch.append(msg)
+                if msg.get("type") == "load":
+                    log.info("editor_main: poll_messages received load; showing window")
+                    global _closed_sent
+                    with _closed_lock:
+                        _closed_sent = False
+                    try:
+                        if self._window is not None:
+                            self._window.show()
+                    except Exception:
+                        log.exception("editor_main: failed to show window on load")
             except queue.Empty:
                 break
         return batch
@@ -143,11 +162,24 @@ class MonacoEditorApi:
         _write_parent({"type": "save", "code": code, "save_as_plain": bool(save_as_plain), "data_binding": data_binding})
 
     def notify_cancel(self) -> None:
+        log.info("editor_main: notify_cancel called; hiding window")
         _send_closed_once()
         try:
-            self._window.destroy()
+            self._window.hide()
         except Exception:
             pass
+
+
+def _handle_window_closing() -> bool:
+    """Hides the window instead of closing/destroying it, notifying the parent."""
+    log.info("editor_main: intercepting window close. Hiding window instead.")
+    _send_closed_once()
+    try:
+        if _window is not None:
+            _window.hide()
+    except Exception:
+        log.exception("editor_main: failed to hide window during close interception")
+    return False  # Aborts standard window close/destruction
 
 
 def _bind_window_events(window: Any) -> None:
@@ -155,6 +187,13 @@ def _bind_window_events(window: Any) -> None:
     events = getattr(window, "events", None)
     if events is None:
         return
+    closing_ev = getattr(events, "closing", None)
+    if closing_ev is not None:
+        try:
+            closing_ev += _handle_window_closing
+            log.info("editor_main: hooked window.events.closing")
+        except Exception:
+            log.debug("editor_main: could not hook events.closing", exc_info=True)
     closed_ev = getattr(events, "closed", None)
     if closed_ev is not None:
         try:
@@ -194,8 +233,10 @@ def main() -> None:
     # not cwd. Pass an absolute path so the HTTP server root is assets/editor/.
     log.info("editor_main: assets=%s index=%s argv0=%s", assets, index_html, sys.argv[0])
     print(f"editor_main: serving {index_html}", file=sys.stderr, flush=True)
+    global _window
     try:
         window = webview.create_window("PYTHON Editor", url=index_html, width=900, height=640, js_api=api)
+        _window = window
     except Exception as e:
         _fatal(f"webview.create_window failed: {e}", exc=e)
 

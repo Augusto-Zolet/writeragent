@@ -122,9 +122,60 @@
     }).catch(function () { /* api not ready */ });
   }
 
+  function registerJediCompletions() {
+    monaco.languages.registerCompletionItemProvider("python", {
+      triggerCharacters: ["."],
+      provideCompletionItems: function (model, position) {
+        if (!window.pywebview || !window.pywebview.api || !window.pywebview.api.get_completions) {
+          return { suggestions: [] };
+        }
+        var code = model.getValue();
+        var line = position.lineNumber;
+        var column = position.column;
+
+        return window.pywebview.api.get_completions(code, line, column).then(function (res) {
+          if (!res || !res.items) {
+            return { suggestions: [] };
+          }
+          var suggestions = res.items.map(function (item) {
+            var kind = monaco.languages.CompletionItemKind.Text;
+            var k = String(item.kind).toLowerCase();
+            if (k === "method") {
+              kind = monaco.languages.CompletionItemKind.Method;
+            } else if (k === "function") {
+              kind = monaco.languages.CompletionItemKind.Function;
+            } else if (k === "class") {
+              kind = monaco.languages.CompletionItemKind.Class;
+            } else if (k === "module") {
+              kind = monaco.languages.CompletionItemKind.Module;
+            } else if (k === "property") {
+              kind = monaco.languages.CompletionItemKind.Property;
+            } else if (k === "keyword" || k === "statement") {
+              kind = monaco.languages.CompletionItemKind.Keyword;
+            } else if (k === "instance" || k === "param" || k === "variable") {
+              kind = monaco.languages.CompletionItemKind.Variable;
+            }
+            return {
+              label: item.label,
+              kind: kind,
+              insertText: item.insertText,
+              detail: item.detail || "",
+              documentation: item.documentation || ""
+            };
+          });
+          return { suggestions: suggestions };
+        }).catch(function (err) {
+          console.error("Jedi autocomplete error:", err);
+          return { suggestions: [] };
+        });
+      }
+    });
+  }
+
   function initMonaco() {
     require.config({ paths: { vs: "vs" } });
     require(["vs/editor/editor.main"], function () {
+      registerJediCompletions();
       editor = monaco.editor.create(document.getElementById("editor"), {
         value: pendingCode,
         language: "python",

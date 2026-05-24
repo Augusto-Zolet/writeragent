@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
 from plugin.scripting import editor_main as em
 
 
@@ -24,17 +25,33 @@ def test_send_closed_once_writes_single_message(monkeypatch):
 
     assert messages == [{"type": "closed"}]
     assert em._closed_sent is True
-    assert em._shutting_down is True
+    assert em._shutting_down is False  # Process stays alive in background!
 
 
-def test_notify_cancel_sends_closed_once(monkeypatch):
+def test_notify_cancel_sends_closed_once_and_hides(monkeypatch):
     _reset_closed_state()
     messages: list[dict] = []
     monkeypatch.setattr(em, "_write_parent", messages.append)
 
     api = em.MonacoEditorApi()
-    api._window = object()
+    mock_window = MagicMock()
+    api._window = mock_window
     api.notify_cancel()
     api.notify_cancel()
 
     assert messages == [{"type": "closed"}]
+    mock_window.hide.assert_called()
+
+
+def test_handle_window_closing_intercepts_and_hides(monkeypatch):
+    _reset_closed_state()
+    messages: list[dict] = []
+    monkeypatch.setattr(em, "_write_parent", messages.append)
+
+    mock_window = MagicMock()
+    monkeypatch.setattr(em, "_window", mock_window)
+
+    res = em._handle_window_closing()
+    assert res is False  # Aborts standard window close
+    assert messages == [{"type": "closed"}]
+    mock_window.hide.assert_called_once()

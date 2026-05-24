@@ -19,45 +19,68 @@ from plugin.framework.queue_executor import QueueExecutor, default_executor
 from plugin.framework.worker_pool import run_in_background
 from plugin.scripting.editor_diagnostics import exception_traceback
 from plugin.scripting.editor_protocol import message_type, read_message, write_message
+from plugin.framework.event_bus import global_event_bus
 
 log = logging.getLogger(__name__)
 
-_SESSION_LOCK = threading.Lock()
+_SESSION_LOCK = threading.RLock()
 _ACTIVE_SESSION: EditorSession | None = None
 
 
-class EditorSession:
-    """One editor subprocess and pipe reader."""
+class PersistentEditor:
+    """Manages a single Monaco editor subprocess and keeps it alive in the background."""
 
-    def __init__(
-        self,
-        proc: "subprocess.Popen[bytes]",
-        *,
-        on_save: Callable[..., dict[str, Any]],
-        on_closed: Callable[[], None],
-        executor: QueueExecutor | None = None,
-    ) -> None:
-        self._proc = proc
-        self._on_save = on_save
-        self._on_closed = on_closed
-        self._executor = executor or default_executor
+    def __init__(self) -> None:
+        self._proc: subprocess.Popen[bytes] | None = None
         self._stdin_lock = threading.Lock()
-        self._closed = threading.Event()
-        self._ready_event = threading.Event()
         self._reader_thread: threading.Thread | None = None
+        self._ready_event = threading.Event()
+        self._closed_event = threading.Event()
+
+        # Transient session callbacks for the active cell edit
+        self.on_save: Callable[..., dict[str, Any]] | None = None
+        self.on_closed: Callable[[], None] | None = None
+        self.executor: QueueExecutor = default_executor
 
     @property
     def is_running(self) -> bool:
-        if self._closed.is_set():
+        if self._proc is None:
             return False
         return self._proc.poll() is None
 
-    def start_reader(self) -> None:
+    @property
+    def proc(self) -> subprocess.Popen[bytes] | None:
+        return self._proc
+
+    def start(self, proc: subprocess.Popen[bytes]) -> None:
+        """Start the reader thread for the spawned process."""
+        self._proc = proc
+        self._ready_event.clear()
+        self._closed_event.clear()
         self._reader_thread = run_in_background(self._read_loop, name="editor-pipe-reader", daemon=True)
+
+    def terminate(self) -> None:
+        """Force terminate the subprocess."""
+        proc = self._proc
+        self._proc = None
+        if proc is not None:
+            try:
+                if proc.poll() is None:
+                    proc.terminate()
+            except OSError:
+                pass
+            # Close pipes
+            try:
+                if proc.stdin:
+                    proc.stdin.close()
+            except Exception:
+                pass
 
     def send(self, message: dict[str, Any]) -> None:
         """Thread-safe write to child stdin."""
         with self._stdin_lock:
+            if self._proc is None:
+                raise RuntimeError("No editor process is running")
             exit_code = self._proc.poll()
             if exit_code is not None:
                 detail = self.read_stderr_tail()
@@ -72,6 +95,8 @@ class EditorSession:
 
     def read_stderr_tail(self, max_bytes: int = 65536) -> str:
         """Best-effort read of child stderr (for startup failure messages)."""
+        if self._proc is None:
+            return ""
         stderr = self._proc.stderr
         if stderr is None:
             return ""
@@ -100,6 +125,8 @@ class EditorSession:
         while time.time() < deadline:
             if self._ready_event.is_set():
                 return True
+            if self._proc is None:
+                return False
             exit_code = self._proc.poll()
             if exit_code is not None:
                 log.error("Editor child exited before ready (code=%s). stderr=%s", exit_code, self.read_stderr_tail())
@@ -111,17 +138,15 @@ class EditorSession:
                     pass
             time.sleep(0.05)
         if not self._ready_event.is_set():
-            log.error("Editor ready timeout (%ss). child_running=%s stderr=%s", timeout_sec, self._proc.poll() is None, self.read_stderr_tail())
+            log.error("Editor ready timeout (%ss). child_running=%s stderr=%s", timeout_sec, self._proc is not None, self.read_stderr_tail())
         return self._ready_event.is_set()
 
     def _read_loop(self) -> None:
-        stdout = self._proc.stdout
-        if stdout is None:
+        if self._proc is None or self._proc.stdout is None:
             return
+        stdout = self._proc.stdout
         try:
-            while not self._closed.is_set():
-                if self._proc.poll() is not None:
-                    break
+            while self._proc is not None and self._proc.poll() is None:
                 ready, _, _ = select.select([stdout], [], [], 0.5)
                 if not ready:
                     continue
@@ -132,7 +157,8 @@ class EditorSession:
         except Exception:
             log.exception("Editor pipe reader failed")
         finally:
-            self._finish()
+            log.info("editor_bridge: persistent reader loop finished.")
+            self._handle_disconnect()
 
     def _dispatch_incoming(self, msg: dict[str, Any]) -> None:
         kind = message_type(msg)
@@ -148,7 +174,11 @@ class EditorSession:
 
             def _handle_save() -> None:
                 try:
-                    result = self._on_save(code, save_as_plain, data_binding)
+                    on_save = self.on_save
+                    if on_save is not None:
+                        result = on_save(code, save_as_plain, data_binding)
+                    else:
+                        result = {"type": "saved", "ok": True}
                     if not isinstance(result, dict):
                         result = {"type": "saved", "ok": True}
                     self.send(result)
@@ -156,29 +186,92 @@ class EditorSession:
                     log.exception("Editor save handler failed")
                     self.send({"type": "error", "message": str(e), "traceback": exception_traceback(e)})
 
-            self._executor.execute(_handle_save, timeout=60.0)
+            self.executor.execute(_handle_save, timeout=60.0)
             return
+
         if kind in ("closed", "cancel"):
-            self._finish()
+            def _handle_close() -> None:
+                try:
+                    on_closed = self.on_closed
+                    if on_closed is not None:
+                        on_closed()
+                except Exception:
+                    log.exception("Editor on_closed failed")
+                finally:
+                    self.on_save = None
+                    self.on_closed = None
+                    self._closed_event.set()
+                    set_active_session(None)
+
+            self.executor.execute(_handle_close)
             return
+
         if kind == "ready":
             self._ready_event.set()
             return
         log.debug("Editor child message: %s", kind)
 
+    def _handle_disconnect(self) -> None:
+        """Handle case where the subprocess exits or disconnects unexpectedly."""
+        def _handle_close() -> None:
+            try:
+                on_closed = self.on_closed
+                if on_closed is not None:
+                    on_closed()
+            except Exception:
+                log.exception("Editor on_closed failed during disconnect")
+            finally:
+                self.on_save = None
+                self.on_closed = None
+                self._closed_event.set()
+                set_active_session(None)
+        self.executor.execute(_handle_close)
+
+
+_PERSISTENT_EDITOR = PersistentEditor()
+
+
+class EditorSession:
+    """One editor session wrapper, delegating to the PersistentEditor singleton."""
+
+    def __init__(
+        self,
+        proc: "subprocess.Popen[bytes]",
+        *,
+        on_save: Callable[..., dict[str, Any]],
+        on_closed: Callable[[], None],
+        executor: QueueExecutor | None = None,
+    ) -> None:
+        self._proc = proc
+        self._on_save = on_save
+        self._on_closed = on_closed
+        self._executor = executor or default_executor
+
+        _PERSISTENT_EDITOR.on_save = on_save
+        _PERSISTENT_EDITOR.on_closed = on_closed
+        _PERSISTENT_EDITOR.executor = self._executor
+
+    @property
+    def is_running(self) -> bool:
+        return _PERSISTENT_EDITOR.is_running
+
+    def start_reader(self) -> None:
+        if _PERSISTENT_EDITOR.proc is not self._proc:
+            _PERSISTENT_EDITOR.start(self._proc)
+
+    def send(self, message: dict[str, Any]) -> None:
+        _PERSISTENT_EDITOR.send(message)
+
+    def read_stderr_tail(self, max_bytes: int = 65536) -> str:
+        return _PERSISTENT_EDITOR.read_stderr_tail(max_bytes)
+
+    def wait_for_ready(self, ctx: Any, timeout_sec: float = 30.0) -> bool:
+        return _PERSISTENT_EDITOR.wait_for_ready(ctx, timeout_sec)
+
     def _finish(self) -> None:
-        if self._closed.is_set():
-            return
-        self._closed.set()
-        try:
-            self._on_closed()
-        except Exception:
-            log.exception("Editor on_closed failed")
-        try:
-            if self._proc.poll() is None:
-                self._proc.terminate()
-        except OSError:
-            pass
+        _PERSISTENT_EDITOR.on_save = None
+        _PERSISTENT_EDITOR.on_closed = None
+
         global _ACTIVE_SESSION
         with _SESSION_LOCK:
             if _ACTIVE_SESSION is self:
@@ -198,3 +291,17 @@ def set_active_session(session: EditorSession | None) -> None:
         if session is None and _ACTIVE_SESSION is not None:
             _ACTIVE_SESSION._finish()
         _ACTIVE_SESSION = session
+
+
+def terminate_persistent_editor() -> None:
+    """Force terminate the background Monaco editor process."""
+    _PERSISTENT_EDITOR.terminate()
+
+
+def _on_config_changed(key: str, **kwargs: Any) -> None:
+    if key == "scripting.python_venv_path":
+        log.info("editor_bridge: scripting.python_venv_path changed, terminating background Monaco process")
+        terminate_persistent_editor()
+
+
+global_event_bus.subscribe("config:changed", _on_config_changed)

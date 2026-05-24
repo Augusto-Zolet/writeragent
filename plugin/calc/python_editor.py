@@ -23,7 +23,7 @@ from plugin.calc.python_formula_edit import (
 from plugin.chatbot.dialogs import msgbox
 from plugin.framework.i18n import _
 from plugin.framework.uno_context import get_desktop
-from plugin.scripting.editor_bridge import EditorSession, get_active_session, set_active_session
+from plugin.scripting.editor_bridge import EditorSession, get_active_session, set_active_session, _PERSISTENT_EDITOR
 from plugin.scripting.editor_diagnostics import failure_message
 from plugin.scripting.editor_launcher import probe_webview_import, resolve_editor_python, spawn_editor_process
 
@@ -225,22 +225,30 @@ def _launch_editor_with_code(
     def on_closed() -> None:
         log.debug("Python cell editor closed")
 
-    try:
-        proc = spawn_editor_process(exe)
-    except OSError as e:
-        log.exception("Failed to spawn editor")
-        msgbox(ctx, "WriterAgent", failure_message(_("Could not start the Python editor."), exc=e))
-        return
+    if _PERSISTENT_EDITOR.is_running:
+        log.info("python_editor: reusing running Monaco background process")
+        proc = _PERSISTENT_EDITOR.proc
+        assert proc is not None
+        session = EditorSession(proc, on_save=on_save, on_closed=on_closed)
+        set_active_session(session)
+    else:
+        log.info("python_editor: background process not running, spawning a new one")
+        try:
+            proc = spawn_editor_process(exe)
+        except OSError as e:
+            log.exception("Failed to spawn editor")
+            msgbox(ctx, "WriterAgent", failure_message(_("Could not start the Python editor."), exc=e))
+            return
 
-    session = EditorSession(proc, on_save=on_save, on_closed=on_closed)
-    set_active_session(session)
-    session.start_reader()
+        session = EditorSession(proc, on_save=on_save, on_closed=on_closed)
+        set_active_session(session)
+        session.start_reader()
 
-    if not session.wait_for_ready(ctx, timeout_sec=45.0):
-        detail = session.read_stderr_tail()
-        set_active_session(None)
-        msgbox(ctx, "WriterAgent", failure_message(_("The Python editor window did not start."), detail=detail))
-        return
+        if not session.wait_for_ready(ctx, timeout_sec=45.0):
+            detail = session.read_stderr_tail()
+            set_active_session(None)
+            msgbox(ctx, "WriterAgent", failure_message(_("The Python editor window did not start."), detail=detail))
+            return
 
     if not session.is_running:
         detail = session.read_stderr_tail()
