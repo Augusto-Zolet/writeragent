@@ -41,14 +41,14 @@ def load_cython_accelerator() -> None:
 
     try:
         # Try to import from plugin.contrib.vec_pack
-        from plugin.contrib.vec_pack import (
-            fast_flatten_grid_1d as _fast_1d,
-            fast_flatten_grid_2d as _fast_2d,
-        )
+        import plugin.contrib.vec_pack as _vp
 
-        fast_flatten_grid_2d = _fast_2d
-        fast_flatten_grid_1d = _fast_1d
-        log.debug("payload_codec: Cython accelerator loaded successfully")
+        fast_flatten_grid_2d = getattr(_vp, "fast_flatten_grid_2d", None)
+        fast_flatten_grid_1d = getattr(_vp, "fast_flatten_grid_1d", None)
+        if fast_flatten_grid_2d is not None:
+            log.debug("payload_codec: Cython accelerator loaded successfully")
+        else:
+            _CYTHON_ACCELERATOR_DISABLED = True
     except ImportError:
         # Fallback to absolute import if needed (for some environments)
         try:
