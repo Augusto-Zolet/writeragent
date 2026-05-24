@@ -93,7 +93,7 @@ This section documents **behavior** for real inputs (rectangular Calc ranges and
 
 #### Formal verification
 
-The split-grid codec is the project's reference Tier-0 verification target: `deal` contracts on pack/unpack functions, optional CrossHair concolic checking, and pytest round-trip oracles. See [`docs/serialization-verification-plan.md`](serialization-verification-plan.md) for workflow and status; background in [`docs/formal_verification.md`](formal_verification.md).
+The split-grid codec is the project's reference Tier-0 verification target: `deal` contracts on pack/unpack functions, optional CrossHair concolic checking, and pytest round-trip oracles. The A/B suite ([`tests/scripting/test_serialization_ab.py`](../tests/scripting/test_serialization_ab.py) + Hypothesis + venv worker harness) compares `force="always"` (split_grid) vs `force="never"` (nested list) on small varied grids. See [`docs/serialization-verification-plan.md`](serialization-verification-plan.md) for workflow and status; background in [`docs/formal_verification.md`](formal_verification.md).
 
 #### Calc → Python ([`calc_addin_data.py`](../plugin/calc/calc_addin_data.py))
 

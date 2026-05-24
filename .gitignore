@@ -17,14 +17,11 @@ plugin/lib*/
 *.mo
 
 # Log files
-log.txt
 writeragent_debug.log
-writeragent_agent.log
 writeragent_history.db*
 writeragent_web_cache.db*
-writeragent.log
 soffice-debug.log
-
+Kyber_Complete_v24*/
 # IDE files
 .vscode/
 .idea/

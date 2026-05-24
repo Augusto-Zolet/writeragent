@@ -6,7 +6,10 @@
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 
-"""Verification and contract tests for payload_codec split_grid serialization."""
+"""Verification and contract tests for payload_codec split_grid serialization.
+
+Excluded from default ``make test`` (CrossHair can take minutes). Run: ``make slowtests``.
+"""
 
 from __future__ import annotations
 
@@ -16,6 +19,8 @@ import subprocess
 from pathlib import Path
 
 import pytest
+
+pytestmark = pytest.mark.slow
 
 from plugin.scripting.payload_codec import (
     PAYLOAD_SPLIT_GRID,

@@ -98,7 +98,7 @@ endif
         dev-deploy dev-deploy-remove \
         lo-start lo-start-full lo-kill lo-restart \
         clean-cache nuke-cache nuke-cache-force unbundle \
-        log log-tail lo-log test test-run test-visible typecheck check-ext check-setup deploy \
+        log log-tail lo-log test test-run slowtests test-visible typecheck check-ext check-setup deploy \
         lo-start-log \
         writer calc draw impress \
         set-config vendor docker-build compile-translations merge-translations refresh-pot reset-lang preview-translations check ty mypy pyright pyrefly bandit ty-run mypy-run pyright-run pyrefly-run \
@@ -151,6 +151,7 @@ help:
 	@echo "  make set-config             List all config keys"
 	@echo "  make test                   Run ty, mypy, pyright, bandit, then pytest + in-process LO tests"
 	@echo "  make test-run               Pytest + LO tests only (skip typecheck/bandit; for quick reruns)"
+	@echo "  make slowtests              Serialization verification + CrossHair (test_serialization_verification.py; not in make test)"
 	@echo "  make test-visible           Run LO chart + grep UNO tests visibly (GUI) for processEventsToIdle / OLE queue"
 	@echo "  make typecheck              Run ty, then mypy, then pyright (same scope as each single target)"
 	@echo "  make check                  Quick gate: ty only (also used implicitly before fast workflows)"
@@ -433,6 +434,9 @@ test-run:
 	$(PYTHON) -m pytest tests
 	$(LO_PYTHON) -m plugin.testing_runner
 
+slowtests:
+	$(PYTHON) -m pytest tests/scripting/test_serialization_verification.py -q
+
 test-visible:
 	$(LO_PYTHON) -m plugin.testing_runner --visible test_charts_uno test_enhanced_charts_uno test_document_research_grep_uno
 
@@ -448,6 +452,9 @@ verify-serialization:
 	$(PYTHON) -m pytest tests/scripting/test_serialization_verification.py -k "not crosshair" -q
 	@echo "=== CrossHair check (full module, live filtered) ==="
 	$(MAKE) crosshair-check
+
+test-serialization-ab:
+	$(PYTHON) -m pytest tests/scripting/test_serialization_ab.py -q
 
 # CrossHair on entire module files (correctness over speed; see docs/formal_verification.md)
 crosshair-check:
