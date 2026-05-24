@@ -52,13 +52,19 @@ class JediSession:
         if not self.is_available() or jedi is None:
             return {"items": []}
 
-        # Subtract 1 to convert from Monaco 1-indexed to Jedi 0-indexed column
-        col_idx = max(0, column - 1)
-
         try:
+            from plugin.scripting.venv_sandbox import apply_auto_imports
+
+            # Prepend hidden auto-imports and adjust line number
+            code, lines_added = apply_auto_imports(code)
+            target_line = line + lines_added
+
+            # Subtract 1 to convert from Monaco 1-indexed to Jedi 0-indexed column
+            col_idx = max(0, column - 1)
+
             # Script parses the current editor content. Reuse persistent environment.
             script = jedi.Script(code, environment=self._env)
-            completions = script.complete(line, col_idx)
+            completions = script.complete(target_line, col_idx)
 
             items = []
             for comp in completions:
@@ -76,6 +82,6 @@ class JediSession:
                 })
 
             return {"items": items}
-        except Exception as e:
+        except Exception:
             log.exception("Jedi completions failed")
             return {"items": []}

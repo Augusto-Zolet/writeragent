@@ -62,9 +62,14 @@ def _parse_unquoted_code_arg(inner_body: str) -> str | None:
             if depth == 0:
                 return s[:i].strip()
             depth -= 1
-        elif ch == ";" and depth == 0:
+        elif ch in (";", ",") and depth == 0:
             return s[:i].strip()
     return s
+
+
+def _is_data_arg_separator(rest: str) -> bool:
+    """True when *rest* begins a PYTHON data-argument suffix (``;`` or ``,``)."""
+    return bool(rest) and rest[0] in (";", ",")
 
 
 def extract_python_code_loose(formula: str) -> str | None:
@@ -126,7 +131,7 @@ def parse_python_formula(formula: str) -> PythonFormulaParts | None:
         rest = ""
         if code != inner_body:
             rest = inner_body[len(code) :].strip()
-        if rest.startswith(";"):
+        if _is_data_arg_separator(rest):
             data_suffix = rest + ")"
         elif rest == "":
             data_suffix = ")"
@@ -139,7 +144,7 @@ def parse_python_formula(formula: str) -> PythonFormulaParts | None:
         return None
     code, end = code_parsed
     rest = inner_body[end:].strip()
-    if rest.startswith(";"):
+    if _is_data_arg_separator(rest):
         data_suffix = rest + ")"
     elif rest == "":
         data_suffix = ")"
@@ -164,7 +169,7 @@ def format_data_binding_display(data_suffix: str) -> str:
     s = (data_suffix or "").strip()
     if s in (")", ""):
         return ""
-    if s.startswith(";"):
+    if s.startswith(";") or s.startswith(","):
         s = s[1:]
     if s.endswith(")"):
         s = s[:-1]

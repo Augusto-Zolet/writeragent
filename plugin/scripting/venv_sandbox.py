@@ -72,7 +72,7 @@ VENV_AUTHORIZED_IMPORTS: tuple[str, ...] = (
 )
 
 
-def _is_module_imported(code_str: str, module_name: str) -> bool:
+def is_module_imported(code_str: str, module_name: str) -> bool:
     """Check if ``module_name`` is imported in any form in ``code_str``."""
     try:
         tree = ast.parse(code_str)
@@ -91,13 +91,27 @@ def _is_module_imported(code_str: str, module_name: str) -> bool:
     return False
 
 
-def _optional_module(name: str) -> Any | None:
+def optional_module(name: str) -> Any | None:
     if name in sys.modules:
         return sys.modules[name]
     try:
         return importlib.import_module(name)
     except Exception:
         return None
+
+
+def apply_auto_imports(code: str) -> tuple[str, int]:
+    """Prepend imports from AUTO_IMPORTS if missing and available. Returns (new_code, lines_added)."""
+    prepended_lines = []
+    for module_name, import_stmt in AUTO_IMPORTS.items():
+        if not is_module_imported(code, module_name):
+            if optional_module(module_name) is not None:
+                prepended_lines.append(import_stmt)
+
+    if not prepended_lines:
+        return code, 0
+
+    return "\n".join(prepended_lines) + "\n" + code, len(prepended_lines)
 
 
 def serialize_result(obj: Any) -> Any:
@@ -113,11 +127,11 @@ def serialize_result(obj: Any) -> Any:
 
 
 def _serialize_result_impl(obj: Any) -> Any:
-    np_mod = _optional_module("numpy")
+    np_mod = optional_module("numpy")
     if np_mod is not None:
         if isinstance(obj, (np_mod.ndarray, np_mod.integer, np_mod.floating, np_mod.bool_)):
             return child_pack_result(obj)
-    pd_mod = _optional_module("pandas")
+    pd_mod = optional_module("pandas")
     if pd_mod is not None:
         if isinstance(obj, pd_mod.DataFrame):
             return child_pack_result(obj.to_dict(orient="records"))
@@ -133,14 +147,7 @@ def run_sandboxed_code(code: str, data: Any | None = None, *, timeout_sec: int |
     if timeout_sec is None:
         timeout_sec = python_exec_timeout_default()
     # Automatically prepend imports if they are available in the environment and not explicitly imported
-    prepended_lines = []
-    for module_name, import_stmt in AUTO_IMPORTS.items():
-        if not _is_module_imported(code, module_name):
-            if _optional_module(module_name) is not None:
-                prepended_lines.append(import_stmt)
-
-    if prepended_lines:
-        code = "\n".join(prepended_lines) + "\n" + code
+    code, _ = apply_auto_imports(code)
 
     executor = LocalPythonExecutor(
         additional_authorized_imports=list(VENV_AUTHORIZED_IMPORTS),

@@ -34,6 +34,15 @@ def test_parse_with_data_range():
     assert "A1:B10" in parts.data_suffix
 
 
+def test_parse_with_comma_data_range():
+    """getFormula() may use comma separators (e.g. en-US locale or XLSX import)."""
+    parts = parse_python_formula('=PYTHON("np.mean(data)",A2:C2)')
+    assert parts is not None
+    assert parts.code == "np.mean(data)"
+    assert "A2:C2" in parts.data_suffix
+    assert format_data_binding_display(parts.data_suffix) == "A2:C2"
+
+
 def test_parse_escaped_quotes():
     parts = parse_python_formula('=PYTHON("say ""hi""")')
     assert parts is not None
