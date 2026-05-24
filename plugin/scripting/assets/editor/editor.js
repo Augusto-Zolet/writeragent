@@ -13,6 +13,20 @@
     }
   }
 
+  function setDataBinding(text) {
+    var el = document.getElementById("data-binding");
+    if (!el) {
+      return;
+    }
+    if (text) {
+      el.textContent = "Data: " + text;
+      el.title = "Calc injects `data` and `data_list` from these range(s) at runtime.";
+    } else {
+      el.textContent = "Data: (none)";
+      el.title = "Add range(s) in the =PYTHON() formula to inject `data` / `data_list`.";
+    }
+  }
+
   function applyLoad(code) {
     pendingCode = code || "";
     if (editor) {
@@ -38,6 +52,7 @@
           if (msg.title) {
             document.title = msg.title;
           }
+          setDataBinding(msg.data_binding || "");
           applyLoad(msg.code || "");
         } else if (msg.type === "saved") {
           setStatus("Saved.");
@@ -54,7 +69,7 @@
       editor = monaco.editor.create(document.getElementById("editor"), {
         value: pendingCode,
         language: "python",
-        theme: "vs-dark",
+        theme: "vs",
         automaticLayout: true,
         minimap: { enabled: false },
         fontSize: 13,

@@ -3,8 +3,8 @@ html, body {
   padding: 0;
   height: 100%;
   font-family: system-ui, sans-serif;
-  background: #1e1e1e;
-  color: #d4d4d4;
+  background: #ffffff;
+  color: #333333;
 }
 
 #toolbar {
@@ -12,13 +12,22 @@ html, body {
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
-  background: #2d2d2d;
-  border-bottom: 1px solid #3c3c3c;
+  background: #f3f3f3;
+  border-bottom: 1px solid #e0e0e0;
 }
 
 #toolbar button {
   padding: 4px 12px;
   cursor: pointer;
+}
+
+#data-binding {
+  font-size: 12px;
+  opacity: 0.9;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #status {

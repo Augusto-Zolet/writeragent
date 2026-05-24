@@ -11,11 +11,12 @@ from typing import Any
 
 from plugin.calc.bridge import CalcBridge
 from plugin.calc.python_formula_edit import (
+    PythonFormulaParts,
     build_new_python_formula,
-    extract_python_code_loose,
-    normalize_formula_string,
+    cell_looks_python_like,
+    format_data_binding_display,
     parse_python_formula,
-    replace_python_code,
+    rebuild_python_formula,
 )
 from plugin.chatbot.dialogs import msgbox
 from plugin.framework.i18n import _
@@ -46,17 +47,21 @@ def _cell_formula_strings(cell: Any) -> list[str]:
     return out
 
 
-def _parse_cell_python_formula(cell: Any) -> tuple[str, Any | None]:
-    """Return (initial editor code, PythonFormulaParts or None) from the cell."""
+def _parse_cell_python_formula(cell: Any) -> tuple[str, PythonFormulaParts | None, str | None]:
+    """Return (code, parts, source formula string that parsed) from the cell."""
     for raw in _cell_formula_strings(cell):
         parts = parse_python_formula(raw)
         if parts is not None:
-            return parts.code, parts
+            return parts.code, parts, raw
+    return "", None, None
+
+
+def _cell_has_unparsed_python(cell: Any) -> bool:
+    """True when the cell looks like PYTHON but strict parse failed (data binding at risk)."""
     for raw in _cell_formula_strings(cell):
-        loose = extract_python_code_loose(raw)
-        if loose is not None:
-            return loose, parse_python_formula(raw)
-    return "", None
+        if cell_looks_python_like(raw) and parse_python_formula(raw) is None:
+            return True
+    return False
 
 
 def _get_active_calc_cell(ctx: Any) -> tuple[Any, Any, str] | None:
@@ -77,7 +82,6 @@ def _get_active_calc_cell(ctx: Any) -> tuple[Any, Any, str] | None:
     if model is None or not hasattr(model, "getSheets"):
         log.warning("python_editor: not a spreadsheet document")
         return None
-    # Match Calc extend/edit: use the sheet controller selection (not formula-bar-only focus).
     cc = model.getCurrentController()
     if cc is None:
         log.warning("python_editor: no CurrentController")
@@ -104,18 +108,21 @@ def _apply_formula_save(
     doc: Any,
     cell: Any,
     *,
-    original_formula: str,
+    parsed_parts: PythonFormulaParts | None,
     new_code: str,
-    parsed_parts: Any | None,
 ) -> dict[str, Any]:
     if parsed_parts is not None:
-        new_formula = replace_python_code(original_formula, new_code)
-        if new_formula is None:
-            new_formula = replace_python_code(normalize_formula_string(original_formula), new_code)
+        new_formula = rebuild_python_formula(parsed_parts, new_code)
+    elif _cell_has_unparsed_python(cell):
+        return {
+            "type": "error",
+            "message": _(
+                "Could not preserve this cell's PYTHON formula arguments (e.g. data ranges). "
+                "Edit the formula in Calc, or use a quoted code string like =PYTHON(\"code\"; A1:B10)."
+            ),
+        }
     else:
         new_formula = build_new_python_formula(new_code)
-    if new_formula is None:
-        return {"type": "error", "message": _("Could not rebuild the PYTHON formula.")}
     cell.setFormula(new_formula)
     try:
         doc.calculateAll()
@@ -130,20 +137,13 @@ def _launch_editor_with_code(
     cell: Any,
     *,
     initial_code: str,
-    original_formula: str,
-    parsed_parts: Any | None,
+    parsed_parts: PythonFormulaParts | None,
     exe: str,
 ) -> None:
-    original_formula = original_formula or ""
+    data_binding = format_data_binding_display(parsed_parts.data_suffix) if parsed_parts else ""
 
     def on_save(code: str) -> dict[str, Any]:
-        return _apply_formula_save(
-            doc,
-            cell,
-            original_formula=original_formula,
-            new_code=code,
-            parsed_parts=parsed_parts,
-        )
+        return _apply_formula_save(doc, cell, parsed_parts=parsed_parts, new_code=code)
 
     def on_closed() -> None:
         log.debug("Python cell editor closed")
@@ -171,8 +171,15 @@ def _launch_editor_with_code(
         msgbox(ctx, "WriterAgent", failure_message(_("The Python editor exited before it could load your code."), detail=detail))
         return
 
+    load_msg: dict[str, Any] = {
+        "type": "load",
+        "code": initial_code,
+        "title": _("PYTHON cell editor"),
+    }
+    if data_binding:
+        load_msg["data_binding"] = data_binding
     try:
-        session.send({"type": "load", "code": initial_code, "title": _("PYTHON cell editor")})
+        session.send(load_msg)
     except Exception as e:
         log.exception("Failed to send load to editor")
         set_active_session(None)
@@ -202,10 +209,26 @@ def _open_python_cell_editor_impl(ctx: Any) -> None:
     if resolved is None:
         msgbox(ctx, "WriterAgent", _("Select a cell in a Calc spreadsheet to edit Python."))
         return
-    doc, cell, formula = resolved
+    doc, cell, _formula = resolved
 
-    initial_code, parsed_parts = _parse_cell_python_formula(cell)
-    log.info("python_editor: initial_code len=%s parsed=%s", len(initial_code), parsed_parts is not None)
+    initial_code, parsed_parts, source_formula = _parse_cell_python_formula(cell)
+    log.info(
+        "python_editor: initial_code len=%s parsed=%s source=%r",
+        len(initial_code),
+        parsed_parts is not None,
+        (source_formula or "")[:80],
+    )
+
+    if parsed_parts is None and _cell_has_unparsed_python(cell):
+        msgbox(
+            ctx,
+            "WriterAgent",
+            _(
+                "This PYTHON formula uses a form the editor cannot safely rewrite (e.g. code in another cell). "
+                "Edit it in the formula bar, or use =PYTHON(\"code\"; range) with quoted code."
+            ),
+        )
+        return
 
     exe, err = resolve_editor_python(ctx)
     if not exe:
@@ -231,7 +254,6 @@ def _open_python_cell_editor_impl(ctx: Any) -> None:
         doc,
         cell,
         initial_code=initial_code,
-        original_formula=formula,
         parsed_parts=parsed_parts,
         exe=exe,
     )

@@ -8,8 +8,10 @@ from __future__ import annotations
 
 from plugin.calc.python_formula_edit import (
     build_new_python_formula,
+    format_data_binding_display,
     normalize_formula_string,
     parse_python_formula,
+    rebuild_python_formula,
     replace_python_code,
 )
 
@@ -87,3 +89,20 @@ def test_build_new_formula_empty():
 
 def test_build_new_formula_escapes():
     assert '""' in build_new_python_formula('say "hi"')
+
+
+def test_rebuild_preserves_data_suffix_from_parts():
+    parts = parse_python_formula('=PYTHON("x"; A1:B2; C3)')
+    assert parts is not None
+    rebuilt = rebuild_python_formula(parts, "y = 1")
+    assert "A1:B2" in rebuilt
+    assert "C3" in rebuilt
+    assert parse_python_formula(rebuilt) is not None
+    assert parse_python_formula(rebuilt).code == "y = 1"
+
+
+def test_format_data_binding_display():
+    assert format_data_binding_display(")") == ""
+    assert format_data_binding_display(";A1:B10)") == "A1:B10"
+    assert format_data_binding_display(";A1; C1:C5)") == "A1; C1:C5"
+

@@ -14,7 +14,7 @@ import queue
 import sys
 import threading
 import traceback
-from typing import Any, cast
+from typing import Any, NoReturn, cast
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -39,7 +39,7 @@ def _bootstrap_plugin_import_path() -> None:
         sys.path.insert(0, repo)
 
 
-def _fatal(msg: str, *, exc: BaseException | None = None, code: int = 1) -> None:
+def _fatal(msg: str, *, exc: BaseException | None = None, code: int = 1) -> NoReturn:
     print(msg, file=sys.stderr, flush=True)
     if exc is not None:
         traceback.print_exception(type(exc), exc, exc.__traceback__, file=sys.stderr)

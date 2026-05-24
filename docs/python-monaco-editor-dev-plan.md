@@ -328,7 +328,9 @@ flowchart TD
 |-------|----------|
 | Cell selection | Uses sheet controller selection ([`python_editor.py`](../plugin/calc/python_editor.py)), same idea as Calc extend/edit |
 | Empty / non-PYTHON cells | Editor opens; Save writes `=PYTHON("code")` via [`build_new_python_formula`](../plugin/calc/python_formula_edit.py) |
+| Data ranges | Hidden in Monaco; preserved on Save via [`rebuild_python_formula`](../plugin/calc/python_formula_edit.py) + `data_suffix`; read-only toolbar `Data: …` (no hint comments in formula string) |
 | Formula strings | Reads `getFormula()`, `FormulaLocal`, `Formula`; normalizes leading `=`, array braces, smart quotes |
+| Unparsed PYTHON (e.g. `=PYTHON(A1; B1)`) | Blocked with msgbox — cannot safely preserve data args |
 | Single session | Second open while editor running shows “already open” |
 | Child `sys.path` | [`editor_main.py`](../plugin/scripting/editor_main.py) bootstraps repo root so `plugin.scripting.editor_protocol` imports |
 | Save errors to UI | Bridge sends `error` + `traceback` to child (Monaco toolbar handling in 2A) |

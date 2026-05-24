@@ -147,10 +147,36 @@ def escape_code_for_formula(code: str) -> str:
     return code.replace('"', '""')
 
 
+def rebuild_python_formula(parts: PythonFormulaParts, new_code: str) -> str:
+    """Rebuild a formula from parsed parts and new inline code (preserves ``data_suffix``)."""
+    escaped = escape_code_for_formula(new_code)
+    return f'{parts.prefix}"{escaped}"{parts.data_suffix}'
+
+
+def format_data_binding_display(data_suffix: str) -> str:
+    """Human-readable range/index args from ``data_suffix`` (e.g. ``;A1:B10)`` → ``A1:B10``)."""
+    s = (data_suffix or "").strip()
+    if s in (")", ""):
+        return ""
+    if s.startswith(";"):
+        s = s[1:]
+    if s.endswith(")"):
+        s = s[:-1]
+    return s.strip()
+
+
+def cell_looks_python_like(formula: str) -> bool:
+    """True if *formula* appears to be a PYTHON call (even if strict parse failed)."""
+    if not formula:
+        return False
+    if parse_python_formula(formula) is not None:
+        return True
+    return extract_python_code_loose(formula) is not None
+
+
 def replace_python_code(formula: str, new_code: str) -> str | None:
     """Return a new formula with the first ``code`` string argument replaced."""
     parts = parse_python_formula(normalize_formula_string(formula))
     if parts is None:
         return None
-    escaped = escape_code_for_formula(new_code)
-    return f'{parts.prefix}"{escaped}"{parts.data_suffix}'
+    return rebuild_python_formula(parts, new_code)
