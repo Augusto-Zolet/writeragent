@@ -1,10 +1,17 @@
 # cython: language_level=3
+# cython: boundscheck=False
+# cython: wraparound=False
+# cython: nonecheck=False
+# cython: initializedcheck=False
+# cython: cdivision=True
+# cython: overflowcheck=False
+# cython: always_failsafe=False
 # WriterAgent - Cython accelerator for serialization packing.
 
 import array
-import math
+from libc.math cimport NAN as c_nan
 from cpython.object cimport PyObject
-from cpython.list cimport PyList_GetItem, PyList_Size
+from cpython.list cimport PyList_GET_ITEM, PyList_GET_SIZE
 from cpython.float cimport PyFloat_AsDouble, PyFloat_Check
 from cpython.long cimport PyLong_AsLong, PyLong_Check
 from cpython.bool cimport PyBool_Check
@@ -19,7 +26,7 @@ def fast_flatten_grid_2d(list grid, int ncols):
     Cython-accelerated 2D grid flattening.
     Returns (buffer_bytes, strings, column_states, column_has_none, has_non_numeric)
     """
-    cdef int nrows = len(grid)
+    cdef int nrows = PyList_GET_SIZE(grid)
     cdef int ncells = nrows * ncols
     
     # We use a double array for the buffer
@@ -35,23 +42,22 @@ def fast_flatten_grid_2d(list grid, int ncols):
     cdef int r, c, idx = 0
     cdef object row, val
     cdef double fval
-    cdef double nan = math.nan
     cdef int st
     
     for r in range(nrows):
-        row = <object>PyList_GetItem(grid, r)
-        if PyList_Size(row) != ncols:
+        row = <object>PyList_GET_ITEM(grid, r)
+        if PyList_GET_SIZE(row) != ncols:
             raise ValueError(f"Uneven row lengths in data grid at row {r}")
             
         for c in range(ncols):
-            val = <object>PyList_GetItem(row, c)
+            val = <object>PyList_GET_ITEM(row, c)
             
             if val is None:
-                buf_view[idx] = nan
+                buf_view[idx] = c_nan
                 column_has_none[c] = True
             elif PyUnicode_Check(val):
                 has_non_numeric = True
-                buf_view[idx] = nan
+                buf_view[idx] = c_nan
                 strings[idx] = val
             elif not has_non_numeric:
                 # Fast path: numeric
@@ -75,11 +81,11 @@ def fast_flatten_grid_2d(list grid, int ncols):
                 else:
                     # Fallback for complex/other types
                     has_non_numeric = True
-                    buf_view[idx] = nan
+                    buf_view[idx] = c_nan
                     strings[idx] = PyObject_Str(val)
             else:
                 # Already non-numeric mode
-                buf_view[idx] = nan
+                buf_view[idx] = c_nan
                 strings[idx] = PyObject_Str(val)
             
             idx += 1

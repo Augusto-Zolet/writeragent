@@ -19,5 +19,11 @@ setup(
     version="0.1.0",
     package_dir={"": "src"},
     packages=["writeragent_vec"],
-    ext_modules=cythonize(extensions, language_level=3),
+    ext_modules=cythonize(
+        extensions,
+        language_level=3,
+        compiler_directives={
+            'emit_code_comments': False,
+        }
+    ),
 )

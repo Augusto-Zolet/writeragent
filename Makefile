@@ -283,6 +283,10 @@ native:
 	$(MKDIR) plugin/contrib/vec_pack
 	cp native/writeragent_vec/src/writeragent_vec/*.so plugin/contrib/vec_pack/ 2>/dev/null || \
 	cp native/writeragent_vec/src/writeragent_vec/*.pyd plugin/contrib/vec_pack/ 2>/dev/null || true
+	# Strip debug symbols on Linux/macOS
+	@if [ "$(OS)" != "Windows_NT" ]; then \
+		strip plugin/contrib/vec_pack/*.so 2>/dev/null || true; \
+	fi
 	echo "try:" > plugin/contrib/vec_pack/__init__.py
 	echo "    from .pack import fast_flatten_grid_2d" >> plugin/contrib/vec_pack/__init__.py
 	echo "except ImportError:" >> plugin/contrib/vec_pack/__init__.py
