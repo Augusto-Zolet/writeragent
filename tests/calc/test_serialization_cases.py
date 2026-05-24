@@ -26,7 +26,7 @@ def test_case_ids_unique():
 def test_grid_4x4_sum_expected():
     case = next(c for c in all_serialization_cases() if c.id == "grid_4x4_sum")
     assert case.expected == 136.0
-    assert "split_grid" in case.tags
+    assert "below_threshold" in case.tags
 
 
 def test_below_threshold_3x3():
@@ -60,18 +60,20 @@ def test_error_cases_marked():
     assert all(c.expected_error_substr for c in errors)
 
 
-def test_bool_col_11_split_grid_case():
+def test_bool_col_11_below_threshold_case():
     case = next(c for c in all_serialization_cases() if c.id == "bool_col_11_sum")
     assert case.expected == 7.0
-    assert "split_grid" in case.tags
+    assert "below_threshold" in case.tags
     assert len(case.input_grid) == 11
 
 
 def test_split_grid_boundary_case():
+    """Spreadsheet fixture: fixed 2×5 grid (fits 5×5 generator layout; not tied to BINARY_MIN_CELLS)."""
     case = next(c for c in all_serialization_cases() if c.id == "grid_2x5_sum")
     assert case.expected == 55.0
-    assert "split_grid" in case.tags
     assert "boundary" in case.tags
+    assert len(case.input_grid) == 2
+    assert len(case.input_grid[0]) == 5
 
 
 def test_multi_sheet_has_cases():

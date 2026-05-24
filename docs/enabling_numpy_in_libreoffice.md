@@ -567,6 +567,8 @@ Tier 1 reuses existing `DialogProvider` / XDL patterns ([`plugin/chatbot/dialogs
 
 Prioritized future work (LO profiling gate, Tier 0 crossings, host pack/unpack, cache, deferred 2b/3) lives in [NumPy serialization](numpy-serialization.md#future-work--serialization-performance). Native host-extension packaging notes live there too: [Building host native extensions (Cython)](numpy-serialization.md#building-host-native-extensions-cython).
 
+**Important gate:** Any further codec or host-pack optimizations should be driven by real measurements inside LibreOffice (UNO range read → per-cell Python objects → pack). The standalone `scripts/bench_serialization.py` is excellent for asymmetric host/child comparison, but the dominant cost in practice is often the initial UNO → Python object conversion in `calc_addin_data_to_python`. A small profiling harness (debug menu or `testing_runner`) that times the four legs (read, pack, round-trip, unpack) on realistic sheets is the recommended next step before investing in Cython packers or vendored msgpack.
+
 ### Jupyter notebook import (`.ipynb`)
 
 WriterAgent can import Jupyter notebooks into **Writer** via **Tools → Import Jupyter Notebook…** (menu + UNO; vendored nbformat v4). This is **not** part of the venv compute bridge — imported code cells are editable TextFields, not executed in the user venv.
@@ -687,7 +689,7 @@ Multiple ranges use a `multi_data` envelope (`__wa_payload__`: `"multi_data"`, `
 
 ### Future work
 
-- Hypothesis / CrossHair fuzz for list-of-grids (`serialization_ab_support.py` TODOs)
+- **Hypothesis / CrossHair fuzz for list-of-grids** (`serialization_ab_support.py` TODOs) — the multi-range envelope needs the same level of formal verification (`@deal` contracts + concolic checking) that the single-grid `split_grid` path already has in `payload_codec.py`. This is the highest-signal small improvement remaining in the serialization layer.
 - Live Calc UNO suite for real multi-range formulas in `tests/uno/`
-- Chat tool `run_venv_python_script` — multiple `data_range` arguments
+- **Chat tool `run_venv_python_script` parity** — the formula supports multiple `data_range` arguments (via varargs IDL + `multi_data` envelope), but the chat tool still only exposes a single `data_range`. Adding multi-range support here would let the LLM perform cross-range analysis directly from the sidebar without forcing users to split work across multiple `=PYTHON()` cells.
 

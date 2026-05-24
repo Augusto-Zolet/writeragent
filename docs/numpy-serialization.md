@@ -449,6 +449,7 @@ Record: cells/sec host→child, cells/sec child→host, bytes on wire, and wheth
 | Host still slow after split_grid in LO profiles | Vendored msgpack/orjson (few MB OXT) |
 | Very large ranges / stdin size limits | **Temp file + mmap** + optional **payload cache** |
 | **Next optimizations** | See [Future work — serialization performance](#future-work--serialization-performance) (profile in LO first, then summaries → host paths → defer vendored/mmap) |
+| **Host flatten loop (stdlib)** | [Host pack hot path — proposed pure-Python optimizations](#host-pack-hot-path--proposed-pure-python-optimizations-deferred) — try/except numeric fast path, inline loops; bench before Cython |
 
 **Vendoring policy:** avoid NumPy/pandas in the OXT; **do** consider a few MB of focused binaries only if Tier 2 stdlib is insufficient after measurement. Keep pack/unpack logic in **`plugin/scripting/`** (host + [`venv_sandbox.py`](../plugin/scripting/venv_sandbox.py)).
 
@@ -494,6 +495,69 @@ See [core two-phase workflow](enabling_numpy_in_libreoffice.md#two-phase-llm-wor
 **Today:** every cell → Py scalar in nested lists → second scan for `split_grid`.
 
 **Idea:** one pass **UNO → row-major bytes** during range read, or a **Cython pack** over a buffer after the Python UNO read — see [Building host native extensions (Cython)](#building-host-native-extensions-cython). Avoids a million heap floats before base64. Child path unchanged (`frombuffer`).
+
+See [Host pack hot path — proposed pure-Python optimizations](#host-pack-hot-path--proposed-pure-python-optimizations-deferred) for stdlib-only experiments on [`_flatten_grid_to_components`](../plugin/scripting/payload_codec.py) before Cython.
+
+#### Host pack hot path — pure-Python optimizations
+
+**Status: implemented (May 2026)** in [`_flatten_grid_to_components`](../plugin/scripting/payload_codec.py): optimistic `try`/`except` numeric fast path until the first `None`/string, module-level slow-path helper (no nested `process_cell`), `dtype` checks before `tname` on the slow path, local `nan = math.nan`. **Deferred:** post-pass-only `column_kinds` simplification (#4 in table below). Re-bench with [`scripts/bench_serialization.py`](../scripts/bench_serialization.py) and LO leg B when profiling host pack.
+
+**Entry points:** [`_flatten_grid_to_components`](../plugin/scripting/payload_codec.py) (flatten loop) and [`host_pack_split_grid`](../plugin/scripting/payload_codec.py) (envelope). These ideas **build on** the shipped May 2026 micro-optimizations ([fast identity checks](#2-fast-identity-type-checking--method-bindings), [rectangular grid loop](#3-rectangularregular-grid-fast-path), integer `strings` keys)—they are the next levers on the same hot path, not a repeat of completed work.
+
+##### Current cost
+
+The inner loop calls a nested `process_cell` for every cell. Inside it:
+
+- Identity / exact-type branches first (`val is None`, `val is True or val is False`, `type(val) is int`, `type(val) is float`).
+- Else `t.__name__.startswith(...)` for NumPy scalar types (`bool`, `int`/`uint`, `float`).
+- Else string path: `buf_append(math.nan)` and `strings[idx] = ...`.
+
+That is already strong pure Python, but it still pays several branches per cell plus nested-function call overhead at 100k+ cells.
+
+##### Ranked proposals
+
+| # | Idea | Likely impact | Notes for implementer |
+|---|------|---------------|------------------------|
+| 1 | **Optimistic `try: buf_append(float(val))` / `except (TypeError, ValueError)`** while `not has_non_numeric` | Highest for mostly-numeric Calc ranges | **Shipped:** `type(val) is str` bypasses `float()` (zip codes like `"02138"` must not parse as floats). `None` uses except → slow path. NumPy scalars use `_flatten_update_column_state` after success. |
+| 2 | **Remove nested `process_cell`** | Medium at 100k+ cells | Inline logic or use two loops (numeric-only vs mixed) after the first non-numeric cell. |
+| 3 | **Dual inner loops** | Medium | Ultra-fast numeric loop until the first value that needs full semantics (string, or `None` with correct column metadata); then mixed loop. If `strings` stays empty, the existing end pass can simplify `column_kinds` (partly true today). |
+| 4 | **Column state simplification** | Medium | e.g. assume every column is `"float"` until a post-pass proves all-int or all-bool; reduces branches in the inner loop (today: `column_states` + `column_has_none`, then map to `column_kinds` at lines 401–417 in `payload_codec.py`). |
+| 5 | **Minor wins** | Low | Cache `nan = math.nan` as a local; for NumPy scalars, `hasattr(val, "dtype")` before `tname.startswith(...)`. |
+
+Sketch for **#1 + #3** (not production code):
+
+```python
+buf_append = buf.append
+has_non_numeric = False
+
+if is_2d:
+    idx = 0
+    for row in grid_2d:
+        for c, val in enumerate(row):
+            if not has_non_numeric:
+                try:
+                    buf_append(float(val))
+                    # optimistic column state update here
+                except (TypeError, ValueError):
+                    has_non_numeric = True
+                    # fall through to slow path for this cell
+            if has_non_numeric:
+                # full slow path: None, strings, column_states, column_has_none
+                ...
+            idx += 1
+```
+
+##### Assessment
+
+The current packer is already well tuned for pure Python after May 2026. **#1 (try/except numeric fast path)** is the most promising remaining stdlib lever when common cases are large, mostly-numeric Calc grids—the exception path is rare, so it can beat a long `if`/`elif` chain.
+
+**Cython / UNO→bytes** ([Priority 3](#priority-3--host-pack-closer-to-uno-cells-code-if-profiling-says-readpack-hurts), [Cython Extension Guide](cython-extension.md)) may still win if profiling shows UNO read and per-cell Python object creation dominate, not the flatten loop alone.
+
+##### Implementation guardrails
+
+- **Wire fidelity:** same semantics as [Cell semantics](#cell-semantics-calc-python-and-numpy) and `@deal` contracts on `_flatten_grid_to_components`—run [`tests/scripting/test_serialization_verification.py`](../tests/scripting/test_serialization_verification.py), the A/B suite ([`tests/scripting/test_serialization_ab.py`](../tests/scripting/test_serialization_ab.py)), and `make test`; use the [serialization spreadsheet](#priority-1--profile-inside-libreoffice-gate-for-everything-else) if Calc-visible behavior changes.
+- **Bench:** before/after with `scripts/bench_serialization.py` on pure numeric, mixed, and string-heavy grids; LO leg B (read + pack) when integrated.
+- **Stop rule:** same as [Future work](#future-work--serialization-performance)—skip if Priority 1 shows compute or UNO read dominates.
 
 #### Priority 4 — Host: opaque `split_grid` pass-through (if egress/unpack hot)
 

@@ -46,10 +46,10 @@ PAYLOAD_MULTI_DATA = "multi_data"
 
 # TODO: multi_data contracts (CrossHair / @deal) — defer to a follow-up pass.
 
-# --- When to use binary envelope (default: at least 10 cells) -----------------------
+# --- When to use binary envelope (default: at least 100 cells) -----------------------
 
-BINARY_MIN_CELLS = 10
-"""Use split_grid when total cell count is at least this (10+ cells)."""
+BINARY_MIN_CELLS = 100
+"""Use split_grid when total cell count is at least this."""
 
 MAX_BENCH_CELLS = 100_000
 """Upper cap for benchmark grids (scripts/bench_serialization.py; production cap is scripting.python_max_data_cells)."""
@@ -302,6 +302,107 @@ def _cell_for_json(value: Any) -> Any:
     return value
 
 
+def _flatten_update_column_state(column_states: list[int], c: int, val: Any) -> None:
+    """Upgrade per-column numeric kind after a successful float(val) on the fast path."""
+    st = column_states[c]
+    if st == 3:
+        return
+    if val is True or val is False:
+        if st == 0:
+            column_states[c] = 1
+        return
+    tv = type(val)
+    if tv is float:
+        column_states[c] = 3
+        return
+    if tv is int:
+        if st < 2:
+            column_states[c] = 2
+        return
+    dtype = getattr(val, "dtype", None)
+    if dtype is not None:
+        kind = getattr(dtype, "kind", None)
+        if kind == "f":
+            column_states[c] = 3
+        elif kind in ("i", "u") and st < 2:
+            column_states[c] = 2
+        elif kind == "b" and st == 0:
+            column_states[c] = 1
+        return
+    tname = tv.__name__
+    if tname.startswith("bool"):
+        if st == 0:
+            column_states[c] = 1
+    elif tname.startswith(("int", "uint")):
+        if st < 2:
+            column_states[c] = 2
+    elif tname.startswith("float"):
+        column_states[c] = 3
+
+
+def _flatten_append_cell_slow(
+    val: Any,
+    c: int,
+    idx: int,
+    *,
+    buf_append: Any,
+    strings: dict[int, str],
+    column_states: list[int],
+    column_has_none: list[bool],
+    nan: float,
+) -> None:
+    """Full per-cell flatten semantics (None, strings, NumPy scalars, column metadata)."""
+    if val is None:
+        buf_append(nan)
+        column_has_none[c] = True
+    elif val is True or val is False:
+        buf_append(float(val))
+        if column_states[c] == 0:
+            column_states[c] = 1
+    elif type(val) is int:
+        buf_append(float(val))
+        if column_states[c] < 2:
+            column_states[c] = 2
+    elif type(val) is float:
+        buf_append(val)
+        column_states[c] = 3
+    else:
+        t = type(val)
+        dtype = getattr(val, "dtype", None)
+        if dtype is not None:
+            kind = getattr(dtype, "kind", None)
+            if kind == "f":
+                buf_append(float(cast("Any", val)))
+                column_states[c] = 3
+            elif kind in ("i", "u"):
+                buf_append(float(cast("Any", val)))
+                if column_states[c] < 2:
+                    column_states[c] = 2
+            elif kind == "b":
+                buf_append(float(cast("Any", val)))
+                if column_states[c] == 0:
+                    column_states[c] = 1
+            else:
+                buf_append(nan)
+                strings[idx] = cast("str", val) if t is str else str(val)
+            return
+        tname = t.__name__
+        if tname.startswith("bool"):
+            buf_append(float(cast("Any", val)))
+            if column_states[c] == 0:
+                column_states[c] = 1
+        elif tname.startswith(("int", "uint")):
+            buf_append(float(cast("Any", val)))
+            if column_states[c] < 2:
+                column_states[c] = 2
+        elif tname.startswith("float"):
+            buf_append(float(cast("Any", val)))
+            column_states[c] = 3
+        else:
+            buf_append(nan)
+            strings[idx] = cast("str", val) if t is str else str(val)
+
+
 @deal.pre(lambda grid: _is_grid_sequence(grid))
 @deal.post(lambda result: isinstance(result, tuple) and len(result) == 4 and isinstance(result[0], array.array) and isinstance(result[1], dict) and isinstance(result[2], list) and isinstance(result[3], list))
 @deal.ensure(lambda grid, result: (not grid) == (len(result[0]) == 0 and result[1] == {} and result[2] == [] and result[3] == [0]))
@@ -343,60 +444,61 @@ def _flatten_grid_to_components(
     buf = array.array("d")
     strings: dict[int, str] = {}
     buf_append = buf.append
+    nan = math.nan
 
     # --- Fast path setup -------------------------------------------------
     num_cols = ncols if is_2d else 1
     column_states = [0] * num_cols          # 0=None, 1=bool, 2=int, 3=float
     column_has_none = [False] * num_cols
+    has_non_numeric = False
 
-    def process_cell(val: Any, c: int, idx: int) -> None:
-        """Append value and update per-column type state (identity checks first)."""
-        if val is None:
-            buf_append(math.nan)
-            column_has_none[c] = True
-        elif val is True or val is False:
-            buf_append(float(val))
-            if column_states[c] == 0:
-                column_states[c] = 1
-        elif type(val) is int:
-            buf_append(float(val))
-            if column_states[c] < 2:
-                column_states[c] = 2
-        elif type(val) is float:
-            buf_append(val)
-            column_states[c] = 3
-        else:
-            t = type(val)
-            tname = t.__name__
-            if tname.startswith("bool"):
-                buf_append(float(cast("Any", val)))
-                if column_states[c] == 0:
-                    column_states[c] = 1
-            elif tname.startswith(("int", "uint")):
-                buf_append(float(cast("Any", val)))
-                if column_states[c] < 2:
-                    column_states[c] = 2
-            elif tname.startswith("float"):
-                buf_append(float(cast("Any", val)))
-                column_states[c] = 3
-            else:
-                buf_append(math.nan)
-                strings[idx] = cast("str", val) if t is str else str(val)
+    def _append_cell_slow(val: Any, c: int, idx: int) -> None:
+        _flatten_append_cell_slow(
+            val,
+            c,
+            idx,
+            buf_append=buf_append,
+            strings=strings,
+            column_states=column_states,
+            column_has_none=column_has_none,
+            nan=nan,
+        )
 
-    # --- Main flattening loops -------------------------------------------
+    # Mostly-numeric Calc grids: try float(val) until None or non-numeric forces slow path.
+    # Bugfix guard: str must not use float() — "02138" parses as 2138.0; zip codes stay in strings{}.
     if is_2d:
         grid_2d = cast("list[list[Any]]", grid)
-        # After the rectangular validation above, all rows have identical length.
-        # Use direct enumeration without per-cell is_2d branching.
         idx = 0
         for row in grid_2d:
             for c, val in enumerate(row):
-                process_cell(val, c, idx)
+                if type(val) is str:
+                    has_non_numeric = True
+                    _append_cell_slow(val, c, idx)
+                elif not has_non_numeric:
+                    try:
+                        buf_append(float(val))
+                        _flatten_update_column_state(column_states, c, val)
+                    except (TypeError, ValueError):
+                        has_non_numeric = True
+                        _append_cell_slow(val, c, idx)
+                else:
+                    _append_cell_slow(val, c, idx)
                 idx += 1
     else:
         grid_1d = cast("list[Any]", grid)
         for idx, val in enumerate(grid_1d):
-            process_cell(val, 0, idx)
+            if type(val) is str:
+                has_non_numeric = True
+                _append_cell_slow(val, 0, idx)
+            elif not has_non_numeric:
+                try:
+                    buf_append(float(val))
+                    _flatten_update_column_state(column_states, 0, val)
+                except (TypeError, ValueError):
+                    has_non_numeric = True
+                    _append_cell_slow(val, 0, idx)
+            else:
+                _append_cell_slow(val, 0, idx)
 
     # Map the final column states to ColumnKind strings with single-pass promotions
     column_kinds: list[str] = []

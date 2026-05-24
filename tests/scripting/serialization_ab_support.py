@@ -36,6 +36,8 @@ from tests.scripting.payload_codec_test_support import (
     MIXED_LABEL_GRID,
     MIXED_WITH_ZIP,
     NUMERIC_4X4,
+    grid_with_cell_count,
+    sequential_grid_sum,
 )
 
 # Worker code strings (assign to result — matches test_run_venv_code.py style).
@@ -94,6 +96,22 @@ class VenvTransformCase:
 
 def _make_numeric_grid(rows: int, cols: int) -> list[list[float]]:
     return [[float(r * cols + c + 1) for c in range(cols)] for r in range(rows)]
+
+
+def _expect_split_auto(grid: list[Any] | list[list[Any]]) -> bool:
+    return grid_cell_count(grid) >= BINARY_MIN_CELLS
+
+
+def _ab_grid_case(
+    case_id: str,
+    grid: list[Any] | list[list[Any]],
+    tags: frozenset[str],
+    *,
+    expect_split_auto: bool | None = None,
+    **kwargs: Any,
+) -> AbGridCase:
+    exp = _expect_split_auto(grid) if expect_split_auto is None else expect_split_auto
+    return AbGridCase(case_id, grid, tags, expect_split_auto=exp, **kwargs)
 
 
 def _make_mixed_grid() -> list[list[Any]]:
@@ -193,28 +211,47 @@ def _serialization_code_to_venv(code: str) -> str:
 
 
 def _builtin_ab_cases() -> list[AbGridCase]:
+    n = BINARY_MIN_CELLS
+    row_at = [[float(i + 1) for i in range(n)]]
+    col_at = [[float(i + 1)] for i in range(n)]
     return [
-        AbGridCase("small_numeric_3x3", _make_numeric_grid(3, 3), frozenset({"below_threshold"}), expect_split_auto=False),
-        AbGridCase("numeric_4x4", NUMERIC_4X4, frozenset({"split_grid"}), expect_split_auto=True, venv_code=VENV_CODE_SUM, expected=264.0),
-        AbGridCase("mixed_label", MIXED_LABEL_GRID, frozenset({"mixed", "split_grid"}), expect_split_auto=True),
-        AbGridCase("mixed_zip", MIXED_WITH_ZIP, frozenset({"mixed", "zip_code", "split_grid"}), expect_split_auto=True),
-        AbGridCase("mixed_complex", _make_mixed_grid(), frozenset({"mixed", "split_grid"}), expect_split_auto=True),
-        AbGridCase("edge_cases", _make_edge_case_grid(), frozenset({"mixed", "unicode", "split_grid"}), expect_split_auto=True),
-        AbGridCase("single_col_ints_11", _make_single_column_ints(11), frozenset({"int", "split_grid", "flat"}), calc_shape=True, expect_split_auto=True),
-        AbGridCase("flat_1d_mixed", _make_1d_mixed(), frozenset({"mixed", "flat", "split_grid"}), expect_split_auto=True),
-        AbGridCase("tiny_below_threshold", [[1, 2], [3, 4]], frozenset({"below_threshold"}), expect_split_auto=False),
-        AbGridCase("exactly_threshold", _make_numeric_grid(2, 5), frozenset({"boundary", "split_grid"}), expect_split_auto=True),
-        AbGridCase("one_below_threshold", _make_numeric_grid(3, 3), frozenset({"below_threshold"}), expect_split_auto=False),
-        AbGridCase("one_above_threshold", _make_numeric_grid(2, 6), frozenset({"split_grid"}), expect_split_auto=True),
-        AbGridCase("all_bools", [[True, False], [False, True]], frozenset({"bool", "below_threshold"}), expect_split_auto=False),
-        AbGridCase("int_float_mixed_cols", [[1, 2.5], [3, 4.0], [5, 6.5]], frozenset({"below_threshold"}), expect_split_auto=False),
-        AbGridCase("with_inf_nan", [[1.0, float("inf")], [float("-inf"), math.nan]], frozenset({"below_threshold"}), expect_split_auto=False),
-        AbGridCase("unicode_strings", [["café", "日本語"], ["emoji🎉", "test"]], frozenset({"unicode", "below_threshold"}), expect_split_auto=False),
-        AbGridCase("bool_column_mixed", _make_bool_column_grid(), frozenset({"bool", "mixed", "split_grid"}), expect_split_auto=True),
-        AbGridCase("logical_strings", _make_logical_string_grid(), frozenset({"bool", "below_threshold"}), expect_split_auto=False),
-        AbGridCase("numpy_scalars", _make_numpy_scalar_grid(), frozenset({"below_threshold"}), expect_split_auto=False),
-        AbGridCase("row_1x10", [[float(i + 1) for i in range(10)]], frozenset({"flat", "split_grid"}), calc_shape=True, expect_split_auto=True, venv_code=VENV_CODE_SUM, expected=55.0),
-        AbGridCase("col_10x1", [[float(i + 1)] for i in range(10)], frozenset({"flat", "split_grid"}), calc_shape=True, expect_split_auto=True, venv_code=VENV_CODE_SUM, expected=55.0),
+        _ab_grid_case("small_numeric_3x3", _make_numeric_grid(3, 3), frozenset({"below_threshold"}), expect_split_auto=False),
+        _ab_grid_case("numeric_4x4", NUMERIC_4X4, frozenset({"split_grid"}), venv_code=VENV_CODE_SUM, expected=264.0),
+        _ab_grid_case("mixed_label", MIXED_LABEL_GRID, frozenset({"mixed", "split_grid"})),
+        _ab_grid_case("mixed_zip", MIXED_WITH_ZIP, frozenset({"mixed", "zip_code", "split_grid"})),
+        _ab_grid_case("mixed_complex", _make_mixed_grid(), frozenset({"mixed", "split_grid"})),
+        _ab_grid_case("edge_cases", _make_edge_case_grid(), frozenset({"mixed", "unicode", "split_grid"})),
+        _ab_grid_case("single_col_ints_11", _make_single_column_ints(11), frozenset({"int", "split_grid", "flat"}), calc_shape=True),
+        _ab_grid_case("flat_1d_mixed", _make_1d_mixed(), frozenset({"mixed", "flat", "split_grid"})),
+        _ab_grid_case("tiny_below_threshold", [[1, 2], [3, 4]], frozenset({"below_threshold"}), expect_split_auto=False),
+        _ab_grid_case("exactly_threshold", grid_with_cell_count(n), frozenset({"boundary", "split_grid"}), expect_split_auto=True),
+        _ab_grid_case("one_below_threshold", grid_with_cell_count(max(1, n - 1)), frozenset({"below_threshold"}), expect_split_auto=False),
+        _ab_grid_case("one_above_threshold", grid_with_cell_count(n + 1), frozenset({"split_grid"}), expect_split_auto=True),
+        _ab_grid_case("all_bools", [[True, False], [False, True]], frozenset({"bool", "below_threshold"}), expect_split_auto=False),
+        _ab_grid_case("int_float_mixed_cols", [[1, 2.5], [3, 4.0], [5, 6.5]], frozenset({"below_threshold"}), expect_split_auto=False),
+        _ab_grid_case("with_inf_nan", [[1.0, float("inf")], [float("-inf"), math.nan]], frozenset({"below_threshold"}), expect_split_auto=False),
+        _ab_grid_case("unicode_strings", [["café", "日本語"], ["emoji🎉", "test"]], frozenset({"unicode", "below_threshold"}), expect_split_auto=False),
+        _ab_grid_case("bool_column_mixed", _make_bool_column_grid(), frozenset({"bool", "mixed", "split_grid"})),
+        _ab_grid_case("logical_strings", _make_logical_string_grid(), frozenset({"bool", "below_threshold"}), expect_split_auto=False),
+        _ab_grid_case("numpy_scalars", _make_numpy_scalar_grid(), frozenset({"below_threshold"}), expect_split_auto=False),
+        _ab_grid_case(
+            "row_at_threshold",
+            row_at,
+            frozenset({"flat", "split_grid"}),
+            calc_shape=True,
+            expect_split_auto=True,
+            venv_code=VENV_CODE_SUM,
+            expected=sequential_grid_sum(n),
+        ),
+        _ab_grid_case(
+            "col_at_threshold",
+            col_at,
+            frozenset({"flat", "split_grid"}),
+            calc_shape=True,
+            expect_split_auto=True,
+            venv_code=VENV_CODE_SUM,
+            expected=sequential_grid_sum(n),
+        ),
     ]
 
 
@@ -610,9 +647,9 @@ def rectangular_grid(
     max_cols: int = 15,
     max_cells: int = 150,
 ) -> list[Any] | list[list[Any]]:
-    # Favor sizes around the BINARY_MIN_CELLS threshold (10)
+    # Favor sizes around the BINARY_MIN_CELLS threshold
     if draw(st.booleans()):
-        ncells = draw(st.integers(1, 25))
+        ncells = draw(st.integers(1, max(25, BINARY_MIN_CELLS + 5)))
     else:
         ncells = draw(st.integers(1, max_cells))
 

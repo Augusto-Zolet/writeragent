@@ -139,15 +139,16 @@ def test_manager_two_calls_same_process():
 def test_split_grid_data_round_trip_execute_request():
     """Ingress split_grid: child receives ndarray from frombuffer."""
     np = pytest.importorskip("numpy")
-    grid = [[float(r * 10 + c) for c in range(4)] for r in range(4)]
     from plugin.calc.calc_addin_data import pack_calc_data_for_wire
-    from plugin.scripting.payload_codec import is_split_grid
+    from plugin.scripting.payload_codec import BINARY_MIN_CELLS, is_split_grid
+    from tests.scripting.payload_codec_test_support import NUMERIC_AT_THRESHOLD, sequential_grid_sum
 
+    grid = NUMERIC_AT_THRESHOLD
     wire = pack_calc_data_for_wire(grid)
     assert is_split_grid(wire)
     r = _execute_request("result = float(data.sum())", wire)
     assert r["status"] == "ok"
-    assert r["result"] == pytest.approx(sum(r * 10 + c for r in range(4) for c in range(4)))
+    assert r["result"] == pytest.approx(sequential_grid_sum(BINARY_MIN_CELLS))
 
 
 def test_normalize_response_unpacks_split_grid():

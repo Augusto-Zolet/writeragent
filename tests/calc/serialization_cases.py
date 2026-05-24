@@ -20,6 +20,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from plugin.scripting.payload_codec import BINARY_MIN_CELLS
+
 SheetName = Literal["normal", "multi", "mixed", "grid", "nan", "errors"]
 CaseMode = Literal["scalar", "matrix_index", "matrix_session", "ingress_only", "error"]
 
@@ -124,56 +126,59 @@ def all_serialization_cases() -> list[SerializationCase]:
         SerializationCase(
             id="grid_3x3_sum",
             sheet="normal",
-            description="3×3 SUM — nested list wire (<10 cells)",
+            description="3×3 SUM — nested list wire (below BINARY_MIN_CELLS)",
             input_grid=g3,
             code=_SUM_CODE,
             calc_oracle="SUM",
             expected=45.0,
             tags=("below_threshold",),
-            notes="9 cells: nested-list wire, not split_grid. SUM 1..9 = 45.",
+            notes=f"9 cells (< {BINARY_MIN_CELLS}): nested-list wire. SUM 1..9 = 45.",
         ),
         SerializationCase(
             id="grid_2x5_sum",
             sheet="normal",
-            description="2×5 SUM — split_grid at exactly 10 cells (boundary)",
+            description="2×5 SUM — 10-cell spreadsheet fixture (fixed 5×5 layout per range)",
             input_grid=[[float(r * 5 + c + 1) for c in range(5)] for r in range(2)],
             code=_SUM_CODE,
             calc_oracle="SUM",
             expected=55.0,
-            tags=("split_grid", "boundary"),
-            notes="10 cells: first size that uses split_grid (BINARY_MIN_CELLS). SUM 1..10 = 55.",
+            tags=("boundary",),
+            notes=(
+                f"Fixed 2×5 for manual spreadsheet (generator max 5×5 per range). "
+                f"Production split_grid threshold is BINARY_MIN_CELLS={BINARY_MIN_CELLS} (pytest uses separate grids)."
+            ),
         ),
         SerializationCase(
             id="grid_4x4_sum",
             sheet="normal",
-            description="4×4 SUM — split_grid ingress (≥10 cells)",
+            description="4×4 SUM — below split_grid threshold (nested list wire)",
             input_grid=g4,
             code=_SUM_CODE,
             calc_oracle="SUM",
             expected=136.0,
-            tags=("split_grid",),
-            notes="16 cells: split_grid wire. SUM 1..16 = 136.",
+            tags=("below_threshold",),
+            notes=f"16 cells (< {BINARY_MIN_CELLS}): nested-list wire. SUM 1..16 = 136.",
         ),
         SerializationCase(
             id="grid_4x3_int_sum",
             sheet="normal",
-            description="4×3 integer SUM — split_grid, all whole numbers",
+            description="4×3 integer SUM — below threshold, all whole numbers",
             input_grid=g4x3_int,
             code=_SUM_CODE,
             calc_oracle="SUM",
             expected=78.0,
-            tags=("split_grid", "int"),
-            notes="12 cells, values 1..12. SUM = 78.",
+            tags=("below_threshold", "int"),
+            notes=f"12 cells (< {BINARY_MIN_CELLS}), values 1..12. SUM = 78.",
         ),
         SerializationCase(
             id="grid_4x4_max",
             sheet="normal",
-            description="4×4 MAX spot-check — split_grid (answer is 16)",
+            description="4×4 MAX spot-check — below threshold (answer is 16)",
             input_grid=g4,
             code=_MAX_CODE,
             calc_oracle="MAX",
             expected=16.0,
-            tags=("split_grid",),
+            tags=("below_threshold",),
             notes="Easy eyeball check: max of 1..16 is 16.",
         ),
         SerializationCase(
@@ -201,13 +206,13 @@ def all_serialization_cases() -> list[SerializationCase]:
         SerializationCase(
             id="bool_col_11_sum",
             sheet="normal",
-            description="11 logical values — split_grid SUM (7 TRUE + 4 FALSE = 7)",
+            description="11 logical values — below threshold SUM (7 TRUE + 4 FALSE = 7)",
             input_grid=[[v] for v in (True, True, True, False, True, False, True, False, True, True, False)],
             code=_SUM_CODE,
             calc_oracle="SUM",
             expected=7.0,
-            tags=("split_grid", "bool"),
-            notes="11 cells forces split_grid; sheet uses 1/0 per cell.",
+            tags=("below_threshold", "bool"),
+            notes=f"11 cells (< {BINARY_MIN_CELLS}); sheet uses 1/0 per cell.",
         ),
         # --- multi: varargs (two ranges, small grids) ---
         SerializationCase(
@@ -293,7 +298,7 @@ def all_serialization_cases() -> list[SerializationCase]:
             code="sum(v for row in data for v in row if isinstance(v, (int, float)))",
             calc_oracle="SUM",
             expected=110.0,
-            tags=("mixed", "split_grid"),
+            tags=("mixed", "below_threshold"),
             notes="Same SUM oracle as numeric tests; Calc skips label cells.",
         ),
         SerializationCase(
@@ -304,7 +309,7 @@ def all_serialization_cases() -> list[SerializationCase]:
             code="data[0]",
             calc_oracle="INDEX_FIRST",
             expected="São Paulo",
-            tags=("mixed", "unicode", "split_grid"),
+            tags=("mixed", "unicode", "below_threshold"),
         ),
         # --- grid returns (matrix index) ---
         SerializationCase(
@@ -317,7 +322,7 @@ def all_serialization_cases() -> list[SerializationCase]:
             matrix_rows=4,
             matrix_cols=4,
             calc_oracle="MULT2",
-            tags=("split_grid", "egress_grid"),
+            tags=("below_threshold", "egress_grid"),
             notes="Matrix formula; each cell should match INDEX×2.",
         ),
         SerializationCase(
@@ -330,7 +335,7 @@ def all_serialization_cases() -> list[SerializationCase]:
             matrix_rows=4,
             matrix_cols=4,
             calc_oracle="IDENTITY",
-            tags=("split_grid", "egress_grid"),
+            tags=("below_threshold", "egress_grid"),
             notes="Matrix block should reproduce the 4×4 input.",
         ),
         # --- nan / empty ---
@@ -347,7 +352,7 @@ def all_serialization_cases() -> list[SerializationCase]:
             code=_NANSUM_CODE,
             calc_oracle="SUM",
             expected=104.0,
-            tags=("split_grid", "empty", "nan"),
+            tags=("below_threshold", "empty", "nan"),
             notes="Empty cells → NaN on wire; Calc SUM skips blanks as 0.",
         ),
         # --- errors ---

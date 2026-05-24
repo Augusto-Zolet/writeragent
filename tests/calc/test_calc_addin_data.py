@@ -98,13 +98,15 @@ def test_finalize_python_data_already_flat():
     assert finalize_python_data([1, 2]) == [1, 2]
 
 
-def test_pack_calc_data_for_wire_uses_split_grid_for_4x4():
+def test_pack_calc_data_for_wire_uses_split_grid_at_threshold():
     """Calc-sized numeric range uses split_grid when cell count >= BINARY_MIN_CELLS."""
-    grid = [[float(r * 10 + c) for c in range(4)] for r in range(4)]
-    wire = pack_calc_data_for_wire(grid, force="always")
+    from plugin.scripting.payload_codec import BINARY_MIN_CELLS
+    from tests.scripting.payload_codec_test_support import NUMERIC_AT_THRESHOLD
+
+    wire = pack_calc_data_for_wire(NUMERIC_AT_THRESHOLD, force="auto")
     assert is_split_grid(wire)
-    assert count_cells(wire) == 16
-    assert wire_cell_count(wire) == 16
+    assert count_cells(wire) == BINARY_MIN_CELLS
+    assert wire_cell_count(wire) == BINARY_MIN_CELLS
 
 
 def test_pack_calc_data_for_wire_uses_list_below_threshold():

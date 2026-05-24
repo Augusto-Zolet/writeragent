@@ -42,7 +42,12 @@ from tests.scripting.payload_codec_test_support import (
     MIXED_LABEL_GRID,
     MIXED_WITH_ZIP,
     NUMERIC_4X4,
+    NUMERIC_AT_THRESHOLD,
+    NUMERIC_BELOW_THRESHOLD,
+    grid_with_cell_count,
     pickle5_roundtrip,
+    rect_shape_for_cell_count,
+    sequential_grid_sum,
 )
 from plugin.tests.testing_utils import setup_uno_mocks
 
@@ -62,50 +67,50 @@ def test_host_module_does_not_import_numpy_at_module_level():
 
 
 @pytest.mark.parametrize(
-    ("shape", "force", "expected"),
+    ("ncells", "force", "expected"),
     [
-        ((3, 3), "auto", False),
-        ((4, 3), "auto", True),
-        ((4, 4), "auto", True),
-        ((9,), "auto", False),
-        ((10,), "auto", True),
-        ((4, 4), "never", False),
-        ((3, 3), "always", True),
+        (BINARY_MIN_CELLS - 1, "auto", False),
+        (BINARY_MIN_CELLS, "auto", True),
+        (BINARY_MIN_CELLS - 1, "never", False),
+        (BINARY_MIN_CELLS - 1, "always", True),
     ],
 )
-def test_should_use_binary_envelope_boundary(shape: tuple[int, ...], force: str, expected: bool) -> None:
-    """BINARY_MIN_CELLS=10: 9 cells use nested lists; 10+ use split_grid when force=auto."""
-    assert should_use_binary_envelope(shape, min_cells=10, force=force) is expected
+def test_should_use_binary_envelope_boundary(ncells: int, force: str, expected: bool) -> None:
+    """Default policy: below BINARY_MIN_CELLS uses nested lists; at/above uses split_grid when force=auto."""
+    rows, cols = rect_shape_for_cell_count(ncells)
+    shape = (rows, cols)
+    assert should_use_binary_envelope(shape, force=force) is expected
+
+
+def test_should_use_binary_envelope_1d_boundary() -> None:
+    assert should_use_binary_envelope((BINARY_MIN_CELLS - 1,), force="auto") is False
+    assert should_use_binary_envelope((BINARY_MIN_CELLS,), force="auto") is True
 
 
 def test_binary_envelope_skip_reason_below_threshold() -> None:
-    """Policy helper explains why a 3x3 grid skips split_grid."""
-    reason = binary_envelope_skip_reason((3, 3), min_cells=10, force="auto")
+    """Policy helper explains why a grid below BINARY_MIN_CELLS skips split_grid."""
+    n = BINARY_MIN_CELLS - 1
+    rows, cols = rect_shape_for_cell_count(n)
+    reason = binary_envelope_skip_reason((rows, cols), force="auto")
     assert reason is not None
-    assert "10" in reason
+    assert str(BINARY_MIN_CELLS) in reason
 
 
-def test_host_pack_auto_uses_split_grid_for_4x3():
-    grid = [[1.0, 4.0, 5.0], [23.0, 4.0, 4.0], [5.0, 4.0, 4.0], [4.0, 5.0, 4.0]]
-    wire = host_pack_data(grid, min_cells=10, force="auto")
+def test_host_pack_auto_uses_split_grid_for_large_rect():
+    """Auto policy uses split_grid when cell count >= BINARY_MIN_CELLS."""
+    grid = NUMERIC_AT_THRESHOLD
+    wire = host_pack_data(grid, force="auto")
     assert isinstance(wire, dict)
     assert wire["__wa_payload__"] == PAYLOAD_SPLIT_GRID
-    assert wire["shape"] == [4, 3]
+    rows, cols = rect_shape_for_cell_count(BINARY_MIN_CELLS)
+    assert wire["shape"] == [rows, cols]
 
 
 def test_host_pack_auto_uses_list_for_3x3():
     grid = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]
-    wire = host_pack_data(grid, min_cells=10, force="auto")
+    wire = host_pack_data(grid, force="auto")
     assert isinstance(wire, list)
     assert wire[0][0] == 1.0
-
-
-def test_host_pack_auto_uses_split_grid_for_4x4():
-    grid = [[float(i)] * 4 for i in range(4)]
-    wire = host_pack_data(grid, min_cells=10, force="auto")
-    assert isinstance(wire, dict)
-    assert wire["__wa_payload__"] == PAYLOAD_SPLIT_GRID
-    assert wire["shape"] == [4, 4]
 
 
 def test_round_trip_host_split_grid_child_ndarray():
@@ -502,16 +507,15 @@ def test_bool_col_11_split_grid_sums() -> None:
     assert float(np.sum(arr)) == pytest.approx(7.0)
 
 
-def test_split_grid_boundary_exactly_10_cells() -> None:
-    """BINARY_MIN_CELLS: 10 cells pack as split_grid; 9 stay nested list."""
-    grid_2x5 = [[float(r * 5 + c + 1) for c in range(5)] for r in range(2)]
-    wire_10 = host_pack_data(grid_2x5, min_cells=10)
-    assert is_split_grid(wire_10)
-    assert wire_cell_count(wire_10) == 10
+def test_split_grid_boundary_at_binary_min_cells() -> None:
+    """BINARY_MIN_CELLS: at threshold uses split_grid; one below stays nested list."""
+    wire_at = host_pack_data(NUMERIC_AT_THRESHOLD, force="auto")
+    assert is_split_grid(wire_at)
+    assert wire_cell_count(wire_at) == BINARY_MIN_CELLS
 
-    grid_3x3 = [[float(r * 3 + c + 1) for c in range(3)] for r in range(3)]
-    wire_9 = host_pack_data(grid_3x3, min_cells=10)
-    assert not is_split_grid(wire_9)
+    wire_below = host_pack_data(NUMERIC_BELOW_THRESHOLD, force="auto")
+    assert not is_split_grid(wire_below)
+    assert wire_cell_count(wire_below) == BINARY_MIN_CELLS - 1
 
 
 def test_split_grid_flat_row_10_shape() -> None:
@@ -531,10 +535,12 @@ def test_split_grid_flat_row_10_shape() -> None:
 def test_child_pack_below_threshold_returns_list() -> None:
     """Small ndarray egress uses tolist(), not split_grid envelope."""
     np = pytest.importorskip("numpy")
-    small = np.arange(9, dtype=np.float64).reshape(3, 3)
+    n = max(1, BINARY_MIN_CELLS - 1)
+    rows, cols = rect_shape_for_cell_count(n)
+    small = np.arange(n, dtype=np.float64).reshape(rows, cols)
     wire = child_pack_result(small, force="auto")
     assert isinstance(wire, list)
-    assert len(wire) == 3
+    assert len(wire) == rows
 
 
 def test_child_pack_numpy_scalar_types() -> None:

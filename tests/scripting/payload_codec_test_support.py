@@ -15,6 +15,7 @@ import pickle
 from typing import Any
 
 from plugin.scripting.payload_codec import (
+    BINARY_MIN_CELLS,
     PAYLOAD_SPLIT_GRID,
     SPLIT_GRID_WIRE_DTYPE,
     _flatten_grid_to_components,
@@ -34,8 +35,37 @@ def pickle5_roundtrip(envelope: dict[str, Any]) -> dict[str, Any]:
     return pickle.loads(pickle.dumps(envelope, protocol=5))
 
 
+def rect_shape_for_cell_count(n: int) -> tuple[int, int]:
+    """Return ``(rows, cols)`` for a rectangular grid with exactly ``n`` cells (fewest rows)."""
+    if n <= 0:
+        return 0, 0
+    best: tuple[int, int] | None = None
+    for cols in range(1, n + 1):
+        if n % cols != 0:
+            continue
+        rows = n // cols
+        if best is None or rows < best[0] or (rows == best[0] and cols < best[1]):
+            best = (rows, cols)
+    if best is None:
+        raise ValueError(f"no rectangular shape for {n} cells")
+    return best
+
+
+def grid_with_cell_count(n: int) -> list[list[float]]:
+    """Row-major grid with values ``1..n`` (inclusive)."""
+    rows, cols = rect_shape_for_cell_count(n)
+    return [[float(r * cols + c + 1) for c in range(cols)] for r in range(rows)]
+
+
+def sequential_grid_sum(n: int) -> float:
+    """Sum of ``1..n`` (matches :func:`grid_with_cell_count`)."""
+    return float(n * (n + 1) // 2)
+
+
 # Rectangular grids used across payload_codec tests (Calc-realistic shapes).
 NUMERIC_4X4 = [[float(r * 10 + c) for c in range(4)] for r in range(4)]
+NUMERIC_AT_THRESHOLD = grid_with_cell_count(BINARY_MIN_CELLS)
+NUMERIC_BELOW_THRESHOLD = grid_with_cell_count(max(1, BINARY_MIN_CELLS - 1))
 
 MIXED_WITH_ZIP = [
     [100, "02138", 1.5],
