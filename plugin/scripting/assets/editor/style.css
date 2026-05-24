@@ -1,0 +1,33 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: system-ui, sans-serif;
+  background: #1e1e1e;
+  color: #d4d4d4;
+}
+
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #2d2d2d;
+  border-bottom: 1px solid #3c3c3c;
+}
+
+#toolbar button {
+  padding: 4px 12px;
+  cursor: pointer;
+}
+
+#status {
+  margin-left: auto;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+#editor {
+  height: calc(100% - 42px);
+  width: 100%;
+}
