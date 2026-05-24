@@ -9,15 +9,19 @@
 import pytest
 
 from plugin.calc.calc_addin_data import (
+    calc_addin_args_to_python,
     calc_addin_data_to_python,
     check_python_data_size,
+    check_python_multi_data_size,
     count_cells,
     finalize_python_data,
     pack_calc_data_for_wire,
+    pack_calc_multi_data_for_wire,
+    split_python_addin_data_args,
     values_from_inspector_range,
 )
 from plugin.scripting.data_limits import python_max_data_cells_default
-from plugin.scripting.payload_codec import is_split_grid, wire_cell_count
+from plugin.scripting.payload_codec import child_unpack_data, is_multi_data, is_split_grid, wire_cell_count
 
 
 def test_none_returns_none():
@@ -168,3 +172,57 @@ def test_calc_logical_float_sums_through_wire():
     assert not is_split_grid(wire)
     assert child_unpack_data(wire) == pytest.approx(1.0)
     assert float(np.sum(child_unpack_data(wire))) == pytest.approx(1.0)
+
+
+def test_split_python_addin_data_args_empty():
+    assert split_python_addin_data_args(None) == []
+    assert split_python_addin_data_args(()) == []
+
+
+def test_split_python_addin_data_args_scalar():
+    assert split_python_addin_data_args(2.0) == [2.0]
+
+
+def test_split_python_addin_data_args_single_wrapped_range():
+    col = ((1.0,), (2.0,), (3.0,))
+    assert split_python_addin_data_args((col,)) == [col]
+
+
+def test_split_python_addin_data_args_legacy_bare_column():
+    col = ((1.0,), (2.0,), (3.0,))
+    assert split_python_addin_data_args(col) == [col]
+
+
+def test_split_python_addin_data_args_multi_scalar():
+    assert split_python_addin_data_args((1.0, 2.0, 3.0)) == [1.0, 2.0, 3.0]
+
+
+def test_split_python_addin_data_args_multi_grid():
+    col_a = ((1.0,), (2.0,))
+    col_b = ((3.0,), (4.0,))
+    assert split_python_addin_data_args((col_a, col_b)) == [col_a, col_b]
+
+
+def test_calc_addin_args_to_python_multi_range():
+    col_a = ((1.0,), (2.0,), (3.0,))
+    col_b = ((4.0,), (5.0,))
+    result = calc_addin_args_to_python((col_a, col_b))
+    assert result == [[1.0, 2.0, 3.0], [4.0, 5.0]]
+
+
+def test_check_python_multi_data_size_combined():
+    ranges = [[1.0] * 100, [2.0] * 100]
+    assert check_python_multi_data_size(ranges, max_cells=150) is not None
+    assert check_python_multi_data_size(ranges, max_cells=250) is None
+
+
+def test_pack_calc_multi_data_for_wire_roundtrip():
+    np = pytest.importorskip("numpy")
+    ranges = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
+    wire = pack_calc_multi_data_for_wire(ranges, force="always")
+    assert is_multi_data(wire)
+    assert wire_cell_count(wire) == 6
+    unpacked = child_unpack_data(wire)
+    assert len(unpacked) == 2
+    assert float(np.sum(unpacked[0])) == pytest.approx(6.0)
+    assert float(np.sum(unpacked[1])) == pytest.approx(15.0)

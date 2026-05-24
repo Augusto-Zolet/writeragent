@@ -65,12 +65,23 @@ def test_python_addin_execution():
 
             mock_run.reset_mock()
             mock_run.return_value = {"status": "ok", "result": 6}
-            res = func.python("result = sum(data)", ((1.0,), (2.0,), (3.0,)))
+            res = func.python("result = sum(data)", (((1.0,), (2.0,), (3.0,)),))
             assert res == 6.0
             mock_run.assert_called_once()
             call_kw = mock_run.call_args
             assert call_kw[0][1] == "result = sum(data)"
             assert call_kw[1]["data"] == [1.0, 2.0, 3.0]
+
+            mock_run.reset_mock()
+            mock_run.return_value = {"status": "ok", "result": 9.0}
+            col_a = ((1.0,), (2.0,), (3.0,))
+            col_b = ((4.0,), (5.0,))
+            res = func.python("result = sum(data[0]) + sum(data[1])", (col_a, col_b))
+            assert res == 9.0
+            wire = mock_run.call_args.kwargs["data"]
+            from plugin.scripting.payload_codec import is_multi_data
+
+            assert is_multi_data(wire)
 
             mock_run.reset_mock()
             mock_run.return_value = {"status": "ok", "result": 7919}

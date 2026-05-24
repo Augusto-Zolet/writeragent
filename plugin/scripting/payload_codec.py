@@ -41,6 +41,11 @@ except ImportError:
 PAYLOAD_SPLIT_GRID = "split_grid"
 """Unified 2D grids: dense numeric flat float64 array and sparse strings dictionary."""
 
+PAYLOAD_MULTI_DATA = "multi_data"
+"""Multiple Calc ranges: list of split_grid or nested-list payloads."""
+
+# TODO: multi_data contracts (CrossHair / @deal) — defer to a follow-up pass.
+
 # --- When to use binary envelope (default: at least 10 cells) -----------------------
 
 BINARY_MIN_CELLS = 10
@@ -65,6 +70,20 @@ def _is_grid_sequence(grid: object) -> bool:
     if isinstance(first, (list, tuple)):
         return all(isinstance(row, (list, tuple)) for row in grid)
     return True
+
+
+def _is_multi_data_envelope(envelope: object) -> bool:
+    if not isinstance(envelope, dict):
+        return False
+    env_dict = cast("dict[str, Any]", envelope)
+    if env_dict.get("__wa_payload__") != PAYLOAD_MULTI_DATA:
+        return False
+    items = env_dict.get("items")
+    return isinstance(items, list)
+
+
+def is_multi_data(obj: Any) -> bool:
+    return _is_multi_data_envelope(obj)
 
 
 def _is_split_grid_envelope(envelope: object) -> bool:
@@ -155,6 +174,9 @@ def _apply_column_kinds_to_ndarray(
 
 def describe_wire_value(obj: Any, *, sample: int = 3) -> str:
     """Short summary for debug logs (avoids dumping huge arrays or base64)."""
+    if is_multi_data(obj):
+        items = obj.get("items") or []
+        return f"multi_data items={len(items)} cells={wire_cell_count(obj)}"
     if is_split_grid(obj):
         buf = obj.get("buffer") or b""
         strings = obj.get("strings") or {}
@@ -247,7 +269,10 @@ def is_numeric_grid(grid: list[Any] | list[list[Any]]) -> bool:
 
 
 def wire_cell_count(data: Any) -> int:
-    """Cell count for size limits; works on lists or split_grid envelopes."""
+    """Cell count for size limits; works on lists or split_grid / multi_data envelopes."""
+    if is_multi_data(data):
+        items = data.get("items") or []
+        return sum(wire_cell_count(item) for item in items)
     if is_split_grid(data):
         return cell_count(tuple(int(x) for x in data["shape"]))
     if data is None:
@@ -472,6 +497,26 @@ def host_pack_data(
         raise
 
 
+def host_pack_multi_data(
+    grids: list[list[Any] | list[list[Any]]],
+    *,
+    min_cells: int = BINARY_MIN_CELLS,
+    force: ForceBinary = "auto",
+) -> dict[str, Any]:
+    """Pack multiple Calc ranges as a ``multi_data`` envelope for the worker."""
+    items = [host_pack_data(grid, min_cells=min_cells, force=force) for grid in grids]
+    envelope: dict[str, Any] = {
+        "__wa_payload__": PAYLOAD_MULTI_DATA,
+        "items": items,
+    }
+    log.debug(
+        "payload_codec host_pack multi_data items=%s cells=%s",
+        len(items),
+        wire_cell_count(envelope),
+    )
+    return envelope
+
+
 @deal.pre(lambda envelope, *_, **__: _is_split_grid_envelope(envelope))
 @deal.post(lambda result: isinstance(result, list))
 @deal.raises(ValueError)
@@ -522,7 +567,10 @@ def host_unpack_split_grid(envelope: dict[str, Any], *, as_nested_list: bool = T
 
 
 def host_unpack_data(wire: Any, *, as_nested_list: bool = True) -> Any:
-    """Unpack worker ``data`` or ``result`` on host (list, scalar, or split_grid)."""
+    """Unpack worker ``data`` or ``result`` on host (list, scalar, split_grid, or multi_data)."""
+    if is_multi_data(wire):
+        items = wire.get("items") or []
+        return [host_unpack_data(item, as_nested_list=as_nested_list) for item in items]
     if is_split_grid(wire):
         return host_unpack_split_grid(wire, as_nested_list=as_nested_list)
     return wire
@@ -620,41 +668,52 @@ def child_unpack_split_grid(envelope: dict[str, Any]) -> Any:
 
 @deal.post(lambda result: result is not None)
 @deal.raises(ValueError, TypeError, AttributeError)
+def _child_unpack_single_data(wire: Any) -> Any:
+    """Materialize one range payload in the venv (split_grid or nested list)."""
+    import numpy as np
+
+    unpacked = child_unpack_split_grid(wire) if is_split_grid(wire) else wire
+
+    # Single-cell ranges become scalars; multi-range outer list is handled by child_unpack_data.
+    if isinstance(unpacked, np.ndarray):
+        if unpacked.size == 1:
+            val = unpacked.item()
+            if isinstance(val, float) and val.is_integer():
+                return int(val)
+            return val
+    elif isinstance(unpacked, (list, tuple)):
+        if len(unpacked) == 1 and type(unpacked[0]) not in (list, tuple):
+            val = unpacked[0]
+            if isinstance(val, float) and val.is_integer():
+                return int(val)
+            return val
+
+        grid: list[Any] | list[list[Any]]
+        if unpacked and (type(unpacked[0]) in (list, tuple)):
+            grid = [list(row) for row in unpacked]
+        else:
+            grid = list(unpacked)
+        if is_numeric_grid(grid):
+            arr = np.array(grid, dtype=np.float64)
+            log.debug(
+                "payload_codec child_unpack json_list -> ndarray shape=%s",
+                arr.shape,
+            )
+            return arr
+        log.debug("payload_codec child_unpack json_list as-is %s", describe_wire_value(unpacked))
+        return grid
+    return unpacked
+
+
+@deal.post(lambda result: result is not None)
+@deal.raises(ValueError, TypeError, AttributeError)
 def child_unpack_data(wire: Any) -> Any:
     """Materialize worker ``data`` in venv (ndarray/list from split_grid, or np.array from numeric list)."""
     try:
-        unpacked = child_unpack_split_grid(wire) if is_split_grid(wire) else wire
-
-        # Automatically unpack single-cell or single-entry inputs into their scalar representation
-        import numpy as np
-        if isinstance(unpacked, np.ndarray):
-            if unpacked.size == 1:
-                val = unpacked.item()
-                if isinstance(val, float) and val.is_integer():
-                    return int(val)
-                return val
-        elif isinstance(unpacked, (list, tuple)):
-            if len(unpacked) == 1 and type(unpacked[0]) not in (list, tuple):
-                val = unpacked[0]
-                if isinstance(val, float) and val.is_integer():
-                    return int(val)
-                return val
-
-            grid: list[Any] | list[list[Any]]
-            if unpacked and (type(unpacked[0]) in (list, tuple)):
-                grid = [list(row) for row in unpacked]
-            else:
-                grid = list(unpacked)
-            if is_numeric_grid(grid):
-                arr = np.array(grid, dtype=np.float64)
-                log.debug(
-                    "payload_codec child_unpack json_list -> ndarray shape=%s",
-                    arr.shape,
-                )
-                return arr
-            log.debug("payload_codec child_unpack json_list as-is %s", describe_wire_value(unpacked))
-            return grid
-        return unpacked
+        if is_multi_data(wire):
+            items = wire.get("items") or []
+            return [_child_unpack_single_data(item) for item in items]
+        return _child_unpack_single_data(wire)
     except Exception:
         log.exception(
             "payload_codec child_unpack failed for wire %s",

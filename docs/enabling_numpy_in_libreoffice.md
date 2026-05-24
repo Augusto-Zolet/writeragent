@@ -425,7 +425,7 @@ flowchart LR
 | Capability | WriterAgent `data` (arg 1) | LibrePythonista |
 |------------|---------------------------|-----------------|
 | Pass one range | Yes — flat list or 2D list | `lp("A1:B10")` |
-| Multiple ranges in one formula | No (single `data`) | Multiple `lp()` calls |
+| Multiple ranges in one formula | Yes — `data[0]`, `data[1]`, … (varargs) | Multiple `lp()` calls |
 | Named ranges | Only as 2nd arg | `lp("MyRange")` |
 | Trim empty rows (`collapse`) | No | `collapse=True` on `lp()` |
 | Typed date columns | Raw Calc values | `column_types` + pandas |
@@ -465,7 +465,7 @@ Conversion logic: [`plugin/calc/calc_addin_data.py`](plugin/calc/calc_addin_data
 
 **Data pipeline:** Calc UNO range → `calc_addin_data_to_python` → `pack_calc_data_for_wire` ([`host_pack_data`](../plugin/scripting/payload_codec.py): Pickle list or Split-Grid; details in [NumPy serialization](numpy-serialization.md#current-pipeline-and-costs)) → Pickle5 payload stream → `child_unpack_data` (ndarray or list from split_grid) → `send_variables({"data": ...})` → script runs. Return path: `child_pack_result` → Pickle5 payload stream → host `host_unpack_data` ([`python_function.py`](../plugin/calc/python_function.py)).
 
-**Gaps vs LibrePythonista (workarounds):** one range only (use multiple cells or chat `data_range`); no `collapse` (tighter range or strip `None` in Python); no auto-DataFrame (`pd.DataFrame(data)`).
+**Gaps vs LibrePythonista (workarounds):** chat tool still single `data_range` (use multiple `=PYTHON` cells or varargs in formulas); no `collapse` (tighter range or strip `None` in Python); no auto-DataFrame (`pd.DataFrame(data)`).
 
 **Future formula parameters (not planned unless needed):** 3rd arg `extras` for recalc deps; `collapse` on conversion; host `lp()` bridge; `timeout_sec` on the formula (today uses the same Settings value as the chat tool).
 
@@ -569,57 +569,81 @@ See [NumPy serialization](numpy-serialization.md) for behavior, benchmarks, opti
 
 ## 9. Multi-Range Support (Varargs)
 
-**Status:** Proposed / Researching.
+**Status:** Shipped (2026-05) — varargs IDL, multi-range injection, `multi_data` wire envelope. Chat tool multi `data_range` and live Calc UNO integration tests remain future work.
 
-Currently, `=PYTHON()` accepts exactly two arguments: `code` and one optional `data` range. To support complex analysis across non-contiguous blocks (e.g., `=PYTHON("np.mean(data)", A1:A10, C1:C10, E1:E10)`), the function must be converted to a **variable-argument (varargs)** pattern.
+`=PYTHON()` accepts **one or more** optional data arguments after `code`. Calc packs trailing arguments into a single `sequence<any>` (UNO varargs). Multiple ranges are injected as **`data = [range1, range2, …]`**; a single range keeps backward-compatible flat/2D `data`.
 
 ### Technical Approach: UNO Varargs
 
-In the UNO IDL, defining the **last** parameter as a `sequence<any>` signals to Calc that the function accepts an arbitrary number of trailing arguments. Calc automatically packs all remaining inputs into a single tuple.
+In the UNO IDL, the **last** parameter is `sequence<any>`, so Calc packs all remaining inputs into one tuple.
 
-**Proposed IDL Change:**
+**IDL (shipped):**
 ```idl
 // extension/idl/XPythonFunction.idl
 interface XPythonFunction : com::sun::star::uno::XInterface
 {
-    // The 'data' parameter becomes a sequence containing all provided ranges
     any python( [in] string code, [in] sequence< any > data );
 };
 ```
 
-### Data Representation in Python
+Rebuild after IDL changes: `scripts/rebuild_xprompt_rdb.sh` → [`extension/XPythonFunction.rdb`](../extension/XPythonFunction.rdb).
 
-When multiple ranges are passed, the `data` variable injected into the Python sandbox will be a **list of grids** (or a list of `ndarrays`).
+### Why Multi-Range NumPy?
+
+While Calc's `=AVERAGE()` or `=SUM()` can handle multiple ranges, the power of `=PYTHON()` with NumPy is the ability to perform **cross-range logic** that is otherwise difficult or "messy" to build with standard formulas.
+
+#### 1. Beyond the "Flat" Average: Weighted Analysis
+A common spreadsheet task is to find a weighted average across different data sets. For example, if you have Sales data from three different regions (A, B, and C), but Region B is "twice as important" for your target:
+
+*   **Calc way**: `=(AVERAGE(A1:A10) + AVERAGE(C1:C10)*2 + AVERAGE(E1:E10)) / 4`
+*   **NumPy way**: `=PYTHON("result = (data[0].mean() + data[1].mean()*2 + data[2].mean()) / 4", A1:A10, C1:C10, E1:E10)`
+
+The NumPy version is often easier to read and maintain as the logic grows in complexity.
+
+#### 2. Pattern Matching and "Frequency" (FFT)
+Simple math like `SUM` and `AVERAGE` tells you the "size" or "center" of your data, but it doesn't tell you the **rhythm**. 
+*   **The Concept**: Fast Fourier Transform (FFT) sounds complicated, but it's just a way to find "hidden rhythms" in your numbers (e.g., "does this sales data spike every 7 days?"). 
+*   **The Power**: By passing multiple non-contiguous ranges (like "Week 1" and "Week 3"), you can use NumPy to compare rhythms across different time periods without manually copying the data into a single block.
+
+#### 3. High-Confidence Verification
+Testing serialization is easier with operations that have a clear, predictable output.
+*   **Sum**: Easy to verify manually (e.g., `1 + 2 + 3 = 6`).
+*   **Mean (Average)**: Harder to verify by eye when you have 20 floating-point numbers (e.g., `1.2345 + 6.789 ... / 20`). 
+
+By using NumPy to calculate the `mean` across multiple ranges, we ensure our **marshalling** (the process of moving data from Calc to Python) is perfectly accurate down to the last decimal point. If the `np.mean(data)` returned by the worker matches the `=AVERAGE()` calculated by Calc, we know the "plumbing" is working perfectly, even for massive 2D grids of complex numbers.
+
+### Data Representation in Python
+...
 
 | Formula | `data` variable in Python |
 |---------|---------------------------|
-| `=PYTHON("...", A1:A5)` | `[ [row1], [row2], ... ]` (or 2D `ndarray`) |
+| `=PYTHON("...", A1:A5)` | flat list or 2D grid (unchanged) |
 | `=PYTHON("...", A1:A5, C1:C5)` | `[ range1_data, range2_data ]` |
 
-This allows the user to write code like:
+Example:
+
 ```python
-result = np.concatenate(data).mean()  # data is a list of arrays
+result = np.concatenate(data).mean()
 # OR
 result = np.mean([np.mean(d) for d in data])
 ```
 
-### Development Plan
+### Wire format
 
-#### Phase 1: IDL and Infrastructure
-1.  **Modify IDL**: Update `XPythonFunction.idl` to use `sequence<any>` for the `data` parameter.
-2.  **Rebuild RDB**: Execute `scripts/rebuild_xprompt_rdb.sh` to update the binary type registry used by LibreOffice.
-3.  **Update Metadata**: Update `_PYTHON_SPEC` in `plugin/calc/python_addin.py` to reflect the support for multiple arguments and update the argument descriptions.
+Multiple ranges use a `multi_data` envelope (`__wa_payload__`: `"multi_data"`, `items`: per-range split_grid or nested lists) so a list of 1D ranges is not confused with one 2D grid. Single-range wire format is unchanged.
 
-#### Phase 2: Add-In Implementation
-1.  **Refactor `execute_python_addin`**: Modify `plugin/calc/python_function.py` to handle `data` as a sequence of inputs.
-2.  **Input Processing**: Iterate through the `data` tuple, applying `calc_addin_data_to_python` and size limit checks to each individual range.
-3.  **Variable Injection**: Decide on the final injection strategy (e.g., `data` is always the first range for backward compatibility, and a new `data_list` contains all ranges; or `data` becomes the list if `len > 1`).
+### Implementation map
 
-#### Phase 3: Serialization Expansion
-1.  **Multi-Payload Support**: Update `host_pack_data` to handle lists of ranges, potentially generating a list of `split_grid` envelopes.
-2.  **Worker Unpacking**: Ensure `child_unpack_data` in the worker process can recursively unpack a list of serialized grids into a list of NumPy arrays.
+| Layer | Module |
+|-------|--------|
+| Arg split / convert | [`calc_addin_data.py`](../plugin/calc/calc_addin_data.py) — `split_python_addin_data_args`, `calc_addin_args_to_python` |
+| Add-in execution | [`python_function.py`](../plugin/calc/python_function.py) |
+| Wire codec | [`payload_codec.py`](../plugin/scripting/payload_codec.py) — `host_pack_multi_data`, `child_unpack_data` |
+| Tests | [`test_calc_addin_data.py`](../tests/calc/test_calc_addin_data.py), [`test_python_function_multi.py`](../tests/calc/test_python_function_multi.py), [`serialization_ab_support.py`](../tests/scripting/serialization_ab_support.py) |
 
-#### Phase 4: Verification
-1.  **Hypothesis Expansion**: Add new strategies to `serialization_ab_support.py` to fuzz lists of varying-sized rectangular grids.
-2.  **UNO Integration Tests**: Create a new test suite in `tests/uno/` that executes multi-range formulas in a live Calc instance to verify the varargs plumbing and result coercion.
+### Future work
+
+- Hypothesis / CrossHair fuzz for list-of-grids (`serialization_ab_support.py` TODOs)
+- Live Calc UNO suite for real multi-range formulas in `tests/uno/`
+- Chat tool `run_venv_python_script` — multiple `data_range` arguments
 

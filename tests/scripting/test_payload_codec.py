@@ -22,13 +22,16 @@ import pytest
 from plugin.scripting import payload_codec
 from plugin.scripting.payload_codec import (
     BINARY_MIN_CELLS,
+    PAYLOAD_MULTI_DATA,
     PAYLOAD_SPLIT_GRID,
     binary_envelope_skip_reason,
     child_pack_result,
     child_unpack_data,
     describe_wire_value,
     host_pack_data,
+    host_pack_multi_data,
     host_unpack_data,
+    is_multi_data,
     is_numeric_coercible,
     is_numeric_grid,
     is_split_grid,
@@ -730,5 +733,27 @@ def test_split_grid_lattice_promotion_comprehensive():
     assert wire["column_kinds"] == ["float"]  # promoted to float because strings is empty and has None
 
 
+def test_host_pack_multi_data_numeric_columns():
+    np = pytest.importorskip("numpy")
+    ranges = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
+    wire = host_pack_multi_data(ranges, force="always")
+    assert is_multi_data(wire)
+    assert wire["__wa_payload__"] == PAYLOAD_MULTI_DATA
+    assert wire_cell_count(wire) == 6
+    unpacked = child_unpack_data(wire)
+    assert len(unpacked) == 2
+    assert float(np.sum(unpacked[0])) == pytest.approx(6.0)
+    assert float(np.sum(unpacked[1])) == pytest.approx(15.0)
 
+
+def test_host_unpack_multi_data_mixed_grids():
+    ranges = [[[1.0, "a"], [2.0, "b"]], [[3.0, "c"]]]
+    wire = host_pack_multi_data(ranges, force="never")
+    host_decoded = host_unpack_data(wire)
+    assert len(host_decoded) == 2
+    assert host_decoded[0] == [[1.0, "a"], [2.0, "b"]]
+    assert host_decoded[1] == [[3.0, "c"]]
+    child_decoded = child_unpack_data(wire)
+    assert isinstance(child_decoded, list)
+    assert len(child_decoded) == 2
 

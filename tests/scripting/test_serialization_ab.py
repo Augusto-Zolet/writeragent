@@ -28,6 +28,7 @@ from tests.scripting.serialization_ab_support import (
     VENV_CODE_ECHO,
     VENV_CODE_SUM,
     AbGridCase,
+    MULTI_RANGE_FIXTURES,
     VenvTransformCase,
     all_codec_ab_cases,
     assert_codec_split_vs_nosplit_parity,
@@ -35,6 +36,7 @@ from tests.scripting.serialization_ab_support import (
     assert_venv_always_never_parity,
     codec_child_materialization,
     expect_child_list_not_ndarray,
+    flatten_semantic_cells,
     grid_cell_count,
     hypothesis_grid_ok,
     numeric_rectangular_grid,
@@ -227,6 +229,17 @@ def test_hypothesis_venv_sum_parity(grid: list[Any] | list[list[Any]]) -> None:
     if not flat or any(isinstance(v, str) for v in flat):
         return
     assert_venv_always_never_parity(grid, VENV_CODE_SUM, label="hypothesis venv sum")
+
+
+@pytest.mark.parametrize("grids,label", MULTI_RANGE_FIXTURES, ids=[label for _, label in MULTI_RANGE_FIXTURES])
+def test_multi_range_venv_echo(grids: list[list[Any] | list[list[Any]]], label: str) -> None:
+    """Multi-range varargs: venv receives data as a list of per-range values."""
+    from tests.scripting.serialization_ab_support import run_multi_venv_echo
+
+    result = run_multi_venv_echo(grids, pack_force="auto")
+    assert len(result) == len(grids), label
+    for idx, grid in enumerate(grids):
+        assert flatten_semantic_cells(grid) == flatten_semantic_cells(result[idx]), f"{label}[{idx}]"
 
 
 if __name__ == "__main__":

@@ -11,7 +11,15 @@ import logging
 import threading
 from typing import Any
 
-from plugin.calc.calc_addin_data import calc_addin_data_to_python, check_python_data_size, count_cells, pack_calc_data_for_wire
+from plugin.calc.calc_addin_data import (
+    calc_addin_args_to_python,
+    check_python_data_size,
+    check_python_multi_data_size,
+    count_cells,
+    pack_calc_data_for_wire,
+    pack_calc_multi_data_for_wire,
+    split_python_addin_data_args,
+)
 from plugin.framework.errors import format_error_payload
 from plugin.framework.i18n import _
 from plugin.scripting.data_limits import configured_python_max_data_cells
@@ -186,19 +194,25 @@ def execute_python_addin(
     """Run *code* in the user venv and return a Calc-compatible scalar (or error string)."""
     log.debug("=== PYTHON(%r, data=%r) ===", code, data)
     try:
-        py_data = calc_addin_data_to_python(data, true_strings, false_strings)
+        py_data = calc_addin_args_to_python(data, true_strings, false_strings)
         log.debug("PYTHON parsed py_data: %r", py_data)
+        is_multi = len(split_python_addin_data_args(data)) > 1
         index_arg = None
-        if py_data is not None and is_scalar_index_arg(py_data) and not is_split_grid(py_data):
+        if py_data is not None and not is_multi and is_scalar_index_arg(py_data) and not is_split_grid(py_data):
             index_arg = py_data[0]
+        max_cells = configured_python_max_data_cells(ctx)
         if py_data is not None:
-            size_err = check_python_data_size(py_data, max_cells=configured_python_max_data_cells(ctx))
+            if is_multi:
+                size_err = check_python_multi_data_size(py_data, max_cells=max_cells)
+            else:
+                size_err = check_python_data_size(py_data, max_cells=max_cells)
             if size_err:
                 ret = f"Error: {size_err}"
                 log.debug("PYTHON returning size error: %r", ret)
                 return ret
-            py_data = pack_calc_data_for_wire(py_data)
-        worker_data = py_data
+            worker_data = pack_calc_multi_data_for_wire(py_data) if is_multi else pack_calc_data_for_wire(py_data)
+        else:
+            worker_data = None
         # Synchronous: =PYTHON() runs during Calc recalc; UI event pumping from
         # run_blocking_in_thread can re-enter the formula engine and yield #VALUE!.
         sessions = getattr(MATRIX_SCALAR_SESSIONS, "sessions", None)

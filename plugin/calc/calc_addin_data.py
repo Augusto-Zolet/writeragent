@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 from plugin.scripting.data_limits import python_max_data_cells_default
-from plugin.scripting.payload_codec import ForceBinary, host_pack_data, is_split_grid, wire_cell_count
+from plugin.scripting.payload_codec import ForceBinary, host_pack_data, host_pack_multi_data, is_multi_data, is_split_grid, wire_cell_count
 
 
 def _unwrap_cell(value: Any, true_strings: set[str] | None = None, false_strings: set[str] | None = None) -> Any:
@@ -83,6 +83,57 @@ def finalize_python_data(raw: Any) -> list[Any] | list[list[Any]] | None:
     return list(raw)
 
 
+def _is_legacy_single_column_range(items: list[Any]) -> bool:
+    """True when *items* looks like one column range passed without a varargs outer wrap."""
+    if len(items) <= 1:
+        return False
+    for item in items:
+        if not isinstance(item, (list, tuple)) or len(item) != 1:
+            return False
+    return True
+
+
+def split_python_addin_data_args(raw: Any) -> list[Any]:
+    """Split the ``=PYTHON()`` varargs ``data`` parameter into individual formula arguments.
+
+    Calc packs all trailing arguments into ``sequence<any>``. Unit tests may pass a bare range
+  or scalar without the outer sequence wrapper.
+    """
+    if raw is None:
+        return []
+    raw = _unwrap_cell(raw)
+    if not _is_row_sequence(raw):
+        return [raw]
+    items = list(raw)
+    if not items:
+        return []
+    if len(items) == 1:
+        return [items[0]]
+    if _is_legacy_single_column_range(items):
+        return [raw]
+    return items
+
+
+def calc_addin_args_to_python(
+    raw: Any,
+    true_strings: set[str] | None = None,
+    false_strings: set[str] | None = None,
+) -> list[Any] | list[list[Any]] | list[list[Any] | list[list[Any]]] | None:
+    """Convert varargs ``data`` into sandbox ``data``: single shape or list of per-range shapes."""
+    args = split_python_addin_data_args(raw)
+    if not args:
+        return None
+    if len(args) == 1:
+        return calc_addin_data_to_python(args[0], true_strings, false_strings)
+    converted: list[list[Any] | list[list[Any]]] = []
+    for arg in args:
+        py_range = calc_addin_data_to_python(arg, true_strings, false_strings)
+        if py_range is None:
+            py_range = []
+        converted.append(py_range)
+    return converted
+
+
 def calc_addin_data_to_python(
     value: Any,
     true_strings: set[str] | None = None,
@@ -116,6 +167,17 @@ def calc_addin_data_to_python(
     return normalize_python_data_shape(grid)
 
 
+def pack_calc_multi_data_for_wire(
+    py_data: list[list[Any] | list[list[Any]]],
+    *,
+    force: ForceBinary = "auto",
+) -> Any:
+    """Pack multiple Calc ranges for the venv worker (``multi_data`` envelope)."""
+    if not py_data:
+        return None
+    return host_pack_multi_data(py_data, force=force)
+
+
 def pack_calc_data_for_wire(
     py_data: list[Any] | list[list[Any]] | None,
     *,
@@ -129,6 +191,8 @@ def pack_calc_data_for_wire(
 
 def count_cells(data: Any) -> int:
     """Return number of scalar cells in *data* for size guarding."""
+    if is_multi_data(data):
+        return wire_cell_count(data)
     if is_split_grid(data):
         return wire_cell_count(data)
     if data is None:
@@ -141,6 +205,19 @@ def count_cells(data: Any) -> int:
     if isinstance(first, (list, tuple)):
         return sum(len(row) for row in data)
     return len(data)
+
+
+def check_python_multi_data_size(
+    data: list[Any],
+    *,
+    max_cells: int | None = None,
+) -> str | None:
+    """Return an error message if combined multi-range *data* exceeds *max_cells*."""
+    limit = python_max_data_cells_default() if max_cells is None else max_cells
+    n = sum(count_cells(item) for item in data)
+    if n > limit:
+        return f"Data ranges have {n} cells combined; maximum is {limit}."
+    return None
 
 
 def check_python_data_size(

@@ -6,7 +6,7 @@
 module org { module extension { module writeragent { module PythonFunction {
     interface XPythonFunction : com::sun::star::uno::XInterface
     {
-        any python( [in] string code, [in] any data );
+        any python( [in] string code, [in] sequence< any > data );
     };
 }; }; }; };
 

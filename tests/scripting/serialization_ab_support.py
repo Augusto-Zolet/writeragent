@@ -23,7 +23,9 @@ from plugin.scripting.payload_codec import (
     ForceBinary,
     child_unpack_data,
     host_pack_data,
+    host_pack_multi_data,
     host_unpack_data,
+    is_multi_data,
     is_numeric_grid,
     is_split_grid,
 )
@@ -640,6 +642,51 @@ def hypothesis_grid_ok(grid: list[Any] | list[list[Any]]) -> bool:
     return True
 
 
+# --- Multi-range (varargs) helpers ---
+# TODO(multi-range): Hypothesis strategy for list-of-grids; CrossHair on host_pack_multi_data;
+# TODO(multi-range): extend venv_transform_cases with np.concatenate(data) / per-range transforms.
+
+MULTI_RANGE_FIXTURES: list[tuple[list[list[Any] | list[list[Any]]], str]] = [
+    ([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], "multi_two_numeric_cols"),
+    ([[[1.0, "a"], [2.0, "b"]], [[3.0, "c"]]], "multi_mixed_and_small"),
+]
+
+
+def multi_range_child_materialization(
+    grids: list[list[Any] | list[list[Any]]],
+    *,
+    force: ForceBinary = "auto",
+) -> Any:
+    """Child-side materialization for a list of Calc ranges (multi_data envelope)."""
+    return child_unpack_data(host_pack_multi_data(grids, force=force))
+
+
+def run_multi_venv_echo(
+    grids: list[list[Any] | list[list[Any]]],
+    *,
+    pack_force: ForceBinary = "auto",
+    use_subprocess: bool = False,
+) -> Any:
+    """Echo ``data`` through venv when injected as a multi-range list."""
+    code = "result = data"
+    wire = host_pack_multi_data(grids, force=pack_force)
+    if use_subprocess:
+        mgr = PythonWorkerManager.get(sys.executable, _WORKER_ENV)
+        response = mgr.execute(code, data=wire)
+        if response.get("status") != "ok":
+            raise AssertionError(f"Worker error: {response.get('message')}")
+        return response.get("result")
+    response = _execute_request(code, wire)
+    if response.get("status") != "ok":
+        raise AssertionError(f"Sandbox error: {response.get('message')}")
+    result = response.get("result")
+    if result is None:
+        return None
+    if is_multi_data(result):
+        return host_unpack_data(result, as_nested_list=True)
+    return result
+
+
 __all__ = [
     "AbGridCase",
     "VenvTransformCase",
@@ -668,5 +715,8 @@ __all__ = [
     "numeric_rectangular_grid",
     "is_valid_grid_for_pack",
     "hypothesis_grid_ok",
+    "MULTI_RANGE_FIXTURES",
+    "multi_range_child_materialization",
+    "run_multi_venv_echo",
     "BINARY_MIN_CELLS",
 ]
