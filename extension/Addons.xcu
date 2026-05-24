@@ -76,6 +76,20 @@
               <value>_self</value>
             </prop>
           </node>
+          <node oor:name="M3d_py_cell" oor:op="replace">
+            <prop oor:name="Title">
+              <value xml:lang="en-US">Edit Python in Cell...</value>
+            </prop>
+            <prop oor:name="URL">
+              <value>org.extension.writeragent:scripting.edit_python_cell</value>
+            </prop>
+            <prop oor:name="Context" oor:type="xs:string">
+              <value>com.sun.star.sheet.SpreadsheetDocument</value>
+            </prop>
+            <prop oor:name="Target" oor:type="xs:string">
+              <value>_self</value>
+            </prop>
+          </node>
           <node oor:name="M3d_nb" oor:op="replace">
             <prop oor:name="Title">
               <value xml:lang="en-US">Import Jupyter Notebook...</value>

@@ -36,12 +36,24 @@ def resolve_venv_python(venv_dir: str) -> Optional[str]:
     if not venv_dir or not venv_dir.strip():
         return None
     expanded = os.path.expanduser(os.path.expandvars(venv_dir.strip()))
+    candidates: list[str] = []
     if os.name == "nt":
-        candidate = os.path.join(expanded, "Scripts", "python.exe")
+        candidates.append(os.path.join(expanded, "Scripts", "python.exe"))
     else:
-        candidate = os.path.join(expanded, "bin", "python")
-    if os.path.isfile(candidate):
-        return candidate
+        bin_dir = os.path.join(expanded, "bin")
+        if os.path.isdir(bin_dir):
+            for name in ("python", "python3"):
+                candidates.append(os.path.join(bin_dir, name))
+            for entry in sorted(os.listdir(bin_dir)):
+                if entry.startswith("python3."):
+                    candidates.append(os.path.join(bin_dir, entry))
+    seen: set[str] = set()
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
     return None
 
 

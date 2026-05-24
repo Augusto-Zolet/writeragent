@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+# WriterAgent - AI Writing Assistant for LibreOffice
+# Copyright (c) 2026 KeithCu (modifications and relicensing)
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Monaco/pywebview editor child process (runs in the user venv, not inside LibreOffice)."""
+
+from __future__ import annotations
+
+import importlib
+import logging
+import os
+import queue
+import sys
+import threading
+import traceback
+from typing import Any, cast
+
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+_ready_lock = threading.Lock()
+_ready_sent = False
+
+
+def _bootstrap_plugin_import_path() -> None:
+    """Ensure the directory that contains the ``plugin`` package is on sys.path."""
+    candidates = [
+        os.path.join(_SCRIPT_DIR, "..", ".."),
+        os.path.join(_SCRIPT_DIR, "..", "..", ".."),
+    ]
+    for raw in candidates:
+        root = os.path.abspath(raw)
+        if os.path.isdir(os.path.join(root, "plugin")) and root not in sys.path:
+            sys.path.insert(0, root)
+            return
+    plugin_parent = os.path.abspath(os.path.join(_SCRIPT_DIR, ".."))
+    repo = os.path.abspath(os.path.join(_SCRIPT_DIR, "..", ".."))
+    if os.path.basename(plugin_parent) == "plugin" and repo not in sys.path:
+        sys.path.insert(0, repo)
+
+
+def _fatal(msg: str, *, exc: BaseException | None = None, code: int = 1) -> None:
+    print(msg, file=sys.stderr, flush=True)
+    if exc is not None:
+        traceback.print_exception(type(exc), exc, exc.__traceback__, file=sys.stderr)
+    raise SystemExit(code)
+
+
+_bootstrap_plugin_import_path()
+try:
+    from plugin.scripting.editor_protocol import message_type, read_message, write_message
+except ImportError as e:
+    _fatal(f"editor_main: cannot import plugin.scripting.editor_protocol ({e}). sys.path={sys.path!r}", exc=e)
+
+
+log = logging.getLogger(__name__)
+
+_ui_queue: queue.Queue[dict[str, Any]] = queue.Queue()
+_stdout_lock = threading.Lock()
+_shutting_down = False
+
+
+def _write_parent(message: dict[str, Any]) -> None:
+    with _stdout_lock:
+        write_message(sys.stdout.buffer, message)
+
+
+def _send_ready_once() -> None:
+    """Tell LibreOffice the GUI is up and stdin is ready for ``load`` messages."""
+    global _ready_sent
+    with _ready_lock:
+        if _ready_sent:
+            return
+        _write_parent({"type": "ready"})
+        _ready_sent = True
+        log.info("editor_main: sent ready")
+
+
+def _pipe_reader_loop() -> None:
+    global _shutting_down
+    stdin = sys.stdin.buffer
+    try:
+        while not _shutting_down:
+            msg = read_message(stdin)
+            if msg is None:
+                break
+            kind = message_type(msg)
+            if kind in ("saved", "error", "load"):
+                _ui_queue.put(msg)
+            elif kind == "closed":
+                break
+    except Exception:
+        log.exception("Editor pipe reader failed")
+    finally:
+        _shutting_down = True
+
+
+class MonacoEditorApi:
+    """JS API exposed via pywebview (runs on the GUI thread)."""
+
+    def __init__(self) -> None:
+        self._window: Any = None
+
+    def set_window(self, window: Any) -> None:
+        self._window = window
+
+    def poll_messages(self) -> list[dict[str, Any]]:
+        batch: list[dict[str, Any]] = []
+        while True:
+            try:
+                batch.append(_ui_queue.get_nowait())
+            except queue.Empty:
+                break
+        return batch
+
+    def notify_save(self, code: str) -> None:
+        if not isinstance(code, str):
+            code = str(code) if code is not None else ""
+        _write_parent({"type": "save", "code": code})
+
+    def notify_cancel(self) -> None:
+        global _shutting_down
+        _shutting_down = True
+        _write_parent({"type": "closed"})
+        try:
+            self._window.destroy()
+        except Exception:
+            pass
+
+
+def _bind_gui_ready(window: Any) -> None:
+    """Fire ``ready`` only after the webview window is shown (not before ``start()``)."""
+    events = getattr(window, "events", None)
+    if events is None:
+        return
+    for name in ("loaded", "shown"):
+        ev = getattr(events, name, None)
+        if ev is None:
+            continue
+        try:
+            ev += _send_ready_once
+            log.info("editor_main: hooked window.events.%s for ready", name)
+            return
+        except Exception:
+            log.debug("editor_main: could not hook events.%s", name, exc_info=True)
+
+
+def main() -> None:
+    logging.basicConfig(level=logging.INFO)
+    assets = os.environ.get("WRITERAGENT_EDITOR_ASSETS", os.path.join(_SCRIPT_DIR, "assets", "editor"))
+    index_html = os.path.join(assets, "index.html")
+    if not os.path.isfile(index_html):
+        _fatal(f"Editor assets not found: {index_html}")
+
+    try:
+        webview = cast("Any", importlib.import_module("webview"))
+    except ImportError as e:
+        _fatal(f"pywebview is not installed in this interpreter: {e}", exc=e)
+
+    # Listen for parent messages before the GUI loop blocks the main thread.
+    threading.Thread(target=_pipe_reader_loop, name="editor-stdin-reader", daemon=True).start()
+
+    api = MonacoEditorApi()
+    cwd_before = os.getcwd()
+    try:
+        os.chdir(assets)
+        try:
+            window = webview.create_window("PYTHON Editor", url="index.html", width=900, height=640, js_api=api)
+        except Exception as e:
+            _fatal(f"webview.create_window failed: {e}", exc=e)
+    finally:
+        try:
+            os.chdir(cwd_before)
+        except OSError:
+            pass
+
+    api.set_window(window)
+    _bind_gui_ready(window)
+
+    start_kw: dict[str, Any] = {"debug": False, "http_server": True}
+    gui = os.environ.get("WRITERAGENT_PYWEBVIEW_GUI", "").strip()
+    if gui:
+        start_kw["gui"] = gui
+
+    try:
+        webview.start(**start_kw)
+    except Exception as e:
+        _fatal(f"webview.start failed: {e}", exc=e)
+    finally:
+        if not _shutting_down:
+            try:
+                _write_parent({"type": "closed"})
+            except Exception:
+                pass
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception:
+        traceback.print_exc(file=sys.stderr)
+        raise SystemExit(1) from None

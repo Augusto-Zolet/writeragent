@@ -35,6 +35,17 @@ def test_resolve_venv_python_finds_posix_python(tmp_path):
     assert got == str(py)
 
 
+def test_resolve_venv_python_finds_python3_only(tmp_path):
+    venv = tmp_path / "venv"
+    bindir = venv / "bin"
+    bindir.mkdir(parents=True)
+    py3 = bindir / "python3"
+    py3.write_text("#!/bin/sh\necho ok\n")
+    py3.chmod(py3.stat().st_mode | stat.S_IEXEC)
+    got = resolve_venv_python(str(venv))
+    assert got == str(py3)
+
+
 def test_resolve_venv_python_none_when_missing(tmp_path):
     assert resolve_venv_python(str(tmp_path / "nope")) is None
 
