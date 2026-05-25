@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import logging
 import math
+import os
+import tempfile
 import threading
 from typing import Any
 
@@ -24,7 +26,7 @@ from plugin.calc.calc_addin_data import (
 from plugin.framework.errors import format_error_payload
 from plugin.framework.i18n import _
 from plugin.scripting.data_limits import configured_python_max_data_cells
-from plugin.scripting.payload_codec import is_split_grid
+from plugin.scripting.payload_codec import is_image_payload, is_split_grid
 from plugin.scripting.run_venv_code import run_code_in_user_venv
 
 log = logging.getLogger(__name__)
@@ -181,6 +183,29 @@ def finalize_python_return(
     return to_calc_compatible(result)
 
 
+def _insert_image_result_on_sheet(ctx: Any, payload: dict[str, Any]) -> None:
+    """Write image payload PNG bytes to a temp file and insert as a shape on the active sheet."""
+    import uno
+    from com.sun.star.awt import Size
+
+    png_bytes = payload["data"]
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
+        tmp.write(png_bytes)
+        tmp_path = tmp.name
+
+    file_url = uno.systemPathToFileUrl(os.path.abspath(tmp_path))
+    smgr = ctx.ServiceManager
+    desktop = smgr.createInstanceWithContext("com.sun.star.frame.Desktop", ctx)
+    doc = desktop.getCurrentComponent()
+    ctrl = doc.getCurrentController()
+    draw_page = ctrl.getActiveSheet().DrawPage
+
+    shape = doc.createInstance("com.sun.star.drawing.GraphicObjectShape")
+    shape.setSize(Size(15000, 10000))
+    draw_page.add(shape)
+    shape.setPropertyValue("GraphicURL", file_url)
+
+
 def _format_error_for_display(exc: BaseException) -> str:
     """Cell-safe error text without importing ``plugin.framework.client`` (loads LLM stack)."""
     err: Exception = exc if isinstance(exc, Exception) else RuntimeError(str(exc))
@@ -234,6 +259,9 @@ def execute_python_addin(
         if res.get("status") == "ok":
             result = res.get("result")
             log.debug("PYTHON raw result: %r (type: %s)", result, type(result).__name__)
+            if is_image_payload(result):
+                _insert_image_result_on_sheet(ctx, result)
+                return _("Image inserted")
             final_ret = finalize_python_return(ctx, code, result, index_arg=index_arg, worker_data=worker_data)
             log.debug("PYTHON returning scalar: %r (type: %s)", final_ret, type(final_ret).__name__)
             return final_ret

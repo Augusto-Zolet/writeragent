@@ -10,6 +10,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import tempfile
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from plugin.calc.base import ToolCalcPythonBase
@@ -18,6 +20,7 @@ from plugin.calc.calc_addin_data import check_python_data_size, finalize_python_
 from plugin.calc.inspector import CellInspector
 from plugin.framework.constants import PYTHON_VENV_AUTO_IMPORTS_TOOL_NOTE
 from plugin.scripting.data_limits import configured_python_max_data_cells
+from plugin.scripting.payload_codec import is_image_payload
 from plugin.scripting.run_venv_code import run_code_in_user_venv
 
 if TYPE_CHECKING:
@@ -141,10 +144,19 @@ class RunVenvPythonScript(ToolCalcPythonBase):
                     ctx.doc_type,
                 )
 
-        return run_code_in_user_venv(
+        res = run_code_in_user_venv(
             ctx.ctx,
             code,
             data=py_data,
             active_domain=ctx.active_domain,
             python_tool_domain=ctx.python_tool_domain,
         )
+
+        result = res.get("result")
+        if res.get("status") == "ok" and is_image_payload(result):
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
+                tmp.write(result["data"])
+                tmp_path = tmp.name
+            return {"status": "ok", "message": "Plot generated", "image_path": os.path.abspath(tmp_path)}
+
+        return res

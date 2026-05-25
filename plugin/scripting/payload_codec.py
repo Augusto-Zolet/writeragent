@@ -84,6 +84,9 @@ PAYLOAD_SPLIT_GRID = "split_grid"
 PAYLOAD_MULTI_DATA = "multi_data"
 """Multiple Calc ranges: list of split_grid or nested-list payloads."""
 
+PAYLOAD_IMAGE = "image"
+"""Matplotlib figure or other visualization serialized as PNG bytes."""
+
 # --- When to use binary envelope (default: at least 100 cells) -----------------------
 
 BINARY_MIN_CELLS = 100
@@ -126,8 +129,19 @@ def is_multi_data(obj: Any) -> bool:
     return _is_multi_data_envelope(obj)
 
 
+def _is_image_payload_envelope(envelope: object) -> bool:
+    if not isinstance(envelope, dict):
+        return False
+    env_dict = cast("dict[str, Any]", envelope)
+    return env_dict.get("__wa_payload__") == PAYLOAD_IMAGE and isinstance(env_dict.get("data"), bytes)
+
+
+def is_image_payload(obj: Any) -> bool:
+    return _is_image_payload_envelope(obj)
+
+
 def _is_any_payload_envelope(obj: object) -> bool:
-    return _is_split_grid_envelope(obj) or _is_multi_data_envelope(obj)
+    return _is_split_grid_envelope(obj) or _is_multi_data_envelope(obj) or _is_image_payload_envelope(obj)
 
 
 def _is_split_grid_envelope(envelope: object) -> bool:
@@ -220,6 +234,8 @@ def _apply_column_kinds_to_ndarray(
 
 def describe_wire_value(obj: Any, *, sample: int = 3) -> str:
     """Short summary for debug logs (avoids dumping huge arrays or base64)."""
+    if is_image_payload(obj):
+        return f"image format={obj.get('format')} bytes={len(obj.get('data', b''))}"
     if is_multi_data(obj):
         items = obj.get("items") or []
         return f"multi_data items={len(items)} cells={wire_cell_count(obj)}"
@@ -754,7 +770,9 @@ def host_unpack_split_grid(envelope: dict[str, Any], *, as_nested_list: bool = T
 
 
 def host_unpack_data(wire: Any, *, as_nested_list: bool = True) -> Any:
-    """Unpack worker ``data`` or ``result`` on host (list, scalar, split_grid, or multi_data)."""
+    """Unpack worker ``data`` or ``result`` on host (list, scalar, split_grid, multi_data, or image)."""
+    if is_image_payload(wire):
+        return wire
     if is_multi_data(wire):
         items = wire.get("items") or []
         return [host_unpack_data(item, as_nested_list=as_nested_list) for item in items]

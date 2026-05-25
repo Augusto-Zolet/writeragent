@@ -26,6 +26,7 @@ from plugin.scripting.payload_codec import (
     child_pack_result,
     child_unpack_data,
     describe_wire_value,
+    is_image_payload,
     is_multi_data,
     is_split_grid,
 )
@@ -131,7 +132,20 @@ def serialize_result(obj: Any) -> Any:
         raise
 
 
+def _figure_to_image_payload(fig: Any) -> dict[str, Any]:
+    """Render a matplotlib Figure to PNG bytes wrapped in an image payload envelope."""
+    import io
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", bbox_inches="tight", dpi=150)
+    buf.seek(0)
+    return {"__wa_payload__": "image", "format": "png", "data": buf.read()}
+
+
 def _serialize_result_impl(obj: Any) -> Any:
+    mpl_fig = optional_module("matplotlib.figure")
+    if mpl_fig is not None and isinstance(obj, mpl_fig.Figure):
+        return _figure_to_image_payload(obj)
     np_mod = optional_module("numpy")
     if np_mod is not None:
         if isinstance(obj, (np_mod.ndarray, np_mod.integer, np_mod.floating, np_mod.bool_)):
@@ -151,6 +165,12 @@ def run_sandboxed_code(code: str, data: Any | None = None, *, timeout_sec: int |
     """Run *code* in a fresh LocalPythonExecutor (new namespace per call)."""
     if timeout_sec is None:
         timeout_sec = python_exec_timeout_default()
+
+    # Force non-interactive backend so plt.show() doesn't block in the subprocess.
+    mpl = optional_module("matplotlib")
+    if mpl is not None:
+        mpl.use("Agg")
+
     # Automatically prepend imports if they are available in the environment and not explicitly imported
     code, _ = apply_auto_imports(code)
 
@@ -172,6 +192,15 @@ def run_sandboxed_code(code: str, data: Any | None = None, *, timeout_sec: int |
         code_output = executor(code)
         result = executor.state.get("result", code_output.output)
         serialized = serialize_result(result)
+
+        # Capture implicit plt.show() figures when result is not already an image payload.
+        if not is_image_payload(serialized):
+            plt_mod = optional_module("matplotlib.pyplot")
+            if plt_mod is not None and plt_mod.get_fignums():
+                fig = plt_mod.gcf()
+                serialized = _figure_to_image_payload(fig)
+                plt_mod.close("all")
+
         if is_split_grid(serialized):
             log.debug("venv_sandbox worker result %s", describe_wire_value(serialized))
         return {
