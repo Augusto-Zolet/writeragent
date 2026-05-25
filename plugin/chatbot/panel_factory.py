@@ -41,6 +41,15 @@ UNO_DISPOSED_EXCEPTIONS = (DisposedException, RuntimeException, UnoException)
 # "import plugin.xxx" statements work when LibreOffice loads this module.
 # See plugin/framework/uno_bootstrap.py for the centralized implementation
 # and rationale (this used to be duplicated fragile path logic).
+
+# Minimal stdlib-only bootstrap (must run before the "from plugin..." import below)
+# because unopkg writeRegistryInfo loads this file before the OXT root is on sys.path.
+_this = os.path.abspath(__file__)
+for __ in range(3):  # plugin/chatbot/panel_factory.py → plugin/chatbot/ → plugin/ → extension root
+    _this = os.path.dirname(_this)
+if _this not in sys.path:
+    sys.path.insert(0, _this)
+
 from plugin.framework.uno_bootstrap import ensure_plugin_on_path
 
 ensure_plugin_on_path(__file__, levels_up=3, also_add_contrib=True)

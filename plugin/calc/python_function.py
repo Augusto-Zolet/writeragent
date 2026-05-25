@@ -12,7 +12,7 @@ import math
 import os
 import tempfile
 import threading
-from typing import Any
+from typing import Any, cast
 
 from plugin.calc.calc_addin_data import (
     calc_addin_args_from_split,
@@ -260,7 +260,7 @@ def execute_python_addin(
             result = res.get("result")
             log.debug("PYTHON raw result: %r (type: %s)", result, type(result).__name__)
             if is_image_payload(result):
-                _insert_image_result_on_sheet(ctx, result)
+                _insert_image_result_on_sheet(ctx, cast("dict[str, Any]", result))
                 return _("Image inserted")
             final_ret = finalize_python_return(ctx, code, result, index_arg=index_arg, worker_data=worker_data)
             log.debug("PYTHON returning scalar: %r (type: %s)", final_ret, type(final_ret).__name__)

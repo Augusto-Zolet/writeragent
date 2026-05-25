@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from plugin.calc.base import ToolCalcPythonBase
 from plugin.calc.bridge import CalcBridge
@@ -155,7 +155,8 @@ class RunVenvPythonScript(ToolCalcPythonBase):
         result = res.get("result")
         if res.get("status") == "ok" and is_image_payload(result):
             with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
-                tmp.write(result["data"])
+                img = cast("dict[str, Any]", result)
+                tmp.write(img["data"])
                 tmp_path = tmp.name
             return {"status": "ok", "message": "Plot generated", "image_path": os.path.abspath(tmp_path)}
 

@@ -16,14 +16,25 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from __future__ import annotations
 
+import os
 import sys
+
+# --- Minimal stdlib-only bootstrap (MUST be before any "from plugin..." import) ---
+# unopkg / pythonloader can load this file during `make deploy` (writeRegistryInfo)
+# before the extension root is on sys.path. We must fix that using only stdlib.
+_this = os.path.abspath(__file__)
+for __ in range(2):  # plugin/main.py → plugin/ → extension root
+    _this = os.path.dirname(_this)
+if _this not in sys.path:
+    sys.path.insert(0, _this)
+
 import logging
 
 from plugin.framework.uno_bootstrap import ensure_plugin_on_path
 
 # Central bootstrap for UNO-loaded entry points.
 # This replaces the previous manual sys.path manipulation that was duplicated
-# across main.py and the Calc add-ins (see TD1).
+# across main.py and the Calc add-ins.
 ensure_plugin_on_path(
     __file__,
     levels_up=2,                    # plugin/main.py → plugin/ → extension root

@@ -135,10 +135,11 @@ def resolve_auth_for_config(api_config: Dict[str, Any]) -> Dict[str, Any]:
     # Use the consolidated detection helpers (2026 provider heuristic cleanup).
     # This guarantees the same OpenRouter + provider logic used everywhere else
     # (model fetching, error messages, local SSL fallback, etc.).
+    provider_hint: str | None
     if is_openrouter_endpoint(endpoint, explicit_is_openrouter=api_config.get("is_openrouter")):
         provider_hint = "openrouter"
     else:
-        provider_hint = get_provider_from_endpoint(endpoint) or None
+        provider_hint = get_provider_from_endpoint(endpoint)
 
     provider_id = _resolve_provider_id(endpoint, provider_hint)
     provider_cfg = PROVIDERS.get(provider_id, PROVIDERS["custom"])

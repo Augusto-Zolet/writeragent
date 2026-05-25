@@ -53,7 +53,6 @@ unohelper: Any = _unohelper_mod
 from plugin.framework.url_utils import (
     normalize_endpoint_url,
 )
-from plugin.framework.client.provider_detection import is_openrouter_endpoint
 
 log = logging.getLogger(__name__)
 
@@ -843,6 +842,11 @@ def get_api_config(ctx):
 
     endpoint = str(get_config(ctx, "endpoint") or "").rstrip("/")
     is_openwebui = as_bool(get_config(ctx, "is_openwebui")) or "open-webui" in endpoint.lower() or "openwebui" in endpoint.lower()
+
+    # Local import to avoid circular import during early UNO registration
+    # (config → client/provider_detection → client/__init__ → llm_client → logging → config)
+    from plugin.framework.client.provider_detection import is_openrouter_endpoint
+
     # Use the consolidated detection helper (2026 provider heuristic cleanup)
     # so the OpenRouter decision is identical everywhere (auth, model fetcher,
     # error messages, LLM client, etc.).
