@@ -7,6 +7,8 @@
 """Shared HTTP client helpers and ``LlmClient``."""
 
 from .errors import (
+    # format_error_message is re-exported from the central implementation in
+    # plugin.framework.errors (see 2026 error formatting centralization).
     format_error_for_display,
     format_error_message,
     is_audio_unsupported_error,

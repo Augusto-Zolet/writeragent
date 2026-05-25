@@ -24,7 +24,7 @@ import threading
 from abc import ABC, abstractmethod
 from typing import Any, Callable, ClassVar, cast
 
-from plugin.framework.errors import ToolExecutionError, format_error_payload
+from plugin.framework.errors import make_tool_error
 from plugin.framework.worker_pool import run_in_background
 
 
@@ -243,15 +243,13 @@ class ToolBase(ABC):
     def _tool_error(self, message, code="TOOL_EXECUTION_ERROR", **details):
         """Standardized JSON payload for tool errors.
 
-        Args:
-            message: User-friendly error message.
-            code: Internal error code.
-            **details: Optional context like tool_name, doc_type, etc.
-
-        Returns:
-            dict matching the standardized error format.
+        Delegates to the central make_tool_error factory so every tool
+        error path (including the Dummy base and Registry) produces
+        identical structure. See errors.py:make_tool_error for the
+        single source of truth (added during 2026 error formatting
+        centralization).
         """
-        return format_error_payload(ToolExecutionError(message, code=code, details=details))
+        return make_tool_error(message, code=code, **details)
 
     def get_parameters(self, doc_type: str | None = None) -> dict | None:
         """JSON Schema for this tool; override for document-type-specific parameters."""
@@ -361,8 +359,13 @@ class ToolBaseDummy:
     is_final_answer_tool: bool = False
 
     def _tool_error(self, message, code="TOOL_EXECUTION_ERROR", **details):
-        """Standardized JSON payload for tool errors."""
-        return format_error_payload(ToolExecutionError(message, code=code, details=details))
+        """Standardized JSON payload for tool errors.
+
+        Delegates to the central make_tool_error (see the real ToolBase
+        implementation and errors.make_tool_error). This removes the
+        previous near-duplicate.
+        """
+        return make_tool_error(message, code=code, **details)
 
     def get_collection(self, doc, getter_name, missing_msg=None):
         """Helper to safely fetch a named collection from a document."""
@@ -720,12 +723,11 @@ class ToolRegistry:
                 return {"status": "error", "code": "VALIDATION_ERROR", "message": err, "details": common_details}
 
             if getattr(ctx, "read_only_target", False) and tool.detects_mutation():
-                return format_error_payload(
-                    ToolExecutionError(
-                        "This document is open for read-only document_research access; writes are not allowed.",
-                        code="READ_ONLY_TARGET",
-                        details=common_details,
-                    )
+                # Use the central factory (all tool errors now go through make_tool_error).
+                return make_tool_error(
+                    "This document is open for read-only document_research access; writes are not allowed.",
+                    code="READ_ONLY_TARGET",
+                    **common_details,
                 )
 
             # Emit executing event

@@ -99,6 +99,92 @@ def format_error_payload(e: Exception) -> dict[str, Any]:
     return {"status": "error", "code": "INTERNAL_ERROR", "message": str(e), "details": {"type": type(e).__name__}}
 
 
+# ── Centralized user-friendly error mapping (the single i18n mapper) ─────────
+# Previously duplicated logic lived in plugin/framework/client/errors.py as
+# format_error_message(). All code (tools, streams, logging, LLM client, HTTP
+# requests, etc.) should now go through this one function for turning raw
+# exceptions into localized, actionable advice for users.
+#
+# This is the companion to format_error_payload(): the former produces the
+# structured dict used by tools/logs/UI; this one produces the plain friendly
+# string used in logs, error messages, and as a fallback in display helpers.
+#
+# Wire-specific formatting (full HTTP response bodies, audio modality heuristics)
+# remains in client/errors.py as a thin adapter + specialized helpers.
+# See client/errors.py for the rationale and the thin re-exports.
+
+def format_error_message(e: Exception) -> str:
+    """Map common exceptions to user-friendly, localized advice.
+
+    This is the single source of truth for turning raw network/HTTP/SSL/timeout
+    errors into messages suitable for end users or logs. It always returns a
+    string that has already been passed through gettext _().
+
+    Keep this function focused on the common cross-cutting cases. Provider-
+    specific or wire-format details belong in the LLM client layer.
+    """
+    import ssl
+    import socket
+    import http.client
+    import urllib.error
+
+    msg = str(e)
+    if isinstance(e, ssl.SSLError):
+        return _("TLS/SSL Error: {0}").format(msg)
+    if isinstance(e, (urllib.error.HTTPError, http.client.HTTPResponse)):
+        code_candidate = getattr(e, "code", None)
+        if code_candidate is None:
+            code_candidate = getattr(e, "status", None)
+        try:
+            code = int(code_candidate) if code_candidate is not None else 0
+        except (TypeError, ValueError):
+            code = 0
+        reason = str(getattr(e, "reason", "") or "")
+        if code == 401:
+            return _("Invalid API Key. Please check your settings.")
+        if code == 403:
+            return _("API access Forbidden. Your key may lack permissions for this model.")
+        if code == 404:
+            return _("Endpoint not found (404). Check your URL and Model name.")
+        if code >= 500:
+            return _("Server error ({0}). The AI provider is having issues.").format(code)
+        return _("HTTP Error {0}: {1}").format(code, reason)
+
+    if isinstance(e, socket.timeout) or "timed out" in msg.lower():
+        return _("Request Timed Out. Try increasing 'Request Timeout' in Settings.")
+
+    if isinstance(e, (urllib.error.URLError, OSError)):
+        if isinstance(e, urllib.error.URLError):
+            reason = str(getattr(e, "reason", None) or e)
+        else:
+            reason = str(e)
+        if "Connection refused" in reason or "111" in reason:
+            return _("Connection Refused. Is your local AI server (Ollama/LM Studio) running?")
+        if "getaddrinfo failed" in reason:
+            return _("DNS Error. Could not resolve the endpoint URL.")
+        return _("Connection Error: {0}").format(reason)
+
+    if "finish_reason=error" in msg:
+        return _("The AI provider reported an error. Try again.")
+
+    return msg
+
+
+def make_tool_error(message: str, code: str = "TOOL_EXECUTION_ERROR", **details: Any) -> dict[str, Any]:
+    """Central factory for all standardized tool error payloads.
+
+    Every path that produces a tool error dict (ToolBase._tool_error,
+    ToolBaseDummy._tool_error, ToolRegistry.execute error paths, etc.)
+    should go through this helper. This guarantees identical structure,
+    consistent use of ToolExecutionError + format_error_payload, and a
+    single place to evolve the schema or add logging in the future.
+
+    This was introduced as part of centralizing error formatting (see
+    the janitor plan item for error unification).
+    """
+    return format_error_payload(ToolExecutionError(message, code=code, details=details))
+
+
 class UnoObjectError(WriterAgentException):
     """LibreOffice UNO interface failures (stale docs, missing properties)."""
 
@@ -258,8 +344,10 @@ __all__ = [
     "WriterAgentException",
     "WriterError",
     "check_disposed",
+    "format_error_message",      # The single i18n-friendly mapper (centralized here in 2026 janitor effort)
     "format_error_payload",
     "handle_errors",
+    "make_tool_error",           # Central factory for all tool error dicts
     "safe_call",
     "safe_json_loads",
     "safe_python_literal_eval",

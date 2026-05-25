@@ -2,63 +2,38 @@
 # Copyright (c) 2026 KeithCu
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
+"""Client / LLM-wire specific error helpers.
 
-import ssl
-import socket
-import http.client
+This module is intentionally a thin adapter + specialized helpers after the
+2026 framework error formatting centralization:
 
+- format_error_message is now re-exported from (and implemented in)
+  plugin.framework.errors as the single i18n mapper for the whole codebase.
+- _format_http_error_response and is_audio_unsupported_error stay here
+  because they are tightly coupled to HTTP response bodies and LLM modality
+  detection (wire concerns that do not belong in the core framework layer).
+- format_error_for_display is a convenience that already delegated to the
+  central payload formatter; it remains here for the public client API surface.
+
+All call sites inside client/ (llm_client, requests) continue to import from
+here so the public names and re-exports in client/__init__.py are unchanged.
+"""
 
 from plugin.framework.i18n import _
 
-
-def format_error_message(e):
-    """Map common exceptions to user-friendly advice."""
-    import urllib.error
-
-    msg = str(e)
-    if isinstance(e, ssl.SSLError):
-        return _("TLS/SSL Error: {0}").format(msg)
-    if isinstance(e, (urllib.error.HTTPError, http.client.HTTPResponse)):
-        code_candidate = getattr(e, "code", None)
-        if code_candidate is None:
-            code_candidate = getattr(e, "status", None)
-        try:
-            code = int(code_candidate) if code_candidate is not None else 0
-        except (TypeError, ValueError):
-            code = 0
-        reason = str(getattr(e, "reason", "") or "")
-        if code == 401:
-            return _("Invalid API Key. Please check your settings.")
-        if code == 403:
-            return _("API access Forbidden. Your key may lack permissions for this model.")
-        if code == 404:
-            return _("Endpoint not found (404). Check your URL and Model name.")
-        if code >= 500:
-            return _("Server error ({0}). The AI provider is having issues.").format(code)
-        return _("HTTP Error {0}: {1}").format(code, reason)
-
-    if isinstance(e, socket.timeout) or "timed out" in msg.lower():
-        return _("Request Timed Out. Try increasing 'Request Timeout' in Settings.")
-
-    if isinstance(e, (urllib.error.URLError, OSError)):
-        if isinstance(e, urllib.error.URLError):
-            reason = str(getattr(e, "reason", None) or e)
-        else:
-            reason = str(e)
-        if "Connection refused" in reason or "111" in reason:
-            return _("Connection Refused. Is your local AI server (Ollama/LM Studio) running?")
-        if "getaddrinfo failed" in reason:
-            return _("DNS Error. Could not resolve the endpoint URL.")
-        return _("Connection Error: {0}").format(reason)
-
-    if "finish_reason=error" in msg:
-        return _("The AI provider reported an error. Try again.")
-
-    return msg
+# Re-export the single central i18n mapper so existing imports from
+# plugin.framework.client.errors (and the re-exports in client/__init__.py)
+# keep working without any behavior change.
+from plugin.framework.errors import format_error_message  # noqa: F401
 
 
 def _format_http_error_response(status, reason, err_body):
-    """Build error message including response body for display in chat/UI."""
+    """Build error message including response body for display in chat/UI.
+
+    This remains client-specific because it parses provider error JSON bodies
+    and falls back to raw snippets — behavior that is only relevant on the
+    LLM HTTP path.
+    """
     base = _("HTTP Error {0} from AI Provider: {1}").format(status, reason)
     if not err_body or not err_body.strip():
         return base
