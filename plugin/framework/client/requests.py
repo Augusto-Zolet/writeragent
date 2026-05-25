@@ -11,6 +11,8 @@ from urllib.request import Request, urlopen
 from plugin.framework.constants import APP_REFERER, APP_TITLE, USER_AGENT
 from plugin.framework.errors import NetworkError
 from .ssl_helpers import get_verified_ssl_context, get_unverified_ssl_context, _is_local_host, _is_certificate_verify_error
+# _is_local_host comes from the consolidated provider_detection.py (via ssl_helpers re-export)
+# after the 2026 provider heuristic cleanup.
 from .errors import _format_http_error_response, format_error_message
 
 log = logging.getLogger(__name__)

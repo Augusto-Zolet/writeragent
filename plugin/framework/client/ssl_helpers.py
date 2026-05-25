@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import ssl
-import ipaddress
 
 
 def get_unverified_ssl_context():
@@ -34,19 +33,10 @@ def _is_certificate_verify_error(e):
     return False
 
 
-def _is_local_host(host):
-    """Heuristic for localhost / LAN hosts where self-signed TLS is common."""
-    host = (host or "").strip().lower()
-    if not host:
-        return False
-    if host in ("localhost", "ip6-localhost", "host.docker.internal"):
-        return True
-    if host.endswith(".local"):
-        return True
-    try:
-        ip = ipaddress.ip_address(host)
-        return ip.is_loopback or ip.is_private or ip.is_link_local
-    except ValueError:
-        pass
-    # Single-label hostnames are usually local network names.
-    return "." not in host
+# Re-export the canonical implementation after the 2026 provider detection consolidation.
+# New code should prefer `from plugin.framework.client.provider_detection import is_local_host`.
+from plugin.framework.client.provider_detection import is_local_host as _is_local_host  # noqa: F401 - re-export under old private name for compat
+
+# Keep the old private name for existing internal callers (llm_client, requests)
+# so we don't have to touch every import site in this first-pass cleanup.
+# The real logic now lives in provider_detection.py.

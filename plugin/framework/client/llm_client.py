@@ -110,6 +110,8 @@ from plugin.framework.url_utils import get_url_hostname, get_url_path_and_query,
 
 from .errors import format_error_message, _format_http_error_response
 from .ssl_helpers import get_unverified_ssl_context, get_verified_ssl_context, _is_certificate_verify_error, _is_local_host
+# _is_local_host is re-exported from ssl_helpers for now (see provider_detection.py
+# for the canonical home after the 2026 heuristic consolidation).
 from .stream_normalizer import iterate_sse, _extract_thinking_from_delta, _normalize_message_content, _normalize_delta
 from .requests import sync_request
 

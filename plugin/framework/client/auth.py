@@ -20,7 +20,10 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Tuple
 
 from plugin.framework.url_utils import normalize_endpoint_url
-from plugin.framework.client.model_fetcher import get_provider_from_endpoint
+from plugin.framework.client.provider_detection import (
+    get_provider_from_endpoint,
+    is_openrouter_endpoint,
+)
 from plugin.framework.errors import ConfigError
 
 
@@ -129,9 +132,10 @@ def resolve_auth_for_config(api_config: Dict[str, Any]) -> Dict[str, Any]:
     if not endpoint:
         raise AuthError("No endpoint configured.", provider="", code="missing_endpoint")
 
-    # Try explicit flags first (e.g. is_openrouter), then fall back to URL heuristics.
-    provider_hint = None
-    if api_config.get("is_openrouter"):
+    # Use the consolidated detection helpers (2026 provider heuristic cleanup).
+    # This guarantees the same OpenRouter + provider logic used everywhere else
+    # (model fetching, error messages, local SSL fallback, etc.).
+    if is_openrouter_endpoint(endpoint, explicit_is_openrouter=api_config.get("is_openrouter")):
         provider_hint = "openrouter"
     else:
         provider_hint = get_provider_from_endpoint(endpoint) or None

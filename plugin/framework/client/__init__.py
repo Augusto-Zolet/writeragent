@@ -13,6 +13,13 @@ from .errors import (
     format_error_message,
     is_audio_unsupported_error,
 )
+
+# Provider / endpoint detection (centralized in the 2026 janitor effort)
+from .provider_detection import (
+    get_provider_from_endpoint,
+    is_local_host,
+    is_openrouter_endpoint,
+)
 from .llm_client import (
     LlmClient,
     OPENROUTER_CHAT_EXTRA_BLOCKLIST,
@@ -27,7 +34,10 @@ __all__ = [
     "OPENROUTER_CHAT_EXTRA_BLOCKLIST",
     "format_error_for_display",
     "format_error_message",
+    "get_provider_from_endpoint",
     "is_audio_unsupported_error",
+    "is_local_host",
+    "is_openrouter_endpoint",
     "iterate_sse",
     "merge_openrouter_chat_extra",
     "strip_leaked_chat_template_control_tokens",
