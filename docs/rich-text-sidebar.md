@@ -313,3 +313,104 @@ The HTML filter (`HTML (StarWriter)`) imports `<ul><li>` content as Writer list 
 - **Ordered lists (numbered):** Same mechanism applies but verify that `IndentAt` / `FirstLineIndent` behave identically for numbered lists.
 - **Streaming path:** Currently only `append_rich_text` (the HTML import path) triggers tightening. The streaming path (`append_text_chunk`) inserts plain text with no list formatting, so it doesn't need it.
 
+---
+
+### 11. Future: Incremental HTML Stripping During Streaming
+
+#### Motivation
+
+During streaming the user sees raw HTML tags in the sidebar because `append_text_chunk` inserts text verbatim. Unlike Markdown -- where formatting markers are one or two characters (`**`, `_`, `` ` ``) and easy to ignore at a glance -- HTML tags are verbose and visually dominant. A response like:
+
+```
+<ul><li><strong>First point</strong> — some explanation</li><li>Second point</li></ul>
+```
+
+is significantly harder to read mid-stream than the equivalent Markdown:
+
+```
+- **First point** — some explanation
+- Second point
+```
+
+The tags consume a large fraction of the visible sidebar width and break reading flow, especially `<strong>`, `</strong>`, `<table>`, `<tr>`, `<td>`, `<ul>`, `<li>`, and `<br/>`. The problem is worse in the narrow sidebar than it would be in a full-width editor.
+
+The current architecture addresses this by re-rendering the entire session through `append_rich_text` (with full HTML import via Writer's filter) after streaming completes. This produces the correct final result, but during the stream itself the user stares at raw HTML for seconds.
+
+#### Why We Are Not Doing It Yet
+
+1. **Chunk boundaries split tags.** A single `<strong>` can arrive as `<str` in one chunk and `ong>` in the next. Handling this correctly requires a stateful residue buffer carried across chunks -- essentially a mini tokenizer on the hot streaming path (main thread, inside the drain loop).
+
+2. **Tag-to-plaintext mapping is a design surface.** Stripping tags without replacement produces garbled text (`item oneitem two`). Producing readable output requires a mapping table (`<li>` → `- `, `<br>` → newline, `<p>` → double newline, `<strong>` → strip silently, etc.) and decisions about edge cases (nested lists, tables, attributes).
+
+3. **Risk of regressions in the streaming path.** The drain loop is latency-sensitive; adding per-chunk parsing could interact with batching (`BatchingStreamQueue`), scroll-to-bottom, and the rerender lifecycle in subtle ways.
+
+4. **The final result is already correct.** The rerender pass produces proper HTML-imported formatting. The incremental stripping would only improve the transient streaming display.
+
+#### Why It Is Worth Doing Eventually
+
+- The raw HTML is genuinely ugly and distracting -- it degrades the perceived quality of the product during the most visible phase (streaming).
+- The tag vocabulary is constrained. The system prompt instructs the LLM to use a known subset of HTML tags (the same ~12 families detected by `_HTML_TAG_RE`). This is not arbitrary HTML; it is a controlled vocabulary.
+- Formal verification and hypothesis testing can cover the chunk-boundary state machine thoroughly.
+- The `saw_html` flag accumulated during streaming can eliminate the regex detection pass in `append_rich_text` entirely -- a small but free optimization.
+
+#### Development Plan
+
+##### Phase 1: Stateful HTML tag stripper
+
+Build a `StreamingHtmlStripper` class (stdlib only) with:
+
+- **Input:** `feed(chunk: str) -> str` — accepts a raw chunk, returns cleaned text for display.
+- **State:** a small `residue` buffer (bytes after the last `>`, or an incomplete `<...` at chunk end). Bounded because tag names are short (longest is `<strong>` at 8 chars + attributes).
+- **Tag detection:** reuse `_HTML_TAG_RE` (or a superset) to identify known tags within the combined `residue + chunk` buffer.
+- **Mapping table** (initial conservative set):
+
+| HTML | Plain-text replacement |
+|------|----------------------|
+| `<p>`, `</p>` | double newline |
+| `<br>`, `<br/>`, `<br />` | newline |
+| `<ul>`, `</ul>`, `<ol>`, `</ol>` | newline |
+| `<li>` | `- ` (or `* `) |
+| `</li>` | newline |
+| `<strong>`, `</strong>` | strip (bold is lost during streaming, restored at rerender) |
+| `<em>`, `</em>` | strip |
+| `<code>`, `</code>` | strip (or wrap in backticks) |
+| `<pre>`, `</pre>` | newline |
+| `<div>`, `</div>` | newline |
+| `<table>`, `</table>` | newline |
+| `<tr>`, `</tr>` | newline |
+| `<td>`, `</td>` | tab or ` | ` |
+| `<h1>`–`<h6>`, `</h1>`–`</h6>` | newline (heading lost during streaming) |
+| Unknown `<...>` inside known vocab | pass through unchanged (safe default) |
+
+- **`saw_html` property:** set to `True` on first tag match. Caller can read this after streaming completes.
+- **`reset()`** — clear state between messages.
+
+##### Phase 2: Wire into the streaming path
+
+- In `_handle_chunk` (or at the `append_text_chunk` call site in `panel.py`), run `chunk = stripper.feed(chunk)` before inserting.
+- The stripper instance lives on the `SendButtonListener` (one per send, reset on new send).
+- After `STREAM_DONE` / `FINAL_DONE`, check `stripper.saw_html` and pass it to the rerender so `append_rich_text` can skip the regex.
+
+##### Phase 3: Testing
+
+- **Unit tests for `StreamingHtmlStripper`:**
+  - Single-chunk cases (tag fully within one chunk).
+  - Split-tag cases (`<str` + `ong>text</strong>`).
+  - Residue carry across 3+ chunks.
+  - All mapping table entries.
+  - Unknown tags pass through.
+  - Empty chunks, whitespace-only chunks.
+  - Mixed HTML and plain text in one chunk.
+  - `saw_html` flag transitions.
+- **Hypothesis / property-based tests:**
+  - For any HTML string `s`, splitting `s` at arbitrary positions and feeding chunks through the stripper produces the same output as feeding `s` in one shot.
+  - The `saw_html` flag is True iff `_HTML_TAG_RE` matches the concatenation of all chunks.
+- **Integration test:** mock a streaming session, verify the embedded doc content matches expected plain-text during streaming, then verify rerender produces correct HTML-formatted output.
+
+##### Phase 4: Edge cases and polish
+
+- Handle `<tag attr="value">` — strip the entire tag including attributes (regex `<tag[^>]*>`).
+- Handle self-closing variants (`<br/>`, `<br />`, `<hr/>`).
+- Consider whether `<a href="...">text</a>` should show `text` or `text (url)`.
+- Tune the newline collapsing (avoid triple/quadruple newlines from `</li></ul></div>` sequences).
+
