@@ -16,11 +16,9 @@ from plugin.writer.locale.grammar_work_queue import (
     record_enqueue_latest,
     run_llm_and_cache_batch,
     should_replace_for_key,
-    tail_enqueue_operation,
 )
-from plugin.writer.locale.grammar_proofread_text import NormalizedProofError, grammar_inflight_key
+from plugin.writer.locale.grammar_proofread_text import NormalizedProofError
 from unittest.mock import MagicMock, patch, ANY
-from dataclasses import asdict
 
 
 def _item(seq: int, key: str = "d|en-US|k1") -> GrammarWorkItem:
@@ -268,18 +266,25 @@ def test_record_enqueue_latest_detects_out_of_order() -> None:
     assert d2["d|en-US|k1"] == 5
 
 
-def test_tail_enqueue_operation() -> None:
-    a = _item(1)
-    b = _item(2)
-    c = _item(1, key="other")
-    assert tail_enqueue_operation(None, a) == "append"
-    assert tail_enqueue_operation(a, b) == "replace_tail"
-    assert tail_enqueue_operation(b, a) == "skip_tail"
-    assert tail_enqueue_operation(a, c) == "append"
+# NOTE (historical): test_tail_enqueue_operation and the entire Layer 1
+# "tail-replace under Queue mutex" mechanism were removed in the TD4
+# simplification pass. The drain-loop dict accumulator (this test) plus
+# deduplicate_grammar_batch + _latest_seq guards are now the complete story.
 
 
 def test_drain_loop_collapses_same_key_items_during_burst() -> None:
-    """Regression: during typing bursts the worker pulls items between keystrokes,
+    """Regression: the drain loop's batch_by_key accumulator is now the
+    *primary* (and, after removal of historical Layer 1 tail-replace, the
+    only enqueue-time-path-independent) mechanism that collapses same-key
+    items during rapid typing.
+
+    The worker drains so quickly that the queue is empty between keystrokes
+    in the common case; items that arrive while a previous batch is being
+    processed (or while the worker is blocked on get()) are collapsed here
+    using should_replace_for_key.  deduplicate_grammar_batch then acts as the
+    canonical safety net.
+
+    Historical note (old text for reference): during typing bursts the worker pulls items between keystrokes,
     so enqueue's tail-replace path cannot help \u2014 the queue is empty between
     each keystroke. The drain loop's accumulator must collapse same-key items
     as they arrive so the worker's batch holds only one item per inflight_key.

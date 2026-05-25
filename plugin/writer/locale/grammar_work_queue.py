@@ -8,22 +8,9 @@ Queue dedup / stale-suppression mental model
 =============================================
 
 The grammar queue must ensure that for any given ``inflight_key``, only the
-**newest** snapshot (highest ``enqueue_seq``) ever reaches the LLM.  Three
-independent layers enforce this invariant, each catching a scenario the others
-miss:
-
-**Layer 1 — Tail-replace at enqueue time** (``enqueue`` + ``tail_enqueue_operation``)
-
-    When a new item is enqueued, the queue mutex is acquired and the *last*
-    element of the internal deque is inspected.  If it shares the same
-    ``inflight_key`` and has a lower ``enqueue_seq``, it is overwritten
-    in-place (O(1)).  This collapses back-to-back keystrokes that arrive
-    before the worker thread wakes up and drains the queue.
-
-    *Blind spot*: If the worker already drained the queue between two
-    keystrokes (common during typing bursts — the worker pulls items within
-    microseconds), the queue is empty when the next enqueue arrives and there
-    is no tail to replace.
+**newest** snapshot (highest ``enqueue_seq``) ever reaches the LLM.  Two
+remaining layers (plus the ``_latest_seq`` generation map) enforce this
+invariant.  (A third Layer 1 "tail-replace" existed historically — see below.)
 
 **Layer 2 — Batch-drain dedup** (``_drain_loop`` dict accumulator + ``deduplicate_grammar_batch``)
 
@@ -53,6 +40,24 @@ miss:
     sentence cache, catching items superseded during the (possibly slow)
     HTTP round-trip.
 
+**Historical Layer 1 (removed)**
+
+    An earlier O(1) "tail-replace" lived in ``enqueue()``: it acquired
+    ``self._q.mutex`` and directly mutated ``self._q.queue[-1]`` when the
+    tail shared the same ``inflight_key`` and the incoming item had a higher
+    seq.  This was the classic "clever" bit (direct access to a ``Queue``'s
+    internal deque + ``unfinished_tasks`` / ``not_empty.notify()``).
+
+    It was removed because:
+    - The worker drains so quickly that the queue is *usually empty* on the
+      next enqueue during real typing bursts (the exact scenario the comment
+      in the old Layer 2 section called out).
+    - Layer 2 (the drain dict) + the canonical ``deduplicate_grammar_batch``
+      + Layer 3 (``_latest_seq`` guards, including the language-requeue path)
+      already provide complete protection.
+    - Removing it eliminates the highest-cognitive-load construct while
+      changing no observable behavior for squiggles, cache, or LLM calls.
+
 **``inflight_key`` design**
 
     Complete sentences: ``{doc_id}|{locale}|{hash(text)[:16]}``.  Unique
@@ -68,7 +73,8 @@ miss:
     A global monotonic counter (``next_enqueue_seq``), not a queue position.
     It records *when* a snapshot was created.  Queue FIFO only orders
     ``get()`` calls; ``enqueue_seq`` records supersede relationships across
-    batches, tail-replaces, and stale checks.
+    batches and stale checks (the old tail-replace path is no longer one of
+    them).
 """
 
 from __future__ import annotations
@@ -80,7 +86,7 @@ import time
 import collections
 from collections import defaultdict
 from dataclasses import asdict, dataclass, replace
-from typing import Any, Literal, Mapping
+from typing import Any, Mapping
 
 
 from . import (
@@ -240,9 +246,6 @@ def deduplicate_grammar_batch(batch: list[GrammarWorkItem]) -> list[GrammarWorkI
     return list(best_by_key.values())
 
 
-TailEnqueueOp = Literal["replace_tail", "append", "skip_tail"]
-
-
 def record_enqueue_latest(prev: dict[str, int], item: GrammarWorkItem) -> tuple[dict[str, int], bool, int | None]:
     """Return updated ``latest_seq``, whether incoming seq was out-of-order, and prior seq for logging."""
     key = item.inflight_key
@@ -267,17 +270,6 @@ def is_stale(latest_seq: Mapping[str, int], item: GrammarWorkItem) -> bool:
 def inflight_superseded(latest_seq: Mapping[str, int], inflight_key: str, enqueue_seq: int) -> bool:
     """True if ``enqueue_seq`` is older than the latest known generation for ``inflight_key``."""
     return _enqueue_seq_superseded_by_latest(latest_seq, inflight_key, enqueue_seq)
-
-
-def tail_enqueue_operation(tail: GrammarWorkItem | None, incoming: GrammarWorkItem) -> TailEnqueueOp:
-    """O(1) tail decision: replace newest same-key, append different key, or skip stale same-key."""
-    if tail is None:
-        return "append"
-    if tail.inflight_key != incoming.inflight_key:
-        return "append"
-    if incoming.enqueue_seq > tail.enqueue_seq:
-        return "replace_tail"
-    return "skip_tail"
 
 
 def should_replace_for_key(existing: GrammarWorkItem | None, incoming: GrammarWorkItem) -> bool:
@@ -906,33 +898,27 @@ class GrammarWorkQueue:
             return inflight_superseded(self._latest_seq, inflight_key, enqueue_seq)
 
     def enqueue(self, item: GrammarWorkItem) -> None:
-        """Add a work item; starts the drain worker on first call."""
+        """Add a work item; starts the drain worker on first call.
+
+        Same-key deduplication for rapid typing is handled in two places:
+        - The Layer 2 ``batch_by_key`` dict inside ``_drain_loop`` (the primary
+          fast path — the worker drains so quickly that the queue is usually
+          empty on the next enqueue during bursts).
+        - The canonical pure ``deduplicate_grammar_batch`` (defense-in-depth)
+          plus the ``_latest_seq`` guards (Layer 3) for cross-batch and in-flight
+          supersedes (including language-detection requeues that mint a fresh
+          higher seq).
+        """
         with self._seq_lock:
             self._latest_seq, out_of_order, superseded_prev_seq = record_enqueue_latest(self._latest_seq, item)
             if out_of_order:
                 log.error("[grammar] queue enqueue: out-of-order seq detected for key=%s: incoming seq=%s < latest seq=%s; stale detection may be unreliable", item.inflight_key, item.enqueue_seq, superseded_prev_seq)
         grammar_obs("queue_enqueue", doc_id=item.doc_id, locale=item.grammar_bcp47, seq=item.enqueue_seq, inflight_key=item.inflight_key, slice_len=len(item.text), partial_sentence=item.partial_sentence, preview=slice_preview_debug(item.text))  # fmt: skip
 
-        with self._q.mutex:
-            # Note on same-key bursts: tail-replace only collapses items that are
-            # still in the queue. During a typing burst the drain worker pulls
-            # items into its batch within microseconds, so the queue is usually
-            # empty when the next enqueue arrives and same-key items still
-            # accumulate. Final collapse happens in ``_drain_loop`` via
-            # ``deduplicate_grammar_batch``.
-            tail = self._q.queue[-1] if self._q.queue else None
-            op = tail_enqueue_operation(tail, item)
-            if op == "replace_tail":
-                assert tail is not None
-                grammar_obs("queue_replace_tail", inflight_key=item.inflight_key, new_seq=item.enqueue_seq, old_seq=tail.enqueue_seq)
-                self._q.queue[-1] = item
-            elif op == "append":
-                self._q.queue.append(item)
-                self._q.unfinished_tasks += 1
-                self._q.not_empty.notify()
-            else:
-                grammar_obs("queue_skip_stale_tail", inflight_key=item.inflight_key, incoming_seq=item.enqueue_seq, existing_seq=tail.enqueue_seq if tail else None)
-
+        # Normal append.  (Historical Layer 1 "tail-replace" under _q.mutex was
+        # removed in the TD4 simplification pass because it was ineffective
+        # during the common rapid-drain burst case; see the module docstring.)
+        self._q.put(item)
         self._ensure_worker()
 
     def _ensure_worker(self) -> None:
@@ -950,10 +936,10 @@ class GrammarWorkQueue:
             if first is None:
                 break
             # Layer 2 fast path: collapse same-key items as they arrive instead
-            # of appending all then dedup-ing.  During typing bursts the worker
-            # pulls items in microseconds, so the queue is empty between
-            # keystrokes and Layer 1 tail-replace can't help — without this dict
-            # the batch routinely held 20+ identical INCOMPLETE keys.
+            # of appending all then dedup-ing.  This is now the *primary*
+            # dedup point for rapid typing (the historical Layer 1 tail-replace
+            # at enqueue time was removed because the worker drains so quickly
+            # that the queue is usually empty between keystrokes anyway).
             batch_by_key: dict[str, GrammarWorkItem] = {first.inflight_key: first}
             while True:
                 try:
@@ -967,9 +953,10 @@ class GrammarWorkQueue:
                     break
             batch = list(batch_by_key.values())
             grammar_obs("queue_drain_batch", batch_size=len(batch), seqs=tuple(x.enqueue_seq for x in batch), keys=tuple(x.inflight_key for x in batch))
-            # Canonical dedup (defense-in-depth — the dict above already did
-            # same-key newest-wins, but deduplicate_grammar_batch is the single
-            # source of truth for the dedup contract).
+            # Canonical dedup (defense-in-depth — the drain dict already did
+            # same-key newest-wins for this batch, but deduplicate_grammar_batch
+            # is the single source of truth for the dedup contract and is also
+            # used by unit tests and any external caller).
             survivors = deduplicate_grammar_batch(batch)
             grammar_obs("queue_drain_survivors", survivor_count=len(survivors), seqs=tuple(x.enqueue_seq for x in survivors))
 
