@@ -106,6 +106,13 @@ config:
   #   label: API Auth Token
   #   helper: "Optional Bearer token for researchers/external apps. Empty = no auth."
 
+  rich_text_sidebar:
+    type: boolean
+    default: false
+    widget: checkbox
+    label: Rich Text Chat Sidebar
+    helper: "Use embedded Writer document for chat display (requires restart)"
+
   query_history:
     type: string
     default: "[]"

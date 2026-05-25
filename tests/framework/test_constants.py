@@ -42,9 +42,11 @@ def test_get_chat_system_prompt_for_document_writer():
     model = MagicMock()
     model.supportsService.return_value = False
     prompt = get_chat_system_prompt_for_document(model)
-    from plugin.framework.constants import DEFAULT_CHAT_SYSTEM_PROMPT
-    assert prompt == DEFAULT_CHAT_SYSTEM_PROMPT
-    assert get_chat_system_prompt_for_document(model, "extra") == DEFAULT_CHAT_SYSTEM_PROMPT + "\n\nextra"
+    from plugin.framework.constants import CHAT_RESPONSE_FORMAT
+    # With ctx=None, rich_text_sidebar defaults to False so HTML format is replaced with plain-text instruction
+    assert CHAT_RESPONSE_FORMAT not in prompt
+    assert "plain text only" in prompt
+    assert "LibreOffice Writer assistant" in prompt
 
 
 def test_writer_chat_prompt_opens_with_persona_and_color_guidance():
@@ -71,9 +73,10 @@ def test_get_chat_system_prompt_for_document_calc():
         return service == "com.sun.star.sheet.SpreadsheetDocument"
     model.supportsService.side_effect = supportsService
     prompt = get_chat_system_prompt_for_document(model)
-    from plugin.framework.constants import DEFAULT_CALC_CHAT_SYSTEM_PROMPT
-    assert prompt == DEFAULT_CALC_CHAT_SYSTEM_PROMPT
-    assert get_chat_system_prompt_for_document(model, "extra") == DEFAULT_CALC_CHAT_SYSTEM_PROMPT + "\n\nextra"
+    from plugin.framework.constants import CHAT_RESPONSE_FORMAT
+    assert CHAT_RESPONSE_FORMAT not in prompt
+    assert "plain text only" in prompt
+    assert "Calc" in prompt
 
 def test_get_chat_system_prompt_for_document_draw():
     model = MagicMock()
@@ -81,9 +84,10 @@ def test_get_chat_system_prompt_for_document_draw():
         return service in ("com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument")
     model.supportsService.side_effect = supportsService
     prompt = get_chat_system_prompt_for_document(model)
-    from plugin.framework.constants import DEFAULT_DRAW_CHAT_SYSTEM_PROMPT
-    assert prompt == DEFAULT_DRAW_CHAT_SYSTEM_PROMPT
-    assert get_chat_system_prompt_for_document(model, "extra") == DEFAULT_DRAW_CHAT_SYSTEM_PROMPT + "\n\nextra"
+    from plugin.framework.constants import CHAT_RESPONSE_FORMAT
+    assert CHAT_RESPONSE_FORMAT not in prompt
+    assert "plain text only" in prompt
+    assert "Draw" in prompt
 
 
 def test_get_core_directives_writer():

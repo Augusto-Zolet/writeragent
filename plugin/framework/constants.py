@@ -485,6 +485,11 @@ def get_chat_system_prompt_for_document(model, additional_instructions="", ctx=N
         if not DEFAULT_CHAT_SYSTEM_PROMPT:
             DEFAULT_CHAT_SYSTEM_PROMPT = base
 
+    from plugin.framework.config import get_config_bool_safe
+
+    if not get_config_bool_safe(ctx, "rich_text_sidebar", default=False):
+        base = base.replace(CHAT_RESPONSE_FORMAT, "CHAT RESPONSE FORMAT: Respond in plain text only. Do NOT use HTML tags or Markdown formatting (no #, **, ```, etc.).")
+
     if ctx:
         try:
             from plugin.chatbot.memory import MemoryStore

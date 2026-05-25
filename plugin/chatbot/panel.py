@@ -344,6 +344,7 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         self.embedded_doc = None
         self.embedded_frame = None
         self.embedded_container = None
+        self._cached_scrollbar = None
         if HAS_RECORDING:
             assert _AudioRecorderCls is not None
             self.audio_recorder = _AudioRecorderCls()
@@ -373,6 +374,7 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         self.embedded_doc = doc
         self.embedded_frame = frame
         self.embedded_container = container
+        self._cached_scrollbar = None
         log.info("SendButtonListener: Rich text mode enabled (embedded Writer doc)")
 
     def rerender_rich_text_session(self):
@@ -386,20 +388,38 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         try:
             from plugin.chatbot.rich_text import append_rich_text
             from plugin.framework.constants import get_greeting_for_document
+            from plugin.chatbot.tool_loop_state import is_delegate_gateway, format_delegate_running_chat_line
 
+            auto_scroll = self._should_auto_scroll()
             self.embedded_doc.getText().setString("")
             model = self._get_document_model()
             greeting = get_greeting_for_document(model) if model else ""
             if greeting:
-                append_rich_text(self.embedded_doc, greeting, role="assistant")
+                append_rich_text(self.embedded_doc, greeting, role="assistant", auto_scroll=auto_scroll)
             for msg in self.session.messages:
                 r = msg.get("role", "")
                 content = msg.get("content", "")
                 if r == "user":
                     if isinstance(content, str):
-                        append_rich_text(self.embedded_doc, content, role="user")
-                elif r == "assistant" and content:
-                    append_rich_text(self.embedded_doc, content, role="assistant")
+                        append_rich_text(self.embedded_doc, content, role="user", auto_scroll=auto_scroll)
+                elif r == "assistant":
+                    tool_calls = msg.get("tool_calls")
+                    if tool_calls:
+                        for tc in tool_calls:
+                            func = tc.get("function", {})
+                            func_name = func.get("name", "")
+                            try:
+                                import json
+                                func_args = json.loads(func.get("arguments", "{}")) if isinstance(func.get("arguments"), str) else func.get("arguments", {})
+                            except Exception:
+                                func_args = {}
+                            if is_delegate_gateway(func_name):
+                                line = format_delegate_running_chat_line(func_args)
+                            else:
+                                line = f"[{func_name}]\n"
+                            append_rich_text(self.embedded_doc, line, role="assistant", auto_scroll=auto_scroll)
+                    if content:
+                        append_rich_text(self.embedded_doc, content, role="assistant", auto_scroll=auto_scroll)
         except Exception:
             log.exception("rerender_rich_text_session failed")
 
@@ -635,24 +655,47 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
             if isinstance(e, (DisposedException, RuntimeException, UnoException)):
                 log.debug("_scroll_response_to_bottom failed (likely disposed): %s", e)
 
+    def _get_scrollbar(self):
+        """Return the cached scrollbar accessible, finding it on first call."""
+        if self._cached_scrollbar is None and self.embedded_frame:
+            from plugin.chatbot.rich_text import find_vertical_scrollbar
+            self._cached_scrollbar = find_vertical_scrollbar(self.embedded_frame)
+            if self._cached_scrollbar:
+                log.debug("_get_scrollbar: found vertical scrollbar accessible")
+            else:
+                log.debug("_get_scrollbar: scrollbar not found in accessible tree")
+        return self._cached_scrollbar
+
+    def _should_auto_scroll(self):
+        """Check scrollbar position once and return a boolean decision."""
+        from plugin.chatbot.rich_text import is_scrolled_to_bottom
+        scrollbar = self._get_scrollbar()
+        result = is_scrolled_to_bottom(scrollbar)
+        if not result:
+            log.debug("_should_auto_scroll: user scrolled up, skipping auto-scroll")
+        return result
+
     def _append_response(self, text, is_thinking=False, role="assistant"):
         """Append text to the response area (supports rich text if embedded_doc is ready)."""
         try:
             if self.embedded_doc:
+                auto_scroll = self._should_auto_scroll()
                 if role == "user":
                     from plugin.chatbot.rich_text import append_rich_text
-                    self.queue_executor.post(append_rich_text, self.embedded_doc, text, role="user")
+                    self.queue_executor.post(append_rich_text, self.embedded_doc, text, role="user", auto_scroll=auto_scroll)
                 else:
                     from plugin.chatbot.rich_text import append_text_chunk
-                    self.queue_executor.post(append_text_chunk, self.embedded_doc, text)
+                    self.queue_executor.post(append_text_chunk, self.embedded_doc, text, auto_scroll=auto_scroll)
                 return
 
             if self.response_control and self.response_control.getModel():
                 from plugin.chatbot.dialogs import get_control_text, set_control_text
 
+                should_scroll = self._should_auto_scroll()
                 current = get_control_text(self.response_control) or ""
                 set_control_text(self.response_control, current + text)
-                self._scroll_response_to_bottom()
+                if should_scroll:
+                    self._scroll_response_to_bottom()
         except Exception as e:
             from com.sun.star.lang import DisposedException
             from com.sun.star.uno import RuntimeException, Exception as UnoException

@@ -27,6 +27,73 @@ ASSISTANT_COLOR = 0x000000
 
 _EMBEDDING_STARTED = set()
 
+# Threshold in scrollbar units — if within this many units of max, treat as "at bottom"
+_SCROLL_BOTTOM_THRESHOLD = 10
+
+
+def find_vertical_scrollbar(frame):
+    """Navigate the accessible tree of an embedded frame to find the vertical scrollbar.
+
+    Returns the accessible object supporting XAccessibleValue, or None.
+    The caller should cache the result to avoid repeated tree traversal.
+    """
+    try:
+        from com.sun.star.accessibility import AccessibleRole
+
+        comp_window = frame.getComponentWindow()
+        if not comp_window:
+            log.debug("find_vertical_scrollbar: no component window")
+            return None
+        accessible = comp_window.getAccessible()
+        if not accessible:
+            log.debug("find_vertical_scrollbar: no accessible on component window")
+            return None
+        ctx = accessible.getAccessibleContext()
+        top_count = ctx.getAccessibleChildCount()
+        log.debug("find_vertical_scrollbar: top-level accessible has %d children", top_count)
+        for top_idx in range(top_count):
+            top_child = ctx.getAccessibleChild(top_idx)
+            top_ctx = top_child.getAccessibleContext()
+            child_count = top_ctx.getAccessibleChildCount()
+            log.debug("find_vertical_scrollbar: child[%d] has %d sub-children, role=%s name=%r", top_idx, child_count, top_ctx.getAccessibleRole(), top_ctx.getAccessibleName())
+            for i in range(child_count):
+                child = top_ctx.getAccessibleChild(i)
+                child_ctx = child.getAccessibleContext()
+                role = child_ctx.getAccessibleRole()
+                name = child_ctx.getAccessibleName()
+                if role == AccessibleRole.SCROLL_BAR:
+                    log.debug("find_vertical_scrollbar: found SCROLL_BAR at [%d][%d] name=%r", top_idx, i, name)
+                    try:
+                        val = child.getCurrentValue()
+                        max_val = child.getMaximumValue()
+                        log.debug("find_vertical_scrollbar: current=%s max=%s", val, max_val)
+                        return child
+                    except AttributeError:
+                        log.debug("find_vertical_scrollbar: SCROLL_BAR has no getCurrentValue")
+                        continue
+    except Exception as e:
+        log.debug("find_vertical_scrollbar: %s", e)
+    log.debug("find_vertical_scrollbar: no scrollbar found")
+    return None
+
+
+def is_scrolled_to_bottom(scrollbar_accessible):
+    """Check if the scrollbar is at or near its maximum (bottom).
+
+    Returns True if at bottom or if the state cannot be determined (safe default).
+    """
+    if scrollbar_accessible is None:
+        return True
+    try:
+        current = scrollbar_accessible.getCurrentValue()
+        maximum = scrollbar_accessible.getMaximumValue()
+        at_bottom = current >= maximum - _SCROLL_BOTTOM_THRESHOLD
+        log.debug("is_scrolled_to_bottom: current=%s max=%s -> %s", current, maximum, at_bottom)
+        return at_bottom
+    except Exception as e:
+        log.debug("is_scrolled_to_bottom: exception reading scrollbar: %s", e)
+        return True
+
 class EmbeddedWriterListener(BaseWindowListener):
     """Wait for the sidebar window to be shown (realized) before embedding Writer."""
     
@@ -281,14 +348,18 @@ def _insert_html_at_cursor(doc, cursor, html_fragment):
                 pass
 
 
-def append_rich_text(doc, text, role="assistant"):
+def append_rich_text(doc, text, role="assistant", auto_scroll=True):
     """Append a complete message to the embedded Writer document.
 
     Inserts a bold, colored role prefix (``You:`` / ``Assistant:``) then
     imports *text* as HTML via Writer's StarWriter HTML filter so that
     ``<strong>``, ``<em>``, ``<code>``, ``<ul>`` etc. render natively.
+
+    If *auto_scroll* is False, the view is not moved after inserting content.
     """
     try:
+        should_scroll = auto_scroll
+
         text_obj = doc.getText()
         cursor = text_obj.createTextCursor()
         cursor.gotoEnd(False)
@@ -331,26 +402,33 @@ def append_rich_text(doc, text, role="assistant"):
             body_range.gotoRange(cursor.getStart(), True)
             body_range.CharColor = USER_COLOR if role == "user" else ASSISTANT_COLOR
 
-        controller = doc.getCurrentController()
-        if controller:
-            cursor.gotoEnd(False)
-            controller.select(cursor)
+        if should_scroll:
+            controller = doc.getCurrentController()
+            if controller:
+                cursor.gotoEnd(False)
+                controller.select(cursor)
 
     except Exception as e:
         log.exception("Error in append_rich_text: %s", e)
 
 
-def append_text_chunk(doc, text):
-    """Append a plain-text chunk during streaming (no prefix, no HTML import)."""
+def append_text_chunk(doc, text, auto_scroll=True):
+    """Append a plain-text chunk during streaming (no prefix, no HTML import).
+
+    If *auto_scroll* is False, the view is not moved after inserting content.
+    """
     try:
+        should_scroll = auto_scroll
+
         text_obj = doc.getText()
         cursor = text_obj.createTextCursor()
         cursor.gotoEnd(False)
         cursor.CharColor = ASSISTANT_COLOR
         text_obj.insertString(cursor, text, False)
 
-        controller = doc.getCurrentController()
-        if controller:
-            controller.select(cursor)
+        if should_scroll:
+            controller = doc.getCurrentController()
+            if controller:
+                controller.select(cursor)
     except Exception as e:
         log.exception("Error in append_text_chunk: %s", e)

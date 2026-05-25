@@ -251,39 +251,42 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):
         log.warning("extension update check schedule failed: %s", e)
 
     # 7. Rich Text Sidebar Initialization (Lazy Peer Solution)
-    # Register XWindowListener to wait for root_window to be shown (peer realized)
-    try:
-        from plugin.chatbot.rich_text import EmbeddedWriterListener
+    # Only enabled when rich_text_sidebar is set in config; requires LO restart to change.
+    from plugin.framework.config import get_config_bool_safe
 
-        def on_rich_text_ready(doc, frame, container):
-            log.info("Rich text ready callback triggered")
-            self.embedded_doc = doc
-            self.embedded_frame = frame
-            self.embedded_container = container
-            if hasattr(self, "send_listener") and self.send_listener:
-                self.send_listener.set_embedded_doc(doc, frame, container)
+    if get_config_bool_safe(self.ctx, "rich_text_sidebar", default=False):
+        try:
+            from plugin.chatbot.rich_text import EmbeddedWriterListener
 
-            # Hide the plain-text response control and label
-            try:
-                from plugin.chatbot.dialogs import set_control_visible
+            def on_rich_text_ready(doc, frame, container):
+                log.info("Rich text ready callback triggered")
+                self.embedded_doc = doc
+                self.embedded_frame = frame
+                self.embedded_container = container
+                if hasattr(self, "send_listener") and self.send_listener:
+                    self.send_listener.set_embedded_doc(doc, frame, container)
 
-                if controls.get("response"):
-                    set_control_visible(controls["response"], False)
-                if controls.get("response_label"):
-                    set_control_visible(controls["response_label"], False)
-            except Exception:
-                log.debug("Failed to hide response controls")
+                # Hide the plain-text response control and label
+                try:
+                    from plugin.chatbot.dialogs import set_control_visible
 
-            # Initial render into the new rich-text document
-            try:
-                log.debug("Performing initial rich-text render")
-                nonlocal web_checked, model, active_greeting
-                self._render_session_history(self.session, controls["response"], model, active_greeting)
-            except Exception as e:
-                log.error("Initial rich-text render failed: %s", e)
+                    if controls.get("response"):
+                        set_control_visible(controls["response"], False)
+                    if controls.get("response_label"):
+                        set_control_visible(controls["response_label"], False)
+                except Exception:
+                    log.debug("Failed to hide response controls")
 
-        rich_listener = EmbeddedWriterListener(self.ctx, root_window, controls["response"], on_rich_text_ready)
-        root_window.addWindowListener(rich_listener)
-        log.debug("EmbeddedWriterListener added to root_window")
-    except Exception as e:
-        log.error("Rich text initialization setup failed: %s", e)
+                # Initial render into the new rich-text document
+                try:
+                    log.debug("Performing initial rich-text render")
+                    nonlocal web_checked, model, active_greeting
+                    self._render_session_history(self.session, controls["response"], model, active_greeting)
+                except Exception as e:
+                    log.error("Initial rich-text render failed: %s", e)
+
+            rich_listener = EmbeddedWriterListener(self.ctx, root_window, controls["response"], on_rich_text_ready)
+            root_window.addWindowListener(rich_listener)
+            log.debug("EmbeddedWriterListener added to root_window")
+        except Exception as e:
+            log.error("Rich text initialization setup failed: %s", e)
