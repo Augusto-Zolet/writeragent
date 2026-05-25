@@ -71,7 +71,7 @@ Same framing idea as [`worker_harness.py`](../plugin/scripting/worker_harness.py
   ```
   - **Why:** `pywebview` requires a GUI driver. While it can use system GTK, a venv often cannot see system bindings. `PyQt6` + `WebEngine` provides a self-contained Chromium-based browser engine. `qtpy` is a mandatory shim for the `pywebview` Qt driver.
 - **Linux GUI:** child inherits `DISPLAY`, `WAYLAND_DISPLAY`, `XDG_RUNTIME_DIR`, `DBUS_SESSION_BUS_ADDRESS`, `LD_LIBRARY_PATH` from the LO process. Optional `WRITERAGENT_PYWEBVIEW_GUI=qt|gtk` for [`editor_main.py`](../plugin/scripting/editor_main.py).
-- **Monaco:** vendored under `assets/editor/vs/` (~14MB); refresh with [`scripts/fetch_monaco_editor.sh`](../scripts/fetch_monaco_editor.sh).
+- **Monaco:** vendored under `assets/editor/vs/` (python-only prune + Terser; typically ~4–5 MB on disk). Refresh: `make fetch-monaco` ([`scripts/fetch_monaco_editor.sh`](../scripts/fetch_monaco_editor.sh)). Re-strip comments anytime: `make minify-editor-js` ([`scripts/minify_editor_js.sh`](../scripts/minify_editor_js.sh); requires Node.js).
 - **`jedi`** (session 2+): optional, persistent `Environment` in child — see below.
 
 **Note:** [`python_runner.py`](../plugin/scripting/python_runner.py) still offers a native multiline dialog for other flows (e.g. **Run Python Script…**). The Calc Monaco menu does **not** fall back to that dialog when pywebview is missing—it explains how to fix the configured venv instead.
@@ -330,7 +330,7 @@ flowchart TD
 
 1. **Auto-close on Save?** LP keeps editor open; WriterAgent today shows “Saved.” — default stay open; optional setting later.
 2. **Multiple editor windows?** Session singleton forbids two — enough for now; multi-cell edit is rare.
-3. **Monaco bundle size (~14MB):** acceptable in OXT vs download-on-first-use — current bundle-in-OXT is correct for offline; document `fetch_monaco_editor.sh` in release notes.
+3. **Monaco bundle size:** pruned python-only tree (~4–5 MB) is bundled in OXT for offline use; `make fetch-monaco` / `make minify-editor-js` documented in release notes when refreshing Monaco.
 4. **Validate in child with `ast.parse` instead of LO?** Faster but diverges from worker `compile` mode — prefer LO for consistency unless latency forces child-side AST-only pass first.
 
 ---
