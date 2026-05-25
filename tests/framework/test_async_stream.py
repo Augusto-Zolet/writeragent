@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 import queue
 import time
-from plugin.framework.async_stream import StreamQueueKind, run_stream_drain_loop
+from plugin.framework.async_stream import StreamQueueKind, run_stream_drain_loop, BatchingStreamQueue
 from plugin.framework.worker_pool import run_in_background
 
 class DummyToolkit:
@@ -676,3 +676,75 @@ class TestAsyncStreamErrorHandling():
         error_payload = on_error.call_args[0][0]
         assert (error_payload['status'] == 'error')
         assert ('Processing failed' in error_payload['message'])
+
+
+# --- BatchingStreamQueue tests (producer-side 250 ms smoothing) ---
+
+def test_batching_stream_queue_basic_join_and_flush():
+    """CHUNK deltas are accumulated and emitted as a single joined string on explicit flush."""
+    raw = queue.Queue()
+    bq = BatchingStreamQueue(raw, batch_interval=0.25)
+
+    bq.put((StreamQueueKind.CHUNK, "Hello "))
+    bq.put((StreamQueueKind.CHUNK, "world"))
+    assert raw.empty(), "no emission until flush or timer"
+
+    bq.flush()
+
+    item = raw.get_nowait()
+    assert item == (StreamQueueKind.CHUNK, "Hello world")
+    assert raw.empty()
+
+    # THINKING joins separately
+    bq.put((StreamQueueKind.THINKING, "[thinking]"))
+    bq.flush()
+    item2 = raw.get_nowait()
+    assert item2 == (StreamQueueKind.THINKING, "[thinking]")
+
+
+def test_batching_stream_queue_auto_flush_on_boundary():
+    """Putting a control item forces immediate flush of any pending display text."""
+    raw = queue.Queue()
+    bq = BatchingStreamQueue(raw, batch_interval=10.0)  # long interval so only explicit/auto-boundary triggers
+
+    bq.put((StreamQueueKind.CHUNK, "part1"))
+    bq.put((StreamQueueKind.CHUNK, "part2"))
+    bq.put((StreamQueueKind.STREAM_DONE, None))  # boundary
+
+    # The boundary put should have caused the joined CHUNK to be emitted first
+    first = raw.get_nowait()
+    assert first == (StreamQueueKind.CHUNK, "part1part2")
+    second = raw.get_nowait()
+    assert second == (StreamQueueKind.STREAM_DONE, None)
+    assert raw.empty()
+
+
+def test_batching_stream_queue_callbacks():
+    """The content_cb / thinking_cb helpers feed the batcher."""
+    raw = queue.Queue()
+    bq = BatchingStreamQueue(raw, batch_interval=0.25)
+
+    cb = bq.content_cb()
+    cb("a")
+    cb("b")
+    bq.flush()
+
+    assert raw.get_nowait() == (StreamQueueKind.CHUNK, "ab")
+
+
+def test_batching_stream_queue_timer_emission(monkeypatch):
+    """Timer fires and emits after the interval even without further puts (simulated)."""
+    raw = queue.Queue()
+    bq = BatchingStreamQueue(raw, batch_interval=0.05)
+
+    bq.put((StreamQueueKind.CHUNK, "delayed"))
+
+    # Force the timer callback to run immediately for the test
+    # (real Timer would fire after 50 ms)
+    if bq._timer is not None:
+        bq._timer.cancel()
+    bq._timer_flush()  # direct call simulates expiry
+
+    item = raw.get_nowait()
+    assert item == (StreamQueueKind.CHUNK, "delayed")
+    assert raw.empty()

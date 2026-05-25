@@ -16,6 +16,7 @@ References: OpenAI [Streaming](https://platform.openai.com/docs/api-reference/st
 6. [Implementation: Streaming deltas](#6-implementation-streaming-deltas)
 7. [Error Handling and UI Threading](#7-error-handling-and-ui-threading)
 8. [Parallel Tool Calling](#8-parallel-tool-calling)
+9. [Producer-Side Batching of Display Text & Global Audit (2026-05)](#9-producer-side-batching-of-display-text--global-audit-2026-05)
 
 ---
 
@@ -310,6 +311,138 @@ Tests: [`tests/framework/test_send_cancellation.py`](../tests/framework/test_sen
 #### Related threading rule
 
 Sub-agents must not run long HTTP on the main thread; [`delegate_read_document`](../plugin/doc/document_research_specialized.py) opens/closes on the main thread only and runs the inner read agent on the async worker.
+
+## 9. Producer-Side Batching of Display Text & Global Audit (2026-05)
+
+> **Scope note (added 2026-05-25):** This section documents the **producer-side 250 ms batching** feature for chat display text (`CHUNK` and `THINKING` items) and, crucially, exactly what was left as deliberate future work under the "global audit" bucket.
+
+### Why producer-side batching was introduced
+
+During streaming (especially rich-text sidebar), the background LLM reader thread (and other producers) were emitting very small `CHUNK` deltas — sometimes a few characters or even single characters at a time — at the natural cadence of the SSE stream (often every 30–80 ms).
+
+Each such item:
+
+1. Crosses the queue boundary.
+2. Wakes the main-thread drain loop (`run_stream_drain_loop` in `async_stream.py`).
+3. Triggers `apply_chunk_fn` (ultimately `append_text_chunk` or `append_rich_text`).
+4. Causes one or more `toolkit.processEventsToIdle()` calls plus `scroll_to_bottom` work in the rich-text path.
+
+The net visual effect for the user was **micro-stutter** during long assistant answers: the sidebar would repaint/relayout far more often than necessary.
+
+**Design decision (user direction 2026-05-25, refined same day):**
+
+- Do **not** touch the consumer-side drain loop timeout (still `0.1 s`).
+- Move batching to the **producer** (network reader thread) with a *hard 250 ms deadline from the first fragment of each burst* (i.e. "send data every 250 ms max, or when done").
+  Downstream code receives one larger joined string no later than 250 ms after the first tiny delta of a burst, while still coalescing rapid fragments. A boundary item (STREAM_DONE etc.) forces immediate emission even if the 250 ms window has not yet elapsed.
+- This is a pure smoothing / UX win orthogonal to the still-open question of reliable visual auto-scroll in the rich-text sidebar.
+
+### The `BatchingStreamQueue` contract (the single source of truth)
+
+See the full class and docstring in [`plugin/framework/async_stream.py`](../plugin/framework/async_stream.py) (`BatchingStreamQueue`).
+
+Key guarantees the implementation provides:
+
+- **Simple append only.** Internal buffers are `list[str]`; each `put((CHUNK, delta))` or `put((THINKING, delta))` just does `buf.append(delta)`.
+- **Hard max-latency timer from first fragment ("every 250 ms max, or when done").** The *first* display delta that starts a new burst arms a one-shot `threading.Timer` for exactly `batch_interval` (default 0.25 s) measured from the arrival of that first fragment. Subsequent deltas during the same burst are simply appended to the buffer; they do **not** reset or postpone the deadline. When the timer fires we emit one joined string. This guarantees the consumer sees an update at least every 250 ms even during a very fast continuous stream from the model. No main-thread sleeps.
+- **One joined emission.** When the timer fires **or** `.flush()` is called, the batcher does a single `raw_q.put((StreamQueueKind.CHUNK, "".join(content_buf)))` (and the equivalent for THINKING), then clears the buffer. Downstream never sees the intermediate fragments.
+- **Strict flush-before-boundary discipline (the most important rule):**
+  Any non-display control item forces an immediate flush of any pending display text **before** the control item is forwarded:
+  - `STREAM_DONE`, `FINAL_DONE`, `ERROR`, `STOPPED`
+  - `APPROVAL_REQUIRED`
+  - `NEXT_TOOL`, `TOOL_DONE`, `TOOL_THINKING`, `TOOL_CALL`, `TOOL_RESULT`
+  - `STATUS` (and any other future control kinds)
+- Convenience factories: `.content_cb()` and `.thinking_cb()` so old `lambda t: q.put((CHUNK, t))` sites become one-liners with almost no diff.
+- The wrapper is transparent for code that still wants the raw `Queue`: `batched.raw` gives the underlying queue; the drain loop and most legacy sites continue to work unchanged.
+- `run_async_worker_with_drain` has defensive support: if you pass a `BatchingStreamQueue` as the `q` argument it will automatically flush on error paths and on the terminal sentinel, then post the sentinel on the real queue.
+
+### Current implemented scope (what *was* wired in the initial change)
+
+The **primary user-visible chat streaming path** was updated:
+
+- `plugin/chatbot/tool_loop.py`:
+  - `_start_tool_calling_async` creates both the raw queue (`_active_q`) **and** a `BatchingStreamQueue` wrapper (`_active_batched_q`).
+  - `_spawn_llm_worker` and `_spawn_final_stream` accept either a raw `Queue` or a `BatchingStreamQueue`. When the latter is supplied they use the `.content_cb()` / `.thinking_cb()` helpers (or the equivalent manual `batched.put(...)` + `batched.flush()` before every boundary put).
+  - All terminal / control puts in those two workers now do `if batched: batched.flush()` before emitting `STREAM_DONE`, `FINAL_DONE`, `STOPPED`, `ERROR`, etc.
+- `plugin/framework/async_stream.py`:
+  - The `BatchingStreamQueue` class itself.
+  - `run_async_worker_with_drain` was made batcher-aware so any code path that goes through the generic runner automatically gets correct flush-on-boundary + terminal behavior.
+- `tests/framework/test_async_stream.py`:
+  - Four new unit tests covering join-on-flush, auto-flush on boundary, the callback helpers, and simulated timer expiry.
+- Documentation:
+  - A short entry was added to `docs/rich-text-sidebar.md` (under the Active Roadmap) describing the 250 ms producer batching and noting that the consumer 0.1 s drain was left unchanged.
+  - This section (here) is the detailed permanent record.
+
+All of the above passed a full `make test` gate (ty + mypy + pyright + ruff + bandit + pytest + native UNO tests) with zero failures and zero unrelated changes.
+
+### What was deliberately left in the "global audit" bucket (future work)
+
+Per the implementation plan and the final status after the May 2025-25 change, the following items were **explicitly scoped out** of the initial delivery and marked as the "global audit" bucket. They remain open exactly as described in the todo list at the time of the change:
+
+1. **Full audit of every direct `CHUNK` / `THINKING` put site in the entire codebase**
+   - Not every background producer was converted.
+   - Places that still do raw `q.put((StreamQueueKind.CHUNK, text))` (or the THINKING equivalent) will continue to emit tiny fragments until they are either:
+     - Switched to use a `BatchingStreamQueue` wrapper for that send, **or**
+     - Wrapped with an ad-hoc flush discipline if they are one-off paths.
+   - Recommended search to start the audit:
+     ```bash
+     rg 'StreamQueueKind\.(CHUNK|THINKING)' --type py
+     ```
+   - Special attention areas called out in the plan:
+     - All paths in `plugin/chatbot/send_handlers.py` (direct web research, librarian mode, image generation results, approval flows, etc.).
+     - `plugin/agent_backend/acp_backend.py` and any other ACP / Hermes / CLI agent backends that emit display text.
+     - Any "last tiny terminator" or `last_streamed` accumulation patterns (the final `FINAL_DONE` payload must be preceded by a flush of the last real content batch).
+     - The rich-text-specific "1 character" + `_tighten_list_indent` path inside `append_rich_text` / `append_text_chunk` (see `rich_text.py`).
+
+2. **ACP backend and other non-LLM-stream producers**
+   - The ACP (Actor Context Protocol) path in `agent_backend/` can produce `CHUNK` / `THINKING` (and tool-related display items) on its own reader thread.
+   - These were left untouched in the initial rollout. They need the same wrapper + flush-before-boundary treatment (or an equivalent local batcher) if we want consistent 250 ms smoothing for Hermes-style agents.
+
+3. **Explicit rerender / clear flush coordination (panel.py)**
+   - `rerender_rich_text_session` (the method that does the big `setString('')` + re-HTML pass after streaming finishes) currently benefits *indirectly* because a normal completion always ends with a `STREAM_DONE` / `FINAL_DONE` which the batcher flushes.
+   - However, there is no *explicit* hand-off from the per-send batcher to the rerender path. If a future "mid-stream clear" or "switch to librarian mode while a send is still producing" scenario ever appears, the batcher buffer could still hold un-emitted text that would then be lost or appear after the clear.
+   - The plan item was: "in `panel.py`, before the `setString('')` in rerender and before the explicit rich-text clear path (~line 1186 at the time), ensure any in-flight producer batcher for the *current* send is flushed (coordinate via the active send scope or a sentinel)."
+   - This was left for the global audit.
+
+4. **Streaming fuzz test / frequency assertions (optional but valuable)**
+   - The existing streaming fuzz tests exercise the drain loop with many small items.
+   - A useful follow-up is to add assertions (or at least logging) that, when the producer is using a `BatchingStreamQueue`, the observed `CHUNK` frequency on the consumer side drops to roughly ≤ 4–5 items per second even for a very chatty model.
+   - Not required for correctness, but excellent for regression protection.
+
+5. **Making the batcher the default in more generic helpers**
+   - `run_stream_drain_loop` and the various `run_*_async` helpers still accept a raw `queue.Queue`.
+   - Some call sites create the queue themselves and could be updated to create a `BatchingStreamQueue` by default (with an opt-out for tests that want exact fragment timing).
+   - This is a nice-to-have polish item inside the same audit.
+
+6. **Any other "display text" producers that were added after the initial wiring**
+   - Grammar proofreader, realtime status, audio transcription feedback, future specialized tool result renderers, etc.
+   - Every new background producer that ever wants to show incremental text to the user should be taught the batcher + flush discipline from day one.
+
+### How to perform (or continue) the global audit
+
+1. Start with the grep above.
+2. For each site, answer:
+   - Is this inside a send that already has an `_active_batched_q` (or equivalent) in scope?
+   - If yes, change the put to go through the batcher (or the `.content_cb()`).
+   - If no (one-off path, test, or different send lifetime), either create a short-lived `BatchingStreamQueue` around the raw queue for that operation, or at minimum insert an explicit `batcher.flush()` immediately before every control/boundary item.
+3. Pay special attention to any place that does a "final tiny chunk" followed immediately by a terminal kind — that tiny chunk must be flushed.
+4. After changing a site, add or update a unit test that proves the flush-before-boundary behavior for that path.
+5. Update this section and the todo list in the original plan document when a sub-item is completed.
+
+### Cross references
+
+- Implementation: `plugin/framework/async_stream.py` (`BatchingStreamQueue`, the defensive bits in `run_async_worker_with_drain`)
+- Primary wiring: `plugin/chatbot/tool_loop.py` (`_active_batched_q`, `_spawn_llm_worker`, `_spawn_final_stream`)
+- Tests: `tests/framework/test_async_stream.py` (the four new batcher tests)
+- UX context & scroll work: `docs/rich-text-sidebar.md` (the 250 ms producer batching bullet under Active Roadmap)
+- Original plan / todo items: the conversation transcript and the todo list that existed at the moment the change landed (items such as `boundary-flush-audit`, `wire-acp-and-other-backends`, `flush-for-rerender-clear`, etc. were deliberately cancelled / marked "deferred to global audit" rather than completed).
+
+### Status summary (as of the change that added this section)
+
+- **Completed in the initial delivery:** Core class, generic runner support, primary LLM chat path (tool calling + final stream), basic unit tests, documentation hooks.
+- **Left open (global audit bucket):** Everything listed in the numbered items 1–6 above.
+- The decision to ship the primary-path win + the detailed "what remains" record here, rather than attempting a complete rollout in one PR, was explicit and user-approved.
+
+This section exists so that future developers (or a later focused pass) have a single, authoritative place that explains both the mechanism and the exact remaining surface area.
 
 # writeragent2 Threading Bug Fix: Why the "Background Thread" Was Actually Freezing/Crashing the UI
 

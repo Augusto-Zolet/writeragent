@@ -14,6 +14,20 @@ These are the priority tasks to resolve remaining layout quirks and implement ne
 *   **Solution:** Switched from `ShowOnlineLayout = True` to normal page layout with `ZoomType = PAGE_WIDTH`. In page mode, Writer's internal `SwEditWin::MakeVisible()` fires correctly when the view cursor moves across page boundaries, and `.uno:GoToEndOfDoc` triggers proper viewport scrolling. Page styled with zero margins and width matching the sidebar container so the visual result is seamless.
 *   **Files Changed:** `plugin/chatbot/rich_text.py` (`create_embedded_writer_doc` view settings, `scroll_to_bottom` simplified), `plugin/chatbot/panel.py` (`_get_scrollbar`, `_should_auto_scroll`, `_append_response` logging).
 
+### [x] Smoothing: 250 ms producer-side batching for streamed display text (2026-05)
+*   **Goal:** Reduce visual stutter / micro-updates during streaming (both plain-text and rich-text paths) without changing the consumer drain loop (still 0.1 s timeout).
+*   **Solution:** New `BatchingStreamQueue` wrapper (in `plugin/framework/async_stream.py`).
+    - Simple append into per-kind buffers (`CHUNK` / `THINKING`).
+    - Hard 250 ms deadline timer from the *first* fragment of a burst ("every 250 ms max, or when done"): later fragments in the same burst are appended but do not move the deadline. Boundary items force immediate flush.
+    - On timeout or explicit `.flush()`: emit **exactly one** joined string per kind to the underlying raw queue: `(StreamQueueKind.CHUNK, ''.join(buf))`.
+    - Any control/boundary item (STREAM_DONE, ERROR, STOPPED, APPROVAL_REQUIRED, TOOL_*, NEXT_TOOL, FINAL_DONE, etc.) forces an immediate flush first.
+    - Callers use the wrapper's `.content_cb()` / `.thinking_cb()` (drop-in replacements for the old `lambda t: q.put((CHUNK, t))`).
+*   **Primary path wired:** Main chat LLM streaming and final no-tool stream in `tool_loop.py` (via `_active_batched_q` + `_spawn_llm_worker` / `_spawn_final_stream`).
+*   **Secondary paths:** Direct puts in `send_handlers.py` (web research, librarian, image results, etc.) and `acp_backend.py` remain on the global audit list; the most important user-visible streaming (normal assistant answers) now benefits.
+*   **Flush discipline for rerender/clear:** `panel.py` rerender and sidebar-clear paths already benefit indirectly because terminal items (STREAM_DONE etc.) now flush; explicit coordination with the per-send batcher can be added later if a "mid-stream clear" race is ever observed.
+*   **Files Changed:** `plugin/framework/async_stream.py` (new class + defensive support in `run_async_worker_with_drain`), `plugin/chatbot/tool_loop.py`, `tests/framework/test_async_stream.py` (4 new unit tests), `docs/rich-text-sidebar.md`.
+*   **Consumer note:** The 0.1 s drain-loop timeout was deliberately left at its previous value; only the *producer* side now emits larger, less frequent lumps.
+
 ### [x] Task 2: Fix Bullets / List Spacing & Horizontal Indentation
 *   **Issue:** List bullets and numbered items took up far too much horizontal space, leaving text squished in the narrow sidebar.
 *   **Solution:** Post-process `NumberingRules` on newly inserted paragraphs only. See section 10 below for full details.

@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from plugin.framework.client.llm_client import LlmClient
     from plugin.chatbot.panel import ChatSession
 
-from plugin.framework.async_stream import run_stream_drain_loop, StreamQueueKind
+from plugin.framework.async_stream import run_stream_drain_loop, StreamQueueKind, BatchingStreamQueue
 from plugin.framework.logging import agent_log, update_activity_state
 from plugin.framework.client.errors import format_error_message, is_audio_unsupported_error
 from plugin.framework.config import (
@@ -78,6 +78,13 @@ log = logging.getLogger(__name__)
 
 # DEFAULT_MAX_TOOL_ROUNDS removed; now managed by WriterAgentConfig.chat_max_tool_rounds
 
+# Producer-side batch interval for streamed chat display text (CHUNK and THINKING items).
+# The BatchingStreamQueue uses a hard deadline measured from the *first* fragment
+# of each burst ("send data every N ms max, or when done" / flush on boundary).
+# Change this one constant to experiment with different smoothing cadences.
+# 0.25 = 250 ms (current recommended default for "leisurely but still alive" feel).
+CHAT_STREAM_BATCH_INTERVAL = 0.25  # seconds
+
 
 class ToolLoopHost(Protocol):
     ctx: Any
@@ -123,8 +130,8 @@ class ToolLoopHost(Protocol):
 
     # Mixin methods called on self
     def _start_tool_calling_async(self, client: "LlmClient", model: Any, max_tokens: int, tools: list[dict[str, Any]], execute_tool_fn: Callable[..., Any], max_tool_rounds: int | None = None, query_text: str | None = None) -> None: ...
-    def _spawn_llm_worker(self, q: "queue.Queue[Any]", client: "LlmClient", max_tokens: int, tools: list[dict[str, Any]], round_num: int, query_text: str | None = None) -> None: ...
-    def _spawn_final_stream(self, q: "queue.Queue[Any]", client: "LlmClient", max_tokens: int) -> None: ...
+    def _spawn_llm_worker(self, q: "queue.Queue[Any] | BatchingStreamQueue", client: "LlmClient", max_tokens: int, tools: list[dict[str, Any]], round_num: int, query_text: str | None = None) -> None: ...
+    def _spawn_final_stream(self, q: "queue.Queue[Any] | BatchingStreamQueue", client: "LlmClient", max_tokens: int) -> None: ...
     def _create_event_from_stream_item(self, item: Any) -> ToolLoopEvent | None: ...
     def _handle_stream_completion(self, item: Any) -> bool: ...
     def _handle_stream_stopped(self) -> None: ...
@@ -135,6 +142,9 @@ class ToolLoopHost(Protocol):
     def _refresh_active_tools_for_session(self) -> None: ...
     def _is_400_input_validation(self, err: Any) -> bool: ...
     def rerender_rich_text_session(self) -> None: ...
+
+    # Producer batcher for the current send (set in _start_tool_calling_async when batching is active)
+    _active_batched_q: "BatchingStreamQueue | None"
 
 
 class ToolCallingMixin:
@@ -418,60 +428,75 @@ class ToolCallingMixin:
         except Exception as e:
             log.warning("Failed to refresh active tools: %s", e)
 
-    def _spawn_llm_worker(self: ToolLoopHost, q: "queue.Queue[Any]", client: "LlmClient", max_tokens: int, tools: list[dict[str, Any]], round_num: int, query_text: str | None = None) -> None:
-        """Spawn a background thread that streams the LLM response into q."""
+    def _spawn_llm_worker(self: ToolLoopHost, q: "queue.Queue[Any] | BatchingStreamQueue", client: "LlmClient", max_tokens: int, tools: list[dict[str, Any]], round_num: int, query_text: str | None = None) -> None:
+        """Spawn a background thread that streams the LLM response into q (or the batcher's raw queue)."""
+        batched = q if isinstance(q, BatchingStreamQueue) else None
+        real_q = batched.raw if batched is not None else q
+
         update_activity_state("tool_loop", round_num=round_num)
         log.debug("Tool loop round %d: sending %d messages to API..." % (round_num, len(self.session.messages)))
         self._set_status("Thinking..." if round_num == 0 else "Thinking (round %d)..." % (round_num + 1))
+
         def run():
             try:
                 with llm_request_lane():
-                    response = client.stream_request_with_tools(self.session.messages, max_tokens, tools=tools, append_callback=lambda t: q.put((StreamQueueKind.CHUNK, t)), append_thinking_callback=lambda t: q.put((StreamQueueKind.THINKING, t)), stop_checker=self.resolve_stop_checker())
+                    response = client.stream_request_with_tools(
+                        self.session.messages, max_tokens, tools=tools,
+                        append_callback=(batched.content_cb() if batched else lambda t: real_q.put((StreamQueueKind.CHUNK, t))),
+                        append_thinking_callback=(batched.thinking_cb() if batched else lambda t: real_q.put((StreamQueueKind.THINKING, t))),
+                        stop_checker=self.resolve_stop_checker(),
+                    )
                 if self.stop_requested:
-                    q.put((StreamQueueKind.STOPPED,))
+                    if batched: batched.flush()
+                    real_q.put((StreamQueueKind.STOPPED,))
                 else:
                     update_activity_state("tool_loop", round_num=round_num)
-                    q.put((StreamQueueKind.STREAM_DONE, response))
+                    if batched: batched.flush()
+                    real_q.put((StreamQueueKind.STREAM_DONE, response))
             except Exception as e:
                 if isinstance(e, NetworkError):
                     log.exception("Tool loop round %d: NetworkError" % round_num)
                 else:
                     log.exception("Tool loop round %d: API ERROR" % round_num)
-                q.put((StreamQueueKind.ERROR, format_error_payload(e)))
+                if batched: batched.flush()
+                real_q.put((StreamQueueKind.ERROR, format_error_payload(e)))
 
         run_in_background(run, name=f"llm-worker-{round_num}")
 
-    def _spawn_final_stream(self: ToolLoopHost, q: "queue.Queue[Any]", client: "LlmClient", max_tokens: int) -> None:
-        """Spawn a background thread for a final no-tools stream into q."""
+    def _spawn_final_stream(self: ToolLoopHost, q: "queue.Queue[Any] | BatchingStreamQueue", client: "LlmClient", max_tokens: int) -> None:
+        """Spawn a background thread for a final no-tools stream into q (or the batcher's raw queue)."""
+        batched = q if isinstance(q, BatchingStreamQueue) else None
+        real_q = batched.raw if batched is not None else q
+
         update_activity_state("exhausted_rounds")
         self._set_status("Finishing...")
         self._append_response("\nAI: ")
 
         def run_final():
-            last_streamed = []
+            last_streamed: list[str] = []
             try:
-
-                def append_c(c):
-                    q.put((StreamQueueKind.CHUNK, c))
+                def append_c(c: str):
+                    (batched.content_cb() if batched else lambda t: real_q.put((StreamQueueKind.CHUNK, t)))(c)
                     last_streamed.append(c)
 
-                def append_t(t):
-                    q.put((StreamQueueKind.THINKING, t))
+                def append_t(t: str):
+                    (batched.thinking_cb() if batched else lambda t: real_q.put((StreamQueueKind.THINKING, t)))(t)
 
                 with llm_request_lane():
                     client.stream_chat_response(self.session.messages, max_tokens, append_c, append_t, stop_checker=self.resolve_stop_checker())
                 if self.stop_requested:
-                    q.put((StreamQueueKind.STOPPED,))
+                    if batched: batched.flush()
+                    real_q.put((StreamQueueKind.STOPPED,))
                 else:
-                    q.put((StreamQueueKind.FINAL_DONE, "".join(last_streamed)))
+                    if batched: batched.flush()
+                    real_q.put((StreamQueueKind.FINAL_DONE, "".join(last_streamed)))
             except Exception as e:
                 if isinstance(e, NetworkError):
                     log.error("Final stream NetworkError: %s", e)
                 else:
                     log.error("Final stream error: %s", e)
-                q.put((StreamQueueKind.ERROR, format_error_payload(e)))
-
-
+                if batched: batched.flush()
+                real_q.put((StreamQueueKind.ERROR, format_error_payload(e)))
 
         run_in_background(run_final, name="llm-worker-final")
 
@@ -516,7 +541,7 @@ class ToolCallingMixin:
         elif isinstance(effect, TriggerNextToolEffect):
             self._active_q.put((StreamQueueKind.NEXT_TOOL,))
         elif isinstance(effect, SpawnFinalStreamEffect):
-            self._spawn_final_stream(self._active_q, self._active_client, self._active_max_tokens)
+            self._spawn_final_stream(self._active_batched_q or self._active_q, self._active_client, self._active_max_tokens)
         elif isinstance(effect, UpdateDocumentContextEffect):
             try:
                 doc = self._get_document_model() if hasattr(self, "_get_document_model") else None
@@ -729,7 +754,11 @@ class ToolCallingMixin:
         self._sm_state = ToolLoopState(round_num=0, pending_tools=[], max_rounds=max_tool_rounds, status="Thinking...", async_tools=async_tools)
 
         try:
-            self._active_q: queue.Queue[Any] = queue.Queue()
+            raw_q: queue.Queue[Any] = queue.Queue()
+            self._active_q = raw_q
+            self._active_batched_q: BatchingStreamQueue | None = BatchingStreamQueue(
+                raw_q, batch_interval=CHAT_STREAM_BATCH_INTERVAL
+            )
             self._active_round_num = 0
             self._active_pending_tools = []
             self._active_async_tools = async_tools
@@ -763,9 +792,9 @@ class ToolCallingMixin:
 
             # --- Thinking display state (mirrors run_stream_drain_loop behavior) ---
 
-            # --- Kick off the first LLM stream ---
+            # --- Kick off the first LLM stream (producer batching at 250 ms) ---
             self._refresh_active_tools_for_session()
-            self._spawn_llm_worker(self._active_q, self._active_client, self._active_max_tokens, self._active_tools, self._active_round_num, query_text=self._active_query_text)
+            self._spawn_llm_worker(self._active_batched_q or self._active_q, self._active_client, self._active_max_tokens, self._active_tools, self._active_round_num, query_text=self._active_query_text)
 
             run_stream_drain_loop(
                 self._active_q,

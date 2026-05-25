@@ -26,6 +26,7 @@ from __future__ import annotations
 import json
 import logging
 import queue
+import threading
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, TypeAlias, Callable, cast
@@ -82,6 +83,143 @@ BlockingPumpQueueItem: TypeAlias = tuple[BlockingPumpKind, Any]
 def put_stream_queue_stopped(q: queue.Queue) -> None:
     """Enqueue a user-stopped signal. Always uses (kind, payload); do not use a 1-tuple."""
     q.put((StreamQueueKind.STOPPED, None))
+
+
+class BatchingStreamQueue:
+    """Producer-side batcher for chat display text (CHUNK / THINKING).
+
+    Intended to be created in the background reader thread (LLM streaming loop,
+    web research, librarian, ACP backends, etc.). Callers that produce small
+    display deltas should feed them through this wrapper (via .put() or the
+    convenience callbacks returned by content_cb() / thinking_cb()).
+
+    Contract (per user direction 2026-05-25, refined 2026-05-25):
+    - Simple append: internal buffers just do buf.append(delta).
+    - **Hard 250 ms max latency ("every 250 ms max, or when done")**:
+      The *first* display delta that starts a new burst arms a one-shot timer
+      for exactly `batch_interval` (default 0.25 s) from the moment that first
+      fragment arrived. Subsequent deltas during the burst are appended but
+      do *not* push the deadline. When the timer fires we emit exactly one
+      joined string. This guarantees the UI sees an update at least every
+      250 ms during a long fast stream.
+    - Explicit `.flush()`, or any control/boundary item (STREAM_DONE, ERROR,
+      STOPPED, APPROVAL_REQUIRED, TOOL_*, NEXT_TOOL, FINAL_DONE, etc.),
+      also causes immediate emission of whatever has accumulated so far
+      (and cancels the pending timer).
+    - No main-thread sleeps. All timer work happens in the producer thread(s).
+    - The consumer-side drain loop timeout (currently 0.1 s) is left unchanged.
+
+    Typical usage:
+        raw_q = queue.Queue()
+        batched = BatchingStreamQueue(raw_q)
+        ...
+        # pass batched.content_cb() as append_callback to the LLM client
+        # or to any code that used to do lambda t: q.put((CHUNK, t))
+        ...
+        # before a boundary:
+        #   batched.flush()
+        #   raw_q.put((StreamQueueKind.STREAM_DONE, response))
+        # (or simply do batched.put((StreamQueueKind.STREAM_DONE, response))
+        #  which does the flush for you)
+    """
+
+    def __init__(self, raw_q: queue.Queue[Any], batch_interval: float = 0.25):
+        self._raw = raw_q
+        self._interval = batch_interval
+        self._content_buf: list[str] = []
+        self._thinking_buf: list[str] = []
+        self._lock = threading.Lock()
+        self._timer: threading.Timer | None = None
+
+    def _cancel_timer(self):
+        if self._timer is not None:
+            self._timer.cancel()
+            self._timer = None
+
+    def _schedule_timer(self):
+        self._cancel_timer()
+        self._timer = threading.Timer(self._interval, self._timer_flush)
+        self._timer.daemon = True
+        self._timer.start()
+
+    def _timer_flush(self):
+        # Timer callback — runs in its own (daemon) thread
+        self.flush()
+
+    def _emit_pending_locked(self):
+        """Emit any buffered content/thinking as single joined items. Caller holds lock."""
+        if self._content_buf:
+            joined = "".join(self._content_buf)
+            self._raw.put((StreamQueueKind.CHUNK, joined))
+            self._content_buf.clear()
+        if self._thinking_buf:
+            joined = "".join(self._thinking_buf)
+            self._raw.put((StreamQueueKind.THINKING, joined))
+            self._thinking_buf.clear()
+        self._cancel_timer()
+
+    def put(self, item: Any) -> None:
+        """Put an item. CHUNK/THINKING are batched; everything else forces a flush first.
+
+        Batching rule (the "every 250 ms max, or when done" contract):
+        - The *first* delta that makes a buffer go from empty → non-empty arms
+          a one-shot timer for exactly self._interval from *that instant*.
+        - Later deltas in the same burst just append; they do not move the deadline.
+        - The timer firing, an explicit flush(), or any boundary control item
+          causes the accumulated text (one joined string per kind) to be emitted.
+        """
+        # Fast path for the two display kinds
+        if isinstance(item, (list, tuple)) and len(item) >= 1:
+            kind = item[0]
+            if kind == StreamQueueKind.CHUNK:
+                data = item[1] if len(item) > 1 else ""
+                with self._lock:
+                    is_first = len(self._content_buf) == 0
+                    self._content_buf.append(data or "")
+                if is_first:
+                    self._schedule_timer()  # deadline from the very first fragment of this burst
+                return
+            if kind == StreamQueueKind.THINKING:
+                data = item[1] if len(item) > 1 else ""
+                with self._lock:
+                    is_first = len(self._thinking_buf) == 0
+                    self._thinking_buf.append(data or "")
+                if is_first:
+                    self._schedule_timer()  # deadline from the very first fragment of this burst
+                return
+
+        # Any other kind (including bare kinds or control tuples) is a boundary
+        self.flush()
+        self._raw.put(item)
+
+    def flush(self) -> None:
+        """Force immediate emission of any pending display text (one joined string per kind)."""
+        with self._lock:
+            self._emit_pending_locked()
+
+    # Convenience factories so existing lambda sites become one-liners
+    def content_cb(self) -> Callable[[str], None]:
+        """Return a callback suitable for append_callback=... that feeds through the batcher."""
+        def cb(text: str) -> None:
+            self.put((StreamQueueKind.CHUNK, text))
+        return cb
+
+    def thinking_cb(self) -> Callable[[str], None]:
+        """Return a callback suitable for append_thinking_callback=..."""
+        def cb(text: str) -> None:
+            self.put((StreamQueueKind.THINKING, text))
+        return cb
+
+    @property
+    def raw(self) -> queue.Queue[Any]:
+        """The underlying raw queue (for the rare legacy direct use or for the drain loop itself)."""
+        return self._raw
+
+    def __repr__(self) -> str:
+        with self._lock:
+            return (f"BatchingStreamQueue(interval={self._interval}, "
+                    f"pending_content={len(self._content_buf)}, "
+                    f"pending_thinking={len(self._thinking_buf)})")
 
 
 @dataclass(slots=True)
@@ -338,7 +476,7 @@ def run_async_worker_with_drain(
     stop_checker: Callable[[], bool] | None = None,
     on_stopped_fn: Callable[[], None] | None = None,
     name: str = "async-worker",
-    q: queue.Queue | None = None,
+    q: queue.Queue[Any] | BatchingStreamQueue | None = None,
 ):
     """Run a background worker and drain its queue on the main thread.
 
@@ -356,27 +494,26 @@ def run_async_worker_with_drain(
         q = queue.Queue()
     job_done = [False]
 
+    # Support BatchingStreamQueue transparently for producer-side batching
+    _batched: BatchingStreamQueue | None = q if isinstance(q, BatchingStreamQueue) else None
+    _real_q: queue.Queue[Any] = cast("queue.Queue[Any]", _batched.raw if _batched is not None else q)
+
     def worker_wrapper():
         try:
-            worker_fn(q)
+            worker_fn(cast("queue.Queue[Any]", _batched.raw if _batched is not None else q))  # worker always sees a real Queue
         except Exception as e:
             from plugin.framework.errors import format_error_payload
 
-            q.put((StreamQueueKind.ERROR, format_error_payload(e)))
+            payload = (StreamQueueKind.ERROR, format_error_payload(e))
+            if _batched is not None:
+                _batched.flush()
+            _real_q.put(payload)
         finally:
-            # Terminal sentinel so the drain loop always unblocks even if the
-            # worker forgot to post one. A duplicate sentinel after STOPPED/ERROR
-            # is harmless — the drain loop exits on the first terminal item it
-            # processes, not on this flag.
-            #
-            # Do NOT set job_done[0] = True here. job_done must only be written
-            # by the drain loop (main thread) so it always drains the STREAM_DONE
-            # item — and thus fires on_done / on_error — before exiting. Setting
-            # it here races with the drain loop: a fast worker can set job_done
-            # before the main thread dequeues STREAM_DONE, causing on_done to be
-            # skipped entirely (which leaves XUndoManager contexts open, corrupting
-            # the undo stack with "Insert $1" entries).
-            q.put((StreamQueueKind.STREAM_DONE, None))
+            # Terminal sentinel — always flush any pending display text first
+            # when using the batcher, then emit the sentinel on the real queue.
+            if _batched is not None:
+                _batched.flush()
+            _real_q.put((StreamQueueKind.STREAM_DONE, None))
 
     from plugin.framework.uno_context import get_toolkit
 
