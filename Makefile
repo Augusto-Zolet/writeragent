@@ -65,7 +65,7 @@ ifeq ($(OS),Windows_NT)
     ifneq ($(BASH_PATH),)
         SHELL   := $(BASH_PATH)
     endif
-    .SHELLFLAGS := -c
+    .SHELLFLAGS := --login -c
     MAKE    := "$(MAKE)"
     SCRIPTS = scripts
     RUN_SH  = powershell -ExecutionPolicy Bypass -File
@@ -75,6 +75,13 @@ ifeq ($(OS),Windows_NT)
     MKDIR   = mkdir -p
     HOME_DIR = $(subst \,/,$(USERPROFILE))
     LO_CONF = $(HOME_DIR)/AppData/Roaming/LibreOffice/4
+    # LibreOffice program dir is not in PATH on Windows; detect for unopkg.
+    LO_PROGRAM := $(firstword $(wildcard C:/Progra~1/LibreOffice/program) $(wildcard C:/Progra~2/LibreOffice/program))
+    ifneq ($(LO_PROGRAM),)
+        UNOPKG := "$(LO_PROGRAM)/unopkg.exe"
+    else
+        UNOPKG := unopkg
+    endif
 else
     SCRIPTS = scripts
     RUN_SH  = bash
@@ -84,6 +91,7 @@ else
     MKDIR   = mkdir -p
     LO_CONF = $(HOME)/.config/libreoffice/4
     HOME_DIR = $(HOME)
+    UNOPKG := unopkg
 endif
 
 # Prefer project .venv so "make test" uses venv even when shell isn't activated
@@ -216,11 +224,15 @@ auto-translate:
 	fi
 
 refresh-pot:
-	@echo "Regenerating translation templates (.pot) without updating .po..."; \
-	$(PYTHON) scripts/extract_xdl_strings.py; \
-	xgettext --add-location=file -d writeragent -o locales/writeragent.pot $$(find plugin -name "*.py"); \
-	$(PYTHON) scripts/merge_module_yaml_into_pot.py locales/writeragent.pot; \
-	rm -f plugin/xdl_strings.py
+	@if command -v xgettext >/dev/null 2>&1; then \
+		echo "Regenerating translation templates (.pot) without updating .po..."; \
+		$(PYTHON) scripts/extract_xdl_strings.py; \
+		xgettext --add-location=file -d writeragent -o locales/writeragent.pot $$(find plugin -name "*.py"); \
+		$(PYTHON) scripts/merge_module_yaml_into_pot.py locales/writeragent.pot; \
+		rm -f plugin/xdl_strings.py; \
+	else \
+		echo "Skipping .pot regeneration (xgettext not found; install gettext: choco install gettext.install)"; \
+	fi
 
 preview-translations: refresh-pot
 	$(PYTHON) scripts/translate_missing.py --preview
@@ -280,10 +292,10 @@ register-built-oxt:
 	@echo "Registering build/$(EXTENSION_NAME).oxt..."
 	$(MAKE) lo-kill
 	@rm -f $(LO_CONF)/.lock $(LO_CONF)/user/.lock
-	-unopkg remove org.extension.writeragent 2>/dev/null
+	-$(UNOPKG) remove org.extension.writeragent 2>/dev/null
 	@rm -f $(LO_CONF)/user/extensions/tmp/extensions.pmap
 	@$(RM_RF) "$(LO_CONF)/user/extensions/tmp/extensions/"*.tmp_
-	unopkg add build/$(EXTENSION_NAME).oxt
+	$(UNOPKG) add build/$(EXTENSION_NAME).oxt
 	@rm -f $(HOME_DIR)/writeragent.log $(HOME_DIR)/writeragent_agent.log $(HOME_DIR)/writeragent_debug.log
 	@rm -f $(LO_CONF)/user/writeragent_debug.log $(LO_CONF)/user/writeragent_agent.log
 	@echo "Registered org.extension.writeragent (start LibreOffice manually to load it)."
@@ -424,16 +436,24 @@ minify-editor-js:
 
 # ── Translation ──────────────────────────────────────────────────────────────
 extract-strings:
-	$(PYTHON) scripts/extract_xdl_strings.py
-	xgettext --add-location=file -d writeragent -o locales/writeragent.pot $$(find plugin -name "*.py")
-	$(PYTHON) scripts/merge_module_yaml_into_pot.py locales/writeragent.pot
-	rm -f plugin/xdl_strings.py
-	$(MAKE) merge-translations
+	@if command -v xgettext >/dev/null 2>&1; then \
+		$(PYTHON) scripts/extract_xdl_strings.py; \
+		xgettext --add-location=file -d writeragent -o locales/writeragent.pot $$(find plugin -name "*.py"); \
+		$(PYTHON) scripts/merge_module_yaml_into_pot.py locales/writeragent.pot; \
+		rm -f plugin/xdl_strings.py; \
+		$(MAKE) merge-translations; \
+	else \
+		echo "Skipping string extraction (xgettext not found; install gettext: choco install gettext.install)"; \
+	fi
 
 # Merge each locale .po with writeragent.pot, then strip obsolete entries (#~) so removed
 # source strings do not accumulate. (msgattrib --no-obsolete: portable where msgmerge lacks --no-obsolete.)
 merge-translations:
-	find locales -name writeragent.po -exec sh -c 'f="$$1"; msgmerge --add-location=file --update --backup=none "$$f" locales/writeragent.pot && msgattrib --no-obsolete -o "$$f.tmp" "$$f" && mv -f "$$f.tmp" "$$f"' _ {} \;
+	@if command -v msgmerge >/dev/null 2>&1; then \
+		find locales -name writeragent.po -exec sh -c 'f="$$1"; msgmerge --add-location=file --update --backup=none "$$f" locales/writeragent.pot && msgattrib --no-obsolete -o "$$f.tmp" "$$f" && mv -f "$$f.tmp" "$$f"' _ {} \;; \
+	else \
+		echo "Skipping .po merge (msgmerge not found; install gettext: choco install gettext.install)"; \
+	fi
 
 
 add-language:
@@ -450,7 +470,11 @@ translate-missing:
 	$(PYTHON) scripts/translate_missing.py --execute
 
 compile-translations:
-	find locales -name "*.po" -exec sh -c 'msgfmt -o "$$(dirname $$1)/$$(basename $$1 .po).mo" "$$1"' _ {} \;
+	@if command -v msgfmt >/dev/null 2>&1; then \
+		find locales -name "*.po" -exec sh -c 'msgfmt -o "$$(dirname $$1)/$$(basename $$1 .po).mo" "$$1"' _ {} \;; \
+	else \
+		echo "Skipping .mo compilation (msgfmt not found; install gettext: choco install gettext.install)"; \
+	fi
 
 
 # ── Shortcuts ───────────────────────────────────────────────────────────────
@@ -480,7 +504,7 @@ check-setup:
 	$(RUN_SH) $(SCRIPTS)/check-setup$(EXT)
 
 check-ext:
-	@unopkg list 2>&1 | head -10
+	@$(UNOPKG) list 2>&1 | head -10
 	@echo "---"
 	@$(PYTHON) -c "from plugin._manifest import MODULES; print('Manifest OK: %d modules, %d with config' % (len(MODULES), len([m for m in MODULES if m.get('config')])))"
 
@@ -561,13 +585,13 @@ poc-build:
 	@echo "Built build/poc-ext.oxt"
 
 poc-install: poc-build
-	-unopkg remove org.extension.poc 2>/dev/null
+	-$(UNOPKG) remove org.extension.poc 2>/dev/null
 	sleep 2
-	unopkg add build/poc-ext.oxt
+	$(UNOPKG) add build/poc-ext.oxt
 	@echo "POC installed"
 
 poc-uninstall:
-	-unopkg remove org.extension.poc 2>/dev/null
+	-$(UNOPKG) remove org.extension.poc 2>/dev/null
 	@echo "POC removed"
 
 poc-log:

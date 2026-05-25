@@ -122,7 +122,7 @@ skips = ["B310", "B314"]
 [tool.ty.src]
 # Optional: explicitly set what to include (defaults to common patterns)
 include = ["plugin"]
-exclude = ["plugin/contrib", "plugin/lib", "plugin/tests", "tests"]
+exclude = ["plugin/contrib", "plugin/lib", "plugin/tests", "plugin/xdl_strings.py", "tests"]
 
 # Pyrefly (CLI: make pyrefly) — experimental; same scope as ty/mypy/pyright; not part of make test
 [tool.pyrefly]
