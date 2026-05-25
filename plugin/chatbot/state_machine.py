@@ -125,6 +125,7 @@ class SendHandlerUIEffect(NamedTuple):
     kind: UIEffectKind
     text: str
     is_thinking: bool = False
+    role: str = "assistant"
 
 
 class ProceedToChatEffect(NamedTuple):
@@ -151,10 +152,8 @@ class EffectInterpreter:
 
     def interpret(self, effect: SendHandlerEffect):
         match effect:
-            case SendHandlerUIEffect("append", text, _):
-                # The _append_response handles thinking implicitly by default args, but we match it
-                # For this handler, we just append text. Thinking is checked in the loop.
-                self.handler._append_response(text)
+            case SendHandlerUIEffect("append", text, _, role):
+                self.handler._append_response(text, role=role)
             case SendHandlerUIEffect("status", text, _):
                 self.handler._set_status(text)
             case CompleteJobEffect(terminal_status=status):
@@ -257,19 +256,19 @@ def next_state(state: SendHandlerState, event: SendHandlerEvent) -> FsmTransitio
                 if w_path and stt_mod:
                     effects.append(SpawnAudioWorkerEffect(wav_path=w_path, stt_model=stt_mod, model=mod, query_text=q_text))
             elif state.handler_type == "image":
-                effects.append(SendHandlerUIEffect("append", f"\nYou: {q_text}\n"))
+                effects.append(SendHandlerUIEffect("append", q_text, role="user"))
                 effects.append(SendHandlerUIEffect("append", "\n[Using image model (direct).]\n"))
                 effects.append(SendHandlerUIEffect("append", "AI: Creating image...\n"))
                 effects.append(SendHandlerUIEffect("status", "Creating image..."))
                 effects.append(SpawnDirectImageEffect(q_text, mod))
             elif state.handler_type == "agent":
-                effects.append(SendHandlerUIEffect("append", f"\nYou: {q_text}\n"))
+                effects.append(SendHandlerUIEffect("append", q_text, role="user"))
                 effects.append(SendHandlerUIEffect("append", "\n[Using external agent backend.]\n"))
                 effects.append(SendHandlerUIEffect("append", "AI: "))
                 effects.append(SendHandlerUIEffect("status", "Starting agent..."))
                 effects.append(SpawnAgentWorkerEffect(q_text, mod, doc_type))
             elif state.handler_type == "web":
-                effects.append(SendHandlerUIEffect("append", f"\nYou: {q_text}\n"))
+                effects.append(SendHandlerUIEffect("append", q_text, role="user"))
                 # effects.append(SendHandlerUIEffect("append", "\n[Using research chat.]\n"))
                 effects.append(SendHandlerUIEffect("status", "Starting research..."))
                 effects.append(SpawnWebWorkerEffect(q_text, mod))

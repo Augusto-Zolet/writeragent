@@ -375,6 +375,34 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         self.embedded_container = container
         log.info("SendButtonListener: Rich text mode enabled (embedded Writer doc)")
 
+    def rerender_rich_text_session(self):
+        """Re-render the entire session into the embedded doc with HTML formatting.
+
+        Called after streaming completes so that the final assistant response
+        is displayed with full HTML rendering instead of plain-text chunks.
+        """
+        if not self.embedded_doc:
+            return
+        try:
+            from plugin.chatbot.rich_text import append_rich_text
+            from plugin.framework.constants import get_greeting_for_document
+
+            self.embedded_doc.getText().setString("")
+            model = self._get_document_model()
+            greeting = get_greeting_for_document(model) if model else ""
+            if greeting:
+                append_rich_text(self.embedded_doc, greeting, role="assistant")
+            for msg in self.session.messages:
+                r = msg.get("role", "")
+                content = msg.get("content", "")
+                if r == "user":
+                    if isinstance(content, str):
+                        append_rich_text(self.embedded_doc, content, role="user")
+                elif r == "assistant" and content:
+                    append_rich_text(self.embedded_doc, content, role="assistant")
+        except Exception:
+            log.exception("rerender_rich_text_session failed")
+
     @property
     def state(self):
         """Send-button slice of :attr:`sidebar_state` (migration alias)."""
@@ -611,9 +639,12 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         """Append text to the response area (supports rich text if embedded_doc is ready)."""
         try:
             if self.embedded_doc:
-                from plugin.chatbot.rich_text import append_rich_text
-
-                self.queue_executor.post(append_rich_text, self.embedded_doc, text, role=role)
+                if role == "user":
+                    from plugin.chatbot.rich_text import append_rich_text
+                    self.queue_executor.post(append_rich_text, self.embedded_doc, text, role="user")
+                else:
+                    from plugin.chatbot.rich_text import append_text_chunk
+                    self.queue_executor.post(append_text_chunk, self.embedded_doc, text)
                 return
 
             if self.response_control and self.response_control.getModel():

@@ -236,8 +236,12 @@ DRAW_SPECIALIZED_DELEGATION_TEMPLATE = (
     "and a `task` string that fully specifies what the sub-agent must do. The sub-agent has full tool access for that domain."
 )
 
+CHAT_RESPONSE_FORMAT = """CHAT RESPONSE FORMAT: Format your conversational responses as HTML (use <p>, <strong>, <em>, <code>, <ul>, <ol>, <h2>, <pre>, <br>). Do NOT use Markdown formatting (no #, **, ```, etc.) in chat responses. The sidebar renders HTML natively."""
+
 DEFAULT_CHAT_SYSTEM_PROMPT_TEMPLATE = f"""You are a LibreOffice Writer assistant who produces polished, professional documents with thoughtful use of color and formatting.
 Honor any stated memory preferences for color, etc.
+
+{CHAT_RESPONSE_FORMAT}
 
 {{core_directives}}
 
@@ -312,6 +316,8 @@ TOOLS (eval harness):
 DEFAULT_CALC_CHAT_SYSTEM_PROMPT_TEMPLATE = f"""You are a LibreOffice Calc spreadsheet assistant who creates polished, professional, and colorful spreadsheets.
 Do not explain, do the operation directly using tools. Perform as many steps as needed in one turn when possible.
 
+{CHAT_RESPONSE_FORMAT}
+
 {CALC_WORKFLOW}
 
 {CALC_FORMULA_SYNTAX}
@@ -339,6 +345,8 @@ WRITE & FORMAT:
 
 DEFAULT_DRAW_CHAT_SYSTEM_PROMPT_TEMPLATE = """You are a LibreOffice Draw/Impress assistant who creates polished, professional, and colorful visual content.
 Do not explain - do the operation directly using tools. Perform as many steps as needed in one turn when possible.
+
+""" + CHAT_RESPONSE_FORMAT + """
 
 WORKFLOW:
 1. Understand the user's request.

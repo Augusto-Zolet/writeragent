@@ -6,7 +6,7 @@
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 
-"""Unit tests for plugin.chatbot.rich_text (append_rich_text and EmbeddedWriterListener guard)."""
+"""Unit tests for plugin.chatbot.rich_text (append_rich_text, append_text_chunk, and EmbeddedWriterListener guard)."""
 
 import unittest
 from unittest.mock import MagicMock, patch, call
@@ -33,6 +33,9 @@ class MockTextCursor:
         return self
 
     def gotoRange(self, target, select):
+        pass
+
+    def insertDocumentFromURL(self, url, props):
         pass
 
 
@@ -95,12 +98,11 @@ class AppendRichTextTests(unittest.TestCase):
         self.assertIn("Assistant: ", content)
         self.assertIn("World", content)
 
-    def test_code_block_detected(self):
-        doc = self._call("Before\n```python\nprint('hi')\n```\nAfter", role="assistant")
+    def test_plain_text_inserted_for_non_html(self):
+        """Non-HTML text is inserted via insertString (no HTML import)."""
+        doc = self._call("Just some text", role="assistant")
         content = doc.getText().getString()
-        self.assertIn("print('hi')", content)
-        self.assertIn("Before", content)
-        self.assertIn("After", content)
+        self.assertIn("Just some text", content)
 
     def test_empty_text(self):
         doc = self._call("", role="assistant")
@@ -109,6 +111,54 @@ class AppendRichTextTests(unittest.TestCase):
 
     def test_scroll_to_bottom_called(self):
         doc = self._call("test")
+        doc.getCurrentController().select.assert_called()
+
+    def test_user_color(self):
+        """Verify the prefix cursor gets USER_COLOR via createTextCursorByRange."""
+        from plugin.chatbot.rich_text import USER_COLOR
+
+        doc = MockDoc()
+        created_cursors = []
+        orig = doc.getText().createTextCursorByRange
+
+        def track_cursor(rng):
+            c = MockTextCursor()
+            created_cursors.append(c)
+            return c
+
+        doc.getText().createTextCursorByRange = track_cursor
+        from plugin.chatbot.rich_text import append_rich_text
+        append_rich_text(doc, "hi", role="user")
+        prefix_cursor = created_cursors[0]
+        self.assertEqual(prefix_cursor.CharColor, USER_COLOR)
+
+    def test_assistant_color_is_black(self):
+        from plugin.chatbot.rich_text import ASSISTANT_COLOR
+
+        self.assertEqual(ASSISTANT_COLOR, 0x000000)
+
+    def test_user_color_is_indigo_blue(self):
+        from plugin.chatbot.rich_text import USER_COLOR
+
+        self.assertEqual(USER_COLOR, 0x2A6099)
+
+
+class AppendTextChunkTests(unittest.TestCase):
+    """Tests for append_text_chunk (streaming plain-text append)."""
+
+    def test_chunk_appended(self):
+        from plugin.chatbot.rich_text import append_text_chunk
+
+        doc = MockDoc()
+        append_text_chunk(doc, "Hello ")
+        append_text_chunk(doc, "World")
+        self.assertEqual(doc.getText().getString(), "Hello World")
+
+    def test_scroll_on_chunk(self):
+        from plugin.chatbot.rich_text import append_text_chunk
+
+        doc = MockDoc()
+        append_text_chunk(doc, "x")
         doc.getCurrentController().select.assert_called()
 
 

@@ -16,12 +16,14 @@
 """Rich text support for the chat sidebar using an embedded Writer document."""
 
 import logging
-from com.sun.star.beans import PropertyValue
-from com.sun.star.awt import WindowDescriptor
-from com.sun.star.awt.WindowClass import CONTAINER
+import os
+import tempfile
 from plugin.chatbot.listeners import BaseWindowListener
 
 log = logging.getLogger(__name__)
+
+USER_COLOR = 0x2A6099
+ASSISTANT_COLOR = 0x000000
 
 _EMBEDDING_STARTED = set()
 
@@ -84,6 +86,10 @@ def create_embedded_writer_doc(ctx, parent_window, placeholder_ctrl):
     Returns (doc, frame, container_window) or (None, None, None).
     """
     try:
+        from com.sun.star.beans import PropertyValue
+        from com.sun.star.awt import WindowDescriptor
+        from com.sun.star.awt.WindowClass import CONTAINER
+
         smgr = ctx.getServiceManager()
         toolkit = smgr.createInstanceWithContext("com.sun.star.awt.Toolkit", ctx)
         
@@ -163,18 +169,26 @@ def create_embedded_writer_doc(ctx, parent_window, placeholder_ctrl):
                     std_para.ParaBottomMargin = 200
 
             # Default font size
+            import uno
             text = doc.getText()
             cursor = text.createTextCursor()
             cursor.gotoStart(False)
             cursor.gotoEnd(True)
             cursor.CharHeight = 10.0
 
-            # Disable spellcheck/grammar markers
-            settings = doc.getSettings()
-            if hasattr(settings, "ShowSpellErrors"):
-                settings.ShowSpellErrors = False
-            if hasattr(settings, "ShowGrammarErrors"):
-                settings.ShowGrammarErrors = False
+            # Set language to "none" (zxx) to suppress all spell/grammar checking
+            if style_families.hasByName("ParagraphStyles"):
+                from typing import cast, Any
+                ps = style_families.getByName("ParagraphStyles")
+                no_lang = cast("Any", uno.createUnoStruct("com.sun.star.lang.Locale"))
+                no_lang.Language = "zxx"
+                no_lang.Country = ""
+                if ps.hasByName("Standard"):
+                    std_para = ps.getByName("Standard")
+                    std_para.CharLocale = no_lang
+                    std_para.CharLocaleAsian = no_lang
+                    std_para.CharLocaleComplex = no_lang
+
 
         except Exception as e:
             log.debug("Failed to set document styles: %s", e)
@@ -238,69 +252,105 @@ def create_embedded_writer_doc(ctx, parent_window, placeholder_ctrl):
         log.exception("Error in create_embedded_writer_doc: %s", e)
         return None, None, None
 
+def _insert_html_at_cursor(doc, cursor, html_fragment):
+    """Import an HTML fragment into *doc* at *cursor* using Writer's HTML filter.
+
+    Writes the fragment to a temp file and imports via ``insertDocumentFromURL``
+    with the ``HTML (StarWriter)`` filter -- the same mechanism used by
+    ``apply_document_content`` for document edits.
+    """
+    import uno
+    from com.sun.star.beans import PropertyValue
+
+    css = "ul, ol { margin-left: 0.2cm; padding-left: 0.3cm; }"
+    wrapped = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n<style>%s</style>\n</head>\n<body>\n%s\n</body>\n</html>' % (css, html_fragment)
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".html", delete=False, mode="w", encoding="utf-8") as tmp:
+            tmp.write(wrapped)
+            tmp_path = tmp.name
+
+        url = uno.systemPathToFileUrl(tmp_path)
+        filter_props = (PropertyValue("FilterName", 0, "HTML (StarWriter)", 0),)
+        cursor.insertDocumentFromURL(url, filter_props)
+    finally:
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
+
 def append_rich_text(doc, text, role="assistant"):
-    """Appends text to the embedded Writer document with role-based formatting and code blocks."""
+    """Append a complete message to the embedded Writer document.
+
+    Inserts a bold, colored role prefix (``You:`` / ``Assistant:``) then
+    imports *text* as HTML via Writer's StarWriter HTML filter so that
+    ``<strong>``, ``<em>``, ``<code>``, ``<ul>`` etc. render natively.
+    """
     try:
         text_obj = doc.getText()
         cursor = text_obj.createTextCursor()
         cursor.gotoEnd(False)
-        
-        # Add a double newline if not empty
+
         if text_obj.getString():
             text_obj.insertString(cursor, "\n\n", False)
-            
-        # 1. Insert and format role prefix
+
+        # Bold colored role prefix
         start_pos = cursor.getStart()
         prefix = "You: " if role == "user" else "Assistant: "
         text_obj.insertString(cursor, prefix, False)
-        
-        # Create a range for the prefix to apply formatting
+
         prefix_range = text_obj.createTextCursorByRange(start_pos)
         prefix_range.gotoRange(cursor.getStart(), True)
-        
-        # Formatting
         prefix_range.CharHeight = 10.0
-        prefix_range.CharWeight = 150.0 # BOLD (com.sun.star.awt.FontWeight.BOLD)
-        if role == "user":
-            prefix_range.CharColor = 0x2A6099 # Modern Blue
-        else:
-            prefix_range.CharColor = 0x2E7D32 # Modern Green
-            
-        # 2. Insert content (with basic code block detection)
+        prefix_range.CharWeight = 150.0  # BOLD
+        prefix_range.CharColor = USER_COLOR if role == "user" else ASSISTANT_COLOR
+
+        # Body content via HTML import
         cursor.gotoEnd(False)
-        
-        import re
-        # Split by triple-backtick blocks
-        parts = re.split(r'(```[\s\S]*?```)', text)
-        for part in parts:
-            if part.startswith('```') and part.endswith('```'):
-                # Code block
-                code_content = part[3:-3].strip()
-                # Strip language hint if present (e.g. ```python\n...)
-                code_content = re.sub(r'^[a-zA-Z0-9+#-]+\n', '', code_content)
-                
-                code_start = cursor.getStart()
-                # Wrap code in newlines for better spacing
-                text_obj.insertString(cursor, "\n" + code_content + "\n", False)
-                
-                code_range = text_obj.createTextCursorByRange(code_start)
-                code_range.gotoRange(cursor.getStart(), True)
-                
-                # Apply "Code" look
-                code_range.CharFontName = "Liberation Mono"
-                code_range.CharHeight = 9.0
-                code_range.CharBackColor = 0xF0F0F0 # Very light gray
+        content_start = cursor.getStart()
+
+        if text and text.strip():
+            html_tags = ("<p>", "<br", "</h", "<ul", "<ol", "<li", "<strong", "<em", "<code", "<pre", "<div", "<table")
+            looks_html = any(tag in text.lower() for tag in html_tags)
+
+            if looks_html:
+                try:
+                    _insert_html_at_cursor(doc, cursor, text)
+                except Exception:
+                    log.debug("HTML import failed, falling back to plain text insert")
+                    cursor.gotoEnd(False)
+                    text_obj.insertString(cursor, text, False)
             else:
-                start_content = cursor.getStart()
-                text_obj.insertString(cursor, part, False)
-                content_range = text_obj.createTextCursorByRange(start_content)
-                content_range.gotoRange(cursor.getStart(), True)
-                content_range.CharHeight = 10.0
-        
-        # Ensure scroll to bottom (roughly)
+                text_obj.insertString(cursor, text, False)
+
+            # Apply role color to the inserted body text
+            cursor.gotoEnd(False)
+            body_range = text_obj.createTextCursorByRange(content_start)
+            body_range.gotoRange(cursor.getStart(), True)
+            body_range.CharColor = USER_COLOR if role == "user" else ASSISTANT_COLOR
+
+        controller = doc.getCurrentController()
+        if controller:
+            cursor.gotoEnd(False)
+            controller.select(cursor)
+
+    except Exception as e:
+        log.exception("Error in append_rich_text: %s", e)
+
+
+def append_text_chunk(doc, text):
+    """Append a plain-text chunk during streaming (no prefix, no HTML import)."""
+    try:
+        text_obj = doc.getText()
+        cursor = text_obj.createTextCursor()
+        cursor.gotoEnd(False)
+        cursor.CharColor = ASSISTANT_COLOR
+        text_obj.insertString(cursor, text, False)
+
         controller = doc.getCurrentController()
         if controller:
             controller.select(cursor)
-            
     except Exception as e:
-        log.exception("Error in append_rich_text: %s", e)
+        log.exception("Error in append_text_chunk: %s", e)

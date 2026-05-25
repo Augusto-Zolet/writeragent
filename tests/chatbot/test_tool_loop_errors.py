@@ -50,7 +50,7 @@ class MockDummyToolCallingClass(ToolCallingMixin):
     def resolve_stop_checker(self):
         return lambda: self.stop_requested
 
-    def _append_response(self, text):
+    def _append_response(self, text, is_thinking=False, role="assistant"):
         self.responses.append(text)
 
     def _set_status(self, text):
@@ -187,7 +187,7 @@ def test_audio_handling_error(test_instance, mock_get_tools):
 
             # The error shouldn't crash the loop
             assert test_instance.audio_wav_path is None
-            assert any("You: test" in r for r in test_instance.responses)
+            assert any("test" in r for r in test_instance.responses)
             assert test_instance._terminal_status != "Error" # Should not terminate on audio error
 
         # Override open to throw unexpected error
@@ -197,5 +197,5 @@ def test_audio_handling_error(test_instance, mock_get_tools):
 
             # The error shouldn't crash the loop
             assert test_instance.audio_wav_path is None
-            assert any("You: test" in r for r in test_instance.responses)
+            assert any("test" in r for r in test_instance.responses)
             assert test_instance._terminal_status != "Error"

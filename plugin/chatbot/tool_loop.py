@@ -108,7 +108,7 @@ class ToolLoopHost(Protocol):
     _active_round_num: int
     _active_pending_tools: list[Any]
 
-    def _append_response(self, text: str, is_thinking: bool = False) -> None: ...
+    def _append_response(self, text: str, is_thinking: bool = False, role: str = "assistant") -> None: ...
     def _set_status(self, text: str) -> None: ...
     def _get_document_model(self) -> Any: ...
     def _get_doc_type_str(self, model: Any) -> str: ...
@@ -134,6 +134,7 @@ class ToolLoopHost(Protocol):
     def _do_send_chat_with_tools(self, query_text: str, model: Any, doc_type_str: str) -> None: ...
     def _refresh_active_tools_for_session(self) -> None: ...
     def _is_400_input_validation(self, err: Any) -> bool: ...
+    def rerender_rich_text_session(self) -> None: ...
 
 
 class ToolCallingMixin:
@@ -154,6 +155,9 @@ class ToolCallingMixin:
     @_sm_state.setter
     def _sm_state(self: ToolLoopHost, value: ToolLoopState | None) -> None:
         self.sidebar_state = dataclasses.replace(self.sidebar_state, tool_loop=value)
+
+    def rerender_rich_text_session(self: ToolLoopHost) -> None:
+        """Re-render session with HTML formatting. Overridden in SendButtonListener."""
 
     def _do_send_chat_with_tools(self: ToolLoopHost, query_text: str, model: Any, doc_type_str: str) -> None:
         try:
@@ -366,14 +370,14 @@ class ToolCallingMixin:
                 self.session.add_user_message(content_list)
 
                 display_text = query_text + " [Audio Attached]" if query_text else "[Audio Message]"
-                self._append_response("\nYou: %s\n" % display_text)
+                self._append_response(display_text, role="user")
                 # Note: We do NOT delete the audio file yet, in case native call fails and we need STT fallback
             except (IOError, OSError):
                 log.exception("Audio file error")
                 # Preserve file for debugging
                 log.debug("Audio file preserved at: %s" % self.audio_wav_path)
                 self.session.add_user_message(query_text)
-                self._append_response("\nYou: %s\n" % query_text)
+                self._append_response(query_text, role="user")
                 self.audio_wav_path = None
             except Exception as e:
 
@@ -383,11 +387,11 @@ class ToolCallingMixin:
                 else:
                     log.exception("Unexpected audio error")
                 self.session.add_user_message(query_text)
-                self._append_response("\nYou: %s\n" % query_text)
+                self._append_response(query_text, role="user")
                 self.audio_wav_path = None
         else:
             self.session.add_user_message(query_text)
-            self._append_response("\nYou: %s\n" % query_text)
+            self._append_response(query_text, role="user")
 
         self._append_response("\n[Using chat model.]\n")
         log.info("_do_send: using chat model")
@@ -777,6 +781,9 @@ class ToolCallingMixin:
                 show_search_thinking=show_search_thinking,
                 on_approval_required=self._on_tool_loop_approval_required,
             )
+
+            # Re-render the full session with HTML formatting now that streaming is done
+            self.rerender_rich_text_session()
         finally:
             self.sidebar_state = dataclasses.replace(self.sidebar_state, tool_loop=None)
 
