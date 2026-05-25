@@ -52,6 +52,7 @@ def _fatal(msg: str, *, exc: BaseException | None = None, code: int = 1) -> NoRe
 
 _bootstrap_plugin_import_path()
 try:
+    from plugin.scripting.editor_launcher import _ASSETS_DIR
     from plugin.scripting.editor_protocol import message_type, read_message, write_message
     from plugin.scripting.editor_jedi import JediSession
 except ImportError as e:
@@ -215,7 +216,7 @@ def _bind_window_events(window: Any) -> None:
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO)
-    assets = os.path.abspath(os.environ.get("WRITERAGENT_EDITOR_ASSETS", os.path.join(_SCRIPT_DIR, "assets", "editor")))
+    assets = os.path.abspath(os.environ.get("WRITERAGENT_EDITOR_ASSETS", _ASSETS_DIR))
     index_html = os.path.join(assets, "index.html")
     if not os.path.isfile(index_html):
         _fatal(f"Editor assets not found: {index_html}")
@@ -230,7 +231,7 @@ def main() -> None:
 
     api = MonacoEditorApi()
     # pywebview resolves relative URLs against dirname(sys.argv[0]) (plugin/scripting/),
-    # not cwd. Pass an absolute path so the HTTP server root is assets/editor/.
+    # not cwd. Pass an absolute path so the HTTP server root is contrib/scripting/assets/editor/.
     log.info("editor_main: assets=%s index=%s argv0=%s", assets, index_html, sys.argv[0])
     print(f"editor_main: serving {index_html}", file=sys.stderr, flush=True)
     global _window

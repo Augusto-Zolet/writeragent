@@ -26,7 +26,7 @@ The editor is a **separate native window** in the user's configured Python venv.
 | Editor process | [`plugin/scripting/editor_main.py`](../plugin/scripting/editor_main.py) | `pywebview` + Monaco (venv only) |
 | Calc integration | [`plugin/calc/python_editor.py`](../plugin/calc/python_editor.py), [`python_formula_edit.py`](../plugin/calc/python_formula_edit.py), [`python_editor_context_menu.py`](../plugin/calc/python_editor_context_menu.py) | Active cell `=PYTHON()` load/save; cell context menu |
 | Protocol | [`plugin/scripting/editor_protocol.py`](../plugin/scripting/editor_protocol.py) | `!I` length + UTF-8 JSON |
-| Frontend | [`plugin/scripting/assets/editor/`](../plugin/scripting/assets/editor/) | Bundled Monaco `vs/` (see [`scripts/fetch_monaco_editor.sh`](../scripts/fetch_monaco_editor.sh)) |
+| Frontend | [`plugin/contrib/scripting/assets/editor/`](../plugin/contrib/scripting/assets/editor/) | Bundled Monaco `vs/` (see [`scripts/fetch_monaco_editor.sh`](../scripts/fetch_monaco_editor.sh)) |
 
 Menu: `org.extension.writeragent:scripting.edit_python_cell` in [`extension/Addons.xcu`](../extension/Addons.xcu) (Calc menubar). Cell right-click uses [`python_editor_context_menu.py`](../plugin/calc/python_editor_context_menu.py) (`XContextMenuInterceptor` — LibreOffice has no static Addons.xcu merge point for Calc cell popups).
 
@@ -71,7 +71,7 @@ Same framing idea as [`worker_harness.py`](../plugin/scripting/worker_harness.py
   ```
   - **Why:** `pywebview` requires a GUI driver. While it can use system GTK, a venv often cannot see system bindings. `PyQt6` + `WebEngine` provides a self-contained Chromium-based browser engine. `qtpy` is a mandatory shim for the `pywebview` Qt driver.
 - **Linux GUI:** child inherits `DISPLAY`, `WAYLAND_DISPLAY`, `XDG_RUNTIME_DIR`, `DBUS_SESSION_BUS_ADDRESS`, `LD_LIBRARY_PATH` from the LO process. Optional `WRITERAGENT_PYWEBVIEW_GUI=qt|gtk` for [`editor_main.py`](../plugin/scripting/editor_main.py).
-- **Monaco:** vendored under `assets/editor/vs/` (python-only prune + Terser; typically ~4–5 MB on disk). Refresh: `make fetch-monaco` ([`scripts/fetch_monaco_editor.sh`](../scripts/fetch_monaco_editor.sh)). Re-strip comments anytime: `make minify-editor-js` ([`scripts/minify_editor_js.sh`](../scripts/minify_editor_js.sh); requires Node.js).
+- **Monaco:** vendored under `plugin/contrib/scripting/assets/editor/vs/` (python-only prune + Terser; typically ~4–5 MB on disk). Refresh: `make fetch-monaco` ([`scripts/fetch_monaco_editor.sh`](../scripts/fetch_monaco_editor.sh)). Re-strip comments anytime: `make minify-editor-js` ([`scripts/minify_editor_js.sh`](../scripts/minify_editor_js.sh); requires Node.js).
 - **`jedi`** (session 2+): optional, persistent `Environment` in child — see below.
 
 **Note:** [`python_runner.py`](../plugin/scripting/python_runner.py) still offers a native multiline dialog for other flows (e.g. **Run Python Script…**). The Calc Monaco menu does **not** fall back to that dialog when pywebview is missing—it explains how to fix the configured venv instead.
@@ -105,18 +105,20 @@ plugin/
 │   ├── python_editor.py              # Menu entry, launch bridge
 │   ├── python_editor_context_menu.py # Calc cell right-click entry
 │   └── python_formula_edit.py        # Parse/rebuild =PYTHON() formulas
+├── contrib/
+│   └── scripting/
+│       └── assets/editor/
+│           ├── index.html
+│           ├── editor.js
+│           ├── style.css
+│           └── vs/                   # Monaco bundle (generated)
 └── scripting/
     ├── editor_launcher.py
     ├── editor_bridge.py              # PersistentEditor + pipe reader + stderr drain
     ├── editor_diagnostics.py
     ├── editor_protocol.py
     ├── editor_main.py
-    ├── editor_jedi.py                # Jedi stub (Phase 2D finish)
-    └── assets/editor/
-        ├── index.html
-        ├── editor.js
-        ├── style.css
-        └── vs/                       # Monaco bundle (generated)
+    └── editor_jedi.py                # Jedi stub (Phase 2D finish)
 
 tests/
 ├── calc/

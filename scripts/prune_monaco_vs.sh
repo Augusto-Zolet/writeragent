@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-VS="$ROOT/plugin/scripting/assets/editor/vs"
+VS="$ROOT/plugin/contrib/scripting/assets/editor/vs"
 
 if [[ ! -d "$VS" ]]; then
   echo "prune_monaco_vs: missing $VS (run fetch_monaco_editor.sh first)" >&2

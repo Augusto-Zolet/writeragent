@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Re-minify all JS under plugin/scripting/assets/editor (strip comments; in-place).
+# Re-minify all JS under plugin/contrib/scripting/assets/editor (strip comments; in-place).
 # Requires Node.js (npx terser). Omits -m so AMD define("vs/…") module ids stay intact.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-EDITOR_ASSETS="$ROOT/plugin/scripting/assets/editor"
+EDITOR_ASSETS="$ROOT/plugin/contrib/scripting/assets/editor"
 TERSER_VERSION="${TERSER_VERSION:-5.37.0}"
 export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=4096}"
 

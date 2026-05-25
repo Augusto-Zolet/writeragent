@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Bundle Monaco min files into plugin/scripting/assets/editor/vs/, prune for Python-only, minify JS.
+# Bundle Monaco min files into plugin/contrib/scripting/assets/editor/vs/, prune for Python-only, minify JS.
 set -euo pipefail
 VERSION="${MONACO_VERSION:-0.52.2}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DEST="$ROOT/plugin/scripting/assets/editor"
+DEST="$ROOT/plugin/contrib/scripting/assets/editor"
 SCRIPTS="$ROOT/scripts"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT

@@ -18,7 +18,9 @@ from plugin.scripting.venv_probe import resolve_venv_python
 log = logging.getLogger(__name__)
 
 _EDITOR_MAIN = os.path.join(os.path.dirname(os.path.abspath(__file__)), "editor_main.py")
-_ASSETS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "editor")
+_ASSETS_DIR = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "contrib", "scripting", "assets", "editor")
+)
 
 _WEBVIEW_PROBE_CODE = """\
 import sys
