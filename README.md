@@ -51,6 +51,7 @@ Unlike proprietary office suites that lock you into a single cloud provider and 
 - **Format Preservation**: Uses a "surgical" replacement method that preserves existing bold, italics, highlights, and font sizes.
 - **Agentic Analysis**: The AI can run Numpy computations and return structured results (as JSON) to update your document.
 - **Real-time Grammar Checker**: An experimental, asynchronous proofreader with a **sentence cache** and **Unicode-aware splitting**. Includes **Token-aware Overlap Repair** to fix "LLM slop" and ensure surgical replacements. Persistent storage of good/bad sentences with document. Enable in **Settings → Doc → Enable AI grammar checker (Writer)** (off by default); underlines appear shortly after you pause typing. [Read the Plan](docs/realtime-grammar-checker-plan.md).
+- **Rich-text sidebar**: Hosts a Writer instance in the sidebar for rich formatting. *Experimental*, turn on Settings -> Sidebar. 
 - **Math & LaTeX**: **MathML** and **TeX** delimiters are automatically turned into **editable LibreOffice Math formulas** (OLE objects). Use `\(...\)` / `$...$` for inline and `$$...$$` / `\[...\]` for display in chat or HTML content; prefer `\(...\)` over bare `$` near numbers. See [docs/math-tex.md](docs/math-tex.md).
 
 ### 📊 Calc
@@ -77,17 +78,18 @@ Unlike proprietary office suites that lock you into a single cloud provider and 
 - **Multilingual Grammar**: An optional feature that uses the LLM to identify and correct the underlying text language when typing in multiple languages, before running the grammar checker.
 - **Cross-Document Research**: Say **my** or **our** in the sidebar (e.g. *“pull Q4 from our budget spreadsheet”*) to read other files in the same folder as your saved document; edits stay on the active doc. [Multi-document plan](docs/multi-document-dev-plan.md).
 
-### 🐍 Local Python Execution (in version 0.8.0)
+### 🐍 Local Python Execution (in version 0.8.8)
 
 - **Execute Python**: Use your own virtual environment (running any version of Python) to access libraries like `numpy`, `pandas`, etc.
 - **Enable it**: Set path in **Settings → Python**. Exposed to LLMs in Writer, Calc, and Draw / Impress.
 - **Recommended packages**: `pip install numpy pandas sympy scipy matplotlib scikit-learn` (scientific); `pip install pywebview jedi PyQt6 PyQt6-WebEngine qtpy` (Monaco editor UI). `numpy`, `pandas`, `sympy`, and `math` are auto-imported as `np`, `pd`, `sp`. Use the **Test** button in Settings to see which are installed.
 - **Agentic Analysis**: The AI can run Numpy computations and return structured results (as JSON) to update your document.
 - **New Calc Formula**: Use `=PYTHON(3 ** 8")` or pass a range: `=PYTHON("sum(data)", A1:A10)`. The **`data`** variable is a special variable containing the cell values, dynamically injected into your Python script's execution namespace at runtime ([Data Handoff Guide](docs/enabling_numpy_in_libreoffice.md#data-handoff-and-shaping)). Single-cell or single-entry inputs are automatically unpacked to Python scalars (and coerced to standard Python `int`s when they represent whole numbers), enabling intuitive formulas like `=PYTHON("sp.prime(data)", 100000)`.
-- **Multi-Range Support**: (*In version 0.8.6.*) `=PYTHON()` now supports an arbitrary number of non-contiguous ranges (e.g., `=PYTHON("np.mean(data)", A1:A10, C1:C10)`) for complex cross-block analysis.
-- **Shared Code Cell**: (*In version 0.8.3.*) You can store your code in a cell (e.g., `A1`) and reference it across multiple formulas (e.g., `=PYTHON($A$1; B1)`). 
+- **Multi-Range Support**: `=PYTHON()` supports an arbitrary number of non-contiguous ranges (e.g., `=PYTHON("np.mean(data)", A1:A10, C1:C10)`) for complex cross-block analysis.
+- **Shared Code Cell**: You can store your code in a cell (e.g., `A1`) and reference it across multiple formulas (e.g., `=PYTHON($A$1; B1)`). 
 - **Safety & Isolation**: Code runs safely in a separate process and is evaluated by a [custom AST-based executor](plugin/contrib/smolagents/local_python_executor.py) (adapted from [Hugging Face smolagents](https://github.com/huggingface/smolagents)) that acts as a secure sandbox which blocks dangerous modules (like `os`, `subprocess`, or `sys`) and functions (like `eval` or `exec`), ensuring that the AI can only perform safe, mathematical, and data-processing tasks. 
-- **High performance**: Compact pickle Protocol 5 + Split-grid [binary blob serialization for numbers](docs/numpy-serialization.md), 10× faster and 50% smaller than standard JSON lists.
+- **Color-syntax highlighting** - Python color-coded editing (if the external venv has: `pywebview jedi PyQt6 PyQt6-WebEngine qtpy`y)
+- **High performance**: Compact pickle Protocol 5 + Split-grid [binary blob serialization for numbers](docs/numpy-serialization.md), 2 faster and 50% smaller than standard JSON lists.
 
 
 ### 🎨 Showcase
