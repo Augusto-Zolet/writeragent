@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-24 20:40-0400\n"
+"POT-Creation-Date: 2026-05-25 02:12-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Polish <LL@li.org>\n"
@@ -19,8 +19,8 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable"
-" sub-agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
+"sub-agents in configuration."
 msgstr ""
 "Odczyty badań dokumentów wymagają delegowania podagentów (USE_SUB_AGENT). "
 "Włącz podagenty w konfiguracji."
@@ -28,8 +28,8 @@ msgstr ""
 #: plugin/doc/specialized_base.py
 #, python-brace-format
 msgid ""
-"Tool call switched to '{0}'. You are in a specialized toolset mode. You must"
-" call 'specialized_workflow_finished' when done to restore the full set of "
+"Tool call switched to '{0}'. You are in a specialized toolset mode. You must "
+"call 'specialized_workflow_finished' when done to restore the full set of "
 "APIs."
 msgstr ""
 "Wywołanie narzędzia przełączone na „{0}”. Jesteś w trybie specjalistycznego "
@@ -55,8 +55,7 @@ msgstr "Najpierw otwórz dokument programu Writer."
 #: plugin/notebook/import_dialog.py
 msgid "Import Notebook is only supported in LibreOffice Writer."
 msgstr ""
-"Importowanie notatnika jest obsługiwane tylko w programie LibreOffice "
-"Writer."
+"Importowanie notatnika jest obsługiwane tylko w programie LibreOffice Writer."
 
 #: plugin/notebook/import_dialog.py
 #, python-brace-format
@@ -202,8 +201,7 @@ msgstr "Ten model wymaga więcej czasu niż obecna konfiguracja."
 
 #: plugin/contrib/aihordeclient/__init__.py
 #, python-brace-format
-msgid ""
-"Please try another model. {0} would take more time than you configured."
+msgid "Please try another model. {0} would take more time than you configured."
 msgstr ""
 "Proszę spróbować innego modelu. {0} wymagałby więcej czasu niż "
 "skonfigurowano."
@@ -259,6 +257,59 @@ msgstr " za pomocą "
 
 #: plugin/framework/errors.py
 #, python-brace-format
+msgid "TLS/SSL Error: {0}"
+msgstr "Błąd TLS/SSL: {0}"
+
+#: plugin/framework/errors.py
+msgid "Invalid API Key. Please check your settings."
+msgstr "Nieprawidłowy klucz API. Sprawdź swoje ustawienia."
+
+#: plugin/framework/errors.py
+msgid "API access Forbidden. Your key may lack permissions for this model."
+msgstr ""
+"Dostęp do API zabroniony. Twój klucz może nie mieć uprawnień do tego modelu."
+
+#: plugin/framework/errors.py
+msgid "Endpoint not found (404). Check your URL and Model name."
+msgstr ""
+"Nie znaleziono punktu końcowego (404). Sprawdź adres URL i nazwę modelu."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "Server error ({0}). The AI provider is having issues."
+msgstr "Błąd serwera ({0}). Dostawca AI ma problemy."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "HTTP Error {0}: {1}"
+msgstr "Błąd HTTP {0}: {1}"
+
+#: plugin/framework/errors.py
+msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
+msgstr ""
+"Przekroczono limit czasu żądania. Spróbuj zwiększyć „Limit czasu żądania” w "
+"Ustawieniach."
+
+#: plugin/framework/errors.py
+msgid "Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
+msgstr ""
+"Odmowa połączenia. Czy lokalny serwer AI (Ollama/LM Studio) jest uruchomiony?"
+
+#: plugin/framework/errors.py
+msgid "DNS Error. Could not resolve the endpoint URL."
+msgstr "Błąd DNS. Nie można rozpoznać adresu URL punktu końcowego."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "Connection Error: {0}"
+msgstr "Błąd połączenia: {0}"
+
+#: plugin/framework/errors.py
+msgid "The AI provider reported an error. Try again."
+msgstr "Dostawca AI zgłosił błąd. Spróbuj ponownie."
+
+#: plugin/framework/errors.py
+#, python-brace-format
 msgid "{resource_type} not found: {identifier}"
 msgstr "Nie znaleziono {resource_type}: {identifier}"
 
@@ -272,8 +323,7 @@ msgstr ""
 
 #: plugin/framework/constants.py
 msgid ""
-"AI: I can help you with formulas, data analysis, and colorful charts. Try "
-"me!"
+"AI: I can help you with formulas, data analysis, and colorful charts. Try me!"
 msgstr ""
 "AI: Mogę pomóc Ci z formułami, analizą danych i kolorowymi wykresami. "
 "Wypróbuj mnie!"
@@ -297,61 +347,6 @@ msgstr ""
 
 #: plugin/framework/client/errors.py
 #, python-brace-format
-msgid "TLS/SSL Error: {0}"
-msgstr "Błąd TLS/SSL: {0}"
-
-#: plugin/framework/client/errors.py
-msgid "Invalid API Key. Please check your settings."
-msgstr "Nieprawidłowy klucz API. Sprawdź swoje ustawienia."
-
-#: plugin/framework/client/errors.py
-msgid "API access Forbidden. Your key may lack permissions for this model."
-msgstr ""
-"Dostęp do API zabroniony. Twój klucz może nie mieć uprawnień do tego modelu."
-
-#: plugin/framework/client/errors.py
-msgid "Endpoint not found (404). Check your URL and Model name."
-msgstr ""
-"Nie znaleziono punktu końcowego (404). Sprawdź adres URL i nazwę modelu."
-
-#: plugin/framework/client/errors.py
-#, python-brace-format
-msgid "Server error ({0}). The AI provider is having issues."
-msgstr "Błąd serwera ({0}). Dostawca AI ma problemy."
-
-#: plugin/framework/client/errors.py
-#, python-brace-format
-msgid "HTTP Error {0}: {1}"
-msgstr "Błąd HTTP {0}: {1}"
-
-#: plugin/framework/client/errors.py
-msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
-msgstr ""
-"Przekroczono limit czasu żądania. Spróbuj zwiększyć „Limit czasu żądania” w "
-"Ustawieniach."
-
-#: plugin/framework/client/errors.py
-msgid ""
-"Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
-msgstr ""
-"Odmowa połączenia. Czy lokalny serwer AI (Ollama/LM Studio) jest "
-"uruchomiony?"
-
-#: plugin/framework/client/errors.py
-msgid "DNS Error. Could not resolve the endpoint URL."
-msgstr "Błąd DNS. Nie można rozpoznać adresu URL punktu końcowego."
-
-#: plugin/framework/client/errors.py
-#, python-brace-format
-msgid "Connection Error: {0}"
-msgstr "Błąd połączenia: {0}"
-
-#: plugin/framework/client/errors.py
-msgid "The AI provider reported an error. Try again."
-msgstr "Dostawca AI zgłosił błąd. Spróbuj ponownie."
-
-#: plugin/framework/client/errors.py
-#, python-brace-format
 msgid "HTTP Error {0} from AI Provider: {1}"
 msgstr "Błąd HTTP {0} od dostawcy AI: {1}"
 
@@ -371,6 +366,10 @@ msgid ""
 msgstr ""
 "Model powtarza ten sam fragment (pętla nieskończona). Spróbuj ponownie lub "
 "użyj innego modelu."
+
+#: plugin/calc/python_function.py
+msgid "Image inserted"
+msgstr "Wstawiono obraz"
 
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
@@ -396,24 +395,12 @@ msgstr "WriterAgent: Rozszerz zaznaczenie (Calc)"
 #: plugin/calc/python_editor.py
 msgid ""
 "Could not preserve this cell's PYTHON formula arguments (e.g. data ranges). "
-"Edit the formula in Calc, or use a quoted code string like =PYTHON(\"code\";"
-" A1:B10)."
+"Edit the formula in Calc, or use a quoted code string like =PYTHON(\"code\"; "
+"A1:B10)."
 msgstr ""
 "Nie można było zachować argumentów formuły PYTHON tej komórki (np. zakresów "
 "danych). Edytuj formułę w programie Calc lub użyj ciągu znaków w "
 "cudzysłowie, np. =PYTHON(\"kod\"; A1:B10)."
-
-#: plugin/calc/python_editor.py
-msgid "Could not start the Python editor."
-msgstr "Nie można było uruchomić edytora języka Python."
-
-#: plugin/calc/python_editor.py
-msgid "The Python editor window did not start."
-msgstr "Okno edytora języka Python nie zostało uruchomione."
-
-#: plugin/calc/python_editor.py
-msgid "The Python editor exited before it could load your code."
-msgstr "Edytor języka Python został zamknięty przed załadowaniem kodu."
 
 #: plugin/calc/python_editor.py
 msgid "PYTHON cell editor"
@@ -423,9 +410,9 @@ msgstr "Edytor komórek PYTHON"
 msgid "Save as plain text"
 msgstr "Zapisz jako zwykły tekst"
 
-#: plugin/calc/python_editor.py
-msgid "Could not talk to the Python editor."
-msgstr "Nie można było nawiązać połączenia z edytorem języka Python."
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "Zapisz"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -433,8 +420,7 @@ msgstr "Edytor języka Python uległ nieoczekiwanej awarii."
 
 #: plugin/calc/python_editor.py
 msgid "Select a cell in a Calc spreadsheet to edit Python."
-msgstr ""
-"Wybierz komórkę w arkuszu kalkulacyjnym Calc, aby edytować kod Python."
+msgstr "Wybierz komórkę w arkuszu kalkulacyjnym Calc, aby edytować kod Python."
 
 #: plugin/calc/python_editor.py
 msgid ""
@@ -459,7 +445,8 @@ msgid ""
 "In that venv run: pip install pywebview\n"
 "(import name is webview, package name is pywebview)."
 msgstr ""
-"Nie można zaimportować webview (pywebview) przy użyciu interpretera Python z Ustawienia → Python:\n"
+"Nie można zaimportować webview (pywebview) przy użyciu interpretera Python z "
+"Ustawienia → Python:\n"
 "%(exe)s\n"
 "\n"
 "W tym środowisku wirtualnym (venv) uruchom: pip install pywebview\n"
@@ -639,8 +626,8 @@ msgid ""
 "[Internal Error: Could not identify document type for {0}. Please report "
 "this!]"
 msgstr ""
-"[Błąd wewnętrzny: Nie można zidentyfikować typu dokumentu dla {0}. Proszę to"
-" zgłosić!]"
+"[Błąd wewnętrzny: Nie można zidentyfikować typu dokumentu dla {0}. Proszę to "
+"zgłosić!]"
 
 #: plugin/chatbot/panel.py
 #, python-brace-format
@@ -729,8 +716,7 @@ msgstr "[Nie znaleziono backendu agenta „{0}”.]"
 
 #: plugin/chatbot/send_handlers.py
 #, python-brace-format
-msgid ""
-"[Agent backend '{0}' is not available. Check Settings (path, install).]"
+msgid "[Agent backend '{0}' is not available. Check Settings (path, install).]"
 msgstr ""
 "[Backend agenta „{0}” jest niedostępny. Sprawdź ustawienia (ścieżka, "
 "instalacja).]"
@@ -822,6 +808,22 @@ msgstr "Wysokość:"
 msgid "Width:"
 msgstr "Szerokość:"
 
+#: plugin/scripting/editor_session_launch.py
+msgid "Could not start the Python editor."
+msgstr "Nie można było uruchomić edytora języka Python."
+
+#: plugin/scripting/editor_session_launch.py
+msgid "The Python editor window did not start."
+msgstr "Okno edytora języka Python nie zostało uruchomione."
+
+#: plugin/scripting/editor_session_launch.py
+msgid "The Python editor exited before it could load your code."
+msgstr "Edytor języka Python został zamknięty przed załadowaniem kodu."
+
+#: plugin/scripting/editor_session_launch.py
+msgid "Could not talk to the Python editor."
+msgstr "Nie można było nawiązać połączenia z edytorem języka Python."
+
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "Uruchom skrypt Python"
@@ -854,8 +856,8 @@ msgstr ""
 "Zapraszamy do przesyłania zgłoszeń PR!"
 
 #: plugin/scripting/python_runner.py
-msgid "Success"
-msgstr "Sukces"
+msgid "Unknown error"
+msgstr "Nieznany błąd"
 
 #: plugin/scripting/python_runner.py
 msgid ""
@@ -869,16 +871,28 @@ msgid "Unsupported document type for result insertion."
 msgstr "Nieobsługiwany typ dokumentu dla wstawiania wyników."
 
 #: plugin/scripting/python_runner.py
-msgid "Output"
-msgstr "Wyjście"
+msgid "Script executed successfully."
+msgstr "Skrypt wykonano pomyślnie."
 
 #: plugin/scripting/python_runner.py
-msgid "Unknown error"
-msgstr "Nieznany błąd"
+msgid "Script saved."
+msgstr "Skrypt zapisano."
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Zamknij"
 
 #: plugin/scripting/python_runner.py
 msgid "Execution Error"
 msgstr "Błąd wykonania"
+
+#: plugin/scripting/python_runner.py
+msgid "Success"
+msgstr "Sukces"
+
+#: plugin/scripting/python_runner.py
+msgid "Output"
+msgstr "Wyjście"
 
 #: plugin/mcp/__init__.py
 msgid "Stop MCP Server"
@@ -1071,10 +1085,6 @@ msgid "Clear"
 msgstr "Wyczyść"
 
 #: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Zamknij"
-
-#: plugin/xdl_strings.py
 msgid "Context Len:"
 msgstr "Długość kontekstu:"
 
@@ -1204,11 +1214,11 @@ msgid "Path / URL"
 msgstr "Ścieżka / URL"
 
 msgid ""
-"Path to backend CLI (e.g. aider) or ACP server URL (e.g. "
-"http://localhost:8000 for Hermes). Empty = try default."
+"Path to backend CLI (e.g. aider) or ACP server URL (e.g. http://"
+"localhost:8000 for Hermes). Empty = try default."
 msgstr ""
-"Ścieżka do CLI backendu (np. aider) lub URL serwera ACP (np. "
-"http://localhost:8000 dla Hermes). Puste = spróbuj domyślnego."
+"Ścieżka do CLI backendu (np. aider) lub URL serwera ACP (np. http://"
+"localhost:8000 dla Hermes). Puste = spróbuj domyślnego."
 
 msgid "Extra arguments"
 msgstr "Dodatkowe argumenty"
@@ -1284,8 +1294,8 @@ msgstr "Maksymalny rozmiar pamięci podręcznej sieci (MB)"
 
 msgid "Max disk size for web search cache (0 to disable)"
 msgstr ""
-"Maksymalny rozmiar dysku dla pamięci podręcznej wyszukiwania w sieci (0, aby"
-" wyłączyć)"
+"Maksymalny rozmiar dysku dla pamięci podręcznej wyszukiwania w sieci (0, aby "
+"wyłączyć)"
 
 msgid "Web Cache Validity (Days)"
 msgstr "Ważność pamięci podręcznej sieci (dni)"
@@ -1295,6 +1305,14 @@ msgstr ""
 "Liczba dni, przez które wpisy w pamięci podręcznej powinny być uznawane za "
 "ważne."
 
+msgid "Rich Text Chat Sidebar"
+msgstr "Pasek boczny czatu sformatowanego"
+
+msgid "Use embedded Writer document for chat display (requires restart)"
+msgstr ""
+"Użyj osadzonego dokumentu Writer do wyświetlania czatu (wymaga ponownego "
+"uruchomienia)"
+
 msgid "Doc"
 msgstr "Dokument"
 
@@ -1303,12 +1321,12 @@ msgstr "Włącz sprawdzanie gramatyki AI (Writer)"
 
 msgid ""
 "When on, WriterAgent registers its AI grammar proofreader with Linguistic; "
-"checked text uses your API (Tools → Options → AI). Underlines appear shortly"
-" after you pause typing. Off by default."
+"checked text uses your API (Tools → Options → AI). Underlines appear shortly "
+"after you pause typing. Off by default."
 msgstr ""
 "Po włączeniu WriterAgent rejestruje swój moduł sprawdzania gramatyki AI w "
-"narzędziach językowych; sprawdzany tekst korzysta z Twojego API (Narzędzia →"
-" Opcje → AI). Podkreślenia pojawiają się krótko po zatrzymaniu pisania. "
+"narzędziach językowych; sprawdzany tekst korzysta z Twojego API (Narzędzia → "
+"Opcje → AI). Podkreślenia pojawiają się krótko po zatrzymaniu pisania. "
 "Domyślnie wyłączone."
 
 msgid "Grammar check model (optional)"
@@ -1375,11 +1393,11 @@ msgid "Enable MCP Server"
 msgstr "Włącz serwer MCP"
 
 msgid ""
-"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable"
-" HTTP)."
+"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable "
+"HTTP)."
 msgstr ""
-"Tylko localhost, brak autoryzacji. Klienci używają "
-"http://localhost:<port>/mcp (strumieniowe HTTP)."
+"Tylko localhost, brak autoryzacji. Klienci używają http://localhost:<port>/"
+"mcp (strumieniowe HTTP)."
 
 msgid "MCP Port"
 msgstr "Port MCP"
@@ -1407,10 +1425,10 @@ msgid ""
 "empty, run_venv_python_script uses this process's sys.executable (basic "
 "stdlib); use a venv for numpy/pandas."
 msgstr ""
-"Jeśli ustawiono, uruchamia narzędzia w tym venv (bin/python lub "
-"Scripts/python.exe). Jeśli puste, run_venv_python_script użyje "
-"sys.executable bieżącego procesu (podstawowa biblioteka standardowa); użyj "
-"venv dla numpy/pandas."
+"Jeśli ustawiono, uruchamia narzędzia w tym venv (bin/python lub Scripts/"
+"python.exe). Jeśli puste, run_venv_python_script użyje sys.executable "
+"bieżącego procesu (podstawowa biblioteka standardowa); użyj venv dla numpy/"
+"pandas."
 
 msgid "Test"
 msgstr "Test"
@@ -1429,8 +1447,8 @@ msgid "Max Calc data cells"
 msgstr "Maksymalna liczba komórek danych Calc"
 
 msgid ""
-"Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger"
-" values use more RAM and time; UNO range read still dominates."
+"Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger "
+"values use more RAM and time; UNO range read still dominates."
 msgstr ""
 "Maksymalna liczba komórek w danych =PYTHON() lub danych/zakresie danych Run "
 "Python Script. Większe wartości zużywają więcej pamięci RAM i czasu; odczyt "

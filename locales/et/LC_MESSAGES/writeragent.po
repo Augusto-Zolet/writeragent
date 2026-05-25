@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-24 20:40-0400\n"
+"POT-Creation-Date: 2026-05-25 02:12-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Estonian <LL@li.org>\n"
@@ -19,8 +19,8 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable"
-" sub-agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
+"sub-agents in configuration."
 msgstr ""
 "Dokumendi uurimiseks on vajalik alamagendi delegeerimine (USE_SUB_AGENT). "
 "Lubage alamagendid seadistustes."
@@ -28,8 +28,8 @@ msgstr ""
 #: plugin/doc/specialized_base.py
 #, python-brace-format
 msgid ""
-"Tool call switched to '{0}'. You are in a specialized toolset mode. You must"
-" call 'specialized_workflow_finished' when done to restore the full set of "
+"Tool call switched to '{0}'. You are in a specialized toolset mode. You must "
+"call 'specialized_workflow_finished' when done to restore the full set of "
 "APIs."
 msgstr ""
 "Tööriista väljakutse lülitus režiimile '{0}'. Olete spetsiaalses "
@@ -105,8 +105,8 @@ msgid ""
 "At this moment we can not process your request, please try again later.  If "
 "this is happening for a long period of time, please let us know via Discord"
 msgstr ""
-"Hetkel ei saa me sinu päringut töödelda, palun proovi hiljem uuesti. Kui see"
-" kestab pikemat aega, anna meile sellest Discordi kaudu teada"
+"Hetkel ei saa me sinu päringut töödelda, palun proovi hiljem uuesti. Kui see "
+"kestab pikemat aega, anna meile sellest Discordi kaudu teada"
 
 #: plugin/contrib/aihordeclient/__init__.py
 msgid "Problem requesting kudos"
@@ -197,8 +197,7 @@ msgstr "See mudel võtab rohkem aega kui teie praegune konfiguratsioon."
 
 #: plugin/contrib/aihordeclient/__init__.py
 #, python-brace-format
-msgid ""
-"Please try another model. {0} would take more time than you configured."
+msgid "Please try another model. {0} would take more time than you configured."
 msgstr ""
 "Palun proovige teist mudelit. {0} võtaks rohkem aega kui konfigureerisite."
 
@@ -253,6 +252,58 @@ msgstr " koos "
 
 #: plugin/framework/errors.py
 #, python-brace-format
+msgid "TLS/SSL Error: {0}"
+msgstr "TLS/SSL-i viga: {0}"
+
+#: plugin/framework/errors.py
+msgid "Invalid API Key. Please check your settings."
+msgstr "Vigane API-võti. Kontrollige oma sätteid."
+
+#: plugin/framework/errors.py
+msgid "API access Forbidden. Your key may lack permissions for this model."
+msgstr ""
+"API-juurdepääs keelatud. Teie võtmel ei pruugi olla selle mudeli jaoks "
+"õigusi."
+
+#: plugin/framework/errors.py
+msgid "Endpoint not found (404). Check your URL and Model name."
+msgstr "Lõpp-punkti ei leitud (404). Kontrollige oma URL-i ja mudeli nime."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "Server error ({0}). The AI provider is having issues."
+msgstr "Serveri viga ({0}). AI-teenuse pakkujal on probleeme."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "HTTP Error {0}: {1}"
+msgstr "HTTP-viga {0}: {1}"
+
+#: plugin/framework/errors.py
+msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
+msgstr ""
+"Päringu aegumine. Proovige sätetes „Request Timeout“ väärtust suurendada."
+
+#: plugin/framework/errors.py
+msgid "Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
+msgstr ""
+"Ühendusest keelduti. Kas teie kohalik AI-server (Ollama/LM Studio) töötab?"
+
+#: plugin/framework/errors.py
+msgid "DNS Error. Could not resolve the endpoint URL."
+msgstr "DNS-i tõrge. Lõpp-punkti URL-i ei õnnestunud lahendada."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "Connection Error: {0}"
+msgstr "Ühenduse tõrge: {0}"
+
+#: plugin/framework/errors.py
+msgid "The AI provider reported an error. Try again."
+msgstr "AI-teenuse pakkuja teatas tõrkest. Proovige uuesti."
+
+#: plugin/framework/errors.py
+#, python-brace-format
 msgid "{resource_type} not found: {identifier}"
 msgstr "{resource_type} ei leitud: {identifier}"
 
@@ -266,8 +317,7 @@ msgstr ""
 
 #: plugin/framework/constants.py
 msgid ""
-"AI: I can help you with formulas, data analysis, and colorful charts. Try "
-"me!"
+"AI: I can help you with formulas, data analysis, and colorful charts. Try me!"
 msgstr ""
 "AI: Saan teid aidata valemite, andmeanalüüsi ja värviliste diagrammidega. "
 "Proovige mind!"
@@ -290,59 +340,6 @@ msgstr ""
 
 #: plugin/framework/client/errors.py
 #, python-brace-format
-msgid "TLS/SSL Error: {0}"
-msgstr "TLS/SSL-i viga: {0}"
-
-#: plugin/framework/client/errors.py
-msgid "Invalid API Key. Please check your settings."
-msgstr "Vigane API-võti. Kontrollige oma sätteid."
-
-#: plugin/framework/client/errors.py
-msgid "API access Forbidden. Your key may lack permissions for this model."
-msgstr ""
-"API-juurdepääs keelatud. Teie võtmel ei pruugi olla selle mudeli jaoks "
-"õigusi."
-
-#: plugin/framework/client/errors.py
-msgid "Endpoint not found (404). Check your URL and Model name."
-msgstr "Lõpp-punkti ei leitud (404). Kontrollige oma URL-i ja mudeli nime."
-
-#: plugin/framework/client/errors.py
-#, python-brace-format
-msgid "Server error ({0}). The AI provider is having issues."
-msgstr "Serveri viga ({0}). AI-teenuse pakkujal on probleeme."
-
-#: plugin/framework/client/errors.py
-#, python-brace-format
-msgid "HTTP Error {0}: {1}"
-msgstr "HTTP-viga {0}: {1}"
-
-#: plugin/framework/client/errors.py
-msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
-msgstr ""
-"Päringu aegumine. Proovige sätetes „Request Timeout“ väärtust suurendada."
-
-#: plugin/framework/client/errors.py
-msgid ""
-"Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
-msgstr ""
-"Ühendusest keelduti. Kas teie kohalik AI-server (Ollama/LM Studio) töötab?"
-
-#: plugin/framework/client/errors.py
-msgid "DNS Error. Could not resolve the endpoint URL."
-msgstr "DNS-i tõrge. Lõpp-punkti URL-i ei õnnestunud lahendada."
-
-#: plugin/framework/client/errors.py
-#, python-brace-format
-msgid "Connection Error: {0}"
-msgstr "Ühenduse tõrge: {0}"
-
-#: plugin/framework/client/errors.py
-msgid "The AI provider reported an error. Try again."
-msgstr "AI-teenuse pakkuja teatas tõrkest. Proovige uuesti."
-
-#: plugin/framework/client/errors.py
-#, python-brace-format
 msgid "HTTP Error {0} from AI Provider: {1}"
 msgstr "HTTP-tõrge {0} AI-teenuse pakkujalt: {1}"
 
@@ -362,6 +359,10 @@ msgid ""
 msgstr ""
 "Mudel kordab sama osa (lõputu tsükkel). Proovige uuesti või kasutage teist "
 "mudelit."
+
+#: plugin/calc/python_function.py
+msgid "Image inserted"
+msgstr "Pilt sisestatud"
 
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
@@ -387,24 +388,12 @@ msgstr "WriterAgent: valiku laiendamine (Calc)"
 #: plugin/calc/python_editor.py
 msgid ""
 "Could not preserve this cell's PYTHON formula arguments (e.g. data ranges). "
-"Edit the formula in Calc, or use a quoted code string like =PYTHON(\"code\";"
-" A1:B10)."
+"Edit the formula in Calc, or use a quoted code string like =PYTHON(\"code\"; "
+"A1:B10)."
 msgstr ""
 "Selle lahtri PYTHON-valemi argumente (nt andmevahemikke) ei saanud "
 "säilitada. Redigeeri valemit Calcis või kasuta jutumärkides koodistringi, "
 "näiteks =PYTHON(\"kood\"; A1:B10)."
-
-#: plugin/calc/python_editor.py
-msgid "Could not start the Python editor."
-msgstr "Pythoni redaktorit ei saanud käivitada."
-
-#: plugin/calc/python_editor.py
-msgid "The Python editor window did not start."
-msgstr "Pythoni redaktori aken ei käivitunud."
-
-#: plugin/calc/python_editor.py
-msgid "The Python editor exited before it could load your code."
-msgstr "Pythoni redaktor sulgus enne, kui see jõudis koodi laadida."
 
 #: plugin/calc/python_editor.py
 msgid "PYTHON cell editor"
@@ -414,9 +403,9 @@ msgstr "PYTHON-lahtri redaktor"
 msgid "Save as plain text"
 msgstr "Salvesta lihttekstina"
 
-#: plugin/calc/python_editor.py
-msgid "Could not talk to the Python editor."
-msgstr "Pythoni redaktoriga ei saanud ühendust."
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "Salvesta"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -432,10 +421,13 @@ msgid ""
 "in another cell). Edit it in the formula bar, or use =PYTHON(\"code\"; "
 "range) with quoted code."
 msgstr ""
+"See PYTHON-valem kasutab vormi, mida redaktor ei saa turvaliselt ümber "
+"kirjutada (nt kood teises lahtris). Muutke seda valemiribal või kasutage "
+"=PYTHON(\"kood\"; vahemik) koos jutumärkides koodiga."
 
 #: plugin/calc/python_editor.py
 msgid "No Python interpreter available for the editor."
-msgstr ""
+msgstr "Redaktori jaoks pole Pythoni interpretaatorit saadaval."
 
 #: plugin/calc/python_editor.py
 #, python-format
@@ -446,11 +438,16 @@ msgid ""
 "In that venv run: pip install pywebview\n"
 "(import name is webview, package name is pywebview)."
 msgstr ""
+"Veebivaate (pywebview) importimine Pythoniga sätetest → Python pole "
+"võimalik:\n"
+"%(exe)s\n"
+"\n"
+"Käivitage selles virtuaalkeskkonnas: pip install pywebview\n"
+"(impordinimi on webview, paketi nimi on pywebview)."
 
 #: plugin/calc/python_editor.py
-#, fuzzy
 msgid "unknown error"
-msgstr "Tundmatu viga"
+msgstr "tundmatu viga"
 
 #: plugin/writer/editselection.py plugin/chatbot/selection.py
 msgid "WriterAgent: Extend Selection"
@@ -603,8 +600,8 @@ msgid ""
 "[No compatible LibreOffice document (Writer, Calc, or Draw) found in the "
 "active window.]"
 msgstr ""
-"[Aktiivses aknas ei leitud ühtegi ühilduvat LibreOffice'i dokumenti (Writer,"
-" Calc või Draw).]"
+"[Aktiivses aknas ei leitud ühtegi ühilduvat LibreOffice'i dokumenti (Writer, "
+"Calc või Draw).]"
 
 #: plugin/chatbot/panel.py
 #, python-brace-format
@@ -621,8 +618,8 @@ msgid ""
 "[Internal Error: Could not identify document type for {0}. Please report "
 "this!]"
 msgstr ""
-"[Sisemine viga: dokumendi tüüpi {0} ei õnnestunud tuvastada. Palun teavitage"
-" sellest!]"
+"[Sisemine viga: dokumendi tüüpi {0} ei õnnestunud tuvastada. Palun teavitage "
+"sellest!]"
 
 #: plugin/chatbot/panel.py
 #, python-brace-format
@@ -709,8 +706,7 @@ msgstr "[Agendi taustaprogrammi '{0}' ei leitud.]"
 
 #: plugin/chatbot/send_handlers.py
 #, python-brace-format
-msgid ""
-"[Agent backend '{0}' is not available. Check Settings (path, install).]"
+msgid "[Agent backend '{0}' is not available. Check Settings (path, install).]"
 msgstr ""
 "[Agendi taustaprogramm '{0}' pole saadaval. Kontrollige sätteid (asukoht, "
 "install).]"
@@ -801,6 +797,22 @@ msgstr "Kõrgus:"
 msgid "Width:"
 msgstr "Laius:"
 
+#: plugin/scripting/editor_session_launch.py
+msgid "Could not start the Python editor."
+msgstr "Pythoni redaktorit ei saanud käivitada."
+
+#: plugin/scripting/editor_session_launch.py
+msgid "The Python editor window did not start."
+msgstr "Pythoni redaktori aken ei käivitunud."
+
+#: plugin/scripting/editor_session_launch.py
+msgid "The Python editor exited before it could load your code."
+msgstr "Pythoni redaktor sulgus enne, kui see jõudis koodi laadida."
+
+#: plugin/scripting/editor_session_launch.py
+msgid "Could not talk to the Python editor."
+msgstr "Pythoni redaktoriga ei saanud ühendust."
+
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "Käivita Pythoni skript"
@@ -832,8 +844,8 @@ msgstr ""
 "Tulemuse sisestamine Draw/Impressi pole veel toetatud. PR-id on teretulnud!"
 
 #: plugin/scripting/python_runner.py
-msgid "Success"
-msgstr "Edu"
+msgid "Unknown error"
+msgstr "Tundmatu viga"
 
 #: plugin/scripting/python_runner.py
 msgid ""
@@ -847,16 +859,28 @@ msgid "Unsupported document type for result insertion."
 msgstr "Toetamata dokumenditüüp tulemuse sisestamiseks."
 
 #: plugin/scripting/python_runner.py
-msgid "Output"
-msgstr "Väljund"
+msgid "Script executed successfully."
+msgstr "Skript käivitati edukalt."
 
 #: plugin/scripting/python_runner.py
-msgid "Unknown error"
-msgstr "Tundmatu viga"
+msgid "Script saved."
+msgstr "Skript salvestatud."
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Sulge"
 
 #: plugin/scripting/python_runner.py
 msgid "Execution Error"
 msgstr "Täitmisviga"
+
+#: plugin/scripting/python_runner.py
+msgid "Success"
+msgstr "Edu"
+
+#: plugin/scripting/python_runner.py
+msgid "Output"
+msgstr "Väljund"
 
 #: plugin/mcp/__init__.py
 msgid "Stop MCP Server"
@@ -881,8 +905,8 @@ msgstr "MCP-serveri käivitamine ebaõnnestus"
 #: plugin/mcp/__init__.py
 msgid "Check writeragent_debug.log in your LibreOffice user config folder"
 msgstr ""
-"Kontrolli writeragent_debug.log faili oma LibreOffice'i kasutaja seadistuste"
-" kaustas"
+"Kontrolli writeragent_debug.log faili oma LibreOffice'i kasutaja seadistuste "
+"kaustas"
 
 #: plugin/mcp/__init__.py
 msgid "MCP server is not running"
@@ -1049,10 +1073,6 @@ msgid "Clear"
 msgstr "Tühjenda"
 
 #: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Sulge"
-
-#: plugin/xdl_strings.py
 msgid "Context Len:"
 msgstr "Konteksti pikkus:"
 
@@ -1182,11 +1202,11 @@ msgid "Path / URL"
 msgstr "Tee / URL"
 
 msgid ""
-"Path to backend CLI (e.g. aider) or ACP server URL (e.g. "
-"http://localhost:8000 for Hermes). Empty = try default."
+"Path to backend CLI (e.g. aider) or ACP server URL (e.g. http://"
+"localhost:8000 for Hermes). Empty = try default."
 msgstr ""
-"Tee taustaprogrammi CLI-le (nt aider) või ACP-serveri URL (nt "
-"http://localhost:8000 Hermes'i jaoks). Tühi = proovi vaikimisi."
+"Tee taustaprogrammi CLI-le (nt aider) või ACP-serveri URL (nt http://"
+"localhost:8000 Hermes'i jaoks). Tühi = proovi vaikimisi."
 
 msgid "Extra arguments"
 msgstr "Lisargumendid"
@@ -1268,6 +1288,14 @@ msgstr "Veebipuhvri kehtivus (päevades)"
 msgid "How many days cache entries should be considered valid."
 msgstr "Mitu päeva loetakse puhvri kirjeid kehtivateks."
 
+msgid "Rich Text Chat Sidebar"
+msgstr "Rikastatud teksti vestluse külgpaneel"
+
+msgid "Use embedded Writer document for chat display (requires restart)"
+msgstr ""
+"Kasuta vestluse kuvamiseks manustatud Writeri dokumenti (nõuab "
+"taaskäivitamist)"
+
 msgid "Doc"
 msgstr "Dokument"
 
@@ -1276,8 +1304,8 @@ msgstr "Luba tehisintellektil põhinev grammatikakontroll (Writer)"
 
 msgid ""
 "When on, WriterAgent registers its AI grammar proofreader with Linguistic; "
-"checked text uses your API (Tools → Options → AI). Underlines appear shortly"
-" after you pause typing. Off by default."
+"checked text uses your API (Tools → Options → AI). Underlines appear shortly "
+"after you pause typing. Off by default."
 msgstr ""
 "Kui see on sisse lülitatud, registreerib WriterAgent oma tehisintellektil "
 "põhineva grammatikakontrolli keeletööriistade hulgas; kontrollitud tekst "
@@ -1321,8 +1349,8 @@ msgid ""
 "document's used locales. If incorrect, the language property is updated "
 "automatically."
 msgstr ""
-"Kui see on sisse lülitatud, palub see tehisintellektil kontrollida iga lause"
-" keelt vastavalt dokumendis kasutatud keeleseadetele. Kui keel on vale, "
+"Kui see on sisse lülitatud, palub see tehisintellektil kontrollida iga lause "
+"keelt vastavalt dokumendis kasutatud keeleseadetele. Kui keel on vale, "
 "uuendatakse keeleomadust automaatselt."
 
 msgid "Enter key sends sidebar chat message"
@@ -1349,11 +1377,11 @@ msgid "Enable MCP Server"
 msgstr "Luba MCP-server"
 
 msgid ""
-"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable"
-" HTTP)."
+"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable "
+"HTTP)."
 msgstr ""
-"Ainult localhost, autentimine puudub. Kliendid kasutavad aadressi "
-"http://localhost:<port>/mcp (voogedastatav HTTP)."
+"Ainult localhost, autentimine puudub. Kliendid kasutavad aadressi http://"
+"localhost:<port>/mcp (voogedastatav HTTP)."
 
 msgid "MCP Port"
 msgstr "MCP-port"
@@ -1366,8 +1394,8 @@ msgid ""
 "the browser Origin. For other hosts, add mcp.cors_allowed_origins in "
 "writeragent.json."
 msgstr ""
-"Automaatne domeenidele .local, .lan, .home.arpa, .internal, .intern ja LAN-i"
-" IP-aadressidele brauseri päritolus (Origin). Muude hostide puhul lisage "
+"Automaatne domeenidele .local, .lan, .home.arpa, .internal, .intern ja LAN-i "
+"IP-aadressidele brauseri päritolus (Origin). Muude hostide puhul lisage "
 "mcp.cors_allowed_origins faili writeragent.json."
 
 msgid "Python"
@@ -1381,10 +1409,9 @@ msgid ""
 "empty, run_venv_python_script uses this process's sys.executable (basic "
 "stdlib); use a venv for numpy/pandas."
 msgstr ""
-"Kui määratud, käivitab tööriistad selles venv-is (bin/python või "
-"Scripts/python.exe). Kui tühi, kasutab run_venv_python_script selle "
-"protsessi sys.executable'i (põhiline stdlib); kasuta venv-i numpy/pandas "
-"jaoks."
+"Kui määratud, käivitab tööriistad selles venv-is (bin/python või Scripts/"
+"python.exe). Kui tühi, kasutab run_venv_python_script selle protsessi "
+"sys.executable'i (põhiline stdlib); kasuta venv-i numpy/pandas jaoks."
 
 msgid "Test"
 msgstr "Test"
@@ -1400,12 +1427,15 @@ msgstr ""
 "funktsioonide ajalimiit."
 
 msgid "Max Calc data cells"
-msgstr ""
+msgstr "Maksimaalne Calc-i andmeelementide arv"
 
 msgid ""
-"Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger"
-" values use more RAM and time; UNO range read still dominates."
+"Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger "
+"values use more RAM and time; UNO range read still dominates."
 msgstr ""
+"Maksimaalne elementide arv =PYTHON() andmetes või käsu „Run Python Script“ "
+"andmevahemikus. Suuremad väärtused nõuavad rohkem muutmälu ja aega; UNO "
+"vahemiku lugemine on endiselt domineeriv tegur."
 
 msgid "Writer document tools (including navigation and search)"
 msgstr "Writeri dokumenditööriistad (sh navigeerimine ja otsing)"

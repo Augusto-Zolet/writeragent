@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-24 20:40-0400\n"
+"POT-Creation-Date: 2026-05-25 02:12-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Dutch <LL@li.org>\n"
@@ -19,8 +19,8 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable"
-" sub-agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
+"sub-agents in configuration."
 msgstr ""
 "Documentonderzoek vereist delegatie aan een sub-agent (USE_SUB_AGENT). "
 "Schakel sub-agents in via de configuratie."
@@ -28,8 +28,8 @@ msgstr ""
 #: plugin/doc/specialized_base.py
 #, python-brace-format
 msgid ""
-"Tool call switched to '{0}'. You are in a specialized toolset mode. You must"
-" call 'specialized_workflow_finished' when done to restore the full set of "
+"Tool call switched to '{0}'. You are in a specialized toolset mode. You must "
+"call 'specialized_workflow_finished' when done to restore the full set of "
 "APIs."
 msgstr ""
 "Tool-aanroep gewijzigd naar '{0}'. U bevindt zich in een gespecialiseerde "
@@ -200,8 +200,7 @@ msgstr "Dit model heeft meer tijd nodig dan uw huidige configuratie."
 
 #: plugin/contrib/aihordeclient/__init__.py
 #, python-brace-format
-msgid ""
-"Please try another model. {0} would take more time than you configured."
+msgid "Please try another model. {0} would take more time than you configured."
 msgstr ""
 "Probeer een ander model. {0} zou meer tijd in beslag nemen dan u heeft "
 "geconfigureerd."
@@ -257,6 +256,57 @@ msgstr " met "
 
 #: plugin/framework/errors.py
 #, python-brace-format
+msgid "TLS/SSL Error: {0}"
+msgstr "TLS/SSL-fout: {0}"
+
+#: plugin/framework/errors.py
+msgid "Invalid API Key. Please check your settings."
+msgstr "Ongeldige API-sleutel. Controleer uw instellingen."
+
+#: plugin/framework/errors.py
+msgid "API access Forbidden. Your key may lack permissions for this model."
+msgstr ""
+"API-toegang geweigerd. Uw sleutel heeft mogelijk onvoldoende rechten voor "
+"dit model."
+
+#: plugin/framework/errors.py
+msgid "Endpoint not found (404). Check your URL and Model name."
+msgstr "Eindpunt niet gevonden (404). Controleer uw URL en modelnaam."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "Server error ({0}). The AI provider is having issues."
+msgstr "Serverfout ({0}). De AI-provider ondervindt problemen."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "HTTP Error {0}: {1}"
+msgstr "HTTP-fout {0}: {1}"
+
+#: plugin/framework/errors.py
+msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
+msgstr ""
+"Time-out bij verzoek. Probeer 'Request Timeout' in Instellingen te verhogen."
+
+#: plugin/framework/errors.py
+msgid "Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
+msgstr "Verbinding geweigerd. Draait uw lokale AI-server (Ollama/LM Studio)?"
+
+#: plugin/framework/errors.py
+msgid "DNS Error. Could not resolve the endpoint URL."
+msgstr "DNS-fout. Kan de endpoint-URL niet omzetten."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "Connection Error: {0}"
+msgstr "Verbindingsfout: {0}"
+
+#: plugin/framework/errors.py
+msgid "The AI provider reported an error. Try again."
+msgstr "De AI-provider meldde een fout. Probeer het opnieuw."
+
+#: plugin/framework/errors.py
+#, python-brace-format
 msgid "{resource_type} not found: {identifier}"
 msgstr "{resource_type} niet gevonden: {identifier}"
 
@@ -270,8 +320,7 @@ msgstr ""
 
 #: plugin/framework/constants.py
 msgid ""
-"AI: I can help you with formulas, data analysis, and colorful charts. Try "
-"me!"
+"AI: I can help you with formulas, data analysis, and colorful charts. Try me!"
 msgstr ""
 "AI: Ik kan u helpen met formules, gegevensanalyse en kleurrijke grafieken. "
 "Probeer het eens!"
@@ -295,58 +344,6 @@ msgstr ""
 
 #: plugin/framework/client/errors.py
 #, python-brace-format
-msgid "TLS/SSL Error: {0}"
-msgstr "TLS/SSL-fout: {0}"
-
-#: plugin/framework/client/errors.py
-msgid "Invalid API Key. Please check your settings."
-msgstr "Ongeldige API-sleutel. Controleer uw instellingen."
-
-#: plugin/framework/client/errors.py
-msgid "API access Forbidden. Your key may lack permissions for this model."
-msgstr ""
-"API-toegang geweigerd. Uw sleutel heeft mogelijk onvoldoende rechten voor "
-"dit model."
-
-#: plugin/framework/client/errors.py
-msgid "Endpoint not found (404). Check your URL and Model name."
-msgstr "Eindpunt niet gevonden (404). Controleer uw URL en modelnaam."
-
-#: plugin/framework/client/errors.py
-#, python-brace-format
-msgid "Server error ({0}). The AI provider is having issues."
-msgstr "Serverfout ({0}). De AI-provider ondervindt problemen."
-
-#: plugin/framework/client/errors.py
-#, python-brace-format
-msgid "HTTP Error {0}: {1}"
-msgstr "HTTP-fout {0}: {1}"
-
-#: plugin/framework/client/errors.py
-msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
-msgstr ""
-"Time-out bij verzoek. Probeer 'Request Timeout' in Instellingen te verhogen."
-
-#: plugin/framework/client/errors.py
-msgid ""
-"Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
-msgstr "Verbinding geweigerd. Draait uw lokale AI-server (Ollama/LM Studio)?"
-
-#: plugin/framework/client/errors.py
-msgid "DNS Error. Could not resolve the endpoint URL."
-msgstr "DNS-fout. Kan de endpoint-URL niet omzetten."
-
-#: plugin/framework/client/errors.py
-#, python-brace-format
-msgid "Connection Error: {0}"
-msgstr "Verbindingsfout: {0}"
-
-#: plugin/framework/client/errors.py
-msgid "The AI provider reported an error. Try again."
-msgstr "De AI-provider meldde een fout. Probeer het opnieuw."
-
-#: plugin/framework/client/errors.py
-#, python-brace-format
 msgid "HTTP Error {0} from AI Provider: {1}"
 msgstr "HTTP-fout {0} van AI-provider: {1}"
 
@@ -366,6 +363,10 @@ msgid ""
 msgstr ""
 "Het model herhaalt hetzelfde fragment (oneindige lus). Probeer het opnieuw "
 "of gebruik een ander model."
+
+#: plugin/calc/python_function.py
+msgid "Image inserted"
+msgstr "Afbeelding ingevoegd"
 
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
@@ -391,24 +392,12 @@ msgstr "WriterAgent: Selectie uitbreiden (Calc)"
 #: plugin/calc/python_editor.py
 msgid ""
 "Could not preserve this cell's PYTHON formula arguments (e.g. data ranges). "
-"Edit the formula in Calc, or use a quoted code string like =PYTHON(\"code\";"
-" A1:B10)."
+"Edit the formula in Calc, or use a quoted code string like =PYTHON(\"code\"; "
+"A1:B10)."
 msgstr ""
 "Kon de PYTHON-formuleargumenten van deze cel (bijv. gegevensbereiken) niet "
 "behouden. Bewerk de formule in Calc, of gebruik een geciteerde codereeks "
 "zoals =PYTHON(\"code\"; A1:B10)."
-
-#: plugin/calc/python_editor.py
-msgid "Could not start the Python editor."
-msgstr "Kon de Python-editor niet starten."
-
-#: plugin/calc/python_editor.py
-msgid "The Python editor window did not start."
-msgstr "Het venster van de Python-editor is niet gestart."
-
-#: plugin/calc/python_editor.py
-msgid "The Python editor exited before it could load your code."
-msgstr "De Python-editor is afgesloten voordat uw code kon worden geladen."
 
 #: plugin/calc/python_editor.py
 msgid "PYTHON cell editor"
@@ -418,9 +407,9 @@ msgstr "PYTHON-cel-editor"
 msgid "Save as plain text"
 msgstr "Opslaan als platte tekst"
 
-#: plugin/calc/python_editor.py
-msgid "Could not talk to the Python editor."
-msgstr "Kon niet communiceren met de Python-editor."
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "Opslaan"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -453,7 +442,8 @@ msgid ""
 "In that venv run: pip install pywebview\n"
 "(import name is webview, package name is pywebview)."
 msgstr ""
-"Kan webview (pywebview) niet importeren met de Python uit Instellingen → Python:\n"
+"Kan webview (pywebview) niet importeren met de Python uit Instellingen → "
+"Python:\n"
 "%(exe)s\n"
 "\n"
 "Voer in die venv uit: pip install pywebview\n"
@@ -615,8 +605,8 @@ msgid ""
 "[No compatible LibreOffice document (Writer, Calc, or Draw) found in the "
 "active window.]"
 msgstr ""
-"[Geen compatibel LibreOffice-document (Writer, Calc of Draw) gevonden in het"
-" actieve venster.]"
+"[Geen compatibel LibreOffice-document (Writer, Calc of Draw) gevonden in het "
+"actieve venster.]"
 
 #: plugin/chatbot/panel.py
 #, python-brace-format
@@ -723,8 +713,7 @@ msgstr "[Agent-backend '{0}' niet gevonden.]"
 
 #: plugin/chatbot/send_handlers.py
 #, python-brace-format
-msgid ""
-"[Agent backend '{0}' is not available. Check Settings (path, install).]"
+msgid "[Agent backend '{0}' is not available. Check Settings (path, install).]"
 msgstr ""
 "[Agent-backend '{0}' is niet beschikbaar. Controleer Instellingen (pad, "
 "installatie).]"
@@ -816,6 +805,22 @@ msgstr "Hoogte:"
 msgid "Width:"
 msgstr "Breedte:"
 
+#: plugin/scripting/editor_session_launch.py
+msgid "Could not start the Python editor."
+msgstr "Kon de Python-editor niet starten."
+
+#: plugin/scripting/editor_session_launch.py
+msgid "The Python editor window did not start."
+msgstr "Het venster van de Python-editor is niet gestart."
+
+#: plugin/scripting/editor_session_launch.py
+msgid "The Python editor exited before it could load your code."
+msgstr "De Python-editor is afgesloten voordat uw code kon worden geladen."
+
+#: plugin/scripting/editor_session_launch.py
+msgid "Could not talk to the Python editor."
+msgstr "Kon niet communiceren met de Python-editor."
+
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "Python-script uitvoeren"
@@ -848,31 +853,43 @@ msgstr ""
 "welkom!"
 
 #: plugin/scripting/python_runner.py
-msgid "Success"
-msgstr "Succes"
+msgid "Unknown error"
+msgstr "Onbekende fout"
 
 #: plugin/scripting/python_runner.py
 msgid ""
 "Script executed successfully, but returned no result and produced no output."
 msgstr ""
-"Script is succesvol uitgevoerd, maar gaf geen resultaat terug en produceerde"
-" geen uitvoer."
+"Script is succesvol uitgevoerd, maar gaf geen resultaat terug en produceerde "
+"geen uitvoer."
 
 #: plugin/scripting/python_runner.py
 msgid "Unsupported document type for result insertion."
 msgstr "Niet-ondersteund documenttype voor het invoegen van resultaten."
 
 #: plugin/scripting/python_runner.py
-msgid "Output"
-msgstr "Uitvoer"
+msgid "Script executed successfully."
+msgstr "Script succesvol uitgevoerd."
 
 #: plugin/scripting/python_runner.py
-msgid "Unknown error"
-msgstr "Onbekende fout"
+msgid "Script saved."
+msgstr "Script opgeslagen."
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Sluiten"
 
 #: plugin/scripting/python_runner.py
 msgid "Execution Error"
 msgstr "Uitvoeringsfout"
+
+#: plugin/scripting/python_runner.py
+msgid "Success"
+msgstr "Succes"
+
+#: plugin/scripting/python_runner.py
+msgid "Output"
+msgstr "Uitvoer"
 
 #: plugin/mcp/__init__.py
 msgid "Stop MCP Server"
@@ -1064,10 +1081,6 @@ msgid "Clear"
 msgstr "Wissen"
 
 #: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Sluiten"
-
-#: plugin/xdl_strings.py
 msgid "Context Len:"
 msgstr "Contextlengte:"
 
@@ -1197,19 +1210,18 @@ msgid "Path / URL"
 msgstr "Pad / URL"
 
 msgid ""
-"Path to backend CLI (e.g. aider) or ACP server URL (e.g. "
-"http://localhost:8000 for Hermes). Empty = try default."
+"Path to backend CLI (e.g. aider) or ACP server URL (e.g. http://"
+"localhost:8000 for Hermes). Empty = try default."
 msgstr ""
-"Pad naar backend CLI (bijv. aider) of ACP-server-URL (bijv. "
-"http://localhost:8000 voor Hermes). Leeg = probeer standaard."
+"Pad naar backend CLI (bijv. aider) of ACP-server-URL (bijv. http://"
+"localhost:8000 voor Hermes). Leeg = probeer standaard."
 
 msgid "Extra arguments"
 msgstr "Extra argumenten"
 
 msgid "Optional arguments for the selected backend (space-separated)."
 msgstr ""
-"Optionele argumenten voor de geselecteerde backend (gescheiden door "
-"spaties)."
+"Optionele argumenten voor de geselecteerde backend (gescheiden door spaties)."
 
 msgid "ACP agent name"
 msgstr "ACP-agentnaam"
@@ -1262,8 +1274,8 @@ msgstr "Selectie bewerken extra tokens"
 
 msgid "Extra tokens beyond original text length. 0 = same length as original."
 msgstr ""
-"Extra tokens voorbij de oorspronkelijke tekstlengte. 0 = dezelfde lengte als"
-" het origineel."
+"Extra tokens voorbij de oorspronkelijke tekstlengte. 0 = dezelfde lengte als "
+"het origineel."
 
 msgid "Show Web Search Thinking"
 msgstr "Zoekopdracht op internet tonen"
@@ -1272,8 +1284,7 @@ msgid "Prompt for Web Research"
 msgstr "Vragen om internetonderzoek"
 
 msgid "Ask for confirmation before sending a web search query"
-msgstr ""
-"Vragen om bevestiging voordat een internetzoekopdracht wordt verzonden"
+msgstr "Vragen om bevestiging voordat een internetzoekopdracht wordt verzonden"
 
 msgid "Web Cache Max Size (MB)"
 msgstr "Max. grootte internetcache (MB)"
@@ -1287,6 +1298,12 @@ msgstr "Geldigheid internetcache (dagen)"
 msgid "How many days cache entries should be considered valid."
 msgstr "Hoeveel dagen cache-items als geldig moeten worden beschouwd."
 
+msgid "Rich Text Chat Sidebar"
+msgstr "Rich Text Chat-zijbalk"
+
+msgid "Use embedded Writer document for chat display (requires restart)"
+msgstr "Ingebed Writer-document gebruiken voor chatweergave (vereist herstart)"
+
 msgid "Doc"
 msgstr "Doc"
 
@@ -1295,8 +1312,8 @@ msgstr "AI-grammaticacontrole inschakelen (Writer)"
 
 msgid ""
 "When on, WriterAgent registers its AI grammar proofreader with Linguistic; "
-"checked text uses your API (Tools → Options → AI). Underlines appear shortly"
-" after you pause typing. Off by default."
+"checked text uses your API (Tools → Options → AI). Underlines appear shortly "
+"after you pause typing. Off by default."
 msgstr ""
 "Indien ingeschakeld, registreert WriterAgent zijn AI-grammaticacontrole bij "
 "Linguistic; gecontroleerde tekst gebruikt uw API (Extra → Opties → AI). "
@@ -1328,8 +1345,8 @@ msgid ""
 "reliable; higher values are faster and cheaper but may hit token limits or "
 "cause model errors."
 msgstr ""
-"Aantal zinnen per LLM-verzoek (1-8). 1 (standaard) is het meest betrouwbaar;"
-" hogere waarden zijn sneller en goedkoper, maar kunnen tokenlimieten "
+"Aantal zinnen per LLM-verzoek (1-8). 1 (standaard) is het meest betrouwbaar; "
+"hogere waarden zijn sneller en goedkoper, maar kunnen tokenlimieten "
 "overschrijden of model-fouten veroorzaken."
 
 msgid "Detect and correct sentence language"
@@ -1368,11 +1385,11 @@ msgid "Enable MCP Server"
 msgstr "MCP-server inschakelen"
 
 msgid ""
-"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable"
-" HTTP)."
+"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable "
+"HTTP)."
 msgstr ""
-"Alleen localhost, geen authenticatie. Clients gebruiken "
-"http://localhost:<port>/mcp (streamable HTTP)."
+"Alleen localhost, geen authenticatie. Clients gebruiken http://localhost:"
+"<port>/mcp (streamable HTTP)."
 
 msgid "MCP Port"
 msgstr "MCP-poort"
@@ -1400,10 +1417,9 @@ msgid ""
 "empty, run_venv_python_script uses this process's sys.executable (basic "
 "stdlib); use a venv for numpy/pandas."
 msgstr ""
-"Indien ingesteld, worden tools uitgevoerd in die venv (bin/python of "
-"Scripts/python.exe). Indien leeg, gebruikt run_venv_python_script de "
-"sys.executable van dit proces (basis stdlib); gebruik een venv voor "
-"numpy/pandas."
+"Indien ingesteld, worden tools uitgevoerd in die venv (bin/python of Scripts/"
+"python.exe). Indien leeg, gebruikt run_venv_python_script de sys.executable "
+"van dit proces (basis stdlib); gebruik een venv voor numpy/pandas."
 
 msgid "Test"
 msgstr "Test"
@@ -1421,12 +1437,12 @@ msgid "Max Calc data cells"
 msgstr "Max. Calc-datacellen"
 
 msgid ""
-"Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger"
-" values use more RAM and time; UNO range read still dominates."
+"Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger "
+"values use more RAM and time; UNO range read still dominates."
 msgstr ""
-"Maximum aantal cellen in =PYTHON() data of Run Python Script "
-"data/data_range. Grotere waarden verbruiken meer RAM en tijd; het lezen van "
-"het UNO-bereik blijft de grootste factor."
+"Maximum aantal cellen in =PYTHON() data of Run Python Script data/"
+"data_range. Grotere waarden verbruiken meer RAM en tijd; het lezen van het "
+"UNO-bereik blijft de grootste factor."
 
 msgid "Writer document tools (including navigation and search)"
 msgstr "Writer-documenttools (inclusief navigatie en zoeken)"

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-24 20:40-0400\n"
+"POT-Creation-Date: 2026-05-25 02:12-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Indonesian <LL@li.org>\n"
@@ -19,8 +19,8 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable"
-" sub-agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
+"sub-agents in configuration."
 msgstr ""
 "Pembacaan riset dokumen memerlukan delegasi sub-agen (USE_SUB_AGENT). "
 "Aktifkan sub-agen di konfigurasi."
@@ -28,13 +28,13 @@ msgstr ""
 #: plugin/doc/specialized_base.py
 #, python-brace-format
 msgid ""
-"Tool call switched to '{0}'. You are in a specialized toolset mode. You must"
-" call 'specialized_workflow_finished' when done to restore the full set of "
+"Tool call switched to '{0}'. You are in a specialized toolset mode. You must "
+"call 'specialized_workflow_finished' when done to restore the full set of "
 "APIs."
 msgstr ""
 "Panggilan alat beralih ke '{0}'. Anda berada dalam mode perangkat alat "
-"khusus. Anda harus memanggil 'specialized_workflow_finished' setelah selesai"
-" untuk memulihkan rangkaian API lengkap."
+"khusus. Anda harus memanggil 'specialized_workflow_finished' setelah selesai "
+"untuk memulihkan rangkaian API lengkap."
 
 #: plugin/notebook/import_dialog.py
 msgid "Import Jupyter Notebook"
@@ -106,8 +106,7 @@ msgid ""
 "this is happening for a long period of time, please let us know via Discord"
 msgstr ""
 "Saat ini kami tidak dapat memproses permintaan Anda, silakan coba lagi "
-"nanti. Jika ini terjadi dalam waktu yang lama, beri tahu kami melalui "
-"Discord"
+"nanti. Jika ini terjadi dalam waktu yang lama, beri tahu kami melalui Discord"
 
 #: plugin/contrib/aihordeclient/__init__.py
 msgid "Problem requesting kudos"
@@ -119,8 +118,8 @@ msgid ""
 "and the service does not respond for hours, please contact via Discord"
 msgstr ""
 "Horde sedang dalam mode pemeliharaan, silakan coba lagi nanti, jika Anda "
-"sudah mencoba dan layanan tidak merespons selama berjam-jam, silakan hubungi"
-" melalui Discord"
+"sudah mencoba dan layanan tidak merespons selama berjam-jam, silakan hubungi "
+"melalui Discord"
 
 #: plugin/contrib/aihordeclient/__init__.py
 msgid ""
@@ -201,11 +200,10 @@ msgstr ""
 
 #: plugin/contrib/aihordeclient/__init__.py
 #, python-brace-format
-msgid ""
-"Please try another model. {0} would take more time than you configured."
+msgid "Please try another model. {0} would take more time than you configured."
 msgstr ""
-"Silakan coba model lain. {0} akan membutuhkan waktu lebih lama daripada yang"
-" Anda konfigurasi."
+"Silakan coba model lain. {0} akan membutuhkan waktu lebih lama daripada yang "
+"Anda konfigurasi."
 
 #: plugin/contrib/aihordeclient/__init__.py
 msgid "Please try again later."
@@ -258,6 +256,59 @@ msgstr " dengan "
 
 #: plugin/framework/errors.py
 #, python-brace-format
+msgid "TLS/SSL Error: {0}"
+msgstr "Kesalahan TLS/SSL: {0}"
+
+#: plugin/framework/errors.py
+msgid "Invalid API Key. Please check your settings."
+msgstr "Kunci API tidak valid. Harap periksa pengaturan Anda."
+
+#: plugin/framework/errors.py
+msgid "API access Forbidden. Your key may lack permissions for this model."
+msgstr ""
+"Akses API Dilarang. Kunci Anda mungkin tidak memiliki izin untuk model ini."
+
+#: plugin/framework/errors.py
+msgid "Endpoint not found (404). Check your URL and Model name."
+msgstr "Titik akhir tidak ditemukan (404). Periksa URL dan nama Model Anda."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "Server error ({0}). The AI provider is having issues."
+msgstr "Kesalahan server ({0}). Penyedia AI sedang mengalami masalah."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "HTTP Error {0}: {1}"
+msgstr "Kesalahan HTTP {0}: {1}"
+
+#: plugin/framework/errors.py
+msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
+msgstr ""
+"Permintaan Habis Waktu. Coba tingkatkan 'Batas Waktu Permintaan' di "
+"Pengaturan."
+
+#: plugin/framework/errors.py
+msgid "Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
+msgstr ""
+"Koneksi Ditolak. Apakah server AI lokal Anda (Ollama/LM Studio) sedang "
+"berjalan?"
+
+#: plugin/framework/errors.py
+msgid "DNS Error. Could not resolve the endpoint URL."
+msgstr "Kesalahan DNS. Tidak dapat menyelesaikan URL titik akhir."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "Connection Error: {0}"
+msgstr "Kesalahan Koneksi: {0}"
+
+#: plugin/framework/errors.py
+msgid "The AI provider reported an error. Try again."
+msgstr "Penyedia AI melaporkan kesalahan. Coba lagi."
+
+#: plugin/framework/errors.py
+#, python-brace-format
 msgid "{resource_type} not found: {identifier}"
 msgstr "{resource_type} tidak ditemukan: {identifier}"
 
@@ -266,13 +317,12 @@ msgid ""
 "AI: I can edit or translate your document instantly with professional "
 "formatting and color. Try me!"
 msgstr ""
-"AI: Saya dapat mengedit atau menerjemahkan dokumen Anda secara instan dengan"
-" pemformatan dan warna profesional. Coba saya!"
+"AI: Saya dapat mengedit atau menerjemahkan dokumen Anda secara instan dengan "
+"pemformatan dan warna profesional. Coba saya!"
 
 #: plugin/framework/constants.py
 msgid ""
-"AI: I can help you with formulas, data analysis, and colorful charts. Try "
-"me!"
+"AI: I can help you with formulas, data analysis, and colorful charts. Try me!"
 msgstr ""
 "AI: Saya dapat membantu Anda dengan rumus, analisis data, dan bagan "
 "berwarna. Coba saya!"
@@ -296,60 +346,6 @@ msgstr ""
 
 #: plugin/framework/client/errors.py
 #, python-brace-format
-msgid "TLS/SSL Error: {0}"
-msgstr "Kesalahan TLS/SSL: {0}"
-
-#: plugin/framework/client/errors.py
-msgid "Invalid API Key. Please check your settings."
-msgstr "Kunci API tidak valid. Harap periksa pengaturan Anda."
-
-#: plugin/framework/client/errors.py
-msgid "API access Forbidden. Your key may lack permissions for this model."
-msgstr ""
-"Akses API Dilarang. Kunci Anda mungkin tidak memiliki izin untuk model ini."
-
-#: plugin/framework/client/errors.py
-msgid "Endpoint not found (404). Check your URL and Model name."
-msgstr "Titik akhir tidak ditemukan (404). Periksa URL dan nama Model Anda."
-
-#: plugin/framework/client/errors.py
-#, python-brace-format
-msgid "Server error ({0}). The AI provider is having issues."
-msgstr "Kesalahan server ({0}). Penyedia AI sedang mengalami masalah."
-
-#: plugin/framework/client/errors.py
-#, python-brace-format
-msgid "HTTP Error {0}: {1}"
-msgstr "Kesalahan HTTP {0}: {1}"
-
-#: plugin/framework/client/errors.py
-msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
-msgstr ""
-"Permintaan Habis Waktu. Coba tingkatkan 'Batas Waktu Permintaan' di "
-"Pengaturan."
-
-#: plugin/framework/client/errors.py
-msgid ""
-"Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
-msgstr ""
-"Koneksi Ditolak. Apakah server AI lokal Anda (Ollama/LM Studio) sedang "
-"berjalan?"
-
-#: plugin/framework/client/errors.py
-msgid "DNS Error. Could not resolve the endpoint URL."
-msgstr "Kesalahan DNS. Tidak dapat menyelesaikan URL titik akhir."
-
-#: plugin/framework/client/errors.py
-#, python-brace-format
-msgid "Connection Error: {0}"
-msgstr "Kesalahan Koneksi: {0}"
-
-#: plugin/framework/client/errors.py
-msgid "The AI provider reported an error. Try again."
-msgstr "Penyedia AI melaporkan kesalahan. Coba lagi."
-
-#: plugin/framework/client/errors.py
-#, python-brace-format
 msgid "HTTP Error {0} from AI Provider: {1}"
 msgstr "Kesalahan HTTP {0} dari Penyedia AI: {1}"
 
@@ -367,8 +363,12 @@ msgid ""
 "The model is repeating the same chunk (infinite loop). Try again or use a "
 "different model."
 msgstr ""
-"Model mengulang potongan yang sama (perulangan tak terbatas). Coba lagi atau"
-" gunakan model yang berbeda."
+"Model mengulang potongan yang sama (perulangan tak terbatas). Coba lagi atau "
+"gunakan model yang berbeda."
+
+#: plugin/calc/python_function.py
+msgid "Image inserted"
+msgstr "Gambar disisipkan"
 
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
@@ -394,24 +394,12 @@ msgstr "WriterAgent: Perluas Pilihan (Calc)"
 #: plugin/calc/python_editor.py
 msgid ""
 "Could not preserve this cell's PYTHON formula arguments (e.g. data ranges). "
-"Edit the formula in Calc, or use a quoted code string like =PYTHON(\"code\";"
-" A1:B10)."
+"Edit the formula in Calc, or use a quoted code string like =PYTHON(\"code\"; "
+"A1:B10)."
 msgstr ""
 "Tidak dapat mempertahankan argumen rumus PYTHON sel ini (misalnya rentang "
 "data). Edit rumus di Calc, atau gunakan string kode dalam tanda kutip "
 "seperti =PYTHON(\"kode\"; A1:B10)."
-
-#: plugin/calc/python_editor.py
-msgid "Could not start the Python editor."
-msgstr "Tidak dapat memulai editor Python."
-
-#: plugin/calc/python_editor.py
-msgid "The Python editor window did not start."
-msgstr "Jendela editor Python tidak dimulai."
-
-#: plugin/calc/python_editor.py
-msgid "The Python editor exited before it could load your code."
-msgstr "Editor Python keluar sebelum dapat memuat kode Anda."
 
 #: plugin/calc/python_editor.py
 msgid "PYTHON cell editor"
@@ -421,9 +409,9 @@ msgstr "Editor sel PYTHON"
 msgid "Save as plain text"
 msgstr "Simpan sebagai teks biasa"
 
-#: plugin/calc/python_editor.py
-msgid "Could not talk to the Python editor."
-msgstr "Tidak dapat berkomunikasi dengan editor Python."
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "Simpan"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -439,10 +427,13 @@ msgid ""
 "in another cell). Edit it in the formula bar, or use =PYTHON(\"code\"; "
 "range) with quoted code."
 msgstr ""
+"Rumus PYTHON ini menggunakan bentuk yang tidak dapat ditulis ulang dengan "
+"aman oleh editor (misalnya kode di sel lain). Edit di bilah rumus, atau "
+"gunakan =PYTHON(\"kode\"; rentang) dengan kode yang diapit tanda kutip."
 
 #: plugin/calc/python_editor.py
 msgid "No Python interpreter available for the editor."
-msgstr ""
+msgstr "Tidak ada interpreter Python yang tersedia untuk editor."
 
 #: plugin/calc/python_editor.py
 #, python-format
@@ -453,11 +444,16 @@ msgid ""
 "In that venv run: pip install pywebview\n"
 "(import name is webview, package name is pywebview)."
 msgstr ""
+"Tidak dapat mengimpor webview (pywebview) dengan Python dari Pengaturan → "
+"Python:\n"
+"%(exe)s\n"
+"\n"
+"Di venv tersebut jalankan: pip install pywebview\n"
+"(nama impor adalah webview, nama paket adalah pywebview)."
 
 #: plugin/calc/python_editor.py
-#, fuzzy
 msgid "unknown error"
-msgstr "Kesalahan tidak dikenal"
+msgstr "kesalahan tidak dikenal"
 
 #: plugin/writer/editselection.py plugin/chatbot/selection.py
 msgid "WriterAgent: Extend Selection"
@@ -474,8 +470,7 @@ msgstr "Sisipkan Matematika LaTeX"
 #: plugin/writer/math/latex_dialog.py
 msgid "Enter LaTeX math code to convert and insert as formula:"
 msgstr ""
-"Masukkan kode matematika LaTeX untuk dikonversi dan disisipkan sebagai "
-"rumus:"
+"Masukkan kode matematika LaTeX untuk dikonversi dan disisipkan sebagai rumus:"
 
 #: plugin/writer/math/latex_dialog.py
 msgid "Insert as display block (centered paragraph)"
@@ -690,8 +685,7 @@ msgid ""
 "No editor found (install Kate or Gedit, or set EDITOR). Path:\n"
 "{0}"
 msgstr ""
-"Editor tidak ditemukan (instal Kate atau Gedit, atau atur EDITOR). Jalur: "
-"{0}"
+"Editor tidak ditemukan (instal Kate atau Gedit, atau atur EDITOR). Jalur: {0}"
 
 #: plugin/chatbot/external_editor.py
 #, python-brace-format
@@ -719,8 +713,7 @@ msgstr "[Backend agen '{0}' tidak ditemukan.]"
 
 #: plugin/chatbot/send_handlers.py
 #, python-brace-format
-msgid ""
-"[Agent backend '{0}' is not available. Check Settings (path, install).]"
+msgid "[Agent backend '{0}' is not available. Check Settings (path, install).]"
 msgstr ""
 "[Backend agen '{0}' tidak tersedia. Periksa Pengaturan (jalur, instalasi).]"
 
@@ -810,6 +803,22 @@ msgstr "Tinggi:"
 msgid "Width:"
 msgstr "Lebar:"
 
+#: plugin/scripting/editor_session_launch.py
+msgid "Could not start the Python editor."
+msgstr "Tidak dapat memulai editor Python."
+
+#: plugin/scripting/editor_session_launch.py
+msgid "The Python editor window did not start."
+msgstr "Jendela editor Python tidak dimulai."
+
+#: plugin/scripting/editor_session_launch.py
+msgid "The Python editor exited before it could load your code."
+msgstr "Editor Python keluar sebelum dapat memuat kode Anda."
+
+#: plugin/scripting/editor_session_launch.py
+msgid "Could not talk to the Python editor."
+msgstr "Tidak dapat berkomunikasi dengan editor Python."
+
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "Jalankan Skrip Python"
@@ -840,8 +849,8 @@ msgid "Result insertion into Draw/Impress is not yet supported. PRs welcome!"
 msgstr "Penyisipan hasil ke Draw/Impress belum didukung. PR diterima!"
 
 #: plugin/scripting/python_runner.py
-msgid "Success"
-msgstr "Berhasil"
+msgid "Unknown error"
+msgstr "Kesalahan tidak dikenal"
 
 #: plugin/scripting/python_runner.py
 msgid ""
@@ -855,16 +864,28 @@ msgid "Unsupported document type for result insertion."
 msgstr "Tipe dokumen tidak didukung untuk penyisipan hasil."
 
 #: plugin/scripting/python_runner.py
-msgid "Output"
-msgstr "Output"
+msgid "Script executed successfully."
+msgstr "Skrip berhasil dijalankan."
 
 #: plugin/scripting/python_runner.py
-msgid "Unknown error"
-msgstr "Kesalahan tidak dikenal"
+msgid "Script saved."
+msgstr "Skrip disimpan."
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Tutup"
 
 #: plugin/scripting/python_runner.py
 msgid "Execution Error"
 msgstr "Kesalahan Eksekusi"
+
+#: plugin/scripting/python_runner.py
+msgid "Success"
+msgstr "Berhasil"
+
+#: plugin/scripting/python_runner.py
+msgid "Output"
+msgstr "Output"
 
 #: plugin/mcp/__init__.py
 msgid "Stop MCP Server"
@@ -889,8 +910,7 @@ msgstr "Server MCP gagal dijalankan"
 #: plugin/mcp/__init__.py
 msgid "Check writeragent_debug.log in your LibreOffice user config folder"
 msgstr ""
-"Periksa writeragent_debug.log di folder konfigurasi pengguna LibreOffice "
-"Anda"
+"Periksa writeragent_debug.log di folder konfigurasi pengguna LibreOffice Anda"
 
 #: plugin/mcp/__init__.py
 msgid "MCP server is not running"
@@ -1057,10 +1077,6 @@ msgid "Clear"
 msgstr "Bersihkan"
 
 #: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Tutup"
-
-#: plugin/xdl_strings.py
 msgid "Context Len:"
 msgstr "Panjang Konteks:"
 
@@ -1190,18 +1206,17 @@ msgid "Path / URL"
 msgstr "Path / URL"
 
 msgid ""
-"Path to backend CLI (e.g. aider) or ACP server URL (e.g. "
-"http://localhost:8000 for Hermes). Empty = try default."
+"Path to backend CLI (e.g. aider) or ACP server URL (e.g. http://"
+"localhost:8000 for Hermes). Empty = try default."
 msgstr ""
-"Path ke CLI backend (contoh: aider) atau URL server ACP (contoh: "
-"http://localhost:8000 untuk Hermes). Kosong = coba default."
+"Path ke CLI backend (contoh: aider) atau URL server ACP (contoh: http://"
+"localhost:8000 untuk Hermes). Kosong = coba default."
 
 msgid "Extra arguments"
 msgstr "Argumen tambahan"
 
 msgid "Optional arguments for the selected backend (space-separated)."
-msgstr ""
-"Argumen opsional untuk backend yang dipilih (dipisahkan dengan spasi)."
+msgstr "Argumen opsional untuk backend yang dipilih (dipisahkan dengan spasi)."
 
 msgid "ACP agent name"
 msgstr "Nama agen ACP"
@@ -1269,14 +1284,20 @@ msgid "Web Cache Max Size (MB)"
 msgstr "Ukuran Maksimum Cache Web (MB)"
 
 msgid "Max disk size for web search cache (0 to disable)"
-msgstr ""
-"Ukuran disk maksimum untuk cache pencarian web (0 untuk menonaktifkan)"
+msgstr "Ukuran disk maksimum untuk cache pencarian web (0 untuk menonaktifkan)"
 
 msgid "Web Cache Validity (Days)"
 msgstr "Validitas Cache Web (Hari)"
 
 msgid "How many days cache entries should be considered valid."
 msgstr "Berapa hari entri cache harus dianggap valid."
+
+msgid "Rich Text Chat Sidebar"
+msgstr "Bilah Samping Obrolan Teks Kaya"
+
+msgid "Use embedded Writer document for chat display (requires restart)"
+msgstr ""
+"Gunakan dokumen Writer tersemat untuk tampilan obrolan (perlu dimulai ulang)"
 
 msgid "Doc"
 msgstr "Dok"
@@ -1286,8 +1307,8 @@ msgstr "Aktifkan pemeriksa tata bahasa AI (Writer)"
 
 msgid ""
 "When on, WriterAgent registers its AI grammar proofreader with Linguistic; "
-"checked text uses your API (Tools → Options → AI). Underlines appear shortly"
-" after you pause typing. Off by default."
+"checked text uses your API (Tools → Options → AI). Underlines appear shortly "
+"after you pause typing. Off by default."
 msgstr ""
 "Saat aktif, WriterAgent mendaftarkan pemeriksa tata bahasa AI-nya ke "
 "Linguistik; teks yang diperiksa menggunakan API Anda (Alat → Opsi → AI). "
@@ -1358,11 +1379,11 @@ msgid "Enable MCP Server"
 msgstr "Aktifkan Server MCP"
 
 msgid ""
-"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable"
-" HTTP)."
+"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable "
+"HTTP)."
 msgstr ""
-"Hanya localhost, tanpa autentikasi. Klien menggunakan "
-"http://localhost:<port>/mcp (HTTP yang dapat dialirkan)."
+"Hanya localhost, tanpa autentikasi. Klien menggunakan http://localhost:"
+"<port>/mcp (HTTP yang dapat dialirkan)."
 
 msgid "MCP Port"
 msgstr "Port MCP"
@@ -1390,9 +1411,9 @@ msgid ""
 "empty, run_venv_python_script uses this process's sys.executable (basic "
 "stdlib); use a venv for numpy/pandas."
 msgstr ""
-"Jika diatur, menjalankan alat di venv tersebut (bin/python atau "
-"Scripts/python.exe). Jika kosong, run_venv_python_script menggunakan "
-"sys.executable proses ini (stdlib dasar); gunakan venv untuk numpy/pandas."
+"Jika diatur, menjalankan alat di venv tersebut (bin/python atau Scripts/"
+"python.exe). Jika kosong, run_venv_python_script menggunakan sys.executable "
+"proses ini (stdlib dasar); gunakan venv untuk numpy/pandas."
 
 msgid "Test"
 msgstr "Uji"
@@ -1404,16 +1425,19 @@ msgid ""
 "Wall-clock limit for Run Python Script, =PYTHON(), and "
 "run_venv_python_script."
 msgstr ""
-"Batas waktu dinding (wall-clock) untuk Jalankan Skrip Python, =PYTHON(), dan"
-" run_venv_python_script."
+"Batas waktu dinding (wall-clock) untuk Jalankan Skrip Python, =PYTHON(), dan "
+"run_venv_python_script."
 
 msgid "Max Calc data cells"
-msgstr ""
+msgstr "Jumlah sel data Calc maksimum"
 
 msgid ""
-"Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger"
-" values use more RAM and time; UNO range read still dominates."
+"Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger "
+"values use more RAM and time; UNO range read still dominates."
 msgstr ""
+"Jumlah sel maksimum dalam data =PYTHON() atau data/data_range Jalankan Skrip "
+"Python. Nilai yang lebih besar menggunakan lebih banyak RAM dan waktu; "
+"pembacaan rentang UNO tetap yang paling dominan."
 
 msgid "Writer document tools (including navigation and search)"
 msgstr "Alat dokumen Writer (termasuk navigasi dan pencarian)"

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-24 20:40-0400\n"
+"POT-Creation-Date: 2026-05-25 02:12-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Finnish <LL@li.org>\n"
@@ -19,8 +19,8 @@ msgstr ""
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable"
-" sub-agents in configuration."
+"Document research reads require sub-agent delegation (USE_SUB_AGENT). Enable "
+"sub-agents in configuration."
 msgstr ""
 "Asiakirjan tutkimusluvut vaativat aliedustajan delegointia (USE_SUB_AGENT). "
 "Ota aliedustajat käyttöön asetuksista."
@@ -28,8 +28,8 @@ msgstr ""
 #: plugin/doc/specialized_base.py
 #, python-brace-format
 msgid ""
-"Tool call switched to '{0}'. You are in a specialized toolset mode. You must"
-" call 'specialized_workflow_finished' when done to restore the full set of "
+"Tool call switched to '{0}'. You are in a specialized toolset mode. You must "
+"call 'specialized_workflow_finished' when done to restore the full set of "
 "APIs."
 msgstr ""
 "Työkalukutsu vaihdettu tilaan '{0}'. Olet erikoistyökalutilassa. Sinun on "
@@ -197,8 +197,7 @@ msgstr "Tämä malli vie enemmän aikaa kuin nykyinen asetuksesi."
 
 #: plugin/contrib/aihordeclient/__init__.py
 #, python-brace-format
-msgid ""
-"Please try another model. {0} would take more time than you configured."
+msgid "Please try another model. {0} would take more time than you configured."
 msgstr "Kokeile toista mallia. {0} vie enemmän aikaa kuin olet määrittänyt."
 
 #: plugin/contrib/aihordeclient/__init__.py
@@ -252,6 +251,59 @@ msgstr " käyttäen "
 
 #: plugin/framework/errors.py
 #, python-brace-format
+msgid "TLS/SSL Error: {0}"
+msgstr "TLS/SSL-virhe: {0}"
+
+#: plugin/framework/errors.py
+msgid "Invalid API Key. Please check your settings."
+msgstr "Virheellinen API-avain. Tarkista asetuksesi."
+
+#: plugin/framework/errors.py
+msgid "API access Forbidden. Your key may lack permissions for this model."
+msgstr ""
+"API-yhteys kielletty. Avaimeltasi saattaa puuttua oikeudet tähän malliin."
+
+#: plugin/framework/errors.py
+msgid "Endpoint not found (404). Check your URL and Model name."
+msgstr "Päätepistettä ei löytynyt (404). Tarkista URL-osoite ja mallin nimi."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "Server error ({0}). The AI provider is having issues."
+msgstr "Palvelinvirhe ({0}). AI-palveluntarjoajalla on ongelmia."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "HTTP Error {0}: {1}"
+msgstr "HTTP-virhe {0}: {1}"
+
+#: plugin/framework/errors.py
+msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
+msgstr ""
+"Pyyntö aikakatkaistiin. Kokeile kasvattaa 'Request Timeout' -asetusta "
+"asetuksista."
+
+#: plugin/framework/errors.py
+msgid "Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
+msgstr ""
+"Yhteys evätty. Onko paikallinen tekoälypalvelimesi (Ollama/LM Studio) "
+"käynnissä?"
+
+#: plugin/framework/errors.py
+msgid "DNS Error. Could not resolve the endpoint URL."
+msgstr "DNS-virhe. Päätepisteen URL-osoitetta ei voitu selvittää."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "Connection Error: {0}"
+msgstr "Yhteysvirhe: {0}"
+
+#: plugin/framework/errors.py
+msgid "The AI provider reported an error. Try again."
+msgstr "Tekoälypalveluntarjoaja ilmoitti virheestä. Yritä uudelleen."
+
+#: plugin/framework/errors.py
+#, python-brace-format
 msgid "{resource_type} not found: {identifier}"
 msgstr "{resource_type} ei löytynyt: {identifier}"
 
@@ -265,8 +317,7 @@ msgstr ""
 
 #: plugin/framework/constants.py
 msgid ""
-"AI: I can help you with formulas, data analysis, and colorful charts. Try "
-"me!"
+"AI: I can help you with formulas, data analysis, and colorful charts. Try me!"
 msgstr ""
 "AI: Voin auttaa sinua kaavojen, data-analyysin ja värikkäiden kaavioiden "
 "kanssa. Kokeile minua!"
@@ -289,60 +340,6 @@ msgstr ""
 
 #: plugin/framework/client/errors.py
 #, python-brace-format
-msgid "TLS/SSL Error: {0}"
-msgstr "TLS/SSL-virhe: {0}"
-
-#: plugin/framework/client/errors.py
-msgid "Invalid API Key. Please check your settings."
-msgstr "Virheellinen API-avain. Tarkista asetuksesi."
-
-#: plugin/framework/client/errors.py
-msgid "API access Forbidden. Your key may lack permissions for this model."
-msgstr ""
-"API-yhteys kielletty. Avaimeltasi saattaa puuttua oikeudet tähän malliin."
-
-#: plugin/framework/client/errors.py
-msgid "Endpoint not found (404). Check your URL and Model name."
-msgstr "Päätepistettä ei löytynyt (404). Tarkista URL-osoite ja mallin nimi."
-
-#: plugin/framework/client/errors.py
-#, python-brace-format
-msgid "Server error ({0}). The AI provider is having issues."
-msgstr "Palvelinvirhe ({0}). AI-palveluntarjoajalla on ongelmia."
-
-#: plugin/framework/client/errors.py
-#, python-brace-format
-msgid "HTTP Error {0}: {1}"
-msgstr "HTTP-virhe {0}: {1}"
-
-#: plugin/framework/client/errors.py
-msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
-msgstr ""
-"Pyyntö aikakatkaistiin. Kokeile kasvattaa 'Request Timeout' -asetusta "
-"asetuksista."
-
-#: plugin/framework/client/errors.py
-msgid ""
-"Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
-msgstr ""
-"Yhteys evätty. Onko paikallinen tekoälypalvelimesi (Ollama/LM Studio) "
-"käynnissä?"
-
-#: plugin/framework/client/errors.py
-msgid "DNS Error. Could not resolve the endpoint URL."
-msgstr "DNS-virhe. Päätepisteen URL-osoitetta ei voitu selvittää."
-
-#: plugin/framework/client/errors.py
-#, python-brace-format
-msgid "Connection Error: {0}"
-msgstr "Yhteysvirhe: {0}"
-
-#: plugin/framework/client/errors.py
-msgid "The AI provider reported an error. Try again."
-msgstr "Tekoälypalveluntarjoaja ilmoitti virheestä. Yritä uudelleen."
-
-#: plugin/framework/client/errors.py
-#, python-brace-format
 msgid "HTTP Error {0} from AI Provider: {1}"
 msgstr "HTTP-virhe {0} tekoälypalveluntarjoajalta: {1}"
 
@@ -362,6 +359,10 @@ msgid ""
 msgstr ""
 "Malli toistaa samaa osaa (päättymätön silmukka). Yritä uudelleen tai käytä "
 "toista mallia."
+
+#: plugin/calc/python_function.py
+msgid "Image inserted"
+msgstr "Kuva lisätty"
 
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
@@ -387,24 +388,12 @@ msgstr "WriterAgent: Laajenna valintaa (Calc)"
 #: plugin/calc/python_editor.py
 msgid ""
 "Could not preserve this cell's PYTHON formula arguments (e.g. data ranges). "
-"Edit the formula in Calc, or use a quoted code string like =PYTHON(\"code\";"
-" A1:B10)."
+"Edit the formula in Calc, or use a quoted code string like =PYTHON(\"code\"; "
+"A1:B10)."
 msgstr ""
 "Tämän solun PYTHON-kaavan argumentteja (esim. tietoalueita) ei voitu "
 "säilyttää. Muokkaa kaavaa Calcissa tai käytä lainattua koodimerkkijonoa, "
 "kuten =PYTHON(\"koodi\"; A1:B10)."
-
-#: plugin/calc/python_editor.py
-msgid "Could not start the Python editor."
-msgstr "Python-editoria ei voitu käynnistää."
-
-#: plugin/calc/python_editor.py
-msgid "The Python editor window did not start."
-msgstr "Python-editorin ikkuna ei käynnistynyt."
-
-#: plugin/calc/python_editor.py
-msgid "The Python editor exited before it could load your code."
-msgstr "Python-editori sulkeutui ennen kuin se ehti ladata koodisi."
 
 #: plugin/calc/python_editor.py
 msgid "PYTHON cell editor"
@@ -414,9 +403,9 @@ msgstr "PYTHON-solueditori"
 msgid "Save as plain text"
 msgstr "Tallenna pelkkänä tekstinä"
 
-#: plugin/calc/python_editor.py
-msgid "Could not talk to the Python editor."
-msgstr "Yhteyden muodostaminen Python-editoriin epäonnistui."
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "Tallenna"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -434,8 +423,8 @@ msgid ""
 msgstr ""
 "Tämä PYTHON-kaava käyttää muotoa, jota muokkain ei voi turvallisesti "
 "kirjoittaa uudelleen (esim. koodia toisessa solussa). Muokkaa sitä "
-"kaavarivillä tai käytä =PYTHON(\"koodi\"; alue) lainausmerkkeihin suljetulla"
-" koodilla."
+"kaavarivillä tai käytä =PYTHON(\"koodi\"; alue) lainausmerkkeihin suljetulla "
+"koodilla."
 
 #: plugin/calc/python_editor.py
 msgid "No Python interpreter available for the editor."
@@ -450,7 +439,8 @@ msgid ""
 "In that venv run: pip install pywebview\n"
 "(import name is webview, package name is pywebview)."
 msgstr ""
-"Webview-kirjastoa (pywebview) ei voitu tuoda asetuksista valitulla Pythonilla: \n"
+"Webview-kirjastoa (pywebview) ei voitu tuoda asetuksista valitulla "
+"Pythonilla: \n"
 "%(exe)s\n"
 "\n"
 "Suorita kyseisessä virtuaaliympäristössä: pip install pywebview\n"
@@ -688,7 +678,8 @@ msgid ""
 "No editor found (install Kate or Gedit, or set EDITOR). Path:\n"
 "{0}"
 msgstr ""
-"Editoria ei löytynyt (asenna Kate tai Gedit, tai määritä EDITOR-ympäristömuuttuja). Polku:\n"
+"Editoria ei löytynyt (asenna Kate tai Gedit, tai määritä EDITOR-"
+"ympäristömuuttuja). Polku:\n"
 "{0}"
 
 #: plugin/chatbot/external_editor.py
@@ -717,8 +708,7 @@ msgstr "[Agent-taustajärjestelmää '{0}' ei löytynyt.]"
 
 #: plugin/chatbot/send_handlers.py
 #, python-brace-format
-msgid ""
-"[Agent backend '{0}' is not available. Check Settings (path, install).]"
+msgid "[Agent backend '{0}' is not available. Check Settings (path, install).]"
 msgstr ""
 "[Agent-taustajärjestelmä '{0}' ei ole käytettävissä. Tarkista asetukset "
 "(polku, asennus).]"
@@ -809,6 +799,22 @@ msgstr "Korkeus:"
 msgid "Width:"
 msgstr "Leveys:"
 
+#: plugin/scripting/editor_session_launch.py
+msgid "Could not start the Python editor."
+msgstr "Python-editoria ei voitu käynnistää."
+
+#: plugin/scripting/editor_session_launch.py
+msgid "The Python editor window did not start."
+msgstr "Python-editorin ikkuna ei käynnistynyt."
+
+#: plugin/scripting/editor_session_launch.py
+msgid "The Python editor exited before it could load your code."
+msgstr "Python-editori sulkeutui ennen kuin se ehti ladata koodisi."
+
+#: plugin/scripting/editor_session_launch.py
+msgid "Could not talk to the Python editor."
+msgstr "Yhteyden muodostaminen Python-editoriin epäonnistui."
+
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "Suorita Python-skripti"
@@ -841,8 +847,8 @@ msgstr ""
 "pyynnöt ovat tervetulleita!"
 
 #: plugin/scripting/python_runner.py
-msgid "Success"
-msgstr "Onnistui"
+msgid "Unknown error"
+msgstr "Tuntematon virhe"
 
 #: plugin/scripting/python_runner.py
 msgid ""
@@ -856,16 +862,28 @@ msgid "Unsupported document type for result insertion."
 msgstr "Asiakirjatyyppiä ei tueta tuloksen lisäämistä varten."
 
 #: plugin/scripting/python_runner.py
-msgid "Output"
-msgstr "Tuloste"
+msgid "Script executed successfully."
+msgstr "Skripti suoritettu onnistuneesti."
 
 #: plugin/scripting/python_runner.py
-msgid "Unknown error"
-msgstr "Tuntematon virhe"
+msgid "Script saved."
+msgstr "Skripti tallennettu."
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Sulje"
 
 #: plugin/scripting/python_runner.py
 msgid "Execution Error"
 msgstr "Suoritusvirhe"
+
+#: plugin/scripting/python_runner.py
+msgid "Success"
+msgstr "Onnistui"
+
+#: plugin/scripting/python_runner.py
+msgid "Output"
+msgstr "Tuloste"
 
 #: plugin/mcp/__init__.py
 msgid "Stop MCP Server"
@@ -1056,10 +1074,6 @@ msgid "Clear"
 msgstr "Tyhjennä"
 
 #: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Sulje"
-
-#: plugin/xdl_strings.py
 msgid "Context Len:"
 msgstr "Kontekstin pituus:"
 
@@ -1189,8 +1203,8 @@ msgid "Path / URL"
 msgstr "Polku / URL"
 
 msgid ""
-"Path to backend CLI (e.g. aider) or ACP server URL (e.g. "
-"http://localhost:8000 for Hermes). Empty = try default."
+"Path to backend CLI (e.g. aider) or ACP server URL (e.g. http://"
+"localhost:8000 for Hermes). Empty = try default."
 msgstr ""
 "Taustajärjestelmän CLI-polku (esim. aider) tai ACP-palvelimen URL-osoite "
 "(esim. http://localhost:8000 Hermesille). Tyhjä = kokeile oletusta."
@@ -1278,6 +1292,14 @@ msgstr "Verkkovälimuistin voimassaoloaika (päivinä)"
 msgid "How many days cache entries should be considered valid."
 msgstr "Kuinka monta päivää välimuistimerkintöjen katsotaan olevan voimassa."
 
+msgid "Rich Text Chat Sidebar"
+msgstr "RTF-keskustelun sivupalkki"
+
+msgid "Use embedded Writer document for chat display (requires restart)"
+msgstr ""
+"Käytä upotettua Writer-asiakirjaa keskustelun näyttämiseen (vaatii "
+"uudelleenkäynnistyksen)"
+
 msgid "Doc"
 msgstr "Asiakirja"
 
@@ -1286,12 +1308,12 @@ msgstr "Ota käyttöön tekoälypohjainen kieliopin tarkistus (Writer)"
 
 msgid ""
 "When on, WriterAgent registers its AI grammar proofreader with Linguistic; "
-"checked text uses your API (Tools → Options → AI). Underlines appear shortly"
-" after you pause typing. Off by default."
+"checked text uses your API (Tools → Options → AI). Underlines appear shortly "
+"after you pause typing. Off by default."
 msgstr ""
 "Kun tämä on päällä, WriterAgent rekisteröi tekoälypohjaisen kieliopin "
-"tarkistimensa Linguistic-palveluun; tarkistettu teksti käyttää API-avaintasi"
-" (Työkalut → Asetukset → AI). Alleviivaus ilmestyy pian kirjoitustauon "
+"tarkistimensa Linguistic-palveluun; tarkistettu teksti käyttää API-avaintasi "
+"(Työkalut → Asetukset → AI). Alleviivaus ilmestyy pian kirjoitustauon "
 "jälkeen. Oletuksena pois päältä."
 
 msgid "Grammar check model (optional)"
@@ -1308,8 +1330,8 @@ msgid ""
 "runs, to avoid concurrent API calls."
 msgstr ""
 "Kun tämä on päällä, tekoälypohjainen kieliopin tarkistus ohittaa "
-"taustapyynnöt, kun sivupalkin chat tai agentti on käynnissä, jotta vältetään"
-" samanaikaiset API-kutsut."
+"taustapyynnöt, kun sivupalkin chat tai agentti on käynnissä, jotta vältetään "
+"samanaikaiset API-kutsut."
 
 msgid "Grammar batch sentences"
 msgstr "Kieliopin eräkäsittelylauseet"
@@ -1359,11 +1381,11 @@ msgid "Enable MCP Server"
 msgstr "Ota MCP-palvelin käyttöön"
 
 msgid ""
-"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable"
-" HTTP)."
+"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable "
+"HTTP)."
 msgstr ""
-"Vain localhost, ei todennusta. Asiakasohjelmat käyttävät osoitetta "
-"http://localhost:<port>/mcp (suoratoistettava HTTP)."
+"Vain localhost, ei todennusta. Asiakasohjelmat käyttävät osoitetta http://"
+"localhost:<port>/mcp (suoratoistettava HTTP)."
 
 msgid "MCP Port"
 msgstr "MCP-portti"
@@ -1391,9 +1413,9 @@ msgid ""
 "empty, run_venv_python_script uses this process's sys.executable (basic "
 "stdlib); use a venv for numpy/pandas."
 msgstr ""
-"Jos asetettu, suorittaa työkalut kyseisessä virtuaaliympäristössä "
-"(bin/python tai Scripts/python.exe). Jos tyhjä, run_venv_python_script "
-"käyttää tämän prosessin sys.executable-polkua (perus-stdlib); käytä "
+"Jos asetettu, suorittaa työkalut kyseisessä virtuaaliympäristössä (bin/"
+"python tai Scripts/python.exe). Jos tyhjä, run_venv_python_script käyttää "
+"tämän prosessin sys.executable-polkua (perus-stdlib); käytä "
 "virtuaaliympäristöä, jos tarvitset numpya tai pandasia."
 
 msgid "Test"
@@ -1413,8 +1435,8 @@ msgid "Max Calc data cells"
 msgstr "Calc-datasolujen enimmäismäärä"
 
 msgid ""
-"Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger"
-" values use more RAM and time; UNO range read still dominates."
+"Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger "
+"values use more RAM and time; UNO range read still dominates."
 msgstr ""
 "=PYTHON()-datan tai Run Python Script -datan/data_range-alueen solujen "
 "enimmäismäärä. Suuremmat arvot kuluttavat enemmän RAM-muistia ja aikaa; UNO-"
