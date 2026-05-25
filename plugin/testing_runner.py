@@ -351,6 +351,11 @@ def main() -> int:
         print("ERROR: officehelper module is not available; run with LibreOffice's Python.", flush=True)
         return 1
 
+    # Suppress MCP server startup in the soffice child process; it inherits
+    # this env var and McpModule.start_background() checks it.
+    import os
+    os.environ["WRITERAGENT_TESTING"] = "1"
+
     try:
         ctx = officehelper.bootstrap()
     except Exception as e:

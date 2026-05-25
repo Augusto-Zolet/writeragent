@@ -659,7 +659,62 @@ These are ordered roughly by risk/reward and dependency. Lower numbers are safer
 | **TD5** | Error handling fragility | Nested try/except "log and continue" patterns in the hot `doProofreading` path and worker (C1). Some errors are swallowed that should at least increment a diagnostic counter. | `ai_grammar_proofreader.py`, `grammar_work_queue.py`, `grammar_proofread_locale.py` | Low | Medium | Implement the tiered error handling table from Appendix B. Introduce a small set of `_safe_*` helpers with clear contracts. Make sure all paths that return empty results still emit structured `grammar_obs` events. |
 | **TD6** | Constant & magic number sprawl | Thresholds, caps, timeouts, and sizes are defined in multiple files with varying documentation quality (C12). Some appear in prompts, some only in code. | `grammar_proofread_locale.py`, `grammar_proofread_text.py`, `grammar_work_queue.py`, `grammar_proofread_cache.py` | Low | Medium | Centralize in one well-documented module (or a `GRAMMAR_CONSTANTS` dataclass + docstring). Add units and rationale comments everywhere. Expose the most important ones via the existing config system where it makes sense for power users. |
 | **TD7** | UNO listener & persistence fragility | The long history of subtle bugs (wrong `documentEvent` vs `documentEventOccured`, wrong `hasByName` vs `XPropertySetInfo.hasPropertyByName`) lives in `grammar_persistence.py`. The pattern is easy to get wrong again in future listeners. | `grammar_persistence.py` + tests that caught the bugs | Low-Medium | Medium | Extract a small `uno_listeners.py` helper module with verified base classes or factory functions for common XDocumentEventListener + disposing patterns. Add a "how to write a correct LO listener" comment with the two bugs that were fixed. |
-| **TD8** | Import graph & package cohesion | `grammar_proofread_locale.py` is intentionally a "DAG root" (must not import siblings). Other modules pull in many pieces. `ai_grammar_proofreader.py` does a lot of re-exporting. `grammar_fsm_state.py` exists but appears lightly connected. | Whole `plugin/writer/locale/` package | Low | Medium | (a) Add a `locale/__init__.py` that clearly documents the intended import order and what each module owns. (b) Evaluate whether `grammar_fsm_state.py` is pulling its weight or is premature extraction — either fully integrate it or prune it before it becomes dead weight. (c) Reduce the number of cross-imports where possible by moving small pure helpers. |
+| **TD8** | Import graph & package cohesion | `grammar_proofread_locale.py` is intentionally a "DAG root" (must not import siblings). Other modules pull in many pieces. `ai_grammar_proofreader.py` does a lot of re-exporting. `grammar_fsm_state.py` exists but appears lightly connected. | Whole `plugin/writer/locale/` package | Low | Medium | **In progress (analysis phase, 2026-05)**
+
+**Import Graph Summary**:
+- `grammar_proofread_locale.py` is the declared and respected DAG root (its docstring explicitly forbids importing siblings, and this is mostly followed in practice).
+- `ai_grammar_proofreader.py` acts as the main public facade/aggregator. Almost all external code (main.py, panel_factory.py, etc.) only touches this module.
+- `grammar_work_queue.py` does a bulk `from . import (...)` of many siblings.
+- `ai_grammar_proofreader.py` uses full `plugin.writer.locale.*` imports while most other modules use relative imports — inconsistent style.
+- Very few true cycles. Most coupling is intentional but undocumented.
+
+**Biggest Cohesion Smells** (ranked):
+1. Completely empty `locale/__init__.py` — no architecture documentation, no module ownership, no import rules.
+2. `ai_grammar_proofreader.py` as a "mega-aggregator" that pulls in pieces from many modules and re-exports some for tests.
+3. `grammar_fsm_state.py` appears lightly connected (see evaluation below).
+4. Inconsistent import styles across the package.
+5. Some small pure utilities leaking across boundaries (see candidates below).
+
+**grammar_fsm_state.py Evaluation**:
+- Contains: frozen dataclasses for states + effects, two transition functions (`next_language_state`, `next_grammar_state`), and several effect types (`ExecuteGrammarCheckEffect`, `ProcessGrammarResultsEffect`, `RequeueIndividualItemEffect`, `EmitStatusEffect`, `LogEffect`, etc.).
+- Usage: **Exclusively** inside `grammar_work_queue.py` (treated as a namespace: `grammar_fsm_state.XXX`).
+- It is not a general FSM framework — it is very specific to the language-detection + grammar-checking phases of the worker.
+- **Decision (user preference)**: Keep as a separate file for now. The user likes the separation for readability and to keep the main worker file smaller. No merge planned in this pass.
+
+**Identified Opportunities – Small Pure Helpers** (best candidates for relocation to reduce cross-imports and improve conceptual ownership):
+
+1. **`grammar_inflight_key`** (currently in `grammar_proofread_text.py`)
+   - Generates the stable dedup/supersede key (`{doc_id}|{locale}|{hash or INCOMPLETE sentinel}`).
+   - Used by: `ai_grammar_proofreader.py` (enqueuing) + `grammar_work_queue.py` (multiple places, including language change requeues).
+   - Suggested new home: `grammar_proofread_locale.py` (fits naturally with other locale-aware identity logic).
+   - Benefit: Centralizes key-generation logic. Low risk, medium cleanliness win.
+
+2. **`normalize_reason`** (currently in `grammar_proofread_cache.py`)
+   - Canonicalizes error reasons for ignore-rule matching.
+   - Used heavily by: `ai_grammar_proofreader.py` (in `ignoreRule`, cached error filtering, etc.) + `grammar_work_queue.py` (when processing ignored rules).
+   - Suggested new home: `grammar_proofread_locale.py` or a small new `grammar_identity.py` / `grammar_rules.py`.
+   - Benefit: Conceptually does not belong in the cache module. Medium value for ownership clarity. Very low risk.
+
+3. **`slice_preview_debug`** (and the related private `_slice_preview` in work_queue)
+   - Creates compact text previews for logging/observability.
+   - Used by: `ai_grammar_proofreader.py` (exposed via the TD2 testing seam) + internally in `grammar_work_queue.py`.
+   - Suggested new home: `grammar_proofread_text.py` (alongside other text utilities).
+   - Benefit: Classic small pure utility that was already leaking through the testing seam. Low risk.
+
+Other small functions (`span_overlaps_range`, `extend_through_trailing_whitespace`, etc.) are currently used only internally in their home module and are not cross-cutting concerns.
+
+**Other Observations**:
+- The package is actually in reasonably good shape compared to many other parts of the codebase. There are not many nasty circular dependencies.
+- The "DAG root" rule for `grammar_proofread_locale.py` is mostly followed.
+- Much of the cross-module importing is legitimate (the work queue genuinely needs pieces from text, locale, cache, and persistence).
+- The biggest value from TD8 will probably come from **documentation and clarity** (`__init__.py` + better module comments) rather than massive import reduction.
+
+**Next Steps**:
+- Draft `plugin/writer/locale/__init__.py` with module ownership descriptions, explicit import rules, and the findings above.
+- Decide (later) whether any of the three helper moves are worth doing in this pass.
+- Consider adding light documentation to the individual modules once the package-level picture exists.
+
+**Note**: `plugin/scripting/` directory was intentionally excluded from this TD8 pass. |
 | **TD9** | Observability & diagnostics debt | `grammar_obs` is useful but under-used in some paths. Batch stats, supersede counts, and LLM durations are only partially instrumented (see C10). Hard to answer "why did this sentence get re-checked?" from logs alone. | `grammar_work_queue.py`, `grammar_proofread_cache.py`, `ai_grammar_proofreader.py` | Low | Medium | Systematically add `grammar_obs` (or structured logging) at every decision point in the enqueue → dedup → stale → execute → cache path. Make the existing queue diagnostics use the same mechanism. This pays for itself in future debugging. |
 | **TD10** | Dead / legacy config surface | References to removed keys (e.g. `doc.grammar_proofreader_wait_timeout_ms`) still linger in some places (C13). | Config schemas, UI bindings, any remaining call sites | Very Low | Low | Mechanical removal pass + test that the keys no longer appear in generated settings. |
 

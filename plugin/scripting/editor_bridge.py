@@ -354,7 +354,8 @@ def terminate_persistent_editor() -> None:
     _PERSISTENT_EDITOR.terminate()
 
 
-def _on_config_changed(key: str, **kwargs: Any) -> None:
+def _on_config_changed(**kwargs: Any) -> None:
+    key = kwargs.get("key", "")
     if key == "scripting.python_venv_path":
         log.info("editor_bridge: scripting.python_venv_path changed, terminating background Monaco process")
         terminate_persistent_editor()

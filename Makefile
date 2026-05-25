@@ -488,6 +488,7 @@ typecheck: manifest
 
 test-run:
 	$(PYTHON) -m pytest tests
+	@$(MAKE) lo-kill
 	$(LO_PYTHON) -m plugin.testing_runner
 
 slowtests:

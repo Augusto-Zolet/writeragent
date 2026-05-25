@@ -134,6 +134,10 @@ class McpModule(ModuleBase):
             self._stop_server()
 
     def _start_server(self, services):
+        import os
+        if os.environ.get("WRITERAGENT_TESTING"):
+            return
+
         global _shared_http_server
         from plugin.mcp.server import HttpServer
 
