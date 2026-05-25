@@ -45,14 +45,8 @@ These are the priority tasks to resolve remaining layout quirks and implement ne
     *   Robust handling of nested triple-backticks.
     *   Applying a dedicated "CodeBlock" character style (monospace font, distinct background) in the embedded template.
 
-### [ ] Task 7: Color/Theme Customization & Configuration
-*   **Goal:** Make assistant and user chat text colors configurable in `writeragent.json` and expose them in the Settings dialog (e.g. via color choices or color pickers) instead of hardcoding them in `rich_text.py`.
-*   **Alternative Colors to Try/Test:**
-    *   **Deep Slate Gray (`0x1E293B`)**: Current default. Modern, professional, soft, and highly readable.
-    *   **Soft Charcoal (`0x2B2B2B`)**: Neutral dark gray, extremely gentle on the eyes, and slightly softer than 100% black.
-    *   **Dark Slate / Slate-700 (`0x334155`)**: Elegant lighter slate gray.
-    *   **Deep Indigo / Navy (`0x1E1B4B`)**: Rich indigo/navy for a premium designer aesthetic.
-    *   **Classic Pure Black (`0x000000`)**: Traditional high-contrast black.
+### [x] Task 7: Color/Theme Customization & Configuration
+*   **Goal:** Make assistant and user chat text colors dynamically theme-aware (matching system dark/light modes) instead of hardcoding them in `rich_text.py`.
 
 ---
 
@@ -77,10 +71,16 @@ These are the priority tasks to resolve remaining layout quirks and implement ne
 *   **Boundary Kill:** `vs.ShowTextBoundaries = False`.
 *   **Scaling:** `vs.ZoomType = 1` (Page Width) combined with dynamic page width.
 *   **Dynamic Width:** Calculating `style.Width` based on placeholder pixel width (`px * 26.458` to 1/100mm) ensures the text reflows correctly into the sidebar.
-*   **Background:** `style.BackColor = 0xFFFFFF` (White).
+*   **Background:** `style.BackColor = 0xFFFFFF` (White) [Obsoleted by Dynamic Theme Matching].
 
 ### 4. Text Color & Contrast Softening
 *   Changed `ASSISTANT_COLOR` from harsh pure black (`0x000000`) to a modern, softer Deep Slate Gray (`0x1E293B`) for the white background.
+
+### 5. Dynamic VCL Theme Matching (Dark / Light Mode)
+*   **Dynamic Theme Sensing:** Implemented `get_theme_colors(doc)` which extracts the native sidebar container window's VCL `StyleSettings` to automatically sense whether LibreOffice is running in dark mode or light mode (based on the relative luminance of `StyleSettings.FieldColor`).
+*   **Dark Mode Palette:** When dark mode is active, the background is set to the system `FieldColor`, the User role prefix is rendered in soft light blue (`0x60A5FA`), and the Assistant text is rendered in a soft off-white (`0xE2E8F0`).
+*   **Light Mode Contrast:** In light mode, the background is dynamically set to a beautifully darkened dialog box contrast color (exactly 6% darker than `StyleSettings.DialogColor`, e.g. `0xE0E1E2`), preventing harsh white glare while matching the surrounding chrome's hue.
+*   **Global Configuration Color Alignment:** Updates `/org.openoffice.Office.UI/ColorScheme/.../DocColor` globally to match the dynamic background, ensuring perfect canvas border blending.
 
 ---
 
@@ -234,3 +234,34 @@ When the embedded Writer sidebar receives streamed chat content that exceeds the
 `scroll_to_bottom` is reduced to a minimal `view_cursor.gotoEnd(False)` which at least doesn't actively scroll to the top. The view does not auto-scroll to show new content.
 
 ---
+
+### 9. Dynamic VCL Theme Matching Detailed Investigation (May 25, 2026)
+
+#### Problem
+In light or dark modes, the hardcoded white background (`0xFFFFFF`) of the embedded Writer document did not automatically match the user's LibreOffice application colors. In dark mode, this resulted in unreadable white-on-white text (due to automatic text coloring resolving to white) or invisible charcoal assistant roles. In light mode, the pure white was aesthetically harsh and lacked a soft, premium contrast against the surrounding sidebar chrome.
+
+#### Approaches Investigated & Lessons Learned
+
+| Approach / Source | What We Tried | Findings & Why It Was Dropped / Modified |
+|-------------------|---------------|-----------------------------------------|
+| **1. Configuration Access** | Queried the `/org.openoffice.Office.UI/ColorScheme` registry properties. | **Failed to resolve actual colors:** Default color schemes (like `COLOR_SCHEME_LIBREOFFICE_AUTOMATIC`, `COLOR_SCHEME_LIBREOFFICE_DARK`, and `COLOR_SCHEME_LIBREOFFICE_LIGHT`) return `None`/`void` properties in PyUNO unless explicitly customized by the user. LibreOffice resolves these dynamically at runtime inside its C++ rendering pipeline based on the OS theme, making them inaccessible via the standard `ConfigurationProvider`. |
+| **2. Dynamic VCL StyleSettings** | Explored parent window VCL styling properties. | **Successful discovery:** Uncovered that VCL container windows (supporting the `com.sun.star.awt.XStyleSettingsSupplier` interface) expose a live `StyleSettings` object containing resolved system-wide colors (e.g. `FieldColor`, `FieldTextColor`, `DialogColor`, `DialogTextColor`). These properties update in real-time when the user switches their OS or LibreOffice theme. |
+| **3. Relative Luminance Detection** | Auto-detected dark mode using `FieldColor` (background color for text fields). | **Luminance formula:** Calculated relative luminance of `FieldColor` using standard coefficients: `Luminance = 0.2126 * R + 0.7152 * G + 0.0722 * B`. If `Luminance < 128`, it dynamically identifies the dark theme. |
+| **4. Softer Light Contrast** | Darkened the background color to `#B8B8B8` (medium gray) in light mode. | **Aesthetic check:** Medium gray `#B8B8B8` was too harsh/dark, creating a stark visual boundary that stood out excessively from the surrounding sidebar chrome. |
+| **5. Dynamic Proportional Darkening** | Darkened `DialogColor` dynamically by exactly 6% in light mode. | **Perfect premium contrast:** Proportionally multiplied the red, green, and blue components of `StyleSettings.DialogColor` (typically `0xEFF0F1`) by `0.94` (producing `0xE0E1E2`). This creates a soft, premium contrast that perfectly aligns with the surrounding dialog frame's hue. |
+
+#### Implementation & dynamic colors
+
+1.  **get_theme_colors(doc):** Resolves colors dynamically by traversing the document window's VCL `StyleSettings` hierarchy.
+    - **Dark Mode**:
+      - Background color: `StyleSettings.FieldColor` (native system dark color)
+      - User role prefix: `0x60A5FA` (soft Tailwind sky-blue)
+      - Assistant body text: `0xE2E8F0` (soft light slate gray)
+    - **Light Mode**:
+      - Background color: Proproportionally darkened `StyleSettings.DialogColor` by 6% (typically `0xE0E1E2`)
+      - User role prefix: `0x2A6099` (premium indigo blue)
+      - Assistant body text: `0x1E293B` (premium slate gray)
+2.  **Embedded Canvas Blending:** Overwrites `/org.openoffice.Office.UI/ColorScheme/.../DocColor` with the dynamic background color. This ensures the canvas borders around the virtual page blend seamlessly, resolving the "gray bar centering borders" mystery.
+
+---
+

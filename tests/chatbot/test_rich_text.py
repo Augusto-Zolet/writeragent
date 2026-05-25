@@ -145,6 +145,62 @@ class AppendRichTextTests(unittest.TestCase):
 
         self.assertEqual(USER_COLOR, 0x2A6099)
 
+    def test_get_theme_colors_light_mode(self):
+        """get_theme_colors returns light palette for high luminance background."""
+        from plugin.chatbot.rich_text import get_theme_colors
+        doc = MockDoc()
+        style_settings = MagicMock()
+        style_settings.FieldColor = 0xFFFFFF  # White background
+        style_settings.DialogColor = 0xEFF0F1 # Light gray dialog
+        doc.getCurrentController().getFrame().getContainerWindow().StyleSettings = style_settings
+
+        bg_color, user_color, assistant_color = get_theme_colors(doc)
+        self.assertEqual(bg_color, 0xE0E1E2)
+        self.assertEqual(user_color, 0x2A6099)
+        self.assertEqual(assistant_color, 0x1E293B)
+
+    def test_get_theme_colors_dark_mode(self):
+        """get_theme_colors returns dark palette for low luminance background."""
+        from plugin.chatbot.rich_text import get_theme_colors
+        doc = MockDoc()
+        style_settings = MagicMock()
+        style_settings.FieldColor = 0x1E1E1E  # Dark background
+        doc.getCurrentController().getFrame().getContainerWindow().StyleSettings = style_settings
+
+        bg_color, user_color, assistant_color = get_theme_colors(doc)
+        self.assertEqual(bg_color, 0x1E1E1E)
+        self.assertEqual(user_color, 0x60A5FA)
+        self.assertEqual(assistant_color, 0xE2E8F0)
+
+    def test_get_theme_colors_graceful_fallback(self):
+        """get_theme_colors returns standard light palette when window or StyleSettings are missing/mocked."""
+        from plugin.chatbot.rich_text import get_theme_colors
+        doc = MockDoc()
+        # Missing Frame / Container Window (getCurrentController returns MagicMock, which returns MagicMock)
+        bg_color, user_color, assistant_color = get_theme_colors(doc)
+        self.assertEqual(bg_color, 0xE0E1E2)
+        self.assertEqual(user_color, 0x2A6099)
+        self.assertEqual(assistant_color, 0x1E293B)
+
+    def test_append_rich_text_uses_dynamic_dark_colors(self):
+        """append_rich_text formats role prefix using dynamic dark mode colors."""
+        from plugin.chatbot.rich_text import append_rich_text
+        doc = MockDoc()
+        style_settings = MagicMock()
+        style_settings.FieldColor = 0x1E1E1E  # Dark mode
+        doc.getCurrentController().getFrame().getContainerWindow().StyleSettings = style_settings
+
+        created_cursors = []
+        def track_cursor(rng):
+            c = MockTextCursor()
+            created_cursors.append(c)
+            return c
+        doc.getText().createTextCursorByRange = track_cursor
+
+        append_rich_text(doc, "hi", role="user")
+        prefix_cursor = created_cursors[0]
+        self.assertEqual(prefix_cursor.CharColor, 0x60A5FA)  # Dark-mode-optimized user blue
+
 
 class AppendTextChunkTests(unittest.TestCase):
     """Tests for append_text_chunk (streaming plain-text append)."""

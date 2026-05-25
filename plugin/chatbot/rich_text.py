@@ -151,6 +151,46 @@ class EmbeddedWriterListener(BaseWindowListener):
         except Exception as e:
             log.exception("Error in deferred rich text init: %s", e)
 
+def get_theme_colors(doc):
+    """Retrieve theme-aware colors based on the document window's StyleSettings.
+
+    Returns (bg_color, user_color, assistant_color).
+    """
+    try:
+        controller = doc.getCurrentController()
+        if controller:
+            frame = controller.getFrame()
+            if frame:
+                win = frame.getContainerWindow()
+                if win and hasattr(win, "StyleSettings"):
+                    style_settings = win.StyleSettings
+                    if style_settings:
+                        field_color = getattr(style_settings, "FieldColor", 0xFFFFFF)
+                        if isinstance(field_color, int):
+                            r = (field_color >> 16) & 0xFF
+                            g = (field_color >> 8) & 0xFF
+                            b = field_color & 0xFF
+                            luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+                            if luminance < 128:
+                                # Dark mode colors
+                                return field_color, 0x60A5FA, 0xE2E8F0
+                            else:
+                                # Light mode colors
+                                # Dynamically darken DialogColor slightly (by 6%) to create a beautiful, soft contrast
+                                dialog_color = getattr(style_settings, "DialogColor", 0xEFF0F1)
+                                if isinstance(dialog_color, int):
+                                    r = int(((dialog_color >> 16) & 0xFF) * 0.94)
+                                    g = int(((dialog_color >> 8) & 0xFF) * 0.94)
+                                    b = int((dialog_color & 0xFF) * 0.94)
+                                    light_bg = (r << 16) | (g << 8) | b
+                                    return light_bg, 0x2A6099, 0x1E293B
+                                return 0xE0E1E2, 0x2A6099, 0x1E293B
+    except Exception as e:
+        log.debug("Failed to resolve theme colors from StyleSettings: %s", e)
+    return 0xE0E1E2, 0x2A6099, 0x1E293B
+
+
 def create_embedded_writer_doc(ctx, parent_window, placeholder_ctrl):
     """Creates an embedded Writer document inside a new window parented to parent_window.
     
@@ -160,6 +200,29 @@ def create_embedded_writer_doc(ctx, parent_window, placeholder_ctrl):
         from com.sun.star.beans import PropertyValue
         from com.sun.star.awt import WindowDescriptor
         from com.sun.star.awt.WindowClass import CONTAINER
+
+        # Resolve initial background color based on StyleSettings
+        bg_color = 0xE0E1E2
+        if parent_window and hasattr(parent_window, "StyleSettings"):
+            style_settings = parent_window.StyleSettings
+            if style_settings:
+                field_color = getattr(style_settings, "FieldColor", 0xFFFFFF)
+                if isinstance(field_color, int):
+                    r = (field_color >> 16) & 0xFF
+                    g = (field_color >> 8) & 0xFF
+                    b = field_color & 0xFF
+                    luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+                    if luminance < 128:
+                        bg_color = field_color
+                    else:
+                        dialog_color = getattr(style_settings, "DialogColor", 0xEFF0F1)
+                        if isinstance(dialog_color, int):
+                            r = int(((dialog_color >> 16) & 0xFF) * 0.94)
+                            g = int(((dialog_color >> 8) & 0xFF) * 0.94)
+                            b = int((dialog_color & 0xFF) * 0.94)
+                            bg_color = (r << 16) | (g << 8) | b
+                        else:
+                            bg_color = 0xE0E1E2
 
         smgr = ctx.getServiceManager()
         toolkit = smgr.createInstanceWithContext("com.sun.star.awt.Toolkit", ctx)
@@ -224,7 +287,7 @@ def create_embedded_writer_doc(ctx, parent_window, placeholder_ctrl):
                         style.BottomMargin = 0
                         style.HeaderIsOn = False
                         style.FooterIsOn = False
-                        style.BackColor = 0xFFFFFF
+                        style.BackColor = bg_color
                     except Exception:
                         pass
 
@@ -314,7 +377,7 @@ def create_embedded_writer_doc(ctx, parent_window, placeholder_ctrl):
             node_args = (PropertyValue("nodepath", 0, "/org.openoffice.Office.UI/ColorScheme/ColorSchemes/org.openoffice.Office.UI:ColorScheme['LibreOffice']/DocColor", 0),)
             config_update = config_provider.createInstanceWithArguments("com.sun.star.configuration.ConfigurationUpdateAccess", node_args)
             if config_update and hasattr(config_update, "Color"):
-                config_update.Color = 0xFFFFFF
+                config_update.Color = bg_color
                 config_update.commitChanges()
         except Exception:
             log.debug("Could not set DocColor via ConfigurationProvider (non-fatal)")
@@ -536,6 +599,8 @@ def append_rich_text(doc, text, role="assistant", auto_scroll=True):
         cursor = text_obj.createTextCursor()
         cursor.gotoEnd(False)
 
+        bg_color, user_color, assistant_color = get_theme_colors(doc)
+
         if text_obj.getString():
             text_obj.insertString(cursor, "\n\n", False)
 
@@ -548,7 +613,7 @@ def append_rich_text(doc, text, role="assistant", auto_scroll=True):
         prefix_range.gotoRange(cursor.getStart(), True)
         prefix_range.CharHeight = 10.0
         prefix_range.CharWeight = 150.0  # BOLD
-        prefix_range.CharColor = USER_COLOR if role == "user" else ASSISTANT_COLOR
+        prefix_range.CharColor = user_color if role == "user" else assistant_color
 
         # Body content via HTML import
         cursor.gotoEnd(False)
@@ -572,7 +637,7 @@ def append_rich_text(doc, text, role="assistant", auto_scroll=True):
             cursor.gotoEnd(False)
             body_range = text_obj.createTextCursorByRange(content_start)
             body_range.gotoRange(cursor.getStart(), True)
-            body_range.CharColor = USER_COLOR if role == "user" else ASSISTANT_COLOR
+            body_range.CharColor = user_color if role == "user" else assistant_color
 
         if should_scroll:
             scroll_to_bottom(doc)
@@ -590,7 +655,8 @@ def append_text_chunk(doc, text, auto_scroll=True):
         text_obj = doc.getText()
         cursor = text_obj.createTextCursor()
         cursor.gotoEnd(False)
-        cursor.CharColor = ASSISTANT_COLOR
+        bg_color, user_color, assistant_color = get_theme_colors(doc)
+        cursor.CharColor = assistant_color
         text_obj.insertString(cursor, text, False)
         log.debug("append_text_chunk: inserted %d chars, auto_scroll=%s", len(text), auto_scroll)
 
