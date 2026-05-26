@@ -293,6 +293,27 @@ class ChatPanelElement(unohelper.Base, XUIElement):
                 log.debug("Failed to constrain panel window (likely disposed): %s", e)
         return self.m_panelRootWindow
 
+    def disposing(self, Source=None):
+        """Best-effort lifecycle hook for rich-text sidebar resources (and future use).
+
+        The LO sidebar framework does not automatically call this on XUIElement
+        teardown for tool panels, but having it (and calling the SendButtonListener
+        path) documents the intent and provides an explicit cleanup entry point.
+        The real work for rich-text is driven from SendButtonListener.disposing
+        (which now holds the _rich_listener and embedded refs) + the listener's
+        own XEventListener.disposing override. This prevents the previous leak of
+        the EmbeddedWriterListener + its private swriter Frame/Doc/Window.
+        """
+        try:
+            if hasattr(self, "send_listener") and self.send_listener:
+                self.send_listener.disposing(None)
+        except Exception:
+            pass
+        # Clear our own cached refs (the listener + send_listener paths do the real work).
+        self.embedded_doc = None
+        self.embedded_frame = None
+        self.embedded_container = None
+
     def _render_session_history(self, session, response_ctrl, model, greeting=""):
         """Update the response control with the contents of the given session."""
         try:

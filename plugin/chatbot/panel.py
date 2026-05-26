@@ -345,6 +345,7 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         self.embedded_frame = None
         self.embedded_container = None
         self._cached_scrollbar = None
+        self._rich_listener = None  # Set by wiring after EmbeddedWriterListener creation (for shutdown cleanup)
         if HAS_RECORDING:
             assert _AudioRecorderCls is not None
             self.audio_recorder = _AudioRecorderCls()
@@ -376,6 +377,16 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         self.embedded_container = container
         self._cached_scrollbar = None
         log.info("SendButtonListener: Rich text mode enabled (embedded Writer doc)")
+
+    def set_rich_listener(self, listener):
+        """Store the EmbeddedWriterListener so disposing() can explicitly remove it and trigger its cleanup.
+
+        This (plus the listener's own disposing override) is part of the fix for
+        close-time errors: without storing + removing the listener registered on
+        root_window, it would leak and potentially receive events after the
+        window peer is gone.
+        """
+        self._rich_listener = listener
 
     def rerender_rich_text_session(self):
         """Re-render the entire session into the embedded doc with HTML formatting.
@@ -430,6 +441,11 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
 
                 def do_deferred():
                     try:
+                        # Guard: during shutdown the embedded may have been cleared by
+                        # disposing paths; skip the post rather than queue work against
+                        # a soon-to-be-disposed (or already gone) document.
+                        if getattr(self, "embedded_doc", None) is None:
+                            return
                         post_to_main_thread(scroll_to_bottom, self.embedded_doc)
                     except Exception:
                         pass
@@ -1121,6 +1137,39 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
             global_event_bus.unsubscribe("grammar:status", self._on_grammar_status)
         except Exception as e:
             log.debug("SendButtonListener.disposing: error unsubscribing from event bus: %s", e)
+
+        # Rich-text sidebar shutdown cleanup (bugfix for errors on LO Writer close).
+        # The EmbeddedWriterListener and its embedded Frame/Doc/Container were
+        # previously leaked; this path + the listener's own disposing() now
+        # cooperatively remove the listener and dispose the objects. The
+        # _disposed flag + broad except in the listener make this idempotent
+        # and safe against double-dispose segfaults (see AGENTS.md).
+        try:
+            if self._rich_listener is not None:
+                try:
+                    # Triggers its removeWindowListener + _dispose_embedded_objects.
+                    self._rich_listener.disposing(None)
+                except Exception:
+                    pass
+                self._rich_listener = None
+
+            # Direct best-effort disposal of any embedded refs still held here
+            # (defensive; the listener path above usually covers it).
+            for attr in ("embedded_doc", "embedded_frame", "embedded_container"):
+                obj = getattr(self, attr, None)
+                if obj is None:
+                    continue
+                try:
+                    if hasattr(obj, "close"):
+                        obj.close(True)
+                    elif hasattr(obj, "dispose"):
+                        obj.dispose()
+                except Exception:
+                    pass
+                setattr(self, attr, None)
+            self._cached_scrollbar = None
+        except Exception as e:
+            log.debug("SendButtonListener.disposing: rich-text embedded cleanup error (non-fatal): %s", e)
 
 
 # ---------------------------------------------------------------------------

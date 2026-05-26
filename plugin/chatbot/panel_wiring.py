@@ -288,5 +288,16 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):
             rich_listener = EmbeddedWriterListener(self.ctx, root_window, controls["response"], on_rich_text_ready)
             root_window.addWindowListener(rich_listener)
             log.debug("EmbeddedWriterListener added to root_window")
+
+            # Wire the listener ref into SendButtonListener so its disposing() can
+            # explicitly removeWindowListener + trigger the embedded safe-dispose.
+            # This (together with EmbeddedWriterListener.disposing) is the core
+            # of the shutdown bugfix: without it the listener stayed registered on
+            # the root XDialog after the sidebar deck / panel was torn down by LO.
+            if hasattr(self, "send_listener") and self.send_listener:
+                try:
+                    self.send_listener.set_rich_listener(rich_listener)
+                except Exception:
+                    pass
         except Exception as e:
             log.error("Rich text initialization setup failed: %s", e)

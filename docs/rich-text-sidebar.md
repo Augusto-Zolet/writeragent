@@ -10,9 +10,12 @@ These are the priority tasks to resolve remaining layout quirks and implement ne
 
 ### [x] Task 1: Fix Scroll-to-Bottom Auto-Scrolling (High Priority — Fixed)
 *   **Issue:** Streamed chat content exceeding the visible viewport area did not trigger auto-scroll. The user had to manually scroll down.
-*   **Root Cause:** In Online/Browse layout mode, the embedded Writer's internal "make cursor visible" mechanism is completely non-functional for embedded frames. No UNO approach (ViewCursor, select, dispatch, page jumps, VCL scrollbar) could scroll the viewport.
-*   **Solution:** Switched from `ShowOnlineLayout = True` to normal page layout with `ZoomType = PAGE_WIDTH`. In page mode, Writer's internal `SwEditWin::MakeVisible()` fires correctly when the view cursor moves across page boundaries, and `.uno:GoToEndOfDoc` triggers proper viewport scrolling. Page styled with zero margins and width matching the sidebar container so the visual result is seamless.
-*   **Files Changed:** `plugin/chatbot/rich_text.py` (`create_embedded_writer_doc` view settings, `scroll_to_bottom` simplified), `plugin/chatbot/panel.py` (`_get_scrollbar`, `_should_auto_scroll`, `_append_response` logging).
+*   **Root Cause:** In Online/Browse layout mode (which we keep for continuous reflow in the narrow sidebar), the embedded Writer's internal "make cursor visible" mechanism is non-functional for embedded frames. Standard UNO approaches (ViewCursor.gotoEnd, controller.select, .uno:GoToEndOfDoc, jumpToLastPage) moved the logical cursor but produced no visual scroll (or even scrolled to the top).
+*   **Solution (what actually shipped):** Kept `ShowOnlineLayout = True` + 100% BY_VALUE zoom for seamless narrow-sidebar reflow (page layout would have required different margin/width math and lost the "continuous flow" feel). Implemented a robust `scroll_to_bottom` with two paths:
+    - Lightweight (most callers: resize, timers, debug): cursor + `.uno:GoToEndOfDoc` dispatch + `processEventsToIdle`.
+    - Aggressive (only on real insert sites in `append_rich_text` / `append_text_chunk` with `auto_scroll=True`): the above + `controller.select(collapsed end caret)` + zoom flicker (to force MakeVisible) + component invalidate + final idle. One-time ViewData / VCL tree debug dumps remain for diagnostics.
+*   **Why the doc previously said "switched to page layout":** An early plan / commit message described that approach; the final implementation kept online layout and solved scrolling via the aggressive workaround instead. (See §8 for the full investigation history.)
+*   **Files Changed:** `plugin/chatbot/rich_text.py` (view settings kept online, `scroll_to_bottom` with aggressive/light paths + ViewData logging), `plugin/chatbot/panel.py` (rerender, _append_response, deferred scroll timer).
 
 ### [x] Smoothing: 250 ms producer-side batching for streamed display text (2026-05)
 *   **Goal:** Reduce visual stutter / micro-updates during streaming (both plain-text and rich-text paths) without changing the consumer drain loop (still 0.1 s timeout).
@@ -55,6 +58,60 @@ These are the priority tasks to resolve remaining layout quirks and implement ne
 
 ### [x] Task 7: Color/Theme Customization & Configuration
 *   **Goal:** Make assistant and user chat text colors dynamically theme-aware (matching system dark/light modes) instead of hardcoding them in `rich_text.py`.
+
+---
+
+## Lifecycle, Listener & Shutdown Safety (Critical Fix for Close-Time Errors)
+
+This section was added in 2026-06 as the authoritative record of a class of bugs that only manifested when closing LibreOffice Writer (with `rich_text_sidebar=true`).
+
+### Symptoms
+- Errors, "object has been disposed", RuntimeException, or full segfaults / noisy stack traces on Writer exit (or sidebar deck close).
+- Only reproducible with the rich-text sidebar enabled; plain-text path was unaffected.
+- Happened after successful streaming, theme switching, list tightening, etc.
+
+### Root Causes (Pre-Fix)
+1. **Leaked XWindowListener registrations:**
+   - `EmbeddedWriterListener` (the "lazy peer" deferred embedder) and `_PanelResizeListener` were added to `root_window` (the XDialog from the XDL) in `panel_wiring.py:203` and `:289` but **never removed**.
+   - `BaseWindowListener` / `BaseListener` only provide a no-op `disposing()` ([listeners.py:53](plugin/chatbot/listeners.py:53)).
+
+2. **Undisposed embedded sub-document:**
+   - `create_embedded_writer_doc` ([rich_text.py:264-276](plugin/chatbot/rich_text.py:264-276)) creates a `toolkit.createWindow` container, an `XFrame`, initializes it, and loads `private:factory/swriter` into it.
+   - These three objects (`embedded_container`, `embedded_frame`, `embedded_doc`) plus the listener held strong refs and were never closed/disposed on panel teardown.
+   - The LO sidebar XUIElement / ChatPanelElement had **no `disposing` or `disposeUIElement` implementation** ([panel_factory.py:231](plugin/chatbot/panel_factory.py:231) before the fix).
+
+3. **Late-scheduled work against dying objects:**
+   - `post_to_main_thread` (global `QueueExecutor` + AsyncCallback) used for deferred embedding, scroll timers, etc. ([panel.py:444](plugin/chatbot/panel.py:444), rich_text deferred init).
+   - Global event bus subscribers.
+   - During LO shutdown the VCL event loop can still deliver queued work (or listener callbacks) after the UNO peers are gone.
+
+4. **Cooperative cleanup was absent:**
+   - `SendButtonListener.disposing` ([panel.py:1115](plugin/chatbot/panel.py:1115) pre-fix) only unsubscribed event bus.
+   - No equivalent of `dialog_views.py:284` `_cleanup` (explicit `removeTextListener` + guarded `dispose`) existed for the sidebar rich-text path.
+   - AGENTS.md already warned about double-dispose segfaults for dialogs; the same footgun applied to frames/windows.
+
+These are classic UNO extension lifecycle bugs: Python objects outlive (or are notified after) their C++ VCL/UNO counterparts.
+
+### The Fix (2026-06)
+- `EmbeddedWriterListener` now overrides `disposing()` (which owns the `_disposed` idempotency guard + listener removal) and delegates actual UNO object cleanup to `_dispose_embedded_objects` (no early return inside the helper). This guarantees the embedded container + doc are actually released instead of leaked ([rich_text.py](plugin/chatbot/rich_text.py) after the 2026-06 fix, with detailed bug explanation in the method comments).
+- `SendButtonListener` stores `_rich_listener` (via new `set_rich_listener`) and its `disposing()` now cooperatively calls through to the listener + directly disposes any embedded refs it holds ([panel.py:1126-1155](plugin/chatbot/panel.py:1126-1155)).
+- `ChatPanelElement` gained a `disposing` hook (for documentation + explicit future use) that delegates to the send listener ([panel_factory.py:300-320](plugin/chatbot/panel_factory.py:300-320)).
+- Wiring now passes the listener ref immediately after `addWindowListener` ([panel_wiring.py:288-300](plugin/chatbot/panel_wiring.py:288-300)).
+- Cheap guards added on hot post/scroll paths and inside `scroll_to_bottom` itself.
+- All paths are idempotent (flag) and swallow Disposed/Runtime exceptions.
+
+The pattern mirrors the good examples that already existed (grammar document listener teardown, SettingsDialog._cleanup, AGENTS.md double-dispose rule).
+
+### Future Dev Notes & Ideas (Capture for Next Work)
+- **Broader listener hygiene janitor task:** Almost every `addActionListener` / `addItemListener` / `addTextListener` / `addKeyListener` / `addWindowListener` in `panel_factory.py` and `panel_wiring.py` is one-way. A follow-up could introduce a small `ListenerTracker` helper (register + auto-remove on a dispose token) so new UI never repeats the mistake.
+- **Real XUIElement disposal hook:** Investigate whether the LO sidebar framework will call something on `ChatPanelElement` (or if we need to listen to the parent deck window's `XEventListener`). If a reliable hook appears, promote the existing `disposing` stub into the real path and drop the delegation-through-send_listener.
+- **Global shutdown coordination:** The `QueueExecutor` + global event bus could grow an explicit `shutdown()` that drops pending work and prevents new posts once the module is unloading. This would be stronger than per-object guards for the "process is exiting" case.
+- **Native UNO lifecycle test:** Add a `@native_test` (via `testing_runner`) that creates a ChatPanelElement, wires rich text, does a couple of appends, then forces panel teardown / doc close and asserts no Disposed noise and that the embedded doc is truly gone. (Unit tests mock the surface; only a real soffice run catches VCL-order surprises.)
+- **Double-close hardening helper:** Consider a tiny `safe_close(obj, prefer_close=True)` util in `uno_context.py` or `errors.py` so every future embedded frame/doc site uses the same battle-tested sequence + logging.
+- **Rich text still restart-gated:** The feature remains behind `rich_text_sidebar` + full LO restart. If someone later removes that requirement, the disposal paths become even more important (hot enable/disable cycles).
+- **Memory / leak tracking:** With the listener + doc now explicitly torn down, the "per-chat" Python objects (session history, etc.) should be collectable when the sidebar for a document is closed. Worth a future `tracemalloc` or LO memory snapshot experiment.
+
+See also: AGENTS.md (double-dispose, streaming drain, UNO ctx rules), `docs/streaming-and-threading.md`, and the grammar persistence teardown as the prior art for document-scoped listeners.
 
 ---
 
@@ -240,16 +297,15 @@ When the embedded Writer sidebar receives streamed chat content that exceeds the
 
 #### Current Status (Updated May 25, 2026)
 
-**Root cause found:** In Online/Browse layout mode (`ShowOnlineLayout = True`), the embedded Writer's internal "make cursor visible" mechanism is broken. All UNO approaches (ViewCursor.gotoEnd, controller.select, .uno:GoToEndOfDoc, jumpToLastPage) move the logical cursor but the viewport remains static. The VCL peer tree exposes no scrollbar objects (all `impl=?`, no accessible tree).
+**Root cause found (and still true):** In Online/Browse layout mode (`ShowOnlineLayout = True` — which we deliberately keep for continuous text reflow in the narrow sidebar), the embedded Writer's internal "make cursor visible" mechanism is broken for hosted frames. All basic UNO approaches move the logical cursor but the viewport does not follow (or actively jumps to the top on select).
 
-**Fix:** Switched to normal **page layout mode** (`ShowOnlineLayout = False`) with `ZoomType = PAGE_WIDTH`. In page mode, Writer's internal MakeVisible fires correctly when the cursor moves to content on a different page. Combined with zero margins and page width matching the sidebar container, the visual result is nearly identical to online layout but scrolling works.
+**Actual fix shipped (2026-05):** Kept online layout + 100% zoom for visual seamlessness. Added a dual-path `scroll_to_bottom`:
+- Every caller gets the lightweight core (gotoEnd + GoToEndOfDoc dispatch + idle).
+- Real insert paths (`append_*` with `auto_scroll=True`) also get the aggressive workaround: `controller.select(collapsed caret at absolute end)` + zoom flicker (to kick MakeVisible) + invalidate + extra idles + ViewData sampling.
 
-`scroll_to_bottom` is now streamlined to:
-1. `view_cursor.gotoEnd(False)` — positions cursor at document end.
-2. `.uno:GoToEndOfDoc` dispatch — triggers Writer's viewport scroll to follow cursor.
-3. `processEventsToIdle()` — flushes VCL repaint synchronously.
+This matches the "aggressive only on hot path" discipline so resize/debug callers cannot cause re-entrancy loops. The earlier plan text that said "switched to page layout and simplified" was aspirational and was corrected in the 2026-06 lifecycle update.
 
-The `auto_scroll` parameter is now properly honored by `append_rich_text` (previously ignored). Debug introspection helpers (`_dump_scroll_debug_once`, `find_vcl_scrollbar`, `traverse_window_tree`) remain for future diagnostics.
+The `auto_scroll` parameter is now properly honored. Debug helpers (`_dump_scroll_debug_once`, `find_vcl_scrollbar`, `traverse_window_tree`, `_sample_viewdata`) remain for future diagnostics.
 
 ---
 

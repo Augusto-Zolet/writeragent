@@ -120,8 +120,28 @@ def is_scrolled_to_bottom(scrollbar_accessible):
         return True
 
 class EmbeddedWriterListener(BaseWindowListener):
-    """Wait for the sidebar window to be shown (realized) before embedding Writer."""
-    
+    """Wait for the sidebar window to be shown (realized) before embedding Writer.
+
+    BUGFIX (shutdown / close-time errors): This listener (and the embedded Writer
+    Frame + swriter document + container window it creates) were previously never
+    removed or disposed when the sidebar panel was torn down by LibreOffice's
+    XUIElement / deck lifecycle or on full Writer exit. This caused:
+    - Dangling XWindowListener registrations on the root XDialog (root_window).
+    - The private:factory/swriter document + hosting XFrame / container_window
+      left alive with no explicit close, leading to VCL peer errors, "object
+      has been disposed" noise, or segfaults during process shutdown.
+    - post_to_main_thread callbacks and resize handlers could still touch the
+      objects after their UNO peers were destroyed.
+
+    The fix: override disposing() (from XEventListener via BaseListener) to
+    self-remove from the parent and perform a guarded, idempotent disposal of
+    the embedded objects. All callbacks early-exit after _disposed is set.
+    This follows the proven pattern from dialog_views.SettingsDialog._cleanup
+    (explicit remove*Listener + guarded dispose) and the double-dispose warning
+    in AGENTS.md. Broad except + flag prevents double-dispose segfaults and
+    tolerates the partial teardown order that occurs during LO shutdown.
+    """
+
     def __init__(self, ctx, parent_window, placeholder_ctrl, on_ready_callback):
         self.ctx = ctx
         self.parent_window = parent_window
@@ -130,9 +150,78 @@ class EmbeddedWriterListener(BaseWindowListener):
         self.initialized = False
         self.container_window = None
         self.doc = None
+        self._disposed = False
+        # Note: frame is received in the ready callback but not stored here;
+        # the owning SendButtonListener / ChatPanelElement keep the primary refs
+        # and will cooperate on full cleanup (see their disposing paths).
+
+    def disposing(self, Source):
+        """XEventListener hook: clean up on parent window disposal or explicit teardown.
+
+        This is the *only* public entry point for normal shutdown.
+
+        Idempotency contract:
+        - The `_disposed` flag lives here. We check it first and return early.
+        - We remove ourselves as a listener from the parent window.
+        - We then delegate the actual UNO object cleanup (close/dispose + ref
+          clearing) to the private helper below.
+
+        Historical bug (fixed 2026-06): Previously this method set
+        `self._disposed = True` *before* calling the helper. The helper had an
+        early return on the flag, so the close/dispose work and the
+        `container_window = None` / `doc = None` lines were never reached.
+        The embedded Writer document + frame + container were leaked, which
+        produced the "errors when I close LO Writer" the user reported.
+        """
+        if self._disposed:
+            return
+        try:
+            if self.parent_window and hasattr(self.parent_window, "removeWindowListener"):
+                self.parent_window.removeWindowListener(self)
+        except Exception:
+            # Parent may already be partially disposed; non-fatal.
+            pass
+
+        # We only reach here on the first disposal. Set the flag for idempotency
+        # *after* the listener removal has succeeded, then do the actual object
+        # cleanup. This is the correct division: disposing() owns the flag and
+        # the XEventListener contract; the helper owns only the UNO close/dispose work.
+        self._disposed = True
+        self._dispose_embedded_objects()
+
+    def _dispose_embedded_objects(self):
+        """Perform the actual best-effort disposal of the embedded Writer objects.
+
+        This method has *no* guard on `_disposed`. It is expected to be called
+        only when the caller has already decided it is safe to run (i.e. from
+        `disposing()` after the flag check, or from tests that want to exercise
+        the disposal logic in isolation).
+
+        It always attempts to close/dispose the objects it holds and then
+        clears the references. This guarantees that when `disposing()` is the
+        caller, the embedded doc and container actually get released instead of
+        being leaked (the previous bug).
+
+        Exceptions during close/dispose are swallowed (they are normal and
+        expected during LO shutdown).
+        """
+        for name, obj in (("container_window", self.container_window), ("doc", getattr(self, "doc", None))):
+            if not obj:
+                continue
+            try:
+                if hasattr(obj, "close"):
+                    # XFrame / similar often prefer close(True) for clean shutdown.
+                    obj.close(True)
+                elif hasattr(obj, "dispose"):
+                    obj.dispose()
+            except Exception as e:
+                # DisposedException, RuntimeException, etc. are expected during LO exit.
+                log.debug("_dispose_embedded_objects: %s already disposed or unavailable: %s", name, e)
+        self.container_window = None
+        self.doc = None
 
     def on_window_shown(self, rEvent):
-        if self.initialized:
+        if self._disposed or self.initialized:
             return
             
         parent_id = id(self.parent_window)
@@ -154,6 +243,8 @@ class EmbeddedWriterListener(BaseWindowListener):
 
     def on_window_resized(self, rEvent):
         """Keep the embedded container synced with the placeholder size."""
+        if self._disposed:
+            return
         if self.container_window and self.placeholder_ctrl:
             try:
                 ps = self.placeholder_ctrl.getPosSize()
@@ -165,6 +256,8 @@ class EmbeddedWriterListener(BaseWindowListener):
 
     def _deferred_init(self):
         """Perform the actual embedding on a fresh event loop turn."""
+        if self._disposed:
+            return
         try:
             doc, frame, container = create_embedded_writer_doc(self.ctx, self.parent_window, self.placeholder_ctrl)
             if doc and frame:
@@ -790,6 +883,8 @@ def scroll_to_bottom(doc, aggressive: bool = False):
     The one-time tree + first ViewData dump still happens on the very first
     call regardless of the flag.
     """
+    if not doc:
+        return
     try:
         controller = doc.getCurrentController()
         if not controller:
