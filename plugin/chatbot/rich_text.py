@@ -166,38 +166,178 @@ else:
     SidebarDocumentEventListener = _SidebarDocumentEventListenerStub  # type: ignore[assignment, misc]
 
 
+_HAVE_UNO_CLOSE_EVENTS = False
+_XCloseListener: Any = None
+try:
+    from com.sun.star.util import XCloseListener as _XCloseListener_impl
+    _XCloseListener = _XCloseListener_impl
+    _HAVE_UNO_CLOSE_EVENTS = True
+except ImportError:
+    pass
+
+if _HAVE_UNO_CLOSE_EVENTS:
+    assert _unohelper is not None
+    assert _XCloseListener is not None
+
+    class _SidebarCloseListenerImpl(_unohelper.Base, _XCloseListener):
+        def __init__(self, listener):
+            super().__init__()
+            self._listener = listener
+
+        def queryClosing(self, Source, GetsOwnership):
+            pass
+
+        def notifyClosing(self, Source):
+            try:
+                log.info("[RICH-SHUTDOWN] SidebarCloseListener: Host frame is closing (notifyClosing). Cleaning up embedded objects.")
+                self._listener._initiate_disposal("notifyClosing")
+            except Exception as e:
+                log.info("[RICH-SHUTDOWN] SidebarCloseListener notifyClosing error: %s", e)
+
+        def disposing(self, Source):
+            try:
+                log.info("[RICH-SHUTDOWN] SidebarCloseListener: Host frame is disposing. Cleaning up embedded objects.")
+                self._listener._initiate_disposal("disposing (frame)")
+            except Exception as e:
+                log.info("[RICH-SHUTDOWN] SidebarCloseListener disposing error: %s", e)
+
+    SidebarCloseListener = _SidebarCloseListenerImpl
+else:
+    class _SidebarCloseListenerFallback:
+        def __init__(self, listener):
+            self._listener = listener
+
+        def queryClosing(self, Source, GetsOwnership):
+            pass
+
+        def notifyClosing(self, Source):
+            try:
+                log.info("[RICH-SHUTDOWN] SidebarCloseListener (fallback): Host frame is closing (notifyClosing). Cleaning up embedded objects.")
+                self._listener._initiate_disposal("notifyClosing")
+            except Exception as e:
+                log.info("[RICH-SHUTDOWN] SidebarCloseListener notifyClosing error: %s", e)
+
+        def disposing(self, Source):
+            try:
+                log.info("[RICH-SHUTDOWN] SidebarCloseListener (fallback): Host frame is disposing. Cleaning up embedded objects.")
+                self._listener._initiate_disposal("disposing (frame)")
+            except Exception as e:
+                log.info("[RICH-SHUTDOWN] SidebarCloseListener disposing error: %s", e)
+
+    SidebarCloseListener = _SidebarCloseListenerFallback  # type: ignore[assignment, misc]
+
+
+_HAVE_UNO_TERMINATE = False
+_XTerminateListener: Any = None
+try:
+    from com.sun.star.frame import XTerminateListener as _XTerminateListener_type
+    _XTerminateListener = _XTerminateListener_type
+    _HAVE_UNO_TERMINATE = True
+except ImportError:
+    pass
+
+if _HAVE_UNO_TERMINATE and _unohelper is not None:
+    assert _XTerminateListener is not None
+
+    class _SidebarTerminateListenerImpl(_unohelper.Base, _XTerminateListener):
+        """XTerminateListener — fires before VCL teardown on app quit."""
+
+        def __init__(self, listener):
+            super().__init__()
+            self._listener = listener
+
+        def queryTermination(self, Event):
+            try:
+                if self._listener and not self._listener._disposed:
+                    log.info("[RICH-SHUTDOWN] TerminateListener.queryTermination — disposing embedded objects (peers still alive)")
+                    self._listener._initiate_disposal("queryTermination")
+            except Exception as e:
+                log.info("[RICH-SHUTDOWN] TerminateListener.queryTermination error: %s", e)
+
+        def notifyTermination(self, Event):
+            pass
+
+        def disposing(self, Source):
+            pass
+
+    SidebarTerminateListener = _SidebarTerminateListenerImpl
+else:
+    class _SidebarTerminateListenerStub:
+        def __init__(self, listener):
+            self._listener = listener
+
+        def queryTermination(self, Event):
+            try:
+                if self._listener and not self._listener._disposed:
+                    log.info("[RICH-SHUTDOWN] TerminateListener.queryTermination — disposing embedded objects (peers still alive)")
+                    self._listener._initiate_disposal("queryTermination")
+            except Exception as e:
+                log.info("[RICH-SHUTDOWN] TerminateListener.queryTermination error: %s", e)
+
+        def notifyTermination(self, Event):
+            pass
+
+        def disposing(self, Source):
+            pass
+
+    SidebarTerminateListener = _SidebarTerminateListenerStub  # type: ignore[assignment, misc]
+
+
 class EmbeddedWriterListener(BaseWindowListener):
     """Manages the lifetime of an embedded Writer document used for rich-text
     rendering inside a sidebar panel.
 
-    Disposal is best-effort via disposing() safety net only. Neither
-    on_window_hidden nor document events (OnPrepareUnload/OnUnload) are used
-    as disposal triggers because they all fire at the wrong time:
-    - on_window_hidden fires when LO shows the save dialog (too early if
-      user cancels).
-    - OnPrepareUnload fires before the save dialog (same problem).
-    - OnUnload / model disposing fire after VCL teardown begins (crash).
+    Primary disposal trigger: XTerminateListener.queryTermination on the
+    Desktop — fires before any VCL teardown on app quit, while peers are alive.
+    Secondary: XCloseListener.notifyClosing on the host frame (single-doc close).
+    Safety net: disposing() on the listener / doc model.
 
-    A Signal 11 may occur on Writer exit. See docs/rich-text-sidebar.md for
-    the full investigation and ideas for future resolution.
+    on_window_hidden is deliberately NOT used (fires spuriously on modal dialogs).
     """
 
-    def __init__(self, ctx, parent_window, placeholder_ctrl, on_ready_callback, doc_model=None):
+    def __init__(self, ctx, parent_window, placeholder_ctrl, on_ready_callback, doc_model=None, host_frame=None):
         self.ctx = ctx
         self.parent_window = parent_window
         self.placeholder_ctrl = placeholder_ctrl
         self.on_ready_callback = on_ready_callback
         self.doc_model = doc_model
+        self.host_frame = host_frame
         self.initialized = False
         self.container_window = None
         self.doc = None
         self.frame = None          # XFrame — we store it so disposing() can close it first
         self._disposed = False
         self._doc_listener = None
-        log.debug("[RICH-LIFECYCLE] EmbeddedWriterListener.__init__ parent_window=%s placeholder=%s doc_model=%s",
+        self._close_listener = None
+        self._terminate_listener = None
+        log.debug("[RICH-LIFECYCLE] EmbeddedWriterListener.__init__ parent_window=%s placeholder=%s doc_model=%s host_frame=%s",
                   id(parent_window) if parent_window else None,
                   id(placeholder_ctrl) if placeholder_ctrl else None,
-                  id(doc_model) if doc_model else None)
+                  id(doc_model) if doc_model else None,
+                  id(host_frame) if host_frame else None)
+
+        if self.host_frame and _HAVE_UNO_CLOSE_EVENTS:
+            try:
+                self._close_listener = SidebarCloseListener(self)
+                if hasattr(self.host_frame, "addCloseListener"):
+                    self.host_frame.addCloseListener(self._close_listener)
+                    log.info("[RICH-LIFECYCLE] EmbeddedWriterListener: Registered SidebarCloseListener on host_frame id=%s", id(self.host_frame))
+            except Exception as e:
+                log.warning("[RICH-LIFECYCLE] Failed to register close listener on host_frame: %s", e)
+
+        # XTerminateListener on the Desktop — fires before any VCL teardown on
+        # app quit, while peers are still alive.
+        self._desktop = None
+        try:
+            smgr = ctx.getServiceManager()
+            desktop = smgr.createInstanceWithContext("com.sun.star.frame.Desktop", ctx)
+            if desktop and hasattr(desktop, "addTerminateListener"):
+                self._terminate_listener = SidebarTerminateListener(self)
+                desktop.addTerminateListener(self._terminate_listener)
+                self._desktop = desktop
+                log.info("[RICH-LIFECYCLE] EmbeddedWriterListener: Registered terminate listener on Desktop")
+        except Exception as e:
+            log.debug("[RICH-LIFECYCLE] Failed to register terminate listener: %s", e)
 
     def disposing(self, Source):
         """XEventListener safety-net disposal path.
@@ -241,8 +381,9 @@ class EmbeddedWriterListener(BaseWindowListener):
     def _dispose_embedded_objects(self):
         """Perform the actual best-effort disposal of the embedded Writer objects.
 
-        Shutdown order: frame first (detaches document + container), then
-        container (only if peer alive), then doc.
+        If peer is alive: close frame first, then container, then doc.
+        If peer is dead: VCL already tore down the native windows — just release
+        refs. Calling close/dispose on dead VCL objects causes Signal 11.
         """
         peer_alive = False
         try:
@@ -254,24 +395,23 @@ class EmbeddedWriterListener(BaseWindowListener):
         log.info("[RICH-SHUTDOWN] _dispose_embedded_objects starting (frame=%s, container=%s, doc=%s, peer_alive=%s)",
                  bool(self.frame), bool(self.container_window), bool(getattr(self, 'doc', None)), peer_alive)
 
-        for name, obj in (("frame", self.frame),
-                          ("container_window", self.container_window),
-                          ("doc", getattr(self, "doc", None))):
-            if not obj:
-                continue
-            try:
-                if name == "container_window" and not peer_alive:
-                    log.info("[RICH-SHUTDOWN]   skipping %s close/dispose (GUI peer is already dead)", name)
+        if peer_alive:
+            for name, obj in (("frame", self.frame),
+                              ("container_window", self.container_window),
+                              ("doc", getattr(self, "doc", None))):
+                if not obj:
                     continue
-
-                if hasattr(obj, "close"):
-                    obj.close(True)
-                    log.info("[RICH-SHUTDOWN]   closed %s (close(True))", name)
-                elif hasattr(obj, "dispose"):
-                    obj.dispose()
-                    log.info("[RICH-SHUTDOWN]   disposed %s", name)
-            except Exception as e:
-                log.info("[RICH-SHUTDOWN]   %s close/dispose raised (expected in late shutdown): %s", name, e)
+                try:
+                    if hasattr(obj, "close"):
+                        obj.close(True)
+                        log.info("[RICH-SHUTDOWN]   closed %s (close(True))", name)
+                    elif hasattr(obj, "dispose"):
+                        obj.dispose()
+                        log.info("[RICH-SHUTDOWN]   disposed %s", name)
+                except Exception as e:
+                    log.info("[RICH-SHUTDOWN]   %s close/dispose raised: %s", name, e)
+        else:
+            log.info("[RICH-SHUTDOWN]   peer is dead — skipping all close/dispose, just releasing refs")
 
         if self._doc_listener and self.doc_model:
             try:
@@ -281,6 +421,25 @@ class EmbeddedWriterListener(BaseWindowListener):
             except Exception as e:
                 log.info("[RICH-SHUTDOWN]   removeDocumentEventListener failed: %s", e)
             self._doc_listener = None
+
+        if self._close_listener and self.host_frame:
+            try:
+                if hasattr(self.host_frame, "removeCloseListener"):
+                    self.host_frame.removeCloseListener(self._close_listener)
+                    log.info("[RICH-SHUTDOWN]   removed self as CloseListener")
+            except Exception as e:
+                log.info("[RICH-SHUTDOWN]   removeCloseListener failed: %s", e)
+            self._close_listener = None
+
+        desktop = getattr(self, "_desktop", None)
+        if self._terminate_listener and desktop:
+            try:
+                if hasattr(desktop, "removeTerminateListener"):
+                    desktop.removeTerminateListener(self._terminate_listener)
+                    log.info("[RICH-SHUTDOWN]   removed self as TerminateListener")
+            except Exception as e:
+                log.info("[RICH-SHUTDOWN]   removeTerminateListener failed: %s", e)
+            self._terminate_listener = None
 
         self.frame = None
         self.container_window = None

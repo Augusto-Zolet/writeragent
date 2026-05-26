@@ -152,22 +152,43 @@ Python GC releasing references to UNO objects doesn't control C++ VCL window lif
 
 #### Current State (Accepted Trade-off)
 
-- **`on_window_hidden`** — no-op. Does not dispose.
+- **`on_window_hidden`** — no-op. Does not dispose. (Fixes the cancel-close bug.)
 - **`documentEventOccured`** — no-op. Does not react to `OnPrepareUnload` or `OnUnload`.
-- **`disposing()` safety net** — still calls `_initiate_disposal()` → `_dispose_embedded_objects()` which closes frame/doc only if peer is alive, skips container_window if peer is dead.
-- **Accepted behavior:** Signal 11 may occur on Writer exit with the rich-text sidebar enabled. The file is already saved by that point so no data loss occurs.
+- **`XCloseListener.notifyClosing`** on host doc frame — registered but never fires during app quit (only useful for single-doc close, untested).
+- **`XTerminateListener.queryTermination`** on Desktop — registered but fires AFTER the peer is already dead (useless for this problem).
+- **`disposing()` safety net** — calls `_initiate_disposal()` → `_dispose_embedded_objects()` which closes frame/doc/container only if peer is alive. If peer is dead, just releases Python refs.
+- **Accepted behavior:** Signal 11 occurs on Writer exit with the rich-text sidebar enabled. The file is already saved by that point so no data loss occurs.
+
+#### Why the Crash Cannot Be Fixed from Python/UNO
+
+The crash is in `VclBuilder::disposeBuilder` → `vcl::Window::dispose` during `DeInitVCL`. The embedded container window (created via `toolkit.createWindow` with `desc.Parent = parent_window.getPeer()`) is a VCL child of the sidebar dialog window. When the `SidebarController::disposing` tears down the sidebar, `VclBuilder` walks its children and tries to dispose our container window, which is in an inconsistent state.
+
+**The VCL peer is dead before any Python-level hook fires.** Confirmed by testing every available hook:
+
+| Hook | Fires? | Peer alive? | Result |
+|------|--------|-------------|--------|
+| `on_window_hidden` | Yes | Unknown (fires too early — before save dialog) | Cancel bug |
+| `OnPrepareUnload` | Yes | No | Cancel bug + peer already dead |
+| `OnUnload` | Yes | No | Crash (frame.close on dead peer) |
+| Model `disposing()` | Yes | No | Peer dead — can only null refs |
+| `notifyClosing` (XCloseListener on doc frame) | **No** (never fires on app quit) | N/A | N/A |
+| `queryTermination` (XTerminateListener on Desktop) | Yes | No | Fires AFTER model disposing, peer already dead |
+
+The VCL shutdown order during app quit is:
+1. VCL kills peers (sidebar dialog's native window destroyed)
+2. Document model `disposing()` fires (Python-level)
+3. `queryTermination` fires (Python-level)
+4. `DeInitVCL` → `SidebarController::disposing` → `VclBuilder::disposeBuilder` → crash on orphaned child
 
 #### Ideas for Future Resolution
 
-1. **LibreOffice patch:** Register a `VclEventId::WindowClose` or `VclEventId::ObjectDying` handler at the VCL level (C++ side) that detaches the child frame before `VclBuilder` destruction. This would require an LO core change.
+1. **LibreOffice patch (most reliable):** Add a VCL-level hook (e.g. `VclEventId::WindowClose` or a custom sidebar panel teardown callback) that detaches child windows BEFORE `VclBuilder::disposeBuilder` runs. This would require an LO core change.
 
-2. **Avoid `toolkit.createWindow` parenting entirely:** Use a top-level borderless window positioned over the sidebar area (the "floating sticker" approach from Strategy 3 in the archive below). Eliminates the parent-child VCL relationship that causes the crash.
+2. **Avoid `toolkit.createWindow` parenting entirely:** Use a top-level borderless window positioned over the sidebar area (the "floating sticker" approach from Strategy 3 in the archive below). Eliminates the parent-child VCL relationship that causes the crash. Downside: requires manual position tracking on resize/move, and may have issues with window stacking/focus.
 
-3. **Intercept the close at the UI dispatch level:** Register a `XDispatchProviderInterceptor` on `.uno:CloseDoc` / `.uno:Quit` to do cleanup before LO begins its close sequence. This might fire early enough (before any VCL teardown) and after the user has already confirmed via the save dialog.
+3. **XDispatchProviderInterceptor on `.uno:CloseDoc` / `.uno:Quit`:** Intercept the close dispatch command, do cleanup, then re-dispatch. Might fire before VCL teardown begins. Worth investigating — this is the one approach not yet tested.
 
-4. **XTerminateListener:** Register on the Desktop's `XDesktop` interface. `queryTermination()` is called before close begins and can be vetoed. Could do cleanup there. However, this fires per-application (not per-document) and may have ordering issues with the sidebar.
-
-5. **XCloseListener on the host document:** `queryClosing()` is called before the document is closed and can be vetoed. This fires before `OnPrepareUnload` and before the save dialog. Could dispose embedded objects and allow close to proceed, but has the same cancel problem unless we can detect the save dialog result.
+4. **Unparent the window during creation:** If there's a UNO API to change a window's parent (or create it parentless and manually position it), the VclBuilder wouldn't try to dispose it. Needs investigation into whether `XWindow` or `XVclWindowPeer` exposes reparenting.
 
 #### Instrumentation
 

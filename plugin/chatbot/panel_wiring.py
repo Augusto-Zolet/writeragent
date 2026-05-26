@@ -289,7 +289,16 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):
                     log.error("Initial rich-text render failed: %s", e)
 
             log.debug("[RICH-LIFECYCLE] About to create EmbeddedWriterListener and attach to root_window id=%s", id(root_window))
-            rich_listener = EmbeddedWriterListener(self.ctx, root_window, controls["response"], on_rich_text_ready, doc_model=model)
+            # Use the document's frame (not the sidebar xFrame) for the close
+            # listener — notifyClosing fires on the document frame when it closes.
+            doc_frame = None
+            try:
+                ctrl = model.getCurrentController()
+                if ctrl:
+                    doc_frame = ctrl.getFrame()
+            except Exception:
+                pass
+            rich_listener = EmbeddedWriterListener(self.ctx, root_window, controls["response"], on_rich_text_ready, doc_model=model, host_frame=doc_frame)
             root_window.addWindowListener(rich_listener)
             log.info("[RICH-LIFECYCLE] EmbeddedWriterListener attached to root_window (will be responsible for frame/doc/container cleanup on shutdown)")
 

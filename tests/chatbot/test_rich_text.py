@@ -980,6 +980,39 @@ class EmbeddedWriterListenerDisposalTests(unittest.TestCase):
         self.assertIsNone(listener.doc)
         self.assertIsNone(listener.container_window)
 
+    def test_close_listener_registered_on_host_frame(self):
+        """Verify that a close listener is registered on the host frame if provided."""
+        from unittest.mock import patch, MagicMock
+
+        host_frame = MagicMock()
+        with patch("plugin.chatbot.rich_text._HAVE_UNO_CLOSE_EVENTS", True):
+            listener = self._module.EmbeddedWriterListener(MagicMock(), MagicMock(), MagicMock(), MagicMock(), host_frame=host_frame)
+            self.assertIsNotNone(listener._close_listener)
+            host_frame.addCloseListener.assert_called_once_with(listener._close_listener)
+
+    def test_close_listener_notify_closing_triggers_disposal(self):
+        """Verify that notifyClosing on the close listener triggers disposal."""
+        from unittest.mock import patch, MagicMock
+
+        host_frame = MagicMock()
+        with patch("plugin.chatbot.rich_text._HAVE_UNO_CLOSE_EVENTS", True):
+            listener = self._module.EmbeddedWriterListener(MagicMock(), MagicMock(), MagicMock(), MagicMock(), host_frame=host_frame)
+            with patch.object(listener, "_initiate_disposal") as mock_dispose:
+                listener._close_listener.notifyClosing(None)
+                mock_dispose.assert_called_once_with("notifyClosing")
+
+    def test_close_listener_removed_on_disposal(self):
+        """Verify that the close listener is removed from the host frame on disposal."""
+        from unittest.mock import patch, MagicMock
+
+        host_frame = MagicMock()
+        with patch("plugin.chatbot.rich_text._HAVE_UNO_CLOSE_EVENTS", True):
+            listener = self._module.EmbeddedWriterListener(MagicMock(), MagicMock(), MagicMock(), MagicMock(), host_frame=host_frame)
+            close_listener = listener._close_listener
+            listener._dispose_embedded_objects()
+            host_frame.removeCloseListener.assert_called_once_with(close_listener)
+            self.assertIsNone(listener._close_listener)
+
 
 if __name__ == "__main__":
     unittest.main()
