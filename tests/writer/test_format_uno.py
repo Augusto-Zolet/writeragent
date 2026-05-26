@@ -117,7 +117,10 @@ def setup_format_tests(ctx):
 def teardown_format_tests(ctx):
     global _test_doc, _test_ctx
     if _test_doc:
-        _test_doc.close(True)
+        try:
+            _test_doc.close(True)
+        except Exception:
+            pass
     _test_doc = None
     _test_ctx = None
 
@@ -546,7 +549,13 @@ def test_apply_document_content_target_range_preserves_colors():
 @native_test
 def test_apply_document_content_target_full_preserves_colors():
     desktop = get_desktop(_test_ctx)
-    small_doc = desktop.loadComponentFromURL("private:factory/swriter", "_blank", 0, ())
+    import uno
+    hidden_prop = uno.createUnoStruct(
+        "com.sun.star.beans.PropertyValue",
+        Name="Hidden",
+        Value=True,
+    )
+    small_doc = desktop.loadComponentFromURL("private:factory/swriter", "_blank", 0, (hidden_prop,))
     assert small_doc and hasattr(small_doc, "getText"), "Could not create small doc"
 
     try:

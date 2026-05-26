@@ -122,6 +122,8 @@ def format_grammar_status(data: dict[str, Any]) -> str:
 class ChatSession:
     """Maintains the message history for one sidebar chat session."""
 
+    tool_streamed_texts: dict[str, list[str]]
+
     def __init__(self, system_prompt=None, session_id=None):
         self.session_id = session_id
         self.db = None
@@ -131,6 +133,7 @@ class ChatSession:
 
         self.active_specialized_domain = None
         self.python_tool_domain = None
+        self.tool_streamed_texts = {}
 
         if session_id:
             try:
@@ -338,6 +341,9 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         self._active_supports_status: Any = None
         self._active_round_num: Any = None
         self._active_pending_tools: Any = None
+        self._current_tool_call_id = None
+        self._record_assistant_start = False
+        self._assistant_stream_start_len = None
         self._approval_event = None
         self._approval_ui_backup = None
         self._approval_query_for_engine = None
@@ -390,48 +396,44 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         self._rich_listener = listener
 
     def rerender_rich_text_session(self):
-        """Re-render the entire session into the embedded doc with HTML formatting.
+        """Re-render the final streamed assistant response with HTML formatting, leaving previous text untouched.
 
-        Called after streaming completes so that the final assistant response
-        is displayed with full HTML rendering instead of plain-text chunks.
+        Called after streaming completes to replace the last plain-text assistant response
+        with full HTML rendering instead of raw chunks.
         """
         if not self.embedded_doc:
             return
         try:
             from plugin.chatbot.rich_text import append_rich_text
-            from plugin.framework.constants import get_greeting_for_document
-            from plugin.chatbot.tool_loop_state import is_delegate_gateway, format_delegate_running_chat_line
 
             auto_scroll = self._should_auto_scroll()
-            self.embedded_doc.getText().setString("")
-            model = self._get_document_model()
-            greeting = get_greeting_for_document(model) if model else ""
-            if greeting:
-                append_rich_text(self.embedded_doc, greeting, role="assistant", auto_scroll=auto_scroll)
-            for msg in self.session.messages:
-                r = msg.get("role", "")
-                content = msg.get("content", "")
-                if r == "user":
-                    if isinstance(content, str):
-                        append_rich_text(self.embedded_doc, content, role="user", auto_scroll=auto_scroll)
-                elif r == "assistant":
-                    tool_calls = msg.get("tool_calls")
-                    if tool_calls:
-                        for tc in tool_calls:
-                            func = tc.get("function", {})
-                            func_name = func.get("name", "")
-                            try:
-                                import json
-                                func_args = json.loads(func.get("arguments", "{}")) if isinstance(func.get("arguments"), str) else func.get("arguments", {})
-                            except Exception:
-                                func_args = {}
-                            if is_delegate_gateway(func_name):
-                                line = format_delegate_running_chat_line(func_args)
-                            else:
-                                line = f"[{func_name}]\n"
-                            append_rich_text(self.embedded_doc, line, role="assistant", auto_scroll=auto_scroll)
-                    if content:
-                        append_rich_text(self.embedded_doc, content, role="assistant", auto_scroll=auto_scroll)
+            final_msg = None
+            for msg in reversed(self.session.messages):
+                if msg.get("role") == "assistant" and msg.get("content"):
+                    final_msg = msg
+                    break
+
+            if final_msg:
+                content = final_msg.get("content", "")
+
+                from plugin.chatbot.rich_text import _HTML_TAG_RE
+                if not _HTML_TAG_RE.search(content):
+                    return
+
+                # Delete the plain-text streamed version of the final assistant response from document end
+                start_len = getattr(self, "_assistant_stream_start_len", None)
+                if start_len is not None:
+                    try:
+                        cursor = self.embedded_doc.getText().createTextCursor()
+                        cursor.gotoStart(False)
+                        cursor.goRight(start_len, False)
+                        cursor.gotoEnd(True)
+                        cursor.setString("")
+                    except Exception as e:
+                        log.debug("Failed to clear plain text final response: %s", e)
+
+                # Append the beautifully formatted HTML of the final assistant response
+                append_rich_text(self.embedded_doc, content, role="assistant", auto_scroll=auto_scroll)
 
             # Schedule a deferred scroll to bottom on the main thread after 200ms
             # to run after the send button transition and layout resizing settle down.
@@ -725,6 +727,13 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
                     from plugin.chatbot.rich_text import append_rich_text
                     self.queue_executor.post(append_rich_text, self.embedded_doc, text, role="user", auto_scroll=auto_scroll)
                 else:
+                    if getattr(self, "_record_assistant_start", False):
+                        self._record_assistant_start = False
+                        def record_len():
+                            if self.embedded_doc:
+                                self._assistant_stream_start_len = len(self.embedded_doc.getText().getString())
+                                log.debug("_append_response: recorded stream start len=%d", self._assistant_stream_start_len)
+                        self.queue_executor.post(record_len)
                     from plugin.chatbot.rich_text import append_text_chunk
                     self.queue_executor.post(append_text_chunk, self.embedded_doc, text, auto_scroll=auto_scroll)
                 return

@@ -391,7 +391,18 @@ def main() -> int:
                             pass
             except Exception:
                 pass
-            #desktop.terminate()
+            try:
+                toolkit = ctx.getServiceManager().createInstanceWithContext("com.sun.star.awt.Toolkit", ctx)
+                if toolkit:
+                    toolkit.processEventsToIdle()
+            except Exception:
+                pass
+            import time
+            time.sleep(0.1)
+            try:
+                desktop.terminate()
+            except Exception:
+                pass
     except Exception:
         pass
 

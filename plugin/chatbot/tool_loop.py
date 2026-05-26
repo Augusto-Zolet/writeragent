@@ -114,6 +114,10 @@ class ToolLoopHost(Protocol):
     _active_supports_status: bool
     _active_round_num: int
     _active_pending_tools: list[Any]
+    _current_tool_call_id: str | None
+    _assistant_stream_start_len: int | None
+    embedded_doc: Any
+    _record_assistant_start: bool
 
     def _append_response(self, text: str, is_thinking: bool = False, role: str = "assistant") -> None: ...
     def _set_status(self, text: str) -> None: ...
@@ -227,6 +231,13 @@ class ToolCallingMixin:
                         aq = getattr(self, "_active_q", None)
                         if aq is not None:
                             aq.put((StreamQueueKind.CHUNK, text))
+                        cid = getattr(self, "_current_tool_call_id", None)
+                        if cid and hasattr(self, "session") and self.session:
+                            if not hasattr(self.session, "tool_streamed_texts"):
+                                self.session.tool_streamed_texts = {}
+                            if cid not in self.session.tool_streamed_texts:
+                                self.session.tool_streamed_texts[cid] = []
+                            self.session.tool_streamed_texts[cid].append(text)
 
                     chat_append_cb = _sub_agent_chat_append
 
@@ -437,6 +448,8 @@ class ToolCallingMixin:
         log.debug("Tool loop round %d: sending %d messages to API..." % (round_num, len(self.session.messages)))
         self._set_status("Thinking..." if round_num == 0 else "Thinking (round %d)..." % (round_num + 1))
 
+        self._record_assistant_start = True
+
         def run():
             try:
                 with llm_request_lane():
@@ -471,6 +484,7 @@ class ToolCallingMixin:
         update_activity_state("exhausted_rounds")
         self._set_status("Finishing...")
         self._append_response("\nAI: ")
+        self._record_assistant_start = True
 
         def run_final():
             last_streamed: list[str] = []
@@ -603,6 +617,7 @@ class ToolCallingMixin:
             func_args_str = effect.func_args_str
             func_args = effect.func_args
             call_id = effect.call_id
+            self._current_tool_call_id = call_id
 
             image_model_override = self.image_model_selector.getText() if self.image_model_selector else None
             if image_model_override and func_name == "generate_image":
@@ -741,6 +756,7 @@ class ToolCallingMixin:
             max_tool_rounds = get_config_int(self.ctx, "chat_max_tool_rounds")
         log.info("=== Tool-calling loop START (max %d rounds) ===" % max_tool_rounds)
         self._append_response("\nAI: ")
+        self._record_assistant_start = True
 
         try:
             from plugin.main import get_tools as _get_tools_registry

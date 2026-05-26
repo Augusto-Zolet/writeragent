@@ -303,16 +303,35 @@ def timeout(timeout_seconds: int):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # Create a new ThreadPoolExecutor for each call to avoid threading issues
-            with ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(func, *args, **kwargs)
-                try:
-                    result = future.result(timeout=timeout_seconds)
-                    return result
-                except FuturesTimeoutError:
+            # BUGFIX: Executing matplotlib or other non-thread-safe compiled C-extensions (like numpy/PyQt6/etc.)
+            # inside a background thread of a ThreadPoolExecutor often triggers garbage collection crashes (SIGILL)
+            # or backend context crashes. On Unix/Linux systems when called on the main thread, we prefer using a
+            # signal-based alarm, which executes the code entirely on the main thread. We gracefully fall back to the
+            # ThreadPoolExecutor if signal.alarm is not supported or if not running on the main thread.
+            import signal
+            try:
+                def sigalrm_handler(signum, frame):
                     raise ExecutionTimeoutError(
                         f"Code execution exceeded the maximum execution time of {timeout_seconds} seconds"
                     )
+                old_handler = signal.signal(signal.SIGALRM, sigalrm_handler)
+                signal.alarm(timeout_seconds)
+                try:
+                    return func(*args, **kwargs)
+                finally:
+                    signal.alarm(0)
+                    signal.signal(signal.SIGALRM, old_handler)
+            except (ValueError, AttributeError):
+                # Fallback to ThreadPoolExecutor if SIGALRM is not supported or not on the main thread
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(func, *args, **kwargs)
+                    try:
+                        result = future.result(timeout=timeout_seconds)
+                        return result
+                    except FuturesTimeoutError:
+                        raise ExecutionTimeoutError(
+                            f"Code execution exceeded the maximum execution time of {timeout_seconds} seconds"
+                        )
 
         return wrapper
 
@@ -1271,6 +1290,18 @@ def get_safe_module(raw_module, authorized_imports, visited=None):
     """Creates a safe copy of a module or returns the original if it's a function"""
     # If it's a function or non-module object, return it directly
     if not isinstance(raw_module, ModuleType):
+        return raw_module
+
+    # BUGFIX: Deep-copying/scanning heavy third-party packages or standard library packages that are not user-defined
+    # can trigger complex lazy/dynamic imports or C-extension initialization inside background thread-pools
+    # (specifically under pytest / LocalPythonExecutor). For instance, numpy 2.x's __dir__ lists 'f2py', and getattr()
+    # triggers its import, which can crash with SIGILL (Illegal Instruction) or cause massive performance delays.
+    # We bypass wrapping/scanning for well-known heavy libraries or standard modules.
+    name = getattr(raw_module, "__name__", "")
+    if name and (
+        name.startswith(("numpy", "matplotlib", "pandas", "PIL", "scipy", "kiwisolver", "mpl_toolkits", "matplotlib."))
+        or name in ("math", "random", "datetime", "re", "collections", "itertools", "functools", "json", "time", "os", "sys")
+    ):
         return raw_module
 
     # Handle circular references: Initialize visited set for the first call

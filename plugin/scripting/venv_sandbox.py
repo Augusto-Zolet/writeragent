@@ -208,6 +208,10 @@ def run_sandboxed_code(code: str, data: Any | None = None, *, timeout_sec: int |
                 fig = plt_mod.gcf()
                 serialized = _figure_to_image_payload(fig)
                 plt_mod.close("all")
+        else:
+            plt_mod = optional_module("matplotlib.pyplot")
+            if plt_mod is not None:
+                plt_mod.close("all")
 
         if is_split_grid(serialized):
             log.debug("venv_sandbox worker result %s", describe_wire_value(serialized))
