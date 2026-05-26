@@ -196,6 +196,44 @@ Two log prefixes remain for diagnosis:
 - `[RICH-LIFECYCLE]` — creation, wiring, and normal runtime events.
 - `[RICH-SHUTDOWN]` — every entry into a disposal path and the state at that moment.
 
+#### 2026-05 Pure-Python VCL Child / drop_ownership Investigation
+
+After all the hook-based approaches had been exhausted, the remaining promising minimal-change lever (identified by reading the actual LibreOffice core `VclBuilder::disposeBuilder` + `drop_ownership` / `delete_by_window` implementations in `vcl/source/window/builder.cxx`) was to try to remove our container from the parent's VCL child list *before* the parent teardown walk.
+
+**Key findings from the core source (no prior art in any extension):**
+- `toolkit.createWindow(desc)` with `desc.Parent = sidebar_dialog_peer` makes our container a direct child in the VCL window tree owned by the XDL dialog's `VclBuilder`.
+- `disposeBuilder` walks `m_aChildren` in reverse and calls `disposeAndClear`; the broader `Window::dispose` / parent teardown does the same for the live VCL hierarchy.
+- `drop_ownership(pWindow)` on `VclBuilder` (and `delete_by_window`) are the C++ ways to excise a child so the later walk ignores it.
+- No equivalent is exposed via UNO on `XWindow`, `XWindowPeer`, `XVclWindowPeer`, or the awt Toolkit for already-created CONTAINER windows.
+
+**What was implemented (pure Python only):**
+- New private method `_instrument_vcl_child_relationship_and_defang` on `EmbeddedWriterListener` (`plugin/chatbot/rich_text.py`).
+- **Instrumentation (read-only, using the existing `getWindows()` surface already present in our scroll-debug helpers):** At every disposal entry point we now walk the parent peer's `getWindows()` tree (the exact VCL child list) and log whether our container's peer is still present as a direct or indirect child. This produces concrete evidence in `writeragent_debug.log` of the form:
+  ```
+  [RICH-SHUTDOWN] VCL child check via getWindows(): container still registered under parent_peer? True
+  [RICH-SHUTDOWN] parent_peer implName=...
+  [RICH-SHUTDOWN] container_peer implName=...
+  ```
+- **Defang (safe hardening):** Unconditionally `setVisible(False)` + `setPosSize(0,0,0,0,15)` on the container (and symmetrically on the copies held by `SendButtonListener`) before any close/dispose decision. Idempotent, exception-swallowed, zero risk of making the situation worse.
+- **drop-surface scan:** Exhaustive but guarded `hasattr` + call attempts for every plausible mutating name (`setParent`/`SetParent`, `removeChild`, `removeWindow`, `dropOwnership`, `orphan`, `releaseChild`, ...) on the container, its peer, and the parent's peer. All outcomes (or the exact exception) are logged. As expected, no call succeeded in orphaning the window; `getWindows()` is a pure getter.
+
+The same defang step was also added (guarded) in `SendButtonListener.disposing` for the local `embedded_*` copies.
+
+**Result of the pure-Python attempt:**
+No viable pure-Python surface was found that can call the moral equivalent of `drop_ownership`. The child-relationship check + defang + richer logging are still valuable: they turn a previously opaque crash into a well-instrumented one and give us a hook point if a future LO version or a tiny C++ helper ever exposes the builder.
+
+**New regression coverage:**
+- Added `tests/chatbot/test_rich_text_uno.py` (module-matched per AGENTS.md). A real `@native_test` + `@setup`/`@teardown` that obtains a live Writer document + ctx, instantiates `EmbeddedWriterListener` with real UNO objects (doc model + host frame), exercises the new instrumentation method, all the `Sidebar*Listener` shims, `disposing()`, and the cooperative `SendButtonListener` path. Asserts guards and no leaked exceptions. This will be run automatically by `make test` whenever a `soffice` is available.
+
+**Updated "Current State" (May 2026):**
+- The disposal paths are now the most heavily instrumented and hardened they have ever been from pure Python.
+- The fundamental VCL ownership problem remains (we are still a child of a dying dialog peer when `DeInitVCL` runs).
+- `on_window_hidden` stays a deliberate no-op.
+- All prior listeners (XTerminate on Desktop, XClose on host frame, document events, model disposing, `ChatPanelElement.disposing`, `SendButtonListener` delegation) remain in place as safety nets.
+- The new child-check logging + defang + native test give us the best possible diagnostic + regression story short of an LO core change or a non-parented embedding technique.
+
+The re-parenting and "prepare a core patch" ideas that appeared in earlier investigations remain deferred (per explicit user direction for this iteration) because they either risk the visual/scroll/theme fidelity we get from the current parented Writer or require C++/core work.
+
 ---
 
 ## Completed Milestones

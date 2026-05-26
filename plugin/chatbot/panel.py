@@ -1168,6 +1168,22 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
             # Best-effort close/dispose of our local embedded refs.
             # Frame first, then doc, then container — matching the shutdown
             # order in EmbeddedWriterListener._dispose_embedded_objects().
+            #
+            # Pure-Python defang (part of the ongoing crash-on-close hardening):
+            # Hide + zero the container (if present) before any close. This mirrors
+            # the defang done inside the listener and gives the VCL parent one more
+            # chance to see the child as non-live. Safe, idempotent, exception-swallowed.
+            for attr in ("embedded_container",):
+                c = getattr(self, attr, None)
+                if c:
+                    try:
+                        c.setVisible(False)
+                    except Exception:
+                        pass
+                    try:
+                        c.setPosSize(0, 0, 0, 0, 15)
+                    except Exception:
+                        pass
             for attr in ("embedded_frame", "embedded_doc", "embedded_container"):
                 obj = getattr(self, attr, None)
                 if obj is not None:

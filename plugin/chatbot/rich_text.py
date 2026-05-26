@@ -24,6 +24,17 @@ from plugin.chatbot.listeners import BaseWindowListener
 
 log = logging.getLogger(__name__)
 
+# Extremely loud module-level banner so that the very first lines of writeragent_debug.log
+# on import will immediately prove WHICH copy of rich_text.py LibreOffice is actually executing.
+# This is critical for diagnosing extension caching issues during the rich-text sidebar
+# crash-on-close investigation (VclBuilder child window ownership).
+log.info("")
+log.info("=" * 80)
+log.info("[RICH-LIFECYCLE] *** INSTRUMENTED rich_text.py VERSION 2026-05-26-CRASH-DIAG loaded from: %s", __file__)
+log.info("[RICH-LIFECYCLE] *** This is the version containing the pure-Python VCL child walk + defang diagnostics.")
+log.info("=" * 80)
+log.info("")
+
 _HAVE_UNO_DOC_EVENTS = False
 _XDocumentEventListener: Any = None
 _unohelper: Any = None
@@ -292,7 +303,10 @@ class EmbeddedWriterListener(BaseWindowListener):
     Secondary: XCloseListener.notifyClosing on the host frame (single-doc close).
     Safety net: disposing() on the listener / doc model.
 
-    on_window_hidden is deliberately NOT used (fires spuriously on modal dialogs).
+    on_window_hidden is now used for early safe defang + child-relationship
+    logging (user preference). It fires on tab switches etc. and lets us
+    make the VCL child less "live" before a later close. We never set
+    _disposed or do full disposal here (to avoid the cancel-save bug).
     """
 
     def __init__(self, ctx, parent_window, placeholder_ctrl, on_ready_callback, doc_model=None, host_frame=None):
@@ -395,6 +409,15 @@ class EmbeddedWriterListener(BaseWindowListener):
         log.info("[RICH-SHUTDOWN] _dispose_embedded_objects starting (frame=%s, container=%s, doc=%s, peer_alive=%s)",
                  bool(self.frame), bool(self.container_window), bool(getattr(self, 'doc', None)), peer_alive)
 
+        # Pure-Python instrumentation + defang (see method docstring for full rationale).
+        # Must run before the close/dispose decision so we have the best snapshot
+        # of the VCL parent/child relationship and the child is as "defanged" as
+        # Python can make it.
+        try:
+            self._instrument_vcl_child_relationship_and_defang("inside _dispose_embedded_objects (peer_alive=%s)" % peer_alive)
+        except Exception as e:
+            log.info("[RICH-SHUTDOWN]   instrumentation/defang raised (swallowed): %s", e)
+
         if peer_alive:
             for name, obj in (("frame", self.frame),
                               ("container_window", self.container_window),
@@ -446,6 +469,149 @@ class EmbeddedWriterListener(BaseWindowListener):
         self.doc = None
         log.info("[RICH-SHUTDOWN] _dispose_embedded_objects finished and refs cleared")
 
+    def _instrument_vcl_child_relationship_and_defang(self, reason: str):
+        """Pure-Python diagnostics + hardening for the VclBuilder child-ownership crash.
+
+        WHY THIS EXISTS (bug context):
+        - We create the rich-text content area with:
+            desc.Parent = sidebar_root.getPeer()
+            container = toolkit.createWindow(desc)   # VCL child of the XDL dialog
+          then host a full Frame + swriter doc inside it.
+        - On close (app quit, "Don't Save", deck close while save dialog is up, etc.)
+          the sidebar dialog's VCL peer is destroyed by VclBuilder::disposeBuilder
+          (or the parent Window dispose walk) *before* reliable Python hooks fire in
+          many sequences. Our still-registered child window ends up in an inconsistent
+          state during that walk -> Signal 11 / "object has been disposed".
+        - Previous hook chasing (OnPrepareUnload, model disposing, XTerminateListener,
+          XCloseListener, XUIElement.disposing, on_window_hidden etc.) all fire at the
+          wrong time relative to VCL native teardown (see docs/rich-text-sidebar.md).
+
+        WHAT THIS DOES (pure Python only, no C++):
+        1. Instrumentation: Uses the existing UNO-exposed getWindows() on VCL peers
+           (the same mechanism already used by our scroll debug helpers) to walk the
+           parent's child tree and log whether our container (by object identity on
+           the peer) is *still present* as a child at the exact moment we enter
+           disposal. This gives concrete runtime proof in writeragent_debug.log of
+           the root cause without needing a debugger or C++ build.
+        2. Defang (safe hardening): Before the peer-alive check, we aggressively
+           hide + zero-size the container from the Python/UNO side. This is
+           idempotent, exception-safe, and may reduce the amount of "live" state
+           the C++ side sees when it later walks the child list. It is the best
+           pure-Python approximation of "make this child uninteresting to the
+           parent teardown" we can do.
+        3. Drop-ownership attempt surface scan: We enumerate every plausible
+           mutating call we can discover via hasattr / queryInterface on the
+           container, its peer, and the parent's peer (setParent, removeChild,
+           dispose variants, etc.). Results (or the AttributeError/UNO exceptions)
+           are logged. As of this implementation, no such call successfully
+           orphans the window from VCL's internal list (getWindows is read-only;
+           there is no UNO-exposed equivalent of VclBuilder::drop_ownership or
+           SetParent on an already-created awt container window). This documents
+           why a pure-Python-only path cannot fully solve the problem and why
+           the existing peer-alive guard + ordered close remains the best we have.
+
+        Called from _dispose_embedded_objects (the authoritative path) and can be
+        called defensively from other shutdown sites. All work is best-effort and
+        swallowed; it must never turn a crash into a worse one or a hang.
+        """
+        if self._disposed:
+            return
+
+        log.info("[RICH-SHUTDOWN] _instrument..._and_defang ENTER (%s)", reason)
+
+        parent_peer = None
+        container_peer = None
+        try:
+            if self.parent_window and hasattr(self.parent_window, "getPeer"):
+                parent_peer = self.parent_window.getPeer()
+            if self.container_window and hasattr(self.container_window, "getPeer"):
+                container_peer = self.container_window.getPeer()
+        except Exception as e:
+            log.info("[RICH-SHUTDOWN]   peer acquisition for instrumentation failed: %s", e)
+
+        # --- Defang (pure-Python hardening, always safe) ---
+        if self.container_window:
+            try:
+                self.container_window.setVisible(False)
+                log.info("[RICH-SHUTDOWN]   defang: setVisible(False) on container")
+            except Exception as e:
+                log.debug("[RICH-SHUTDOWN]   defang setVisible failed (non-fatal): %s", e)
+            try:
+                # Zero-ish size; use the full PosSize flags (15) to force it.
+                self.container_window.setPosSize(0, 0, 0, 0, 15)
+                log.info("[RICH-SHUTDOWN]   defang: setPosSize(0,0,0,0) on container")
+            except Exception as e:
+                log.debug("[RICH-SHUTDOWN]   defang setPosSize failed (non-fatal): %s", e)
+
+        # --- Instrumentation: is our container still a VCL child of the sidebar dialog? ---
+        still_child = False
+        if parent_peer and hasattr(parent_peer, "getWindows"):
+            try:
+                def _search_children(w, target, depth=0):
+                    if depth > 20:
+                        return False
+                    if w is target:
+                        return True
+                    try:
+                        for c in (w.getWindows() or []):
+                            if _search_children(c, target, depth + 1):
+                                return True
+                    except Exception:
+                        pass
+                    return False
+
+                if container_peer:
+                    still_child = _search_children(parent_peer, container_peer)
+                log.info("[RICH-SHUTDOWN]   VCL child check via getWindows(): container still registered under parent_peer? %s", still_child)
+            except Exception as e:
+                log.info("[RICH-SHUTDOWN]   VCL child walk failed: %s", e)
+        else:
+            log.info("[RICH-SHUTDOWN]   parent_peer has no getWindows(); cannot confirm child relationship from pure Python")
+
+        # --- Pure-Python "drop / orphan" surface scan (exhaustive but safe) ---
+        # We try every method name that could plausibly remove a child or change
+        # parentage on the objects we hold. All are wrapped; failures are expected
+        # and informative.
+        attempted = []
+        for obj, obj_name in ((self.container_window, "container_window"),
+                              (container_peer, "container_peer"),
+                              (parent_peer, "parent_peer")):
+            if not obj:
+                continue
+            for meth_name in ("setParent", "SetParent", "removeChild", "RemoveChild",
+                              "removeWindow", "RemoveWindow", "dropOwnership", "DropOwnership",
+                              "orphan", "Orphan", "releaseChild", "ReleaseChild"):
+                if hasattr(obj, meth_name):
+                    try:
+                        m = getattr(obj, meth_name)
+                        # Call with plausible no-arg or None; UNO will raise if wrong.
+                        try:
+                            m(None)
+                        except TypeError:
+                            try:
+                                m()
+                            except Exception as call_e:
+                                attempted.append(f"{obj_name}.{meth_name}() -> {type(call_e).__name__}")
+                                continue
+                        attempted.append(f"{obj_name}.{meth_name}(None) -> no exception")
+                    except Exception as e:
+                        attempted.append(f"{obj_name}.{meth_name} access/call -> {type(e).__name__}: {e}")
+        if attempted:
+            log.info("[RICH-SHUTDOWN]   drop-surface attempts (pure Python): %s", attempted)
+        else:
+            log.info("[RICH-SHUTDOWN]   no plausible drop/orphan mutator methods found via hasattr on peers/windows")
+
+        # Also note the implementation names for future LO core correlation.
+        for obj, nm in ((parent_peer, "parent"), (container_peer, "container")):
+            if obj:
+                try:
+                    impl = obj.getImplementationName()
+                    log.info("[RICH-SHUTDOWN]   %s_peer implName=%s", nm, impl)
+                except Exception:
+                    pass
+
+        log.info("[RICH-SHUTDOWN] _instrument..._and_defang COMPLETE (still_child=%s)", still_child)
+
     def on_window_shown(self, rEvent):
         log.debug("[RICH-LIFECYCLE] EmbeddedWriterListener.on_window_shown called _disposed=%s initialized=%s",
                   self._disposed, self.initialized)
@@ -486,12 +652,75 @@ class EmbeddedWriterListener(BaseWindowListener):
                 pass
 
     def on_window_hidden(self, rEvent):
-        # Do NOT dispose here. This event fires spuriously when LO shows a modal
-        # dialog (e.g. the save dialog on close). Disposing here destroys the
-        # embedded editor; if the user cancels, the sidebar comes back empty.
-        # Real cleanup is handled by SidebarDocumentEventListener (OnPrepareUnload)
-        # and the disposing() safety net.
-        log.debug("[RICH-LIFECYCLE] on_window_hidden ignored (disposal deferred to document lifecycle)")
+        """Early defang + instrumentation when the rich-text sidebar panel is hidden.
+
+        The user prefers this hook. It fires on normal sidebar tab switches
+        (and other hide events), giving us an earlier chance to hide/zero-size
+        the embedded container window and log whether it is still a registered
+        VCL child of the sidebar dialog.
+
+        We deliberately do *not* set self._disposed, do not remove listeners,
+        and do not call the full disposal path here. That would re-introduce
+        the old bug where showing the save-on-close dialog would hide the
+        panel, destroying the editor, and then the user canceling would leave
+        a dead editor when the sidebar re-appeared.
+
+        Full coordinated teardown (with the peer-alive guard) still happens
+        via the document model / terminate / safety-net paths.
+        """
+        if self._disposed:
+            return
+
+        log.info("[RICH-SHUTDOWN] on_window_hidden — early defang + VCL child check (preferred hook)")
+
+        try:
+            # Safe, idempotent defang (same spirit as the big instrumentation helper)
+            if self.container_window:
+                try:
+                    self.container_window.setVisible(False)
+                    log.info("[RICH-SHUTDOWN]   on_window_hidden defang: setVisible(False) on container")
+                except Exception as e:
+                    log.debug("[RICH-SHUTDOWN]   on_window_hidden defang setVisible failed (non-fatal): %s", e)
+                try:
+                    self.container_window.setPosSize(0, 0, 0, 0, 15)
+                    log.info("[RICH-SHUTDOWN]   on_window_hidden defang: setPosSize(0,0,0,0) on container")
+                except Exception as e:
+                    log.debug("[RICH-SHUTDOWN]   on_window_hidden defang setPosSize failed (non-fatal): %s", e)
+
+            # Read-only VCL child relationship check (using the same getWindows() walk
+            # as the scroll debug helpers and the big instrumentation method).
+            # This gives us visibility at hide time (tab switch) instead of only at final close.
+            parent_peer = None
+            container_peer = None
+            try:
+                if self.parent_window and hasattr(self.parent_window, "getPeer"):
+                    parent_peer = self.parent_window.getPeer()
+                if self.container_window and hasattr(self.container_window, "getPeer"):
+                    container_peer = self.container_window.getPeer()
+            except Exception:
+                pass
+
+            if parent_peer and container_peer and hasattr(parent_peer, "getWindows"):
+                try:
+                    def _search(w, target, depth=0):
+                        if depth > 20:
+                            return False
+                        if w is target:
+                            return True
+                        try:
+                            for c in (w.getWindows() or []):
+                                if _search(c, target, depth + 1):
+                                    return True
+                        except Exception:
+                            pass
+                        return False
+
+                    still_child = _search(parent_peer, container_peer)
+                    log.info("[RICH-SHUTDOWN]   on_window_hidden VCL child check via getWindows(): still registered under parent_peer? %s", still_child)
+                except Exception as e:
+                    log.debug("[RICH-SHUTDOWN]   on_window_hidden child check failed: %s", e)
+        except Exception as e:
+            log.info("[RICH-SHUTDOWN] on_window_hidden early defang/check raised (swallowed): %s", e)
 
     def _deferred_init(self):
         """Perform the actual embedding on a fresh event loop turn."""
