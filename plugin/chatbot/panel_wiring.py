@@ -200,6 +200,7 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):
         else:
             _deck_getter = None
         _resize = _PanelResizeListener(controls, parent_window=_parent, deck_w_getter=_deck_getter)
+        _resize._root_window = root_window  # for defensive self-removal in disposing()
         root_window.addWindowListener(_resize)
         if _tp is not None:
             _tp.resize_listener = _resize
@@ -259,12 +260,14 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):
             from plugin.chatbot.rich_text import EmbeddedWriterListener
 
             def on_rich_text_ready(doc, frame, container):
-                log.info("Rich text ready callback triggered")
+                log.info("[RICH-LIFECYCLE] on_rich_text_ready callback — doc=%s frame=%s container=%s",
+                         bool(doc), bool(frame), bool(container))
                 self.embedded_doc = doc
                 self.embedded_frame = frame
                 self.embedded_container = container
                 if hasattr(self, "send_listener") and self.send_listener:
                     self.send_listener.set_embedded_doc(doc, frame, container)
+                    log.info("[RICH-SHUTDOWN] Rich text embedded objects handed to SendButtonListener (frame, doc, container)")
 
                 # Hide the plain-text response control and label
                 try:
@@ -285,9 +288,10 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):
                 except Exception as e:
                     log.error("Initial rich-text render failed: %s", e)
 
-            rich_listener = EmbeddedWriterListener(self.ctx, root_window, controls["response"], on_rich_text_ready)
+            log.info("[RICH-LIFECYCLE] About to create EmbeddedWriterListener and attach to root_window id=%s", id(root_window))
+            rich_listener = EmbeddedWriterListener(self.ctx, root_window, controls["response"], on_rich_text_ready, doc_model=model)
             root_window.addWindowListener(rich_listener)
-            log.debug("EmbeddedWriterListener added to root_window")
+            log.info("[RICH-LIFECYCLE] EmbeddedWriterListener attached to root_window (will be responsible for frame/doc/container cleanup on shutdown)")
 
             # Wire the listener ref into SendButtonListener so its disposing() can
             # explicitly removeWindowListener + trigger the embedded safe-dispose.

@@ -52,6 +52,16 @@ class _PanelResizeListener(BaseWindowListener):
         self._parent_window = parent_window
         # Callable -> last deck hint from getHeightForWidth (with parent: clamp vs fill).
         self._deck_w_getter = deck_w_getter
+        self._root_window = None  # Set by owner when attaching, for self-removal on dispose
+
+    def disposing(self, Source):
+        """Defensive: try to remove ourselves if we were given the root window."""
+        if self._root_window and hasattr(self._root_window, "removeWindowListener"):
+            try:
+                self._root_window.removeWindowListener(self)
+            except Exception:
+                pass
+        self._root_window = None
 
     def relayout_now(self, win):
         """Run layout on the root panel window (e.g. after programmatic resize).

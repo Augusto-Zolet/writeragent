@@ -24,6 +24,19 @@ from plugin.chatbot.listeners import BaseWindowListener
 
 log = logging.getLogger(__name__)
 
+_HAVE_UNO_DOC_EVENTS = False
+_XDocumentEventListener: Any = None
+_unohelper: Any = None
+try:
+    import unohelper as _unohelper_impl
+    from com.sun.star.document import XDocumentEventListener as _XDocumentEventListener_impl
+    _unohelper = _unohelper_impl
+    _XDocumentEventListener = _XDocumentEventListener_impl
+    _HAVE_UNO_DOC_EVENTS = True
+except ImportError:
+    pass
+
+
 _HTML_TAG_RE = re.compile(
     r"<(?:"
     r"p[>\s/]"
@@ -119,6 +132,46 @@ def is_scrolled_to_bottom(scrollbar_accessible):
         log.debug("is_scrolled_to_bottom: exception reading scrollbar: %s", e)
         return True
 
+if _HAVE_UNO_DOC_EVENTS:
+    assert _unohelper is not None
+    assert _XDocumentEventListener is not None
+
+    class _SidebarDocumentEventListenerImpl(_unohelper.Base, _XDocumentEventListener):
+        def __init__(self, listener):
+            super().__init__()
+            self._listener = listener
+
+        def documentEventOccured(self, Event):
+            try:
+                name = getattr(Event, "EventName", "") or ""
+                if name in ("OnPrepareUnload", "OnUnload"):
+                    log.info("[RICH-SHUTDOWN] SidebarDocumentEventListener: %s event triggered. Cleaning up embedded objects.", name)
+                    self._listener.disposing(None)
+            except Exception as e:
+                log.info("[RICH-SHUTDOWN] SidebarDocumentEventListener documentEventOccured error: %s", e)
+
+        def disposing(self, Source):
+            try:
+                log.info("[RICH-SHUTDOWN] SidebarDocumentEventListener: Host document model is disposing. Cleaning up embedded objects.")
+                self._listener.disposing(Source)
+            except Exception as e:
+                log.info("[RICH-SHUTDOWN] SidebarDocumentEventListener disposing error: %s", e)
+
+    SidebarDocumentEventListener = _SidebarDocumentEventListenerImpl
+else:
+    class _SidebarDocumentEventListenerStub:
+        def __init__(self, listener):
+            self._listener = listener
+
+        def documentEventOccured(self, Event):
+            pass
+
+        def disposing(self, Source):
+            pass
+
+    SidebarDocumentEventListener = _SidebarDocumentEventListenerStub  # type: ignore[assignment, misc]
+
+
 class EmbeddedWriterListener(BaseWindowListener):
     """Wait for the sidebar window to be shown (realized) before embedding Writer.
 
@@ -133,27 +186,30 @@ class EmbeddedWriterListener(BaseWindowListener):
     - post_to_main_thread callbacks and resize handlers could still touch the
       objects after their UNO peers were destroyed.
 
-    The fix: override disposing() (from XEventListener via BaseListener) to
-    self-remove from the parent and perform a guarded, idempotent disposal of
-    the embedded objects. All callbacks early-exit after _disposed is set.
-    This follows the proven pattern from dialog_views.SettingsDialog._cleanup
-    (explicit remove*Listener + guarded dispose) and the double-dispose warning
-    in AGENTS.md. Broad except + flag prevents double-dispose segfaults and
-    tolerates the partial teardown order that occurs during LO shutdown.
+    Strategy (updated): We now primarily trigger full disposal of the embedded
+    Writer (frame + doc + container) from `on_window_hidden` for proactive
+    cleanup when the sidebar panel is deactivated. The `disposing()` path
+    remains as a safety net. This addresses cases where normal XUIElement
+    disposal hooks are not reached in time during late `DeInitVCL` shutdown.
+    All paths set `_disposed` and remove the listener.
     """
 
-    def __init__(self, ctx, parent_window, placeholder_ctrl, on_ready_callback):
+    def __init__(self, ctx, parent_window, placeholder_ctrl, on_ready_callback, doc_model=None):
         self.ctx = ctx
         self.parent_window = parent_window
         self.placeholder_ctrl = placeholder_ctrl
         self.on_ready_callback = on_ready_callback
+        self.doc_model = doc_model
         self.initialized = False
         self.container_window = None
         self.doc = None
+        self.frame = None          # XFrame — we store it so disposing() can close it first
         self._disposed = False
-        # Note: frame is received in the ready callback but not stored here;
-        # the owning SendButtonListener / ChatPanelElement keep the primary refs
-        # and will cooperate on full cleanup (see their disposing paths).
+        self._doc_listener = None
+        log.info("[RICH-LIFECYCLE] EmbeddedWriterListener.__init__ parent_window=%s placeholder=%s doc_model=%s",
+                 id(parent_window) if parent_window else None,
+                 id(placeholder_ctrl) if placeholder_ctrl else None,
+                 id(doc_model) if doc_model else None)
 
     def disposing(self, Source):
         """XEventListener hook: clean up on parent window disposal or explicit teardown.
@@ -173,14 +229,21 @@ class EmbeddedWriterListener(BaseWindowListener):
         The embedded Writer document + frame + container were leaked, which
         produced the "errors when I close LO Writer" the user reported.
         """
+        log.info("[RICH-LIFECYCLE] EmbeddedWriterListener.disposing called (Source=%s, _disposed=%s, initialized=%s)",
+                 id(Source) if Source else None, self._disposed, self.initialized)
+
         if self._disposed:
+            log.info("[RICH-SHUTDOWN] EmbeddedWriterListener.disposing called again (already disposed)")
             return
+
+        log.info("[RICH-SHUTDOWN] EmbeddedWriterListener.disposing ENTERED (safety net path) for root_window id=%s", id(self.parent_window))
+
         try:
             if self.parent_window and hasattr(self.parent_window, "removeWindowListener"):
                 self.parent_window.removeWindowListener(self)
-        except Exception:
-            # Parent may already be partially disposed; non-fatal.
-            pass
+                log.info("[RICH-SHUTDOWN]   -> removed self as WindowListener")
+        except Exception as e:
+            log.info("[RICH-SHUTDOWN]   -> removeWindowListener failed: %s", e)
 
         # We only reach here on the first disposal. Set the flag for idempotency
         # *after* the listener removal has succeeded, then do the actual object
@@ -188,44 +251,92 @@ class EmbeddedWriterListener(BaseWindowListener):
         # the XEventListener contract; the helper owns only the UNO close/dispose work.
         self._disposed = True
         self._dispose_embedded_objects()
+        log.info("[RICH-SHUTDOWN] EmbeddedWriterListener.disposing COMPLETED")
 
     def _dispose_embedded_objects(self):
         """Perform the actual best-effort disposal of the embedded Writer objects.
 
         This method has *no* guard on `_disposed`. It is expected to be called
-        only when the caller has already decided it is safe to run (i.e. from
-        `disposing()` after the flag check, or from tests that want to exercise
-        the disposal logic in isolation).
+        only when the caller has already decided it is safe to run.
 
-        It always attempts to close/dispose the objects it holds and then
-        clears the references. This guarantees that when `disposing()` is the
-        caller, the embedded doc and container actually get released instead of
-        being leaked (the previous bug).
+        Shutdown order (important for avoiding VCL crashes on dialog teardown):
+        - Close the XFrame first (detaches the document + container window).
+        - Then the document and container window.
 
-        Exceptions during close/dispose are swallowed (they are normal and
-        expected during LO shutdown).
+        The frame is now stored on this listener precisely so this path can
+        close it reliably.
         """
-        for name, obj in (("container_window", self.container_window), ("doc", getattr(self, "doc", None))):
+        # Preferred shutdown order for an embedded frame setup:
+        # 1. Close the XFrame first (this detaches the document and the container window).
+        # 2. Then the document and container window.
+        # Closing the frame early is important to avoid the VCL using the
+        # container_window after the parent dialog (VclBuilder) has started
+        # destroying it — which was a major source of the Signal 11 crashes.
+        
+        # Check if the container window still has a valid GUI peer. If the peer is
+        # already dead/disposed, calling close or dispose on UI components will
+        # cause a crash (Signal 11/use-after-free) in late shutdown sequences.
+        peer_alive = False
+        try:
+            if self.container_window and self.container_window.getPeer():
+                peer_alive = True
+        except Exception:
+            pass
+
+        log.info("[RICH-SHUTDOWN] _dispose_embedded_objects starting (frame=%s, container=%s, doc=%s, peer_alive=%s)",
+                 bool(self.frame), bool(self.container_window), bool(getattr(self, 'doc', None)), peer_alive)
+
+        for name, obj in (("frame", self.frame),
+                          ("container_window", self.container_window),
+                          ("doc", getattr(self, "doc", None))):
             if not obj:
+                log.info("[RICH-SHUTDOWN]   skipping %s (None)", name)
                 continue
             try:
+                # Only skip container_window dispose if the GUI peer is dead.
+                # frame and doc are logical UNO components and MUST be closed/disposed
+                # to prevent LibreOffice from keeping them alive as orphaned objects
+                # which causes crashes during global shutdown.
+                if name == "container_window" and not peer_alive:
+                    log.info("[RICH-SHUTDOWN]   skipping %s close/dispose (GUI peer is already dead)", name)
+                    continue
+
                 if hasattr(obj, "close"):
-                    # XFrame / similar often prefer close(True) for clean shutdown.
                     obj.close(True)
+                    log.info("[RICH-SHUTDOWN]   closed %s (close(True))", name)
                 elif hasattr(obj, "dispose"):
                     obj.dispose()
+                    log.info("[RICH-SHUTDOWN]   disposed %s", name)
+                else:
+                    log.info("[RICH-SHUTDOWN]   %s has neither close nor dispose", name)
             except Exception as e:
-                # DisposedException, RuntimeException, etc. are expected during LO exit.
-                log.debug("_dispose_embedded_objects: %s already disposed or unavailable: %s", name, e)
+                log.info("[RICH-SHUTDOWN]   %s close/dispose raised (expected in late shutdown): %s", name, e)
+
+        # Unregister host doc model event listener
+        if self._doc_listener and self.doc_model:
+            try:
+                if hasattr(self.doc_model, "removeDocumentEventListener"):
+                    self.doc_model.removeDocumentEventListener(self._doc_listener)
+                    log.info("[RICH-SHUTDOWN]   removed self as DocumentEventListener")
+            except Exception as e:
+                log.info("[RICH-SHUTDOWN]   removeDocumentEventListener failed: %s", e)
+            self._doc_listener = None
+
+        self.frame = None
         self.container_window = None
         self.doc = None
+        log.info("[RICH-SHUTDOWN] _dispose_embedded_objects finished and refs cleared")
 
     def on_window_shown(self, rEvent):
+        log.info("[RICH-LIFECYCLE] EmbeddedWriterListener.on_window_shown called _disposed=%s initialized=%s",
+                 self._disposed, self.initialized)
+
         if self._disposed or self.initialized:
             return
             
         parent_id = id(self.parent_window)
         if parent_id in _EMBEDDING_STARTED:
+            log.info("[RICH-LIFECYCLE] on_window_shown: already in _EMBEDDING_STARTED, skipping")
             return
             
         log.debug("EmbeddedWriterListener.on_window_shown: checking for peer")
@@ -243,6 +354,7 @@ class EmbeddedWriterListener(BaseWindowListener):
 
     def on_window_resized(self, rEvent):
         """Keep the embedded container synced with the placeholder size."""
+        log.debug("[RICH-LIFECYCLE] on_window_resized (disposed=%s)", self._disposed)
         if self._disposed:
             return
         if self.container_window and self.placeholder_ctrl:
@@ -254,8 +366,29 @@ class EmbeddedWriterListener(BaseWindowListener):
             except Exception:
                 pass
 
+    def on_window_hidden(self, rEvent):
+        log.info("[RICH-LIFECYCLE] EmbeddedWriterListener.on_window_hidden called (disposed=%s, has_frame=%s)",
+                 self._disposed, bool(self.frame))
+
+        if self._disposed:
+            return
+
+        log.info("[RICH-SHUTDOWN] Initiating disposal from on_window_hidden (proactive cleanup)")
+
+        try:
+            if self.parent_window and hasattr(self.parent_window, "removeWindowListener"):
+                self.parent_window.removeWindowListener(self)
+                log.info("[RICH-SHUTDOWN]   -> removed self as WindowListener (from hidden)")
+        except Exception as e:
+            log.info("[RICH-SHUTDOWN]   -> removeWindowListener from on_window_hidden failed: %s", e)
+
+        self._disposed = True
+        self._dispose_embedded_objects()
+        log.info("[RICH-SHUTDOWN] EmbeddedWriterListener disposal completed via on_window_hidden path")
+
     def _deferred_init(self):
         """Perform the actual embedding on a fresh event loop turn."""
+        log.info("[RICH-LIFECYCLE] _deferred_init starting (disposed=%s)", self._disposed)
         if self._disposed:
             return
         try:
@@ -263,6 +396,19 @@ class EmbeddedWriterListener(BaseWindowListener):
             if doc and frame:
                 self.container_window = container
                 self.doc = doc
+                self.frame = frame
+                log.info("[RICH-LIFECYCLE] _deferred_init success — calling on_ready_callback")
+
+                # Register document event listener on the host document model
+                if self.doc_model and _HAVE_UNO_DOC_EVENTS:
+                    try:
+                        self._doc_listener = SidebarDocumentEventListener(self)
+                        if hasattr(self.doc_model, "addDocumentEventListener"):
+                            self.doc_model.addDocumentEventListener(self._doc_listener)
+                            log.info("[RICH-LIFECYCLE] EmbeddedWriterListener: Registered SidebarDocumentEventListener on host doc_model id=%s", id(self.doc_model))
+                    except Exception as e:
+                        log.warning("[RICH-LIFECYCLE] Failed to register document event listener: %s", e)
+
                 self.on_ready_callback(doc, frame, container)
             else:
                 log.error("EmbeddedWriterListener: Failed to create embedded Writer doc.")
@@ -499,7 +645,7 @@ def create_embedded_writer_doc(ctx, parent_window, placeholder_ctrl):
         except Exception:
             log.debug("Could not set DocColor via ConfigurationProvider (non-fatal)")
 
-        log.info("create_embedded_writer_doc: Successfully initialized embedded Writer")
+        log.info("[RICH-SHUTDOWN] create_embedded_writer_doc: Successfully initialized embedded Writer (frame id=%s, container id=%s)", id(frame), id(container_window))
         return doc, frame, container_window
 
     except Exception as e:

@@ -376,7 +376,7 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         self.embedded_frame = frame
         self.embedded_container = container
         self._cached_scrollbar = None
-        log.info("SendButtonListener: Rich text mode enabled (embedded Writer doc)")
+        log.info("[RICH-LIFECYCLE] SendButtonListener.set_embedded_doc called (frame id=%s)", id(frame) if frame else None)
 
     def set_rich_listener(self, listener):
         """Store the EmbeddedWriterListener so disposing() can explicitly remove it and trigger its cleanup.
@@ -386,6 +386,7 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         root_window, it would leak and potentially receive events after the
         window peer is gone.
         """
+        log.info("[RICH-LIFECYCLE] SendButtonListener.set_rich_listener called listener=%s", id(listener) if listener else None)
         self._rich_listener = listener
 
     def rerender_rich_text_session(self):
@@ -1146,26 +1147,43 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         # and safe against double-dispose segfaults (see AGENTS.md).
         try:
             if self._rich_listener is not None:
+                log.info("[RICH-SHUTDOWN] SendButtonListener: calling rich_listener.disposing()")
                 try:
-                    # Triggers its removeWindowListener + _dispose_embedded_objects.
+                    # Triggers its removeWindowListener + _dispose_embedded_objects
+                    # (which now also closes the XFrame in the preferred order).
                     self._rich_listener.disposing(None)
-                except Exception:
-                    pass
+                except Exception as e:
+                    log.info("[RICH-SHUTDOWN]   rich_listener.disposing raised: %s", e)
                 self._rich_listener = None
 
             # Direct best-effort disposal of any embedded refs still held here
             # (defensive; the listener path above usually covers it).
+            peer_alive = False
+            try:
+                container = getattr(self, "embedded_container", None)
+                if container and container.getPeer():
+                    peer_alive = True
+            except Exception:
+                pass
+
             for attr in ("embedded_doc", "embedded_frame", "embedded_container"):
                 obj = getattr(self, attr, None)
                 if obj is None:
                     continue
                 try:
+                    if attr == "embedded_container" and not peer_alive:
+                        log.info("[RICH-SHUTDOWN] SendButtonListener: skipping direct %s close/dispose (GUI peer is dead)", attr)
+                        setattr(self, attr, None)
+                        continue
+
                     if hasattr(obj, "close"):
                         obj.close(True)
+                        log.info("[RICH-SHUTDOWN] SendButtonListener: closed %s directly", attr)
                     elif hasattr(obj, "dispose"):
                         obj.dispose()
-                except Exception:
-                    pass
+                        log.info("[RICH-SHUTDOWN] SendButtonListener: disposed %s directly", attr)
+                except Exception as e:
+                    log.info("[RICH-SHUTDOWN] SendButtonListener: %s close/dispose raised: %s", attr, e)
                 setattr(self, attr, None)
             self._cached_scrollbar = None
         except Exception as e:

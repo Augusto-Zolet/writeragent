@@ -23,7 +23,7 @@ from plugin.calc.python_formula_edit import (
 from plugin.chatbot.dialogs import msgbox
 from plugin.framework.i18n import _
 from plugin.framework.uno_context import get_desktop
-from plugin.scripting.editor_bridge import get_active_session, set_active_session
+from plugin.scripting.editor_bridge import get_active_session, set_active_session, _PERSISTENT_EDITOR
 from plugin.scripting.editor_diagnostics import failure_message
 from plugin.scripting.editor_launcher import probe_webview_import, resolve_editor_python
 from plugin.scripting.editor_session_launch import launch_monaco_editor
@@ -301,17 +301,20 @@ def _open_python_cell_editor_impl(ctx: Any) -> None:
         return
     log.info("python_editor: using interpreter %s", exe)
 
-    webview_ok, webview_detail = probe_webview_import(exe)
-    log.info("python_editor: webview probe exe=%s ok=%s detail=%r", exe, webview_ok, webview_detail[:200] if webview_detail else "")
-    if not webview_ok:
-        summary = _(
-            "Cannot import webview (pywebview) with the Python from Settings → Python:\n"
-            "%(exe)s\n\n"
-            "In that venv run: pip install pywebview\n"
-            "(import name is webview, package name is pywebview)."
-        ) % {"exe": exe}
-        msgbox(ctx, "WriterAgent", failure_message(summary, detail=webview_detail or _("unknown error")))
-        return
+    if _PERSISTENT_EDITOR.is_running:
+        log.info("python_editor: Monaco editor process already running, skipping webview probe")
+    else:
+        webview_ok, webview_detail = probe_webview_import(exe)
+        log.info("python_editor: webview probe exe=%s ok=%s detail=%r", exe, webview_ok, webview_detail[:200] if webview_detail else "")
+        if not webview_ok:
+            summary = _(
+                "Cannot import webview (pywebview) with the Python from Settings → Python:\n"
+                "%(exe)s\n\n"
+                "In that venv run: pip install pywebview\n"
+                "(import name is webview, package name is pywebview)."
+            ) % {"exe": exe}
+            msgbox(ctx, "WriterAgent", failure_message(summary, detail=webview_detail or _("unknown error")))
+            return
 
     log.info("python_editor: launching Monaco subprocess")
     _launch_editor_with_code(

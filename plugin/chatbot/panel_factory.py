@@ -244,22 +244,24 @@ class ChatPanelElement(unohelper.Base, XUIElement):
         self.embedded_doc = None
         self.embedded_frame = None
         self.embedded_container = None
+        log.info("[RICH-LIFECYCLE] ChatPanelElement.__init__ resource_url=%s parent_window=%s",
+                 resource_url, id(parent_window) if parent_window else None)
 
     def _on_config_changed(self, **kwargs):
         """Event bus listener for config changes."""
         self._refresh_controls_from_config()
 
     def getRealInterface(self) -> XInterface:  # pyright: ignore[reportIncompatibleMethodOverride]
-        log.debug("=== getRealInterface called ===")
+        log.info("[RICH-LIFECYCLE] ChatPanelElement.getRealInterface called (toolpanel already exists=%s)", bool(self.toolpanel))
         if not self.toolpanel:
             try:
                 # Ensure extension on path early so _wireControls imports work
                 _initialize_extension_paths(self.ctx)
                 root_window = self._getOrCreatePanelRootWindow()
-                log.debug("root_window created: %s" % (root_window is not None))
+                log.info("[RICH-LIFECYCLE] root_window created: %s", bool(root_window))
                 self.toolpanel = ChatToolPanel(root_window, self.xParentWindow, self.ctx)
                 wire_chatpanel_controls(self, root_window, HAS_RECORDING, _initialize_extension_paths)
-                log.info("getRealInterface completed successfully")
+                log.info("[RICH-LIFECYCLE] getRealInterface completed successfully (rich_text wiring done)")
             except Exception as e:
                 log.error("getRealInterface ERROR [resource_url=%s]: %s", self.ResourceURL, e)
                 log.error(traceback.format_exc())
@@ -267,14 +269,15 @@ class ChatPanelElement(unohelper.Base, XUIElement):
         return cast("XInterface", self.toolpanel)
 
     def _getOrCreatePanelRootWindow(self):
-        log.debug("_getOrCreatePanelRootWindow entered")
+        log.info("[RICH-LIFECYCLE] _getOrCreatePanelRootWindow entered (xParentWindow=%s)",
+                 id(self.xParentWindow) if self.xParentWindow else None)
         base_url = get_extension_url()
         dialog_url = base_url + "/" + XDL_PATH
         log.debug("dialog_url: %s" % dialog_url)
         provider = self.ctx.getServiceManager().createInstanceWithContext("com.sun.star.awt.ContainerWindowProvider", self.ctx)
-        log.debug("calling createContainerWindow...")
+        log.info("[RICH-LIFECYCLE] calling createContainerWindow for rich-text sidebar...")
         self.m_panelRootWindow = provider.createContainerWindow(dialog_url, "", self.xParentWindow, None)
-        log.debug("createContainerWindow returned")
+        log.info("[RICH-LIFECYCLE] createContainerWindow returned root_window=%s", bool(self.m_panelRootWindow))
         # Sidebar does not show the panel content without this (framework does not make it visible).
         if self.m_panelRootWindow and hasattr(self.m_panelRootWindow, "setVisible"):
             try:
@@ -304,11 +307,32 @@ class ChatPanelElement(unohelper.Base, XUIElement):
         own XEventListener.disposing override. This prevents the previous leak of
         the EmbeddedWriterListener + its private swriter Frame/Doc/Window.
         """
+        log.info("[RICH-LIFECYCLE] ChatPanelElement.disposing called Source=%s has_send_listener=%s has_embedded=%s",
+                 id(Source) if Source else None,
+                 hasattr(self, "send_listener") and bool(self.send_listener),
+                 bool(self.embedded_frame or self.embedded_doc))
         try:
             if hasattr(self, "send_listener") and self.send_listener:
                 self.send_listener.disposing(None)
+        except Exception as e:
+            log.info("[RICH-SHUTDOWN]   send_listener.disposing raised from element: %s", e)
+
+        # Clean up the always-present resize listener.
+        # Unlike the rich-text listener (which is opt-in), this one is attached
+        # unconditionally in panel_wiring. Failing to remove it during late
+        # VCL/sidebar teardown can contribute to the same class of Signal 11
+        # crashes we saw with the embedded Writer listener.
+        try:
+            tp = getattr(self, "toolpanel", None)
+            rl = getattr(tp, "resize_listener", None) if tp else None
+            root = getattr(self, "m_panelRootWindow", None)
+            if rl and root and hasattr(root, "removeWindowListener"):
+                root.removeWindowListener(rl)
+            if tp:
+                tp.resize_listener = None
         except Exception:
             pass
+
         # Clear our own cached refs (the listener + send_listener paths do the real work).
         self.embedded_doc = None
         self.embedded_frame = None
