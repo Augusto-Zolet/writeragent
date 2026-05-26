@@ -66,8 +66,13 @@ def resolve_editor_python(uno_ctx: Any) -> tuple[str | None, str]:
     return exe, ""
 
 
+_PROBE_CACHE: dict[str, tuple[bool, str]] = {}
+
+
 def probe_webview_import(exe: str) -> tuple[bool, str]:
-    """Return whether *exe* can ``import webview`` (pywebview package), with diagnostics."""
+    """Return whether *exe* can ``import webview`` (pywebview package), with diagnostics (cached)."""
+    if exe in _PROBE_CACHE:
+        return _PROBE_CACHE[exe]
     try:
         r = subprocess.run(
             [exe, "-c", _WEBVIEW_PROBE_CODE],
@@ -78,16 +83,22 @@ def probe_webview_import(exe: str) -> tuple[bool, str]:
         )
     except (subprocess.TimeoutExpired, OSError) as e:
         log.warning("probe_webview_import failed for %s: %s", exe, e, exc_info=True)
-        return False, failure_detail(exc=e)
+        res = (False, failure_detail(exc=e))
+        _PROBE_CACHE[exe] = res
+        return res
     detail = (r.stdout or "").strip()
     if r.stderr:
         detail = f"{detail}\n{r.stderr}".strip() if detail else r.stderr.strip()
     if r.returncode == 0:
-        return True, detail
+        res = (True, detail)
+        _PROBE_CACHE[exe] = res
+        return res
     if not detail:
         detail = f"exit code {r.returncode}"
     log.warning("probe_webview_import: %s returned %s: %s", exe, r.returncode, detail)
-    return False, detail
+    res = (False, detail)
+    _PROBE_CACHE[exe] = res
+    return res
 
 
 def spawn_editor_process(exe: str, *, assets_dir: str | None = None) -> subprocess.Popen[bytes]:

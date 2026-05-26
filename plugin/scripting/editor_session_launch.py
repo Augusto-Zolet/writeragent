@@ -24,6 +24,9 @@ def monaco_editor_available(ctx: Any) -> tuple[str | None, bool]:
     if not exe:
         log.debug("monaco_editor_available: no venv python (%s)", err)
         return None, False
+    if _PERSISTENT_EDITOR.is_running:
+        log.debug("monaco_editor_available: Monaco editor process already running, skipping probe")
+        return exe, True
     webview_ok, detail = probe_webview_import(exe)
     if not webview_ok:
         log.debug("monaco_editor_available: webview probe failed for %s: %s", exe, detail[:200] if detail else "")
