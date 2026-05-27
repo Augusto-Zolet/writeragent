@@ -19,7 +19,6 @@ from typing import TYPE_CHECKING, Any, Callable, cast
 if TYPE_CHECKING:
     import subprocess as subprocess_types
 
-from plugin.chatbot.dialogs import msgbox
 from plugin.framework.event_bus import global_event_bus
 from plugin.framework.i18n import _
 from plugin.framework.queue_executor import QueueExecutor, default_executor
@@ -536,6 +535,8 @@ def launch_monaco_editor(
     on_closed: Callable[[], None] | None = None,
 ) -> bool:
     """Start or reuse the Monaco child process and send *load_message*. Return True on success."""
+    from plugin.chatbot.dialogs import msgbox
+
     closed_handler = on_closed if on_closed is not None else (lambda: None)
 
     if _PERSISTENT_EDITOR.is_running:
