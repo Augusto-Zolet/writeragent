@@ -13,7 +13,7 @@ import unohelper
 from com.sun.star.awt import XActionListener
 
 from plugin.framework.uno_context import get_desktop
-from plugin.framework.config import get_config, set_config
+from plugin.framework.config import get_config, get_config_str, set_config
 from plugin.chatbot.dialogs import add_dialog_label, add_dialog_edit, add_dialog_button, msgbox
 from plugin.framework.i18n import _
 from plugin.doc.document_helpers import is_writer
@@ -135,7 +135,7 @@ def insert_latex_math_dialog(ctx: Any) -> None:
             msgbox(ctx, _("Error"), _("This command is only available in Writer documents."))
             return
 
-        last_latex = str(get_config(ctx, "last_latex_input") or r"x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}")
+        last_latex = get_config_str(ctx, "last_latex_input")
         last_display = bool(get_config(ctx, "last_latex_display_block"))
 
         # Check if Monaco editor is available
