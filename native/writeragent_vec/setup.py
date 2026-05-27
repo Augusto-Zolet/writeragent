@@ -15,9 +15,7 @@ else:
 
 # Only apply WRITERAGENT_ARCH logic on Linux x86_64
 if system == "Linux" and (machine == "x86_64" or machine == "amd64"):
-    arch = os.environ.get("WRITERAGENT_ARCH", "x86-64-v2")
-    if arch == "x86-64-v1":
-        arch = "x86-64"
+    arch = os.environ.get("WRITERAGENT_ARCH", "x86-64")
     extra_compile_args.append(f"-march={arch}")
 
 extensions = [

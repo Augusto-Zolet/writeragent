@@ -455,7 +455,7 @@ A high-performance Cython implementation of the flattening loop has been develop
     - **Cython v1 (Generic)**: ~2.6 ms
     - **Cython v3 (AVX2)**: ~2.5 ms
 - **Architecture Comparison**: The performance difference between **v1** (generic x86-64) and **v3** (AVX2-optimized) is negligible (~3%). This indicates that the flattening process is primarily **memory-bound** (traversing Python objects and writing to a buffer) rather than compute-bound.
-- **Deployment Strategy**: The project targets the **x86-64-v2** baseline for its standard native builds. Since v2 support began in **2009**, it covers effectively 100% of computers in active use today while providing better performance than the v1 legacy baseline.
+- **Deployment Strategy**: The project targets the standard **x86-64** baseline for its native wheels. This ensures that the generated binaries are compatible with any 64-bit x86 processor and can be built using common toolchains (like GCC 10) in `manylinux2014`. While users can explicitly build for `v2` or `v3` for local performance, the standard release artifacts prioritize universal compatibility.
 - **Dynamic Loading**: The system dynamically detects the binary and falls back to the optimized Pure Python implementation on other platforms.
 
 #### Priority 1 — Profile inside LibreOffice (gate for everything else)

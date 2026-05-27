@@ -14,17 +14,17 @@ This document serves as a reference for compiling and packaging custom host-side
 
 ## x86-64 Micro-architecture Support
 
-The accelerator can be tuned for different x86-64 generations. By default, it builds for **v2** (generic x86-64-v2), which provides a modern performance baseline. Because v2 support began in **2009**, it covers essentially 100% of computers still in active use today.
+The accelerator can be tuned for different x86-64 generations. By default, it builds for generic **x86-64**, which provides a universal performance baseline.
 
 | Level | Since | Features | Recommended for | Compiler Flag |
 |-------|-------|----------|-----------------|---------------|
-| **v1** | 2003 | SSE, SSE2 | Legacy / Retro-computing | `x86-64` |
-| **v2 (Default)** | **2009** | SSE4.2, POPCNT, SSSE3 | **Universal Modern Baseline** | `x86-64-v2` |
+| **x86-64 (Default)** | **2003** | SSE, SSE2 | **Maximum Compatibility** | `x86-64` |
+| **v2** | 2009 | SSE4.2, POPCNT, SSSE3 | Universal Modern Baseline | `x86-64-v2` |
 | **v3** | 2013 | AVX, AVX2, BMI2 | High-perf desktops (Last 10y) | `x86-64-v3` |
 | **v4** | 2017 | AVX-512 | Modern Servers / Workstations | `x86-64-v4` |
 
-**Why v2 for "All" users?**
-Support for x86-64-v2 was introduced with **Intel Nehalem (2008)** and **AMD Bulldozer (2011)**. By 2026, any machine that cannot run v2 is at least 15 years old and likely lacks the memory or OS support to run modern AI writing tools. Targeting v2 allows us to use more efficient instructions while remaining compatible with every plausible user environment.
+**Why x86-64 for "All" users?**
+Standard x86-64 ensures that the generated wheels can run on any 64-bit x86 processor. While v2 support began in **2009** (Intel Nehalem / AMD Bulldozer) and covers effectively all hardware in use today, using the generic baseline in CI ensures compatibility with older build toolchains (like GCC 10) used in `manylinux2014`.
 
 To build for a specific architecture, use:
 ```bash
