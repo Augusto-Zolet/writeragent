@@ -90,6 +90,7 @@ log = logging.getLogger(__name__)
 # Extension ID from description.xml; XDL path inside the .oxt
 EXTENSION_ID = "org.extension.writeragent"
 XDL_PATH = "WriterAgentDialogs/ChatPanelDialog.xdl"
+_PRE_NEGOTIATION_PANEL_WIDTH = 420
 
 # Default max tool rounds when not in config (get_api_config supplies chat_max_tool_rounds)
 DEFAULT_MAX_TOOL_ROUNDS = 5
@@ -225,6 +226,13 @@ class ChatToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
             eff_w = 220
 
         log.debug("getHeightForWidth deck_hint=%s parent=%sx%s current_root=%s eff_W=%s" % (deck_w, parent_w, parent_h, "%sx%s" % (before.Width, before.Height) if before else None, eff_w))
+        rl = getattr(self, "resize_listener", None)
+        if rl is not None and hasattr(rl, "note_width_negotiated"):
+            try:
+                rl.note_width_negotiated()
+            except Exception as e:
+                if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
+                    log.debug("getHeightForWidth: resize listener likely disposed: %s", e)
         try:
             self.PanelWindow.setPosSize(0, 0, eff_w, h, 15)
             after = self.PanelWindow.getPosSize()
@@ -233,7 +241,6 @@ class ChatToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
             if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
                 log.debug("getHeightForWidth: failed to set or get pos size (likely disposed): %s", e)
 
-        rl = getattr(self, "resize_listener", None)
         if rl is not None:
             try:
                 rl.relayout_now(self.PanelWindow)
@@ -306,12 +313,19 @@ class ChatPanelElement(unohelper.Base, XUIElement):
             except Exception as e:
                 if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
                     log.debug("Failed to set panel root window visible (likely disposed): %s", e)
-        # Constrain panel only when parent already has size (layout may be 0x0 here).
+        # Bug fix: on restored-wide startup, createContainerWindow can leave the root
+        # at a stale frame-sized width before DeckLayouter calls getHeightForWidth.
+        # Briefly cap that pre-negotiation size so sfx2 does not seed an H-scroll
+        # range from the temporary root; getHeightForWidth expands to deck width.
         try:
             parent_rect = self.xParentWindow.getPosSize()
-            if parent_rect.Width > 0 and parent_rect.Height > 0:
-                self.m_panelRootWindow.setPosSize(0, 0, parent_rect.Width, parent_rect.Height, 15)
-                log.debug("panel constrained to W=%s H=%s" % (parent_rect.Width, parent_rect.Height))
+            current_rect = self.m_panelRootWindow.getPosSize()
+            source_w = parent_rect.Width if parent_rect.Width > 0 else current_rect.Width
+            target_w = min(source_w if source_w > 0 else self.toolpanel.getMinimalWidth() if self.toolpanel else 180, _PRE_NEGOTIATION_PANEL_WIDTH)
+            target_h = parent_rect.Height if parent_rect.Height > 0 else current_rect.Height
+            if target_w > 0 and target_h > 0:
+                self.m_panelRootWindow.setPosSize(0, 0, target_w, target_h, 15)
+                log.debug("panel pre-negotiation constrained to W=%s H=%s" % (target_w, target_h))
         except Exception as e:
             if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
                 log.debug("Failed to constrain panel window (likely disposed): %s", e)

@@ -7,7 +7,7 @@ log = logging.getLogger(__name__)
 
 # Chat sidebar resize/layout tracing is very noisy. Set True to log these steps
 # to the debug log even when log_level is DEBUG.
-PANEL_RESIZE_VERBOSE_DEBUG = True  # Verbose helper still on for extra detail if logger allows it.
+PANEL_RESIZE_VERBOSE_DEBUG = False  # Verbose helper still on for extra detail if logger allows it.
 
 
 def _resize_debug(msg: str, *args: object) -> None:
@@ -69,6 +69,7 @@ class _PanelResizeListener(BaseWindowListener):
         self._in_relayout = False
         self._root_window = None  # Set by owner when attaching, for self-removal on dispose
         self._first_relayout = True  # used to be slightly more conservative on the very first layout after startup
+        self._width_negotiated = False  # first real layout must wait for getHeightForWidth's deck width
 
     def disposing(self, Source):
         """Defensive: try to remove ourselves if we were given the root window."""
@@ -86,6 +87,13 @@ class _PanelResizeListener(BaseWindowListener):
         """
         if not win:
             return
+        if not self._width_negotiated and self._initial is None:
+            # Bug fix: on restored-wide startup, LO creates the root window at a
+            # stale/wide size before DeckLayouter calls getHeightForWidth with the
+            # real sidebar column width. Capturing that first width can seed an
+            # ancestor H-scroll range, so wait for the negotiated deck width.
+            _resize_debug("relayout_now: deferred until deck width negotiated")
+            return
         if self._in_relayout:
             _resize_debug("relayout_now: skipped (in_relayout)")
             return
@@ -100,10 +108,17 @@ class _PanelResizeListener(BaseWindowListener):
     def on_window_resized(self, rEvent):
         r = rEvent.Source.getPosSize()
         _resize_debug("windowResized: W=%d H=%d" % (r.Width, r.Height))
+        if not self._width_negotiated and self._initial is None:
+            _resize_debug("windowResized: deferred until deck width negotiated")
+            return
         if self._in_relayout:
             _resize_debug("windowResized: skipped (in_relayout)")
             return
         self.relayout_now(rEvent.Source)
+
+    def note_width_negotiated(self):
+        """Allow first layout after ChatToolPanel has applied DeckLayouter width."""
+        self._width_negotiated = True
 
     def _capture_initial(self, win):
         """Snapshot XDL-loaded positions (primarily Y/height for vertical anchoring).
@@ -209,11 +224,6 @@ class _PanelResizeListener(BaseWindowListener):
 
         top_of_bottom = h
 
-        # Smallest possible extension of the first-relayout conservatism:
-        # Give bottom-row controls (model_selector, clear, etc.) a bit more
-        # right margin on the very first layout when the sidebar restores wide.
-        # This is the minimal targeted change to pull max_child_right leftward
-        # on startup without affecting runtime widening.
         right_margin = 6 if self._first_relayout else 4
 
         for name, ctrl in self._c.items():
@@ -260,10 +270,6 @@ class _PanelResizeListener(BaseWindowListener):
             gap = gap_below_response if gap_below_response >= 0 else 2
             new_rh = max(30, top_of_bottom - gap - ry)
 
-            # On the very first layout (especially when the sidebar is restored to a
-            # previous wide width on app start), be a bit more conservative with the
-            # response width so the deck doesn't immediately decide it needs an H
-            # scrollbar. Runtime widening behavior is unchanged.
             right_margin = 8 if self._first_relayout else 4
             new_rw = max(_MIN_WIDTHS.get("response", 40), w - rx - right_margin)
             if rx + new_rw > w - right_margin:

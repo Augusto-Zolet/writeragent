@@ -131,6 +131,9 @@ The previous approach (heavy bidirectional width sync between `getHeightForWidth
   3. A single final right-edge clamp on every control (`<= w-4`) as a safety net.
 - XDL baseline widths for the stretchy controls (response, query, model selectors, labels, status) were reduced from 172 to 142 on the 180-wide root. This lowers the dialog's intrinsic "natural" size without hurting the runtime fill behavior.
 - A lightweight `layout_sanity` debug line is emitted once after wiring (root_w vs max child right edge) so future regressions are obvious even without the verbose resize flag.
+- Two additional high-signal markers were added for the "restored wide on restart" case:
+  - `[FIRST LAYOUT]` (INFO) — fires immediately after the first `relayout_now` after the panel is created.
+  - `[FIRST RELAYOUT SIZES]` (INFO) — fires on the very first response sizing pass and reports `root_w`, `response_w`, `clear_right`, and `model_sel_right`. These are extremely useful for diagnosing the initial layout at a restored wide width.
 
 The button fixed-width measurement (Send/Record/Stop/Accept + Stop/Clear/Reject) was kept because it is still the only reliable way to stop the ~22 px stepwise widening when the label changes.
 
@@ -149,6 +152,7 @@ If the scrollbar still appears when the sidebar is *wider* than the Clear button
 5. **Toggle “Use Image model”**: no permanent overlap; relayout correct.  
 6. **Narrow sidebar**: fluid widths should **not** exceed panel (no clipped-off combo button).  
 7. Compare debug log `parent` vs `deck_hint` when anomalies appear.
+8. **Restart test (restored width)**: Close and reopen LibreOffice with the sidebar at a previously widened size. The H scrollbar should not appear on the initial layout (or should disappear cleanly when the user widens further). Check `layout_sanity` and the new `[FIRST LAYOUT]` / `[FIRST RELAYOUT SIZES]` markers on startup.
 
 ---
 
@@ -169,3 +173,17 @@ What remains:
 - The parent/deck/`_last_deck_w` plumbing is still wired through (low risk, used only for logging and the deck getter). It can be cleaned up in a later pass if the simplified model proves stable.
 - A declarative "stretch list + min widths" table (instead of the hardcoded `stretch` tuple + `_MIN_WIDTHS`) would be a small polish item.
 - UNO layout still has no good unit tests; the manual checklist below + the `layout_sanity` debug line are the practical verification tools.
+
+### "Restored wide on restart" variant (observed 2026-05)
+
+Even after the 2026-05 simplifications, the H scrollbar can still appear **immediately on app restart** when LibreOffice restores the sidebar to a previously saved wider width.
+
+- The scrollbar does **not** appear (or disappears cleanly) when the user starts with a narrow sidebar and manually widens it during the same session.
+- Root cause: The very first `_capture_initial` + `_relayout` after the panel is created locks in dimensions based on the restored wide root. The bottom row (especially `model_selector` + the Clear button area) ends up with its right edge too close to the right edge of the reported root window relative to the actual column width the deck allocated for that restored size.
+- `layout_sanity` on such startups consistently shows a small gap (typically 4–6 px, e.g. `root_w=1238 max_child_right=1232`).
+- The manual widening path works better because it never performs a full layout from a "restored wide" snapshot — it only sees gradual increases in `deck_hint`.
+- Various first-relayout conservatism experiments were tried (extra right margin on the response area on first layout, then the same for the model row). These helped incrementally (`model_sel_right` moved from 1234 → 1232) but did not fully eliminate the case.
+- The behavior was noticeably better in commit `af649476`. Later changes made the "always on restart at previous width" variant more prominent.
+- Diagnostic markers `[FIRST LAYOUT]` (in `panel_wiring.py`) and `[FIRST RELAYOUT SIZES]` (in `panel_resize.py`, emitted at INFO level on the very first response sizing) were added to help debug this specific path.
+
+This remains an open residual issue for future work. When revisiting, focus on the interaction between LibreOffice's sidebar width restoration and our initial snapshot + bottom-row sizing on the very first layout.
