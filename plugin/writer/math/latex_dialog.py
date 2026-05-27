@@ -135,7 +135,7 @@ def insert_latex_math_dialog(ctx: Any) -> None:
             msgbox(ctx, _("Error"), _("This command is only available in Writer documents."))
             return
 
-        last_latex = str(get_config(ctx, "last_latex_input") or "e = m c^2")
+        last_latex = str(get_config(ctx, "last_latex_input") or r"x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}")
         last_display = bool(get_config(ctx, "last_latex_display_block"))
 
         # Check if Monaco editor is available
