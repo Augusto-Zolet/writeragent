@@ -29,8 +29,8 @@ jobs:
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.22.0
-        env:
-          CIBW_PROJECT_DIR: native/writeragent_vec
+        with:
+          package-dir: native/writeragent_vec
 
       - uses: actions/upload-artifact@v4
         with:
