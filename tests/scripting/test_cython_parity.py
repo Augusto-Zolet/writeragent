@@ -87,3 +87,14 @@ def test_hypothesis_cython_sum_parity(grid: list[Any] | list[list[Any]]) -> None
     if not hypothesis_grid_ok(grid):
         return
     assert_cython_vs_python_parity(grid, VENV_CODE_SUM, label="hypothesis sum")
+
+
+def test_custom_object_parity():
+    """Ensure that custom objects that fail float coercion behave identically in Python vs Cython."""
+    class CustomObject:
+        def __str__(self):
+            return "custom_str"
+            
+    grid = [[CustomObject(), 1.0], [2.5, CustomObject()]]
+    assert_cython_vs_python_parity(grid, VENV_CODE_ECHO, label="custom object parity")
+

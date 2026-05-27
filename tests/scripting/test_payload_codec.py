@@ -804,3 +804,57 @@ def test_child_pack_grid_regression() -> None:
     assert isinstance(wire, list)
     assert wire == [[1.0, 2.0], [3.0, 4.0]]
 
+
+def test_unwrap_cell_comprehensive():
+    """Verify unwrap_cell correctly normalizes standard types, localized formulas, and mocked UNO Any objects."""
+    from plugin.calc.calc_addin_data import _unwrap_cell
+    
+    true_strings = {"=TRUE()", "TRUE", "True", "WAHR"}
+    false_strings = {"=FALSE()", "FALSE", "False", "FALSCH"}
+    
+    # 1. Fast path exact types
+    assert _unwrap_cell(1.0) == 1.0
+    assert _unwrap_cell(42) == 42
+    assert _unwrap_cell(True) is True
+    
+    # 2. Localized and formula string conversions
+    assert _unwrap_cell("  TRUE  ", true_strings, false_strings) is True
+    assert _unwrap_cell("WAHR", true_strings, false_strings) is True
+    assert _unwrap_cell("FALSCH", true_strings, false_strings) is False
+    
+    # 3. UNO Mock Wrap types (e.g. uno.Any type emulation)
+    class MockUnoAny:
+        def __init__(self, value):
+            self.value = value
+    
+    MockUnoAny.__name__ = "Any"
+    assert _unwrap_cell(MockUnoAny(10.5)) == 10.5
+    assert _unwrap_cell(MockUnoAny("TRUE"), true_strings, false_strings) is True
+
+
+def test_child_pack_non_contiguous_slices():
+    """Verify that non-contiguous numpy slices pack successfully without zero-copy buffer issues."""
+    np = pytest.importorskip("numpy")
+    from plugin.scripting.payload_codec import child_pack_result
+    
+    arr = np.arange(100, dtype=np.float64).reshape(10, 10)
+    non_contiguous = arr[::2, ::2]  # Step slice creates non-contiguous array
+    
+    wire = child_pack_result(non_contiguous, force="always")
+    assert wire["__wa_payload__"] == "split_grid"
+    assert wire["shape"] == [5, 5]
+
+
+def test_pure_python_pack_speed_regression():
+    """Performance sanity check: 10k float cells should pack in under 15 milliseconds."""
+    import time
+    grid = [[float(i + j) for i in range(100)] for j in range(100)]
+    
+    start = time.perf_counter()
+    wire = host_pack_data(grid, force="always")
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    
+    assert is_split_grid(wire)
+    assert elapsed_ms < 15.0, f"Serialization took too long: {elapsed_ms:.2f}ms"
+
+
