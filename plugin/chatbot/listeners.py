@@ -16,128 +16,35 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Base classes for UNO listeners to reduce boilerplate.
 
-These base classes provide empty `disposing` implementations and standard
-try/except logging blocks around the main event callbacks.
+These classes are now deprecated in favor of ``plugin.framework.uno_listeners`` and
+are kept here as re-exports for backward compatibility.
 """
 
 import logging
-import functools
-import unohelper
-from com.sun.star.awt import XActionListener, XItemListener, XKeyListener, XTextListener, XWindowListener
-from com.sun.star.lang import XEventListener
+from plugin.framework.uno_listeners import (
+    BaseListener,
+    BaseActionListener,
+    BaseItemListener,
+    BaseTextListener,
+    BaseKeyListener,
+    BaseWindowListener,
+    BaseDocumentEventListener,
+    BaseCloseListener,
+    BaseTerminateListener,
+)
 
 log = logging.getLogger(__name__)
 
-
-def _catch_and_log(func):
-    """Decorator to catch and log exceptions in UNO listener callbacks."""
-
-    @functools.wraps(func)
-    def wrapper(self, ev, *args, **kwargs):
-        try:
-            return func(self, ev, *args, **kwargs)
-        except TypeError:
-            log.exception(f"{self.__class__.__name__} TypeError in {func.__name__}")
-        except ValueError:
-            log.exception(f"{self.__class__.__name__} ValueError in {func.__name__}")
-        except Exception:
-            # Base UNO listeners must not leak arbitrary Python exceptions into the C++ bridge.
-            log.exception(f"{self.__class__.__name__} unhandled exception in {func.__name__}")
-
-    return wrapper
+__all__ = [
+    "BaseListener",
+    "BaseActionListener",
+    "BaseItemListener",
+    "BaseTextListener",
+    "BaseKeyListener",
+    "BaseWindowListener",
+    "BaseDocumentEventListener",
+    "BaseCloseListener",
+    "BaseTerminateListener",
+]
 
 
-class BaseListener(unohelper.Base, XEventListener):
-    """Base UNO listener providing empty disposing()."""
-
-    def disposing(self, Source):
-        """Required by XEventListener interface."""
-        pass
-
-
-class BaseActionListener(BaseListener, XActionListener):
-    """Base class for XActionListener that catches and logs exceptions."""
-
-    @_catch_and_log
-    def actionPerformed(self, rEvent):
-        self.on_action_performed(rEvent)
-
-    def on_action_performed(self, rEvent):
-        """Override this method to handle the action event."""
-        pass
-
-
-class BaseItemListener(BaseListener, XItemListener):
-    """Base class for XItemListener that catches and logs exceptions."""
-
-    @_catch_and_log
-    def itemStateChanged(self, rEvent):
-        self.on_item_state_changed(rEvent)
-
-    def on_item_state_changed(self, rEvent):
-        """Override this method to handle the item state change event."""
-        pass
-
-
-class BaseTextListener(BaseListener, XTextListener):
-    """Base class for XTextListener that catches and logs exceptions."""
-
-    @_catch_and_log
-    def textChanged(self, rEvent):
-        self.on_text_changed(rEvent)
-
-    def on_text_changed(self, rEvent):
-        """Override this method to handle the text changed event."""
-        pass
-
-
-class BaseKeyListener(BaseListener, XKeyListener):
-    """Base class for XKeyListener that catches and logs exceptions."""
-
-    @_catch_and_log
-    def keyPressed(self, e):
-        self.on_key_pressed(e)
-
-    @_catch_and_log
-    def keyReleased(self, e):
-        self.on_key_released(e)
-
-    def on_key_pressed(self, e):
-        """Override this method to handle key pressed."""
-        pass
-
-    def on_key_released(self, e):
-        """Override this method to handle key released."""
-        pass
-
-
-class BaseWindowListener(BaseListener, XWindowListener):
-    """Base class for XWindowListener providing empty defaults and catching exceptions."""
-
-    @_catch_and_log
-    def windowResized(self, e):
-        self.on_window_resized(e)
-
-    @_catch_and_log
-    def windowMoved(self, e):
-        self.on_window_moved(e)
-
-    @_catch_and_log
-    def windowShown(self, e):
-        self.on_window_shown(e)
-
-    @_catch_and_log
-    def windowHidden(self, e):
-        self.on_window_hidden(e)
-
-    def on_window_resized(self, rEvent):
-        pass
-
-    def on_window_moved(self, rEvent):
-        pass
-
-    def on_window_shown(self, rEvent):
-        pass
-
-    def on_window_hidden(self, rEvent):
-        pass

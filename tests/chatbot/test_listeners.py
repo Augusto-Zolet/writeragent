@@ -70,7 +70,7 @@ def test_base_listener_disposing():
     # disposing should not raise any exceptions
     listener.disposing(MagicMock())
 
-@patch("plugin.chatbot.listeners.log")
+@patch("plugin.framework.uno_listeners.log")
 def test_base_action_listener_success(mock_log):
     from plugin.chatbot.listeners import BaseActionListener
     class TestActionListener(BaseActionListener):
@@ -83,7 +83,7 @@ def test_base_action_listener_success(mock_log):
     mock_log.error.assert_not_called()
     mock_log.exception.assert_not_called()
 
-@patch("plugin.chatbot.listeners.log")
+@patch("plugin.framework.uno_listeners.log")
 def test_base_action_listener_exceptions(mock_log):
     from plugin.chatbot.listeners import BaseActionListener
     class TypeErrListener(BaseActionListener):
@@ -113,7 +113,7 @@ def test_base_action_listener_exceptions(mock_log):
     args, kwargs = mock_log.exception.call_args
     assert "GenericErrListener unhandled exception in actionPerformed" == args[0]
 
-@patch("plugin.chatbot.listeners.log")
+@patch("plugin.framework.uno_listeners.log")
 def test_base_item_listener_exceptions(mock_log):
     from plugin.chatbot.listeners import BaseItemListener
     class TestItemListener(BaseItemListener):
@@ -126,7 +126,7 @@ def test_base_item_listener_exceptions(mock_log):
     args, kwargs = mock_log.exception.call_args
     assert "TestItemListener unhandled exception in itemStateChanged" == args[0]
 
-@patch("plugin.chatbot.listeners.log")
+@patch("plugin.framework.uno_listeners.log")
 def test_base_text_listener_exceptions(mock_log):
     from plugin.chatbot.listeners import BaseTextListener
     class TestTextListener(BaseTextListener):
@@ -139,7 +139,7 @@ def test_base_text_listener_exceptions(mock_log):
     args, kwargs = mock_log.exception.call_args
     assert "TestTextListener unhandled exception in textChanged" == args[0]
 
-@patch("plugin.chatbot.listeners.log")
+@patch("plugin.framework.uno_listeners.log")
 def test_base_window_listener_exceptions(mock_log):
     from plugin.chatbot.listeners import BaseWindowListener
     class TestWindowListener(BaseWindowListener):

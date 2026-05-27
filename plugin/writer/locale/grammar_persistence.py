@@ -27,15 +27,12 @@ GRAMMAR_DOC_CACHE_UDPROP = "WriterAgentGrammarCache"
 
 
 
-_unohelper: Any = None
-_XDocumentEventListener: Any = None
+from plugin.framework.uno_listeners import BaseDocumentEventListener
+
 _HAVE_UNO_DOC_EVENTS = False
 try:
     import unohelper as _unohelper_impl
     from com.sun.star.document import XDocumentEventListener as _XDocumentEventListener_impl
-
-    _unohelper = _unohelper_impl
-    _XDocumentEventListener = _XDocumentEventListener_impl
     _HAVE_UNO_DOC_EVENTS = True
 except ImportError:
     pass
@@ -152,47 +149,22 @@ def _dispatch_doc_event(outer: "DocumentPersistence", event_name: str) -> None:
         outer._teardown()
 
 
-if _HAVE_UNO_DOC_EVENTS:
-    assert _unohelper is not None
-    assert _XDocumentEventListener is not None
+# XDocumentEventListener extends com.sun.star.lang.XEventListener, so a single
+# class handles both document events (incl. OnUnload) and broadcaster disposal.
+class _GrammarDocumentEventListener(BaseDocumentEventListener):
+    def __init__(self, outer: DocumentPersistence) -> None:
+        super().__init__()
+        self._outer = outer
 
-    # XDocumentEventListener extends com.sun.star.lang.XEventListener, so a single
-    # class handles both document events (incl. OnUnload) and broadcaster disposal.
-    # The UNO interface name is `documentEventOccured`; defining `documentEvent`
-    # would silently no-op on save events.
-    class _GrammarDocumentEventListener(_unohelper.Base, _XDocumentEventListener):  # type: ignore[misc, valid-type]
-        def __init__(self, outer: DocumentPersistence) -> None:
-            super().__init__()
-            self._outer = outer
+    def on_document_event(self, Event: Any) -> None:
+        try:
+            name = getattr(Event, "EventName", "") or ""
+        except Exception:
+            return
+        _dispatch_doc_event(self._outer, name)
 
-        def documentEventOccured(self, Event: Any) -> None:  # noqa: N802, N803  -- UNO IDL signature
-            try:
-                name = getattr(Event, "EventName", "") or ""
-            except Exception:
-                return
-            _dispatch_doc_event(self._outer, name)
-
-        def disposing(self, Source: Any) -> None:  # noqa: N803  -- UNO IDL signature
-            self._outer._teardown()
-
-else:
-
-    # Test/no-UNO stub: mirrors the real class signature so unit tests can exercise
-    # the event dispatch logic (especially the documentEventOccured method name,
-    # which was previously typoed as ``documentEvent`` and silently dropped saves).
-    class _GrammarDocumentEventListener:  # type: ignore[no-redef]
-        def __init__(self, outer: Any) -> None:
-            self._outer = outer
-
-        def documentEventOccured(self, Event: Any) -> None:  # noqa: N802, N803  -- UNO IDL signature
-            try:
-                name = getattr(Event, "EventName", "") or ""
-            except Exception:
-                return
-            _dispatch_doc_event(self._outer, name)
-
-        def disposing(self, Source: Any) -> None:  # noqa: N803  -- UNO IDL signature
-            self._outer._teardown()
+    def on_disposing(self, Source: Any) -> None:
+        self._outer._teardown()
 
 
 class DocumentPersistence(GrammarPersistence):

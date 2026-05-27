@@ -21,6 +21,11 @@ import re
 import tempfile
 from typing import Any, cast
 from plugin.chatbot.listeners import BaseWindowListener
+from plugin.framework.uno_listeners import (
+    BaseDocumentEventListener,
+    BaseCloseListener,
+    BaseTerminateListener,
+)
 
 log = logging.getLogger(__name__)
 
@@ -60,155 +65,67 @@ ASSISTANT_COLOR = 0x1E293B
 
 _EMBEDDING_STARTED: set[int] = set()
 
-if _HAVE_UNO_DOC_EVENTS:
-    assert _unohelper is not None
-    assert _XDocumentEventListener is not None
+class SidebarDocumentEventListener(BaseDocumentEventListener):
+    def __init__(self, listener):
+        super().__init__()
+        self._listener = listener
 
-    class _SidebarDocumentEventListenerImpl(_unohelper.Base, _XDocumentEventListener):
-        def __init__(self, listener):
-            super().__init__()
-            self._listener = listener
-
-        def documentEventOccured(self, Event):
-            pass
-
-        def disposing(self, Source):
-            try:
-                log.info("[RICH-SHUTDOWN] SidebarDocumentEventListener: Host document model is disposing. Cleaning up embedded objects.")
-                self._listener.disposing(Source)
-            except Exception as e:
-                log.info("[RICH-SHUTDOWN] SidebarDocumentEventListener disposing error: %s", e)
-
-    SidebarDocumentEventListener = _SidebarDocumentEventListenerImpl
-else:
-    class _SidebarDocumentEventListenerStub:
-        def __init__(self, listener):
-            self._listener = listener
-
-        def documentEventOccured(self, Event):
-            pass
-
-        def disposing(self, Source):
-            pass
-
-    SidebarDocumentEventListener = _SidebarDocumentEventListenerStub  # type: ignore[assignment, misc]
+    def on_disposing(self, Source):
+        try:
+            log.info("[RICH-SHUTDOWN] SidebarDocumentEventListener: Host document model is disposing. Cleaning up embedded objects.")
+            self._listener.disposing(Source)
+        except Exception as e:
+            log.info("[RICH-SHUTDOWN] SidebarDocumentEventListener disposing error: %s", e)
 
 
 _HAVE_UNO_CLOSE_EVENTS = False
-_XCloseListener: Any = None
 try:
     from com.sun.star.util import XCloseListener as _XCloseListener_impl
-    _XCloseListener = _XCloseListener_impl
     _HAVE_UNO_CLOSE_EVENTS = True
 except ImportError:
     pass
 
-if _HAVE_UNO_CLOSE_EVENTS:
-    assert _unohelper is not None
-    assert _XCloseListener is not None
+class SidebarCloseListener(BaseCloseListener):
+    def __init__(self, listener):
+        super().__init__()
+        self._listener = listener
 
-    class _SidebarCloseListenerImpl(_unohelper.Base, _XCloseListener):
-        def __init__(self, listener):
-            super().__init__()
-            self._listener = listener
+    def on_notify_closing(self, Source):
+        try:
+            log.info("[RICH-SHUTDOWN] SidebarCloseListener: Host frame is closing (notifyClosing). Cleaning up embedded objects.")
+            self._listener._initiate_disposal("notifyClosing")
+        except Exception as e:
+            log.info("[RICH-SHUTDOWN] SidebarCloseListener notifyClosing error: %s", e)
 
-        def queryClosing(self, Source, GetsOwnership):
-            pass
-
-        def notifyClosing(self, Source):
-            try:
-                log.info("[RICH-SHUTDOWN] SidebarCloseListener: Host frame is closing (notifyClosing). Cleaning up embedded objects.")
-                self._listener._initiate_disposal("notifyClosing")
-            except Exception as e:
-                log.info("[RICH-SHUTDOWN] SidebarCloseListener notifyClosing error: %s", e)
-
-        def disposing(self, Source):
-            try:
-                log.info("[RICH-SHUTDOWN] SidebarCloseListener: Host frame is disposing. Cleaning up embedded objects.")
-                self._listener._initiate_disposal("disposing (frame)")
-            except Exception as e:
-                log.info("[RICH-SHUTDOWN] SidebarCloseListener disposing error: %s", e)
-
-    SidebarCloseListener = _SidebarCloseListenerImpl
-else:
-    class _SidebarCloseListenerFallback:
-        def __init__(self, listener):
-            self._listener = listener
-
-        def queryClosing(self, Source, GetsOwnership):
-            pass
-
-        def notifyClosing(self, Source):
-            try:
-                log.info("[RICH-SHUTDOWN] SidebarCloseListener (fallback): Host frame is closing (notifyClosing). Cleaning up embedded objects.")
-                self._listener._initiate_disposal("notifyClosing")
-            except Exception as e:
-                log.info("[RICH-SHUTDOWN] SidebarCloseListener notifyClosing error: %s", e)
-
-        def disposing(self, Source):
-            try:
-                log.info("[RICH-SHUTDOWN] SidebarCloseListener (fallback): Host frame is disposing. Cleaning up embedded objects.")
-                self._listener._initiate_disposal("disposing (frame)")
-            except Exception as e:
-                log.info("[RICH-SHUTDOWN] SidebarCloseListener disposing error: %s", e)
-
-    SidebarCloseListener = _SidebarCloseListenerFallback  # type: ignore[assignment, misc]
+    def on_disposing(self, Source):
+        try:
+            log.info("[RICH-SHUTDOWN] SidebarCloseListener: Host frame is disposing. Cleaning up embedded objects.")
+            self._listener._initiate_disposal("disposing (frame)")
+        except Exception as e:
+            log.info("[RICH-SHUTDOWN] SidebarCloseListener disposing error: %s", e)
 
 
 _HAVE_UNO_TERMINATE = False
-_XTerminateListener: Any = None
 try:
     from com.sun.star.frame import XTerminateListener as _XTerminateListener_type
-    _XTerminateListener = _XTerminateListener_type
     _HAVE_UNO_TERMINATE = True
 except ImportError:
     pass
 
-if _HAVE_UNO_TERMINATE and _unohelper is not None:
-    assert _XTerminateListener is not None
+class SidebarTerminateListener(BaseTerminateListener):
+    """XTerminateListener — fires before VCL teardown on app quit."""
 
-    class _SidebarTerminateListenerImpl(_unohelper.Base, _XTerminateListener):
-        """XTerminateListener — fires before VCL teardown on app quit."""
+    def __init__(self, listener):
+        super().__init__()
+        self._listener = listener
 
-        def __init__(self, listener):
-            super().__init__()
-            self._listener = listener
-
-        def queryTermination(self, Event):
-            try:
-                if self._listener and not self._listener._disposed:
-                    log.info("[RICH-SHUTDOWN] TerminateListener.queryTermination — disposing embedded objects (peers still alive)")
-                    self._listener._initiate_disposal("queryTermination")
-            except Exception as e:
-                log.info("[RICH-SHUTDOWN] TerminateListener.queryTermination error: %s", e)
-
-        def notifyTermination(self, Event):
-            pass
-
-        def disposing(self, Source):
-            pass
-
-    SidebarTerminateListener = _SidebarTerminateListenerImpl
-else:
-    class _SidebarTerminateListenerStub:
-        def __init__(self, listener):
-            self._listener = listener
-
-        def queryTermination(self, Event):
-            try:
-                if self._listener and not self._listener._disposed:
-                    log.info("[RICH-SHUTDOWN] TerminateListener.queryTermination — disposing embedded objects (peers still alive)")
-                    self._listener._initiate_disposal("queryTermination")
-            except Exception as e:
-                log.info("[RICH-SHUTDOWN] TerminateListener.queryTermination error: %s", e)
-
-        def notifyTermination(self, Event):
-            pass
-
-        def disposing(self, Source):
-            pass
-
-    SidebarTerminateListener = _SidebarTerminateListenerStub  # type: ignore[assignment, misc]
+    def on_query_termination(self, Event):
+        try:
+            if self._listener and not self._listener._disposed:
+                log.info("[RICH-SHUTDOWN] TerminateListener.queryTermination — disposing embedded objects (peers still alive)")
+                self._listener._initiate_disposal("queryTermination")
+        except Exception as e:
+            log.info("[RICH-SHUTDOWN] TerminateListener.queryTermination error: %s", e)
 
 
 class EmbeddedWriterListener(BaseWindowListener):
