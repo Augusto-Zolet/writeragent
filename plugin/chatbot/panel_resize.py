@@ -39,29 +39,34 @@ _MIN_WIDTHS = {
     "aspect_ratio_selector": 80,
 }
 
+# Fields that are stretched horizontally on every relayout to fill the current panel width.
+# Everything else keeps its XDL snapshot width (subject only to the final right-edge safety clamp).
+_STRETCH_CONTROLS = (
+    "response",
+    "query",
+    "status",
+    "model_selector",
+    "image_model_selector",
+    "aspect_ratio_selector",
+)
+
 
 class _PanelResizeListener(BaseWindowListener):
-    """Adjusts panel layout on resize (vertical fill + safety).
+    """Adjusts panel layout on resize.
 
-    Horizontal width is now driven almost entirely by ChatToolPanel.getHeightForWidth
-    (single source of truth + deck_w). This listener only does:
-    - Vertical anchoring of the bottom control cluster.
-    - Stretching a few "main" fields (response, query, model selectors, status) to fill.
-    - Lightweight right-edge clamps on everything so no child can create an H scrollbar.
+    Responsibilities (kept deliberately minimal after the 2026-05 simplification):
+    - Vertical anchoring of the bottom control cluster toward the window bottom.
+    - Stretching the main content fields (response, query, status, model selectors) to fill available width.
+    - A final right-edge clamp on all controls as a safety net against H scrollbars.
 
-    The old complex root-width sync, parent/deck divergence heuristics, min_client_w forcing,
-    and heavy fluid-from-snapshot math have been removed (they were the main source of
-    the persistent horizontal scrollbar and feedback loops with huge startup deck_hints).
+    Horizontal sizing policy lives exclusively in ChatToolPanel.getHeightForWidth.
+    The listener no longer receives or uses parent/deck information.
     """
 
-    def __init__(self, controls, parent_window=None, deck_w_getter=None):
+    def __init__(self, controls):
         self._c = controls  # dict name -> control or None
         self._initial = None  # captured from XDL-loaded pixel positions
         self._in_relayout = False
-        # Sidebar content area; root window width must match this (not LO's transient hints).
-        self._parent_window = parent_window
-        # Callable -> last deck hint from getHeightForWidth (with parent: clamp vs fill).
-        self._deck_w_getter = deck_w_getter
         self._root_window = None  # Set by owner when attaching, for self-removal on dispose
 
     def disposing(self, Source):
@@ -189,8 +194,8 @@ class _PanelResizeListener(BaseWindowListener):
 
         # Simple stretch policy (horizontal width policy lives in getHeightForWidth).
         # Only these fields are stretched to fill; everything else stays at XDL snapshot
-        # width and is only right-clamped if it would overflow (belt + suspenders).
-        stretch = ("response", "query", "status", "model_selector", "image_model_selector", "aspect_ratio_selector")
+        # width and is only right-clamped if it would overflow.
+        stretch = _STRETCH_CONTROLS
 
         top_of_bottom = h
         for name, ctrl in self._c.items():

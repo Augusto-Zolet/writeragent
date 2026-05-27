@@ -6,7 +6,6 @@ from com.sun.star.uno import RuntimeException, Exception as UnoException
 
 # Common exceptions for UI components that may be disposed during layout/refresh
 UNO_DISPOSED_EXCEPTIONS = (DisposedException, RuntimeException, UnoException)
-from typing import Any, Callable
 
 from plugin.chatbot.dialogs import get_optional as get_optional_control, get_checkbox_state, get_control_text, set_control_text, translate_dialog
 from plugin.chatbot.panel_resize import _PanelResizeListener
@@ -187,19 +186,8 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):
 
     try:
         log.debug("Attaching _PanelResizeListener to root_window; controls=%s" % (sorted(k for k, v in controls.items() if v)))
-        _parent = None
         _tp = getattr(self, "toolpanel", None)
-        _deck_getter: Callable[[], Any | None] | None
-        if _tp is not None:
-            _parent = _tp.parent_window
-
-            def _last_deck_w():
-                return getattr(_tp, "_last_deck_w", None)
-
-            _deck_getter = _last_deck_w
-        else:
-            _deck_getter = None
-        _resize = _PanelResizeListener(controls, parent_window=_parent, deck_w_getter=_deck_getter)
+        _resize = _PanelResizeListener(controls)
         _resize._root_window = root_window  # for defensive self-removal in disposing()
         root_window.addWindowListener(_resize)
         if _tp is not None:
@@ -207,7 +195,7 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):
         _resize.relayout_now(root_window)
 
         # Lightweight layout sanity log (always emitted at DEBUG after first wiring).
-        # Helps diagnose "natural width > sidebar" without needing the verbose resize flag.
+        # Helps catch cases where child controls would overflow the allocated panel width.
         try:
             rw = root_window.getPosSize().Width
             max_right = 0

@@ -159,8 +159,6 @@ class ChatToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
         self.parent_window = parent_window
         # Set by panel wiring after _PanelResizeListener is created.
         self.resize_listener = None
-        # Last deck hint from getHeightForWidth; used with parent to detect intrinsic inflation.
-        self._last_deck_w = None
 
     def getWindow(self):
         return self.Window
@@ -189,7 +187,6 @@ class ChatToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
         parent_h = parent_rect.Height
         h = parent_h if parent_h > 0 else 400
         deck_w = width
-        self._last_deck_w = deck_w
 
         # Read current actual size *before* we decide.
         try:
