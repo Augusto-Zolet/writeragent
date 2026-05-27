@@ -89,7 +89,7 @@ To completely break this feedback loop and prevent horizontal scrollbars, we alw
 | **Relayout after toggling “Use Image model”** | Visibility swap changes vertical stack | **Needed** so the visible model row gets correct widths. |
 | **Wiring split: `panel_wiring.py`** | Smaller `panel_factory.py` | Organizational; behavior unchanged. |
 
-Debugging relied on `writeragent_debug.log` lines: `getHeightForWidth deck_hint=...`, `_relayout: sync root ...`, `_relayout fluid widths=...`, `_capture_initial ctrl_widths=...`.
+Debugging relies on `writeragent_debug.log` lines: `getHeightForWidth deck_hint=...`, the `layout_sanity: root_w=... max_child_right=...` line (emitted once after wiring), and the remaining `_relayout` / `_capture_initial` messages (now much quieter). The old `sync root` and `fluid widths` messages were removed in the 2026-05 simplification.
 
 ---
 
@@ -98,7 +98,7 @@ Debugging relied on `writeragent_debug.log` lines: `getHeightForWidth deck_hint=
 | File | Role |
 |------|------|
 | `extension/WriterAgentDialogs/ChatPanelDialog.xdl` | Control definitions; baseline Map AppFont layout |
-| `plugin/chatbot/panel_resize.py` | `_PanelResizeListener`, `_MIN_WIDTHS`, `_relayout` / `relayout_now` |
+| `plugin/chatbot/panel_resize.py` | `_PanelResizeListener` (now only vertical anchoring + simple stretch + right-edge safety clamps). The old root width sync, `min_client_w`, and complex fluid math were deleted in the 2026-05 simplification. |
 | `plugin/chatbot/panel_factory.py` | `ChatToolPanel`, `getHeightForWidth`, `getMinimalWidth`, image-mode relayout hook |
 | `plugin/chatbot/panel_wiring.py` | `_wireControls`, resize listener construction, Send width measurement |
 | `plugin/chatbot/panel.py` | `QueryTextListener` (Send label + fixed width) |
@@ -112,22 +112,31 @@ Some projects drop XDL and place every control with raw pixel math. That can wor
 
 ---
 
-## Future work and simplification ideas
+## 2026-05 Major Simplification (H Scrollbar Fix)
 
-1. **Sizing simplification accomplished**  
-   We successfully simplified the layout by eliminating the complex and bug-prone `_DIVERGENCE_PX` parent/deck divergence heuristic and replacing it with a direct size-to-deck approach.
+The previous approach (heavy bidirectional width sync between `getHeightForWidth`, `_relayout` root sync, peer walking, `is_docked` heuristics in two places, `min_client_w` forcing from the Clear button position, and per-control fluid math derived from an XDL snapshot) was the primary source of the persistent horizontal scrollbar.
 
-2. **Reduce special cases**  
-   If LibreOffice ever exposes a single authoritative “sidebar content width,” much of the remaining parent/deck fallback logic could be deleted. Until then, the direct deck sizing with parent fallback remains the standard.
+**What was removed / heavily simplified:**
+- The entire root-window width sync block inside `_relayout` (parent/deck/visible_pw/`_SAFETY_MARGIN`/ `is_docked` / `target_w` / `setPosSize` for the root, plus the `min_w` forcing that only applied in the non-docked path).
+- Most of the complex horizontal fluid logic (the `fluid_controls` tuple, `avail`/`fixed_margin` calculations, special `backend_indicator` right-alignment, multiple overflow guards, and the "clamp snapshot widths up" dance in `_capture_initial`).
+- The `min_client_w` reconstruction and its use to widen the panel beyond what the deck allocated.
+- Duplicated "docked detection" heuristics between `getHeightForWidth` and the listener.
+- Heavy reliance on the initial XDL snapshot for deciding horizontal widths (the snapshot is now used almost only for vertical bottom-cluster anchoring + safe Y/height baselines).
 
-4. **Declarative fluid list**  
-   `fluid_controls` and `_MIN_WIDTHS` could be driven from one table (name → `{fluid, min_w}`) to avoid naming drift when XDL gains new fields.
+**New simpler model (single source of truth):**
+- `ChatToolPanel.getHeightForWidth` owns panel width. It receives the authoritative `deck_w` from the DeckLayouter. It now has a targeted guard: if the hint is huge (>500, the classic startup frame-width query) **but the current actual PanelWindow is modest (<450)**, clamp instead of widening. This directly kills the "set to ~1160 px → permanent scrollbar" feedback loop.
+- The resize listener (`_PanelResizeListener`) now does only three things:
+  1. Vertical bottom-cluster anchoring + response height fill (the useful UX).
+  2. Simple stretch of a short list of main fields to `w - ox - 4`.
+  3. A single final right-edge clamp on every control (`<= w-4`) as a safety net.
+- XDL baseline widths for the stretchy controls (response, query, model selectors, labels, status) were reduced from 172 to 142 on the 180-wide root. This lowers the dialog's intrinsic "natural" size without hurting the runtime fill behavior.
+- A lightweight `layout_sanity` debug line is emitted once after wiring (root_w vs max child right edge) so future regressions are obvious even without the verbose resize flag.
 
-5. **Tests**  
-   UNO sidebar layout cannot be unit-tested outside LibreOffice. A **headless or screenshot harness** would be heavy; documenting manual checks (resize width/height, toggle image mode, Record/Send toggle, narrow sidebar) remains the practical approach.
+The button fixed-width measurement (Send/Record/Stop/Accept + Stop/Clear/Reject) was kept because it is still the only reliable way to stop the ~22 px stepwise widening when the label changes.
 
-6. **docs/dynamic-layout.md vs AGENTS.md**  
-   Keep **AGENTS.md** as the short “what exists” pointer; this file is the **deep dive** for layout debugging and future refactors.
+Result: far less code, far fewer feedback surfaces. The H scrollbar is now mostly gone in normal docked use (confirmed working well enough in practice).
+
+If the scrollbar still appears when the sidebar is *wider* than the Clear button row + a few pixels, the scrollbar is on an sfx2 ancestor container (Deck / TabControl / splitter), not our PanelWindow. In that case the practical options are (a) raise `getMinimalWidth()` or (b) redesign the bottom button/checkbox row for narrower sidebars.
 
 ---
 
@@ -151,19 +160,12 @@ Some projects drop XDL and place every control with raw pixel math. That can wor
 
 ---
 
-## Startup Docked-State Sizing & Horizontal Scrollbar (May 2026 Refactor)
+## Residual / Future Work (post-2026-05 simplification)
 
-### What We Learned
-1. **Startup Frame Size Query**: On LibreOffice boot/load with a docked sidebar, the VCL layout engine queries `getHeightForWidth` with a huge `deck_hint` matching the main frame width (e.g. `1172px`).
-2. **State Misidentification**: Because `1172 > 450`, this initial query was misidentified as the detached (floating) state, setting the root panel window's size to the full width (`1160px`).
-3. **Layout Overrule Feedback Loop**: Once the sidebar docked column actually aligned and split the screen to its visible size (e.g. `230px`), VCL resized our panel window. However, this resize triggered `on_window_resized` which reread `deck_hint = 1172px` and force-resized the panel back to `1160px`, resulting in a permanent horizontal scrollbar.
-4. **Docked Geometry Invariant**: We resolved this by introducing a reliable docked detection check in `_relayout`:
-   - In docked mode, the actual panel width `w` (resized by VCL layout) is significantly smaller than the main frame's visible width `visible_pw`.
-   - In detached/floating mode, `w` matches the floating window width (`visible_pw - 12`).
-   - Checking `w < visible_pw - 80` reliably identifies the docked state, letting us bypass force-resizing and respect VCL's column bounds exactly.
+The aggressive removal of the bidirectional width sync and snapshot-derived fluid math eliminated the main causes of the H scrollbar (confirmed working well enough in practice).
 
-### What to Try Next (If Scrollbar Persists)
-If the horizontal scrollbar remains visible under specific environments or themes, investigate these next:
-1. **Force Auto-HScroll Removal in Window Style**: Check if VCL allows removing horizontal scrollbar properties directly on the panel peer via `win.getPeer().setProperty("HScroll", False)` or setting VCL native window style flags.
-2. **Trace the VCL Parent Sibling Sizing**: The scrollbar might not be on our panel window, but on a parent VCL container (like `sfx2`'s `Deck` or `TabControl`). Logging the entire VCL window peer hierarchy (using `parent.getPeer()` walking) can isolate the offending window.
-3. **Hard Clamping the Maximum Docked Width**: If VCL continues to report wide sizes, we can strictly clamp `eff_w = min(deck_w, 350)` inside `getHeightForWidth` when docked to guarantee the panel window physically cannot exceed standard docked widths.
+What remains:
+- If a scrollbar still appears when the sidebar is *wider* than the Clear button row + a few pixels, the scrollbar is on an sfx2 ancestor container (Deck / TabControl / splitter), not our PanelWindow. In that case the only reliable fixes are raising `getMinimalWidth()` or redesigning the bottom button/checkbox row for narrower sidebars.
+- The parent/deck/`_last_deck_w` plumbing is still wired through (low risk, used only for logging and the deck getter). It can be cleaned up in a later pass if the simplified model proves stable.
+- A declarative "stretch list + min widths" table (instead of the hardcoded `stretch` tuple + `_MIN_WIDTHS`) would be a small polish item.
+- UNO layout still has no good unit tests; the manual checklist below + the `layout_sanity` debug line are the practical verification tools.

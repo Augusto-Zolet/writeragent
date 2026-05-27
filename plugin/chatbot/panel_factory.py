@@ -169,10 +169,18 @@ class ChatToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
         return self.PanelWindow
 
     def getHeightForWidth(self, nWidth: int):  # pyright: ignore[reportIncompatibleMethodOverride]
+        """Return LayoutSize and ensure our PanelWindow width matches the allocated sidebar column.
+
+        This is now the *single source of truth* for the panel's horizontal size.
+        The old bidirectional root-sync dance in _PanelResizeListener has been removed.
+
+        Key fix for the persistent H scrollbar:
+        - On startup (and some resizes) LO passes a huge deck_hint (main frame width, ~1170px)
+          even when the sidebar is docked narrow.
+        - If our current actual width is modest (<450) but the hint is huge, we clamp
+          instead of widening the root to ~1160px and creating a permanent scrollbar.
+        """
         width = nWidth
-        # LayoutSize(Minimum, Maximum, Preferred) — IDL field order.
-        # Maximum=-1 means unbounded; the sidebar gives all remaining height
-        # to panels with unbounded max (see DeckLayouter.cxx DistributeHeights).
         if not self.parent_window or not self.PanelWindow or width <= 0:
             return uno.createUnoStruct("com.sun.star.ui.LayoutSize", 100, -1, 400)
 
@@ -182,41 +190,34 @@ class ChatToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
         h = parent_h if parent_h > 0 else 400
         deck_w = width
         self._last_deck_w = deck_w
-        # 1. Docked State (deck_w <= 450): nWidth / deck_w is the exact, correct visible width
-        # of the docked column. Sizing the panel exactly to deck_w ensures a perfect scrollbar-free fit.
-        if deck_w > 0 and deck_w <= 450:
-            eff_w = deck_w
-        else:
-            # 2. Detached/Floating State (deck_w > 450): Sfx2/LO passes a huge deck_hint (e.g. 1109px).
-            # Walk up parent peer hierarchy to get the actual visible OS floating window width.
-            visible_parent_w = parent_w
-            try:
-                peer = self.parent_window.getPeer()
-                if peer:
-                    parent_peer = peer.getParent()
-                    if parent_peer:
-                        pr = parent_peer.getPosSize()
-                        if pr.Width > 0:
-                            visible_parent_w = pr.Width
-            except Exception:
-                pass
-            if visible_parent_w > 0 and deck_w > 0:
-                eff_w = min(visible_parent_w, deck_w)
-            elif deck_w > 0:
-                eff_w = deck_w
-            elif visible_parent_w > 0:
-                eff_w = visible_parent_w
-            else:
-                eff_w = 180
 
+        # Read current actual size *before* we decide.
         try:
             before = self.PanelWindow.getPosSize()
+            current_w = before.Width if before else 0
         except Exception as e:
             if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
                 log.debug("getHeightForWidth: PanelWindow likely disposed: %s", e)
             before = None
+            current_w = 0
 
-        log.debug("getHeightForWidth deck_hint=%s parent=%sx%s eff_W=%s root_before=%s" % (deck_w, parent_w, parent_h, eff_w, "%sx%s" % (before.Width, before.Height) if before else None))
+        # Simple policy:
+        # - Prefer the deck hint when it looks like a real column width.
+        # - If deck hint is huge (>500, typical of startup "frame width" queries) but we are
+        #   currently narrow (<450), this is the classic docked-startup mis-hint.
+        #   Clamp to something that will actually fit the docked column.
+        if deck_w > 0:
+            if deck_w > 500 and 0 < current_w < 450:
+                # Startup huge-hint while actually docked narrow → clamp hard.
+                eff_w = min(deck_w, parent_w if parent_w > 0 else 380, 420)
+            else:
+                eff_w = deck_w
+        elif parent_w > 0:
+            eff_w = parent_w
+        else:
+            eff_w = 220
+
+        log.debug("getHeightForWidth deck_hint=%s parent=%sx%s current_root=%s eff_W=%s" % (deck_w, parent_w, parent_h, "%sx%s" % (before.Width, before.Height) if before else None, eff_w))
         try:
             self.PanelWindow.setPosSize(0, 0, eff_w, h, 15)
             after = self.PanelWindow.getPosSize()

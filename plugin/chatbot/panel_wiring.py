@@ -205,6 +205,24 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):
         if _tp is not None:
             _tp.resize_listener = _resize
         _resize.relayout_now(root_window)
+
+        # Lightweight layout sanity log (always emitted at DEBUG after first wiring).
+        # Helps diagnose "natural width > sidebar" without needing the verbose resize flag.
+        try:
+            rw = root_window.getPosSize().Width
+            max_right = 0
+            for nm in ("clear", "send", "stop", "model_selector", "query", "response"):
+                c = controls.get(nm)
+                if c:
+                    try:
+                        pr = c.getPosSize()
+                        max_right = max(max_right, pr.X + pr.Width)
+                    except Exception:
+                        pass
+            log.debug("layout_sanity: root_w=%d max_child_right=%d overflow=%s" % (rw, max_right, "YES" if max_right > rw - 2 else "no"))
+        except Exception:
+            pass
+
         # Stop +22px/windowResized loop when Record <-> Send (see writeragent_debug.log).
         if controls["send"] and query_text_listener is not None:
             try:

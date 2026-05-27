@@ -41,8 +41,18 @@ _MIN_WIDTHS = {
 
 
 class _PanelResizeListener(BaseWindowListener):
-    """Adjusts panel layout on resize. Reads control sizes/gaps from the XDL;
-    only the response area height changes to fill available space."""
+    """Adjusts panel layout on resize (vertical fill + safety).
+
+    Horizontal width is now driven almost entirely by ChatToolPanel.getHeightForWidth
+    (single source of truth + deck_w). This listener only does:
+    - Vertical anchoring of the bottom control cluster.
+    - Stretching a few "main" fields (response, query, model selectors, status) to fill.
+    - Lightweight right-edge clamps on everything so no child can create an H scrollbar.
+
+    The old complex root-width sync, parent/deck divergence heuristics, min_client_w forcing,
+    and heavy fluid-from-snapshot math have been removed (they were the main source of
+    the persistent horizontal scrollbar and feedback loops with huge startup deck_hints).
+    """
 
     def __init__(self, controls, parent_window=None, deck_w_getter=None):
         self._c = controls  # dict name -> control or None
@@ -90,48 +100,34 @@ class _PanelResizeListener(BaseWindowListener):
         self.relayout_now(rEvent.Source)
 
     def _capture_initial(self, win):
-        """Snapshot XDL-loaded pixel positions/sizes of every control."""
+        """Snapshot XDL-loaded positions (primarily Y/height for vertical anchoring).
+
+        Horizontal widths are no longer derived from this snapshot for stretching or
+        "min client width" forcing — those were major contributors to the H scrollbar.
+        We still snapshot for vertical cluster math and as a safe baseline for Y/oh.
+        A light min-width floor is kept only for combos (to keep the dropdown glyph visible
+        on first narrow GTK paints).
+        """
         r = win.getPosSize()
         if r.Width <= 0 or r.Height <= 0:
             return
         _resize_debug("_capture_initial: starting snapshot for win W=%d H=%d" % (r.Width, r.Height))
-        # Reconstruct the true default window width from the loaded XDL control width (172 units)
-        # to bypass any pre-resizing of the root window (180 units default).
-        win_w = r.Width
-        base_ctrl = self._c.get("response") or self._c.get("query") or self._c.get("model_selector")
-        if base_ctrl:
-            try:
-                base_w = base_ctrl.getPosSize().Width
-                if base_w > 0:
-                    win_w = int(base_w * 180 / 172)
-            except Exception:
-                pass
-        # Capture the minimum width required to fit the Clear button (plus a fixed margin) without shrinking
-        min_client_w = int(win_w * 164 / 180)
-        clear_ctrl = self._c.get("clear")
-        if clear_ctrl:
-            try:
-                cr = clear_ctrl.getPosSize()
-                if cr.Width > 0:
-                    min_client_w = cr.X + cr.Width + 6
-            except Exception:
-                pass
-        info = {"win_w": win_w, "win_h": r.Height, "ctrls": {}, "min_w": min_client_w}
+
+        info = {"win_h": r.Height, "ctrls": {}}
         resp = self._c.get("response")
         if resp:
             rr = resp.getPosSize()
             info["resp_bottom"] = rr.Y + rr.Height
+
         bottom_top = None
         bottom_bottom = None
         for name, ctrl in self._c.items():
             if ctrl:
                 cr = ctrl.getPosSize()
-                # Guard against layout glitches where GTK hands us ultra‑narrow
-                # widths on first snapshot: clamp to a small but sane minimum
-                # so future relayouts have reasonable baselines.
+                # Light floor only for controls whose dropdown arrow must stay visible.
                 min_w = _MIN_WIDTHS.get(name)
                 cw = cr.Width
-                if min_w is not None and cw < min_w:
+                if min_w is not None and cw < min_w and name in ("model_selector", "image_model_selector", "aspect_ratio_selector"):
                     cw = min_w
                 info["ctrls"][name] = (cr.X, cr.Y, cw, cr.Height)
                 if "resp_bottom" in info and cr.Y >= info["resp_bottom"]:
@@ -147,20 +143,12 @@ class _PanelResizeListener(BaseWindowListener):
                 info["bottom_bottom"] = bottom_bottom
                 info["gap_below_response"] = max(0, bottom_top - info["resp_bottom"])
             else:
-                # Fallback: no controls below response; keep a small gap.
                 info["bottom_top"] = cast("int", info["resp_bottom"])
                 info["bottom_bottom"] = cast("int", info["resp_bottom"])
                 info["gap_below_response"] = 2
 
-        _resize_debug("_capture_initial: win=(%d,%d) resp_bottom=%s bottom_top=%s gap=%s" % (info["win_w"], info["win_h"], str(info.get("resp_bottom")), str(info.get("bottom_top")), str(info.get("gap_below_response"))))
-        # Lightweight per-control width summary for debugging GTK issues.
-        try:
-            summary_names = ("response", "query", "send", "clear", "model_selector")
-            width_summary = {n: info["ctrls"][n][2] for n in summary_names if n in info["ctrls"]}
-            _resize_debug("_capture_initial ctrl_widths=%s" % width_summary)
-        except Exception:
-            # Logging must never break layout; ignore any issues here.
-            pass
+        _resize_debug("_capture_initial: win_h=%d resp_bottom=%s bottom_top=%s gap=%s" % (
+            info["win_h"], str(info.get("resp_bottom")), str(info.get("bottom_top")), str(info.get("gap_below_response"))))
         self._initial = info
 
     def _relayout(self, win):
@@ -178,73 +166,8 @@ class _PanelResizeListener(BaseWindowListener):
 
         initial = cast("dict[str, Any]", self._initial)
 
-        # Match getHeightForWidth: use min(pw, deck) as the target width if available.
-        # This breaks layout feedback loops and prevents horizontal scrollbars from appearing.
-        if self._parent_window:
-            try:
-                pr = self._parent_window.getPosSize()
-                pw = pr.Width
-                deck = None
-                if self._deck_w_getter:
-                    try:
-                        deck = self._deck_w_getter()
-                    except Exception:
-                        deck = None
+        _resize_debug("_relayout: win W=%d H=%d (have_initial=True)" % (w, h))
 
-                # Get the actual visible OS window width by walking up to the parent peer.
-                # This bypasses the LibreOffice bug where the deck window is not resized in detached mode.
-                visible_pw = pw
-                try:
-                    peer = self._parent_window.getPeer()
-                    if peer:
-                        parent_peer = peer.getParent()
-                        if parent_peer:
-                            v_pr = parent_peer.getPosSize()
-                            if v_pr.Width > 0:
-                                visible_pw = v_pr.Width
-                except Exception:
-                    pass
-
-                _SAFETY_MARGIN = 12
-                # Distinguish docked vs detached states
-                is_docked = (deck is not None and deck > 0 and deck <= 450)
-                if not is_docked and visible_pw > 0:
-                    # In docked mode, the actual window width w (sized by VCL layout) is significantly
-                    # smaller than the full LO frame width (visible_pw).
-                    # In detached mode, w is resized to match the floating window width (visible_pw - 12).
-                    if w < visible_pw - 80:
-                        is_docked = True
-
-                target_w = 0
-                if is_docked:
-                    # In docked mode, the deck width is exactly the correct width.
-                    # Do not resize the root window win here, keep w = deck (already set by getHeightForWidth).
-                    # This ensures perfect fit without any safety margins or min_w overrides.
-                    if deck is not None:
-                        target_w = deck
-                else:
-                    if deck is not None and deck > 0:
-                        target_w = min(visible_pw, deck) - _SAFETY_MARGIN
-                    else:
-                        target_w = visible_pw - _SAFETY_MARGIN
-
-                    # Ensure target_w is at least the minimum width required to fit the controls (like clear button) without shrinking
-                    min_w = initial.get("min_w", 0)
-                    if min_w > 0:
-                        target_w = max(target_w, min_w)
-
-                if not is_docked and target_w > 0 and abs(w - target_w) > 1:
-                    _resize_debug("_relayout: sync root W %d -> target W %d (parent=%s deck=%s)" % (w, target_w, pw, deck))
-                    win.setPosSize(0, 0, target_w, h, 15)
-                    r = win.getPosSize()
-                    w, h = r.Width, r.Height
-            except Exception as e:
-                _resize_debug("_relayout: parent sync skipped: %s" % e)
-
-        _resize_debug("_relayout: win W=%d H=%d (have_initial=%s)" % (w, h, bool(self._initial)))
-        fluid_debug = {}
-
-        cast("int", initial["win_w"])
         ih = cast("int", initial["win_h"])
         resp_bottom = int(initial.get("resp_bottom", 0))
         gap_below_response = int(initial.get("gap_below_response", 2))
@@ -259,20 +182,17 @@ class _PanelResizeListener(BaseWindowListener):
         bottom_top_new = None
         if bottom_top_initial is not None and bottom_bottom_initial is not None:
             cluster_height = bottom_bottom_initial - bottom_top_initial
-            # Keep a small fixed margin from the true bottom so controls are visually "at the bottom".
             bottom_margin = 10
             candidate = h - bottom_margin - cluster_height
-            # Never push the bottom controls above the original gap below the response.
             min_from_gap = resp_bottom + gap_below_response
             bottom_top_new = max(min_from_gap, candidate)
 
-        # Use anchoring/filling instead of scaling ratios to prevent feedback loops.
-        # Controls in fluid_controls will stretch to fill available width with a
-        # small fixed right margin; buttons and labels stay fixed size and
-        # anchored left.
-        fluid_controls = ("response", "query", "model_selector", "image_model_selector", "status", "aspect_ratio_selector")
+        # Simple stretch policy (horizontal width policy lives in getHeightForWidth).
+        # Only these fields are stretched to fill; everything else stays at XDL snapshot
+        # width and is only right-clamped if it would overflow (belt + suspenders).
+        stretch = ("response", "query", "status", "model_selector", "image_model_selector", "aspect_ratio_selector")
 
-        top_of_bottom = h  # will track highest new_y (smallest Y) below response
+        top_of_bottom = h
         for name, ctrl in self._c.items():
             if not ctrl or name == "response":
                 continue
@@ -281,92 +201,45 @@ class _PanelResizeListener(BaseWindowListener):
                 continue
             ox, oy, ow, oh = orig
 
-            fixed_margin = 6
-            avail = w - ox - fixed_margin
-            if name in fluid_controls:
-                # Fill space to a fixed right margin so GTK layout quirks or
-                # a bad initial snapshot cannot permanently shrink widths.
+            if name in stretch:
                 new_x = ox
-                new_w = max(10, avail)
-            elif name == "backend_indicator":
-                # Fixed size, but anchored to the calculated right edge of the response field.
-                # The response field uses: max(10, w - response_ox - fixed_margin).
-                # We align the right side of the indicator to that same point so it never overflows.
-                new_w = ow
-                resp_orig = initial["ctrls"].get("response")
-                if resp_orig:
-                    resp_ox = resp_orig[0]
-                    resp_avail = w - resp_ox - fixed_margin
-                    resp_right_edge = resp_ox + max(10, resp_avail)
-                    new_x = resp_right_edge - new_w
-                else:
-                    new_x = w - new_w - fixed_margin
-                if new_x < ox:  # Don't let it overlap controls to its left
-                    new_x = ox
+                new_w = max(_MIN_WIDTHS.get(name, 40), w - ox - 4)
             else:
-                # Fixed size, anchored left
+                # Buttons, labels, checkboxes, backend_indicator, etc. — keep XDL width, left-anchored.
                 new_x = ox
                 new_w = ow
 
-            # Never let controls collapse below a reasonable minimum width;
-            # this counteracts GTK cases where they become ~10px wide.
-            # For fluid controls, never exceed horizontal space (avail).
-            min_w = _MIN_WIDTHS.get(name)
-            if min_w is not None and new_w < min_w:
-                if name in fluid_controls:
-                    new_w = max(new_w, min(min_w, max(10, avail)))
-                else:
-                    new_w = min_w
-
-            # Prevent any control from overflowing the right edge of the window,
-            # which would trigger LibreOffice to show a horizontal scrollbar.
-            if new_x + new_w > w - fixed_margin:
-                new_w = max(10, w - new_x - fixed_margin)
-            if name in fluid_controls:
-                fluid_debug[name] = new_w
+            # Final safety: no control may extend past the current window right edge.
+            # This is the only remaining "prevent H scrollbar" clamp.
+            if new_x + new_w > w - 4:
+                new_w = max(20, w - new_x - 4)
 
             if oy >= resp_bottom:
-                # Part of the bottom control group: keep relative spacing but move group toward bottom.
                 if bottom_top_new is not None and bottom_top_initial is not None:
                     delta = bottom_top_new - bottom_top_initial
                     new_y = oy + delta
                 else:
-                    # Fallback: preserve distance from bottom edge (original behavior).
                     new_y = h - (ih - oy)
                 cur = ctrl.getPosSize()
                 if cur.X != new_x or cur.Y != new_y or cur.Width != new_w or cur.Height != oh:
                     ctrl.setPosSize(new_x, new_y, new_w, oh, 15)
                 top_of_bottom = min(top_of_bottom, new_y)
             else:
-                # Above response: stay anchored to top
                 cur = ctrl.getPosSize()
                 if cur.X != new_x or cur.Y != oy or cur.Width != new_w or cur.Height != oh:
                     ctrl.setPosSize(new_x, oy, new_w, oh, 15)
 
-        if fluid_debug:
-            _resize_debug("_relayout fluid widths: %s" % fluid_debug)
-
-        # Second pass: stretch response area to fill remaining vertical gap
+        # Second pass: stretch response vertically (and a simple width fill for safety).
         resp_orig = initial["ctrls"].get("response")
         resp_ctrl = self._c.get("response")
         if resp_orig and resp_ctrl:
             rx, ry, rw, rh = resp_orig
-            gap = gap_below_response
-            if gap < 0:
-                gap = 2
+            gap = gap_below_response if gap_below_response >= 0 else 2
             new_rh = max(30, top_of_bottom - gap - ry)
 
-            # Fill width to right margin (same avail cap as other fluid controls)
-            fixed_margin = 6
-            resp_avail = w - rx - fixed_margin
-            new_rw = max(10, resp_avail)
-            min_rw = _MIN_WIDTHS.get("response")
-            if min_rw is not None and new_rw < min_rw:
-                new_rw = max(new_rw, min(min_rw, max(10, resp_avail)))
-
-            # Prevent overflow on response control
-            if rx + new_rw > w - fixed_margin:
-                new_rw = max(10, w - rx - fixed_margin)
+            new_rw = max(_MIN_WIDTHS.get("response", 40), w - rx - 4)
+            if rx + new_rw > w - 4:
+                new_rw = max(20, w - rx - 4)
 
             cur = resp_ctrl.getPosSize()
             if cur.X != rx or cur.Y != ry or cur.Width != new_rw or cur.Height != new_rh:
