@@ -1625,14 +1625,16 @@ def evaluate_python_code(
         timeout_seconds (`int`, *optional*, defaults to `MAX_EXECUTION_TIME_SECONDS`):
             Maximum time in seconds allowed for code execution. Set to `None` to disable timeout.
     """
-    try:
-        expression = ast.parse(code)
-    except SyntaxError as e:
-        raise InterpreterError(
-            f"Code parsing failed on line {e.lineno} due to: {type(e).__name__}: {str(e)}\n"
-            f"{e.text}"
-            f"{' ' * (e.offset or 0)}^"
-        )
+    # WriterAgent (2026-05): hot cache for ast.parse + static sandbox policy on unchanged code.
+    # Fresh executor state every call; does not cache execution results (see python_code_hot_cache.py).
+    from plugin.scripting.python_code_hot_cache import get_hot_entry
+
+    hot = get_hot_entry(code, authorized_imports)
+    if hot.error is not None:
+        raise InterpreterError(hot.error)
+    if hot.module is None:
+        raise InterpreterError("Code parsing failed.")
+    expression = hot.module
 
     if state is None:
         state = {}

@@ -254,6 +254,7 @@ WriterAgent removed upstream’s `find_spec` import pre-check at executor init (
 | `PythonWorkerManager` | One subprocess per resolved venv `python`; respawns on crash/timeout |
 | `worker_harness.py` | Read loop; delegates to `venv_sandbox.run_sandboxed_code` |
 | `venv_sandbox.py` | New `LocalPythonExecutor` per request; inject `data`; serialize `result` |
+| **Code hot cache** | [`python_code_hot_cache.py`](../plugin/scripting/python_code_hot_cache.py): SHA-256 keyed LRU (default 4096) caches **parsed AST** + **static** sandbox policy (imports, dunder attrs, forbidden syntax) per unchanged source + import allowlist. Skips re-parse and re-validation on recalc; **does not** cache execution `result` or variables. Separate from host [Worker Result Session](#matrix-formula-optimization-fast-path). Also used by in-process [`execute_python_script`](../plugin/calc/python_executor.py). |
 
 No `reset` command, no cross-call variable cache. Optional **session persistence** would be an explicit product decision ([§7](#7-deferred-roadmap)).
 
@@ -384,6 +385,8 @@ WriterAgent implements a **Worker Result Session** cache that detects when multi
 1. **The Efficiency Win**: The first cell in the range triggers the full Python worker execution. The resulting list (e.g., 1,000 items) is cached on the host side.
 2. **Cache Hits**: The remaining 999 cells see the same `code` and `data` signature. They bypass the Python worker entirely and pull their respective values from the host-side cache based on the index argument.
 3. **The `ROW()-n` Pattern**: By passing `ROW()-n` (where `n` is your starting row offset) as the second argument, you ensure each cell pulls the correct item from the list.
+
+This caches **execution output** (the serialized list) on the LibreOffice host. It is separate from the worker **code hot cache** ([§4](#warm-process-fresh-state)), which only skips re-parsing and static policy checks when the Python source string is unchanged.
 
 **Benefits:**
 - **99.9% IPC Reduction**: For a 1,000-row range, you pay the serialization and subprocess cost only **once**.
@@ -644,7 +647,6 @@ Backlog items inspired by Microsoft Python in Excel ([python-in-excel-ideas.md](
 | **Label preservation** | Treat the first row and/or column as pandas `Index` when requested; round-trip labels on egress where Calc supports named columns. |
 | **Inline result preview** | Lightweight preview beside or below the formula cell (stdout snippet, shape summary, image thumbnail) without opening Monaco or the full diagnostics pane. |
 | **Formula-bar IntelliSense** | Jedi (debounced) in the expanded formula bar / inline cell editor, not only in the Monaco webview child. See [python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md) (Jedi stub shipped in editor only). |
-| **AST / hot-path cache** | Optional compile cache keyed by code hash; reuse bytecode across recalc for unchanged `=PYTHON()` cells (still a fresh namespace per call unless session mode). Separate from the matrix **result** session cache. |
 | **Cell-level traceback** | Short traceback snippet in the cell error string; full trace in the diagnostics pane ([python-in-excel-dev-plan.md](python-in-excel-dev-plan.md) Phase 6). Until the pane ships, truncate worker `traceback` to N lines in the cell. |
 
 ---
@@ -657,6 +659,7 @@ Backlog items inspired by Microsoft Python in Excel ([python-in-excel-ideas.md](
 |-----------|--------|
 | Warm worker + JSON / Pickle protocol | [`python_worker_manager.py`](../plugin/scripting/python_worker_manager.py), [`worker_harness.py`](../plugin/scripting/worker_harness.py), [`run_venv_code.py`](../plugin/scripting/run_venv_code.py) |
 | AST sandbox per request | [`venv_sandbox.py`](../plugin/scripting/venv_sandbox.py) + vendored [`local_python_executor.py`](../plugin/contrib/smolagents/local_python_executor.py) |
+| Parse + static validation hot cache | [`python_code_hot_cache.py`](../plugin/scripting/python_code_hot_cache.py), [`sandbox_static_validate.py`](../plugin/scripting/sandbox_static_validate.py) — [`tests/scripting/test_python_code_hot_cache.py`](../tests/scripting/test_python_code_hot_cache.py) |
 | `run_venv_python_script` / `=PYTHON()` | [`venv_python.py`](../plugin/calc/venv_python.py), [`python_function.py`](../plugin/calc/python_function.py) |
 | **Pickle5 + Split-Grid** | **Default serialization**: Direct raw binary double-precision buffer in dictionary envelope via Pickle5, zero-copy C-speed `np.frombuffer` materialization in child. |
 | **JSON Split-Grid** | Backward-compatible Base64 envelope fallback for diagnostic tracing/JSON environments. |
