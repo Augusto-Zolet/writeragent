@@ -55,6 +55,7 @@ dev = [
     "hypothesis",
     "Cython",
     "setuptools",
+    "build",
 ]
 
 [tool.ruff]

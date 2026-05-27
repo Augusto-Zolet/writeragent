@@ -1,0 +1,4 @@
+include src/writeragent_vec/*.pyx
+include src/writeragent_vec/*.pxd
+include setup.py
+include pyproject.toml

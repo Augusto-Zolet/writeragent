@@ -4,13 +4,17 @@ import os
 import platform
 
 # Determine architecture flags
-# Only apply -march on x86_64 and not on macOS (where -arch is handled by cibuildwheel/compiler)
-extra_compile_args = ["-O3"]
+extra_compile_args = []
 system = platform.system()
 machine = platform.machine().lower()
 
-# Only apply WRITERAGENT_ARCH logic on Linux/Windows x86_64
-if system != "Darwin" and (machine == "x86_64" or machine == "amd64"):
+if system == "Windows":
+    extra_compile_args.append("/O2")
+else:
+    extra_compile_args.append("-O3")
+
+# Only apply WRITERAGENT_ARCH logic on Linux x86_64
+if system == "Linux" and (machine == "x86_64" or machine == "amd64"):
     arch = os.environ.get("WRITERAGENT_ARCH", "x86-64-v2")
     if arch == "x86-64-v1":
         arch = "x86-64"
@@ -25,10 +29,6 @@ extensions = [
 ]
 
 setup(
-    name="writeragent_vec",
-    version="0.1.0",
-    package_dir={"": "src"},
-    packages=["writeragent_vec"],
     ext_modules=cythonize(
         extensions,
         language_level=3,
