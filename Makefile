@@ -108,7 +108,7 @@ endif
 # ── Phony targets ────────────────────────────────────────────────────────────
 
 .PHONY: help build build-no-recording release release-build repack repack-deploy register-built-oxt manifest xcu clean \
-        native build-native clean-native \
+        native build-native clean-native update-vec \
         proxy-stubs \
         openrouter-catalog \
         install install-force uninstall cache \
@@ -317,6 +317,13 @@ native:
 	echo "except ImportError:" >> plugin/contrib/vec_pack/__init__.py
 	echo "    fast_flatten_grid_2d = None" >> plugin/contrib/vec_pack/__init__.py
 	echo "    fast_flatten_grid_1d = None" >> plugin/contrib/vec_pack/__init__.py
+
+update-vec:
+	@if [ -z "$(WHEELS_DIR)" ]; then \
+		echo "Usage: make update-vec WHEELS_DIR=/path/to/wheels"; \
+		exit 1; \
+	fi
+	$(PYTHON) scripts/update_vec_contrib.py "$(WHEELS_DIR)"
 
 # Convenience target to build with Cython accelerator
 build-native: native build
