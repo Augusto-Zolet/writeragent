@@ -74,8 +74,13 @@ cdef inline bint _flatten_cell(
         has_non_numeric = True
         buf_view[idx] = c_nan
         strings[idx] = val
+    elif PyFloat_Check(val) or PyLong_Check(val) or PyBool_Check(val):
+        # Hot fast-path for CPython built-in numeric types
+        fval = PyFloat_AsDouble(val)
+        buf_view[idx] = fval
+        _update_column_state(column_states, c, val)
     else:
-        # PyFloat_AsDouble keeps the hot numeric path fast while still accepting NumPy scalars.
+        # NumPy scalars, other custom numeric classes, or non-numeric objects
         fval = PyFloat_AsDouble(val)
         if fval == -1.0 and PyErr_Occurred():
             PyErr_Clear()

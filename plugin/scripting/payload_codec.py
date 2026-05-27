@@ -538,21 +538,35 @@ def _flatten_grid_to_components(
                     raise ValueError(f"Uneven row lengths in data grid: {row_lens}")
                 
                 for c, val in enumerate(row):
+                    t = type(val)
                     if val is None:
                         buf_append(nan)
                         column_has_none[c] = True
-                    elif type(val) is str:
+                    elif t is str:
                         has_non_numeric = True
                         _append_cell_slow(val, c, idx)
                     elif not has_non_numeric:
-                        try:
-                            fval = float(val)
-                            buf_append(fval)
+                        if t is float:
+                            buf_append(val)
                             if column_states[c] != 3:
-                                _flatten_update_column_state(column_states, c, val)
-                        except (TypeError, ValueError):
-                            has_non_numeric = True
-                            _append_cell_slow(val, c, idx)
+                                column_states[c] = 3
+                        elif t is int:
+                            buf_append(float(val))
+                            if column_states[c] < 2:
+                                column_states[c] = 2
+                        elif val is True or val is False:
+                            buf_append(float(val))
+                            if column_states[c] == 0:
+                                column_states[c] = 1
+                        else:
+                            try:
+                                fval = float(val)
+                                buf_append(fval)
+                                if column_states[c] != 3:
+                                    _flatten_update_column_state(column_states, c, val)
+                            except (TypeError, ValueError):
+                                has_non_numeric = True
+                                _append_cell_slow(val, c, idx)
                     else:
                         _append_cell_slow(val, c, idx)
                     idx += 1
@@ -568,21 +582,35 @@ def _flatten_grid_to_components(
 
         if use_stdlib:
             for idx, val in enumerate(grid_1d):
+                t = type(val)
                 if val is None:
                     buf_append(nan)
                     column_has_none[0] = True
-                elif type(val) is str:
+                elif t is str:
                     has_non_numeric = True
                     _append_cell_slow(val, 0, idx)
                 elif not has_non_numeric:
-                    try:
-                        fval = float(val)
-                        buf_append(fval)
+                    if t is float:
+                        buf_append(val)
                         if column_states[0] != 3:
-                            _flatten_update_column_state(column_states, 0, val)
-                    except (TypeError, ValueError):
-                        has_non_numeric = True
-                        _append_cell_slow(val, 0, idx)
+                            column_states[0] = 3
+                    elif t is int:
+                        buf_append(float(val))
+                        if column_states[0] < 2:
+                            column_states[0] = 2
+                    elif val is True or val is False:
+                        buf_append(float(val))
+                        if column_states[0] == 0:
+                            column_states[0] = 1
+                    else:
+                        try:
+                            fval = float(val)
+                            buf_append(fval)
+                            if column_states[0] != 3:
+                                _flatten_update_column_state(column_states, 0, val)
+                        except (TypeError, ValueError):
+                            has_non_numeric = True
+                            _append_cell_slow(val, 0, idx)
                 else:
                     _append_cell_slow(val, 0, idx)
 
@@ -846,9 +874,10 @@ def child_unpack_split_grid(envelope: dict[str, Any]) -> Any:
         # Rather than checking index-level column types inside the main cell iteration
         # (which requires modulo index maths 'i % ncols'), we iterate once per column.
         # We then cast only the valid (non-None) elements in that column at C-speed.
-        col_is_int = [k == "int" for k in column_kinds]
-        col_is_bool = [k == "bool" for k in column_kinds]
-        if any(col_is_int) or any(col_is_bool):
+        has_int_or_bool = any(k in ("int", "bool") for k in column_kinds)
+        if has_int_or_bool:
+            col_is_int = [k == "int" for k in column_kinds]
+            col_is_bool = [k == "bool" for k in column_kinds]
             for c, (is_int, is_bool) in enumerate(zip(col_is_int, col_is_bool)):
                 col_slice = obj_arr[:, c] if not is_1d else obj_arr
                 col_nan_mask = nan_mask[:, c] if not is_1d else nan_mask

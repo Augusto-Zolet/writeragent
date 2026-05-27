@@ -621,7 +621,7 @@ def test_language_validation_does_not_trust_persisted_grammar_heuristic() -> Non
     try:
         _lang_detect_cache.pop(item.text, None)
         with patch("plugin.writer.locale.grammar_persistence.get_persistence", return_value=mock_p):
-            with patch("plugin.writer.locale.grammar_work_queue._get_cached_language", return_value=None):
+            with patch("plugin.writer.locale.grammar_worker_llm.get_cached_language", return_value=None):
                 with patch("plugin.framework.queue_executor.llm_request_lane", return_value=mock_lane):
                     with patch(
                         "plugin.writer.locale.grammar_work_queue.detect_languages_for_chunk",
@@ -657,33 +657,13 @@ def test_language_detect_skips_llm_when_persisted_grammar_exists() -> None:
     try:
         _lang_detect_cache.pop(item.text, None)
         with patch("plugin.writer.locale.grammar_persistence.get_persistence", return_value=mock_p) as mock_get_p:
-            with patch("plugin.writer.locale.grammar_work_queue._get_cached_language", return_value=None):
+            with patch("plugin.writer.locale.grammar_worker_llm.get_cached_language", return_value=None):
                 detected = _detect_languages([(item, item.text)], "", ec)
         ec.client.chat_completion_sync.assert_not_called()
         assert detected == ["en-US"]
         mock_get_p.assert_called_once()
     finally:
         _lang_detect_cache.pop(item.text, None)
-
-
-def test_language_detect_llm_sync_retries_on_empty_content() -> None:
-    from plugin.writer.locale.grammar_work_queue import GrammarWorkerContext, _language_detect_llm_sync
-
-    mock_client = MagicMock()
-    mock_client.chat_completion_sync.side_effect = ["", '{"detected_language_bcp47": "fr-FR"}']
-    ec = GrammarWorkerContext(
-        ctx=object(),
-        client=mock_client,
-        gq=None,
-        model="test-model",
-        original_bcp47="en-US",
-        grammar_bcp47="en-US",
-        max_tok=100,
-    )
-    out = _language_detect_llm_sync(ec, [{"role": "user", "content": "Bonjour"}], 50)
-    assert out == '{"detected_language_bcp47": "fr-FR"}'
-    assert mock_client.chat_completion_sync.call_count == 2
-    assert mock_client.chat_completion_sync.call_args_list[1].kwargs["max_tokens"] >= 256
 
 
 def test_language_detect_calls_llm_when_no_persisted_grammar() -> None:
@@ -712,7 +692,7 @@ def test_language_detect_calls_llm_when_no_persisted_grammar() -> None:
     try:
         _lang_detect_cache.pop(item.text, None)
         with patch("plugin.writer.locale.grammar_persistence.get_persistence", return_value=mock_p):
-            with patch("plugin.writer.locale.grammar_work_queue._get_cached_language", return_value=None):
+            with patch("plugin.writer.locale.grammar_worker_llm.get_cached_language", return_value=None):
                 with patch("plugin.framework.queue_executor.llm_request_lane", return_value=mock_lane):
                     detected = _detect_languages([(item, item.text)], "", ec)
         mock_client.chat_completion_sync.assert_called_once()

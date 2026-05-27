@@ -81,3 +81,4 @@ def test_language_detect_llm_sync_retries_on_empty() -> None:
         out = language_detect_llm_sync(ec, [{"role": "user", "content": "Hi"}], 64)
     assert "en-US" in out
     assert client.chat_completion_sync.call_count == 2
+    assert client.chat_completion_sync.call_args_list[1].kwargs["max_tokens"] >= 256
