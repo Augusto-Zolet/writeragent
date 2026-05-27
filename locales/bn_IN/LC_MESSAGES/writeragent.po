@@ -374,9 +374,8 @@ msgstr ""
 "অন্য একটি মডেল ব্যবহার করুন।"
 
 #: plugin/calc/python_function.py
-#, fuzzy
 msgid "Image inserted"
-msgstr "ইমেজ সেটিংস"
+msgstr "ছবি সন্নিবেশিত হয়েছে"
 
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
@@ -410,9 +409,8 @@ msgstr ""
 " একটি উদ্ধৃত কোড স্ট্রিং ব্যবহার করুন।"
 
 #: plugin/calc/python_editor.py
-#, fuzzy
 msgid "Python cell editor"
-msgstr "PYTHON সেল এডিটর"
+msgstr "পাইথন সেল এডিটর"
 
 #: plugin/calc/python_editor.py
 msgid "Save as plain text"
@@ -420,7 +418,7 @@ msgstr "প্লেইন টেক্সট হিসেবে সংরক্
 
 #: plugin/calc/python_editor.py plugin/scripting/python_runner.py
 msgid "Save"
-msgstr ""
+msgstr "সংরক্ষণ করুন"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -436,10 +434,13 @@ msgid ""
 "in another cell). Edit it in the formula bar, or use =PYTHON(\"code\"; "
 "range) with quoted code."
 msgstr ""
+"এই PYTHON সূত্রটি এমন একটি ফর্ম ব্যবহার করে যা এডিটর নিরাপদে পুনরায় লিখতে "
+"পারে না (যেমন অন্য সেলের কোড)। এটি ফর্মুলা বারে সম্পাদনা করুন, অথবা উদ্ধৃত "
+"কোড সহ =PYTHON(\"code\"; range) ব্যবহার করুন।"
 
 #: plugin/calc/python_editor.py
 msgid "No Python interpreter available for the editor."
-msgstr ""
+msgstr "এডিটরের জন্য কোনো পাইথন ইন্টারপ্রেটার উপলব্ধ নেই।"
 
 #: plugin/calc/python_editor.py
 #, python-format
@@ -450,9 +451,13 @@ msgid ""
 "In that venv run: pip install pywebview\n"
 "(import name is webview, package name is pywebview)."
 msgstr ""
+"সেটিংস → পাইথন থেকে পাইথন ব্যবহার করে ওয়েবভিউ (pywebview) ইম্পোর্ট করা যাচ্ছে না:\n"
+"%(exe)s\n"
+"\n"
+"সেই venv-এ রান করুন: pip install pywebview\n"
+"(ইম্পোর্ট নাম হলো webview, প্যাকেজ নাম হলো pywebview)।"
 
 #: plugin/calc/python_editor.py
-#, fuzzy
 msgid "unknown error"
 msgstr "অজানা ত্রুটি"
 
@@ -501,13 +506,12 @@ msgid "Unknown conversion error"
 msgstr "অজানা রূপান্তর ত্রুটি"
 
 #: plugin/writer/math/latex_dialog.py
-#, fuzzy
 msgid "Formula inserted."
-msgstr "ইমেজ সেটিংস"
+msgstr "সূত্র সন্নিবেশিত হয়েছে।"
 
 #: plugin/writer/math/latex_dialog.py
 msgid "LaTeX Math Editor"
-msgstr ""
+msgstr "LaTeX গণিত এডিটর"
 
 #: plugin/writer/math/latex_dialog.py
 msgid "LaTeX Conversion Error"
@@ -876,7 +880,7 @@ msgstr "ফলাফল সন্নিবেশের জন্য অসমর
 
 #: plugin/scripting/python_runner.py
 msgid "Script executed successfully."
-msgstr ""
+msgstr "স্ক্রিপ্ট সফলভাবে কার্যকর হয়েছে।"
 
 #: plugin/scripting/python_runner.py
 msgid "Script saved."

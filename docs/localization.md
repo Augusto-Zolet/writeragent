@@ -45,6 +45,7 @@ Optional automation for translators:
 - With **`--execute`**, prints that same table at start unless `--skip-initial-status`, then fills gaps via the API.
 - Sends strings to an OpenAI-compatible chat API (default model `x-ai/grok-4.1-fast`, default endpoint OpenRouter) in batches; uses project auth helpers / `writeragent.json` keys / `OPENROUTER_API_KEY` when available.
 - Preserves leading/trailing whitespace on strings by peeling it before the API call and re-applying it to results.
+- Parses model JSON with [`safe_json_loads`](../plugin/framework/json_utils.py) (`strict=False` and repair fallbacks) so multiline UI strings (e.g. Calc Python editor errors with embedded newlines) do not fail batch fill with “invalid control character” from strict `json.loads`.
 
 ### AI-assisted translation review (`--review`)
 

@@ -365,9 +365,8 @@ msgstr ""
 "arba naudokite kitą modelį."
 
 #: plugin/calc/python_function.py
-#, fuzzy
 msgid "Image inserted"
-msgstr "Vaizdų nustatymai"
+msgstr "Paveikslėlis įterptas"
 
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
@@ -401,9 +400,8 @@ msgstr ""
 " eilutę, pvz., =PYTHON(\"kodas\"; A1:B10)."
 
 #: plugin/calc/python_editor.py
-#, fuzzy
 msgid "Python cell editor"
-msgstr "PYTHON langelių redaktorius"
+msgstr "Python langelių redaktorius"
 
 #: plugin/calc/python_editor.py
 msgid "Save as plain text"
@@ -411,7 +409,7 @@ msgstr "Įrašyti kaip paprastąjį tekstą"
 
 #: plugin/calc/python_editor.py plugin/scripting/python_runner.py
 msgid "Save"
-msgstr ""
+msgstr "Įrašyti"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -428,10 +426,13 @@ msgid ""
 "in another cell). Edit it in the formula bar, or use =PYTHON(\"code\"; "
 "range) with quoted code."
 msgstr ""
+"Ši PYTHON formulė naudoja formą, kurios redaktorius negali saugiai perrašyti"
+" (pvz., kodas kitame langelyje). Redaguokite ją formulės juostoje arba "
+"naudokite =PYTHON(\"kodas\"; sritis) su cituojamu kodu."
 
 #: plugin/calc/python_editor.py
 msgid "No Python interpreter available for the editor."
-msgstr ""
+msgstr "Redaktoriui nepasiekiamas Python interpretatorius."
 
 #: plugin/calc/python_editor.py
 #, python-format
@@ -442,11 +443,15 @@ msgid ""
 "In that venv run: pip install pywebview\n"
 "(import name is webview, package name is pywebview)."
 msgstr ""
+"Nepavyko importuoti „webview“ (pywebview) naudojant Python iš Nuostatos → Python:\n"
+"%(exe)s\n"
+"\n"
+"Šioje virtualioje aplinkoje (venv) paleiskite: pip install pywebview\n"
+"(importavimo pavadinimas yra „webview“, paketo pavadinimas – „pywebview“)."
 
 #: plugin/calc/python_editor.py
-#, fuzzy
 msgid "unknown error"
-msgstr "Nežinoma klaida"
+msgstr "nežinoma klaida"
 
 #: plugin/writer/editselection.py plugin/chatbot/selection.py
 msgid "WriterAgent: Extend Selection"
@@ -493,13 +498,12 @@ msgid "Unknown conversion error"
 msgstr "Nežinoma konvertavimo klaida"
 
 #: plugin/writer/math/latex_dialog.py
-#, fuzzy
 msgid "Formula inserted."
-msgstr "Vaizdų nustatymai"
+msgstr "Formulė įterpta."
 
 #: plugin/writer/math/latex_dialog.py
 msgid "LaTeX Math Editor"
-msgstr ""
+msgstr "LaTeX matematikos redaktorius"
 
 #: plugin/writer/math/latex_dialog.py
 msgid "LaTeX Conversion Error"
@@ -871,7 +875,7 @@ msgstr "Nepalaikomas dokumento tipas rezultatui įterpti."
 
 #: plugin/scripting/python_runner.py
 msgid "Script executed successfully."
-msgstr ""
+msgstr "Scriptas sėkmingai įvykdytas."
 
 #: plugin/scripting/python_runner.py
 msgid "Script saved."

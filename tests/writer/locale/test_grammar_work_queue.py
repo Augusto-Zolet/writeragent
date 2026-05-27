@@ -6,6 +6,11 @@
 
 from __future__ import annotations
 
+import inspect
+from pathlib import Path
+
+import pytest
+
 from plugin.writer.locale.grammar_work_queue import (
     GrammarWorkQueue,
     GrammarWorkItem,
@@ -19,6 +24,21 @@ from plugin.writer.locale.grammar_work_queue import (
 )
 from plugin.writer.locale.grammar_proofread_text import NormalizedProofError
 from unittest.mock import MagicMock, patch, ANY
+
+
+def _grammar_obs_call_sites_present() -> bool:
+    """True when ``grammar_obs(...)`` call sites exist in the work-queue module under test.
+
+    ``make release`` runs pytest against a stripped bundle (``scripts/strip_code.py`` removes
+  only ``grammar_obs`` expression statements). Imports and ``grammar_obs.py`` remain.
+    """
+    from plugin.writer.locale import grammar_work_queue as gwq
+
+    try:
+        source = Path(inspect.getfile(gwq)).read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return "grammar_obs(" in source
 
 
 def _item(seq: int, key: str = "d|en-US|k1") -> GrammarWorkItem:
@@ -701,6 +721,10 @@ def test_language_detect_calls_llm_when_no_persisted_grammar() -> None:
         _lang_detect_cache.pop(item.text, None)
 
 
+@pytest.mark.skipif(
+    not _grammar_obs_call_sites_present(),
+    reason="Stripped release bundle removes grammar_obs(...) call sites (scripts/strip_code.py)",
+)
 def test_worker_chunk_skip_empty_result_chunk_obs() -> None:
     """Multi-batch all-None detect yields empty result_chunk; worker must log worker_chunk_skip."""
     from plugin.writer.locale.grammar_work_queue import _worker_process_chunk
@@ -722,6 +746,10 @@ def test_worker_chunk_skip_empty_result_chunk_obs() -> None:
     mock_obs.assert_any_call("worker_chunk_skip", reason="empty_result_chunk", chunk_len=2, target_bcp47="en-US", requeue_count=0)
 
 
+@pytest.mark.skipif(
+    not _grammar_obs_call_sites_present(),
+    reason="Stripped release bundle removes grammar_obs(...) call sites (scripts/strip_code.py)",
+)
 def test_worker_chunk_skip_lang_validation_failed_obs() -> None:
     from plugin.writer.locale.grammar_work_queue import _worker_process_chunk
 

@@ -45,11 +45,27 @@ try:
     from plugin.framework.client.auth import resolve_auth_for_config, build_auth_headers
     from plugin.framework.config import get_config, get_config_dict
     from plugin.framework.constants import USER_AGENT, APP_REFERER, APP_TITLE
+    from plugin.framework.json_utils import safe_json_loads
 except ImportError:
     # Fallback for when running outside the full WriterAgent environment
     USER_AGENT = "WriterAgent (https://github.com/KeithCu/writeragent)"
     APP_REFERER = "https://github.com/KeithCu/writeragent"
     APP_TITLE = "WriterAgent"
+
+    def safe_json_loads(text: Any, default: Any = None, strict: bool = False) -> Any:
+        """Minimal fallback when plugin imports are unavailable."""
+        if not isinstance(text, str):
+            return default
+        stripped = text.strip()
+        if not stripped:
+            return default
+        try:
+            return json.loads(stripped)
+        except json.JSONDecodeError:
+            try:
+                return json.loads(stripped, strict=False)
+            except json.JSONDecodeError:
+                return default
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -227,6 +243,35 @@ def _strip_json_fenced_content(content: str) -> str:
     return c
 
 
+def _parse_json_array(content: str, expected_len: Optional[int] = None) -> Optional[List[Any]]:
+    """Parse a model JSON array; tolerant of literal newlines in strings (strict JSON rejects those)."""
+    data = safe_json_loads(_strip_json_fenced_content(content), default=None)
+    if not isinstance(data, list):
+        return None
+    if expected_len is not None and len(data) != expected_len:
+        return None
+    return data
+
+
+def _sanitize_msgstr(s: str) -> str:
+    """Remove C0 control chars except tab/newline from model output before writing PO."""
+    return "".join(c for c in s if c in "\n\t" or ord(c) >= 32 or ord(c) == 127)
+
+
+def _build_translate_batch_prompt(texts: List[str], target_lang: str) -> str:
+    """Build gap-fill prompt with msgids as a JSON array (safe for newlines and embedded quotes)."""
+    rules = _libreoffice_gettext_rules_text()
+    payload = json.dumps(texts, ensure_ascii=False, indent=2)
+    return (
+        f"{rules}\n\n"
+        f"You translate the following English gettext source strings into the language "
+        f"'{target_lang}' for the WriterAgent extension catalogs (same rules as automated review uses).\n\n"
+        "Return ONLY a strictly formatted JSON array containing the translated strings in the same "
+        "order as the input array. Do not add commentary or markdown fences.\n\n"
+        f"Texts to translate (JSON array, same order):\n{payload}\n"
+    )
+
+
 def _resolve_openrouter_api_key(endpoint: str, api_key: Optional[str]) -> Optional[str]:
     if api_key:
         return api_key
@@ -256,18 +301,7 @@ def call_translate_batch(texts: List[str], target_lang: str, model: str = "x-ai/
         log.error("No API key available. Provide it via argument, config, or OPENROUTER_API_KEY env.")
         return [None] * len(texts)
 
-    rules = _libreoffice_gettext_rules_text()
-    prompt = f"""{rules}
-
-You translate the following numbered English gettext source strings into the language '{target_lang}' for the WriterAgent extension catalogs (same rules as automated review uses).
-
-Return ONLY a strictly formatted JSON array containing the translated strings in order: index `i` must be the translation for item `i+1`. Do not add commentary or markdown fences.
-
-Texts to translate:
-"""
-
-    for i, text in enumerate(texts):
-        prompt += f"{i+1}. \"{text}\"\n"
+    prompt = _build_translate_batch_prompt(texts, target_lang)
 
     url = f"{endpoint}/chat/completions"
     headers = {
@@ -294,12 +328,10 @@ Texts to translate:
             response_data = json.loads(response.read().decode("utf-8"))
             if "choices" in response_data and len(response_data["choices"]) > 0:
                 content = response_data["choices"][0]["message"]["content"].strip()
-                content = _strip_json_fenced_content(content)
-                translations = json.loads(content)
-                if isinstance(translations, list) and len(translations) == len(texts):
-                    return [str(t) for t in translations]
-                else:
-                    log.error(f"Response size mismatch")
+                translations = _parse_json_array(content, expected_len=len(texts))
+                if translations is not None:
+                    return [_sanitize_msgstr(str(t)) for t in translations]
+                log.error("Response size mismatch or invalid JSON array")
             else:
                 log.error(f"Unexpected response")
     except Exception as e:
@@ -343,12 +375,9 @@ def collect_translated_entries(po_path: str) -> List[Dict[str, Any]]:
 def parse_review_dense_response(content: str, batch_len: int) -> List[Optional[Dict[str, Any]]]:
     """Parse model JSON: ``batch_len`` objects in order, or reorder by ``index`` when lengths match."""
     none_row: List[Optional[Dict[str, Any]]] = [None] * batch_len
-    try:
-        data = json.loads(_strip_json_fenced_content(content))
-    except json.JSONDecodeError:
+    data = _parse_json_array(content)
+    if data is None:
         log.error("Review batch: invalid JSON in model response")
-        return none_row
-    if not isinstance(data, list):
         return none_row
 
     if len(data) != batch_len:
@@ -799,7 +828,7 @@ def translate_batch_worker(texts: List[str], lang: str, model: str, api_key: Opt
         for original, (leading, _core, trailing), result in zip(texts, edges, results):
             if result is None:
                 continue
-            batch_map[original] = leading + str(result) + trailing
+            batch_map[original] = leading + _sanitize_msgstr(str(result)) + trailing
         return batch_map
     except Exception as e:
         log.error(f"Batch worker error: {e}")

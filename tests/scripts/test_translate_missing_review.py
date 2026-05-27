@@ -39,6 +39,33 @@ def test_strip_json_fenced_content_json_fence() -> None:
     assert tm._strip_json_fenced_content(raw) == '[{"a": 1}]'
 
 
+def test_parse_json_array_multiline_literal_newline() -> None:
+    # strict json.loads rejects unescaped newlines inside strings; models often emit this
+    content = '["line1\nline2", "ok"]'
+    out = tm._parse_json_array(content, expected_len=2)
+    assert out == ["line1\nline2", "ok"]
+
+
+def test_parse_json_array_length_mismatch() -> None:
+    assert tm._parse_json_array('["a"]', expected_len=2) is None
+
+
+def test_sanitize_msgstr_strips_control_keeps_newline() -> None:
+    assert tm._sanitize_msgstr("a\x01b\nc") == "ab\nc"
+
+
+def test_build_translate_batch_prompt_json_encodes_multiline_and_quotes() -> None:
+    texts = [
+        "line1\nline2",
+        'use =PYTHON("code"; range)',
+    ]
+    prompt = tm._build_translate_batch_prompt(texts, "de")
+    assert "Texts to translate (JSON array, same order):" in prompt
+    assert '"line1\\nline2"' in prompt
+    assert '=PYTHON(\\"code\\"' in prompt
+    assert '1. "' not in prompt
+
+
 def test_parse_review_dense_response_positional() -> None:
     content = json.dumps(
         [

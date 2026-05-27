@@ -13,7 +13,7 @@ import logging
 import json
 import traceback
 import unittest
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 log = logging.getLogger(__name__)
 
@@ -335,6 +335,103 @@ def run_all_tests(ctx: Any) -> str:
     return json.dumps(summary, ensure_ascii=False, indent=2)
 
 
+_LIBREOFFICE_PROCESS_NAMES = ("soffice", "soffice.bin", "oosplash")
+_DESKTOP_TERMINATE_TIMEOUT_SEC = 10.0
+
+
+def _force_kill_libreoffice() -> None:
+    """SIGKILL LibreOffice processes when UNO ``desktop.terminate()`` does not return."""
+    import os
+    import signal
+    import subprocess
+    import sys
+
+    if sys.platform == "win32":
+        for name in _LIBREOFFICE_PROCESS_NAMES:
+            try:
+                subprocess.run(
+                    ["taskkill", "/F", "/IM", f"{name}.exe"],
+                    capture_output=True,
+                    timeout=5,
+                    check=False,
+                )
+            except Exception:
+                pass
+        return
+
+    for name in _LIBREOFFICE_PROCESS_NAMES:
+        try:
+            result = subprocess.run(
+                ["pgrep", "-x", name],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+        except Exception:
+            continue
+        for pid_s in (result.stdout or "").split():
+            try:
+                os.kill(int(pid_s), signal.SIGKILL)
+            except (OSError, ValueError):
+                pass
+
+
+def _terminate_desktop_with_timeout(desktop: Any, timeout: float = _DESKTOP_TERMINATE_TIMEOUT_SEC) -> None:
+    """Call ``desktop.terminate()``; force-kill LO if it blocks longer than *timeout* seconds."""
+    import threading
+
+    terminate_error: Optional[BaseException] = None
+
+    def _run() -> None:
+        nonlocal terminate_error
+        try:
+            desktop.terminate()
+        except BaseException as e:
+            terminate_error = e
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
+    thread.join(timeout=timeout)
+    if thread.is_alive():
+        log.warning("desktop.terminate() did not finish within %ss; force-killing LibreOffice", timeout)
+        _force_kill_libreoffice()
+        return
+    if terminate_error is not None:
+        raise terminate_error
+
+
+def _shutdown_libreoffice(ctx: Any) -> None:
+    """Close documents and quit LibreOffice after native test runs."""
+    try:
+        desktop = ctx.getServiceManager().createInstanceWithContext("com.sun.star.frame.Desktop", ctx)
+        if not desktop:
+            return
+        try:
+            comps = desktop.getComponents().createEnumeration()
+            while comps.hasMoreElements():
+                c = comps.nextElement()
+                if hasattr(c, "close"):
+                    try:
+                        c.close(True)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        try:
+            toolkit = ctx.getServiceManager().createInstanceWithContext("com.sun.star.awt.Toolkit", ctx)
+            if toolkit:
+                toolkit.processEventsToIdle()
+        except Exception:
+            pass
+        try:
+            _terminate_desktop_with_timeout(desktop)
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+
 def main() -> int:
     """Command-line entrypoint: bootstrap LO and run tests.
 
@@ -376,35 +473,7 @@ def main() -> int:
         summary = {"total_failed": 1}
 
     # Force-close LibreOffice so it doesn't stay running (and mess up the screen).
-    try:
-        desktop = ctx.getServiceManager().createInstanceWithContext("com.sun.star.frame.Desktop", ctx)
-        if desktop:
-            # Close all open components without saving (to avoid blocking termination)
-            try:
-                comps = desktop.getComponents().createEnumeration()
-                while comps.hasMoreElements():
-                    c = comps.nextElement()
-                    if hasattr(c, "close"):
-                        try:
-                            c.close(True)
-                        except Exception:
-                            pass
-            except Exception:
-                pass
-            try:
-                toolkit = ctx.getServiceManager().createInstanceWithContext("com.sun.star.awt.Toolkit", ctx)
-                if toolkit:
-                    toolkit.processEventsToIdle()
-            except Exception:
-                pass
-            import time
-            time.sleep(0.1)
-            try:
-                desktop.terminate()
-            except Exception:
-                pass
-    except Exception:
-        pass
+    _shutdown_libreoffice(ctx)
 
     # Print a compact "tail" summary so callers can scan results quickly
     # even when the output above includes verbose tracebacks/log spam.
