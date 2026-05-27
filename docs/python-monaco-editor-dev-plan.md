@@ -362,3 +362,82 @@ flowchart TD
 | Child `sys.path` | [`editor_main.py`](../plugin/scripting/editor_main.py) bootstraps repo root so `plugin.scripting.editor_protocol` imports |
 | Save errors to UI | Bridge sends `error` + `traceback` to child; red toolbar status (Phase 2A) |
 | Formula function name | Always English `PYTHON`; localized tokens are a bug, not supported |
+
+---
+
+## 9. Alternative: Embedded Writer as Python Editor (Research Notes)
+
+Feasibility analysis for replacing Monaco/pywebview with an embedded Writer document (same technique as the rich-text chat sidebar) as the Python code editing surface. Preserved here for future reference.
+
+---
+
+### What stays unchanged (editor-agnostic)
+
+- **Formula parser** ([`python_formula_edit.py`](../plugin/calc/python_formula_edit.py)) — purely string-level `=PYTHON()` decomposition/reconstruction. No changes needed.
+- **Cell resolution** (`python_editor.py`: `_get_active_calc_cell`, `_load_cell_editor_code`) — finding the active cell and extracting initial code.
+- **Save logic** (`python_editor.py`: `_apply_cell_save`, `_apply_formula_save`, `build_editor_formula_save`) — writing code back to the cell.
+- **Auto-imports** (`venv_sandbox.py`: `apply_auto_imports`) — reusable with any completion backend.
+
+### What gets eliminated
+
+- `editor_main.py`, `editor_bridge.py`, `editor_protocol.py` — the entire subprocess + IPC pipe layer.
+- `editor_launcher.py` / `editor_session_launch.py` — venv probing and process spawn.
+- `plugin/contrib/scripting/assets/editor/` — the Monaco JS bundle (~4–5 MB).
+- The pywebview dependency (and the requirement for a configured venv just to open the editor).
+- The persistent child process lifecycle, stderr drain thread, and warm-reuse logic.
+
+### Easy (already proven by the rich-text sidebar)
+
+| Task | Notes |
+|------|-------|
+| Embedding a Writer doc in a dialog/panel | `create_embedded_writer_doc` pattern from `rich_text.py` |
+| Loading code into it | `text.setString(code)` |
+| Extracting code from it | `text.getString()` |
+| Monospace font | Set `CharFontName = "Liberation Mono"` on the Standard paragraph style |
+| Save/Cancel buttons | Standard XDL dialog hosting the embedded Writer frame + toolbar area |
+| Theme-aware background | `get_theme_colors()` from `rich_text.py` |
+| No subprocess/IPC | Direct in-process calls; huge architectural simplification |
+
+### Medium difficulty
+
+| Task | Notes |
+|------|-------|
+| **Python syntax highlighting** | Use stdlib `tokenize` module to map token types → Writer character styles (keyword=blue, string=green, comment=gray, etc.). Apply via `XTextCursor` + `CharColor`. |
+| **Re-tokenization on edit** | Attach an `XModifyListener`; debounce and re-tokenize only changed lines. **Key insight:** the realtime grammar checker's proofreader callback ([`grammar_proofread_text.py`](../plugin/writer/locale/grammar_proofread_text.py)) already solves this exact pattern — paragraph-level change detection, background processing, and applying results back to ranges. The same `XProofreadListener` / work-queue architecture could drive syntax coloring with minimal adaptation. |
+| **Performance** | Re-styling the entire document on every keystroke will flicker/lag. Incremental (per-paragraph) re-tokenization + the grammar queue's dedup/supersede pattern keeps it fast. |
+| **Code aesthetics** | Writer's default paragraph spacing, line spacing, and text boundaries are prose-oriented. Needs tuning: zero `ParaTopMargin`/`ParaBottomMargin`, tight line spacing, hidden boundaries. |
+
+### Hard (significant effort)
+
+| Task | Notes |
+|------|-------|
+| **Autocompletion UI** | Writer has no built-in autocomplete dropdown for arbitrary content. Options: (a) custom positioned `XListBox` popup near the cursor, (b) a floating XDL dialog with a list, (c) abuse Writer's own AutoComplete word list (limited). Jedi can run in-process (no pipe needed) but needs a background thread to avoid blocking the main thread. |
+| **Line numbers** | No built-in mechanism for an embedded Writer doc. Would need a side panel or paragraph-prefix hack. |
+| **Bracket matching** | Must be implemented from scratch — scan for matching `()[]{}` and apply a highlight character style. |
+| **Auto-indent** | Writer's autocorrect is prose-oriented. Would need a `XKeyListener` intercepting Enter/Tab to insert appropriate whitespace based on the previous line's indentation and trailing `:`. |
+| **Tab → spaces** | Writer tab inserts a tab stop. Need to intercept Tab key and insert 4 spaces instead. |
+| **Block selection / multi-cursor** | Not possible in Writer. |
+| **The shutdown crash** | The same VCL parenting crash from the rich-text sidebar applies. If the editor is a modal dialog (not sidebar-parented), this may be avoidable since the dialog lifecycle is explicit. |
+
+### Trade-off summary
+
+| | Monaco (current) | Writer-embedded |
+|---|---|---|
+| Syntax highlighting | Excellent (built-in Python tokenizer) | DIY via `tokenize` + CharColor (medium effort, likely inferior) |
+| Autocompletion | Full Monaco CompletionProvider | Custom popup from scratch (hard) |
+| Code editing UX | Professional IDE-grade | Prose editor repurposed for code (workable but not great) |
+| Dependency | Requires pywebview + venv | Zero external deps |
+| Architecture | Subprocess + IPC (complex) | In-process (simple) |
+| Shutdown | Clean (separate process) | Inherits VCL lifecycle issues (unless modal dialog) |
+| Startup time | ~2s first launch (warm after) | Instant (in-process) |
+| Bundle size | ~4–5 MB Monaco JS | Zero |
+
+### When this might make sense
+
+- If pywebview proves too fragile across distros/Flatpak/Wayland.
+- If the goal shifts to "lightweight quick-edit" rather than "IDE-grade editor" (e.g., a modal dialog for short snippets that doesn't need full autocomplete).
+- If the grammar proofreader's infrastructure is already mature enough that wiring it for syntax highlighting is low marginal effort.
+
+### Recommendation
+
+For a **minimal viable Writer-based editor** (no autocomplete, basic syntax highlighting only), the effort is moderate — perhaps 3–5 days given the sidebar embedding is already proven and the grammar queue pattern exists. For feature parity with Monaco (autocomplete, bracket matching, line numbers), the effort is 2–4 weeks and the result would still feel inferior to a real code editor. The sweet spot may be a hybrid: use the Writer-embedded approach for the "Run Python Script" quick-edit dialog (where full IDE features aren't critical), and keep Monaco for the Calc cell editor where users write longer code.
