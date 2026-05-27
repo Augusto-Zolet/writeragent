@@ -70,6 +70,41 @@ except ImportError:
     pass
 
 
+if TYPE_CHECKING:
+    class _BaseParent: pass
+    class _XEventListenerParent: pass
+    class _XActionListenerParent: pass
+    class _XItemListenerParent: pass
+    class _XTextListenerParent: pass
+    class _XKeyListenerParent: pass
+    class _XWindowListenerParent: pass
+    class _XDocumentEventListenerParent: pass
+    class _XCloseListenerParent: pass
+    class _XTerminateListenerParent: pass
+else:
+    class _DummyBase: pass
+    class _DummyEventListener: pass
+    class _DummyActionListener: pass
+    class _DummyItemListener: pass
+    class _DummyTextListener: pass
+    class _DummyKeyListener: pass
+    class _DummyWindowListener: pass
+    class _DummyDocumentEventListener: pass
+    class _DummyCloseListener: pass
+    class _DummyTerminateListener: pass
+
+    _BaseParent = _unohelper.Base if _HAVE_UNO else _DummyBase
+    _XEventListenerParent = _XEventListener if _HAVE_UNO else _DummyEventListener
+    _XActionListenerParent = _XActionListener if _HAVE_UNO else _DummyActionListener
+    _XItemListenerParent = _XItemListener if _HAVE_UNO else _DummyItemListener
+    _XTextListenerParent = _XTextListener if _HAVE_UNO else _DummyTextListener
+    _XKeyListenerParent = _XKeyListener if _HAVE_UNO else _DummyKeyListener
+    _XWindowListenerParent = _XWindowListener if _HAVE_UNO else _DummyWindowListener
+    _XDocumentEventListenerParent = _XDocumentEventListener if _HAVE_UNO else _DummyDocumentEventListener
+    _XCloseListenerParent = _XCloseListener if _HAVE_UNO else _DummyCloseListener
+    _XTerminateListenerParent = _XTerminateListener if _HAVE_UNO else _DummyTerminateListener
+
+
 def _catch_and_log(func):
     """Decorator to catch and log exceptions in UNO listener callbacks."""
 
@@ -92,7 +127,7 @@ def _catch_and_log(func):
 # Static Base Classes (100% clean MRO for all typecheckers)
 # ---------------------------------------------------------
 
-class BaseListener(object):
+class BaseListener(_BaseParent, _XEventListenerParent):
     def disposing(self, Source: Any) -> None:  # noqa: N802, N803 -- UNO signature
         self.on_disposing(Source)
 
@@ -100,7 +135,7 @@ class BaseListener(object):
         pass
 
 
-class BaseActionListener(BaseListener):
+class BaseActionListener(BaseListener, _XActionListenerParent):
     @_catch_and_log
     def actionPerformed(self, rEvent: Any) -> None:  # noqa: N802 -- UNO signature
         self.on_action_performed(rEvent)
@@ -109,7 +144,7 @@ class BaseActionListener(BaseListener):
         pass
 
 
-class BaseItemListener(BaseListener):
+class BaseItemListener(BaseListener, _XItemListenerParent):
     @_catch_and_log
     def itemStateChanged(self, rEvent: Any) -> None:  # noqa: N802 -- UNO signature
         self.on_item_state_changed(rEvent)
@@ -118,7 +153,7 @@ class BaseItemListener(BaseListener):
         pass
 
 
-class BaseTextListener(BaseListener):
+class BaseTextListener(BaseListener, _XTextListenerParent):
     @_catch_and_log
     def textChanged(self, rEvent: Any) -> None:  # noqa: N802 -- UNO signature
         self.on_text_changed(rEvent)
@@ -127,7 +162,7 @@ class BaseTextListener(BaseListener):
         pass
 
 
-class BaseKeyListener(BaseListener):
+class BaseKeyListener(BaseListener, _XKeyListenerParent):
     @_catch_and_log
     def keyPressed(self, e: Any) -> None:  # noqa: N802 -- UNO signature
         self.on_key_pressed(e)
@@ -143,7 +178,7 @@ class BaseKeyListener(BaseListener):
         pass
 
 
-class BaseWindowListener(BaseListener):
+class BaseWindowListener(BaseListener, _XWindowListenerParent):
     @_catch_and_log
     def windowResized(self, e: Any) -> None:  # noqa: N802 -- UNO signature
         self.on_window_resized(e)
@@ -173,7 +208,7 @@ class BaseWindowListener(BaseListener):
         pass
 
 
-class BaseDocumentEventListener(BaseListener):
+class BaseDocumentEventListener(BaseListener, _XDocumentEventListenerParent):
     @_catch_and_log
     def documentEventOccured(self, Event: Any) -> None:  # noqa: N802, N803 -- UNO signature
         self.on_document_event(Event)
@@ -182,7 +217,7 @@ class BaseDocumentEventListener(BaseListener):
         pass
 
 
-class BaseCloseListener(BaseListener):
+class BaseCloseListener(BaseListener, _XCloseListenerParent):
     @_catch_and_log
     def queryClosing(self, Source: Any, GetsOwnership: bool) -> None:  # noqa: N802, N803 -- UNO signature
         self.on_query_closing(Source, GetsOwnership)
@@ -198,7 +233,7 @@ class BaseCloseListener(BaseListener):
         pass
 
 
-class BaseTerminateListener(BaseListener):
+class BaseTerminateListener(BaseListener, _XTerminateListenerParent):
     @_catch_and_log
     def queryTermination(self, Event: Any) -> None:  # noqa: N802, N803 -- UNO signature
         self.on_query_termination(Event)
@@ -212,22 +247,3 @@ class BaseTerminateListener(BaseListener):
 
     def on_notify_termination(self, Event: Any) -> None:
         pass
-
-
-# ---------------------------------------------------------
-# Dynamic PyUNO Bases Patching at Runtime
-# ---------------------------------------------------------
-if not TYPE_CHECKING:
-    if _HAVE_UNO:
-        try:
-            BaseListener.__bases__ = (_unohelper.Base, _XEventListener)
-            BaseActionListener.__bases__ = (BaseListener, _XActionListener)
-            BaseItemListener.__bases__ = (BaseListener, _XItemListener)
-            BaseTextListener.__bases__ = (BaseListener, _XTextListener)
-            BaseKeyListener.__bases__ = (BaseListener, _XKeyListener)
-            BaseWindowListener.__bases__ = (BaseListener, _XWindowListener)
-            BaseDocumentEventListener.__bases__ = (BaseListener, _XDocumentEventListener)
-            BaseCloseListener.__bases__ = (BaseListener, _XCloseListener)
-            BaseTerminateListener.__bases__ = (BaseListener, _XTerminateListener)
-        except Exception as _patch_err:
-            log.warning("[uno_listeners] Dynamic PyUNO __bases__ patching failed: %s", _patch_err)

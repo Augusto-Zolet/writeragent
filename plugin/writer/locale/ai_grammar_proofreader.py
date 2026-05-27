@@ -131,8 +131,8 @@ def _proofreading_markup_type() -> int:
 
 
 def _cached_errors_to_uno_tuple(cached: tuple[dict[str, Any], ...], ctx: Any, doc_id: str) -> tuple[Any, ...]:
-    from .grammar_persistence import get_persistence
-    from .grammar_proofread_cache import normalize_reason, ignored_rules_snapshot
+    from plugin.writer.locale.grammar_persistence import get_persistence
+    from plugin.writer.locale.grammar_proofread_cache import normalize_reason, ignored_rules_snapshot
 
     p = get_persistence(ctx, doc_id)
     ignored_reasons = set(p._ignored_rules) if p else set()
@@ -463,7 +463,7 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
             ignore_rule_add(str(aRuleIdentifier))
 
             from plugin.framework.uno_context import get_active_document
-            from .grammar_persistence import get_persistence, _model_runtime_uid
+            from plugin.writer.locale.grammar_persistence import get_persistence, _model_runtime_uid
 
             model = get_active_document(self.ctx)
             doc_id = _model_runtime_uid(model) if model else None
@@ -496,7 +496,7 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
             ignore_rules_clear()
 
             from plugin.framework.uno_context import get_active_document
-            from .grammar_persistence import get_persistence, _model_runtime_uid
+            from plugin.writer.locale.grammar_persistence import get_persistence, _model_runtime_uid
 
             model = get_active_document(self.ctx)
             doc_id = _model_runtime_uid(model) if model else None

@@ -9,12 +9,10 @@ Sentence-boundary tables and ``looks_complete_sentence`` live in ``grammar_proof
 
 from __future__ import annotations
 
-import collections
 import re
-import threading
 from typing import Any
 
-from .grammar_persistence import clear_all_document_persistence, get_persistence, grammar_registry
+from .grammar_persistence import get_persistence, grammar_registry
 from .grammar_proofread_locale import GRAMMAR_CACHE_NORMALIZATION_RE, looks_complete_sentence
 from . import grammar_proofread_json
 

@@ -80,7 +80,7 @@ class SidebarDocumentEventListener(BaseDocumentEventListener):
 
 _HAVE_UNO_CLOSE_EVENTS = False
 try:
-    from com.sun.star.util import XCloseListener as _XCloseListener_impl
+    from com.sun.star.util import XCloseListener as _XCloseListener_impl  # noqa: F401
     _HAVE_UNO_CLOSE_EVENTS = True
 except ImportError:
     pass
@@ -107,7 +107,7 @@ class SidebarCloseListener(BaseCloseListener):
 
 _HAVE_UNO_TERMINATE = False
 try:
-    from com.sun.star.frame import XTerminateListener as _XTerminateListener_type
+    from com.sun.star.frame import XTerminateListener as _XTerminateListener_type  # noqa: F401
     _HAVE_UNO_TERMINATE = True
 except ImportError:
     pass
