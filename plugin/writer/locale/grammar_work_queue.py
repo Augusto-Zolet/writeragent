@@ -93,29 +93,17 @@ from . import (
     grammar_proofread_locale,
     grammar_proofread_text,
     grammar_persistence,
-    grammar_proofread_json,
     grammar_worker_phases,
 )
+from .grammar_obs import emit_grammar_status, grammar_obs, slice_preview_debug
+from .grammar_worker_llm import call_grammar_llm, detect_languages_for_chunk
 
-from plugin.framework import queue_executor, event_bus, config
+from plugin.framework import queue_executor, config
 from plugin.framework.client import model_fetcher, llm_client
 
 import uno
 
 log = logging.getLogger("writeragent.grammar")
-
-def _get_cached_language(text: str) -> str | None:
-    with grammar_persistence.grammar_registry.lock:
-        if text in grammar_persistence.grammar_registry.lang_detect_cache:
-            grammar_persistence.grammar_registry.lang_detect_cache.move_to_end(text)
-            return grammar_persistence.grammar_registry.lang_detect_cache[text]
-    return None
-
-def _put_cached_language(text: str, lang: str) -> None:
-    with grammar_persistence.grammar_registry.lock:
-        grammar_persistence.grammar_registry.lang_detect_cache[text] = lang
-        if len(grammar_persistence.grammar_registry.lang_detect_cache) > 1000:
-            grammar_persistence.grammar_registry.lang_detect_cache.popitem(last=False)
 
 # Super simple locale detection: 1k chars around cursor should be "good enough" for most cases.
 # Historical overkill (styles, first 50 paragraphs, LinguProperties) was removed to prioritize
@@ -325,47 +313,6 @@ def next_enqueue_seq() -> int:
         return _ENQUEUE_SEQ
 
 
-def grammar_obs(event: str, **fields: Any) -> None:
-    """DEBUG-only observability for queue / worker (grep ``[grammar] obs`` in logs)."""
-    if not log.isEnabledFor(logging.DEBUG):
-        return
-    kv = " ".join(f"{k}={v!r}" for k, v in fields.items())
-    log.debug("[grammar] obs %s %s", event, kv)
-
-
-def slice_preview_debug(text: str, max_len: int = 72) -> str:
-    """Compact one-line preview for DEBUG logs (avoid dumping huge paragraphs)."""
-    if not text:
-        return ""
-    compact = " ".join(text.split())
-    if len(compact) <= max_len:
-        return compact
-    return f"{compact[:max_len]}…"
-
-
-def emit_grammar_status(
-    phase: str,
-    text: str,
-    *,
-    result: str = "",
-    elapsed_ms: int | None = None,
-    preview_source: str | None = None,
-    length_hint: int | None = None,
-) -> None:
-    """Emit ``grammar:status``. Pass ``preview_source`` for a sentence snippet (sidebar, clipped to a few chars)."""
-    try:
-        if preview_source is not None:
-            raw = preview_source.strip() or "(empty)"
-            preview = slice_preview_debug(raw, 10)
-            length = len(raw) if length_hint is None else length_hint
-        else:
-            preview = slice_preview_debug(text.strip() or "(empty)", 10)
-            length = len(text)
-        event_bus.global_event_bus.emit("grammar:status", phase=phase, preview=preview, length=length, result=result, elapsed_ms=elapsed_ms)
-    except Exception as e:
-        log.debug("[grammar] status emit failed: %s", e, exc_info=True)
-
-
 def run_llm_and_cache(
     ctx: Any,
     text: str,
@@ -391,192 +338,35 @@ def run_llm_and_cache(
     run_llm_and_cache_batch([item], grammar_queue=grammar_queue, original_bcp47=original_bcp47)
 
 
-def _persisted_grammar_skip_lang_detect(ctx: Any, doc_id: str, text: str) -> bool:
-    """True if persistence already stores grammar for this sentence (fingerprint).
-
-    Heuristic to skip redundant language-detect LLM on reopen: any stored row (including
-    empty errors for 'good' sentences) implies prior proofreading — good enough to treat
-    as language-resolved for this session. Wrong-locale clean rows could skip redetect.
-    """
-    try:
-        if not doc_id:
-            return False
-        fp = grammar_proofread_cache.sentence_identity_fp(text)
-        p = grammar_persistence.get_persistence(ctx, doc_id)
-        return p is not None and p.get(fp) is not None
-    except Exception as e:
-        log.debug("[grammar] persisted grammar heuristic lookup failed: %s", e, exc_info=True)
-        return False
-
-
-def _get_active_ignored_reasons(ctx: Any, doc_id: str) -> set[str]:
-    """Document + global ignored grammar rules, normalized for prompt filtering."""
-    from .grammar_persistence import get_persistence
-    from .grammar_proofread_cache import normalize_reason, ignored_rules_snapshot
-
-    p = get_persistence(ctx, doc_id)
-    ignored_reasons = set(p._ignored_rules) if p else set()
-    for r in ignored_rules_snapshot():
-        if r.startswith("wa_g_rule||"):
-            ignored_reasons.add(normalize_reason(r[11:]))
-        else:
-            ignored_reasons.add(normalize_reason(r))
-    return ignored_reasons
-
-
-def _build_grammar_system_prompt(
-    bcp47: str,
-    ignored_reasons: set[str],
-    *,
-    batch: bool,
-    any_partial: bool,
-) -> str:
-    lang_name = grammar_proofread_locale.grammar_english_name_for_bcp47(bcp47)
-    if batch:
-        sys_prompt = grammar_proofread_locale.GRAMMAR_BATCH_SYSTEM_PROMPT_TEMPLATE.format(lang_name=lang_name, bcp47=bcp47)
-        if any_partial:
-            sys_prompt += " The input may contain partial sentences; prefer conservative grammar suggestions and avoid broad rewrites."
-    else:
-        sys_prompt = grammar_proofread_locale.GRAMMAR_SYSTEM_PROMPT_TEMPLATE.format(lang_name=lang_name, bcp47=bcp47)
-        if any_partial:
-            sys_prompt += " The input may be a partial sentence; prefer conservative grammar suggestions and avoid broad rewrites."
-    if ignored_reasons:
-        sys_prompt += "\n\nIMPORTANT: The user has explicitly chosen to IGNORE the following rules/style issues in this document. DO NOT report any errors or suggestions that match or are highly similar to these:\n"
-        for reason in sorted(ignored_reasons):
-            sys_prompt += f"- {reason}\n"
-    return sys_prompt
-
-
-def _detect_languages(
+def _obs_language_validation_decision(
     chunk: list[tuple[GrammarWorkItem, str]],
-    detect_lang_instruction: str,
-    ec: GrammarWorkerContext,
-    *,
-    trust_persisted_grammar_as_lang: bool = True,
-) -> list[str | None]:
-    """Resolve BCP47 per sentence (cache, optional persistence heuristic, or LLM)."""
-    detected_langs: list[str | None] = []
-    all_cached = True
-    for item, text in chunk:
-        cached = _get_cached_language(text)
-        if cached:
-            detected_langs.append(grammar_proofread_locale.normalize_detected_bcp47(cached) or cached)
-        elif trust_persisted_grammar_as_lang and _persisted_grammar_skip_lang_detect(ec.ctx, item.doc_id, text):
-            grammar_obs("lang_detect_skip", reason="persisted_grammar_heuristic", doc_id=item.doc_id[:32] if item.doc_id else "")
-            canon = grammar_proofread_locale.normalize_detected_bcp47(ec.grammar_bcp47) or ec.grammar_bcp47
-            _put_cached_language(text, canon)
-            detected_langs.append(canon)
-        else:
-            detected_langs.append(None)
-            all_cached = False
-
-    if not all_cached:
-        if len(chunk) > 1:
-            user_content = "\n".join(f"{idx+1}. {text}" for idx, (_it, text) in enumerate(chunk))
-            detect_prompt = grammar_proofread_locale.LANGUAGE_DETECT_BATCH_SYSTEM_PROMPT.format(detect_lang_instruction=detect_lang_instruction)
-            detect_messages = [{"role": "system", "content": detect_prompt}, {"role": "user", "content": user_content}]
-
-            detect_max_tok = grammar_proofread_locale.GRAMMAR_LANGUAGE_DETECT_MAX_TOKENS_PER_BATCH_ITEM * len(chunk)
-
-            emit_grammar_status("request", f"Batch of {len(chunk)}", result="Detecting language")
-            with queue_executor.llm_request_lane():
-                detect_content = _language_detect_llm_sync(ec, detect_messages, detect_max_tok)
-
-            parsed_langs = grammar_proofread_json.parse_language_detect_batch_json(detect_content or "")
-            if len(parsed_langs) == len(chunk):
-                for idx, d_lang in enumerate(parsed_langs):
-                    if d_lang:
-                        canon = grammar_proofread_locale.normalize_detected_bcp47(d_lang) or d_lang
-                        _put_cached_language(chunk[idx][1], canon)
-                        detected_langs[idx] = canon
-            elif detect_content:
-                log.warning("[grammar] language detect batch parse mismatch: chunk=%s parsed=%s", len(chunk), len(parsed_langs))
-        else:
-            text = chunk[0][1]
-            detect_prompt = grammar_proofread_locale.LANGUAGE_DETECT_SYSTEM_PROMPT.format(detect_lang_instruction=detect_lang_instruction)
-            detect_messages = [{"role": "system", "content": detect_prompt}, {"role": "user", "content": text}]
-
-            emit_grammar_status("request", text, result="Detecting language")
-            with queue_executor.llm_request_lane():
-                detect_content = _language_detect_llm_sync(
-                    ec,
-                    detect_messages,
-                    grammar_proofread_locale.GRAMMAR_LANGUAGE_DETECT_MAX_TOKENS_SINGLE,
-                )
-
-            parsed_lang = grammar_proofread_json.parse_language_detect_json(detect_content or "")
-            if parsed_lang:
-                canon = grammar_proofread_locale.normalize_detected_bcp47(parsed_lang) or parsed_lang
-                _put_cached_language(text, canon)
-                detected_langs[0] = canon
-            elif detect_content:
-                log.warning("[grammar] language detect JSON parse failed for sentence preview=%s", slice_preview_debug(text, 48))
-
-    return detected_langs
-
-
-def _language_detect_llm_sync(ec: GrammarWorkerContext, messages: list[dict[str, str]], max_tokens: int) -> str:
-    """Sync language-detect LLM call with one retry when the model returns empty content."""
-    model = ec.model or None
-    content = ec.client.chat_completion_sync(
-        messages,
-        max_tokens=max_tokens,
-        model=model,
-        response_format={"type": "json_object"},
-        prepend_dev_build_system_prefix=False,
+    target_bcp47: str,
+    detected: list[str | None],
+    decision: grammar_worker_phases.LanguageValidationDecision,
+) -> None:
+    """Emit TD9 observability for language validation outcomes."""
+    requeue_count = len(decision.requeues)
+    result_len = len(decision.result_chunk)
+    dropped_none = max(0, len(chunk) - result_len - requeue_count)
+    grammar_obs(
+        "lang_validation_decision",
+        chunk_len=len(chunk),
+        target_bcp47=target_bcp47,
+        result_chunk_len=result_len,
+        requeue_count=requeue_count,
+        dropped_none_count=dropped_none,
     )
-    if (content or "").strip():
-        return content
-    grammar_obs("lang_detect_empty_response", model=model or "", max_tokens=max_tokens)
-    log.warning("[grammar] language detect returned empty content (max_tokens=%s model=%s); retrying with higher cap", max_tokens, model)
-    retry_cap = max(max_tokens * 2, grammar_proofread_locale.GRAMMAR_LANGUAGE_DETECT_MAX_TOKENS_SINGLE)
-    content = ec.client.chat_completion_sync(
-        messages,
-        max_tokens=retry_cap,
-        model=model,
-        response_format={"type": "json_object"},
-        prepend_dev_build_system_prefix=False,
-    )
-    if not (content or "").strip():
-        grammar_obs("lang_detect_empty_response", model=model or "", max_tokens=retry_cap, retry=True)
-        log.warning("[grammar] language detect still empty after retry (max_tokens=%s)", retry_cap)
-    return content or ""
-
-
-def _call_grammar_llm(
-    chunk: list[tuple[GrammarWorkItem, str]],
-    bcp47: str,
-    ec: GrammarWorkerContext,
-) -> tuple[list[Any], int]:
-    """Run grammar LLM for one sentence or a batch; return parsed results and elapsed ms."""
-    batch = len(chunk) > 1
-    doc_id = chunk[0][0].doc_id
-    ignored_reasons = _get_active_ignored_reasons(ec.ctx, doc_id)
-    any_partial = any(item.partial_sentence or not grammar_proofread_locale.looks_complete_sentence(text) for item, text in chunk)
-    sys_prompt = _build_grammar_system_prompt(bcp47, ignored_reasons, batch=batch, any_partial=any_partial)
-
-    if batch:
-        user_content = "\n".join(f"{idx+1}. {text}" for idx, (_it, text) in enumerate(chunk))
-        messages = [{"role": "system", "content": sys_prompt}, {"role": "user", "content": user_content}]
-        grammar_obs("worker_llm_batch_request", item_count=len(chunk), total_len=len(user_content))
-        emit_grammar_status("request", f"Batch of {len(chunk)}", result="LLM batch request")
-        max_tokens = ec.max_tok * grammar_proofread_locale.GRAMMAR_BATCH_MAX_SENTENCES
-    else:
-        item, text = chunk[0]
-        messages = [{"role": "system", "content": sys_prompt}, {"role": "user", "content": text}]
-        grammar_obs("worker_llm_request_prepare", enqueue_seq=item.enqueue_seq, llm_text_len=len(text), llm_preview=slice_preview_debug(text, 96))
-        emit_grammar_status("request", text, result="LLM request")
-        max_tokens = ec.max_tok
-
-    request_start = time.monotonic()
-    with queue_executor.llm_request_lane():
-        content = ec.client.chat_completion_sync(messages, max_tokens=max_tokens, model=ec.model or None, response_format={"type": "json_object"}, prepend_dev_build_system_prefix=False)
-    elapsed_ms = int((time.monotonic() - request_start) * 1000)
-
-    if batch:
-        return grammar_proofread_json.parse_grammar_batch_json(content or ""), elapsed_ms
-    sent_results = grammar_proofread_json.parse_grammar_json(content or "")
-    return ([sent_results] if content else []), elapsed_ms
+    if len(chunk) > 1:
+        for idx, raw in enumerate(detected):
+            if raw:
+                continue
+            item, text = chunk[idx]
+            grammar_obs(
+                "lang_validation_item_none",
+                idx=idx,
+                enqueue_seq=item.enqueue_seq,
+                text_preview=slice_preview_debug(text, 48),
+            )
 
 
 def _requeue_individual_item(
@@ -684,8 +474,9 @@ def _run_language_validation(
     try:
         # Do not treat embedded grammar rows as proof of CharLocale — persistence is keyed by
         # sentence text only, so wrong-locale cache would skip real detection.
-        detected = _detect_languages(chunk, detect_lang_instruction, ec, trust_persisted_grammar_as_lang=False)
+        detected = detect_languages_for_chunk(chunk, detect_lang_instruction, ec, trust_persisted_grammar_as_lang=False)
         decision = grammar_worker_phases.decide_language_validation(chunk, target_bcp47, detected)
+        _obs_language_validation_decision(chunk, target_bcp47, detected, decision)
         for rq in decision.requeues:
             log.info("[grammar] Language mismatch detected: %s vs %s. Triggering locale change.", (rq.new_bcp47, rq.original_bcp47))
             _requeue_individual_item(rq.item, rq.text, rq.new_bcp47, rq.original_bcp47, ec)
@@ -706,7 +497,7 @@ def _run_grammar_check(
 ) -> None:
     """Grammar LLM, then cache results or requeue on batch mismatch."""
     try:
-        results, elapsed_ms = _call_grammar_llm(chunk, bcp47, ec)
+        results, elapsed_ms = call_grammar_llm(chunk, bcp47, ec)
         completion = grammar_worker_phases.decide_grammar_completion(len(chunk), len(results), bcp47, original_bcp47)
         if completion.requeue_all:
             log.warning("[grammar] LLM batch result count mismatch for chunk: expected %s, got %s. Requeuing items.", (len(chunk), len(results)))
@@ -714,12 +505,117 @@ def _run_grammar_check(
                 _requeue_individual_item(item, text, bcp47, original_bcp47, ec)
             return
         _process_grammar_results(chunk, results, bcp47, original_bcp47, elapsed_ms, ec)
+        grammar_obs("worker_grammar_done", chunk_len=len(chunk), results_len=len(results), elapsed_ms=elapsed_ms, bcp47=bcp47)
         if completion.apply_locale_after_success:
             for item, text in chunk:
                 _apply_language_change(ec.ctx, item.doc_id, text, bcp47)
     except Exception as e:
         log.error("[grammar] Grammar check error: %s", e, exc_info=True)
         emit_grammar_status("failed", "Grammar check", result=str(e))
+
+
+def _worker_batch_gates(ctx: Any, items: list[GrammarWorkItem]) -> bool:
+    """Return False when the batch should not run (grammar off or agent pause)."""
+    if not config.is_grammar_enabled(ctx):
+        grammar_obs("worker_batch_skip", reason="grammar_disabled", item_count=len(items))
+        return False
+    pause_during_agent = config.get_config_bool_safe(ctx, "doc.grammar_proofreader_pause_during_agent")
+    if pause_during_agent and queue_executor.is_agent_active():
+        grammar_obs("worker_batch_skip", reason="pause_during_agent", item_count=len(items))
+        return False
+    return True
+
+
+def _worker_collect_valid_items(
+    items: list[GrammarWorkItem],
+    gq: Any,
+    grammar_bcp47: str,
+    ctx: Any,
+) -> list[tuple[GrammarWorkItem, str]]:
+    valid_items: list[tuple[GrammarWorkItem, str]] = []
+    for item in items:
+        if gq.inflight_superseded(item.inflight_key, item.enqueue_seq):
+            grammar_obs("worker_skip", reason="superseded_before_process", enqueue_seq=item.enqueue_seq, inflight_key=item.inflight_key)
+            continue
+        if grammar_proofread_cache.cache_get_sentence(grammar_bcp47, item.text, ctx=ctx, doc_id=item.doc_id) is None:
+            valid_items.append((item, item.text))
+    return valid_items
+
+
+def _worker_build_chunks(
+    valid_items: list[tuple[GrammarWorkItem, str]],
+    ctx: Any,
+    batch_size: int,
+    max_chars: int,
+    detect_lang_enabled: bool,
+) -> tuple[list[list[tuple[GrammarWorkItem, str]]], str]:
+    """Build LLM chunks and optional language-detect instruction suffix."""
+    detect_lang_instruction = ""
+    if detect_lang_enabled:
+        prefilter_count = len(valid_items)
+        filtered_items: list[tuple[GrammarWorkItem, str]] = []
+        for item, text in valid_items:
+            if item.partial_sentence or not grammar_proofread_locale.looks_complete_sentence(text):
+                continue
+            filtered_items.append((item, text))
+        valid_items = filtered_items
+        if not valid_items:
+            grammar_obs("worker_chunk_skip", reason="detect_prefilter_empty", item_count=prefilter_count)
+            return [], detect_lang_instruction
+        locales_in_use = _get_cached_document_locales(ctx, valid_items[0][0].doc_id)
+        detect_lang_instruction = f" Choose from the following locales currently used in the document, or provide a new one if none match: {', '.join(locales_in_use)}."
+
+    chunks: list[list[tuple[GrammarWorkItem, str]]] = []
+    if len(valid_items) > 1 and batch_size > 1:
+        for i in range(0, len(valid_items), batch_size):
+            chunks.append(valid_items[i : i + batch_size])
+    else:
+        for item, text in valid_items:
+            if len(text) > max_chars:
+                text = text[:max_chars]
+            chunks.append([(item, text)])
+    return chunks, detect_lang_instruction
+
+
+def _worker_process_chunk(
+    chunk: list[tuple[GrammarWorkItem, str]],
+    ec: GrammarWorkerContext,
+    grammar_bcp47: str,
+    detect_lang_enabled: bool,
+    detect_lang_instruction: str,
+) -> None:
+    """Run language validation (optional) then grammar LLM for one chunk."""
+    current_chunk = chunk
+    lang_decision = None
+    if detect_lang_enabled:
+        lang_decision = _run_language_validation(chunk, grammar_bcp47, detect_lang_instruction, ec)
+        if lang_decision is None:
+            grammar_obs("worker_chunk_skip", reason="lang_validation_failed", chunk_len=len(chunk))
+            return
+        current_chunk = lang_decision.result_chunk
+
+    if not current_chunk:
+        grammar_obs(
+            "worker_chunk_skip",
+            reason="empty_result_chunk",
+            chunk_len=len(chunk),
+            target_bcp47=lang_decision.target_bcp47 if lang_decision else grammar_bcp47,
+            requeue_count=len(lang_decision.requeues) if lang_decision else 0,
+        )
+        return
+
+    current_bcp47 = grammar_bcp47
+    if lang_decision is not None:
+        current_bcp47 = lang_decision.target_bcp47
+        if current_bcp47 != grammar_bcp47:
+            updated_chunk = []
+            for item, text in current_chunk:
+                new_key = grammar_proofread_text.grammar_inflight_key(item.doc_id, current_bcp47, text, not item.partial_sentence)
+                new_item = replace(item, grammar_bcp47=current_bcp47, inflight_key=new_key)
+                updated_chunk.append((new_item, text))
+            current_chunk = updated_chunk
+
+    _run_grammar_check(current_chunk, current_bcp47, grammar_bcp47, ec)
 
 
 def run_llm_and_cache_batch(
@@ -732,43 +628,23 @@ def run_llm_and_cache_batch(
     if not items:
         return
 
-    # All items in a batch MUST share ctx and locale (grouped by _drain_loop)
     ctx = items[0].ctx
     grammar_bcp47 = items[0].grammar_bcp47
     gq_to_use = grammar_queue or _grammar_queue_singleton
     if not original_bcp47:
         original_bcp47 = items[0].original_bcp47 or grammar_bcp47
 
-
     try:
-        if not config.is_grammar_enabled(ctx):
-            grammar_obs("worker_batch_skip", reason="grammar_disabled", item_count=len(items))
+        if not _worker_batch_gates(ctx, items):
             return
 
-        pause_during_agent = config.get_config_bool_safe(ctx, "doc.grammar_proofreader_pause_during_agent")
-        if pause_during_agent and queue_executor.is_agent_active():
-            grammar_obs("worker_batch_skip", reason="pause_during_agent", item_count=len(items))
-            return
-
-        # 1. Resolve actual sentences to process for each item (filtering hits/superseded)
-        valid_items: list[tuple[GrammarWorkItem, str]] = []
-        for item in items:
-            if gq_to_use.inflight_superseded(item.inflight_key, item.enqueue_seq):
-                grammar_obs("worker_skip", reason="superseded_before_process", enqueue_seq=item.enqueue_seq, inflight_key=item.inflight_key)
-                continue
-
-            # Only keep uncached ones
-            if grammar_proofread_cache.cache_get_sentence(grammar_bcp47, item.text, ctx=ctx, doc_id=item.doc_id) is None:
-                valid_items.append((item, item.text))
-
+        valid_items = _worker_collect_valid_items(items, gq_to_use, grammar_bcp47, ctx)
         if not valid_items:
             grammar_obs("worker_batch_skip", reason="all_cached_or_superseded", item_count=len(items))
             return
 
-        # 2. Config & Preparation
         max_tok = grammar_proofread_locale.GRAMMAR_PROOFREAD_MAX_RESPONSE_TOKENS
         max_chars = grammar_proofread_locale.GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS
-        
         try:
             model = model_fetcher.get_grammar_model(ctx)
         except Exception as e:
@@ -776,34 +652,13 @@ def run_llm_and_cache_batch(
             model = ""
 
         client = llm_client.LlmClient(config.get_api_config(ctx), ctx)
-
         batch_size = config.get_config_int_safe(ctx, "doc.grammar_proofreader_batch_sentences", 1)
         batch_size = max(1, min(grammar_proofread_locale.GRAMMAR_BATCH_MAX_SENTENCES, batch_size))
-
         detect_lang_enabled = config.get_config_bool_safe(ctx, "doc.grammar_proofreader_detect_language")
-        detect_lang_instruction = ""
-        
-        if detect_lang_enabled:
-            filtered_items = []
-            for item, text in valid_items:
-                if item.partial_sentence or not grammar_proofread_locale.looks_complete_sentence(text):
-                    continue
-                filtered_items.append((item, text))
-            valid_items = filtered_items
-            if not valid_items:
-                return
-            locales_in_use = _get_cached_document_locales(ctx, valid_items[0][0].doc_id)
-            detect_lang_instruction = f" Choose from the following locales currently used in the document, or provide a new one if none match: {', '.join(locales_in_use)}."
-            
-        chunks: list[list[tuple[GrammarWorkItem, str]]] = []
-        if len(valid_items) > 1 and batch_size > 1:
-            for i in range(0, len(valid_items), batch_size):
-                chunks.append(valid_items[i : i + batch_size])
-        else:
-            for item, text in valid_items:
-                if len(text) > max_chars:
-                    text = text[:max_chars]
-                chunks.append([(item, text)])
+
+        chunks, detect_lang_instruction = _worker_build_chunks(valid_items, ctx, batch_size, max_chars, detect_lang_enabled)
+        if not chunks:
+            return
 
         ec = GrammarWorkerContext(
             ctx=ctx,
@@ -817,29 +672,7 @@ def run_llm_and_cache_batch(
         )
 
         for chunk in chunks:
-            current_chunk = chunk
-            lang_decision = None
-            if detect_lang_enabled:
-                lang_decision = _run_language_validation(chunk, grammar_bcp47, detect_lang_instruction, ec)
-                if lang_decision is None:
-                    continue
-                current_chunk = lang_decision.result_chunk
-
-            if not current_chunk:
-                continue
-
-            current_bcp47 = grammar_bcp47
-            if lang_decision is not None:
-                current_bcp47 = lang_decision.target_bcp47
-                if current_bcp47 != grammar_bcp47:
-                    updated_chunk = []
-                    for item, text in current_chunk:
-                        new_key = grammar_proofread_text.grammar_inflight_key(item.doc_id, current_bcp47, text, not item.partial_sentence)
-                        new_item = replace(item, grammar_bcp47=current_bcp47, inflight_key=new_key)
-                        updated_chunk.append((new_item, text))
-                    current_chunk = updated_chunk
-
-            _run_grammar_check(current_chunk, current_bcp47, grammar_bcp47, ec)
+            _worker_process_chunk(chunk, ec, grammar_bcp47, detect_lang_enabled, detect_lang_instruction)
 
     except Exception as e:
         log.error("[grammar] worker batch failed: %s", e, exc_info=True)
@@ -960,3 +793,13 @@ _grammar_queue_singleton = GrammarWorkQueue()
 grammar_queue: GrammarWorkQueue = _grammar_queue_singleton
 
 _lang_detect_cache = grammar_persistence.grammar_registry.lang_detect_cache
+
+# Test / legacy aliases (TD2 seam tests patch these names on grammar_work_queue).
+_detect_languages = detect_languages_for_chunk
+from .grammar_worker_llm import (  # noqa: E402
+    get_cached_language as _get_cached_language,
+    language_detect_llm_sync as _language_detect_llm_sync,
+    put_cached_language as _put_cached_language,
+)
+
+_call_grammar_llm = call_grammar_llm

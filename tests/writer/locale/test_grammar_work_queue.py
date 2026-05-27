@@ -604,7 +604,7 @@ def test_language_validation_does_not_trust_persisted_grammar_heuristic() -> Non
             with patch("plugin.writer.locale.grammar_work_queue._get_cached_language", return_value=None):
                 with patch("plugin.framework.queue_executor.llm_request_lane", return_value=mock_lane):
                     with patch(
-                        "plugin.writer.locale.grammar_work_queue._detect_languages",
+                        "plugin.writer.locale.grammar_work_queue.detect_languages_for_chunk",
                         return_value=["en-US"],
                     ) as mock_detect:
                         decision = _run_language_validation([(item, item.text)], "en-US", "", ec)
@@ -699,3 +699,38 @@ def test_language_detect_calls_llm_when_no_persisted_grammar() -> None:
         assert detected == ["en-US"]
     finally:
         _lang_detect_cache.pop(item.text, None)
+
+
+def test_worker_chunk_skip_empty_result_chunk_obs() -> None:
+    """Multi-batch all-None detect yields empty result_chunk; worker must log worker_chunk_skip."""
+    from plugin.writer.locale.grammar_work_queue import _worker_process_chunk
+
+    item_a = _make_item("Hello one.", inflight_key="k1")
+    item_b = _make_item("Hello two.", inflight_key="k2")
+    ec = MagicMock()
+    ec.ctx = MagicMock()
+    ec.gq = None
+    chunk = [(item_a, item_a.text), (item_b, item_b.text)]
+    with patch("plugin.writer.locale.grammar_work_queue.grammar_obs") as mock_obs, \
+         patch("plugin.writer.locale.grammar_work_queue._run_language_validation") as mock_val, \
+         patch("plugin.writer.locale.grammar_work_queue._run_grammar_check") as mock_grammar:
+        from plugin.writer.locale.grammar_worker_phases import LanguageValidationDecision
+
+        mock_val.return_value = LanguageValidationDecision(target_bcp47="en-US", result_chunk=[])
+        _worker_process_chunk(chunk, ec, "en-US", True, "")
+    mock_grammar.assert_not_called()
+    mock_obs.assert_any_call("worker_chunk_skip", reason="empty_result_chunk", chunk_len=2, target_bcp47="en-US", requeue_count=0)
+
+
+def test_worker_chunk_skip_lang_validation_failed_obs() -> None:
+    from plugin.writer.locale.grammar_work_queue import _worker_process_chunk
+
+    item = _make_item("Hello.")
+    ec = MagicMock()
+    ec.ctx = MagicMock()
+    with patch("plugin.writer.locale.grammar_work_queue.grammar_obs") as mock_obs, \
+         patch("plugin.writer.locale.grammar_work_queue._run_language_validation", return_value=None), \
+         patch("plugin.writer.locale.grammar_work_queue._run_grammar_check") as mock_grammar:
+        _worker_process_chunk([(item, item.text)], ec, "en-US", True, "")
+    mock_grammar.assert_not_called()
+    mock_obs.assert_any_call("worker_chunk_skip", reason="lang_validation_failed", chunk_len=1)

@@ -12,14 +12,7 @@ from typing import Any, Iterable, Sequence
 
 log = logging.getLogger("writeragent.grammar")
 
-
-def grammar_obs(event: str, **fields: Any) -> None:
-    """DEBUG-only observability (grep ``[grammar] obs`` in logs)."""
-    if not log.isEnabledFor(logging.DEBUG):
-        return
-    kv = " ".join(f"{k}={v!r}" for k, v in fields.items())
-    log.debug("[grammar] obs %s %s", event, kv)
-
+from .grammar_obs import grammar_obs
 
 from . import grammar_proofread_json
 from .grammar_proofread_locale import (

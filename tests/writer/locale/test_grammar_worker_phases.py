@@ -59,6 +59,15 @@ def test_decide_language_validation_all_match() -> None:
     assert decision.requeues == ()
 
 
+def test_decide_language_validation_multi_none_drops_from_result_chunk() -> None:
+    """Multi-batch None detect drops items silently (observe-only; single-item falls back to target)."""
+    a, b = _item("k1"), _item("k2")
+    decision = decide_language_validation([(a, a.text), (b, b.text)], "en-US", [None, None])
+    assert decision.result_chunk == []
+    assert decision.requeues == ()
+    assert decision.target_bcp47 == "en-US"
+
+
 def test_decide_grammar_completion_mismatch_requeues_all() -> None:
     decision = decide_grammar_completion(3, 2, "en-US", "en-US")
     assert decision.requeue_all is True

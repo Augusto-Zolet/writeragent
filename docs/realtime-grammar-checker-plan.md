@@ -183,8 +183,8 @@ The native grammar checker pairs **sentence-bound work units** with **sentence-l
 ### Code and packaging
 
 - **UNO component**: [`plugin/writer/locale/ai_grammar_proofreader.py`](../plugin/writer/locale/ai_grammar_proofreader.py) — `WriterAgentAiGrammarProofreader` (`unohelper` + `XProofreader`, locales, service info). Standalone entrypoint: extends `sys.path` like [`plugin/chatbot/panel_factory.py`](../plugin/chatbot/panel_factory.py) so `import plugin.*` works when LO loads the module. The service constructor must remain **`__init__(self, ctx, *args)`** because LibreOffice may instantiate proofreaders with `createInstanceWithArgumentsAndContext`.
-- **Pure Python modules**: [`grammar_proofread_locale.py`](../plugin/writer/locale/grammar_proofread_locale.py) — **`GRAMMAR_REGISTRY_LOCALE_TAGS`**, UNO `Locale` ↔ BCP-47 bridging; Unicode sentence terminals, `looks_complete_sentence`, abbrev table, system prompt templates (**single and batch**), `parse_grammar_json`, `parse_grammar_batch_json`. [`grammar_proofread_text.py`](../plugin/writer/locale/grammar_proofread_text.py) — BreakIterator orchestration, `split_into_sentences`, offset normalization. [`grammar_proofread_cache.py`](../plugin/writer/locale/grammar_proofread_cache.py) — sentence LRU + ignore rules. [`grammar_work_queue.py`](../plugin/writer/locale/grammar_work_queue.py) — `GrammarWorkItem`, `GrammarWorkQueue`, `run_llm_and_cache_batch` (orchestrates pipeline stages).
-- **Modular FSM Driver**: The grammar pipeline is refactored into pure module-level functions. `_run_fsm_stage` drives the state transitions, while `_handle_grammar_effect` centralizes all I/O side effects (LLM requests, cache writes, status updates). This separation of concerns simplifies the monolithic `run_llm_and_cache_batch` and enables easier unit testing of the state machine logic without side effects.
+- **Pure Python modules**: [`grammar_proofread_locale.py`](../plugin/writer/locale/grammar_proofread_locale.py) — **`GRAMMAR_REGISTRY_LOCALE_TAGS`**, UNO `Locale` ↔ BCP-47 bridging; Unicode sentence terminals, `looks_complete_sentence`, abbrev table, system prompt templates (**single and batch**), `parse_grammar_json`, `parse_grammar_batch_json`. [`grammar_proofread_text.py`](../plugin/writer/locale/grammar_proofread_text.py) — BreakIterator orchestration, `split_into_sentences`, offset normalization. [`grammar_proofread_cache.py`](../plugin/writer/locale/grammar_proofread_cache.py) — sentence LRU + ignore rules. [`grammar_obs.py`](../plugin/writer/locale/grammar_obs.py) — DEBUG `grammar_obs`, sidebar `emit_grammar_status`, `slice_preview_debug`. [`grammar_worker_llm.py`](../plugin/writer/locale/grammar_worker_llm.py) — sync grammar + language-detect LLM calls, prompt build, JSON parse. [`grammar_work_queue.py`](../plugin/writer/locale/grammar_work_queue.py) — `GrammarWorkItem`, `GrammarWorkQueue`, `run_llm_and_cache_batch` (chunk orchestration).
+- **Linear worker phases**: `run_llm_and_cache_batch` delegates to `_worker_*` helpers, then optional `_run_language_validation` and `_run_grammar_check`. Pure branch rules live in [`grammar_worker_phases.py`](../plugin/writer/locale/grammar_worker_phases.py); sync LLM wire lives in [`grammar_worker_llm.py`](../plugin/writer/locale/grammar_worker_llm.py).
 - **Registry**: [`extension/registry/org/openoffice/Office/LinguisticWriterAgentGrammar.xcu`](../extension/registry/org/openoffice/Office/LinguisticWriterAgentGrammar.xcu) — fuses `org.extension.writeragent.comp.pyuno.AiGrammarProofreader` under `GrammarCheckers` with `Locales` set to a space-separated list of BCP-47 tags (one `oor:string-list` `<value>`, matching Lightproof). Tags are defined as **`GRAMMAR_REGISTRY_LOCALE_TAGS`** in [`grammar_proofread_locale.py`](../plugin/writer/locale/grammar_proofread_locale.py) (same coverage as shipped gettext `locales/` plus `en-US` / `en-GB`). Must stay aligned with `getLocales()` (UNO `Locale` per tag) and `GRAMMAR_REGISTRY_LOCALE_TAGS` (unit test enforces parity). Document **regional** `CharLocale` values normalize to the canonical tag per language for cache and the LLM prompt.
 - **Bundle**: [`scripts/manifest_registry.py`](../scripts/manifest_registry.py) — `META-INF/manifest.xml` always lists the Python UNO module and `registry/org/openoffice/Office/LinguisticWriterAgentGrammar.xcu` in default `make manifest` / `make build` output.
 
@@ -659,7 +659,7 @@ These are ordered roughly by risk/reward and dependency. Lower numbers are safer
 | **TD5** | Error handling fragility | Nested try/except "log and continue" patterns in the hot `doProofreading` path and worker (C1). Some errors are swallowed that should at least increment a diagnostic counter. | `ai_grammar_proofreader.py`, `grammar_work_queue.py`, `grammar_proofread_locale.py` | Low | Medium | Implement the tiered error handling table from Appendix B. Introduce a small set of `_safe_*` helpers with clear contracts. Make sure all paths that return empty results still emit structured `grammar_obs` events. |
 | **TD6** | Constant & magic number sprawl | Thresholds, caps, timeouts, and sizes are defined in multiple files with varying documentation quality (C12). Some appear in prompts, some only in code. | `grammar_proofread_locale.py`, `grammar_proofread_text.py`, `grammar_work_queue.py`, `grammar_proofread_cache.py` | Low | Medium | Centralize in one well-documented module (or a `GRAMMAR_CONSTANTS` dataclass + docstring). Add units and rationale comments everywhere. Expose the most important ones via the existing config system where it makes sense for power users. |
 | **TD7** | UNO listener & persistence fragility | The long history of subtle bugs (wrong `documentEvent` vs `documentEventOccured`, wrong `hasByName` vs `XPropertySetInfo.hasPropertyByName`) lives in `grammar_persistence.py`. The pattern is easy to get wrong again in future listeners. | `grammar_persistence.py` + tests that caught the bugs | Low-Medium | Medium | **Completed** (2026-05) — Extracted a centralized `plugin/framework/uno_listeners.py` module containing verified, exception-safe base classes for `XDocumentEventListener`, `XCloseListener`, `XTerminateListener` and basic awt listeners. Refactored both `grammar_persistence.py` and `rich_text.py` to inherit from these bases, eliminating more than 200 lines of duplicate boilerplate, and added dedicated unit tests. |
-| **TD8** | Import graph & package cohesion | `grammar_proofread_locale.py` is intentionally a "DAG root" (must not import siblings). Other modules pull in many pieces. `ai_grammar_proofreader.py` does a lot of re-exporting. `grammar_fsm_state.py` exists but appears lightly connected. | Whole `plugin/writer/locale/` package | Low | Medium | **In progress (analysis phase, 2026-05)**
+| **TD8** | Import graph & package cohesion | `grammar_proofread_locale.py` is intentionally a "DAG root" (must not import siblings). Other modules pull in many pieces. `ai_grammar_proofreader.py` does a lot of re-exporting. | Whole `plugin/writer/locale/` package | Low | Medium | **In progress (analysis phase, 2026-05); FSM module removed in TD11**
 
 **Import Graph Summary**:
 - `grammar_proofread_locale.py` is the declared and respected DAG root (its docstring explicitly forbids importing siblings, and this is mostly followed in practice).
@@ -671,15 +671,143 @@ These are ordered roughly by risk/reward and dependency. Lower numbers are safer
 **Biggest Cohesion Smells** (ranked):
 1. Completely empty `locale/__init__.py` — no architecture documentation, no module ownership, no import rules.
 2. `ai_grammar_proofreader.py` as a "mega-aggregator" that pulls in pieces from many modules and re-exports some for tests.
-3. `grammar_fsm_state.py` appears lightly connected (see evaluation below).
+3. ~~`grammar_fsm_state.py`~~ removed (TD11); phase rules in `grammar_worker_phases.py`.
 4. Inconsistent import styles across the package.
 5. Some small pure utilities leaking across boundaries (see candidates below).
 
-**grammar_fsm_state.py Evaluation**:
-- Contains: frozen dataclasses for states + effects, two transition functions (`next_language_state`, `next_grammar_state`), and several effect types (`ExecuteGrammarCheckEffect`, `ProcessGrammarResultsEffect`, `RequeueIndividualItemEffect`, `EmitStatusEffect`, `LogEffect`, etc.).
-- Usage: **Exclusively** inside `grammar_work_queue.py` (treated as a namespace: `grammar_fsm_state.XXX`).
-- It is not a general FSM framework — it is very specific to the language-detection + grammar-checking phases of the worker.
-- **Decision (user preference)**: Keep as a separate file for now. The user likes the separation for readability and to keep the main worker file smaller. No merge planned in this pass.
+**grammar_worker_phases.py** (replaces `grammar_fsm_state.py`, TD11):
+- Pure `decide_language_validation` / `decide_grammar_completion` plus small action dataclasses.
+- Used only from `grammar_work_queue.py` for testable branch rules without a generic FSM driver.
+
+### Deeper Simplification Opportunities (Post-2026-05 Deep Analysis)
+
+This subsection captures a deeper review (performed 2026-05) of the grammar pipeline for additional safe simplifications **beyond the TD1–TD10 items above**. The focus is strictly on reducing cognitive load, duplication, and indirection while **preserving all essential correctness guarantees** (especially typing-storm deduplication and stale suppression), performance characteristics, document-embedded cache behavior, and observable squiggle UX.
+
+All suggestions below must follow the same rules as the rest of the Technical Debt section: characterization tests first, no user-visible behavior change, full test suite (including native) must pass.
+
+#### 1. Re-evaluate the FSM Abstraction for the Worker Pipeline (Potential TD11)
+
+**Current reality**: The two small state machines (`LanguageValidationState` + `GrammarCheckState`) + `_run_fsm_stage` driver + effect dispatch in `_handle_grammar_effect` were introduced as part of a testability refactor (related to TD2/TD4). They turn the linear "optionally do language detection then always do grammar check" sequence into an explicit state machine with side-effect objects.
+
+**Observation**: The actual production control flow in `run_llm_and_cache_batch` is fundamentally sequential with one optional branch:
+- (Optional language detection phase on complete sentences)
+- Grammar check phase (batched or single)
+
+The FSM machinery adds:
+- The generic driver loop (`_run_fsm_stage`)
+- Two `next_*_state` transition tables
+- A large `isinstance(effect, ...)` dispatcher
+- Many small frozen effect dataclasses whose only job is to carry data to the real handlers
+
+The real work still lives in large imperative functions (`_handle_lang_detect_effect`, `_handle_grammar_check_effect`, etc.). The "purity" benefit is limited because most effects have side effects (LLM calls, cache writes, requeues, locale mutations).
+
+**Simplification direction (safe to explore after strong tests)**:
+- Consider collapsing back to a more direct structure inside `run_llm_and_cache_batch` (or a clearly named coordinator function) while keeping the effect objects themselves if they help testability.
+- Keep the two conceptual phases, but drive them with ordinary `if` / function calls instead of the FSM driver.
+- This would remove `grammar_fsm_state.py` (or reduce it to just the effect dataclasses) and the `_run_fsm_stage` + transition functions.
+
+**Why now?** The phases are stable. The original goal (making the monolithic worker testable) has largely been achieved via the TD2 testing seam (`_get_testing_api`) and the pure dedup helpers. The FSM now appears to be adding indirection cost without proportional ongoing benefit.
+
+**Risk / Mitigation**: Very high test coverage on the worker path is mandatory before touching. The language-detection + requeue + grammar-result paths are subtle.
+
+**Estimated payoff**: Medium-high reduction in cognitive load for the hottest part of the grammar code (`run_llm_and_cache_batch` and its helpers). The worker file would become noticeably easier to reason about.
+
+**Status**: **Completed (2026-05-27)** — Removed `_run_fsm_stage`, effect dispatcher, and `grammar_fsm_state.py`. Added `grammar_worker_phases.py`, `_run_language_validation` / `_run_grammar_check`, TD13 prompt helpers (`_get_active_ignored_reasons`, `_build_grammar_system_prompt`). Tests: `test_grammar_worker_phases.py` + updated work-queue tests.
+
+#### 2. Further Consolidation of Deduplication Layers (Potential TD12)
+
+**Current state** (after TD4 Layer 1 removal):
+- Drain-time `batch_by_key` dict accumulator inside the worker.
+- Canonical pure `deduplicate_grammar_batch` (defense-in-depth + test surface).
+- `_latest_seq` + `record_enqueue_latest` + `is_stale` / `inflight_superseded` (the critical generation-stamp mechanism that actually protects during LLM latency).
+- Special `INCOMPLETE...` sentinel + `enqueue_seq` monotonic counter.
+
+The module docstring in `grammar_work_queue.py` is excellent, which itself is evidence of high complexity.
+
+**Observation**: We now have two places applying the "highest seq wins per `inflight_key`" rule (the dict + the pure function). The early `inflight_superseded` checks before FSM stages may be partially redundant with the post-drain stale checks.
+
+**Possible safe direction**:
+- Evaluate whether the drain dict + `deduplicate_grammar_batch` can be unified into a single, well-named pure function that is the clear source of truth.
+- Audit whether some of the pre-FSM superseded checks can be removed or consolidated now that the post-LLM `inflight_superseded` guard + cache skip is in place.
+- Keep the `_latest_seq` mechanism as the core (it is the piece that actually solves the "LLM call takes time, newer edit arrives" problem).
+
+**Why worth documenting**: This is the highest-cognitive-load area of the entire grammar system. Any further simplification here has outsized long-term maintenance value, but must be done with extreme care (see existing strong test coverage in `test_grammar_work_queue.py`).
+
+**Risk**: High if done incorrectly (typing-storm correctness is a core non-negotiable feature). Only pursue after excellent characterization tests and observability (TD9).
+
+**Status**: Analysis note only. No concrete change proposed yet.
+
+#### 3. Duplication in Grammar Check Prompt / Ignored-Rules Logic (Safe TD13 candidate)
+
+**Location**: `_handle_grammar_check_effect` in `grammar_work_queue.py` (the large `if len(effect.chunk) > 1:` branch vs the single-item `else` branch).
+
+**Duplicated logic** (nearly identical blocks):
+- Building the language-specific system prompt (single vs batch template).
+- Adding the "user has chosen to IGNORE the following rules" section (lookup from both per-document persistence and global registry, normalization via `normalize_reason`).
+- Partial-sentence / incomplete sentence warning text.
+- LLM call setup (model, max tokens, response format, dev prefix, timing).
+
+**Safe, high-payoff simplification**:
+- Extract one or two small pure or lightly-effectful helpers:
+  - `_build_grammar_system_prompt(bcp47, chunk, ignored_reasons, is_partial)`
+  - `_get_active_ignored_reasons(ctx, doc_id)` (or similar)
+- Both the batch and single paths call the same helpers.
+
+This is classic "batch vs single" duplication that has grown over time. It is low-risk, improves readability immediately, and makes future prompt changes cheaper.
+
+**Status**: **Completed (2026-05-27)** — Prompt helpers and `call_grammar_llm` in [`grammar_worker_llm.py`](../plugin/writer/locale/grammar_worker_llm.py) (moved from `grammar_work_queue.py`).
+
+**Related existing items**: Complements C10 (batch diagnostics) and TD6 (constants).
+
+#### 4. Scattered Normalization and Identity Logic as a Cross-Cutting Smell
+
+Normalization logic is spread across:
+- `grammar_proofread_locale.py` (terminals, `looks_complete_sentence`, abbrev, language name lookup)
+- `grammar_proofread_cache.py` (`_normalize_for_sentence_cache`, `normalize_reason`, incomplete prefix compaction)
+- `grammar_proofread_text.py` (whitespace stripping, `candidate_sentence_spans_for_proofreading`, offset mapping)
+- `grammar_work_queue.py` and `ai_grammar_proofreader.py` (inflight key construction, various fingerprints)
+
+While some distribution is natural, the number of small normalization steps a sentence goes through before becoming a stable cache key or work item increases the chance of subtle inconsistencies.
+
+**Low-risk cleanup ideas**:
+- Consider a small `grammar_identity.py` (or expand `grammar_proofread_locale.py`) as the single place that knows "what makes two sentences the same for grammar purposes."
+- Move `grammar_inflight_key` and `normalize_reason` there (as already partially noted in the TD8 import analysis above).
+- Document the full "normalization pipeline" a sentence experiences (text prep → sentence extraction → cache key → inflight key) in one place.
+
+This is mostly about conceptual ownership and reducing the chance of future drift.
+
+#### 5. Overall Pipeline Cognitive Load ("Gravity")
+
+The worker path (`run_llm_and_cache_batch`) now coordinates:
+- Supersede checks
+- Cache lookups
+- Optional language detection FSM
+- Chunking / batching
+- Two FSM stages
+- Effect dispatch
+- Prompt construction (with ignored rules injection)
+- LLM calls (under lane)
+- Result parsing + fallback
+- Cache writes (with superseded checks)
+- Language change application + requeue
+
+Even with good factoring, this is a long function with many concerns. Future readers (or future self) will have to re-load a lot of context.
+
+**No single silver-bullet refactor** is proposed here — this is an observation that any future work on the worker should explicitly aim to reduce the "how much do I have to hold in my head?" burden, not just add more layers.
+
+**Recommendation**: Before adding any significant new behavior to the grammar worker, require an explicit "does this increase or decrease the ability of a future reader to understand the whole path in one sitting?" review.
+
+#### Integration with Existing Backlog
+
+The items above are intended as **expansions or follow-ups** to the existing TD table and C1–C15 items. In particular:
+- They build on TD4 (dedup simplification), TD8 (FSM and import analysis), and the C items around error handling, logging, and constants.
+- Any concrete work should be given new TD numbers (TD11+) and cross-referenced here and in the Code health table.
+
+**Next step for this analysis**: When the user reviews this section, decide which (if any) of the four numbered opportunities above warrant concrete TD tickets with characterization tests and phased execution. The FSM re-evaluation (#1) and prompt duplication extraction (#3) are the two that currently look like the highest leverage / lowest immediate risk.
+
+---
+
+**End of 2026-05 Deep Simplification Analysis Addition**
 
 **Identified Opportunities – Small Pure Helpers** (best candidates for relocation to reduce cross-imports and improve conceptual ownership):
 
@@ -715,7 +843,7 @@ Other small functions (`span_overlaps_range`, `extend_through_trailing_whitespac
 - Consider adding light documentation to the individual modules once the package-level picture exists.
 
 **Note**: `plugin/scripting/` directory was intentionally excluded from this TD8 pass. |
-| **TD9** | Observability & diagnostics debt | `grammar_obs` is useful but under-used in some paths. Batch stats, supersede counts, and LLM durations are only partially instrumented (see C10). Hard to answer "why did this sentence get re-checked?" from logs alone. | `grammar_work_queue.py`, `grammar_proofread_cache.py`, `ai_grammar_proofreader.py` | Low | Medium | Systematically add `grammar_obs` (or structured logging) at every decision point in the enqueue → dedup → stale → execute → cache path. Make the existing queue diagnostics use the same mechanism. This pays for itself in future debugging. |
+| **TD9** | Observability & diagnostics debt | `grammar_obs` is useful but under-used in some paths. Batch stats, supersede counts, and LLM durations are only partially instrumented (see C10). Hard to answer "why did this sentence get re-checked?" from logs alone. | `grammar_obs.py`, `grammar_work_queue.py`, `grammar_worker_llm.py`, `grammar_proofread_cache.py`, `ai_grammar_proofreader.py` | Low | Medium | **Partial (2026-05-27)** — Canonical `grammar_obs` in `grammar_obs.py`. Lang-detect path: `lang_detect_item`, `lang_detect_batch_parse`, `lang_detect_single_parse`. Validation: `lang_validation_decision`, `lang_validation_item_none`. Chunk skips: `worker_chunk_skip` (`empty_result_chunk`, `lang_validation_failed`, `detect_prefilter_empty`). Grammar done: `worker_grammar_done`. Remaining: full C10 batch counters / p50–p95. |
 | **TD10** | Dead / legacy config surface | References to removed keys (e.g. `doc.grammar_proofreader_wait_timeout_ms`) still linger in some places (C13). | Config schemas, UI bindings, any remaining call sites | Very Low | Low | Mechanical removal pass + test that the keys no longer appear in generated settings. |
 
 ### Recommended Phasing
