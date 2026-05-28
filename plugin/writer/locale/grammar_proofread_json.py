@@ -10,7 +10,6 @@ the main locale policy to ensure cleaner separation of concerns.
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import re
 from typing import Any, Mapping, cast
@@ -20,11 +19,6 @@ import json_repair
 from plugin.framework.json_utils import safe_json_loads
 
 _log = logging.getLogger("writeragent.grammar")
-
-
-def fingerprint_for_text(text: str) -> str:
-    """Truncate to 24 hex characters (96 bits) for stable collision-resistant sentence caching."""
-    return hashlib.sha256(text.encode("utf-8", errors="surrogatepass")).hexdigest()[:24]
 
 # Storage key mapping for error objects to reduce JSON footprint.
 _ERROR_KEY_MAP = {

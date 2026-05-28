@@ -183,7 +183,7 @@ The native grammar checker pairs **sentence-bound work units** with **sentence-l
 ### Code and packaging
 
 - **UNO component**: [`plugin/writer/locale/ai_grammar_proofreader.py`](../plugin/writer/locale/ai_grammar_proofreader.py) — `WriterAgentAiGrammarProofreader` (`unohelper` + `XProofreader`, locales, service info). Standalone entrypoint: extends `sys.path` like [`plugin/chatbot/panel_factory.py`](../plugin/chatbot/panel_factory.py) so `import plugin.*` works when LO loads the module. The service constructor must remain **`__init__(self, ctx, *args)`** because LibreOffice may instantiate proofreaders with `createInstanceWithArgumentsAndContext`.
-- **Pure Python modules**: [`grammar_proofread_locale.py`](../plugin/writer/locale/grammar_proofread_locale.py) — **`GRAMMAR_REGISTRY_LOCALE_TAGS`**, UNO `Locale` ↔ BCP-47 bridging; Unicode sentence terminals, `looks_complete_sentence`, abbrev table, system prompt templates (**single and batch**), `parse_grammar_json`, `parse_grammar_batch_json`. [`grammar_proofread_text.py`](../plugin/writer/locale/grammar_proofread_text.py) — BreakIterator orchestration, `split_into_sentences`, offset normalization. [`grammar_proofread_cache.py`](../plugin/writer/locale/grammar_proofread_cache.py) — sentence LRU + ignore rules. [`grammar_obs.py`](../plugin/writer/locale/grammar_obs.py) — DEBUG `grammar_obs`, sidebar `emit_grammar_status`, `slice_preview_debug`. [`grammar_worker_llm.py`](../plugin/writer/locale/grammar_worker_llm.py) — sync grammar + language-detect LLM calls, prompt build, JSON parse. [`grammar_work_queue.py`](../plugin/writer/locale/grammar_work_queue.py) — `GrammarWorkItem`, `GrammarWorkQueue`, `run_llm_and_cache_batch` (chunk orchestration).
+- **Pure Python modules**: [`grammar_proofread_locale.py`](../plugin/writer/locale/grammar_proofread_locale.py) — **`GRAMMAR_REGISTRY_LOCALE_TAGS`**, UNO `Locale` ↔ BCP-47 bridging; Unicode sentence terminals, `looks_complete_sentence`, abbrev table, worker caps and system prompt templates (**single and batch**), `fingerprint_for_text`, `grammar_inflight_key`. [`grammar_proofread_json.py`](../plugin/writer/locale/grammar_proofread_json.py) — JSON wire parsing (`parse_grammar_json`, language-detect parsers, error compress/decompress). [`grammar_proofread_text.py`](../plugin/writer/locale/grammar_proofread_text.py) — BreakIterator orchestration, `split_into_sentences`, offset normalization. [`grammar_proofread_cache.py`](../plugin/writer/locale/grammar_proofread_cache.py) — sentence LRU + ignore rules. [`grammar_obs.py`](../plugin/writer/locale/grammar_obs.py) — DEBUG `grammar_obs`, sidebar `emit_grammar_status`, `slice_preview_debug`. [`grammar_worker_llm.py`](../plugin/writer/locale/grammar_worker_llm.py) — sync grammar + language-detect LLM calls, prompt build, JSON parse. [`grammar_work_queue.py`](../plugin/writer/locale/grammar_work_queue.py) — `GrammarWorkItem`, `GrammarWorkQueue`, `run_llm_and_cache_batch` (chunk orchestration).
 - **Linear worker phases**: `run_llm_and_cache_batch` delegates to `_worker_*` helpers, then optional `_run_language_validation` and `_run_grammar_check`. Pure branch rules live in [`grammar_worker_phases.py`](../plugin/writer/locale/grammar_worker_phases.py); sync LLM wire lives in [`grammar_worker_llm.py`](../plugin/writer/locale/grammar_worker_llm.py).
 - **Registry**: [`extension/registry/org/openoffice/Office/LinguisticWriterAgentGrammar.xcu`](../extension/registry/org/openoffice/Office/LinguisticWriterAgentGrammar.xcu) — fuses `org.extension.writeragent.comp.pyuno.AiGrammarProofreader` under `GrammarCheckers` with `Locales` set to a space-separated list of BCP-47 tags (one `oor:string-list` `<value>`, matching Lightproof). Tags are defined as **`GRAMMAR_REGISTRY_LOCALE_TAGS`** in [`grammar_proofread_locale.py`](../plugin/writer/locale/grammar_proofread_locale.py) (same coverage as shipped gettext `locales/` plus `en-US` / `en-GB`). Must stay aligned with `getLocales()` (UNO `Locale` per tag) and `GRAMMAR_REGISTRY_LOCALE_TAGS` (unit test enforces parity). Document **regional** `CharLocale` values normalize to the canonical tag per language for cache and the LLM prompt.
 - **Bundle**: [`scripts/manifest_registry.py`](../scripts/manifest_registry.py) — `META-INF/manifest.xml` always lists the Python UNO module and `registry/org/openoffice/Office/LinguisticWriterAgentGrammar.xcu` in default `make manifest` / `make build` output.
@@ -318,7 +318,7 @@ The native grammar checker pairs **sentence-bound work units** with **sentence-l
 > }
 > ```
 >
-> **Implementation reuse.** The architecture already keyed all sentence cache lookups on `fingerprint_for_text`, so adding `DocumentPersistence` didn't require core refactoring — it's just another `GrammarPersistence` backend.
+> **Implementation reuse.** The architecture already keyed all sentence cache lookups on `fingerprint_for_text` (in [`grammar_proofread_locale.py`](../plugin/writer/locale/grammar_proofread_locale.py)), so adding `DocumentPersistence` didn't require core refactoring — it's just another `GrammarPersistence` backend.
 >
 > **Why not `setattr` on the UNO model wrapper?** State is held in a module-level `_doc_persistence_instances: dict[doc_id, DocumentPersistence]`, with `OnUnload` / dispose dropping the entry so the object (and its in-memory cache) becomes unreachable. Hanging it on the PyUNO `XModel` wrapper via Python `setattr` is rejected: wrapper identity is not stable across threads/call paths, it creates ref cycles with the model, and it's harder to unit-test.
 
@@ -640,12 +640,9 @@ One alternative is to move to a **single global cache** where every entry is tag
 
 Below is the list of open technical debt items. All major foundational TD tasks (including bootstrap centralization, testability seams, registry singleton migration, queue simplification, and listener base classes) have been successfully **completed** and shipped.
 
-Furthermore, **the FSM abstraction has been entirely removed** (previously TD11). Because the worker phases are fundamentally sequential (optional language detection followed by grammar checking), the generic FSM loop, transition tables, dispatcher, and state objects were deemed unnecessarily complex. They were replaced by simple sequential `if` checks and direct function calls driven by pure phase decisions in `grammar_worker_phases.py`.
-
 | ID  | Area | Debt Description | Primary Files | Risk | Payoff | Status / Suggested Approach |
 |-----|------|------------------|---------------|------|--------|-----------------------------|
 | **TD5** | Error handling fragility | Nested try/except "log and continue" patterns in the hot `doProofreading` path and worker (C1). Some errors are swallowed that should at least increment a diagnostic counter. | `ai_grammar_proofreader.py`, `grammar_work_queue.py`, `grammar_proofread_locale.py` | Low | Medium | Implement the tiered error handling table from Appendix B. Introduce a small set of `_safe_*` helpers with clear contracts. |
-| **TD6** | Constant & magic number sprawl | Magic numbers and thresholds are defined in multiple files with varying documentation quality (C12). | `grammar_proofread_locale.py`, `grammar_proofread_text.py`, `grammar_work_queue.py`, `grammar_proofread_cache.py` | Low | Medium | Centralize in one well-documented module (or a `GRAMMAR_CONSTANTS` dataclass + docstring). |
 | **TD8** | Small helper refactoring & import graph cohesion | Relocate small helper utilities to appropriate files to minimize cross-imports and establish clear conceptual boundaries. | `grammar_proofread_locale.py`, `grammar_proofread_cache.py`, `grammar_proofread_text.py` | Low | Medium | **Open** — Relocate candidates identified in the opportunities subsection below to their natural home modules. |
 | **TD9** | Observability & diagnostics debt | `grammar_obs` is useful but under-used in some paths. Batch stats, supersede counts, and LLM durations are only partially instrumented (see C10). | `grammar_obs.py`, `grammar_work_queue.py`, `grammar_worker_llm.py`, `grammar_proofread_cache.py`, `ai_grammar_proofreader.py` | Low | Medium | **Partial (2026-05)** — Canonical `grammar_obs` is active. Remaining: full C10 batch counters / p50–p95 logging. |
 | **TD10** | Dead / legacy config surface | References to removed keys (e.g. `doc.grammar_proofreader_wait_timeout_ms`) still linger in some places (C13). | Config schemas, UI bindings, any remaining call sites | Very Low | Low | Mechanical removal pass + test that the keys no longer appear in generated settings. |
@@ -654,17 +651,12 @@ Furthermore, **the FSM abstraction has been entirely removed** (previously TD11)
 
 These pure helpers are prime candidates for relocation to improve conceptual ownership and streamline the import graph:
 
-1. **`grammar_inflight_key`** (currently in `grammar_proofread_text.py`):
-   - Generates the stable dedup/supersede key (`{doc_id}|{locale}|{hash or INCOMPLETE sentinel}`).
-   - Used by: `ai_grammar_proofreader.py` (enqueuing) and `grammar_work_queue.py` (multiple places, including language change requeues).
-   - **Suggested new home:** `grammar_proofread_locale.py` (fits naturally with other locale-aware identity logic) or a central identity module.
-   
-2. **`normalize_reason`** (currently in `grammar_proofread_cache.py`):
+1. **`normalize_reason`** (currently in `grammar_proofread_cache.py`):
    - Canonicalizes error reasons for ignore-rule matching.
    - Used heavily by: `ai_grammar_proofreader.py` (in `ignoreRule`, cached error filtering) and `grammar_work_queue.py` (when processing ignored rules).
    - **Suggested new home:** `grammar_proofread_locale.py` or a dedicated `grammar_rules.py`.
 
-3. **`slice_preview_debug`** (currently in `grammar_obs.py`):
+2. **`slice_preview_debug`** (currently in `grammar_obs.py`):
    - Creates compact text previews for logging/observability.
    - Used by: `ai_grammar_proofreader.py` (exposed via the TD2 testing seam) and internally in `grammar_work_queue.py`.
    - **Suggested new home:** `grammar_proofread_text.py` (alongside other text/slice utilities).
@@ -679,7 +671,7 @@ For any TD item that touches runtime behavior:
 
 ---
 
-**Status of this plan**: Shipped & Current — All major pipeline simplifications (including the removal of FSM state indirection) have been completed.
+**Status of this plan**: Shipped & Current — All major pipeline simplifications have been completed.
 
 ---
 

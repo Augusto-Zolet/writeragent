@@ -172,3 +172,25 @@ def test_tricky_terminator_regex_escaping() -> None:
     assert re.match(gl._sterm_class, ".")
     assert gl.GRAMMAR_CACHE_NORMALIZATION_RE.match("Hello.")
 
+
+def test_fingerprint_for_text() -> None:
+    text1 = "This is a sentence."
+    text2 = "This is another sentence."
+    fp1 = gl.fingerprint_for_text(text1)
+    fp2 = gl.fingerprint_for_text(text2)
+    assert len(fp1) == 24
+    assert len(fp2) == 24
+    assert fp1 != fp2
+    assert fp1 == gl.fingerprint_for_text(text1)
+
+
+def test_grammar_inflight_key_complete_uses_fingerprint_prefix() -> None:
+    text = "Hello world."
+    assert gl.grammar_inflight_key("doc1", "en-US", text, is_complete=True) == f"doc1|en-US|{gl.fingerprint_for_text(text)[:16]}"
+
+
+def test_grammar_inflight_key_incomplete_stable() -> None:
+    key = gl.grammar_inflight_key("doc1", "en-US", "H", is_complete=False)
+    assert key == "doc1|en-US|INCOMPLETE_WRITER_AGENT_INTERNAL_STRING"
+    assert key == gl.grammar_inflight_key("doc1", "en-US", "Hello world", is_complete=False)
+

@@ -17,9 +17,9 @@ from .grammar_proofread_locale import (
     GRAMMAR_CACHE_NORMALIZATION_RE,
     MAX_CACHE_SIZE,
     MAX_RECENT_INCOMPLETE_SCAN,
+    fingerprint_for_text,
     looks_complete_sentence,
 )
-from . import grammar_proofread_json
 
 
 def normalize_reason(reason: str) -> str:
@@ -85,7 +85,7 @@ def _normalize_for_sentence_cache(text: str) -> str:
 
 def sentence_identity_fp(sentence: str) -> str:
     """Stable fingerprint for cache lookup: normalize then hash (same key space as ``make_sentence_key``)."""
-    return grammar_proofread_json.fingerprint_for_text(_normalize_for_sentence_cache(sentence))
+    return fingerprint_for_text(_normalize_for_sentence_cache(sentence))
 
 
 def sentence_cache_key_prefix(locale_key: str) -> str:
@@ -137,7 +137,7 @@ def _populate_memory_cache_only(locale_key: str, sentence: str, errors: list[dic
     Returns (fp, canon, is_complete, key, clipped_errors).
     """
     canon = _normalize_for_sentence_cache(sentence)
-    fp = grammar_proofread_json.fingerprint_for_text(canon)
+    fp = fingerprint_for_text(canon)
     key = f"{sentence_cache_key_prefix(locale_key)}{fp}"
     clipped = _clip_errors_to_canonical_length(errors, len(canon))
     is_complete = _is_complete_sentence(canon)

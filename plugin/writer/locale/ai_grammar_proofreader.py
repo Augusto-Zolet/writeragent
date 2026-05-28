@@ -60,10 +60,11 @@ from plugin.writer.locale.grammar_proofread_cache import cache_get_sentence, ign
 from plugin.writer.locale.grammar_proofread_locale import (
     GRAMMAR_REGISTRY_LOCALE_TAGS,
     bcp47_to_uno_lang_country,
+    grammar_inflight_key,
     looks_complete_sentence,
     normalize_uno_locale_to_bcp47,
 )
-from plugin.writer.locale.grammar_proofread_text import NormalizedProofError, candidate_sentence_spans_for_proofreading, filter_sentence_spans_for_thresholds, grammar_inflight_key
+from plugin.writer.locale.grammar_proofread_text import NormalizedProofError, candidate_sentence_spans_for_proofreading, filter_sentence_spans_for_thresholds
 from plugin.writer.locale.grammar_work_queue import (
     GrammarWorkItem,
     emit_grammar_status,

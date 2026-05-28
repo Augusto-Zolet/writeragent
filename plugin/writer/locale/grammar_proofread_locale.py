@@ -14,6 +14,7 @@ Must not import sibling modules under ``plugin.writer.locale``.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 from dataclasses import dataclass
@@ -45,6 +46,57 @@ GRAMMAR_WORKER_PAUSE_TIMEOUT_S = 1.0
 # Text scheduling thresholds
 GRAMMAR_PARTIAL_MIN_NONSPACE_CHARS = 15
 
+# Worker LLM system prompts
+GRAMMAR_SYSTEM_PROMPT_TEMPLATE = (
+    "You are a strict grammar and style checker. Reply with a single JSON object only, "
+    'no markdown, shaped exactly as: {{"errors": [{{"wrong": "exact substring from the text", '
+    '"correct": "replacement", "type": "grammar|style|spelling", "reason": "brief reason"}}]}}. '
+    "Use an empty errors array if there are no issues. "
+    "Provide errors in the order they appear in the text. "
+    "The text to check is in {lang_name} (BCP-47: {bcp47}). Apply grammar, spelling, "
+    "and style rules appropriate to that language; use the same language as the text in "
+    '"reason" and any comments when you give them.'
+)
+
+GRAMMAR_BATCH_SYSTEM_PROMPT_TEMPLATE = (
+    "You are a strict grammar and style checker. The user will provide multiple sentences. "
+    "Reply with a single JSON object only, no markdown, shaped exactly as: "
+    '{{"results": [{{"errors": [{{"wrong": "...", "correct": "...", "type": "...", "reason": "..."}}]}}]}}. '
+    "The 'results' array must have exactly the same number of elements as the input sentences, in the same order. "
+    "Use an empty errors array for sentences with no issues. "
+    "The text is in {lang_name} (BCP-47: {bcp47}). Apply grammar, spelling, "
+    "and style rules appropriate to that language; use the same language as the text in "
+    '"reason" and any comments when you give them.'
+)
+
+LANGUAGE_DETECT_SYSTEM_PROMPT = """You are a language detection engine. The user will provide a text segment.
+Return a JSON object with a single key 'detected_language_bcp47' containing the BCP-47 language tag for the text.
+{detect_lang_instruction}
+"""
+
+LANGUAGE_DETECT_BATCH_SYSTEM_PROMPT = """You are a language detection engine. The user will provide multiple numbered text segments.
+Return a JSON object with a 'results' array. Each element in the array must be an object with a 'detected_language_bcp47' key containing the BCP-47 language tag for the corresponding segment.
+The 'results' array must have exactly the same number of elements as the input segments, in the same order.
+{detect_lang_instruction}
+"""
+
+
+def fingerprint_for_text(text: str) -> str:
+    """Truncate to 24 hex characters (96 bits) for stable collision-resistant sentence caching."""
+    return hashlib.sha256(text.encode("utf-8", errors="surrogatepass")).hexdigest()[:24]
+
+
+def grammar_inflight_key(a_document_identifier: str, loc_key: str, sent_text: str, is_complete: bool) -> str:
+    """Queue supersede key: distinct per sentence when complete; stable per document when incomplete.
+
+    - Complete sentences use their text hash to avoid collisions across paragraphs.
+    - Incomplete sentences use a fixed 'INCOMPLETE' key to prevent typing floods.
+    """
+    if is_complete:
+        context = fingerprint_for_text(sent_text)[:16]
+    else:
+        context = "INCOMPLETE_WRITER_AGENT_INTERNAL_STRING"
+    return f"{a_document_identifier}|{loc_key}|{context}"
 
 
 # ---------------------------------------------------------------------------
@@ -211,44 +263,6 @@ def normalize_uno_locale_to_bcp47(a_locale: Any) -> str | None:
 
 def grammar_english_name_for_bcp47(bcp47: str) -> str:
     return GRAMMAR_REGISTRY_LOCALES.get(bcp47, bcp47)
-
-
-# ---------------------------------------------------------------------------
-# Worker LLM policy (fixed caps, prompt template, drain debounce)
-# ---------------------------------------------------------------------------
-
-GRAMMAR_SYSTEM_PROMPT_TEMPLATE = (
-    "You are a strict grammar and style checker. Reply with a single JSON object only, "
-    'no markdown, shaped exactly as: {{"errors": [{{"wrong": "exact substring from the text", '
-    '"correct": "replacement", "type": "grammar|style|spelling", "reason": "brief reason"}}]}}. '
-    "Use an empty errors array if there are no issues. "
-    "Provide errors in the order they appear in the text. "
-    "The text to check is in {lang_name} (BCP-47: {bcp47}). Apply grammar, spelling, "
-    "and style rules appropriate to that language; use the same language as the text in "
-    '"reason" and any comments when you give them.'
-)
-
-GRAMMAR_BATCH_SYSTEM_PROMPT_TEMPLATE = (
-    "You are a strict grammar and style checker. The user will provide multiple sentences. "
-    "Reply with a single JSON object only, no markdown, shaped exactly as: "
-    '{{"results": [{{"errors": [{{"wrong": "...", "correct": "...", "type": "...", "reason": "..."}}]}}]}}. '
-    "The 'results' array must have exactly the same number of elements as the input sentences, in the same order. "
-    "Use an empty errors array for sentences with no issues. "
-    "The text is in {lang_name} (BCP-47: {bcp47}). Apply grammar, spelling, "
-    "and style rules appropriate to that language; use the same language as the text in "
-    '"reason" and any comments when you give them.'
-)
-
-LANGUAGE_DETECT_SYSTEM_PROMPT = """You are a language detection engine. The user will provide a text segment.
-Return a JSON object with a single key 'detected_language_bcp47' containing the BCP-47 language tag for the text.
-{detect_lang_instruction}
-"""
-
-LANGUAGE_DETECT_BATCH_SYSTEM_PROMPT = """You are a language detection engine. The user will provide multiple numbered text segments.
-Return a JSON object with a 'results' array. Each element in the array must be an object with a 'detected_language_bcp47' key containing the BCP-47 language tag for the corresponding segment.
-The 'results' array must have exactly the same number of elements as the input segments, in the same order.
-{detect_lang_instruction}
-"""
 
 
 # ---------------------------------------------------------------------------

@@ -14,7 +14,6 @@ log = logging.getLogger("writeragent.grammar")
 
 from .grammar_obs import grammar_obs
 
-from . import grammar_proofread_json
 from .grammar_proofread_locale import (
     GRAMMAR_PARTIAL_MIN_NONSPACE_CHARS,
     GRAMMAR_WHITESPACE_RUN_RE,
@@ -117,22 +116,6 @@ def split_into_sentences(ctx: Any, locale_key: str, text: str) -> list[tuple[int
 # ---------------------------------------------------------------------------
 # Proofreading sentence selection
 # ---------------------------------------------------------------------------
-
-
-def grammar_inflight_key(a_document_identifier: str, loc_key: str, sent_text: str, is_complete: bool) -> str:
-    """Queue supersede key: distinct per sentence when complete; stable per document when incomplete.
-
-    - Complete sentences use their text hash to avoid collisions across paragraphs.
-    - Incomplete sentences use a fixed 'INCOMPLETE' key to prevent typing floods.
-    """
-    if is_complete:
-        # Complete sentences are stable and unique.
-        context = grammar_proofread_json.fingerprint_for_text(sent_text)[:16]
-    else:
-        # All incomplete sentences in a document share one key to ensure only the
-        # latest one is processed (superseding old typing drafts).
-        context = "INCOMPLETE_WRITER_AGENT_INTERNAL_STRING"
-    return f"{a_document_identifier}|{loc_key}|{context}"
 
 
 def span_overlaps_range(s_start: int, s_end: int, lo: int, hi: int) -> bool:

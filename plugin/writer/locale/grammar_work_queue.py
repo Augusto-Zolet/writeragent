@@ -378,7 +378,7 @@ def _requeue_individual_item(
 ) -> None:
     """Requeue one item after language mismatch or grammar batch count mismatch."""
     sent_complete = (not item.partial_sentence) and grammar_proofread_locale.looks_complete_sentence(text)
-    requeue_inflight_key = grammar_proofread_text.grammar_inflight_key(item.doc_id, new_bcp47, text, sent_complete)
+    requeue_inflight_key = grammar_proofread_locale.grammar_inflight_key(item.doc_id, new_bcp47, text, sent_complete)
 
     grammar_proofread_cache.cache_put_sentence(original_bcp47, text, [], ctx=ec.ctx, doc_id=item.doc_id)
 
@@ -610,7 +610,7 @@ def _worker_process_chunk(
         if current_bcp47 != grammar_bcp47:
             updated_chunk = []
             for item, text in current_chunk:
-                new_key = grammar_proofread_text.grammar_inflight_key(item.doc_id, current_bcp47, text, not item.partial_sentence)
+                new_key = grammar_proofread_locale.grammar_inflight_key(item.doc_id, current_bcp47, text, not item.partial_sentence)
                 new_item = replace(item, grammar_bcp47=current_bcp47, inflight_key=new_key)
                 updated_chunk.append((new_item, text))
             current_chunk = updated_chunk

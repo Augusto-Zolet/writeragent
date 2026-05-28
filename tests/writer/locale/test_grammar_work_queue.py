@@ -77,7 +77,7 @@ def _make_item(
 
 def test_mid_sentence_typing_dedup() -> None:
     """Incomplete sentences share a stable key and should supersede."""
-    from plugin.writer.locale.grammar_proofread_text import grammar_inflight_key
+    from plugin.writer.locale.grammar_proofread_locale import grammar_inflight_key
     # All incomplete sentences in a doc share the same key
     key = grammar_inflight_key("doc1", "en-US", "H", is_complete=False)
     assert key == "doc1|en-US|INCOMPLETE_WRITER_AGENT_INTERNAL_STRING"
@@ -202,7 +202,7 @@ def test_reverse_prefix_chain_executes_only_latest() -> None:
 
 def test_two_sentences_same_document_distinct_inflight_keys_survive() -> None:
     """Different sentences should have different keys (based on their text) and both remain."""
-    from plugin.writer.locale.grammar_proofread_text import grammar_inflight_key
+    from plugin.writer.locale.grammar_proofread_locale import grammar_inflight_key
     s1 = "First sentence."
     s2 = "Second sentence."
     key1 = grammar_inflight_key("doc1", "en-US", s1, is_complete=True)
@@ -220,7 +220,7 @@ def test_two_sentences_same_document_distinct_inflight_keys_survive() -> None:
 
 def test_paragraph_collision_survives_dedup() -> None:
     """Two different complete sentences with same relative start (handled by text-based keys) survive."""
-    from plugin.writer.locale.grammar_proofread_text import grammar_inflight_key
+    from plugin.writer.locale.grammar_proofread_locale import grammar_inflight_key
     
     s1 = "Paragraph one is unique."
     s2 = "Paragraph two is also unique."
