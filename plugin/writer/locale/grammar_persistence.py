@@ -22,9 +22,7 @@ from typing import Any
 log = logging.getLogger("writeragent.grammar")
 
 from . import grammar_proofread_json
-
-GRAMMAR_CACHE_VERSION = 2
-GRAMMAR_DOC_CACHE_UDPROP = "WriterAgentGrammarCache"
+from .grammar_proofread_locale import GRAMMAR_CACHE_VERSION, GRAMMAR_DOC_CACHE_UDPROP
 
 
 

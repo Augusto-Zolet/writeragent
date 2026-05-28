@@ -13,10 +13,13 @@ import re
 from typing import Any
 
 from .grammar_persistence import get_persistence, grammar_registry
-from .grammar_proofread_locale import GRAMMAR_CACHE_NORMALIZATION_RE, looks_complete_sentence
+from .grammar_proofread_locale import (
+    GRAMMAR_CACHE_NORMALIZATION_RE,
+    MAX_CACHE_SIZE,
+    MAX_RECENT_INCOMPLETE_SCAN,
+    looks_complete_sentence,
+)
 from . import grammar_proofread_json
-
-MAX_CACHE_SIZE = 2048
 
 
 def normalize_reason(reason: str) -> str:
@@ -33,11 +36,6 @@ def normalize_reason(reason: str) -> str:
     s = re.sub(r"[^a-z0-9\s]", "", s)
     return " ".join(s.split())
 
-
-# Limit how many recent entries we scan for incomplete-sentence prefix
-# compaction on each cache_put_sentence. 10 is a good balance between
-# effectiveness (catches typical typing chains) and CPU (few memory touches).
-MAX_RECENT_INCOMPLETE_SCAN = 10
 
 def cache_clear(ctx: Any | None = None, doc_id: str | None = None) -> None:
     """Clear proofreading cache (e.g. tests)."""

@@ -30,7 +30,7 @@ from plugin.calc.address_utils import index_to_column
 log = logging.getLogger("writeragent.scripting")
 
 
-def show_python_input_dialog(ctx: Any, initial_text: str = "") -> str | None:
+def show_python_input_dialog(ctx: Any, initial_text: str = "", config_key: str = "last_python_script") -> str | None:
     """Show a modal multiline dialog for entering Python code.
     
     Returns the code string if OK is clicked, else None.
@@ -50,17 +50,22 @@ def show_python_input_dialog(ctx: Any, initial_text: str = "") -> str | None:
         dlg_model.Width = 350
         dlg_model.Height = 220
 
-        add_dialog_label(dlg_model, "InstructionLbl", _("Enter Python code to execute in the user virtual environment.\nAssign the result to the 'result' variable."), 8, 8, 334, 20)
-        edit = add_dialog_edit(dlg_model, "CodeEdit", initial_text, 8, 32, 334, 150)
+        # Action buttons placed at the top (Y = 8)
+        add_dialog_button(dlg_model, "BtnRun", _("Run"), 8, 8, 50, 14)
+        add_dialog_button(dlg_model, "BtnSave", _("Save"), 62, 8, 50, 14)
+        add_dialog_button(dlg_model, "BtnCancel", _("Close"), 116, 8, 50, 14)
+
+        # Status and instructions placed below buttons (Y = 26)
+        add_dialog_label(dlg_model, "InstructionLbl", _("Enter Python code to execute in the user virtual environment.\nAssign the result to the 'result' variable."), 8, 26, 334, 20)
+        
+        # Expanded editor field
+        edit = add_dialog_edit(dlg_model, "CodeEdit", initial_text, 8, 48, 334, 164)
         edit.MultiLine = True
         edit.VScroll = True
         # Use a monospaced font if possible
         fd = cast("Any", uno.createUnoStruct("com.sun.star.awt.FontDescriptor"))
         fd.Name = "Courier New"
         edit.FontDescriptor = fd
-
-        add_dialog_button(dlg_model, "BtnRun", _("Run"), 220, 190, 60, 14)
-        add_dialog_button(dlg_model, "BtnCancel", _("Cancel"), 286, 190, 56, 14)
 
         dlg = smgr.createInstanceWithContext("com.sun.star.awt.UnoControlDialog", ctx)
         dlg.setModel(dlg_model)
@@ -83,6 +88,20 @@ def show_python_input_dialog(ctx: Any, initial_text: str = "") -> str | None:
             def disposing(self, Source):
                 pass
 
+        class _SaveListener(unohelper.Base, XActionListener):
+            def actionPerformed(self, rEvent):
+                try:
+                    ec = dlg.getControl("CodeEdit")
+                    t = (ec.getModel().Text or "").strip()
+                    set_config(ctx, config_key, t)
+                    lbl = dlg.getControl("InstructionLbl")
+                    lbl.getModel().Label = _("Script saved successfully.")
+                except Exception:
+                    log.exception("Save failed in dialog")
+
+            def disposing(self, Source):
+                pass
+
         class _CancelListener(unohelper.Base, XActionListener):
             def actionPerformed(self, rEvent):
                 nonlocal _outcome
@@ -93,6 +112,7 @@ def show_python_input_dialog(ctx: Any, initial_text: str = "") -> str | None:
                 pass
 
         dlg.getControl("BtnRun").addActionListener(_RunListener())
+        dlg.getControl("BtnSave").addActionListener(_SaveListener())
         dlg.getControl("BtnCancel").addActionListener(_CancelListener())
         
         # Set focus to the edit control
@@ -491,7 +511,7 @@ def run_python_dialog(uno_ctx: Any = None) -> None:
         if _run_python_monaco(uno_ctx, doc, config_key=config_key, initial_code=initial_code, exe=_exe):
             return
 
-    code = show_python_input_dialog(uno_ctx, initial_text=initial_code)
+    code = show_python_input_dialog(uno_ctx, initial_text=initial_code, config_key=config_key)
     if not code:
         return
 

@@ -101,3 +101,64 @@ def test_execute_and_insert_result_returns_error_on_failure():
         outcome = pr.execute_and_insert_result(ctx, MagicMock(), "bad()")
     assert outcome["ok"] is False
     assert outcome["message"] == "boom"
+
+
+def test_show_python_input_dialog_save_button():
+    ctx = MagicMock()
+    desktop = MagicMock()
+    frame = MagicMock()
+    parent_window = MagicMock()
+    desktop.getCurrentFrame.return_value = frame
+    frame.getContainerWindow.return_value = parent_window
+
+    smgr = MagicMock()
+    dlg_model = MagicMock()
+    dlg = MagicMock()
+    toolkit = MagicMock()
+
+    ctx.getServiceManager.return_value = smgr
+    
+    # Track calls to createInstanceWithContext to return our mocks
+    def fake_create(service, _ctx):
+        if "UnoControlDialogModel" in service:
+            return dlg_model
+        if "UnoControlDialog" in service:
+            return dlg
+        if "Toolkit" in service:
+            return toolkit
+        return MagicMock()
+    smgr.createInstanceWithContext.side_effect = fake_create
+
+    # Mock elements in the dialog
+    code_edit_model = MagicMock()
+    code_edit_model.Text = "print('hello world')"
+    code_edit = MagicMock()
+    code_edit.getModel.return_value = code_edit_model
+    dlg.getControl.return_value = code_edit
+
+    btn_save = MagicMock()
+    listeners = []
+    btn_save.addActionListener.side_effect = lambda l: listeners.append(l)
+    
+    def fake_get_control(name):
+        if name == "BtnSave":
+            return btn_save
+        return code_edit
+    dlg.getControl.side_effect = fake_get_control
+
+    with patch.object(pr, "get_desktop", return_value=desktop):
+        with patch.object(pr, "set_config") as mock_set:
+            # We run show_python_input_dialog in a way that allows us to trigger the save listener
+            # Mock dlg.execute to trigger the Save listener when called
+            def fake_execute():
+                # The _SaveListener is wired to BtnSave
+                # Find the SaveListener in the listeners list
+                for listener in listeners:
+                    if "SaveListener" in type(listener).__name__:
+                        listener.actionPerformed(MagicMock())
+            dlg.execute.side_effect = fake_execute
+
+            pr.show_python_input_dialog(ctx, "print('hello')", "last_python_script_writer")
+
+            mock_set.assert_called_once_with(ctx, "last_python_script_writer", "print('hello world')")
+

@@ -22,6 +22,30 @@ from typing import Any
 _log = logging.getLogger("writeragent.grammar")
 
 
+# ---------------------------------------------------------------------------
+# Centralized Grammar Checker Constants
+# ---------------------------------------------------------------------------
+
+# Persistence constants
+GRAMMAR_CACHE_VERSION = 2
+GRAMMAR_DOC_CACHE_UDPROP = "WriterAgentGrammarCache"
+
+# Cache sizing limits
+MAX_CACHE_SIZE = 2048
+MAX_RECENT_INCOMPLETE_SCAN = 10
+
+# Worker LLM limits & timeout thresholds
+GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS = 8192
+GRAMMAR_PROOFREAD_MAX_RESPONSE_TOKENS = 3072
+GRAMMAR_BATCH_MAX_SENTENCES = 8
+GRAMMAR_LANGUAGE_DETECT_MAX_TOKENS_SINGLE = 256
+GRAMMAR_LANGUAGE_DETECT_MAX_TOKENS_PER_BATCH_ITEM = 150
+GRAMMAR_WORKER_PAUSE_TIMEOUT_S = 1.0
+
+# Text scheduling thresholds
+GRAMMAR_PARTIAL_MIN_NONSPACE_CHARS = 15
+
+
 
 # ---------------------------------------------------------------------------
 # Shipped BCP-47 registry + UNO CharLocale bridging
@@ -193,15 +217,6 @@ def grammar_english_name_for_bcp47(bcp47: str) -> str:
 # Worker LLM policy (fixed caps, prompt template, drain debounce)
 # ---------------------------------------------------------------------------
 
-# Default caps for LLM requests (can be overridden via doc tab)
-GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS = 8192
-GRAMMAR_PROOFREAD_MAX_RESPONSE_TOKENS = 3072
-GRAMMAR_BATCH_MAX_SENTENCES = 8
-# Language-detect JSON is tiny, but reasoning models (e.g. mercury-2) may spend budget on
-# internal reasoning before content; 50 tokens was observed to return content=null.
-GRAMMAR_LANGUAGE_DETECT_MAX_TOKENS_SINGLE = 256
-GRAMMAR_LANGUAGE_DETECT_MAX_TOKENS_PER_BATCH_ITEM = 150
-
 GRAMMAR_SYSTEM_PROMPT_TEMPLATE = (
     "You are a strict grammar and style checker. Reply with a single JSON object only, "
     'no markdown, shaped exactly as: {{"errors": [{{"wrong": "exact substring from the text", '
@@ -235,7 +250,6 @@ The 'results' array must have exactly the same number of elements as the input s
 {detect_lang_instruction}
 """
 
-GRAMMAR_WORKER_PAUSE_TIMEOUT_S = 1.0
 
 # ---------------------------------------------------------------------------
 # Unicode sentence terminals / trailing closers (STerm-style + Pe/Pf prose)
@@ -405,8 +419,6 @@ GRAMMAR_CACHE_NORMALIZATION_RE = re.compile(rf"^(.*?{_sterm_class})({_sterm_clas
 # ---------------------------------------------------------------------------
 # Scheduling thresholds (partial sentence gating)
 # ---------------------------------------------------------------------------
-
-GRAMMAR_PARTIAL_MIN_NONSPACE_CHARS = 15
 
 GRAMMAR_NONSPACE_SCHEDULE_RE = re.compile(r"\S", re.UNICODE)
 
