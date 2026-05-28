@@ -252,11 +252,17 @@ class MonacoEditorApi:
     def request_scripts(self) -> None:
         _write_parent({"type": "request_scripts"})
 
-    def save_script(self, name: str, code: str) -> None:
-        _write_parent({"type": "save_script", "name": name, "code": code})
+    def save_script(self, name: str, code: str, origin: str = "user") -> None:
+        _write_parent({"type": "save_script", "name": name, "code": code, "origin": origin})
 
-    def delete_script(self, name: str) -> None:
-        _write_parent({"type": "delete_script", "name": name})
+    def attach_script(self, name: str, code: str, overwrite: bool = False) -> None:
+        _write_parent({"type": "attach_script", "name": name, "code": code, "overwrite": overwrite})
+
+    def copy_script_to_user(self, name: str, code: str, overwrite: bool = False) -> None:
+        _write_parent({"type": "copy_script_to_user", "name": name, "code": code, "overwrite": overwrite})
+
+    def delete_script(self, name: str, origin: str = "user") -> None:
+        _write_parent({"type": "delete_script", "name": name, "origin": origin})
 
     def notify_cancel(self) -> None:
         log.info("editor_main: notify_cancel called; hiding window")

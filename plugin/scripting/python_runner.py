@@ -20,6 +20,15 @@ from plugin.chatbot.dialogs import add_dialog_label, add_dialog_edit, add_dialog
 from plugin.chatbot.dialogs import show_text_input_dialog
 from plugin.framework.worker_pool import run_in_background
 from plugin.scripting.editor_ipc import exception_traceback
+from plugin.scripting.document_scripts import (
+    SCRIPT_ORIGIN_DOCUMENT,
+    SCRIPT_ORIGIN_USER,
+    attach_document_script,
+    build_xdl_script_picker_state,
+    delete_document_script,
+    resolve_script_picker_entry,
+    save_document_script,
+)
 from plugin.scripting.editor_host import launch_monaco_editor, monaco_editor_available
 from plugin.scripting.venv_worker import run_code_in_user_venv, warm_venv_worker
 from plugin.writer.format import insert_content_at_position
@@ -45,7 +54,12 @@ def add_dialog_listbox(dlg_model: Any, name: str, items: list[str], x: int, y: i
     return lb
 
 
-def show_python_input_dialog(ctx: Any, initial_text: str = "", config_key: str = "last_python_script") -> str | None:
+def show_python_input_dialog(
+    ctx: Any,
+    initial_text: str = "",
+    config_key: str = "last_python_script",
+    doc: Any | None = None,
+) -> str | None:
     """Show a modal multiline dialog for entering Python code.
     
     Returns the code string if OK is clicked, else None.
@@ -62,7 +76,7 @@ def show_python_input_dialog(ctx: Any, initial_text: str = "", config_key: str =
         smgr = ctx.getServiceManager()
         dlg_model = smgr.createInstanceWithContext("com.sun.star.awt.UnoControlDialogModel", ctx)
         dlg_model.Title = _("Run Python Script")
-        dlg_model.Width = 350
+        dlg_model.Width = 400
         dlg_model.Height = 220
 
         # Action buttons placed at the top (Y = 8)
@@ -70,17 +84,17 @@ def show_python_input_dialog(ctx: Any, initial_text: str = "", config_key: str =
         add_dialog_button(dlg_model, "BtnSave", _("Save"), 62, 8, 50, 14)
         add_dialog_button(dlg_model, "BtnCancel", _("Close"), 116, 8, 50, 14)
 
-        # Retrieve saved scripts for the dropdown population
         saved_scripts = get_config(ctx, "saved_python_scripts")
         if not isinstance(saved_scripts, dict):
             saved_scripts = {}
-        script_names = ["Sample"] + sorted(list(saved_scripts.keys()))
+        script_names, _merged_scripts, _origin_map = build_xdl_script_picker_state(ctx, doc, saved_scripts)
 
         # Add script selector UI elements
         add_dialog_label(dlg_model, "ScriptLbl", _("Script:"), 172, 10, 22, 10, multiline=False)
         add_dialog_listbox(dlg_model, "ScriptSelect", script_names, 196, 8, 60, 14)
-        add_dialog_button(dlg_model, "BtnSaveAs", _("Save As..."), 260, 8, 44, 14)
-        add_dialog_button(dlg_model, "BtnDelete", _("Delete"), 308, 8, 34, 14)
+        add_dialog_button(dlg_model, "BtnAttach", _("Attach"), 260, 8, 44, 14)
+        add_dialog_button(dlg_model, "BtnSaveAs", _("Save As..."), 308, 8, 44, 14)
+        add_dialog_button(dlg_model, "BtnDelete", _("Delete"), 356, 8, 34, 14)
 
         # Status and instructions placed below buttons (Y = 26)
         add_dialog_label(dlg_model, "InstructionLbl", _("Enter Python code to execute in the user virtual environment.\nAssign the result to the 'result' variable."), 8, 26, 334, 20)
@@ -105,7 +119,26 @@ def show_python_input_dialog(ctx: Any, initial_text: str = "", config_key: str =
             select_ctrl.selectItemPos(0, True)
 
         _outcome: list[str | None] | None = None
-        _current_scripts = dict(saved_scripts)
+        _current_scripts = dict(_merged_scripts)
+        _script_origin_map = dict(_origin_map)
+
+        def _refresh_script_dropdown(select_display: str | None = None) -> None:
+            nonlocal _current_scripts, _script_origin_map
+            saved = get_config(ctx, "saved_python_scripts")
+            if not isinstance(saved, dict):
+                saved = {}
+            names, merged, origin_map = build_xdl_script_picker_state(ctx, doc, saved)
+            _current_scripts = merged
+            _script_origin_map = origin_map
+            select_ctrl.removeItems(0, select_ctrl.getItemCount())
+            select_ctrl.addItems(tuple(names), 0)
+            if select_display and select_display in names:
+                for idx, nm in enumerate(names):
+                    if nm == select_display:
+                        select_ctrl.selectItemPos(idx, True)
+                        break
+            else:
+                select_ctrl.selectItemPos(0, True)
 
         class _ScriptSelectListener(unohelper.Base, XItemListener):
             def itemStateChanged(self, rEvent):
@@ -116,11 +149,9 @@ def show_python_input_dialog(ctx: Any, initial_text: str = "", config_key: str =
                         name = items[pos]
                         code_ctrl = dlg.getControl("CodeEdit")
                         if name == "Sample":
-                            # Load the unsaved scratchpad code
                             t = get_config_str(ctx, config_key)
                             code_ctrl.setText(t)
                         else:
-                            # Load the named script code
                             t = _current_scripts.get(name, "")
                             code_ctrl.setText(t)
                 except Exception:
@@ -154,10 +185,30 @@ def show_python_input_dialog(ctx: Any, initial_text: str = "", config_key: str =
                     lbl = dlg.getControl("InstructionLbl")
                     
                     if pos >= 0 and pos < len(items) and items[pos] != "Sample":
-                        name = items[pos]
-                        _current_scripts[name] = t
-                        set_config(ctx, "saved_python_scripts", _current_scripts)
-                        lbl.getModel().Label = _("Script '%s' saved successfully.") % name
+                        display_name = items[pos]
+                        real_name, origin = resolve_script_picker_entry(display_name, _script_origin_map)
+                        _current_scripts[display_name] = t
+                        if origin == SCRIPT_ORIGIN_DOCUMENT:
+                            if doc is None:
+                                lbl.getModel().Label = _("No document is open to save scripts.")
+                                return
+                            err = save_document_script(doc, real_name, t)
+                            if err:
+                                user_scripts = get_config(ctx, "saved_python_scripts")
+                                if not isinstance(user_scripts, dict):
+                                    user_scripts = {}
+                                user_scripts[real_name] = t
+                                set_config(ctx, "saved_python_scripts", user_scripts)
+                                lbl.getModel().Label = _("%s Saved to My Scripts instead.") % err
+                                return
+                            lbl.getModel().Label = _("Script '%s' saved to this document.") % real_name
+                        else:
+                            user_scripts = get_config(ctx, "saved_python_scripts")
+                            if not isinstance(user_scripts, dict):
+                                user_scripts = {}
+                            user_scripts[real_name] = t
+                            set_config(ctx, "saved_python_scripts", user_scripts)
+                            lbl.getModel().Label = _("Script '%s' saved successfully.") % real_name
                     else:
                         set_config(ctx, config_key, t)
                         lbl.getModel().Label = _("Sample scratchpad saved successfully.")
@@ -167,37 +218,99 @@ def show_python_input_dialog(ctx: Any, initial_text: str = "", config_key: str =
             def disposing(self, Source):
                 pass
 
+        class _AttachListener(unohelper.Base, XActionListener):
+            def actionPerformed(self, rEvent):
+                try:
+                    if doc is None:
+                        lbl = dlg.getControl("InstructionLbl")
+                        lbl.getModel().Label = _("No document is open to attach scripts.")
+                        return
+                    ec = dlg.getControl("CodeEdit")
+                    t = (ec.getModel().Text or "").strip()
+                    pos = select_ctrl.getSelectedItemPos()
+                    items = select_ctrl.getItems()
+                    curr = items[pos] if (pos >= 0 and pos < len(items) and items[pos] != "Sample") else ""
+                    real_curr, _curr_origin = resolve_script_picker_entry(curr, _script_origin_map) if curr else ("", SCRIPT_ORIGIN_USER)
+                    name = show_text_input_dialog(ctx, _("Enter script name:"), _("Attach to Document"), real_curr)
+                    if not name:
+                        return
+                    name = name.strip()
+                    if not name:
+                        return
+                    from plugin.scripting.document_scripts import document_script_display_name, get_document_scripts
+
+                    overwrite = name in get_document_scripts(doc)
+                    if overwrite and not show_approval_dialog(
+                        ctx,
+                        _("A script named '{0}' already exists in this document. Overwrite?").format(name),
+                        _("Attach Script"),
+                    ):
+                        return
+                    err = attach_document_script(doc, name, t, overwrite=True)
+                    lbl = dlg.getControl("InstructionLbl")
+                    if err:
+                        lbl.getModel().Label = err
+                        return
+                    _refresh_script_dropdown(document_script_display_name(name))
+                    lbl.getModel().Label = _("Script '%s' attached to this document.") % name
+                except Exception:
+                    log.exception("Attach failed in dialog")
+
+            def disposing(self, Source):
+                pass
+
         class _SaveAsListener(unohelper.Base, XActionListener):
             def actionPerformed(self, rEvent):
                 try:
                     ec = dlg.getControl("CodeEdit")
                     t = (ec.getModel().Text or "").strip()
-                    
+
                     pos = select_ctrl.getSelectedItemPos()
                     items = select_ctrl.getItems()
-                    curr_name = items[pos] if (pos >= 0 and pos < len(items) and items[pos] != "Sample") else ""
-                    
-                    name = show_text_input_dialog(ctx, _("Enter script name:"), _("Save Script"), curr_name)
+                    curr_display = items[pos] if (pos >= 0 and pos < len(items) and items[pos] != "Sample") else ""
+                    real_curr, curr_origin = (
+                        resolve_script_picker_entry(curr_display, _script_origin_map)
+                        if curr_display
+                        else ("", SCRIPT_ORIGIN_USER)
+                    )
+
+                    name = show_text_input_dialog(ctx, _("Enter script name:"), _("Save Script"), real_curr)
                     if not name:
                         return
+                    name = name.strip()
                     if not name:
                         return
-                        
-                    _current_scripts[name] = t
-                    set_config(ctx, "saved_python_scripts", _current_scripts)
-                    
-                    # Refresh select dropdown
-                    new_names = ["Sample"] + sorted(list(_current_scripts.keys()))
-                    select_ctrl.removeItems(0, select_ctrl.getItemCount())
-                    select_ctrl.addItems(tuple(new_names), 0)
-                    
-                    # Auto-select the newly saved script
-                    for idx, nm in enumerate(new_names):
-                        if nm == name:
-                            select_ctrl.selectItemPos(idx, True)
-                            break
-                            
+
                     lbl = dlg.getControl("InstructionLbl")
+                    save_to_document = curr_origin == SCRIPT_ORIGIN_DOCUMENT
+                    if doc is not None and not save_to_document:
+                        save_to_document = show_approval_dialog(
+                            ctx,
+                            _("Save script '{0}' to this document?").format(name),
+                            _("Save Script"),
+                        )
+                    if doc is not None and save_to_document:
+                        from plugin.scripting.document_scripts import document_script_display_name
+
+                        err = save_document_script(doc, name, t)
+                        if err:
+                            user_scripts = get_config(ctx, "saved_python_scripts")
+                            if not isinstance(user_scripts, dict):
+                                user_scripts = {}
+                            user_scripts[name] = t
+                            set_config(ctx, "saved_python_scripts", user_scripts)
+                            lbl.getModel().Label = _("%s Saved to My Scripts instead.") % err
+                        else:
+                            lbl.getModel().Label = _("Script '%s' saved to this document.") % name
+                        _refresh_script_dropdown(document_script_display_name(name))
+                        return
+
+                    user_scripts = get_config(ctx, "saved_python_scripts")
+                    if not isinstance(user_scripts, dict):
+                        user_scripts = {}
+                    user_scripts[name] = t
+                    set_config(ctx, "saved_python_scripts", user_scripts)
+                    _refresh_script_dropdown(name)
                     lbl.getModel().Label = _("Script '%s' saved successfully.") % name
                 except Exception:
                     log.exception("Save As failed in dialog")
@@ -212,33 +325,37 @@ def show_python_input_dialog(ctx: Any, initial_text: str = "", config_key: str =
                     items = select_ctrl.getItems()
                     if pos < 0 or pos >= len(items):
                         return
-                    
-                    name = items[pos]
+
+                    display_name = items[pos]
                     lbl = dlg.getControl("InstructionLbl")
-                    
-                    if name == "Sample":
+
+                    if display_name == "Sample":
                         if show_approval_dialog(ctx, _("Are you sure you want to clear the Sample scratchpad?"), _("Clear Script")):
                             dlg.getControl("CodeEdit").setText("")
                             set_config(ctx, config_key, "")
                             lbl.getModel().Label = _("Sample scratchpad cleared.")
                     else:
-                        if show_approval_dialog(ctx, _("Are you sure you want to delete script '%s'?") % name, _("Delete Script")):
-                            _current_scripts.pop(name, None)
-                            set_config(ctx, "saved_python_scripts", _current_scripts)
-                            
-                            # Refresh dropdown list
-                            new_names = ["Sample"] + sorted(list(_current_scripts.keys()))
-                            select_ctrl.removeItems(0, select_ctrl.getItemCount())
-                            select_ctrl.addItems(tuple(new_names), 0)
-                            
-                            # Reset selection to Sample
+                        real_name, origin = resolve_script_picker_entry(display_name, _script_origin_map)
+                        if show_approval_dialog(
+                            ctx,
+                            _("Are you sure you want to delete script '%s'?") % real_name,
+                            _("Delete Script"),
+                        ):
+                            if origin == SCRIPT_ORIGIN_DOCUMENT:
+                                if doc is None:
+                                    lbl.getModel().Label = _("No document is open.")
+                                    return
+                                delete_document_script(doc, real_name)
+                            else:
+                                user_scripts = get_config(ctx, "saved_python_scripts")
+                                if not isinstance(user_scripts, dict):
+                                    user_scripts = {}
+                                user_scripts.pop(real_name, None)
+                                set_config(ctx, "saved_python_scripts", user_scripts)
+                            _refresh_script_dropdown()
                             select_ctrl.selectItemPos(0, True)
-                            
-                            # Load Sample code
-                            t = get_config_str(ctx, config_key)
-                            dlg.getControl("CodeEdit").setText(t)
-                            
-                            lbl.getModel().Label = _("Script '%s' deleted.") % name
+                            dlg.getControl("CodeEdit").setText(get_config_str(ctx, config_key))
+                            lbl.getModel().Label = _("Script '%s' deleted.") % real_name
                 except Exception:
                     log.exception("Delete failed in dialog")
 
@@ -257,6 +374,7 @@ def show_python_input_dialog(ctx: Any, initial_text: str = "", config_key: str =
         select_ctrl.addItemListener(_ScriptSelectListener())
         dlg.getControl("BtnRun").addActionListener(_RunListener())
         dlg.getControl("BtnSave").addActionListener(_SaveListener())
+        dlg.getControl("BtnAttach").addActionListener(_AttachListener())
         dlg.getControl("BtnSaveAs").addActionListener(_SaveAsListener())
         dlg.getControl("BtnDelete").addActionListener(_DeleteListener())
         dlg.getControl("BtnCancel").addActionListener(_CancelListener())
@@ -634,6 +752,7 @@ def _run_python_monaco(ctx: Any, doc: Any, *, config_key: str, initial_code: str
         "show_data_binding": False,
         "status_ok_text": run_ok_text,
         "saved_ok_text": save_ok_text,
+        "run_script_doc": doc,
     }
     return launch_monaco_editor(ctx, exe=exe, load_message=load_msg, on_save=on_save)
 
@@ -657,7 +776,7 @@ def run_python_dialog(uno_ctx: Any = None) -> None:
         if _run_python_monaco(uno_ctx, doc, config_key=config_key, initial_code=initial_code, exe=_exe):
             return
 
-    code = show_python_input_dialog(uno_ctx, initial_text=initial_code, config_key=config_key)
+    code = show_python_input_dialog(uno_ctx, initial_text=initial_code, config_key=config_key, doc=doc)
     if not code:
         return
 

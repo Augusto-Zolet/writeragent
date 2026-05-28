@@ -1,0 +1,266 @@
+# WriterAgent - AI Writing Assistant for LibreOffice
+# Copyright (c) 2026 KeithCu (modifications and relicensing)
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Document-attached named Python scripts for Run Python Script (UserDefinedProperties)."""
+
+from __future__ import annotations
+
+import json
+import logging
+from typing import Any
+
+from plugin.doc.document_helpers import (
+    get_document_property,
+    is_calc,
+    is_draw,
+    is_writer,
+    set_document_property,
+)
+from plugin.framework.errors import UnoObjectError
+from plugin.framework.i18n import _
+from plugin.framework.json_utils import safe_json_loads
+from plugin.framework.uno_context import get_desktop
+
+log = logging.getLogger(__name__)
+
+DOCUMENT_SCRIPTS_UDPROP = "WriterAgentDocumentPythonScripts"
+_MAX_DOCUMENT_SCRIPTS_BYTES = 900_000
+_SOFT_WARN_SCRIPT_BYTES = 200_000
+_ENVELOPE_VERSION = 1
+
+SCRIPT_ORIGIN_USER = "user"
+SCRIPT_ORIGIN_DOCUMENT = "document"
+
+DOC_SCRIPT_DISPLAY_PREFIX = "[Doc] "
+
+
+def _normalize_doc_url(url: Any) -> str:
+    if not url:
+        return ""
+    s = str(url).strip()
+    if s.endswith("/") and len(s) > 1:
+        s = s[:-1]
+    return s
+
+
+def document_scripts_identity(doc: Any) -> str:
+    """Stable identity for stale detection (normalized URL or empty for untitled)."""
+    try:
+        if hasattr(doc, "getURL"):
+            return _normalize_doc_url(doc.getURL() or "")
+    except Exception:
+        log.debug("document_scripts_identity failed", exc_info=True)
+    return ""
+
+
+def get_active_document_for_scripts(ctx: Any) -> Any | None:
+    try:
+        desktop = get_desktop(ctx)
+        doc = desktop.getCurrentComponent()
+    except Exception:
+        log.debug("document_scripts: could not resolve active document", exc_info=True)
+        return None
+    if doc is None:
+        return None
+    if is_writer(doc) or is_calc(doc) or is_draw(doc):
+        return doc
+    return None
+
+
+def is_document_readonly_for_scripts(doc: Any) -> bool:
+    if doc is None:
+        return True
+    try:
+        if hasattr(doc, "isReadonly") and doc.isReadonly():
+            return True
+    except Exception:
+        log.debug("document_scripts: isReadonly check failed", exc_info=True)
+    return False
+
+
+def _envelope_to_json(scripts: dict[str, str]) -> str:
+    return json.dumps({"version": _ENVELOPE_VERSION, "scripts": scripts}, separators=(",", ":"))
+
+
+def _envelope_from_json(raw: str) -> dict[str, str] | None:
+    if not (raw or "").strip():
+        return None
+    parsed = safe_json_loads(raw.strip())
+    if not isinstance(parsed, dict):
+        log.warning("document_scripts: expected object, got %s", type(parsed).__name__)
+        return None
+    if parsed.get("version") != _ENVELOPE_VERSION:
+        log.warning("document_scripts: unsupported version %r", parsed.get("version"))
+        return None
+    scripts_raw = parsed.get("scripts")
+    if not isinstance(scripts_raw, dict):
+        log.warning("document_scripts: missing scripts map")
+        return None
+    out: dict[str, str] = {}
+    for key, value in scripts_raw.items():
+        if isinstance(key, str) and isinstance(value, str):
+            out[key] = value
+    return out
+
+
+def get_document_scripts(doc: Any) -> dict[str, str]:
+    if doc is None:
+        return {}
+    raw = get_document_property(doc, DOCUMENT_SCRIPTS_UDPROP, default=None)
+    if raw is None:
+        return {}
+    scripts = _envelope_from_json(str(raw))
+    if scripts is None:
+        return {}
+    return scripts
+
+
+def has_document_scripts(doc: Any) -> bool:
+    return bool(get_document_scripts(doc))
+
+
+def _check_payload_size(scripts: dict[str, str]) -> str | None:
+    encoded = _envelope_to_json(scripts).encode("utf-8")
+    if len(encoded) > _MAX_DOCUMENT_SCRIPTS_BYTES:
+        return _("Document scripts are too large to store in the document ({0} bytes).").format(len(encoded))
+    for name, code in scripts.items():
+        nbytes = len((code or "").encode("utf-8"))
+        if nbytes > _SOFT_WARN_SCRIPT_BYTES:
+            log.warning("document_scripts: script %r is large (%d bytes)", name, nbytes)
+    return None
+
+
+def set_document_scripts(doc: Any, scripts: dict[str, str]) -> str | None:
+    if doc is None:
+        return _("No document is open to save scripts.")
+    err = _check_payload_size(scripts)
+    if err:
+        return err
+    if is_document_readonly_for_scripts(doc):
+        return _(
+            "Document is read-only or properties cannot be written. "
+            "Script saved to your personal library instead."
+        )
+    try:
+        set_document_property(doc, DOCUMENT_SCRIPTS_UDPROP, _envelope_to_json(scripts))
+        return None
+    except (UnoObjectError, Exception):
+        log.exception("document_scripts: failed to persist on document")
+        return _(
+            "Document is read-only or properties cannot be written. "
+            "Script saved to your personal library instead."
+        )
+
+
+def attach_document_script(doc: Any, name: str, code: str, *, overwrite: bool = False) -> str | None:
+    name = (name or "").strip()
+    if not name:
+        return _("Script name cannot be empty.")
+    scripts = dict(get_document_scripts(doc))
+    if name in scripts and not overwrite:
+        return _("A script named '{0}' already exists in this document.").format(name)
+    scripts[name] = code if code is not None else ""
+    return set_document_scripts(doc, scripts)
+
+
+def delete_document_script(doc: Any, name: str) -> str | None:
+    scripts = dict(get_document_scripts(doc))
+    scripts.pop(name, None)
+    return set_document_scripts(doc, scripts)
+
+
+def save_document_script(doc: Any, name: str, code: str) -> str | None:
+    return attach_document_script(doc, name, code, overwrite=True)
+
+
+def document_script_display_name(name: str) -> str:
+    return f"{DOC_SCRIPT_DISPLAY_PREFIX}{name}"
+
+
+def parse_document_script_display_name(display: str) -> str | None:
+    if display.startswith(DOC_SCRIPT_DISPLAY_PREFIX):
+        return display[len(DOC_SCRIPT_DISPLAY_PREFIX) :]
+    return None
+
+
+def resolve_script_picker_entry(display_name: str, origin_map: dict[str, str]) -> tuple[str, str]:
+    """Return (real_name, origin) for a listbox/display label."""
+    origin = origin_map.get(display_name, SCRIPT_ORIGIN_USER)
+    if origin == SCRIPT_ORIGIN_DOCUMENT:
+        real = parse_document_script_display_name(display_name)
+        return (real or display_name, SCRIPT_ORIGIN_DOCUMENT)
+    return (display_name, SCRIPT_ORIGIN_USER)
+
+
+def build_xdl_script_picker_state(
+    ctx: Any,
+    doc: Any | None,
+    saved_scripts: dict[str, str],
+) -> tuple[list[str], dict[str, str], dict[str, str]]:
+    """Return (dropdown_items, merged_scripts_by_display_key, origin_map)."""
+    user_scripts = dict(saved_scripts) if isinstance(saved_scripts, dict) else {}
+    doc_scripts = get_document_scripts(doc) if doc is not None else {}
+    origin_map: dict[str, str] = {}
+    merged: dict[str, str] = {}
+
+    for name in sorted(user_scripts.keys()):
+        origin_map[name] = SCRIPT_ORIGIN_USER
+        merged[name] = user_scripts[name]
+
+    for name in sorted(doc_scripts.keys()):
+        display = document_script_display_name(name)
+        origin_map[display] = SCRIPT_ORIGIN_DOCUMENT
+        merged[display] = doc_scripts[name]
+
+    items = ["Sample"] + sorted(user_scripts.keys()) + [document_script_display_name(n) for n in sorted(doc_scripts.keys())]
+    return items, merged, origin_map
+
+
+def build_scripts_list_message(
+    ctx: Any,
+    *,
+    session_doc: Any | None,
+    session_doc_url: str | None,
+    status_ok_text: str | None = None,
+    status_error_text: str | None = None,
+) -> dict[str, Any]:
+    from plugin.framework.config import get_config
+
+    user_scripts = get_config(ctx, "saved_python_scripts")
+    if not isinstance(user_scripts, dict):
+        user_scripts = {}
+
+    doc = session_doc
+    if doc is None:
+        doc = get_active_document_for_scripts(ctx)
+
+    document_available = doc is not None
+    document_stale = False
+    document_readonly = is_document_readonly_for_scripts(doc) if doc else False
+
+    if doc is not None and session_doc_url is not None:
+        current_id = document_scripts_identity(doc)
+        if session_doc_url != current_id:
+            document_stale = True
+            document_readonly = True
+
+    doc_scripts: dict[str, str] = {}
+    if doc is not None and not document_stale:
+        doc_scripts = get_document_scripts(doc)
+
+    msg: dict[str, Any] = {
+        "type": "scripts_list",
+        "sections": [
+            {"id": SCRIPT_ORIGIN_USER, "title": _("My Scripts"), "scripts": user_scripts},
+            {"id": SCRIPT_ORIGIN_DOCUMENT, "title": _("This Document"), "scripts": doc_scripts},
+        ],
+        "document_available": document_available,
+        "document_readonly": document_readonly,
+        "document_stale": document_stale,
+    }
+    if status_ok_text:
+        msg["status_ok_text"] = status_ok_text
+    if status_error_text:
+        msg["status_error_text"] = status_error_text
+    return msg

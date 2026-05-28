@@ -171,24 +171,38 @@ def test_show_python_input_dialog_save_button():
 
 def test_persistent_editor_dispatches_script_actions():
     from plugin.scripting.editor_host import PersistentEditor
+    from plugin.scripting.document_scripts import SCRIPT_ORIGIN_DOCUMENT, SCRIPT_ORIGIN_USER
+
     pe = PersistentEditor()
     pe.ctx = MagicMock()
     pe.send = MagicMock()
+    doc = MagicMock()
 
     with patch("plugin.framework.config.get_config", return_value={"MyScript": "print(123)"}) as mock_get:
         with patch("plugin.framework.config.set_config") as mock_set:
-            # 1. request_scripts
-            pe._dispatch_incoming({"type": "request_scripts"})
-            mock_get.assert_called_with(pe.ctx, "saved_python_scripts")
-            pe.send.assert_called_with({"type": "scripts_list", "scripts": {"MyScript": "print(123)"}})
+            with patch("plugin.scripting.document_scripts.get_active_document_for_scripts", return_value=None):
+                pe._dispatch_incoming({"type": "request_scripts"})
+                mock_get.assert_called_with(pe.ctx, "saved_python_scripts")
+                sent = pe.send.call_args[0][0]
+                assert sent["type"] == "scripts_list"
+                assert sent["sections"][0]["scripts"] == {"MyScript": "print(123)"}
 
-            # 2. save_script
-            pe._dispatch_incoming({"type": "save_script", "name": "NewScript", "code": "x = 1"})
+            pe._dispatch_incoming({"type": "save_script", "name": "NewScript", "code": "x = 1", "origin": SCRIPT_ORIGIN_USER})
             mock_set.assert_called_with(pe.ctx, "saved_python_scripts", {"MyScript": "print(123)", "NewScript": "x = 1"})
 
-            # 3. delete_script
-            pe._dispatch_incoming({"type": "delete_script", "name": "MyScript"})
+            pe._dispatch_incoming({"type": "delete_script", "name": "MyScript", "origin": SCRIPT_ORIGIN_USER})
             mock_set.assert_called_with(pe.ctx, "saved_python_scripts", {"NewScript": "x = 1"})
+
+    with patch("plugin.scripting.document_scripts.get_active_document_for_scripts", return_value=doc):
+        with patch("plugin.scripting.document_scripts.save_document_script", return_value=None) as mock_save_doc:
+            pe.set_run_script_document(doc)
+            pe._dispatch_incoming({"type": "save_script", "name": "DocScript", "code": "y=2", "origin": SCRIPT_ORIGIN_DOCUMENT})
+            mock_save_doc.assert_called_once_with(doc, "DocScript", "y=2")
+
+    with patch("plugin.scripting.document_scripts.get_active_document_for_scripts", return_value=doc):
+        with patch("plugin.scripting.document_scripts.attach_document_script", return_value=None) as mock_attach:
+            pe._dispatch_incoming({"type": "attach_script", "name": "Attached", "code": "z=3", "overwrite": True})
+            mock_attach.assert_called_once_with(doc, "Attached", "z=3", overwrite=True)
 
 
 def test_show_python_input_dialog_save_as_button():
