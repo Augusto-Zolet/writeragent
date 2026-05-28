@@ -18,7 +18,6 @@ where = ["src"]
 [tool.cibuildwheel]
 # Build only Python 3.11-3.14
 build = "cp311-* cp312-* cp313-* cp314-*"
-enable = ["cpython-prerelease"]
 
 # Skip 32-bit builds and musl entirely
 skip = "*-win32 *-manylinux_i686 *-musllinux_*"

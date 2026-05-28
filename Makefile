@@ -327,6 +327,9 @@ update-vec:
 	fi
 	$(PYTHON) scripts/update_vec_contrib.py "$(WHEELS_DIR)"
 
+update-vec-fetch:
+	$(PYTHON) scripts/update_vec_contrib.py --fetch
+
 # Convenience target to build with Cython accelerator
 build-native: native build
 
