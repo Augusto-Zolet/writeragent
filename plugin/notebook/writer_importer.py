@@ -50,8 +50,6 @@ _STACK_MARGIN_X = 5000
 _STACK_GAP = 400
 _STACK_INITIAL_BOTTOM = 800
 _RUN_BUTTON_SIZE = 600
-# com.sun.star.form.FormButtonType.URL — numeric avoids import when UNO stubs are absent (pytest).
-_FORM_BUTTON_URL = 1
 _PROGRESS_EVERY_N_CELLS = 10
 _SLOW_ADD_MS = 2000
 _MAX_IMPORT_TEXT_CHARS = 50_000
@@ -621,8 +619,11 @@ def _insert_run_button_in_flow(
     *,
     cell_id: str,
     controls_before: int,
+    ctx: Any | None = None,
 ) -> None:
-    """In-flow play control: runs ``notebook.run_cell.{hex}`` via protocol handler."""
+    """In-flow ▶ push button; listeners attached after import via ``wire_all_notebook_run_buttons``."""
+    from plugin.notebook.notebook_controls import form_button_push_type
+
     hex_id = cell_id_to_hex(cell_id)
     t0 = time.monotonic()
     model = doc.createInstance("com.sun.star.form.component.CommandButton")
@@ -632,8 +633,8 @@ def _insert_run_button_in_flow(
     model.Label = "\u25b6"
     if hasattr(model, "HelpText"):
         model.HelpText = _("Run code cell")
-    model.ButtonType = _FORM_BUTTON_URL
-    model.TargetURL = f"org.extension.writeragent:notebook.run_cell.{hex_id}"
+    # URL-type buttons open TargetURL via desktop and do not reach our ProtocolHandler.
+    model.ButtonType = form_button_push_type()
 
     shape = doc.createInstance("com.sun.star.drawing.ControlShape")
     if shape is None:
@@ -763,12 +764,18 @@ def import_ipynb_to_writer(doc: Any, path: str, ctx: Any | None = None) -> dict[
         registry_state=registry_state,
     )
     if registry_state.code_cells:
+        from plugin.notebook.notebook_controls import ensure_form_design_mode_off, wire_all_notebook_run_buttons
         from plugin.notebook.notebook_runner import init_registry_execution_counter
 
         init_registry_execution_counter(registry_state)
         save_registry(doc, registry_state)
         save_notebook_source_path(doc, path)
-    flush_ui_idle(ctx)
+        ensure_form_design_mode_off(doc)
+        flush_ui_idle(ctx)
+        if ctx is not None:
+            wire_all_notebook_run_buttons(ctx, doc)
+    else:
+        flush_ui_idle(ctx)
 
     stats["controls"] = stats["shapes"]
     total_ms = _mono_ms(run_t0)
@@ -831,7 +838,12 @@ def _import_cells(
                 registry_state.code_cells.append(entry)
             if registry_state is not None and registry_state.code_cells:
                 entry = registry_state.code_cells[-1]
-                _insert_run_button_in_flow(doc, cell_id=entry.cell_id, controls_before=stats["shapes"])
+                _insert_run_button_in_flow(
+                    doc,
+                    cell_id=entry.cell_id,
+                    controls_before=stats["shapes"],
+                    ctx=ctx,
+                )
                 stats["shapes"] += 1
             _insert_code_input_in_flow(
                 doc,

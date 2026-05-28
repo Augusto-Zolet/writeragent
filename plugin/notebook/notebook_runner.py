@@ -71,67 +71,13 @@ def format_run_output_text(result: dict[str, Any]) -> str:
     return "\n\n".join(p for p in parts if p.strip())
 
 
-def _unwrap_form_model(obj: Any) -> Any | None:
-    if obj is None:
-        return None
-    # TextField model exposes .Text directly; do not prefer auto-mocked .Control in tests.
-    if hasattr(obj, "Text"):
-        return obj
-    control = getattr(obj, "Control", None)
-    if control is not None:
-        return control
-    if hasattr(obj, "Name"):
-        return obj
-    return None
-
-
-def _model_from_text_portion(portion: Any) -> Any | None:
-    try:
-        ptype = portion.getPropertyValue("TextPortionType")
-    except Exception:
-        ptype = getattr(portion, "TextPortionType", None)
-    if ptype != "Frame":
-        return None
-    for attr in ("TextField", "TextContent", "TextEmbeddedObject"):
-        try:
-            embedded = getattr(portion, attr, None)
-        except Exception:
-            embedded = None
-        model = _unwrap_form_model(embedded)
-        if model is not None:
-            return model
-    return None
-
-
 def read_code_from_field(doc: Any, field_name: str) -> str:
     """Read multiline source from an in-flow form ``TextField`` by control name."""
-    if not field_name:
-        return ""
-    try:
-        text = doc.getText()
-        enum = text.createEnumeration()
-    except Exception:
-        log.debug("notebook run: could not enumerate document text", exc_info=True)
-        return ""
-    while enum.hasMoreElements():
-        block = enum.nextElement()
-        try:
-            portion_enum = block.createEnumeration()
-        except Exception:
-            continue
-        while portion_enum.hasMoreElements():
-            portion = portion_enum.nextElement()
-            model = _model_from_text_portion(portion)
-            if model is None:
-                continue
-            try:
-                name = getattr(model, "Name", "") or ""
-            except Exception:
-                name = ""
-            if name != field_name:
-                continue
-            if hasattr(model, "Text"):
-                return str(model.Text or "")
+    from plugin.notebook.form_lookup import find_form_control_model_by_name
+
+    model = find_form_control_model_by_name(doc, field_name)
+    if model is not None and hasattr(model, "Text"):
+        return str(model.Text or "")
     return ""
 
 
@@ -305,12 +251,8 @@ def run_cell(ctx: Any, doc: Any, cell_id: str) -> RunResult:
     return RunResult("ok", execution_count)
 
 
-def run_cell_by_hex(ctx: Any, hex_id: str) -> None:
-    """Menu / form button entry: ``notebook.run_cell.{hex}``."""
-    doc = get_active_document(ctx)
-    if doc is None:
-        msgbox(ctx, "WriterAgent", _("Open a Writer document first."))
-        return
+def run_cell_for_doc_hex(ctx: Any, doc: Any, hex_id: str) -> None:
+    """Run a cell on a known Writer *doc* (button listener or protocol dispatch)."""
     if not is_writer(doc):
         msgbox(ctx, "WriterAgent", _("Notebook run is only supported in LibreOffice Writer."))
         return
@@ -329,6 +271,15 @@ def run_cell_by_hex(ctx: Any, hex_id: str) -> None:
     run_result = run_cell(ctx, doc, cell.cell_id)
     if run_result.status == "error" and run_result.message:
         msgbox(ctx, "WriterAgent", run_result.message)
+
+
+def run_cell_by_hex(ctx: Any, hex_id: str) -> None:
+    """Menu / protocol entry: ``notebook.run_cell.{hex}`` on the active Writer document."""
+    doc = get_active_document(ctx)
+    if doc is None:
+        msgbox(ctx, "WriterAgent", _("Open a Writer document first."))
+        return
+    run_cell_for_doc_hex(ctx, doc, hex_id)
 
 
 def run_cell_target_url(cell_id: str) -> str:

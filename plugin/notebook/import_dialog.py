@@ -102,6 +102,11 @@ def run_import_ipynb_dialog(uno_ctx: Any = None) -> None:
         stats,
     )
     flush_ui_idle(ctx)
+    from plugin.notebook.notebook_controls import ensure_form_design_mode_off, wire_all_notebook_run_buttons
+
+    ensure_form_design_mode_off(doc)
+    wire_all_notebook_run_buttons(ctx, doc)
+    flush_ui_idle(ctx)
     log.debug("notebook import showing completion message box")
     msgbox(
         ctx,

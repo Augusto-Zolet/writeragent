@@ -297,8 +297,10 @@ def _register_core_handlers():
 
     try:
         from plugin.calc.python_editor_context_menu import install_calc_cell_context_menu
+        from plugin.notebook.notebook_controls import install_notebook_run_button_wiring
 
         install_calc_cell_context_menu(get_ctx())
+        install_notebook_run_button_wiring(get_ctx())
     except Exception:
         log.debug("Calc cell context menu install failed", exc_info=True)
 
