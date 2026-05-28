@@ -33,6 +33,7 @@ def test_index_form_control_models_from_draw_page():
 
     doc = MagicMock()
     doc.getDrawPage.return_value = dp
+    doc.getText.side_effect = AttributeError("no text")
 
     by_name = index_form_control_models(doc)
     assert by_name["nb_run_abc"] is run_model

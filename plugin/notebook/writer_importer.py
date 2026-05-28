@@ -16,7 +16,8 @@ import re
 import struct
 import tempfile
 import time
-from typing import Any, cast
+from types import SimpleNamespace
+from typing import Any
 
 from com.sun.star.awt import Point, Size
 from com.sun.star.text.TextContentAnchorType import AS_CHARACTER
@@ -448,10 +449,14 @@ def _no_spellcheck_locale() -> Any:
     """Locale that disables Writer spell/grammar checking (ISO 639-2 ``zxx``)."""
     import uno
 
-    loc = cast("Any", uno.createUnoStruct("com.sun.star.lang.Locale"))
-    loc.Language = "zxx"
-    loc.Country = ""
-    return loc
+    create = getattr(uno, "createUnoStruct", None)
+    if callable(create):
+        loc: Any = create("com.sun.star.lang.Locale")
+        loc.Language = "zxx"
+        loc.Country = ""
+        return loc
+    # pytest may load a mocked ``uno`` without ``createUnoStruct``; attrs still reach setPropertyValue.
+    return SimpleNamespace(Language="zxx", Country="")
 
 
 def _apply_no_spellcheck_for_import(doc: Any) -> None:

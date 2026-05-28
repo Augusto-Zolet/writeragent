@@ -56,6 +56,7 @@ def test_wire_run_button_listener_attaches_to_xbutton():
 def test_notebook_run_button_listener_calls_runner():
     ctx = MagicMock()
     doc = MagicMock()
+    doc.getURL.return_value = ""
     listener = NotebookRunButtonListener(ctx, doc, "deadbeef")
     with patch("plugin.notebook.notebook_runner.run_cell_for_doc_hex") as run:
         listener.on_action_performed(MagicMock())
