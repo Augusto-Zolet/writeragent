@@ -133,7 +133,8 @@ def _proofreading_markup_type() -> int:
 
 def _cached_errors_to_uno_tuple(cached: tuple[dict[str, Any], ...], ctx: Any, doc_id: str) -> tuple[Any, ...]:
     from plugin.writer.locale.grammar_persistence import get_persistence
-    from plugin.writer.locale.grammar_proofread_cache import normalize_reason, ignored_rules_snapshot
+    from plugin.writer.locale.grammar_proofread_cache import ignored_rules_snapshot
+    from plugin.writer.locale.grammar_proofread_locale import normalize_reason
 
     p = get_persistence(ctx, doc_id)
     ignored_reasons = set(p._ignored_rules) if p else set()
@@ -474,7 +475,7 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
 
             if aRuleIdentifier.startswith("wa_g_rule||"):
                 reason = aRuleIdentifier[11:]
-                from .grammar_proofread_cache import normalize_reason
+                from .grammar_proofread_locale import normalize_reason
                 norm_reason = normalize_reason(reason)
                 if p:
                     with p._lock:
@@ -483,7 +484,7 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
                     log.info("[grammar] ignoreRule added: '%s' (normalized: '%s') to doc_id=%s", reason, norm_reason, doc_id)
             elif p:
                 # Fallback for legacy identifier
-                from .grammar_proofread_cache import normalize_reason
+                from .grammar_proofread_locale import normalize_reason
                 norm_reason = normalize_reason(aRuleIdentifier)
                 with p._lock:
                     p._ignored_rules.add(norm_reason)

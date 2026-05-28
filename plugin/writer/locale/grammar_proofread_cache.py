@@ -9,7 +9,6 @@ Sentence-boundary tables and ``looks_complete_sentence`` live in ``grammar_proof
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from .grammar_persistence import get_persistence, grammar_registry
@@ -20,22 +19,6 @@ from .grammar_proofread_locale import (
     fingerprint_for_text,
     looks_complete_sentence,
 )
-
-
-def normalize_reason(reason: str) -> str:
-    """Canonical/generalized representation of an error reason to group similar rules.
-
-    - Converts to lowercase.
-    - Strips punctuation and non-alphanumeric characters (keeping all word contents).
-    - Collapses spaces into a single-space separated canonical string.
-    """
-    if not reason:
-        return ""
-    s = reason.lower().strip()
-    # Strip non-alphanumeric characters (keeping word contents)
-    s = re.sub(r"[^a-z0-9\s]", "", s)
-    return " ".join(s.split())
-
 
 def cache_clear(ctx: Any | None = None, doc_id: str | None = None) -> None:
     """Clear proofreading cache (e.g. tests)."""

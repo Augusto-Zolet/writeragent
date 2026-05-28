@@ -6,7 +6,7 @@ import json
 import unittest
 from unittest.mock import MagicMock, patch
 
-from plugin.writer.locale.grammar_proofread_cache import normalize_reason
+from plugin.writer.locale.grammar_proofread_locale import normalize_reason
 from plugin.writer.locale.grammar_persistence import DocumentPersistence
 from plugin.writer.locale.ai_grammar_proofreader import _cached_errors_to_uno_tuple, WriterAgentAiGrammarProofreader
 
@@ -114,7 +114,7 @@ class TestGrammarIgnoreRules(unittest.TestCase):
             norm_errors = normalize_errors_for_text(full_text, 0, len(full_text), items)
         
         # Filter them just like grammar_work_queue does
-        from plugin.writer.locale.grammar_proofread_cache import normalize_reason
+        from plugin.writer.locale.grammar_proofread_locale import normalize_reason
         filtered_errors = []
         for e in norm_errors:
             rule_ident = e.rule_identifier

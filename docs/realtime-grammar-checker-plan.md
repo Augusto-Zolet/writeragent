@@ -377,27 +377,6 @@ So **`enqueue_seq` is a generation stamp for supersede/dedup semantics**, not a 
 
 The standalone [`GrammarChecker.py`](../GrammarChecker.py) (repo root) was used historically as a prompt/threading reference. It is **not** bundled as WriterAgent product code. The shipped proofreader does **not** call it.
 
----
-
-## Completed milestones
-
-Major items that were previously listed as future work or cleanup but are **implemented in tree**:
-
-- **Native UNO proofreader + registry**: `WriterAgentAiGrammarProofreader`, [`LinguisticWriterAgentGrammar.xcu`](../extension/registry/org/openoffice/Office/LinguisticWriterAgentGrammar.xcu), manifest wiring.
-- **Persistent sentence cache**: Embedded directly within document properties; LRU memory pruning; normalization and ignore rules.
-- **Paragraph/sentence LLM batching**: Configurable chunk size, batch prompt template, per-chunk fallback when result counts mismatch.
-- **Incomplete-prefix compaction** in the sentence LRU (typing stubs).
-- **Same-key-only queue dedup**: `deduplicate_grammar_batch` keeps highest `enqueue_seq` per `inflight_key`; cross-key string-prefix dedup removed (see [Appendix A](#appendix-a-cross-sentence-prefix-dedup)).
-- **Regex safety**: `_sterm_class` built with `re.escape` over sentence-terminator characters (`grammar_proofread_locale.py`).
-- **Whitespace / hot regex**: `GRAMMAR_WHITESPACE_RUN_RE` and related patterns precompiled at module load where appropriate.
-- **Persistence initialization**: thread-safe singleton setup for grammar cache persistence (`grammar_persistence.py`); no unsafe fork-based locking.
-- **Worker idle batching**: quiet period via `GRAMMAR_WORKER_PAUSE_TIMEOUT_S` on queue `get`, coalescing bursts before LLM calls.
-- **Optional grammar-only model**: `doc.grammar_proofreader_model` (Doc tab); empty uses the chat text model so grammar can be pointed at a cheaper or local endpoint without changing chat defaults.
-- **No plaintext in persistence**: Cache lookup has always been by fingerprint and only `errors` are read/written, completely avoiding storing plaintext sentence text in any persistent file/property.
-- **Document-embedded persistence**: [`DocumentPersistence`](../plugin/writer/locale/grammar_persistence.py) is the sole shipped persistence mechanism. `OnPrepareSave` / `OnSave` / `OnSaveAs` / `OnSaveTo` write `WriterAgentGrammarCache` back to the doc; `OnUnload` / broadcaster `disposing` clean up per-document state. The UNO listener uses the correct `documentEventOccured` callback (the earlier `documentEvent` typo silently dropped every save), and `set_document_property` detects existing properties via `XPropertySet.getPropertySetInfo().hasPropertyByName` (the `UserDefinedProperties` `PropertyBag` does **not** implement `XNameAccess`) — without that check the second save raised `Property name or handle already used` and the JSON never landed in the file. See [Appendix D](#appendix-d-documentpersistence-save-fix) for the historical write-up.
-- **Persistent Ignore Rules (Native Integration)**: Hooked into native `ignoreRule` and `resetIgnoreRules` within the `XProofreader` implementation. Ignored rules are saved/loaded per-document under the `WriterAgentGrammarCache` property of `DocumentProperties`. Implemented dynamic negative constraint prompt injection in `grammar_work_queue.py` and clean post-normalization filtering so ignored rules are thrown away immediately upon LLM completion and never pollute the persistent cache. Simplified the rule identifier schema to `wa_g_rule||{reason}` to allow instant string-slice decoding instead of split routines, and normalized reasons to preserve quote-enclosed specific text (e.g. keeping `'an'` and `'a'` inside `"use an instead of a"`). Added a full unit test suite covering the entire pipeline.
-- **Remove obsolete timeout config (P16)**: Completely removed the obsolete configuration option `grammar_proofreader_wait_timeout_ms` from `plugin/doc/module.yaml`, cleaning up the settings UI and simplifying the configuration schema since the proofreader return path operates asynchronously.
-- **Compact document-embedded payload (P21)**: Fully transitioned to the v2 payload serialization format, utilizing 24-character/96-bit fingerprints, splitting clean and dirty sentence cache elements into distinct `"good"` (list) and `"bad"` (dictionary) schemas, and employing compact single-character keys (`s`/`l`/`g`/`c`/`f`/`r`) for error records. This ensures high efficiency and drastically reduces payload sizes in user-defined document properties.
 
 ---
 
@@ -651,12 +630,7 @@ Below is the list of open technical debt items. All major foundational TD tasks 
 
 These pure helpers are prime candidates for relocation to improve conceptual ownership and streamline the import graph:
 
-1. **`normalize_reason`** (currently in `grammar_proofread_cache.py`):
-   - Canonicalizes error reasons for ignore-rule matching.
-   - Used heavily by: `ai_grammar_proofreader.py` (in `ignoreRule`, cached error filtering) and `grammar_work_queue.py` (when processing ignored rules).
-   - **Suggested new home:** `grammar_proofread_locale.py` or a dedicated `grammar_rules.py`.
-
-2. **`slice_preview_debug`** (currently in `grammar_obs.py`):
+1. **`slice_preview_debug`** (currently in `grammar_obs.py`):
    - Creates compact text previews for logging/observability.
    - Used by: `ai_grammar_proofreader.py` (exposed via the TD2 testing seam) and internally in `grammar_work_queue.py`.
    - **Suggested new home:** `grammar_proofread_text.py` (alongside other text/slice utilities).

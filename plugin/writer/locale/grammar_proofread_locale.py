@@ -99,6 +99,21 @@ def grammar_inflight_key(a_document_identifier: str, loc_key: str, sent_text: st
     return f"{a_document_identifier}|{loc_key}|{context}"
 
 
+def normalize_reason(reason: str) -> str:
+    """Canonical/generalized representation of an error reason to group similar rules.
+
+    - Converts to lowercase.
+    - Strips punctuation and non-alphanumeric characters (keeping all word contents).
+    - Collapses spaces into a single-space separated canonical string.
+    """
+    if not reason:
+        return ""
+    s = reason.lower().strip()
+    # Strip non-alphanumeric characters (keeping word contents)
+    s = re.sub(r"[^a-z0-9\s]", "", s)
+    return " ".join(s.split())
+
+
 # ---------------------------------------------------------------------------
 # Shipped BCP-47 registry + UNO CharLocale bridging
 # ---------------------------------------------------------------------------

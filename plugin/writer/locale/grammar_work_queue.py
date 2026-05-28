@@ -404,7 +404,8 @@ def _process_grammar_results(
 ) -> None:
     """Normalize LLM errors, write sentence cache, emit done status."""
     from .grammar_persistence import get_persistence
-    from .grammar_proofread_cache import normalize_reason, ignored_rules_snapshot
+    from .grammar_proofread_cache import ignored_rules_snapshot
+    from .grammar_proofread_locale import normalize_reason
 
     total_issues = 0
     chars_checked = 0
