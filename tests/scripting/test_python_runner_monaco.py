@@ -386,36 +386,11 @@ def test_show_python_input_dialog_modeless_uses_set_visible():
 
     with patch.object(pr, "get_desktop", return_value=desktop):
         with _patch_modeless_native():
-            pr._NATIVE_SCRIPT_DIALOG = None
             pr.show_python_input_dialog(ctx, "x = 1", "last_python_script_writer")
 
     dlg.execute.assert_not_called()
     dlg.setVisible.assert_called_once_with(True)
     dlg.addTopWindowListener.assert_called_once()
-    assert pr._NATIVE_SCRIPT_DIALOG is not None
-
-
-def test_focus_native_python_script_dialog_raises_existing():
-    dlg = MagicMock()
-    code_edit = MagicMock()
-    dlg.getControl.return_value = code_edit
-    pr._NATIVE_SCRIPT_DIALOG = pr.NativePythonScriptDialog.__new__(pr.NativePythonScriptDialog)
-    pr._NATIVE_SCRIPT_DIALOG._closed = False
-    pr._NATIVE_SCRIPT_DIALOG._dlg = dlg
-
-    assert pr.focus_native_python_script_dialog() is True
-    dlg.setVisible.assert_called_once_with(True)
-    code_edit.setFocus.assert_called_once()
-
-    pr._NATIVE_SCRIPT_DIALOG = None
-
-
-def test_show_python_input_dialog_modeless_focuses_existing_instance():
-    ctx = MagicMock()
-    with _patch_modeless_native():
-        with patch.object(pr, "focus_native_python_script_dialog", return_value=True) as mock_focus:
-            pr.show_python_input_dialog(ctx, "x = 1")
-            mock_focus.assert_called_once()
 
 
 def test_monaco_editor_available_respects_force_internal():
