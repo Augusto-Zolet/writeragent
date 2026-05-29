@@ -23,6 +23,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from plugin.scripting.config_limits import WARM_WORKER_TIMEOUT_SEC
 from plugin.scripting.venv_worker import (
     PythonWorkerManager,
     _worker_error_message,
@@ -359,10 +360,77 @@ def test_warm_spawns_and_primes_worker():
     assert mgr._proc is None
     mgr.warm()
     assert mgr._proc is not None and mgr._proc.poll() is None
+    assert mgr._primed is True
     r = mgr.execute("result = 42")
     assert r["status"] == "ok"
     assert r["result"] == 42
     PythonWorkerManager.shutdown_all()
+
+
+def test_cold_execute_warms_with_separate_timeout():
+    """First execute primes the worker under WARM_WORKER_TIMEOUT_SEC, then runs user code at configured timeout."""
+    PythonWorkerManager.shutdown_all()
+    mgr = PythonWorkerManager.get(sys.executable, {"PATH": "/usr/bin:/bin"})
+    timeouts: list[int] = []
+    original_read = mgr._read_response_bytes
+
+    def record_read(stdout, timeout_sec):
+        timeouts.append(timeout_sec)
+        return original_read(stdout, timeout_sec)
+
+    mgr._read_response_bytes = record_read  # type: ignore[method-assign]
+    try:
+        r = mgr.execute("result = 42", timeout_sec=3)
+        assert r["status"] == "ok"
+        assert r["result"] == 42
+        assert timeouts == [WARM_WORKER_TIMEOUT_SEC, 3]
+    finally:
+        PythonWorkerManager.shutdown_all()
+
+
+def test_warm_execute_uses_configured_timeout_only():
+    """After priming, execute sends one IPC round at the configured timeout."""
+    PythonWorkerManager.shutdown_all()
+    mgr = PythonWorkerManager.get(sys.executable, {"PATH": "/usr/bin:/bin"})
+    mgr.warm()
+    timeouts: list[int] = []
+    original_read = mgr._read_response_bytes
+
+    def record_read(stdout, timeout_sec):
+        timeouts.append(timeout_sec)
+        return original_read(stdout, timeout_sec)
+
+    mgr._read_response_bytes = record_read  # type: ignore[method-assign]
+    try:
+        r = mgr.execute("result = 7", timeout_sec=3)
+        assert r["status"] == "ok"
+        assert r["result"] == 7
+        assert timeouts == [3]
+    finally:
+        PythonWorkerManager.shutdown_all()
+
+
+def test_terminate_worker_re_primes_on_next_execute():
+    """After worker kill, the next execute runs warm again before user code."""
+    PythonWorkerManager.shutdown_all()
+    mgr = PythonWorkerManager.get(sys.executable, {"PATH": "/usr/bin:/bin"})
+    mgr.warm()
+    mgr._terminate_worker()
+    timeouts: list[int] = []
+    original_read = mgr._read_response_bytes
+
+    def record_read(stdout, timeout_sec):
+        timeouts.append(timeout_sec)
+        return original_read(stdout, timeout_sec)
+
+    mgr._read_response_bytes = record_read  # type: ignore[method-assign]
+    try:
+        r = mgr.execute("result = 99", timeout_sec=3)
+        assert r["status"] == "ok"
+        assert r["result"] == 99
+        assert timeouts == [WARM_WORKER_TIMEOUT_SEC, 3]
+    finally:
+        PythonWorkerManager.shutdown_all()
 
 
 @patch("plugin.scripting.venv_worker.get_config_str", return_value="")
@@ -514,15 +582,16 @@ class TestExecuteOSErrorRetry:
         mgr.exe = "python"
         mgr._proc = None
         mgr._io_lock = threading.Lock()
+        mgr._primed = False
         mgr.env = {}
 
         call_count = [0]
-        original_ensure = mgr._ensure_running
 
         def fake_ensure():
             call_count[0] += 1
             raise OSError("[WinError 10038] not a socket")
 
+        mgr._ensure_warmed_unlocked = lambda: None
         mgr._ensure_running = fake_ensure
         mgr._terminate_worker = lambda: None
         result = mgr.execute("result = 1", timeout_sec=1)

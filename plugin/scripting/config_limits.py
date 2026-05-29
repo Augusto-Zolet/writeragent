@@ -16,6 +16,9 @@ _TIMEOUT_FALLBACK_DEFAULT = 10
 _TIMEOUT_FALLBACK_MIN = 1
 _TIMEOUT_FALLBACK_MAX = 600
 
+# Spawn + auto-import prime in PythonWorkerManager._ensure_warmed — not charged against user timeout.
+WARM_WORKER_TIMEOUT_SEC = 30
+
 _DATA_CELLS_CONFIG_KEY = "scripting.python_max_data_cells"
 
 

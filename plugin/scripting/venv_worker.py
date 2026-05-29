@@ -24,6 +24,7 @@ from typing import Any, Dict, IO, Optional, Tuple
 
 from plugin.framework.config import get_config_str
 from plugin.scripting.config_limits import (
+    WARM_WORKER_TIMEOUT_SEC,
     configured_python_exec_timeout,
     python_exec_timeout_default,
     resolve_python_exec_timeout,
@@ -277,6 +278,7 @@ class PythonWorkerManager:
         self.env = dict(env)
         self._proc: subprocess.Popen[Any] | None = None
         self._io_lock = threading.Lock()
+        self._primed = False
 
     @classmethod
     def get(cls, exe: str, env: dict[str, str]) -> PythonWorkerManager:
@@ -296,29 +298,38 @@ class PythonWorkerManager:
                 mgr._terminate_worker()
             _instances.clear()
 
+    def _is_worker_alive(self) -> bool:
+        return self._proc is not None and self._proc.poll() is None
+
+    def _ensure_warmed_unlocked(self) -> dict[str, Any] | None:
+        """Spawn worker and prime auto-imports. Returns error dict or None."""
+        if self._primed and self._is_worker_alive():
+            return None
+        prime = self._execute_ipc_unlocked("result = None", timeout_sec=WARM_WORKER_TIMEOUT_SEC)
+        if prime.get("status") != "ok":
+            return prime
+        self._primed = True
+        return None
+
+    def _ensure_warmed(self) -> dict[str, Any] | None:
+        with self._io_lock:
+            return self._ensure_warmed_unlocked()
+
     def warm(self) -> None:
         """Spawn the worker and trigger auto-imports (numpy etc.) so the next real execute is instant."""
-        self.execute("result = None", timeout_sec=30)
+        self._ensure_warmed()
 
-    def execute(
+    def _build_request(
         self,
         code: str | None = None,
         *,
         data: Any = None,
-        timeout_sec: int | None = None,
         session_id: str | None = None,
         action: str | None = None,
         init_script: str | None = None,
         init_session_id: str | None = None,
         init_script_hash: str | None = None,
     ) -> dict[str, Any]:
-        """Run *code* in the warm worker, or handle *action* (e.g. reset_session).
-
-        Without *session_id*, each execute uses a fresh namespace in the child. With
-        *session_id*, the child reuses one LocalPythonExecutor per id.
-        """
-        if timeout_sec is None:
-            timeout_sec = python_exec_timeout_default()
         request: dict[str, Any] = {"id": str(uuid.uuid4())}
         if action:
             request["action"] = action
@@ -336,34 +347,93 @@ class PythonWorkerManager:
                 request["init_session_id"] = init_session_id
             if init_script_hash:
                 request["init_script_hash"] = init_script_hash
+        return request
 
+    def _execute_ipc_unlocked(
+        self,
+        code: str | None = None,
+        *,
+        data: Any = None,
+        timeout_sec: int,
+        session_id: str | None = None,
+        action: str | None = None,
+        init_script: str | None = None,
+        init_session_id: str | None = None,
+        init_script_hash: str | None = None,
+    ) -> dict[str, Any]:
+        request = self._build_request(
+            code,
+            data=data,
+            session_id=session_id,
+            action=action,
+            init_script=init_script,
+            init_session_id=init_session_id,
+            init_script_hash=init_script_hash,
+        )
         payload = pickle.dumps(request, protocol=5)
         header = struct.pack("!I", len(payload))
 
-        with self._io_lock:
-            for attempt in range(2):
-                try:
-                    self._ensure_running()
-                    assert self._proc is not None and self._proc.stdin is not None and self._proc.stdout is not None
-                    stdin = self._proc.stdin
-                    stdout = self._proc.stdout
-                    stdin.write(header)
-                    stdin.write(payload)
-                    stdin.flush()
+        for attempt in range(2):
+            try:
+                self._ensure_running()
+                assert self._proc is not None and self._proc.stdin is not None and self._proc.stdout is not None
+                stdin = self._proc.stdin
+                stdout = self._proc.stdout
+                stdin.write(header)
+                stdin.write(payload)
+                stdin.flush()
 
-                    response_bytes = self._read_response_bytes(stdout, timeout_sec)
-                    if not response_bytes:
-                        stderr_out = self._drain_stderr()
-                        raise RuntimeError(f"Worker closed stdout without a response{stderr_out}")
-                    # Trusted IPC: bytes from our own worker_harness child over a private pipe.
-                    response = pickle.loads(response_bytes)  # nosec B301
-                    return self._normalize_response(response)
-                except (BrokenPipeError, pickle.UnpicklingError, RuntimeError, subprocess.TimeoutExpired, OSError) as e:
-                    log.warning("Python worker failed (attempt %s): %s", attempt + 1, e)
-                    self._terminate_worker()
-                    if attempt == 1:
-                        return {"status": "error", "message": _worker_error_message(e)}
-            return {"status": "error", "message": "Python worker failed"}
+                response_bytes = self._read_response_bytes(stdout, timeout_sec)
+                if not response_bytes:
+                    stderr_out = self._drain_stderr()
+                    raise RuntimeError(f"Worker closed stdout without a response{stderr_out}")
+                # Trusted IPC: bytes from our own worker_harness child over a private pipe.
+                response = pickle.loads(response_bytes)  # nosec B301
+                return self._normalize_response(response)
+            except (BrokenPipeError, pickle.UnpicklingError, RuntimeError, subprocess.TimeoutExpired, OSError) as e:
+                log.warning("Python worker failed (attempt %s): %s", attempt + 1, e)
+                self._terminate_worker()
+                if attempt == 1:
+                    return {"status": "error", "message": _worker_error_message(e)}
+        return {"status": "error", "message": "Python worker failed"}
+
+    def execute(
+        self,
+        code: str | None = None,
+        *,
+        data: Any = None,
+        timeout_sec: int | None = None,
+        session_id: str | None = None,
+        action: str | None = None,
+        init_script: str | None = None,
+        init_session_id: str | None = None,
+        init_script_hash: str | None = None,
+    ) -> dict[str, Any]:
+        """Run *code* in the warm worker, or handle *action* (e.g. reset_session).
+
+        Without *session_id*, each execute uses a fresh namespace in the child. With
+        *session_id*, the child reuses one LocalPythonExecutor per id.
+
+        Cold start: spawn + auto-imports run first under :data:`WARM_WORKER_TIMEOUT_SEC`
+        and are not charged against *timeout_sec*.
+        """
+        if timeout_sec is None:
+            timeout_sec = python_exec_timeout_default()
+
+        with self._io_lock:
+            warm_err = self._ensure_warmed_unlocked()
+            if warm_err is not None:
+                return warm_err
+            return self._execute_ipc_unlocked(
+                code,
+                data=data,
+                timeout_sec=timeout_sec,
+                session_id=session_id,
+                action=action,
+                init_script=init_script,
+                init_session_id=init_session_id,
+                init_script_hash=init_script_hash,
+            )
 
     def _normalize_response(self, response: dict[str, Any]) -> dict[str, Any]:
         if response.get("status") == "ok":
@@ -495,6 +565,7 @@ class PythonWorkerManager:
     def _terminate_worker(self) -> None:
         proc = self._proc
         self._proc = None
+        self._primed = False
         if proc is None:
             return
         try:

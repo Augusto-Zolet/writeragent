@@ -96,7 +96,7 @@ Both venv paths assign JSON-serializable output to **`result`**. NumPy arrays an
 | Writer / Draw chat, `domain=python` | No | Never — use document tools for content |
 | `=PYTHON(code, range)` | 2nd arg is the range | Yes |
 
-Wall-clock limit comes from **Settings → Python** (`scripting.python_exec_timeout`, default **10s**, max **600s**). It is not exposed on the LLM tool schema.
+Wall-clock limit comes from **Settings → Python** (`scripting.python_exec_timeout`, default **10s**, max **600s**). It is not exposed on the LLM tool schema. That limit applies to **user code execution** only: the first request after worker spawn (or after a crash) runs an internal warm step (spawn + auto-imports) under a separate ~30s host budget (`WARM_WORKER_TIMEOUT_SEC` in [`config_limits.py`](plugin/scripting/config_limits.py)), not charged against your configured value.
 
 ### Two-phase LLM workflow
 
@@ -246,7 +246,7 @@ Implementation: [`worker_harness.py`](plugin/scripting/worker_harness.py), [`ven
 | **Subprocess isolation** | Separate interpreter, no shared memory with LO | ABI crashes, segfaults in C extensions, UNO corruption |
 | **Environment scrubbing** | Strip secret-like env vars from child | Credential exfiltration via generated code |
 | **User-provided venv** | Explicit opt-in | User controls installed packages |
-| **Timeout** | Wall clock per execute (`scripting.python_exec_timeout`, default 10s, max 600s) | Runaway computation |
+| **Timeout** | Wall clock per user-code execute (`scripting.python_exec_timeout`, default 10s, max 600s); cold spawn + auto-import warm uses separate ~30s internal limit | Runaway computation |
 
 WriterAgent removed upstream’s `find_spec` import pre-check at executor init (see comment in vendored `local_python_executor.py`); missing packages fail when code imports them.
 
@@ -256,7 +256,7 @@ WriterAgent removed upstream’s `find_spec` import pre-check at executor init (
 
 | Layer | Behavior |
 |-------|----------|
-| `PythonWorkerManager` | One subprocess per resolved venv `python`; respawns on crash/timeout |
+| `PythonWorkerManager` | One subprocess per resolved venv `python`; respawns on crash/timeout; auto-warms before first timed execute |
 | `worker_harness.py` | Read loop; delegates to `venv_sandbox.run_sandboxed_code` |
 | `venv_sandbox.py` | New `LocalPythonExecutor` per request; inject `data`; serialize `result` |
 | **Code hot cache** | [`python_code_hot_cache.py`](../plugin/scripting/sandbox_cache.py): SHA-256 keyed LRU (default 4096) caches **parsed AST** + **static** sandbox policy (imports, dunder attrs, forbidden syntax) per unchanged source + import allowlist. Skips re-parse and re-validation on recalc; **does not** cache execution `result` or variables. Separate from host [Worker Result Session](#matrix-formula-optimization-fast-path). Also used by in-process [`execute_python_script`](../plugin/calc/python_executor.py). |
