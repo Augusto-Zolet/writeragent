@@ -190,6 +190,7 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):
         _resize = _PanelResizeListener(controls)
         _resize._root_window = root_window  # for defensive self-removal in disposing()
         root_window.addWindowListener(_resize)
+        self._panel_resize_listener = _resize
         if _tp is not None:
             _tp.resize_listener = _resize
         _resize.relayout_now(root_window)
@@ -325,3 +326,39 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):
                     pass
         except Exception as e:
             log.error("Rich text initialization setup failed: %s", e)
+
+    elif get_config_bool_safe(self.ctx, "rich_text_control_sidebar", default=False):
+        if get_config_bool_safe(self.ctx, "rich_text_sidebar", default=False):
+            log.warning("rich_text_sidebar and rich_text_control_sidebar are both enabled; using embedded Writer")
+        else:
+            try:
+                from plugin.chatbot.rich_text_control import RichTextControlListener
+
+                def on_rich_control_ready(rich_control):
+                    log.info("[RICH-CONTROL] on_rich_control_ready control=%s", bool(rich_control))
+                    self.rich_text_control = rich_control
+                    controls["response_rich"] = rich_control
+                    if hasattr(self, "_panel_resize_listener") and self._panel_resize_listener:
+                        self._panel_resize_listener._c["response_rich"] = rich_control
+                    if hasattr(self, "send_listener") and self.send_listener:
+                        self.send_listener.set_rich_text_control(rich_control, style_window=root_window)
+                    try:
+                        from plugin.chatbot.dialogs import set_control_visible
+
+                        if controls.get("response"):
+                            set_control_visible(controls["response"], False)
+                        if controls.get("response_label"):
+                            set_control_visible(controls["response_label"], False)
+                    except Exception:
+                        log.debug("Failed to hide plain response controls for RichTextControl")
+                    try:
+                        nonlocal web_checked, model, active_greeting
+                        self._render_session_history(self.session, controls["response"], model, active_greeting)
+                    except Exception as e:
+                        log.error("Initial RichTextControl render failed: %s", e)
+
+                rich_control_listener = RichTextControlListener(self.ctx, root_window, controls["response"], on_rich_control_ready)
+                root_window.addWindowListener(rich_control_listener)
+                log.info("[RICH-CONTROL] RichTextControlListener attached to root_window")
+            except Exception as e:
+                log.error("RichTextControl sidebar initialization failed: %s", e)

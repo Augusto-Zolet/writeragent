@@ -20,6 +20,7 @@ def _resize_debug(msg: str, *args: object) -> None:
 # and would otherwise stay that way across resizes.
 _MIN_WIDTHS = {
     "response": 80,
+    "response_rich": 80,
     "status": 80,
     "query": 80,
     "query_label": 60,
@@ -43,6 +44,7 @@ _MIN_WIDTHS = {
 # Everything else keeps its XDL snapshot width (subject only to the final right-edge safety clamp).
 _STRETCH_CONTROLS = (
     "response",
+    # response_rich: positioned only by RichTextControlListener from the response placeholder
     "query",
     "status",
     "model_selector",

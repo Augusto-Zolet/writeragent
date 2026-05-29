@@ -272,6 +272,7 @@ class ChatPanelElement(unohelper.Base, XUIElement):
         self.embedded_doc = None
         self.embedded_frame = None
         self.embedded_container = None
+        self.rich_text_control = None
         log.debug("[RICH-LIFECYCLE] ChatPanelElement.__init__ resource_url=%s parent_window=%s",
                   resource_url, id(parent_window) if parent_window else None)
 
@@ -372,10 +373,54 @@ class ChatPanelElement(unohelper.Base, XUIElement):
         self.embedded_doc = None
         self.embedded_frame = None
         self.embedded_container = None
+        self.rich_text_control = None
 
     def _render_session_history(self, session, response_ctrl, model, greeting=""):
         """Update the response control with the contents of the given session."""
         try:
+            if self.rich_text_control:
+                from plugin.chatbot.rich_text_control import append_rich_text_via_clipboard, clear_control
+
+                clear_control(self.rich_text_control)
+                style_window = getattr(self, "m_panelRootWindow", None)
+                if greeting:
+                    append_rich_text_via_clipboard(
+                        self.ctx,
+                        self.rich_text_control,
+                        greeting,
+                        role="assistant",
+                        style_window=style_window,
+                    )
+                for msg in session.messages:
+                    role = msg.get("role", "")
+                    content = msg.get("content", "")
+                    if role == "user":
+                        append_rich_text_via_clipboard(
+                            self.ctx,
+                            self.rich_text_control,
+                            content,
+                            role="user",
+                            style_window=style_window,
+                        )
+                    elif role == "assistant":
+                        if content:
+                            append_rich_text_via_clipboard(
+                                self.ctx,
+                                self.rich_text_control,
+                                content,
+                                role="assistant",
+                                style_window=style_window,
+                            )
+                        elif msg.get("tool_calls"):
+                            append_rich_text_via_clipboard(
+                                self.ctx,
+                                self.rich_text_control,
+                                "[Thinking...]",
+                                role="assistant",
+                                style_window=style_window,
+                            )
+                return
+
             if self.embedded_doc:
                 from plugin.chatbot.rich_text import append_rich_text
 

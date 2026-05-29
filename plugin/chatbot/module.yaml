@@ -113,6 +113,13 @@ config:
     label: Rich Text Chat Sidebar
     helper: "Use embedded Writer document for chat display (requires restart)"
 
+  rich_text_control_sidebar:
+    type: boolean
+    default: false
+    widget: checkbox
+    label: Rich Text Control Sidebar
+    helper: "Use form RichTextControl for chat (experimental; requires restart). Mutually exclusive with Rich Text Chat Sidebar."
+
   query_history:
     type: string
     default: "[]"

@@ -60,6 +60,16 @@ _HTML_TAG_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Legacy plain-sidebar prefix; append_rich_text adds "Assistant:" instead.
+_LEGACY_AI_LABEL_RE = re.compile(r"^\s*AI:\s*", re.IGNORECASE)
+
+
+def strip_legacy_ai_label(text: str) -> str:
+    """Remove leading ``AI:`` from greeting/assistant text (avoid ``Assistant: AI:``)."""
+    if not text:
+        return text
+    return _LEGACY_AI_LABEL_RE.sub("", text, count=1)
+
 USER_COLOR = 0x2A6099
 ASSISTANT_COLOR = 0x1E293B
 
@@ -585,41 +595,46 @@ class EmbeddedWriterListener(BaseWindowListener):
         except Exception as e:
             log.exception("Error in deferred rich text init: %s", e)
 
-def get_theme_colors(doc):
-    """Retrieve theme-aware colors based on the document window's StyleSettings.
+def get_theme_colors(doc=None, style_window=None):
+    """Retrieve theme-aware colors based on StyleSettings from *style_window* or *doc*'s frame.
 
     Returns (bg_color, user_color, assistant_color).
     """
+    win = style_window
+    if win is None and doc is not None:
+        try:
+            controller = doc.getCurrentController()
+            if controller:
+                frame = controller.getFrame()
+                if frame:
+                    win = frame.getContainerWindow()
+        except Exception as e:
+            log.debug("get_theme_colors: doc frame lookup failed: %s", e)
     try:
-        controller = doc.getCurrentController()
-        if controller:
-            frame = controller.getFrame()
-            if frame:
-                win = frame.getContainerWindow()
-                if win and hasattr(win, "StyleSettings"):
-                    style_settings = win.StyleSettings
-                    if style_settings:
-                        field_color = getattr(style_settings, "FieldColor", 0xFFFFFF)
-                        if isinstance(field_color, int):
-                            r = (field_color >> 16) & 0xFF
-                            g = (field_color >> 8) & 0xFF
-                            b = field_color & 0xFF
-                            luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+        if win and hasattr(win, "StyleSettings"):
+            style_settings = win.StyleSettings
+            if style_settings:
+                field_color = getattr(style_settings, "FieldColor", 0xFFFFFF)
+                if isinstance(field_color, int):
+                    r = (field_color >> 16) & 0xFF
+                    g = (field_color >> 8) & 0xFF
+                    b = field_color & 0xFF
+                    luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
 
-                            if luminance < 128:
-                                # Dark mode colors
-                                return field_color, 0x60A5FA, 0xE2E8F0
-                            else:
-                                # Light mode colors
-                                # Dynamically darken DialogColor slightly (by 6%) to create a beautiful, soft contrast
-                                dialog_color = getattr(style_settings, "DialogColor", 0xEFF0F1)
-                                if isinstance(dialog_color, int):
-                                    r = int(((dialog_color >> 16) & 0xFF) * 0.94)
-                                    g = int(((dialog_color >> 8) & 0xFF) * 0.94)
-                                    b = int((dialog_color & 0xFF) * 0.94)
-                                    light_bg = (r << 16) | (g << 8) | b
-                                    return light_bg, 0x2A6099, 0x1E293B
-                                return 0xE0E1E2, 0x2A6099, 0x1E293B
+                    if luminance < 128:
+                        # Dark mode colors
+                        return field_color, 0x60A5FA, 0xE2E8F0
+                    else:
+                        # Light mode colors
+                        # Dynamically darken DialogColor slightly (by 6%) to create a beautiful, soft contrast
+                        dialog_color = getattr(style_settings, "DialogColor", 0xEFF0F1)
+                        if isinstance(dialog_color, int):
+                            r = int(((dialog_color >> 16) & 0xFF) * 0.94)
+                            g = int(((dialog_color >> 8) & 0xFF) * 0.94)
+                            b = int((dialog_color & 0xFF) * 0.94)
+                            light_bg = (r << 16) | (g << 8) | b
+                            return light_bg, 0x2A6099, 0x1E293B
+                        return 0xE0E1E2, 0x2A6099, 0x1E293B
     except Exception as e:
         log.debug("Failed to resolve theme colors from StyleSettings: %s", e)
     return 0xE0E1E2, 0x2A6099, 0x1E293B
@@ -980,7 +995,7 @@ def scroll_to_bottom(doc, aggressive: bool = False):
         log.debug("scroll_to_bottom error: %s", e)
 
 
-def append_rich_text(doc, text, role="assistant", auto_scroll=True):
+def append_rich_text(doc, text, role="assistant", auto_scroll=True, style_window=None):
     """Append a complete message to the embedded Writer document.
 
     Inserts a bold, colored role prefix (``You:`` / ``Assistant:``) then
@@ -994,7 +1009,10 @@ def append_rich_text(doc, text, role="assistant", auto_scroll=True):
         cursor = text_obj.createTextCursor()
         cursor.gotoEnd(False)
 
-        bg_color, user_color, assistant_color = get_theme_colors(doc)
+        bg_color, user_color, assistant_color = get_theme_colors(doc, style_window=style_window)
+
+        if text and text.strip():
+            text = strip_legacy_ai_label(text) if role == "assistant" else text
 
         if text_obj.getString():
             text_obj.insertString(cursor, "\n\n", False)

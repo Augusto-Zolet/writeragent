@@ -179,6 +179,20 @@ class AppendRichTextTests(unittest.TestCase):
         self.assertEqual(user_color, 0x60A5FA)
         self.assertEqual(assistant_color, 0xE2E8F0)
 
+    def test_get_theme_colors_from_style_window(self):
+        """get_theme_colors can read StyleSettings directly from the sidebar window."""
+        from plugin.chatbot.rich_text import get_theme_colors
+
+        style_window = MagicMock()
+        style_settings = MagicMock()
+        style_settings.FieldColor = 0x1E1E1E
+        style_window.StyleSettings = style_settings
+
+        bg_color, user_color, assistant_color = get_theme_colors(style_window=style_window)
+        self.assertEqual(bg_color, 0x1E1E1E)
+        self.assertEqual(user_color, 0x60A5FA)
+        self.assertEqual(assistant_color, 0xE2E8F0)
+
     def test_get_theme_colors_graceful_fallback(self):
         """get_theme_colors returns standard light palette when window or StyleSettings are missing/mocked."""
         from plugin.chatbot.rich_text import get_theme_colors
