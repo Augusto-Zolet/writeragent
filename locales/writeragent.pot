@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-28 22:51-0400\n"
+"POT-Creation-Date: 2026-05-30 18:34-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -732,11 +732,6 @@ msgid ""
 msgstr ""
 
 #: plugin/chatbot/send_handlers.py
-#, python-brace-format
-msgid "Librarian: {0}"
-msgstr ""
-
-#: plugin/chatbot/send_handlers.py
 msgid "Perfect! I'm switching you to the main assistant now."
 msgstr ""
 
@@ -747,11 +742,6 @@ msgstr ""
 #: plugin/chatbot/send_handlers.py
 #, python-brace-format
 msgid "[Librarian error: {0}]"
-msgstr ""
-
-#: plugin/chatbot/send_handlers.py
-#, python-brace-format
-msgid "AI (research): {0}"
 msgstr ""
 
 #: plugin/chatbot/send_handlers.py
@@ -1524,14 +1514,6 @@ msgid "Web Cache Validity (Days)"
 msgstr ""
 
 msgid "How many days cache entries should be considered valid."
-msgstr ""
-
-msgid "Rich Text Chat Sidebar (embedded Writer)"
-msgstr ""
-
-msgid ""
-"Experimental: embeds a Writer frame in the sidebar (requires restart). If "
-"both rich-text options are enabled, this wins over Rich Text Control."
 msgstr ""
 
 msgid "Rich Text Control Sidebar"
