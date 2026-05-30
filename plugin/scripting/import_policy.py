@@ -58,10 +58,9 @@ _VENV_COMMON_BLOCKED: tuple[str, ...] = (
 
 PYTHON_VENV_SANDBOX_CONTEXT_PREFIX = (
     "PYTHON VENV SANDBOX: You are running in a powerful Python sandbox with access to many "
-    "scientific and stdlib modules (the user's venv typically includes NumPy, pandas, SciPy, and "
-    "more—do not waste turns probing what is installed; use them). This sandbox has no networking, "
-    "no filesystem or process escape, and no direct document access. Pass inputs via data/data_range; "
-    "assign outputs to result."
+    "scientific and stdlib modules (NumPy, pandas, SciPy, and "
+    "more. This sandbox has no networking, no filesystem or process escape, and no direct document "
+    "access. Pass inputs via data/data_range; assign outputs to a variable named result."
 )
 
 INPROCESS_SANDBOX_CONTEXT_PREFIX = (
@@ -126,10 +125,6 @@ def format_venv_import_policy_for_prompt(*, compact: bool = False) -> str:
             f"Blocked in this sandbox: host escape ({blocked_security}); "
             f"networking ({blocked_network}); other imports not on the whitelist fail."
         )
-        parts.append(
-            "Whitelisted packages (numpy, pandas, scipy, sklearn, matplotlib, seaborn, sympy, "
-            "statsmodels, networkx, PIL, cv2, …) must be installed in the user venv."
-        )
     else:
         stdlib = _join_modules(_venv_stdlib_modules())
         packages = _join_modules(_venv_package_modules())
@@ -138,7 +133,6 @@ def format_venv_import_policy_for_prompt(*, compact: bool = False) -> str:
         parts.append(f"Allowed packages in this sandbox (+ submodules where applicable): {packages}.")
         parts.append(f"Always blocked in this sandbox: {blocked_security}.")
         parts.append(f"Common not-whitelisted (will fail): {common}, and anything else not listed above.")
-        parts.append("Whitelisted packages must be installed in the user venv or import fails at runtime.")
 
     return " ".join(parts)
 
