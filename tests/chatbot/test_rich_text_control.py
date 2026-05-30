@@ -14,15 +14,19 @@ from plugin.tests.testing_utils import setup_uno_mocks
 setup_uno_mocks()
 
 from plugin.chatbot.rich_text_control import (
+    HISTORY_RENDER_BATCH_CHARS,
     _is_automatic_char_color,
     _resolve_portion_char_color,
     _set_model_property,
+    append_rich_messages_via_clipboard,
     append_rich_text_via_clipboard,
     append_text_chunk,
     build_message_html,
     clear_control,
     insert_transferable_into_rich_control,
+    iter_history_message_batches,
     scroll_rich_control_to_bottom,
+    session_history_items,
     truncate_control_from,
 )
 
@@ -288,6 +292,93 @@ class TestAppendRichTextViaClipboard:
 
         mock_insert_tf.assert_not_called()
         doc.close.assert_called_once_with(True)
+
+
+class TestHistoryMessageBatching:
+    def test_iter_batches_empty(self):
+        assert list(iter_history_message_batches([])) == []
+
+    def test_iter_batches_single_message(self):
+        items = [("user", "hello")]
+        assert list(iter_history_message_batches(items)) == [items]
+
+    def test_iter_batches_multiple_small_messages_one_batch(self):
+        items = [("user", "a"), ("assistant", "b"), ("user", "c")]
+        assert list(iter_history_message_batches(items, batch_chars=100)) == [items]
+
+    def test_iter_batches_splits_at_limit_without_splitting_message(self):
+        chunk = "x" * 10000
+        items = [("user", chunk), ("assistant", chunk)]
+        batches = list(iter_history_message_batches(items, batch_chars=HISTORY_RENDER_BATCH_CHARS))
+        assert len(batches) == 2
+        assert batches[0] == [("user", chunk)]
+        assert batches[1] == [("assistant", chunk)]
+
+    def test_iter_batches_oversized_message_is_own_batch(self):
+        big = "x" * (HISTORY_RENDER_BATCH_CHARS + 1)
+        items = [("assistant", big), ("user", "hi")]
+        batches = list(iter_history_message_batches(items, batch_chars=HISTORY_RENDER_BATCH_CHARS))
+        assert batches[0] == [("assistant", big)]
+        assert batches[1] == [("user", "hi")]
+
+    def test_session_history_items_skips_system_and_tool_only(self):
+        session = MagicMock()
+        session.messages = [
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "question"},
+            {"role": "assistant", "content": "answer"},
+            {"role": "assistant", "tool_calls": [{"id": "1"}]},
+        ]
+        assert session_history_items(session, greeting="Hi") == [
+            ("assistant", "Hi"),
+            ("user", "question"),
+            ("assistant", "answer"),
+            ("assistant", "[Thinking...]"),
+        ]
+
+    def test_append_rich_messages_single_batch(self):
+        control = MagicMock()
+        control.getModel.return_value = MagicMock(Text="")
+        ctx = MagicMock()
+        doc = MagicMock()
+        items = [("user", f"msg{i}") for i in range(10)]
+
+        with patch("plugin.chatbot.rich_text_control.create_hidden_html_writer", return_value=doc) as mock_create, \
+             patch("plugin.chatbot.rich_text_control._configure_hidden_writer_for_chat") as mock_cfg, \
+             patch("plugin.chatbot.rich_text_control.append_rich_text") as mock_append, \
+             patch("plugin.chatbot.rich_text_control._append_hidden_doc_to_control", return_value=True) as mock_copy, \
+             patch("plugin.chatbot.rich_text_control.scroll_rich_control_to_bottom") as mock_scroll, \
+             patch("plugin.chatbot.rich_text_control._preserve_focus_window", side_effect=lambda _ctx, fn: fn()):
+            append_rich_messages_via_clipboard(ctx, control, items)
+
+        mock_create.assert_called_once_with(ctx)
+        mock_cfg.assert_called_once_with(doc)
+        assert mock_append.call_count == 10
+        mock_copy.assert_called_once()
+        mock_scroll.assert_called_once()
+        doc.close.assert_called_once_with(True)
+
+    def test_append_rich_messages_multiple_batches(self):
+        control = MagicMock()
+        control.getModel.return_value = MagicMock(Text="")
+        ctx = MagicMock()
+        doc = MagicMock()
+        chunk = "x" * 10000
+        items = [("user", chunk), ("assistant", chunk)]
+
+        with patch("plugin.chatbot.rich_text_control.create_hidden_html_writer", return_value=doc) as mock_create, \
+             patch("plugin.chatbot.rich_text_control._configure_hidden_writer_for_chat"), \
+             patch("plugin.chatbot.rich_text_control.append_rich_text") as mock_append, \
+             patch("plugin.chatbot.rich_text_control._append_hidden_doc_to_control", return_value=True) as mock_copy, \
+             patch("plugin.chatbot.rich_text_control.scroll_rich_control_to_bottom") as mock_scroll, \
+             patch("plugin.chatbot.rich_text_control._preserve_focus_window", side_effect=lambda _ctx, fn: fn()):
+            append_rich_messages_via_clipboard(ctx, control, items, batch_chars=HISTORY_RENDER_BATCH_CHARS)
+
+        assert mock_create.call_count == 2
+        assert mock_append.call_count == 2
+        assert mock_copy.call_count == 2
+        mock_scroll.assert_called_once()
+        assert doc.close.call_count == 2
 
 
 class TestStripLegacyAiLabel:

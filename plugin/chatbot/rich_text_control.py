@@ -36,6 +36,8 @@ RICH_CONTROL_EDGE_INSET = 8
 # Writer paragraph margins (1/100 mm) — horizontal padding inside the EditEngine text area.
 CHAT_PARA_SIDE_MARGIN = 250
 _SERIF_FONT_MARKERS = ("serif", "times", "roman", "courier", "mono")
+# History reload: batch hidden-Writer + copy cycles to avoid per-message UI repaint.
+HISTORY_RENDER_BATCH_CHARS = 16384
 
 
 def _is_automatic_char_color(color) -> bool:
@@ -838,12 +840,50 @@ def _insert_string_at_rich_cursor(model, cursor, text, char_color=None) -> None:
         pass
 
 
+def iter_history_message_batches(items, batch_chars=HISTORY_RENDER_BATCH_CHARS):
+    """Yield batches of (role, content) tuples, each batch at most *batch_chars* total content length.
+
+    Never splits a single message; an oversized message becomes its own batch.
+    """
+    batch: list[tuple[str, str]] = []
+    size = 0
+    for role, content in items:
+        content_len = len(content or "")
+        if batch and size + content_len > batch_chars:
+            yield batch
+            batch = []
+            size = 0
+        batch.append((role, content))
+        size += content_len
+    if batch:
+        yield batch
+
+
+def session_history_items(session, greeting=""):
+    """Build (role, content) pairs for session history display (skips system messages)."""
+    items: list[tuple[str, str]] = []
+    if greeting:
+        items.append(("assistant", greeting))
+    for msg in session.messages:
+        role = msg.get("role", "")
+        content = msg.get("content", "")
+        if role == "user":
+            items.append(("user", content))
+        elif role == "assistant":
+            if content:
+                items.append(("assistant", content))
+            elif msg.get("tool_calls"):
+                items.append(("assistant", "[Thinking...]"))
+    return items
+
+
 def _copy_formatted_from_hidden_doc_to_control(
     src_doc,
     control,
     ctx,
     role: str = "assistant",
     style_window=None,
+    auto_scroll: bool = True,
 ) -> bool:
     """Copy formatted Writer body text into the sidebar RichText control (safe — no clipboard/frame paste)."""
     model = control.getModel()
@@ -853,7 +893,8 @@ def _copy_formatted_from_hidden_doc_to_control(
     try:
         from plugin.chatbot.rich_text import get_theme_colors
 
-        _process_idle(ctx)
+        if auto_scroll:
+            _process_idle(ctx)
         _bg, user_color, assistant_color = get_theme_colors(style_window=style_window)
         default_color = _role_color_for_text("", user_color, assistant_color, role)
 
@@ -899,7 +940,8 @@ def _copy_formatted_from_hidden_doc_to_control(
                 inserted = True
 
         if inserted:
-            scroll_rich_control_to_bottom(control, ctx=ctx, aggressive=True)
+            if auto_scroll:
+                scroll_rich_control_to_bottom(control, ctx=ctx, aggressive=True)
             log.info(
                 "_copy_formatted_from_hidden_doc_to_control: ok control_len=%d",
                 get_control_text_length(control),
@@ -908,6 +950,64 @@ def _copy_formatted_from_hidden_doc_to_control(
     except Exception:
         log.exception("_copy_formatted_from_hidden_doc_to_control failed")
         return False
+
+
+def _append_hidden_doc_to_control(doc, control, ctx, style_window=None, auto_scroll=True) -> bool:
+    """Copy hidden Writer content into the sidebar control (formatted copy, then transferable fallback)."""
+    if _copy_formatted_from_hidden_doc_to_control(
+        doc, control, ctx, role="assistant", style_window=style_window, auto_scroll=auto_scroll,
+    ):
+        return True
+    transferable = _transferable_from_hidden_doc(doc)
+    if transferable is None:
+        return False
+    log.debug("_append_hidden_doc_to_control: falling back to transferable insert")
+    return insert_transferable_into_rich_control(control, transferable, ctx, style_window=style_window)
+
+
+def append_rich_messages_via_clipboard(
+    ctx,
+    control,
+    items,
+    style_window=None,
+    batch_chars=HISTORY_RENDER_BATCH_CHARS,
+):
+    """Render many chat messages with minimal UI updates (batched hidden Writer + copy)."""
+    if not control or not items:
+        return
+    any_inserted = False
+    batches = list(iter_history_message_batches(items, batch_chars))
+    for batch in batches:
+        doc = None
+        try:
+            doc = create_hidden_html_writer(ctx)
+            if doc is None:
+                log.error("append_rich_messages_via_clipboard: hidden Writer unavailable")
+                return
+            _configure_hidden_writer_for_chat(doc)
+            for role, content in batch:
+                append_rich_text(doc, content, role=role, auto_scroll=False, style_window=style_window)
+            log.debug(
+                "append_rich_messages_via_clipboard: hidden doc ready messages=%d total_chars=%d",
+                len(batch),
+                sum(len(c or "") for _, c in batch),
+            )
+            if _append_hidden_doc_to_control(doc, control, ctx, style_window=style_window, auto_scroll=False):
+                any_inserted = True
+            else:
+                log.error("append_rich_messages_via_clipboard: batch insert into control failed")
+        except Exception:
+            log.exception("append_rich_messages_via_clipboard batch failed")
+        finally:
+            if doc is not None:
+                try:
+                    doc.close(True)
+                except Exception:
+                    pass
+    if any_inserted:
+        if items[-1][0] == "user":
+            _ensure_trailing_line_break(control)
+        _preserve_focus_window(ctx, lambda: scroll_rich_control_to_bottom(control, ctx=ctx, aggressive=True))
 
 
 def _try_paste_via_key_event(ctx, control) -> bool:

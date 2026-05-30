@@ -379,50 +379,25 @@ class ChatPanelElement(unohelper.Base, XUIElement):
         """Update the response control with the contents of the given session."""
         try:
             if self.rich_text_control:
-                from plugin.chatbot.rich_text_control import append_rich_text_via_clipboard, clear_control
+                from plugin.chatbot.rich_text_control import (
+                    append_rich_messages_via_clipboard,
+                    clear_control,
+                    session_history_items,
+                )
 
                 clear_control(self.rich_text_control)
                 style_window = getattr(self, "m_panelRootWindow", None)
-                if greeting:
-                    append_rich_text_via_clipboard(
-                        self.ctx,
-                        self.rich_text_control,
-                        greeting,
-                        role="assistant",
-                        style_window=style_window,
-                    )
-                for msg in session.messages:
-                    role = msg.get("role", "")
-                    content = msg.get("content", "")
-                    if role == "user":
-                        append_rich_text_via_clipboard(
-                            self.ctx,
-                            self.rich_text_control,
-                            content,
-                            role="user",
-                            style_window=style_window,
-                        )
-                    elif role == "assistant":
-                        if content:
-                            append_rich_text_via_clipboard(
-                                self.ctx,
-                                self.rich_text_control,
-                                content,
-                                role="assistant",
-                                style_window=style_window,
-                            )
-                        elif msg.get("tool_calls"):
-                            append_rich_text_via_clipboard(
-                                self.ctx,
-                                self.rich_text_control,
-                                "[Thinking...]",
-                                role="assistant",
-                                style_window=style_window,
-                            )
+                append_rich_messages_via_clipboard(
+                    self.ctx,
+                    self.rich_text_control,
+                    session_history_items(session, greeting),
+                    style_window=style_window,
+                )
                 return
 
             if self.embedded_doc:
                 from plugin.chatbot.rich_text import append_rich_text
+                from plugin.chatbot.rich_text_control import session_history_items
 
                 # Clear embedded doc first if we are re-rendering
                 try:
@@ -430,19 +405,14 @@ class ChatPanelElement(unohelper.Base, XUIElement):
                 except Exception:
                     pass
 
-                if greeting:
-                    append_rich_text(self.embedded_doc, greeting, role="assistant")
-
-                for msg in session.messages:
-                    role = msg.get("role", "")
-                    content = msg.get("content", "")
-                    if role == "user":
-                        append_rich_text(self.embedded_doc, content, role="user")
-                    elif role == "assistant":
-                        if content:
-                            append_rich_text(self.embedded_doc, content, role="assistant")
-                        elif msg.get("tool_calls"):
-                            append_rich_text(self.embedded_doc, "[Thinking...]", role="assistant")
+                items = session_history_items(session, greeting)
+                for idx, (role, content) in enumerate(items):
+                    append_rich_text(
+                        self.embedded_doc,
+                        content,
+                        role=role,
+                        auto_scroll=(idx == len(items) - 1),
+                    )
                 return
 
             if response_ctrl and response_ctrl.getModel():

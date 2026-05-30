@@ -454,9 +454,9 @@ class SendHandlersMixin:
 
 
 
-        history_text = ""
-        if self.response_control and self.response_control.getModel():
-            history_text = get_control_text(self.response_control) or ""
+        from plugin.chatbot.web_research_chat import format_sub_agent_conversation_history
+
+        history_text = format_sub_agent_conversation_history(self.session, current_query=query_text)
 
         def run_search():
             doc_type = "calc" if is_calc(model) else "draw" if is_draw(model) else "writer"

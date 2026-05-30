@@ -7,6 +7,45 @@
 from __future__ import annotations
 
 
+def _message_text(content) -> str:
+    """Normalize user/assistant message content to plain text."""
+    if content is None:
+        return ""
+    if isinstance(content, list):
+        bits = []
+        for part in content:
+            if isinstance(part, dict) and part.get("type") == "text":
+                bits.append(str(part.get("text", "")))
+        return "\n".join(bits)
+    return str(content)
+
+
+def format_sub_agent_conversation_history(session, *, current_query=None) -> str:
+    """Build CONVERSATION HISTORY text for web-research / librarian sub-agents from ChatSession."""
+    messages = getattr(session, "messages", None) or []
+    parts: list[str] = []
+    for i, msg in enumerate(messages):
+        if not isinstance(msg, dict):
+            continue
+        role = msg.get("role", "")
+        if role in ("system", "tool"):
+            continue
+        content = _message_text(msg.get("content"))
+        if role == "user":
+            if current_query is not None and i == len(messages) - 1 and content == current_query:
+                continue
+            if not content.strip():
+                continue
+            parts.append("User: %s" % content)
+        elif role == "assistant":
+            if not content.strip() and msg.get("tool_calls"):
+                content = "[Thinking...]"
+            if not content.strip():
+                continue
+            parts.append(content)
+    return "\n\n".join(parts)
+
+
 def search_engine_preview_line(query_for_engine: str) -> str:
     """Sentence used for the search-engine step (DDG query), approval and info."""
     from plugin.framework.i18n import _
