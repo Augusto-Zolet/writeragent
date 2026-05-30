@@ -14,6 +14,8 @@ from plugin.tests.testing_utils import setup_uno_mocks
 setup_uno_mocks()
 
 from plugin.chatbot.rich_text_control import (
+    _is_automatic_char_color,
+    _resolve_portion_char_color,
     _set_model_property,
     append_rich_text_via_clipboard,
     append_text_chunk,
@@ -43,6 +45,36 @@ class TestBuildMessageHtml:
 
 
 class TestRichControlHelpers:
+    def test_automatic_char_color(self):
+        assert _is_automatic_char_color(None)
+        assert _is_automatic_char_color(-1)
+        assert _is_automatic_char_color(0xFFFFFFFF)
+        assert not _is_automatic_char_color(0x2A6099)
+
+    def test_resolve_portion_char_color_uses_role_and_prefix(self):
+        portion = MagicMock(CharColor=-1)
+        user = 0x2A6099
+        assistant = 0x1E293B
+        assert _resolve_portion_char_color(portion, "You: hi", user, assistant, "user") == user
+        assert _resolve_portion_char_color(portion, "Assistant: hi", user, assistant, "assistant") == assistant
+        assert _resolve_portion_char_color(portion, "body", user, assistant, "user") == user
+        portion.CharColor = 0xFF0000
+        assert _resolve_portion_char_color(portion, "body", user, assistant, "user") == 0xFF0000
+
+    def test_copy_path_preserves_explicit_portion_color(self):
+        from plugin.chatbot.rich_text_control import _resolve_portion_char_color
+
+        red = 0xFF0000
+        blue = 0x0000FF
+        user = 0x2A6099
+        assistant = 0x1E293B
+        red_portion = MagicMock(CharColor=red)
+        auto_portion = MagicMock(CharColor=-1)
+        assert _resolve_portion_char_color(red_portion, "alert", user, assistant, "assistant") == red
+        assert _resolve_portion_char_color(auto_portion, "plain", user, assistant, "assistant") == assistant
+        assert _resolve_portion_char_color(auto_portion, "You: hi", user, assistant, "user") == user
+        assert _resolve_portion_char_color(MagicMock(CharColor=blue), "x", user, assistant, "assistant") == blue
+
     def test_content_bounds_inset(self):
         from types import SimpleNamespace
 
@@ -91,15 +123,27 @@ class TestRichControlHelpers:
         bx, _by, bw, _bh = _content_bounds_for_rich_control(root, ps)
         assert bx + bw == sidebar_content_right_edge(root, ps)
 
-    def test_rich_control_model_gets_theme_background(self):
+    def test_rich_control_model_gets_chat_typography(self):
         from plugin.chatbot.rich_text_control import _apply_rich_control_style_defaults_on_model
 
-        model = MagicMock()
-        style_window = MagicMock()
+        class _Model:
+            def __init__(self):
+                self.props = {}
+
+            def __setattr__(self, name, value):
+                if name == "props":
+                    object.__setattr__(self, name, value)
+                else:
+                    self.props[name] = value
+
+        model = _Model()
         with patch("plugin.chatbot.rich_text.get_theme_colors", return_value=(0xD8D9DA, 0x2A6099, 0x1E293B)):
-            _apply_rich_control_style_defaults_on_model(model, style_window=style_window)
-        assert model.CharColor == 0x1E293B
-        assert model.CharFontName == "Liberation Sans"
+            _apply_rich_control_style_defaults_on_model(model, style_window=MagicMock())
+        assert model.props.get("CharFontName") == "Liberation Sans"
+        assert model.props.get("BackgroundColor") == 0xD8D9DA
+        assert model.props.get("CharBackColor") == 0xD8D9DA
+        assert "CharColor" not in model.props
+        assert "TextColor" not in model.props
 
     def test_set_model_property_swallows_unknown(self):
         from plugin.chatbot.rich_text_control import _set_model_property
@@ -172,8 +216,7 @@ class TestRichControlHelpers:
             append_text_chunk(control, " tail", auto_scroll=False, style_window=style_window)
 
         cursor.gotoEnd.assert_called_once()
-        assert cursor.CharColor == 0x1E293B
-        mock_insert.assert_called_once_with(model, cursor, " tail")
+        mock_insert.assert_called_once_with(model, cursor, " tail", 0x1E293B)
 
     def test_scroll_rich_control_to_bottom_does_not_focus_control(self):
         control = MagicMock()

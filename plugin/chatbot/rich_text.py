@@ -1037,9 +1037,11 @@ def append_rich_text(doc, text, role="assistant", auto_scroll=True, style_window
             looks_html = bool(_HTML_TAG_RE.search(text))
             log.debug("append_rich_text: looks_html=%s len=%d snippet=%r", looks_html, len(text), text[:120])
 
+            used_html_import = False
             if looks_html:
                 try:
                     _insert_html_at_cursor(doc, cursor, text)
+                    used_html_import = True
                 except Exception:
                     log.debug("HTML import failed, falling back to plain text insert")
                     cursor.gotoEnd(False)
@@ -1052,7 +1054,10 @@ def append_rich_text(doc, text, role="assistant", auto_scroll=True, style_window
             body_range.gotoStart(False)
             body_range.goRight(pre_len, False)
             body_range.gotoEnd(True)
-            body_range.CharColor = user_color if role == "user" else assistant_color
+            # Plain text (and HTML-import fallback) get the role tint; successful HTML import
+            # keeps per-span CharColor from the filter (red/blue runs, etc.).
+            if not used_html_import:
+                body_range.CharColor = user_color if role == "user" else assistant_color
             _tighten_list_indent(body_range)
 
         if auto_scroll:

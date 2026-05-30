@@ -38,6 +38,31 @@ CHAT_PARA_SIDE_MARGIN = 250
 _SERIF_FONT_MARKERS = ("serif", "times", "roman", "courier", "mono")
 
 
+def _is_automatic_char_color(color) -> bool:
+    """True for LO automatic / unset character colors (COL_AUTO)."""
+    if color is None:
+        return True
+    if not isinstance(color, int):
+        return True
+    return color < 0 or color == 0xFFFFFFFF
+
+
+def _role_color_for_text(text: str, user_color: int, assistant_color: int, default_role: str = "assistant") -> int:
+    stripped = (text or "").lstrip()
+    if stripped.startswith("You:"):
+        return user_color
+    if stripped.startswith("Assistant:"):
+        return assistant_color
+    return user_color if default_role == "user" else assistant_color
+
+
+def _resolve_portion_char_color(src_portion, txt, user_color: int, assistant_color: int, default_role: str = "assistant") -> int:
+    raw = getattr(src_portion, "CharColor", None)
+    if isinstance(raw, int) and not _is_automatic_char_color(raw):
+        return raw
+    return _role_color_for_text(txt, user_color, assistant_color, default_role)
+
+
 def _layout_right_edge_for_rich_control(root_window, placeholder_ctrl) -> int:
     """Right edge for the transcript: Clear button (same row as Send/Stop), capped by panel width."""
     ps = placeholder_ctrl.getPosSize()
@@ -109,12 +134,16 @@ def _apply_sidebar_para_margins(cursor) -> None:
 
 
 def _apply_rich_control_style_defaults_on_model(model, style_window=None) -> None:
-    """Set default character properties on the form TextField model (before peer creation)."""
-    from plugin.chatbot.rich_text import get_theme_colors
+    """Set default character properties on the form TextField model (before peer creation).
 
+    Do not set model TextColor/CharColor here — control-level text color homogenizes every
+    run and hides per-message user/assistant CharColor applied at insert time.
+    """
     if model is None:
         return
-    bg_color, _user_color, assistant_color = get_theme_colors(style_window=style_window)
+    from plugin.chatbot.rich_text import get_theme_colors
+
+    bg_color, _user_color, _assistant_color = get_theme_colors(style_window=style_window)
     for name, val in (
         ("CharFontName", CHAT_FONT_NAME),
         ("CharFontNameAsian", CHAT_FONT_NAME),
@@ -122,12 +151,10 @@ def _apply_rich_control_style_defaults_on_model(model, style_window=None) -> Non
         ("CharHeight", CHAT_FONT_HEIGHT),
         ("CharWeight", CHAT_FONT_WEIGHT),
         ("CharPosture", 0),
-        ("CharColor", assistant_color),
     ):
         _set_model_property(model, name, val)
     for name, val in (
         ("BackgroundColor", bg_color),
-        ("TextColor", assistant_color),
         ("CharBackColor", bg_color),
         ("PaintTransparent", False),
         ("MultiLine", True),
@@ -154,8 +181,8 @@ def _apply_rich_control_style_defaults(control, style_window=None):
     if model is None:
         return
     _apply_rich_control_style_defaults_on_model(model, style_window=style_window)
-    bg_color, _, assistant_color = get_theme_colors(style_window=style_window)
-    _apply_control_surface_colors(control, bg_color, assistant_color)
+    bg_color, _, _ = get_theme_colors(style_window=style_window)
+    _apply_control_surface_colors(control, bg_color)
 
     if hasattr(model, "createTextCursor"):
         try:
@@ -167,7 +194,6 @@ def _apply_rich_control_style_defaults(control, style_window=None):
                 ("CharHeight", CHAT_FONT_HEIGHT),
                 ("CharWeight", CHAT_FONT_WEIGHT),
                 ("CharPosture", 0),
-                ("CharColor", assistant_color),
                 ("CharBackColor", bg_color),
             )
             cursor = model.createTextCursor()
@@ -245,13 +271,15 @@ def _set_model_property(model, name, value) -> bool:
     return False
 
 
-def _apply_control_surface_colors(control, bg_color, text_color) -> None:
-    """Theme fill on the VCL control (form model often has no BackgroundColor)."""
+def _apply_control_surface_colors(control, bg_color) -> None:
+    """Theme background on the VCL control (form model often has no BackgroundColor).
+
+    Do not set TextColor here — control-level text color homogenizes CharColor runs.
+    """
     if control is None:
         return
     for name, val in (
         ("BackgroundColor", bg_color),
-        ("TextColor", text_color),
         ("BackColor", bg_color),
     ):
         try:
@@ -262,10 +290,8 @@ def _apply_control_surface_colors(control, bg_color, text_color) -> None:
             log.debug("_apply_control_surface_colors %s failed: %s", name, e)
     try:
         model = control.getModel()
-        if model is not None:
-            for name, val in (("BackgroundColor", bg_color), ("TextColor", text_color)):
-                if _set_model_property(model, name, val):
-                    return
+        if model is not None and _set_model_property(model, "BackgroundColor", bg_color):
+            return
     except Exception as e:
         log.debug("_apply_control_surface_colors model failed: %s", e)
 
@@ -718,12 +744,11 @@ def _rich_control_bg_color(model, style_window=None) -> int:
     return bg_color
 
 
-def _apply_cursor_char_props(dest_cursor, src_portion, bg_color=None) -> None:
+def _apply_cursor_char_props(dest_cursor, src_portion, char_color=None, bg_color=None) -> None:
     """Copy character formatting from a Writer text portion onto a RichText cursor."""
     for prop in (
         "CharWeight",
         "CharPosture",
-        "CharColor",
         "CharUnderline",
         "CharHeight",
         "CharFontName",
@@ -733,6 +758,16 @@ def _apply_cursor_char_props(dest_cursor, src_portion, bg_color=None) -> None:
             setattr(dest_cursor, prop, getattr(src_portion, prop))
         except Exception:
             pass
+    resolved = char_color
+    if resolved is None:
+        raw = getattr(src_portion, "CharColor", None)
+        if not _is_automatic_char_color(raw):
+            resolved = raw
+    if resolved is not None and not _is_automatic_char_color(resolved):
+        try:
+            dest_cursor.CharColor = resolved
+        except Exception:
+            pass
     if bg_color is not None:
         try:
             dest_cursor.CharBackColor = bg_color
@@ -740,46 +775,92 @@ def _apply_cursor_char_props(dest_cursor, src_portion, bg_color=None) -> None:
             pass
 
 
-def _insert_string_at_rich_cursor(model, cursor, text) -> None:
+def _apply_char_color_to_cursor_range(model, start, end, char_color) -> None:
+    if char_color is None or _is_automatic_char_color(char_color):
+        return
+    try:
+        sel = model.createTextCursor()
+        sel.gotoRange(start, False)
+        sel.gotoRange(end, True)
+        sel.CharColor = char_color
+    except Exception as e:
+        log.debug("_apply_char_color_to_cursor_range failed: %s", e)
+
+
+def _insert_string_at_rich_cursor(model, cursor, text, char_color=None) -> None:
     """Insert *text* at *cursor* on a form RichText model."""
     if not text:
         return
+    start = None
+    try:
+        start = cursor.getStart()
+    except Exception:
+        pass
+    if char_color is not None and not _is_automatic_char_color(char_color):
+        try:
+            cursor.CharColor = char_color
+        except Exception:
+            pass
+
+    inserted = False
     insert = getattr(model, "insertString", None)
     if callable(insert):
         insert(cursor, text, False)
-        return
-    get_text = getattr(model, "getText", None)
-    if callable(get_text):
-        text_obj = get_text()
+        inserted = True
+    elif callable(getattr(model, "getText", None)):
+        text_obj = model.getText()
         insert_fn = getattr(text_obj, "insertString", None)
         if callable(insert_fn):
             insert_fn(cursor, text, False)
-            return
+            inserted = True
+    if not inserted:
+        try:
+            from com.sun.star.text import XText
+
+            xtext = model.queryInterface(XText)
+            if xtext is not None:
+                xtext.insertString(cursor, text, False)
+                inserted = True
+        except Exception as e:
+            log.debug("_insert_string_at_rich_cursor queryInterface failed: %s", e)
+    if not inserted:
+        raise RuntimeError("RichTextControl model has no insertString")
+
+    # Post-insert pass: RichTextControl often ignores pre-insert cursor CharColor.
+    if start is not None and char_color is not None and not _is_automatic_char_color(char_color):
+        try:
+            _apply_char_color_to_cursor_range(model, start, cursor.getStart(), char_color)
+        except Exception:
+            pass
     try:
-        from com.sun.star.text import XText
-
-        xtext = model.queryInterface(XText)
-        if xtext is not None:
-            xtext.insertString(cursor, text, False)
-            return
-    except Exception as e:
-        log.debug("_insert_string_at_rich_cursor queryInterface failed: %s", e)
-    raise RuntimeError("RichTextControl model has no insertString")
+        cursor.gotoEnd(False)
+    except Exception:
+        pass
 
 
-def _copy_formatted_from_hidden_doc_to_control(src_doc, control, ctx) -> bool:
+def _copy_formatted_from_hidden_doc_to_control(
+    src_doc,
+    control,
+    ctx,
+    role: str = "assistant",
+    style_window=None,
+) -> bool:
     """Copy formatted Writer body text into the sidebar RichText control (safe — no clipboard/frame paste)."""
     model = control.getModel()
     if model is None or not hasattr(model, "createTextCursor"):
         log.error("_copy_formatted_from_hidden_doc_to_control: model has no createTextCursor")
         return False
     try:
+        from plugin.chatbot.rich_text import get_theme_colors
+
         _process_idle(ctx)
+        _bg, user_color, assistant_color = get_theme_colors(style_window=style_window)
+        default_color = _role_color_for_text("", user_color, assistant_color, role)
 
         dest_cursor = model.createTextCursor()
         dest_cursor.gotoEnd(False)
         _apply_sidebar_para_margins(dest_cursor)
-        fill_color = _rich_control_bg_color(model)
+        fill_color = _rich_control_bg_color(model, style_window=style_window)
 
         src_text = src_doc.getText()
         para_enum = src_text.createEnumeration()
@@ -803,17 +884,18 @@ def _copy_formatted_from_hidden_doc_to_control(src_doc, control, ctx) -> bool:
                 if not txt:
                     continue
                 if line_prefix and not prefix_inserted:
-                    _insert_string_at_rich_cursor(model, dest_cursor, line_prefix)
+                    _insert_string_at_rich_cursor(model, dest_cursor, line_prefix, default_color)
                     dest_cursor.gotoEnd(False)
                     prefix_inserted = True
-                _apply_cursor_char_props(dest_cursor, portion, bg_color=fill_color)
+                portion_color = _resolve_portion_char_color(portion, txt, user_color, assistant_color, role)
+                _apply_cursor_char_props(dest_cursor, portion, char_color=portion_color, bg_color=fill_color)
                 _normalize_portion_font(portion)
-                _apply_cursor_char_props(dest_cursor, portion, bg_color=fill_color)
-                _insert_string_at_rich_cursor(model, dest_cursor, txt)
+                _apply_cursor_char_props(dest_cursor, portion, char_color=portion_color, bg_color=fill_color)
+                _insert_string_at_rich_cursor(model, dest_cursor, txt, portion_color)
                 dest_cursor.gotoEnd(False)
                 inserted = True
             if line_prefix and not prefix_inserted:
-                _insert_string_at_rich_cursor(model, dest_cursor, line_prefix)
+                _insert_string_at_rich_cursor(model, dest_cursor, line_prefix, default_color)
                 inserted = True
 
         if inserted:
@@ -950,7 +1032,7 @@ def append_rich_text_via_clipboard(ctx, control, text, role="assistant", style_w
         append_rich_text(doc, text, role=role, auto_scroll=False, style_window=style_window)
         log.debug("append_rich_text_via_clipboard: hidden doc ready len=%d role=%s", len(text), role)
         inserted = False
-        if _copy_formatted_from_hidden_doc_to_control(doc, control, ctx):
+        if _copy_formatted_from_hidden_doc_to_control(doc, control, ctx, role=role, style_window=style_window):
             inserted = True
             log.info("append_rich_text_via_clipboard: insert ok control_len=%d", get_control_text_length(control))
         else:
@@ -995,9 +1077,8 @@ def append_text_chunk(control, text, auto_scroll=True, style_window=None, ctx=No
         cursor = model.createTextCursor()
         cursor.gotoEnd(False)
         _apply_sidebar_para_margins(cursor)
-        cursor.CharColor = assistant_color
         cursor.CharBackColor = bg_color
-        _insert_string_at_rich_cursor(model, cursor, text)
+        _insert_string_at_rich_cursor(model, cursor, text, assistant_color)
         if auto_scroll:
             scroll_rich_control_to_bottom(control, ctx=ctx, aggressive=True)
 
@@ -1073,7 +1154,7 @@ def _scroll_rich_peer_vertical_bar(control) -> bool:
     try:
         from com.sun.star.awt import XScrollBar
 
-        stack = list(cast(Iterable[Any], get_windows()))
+        stack = list(cast("Iterable[Any]", get_windows()))
         visited = 0
         while stack and visited < 64:
             window = stack.pop()
@@ -1092,7 +1173,7 @@ def _scroll_rich_peer_vertical_bar(control) -> bool:
             child_get = getattr(window, "getWindows", None)
             if callable(child_get):
                 try:
-                    stack.extend(cast(Iterable[Any], child_get()))
+                    stack.extend(cast("Iterable[Any]", child_get()))
                 except Exception:
                     pass
     except Exception as e:

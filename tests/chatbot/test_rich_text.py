@@ -222,6 +222,44 @@ class AppendRichTextTests(unittest.TestCase):
         prefix_cursor = created_cursors[0]
         self.assertEqual(prefix_cursor.CharColor, 0x60A5FA)  # Dark-mode-optimized user blue
 
+    def test_html_body_preserves_span_colors(self):
+        """Successful HTML import must not blanket-overwrite body CharColor."""
+        from plugin.chatbot.rich_text import append_rich_text
+
+        doc = MockDoc()
+        body_cursors = []
+
+        def track_body_cursor():
+            c = MockTextCursor()
+            body_cursors.append(c)
+            return c
+
+        doc.getText().createTextCursor = track_body_cursor
+
+        with patch("plugin.chatbot.rich_text._insert_html_at_cursor"):
+            append_rich_text(doc, '<p><span style="color:#ff0000">red</span></p>', role="assistant")
+
+        self.assertGreaterEqual(len(body_cursors), 2)
+        self.assertIsNone(body_cursors[-1].CharColor)
+
+    def test_plain_body_gets_role_color(self):
+        """Non-HTML body still receives the role tint."""
+        from plugin.chatbot.rich_text import append_rich_text, ASSISTANT_COLOR
+
+        doc = MockDoc()
+        body_cursors = []
+
+        def track_body_cursor():
+            c = MockTextCursor()
+            body_cursors.append(c)
+            return c
+
+        doc.getText().createTextCursor = track_body_cursor
+        append_rich_text(doc, "plain answer", role="assistant")
+
+        self.assertGreaterEqual(len(body_cursors), 2)
+        self.assertEqual(body_cursors[-1].CharColor, ASSISTANT_COLOR)
+
 
 class AppendTextChunkTests(unittest.TestCase):
     """Tests for append_text_chunk (streaming plain-text append)."""
