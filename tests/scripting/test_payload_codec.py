@@ -379,6 +379,28 @@ def test_child_unpack_single_entry_auto_scalar_and_integer_coercion():
     assert child_unpack_data([[100000.0]]) == [[100000.0]]  # 2D list preserved
 
 
+def test_iter_split_grid_cells_row_major_order() -> None:
+    """Row-major (col_idx, flat_idx, val) order for 2D and 1D split-grid flatten iterators."""
+    from plugin.scripting.payload_codec import _iter_split_grid_cells
+
+    grid_2d = [[10, 11, 12], [20, 21, 22]]
+    assert list(_iter_split_grid_cells(grid_2d, is_2d=True)) == [
+        (0, 0, 10),
+        (1, 1, 11),
+        (2, 2, 12),
+        (0, 3, 20),
+        (1, 4, 21),
+        (2, 5, 22),
+    ]
+
+    grid_1d = [10, 11, 12]
+    assert list(_iter_split_grid_cells(grid_1d, is_2d=False)) == [
+        (0, 0, 10),
+        (0, 1, 11),
+        (0, 2, 12),
+    ]
+
+
 def test_uneven_row_lengths_rejected_on_host_pack() -> None:
     """Uneven nested-list rows are unsupported; Calc ranges are always rectangular."""
     with pytest.raises(ValueError, match="Uneven row lengths"):

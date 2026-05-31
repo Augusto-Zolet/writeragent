@@ -21,6 +21,7 @@ from __future__ import annotations
 import array
 import logging
 import math
+from collections.abc import Iterator
 from typing import Any, Literal, cast
 
 log = logging.getLogger(__name__)
@@ -523,6 +524,34 @@ def _flatten_append_cell_slow(
             strings[idx] = cast("str", val) if t is str else str(val)
 
 
+def _validate_rectangular_grid(grid_2d: list[list[Any]], ncols: int) -> None:
+    """Reject jagged 2D grids before the flatten hot loop (Calc ranges are rectangular)."""
+    for row in grid_2d:
+        if len(row) != ncols:
+            row_lens = [len(r) for r in grid_2d]
+            log.error("payload_codec: uneven row lengths in 2D grid: %s", row_lens)
+            raise ValueError(f"Uneven row lengths in data grid: {row_lens}")
+
+
+def _iter_split_grid_cells(
+    grid: list[Any] | list[list[Any]],
+    *,
+    is_2d: bool,
+) -> Iterator[tuple[int, int, Any]]:
+    """Yield ``(col_idx, flat_idx, val)`` row-major for 1D or validated 2D grids."""
+    if is_2d:
+        grid_2d = cast("list[list[Any]]", grid)
+        idx = 0
+        for row in grid_2d:
+            for c, val in enumerate(row):
+                yield c, idx, val
+                idx += 1
+        return
+    grid_1d = cast("list[Any]", grid)
+    for idx, val in enumerate(grid_1d):
+        yield 0, idx, val
+
+
 @deal.pre(lambda grid: _is_grid_sequence(grid))
 @deal.post(lambda result: isinstance(result, tuple) and len(result) == 4 and isinstance(result[0], array.array) and isinstance(result[1], dict) and isinstance(result[2], list) and isinstance(result[3], list))
 @deal.ensure(lambda grid, result: (not grid) == (len(result[0]) == 0 and result[1] == {} and result[2] == [] and result[3] == [0]))
@@ -574,6 +603,41 @@ def _flatten_grid_to_components(
             nan=nan,
         )
 
+    def _stdlib_flatten_pass(cell_iter: Iterator[tuple[int, int, Any]]) -> None:
+        nonlocal has_non_numeric
+        for c, idx, val in cell_iter:
+            t = type(val)
+            if val is None:
+                buf_append(nan)
+                column_has_none[c] = True
+            elif t is str:
+                has_non_numeric = True
+                _append_cell_slow(val, c, idx)
+            elif not has_non_numeric:
+                if t is float:
+                    buf_append(val)
+                    if column_states[c] != 3:
+                        column_states[c] = 3
+                elif t is int:
+                    buf_append(float(val))
+                    if column_states[c] < 2:
+                        column_states[c] = 2
+                elif val is True or val is False:
+                    buf_append(float(val))
+                    if column_states[c] == 0:
+                        column_states[c] = 1
+                else:
+                    try:
+                        fval = float(val)
+                        buf_append(fval)
+                        if column_states[c] != 3:
+                            _flatten_update_column_state(column_states, c, val)
+                    except (TypeError, ValueError):
+                        has_non_numeric = True
+                        _append_cell_slow(val, c, idx)
+            else:
+                _append_cell_slow(val, c, idx)
+
     # Mostly-numeric Calc grids: try float(val) until non-numeric forces slow path.
     # None is handled in the fast path to avoid disabling it for empty cells.
     if is_2d:
@@ -585,49 +649,10 @@ def _flatten_grid_to_components(
                 use_stdlib = False
             except Exception as e:
                 log.debug("payload_codec: Cython accelerator failed, falling back to stdlib: %s", e)
-        
+
         if use_stdlib:
-            idx = 0
-            for row in grid_2d:
-                if len(row) != ncols:
-                    # Uneven nested-list row lengths should never happen for Calc ranges (rectangular UNO blocks).
-                    row_lens = [len(r) for r in grid_2d]
-                    log.error("payload_codec: uneven row lengths in 2D grid: %s", row_lens)
-                    raise ValueError(f"Uneven row lengths in data grid: {row_lens}")
-                
-                for c, val in enumerate(row):
-                    t = type(val)
-                    if val is None:
-                        buf_append(nan)
-                        column_has_none[c] = True
-                    elif t is str:
-                        has_non_numeric = True
-                        _append_cell_slow(val, c, idx)
-                    elif not has_non_numeric:
-                        if t is float:
-                            buf_append(val)
-                            if column_states[c] != 3:
-                                column_states[c] = 3
-                        elif t is int:
-                            buf_append(float(val))
-                            if column_states[c] < 2:
-                                column_states[c] = 2
-                        elif val is True or val is False:
-                            buf_append(float(val))
-                            if column_states[c] == 0:
-                                column_states[c] = 1
-                        else:
-                            try:
-                                fval = float(val)
-                                buf_append(fval)
-                                if column_states[c] != 3:
-                                    _flatten_update_column_state(column_states, c, val)
-                            except (TypeError, ValueError):
-                                has_non_numeric = True
-                                _append_cell_slow(val, c, idx)
-                    else:
-                        _append_cell_slow(val, c, idx)
-                    idx += 1
+            _validate_rectangular_grid(grid_2d, ncols)
+            _stdlib_flatten_pass(_iter_split_grid_cells(grid_2d, is_2d=True))
     else:
         grid_1d = cast("list[Any]", grid)
         use_stdlib = True
@@ -639,38 +664,7 @@ def _flatten_grid_to_components(
                 log.debug("payload_codec: Cython 1D accelerator failed, falling back to stdlib: %s", e)
 
         if use_stdlib:
-            for idx, val in enumerate(grid_1d):
-                t = type(val)
-                if val is None:
-                    buf_append(nan)
-                    column_has_none[0] = True
-                elif t is str:
-                    has_non_numeric = True
-                    _append_cell_slow(val, 0, idx)
-                elif not has_non_numeric:
-                    if t is float:
-                        buf_append(val)
-                        if column_states[0] != 3:
-                            column_states[0] = 3
-                    elif t is int:
-                        buf_append(float(val))
-                        if column_states[0] < 2:
-                            column_states[0] = 2
-                    elif val is True or val is False:
-                        buf_append(float(val))
-                        if column_states[0] == 0:
-                            column_states[0] = 1
-                    else:
-                        try:
-                            fval = float(val)
-                            buf_append(fval)
-                            if column_states[0] != 3:
-                                _flatten_update_column_state(column_states, 0, val)
-                        except (TypeError, ValueError):
-                            has_non_numeric = True
-                            _append_cell_slow(val, 0, idx)
-                else:
-                    _append_cell_slow(val, 0, idx)
+            _stdlib_flatten_pass(_iter_split_grid_cells(grid_1d, is_2d=False))
 
     # Map the final column states to ColumnKind strings with single-pass promotions
     column_kinds: list[str] = []
