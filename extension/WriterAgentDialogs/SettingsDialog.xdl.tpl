@@ -35,11 +35,9 @@
   <dlg:text dlg:id="label_temperature" dlg:page="1" dlg:left="8" dlg:top="106" dlg:width="58" dlg:height="10" dlg:value="Temperature:" dlg:align="left"/>
   <dlg:textfield dlg:id="temperature" dlg:page="1" dlg:left="68" dlg:top="104" dlg:width="50" dlg:height="14" dlg:tabstop="true" dlg:value="-1"/>
 
-  <!-- Row 7: Max Tokens + Context Len -->
+  <!-- Row 7: Max Tokens -->
   <dlg:text dlg:id="label_chat_max_tokens" dlg:page="1" dlg:left="8" dlg:top="122" dlg:width="58" dlg:height="10" dlg:value="Max Tokens:" dlg:align="left"/>
-  <dlg:textfield dlg:id="chat_max_tokens" dlg:page="1" dlg:left="68" dlg:top="120" dlg:width="60" dlg:height="14" dlg:tabstop="true" dlg:value="16384"/>
-  <dlg:text dlg:id="label_chat_context_length" dlg:page="1" dlg:left="140" dlg:top="122" dlg:width="58" dlg:height="10" dlg:value="Context Len:" dlg:align="left"/>
-  <dlg:textfield dlg:id="chat_context_length" dlg:page="1" dlg:left="200" dlg:top="120" dlg:width="60" dlg:height="14" dlg:tabstop="true" dlg:value="8000"/>
+  <dlg:textfield dlg:id="chat_max_tokens" dlg:page="1" dlg:left="68" dlg:top="120" dlg:width="120" dlg:height="14" dlg:tabstop="true" dlg:value="16384"/>
 
   <!-- Row 8: Additional Instructions -->
   <dlg:text dlg:id="label_additional_instructions" dlg:page="1" dlg:left="8" dlg:top="138" dlg:width="150" dlg:height="10" dlg:value="Additional Instructions:" dlg:align="left"/>

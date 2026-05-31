@@ -30,9 +30,9 @@ except ImportError:
 from plugin.framework.i18n import _
 from plugin.framework.async_stream import StreamQueueKind, run_blocking_in_thread, run_async_worker_with_drain
 from plugin.framework.errors import safe_json_loads, format_error_payload, AgentParsingError, ConfigError, NetworkError
-from plugin.framework.config import get_api_config, get_config, get_config_int, get_config_int_safe, as_bool
+from plugin.framework.config import get_api_config, get_config, get_config_int_safe, as_bool
 from plugin.framework.client.llm_client import LlmClient
-from plugin.framework.constants import get_core_directives
+from plugin.framework.constants import get_core_directives, CHAT_DOCUMENT_CONTEXT_MAX_CHARS
 from plugin.framework.queue_executor import llm_request_lane
 from plugin.doc.document_helpers import get_document_context_for_chat, is_calc, is_draw
 from plugin.agent_backend import get_backend
@@ -295,9 +295,8 @@ class SendHandlersMixin:
             if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
                 log.debug("Failed to get document URL for agent backend (likely disposed): %s", e)
 
-        max_context = get_config_int(self.ctx, "chat_context_length")
         try:
-            doc_context = get_document_context_for_chat(model, max_context, include_end=True, include_selection=True, ctx=self.ctx)
+            doc_context = get_document_context_for_chat(model, CHAT_DOCUMENT_CONTEXT_MAX_CHARS, include_end=True, include_selection=True, ctx=self.ctx)
         except Exception as e:
             if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
                 log.debug("Failed to build document context for agent backend (likely disposed): %s", e)

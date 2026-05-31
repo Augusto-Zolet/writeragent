@@ -439,3 +439,62 @@ def test_tool_calling_agent_default_augment_is_identity():
     agent = ToolCallingAgent(tools=[], model=model, max_steps=5)
     base = [ChatMessage(role=MessageRole.SYSTEM, content=[{"type": "text", "text": "sys"}])]
     assert agent.augment_messages_for_step(base) is base
+
+
+def test_web_research_agent_instructions_include_minimal_tool_use_advice():
+    from plugin.chatbot.web_research import WebResearchTool
+    from plugin.tests.testing_utils import MockContext
+
+    ctx = MagicMock()
+    ctx.ctx = MockContext()
+    setattr(ctx.ctx, "getServiceManager", MagicMock())
+    captured: dict = {}
+
+    class _CaptureAgent:
+        def __init__(self, **kwargs):
+            captured["instructions"] = kwargs.get("instructions", "")
+
+    # Test case 1: max_steps = 25 (greater than 20) -> should include advice
+    with patch("plugin.chatbot.web_research.WebResearchToolCallingAgent", _CaptureAgent):
+        with patch("plugin.chatbot.smol_agent.SmolAgentExecutor") as mock_exec:
+            mock_exec.return_value.execute_safe.return_value = "answer"
+            with patch("plugin.framework.config.get_config", return_value="false"):
+                def _cfg_int(c, key):
+                    if key == "web_cache_max_mb":
+                        return 0
+                    if key == "chat_max_tokens":
+                        return 2048
+                    return 25  # chat_max_tool_rounds
+
+                with patch("plugin.framework.config.get_config_int", side_effect=_cfg_int):
+                    with patch("plugin.framework.config.get_api_config", return_value={}):
+                        with patch("plugin.framework.config.user_config_dir", return_value="/tmp"):
+                            with patch("plugin.framework.config.get_config_bool_safe", return_value=False):
+                                WebResearchTool().execute(ctx, query="test query")
+
+    assert "IMPORTANT: If the user's query is a simple question that does not require deep or extensive research" in captured["instructions"]
+    assert "at most half of your step budget (i.e., 12 steps or fewer)" in captured["instructions"]
+    assert "Avoid visiting Yelp (yelp.com) links" in captured["instructions"]
+
+    # Test case 2: max_steps = 10 (less than or equal to 20) -> should NOT include advice
+    captured.clear()
+    with patch("plugin.chatbot.web_research.WebResearchToolCallingAgent", _CaptureAgent):
+        with patch("plugin.chatbot.smol_agent.SmolAgentExecutor") as mock_exec:
+            mock_exec.return_value.execute_safe.return_value = "answer"
+            with patch("plugin.framework.config.get_config", return_value="false"):
+                def _cfg_int_low(c, key):
+                    if key == "web_cache_max_mb":
+                        return 0
+                    if key == "chat_max_tokens":
+                        return 2048
+                    return 10  # chat_max_tool_rounds
+
+                with patch("plugin.framework.config.get_config_int", side_effect=_cfg_int_low):
+                    with patch("plugin.framework.config.get_api_config", return_value={}):
+                        with patch("plugin.framework.config.user_config_dir", return_value="/tmp"):
+                            with patch("plugin.framework.config.get_config_bool_safe", return_value=False):
+                                WebResearchTool().execute(ctx, query="test query")
+
+    assert "IMPORTANT: If the user's query is a simple question that does not require deep or extensive research" not in captured["instructions"]
+    assert "Avoid visiting Yelp (yelp.com) links" in captured["instructions"]
+

@@ -21,6 +21,7 @@ from typing import TypedDict
 from enum import Enum, auto
 from plugin.calc.bridge import CalcBridge
 from plugin.calc.analyzer import SheetAnalyzer
+from plugin.framework.constants import CHAT_DOCUMENT_CONTEXT_MAX_CHARS
 from plugin.framework.uno_context import get_active_document as get_active_doc
 from plugin.framework.errors import UnoObjectError, check_disposed, safe_call, safe_uno_call
 
@@ -456,7 +457,7 @@ def get_document_path(model):
         return None
 
 
-def get_full_document_text(model, max_chars=8000):
+def get_full_document_text(model, max_chars=CHAT_DOCUMENT_CONTEXT_MAX_CHARS):
     """Get full document text for Writer or summary for Calc, truncated to max_chars."""
     try:
         check_disposed(model, "Document Model")
@@ -473,14 +474,12 @@ def get_full_document_text(model, max_chars=8000):
             return text
 
         if doc_type == DocumentType.WRITER:
-            text = safe_call(model.getText, "Get document text")
-            cursor = safe_call(text.createTextCursor, "Create text cursor")
-            safe_call(cursor.gotoStart, "Cursor gotoStart", False)
-            safe_call(cursor.gotoEnd, "Cursor gotoEnd", True)
-            full = safe_call(cursor.getString, "Cursor getString")
-            if len(full) > max_chars:
-                full = full[:max_chars] + "\n\n[... document truncated ...]"
-            return full
+            doc_len = _writer_char_count(model)
+            take = min(doc_len, max_chars)
+            excerpt = _read_writer_text_slice(model, 0, take)
+            if doc_len > max_chars:
+                excerpt += "\n\n[... document truncated ...]"
+            return excerpt
 
         if doc_type in (DocumentType.DRAW, DocumentType.IMPRESS):
             return get_draw_context_for_chat(model, max_chars)
@@ -512,10 +511,126 @@ def get_document_end(model, max_chars=4000):
 _GO_RIGHT_CHUNK = 8192
 
 
+def _writer_char_count(model) -> int:
+    """Writer document character count; prefers O(1) CharacterCount over full getString()."""
+    try:
+        check_disposed(model, "Document Model")
+        count = getattr(model, "CharacterCount", None)
+        if count is not None:
+            return max(0, int(count))
+    except Exception:
+        pass
+    try:
+        text = safe_call(model.getText, "Get document text")
+        cursor = safe_call(text.createTextCursor, "Create text cursor")
+        safe_call(cursor.gotoStart, "Cursor gotoStart", False)
+        safe_call(cursor.gotoEnd, "Cursor gotoEnd", True)
+        return len(normalize_linebreaks(safe_call(cursor.getString, "Cursor getString")))
+    except UnoObjectError:
+        logging.getLogger(__name__).exception("_writer_char_count failed")
+        return 0
+
+
+def _read_writer_text_slice(model, start_offset: int, length: int) -> str:
+    """Read up to *length* characters from *start_offset* without loading the full document."""
+    if length <= 0:
+        return ""
+    end_offset = start_offset + length
+    cursor = get_text_cursor_at_range(model, start_offset, end_offset)
+    if cursor is None:
+        return ""
+    return normalize_linebreaks(safe_call(cursor.getString, "Cursor getString slice"))
+
+
+def _char_offset_of_position(model, target_start, doc_len: int) -> int:
+    """Character offset of a UNO text position from document start (no prefix getString())."""
+    if doc_len <= 0:
+        return 0
+    try:
+        text = safe_call(model.getText, "Get document text")
+        cursor = safe_call(text.createTextCursor, "Create text cursor")
+        safe_call(cursor.gotoStart, "Cursor gotoStart", False)
+        offset = 0
+        while offset < doc_len:
+            cmp = safe_call(text.compareRegionStarts, "compareRegionStarts", target_start, safe_call(cursor.getStart, "Cursor getStart"))
+            if cmp == 0:
+                return offset
+            if cmp > 0:
+                if offset == 0:
+                    return 0
+                safe_call(cursor.goLeft, "Cursor goLeft", 1, False)
+                offset -= 1
+                continue
+            step = min(_GO_RIGHT_CHUNK, doc_len - offset)
+            if step <= 0:
+                return offset
+            safe_call(cursor.goRight, "Cursor goRight", step, False)
+            offset += step
+            cmp_after = safe_call(text.compareRegionStarts, "compareRegionStarts", target_start, safe_call(cursor.getStart, "Cursor getStart"))
+            if cmp_after >= 0:
+                while offset > 0 and safe_call(text.compareRegionStarts, "compareRegionStarts", target_start, safe_call(cursor.getStart, "Cursor getStart")) > 0:
+                    safe_call(cursor.goLeft, "Cursor goLeft", 1, False)
+                    offset -= 1
+                while safe_call(text.compareRegionStarts, "compareRegionStarts", target_start, safe_call(cursor.getStart, "Cursor getStart")) < 0 and offset < doc_len:
+                    safe_call(cursor.goRight, "Cursor goRight", 1, False)
+                    offset += 1
+                return offset
+        return doc_len
+    except UnoObjectError:
+        logging.getLogger(__name__).exception("_char_offset_of_position failed")
+        return 0
+
+
+def _get_writer_selection_positions(model):
+    """Return (text, sel_start_pos, sel_end_pos) or None when selection unavailable."""
+    try:
+        check_disposed(model, "Document Model")
+        controller = safe_call(model.getCurrentController, "Get current controller")
+        sel = safe_call(controller.getSelection, "Get selection")
+        sel_count = 0
+        if sel and hasattr(sel, "getCount"):
+            sel_count = safe_call(sel.getCount, "Get selection count")
+        if not sel or sel_count == 0:
+            vc = safe_call(controller.getViewCursor, "Get view cursor")
+            rng = vc
+        else:
+            rng = safe_call(sel.getByIndex, "Get selection by index", 0)
+        if not rng or not hasattr(rng, "getStart") or not hasattr(rng, "getEnd"):
+            return None
+        text = safe_call(model.getText, "Get document text")
+        return text, safe_call(rng.getStart, "Get range start"), safe_call(rng.getEnd, "Get range end")
+    except UnoObjectError:
+        return None
+
+
+def _writer_excerpt_overlaps_selection(model, excerpt_start: int, excerpt_end: int, sel_start_pos, sel_end_pos) -> bool:
+    """True when selection UNO range overlaps [excerpt_start, excerpt_end) character window."""
+    exc_cursor = get_text_cursor_at_range(model, excerpt_start, excerpt_end)
+    if exc_cursor is None:
+        return False
+    text = safe_call(model.getText, "Get document text")
+    exc_start = safe_call(exc_cursor.getStart, "Excerpt getStart")
+    exc_end = safe_call(exc_cursor.getEnd, "Excerpt getEnd")
+    if safe_call(text.compareRegionStarts, "compareRegionStarts sel_end exc_start", sel_end_pos, exc_start) > 0:
+        return False
+    if safe_call(text.compareRegionStarts, "compareRegionStarts exc_end sel_start", exc_end, sel_start_pos) > 0:
+        return False
+    return True
+
+
+def _writer_selection_overlaps_windows(model, windows: list[tuple[int, int]], sel_start_pos, sel_end_pos) -> bool:
+    for win_start, win_end in windows:
+        if _writer_excerpt_overlaps_selection(model, win_start, win_end, sel_start_pos, sel_end_pos):
+            return True
+    return False
+
+
 def get_document_length(model):
     """Return total character length of the document. Returns 0 on error."""
     try:
         check_disposed(model, "Document Model")
+        if get_document_type(model) == DocumentType.WRITER:
+            return _writer_char_count(model)
         text = safe_call(model.getText, "Get document text")
         cursor = safe_call(text.createTextCursor, "Create text cursor")
         safe_call(cursor.gotoStart, "Cursor gotoStart", False)
@@ -565,35 +680,20 @@ def get_selection_range(model):
     Cursor (no selection) = same start and end. Returns (0, 0) on error or no text range."""
     try:
         check_disposed(model, "Document Model")
-        controller = safe_call(model.getCurrentController, "Get current controller")
-        sel = safe_call(controller.getSelection, "Get selection")
-        sel_count = 0
-        if sel and hasattr(sel, "getCount"):
-            sel_count = safe_call(sel.getCount, "Get selection count")
-
-        if not sel or sel_count == 0:
-            # No selection: use view cursor for insertion point
-            vc = safe_call(controller.getViewCursor, "Get view cursor")
-            rng = vc
-        else:
-            rng = safe_call(sel.getByIndex, "Get selection by index", 0)
-        if not rng or not hasattr(rng, "getStart") or not hasattr(rng, "getEnd"):
+        sel_positions = _get_writer_selection_positions(model)
+        if sel_positions is None:
             return (0, 0)
-        text = safe_call(model.getText, "Get document text")
-        cursor = safe_call(text.createTextCursor, "Create text cursor")
-        safe_call(cursor.gotoStart, "Cursor gotoStart", False)
-        safe_call(cursor.gotoRange, "Cursor gotoRange start", safe_call(rng.getStart, "Get range start"), True)
-        start_offset = len(normalize_linebreaks(safe_call(cursor.getString, "Cursor getString start")))
-        safe_call(cursor.gotoStart, "Cursor gotoStart", False)
-        safe_call(cursor.gotoRange, "Cursor gotoRange end", safe_call(rng.getEnd, "Get range end"), True)
-        end_offset = len(normalize_linebreaks(safe_call(cursor.getString, "Cursor getString end")))
+        _text, sel_start_pos, sel_end_pos = sel_positions
+        doc_len = _writer_char_count(model)
+        start_offset = _char_offset_of_position(model, sel_start_pos, doc_len)
+        end_offset = _char_offset_of_position(model, sel_end_pos, doc_len)
         return (start_offset, end_offset)
     except UnoObjectError:
         logging.getLogger(__name__).exception("get_selection_range failed")
         return (0, 0)
 
 
-def get_document_context_for_chat(model, max_context=8000, include_end=True, include_selection=True, ctx=None):
+def get_document_context_for_chat(model, max_context=CHAT_DOCUMENT_CONTEXT_MAX_CHARS, include_end=True, include_selection=True, ctx=None):
     """Build a single context string for chat. Handles Writer and Calc.
     ctx: component context (required for Calc and Draw documents)."""
     doc_type = get_document_type(model)
@@ -604,75 +704,52 @@ def get_document_context_for_chat(model, max_context=8000, include_end=True, inc
     if doc_type in (DocumentType.DRAW, DocumentType.IMPRESS):
         return get_draw_context_for_chat(model, max_context, ctx)
 
-    # Original Writer logic
+    # Writer: read only the excerpt slice(s), not the full document text.
     if doc_type == DocumentType.WRITER:
         try:
             check_disposed(model, "Document Model")
-            text = safe_call(model.getText, "Get document text")
-            # ... (rest of the function)
-            cursor = safe_call(text.createTextCursor, "Create text cursor")
-            safe_call(cursor.gotoStart, "Cursor gotoStart", False)
-            safe_call(cursor.gotoEnd, "Cursor gotoEnd", True)
-            full = normalize_linebreaks(safe_call(cursor.getString, "Cursor getString"))
-            doc_len = len(full)
+            doc_len = _writer_char_count(model)
         except UnoObjectError:
             logging.getLogger(__name__).exception("get_document_context_for_chat Writer failed")
             return "[Unable to read Writer document context. The document may be locked or initializing.]"
 
-        # Context Extensions (Memory, User Profile)
-        # UNCOMMENT TO ENABLE:
-        # try:
-        #     if ctx:
-        #         from plugin.chatbot.memory import MemoryStore
-        #         m_store = MemoryStore(ctx)
-        #         memory_text = m_store.read("memory")
-        #         user_text = m_store.read("user")
-        #         ext_ctx = ""
-        #         if user_text:
-        #             ext_ctx += f"\n[USER PROFILE]\n{user_text}\n"
-        #         if memory_text:
-        #             ext_ctx += f"\n[AGENT MEMORY]\n{memory_text}\n"
-        #         if ext_ctx:
-        #             full = ext_ctx + "\n" + full
-        #             doc_len = len(full)
-        # except Exception as e:
-        #     logging.getLogger(__name__).warning("Failed to inject memory context: %s", e)
-
-        # Selection/cursor range; cap selection span for very long selections (e.g. 100k chars)
-        start_offset, end_offset = (0, 0)
-        if include_selection:
-            start_offset, end_offset = get_selection_range(model)
-            # Clamp to document bounds
-            start_offset = max(0, min(start_offset, doc_len))
-            end_offset = max(0, min(end_offset, doc_len))
-            if start_offset > end_offset:
-                start_offset, end_offset = end_offset, start_offset
-            # Optional: cap selection span so we don't force huge context (e.g. 2000 chars max span for "selection" in excerpts)
-            max_selection_span = 2000
-            if end_offset - start_offset > max_selection_span:
-                end_offset = start_offset + max_selection_span
-
-        # Budget split: half for start, half for end when include_end
         if include_end and doc_len > (max_context // 2):
             start_chars = max_context // 2
             end_chars = max_context - start_chars
-            start_excerpt = full[:start_chars]
-            end_excerpt = full[-end_chars:]
-            # Inject markers into start excerpt
+            excerpt_windows = [(0, start_chars), (doc_len - end_chars, doc_len)]
+        else:
+            start_chars = 0
+            end_chars = 0
+            take = min(doc_len, max_context)
+            excerpt_windows = [(0, take)]
+
+        start_offset, end_offset = (0, 0)
+        if include_selection:
+            sel_positions = _get_writer_selection_positions(model)
+            if sel_positions is not None and _writer_selection_overlaps_windows(model, excerpt_windows, sel_positions[1], sel_positions[2]):
+                start_offset, end_offset = get_selection_range(model)
+                start_offset = max(0, min(start_offset, doc_len))
+                end_offset = max(0, min(end_offset, doc_len))
+                if start_offset > end_offset:
+                    start_offset, end_offset = end_offset, start_offset
+                max_selection_span = 2000
+                if end_offset - start_offset > max_selection_span:
+                    end_offset = start_offset + max_selection_span
+
+        if include_end and doc_len > (max_context // 2):
+            start_excerpt = _read_writer_text_slice(model, 0, start_chars)
+            end_excerpt = _read_writer_text_slice(model, doc_len - end_chars, end_chars)
             start_excerpt = _inject_markers_into_excerpt(start_excerpt, 0, start_chars, start_offset, end_offset, "[DOCUMENT START]\n", "\n[DOCUMENT END]")
-            # Inject markers into end excerpt (offsets relative to document; excerpt starts at doc_len - end_chars)
             end_excerpt = _inject_markers_into_excerpt(end_excerpt, doc_len - end_chars, doc_len, start_offset, end_offset, "[DOCUMENT END]\n", "\n[END DOCUMENT]")
             middle_note = "\n\n[... middle of document omitted ...]\n\n" if doc_len > max_context else ""
             return "Document length: %d characters.\n\n%s%s%s" % (doc_len, start_excerpt, middle_note, end_excerpt)
-        else:
-            # Short doc or start-only: one block
-            take = min(doc_len, max_context)
-            excerpt = full[:take]
-            if doc_len > max_context:
-                excerpt += "\n\n[... document truncated ...]"
-            content_len = take  # character range we're showing (before truncation message)
-            excerpt = _inject_markers_into_excerpt(excerpt, 0, content_len, start_offset, end_offset, "[DOCUMENT START]\n", "\n[END DOCUMENT]")
-            return "Document length: %d characters.\n\n%s" % (doc_len, excerpt)
+
+        take = min(doc_len, max_context)
+        excerpt = _read_writer_text_slice(model, 0, take)
+        if doc_len > max_context:
+            excerpt += "\n\n[... document truncated ...]"
+        excerpt = _inject_markers_into_excerpt(excerpt, 0, take, start_offset, end_offset, "[DOCUMENT START]\n", "\n[END DOCUMENT]")
+        return "Document length: %d characters.\n\n%s" % (doc_len, excerpt)
 
     return ""
 
@@ -1016,7 +1093,7 @@ class DocumentService(ServiceBase):
     def get_document_length(self, doc):
         return get_document_length(doc)
 
-    def get_document_context_for_chat(self, doc, max_context=8000, include_end=True, include_selection=True):
+    def get_document_context_for_chat(self, doc, max_context=CHAT_DOCUMENT_CONTEXT_MAX_CHARS, include_end=True, include_selection=True):
         return get_document_context_for_chat(doc, max_context, include_end, include_selection, get_ctx())
 
     def get_page_for_paragraph(self, model, para_index):

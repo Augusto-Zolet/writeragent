@@ -258,14 +258,12 @@ class TestRobustNumericParsing(unittest.TestCase):
 
         # Test standard dataclass type casting
         config = WriterAgentConfig.from_dict({
-            "chat_context_length": "8000,0",  # String with European decimal comma
             "temperature": "0,7",  # String with European decimal comma
             "chat_max_tokens": 16384.0,  # Float instead of int
             "image_steps": "30",  # String int
         })
         config.validate()
 
-        self.assertEqual(config.chat_context_length, 8000)
         self.assertEqual(config.temperature, 0.7)
         self.assertEqual(config.chat_max_tokens, 16384)
         self.assertEqual(config.image_steps, 30)

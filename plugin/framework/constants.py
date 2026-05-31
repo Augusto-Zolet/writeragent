@@ -37,6 +37,8 @@ def get_locales_dir():
 
 PLUGIN_DIR = get_plugin_dir()
 
+# Max characters of Writer document text embedded in chat system context (excerpt, not model window).
+CHAT_DOCUMENT_CONTEXT_MAX_CHARS = 8000
 
 # Model capabilities bitmasks (compatible with OnlyOfficeAI values)
 class ModelCapability(IntFlag):

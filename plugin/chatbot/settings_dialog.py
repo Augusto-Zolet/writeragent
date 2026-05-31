@@ -58,7 +58,6 @@ def _get_core_field_specs(ctx, current_endpoint):
         {"name": "api_key", "value": str(get_api_key_for_endpoint(ctx, current_endpoint))},
         {"name": "temperature", "value": str(get_config_float(ctx, "temperature")), "type": "float"},
         {"name": "chat_max_tokens", "value": str(get_config_int(ctx, "chat_max_tokens")), "type": "int"},
-        {"name": "chat_context_length", "value": str(get_config_int(ctx, "chat_context_length")), "type": "int"},
         {"name": "additional_instructions", "value": get_config_str(ctx, "additional_instructions")},
         {"name": "stt_model", "value": str(get_config(ctx, "stt_model") or "")},
     ]

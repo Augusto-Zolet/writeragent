@@ -69,7 +69,7 @@ _LRU_LIST_CONFIG_KEY_PREFIXES: frozenset[str] = frozenset({"model_lru", "prompt_
 
 # Simple AI settings fields that the Tools → Options "AI" page should map
 # directly to top-level config keys (endpoint, model, etc.).
-AI_SIMPLE_FIELDS = {"endpoint", "text_model", "image_model", "stt_model", "temperature", "chat_max_tokens", "chat_context_length", "request_timeout", "additional_instructions", "aihorde_api_key", "image_provider", "nsfw", "censor_nsfw", "max_wait"}
+AI_SIMPLE_FIELDS = {"endpoint", "text_model", "image_model", "stt_model", "temperature", "chat_max_tokens", "request_timeout", "additional_instructions", "aihorde_api_key", "image_provider", "nsfw", "censor_nsfw", "max_wait"}
 
 
 # --- Small helpers ---
@@ -263,7 +263,6 @@ class WriterAgentConfig:
     model: str = ""
     temperature: float = -1.0
     additional_instructions: str = ""
-    chat_context_length: int = 8000
     chat_max_tokens: int = 16384
     request_timeout: int = 120
     chat_max_tool_rounds: int = 25

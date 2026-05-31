@@ -5,7 +5,9 @@
 > [!IMPORTANT]
 > **Docs:** After any nontrivial change, update documentation. Prefer the **topic doc** under `docs/`; touch **`AGENTS.md`** only when the change affects **many areas** or **global rules**.
 > [!IMPORTANT]
-> **Complexity:** This codebase is complicated for its size. When asked to do a new feature, always figure out the way using the least amount of code, using existing functions. There are many functions which can just be used or extended to make the change 10 - 100 lines (for a small new feature).  When creating a new function or data, make sure there is always a single source of truth for a piece of functionality or a piece of data. Always read relevant code first to find the useful functions before making a plan.
+> **Complexity:** This codebase is complicated for its size. When asked to do a new feature, always figure out the way using the least amount of code or extra complexity. Using existing functions, there are many functions which can just be used or refactored to make the change small for a new feature. 
+
+If you find ways to lower technical debt, while adding a feature, put that in your plan.
 
 
 
@@ -149,7 +151,7 @@ UNO helpers are split: [`uno_context.py`](plugin/framework/uno_context.py), [`do
 - **OpenRouter merge:** optional `openrouter_chat_extra` — [`merge_openrouter_chat_extra`](plugin/framework/client/llm_client.py); blocked keys include `messages`, `tools`, `tool_choice`, `stream`.
 - **Settings UI:** **`core`** must stay skipped in auto-generated tabs ([`manifest_registry.py`](scripts/manifest_registry.py) + [`dialog_views.py`](plugin/chatbot/dialog_views.py) agree) or Settings crashes (`btn_tab_core`).
 - Defaults and provider tables: [`plugin/framework/default_models.py`](plugin/framework/default_models.py). **`chat_max_tool_rounds`:** empty string → fallback 25 with debug log.
-- **Chat-related keys:** `chat_context_length`, `chat_max_tokens`, `additional_instructions` (see [`plugin/framework/config.py`](plugin/framework/config.py), [`plugin/framework/constants.py`](plugin/framework/constants.py)).
+- **Chat-related keys:** `chat_max_tokens`, `additional_instructions` (see [`plugin/framework/config.py`](plugin/framework/config.py), [`plugin/framework/constants.py`](plugin/framework/constants.py)). Document excerpt size for chat is fixed internally as `CHAT_DOCUMENT_CONTEXT_MAX_CHARS` (8000 characters) in [`constants.py`](plugin/framework/constants.py)—not a Settings key.
 
 ### Logging / MCP / misc
 

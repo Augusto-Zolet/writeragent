@@ -399,7 +399,7 @@ Simpler approach:
 - `get_full_document_text(model, max_chars)` – gets document text
 - `stream_completion(prompt, system_prompt, max_tokens, api_type, append_callback)` – API call
 - `show_error(message, title)` – error display
-- Config keys: `chat_context_length`, `chat_max_tokens`, `additional_instructions`
+- Config keys: `chat_max_tokens`, `additional_instructions` (document excerpt cap is internal `CHAT_DOCUMENT_CONTEXT_MAX_CHARS`)
 
 The panel needs access to `MainJob` or equivalent to call these. Options:
 - Instantiate MainJob from panel (need ctx)

@@ -29,7 +29,7 @@ Integrated into [plugin/writer/images/images.py](../plugin/writer/images/images.
 
 **Settings dialog** ([WriterAgentDialogs/SettingsDialog.xdl](WriterAgentDialogs/SettingsDialog.xdl))  
 - **Tabbed**: Chat/Text tab and Image Generation tab.
-- **Chat/Text tab**: Endpoint, **Text/Chat Model** (combobox, LRU `model_lru`), **Image model (same endpoint as chat)** (combobox, LRU `image_model_lru`), API key, API type, temperature, chat max tokens, context length, additional instructions.
+- **Chat/Text tab**: Endpoint, **Text/Chat Model** (combobox, LRU `model_lru`), **Image model (same endpoint as chat)** (combobox, LRU `image_model_lru`), API key, API type, temperature, chat max tokens, additional instructions.
 - **Image tab**: **Provider (aihorde / same as chat)**, AI Horde API key, width/height, steps, max wait, NSFW options, auto gallery, insert frame.
 - If the tabbed dialog fails to load in some LibreOffice versions, the XML uses `dlg:tabpagecontainer` / `dlg:tabpage`; fallback or alternate layout may be needed.
 

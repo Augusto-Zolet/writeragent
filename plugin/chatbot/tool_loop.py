@@ -45,7 +45,7 @@ from plugin.framework.client.model_fetcher import (
     set_native_audio_support,
 )
 from plugin.chatbot.config_ui_helpers import update_lru_history
-from plugin.framework.constants import get_chat_system_prompt_for_document
+from plugin.framework.constants import get_chat_system_prompt_for_document, CHAT_DOCUMENT_CONTEXT_MAX_CHARS
 from plugin.doc.document_helpers import get_document_context_for_chat
 from plugin.framework.errors import format_error_payload, ToolExecutionError, UnoObjectError, NetworkError
 from plugin.framework.queue_executor import llm_request_lane
@@ -327,7 +327,7 @@ class ToolCallingMixin:
                 set_image_model(self.ctx, selected_image_model)
                 log.debug("_do_send: image model updated to %s" % selected_image_model)
 
-        max_context = get_config_int(self.ctx, "chat_context_length")
+        max_context = CHAT_DOCUMENT_CONTEXT_MAX_CHARS
         max_tokens = get_config_int(self.ctx, "chat_max_tokens")
         log.debug("_do_send: config loaded: max_tokens=%d, max_context=%d" % (max_tokens, max_context))
 
@@ -559,7 +559,7 @@ class ToolCallingMixin:
             try:
                 doc = self._get_document_model() if hasattr(self, "_get_document_model") else None
                 if doc:
-                    max_ctx = get_config_int(self.ctx, "chat_context_length")
+                    max_ctx = CHAT_DOCUMENT_CONTEXT_MAX_CHARS
                     doc_text = get_document_context_for_chat(doc, max_ctx, include_end=True, include_selection=True, ctx=self.ctx)
                     extra_instructions = get_config_str(self.ctx, "additional_instructions")
                     base_prompt = get_chat_system_prompt_for_document(doc, extra_instructions, ctx=self.ctx)
