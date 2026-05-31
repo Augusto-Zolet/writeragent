@@ -425,7 +425,7 @@ def test_build_toolcalling_agent_wires_max_tokens_and_steps(
     def _int(_ctx, key: str) -> int:
         if key == "chat_max_tokens":
             return 512
-        if key == "chat_max_tool_rounds":
+        if key == "chatbot.max_tool_rounds":
             return 12
         raise AssertionError(key)
 

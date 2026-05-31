@@ -752,7 +752,7 @@ class ToolCallingMixin:
         on message type, keeping the UI responsive via processEventsToIdle().
         """
         if max_tool_rounds is None:
-            max_tool_rounds = get_config_int(self.ctx, "chat_max_tool_rounds")
+            max_tool_rounds = get_config_int(self.ctx, "chatbot.max_tool_rounds")
         log.info("=== Tool-calling loop START (max %d rounds) ===" % max_tool_rounds)
         self._append_response("\nAI: ")
         self._record_assistant_start = True

@@ -265,7 +265,6 @@ class WriterAgentConfig:
     additional_instructions: str = ""
     chat_max_tokens: int = 16384
     request_timeout: int = 120
-    chat_max_tool_rounds: int = 25
     stt_model: str = ""
     api_keys_by_endpoint: Dict[str, str] = dataclasses.field(default_factory=dict)
     aihorde_api_key: str = ""
@@ -448,38 +447,6 @@ class WriterAgentConfig:
             log.warning("Invalid request_timeout %s, falling back to 120", self.request_timeout)
             self.request_timeout = 120
 
-        _cmtr_def = 25
-        r_cmtr = self.chat_max_tool_rounds
-        cmtr_ok: int | None = None
-        if type(r_cmtr) is bool:
-            pass
-        elif isinstance(r_cmtr, int) and r_cmtr >= 1:
-            cmtr_ok = r_cmtr
-        elif isinstance(r_cmtr, str):
-            t = r_cmtr.strip()
-            if t:
-                try:
-                    n = int(float(t))
-                    if n >= 1:
-                        cmtr_ok = n
-                except (ValueError, TypeError):
-                    pass
-        elif r_cmtr is not None and r_cmtr != "":
-            try:
-                n = int(float(r_cmtr))
-                if n >= 1:
-                    cmtr_ok = n
-            except (ValueError, TypeError):
-                pass
-        if cmtr_ok is None:
-            self.chat_max_tool_rounds = _cmtr_def
-            is_blank = r_cmtr == "" or (isinstance(r_cmtr, str) and r_cmtr.strip() == "")
-            if is_blank:
-                log.debug("chat_max_tool_rounds empty, using default %s", _cmtr_def)
-            else:
-                log.warning("Invalid chat_max_tool_rounds %r, falling back to %s", r_cmtr, _cmtr_def)
-        else:
-            self.chat_max_tool_rounds = cmtr_ok
 
         if not isinstance(self.temperature, (int, float)):
             log.warning("Invalid temperature %s, falling back to -1.0", self.temperature)
@@ -778,6 +745,7 @@ def _build_validated_config_export(data: Dict[str, Any], config: "WriterAgentCon
             if merged != v:
                 log.debug("config export: extra key %r merged after validate (raw_len=%s merged_len=%s)", k, len(str(v)), len(str(merged)))
             out[k] = merged
+
     return out
 
 
@@ -882,7 +850,7 @@ def get_api_config(ctx):
         "is_openrouter": is_openrouter,
         "seed": get_config_str(ctx, "seed"),
         "request_timeout": get_config_int(ctx, "request_timeout"),
-        "chat_max_tool_rounds": get_config_int(ctx, "chat_max_tool_rounds"),
+        "chat_max_tool_rounds": get_config_int(ctx, "chatbot.max_tool_rounds"),
     }
 
     temp = get_config_float(ctx, "temperature")

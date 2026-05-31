@@ -108,7 +108,7 @@ class WebResearchTool(ToolCalcWebResearchBase, ToolDrawWebResearchBase):
 
         config = get_api_config(ctx.ctx)
         max_tokens = get_config_int(ctx.ctx, "chat_max_tokens")
-        max_steps = get_config_int(ctx.ctx, "chat_max_tool_rounds")
+        max_steps = get_config_int(ctx.ctx, "chatbot.max_tool_rounds")
 
         udir = user_config_dir(ctx.ctx)
         raw_mb = get_config_int(ctx.ctx, "web_cache_max_mb")

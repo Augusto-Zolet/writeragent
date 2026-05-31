@@ -464,7 +464,7 @@ def test_web_research_agent_instructions_include_minimal_tool_use_advice():
                         return 0
                     if key == "chat_max_tokens":
                         return 2048
-                    return 25  # chat_max_tool_rounds
+                    return 25  # chatbot.max_tool_rounds
 
                 with patch("plugin.framework.config.get_config_int", side_effect=_cfg_int):
                     with patch("plugin.framework.config.get_api_config", return_value={}):
@@ -487,7 +487,7 @@ def test_web_research_agent_instructions_include_minimal_tool_use_advice():
                         return 0
                     if key == "chat_max_tokens":
                         return 2048
-                    return 10  # chat_max_tool_rounds
+                    return 10  # chatbot.max_tool_rounds
 
                 with patch("plugin.framework.config.get_config_int", side_effect=_cfg_int_low):
                     with patch("plugin.framework.config.get_api_config", return_value={}):

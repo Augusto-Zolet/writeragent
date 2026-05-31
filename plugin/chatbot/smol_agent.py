@@ -295,7 +295,7 @@ def build_toolcalling_agent(ctx: ToolContext, tools: Sequence[SmolTool], *, inst
     uno_ctx = ctx.ctx
     config = get_api_config(uno_ctx)
     max_tokens = get_config_int(uno_ctx, "chat_max_tokens")
-    max_steps = get_config_int(uno_ctx, "chat_max_tool_rounds")
+    max_steps = get_config_int(uno_ctx, "chatbot.max_tool_rounds")
 
     stop_checker = getattr(ctx, "stop_checker", None)
     cancel_scope = getattr(ctx, "send_cancellation", None)
