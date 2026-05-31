@@ -201,7 +201,7 @@ def _strip_html_boilerplate(html_string):
     return html_string
 
 
-def _wrap_html_fragment(html_content):
+def _wrap_html_fragment(html_content, extra_css=None):
     """Wrap an HTML fragment in a full document structure for LO's filter."""
     if not html_content or not isinstance(html_content, str):
         return html_content
@@ -209,7 +209,10 @@ def _wrap_html_fragment(html_content):
     has_body = "<body" in html_content.lower() and "</body>" in html_content.lower()
     if has_html and has_body:
         return html_content
-    return '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n</head>\n<body>\n%s\n</body>\n</html>' % html_content
+    head = '<meta charset="UTF-8">'
+    if extra_css:
+        head = '<meta charset="UTF-8">\n<style>%s</style>' % extra_css
+    return '<!DOCTYPE html>\n<html>\n<head>\n%s\n</head>\n<body>\n%s\n</body>\n</html>' % (head, html_content)
 
 
 def _ensure_html_linebreaks(content):
@@ -417,13 +420,36 @@ def _cursor_goto_document_end(model, cursor) -> None:
     cursor.gotoRange(end_c.getStart(), False)
 
 
-def _insert_starwriter_html_at_cursor(model, cursor, prepared_html, config_svc=None):
-    """Import one HTML fragment through the StarWriter HTML filter at *cursor*."""
-    with _with_temp_buffer(prepared_html, config_svc) as (_path, file_url):
+def insert_html_fragment_at_cursor(
+    cursor,
+    html_fragment: str,
+    *,
+    extra_css: str | None = None,
+    wrap: bool = True,
+    config_svc=None,
+    model=None,
+) -> None:
+    """Import a fragment via the StarWriter HTML filter at *cursor*.
+
+    When *wrap* is True, wraps bare fragments in a full HTML document.
+    *extra_css* is injected into ``<head>`` (e.g. sidebar list margins).
+    When *model* is provided, moves *cursor* to document end after import
+    (needed for multi-segment Writer inserts).
+    """
+    prepared = _wrap_html_fragment(html_fragment, extra_css=extra_css) if wrap else html_fragment
+    with _with_temp_buffer(prepared, config_svc) as (_path, file_url):
         filter_name, _ = _get_format_props(config_svc)
         filter_props = (_create_property_value("FilterName", filter_name),)
         cursor.insertDocumentFromURL(file_url, filter_props)
-    _cursor_goto_document_end(model, cursor)
+    if model is not None:
+        _cursor_goto_document_end(model, cursor)
+
+
+def _insert_starwriter_html_at_cursor(model, cursor, prepared_html, config_svc=None):
+    """Import one HTML fragment through the StarWriter HTML filter at *cursor*."""
+    insert_html_fragment_at_cursor(
+        cursor, prepared_html, wrap=False, config_svc=config_svc, model=model
+    )
 
 
 def _insert_mixed_html_and_math_at_cursor(model, ctx, cursor, unescaped: str, config_svc=None):

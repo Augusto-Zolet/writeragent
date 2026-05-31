@@ -526,6 +526,18 @@ class ChatThemeAndImporterTests(unittest.TestCase):
             importer.tighten_list_indent(body_range)
             mock_tighten.assert_called_once_with(body_range)
 
+    def test_insert_html_at_cursor_forwards_sidebar_css(self):
+        from plugin.chatbot import rich_text
+
+        cursor = MockTextCursor()
+        with patch("plugin.writer.format.insert_html_fragment_at_cursor") as mock_insert:
+            rich_text._insert_html_at_cursor(MockDoc(), cursor, "<p>Hi</p>")
+        mock_insert.assert_called_once_with(
+            cursor,
+            "<p>Hi</p>",
+            extra_css=rich_text._SIDEBAR_LIST_CSS,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

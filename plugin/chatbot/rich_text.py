@@ -16,9 +16,7 @@
 """Shared rich-text formatting for the RichTextControl sidebar (hidden Writer HTML import)."""
 
 import logging
-import os
 import re
-import tempfile
 from typing import Any, cast
 
 log = logging.getLogger(__name__)
@@ -43,6 +41,9 @@ _HTML_TAG_RE = re.compile(
 
 # Legacy plain-sidebar prefix; append_rich_text adds "Assistant:" instead.
 _LEGACY_AI_LABEL_RE = re.compile(r"^\s*AI:\s*", re.IGNORECASE)
+
+# Tight list margins for the narrow sidebar transcript (injected via shared HTML import).
+_SIDEBAR_LIST_CSS = "ul, ol { margin-left: 0.2cm; padding-left: 0.3cm; }"
 
 
 def strip_legacy_ai_label(text: str) -> str:
@@ -194,32 +195,10 @@ def _tighten_list_indent(body_range):
 
 
 def _insert_html_at_cursor(doc, cursor, html_fragment):
-    """Import an HTML fragment into *doc* at *cursor* using Writer's HTML filter.
+    """Import an HTML fragment into *doc* at *cursor* using Writer's HTML filter."""
+    from plugin.writer.format import insert_html_fragment_at_cursor
 
-    Writes the fragment to a temp file and imports via ``insertDocumentFromURL``
-    with the ``HTML (StarWriter)`` filter -- the same mechanism used by
-    ``apply_document_content`` for document edits.
-    """
-    import uno
-    from com.sun.star.beans import PropertyValue
-
-    css = "ul, ol { margin-left: 0.2cm; padding-left: 0.3cm; }"
-    wrapped = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n<style>%s</style>\n</head>\n<body>\n%s\n</body>\n</html>' % (css, html_fragment)
-    tmp_path = None
-    try:
-        with tempfile.NamedTemporaryFile(suffix=".html", delete=False, mode="w", encoding="utf-8") as tmp:
-            tmp.write(wrapped)
-            tmp_path = tmp.name
-
-        url = uno.systemPathToFileUrl(tmp_path)
-        filter_props = (PropertyValue("FilterName", 0, "HTML (StarWriter)", 0),)
-        cursor.insertDocumentFromURL(url, filter_props)
-    finally:
-        if tmp_path:
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
+    insert_html_fragment_at_cursor(cursor, html_fragment, extra_css=_SIDEBAR_LIST_CSS)
 
 
 def append_rich_text(doc, text, role="assistant", style_window=None):

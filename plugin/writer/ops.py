@@ -70,6 +70,7 @@ def insert_html_at_cursor(cursor, html_content):
     """Insert HTML content at the given cursor position.
 
     Uses the 'HTML (StarWriter)' filter to parse and insert content.
+    *html_content* must already be a full HTML document (callers wrap fragments).
     """
     try:
         if not cursor:
@@ -77,22 +78,9 @@ def insert_html_at_cursor(cursor, html_content):
         if not html_content:
             raise WriterError("HTML content is empty", code="WRITER_HTML_CONTENT_EMPTY", details={"operation": "insert_html_at_cursor"})
 
-        import tempfile
-        import os
-        import uno
-        from com.sun.star.beans import PropertyValue
+        from plugin.writer.format import insert_html_fragment_at_cursor
 
-        with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as tmp:
-            tmp.write(html_content.encode("utf-8"))
-            tmp_path = tmp.name
-
-        try:
-            file_url = uno.systemPathToFileUrl(tmp_path)
-            props = (PropertyValue(Name="FilterName", Value="HTML (StarWriter)"),)
-            cursor.insertDocumentFromURL(file_url, props)
-        finally:
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
+        insert_html_fragment_at_cursor(cursor, html_content, wrap=False)
         return True
     except WriterError:
         raise
