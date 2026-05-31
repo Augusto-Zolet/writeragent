@@ -318,14 +318,14 @@ Sub-agents must not run long HTTP on the main thread; [`delegate_read_document`]
 
 ### Why producer-side batching was introduced
 
-During streaming (especially rich-text sidebar), the background LLM reader thread (and other producers) were emitting very small `CHUNK` deltas — sometimes a few characters or even single characters at a time — at the natural cadence of the SSE stream (often every 30–80 ms).
+During streaming (especially the RichTextControl sidebar), the background LLM reader thread (and other producers) were emitting very small `CHUNK` deltas — sometimes a few characters or even single characters at a time — at the natural cadence of the SSE stream (often every 30–80 ms).
 
 Each such item:
 
 1. Crosses the queue boundary.
 2. Wakes the main-thread drain loop (`run_stream_drain_loop` in `async_stream.py`).
 3. Triggers `apply_chunk_fn` (ultimately `append_text_chunk` or `append_rich_text`).
-4. Causes one or more `toolkit.processEventsToIdle()` calls plus `scroll_to_bottom` work in the rich-text path.
+4. May cause `toolkit.processEventsToIdle()` and RichTextControl scroll nudges (`nudge_rich_control_view_to_end`) on the formatted sidebar path.
 
 The net visual effect for the user was **micro-stutter** during long assistant answers: the sidebar would repaint/relayout far more often than necessary.
 
@@ -334,7 +334,7 @@ The net visual effect for the user was **micro-stutter** during long assistant a
 - Do **not** touch the consumer-side drain loop timeout (still `0.1 s`).
 - Move batching to the **producer** (network reader thread) with a *hard 250 ms deadline from the first fragment of each burst* (i.e. "send data every 250 ms max, or when done").
   Downstream code receives one larger joined string no later than 250 ms after the first tiny delta of a burst, while still coalescing rapid fragments. A boundary item (STREAM_DONE etc.) forces immediate emission even if the 250 ms window has not yet elapsed.
-- This is a pure smoothing / UX win orthogonal to the still-open question of reliable visual auto-scroll in the rich-text sidebar.
+- This is a pure smoothing / UX win orthogonal to scroll behavior on the RichTextControl transcript (`nudge_rich_control_view_to_end`); see [rich-text-control-sidebar.md](rich-text-control-sidebar.md).
 
 ### The `BatchingStreamQueue` contract (the single source of truth)
 
@@ -369,7 +369,7 @@ The **primary user-visible chat streaming path** was updated:
 - `tests/framework/test_async_stream.py`:
   - Four new unit tests covering join-on-flush, auto-flush on boundary, the callback helpers, and simulated timer expiry.
 - Documentation:
-  - A short entry was added to `docs/rich-text-sidebar.md` (under the Active Roadmap) describing the 250 ms producer batching and noting that the consumer 0.1 s drain was left unchanged.
+  - See [rich-text-control-sidebar.md](rich-text-control-sidebar.md) for formatted sidebar behavior; producer batching is described in this section.
   - This section (here) is the detailed permanent record.
 
 All of the above passed a full `make test` gate (ty + mypy + pyright + ruff + bandit + pytest + native UNO tests) with zero failures and zero unrelated changes.
@@ -433,7 +433,7 @@ Per the implementation plan and the final status after the May 2025-25 change, t
 - Implementation: `plugin/framework/async_stream.py` (`BatchingStreamQueue`, the defensive bits in `run_async_worker_with_drain`)
 - Primary wiring: `plugin/chatbot/tool_loop.py` (`_active_batched_q`, `_spawn_llm_worker`, `_spawn_final_stream`)
 - Tests: `tests/framework/test_async_stream.py` (the four new batcher tests)
-- UX context & scroll work: `docs/rich-text-sidebar.md` (the 250 ms producer batching bullet under Active Roadmap)
+- UX context & scroll work: [rich-text-control-sidebar.md](rich-text-control-sidebar.md) (`nudge_rich_control_view_to_end`)
 - Original plan / todo items: the conversation transcript and the todo list that existed at the moment the change landed (items such as `boundary-flush-audit`, `wire-acp-and-other-backends`, `flush-for-rerender-clear`, etc. were deliberately cancelled / marked "deferred to global audit" rather than completed).
 
 ### Status summary (as of the change that added this section)

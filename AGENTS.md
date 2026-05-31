@@ -4,6 +4,10 @@
 
 > [!IMPORTANT]
 > **Docs:** After any nontrivial change, update documentation. Prefer the **topic doc** under `docs/`; touch **`AGENTS.md`** only when the change affects **many areas** or **global rules**.
+> [!IMPORTANT]
+> **Complexity:** This codebase is complicated for its size. When asked to do a new feature, always figure out the way using the least amount of code, using existing functions. There are many functions which can just be used or extended to make the change 10 - 100 lines (for a small new feature).  When creating a new function or data, make sure there is always a single source of truth for a piece of functionality or a piece of data. Always read relevant code first to find the useful functions before making a plan.
+
+
 
 > [!IMPORTANT]
 > **Tests:** New features and bugfixes **must** include tests.
@@ -34,6 +38,7 @@
 | Writer HTML / apply content | [`plugin/writer/format_support.py`](plugin/writer/format_support.py) |
 | Errors / `safe_json_loads` | [`plugin/framework/errors.py`](plugin/framework/errors.py) |
 | Weekly extension update check | [`plugin/chatbot/extension_update_check.py`](plugin/chatbot/extension_update_check.py) |
+| Python venv sandbox import policy | [`plugin/scripting/import_policy.py`](plugin/scripting/import_policy.py), whitelist in [`plugin/scripting/sandbox_imports.py`](plugin/scripting/sandbox_imports.py) |
 
 **Layout:** `plugin/` → `framework/` (config, service, state, logging), `modules/` (ai, chatbot—including shared UNO dialogs/listeners/dialog_views/settings_dialog UI, writer, calc, draw, http), [`extension/`](extension/) (OXT resources, [`WriterAgentDialogs/`](extension/WriterAgentDialogs/), [`idl/`](extension/idl/), [`metadata/`](extension/metadata/)), [`scripts/`](scripts/), [`Makefile`](Makefile), [`pyproject.toml`](pyproject.toml).
 
@@ -135,6 +140,7 @@ UNO helpers are split: [`uno_context.py`](plugin/framework/uno_context.py), [`do
 - **Grammar proofreader:** [`plugin/writer/locale/ai_grammar_proofreader.py`](plugin/writer/locale/ai_grammar_proofreader.py), [`grammar_proofread_locale.py`](plugin/writer/locale/grammar_proofread_locale.py) (`GRAMMAR_REGISTRY_LOCALE_TAGS`, UNO `Locale` bridging, Unicode terminals, abbrev/Thai chunking, `looks_complete_sentence`, worker caps/prompt, `parse_grammar_json`), [`grammar_proofread_text.py`](plugin/writer/locale/grammar_proofread_text.py) (BreakIterator split, offsets, sentence scheduling), [`grammar_proofread_cache.py`](plugin/writer/locale/grammar_proofread_cache.py) (LRU; document-embedded mode uses `get_persistence(ctx, doc_id)`), [`grammar_persistence.py`](plugin/writer/locale/grammar_persistence.py) (`DocumentPersistence` in-file storage), [`grammar_worker_llm.py`](plugin/writer/locale/grammar_worker_llm.py) (sync grammar/lang-detect LLM + parse), [`grammar_worker_phases.py`](plugin/writer/locale/grammar_worker_phases.py) (pure lang/grammar completion decisions), [`grammar_work_queue.py`](plugin/writer/locale/grammar_work_queue.py) (`GrammarWorkItem`, batch dedup, enqueue supersede / stale helpers, sequential worker + queue). Service **`__init__(self, ctx, *args)`** required—LibreOffice uses `createInstanceWithArgumentsAndContext`. Keep top-level imports minimal. XCU/locale parity: [`grammar_proofread_locale.py`](plugin/writer/locale/grammar_proofread_locale.py), [`tests/writer/locale/test_grammar_linguistic_xcu.py`](tests/writer/locale/test_grammar_linguistic_xcu.py). Queue/cache semantics: [`docs/realtime-grammar-checker-plan.md`](docs/realtime-grammar-checker-plan.md).
 - **Calc JSON schemas (Gemini/OpenRouter):** no union types—use **`"type": "array"` + `items`**; normalize a single string to a one-element list in execute.
 - **Calc specialized** (pivot, conditional formatting, filters, forms, …): [`docs/calc-specialized-toolsets.md`](docs/calc-specialized-toolsets.md)—future pivot ideas also at top of [`plugin/calc/pivot.py`](plugin/calc/pivot.py).
+- **Python venv sandbox (`run_venv_python_script`, `=PYTHON()`):** LLM prompts start with a **sandbox context prefix** (powerful Python sandbox, many packages assumed, **no networking** / host escape) **before** module lists—see [`import_policy.py`](plugin/scripting/import_policy.py). Whitelist lives in [`sandbox_imports.py`](plugin/scripting/sandbox_imports.py); `np`/`pd`/`sp`/`math` are auto-imported—do not probe imports at runtime. Full tables: [docs/enabling_numpy_in_libreoffice.md](docs/enabling_numpy_in_libreoffice.md). Separate stdlib-only **in-process** sandbox: [`execute_python_script`](plugin/calc/python_executor.py).
 
 ### Config
 
@@ -170,7 +176,7 @@ UNO helpers are split: [`uno_context.py`](plugin/framework/uno_context.py), [`do
 | Topic | Doc |
 |-------|-----|
 | Chat sidebar implementation | [docs/chat-sidebar-implementation.md](docs/chat-sidebar-implementation.md) |
-| Embedded rich-text sidebar | [docs/rich-text-sidebar.md](docs/rich-text-sidebar.md) |
+| Rich text control sidebar | [docs/rich-text-control-sidebar.md](docs/rich-text-control-sidebar.md) |
 | Streaming / threading | [docs/streaming-and-threading.md](docs/streaming-and-threading.md) |
 | Smol vs main chat HTTP | [docs/smol-main-chat-tool-architecture.md](docs/smol-main-chat-tool-architecture.md) |
 | Writer specialized tool tiers | [docs/writer-specialized-toolsets.md](docs/writer-specialized-toolsets.md) |

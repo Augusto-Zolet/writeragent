@@ -66,7 +66,7 @@ Unlike proprietary office suites that lock you into a single cloud provider and 
 
 ### 🌐 Multi-modal & Research
 
-- **Web Research**: Powered by a private, vendored **smolagents** loop. [Web Research Loop](docs/agent-search.md) & [Search Integration](docs/search-engine-integration.md).
+- **Web Research**: Powered by a vendored **smolagents** loop. [Web Research Loop](docs/agent-search.md) & [Search Integration](docs/search-engine-integration.md).
 - **Audio & Voice**: Integrated cross-platform voice recording. [Audio Architecture](docs/audio-architecture.md).
 - **Image Generation**: Generate or edit (Img2Img) images. [Image Generation Guide](docs/image-generation.md).
 
@@ -78,15 +78,17 @@ Unlike proprietary office suites that lock you into a single cloud provider and 
 - **Multilingual Grammar**: An optional feature that uses the LLM to identify and correct the underlying text language when typing in multiple languages, before running the grammar checker.
 - **Cross-Document Research**: Say **my** or **our** in the sidebar (e.g. *“pull Q4 from our budget spreadsheet”*) to read other files in the same folder as your saved document; edits stay on the active doc. [Multi-document plan](docs/multi-document-dev-plan.md).
 
-### 🐍 Local Python Execution (in version 0.8.8)
+### 🐍 Local Python Execution
 
 - **Execute Python**: Use your own virtual environment (running any version of Python) to access libraries like `numpy`, `pandas`, etc.
 - **Enable it**: Set path in **Settings → Python**. Exposed to LLMs in Writer, Calc, and Draw / Impress.
-- **Recommended packages**: `pip install numpy pandas sympy scipy matplotlib scikit-learn` (scientific); `pip install pywebview jedi PyQt6 PyQt6-WebEngine qtpy` (Monaco editor UI). `numpy`, `pandas`, `sympy`, and `math` are auto-imported as `np`, `pd`, `sp`. Use the **Test** button in Settings to see which are installed.
-- **Agentic Analysis**: The AI can run Numpy computations and return structured results (as JSON) to update your document.
+- **Recommended packages**: install `pywebview jedi PyQt6 PyQt6-WebEngine qtpy` for the Monaco editor UI. `numpy`, `pandas`, `sympy`, and `math` are auto-imported as `np`, `pd`, `sp`. Use the **Test** button in Settings to see which are installed.
 - **New Calc Formula**: Use `=PYTHON(3 ** 8")` or pass a range: `=PYTHON("sum(data)", A1:A10)`. The **`data`** variable is a special variable containing the cell values, dynamically injected into your Python script's execution namespace at runtime ([Data Handoff Guide](docs/enabling_numpy_in_libreoffice.md#data-handoff-and-shaping)). Single-cell or single-entry inputs are automatically unpacked to Python scalars (and coerced to standard Python `int`s when they represent whole numbers), enabling intuitive formulas like `=PYTHON("sp.prime(data)", 100000)`.
 - **Multi-Range Support**: `=PYTHON()` supports an arbitrary number of non-contiguous ranges (e.g., `=PYTHON("np.mean(data)", A1:A10, C1:C10)`) for complex cross-block analysis.
-- **Shared Code Cell**: You can store your code in a cell (e.g., `A1`) and reference it across multiple formulas (e.g., `=PYTHON($A$1; B1)`). 
+- **Shared Code Cell**: Store your code in a cell (e.g., `A1`) and reference it across multiple formulas (e.g., `=PYTHON($A$1; B1)`). 
+- **Shared Kernel**: Keeps a persistent, single global Python namespace per Calc workbook across all `=PYTHON()` cells. This allows cells to share variables, imports, and state, mimicking Jupyter notebook behavior. Enable it in **Settings → Python → Python session mode → Shared kernel**, and use **WriterAgent → Reset Python Session** to clear variables for the active workbook.
+- **Initialization Scripts**: Run a workbook startup script once per workbook in a dedicated initialization session (even when session mode is Isolated) to handle expensive setup or seed global constants. Edit it via **WriterAgent → Edit Initialization Script…** (Calc only).
+- **Document-Attached Scripts**: Save and manage Python scripts directly inside document custom properties rather than just in your personal user-profile library. This ensures your custom scripts travel with the document when shared. Access this in the script run dialog under "This Document" to attach, save, or run document-backed scripts.
 - **Safety & Isolation**: Code runs safely in a separate process and is evaluated by a [custom AST-based executor](plugin/contrib/smolagents/local_python_executor.py) (adapted from [Hugging Face smolagents](https://github.com/huggingface/smolagents)) that acts as a secure sandbox which blocks dangerous modules (like `os`, `subprocess`, or `sys`) and functions (like `eval` or `exec`), ensuring that the AI can only perform safe, mathematical, and data-processing tasks. 
 - **Color-syntax highlighting** - Python color-coded editing (if the external venv has: `pywebview jedi PyQt6 PyQt6-WebEngine qtpy`)
 - **High performance**: Compact pickle Protocol 5 + Split-grid [binary blob serialization for numbers](docs/numpy-serialization.md), 2 faster and 50% smaller than standard JSON lists.

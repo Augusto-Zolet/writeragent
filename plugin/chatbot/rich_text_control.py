@@ -22,7 +22,7 @@ import logging
 from typing import Any, cast
 
 from plugin.chatbot.listeners import BaseWindowListener
-from plugin.chatbot.rich_text import _HTML_TAG_RE, append_rich_text, strip_legacy_ai_label
+from plugin.chatbot.rich_text import _HTML_TAG_RE, append_rich_text, strip_legacy_ai_label, ChatTheme
 
 log = logging.getLogger(__name__)
 
@@ -43,6 +43,75 @@ _RICH_KEY_END = 769
 _RICH_KEY_PAGE_DOWN = 771
 # Invisible tail insert triggers EditEngine viewport follow (gotoEnd alone does not after bulk copy).
 _NUDGE_SCROLL_SENTINEL = "\u200b"
+
+
+class RichTextChatWidget:
+    """Widget wrapper that encapsulates a LibreOffice RichTextControl, its settings,
+
+    focus-preservation, text copying from hidden Writer, and viewport scrolling.
+    """
+
+    def __init__(self, ctx, control, style_window=None):
+        self.ctx = ctx
+        self.control = control
+        self.style_window = style_window
+        self.model = control.getModel() if control else None
+
+    def get_text_length(self) -> int:
+        """Get the length of the text currently in the control."""
+        return get_control_text_length(self.control)
+
+    def clear(self) -> None:
+        """Clear the control contents."""
+        clear_control(self.control)
+
+    def truncate(self, start_len: int | None) -> None:
+        """Truncate text starting from the specified length index."""
+        truncate_control_from(self.control, start_len)
+
+    def nudge_view_to_end(self) -> None:
+        """Scroll the control view to the very end."""
+        nudge_rich_control_view_to_end(self.control, ctx=self.ctx, style_window=self.style_window)
+
+    def append_chunk(self, text: str, auto_scroll: bool = True) -> None:
+        """Append a plain text chunk (e.g. streaming tokens) using theme colors."""
+        append_text_chunk(self.control, text, auto_scroll=auto_scroll, style_window=self.style_window, ctx=self.ctx)
+
+    def append_rich_message(
+        self,
+        text: str,
+        role: str = "assistant",
+        auto_scroll: bool = True,
+        on_after_insert=None,
+    ) -> None:
+        """Append formatted HTML message via the SWriter clipboard helper pipeline."""
+        append_rich_text_via_clipboard(
+            self.ctx,
+            self.control,
+            text,
+            role=role,
+            style_window=self.style_window,
+            auto_scroll=auto_scroll,
+            on_after_insert=on_after_insert,
+        )
+
+    def append_rich_messages_batch(
+        self,
+        items,
+        batch_chars: int = HISTORY_RENDER_BATCH_CHARS,
+    ) -> None:
+        """Append a list of history messages in batches to minimize UI repaint iterations."""
+        append_rich_messages_via_clipboard(
+            self.ctx,
+            self.control,
+            items,
+            style_window=self.style_window,
+            batch_chars=batch_chars,
+        )
+
+    def apply_style_defaults(self) -> None:
+        """Apply the standard chat sidebar margins, fonts, and colors to the control."""
+        _apply_rich_control_style_defaults(self.control, style_window=self.style_window)
 
 
 def _is_automatic_char_color(color) -> bool:
@@ -148,9 +217,8 @@ def _apply_rich_control_style_defaults_on_model(model, style_window=None) -> Non
     """
     if model is None:
         return
-    from plugin.chatbot.rich_text import get_theme_colors
 
-    bg_color, _user_color, _assistant_color = get_theme_colors(style_window=style_window)
+    theme = ChatTheme.resolve(style_window=style_window)
     for name, val in (
         ("CharFontName", CHAT_FONT_NAME),
         ("CharFontNameAsian", CHAT_FONT_NAME),
@@ -161,8 +229,8 @@ def _apply_rich_control_style_defaults_on_model(model, style_window=None) -> Non
     ):
         _set_model_property(model, name, val)
     for name, val in (
-        ("BackgroundColor", bg_color),
-        ("CharBackColor", bg_color),
+        ("BackgroundColor", theme.bg_color),
+        ("CharBackColor", theme.bg_color),
         ("PaintTransparent", False),
         ("MultiLine", True),
         ("VScroll", True),
@@ -182,14 +250,12 @@ def _apply_rich_control_style_defaults_on_model(model, style_window=None) -> Non
 
 def _apply_rich_control_style_defaults(control, style_window=None):
     """Set sidebar chat typography on the RichText control at creation (before any content)."""
-    from plugin.chatbot.rich_text import get_theme_colors
-
     model = control.getModel() if control is not None else None
     if model is None:
         return
     _apply_rich_control_style_defaults_on_model(model, style_window=style_window)
-    bg_color, _, _ = get_theme_colors(style_window=style_window)
-    _apply_control_surface_colors(control, bg_color)
+    theme = ChatTheme.resolve(style_window=style_window)
+    _apply_control_surface_colors(control, theme.bg_color)
 
     if hasattr(model, "createTextCursor"):
         try:
@@ -201,7 +267,7 @@ def _apply_rich_control_style_defaults(control, style_window=None):
                 ("CharHeight", CHAT_FONT_HEIGHT),
                 ("CharWeight", CHAT_FONT_WEIGHT),
                 ("CharPosture", 0),
-                ("CharBackColor", bg_color),
+                ("CharBackColor", theme.bg_color),
             )
             cursor = model.createTextCursor()
             cursor.gotoStart(False)
@@ -745,10 +811,9 @@ def _rich_control_bg_color(model, style_window=None) -> int:
                 return bg
     except Exception:
         pass
-    from plugin.chatbot.rich_text import get_theme_colors
 
-    bg_color, _, _ = get_theme_colors(style_window=style_window)
-    return bg_color
+    theme = ChatTheme.resolve(style_window=style_window)
+    return theme.bg_color
 
 
 def _apply_cursor_char_props(dest_cursor, src_portion, char_color=None, bg_color=None) -> None:
@@ -901,12 +966,10 @@ def _copy_formatted_from_hidden_doc_to_control(
     def _do_copy() -> None:
         nonlocal inserted
         try:
-            from plugin.chatbot.rich_text import get_theme_colors
-
             if auto_scroll:
                 _process_idle(ctx)
-            _bg, user_color, assistant_color = get_theme_colors(style_window=style_window)
-            default_color = _role_color_for_text("", user_color, assistant_color, role)
+            theme = ChatTheme.resolve(style_window=style_window)
+            default_color = _role_color_for_text("", theme.user_color, theme.assistant_color, role)
 
             dest_cursor = model.createTextCursor()
             dest_cursor.gotoEnd(False)
@@ -937,7 +1000,7 @@ def _copy_formatted_from_hidden_doc_to_control(
                         _insert_string_at_rich_cursor(model, dest_cursor, line_prefix, default_color)
                         dest_cursor.gotoEnd(False)
                         prefix_inserted = True
-                    portion_color = _resolve_portion_char_color(portion, txt, user_color, assistant_color, role)
+                    portion_color = _resolve_portion_char_color(portion, txt, theme.user_color, theme.assistant_color, role)
                     _apply_cursor_char_props(dest_cursor, portion, char_color=portion_color, bg_color=fill_color)
                     _normalize_portion_font(portion)
                     _apply_cursor_char_props(dest_cursor, portion, char_color=portion_color, bg_color=fill_color)
@@ -1193,17 +1256,15 @@ def append_text_chunk(control, text, auto_scroll=True, style_window=None, ctx=No
         return
 
     def _do_append() -> None:
-        from plugin.chatbot.rich_text import get_theme_colors
-
+        theme = ChatTheme.resolve(style_window=style_window)
         model = control.getModel()
         if model is None or not hasattr(model, "createTextCursor"):
             return
-        bg_color, _, assistant_color = get_theme_colors(style_window=style_window)
         cursor = model.createTextCursor()
         cursor.gotoEnd(False)
         _apply_sidebar_para_margins(cursor)
-        cursor.CharBackColor = bg_color
-        _insert_string_at_rich_cursor(model, cursor, text, assistant_color)
+        cursor.CharBackColor = theme.bg_color
+        _insert_string_at_rich_cursor(model, cursor, text, theme.assistant_color)
         if auto_scroll:
             _nudge_rich_view_to_end_inner(control, ctx)
 
@@ -1239,7 +1300,7 @@ def truncate_control_from(control, start_len: int | None):
     """Remove trailing plain text from *start_len* onward without resetting earlier formatting.
 
     Assigning ``model.Text`` would flatten the whole control to unformatted plain text
-  (e.g. user message color lost). Delete only the tail via a text cursor.
+    (e.g. user message color lost). Delete only the tail via a text cursor.
     """
     if control is None or start_len is None:
         return

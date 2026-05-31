@@ -570,3 +570,50 @@ class TestRerenderRichControlScroll:
                 send.rerender_rich_text_session()
 
             assert call_order == ["truncate", "nudge", "append"]
+
+
+class TestRichTextChatWidget:
+    def test_widget_delegates_correctly(self):
+        from plugin.chatbot.rich_text_control import RichTextChatWidget
+
+        ctx = MagicMock()
+        control = MagicMock()
+        model = MagicMock()
+        control.getModel.return_value = model
+        widget = RichTextChatWidget(ctx, control, style_window=None)
+
+        assert widget.model == model
+
+        with patch("plugin.chatbot.rich_text_control.get_control_text_length", return_value=12) as mock_len:
+            assert widget.get_text_length() == 12
+            mock_len.assert_called_once_with(control)
+
+        with patch("plugin.chatbot.rich_text_control.clear_control") as mock_clear:
+            widget.clear()
+            mock_clear.assert_called_once_with(control)
+
+        with patch("plugin.chatbot.rich_text_control.truncate_control_from") as mock_trunc:
+            widget.truncate(5)
+            mock_trunc.assert_called_once_with(control, 5)
+
+        with patch("plugin.chatbot.rich_text_control.nudge_rich_control_view_to_end") as mock_nudge:
+            widget.nudge_view_to_end()
+            mock_nudge.assert_called_once_with(control, ctx=ctx, style_window=None)
+
+        with patch("plugin.chatbot.rich_text_control.append_text_chunk") as mock_chunk:
+            widget.append_chunk("hello", auto_scroll=True)
+            mock_chunk.assert_called_once_with(control, "hello", auto_scroll=True, style_window=None, ctx=ctx)
+
+        with patch("plugin.chatbot.rich_text_control.append_rich_text_via_clipboard") as mock_rich:
+            widget.append_rich_message("<b>hi</b>", role="user")
+            mock_rich.assert_called_once_with(ctx, control, "<b>hi</b>", role="user", style_window=None, auto_scroll=True, on_after_insert=None)
+
+        with patch("plugin.chatbot.rich_text_control.append_rich_messages_via_clipboard") as mock_batch:
+            items = [("user", "hi")]
+            widget.append_rich_messages_batch(items)
+            mock_batch.assert_called_once_with(ctx, control, items, style_window=None, batch_chars=16384)
+
+        with patch("plugin.chatbot.rich_text_control._apply_rich_control_style_defaults") as mock_style:
+            widget.apply_style_defaults()
+            mock_style.assert_called_once_with(control, style_window=None)
+

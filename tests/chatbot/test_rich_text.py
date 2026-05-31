@@ -494,5 +494,38 @@ class HtmlDetectionRegexTests(unittest.TestCase):
         self.assertTrue(self._matches("x" * 1_000_000 + "<p>"))
 
 
+class ChatThemeAndImporterTests(unittest.TestCase):
+    """Test suite for ChatTheme and HiddenDocHTMLImporter classes."""
+
+    def test_chat_theme_resolution(self):
+        from plugin.chatbot.rich_text import ChatTheme
+
+        style_window = MagicMock()
+        style_settings = MagicMock()
+        style_settings.FieldColor = 0x1E1E1E
+        style_window.StyleSettings = style_settings
+
+        theme = ChatTheme.resolve(style_window=style_window)
+        self.assertEqual(theme.bg_color, 0x1E1E1E)
+        self.assertEqual(theme.user_color, 0x60A5FA)
+        self.assertEqual(theme.assistant_color, 0xE2E8F0)
+
+    def test_importer_insert_and_tighten(self):
+        from plugin.chatbot.rich_text import HiddenDocHTMLImporter
+
+        doc = MockDoc()
+        importer = HiddenDocHTMLImporter(doc)
+        
+        cursor = MockTextCursor()
+        with patch("plugin.chatbot.rich_text._insert_html_at_cursor") as mock_insert:
+            importer.insert_html_at_cursor(cursor, "<p>Hi</p>")
+            mock_insert.assert_called_once_with(doc, cursor, "<p>Hi</p>")
+
+        body_range = MagicMock()
+        with patch("plugin.chatbot.rich_text._tighten_list_indent") as mock_tighten:
+            importer.tighten_list_indent(body_range)
+            mock_tighten.assert_called_once_with(body_range)
+
+
 if __name__ == "__main__":
     unittest.main()

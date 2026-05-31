@@ -56,6 +56,36 @@ USER_COLOR = 0x2A6099
 ASSISTANT_COLOR = 0x1E293B
 
 
+class ChatTheme:
+    """Encapsulates theme-aware colors derived from StyleSettings."""
+
+    def __init__(self, bg_color: int, user_color: int, assistant_color: int):
+        self.bg_color = bg_color
+        self.user_color = user_color
+        self.assistant_color = assistant_color
+
+    @classmethod
+    def resolve(cls, doc=None, style_window=None) -> "ChatTheme":
+        """Factory method to resolve colors from style_window or document frame."""
+        bg_color, user_color, assistant_color = get_theme_colors(doc, style_window=style_window)
+        return cls(bg_color, user_color, assistant_color)
+
+
+class HiddenDocHTMLImporter:
+    """Encapsulates importing HTML into a document and tightening indents on lists."""
+
+    def __init__(self, doc):
+        self.doc = doc
+
+    def insert_html_at_cursor(self, cursor, html_fragment: str) -> None:
+        """Import an HTML fragment into self.doc at *cursor* using Writer's HTML filter."""
+        _insert_html_at_cursor(self.doc, cursor, html_fragment)
+
+    def tighten_list_indent(self, body_range) -> None:
+        """Tighten indentation on list paragraphs within *body_range*."""
+        _tighten_list_indent(body_range)
+
+
 def get_theme_colors(doc=None, style_window=None):
     """Retrieve theme-aware colors based on StyleSettings from *style_window* or *doc*'s frame.
 
@@ -204,7 +234,8 @@ def append_rich_text(doc, text, role="assistant", style_window=None):
         cursor = text_obj.createTextCursor()
         cursor.gotoEnd(False)
 
-        _bg_color, user_color, assistant_color = get_theme_colors(doc, style_window=style_window)
+        theme = ChatTheme.resolve(doc, style_window=style_window)
+        importer = HiddenDocHTMLImporter(doc)
 
         if text and text.strip():
             text = strip_legacy_ai_label(text) if role == "assistant" else text
@@ -221,7 +252,7 @@ def append_rich_text(doc, text, role="assistant", style_window=None):
         prefix_range.gotoRange(cursor.getStart(), True)
         prefix_range.CharHeight = 10.0
         prefix_range.CharWeight = 150.0  # BOLD
-        prefix_range.CharColor = user_color if role == "user" else assistant_color
+        prefix_range.CharColor = theme.user_color if role == "user" else theme.assistant_color
 
         # Body content via HTML import
         cursor.gotoEnd(False)
@@ -235,7 +266,7 @@ def append_rich_text(doc, text, role="assistant", style_window=None):
             used_html_import = False
             if looks_html:
                 try:
-                    _insert_html_at_cursor(doc, cursor, text)
+                    importer.insert_html_at_cursor(cursor, text)
                     used_html_import = True
                 except Exception:
                     log.debug("HTML import failed, falling back to plain text insert")
@@ -252,8 +283,8 @@ def append_rich_text(doc, text, role="assistant", style_window=None):
             # Plain text (and HTML-import fallback) get the role tint; successful HTML import
             # keeps per-span CharColor from the filter (red/blue runs, etc.).
             if not used_html_import:
-                body_range.CharColor = user_color if role == "user" else assistant_color
-            _tighten_list_indent(body_range)
+                body_range.CharColor = theme.user_color if role == "user" else theme.assistant_color
+            importer.tighten_list_indent(body_range)
 
     except Exception as e:
         log.exception("Error in append_rich_text: %s", e)

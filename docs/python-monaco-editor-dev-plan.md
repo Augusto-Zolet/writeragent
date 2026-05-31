@@ -362,7 +362,7 @@ flowchart TD
 
 ## 9. Alternative: Embedded Writer as Python Editor (Research Notes)
 
-Feasibility analysis for replacing Monaco/pywebview with an embedded Writer document (same technique as the rich-text chat sidebar) as the Python code editing surface. Preserved here for future reference.
+Feasibility analysis for replacing Monaco/pywebview with an embedded Writer document (hidden-doc HTML import / paste patterns from the RichTextControl chat sidebar, or a visible frame in a modal dialog) as the Python code editing surface. Preserved here for future reference.
 
 ---
 
@@ -381,11 +381,11 @@ Feasibility analysis for replacing Monaco/pywebview with an embedded Writer docu
 - The pywebview dependency (and the requirement for a configured venv just to open the editor).
 - The persistent child process lifecycle, stderr drain thread, and warm-reuse logic.
 
-### Easy (already proven by the rich-text sidebar)
+### Easy (already proven by the RichTextControl chat sidebar)
 
 | Task | Notes |
 |------|-------|
-| Embedding a Writer doc in a dialog/panel | `create_embedded_writer_doc` pattern from `rich_text.py` |
+| Hidden Writer doc for formatted paste | Hidden-doc + copy pattern in `rich_text_control.py` / `append_rich_text` in `rich_text.py` |
 | Loading code into it | `text.setString(code)` |
 | Extracting code from it | `text.getString()` |
 | Monospace font | Set `CharFontName = "Liberation Mono"` on the Standard paragraph style |
@@ -412,7 +412,7 @@ Feasibility analysis for replacing Monaco/pywebview with an embedded Writer docu
 | **Auto-indent** | Writer's autocorrect is prose-oriented. Would need a `XKeyListener` intercepting Enter/Tab to insert appropriate whitespace based on the previous line's indentation and trailing `:`. |
 | **Tab → spaces** | Writer tab inserts a tab stop. Need to intercept Tab key and insert 4 spaces instead. |
 | **Block selection / multi-cursor** | Not possible in Writer. |
-| **The shutdown crash** | The same VCL parenting crash from the rich-text sidebar applies. If the editor is a modal dialog (not sidebar-parented), this may be avoidable since the dialog lifecycle is explicit. |
+| **The shutdown crash** | Sidebar-parented embedded Writer (removed from chat) had VCL exit crashes. A **modal** dialog hosting an embedded frame has explicit lifecycle and may avoid that; the shipped chat path uses **hidden** Writer docs only (no nested `swriter` in the panel). |
 
 ### Trade-off summary
 
