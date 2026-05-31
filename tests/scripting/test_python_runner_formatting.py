@@ -7,9 +7,29 @@
 # (at your option) any later version.
 
 import unittest
-from plugin.scripting.python_runner import format_result_for_writer
+from plugin.scripting.python_runner import format_result_for_writer, format_elapsed_time
 
 class TestPythonRunnerFormatting(unittest.TestCase):
+    def test_format_elapsed_time(self):
+        # Minutes and seconds
+        self.assertEqual(format_elapsed_time(60.0), "1m 0s")
+        self.assertEqual(format_elapsed_time(75.3), "1m 15s")
+        self.assertEqual(format_elapsed_time(125.9), "2m 5s")
+        
+        # Seconds and hundreds
+        self.assertEqual(format_elapsed_time(1.0), "1.00s")
+        self.assertEqual(format_elapsed_time(3.45), "3.45s")
+        self.assertEqual(format_elapsed_time(59.999), "60.00s") # boundary case (or minutes)
+
+        # Milliseconds (1-999 ms)
+        self.assertEqual(format_elapsed_time(0.999), "999 ms")
+        self.assertEqual(format_elapsed_time(0.5), "500 ms")
+        self.assertEqual(format_elapsed_time(0.001), "1 ms")
+
+        # Less than 1 millisecond
+        self.assertEqual(format_elapsed_time(0.0005), "<1 ms")
+        self.assertEqual(format_elapsed_time(0.0), "<1 ms")
+
     def test_format_string(self):
         self.assertEqual(format_result_for_writer("hello"), "hello")
         self.assertEqual(format_result_for_writer(123), "123")

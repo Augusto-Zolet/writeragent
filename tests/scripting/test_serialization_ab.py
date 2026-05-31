@@ -19,7 +19,7 @@ from typing import Any
 
 import numpy as np
 import pytest
-from hypothesis import given, settings, example
+from hypothesis import given, settings, example, assume, HealthCheck
 
 from plugin.scripting.payload_codec import (
     fast_flatten_grid_1d,
@@ -195,7 +195,7 @@ def test_identity_echo_roundtrip(case: AbGridCase) -> None:
 
 
 @given(grid=rectangular_grid())
-@settings(max_examples=100, deadline=None)
+@settings(max_examples=100, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
 @example([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0], [9.0, 10.0]])
 @example(MIXED_WITH_ZIP)
 @example([[42.0]])
@@ -207,13 +207,12 @@ def test_identity_echo_roundtrip(case: AbGridCase) -> None:
 @example([[float(i) for i in range(10)] for _ in range(10)])
 def test_hypothesis_codec_decode_parity(grid: list[Any] | list[list[Any]]) -> None:
     """Fuzz: codec child/host decode always vs never."""
-    if not hypothesis_grid_ok(grid):
-        return
+    assume(hypothesis_grid_ok(grid))
     assert_codec_split_vs_nosplit_parity(grid, label="hypothesis codec")
 
 
 @given(grid=rectangular_grid())
-@settings(max_examples=100, deadline=None)
+@settings(max_examples=100, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
 @example([[float(i + 1) for i in range(10)]])
 @example(MIXED_WITH_ZIP)
 @example([[42.0]])
@@ -224,18 +223,16 @@ def test_hypothesis_codec_decode_parity(grid: list[Any] | list[list[Any]]) -> No
 @example([[float(i) for i in range(10)] for _ in range(10)])
 def test_hypothesis_venv_echo_parity(grid: list[Any] | list[list[Any]]) -> None:
     """Fuzz: venv echo always vs never."""
-    if not hypothesis_grid_ok(grid):
-        return
+    assume(hypothesis_grid_ok(grid))
     assert_venv_always_never_parity(grid, VENV_CODE_ECHO, label="hypothesis venv echo")
 
 
 @given(grid=numeric_rectangular_grid())
-@settings(max_examples=80, deadline=None)
+@settings(max_examples=80, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
 @example([[float(r * 4 + c + 1) for c in range(4)] for r in range(4)])
 def test_hypothesis_venv_sum_parity(grid: list[Any] | list[list[Any]]) -> None:
     """Fuzz: np.sum always vs never on numeric-coercible grids."""
-    if not hypothesis_grid_ok(grid):
-        return
+    assume(hypothesis_grid_ok(grid))
     flat: list[Any]
     if grid and isinstance(grid[0], (list, tuple)):
         flat = [cell for row in grid for cell in row]
@@ -258,14 +255,13 @@ def test_multi_range_venv_echo(grids: list[list[Any] | list[list[Any]]], label: 
 
 
 @given(grids=multi_range_grid())
-@settings(max_examples=50, deadline=None)
+@settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
 def test_hypothesis_multi_range_venv_echo(grids: list[list[Any] | list[list[Any]]]) -> None:
     """Fuzz: multi-range venv echo."""
     from tests.scripting.serialization_ab_support import run_multi_venv_echo
 
     # Filter grids
-    if not all(hypothesis_grid_ok(g) for g in grids):
-        return
+    assume(all(hypothesis_grid_ok(g) for g in grids))
 
     result = run_multi_venv_echo(grids, pack_force="auto")
     assert len(result) == len(grids)

@@ -139,7 +139,7 @@ tests/
 3. `make deploy`, restart LibreOffice, open Calc.
 4. Select any cell (empty or `=PYTHON("result = 1")`).
 5. **WriterAgent → Edit Python in Cell…** — Monaco window should open.
-6. Edit, **Save** — cell should become/update `=PYTHON("…")` and recalc; toolbar shows green **Saved.** briefly.
+6. Edit, **Save** — cell should become/update `=PYTHON("…")` and recalc; toolbar status line shows green **Status: Saved.** and stays until the next action.
 7. Close the editor with the window **X** (not Cancel), reopen immediately — should **not** show “already open.”
 8. Edit cell A, Save, select cell B, run **Edit Python in Cell…** again — editor reloads B’s code (no blocking dialog).
 9. Right-click a cell — **Edit Python in Cell…** should appear at the bottom of the cell context menu.
@@ -161,7 +161,7 @@ Session 1 proves the **pipe + subprocess + Monaco** spine. The work below is ord
 | Task | Detail | Status |
 |------|--------|--------|
 | **Window lifecycle** | Wire `window.events.closed` (pywebview) to send `closed`; bridge clears session when child exits. | **Done** |
-| **Save feedback** | Green status on `saved` (auto-clear ~3s); red status on `error` with message; editor stays open. | **Done** |
+| **Save feedback** | Green status on `saved`; red status on `error` with message; editor stays open. Status line is always visible (`Status: Ready` initially; last message persists). | **Done** |
 | **Context menu** | Calc cell right-click via [`python_editor_context_menu.py`](../plugin/calc/python_editor_context_menu.py) (`XContextMenuInterceptor`; same dispatch URL as menubar). | **Done** |
 | **stderr logging** | Continuous stderr drain thread in [`editor_bridge.py`](../plugin/scripting/editor_host.py) (`editor-stderr-drain`); lines logged at debug; tail kept for failure msgboxes. | **Done** |
 | **Multi-cell reload** | Editor open on cell A → Save → select B → menu again sends fresh `load` (callbacks retargeted; `save_as_plain` reflects B’s cell type). | **Done** |

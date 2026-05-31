@@ -8,6 +8,7 @@
 """Dialog and execution logic for 'Run Python Script...' in Writer."""
 
 import logging
+import time
 from typing import Any, cast
 import uno
 import unohelper
@@ -204,6 +205,9 @@ class NativePythonScriptDialog:
             toolkit = smgr.createInstanceWithContext("com.sun.star.awt.Toolkit", ctx)
             dlg.createPeer(toolkit, parent_window)
             self._dlg = dlg
+
+            # Trigger background pre-warming of the venv subprocess for the native fallback case as well
+            run_in_background(warm_venv_worker, ctx, name="warm-venv-worker")
 
             select_ctrl = dlg.getControl("ScriptSelect")
             self._select_ctrl = select_ctrl
@@ -797,17 +801,43 @@ def resolve_run_script_config_key(doc: Any) -> str:
     return "last_python_script"
 
 
+def format_elapsed_time(seconds: float) -> str:
+    if seconds >= 60.0:
+        minutes = int(seconds // 60)
+        secs = int(seconds % 60)
+        return f"{minutes}m {secs}s"
+    elif seconds >= 1.0:
+        return f"{seconds:.2f}s"
+    else:
+        ms = seconds * 1000.0
+        if ms < 1.0:
+            return "<1 ms"
+        else:
+            return f"{int(ms)} ms"
+
+
 def execute_and_insert_result(ctx: Any, doc: Any, code: str) -> dict[str, Any]:
     """Run *code* in the user venv and insert the result into *doc* when possible."""
+    t0 = time.perf_counter()
     try:
         response = run_code_in_user_venv(ctx, code)
+        elapsed = time.perf_counter() - t0
     except Exception as e:
+        elapsed = time.perf_counter() - t0
         log.exception("execute_and_insert_result failed")
-        return {"ok": False, "message": str(e), "traceback": exception_traceback(e)}
+        err_msg = str(e)
+        formatted_time = format_elapsed_time(elapsed)
+        if not ("timed out" in err_msg.lower() or "timeout" in err_msg.lower()):
+            err_msg = f"{err_msg} (took {formatted_time})"
+        return {"ok": False, "message": err_msg, "traceback": exception_traceback(e)}
+
+    formatted_time = format_elapsed_time(elapsed)
 
     if response.get("status") != "ok":
         error_msg = response.get("message", _("Unknown error"))
         log.error("Python script failed: %s", error_msg)
+        if not ("timed out" in error_msg.lower() or "timeout" in error_msg.lower()):
+            error_msg = f"{error_msg} (took {formatted_time})"
         return {"ok": False, "message": error_msg}
 
     result_data = response.get("result")
@@ -816,29 +846,34 @@ def execute_and_insert_result(ctx: Any, doc: Any, code: str) -> dict[str, Any]:
     if result_data is None and not stdout:
         return {
             "ok": True,
-            "status_ok_text": _("Script executed successfully, but returned no result and produced no output."),
+            "status_ok_text": _("Script executed successfully, but returned no result and produced no output. (took {time})").format(time=formatted_time),
             "stdout": stdout,
             "result": result_data,
         }
 
     if doc:
-        if is_calc(doc):
-            insert_result_into_calc(doc, ctx, result_data)
-        elif is_writer(doc):
-            formatted = format_result_for_writer(result_data)
-            if formatted:
-                insert_content_at_position(doc, ctx, formatted, "selection")
-        elif is_draw(doc):
-            insert_result_into_draw(doc, ctx, result_data)
-        else:
-            return {"ok": False, "message": _("Unsupported document type for result insertion.")}
+        try:
+            if is_calc(doc):
+                insert_result_into_calc(doc, ctx, result_data)
+            elif is_writer(doc):
+                formatted = format_result_for_writer(result_data)
+                if formatted:
+                    insert_content_at_position(doc, ctx, formatted, "selection")
+            elif is_draw(doc):
+                insert_result_into_draw(doc, ctx, result_data)
+            else:
+                return {"ok": False, "message": _("Unsupported document type for result insertion. (took {time})").format(time=formatted_time)}
+        except Exception as e:
+            elapsed_total = time.perf_counter() - t0
+            formatted_time_total = format_elapsed_time(elapsed_total)
+            return {"ok": False, "message": _("Failed to insert result: {error} (took {time})").format(error=str(e), time=formatted_time_total)}
 
     if stdout:
         log.info("Python script stdout: %s", stdout)
 
     return {
         "ok": True,
-        "status_ok_text": _("Script executed successfully."),
+        "status_ok_text": _("Script executed successfully. (took {time})").format(time=formatted_time),
         "stdout": stdout,
         "result": result_data,
     }
@@ -850,9 +885,9 @@ def _report_run_outcome(ctx: Any, lbl: Any | None, outcome: dict[str, Any]) -> N
         msgbox(ctx, _("Execution Error"), outcome.get("message", _("Unknown error")))
         return
     status_text = outcome.get("status_ok_text", _("Script executed successfully."))
-    if status_text == _(
+    if status_text.startswith(_(
         "Script executed successfully, but returned no result and produced no output."
-    ):
+    )):
         msgbox(ctx, _("Success"), status_text)
     elif outcome.get("stdout") and outcome.get("result") is None:
         msgbox(ctx, _("Output"), outcome.get("stdout"))
@@ -920,7 +955,6 @@ def run_python_dialog(uno_ctx: Any = None) -> None:
 
     _exe, monaco_ok = monaco_editor_available(uno_ctx)
     if monaco_ok and _exe:
-        run_in_background(warm_venv_worker, uno_ctx, name="warm-venv-worker")
         if _run_python_monaco(uno_ctx, doc, config_key=config_key, initial_code=initial_code, exe=_exe):
             return
 

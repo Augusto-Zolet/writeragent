@@ -59,8 +59,9 @@ _VENV_COMMON_BLOCKED: tuple[str, ...] = (
 PYTHON_VENV_SANDBOX_CONTEXT_PREFIX = (
     "PYTHON VENV SANDBOX: You are running in a powerful Python sandbox with access to many "
     "scientific and stdlib modules (NumPy, pandas, SciPy, and "
-    "more. This sandbox has no networking, no filesystem or process escape, and no direct document "
-    "access. Pass inputs via data/data_range; assign outputs to a variable named result."
+    "more). This sandbox has no networking, no filesystem or process escape, and no direct document "
+    "access. Pass inputs via data/data_range; assign outputs (any type: string, list, NumPy array, "
+    "or dictionary with structured keys) to the 'result' variable. Prefer NumPy arrays for faster serialization."
 )
 
 INPROCESS_SANDBOX_CONTEXT_PREFIX = (

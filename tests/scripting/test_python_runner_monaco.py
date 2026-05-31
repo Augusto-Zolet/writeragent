@@ -117,7 +117,7 @@ def test_execute_and_insert_result_returns_error_on_failure():
     with patch.object(pr, "run_code_in_user_venv", return_value={"status": "error", "message": "boom"}):
         outcome = pr.execute_and_insert_result(ctx, MagicMock(), "bad()")
     assert outcome["ok"] is False
-    assert outcome["message"] == "boom"
+    assert outcome["message"].startswith("boom")
 
 
 def test_show_python_input_dialog_run_button_keeps_dialog_open():

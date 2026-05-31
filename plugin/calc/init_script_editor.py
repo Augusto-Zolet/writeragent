@@ -7,13 +7,13 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 # Optional: reset worker init/cell sessions on workbook close (see python_workbook_lifecycle.py).
 # from plugin.calc.python_workbook_lifecycle import ensure_calc_workbook_unload_resets_python
 from plugin.chatbot.dialogs import msgbox
 from plugin.framework.i18n import _
-from plugin.framework.worker_pool import run_in_background
 from plugin.scripting.editor_host import launch_monaco_editor, monaco_editor_available
 from plugin.scripting.init_scripts import (
     calc_init_session_id,
@@ -23,7 +23,8 @@ from plugin.scripting.init_scripts import (
     set_calc_init_script,
 )
 from plugin.scripting.session_manager import calc_workbook_base_session_id, workbook_session_id
-from plugin.scripting.venv_worker import reset_python_session, run_code_in_user_venv, warm_venv_worker
+from plugin.scripting.venv_worker import reset_python_session, run_code_in_user_venv
+from plugin.scripting.python_runner import format_elapsed_time
 
 log = logging.getLogger("writeragent.scripting")
 
@@ -65,23 +66,41 @@ def handle_init_script_editor_action(
             "status_ok_text": _("Initialization script cleared."),
         }
 
-    res = run_code_in_user_venv(
-        ctx,
-        "result = None",
-        session_id=workbook_session_id(ctx),
-        init_script=init_code,
-        init_session_id=calc_init_session_id(doc),
-        init_script_hash=init_script_hash(init_code),
-    )
+    t0 = time.perf_counter()
+    try:
+        res = run_code_in_user_venv(
+            ctx,
+            "result = None",
+            session_id=workbook_session_id(ctx),
+            init_script=init_code,
+            init_session_id=calc_init_session_id(doc),
+            init_script_hash=init_script_hash(init_code),
+        )
+        elapsed = time.perf_counter() - t0
+    except Exception as e:
+        elapsed = time.perf_counter() - t0
+        err_msg = str(e)
+        formatted_time = format_elapsed_time(elapsed)
+        if not ("timed out" in err_msg.lower() or "timeout" in err_msg.lower()):
+            err_msg = f"{err_msg} (took {formatted_time})"
+        return {"type": "error", "message": err_msg}
+
+    formatted_time = format_elapsed_time(elapsed)
+
     if res.get("status") != "ok":
+        err_msg = res.get("message") or _("Initialization script failed.")
+        if not ("timed out" in err_msg.lower() or "timeout" in err_msg.lower()):
+            err_msg = f"{err_msg} (took {formatted_time})"
         return {
             "type": "error",
-            "message": res.get("message") or _("Initialization script failed."),
+            "message": err_msg,
         }
     stdout = (res.get("stdout") or "").strip()
     status = run_ok_text
     if stdout:
         status = f"{status}\n{stdout}"
+    
+    status = f"{status} (took {formatted_time})"
     return {"type": "saved", "ok": True, "status_ok_text": status}
 
 
@@ -138,6 +157,5 @@ def open_calc_init_script_editor(ctx: Any) -> None:
         "saved_ok_text": save_ok_text,
     }
 
-    run_in_background(warm_venv_worker, ctx, name="warm-venv-worker")
     if not launch_monaco_editor(ctx, exe=exe, load_message=load_msg, on_save=on_save):
         msgbox(ctx, "WriterAgent", _("Could not open the Python editor."))

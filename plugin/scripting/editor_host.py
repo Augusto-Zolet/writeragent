@@ -32,7 +32,7 @@ from plugin.scripting.editor_ipc import (
     write_message,
 )
 from plugin.scripting.subprocess_helpers import scrub_subprocess_env, wrap_command_for_sandbox
-from plugin.scripting.venv_worker import resolve_venv_python
+from plugin.scripting.venv_worker import resolve_venv_python, warm_venv_worker
 
 log = logging.getLogger(__name__)
 
@@ -744,6 +744,9 @@ def launch_monaco_editor(
             set_active_session(None)
             msgbox(ctx, "WriterAgent", failure_message(_("The Python editor window did not start."), detail=detail))
             return False
+
+        # Trigger background pre-warming of the venv subprocess now that Monaco is successfully up.
+        run_in_background(warm_venv_worker, ctx, name="warm-venv-worker")
 
     if not session.is_running:
         detail = session.read_stderr_tail()

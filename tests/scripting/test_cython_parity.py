@@ -16,7 +16,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from hypothesis import given, settings, example
+from hypothesis import given, settings, example, assume, HealthCheck
 
 from plugin.scripting.payload_codec import fast_flatten_grid_2d
 from tests.scripting.payload_codec_test_support import MIXED_WITH_ZIP, NUMERIC_4X4
@@ -66,7 +66,7 @@ def test_cython_transform_parity(case: VenvTransformCase) -> None:
 
 
 @given(grid=rectangular_grid())
-@settings(max_examples=50, deadline=None)
+@settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
 @example([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0], [9.0, 10.0]])
 @example(MIXED_WITH_ZIP)
 @example([[42.0]])
@@ -75,17 +75,15 @@ def test_cython_transform_parity(case: VenvTransformCase) -> None:
 @example([1, 2, 3.5])
 def test_hypothesis_cython_echo_parity(grid: list[Any] | list[list[Any]]) -> None:
     """Fuzz: Cython vs Pure Python echo parity."""
-    if not hypothesis_grid_ok(grid):
-        return
+    assume(hypothesis_grid_ok(grid))
     assert_cython_vs_python_parity(grid, VENV_CODE_ECHO, label="hypothesis echo")
 
 
 @given(grid=numeric_rectangular_grid())
-@settings(max_examples=50, deadline=None)
+@settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
 def test_hypothesis_cython_sum_parity(grid: list[Any] | list[list[Any]]) -> None:
     """Fuzz: Cython vs Pure Python sum parity."""
-    if not hypothesis_grid_ok(grid):
-        return
+    assume(hypothesis_grid_ok(grid))
     assert_cython_vs_python_parity(grid, VENV_CODE_SUM, label="hypothesis sum")
 
 

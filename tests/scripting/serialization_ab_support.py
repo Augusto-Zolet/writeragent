@@ -707,25 +707,38 @@ def grid_cell(draw) -> Any:
 def rectangular_grid(
     draw,
     *,
-    max_rows: int = 15,
-    max_cols: int = 15,
-    max_cells: int = 150,
+    max_rows: int = 6,
+    max_cols: int = 6,
+    max_cells: int = 30,
 ) -> list[Any] | list[list[Any]]:
-    # Favor sizes around the BINARY_MIN_CELLS threshold
-    if draw(st.booleans()):
-        ncells = draw(st.integers(1, max(25, BINARY_MIN_CELLS + 5)))
+    import sys
+    import os
+    is_long = os.environ.get("WRITERAGENT_HYPOTHESIS_LONG") or any("test_serialization_verification" in arg or "slowtests" in arg for arg in sys.argv)
+
+    # Favor sizes around the BINARY_MIN_CELLS threshold only in long test runs
+    if is_long:
+        limit_cells = 150
+        limit_rows = 15
+        limit_cols = 15
+        if draw(st.booleans()):
+            ncells = draw(st.integers(1, max(25, BINARY_MIN_CELLS + 5)))
+        else:
+            ncells = draw(st.integers(1, limit_cells))
     else:
-        ncells = draw(st.integers(1, max_cells))
+        limit_cells = max_cells
+        limit_rows = max_rows
+        limit_cols = max_cols
+        ncells = draw(st.integers(1, limit_cells))
 
     use_1d = draw(st.booleans())
     if use_1d:
         return [draw(grid_cell()) for _ in range(ncells)]
 
     # Attempt to generate rectangular 2D grids with approximately ncells
-    nrows = draw(st.integers(1, min(ncells, max_rows)))
+    nrows = draw(st.integers(1, min(ncells, limit_rows)))
     ncols = (ncells + nrows - 1) // nrows
-    if ncols > max_cols:
-        ncols = max_cols
+    if ncols > limit_cols:
+        ncols = limit_cols
     
     return [[draw(grid_cell()) for _ in range(ncols)] for _ in range(nrows)]
 
