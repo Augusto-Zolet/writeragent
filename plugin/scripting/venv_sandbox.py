@@ -97,6 +97,19 @@ def apply_auto_imports(code: str) -> tuple[str, int]:
     return "\n".join(prepended_lines) + "\n" + code, len(prepended_lines)
 
 
+def inject_auto_imports(executor: LocalPythonExecutor, code: str) -> None:
+    """Inject auto imports into executor state if referenced but not imported in code."""
+    bindings = {}
+    for module_name, import_stmt in AUTO_IMPORTS.items():
+        if not is_module_imported(code, module_name):
+            mod = optional_module(module_name)
+            if mod is not None:
+                alias = import_stmt.split(" as ")[-1].strip() if " as " in import_stmt else module_name
+                bindings[alias] = mod
+    if bindings:
+        executor.send_variables(bindings)
+
+
 def serialize_result(obj: Any) -> Any:
     """Convert numpy/pandas and containers to JSON-safe values (split_grid for large numeric/mixed arrays)."""
     try:
@@ -260,8 +273,8 @@ def _ensure_init_executed(
             return None
 
     init_executor = _get_or_create_session_executor(init_session_id, timeout_sec)
-    init_code, _ = apply_auto_imports(script)
-    result = _run_on_executor(init_executor, init_code)
+    inject_auto_imports(init_executor, script)
+    result = _run_on_executor(init_executor, script)
     if result.get("status") != "ok":
         with _SESSION_LOCK:
             _SESSION_EXECUTORS.pop(init_session_id, None)
@@ -364,8 +377,6 @@ def run_sandboxed_code(
         if init_err is not None:
             return init_err
 
-    code, _ = apply_auto_imports(code)
-
     if session_id:
         executor = _get_or_create_session_executor(session_id, timeout_sec)
         if init_sid:
@@ -381,5 +392,6 @@ def run_sandboxed_code(
         if init_sid:
             _seed_executor_from_init(executor, init_sid)
 
+    inject_auto_imports(executor, code)
     _inject_data(executor, data)
     return _run_on_executor(executor, code)

@@ -168,7 +168,7 @@ class TestToolcallingPromptExamples(unittest.TestCase):
         block = get_examples_block("calc:python")
         self.assertEqual(block, PYTHON_SPECIALIZED_EXAMPLES)
         self.assertIn("run_venv_python_script", block)
-        self.assertIn("sp.prime(100)", block)
+        self.assertIn("sp.prime(1010)", block)
         self.assertIn("SciPy", block)
         self.assertIn("DO NOT import numpy", block)
         self.assertNotIn('"code": "import', block)

@@ -61,7 +61,9 @@ PYTHON_VENV_SANDBOX_CONTEXT_PREFIX = (
     "scientific and stdlib modules (NumPy, pandas, SciPy, and "
     "more). This sandbox has no networking, no filesystem or process escape, and no direct document "
     "access. Pass inputs via data/data_range; assign outputs (any type: string, list, NumPy array, "
-    "or dictionary with structured keys) to the 'result' variable. Prefer NumPy arrays for faster serialization."
+    "or dictionary with structured keys) to the 'result' variable. Prefer NumPy arrays in 'result' for faster serialization. "
+    "Note: While the sandboxed venv has NumPy/Pandas, the LibreOffice host environment does not. "
+    "Therefore, the specialized_workflow_finished tool API only accepts basic Python types (strings, lists, numbers, dicts)."
 )
 
 INPROCESS_SANDBOX_CONTEXT_PREFIX = (

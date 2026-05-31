@@ -40,7 +40,7 @@ _PARAMETERS_CALC = {
     "properties": {
         "code": {
             "type": "string",
-            "description": "Python / Numpy source. Set `result` to the return value (JSON-serializable).",
+            "description": "Python / Numpy source. Set `result` to the return value (NumPy ndarray, Pandas DataFrame, list, dict, or scalar).",
         },
         "data_range": {
             "type": "string",
@@ -60,21 +60,21 @@ _PARAMETERS_NON_CALC = {
     "properties": {
         "code": {
             "type": "string",
-            "description": "Python / Numpy source. Set `result` to the return value (JSON-serializable).",
+            "description": "Python / Numpy source. Set `result` to the return value (NumPy ndarray, Pandas DataFrame, list, dict, or scalar).",
         },
     },
     "required": ["code"],
 }
 
 _DESCRIPTION_CALC = (
-    "Run Python code. Set `result` to a JSON-serializable return value. "
+    "Run Python code. Set `result` to a return value (NumPy ndarray, Pandas DataFrame, list, dict, or scalar). "
     + PYTHON_VENV_AUTO_IMPORTS_TOOL_NOTE
     + "Optional data_range (e.g. B1:B10) injects cell values as `data` (flat list for one row/column). "
     "Alternatively pass `data` directly after read_cell_range."
 )
 
 _DESCRIPTION_NON_CALC = (
-    "Run Python code in the configured venv. Set `result` to a JSON-serializable return value. "
+    "Run Python code in the configured venv. Set `result` to a return value (NumPy ndarray, Pandas DataFrame, list, dict, or scalar). "
     + PYTHON_VENV_AUTO_IMPORTS_TOOL_NOTE
     + "Use document tools to read or change the file; this tool does not inject spreadsheet `data`."
 )

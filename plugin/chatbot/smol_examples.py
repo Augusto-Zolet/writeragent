@@ -48,19 +48,19 @@ PYTHON_SPECIALIZED_EXAMPLES_NOTES = format_venv_import_policy_for_prompt(compact
 # Specialized domain python (Writer/Calc/Draw): teach venv script shape + pre-imported np/sp/pd.
 PYTHON_SPECIALIZED_EXAMPLES = (
     PYTHON_SPECIALIZED_EXAMPLES_NOTES
-    + """Task: "What is the 100th prime number?"
+    + """Task: "Calculate prime numbers from the 1010th prime to the 1020th prime as a NumPy array."
 
 Action:
 {
   "name": "run_venv_python_script",
-  "arguments": {"code": "result = sp.prime(100)\\n"}
+  "arguments": {"code": "low, high = sp.prime(1010), sp.prime(1020)\\nresult = np.array(sp.primerange(low, high + 1))\\n"}
 }
-Observation: {"status": "ok", "result": 541, "stdout": "", "stderr": ""}
+Observation: {"status": "ok", "result": [8017, 8039, 8053, 8059, 8069, 8081, 8087, 8089, 8093, 8101, 8111], "stdout": "", "stderr": ""}
 
 Action:
 {
   "name": "specialized_workflow_finished",
-  "arguments": {"answer": "The 100th prime number is 541."}
+  "arguments": {"answer": "I have successfully calculated the prime numbers and stored them in the `result` variable as a NumPy array. The values are: [8017, 8039, 8053, 8059, 8069, 8081, 8087, 8089, 8093, 8101, 8111]."}
 }
 """
 )
