@@ -494,6 +494,57 @@ class HtmlDetectionRegexTests(unittest.TestCase):
         self.assertTrue(self._matches("x" * 1_000_000 + "<p>"))
 
 
+class ChatTypographyTests(unittest.TestCase):
+    """Tests for shared sidebar chat typography helpers."""
+
+    def test_apply_chat_char_props(self):
+        from plugin.chatbot.rich_text import (
+            CHAT_FONT_HEIGHT,
+            CHAT_FONT_NAME,
+            CHAT_FONT_WEIGHT,
+            apply_chat_char_props,
+        )
+
+        target = MagicMock()
+        apply_chat_char_props(target, bg_color=0xABCDEF)
+        target.CharFontName = CHAT_FONT_NAME
+        target.CharHeight = CHAT_FONT_HEIGHT
+        target.CharWeight = CHAT_FONT_WEIGHT
+        target.CharBackColor = 0xABCDEF
+
+    def test_apply_rich_control_para_margins(self):
+        from plugin.chatbot.rich_text import CHAT_PARA_SIDE_MARGIN, apply_rich_control_para_margins
+
+        cursor = MagicMock()
+        apply_rich_control_para_margins(cursor)
+        cursor.ParaLeftMargin = CHAT_PARA_SIDE_MARGIN
+        cursor.ParaRightMargin = CHAT_PARA_SIDE_MARGIN
+        cursor.ParaFirstLineIndent = 0
+
+    def test_configure_hidden_writer_for_chat(self):
+        from plugin.chatbot.rich_text import CHAT_FONT_NAME, configure_hidden_writer_for_chat
+
+        std_para = MagicMock()
+        para_styles = MagicMock()
+        para_styles.hasByName.return_value = True
+        para_styles.getByName.return_value = std_para
+        style_families = MagicMock()
+        style_families.hasByName.return_value = True
+        style_families.getByName.return_value = para_styles
+        cursor = MagicMock()
+        text = MagicMock()
+        text.createTextCursor.return_value = cursor
+        doc = MagicMock()
+        doc.getStyleFamilies.return_value = style_families
+        doc.getText.return_value = text
+
+        configure_hidden_writer_for_chat(doc)
+
+        std_para.CharFontName = CHAT_FONT_NAME
+        cursor.gotoStart.assert_called_once_with(False)
+        cursor.gotoEnd.assert_called_once_with(True)
+
+
 class ChatThemeAndImporterTests(unittest.TestCase):
     """Test suite for ChatTheme and HiddenDocHTMLImporter classes."""
 

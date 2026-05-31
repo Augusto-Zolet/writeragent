@@ -45,6 +45,77 @@ _LEGACY_AI_LABEL_RE = re.compile(r"^\s*AI:\s*", re.IGNORECASE)
 # Tight list margins for the narrow sidebar transcript (injected via shared HTML import).
 _SIDEBAR_LIST_CSS = "ul, ol { margin-left: 0.2cm; padding-left: 0.3cm; }"
 
+CHAT_FONT_NAME = "Liberation Sans"
+CHAT_FONT_HEIGHT = 10.0
+CHAT_FONT_WEIGHT = 100.0
+# Writer paragraph margins (1/100 mm) — horizontal padding inside RichTextControl EditEngine.
+CHAT_PARA_SIDE_MARGIN = 250
+
+
+def apply_chat_char_props(target, *, bg_color=None) -> None:
+    """Apply sidebar chat Liberation Sans 10pt Char* props to a cursor, portion, or style object."""
+    for name, val in (
+        ("CharFontName", CHAT_FONT_NAME),
+        ("CharFontNameAsian", CHAT_FONT_NAME),
+        ("CharFontNameComplex", CHAT_FONT_NAME),
+        ("CharHeight", CHAT_FONT_HEIGHT),
+        ("CharWeight", CHAT_FONT_WEIGHT),
+        ("CharPosture", 0),
+    ):
+        try:
+            setattr(target, name, val)
+        except Exception:
+            pass
+    if bg_color is not None:
+        try:
+            target.CharBackColor = bg_color
+        except Exception:
+            pass
+
+
+def apply_rich_control_para_margins(cursor) -> None:
+    """Keep chat text off the RichTextControl edges (EditEngine has no CSS padding)."""
+    for name, val in (
+        ("ParaLeftMargin", CHAT_PARA_SIDE_MARGIN),
+        ("ParaRightMargin", CHAT_PARA_SIDE_MARGIN),
+        ("ParaFirstLineIndent", 0),
+    ):
+        try:
+            setattr(cursor, name, val)
+        except Exception:
+            pass
+
+
+def configure_hidden_writer_for_chat(doc) -> None:
+    """Apply sidebar chat defaults on a hidden Writer doc (font, zero margins, no spellcheck)."""
+    try:
+        import uno
+
+        style_families = doc.getStyleFamilies()
+        if style_families.hasByName("ParagraphStyles"):
+            para_styles = style_families.getByName("ParagraphStyles")
+            if para_styles.hasByName("Standard"):
+                std_para = para_styles.getByName("Standard")
+                std_para.ParaLeftMargin = 0
+                std_para.ParaRightMargin = 0
+                std_para.ParaFirstLineIndent = 0
+                std_para.ParaTopMargin = 0
+                std_para.ParaBottomMargin = 200
+                apply_chat_char_props(std_para)
+                no_lang = cast("Any", uno.createUnoStruct("com.sun.star.lang.Locale"))
+                no_lang.Language = "zxx"
+                no_lang.Country = ""
+                std_para.CharLocale = no_lang
+                std_para.CharLocaleAsian = no_lang
+                std_para.CharLocaleComplex = no_lang
+        text = doc.getText()
+        cursor = text.createTextCursor()
+        cursor.gotoStart(False)
+        cursor.gotoEnd(True)
+        cursor.CharHeight = CHAT_FONT_HEIGHT
+    except Exception as e:
+        log.debug("configure_hidden_writer_for_chat failed: %s", e)
+
 
 def strip_legacy_ai_label(text: str) -> str:
     """Remove leading ``AI:`` from greeting/assistant text (avoid ``Assistant: AI:``)."""
@@ -229,13 +300,13 @@ def append_rich_text(doc, text, role="assistant", style_window=None):
 
         prefix_range = text_obj.createTextCursorByRange(start_pos)
         prefix_range.gotoRange(cursor.getStart(), True)
-        prefix_range.CharHeight = 10.0
+        prefix_range.CharHeight = CHAT_FONT_HEIGHT
         prefix_range.CharWeight = 150.0  # BOLD
         prefix_range.CharColor = theme.user_color if role == "user" else theme.assistant_color
 
         # Body content via HTML import
         cursor.gotoEnd(False)
-        cursor.CharWeight = 100.0  # Reset to normal after bold prefix
+        cursor.CharWeight = CHAT_FONT_WEIGHT  # Reset to normal after bold prefix
         pre_len = doc.CharacterCount
 
         if text and text.strip():

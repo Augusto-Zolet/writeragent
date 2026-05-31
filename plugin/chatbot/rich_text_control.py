@@ -21,19 +21,23 @@ import logging
 from typing import Any, cast
 
 from plugin.chatbot.listeners import BaseWindowListener
-from plugin.chatbot.rich_text import ChatTheme, strip_legacy_ai_label
+from plugin.chatbot.rich_text import (
+    CHAT_FONT_HEIGHT,
+    CHAT_FONT_NAME,
+    CHAT_FONT_WEIGHT,
+    ChatTheme,
+    apply_chat_char_props,
+    apply_rich_control_para_margins,
+    strip_legacy_ai_label,
+)
+from plugin.framework.uno_context import focus_preserved, process_events_to_idle
 
 log = logging.getLogger(__name__)
 
 _CONTROL_INIT_STARTED: set[int] = set()
 RICH_CONTROL_NAME = "response_rich"
-CHAT_FONT_NAME = "Liberation Sans"
-CHAT_FONT_HEIGHT = 10.0
-CHAT_FONT_WEIGHT = 100.0
 # Dialog units (AppFont) — inset RichTextControl inside the response placeholder so glyphs are not clipped.
 RICH_CONTROL_EDGE_INSET = 8
-# Writer paragraph margins (1/100 mm) — horizontal padding inside the EditEngine text area.
-CHAT_PARA_SIDE_MARGIN = 250
 # History reload: batch hidden-Writer + copy cycles to avoid per-message UI repaint.
 HISTORY_RENDER_BATCH_CHARS = 16384
 # LO awt KeyCode values (Linux/GTK) for RichTextControl scroll fallbacks when no VCL scrollbar is exposed.
@@ -115,6 +119,50 @@ class RichTextChatWidget:
         """Apply the standard chat sidebar margins, fonts, and colors to the control."""
         _apply_rich_control_style_defaults(self.control, style_window=self.style_window)
 
+    def rerender_last_assistant_if_html(self, session, stream_start_len: int | None) -> None:
+        """Replace the streamed assistant tail with formatted HTML when the message contains tags."""
+        from plugin.chatbot.rich_text import _HTML_TAG_RE
+
+        final_msg = None
+        for msg in reversed(session.messages):
+            if msg.get("role") == "assistant" and msg.get("content"):
+                final_msg = msg
+                break
+        if not final_msg:
+            return
+        content = final_msg.get("content", "")
+        if not _HTML_TAG_RE.search(content):
+            return
+        self.truncate(stream_start_len)
+        # Rescroll after truncate: streamed tail removal shrinks content but leaves
+        # the viewport at the pre-truncate position (visible jump upward).
+        self.nudge_view_to_end()
+        self.append_rich_message(content, role="assistant")
+
+    def append_user_message(self, text: str, on_after_insert=None) -> None:
+        """Append a formatted user message and optionally record control length after insert."""
+        self.append_rich_message(text, role="user", on_after_insert=on_after_insert)
+
+    def append_assistant_stream_chunk(self, text: str, auto_scroll: bool = True) -> bool:
+        """Append plain streaming assistant text; return False when legacy AI/status lines are skipped."""
+        if skip_legacy_assistant_stream_chunk(text):
+            return False
+        self.append_chunk(text, auto_scroll=auto_scroll)
+        return True
+
+    def clear_and_greeting(self, greeting: str = "") -> None:
+        """Clear the transcript and optionally show a formatted greeting."""
+        self.clear()
+        if greeting:
+            self.append_rich_message(greeting, role="assistant")
+
+    def render_session_history(self, session, greeting: str = "") -> None:
+        """Reload session messages into the control (batched formatted paste)."""
+        from plugin.chatbot.rich_text_paste import session_history_items
+
+        self.clear()
+        self.append_rich_messages_batch(session_history_items(session, greeting))
+
 
 def _is_automatic_char_color(color) -> bool:
     """True for LO automatic / unset character colors (COL_AUTO)."""
@@ -184,15 +232,7 @@ def sync_rich_control_bounds(rich_control, root_window, placeholder_ctrl) -> boo
 
 def _apply_sidebar_para_margins(cursor) -> None:
     """Keep chat text off the RichTextControl edges (EditEngine has no CSS padding)."""
-    for name, val in (
-        ("ParaLeftMargin", CHAT_PARA_SIDE_MARGIN),
-        ("ParaRightMargin", CHAT_PARA_SIDE_MARGIN),
-        ("ParaFirstLineIndent", 0),
-    ):
-        try:
-            setattr(cursor, name, val)
-        except Exception:
-            pass
+    apply_rich_control_para_margins(cursor)
 
 
 def _apply_rich_control_style_defaults_on_model(model, style_window=None) -> None:
@@ -246,25 +286,12 @@ def _apply_rich_control_style_defaults(control, style_window=None):
     if hasattr(model, "createTextCursor"):
         try:
             import uno
-            char_props = (
-                ("CharFontName", CHAT_FONT_NAME),
-                ("CharFontNameAsian", CHAT_FONT_NAME),
-                ("CharFontNameComplex", CHAT_FONT_NAME),
-                ("CharHeight", CHAT_FONT_HEIGHT),
-                ("CharWeight", CHAT_FONT_WEIGHT),
-                ("CharPosture", 0),
-                ("CharBackColor", theme.bg_color),
-            )
             cursor = model.createTextCursor()
             cursor.gotoStart(False)
             text_len = len(model.Text or "")
             if text_len > 0:
                 cursor.gotoEnd(True)
-            for name, val in char_props:
-                try:
-                    setattr(cursor, name, val)
-                except Exception:
-                    pass
+            apply_chat_char_props(cursor, bg_color=theme.bg_color)
             _apply_sidebar_para_margins(cursor)
             cursor.gotoEnd(False)
             if hasattr(control, "setSelection"):
@@ -648,7 +675,8 @@ def append_text_chunk(control, text, auto_scroll=True, style_window=None, ctx=No
             _nudge_rich_view_to_end_inner(control, ctx)
 
     try:
-        _preserve_focus_window(ctx, _do_append)
+        with focus_preserved(ctx):
+            _do_append()
     except Exception:
         log.exception("append_text_chunk (rich control) failed")
 
@@ -733,7 +761,7 @@ def _nudge_rich_view_to_end_inner(control, ctx=None) -> None:
         text_len = len(model.Text or "")
         rounds = 3
         for _ in range(rounds):
-            _process_idle(ctx)
+            process_events_to_idle(ctx)
         log.debug(
             "nudge_rich_control_view_to_end: len=%d rounds=%d sentinel_removed=%s",
             text_len,
@@ -747,43 +775,12 @@ def _nudge_rich_view_to_end_inner(control, ctx=None) -> None:
 def nudge_rich_control_view_to_end(control, ctx=None, style_window=None) -> None:
     """Scroll the read-only response control without stealing focus from the query field.
 
-    Uses a zero-width tail ``insertString`` (removed immediately) under ``_preserve_focus_window``
+    Uses a zero-width tail ``insertString`` (removed immediately) under ``focus_preserved``
     — same mechanism as streaming appends. ``gotoEnd`` + idle alone does not move the viewport
     after bulk history copy; VCL scrollbars are not exposed on this control.
     """
     if not control:
         return
-    _preserve_focus_window(ctx, lambda: _nudge_rich_view_to_end_inner(control, ctx))
+    with focus_preserved(ctx):
+        _nudge_rich_view_to_end_inner(control, ctx)
 
-
-def _preserve_focus_window(ctx, fn) -> None:
-    """Run *fn* and restore whichever sidebar control had focus (usually ``query``)."""
-    saved = None
-    try:
-        from plugin.framework.uno_context import get_toolkit
-
-        tk = get_toolkit(ctx)
-        if tk is not None and hasattr(tk, "getFocusWindow"):
-            saved = tk.getFocusWindow()
-    except Exception as e:
-        log.debug("_preserve_focus_window capture: %s", e)
-    try:
-        fn()
-    finally:
-        if saved is not None:
-            try:
-                if hasattr(saved, "setFocus"):
-                    saved.setFocus()
-            except Exception as e:
-                log.debug("_preserve_focus_window restore: %s", e)
-
-
-def _process_idle(ctx):
-    try:
-        from plugin.framework.uno_context import get_toolkit
-
-        tk = get_toolkit(ctx)
-        if tk and hasattr(tk, "processEventsToIdle"):
-            tk.processEventsToIdle()
-    except Exception:
-        pass

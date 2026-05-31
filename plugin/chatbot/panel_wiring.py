@@ -268,11 +268,12 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):
 
     if get_config_bool_safe(self.ctx, "rich_text_control_sidebar", default=True):
         try:
-            from plugin.chatbot.rich_text_control import RichTextControlListener
+            from plugin.chatbot.rich_text_control import RichTextChatWidget, RichTextControlListener
 
             def on_rich_control_ready(rich_control):
                 log.info("[RICH-CONTROL] on_rich_control_ready control=%s", bool(rich_control))
-                self.rich_text_control = rich_control
+                widget = RichTextChatWidget(self.ctx, rich_control, style_window=root_window)
+                self.rich_text_widget = widget
                 controls["response_rich"] = rich_control
                 if hasattr(self, "_panel_resize_listener") and self._panel_resize_listener:
                     self._panel_resize_listener._c["response_rich"] = rich_control
@@ -287,7 +288,7 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):
                 except Exception as e:
                     log.debug("on_rich_control_ready sync bounds: %s", e)
                 if hasattr(self, "send_listener") and self.send_listener:
-                    self.send_listener.set_rich_text_control(rich_control, style_window=root_window)
+                    self.send_listener.set_rich_text_widget(widget)
                 try:
                     from plugin.chatbot.dialogs import set_control_visible
 
@@ -308,18 +309,13 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):
                     except Exception as e:
                         log.debug("on_rich_control_ready post-history relayout_now: %s", e)
                 try:
-                    from plugin.chatbot.rich_text_control import nudge_rich_control_view_to_end, sync_rich_control_bounds
+                    from plugin.chatbot.rich_text_control import sync_rich_control_bounds
                     from plugin.framework.queue_executor import post_to_main_thread
 
                     sync_rich_control_bounds(rich_control, root_window, controls["response"])
-                    nudge_rich_control_view_to_end(rich_control, ctx=self.ctx, style_window=root_window)
+                    widget.nudge_view_to_end()
                     # Relayout can reset EditEngine scroll position after the first nudge.
-                    post_to_main_thread(
-                        nudge_rich_control_view_to_end,
-                        rich_control,
-                        ctx=self.ctx,
-                        style_window=root_window,
-                    )
+                    post_to_main_thread(widget.nudge_view_to_end)
                 except Exception as e:
                     log.debug("on_rich_control_ready post-history scroll: %s", e)
 

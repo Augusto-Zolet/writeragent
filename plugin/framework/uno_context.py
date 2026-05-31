@@ -27,6 +27,7 @@ storing a ctx reference from ``initialize()``.
 """
 
 import logging
+from contextlib import contextmanager
 from typing import Any, cast
 
 log = logging.getLogger("writeragent.context")
@@ -139,3 +140,39 @@ def get_toolkit(ctx=None):
     except Exception:
         log.exception("Failed to create toolkit")
         return None
+
+
+@contextmanager
+def focus_preserved(ctx):
+    """Capture the current focus window, yield, then restore it.
+
+    RichTextControl append/paste/nudge must not steal focus from the chat query field;
+    callers wrap UNO mutations that might move focus to the transcript control.
+    """
+    saved = None
+    try:
+        tk = get_toolkit(ctx)
+        if tk is not None and hasattr(tk, "getFocusWindow"):
+            saved = tk.getFocusWindow()
+    except Exception as e:
+        log.debug("focus_preserved capture: %s", e)
+    try:
+        yield
+    finally:
+        if saved is not None:
+            try:
+                if hasattr(saved, "setFocus"):
+                    saved.setFocus()
+            except Exception as e:
+                log.debug("focus_preserved restore: %s", e)
+
+
+def process_events_to_idle(ctx, rounds: int = 1) -> None:
+    """Drain the UI event queue *rounds* times; no-op when toolkit is unavailable."""
+    for _ in range(max(1, rounds)):
+        try:
+            tk = get_toolkit(ctx)
+            if tk and hasattr(tk, "processEventsToIdle"):
+                tk.processEventsToIdle()
+        except Exception:
+            pass

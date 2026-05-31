@@ -348,8 +348,7 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         self._approval_event = None
         self._approval_ui_backup = None
         self._approval_query_for_engine = None
-        self.rich_text_control = None
-        self._rich_control_style_window = None
+        self.rich_text_widget = None
         if HAS_RECORDING:
             assert _AudioRecorderCls is not None
             self.audio_recorder = _AudioRecorderCls()
@@ -374,11 +373,10 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         except Exception:
             log.exception("SendButtonListener event subscribe error")
 
-    def set_rich_text_control(self, control, style_window=None):
+    def set_rich_text_widget(self, widget):
         """Enable RichTextControl sidebar rendering via hidden-doc formatted copy."""
-        self.rich_text_control = control
-        self._rich_control_style_window = style_window
-        log.info("[RICH-CONTROL] SendButtonListener.set_rich_text_control called")
+        self.rich_text_widget = widget
+        log.info("[RICH-CONTROL] SendButtonListener.set_rich_text_widget called")
 
     def rerender_rich_text_session(self):
         """Re-render the final streamed assistant response with HTML formatting, leaving previous text untouched.
@@ -386,38 +384,16 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         Called after streaming completes to replace the last plain-text assistant response
         with full HTML rendering instead of raw chunks.
         """
-        if getattr(self, "rich_text_control", None):
-            try:
-                from plugin.chatbot.rich_text import _HTML_TAG_RE
-                from plugin.chatbot.rich_text_control import nudge_rich_control_view_to_end, truncate_control_from
-                from plugin.chatbot.rich_text_paste import append_rich_text_via_clipboard
-
-                final_msg = None
-                for msg in reversed(self.session.messages):
-                    if msg.get("role") == "assistant" and msg.get("content"):
-                        final_msg = msg
-                        break
-                if not final_msg:
-                    return
-                content = final_msg.get("content", "")
-                if not _HTML_TAG_RE.search(content):
-                    return
-                start_len = getattr(self, "_assistant_stream_start_len", None)
-                truncate_control_from(self.rich_text_control, start_len)
-                # Rescroll after truncate: streamed tail removal shrinks content but leaves
-                # the viewport at the pre-truncate position (visible jump upward).
-                nudge_rich_control_view_to_end(
-                    self.rich_text_control, ctx=self.ctx, style_window=self._rich_control_style_window,
-                )
-                append_rich_text_via_clipboard(
-                    self.ctx,
-                    self.rich_text_control,
-                    content,
-                    role="assistant",
-                    style_window=self._rich_control_style_window,
-                )
-            except Exception:
-                log.exception("rerender_rich_text_session (rich control) failed")
+        widget = getattr(self, "rich_text_widget", None)
+        if widget is None:
+            return
+        try:
+            widget.rerender_last_assistant_if_html(
+                self.session,
+                getattr(self, "_assistant_stream_start_len", None),
+            )
+        except Exception:
+            log.exception("rerender_rich_text_session (rich control) failed")
 
     @property
     def state(self):
@@ -667,42 +643,28 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
     def _append_response(self, text, is_thinking=False, role="assistant"):
         """Append text to the response area (RichTextControl or plain multiline field)."""
         try:
-            if self.rich_text_control:
+            widget = getattr(self, "rich_text_widget", None)
+            if widget:
                 auto_scroll = self._should_auto_scroll()
                 log.debug("_append_response: rich-control len=%d role=%s", len(text) if text else 0, role)
-                # Legacy plain sidebar uses "AI:"; RichTextControl uses "Assistant:" via append_rich_text.
-                from plugin.chatbot.rich_text_control import skip_legacy_assistant_stream_chunk
-
-                if role != "user" and skip_legacy_assistant_stream_chunk(text):
-                    return
                 if role == "user":
-                    from plugin.chatbot.rich_text_paste import append_rich_text_via_clipboard
 
                     def _on_user_inserted(control_len: int) -> None:
                         self._assistant_stream_start_len = control_len
                         log.debug("_append_response: rich-control stream start len=%d", control_len)
 
                     self.queue_executor.post(
-                        append_rich_text_via_clipboard,
-                        self.ctx,
-                        self.rich_text_control,
+                        widget.append_user_message,
                         text,
-                        role="user",
-                        style_window=self._rich_control_style_window,
                         on_after_insert=_on_user_inserted,
                     )
                 else:
                     if getattr(self, "_record_assistant_start", False):
                         self._record_assistant_start = False
-                    from plugin.chatbot.rich_text_control import append_text_chunk
-
                     self.queue_executor.post(
-                        append_text_chunk,
-                        self.rich_text_control,
+                        widget.append_assistant_stream_chunk,
                         text,
                         auto_scroll=auto_scroll,
-                        style_window=self._rich_control_style_window,
-                        ctx=self.ctx,
                     )
                 return
 
@@ -1175,20 +1137,9 @@ class ClearButtonListener(BaseActionListener):
             return
         self.session.clear()
 
-        if self.send_listener and self.send_listener.rich_text_control:
+        if self.send_listener and self.send_listener.rich_text_widget:
             try:
-                from plugin.chatbot.rich_text_control import clear_control
-                from plugin.chatbot.rich_text_paste import append_rich_text_via_clipboard
-
-                clear_control(self.send_listener.rich_text_control)
-                if self.greeting:
-                    append_rich_text_via_clipboard(
-                        self.send_listener.ctx,
-                        self.send_listener.rich_text_control,
-                        self.greeting,
-                        role="assistant",
-                        style_window=getattr(self.send_listener, "_rich_control_style_window", None),
-                    )
+                self.send_listener.rich_text_widget.clear_and_greeting(self.greeting or "")
             except Exception:
                 log.exception("Error clearing RichTextControl sidebar")
             if self.status_control:

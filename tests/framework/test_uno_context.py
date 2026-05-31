@@ -94,3 +94,29 @@ def test_get_ctx_fallback_uno_returns_none():
     finally:
         sys.modules.pop('uno', None)
         set_fallback_ctx(None)
+
+
+def test_focus_preserved_restores_focus_window():
+    from contextlib import contextmanager
+
+    from plugin.framework.uno_context import focus_preserved
+
+    focus_window = MagicMock()
+    toolkit = MagicMock()
+    toolkit.getFocusWindow.return_value = focus_window
+
+    with patch("plugin.framework.uno_context.get_toolkit", return_value=toolkit):
+        with focus_preserved(MagicMock()):
+            pass
+
+    focus_window.setFocus.assert_called_once()
+
+
+def test_process_events_to_idle_calls_toolkit():
+    from plugin.framework.uno_context import process_events_to_idle
+
+    toolkit = MagicMock()
+    with patch("plugin.framework.uno_context.get_toolkit", return_value=toolkit):
+        process_events_to_idle(MagicMock(), rounds=3)
+
+    assert toolkit.processEventsToIdle.call_count == 3

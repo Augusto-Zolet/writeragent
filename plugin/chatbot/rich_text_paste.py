@@ -29,20 +29,25 @@ import html
 import logging
 from typing import Any, cast
 
-from plugin.chatbot.rich_text import ChatTheme, _HTML_TAG_RE, append_rich_text, strip_legacy_ai_label
-from plugin.chatbot.rich_text_control import (
+from plugin.chatbot.rich_text import (
     CHAT_FONT_HEIGHT,
     CHAT_FONT_NAME,
     CHAT_FONT_WEIGHT,
+    ChatTheme,
+    configure_hidden_writer_for_chat,
+    _HTML_TAG_RE,
+    append_rich_text,
+    strip_legacy_ai_label,
+)
+from plugin.chatbot.rich_text_control import (
     HISTORY_RENDER_BATCH_CHARS,
     _apply_sidebar_para_margins,
     _insert_string_at_rich_cursor,
     _is_automatic_char_color,
-    _preserve_focus_window,
-    _process_idle,
     get_control_text_length,
     nudge_rich_control_view_to_end,
 )
+from plugin.framework.uno_context import focus_preserved, process_events_to_idle
 
 log = logging.getLogger(__name__)
 
@@ -59,40 +64,6 @@ def build_message_html(text: str, role: str = "assistant") -> str:
     else:
         body = "<p>%s</p>" % html.escape(text)
     return "<p><strong>%s</strong></p>%s" % (label, body)
-
-
-def _configure_hidden_writer_for_chat(doc) -> None:
-    """Apply sidebar chat defaults (Liberation Sans 10pt, zero margins, no spellcheck)."""
-    try:
-        import uno
-        from typing import cast
-
-        style_families = doc.getStyleFamilies()
-        if style_families.hasByName("ParagraphStyles"):
-            para_styles = style_families.getByName("ParagraphStyles")
-            if para_styles.hasByName("Standard"):
-                std_para = para_styles.getByName("Standard")
-                std_para.ParaLeftMargin = 0
-                std_para.ParaRightMargin = 0
-                std_para.ParaFirstLineIndent = 0
-                std_para.ParaTopMargin = 0
-                std_para.ParaBottomMargin = 200
-                std_para.CharFontName = CHAT_FONT_NAME
-                std_para.CharFontNameAsian = CHAT_FONT_NAME
-                std_para.CharFontNameComplex = CHAT_FONT_NAME
-                no_lang = cast("Any", uno.createUnoStruct("com.sun.star.lang.Locale"))
-                no_lang.Language = "zxx"
-                no_lang.Country = ""
-                std_para.CharLocale = no_lang
-                std_para.CharLocaleAsian = no_lang
-                std_para.CharLocaleComplex = no_lang
-        text = doc.getText()
-        cursor = text.createTextCursor()
-        cursor.gotoStart(False)
-        cursor.gotoEnd(True)
-        cursor.CharHeight = CHAT_FONT_HEIGHT
-    except Exception as e:
-        log.debug("_configure_hidden_writer_for_chat failed: %s", e)
 
 
 def create_hidden_html_writer(ctx):
@@ -395,7 +366,7 @@ def _copy_formatted_from_hidden_doc_to_control(
         nonlocal inserted
         try:
             if auto_scroll:
-                _process_idle(ctx)
+                process_events_to_idle(ctx)
             theme = ChatTheme.resolve(style_window=style_window)
             default_color = _role_color_for_text("", theme.user_color, theme.assistant_color, role)
 
@@ -451,7 +422,8 @@ def _copy_formatted_from_hidden_doc_to_control(
             inserted = False
 
     if ctx is not None:
-        _preserve_focus_window(ctx, _do_copy)
+        with focus_preserved(ctx):
+            _do_copy()
     else:
         _do_copy()
     return inserted
@@ -490,7 +462,7 @@ def _try_paste_via_key_event(ctx, control) -> bool:
         ev.KeyChar = "v"
         key_pressed(ev)
         key_released(ev)
-        _process_idle(ctx)
+        process_events_to_idle(ctx)
         log.info("insert_transferable_into_rich_control: dispatched Ctrl+V on control peer")
         return True
     except Exception as e:
@@ -508,7 +480,7 @@ def _try_insert_transferable_on_target(target_name, target, transferable, ctx) -
     try:
         ins(transferable)
         log.info("insert_transferable_into_rich_control: via %s.insertTransferable", target_name)
-        _process_idle(ctx)
+        process_events_to_idle(ctx)
         return True
     except Exception as e:
         log.debug("insert_transferable_into_rich_control: %s.insertTransferable failed: %s", target_name, e)
@@ -552,7 +524,7 @@ def insert_transferable_into_rich_control(control, transferable, ctx, style_wind
 
         if _set_system_clipboard(ctx, transferable):
             nudge_rich_control_view_to_end(control, ctx=ctx, style_window=style_window)
-            _process_idle(ctx)
+            process_events_to_idle(ctx)
             if _try_paste_via_key_event(ctx, control):
                 nudge_rich_control_view_to_end(control, ctx=ctx, style_window=style_window)
                 if get_control_text_length(control) > len_before:
@@ -568,7 +540,8 @@ def insert_transferable_into_rich_control(control, transferable, ctx, style_wind
         )
 
     try:
-        _preserve_focus_window(ctx, _try_paths)
+        with focus_preserved(ctx):
+            _try_paths()
     except Exception:
         log.exception("insert_transferable_into_rich_control failed")
     return result
@@ -593,7 +566,7 @@ def append_rich_messages_via_clipboard(
             if doc is None:
                 log.error("append_rich_messages_via_clipboard: hidden Writer unavailable")
                 return
-            _configure_hidden_writer_for_chat(doc)
+            configure_hidden_writer_for_chat(doc)
             for role, content in batch:
                 append_rich_text(doc, content, role=role, style_window=style_window)
             log.debug(
@@ -677,7 +650,7 @@ def append_rich_text_via_clipboard(
         if doc is None:
             log.error("append_rich_text_via_clipboard: hidden Writer unavailable")
             return
-        _configure_hidden_writer_for_chat(doc)
+        configure_hidden_writer_for_chat(doc)
         append_rich_text(doc, text, role=role, style_window=style_window)
         log.debug("append_rich_text_via_clipboard: hidden doc ready len=%d role=%s", len(text), role)
         inserted = False
