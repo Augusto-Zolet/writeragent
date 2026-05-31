@@ -162,8 +162,23 @@ Use the URL from **MCP Server Status** (includes the `/mcp` path). Enable **MCP 
 **Important for integrators:** MCP exposes **core** document tools plus `delegate_to_specialized_writer_toolset`. The MCP `tools/list` does not change with the delegate call. The current design delegates to a separate inner agent with a **special toolset and a clear task** (shapes, web research, etc.). That is simpler than giving the outer MCP model dozens of LO APIs to juggle over a session. The internal agent stack is required for the **background grammar checker**. See [docs/mcp-protocol.md](docs/mcp-protocol.md) — *MCP architecture for developers*.
 
 - **Real-time Sidebar Monitoring**: All MCP activity (requests and tool results) is logged in real-time in the sidebar.
-- **Targeting**: Clients target a document via the `**X-Document-URL**` header.
 - **Hybrid AI Orchestrator Model**: This exposes the entire toolset to external agents while maintaining the document as the single source of truth.
+
+### Document targeting (multiple open files)
+
+By default, MCP uses LibreOffice's **active document** (whichever window has focus). That is fine with a single file open, but it is unreliable when several documents are open or focus changes while an external client (Cursor, a script, etc.) is running.
+
+To target a specific open document, send the **`X-Document-URL`** HTTP header on **each** MCP request (`tools/list`, `tools/call`, …). The value must be the exact LibreOffice URL of an already-open document (usually `file:///…` for saved files). Targeting is per-request: one call can edit a Writer doc and the next can target a Calc sheet.
+
+```bash
+curl -X POST http://localhost:8765/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'Expect:' \
+  -H 'X-Document-URL: file:///home/user/report.odt' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_document_content","arguments":{}}}'
+```
+
+MCP server config JSON typically sets only the endpoint URL; your client or wrapper must attach `X-Document-URL` per call. See [docs/mcp-protocol.md](docs/mcp-protocol.md) (*Document Targeting*) and [`scripts/mcp_live_smoke.py`](scripts/mcp_live_smoke.py) (`--document-url`).
 
 ---
 
