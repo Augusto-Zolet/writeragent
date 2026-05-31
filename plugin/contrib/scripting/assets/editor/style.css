@@ -7,8 +7,15 @@ html, body {
   color: #333333;
 }
 
+body {
+  display: flex;
+  flex-direction: column;
+}
+
 #toolbar {
   display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
@@ -61,12 +68,11 @@ html, body {
 }
 
 #status {
-  margin-left: auto;
-  min-width: 0;
-  flex: 1 1 0;
+  flex-basis: 100%;
+  width: 100%;
   font-size: 12px;
   opacity: 0.85;
-  text-align: right;
+  text-align: left;
 }
 
 #status.status-ok {
@@ -170,6 +176,7 @@ html, body {
 }
 
 #editor {
-  height: calc(100% - 42px);
+  flex: 1;
+  min-height: 0;
   width: 100%;
 }

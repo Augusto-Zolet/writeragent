@@ -33,7 +33,11 @@
   function setStatus(text, kind) {
     var el = document.getElementById("status");
     if (el) {
-      el.textContent = text || "";
+      var label = text || "Ready";
+      if (label.indexOf("Status: ") !== 0) {
+        label = "Status: " + label;
+      }
+      el.textContent = label;
       el.className = "";
       if (kind === "ok") el.classList.add("status-ok");
       if (kind === "error") el.classList.add("status-error");
@@ -71,11 +75,9 @@
     updateDropdown();
     if (msg.status_ok_text) {
       setStatus(msg.status_ok_text, "ok");
-      setTimeout(function() { setStatus("", ""); }, 3000);
     }
     if (msg.status_error_text) {
       setStatus(msg.status_error_text, "error");
-      setTimeout(function() { setStatus("", ""); }, 5000);
     }
   }
 
@@ -201,7 +203,6 @@
       if (window.editor) {
         window.editor.setValue(scriptIndex[name].code);
         setStatus("Loaded script '" + name + "'.", "ok");
-        setTimeout(function() { setStatus("", ""); }, 2000);
       }
     }
   }
