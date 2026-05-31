@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 18:34-0400\n"
+"POT-Creation-Date: 2026-05-30 22:01-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1081,12 +1081,29 @@ msgid "Unknown error"
 msgstr ""
 
 #: plugin/scripting/python_runner.py
+#, python-brace-format
 msgid ""
 "Script executed successfully, but returned no result and produced no output."
+" (took {time})"
 msgstr ""
 
 #: plugin/scripting/python_runner.py
-msgid "Unsupported document type for result insertion."
+#, python-brace-format
+msgid "Unsupported document type for result insertion. (took {time})"
+msgstr ""
+
+#: plugin/scripting/python_runner.py
+#, python-brace-format
+msgid "Failed to insert result: {error} (took {time})"
+msgstr ""
+
+#: plugin/scripting/python_runner.py
+#, python-brace-format
+msgid "Script executed successfully. (took {time})"
+msgstr ""
+
+#: plugin/scripting/python_runner.py
+msgid "Execution Error"
 msgstr ""
 
 #: plugin/scripting/python_runner.py
@@ -1094,7 +1111,8 @@ msgid "Script executed successfully."
 msgstr ""
 
 #: plugin/scripting/python_runner.py
-msgid "Execution Error"
+msgid ""
+"Script executed successfully, but returned no result and produced no output."
 msgstr ""
 
 #: plugin/scripting/python_runner.py
