@@ -52,6 +52,9 @@ _STRETCH_CONTROLS = (
     "aspect_ratio_selector",
 )
 
+# Stretch controls aligned to Clear / RichTextControl / query right edge (not full panel width).
+_CONTENT_EDGE_CLAMP = ("query", "model_selector", "image_model_selector", "aspect_ratio_selector")
+
 
 class _PanelResizeListener(BaseWindowListener):
     """Adjusts panel layout on resize.
@@ -239,7 +242,7 @@ class _PanelResizeListener(BaseWindowListener):
             if name in stretch:
                 new_x = ox
                 new_w = max(_MIN_WIDTHS.get(name, 40), w - ox - right_margin)
-                if name == "query":
+                if name in _CONTENT_EDGE_CLAMP:
                     resp_ctrl = self._c.get("response")
                     if resp_ctrl:
                         try:
@@ -247,9 +250,9 @@ class _PanelResizeListener(BaseWindowListener):
 
                             cap = sidebar_content_right_edge(win, resp_ctrl) - new_x
                             if cap > 0:
-                                new_w = min(new_w, max(_MIN_WIDTHS.get("query", 40), cap))
+                                new_w = min(new_w, max(_MIN_WIDTHS.get(name, 40), cap))
                         except Exception as e:
-                            log.debug("query width clamp to clear: %s", e)
+                            log.debug("%s width clamp to content edge: %s", name, e)
             else:
                 # Buttons, labels, checkboxes, backend_indicator, etc. — keep XDL width, left-anchored.
                 new_x = ox
