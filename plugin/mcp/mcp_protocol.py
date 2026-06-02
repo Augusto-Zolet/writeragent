@@ -377,7 +377,7 @@ class MCPProtocolHandler:
 
         doc = self.queue_executor.execute(_get_doc, timeout=10.0)
 
-        schemas = self.tool_registry.get_schemas("mcp", doc=doc)
+        schemas = self.tool_registry.get_schemas("mcp", doc=doc, exclude_tiers=frozenset({"specialized", "specialized_control"}))
         return {"tools": schemas}
 
     def _mcp_resources_list(self, params):
@@ -390,7 +390,10 @@ class MCPProtocolHandler:
         state = MCPState(status=MCPStateStr.IDLE)
 
         tool_name = params.get("name")
-        arguments = params.get("arguments", {})
+        arguments = dict(params.get("arguments", {}))
+        arg_document_url = arguments.pop("document_url", None)
+        if arg_document_url:
+            document_url = arg_document_url
         tool = self.tool_registry.get(tool_name)
         is_long_running = getattr(tool, "long_running", False) if tool else False
 

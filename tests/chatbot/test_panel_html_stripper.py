@@ -21,6 +21,7 @@ from plugin.framework.html_stripper import StreamingHTMLStripper
 def _make_plain_send_listener():
     with patch.object(SendButtonListener, "__init__", lambda self, *a, **k: None):
         send = SendButtonListener.__new__(SendButtonListener)
+        send.ctx = MagicMock()
         send.rich_text_widget = None
         send.response_control = MagicMock()
         send.response_control.getModel.return_value = MagicMock()

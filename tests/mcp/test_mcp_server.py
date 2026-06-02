@@ -248,3 +248,61 @@ def test_handle_mcp_raises():
         assert "error" in response_data
         assert response_data["error"].get("code") == -32603  # Internal error
         assert "Test Internal Error" in response_data["error"].get("message", "")
+
+
+def test_to_mcp_schema_injects_document_url():
+    """Test that to_mcp_schema dynamically injects document_url parameter."""
+    from plugin.framework.tool import ToolBase, to_mcp_schema
+
+    class DummyTool(ToolBase):
+        name = "dummy_tool"
+        description = "A dummy tool for testing schema injection."
+        parameters = {
+            "type": "object",
+            "properties": {
+                "arg1": {"type": "string"}
+            },
+            "required": ["arg1"]
+        }
+        def execute(self, ctx, **kwargs):
+            return {"status": "ok"}
+
+    schema = to_mcp_schema(DummyTool())
+    input_schema = schema.get("inputSchema", {})
+    assert "document_url" in input_schema.get("properties", {})
+    assert input_schema["properties"]["document_url"]["type"] == "string"
+
+
+def test_handle_mcp_tools_call_parameter():
+    """Test that _mcp_tools_call extracts document_url from arguments and uses it."""
+    services = MagicMock()
+    mcp_protocol = MCPProtocolHandler(services)
+
+    # Mock tool registry and mock tool
+    tool_mock = MagicMock()
+    tool_mock.name = "dummy_tool"
+    tool_mock.long_running = False
+    mcp_protocol.tool_registry = MagicMock()
+    mcp_protocol.tool_registry.get.return_value = tool_mock
+
+    # Patch execution to see what document_url it receives
+    with patch.object(mcp_protocol, "_execute_with_backpressure") as mock_execute:
+        params = {
+            "name": "dummy_tool",
+            "arguments": {
+                "arg1": "value",
+                "document_url": "file:///my/custom/doc.odt"
+            }
+        }
+        mcp_protocol._mcp_tools_call(params, document_url="file:///default/header/doc.odt")
+
+        # Verify execute was called with the document_url from arguments, and not the header's
+        mock_execute.assert_called_once()
+        args, kwargs = mock_execute.call_args
+        assert args[0] == "dummy_tool"
+        # The arguments passed to execute should NOT contain document_url anymore (popped)
+        assert "document_url" not in args[1]
+        assert args[1]["arg1"] == "value"
+        # The target document_url passed as keyword arg should be the one from the arguments
+        assert kwargs.get("document_url") == "file:///my/custom/doc.odt"
+

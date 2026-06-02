@@ -115,6 +115,13 @@ def to_mcp_schema(tool, *, doc_type: str | None = None):
     input_schema = copy.deepcopy(tool.get_parameters(doc_type) or {})
     if "type" not in input_schema:
         input_schema["type"] = "object"
+    if "properties" not in input_schema:
+        input_schema["properties"] = {}
+    if "document_url" not in input_schema["properties"]:
+        input_schema["properties"]["document_url"] = {
+            "type": "string",
+            "description": "Optional URL of the target document. If not provided, the active document is used."
+        }
     desc = tool.get_description(doc_type)
 
     agent_label = getattr(tool, "_agent_label", None)
@@ -417,7 +424,7 @@ def _is_specialized_domain_tool(t: Any, active_domain: str) -> bool:
 
 
 # Hidden from default chat/MCP tool lists; exposed via delegate_to_specialized_writer_toolset.
-_DEFAULT_EXCLUDE_TIERS = frozenset({"specialized", "specialized_control"})
+_DEFAULT_EXCLUDE_TIERS = frozenset({"specialized", "specialized_control", "mcp"})
 _UNSET_EXCLUDE_TIERS = object()
 
 
