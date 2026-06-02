@@ -4,6 +4,20 @@
 
 **Current state:** The sidebar panel is **working**. "Chat with Document" appears in the WriterAgent deck in Writer's sidebar with Response area, Ask field, and Send button. The menu item can remain as fallback.
 
+### Main chat: sidebar reply vs document edit
+
+The sidebar is a **chat window**: assistant text is stored in session history and shown in the Response area (HTML when `rich_text_control_sidebar` is on). That is separate from **editing the open document**, which the **main** Writer agent does with **`apply_document_content`** (and related read/search tools).
+
+| User intent | Main agent action |
+|-------------|-------------------|
+| Answer, explain, discuss without changing the doc | Assistant **chat reply** only |
+| Write, draft, replace, or translate into the document | **`apply_document_content`** (and reads as needed) |
+| Large edit plus acknowledgment | Tool call(s) + **brief** chat confirmation |
+
+Prompt text lives in [`plugin/framework/constants.py`](../plugin/framework/constants.py): **`SIDEBAR_VS_DOCUMENT`** (routing) and **`WRITER_CORE_DIRECTIVES`** (delegation), composed by **`get_chat_system_prompt_for_document`**. **Sub-agents** (web research, librarian, specialized delegate) use different completion tools (`final_answer`, `reply_to_user`, delegate `task`)—not this routing block.
+
+**Menu chat** (non-sidebar entry) has no tool-calling; it is conversational only.
+
 ---
 
 ## Working Solution (Resolved)

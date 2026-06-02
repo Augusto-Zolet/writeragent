@@ -156,11 +156,16 @@ def delegation_math_to_python_hint(*, delegate_toolset: str) -> str:
     )
 
 
-# General directives shared across all AI interfaces
-WRITER_CORE_DIRECTIVES = f"""When asked to answer a question or create or explain something, assume the user wants the
-information to be inserted into the document. Use the apply_document_content tool to insert content
-into LibreOffice so the user can edit it further.
-When the user wants {DELEGATION_USER_FILE_DATA_HINT}:
+# Main sidebar chat only (Writer DEFAULT_CHAT_SYSTEM_PROMPT_TEMPLATE). Sub-agents use
+# final_answer / reply_to_user / delegate task — not this block.
+SIDEBAR_VS_DOCUMENT = """SIDEBAR CHAT (main agent): You are in the WriterAgent sidebar. The user sees your assistant messages in chat history.
+- Chat reply: Use when they want an answer, explanation, or discussion without changing the document (questions, how-to, confirmations). Follow CHAT RESPONSE FORMAT above.
+- Document edit: Use apply_document_content when they want text in the document (write, draft, replace, translate into the doc).
+- After document edits, a brief chat confirmation is fine; do not put long document body only in chat when it belongs in the doc.
+Default for authoring requests (draft, write, replace): use apply_document_content."""
+
+# Writer main chat: delegation routing (paired with SIDEBAR_VS_DOCUMENT in the system prompt).
+WRITER_CORE_DIRECTIVES = f"""When the user wants {DELEGATION_USER_FILE_DATA_HINT}:
 - You MUST NOT ask the user where to find it, or to upload, paste, its contents.
 - You MUST call delegate_to_specialized_writer_toolset(domain="document_research") once with their described file(s) and task in task; the sub-agent lists nearby files to match (paths not required).
 When the user wants {DELEGATION_PUBLIC_WEB_HINT}, delegate_to_specialized_writer_toolset(domain="web_research").
@@ -344,6 +349,8 @@ Honor any stated memory preferences for color, etc.
 
 {CHAT_RESPONSE_FORMAT}
 
+{SIDEBAR_VS_DOCUMENT}
+
 {{core_directives}}
 
 TOOLS:
@@ -380,10 +387,7 @@ def get_writer_eval_chat_system_prompt() -> str:
     eval_tool_patterns = """TOOL USAGE PATTERNS (eval harness):
 - Use find_text to locate passages; use apply_document_content (often with old_content) to replace HTML.
 - Re-read with get_document_content after substantive edits if needed."""
-    core_eval = """When asked to answer a question or create or explain something, assume the user wants the
-information to be inserted into the document. Use the apply_document_content tool to insert content
-into LibreOffice so the user can edit it further."""
-    return f"""{core_eval}
+    return f"""{SIDEBAR_VS_DOCUMENT}
 
 {eval_scope}
 

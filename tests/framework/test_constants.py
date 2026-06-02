@@ -5,8 +5,10 @@ setup_uno_mocks()
 
 from plugin.framework.constants import (
     DELEGATION_USER_FILE_DATA_HINT,
+    SIDEBAR_VS_DOCUMENT,
     get_greeting_for_document,
     get_chat_system_prompt_for_document,
+    get_writer_eval_chat_system_prompt,
     get_core_directives,
     get_specialized_delegation_for_model,
     python_specialized_sub_agent_hint,
@@ -103,6 +105,23 @@ def test_writer_chat_prompt_opens_with_persona_and_color_guidance():
     assert "thoughtful use of color" in prompt
 
 
+def test_writer_chat_prompt_includes_sidebar_vs_document_routing():
+    model = MagicMock()
+    model.supportsService.return_value = False
+    prompt = get_chat_system_prompt_for_document(model)
+    assert SIDEBAR_VS_DOCUMENT in prompt
+    assert "WriterAgent sidebar" in prompt
+    assert "Chat reply" in prompt
+    assert "apply_document_content" in prompt
+
+
+def test_writer_eval_chat_prompt_includes_sidebar_vs_document_routing():
+    prompt = get_writer_eval_chat_system_prompt()
+    assert SIDEBAR_VS_DOCUMENT in prompt
+    assert "WriterAgent sidebar" in prompt
+    assert "apply_document_content" in prompt
+
+
 def test_writer_apply_document_math_latex_rules_document_only():
     from plugin.framework.constants import HTML_FRAGMENT_RULES, WRITER_APPLY_DOCUMENT_HTML_RULES
 
@@ -164,7 +183,6 @@ def test_get_core_directives_writer():
     assert "do not answer from memory" in directives
     assert "fast local numeric" in directives
     assert "numpy" not in directives.lower()
-    assert "apply_document_content" in directives
     assert 'domain="document_research"' in directives
     assert DELEGATION_USER_FILE_DATA_HINT in directives
     assert "to research public topics" in directives
