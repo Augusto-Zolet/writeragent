@@ -305,3 +305,74 @@ def test_delegate_read_document_skips_close_when_reusing_open_doc(
     result = r.get("delegate_read_document").execute_safe(ctx, path_or_name="Budget.ods", task="Q4")
     assert result["status"] == "ok"
     mock_close.assert_called_once_with(reused_model, opened_for_document_research=False)
+
+
+def test_get_open_documents():
+    from plugin.doc.document_research import get_open_documents
+    from plugin.doc.document_helpers import DocumentType
+
+    mock_ctx = MagicMock()
+    mock_desktop = MagicMock()
+    mock_comp = MagicMock()
+    mock_comp.getController.return_value.getModel.return_value.getURL.return_value = "file:///tmp/Budget.ods"
+    
+    mock_desktop.getComponents.return_value.createEnumeration.return_value.hasMoreElements.side_effect = [True, False]
+    mock_desktop.getComponents.return_value.createEnumeration.return_value.nextElement.return_value = mock_comp
+
+    with patch("plugin.doc.document_research.get_desktop", return_value=mock_desktop), \
+         patch("plugin.doc.document_helpers.get_document_type", return_value=DocumentType.CALC):
+        docs = get_open_documents(mock_ctx)
+        assert len(docs) == 1
+        assert docs[0]["name"] == "Budget.ods"
+        assert docs[0]["doc_type"] == "calc"
+
+
+@patch("plugin.chatbot.smol_agent.get_config_int", side_effect=_mock_get_config_int_for_sub_agent)
+@patch("plugin.chatbot.smol_agent.get_api_config", create=True)
+@patch("plugin.chatbot.smol_agent.ToolCallingAgent")
+@patch("plugin.chatbot.smol_agent.WriterAgentSmolModel")
+@patch("plugin.chatbot.smol_agent.LlmClient")
+def test_document_research_delegation_includes_open_documents_context(
+    mock_llm,
+    mock_smol_model,
+    mock_agent_class,
+    mock_get_config,
+    _mock_get_config_int,
+):
+    r = ToolRegistry(services={})
+    r.register(ListNearbyFiles())
+    r.register(GrepNearbyFiles())
+    r.register(DelegateReadDocument())
+    r.register(SpecializedWorkflowFinished())
+    r.register(DelegateToSpecializedWriter())
+
+    mock_get_config.return_value = {}
+    mock_agent_instance = MagicMock()
+    mock_agent_instance.run.return_value = [FinalAnswerStep(output="done")]
+    mock_agent_class.return_value = mock_agent_instance
+
+    # Mock get_open_documents in specialized_base.py
+    mock_docs = [
+        {"name": "File1.odt", "url": "file:///tmp/File1.odt", "path": "/tmp/File1.odt", "doc_type": "writer", "is_active": True},
+        {"name": "File2.ods", "url": "file:///tmp/File2.ods", "path": "/tmp/File2.ods", "doc_type": "calc", "is_active": False},
+    ]
+
+    with patch("plugin.doc.document_research.get_open_documents", return_value=mock_docs):
+        ctx = MagicMock()
+        ctx.doc = MagicMock()
+        ctx.doc.supportsService = lambda svc: svc == "com.sun.star.text.TextDocument"
+        ctx.ctx = MagicMock()
+        ctx.services = {"tools": r}
+        ctx.stop_checker = lambda: False
+
+        gw = r.get("delegate_to_specialized_writer_toolset")
+        result = gw.execute_safe(ctx, domain="document_research", task="Find Q4 in budget")
+        assert result["status"] == "ok"
+        
+        # Verify instructions passed to the agent
+        instructions = mock_agent_class.call_args.kwargs.get("instructions", "")
+        assert "[OPEN DOCUMENTS CONTEXT]" in instructions
+        assert "File1.odt [writer] (Active)" in instructions
+        assert "File2.ods [calc]" in instructions
+        assert "Some of these files may be completely unrelated to the task at hand" in instructions
+

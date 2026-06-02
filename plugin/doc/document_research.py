@@ -486,3 +486,68 @@ def close_document_research_document(model: Any, *, opened_for_document_research
             close_fn(True)
     except Exception:
         log.exception("Failed to close document_research read document")
+
+
+def get_open_documents(uno_ctx: Any, active_model: Any = None) -> list[dict[str, Any]]:
+    """Retrieve all open documents from the desktop context with metadata."""
+    from plugin.framework.uno_context import get_desktop
+    from plugin.doc.document_helpers import get_document_type, DocumentType
+    import os
+
+    desktop = get_desktop(uno_ctx)
+    comps = desktop.getComponents()
+    if not comps:
+        return []
+    enum = comps.createEnumeration()
+    docs = []
+    while enum and enum.hasMoreElements():
+        elem = enum.nextElement()
+        model = elem
+        if hasattr(elem, "getController") and elem.getController():
+            model = elem.getController().getModel()
+        if model is None or not hasattr(model, "getURL"):
+            continue
+        url = model.getURL()
+        if not url:
+            try:
+                doc_type_enum = get_document_type(model)
+                doc_type = "writer"
+                if doc_type_enum == DocumentType.CALC:
+                    doc_type = "calc"
+                elif doc_type_enum in (DocumentType.DRAW, DocumentType.IMPRESS):
+                    doc_type = "draw"
+                docs.append({
+                    "name": "Untitled",
+                    "url": "",
+                    "path": "",
+                    "doc_type": doc_type,
+                    "is_active": (active_model is not None and model == active_model)
+                })
+            except Exception:
+                pass
+            continue
+        
+        path = _system_path_from_url(str(url)) or ""
+        doc_type_guess = guess_doc_type_from_path(path) if path else "unknown"
+        if doc_type_guess == "unknown":
+            try:
+                doc_type_enum = get_document_type(model)
+                if doc_type_enum == DocumentType.WRITER:
+                    doc_type_guess = "writer"
+                elif doc_type_enum == DocumentType.CALC:
+                    doc_type_guess = "calc"
+                elif doc_type_enum in (DocumentType.DRAW, DocumentType.IMPRESS):
+                    doc_type_guess = "draw"
+            except Exception:
+                pass
+        
+        name = os.path.basename(path) if path else "Untitled"
+        docs.append({
+            "name": name,
+            "url": str(url),
+            "path": path,
+            "doc_type": doc_type_guess,
+            "is_active": (active_model is not None and model == active_model)
+        })
+    return docs
+

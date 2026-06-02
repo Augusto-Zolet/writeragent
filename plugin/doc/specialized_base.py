@@ -177,6 +177,27 @@ class DelegateToSpecializedBase(ToolBase):
             if domain == "document_research"
             else ""
         )
+        open_docs_context = ""
+        if domain == "document_research":
+            try:
+                from plugin.doc.document_research import get_open_documents
+                open_docs = get_open_documents(ctx.ctx, ctx.doc)
+                if open_docs:
+                    lines = []
+                    for d in open_docs:
+                        path_or_url = d["path"] or d["url"] or "Untitled"
+                        doc_type = d["doc_type"]
+                        active_str = " (Active)" if d["is_active"] else ""
+                        lines.append(f"- {path_or_url} [{doc_type}]{active_str}")
+                    open_docs_context = (
+                        "\n\n[OPEN DOCUMENTS CONTEXT]\n"
+                        "Note: These are the currently open files in LibreOffice. "
+                        "Some of these files may be completely unrelated to the task at hand:\n"
+                        + "\n".join(lines)
+                    )
+            except Exception as e:
+                log.warning("Failed to get open documents for sub-agent: %s", e)
+
         images_hint = (
             " Discover local image files with list_nearby_image_files before insert_image when the user refers to a photo in the folder."
             if domain == "images"
@@ -186,8 +207,9 @@ class DelegateToSpecializedBase(ToolBase):
         instructions = (
             f"You are a specialized {self._agent_label} agent focused on the '{domain}' domain. "
             f"You have a focused set of tools to accomplish your task. Use them to fulfill the user's request."
-            f"{footnotes_hint}{shapes_canvas}{charts_hint}{calc_ctx}{document_research_hint}{images_hint}{python_hint}"
+            f"{footnotes_hint}{shapes_canvas}{charts_hint}{calc_ctx}{document_research_hint}{open_docs_context}{images_hint}{python_hint}"
         )
+
 
         examples_key = f"{self._agent_label.lower()}:{domain}"
         agent = build_toolcalling_agent(ctx, smol_tools, instructions=instructions, final_answer_tool_name="specialized_workflow_finished", examples_block=get_examples_block(examples_key), status_callback=status_callback)
