@@ -25,8 +25,9 @@ def iterate_sse(stream):
 
 def _extract_thinking_from_delta(chunk_delta):
     """Extract reasoning/thinking text from a stream delta for display in UI."""
-    # Try direct fields first
-    for field in ["reasoning_content", "thought", "thinking"]:
+    # Try direct fields first. Ollama /v1 often uses "reasoning", not "reasoning_content"
+    # (Qwen-Agent #789, ollama/ollama #12628); LM Studio and others use reasoning_content.
+    for field in ["reasoning_content", "reasoning", "thought", "thinking"]:
         thinking = chunk_delta.get(field)
         if isinstance(thinking, str) and thinking:
             return thinking
