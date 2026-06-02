@@ -325,7 +325,7 @@ class TestRichInsertFallbackLogging:
         doc = MagicMock()
         transferable = MagicMock()
 
-        with caplog.at_level(logging.INFO, logger="plugin.chatbot.rich_text_paste"), \
+        with caplog.at_level(logging.WARNING, logger="plugin.chatbot.rich_text_paste"), \
              patch("plugin.chatbot.rich_text_paste.create_hidden_html_writer", return_value=doc), \
              patch("plugin.chatbot.rich_text_paste.configure_hidden_writer_for_chat"), \
              patch("plugin.chatbot.rich_text_paste.append_rich_text"), \
@@ -356,7 +356,7 @@ class TestRichInsertFallbackLogging:
         src_text.createEnumeration.return_value = para_enum
         src_doc.getText.return_value = src_text
 
-        with caplog.at_level(logging.INFO, logger="plugin.chatbot.rich_text_paste"), \
+        with caplog.at_level(logging.WARNING, logger="plugin.chatbot.rich_text_paste"), \
              patch("plugin.chatbot.rich_text_paste.focus_preserved", _immediate_focus), \
              patch("plugin.chatbot.rich_text_paste.ChatTheme.resolve"), \
              patch("plugin.chatbot.rich_text_paste._rich_control_bg_color", return_value=0), \

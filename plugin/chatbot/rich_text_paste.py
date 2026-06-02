@@ -51,6 +51,9 @@ from plugin.framework.uno_context import focus_preserved, process_events_to_idle
 
 log = logging.getLogger(__name__)
 
+# Rich-sidebar formatted-insert fallback diagnostics use WARNING so release builds
+# (default log_level=WARN) capture direct-copy failures and clipboard fallbacks.
+
 _SERIF_FONT_MARKERS = ("serif", "times", "roman", "courier", "mono")
 
 
@@ -121,7 +124,7 @@ def _transferable_from_hidden_doc(doc):
     """Build a transferable from all content in a hidden Writer document."""
     controller = doc.getCurrentController()
     if controller is None:
-        log.info("_transferable_from_hidden_doc: failed reason=no_controller")
+        log.warning("_transferable_from_hidden_doc: failed reason=no_controller")
         return None
     body = doc.getText()
     sel = body.createTextCursor()
@@ -132,7 +135,7 @@ def _transferable_from_hidden_doc(doc):
     if callable(get_tf):
         tf = get_tf()
         if tf is None:
-            log.info("_transferable_from_hidden_doc: failed reason=getTransferable_returned_none")
+            log.warning("_transferable_from_hidden_doc: failed reason=getTransferable_returned_none")
         return tf
     try:
         from com.sun.star.datatransfer import XTransferableSupplier
@@ -141,11 +144,11 @@ def _transferable_from_hidden_doc(doc):
         if supplier is not None:
             tf = supplier.getTransferable()
             if tf is None:
-                log.info("_transferable_from_hidden_doc: failed reason=supplier_getTransferable_none")
+                log.warning("_transferable_from_hidden_doc: failed reason=supplier_getTransferable_none")
             return tf
     except Exception as e:
         log.debug("_transferable_from_hidden_doc queryInterface failed: %s", e)
-    log.info("_transferable_from_hidden_doc: failed reason=no_getTransferable_api")
+    log.warning("_transferable_from_hidden_doc: failed reason=no_getTransferable_api")
     return None
 
 
@@ -187,7 +190,7 @@ def _set_system_clipboard(ctx, transferable) -> bool:
         smgr = ctx.getServiceManager()
         clip = smgr.createInstanceWithContext("com.sun.star.datatransfer.clipboard.SystemClipboard", ctx)
         if clip is None:
-            log.error("_set_system_clipboard: SystemClipboard unavailable")
+            log.warning("_set_system_clipboard: SystemClipboard unavailable")
             return False
         clip.setContents(transferable, None)
         return True
@@ -368,7 +371,7 @@ def _copy_formatted_from_hidden_doc_to_control(
     """
     model = control.getModel()
     if model is None or not hasattr(model, "createTextCursor"):
-        log.info("_copy_formatted_from_hidden_doc_to_control: failed reason=model_no_createTextCursor role=%s", role)
+        log.warning("_copy_formatted_from_hidden_doc_to_control: failed reason=model_no_createTextCursor role=%s", role)
         return False, "model_no_createTextCursor"
 
     inserted = False
@@ -443,7 +446,7 @@ def _copy_formatted_from_hidden_doc_to_control(
     if inserted:
         return True, None
     reason = "exception" if copy_failed_with_exception else "no_content_inserted"
-    log.info("_copy_formatted_from_hidden_doc_to_control: failed reason=%s role=%s", reason, role)
+    log.warning("_copy_formatted_from_hidden_doc_to_control: failed reason=%s role=%s", reason, role)
     return False, reason
 
 
@@ -456,12 +459,12 @@ def _append_hidden_doc_to_control(doc, control, ctx, style_window=None, auto_scr
         return True
     transferable = _transferable_from_hidden_doc(doc)
     if transferable is None:
-        log.info(
+        log.warning(
             "_append_hidden_doc_to_control: abort reason=transferable_unavailable direct_copy_reason=%s",
             direct_reason,
         )
         return False
-    log.info(
+    log.warning(
         "_append_hidden_doc_to_control: falling back to transferable insert direct_copy_reason=%s",
         direct_reason,
     )
@@ -491,7 +494,7 @@ def _try_paste_via_key_event(ctx, control) -> bool:
         key_pressed(ev)
         key_released(ev)
         process_events_to_idle(ctx)
-        log.info("insert_transferable_into_rich_control: dispatched Ctrl+V on control peer")
+        log.warning("insert_transferable_into_rich_control: dispatched Ctrl+V on control peer")
         return True
     except Exception as e:
         log.debug("_try_paste_via_key_event failed: %s", e)
@@ -527,7 +530,7 @@ def insert_transferable_into_rich_control(
 ):
     """Insert formatted content into the sidebar RichText control (not the document)."""
     if control is None or transferable is None:
-        log.info(
+        log.warning(
             "insert_transferable_into_rich_control: abort reason=missing_control_or_transferable source=%s",
             source or "?",
         )
@@ -551,7 +554,7 @@ def insert_transferable_into_rich_control(
             if ok:
                 nudge_rich_control_view_to_end(control, ctx=ctx, style_window=style_window)
                 if get_control_text_length(control) > len_before:
-                    log.info(
+                    log.warning(
                         "insert_transferable_into_rich_control: ok via %s.insertTransferable source=%s len=%d",
                         target_name,
                         src,
@@ -571,7 +574,7 @@ def insert_transferable_into_rich_control(
                 if ok:
                     nudge_rich_control_view_to_end(control, ctx=ctx, style_window=style_window)
                     if get_control_text_length(control) > len_before:
-                        log.info(
+                        log.warning(
                             "insert_transferable_into_rich_control: ok via model_cursor.insertTransferable source=%s len=%d",
                             src,
                             get_control_text_length(control),
@@ -585,7 +588,7 @@ def insert_transferable_into_rich_control(
                 log.debug("insert_transferable_into_rich_control cursor path failed: %s", e)
                 insert_attempts.append("model_cursor_exception")
 
-        log.info(
+        log.warning(
             "insert_transferable_into_rich_control: insertTransferable paths exhausted (%s); trying SystemClipboard+Ctrl+V source=%s",
             ", ".join(insert_attempts) or "none",
             src,
@@ -596,7 +599,7 @@ def insert_transferable_into_rich_control(
             if _try_paste_via_key_event(ctx, control):
                 nudge_rich_control_view_to_end(control, ctx=ctx, style_window=style_window)
                 if get_control_text_length(control) > len_before:
-                    log.info(
+                    log.warning(
                         "insert_transferable_into_rich_control: ok via SystemClipboard+Ctrl+V source=%s len=%d",
                         src,
                         get_control_text_length(control),
@@ -610,7 +613,7 @@ def insert_transferable_into_rich_control(
             insert_attempts.append("system_clipboard_unavailable")
 
         flavors = _log_transferable_flavors(transferable)
-        log.error(
+        log.warning(
             "insert_transferable_into_rich_control: all rich insert paths failed source=%s attempts=%s len_before=%d len_after=%d flavors=%s",
             src,
             ", ".join(insert_attempts),
@@ -644,7 +647,7 @@ def append_rich_messages_via_clipboard(
         try:
             doc = create_hidden_html_writer(ctx)
             if doc is None:
-                log.error("append_rich_messages_via_clipboard: hidden Writer unavailable")
+                log.warning("append_rich_messages_via_clipboard: hidden Writer unavailable")
                 return
             configure_hidden_writer_for_chat(doc)
             for role, content in batch:
@@ -658,7 +661,7 @@ def append_rich_messages_via_clipboard(
                 any_inserted = True
                 nudge_rich_control_view_to_end(control, ctx=ctx, style_window=style_window)
             else:
-                log.error(
+                log.warning(
                     "append_rich_messages_via_clipboard: batch insert into control failed messages=%d",
                     len(batch),
                 )
@@ -731,7 +734,7 @@ def append_rich_text_via_clipboard(
     try:
         doc = create_hidden_html_writer(ctx)
         if doc is None:
-            log.error("append_rich_text_via_clipboard: hidden Writer unavailable")
+            log.warning("append_rich_text_via_clipboard: hidden Writer unavailable")
             return
         configure_hidden_writer_for_chat(doc)
         append_rich_text(doc, text, role=role, style_window=style_window)
@@ -750,13 +753,13 @@ def append_rich_text_via_clipboard(
         else:
             transferable = _transferable_from_hidden_doc(doc)
             if transferable is None:
-                log.error(
+                log.warning(
                     "append_rich_text_via_clipboard: formatted copy and transferable both unavailable direct_copy_reason=%s role=%s",
                     direct_reason,
                     role,
                 )
                 return
-            log.info(
+            log.warning(
                 "append_rich_text_via_clipboard: falling back to transferable insert direct_copy_reason=%s role=%s len=%d",
                 direct_reason,
                 role,
@@ -765,14 +768,14 @@ def append_rich_text_via_clipboard(
             if not insert_transferable_into_rich_control(
                 control, transferable, ctx, style_window=style_window, source=f"append_rich_text:{role}",
             ):
-                log.error(
+                log.warning(
                     "append_rich_text_via_clipboard: rich insert into control failed direct_copy_reason=%s role=%s",
                     direct_reason,
                     role,
                 )
                 return
             inserted = True
-            log.info(
+            log.warning(
                 "append_rich_text_via_clipboard: insert ok via=transferable_fallback control_len=%d role=%s direct_copy_reason=%s",
                 get_control_text_length(control),
                 role,
