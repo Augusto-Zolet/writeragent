@@ -168,17 +168,22 @@ Use the URL from **MCP Server Status** (includes the `/mcp` path). Enable **MCP 
 
 By default, MCP uses LibreOffice's **active document** (whichever window has focus). That is fine with a single file open, but it is unreliable when several documents are open or focus changes while an external client (Cursor, a script, etc.) is running.
 
-To target a specific open document, send the **`X-Document-URL`** HTTP header on **each** MCP request (`tools/list`, `tools/call`, …). The value must be the exact LibreOffice URL of an already-open document (usually `file:///…` for saved files). Targeting is per-request: one call can edit a Writer doc and the next can target a Calc sheet.
+To target a specific open document, you can either:
+- **`document_url` parameter (New in v0.8.15)**: Pass the `document_url` optional parameter directly in the tool call arguments (now dynamically supported on all tools). This is the cleanest and most standard way in MCP.
+- **`X-Document-URL` header**: Send the HTTP header on **each** MCP request (`tools/list`, `tools/call`, …). The value must be the exact LibreOffice URL of an already-open document (usually `file:///…` for saved files).
+
+To discover all currently open document URLs, names, and types, you can call the MCP-only tool **`get_open_documents`** (in `v0.8.15`).
+
+Targeting is per-request: one call can edit a Writer doc and the next can target a Calc sheet.
 
 ```bash
 curl -X POST http://localhost:8765/mcp \
   -H 'Content-Type: application/json' \
   -H 'Expect:' \
-  -H 'X-Document-URL: file:///home/user/report.odt' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_document_content","arguments":{}}}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_document_content","arguments":{"document_url":"file:///home/user/report.odt"}}}'
 ```
 
-MCP server config JSON typically sets only the endpoint URL; your client or wrapper must attach `X-Document-URL` per call. See [docs/mcp-protocol.md](docs/mcp-protocol.md) (*Document Targeting*) and [`scripts/mcp_live_smoke.py`](scripts/mcp_live_smoke.py) (`--document-url`).
+MCP server config JSON typically sets only the endpoint URL; your client or wrapper must attach `document_url` or the `X-Document-URL` header per call. See [docs/mcp-protocol.md](docs/mcp-protocol.md) (*Document Targeting*) and [`scripts/mcp_live_smoke.py`](scripts/mcp_live_smoke.py) (`--document-url`).
 
 ---
 

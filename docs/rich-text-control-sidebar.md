@@ -280,7 +280,7 @@ Set `log_level` to **DEBUG** in Settings (or `writeragent.json`) if you need pee
 
 When HTML is pasted into the RichTextControl, the preferred path is **direct copy** from a hidden Writer doc (`_copy_formatted_from_hidden_doc_to_control`). If that fails, the code falls back to **transferable insert** and then **SystemClipboard + synthetic Ctrl+V**.
 
-Search `writeragent_debug.log` for **INFO** lines (default `log_level` is DEBUG, so INFO is always written):
+Search `writeragent_debug.log` for **WARNING** lines (release default `log_level` is **WARN**):
 
 | Log pattern | Meaning |
 |-------------|---------|
