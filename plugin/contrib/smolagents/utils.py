@@ -24,6 +24,8 @@ import os
 import random
 import re
 import time
+import uuid
+import warnings
 from functools import lru_cache
 from io import BytesIO
 from logging import Logger
@@ -154,12 +156,24 @@ def _strip_tool_call_action_prefix(text: str) -> str:
     return stripped
 
 
+def _looks_like_python_repr(blob: str) -> bool:
+    """True when *blob* is likely Python repr (single-quoted dict), not JSON."""
+    stripped = blob.strip()
+    if stripped.startswith("{'") or stripped.startswith("[{'"):
+        return True
+    return bool(re.search(r"'[A-Za-z_][\w]*'\s*:", blob))
+
+
 def _decode_structured_text(blob: str) -> Any:
     try:
         return json.loads(blob, strict=False)
     except json.JSONDecodeError as json_err:
+        if not _looks_like_python_repr(blob):
+            raise json_err
         try:
-            return ast.literal_eval(blob)
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=SyntaxWarning)
+                return ast.literal_eval(blob)
         except (SyntaxError, ValueError) as eval_err:
             raise json.JSONDecodeError(str(eval_err), blob, 0) from json_err
 
@@ -198,6 +212,60 @@ def content_looks_like_tool_call(text: str, known_tool_names: set[str] | None = 
         return _dict_looks_like_tool_call(blob, known_tool_names)
     except (ValueError, json.JSONDecodeError, SyntaxError):
         return False
+
+
+def coerce_final_answer_value(answer: Any) -> str:
+    """Sidebar final_answer expects one HTML string; join document-style arrays."""
+    if isinstance(answer, list):
+        return "\n".join(str(part) for part in answer)
+    if isinstance(answer, str):
+        return answer
+    if answer is None:
+        return ""
+    return str(answer)
+
+
+def extract_implicit_final_answer_from_blob(blob: dict) -> str | None:
+    """Return coerced answer text when *blob* is {\"answer\": ...} without a tool name."""
+    if "name" in blob:
+        return None
+    fn = blob.get("function")
+    if isinstance(fn, dict) and "name" in fn:
+        return None
+    if "answer" not in blob:
+        return None
+    return coerce_final_answer_value(blob["answer"])
+
+
+def try_parse_implicit_final_answer_tool_call(text: str, final_answer_tool_name: str):
+    """Build a final_answer tool call when the model emitted answer-only JSON in content."""
+    try:
+        blob, _ = parse_json_blob(text)
+    except (ValueError, json.JSONDecodeError):
+        return None
+    answer = extract_implicit_final_answer_from_blob(blob)
+    if answer is None:
+        return None
+    from .models import ChatMessageToolCall, ChatMessageToolCallFunction
+
+    return ChatMessageToolCall(
+        id=str(uuid.uuid4()),
+        type="function",
+        function=ChatMessageToolCallFunction(
+            name=final_answer_tool_name,
+            arguments={"answer": answer},
+        ),
+    )
+
+
+def coerce_raw_content_for_final_answer_fallback(raw_content: str, final_answer_tool_name: str) -> str:
+    """Avoid double-wrapping when *raw_content* is already answer-only JSON."""
+    implicit = try_parse_implicit_final_answer_tool_call(raw_content, final_answer_tool_name)
+    if implicit is not None:
+        args = implicit.function.arguments
+        if isinstance(args, dict) and "answer" in args:
+            return str(args["answer"])
+    return raw_content
 
 
 def normalize_tool_call_dictionary(

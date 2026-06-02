@@ -116,6 +116,7 @@ See also: [`streaming-and-threading.md`](streaming-and-threading.md) §3 (reason
 - **`content_looks_like_tool_call`** + guard in [`agents.py`](../plugin/contrib/smolagents/agents.py): if parsing still fails but text looks like a tool invocation, raise `AgentParsingError` instead of finishing with garbage.
 - **`ActionStep.to_messages`** ([`memory.py`](../plugin/contrib/smolagents/memory.py)): replay tool steps as `Action:` + JSON (matches examples).
 - **`WriterAgentSmolModel.generate`** ([`smol_agent.py`](../plugin/chatbot/smol_agent.py)): post-hoc `remove_content_after_stop_sequences` on content (stop is not on the HTTP wire today).
+- **Answer-only JSON** (e.g. Inception Mercury 2): models sometimes emit `{"answer": ["<p>…</p>", …]}` (document-array habit) instead of `{"name": "final_answer", "arguments": …}`. `try_parse_implicit_final_answer_tool_call` in [`utils.py`](../plugin/contrib/smolagents/utils.py) joins HTML arrays into one sidebar string before `final_answer` runs; `ast.literal_eval` is limited to Python-repr blobs to avoid `SyntaxWarning` on LaTeX `\\(` in JSON.
 
 Tests: [`tests/contrib/smolagents/test_tool_call_parsing.py`](../tests/contrib/smolagents/test_tool_call_parsing.py).
 

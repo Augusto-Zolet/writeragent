@@ -846,3 +846,41 @@ class TestSmolCallingToolsEchoParsing(unittest.TestCase):
         self.assertFalse(final_outputs[0].is_final_answer if final_outputs else True)
         self.assertEqual(memory_step.tool_calls[0].name, "web_search")
         self.assertEqual(memory_step.tool_calls[0].arguments, {"query": "test query"})
+
+
+class TestSmolImplicitFinalAnswerJson(unittest.TestCase):
+    def test_answer_only_json_blob_becomes_final_answer_not_double_wrapped(self):
+        """Regression: Mercury-style {\"answer\": [html...]} must not wrap raw JSON as final_answer."""
+        from plugin.contrib.smolagents.agents import ActionOutput
+        from plugin.contrib.smolagents.default_tools import FinalAnswerTool
+        from plugin.contrib.smolagents.models import Model
+
+        mercury_blob = '{"answer": ["<h1>Title</h1>", "<p>Para</p>"]}'
+
+        class _MinimalModel(Model):
+            def generate(self, messages, **kwargs):
+                raise NotImplementedError
+
+        model = _MinimalModel(model_id="test")
+        model.generate = MagicMock(
+            return_value=ChatMessage(
+                role=MessageRole.ASSISTANT,
+                content=mercury_blob,
+                tool_calls=None,
+            )
+        )
+
+        agent = ToolCallingAgent(
+            tools=[FinalAnswerTool()],
+            model=model,
+            final_answer_tool_name="final_answer",
+        )
+
+        memory_step = ActionStep(step_number=1, timing=Timing(start_time=time.time()))
+        outputs = list(agent._step_stream(memory_step))
+
+        final_outputs = [o for o in outputs if isinstance(o, ActionOutput)]
+        self.assertEqual(len(final_outputs), 1)
+        self.assertTrue(final_outputs[0].is_final_answer)
+        self.assertEqual(final_outputs[0].output, "<h1>Title</h1>\n<p>Para</p>")
+        self.assertNotIn('{"answer"', str(final_outputs[0].output))

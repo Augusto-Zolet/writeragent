@@ -89,8 +89,10 @@ from .utils import (
     AgentParsingError,
     AgentToolCallError,
     AgentToolExecutionError,
+    coerce_raw_content_for_final_answer_fallback,
     content_looks_like_tool_call,
     is_valid_name,
+    try_parse_implicit_final_answer_tool_call,
     truncate_content,
 )
 
@@ -998,34 +1000,51 @@ class ToolCallingAgent(MultiStepAgent):
             raise AgentGenerationError(f"Error while generating output:\n{e}", self.logger) from e
 
         if chat_message.tool_calls is None or len(chat_message.tool_calls) == 0:
-            try:
-                chat_message = self.model.parse_tool_calls(chat_message)
-            except Exception as e:
-                # Model returned content with no JSON blob (e.g. direct answer as text). Treat content as final_answer.
-                raw_content = (chat_message.content or "").strip()
-                if raw_content:
-                    known_tools = set(self.tools.keys())
-                    if content_looks_like_tool_call(raw_content, known_tool_names=known_tools):
-                        raise AgentParsingError(
-                            f"Error while parsing tool call from model output: {e}",
-                            self.logger,
+            raw_content = (chat_message.content or "").strip()
+            implicit_final = (
+                try_parse_implicit_final_answer_tool_call(raw_content, self.final_answer_tool_name)
+                if raw_content
+                else None
+            )
+            if implicit_final is not None:
+                chat_message.tool_calls = [implicit_final]
+            else:
+                try:
+                    chat_message = self.model.parse_tool_calls(chat_message)
+                except Exception as e:
+                    # Model returned content with no JSON blob (e.g. direct answer as text). Treat content as final_answer.
+                    if raw_content:
+                        implicit_final = try_parse_implicit_final_answer_tool_call(
+                            raw_content, self.final_answer_tool_name
                         )
-                    self.logger.log(
-                        f"Parsing failed (no JSON blob); treating model output as final answer (length={len(raw_content)}). Error: {e}",
-                        level=LogLevel.INFO,
-                    )
-                    chat_message.tool_calls = [
-                        ChatMessageToolCall(
-                            id=str(uuid.uuid4()),
-                            type="function",
-                            function=ChatMessageToolCallFunction(
-                                name=self.final_answer_tool_name,
-                                arguments={"answer": raw_content},
-                            ),
-                        )
-                    ]
-                else:
-                    raise AgentParsingError(f"Error while parsing tool call from model output: {e}", self.logger)
+                        if implicit_final is not None:
+                            chat_message.tool_calls = [implicit_final]
+                        else:
+                            known_tools = set(self.tools.keys())
+                            if content_looks_like_tool_call(raw_content, known_tool_names=known_tools):
+                                raise AgentParsingError(
+                                    f"Error while parsing tool call from model output: {e}",
+                                    self.logger,
+                                )
+                            self.logger.log(
+                                f"Parsing failed (no JSON blob); treating model output as final answer (length={len(raw_content)}). Error: {e}",
+                                level=LogLevel.INFO,
+                            )
+                            answer_value = coerce_raw_content_for_final_answer_fallback(
+                                raw_content, self.final_answer_tool_name
+                            )
+                            chat_message.tool_calls = [
+                                ChatMessageToolCall(
+                                    id=str(uuid.uuid4()),
+                                    type="function",
+                                    function=ChatMessageToolCallFunction(
+                                        name=self.final_answer_tool_name,
+                                        arguments={"answer": answer_value},
+                                    ),
+                                )
+                            ]
+                    else:
+                        raise AgentParsingError(f"Error while parsing tool call from model output: {e}", self.logger)
         else:
             for tool_call in chat_message.tool_calls:
                 tool_call.function.arguments = parse_json_if_needed(tool_call.function.arguments)

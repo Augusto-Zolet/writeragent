@@ -93,19 +93,30 @@ HTML_FRAGMENT_RULES = """
 # of prompt habit. execute() already accepts a list or a string that parses as JSON array; we
 # could widen schema to string | array later if single-string documents prove more reliable.
 # Until then, keep array for documents, single string for sidebar — and keep examples separate.
+#
+# Math prompt policy (``- Math:`` bullet in WRITER_APPLY_DOCUMENT_HTML_RULES below):
+# Recommend \\(...\\) inline delimiters only. The import path still parses $, $$, and
+# \\[...\\] (html_math_segment.py) for pasted or legacy content—we just do not steer models
+# toward display delimiters. display_block in insert_writer_math_formula only wraps the
+# formula in paragraph breaks; the OLE stays AS_CHARACTER, so display math is not centered
+# and looks like inline on its own line—no visual win, extra delimiter choice confuses LLMs.
+# If we implement true block/centered math (e.g. paragraph anchor + alignment), revisit
+# split inline vs display rules and examples here and in docs/math-tex.md.
 WRITER_APPLY_DOCUMENT_HTML_RULES = f"""
 APPLY_DOCUMENT_CONTENT AND HTML (CRITICAL):
 - Parameters: `content` and `target` (required). If target='search', also `old_content` (find/replace; HTML in old_content is matched as plain text).
 - Targets: 'beginning', 'end', 'selection', 'full_document' (replaces all), or 'search'.
 - `content` must be a JSON array of HTML strings (one fragment per heading/paragraph). We wrap in <html>/<body>.
 {HTML_FRAGMENT_RULES}
-- Math: Always structured math for equations (native LibreOffice objects). Inline: `\\(`…`\\)` or `$`…`$`; display: `$$`…`$$` or `\\[`…`\\]`. Prefer `\\(` over `$` (currency). TeX preferred; MathML in `<math …>` if you already have it. Avoid `$`+digit. No images or informal plain-text formulas.
+- Math: Always use inline delimiters \\(...\\) for every equation—in running text or in its own <p>. No $...$, $$...$$, \\[...\\], HTML-escaped math, equation images, or plain-text formulas like x².
 
 EXAMPLES:
 - Good: ["<h1>Title</h1>", "<p>Paragraph with <strong>bold</strong> text and \\"quotes\\".</p>"]
-- Good math: ["<p>Inline \\(x^2\\) and display $$\\frac{{1}}{{2}}$$.</p>"]
+- Good math: ["<p>The identity \\(a^2+b^2=c^2\\) holds.</p>"]
 - Bad: <h1>Title</h1><p>Paragraph</p> (must be a list of strings)
 - Bad: ["&lt;h1&gt;Title&lt;/h1&gt;"] (escaped entities)
+- Bad: ["&lt;math&gt;x^2&lt;/math&gt;"] (HTML-escaped math; use LaTeX delimiters)
+- Bad: ["<p><img src=\\"...\\" alt=\\"equation\\"></p>"] (equation images; use LaTeX delimiters)
 - Bad: ["# Title", "Paragraph"] (No Markdown)
 - Bad: ["&ldquo;Smart quotes&rdquo;"] (use straight quotes ")"""
 

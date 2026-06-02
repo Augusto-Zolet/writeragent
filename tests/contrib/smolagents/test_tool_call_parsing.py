@@ -3,7 +3,12 @@
 from plugin.contrib.smolagents.memory import ActionStep, ToolCall
 from plugin.contrib.smolagents.models import MessageRole, get_tool_call_from_text
 from plugin.contrib.smolagents.monitoring import Timing
-from plugin.contrib.smolagents.utils import content_looks_like_tool_call, parse_json_blob
+from plugin.contrib.smolagents.utils import (
+    content_looks_like_tool_call,
+    coerce_final_answer_value,
+    parse_json_blob,
+    try_parse_implicit_final_answer_tool_call,
+)
 
 USER_LOG_SNIPPET = (
     "Calling tools:\n"
@@ -53,6 +58,36 @@ def test_content_looks_like_tool_call_for_mimicked_output():
 def test_content_looks_like_tool_call_false_for_plain_answer():
     known = {"web_search", "final_answer"}
     assert not content_looks_like_tool_call("Shanghai has the larger population.", known_tool_names=known)
+
+
+def test_coerce_final_answer_value_joins_html_array():
+    assert coerce_final_answer_value(["<p>a</p>", "<p>b</p>"]) == "<p>a</p>\n<p>b</p>"
+
+
+def test_try_parse_implicit_final_answer_mercury_style_blob():
+    text = '{"answer": ["<h1>Title</h1>", "<p>Body with \\\\(4.3\\\\) stars.</p>"]}'
+    tc = try_parse_implicit_final_answer_tool_call(text, "final_answer")
+    assert tc is not None
+    assert tc.function.name == "final_answer"
+    assert tc.function.arguments == {
+        "answer": "<h1>Title</h1>\n<p>Body with \\(4.3\\) stars.</p>"
+    }
+
+
+def test_try_parse_implicit_final_answer_none_for_web_search_shape():
+    text = '{"name": "web_search", "arguments": {"query": "pizza"}}'
+    assert try_parse_implicit_final_answer_tool_call(text, "final_answer") is None
+
+
+def test_try_parse_implicit_final_answer_none_for_proper_tool_call():
+    text = '{"name": "final_answer", "arguments": "Done."}'
+    assert try_parse_implicit_final_answer_tool_call(text, "final_answer") is None
+
+
+def test_content_looks_like_tool_call_false_for_answer_only_json():
+    known = {"web_search", "final_answer"}
+    blob = '{"answer": ["<p>hi</p>"]}'
+    assert not content_looks_like_tool_call(blob, known_tool_names=known)
 
 
 def test_action_step_to_messages_uses_action_json_not_calling_tools_repr():
