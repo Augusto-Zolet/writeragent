@@ -1,4 +1,5 @@
 import inspect
+import json
 from dataclasses import asdict, dataclass
 from logging import getLogger
 from typing import TYPE_CHECKING, Any, Callable, Type
@@ -97,13 +98,19 @@ class ActionStep(MemoryStep):
             )
 
         if self.tool_calls is not None:
+            action_blocks = []
+            for tc in self.tool_calls:
+                action_blocks.append(
+                    "Action:\n"
+                    + json.dumps({"name": tc.name, "arguments": make_json_serializable(tc.arguments)}, indent=4)
+                )
             messages.append(
                 ChatMessage(
                     role=MessageRole.TOOL_CALL,
                     content=[
                         {
                             "type": "text",
-                            "text": "Calling tools:\n" + str([tc.dict() for tc in self.tool_calls]),
+                            "text": "\n\n".join(action_blocks),
                         }
                     ],
                 )

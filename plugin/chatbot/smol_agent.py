@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any, Callable, Iterable, Literal, cast
 
 from plugin.contrib.smolagents.agents import ToolCallingAgent
 from plugin.contrib.smolagents.memory import ActionStep, FinalAnswerStep, ToolCall
-from plugin.contrib.smolagents.models import ChatMessage, Model, TokenUsage
+from plugin.contrib.smolagents.models import ChatMessage, Model, TokenUsage, remove_content_after_stop_sequences
 from plugin.contrib.smolagents.tools import Tool as SmolTool
 from plugin.framework.config import get_api_config, get_config_int
 from plugin.framework.errors import ToolExecutionError
@@ -166,9 +166,15 @@ class WriterAgentSmolModel(Model):
         if self._status_callback:
             self._status_callback("Model responded, processing...")
 
+        content = result.get("content") or ""
+        if stop_sequences is not None:
+            trimmed = remove_content_after_stop_sequences(content, stop_sequences)
+            if trimmed is not None:
+                content = trimmed
+
         usage = result.get("usage") or {}
         token_usage = TokenUsage(input_tokens=usage.get("prompt_tokens", 0), output_tokens=usage.get("completion_tokens", 0)) if usage else None
-        return ChatMessage.from_dict({"role": "assistant", "content": result.get("content") or "", "tool_calls": result.get("tool_calls") or None}, raw=result, token_usage=token_usage)
+        return ChatMessage.from_dict({"role": "assistant", "content": content, "tool_calls": result.get("tool_calls") or None}, raw=result, token_usage=token_usage)
 
 
 class SmolAgentExecutor:

@@ -21,8 +21,10 @@ from __future__ import annotations
 import array
 import logging
 import math
-from collections.abc import Iterator
-from typing import Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 log = logging.getLogger(__name__)
 

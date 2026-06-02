@@ -787,3 +787,62 @@ class TestSmolMixedToolCalls(unittest.TestCase):
         self.assertEqual(len(final_outputs), 1)
         self.assertTrue(final_outputs[0].is_final_answer)
         self.assertEqual(final_outputs[0].output, "Finished!")
+
+
+class _WebSearchStubTool(ToolBase):
+    name = "web_search"
+    description = "Search the web"
+    parameters = {
+        "type": "object",
+        "properties": {"query": {"type": "string", "description": "query"}},
+        "required": ["query"],
+    }
+
+    def execute(self, ctx, **kwargs):
+        return {"status": "ok", "query": kwargs.get("query")}
+
+    def is_async(self):
+        return False
+
+
+class TestSmolCallingToolsEchoParsing(unittest.TestCase):
+    def test_calling_tools_python_repr_parsed_as_web_search_not_final_answer(self):
+        """Regression: memory-style 'Calling tools:' + Python repr must not become final_answer."""
+        from plugin.contrib.smolagents.agents import ActionOutput, ToolOutput
+        from plugin.contrib.smolagents.models import Model
+
+        mimicked = (
+            "Calling tools:\n"
+            "[{'id': 'call_019e8619a1967b11b7fccbbf', 'type': 'function', "
+            "'function': {'name': 'web_search', 'arguments': {'query': 'test query'}}}]"
+        )
+
+        class _MinimalModel(Model):
+            def generate(self, messages, **kwargs):
+                raise NotImplementedError
+
+        model = _MinimalModel(model_id="test")
+        ctx = MagicMock()
+        web_tool = SmolToolAdapter(_WebSearchStubTool(), ctx, safe=False)
+        agent = ToolCallingAgent(
+            tools=[web_tool],
+            model=model,
+            final_answer_tool_name="final_answer",
+        )
+
+        chat_msg = ChatMessage(
+            role=MessageRole.ASSISTANT,
+            content=mimicked,
+            tool_calls=None,
+        )
+        model.generate = MagicMock(return_value=chat_msg)
+
+        memory_step = ActionStep(step_number=1, timing=Timing(start_time=time.time()))
+        outputs = list(agent._step_stream(memory_step))
+
+        tool_outputs = [o for o in outputs if isinstance(o, ToolOutput)]
+        final_outputs = [o for o in outputs if isinstance(o, ActionOutput)]
+        self.assertEqual(len(tool_outputs), 1)
+        self.assertFalse(final_outputs[0].is_final_answer if final_outputs else True)
+        self.assertEqual(memory_step.tool_calls[0].name, "web_search")
+        self.assertEqual(memory_step.tool_calls[0].arguments, {"query": "test query"})

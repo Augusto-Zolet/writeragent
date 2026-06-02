@@ -146,17 +146,93 @@ def make_json_serializable(obj: Any) -> Any:
         return str(obj)
 
 
+def _strip_tool_call_action_prefix(text: str) -> str:
+    stripped = text.strip()
+    for prefix in ("Calling tools:", "Action:"):
+        if stripped.startswith(prefix):
+            return stripped[len(prefix) :].strip()
+    return stripped
+
+
+def _decode_structured_text(blob: str) -> Any:
+    try:
+        return json.loads(blob, strict=False)
+    except json.JSONDecodeError as json_err:
+        try:
+            return ast.literal_eval(blob)
+        except (SyntaxError, ValueError) as eval_err:
+            raise json.JSONDecodeError(str(eval_err), blob, 0) from json_err
+
+
+def _unwrap_tool_call_item(data: Any) -> dict:
+    if isinstance(data, list):
+        if not data:
+            raise ValueError("The model output does not contain any JSON blob.")
+        data = data[0]
+    if not isinstance(data, dict):
+        raise ValueError("The model output does not contain any JSON blob.")
+    return data
+
+
+def _dict_looks_like_tool_call(data: dict, known_tool_names: set[str] | None = None) -> bool:
+    if isinstance(data.get("function"), dict) and "name" in data["function"]:
+        name = data["function"]["name"]
+        return known_tool_names is None or name in known_tool_names
+    if "name" in data:
+        name = data["name"]
+        return known_tool_names is None or name in known_tool_names
+    return False
+
+
+def content_looks_like_tool_call(text: str, known_tool_names: set[str] | None = None) -> bool:
+    """True when *text* appears to be a tool invocation, not a natural-language final answer."""
+    stripped = text.strip()
+    if stripped.startswith("Calling tools:") or stripped.startswith("Action:"):
+        return True
+    working = _strip_tool_call_action_prefix(stripped)
+    try:
+        if working.startswith("["):
+            data = _unwrap_tool_call_item(_decode_structured_text(working))
+            return _dict_looks_like_tool_call(data, known_tool_names)
+        blob, _ = parse_json_blob(text)
+        return _dict_looks_like_tool_call(blob, known_tool_names)
+    except (ValueError, json.JSONDecodeError, SyntaxError):
+        return False
+
+
+def normalize_tool_call_dictionary(
+    tool_call_dictionary: dict, tool_name_key: str, tool_arguments_key: str
+) -> tuple[str, Any]:
+    """Normalize OpenAI nested or flat tool-call dicts to (name, arguments)."""
+    if tool_name_key in tool_call_dictionary:
+        return tool_call_dictionary[tool_name_key], tool_call_dictionary.get(tool_arguments_key)
+    fn = tool_call_dictionary.get("function")
+    if isinstance(fn, dict) and "name" in fn:
+        return fn["name"], fn.get("arguments")
+    raise ValueError(
+        f"Tool call needs to have a key '{tool_name_key}'. Got keys: {list(tool_call_dictionary.keys())} instead"
+    )
+
+
 def parse_json_blob(json_blob: str) -> tuple[dict[str, str], str]:
     "Extracts the JSON blob from the input and returns the JSON data and the rest of the input."
+    json_str = ""
     try:
-        first_accolade_index = json_blob.find("{")
+        working = _strip_tool_call_action_prefix(json_blob)
+        stripped = working.strip()
+        if stripped.startswith("["):
+            bracket_idx = json_blob.find("[")
+            json_data = _unwrap_tool_call_item(_decode_structured_text(stripped))
+            return json_data, json_blob[:bracket_idx] if bracket_idx != -1 else ""
+
+        first_accolade_index = working.find("{")
         if first_accolade_index == -1:
             raise IndexError
 
         # Find the smallest balanced JSON object starting from the first '{'
         depth = 0
         last_accolade_index = None
-        for i, ch in enumerate(json_blob[first_accolade_index:], start=first_accolade_index):
+        for i, ch in enumerate(working[first_accolade_index:], start=first_accolade_index):
             if ch == "{":
                 depth += 1
             elif ch == "}":
@@ -168,14 +244,19 @@ def parse_json_blob(json_blob: str) -> tuple[dict[str, str], str]:
         if last_accolade_index is None:
             raise IndexError
 
-        json_str = json_blob[first_accolade_index : last_accolade_index + 1]
-        json_data = json.loads(json_str, strict=False)
-        return json_data, json_blob[:first_accolade_index]
+        json_str = working[first_accolade_index : last_accolade_index + 1]
+        json_data = _decode_structured_text(json_str)
+        if not isinstance(json_data, dict):
+            json_data = _unwrap_tool_call_item(json_data)
+        abs_start = json_blob.find(json_str)
+        if abs_start == -1:
+            abs_start = json_blob.find("{")
+        return json_data, json_blob[:abs_start]
     except IndexError:
         raise ValueError("The model output does not contain any JSON blob.")
     except json.JSONDecodeError as e:
         place = e.pos
-        if json_str[place - 1 : place + 2] == "},\n":
+        if json_str and json_str[place - 1 : place + 2] == "},\n":
             raise ValueError(
                 "JSON is invalid: you probably tried to provide multiple tool calls in one action. PROVIDE ONLY ONE TOOL CALL."
             )

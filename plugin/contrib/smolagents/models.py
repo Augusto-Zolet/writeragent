@@ -26,7 +26,15 @@ from typing import TYPE_CHECKING, Any
 
 from .monitoring import TokenUsage
 from .tools import Tool
-from .utils import RateLimiter, Retrying, _is_package_available, encode_image_base64, make_image_url, parse_json_blob
+from .utils import (
+    RateLimiter,
+    Retrying,
+    _is_package_available,
+    encode_image_base64,
+    make_image_url,
+    normalize_tool_call_dictionary,
+    parse_json_blob,
+)
 
 
 if TYPE_CHECKING:
@@ -399,13 +407,7 @@ def get_clean_message_list(
 
 def get_tool_call_from_text(text: str, tool_name_key: str, tool_arguments_key: str) -> ChatMessageToolCall:
     tool_call_dictionary, _ = parse_json_blob(text)
-    try:
-        tool_name = tool_call_dictionary[tool_name_key]
-    except Exception as e:
-        raise ValueError(
-            f"Tool call needs to have a key '{tool_name_key}'. Got keys: {list(tool_call_dictionary.keys())} instead"
-        ) from e
-    tool_arguments = tool_call_dictionary.get(tool_arguments_key, None)
+    tool_name, tool_arguments = normalize_tool_call_dictionary(tool_call_dictionary, tool_name_key, tool_arguments_key)
     if isinstance(tool_arguments, str):
         tool_arguments = parse_json_if_needed(tool_arguments)
     return ChatMessageToolCall(

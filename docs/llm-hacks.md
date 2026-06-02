@@ -106,6 +106,19 @@ If Ollama has `reasoning` and LM Studio has `reasoning_content`, the one-line fi
 
 See also: [`streaming-and-threading.md`](streaming-and-threading.md) §3 (reasoning in streams).
 
+## 8. Smolagents tool-call echo mistaken for final_answer
+
+**Problem**: Web-research / librarian sub-agents (`ToolCallingAgent`) teach the model `Action:\n{"name": ..., "arguments": ...}` in few-shot examples, but older memory replay used `Calling tools:\n` + Python `str([tc.dict()])` (single-quoted repr). When the API returned no native `tool_calls`, the model sometimes echoed that memory shape. `parse_json_blob` only accepted strict JSON, parsing failed, and `agents.py` treated the whole blob as `final_answer` — so the sidebar showed raw tool-call text instead of running `web_search`.
+
+### [Workaround] Parse + guard + aligned memory
+
+- **`parse_json_blob` / `get_tool_call_from_text`** ([`plugin/contrib/smolagents/utils.py`](../plugin/contrib/smolagents/utils.py), [`models.py`](../plugin/contrib/smolagents/models.py)): strip `Calling tools:` / `Action:` prefixes, unwrap `[{...}]` lists, fall back to `ast.literal_eval` for Python repr, normalize OpenAI nested `{function: {name, arguments}}` to flat smol shape.
+- **`content_looks_like_tool_call`** + guard in [`agents.py`](../plugin/contrib/smolagents/agents.py): if parsing still fails but text looks like a tool invocation, raise `AgentParsingError` instead of finishing with garbage.
+- **`ActionStep.to_messages`** ([`memory.py`](../plugin/contrib/smolagents/memory.py)): replay tool steps as `Action:` + JSON (matches examples).
+- **`WriterAgentSmolModel.generate`** ([`smol_agent.py`](../plugin/chatbot/smol_agent.py)): post-hoc `remove_content_after_stop_sequences` on content (stop is not on the HTTP wire today).
+
+Tests: [`tests/contrib/smolagents/test_tool_call_parsing.py`](../tests/contrib/smolagents/test_tool_call_parsing.py).
+
 ---
 
 *This document should be updated as new hacks are discovered or as improvements in models allow us to remove them.*

@@ -1,0 +1,76 @@
+# WriterAgent - smolagents tool-call text parsing tests
+
+from plugin.contrib.smolagents.memory import ActionStep, ToolCall
+from plugin.contrib.smolagents.models import MessageRole, get_tool_call_from_text
+from plugin.contrib.smolagents.monitoring import Timing
+from plugin.contrib.smolagents.utils import content_looks_like_tool_call, parse_json_blob
+
+USER_LOG_SNIPPET = (
+    "Calling tools:\n"
+    "[{'id': 'call_019e8619a1967b11b7fccbbf', 'type': 'function', "
+    "'function': {'name': 'web_search', 'arguments': {'query': "
+    "'Cottage Inn Pizza Madison Heights Michigan 505 W Eleven Mile Rd phone number reviews'}}}]"
+)
+
+
+def test_parse_json_blob_python_repr_calling_tools_prefix():
+    data, prefix = parse_json_blob(USER_LOG_SNIPPET)
+    assert prefix.startswith("Calling tools:")
+    assert data["function"]["name"] == "web_search"
+    assert "Cottage Inn Pizza" in data["function"]["arguments"]["query"]
+
+
+def test_get_tool_call_from_text_openai_nested_python_repr():
+    tc = get_tool_call_from_text(USER_LOG_SNIPPET, "name", "arguments")
+    assert tc.function.name == "web_search"
+    assert tc.function.arguments == {
+        "query": "Cottage Inn Pizza Madison Heights Michigan 505 W Eleven Mile Rd phone number reviews"
+    }
+
+
+def test_get_tool_call_from_text_standard_action_json():
+    text = 'Action:\n{"name": "web_search", "arguments": "Population Shanghai"}'
+    tc = get_tool_call_from_text(text, "name", "arguments")
+    assert tc.function.name == "web_search"
+    assert tc.function.arguments == "Population Shanghai"
+
+
+def test_get_tool_call_from_text_openai_nested_double_quoted_json():
+    text = (
+        '{"id": "call_1", "type": "function", '
+        '"function": {"name": "web_search", "arguments": {"query": "test"}}}'
+    )
+    tc = get_tool_call_from_text(text, "name", "arguments")
+    assert tc.function.name == "web_search"
+    assert tc.function.arguments == {"query": "test"}
+
+
+def test_content_looks_like_tool_call_for_mimicked_output():
+    known = {"web_search", "final_answer", "visit_webpage"}
+    assert content_looks_like_tool_call(USER_LOG_SNIPPET, known_tool_names=known)
+
+
+def test_content_looks_like_tool_call_false_for_plain_answer():
+    known = {"web_search", "final_answer"}
+    assert not content_looks_like_tool_call("Shanghai has the larger population.", known_tool_names=known)
+
+
+def test_action_step_to_messages_uses_action_json_not_calling_tools_repr():
+    step = ActionStep(
+        step_number=1,
+        timing=Timing(start_time=0.0),
+        tool_calls=[
+            ToolCall(
+                name="web_search",
+                arguments={"query": "Population Shanghai"},
+                id="call_1",
+            )
+        ],
+    )
+    messages = step.to_messages()
+    tool_msg = next(m for m in messages if m.role == MessageRole.TOOL_CALL)
+    text = tool_msg.content[0]["text"]
+    assert text.startswith("Action:\n")
+    assert "Calling tools:" not in text
+    assert '"name": "web_search"' in text
+    assert "Population Shanghai" in text

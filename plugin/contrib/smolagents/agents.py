@@ -89,6 +89,7 @@ from .utils import (
     AgentParsingError,
     AgentToolCallError,
     AgentToolExecutionError,
+    content_looks_like_tool_call,
     is_valid_name,
     truncate_content,
 )
@@ -1003,6 +1004,12 @@ class ToolCallingAgent(MultiStepAgent):
                 # Model returned content with no JSON blob (e.g. direct answer as text). Treat content as final_answer.
                 raw_content = (chat_message.content or "").strip()
                 if raw_content:
+                    known_tools = set(self.tools.keys())
+                    if content_looks_like_tool_call(raw_content, known_tool_names=known_tools):
+                        raise AgentParsingError(
+                            f"Error while parsing tool call from model output: {e}",
+                            self.logger,
+                        )
                     self.logger.log(
                         f"Parsing failed (no JSON blob); treating model output as final answer (length={len(raw_content)}). Error: {e}",
                         level=LogLevel.INFO,
