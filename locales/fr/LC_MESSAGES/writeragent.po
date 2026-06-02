@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 22:01-0400\n"
+"POT-Creation-Date: 2026-06-01 21:14-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: French <LL@li.org>\n"
@@ -399,65 +399,6 @@ msgstr ""
 msgid "Image inserted"
 msgstr "Image insérée"
 
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Initialization script saved. It will run automatically on the next =PYTHON() "
-"recalc."
-msgstr ""
-"Script d'initialisation enregistré. Il s'exécutera automatiquement lors du "
-"prochain recalcul =PYTHON()."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script ran successfully."
-msgstr "Le script d'initialisation a été exécuté avec succès."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script cleared."
-msgstr "Script d'initialisation effacé."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script failed."
-msgstr "Le script d'initialisation a échoué."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Edit Initialization Script applies to Calc spreadsheets. Open a Calc "
-"workbook and try again."
-msgstr ""
-"Modifier le script d'initialisation s'applique aux feuilles de calcul Calc. "
-"Ouvrez un classeur Calc et réessayez."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"The Python editor requires a configured venv with pywebview. Set Settings → "
-"Python → Python venv path and install pywebview in that venv."
-msgstr ""
-"L'éditeur Python nécessite un venv configuré avec pywebview. Définissez "
-"Paramètres → Python → Chemin du venv Python et installez pywebview dans ce "
-"venv."
-
-#: plugin/calc/init_script_editor.py
-msgid "Workbook Initialization Script"
-msgstr "Script d'initialisation du classeur"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-msgid "Run"
-msgstr "Exécuter"
-
-#: plugin/calc/init_script_editor.py plugin/calc/python_editor.py
-#: plugin/scripting/python_runner.py
-msgid "Save"
-msgstr "Enregistrer"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Fermer"
-
-#: plugin/calc/init_script_editor.py
-msgid "Could not open the Python editor."
-msgstr "Impossible d'ouvrir l'éditeur Python."
-
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr "Modifier Python dans la cellule..."
@@ -496,6 +437,10 @@ msgstr "Éditeur de cellules Python"
 #: plugin/calc/python_editor.py
 msgid "Save as plain text"
 msgstr "Enregistrer en tant que texte brut"
+
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "Enregistrer"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -1064,17 +1009,17 @@ msgstr ""
 "Outils → Importer un notebook Jupyter… pour activer la réinitialisation de "
 "la session Python du notebook."
 
-#: plugin/scripting/init_scripts.py
-#, python-brace-format
-msgid ""
-"Initialization script is too large to store in the document ({0} bytes)."
-msgstr ""
-"Le script d'initialisation est trop volumineux pour être stocké dans le "
-"document ({0} octets)."
-
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "Exécuter un script Python"
+
+#: plugin/scripting/python_runner.py
+msgid "Run"
+msgstr "Exécuter"
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Fermer"
 
 #: plugin/scripting/python_runner.py
 msgid "Script:"
@@ -1348,10 +1293,6 @@ msgid "Run Python Script..."
 msgstr "Exécuter le script Python..."
 
 #: plugin/main.py
-msgid "Edit Initialization Script..."
-msgstr "Modifier le script d'initialisation..."
-
-#: plugin/main.py
 msgid "Reset Python Session"
 msgstr "Réinitialiser la session Python"
 
@@ -1446,10 +1387,6 @@ msgstr "Chat (Test) :"
 #: plugin/xdl_strings.py
 msgid "Clear"
 msgstr "Effacer"
-
-#: plugin/xdl_strings.py
-msgid "Context Len:"
-msgstr "Longueur du contexte :"
 
 #: plugin/xdl_strings.py
 msgid "Draw"

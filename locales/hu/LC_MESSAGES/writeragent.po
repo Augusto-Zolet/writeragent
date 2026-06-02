@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 22:01-0400\n"
+"POT-Creation-Date: 2026-06-01 21:14-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Hungarian <LL@li.org>\n"
@@ -393,65 +393,6 @@ msgstr ""
 msgid "Image inserted"
 msgstr "Kép beszúrva"
 
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Initialization script saved. It will run automatically on the next =PYTHON() "
-"recalc."
-msgstr ""
-"Az inicializáló parancsfájl mentve. A következő =PYTHON() újraszámításkor "
-"automatikusan lefut."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script ran successfully."
-msgstr "Az inicializáló parancsfájl sikeresen lefutott."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script cleared."
-msgstr "Az inicializáló parancsfájl törölve."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script failed."
-msgstr "Az inicializáló parancsfájl futtatása sikertelen."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Edit Initialization Script applies to Calc spreadsheets. Open a Calc "
-"workbook and try again."
-msgstr ""
-"Az inicializáló parancsfájl szerkesztése a Calc táblázatokra vonatkozik. "
-"Nyisson meg egy Calc munkafüzetet, és próbálja újra."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"The Python editor requires a configured venv with pywebview. Set Settings → "
-"Python → Python venv path and install pywebview in that venv."
-msgstr ""
-"A Python-szerkesztőhöz egy konfigurált, pywebview-t tartalmazó venv "
-"szükséges. Állítsa be a Beállítások → Python → Python venv útvonalat, és "
-"telepítse a pywebview-t abban a venv-ben."
-
-#: plugin/calc/init_script_editor.py
-msgid "Workbook Initialization Script"
-msgstr "Munkafüzet-inicializáló parancsfájl"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-msgid "Run"
-msgstr "Futtatás"
-
-#: plugin/calc/init_script_editor.py plugin/calc/python_editor.py
-#: plugin/scripting/python_runner.py
-msgid "Save"
-msgstr "Mentés"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Bezárás"
-
-#: plugin/calc/init_script_editor.py
-msgid "Could not open the Python editor."
-msgstr "Nem sikerült megnyitni a Python-szerkesztőt."
-
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr "Python szerkesztése cellában..."
@@ -490,6 +431,10 @@ msgstr "Python cella-szerkesztő"
 #: plugin/calc/python_editor.py
 msgid "Save as plain text"
 msgstr "Mentés egyszerű szövegként"
+
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "Mentés"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -1056,17 +1001,17 @@ msgstr ""
 "Használja az Eszközök → Jupyter Notebook importálása… menüpontot a notebook "
 "Python-munkamenetének alaphelyzetbe állításához."
 
-#: plugin/scripting/init_scripts.py
-#, python-brace-format
-msgid ""
-"Initialization script is too large to store in the document ({0} bytes)."
-msgstr ""
-"Az inicializációs parancsfájl túl nagy a dokumentumban való tároláshoz ({0} "
-"bájt)."
-
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "Python-szkript futtatása"
+
+#: plugin/scripting/python_runner.py
+msgid "Run"
+msgstr "Futtatás"
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Bezárás"
 
 #: plugin/scripting/python_runner.py
 msgid "Script:"
@@ -1340,10 +1285,6 @@ msgid "Run Python Script..."
 msgstr "Python-szkript futtatása..."
 
 #: plugin/main.py
-msgid "Edit Initialization Script..."
-msgstr "Inicializáló parancsfájl szerkesztése…"
-
-#: plugin/main.py
 msgid "Reset Python Session"
 msgstr "Python-munkamenet alaphelyzetbe állítása"
 
@@ -1438,10 +1379,6 @@ msgstr "Csevegés (tesztelés):"
 #: plugin/xdl_strings.py
 msgid "Clear"
 msgstr "Törlés"
-
-#: plugin/xdl_strings.py
-msgid "Context Len:"
-msgstr "Kontextushossz:"
 
 #: plugin/xdl_strings.py
 msgid "Draw"

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 22:01-0400\n"
+"POT-Creation-Date: 2026-06-01 21:14-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Estonian <LL@li.org>\n"
@@ -389,64 +389,6 @@ msgstr ""
 msgid "Image inserted"
 msgstr "Pilt sisestatud"
 
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Initialization script saved. It will run automatically on the next =PYTHON() "
-"recalc."
-msgstr ""
-"Lähtestusskript on salvestatud. See käivitub automaatselt järgmisel "
-"=PYTHON() ümberarvutusel."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script ran successfully."
-msgstr "Lähtestusskript käivitus edukalt."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script cleared."
-msgstr "Lähtestusskript on tühjendatud."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script failed."
-msgstr "Lähtestusskript ebaõnnestus."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Edit Initialization Script applies to Calc spreadsheets. Open a Calc "
-"workbook and try again."
-msgstr ""
-"Lähtestusskripti muutmine kehtib Calci arvutustabelite kohta. Avage Calci "
-"töövihik ja proovige uuesti."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"The Python editor requires a configured venv with pywebview. Set Settings → "
-"Python → Python venv path and install pywebview in that venv."
-msgstr ""
-"Python-redaktor vajab konfigureeritud venv-i koos pywebview-iga. Määrake "
-"Sätted → Python → Pythoni venv-i tee ja installige pywebview sellesse venv-i."
-
-#: plugin/calc/init_script_editor.py
-msgid "Workbook Initialization Script"
-msgstr "Töövihiku lähtestusskript"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-msgid "Run"
-msgstr "Käivita"
-
-#: plugin/calc/init_script_editor.py plugin/calc/python_editor.py
-#: plugin/scripting/python_runner.py
-msgid "Save"
-msgstr "Salvesta"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Sulge"
-
-#: plugin/calc/init_script_editor.py
-msgid "Could not open the Python editor."
-msgstr "Python-redaktorit ei saanud avada."
-
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr "Redigeeri Pythonit lahtris..."
@@ -485,6 +427,10 @@ msgstr "Python-lahtriredaktor"
 #: plugin/calc/python_editor.py
 msgid "Save as plain text"
 msgstr "Salvesta lihttekstina"
+
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "Salvesta"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -1039,15 +985,17 @@ msgstr ""
 "Pythoni seansi lähtestamise lubamiseks kasutage Tööriistad → Impordi "
 "Jupyteri märkmik…"
 
-#: plugin/scripting/init_scripts.py
-#, python-brace-format
-msgid ""
-"Initialization script is too large to store in the document ({0} bytes)."
-msgstr "Lähtestusskript on dokumendis salvestamiseks liiga suur ({0} baiti)."
-
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "Käivita Pythoni skript"
+
+#: plugin/scripting/python_runner.py
+msgid "Run"
+msgstr "Käivita"
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Sulge"
 
 #: plugin/scripting/python_runner.py
 msgid "Script:"
@@ -1318,10 +1266,6 @@ msgid "Run Python Script..."
 msgstr "Käivita Pythoni skript..."
 
 #: plugin/main.py
-msgid "Edit Initialization Script..."
-msgstr "Muuda lähtestusskripti..."
-
-#: plugin/main.py
 msgid "Reset Python Session"
 msgstr "Lähtesta Pythoni seanss"
 
@@ -1416,10 +1360,6 @@ msgstr "Vestlus (testimine):"
 #: plugin/xdl_strings.py
 msgid "Clear"
 msgstr "Tühjenda"
-
-#: plugin/xdl_strings.py
-msgid "Context Len:"
-msgstr "Konteksti pikkus:"
 
 #: plugin/xdl_strings.py
 msgid "Draw"

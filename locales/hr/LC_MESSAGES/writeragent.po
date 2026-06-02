@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 22:01-0400\n"
+"POT-Creation-Date: 2026-06-01 21:14-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Croatian <LL@li.org>\n"
@@ -392,65 +392,6 @@ msgstr ""
 msgid "Image inserted"
 msgstr "Slika umetnuta"
 
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Initialization script saved. It will run automatically on the next =PYTHON() "
-"recalc."
-msgstr ""
-"Inicijalizacijska skripta je spremljena. Automatski će se pokrenuti pri "
-"sljedećem =PYTHON() ponovnom izračunu."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script ran successfully."
-msgstr "Inicijalizacijska skripta uspješno je pokrenuta."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script cleared."
-msgstr "Inicijalizacijska skripta je očišćena."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script failed."
-msgstr "Inicijalizacijska skripta nije uspjela."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Edit Initialization Script applies to Calc spreadsheets. Open a Calc "
-"workbook and try again."
-msgstr ""
-"Uređivanje inicijalizacijske skripte primjenjuje se na Calc proračunske "
-"tablice. Otvorite Calc radnu knjigu i pokušajte ponovno."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"The Python editor requires a configured venv with pywebview. Set Settings → "
-"Python → Python venv path and install pywebview in that venv."
-msgstr ""
-"Uređivač Python koda zahtijeva konfigurirani venv s pywebview. Postavite "
-"Postavke → Python → Putanja do Python venv-a i instalirajte pywebview u tom "
-"venv-u."
-
-#: plugin/calc/init_script_editor.py
-msgid "Workbook Initialization Script"
-msgstr "Skripta za inicijalizaciju radne knjige"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-msgid "Run"
-msgstr "Pokreni"
-
-#: plugin/calc/init_script_editor.py plugin/calc/python_editor.py
-#: plugin/scripting/python_runner.py
-msgid "Save"
-msgstr "Spremi"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Zatvori"
-
-#: plugin/calc/init_script_editor.py
-msgid "Could not open the Python editor."
-msgstr "Nije bilo moguće otvoriti uređivač Python koda."
-
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr "Uredi Python u ćeliji..."
@@ -489,6 +430,10 @@ msgstr "Python uređivač ćelija"
 #: plugin/calc/python_editor.py
 msgid "Save as plain text"
 msgstr "Spremi kao običan tekst"
+
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "Spremi"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -1048,16 +993,17 @@ msgstr ""
 "Uvezi Jupyter bilježnicu… za omogućavanje resetiranja Python sesije "
 "bilježnice."
 
-#: plugin/scripting/init_scripts.py
-#, python-brace-format
-msgid ""
-"Initialization script is too large to store in the document ({0} bytes)."
-msgstr ""
-"Inicijalizacijska skripta je prevelika za pohranu u dokumentu ({0} bajtova)."
-
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "Pokreni Python skriptu"
+
+#: plugin/scripting/python_runner.py
+msgid "Run"
+msgstr "Pokreni"
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Zatvori"
 
 #: plugin/scripting/python_runner.py
 msgid "Script:"
@@ -1327,10 +1273,6 @@ msgid "Run Python Script..."
 msgstr "Pokreni Python skriptu..."
 
 #: plugin/main.py
-msgid "Edit Initialization Script..."
-msgstr "Uredi inicijalizacijsku skriptu..."
-
-#: plugin/main.py
 msgid "Reset Python Session"
 msgstr "Ponovno pokreni Python sesiju"
 
@@ -1425,10 +1367,6 @@ msgstr "Razgovor (testiranje):"
 #: plugin/xdl_strings.py
 msgid "Clear"
 msgstr "Očisti"
-
-#: plugin/xdl_strings.py
-msgid "Context Len:"
-msgstr "Duljina konteksta:"
 
 #: plugin/xdl_strings.py
 msgid "Draw"

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 22:01-0400\n"
+"POT-Creation-Date: 2026-06-01 21:14-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Danish <LL@li.org>\n"
@@ -391,64 +391,6 @@ msgstr ""
 msgid "Image inserted"
 msgstr "Billede indsat"
 
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Initialization script saved. It will run automatically on the next =PYTHON() "
-"recalc."
-msgstr ""
-"Initialiseringsscript gemt. Det køres automatisk ved næste =PYTHON()-"
-"genberegning."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script ran successfully."
-msgstr "Initialiseringsscript blev kørt korrekt."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script cleared."
-msgstr "Initialiseringsscript ryddet."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script failed."
-msgstr "Initialiseringsscript mislykkedes."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Edit Initialization Script applies to Calc spreadsheets. Open a Calc "
-"workbook and try again."
-msgstr ""
-"Redigér initialiseringsscript gælder for Calc-regneark. Åbn en Calc-"
-"projektmappe og prøv igen."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"The Python editor requires a configured venv with pywebview. Set Settings → "
-"Python → Python venv path and install pywebview in that venv."
-msgstr ""
-"Python-editoren kræver et konfigureret venv med pywebview. Angiv "
-"Indstillinger → Python → Python venv-sti og installer pywebview i dette venv."
-
-#: plugin/calc/init_script_editor.py
-msgid "Workbook Initialization Script"
-msgstr "Initialiseringsscript for projektmappe"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-msgid "Run"
-msgstr "Kør"
-
-#: plugin/calc/init_script_editor.py plugin/calc/python_editor.py
-#: plugin/scripting/python_runner.py
-msgid "Save"
-msgstr "Gem"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Luk"
-
-#: plugin/calc/init_script_editor.py
-msgid "Could not open the Python editor."
-msgstr "Kunne ikke åbne Python-editoren."
-
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr "Rediger Python i celle..."
@@ -487,6 +429,10 @@ msgstr "Python-celleeditor"
 #: plugin/calc/python_editor.py
 msgid "Save as plain text"
 msgstr "Gem som almindelig tekst"
+
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "Gem"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -1046,17 +992,17 @@ msgstr ""
 "Funktioner → Importér Jupyter Notebook… for at aktivere nulstilling af "
 "Python-session for notebook."
 
-#: plugin/scripting/init_scripts.py
-#, python-brace-format
-msgid ""
-"Initialization script is too large to store in the document ({0} bytes)."
-msgstr ""
-"Initialiseringsscriptet er for stort til at blive gemt i dokumentet ({0} "
-"bytes)."
-
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "Kør Python-script"
+
+#: plugin/scripting/python_runner.py
+msgid "Run"
+msgstr "Kør"
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Luk"
 
 #: plugin/scripting/python_runner.py
 msgid "Script:"
@@ -1327,10 +1273,6 @@ msgid "Run Python Script..."
 msgstr "Kør Python-script..."
 
 #: plugin/main.py
-msgid "Edit Initialization Script..."
-msgstr "Rediger initialiseringsscript..."
-
-#: plugin/main.py
 msgid "Reset Python Session"
 msgstr "Nulstil Python-session"
 
@@ -1425,10 +1367,6 @@ msgstr "Chat (test):"
 #: plugin/xdl_strings.py
 msgid "Clear"
 msgstr "Ryd"
-
-#: plugin/xdl_strings.py
-msgid "Context Len:"
-msgstr "Kontekstlængde:"
 
 #: plugin/xdl_strings.py
 msgid "Draw"

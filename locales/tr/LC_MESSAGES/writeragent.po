@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 22:01-0400\n"
+"POT-Creation-Date: 2026-06-01 21:14-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Turkish <LL@li.org>\n"
@@ -396,65 +396,6 @@ msgstr ""
 msgid "Image inserted"
 msgstr "Görüntü eklendi"
 
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Initialization script saved. It will run automatically on the next =PYTHON() "
-"recalc."
-msgstr ""
-"Başlatma betiği kaydedildi. Bir sonraki =PYTHON() yeniden hesaplamasında "
-"otomatik olarak çalışacaktır."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script ran successfully."
-msgstr "Başlatma betiği başarıyla çalıştırıldı."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script cleared."
-msgstr "Başlatma betiği temizlendi."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script failed."
-msgstr "Başlatma betiği başarısız oldu."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Edit Initialization Script applies to Calc spreadsheets. Open a Calc "
-"workbook and try again."
-msgstr ""
-"Başlatma Betiğini Düzenle, Calc elektronik tabloları için geçerlidir. Bir "
-"Calc çalışma kitabı açın ve tekrar deneyin."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"The Python editor requires a configured venv with pywebview. Set Settings → "
-"Python → Python venv path and install pywebview in that venv."
-msgstr ""
-"Python düzenleyicisi, pywebview içeren yapılandırılmış bir venv gerektirir. "
-"Ayarlar → Python → Python venv yolu kısmını ayarlayın ve bu venv içinde "
-"pywebview'i kurun."
-
-#: plugin/calc/init_script_editor.py
-msgid "Workbook Initialization Script"
-msgstr "Çalışma Kitabı Başlatma Betiği"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-msgid "Run"
-msgstr "Çalıştır"
-
-#: plugin/calc/init_script_editor.py plugin/calc/python_editor.py
-#: plugin/scripting/python_runner.py
-msgid "Save"
-msgstr "Kaydet"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Kapat"
-
-#: plugin/calc/init_script_editor.py
-msgid "Could not open the Python editor."
-msgstr "Python düzenleyicisi açılamadı."
-
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr "Hücredeki Python'u Düzenle..."
@@ -493,6 +434,10 @@ msgstr "Python hücre düzenleyici"
 #: plugin/calc/python_editor.py
 msgid "Save as plain text"
 msgstr "Düz metin olarak kaydet"
+
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "Kaydet"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -1051,15 +996,17 @@ msgstr ""
 "Python oturum sıfırlamasını etkinleştirmek için Araçlar → Jupyter Not "
 "Defterini İçe Aktar… seçeneğini kullanın."
 
-#: plugin/scripting/init_scripts.py
-#, python-brace-format
-msgid ""
-"Initialization script is too large to store in the document ({0} bytes)."
-msgstr "Başlatma betiği belgede saklanamayacak kadar büyük ({0} bayt)."
-
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "Python Betiğini Çalıştır"
+
+#: plugin/scripting/python_runner.py
+msgid "Run"
+msgstr "Çalıştır"
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Kapat"
 
 #: plugin/scripting/python_runner.py
 msgid "Script:"
@@ -1329,10 +1276,6 @@ msgid "Run Python Script..."
 msgstr "Python Betiğini Çalıştır..."
 
 #: plugin/main.py
-msgid "Edit Initialization Script..."
-msgstr "Başlatma Betiğini Düzenle..."
-
-#: plugin/main.py
 msgid "Reset Python Session"
 msgstr "Python Oturumunu Sıfırla"
 
@@ -1427,10 +1370,6 @@ msgstr "Sohbet (Test):"
 #: plugin/xdl_strings.py
 msgid "Clear"
 msgstr "Temizle"
-
-#: plugin/xdl_strings.py
-msgid "Context Len:"
-msgstr "Bağlam Uzunluğu:"
 
 #: plugin/xdl_strings.py
 msgid "Draw"

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 22:01-0400\n"
+"POT-Creation-Date: 2026-06-01 21:14-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Chinese (Simplified) <LL@li.org>\n"
@@ -365,60 +365,6 @@ msgstr "模型正在重复相同的块（无限循环）。请重试或使用其
 msgid "Image inserted"
 msgstr "已插入图像"
 
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Initialization script saved. It will run automatically on the next =PYTHON() "
-"recalc."
-msgstr "初始化脚本已保存。它将在下次 =PYTHON() 重新计算时自动运行。"
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script ran successfully."
-msgstr "初始化脚本运行成功。"
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script cleared."
-msgstr "初始化脚本已清除。"
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script failed."
-msgstr "初始化脚本失败。"
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Edit Initialization Script applies to Calc spreadsheets. Open a Calc "
-"workbook and try again."
-msgstr "“编辑初始化脚本”仅适用于 Calc 电子表格。请打开一个 Calc 工作簿后再试。"
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"The Python editor requires a configured venv with pywebview. Set Settings → "
-"Python → Python venv path and install pywebview in that venv."
-msgstr ""
-"Python 编辑器需要配置包含 pywebview 的 venv。请设置“设置”→“Python”→“Python "
-"venv 路径”并在该 venv 中安装 pywebview。"
-
-#: plugin/calc/init_script_editor.py
-msgid "Workbook Initialization Script"
-msgstr "工作簿初始化脚本"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-msgid "Run"
-msgstr "运行"
-
-#: plugin/calc/init_script_editor.py plugin/calc/python_editor.py
-#: plugin/scripting/python_runner.py
-msgid "Save"
-msgstr "保存"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "关闭"
-
-#: plugin/calc/init_script_editor.py
-msgid "Could not open the Python editor."
-msgstr "无法打开 Python 编辑器。"
-
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr "在单元格中编辑 Python..."
@@ -456,6 +402,10 @@ msgstr "Python 单元格编辑器"
 #: plugin/calc/python_editor.py
 msgid "Save as plain text"
 msgstr "另存为纯文本"
+
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "保存"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -990,15 +940,17 @@ msgstr ""
 "此 Writer 文档没有导入的笔记本注册表。请使用“工具”→“导入 Jupyter 笔记本…”以启"
 "用笔记本 Python 会话重置。"
 
-#: plugin/scripting/init_scripts.py
-#, python-brace-format
-msgid ""
-"Initialization script is too large to store in the document ({0} bytes)."
-msgstr "初始化脚本过大，无法存储在文档中（{0} 字节）。"
-
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "运行 Python 脚本"
+
+#: plugin/scripting/python_runner.py
+msgid "Run"
+msgstr "运行"
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "关闭"
 
 #: plugin/scripting/python_runner.py
 msgid "Script:"
@@ -1261,10 +1213,6 @@ msgid "Run Python Script..."
 msgstr "运行 Python 脚本..."
 
 #: plugin/main.py
-msgid "Edit Initialization Script..."
-msgstr "编辑初始化脚本..."
-
-#: plugin/main.py
 msgid "Reset Python Session"
 msgstr "重置 Python 会话"
 
@@ -1359,10 +1307,6 @@ msgstr "聊天 (测试):"
 #: plugin/xdl_strings.py
 msgid "Clear"
 msgstr "清除"
-
-#: plugin/xdl_strings.py
-msgid "Context Len:"
-msgstr "上下文长度："
 
 #: plugin/xdl_strings.py
 msgid "Draw"

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 22:01-0400\n"
+"POT-Creation-Date: 2026-06-01 21:14-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Japanese <LL@li.org>\n"
@@ -395,65 +395,6 @@ msgstr ""
 msgid "Image inserted"
 msgstr "画像が挿入されました"
 
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Initialization script saved. It will run automatically on the next =PYTHON() "
-"recalc."
-msgstr ""
-"初期化スクリプトを保存しました。次回の=PYTHON()再計算時に自動的に実行されま"
-"す。"
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script ran successfully."
-msgstr "初期化スクリプトが正常に実行されました。"
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script cleared."
-msgstr "初期化スクリプトをクリアしました。"
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script failed."
-msgstr "初期化スクリプトの実行に失敗しました。"
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Edit Initialization Script applies to Calc spreadsheets. Open a Calc "
-"workbook and try again."
-msgstr ""
-"「初期化スクリプトを編集」はCalcスプレッドシートに適用されます。Calcワーク"
-"ブックを開いてから再度試してください。"
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"The Python editor requires a configured venv with pywebview. Set Settings → "
-"Python → Python venv path and install pywebview in that venv."
-msgstr ""
-"Pythonエディターには、pywebviewがインストールされたvenvの設定が必要です。「設"
-"定」→「Python」→「Python venvパス」を設定し、そのvenvにpywebviewをインストー"
-"ルしてください。"
-
-#: plugin/calc/init_script_editor.py
-msgid "Workbook Initialization Script"
-msgstr "ワークブック初期化スクリプト"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-msgid "Run"
-msgstr "実行"
-
-#: plugin/calc/init_script_editor.py plugin/calc/python_editor.py
-#: plugin/scripting/python_runner.py
-msgid "Save"
-msgstr "保存"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "閉じる"
-
-#: plugin/calc/init_script_editor.py
-msgid "Could not open the Python editor."
-msgstr "Pythonエディターを開けませんでした。"
-
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr "セル内のPythonを編集..."
@@ -492,6 +433,10 @@ msgstr "Python セルエディター"
 #: plugin/calc/python_editor.py
 msgid "Save as plain text"
 msgstr "プレーンテキストとして保存"
+
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "保存"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -1050,16 +995,17 @@ msgstr ""
 "ん。ノートブックのPythonセッションリセットを有効にするには、「ツール」→"
 "「Jupyterノートブックをインポート…」を使用してください。"
 
-#: plugin/scripting/init_scripts.py
-#, python-brace-format
-msgid ""
-"Initialization script is too large to store in the document ({0} bytes)."
-msgstr ""
-"初期化スクリプトが大きすぎてドキュメントに保存できません（{0}バイト）。"
-
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "Pythonスクリプトを実行"
+
+#: plugin/scripting/python_runner.py
+msgid "Run"
+msgstr "実行"
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "閉じる"
 
 #: plugin/scripting/python_runner.py
 msgid "Script:"
@@ -1330,10 +1276,6 @@ msgid "Run Python Script..."
 msgstr "Pythonスクリプトを実行..."
 
 #: plugin/main.py
-msgid "Edit Initialization Script..."
-msgstr "初期化スクリプトを編集..."
-
-#: plugin/main.py
 msgid "Reset Python Session"
 msgstr "Pythonセッションをリセット"
 
@@ -1428,10 +1370,6 @@ msgstr "チャット（テスト中）:"
 #: plugin/xdl_strings.py
 msgid "Clear"
 msgstr "クリア"
-
-#: plugin/xdl_strings.py
-msgid "Context Len:"
-msgstr "コンテキスト長:"
 
 #: plugin/xdl_strings.py
 msgid "Draw"

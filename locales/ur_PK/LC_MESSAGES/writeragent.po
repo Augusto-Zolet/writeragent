@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 22:01-0400\n"
+"POT-Creation-Date: 2026-06-01 21:14-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Urdu <LL@li.org>\n"
@@ -394,64 +394,6 @@ msgstr ""
 msgid "Image inserted"
 msgstr "تصویر شامل کی گئی"
 
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Initialization script saved. It will run automatically on the next =PYTHON() "
-"recalc."
-msgstr ""
-"انٹیشلائزیشن اسکرپٹ محفوظ کر لی گئی ہے۔ یہ اگلی =PYTHON() ری کیلک پر خود "
-"بخود چل جائے گی۔"
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script ran successfully."
-msgstr "انٹیشلائزیشن اسکرپٹ کامیابی سے چل گئی۔"
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script cleared."
-msgstr "انٹیشلائزیشن اسکرپٹ صاف کر دی گئی ہے۔"
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script failed."
-msgstr "انٹیشلائزیشن اسکرپٹ ناکام ہو گئی۔"
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Edit Initialization Script applies to Calc spreadsheets. Open a Calc "
-"workbook and try again."
-msgstr ""
-"Edit Initialization Script کا اطلاق Calc اسپریڈ شیٹس پر ہوتا ہے۔ Calc ورک بک "
-"کھولیں اور دوبارہ کوشش کریں۔"
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"The Python editor requires a configured venv with pywebview. Set Settings → "
-"Python → Python venv path and install pywebview in that venv."
-msgstr ""
-"Python ایڈیٹر کو pywebview کے ساتھ ایک کنفیگر شدہ venv کی ضرورت ہے۔ Settings "
-"→ Python → Python venv path سیٹ کریں اور اس venv میں pywebview انسٹال کریں۔"
-
-#: plugin/calc/init_script_editor.py
-msgid "Workbook Initialization Script"
-msgstr "ورک بک انیشلائزیشن اسکرپٹ"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-msgid "Run"
-msgstr "چلائیں"
-
-#: plugin/calc/init_script_editor.py plugin/calc/python_editor.py
-#: plugin/scripting/python_runner.py
-msgid "Save"
-msgstr "محفوظ کریں"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "بند کریں"
-
-#: plugin/calc/init_script_editor.py
-msgid "Could not open the Python editor."
-msgstr "Python ایڈیٹر نہیں کھول سکا۔"
-
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr "سیل میں پائتھون (Python) کی تدوین کریں..."
@@ -490,6 +432,10 @@ msgstr "پائتھون سیل ایڈیٹر"
 #: plugin/calc/python_editor.py
 msgid "Save as plain text"
 msgstr "بطور سادہ متن محفوظ کریں"
+
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "محفوظ کریں"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -1047,15 +993,17 @@ msgstr ""
 "اس رائٹر دستاویز میں کوئی درآمد شدہ نوٹ بک رجسٹری نہیں ہے۔ نوٹ بک پائتھون "
 "سیشن ری سیٹ کو فعال کرنے کے لیے ٹولز → امپورٹ جیوپیٹر نوٹ بک... استعمال کریں۔"
 
-#: plugin/scripting/init_scripts.py
-#, python-brace-format
-msgid ""
-"Initialization script is too large to store in the document ({0} bytes)."
-msgstr "ابتدائی اسکرپٹ دستاویز میں ذخیرہ کرنے کے لیے بہت بڑی ہے ({0} بائٹس)۔"
-
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "Python اسکرپٹ چلائیں"
+
+#: plugin/scripting/python_runner.py
+msgid "Run"
+msgstr "چلائیں"
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "بند کریں"
 
 #: plugin/scripting/python_runner.py
 msgid "Script:"
@@ -1326,10 +1274,6 @@ msgid "Run Python Script..."
 msgstr "Python اسکرپٹ چلائیں..."
 
 #: plugin/main.py
-msgid "Edit Initialization Script..."
-msgstr "ابتدائی اسکرپٹ میں ترمیم کریں..."
-
-#: plugin/main.py
 msgid "Reset Python Session"
 msgstr "Python سیشن ری سیٹ کریں"
 
@@ -1424,10 +1368,6 @@ msgstr "چیٹ (ٹیسٹنگ):"
 #: plugin/xdl_strings.py
 msgid "Clear"
 msgstr "صاف کریں"
-
-#: plugin/xdl_strings.py
-msgid "Context Len:"
-msgstr "سیاق و سباق کی لمبائی:"
 
 #: plugin/xdl_strings.py
 msgid "Draw"

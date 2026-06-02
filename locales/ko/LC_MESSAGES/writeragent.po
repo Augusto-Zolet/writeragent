@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 22:01-0400\n"
+"POT-Creation-Date: 2026-06-01 21:14-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Korean <LL@li.org>\n"
@@ -390,64 +390,6 @@ msgstr ""
 msgid "Image inserted"
 msgstr "이미지 삽입됨"
 
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Initialization script saved. It will run automatically on the next =PYTHON() "
-"recalc."
-msgstr ""
-"초기화 스크립트가 저장되었습니다. 다음 =PYTHON() 재계산 시 자동으로 실행됩니"
-"다."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script ran successfully."
-msgstr "초기화 스크립트가 성공적으로 실행되었습니다."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script cleared."
-msgstr "초기화 스크립트가 삭제되었습니다."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script failed."
-msgstr "초기화 스크립트 실행에 실패했습니다."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Edit Initialization Script applies to Calc spreadsheets. Open a Calc "
-"workbook and try again."
-msgstr ""
-"초기화 스크립트 편집은 Calc 스프레드시트에 적용됩니다. Calc 통합 문서를 열고 "
-"다시 시도하십시오."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"The Python editor requires a configured venv with pywebview. Set Settings → "
-"Python → Python venv path and install pywebview in that venv."
-msgstr ""
-"Python 편집기를 사용하려면 pywebview가 포함된 venv 설정이 필요합니다. 설정 → "
-"Python → Python venv 경로를 지정하고 해당 venv에 pywebview를 설치하십시오."
-
-#: plugin/calc/init_script_editor.py
-msgid "Workbook Initialization Script"
-msgstr "통합 문서 초기화 스크립트"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-msgid "Run"
-msgstr "실행"
-
-#: plugin/calc/init_script_editor.py plugin/calc/python_editor.py
-#: plugin/scripting/python_runner.py
-msgid "Save"
-msgstr "저장"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "닫기"
-
-#: plugin/calc/init_script_editor.py
-msgid "Could not open the Python editor."
-msgstr "Python 편집기를 열 수 없습니다."
-
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr "셀에서 Python 편집..."
@@ -486,6 +428,10 @@ msgstr "Python 셀 편집기"
 #: plugin/calc/python_editor.py
 msgid "Save as plain text"
 msgstr "일반 텍스트로 저장"
+
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "저장"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -1042,15 +988,17 @@ msgstr ""
 "이 Writer 문서에는 가져온 노트북 레지스트리가 없습니다. 노트북 Python 세션 재"
 "설정을 활성화하려면 도구 → Jupyter 노트북 가져오기…를 사용하십시오."
 
-#: plugin/scripting/init_scripts.py
-#, python-brace-format
-msgid ""
-"Initialization script is too large to store in the document ({0} bytes)."
-msgstr "초기화 스크립트가 너무 커서 문서에 저장할 수 없습니다({0} 바이트)."
-
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "Python 스크립트 실행"
+
+#: plugin/scripting/python_runner.py
+msgid "Run"
+msgstr "실행"
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "닫기"
 
 #: plugin/scripting/python_runner.py
 msgid "Script:"
@@ -1316,10 +1264,6 @@ msgid "Run Python Script..."
 msgstr "Python 스크립트 실행..."
 
 #: plugin/main.py
-msgid "Edit Initialization Script..."
-msgstr "초기화 스크립트 편집..."
-
-#: plugin/main.py
 msgid "Reset Python Session"
 msgstr "Python 세션 재설정"
 
@@ -1414,10 +1358,6 @@ msgstr "채팅 (테스트):"
 #: plugin/xdl_strings.py
 msgid "Clear"
 msgstr "지우기"
-
-#: plugin/xdl_strings.py
-msgid "Context Len:"
-msgstr "컨텍스트 길이:"
 
 #: plugin/xdl_strings.py
 msgid "Draw"

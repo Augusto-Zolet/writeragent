@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 22:01-0400\n"
+"POT-Creation-Date: 2026-06-01 21:14-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Hindi <LL@li.org>\n"
@@ -386,63 +386,6 @@ msgstr ""
 msgid "Image inserted"
 msgstr "छवि सम्मिलित की गई"
 
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Initialization script saved. It will run automatically on the next =PYTHON() "
-"recalc."
-msgstr ""
-"आरंभीकरण स्क्रिप्ट सहेजी गई। यह अगली =PYTHON() पुनर्गणना पर स्वचालित रूप से चलेगी।"
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script ran successfully."
-msgstr "आरंभीकरण स्क्रिप्ट सफलतापूर्वक चली।"
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script cleared."
-msgstr "आरंभीकरण स्क्रिप्ट साफ़ कर दी गई।"
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script failed."
-msgstr "आरंभीकरण स्क्रिप्ट विफल रही।"
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Edit Initialization Script applies to Calc spreadsheets. Open a Calc "
-"workbook and try again."
-msgstr ""
-"आरंभीकरण स्क्रिप्ट संपादित करें Calc स्प्रेडशीट पर लागू होता है। एक Calc वर्कबुक खोलें और "
-"पुनः प्रयास करें।"
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"The Python editor requires a configured venv with pywebview. Set Settings → "
-"Python → Python venv path and install pywebview in that venv."
-msgstr ""
-"Python संपादक के लिए pywebview के साथ एक कॉन्फ़िगर किए गए venv की आवश्यकता है। "
-"Settings → Python → Python venv path सेट करें और उस venv में pywebview इंस्टॉल करें।"
-
-#: plugin/calc/init_script_editor.py
-msgid "Workbook Initialization Script"
-msgstr "वर्कबुक आरंभीकरण स्क्रिप्ट"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-msgid "Run"
-msgstr "चलाएँ"
-
-#: plugin/calc/init_script_editor.py plugin/calc/python_editor.py
-#: plugin/scripting/python_runner.py
-msgid "Save"
-msgstr "सहेजें"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "बंद करें"
-
-#: plugin/calc/init_script_editor.py
-msgid "Could not open the Python editor."
-msgstr "Python संपादक को खोला नहीं जा सका।"
-
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr "सेल में पायथन संपादित करें..."
@@ -480,6 +423,10 @@ msgstr "पायथन सेल एडिटर"
 #: plugin/calc/python_editor.py
 msgid "Save as plain text"
 msgstr "सादे टेक्स्ट के रूप में सहेजें"
+
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "सहेजें"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -1027,15 +974,17 @@ msgstr ""
 "इस राइटर दस्तावेज़ में कोई आयातित नोटबुक रजिस्ट्री नहीं है। नोटबुक पायथन सत्र रीसेट को "
 "सक्षम करने के लिए टूल्स → जुपिटर नोटबुक आयात करें… का उपयोग करें।"
 
-#: plugin/scripting/init_scripts.py
-#, python-brace-format
-msgid ""
-"Initialization script is too large to store in the document ({0} bytes)."
-msgstr "आरंभीकरण स्क्रिप्ट दस्तावेज़ में संग्रहीत करने के लिए बहुत बड़ी है ({0} बाइट्स)।"
-
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "पायथन स्क्रिप्ट चलाएँ"
+
+#: plugin/scripting/python_runner.py
+msgid "Run"
+msgstr "चलाएँ"
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "बंद करें"
 
 #: plugin/scripting/python_runner.py
 msgid "Script:"
@@ -1305,10 +1254,6 @@ msgid "Run Python Script..."
 msgstr "पायथन स्क्रिप्ट चलाएँ..."
 
 #: plugin/main.py
-msgid "Edit Initialization Script..."
-msgstr "आरंभीकरण स्क्रिप्ट संपादित करें..."
-
-#: plugin/main.py
 msgid "Reset Python Session"
 msgstr "पायथन सत्र रीसेट करें"
 
@@ -1403,10 +1348,6 @@ msgstr "चैट (परीक्षण):"
 #: plugin/xdl_strings.py
 msgid "Clear"
 msgstr "साफ़ करें"
-
-#: plugin/xdl_strings.py
-msgid "Context Len:"
-msgstr "संदर्भ लंबाई:"
 
 #: plugin/xdl_strings.py
 msgid "Draw"

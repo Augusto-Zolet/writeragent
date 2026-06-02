@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 22:01-0400\n"
+"POT-Creation-Date: 2026-06-01 21:14-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Bengali <LL@li.org>\n"
@@ -391,64 +391,6 @@ msgstr ""
 msgid "Image inserted"
 msgstr "ছবি সন্নিবেশিত হয়েছে"
 
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Initialization script saved. It will run automatically on the next =PYTHON() "
-"recalc."
-msgstr ""
-"ইনিশিয়ালাইজেশন স্ক্রিপ্ট সংরক্ষিত হয়েছে। এটি পরবর্তী =PYTHON() রিক্যালকুলেশনের সময় "
-"স্বয়ংক্রিয়ভাবে চলবে।"
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script ran successfully."
-msgstr "ইনিশিয়ালাইজেশন স্ক্রিপ্ট সফলভাবে চলেছে।"
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script cleared."
-msgstr "ইনিশিয়ালাইজেশন স্ক্রিপ্ট মুছে ফেলা হয়েছে।"
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script failed."
-msgstr "ইনিশিয়ালাইজেশন স্ক্রিপ্ট ব্যর্থ হয়েছে।"
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Edit Initialization Script applies to Calc spreadsheets. Open a Calc "
-"workbook and try again."
-msgstr ""
-"Edit Initialization Script শুধুমাত্র Calc স্প্রেডশিটের ক্ষেত্রে প্রযোজ্য। একটি Calc "
-"ওয়ার্কবুক খুলুন এবং আবার চেষ্টা করুন।"
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"The Python editor requires a configured venv with pywebview. Set Settings → "
-"Python → Python venv path and install pywebview in that venv."
-msgstr ""
-"Python এডিটরটির জন্য pywebview সহ একটি কনফিগার করা venv প্রয়োজন। Settings → "
-"Python → Python venv path সেট করুন এবং সেই venv-এ pywebview ইনস্টল করুন।"
-
-#: plugin/calc/init_script_editor.py
-msgid "Workbook Initialization Script"
-msgstr "ওয়ার্কবুক ইনিশিয়ালাইজেশন স্ক্রিপ্ট"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-msgid "Run"
-msgstr "চালান"
-
-#: plugin/calc/init_script_editor.py plugin/calc/python_editor.py
-#: plugin/scripting/python_runner.py
-msgid "Save"
-msgstr "সংরক্ষণ করুন"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "বন্ধ করুন"
-
-#: plugin/calc/init_script_editor.py
-msgid "Could not open the Python editor."
-msgstr "Python এডিটরটি খোলা যায়নি।"
-
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr "সেল-এ পাইথন সম্পাদনা করুন..."
@@ -487,6 +429,10 @@ msgstr "পাইথন সেল এডিটর"
 #: plugin/calc/python_editor.py
 msgid "Save as plain text"
 msgstr "প্লেইন টেক্সট হিসেবে সংরক্ষণ করুন"
+
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "সংরক্ষণ করুন"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -1040,15 +986,17 @@ msgstr ""
 "এই Writer নথিতে কোনো ইমপোর্ট করা নোটবুক রেজিস্ট্রি নেই। নোটবুক পাইথন সেশন রিসেট "
 "সক্ষম করতে Tools → Import Jupyter Notebook… ব্যবহার করুন।"
 
-#: plugin/scripting/init_scripts.py
-#, python-brace-format
-msgid ""
-"Initialization script is too large to store in the document ({0} bytes)."
-msgstr "ইনিশিয়ালাইজেশন স্ক্রিপ্টটি নথিতে সংরক্ষণ করার জন্য খুব বড় ({0} বাইট)।"
-
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "পাইথন স্ক্রিপ্ট চালান"
+
+#: plugin/scripting/python_runner.py
+msgid "Run"
+msgstr "চালান"
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "বন্ধ করুন"
 
 #: plugin/scripting/python_runner.py
 msgid "Script:"
@@ -1313,10 +1261,6 @@ msgid "Run Python Script..."
 msgstr "পাইথন স্ক্রিপ্ট চালান..."
 
 #: plugin/main.py
-msgid "Edit Initialization Script..."
-msgstr "ইনিশিয়ালাইজেশন স্ক্রিপ্ট সম্পাদনা করুন..."
-
-#: plugin/main.py
 msgid "Reset Python Session"
 msgstr "পাইথন সেশন রিসেট করুন"
 
@@ -1411,10 +1355,6 @@ msgstr "চ্যাট (পরীক্ষামূলক):"
 #: plugin/xdl_strings.py
 msgid "Clear"
 msgstr "পরিষ্কার করুন"
-
-#: plugin/xdl_strings.py
-msgid "Context Len:"
-msgstr "প্রসঙ্গের দৈর্ঘ্য:"
 
 #: plugin/xdl_strings.py
 msgid "Draw"

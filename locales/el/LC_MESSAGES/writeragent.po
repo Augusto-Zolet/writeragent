@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 22:01-0400\n"
+"POT-Creation-Date: 2026-06-01 21:14-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Greek <LL@li.org>\n"
@@ -404,65 +404,6 @@ msgstr ""
 msgid "Image inserted"
 msgstr "Η εικόνα εισήχθη"
 
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Initialization script saved. It will run automatically on the next =PYTHON() "
-"recalc."
-msgstr ""
-"Το σενάριο αρχικοποίησης αποθηκεύτηκε. Θα εκτελεστεί αυτόματα κατά τον "
-"επόμενο επανυπολογισμό =PYTHON()."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script ran successfully."
-msgstr "Το σενάριο αρχικοποίησης εκτελέστηκε με επιτυχία."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script cleared."
-msgstr "Το σενάριο αρχικοποίησης διαγράφηκε."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script failed."
-msgstr "Το σενάριο αρχικοποίησης απέτυχε."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Edit Initialization Script applies to Calc spreadsheets. Open a Calc "
-"workbook and try again."
-msgstr ""
-"Η επεξεργασία σεναρίου αρχικοποίησης εφαρμόζεται σε υπολογιστικά φύλλα του "
-"Calc. Ανοίξτε ένα βιβλίο εργασίας του Calc και δοκιμάστε ξανά."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"The Python editor requires a configured venv with pywebview. Set Settings → "
-"Python → Python venv path and install pywebview in that venv."
-msgstr ""
-"Ο επεξεργαστής Python απαιτεί ένα ρυθμισμένο venv με pywebview. Ορίστε το "
-"Settings → Python → Python venv path και εγκαταστήστε το pywebview σε αυτό "
-"το venv."
-
-#: plugin/calc/init_script_editor.py
-msgid "Workbook Initialization Script"
-msgstr "Σενάριο αρχικοποίησης βιβλίου εργασίας"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-msgid "Run"
-msgstr "Εκτέλεση"
-
-#: plugin/calc/init_script_editor.py plugin/calc/python_editor.py
-#: plugin/scripting/python_runner.py
-msgid "Save"
-msgstr "Αποθήκευση"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Κλείσιμο"
-
-#: plugin/calc/init_script_editor.py
-msgid "Could not open the Python editor."
-msgstr "Δεν ήταν δυνατό το άνοιγμα του επεξεργαστή Python."
-
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr "Επεξεργασία Python στο κελί..."
@@ -502,6 +443,10 @@ msgstr "Πρόγραμμα επεξεργασίας κελιών Python"
 #: plugin/calc/python_editor.py
 msgid "Save as plain text"
 msgstr "Αποθήκευση ως απλό κείμενο"
+
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "Αποθήκευση"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -1069,17 +1014,17 @@ msgstr ""
 "Χρησιμοποιήστε Εργαλεία → Εισαγωγή Jupyter Notebook… για να ενεργοποιήσετε "
 "την επαναφορά συνεδρίας Python του σημειωματάριου."
 
-#: plugin/scripting/init_scripts.py
-#, python-brace-format
-msgid ""
-"Initialization script is too large to store in the document ({0} bytes)."
-msgstr ""
-"Το σενάριο αρχικοποίησης είναι πολύ μεγάλο για αποθήκευση στο έγγραφο ({0} "
-"bytes)."
-
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "Εκτέλεση σεναρίου Python"
+
+#: plugin/scripting/python_runner.py
+msgid "Run"
+msgstr "Εκτέλεση"
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Κλείσιμο"
 
 #: plugin/scripting/python_runner.py
 msgid "Script:"
@@ -1353,10 +1298,6 @@ msgid "Run Python Script..."
 msgstr "Εκτέλεση σεναρίου Python..."
 
 #: plugin/main.py
-msgid "Edit Initialization Script..."
-msgstr "Επεξεργασία σεναρίου αρχικοποίησης..."
-
-#: plugin/main.py
 msgid "Reset Python Session"
 msgstr "Επαναφορά συνεδρίας Python"
 
@@ -1451,10 +1392,6 @@ msgstr "Συνομιλία (Δοκιμή):"
 #: plugin/xdl_strings.py
 msgid "Clear"
 msgstr "Εκκαθάριση"
-
-#: plugin/xdl_strings.py
-msgid "Context Len:"
-msgstr "Μήκος πλαισίου:"
 
 #: plugin/xdl_strings.py
 msgid "Draw"

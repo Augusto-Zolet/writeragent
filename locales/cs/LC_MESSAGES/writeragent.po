@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 22:01-0400\n"
+"POT-Creation-Date: 2026-06-01 21:14-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Czech <LL@li.org>\n"
@@ -392,64 +392,6 @@ msgstr ""
 msgid "Image inserted"
 msgstr "Obrázek vložen"
 
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Initialization script saved. It will run automatically on the next =PYTHON() "
-"recalc."
-msgstr ""
-"Inicializační skript byl uložen. Automaticky se spustí při příštím přepočtu "
-"=PYTHON()."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script ran successfully."
-msgstr "Inicializační skript byl úspěšně spuštěn."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script cleared."
-msgstr "Inicializační skript byl vymazán."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script failed."
-msgstr "Inicializační skript selhal."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Edit Initialization Script applies to Calc spreadsheets. Open a Calc "
-"workbook and try again."
-msgstr ""
-"Upravit inicializační skript lze pouze v sešitech Calc. Otevřete sešit Calc "
-"a zkuste to znovu."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"The Python editor requires a configured venv with pywebview. Set Settings → "
-"Python → Python venv path and install pywebview in that venv."
-msgstr ""
-"Editor Python vyžaduje nakonfigurované venv s pywebview. Nastavte Nastavení "
-"→ Python → Cesta k venv Pythonu a nainstalujte pywebview v tomto venv."
-
-#: plugin/calc/init_script_editor.py
-msgid "Workbook Initialization Script"
-msgstr "Inicializační skript sešitu"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-msgid "Run"
-msgstr "Spustit"
-
-#: plugin/calc/init_script_editor.py plugin/calc/python_editor.py
-#: plugin/scripting/python_runner.py
-msgid "Save"
-msgstr "Uložit"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Zavřít"
-
-#: plugin/calc/init_script_editor.py
-msgid "Could not open the Python editor."
-msgstr "Editor Python se nepodařilo otevřít."
-
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr "Upravit Python v buňce..."
@@ -488,6 +430,10 @@ msgstr "Editor buněk Python"
 #: plugin/calc/python_editor.py
 msgid "Save as plain text"
 msgstr "Uložit jako prostý text"
+
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "Uložit"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -1047,16 +993,17 @@ msgstr ""
 "Nástroje → Importovat Jupyter Notebook… pro povolení resetování relace "
 "Pythonu v poznámkovém bloku."
 
-#: plugin/scripting/init_scripts.py
-#, python-brace-format
-msgid ""
-"Initialization script is too large to store in the document ({0} bytes)."
-msgstr ""
-"Inicializační skript je příliš velký pro uložení v dokumentu ({0} bajtů)."
-
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "Spustit skript v Pythonu"
+
+#: plugin/scripting/python_runner.py
+msgid "Run"
+msgstr "Spustit"
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Zavřít"
 
 #: plugin/scripting/python_runner.py
 msgid "Script:"
@@ -1328,10 +1275,6 @@ msgid "Run Python Script..."
 msgstr "Spustit skript Python..."
 
 #: plugin/main.py
-msgid "Edit Initialization Script..."
-msgstr "Upravit inicializační skript..."
-
-#: plugin/main.py
 msgid "Reset Python Session"
 msgstr "Resetovat relaci Pythonu"
 
@@ -1426,10 +1369,6 @@ msgstr "Chat (testování):"
 #: plugin/xdl_strings.py
 msgid "Clear"
 msgstr "Vymazat"
-
-#: plugin/xdl_strings.py
-msgid "Context Len:"
-msgstr "Délka kontextu:"
 
 #: plugin/xdl_strings.py
 msgid "Draw"

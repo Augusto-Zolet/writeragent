@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 22:01-0400\n"
+"POT-Creation-Date: 2026-06-01 21:14-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Bulgarian <LL@li.org>\n"
@@ -399,65 +399,6 @@ msgstr ""
 msgid "Image inserted"
 msgstr "Изображението е вмъкнато"
 
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Initialization script saved. It will run automatically on the next =PYTHON() "
-"recalc."
-msgstr ""
-"Скриптът за инициализация е записан. Той ще се изпълни автоматично при "
-"следващото преизчисляване на =PYTHON()."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script ran successfully."
-msgstr "Скриптът за инициализация се изпълни успешно."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script cleared."
-msgstr "Скриптът за инициализация е изчистен."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script failed."
-msgstr "Скриптът за инициализация е неуспешен."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Edit Initialization Script applies to Calc spreadsheets. Open a Calc "
-"workbook and try again."
-msgstr ""
-"Редактирането на скрипт за инициализация се прилага за електронни таблици в "
-"Calc. Отворете работна книга в Calc и опитайте отново."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"The Python editor requires a configured venv with pywebview. Set Settings → "
-"Python → Python venv path and install pywebview in that venv."
-msgstr ""
-"Редакторът на Python изисква конфигурирана виртуална среда (venv) с "
-"pywebview. Задайте Настройки → Python → Път до Python venv и инсталирайте "
-"pywebview в тази среда."
-
-#: plugin/calc/init_script_editor.py
-msgid "Workbook Initialization Script"
-msgstr "Скрипт за инициализация на работната книга"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-msgid "Run"
-msgstr "Изпълнение"
-
-#: plugin/calc/init_script_editor.py plugin/calc/python_editor.py
-#: plugin/scripting/python_runner.py
-msgid "Save"
-msgstr "Записване"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Затваряне"
-
-#: plugin/calc/init_script_editor.py
-msgid "Could not open the Python editor."
-msgstr "Редакторът на Python не можа да бъде отворен."
-
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr "Редактиране на Python в клетка..."
@@ -496,6 +437,10 @@ msgstr "Python клетъчен редактор"
 #: plugin/calc/python_editor.py
 msgid "Save as plain text"
 msgstr "Запазване като обикновен текст"
+
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "Записване"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -1056,17 +1001,17 @@ msgstr ""
 "Инструменти → Импортиране на Jupyter Notebook…, за да активирате нулирането "
 "на Python сесията на тетрадката."
 
-#: plugin/scripting/init_scripts.py
-#, python-brace-format
-msgid ""
-"Initialization script is too large to store in the document ({0} bytes)."
-msgstr ""
-"Инициализиращият скрипт е твърде голям, за да бъде съхранен в документа ({0} "
-"байта)."
-
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "Изпълнение на Python скрипт"
+
+#: plugin/scripting/python_runner.py
+msgid "Run"
+msgstr "Изпълнение"
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Затваряне"
 
 #: plugin/scripting/python_runner.py
 msgid "Script:"
@@ -1336,10 +1281,6 @@ msgid "Run Python Script..."
 msgstr "Изпълнение на Python скрипт..."
 
 #: plugin/main.py
-msgid "Edit Initialization Script..."
-msgstr "Редактиране на скрипта за инициализация..."
-
-#: plugin/main.py
 msgid "Reset Python Session"
 msgstr "Нулиране на сесията на Python"
 
@@ -1434,10 +1375,6 @@ msgstr "Чат (тестване):"
 #: plugin/xdl_strings.py
 msgid "Clear"
 msgstr "Изчистване"
-
-#: plugin/xdl_strings.py
-msgid "Context Len:"
-msgstr "Дължина на контекста:"
 
 #: plugin/xdl_strings.py
 msgid "Draw"

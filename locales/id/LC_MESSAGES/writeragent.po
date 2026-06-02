@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 22:01-0400\n"
+"POT-Creation-Date: 2026-06-01 21:14-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Indonesian <LL@li.org>\n"
@@ -395,65 +395,6 @@ msgstr ""
 msgid "Image inserted"
 msgstr "Gambar disisipkan"
 
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Initialization script saved. It will run automatically on the next =PYTHON() "
-"recalc."
-msgstr ""
-"Skrip inisialisasi disimpan. Skrip akan berjalan secara otomatis pada "
-"penghitungan ulang =PYTHON() berikutnya."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script ran successfully."
-msgstr "Skrip inisialisasi berhasil dijalankan."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script cleared."
-msgstr "Skrip inisialisasi dibersihkan."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script failed."
-msgstr "Skrip inisialisasi gagal."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Edit Initialization Script applies to Calc spreadsheets. Open a Calc "
-"workbook and try again."
-msgstr ""
-"Edit Skrip Inisialisasi berlaku untuk lembar kerja Calc. Buka buku kerja "
-"Calc dan coba lagi."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"The Python editor requires a configured venv with pywebview. Set Settings → "
-"Python → Python venv path and install pywebview in that venv."
-msgstr ""
-"Editor Python memerlukan venv yang dikonfigurasi dengan pywebview. Atur "
-"Pengaturan → Python → Jalur venv Python dan instal pywebview di venv "
-"tersebut."
-
-#: plugin/calc/init_script_editor.py
-msgid "Workbook Initialization Script"
-msgstr "Skrip Inisialisasi Buku Kerja"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-msgid "Run"
-msgstr "Jalankan"
-
-#: plugin/calc/init_script_editor.py plugin/calc/python_editor.py
-#: plugin/scripting/python_runner.py
-msgid "Save"
-msgstr "Simpan"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Tutup"
-
-#: plugin/calc/init_script_editor.py
-msgid "Could not open the Python editor."
-msgstr "Tidak dapat membuka editor Python."
-
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr "Edit Python di Sel..."
@@ -492,6 +433,10 @@ msgstr "Penyunting sel Python"
 #: plugin/calc/python_editor.py
 msgid "Save as plain text"
 msgstr "Simpan sebagai teks biasa"
+
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "Simpan"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -1047,16 +992,17 @@ msgstr ""
 "Alat → Impor Jupyter Notebook… untuk mengaktifkan pengaturan ulang sesi "
 "Python notebook."
 
-#: plugin/scripting/init_scripts.py
-#, python-brace-format
-msgid ""
-"Initialization script is too large to store in the document ({0} bytes)."
-msgstr ""
-"Skrip inisialisasi terlalu besar untuk disimpan dalam dokumen ({0} bita)."
-
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "Jalankan Skrip Python"
+
+#: plugin/scripting/python_runner.py
+msgid "Run"
+msgstr "Jalankan"
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Tutup"
 
 #: plugin/scripting/python_runner.py
 msgid "Script:"
@@ -1325,10 +1271,6 @@ msgid "Run Python Script..."
 msgstr "Jalankan Skrip Python..."
 
 #: plugin/main.py
-msgid "Edit Initialization Script..."
-msgstr "Sunting Skrip Inisialisasi..."
-
-#: plugin/main.py
 msgid "Reset Python Session"
 msgstr "Atur Ulang Sesi Python"
 
@@ -1423,10 +1365,6 @@ msgstr "Obrolan (Pengujian):"
 #: plugin/xdl_strings.py
 msgid "Clear"
 msgstr "Bersihkan"
-
-#: plugin/xdl_strings.py
-msgid "Context Len:"
-msgstr "Panjang Konteks:"
 
 #: plugin/xdl_strings.py
 msgid "Draw"

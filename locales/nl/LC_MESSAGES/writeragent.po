@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 22:01-0400\n"
+"POT-Creation-Date: 2026-06-01 21:14-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Dutch <LL@li.org>\n"
@@ -393,65 +393,6 @@ msgstr ""
 msgid "Image inserted"
 msgstr "Afbeelding ingevoegd"
 
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Initialization script saved. It will run automatically on the next =PYTHON() "
-"recalc."
-msgstr ""
-"Initialisatiescript opgeslagen. Het wordt automatisch uitgevoerd bij de "
-"volgende =PYTHON() herberekening."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script ran successfully."
-msgstr "Initialisatiescript succesvol uitgevoerd."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script cleared."
-msgstr "Initialisatiescript gewist."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script failed."
-msgstr "Initialisatiescript mislukt."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Edit Initialization Script applies to Calc spreadsheets. Open a Calc "
-"workbook and try again."
-msgstr ""
-"Initialisatiescript bewerken is van toepassing op Calc-werkbladen. Open een "
-"Calc-werkmap en probeer het opnieuw."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"The Python editor requires a configured venv with pywebview. Set Settings → "
-"Python → Python venv path and install pywebview in that venv."
-msgstr ""
-"De Python-editor vereist een geconfigureerde venv met pywebview. Stel "
-"Instellingen → Python → Python venv-pad in en installeer pywebview in die "
-"venv."
-
-#: plugin/calc/init_script_editor.py
-msgid "Workbook Initialization Script"
-msgstr "Initialisatiescript voor werkmap"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-msgid "Run"
-msgstr "Uitvoeren"
-
-#: plugin/calc/init_script_editor.py plugin/calc/python_editor.py
-#: plugin/scripting/python_runner.py
-msgid "Save"
-msgstr "Opslaan"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Sluiten"
-
-#: plugin/calc/init_script_editor.py
-msgid "Could not open the Python editor."
-msgstr "Kon de Python-editor niet openen."
-
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr "Python bewerken in cel..."
@@ -490,6 +431,10 @@ msgstr "Python-celleditor"
 #: plugin/calc/python_editor.py
 msgid "Save as plain text"
 msgstr "Opslaan als platte tekst"
+
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "Opslaan"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -1051,16 +996,17 @@ msgstr ""
 "→ Jupyter Notebook importeren… om het resetten van de Python-sessie van het "
 "notebook in te schakelen."
 
-#: plugin/scripting/init_scripts.py
-#, python-brace-format
-msgid ""
-"Initialization script is too large to store in the document ({0} bytes)."
-msgstr ""
-"Initialisatiescript is te groot om in het document op te slaan ({0} bytes)."
-
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "Python-script uitvoeren"
+
+#: plugin/scripting/python_runner.py
+msgid "Run"
+msgstr "Uitvoeren"
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Sluiten"
 
 #: plugin/scripting/python_runner.py
 msgid "Script:"
@@ -1332,10 +1278,6 @@ msgid "Run Python Script..."
 msgstr "Python-script uitvoeren..."
 
 #: plugin/main.py
-msgid "Edit Initialization Script..."
-msgstr "Initialisatiescript bewerken..."
-
-#: plugin/main.py
 msgid "Reset Python Session"
 msgstr "Python-sessie opnieuw instellen"
 
@@ -1430,10 +1372,6 @@ msgstr "Chat (testen):"
 #: plugin/xdl_strings.py
 msgid "Clear"
 msgstr "Wissen"
-
-#: plugin/xdl_strings.py
-msgid "Context Len:"
-msgstr "Contextlengte:"
 
 #: plugin/xdl_strings.py
 msgid "Draw"

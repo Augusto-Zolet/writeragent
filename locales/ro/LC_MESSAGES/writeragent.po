@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 22:01-0400\n"
+"POT-Creation-Date: 2026-06-01 21:14-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Romanian <LL@li.org>\n"
@@ -395,64 +395,6 @@ msgstr ""
 msgid "Image inserted"
 msgstr "Imagine inserată"
 
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Initialization script saved. It will run automatically on the next =PYTHON() "
-"recalc."
-msgstr ""
-"Scriptul de inițializare a fost salvat. Acesta va rula automat la următoarea "
-"recalculare =PYTHON()."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script ran successfully."
-msgstr "Scriptul de inițializare a rulat cu succes."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script cleared."
-msgstr "Scriptul de inițializare a fost șters."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script failed."
-msgstr "Scriptul de inițializare a eșuat."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Edit Initialization Script applies to Calc spreadsheets. Open a Calc "
-"workbook and try again."
-msgstr ""
-"Editarea scriptului de inițializare se aplică foilor de calcul Calc. "
-"Deschideți un registru de lucru Calc și încercați din nou."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"The Python editor requires a configured venv with pywebview. Set Settings → "
-"Python → Python venv path and install pywebview in that venv."
-msgstr ""
-"Editorul Python necesită un venv configurat cu pywebview. Setați Setări → "
-"Python → Cale venv Python și instalați pywebview în acel venv."
-
-#: plugin/calc/init_script_editor.py
-msgid "Workbook Initialization Script"
-msgstr "Script de inițializare a registrului de lucru"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-msgid "Run"
-msgstr "Execută"
-
-#: plugin/calc/init_script_editor.py plugin/calc/python_editor.py
-#: plugin/scripting/python_runner.py
-msgid "Save"
-msgstr "Salvare"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Închide"
-
-#: plugin/calc/init_script_editor.py
-msgid "Could not open the Python editor."
-msgstr "Nu s-a putut deschide editorul Python."
-
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr "Editează Python în celulă..."
@@ -491,6 +433,10 @@ msgstr "Editor de celule Python"
 #: plugin/calc/python_editor.py
 msgid "Save as plain text"
 msgstr "Salvează ca text simplu"
+
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "Salvare"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -1054,17 +1000,17 @@ msgstr ""
 "Instrumente → Importă notebook Jupyter… pentru a activa resetarea sesiunii "
 "Python a notebook-ului."
 
-#: plugin/scripting/init_scripts.py
-#, python-brace-format
-msgid ""
-"Initialization script is too large to store in the document ({0} bytes)."
-msgstr ""
-"Scriptul de inițializare este prea mare pentru a fi stocat în document ({0} "
-"octeți)."
-
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "Execută script Python"
+
+#: plugin/scripting/python_runner.py
+msgid "Run"
+msgstr "Execută"
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Închide"
 
 #: plugin/scripting/python_runner.py
 msgid "Script:"
@@ -1336,10 +1282,6 @@ msgid "Run Python Script..."
 msgstr "Execută script Python..."
 
 #: plugin/main.py
-msgid "Edit Initialization Script..."
-msgstr "Editează scriptul de inițializare..."
-
-#: plugin/main.py
 msgid "Reset Python Session"
 msgstr "Resetează sesiunea Python"
 
@@ -1434,10 +1376,6 @@ msgstr "Chat (Testare):"
 #: plugin/xdl_strings.py
 msgid "Clear"
 msgstr "Șterge"
-
-#: plugin/xdl_strings.py
-msgid "Context Len:"
-msgstr "Lungime context:"
 
 #: plugin/xdl_strings.py
 msgid "Draw"

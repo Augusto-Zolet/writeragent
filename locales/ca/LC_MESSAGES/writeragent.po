@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 22:01-0400\n"
+"POT-Creation-Date: 2026-06-01 21:14-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Catalan <LL@li.org>\n"
@@ -393,65 +393,6 @@ msgstr ""
 msgid "Image inserted"
 msgstr "Imatge inserida"
 
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Initialization script saved. It will run automatically on the next =PYTHON() "
-"recalc."
-msgstr ""
-"S'ha desat l'script d'inicialització. S'executarà automàticament en el "
-"proper recàlcul de =PYTHON()."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script ran successfully."
-msgstr "L'script d'inicialització s'ha executat correctament."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script cleared."
-msgstr "S'ha esborrat l'script d'inicialització."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script failed."
-msgstr "L'script d'inicialització ha fallat."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Edit Initialization Script applies to Calc spreadsheets. Open a Calc "
-"workbook and try again."
-msgstr ""
-"L'edició de l'script d'inicialització s'aplica als fulls de càlcul del Calc. "
-"Obriu un llibre de treball del Calc i torneu-ho a provar."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"The Python editor requires a configured venv with pywebview. Set Settings → "
-"Python → Python venv path and install pywebview in that venv."
-msgstr ""
-"L'editor Python requereix un venv configurat amb pywebview. Establiu "
-"Paràmetres → Python → Camí del venv de Python i instal·leu pywebview en "
-"aquest venv."
-
-#: plugin/calc/init_script_editor.py
-msgid "Workbook Initialization Script"
-msgstr "Script d'inicialització del llibre de treball"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-msgid "Run"
-msgstr "Executa"
-
-#: plugin/calc/init_script_editor.py plugin/calc/python_editor.py
-#: plugin/scripting/python_runner.py
-msgid "Save"
-msgstr "Desa"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Tanca"
-
-#: plugin/calc/init_script_editor.py
-msgid "Could not open the Python editor."
-msgstr "No s'ha pogut obrir l'editor Python."
-
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr "Edita el Python a la cel·la..."
@@ -490,6 +431,10 @@ msgstr "Editor de cel·les Python"
 #: plugin/calc/python_editor.py
 msgid "Save as plain text"
 msgstr "Desa com a text sense format"
+
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "Desa"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -1056,17 +1001,17 @@ msgstr ""
 "Eines → Importa el quadern Jupyter… per habilitar el restabliment de la "
 "sessió de Python del quadern."
 
-#: plugin/scripting/init_scripts.py
-#, python-brace-format
-msgid ""
-"Initialization script is too large to store in the document ({0} bytes)."
-msgstr ""
-"El script d'inicialització és massa gran per emmagatzemar-lo al document "
-"({0} bytes)."
-
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "Executa l'script de Python"
+
+#: plugin/scripting/python_runner.py
+msgid "Run"
+msgstr "Executa"
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Tanca"
 
 #: plugin/scripting/python_runner.py
 msgid "Script:"
@@ -1340,10 +1285,6 @@ msgid "Run Python Script..."
 msgstr "Executa l'script de Python..."
 
 #: plugin/main.py
-msgid "Edit Initialization Script..."
-msgstr "Edita l'script d'inicialització..."
-
-#: plugin/main.py
 msgid "Reset Python Session"
 msgstr "Restableix la sessió de Python"
 
@@ -1438,10 +1379,6 @@ msgstr "Xat (prova):"
 #: plugin/xdl_strings.py
 msgid "Clear"
 msgstr "Neteja"
-
-#: plugin/xdl_strings.py
-msgid "Context Len:"
-msgstr "Longitud del context:"
 
 #: plugin/xdl_strings.py
 msgid "Draw"

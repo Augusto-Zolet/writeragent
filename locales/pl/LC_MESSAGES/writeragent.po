@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-30 22:01-0400\n"
+"POT-Creation-Date: 2026-06-01 21:14-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Polish <LL@li.org>\n"
@@ -396,65 +396,6 @@ msgstr ""
 msgid "Image inserted"
 msgstr "Wstawiono obraz"
 
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Initialization script saved. It will run automatically on the next =PYTHON() "
-"recalc."
-msgstr ""
-"Skrypt inicjujący zapisany. Zostanie on uruchomiony automatycznie przy "
-"następnym przeliczeniu =PYTHON()."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script ran successfully."
-msgstr "Skrypt inicjujący został pomyślnie uruchomiony."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script cleared."
-msgstr "Skrypt inicjujący wyczyszczony."
-
-#: plugin/calc/init_script_editor.py
-msgid "Initialization script failed."
-msgstr "Skrypt inicjujący nie powiódł się."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"Edit Initialization Script applies to Calc spreadsheets. Open a Calc "
-"workbook and try again."
-msgstr ""
-"Edycja skryptu inicjującego dotyczy arkuszy kalkulacyjnych Calc. Otwórz "
-"skoroszyt Calc i spróbuj ponownie."
-
-#: plugin/calc/init_script_editor.py
-msgid ""
-"The Python editor requires a configured venv with pywebview. Set Settings → "
-"Python → Python venv path and install pywebview in that venv."
-msgstr ""
-"Edytor Python wymaga skonfigurowanego środowiska venv z biblioteką "
-"pywebview. Ustaw Ustawienia → Python → Ścieżka venv Python i zainstaluj "
-"pywebview w tym środowisku."
-
-#: plugin/calc/init_script_editor.py
-msgid "Workbook Initialization Script"
-msgstr "Skrypt inicjujący skoroszyt"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-msgid "Run"
-msgstr "Uruchom"
-
-#: plugin/calc/init_script_editor.py plugin/calc/python_editor.py
-#: plugin/scripting/python_runner.py
-msgid "Save"
-msgstr "Zapisz"
-
-#: plugin/calc/init_script_editor.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Zamknij"
-
-#: plugin/calc/init_script_editor.py
-msgid "Could not open the Python editor."
-msgstr "Nie można otworzyć edytora Python."
-
 #: plugin/calc/python_editor_context_menu.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr "Edytuj Pythona w komórce..."
@@ -493,6 +434,10 @@ msgstr "Edytor komórek Python"
 #: plugin/calc/python_editor.py
 msgid "Save as plain text"
 msgstr "Zapisz jako zwykły tekst"
+
+#: plugin/calc/python_editor.py plugin/scripting/python_runner.py
+msgid "Save"
+msgstr "Zapisz"
 
 #: plugin/calc/python_editor.py
 msgid "The Python editor failed unexpectedly."
@@ -1056,16 +1001,17 @@ msgstr ""
 "Narzędzia → Importuj notatnik Jupyter…, aby włączyć resetowanie sesji Python "
 "notatnika."
 
-#: plugin/scripting/init_scripts.py
-#, python-brace-format
-msgid ""
-"Initialization script is too large to store in the document ({0} bytes)."
-msgstr ""
-"Skrypt inicjujący jest zbyt duży, aby zapisać go w dokumencie ({0} bajtów)."
-
 #: plugin/scripting/python_runner.py
 msgid "Run Python Script"
 msgstr "Uruchom skrypt Python"
+
+#: plugin/scripting/python_runner.py
+msgid "Run"
+msgstr "Uruchom"
+
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Zamknij"
 
 #: plugin/scripting/python_runner.py
 msgid "Script:"
@@ -1337,10 +1283,6 @@ msgid "Run Python Script..."
 msgstr "Uruchom skrypt Python..."
 
 #: plugin/main.py
-msgid "Edit Initialization Script..."
-msgstr "Edytuj skrypt inicjujący..."
-
-#: plugin/main.py
 msgid "Reset Python Session"
 msgstr "Zresetuj sesję Python"
 
@@ -1435,10 +1377,6 @@ msgstr "Czat (testowy):"
 #: plugin/xdl_strings.py
 msgid "Clear"
 msgstr "Wyczyść"
-
-#: plugin/xdl_strings.py
-msgid "Context Len:"
-msgstr "Długość kontekstu:"
 
 #: plugin/xdl_strings.py
 msgid "Draw"
