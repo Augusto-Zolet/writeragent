@@ -594,7 +594,13 @@ def apply_content_at_search(model, ctx, content, search, all_matches=False, case
 
 
 def replace_single_range_with_content(model, text_range, content, ctx, config_svc=None):
-    """Replace the given text range with rendered *content* (HTML path)."""
+    """Replace the given text range with rendered *content* (HTML path).
+
+    FOLLOW-UP: cursor uses ``text_range.getText()`` but HTML import still calls
+    ``_cursor_goto_document_end`` (body) in places — markup search-replace inside
+    table cells / nested ``XText`` can raise the same RuntimeException as the
+    plain-text bug fixed in ``replace_preserving_format``.
+    """
     prepared = html_mod.unescape(content)
     text_obj = text_range.getText()
     cursor = text_obj.createTextCursorByRange(text_range)
@@ -632,6 +638,10 @@ def _preserving_search_replace(model, uno_ctx, new_text, search_string, all_matc
 def find_text_ranges(model, ctx, search, start=0, limit=None, case_sensitive=True):
     """Find occurrences of *search*, returning a list of
     ``{"start": int, "end": int, "text": str}`` dicts.
+
+    FOLLOW-UP: seeds ``findNext`` from body text but measures each hit with
+    ``found.getText()``; ``start``/``end`` are offsets within that nested text
+    object, not guaranteed global document indices (tables, frames, etc.).
     """
     try:
         sd = model.createSearchDescriptor()
@@ -727,8 +737,17 @@ def replace_preserving_format(model, target_range, new_text, ctx=None):
     """Replace text in *target_range* with *new_text* character by
     character, preserving per-character formatting (bold, italic,
     font, color, etc.).
+
+    Cursors are created on ``target_range.getText()`` (the cell, frame, or body
+    ``XText`` that owns the range), not ``model.getText()``. The range must lie
+    entirely within that text object.
     """
-    text = model.getText()
+    # Use the range's OWN text object, not the document body. When target_range
+    # lives inside a table cell, model.getText() (the body) is the wrong XText and
+    # createTextCursorByRange() raises "End of content node doesn't have the proper
+    # start node". target_range.getText() resolves to the cell (or body) correctly,
+    # matching the markup path which already uses found.getText().
+    text = target_range.getText()
     old_text = _normalize(target_range.getString())
     new_text = _normalize(new_text)
     old_len = len(old_text)

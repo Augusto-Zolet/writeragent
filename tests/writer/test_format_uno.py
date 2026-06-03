@@ -455,6 +455,30 @@ def test_long_replacement_process_events():
     assert found and found.getString() == new_chars, "Failed to replace %d chars" % long_len
 
 
+def _insert_table_with_cell_text(cell_name, cell_text):
+    """Insert a 2x2 table at doc end with *cell_text* in *cell_name* (e.g. 'A1')."""
+    text = _test_doc.getText()
+    tbl = _test_doc.createInstance("com.sun.star.text.TextTable")
+    tbl.initialize(2, 2)
+    ins = text.createTextCursor()
+    ins.gotoEnd(False)
+    text.insertTextContent(ins, tbl, False)
+    tbl.getCellByName(cell_name).setString(cell_text)
+    return tbl
+
+
+@native_test
+def test_replace_preserving_format_table_cell_uno():
+    """replace_preserving_format must use the cell's XText, not model.getText() body."""
+    tbl = _insert_table_with_cell_text("A1", "TableCell")
+    sd = _test_doc.createSearchDescriptor()
+    sd.SearchString = "TableCell"
+    found = _test_doc.findFirst(sd)
+    assert found is not None, "setup: TableCell not found"
+    _replace_text_preserving_format(_test_doc, found, "TableCell-EDIT", _test_ctx)
+    assert "TableCell-EDIT" in tbl.getCellByName("A1").getString()
+
+
 def _insert_colored_word(word):
     """Insert word at end of doc with per-char background colors. Returns (start_offset, end_offset)."""
     text = _test_doc.getText()

@@ -65,6 +65,10 @@ _MAX_SEARCH_REPLACEMENTS = 200
 # - all_matches LO findNext fast path merged with offset scan (dedupe by start) if perf matters.
 # - Offset case-insensitive pass: casefold() or re.IGNORECASE instead of .lower() for rare
 #   Unicode folds that change length (Turkish I, German ß); LO handles case on single-match fast path.
+# - Nested XText search (tables, frames, headers): _find_range_by_offset, _find_all_ranges, and
+#   format.find_text_ranges use body text and/or body-relative offsets — see comments on those
+#   functions. Single-match apply_document_content still prefers doc.findFirst (works in cells).
+# - Markup apply in nested XText: replace_single_range_with_content + HTML import (body end cursor).
 _SPACE_CODEPOINTS = (0x00A0, 0x202F, 0x2007, 0x2009)
 _SPACE_NORMALIZE_MAP = {cp: " " for cp in _SPACE_CODEPOINTS}
 # Regex class for _normalize_search_string_for_find — must stay aligned with _SPACE_CODEPOINTS.
@@ -84,6 +88,11 @@ def _find_range_by_offset(doc, search_string):
     """Find search_string in the document by getting full text and doing a Python
     string find. Returns a TextRange spanning the match, or None. Use this when
     findFirst fails because LibreOffice search does not match across paragraphs.
+
+    FOLLOW-UP: scans ``doc.getText()`` (body) only and maps offsets with body
+    ``goRight``. Matches purely inside table cells / other nested ``XText`` may
+    still return None even when ``findFirst`` would succeed; unify with per-text
+    search or LO find when we see real misses.
     """
     try:
         text = doc.getText()
@@ -151,7 +160,13 @@ def _all_start_indices(haystack, needle):
 def _find_all_ranges_by_offset(doc, search_string):
     """All occurrences of *search_string* as TextRanges via NBSP-normalized full-text
     matching \u2014 the all-matches counterpart of _find_range_by_offset, so the
-    all_matches path inherits the same NBSP handling as the single-match path."""
+    all_matches path inherits the same NBSP handling as the single-match path.
+
+    FOLLOW-UP: same body-only offset scan as ``_find_range_by_offset``. Used when
+    ``apply_document_content`` has ``all_matches=True``; may miss or mis-position hits
+    in nested ``XText`` (table cells, frames). Replacements use the correct cell
+    ``XText`` once a range is found.
+    """
     try:
         text = doc.getText()
         cursor = text.createTextCursor()
@@ -367,6 +382,8 @@ class ApplyDocumentContent(ToolBase):
             return self._tool_error("old_content is empty after normalization.")
         doc = ctx.doc
         all_matches = kwargs.get("all_matches", False)
+        # FOLLOW-UP: all_matches uses _find_all_ranges (body-only offset scan); nested
+        # XText hits (e.g. multiple table cells) may be missed — see _find_all_ranges.
         if all_matches:
             ranges = _find_all_ranges(doc, search_string)
             count = 0
