@@ -158,11 +158,9 @@ def delegation_math_to_python_hint(*, delegate_toolset: str) -> str:
 
 # Main sidebar chat only (Writer DEFAULT_CHAT_SYSTEM_PROMPT_TEMPLATE). Sub-agents use
 # final_answer / reply_to_user / delegate task — not this block.
-SIDEBAR_VS_DOCUMENT = """SIDEBAR CHAT (main agent): You are in the WriterAgent sidebar. The user sees your assistant messages in chat history.
-- Chat reply: Use when they want an answer, explanation, or discussion without changing the document (questions, how-to, confirmations). Follow CHAT RESPONSE FORMAT above.
-- Document edit: Use apply_document_content when they want text in the document (write, draft, replace, translate into the doc).
-- After document edits, a brief chat confirmation is fine; do not put long document body only in chat when it belongs in the doc.
-Default for authoring requests (draft, write, replace): use apply_document_content."""
+SIDEBAR_VS_DOCUMENT = """SIDEBAR CHAT (main agent): Your conversation with the user happens in the WriterAgent sidebar.
+ The user sees your messages in chat history. Follow CHAT RESPONSE FORMAT above. 
+ Assume the user wants you to use apply_document_content to insert, translate, or otherwise edit a document, not just reply in the chat window."""
 
 # Writer main chat: delegation routing (paired with SIDEBAR_VS_DOCUMENT in the system prompt).
 WRITER_CORE_DIRECTIVES = f"""When the user wants {DELEGATION_USER_FILE_DATA_HINT}:
