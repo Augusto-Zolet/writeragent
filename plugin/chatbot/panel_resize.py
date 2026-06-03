@@ -16,28 +16,6 @@ def _resize_debug(msg: str, *args: object) -> None:
         log.debug(msg % args if args else msg)
 
 
-# Minimum sane widths (in dialog Map AppFont / pixel units) for key controls.
-_MIN_WIDTHS = {
-    "response": 80,
-    "response_rich": 80,
-    "status": 80,
-    "query": 80,
-    "query_label": 60,
-    "response_label": 60,
-    "backend_indicator": 40,
-    "send": 40,
-    "stop": 40,
-    "clear": 40,
-    "direct_image_check": 70,
-    "web_research_check": 70,
-    "model_label": 60,
-    "model_selector": 120,
-    "image_model_selector": 120,
-    "base_size_label": 20,
-    "base_size_input": 40,
-    "aspect_ratio_selector": 80,
-}
-
 _STRETCH_CONTROLS = frozenset({
     "response",
     "query",
@@ -93,22 +71,6 @@ def _cluster_metrics(snapshot: dict[str, tuple[int, int, int, int]]) -> tuple[in
     return bottom_top, bottom_bottom - bottom_top, snapshot["response"][1]
 
 
-def _content_right_from_layout(layouts: dict[str, ControlRect], width: int, right_margin: int) -> int:
-    """Clear row caps query/model width; single source for ``_CONTENT_EDGE_CLAMP``."""
-    response = layouts.get("response")
-    clear = layouts.get("clear")
-    right = 0
-    if response is not None:
-        right = response.x + response.width
-        if clear is not None and clear.x + clear.width > response.x:
-            right = clear.x + clear.width
-    elif clear is not None:
-        right = clear.x + clear.width
-    if width > 0:
-        right = min(right, width - right_margin)
-    return right
-
-
 def compute_chat_panel_layout(
     width: int,
     height: int,
@@ -124,39 +86,45 @@ def compute_chat_panel_layout(
         return {}
 
     bottom_top_initial, cluster_height, response_y = _cluster_metrics(snapshot)
-    response_x = snapshot["response"][0]
+    response_x, _, response_ow, _ = snapshot["response"]
     bottom_top_new = height - bottom_margin - cluster_height
     cluster_delta = bottom_top_new - bottom_top_initial
     response_h = max(min_response_height, bottom_top_new - response_gap - response_y)
-    response_w = max(_MIN_WIDTHS["response"], width - response_x - right_margin)
+    response_w = max(2 * response_ow // 3, width - response_x - right_margin)
+
+    # Pre-calculate the content right bound used for clamping specific controls (typically clear button's right edge)
+    clear_snap = snapshot.get("clear")
+    if clear_snap:
+        content_right = clear_snap[0] + clear_snap[2]
+    else:
+        content_right = response_x + response_w
+    content_right = min(content_right, width - right_margin)
 
     layouts: dict[str, ControlRect] = {}
     for name, (ox, oy, ow, oh) in snapshot.items():
         if name == "response":
             continue
-        new_x = ox
+
+        min_w = 2 * ow // 3 if name in _STRETCH_CONTROLS else ow
         if name in _STRETCH_CONTROLS:
-            new_w = max(_MIN_WIDTHS.get(name, 40), width - ox - right_margin)
+            new_w = max(min_w, width - ox - right_margin)
         else:
             new_w = ow
+
+        # Clamp specific controls to the content_right edge
+        if name in _CONTENT_EDGE_CLAMP:
+            cap = content_right - ox
+            if cap > 0:
+                new_w = min(new_w, max(min_w, cap))
+
+        # Ensure no control overflows the right margin
+        if ox + new_w > width - right_margin:
+            new_w = max(20, width - ox - right_margin)
+
         new_y = oy + cluster_delta if name in _BOTTOM_CLUSTER else oy
-        if new_x + new_w > width - right_margin:
-            new_w = max(20, width - new_x - right_margin)
-        layouts[name] = ControlRect(new_x, new_y, new_w, oh)
+        layouts[name] = ControlRect(ox, new_y, new_w, oh)
 
     layouts["response"] = ControlRect(response_x, response_y, response_w, response_h)
-
-    content_right = _content_right_from_layout(layouts, width, right_margin)
-    for name in _CONTENT_EDGE_CLAMP:
-        rect = layouts.get(name)
-        if rect is None:
-            continue
-        cap = content_right - rect.x
-        if cap <= 0:
-            continue
-        new_w = min(rect.width, max(_MIN_WIDTHS.get(name, 40), cap))
-        layouts[name] = ControlRect(rect.x, rect.y, new_w, rect.height)
-
     return layouts
 
 
@@ -205,14 +173,7 @@ class _PanelResizeListener(BaseWindowListener):
             self._in_relayout = False
 
     def on_window_resized(self, rEvent):
-        r = rEvent.Source.getPosSize()
-        _resize_debug("windowResized: W=%d H=%d" % (r.Width, r.Height))
-        if not self._width_negotiated and self._snapshot is None:
-            _resize_debug("windowResized: deferred until deck width negotiated")
-            return
-        if self._in_relayout:
-            _resize_debug("windowResized: skipped (in_relayout)")
-            return
+        _resize_debug("windowResized: W=%d H=%d" % (rEvent.Source.getPosSize().Width, rEvent.Source.getPosSize().Height))
         self.relayout_now(rEvent.Source)
 
     def note_width_negotiated(self):
