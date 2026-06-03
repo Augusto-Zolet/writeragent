@@ -7,6 +7,7 @@ setup_uno_mocks()
 
 from plugin.writer.format import (  # noqa: E402
     HTML_FILTER,
+    _content_has_block_markup,
     _wrap_html_fragment,
     insert_html_fragment_at_cursor,
 )
@@ -84,6 +85,20 @@ def test_advances_cursor_when_model_given():
 
     end_cursor.gotoEnd.assert_called_once_with(False)
     cursor.gotoRange.assert_called_once_with(end_cursor.getStart(), False)
+
+
+def test_content_has_block_markup_inline_span():
+    assert _content_has_block_markup('<span style="background: transparent">Title</span>') is False
+    assert _content_has_block_markup("<b>Title</b>") is False
+    assert _content_has_block_markup("") is False
+    assert _content_has_block_markup(None) is False
+
+
+def test_content_has_block_markup_block_tags():
+    assert _content_has_block_markup("<p>x</p>") is True
+    assert _content_has_block_markup("<h3>x</h3>") is True
+    assert _content_has_block_markup("<ul><li>x</li></ul>") is True
+    assert _content_has_block_markup("<P>X</P>") is True
 
 
 def test_filter_name_starwriter():

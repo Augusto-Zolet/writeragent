@@ -26,8 +26,7 @@ import re as re_mod
 
 log = logging.getLogger("writeragent.writer")
 
-# Cap for replace-all search (keep in sync with format.apply_content_at_search /
-# format._preserving_search_replace, both use 200 today).
+# Cap for replace-all search (_find_all_ranges).
 _MAX_SEARCH_REPLACEMENTS = 200
 
 # Non-breaking / exotic spaces -> ASCII space. Length-preserving (each maps to a
