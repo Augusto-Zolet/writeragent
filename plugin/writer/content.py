@@ -26,6 +26,59 @@ import re as re_mod
 
 log = logging.getLogger("writeragent.writer")
 
+# Cap for replace-all search (keep in sync with format.apply_content_at_search /
+# format._preserving_search_replace, both use 200 today).
+_MAX_SEARCH_REPLACEMENTS = 200
+
+# Non-breaking / exotic spaces -> ASCII space. Length-preserving (each maps to a
+# single BMP char) so character offsets into the document text stay valid. NBSP
+# (U+00A0) in particular is a common artifact of prior edits and breaks literal
+# search when old_content uses a normal space.
+#
+# Regenerate the inventory table: python3 -c "..."  (see git history / plan doc) or
+# run the snippet in the finish-NBSP plan; paste rows here when expanding the map.
+#
+# | Code   | Name                         | In _SPACE_NORMALIZE_MAP | Follow-up note |
+# |--------|------------------------------|-------------------------|----------------|
+# | U+0020 | SPACE                        | no                      | target; not mapped |
+# | U+00A0 | NO-BREAK SPACE               | yes                     | mapped today |
+# | U+1680 | OGHAM SPACE MARK             | no                      | OGHAM SPACE MARK; rare in Writer |
+# | U+2000 | EN QUAD                      | no                      | 1:1 width; add to map + regex if reports |
+# | U+2001 | EM QUAD                      | no                      | 1:1 width; add to map + regex if reports |
+# | U+2002 | EN SPACE                     | no                      | 1:1 width; add to map + regex if reports |
+# | U+2003 | EM SPACE                     | no                      | 1:1 width; add to map + regex if reports |
+# | U+2004 | THREE-PER-EM SPACE           | no                      | 1:1 width; add to map + regex if reports |
+# | U+2005 | FOUR-PER-EM SPACE            | no                      | 1:1 width; add to map + regex if reports |
+# | U+2006 | SIX-PER-EM SPACE             | no                      | 1:1 width; add to map + regex if reports |
+# | U+2007 | FIGURE SPACE                 | yes                     | mapped today |
+# | U+2008 | PUNCTUATION SPACE            | no                      | 1:1 width; add to map + regex if reports |
+# | U+2009 | THIN SPACE                   | yes                     | mapped today |
+# | U+200A | HAIR SPACE                   | no                      | 1:1 width; add to map + regex if reports |
+# | U+202F | NARROW NO-BREAK SPACE        | yes                     | mapped today |
+# | U+205F | MEDIUM MATHEMATICAL SPACE    | no                      | 1:1 width; add to map + regex if reports |
+# | U+3000 | IDEOGRAPHIC SPACE            | no                      | CJK ideographic space; add if CJK edits miss |
+#
+# FOLLOW-UP (intentionally not done in the NBSP fix — expand when we see real misses):
+# - Add more rows from the table to _SPACE_CODEPOINTS; update _HORIZONTAL_SPACE_RE too.
+# - target_resolver.resolve_target_cursor: call _find_first_range instead of duplicating LO loop.
+# - format.py search-replace helpers: still LO-only for non-apply_document_content callers.
+# - all_matches LO findNext fast path merged with offset scan (dedupe by start) if perf matters.
+# - Offset case-insensitive pass: casefold() or re.IGNORECASE instead of .lower() for rare
+#   Unicode folds that change length (Turkish I, German ß); LO handles case on single-match fast path.
+_SPACE_CODEPOINTS = (0x00A0, 0x202F, 0x2007, 0x2009)
+_SPACE_NORMALIZE_MAP = {cp: " " for cp in _SPACE_CODEPOINTS}
+# Regex class for _normalize_search_string_for_find — must stay aligned with _SPACE_CODEPOINTS.
+_HORIZONTAL_SPACE_RE = r"[ \t" + "".join("\\u%04x" % cp for cp in _SPACE_CODEPOINTS) + "]+"
+
+
+def _search_try_strings(search_string):
+    """Literal search string, then newline-collapsed variant (HTML wrap artifact)."""
+    s = search_string or ""
+    collapsed = re_mod.sub(r" +", " ", s.replace("\n", " ")).strip()
+    for candidate in (s, collapsed):
+        if candidate:
+            yield candidate
+
 
 def _find_range_by_offset(doc, search_string):
     """Find search_string in the document by getting full text and doing a Python
@@ -37,11 +90,15 @@ def _find_range_by_offset(doc, search_string):
         cursor = text.createTextCursor()
         cursor.gotoStart(False)
         cursor.gotoEnd(True)
-        full = normalize_linebreaks(cursor.getString())
+        # Normalize NBSP & friends so a normal-space search matches them. The map
+        # is 1:1, so offsets below (goRight) stay aligned with the original text.
+        full = normalize_linebreaks(cursor.getString()).translate(_SPACE_NORMALIZE_MAP)
+        search_string = search_string.translate(_SPACE_NORMALIZE_MAP)
     except Exception:
         return None
     idx = full.find(search_string)
     if idx < 0:
+        # Case-insensitive fallback; .lower() can change length for rare Unicode (see FOLLOW-UP above).
         idx = full.lower().find(search_string.lower())
     if idx < 0:
         return None
@@ -56,11 +113,80 @@ def _find_range_by_offset(doc, search_string):
     return range_cursor
 
 
+def _find_first_range(doc, search_string):
+    """First match: LO findFirst (fast) then NBSP-aware offset fallback. Shared try_string
+    + case retry loop for single-match search and future target_resolver DRY."""
+    sd = doc.createSearchDescriptor()
+    sd.SearchRegularExpression = False
+    for try_string in _search_try_strings(search_string):
+        sd.SearchString = try_string
+        for case_sens in (True, False):
+            sd.SearchCaseSensitive = case_sens
+            found = doc.findFirst(sd)
+            if found is not None:
+                return found
+    return _find_range_by_offset(doc, search_string)
+
+
 def _normalize_search_string_for_find(s):
-    """Collapse horizontal whitespace only; preserve newlines for literal find.
-    (LibreOffice regex search does not work across paragraphs.)
+    """Collapse horizontal whitespace (incl. NBSP & friends) to a single ASCII
+    space; preserve newlines for literal find. (LibreOffice regex search does not
+    work across paragraphs.)
     """
-    return re_mod.sub(r"[ \t]+", " ", s).strip()
+    return re_mod.sub(_HORIZONTAL_SPACE_RE, " ", s).strip()
+
+
+def _all_start_indices(haystack, needle):
+    """Non-overlapping start indices of *needle* in *haystack*."""
+    out = []
+    if not needle:
+        return out
+    i = haystack.find(needle)
+    while i >= 0:
+        out.append(i)
+        i = haystack.find(needle, i + len(needle))
+    return out
+
+
+def _find_all_ranges_by_offset(doc, search_string):
+    """All occurrences of *search_string* as TextRanges via NBSP-normalized full-text
+    matching \u2014 the all-matches counterpart of _find_range_by_offset, so the
+    all_matches path inherits the same NBSP handling as the single-match path."""
+    try:
+        text = doc.getText()
+        cursor = text.createTextCursor()
+        cursor.gotoStart(False)
+        cursor.gotoEnd(True)
+        full = normalize_linebreaks(cursor.getString()).translate(_SPACE_NORMALIZE_MAP)
+    except Exception:
+        return []
+    needle = (search_string or "").translate(_SPACE_NORMALIZE_MAP)
+    if not needle:
+        return []
+    starts = _all_start_indices(full, needle)
+    if not starts:
+        starts = _all_start_indices(full.lower(), needle.lower())
+    if len(starts) > _MAX_SEARCH_REPLACEMENTS:
+        starts = starts[:_MAX_SEARCH_REPLACEMENTS]
+    ranges = []
+    for s in starts:
+        rc = text.createTextCursor()
+        rc.gotoStart(False)
+        if not rc.goRight(s, False):
+            continue
+        if not rc.goRight(len(needle), True):
+            continue
+        ranges.append(rc)
+    return ranges
+
+
+def _find_all_ranges(doc, search_string):
+    """All occurrences as TextRanges in document order (NBSP-aware offset scan only).
+
+    We do not use LO findNext here: it can return normal-space hits while missing NBSP
+    variants in the same document, and returning early on partial LO results under-replaces.
+    Single-match keeps LO-first via _find_first_range for speed."""
+    return _find_all_ranges_by_offset(doc, search_string)
 
 
 # ------------------------------------------------------------------
@@ -143,11 +269,10 @@ class ApplyDocumentContent(ToolBase):
       than the intended human‑readable string.
 
     - **Search limitations**: LibreOffice search descriptors do not match
-      across paragraphs. When a `target='search'` match is not found via the
-      native search API, we fall back to `_find_range_by_offset`, which builds
-      a temporary full‑text string and locates the range by Python indexing.
-      This keeps behavior intuitive for the model (it can paste multi‑paragraph
-      `old_content`) at the cost of a slightly slower path for those cases.
+      across paragraphs. Single-match tries LO findFirst first, then falls back
+      to `_find_range_by_offset` (full-text scan with exotic-space normalization).
+      `all_matches` uses offset scan only so NBSP/normal-space variants are not
+      missed. See `_SPACE_NORMALIZE_MAP` comments for follow-up work.
     """
 
     name = "apply_document_content"
@@ -243,35 +368,22 @@ class ApplyDocumentContent(ToolBase):
         doc = ctx.doc
         all_matches = kwargs.get("all_matches", False)
         if all_matches:
-            if use_preserve:
-                count = format_support._preserving_search_replace(doc, ctx.ctx, raw_content, search_string, all_matches=True, case_sensitive=True)
-            else:
-                count = format_support.apply_content_at_search(doc, ctx.ctx, content, search_string, all_matches=True, case_sensitive=True, config_svc=config_svc)
+            ranges = _find_all_ranges(doc, search_string)
+            count = 0
+            # Replace from last to first so earlier character offsets stay valid after edits.
+            for found in reversed(ranges):
+                if use_preserve:
+                    format_support.replace_preserving_format(doc, found, raw_content, ctx.ctx)
+                else:
+                    format_support.replace_single_range_with_content(doc, found, content, ctx.ctx, config_svc)
+                count += 1
             msg = "Replaced %d occurrence(s)." % count
             if use_preserve and count > 0:
                 msg += " (formatting preserved)"
             if count == 0:
                 msg += " No matches found. Try a shorter substring."
             return {"status": "ok", "message": msg}
-        sd = doc.createSearchDescriptor()
-        sd.SearchRegularExpression = False
-        found = None
-        # Try literal string first (newlines preserved). If not found, try with \n collapsed to space
-        # (helps when old_content came from HTML that had \n inside tags, e.g. "veteran\nKeith").
-        for try_string in (search_string, re_mod.sub(r" +", " ", search_string.replace("\n", " ")).strip()):
-            if not try_string:
-                continue
-            sd.SearchString = try_string
-            for case_sens in (True, False):
-                sd.SearchCaseSensitive = case_sens
-                found = doc.findFirst(sd)
-                if found is not None:
-                    break
-            if found is not None:
-                break
-        # LibreOffice findFirst does not match across paragraphs; use full-text find when it fails.
-        if found is None:
-            found = _find_range_by_offset(doc, search_string)
+        found = _find_first_range(doc, search_string)
         if found is None:
             return {"status": "error", "message": "old_content not found in document. Try a shorter, unique substring."}
         if use_preserve:
