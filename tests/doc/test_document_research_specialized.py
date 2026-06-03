@@ -118,7 +118,8 @@ def test_document_research_outer_delegation_gets_document_research_tools(
     ctx.stop_checker = lambda: False
 
     gw = r.get("delegate_to_specialized_writer_toolset")
-    result = gw.execute_safe(ctx, domain="document_research", task="Find Q4 in budget")
+    with patch("plugin.doc.document_research.get_open_documents", return_value=[]):
+        result = gw.execute_safe(ctx, domain="document_research", task="Find Q4 in budget")
     assert result["status"] == "ok"
     smol_tools = mock_agent_class.call_args.kwargs.get("tools", [])
     names = {t.name for t in smol_tools}
@@ -177,7 +178,8 @@ def test_document_research_chat_append_on_delegate_read_document(
     ctx.chat_append_callback = captured.append
 
     gw = r.get("delegate_to_specialized_writer_toolset")
-    result = gw.execute_safe(ctx, domain="document_research", task="Find Q4 in budget")
+    with patch("plugin.doc.document_research.get_open_documents", return_value=[]):
+        result = gw.execute_safe(ctx, domain="document_research", task="Find Q4 in budget")
     assert result["status"] == "ok"
     assert len(captured) == 1
     assert "Tool: delegate_read_document" in captured[0]
@@ -319,8 +321,9 @@ def test_get_open_documents():
     mock_desktop.getComponents.return_value.createEnumeration.return_value.hasMoreElements.side_effect = [True, False]
     mock_desktop.getComponents.return_value.createEnumeration.return_value.nextElement.return_value = mock_comp
 
-    with patch("plugin.doc.document_research.get_desktop", return_value=mock_desktop), \
-         patch("plugin.doc.document_helpers.get_document_type", return_value=DocumentType.CALC):
+    with patch("plugin.framework.uno_context.get_desktop", return_value=mock_desktop), \
+         patch("plugin.doc.document_helpers.get_document_type", return_value=DocumentType.CALC), \
+         patch("plugin.doc.document_research._system_path_from_url", return_value="/tmp/Budget.ods"):
         docs = get_open_documents(mock_ctx)
         assert len(docs) == 1
         assert docs[0]["name"] == "Budget.ods"
