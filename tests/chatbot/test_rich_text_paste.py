@@ -23,7 +23,6 @@ from plugin.chatbot.rich_text_paste import (
     append_rich_messages_via_clipboard,
     append_rich_text_via_clipboard,
     build_message_html,
-    insert_transferable_into_rich_control,
     iter_history_message_batches,
     session_history_items,
 )
@@ -143,23 +142,6 @@ class TestAppendRichTextViaClipboard:
 
         assert seen == [42]
         doc.close.assert_called_once_with(True)
-
-    def test_skips_when_transferable_missing(self):
-        control = MagicMock()
-        control.getModel.return_value = MagicMock(Text="")
-        doc = MagicMock()
-
-        with patch("plugin.chatbot.rich_text_paste.create_hidden_html_writer", return_value=doc), \
-             patch("plugin.chatbot.rich_text_paste.configure_hidden_writer_for_chat"), \
-             patch("plugin.chatbot.rich_text_paste.append_rich_text"), \
-             patch("plugin.chatbot.rich_text_paste._copy_formatted_from_hidden_doc_to_control", return_value=(False, "no_content_inserted")), \
-             patch("plugin.chatbot.rich_text_paste._transferable_from_hidden_doc", return_value=None), \
-             patch("plugin.chatbot.rich_text_paste.insert_transferable_into_rich_control") as mock_insert_tf:
-            append_rich_text_via_clipboard(MagicMock(), control, "hi", role="user")
-
-        mock_insert_tf.assert_not_called()
-        doc.close.assert_called_once_with(True)
-
 
 class TestHistoryMessageBatching:
     def test_iter_batches_empty(self):
@@ -281,49 +263,12 @@ class TestListPrefix:
         assert _list_prefix_for_paragraph(para, counters) == "2. "
 
 
-class TestInsertTransferableIntoRichControl:
-    def test_does_not_use_plain_text_fallback(self):
-        control = MagicMock()
-        model = MagicMock(Text="before")
-        control.getModel.return_value = model
-        ctx = MagicMock()
-
-        with patch("plugin.chatbot.rich_text_paste._try_insert_transferable_on_target", return_value=(False, "control_no_insertTransferable")), \
-             patch("plugin.chatbot.rich_text_paste.get_control_text_length", return_value=6), \
-             patch("plugin.chatbot.rich_text_paste._set_system_clipboard", return_value=False), \
-             patch("plugin.chatbot.rich_text_paste.focus_preserved", _immediate_focus):
-            ok = insert_transferable_into_rich_control(control, MagicMock(), ctx)
-
-        assert ok is False
-        assert model.Text == "before"
-
-    def test_clipboard_key_paste_success(self):
-        control = MagicMock()
-        model = MagicMock(Text="")
-        control.getModel.return_value = model
-        ctx = MagicMock()
-        transferable = MagicMock()
-
-        with patch("plugin.chatbot.rich_text_paste._try_insert_transferable_on_target", return_value=(False, "control_no_insertTransferable")), \
-             patch("plugin.chatbot.rich_text_paste.get_control_text_length", side_effect=[0, 12, 12]), \
-             patch("plugin.chatbot.rich_text_paste._set_system_clipboard", return_value=True) as mock_clip, \
-             patch("plugin.chatbot.rich_text_paste._try_paste_via_key_event", return_value=True) as mock_key, \
-             patch("plugin.chatbot.rich_text_paste.focus_preserved", _immediate_focus):
-            ok = insert_transferable_into_rich_control(control, transferable, ctx)
-
-        assert ok is True
-        mock_clip.assert_called_once_with(ctx, transferable)
-        mock_key.assert_called_once()
-        control.setFocus.assert_not_called()
-
-
 class TestRichInsertFallbackLogging:
-    def test_append_logs_direct_copy_reason_before_transferable(self, caplog):
+    def test_append_logs_direct_copy_reason_on_failure(self, caplog):
         control = MagicMock()
         control.getModel.return_value = MagicMock(Text="")
         ctx = MagicMock()
         doc = MagicMock()
-        transferable = MagicMock()
 
         with caplog.at_level(logging.WARNING, logger="plugin.chatbot.rich_text_paste"), \
              patch("plugin.chatbot.rich_text_paste.create_hidden_html_writer", return_value=doc), \
@@ -333,16 +278,11 @@ class TestRichInsertFallbackLogging:
                  "plugin.chatbot.rich_text_paste._copy_formatted_from_hidden_doc_to_control",
                  return_value=(False, "no_content_inserted"),
              ), \
-             patch("plugin.chatbot.rich_text_paste._transferable_from_hidden_doc", return_value=transferable), \
-             patch("plugin.chatbot.rich_text_paste.insert_transferable_into_rich_control", return_value=True) as mock_tf, \
              patch("plugin.chatbot.rich_text_paste.get_control_text_length", return_value=10):
             append_rich_text_via_clipboard(ctx, control, "<p>x</p>", role="assistant")
 
-        mock_tf.assert_called_once()
-        assert mock_tf.call_args.kwargs.get("source") == "append_rich_text:assistant"
         joined = " ".join(r.message for r in caplog.records)
-        assert "direct_copy_reason=no_content_inserted" in joined
-        assert "falling back to transferable insert" in joined
+        assert "formatted copy failed direct_copy_reason=no_content_inserted" in joined
 
     def test_copy_logs_no_content_inserted_when_nothing_written(self, caplog):
         control = MagicMock()
@@ -366,3 +306,4 @@ class TestRichInsertFallbackLogging:
         assert ok is False
         assert reason == "no_content_inserted"
         assert any("reason=no_content_inserted" in r.message for r in caplog.records)
+

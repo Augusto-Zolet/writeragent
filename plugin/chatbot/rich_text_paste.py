@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import html
 import logging
-from typing import Any, cast
 
 from plugin.chatbot.rich_text import (
     CHAT_FONT_HEIGHT,
@@ -120,83 +119,6 @@ def _normalize_portion_font(portion) -> None:
         pass
 
 
-def _transferable_from_hidden_doc(doc):
-    """Build a transferable from all content in a hidden Writer document."""
-    controller = doc.getCurrentController()
-    if controller is None:
-        log.warning("_transferable_from_hidden_doc: failed reason=no_controller")
-        return None
-    body = doc.getText()
-    sel = body.createTextCursor()
-    sel.gotoStart(False)
-    sel.gotoEnd(True)
-    controller.select(sel)
-    get_tf = getattr(controller, "getTransferable", None)
-    if callable(get_tf):
-        tf = get_tf()
-        if tf is None:
-            log.warning("_transferable_from_hidden_doc: failed reason=getTransferable_returned_none")
-        return tf
-    try:
-        from com.sun.star.datatransfer import XTransferableSupplier
-
-        supplier = controller.queryInterface(XTransferableSupplier)
-        if supplier is not None:
-            tf = supplier.getTransferable()
-            if tf is None:
-                log.warning("_transferable_from_hidden_doc: failed reason=supplier_getTransferable_none")
-            return tf
-    except Exception as e:
-        log.debug("_transferable_from_hidden_doc queryInterface failed: %s", e)
-    log.warning("_transferable_from_hidden_doc: failed reason=no_getTransferable_api")
-    return None
-
-
-def _log_transferable_flavors(transferable) -> list[str]:
-    """Log MIME types available on a Writer transferable (diagnostics)."""
-    mimes: list[str] = []
-    try:
-        for flavor in transferable.getTransferDataFlavors():
-            mime = getattr(flavor, "MimeType", "") or "?"
-            mimes.append(mime)
-    except Exception as e:
-        log.debug("_log_transferable_flavors failed: %s", e)
-    log.debug("insert_transferable_into_rich_control: transferable flavors=%s", mimes)
-    return mimes
-
-
-def _log_insert_transferable_targets(control, model) -> None:
-    """Log whether insertTransferable exists on control/model (diagnostics)."""
-    for target_name, target in (("control", control), ("model", model)):
-        if target is None:
-            log.debug("insert_transferable_into_rich_control: %s is None", target_name)
-            continue
-        ins = getattr(target, "insertTransferable", None)
-        log.debug(
-            "insert_transferable_into_rich_control: %s insertTransferable=%s",
-            target_name,
-            "callable" if callable(ins) else type(ins).__name__,
-        )
-    if model is not None:
-        log.debug(
-            "insert_transferable_into_rich_control: model.createTextCursor=%s",
-            hasattr(model, "createTextCursor"),
-        )
-
-
-def _set_system_clipboard(ctx, transferable) -> bool:
-    """Put *transferable* on LO's in-process SystemClipboard."""
-    try:
-        smgr = ctx.getServiceManager()
-        clip = smgr.createInstanceWithContext("com.sun.star.datatransfer.clipboard.SystemClipboard", ctx)
-        if clip is None:
-            log.warning("_set_system_clipboard: SystemClipboard unavailable")
-            return False
-        clip.setContents(transferable, None)
-        return True
-    except Exception:
-        log.exception("_set_system_clipboard failed")
-        return False
 
 
 def _is_ordered_numbering_type(num_type) -> bool:
@@ -451,183 +373,14 @@ def _copy_formatted_from_hidden_doc_to_control(
 
 
 def _append_hidden_doc_to_control(doc, control, ctx, style_window=None, auto_scroll=True) -> bool:
-    """Copy hidden Writer content into the sidebar control (formatted copy, then transferable fallback)."""
-    ok, direct_reason = _copy_formatted_from_hidden_doc_to_control(
+    """Copy hidden Writer content into the sidebar control via direct copy."""
+    ok, _ = _copy_formatted_from_hidden_doc_to_control(
         doc, control, ctx, role="assistant", style_window=style_window, auto_scroll=auto_scroll,
     )
-    if ok:
-        return True
-    transferable = _transferable_from_hidden_doc(doc)
-    if transferable is None:
-        log.warning(
-            "_append_hidden_doc_to_control: abort reason=transferable_unavailable direct_copy_reason=%s",
-            direct_reason,
-        )
-        return False
-    log.warning(
-        "_append_hidden_doc_to_control: falling back to transferable insert direct_copy_reason=%s",
-        direct_reason,
-    )
-    return insert_transferable_into_rich_control(
-        control, transferable, ctx, style_window=style_window, source="history_batch",
-    )
+    return ok
 
 
-def _try_paste_via_key_event(ctx, control) -> bool:
-    """Simulate Ctrl+V on the focused RichText control peer."""
-    try:
-        import uno
 
-        peer = control.getPeer() if hasattr(control, "getPeer") else None
-        if peer is None:
-            log.debug("_try_paste_via_key_event: no peer")
-            return False
-        key_pressed = getattr(peer, "keyPressed", None)
-        key_released = getattr(peer, "keyReleased", None)
-        if not callable(key_pressed) or not callable(key_released):
-            log.debug("_try_paste_via_key_event: peer has no keyPressed/keyReleased")
-            return False
-        ev = cast("Any", uno.createUnoStruct("com.sun.star.awt.KeyEvent"))
-        ev.Modifiers = 1  # MOD1 / Ctrl
-        ev.KeyCode = 86  # V
-        ev.KeyChar = "v"
-        key_pressed(ev)
-        key_released(ev)
-        process_events_to_idle(ctx)
-        log.warning("insert_transferable_into_rich_control: dispatched Ctrl+V on control peer")
-        return True
-    except Exception as e:
-        log.debug("_try_paste_via_key_event failed: %s", e)
-        return False
-
-
-def _try_insert_transferable_on_target(target_name, target, transferable, ctx) -> tuple[bool, str | None]:
-    """Call insertTransferable when present; log and swallow errors.
-
-    Returns ``(ok, skip_reason)`` where *skip_reason* explains a failed or skipped attempt.
-    """
-    if target is None:
-        return False, f"{target_name}_missing"
-    ins = getattr(target, "insertTransferable", None)
-    if not callable(ins):
-        return False, f"{target_name}_no_insertTransferable"
-    try:
-        ins(transferable)
-        process_events_to_idle(ctx)
-        return True, None
-    except Exception as e:
-        log.debug("insert_transferable_into_rich_control: %s.insertTransferable failed: %s", target_name, e)
-        return False, f"{target_name}_insertTransferable_error"
-
-
-def insert_transferable_into_rich_control(
-    control,
-    transferable,
-    ctx,
-    style_window=None,
-    *,
-    source: str = "",
-):
-    """Insert formatted content into the sidebar RichText control (not the document)."""
-    if control is None or transferable is None:
-        log.warning(
-            "insert_transferable_into_rich_control: abort reason=missing_control_or_transferable source=%s",
-            source or "?",
-        )
-        return False
-
-    result = False
-
-    def _try_paths() -> None:
-        nonlocal result
-        model = control.getModel()
-        _log_transferable_flavors(transferable)
-        _log_insert_transferable_targets(control, model)
-
-        len_before = get_control_text_length(control)
-        nudge_rich_control_view_to_end(control, ctx=ctx, style_window=style_window)
-        src = source or "?"
-        insert_attempts: list[str] = []
-
-        for target_name, target in (("control", control), ("model", model)):
-            ok, skip = _try_insert_transferable_on_target(target_name, target, transferable, ctx)
-            if ok:
-                nudge_rich_control_view_to_end(control, ctx=ctx, style_window=style_window)
-                if get_control_text_length(control) > len_before:
-                    log.warning(
-                        "insert_transferable_into_rich_control: ok via %s.insertTransferable source=%s len=%d",
-                        target_name,
-                        src,
-                        get_control_text_length(control),
-                    )
-                    result = True
-                    return
-                insert_attempts.append(f"{target_name}_no_length_change")
-            elif skip:
-                insert_attempts.append(skip)
-
-        if model is not None and hasattr(model, "createTextCursor"):
-            try:
-                cursor = model.createTextCursor()
-                cursor.gotoEnd(False)
-                ok, skip = _try_insert_transferable_on_target("model cursor", cursor, transferable, ctx)
-                if ok:
-                    nudge_rich_control_view_to_end(control, ctx=ctx, style_window=style_window)
-                    if get_control_text_length(control) > len_before:
-                        log.warning(
-                            "insert_transferable_into_rich_control: ok via model_cursor.insertTransferable source=%s len=%d",
-                            src,
-                            get_control_text_length(control),
-                        )
-                        result = True
-                        return
-                    insert_attempts.append("model_cursor_no_length_change")
-                elif skip:
-                    insert_attempts.append(skip)
-            except Exception as e:
-                log.debug("insert_transferable_into_rich_control cursor path failed: %s", e)
-                insert_attempts.append("model_cursor_exception")
-
-        log.warning(
-            "insert_transferable_into_rich_control: insertTransferable paths exhausted (%s); trying SystemClipboard+Ctrl+V source=%s",
-            ", ".join(insert_attempts) or "none",
-            src,
-        )
-        if _set_system_clipboard(ctx, transferable):
-            nudge_rich_control_view_to_end(control, ctx=ctx, style_window=style_window)
-            process_events_to_idle(ctx)
-            if _try_paste_via_key_event(ctx, control):
-                nudge_rich_control_view_to_end(control, ctx=ctx, style_window=style_window)
-                if get_control_text_length(control) > len_before:
-                    log.warning(
-                        "insert_transferable_into_rich_control: ok via SystemClipboard+Ctrl+V source=%s len=%d",
-                        src,
-                        get_control_text_length(control),
-                    )
-                    result = True
-                    return
-                insert_attempts.append("clipboard_ctrl_v_no_length_change")
-            else:
-                insert_attempts.append("clipboard_ctrl_v_failed")
-        else:
-            insert_attempts.append("system_clipboard_unavailable")
-
-        flavors = _log_transferable_flavors(transferable)
-        log.warning(
-            "insert_transferable_into_rich_control: all rich insert paths failed source=%s attempts=%s len_before=%d len_after=%d flavors=%s",
-            src,
-            ", ".join(insert_attempts),
-            len_before,
-            get_control_text_length(control),
-            flavors,
-        )
-
-    try:
-        with focus_preserved(ctx):
-            _try_paths()
-    except Exception:
-        log.exception("insert_transferable_into_rich_control failed")
-    return result
 
 
 def append_rich_messages_via_clipboard(
@@ -637,7 +390,7 @@ def append_rich_messages_via_clipboard(
     style_window=None,
     batch_chars=HISTORY_RENDER_BATCH_CHARS,
 ):
-    """Render many chat messages with minimal UI updates (batched hidden Writer + copy)."""
+    """Render many chat messages with minimal UI updates (batched hidden Writer + direct copy)."""
     if not control or not items:
         return
     any_inserted = False
@@ -724,7 +477,7 @@ def append_rich_text_via_clipboard(
     auto_scroll=True,
     on_after_insert=None,
 ):
-    """Import HTML in a hidden Writer doc and copy formatted content into the RichText control."""
+    """Import HTML in a hidden Writer doc and copy formatted content directly into the RichText control."""
     if not control or not text or not text.strip():
         return
     if role == "assistant":
@@ -751,35 +504,10 @@ def append_rich_text_via_clipboard(
                 role,
             )
         else:
-            transferable = _transferable_from_hidden_doc(doc)
-            if transferable is None:
-                log.warning(
-                    "append_rich_text_via_clipboard: formatted copy and transferable both unavailable direct_copy_reason=%s role=%s",
-                    direct_reason,
-                    role,
-                )
-                return
             log.warning(
-                "append_rich_text_via_clipboard: falling back to transferable insert direct_copy_reason=%s role=%s len=%d",
+                "append_rich_text_via_clipboard: formatted copy failed direct_copy_reason=%s role=%s",
                 direct_reason,
                 role,
-                len(text),
-            )
-            if not insert_transferable_into_rich_control(
-                control, transferable, ctx, style_window=style_window, source=f"append_rich_text:{role}",
-            ):
-                log.warning(
-                    "append_rich_text_via_clipboard: rich insert into control failed direct_copy_reason=%s role=%s",
-                    direct_reason,
-                    role,
-                )
-                return
-            inserted = True
-            log.warning(
-                "append_rich_text_via_clipboard: insert ok via=transferable_fallback control_len=%d role=%s direct_copy_reason=%s",
-                get_control_text_length(control),
-                role,
-                direct_reason,
             )
         if inserted and role == "user":
             _ensure_trailing_line_break(control)
