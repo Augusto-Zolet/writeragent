@@ -34,6 +34,59 @@ class TestGrammarPersistence(unittest.TestCase):
             finally:
                 gp.clear_all_document_persistence(ctx)
 
+    def test_proofreading_doc_id_resolves_via_registered_active_model(self) -> None:
+        """LO passes linguistic ids like '2', not RuntimeUID — cache must load via registration."""
+        from plugin.writer.locale import grammar_persistence as gp
+        from plugin.writer.locale.grammar_persistence import DocumentPersistence
+
+        ctx = MagicMock()
+        model = MagicMock()
+        cached = {
+            "version": GRAMMAR_CACHE_VERSION,
+            "good": [],
+            "bad": {
+                "fp_cached": [{"s": 0, "l": 3, "g": ["fix"], "c": "c", "f": "f", "r": "wa_g_rule||test"}],
+            },
+        }
+        gp._doc_persistence_instances.clear()
+        gp.grammar_registry.proofreading_doc_models.clear()
+        try:
+            with patch("plugin.doc.document_helpers.get_document_property", return_value=json.dumps(cached)):
+                gp.grammar_registry.proofreading_doc_models["2"] = model
+                dp = DocumentPersistence(ctx, "2")
+                hit = dp.get("fp_cached")
+            self.assertIsNotNone(hit)
+            self.assertEqual(len(hit), 1)
+            self.assertIs(dp._model, model)
+        finally:
+            gp.clear_all_document_persistence(ctx)
+
+    def test_lazy_bind_loads_udprops_after_init_without_model(self) -> None:
+        """Cache embedded in the ODT must load on first get() when init had no model yet."""
+        from plugin.writer.locale.grammar_persistence import DocumentPersistence
+
+        ctx = MagicMock()
+        model = MagicMock()
+        cached = {
+            "version": GRAMMAR_CACHE_VERSION,
+            "good": [],
+            "bad": {
+                "fp_cached": [{"s": 0, "l": 3, "g": ["fix"], "c": "c", "f": "f", "r": "wa_g_rule||test"}],
+            },
+        }
+        with (
+            patch("plugin.writer.locale.grammar_persistence._resolve_document_model", side_effect=[None, model]),
+            patch("plugin.doc.document_helpers.get_document_property", return_value=json.dumps(cached)),
+        ):
+            dp = DocumentPersistence(ctx, "doc-lazy")
+            self.assertIsNone(dp._model)
+            hit = dp.get("fp_cached")
+
+        self.assertIsNotNone(hit)
+        self.assertEqual(len(hit), 1)
+        self.assertEqual(hit[0]["n_error_start"], 0)
+        self.assertIs(dp._model, model)
+
     def test_document_persistence_persist_prunes_to_session(self) -> None:
         from plugin.writer.locale.grammar_persistence import DocumentPersistence
 

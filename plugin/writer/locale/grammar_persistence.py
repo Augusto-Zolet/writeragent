@@ -5,9 +5,10 @@
 """Persistent storage for grammar check results in user-defined document properties.
 
 Per-document persistence stores sentence results in user-defined document properties
-and keeps a process-local map keyed by ``RuntimeUID`` (see ``aDocumentIdentifier``
-in the proofreader); ``OnUnload`` / dispose removes map entries so instances can
-be garbage-collected.
+and keeps a process-local map keyed by LibreOffice ``aDocumentIdentifier`` (often a
+small integer per open doc, not ``RuntimeUID``). ``register_proofreading_document``
+binds that id to the Writer model on first ``doProofreading``; ``OnUnload`` / dispose
+removes map entries so instances can be garbage-collected.
 """
 
 from __future__ import annotations
@@ -44,6 +45,8 @@ class GrammarRegistry:
         self.ignored_rules: set[str] = set()
         self.doc_locales_cache: dict[str, tuple[float, list[str]]] = {}
         self.lang_detect_cache: collections.OrderedDict[str, str] = collections.OrderedDict()
+        # LO proofreading ids (e.g. "1", "2") -> Writer model at first doProofreading for that id.
+        self.proofreading_doc_models: dict[str, Any] = {}
 
     def get_persistence(self, ctx: Any, doc_id: str | None) -> DocumentPersistence | None:
         if ctx is None or not doc_id:
@@ -52,17 +55,25 @@ class GrammarRegistry:
             existing = self.doc_persistence_instances.get(doc_id)
             if existing is not None:
                 return existing
-            dp = DocumentPersistence(ctx, doc_id)
+        # Construct outside the registry lock: DocumentPersistence.__init__ resolves the
+        # model and may read proofreading_doc_models (same lock) — nesting deadlocks.
+        dp = DocumentPersistence(ctx, doc_id)
+        with self.lock:
+            existing = self.doc_persistence_instances.get(doc_id)
+            if existing is not None:
+                return existing
             self.doc_persistence_instances[doc_id] = dp
             return dp
 
     def remove_persistence(self, doc_id: str) -> None:
         with self.lock:
             self.doc_persistence_instances.pop(doc_id, None)
+            self.proofreading_doc_models.pop(doc_id, None)
 
     def clear_for_doc(self, doc_id: str) -> None:
         with self.lock:
             self.doc_locales_cache.pop(doc_id, None)
+            self.proofreading_doc_models.pop(doc_id, None)
             dp = self.doc_persistence_instances.pop(doc_id, None)
             if dp:
                 try:
@@ -81,6 +92,7 @@ class GrammarRegistry:
             self.ignored_rules.clear()
             self.doc_locales_cache.clear()
             self.lang_detect_cache.clear()
+            self.proofreading_doc_models.clear()
             snap = list(self.doc_persistence_instances.values())
             self.doc_persistence_instances.clear()
         
@@ -154,6 +166,45 @@ def _find_model_by_runtime_uid(ctx: Any, doc_id: str) -> Any | None:
                 return comp
         except Exception:
             continue
+    return None
+
+
+def register_proofreading_document(ctx: Any, doc_id: str | None) -> None:
+    """Remember which Writer model LO's linguistic ``aDocumentIdentifier`` refers to.
+
+    LO often passes small integers ("1", "2") that are not ``RuntimeUID``. Bind once per
+    id on the first ``doProofreading`` call while that document is the active component.
+    """
+    if not ctx or not doc_id or not _HAVE_UNO_DOC_EVENTS:
+        return
+    with grammar_registry.lock:
+        if doc_id in grammar_registry.proofreading_doc_models:
+            return
+    from plugin.framework.uno_context import get_active_document
+
+    model = get_active_document(ctx)
+    if model is None:
+        return
+    with grammar_registry.lock:
+        if doc_id not in grammar_registry.proofreading_doc_models:
+            grammar_registry.proofreading_doc_models[doc_id] = model
+            log.debug("[grammar] register_proofreading_document: doc_id=%s bound to active model", doc_id)
+
+
+def _resolve_document_model(ctx: Any, doc_id: str) -> Any | None:
+    """Resolve the Writer model for cache load/save for this proofreading document id."""
+    mapped = grammar_registry.proofreading_doc_models.get(doc_id)
+    if mapped is not None:
+        return mapped
+    # LO linguistic ids are small integers; RuntimeUID lookup cannot match and scans the desktop.
+    if not doc_id.isdigit():
+        model = _find_model_by_runtime_uid(ctx, doc_id)
+        if model is not None:
+            return model
+    if _HAVE_UNO_DOC_EVENTS:
+        from plugin.framework.uno_context import get_active_document
+
+        return get_active_document(ctx)
     return None
 
 
@@ -237,7 +288,7 @@ class DocumentPersistence(GrammarPersistence):
         self._memory_cache: dict[str, list[dict[str, Any]]] = {}
         self._session_accessed: set[str] = set()
         self._ignored_rules: set[str] = set()
-        self._model: Any = _find_model_by_runtime_uid(ctx, doc_id)
+        self._model: Any = _resolve_document_model(ctx, doc_id)
         self._doc_listener: Any = None
         self._teardown_done = False
         if self._model:
@@ -246,8 +297,30 @@ class DocumentPersistence(GrammarPersistence):
         else:
             log.debug("[grammar] DocumentPersistence: no model for doc_id=%s (in-memory only until resolved)", doc_id[:32] if doc_id else "")
 
+    def _ensure_model_loaded(self) -> None:
+        """Bind the open document and load embedded cache if init ran before the model existed.
+
+        LibreOffice may call the proofreader before RuntimeUID resolution succeeds; without
+        a retry here the in-memory cache stays empty for the whole session even though the
+        ODT already contains WriterAgentGrammarCache.
+        """
+        if self._teardown_done or self._model is not None:
+            return
+        with self._lock:
+            if self._teardown_done or self._model is not None:
+                return
+            model = _resolve_document_model(self.ctx, self._doc_id)
+            if model is None:
+                return
+            self._model = model
+        self._load_from_udprops()
+        self._register_listeners()
+        log.debug("[grammar] DocumentPersistence: bound model for doc_id=%s (loaded %s cache entries)", self._doc_id[:32] if self._doc_id else "", len(self._memory_cache))
+
     def _register_listeners(self) -> None:
         if not _HAVE_UNO_DOC_EVENTS or self._model is None:
+            return
+        if self._doc_listener is not None:
             return
         # XDocumentEventListener handles both OnSave/OnUnload (via documentEventOccured)
         # and broadcaster teardown (via disposing inherited from lang.XEventListener),
@@ -357,12 +430,14 @@ class DocumentPersistence(GrammarPersistence):
         self._model = None
 
     def get(self, fp: str) -> list[dict[str, Any]] | None:
+        self._ensure_model_loaded()
         with self._lock:
             self._session_accessed.add(fp)
             hit = self._memory_cache.get(fp)
             return list(hit) if hit is not None else None
 
     def put(self, fp: str, locale: str, errors: list[dict[str, Any]]) -> None:
+        self._ensure_model_loaded()
         with self._lock:
             self._session_accessed.add(fp)
             self._memory_cache[fp] = [dict(e) for e in errors]

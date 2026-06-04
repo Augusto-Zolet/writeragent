@@ -402,6 +402,9 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
 
     def doProofreading(self, aDocumentIdentifier: str, aText: str, aLocale: Any, nStartOfSentencePosition: int, nSuggestedBehindEndOfSentencePosition: int, aProperties: Any) -> Any:
         self._last_doc_id = aDocumentIdentifier
+        from plugin.writer.locale.grammar_persistence import register_proofreading_document
+
+        register_proofreading_document(self.ctx, aDocumentIdentifier)
         if uno_mod is None:
             log.warning("[grammar] doProofreading: uno_mod is None (import failed)")
             raise RuntimeError("uno not available")
