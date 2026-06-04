@@ -144,7 +144,7 @@ def call_grammar_llm(
         max_tokens = ec.max_tok
 
     request_start = time.monotonic()
-    with queue_executor.llm_request_lane():
+    with queue_executor.grammar_llm_request_gate(ec.ctx):
         content = ec.client.chat_completion_sync(messages, max_tokens=max_tokens, model=ec.model or None, response_format={"type": "json_object"}, prepend_dev_build_system_prefix=False)
     elapsed_ms = int((time.monotonic() - request_start) * 1000)
 
@@ -204,7 +204,7 @@ def detect_languages_for_chunk(
             detect_max_tok = grammar_proofread_locale.GRAMMAR_LANGUAGE_DETECT_MAX_TOKENS_PER_BATCH_ITEM * len(chunk)
 
             emit_grammar_status("request", f"Batch of {len(chunk)}", result="Detecting language")
-            with queue_executor.llm_request_lane():
+            with queue_executor.grammar_llm_request_gate(ec.ctx):
                 detect_content = language_detect_llm_sync(ec, detect_messages, detect_max_tok)
 
             parsed_langs = grammar_proofread_json.parse_language_detect_batch_json(detect_content or "")
@@ -237,7 +237,7 @@ def detect_languages_for_chunk(
             detect_messages = [{"role": "system", "content": detect_prompt}, {"role": "user", "content": text}]
 
             emit_grammar_status("request", text, result="Detecting language")
-            with queue_executor.llm_request_lane():
+            with queue_executor.grammar_llm_request_gate(ec.ctx):
                 detect_content = language_detect_llm_sync(
                     ec,
                     detect_messages,

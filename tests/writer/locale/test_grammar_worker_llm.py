@@ -50,7 +50,7 @@ def test_call_grammar_llm_single() -> None:
     item = _item()
     ec = _ec(client)
     with patch("plugin.writer.locale.grammar_worker_llm.emit_grammar_status"), \
-         patch("plugin.framework.queue_executor.llm_request_lane"), \
+         patch("plugin.framework.queue_executor.grammar_llm_request_gate"), \
          patch("plugin.writer.locale.grammar_worker_llm.get_active_ignored_reasons", return_value=set()):
         results, elapsed = call_grammar_llm([(item, item.text)], "en-US", ec)
     assert len(results) == 1
@@ -65,7 +65,7 @@ def test_call_grammar_llm_batch() -> None:
     a, b = _item("A."), _item("B.")
     ec = _ec(client)
     with patch("plugin.writer.locale.grammar_worker_llm.emit_grammar_status"), \
-         patch("plugin.framework.queue_executor.llm_request_lane"), \
+         patch("plugin.framework.queue_executor.grammar_llm_request_gate"), \
          patch("plugin.writer.locale.grammar_worker_llm.get_active_ignored_reasons", return_value=set()):
         results, _ = call_grammar_llm([(a, a.text), (b, b.text)], "en-US", ec)
     assert len(results) == 2
@@ -77,7 +77,7 @@ def test_language_detect_llm_sync_retries_on_empty() -> None:
     client = MagicMock()
     client.chat_completion_sync.side_effect = ["", '{"detected_language_bcp47": "en-US"}']
     ec = _ec(client)
-    with patch("plugin.framework.queue_executor.llm_request_lane"):
+    with patch("plugin.framework.queue_executor.grammar_llm_request_gate"):
         out = language_detect_llm_sync(ec, [{"role": "user", "content": "Hi"}], 64)
     assert "en-US" in out
     assert client.chat_completion_sync.call_count == 2

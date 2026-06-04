@@ -337,7 +337,7 @@ def test_drain_loop_collapses_same_key_items_during_burst() -> None:
 
     with patch("plugin.writer.locale.grammar_work_queue.run_llm_and_cache_batch", side_effect=fake_run), \
          patch("plugin.writer.locale.grammar_proofread_locale.GRAMMAR_WORKER_PAUSE_TIMEOUT_S", 0.01):
-        q._ensure_worker()
+        q._ensure_workers(None)
         assert drain_done.wait(timeout=2.0), "drain loop did not run"
 
     assert len(drained) == 1
@@ -356,6 +356,32 @@ def test_is_stale_and_inflight_superseded() -> None:
     assert inflight_superseded(latest, "k", 7) is True
     cur = _item(9, key="k")
     assert is_stale(latest, cur) is False
+
+
+def test_ensure_workers_spawns_up_to_config() -> None:
+    q = GrammarWorkQueue()
+    ctx = MagicMock()
+    started: list[str] = []
+
+    def track_thread(*_args, **kwargs):
+        started.append(kwargs["name"])
+        mock_t = MagicMock()
+        mock_t.start = MagicMock()
+        return mock_t
+
+    with patch("plugin.writer.locale.grammar_proofread_locale.grammar_max_in_flight", return_value=3), \
+         patch("plugin.writer.locale.grammar_work_queue.threading.Thread", side_effect=track_thread), \
+         patch("plugin.writer.locale.grammar_work_queue.time.sleep") as sleep_mock:
+        q._ensure_workers(ctx)
+    assert sleep_mock.call_count == 2
+    assert q._worker_count == 3
+    assert started == ["writeragent-grammar-queue-0", "writeragent-grammar-queue-1", "writeragent-grammar-queue-2"]
+    # Idempotent: second call does not spawn more when count already matches desired.
+    with patch("plugin.writer.locale.grammar_proofread_locale.grammar_max_in_flight", return_value=3), \
+         patch("plugin.writer.locale.grammar_work_queue.threading.Thread", side_effect=track_thread):
+        q._ensure_workers(ctx)
+    assert q._worker_count == 3
+    assert len(started) == 3
 
 
 # ---------------------------------------------------------------------------
@@ -446,7 +472,7 @@ def test_run_llm_and_cache_batch_success() -> None:
          patch("plugin.framework.config.is_grammar_enabled", return_value=True), \
          patch("plugin.framework.client.model_fetcher.get_grammar_model", return_value="test-model"), \
          patch("plugin.framework.config.get_api_config", return_value={}), \
-         patch("plugin.framework.queue_executor.llm_request_lane"), \
+         patch("plugin.framework.queue_executor.grammar_llm_request_gate"), \
          patch("plugin.framework.client.llm_client.LlmClient") as mock_client_cls, \
          patch("plugin.writer.locale.grammar_proofread_cache.cache_get_sentence", return_value=None), \
          patch("plugin.writer.locale.grammar_proofread_cache.cache_put_sentence") as mock_put, \
@@ -498,7 +524,7 @@ def test_run_llm_and_cache_batch_size_1() -> None:
          patch("plugin.framework.config.is_grammar_enabled", return_value=True), \
          patch("plugin.framework.client.model_fetcher.get_grammar_model", return_value="test-model"), \
          patch("plugin.framework.config.get_api_config", return_value={}), \
-         patch("plugin.framework.queue_executor.llm_request_lane"), \
+         patch("plugin.framework.queue_executor.grammar_llm_request_gate"), \
          patch("plugin.framework.client.llm_client.LlmClient") as mock_client_cls, \
          patch("plugin.writer.locale.grammar_proofread_cache.cache_get_sentence", return_value=None), \
          patch("plugin.writer.locale.grammar_proofread_cache.cache_put_sentence") as mock_put, \
@@ -622,7 +648,7 @@ def test_language_validation_does_not_trust_persisted_grammar_heuristic() -> Non
         _lang_detect_cache.pop(item.text, None)
         with patch("plugin.writer.locale.grammar_persistence.get_persistence", return_value=mock_p):
             with patch("plugin.writer.locale.grammar_worker_llm.get_cached_language", return_value=None):
-                with patch("plugin.framework.queue_executor.llm_request_lane", return_value=mock_lane):
+                with patch("plugin.framework.queue_executor.grammar_llm_request_gate", return_value=mock_lane):
                     with patch(
                         "plugin.writer.locale.grammar_work_queue.detect_languages_for_chunk",
                         return_value=["en-US"],
@@ -693,7 +719,7 @@ def test_language_detect_calls_llm_when_no_persisted_grammar() -> None:
         _lang_detect_cache.pop(item.text, None)
         with patch("plugin.writer.locale.grammar_persistence.get_persistence", return_value=mock_p):
             with patch("plugin.writer.locale.grammar_worker_llm.get_cached_language", return_value=None):
-                with patch("plugin.framework.queue_executor.llm_request_lane", return_value=mock_lane):
+                with patch("plugin.framework.queue_executor.grammar_llm_request_gate", return_value=mock_lane):
                     detected = _detect_languages([(item, item.text)], "", ec)
         mock_client.chat_completion_sync.assert_called_once()
         assert detected == ["en-US"]

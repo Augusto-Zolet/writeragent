@@ -2,7 +2,7 @@
 # Copyright (c) 2026 KeithCu
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Grammar work queue: work items, batch dedup, pure enqueue/stale helpers, sequential LLM worker.
+"""Grammar work queue: work items, batch dedup, pure enqueue/stale helpers, parallel LLM workers.
 
 Queue dedup / stale-suppression mental model
 =============================================
@@ -683,7 +683,10 @@ def run_llm_and_cache_batch(
             pass
 
 class GrammarWorkQueue:
-    """Single-worker sequential queue for grammar LLM requests (stampede + per-key supersede).
+    """Multi-worker queue for grammar LLM requests (stampede + per-key supersede).
+
+    Up to ``doc.grammar_proofreader_max_in_flight`` daemon drain threads share one
+    ``queue.Queue``; each batch still respects ``grammar_llm_request_gate`` for HTTP.
 
     TD4 note: an ``InflightTracker`` wrapper around ``_seq_lock`` + ``_latest_seq``
     was evaluated and rejected — the tracker would absorb 2 fields and 3 thin methods
@@ -697,7 +700,7 @@ class GrammarWorkQueue:
         self._q: queue.Queue[GrammarWorkItem | None] = queue.Queue()
         self._seq_lock = threading.Lock()
         self._latest_seq: dict[str, int] = {}
-        self._worker_started = False
+        self._worker_count = 0
         self._worker_lock = threading.Lock()
 
     @staticmethod
@@ -738,18 +741,22 @@ class GrammarWorkQueue:
         # removed in the TD4 simplification pass because it was ineffective
         # during the common rapid-drain burst case; see the module docstring.)
         self._q.put(item)
-        self._ensure_worker()
+        self._ensure_workers(item.ctx)
 
-    def _ensure_worker(self) -> None:
+    def _ensure_workers(self, ctx: Any) -> None:
+        desired = grammar_proofread_locale.grammar_max_in_flight(ctx)
         with self._worker_lock:
-            if self._worker_started:
-                return
-            self._worker_started = True
-        t = threading.Thread(target=self._drain_loop, name="writeragent-grammar-queue", daemon=True)
-        t.start()
+            while self._worker_count < desired:
+                i = self._worker_count
+                if i > 0:
+                    # Stagger extra drain threads (same 50 ms pacing as LlmClient HTTP sends).
+                    time.sleep(llm_client.LLM_MIN_REQUEST_INTERVAL_SEC)
+                self._worker_count += 1
+                t = threading.Thread(target=self._drain_loop, name=f"writeragent-grammar-queue-{i}", daemon=True)
+                t.start()
 
     def _drain_loop(self) -> None:
-        """Block-dequeue, batch-drain pending items, deduplicate, process sequentially."""
+        """Block-dequeue, batch-drain pending items, deduplicate, process one batch."""
         while True:
             first = self._q.get()
             if first is None:

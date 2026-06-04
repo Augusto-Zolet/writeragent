@@ -17,6 +17,7 @@
 
 - **Native grammar** is implemented as an `XProofreader` service with Lightproof-style registry (`LinguisticWriterAgentGrammar.xcu`); users enable LLM work on the **Doc** tab and pick the proofreader under Writing aids.
 - **Batching** groups sentences from the same paragraph into chunked LLM requests; batch size is capped (`doc.grammar_proofreader_batch_sentences`, max 8).
+- **Concurrent requests** (`doc.grammar_proofreader_max_in_flight`, 1–8, default **1**): up to N background drain workers and matching grammar HTTP slots; **1** keeps prior global `llm_request_lane` behavior with chat; **>1** allows parallel grammar API calls (e.g. OpenRouter).
 - **Language Detection** automatically identifies mismatches between LibreOffice's `CharLocale` and the actual text using a lightweight LLM call, actively triggering localized paragraph re-checks (`doc.grammar_proofreader_detect_language`).
 - **Cache** is **document-embedded**: results live inside the `.odt` as user-defined property `WriterAgentGrammarCache`, so they travel with the file across machines and collaborators. The global SQLite cache was removed since we save directly with the document.
 - **Sidebar chat** is separate: use it for explanations, rewrites, and editorial comment tools—not as a second linguistic pipeline.
@@ -190,7 +191,7 @@ The native grammar checker pairs **sentence-bound work units** with **sentence-l
 
 #### Worker thread, quiet period, and batching
 
-- **Concurrency / work queue**: A single persistent daemon thread (`GrammarWorkQueue` in [`grammar_work_queue.py`](../plugin/writer/locale/grammar_work_queue.py)) drains a `queue.Queue` sequentially. The worker **batch-drains** all pending items, deduplicates them, and then **groups them by (document, locale)**.
+- **Concurrency / work queue**: Up to **`doc.grammar_proofreader_max_in_flight`** persistent daemon drain threads (default **1**, max **8**) share one `GrammarWorkQueue` (`grammar_work_queue.py`). Each thread **batch-drains** pending items, deduplicates them, and **groups by (document, locale)**. Grammar HTTP uses [`grammar_llm_request_gate()`](../plugin/framework/queue_executor.py): limit **1** → global `llm_request_lane()` (serialized with chat); limit **>1** → up to N concurrent grammar/lang-detect calls (chat still uses its own lane).
 - **Quiet period**: The worker uses `queue.Queue.get(timeout=GRAMMAR_WORKER_PAUSE_TIMEOUT_S)` (see `grammar_proofread_locale.py`) so batches wait for a short idle window rather than spamming the LLM on every micro-edit.
 - **Paragraph batching (chunked)**: Grouped sentences from the same paragraph/context are sent to the LLM in batches. Chunks respect **`doc.grammar_proofreader_batch_sentences`** (hard-capped by **`GRAMMAR_BATCH_MAX_SENTENCES = 8`**). This reduces latency and token overhead during full-paragraph checks or document loads when set to values greater than 1.
 
@@ -348,8 +349,8 @@ So **`enqueue_seq` is a generation stamp for supersede/dedup semantics**, not a 
 |------|----------------------------|
 | Token cost / privacy | Master switch **off** by default; user must enable on the **Doc** tab; Writer tab documents that checked text is sent to the configured endpoint. |
 | UI freeze | `doProofreading` does **not** wait on the main thread for LLM results (avoids dead menus while grammar runs). HTTP/LLM runs on a background worker; underlines update on a **later** proofreading pass when the sentence cache is ready. |
-| Stale underlines | Sentence cache (locale + sentence text fingerprint) plus sequential work queue with same-key supersede, pre-execute stale skip, and post-LLM cache-write guard. **Cache hit** → immediate errors; **miss** → empty return once, queue worker fills cache for the next pass. See **Open backlog** for evolving this. |
-| Concurrent chat agent | Optional guard (`doc.grammar_proofreader_pause_during_agent`) can skip grammar worker calls while chat/agent sends are active; grammar and chat/agent LLM requests also share one in-process request lane to avoid overlap races. |
+| Stale underlines | Sentence cache (locale + sentence text fingerprint) plus work queue with same-key supersede, pre-execute stale skip, and post-LLM cache-write guard. **Cache hit** → immediate errors; **miss** → empty return once, queue workers fill cache for the next pass. See **Open backlog** for evolving this. |
+| Concurrent chat agent | Optional guard (`doc.grammar_proofreader_pause_during_agent`) skips grammar while chat/agent runs. With **`doc.grammar_proofreader_max_in_flight` = 1**, grammar HTTP shares global `llm_request_lane` with chat. With **>1**, grammar requests can overlap chat unless pause is enabled—raise concurrency only when the endpoint tolerates it. |
 
 ---
 
@@ -376,7 +377,7 @@ Two tables: **product / hardening** (user-visible or systemic improvements) and 
 | P8 | Prompt and schema hardening | Few-shot edge cases (quotes, lists, track changes); stricter JSON recovery. |
 | P11 | Observability | Cache hit rate, supersede counts, p50/p95 schedule→`cache_put` behind a verbose flag. |
 | P13 | LanguageTool-class local checking | Research roadmap: [docs/languagetool-local-parity-phased-plan.md](languagetool-local-parity-phased-plan.md). |
-| P14 | Parallel grammar worker | Optional limited parallelism across **distinct** documents while respecting `llm_request_lane`. |
+| P14 | Parallel grammar worker | **Partial (shipped):** `doc.grammar_proofreader_max_in_flight` (1–8) + multi drain threads + `grammar_llm_request_gate`. Remaining: shrink extra workers when user lowers N without restart; optional distinct-document-only scheduling. |
 | P15 | Queue priority / visibility | Prefer currently edited or visible ranges over scroll-induced backlog (related to **C5**). |
 | P17 | Configurable LLM max tokens | Expose the hardcoded **3072** max output tokens as `doc.grammar_proofreader_max_tokens` so users can tune for different endpoints or models. |
 | P18 | Configurable max chars | Move `GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS` (8192) to a config key `doc.grammar_proofreader_max_chars`; allows tuning for very long sentences without code changes. |

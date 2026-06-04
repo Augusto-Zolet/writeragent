@@ -35,8 +35,9 @@ from typing import Any, cast
 REPEATED_STREAMING_CHUNK_LIMIT = 20
 
 # Minimum wall time between consecutive ``conn.request`` calls on one client (bursty
-# sub-agents / tool loops can otherwise hit provider rate limits).
-_LLM_MIN_REQUEST_INTERVAL_SEC = 0.05
+# sub-agents / tool loops can otherwise hit provider rate limits). Also used when
+# starting additional grammar queue drain workers so N workers do not burst together.
+LLM_MIN_REQUEST_INTERVAL_SEC = 0.05
 
 # Local / Harmony-style models sometimes leak chat-template control tokens like
 # ``<|channel|>`` into completion text. If that text is replayed on the next
@@ -300,7 +301,7 @@ class LlmClient:
     def _pace_before_llm_request(self) -> None:
         """Sleep if needed so consecutive HTTP sends on this client are not back-to-back."""
         now = time.monotonic()
-        wait = _LLM_MIN_REQUEST_INTERVAL_SEC - (now - self._last_llm_request_sent_monotonic)
+        wait = LLM_MIN_REQUEST_INTERVAL_SEC - (now - self._last_llm_request_sent_monotonic)
         if wait > 0:
             time.sleep(wait)
 

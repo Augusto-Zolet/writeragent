@@ -35,6 +35,9 @@ log = logging.getLogger("writeragent.framework.queue_executor")
 _AGENT_ACTIVE_LOCK = threading.Lock()
 _AGENT_ACTIVE_COUNT = 0
 _LLM_REQUEST_LOCK = threading.Lock()
+_GRAMMAR_INFLIGHT_LOCK = threading.Lock()
+_GRAMMAR_INFLIGHT_CV = threading.Condition(_GRAMMAR_INFLIGHT_LOCK)
+_GRAMMAR_INFLIGHT_COUNT = 0
 _current_send_cancellation: ContextVar["SendCancellation | None"] = ContextVar("current_send_cancellation", default=None)
 
 
@@ -130,6 +133,29 @@ def llm_request_lane() -> Generator[None, None, None]:
         yield
     finally:
         _LLM_REQUEST_LOCK.release()
+
+
+@contextmanager
+def grammar_llm_request_gate(ctx: Any) -> Generator[None, None, None]:
+    """Gate grammar proofreader HTTP: limit=1 uses global lane; limit>1 allows N parallel grammar calls."""
+    from plugin.writer.locale.grammar_proofread_locale import grammar_max_in_flight
+
+    limit = grammar_max_in_flight(ctx)
+    if limit <= 1:
+        with llm_request_lane():
+            yield
+        return
+    global _GRAMMAR_INFLIGHT_COUNT
+    with _GRAMMAR_INFLIGHT_CV:
+        while _GRAMMAR_INFLIGHT_COUNT >= limit:
+            _GRAMMAR_INFLIGHT_CV.wait()
+        _GRAMMAR_INFLIGHT_COUNT += 1
+    try:
+        yield
+    finally:
+        with _GRAMMAR_INFLIGHT_CV:
+            _GRAMMAR_INFLIGHT_COUNT = max(0, _GRAMMAR_INFLIGHT_COUNT - 1)
+            _GRAMMAR_INFLIGHT_CV.notify_all()
 
 
 class _WorkItem:

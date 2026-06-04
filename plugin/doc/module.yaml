@@ -33,6 +33,15 @@ config:
     label: Grammar batch sentences
     helper: "Number of sentences to send per LLM request (1-8). 1 (default) is most reliable; higher values are faster and cheaper but may hit token limits or cause model errors."
 
+  grammar_proofreader_max_in_flight:
+    type: int
+    default: 1
+    min: 1
+    max: 8
+    widget: number
+    label: Grammar concurrent requests
+    helper: "Max simultaneous background grammar API calls (1-8). 1 matches prior behavior. Raise for OpenRouter or other providers that allow parallel requests; use with care alongside sidebar chat."
+
   grammar_proofreader_detect_language:
     type: boolean
     default: false
