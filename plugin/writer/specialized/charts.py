@@ -26,8 +26,7 @@ from ..specialized_base import ToolWriterChartBase
 from plugin.calc.charts import (
     ListCharts as CalcListCharts,
     GetChartInfo as CalcGetChartInfo,
-    CreateChart as CalcCreateChart,
-    EditChart as CalcEditChart,
+    UpsertChart as CalcUpsertChart,
     DeleteChart as CalcDeleteChart,
     ManageCharts as CalcManageCharts,
 )
@@ -44,23 +43,19 @@ _ALL_CHART_DOCS = [
 ]
 
 
-class ListCharts(CalcListCharts, ToolBaseDummy):  # type: ignore[misc]  # dual base: Calc tool + registry skip marker
+class ListCharts(CalcListCharts, ToolWriterChartBase):  # type: ignore[misc]
     uno_services = _ALL_CHART_DOCS
 
 
-class GetChartInfo(CalcGetChartInfo, ToolBaseDummy):  # type: ignore[misc]
+class GetChartInfo(CalcGetChartInfo, ToolWriterChartBase):  # type: ignore[misc]
     uno_services = _ALL_CHART_DOCS
 
 
-class CreateChart(CalcCreateChart, ToolBaseDummy):  # type: ignore[misc]
+class UpsertChart(CalcUpsertChart, ToolWriterChartBase):  # type: ignore[misc]
     uno_services = _ALL_CHART_DOCS
 
 
-class EditChart(CalcEditChart, ToolBaseDummy):  # type: ignore[misc]
-    uno_services = _ALL_CHART_DOCS
-
-
-class DeleteChart(CalcDeleteChart, ToolBaseDummy):  # type: ignore[misc]
+class DeleteChart(CalcDeleteChart, ToolWriterChartBase):  # type: ignore[misc]
     uno_services = _ALL_CHART_DOCS
 
 

@@ -7,6 +7,7 @@ import json
 import sys
 import threading
 import uuid
+from typing import Any, Dict, List, Optional, Union
 
 
 # ── RPC transport ──────────────────────────────────────────────
@@ -45,10 +46,12 @@ DOMAIN_TOOLS = {   'bookmark': [   'cleanup_bookmarks',
                 'delete_structure',
                 'get_sheet_summary',
                 'insert_cell_html',
+                'list_calc_functions',
                 'merge_cells',
                 'read_cell_range',
                 'set_style',
                 'write_formula_range'],
+    'chart': ['delete_chart', 'get_chart_info', 'list_charts', 'manage_charts', 'upsert_chart'],
     'comment': [   'add_cell_comment',
                    'delete_cell_comment',
                    'delete_comment',
@@ -57,14 +60,8 @@ DOMAIN_TOOLS = {   'bookmark': [   'cleanup_bookmarks',
                    'resolve_comment',
                    'workflow'],
     'conditional_formatting': ['add_conditional_format', 'list_conditional_formats', 'remove_conditional_formats'],
-    'core': [   'create_chart',
-                'delete_chart',
-                'edit_chart',
-                'get_chart_info',
-                'list_charts',
-                'specialized_workflow_finished',
-                'upsert_memory',
-                'web_research'],
+    'core': ['list_open_documents', 'specialized_workflow_finished', 'upsert_memory', 'web_research'],
+    'document_research': ['delegate_read_document', 'grep_nearby_files', 'list_nearby_files'],
     'draw': [   'add_slide',
                 'delegate_to_specialized_draw_toolset',
                 'delete_slide',
@@ -77,7 +74,7 @@ DOMAIN_TOOLS = {   'bookmark': [   'cleanup_bookmarks',
                 'set_active_page',
                 'set_placeholder_text'],
     'embedded': ['embedded_edit', 'embedded_insert'],
-    'error': ['detect_and_explain_errors'],
+    'error': ['detect_and_explain_errors', 'evaluate_formula'],
     'field': ['fields_delete', 'fields_insert', 'fields_list', 'fields_update_all', 'update_fields'],
     'footnote': [   'footnotes_delete',
                     'footnotes_edit',
@@ -98,6 +95,7 @@ DOMAIN_TOOLS = {   'bookmark': [   'cleanup_bookmarks',
                   'get_image_info',
                   'insert_image',
                   'list_images',
+                  'list_nearby_image_files',
                   'replace_image',
                   'set_image_properties'],
     'indexe': ['indexes_add_mark', 'indexes_create', 'indexes_list', 'indexes_update_all', 'refresh_indexes'],
@@ -138,7 +136,7 @@ DOMAIN_TOOLS = {   'bookmark': [   'cleanup_bookmarks',
                       'list_sections',
                       'navigate_heading',
                       'read_section'],
-    'styles': ['get_style_info', 'list_styles', 'update_style'],
+    'styles': ['create_style', 'get_style_info', 'import_styles', 'list_styles', 'update_style'],
     'textframe': ['get_text_frame_info', 'list_text_frames', 'set_text_frame_properties'],
     'tracking': [   'track_changes_accept',
                     'track_changes_accept_all',
@@ -199,7 +197,7 @@ class _CalcProxy:
     """Proxy for calc tools."""
 
     def delegate_to_specialized_calc_toolset(self, domain: str, task: str) -> dict:
-        """Delegates a specialized task to a sub-agent with a focused toolset."""
+        """Delegates a specialized Calc task."""
         return _rpc_call("delegate_to_specialized_calc_toolset", domain=domain, task=task)
 
     def delete_structure(self, structure_type: str, start: str, *, count: int = 0) -> dict:
@@ -213,6 +211,10 @@ class _CalcProxy:
     def insert_cell_html(self, cell_address: str, html: str) -> dict:
         """Parses HTML with the same filter as Writer and pastes rich text into one cell on the active sheet (e.g."""
         return _rpc_call("insert_cell_html", cell_address=cell_address, html=html)
+
+    def list_calc_functions(self, *, filter: str = "") -> dict:
+        """Lists available Calc spreadsheet functions."""
+        return _rpc_call("list_calc_functions", filter=filter)
 
     def merge_cells(self, range_name: list, *, center: bool = True) -> dict:
         """Merges the specified cell range(s)."""
@@ -231,6 +233,32 @@ class _CalcProxy:
         return _rpc_call("write_formula_range", range_name=range_name, formula_or_values=formula_or_values)
 
 calc = _CalcProxy()
+
+
+class _ChartProxy:
+    """Proxy for chart tools."""
+
+    def delete_chart(self, chart_name: str) -> dict:
+        """Delete a chart by name.."""
+        return _rpc_call("delete_chart", chart_name=chart_name)
+
+    def get_chart_info(self, chart_name: str) -> dict:
+        """Get detailed info about a chart: type, title, ranges (if Calc), axis titles, and legend properties.."""
+        return _rpc_call("get_chart_info", chart_name=chart_name)
+
+    def list_charts(self) -> dict:
+        """List all charts in the current context (active sheet, document, or slide) with name, title, and type.."""
+        return _rpc_call("list_charts")
+
+    def manage_charts(self, action: str, *, chart_name: str = "", data_range: str = "", headers: list = [], rows: list = [], chart_type: str = "", title: str = "", subtitle: str = "", is_3d: bool = True, stacked: bool = True, percent: bool = True, x_axis_title: str = "", y_axis_title: str = "", legend_position: str = "", has_legend: bool = True, position: str = "", bg_color: str = "", colors: list = []) -> dict:
+        """Manage charts: list, get_info, create, edit, or delete a chart in the current context (active sheet, document, or slide).."""
+        return _rpc_call("manage_charts", action=action, chart_name=chart_name, data_range=data_range, headers=headers, rows=rows, chart_type=chart_type, title=title, subtitle=subtitle, is_3d=is_3d, stacked=stacked, percent=percent, x_axis_title=x_axis_title, y_axis_title=y_axis_title, legend_position=legend_position, has_legend=has_legend, position=position, bg_color=bg_color, colors=colors)
+
+    def upsert_chart(self, action: str, *, chart_name: str = "", data_range: str = "", headers: list = [], rows: list = [], chart_type: str = "", title: str = "", is_3d: bool = True, stacked: bool = True, percent: bool = True, x_axis_title: str = "", y_axis_title: str = "", legend_position: str = "", has_legend: bool = True, subtitle: str = "", position: str = "", bg_color: str = "", colors: list = []) -> dict:
+        """Creates a new chart or modifies an existing chart on a sheet, document, or slide.."""
+        return _rpc_call("upsert_chart", action=action, chart_name=chart_name, data_range=data_range, headers=headers, rows=rows, chart_type=chart_type, title=title, is_3d=is_3d, stacked=stacked, percent=percent, x_axis_title=x_axis_title, y_axis_title=y_axis_title, legend_position=legend_position, has_legend=has_legend, subtitle=subtitle, position=position, bg_color=bg_color, colors=colors)
+
+chart = _ChartProxy()
 
 
 class _CommentProxy:
@@ -288,25 +316,9 @@ conditional_formatting = _ConditionalFormattingProxy()
 class _CoreProxy:
     """Proxy for core tools."""
 
-    def create_chart(self, chart_type: str, *, data_range: str = "", title: str = "", is_3d: bool = True, stacked: bool = True, percent: bool = True, x_axis_title: str = "", y_axis_title: str = "", legend_position: str = "", has_legend: bool = True, subtitle: str = "", position: str = "") -> dict:
-        """Creates a chart in the current context."""
-        return _rpc_call("create_chart", data_range=data_range, chart_type=chart_type, title=title, is_3d=is_3d, stacked=stacked, percent=percent, x_axis_title=x_axis_title, y_axis_title=y_axis_title, legend_position=legend_position, has_legend=has_legend, subtitle=subtitle, position=position)
-
-    def delete_chart(self, chart_name: str) -> dict:
-        """Delete a chart by name.."""
-        return _rpc_call("delete_chart", chart_name=chart_name)
-
-    def edit_chart(self, chart_name: str, *, data_range: str = "", chart_type: str = "", title: str = "", is_3d: bool = True, stacked: bool = True, percent: bool = True, x_axis_title: str = "", y_axis_title: str = "", legend_position: str = "", has_legend: bool = True, subtitle: str = "", position: str = "") -> dict:
-        """Edit a chart's properties: title, 3D mode, stacking, legend, axes, etc.."""
-        return _rpc_call("edit_chart", data_range=data_range, chart_type=chart_type, title=title, is_3d=is_3d, stacked=stacked, percent=percent, x_axis_title=x_axis_title, y_axis_title=y_axis_title, legend_position=legend_position, has_legend=has_legend, subtitle=subtitle, position=position, chart_name=chart_name)
-
-    def get_chart_info(self, chart_name: str) -> dict:
-        """Get detailed info about a chart: type, title, ranges (if Calc), axis titles, and legend properties.."""
-        return _rpc_call("get_chart_info", chart_name=chart_name)
-
-    def list_charts(self) -> dict:
-        """List all charts in the current context (active sheet, document, or slide) with name, title, and type.."""
-        return _rpc_call("list_charts")
+    def list_open_documents(self) -> dict:
+        """List all currently open documents in LibreOffice."""
+        return _rpc_call("list_open_documents")
 
     def specialized_workflow_finished(self, answer: str) -> dict:
         """Provides a final answer to the given task and exits the specialized toolset mode.."""
@@ -323,6 +335,24 @@ class _CoreProxy:
 core = _CoreProxy()
 
 
+class _DocumentResearchProxy:
+    """Proxy for document_research tools."""
+
+    def delegate_read_document(self, path_or_name: str, task: str) -> dict:
+        """Open a nearby file by path or basename (read-only, hidden) and run a read-only sub-agent with production read tools for that file type."""
+        return _rpc_call("delegate_read_document", path_or_name=path_or_name, task=task)
+
+    def grep_nearby_files(self, pattern: str, *, file_subset: str = "", regex: bool = True, case_sensitive: bool = True) -> dict:
+        """Search nearby LibreOffice files for text and return snippet previews per matching file."""
+        return _rpc_call("grep_nearby_files", pattern=pattern, file_subset=file_subset, regex=regex, case_sensitive=case_sensitive)
+
+    def list_nearby_files(self, *, filter: str = "", file_kind: str = "") -> dict:
+        """List files in the same folder as the active document (newest first)."""
+        return _rpc_call("list_nearby_files", filter=filter, file_kind=file_kind)
+
+document_research = _DocumentResearchProxy()
+
+
 class _DrawProxy:
     """Proxy for draw tools."""
 
@@ -331,7 +361,7 @@ class _DrawProxy:
         return _rpc_call("add_slide", page_index=page_index, switch_to_new_slide=switch_to_new_slide)
 
     def delegate_to_specialized_draw_toolset(self, domain: str, task: str) -> dict:
-        """Delegates a specialized task to a sub-agent with a focused toolset."""
+        """Delegates a specialized Draw task."""
         return _rpc_call("delegate_to_specialized_draw_toolset", domain=domain, task=task)
 
     def delete_slide(self, page_index: int) -> dict:
@@ -393,6 +423,10 @@ class _ErrorProxy:
     def detect_and_explain_errors(self, *, range_name: list = []) -> dict:
         """Detects formula errors in the specified range(s) and provides an explanation and fix suggestion."""
         return _rpc_call("detect_and_explain_errors", range_name=range_name)
+
+    def evaluate_formula(self, formula: str, *, cell: str = "") -> dict:
+        """Evaluates a Calc formula on a temporary duplicate sheet and returns the result or error, without modifying the active sheets.."""
+        return _rpc_call("evaluate_formula", formula=formula, cell=cell)
 
 error = _ErrorProxy()
 
@@ -524,6 +558,10 @@ class _ImagesProxy:
         """List all images/graphic objects in the document with name, dimensions, title, and description.."""
         return _rpc_call("list_images")
 
+    def list_nearby_image_files(self, *, filter: str = "") -> dict:
+        """List image files (.png, .jpg, .jpeg, .gif, .webp, .bmp, .svg) in the same folder as the active document (newest first)."""
+        return _rpc_call("list_nearby_image_files", filter=filter)
+
     def replace_image(self, image_name: str, new_image_path: str, *, width_mm: float = 0.0, height_mm: float = 0.0) -> dict:
         """Replace an image's source file keeping position and frame.."""
         return _rpc_call("replace_image", image_name=image_name, new_image_path=new_image_path, width_mm=width_mm, height_mm=height_mm)
@@ -626,9 +664,9 @@ pivot_table = _PivotTableProxy()
 class _PythonProxy:
     """Proxy for python tools."""
 
-    def run_venv_python_script(self, code: str, *, data_range: str = "", data: list = [], timeout_sec: int = 0) -> dict:
+    def run_venv_python_script(self, code: str, *, data_range: str = "", data: list = []) -> dict:
         """Run Python code."""
-        return _rpc_call("run_venv_python_script", code=code, data_range=data_range, data=data, timeout_sec=timeout_sec)
+        return _rpc_call("run_venv_python_script", code=code, data_range=data_range, data=data)
 
 python = _PythonProxy()
 
@@ -834,17 +872,25 @@ structural = _StructuralProxy()
 class _StylesProxy:
     """Proxy for styles tools."""
 
+    def create_style(self, style_name: str, *, family: str = "", parent_style: str = "", property_updates: dict = {}, conditional_rules: list = []) -> dict:
+        """Create a new paragraph or character style with optional inheritance and property settings."""
+        return _rpc_call("create_style", style_name=style_name, family=family, parent_style=parent_style, property_updates=property_updates, conditional_rules=conditional_rules)
+
     def get_style_info(self, style_name: str, *, family: str = "") -> dict:
         """Get detailed properties of a specific style (font, size, margins, etc.).."""
         return _rpc_call("get_style_info", style_name=style_name, family=family)
+
+    def import_styles(self, file_path: str, *, overwrite: bool = True, load_paragraph_styles: bool = True, load_page_styles: bool = False, load_frame_styles: bool = False, load_numbering_styles: bool = False) -> dict:
+        """Import styles from an external document or template (.odt, .ott)."""
+        return _rpc_call("import_styles", file_path=file_path, overwrite=overwrite, load_paragraph_styles=load_paragraph_styles, load_page_styles=load_page_styles, load_frame_styles=load_frame_styles, load_numbering_styles=load_numbering_styles)
 
     def list_styles(self, *, family: str = "") -> dict:
         """List available styles in the document."""
         return _rpc_call("list_styles", family=family)
 
-    def update_style(self, style_name: str, property_updates: dict, *, family: str = "") -> dict:
+    def update_style(self, style_name: str, *, family: str = "", parent_style: str = "", property_updates: dict = {}) -> dict:
         """Update the properties of an existing style."""
-        return _rpc_call("update_style", style_name=style_name, family=family, property_updates=property_updates)
+        return _rpc_call("update_style", style_name=style_name, family=family, parent_style=parent_style, property_updates=property_updates)
 
 styles = _StylesProxy()
 
@@ -941,7 +987,7 @@ class _WriterProxy:
         return _rpc_call("get_document_content", scope=scope, max_chars=max_chars, start=start, end=end)
 
     def get_document_tree(self, *, content_strategy: str = "", depth: int = 0) -> dict:
-        """Get the document heading tree with bookmarks, content previews, and document statistics."""
+        """Get the document heading tree with bookmarks and content previews, plus document statistics."""
         return _rpc_call("get_document_tree", content_strategy=content_strategy, depth=depth)
 
     def get_page_objects(self, *, page: int = 0, locator: str = "", paragraph_index: int = 0) -> dict:

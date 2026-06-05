@@ -15,7 +15,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-from typing import Any
+from typing import Any, Literal
 
 """Calc chart management tools: list, info, create, edit, delete.
 Enhanced to support Writer and Draw documents, 3D, stacking, and rich properties.
@@ -493,7 +493,7 @@ def _resolve_chart(doc, chart_name):
     return None
 
 
-class ListCharts(ToolBaseDummy):
+class ListCharts(ToolCalcChartBase):
     """List all charts on a sheet, document, or slide."""
 
     name = "list_charts"
@@ -554,7 +554,7 @@ class ListCharts(ToolBaseDummy):
         return entry
 
 
-class GetChartInfo(ToolBaseDummy):
+class GetChartInfo(ToolCalcChartBase):
     """Get detailed info about a chart."""
 
     name = "get_chart_info"
@@ -616,13 +616,28 @@ class GetChartInfo(ToolBaseDummy):
         return info
 
 
-class CreateChart(ToolBaseDummy):
-    """Create a new chart."""
+class UpsertChart(ToolCalcChartBase):
+    """Create a new chart or modify an existing chart."""
 
-    name = "create_chart"
+    name = "upsert_chart"
     intent = "edit"
-    description = "Creates a chart in the current context. In Calc, data_range is required. In Writer/Impress, a chart is inserted at the cursor or on the active slide."
-    parameters = {"type": "object", "properties": CHART_PROPERTIES, "required": ["chart_type"]}
+    description = "Creates a new chart or modifies an existing chart on a sheet, document, or slide."
+    parameters = {
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["create", "edit"],
+                "description": "Action to perform: 'create' a new chart, or 'edit' an existing one."
+            },
+            "chart_name": {
+                "type": "string",
+                "description": "Name of the chart to edit (required for action='edit', optional for action='create')."
+            },
+            **CHART_PROPERTIES
+        },
+        "required": ["action"],
+    }
     uno_services = ListCharts.uno_services
     is_mutation = True
 
@@ -636,53 +651,82 @@ class CreateChart(ToolBaseDummy):
         if doc_type == "calc":
             properties.pop("headers", None)
             properties.pop("rows", None)
-            if "required" in params:
-                required = cast("list[Any]", params["required"])
-                if "data_range" not in required:
-                    required.append("data_range")
         elif doc_type in ("writer", "draw"):
             properties.pop("data_range", None)
-            if "required" in params:
-                required = cast("list[Any]", params["required"])
-                if "headers" not in required:
-                    required.append("headers")
-                if "rows" not in required:
-                    required.append("rows")
         return params
 
-    def execute(self, ctx, **kwargs):
+    def validate(self, *, doc_type: str | None = None, **kwargs) -> tuple[Literal[False], str] | tuple[Literal[True], None]:
+        ok, err = super().validate(doc_type=doc_type, **kwargs)
+        if not ok:
+            return False, err or "Validation failed"
+        action = kwargs.get("action")
+        if action == "create":
+            if not kwargs.get("chart_type"):
+                return False, "Parameter 'chart_type' is required when action is 'create'"
+            if doc_type == "calc":
+                if not kwargs.get("data_range"):
+                    return False, "Parameter 'data_range' is required when action is 'create' in Calc"
+            else:
+                if not kwargs.get("headers") or not kwargs.get("rows"):
+                    return False, "Both 'headers' and 'rows' are required to create a chart in Writer or Draw/Impress"
+        elif action == "edit":
+            if "chart_name" not in kwargs:
+                return False, "Parameter 'chart_name' is required when action is 'edit'"
+        return True, None
+
+    def execute(self, ctx, **kwargs) -> dict[str, Any]:
+        action = kwargs.get("action")
         doc = ctx.doc
         is_calc = supportsService(doc, "com.sun.star.sheet.SpreadsheetDocument")
         
+        # Doc-type parameter checks (in addition to validate)
         if is_calc:
             if "headers" in kwargs or "rows" in kwargs:
                 return self._tool_error("Data arrays ('headers', 'rows') are not supported in Calc. Please use 'data_range' instead.")
-            if not kwargs.get("data_range"):
-                return self._tool_error("data_range is required for Calc charts.")
         else:
             if "data_range" in kwargs:
                 return self._tool_error("Parameter 'data_range' is only supported in Calc. For Writer/Draw, please use 'headers' and 'rows' to pass chart data.")
-            if not kwargs.get("headers") or not kwargs.get("rows"):
-                return self._tool_error("Both 'headers' and 'rows' are required to create a chart in Writer or Draw/Impress.")
 
-        chart_type = kwargs["chart_type"]
-        chart_service = CHART_SERVICE_MAP.get(chart_type, CHART_SERVICE_MAP["column"])
+        if action == "create":
+            chart_type = kwargs["chart_type"]
+            chart_service = CHART_SERVICE_MAP.get(chart_type, CHART_SERVICE_MAP["column"])
+            rect = uno.createUnoStruct("com.sun.star.awt.Rectangle", X=1000, Y=1000, Width=12000, Height=8000)
 
-        rect = uno.createUnoStruct("com.sun.star.awt.Rectangle", X=1000, Y=1000, Width=12000, Height=8000)
+            try:
+                if supportsService(doc, "com.sun.star.sheet.SpreadsheetDocument"):
+                    return self._create_calc_chart(ctx, rect, chart_service, **kwargs)
+                elif supportsService(doc, "com.sun.star.text.TextDocument"):
+                    return self._create_writer_chart(ctx, rect, chart_service, **kwargs)
+                elif supportsService(doc, "com.sun.star.presentation.PresentationDocument") or supportsService(doc, "com.sun.star.drawing.DrawingDocument"):
+                    return self._create_draw_chart(ctx, rect, chart_service, **kwargs)
+                return self._tool_error("Unsupported document type for chart creation.")
+            except Exception as e:
+                msg = f"{type(e).__name__}: {str(e)}"
+                logger.error("Chart creation error: %s", msg)
+                raise ToolExecutionError(f"Tool execution failed: {msg}") from e
 
-        try:
-            if supportsService(doc, "com.sun.star.sheet.SpreadsheetDocument"):
-                return self._create_calc_chart(ctx, rect, chart_service, **kwargs)
-            elif supportsService(doc, "com.sun.star.text.TextDocument"):
-                return self._create_writer_chart(ctx, rect, chart_service, **kwargs)
-            elif supportsService(doc, "com.sun.star.presentation.PresentationDocument") or supportsService(doc, "com.sun.star.drawing.DrawingDocument"):
-                return self._create_draw_chart(ctx, rect, chart_service, **kwargs)
+        elif action == "edit":
+            chart_name = kwargs["chart_name"]
+            chart_obj = _resolve_chart(doc, chart_name)
 
-            return self._tool_error("Unsupported document type for chart creation.")
-        except Exception as e:
-            msg = f"{type(e).__name__}: {str(e)}"
-            logger.error("Chart creation error: %s", msg)
-            raise ToolExecutionError(f"Tool execution failed: {msg}") from e
+            if not chart_obj:
+                return self._tool_error(f"Chart '{chart_name}' not found.")
+
+            chart_doc = _chart_document_from_host(chart_obj)
+            if not chart_doc:
+                return self._tool_error("Cannot access chart content.")
+
+            # If chart_type is provided, update the diagram first
+            chart_type = kwargs.get("chart_type")
+            if chart_type:
+                service = CHART_SERVICE_MAP.get(chart_type)
+                if service:
+                    chart_doc.setDiagram(chart_doc.createInstance(service))
+
+            _apply_chart_styling(chart_doc, **kwargs)
+            return {"status": "ok", "chart_name": chart_name, "message": "Chart updated."}
+
+        return self._tool_error(f"Unsupported action: '{action}'")
 
     def _create_calc_chart(self, ctx, rect, service, **kwargs):
         bridge = CalcBridge(ctx.doc)
@@ -913,64 +957,7 @@ class CreateChart(ToolBaseDummy):
         return {"status": "ok", "message": f"Chart '{name}' inserted on slide.", "chart_name": name}
 
 
-class EditChart(ToolBaseDummy):
-    """Modify chart properties."""
-
-    name = "edit_chart"
-    intent = "edit"
-    description = "Edit a chart's properties: title, 3D mode, stacking, legend, axes, etc."
-    parameters = {"type": "object", "properties": {**CHART_PROPERTIES, "chart_name": {"type": "string", "description": "Name of the chart to edit."}}, "required": ["chart_name"]}
-    uno_services = ListCharts.uno_services
-    is_mutation = True
-
-    def get_parameters(self, doc_type: str | None = None) -> dict | None:
-        import copy
-        from typing import cast
-        params = copy.deepcopy(self.parameters)
-        if not params or "properties" not in params:
-            return params
-        properties = cast("dict[str, Any]", params["properties"])
-        if doc_type == "calc":
-            properties.pop("headers", None)
-            properties.pop("rows", None)
-        elif doc_type in ("writer", "draw"):
-            properties.pop("data_range", None)
-        return params
-
-    def execute(self, ctx, **kwargs):
-        doc = ctx.doc
-        is_calc = supportsService(doc, "com.sun.star.sheet.SpreadsheetDocument")
-        
-        if is_calc:
-            if "headers" in kwargs or "rows" in kwargs:
-                return self._tool_error("Data arrays ('headers', 'rows') are not supported in Calc. Please use 'data_range' instead.")
-        else:
-            if "data_range" in kwargs:
-                return self._tool_error("Parameter 'data_range' is only supported in Calc. For Writer/Draw, please use 'headers' and 'rows' to pass chart data.")
-
-        chart_name = kwargs["chart_name"]
-        chart_obj = _resolve_chart(doc, chart_name)
-
-        if not chart_obj:
-            return self._tool_error(f"Chart '{chart_name}' not found.")
-
-        chart_doc = _chart_document_from_host(chart_obj)
-        if not chart_doc:
-            return self._tool_error("Cannot access chart content.")
-
-        # If chart_type is provided, update the diagram first
-        chart_type = kwargs.get("chart_type")
-        if chart_type:
-            service = CHART_SERVICE_MAP.get(chart_type)
-            if service:
-                chart_doc.setDiagram(chart_doc.createInstance(service))
-
-        _apply_chart_styling(chart_doc, **kwargs)
-
-        return {"status": "ok", "chart_name": chart_name, "message": "Chart updated."}
-
-
-class DeleteChart(ToolBaseDummy):
+class DeleteChart(ToolCalcChartBase):
     """Delete a chart."""
 
     name = "delete_chart"
@@ -1148,7 +1135,7 @@ class ManageCharts(ToolCalcChartBase):
             properties.pop("data_range", None)
         return params
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx, **kwargs) -> dict[str, Any]:
         action = kwargs.get("action")
         if not action:
             raise ToolExecutionError("Action parameter is required.")
@@ -1162,11 +1149,11 @@ class ManageCharts(ToolCalcChartBase):
         elif action == "create":
             if "chart_type" not in kwargs:
                 return self._tool_error("chart_type parameter is required for action='create'.")
-            return CreateChart().execute(ctx, **kwargs)
+            return UpsertChart().execute(ctx, **kwargs)
         elif action == "edit":
             if "chart_name" not in kwargs:
                 return self._tool_error("chart_name parameter is required for action='edit'.")
-            return EditChart().execute(ctx, **kwargs)
+            return UpsertChart().execute(ctx, **kwargs)
         elif action == "delete":
             if "chart_name" not in kwargs:
                 return self._tool_error("chart_name parameter is required for action='delete'.")

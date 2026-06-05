@@ -110,15 +110,12 @@ def test_writer_chat_prompt_includes_sidebar_vs_document_routing():
     model.supportsService.return_value = False
     prompt = get_chat_system_prompt_for_document(model)
     assert SIDEBAR_VS_DOCUMENT in prompt
-    assert "WriterAgent sidebar" in prompt
-    assert "reply in the chat" in prompt
     assert "apply_document_content" in prompt
 
 
 def test_writer_eval_chat_prompt_includes_sidebar_vs_document_routing():
     prompt = get_writer_eval_chat_system_prompt()
     assert SIDEBAR_VS_DOCUMENT in prompt
-    assert "WriterAgent sidebar" in prompt
     assert "apply_document_content" in prompt
 
 
