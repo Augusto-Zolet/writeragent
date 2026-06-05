@@ -2,7 +2,7 @@
 
 Back to [NumPy Serialization](numpy-serialization.md).
 
-This document serves as a reference for compiling and packaging custom host-side native C/Cython extensions for WriterAgent (e.g. a future `writeragent_vec` or similar pack accelerator).
+This document serves as a reference for compiling and packaging custom host-side native C/Cython extensions for WriterAgent (e.g. `writeragent_vec` pack accelerator, or a future **`writeragent_vec_search`** module for RAG top-k over binary embedding files when no user venv is configured — see [vector-search-design.md](vector-search-design.md#tiered-behavior)).
 
 > [!IMPORTANT]
 > **Status: Experimental (May 2026)**.
@@ -44,6 +44,7 @@ For general distribution, **v2** is the recommended choice, while **v3** can be 
 |----|--------|
 | Ship **tagged `.so` / `.pyd`** per ABI in `plugin/contrib/vec_pack/` (mirror audio) | Import NumPy/pandas/scipy in-process in LO |
 | **Fallback** to stdlib `split_grid` on `ImportError` | Link against LibreOffice or call UNO from C |
+| Use Cython for **tight numeric loops** on the host (pack, vector top-k, binary decode) | Load `sqlite-vec` or full vector DB stacks in LO — use the **venv** for that ([vector-search-design.md](vector-search-design.md)) |
 | Build matrix with **cibuildwheel + CI** | Expect one Arch laptop to produce Windows/macOS wheels |
 | Profile in LO before adding OXT weight | Ship pyarrow-scale stacks |
 

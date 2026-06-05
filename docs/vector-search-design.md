@@ -1,8 +1,110 @@
 # Engineering Design: Lightweight Vector Search in LibreOffice
 
-**Author**: Antigravity AI
-**Date**: April 2, 2026
+**Author**: Antigravity AI (original); KeithCu / WriterAgent (2026-06 stack update)
+**Date**: April 2, 2026 (updated June 2026)
 **Target Audience**: Python Experts / Vector Novices
+
+> **See also:** [langchain-plan.md](langchain-plan.md) (Phase 4 RAG), [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md) (venv compute bridge), [cython-extension.md](cython-extension.md) (host-side Cython for tight loops — no NumPy in LO).
+
+---
+
+## Recommended stack (2026-06)
+
+WriterAgent **already** runs NumPy and scientific Python **only in a user venv subprocess** (`PythonWorkerManager`). LibreOffice’s embedded interpreter must **not** import NumPy or load SQLite vector extensions — ABI crashes and `enable_load_extension` gaps (especially macOS) make in-process vector search a poor default.
+
+### Decision summary
+
+| Approach | Verdict | Notes |
+|----------|---------|-------|
+| **Vector search in user venv** (extend warm worker or thin RPC) | **Recommended** | Reuse `scripting.python_venv_path`; `pip install sqlite-vec numpy` in that venv; index DB under config dir |
+| **Separate “vector-only” subprocess** | **Optional** | Same venv binary; only worth a dedicated long-lived worker if index load latency dominates (large sqlite DB). Otherwise extend existing worker protocol |
+| **Vendoring `sqlite-vec` into the OXT / LO process** | **Not recommended** | Per-OS `.so` wheels, SQLite version coupling, macOS extension blocking; duplicates venv path users already configure |
+| **Cython cosine / top-k in LO host** | **Strong no-venv fallback** | Ship tagged `.so` in `plugin/contrib/` (same ABI matrix as audio / `writeragent_vec`); streaming dot-product over mmap’d float32 — no NumPy, no `sqlite-vec` load in LO. See [cython-extension.md](cython-extension.md) |
+| **Pure-Python cosine in LO process** | **Last-resort fallback** | Stdlib `struct` + loop when Cython tag missing; OK for &lt; ~1k chunks |
+| **LangChain vectorstores / community** | **Skip as dependency** | Vendor **patterns** only (splitter, serializer); see [langchain-plan.md](langchain-plan.md) |
+
+### Split responsibilities (recommended)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ LibreOffice host (embedded Python — stdlib + optional Cython) │
+│  • HTTP embedding API (OpenRouter / Together / Ollama)      │
+│  • Chunk text + metadata in sqlite3 (FTS5 optional)         │
+│  • writeragent_vectors.db path next to writeragent.json     │
+│  • No venv: Cython top-k over binary vectors (fallback: py) │
+│  • On send: embed query → venv RPC or host Cython → inject  │
+└───────────────────────────┬─────────────────────────────────┘
+                            │ JSON lines (extend worker protocol)
+┌───────────────────────────▼─────────────────────────────────┐
+│ User venv subprocess (any Python 3.x user configures)        │
+│  • numpy — batch dot products, normalize vectors            │
+│  • sqlite-vec — vec0 virtual tables, cosine KNN in C/SIMD   │
+│  • optional hnsw-lite for in-RAM ANN on “recent” subset       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Embeddings (inference)** stay on the **host**: one small HTTP client reusing `get_api_config` — same story as Phase 4 in [langchain-plan.md](langchain-plan.md). **`sqlite-vec` does not embed text**; it only indexes float vectors you already have.
+
+**Indexing (search)** runs in the **venv**: pass query vector + DB path; return top-k `(chunk_id, score)` JSON to the host; host resolves chunk text from its metadata table.
+
+### FAQ: Do I need to vendor SQLite? Different wheels per Python version?
+
+**Short answers**
+
+| Question | Answer |
+|----------|--------|
+| **Vendor SQLite itself?** | **No.** Python’s stdlib `sqlite3` already embeds/links a SQLite library. You open `sqlite3.connect(path)` and optionally load extensions into that connection. There is no separate SQLite package to ship in the OXT. |
+| **Vendor `sqlite-vec`?** | **Not on the recommended path.** User runs `pip install sqlite-vec` in their **venv**. You only “vendor” if you insist on in-process search in LO — we **don’t** recommend that. |
+| **Different `sqlite-vec` builds per Python 3.11 / 3.12 / 3.13?** | **No** (for PyPI wheels). The package publishes **`py3-none-*`** wheels: one native `vec0` binary **per OS/CPU**, not per CPython minor. The same `manylinux2014_x86_64` wheel works in a 3.11 venv and a 3.14 venv on that machine. |
+| **Must the venv Python match LibreOffice’s embedded Python?** | **No.** Venv is a separate interpreter. LO can embed 3.11 while the venv is 3.12; `sqlite-vec` installs into whichever `python` owns that venv. |
+| **What *does* vary by Python version?** | **Host Cython** modules (`writeragent_vec`, future `writeragent_vec_search`): those use **`cp311` / `cp312` / …** tags like audio’s cffi — see [cython-extension.md](cython-extension.md). That is unrelated to `sqlite-vec` wheel tags. |
+| **What varies by platform?** | **`sqlite-vec`:** `manylinux_*`, `macosx_*`, `win_*` (and arch: x86_64, aarch64, …). User’s `pip` picks the right wheel on install — you don’t ship a matrix in the OXT. |
+| **Hidden coupling (not Python version)** | The interpreter’s **`sqlite3` must support `enable_load_extension`** and ideally SQLite **≥ 3.41**. That depends on **how that Python was built**, not on `sqlite-vec`’s wheel tag. macOS system Python often fails here; Homebrew/pyenv venvs usually work ([sqlite-vec Python docs](https://alexgarcia.xyz/sqlite-vec/python.html)). |
+
+**Three storage/search layers (don’t conflate them)**
+
+| Layer | What it is | Vendor? | Per-Python-minor wheels? |
+|-------|------------|---------|---------------------------|
+| **Host metadata DB** | stdlib `sqlite3`, chunk text, FTS5, no vector extension | No — already in LO Python | N/A (stdlib) |
+| **Vector index (recommended)** | `sqlite-vec` in **user venv** via `pip` | No — user installs | **No** — `py3-none` per platform |
+| **Vector search without venv** | Cython top-k over binary float32 file on host | Yes — contrib `.so` like audio | **Yes** — `cp311`, `cp312`, … per [cython-extension.md](cython-extension.md) |
+
+**If you ignored the recommendation and vendored `sqlite-vec` into the OXT anyway:** you would copy `vec0.so` (or equivalent) from the PyPI wheel per **platform**, still not per Python minor — but you would *also* need LO’s embedded `sqlite3` to support extension loading, which is the fragile part. That is why venv + `pip` is simpler.
+
+### `sqlite-vec` in the venv vs vendoring into the extension
+
+| Question | Answer |
+|----------|--------|
+| LO embedded `sqlite3` for vectors? | Irrelevant if search runs in venv. Host metadata DB uses stdlib `sqlite3` only (no `sqlite-vec`). |
+| Vendoring the Python package into OXT? | Unnecessary on the recommended path; duplicates platform packaging work you already avoid for NumPy. |
+
+### Worker integration options
+
+1. **Extend `run_code_in_user_venv`** — add whitelisted helpers / a `vector_search` script template the tool loop calls (simplest; cold start amortized by warm worker).
+2. **New host API** — `search_document_vectors(ctx, query_embedding, k)` → one JSON RPC line to worker, no LLM-visible Python.
+3. **Dedicated vector worker** — second persistent subprocess only if profiling shows reload cost &gt; query cost; share the same `scripting.python_venv_path`.
+
+**Do not** add `sqlite3` to the venv sandbox whitelist for arbitrary LLM scripts unless you intend user-authored index access; keep vector RPC on a **fixed host module** invoked from the tool loop.
+
+### Tiered behavior
+
+| User config | Search backend |
+|-------------|----------------|
+| Venv + `sqlite-vec` installed | `vec0` KNN in venv + optional FTS5 hybrid on host |
+| Venv + NumPy only | NumPy batch cosine in venv over mmap’d float32 file |
+| No venv + Cython extension available | Host Cython streaming top-k (normalized float32 file); `try: import writeragent_vec_search` → stdlib fallback — [cython-extension.md](cython-extension.md) |
+| No venv, no Cython tag | Pure-Python streaming top-k (slow) |
+| No venv + tiny store | In-memory dict at index time (dev / tests) |
+
+**Cython vs venv:** Cython accelerates **host-side** brute-force KNN when the user has not configured a venv — it does **not** replace `sqlite-vec` for large corpora. Prefer venv + `sqlite-vec` when `scripting.python_venv_path` is set; use Cython so RAG still works offline without asking users to create a venv first. Same packaging rules as `writeragent_vec`: per-ABI `.so` in contrib, no UNO from C, no in-process NumPy.
+
+### What to build first
+
+1. **Recursive character chunker** — vendor MIT `RecursiveCharacterTextSplitter` logic (~100 lines), no langchain package.
+2. **Host metadata schema** — `(chunk_id, doc_url, doc_revision, text, embedding_model, byte_offset)` in stdlib SQLite; vectors in sidecar file or venv-managed `vec0` DB.
+3. **Embedding client** — one HTTP function, config key `embedding_model`.
+4. **Venv search RPC** — normalize query vector, `sqlite_vec.load(conn)`, `MATCH` top-k.
+5. **Inject retrieved chunks** beside existing `[DOCUMENT CONTENT]` block (cap total injected chars).
 
 ---
 
@@ -35,7 +137,9 @@ Usually, Python developers reach for `numpy` for vector math. However, for a Lib
 - **Binary Size**: ~50–100MB per platform.
 - **Complexity**: Packaging NumPy for Windows, macOS (Intel + Silicon), and Linux (x86 + ARM) inside a single extension is a maintenance nightmare.
 
-**The Solution**: We don't need a general-purpose linear algebra library. We need a specialized **Vector Database Engine**.
+**WriterAgent’s solution (shipped):** NumPy runs **only in the user venv subprocess** — see [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md). Vector search should follow the **same boundary**: host orchestrates, venv computes.
+
+**For vector indexing specifically:** prefer a specialized **vector engine** (`sqlite-vec`) in that venv rather than shipping raw NumPy loops in the OXT. The extension stays stdlib-only in-process.
 
 ## 4. The `sqlite-vec` Breakthrough
 
@@ -109,7 +213,9 @@ Integrating this into `WriterAgent` involves three "non-vector" primitives that 
 
 1.  **Semantic Chunking**: A text-parsing strategy that splits LibreOffice paragraphs into ~500-character windows, ensuring we don't split a sentence in the middle.
 2.  **Versioning**: Embedding models change. We need a schema that allows us to re-index a document if the model (e.g., from OpenAI to Gemini) is swapped.
-3.  **The Fallback**: If the user is on a niche architecture (e.g., an old PowerPC or a new RISC-V), we implement a **Pure Python** `dot_product` loop. It will be 10x slower but still works.
+3.  **The Fallback**: **Cython** streaming top-k on the host when no venv is configured ([cython-extension.md](cython-extension.md)); pure-Python `dot_product` when the tagged `.so` is missing; in the **venv** without `sqlite-vec`, NumPy batch cosine.
+
+**Chat history vs document RAG:** Sidebar **conversation history** is already persisted (`writeragent_history.db`) — that is **not** vector search. RAG here means **retrieving document chunks** (and optionally cross-document corpora) when the fixed 8k `[DOCUMENT CONTENT]` excerpt is insufficient. See [langchain-plan.md § What is still worth doing](langchain-plan.md#what-is-still-worth-doing-next).
 
 ## 8. Local Inference (The "Offline" Option)
 

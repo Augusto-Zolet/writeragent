@@ -2,13 +2,54 @@
 
 This document outlines a phased development plan to integrate `langchain-core` and adapt code from `smolagents` into WriterAgent, starting with basic conversation history and progressively adding more advanced memory, tools, and agentic features.
 
+> **Status (2026-06):** Most of **Phase 1–2** and **smolagents sub-agent isolation** are **already shipped** without `langchain-core`. See [What is already implemented](#what-is-already-implemented-2026-06) and [What is still worth doing](#what-is-still-worth-doing-next). Full LangChain wiring is **optional**, not a prerequisite for the remaining roadmap.
+
 ## Goal Description
 Enhance WriterAgent's AI capabilities by replacing manual prompt construction with `langchain-core`'s robust memory and agent abstractions, while vendoring and adapting secure, zero-dependency code from `smolagents`. This will allow the AI to "remember" past interactions, provide a seamless chat experience, and eventually perform complex multi-step document operations autonomously.
 
+---
+
+## What is already implemented (2026-06)
+
+| Planned item | Shipped replacement | Entry points |
+|--------------|---------------------|--------------|
+| In-memory + persistent chat history | `ChatSession` + `SQLite3History` / `JSONHistory` fallback | [`plugin/chatbot/panel.py`](../plugin/chatbot/panel.py), [`plugin/chatbot/history_db.py`](../plugin/chatbot/history_db.py) |
+| Session keyed by document | `WriterAgentSessionID` on document model (URL hash fallback) | [`plugin/chatbot/panel_factory.py`](../plugin/chatbot/panel_factory.py) |
+| Document context per send (separate from history) | `get_document_context_for_chat` + `session.set_system_context` | [`plugin/chatbot/tool_loop.py`](../plugin/chatbot/tool_loop.py), [`plugin/doc/document_helpers.py`](../plugin/doc/document_helpers.py) |
+| Custom tool-calling loop (not LangChain `AgentExecutor`) | `ToolCallingMixin` / `tool_loop.py` + `LlmClient` | [`plugin/chatbot/tool_loop.py`](../plugin/chatbot/tool_loop.py) |
+| Smolagents sub-agents (web research, librarian) | `web_research`, `librarian_onboarding` tools; final answer only in main history | [`plugin/chatbot/web_research.py`](../plugin/chatbot/web_research.py), [`plugin/chatbot/librarian.py`](../plugin/chatbot/librarian.py) |
+| Long-term user profile memory (partial) | `upsert_memory` → JSON in `USER.md`; librarian injects profile | [`plugin/chatbot/memory.py`](../plugin/chatbot/memory.py) |
+| Scientific Python / NumPy (out-of-process) | Warm venv worker (`run_venv_python_script`, `=PYTHON()`) | [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md) |
+
+**Not in `pyproject.toml`:** `langchain-core` — the sidebar does not depend on it today.
+
+---
+
+## What is still worth doing (next)
+
+Prioritized by leverage vs. complexity. **Do not** re-implement Phases 1–2 via LangChain unless you explicitly want that dependency.
+
+| Priority | Item | Why it matters | Suggested approach |
+|----------|------|----------------|-------------------|
+| **1** | **Inject `USER.md` into main chat** (Hermes-style read path) | Model sees prefs without `upsert_memory` / `read` calls; librarian already injects for onboarding only | Append `[USER PROFILE]` block in `get_chat_system_prompt_for_document` or `set_system_context`; keep `upsert_memory` for writes |
+| **2** | **Chat history summarization** (old Phase 3) | Very long sidebar sessions can exceed model context even when document excerpt is capped at 8k | Token/char budget on `session.messages`; when over threshold, one summarizer LLM call replaces oldest turns with a single system/assistant summary message (persist via `history_db`) |
+| **3** | **Embedding HTTP client** (old Phase 4, inference half) | Same providers as chat (OpenRouter / Together / Ollama); no new pip deps in LO | Small module next to `LlmClient`; optional `embedding_model` config key (mirror `image_model`) |
+| **4** | **Document RAG** (old Phase 4, retrieval half) | 8k-char excerpt misses distant sections in long docs | Chunking + vector index — venv + `sqlite-vec` when configured; host **Cython** top-k when not ([vector-search-design.md](vector-search-design.md), [cython-extension.md](cython-extension.md)) |
+| **5** | **Hybrid keyword + vector search** | Embeddings miss exact tokens (SKUs, acronyms) | SQLite FTS5 on host; fuse with vector ranks (RRF) in venv worker or Cython/stdlib fallback |
+| **6** | **Background memory reviewer** | Passive “should we save this?” without burdening main tool loop | Optional second LLM pass after reply (Hermes pattern); uses `MemoryStore` in code, not extra main-chat tools |
+| **7** | **Skills tools** | Procedures on disk; guidance exists in constants | Register [`plugin/chatbot/skills.py`](../plugin/chatbot/skills.py) when ready; optional index injection like memory |
+| **Low** | **Full `langchain-core` integration** | Runnable chains, community vendoring | Only if you want LangChain ecosystem interop; duplicates working `ChatSession` + `tool_loop` |
+
+**Explicitly deprioritized:** Replacing `tool_loop.py` with LangChain `create_tool_calling_agent` / `AgentExecutor` — current FSM, streaming, and UNO drain are tightly coupled to the custom loop.
+
+---
+
 ## Proposed Changes
 
-### Phase 1: Foundation & Short-Term Memory
+### Phase 1: Foundation & Short-Term Memory — **DONE (without LangChain)**
 **Objective**: Introduce `langchain-core` and implement basic `ConversationBufferMemory` for the current session's chat.
+
+> **Superseded:** `ChatSession` + `history_db.py` fulfill this phase. Skip LangChain `ConversationBufferMemory` unless you adopt `langchain-core` for other reasons.
 
 - **Dependency Management**: 
   - Add `langchain-core` (and potentially `langchain` or specific provider packages) to the project requirements.
@@ -19,8 +60,10 @@ Enhance WriterAgent's AI capabilities by replacing manual prompt construction wi
 - **Update `chat_panel.py`**:
   - Instead of rebuilding the context string manually via `get_document_context_for_chat` with every message, inject the document state as a dynamic system prompt or context variable within a LangChain `Runnable` or `Chain`.
 
-### Phase 2: Persistent Conversation History
+### Phase 2: Persistent Conversation History — **DONE**
 **Objective**: Allow chats to persist across LibreOffice restarts.
+
+> **Shipped:** `writeragent_history.db` (SQLite) with per-`session_id` rows; JSON fallback when `sqlite3` unavailable. Clear via session API / UI wiring as implemented in the panel.
 
 - **Storage Mechanism**:
   - Implement a local storage solution (e.g., a simple JSON file per document URL under `~/.config/libreoffice/4/user/config/writeragent_chat_history/` or an **SQLite database** — Python’s `sqlite3` is stdlib on all major OSes, so no extra dependency).
@@ -38,13 +81,17 @@ Enhance WriterAgent's AI capabilities by replacing manual prompt construction wi
 - **Config Updates**:
   - Add settings for `memory_strategy` (Buffer vs. Summary) and `max_memory_tokens`.(
 
-### Phase 4: Long-Term Document Memory (RAG)
+### Phase 4: Long-Term Document Memory (RAG) — **NEXT (see vector-search-design.md)**
 **Objective**: Enable the AI to recall specific edits, user preferences, or distant sections of a very large document.
 
-- **Vector Store — stdlib first; NumPy optional for speed**:
-  - Default: **stdlib only** (no Chroma, FAISS, sqlite-vector). Pure-Python vector store: cosine in a loop, in-memory dict, copy logic from `langchain_core.vectorstores.in_memory` and use pure-Python cosine. **Caveat**: per-element Python math will run slowly for large vectors or many comparisons; acceptable for small stores or MVP only.
-  - **When we need performance**: At some point we may **depend on a system (or venv) install of NumPy**. NumPy is not in system Python by default and is a large add, but doing Python calculations per dimension over many vectors is a bad idea and will be slow. Design the store so that **if NumPy is available** we use it for similarity (and optionally batch/streaming); if not, fall back to pure-Python. Document that for heavier RAG use, users can point LibreOffice at a venv with NumPy (and optionally hnsw-lite) installed.
-  - **Optional — more efficient index**: For faster search when the working set is in memory (e.g. recent N days loaded into RAM), vendor a small HNSW (e.g. **hnsw-lite**). Use NumPy for distance when available; fall back to pure-Python when not. Use only for the in-memory index path.
+> **2026-06 decision:** Run **vector math and `sqlite-vec` in the user venv subprocess** (same bridge as `run_venv_python_script`), not in LibreOffice’s embedded interpreter. Host process keeps **stdlib SQLite** for chunk metadata / FTS5 and calls the **embedding API** over HTTP. Details: [vector-search-design.md § Recommended stack](vector-search-design.md#recommended-stack-2026-06). Vendoring `sqlite-vec` into the OXT is **not** recommended (platform wheels, `enable_load_extension` gaps on macOS, SQLite version coupling).
+
+- **Vector Store — tiered**:
+  - **With venv (recommended):** NumPy batch dot products and/or **`pip install sqlite-vec`** inside the user venv; index file lives under the config dir next to `writeragent_history.db`.
+  - **No venv — host Cython (available):** streaming top-k cosine/dot-product over a binary float32 sidecar — same contrib wheel matrix as audio / `writeragent_vec` ([cython-extension.md](cython-extension.md)). No NumPy in LO; stdlib Python fallback when the tagged `.so` is missing.
+  - **No venv — last resort:** pure-Python `struct` loop (slow beyond ~1k chunks).
+  - **Do not** import NumPy or load `sqlite-vec` in-process in LibreOffice — ABI and extension-loading constraints are documented in [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md).
+  - **Optional — in-memory ANN:** `hnsw-lite` in the venv only when the working set is a bounded “recent N days” subset; persist vectors in sqlite-vec or binary+JSON, rebuild graph on load.
 - **Embeddings**: Prefer **embedding APIs from the same providers** WriterAgent already uses, so RAG works with no extra dependencies and the same credentials:
   - **OpenRouter**: `POST https://openrouter.ai/api/v1/embeddings` with the same API key as chat; `model` selects the embedding model (list via models API).
   - **Together AI**: `POST {endpoint}/embeddings` (e.g. `https://api.together.xyz/v1/embeddings`), OpenAI-compatible; same API key; models include BGE, M2-BERT (2k/8k/32k context).
@@ -148,7 +195,7 @@ While we don't need these immediately for the core LibreOffice integration, the 
 ## Architecture Decision: Custom Wrapper vs. Provider Packages
 We will proceed with writing a custom LangChain wrapper (`WriterAgentLangChainModel`) around our existing `LlmClient` rather than importing heavy provider packages like `langchain-openai` or `langchain-ollama`. WriterAgent runs in LibreOffice's constrained Python environment; keeping dependencies minimal (just `langchain-core`) is critical to avoid bloat and cross-platform installation issues, while allowing us to keep our custom UI streaming loops and connection management.
 
-For Phase 4 (RAG), the **vector store is vendored**: stdlib-only (pure-Python cosine) by default so it runs with no extra deps, but **per-element Python math will be slow** for large stores. Design for an **optional NumPy path**: when NumPy is available (system or venv), use it for similarity and batch operations; document that heavier RAG use may require pointing LibreOffice at a venv with NumPy installed. Persistence: binary vectors (`struct`) + JSON (or SQLite for metadata/chunk text; see note above). Support **streaming search** for large data. Optional: vendor HNSW (e.g. hnsw-lite) with NumPy when available. No Chroma, FAISS, or sqlite-vector. Embeddings for RAG are supplied by the same providers (OpenRouter, Together, Ollama) via a small embedding client that reuses endpoint and API key; a local embedder remains an optional fallback.
+For Phase 4 (RAG), the **vector store is tiered** (see [vector-search-design.md § Recommended stack](vector-search-design.md#recommended-stack-2026-06)): **venv + `sqlite-vec`** for heavy search; **host Cython** (`writeragent_vec_search` or similar) for streaming top-k when no venv — same contrib ABI matrix as [cython-extension.md](cython-extension.md); pure-Python last resort. Persistence: binary float32 sidecar + stdlib SQLite for chunk metadata/FTS5. Optional: `hnsw-lite` in venv for bounded in-RAM ANN. No Chroma, FAISS, or in-process `sqlite-vec` in LO. Embeddings via existing providers (OpenRouter, Together, Ollama) or local embedder in venv.
 
 ---
 
