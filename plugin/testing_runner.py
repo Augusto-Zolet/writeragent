@@ -335,28 +335,6 @@ def run_all_tests(ctx: Any) -> str:
     return json.dumps(summary, ensure_ascii=False, indent=2)
 
 
-def _shutdown_libreoffice(ctx: Any) -> None:
-    """Quit LibreOffice after native test runs. Use ``make lo-kill`` if terminate blocks."""
-    try:
-        desktop = ctx.getServiceManager().createInstanceWithContext("com.sun.star.frame.Desktop", ctx)
-        if not desktop:
-            return
-        # processEventsToIdle can hang when show_window is False (default native runner).
-        if show_window:
-            try:
-                toolkit = ctx.getServiceManager().createInstanceWithContext("com.sun.star.awt.Toolkit", ctx)
-                if toolkit:
-                    toolkit.processEventsToIdle()
-            except Exception:
-                pass
-        try:
-            desktop.terminate()
-        except Exception:
-            pass
-    except Exception:
-        pass
-
-
 def main() -> int:
     """Command-line entrypoint: bootstrap LO and run tests.
 
@@ -397,8 +375,7 @@ def main() -> int:
     except Exception:
         summary = {"total_failed": 1}
 
-    # Force-close LibreOffice so it doesn't stay running (and mess up the screen).
-    _shutdown_libreoffice(ctx)
+    # Force-close LibreOffice via the Makefile/caller instead of in-process to avoid hangs.
 
     # Print a compact "tail" summary so callers can scan results quickly
     # even when the output above includes verbose tracebacks/log spam.

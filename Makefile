@@ -265,7 +265,7 @@ release: clean
 	@echo "Running tests against stripped bundle..."
 	@echo "  (grammar_obs call-site tests self-skip via _grammar_obs_call_sites_present; whole modules ignored below)"
 	cd build/bundle && PYTHONPATH=. $(abspath $(PYTHON)) -m pytest --ignore=tests/scripts --ignore=tests/test_merge_module_yaml_into_pot.py --ignore=tests/framework/test_logging.py --ignore=tests/writer/locale/test_grammar_linguistic_xcu.py --ignore=tests/scripting/test_generate_tool_proxies.py tests
-	cd build/bundle && PYTHONPATH=. $(LO_PYTHON) -m plugin.testing_runner
+	cd build/bundle && PYTHONPATH=. $(LO_PYTHON) -m plugin.testing_runner; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
 	@$(MAKE) release-build
 	@$(MAKE) register-built-oxt
 
@@ -530,7 +530,7 @@ typecheck: manifest
 test-run:
 	$(PYTHON) -m pytest tests
 	@$(MAKE) lo-kill
-	$(LO_PYTHON) -m plugin.testing_runner
+	$(LO_PYTHON) -m plugin.testing_runner; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
 
 slowtests:
 	$(PYTHON) -m pytest tests/scripting/test_serialization_verification.py -q
@@ -540,7 +540,7 @@ vhs:
 	$(PYTHON) -m pytest tests/scripting/test_serialization_ab.py -k hypothesis -s --hypothesis-verbosity=verbose
 
 test-visible:
-	$(LO_PYTHON) -m plugin.testing_runner --visible test_charts_uno test_enhanced_charts_uno test_document_research_grep_uno
+	$(LO_PYTHON) -m plugin.testing_runner --visible test_charts_uno test_enhanced_charts_uno test_document_research_grep_uno; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
 
 test:
 	@$(MAKE) typecheck
