@@ -1,17 +1,20 @@
 # WriterAgent - fuzzy web research cache matching tests
 
 import sys
-from unittest.mock import MagicMock
+import threading
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from plugin.chatbot.web_research_cache import (
+    _read_doc_char_locale,
     find_fuzzy_research_match,
     format_research_cache_key,
     jaccard,
     lookup_research_cache,
     parse_research_cache_key,
     research_cache_similarity,
+    resolve_research_locale,
     stem_set_from_word_key,
     stem_word,
 )
@@ -161,3 +164,60 @@ def test_lookup_research_cache_fuzzy_hit(tmp_path):
     assert matched_raw_key == SPACE_ELEVATOR_KEY_1
     assert score >= 0.40
     assert cached == "Cached elevator report"
+
+
+def test_read_doc_char_locale_from_first_paragraph():
+    char_locale = MagicMock(Language="fr", Country="FR")
+    first_para = MagicMock()
+    first_para.getPropertyValue.return_value = char_locale
+    enum = MagicMock()
+    enum.hasMoreElements.return_value = True
+    enum.nextElement.return_value = first_para
+    text = MagicMock()
+    text.createEnumeration.return_value = enum
+    doc = MagicMock()
+    doc.getText.return_value = text
+
+    assert _read_doc_char_locale(doc) == ("fr_FR", "french")
+
+
+def test_read_doc_char_locale_empty_doc_returns_none():
+    enum = MagicMock()
+    enum.hasMoreElements.return_value = False
+    text = MagicMock()
+    text.createEnumeration.return_value = enum
+    doc = MagicMock()
+    doc.getText.return_value = text
+
+    assert _read_doc_char_locale(doc) is None
+
+
+def test_resolve_research_locale_uses_main_thread_for_doc():
+    doc = MagicMock()
+    calls: list[str] = []
+
+    def fake_execute(fn, *args, **kwargs):
+        calls.append("main")
+        return fn()
+
+    with patch("plugin.chatbot.web_research_cache._resolve_on_main", side_effect=fake_execute), \
+         patch("plugin.chatbot.web_research_cache._read_doc_char_locale", return_value=("de_DE", "german")) as read_doc:
+        result_holder: list[tuple[str, str]] = []
+
+        def worker():
+            result_holder.append(resolve_research_locale(None, doc))
+
+        thread = threading.Thread(target=worker)
+        thread.start()
+        thread.join(timeout=5.0)
+        assert not thread.is_alive()
+        assert result_holder == [("de_DE", "german")]
+        assert calls == ["main"]
+        read_doc.assert_called_once_with(doc)
+
+
+def test_resolve_research_locale_send_cancelled_falls_back():
+    from plugin.framework.queue_executor import SendCancelled
+
+    with patch("plugin.chatbot.web_research_cache._resolve_on_main", side_effect=SendCancelled()):
+        assert resolve_research_locale(None, MagicMock()) == ("en_US", "english")

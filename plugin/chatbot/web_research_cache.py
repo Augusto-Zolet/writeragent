@@ -64,31 +64,58 @@ def _uno_char_locale_to_tag(char_locale: Any) -> str | None:
     return lang
 
 
+def _read_doc_char_locale(doc: Any) -> tuple[str, str] | None:
+    """Read first-paragraph CharLocale from *doc*. Main thread only (UNO)."""
+    text = doc.getText()
+    enum = text.createEnumeration()
+    if not enum.hasMoreElements():
+        return None
+    first_para = enum.nextElement()
+    char_locale = first_para.getPropertyValue("CharLocale")
+    lo_tag = _uno_char_locale_to_tag(char_locale)
+    iso = getattr(char_locale, "Language", None)
+    snowball = _ISO_TO_SNOWBALL.get(iso) if iso else None
+    if lo_tag and snowball:
+        return lo_tag.replace("-", "_"), snowball
+    return None
+
+
+def _resolve_on_main(fn):
+    """Run UNO work on the main thread (web_research runs on an async worker)."""
+    from plugin.framework.queue_executor import execute_on_main_thread
+
+    return execute_on_main_thread(fn, timeout=30.0)
+
+
 def resolve_research_locale(ctx: Any, doc: Any = None) -> tuple[str, str]:
     """Return (gettext_lo_locale_tag, snowball_lang) for cache key + stemming.
 
     Query text is not language-detected; document CharLocale first, then LO UI locale.
+    UNO reads are marshalled to the main thread because callers include async web_research.
     """
+    from plugin.framework.queue_executor import SendCancelled
+
     if doc is not None:
         try:
-            text = doc.getText()
-            enum = text.createEnumeration()
-            if enum.hasMoreElements():
-                first_para = enum.nextElement()
-                char_locale = first_para.getPropertyValue("CharLocale")
-                lo_tag = _uno_char_locale_to_tag(char_locale)
-                iso = getattr(char_locale, "Language", None)
-                snowball = _ISO_TO_SNOWBALL.get(iso) if iso else None
-                if lo_tag and snowball:
-                    return lo_tag.replace("-", "_"), snowball
+            doc_locale = _resolve_on_main(lambda: _read_doc_char_locale(doc))
+            if doc_locale is not None:
+                return doc_locale
+        except SendCancelled:
+            log.debug("research cache: document language detection cancelled")
+        except TimeoutError:
+            log.warning("research cache: document language detection timed out on main thread")
         except Exception as e:
             log.debug("research cache: document language detection failed: %s", e)
 
     try:
         from plugin.framework.i18n import get_lo_locale
 
-        lo_tag = get_lo_locale(ctx)
+        lo_tag = _resolve_on_main(lambda: get_lo_locale(ctx))
         return lo_tag, snowball_lang_from_locale_tag(lo_tag)
+    except SendCancelled:
+        log.debug("research cache: LO locale detection cancelled")
+    except TimeoutError:
+        log.warning("research cache: LO locale detection timed out on main thread")
     except Exception as e:
         log.debug("research cache: LO locale detection failed: %s", e)
     return "en_US", "english"

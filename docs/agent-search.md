@@ -97,7 +97,7 @@ Completed `web_research` / delegate `web_research` reports can be cached in the 
 **Fuzzy match** ([`plugin/chatbot/web_research_cache.py`](../plugin/chatbot/web_research_cache.py)):
 
 - Stems use the same Snowball algorithms as writer full-text search ([`linguistic_index.py`](../plugin/writer/locale/linguistic_index.py) `_ISO_TO_SNOWBALL`).
-- Language: document `CharLocale` → LibreOffice UI locale → `english`.
+- Language: document `CharLocale` → LibreOffice UI locale → `english`. Both UNO reads are marshalled to the main thread via `execute_on_main_thread` because `web_research` runs on an async worker.
 - Similarity = `max(union Jaccard, overlap / min(|A|, |B|))` so repeat prompts with extra words still match.
 - Gates: similarity ≥ **Research Cache Fuzzy Match (%)** (default 40) and shared stem count ≥ **Min Stem Overlap** (default 8).
 
