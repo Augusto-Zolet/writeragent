@@ -323,7 +323,6 @@ def test_format_research_cache_result_chat_from_payload():
     block = format_research_cache_result_chat({
         "research_cache_event": "hit",
         "research_cache_key": "heights madison pizza",
-        "research_cache_keys": ["heights madison pizza"],
     })
     assert "Research cache hit" in block
     assert "heights madison pizza" in block
@@ -375,7 +374,6 @@ def test_format_delegate_result_includes_research_cache():
             "status": "ok",
             "research_cache_event": "saved",
             "research_cache_key": "execute",
-            "research_cache_keys": ["execute"],
         },
     )
     assert "Research cache saved" in line
@@ -387,15 +385,12 @@ def test_web_research_cache_chat_text_hit_and_saved():
     hit = web_research_cache_chat_text({
         "research_cache_event": "hit",
         "research_cache_key": "heights madison pizza",
-        "research_cache_keys": ["heights madison pizza", "rome history"],
     })
     assert "Research cache hit" in hit
     assert "heights madison pizza" in hit
-    assert "rome history" in hit
     saved = web_research_cache_chat_text({
         "research_cache_event": "saved",
         "research_cache_key": "execute",
-        "research_cache_keys": ["execute"],
     })
     assert "Research cache saved" in saved
     assert "execute" in saved
@@ -692,7 +687,6 @@ def test_web_research_caching_write(tmp_path):
         cache_chat = format_research_cache_result_chat(res)
         assert "Research cache saved" in cache_chat
         assert "execute" in cache_chat
-        assert "Cached research keys" in cache_chat
 
 
 def test_web_research_caching_disabled_bypasses_cache(tmp_path):

@@ -100,13 +100,9 @@ def _research_cache_result_fields(
     matched_key: str | None = None,
     jaccard: float | None = None,
 ) -> dict[str, Any]:
-    from plugin.contrib.smolagents.default_tools import _web_cache_list_keys
-
-    all_keys = _web_cache_list_keys(cache_path, "research", max_age_days) if cache_path else []
     fields: dict[str, Any] = {
         "research_cache_event": event,
         "research_cache_key": cache_key,
-        "research_cache_keys": all_keys,
     }
     if stem_lang:
         fields["research_cache_lang"] = stem_lang

@@ -91,9 +91,6 @@ def web_research_cache_chat_text(fields: Mapping[str, Any]) -> str:
 
     event = str(fields.get("research_cache_event") or "saved")
     cache_key = str(fields.get("research_cache_key") or "")
-    all_keys = fields.get("research_cache_keys")
-    if not isinstance(all_keys, list):
-        all_keys = None
 
     if event == "hit_fuzzy":
         jaccard = fields.get("research_cache_jaccard")
@@ -106,8 +103,6 @@ def web_research_cache_chat_text(fields: Mapping[str, Any]) -> str:
         block = "\n" + _("Research cache hit (key: %s)") % (cache_key,) + "\n"
     else:
         block = "\n" + _("Research cache saved (key: %s)") % (cache_key,) + "\n"
-    if all_keys:
-        block += _("Cached research keys: %s") % ", ".join(all_keys) + "\n"
     block += "\n"
     return block
 
