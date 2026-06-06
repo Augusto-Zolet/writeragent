@@ -22,13 +22,23 @@ _VISION_HEADER_RE = re.compile(
 _SHIPPED_TEMPLATES = frozenset({"extract_text", "extract_structure"})
 
 _DEFAULT_PARAMS: dict[str, dict[str, Any]] = {
-    "extract_text": {"lang": "en", "image_name": ""},
-    "extract_structure": {"lang": "en", "image_name": ""},
+    "extract_text": {
+        "engine": "docling",
+        "ocr_backend": "rapidocr_paddle",
+        "lang": "en",
+        "image_name": "",
+    },
+    "extract_structure": {
+        "engine": "docling",
+        "ocr_backend": "rapidocr_paddle",
+        "lang": "en",
+        "image_name": "",
+    },
 }
 
 _HELPER_DESCRIPTIONS: dict[str, str] = {
-    "extract_text": "OCR selected image — select graphic or set image_name from list_images.",
-    "extract_structure": "Layout and tables from image — select graphic or set image_name from list_images.",
+    "extract_text": "OCR selected image — engine docling (default) or paddle; ocr_backend for research.",
+    "extract_structure": "Layout and tables — engine docling (default) or paddle; ocr_backend for research.",
 }
 
 

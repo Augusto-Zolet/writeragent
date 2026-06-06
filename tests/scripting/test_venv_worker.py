@@ -769,6 +769,8 @@ def test_format_self_check_success_with_vision_group():
     data = {
         "v": "3.12.0",
         "p": {
+            "docling": "present",
+            "rapidocr": "present",
             "paddleocr": "present",
             "paddle": "present",
             "numpy": "present",
@@ -778,15 +780,15 @@ def test_format_self_check_success_with_vision_group():
         "sci": ["numpy"],
         "eda": [],
         "ui": [],
-        "vision": ["paddleocr", "paddle", "ultralytics", "skimage"],
+        "vision": ["docling", "rapidocr", "paddleocr", "paddle", "ultralytics", "skimage"],
     }
     msg = _format_self_check_success(data)
     assert "Vision Libraries" in msg
-    assert "Present: paddleocr, paddle" in msg
+    assert "Present: docling, rapidocr, paddleocr, paddle" in msg
     assert "Missing: ultralytics, skimage" in msg
     assert "pip install ultralytics" in msg
     assert "pip install scikit-image" in msg
-    assert "pip install paddleocr" not in msg
+    assert "pip install docling" not in msg
 
 
 def test_format_self_check_success_vision_install_hint():
@@ -794,14 +796,23 @@ def test_format_self_check_success_vision_install_hint():
 
     data = {
         "v": "3.12.0",
-        "p": {"paddleocr": None, "paddle": None, "ultralytics": None, "skimage": None},
+        "p": {
+            "docling": None,
+            "rapidocr": None,
+            "paddleocr": None,
+            "paddle": None,
+            "numpy": None,
+            "ultralytics": None,
+            "skimage": None,
+        },
         "sci": [],
         "eda": [],
         "ui": [],
-        "vision": ["paddleocr", "paddle", "ultralytics", "skimage"],
+        "vision": ["docling", "rapidocr", "paddleocr", "paddle", "ultralytics", "skimage"],
     }
     msg = _format_self_check_success(data)
-    assert "Vision Helpers (OCR): pip install paddleocr paddlepaddle numpy" in msg
+    assert "Vision Helpers (OCR, Docling): pip install docling rapidocr-paddle numpy pillow" in msg
+    assert "Vision Helpers (OCR, Paddle fallback): pip install paddleocr paddlepaddle numpy" in msg
 
 
 def test_format_self_check_success_vision_install_hint_when_numpy_missing():
@@ -810,6 +821,8 @@ def test_format_self_check_success_vision_install_hint_when_numpy_missing():
     data = {
         "v": "3.12.0",
         "p": {
+            "docling": "present",
+            "rapidocr": "present",
             "paddleocr": "present",
             "paddle": "present",
             "numpy": None,
@@ -819,10 +832,10 @@ def test_format_self_check_success_vision_install_hint_when_numpy_missing():
         "sci": ["numpy"],
         "eda": [],
         "ui": [],
-        "vision": ["paddleocr", "paddle", "ultralytics", "skimage"],
+        "vision": ["docling", "rapidocr", "paddleocr", "paddle", "ultralytics", "skimage"],
     }
     msg = _format_self_check_success(data)
-    assert "Vision Helpers (OCR): pip install paddleocr paddlepaddle numpy" in msg
+    assert "Vision Helpers (OCR, Docling): pip install docling rapidocr-paddle numpy pillow" in msg
 
 
 def test_run_venv_self_check_includes_vision():
@@ -838,14 +851,21 @@ def test_run_venv_self_check_includes_vision():
             "ui": [],
         },
     }
-    vision_probes = {"paddleocr": "present", "paddle": None, "ultralytics": None, "skimage": None}
+    vision_probes = {
+        "docling": None,
+        "rapidocr": None,
+        "paddleocr": "present",
+        "paddle": None,
+        "ultralytics": None,
+        "skimage": None,
+    }
     with patch("plugin.scripting.venv_worker.PythonWorkerManager.get", return_value=mock_mgr), patch(
         "plugin.scripting.venv_worker._probe_vision_packages", return_value=vision_probes
     ):
         ok, msg = run_venv_self_check("/x/python", timeout=1.0)
     assert ok is True
     assert "Vision Libraries" in msg
-    assert "pip install paddleocr paddlepaddle numpy" in msg
+    assert "pip install docling rapidocr-paddle numpy pillow" in msg
 
 
 def test_format_self_check_success_analysis_install_hint():

@@ -75,7 +75,7 @@ Module implementation: `plugin/scripting/` (no top-level `python/` package — a
 
 - **Empty path:** `run_venv_python_script` and `=PYTHON()` fall back to **`sys.executable`** (LibreOffice’s embedded Python) — stdlib-only unless that interpreter happens to have extra packages; **use a dedicated venv for NumPy**.
 - **No automatic venv creation** — the user brings their own environment.
-- **Test button:** Validates the path is a directory, resolves `bin/python` or `Scripts\python.exe`, and runs a warm-worker diagnostic via [`run_venv_self_check`](../plugin/scripting/venv_worker.py). Reports **Scientific**, **Data Analysis / EDA**, **UI / Monaco**, and **Vision Libraries** groups (Present/Missing). When OCR packages are absent, the message includes `pip install paddleocr paddlepaddle numpy` (see [Image Recognition](image-recognition.md)).
+- **Test button:** Validates the path is a directory, resolves `bin/python` or `Scripts\python.exe`, and runs a warm-worker diagnostic via [`run_venv_self_check`](../plugin/scripting/venv_worker.py). Reports **Scientific**, **Data Analysis / EDA**, **UI / Monaco**, and **Vision Libraries** groups (Present/Missing). When OCR packages are absent, the message includes `pip install docling rapidocr-paddle numpy pillow` (see [Image Recognition](image-recognition.md)).
 
 ### Execution paths (shipped)
 
@@ -251,11 +251,12 @@ Helpers that need a missing package return `MISSING_PACKAGE` with the install li
 
 #### Optional venv packages (trusted vision helpers)
 
-[`plugin/scripting/vision.py`](../plugin/scripting/vision.py) **Vision Helpers** (Run Python Script → `[Vision] extract_text`) require PaddleOCR in the user venv. Settings → Python **Test** reports these under **Vision Libraries**:
+[`plugin/scripting/vision.py`](../plugin/scripting/vision.py) **Vision Helpers** (Run Python Script → `[Vision] extract_text`) default to Docling in the user venv. Settings → Python **Test** reports these under **Vision Libraries**:
 
 | Package | Install | Used by |
 |---------|---------|---------|
-| [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) + [PaddlePaddle](https://github.com/PaddlePaddle/Paddle) (`paddleocr`, `paddle`) | `pip install paddleocr paddlepaddle numpy` | `extract_text` — **required** for OCR |
+| [Docling](https://github.com/docling-project/docling) + RapidOCR paddle backend (`docling`, `rapidocr`) | `pip install docling rapidocr-paddle numpy pillow` | `extract_text` / `extract_structure` — **default** (`engine=docling`) |
+| [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) + [PaddlePaddle](https://github.com/PaddlePaddle/Paddle) (`paddleocr`, `paddle`) | `pip install paddleocr paddlepaddle numpy` | Fallback — `engine=paddle` |
 | [Ultralytics](https://github.com/ultralytics/ultralytics) | `pip install ultralytics` | `detect_objects` and related helpers — **Phase 4+**; informational in Test until then |
 | [scikit-image](https://scikit-image.org/) (`skimage`) | `pip install scikit-image` | Optional image processing inside trusted helpers — graceful skip if absent |
 

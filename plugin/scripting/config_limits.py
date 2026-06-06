@@ -19,8 +19,11 @@ _TIMEOUT_FALLBACK_MAX = 600
 # Spawn + auto-import prime in PythonWorkerManager._ensure_warmed — not charged against user timeout.
 WARM_WORKER_TIMEOUT_SEC = 30
 
-# Trusted vision helpers (PaddleOCR load / first model download) — not charged against user script timeout.
+# Trusted vision helpers (model load / first download) — not charged against user script timeout.
 VISION_WORKER_TIMEOUT_SEC = 120
+
+# Docling layout + OCR cold start can exceed the Paddle-only budget.
+DOCLING_WORKER_TIMEOUT_SEC = 300
 
 _DATA_CELLS_CONFIG_KEY = "scripting.python_max_data_cells"
 

@@ -304,17 +304,33 @@ result = res
 """
 
 # Vision stack (docs/image-recognition.md §7–§13): probed outside the AST sandbox because
-# paddleocr/paddle are not whitelisted for LLM-submitted venv scripts.
-# Required for OCR: paddleocr + paddle (pip: paddlepaddle) + numpy (sci group).
+# docling/paddleocr/paddle are not whitelisted for LLM-submitted venv scripts.
+# Primary OCR: docling + rapidocr-paddle. Fallback: paddleocr + paddle.
 # Optional: ultralytics (detection helpers), skimage (trusted helper preprocessing).
 _ANALYSIS_INSTALL_CMD = (
     "pip install numpy pandas scipy scikit-learn statsmodels ydata-profiling pandas-montecarlo"
 )
-_VISION_PACKAGE_KEYS = ("paddleocr", "paddle", "ultralytics", "skimage")
-_VISION_OCR_INSTALL_CMD = "pip install paddleocr paddlepaddle numpy"
+_VISION_PACKAGE_KEYS = ("docling", "rapidocr", "paddleocr", "paddle", "ultralytics", "skimage")
+_DOCLING_INSTALL_CMD = "pip install docling rapidocr-paddle numpy pillow"
+_VISION_OCR_INSTALL_CMD = _DOCLING_INSTALL_CMD
+_VISION_PADDLE_FALLBACK_CMD = "pip install paddleocr paddlepaddle numpy"
 _VISION_PROBE_SCRIPT = """
 import json
 out = {}
+try:
+    import docling
+    out["docling"] = "present"
+except ImportError:
+    out["docling"] = None
+try:
+    import rapidocr
+    out["rapidocr"] = "present"
+except ImportError:
+    try:
+        import rapidocr_onnxruntime
+        out["rapidocr"] = "present"
+    except ImportError:
+        out["rapidocr"] = None
 try:
     import paddleocr
     out["paddleocr"] = "present"
@@ -401,14 +417,25 @@ def _format_self_check_success(data: dict[str, Any]) -> str:
         msg_lines.extend(format_group("UI / Monaco Libraries", ui_list))
     if vision_list:
         msg_lines.extend(format_group(_("Vision Libraries"), vision_list))
-        ocr_stack_incomplete = (
-            packages.get("paddleocr") != "present"
-            or packages.get("paddle") != "present"
+        docling_stack_incomplete = (
+            packages.get("docling") != "present"
             or packages.get("numpy") != "present"
         )
-        if ocr_stack_incomplete:
+        paddle_fallback_present = (
+            packages.get("paddleocr") == "present"
+            and packages.get("paddle") == "present"
+            and packages.get("numpy") == "present"
+        )
+        if docling_stack_incomplete and not paddle_fallback_present:
             msg_lines.append(
-                _("\nVision Helpers (OCR): %(cmd)s") % {"cmd": _VISION_OCR_INSTALL_CMD}
+                _("\nVision Helpers (OCR, Docling): %(cmd)s") % {"cmd": _DOCLING_INSTALL_CMD}
+            )
+            msg_lines.append(
+                _("\nVision Helpers (OCR, Paddle fallback): %(cmd)s") % {"cmd": _VISION_PADDLE_FALLBACK_CMD}
+            )
+        elif docling_stack_incomplete and paddle_fallback_present:
+            msg_lines.append(
+                _("\nVision Helpers (Docling primary): %(cmd)s") % {"cmd": _DOCLING_INSTALL_CMD}
             )
         if packages.get("ultralytics") != "present":
             msg_lines.append(

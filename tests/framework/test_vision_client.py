@@ -12,7 +12,7 @@ import pytest
 
 from plugin.framework.client.vision_client import run_vision
 from plugin.framework.errors import ToolExecutionError
-from plugin.scripting.config_limits import VISION_WORKER_TIMEOUT_SEC
+from plugin.scripting.config_limits import DOCLING_WORKER_TIMEOUT_SEC, VISION_WORKER_TIMEOUT_SEC
 from plugin.tests.testing_utils import setup_uno_mocks
 
 setup_uno_mocks()
@@ -21,6 +21,42 @@ setup_uno_mocks()
 @pytest.fixture
 def ctx():
     return MagicMock()
+
+
+def test_run_vision_uses_docling_timeout_by_default(ctx):
+    worker_result = {
+        "status": "ok",
+        "result": {
+            "status": "ok",
+            "helper": "extract_text",
+            "full_text": "hi",
+            "regions": [],
+            "warnings": [],
+        },
+    }
+    spec = {"helper": "extract_text", "params": {}}
+    image = b"png-bytes"
+
+    with patch("plugin.framework.client.vision_client.run_code_in_user_venv", return_value=worker_result) as mock_run:
+        result = run_vision(ctx, spec, image, context={"source": "selection"})
+
+    assert result["full_text"] == "hi"
+    mock_run.assert_called_once()
+    assert mock_run.call_args.kwargs["timeout_sec"] == DOCLING_WORKER_TIMEOUT_SEC
+    assert mock_run.call_args.kwargs["timeout_sec"] != VISION_WORKER_TIMEOUT_SEC
+
+
+def test_run_vision_uses_paddle_timeout_when_engine_paddle(ctx):
+    worker_result = {
+        "status": "ok",
+        "result": {"status": "ok", "helper": "extract_text", "full_text": "hi"},
+    }
+    spec = {"helper": "extract_text", "params": {"engine": "paddle"}}
+
+    with patch("plugin.framework.client.vision_client.run_code_in_user_venv", return_value=worker_result) as mock_run:
+        run_vision(ctx, spec, b"png")
+
+    assert mock_run.call_args.kwargs["timeout_sec"] == VISION_WORKER_TIMEOUT_SEC
 
 
 def test_run_vision_uses_dedicated_timeout_not_script_timeout(ctx):
@@ -42,7 +78,6 @@ def test_run_vision_uses_dedicated_timeout_not_script_timeout(ctx):
 
     assert result["full_text"] == "hi"
     mock_run.assert_called_once()
-    assert mock_run.call_args.kwargs["timeout_sec"] == VISION_WORKER_TIMEOUT_SEC
     assert mock_run.call_args.kwargs["timeout_sec"] != 10
 
 

@@ -8,7 +8,8 @@ from __future__ import annotations
 from typing import Any
 
 from plugin.framework.errors import ToolExecutionError
-from plugin.scripting.config_limits import VISION_WORKER_TIMEOUT_SEC
+from plugin.scripting.config_limits import DOCLING_WORKER_TIMEOUT_SEC, VISION_WORKER_TIMEOUT_SEC
+from plugin.scripting.vision_common import resolve_engine
 from plugin.scripting.venv_worker import run_code_in_user_venv
 
 _VISION_SESSION_PREFIX = "writeragent:vision"
@@ -22,6 +23,17 @@ def _vision_session_id() -> str:
     return _VISION_SESSION_PREFIX
 
 
+def _resolve_vision_timeout_sec(spec: dict[str, Any] | str) -> int:
+    if isinstance(spec, str):
+        return DOCLING_WORKER_TIMEOUT_SEC
+    if not isinstance(spec, dict):
+        return DOCLING_WORKER_TIMEOUT_SEC
+    params = spec.get("params") if isinstance(spec.get("params"), dict) else {}
+    if resolve_engine(params) == "paddle":
+        return VISION_WORKER_TIMEOUT_SEC
+    return DOCLING_WORKER_TIMEOUT_SEC
+
+
 def run_vision(
     ctx: Any,
     spec: dict[str, Any] | str,
@@ -30,7 +42,7 @@ def run_vision(
     context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Execute a trusted vision helper in the user venv via fixed stub."""
-    timeout_sec = VISION_WORKER_TIMEOUT_SEC
+    timeout_sec = _resolve_vision_timeout_sec(spec)
     payload: dict[str, Any] = {"spec": spec, "image": image, "context": context or {}}
     response = run_code_in_user_venv(
         ctx,

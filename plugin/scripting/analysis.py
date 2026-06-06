@@ -342,7 +342,7 @@ def detect_outliers(
     per_column: dict[str, int] = {col: 0 for col in numeric_cols}
 
     if method == "zscore":
-        z = np.abs(cast(Any, stats.zscore(sample.values, axis=0, nan_policy="omit")))
+        z = np.abs(cast("Any", stats.zscore(sample.values, axis=0, nan_policy="omit")))
         col_mask = pd.DataFrame(z > threshold, index=sample.index, columns=sample.columns).fillna(False)
         mask = col_mask.any(axis=1)
         per_column = {str(col): int(col_mask[col].sum()) for col in numeric_cols}

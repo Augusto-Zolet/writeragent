@@ -28,7 +28,12 @@ def test_parse_header_round_trip():
     meta = parse_vision_script_header(code)
     assert meta is not None
     assert meta.helper == "extract_text"
-    assert meta.params == {"lang": "en", "image_name": ""}
+    assert meta.params == {
+        "engine": "docling",
+        "ocr_backend": "rapidocr_paddle",
+        "lang": "en",
+        "image_name": "",
+    }
 
 
 def test_parse_header_with_params():

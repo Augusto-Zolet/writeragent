@@ -49,20 +49,21 @@ WriterAgent documents (Writer, Calc, Draw/Impress) embed raster images: scans, s
 | **User UI (first)** | **Settings → Python** + **Run Python Script → Vision Helpers** — same spirit as Calc **Analysis Helpers** |
 | **Chat / LLM (later)** | `analyze_image` tool and optional multimodal vision — reuses the same trusted helpers |
 
-**Officially supported recognition stack (two libraries):**
+**Officially supported recognition stack:**
 
-1. **[PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR)** — text, layout, tables (PP-OCR, PP-Structure).
-2. **[Ultralytics](https://github.com/ultralytics/ultralytics)** — modern YOLO detection (objects, document blocks, custom weights).
+1. **[Docling](https://github.com/docling-project/docling)** — **primary** unified OCR, layout, and table pipeline (default `engine=docling`).
+2. **[PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR)** — lightweight fallback (`engine=paddle`; PP-OCR + PP-Structure).
+3. **[Ultralytics](https://github.com/ultralytics/ultralytics)** — modern YOLO detection (objects, document blocks, custom weights).
 
-Users may `pip install` anything else for ad hoc scripts. WriterAgent **documents, self-checks, and builds trusted helpers** around **PaddleOCR + Ultralytics** only.
+Users may `pip install` anything else for ad hoc scripts. WriterAgent **documents, self-checks, and builds trusted helpers** around **Docling + PaddleOCR + Ultralytics**.
 
 **Exposure model (in order):**
 
 1. **Manual:** curated **Vision Helpers** in **Tools → Run Python Script…** (**Writer + Calc** shipped; Draw/Impress in **Phase 1b.2**).
-2. **Setup:** Settings → Python venv path + **Test** for paddle/ultralytics (**shipped**).
+2. **Setup:** Settings → Python venv path + **Test** for docling/rapidocr/paddle/ultralytics (**shipped**).
 3. **Later:** one LLM tool (`analyze_image`) calling the same `run_vision` backend — not a separate CV stack.
 
-**Manual OCR:** **WriterAgent → Run Python Script… → Vision Helpers → [Vision] extract_text** (Writer or Calc). Requires Settings → Python venv with PaddleOCR installed.
+**Manual OCR:** **WriterAgent → Run Python Script… → Vision Helpers → [Vision] extract_text** (Writer or Calc). Requires Settings → Python venv with Docling installed (PaddleOCR optional fallback).
 
 ---
 
@@ -74,7 +75,7 @@ Recognition must be usable **without the chat sidebar** — offline, predictable
 
 | UI | Role for vision |
 |----|-----------------|
-| **WriterAgent → Settings → Python** | Venv path, exec timeout (user scripts only), **Test** button — reports scientific + **Vision Libraries** (`paddleocr`, `paddle`, `ultralytics`, optional `skimage`) and pip install hints when OCR packages are missing |
+| **WriterAgent → Settings → Python** | Venv path, exec timeout (user scripts only), **Test** button — reports scientific + **Vision Libraries** (`docling`, `rapidocr`, `paddleocr`, `paddle`, `ultralytics`, optional `skimage`) and pip install hints when OCR packages are missing |
 | **WriterAgent → Run Python Script…** | Monaco editor ([`editor_host.py`](../plugin/scripting/editor_host.py)) or legacy XDL dialog; **Analysis Helpers** (**Calc only**); **Vision Helpers** (**Writer + Calc**) — `[Vision] extract_text`, `[Vision] extract_structure` via [`vision_templates.py`](../plugin/scripting/vision_templates.py), [`supports_vision_manual`](plugin/scripting/vision_runner.py), and [`document_scripts.py`](../plugin/scripting/document_scripts.py) `_vision_script_section` |
 | **Chat sidebar** | Text chat + remote **image generation** — **not** in-document OCR/recognition |
 | **Settings → Image** tab | Image **generation** providers — unrelated to local OCR |
@@ -100,7 +101,8 @@ Mirror [**Analysis Helpers**](calc-analysis-tools.md#1b-run-python-script--analy
 
 ```text
 1. Settings → Python → set venv path
-2. In that venv: pip install paddleocr paddlepaddle numpy
+2. In that venv: pip install docling rapidocr-paddle numpy pillow
+   (Paddle-only fallback: pip install paddleocr paddlepaddle numpy — set params engine=paddle)
    (ultralytics not required until Phase 4 helpers)
 3. Open a Writer document
 4. Click the embedded image (graphic selected) and place the text cursor where OCR text should go
@@ -112,14 +114,14 @@ Mirror [**Analysis Helpers**](calc-analysis-tools.md#1b-run-python-script--analy
 
 ```text
 1. Settings → Python → set venv path (same venv as analysis helpers)
-2. pip install paddleocr paddlepaddle numpy
+2. pip install docling rapidocr-paddle numpy pillow
 3. Open a Calc document with a cell-anchored embedded image
 4. Click the image so it is selected (export source)
 5. WriterAgent → Run Python Script… → Vision Helpers → [Vision] extract_text → Run
 6. OCR output is written as a multi-cell report starting one row below the image's anchor cell
 ```
 
-First Paddle model download uses a **dedicated vision worker timeout** (not Settings script timeout); subsequent runs reuse the warm worker.
+First Docling/Paddle model download uses a **dedicated vision worker timeout** (`DOCLING_WORKER_TIMEOUT_SEC` = 300s for Docling default, `VISION_WORKER_TIMEOUT_SEC` = 120s for `engine=paddle`; not Settings script timeout); subsequent runs reuse the warm worker.
 
 ### 2.4 Applying results (host egress)
 
@@ -138,9 +140,9 @@ Errors surface in the Monaco status line / msgbox — see [§11](#11-selection-a
 
 | Control | Vision role |
 |---------|-------------|
-| `scripting.python_venv_path` | Must point at venv with PaddleOCR (+ Ultralytics when using detection helpers) |
-| `scripting.python_exec_timeout` | User script limit only — **not** applied to Vision Helpers (see `VISION_WORKER_TIMEOUT_SEC` in [`config_limits.py`](../plugin/scripting/config_limits.py)) |
-| **Test** | [`run_venv_self_check`](../plugin/scripting/venv_worker.py) reports `paddleocr`, `paddle`, `ultralytics`, optional `skimage` under **Vision Libraries** (**shipped**) |
+| `scripting.python_venv_path` | Must point at venv with Docling (+ optional Paddle fallback; + Ultralytics when using detection helpers) |
+| `scripting.python_exec_timeout` | User script limit only — **not** applied to Vision Helpers (see `DOCLING_WORKER_TIMEOUT_SEC` / `VISION_WORKER_TIMEOUT_SEC` in [`config_limits.py`](../plugin/scripting/config_limits.py)) |
+| **Test** | [`run_venv_self_check`](../plugin/scripting/venv_worker.py) reports `docling`, `rapidocr`, `paddleocr`, `paddle`, `ultralytics`, optional `skimage` under **Vision Libraries** (**shipped**) |
 
 Document install commands in Settings help text or Test failure message — not a separate vision settings tab for v1.
 
@@ -172,7 +174,7 @@ Mirror [analysis-sub-agent.md § Current Code State](analysis-sub-agent.md). **R
 
 | Area | Files |
 |------|--------|
-| **Vision trusted stack + host wiring** | [`vision.py`](../plugin/scripting/vision.py) (`extract_text`, `extract_structure`), [`vision_client.py`](../plugin/framework/client/vision_client.py), [`vision_runner.py`](../plugin/scripting/vision_runner.py) (`resolve_vision_image_bytes`, `supports_vision_manual`), [`vision_templates.py`](../plugin/scripting/vision_templates.py), [`vision_egress.py`](../plugin/scripting/vision_egress.py) (Writer) |
+| **Vision trusted stack + host wiring** | [`vision.py`](../plugin/scripting/vision.py) (dispatcher), [`vision_docling.py`](../plugin/scripting/vision_docling.py) (Docling default), [`vision_paddle.py`](../plugin/scripting/vision_paddle.py) (fallback), [`vision_common.py`](../plugin/scripting/vision_common.py), [`vision_client.py`](../plugin/framework/client/vision_client.py), [`vision_runner.py`](../plugin/scripting/vision_runner.py) (`resolve_vision_image_bytes`, `supports_vision_manual`), [`vision_templates.py`](../plugin/scripting/vision_templates.py), [`vision_egress.py`](../plugin/scripting/vision_egress.py) (Writer) |
 | Image export (selection + name) | [`export_graphic_object_to_bytes`](../plugin/writer/images/image_tools.py), [`resolve_vision_image_bytes`](../plugin/scripting/vision_runner.py), [`_get_graphic_object`](../plugin/writer/images/images.py) |
 | Run Python vision fast path | [`python_runner.py`](../plugin/scripting/python_runner.py) — Writer: `format_vision_for_writer`; Calc: `insert_vision_result_into_calc` |
 | Calc vision egress | [`plugin/calc/vision_egress.py`](../plugin/calc/vision_egress.py) — `format_vision_for_calc`, `calc_output_anchor_from_graphic`, `insert_vision_result_into_calc` |
@@ -385,14 +387,21 @@ Extended [`test_vision.py`](../tests/scripting/test_vision.py), [`test_vision_ru
 
 ## 7. Supported libraries
 
-### 7.1 Official pair: PaddleOCR + Ultralytics
+### 7.1 Primary: Docling + Paddle fallback + Ultralytics
 
 | # | Library | Install | Role |
 |---|---------|---------|------|
-| **1** | **PaddleOCR** | `pip install paddleocr paddlepaddle` | OCR, PP-Structure layout/tables — **required Phase 1** |
-| **2** | **Ultralytics** | `pip install ultralytics` | YOLO detection — **Phase 4+** helpers only |
+| **1** | **Docling** | `pip install docling rapidocr-paddle numpy pillow` | **Default** OCR, layout, tables — `engine=docling` |
+| **2** | **PaddleOCR** | `pip install paddleocr paddlepaddle numpy` | Lightweight fallback — `engine=paddle` |
+| **3** | **Ultralytics** | `pip install ultralytics` | YOLO detection — **Phase 4+** helpers only |
 
-Phase 1 install (minimum):
+Primary install (Docling default):
+
+```bash
+pip install docling rapidocr-paddle numpy pillow
+```
+
+Paddle-only fallback:
 
 ```bash
 pip install paddleocr paddlepaddle numpy
@@ -401,10 +410,20 @@ pip install paddleocr paddlepaddle numpy
 Full stack:
 
 ```bash
-pip install paddleocr paddlepaddle ultralytics numpy
+pip install docling rapidocr-paddle paddleocr paddlepaddle ultralytics numpy pillow
 ```
 
-Helpers degrade with `PADDLEOCR_UNAVAILABLE` / `YOLO_UNAVAILABLE` and messages pointing to **Settings → Python**.
+Helpers degrade with `DOCLING_UNAVAILABLE` / `PADDLEOCR_UNAVAILABLE` / `OCR_BACKEND_UNAVAILABLE` / `YOLO_UNAVAILABLE` and messages pointing to **Settings → Python**.
+
+Template params for OCR research (in `# writeragent:vision … params=…`):
+
+| Param | Default | Values |
+|-------|---------|--------|
+| `engine` | `"docling"` | `"docling"` \| `"paddle"` |
+| `ocr_backend` | `"rapidocr_paddle"` | `"auto"`, `"rapidocr"`, `"rapidocr_paddle"`, `"easyocr"`, `"tesseract"`, `"surya"` (requires `docling-surya` + `allow_external_plugins`) |
+| `fallback_engine` | `true` | When Docling missing, auto-fallback to Paddle if installed |
+
+Success payloads may include `metrics.engine` and `metrics.ocr_backend` for provenance.
 
 ### 7.2 Why not OpenCV / Tesseract / EasyOCR as defaults?
 
@@ -427,9 +446,23 @@ OpenCV remains on the LLM sandbox whitelist for ad hoc scripts; **new trusted co
 
 ### 7.4 Alternative: Surya (single library)
 
-**[Surya](https://github.com/VikParuchuri/surya)** (`surya-ocr`) — transformer OCR + layout + reading order. **GPL-3.0** (compatible with WriterAgent GPL v3+). Document as **alternative stack** if we collapse to one OCR engine later — not co-maintained with Paddle in v1.
+**[Surya](https://github.com/VikParuchuri/surya)** (`surya-ocr`) — transformer OCR + layout + reading order. **GPL-3.0** (compatible with WriterAgent GPL v3+). Use via Docling plugin [`docling-surya`](https://pypi.org/project/docling-surya/) with `ocr_backend=surya` and `allow_external_plugins=true` — not co-maintained as a separate native stack.
 
-### 7.5 Other packages (mention only)
+### 7.5 Docling vs native PaddleOCR
+
+Docling does **not** ship native PaddleOCR; it uses **[RapidOCR](https://github.com/RapidAI/RapidOCR)** with a **`paddle` backend** (`rapidocr-paddle`) that runs the same model family. For direct PP-OCR API access, set `engine=paddle`. A custom Docling `BaseOcrModel` plugin wrapping PaddleOCR is a possible future research add-on.
+
+### 7.6 OCR research quick reference
+
+| Goal | Params / install |
+|------|------------------|
+| Default (Docling + Paddle models via RapidOCR) | defaults — `pip install docling rapidocr-paddle` |
+| Compare EasyOCR / Tesseract | `ocr_backend=easyocr` or `tesseract` + matching pip extra |
+| Surya via Docling plugin | `pip install docling-surya surya-ocr`; `ocr_backend=surya`, `allow_external_plugins=true` |
+| Apple macOS Vision | Docling `OcrMacOptions` (system dependency) |
+| Lightweight Paddle-only | `engine=paddle`; `pip install paddleocr paddlepaddle` |
+
+### 7.7 Other packages (mention only)
 
 | Package | Stance |
 |---------|--------|
@@ -453,8 +486,9 @@ flowchart TB
   end
   subgraph venv [User venv]
     Stub[Fixed RPC stub]
-    Vision[vision.py]
-    Paddle[PaddleOCR]
+    Vision[vision.py dispatcher]
+    Docling[vision_docling.py]
+    Paddle[vision_paddle.py]
   end
   subgraph later [LLM access later]
     Tool[analyze_image tool]
@@ -462,8 +496,10 @@ flowchart TB
   end
   Settings --> RPS
   RPS --> Export --> Stub --> Vision
+  Vision --> Docling
   Vision --> Paddle
-  Vision --> Apply
+  Docling --> Apply
+  Paddle --> Apply
   Tool -.-> Export
   Tool -.-> Stub
   LLM -.-> Export
@@ -490,8 +526,8 @@ HELPER_NAMES = frozenset({
 
 | Helper | Stack | Vision Helpers picker |
 |--------|-------|----------------------|
-| `extract_text` | PaddleOCR | **Phase 1** |
-| `extract_structure` | PaddleOCR PP-Structure | **Phase 3 — shipped** |
+| `extract_text` | Docling (default) or PaddleOCR | **Phase 1** |
+| `extract_structure` | Docling (default) or PaddleOCR PP-Structure | **Phase 3 — shipped** |
 | `detect_objects` | Ultralytics | Phase 4 |
 | `detect_layout` | Ultralytics + DocLayout | Phase 4 |
 | `recognize_pipeline` | YOLO → PaddleOCR | Phase 4 |
@@ -561,7 +597,9 @@ def is_vision_result(value: Any) -> bool:
 | `NO_IMAGE_SELECTED` | Host could not export graphic bytes (also used before venv call) |
 | `IMAGE_NOT_FOUND` | Host: `image_name` in params not found via `_get_graphic_object` |
 | `NO_OUTPUT_ANCHOR` | Calc: selected graphic has no resolvable cell **Anchor** |
-| `PADDLEOCR_UNAVAILABLE` | Import/install failure in venv |
+| `PADDLEOCR_UNAVAILABLE` | Import/install failure in venv (paddle engine or fallback) |
+| `DOCLING_UNAVAILABLE` | Docling not installed (`engine=docling`, no fallback) |
+| `OCR_BACKEND_UNAVAILABLE` | Docling installed but chosen `ocr_backend` / plugin missing |
 | `VISION_ERROR` | OCR runtime failure |
 | `UNKNOWN_HELPER` | Bad helper name in spec |
 
@@ -618,11 +656,11 @@ User-visible strings (gettext-ready). Host may raise [`ToolExecutionError`](../p
 | Selection is not a graphic / export fails | `NO_IMAGE_SELECTED` — *Select an embedded image, then Run again.* |
 | `image_name` set but not in document | `IMAGE_NOT_FOUND` — *Image '{name}' not found. Use list_images or leave image_name empty and select the graphic.* |
 | Calc graphic not cell-anchored | `NO_OUTPUT_ANCHOR` — *Anchor the image to a cell, select it, then Run again.* |
-| Venv missing Paddle | `PADDLEOCR_UNAVAILABLE` — pip install + Settings → Python path |
+| Venv missing Docling / Paddle | `DOCLING_UNAVAILABLE` or `PADDLEOCR_UNAVAILABLE` — pip install + Settings → Python path |
 | OCR returns empty | `status: ok`, `full_text: ""`, `warnings: ["No text detected."]` |
 | Success (Writer) | Insert `full_text` (or structure fallback) at text cursor; status — *Extracted N lines* or *Found N blocks and M tables* |
 | Success (Calc) | Multi-cell report below anchor; status — *Wrote N rows* |
-| Timeout | Vision uses dedicated worker budget (`VISION_WORKER_TIMEOUT_SEC`); user `python_exec_timeout` unchanged |
+| Timeout | Docling uses `DOCLING_WORKER_TIMEOUT_SEC` (300s); Paddle uses `VISION_WORKER_TIMEOUT_SEC` (120s); user `python_exec_timeout` unchanged |
 
 **UX note:** User clicks the **image** (graphic selected for export). **Text cursor** position sets insert location — they may differ.
 
@@ -640,16 +678,17 @@ User-visible strings (gettext-ready). Host may raise [`ToolExecutionError`](../p
 ## 13. Install, models, and self-check
 
 ```bash
-pip install paddleocr paddlepaddle numpy
+pip install docling rapidocr-paddle numpy pillow
 ```
 
-**First run:** Paddle downloads models to user cache under the dedicated vision worker timeout (`VISION_WORKER_TIMEOUT_SEC`), not `scripting.python_exec_timeout`.
+**First run:** Docling downloads layout + OCR models to user cache under `DOCLING_WORKER_TIMEOUT_SEC` (300s default). Paddle-only (`engine=paddle`) uses `VISION_WORKER_TIMEOUT_SEC` (120s). Neither uses `scripting.python_exec_timeout`.
 
-**Self-check (shipped):** [`run_venv_self_check`](../plugin/scripting/venv_worker.py) merges a **host subprocess** probe for vision packages (not the sandboxed warm-worker diagnostic — `paddleocr` is intentionally absent from the LLM/venv AST whitelist per §15):
+**Self-check (shipped):** [`run_venv_self_check`](../plugin/scripting/venv_worker.py) merges a **host subprocess** probe for vision packages (not the sandboxed warm-worker diagnostic — `docling`/`paddleocr` are intentionally absent from the LLM/venv AST whitelist per §15):
 
 | Probe | Report |
 |-------|--------|
-| `import paddleocr`, `import paddle` | present / missing |
+| `import docling`, `import rapidocr` (or onnxruntime variant) | present / missing |
+| `import paddleocr`, `import paddle` | present / missing (fallback stack) |
 | `import ultralytics` | present / missing (informational until Phase 4) |
 | Optional `import skimage` | present / missing |
 
@@ -671,7 +710,7 @@ Optional per-folder cache beside embeddings ([`embeddings.md`](embeddings.md)) �
 | LLM `run_venv_python_script` | AST whitelist — optional later |
 | Subprocess | Always the real isolation boundary |
 
-Add `plugin.scripting.vision` to whitelist for stub import; **do not** add `paddleocr` to LLM sandbox list — Paddle stays inside trusted module only.
+Add `plugin.scripting.vision`, `plugin.scripting.vision_docling`, and `plugin.scripting.vision_paddle` to whitelist for stub import; **do not** add `docling` or `paddleocr` to LLM sandbox list — they stay inside trusted modules only.
 
 ---
 
@@ -728,9 +767,10 @@ Checklist for implementers / QA:
 
 - [x] `make test` passes (mocked self-check formatting; no real paddle in CI)
 - [x] Settings → Python → **Test** shows **Vision Libraries** group with Present/Missing for `paddleocr`, `paddle`, `ultralytics`, `skimage`
-- [x] When `paddleocr` or `paddle` is missing, Test success message includes `pip install paddleocr paddlepaddle numpy`
+- [x] When `docling` or primary stack is missing, Test success message includes `pip install docling rapidocr-paddle numpy pillow`
+- [x] When `paddleocr` or `paddle` is missing, Test may note Paddle fallback: `pip install paddleocr paddlepaddle numpy`
 - [x] When `ultralytics` is missing, Test message notes optional `pip install ultralytics`
-- [x] Vision RPC uses `VISION_WORKER_TIMEOUT_SEC`, not `scripting.python_exec_timeout`
+- [x] Vision RPC uses `DOCLING_WORKER_TIMEOUT_SEC` (docling default) or `VISION_WORKER_TIMEOUT_SEC` (`engine=paddle`), not `scripting.python_exec_timeout`
 - [x] `PADDLEOCR_UNAVAILABLE` includes concrete pip install command
 
 ---

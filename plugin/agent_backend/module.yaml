@@ -1,5 +1,5 @@
 name: agent_backend
-title: Agent backends
+title: ACP
 requires: [config, document]
 
 config:
