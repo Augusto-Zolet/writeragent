@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 import threading
+import time
 from typing import Any
 
 from plugin.doc.embeddings_cache import (
@@ -51,18 +52,48 @@ def _clear_enqueue(folder_key: str) -> None:
         _inflight.discard(folder_key)
 
 
-def file_is_stale(conn: sqlite3.Connection, doc_url: str, file_mtime: float) -> bool:
-    """True when filesystem mtime is newer than last indexed timestamp for *doc_url*."""
+def get_file_index_state(conn: sqlite3.Connection, doc_url: str) -> dict[str, float | int]:
+    """Return stored file_mtime, last_indexed_at, and chunk_count for *doc_url*."""
     try:
         row = conn.execute(
-            "SELECT MAX(last_indexed_at) AS ts FROM chunks WHERE doc_url=?",
+            "SELECT MAX(file_mtime) AS file_mtime, MAX(last_indexed_at) AS last_indexed_at, COUNT(*) AS chunk_count "
+            "FROM chunks WHERE doc_url=?",
             (doc_url,),
         ).fetchone()
     except sqlite3.OperationalError:
+        return {"file_mtime": 0.0, "last_indexed_at": 0.0, "chunk_count": 0}
+    if row is None or int(row["chunk_count"] or 0) == 0:
+        return {"file_mtime": 0.0, "last_indexed_at": 0.0, "chunk_count": 0}
+    return {
+        "file_mtime": float(row["file_mtime"] or 0.0),
+        "last_indexed_at": float(row["last_indexed_at"] or 0.0),
+        "chunk_count": int(row["chunk_count"]),
+    }
+
+
+def file_is_stale(conn: sqlite3.Connection, doc_url: str, file_mtime: float) -> bool:
+    """True when filesystem mtime is newer than last indexed timestamp for *doc_url*."""
+    state = get_file_index_state(conn, doc_url)
+    if state["chunk_count"] == 0:
         return True
-    if row is None or row["ts"] is None:
-        return True
-    return float(file_mtime) > float(row["ts"])
+    return float(file_mtime) > float(state["last_indexed_at"])
+
+
+def mark_file_indexed(
+    conn: sqlite3.Connection,
+    doc_url: str,
+    file_mtime: float,
+    *,
+    indexed_at: float | None = None,
+) -> int:
+    """Advance last_indexed_at/file_mtime for *doc_url* when content was checked but unchanged."""
+    ts = float(indexed_at if indexed_at is not None else time.time())
+    cur = conn.execute(
+        "UPDATE chunks SET last_indexed_at=?, file_mtime=? WHERE doc_url=?",
+        (ts, float(file_mtime), doc_url),
+    )
+    conn.commit()
+    return int(cur.rowcount)
 
 
 def diff_paragraph_rows(
@@ -171,6 +202,10 @@ def refresh_folder_index_incremental(ctx: Any, services: Any, model: Any, *, fol
             delete_paragraphs(ctx, str(db_path), to_delete, model=embedding_model)
         if to_index:
             index_paragraphs(ctx, str(db_path), to_index, model=embedding_model)
+        elif not to_delete:
+            # Save bumped mtime but paragraph hashes match — avoid re-scanning every periodic tick.
+            with open_host_connection(db_path) as conn:
+                mark_file_indexed(conn, doc_url, mtime)
 
 
 def _index_worker(ctx: Any, services: Any, model: Any, folder_key: str, listing_root: str) -> None:

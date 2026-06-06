@@ -264,6 +264,13 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):
     except Exception as e:
         log.warning("extension update check schedule failed: %s", e)
 
+    try:
+        from plugin.doc.embeddings_periodic import schedule_periodic_embeddings_indexer_once
+
+        schedule_periodic_embeddings_indexer_once(self.ctx)
+    except Exception as e:
+        log.warning("embeddings periodic indexer schedule failed: %s", e)
+
     # 7. Rich Text Control Sidebar (RichTextControl; embedded Writer path removed)
     from plugin.framework.config import get_config_bool_safe
 
