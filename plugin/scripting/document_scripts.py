@@ -33,8 +33,10 @@ _ENVELOPE_VERSION = 1
 
 SCRIPT_ORIGIN_USER = "user"
 SCRIPT_ORIGIN_DOCUMENT = "document"
+SCRIPT_ORIGIN_ANALYSIS = "analysis"
 
 DOC_SCRIPT_DISPLAY_PREFIX = "[Doc] "
+ANALYSIS_SCRIPT_DISPLAY_PREFIX = "[Analysis] "
 
 
 def _normalize_doc_url(url: Any) -> str:
@@ -233,13 +235,41 @@ def parse_document_script_display_name(display: str) -> str | None:
     return None
 
 
+def analysis_script_display_name(name: str) -> str:
+    return f"{ANALYSIS_SCRIPT_DISPLAY_PREFIX}{name}"
+
+
+def parse_analysis_script_display_name(display: str) -> str | None:
+    if display.startswith(ANALYSIS_SCRIPT_DISPLAY_PREFIX):
+        return display[len(ANALYSIS_SCRIPT_DISPLAY_PREFIX) :]
+    return None
+
+
 def resolve_script_picker_entry(display_name: str, origin_map: dict[str, str]) -> tuple[str, str]:
     """Return (real_name, origin) for a listbox/display label."""
     origin = origin_map.get(display_name, SCRIPT_ORIGIN_USER)
     if origin == SCRIPT_ORIGIN_DOCUMENT:
         real = parse_document_script_display_name(display_name)
         return (real or display_name, SCRIPT_ORIGIN_DOCUMENT)
+    if origin == SCRIPT_ORIGIN_ANALYSIS:
+        real = parse_analysis_script_display_name(display_name)
+        return (real or display_name, SCRIPT_ORIGIN_ANALYSIS)
     return (display_name, SCRIPT_ORIGIN_USER)
+
+
+def _analysis_script_section(doc: Any | None) -> dict[str, Any] | None:
+    if doc is None:
+        return None
+    try:
+        if not is_calc(doc):
+            return None
+    except Exception:
+        return None
+    from plugin.scripting.analysis_templates import get_analysis_script_templates
+
+    templates = get_analysis_script_templates()
+    display_scripts = {analysis_script_display_name(name): code for name, code in templates.items()}
+    return {"id": SCRIPT_ORIGIN_ANALYSIS, "title": _("Analysis Helpers"), "scripts": display_scripts}
 
 
 def build_xdl_script_picker_state(
@@ -262,7 +292,15 @@ def build_xdl_script_picker_state(
         origin_map[display] = SCRIPT_ORIGIN_DOCUMENT
         merged[display] = doc_scripts[name]
 
-    items = ["Sample"] + sorted(user_scripts.keys()) + [document_script_display_name(n) for n in sorted(doc_scripts.keys())]
+    analysis_items: list[str] = []
+    analysis_section = _analysis_script_section(doc)
+    if analysis_section:
+        for display_name, code in analysis_section["scripts"].items():
+            origin_map[display_name] = SCRIPT_ORIGIN_ANALYSIS
+            merged[display_name] = code
+            analysis_items.append(display_name)
+
+    items = ["Sample"] + sorted(user_scripts.keys()) + analysis_items + [document_script_display_name(n) for n in sorted(doc_scripts.keys())]
     return items, merged, origin_map
 
 
@@ -298,12 +336,17 @@ def build_scripts_list_message(
     if doc is not None and not document_stale:
         doc_scripts = get_document_scripts(doc)
 
+    sections: list[dict[str, Any]] = [
+        {"id": SCRIPT_ORIGIN_USER, "title": _("My Scripts"), "scripts": user_scripts},
+    ]
+    analysis_section = _analysis_script_section(doc)
+    if analysis_section:
+        sections.append(analysis_section)
+    sections.append({"id": SCRIPT_ORIGIN_DOCUMENT, "title": _("This Document"), "scripts": doc_scripts})
+
     msg: dict[str, Any] = {
         "type": "scripts_list",
-        "sections": [
-            {"id": SCRIPT_ORIGIN_USER, "title": _("My Scripts"), "scripts": user_scripts},
-            {"id": SCRIPT_ORIGIN_DOCUMENT, "title": _("This Document"), "scripts": doc_scripts},
-        ],
+        "sections": sections,
         "document_available": document_available,
         "document_readonly": document_readonly,
         "document_stale": document_stale,

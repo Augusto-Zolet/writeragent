@@ -12,7 +12,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from plugin.scripting.document_scripts import (
+    ANALYSIS_SCRIPT_DISPLAY_PREFIX,
     DOCUMENT_SCRIPTS_UDPROP,
+    SCRIPT_ORIGIN_ANALYSIS,
     _MAX_DOCUMENT_SCRIPTS_BYTES,
     attach_document_script,
     build_scripts_list_message,
@@ -21,6 +23,7 @@ from plugin.scripting.document_scripts import (
     document_script_display_name,
     get_document_scripts,
     has_document_scripts,
+    parse_analysis_script_display_name,
     parse_document_script_display_name,
     resolve_script_picker_entry,
     set_document_scripts,
@@ -157,3 +160,23 @@ def test_build_scripts_list_message_stale_when_url_changes():
     assert msg["document_stale"] is True
     sections = {s["id"]: s["scripts"] for s in msg["sections"]}
     assert sections["document"] == {}
+
+
+def test_build_scripts_list_includes_analysis_section_for_calc():
+    ctx = MagicMock()
+    doc = MagicMock()
+    with patch("plugin.framework.config.get_config", return_value={}), patch(
+        "plugin.scripting.document_scripts.is_calc", return_value=True
+    ):
+        msg = build_scripts_list_message(ctx, session_doc=doc, session_doc_url=None)
+    section_ids = [s["id"] for s in msg["sections"]]
+    assert SCRIPT_ORIGIN_ANALYSIS in section_ids
+    analysis = next(s for s in msg["sections"] if s["id"] == SCRIPT_ORIGIN_ANALYSIS)
+    assert f"{ANALYSIS_SCRIPT_DISPLAY_PREFIX}describe_data" in analysis["scripts"]
+
+
+def test_resolve_analysis_script_picker_entry():
+    display = f"{ANALYSIS_SCRIPT_DISPLAY_PREFIX}describe_data"
+    origin_map = {display: SCRIPT_ORIGIN_ANALYSIS}
+    assert resolve_script_picker_entry(display, origin_map) == ("describe_data", SCRIPT_ORIGIN_ANALYSIS)
+    assert parse_analysis_script_display_name(display) == "describe_data"

@@ -27,6 +27,7 @@ Runs curated numpy/pandas/scipy helpers in the user venv via a fixed RPC stub (n
 * `helper` (required): Helper name — `describe_data`, `kpi_summary`, `detect_outliers`, `quick_stats`, `format_currency`, `format_percent`, `clean_and_prepare`, `pivot_aggregate`, `group_summary`, `compare_periods`, `correlation_matrix`, `run_regression`, `cluster_numeric`, `monte_carlo`
 * `params`: Helper-specific parameters (object)
 * `data_range`: A1 range to read from the sheet (e.g. `Sheet1.A1:D20`)
+* `output_range`: Optional anchor cell to write a formatted multi-cell report (Calc only)
 * `data`: 2D array alternative (e.g. from `read_cell_range`)
 * `headers`: First row is column names (default `true`)
 * `task_hint`: Optional string echoed in result context
@@ -39,6 +40,22 @@ Runs curated numpy/pandas/scipy helpers in the user venv via a fixed RPC stub (n
 helper: describe_data
 data_range: Sheet1.A1:C50
 ```
+
+---
+
+## 1b. Run Python Script — Analysis Helpers (manual Calc UX)
+
+The same 14 trusted helpers are available as **read-only pre-built scripts** in **Tools → Run Python Script…** when a Calc document is open.
+
+1. Open **Run Python Script…**
+2. In the script picker, choose **Analysis Helpers →** e.g. `[Analysis] describe_data`
+3. Set the **Data** range in the toolbar (prefilled from your current selection)
+4. Edit `params={...}` in the script header if needed (e.g. column names for `kpi_summary`)
+5. Click **Run** — results are written as a multi-cell report starting at the selection anchor (metrics, flags, tables)
+
+Built-in helpers use the same trusted `run_analysis` path as `analyze_data` (not arbitrary sandbox code). Use **Copy to My Scripts** to customize a helper; **Attach** is disabled for built-ins.
+
+See [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md) for venv setup.
 
 ---
 

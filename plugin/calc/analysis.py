@@ -24,7 +24,6 @@ from plugin.framework.errors import ToolExecutionError, UnoObjectError
 from plugin.calc.base import ToolCalcAnalysisBase
 from plugin.calc.bridge import CalcBridge
 from plugin.calc.address_utils import parse_address
-from plugin.calc.venv_python import _resolve_python_data
 from plugin.scripting.analysis import HELPER_NAMES
 
 if TYPE_CHECKING:
@@ -375,6 +374,7 @@ class AnalyzeDataTool(ToolCalcAnalysisBase):
             "helper": {"type": "string", "description": "Analysis helper name (e.g. describe_data, run_regression)."},
             "params": {"type": "object", "description": "Helper-specific parameters."},
             "data_range": {"type": "string", "description": "A1 range address to analyze (e.g. 'Sheet1.A1:D1000'). The host resolves and hands the data to the helper."},
+            "output_range": {"type": "string", "description": "Optional A1 anchor cell to write formatted results (Calc only)."},
             "headers": {"type": "boolean", "description": "First row contains column names (default true)."},
             "task_hint": {"type": "string", "description": "Optional hint echoed in result context."},
         },
@@ -429,45 +429,46 @@ class AnalyzeDataTool(ToolCalcAnalysisBase):
         if not (data_range and str(data_range).strip()) and data is None:
             return self._tool_error("Provide data_range or data")
 
+        from plugin.calc.analysis_runner import run_trusted_analysis
+        from plugin.calc.analysis_egress import insert_analysis_result_into_calc
+        from plugin.calc.address_utils import parse_address
         from plugin.framework.queue_executor import execute_on_main_thread
 
         dr = str(data_range).strip() if data_range else None
+        params = kwargs.get("params") if isinstance(kwargs.get("params"), dict) else None
+        headers = bool(kwargs.get("headers", True)) if "headers" in kwargs else True
+        task_hint = str(kwargs["task_hint"]) if kwargs.get("task_hint") else None
+        output_range = str(kwargs["output_range"]).strip() if kwargs.get("output_range") else None
 
-        def _fetch_data_on_main() -> tuple[Any | None, str | None, dict[str, Any]]:
-            py_data, err = _resolve_python_data(ctx, data_range=dr, data=data)
-            sheet_context: dict[str, Any] = {}
-            if not err and py_data is not None:
-                try:
-                    bridge = CalcBridge(ctx.doc)
-                    sheet_context["sheet_name"] = bridge.get_active_sheet().getName()
-                except Exception:
-                    pass
-            return py_data, err, sheet_context
-
-        try:
-            py_data, err, sheet_ctx = execute_on_main_thread(_fetch_data_on_main)
-        except Exception as exc:
-            return self._tool_error(f"Failed to read spreadsheet data: {exc}")
-        if err:
-            return self._tool_error(err)
-        if py_data is None:
-            return self._tool_error("No data to analyze")
-
-        spec: dict[str, Any] = {"helper": helper}
-        if isinstance(kwargs.get("params"), dict):
-            spec["params"] = kwargs["params"]
-        if "headers" in kwargs:
-            spec["headers"] = bool(kwargs["headers"])
-
-        context: dict[str, Any] = dict(sheet_ctx)
-        if kwargs.get("task_hint"):
-            context["task_hint"] = str(kwargs["task_hint"])
-        if dr:
-            context["range_a1"] = dr
-
-        from plugin.framework.client.analysis_client import run_analysis
+        def _run() -> dict[str, Any]:
+            return run_trusted_analysis(
+                ctx.ctx,
+                ctx.doc,
+                helper=helper,
+                params=params,
+                data_range=dr,
+                data=data,
+                headers=headers,
+                task_hint=task_hint,
+            )
 
         try:
-            return run_analysis(ctx.ctx, spec, py_data, context=context or None)
+            result = execute_on_main_thread(_run)
         except ToolExecutionError as exc:
             return self._tool_error(str(exc), code=getattr(exc, "code", "ANALYSIS_ERROR"))
+        except Exception as exc:
+            return self._tool_error(f"Failed to run analysis: {exc}")
+
+        if output_range and result.get("status") == "ok":
+
+            def _write() -> None:
+                cell_part = output_range.rsplit(".", 1)[-1] if output_range else output_range
+                col, row = parse_address(cell_part)
+                insert_analysis_result_into_calc(ctx.doc, ctx.ctx, result, start_col=col, start_row=row)
+
+            try:
+                execute_on_main_thread(_write)
+            except Exception as exc:
+                return self._tool_error(f"Analysis succeeded but sheet write failed: {exc}")
+
+        return result

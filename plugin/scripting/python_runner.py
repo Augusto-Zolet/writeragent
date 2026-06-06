@@ -816,11 +816,91 @@ def format_elapsed_time(seconds: float) -> str:
             return f"{int(ms)} ms"
 
 
-def execute_and_insert_result(ctx: Any, doc: Any, code: str) -> dict[str, Any]:
+def execute_and_insert_result(
+    ctx: Any,
+    doc: Any,
+    code: str,
+    *,
+    data_range: str | None = None,
+) -> dict[str, Any]:
     """Run *code* in the user venv and insert the result into *doc* when possible."""
+    from plugin.calc.analysis_egress import insert_analysis_result_into_calc, is_analysis_result
+    from plugin.calc.analysis_runner import calc_selection_to_a1, calc_tool_context, run_trusted_analysis
+    from plugin.calc.python_formula_edit import parse_data_binding_text
+    from plugin.calc.venv_python import _resolve_python_data
+    from plugin.framework.errors import ToolExecutionError
+    from plugin.scripting.analysis_templates import parse_analysis_script_header
+
     t0 = time.perf_counter()
+    meta = parse_analysis_script_header(code)
+
+    def _resolve_data_range() -> str | None:
+        binding = str(data_range).strip() if data_range else ""
+        if binding:
+            ranges = parse_data_binding_text(binding)
+            if ranges:
+                return ranges[0]
+            return binding
+        return calc_selection_to_a1(doc)
+
+    if meta is not None and is_calc(doc):
+        dr = _resolve_data_range()
+        if not dr:
+            return {
+                "ok": False,
+                "message": _("Analysis helper requires a data range. Select cells or enter a range in the Data field."),
+            }
+        try:
+            result = run_trusted_analysis(ctx, doc, helper=meta.helper, params=meta.params, data_range=dr)
+        except ToolExecutionError as exc:
+            elapsed = time.perf_counter() - t0
+            err_msg = str(exc)
+            formatted_time = format_elapsed_time(elapsed)
+            if not ("timed out" in err_msg.lower() or "timeout" in err_msg.lower()):
+                err_msg = f"{err_msg} (took {formatted_time})"
+            return {"ok": False, "message": err_msg}
+        except Exception as e:
+            elapsed = time.perf_counter() - t0
+            log.exception("execute_and_insert_result analysis fast path failed")
+            err_msg = str(e)
+            formatted_time = format_elapsed_time(elapsed)
+            return {"ok": False, "message": f"{err_msg} (took {formatted_time})", "traceback": exception_traceback(e)}
+
+        if result.get("status") == "error":
+            elapsed = time.perf_counter() - t0
+            formatted_time = format_elapsed_time(elapsed)
+            message = str(result.get("message") or _("Analysis failed."))
+            return {"ok": False, "message": f"{message} (took {formatted_time})"}
+
+        try:
+            row_count = insert_analysis_result_into_calc(doc, ctx, result)
+        except Exception as e:
+            elapsed_total = time.perf_counter() - t0
+            formatted_time_total = format_elapsed_time(elapsed_total)
+            return {"ok": False, "message": _("Failed to insert result: {error} (took {time})").format(error=str(e), time=formatted_time_total)}
+
+        formatted_time = format_elapsed_time(time.perf_counter() - t0)
+        return {
+            "ok": True,
+            "status_ok_text": _("Analysis '{helper}' completed. Wrote {rows} rows. (took {time})").format(
+                helper=meta.helper,
+                rows=row_count,
+                time=formatted_time,
+            ),
+            "result": result,
+        }
+
+    py_data = None
+    if is_calc(doc):
+        dr = _resolve_data_range()
+        if dr:
+            tool_ctx = calc_tool_context(ctx, doc)
+            py_data, err = _resolve_python_data(tool_ctx, data_range=dr, data=None)
+            if err:
+                return {"ok": False, "message": err}
+
     try:
-        response = run_code_in_user_venv(ctx, code)
+        response = run_code_in_user_venv(ctx, code, data=py_data)
         elapsed = time.perf_counter() - t0
     except Exception as e:
         elapsed = time.perf_counter() - t0
@@ -854,6 +934,20 @@ def execute_and_insert_result(ctx: Any, doc: Any, code: str) -> dict[str, Any]:
     if doc:
         try:
             if is_calc(doc):
+                if isinstance(result_data, dict) and is_analysis_result(result_data):
+                    row_count = insert_analysis_result_into_calc(doc, ctx, result_data)
+                    formatted_time = format_elapsed_time(time.perf_counter() - t0)
+                    helper = str(result_data.get("helper") or "analysis")
+                    return {
+                        "ok": True,
+                        "status_ok_text": _("Analysis '{helper}' completed. Wrote {rows} rows. (took {time})").format(
+                            helper=helper,
+                            rows=row_count,
+                            time=formatted_time,
+                        ),
+                        "stdout": stdout,
+                        "result": result_data,
+                    }
                 insert_result_into_calc(doc, ctx, result_data)
             elif is_writer(doc):
                 formatted = format_result_for_writer(result_data)
@@ -897,19 +991,24 @@ def _report_run_outcome(ctx: Any, lbl: Any | None, outcome: dict[str, Any]) -> N
 
 def _run_python_monaco(ctx: Any, doc: Any, *, config_key: str, initial_code: str, exe: str) -> bool:
     """Open Monaco for Run Python Script. Return True when the editor session started."""
+    from plugin.calc.analysis_runner import calc_selection_to_a1
+    from plugin.scripting.analysis_templates import parse_analysis_script_header
+
     run_ok_text = _("Script executed successfully.")
     save_ok_text = _("Script saved.")
+    initial_binding = calc_selection_to_a1(doc) if is_calc(doc) else ""
+    show_binding = bool(parse_analysis_script_header(initial_code)) if is_calc(doc) else False
 
     def on_save(
         code: str,
         _save_as_plain: bool,
-        _data_binding: str | None = None,
+        data_binding: str | None = None,
         action: str = "run",
     ) -> dict[str, Any]:
         set_config(ctx, config_key, code)
         if action == "save":
             return {"type": "saved", "ok": True, "status_ok_text": save_ok_text}
-        outcome = execute_and_insert_result(ctx, doc, code)
+        outcome = execute_and_insert_result(ctx, doc, code, data_range=data_binding)
         if not outcome.get("ok"):
             return {
                 "type": "error",
@@ -932,7 +1031,9 @@ def _run_python_monaco(ctx: Any, doc: Any, *, config_key: str, initial_code: str
         "save_label": _("Save"),
         "close_label": _("Close"),
         "show_plain_text": False,
-        "show_data_binding": False,
+        "show_data_binding": show_binding,
+        "data_binding": initial_binding or "",
+        "data_binding_title": _("Select data range or enter A1 address (injected as data)."),
         "status_ok_text": run_ok_text,
         "saved_ok_text": save_ok_text,
         "run_script_doc": doc,

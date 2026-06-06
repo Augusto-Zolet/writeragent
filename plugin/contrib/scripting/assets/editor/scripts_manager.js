@@ -81,16 +81,28 @@
     }
   }
 
+  function setDataBindingVisible(visible) {
+    var label = document.getElementById("data-binding-label");
+    var input = document.getElementById("data-binding-input");
+    if (label) {
+      label.classList.toggle("toolbar-hidden", !visible);
+    }
+    if (input) {
+      input.classList.toggle("toolbar-hidden", !visible);
+    }
+  }
+
   function updateToolbarState() {
     var attachBtn = getAttachBtn();
     var copyBtn = getCopyBtn();
     var canWriteDocument = documentAvailable && !documentReadonly && !documentStale;
+    var isBuiltInAnalysis = currentOrigin === "analysis";
     if (attachBtn) {
-      attachBtn.disabled = !canWriteDocument;
-      attachBtn.classList.toggle("toolbar-disabled", !canWriteDocument);
+      attachBtn.disabled = !canWriteDocument || isBuiltInAnalysis;
+      attachBtn.classList.toggle("toolbar-disabled", attachBtn.disabled);
     }
     if (copyBtn) {
-      copyBtn.disabled = currentOrigin !== "document" || !currentSelectedName;
+      copyBtn.disabled = (currentOrigin !== "document" && currentOrigin !== "analysis") || !currentSelectedName;
       copyBtn.classList.toggle("toolbar-disabled", copyBtn.disabled);
     }
     if (documentStale) {
@@ -204,6 +216,9 @@
         window.editor.setValue(scriptIndex[name].code);
         setStatus("Loaded script '" + name + "'.", "ok");
       }
+      setDataBindingVisible(currentOrigin === "analysis");
+    } else {
+      setDataBindingVisible(false);
     }
   }
 
@@ -241,7 +256,7 @@
   }
 
   function onCopyToUser() {
-    if (!currentSelectedName || currentOrigin !== "document") {
+    if (!currentSelectedName || (currentOrigin !== "document" && currentOrigin !== "analysis")) {
       return;
     }
     var name = prompt("Copy to My Scripts as:", currentSelectedName);
@@ -260,6 +275,10 @@
   }
 
   function onSaveAs() {
+    if (currentOrigin === "analysis") {
+      setStatus("Built-in analysis helpers are read-only. Use Copy to My Scripts to customize.", "error");
+      return;
+    }
     var defaultName = currentSelectedName || "";
     var name = prompt("Enter a name for the script:", defaultName);
     if (!name) return;
@@ -301,6 +320,10 @@
     }
 
     if (confirm("Are you sure you want to delete '" + name + "'?")) {
+      if (scriptIndex[name] && scriptIndex[name].origin === "analysis") {
+        setStatus("Built-in analysis helpers cannot be deleted.", "error");
+        return;
+      }
       if (window.pywebview && window.pywebview.api && window.pywebview.api.delete_script) {
         var origin = scriptIndex[name] ? scriptIndex[name].origin : currentOrigin;
         currentSelectedName = "";
@@ -385,6 +408,10 @@
         if (activeScript) {
           event.stopImmediatePropagation();
           event.preventDefault();
+          if (scriptIndex[activeScript] && scriptIndex[activeScript].origin === "analysis") {
+            setStatus("Built-in analysis helpers are read-only. Use Copy to My Scripts to customize.", "error");
+            return;
+          }
           if (window.editor && window.pywebview && window.pywebview.api && window.pywebview.api.save_script) {
             var code = window.editor.getValue();
             var origin = scriptIndex[activeScript] ? scriptIndex[activeScript].origin : currentOrigin;
