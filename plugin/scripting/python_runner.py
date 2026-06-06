@@ -826,12 +826,13 @@ def execute_and_insert_result(
     """Run *code* in the user venv and insert the result into *doc* when possible."""
     from plugin.calc.analysis_egress import insert_analysis_result_into_calc, is_analysis_result
     from plugin.calc.analysis_runner import calc_selection_to_a1, calc_tool_context, run_trusted_analysis
+    from plugin.calc.vision_egress import insert_vision_result_into_calc
     from plugin.calc.python_formula_edit import parse_data_binding_text
     from plugin.calc.venv_python import _resolve_python_data
     from plugin.framework.errors import ToolExecutionError
     from plugin.scripting.analysis_templates import parse_analysis_script_header
     from plugin.scripting.vision_egress import format_vision_for_writer, is_vision_result
-    from plugin.scripting.vision_runner import run_trusted_vision
+    from plugin.scripting.vision_runner import run_trusted_vision, supports_vision_manual
     from plugin.scripting.vision_templates import parse_vision_script_header
 
     t0 = time.perf_counter()
@@ -848,10 +849,10 @@ def execute_and_insert_result(
         return calc_selection_to_a1(doc)
 
     if vision_meta is not None:
-        if not is_writer(doc):
+        if not supports_vision_manual(doc):
             return {
                 "ok": False,
-                "message": _("Vision helpers require a Writer document."),
+                "message": _("Vision helpers require a Writer or Calc document."),
             }
         try:
             result = run_trusted_vision(ctx, doc, helper=vision_meta.helper, params=vision_meta.params)
@@ -876,8 +877,23 @@ def execute_and_insert_result(
             return {"ok": False, "message": f"{message} (took {formatted_time})"}
 
         try:
-            text = format_vision_for_writer(result)
-            insert_content_at_position(doc, ctx, text, "selection")
+            if is_writer(doc):
+                text = format_vision_for_writer(result)
+                insert_content_at_position(doc, ctx, text, "selection")
+            elif is_calc(doc):
+                row_count = insert_vision_result_into_calc(doc, ctx, result)
+                formatted_time = format_elapsed_time(time.perf_counter() - t0)
+                return {
+                    "ok": True,
+                    "status_ok_text": _("Vision '{helper}' completed. Wrote {rows} rows. (took {time})").format(
+                        helper=vision_meta.helper,
+                        rows=row_count,
+                        time=formatted_time,
+                    ),
+                    "result": result,
+                }
+            else:
+                return {"ok": False, "message": _("Vision helpers require a Writer or Calc document.")}
         except Exception as e:
             elapsed_total = time.perf_counter() - t0
             formatted_time_total = format_elapsed_time(elapsed_total)
@@ -998,6 +1014,20 @@ def execute_and_insert_result(
                     return {
                         "ok": True,
                         "status_ok_text": _("Analysis '{helper}' completed. Wrote {rows} rows. (took {time})").format(
+                            helper=helper,
+                            rows=row_count,
+                            time=formatted_time,
+                        ),
+                        "stdout": stdout,
+                        "result": result_data,
+                    }
+                if isinstance(result_data, dict) and is_vision_result(result_data):
+                    row_count = insert_vision_result_into_calc(doc, ctx, result_data)
+                    formatted_time = format_elapsed_time(time.perf_counter() - t0)
+                    helper = str(result_data.get("helper") or "vision")
+                    return {
+                        "ok": True,
+                        "status_ok_text": _("Vision '{helper}' completed. Wrote {rows} rows. (took {time})").format(
                             helper=helper,
                             rows=row_count,
                             time=formatted_time,

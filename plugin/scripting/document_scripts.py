@@ -290,8 +290,10 @@ def _analysis_script_section(doc: Any | None) -> dict[str, Any] | None:
 def _vision_script_section(doc: Any | None) -> dict[str, Any] | None:
     if doc is None:
         return None
+    from plugin.scripting.vision_runner import supports_vision_manual
+
     try:
-        if not is_writer(doc):
+        if not supports_vision_manual(doc):
             return None
     except Exception:
         return None

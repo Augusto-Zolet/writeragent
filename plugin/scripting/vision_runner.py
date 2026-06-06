@@ -9,11 +9,22 @@ from __future__ import annotations
 import base64
 from typing import Any
 
+from plugin.doc.document_helpers import is_calc, is_writer
 from plugin.framework.client.vision_client import run_vision
 from plugin.framework.errors import ToolExecutionError
 from plugin.framework.i18n import _
 from plugin.scripting.vision import HELPER_NAMES
 from plugin.writer.images.image_tools import get_selected_image_base64
+
+
+def supports_vision_manual(doc: Any) -> bool:
+    """True when Run Python Script should expose Vision Helpers for *doc*."""
+    if doc is None:
+        return False
+    try:
+        return is_writer(doc) or is_calc(doc)
+    except Exception:
+        return False
 
 
 def get_selected_image_bytes(ctx: Any, doc: Any) -> bytes:

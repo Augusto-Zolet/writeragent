@@ -1,12 +1,12 @@
 # Image Recognition — Design (Local OCR & Detection)
 
-**Status:** **Phase 1 manual UX shipped** — Run Python Script **Vision Helpers** (`[Vision] extract_text`), Writer fast path, graphic export, and text-cursor insert. LLM/chat integration (`analyze_image`) is **explicitly later**.
+**Status:** **Phase 1 + Phase 1b (Calc) shipped** — Run Python Script **Vision Helpers** (`[Vision] extract_text`) on **Writer and Calc**; Writer text-cursor insert; Calc sheet report below graphic anchor. Draw/Impress egress → **Phase 1b.2**. LLM/chat integration (`analyze_image`) is **explicitly later**.
 
 WriterAgent documents (Writer, Calc, Draw/Impress) embed raster images: scans, screenshots, chart photos, slide exports, logos. **LibreOffice handles graphics I/O** (export, insert, replace, dimensions). **Recognition** (OCR, layout, object detection) runs in the user's venv via the same trusted-module pattern as [`analysis.py`](../plugin/scripting/analysis.py) and [`embeddings_index.py`](../plugin/scripting/embeddings_index.py).
 
 **Priority:** Ship **direct user access** first (Settings + **Run Python Script → Vision Helpers**). Wire the same helpers to the chat agent (`analyze_image`) only after the manual path works.
 
-**Phase 1 scope (locked):** **Writer only**; insert OCR **`full_text` at the text cursor** via [`insert_content_at_position`](../plugin/writer/format.py). Calc/Draw egress → **Phase 1b**.
+**Phase 1 scope (Writer):** insert OCR **`full_text` at the text cursor** via [`insert_content_at_position`](../plugin/writer/format.py). **Phase 1b (Calc):** formatted multi-cell report via [`plugin/calc/vision_egress.py`](../plugin/calc/vision_egress.py). Draw/Impress → **Phase 1b.2**.
 
 **Related:** [Scientific Python / venv bridge](enabling_numpy_in_libreoffice.md) · [Analysis helpers UX (template)](calc-analysis-tools.md) · [Analysis sub-agent (dev-plan style)](analysis-sub-agent.md) · [Image generation (remote)](image-generation.md) · [LO-DOM for vector Draw content](lo-dom-semantic-tree.md) · [Embeddings index (text, not vision)](embeddings.md)
 
@@ -18,6 +18,7 @@ WriterAgent documents (Writer, Calc, Draw/Impress) embed raster images: scans, s
 2. [User exposition (primary)](#2-user-exposition-primary)
 3. [Current code state (grounded)](#3-current-code-state-grounded)
 4. [Phase 1 development plan (agent handoff)](#4-phase-1-development-plan-agent-handoff)
+4b. [Phase 1b Calc development plan (shipped)](#4b-phase-1b-calc-development-plan-shipped)
 5. [Use cases](#5-use-cases)
 6. [Host vs venv split](#6-host-vs-venv-split)
 7. [Supported libraries](#7-supported-libraries)
@@ -55,11 +56,11 @@ Users may `pip install` anything else for ad hoc scripts. WriterAgent **document
 
 **Exposure model (in order):**
 
-1. **Manual:** curated **Vision Helpers** in **Tools → Run Python Script…** (Phase 1: **Writer only**; Phase 1b+: Calc/Draw when egress exists).
+1. **Manual:** curated **Vision Helpers** in **Tools → Run Python Script…** (**Writer + Calc** shipped; Draw/Impress in **Phase 1b.2**).
 2. **Setup:** Settings → Python venv path + extended **Test** for paddle/ultralytics (Phase 2).
 3. **Later:** one LLM tool (`analyze_image`) calling the same `run_vision` backend — not a separate CV stack.
 
-**Manual OCR:** **WriterAgent → Run Python Script… → Vision Helpers → [Vision] extract_text** (Writer only). Requires Settings → Python venv with PaddleOCR installed.
+**Manual OCR:** **WriterAgent → Run Python Script… → Vision Helpers → [Vision] extract_text** (Writer or Calc). Requires Settings → Python venv with PaddleOCR installed.
 
 ---
 
@@ -72,7 +73,7 @@ Recognition must be usable **without the chat sidebar** — offline, predictable
 | UI | Role for vision |
 |----|-----------------|
 | **WriterAgent → Settings → Python** | Venv path, exec timeout, **Test** button — prerequisite only; Test does **not** yet report PaddleOCR/Ultralytics |
-| **WriterAgent → Run Python Script…** | Monaco editor ([`editor_host.py`](../plugin/scripting/editor_host.py)) or legacy XDL dialog; **Analysis Helpers** (**Calc only**); **Vision Helpers** (**Writer only**) via [`vision_templates.py`](../plugin/scripting/vision_templates.py) and [`document_scripts.py`](../plugin/scripting/document_scripts.py) `_vision_script_section` |
+| **WriterAgent → Run Python Script…** | Monaco editor ([`editor_host.py`](../plugin/scripting/editor_host.py)) or legacy XDL dialog; **Analysis Helpers** (**Calc only**); **Vision Helpers** (**Writer + Calc**) via [`vision_templates.py`](../plugin/scripting/vision_templates.py), [`supports_vision_manual`](plugin/scripting/vision_runner.py), and [`document_scripts.py`](../plugin/scripting/document_scripts.py) `_vision_script_section` |
 | **Chat sidebar** | Text chat + remote **image generation** — **not** in-document OCR/recognition |
 | **Settings → Image** tab | Image **generation** providers — unrelated to local OCR |
 
@@ -89,11 +90,11 @@ Mirror [**Analysis Helpers**](calc-analysis-tools.md#1b-run-python-script--analy
 | **Templates** | [`vision_templates.py`](../plugin/scripting/vision_templates.py) with `# writeragent:vision helper=… params=…` header |
 | **Input** | User **selects an embedded graphic**; host exports PNG bytes (Phase 1: selection only) |
 | **Run** | Fast path in `execute_and_insert_result` → `run_trusted_vision` → `vision_client.run_vision` |
-| **App scope (Phase 1)** | **Writer only** — Vision Helpers section shown when `is_writer(doc)`; Calc/Draw in **Phase 1b** |
+| **App scope** | **Writer + Calc** — Vision Helpers when [`supports_vision_manual`](plugin/scripting/vision_runner.py); Draw/Impress in **Phase 1b.2** |
 
 **Monaco toolbar:** Phase 1 omits an **Image:** field — always use current graphic selection when exporting. Phase 1b+ may add binding for graphic name / file path.
 
-### 2.3 User workflow (Phase 1)
+### 2.3 User workflow (Writer)
 
 ```text
 1. Settings → Python → set venv path
@@ -105,6 +106,17 @@ Mirror [**Analysis Helpers**](calc-analysis-tools.md#1b-run-python-script--analy
 6. Recognized text is inserted at the text cursor (see §2.4)
 ```
 
+### 2.3b User workflow (Calc)
+
+```text
+1. Settings → Python → set venv path (same venv as analysis helpers)
+2. pip install paddleocr paddlepaddle numpy
+3. Open a Calc document with a cell-anchored embedded image
+4. Click the image so it is selected (export source)
+5. WriterAgent → Run Python Script… → Vision Helpers → [Vision] extract_text → Run
+6. OCR output is written as a multi-cell report starting one row below the image's anchor cell
+```
+
 Increase **Python exec timeout** in Settings if the first run downloads Paddle models (cold start).
 
 ### 2.4 Applying results (host egress)
@@ -113,10 +125,11 @@ Increase **Python exec timeout** in Settings if the first run downloads Paddle m
 |----------|-------|----------|
 | **Writer** | **1** | Insert **`full_text`** as plain text at **text cursor** via [`insert_content_at_position`](../plugin/writer/format.py)(..., `"selection"`) — see [`format_vision_for_writer`](../plugin/scripting/vision_egress.py) |
 | **Writer** | later | Optional **`set_image_properties`** description from OCR summary |
-| **Calc** | **1b** | Plain OCR → column or formatted report; **`extract_structure`** → multi-cell table (like [`analysis_egress`](plugin/calc/analysis_egress.py)) |
-| **Draw / Impress** | **1b** | [`insert_result_into_draw`](../plugin/scripting/python_runner.py) or text box; shape annotations later |
+| **Calc** | **1b** | Formatted report via [`format_vision_for_calc`](plugin/calc/vision_egress.py) + [`insert_vision_result_into_calc`](plugin/calc/vision_egress.py) — anchor = selected graphic's **`Anchor` cell**, insert starts **one row below** |
+| **Calc** | later | **`extract_structure`** → multi-cell table (like [`analysis_egress`](plugin/calc/analysis_egress.py)) |
+| **Draw / Impress** | **1b.2** | Text box near selected graphic; shape annotations later |
 
-**Selection vs cursor:** User **clicks the image** so LO's selection is the graphic (for export). The **text cursor** position controls where OCR output is inserted and may differ from the image anchor.
+**Selection vs output anchor:** On **Writer**, user clicks the **image** (export) and places the **text cursor** for insert (they may differ). On **Calc**, the selected graphic's **anchor cell** defines the sheet insert row (one row below); the image must be cell-anchored.
 
 Errors surface in the Monaco status line / msgbox — see [§11](#11-selection-and-error-ux).
 
@@ -158,21 +171,22 @@ Mirror [analysis-sub-agent.md § Current Code State](analysis-sub-agent.md). **R
 
 | Area | Files |
 |------|--------|
-| **Vision trusted stack + host wiring** | [`vision.py`](../plugin/scripting/vision.py), [`vision_client.py`](../plugin/framework/client/vision_client.py), [`vision_runner.py`](../plugin/scripting/vision_runner.py), [`vision_templates.py`](../plugin/scripting/vision_templates.py), [`vision_egress.py`](../plugin/scripting/vision_egress.py) |
-| Run Python vision fast path | [`python_runner.py`](../plugin/scripting/python_runner.py) — `parse_vision_script_header` → `run_trusted_vision` → `format_vision_for_writer` → `insert_content_at_position` |
-| Script picker (Writer) | [`document_scripts.py`](../plugin/scripting/document_scripts.py) — `SCRIPT_ORIGIN_VISION`, `_vision_script_section`, `build_scripts_list_message` |
+| **Vision trusted stack + host wiring** | [`vision.py`](../plugin/scripting/vision.py), [`vision_client.py`](../plugin/framework/client/vision_client.py), [`vision_runner.py`](../plugin/scripting/vision_runner.py) (`supports_vision_manual`), [`vision_templates.py`](../plugin/scripting/vision_templates.py), [`vision_egress.py`](../plugin/scripting/vision_egress.py) (Writer) |
+| Run Python vision fast path | [`python_runner.py`](../plugin/scripting/python_runner.py) — Writer: `format_vision_for_writer` → `insert_content_at_position`; Calc: `insert_vision_result_into_calc` |
+| Calc vision egress | [`plugin/calc/vision_egress.py`](../plugin/calc/vision_egress.py) — `format_vision_for_calc`, `calc_output_anchor_from_graphic`, `insert_vision_result_into_calc` |
+| Script picker (Writer + Calc) | [`document_scripts.py`](../plugin/scripting/document_scripts.py) — `SCRIPT_ORIGIN_VISION`, `_vision_script_section`, `build_scripts_list_message` |
 | Image export (selection) | [`get_selected_image_base64`](../plugin/writer/images/image_tools.py) via [`get_selected_image_bytes`](../plugin/scripting/vision_runner.py) |
 | Monaco built-in guards | [`scripts_manager.js`](../plugin/contrib/scripting/assets/editor/scripts_manager.js) — Attach/Save/Delete disabled for `origin === "vision"` |
 | Analysis trusted stack (reference) | [`analysis.py`](../plugin/scripting/analysis.py), [`analysis_client.py`](../plugin/framework/client/analysis_client.py), [`analysis_runner.py`](../plugin/calc/analysis_runner.py) |
 | Calc analysis egress | [`analysis_egress.py`](../plugin/calc/analysis_egress.py) — `is_analysis_result`, `insert_analysis_result_into_calc` |
-| Tests | [`test_vision*.py`](../tests/scripting/), [`test_python_runner_vision.py`](../tests/scripting/test_python_runner_vision.py), [`test_document_scripts.py`](../tests/scripting/test_document_scripts.py) (vision section tests) |
+| Tests | [`test_vision*.py`](../tests/scripting/), [`test_python_runner_vision.py`](../tests/scripting/test_python_runner_vision.py), [`test_vision_egress.py`](../tests/calc/test_vision_egress.py), [`test_document_scripts.py`](../tests/scripting/test_document_scripts.py) (vision section tests) |
 
-### Gaps (post–Phase 1)
+### Gaps (post–Phase 1b Calc)
 
 | Gap | Notes |
 |-----|--------|
 | Settings **Test** paddle/ultralytics probes | **Phase 2** — extend [`run_venv_self_check`](../plugin/scripting/venv_worker.py) |
-| Calc/Draw Vision Helpers + egress | **Phase 1b** |
+| Draw/Impress Vision Helpers + text-box egress | **Phase 1b.2** |
 | Context menu / **Recognize Image…** shortcut | Optional (§2.6) |
 | `analyze_image` LLM tool | **Phase 6** (§18) |
 
@@ -274,6 +288,31 @@ png_bytes = base64.b64decode(b64)
 | `tests/scripting/test_vision_egress.py` | `is_vision_result`, `format_vision_for_writer` |
 | `tests/scripting/test_python_runner_vision.py` | Fast path in `execute_and_insert_result` (mock export + RPC + insert) |
 | `tests/scripting/test_document_scripts.py` | `test_build_scripts_list_includes_vision_section_for_writer` (mirror analysis Calc test) |
+
+---
+
+## 4b. Phase 1b Calc development plan (shipped)
+
+**Goal:** Same `[Vision] extract_text` helper on **Calc** — export selected graphic, run trusted OCR, write formatted sheet output.
+
+### Delivered
+
+| File | Role |
+|------|------|
+| [`plugin/calc/vision_egress.py`](../plugin/calc/vision_egress.py) | `calc_output_anchor_from_graphic`, `format_vision_for_calc`, `insert_vision_result_into_calc` |
+| [`plugin/scripting/vision_runner.py`](../plugin/scripting/vision_runner.py) | `supports_vision_manual(doc)` → Writer or Calc |
+| [`document_scripts.py`](../plugin/scripting/document_scripts.py) | Vision Helpers picker gated on `supports_vision_manual` |
+| [`python_runner.py`](../plugin/scripting/python_runner.py) | Vision fast path branches Writer vs Calc; generic venv fallback routes `is_vision_result` on Calc |
+
+**Output anchor:** selected graphic's **`Anchor` cell** → insert starts **one row below** (`NO_OUTPUT_ANCHOR` if not cell-anchored).
+
+### Phase 1b.2 (next)
+
+Draw/Impress: extend `supports_vision_manual` with `is_draw`; minimal `TextShape` insert near selected graphic — not generic `insert_result_into_draw`.
+
+### Tests
+
+[`tests/calc/test_vision_egress.py`](../tests/calc/test_vision_egress.py); extended [`test_python_runner_vision.py`](../tests/scripting/test_python_runner_vision.py) and [`test_document_scripts.py`](../tests/scripting/test_document_scripts.py).
 
 ---
 
@@ -493,6 +532,7 @@ def is_vision_result(value: Any) -> bool:
 | `code` | When |
 |--------|------|
 | `NO_IMAGE_SELECTED` | Host could not export graphic bytes (also used before venv call) |
+| `NO_OUTPUT_ANCHOR` | Calc: selected graphic has no resolvable cell **Anchor** |
 | `PADDLEOCR_UNAVAILABLE` | Import/install failure in venv |
 | `VISION_ERROR` | OCR runtime failure |
 | `UNKNOWN_HELPER` | Bad helper name in spec |
@@ -506,11 +546,13 @@ User-visible strings (gettext-ready). Host may raise [`ToolExecutionError`](../p
 | Condition | Behavior |
 |-----------|----------|
 | No document | Same as Run Python Script today |
-| Not Writer (Phase 1) | Vision Helpers **hidden** in picker; fast path returns error if header run anyway |
+| Not Writer/Calc | Vision Helpers **hidden** in picker; fast path returns error if header run anyway |
 | Selection is not a graphic / export fails | `NO_IMAGE_SELECTED` — *Select an embedded image, then Run again.* |
+| Calc graphic not cell-anchored | `NO_OUTPUT_ANCHOR` — *Anchor the image to a cell, select it, then Run again.* |
 | Venv missing Paddle | `PADDLEOCR_UNAVAILABLE` — pip install + Settings → Python path |
 | OCR returns empty | `status: ok`, `full_text: ""`, `warnings: ["No text detected."]` |
-| Success | Insert `full_text` at text cursor; status — *Extracted N lines (took …)* |
+| Success (Writer) | Insert `full_text` at text cursor; status — *Extracted N lines (took …)* |
+| Success (Calc) | Multi-cell report below anchor; status — *Wrote N rows (took …)* |
 | Timeout | Existing worker timeout message; hint to raise Settings timeout for first model download |
 
 **UX note:** User clicks the **image** (graphic selected for export). **Text cursor** position sets insert location — they may differ.
@@ -572,7 +614,8 @@ Phases prioritize **user exposition**; LLM integration is last.
 |-------|-------------|---------------|
 | **0** | Design doc + cross-links | — |
 | **1** | Writer-only: Vision Helpers `[Vision] extract_text` + fast path + Writer insert + tests | **Yes — shipped** |
-| **1b** | Calc/Draw egress; Vision Helpers on Calc/Draw when graphic export works; plain OCR table/column output | **Yes** |
+| **1b** | **Calc:** Vision Helpers + sheet egress (`vision_egress.py`) | **Yes — shipped** |
+| **1b.2** | Draw/Impress text-box egress | **Yes** (planned) |
 | **2** | Settings **Test** reports paddle/ultralytics; timeout/install messaging | **Yes** |
 | **3** | `extract_structure`; export by graphic name | **Yes** |
 | **4** | `detect_objects`, `recognize_pipeline`, Ultralytics helpers + templates | **Yes** |
@@ -595,6 +638,20 @@ Checklist for implementers / QA:
 - [x] Missing paddle in venv → `PADDLEOCR_UNAVAILABLE` with Settings hint (venv helper returns error JSON)
 - [x] Monaco: Attach disabled for vision built-ins (`origin === "vision"`)
 - [x] No `analyze_image` tool or chat registration
+
+---
+
+## 17b. Phase 1b Calc acceptance criteria
+
+- [x] `make test` passes with mocked Paddle (no real models in CI)
+- [x] Calc document open → script picker shows **Vision Helpers → [Vision] extract_text**
+- [x] Writer behavior unchanged (regression)
+- [x] Draw/Impress → **no** Vision Helpers section (until Phase 1b.2)
+- [x] Calc: cell-anchored graphic selected + Run → OCR report below anchor cell
+- [x] Calc: no graphic / export fails → `NO_IMAGE_SELECTED`
+- [x] Calc: graphic without cell anchor → `NO_OUTPUT_ANCHOR`
+- [x] Missing paddle in venv → `PADDLEOCR_UNAVAILABLE` (unchanged)
+- [x] No `analyze_image` tool registration
 
 ---
 

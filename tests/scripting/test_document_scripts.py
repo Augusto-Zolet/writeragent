@@ -189,8 +189,8 @@ def test_build_scripts_list_includes_vision_section_for_writer():
     ctx = MagicMock()
     doc = MagicMock()
     with patch("plugin.framework.config.get_config", return_value={}), patch(
-        "plugin.scripting.document_scripts.is_writer", return_value=True
-    ), patch("plugin.scripting.document_scripts.is_calc", return_value=False):
+        "plugin.scripting.vision_runner.supports_vision_manual", return_value=True
+    ):
         msg = build_scripts_list_message(ctx, session_doc=doc, session_doc_url=None)
     section_ids = [s["id"] for s in msg["sections"]]
     assert SCRIPT_ORIGIN_VISION in section_ids
@@ -198,12 +198,29 @@ def test_build_scripts_list_includes_vision_section_for_writer():
     assert f"{VISION_SCRIPT_DISPLAY_PREFIX}extract_text" in vision["scripts"]
 
 
-def test_build_scripts_list_excludes_vision_section_for_calc():
+def test_build_scripts_list_includes_vision_section_for_calc():
     ctx = MagicMock()
     doc = MagicMock()
     with patch("plugin.framework.config.get_config", return_value={}), patch(
         "plugin.scripting.document_scripts.is_calc", return_value=True
-    ), patch("plugin.scripting.document_scripts.is_writer", return_value=False):
+    ), patch("plugin.scripting.document_scripts.is_writer", return_value=False), patch(
+        "plugin.scripting.vision_runner.supports_vision_manual", return_value=True
+    ):
+        msg = build_scripts_list_message(ctx, session_doc=doc, session_doc_url=None)
+    section_ids = [s["id"] for s in msg["sections"]]
+    assert SCRIPT_ORIGIN_VISION in section_ids
+    vision = next(s for s in msg["sections"] if s["id"] == SCRIPT_ORIGIN_VISION)
+    assert f"{VISION_SCRIPT_DISPLAY_PREFIX}extract_text" in vision["scripts"]
+
+
+def test_build_scripts_list_excludes_vision_section_for_draw():
+    ctx = MagicMock()
+    doc = MagicMock()
+    with patch("plugin.framework.config.get_config", return_value={}), patch(
+        "plugin.scripting.document_scripts.is_draw", return_value=True
+    ), patch("plugin.scripting.document_scripts.is_calc", return_value=False), patch(
+        "plugin.scripting.document_scripts.is_writer", return_value=False
+    ), patch("plugin.scripting.vision_runner.supports_vision_manual", return_value=False):
         msg = build_scripts_list_message(ctx, session_doc=doc, session_doc_url=None)
     section_ids = [s["id"] for s in msg["sections"]]
     assert SCRIPT_ORIGIN_VISION not in section_ids
@@ -212,9 +229,7 @@ def test_build_scripts_list_excludes_vision_section_for_calc():
 def test_build_xdl_script_picker_includes_vision_for_writer():
     ctx = MagicMock()
     doc = MagicMock()
-    with patch("plugin.scripting.document_scripts.is_writer", return_value=True), patch(
-        "plugin.scripting.document_scripts.is_calc", return_value=False
-    ):
+    with patch("plugin.scripting.vision_runner.supports_vision_manual", return_value=True):
         items, merged, origin_map = build_xdl_script_picker_state(ctx, doc, {})
     display = f"{VISION_SCRIPT_DISPLAY_PREFIX}extract_text"
     assert display in items
