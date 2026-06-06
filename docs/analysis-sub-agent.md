@@ -465,6 +465,38 @@ We will copy *features* from Microsoft Python-in-Excel (initialization-script he
 
 ---
 
+## Data Handoff & Context Limits (Out-of-Band Data)
+
+A critical architectural issue is how to pass large datasets to the analysis sub-agent without blowing up the LLM's context window. We must move from **pass-by-value** (JSON/text in the prompt) to **pass-by-reference** (where the LLM only sees a pointer or address). Several options exist:
+
+1. **Calc as the "Shared Memory" (Late Binding) - *Preferred Path***
+   - The outer agent passes the **UNO range address** (e.g., `source="Sheet1!A1:D5000"`) instead of data.
+   - The sub-agent's tools accept a `source_range` argument. Only when the sub-agent calls the tool does the host extract the data and send it across the IPC boundary to the trusted Python helper.
+   - *Pros:* Highly native to LibreOffice. The LLM only reasons about Sheet names and cell addresses. No separate state registry needed.
+   - *Cons:* Requires analysis tools to have tight integration with `calc_addin_data.py` for on-the-fly extraction.
+
+2. **The "Data Reference" Registry (In-Memory / Host-Side)**
+   - The outer agent or host extracts data and stores it in a temporary registry (e.g., in the `ToolContext`), generating a string handle (`data_ref="dataset_a1b2"`).
+   - The sub-agent receives the handle and passes it to tools. The host resolves the handle to the actual payload before calling the venv worker.
+   - *Pros:* Extremely fast, reuses existing `payload_codec` IPC, zero changes to venv logic.
+   - *Cons:* State management (ensuring handles expire or get cleaned up).
+
+3. **File-Backed Handoff (Parquet / SQLite)**
+   - The host extracts the data and saves it as a temporary `.parquet` or `.sqlite` file in the `writeragent_history.db.d/` directory.
+   - The sub-agent receives the filepath, and its trusted helpers use `pandas.read_parquet()` under the hood.
+   - *Pros:* Extremely robust for very large datasets (millions of rows). Sub-agents can easily return a new filepath for results.
+   - *Cons:* Adds disk I/O overhead. Sidesteps the optimized `split_grid` IPC handoff.
+
+4. **Stateful Sub-Agent Context (The Jupyter Model)**
+   - The sub-agent operates in a persistent session. It calls `load_range("Sheet1.A1:D100")` which returns a *metadata summary* (e.g., columns, types, row count) instead of data.
+   - The actual data is kept in the Python venv's memory. Subsequent calls like `describe_data()` automatically operate on this loaded state.
+   - *Pros:* Very close to how human analysts work in notebooks. The LLM gets immediate situational awareness from the summary.
+   - *Cons:* Adds statefulness to the LLM interaction loop, which can be brittle.
+
+**Current enforcement (preferred path):** For the `analysis` domain, `ToolCalcAnalysisBase.required_core_tools` only pulls in `get_sheet_summary` (cheap structural metadata). `read_cell_range` is deliberately excluded so the sub-agent LLM never receives full cell values in its tool results / observations. Analysis tools (`analyze_data`, and `run_venv_python_script` for the python domain) accept `data_range` (A1 address); the host resolves + shapes via the existing main-thread + `calc_addin_data` + `payload_codec` path before the IPC hop to the venv. Tool descriptions and sub-agent hints were updated to guide toward addresses. This realizes Option 1 for Calc-resident data without new state or I/O.
+
+---
+
 ## Open questions / future
 
 - Exact domain name (`"analysis"` vs `"data"` vs extending the existing Calc analysis domain from calc-analysis-tools.md).

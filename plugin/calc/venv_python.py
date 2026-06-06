@@ -49,7 +49,7 @@ _PARAMETERS_CALC = {
         "data": {
             "type": "array",
             "items": {"type": "array", "items": {}},
-            "description": "Optional 2D array of cell values as `data` (use data_range to read from the sheet instead).",
+            "description": "Optional 2D array of cell values as `data` (use data_range for bulk data; the host resolves addresses without putting values in the LLM context).",
         },
     },
     "required": ["code"],
@@ -69,8 +69,9 @@ _PARAMETERS_NON_CALC = {
 _DESCRIPTION_CALC = (
     "Run Python code. Set `result` to a return value (NumPy ndarray, Pandas DataFrame, list, dict, or scalar). "
     + PYTHON_VENV_AUTO_IMPORTS_TOOL_NOTE
-    + "Optional data_range (e.g. B1:B10) injects cell values as `data` (flat list for one row/column). "
-    "Alternatively pass `data` directly after read_cell_range."
+    + "Optional data_range (e.g. 'Sheet1.B1:B10') injects cell values as `data`. "
+    "The host reads the range on the main thread and sends shaped data over the efficient IPC path. "
+    "For anything beyond tiny grids, use data_range (address) rather than passing values in the data parameter."
 )
 
 _DESCRIPTION_NON_CALC = (

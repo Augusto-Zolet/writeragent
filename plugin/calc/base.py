@@ -113,6 +113,13 @@ class ToolCalcAnalysisBase(ToolCalcSpecialBase):
         "Goal Seek (calc_goal_seek), and Solver (calc_solver)."
     )
     intent = "analyze"
+    # Deliberately do NOT include "read_cell_range" here (unlike the general Calc special base).
+    # Analysis sub-agents must use data_range (A1 address strings) with analyze_data / run_venv_python_script.
+    # This keeps large data out-of-band: the host resolves the address on the main thread and hands
+    # shaped data to the venv via the optimized split_grid/payload_codec path. Passing full values
+    # through read_cell_range would materialize them into the sub-agent's observations / LLM context.
+    # get_sheet_summary provides cheap structural discovery (used range, headers, counts) without values.
+    required_core_tools: ClassVar[frozenset[str] | None] = frozenset(["get_sheet_summary"])
 
 
 class ToolCalcErrorBase(ToolCalcSpecialBase):

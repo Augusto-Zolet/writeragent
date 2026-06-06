@@ -365,25 +365,47 @@ class AnalyzeDataTool(ToolCalcAnalysisBase):
     description = (
         "Run a trusted numpy/pandas analysis helper on spreadsheet data. "
         f"Helpers: {_ANALYZE_DATA_HELPERS}. "
-        "Pass data_range or data from read_cell_range. Prefer this over inventing pandas code."
+        "Use data_range (A1 address string, e.g. 'Sheet1.A1:D1000') for bulk data. "
+        "The host extracts and shapes the data (via split_grid) before it reaches the analysis code. "
+        "This tool is intended for the analysis specialized domain; pass range addresses only."
     )
     parameters = {
         "type": "object",
         "properties": {
             "helper": {"type": "string", "description": "Analysis helper name (e.g. describe_data, run_regression)."},
             "params": {"type": "object", "description": "Helper-specific parameters."},
-            "data_range": {"type": "string", "description": "A1 range to analyze (e.g. Sheet1.A1:D10)."},
-            "data": {
-                "type": "array",
-                "items": {"type": "array", "items": {}},
-                "description": "2D grid from read_cell_range when not using data_range.",
-            },
+            "data_range": {"type": "string", "description": "A1 range address to analyze (e.g. 'Sheet1.A1:D1000'). The host resolves and hands the data to the helper."},
             "headers": {"type": "boolean", "description": "First row contains column names (default true)."},
             "task_hint": {"type": "string", "description": "Optional hint echoed in result context."},
         },
         "required": ["helper"],
     }
     long_running = True
+
+    def get_parameters(self, doc_type: str | None = None) -> dict | None:
+        """JSON schema presented for analyze_data.
+
+        In the analysis specialized domain (the primary consumer of this tool),
+        we only expose data_range (an A1 address string). The sub-agent must
+        reason in terms of ranges/addresses; the host performs the read on the
+        main thread and delivers the shaped data (split_grid / payload_codec)
+        to the trusted helper or venv. This enforces out-of-band data handoff
+        for the analysis sub-agent (see docs/analysis-sub-agent.md).
+        """
+        import copy
+        from typing import cast
+
+        p = copy.deepcopy(self.parameters)
+        if p and "properties" in p:
+            props = cast("dict[str, Any]", p["properties"])
+            # Defensive: ensure no raw data value path leaks even if class parameters changes.
+            props.pop("data", None)
+            if "data_range" in props:
+                props["data_range"]["description"] = (
+                    "A1 range address (e.g. 'Sheet1.A1:D1000'). This is the only way "
+                    "to supply data when using the analysis domain. The host extracts the values out-of-band."
+                )
+        return p
 
     def is_async(self) -> bool:
         return True
@@ -395,6 +417,15 @@ class AnalyzeDataTool(ToolCalcAnalysisBase):
 
         data_range = kwargs.get("data_range")
         data = kwargs.get("data")
+
+        # Strict enforcement for the analysis domain (see get_parameters above and
+        # docs/analysis-sub-agent.md "Data Handoff").
+        if getattr(ctx, "active_domain", None) == "analysis" and data is not None:
+            return self._tool_error(
+                "analysis domain requires data_range (A1 address string) only. "
+                "Do not pass raw data values — the host must resolve the range out-of-band."
+            )
+
         if not (data_range and str(data_range).strip()) and data is None:
             return self._tool_error("Provide data_range or data")
 

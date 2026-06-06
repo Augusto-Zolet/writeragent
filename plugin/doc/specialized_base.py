@@ -221,7 +221,8 @@ class DelegateToSpecializedBase(ToolBase):
         analysis_hint = (
             " For stats, cleaning, regression, clustering, or simulation on tabular data, use analyze_data with the appropriate helper. "
             "For live formula what-if (single target cell), use calc_goal_seek. "
-            "For constrained optimization on formula cells, use calc_solver. Prefer these over inventing raw pandas code."
+            "For constrained optimization on formula cells, use calc_solver. Prefer these over inventing raw pandas code. "
+            "For bulk data always pass a data_range (A1 address); the host performs the extraction."
             if domain == "analysis"
             else ""
         )
