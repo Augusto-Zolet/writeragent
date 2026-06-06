@@ -848,6 +848,40 @@ def test_run_venv_self_check_includes_vision():
     assert "pip install paddleocr paddlepaddle numpy" in msg
 
 
+def test_format_self_check_success_analysis_install_hint():
+    from plugin.scripting.venv_worker import _format_self_check_success
+
+    data = {
+        "v": "3.12.0",
+        "p": {"data_profiling": None, "statsmodels": "present", "pandas_montecarlo": None},
+        "sci": [],
+        "eda": ["data_profiling", "statsmodels", "pandas_montecarlo"],
+        "ui": [],
+        "vision": [],
+    }
+    msg = _format_self_check_success(data)
+    assert "Analysis Helpers: pip install numpy pandas scipy scikit-learn statsmodels ydata-profiling pandas-montecarlo" in msg
+
+
+def test_format_self_check_success_no_analysis_hint_when_complete():
+    from plugin.scripting.venv_worker import _format_self_check_success
+
+    data = {
+        "v": "3.12.0",
+        "p": {
+            "data_profiling": "present",
+            "statsmodels": "present",
+            "pandas_montecarlo": "present",
+        },
+        "sci": [],
+        "eda": ["data_profiling", "statsmodels", "pandas_montecarlo"],
+        "ui": [],
+        "vision": [],
+    }
+    msg = _format_self_check_success(data)
+    assert "Analysis Helpers:" not in msg
+
+
 # --- Subprocess spawn helper tests (relocated from test_subprocess_helpers.py) ---
 
 from plugin.scripting.venv_worker import (

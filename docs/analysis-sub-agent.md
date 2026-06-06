@@ -89,7 +89,7 @@ Calc documents are an excellent fit (ranges, sheets, named ranges, pivot caches,
 - **Data discovery reuses the primary index + Calc tools**: The per-directory embeddings index (see [embeddings.md](embeddings.md)) is the *sole* semantic cross-sibling router. Within a Calc file, use existing precise tools (`read_cell_range`, sheet summaries, named ranges, etc.). No new parallel indexes. Writer data sources are out of scope for core analysis in MVP.
 - **Host extracts (from Calc), venv computes, results are compact**: Host (UNO) pulls Calc ranges/sheets into arrays/records (reuse and extend `calc_addin_data` patterns). Passes via IPC. Trusted code returns summaries, transformed data, metrics, suggested writes, chart inputs, etc. The *calling* main agent (Writer or Calc) decides what to apply.
 - **LLM role is planning + synthesis**: The sub-agent (main-style FSM or smol ReAct, running in the appropriate Calc-specialized context) decides *what data* to fetch and *what analysis* (high-level spec or call to a standard helper). It interprets results. It does *not* write low-level analysis code when helpers are available.
-- **Graceful / optional + Calc python surface**: Works with or without a rich venv. Builds on existing Calc strengths (`=PYTHON()`, `run_venv_python_script`, the python specialized domain) as fallback/escape hatch. Existing Calc analysis tools (Goal Seek/Solver) are natural sub-steps.
+- **Venv packages + python escape hatch**: Analysis helpers require the fixed stack above (`MISSING_PACKAGE` when absent). The `python` domain (`=PYTHON()`, `run_venv_python_script`) remains the escape hatch for novel work. Goal Seek/Solver need no venv.
 - **Ephemeral sub-agents**: Like other specialized domains and document_research inners — focused context, compact result folded back to main history.
 - **Cross-doc awareness without full symmetry**: A Writer main agent can know about (and delegate toward) Calc analysis capabilities when a Calc doc is open, but the heavy lifting and data model stay Calc. See Cross-Document Workflows section.
 
@@ -255,7 +255,7 @@ These are the primary replacements: stop reimplementing what these stacks alread
 | Our helpers | Delegate to |
 |-------------|-------------|
 | `describe_data`, `clean_and_prepare`, `pivot_aggregate`, `group_summary`, `correlation_matrix`, `compare_periods` | **pandas**: `describe()`, `pivot_table()`, `groupby().agg()`, `corr()`, cleaning |
-| `run_regression` | **statsmodels** OLS (primary); **sklearn** fallback |
+| `run_regression` | **statsmodels** OLS |
 | `cluster_numeric` | **sklearn** KMeans |
 | `detect_outliers` (IQR / z-score paths) | **pandas** / **scipy.stats** vectorized patterns |
 
@@ -267,7 +267,7 @@ Planned replacements for custom EDA / card layout code.
 
 | Source | Notes |
 |--------|-------|
-| [YData Profiling](https://ydata-profiling.ydata.ai/) (formerly Pandas-Profiling) | **Implemented** in `describe_data` when `data_profiling` is installed; pandas fallback otherwise |
+| [YData Profiling](https://ydata-profiling.ydata.ai/) (formerly Pandas-Profiling) | **Implemented** — required for `describe_data` (`ProfileReport`; returns `MISSING_PACKAGE` if absent) |
 | Sweetviz, AutoViz, summarytools | Lighter quick-summary alternatives |
 | [DataPrep `compute_*`](https://docs.dataprep.ai/user_guide/eda/introduction.html) | JSON-serializable EDA stats pattern (no `dataprep` dependency) |
 | Microsoft Python-in-Excel init helpers | [`python-in-excel-ideas.md`](python-in-excel-ideas.md) — `kpi_summary`, `format_currency` |
@@ -289,7 +289,7 @@ Replace hand-rolled IQR/z-score/isolation logic with vetted implementations wher
 
 | Source | Notes |
 |--------|-------|
-| Current impl (interim) | IQR, z-score, `IsolationForest` — keep sklearn path; replace custom IQR/z-score with pandas/scipy or PandasVault patterns |
+| Current impl | Vectorized **pandas** / **scipy.stats** IQR and z-score; **sklearn** `IsolationForest` |
 | [PandasVault](https://github.com/firmai/pandasvault) | Advanced pandas utilities including outlier helpers |
 | scikit-learn | `IsolationForest`, `EllipticEnvelope`, etc. |
 | Community recipes | e.g. GitHub `vbelz/Outliers_detection`; pandas issues / Stack Overflow vectorized IQR/z-score |
@@ -298,7 +298,7 @@ Replace hand-rolled IQR/z-score/isolation logic with vetted implementations wher
 
 | Source | Notes |
 |--------|-------|
-| **Implemented** | [`pandas-montecarlo`](https://github.com/ranaroussi/pandas-montecarlo) resampling pattern via optional `pandas_montecarlo` import; inlined MIT fallback when absent |
+| **Implemented** | [`pandas-montecarlo`](https://github.com/ranaroussi/pandas-montecarlo) — required for `monte_carlo` (returns `MISSING_PACKAGE` if absent) |
 | [python-monte-carlo-simulator](https://github.com/MartinCastroAlvarez/python-monte-carlo-simulator) | NumPy/pandas-focused simulator — not adopted (different API) |
 
 #### 6. Other utility packages
@@ -362,13 +362,21 @@ result = run_analysis(spec, data, context)
 | `header_row` | int | Default `0` |
 | `return_data` | bool | Default `false` — when true, some helpers add `data_records` |
 
+**Required venv packages** (install into `scripting.python_venv_path`; no in-code fallbacks):
+
+```bash
+pip install numpy pandas scipy scikit-learn statsmodels ydata-profiling pandas-montecarlo
+```
+
+Settings → Python **Test** reports **Data Analysis / EDA Libraries** and suggests this line when packages are missing. See [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md).
+
 **Implemented helpers:**
 
 | Helper | Purpose |
 |--------|---------|
-| `describe_data` | Extended EDA + column quality (YData Profiling when installed; pandas fallback) + optional IQR outlier counts |
+| `describe_data` | Extended EDA + column quality via **ydata-profiling** + optional IQR outlier counts |
 | `kpi_summary` | Aggregate mean/min/max/sum for selected metrics |
-| `detect_outliers` | IQR (default), z-score, or `isolation_forest` |
+| `detect_outliers` | IQR (default), z-score, or `isolation_forest` (pandas/scipy/sklearn) |
 | `quick_stats` | `QuickStats(...).tooltip()` compact metric card |
 | `format_currency` / `format_percent` | Display formatters |
 | `clean_and_prepare` | Dedupe, simple imputation |
@@ -376,11 +384,11 @@ result = run_analysis(spec, data, context)
 | `group_summary` | Group-by aggregates |
 | `compare_periods` | YoY/QoQ/MoM via resample + pct_change |
 | `correlation_matrix` | Top correlated pairs |
-| `run_regression` | statsmodels OLS or sklearn fallback |
+| `run_regression` | **statsmodels** OLS |
 | `cluster_numeric` | sklearn KMeans centroids |
-| `monte_carlo` | Series resampling simulation (`params.sims`, `params.bust`, `params.goal` on grid `data`; pandas-montecarlo when installed) |
+| `monte_carlo` | **pandas-montecarlo** resampling (`params.sims`, `params.bust`, `params.goal`) |
 
-*See [External code sources — planned FOSS replacements](#external-code-sources--planned-foss-replacements) above — interim helpers will be swapped for these libraries; WriterAgent keeps coercion + result shaping only.*
+*WriterAgent keeps coercion + result shaping; numeric work delegates to the libraries above. See [External code sources](#external-code-sources--planned-foss-replacements).*
 
 **Result contract** (compact, LLM-friendly):
 

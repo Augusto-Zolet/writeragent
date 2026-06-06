@@ -12,8 +12,15 @@ from LLM-submitted code. See docs/analysis-sub-agent.md.
 """
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any, cast
+
+import numpy as np
+import pandas as pd  # type: ignore[import-untyped]
+from scipy import stats  # type: ignore[import-untyped]
+from sklearn.cluster import KMeans  # type: ignore[import-untyped]
+from sklearn.ensemble import IsolationForest  # type: ignore[import-untyped]
 
 from plugin.scripting.analysis_coerce import CoerceResult, coerce_to_dataframe
 
@@ -21,6 +28,18 @@ log = logging.getLogger(__name__)
 
 MAX_TABLE_ROWS = 50
 MAX_COLS = 40
+
+ANALYSIS_VENV_PIP_INSTALL = (
+    "pip install numpy pandas scipy scikit-learn statsmodels ydata-profiling pandas-montecarlo"
+)
+
+_NUMERIC_PROFILE_KEYS = (
+    ("mean", "mean"),
+    ("std", "std"),
+    ("min", "min"),
+    ("max", "max"),
+    ("median", "50%"),
+)
 
 HELPER_NAMES = frozenset(
     {
@@ -42,16 +61,12 @@ HELPER_NAMES = frozenset(
 )
 
 
-def _import_pandas() -> Any:
-    import pandas as pd  # type: ignore[import-untyped]
-
-    return pd
-
-
-def _import_numpy() -> Any:
-    import numpy as np
-
-    return np
+def _missing_package_error(helper: str, package: str) -> dict[str, Any]:
+    return _error_result(
+        "MISSING_PACKAGE",
+        f"{package} is required for {helper}. Install: {ANALYSIS_VENV_PIP_INSTALL}",
+        helper=helper,
+    )
 
 
 def _table_from_df(df: Any, *, name: str, max_rows: int = MAX_TABLE_ROWS) -> dict[str, Any]:
@@ -159,7 +174,6 @@ def format_percent(values: Any, *, decimals: int = 1) -> list[str]:
 
 def _describe_columns_from_profile(
     limited: Any,
-    cols: list[Any],
     variables: dict[str, Any],
     *,
     include_outliers: bool,
@@ -167,29 +181,23 @@ def _describe_columns_from_profile(
     """Map YData Profiling variables JSON into our column summary contract."""
     column_summaries: list[dict[str, Any]] = []
     flags: list[str] = []
-    for col in cols:
-        var_info = variables.get(str(col), {})
+    for col in limited.columns:
+        col_name = str(col)
+        var_info = variables.get(col_name, {})
         summary: dict[str, Any] = {
-            "name": str(col),
+            "name": col_name,
             "dtype": str(limited[col].dtype),
             "missing_pct": round(float(var_info.get("p_missing", 0.0)), 4),
             "unique_count": var_info.get("n_unique", 0),
         }
         if var_info.get("type") == "Numeric":
-            summary.update(
-                {
-                    "mean": _safe_float(var_info.get("mean")),
-                    "std": _safe_float(var_info.get("std")),
-                    "min": _safe_float(var_info.get("min")),
-                    "max": _safe_float(var_info.get("max")),
-                    "median": _safe_float(var_info.get("50%")),
-                }
-            )
+            for out_key, in_key in _NUMERIC_PROFILE_KEYS:
+                summary[out_key] = _safe_float(var_info.get(in_key))
             if include_outliers:
-                outlier_result = detect_outliers(limited, columns=[str(col)], method="iqr")
+                outlier_result = detect_outliers(limited, columns=[col_name], method="iqr")
                 outlier_count = outlier_result.get("metrics", {}).get("outlier_count", 0)
                 if outlier_count:
-                    flags.append(f"{outlier_count} outliers in {col} (IQR)")
+                    flags.append(f"{outlier_count} outliers in {col_name} (IQR)")
                     summary["outlier_count"] = outlier_count
         column_summaries.append(summary)
     return column_summaries, flags
@@ -224,26 +232,19 @@ def describe_data(
     profile_messages: list[Any] = []
 
     try:
-        import json
-
         from data_profiling import ProfileReport  # type: ignore[import-not-found, ty:unresolved-import]  # pyright: ignore[reportMissingImports]
-
-        profile = ProfileReport(limited, minimal=True, progress_bar=False)
-        report_json = json.loads(profile.to_json())
-        variables = report_json.get("variables", {})
-        profile_messages = report_json.get("messages", [])
-        column_summaries, flags = _describe_columns_from_profile(
-            limited,
-            cols,
-            variables,
-            include_outliers=include_outliers,
-        )
     except ImportError:
-        return _error_result(
-            "MISSING_PACKAGE",
-            "ydata-profiling is required for describe_data. Install: pip install ydata-profiling",
-            helper="describe_data",
-        )
+        return _missing_package_error("describe_data", "ydata-profiling")
+
+    profile = ProfileReport(limited, minimal=True, progress_bar=False)
+    report_json = json.loads(profile.to_json())
+    variables = report_json.get("variables", {})
+    profile_messages = report_json.get("messages", [])
+    column_summaries, flags = _describe_columns_from_profile(
+        limited,
+        variables,
+        include_outliers=include_outliers,
+    )
 
     for alert in profile_messages:
         if isinstance(alert, str):
@@ -336,49 +337,34 @@ def detect_outliers(
     if not numeric_cols:
         return _error_result("NO_NUMERIC_COLUMNS", "No numeric columns to analyze.", helper="detect_outliers")
 
-    np = _import_numpy()
-    pd = _import_pandas()
+    sample = df[numeric_cols].astype(float)
     mask = pd.Series(False, index=df.index)
-    per_column: dict[str, int] = {}
+    per_column: dict[str, int] = {col: 0 for col in numeric_cols}
 
     if method == "zscore":
-        from scipy import stats  # type: ignore[import-untyped]
-        for col in numeric_cols:
-            series = df[col].astype(float)
-            if series.std() == 0 or series.isna().all():
-                per_column[col] = 0
-                continue
-            z = np.abs(stats.zscore(series, nan_policy='omit'))
-            col_mask = pd.Series(z > threshold, index=series.index).fillna(False)
-            per_column[col] = int(col_mask.sum())
-            mask = mask | col_mask
+        z = np.abs(cast(Any, stats.zscore(sample.values, axis=0, nan_policy="omit")))
+        col_mask = pd.DataFrame(z > threshold, index=sample.index, columns=sample.columns).fillna(False)
+        mask = col_mask.any(axis=1)
+        per_column = {str(col): int(col_mask[col].sum()) for col in numeric_cols}
     elif method == "isolation_forest":
-        from sklearn.ensemble import IsolationForest  # type: ignore[import-untyped]
-
-        sample = df[numeric_cols].astype(float)
-        if sample.empty:
-            per_column = {col: 0 for col in numeric_cols}
-        else:
+        if not sample.empty:
+            filled = sample.fillna(sample.median())
             model = IsolationForest(random_state=42, contamination="auto")
-            preds = model.fit_predict(sample.fillna(sample.median()))
+            preds = model.fit_predict(filled)
             mask = pd.Series(preds == -1, index=df.index)
-            total = int(mask.sum())
-            for col in numeric_cols:
-                per_column[col] = total
+            outlier_rows = filled.loc[mask]
+            per_column = {col: int(outlier_rows[col].notna().sum()) for col in numeric_cols} if not outlier_rows.empty else {col: 0 for col in numeric_cols}
     else:
-        from scipy import stats  # type: ignore[import-untyped]
-        for col in numeric_cols:
-            series = df[col].astype(float)
-            iqr = stats.iqr(series, nan_policy='omit')
-            if iqr == 0 or np.isnan(iqr):
-                per_column[col] = 0
-                continue
-            q1, q3 = np.nanpercentile(series, [25, 75])
-            lower = q1 - threshold * iqr
-            upper = q3 + threshold * iqr
-            col_mask = (series < lower) | (series > upper)
-            per_column[col] = int(col_mask.sum())
-            mask = mask | col_mask
+        q1 = sample.quantile(0.25)
+        q3 = sample.quantile(0.75)
+        iqr = q3 - q1
+        zero_iqr = iqr == 0
+        lower = q1 - threshold * iqr
+        upper = q3 + threshold * iqr
+        col_mask = sample.lt(lower) | sample.gt(upper)
+        col_mask = col_mask.mul(~zero_iqr, axis=1)
+        mask = col_mask.any(axis=1)
+        per_column = {str(col): int(col_mask[col].sum()) for col in numeric_cols}
 
     outlier_rows = df.loc[mask].copy()
     outlier_rows["_outlier"] = True
@@ -386,7 +372,7 @@ def detect_outliers(
     flags = [f"{count} outliers in {col} ({method})" for col, count in per_column.items() if count]
     return _ok_result(
         "detect_outliers",
-        metrics={"outlier_count": int(mask.sum()), "method": method, "per_column": per_column},
+        metrics={"outlier_count": int(np.asarray(mask, dtype=bool).sum()), "method": method, "per_column": per_column},
         tables=[table],
         flags=flags,
         metadata=coerced.metadata,
@@ -546,7 +532,6 @@ def compare_periods(
     sheet_hint: str | None = None,
 ) -> dict[str, Any]:
     """YoY / QoQ style period-over-period change."""
-    pd = _import_pandas()
     coerced = _resolve_df(data, headers=headers, header_row=header_row, sheet_hint=sheet_hint)
     df = coerced.df.copy()
     if date_col not in df.columns or value_col not in df.columns:
@@ -644,11 +629,7 @@ def run_regression(
     try:
         import statsmodels.api as sm  # type: ignore[import-untyped]
     except ImportError:
-        return _error_result(
-            "MISSING_PACKAGE",
-            "statsmodels is required for run_regression. Install: pip install statsmodels",
-            helper="run_regression",
-        )
+        return _missing_package_error("run_regression", "statsmodels")
 
     design = sm.add_constant(x) if add_constant else x
     model = sm.OLS(y, design).fit()
@@ -687,8 +668,6 @@ def cluster_numeric(
     sheet_hint: str | None = None,
 ) -> dict[str, Any]:
     """Cluster numeric columns with sklearn KMeans."""
-    from sklearn.cluster import KMeans  # type: ignore[import-untyped]
-
     coerced = _resolve_df(data, headers=headers, header_row=header_row, sheet_hint=sheet_hint)
     df = coerced.df
     try:
@@ -743,11 +722,7 @@ def monte_carlo(
     try:
         from pandas_montecarlo import montecarlo as pmc_montecarlo  # type: ignore[import-untyped]
     except ImportError:
-        return _error_result(
-            "MISSING_PACKAGE",
-            "pandas-montecarlo is required for monte_carlo. Install: pip install pandas-montecarlo",
-            helper="monte_carlo",
-        )
+        return _missing_package_error("monte_carlo", "pandas-montecarlo")
 
     coerced = _resolve_df(data, headers=headers, header_row=header_row, sheet_hint=sheet_hint)
     df = coerced.df

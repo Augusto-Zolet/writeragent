@@ -119,6 +119,16 @@ The Solver is used for more complex optimization problems involving multiple var
 - **Goal Seek Accuracy**: Returns both `result` and `divergence`; non-zero divergence means the target was approached but not met exactly.
 - **Venv**: `analyze_data` requires a configured user Python venv with the scientific stack (see [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md)).
 
+### Required venv packages (analysis helpers)
+
+Install into the venv pointed at by `scripting.python_venv_path`:
+
+```bash
+pip install numpy pandas scipy scikit-learn statsmodels ydata-profiling pandas-montecarlo
+```
+
+Settings → Python **Test** lists **Data Analysis / EDA Libraries** and suggests this command when any package is missing. Helpers return `MISSING_PACKAGE` (not a degraded fallback) if a required library is absent.
+
 ## 6. Example Usage
 
 ### analyze_data

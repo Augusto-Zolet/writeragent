@@ -230,16 +230,24 @@ The **AST sandbox** (`LocalPythonExecutor` + `VENV_AUTHORIZED_IMPORTS`) applies 
 
 [`worker_harness.py`](../plugin/scripting/worker_harness.py) already handles non-code requests (e.g. `action: "reset_session"`). A future `action: "embed_search"` could call a trusted function **without** any user code string — same trust model, less AST overhead. Not required for MVP if the fixed stub + module pattern is enough.
 
-#### Optional venv packages (trusted analysis helpers)
+#### Required venv packages (trusted analysis helpers)
 
-The core scientific stack (`numpy`, `pandas`, `scipy`, `sklearn`, `statsmodels`) covers most [`plugin/scripting/analysis.py`](../plugin/scripting/analysis.py) helpers. Two **optional** packages improve specific helpers when installed in the user venv (checked by Settings → Python self-check / venv diagnostic):
+The 14 Calc **Analysis Helpers** in [`plugin/scripting/analysis.py`](../plugin/scripting/analysis.py) require a fixed scientific stack in the user venv. Settings → Python **Test** reports these under **Data Analysis / EDA Libraries** and prints an install line when any are missing.
 
-| Package | Install | Used by |
-|---------|---------|---------|
-| [ydata-profiling](https://github.com/ydataai/ydata-profiling) (`data_profiling`) | `pip install ydata-profiling` | `describe_data` — richer EDA via `ProfileReport`; falls back to pandas `describe()` when absent |
-| [pandas-montecarlo](https://github.com/ranaroussi/pandas-montecarlo) | `pip install pandas-montecarlo` | `monte_carlo` — series resampling simulation; falls back to an inlined MIT-licensed copy when absent |
+```bash
+pip install numpy pandas scipy scikit-learn statsmodels ydata-profiling pandas-montecarlo
+```
 
-Neither is required for WriterAgent to run; helpers degrade gracefully. See [Analysis Sub-Agent](analysis-sub-agent.md).
+| Package | Used by |
+|---------|---------|
+| `numpy`, `pandas` | All helpers (coercion, tables, aggregates) |
+| `scipy` | `detect_outliers` (IQR, z-score) |
+| `scikit-learn` | `detect_outliers` (`isolation_forest`), `cluster_numeric` |
+| [ydata-profiling](https://github.com/ydataai/ydata-profiling) (`data_profiling`) | `describe_data` |
+| `statsmodels` | `run_regression` |
+| [pandas-montecarlo](https://github.com/ranaroussi/pandas-montecarlo) | `monte_carlo` |
+
+Helpers that need a missing package return `MISSING_PACKAGE` with the install line above — there is no in-code fallback to alternate libraries. See [Analysis Sub-Agent](analysis-sub-agent.md).
 
 #### Optional venv packages (trusted vision helpers)
 

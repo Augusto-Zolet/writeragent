@@ -307,6 +307,9 @@ result = res
 # paddleocr/paddle are not whitelisted for LLM-submitted venv scripts.
 # Required for OCR: paddleocr + paddle (pip: paddlepaddle) + numpy (sci group).
 # Optional: ultralytics (detection helpers), skimage (trusted helper preprocessing).
+_ANALYSIS_INSTALL_CMD = (
+    "pip install numpy pandas scipy scikit-learn statsmodels ydata-profiling pandas-montecarlo"
+)
 _VISION_PACKAGE_KEYS = ("paddleocr", "paddle", "ultralytics", "skimage")
 _VISION_OCR_INSTALL_CMD = "pip install paddleocr paddlepaddle numpy"
 _VISION_PROBE_SCRIPT = """
@@ -389,6 +392,11 @@ def _format_self_check_success(data: dict[str, Any]) -> str:
         msg_lines.extend(format_group("Scientific Libraries", sci_list))
     if eda_list:
         msg_lines.extend(format_group("Data Analysis / EDA Libraries", eda_list))
+        analysis_incomplete = any(packages.get(k) != "present" for k in eda_list)
+        if analysis_incomplete:
+            msg_lines.append(
+                _("\nAnalysis Helpers: %(cmd)s") % {"cmd": _ANALYSIS_INSTALL_CMD}
+            )
     if ui_list:
         msg_lines.extend(format_group("UI / Monaco Libraries", ui_list))
     if vision_list:
