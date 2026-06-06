@@ -98,6 +98,20 @@ def test_blocked_import_not_on_allowlist():
     assert "not allowed" in r.get("message", "").lower() or "Import" in r.get("message", "")
 
 
+def test_sentence_transformers_import_not_deep_wrapped():
+    """Heavy embedder packages must bypass get_safe_module scanning (hangs on dir()/getattr)."""
+    st = pytest.importorskip("sentence_transformers")
+    from plugin.contrib.smolagents.local_python_executor import get_safe_module
+
+    assert get_safe_module(st, []) is st
+    r = _execute_request(
+        "from sentence_transformers import SentenceTransformer\nresult = SentenceTransformer.__name__",
+        None,
+    )
+    assert r["status"] == "ok"
+    assert r["result"] == "SentenceTransformer"
+
+
 def test_harness_main_loop_integration():
     """Harness reads and writes Pickle (subprocess smoke)."""
     harness = __import__("plugin.scripting.worker_harness", fromlist=["main"])

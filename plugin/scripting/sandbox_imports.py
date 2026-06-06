@@ -81,6 +81,8 @@ VENV_AUTHORIZED_IMPORTS: tuple[str, ...] = (
     "PyQt6.QtWebEngineWidgets",
     "qtpy",
     "plugin.scripting.payload_codec",
+    "sentence_transformers",
+    "sentence_transformers.*",
 )
 
 # In-process LO embedded sandbox (execute_python_script) — stdlib-only extras beyond BASE_BUILTIN_MODULES.

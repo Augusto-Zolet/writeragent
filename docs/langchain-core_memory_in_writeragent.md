@@ -39,9 +39,9 @@ isProject: false
 | smolagents isolation | `web_research`, `librarian_onboarding` |
 | Long-term user memory | `upsert_memory` → `USER.md` JSON; **main chat does not auto-inject** (librarian does) |
 | Summarizing memory | **Not implemented** |
-| RAG / vector recall | **Not implemented** — see [vector-search-design.md](vector-search-design.md) |
+| RAG / corpus embeddings index | **Not implemented** — see [embeddings.md](embeddings.md) (cross-doc find, not in-doc excerpt) |
 
-Broader phased plan (embedding client, RAG, deprioritized LangChain agent): [langchain-plan.md](langchain-plan.md).
+Broader phased plan (embedding client, RAG, deprioritized LangChain agent): [langchain-plan.md](langchain-plan.md). Embeddings detail: [embeddings.md](embeddings.md).
 
 ---
 
@@ -69,7 +69,7 @@ Broader phased plan (embedding client, RAG, deprioritized LangChain agent): [lan
 - **Next memory work without LangChain:**
   1. **Inject `USER.md`** into the main chat system prompt every send (Hermes read path).
   2. **Summarize** old sidebar turns when total history size threatens context limits.
-  3. **RAG** for document chunks beyond the 8k excerpt — venv subprocess + embedding API when a venv is configured; host **Cython** top-k fallback when not ([vector-search-design.md](vector-search-design.md), [cython-extension.md](cython-extension.md)).
+  3. **Embeddings / corpus index** — outer document_research semantic find (locators only, no FTS double-cache) — see [embeddings.md](embeddings.md).
   4. Optional **background reviewer** to write `USER.md` without expanding the main tool schema ([agent-memory-and-skills.md](agent-memory-and-skills.md)).
 
 ---

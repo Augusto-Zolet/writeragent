@@ -1299,7 +1299,19 @@ def get_safe_module(raw_module, authorized_imports, visited=None):
     # We bypass wrapping/scanning for well-known heavy libraries or standard modules.
     name = getattr(raw_module, "__name__", "")
     if name and (
-        name.startswith(("numpy", "matplotlib", "pandas", "PIL", "scipy", "kiwisolver", "mpl_toolkits", "matplotlib."))
+        name.startswith(
+            (
+                "numpy",
+                "matplotlib",
+                "pandas",
+                "PIL",
+                "scipy",
+                "kiwisolver",
+                "mpl_toolkits",
+                "matplotlib.",
+                "sentence_transformers",
+            )
+        )
         or name in ("math", "random", "datetime", "re", "collections", "itertools", "functools", "json", "time", "os", "sys")
     ):
         return raw_module

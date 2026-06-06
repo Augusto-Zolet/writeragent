@@ -33,11 +33,10 @@ Prioritized by leverage vs. complexity. **Do not** re-implement Phases 1–2 via
 |----------|------|----------------|-------------------|
 | **1** | **Inject `USER.md` into main chat** (Hermes-style read path) | Model sees prefs without `upsert_memory` / `read` calls; librarian already injects for onboarding only | Append `[USER PROFILE]` block in `get_chat_system_prompt_for_document` or `set_system_context`; keep `upsert_memory` for writes |
 | **2** | **Chat history summarization** (old Phase 3) | Very long sidebar sessions can exceed model context even when document excerpt is capped at 8k | Token/char budget on `session.messages`; when over threshold, one summarizer LLM call replaces oldest turns with a single system/assistant summary message (persist via `history_db`) |
-| **3** | **Embedding HTTP client** (old Phase 4, inference half) | Same providers as chat (OpenRouter / Together / Ollama); no new pip deps in LO | Small module next to `LlmClient`; optional `embedding_model` config key (mirror `image_model`) |
-| **4** | **Document RAG** (old Phase 4, retrieval half) | 8k-char excerpt misses distant sections in long docs | Chunking + vector index — venv + `sqlite-vec` when configured; host **Cython** top-k when not ([vector-search-design.md](vector-search-design.md), [cython-extension.md](cython-extension.md)) |
-| **5** | **Hybrid keyword + vector search** | Embeddings miss exact tokens (SKUs, acronyms) | SQLite FTS5 on host; fuse with vector ranks (RRF) in venv worker or Cython/stdlib fallback |
-| **6** | **Background memory reviewer** | Passive “should we save this?” without burdening main tool loop | Optional second LLM pass after reply (Hermes pattern); uses `MemoryStore` in code, not extra main-chat tools |
-| **7** | **Skills tools** | Procedures on disk; guidance exists in constants | Register [`plugin/chatbot/skills.py`](../plugin/chatbot/skills.py) when ready; optional index injection like memory |
+| **3** | **Local embedder + routing** | MVP: `sentence-transformers` in venv; cloud HTTP tier-two | See [embeddings.md](embeddings.md) — Phase A bench + `embedding_client.py` |
+| **4** | **Document embeddings index** (old Phase 4, retrieval) | Outer document_research: semantic find instead of grep; minimal locator cache | See [embeddings.md](embeddings.md) |
+| **5** | **Background memory reviewer** | Passive “should we save this?” without burdening main tool loop | Optional second LLM pass after reply (Hermes pattern); uses `MemoryStore` in code, not extra main-chat tools |
+| **6** | **Skills tools** | Procedures on disk; guidance exists in constants | Register [`plugin/chatbot/skills.py`](../plugin/chatbot/skills.py) when ready; optional index injection like memory |
 | **Low** | **Full `langchain-core` integration** | Runnable chains, community vendoring | Only if you want LangChain ecosystem interop; duplicates working `ChatSession` + `tool_loop` |
 
 **Explicitly deprioritized:** Replacing `tool_loop.py` with LangChain `create_tool_calling_agent` / `AgentExecutor` — current FSM, streaming, and UNO drain are tightly coupled to the custom loop.
@@ -81,61 +80,11 @@ Prioritized by leverage vs. complexity. **Do not** re-implement Phases 1–2 via
 - **Config Updates**:
   - Add settings for `memory_strategy` (Buffer vs. Summary) and `max_memory_tokens`.(
 
-### Phase 4: Long-Term Document Memory (RAG) — **NEXT (see vector-search-design.md)**
-**Objective**: Enable the AI to recall specific edits, user preferences, or distant sections of a very large document.
+### Phase 4: Long-Term Document Memory (RAG) — **NEXT (see embeddings.md)**
 
-> **2026-06 decision:** Run **vector math and `sqlite-vec` in the user venv subprocess** (same bridge as `run_venv_python_script`), not in LibreOffice’s embedded interpreter. Host process keeps **stdlib SQLite** for chunk metadata / FTS5 and calls the **embedding API** over HTTP. Details: [vector-search-design.md § Recommended stack](vector-search-design.md#recommended-stack-2026-06). Vendoring `sqlite-vec` into the OXT is **not** recommended (platform wheels, `enable_load_extension` gaps on macOS, SQLite version coupling).
+**Objective**: Enable cross-document find for **document_research** (outer agent) and optional in-document RAG for huge single files.
 
-- **Vector Store — tiered**:
-  - **With venv (recommended):** NumPy batch dot products and/or **`pip install sqlite-vec`** inside the user venv; index file lives under the config dir next to `writeragent_history.db`.
-  - **No venv — host Cython (available):** streaming top-k cosine/dot-product over a binary float32 sidecar — same contrib wheel matrix as audio / `writeragent_vec` ([cython-extension.md](cython-extension.md)). No NumPy in LO; stdlib Python fallback when the tagged `.so` is missing.
-  - **No venv — last resort:** pure-Python `struct` loop (slow beyond ~1k chunks).
-  - **Do not** import NumPy or load `sqlite-vec` in-process in LibreOffice — ABI and extension-loading constraints are documented in [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md).
-  - **Optional — in-memory ANN:** `hnsw-lite` in the venv only when the working set is a bounded “recent N days” subset; persist vectors in sqlite-vec or binary+JSON, rebuild graph on load.
-- **Embeddings**: Prefer **embedding APIs from the same providers** WriterAgent already uses, so RAG works with no extra dependencies and the same credentials:
-  - **OpenRouter**: `POST https://openrouter.ai/api/v1/embeddings` with the same API key as chat; `model` selects the embedding model (list via models API).
-  - **Together AI**: `POST {endpoint}/embeddings` (e.g. `https://api.together.xyz/v1/embeddings`), OpenAI-compatible; same API key; models include BGE, M2-BERT (2k/8k/32k context).
-  - **Ollama**: `POST {ollama_base}/api/embed` (e.g. `http://localhost:11434/api/embed`); no key; `model` e.g. `nomic-embed-text`, `embeddinggemma`, `all-minilm`.
-- Implement a small **embedding client** that, given current `get_api_config(ctx)` (or equivalent) and an optional `embedding_model` config key, dispatches to the correct URL and payload (OpenRouter vs Together vs Ollama) and returns vectors. The vendored vector store accepts this as the embedding callable. **Fallback**: a small local embedder (e.g. sentence-transformers in venv) for offline use when no embedding API is configured.
-- **Retrieval Augmented Generation**:
-  - Build a retriever on top of the vendored store (same interface as LangChain’s `as_retriever()`: take a query, return top-k documents). Inject retrieved snippets into the chat prompt so the AI can answer about distant document parts.
-
-#### Embedding APIs from existing providers
-
-Many embedding models are available through the same gateways WriterAgent already uses for chat. Using them for Phase 4 RAG avoids extra dependencies and reuses endpoint + API key.
-
-- **OpenRouter**
-  - Endpoint: `POST https://openrouter.ai/api/v1/embeddings`.
-  - Same API key as chat. Request: `model` (embedding model id), `input` (string or array of strings).
-  - Optional: `dimensions`, `encoding_format`, `input_type`, `provider`.
-  - Embedding models are listed via OpenRouter's models API.
-- **Together AI**
-  - Endpoint: `POST https://api.together.xyz/v1/embeddings` (OpenAI-compatible).
-  - Same API key as chat.
-  - Models: e.g. BAAI/bge-large-en-v1.5, BAAI/bge-base-en-v1.5, WhereIsAI/UAE-Large-V1, togethercomputer/m2-bert-80M-8k-retrieval (and 2k/32k).
-  - When the user's config endpoint is Together's base URL, use `endpoint + "/embeddings"` with the same key.
-- **Ollama**
-  - Endpoint: `POST {base}/api/embed` (e.g. `http://localhost:11434/api/embed`).
-  - No API key. Body: `model`, `input`; optional `truncate`, `dimensions`, `keep_alive`.
-  - Recommended models: `all-minilm`, `nomic-embed-text`, `embeddinggemma`.
-  - Same host as chat when Ollama is used locally; only path and payload differ.
-- **Config**
-  - Reuse existing endpoint and API key from `get_api_config(ctx)` where applicable.
-  - Add an optional **embedding model** setting (e.g. `embedding_model` and `embedding_model_lru`), analogous to `image_model` / `image_model_lru`, so the user can choose the embedding model per provider.
-  - Default behavior: when the configured endpoint is OpenRouter, Together, or Ollama, use the embedding API above; otherwise fall back to a local embedder if available.
-- **Local / offline**
-  - Keep the existing "small local embedder" option (e.g. sentence-transformers in a venv) for users without an embedding API or for offline use.
-
-#### Persistence for the Vector Store
-
-**Persistence options (stdlib only, no NumPy):**
-
-- **JSON only**: Simple and human-readable; good for small stores (hundreds of chunks). For large stores, file size and load/save time grow quickly. **Use for**: MVP or when document chunks are limited.
-- **Binary vectors + JSON (recommended, stdlib only)**: **Vectors**: one file, e.g. header `[n, dim]` (2 × uint32), then `n` × `dim` × 4 bytes (float32 via `struct.pack('<f', x)`). **Text/metadata**: separate JSON keyed by id. Allows **streaming search**: read the vector file sequentially, unpack with `struct.unpack`, compute cosine in pure Python, maintain top-k heap — no need to load the full dataset into RAM. Optional **offset index** (id → byte offset) for "get by id".
-
-**Index vs full load**: With an **in-memory** store we load the whole dataset (or subset) into RAM and build the index at load time. For a **year of conversations** we avoid that by **streaming search**: store vectors in a binary file; on query, read sequentially, compute similarity (pure Python or NumPy when available), keep a running top-k heap — memory O(k), never load all data. Pure-Python similarity over many vectors will be slow; when we allow a system/venv NumPy dependency, use it for these calculations. Optional offset index (id → byte offset) for random access. Support **two modes**: (1) **Streaming** for large stores (binary file + JSON text/metadata); (2) **In-memory** for "recent only" (load subset into dict or vendored HNSW).
-
-**Libraries/code to grab**: (1) **langchain_core.vectorstores.in_memory**: dump/load pattern; replace body with our binary+JSON and optional streaming. (2) **hnsw-lite**: copy HNSW graph logic, replace distance with pure-Python cosine for optional in-memory ANN without NumPy. (3) **langchain_community.vectorstores.sklearn**: serializer pattern `save(data)` / `load()` / `extension()`; implement `BinaryVectorSerializer` (struct + JSON).
+> **Canonical plan:** [embeddings.md](embeddings.md) — **one minimal index** (vectors + locators); outer document_research `search_embeddings`; **MVP local embed** via `sentence-transformers` in venv; cloud APIs tier-two; ~60 s incremental maintenance.
 
 
 ### Phase 5: Agentic Workflows & Multi-Step Reasoning
@@ -152,7 +101,7 @@ Many embedding models are available through the same gateways WriterAgent alread
 **`sqlite3` is part of the Python standard library** on all major OSes (Windows, macOS, Linux) in normal CPython builds — no `pip install` required. That opens several storage options without adding dependencies:
 
 - **Phase 2 (persistent chat history)**: SQLite is a natural fit for conversation history (e.g. one table per document URL, or a single DB with a doc key). No extra dependency.
-- **Phase 4 (RAG)**: Stdlib SQLite does **not** provide vector similarity search (no sqlite-vector), so we still use binary vectors + JSON (or streaming search) for embeddings. We can still use SQLite for **metadata and chunk text** (e.g. id, document URL, chunk text, timestamps) and keep vectors in a separate binary file keyed by id — or use SQLite as the primary store for everything except the vector math. So SQLite can still be helpful for structured persistence even when the vector store itself is custom.
+- **Phase 4 (RAG / embeddings)**: Stdlib SQLite does **not** provide vector similarity search. Use SQLite for chunk metadata and FTS5; keep vectors in a float32 sidecar or sqlite-vec in the user venv. See [embeddings.md](embeddings.md).
 
 Keeping this in mind makes it easier to choose stdlib-friendly storage (e.g. SQLite for history and RAG metadata) without pulling in heavier backends.
 
@@ -195,87 +144,13 @@ While we don't need these immediately for the core LibreOffice integration, the 
 ## Architecture Decision: Custom Wrapper vs. Provider Packages
 We will proceed with writing a custom LangChain wrapper (`WriterAgentLangChainModel`) around our existing `LlmClient` rather than importing heavy provider packages like `langchain-openai` or `langchain-ollama`. WriterAgent runs in LibreOffice's constrained Python environment; keeping dependencies minimal (just `langchain-core`) is critical to avoid bloat and cross-platform installation issues, while allowing us to keep our custom UI streaming loops and connection management.
 
-For Phase 4 (RAG), the **vector store is tiered** (see [vector-search-design.md § Recommended stack](vector-search-design.md#recommended-stack-2026-06)): **venv + `sqlite-vec`** for heavy search; **host Cython** (`writeragent_vec_search` or similar) for streaming top-k when no venv — same contrib ABI matrix as [cython-extension.md](cython-extension.md); pure-Python last resort. Persistence: binary float32 sidecar + stdlib SQLite for chunk metadata/FTS5. Optional: `hnsw-lite` in venv for bounded in-RAM ANN. No Chroma, FAISS, or in-process `sqlite-vec` in LO. Embeddings via existing providers (OpenRouter, Together, Ollama) or local embedder in venv.
+For Phase 4 (embeddings / RAG), see [embeddings.md](embeddings.md): profile-first search (host Cython `top_k_dot`, venv sqlite-vec/NumPy, stdlib fallback), binary float32 sidecar + SQLite metadata, optional HNSW in venv. No Chroma, FAISS, or in-process sqlite-vec in LO.
 
 ---
 
 ## Appendix: HNSW and hnsw-lite
 
-This section explains the HNSW algorithm and the hnsw-lite library, and gives a short tutorial. It supports Phase 4’s optional in-memory index for faster approximate search.
-
-### What is HNSW?
-
-**HNSW** (Hierarchical Navigable Small World) is an algorithm for **approximate nearest neighbor (ANN)** search in high-dimensional vector spaces. It is described in Malkov & Yashunin, “Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs” (IEEE TPAMI, 2018).
-
-- **Problem**: Given many vectors (e.g. embeddings of document chunks) and a query vector, find the k vectors closest to the query. A naive linear scan is O(n) per query; for millions of vectors this is too slow.
-- **Idea**: Build a **graph** where each vector is a node and edges connect “nearby” vectors. The graph has the **small world** property: you can reach any node in a small number of hops. Add **hierarchy** (multiple layers, like skip lists): top layers have long-range links for fast coarse search; bottom layer has fine-grained neighborhoods. Search starts at the top, narrows in, then refines at the bottom.
-- **Trade-off**: Search is **approximate** — you get the true k nearest neighbors only with some probability (recall). In practice, recall is often 95%+ with sub-millisecond query time and O(log n) scaling.
-- **Parameters**: (1) **M** — max number of connections per node; higher M → better recall, more memory and slower. (2) **ef_construction** — size of the candidate list during index build; higher → better graph quality, slower build. (3) **ef_search** (at query time in some impls) — how many candidates to consider during search; higher → better recall, slower query.
-
-HNSW is used in many vector DBs (e.g. Pinecone, Weaviate, Qdrant) and libraries (e.g. hnswlib, nmslib).
-
-### What is hnsw-lite?
-
-**hnsw-lite** is a **pure Python** implementation of HNSW: no C/C++ extensions. It is lightweight and easy to vendor or depend on.
-
-- **PyPI**: `pip install hnsw-lite`
-- **Dependency**: Declares NumPy (used for distance calculations). For a zero-NumPy setup we could vendor it and replace the distance layer with pure-Python cosine.
-- **Features**: Cosine and Euclidean distance; optional metadata per vector; configurable M and ef_construction.
-- **API**: Build an index with `insert(vector, metadata)`, then run `knn_search(query_node, k)` to get k approximate nearest neighbors. Vectors are Python lists (or NumPy arrays when NumPy is used).
-
-### Tutorial: using hnsw-lite
-
-**1. Install and create an index**
-
-```python
-# pip install hnsw-lite
-from hnsw import HNSW
-from hnsw.node import Node
-
-# space: "cosine" or "euclidean"
-# M: max connections per node (e.g. 16); higher = better recall, more memory
-# ef_construction: build-time quality (e.g. 200); higher = better graph, slower build
-hnsw = HNSW(space="cosine", M=16, ef_construction=200)
-```
-
-**2. Insert vectors (e.g. document chunk embeddings)**
-
-```python
-# Each vector is a list of floats (embedding dimension, e.g. 384 or 768)
-vectors = [
-    [0.1, 0.2, ...],  # chunk 1
-    [0.3, 0.1, ...],  # chunk 2
-    # ...
-]
-for i, vec in enumerate(vectors):
-    hnsw.insert(vec, {"id": i, "text": "Snippet of document chunk..."})
-```
-
-**3. Query for nearest neighbors**
-
-```python
-query_embedding = [0.15, 0.18, ...]  # same dimension as stored vectors
-query_node = Node(query_embedding, level=0)
-k = 5
-results = hnsw.knn_search(query_node, k)
-
-# results: list of (distance, node) — note distances may be negated (check library)
-for dist, node in results:
-    print(node.metadata["id"], node.metadata["text"][:50])
-```
-
-**4. Tuning**
-
-- **M=8–12**: Faster, lower recall; good for speed-critical or small datasets.
-- **M=15–20**: Balanced; good default for most uses.
-- **M=25–40**: Higher recall, slower and more memory.
-- **ef_construction=200**: Solid default; increase (e.g. 300–500) for better graph quality if build time is acceptable.
-
-### How this fits the WriterAgent plan
-
-- **When to use**: For the **in-memory index** path in Phase 4: when we load a subset of vectors (e.g. “recent 30 days”) into RAM and want **fast approximate search** instead of a linear scan. We can vendor hnsw-lite (or depend on it in a venv with NumPy) and use it as the in-memory index; use NumPy for distance when available, pure-Python fallback when not.
-- **Persistence**: hnsw-lite does not persist the graph by default. We would need to implement save/load (e.g. serialize the graph and metadata to our binary+JSON format) or build the index on load from our stored vectors.
-- **Streaming vs HNSW**: For a **year of conversations** we do **streaming search** (no full load) and do not use HNSW for that path. HNSW is for the **loaded subset** path where we have a bounded number of vectors in memory and want O(log n) approximate search.
+Moved to [embeddings.md — Appendix: HNSW and hnsw-lite](embeddings.md#appendix-hnsw-and-hnsw-lite) (optional in-venv ANN for bounded in-RAM subsets).
 
 ## Verification Plan
 ### Automated & Manual Verification

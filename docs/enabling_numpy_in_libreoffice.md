@@ -12,6 +12,7 @@ For a short executive summary, see [WriterAgent architecture — Scientific Pyth
 4. [Architecture](#4-architecture)
    - [Linux Cross-Process IPC Performance](#linux-cross-process-ipc-performance)
 5. [Developer reference](#5-developer-reference)
+   - [Trusted extension code in the venv](#trusted-extension-code-in-the-venv)
 6. [The `=PYTHON()` Calc function](#6-the-python-calc-function) <!-- anchor: the-python-calc-function -->
    - [Empty cells vs NaN](#empty-cells-vs-nan)
    - [Calc formula lexer quirks (inline code)](#calc-formula-lexer-quirks-inline-code)
@@ -188,6 +189,7 @@ plugin/
 │   ├── worker_harness.py         # Stdin/stdout loop in venv (child entry)
 │   ├── venv_sandbox.py           # LocalPythonExecutor + VENV_AUTHORIZED_IMPORTS
 │   ├── payload_codec.py          # split_grid pack/unpack (host stdlib / child NumPy)
+│   ├── embeddings_index.py       # (planned) vec0 + encode/search RPC — trusted, not LLM sandbox
 │   ├── editor_host.py            # Monaco spawn + pipe bridge
 │   ├── editor_main.py            # Monaco child entry (pywebview)
 │   ├── editor_ipc.py             # Editor pickle protocol 5 + diagnostics
@@ -265,6 +267,44 @@ Prompt text is generated from [`plugin/scripting/import_policy.py`](../plugin/sc
 | **Common not-whitelisted** | `requests`, `urllib`, `http`, `httpx`, `ssl`, `pickle`, `sqlite3`, `logging`, `importlib`, `ctypes`, `threading`, … |
 
 **In-process** [`execute_python_script`](../plugin/calc/python_executor.py) uses a smaller stdlib-only sandbox in LibreOffice’s embedded Python (no NumPy/pandas).
+
+### Trusted extension code in the venv {#trusted-extension-code-in-the-venv}
+
+The **AST sandbox** (`LocalPythonExecutor` + `VENV_AUTHORIZED_IMPORTS`) applies only to **user-submitted Python source** — LLM [`run_venv_python_script`](../plugin/calc/venv_python.py), Calc **`=PYTHON()`**, Monaco “Run script”, and similar. It is **not** a blanket restriction on everything that runs inside the warm venv child process.
+
+**WriterAgent extension code** can use the full venv interpreter (including `open()`, `sqlite3`, `sqlite_vec.load()`, and other modules blocked for LLM scripts) when implemented as **shipped, reviewed modules** under `plugin/scripting/`, invoked from the **LibreOffice host** — not from LLM-generated strings.
+
+| Layer | Interpreter | Sandbox? | Typical use |
+|-------|-------------|----------|-------------|
+| **LibreOffice host** | Embedded Python in-process | No NumPy; stdlib + UNO | UNO, config, chunk extract, **`sqlite3` locator rows**, enqueue index work |
+| **User venv worker** | User’s venv subprocess | **Yes** for user `code` strings | `=PYTHON()`, `run_venv_python_script` |
+| **Trusted venv modules** | Same subprocess | **No** (normal CPython inside the module) | [`payload_codec.py`](../plugin/scripting/payload_codec.py), future `embeddings_index.py`, encode/search RPC |
+
+#### How trusted venv code runs
+
+1. **Ship a normal module** under `plugin/scripting/` (e.g. [`payload_codec.py`](../plugin/scripting/payload_codec.py) today; `plugin.scripting.embeddings_index` planned for [embeddings](embeddings.md)).
+2. **Host calls** [`run_code_in_user_venv`](../plugin/scripting/venv_worker.py) with a **fixed stub** string — not LLM output — for example:
+
+   ```python
+   from plugin.scripting.embeddings_index import knn_search
+   result = knn_search(db_path, query_vec, k)
+   ```
+
+3. The harness still routes the request through [`run_sandboxed_code`](../plugin/scripting/venv_sandbox.py), but only the **stub** is AST-walked. The **imported module** executes as ordinary Python bytecode — filesystem access, `sqlite3`, sqlite-vec, etc. live **inside that module**, not in user scripts.
+
+4. **Optional whitelist entry** — add `plugin.scripting.embeddings_index` (or similar) to [`VENV_AUTHORIZED_IMPORTS`](../plugin/scripting/sandbox_imports.py) so the stub’s `import` passes static policy. **Do not** add `sqlite3`, `os`, or `sqlite_vec` to the LLM import list; keep those imports inside the trusted module only.
+
+5. **IPC for bulk data** — pass paragraph lists, query vectors, and `k` via worker **`data=`** (Pickle5) where possible so the stub stays tiny; trusted code may still `open(db_path)` for `index.db` / vec0 maintenance.
+
+#### What not to do
+
+- **Do not** tell the LLM to `open()` index paths or import `sqlite3` — blocked by design ([import policy](#import-policy-for-llm-agents)).
+- **Do not** widen the LLM whitelist to “fix” embeddings; add a trusted module instead.
+- **Do not** run sqlite-vec or NumPy encode in LibreOffice’s embedded interpreter — stay on the venv side ([embeddings](embeddings.md#why-numpy-stays-in-the-venv)).
+
+#### Future: harness `action` dispatch
+
+[`worker_harness.py`](../plugin/scripting/worker_harness.py) already handles non-code requests (e.g. `action: "reset_session"`). A future `action: "embed_search"` could call a trusted function **without** any user code string — same trust model, less AST overhead. Not required for MVP if the fixed stub + module pattern is enough.
 
 ### Warm process, fresh state
 
