@@ -21,6 +21,7 @@ This is the focused evolution of the high-level analysis ideas previously sketch
 - [smol-main-chat-tool-architecture.md](smol-main-chat-tool-architecture.md): sub-agents (librarian, specialized) often run via smol/ ReAct for focused tasks.
 - Chat / tool loop for main agent coordination.
 - [python-in-excel-dev-plan.md](python-in-excel-dev-plan.md) and [python-in-excel-ideas.md](python-in-excel-ideas.md): Detailed mapping of Microsoft Python-in-Excel features (we copy useful *features* such as curated init-script helpers, rich object previews, strong data handoff for tables/named ranges/headers, AI-assisted workflows, etc., while keeping our local venv + explicit `data`/`result` architecture).
+- **TaskWeaver** (`taskweaver/`, [microsoft/TaskWeaver](https://github.com/microsoft/TaskWeaver)): agent orchestration reference (plugin-only mode, eval harness, plugin selection)—**not** analysis math; shipped plugins are weak demos. See [External code sources §7](#7-agent-orchestration--microsoft-taskweaver-taskweaver).
 
 ---
 
@@ -241,12 +242,100 @@ Existing Calc analysis (Goal Seek/Solver in `calc-analysis-tools.md`) can be exp
 
 ## Implementation notes and phasing (Code-Grounded)
 
-**Trusted module + standard helpers (Phase 0 — implemented)** — [`plugin/scripting/analysis.py`](../plugin/scripting/analysis.py) + [`plugin/scripting/analysis_coerce.py`](../plugin/scripting/analysis_coerce.py). Host RPC: [`plugin/framework/client/analysis_client.py`](../plugin/framework/client/analysis_client.py) (`run_trusted_analysis` re-export). Follows the [`embeddings_index.py`](../plugin/scripting/embeddings_index.py) pattern: fixed venv stub, unsandboxed numpy/pandas/sklearn/statsmodels stack.
+**Trusted module + standard helpers (Phase 0 — implemented, interim)** — [`plugin/scripting/analysis.py`](../plugin/scripting/analysis.py) + [`plugin/scripting/analysis_coerce.py`](../plugin/scripting/analysis_coerce.py). Host RPC: [`plugin/framework/client/analysis_client.py`](../plugin/framework/client/analysis_client.py) (`run_trusted_analysis` re-export). Follows the [`embeddings_index.py`](../plugin/scripting/embeddings_index.py) pattern: fixed venv stub, unsandboxed numpy/pandas/sklearn/statsmodels stack. Helper *names* and the result contract stay stable; **implementations will be replaced** with battle-tested FOSS (see External code sources below).
 
-**Borrowed from (ideas, not vendored deps):**
-- Microsoft Python-in-Excel init-script helpers (`kpi_summary`, `format_currency`) — [python-in-excel-ideas.md](python-in-excel-ideas.md)
-- `QuickStats` card layout — adapted from [community gist](https://gist.github.com/summerofgeorge/646140d175ada739efd2d57b5cea9a5e)
-- JSON-serializable EDA stats — inspired by [DataPrep compute_* pattern](https://docs.dataprep.ai/user_guide/eda/introduction.html) (no `dataprep` dependency)
+### External code sources — planned FOSS replacements
+
+Phase 0 helpers in [`plugin/scripting/analysis.py`](../plugin/scripting/analysis.py) are **interim glue**: they prove the `spec` → trusted venv → compact result contract, but much of the logic is reimplemented in-house. **The plan is to replace those helpers with battle-tested FOSS implementations**—calling them from the user venv (pandas, SciPy, scikit-learn, statsmodels, and targeted packages below; see [`sandbox_imports.py`](../plugin/scripting/sandbox_imports.py)) or adapting their code where a dependency is too heavy. WriterAgent keeps the **wrapper layer** (coercion, size limits, LLM-friendly JSON); the numeric/EDA work moves to libraries that are already used in production everywhere.
+
+#### 1. Core foundation (pandas / SciPy / scikit-learn / statsmodels)
+
+These are the primary replacements: stop reimplementing what these stacks already do well.
+
+| Our helpers | Delegate to |
+|-------------|-------------|
+| `describe_data`, `clean_and_prepare`, `pivot_aggregate`, `group_summary`, `correlation_matrix`, `compare_periods` | **pandas**: `describe()`, `pivot_table()`, `groupby().agg()`, `corr()`, cleaning |
+| `run_regression` | **statsmodels** OLS (primary); **sklearn** fallback |
+| `cluster_numeric` | **sklearn** KMeans |
+| `detect_outliers` (IQR / z-score paths) | **pandas** / **scipy.stats** vectorized patterns |
+
+Prefer calling library APIs directly; copy snippets only when there is no stable package API.
+
+#### 2. EDA — `describe_data` & `quick_stats`
+
+Planned replacements for custom EDA / card layout code.
+
+| Source | Notes |
+|--------|-------|
+| [YData Profiling](https://ydata-profiling.ydata.ai/) (formerly Pandas-Profiling) | **Implemented** in `describe_data` when `data_profiling` is installed; pandas fallback otherwise |
+| Sweetviz, AutoViz, summarytools | Lighter quick-summary alternatives |
+| [DataPrep `compute_*`](https://docs.dataprep.ai/user_guide/eda/introduction.html) | JSON-serializable EDA stats pattern (no `dataprep` dependency) |
+| Microsoft Python-in-Excel init helpers | [`python-in-excel-ideas.md`](python-in-excel-ideas.md) — `kpi_summary`, `format_currency` |
+| [QuickStats gist](https://gist.github.com/summerofgeorge/646140d175ada739efd2d57b5cea9a5e) | Card layout for `quick_stats` |
+
+#### 3. Excel-like functions — `format_*`, `pivot_aggregate`, etc.
+
+Planned replacements for custom formatting and pivot helpers.
+
+| Source | Notes |
+|--------|-------|
+| [excel_in_python](https://github.com/ncalm/excel_in_python) (ncalm) | Lightweight Excel functions in pandas (XLOOKUP, etc.) — close match for formatting/pivot helpers |
+| xlcalculator | Parses and evaluates real Excel formulas in Python |
+| Mito, FlyingKoala | Excel → pandas bridges (UI/codegen patterns, not runtime deps) |
+
+#### 4. Outlier detection — `detect_outliers`
+
+Replace hand-rolled IQR/z-score/isolation logic with vetted implementations where possible.
+
+| Source | Notes |
+|--------|-------|
+| Current impl (interim) | IQR, z-score, `IsolationForest` — keep sklearn path; replace custom IQR/z-score with pandas/scipy or PandasVault patterns |
+| [PandasVault](https://github.com/firmai/pandasvault) | Advanced pandas utilities including outlier helpers |
+| scikit-learn | `IsolationForest`, `EllipticEnvelope`, etc. |
+| Community recipes | e.g. GitHub `vbelz/Outliers_detection`; pandas issues / Stack Overflow vectorized IQR/z-score |
+
+#### 5. Monte Carlo — `monte_carlo`
+
+| Source | Notes |
+|--------|-------|
+| **Implemented** | [`pandas-montecarlo`](https://github.com/ranaroussi/pandas-montecarlo) resampling pattern via optional `pandas_montecarlo` import; inlined MIT fallback when absent |
+| [python-monte-carlo-simulator](https://github.com/MartinCastroAlvarez/python-monte-carlo-simulator) | NumPy/pandas-focused simulator — not adopted (different API) |
+
+#### 6. Other utility packages
+
+Useful FOSS to pull grouping/KPI/pipeline patterns into future helpers.
+
+| Source | Notes |
+|--------|-------|
+| pandastable | Tkinter table + pandas; aggregate/pivot UX ideas |
+| PipeFrame (and similar pipeline wrappers) | Cleaner method-chaining patterns |
+| “PowerfulPandas” / EDA helper collections on GitHub | Snippets for KPIs, grouping, etc. |
+
+#### 7. Agent orchestration — Microsoft TaskWeaver (`taskweaver/`)
+
+[TaskWeaver](https://github.com/microsoft/TaskWeaver) (MIT; local checkout under `taskweaver/`) is a **code-first data analytics agent**: Planner decomposes tasks, Code Interpreter runs Python or calls registered plugins, and a **stateful kernel** keeps DataFrames in memory across turns. Treat it as **orchestration reference**, not as a source of analysis implementations.
+
+**Analysis plugins are not worth porting.** Shipped plugins under `taskweaver/project/plugins/` are thin demos—not production-grade FOSS stats/EDA. Example: [`anomaly_detection.py`](../taskweaver/project/plugins/anomaly_detection.py) is ~50 lines of 3σ z-score on a time series; that is **weaker** than our interim `detect_outliers` (IQR, z-score, `IsolationForest`). Other plugins (`sql_pull_data`, `paper_summary`, …) lean on LangChain + cloud LLMs and do not match WriterAgent’s local-first Calc/UNO model. **Do not** substitute TaskWeaver plugins for the FOSS targets in sections 1–6 above.
+
+**Orchestration patterns worth studying or porting** (maps to analysis sub-agent + trusted helpers):
+
+| TaskWeaver piece | WriterAgent analogue | Why it matters |
+|------------------|----------------------|----------------|
+| **Plugin-only mode** (`code_interpreter_plugin_only/`) | `run_analysis(spec, …)` + “prefer helpers over raw Python” | LLM calls registered functions only—same reliability goal as trusted analysis helpers |
+| **Plugin `.py` + `.yaml` schema** (`project/plugins/*.yaml`) | Tool schemas + `spec.helper` / `params` | Typed parameters, return docs, and **`examples:`** one-liners for prompts |
+| **PluginSelector** (`code_interpreter/plugin_selection.py`) | `specialized` tier + `active_domain` | Embedding top‑k over plugin descriptions when the helper catalog grows |
+| **`auto_eval/` cases** (`calc_mean`, `timeseries_aggregate`, `anomaly_detection`, …) | Future analysis helper golden tests | YAML `task_description` + `scoring_points` + fixture CSVs—easy template for eval after FOSS swap |
+| **Artifacts** (`ctx.add_artifact`, compact `(df, description)` returns) | Result contract (`tables`, `writer_cleanup_hints`, truncated rows) | Keep chat payloads small; name side outputs for Calc write-back |
+| **Code verification** (`code_verification.py`) | [`venv_sandbox.py`](../plugin/scripting/venv_sandbox.py) | Configurable AST allow/block lists—compare if python-domain sandbox tightens |
+| **Round compression / experience** (`memory/compression.py`, `memory/experience.py`) | Experimental chat memory | Long analysis sessions—patterns only |
+
+**Do not port wholesale:** full Planner/CodeInterpreter FSM (we have tool loop + smol sub-agents), container/kernel execution (we use warm user venv + IPC—see [numpy-serialization.md](numpy-serialization.md)), Chainlit UI, or `document_retriever` (FAISS + LangChain—we have [embeddings.md](embeddings.md)).
+
+#### 8. Libraries evaluated but excluded
+
+| Library | Why excluded |
+|---------|--------------|
+| **pyjanitor** | Method-chaining ergonomics are great for humans but unneeded for RPC LLM spec calls. `clean_names()` destroys user-provided LibreOffice column names (we preserve them). Existing Calc-aware coercion (`analysis_coerce.py`) handles `#DIV/0!`, percentages, and currencies cell-by-cell better than generic pandas/pyjanitor equivalents. We stick to standard pandas for basic cleaning (`drop_duplicates`, `fillna`). |
 
 **Default Calc init-script snippet** (paste manually; not auto-injected):
 
@@ -277,7 +366,7 @@ result = run_analysis(spec, data, context)
 
 | Helper | Purpose |
 |--------|---------|
-| `describe_data` | Extended EDA + column quality + optional IQR outlier counts |
+| `describe_data` | Extended EDA + column quality (YData Profiling when installed; pandas fallback) + optional IQR outlier counts |
 | `kpi_summary` | Aggregate mean/min/max/sum for selected metrics |
 | `detect_outliers` | IQR (default), z-score, or `isolation_forest` |
 | `quick_stats` | `QuickStats(...).tooltip()` compact metric card |
@@ -289,7 +378,9 @@ result = run_analysis(spec, data, context)
 | `correlation_matrix` | Top correlated pairs |
 | `run_regression` | statsmodels OLS or sklearn fallback |
 | `cluster_numeric` | sklearn KMeans centroids |
-| `monte_carlo` | Normal perturbation percentiles |
+| `monte_carlo` | Series resampling simulation (`params.sims`, `params.bust`, `params.goal` on grid `data`; pandas-montecarlo when installed) |
+
+*See [External code sources — planned FOSS replacements](#external-code-sources--planned-foss-replacements) above — interim helpers will be swapped for these libraries; WriterAgent keeps coercion + result shaping only.*
 
 **Result contract** (compact, LLM-friendly):
 

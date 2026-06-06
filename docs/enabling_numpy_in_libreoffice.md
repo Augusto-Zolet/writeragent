@@ -230,6 +230,17 @@ The **AST sandbox** (`LocalPythonExecutor` + `VENV_AUTHORIZED_IMPORTS`) applies 
 
 [`worker_harness.py`](../plugin/scripting/worker_harness.py) already handles non-code requests (e.g. `action: "reset_session"`). A future `action: "embed_search"` could call a trusted function **without** any user code string — same trust model, less AST overhead. Not required for MVP if the fixed stub + module pattern is enough.
 
+#### Optional venv packages (trusted analysis helpers)
+
+The core scientific stack (`numpy`, `pandas`, `scipy`, `sklearn`, `statsmodels`) covers most [`plugin/scripting/analysis.py`](../plugin/scripting/analysis.py) helpers. Two **optional** packages improve specific helpers when installed in the user venv (checked by Settings → Python self-check / venv diagnostic):
+
+| Package | Install | Used by |
+|---------|---------|---------|
+| [ydata-profiling](https://github.com/ydataai/ydata-profiling) (`data_profiling`) | `pip install ydata-profiling` | `describe_data` — richer EDA via `ProfileReport`; falls back to pandas `describe()` when absent |
+| [pandas-montecarlo](https://github.com/ranaroussi/pandas-montecarlo) | `pip install pandas-montecarlo` | `monte_carlo` — series resampling simulation; falls back to an inlined MIT-licensed copy when absent |
+
+Neither is required for WriterAgent to run; helpers degrade gracefully. See [Analysis Sub-Agent](analysis-sub-agent.md).
+
 ## Trusted Extension Code Opportunities with the Full Scientific Stack
 
 The embeddings implementation (see [embeddings.md](embeddings.md)) has proven the **trusted extension code** pattern: ship normal Python modules under `plugin/scripting/` (or parallel locations for document helpers), invoke them from the LibreOffice host via tiny fixed stubs over the existing `PythonWorkerManager` / `run_code_in_user_venv` + Pickle5 `data=` path, and let the module run with the *full* power of the user's venv interpreter.

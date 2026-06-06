@@ -155,6 +155,75 @@ def format_percent(values: Any, *, decimals: int = 1) -> list[str]:
     return out
 
 
+def _describe_column_pandas(limited: Any, col: Any, *, include_outliers: bool) -> tuple[dict[str, Any], list[str]]:
+    """Pandas-only column summary when ydata-profiling is unavailable."""
+    series = limited[col]
+    col_flags: list[str] = []
+    missing_pct = float(series.isna().mean()) if len(series) else 0.0
+    summary: dict[str, Any] = {
+        "name": str(col),
+        "dtype": str(series.dtype),
+        "missing_pct": round(missing_pct, 4),
+        "unique_count": int(series.nunique(dropna=True)),
+    }
+    if str(series.dtype).startswith(("float", "int", "Int", "uint")):
+        desc = series.describe()
+        summary.update(
+            {
+                "mean": _safe_float(desc.get("mean")),
+                "std": _safe_float(desc.get("std")),
+                "min": _safe_float(desc.get("min")),
+                "max": _safe_float(desc.get("max")),
+                "median": _safe_float(series.median()),
+            }
+        )
+        if include_outliers:
+            outlier_result = detect_outliers(limited, columns=[str(col)], method="iqr")
+            outlier_count = outlier_result.get("metrics", {}).get("outlier_count", 0)
+            if outlier_count:
+                col_flags.append(f"{outlier_count} outliers in {col} (IQR)")
+                summary["outlier_count"] = outlier_count
+    return summary, col_flags
+
+
+def _describe_columns_from_profile(
+    limited: Any,
+    cols: list[Any],
+    variables: dict[str, Any],
+    *,
+    include_outliers: bool,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Map YData Profiling variables JSON into our column summary contract."""
+    column_summaries: list[dict[str, Any]] = []
+    flags: list[str] = []
+    for col in cols:
+        var_info = variables.get(str(col), {})
+        summary: dict[str, Any] = {
+            "name": str(col),
+            "dtype": str(limited[col].dtype),
+            "missing_pct": round(float(var_info.get("p_missing", 0.0)), 4),
+            "unique_count": var_info.get("n_unique", 0),
+        }
+        if var_info.get("type") == "Numeric":
+            summary.update(
+                {
+                    "mean": _safe_float(var_info.get("mean")),
+                    "std": _safe_float(var_info.get("std")),
+                    "min": _safe_float(var_info.get("min")),
+                    "max": _safe_float(var_info.get("max")),
+                    "median": _safe_float(var_info.get("50%")),
+                }
+            )
+            if include_outliers:
+                outlier_result = detect_outliers(limited, columns=[str(col)], method="iqr")
+                outlier_count = outlier_result.get("metrics", {}).get("outlier_count", 0)
+                if outlier_count:
+                    flags.append(f"{outlier_count} outliers in {col} (IQR)")
+                    summary["outlier_count"] = outlier_count
+        column_summaries.append(summary)
+    return column_summaries, flags
+
+
 def describe_data(
     data: Any,
     *,
@@ -181,34 +250,33 @@ def describe_data(
     limited = df[cols]
     column_summaries: list[dict[str, Any]] = []
     flags: list[str] = []
+    profile_messages: list[Any] = []
 
-    for col in cols:
-        series = limited[col]
-        missing_pct = float(series.isna().mean()) if len(series) else 0.0
-        summary: dict[str, Any] = {
-            "name": str(col),
-            "dtype": str(series.dtype),
-            "missing_pct": round(missing_pct, 4),
-            "unique_count": int(series.nunique(dropna=True)),
-        }
-        if str(series.dtype).startswith(("float", "int", "Int", "uint")):
-            desc = series.describe()
-            summary.update(
-                {
-                    "mean": _safe_float(desc.get("mean")),
-                    "std": _safe_float(desc.get("std")),
-                    "min": _safe_float(desc.get("min")),
-                    "max": _safe_float(desc.get("max")),
-                    "median": _safe_float(series.median()),
-                }
-            )
-            if include_outliers:
-                outlier_result = detect_outliers(limited, columns=[str(col)], method="iqr")
-                outlier_count = outlier_result.get("metrics", {}).get("outlier_count", 0)
-                if outlier_count:
-                    flags.append(f"{outlier_count} outliers in {col} (IQR)")
-                    summary["outlier_count"] = outlier_count
-        column_summaries.append(summary)
+    try:
+        import json
+
+        from data_profiling import ProfileReport
+
+        profile = ProfileReport(limited, minimal=True, progress_bar=False)
+        report_json = json.loads(profile.to_json())
+        variables = report_json.get("variables", {})
+        profile_messages = report_json.get("messages", [])
+        column_summaries, flags = _describe_columns_from_profile(
+            limited,
+            cols,
+            variables,
+            include_outliers=include_outliers,
+        )
+    except ImportError:
+        log.debug("data_profiling not installed; using pandas describe fallback")
+        for col in cols:
+            summary, col_flags = _describe_column_pandas(limited, col, include_outliers=include_outliers)
+            column_summaries.append(summary)
+            flags.extend(col_flags)
+
+    for alert in profile_messages:
+        if isinstance(alert, str):
+            flags.append(alert)
 
     stats_table = _table_from_df(limited.describe(include="all").transpose().reset_index().rename(columns={"index": "column"}), name="describe")
 
@@ -303,14 +371,14 @@ def detect_outliers(
     per_column: dict[str, int] = {}
 
     if method == "zscore":
+        from scipy import stats
         for col in numeric_cols:
             series = df[col].astype(float)
-            std = series.std()
-            if std == 0 or np.isnan(std):
+            if series.std() == 0 or series.isna().all():
                 per_column[col] = 0
                 continue
-            z = (series - series.mean()).abs() / std
-            col_mask = z > threshold
+            z = np.abs(stats.zscore(series, nan_policy='omit'))
+            col_mask = pd.Series(z > threshold, index=series.index).fillna(False)
             per_column[col] = int(col_mask.sum())
             mask = mask | col_mask
     elif method == "isolation_forest":
@@ -327,14 +395,14 @@ def detect_outliers(
             for col in numeric_cols:
                 per_column[col] = total
     else:
+        from scipy import stats
         for col in numeric_cols:
             series = df[col].astype(float)
-            q1 = series.quantile(0.25)
-            q3 = series.quantile(0.75)
-            iqr = q3 - q1
+            iqr = stats.iqr(series, nan_policy='omit')
             if iqr == 0 or np.isnan(iqr):
                 per_column[col] = 0
                 continue
+            q1, q3 = np.nanpercentile(series, [25, 75])
             lower = q1 - threshold * iqr
             upper = q3 + threshold * iqr
             col_mask = (series < lower) | (series > upper)
@@ -696,41 +764,99 @@ def cluster_numeric(
     )
 
 
+def _monte_carlo_build_frame(series: Any, sims: int) -> Any:
+    """Build resampled simulation frame; prefer pandas-montecarlo when installed."""
+    sims = max(2, min(int(sims), 1_000_000))
+    try:
+        from pandas_montecarlo import montecarlo as pmc_montecarlo  # type: ignore[import-untyped]
+
+        result = pmc_montecarlo(series, sims=sims)
+        data = getattr(result, "data", None)
+        if data is not None and hasattr(data, "cumsum"):
+            return data
+    except ImportError:
+        pass
+
+    pd = _import_pandas()
+    results = [series.values]
+    for _ in range(1, sims):
+        results.append(series.sample(frac=1).values)
+    df_mc = pd.DataFrame(results).T
+    df_mc.rename(columns={0: "original"}, inplace=True)
+    return df_mc
+
+
+def _monte_carlo_resample_simulation(series: Any, *, sims: int, bust: float, goal: float) -> tuple[Any, dict[str, Any]]:
+    """Series resampling Monte Carlo — inlined from pandas-montecarlo when package absent.
+
+    Source: https://github.com/ranaroussi/pandas-montecarlo (MIT)
+    """
+    sims = max(2, min(int(sims), 1_000_000))
+    df_mc = _monte_carlo_build_frame(series, sims)
+    cumsum = df_mc.cumsum()
+    total = cumsum.iloc[-1:].T
+    col_mins = cumsum.min(axis=0)
+    bust_threshold = abs(float(bust))
+    goal_threshold = abs(float(goal))
+
+    dd = col_mins[col_mins < 0]
+    bust_prob = float((dd <= -bust_threshold).sum() / sims) if len(dd) else 0.0
+
+    safe_cols = col_mins[col_mins > -bust_threshold]
+    if len(safe_cols):
+        nobust = cumsum[safe_cols.index].iloc[-1:]
+        goal_prob = float((nobust >= goal_threshold).sum().sum() / sims)
+    else:
+        goal_prob = 0.0
+
+    metrics = {
+        "min": float(total.min().iloc[0]),
+        "max": float(total.max().iloc[0]),
+        "mean": float(total.mean().iloc[0]),
+        "median": float(total.median().iloc[0]),
+        "std": float(total.std().iloc[0]),
+        "bust_prob": bust_prob,
+        "goal_prob": goal_prob,
+        "simulations": sims,
+    }
+    return total, metrics
+
+
 def monte_carlo(
-    base_value: float,
-    uncertainty_pct: float,
-    n: int = 10000,
+    data: Any,
     *,
-    seed: int | None = None,
+    sims: int = 100,
+    bust: float = -1.0,
+    goal: float = 0.0,
+    headers: bool = True,
+    header_row: int = 0,
+    sheet_hint: str | None = None,
 ) -> dict[str, Any]:
-    """Simple normal perturbation simulation — Excel Data Table / @RISK lite."""
-    np = _import_numpy()
-    n = max(100, min(int(n), 1_000_000))
-    rng = np.random.default_rng(seed)
-    sigma = abs(float(base_value) * float(uncertainty_pct))
-    draws = rng.normal(loc=float(base_value), scale=sigma, size=n)
-    percentiles = {
-        "p5": round(float(np.percentile(draws, 5)), 6),
-        "p50": round(float(np.percentile(draws, 50)), 6),
-        "p95": round(float(np.percentile(draws, 95)), 6),
-    }
-    hist, edges = np.histogram(draws, bins=10)
-    hist_table = {
-        "name": "histogram",
-        "columns": ["bin_start", "bin_end", "count"],
-        "rows": [[round(float(edges[i]), 6), round(float(edges[i + 1]), 6), int(hist[i])] for i in range(len(hist))],
-        "truncated": False,
-        "total_rows": len(hist),
-    }
+    """Monte Carlo simulation on a numeric series (pandas-montecarlo resampling pattern)."""
+    coerced = _resolve_df(data, headers=headers, header_row=header_row, sheet_hint=sheet_hint)
+    df = coerced.df
+
+    if df.empty:
+        return _error_result("INSUFFICIENT_DATA", "No data for monte_carlo", helper="monte_carlo")
+
+    numeric_cols = _numeric_columns(df)
+    if not numeric_cols:
+        return _error_result("NO_NUMERIC_COLUMNS", "No numeric columns for monte_carlo", helper="monte_carlo")
+
+    series = df[numeric_cols[0]].dropna()
+    if len(series) < 2:
+        return _error_result("INSUFFICIENT_DATA", "Need at least 2 data points", helper="monte_carlo")
+
+    total, metrics = _monte_carlo_resample_simulation(series, sims=sims, bust=bust, goal=goal)
+
+    total_df = total.reset_index().rename(columns={"index": "simulation", total.columns[0]: "final_value"})
+    table = _table_from_df(total_df, name="monte_carlo_totals")
+
     return _ok_result(
         "monte_carlo",
-        metrics={
-            "base_value": float(base_value),
-            "uncertainty_pct": float(uncertainty_pct),
-            "simulations": n,
-            **percentiles,
-        },
-        tables=[hist_table],
+        metrics=metrics,
+        tables=[table],
+        metadata=coerced.metadata,
     )
 
 
@@ -781,9 +907,7 @@ def _dispatch_helper(name: str, data: Any, params: dict[str, Any], *, headers: b
     if name == "cluster_numeric":
         return cluster_numeric(data, columns=params.get("columns"), n_clusters=params.get("n_clusters", 3), method=params.get("method", "kmeans"), **common)
     if name == "monte_carlo":
-        if params.get("base_value") is None or params.get("uncertainty_pct") is None:
-            return _error_result("MISSING_PARAM", "monte_carlo requires params.base_value and params.uncertainty_pct", helper=name)
-        return monte_carlo(params["base_value"], params["uncertainty_pct"], n=params.get("n", 10000), seed=params.get("seed"))
+        return monte_carlo(data, sims=params.get("sims", 100), bust=params.get("bust", -1.0), goal=params.get("goal", 0.0), **common)
     return _error_result("UNKNOWN_HELPER", f"Unknown helper {name!r}", helper=name)
 
 

@@ -6,10 +6,13 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 
 pytest.importorskip("pandas")
 pytest.importorskip("sklearn")
+pytest.importorskip("scipy")
 
 from plugin.scripting import analysis
 from plugin.scripting.analysis_coerce import coerce_to_dataframe
@@ -38,6 +41,17 @@ PIVOT_GRID = [
     ["South", "Q1", 80],
     ["South", "Q2", 90],
 ]
+
+MONTE_CARLO_GRID = [
+    ["Return"],
+    [0.05],
+    [-0.02],
+    [0.03],
+    [0.01],
+    [-0.04],
+]
+
+REGRESSION_GRID = [["x", "y"], [1, 2], [2, 4], [3, 6], [4, 8]]
 
 
 def test_coerce_headers_and_currency():
@@ -91,6 +105,36 @@ def test_describe_data_basic():
     assert result["tables"][0]["name"] == "describe"
 
 
+def test_describe_data_without_profiling():
+    import builtins
+
+    real_import = builtins.__import__
+
+    def blocked_import(name, *args, **kwargs):
+        if name == "data_profiling":
+            raise ImportError("no profiling")
+        return real_import(name, *args, **kwargs)
+
+    with patch("builtins.__import__", side_effect=blocked_import):
+        result = analysis.describe_data(SALES_GRID)
+
+    assert result["status"] == "ok"
+    sales_col = next(col for col in result["columns"] if col["name"] == "Sales")
+    assert sales_col["mean"] == pytest.approx(1166.833333, rel=1e-3)
+
+
+def test_describe_data_with_profiling():
+    import importlib.util
+
+    if importlib.util.find_spec("data_profiling") is None:
+        pytest.skip("ydata-profiling not installed")
+    result = analysis.describe_data(SALES_GRID)
+    assert result["status"] == "ok"
+    sales_col = next(col for col in result["columns"] if col["name"] == "Sales")
+    assert "missing_pct" in sales_col
+    assert sales_col.get("mean") is not None
+
+
 def test_kpi_summary():
     result = analysis.kpi_summary(SALES_GRID, ["Sales", "Units"])
     assert result["status"] == "ok"
@@ -104,6 +148,14 @@ def test_detect_outliers_iqr():
     result = analysis.detect_outliers(grid, method="iqr")
     assert result["status"] == "ok"
     assert result["metrics"]["outlier_count"] >= 1
+
+
+def test_detect_outliers_zscore():
+    grid = [["Value"]] + [[i] for i in range(1, 21)] + [[500]]
+    result = analysis.detect_outliers(grid, method="zscore", threshold=2.0)
+    assert result["status"] == "ok"
+    assert result["metrics"]["outlier_count"] >= 1
+    assert result["metrics"]["method"] == "zscore"
 
 
 def test_quick_stats_tooltip():
@@ -164,11 +216,37 @@ def test_cluster_numeric():
     assert result["metrics"]["n_clusters"] == 2
 
 
-def test_monte_carlo_percentiles():
-    result = analysis.monte_carlo(100, 0.1, n=5000, seed=42)
+def test_monte_carlo_resample_metrics():
+    result = analysis.monte_carlo(MONTE_CARLO_GRID, sims=50, bust=-0.05, goal=0.05)
     assert result["status"] == "ok"
-    assert result["metrics"]["p50"] == pytest.approx(100, rel=0.05)
-    assert result["metrics"]["p5"] < result["metrics"]["p95"]
+    metrics = result["metrics"]
+    assert metrics["simulations"] == 50
+    assert "min" in metrics
+    assert "max" in metrics
+    assert "mean" in metrics
+    assert "median" in metrics
+    assert "std" in metrics
+    assert "bust_prob" in metrics
+    assert "goal_prob" in metrics
+    assert metrics["min"] <= metrics["max"]
+    assert result["tables"][0]["name"] == "monte_carlo_totals"
+
+
+def test_monte_carlo_small_series():
+    grid = [["x"], [1], [2], [3], [4], [5]]
+    result = analysis.monte_carlo(grid, sims=10)
+    assert result["status"] == "ok"
+    assert result["metrics"]["simulations"] == 10
+
+
+def test_run_analysis_monte_carlo_dispatch():
+    result = analysis.run_analysis(
+        {"helper": "monte_carlo", "params": {"sims": 20, "bust": -0.1, "goal": 0.0}},
+        MONTE_CARLO_GRID,
+    )
+    assert result["status"] == "ok"
+    assert result["helper"] == "monte_carlo"
+    assert result["metrics"]["simulations"] == 20
 
 
 def test_run_analysis_dispatches_helper():
@@ -198,3 +276,36 @@ def test_table_row_cap():
     result = analysis.group_summary(grid, by="Region", metrics=["Sales"], aggfunc="sum")
     assert result["tables"][0]["truncated"] is False
     assert result["tables"][0]["total_rows"] <= analysis.MAX_TABLE_ROWS
+
+
+@pytest.mark.parametrize(
+    ("helper", "call", "metric_keys"),
+    [
+        (
+            "describe_data",
+            lambda: analysis.describe_data(SALES_GRID),
+            ("row_count", "col_count"),
+        ),
+        (
+            "detect_outliers",
+            lambda: analysis.detect_outliers(SALES_GRID, method="iqr", columns=["Sales"]),
+            ("outlier_count", "method"),
+        ),
+        (
+            "monte_carlo",
+            lambda: analysis.monte_carlo(MONTE_CARLO_GRID, sims=25),
+            ("simulations", "mean", "bust_prob"),
+        ),
+        (
+            "run_regression",
+            lambda: analysis.run_regression(REGRESSION_GRID, target="y", features=["x"]),
+            ("r_squared", "n_obs"),
+        ),
+    ],
+)
+def test_helper_golden_metrics(helper, call, metric_keys):
+    result = call()
+    assert result["status"] == "ok"
+    assert result["helper"] == helper
+    for key in metric_keys:
+        assert key in result["metrics"], f"missing metric {key!r} for {helper}"

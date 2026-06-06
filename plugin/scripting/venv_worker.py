@@ -200,8 +200,10 @@ _DIAGNOSTIC_SCRIPT = """
 import platform
 res = {'v': platform.python_version(), 'arch': platform.machine(), 'p': {}}
 sci = ['numpy', 'pandas', 'scipy', 'sklearn', 'matplotlib', 'sympy']
+eda = ['data_profiling', 'statsmodels', 'pandas_montecarlo']
 ui = ['webview', 'jedi', 'PyQt6', 'PyQt6.QtWebEngineWidgets', 'qtpy']
 res['sci'] = sci
+res['eda'] = eda
 res['ui'] = ui
 
 # Check for Cython accelerator
@@ -278,6 +280,24 @@ try:
 except ImportError:
     res['p']['qtpy'] = None
 
+try:
+    import data_profiling
+    res['p']['data_profiling'] = 'present'
+except ImportError:
+    res['p']['data_profiling'] = None
+
+try:
+    import statsmodels
+    res['p']['statsmodels'] = 'present'
+except ImportError:
+    res['p']['statsmodels'] = None
+
+try:
+    import pandas_montecarlo
+    res['p']['pandas_montecarlo'] = 'present'
+except ImportError:
+    res['p']['pandas_montecarlo'] = None
+
 result = res
 """
 
@@ -287,6 +307,7 @@ def _format_self_check_success(data: dict[str, Any]) -> str:
     arch = data.get("arch", "")
     packages = data.get("p", {})
     sci_list = data.get("sci", [])
+    eda_list = data.get("eda", [])
     ui_list = data.get("ui", [])
 
     header = f"Python {version} ({arch})" if arch else f"Python {version}"
@@ -310,6 +331,8 @@ def _format_self_check_success(data: dict[str, Any]) -> str:
 
     if sci_list:
         msg_lines.extend(format_group("Scientific Libraries", sci_list))
+    if eda_list:
+        msg_lines.extend(format_group("Data Analysis / EDA Libraries", eda_list))
     if ui_list:
         msg_lines.extend(format_group("UI / Monaco Libraries", ui_list))
 
