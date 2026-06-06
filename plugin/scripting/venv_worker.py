@@ -303,17 +303,35 @@ except ImportError:
 result = res
 """
 
-# Vision packages are probed outside the AST sandbox (paddleocr is not whitelisted for user scripts).
+# Vision stack (docs/image-recognition.md §7–§13): probed outside the AST sandbox because
+# paddleocr/paddle are not whitelisted for LLM-submitted venv scripts.
+# Required for OCR: paddleocr + paddle (pip: paddlepaddle) + numpy (sci group).
+# Optional: ultralytics (detection helpers), skimage (trusted helper preprocessing).
 _VISION_PACKAGE_KEYS = ("paddleocr", "paddle", "ultralytics", "skimage")
+_VISION_OCR_INSTALL_CMD = "pip install paddleocr paddlepaddle numpy"
 _VISION_PROBE_SCRIPT = """
 import json
 out = {}
-for key in ("paddleocr", "paddle", "ultralytics", "skimage"):
-    try:
-        __import__(key)
-        out[key] = "present"
-    except ImportError:
-        out[key] = None
+try:
+    import paddleocr
+    out["paddleocr"] = "present"
+except ImportError:
+    out["paddleocr"] = None
+try:
+    import paddle
+    out["paddle"] = "present"
+except ImportError:
+    out["paddle"] = None
+try:
+    import ultralytics
+    out["ultralytics"] = "present"
+except ImportError:
+    out["ultralytics"] = None
+try:
+    import skimage
+    out["skimage"] = "present"
+except ImportError:
+    out["skimage"] = None
 print(json.dumps(out))
 """
 
@@ -375,14 +393,22 @@ def _format_self_check_success(data: dict[str, Any]) -> str:
         msg_lines.extend(format_group("UI / Monaco Libraries", ui_list))
     if vision_list:
         msg_lines.extend(format_group(_("Vision Libraries"), vision_list))
-        ocr_missing = packages.get("paddleocr") != "present" or packages.get("paddle") != "present"
-        if ocr_missing:
+        ocr_stack_incomplete = (
+            packages.get("paddleocr") != "present"
+            or packages.get("paddle") != "present"
+            or packages.get("numpy") != "present"
+        )
+        if ocr_stack_incomplete:
             msg_lines.append(
-                _("\nVision Helpers (OCR): pip install paddleocr paddlepaddle numpy")
+                _("\nVision Helpers (OCR): %(cmd)s") % {"cmd": _VISION_OCR_INSTALL_CMD}
             )
         if packages.get("ultralytics") != "present":
             msg_lines.append(
                 _("Optional (detection helpers): pip install ultralytics")
+            )
+        if packages.get("skimage") != "present":
+            msg_lines.append(
+                _("Optional (image processing in trusted helpers): pip install scikit-image")
             )
 
     return "\n".join(msg_lines)

@@ -768,8 +768,14 @@ def test_format_self_check_success_with_vision_group():
 
     data = {
         "v": "3.12.0",
-        "p": {"paddleocr": "present", "paddle": "present", "ultralytics": None, "skimage": None},
-        "sci": [],
+        "p": {
+            "paddleocr": "present",
+            "paddle": "present",
+            "numpy": "present",
+            "ultralytics": None,
+            "skimage": None,
+        },
+        "sci": ["numpy"],
         "eda": [],
         "ui": [],
         "vision": ["paddleocr", "paddle", "ultralytics", "skimage"],
@@ -779,6 +785,7 @@ def test_format_self_check_success_with_vision_group():
     assert "Present: paddleocr, paddle" in msg
     assert "Missing: ultralytics, skimage" in msg
     assert "pip install ultralytics" in msg
+    assert "pip install scikit-image" in msg
     assert "pip install paddleocr" not in msg
 
 
@@ -789,6 +796,27 @@ def test_format_self_check_success_vision_install_hint():
         "v": "3.12.0",
         "p": {"paddleocr": None, "paddle": None, "ultralytics": None, "skimage": None},
         "sci": [],
+        "eda": [],
+        "ui": [],
+        "vision": ["paddleocr", "paddle", "ultralytics", "skimage"],
+    }
+    msg = _format_self_check_success(data)
+    assert "Vision Helpers (OCR): pip install paddleocr paddlepaddle numpy" in msg
+
+
+def test_format_self_check_success_vision_install_hint_when_numpy_missing():
+    from plugin.scripting.venv_worker import _format_self_check_success
+
+    data = {
+        "v": "3.12.0",
+        "p": {
+            "paddleocr": "present",
+            "paddle": "present",
+            "numpy": None,
+            "ultralytics": "present",
+            "skimage": "present",
+        },
+        "sci": ["numpy"],
         "eda": [],
         "ui": [],
         "vision": ["paddleocr", "paddle", "ultralytics", "skimage"],
