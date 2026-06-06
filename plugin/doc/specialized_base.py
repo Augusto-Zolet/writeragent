@@ -24,6 +24,7 @@ from plugin.framework.constants import DELEGATE_SPECIALIZED_TASK_PARAM_HINT, USE
 from plugin.framework.i18n import _
 from plugin.chatbot.smol_agent import build_toolcalling_agent, SmolAgentExecutor, SmolToolAdapter
 from plugin.chatbot.smol_examples import get_examples_block
+from plugin.doc.document_research import get_document_research_workflow_hint
 from plugin.doc.specialized_shapes_context import format_shapes_canvas_context
 
 log = logging.getLogger("writeragent.specialized")
@@ -137,6 +138,14 @@ class DelegateToSpecializedBase(ToolBase):
 
             return {"status": "ok", "message": msg}
 
+        if domain == "document_research":
+            try:
+                from plugin.doc.embeddings_indexer import enqueue_folder_index
+
+                enqueue_folder_index(ctx.ctx, ctx.services, ctx.doc)
+            except Exception:
+                log.debug("embeddings index wakeup failed", exc_info=True)
+
         if status_callback:
             status_callback(f"Delegating to specialized agent ({domain})...")
 
@@ -178,22 +187,7 @@ class DelegateToSpecializedBase(ToolBase):
             except Exception as e:
                 log.warning("Failed to get Calc context for sub-agent: %s", e)
 
-        document_research_hint = (
-            "\n\nDocument research workflow:\n"
-            "To do the task (summarize, extract, analyze, answer from document content), use delegate_read_document. "
-            "That opens the file and runs one or more specialized read tasks with full read tools on that document — this is the main path.\n"
-            "To find the proper filename when the user gives a partial or inexact name, use list_nearby_files first. "
-            "use file_kind=images on list_nearby_files for photos/images."
-            "Pass filter with a substring from their description (e.g. filter='budget' for \"the budget spreadsheet\"), "
-            "then delegate_read_document on the matched file name. One delegate_read_document per office file.\n"
-            "When you are unsure which file — the task names a keyword but no filename "
-            "(e.g. \"documents that mention dspy\") — use grep_nearby_files to see which nearby files match. "
-            "It returns snippet only, not enough for any real work; use it only for file name discovery, then delegate_read_document for the real task on that document.\n"
-            "Do not use grep_nearby_files when list_nearby_files can resolve the filename (including partial matches, or when you already know "
-            "If you know which file(s) to read — go straight to the one or more calls to delegate_read_document instead.\n"
-            if domain == "document_research"
-            else ""
-        )
+        document_research_hint = get_document_research_workflow_hint() if domain == "document_research" else ""
         open_docs_context = ""
         if domain == "document_research":
             try:

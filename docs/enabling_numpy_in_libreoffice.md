@@ -13,6 +13,7 @@ For a short executive summary, see [WriterAgent architecture — Scientific Pyth
    - [Linux Cross-Process IPC Performance](#linux-cross-process-ipc-performance)
 5. [Developer reference](#5-developer-reference)
    - [Trusted extension code in the venv](#trusted-extension-code-in-the-venv)
+   - [Trusted Extension Code Opportunities with the Full Scientific Stack](#trusted-extension-code-opportunities-with-the-full-scientific-stack)
 6. [The `=PYTHON()` Calc function](#6-the-python-calc-function) <!-- anchor: the-python-calc-function -->
    - [Empty cells vs NaN](#empty-cells-vs-nan)
    - [Calc formula lexer quirks (inline code)](#calc-formula-lexer-quirks-inline-code)
@@ -189,7 +190,7 @@ plugin/
 │   ├── worker_harness.py         # Stdin/stdout loop in venv (child entry)
 │   ├── venv_sandbox.py           # LocalPythonExecutor + VENV_AUTHORIZED_IMPORTS
 │   ├── payload_codec.py          # split_grid pack/unpack (host stdlib / child NumPy)
-│   ├── embeddings_index.py       # (planned) vec0 + encode/search RPC — trusted, not LLM sandbox
+│   ├── embeddings_index.py       # Phase A: batch encode RPC (vec0 + search in Phase B)
 │   ├── editor_host.py            # Monaco spawn + pipe bridge
 │   ├── editor_main.py            # Monaco child entry (pywebview)
 │   ├── editor_ipc.py             # Editor pickle protocol 5 + diagnostics
@@ -278,11 +279,11 @@ The **AST sandbox** (`LocalPythonExecutor` + `VENV_AUTHORIZED_IMPORTS`) applies 
 |-------|-------------|----------|-------------|
 | **LibreOffice host** | Embedded Python in-process | No NumPy; stdlib + UNO | UNO, config, chunk extract, **`sqlite3` locator rows**, enqueue index work |
 | **User venv worker** | User’s venv subprocess | **Yes** for user `code` strings | `=PYTHON()`, `run_venv_python_script` |
-| **Trusted venv modules** | Same subprocess | **No** (normal CPython inside the module) | [`payload_codec.py`](../plugin/scripting/payload_codec.py), future `embeddings_index.py`, encode/search RPC |
+| **Trusted venv modules** | Same subprocess | **No** (normal CPython inside the module) | [`payload_codec.py`](../plugin/scripting/payload_codec.py), [`embeddings_index.py`](../plugin/scripting/embeddings_index.py) (encode; search Phase B) |
 
 #### How trusted venv code runs
 
-1. **Ship a normal module** under `plugin/scripting/` (e.g. [`payload_codec.py`](../plugin/scripting/payload_codec.py) today; `plugin.scripting.embeddings_index` planned for [embeddings](embeddings.md)).
+1. **Ship a normal module** under `plugin/scripting/` (e.g. [`payload_codec.py`](../plugin/scripting/payload_codec.py), [`embeddings_index.py`](../plugin/scripting/embeddings_index.py) for [embeddings](embeddings.md) Phase A encode).
 2. **Host calls** [`run_code_in_user_venv`](../plugin/scripting/venv_worker.py) with a **fixed stub** string — not LLM output — for example:
 
    ```python
@@ -305,6 +306,161 @@ The **AST sandbox** (`LocalPythonExecutor` + `VENV_AUTHORIZED_IMPORTS`) applies 
 #### Future: harness `action` dispatch
 
 [`worker_harness.py`](../plugin/scripting/worker_harness.py) already handles non-code requests (e.g. `action: "reset_session"`). A future `action: "embed_search"` could call a trusted function **without** any user code string — same trust model, less AST overhead. Not required for MVP if the fixed stub + module pattern is enough.
+
+## Trusted Extension Code Opportunities with the Full Scientific Stack
+
+The embeddings implementation (see [embeddings.md](embeddings.md)) has proven the **trusted extension code** pattern: ship normal Python modules under `plugin/scripting/` (or parallel locations for document helpers), invoke them from the LibreOffice host via tiny fixed stubs over the existing `PythonWorkerManager` / `run_code_in_user_venv` + Pickle5 `data=` path, and let the module run with the *full* power of the user's venv interpreter.
+
+In trusted code there is **no AST sandbox**. The module can freely:
+
+- `import numpy as np`, `pandas as pd`, `scipy.*`, `sklearn.*`, `cv2`, `PIL`, `sentence_transformers`, `torch` / `torchvision` (if the user has installed them), matplotlib, sympy, statsmodels, networkx, etc.
+- Use `open()`, `sqlite3`, loadable extensions (`sqlite_vec`), filesystem paths, and any other stdlib or third-party capability present in the venv.
+- Maintain on-disk state (e.g. the per-folder `index.db`).
+- Receive bulk data (numeric grids via the mature `payload_codec` / split-grid path, image arrays, paragraph lists, etc.) or lightweight references (db paths, folder keys, image identifiers) and return only compact, serializable results.
+
+The host side (stdlib + UNO) is responsible for:
+- Extracting document content safely (tables → arrays/DataFrames, images via XGraphic or export, text with locators/paragraph indices, shape geometry, etc.).
+- Passing data or references over IPC.
+- Applying results back into the document using existing Writer/Calc/Draw tool surfaces (`apply_document_content`, cell writes, shape creation, etc.).
+
+This is the preferred route for any capability that would be awkward, insecure, or impossible inside the LLM sandbox. The LLM (main agent or a specialized delegate) is used for high-level planning, interpretation, and synthesis — not for writing the heavy numeric or I/O code itself.
+
+**Embeddings indexing strategy reminder:** The per-directory semantic index described in [embeddings.md](embeddings.md) (one `index.db` under `writeragent_embeddings/<folder_corpus_key>/` for all indexable siblings in that filesystem folder, using standard SQLite + optional vec0 in the venv) is the **primary (and currently only) cross-document search index**. Do not create additional vector indexes (no per-file sidecars, no global index across the machine, no separate in-document RAG vector stores whose job is search). Within one already-open document, continue to use the existing fast keyword, outline, sheet navigation, and read tools. Embeddings are the "outer router" for `document_research` (and optionally main chat before delegation). After a hit, open one or a few files and let the inner agent use precise read tools at the returned locators.
+
+The subsections below outline other high-value directions that become practical once trusted code has unrestricted access to the full scientific stack in the user's venv. All discussion assumes a local focus (the warm worker + packages the user has chosen to install) unless otherwise noted.
+
+**See also:** the existing "Trusted extension code in the venv" discussion immediately above for the exact invocation pattern, whitelist entry rules, and "do not widen the LLM sandbox" guidance. The embeddings work is the canonical example and the source of the "primary per-directory index only" rule restated below.
+
+### High-Level Analysis and Data Processing in Trusted Code
+
+With full numpy/pandas/scipy/sklearn (and whatever else the user has in the venv) available to shipped modules, WriterAgent can offer reliable, high-performance analysis that the agent can invoke without having to generate and sandbox raw pandas code on every turn.
+
+**Typical trusted module shape** (modeled directly on `embeddings_index.py`):
+- Host extracts a Writer table (or multiple tables), a Calc range, or numeric properties from shapes/paragraphs as structured arrays or lists.
+- Host calls a fixed stub such as `from plugin.scripting.analysis import analyze_table; result = analyze_table(df_or_array, spec, db_ref_if_needed)`.
+- Bulk numeric data travels via the existing split-grid / `data=` path (or as a temporary file reference + path for very large cases).
+- The trusted function performs pandas wrangling, groupby/aggregate, time-series resampling, statistical tests (`scipy.stats`), outlier detection, clustering (`sklearn.cluster`), regression, dimensionality reduction, Monte-Carlo simulation, optimization, etc.
+- It can optionally persist auxiliary state in a side table inside an `index.db`-style SQLite file (same folder key or a dedicated analysis cache) or in simple JSON/Parquet side files under the profile.
+- Returns compact results: summary dicts, small DataFrames serialized as records, cluster labels + centroids, fitted parameters, suggested edit locators + transformed values, natural-language-ready "key findings" tables, etc.
+
+**Example capabilities:**
+- "Clean and describe the sales table on page 2" → trusted code returns cleaned DF summary, descriptive stats, detected anomalies, suggested pivot or chart data.
+- Clustering or topic grouping of many paragraphs (using embeddings vectors + numeric features) for librarian/memory features or thematic navigation.
+- Fitting models to data ranges and writing the formula or predicted values back.
+- Running simulations (Monte Carlo, sensitivity) whose inputs come from document parameters and whose outputs are written as new tables or charts.
+- Geometric / layout analysis in Draw/Impress or Writer shapes (bounding-box math, alignment scoring, collision detection, area/volume calculations) using numpy vectorized ops.
+
+**Role of the LLM:**
+The main chat agent or a specialized "analysis" / "data" delegate decides *which* analysis to request (based on user intent and document context), chooses or parameterizes the trusted call, and then interprets the compact numeric/symbolic results into a final answer or a sequence of document edits. The LLM is excellent at synthesis, handling ambiguity, generating explanations, and mapping results back to the user's mental model or the surrounding prose. It is *not* responsible for the correctness of the `groupby`, the clustering distance metric, or the linear algebra.
+
+This hybrid (trusted exact heavy lifting + LLM for meaning) is far more robust than hoping a model writes perfect pandas on every turn while staying inside the sandbox.
+
+**Implementation notes:**
+- Start with a small `plugin/scripting/analysis.py` (or `data_analysis.py`) that exposes a few well-tested entry points.
+- Reuse document table extraction helpers (or extend them) and the existing range-to-data shaping logic from Calc.
+- For Writer tables, produce pandas DataFrames (or numpy structured arrays) on the trusted side; the host never needs to import pandas.
+- Keep results small enough to be useful in prompts or easy to apply via existing tools.
+- Provide both "full result" and "LLM-friendly summary" return shapes.
+- Make heavy operations long-running aware (the existing `long_running` flag on the python tool surface).
+- Optional: a compile-time or config flag so these capabilities only register tools / become visible when the venv is known to have the required packages (graceful degradation to simpler LLM-only or pure-python paths).
+
+### Hybrid Local Compute + LLM for Answering
+
+Trusted local scientific code excels at scale, precision, repeatability, and operations that are expensive or impossible to do reliably in a single LLM forward pass (large matrix work, exact statistics, simulation, clustering of hundreds/thousands of items, optimization loops).
+
+The LLM (via the normal chat / tool-loop path, possibly using `run_venv_python_script` for light glue or the new trusted analysis tools) excels at:
+- Understanding vague user requests.
+- Deciding which local analyses to invoke and with what parameters.
+- Synthesizing multiple local results (from embeddings retrieval + pandas analysis + geometric checks, etc.) into a coherent narrative answer.
+- Generating the final document edits or follow-up questions.
+- Handling cases where the local result is "no strong signal" or requires world knowledge / judgment.
+
+**Recommended pattern:**
+1. Outer agent (or main chat) uses the primary per-directory embeddings index (as the sole semantic router) to surface relevant documents/paragraphs/locators.
+2. Trusted code is invoked (directly from host orchestration or via a thin tool) to perform heavy analysis on the retrieved data or on extracted tables/images.
+3. Compact artifacts (tables of metrics, cluster assignments + representative excerpts, model coefficients, top-k with scores, image feature vectors, etc.) are returned.
+4. These artifacts (plus the original query and any needed original text snippets) are placed into the LLM context or tool result.
+5. The LLM produces the final user-facing answer and/or drives further tool use / document application.
+
+This keeps token usage and latency reasonable (the LLM never sees the entire raw corpus or a 10k-row DataFrame) while giving exact, reproducible numeric work.
+
+The same pattern applies to single-document deep analysis: extract the interesting numeric or image content once via UNO, let trusted code do the heavy lifting, let the LLM answer.
+
+### Local Image Recognition and Computer Vision Processing
+
+Writer, Calc, and Draw documents routinely contain images (photographs, diagrams, charts, screenshots, scanned pages, UI mockups, logos). With `cv2`, `PIL`, and numpy (plus scikit-image or other packages the user may have installed) available to trusted code, we can perform useful local vision work without sending every pixel to a remote model.
+
+**Extraction on the host:**
+- Use UNO APIs to obtain images as byte streams or temporary files (or direct pixel access where efficient).
+- For chart images or embedded graphics, export or snapshot as needed.
+- Convert to numpy arrays (RGB / grayscale) using standard PIL ↔ numpy round-trips; pass the arrays (or file paths + metadata) via the worker `data=` mechanism or as references.
+
+**Trusted local processing examples (in a module such as `plugin/scripting/vision.py`):**
+- Basic enhancement, denoising, thresholding, contour / shape detection for Draw/Impress automation or quality checks.
+- Feature extraction, template matching, or simple object counting.
+- Digitization of chart images (detect axes, sample data points, reconstruct approximate tabular data that can then be fed to pandas analysis).
+- Region detection (e.g. "find all text-bearing rectangles in this screenshot") as a cheap pre-filter before any OCR or LLM vision step.
+- Batch similarity or deduplication of images within a folder (using perceptual hashes + numpy distance, or embeddings from a local vision model if the user has one installed).
+- Preparation / cropping / tiling of large images so that later steps (local or LLM) only see relevant portions.
+- Layout / measurement verification (e.g. "are these UI elements aligned within tolerance?" using cv2 geometry on extracted bitmaps).
+
+**Integration with the rest of WriterAgent:**
+- Results can be compact annotations (bounding boxes + labels, extracted numeric data + confidence, suggested captions or alt text, lists of detected issues) that the host applies as comments, new shapes, table writes, or metadata.
+- The outer document_research agent or a specialized image-aware delegate can decide to invoke vision processing on images discovered via the primary embeddings index or via ordinary document traversal.
+- Persistent per-folder caches (same directory as the embeddings `index.db`, or a sibling `vision_features/` area) can store precomputed descriptors so repeated analysis of the same images is fast.
+
+**Local focus:** Assume the user has installed whatever vision packages they want (`opencv-python-headless`, `scikit-image`, `imageio`, etc.) into the same venv used for embeddings and `=PYTHON()`. No requirement to vendor or ship heavy binaries in the OXT. Graceful fallback to simpler host-side or pure-Python paths when the packages are absent.
+
+This is complementary to (not a replacement for) the primary text embeddings index. Image features can be stored alongside locators in the same style of SQLite-backed cache if useful, but the text embeddings index remains the main cross-document semantic router.
+
+### LLM-Based Image Understanding and Vision Models
+
+In addition to pure local computer vision, many useful image tasks are fundamentally semantic: "What does this diagram show?", "Read the text from this low-contrast scanned receipt", "Explain the trend in this hand-drawn chart", "Is this UI mockup following our design guidelines?".
+
+**Current status:** Not implemented.
+
+**Local / hybrid paths (preferred where possible):**
+- Local multimodal models served via Ollama, llama.cpp, or similar (llava, bakllava, moondream, etc.). The existing `LlmClient` / provider machinery can be extended with vision endpoints in the same way chat and (future) embedding endpoints are handled.
+- A trusted helper module can extract / prepare the image (local numpy/cv work), call the local vision endpoint (via the framework HTTP client or a direct subprocess), and return the description plus any structured data the model was asked to emit (JSON mode).
+- Caching of descriptions or region analyses (keyed by image hash + model) under the same per-folder cache discipline as embeddings.
+
+**Cloud / API paths (when user has configured a capable provider):**
+- GPT-4o, Claude-3/3.5/Opus with vision, Gemini, etc. Reuse the normal auth, retry, redaction, and streaming infrastructure already present for text chat.
+- The agent can request "vision describe" on a specific image locator; the host extracts the image bytes, the framework client sends them (with appropriate size / format guards), and the result comes back as a normal tool / chat turn.
+
+**Hybrid local + LLM vision strategy (recommended):**
+- Fast, cheap, deterministic, privacy-sensitive work stays in trusted local numpy/cv2 code (pre-filtering, cropping to interesting regions, basic measurement, perceptual hashing, preparing clean inputs).
+- The (local or remote) vision LLM is invoked only on the prepared, smaller, or most semantically rich images / crops.
+- Results from both layers are combined before being shown to the user or fed to the main reasoning agent.
+
+**Integration points:**
+- A new (or extended) image tool surface that the main agent and specialized delegates can call.
+- Storage of image descriptions / features in a cache that lives alongside the primary embeddings `index.db` for the folder (same "one cache per directory" spirit).
+- When an image appears inside a document that is itself retrieved via the embeddings index, the vision description can be surfaced as additional context for the inner read agent or for the final answer.
+
+**Scope note for now:** Discussion here is intentionally high-level. Implementation would first focus on the local extraction + trusted dispatch path (mirroring embeddings), with the actual vision model calls layered on top of the existing LLM client. Pure local CV (previous topic) can deliver value even before any vision LLM is wired.
+
+### Semantic Search and Indexing: One Primary Per-Directory Embeddings Index
+
+As repeatedly emphasized in [embeddings.md](embeddings.md) and the implementation, WriterAgent maintains **exactly one** semantic vector index for cross-document discovery:
+
+- Scope: one `index.db` per filesystem folder (the directory containing the active document and its siblings that `list_nearby_files` would see).
+- Contents: paragraph (or cell / shape) locators + float32 vectors (vec0 when available, BLOB + numpy fallback otherwise). No duplicate full-text or FTS5 shadow index.
+- Access: both host (plain stdlib sqlite3 for metadata / maintenance decisions) and trusted venv code (full sqlite3 + optional vec0 + numpy) open the same file by reference. Search and incremental maintenance are performed by trusted code after the host passes the folder key or db path.
+- Usage: primarily the outer tier of `document_research` (and optionally main chat before delegation). After ranked hits, open the minimal number of files and use precise inner read tools.
+- Within a single open document: do **not** rely on this index for navigation or search. Use the existing `search_in_document`, outline helpers, sheet navigation, `get_document_content` with ranges, etc.
+
+**Do not create other indexes** for search purposes:
+- No per-file sidecar vector stores.
+- No global index spanning `~/Documents` or the whole profile.
+- No additional in-document RAG vector database whose purpose is retrieval (the secondary "within-document" idea in embeddings.md remains low priority and would reuse the same chunking + storage patterns if ever built).
+- Chat history remains in its own SQLite (`writeragent_history.db`) — unrelated to the corpus embeddings index.
+
+Any future "analysis cache," "vision features," or "memory clusters" should be additive metadata stores (possibly sharing the same per-folder directory and SQLite conventions for simplicity) rather than competing semantic search indexes. The embeddings index is the single source of truth for "which documents and passages in this folder are semantically relevant to the query?"
+
+This keeps the architecture simple, the cache footprint predictable, invalidation straightforward (mtime + paragraph content hash), and the mental model clear for both developers and users ("the semantic memory for everything in this folder lives under `writeragent_embeddings/<key>/`").
+
+---
 
 ### Warm process, fresh state
 
@@ -957,6 +1113,7 @@ Backlog items inspired by Microsoft Python in Excel ([python-in-excel-ideas.md](
 | **JSON Split-Grid** | Backward-compatible Base64 envelope fallback for diagnostic tracing/JSON environments. |
 | Calc ingress | [`pack_calc_data_for_wire`](../plugin/calc/calc_addin_data.py) |
 | Bench + tests | [`scripts/bench_serialization.py`](../scripts/bench_serialization.py), [`tests/scripting/test_payload_codec.py`](../tests/scripting/test_payload_codec.py), [`tests/scripting/test_venv_worker.py`](../tests/scripting/test_venv_worker.py) |
+| Embeddings encode (Phase A) | [`embedding_client.py`](../plugin/framework/client/embedding_client.py), [`embeddings_index.py`](../plugin/scripting/embeddings_index.py) — [`tests/framework/test_embedding_client.py`](../tests/framework/test_embedding_client.py), [`tests/scripting/test_embeddings_index.py`](../tests/scripting/test_embeddings_index.py). **Next:** Phase B index/search on same module — see [embeddings.md § Phase B](embeddings.md#phase-b) |
 
 See [NumPy serialization](numpy-serialization.md) for behavior, benchmarks, optimization tiers, and native host-extension notes. Jupyter `.ipynb` import (separate feature): [jupyter-notebook-import.md](jupyter-notebook-import.md).
 

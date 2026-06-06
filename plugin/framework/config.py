@@ -278,6 +278,9 @@ class WriterAgentConfig:
     image_insert_frame: bool = False
     image_model: str = ""
     image_provider: str = "aihorde"
+    # Local sentence-transformers model id (Phase A embeddings); see docs/embeddings.md.
+    embedding_model: str = "all-MiniLM-L6-v2"
+    embedding_provider: str = "local"
     aihorde_model: str = "stable_diffusion"
     seed: str = ""
     enable_agent_log: bool = False

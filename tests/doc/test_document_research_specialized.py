@@ -14,7 +14,8 @@ from plugin.draw.specialized import DelegateToSpecializedDraw
 from plugin.framework.tool import ToolBase, ToolContext, ToolRegistry
 from tests.chatbot.test_tool_loop import _mock_get_config_int_for_sub_agent
 from plugin.writer.specialized_base import DelegateToSpecializedWriter, SpecializedWorkflowFinished
-from plugin.doc.document_research_tools import GrepNearbyFiles, ListNearbyFiles
+from plugin.doc.document_research_grep_tool import GrepNearbyFiles
+from plugin.doc.document_research_tools import ListNearbyFiles
 
 
 class _MutatingTool(ToolBase):
@@ -58,6 +59,37 @@ def test_document_research_tools_registered_with_cross_cutting():
     assert "grep_nearby_files" in names
     assert "delegate_read_document" in names
     assert "specialized_workflow_finished" in names
+    assert "search_embeddings" not in names
+
+
+@patch("plugin.framework.constants.DOCUMENT_RESEARCH_SEARCH_MODE", "embeddings")
+def test_document_research_embeddings_mode_registers_search_only():
+    import importlib
+
+    import plugin.doc.document_research_search_tool as search_mod
+
+    importlib.reload(search_mod)
+    r = ToolRegistry(services={})
+    r.auto_discover(search_mod)
+    tools = r.get_tools(doc=MagicMock(), active_domain="document_research", exclude_tiers=())
+    names = {t.name for t in tools}
+    assert "search_embeddings" in names
+    assert "grep_nearby_files" not in names
+
+
+def test_document_research_workflow_hint_modes():
+    from plugin.doc.document_research import get_document_research_workflow_hint
+
+    with patch("plugin.framework.constants.DOCUMENT_RESEARCH_SEARCH_MODE", "grep"):
+        grep_hint = get_document_research_workflow_hint()
+    assert "grep_nearby_files" in grep_hint
+    assert "search_embeddings" not in grep_hint
+
+    with patch("plugin.framework.constants.DOCUMENT_RESEARCH_SEARCH_MODE", "embeddings"):
+        embed_hint = get_document_research_workflow_hint()
+    assert "search_embeddings" in embed_hint
+    assert "grep_nearby_files" not in embed_hint
+
 
 
 @patch("plugin.doc.specialized_base.USE_SUB_AGENT", False)

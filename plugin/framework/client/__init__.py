@@ -26,10 +26,18 @@ from .llm_client import (
     merge_openrouter_chat_extra,
     strip_leaked_chat_template_control_tokens,
 )
+from .embedding_client import EmbeddingBatch, embed_texts, get_embedding_model
+from .embeddings_service import delete_paragraphs, index_paragraphs, knn_search
 from .requests import sync_request
 from .stream_normalizer import iterate_sse
 
 __all__ = [
+    "EmbeddingBatch",
+    "embed_texts",
+    "get_embedding_model",
+    "delete_paragraphs",
+    "index_paragraphs",
+    "knn_search",
     "LlmClient",
     "OPENROUTER_CHAT_EXTRA_BLOCKLIST",
     "format_error_for_display",

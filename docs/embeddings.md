@@ -1,6 +1,6 @@
 # Embeddings — Development Plan
 
-> **Status (2026-06):** Bench harness **shipped** ([`scripts/bench_embeddings.py`](../scripts/bench_embeddings.py)). **Implementing** IPC-based local embed + **per-directory** index for outer `document_research`. **Scope (MVP):** one cache per **filesystem folder** (all indexable siblings in that directory) — not per-file caches, not a global index, not in-document RAG storage. **On-disk storage:** single `index.db` per folder (locators + vectors) using standard SQLite; both host and warm venv worker open the same file directly and pass references (db path / folder key) rather than bulk corpus data. **vec0** (via `sqlite-vec` in the venv) is the preferred on-disk KNN when available; plain BLOB + NumPy dot + top-k is the graceful fallback using the identical DB file. Embed compute still uses the warm-worker Pickle5 path (same as `=PYTHON()`).
+> **Status (2026-06):** **Phase B shipped** — per-folder `index.db`, `search_embeddings` tool, background folder indexer ([`embeddings_cache.py`](../plugin/doc/embeddings_cache.py), [`embeddings_indexer.py`](../plugin/doc/embeddings_indexer.py), [`embeddings_service.py`](../plugin/framework/client/embeddings_service.py)). **Phase A:** host `embed_texts()` + trusted venv encode ([`embedding_client.py`](../plugin/framework/client/embedding_client.py), [`embeddings_index.py`](../plugin/scripting/embeddings_index.py)). **Search mode:** compile-time `DOCUMENT_RESEARCH_SEARCH_MODE` in [`constants.py`](../plugin/framework/constants.py) — `"grep"` (default) or `"embeddings"` (mutually exclusive tool registration). Bench harness: [`scripts/bench_embeddings.py`](../scripts/bench_embeddings.py). **Scope (MVP):** one cache per **filesystem folder** (all indexable siblings in that directory) — not per-file caches, not a global index, not in-document RAG storage. **On-disk storage:** single `index.db` per folder (locators + vectors) using standard SQLite; both host and warm venv worker open the same file directly and pass references (db path / folder key) rather than bulk corpus data. **vec0** (via `sqlite-vec` in the venv) is the preferred on-disk KNN when available; plain BLOB + NumPy dot + top-k is the graceful fallback using the identical DB file. Embed compute uses the warm-worker Pickle5 path (same as `=PYTHON()`).
 
 **Related:** [cython-extension.md](cython-extension.md) · [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md) · [multi-document-dev-plan.md](multi-document-dev-plan.md) · [langchain-plan.md](langchain-plan.md) (chat memory / summarization only)
 
@@ -127,6 +127,9 @@ The **only** persisted index shape for now:
 | [`scripts/bench_embeddings.py`](../scripts/bench_embeddings.py) | **Done** — batch encode + vectorized search via warm worker |
 | `sentence_transformers` on venv whitelist | **Done** — [`sandbox_imports.py`](../plugin/scripting/sandbox_imports.py) |
 | `get_safe_module` bypass for ST | **Done** — avoid hang on import ([`local_python_executor.py`](../plugin/contrib/smolagents/local_python_executor.py)) |
+| [`embedding_client.py`](../plugin/framework/client/embedding_client.py) | **Done** — `embed_texts()` via venv RPC (Phase A; HTTP deferred) |
+| [`embeddings_index.py`](../plugin/scripting/embeddings_index.py) | **Done** — trusted batch encode module (Phase A; index/search in Phase B) |
+| Config `embedding_model` / `embedding_provider` | **Done** — defaults in [`config.py`](../plugin/framework/config.py); Settings UI deferred |
 
 See [Benchmark on your machine](#benchmark-on-your-machine) for sample numbers (349 paragraphs, dot+top-k **0.17 ms** median on Arch).
 
@@ -153,22 +156,75 @@ Today **one** warm venv child serves Calc `=PYTHON()`, chat `run_venv_python_scr
 
 **Future option:** a second `PythonWorkerManager` instance (embeddings-only session prefix, same venv `python`) so calc/notebook traffic never queues behind batch embed. Same IPC protocol; only process isolation changes. Defer until we see real contention in the wild.
 
-### Phase A — Embed client + config **(current)**
+### Phase A — Embed client + config **(shipped — venv-only)**
 
-- [ ] Host `embedding_client.py` — `embed_texts(texts) -> float32 vectors` via venv RPC; optional HTTP when no venv
-- [ ] Config: `embedding_model`, `embedding_provider` (`local` | `openrouter` | …)
-- [ ] Trusted venv module (e.g. `plugin.scripting.embeddings_index`) + fixed host stub — see [Trusted extension code in the venv](enabling_numpy_in_libreoffice.md#trusted-extension-code-in-the-venv)
-- [ ] Tests: mocked venv RPC + mocked HTTP
-- Default model: `all-MiniLM-L6-v2` until multi-model bench says otherwise
+- [x] Host [`embedding_client.py`](../plugin/framework/client/embedding_client.py) — `embed_texts(ctx, texts) -> EmbeddingBatch` via venv RPC
+- [x] Config: `embedding_model`, `embedding_provider` in [`config.py`](../plugin/framework/config.py) (`local` only implemented; HTTP tier deferred; **no Settings UI yet** — edit `writeragent.json` or use defaults)
+- [x] Trusted venv module [`embeddings_index.py`](../plugin/scripting/embeddings_index.py) + fixed host stub — see [Trusted extension code in the venv](enabling_numpy_in_libreoffice.md#trusted-extension-code-in-the-venv)
+- [x] Tests: mocked venv RPC + mocked SentenceTransformer ([`test_embedding_client.py`](../tests/framework/test_embedding_client.py), [`test_embeddings_index.py`](../tests/scripting/test_embeddings_index.py))
+- Default model: `all-MiniLM-L6-v2` ([`DEFAULT_EMBEDDING_MODEL`](../plugin/framework/constants.py)) until multi-model bench says otherwise
 
-### Phase B — Minimal index + `search_embeddings` tool
+#### Phase A — what exists today (handoff for Phase B)
 
-- [ ] Paragraph chunker with **locator capture** (`para_index`, `char_start`, `char_end`, `content_hash`)
-- [ ] Persist per-folder `index.db` under profile cache dir ([Corpus cache layout](#corpus-cache-layout), [Corpus storage](#corpus-storage))
-- [ ] **`search_embeddings`** on outer document_research tool surface (replaces grep-first discovery)
-- [ ] Open top 1–few hits → `delegate_read_document` → inner read at locator
-- [ ] Search executes in the venv (worker opens the shared `index.db` by the folder/db reference passed over the RPC stub): sqlite-vec `vec0` KNN when available; else NumPy dot + top-k against the on-disk BLOBs ([Search fallback](#search-fallback))
-- [ ] Background **index maintenance worker** (separate from agent tool loop) — [Background folder indexer](#background-folder-indexer)
+| Piece | Location | Contract |
+|-------|----------|----------|
+| Host API | [`embedding_client.embed_texts`](../plugin/framework/client/embedding_client.py) | `EmbeddingBatch(model, dim, vectors, indices)` — `vectors` are L2-normalized float32 nested lists; `indices` maps each vector back to the input list position (empty strings skipped) |
+| Model config | `get_embedding_model(ctx)` | Reads `embedding_model` from config; falls back to `all-MiniLM-L6-v2` |
+| Venv encode | [`embeddings_index.embed_texts`](../plugin/scripting/embeddings_index.py) | Same shape as worker `result` dict; lazy `SentenceTransformer` cache per model name |
+| IPC transport | `run_code_in_user_venv` + fixed stub | `session_id=f"embeddings:{model_slug}"` reuses loaded model across calls; timeout from `scripting.python_exec_timeout` |
+| Whitelist | [`sandbox_imports.py`](../plugin/scripting/sandbox_imports.py) | `plugin.scripting.embeddings_index` allowed for stub import only |
+
+**Not built in Phase A (do not assume these exist):** `index.db`, folder corpus key helper, paragraph chunker, `knn_search`, `search_embeddings` tool, background indexer, sqlite-vec / vec0 DML, host `sqlite3` locator writes.
+
+**Phase B should reuse `embedding_client.embed_texts`** for any host-side batch encode during indexing (e.g. tests, small batches). Index-time embed at scale and query-time search should add new functions on **`embeddings_index`** (venv opens `index.db`, writes vec0 or BLOBs, runs KNN) — same trusted-module pattern as encode, new fixed stubs from a future host `embeddings_service.py` or similar.
+
+### Phase B — Minimal index + `search_embeddings` tool {#phase-b}
+
+**Shipped.**
+
+**Goal:** outer [document_research](../plugin/doc/document_research.py) calls `search_embeddings(query, k)` → ranked hits in the **active folder’s** cache → open top files → inner read at locator.
+
+**Search mode (compile-time):** `DOCUMENT_RESEARCH_SEARCH_MODE` in [`constants.py`](../plugin/framework/constants.py) — `"grep"` exposes `grep_nearby_files`; `"embeddings"` exposes `search_embeddings` only (see [Search mode flag](#search-mode-flag) below).
+
+**Suggested implementation order** (each step should have tests before moving on):
+
+1. **Folder key + cache paths (host, stdlib only)** — new module e.g. `plugin/doc/embeddings_cache.py`:
+   - `folder_corpus_key(directory_path) -> str` — stable hash/normalized path (same sibling scope as [`list_nearby_files`](../plugin/doc/document_research.py))
+   - `index_db_path(ctx, folder_key) -> Path` under `…/user/writeragent_embeddings/<folder_key>/index.db` (beside `writeragent.json`)
+   - Host creates `chunks` + `corpus_meta` tables ([Corpus storage](#corpus-storage)); no vec extension on host
+
+2. **Paragraph chunker + locator capture (host)** — extract indexable paragraphs from siblings (reuse document_research read-only extract / ODT path from bench); per paragraph: `doc_url`, `para_index`, `char_start`, `char_end`, `content_hash` ([Chunking](#chunking) — paragraph grain for MVP)
+
+3. **Extend `embeddings_index` (venv)** — add encode+persist and search alongside existing `embed_texts`:
+   - `index_paragraphs(db_path, model, rows)` — batch embed changed texts, write `vec_chunks` (vec0) or `chunks.embedding` BLOB fallback ([Search fallback](#search-fallback))
+   - `knn_search(db_path, query_text, k)` or `knn_search(db_path, query_vec, k)` — vec0 `MATCH` when `sqlite_vec` loads; else NumPy dot + top-k (port search half of [`bench_embeddings.py`](../scripts/bench_embeddings.py))
+   - Probe sqlite-vec once at module load; log fallback at debug
+
+4. **`search_embeddings` tool** — register on outer document_research surface ([`document_research_tools.py`](../plugin/doc/document_research_tools.py)); resolve folder from active doc; call venv `knn_search` with `index.db` path reference; return `{doc_url, para_index, char_start, char_end, score}[]`
+
+5. **Background folder indexer (host thread + venv IPC)** — [Background folder indexer](#background-folder-indexer): cold build + mtime/hash incremental refresh; **must not block** tool loop; enqueue on document_research start or first `search_embeddings` miss
+
+6. **Prompt / delegate wiring** — mode-specific hints in [`specialized_base.py`](../plugin/doc/specialized_base.py) via [`get_document_research_workflow_hint`](../plugin/doc/document_research.py)
+
+**Phase B checklist:**
+
+- [x] Paragraph chunker with **locator capture** (`para_index`, `char_start`, `char_end`, `content_hash`)
+- [x] Persist per-folder `index.db` under profile cache dir ([Corpus cache layout](#corpus-cache-layout), [Corpus storage](#corpus-storage))
+- [x] **`search_embeddings`** on outer document_research tool surface (mutually exclusive with grep via `DOCUMENT_RESEARCH_SEARCH_MODE`)
+- [x] Open top 1–few hits → `delegate_read_document` → inner read at locator (prompt guidance)
+- [x] Search executes in the venv (worker opens the shared `index.db` by the folder/db reference passed over the RPC stub): sqlite-vec `vec0` KNN when available; else NumPy dot + top-k against the on-disk BLOBs ([Search fallback](#search-fallback))
+- [x] Background **index maintenance worker** (separate from agent tool loop) — [Background folder indexer](#background-folder-indexer)
+
+### Search mode flag {#search-mode-flag}
+
+Cross-file discovery tools are **mutually exclusive** at build time:
+
+| `DOCUMENT_RESEARCH_SEARCH_MODE` | Registered | Hidden (`ToolBaseDummy`) |
+|---------------------------------|------------|----------------------------|
+| `"grep"` (default) | `grep_nearby_files` | `search_embeddings` |
+| `"embeddings"` | `search_embeddings` | `grep_nearby_files` |
+
+Edit the constant in [`constants.py`](../plugin/framework/constants.py) before `make release`. No Settings UI yet. `list_nearby_files` and `delegate_read_document` are always available.
 
 ### Corpus cache layout {#corpus-cache-layout}
 
@@ -512,14 +568,13 @@ NumPy carries a heavy "tax" inside a LibreOffice `.oxt`:
 
 ## Embedding inference
 
-Two tiers. **Default for development and MVP:** local **`sentence-transformers`** in the configured venv — no network, predictable cost, fast enough on modern CPU when batched. **Tier two:** same providers as chat (OpenRouter / Together / Ollama) for users without a venv or who want larger hosted models.
+Two tiers. **Shipped today (Phase A):** local **`sentence-transformers`** in the configured venv only — via [`embedding_client.embed_texts`](../plugin/framework/client/embedding_client.py). **Tier two (not implemented):** OpenRouter / Together / Ollama HTTP when no venv.
 
-Dispatch: if `scripting.python_venv_path` is set and `embedding_model` resolves to a local HuggingFace id → **venv encode RPC**; else if chat endpoint supports embeddings → **HTTP**; else prompt user to configure venv or API.
+**Current dispatch:** `embedding_provider` must be `local` (default). Host calls `run_code_in_user_venv` with a fixed stub → [`embeddings_index.embed_texts`](../plugin/scripting/embeddings_index.py). Requires `scripting.python_venv_path` (or LO fallback interpreter) with `pip install sentence-transformers numpy`.
 
-**Implementation targets:**
+**Future dispatch (when HTTP ships):** if venv + local model → venv RPC; else if chat endpoint supports embeddings → HTTP; else prompt user to configure venv or API.
 
-- Venv module (adapt patterns below) — batch encode, return float32 lists.
-- Host [`embedding_client.py`](../plugin/framework/client/) — route to venv or HTTP; same call shape for index worker and query embed.
+**Phase B note:** indexing and search should call **new** `embeddings_index` functions for vec0/BLOB persist and KNN; keep using `embedding_client.embed_texts` only where the host needs raw vectors without touching `index.db`.
 
 ---
 

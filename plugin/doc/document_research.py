@@ -97,6 +97,38 @@ def guess_doc_type_from_path(path: str) -> DocTypeGuess:
     return _EXTENSION_DOC_TYPE.get(ext, "unknown")
 
 
+def get_document_research_workflow_hint() -> str:
+    """Outer document_research sub-agent workflow text (grep vs embeddings mode)."""
+    from plugin.framework.constants import document_research_uses_embeddings
+
+    common = (
+        "\n\nDocument research workflow:\n"
+        "To do the task (summarize, extract, analyze, answer from document content), use delegate_read_document. "
+        "That opens the file and runs one or more specialized read tasks with full read tools on that document — this is the main path.\n"
+        "To find the proper filename when the user gives a partial or inexact name, use list_nearby_files first. "
+        "Use file_kind=images on list_nearby_files for photos/images. "
+        "Pass filter with a substring from their description (e.g. filter='budget' for \"the budget spreadsheet\"), "
+        "then delegate_read_document on the matched file name. One delegate_read_document per office file.\n"
+    )
+    if document_research_uses_embeddings():
+        return (
+            common
+            + "For cross-file discovery (semantic or keyword topics), use search_embeddings(query, k) over the active folder index. "
+            "It returns ranked doc_url + paragraph locators (para_index, char_start, char_end, score). "
+            "Open the top one or few hits with delegate_read_document and pass locator hints in the task string "
+            "so the inner read agent can jump to the right passage.\n"
+            "If search_embeddings returns status indexing, retry after the background index finishes.\n"
+        )
+    return (
+        common
+        + "When you are unsure which file — the task names a keyword but no filename "
+        "(e.g. \"documents that mention dspy\") — use grep_nearby_files to see which nearby files match. "
+        "It returns snippet only, not enough for any real work; use it only for file name discovery, then delegate_read_document for the real task on that document.\n"
+        "Do not use grep_nearby_files when list_nearby_files can resolve the filename (including partial matches, or when you already know "
+        "the target file). If you know which file(s) to read — go straight to delegate_read_document instead.\n"
+    )
+
+
 def _normalize_path(path: str) -> str:
     return os.path.normpath(os.path.abspath(path))
 

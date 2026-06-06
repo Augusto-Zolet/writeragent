@@ -14,7 +14,31 @@ class CommonModule(ModuleBase):
     def initialize(self, services):
         self.services = services
 
+        from plugin.framework.constants import document_research_uses_embeddings
         from . import diagnostics, document_research_specialized, document_research_tools, print_doc, undo
 
-        for module in (diagnostics, document_research_tools, document_research_specialized, print_doc, undo):
+        if document_research_uses_embeddings():
+            from . import document_research_search_tool as doc_research_search_mod
+
+            discovery_modules = (
+                diagnostics,
+                document_research_tools,
+                doc_research_search_mod,
+                document_research_specialized,
+                print_doc,
+                undo,
+            )
+        else:
+            from . import document_research_grep_tool as doc_research_grep_mod
+
+            discovery_modules = (
+                diagnostics,
+                document_research_tools,
+                doc_research_grep_mod,
+                document_research_specialized,
+                print_doc,
+                undo,
+            )
+
+        for module in discovery_modules:
             services.tools.auto_discover(module)

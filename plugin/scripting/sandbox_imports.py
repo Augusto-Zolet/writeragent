@@ -81,6 +81,7 @@ VENV_AUTHORIZED_IMPORTS: tuple[str, ...] = (
     "PyQt6.QtWebEngineWidgets",
     "qtpy",
     "plugin.scripting.payload_codec",
+    "plugin.scripting.embeddings_index",
     "sentence_transformers",
     "sentence_transformers.*",
 )

@@ -40,6 +40,10 @@ PLUGIN_DIR = get_plugin_dir()
 # Max characters of Writer document text embedded in chat system context (excerpt, not model window).
 CHAT_DOCUMENT_CONTEXT_MAX_CHARS = 8000
 
+# Local sentence-transformers default until multi-model bench picks a winner (docs/embeddings.md).
+DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+EMBEDDINGS_WORKER_SESSION_PREFIX = "embeddings"
+
 # Model capabilities bitmasks (compatible with OnlyOfficeAI values)
 class ModelCapability(IntFlag):
     NONE = 0
@@ -57,6 +61,16 @@ class ModelCapability(IntFlag):
 # Approach A: The Sub-Agent Model (True) - Spins up a separate agent.
 # Approach B: In-Place Tool Switching (False) - Switches the main model's tools.
 USE_SUB_AGENT = True
+
+# document_research cross-file discovery: "grep" (default) or "embeddings" (search_embeddings only).
+# Edit before make release; no Settings UI in Phase B. See docs/embeddings.md.
+DOCUMENT_RESEARCH_SEARCH_MODE = "grep"
+
+
+def document_research_uses_embeddings() -> bool:
+    """True when outer document_research exposes search_embeddings instead of grep_nearby_files."""
+    return DOCUMENT_RESEARCH_SEARCH_MODE.strip().lower() == "embeddings"
+
 
 # Browser-style user agent for a small, whitelisted set of sites
 # (e.g. DuckDuckGo and Wikipedia) that expect a real browser UA.
