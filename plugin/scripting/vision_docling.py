@@ -375,7 +375,7 @@ def _handle_docling_import_error(exc: Exception, *, helper: str) -> dict[str, An
     if "surya" in msg or "docling-surya" in msg:
         return _error_result(
             "OCR_BACKEND_UNAVAILABLE",
-            f"Surya OCR backend is not installed. pip install docling-surya surya-ocr — or choose another ocr_backend.",
+            "Surya OCR backend is not installed. pip install docling-surya surya-ocr — or choose another ocr_backend.",
             helper=helper,
             details={"ocr_backend": "surya"},
         )

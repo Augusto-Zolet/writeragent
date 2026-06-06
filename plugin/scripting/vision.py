@@ -16,7 +16,6 @@ from plugin.scripting.vision_common import (
     HELPER_NAMES,
     IMPLEMENTED_HELPERS,
     _error_result,
-    _ok_result,
     fallback_engine_enabled,
     resolve_engine,
 )

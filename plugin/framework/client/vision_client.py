@@ -28,7 +28,8 @@ def _resolve_vision_timeout_sec(ctx: Any, spec: dict[str, Any] | str) -> int:
         return DOCLING_WORKER_TIMEOUT_SEC
     if not isinstance(spec, dict):
         return DOCLING_WORKER_TIMEOUT_SEC
-    params = spec.get("params") if isinstance(spec.get("params"), dict) else {}
+    raw_params = spec.get("params")
+    params: dict[str, Any] = raw_params if isinstance(raw_params, dict) else {}
     if resolve_engine(params) == "paddle":
         return VISION_WORKER_TIMEOUT_SEC
     if ctx is not None:
