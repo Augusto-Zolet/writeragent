@@ -1,6 +1,6 @@
 # Image Recognition — Design (Local OCR & Detection)
 
-**Status:** **Phase 1 + Phase 1b (Calc) + Phase 2 shipped** — Run Python Script **Vision Helpers** (`[Vision] extract_text`) on **Writer and Calc**; Writer text-cursor insert; Calc sheet report below graphic anchor; Settings → Python **Test** reports PaddleOCR/Ultralytics and install/timeout hints. Draw/Impress egress → **Phase 1b.2**. LLM/chat integration (`analyze_image`) is **explicitly later**.
+**Status:** **Phase 1 + Phase 1b (Calc) + Phase 2 + Phase 3 shipped** — Run Python Script **Vision Helpers** (`[Vision] extract_text`, `[Vision] extract_structure`) on **Writer and Calc**; export by **selection** or **`image_name`** in template params; Writer text-cursor insert; Calc sheet report below graphic anchor; Settings → Python **Test** reports PaddleOCR/Ultralytics and install/timeout hints. Draw/Impress egress → **Phase 1b.2** (deferred). LLM/chat integration (`analyze_image`) is **explicitly later**.
 
 WriterAgent documents (Writer, Calc, Draw/Impress) embed raster images: scans, screenshots, chart photos, slide exports, logos. **LibreOffice handles graphics I/O** (export, insert, replace, dimensions). **Recognition** (OCR, layout, object detection) runs in the user's venv via the same trusted-module pattern as [`analysis.py`](../plugin/scripting/analysis.py) and [`embeddings_index.py`](../plugin/scripting/embeddings_index.py).
 
@@ -19,12 +19,14 @@ WriterAgent documents (Writer, Calc, Draw/Impress) embed raster images: scans, s
 3. [Current code state (grounded)](#3-current-code-state-grounded)
 4. [Phase 1 development plan (agent handoff)](#4-phase-1-development-plan-agent-handoff)
 4b. [Phase 1b Calc development plan (shipped)](#4b-phase-1b-calc-development-plan-shipped)
+4c. [Phase 3 development plan (shipped)](#4c-phase-3-development-plan-shipped)
 5. [Use cases](#5-use-cases)
 6. [Host vs venv split](#6-host-vs-venv-split)
 7. [Supported libraries](#7-supported-libraries)
 8. [Architecture](#8-architecture)
 9. [Trusted helpers (planned API)](#9-trusted-helpers-planned-api)
 10. [`extract_text` result JSON (normative)](#10-extract_text-result-json-normative)
+10b. [`extract_structure` result JSON (normative)](#10b-extract_structure-result-json-normative)
 11. [Selection and error UX](#11-selection-and-error-ux)
 12. [IPC and worker payload](#12-ipc-and-worker-payload)
 13. [Install, models, and self-check](#13-install-models-and-self-check)
@@ -73,7 +75,7 @@ Recognition must be usable **without the chat sidebar** — offline, predictable
 | UI | Role for vision |
 |----|-----------------|
 | **WriterAgent → Settings → Python** | Venv path, exec timeout (user scripts only), **Test** button — reports scientific + **Vision Libraries** (`paddleocr`, `paddle`, `ultralytics`, optional `skimage`) and pip install hints when OCR packages are missing |
-| **WriterAgent → Run Python Script…** | Monaco editor ([`editor_host.py`](../plugin/scripting/editor_host.py)) or legacy XDL dialog; **Analysis Helpers** (**Calc only**); **Vision Helpers** (**Writer + Calc**) via [`vision_templates.py`](../plugin/scripting/vision_templates.py), [`supports_vision_manual`](plugin/scripting/vision_runner.py), and [`document_scripts.py`](../plugin/scripting/document_scripts.py) `_vision_script_section` |
+| **WriterAgent → Run Python Script…** | Monaco editor ([`editor_host.py`](../plugin/scripting/editor_host.py)) or legacy XDL dialog; **Analysis Helpers** (**Calc only**); **Vision Helpers** (**Writer + Calc**) — `[Vision] extract_text`, `[Vision] extract_structure` via [`vision_templates.py`](../plugin/scripting/vision_templates.py), [`supports_vision_manual`](plugin/scripting/vision_runner.py), and [`document_scripts.py`](../plugin/scripting/document_scripts.py) `_vision_script_section` |
 | **Chat sidebar** | Text chat + remote **image generation** — **not** in-document OCR/recognition |
 | **Settings → Image** tab | Image **generation** providers — unrelated to local OCR |
 
@@ -86,13 +88,13 @@ Mirror [**Analysis Helpers**](calc-analysis-tools.md#1b-run-python-script--analy
 | Piece | Shipped |
 |-------|---------|
 | **Entry** | **WriterAgent → Run Python Script…** (already on menu for Writer/Calc/Draw/Impress) |
-| **Picker section** | **Vision Helpers →** e.g. `[Vision] extract_text`, … |
-| **Templates** | [`vision_templates.py`](../plugin/scripting/vision_templates.py) with `# writeragent:vision helper=… params=…` header |
-| **Input** | User **selects an embedded graphic**; host exports PNG bytes (Phase 1: selection only) |
+| **Picker section** | **Vision Helpers →** e.g. `[Vision] extract_text`, `[Vision] extract_structure`, … |
+| **Templates** | [`vision_templates.py`](../plugin/scripting/vision_templates.py) with `# writeragent:vision helper=… params=…` header; params include optional **`image_name`** (from `list_images`) |
+| **Input** | User **selects an embedded graphic**, or sets **`image_name`** in params; host exports PNG bytes |
 | **Run** | Fast path in `execute_and_insert_result` → `run_trusted_vision` → `vision_client.run_vision` |
 | **App scope** | **Writer + Calc** — Vision Helpers when [`supports_vision_manual`](plugin/scripting/vision_runner.py); Draw/Impress in **Phase 1b.2** |
 
-**Monaco toolbar:** Phase 1 omits an **Image:** field — always use current graphic selection when exporting. Phase 1b+ may add binding for graphic name / file path.
+**Monaco toolbar:** Phase 3 uses **`image_name` in template params** (empty = selection). A dedicated **Image:** toolbar field remains optional follow-on.
 
 ### 2.3 User workflow (Writer)
 
@@ -125,8 +127,7 @@ First Paddle model download uses a **dedicated vision worker timeout** (not Sett
 |----------|-------|----------|
 | **Writer** | **1** | Insert **`full_text`** as plain text at **text cursor** via [`insert_content_at_position`](../plugin/writer/format.py)(..., `"selection"`) — see [`format_vision_for_writer`](../plugin/scripting/vision_egress.py) |
 | **Writer** | later | Optional **`set_image_properties`** description from OCR summary |
-| **Calc** | **1b** | Formatted report via [`format_vision_for_calc`](plugin/calc/vision_egress.py) + [`insert_vision_result_into_calc`](plugin/calc/vision_egress.py) — anchor = selected graphic's **`Anchor` cell**, insert starts **one row below** |
-| **Calc** | later | **`extract_structure`** → multi-cell table (like [`analysis_egress`](plugin/calc/analysis_egress.py)) |
+| **Calc** | **1b / 3** | **`extract_text`** formatted report; **`extract_structure`** multi-cell tables (like [`analysis_egress`](plugin/calc/analysis_egress.py)) |
 | **Draw / Impress** | **1b.2** | Text box near selected graphic; shape annotations later |
 
 **Selection vs output anchor:** On **Writer**, user clicks the **image** (export) and places the **text cursor** for insert (they may differ). On **Calc**, the selected graphic's **anchor cell** defines the sheet insert row (one row below); the image must be cell-anchored.
@@ -171,21 +172,22 @@ Mirror [analysis-sub-agent.md § Current Code State](analysis-sub-agent.md). **R
 
 | Area | Files |
 |------|--------|
-| **Vision trusted stack + host wiring** | [`vision.py`](../plugin/scripting/vision.py), [`vision_client.py`](../plugin/framework/client/vision_client.py), [`vision_runner.py`](../plugin/scripting/vision_runner.py) (`supports_vision_manual`), [`vision_templates.py`](../plugin/scripting/vision_templates.py), [`vision_egress.py`](../plugin/scripting/vision_egress.py) (Writer) |
-| Run Python vision fast path | [`python_runner.py`](../plugin/scripting/python_runner.py) — Writer: `format_vision_for_writer` → `insert_content_at_position`; Calc: `insert_vision_result_into_calc` |
+| **Vision trusted stack + host wiring** | [`vision.py`](../plugin/scripting/vision.py) (`extract_text`, `extract_structure`), [`vision_client.py`](../plugin/framework/client/vision_client.py), [`vision_runner.py`](../plugin/scripting/vision_runner.py) (`resolve_vision_image_bytes`, `supports_vision_manual`), [`vision_templates.py`](../plugin/scripting/vision_templates.py), [`vision_egress.py`](../plugin/scripting/vision_egress.py) (Writer) |
+| Image export (selection + name) | [`export_graphic_object_to_bytes`](../plugin/writer/images/image_tools.py), [`resolve_vision_image_bytes`](../plugin/scripting/vision_runner.py), [`_get_graphic_object`](../plugin/writer/images/images.py) |
+| Run Python vision fast path | [`python_runner.py`](../plugin/scripting/python_runner.py) — Writer: `format_vision_for_writer`; Calc: `insert_vision_result_into_calc` |
 | Calc vision egress | [`plugin/calc/vision_egress.py`](../plugin/calc/vision_egress.py) — `format_vision_for_calc`, `calc_output_anchor_from_graphic`, `insert_vision_result_into_calc` |
-| Script picker (Writer + Calc) | [`document_scripts.py`](../plugin/scripting/document_scripts.py) — `SCRIPT_ORIGIN_VISION`, `_vision_script_section`, `build_scripts_list_message` |
-| Image export (selection) | [`get_selected_image_base64`](../plugin/writer/images/image_tools.py) via [`get_selected_image_bytes`](../plugin/scripting/vision_runner.py) |
+| Script picker (Writer + Calc) | [`document_scripts.py`](../plugin/scripting/document_scripts.py) — `SCRIPT_ORIGIN_VISION`, `_vision_script_section` |
 | Monaco built-in guards | [`scripts_manager.js`](../plugin/contrib/scripting/assets/editor/scripts_manager.js) — Attach/Save/Delete disabled for `origin === "vision"` |
 | Analysis trusted stack (reference) | [`analysis.py`](../plugin/scripting/analysis.py), [`analysis_client.py`](../plugin/framework/client/analysis_client.py), [`analysis_runner.py`](../plugin/calc/analysis_runner.py) |
 | Calc analysis egress | [`analysis_egress.py`](../plugin/calc/analysis_egress.py) — `is_analysis_result`, `insert_analysis_result_into_calc` |
 | Tests | [`test_vision*.py`](../tests/scripting/), [`test_python_runner_vision.py`](../tests/scripting/test_python_runner_vision.py), [`test_vision_egress.py`](../tests/calc/test_vision_egress.py), [`test_document_scripts.py`](../tests/scripting/test_document_scripts.py) (vision section tests) |
 
-### Gaps (post–Phase 2)
+### Gaps (post–Phase 3)
 
 | Gap | Notes |
 |-----|--------|
-| Draw/Impress Vision Helpers + text-box egress | **Phase 1b.2** |
+| Draw/Impress Vision Helpers + text-box egress | **Phase 1b.2** (deferred) |
+| Monaco **Image:** toolbar field | Optional; `image_name` in params works today |
 | Context menu / **Recognize Image…** shortcut | Optional (§2.6) |
 | `analyze_image` LLM tool | **Phase 6** (§18) |
 
@@ -315,12 +317,37 @@ Draw/Impress: extend `supports_vision_manual` with `is_draw`; minimal `TextShape
 
 ---
 
+## 4c. Phase 3 development plan (shipped)
+
+**Goal:** **`extract_structure`** (PP-Structure) on Writer + Calc, plus export by **`image_name`** in template params.
+
+### Delivered
+
+| File | Role |
+|------|------|
+| [`plugin/scripting/vision.py`](../plugin/scripting/vision.py) | `_extract_structure` via lazy `PPStructureV3` singleton; normative JSON ([§10b](#10b-extract_structure-result-json-normative)) |
+| [`plugin/scripting/vision_runner.py`](../plugin/scripting/vision_runner.py) | `resolve_vision_image_bytes`, `export_graphic_object_to_bytes` reuse from [`image_tools.py`](../plugin/writer/images/image_tools.py) |
+| [`plugin/scripting/vision_templates.py`](../plugin/scripting/vision_templates.py) | `[Vision] extract_structure`; default params `lang`, `image_name` |
+| [`plugin/scripting/vision_egress.py`](../plugin/scripting/vision_egress.py) | `format_vision_structure_for_writer` |
+| [`plugin/calc/vision_egress.py`](../plugin/calc/vision_egress.py) | Structure tables in Calc grid (analysis-style table blocks) |
+| [`plugin/writer/images/image_tools.py`](../plugin/writer/images/image_tools.py) | `export_graphic_to_bytes`, `export_graphic_object_to_bytes` |
+
+**Image resolution:** `params.image_name` empty → selected graphic; non-empty → [`_get_graphic_object`](plugin/writer/images/images.py) by name (`IMAGE_NOT_FOUND` on miss).
+
+**First PP-Structure run:** uses `VISION_WORKER_TIMEOUT_SEC` (same as OCR model download).
+
+### Tests
+
+Extended [`test_vision.py`](../tests/scripting/test_vision.py), [`test_vision_runner.py`](../tests/scripting/test_vision_runner.py), [`test_vision_templates.py`](../tests/scripting/test_vision_templates.py), [`test_vision_egress.py`](../tests/scripting/test_vision_egress.py), [`test_vision_egress.py`](../tests/calc/test_vision_egress.py) (Calc), [`test_python_runner_vision.py`](../tests/scripting/test_python_runner_vision.py), [`test_document_scripts.py`](../tests/scripting/test_document_scripts.py).
+
+---
+
 ## 5. Use cases
 
 | Use case | User path (primary) | Agent path (later) |
 |----------|---------------------|-------------------|
 | OCR on scan / screenshot | Vision Helpers → `extract_text` (**Writer, Phase 1**) | `analyze_image` + `source=selection` |
-| Tables in raster image → Calc | `extract_structure` (**Phase 3 / egress 1b**) | same helper via tool |
+| Tables in raster image → Calc | Vision Helpers → `extract_structure` (**Phase 3 — shipped**) | same helper via tool |
 | Alt text from visible text | `extract_text` → description (**later**) | optional |
 | Find logos / UI elements | `detect_objects` (Phase 4) | same |
 | “What does this diagram *mean*?” | — | LLM vision ([§18](#18-llm-access-deferred)) |
@@ -334,15 +361,16 @@ Draw/Impress: extend `supports_vision_manual` with `is_draw`; minimal `TextShape
 
 | Capability | Entry point |
 |------------|-------------|
-| Export selection to PNG | [`get_selected_image_base64`](../plugin/writer/images/image_tools.py) |
+| Export selection to PNG | [`get_selected_image_base64`](../plugin/writer/images/image_tools.py) / [`resolve_vision_image_bytes`](../plugin/scripting/vision_runner.py) |
+| Export by graphic name | [`resolve_vision_image_bytes`](plugin/scripting/vision_runner.py) + [`_get_graphic_object`](plugin/writer/images/images.py) |
 | List in-document graphics | [`list_images`](../plugin/writer/images/images.py) |
 | Metadata | [`get_image_info`](../plugin/writer/images/images.py) |
 | Insert / replace / delete | [`image_tools.py`](../plugin/writer/images/image_tools.py) |
 | Remote **generation** | [`generate_image`](../plugin/writer/images/images.py) |
 
-**Phase 1 host work:** `get_selected_image_bytes` + vision fast path + Writer insert.
+**Phase 3 host work (shipped):** export by graphic name; structure egress on Writer + Calc.
 
-**Phase 1b+:** export by graphic name/URL; Calc/Draw egress.
+**Phase 1b.2 (deferred):** Draw/Impress egress.
 
 ### Venv (planned)
 
@@ -463,7 +491,7 @@ HELPER_NAMES = frozenset({
 | Helper | Stack | Vision Helpers picker |
 |--------|-------|----------------------|
 | `extract_text` | PaddleOCR | **Phase 1** |
-| `extract_structure` | PP-Structure | Phase 3 |
+| `extract_structure` | PaddleOCR PP-Structure | **Phase 3 — shipped** |
 | `detect_objects` | Ultralytics | Phase 4 |
 | `detect_layout` | Ultralytics + DocLayout | Phase 4 |
 | `recognize_pipeline` | YOLO → PaddleOCR | Phase 4 |
@@ -531,10 +559,51 @@ def is_vision_result(value: Any) -> bool:
 | `code` | When |
 |--------|------|
 | `NO_IMAGE_SELECTED` | Host could not export graphic bytes (also used before venv call) |
+| `IMAGE_NOT_FOUND` | Host: `image_name` in params not found via `_get_graphic_object` |
 | `NO_OUTPUT_ANCHOR` | Calc: selected graphic has no resolvable cell **Anchor** |
 | `PADDLEOCR_UNAVAILABLE` | Import/install failure in venv |
 | `VISION_ERROR` | OCR runtime failure |
 | `UNKNOWN_HELPER` | Bad helper name in spec |
+
+---
+
+## 10b. `extract_structure` result JSON (normative)
+
+Same [`is_vision_result()`](../plugin/scripting/vision_egress.py) guard as [§10](#10-extract_text-result-json-normative).
+
+### Success
+
+```json
+{
+  "status": "ok",
+  "helper": "extract_structure",
+  "full_text": "Title\nItem\tQty",
+  "blocks": [
+    {"type": "text", "text": "Title", "box": [x, y, w, h]},
+    {"type": "table", "text": "", "box": [x, y, w, h]}
+  ],
+  "tables": [
+    {"name": "table_1", "columns": ["Item", "Qty"], "rows": [["Widget", "2"]], "truncated": false, "total_rows": 1}
+  ],
+  "metrics": {"block_count": 2, "table_count": 1},
+  "warnings": []
+}
+```
+
+| Field | Required | Notes |
+|-------|----------|-------|
+| `full_text` | Yes (may be `""`) | Reading-order plain text; Writer egress prefers this |
+| `blocks` | Yes (may be `[]`) | Layout regions from PP-Structure |
+| `tables` | Yes (may be `[]`) | Analysis-compatible table dicts; Calc egress renders these |
+| `metrics.block_count` | Recommended | Length of `blocks` |
+| `metrics.table_count` | Recommended | Length of `tables` |
+| `warnings` | Yes (may be `[]`) | e.g. `"No structure detected."` |
+
+Writer egress fallback when `full_text` is empty: first table as TSV, then `blocks[].text`.
+
+### Error
+
+Same error envelope as [§10](#10-extract_text-result-json-normative); `helper` is `extract_structure`. PP-Structure import failures use `PADDLEOCR_UNAVAILABLE`.
 
 ---
 
@@ -547,11 +616,12 @@ User-visible strings (gettext-ready). Host may raise [`ToolExecutionError`](../p
 | No document | Same as Run Python Script today |
 | Not Writer/Calc | Vision Helpers **hidden** in picker; fast path returns error if header run anyway |
 | Selection is not a graphic / export fails | `NO_IMAGE_SELECTED` — *Select an embedded image, then Run again.* |
+| `image_name` set but not in document | `IMAGE_NOT_FOUND` — *Image '{name}' not found. Use list_images or leave image_name empty and select the graphic.* |
 | Calc graphic not cell-anchored | `NO_OUTPUT_ANCHOR` — *Anchor the image to a cell, select it, then Run again.* |
 | Venv missing Paddle | `PADDLEOCR_UNAVAILABLE` — pip install + Settings → Python path |
 | OCR returns empty | `status: ok`, `full_text: ""`, `warnings: ["No text detected."]` |
-| Success (Writer) | Insert `full_text` at text cursor; status — *Extracted N lines (took …)* |
-| Success (Calc) | Multi-cell report below anchor; status — *Wrote N rows (took …)* |
+| Success (Writer) | Insert `full_text` (or structure fallback) at text cursor; status — *Extracted N lines* or *Found N blocks and M tables* |
+| Success (Calc) | Multi-cell report below anchor; status — *Wrote N rows* |
 | Timeout | Vision uses dedicated worker budget (`VISION_WORKER_TIMEOUT_SEC`); user `python_exec_timeout` unchanged |
 
 **UX note:** User clicks the **image** (graphic selected for export). **Text cursor** position sets insert location — they may differ.
@@ -616,7 +686,7 @@ Phases prioritize **user exposition**; LLM integration is last.
 | **1b** | **Calc:** Vision Helpers + sheet egress (`vision_egress.py`) | **Yes — shipped** |
 | **1b.2** | Draw/Impress text-box egress | **Yes** (planned) |
 | **2** | Settings **Test** reports paddle/ultralytics; install messaging; dedicated vision worker timeout | **Yes — shipped** |
-| **3** | `extract_structure`; export by graphic name | **Yes** |
+| **3** | `extract_structure`; export by graphic name (`image_name` param) | **Yes — shipped** |
 | **4** | `detect_objects`, `recognize_pipeline`, Ultralytics helpers + templates | **Yes** |
 | **5** | Per-folder vision cache; `perceptual_hash`; optional context menu | Partial |
 | **6** | **`analyze_image` LLM tool**; chat delegation; optional multimodal hybrid | Agent-only |
@@ -662,6 +732,18 @@ Checklist for implementers / QA:
 - [x] When `ultralytics` is missing, Test message notes optional `pip install ultralytics`
 - [x] Vision RPC uses `VISION_WORKER_TIMEOUT_SEC`, not `scripting.python_exec_timeout`
 - [x] `PADDLEOCR_UNAVAILABLE` includes concrete pip install command
+
+---
+
+## 17e. Phase 3 acceptance criteria
+
+- [x] `make test` passes with mocked Paddle and mocked PPStructureV3 (no real models in CI)
+- [x] Script picker shows **Vision Helpers → [Vision] extract_structure** (Writer + Calc)
+- [x] `params.image_name` empty → exports selected graphic; non-empty → resolves via `list_images` names
+- [x] Unknown `image_name` → `IMAGE_NOT_FOUND` before venv call
+- [x] `extract_structure` Writer: structure text inserted at cursor
+- [x] `extract_structure` Calc: tables written as multi-cell report below graphic anchor
+- [x] No `analyze_image` tool registration
 
 ---
 

@@ -18,9 +18,11 @@ from plugin.scripting.vision import run_vision
 def _reset_paddle_singleton():
     vision_mod._paddle_ocr_engine = None
     vision_mod._paddle_ocr_lang = None
+    vision_mod._pp_structure_engine = None
     yield
     vision_mod._paddle_ocr_engine = None
     vision_mod._paddle_ocr_lang = None
+    vision_mod._pp_structure_engine = None
 
 
 def _sample_ocr_page():
@@ -96,6 +98,65 @@ def test_unimplemented_helper_in_registry():
     assert result["status"] == "error"
     assert result["code"] == "UNKNOWN_HELPER"
     assert "not implemented" in result["message"].lower()
+
+
+def _sample_structure_page():
+    return [
+        {"type": "text", "bbox": [10, 10, 100, 30], "res": [{"text": "Invoice"}]},
+        {
+            "type": "table",
+            "bbox": [10, 40, 200, 120],
+            "res": {
+                "html": "<table><tr><th>Item</th><th>Qty</th></tr><tr><td>Widget</td><td>2</td></tr></table>",
+            },
+        },
+    ]
+
+
+@patch("plugin.scripting.vision._decode_image_bytes")
+@patch("plugin.scripting.vision._get_pp_structure")
+def test_extract_structure_maps_blocks_and_tables(mock_get_engine, mock_decode):
+    engine = MagicMock()
+    engine.predict.return_value = [_sample_structure_page()]
+    mock_get_engine.return_value = engine
+    mock_decode.return_value = MagicMock()
+
+    result = run_vision({"helper": "extract_structure", "params": {}}, b"png-bytes", {})
+
+    assert result["status"] == "ok"
+    assert result["helper"] == "extract_structure"
+    assert "Invoice" in result["full_text"]
+    assert result["metrics"]["block_count"] == 2
+    assert result["metrics"]["table_count"] == 1
+    assert len(result["tables"]) == 1
+    assert result["tables"][0]["columns"] == ["Item", "Qty"]
+    assert result["tables"][0]["rows"] == [["Widget", "2"]]
+
+
+@patch("plugin.scripting.vision._decode_image_bytes")
+@patch("plugin.scripting.vision._get_pp_structure")
+def test_extract_structure_empty_adds_warning(mock_get_engine, mock_decode):
+    engine = MagicMock()
+    engine.predict.return_value = [[]]
+    mock_get_engine.return_value = engine
+    mock_decode.return_value = MagicMock()
+
+    result = run_vision({"helper": "extract_structure", "params": {}}, b"png-bytes", {})
+
+    assert result["status"] == "ok"
+    assert result["full_text"] == ""
+    assert result["warnings"] == ["No structure detected."]
+
+
+@patch("plugin.scripting.vision._get_pp_structure")
+def test_extract_structure_paddle_unavailable(mock_get_engine):
+    mock_get_engine.side_effect = ImportError("PPStructureV3 is not available")
+
+    result = run_vision({"helper": "extract_structure", "params": {}}, b"png-bytes", {})
+
+    assert result["status"] == "error"
+    assert result["code"] == "PADDLEOCR_UNAVAILABLE"
+    assert result["helper"] == "extract_structure"
 
 
 @patch("plugin.scripting.vision._decode_image_bytes")

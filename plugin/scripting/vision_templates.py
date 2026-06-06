@@ -19,15 +19,16 @@ _VISION_HEADER_RE = re.compile(
     re.MULTILINE,
 )
 
-# Phase 1 ships extract_text only; other helpers appear in HELPER_NAMES for future templates.
-_PHASE1_TEMPLATES = frozenset({"extract_text"})
+_SHIPPED_TEMPLATES = frozenset({"extract_text", "extract_structure"})
 
 _DEFAULT_PARAMS: dict[str, dict[str, Any]] = {
-    "extract_text": {},
+    "extract_text": {"lang": "en", "image_name": ""},
+    "extract_structure": {"lang": "en", "image_name": ""},
 }
 
 _HELPER_DESCRIPTIONS: dict[str, str] = {
-    "extract_text": "OCR selected image — click the graphic, place cursor for insert, then Run.",
+    "extract_text": "OCR selected image — select graphic or set image_name from list_images.",
+    "extract_structure": "Layout and tables from image — select graphic or set image_name from list_images.",
 }
 
 
@@ -43,7 +44,8 @@ def _template_body(helper: str, params: dict[str, Any]) -> str:
     return (
         f"{VISION_HEADER_PREFIX} helper={helper} params={params_json}\n"
         f"# {desc}\n"
-        f"# Select an embedded graphic, place the text cursor for insert, then Run.\n"
+        f"# Select an embedded graphic OR set image_name in params (from list_images).\n"
+        f"# Writer: place text cursor for insert. Calc: select cell-anchored graphic for output row.\n"
         f"from plugin.scripting.vision import run_vision\n\n"
         f"result = run_vision(\n"
         f'    {{"helper": "{helper}", "params": {params_json}}},\n'
@@ -57,7 +59,7 @@ def get_vision_script_templates() -> dict[str, str]:
     """Return built-in vision helper scripts keyed by helper name."""
     return {
         helper: _template_body(helper, dict(_DEFAULT_PARAMS.get(helper, {})))
-        for helper in sorted(_PHASE1_TEMPLATES)
+        for helper in sorted(_SHIPPED_TEMPLATES)
         if helper in HELPER_NAMES
     }
 

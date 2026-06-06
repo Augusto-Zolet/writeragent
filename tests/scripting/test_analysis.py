@@ -97,6 +97,10 @@ def test_coerce_dedupes_header_names():
 
 
 def test_describe_data_basic():
+    import importlib.util
+
+    if importlib.util.find_spec("data_profiling") is None:
+        pytest.skip("ydata-profiling not installed")
     result = analysis.describe_data(SALES_GRID)
     assert result["status"] == "ok"
     assert result["helper"] == "describe_data"
@@ -118,9 +122,10 @@ def test_describe_data_without_profiling():
     with patch("builtins.__import__", side_effect=blocked_import):
         result = analysis.describe_data(SALES_GRID)
 
-    assert result["status"] == "ok"
-    sales_col = next(col for col in result["columns"] if col["name"] == "Sales")
-    assert sales_col["mean"] == pytest.approx(1166.833333, rel=1e-3)
+    # Now returns error since fallback removed
+    assert result["status"] == "error"
+    assert result["code"] == "MISSING_PACKAGE"
+    assert "ydata-profiling" in result["message"]
 
 
 def test_describe_data_with_profiling():
@@ -203,10 +208,31 @@ def test_correlation_matrix():
 
 
 def test_run_regression_linear():
+    import importlib.util
+
+    if importlib.util.find_spec("statsmodels") is None:
+        pytest.skip("statsmodels not installed")
     grid = [["x", "y"], [1, 2], [2, 4], [3, 6], [4, 8]]
     result = analysis.run_regression(grid, target="y", features=["x"])
     assert result["status"] == "ok"
     assert result["metrics"]["r_squared"] == pytest.approx(1.0, abs=1e-4)
+
+
+def test_run_regression_missing_statsmodels(monkeypatch):
+    import sys
+
+    # Remove statsmodels from sys.modules to trigger ImportError
+    monkeypatch.setitem(sys.modules, "statsmodels", None)
+    monkeypatch.setitem(sys.modules, "statsmodels.api", None)
+
+    from plugin.scripting import analysis
+
+    grid = [["x", "y"], [1, 2], [2, 4], [3, 6], [4, 8]]
+    result = analysis.run_regression(grid, target="y", features=["x"])
+
+    assert result["status"] == "error"
+    assert result["code"] == "MISSING_PACKAGE"
+    assert "statsmodels" in result["message"]
 
 
 def test_cluster_numeric():
@@ -217,6 +243,10 @@ def test_cluster_numeric():
 
 
 def test_monte_carlo_resample_metrics():
+    import importlib.util
+
+    if importlib.util.find_spec("pandas_montecarlo") is None:
+        pytest.skip("pandas-montecarlo not installed")
     result = analysis.monte_carlo(MONTE_CARLO_GRID, sims=50, bust=-0.05, goal=0.05)
     assert result["status"] == "ok"
     metrics = result["metrics"]
@@ -233,13 +263,37 @@ def test_monte_carlo_resample_metrics():
 
 
 def test_monte_carlo_small_series():
+    import importlib.util
+
+    if importlib.util.find_spec("pandas_montecarlo") is None:
+        pytest.skip("pandas-montecarlo not installed")
     grid = [["x"], [1], [2], [3], [4], [5]]
     result = analysis.monte_carlo(grid, sims=10)
     assert result["status"] == "ok"
     assert result["metrics"]["simulations"] == 10
 
 
+def test_monte_carlo_missing_pandas_montecarlo(monkeypatch):
+    import sys
+
+    # Remove pandas_montecarlo from sys.modules to trigger ImportError
+    monkeypatch.setitem(sys.modules, "pandas_montecarlo", None)
+
+    from plugin.scripting import analysis
+
+    grid = [["x"], [1], [2], [3], [4], [5]]
+    result = analysis.monte_carlo(grid, sims=10)
+
+    assert result["status"] == "error"
+    assert result["code"] == "MISSING_PACKAGE"
+    assert "pandas-montecarlo" in result["message"]
+
+
 def test_run_analysis_monte_carlo_dispatch():
+    import importlib.util
+
+    if importlib.util.find_spec("pandas_montecarlo") is None:
+        pytest.skip("pandas-montecarlo not installed")
     result = analysis.run_analysis(
         {"helper": "monte_carlo", "params": {"sims": 20, "bust": -0.1, "goal": 0.0}},
         MONTE_CARLO_GRID,
@@ -250,6 +304,10 @@ def test_run_analysis_monte_carlo_dispatch():
 
 
 def test_run_analysis_dispatches_helper():
+    import importlib.util
+
+    if importlib.util.find_spec("data_profiling") is None:
+        pytest.skip("data_profiling not installed")
     result = analysis.run_analysis("describe_data", SALES_GRID)
     assert result["status"] == "ok"
     assert result["helper"] == "describe_data"
@@ -279,31 +337,39 @@ def test_table_row_cap():
 
 
 @pytest.mark.parametrize(
-    ("helper", "call", "metric_keys"),
+    ("helper", "call", "metric_keys", "requires"),
     [
         (
             "describe_data",
             lambda: analysis.describe_data(SALES_GRID),
             ("row_count", "col_count"),
+            "data_profiling",
         ),
         (
             "detect_outliers",
             lambda: analysis.detect_outliers(SALES_GRID, method="iqr", columns=["Sales"]),
             ("outlier_count", "method"),
+            None,
         ),
         (
             "monte_carlo",
             lambda: analysis.monte_carlo(MONTE_CARLO_GRID, sims=25),
             ("simulations", "mean", "bust_prob"),
+            "pandas_montecarlo",
         ),
         (
             "run_regression",
             lambda: analysis.run_regression(REGRESSION_GRID, target="y", features=["x"]),
             ("r_squared", "n_obs"),
+            "statsmodels",
         ),
     ],
 )
-def test_helper_golden_metrics(helper, call, metric_keys):
+def test_helper_golden_metrics(helper, call, metric_keys, requires):
+    import importlib.util
+
+    if requires and importlib.util.find_spec(requires) is None:
+        pytest.skip(f"{requires} not installed")
     result = call()
     assert result["status"] == "ok"
     assert result["helper"] == helper

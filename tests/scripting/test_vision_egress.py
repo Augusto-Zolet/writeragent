@@ -55,3 +55,42 @@ def test_format_vision_for_writer_missing_full_text_raises():
     with pytest.raises(ToolExecutionError) as exc:
         format_vision_for_writer({"status": "ok", "helper": "extract_text"})
     assert exc.value.code == "VISION_ERROR"
+
+
+def test_format_vision_structure_uses_full_text():
+    text = format_vision_for_writer(
+        {
+            "status": "ok",
+            "helper": "extract_structure",
+            "full_text": "Title\nItem\tQty",
+            "blocks": [],
+            "tables": [],
+        }
+    )
+    assert text == "Title\nItem\tQty"
+
+
+def test_format_vision_structure_table_fallback():
+    text = format_vision_for_writer(
+        {
+            "status": "ok",
+            "helper": "extract_structure",
+            "full_text": "",
+            "tables": [{"name": "table_1", "columns": ["A", "B"], "rows": [["1", "2"]]}],
+            "blocks": [],
+        }
+    )
+    assert text == "A\tB\n1\t2"
+
+
+def test_format_vision_structure_blocks_fallback():
+    text = format_vision_for_writer(
+        {
+            "status": "ok",
+            "helper": "extract_structure",
+            "full_text": "",
+            "tables": [],
+            "blocks": [{"type": "text", "text": "Block one", "box": [0, 0, 1, 1]}],
+        }
+    )
+    assert text == "Block one"

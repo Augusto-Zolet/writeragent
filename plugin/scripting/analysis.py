@@ -154,35 +154,7 @@ def format_percent(values: Any, *, decimals: int = 1) -> list[str]:
     return out
 
 
-def _describe_column_pandas(limited: Any, col: Any, *, include_outliers: bool) -> tuple[dict[str, Any], list[str]]:
-    """Pandas-only column summary when ydata-profiling is unavailable."""
-    series = limited[col]
-    col_flags: list[str] = []
-    missing_pct = float(series.isna().mean()) if len(series) else 0.0
-    summary: dict[str, Any] = {
-        "name": str(col),
-        "dtype": str(series.dtype),
-        "missing_pct": round(missing_pct, 4),
-        "unique_count": int(series.nunique(dropna=True)),
-    }
-    if str(series.dtype).startswith(("float", "int", "Int", "uint")):
-        desc = series.describe()
-        summary.update(
-            {
-                "mean": _safe_float(desc.get("mean")),
-                "std": _safe_float(desc.get("std")),
-                "min": _safe_float(desc.get("min")),
-                "max": _safe_float(desc.get("max")),
-                "median": _safe_float(series.median()),
-            }
-        )
-        if include_outliers:
-            outlier_result = detect_outliers(limited, columns=[str(col)], method="iqr")
-            outlier_count = outlier_result.get("metrics", {}).get("outlier_count", 0)
-            if outlier_count:
-                col_flags.append(f"{outlier_count} outliers in {col} (IQR)")
-                summary["outlier_count"] = outlier_count
-    return summary, col_flags
+
 
 
 def _describe_columns_from_profile(
@@ -254,7 +226,7 @@ def describe_data(
     try:
         import json
 
-        from data_profiling import ProfileReport  # type: ignore[import-not-found, import-untyped, ty:unresolved-import]  # pyright: ignore[reportMissingImports]
+        from data_profiling import ProfileReport  # type: ignore[import-untyped]
 
         profile = ProfileReport(limited, minimal=True, progress_bar=False)
         report_json = json.loads(profile.to_json())
@@ -267,11 +239,11 @@ def describe_data(
             include_outliers=include_outliers,
         )
     except ImportError:
-        log.debug("data_profiling not installed; using pandas describe fallback")
-        for col in cols:
-            summary, col_flags = _describe_column_pandas(limited, col, include_outliers=include_outliers)
-            column_summaries.append(summary)
-            flags.extend(col_flags)
+        return _error_result(
+            "MISSING_PACKAGE",
+            "ydata-profiling is required for describe_data. Install: pip install ydata-profiling",
+            helper="describe_data",
+        )
 
     for alert in profile_messages:
         if isinstance(alert, str):
@@ -671,29 +643,23 @@ def run_regression(
 
     try:
         import statsmodels.api as sm  # type: ignore[import-untyped]
+    except ImportError:
+        return _error_result(
+            "MISSING_PACKAGE",
+            "statsmodels is required for run_regression. Install: pip install statsmodels",
+            helper="run_regression",
+        )
 
-        design = sm.add_constant(x) if add_constant else x
-        model = sm.OLS(y, design).fit()
-        names = (["const"] if add_constant else []) + feature_cols
-        coef_rows = [[name, round(float(coef), 6)] for name, coef in zip(names, model.params)]
-        metrics = {
-            "r_squared": round(float(model.rsquared), 6),
-            "adj_r_squared": round(float(model.rsquared_adj), 6),
-            "n_obs": int(model.nobs),
-            "method": "statsmodels_ols",
-        }
-    except Exception:
-        from sklearn.linear_model import LinearRegression  # type: ignore[import-untyped]
-
-        model = LinearRegression()
-        model.fit(x, y)
-        coef_rows = [[name, round(float(coef), 6)] for name, coef in zip(feature_cols, model.coef_)]
-        metrics = {
-            "r_squared": round(float(model.score(x, y)), 6),
-            "intercept": round(float(model.intercept_), 6),
-            "n_obs": int(len(sample)),
-            "method": "sklearn_linear_regression",
-        }
+    design = sm.add_constant(x) if add_constant else x
+    model = sm.OLS(y, design).fit()
+    names = (["const"] if add_constant else []) + feature_cols
+    coef_rows = [[name, round(float(coef), 6)] for name, coef in zip(names, model.params)]
+    metrics = {
+        "r_squared": round(float(model.rsquared), 6),
+        "adj_r_squared": round(float(model.rsquared_adj), 6),
+        "n_obs": int(model.nobs),
+        "method": "statsmodels_ols",
+    }
 
     coef_table = {
         "name": "coefficients",
@@ -763,37 +729,52 @@ def cluster_numeric(
     )
 
 
-def _monte_carlo_build_frame(series: Any, sims: int) -> Any:
-    """Build resampled simulation frame; prefer pandas-montecarlo when installed."""
-    sims = max(2, min(int(sims), 1_000_000))
+def monte_carlo(
+    data: Any,
+    *,
+    sims: int = 100,
+    bust: float = -1.0,
+    goal: float = 0.0,
+    headers: bool = True,
+    header_row: int = 0,
+    sheet_hint: str | None = None,
+) -> dict[str, Any]:
+    """Monte Carlo simulation on a numeric series (pandas-montecarlo)."""
     try:
         from pandas_montecarlo import montecarlo as pmc_montecarlo  # type: ignore[import-untyped]
-
-        result = pmc_montecarlo(series, sims=sims)
-        data = getattr(result, "data", None)
-        if data is not None and hasattr(data, "cumsum"):
-            return data
     except ImportError:
-        pass
+        return _error_result(
+            "MISSING_PACKAGE",
+            "pandas-montecarlo is required for monte_carlo. Install: pip install pandas-montecarlo",
+            helper="monte_carlo",
+        )
 
-    pd = _import_pandas()
-    results = [series.values]
-    for _ in range(1, sims):
-        results.append(series.sample(frac=1).values)
-    df_mc = pd.DataFrame(results).T
-    df_mc.rename(columns={0: "original"}, inplace=True)
-    return df_mc
+    coerced = _resolve_df(data, headers=headers, header_row=header_row, sheet_hint=sheet_hint)
+    df = coerced.df
 
+    if df.empty:
+        return _error_result("INSUFFICIENT_DATA", "No data for monte_carlo", helper="monte_carlo")
 
-def _monte_carlo_resample_simulation(series: Any, *, sims: int, bust: float, goal: float) -> tuple[Any, dict[str, Any]]:
-    """Series resampling Monte Carlo — inlined from pandas-montecarlo when package absent.
+    numeric_cols = _numeric_columns(df)
+    if not numeric_cols:
+        return _error_result("NO_NUMERIC_COLUMNS", "No numeric columns for monte_carlo", helper="monte_carlo")
 
-    Source: https://github.com/ranaroussi/pandas-montecarlo (MIT)
-    """
+    series = df[numeric_cols[0]].dropna()
+    if len(series) < 2:
+        return _error_result("INSUFFICIENT_DATA", "Need at least 2 data points", helper="monte_carlo")
+
     sims = max(2, min(int(sims), 1_000_000))
-    df_mc = _monte_carlo_build_frame(series, sims)
-    cumsum = df_mc.cumsum()
-    total = cumsum.iloc[-1:].T
+    result = pmc_montecarlo(series, sims=sims)
+    total = getattr(result, "data", None)
+    if total is None or not hasattr(total, "cumsum"):
+        return _error_result("MONTE_CARLO_FAILED", "pandas-montecarlo returned unexpected result", helper="monte_carlo")
+
+    cumsum = total.cumsum()
+    final = cumsum.iloc[-1:].T.reset_index()
+    first_col = final.columns[0] if final.columns[0] != 0 else "final_value"
+    total_df = final.rename(columns={"index": "simulation", first_col: "final_value"})
+    table = _table_from_df(total_df, name="monte_carlo_totals")
+
     col_mins = cumsum.min(axis=0)
     bust_threshold = abs(float(bust))
     goal_threshold = abs(float(goal))
@@ -809,47 +790,15 @@ def _monte_carlo_resample_simulation(series: Any, *, sims: int, bust: float, goa
         goal_prob = 0.0
 
     metrics = {
-        "min": float(total.min().iloc[0]),
-        "max": float(total.max().iloc[0]),
-        "mean": float(total.mean().iloc[0]),
-        "median": float(total.median().iloc[0]),
-        "std": float(total.std().iloc[0]),
+        "min": float(cumsum.min().min()),
+        "max": float(cumsum.max().max()),
+        "mean": float(cumsum.mean().mean()),
+        "median": float(cumsum.median().median()),
+        "std": float(cumsum.std().std()),
         "bust_prob": bust_prob,
         "goal_prob": goal_prob,
         "simulations": sims,
     }
-    return total, metrics
-
-
-def monte_carlo(
-    data: Any,
-    *,
-    sims: int = 100,
-    bust: float = -1.0,
-    goal: float = 0.0,
-    headers: bool = True,
-    header_row: int = 0,
-    sheet_hint: str | None = None,
-) -> dict[str, Any]:
-    """Monte Carlo simulation on a numeric series (pandas-montecarlo resampling pattern)."""
-    coerced = _resolve_df(data, headers=headers, header_row=header_row, sheet_hint=sheet_hint)
-    df = coerced.df
-
-    if df.empty:
-        return _error_result("INSUFFICIENT_DATA", "No data for monte_carlo", helper="monte_carlo")
-
-    numeric_cols = _numeric_columns(df)
-    if not numeric_cols:
-        return _error_result("NO_NUMERIC_COLUMNS", "No numeric columns for monte_carlo", helper="monte_carlo")
-
-    series = df[numeric_cols[0]].dropna()
-    if len(series) < 2:
-        return _error_result("INSUFFICIENT_DATA", "Need at least 2 data points", helper="monte_carlo")
-
-    total, metrics = _monte_carlo_resample_simulation(series, sims=sims, bust=bust, goal=goal)
-
-    total_df = total.reset_index().rename(columns={"index": "simulation", total.columns[0]: "final_value"})
-    table = _table_from_df(total_df, name="monte_carlo_totals")
 
     return _ok_result(
         "monte_carlo",

@@ -545,6 +545,50 @@ def get_selected_image_dimensions_px(model):
         return None, None
 
 
+def _graphic_from_object(obj: Any) -> Any | None:
+    """Return the UNO Graphic for a text graphic or draw GraphicObjectShape."""
+    if obj is None:
+        return None
+    if hasattr(obj, "Graphic"):
+        return obj.Graphic
+    if hasattr(obj, "getPropertyValue"):
+        try:
+            return obj.getPropertyValue("Graphic")
+        except Exception as e:
+            logger.warning("_graphic_from_object missing Graphic property: %s", e)
+            return None
+    return None
+
+
+def export_graphic_to_bytes(ctx: Any, graphic: Any) -> bytes:
+    """Export a UNO Graphic to raw PNG bytes via GraphicProvider."""
+    if ctx is None:
+        ctx = uno.getComponentContext()
+    assert ctx is not None
+    ctx_any = cast("Any", ctx)
+    sm = getattr(ctx_any, "ServiceManager", getattr(ctx_any, "getServiceManager", lambda: None)())
+    assert sm is not None
+    gp = cast("Any", sm).createInstanceWithContext("com.sun.star.graphic.GraphicProvider", ctx_any)
+    with tempfile.NamedTemporaryFile(suffix=".png") as tmp:
+        tmp_url = uno.systemPathToFileUrl(tmp.name)
+        props = (PropertyValue(Name="URL", Value=tmp_url), PropertyValue(Name="MimeType", Value="image/png"))
+        gp.storeGraphic(graphic, props)
+        with open(tmp.name, "rb") as f:
+            return f.read()
+
+
+def export_graphic_object_to_bytes(ctx: Any, obj: Any) -> bytes | None:
+    """Export a graphic-bearing UNO object (GraphicObject or GraphicObjectShape) to PNG bytes."""
+    graphic = _graphic_from_object(obj)
+    if graphic is None:
+        return None
+    try:
+        return export_graphic_to_bytes(ctx, graphic)
+    except Exception as e:
+        logger.error("Failed to export graphic object: %s", e)
+        return None
+
+
 def get_selected_image_base64(model, ctx=None):
     """
     Returns the base64 encoded data of the currently selected image.
@@ -553,6 +597,8 @@ def get_selected_image_base64(model, ctx=None):
     Use the panel/MainJob ctx for Calc so context-dependent logic works correctly.
     """
     try:
+        import base64
+
         selection = model.CurrentController.Selection
         if not selection:
             return None
@@ -563,36 +609,10 @@ def get_selected_image_base64(model, ctx=None):
         else:
             obj = selection
 
-        # Check if it's a graphic object
-        if hasattr(obj, "Graphic"):
-            graphic = obj.Graphic
-        elif hasattr(obj, "getPropertyValue"):
-            try:
-                graphic = obj.getPropertyValue("Graphic")
-            except Exception as e:
-                logger.warning("get_selected_image_base64 missing Graphic property: %s", e)
-                return None
-        else:
+        png_bytes = export_graphic_object_to_bytes(ctx, obj)
+        if png_bytes is None:
             return None
-
-        # Export graphic to base64
-        # We use a GraphicProvider to export as PNG/JPG
-        import base64
-
-        if ctx is None:
-            ctx = uno.getComponentContext()
-        assert ctx is not None
-        ctx_any = cast("Any", ctx)
-        sm = getattr(ctx_any, "ServiceManager", getattr(ctx_any, "getServiceManager", lambda: None)())
-        assert sm is not None
-        gp = cast("Any", sm).createInstanceWithContext("com.sun.star.graphic.GraphicProvider", ctx_any)
-
-        with tempfile.NamedTemporaryFile(suffix=".png") as tmp:
-            tmp_url = uno.systemPathToFileUrl(tmp.name)
-            props = (PropertyValue(Name="URL", Value=tmp_url), PropertyValue(Name="MimeType", Value="image/png"))
-            gp.storeGraphic(graphic, props)
-            with open(tmp.name, "rb") as f:
-                return base64.b64encode(f.read()).decode("utf-8")
+        return base64.b64encode(png_bytes).decode("utf-8")
     except Exception as e:
         logger.error(f"Failed to get selected image: {e}")
         return None

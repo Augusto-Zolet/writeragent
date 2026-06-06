@@ -74,16 +74,73 @@ def calc_output_anchor_from_graphic(doc: Any) -> tuple[int, int]:
     return col, row + 1
 
 
+def _append_table_block(rows: list[list[Any]], table: dict[str, Any]) -> None:
+    _append_blank(rows)
+    rows.append([str(table.get("name") or "table")])
+    columns = table.get("columns")
+    table_rows = table.get("rows")
+    if isinstance(columns, list) and columns:
+        rows.append([str(c) for c in columns])
+    if isinstance(table_rows, list):
+        for row in table_rows:
+            if isinstance(row, list):
+                rows.append([_cell(cell) for cell in row])
+            else:
+                rows.append([_cell(row)])
+    if table.get("truncated"):
+        total = table.get("total_rows")
+        note = f"(showing first rows; {total} total)" if total is not None else "(truncated)"
+        rows.append([note])
+
+
+def _format_extract_structure_for_calc(result: dict[str, Any]) -> list[list[Any]]:
+    rows: list[list[Any]] = []
+    helper = str(result.get("helper") or "extract_structure")
+    rows.append([helper])
+
+    metrics = result.get("metrics")
+    if isinstance(metrics, dict) and metrics:
+        subset = {k: metrics[k] for k in ("block_count", "table_count") if k in metrics}
+        if subset:
+            _append_key_value_block(rows, "Metrics", subset)
+
+    warnings = result.get("warnings")
+    if isinstance(warnings, list) and warnings:
+        _append_blank(rows)
+        rows.append(["Warnings"])
+        for item in warnings:
+            rows.append([str(item)])
+
+    tables = result.get("tables")
+    if isinstance(tables, list):
+        for table in tables:
+            if isinstance(table, dict):
+                _append_table_block(rows, table)
+
+    full_text = str(result.get("full_text") or "")
+    if full_text and not tables:
+        _append_blank(rows)
+        rows.append(["Text"])
+        for line in full_text.splitlines():
+            rows.append([line])
+
+    if len(rows) == 1:
+        rows.append(["(no structure detected)"])
+    return rows
+
+
 def format_vision_for_calc(result: dict[str, Any]) -> list[list[Any]]:
     """Turn a vision helper result dict into a row-major grid for ``write_formula_range``."""
-    rows: list[list[Any]] = []
-
     if result.get("status") == "error":
         code = str(result.get("code") or "ERROR")
         message = str(result.get("message") or "Vision helper failed.")
         return [[f"Vision error ({code})"], [message]]
 
     helper = str(result.get("helper") or "vision")
+    if helper == "extract_structure":
+        return _format_extract_structure_for_calc(result)
+
+    rows: list[list[Any]] = []
     rows.append([helper])
 
     metrics = result.get("metrics")

@@ -14,10 +14,11 @@ from plugin.scripting.vision_templates import (
 )
 
 
-def test_templates_cover_phase1_helper():
+def test_templates_cover_shipped_helpers():
     templates = get_vision_script_templates()
-    assert set(templates.keys()) == {"extract_text"}
+    assert set(templates.keys()) == {"extract_text", "extract_structure"}
     assert "extract_text" in HELPER_NAMES
+    assert "extract_structure" in HELPER_NAMES
 
 
 def test_parse_header_round_trip():
@@ -27,7 +28,7 @@ def test_parse_header_round_trip():
     meta = parse_vision_script_header(code)
     assert meta is not None
     assert meta.helper == "extract_text"
-    assert meta.params == {}
+    assert meta.params == {"lang": "en", "image_name": ""}
 
 
 def test_parse_header_with_params():
@@ -48,3 +49,19 @@ def test_parse_header_accepts_future_helper_name():
     meta = parse_vision_script_header(code)
     assert meta is not None
     assert meta.helper == "detect_objects"
+
+
+def test_parse_header_with_image_name():
+    code = '# writeragent:vision helper=extract_text params={"lang":"en","image_name":"Photo1"}\n'
+    meta = parse_vision_script_header(code)
+    assert meta is not None
+    assert meta.params == {"lang": "en", "image_name": "Photo1"}
+
+
+def test_extract_structure_template_round_trip():
+    templates = get_vision_script_templates()
+    code = templates["extract_structure"]
+    meta = parse_vision_script_header(code)
+    assert meta is not None
+    assert meta.helper == "extract_structure"
+    assert meta.params.get("image_name") == ""

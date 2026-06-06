@@ -196,6 +196,7 @@ def test_build_scripts_list_includes_vision_section_for_writer():
     assert SCRIPT_ORIGIN_VISION in section_ids
     vision = next(s for s in msg["sections"] if s["id"] == SCRIPT_ORIGIN_VISION)
     assert f"{VISION_SCRIPT_DISPLAY_PREFIX}extract_text" in vision["scripts"]
+    assert f"{VISION_SCRIPT_DISPLAY_PREFIX}extract_structure" in vision["scripts"]
 
 
 def test_build_scripts_list_includes_vision_section_for_calc():
@@ -231,10 +232,11 @@ def test_build_xdl_script_picker_includes_vision_for_writer():
     doc = MagicMock()
     with patch("plugin.scripting.vision_runner.supports_vision_manual", return_value=True):
         items, merged, origin_map = build_xdl_script_picker_state(ctx, doc, {})
-    display = f"{VISION_SCRIPT_DISPLAY_PREFIX}extract_text"
-    assert display in items
-    assert display in merged
-    assert origin_map[display] == SCRIPT_ORIGIN_VISION
+    for helper in ("extract_text", "extract_structure"):
+        display = f"{VISION_SCRIPT_DISPLAY_PREFIX}{helper}"
+        assert display in items
+        assert display in merged
+        assert origin_map[display] == SCRIPT_ORIGIN_VISION
 
 
 def test_resolve_vision_script_picker_entry():

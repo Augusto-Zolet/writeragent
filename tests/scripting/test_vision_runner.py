@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from plugin.framework.errors import ToolExecutionError
-from plugin.scripting.vision_runner import get_selected_image_bytes, run_trusted_vision
+from plugin.scripting.vision_runner import get_selected_image_bytes, resolve_vision_image_bytes, run_trusted_vision
 from plugin.tests.testing_utils import setup_uno_mocks
 
 setup_uno_mocks()
@@ -60,3 +60,55 @@ def test_run_trusted_vision_rejects_unknown_helper():
     with pytest.raises(ToolExecutionError) as exc:
         run_trusted_vision(ctx, doc, helper="not_real")
     assert exc.value.code == "VISION_ERROR"
+
+
+@patch("plugin.scripting.vision_runner.run_vision")
+@patch("plugin.scripting.vision_runner.resolve_vision_image_bytes")
+def test_run_trusted_vision_passes_image_name_context(mock_bytes, mock_run_vision):
+    ctx = MagicMock()
+    doc = MagicMock()
+    mock_bytes.return_value = b"png"
+    mock_run_vision.return_value = {"status": "ok", "helper": "extract_text", "full_text": "hi"}
+
+    run_trusted_vision(ctx, doc, helper="extract_text", params={"image_name": "Photo1", "lang": "en"})
+
+    mock_bytes.assert_called_once_with(ctx, doc, image_name="Photo1")
+    mock_run_vision.assert_called_once_with(
+        ctx,
+        {"helper": "extract_text", "params": {"image_name": "Photo1", "lang": "en"}},
+        b"png",
+        context={"source": "graphic_name", "image_name": "Photo1"},
+    )
+
+
+@patch("plugin.scripting.vision_runner.get_selected_image_bytes")
+def test_resolve_vision_image_bytes_uses_selection_when_name_empty(mock_selected):
+    ctx = MagicMock()
+    doc = MagicMock()
+    mock_selected.return_value = b"sel"
+    assert resolve_vision_image_bytes(ctx, doc, image_name="") == b"sel"
+    mock_selected.assert_called_once_with(ctx, doc)
+
+
+@patch("plugin.scripting.vision_runner.export_graphic_object_to_bytes")
+@patch("plugin.scripting.vision_runner._get_graphic_object")
+def test_resolve_vision_image_bytes_by_name(mock_get_obj, mock_export):
+    ctx = MagicMock()
+    doc = MagicMock()
+    graphic = MagicMock()
+    mock_get_obj.return_value = graphic
+    mock_export.return_value = b"named"
+
+    assert resolve_vision_image_bytes(ctx, doc, image_name="Photo1") == b"named"
+    mock_get_obj.assert_called_once_with(ctx, doc, "Photo1")
+    mock_export.assert_called_once_with(ctx, graphic)
+
+
+@patch("plugin.scripting.vision_runner._get_graphic_object")
+def test_resolve_vision_image_bytes_raises_when_name_missing(mock_get_obj):
+    ctx = MagicMock()
+    doc = MagicMock()
+    mock_get_obj.return_value = None
+    with pytest.raises(ToolExecutionError) as exc:
+        resolve_vision_image_bytes(ctx, doc, image_name="Missing")
+    assert exc.value.code == "IMAGE_NOT_FOUND"

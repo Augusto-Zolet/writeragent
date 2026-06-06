@@ -904,17 +904,29 @@ def execute_and_insert_result(
         metrics_raw = result.get("metrics")
         metrics: dict[str, Any] = metrics_raw if isinstance(metrics_raw, dict) else {}
         line_count = metrics.get("line_count")
+        if line_count is None and vision_meta.helper == "extract_structure":
+            line_count = metrics.get("block_count")
         if line_count is None:
             full_text = str(result.get("full_text") or "")
             line_count = len(full_text.splitlines()) if full_text else 0
         formatted_time = format_elapsed_time(time.perf_counter() - t0)
-        return {
-            "ok": True,
-            "status_ok_text": _("Vision '{helper}' completed. Extracted {lines} lines. (took {time})").format(
+        if vision_meta.helper == "extract_structure":
+            table_count = metrics.get("table_count", 0)
+            status_ok = _("Vision '{helper}' completed. Found {blocks} blocks and {tables} tables. (took {time})").format(
+                helper=vision_meta.helper,
+                blocks=line_count,
+                tables=table_count,
+                time=formatted_time,
+            )
+        else:
+            status_ok = _("Vision '{helper}' completed. Extracted {lines} lines. (took {time})").format(
                 helper=vision_meta.helper,
                 lines=line_count,
                 time=formatted_time,
-            ),
+            )
+        return {
+            "ok": True,
+            "status_ok_text": status_ok,
             "result": result,
         }
 

@@ -53,6 +53,30 @@ def test_format_vision_empty_text_without_warnings():
     assert any("(no text detected)" in str(cell) for cell in flat)
 
 
+def test_format_extract_structure_with_tables():
+    result = {
+        "status": "ok",
+        "helper": "extract_structure",
+        "full_text": "Invoice",
+        "blocks": [],
+        "tables": [{"name": "table_1", "columns": ["Item", "Qty"], "rows": [["Widget", "2"]]}],
+        "metrics": {"block_count": 1, "table_count": 1},
+        "warnings": [],
+    }
+    grid = format_vision_for_calc(result)
+    flat = [cell for row in grid for cell in row if cell]
+    assert any("extract_structure" in str(cell) for cell in flat)
+    assert any("table_count" in str(cell) for cell in flat)
+    assert "Item" in flat
+    assert "Widget" in flat
+
+
+def test_format_extract_structure_empty():
+    grid = format_vision_for_calc({"status": "ok", "helper": "extract_structure", "full_text": "", "tables": [], "blocks": [], "warnings": []})
+    flat = [cell for row in grid for cell in row if cell]
+    assert any("(no structure detected)" in str(cell) for cell in flat)
+
+
 def test_calc_output_anchor_from_graphic_no_selection():
     doc = MagicMock()
     with patch("plugin.calc.vision_egress._get_selected_graphic_object", return_value=(None, None)):

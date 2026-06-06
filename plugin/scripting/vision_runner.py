@@ -14,7 +14,8 @@ from plugin.framework.client.vision_client import run_vision
 from plugin.framework.errors import ToolExecutionError
 from plugin.framework.i18n import _
 from plugin.scripting.vision import HELPER_NAMES
-from plugin.writer.images.image_tools import get_selected_image_base64
+from plugin.writer.images.image_tools import export_graphic_object_to_bytes, get_selected_image_base64
+from plugin.writer.images.images import _get_graphic_object
 
 
 def supports_vision_manual(doc: Any) -> bool:
@@ -38,6 +39,29 @@ def get_selected_image_bytes(ctx: Any, doc: Any) -> bytes:
     return base64.b64decode(b64)
 
 
+def resolve_vision_image_bytes(ctx: Any, doc: Any, *, image_name: str | None = None) -> bytes:
+    """Export PNG bytes from *image_name* or the current graphic selection."""
+    name = str(image_name or "").strip()
+    if not name:
+        return get_selected_image_bytes(ctx, doc)
+
+    graphic_obj = _get_graphic_object(ctx, doc, name)
+    if graphic_obj is None:
+        raise ToolExecutionError(
+            _("Image '{name}' not found. Use list_images or leave image_name empty and select the graphic.").format(name=name),
+            code="IMAGE_NOT_FOUND",
+            details={"image_name": name},
+        )
+    png_bytes = export_graphic_object_to_bytes(ctx, graphic_obj)
+    if not png_bytes:
+        raise ToolExecutionError(
+            _("Image '{name}' could not be exported.").format(name=name),
+            code="IMAGE_NOT_FOUND",
+            details={"image_name": name},
+        )
+    return png_bytes
+
+
 def run_trusted_vision(
     ctx: Any,
     doc: Any,
@@ -45,14 +69,19 @@ def run_trusted_vision(
     helper: str,
     params: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Export selected graphic bytes and run a trusted vision helper in the user venv."""
+    """Export graphic bytes and run a trusted vision helper in the user venv."""
     name = str(helper or "").strip()
     if not name:
         raise ToolExecutionError("helper is required", code="VISION_ERROR")
     if name not in HELPER_NAMES:
         raise ToolExecutionError(f"Unknown helper {name!r}", code="VISION_ERROR")
 
-    png_bytes = get_selected_image_bytes(ctx, doc)
-    spec: dict[str, Any] = {"helper": name, "params": dict(params) if isinstance(params, dict) else {}}
-    context = {"source": "selection"}
+    params_dict = dict(params) if isinstance(params, dict) else {}
+    image_name = params_dict.get("image_name")
+    png_bytes = resolve_vision_image_bytes(ctx, doc, image_name=str(image_name) if image_name is not None else None)
+    spec: dict[str, Any] = {"helper": name, "params": params_dict}
+    source = "graphic_name" if str(image_name or "").strip() else "selection"
+    context: dict[str, Any] = {"source": source}
+    if source == "graphic_name":
+        context["image_name"] = str(image_name).strip()
     return run_vision(ctx, spec, png_bytes, context=context)
