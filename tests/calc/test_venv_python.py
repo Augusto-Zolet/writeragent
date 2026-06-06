@@ -36,11 +36,33 @@ def test_execute_passes_data(mock_run):
     mock_run.return_value = {"status": "ok", "result": 1}
     tool = RunVenvPythonScript()
     ctx = ToolContext(doc=MagicMock(), ctx=MagicMock(), doc_type="calc", services=MagicMock())
-    with patch("plugin.calc.venv_python._resolve_python_data", return_value=([10], None)):
+    with patch("plugin.calc.venv_python.resolve_python_data_on_main_thread", return_value=([10], None)):
         out = tool.execute(ctx, code="result = sum(data)")
     assert out["status"] == "ok"
     mock_run.assert_called_once()
     assert mock_run.call_args.kwargs["data"] == [10]
+
+
+@patch("plugin.framework.queue_executor.execute_on_main_thread")
+@patch("plugin.calc.venv_python.run_code_in_user_venv")
+def test_run_venv_python_resolves_calc_data_on_main_thread(mock_run, mock_main_thread):
+    mock_run.return_value = {"status": "ok", "result": 1}
+    call_order: list[str] = []
+
+    def main_thread(fn, *args, **kwargs):
+        call_order.append("main")
+        return fn(*args, **kwargs)
+
+    mock_main_thread.side_effect = main_thread
+
+    tool = RunVenvPythonScript()
+    ctx = ToolContext(doc=MagicMock(), ctx=MagicMock(), doc_type="calc", services=MagicMock())
+    with patch("plugin.calc.venv_python._resolve_python_data", return_value=([42], None)) as mock_resolve:
+        out = tool.execute(ctx, code="result = data[0]", data_range="A1")
+
+    assert out["status"] == "ok"
+    assert call_order == ["main"]
+    mock_resolve.assert_called_once()
 
 
 @patch("plugin.calc.venv_python.run_code_in_user_venv")

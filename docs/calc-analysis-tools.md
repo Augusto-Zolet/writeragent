@@ -12,6 +12,8 @@ All tools below live under the **`analysis`** specialized domain. The main chat 
 
 See [calc-specialized-toolsets.md](calc-specialized-toolsets.md) for delegation mechanics and [Analysis Sub-Agent](analysis-sub-agent.md) for the broader plan.
 
+**Threading:** The analysis sub-agent runs on a background worker. Tools marked `is_async` (including `analyze_data`) still marshal Calc range reads through `execute_on_main_thread` inside the tool body; only the venv IPC runs on the worker.
+
 ---
 
 ## 1. Trusted data analysis (`analyze_data`)

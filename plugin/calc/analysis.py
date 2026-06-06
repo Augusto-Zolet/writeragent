@@ -398,7 +398,25 @@ class AnalyzeDataTool(ToolCalcAnalysisBase):
         if not (data_range and str(data_range).strip()) and data is None:
             return self._tool_error("Provide data_range or data")
 
-        py_data, err = _resolve_python_data(ctx, data_range=str(data_range).strip() if data_range else None, data=data)
+        from plugin.framework.queue_executor import execute_on_main_thread
+
+        dr = str(data_range).strip() if data_range else None
+
+        def _fetch_data_on_main() -> tuple[Any | None, str | None, dict[str, Any]]:
+            py_data, err = _resolve_python_data(ctx, data_range=dr, data=data)
+            sheet_context: dict[str, Any] = {}
+            if not err and py_data is not None:
+                try:
+                    bridge = CalcBridge(ctx.doc)
+                    sheet_context["sheet_name"] = bridge.get_active_sheet().getName()
+                except Exception:
+                    pass
+            return py_data, err, sheet_context
+
+        try:
+            py_data, err, sheet_ctx = execute_on_main_thread(_fetch_data_on_main)
+        except Exception as exc:
+            return self._tool_error(f"Failed to read spreadsheet data: {exc}")
         if err:
             return self._tool_error(err)
         if py_data is None:
@@ -410,16 +428,11 @@ class AnalyzeDataTool(ToolCalcAnalysisBase):
         if "headers" in kwargs:
             spec["headers"] = bool(kwargs["headers"])
 
-        context: dict[str, Any] = {}
+        context: dict[str, Any] = dict(sheet_ctx)
         if kwargs.get("task_hint"):
             context["task_hint"] = str(kwargs["task_hint"])
-        if data_range and str(data_range).strip():
-            context["range_a1"] = str(data_range).strip()
-        try:
-            bridge = CalcBridge(ctx.doc)
-            context["sheet_name"] = bridge.get_active_sheet().getName()
-        except Exception:
-            pass
+        if dr:
+            context["range_a1"] = dr
 
         from plugin.framework.client.analysis_client import run_analysis
 

@@ -39,12 +39,14 @@ def test_analyze_data_requires_data_source(calc_ctx):
     assert "data_range" in result["message"].lower() or "data" in result["message"].lower()
 
 
+@patch("plugin.framework.queue_executor.execute_on_main_thread")
 @patch("plugin.framework.client.analysis_client.run_analysis")
 @patch("plugin.calc.analysis._resolve_python_data")
-def test_analyze_data_happy_path(mock_resolve, mock_run_analysis, calc_ctx):
+def test_analyze_data_happy_path(mock_resolve, mock_run_analysis, mock_main_thread, calc_ctx):
     grid = [["Region", "Sales"], ["North", 100]]
     mock_resolve.return_value = (grid, None)
     mock_run_analysis.return_value = {"status": "ok", "helper": "describe_data", "metrics": {"row_count": 1}}
+    mock_main_thread.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
 
     tool = AnalyzeDataTool()
     result = tool.execute(
@@ -56,6 +58,7 @@ def test_analyze_data_happy_path(mock_resolve, mock_run_analysis, calc_ctx):
 
     assert result["status"] == "ok"
     assert result["helper"] == "describe_data"
+    mock_main_thread.assert_called_once()
     mock_resolve.assert_called_once()
     mock_run_analysis.assert_called_once()
     args, kwargs = mock_run_analysis.call_args
@@ -64,11 +67,38 @@ def test_analyze_data_happy_path(mock_resolve, mock_run_analysis, calc_ctx):
     assert kwargs["context"]["task_hint"] == "sales summary"
 
 
+@patch("plugin.framework.queue_executor.execute_on_main_thread")
 @patch("plugin.framework.client.analysis_client.run_analysis")
 @patch("plugin.calc.analysis._resolve_python_data")
-def test_analyze_data_worker_error(mock_resolve, mock_run_analysis, calc_ctx):
+def test_analyze_data_resolves_data_on_main_thread_before_venv(mock_resolve, mock_run_analysis, mock_main_thread, calc_ctx):
+    call_order: list[str] = []
+    mock_resolve.return_value = ([["a"], [1]], None)
+
+    def main_thread(fn, *args, **kwargs):
+        call_order.append("main")
+        return fn(*args, **kwargs)
+
+    def run_analysis_side(*args, **kwargs):
+        call_order.append("venv")
+        return {"status": "ok", "helper": "describe_data"}
+
+    mock_main_thread.side_effect = main_thread
+    mock_run_analysis.side_effect = run_analysis_side
+
+    tool = AnalyzeDataTool()
+    result = tool.execute(calc_ctx, helper="describe_data", data_range="A1:B2")
+
+    assert result["status"] == "ok"
+    assert call_order == ["main", "venv"]
+
+
+@patch("plugin.framework.queue_executor.execute_on_main_thread")
+@patch("plugin.framework.client.analysis_client.run_analysis")
+@patch("plugin.calc.analysis._resolve_python_data")
+def test_analyze_data_worker_error(mock_resolve, mock_run_analysis, mock_main_thread, calc_ctx):
     from plugin.framework.errors import ToolExecutionError
 
+    mock_main_thread.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
     mock_resolve.return_value = ([["x"], [1]], None)
     mock_run_analysis.side_effect = ToolExecutionError("worker failed", code="ANALYSIS_ERROR")
 

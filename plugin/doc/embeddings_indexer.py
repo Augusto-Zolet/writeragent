@@ -230,7 +230,7 @@ def enqueue_folder_index(ctx: Any, services: Any, model: Any) -> None:
     if not document_research_uses_embeddings():
         return
     resolved = resolve_index_context(ctx, model)
-    folder_key, db_path, listing_root = resolved[0], resolved[1], resolved[2]
+    folder_key, listing_root = resolved[0], resolved[2]
     if folder_key is None or listing_root is None:
         return
     if not _try_enqueue(folder_key):

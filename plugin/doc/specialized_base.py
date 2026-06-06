@@ -180,10 +180,14 @@ class DelegateToSpecializedBase(ToolBase):
         calc_ctx = ""
         if self._agent_label == "Calc" and getattr(ctx, "doc", None):
             from plugin.doc.document_helpers import get_calc_context_for_chat
+            from plugin.framework.queue_executor import execute_on_main_thread
+
+            def _fetch_calc_context() -> str:
+                return "\n\n[SPREADSHEET CONTEXT]\n" + get_calc_context_for_chat(ctx.doc, ctx=ctx.ctx)
 
             try:
-                # Provide sheet names, active sheet, and used range summary to the sub-agent
-                calc_ctx = "\n\n[SPREADSHEET CONTEXT]\n" + get_calc_context_for_chat(ctx.doc, ctx=ctx.ctx)
+                # Sub-agent runs on a worker thread; UNO reads must go through the main thread.
+                calc_ctx = execute_on_main_thread(_fetch_calc_context)
             except Exception as e:
                 log.warning("Failed to get Calc context for sub-agent: %s", e)
 

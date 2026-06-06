@@ -102,6 +102,13 @@ def _resolve_python_data(ctx: ToolContext, *, data_range: str | None, data: Any)
     return py_data, None
 
 
+def resolve_python_data_on_main_thread(ctx: ToolContext, *, data_range: str | None, data: Any) -> tuple[Any | None, str | None]:
+    """Marshal Calc range reads to the LO main thread (``is_async`` tools run on workers)."""
+    from plugin.framework.queue_executor import execute_on_main_thread
+
+    return execute_on_main_thread(_resolve_python_data, ctx, data_range=data_range, data=data)
+
+
 class RunVenvPythonScript(ToolCalcPythonBase):
     """Registered once; visible in Writer/Calc/Draw specialized ``domain=python`` via ``specialized_cross_cutting``."""
 
@@ -134,7 +141,7 @@ class RunVenvPythonScript(ToolCalcPythonBase):
         if ctx.doc_type == "calc":
             data_range = kwargs.get("data_range")
             data = kwargs.get("data")
-            py_data, err = _resolve_python_data(ctx, data_range=data_range, data=data)
+            py_data, err = resolve_python_data_on_main_thread(ctx, data_range=data_range, data=data)
             if err:
                 return {"status": "error", "message": err}
         else:

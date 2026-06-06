@@ -93,7 +93,6 @@ def _error_result(code: str, message: str, *, helper: str | None = None, details
 def _resolve_df(data: Any, *, headers: bool = True, header_row: int = 0, sheet_hint: str | None = None) -> CoerceResult:
     if isinstance(data, CoerceResult):
         return data
-    pd = _import_pandas()
     if hasattr(data, "columns") and hasattr(data, "index"):
         df = data.copy()
         meta: dict[str, Any] = {
@@ -255,7 +254,7 @@ def describe_data(
     try:
         import json
 
-        from data_profiling import ProfileReport
+        from data_profiling import ProfileReport  # type: ignore[import-not-found, import-untyped, ty:unresolved-import]  # pyright: ignore[reportMissingImports]
 
         profile = ProfileReport(limited, minimal=True, progress_bar=False)
         report_json = json.loads(profile.to_json())
@@ -337,7 +336,7 @@ def kpi_summary(
         metrics={"metrics": numeric, "aggregations": list(agg)},
         tables=[table],
         metadata=coerced.metadata,
-        writer_cleanup_hints={"markdown_table": _markdown_table(cast(list[str], table["columns"]), cast(list[list[Any]], table["rows"]))},
+        writer_cleanup_hints={"markdown_table": _markdown_table(cast("list[str]", table["columns"]), cast("list[list[Any]]", table["rows"]))},
     )
 
 
@@ -371,7 +370,7 @@ def detect_outliers(
     per_column: dict[str, int] = {}
 
     if method == "zscore":
-        from scipy import stats
+        from scipy import stats  # type: ignore[import-untyped]
         for col in numeric_cols:
             series = df[col].astype(float)
             if series.std() == 0 or series.isna().all():
@@ -395,7 +394,7 @@ def detect_outliers(
             for col in numeric_cols:
                 per_column[col] = total
     else:
-        from scipy import stats
+        from scipy import stats  # type: ignore[import-untyped]
         for col in numeric_cols:
             series = df[col].astype(float)
             iqr = stats.iqr(series, nan_policy='omit')
@@ -533,7 +532,7 @@ def pivot_aggregate(
         metrics={"row_count": int(len(flat)), "col_count": int(len(flat.columns))},
         tables=[table],
         metadata=coerced.metadata,
-        writer_cleanup_hints={"markdown_table": _markdown_table(cast(list[str], table["columns"]), cast(list[list[Any]], table["rows"][:10]))},
+        writer_cleanup_hints={"markdown_table": _markdown_table(cast("list[str]", table["columns"]), cast("list[list[Any]]", table["rows"][:10]))},
     )
 
 
