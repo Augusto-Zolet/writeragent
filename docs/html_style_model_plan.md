@@ -29,11 +29,12 @@ We will achieve **Read/Write Symmetry**:
 ### Phase 1: Update the Read Path (`get_document_content`)
 *Target Files: `plugin/writer/content.py` / HTML generation logic*
 
-1. **Paragraph Traversal:** Instead of relying purely on the `HTML (StarWriter)` filter (if Strategy 1 fails), traverse the document body by enumerating paragraphs.
-2. **TextPortion Enumeration:** For each paragraph, do *not* go character-by-character. LibreOffice provides `TextPortion` objects via paragraph enumeration. A `TextPortion` is a contiguous chunk of text that shares the exact same properties. Enumerate the `TextPortion` objects for the paragraph.
-3. **Inject Style Attributes:** For the paragraph wrapper (e.g., `<p>` or `<h1>`), query the paragraph's `ParaStyleName` and attach it as a `data-lo-style` attribute (e.g., `<p data-lo-style="Caption">`).
-4. **Isolate Direct Overrides via Cache:** Compare the `Char*` properties of each `TextPortion` against the paragraph's named style defaults.
-5. **Filter Inline CSS:** Generate `<span>` tags with `style="..."` attributes *only* for the properties on the `TextPortion` that differ from the cached style defaults.
+We will implement the read path by leveraging LibreOffice's native `XHTML Writer File` export filter, which is orders of magnitude faster than manually traversing the document via the UNO bridge.
+
+1. **Switch Export Filter:** Change the internal export from `HTML (StarWriter)` to `XHTML Writer File`. This natively preserves paragraph styles as classes (e.g., `class="paragraph-Heading_20_1"`) and extracts direct overrides into synthetic classes (e.g., `class="text-T1"`) defined in a `<style>` block.
+2. **Inline the CSS Overrides:** Parse the generated XHTML string to extract the `.text-T1 { font-weight: bold; }` rules from the header. Search the document body for instances of `class="text-T1"` and replace them with standard inline styles (`style="font-weight: bold;"`).
+3. **Semantic Rename & Decode:** Find all paragraph classes (e.g., `class="paragraph-Heading_20_1"`) and replace them with our custom semantic attribute (e.g., `data-lo-style="Heading 1"`). 
+   - *Why string translation is critical:* LibreOffice encodes spaces in style names as `_20_` (URL-style encoding) to make valid CSS classes. If we pass `Heading_20_1` to the LLM, the agent receives non-semantic internal LibreOffice quirks, causing hallucinations and write-path failures. Decoding it to `data-lo-style="Heading 1"` provides a clean, highly semantic bridge.
 
 ### Phase 2: Update the Write Path (`apply_document_content`)
 *Target Files: `plugin/writer/format_support.py`*
@@ -53,22 +54,10 @@ We will achieve **Read/Write Symmetry**:
 >
 > **Unsupported Styles:** If `apply_document_content` encounters a `data-lo-style` value that doesn't exist in the current document, it will gracefully fall back to the `Standard` style.
 
-## Performance Optimizations & Implementation Strategies
+## Discarded Strategy: Manual UNO Traversal
+If we ever discover a severe bug in the `XHTML Writer File` filter, we can fall back to manually traversing the document over the UNO bridge. This was discarded because making thousands of UNO `getPropertyValue` RPC calls is significantly slower than parsing an XHTML string.
 
-Unflattening the HTML to separate the named style from its direct overrides is the most critical part of this feature, but doing it piece-by-piece over the UNO bridge can be slow. Here are the strategies we will consider for maximum performance:
-
-### Strategy 1: Native LibreOffice Export (The "Holy Grail")
-Before we manually reconstruct the HTML, we should research if LibreOffice can export semantic HTML natively.
-- **XHTML Filter:** LibreOffice has an `XHTML Writer File` export filter. Unlike `HTML (StarWriter)`, the XHTML filter sometimes maps LibreOffice styles directly to CSS classes (e.g., `<p class="Caption">`).
-- If this filter successfully isolates the style name into a class and leaves only the overrides as inline styles, we could simply switch our export filter to `XHTML Writer File`, parse the output, and rename the classes to `data-lo-style` attributes. This would be incredibly fast as it delegates all the work to LibreOffice's core C++ engine.
-
-### Strategy 2: Manual Traversal with Aggressive Caching
-If the native export filters cannot isolate direct overrides cleanly, we will have to iterate through the document's paragraphs and text portions manually (as originally planned). To mitigate the UNO bridge overhead, we will implement the following optimizations:
-
-1. **TextPortion Granularity:** Iterate over paragraphs and their child `TextPortion` elements (contiguous chunks of identical formatting), never character-by-character. This maps perfectly to HTML `<span>` elements.
-2. **Cache Style Defaults (Implementation Spec):** To avoid crossing the UNO bridge repeatedly for property defaults:
-   - Create a local Python dictionary `style_cache = {}`.
-   - When encountering a `ParaStyleName` for the first time, get the style object: `doc.getStyleFamilies().getByName("ParagraphStyles").getByName(style_name)`.
-   - Extract all `Char*` properties from the style object's property set and store them in `style_cache[style_name]`.
-   - *Note on Inheritance:* LibreOffice's UNO API handles nested style inheritance automatically. By calling `getPropertyValue` directly on the style object, we get the resolved effective default (whether defined on the style itself or inherited from a parent). We do not need to manually walk the inheritance tree.
-3. **Fast-path Clean Text:** We need to investigate if the UNO API exposes a fast way to check if a run has *any* direct formatting (e.g., checking if the property state is `DIRECT_VALUE` via `getPropertyState()`). If a `TextPortion` has no direct formatting, we can skip the property-by-property comparison against the cache entirely.
+For historical reference, the manual approach requires:
+1. **TextPortion Granularity:** Iterating over paragraphs and their child `TextPortion` elements (contiguous chunks of identical formatting).
+2. **Style Caching:** Caching the `Char*` properties for each `ParaStyleName` locally to avoid querying the parent style repeatedly. (LibreOffice resolves inheritance automatically when calling `getPropertyValue` on the style object).
+3. **Fast-Pathing:** Checking `getPropertyState()` for `DIRECT_VALUE` to quickly skip `TextPortions` that have no direct overrides.
