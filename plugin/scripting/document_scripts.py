@@ -38,6 +38,7 @@ SCRIPT_ORIGIN_VISION = "vision"
 SCRIPT_ORIGIN_VIZ = "viz"
 SCRIPT_ORIGIN_MATH = "math"
 SCRIPT_ORIGIN_QUANT = "quant"
+SCRIPT_ORIGIN_OPTIMIZE = "optimize"
 
 DOC_SCRIPT_DISPLAY_PREFIX = "[Doc] "
 ANALYSIS_SCRIPT_DISPLAY_PREFIX = "[Analysis] "
@@ -45,6 +46,7 @@ VISION_SCRIPT_DISPLAY_PREFIX = "[Vision] "
 VIZ_SCRIPT_DISPLAY_PREFIX = "[Viz] "
 MATH_SCRIPT_DISPLAY_PREFIX = "[Math] "
 QUANT_SCRIPT_DISPLAY_PREFIX = "[Quant] "
+OPTIMIZE_SCRIPT_DISPLAY_PREFIX = "[Optimize] "
 
 
 def _normalize_doc_url(url: Any) -> str:
@@ -293,6 +295,16 @@ def parse_quant_script_display_name(display: str) -> str | None:
     return None
 
 
+def optimize_script_display_name(name: str) -> str:
+    return f"{OPTIMIZE_SCRIPT_DISPLAY_PREFIX}{name}"
+
+
+def parse_optimize_script_display_name(display: str) -> str | None:
+    if display.startswith(OPTIMIZE_SCRIPT_DISPLAY_PREFIX):
+        return display[len(OPTIMIZE_SCRIPT_DISPLAY_PREFIX) :]
+    return None
+
+
 def resolve_script_picker_entry(display_name: str, origin_map: dict[str, str]) -> tuple[str, str]:
     """Return (real_name, origin) for a listbox/display label."""
     origin = origin_map.get(display_name, SCRIPT_ORIGIN_USER)
@@ -314,6 +326,9 @@ def resolve_script_picker_entry(display_name: str, origin_map: dict[str, str]) -
     if origin == SCRIPT_ORIGIN_QUANT:
         real = parse_quant_script_display_name(display_name)
         return (real or display_name, SCRIPT_ORIGIN_QUANT)
+    if origin == SCRIPT_ORIGIN_OPTIMIZE:
+        real = parse_optimize_script_display_name(display_name)
+        return (real or display_name, SCRIPT_ORIGIN_OPTIMIZE)
     return (display_name, SCRIPT_ORIGIN_USER)
 
 
@@ -401,6 +416,22 @@ def _quant_script_section(doc: Any | None) -> dict[str, Any] | None:
     return {"id": SCRIPT_ORIGIN_QUANT, "title": _("Quant Helpers"), "scripts": display_scripts}
 
 
+def _optimize_script_section(doc: Any | None) -> dict[str, Any] | None:
+    if doc is None:
+        return None
+    try:
+        if not is_calc(doc):
+            return None
+    except Exception:
+        return None
+    from plugin.scripting.optimize_templates import get_optimize_template
+    from plugin.scripting.optimize_common import HELPER_NAMES
+
+    templates = {name: get_optimize_template(name) for name in HELPER_NAMES if get_optimize_template(name)}
+    display_scripts = {optimize_script_display_name(name): code for name, code in templates.items()}
+    return {"id": SCRIPT_ORIGIN_OPTIMIZE, "title": _("Optimize Helpers"), "scripts": display_scripts}
+
+
 def build_xdl_script_picker_state(
     ctx: Any,
     doc: Any | None,
@@ -461,6 +492,14 @@ def build_xdl_script_picker_state(
             merged[display_name] = code
             quant_items.append(display_name)
 
+    optimize_items: list[str] = []
+    optimize_section = _optimize_script_section(doc)
+    if optimize_section:
+        for display_name, code in optimize_section["scripts"].items():
+            origin_map[display_name] = SCRIPT_ORIGIN_OPTIMIZE
+            merged[display_name] = code
+            optimize_items.append(display_name)
+
     items = (
         ["Sample"]
         + sorted(user_scripts.keys())
@@ -469,6 +508,7 @@ def build_xdl_script_picker_state(
         + viz_items
         + math_items
         + quant_items
+        + optimize_items
         + [document_script_display_name(n) for n in sorted(doc_scripts.keys())]
     )
     return items, merged, origin_map
@@ -524,6 +564,9 @@ def build_scripts_list_message(
     quant_section = _quant_script_section(doc)
     if quant_section:
         sections.append(quant_section)
+    optimize_section = _optimize_script_section(doc)
+    if optimize_section:
+        sections.append(optimize_section)
     sections.append({"id": SCRIPT_ORIGIN_DOCUMENT, "title": _("This Document"), "scripts": doc_scripts})
 
     msg: dict[str, Any] = {

@@ -402,6 +402,9 @@ def execute_and_insert_result(
     from plugin.calc.quant_egress import insert_quant_result_into_calc, is_quant_result
     from plugin.scripting.quant_runner import run_trusted_quant, supports_quant_manual
     from plugin.scripting.quant_templates import parse_quant_script_header
+    from plugin.scripting.optimize_egress import insert_optimize_result_into_calc, is_optimize_result
+    from plugin.scripting.optimize_runner import run_trusted_optimize
+    from plugin.scripting.optimize_templates import parse_optimize_script_header
 
     t0 = time.perf_counter()
     vision_meta = parse_vision_script_header(code)
@@ -409,6 +412,7 @@ def execute_and_insert_result(
     math_meta = parse_math_script_header(code)
     meta = parse_analysis_script_header(code)
     quant_meta = parse_quant_script_header(code)
+    optimize_meta = parse_optimize_script_header(code)
 
     def _resolve_data_range() -> str | None:
         binding = str(data_range).strip() if data_range else ""
@@ -653,6 +657,53 @@ def execute_and_insert_result(
             "result": result,
         }
 
+    if optimize_meta is not None and is_calc(doc):
+        dr = _resolve_data_range()
+        if not dr:
+            return {
+                "ok": False,
+                "message": _("Optimization helper requires a data range. Select cells or enter a range in the Data field."),
+            }
+        try:
+            result = run_trusted_optimize(ctx, doc, helper=optimize_meta.helper, params=optimize_meta.params, data_range=dr)
+        except ToolExecutionError as exc:
+            elapsed = time.perf_counter() - t0
+            err_msg = str(exc)
+            formatted_time = format_elapsed_time(elapsed)
+            if not ("timed out" in err_msg.lower() or "timeout" in err_msg.lower()):
+                err_msg = f"{err_msg} (took {formatted_time})"
+            return {"ok": False, "message": err_msg}
+        except Exception as e:
+            elapsed = time.perf_counter() - t0
+            log.exception("execute_and_insert_result optimize fast path failed")
+            err_msg = str(e)
+            formatted_time = format_elapsed_time(elapsed)
+            return {"ok": False, "message": f"{err_msg} (took {formatted_time})", "traceback": exception_traceback(e)}
+
+        if result.get("status") == "error":
+            elapsed = time.perf_counter() - t0
+            formatted_time = format_elapsed_time(elapsed)
+            message = str(result.get("message") or _("Optimization failed."))
+            return {"ok": False, "message": f"{message} (took {formatted_time})"}
+
+        try:
+            row_count = insert_optimize_result_into_calc(doc, ctx, result)
+        except Exception as e:
+            elapsed_total = time.perf_counter() - t0
+            formatted_time_total = format_elapsed_time(elapsed_total)
+            return {"ok": False, "message": _("Failed to insert result: {error} (took {time})").format(error=str(e), time=formatted_time_total)}
+
+        formatted_time = format_elapsed_time(time.perf_counter() - t0)
+        return {
+            "ok": True,
+            "status_ok_text": _("Optimize '{helper}' completed. Wrote {rows} rows. (took {time})").format(
+                helper=optimize_meta.helper,
+                rows=row_count,
+                time=formatted_time,
+            ),
+            "result": result,
+        }
+
     if meta is not None and is_calc(doc):
         dr = _resolve_data_range()
         if not dr:
@@ -804,6 +855,20 @@ def execute_and_insert_result(
                         "stdout": stdout,
                         "result": result_data,
                     }
+                if isinstance(result_data, dict) and is_optimize_result(result_data):
+                    row_count = insert_optimize_result_into_calc(doc, ctx, result_data)
+                    formatted_time = format_elapsed_time(time.perf_counter() - t0)
+                    helper = str(result_data.get("helper") or "optimize")
+                    return {
+                        "ok": True,
+                        "status_ok_text": _("Optimize '{helper}' completed. Wrote {rows} rows. (took {time})").format(
+                            helper=helper,
+                            rows=row_count,
+                            time=formatted_time,
+                        ),
+                        "stdout": stdout,
+                        "result": result_data,
+                    }
                 if isinstance(result_data, dict) and is_vision_result(result_data):
                     row_count = insert_vision_result_into_calc(doc, ctx, result_data)
                     formatted_time = format_elapsed_time(time.perf_counter() - t0)
@@ -852,13 +917,14 @@ def _run_python_monaco(ctx: Any, doc: Any, *, config_key: str, initial_code: str
     from plugin.scripting.analysis_templates import parse_analysis_script_header
     from plugin.scripting.viz_templates import parse_viz_script_header
     from plugin.scripting.quant_templates import parse_quant_script_header
+    from plugin.scripting.optimize_templates import parse_optimize_script_header
 
     run_ok_text = _("Script executed successfully.")
     save_ok_text = _("Script saved.")
     initial_binding = calc_selection_to_a1(doc) if is_calc(doc) else ""
     show_binding = False
     if is_calc(doc):
-        show_binding = bool(parse_analysis_script_header(initial_code) or parse_viz_script_header(initial_code) or parse_quant_script_header(initial_code))
+        show_binding = bool(parse_analysis_script_header(initial_code) or parse_viz_script_header(initial_code) or parse_quant_script_header(initial_code) or parse_optimize_script_header(initial_code))
 
     def on_save(
         code: str,

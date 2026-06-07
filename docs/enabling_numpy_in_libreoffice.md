@@ -594,7 +594,7 @@ run_venv_python_script(code="… plt.plot(…) …")
 
 ### 5. Optimization & Operations Research {#optimization}
 
-**Status:** **Not shipped.** `scipy` in venv; [`monte_carlo`](../plugin/scripting/analysis.py) shipped.
+**Status:** **Partial.** `scipy` optimization shipped; [`monte_carlo`](../plugin/scripting/analysis.py) shipped. *Note: `pulp` and `ortools` integration is deferred to a later phase; current helpers rely on `scipy.optimize`.*
 
 **Goal:** Linear programming, scheduling, portfolio optimization inside Calc—appeals to analysts, supply chain, finance.
 
@@ -603,8 +603,8 @@ run_venv_python_script(code="… plt.plot(…) …")
 | Helper | Purpose | Packages |
 |--------|---------|----------|
 | `optimize_portfolio` | Mean-variance or constraint-based | `scipy.optimize`, numpy |
-| `linear_programming` | LP from spec dict | `scipy.optimize.linprog` or optional `pulp` |
-| `solve_scheduling_problem` | Assignment / small IP | optional `ortools` / `pulp` |
+| `linear_programming` | LP from spec dict | `scipy.optimize.linprog` (pulp deferred) |
+| `solve_scheduling_problem` | Assignment / small IP | `scipy.optimize.linear_sum_assignment` (ortools/pulp deferred) |
 
 **Run Python Script:** **Optimize Helpers →** `[Optimize] portfolio`, `[Optimize] linear_program`.
 
@@ -612,7 +612,7 @@ run_venv_python_script(code="… plt.plot(…) …")
 
 **Sub-agent:** Extend `domain="analysis"`.
 
-**Packages:** `scipy` (required); `pulp` / `ortools` optional Test group.
+**Packages:** `scipy` (required).
 
 ---
 

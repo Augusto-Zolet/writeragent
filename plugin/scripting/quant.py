@@ -50,7 +50,7 @@ def _resolve_df(data: Any, *, headers: bool = True, header_row: int = 0, sheet_h
 
 def fetch_historical_data(params: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
     try:
-        import yfinance as yf
+        import yfinance as yf  # type: ignore
     except ImportError:
         return _missing_package_error("fetch_historical_data", "yfinance")
     
@@ -90,7 +90,7 @@ def fetch_historical_data(params: dict[str, Any], context: dict[str, Any]) -> di
 
 def technical_analysis(params: dict[str, Any], data: Any, context: dict[str, Any]) -> dict[str, Any]:
     try:
-        import pandas_ta as ta
+        import pandas_ta as ta  # type: ignore
     except ImportError:
         return _missing_package_error("technical_analysis", "pandas-ta")
         
@@ -133,7 +133,7 @@ def technical_analysis(params: dict[str, Any], data: Any, context: dict[str, Any
 
 def portfolio_tearsheet(params: dict[str, Any], data: Any, context: dict[str, Any]) -> dict[str, Any]:
     try:
-        import quantstats as qs
+        import quantstats as qs  # type: ignore
     except ImportError:
         return _missing_package_error("portfolio_tearsheet", "quantstats")
         
@@ -164,9 +164,9 @@ def portfolio_tearsheet(params: dict[str, Any], data: Any, context: dict[str, An
 
 def efficient_frontier(params: dict[str, Any], data: Any, context: dict[str, Any]) -> dict[str, Any]:
     try:
-        from pypfopt.expected_returns import mean_historical_return
-        from pypfopt.risk_models import CovarianceShrinkage
-        from pypfopt.efficient_frontier import EfficientFrontier
+        from pypfopt.expected_returns import mean_historical_return  # type: ignore
+        from pypfopt.risk_models import CovarianceShrinkage  # type: ignore
+        from pypfopt.efficient_frontier import EfficientFrontier  # type: ignore
     except ImportError:
         return _missing_package_error("efficient_frontier", "PyPortfolioOpt")
         
@@ -180,6 +180,7 @@ def efficient_frontier(params: dict[str, Any], data: Any, context: dict[str, Any
             date_col = 'Date' if 'Date' in df.columns else 'date'
             df = df.set_index(date_col)
             
+        import pandas as pd  # type: ignore[import-untyped]
         # Ensure numeric
         df = df.apply(pd.to_numeric, errors='coerce').dropna()
         
