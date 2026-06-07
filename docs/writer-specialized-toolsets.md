@@ -324,7 +324,7 @@ The Writer chart toolset is currently under maintenance. During development, it 
 
 The toolset is temporarily disabled by deriving from `ToolBaseDummy` while these UNO lifecycle issues are investigated.
 
-#### Sections (Future Work)
+### 5.3 Future work: Sections specialized toolset
 
 #### What sections are
 
@@ -345,30 +345,61 @@ Sections are the **only** way Writer can vary several properties below the page-
 
 UI restriction worth surfacing in tool errors: a section **cannot** be hidden when it is the only content on a page or when it lives inside a header, footer, footnote, endnote, frame, or table cell.
 
-#### UNO API summary
-
-- **Discovery / collection:** `doc` implements `com.sun.star.text.XTextSectionsSupplier`; `doc.getTextSections()` returns an `XNameAccess` of named `TextSection` instances.
-- **Create:** `doc.createInstance("com.sun.star.text.TextSection")` then `XText.insertTextContent(xRange, xSection, bAbsorb=True)` to wrap an existing range. Setting `bAbsorb=True` over a multi-paragraph selection is the canonical "wrap selection in a section" pattern.
-- **Properties:** `TextSection` supports `com.sun.star.beans.XPropertySet`; all properties above are read/written via `getPropertyValue` / `setPropertyValue`.
-- **Columns helper:** `TextColumns` values come from `doc.createInstance("com.sun.star.text.TextColumns")`, configured via `setColumnCount(n)` and per-column gaps/widths, then assigned back with `setPropertyValue("TextColumns", cols)`.
-- **Delete / rename:** sections expose `XTextContent` (so `removeTextContent` works) and `XNamed` for rename.
-
 #### Why this belongs in its own specialized domain
 
 - **Schema surface is large** (file link, DDE, footnote scoping, columns, background) and overlaps **page** (page columns), **fields** (condition expressions), **footnotes** (per-section overrides), and **structural** (existing read-only navigation). Putting these in the default chat tool list would noticeably grow context and confuse tool selection — the exact problem the delegation pattern solves (see [§1.1 Why this feature exists](#11-why-this-feature-exists)).
 - **Multi-step workflows** (create section, set columns, set protection, optionally attach a file link) map well to a short-lived sub-agent with only `sections_*` tools visible.
-- **Read path already lives in `structural`**; the write path could either join `structural` or get its own `sections` domain. Recommendation: a dedicated `sections` domain so `structural` stays purely navigational.
+- **Read path already lives in `structural`**; the write path should get its own `sections` domain so `structural` stays purely navigational.
 
-#### Proposed future tools (sketch, not implemented)
+#### Granular APIs required (small models choke on fat tools)
 
-- `create_section(name, range_locator, columns?, hide?, condition?, protect?, password?, file_link?, dde?, footnote_scope?)`
-- `delete_section(name)` / `rename_section(old_name, new_name)`
-- `get_section_properties(name)` / `set_section_properties(name, ...)`
-- `set_section_columns(name, count, gap?, separator?)`
-- `set_section_link(name, file_url, filter?, link_region?)` / `clear_section_link(name)`
-- `set_section_protection(name, protected, password?)`
-- `set_section_visibility(name, visible, condition?)`
-- `set_section_footnote_scope(name, ...)`
+Sections must use **fine-grained, narrowly scoped tools** — not a single `manage_section(action, …)` or `set_section_properties(name, …)` catch-all. A polymorphic schema that bundles columns, visibility, protection, file links, DDE, and footnote scoping into one call produces a parameter object that **small and mid-size models reliably fail to fill correctly** (wrong optional combinations, omitted required fields, invalid unions). The delegation pattern already limits context; within the `sections` domain we should still keep each tool’s schema skinny so sub-agents and in-place specialized mode remain usable on local Ollama-class models. See [§1.2 Two Perspectives on API Design](#12-two-perspectives-on-api-design).
+
+Deferred capabilities (file link, DDE, footnote scoping, background, rename) should land as **additional single-purpose tools** in later phases — same rule: one concern per tool, not folded into a mega-schema.
+
+#### Proposed tools (not implemented)
+
+**1. Discovery and Inspection Tools**
+
+- **`sections_list()`**
+  - **Purpose:** Returns a list of all existing section names in the document.
+  - **UNO implementation:** Accesses `doc.getTextSections()` and enumerates the keys via `XNameAccess`. (Overlaps today’s core `list_sections` in `structural.py`; may alias or move under the `sections` domain.)
+
+- **`sections_get_info(name)`**
+  - **Purpose:** Returns a detailed JSON payload of a specific section’s current properties.
+  - **Payload fields:** Maps `IsVisible`, `Condition`, `IsProtected`, left/right margins, and column counts via `XPropertySet.getPropertyValue`. (Extends read-only `read_section`; full property surface can grow incrementally.)
+
+**2. Creation and Destruction Tools**
+
+- **`sections_create_from_range(name, range_locator)`**
+  - **Purpose:** Wraps a specific multi-paragraph range into a named section.
+  - **UNO implementation:** Calls `doc.createInstance("com.sun.star.text.TextSection")`. Crucially, it must execute `XText.insertTextContent(xRange, xSection, bAbsorb=True)` to absorb the existing selection range without destroying text content.
+
+- **`sections_delete(name)`**
+  - **Purpose:** Removes the section container while preserving the underlying text payload.
+  - **UNO implementation:** Uses `XTextContent` interface constraints to invoke `removeTextContent`.
+
+**3. Layout and Property Mutation Tools**
+
+- **`sections_set_columns(name, count, gap_mm)`**
+  - **Purpose:** Modifies multi-column properties for layout shifts on a single page.
+  - **UNO implementation:** Instantiates an independent column object via `doc.createInstance("com.sun.star.text.TextColumns")`, invokes `setColumnCount(count)`, calculates gaps in 1/100 mm, and writes it back using `setPropertyValue("TextColumns", cols)`.
+
+- **`sections_set_visibility(name, visible, condition?)`**
+  - **Purpose:** Handles conditional text hiding.
+  - **UNO implementation:** Maps `visible` to `IsVisible` and `condition` to the string property `Condition`.
+
+- **`sections_set_protection(name, protected, password?)`**
+  - **Purpose:** Toggles modification locking.
+  - **UNO implementation:** Directly writes to the `IsProtected` property set.
+
+**Later phases (same granular rule):** `sections_rename`, `sections_set_margins`, `sections_set_link` / `sections_clear_link`, `sections_set_dde`, `sections_set_footnote_scope`, background graphic tools — each as its own tool, not bundled into `sections_create_from_range` or a generic property setter.
+
+#### References
+
+- TextSection service: [api.libreoffice.org TextSection](https://api.libreoffice.org/docs/idl/ref/servicecom_1_1sun_1_1star_1_1text_1_1TextSection.html).
+- User-facing guide: [help.libreoffice.org "Using Sections"](https://help.libreoffice.org/latest/en-US/text/swriter/guide/sections.html).
+- Existing read tools: [`plugin/writer/structural.py`](../../plugin/writer/structural.py).
 
 ### 6.9 Feature: Structural Integrity & Object Preservation
 
@@ -397,12 +428,6 @@ Instead of replacing the whole document, the agent uses its structural awareness
 The `FormatService` can be updated to embed images as Base64 data URLs inside the HTML.
 *   **Constraint**: This is only viable for small icons or diagrams. Large high-res images will exceed the token limits of most LLMs and slow down the request significantly.
 *   **Usage**: Best used as a fallback for objects that cannot be easily tokenized.
-
-#### References
-
-- TextSection service: [api.libreoffice.org TextSection](https://api.libreoffice.org/docs/idl/ref/servicecom_1_1sun_1_1star_1_1text_1_1TextSection.html).
-- User-facing guide: [help.libreoffice.org "Using Sections"](https://help.libreoffice.org/latest/en-US/text/swriter/guide/sections.html).
-- Existing read tools: [`plugin/writer/structural.py`](../../plugin/writer/structural.py).
 
 ### 6.7 Cross-cutting Enhancements
 
