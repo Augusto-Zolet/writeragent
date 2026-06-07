@@ -320,6 +320,12 @@ class ApplyStyle(FrameworkToolBase):
         try:
             cursor = resolve_target_cursor(ctx, target, old_content)
         except ValueError as ve:
+            if target == "search":
+                # Surface the search-miss as a structured (top-level) failure, like
+                # apply_document_content, so a client can branch on matched/applied.
+                # TODO(follow-up): consider _tool_error(..., details={...}) so this path also
+                # carries a standard error code like other apply_style failures.
+                return {"status": "error", "message": str(ve), "target": "search", "applied": False, "matched": False}
             return self._tool_error(str(ve))
 
         if not cursor:
@@ -332,7 +338,11 @@ class ApplyStyle(FrameworkToolBase):
                 cursor.setPropertyValue(uno_prop, uno_value)
         except Exception as e:
             return self._tool_error("Could not apply style: %s" % e)
-        return {"status": "ok", "style_name": style_name, "family": family}
+        result = {"status": "ok", "message": "Applied style '%s' (%s) to %s." % (style_name, family, target),
+                  "style_name": style_name, "family": family, "target": target, "applied": True}
+        if target == "search":
+            result["matched"] = True  # a search miss would have errored earlier in resolve_target_cursor
+        return result
 
 
 class UpdateStyle(ToolWriterStyleBase):

@@ -48,6 +48,19 @@ def test_apply_search_replace():
     assert "foo" not in s.get_html()
 
 
+def test_apply_search_all_matches_no_match_errors():
+    s = StringDocState("nothing relevant")
+    r = s.apply_document_content(
+        target="search",
+        old_content="zzz",
+        content="BAR",
+        all_matches=True,
+    )
+    assert r["status"] == "error", r
+    assert r["replaced_count"] == 0, r
+    assert r["message"].startswith("Replaced 0 occurrence"), r
+
+
 def test_apply_full_and_end():
     s = StringDocState("a")
     s.apply_document_content(target="full_document", content="<h1>x</h1>")
