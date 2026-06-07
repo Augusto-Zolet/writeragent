@@ -52,7 +52,7 @@ def _template_body(helper: str, params: dict[str, Any]) -> str:
     params_json = json.dumps(params, separators=(",", ":"))
     desc = _HELPER_DESCRIPTIONS.get(helper, helper)
     return (
-        f"{VISION_HEADER_PREFIX} helper={helper} params={params_json}\n"  # nosec B608
+        f"{VISION_HEADER_PREFIX} helper={helper} params={params_json}\n"  # nosec
         f"# {desc}\n"
         f"# Select an embedded graphic OR set image_name in params (from list_images).\n"
         f"# Writer: place text cursor for insert. Calc: select cell-anchored graphic for output row.\n"

@@ -65,7 +65,7 @@ def _template_body(helper: str, params: dict[str, Any]) -> str:
     params_json = json.dumps(params, separators=(",", ":"))
     desc = _HELPER_DESCRIPTIONS.get(helper, helper)
     return (
-        f"{ANALYSIS_HEADER_PREFIX} helper={helper} params={params_json}\n"  # nosec B608
+        f"{ANALYSIS_HEADER_PREFIX} helper={helper} params={params_json}\n"  # nosec
         f"# {desc}\n"
         f"# Set the data range in the toolbar (or select cells), then Run.\n"
         f"from plugin.scripting.analysis import run_analysis\n\n"
