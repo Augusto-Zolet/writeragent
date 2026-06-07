@@ -68,19 +68,43 @@ class TestRichControlHelpers:
         assert bh == 350 - 2 * RICH_CONTROL_EDGE_INSET
         assert bw < 900
 
-    def test_content_bounds_wide_placeholder_uses_layout_width(self):
+    def test_content_bounds_wide_placeholder_caps_to_clear_button(self):
         from types import SimpleNamespace
 
         from plugin.chatbot.rich_text_control import RICH_CONTROL_EDGE_INSET, _content_bounds_for_rich_control
 
         ps = MagicMock()
-        ps.getPosSize.return_value = SimpleNamespace(X=4, Y=16, Width=142, Height=110)
+        ps.getPosSize.return_value = SimpleNamespace(X=4, Y=16, Width=400, Height=110)
+        root = MagicMock()
+        clear = MagicMock()
+        clear.getPosSize.return_value = SimpleNamespace(X=108, Y=186, Width=50, Height=15)
+        root.getControl.return_value = clear
 
-        _bx, _by, bw, _bh = _content_bounds_for_rich_control(
-            None, ps, placeholder_rect=(4, 16, 400, 500),
+        bx, _by, bw, _bh = _content_bounds_for_rich_control(
+            root, ps, placeholder_rect=(4, 16, 400, 500),
         )
 
-        assert bw == 400 - 2 * RICH_CONTROL_EDGE_INSET
+        assert bx == 4 + RICH_CONTROL_EDGE_INSET
+        assert bx + bw == 158
+        assert bw < 400 - 2 * RICH_CONTROL_EDGE_INSET
+
+    def test_content_bounds_wide_placeholder_follows_wider_clear_button(self):
+        """Locale-widened Clear (e.g. German) must widen the cap — not a fixed XDL 158."""
+        from types import SimpleNamespace
+
+        from plugin.chatbot.rich_text_control import _content_bounds_for_rich_control
+
+        ps = MagicMock()
+        root = MagicMock()
+        clear = MagicMock()
+        clear.getPosSize.return_value = SimpleNamespace(X=108, Y=186, Width=72, Height=15)
+        root.getControl.return_value = clear
+
+        bx, _by, bw, _bh = _content_bounds_for_rich_control(
+            root, ps, placeholder_rect=(4, 16, 400, 500),
+        )
+
+        assert bx + bw == 180
 
     def test_content_bounds_fallback_caps_to_clear_button(self):
         from types import SimpleNamespace

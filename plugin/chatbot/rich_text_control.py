@@ -237,33 +237,32 @@ def _clear_button_right_edge(root_window, fallback: int) -> int:
     return fallback
 
 
-def _content_bounds_for_rich_control(root_window, placeholder_ctrl, placeholder_rect=None):
-    """Return (x, y, width, height) for the rich control inside the response area.
+def _rich_inner_width(px: int, pw: int, inset: int, root_window) -> int:
+    """Inner width capped to the live Clear button row (same edge as query in ``panel_resize``).
 
-    When ``placeholder_rect`` is supplied by ``_PanelResizeListener``, trust that width
-    (``panel_resize`` already sized the hidden ``response`` placeholder). Early init without
-    a layout rect falls back to the live placeholder size, capped to the Clear button row.
+    The hidden ``response`` placeholder stretches to the panel right margin; the visible
+    RichTextControl must not — it aligns with Send/Stop/Clear like ``query`` and ``status``.
     """
+    placeholder_right = px + pw - inset
+    content_right = _clear_button_right_edge(root_window, placeholder_right)
+    right = min(placeholder_right, content_right)
+    return max(20, right - (px + inset))
+
+
+def _content_bounds_for_rich_control(root_window, placeholder_ctrl, placeholder_rect=None):
+    """Return (x, y, width, height) for the rich control inside the response area."""
     inset = RICH_CONTROL_EDGE_INSET
 
     if placeholder_rect is not None:
         px, py, pw, ph = placeholder_rect
-        return (
-            px + inset,
-            py + inset,
-            max(20, pw - 2 * inset),
-            max(20, ph - 2 * inset),
-        )
+    else:
+        ps = placeholder_ctrl.getPosSize()
+        px, py, pw, ph = int(ps.X), int(ps.Y), int(ps.Width), int(ps.Height)
 
-    ps = placeholder_ctrl.getPosSize()
-    px, py, pw, ph = int(ps.X), int(ps.Y), int(ps.Width), int(ps.Height)
-    placeholder_right = px + pw - inset
-    content_right = _clear_button_right_edge(root_window, placeholder_right)
-    right = min(placeholder_right, content_right)
     return (
         px + inset,
         py + inset,
-        max(20, right - (px + inset)),
+        _rich_inner_width(px, pw, inset, root_window),
         max(20, ph - 2 * inset),
     )
 
