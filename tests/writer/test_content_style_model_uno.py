@@ -13,7 +13,6 @@
 # File filter + pure string post-process; write path resolves compact tokens -> UNO names.
 # See docs/html_style_model_plan.md.
 import uno  # noqa: F401
-from com.sun.star.text.ControlCharacter import PARAGRAPH_BREAK
 
 from plugin.testing_runner import native_test, setup, teardown
 from plugin.tests.testing_utils import TestingFactory
@@ -65,10 +64,10 @@ def test_read_named_styles_emit_compact_tokens_uno():
     cur.gotoStart(False)
     cur.setPropertyValue("ParaStyleName", "Heading 1")
     text.insertString(cur, "Big Title", False)
-    text.insertControlCharacter(cur, PARAGRAPH_BREAK, False)
+    text.insertControlCharacter(cur, 0, False)  # PARAGRAPH_BREAK
     cur.setPropertyValue("ParaStyleName", "Caption")
     text.insertString(cur, "Figure 1 caption", False)
-    text.insertControlCharacter(cur, PARAGRAPH_BREAK, False)
+    text.insertControlCharacter(cur, 0, False)  # PARAGRAPH_BREAK
     cur.setPropertyValue("ParaStyleName", "Standard")
     cur.setPropertyValue("CharColor", -1)
     text.insertString(cur, "normal ", False)
@@ -98,7 +97,7 @@ def test_read_order_survives_table_uno():
     cur.gotoStart(False)
     cur.setPropertyValue("ParaStyleName", "Heading 2")
     text.insertString(cur, "Before table", False)
-    text.insertControlCharacter(cur, PARAGRAPH_BREAK, False)
+    text.insertControlCharacter(cur, 0, False)  # PARAGRAPH_BREAK
 
     table = doc.createInstance("com.sun.star.text.TextTable")
     table.initialize(2, 2)
@@ -214,7 +213,7 @@ def test_read_write_round_trip_uno():
     cur.gotoStart(False)
     cur.setPropertyValue("ParaStyleName", "Heading 1")
     text.insertString(cur, "Title", False)
-    text.insertControlCharacter(cur, PARAGRAPH_BREAK, False)
+    text.insertControlCharacter(cur, 0, False)  # PARAGRAPH_BREAK
     cur.setPropertyValue("ParaStyleName", "Caption")
     text.insertString(cur, "Cap", False)
 
