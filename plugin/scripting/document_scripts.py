@@ -37,12 +37,14 @@ SCRIPT_ORIGIN_ANALYSIS = "analysis"
 SCRIPT_ORIGIN_VISION = "vision"
 SCRIPT_ORIGIN_VIZ = "viz"
 SCRIPT_ORIGIN_MATH = "math"
+SCRIPT_ORIGIN_QUANT = "quant"
 
 DOC_SCRIPT_DISPLAY_PREFIX = "[Doc] "
 ANALYSIS_SCRIPT_DISPLAY_PREFIX = "[Analysis] "
 VISION_SCRIPT_DISPLAY_PREFIX = "[Vision] "
 VIZ_SCRIPT_DISPLAY_PREFIX = "[Viz] "
 MATH_SCRIPT_DISPLAY_PREFIX = "[Math] "
+QUANT_SCRIPT_DISPLAY_PREFIX = "[Quant] "
 
 
 def _normalize_doc_url(url: Any) -> str:
@@ -281,6 +283,16 @@ def parse_math_script_display_name(display: str) -> str | None:
     return None
 
 
+def quant_script_display_name(name: str) -> str:
+    return f"{QUANT_SCRIPT_DISPLAY_PREFIX}{name}"
+
+
+def parse_quant_script_display_name(display: str) -> str | None:
+    if display.startswith(QUANT_SCRIPT_DISPLAY_PREFIX):
+        return display[len(QUANT_SCRIPT_DISPLAY_PREFIX) :]
+    return None
+
+
 def resolve_script_picker_entry(display_name: str, origin_map: dict[str, str]) -> tuple[str, str]:
     """Return (real_name, origin) for a listbox/display label."""
     origin = origin_map.get(display_name, SCRIPT_ORIGIN_USER)
@@ -299,6 +311,9 @@ def resolve_script_picker_entry(display_name: str, origin_map: dict[str, str]) -
     if origin == SCRIPT_ORIGIN_MATH:
         real = parse_math_script_display_name(display_name)
         return (real or display_name, SCRIPT_ORIGIN_MATH)
+    if origin == SCRIPT_ORIGIN_QUANT:
+        real = parse_quant_script_display_name(display_name)
+        return (real or display_name, SCRIPT_ORIGIN_QUANT)
     return (display_name, SCRIPT_ORIGIN_USER)
 
 
@@ -368,6 +383,24 @@ def _math_script_section(doc: Any | None) -> dict[str, Any] | None:
     return {"id": SCRIPT_ORIGIN_MATH, "title": _("Math Helpers"), "scripts": display_scripts}
 
 
+def _quant_script_section(doc: Any | None) -> dict[str, Any] | None:
+    if doc is None:
+        return None
+    from plugin.scripting.quant_runner import supports_quant_manual
+
+    try:
+        if not supports_quant_manual(doc):
+            return None
+    except Exception:
+        return None
+    from plugin.scripting.quant_templates import get_quant_template
+    from plugin.scripting.quant_common import HELPER_NAMES
+
+    templates = {name: get_quant_template(name) for name in HELPER_NAMES if get_quant_template(name)}
+    display_scripts = {quant_script_display_name(name): code for name, code in templates.items()}
+    return {"id": SCRIPT_ORIGIN_QUANT, "title": _("Quant Helpers"), "scripts": display_scripts}
+
+
 def build_xdl_script_picker_state(
     ctx: Any,
     doc: Any | None,
@@ -420,6 +453,14 @@ def build_xdl_script_picker_state(
             merged[display_name] = code
             math_items.append(display_name)
 
+    quant_items: list[str] = []
+    quant_section = _quant_script_section(doc)
+    if quant_section:
+        for display_name, code in quant_section["scripts"].items():
+            origin_map[display_name] = SCRIPT_ORIGIN_QUANT
+            merged[display_name] = code
+            quant_items.append(display_name)
+
     items = (
         ["Sample"]
         + sorted(user_scripts.keys())
@@ -427,6 +468,7 @@ def build_xdl_script_picker_state(
         + vision_items
         + viz_items
         + math_items
+        + quant_items
         + [document_script_display_name(n) for n in sorted(doc_scripts.keys())]
     )
     return items, merged, origin_map
@@ -479,6 +521,9 @@ def build_scripts_list_message(
     math_section = _math_script_section(doc)
     if math_section:
         sections.append(math_section)
+    quant_section = _quant_script_section(doc)
+    if quant_section:
+        sections.append(quant_section)
     sections.append({"id": SCRIPT_ORIGIN_DOCUMENT, "title": _("This Document"), "scripts": doc_scripts})
 
     msg: dict[str, Any] = {

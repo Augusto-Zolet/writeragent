@@ -851,13 +851,14 @@ def _run_python_monaco(ctx: Any, doc: Any, *, config_key: str, initial_code: str
     from plugin.calc.analysis_runner import calc_selection_to_a1
     from plugin.scripting.analysis_templates import parse_analysis_script_header
     from plugin.scripting.viz_templates import parse_viz_script_header
+    from plugin.scripting.quant_templates import parse_quant_script_header
 
     run_ok_text = _("Script executed successfully.")
     save_ok_text = _("Script saved.")
     initial_binding = calc_selection_to_a1(doc) if is_calc(doc) else ""
     show_binding = False
     if is_calc(doc):
-        show_binding = bool(parse_analysis_script_header(initial_code) or parse_viz_script_header(initial_code))
+        show_binding = bool(parse_analysis_script_header(initial_code) or parse_viz_script_header(initial_code) or parse_quant_script_header(initial_code))
 
     def on_save(
         code: str,
