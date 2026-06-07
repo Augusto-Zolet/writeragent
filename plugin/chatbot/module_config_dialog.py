@@ -203,12 +203,13 @@ class ModuleConfigDialog:
             smgr = ctx.getServiceManager()
             base_url = get_extension_url()
             dp = smgr.createInstanceWithContext("com.sun.star.awt.DialogProvider", ctx)
-            self._dlg = dp.createDialog(base_url + "/WriterAgentDialogs/%s.xdl" % dialog_id)
+            dlg = dp.createDialog(base_url + "/WriterAgentDialogs/%s.xdl" % dialog_id)
         except Exception:
             log.exception("Failed to load module config dialog %s", dialog_id)
             return
 
-        translate_dialog(self._dlg)
+        self._dlg = dlg
+        translate_dialog(dlg)
         self._setup_tabs()
         self._wire_buttons()
         self._populate_fields(get_module_config_field_specs(ctx, self._module_name))
@@ -241,8 +242,8 @@ class ModuleConfigDialog:
                 pass
 
         self._top_listener = _TopWindowListener()
-        self._dlg.addTopWindowListener(self._top_listener)
-        self._dlg.setVisible(True)
+        dlg.addTopWindowListener(self._top_listener)
+        dlg.setVisible(True)
 
     def _setup_tabs(self) -> None:
         assert self._dlg is not None
