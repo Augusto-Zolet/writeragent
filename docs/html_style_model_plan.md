@@ -1,6 +1,6 @@
 # PM & Development Plan: Semantic Style Models in HTML
 
-**Status:** Design for review — implementation deferred until approved.
+**Status:** In progress — contributor implementing v1 (short-term path below). Long-term performance path documented for post-v1.
 
 ## Problem Statement
 
@@ -42,18 +42,66 @@ We will achieve **Read/Write Symmetry**:
 
 ---
 
-## Rejected Alternative: Hybrid Model-Walk
+## Architecture: short-term vs long-term
+
+Two phases solve different problems. **v1** fixes read→write→read idempotency. **Post-v1** fixes cost on large documents.
+
+### Short-term (v1 — implement now)
+
+**Goal:** Correct `data-lo-style` tokens after StarWriter write, without changing the write filter.
+
+| Layer | Choice |
+|-------|--------|
+| **Read body + char overrides** | `XHTML Writer File` export + [`xhtml_style_postprocess.py`](../plugin/writer/xhtml_style_postprocess.py) |
+| **Read paragraph styles when XHTML omits them** | Second export: **Flat XML ODF Text Document** (`.fodt` sidecar); parse `text:style-name` + `style:parent-style-name` chain; merge by block index into post-process output |
+| **Write** | Keep `HTML (StarWriter)` import + strip `data-lo-style` + UNO `apply_paragraph_style_preserving_direct_char` |
+
+**Why a sidecar:** Probe B showed UNO still has `ParaStyleName = Caption` after write, but XHTML re-export emits autostyle `paragraph-P1` with no `.paragraph-Caption` rule — string-only XHTML post-process cannot recover the token. Flat ODF preserves the parent chain (`P1` → `Caption`). Probe C ruled out symmetric **XHTML Writer File** import on write (0 body paragraphs inserted on test LO build).
+
+**New module (v1):** `plugin/writer/fodt_style_sidecar.py` — `export_paragraph_style_chain(fodt_xml) -> list[str | None]`, merge into `postprocess_xhtml_export` / `document_to_content`.
+
+**v1 cost:** Two full `storeToURL` exports on every `get_document_content(scope=full)` (XHTML + FODT). Acceptable for correctness; **not** the long-doc architecture.
+
+**Explicitly out of scope for v1:**
+- Custom full Flat ODF → HTML parser (would duplicate xmloff + odf2xhtml — ~7.5k lines XSL + ~158k lines xmloff; see feasibility notes in maintainer research)
+- Symmetric XHTML import on write
+- Per-paragraph UNO walk on every full read (see long-term exception below)
+
+### Long-term (post-v1 — large documents)
+
+**Goal:** Paragraph style metadata without serializing the whole document twice.
+
+LibreOffice has **no filter** for “styles only.” Any `storeToURL` path (XHTML, FODT, StarWriter) runs full xmloff serialization. For book-length docs, dual export is wasteful when the agent only needs styles for the slice it is editing.
+
+**Recommended shape:**
+
+1. **Cached UNO paragraph style index** — one `text.createEnumeration()` pass per document revision: top-level block index → compact token via `ParaStyleName` + `compact_lo_style_name()`. Cache invalidated on `document:cache_invalidated` (same pattern as [`TreeService`](../plugin/writer/tree.py)). Cost: O(paragraphs) RPC, **no filter pipeline**.
+2. **Scoped HTML export** — agent uses `get_document_content(scope=range)` (existing [`_range_to_content_via_temp_doc`](../plugin/writer/format.py) already copies `ParaStyleName` into temp docs). Merge styles from the index for that para range only.
+3. **Navigation first** — `get_document_tree`, `search_in_document`, `get_heading_children` before full reads ([`docs/lo-dom-semantic-tree.md`](lo-dom-semantic-tree.md), [`docs/multi-document-dev-plan.md`](multi-document-dev-plan.md)).
+
+**Why UNO index is better than FODT sidecar for scale:** Probe B proved UNO `ParaStyleName` stays correct when XHTML export lies. The sidecar fixes the same gap via export strings (v1 purity bet); UNO is lighter and more authoritative for **paragraph names only**.
+
+**What still needs export (no cheap shortcut):**
+- Inline char overrides (`<span style="...">`) — XHTML export or heavy UNO text-portion walk
+- Tables, lists, math, frames — agent HTML structure from filters today
+
+**Optional later:** dedicated `get_paragraph_styles` tool; add `ParaStyleName` to heading nodes in the tree’s single enumeration pass.
+
+**Migration:** Once UNO index + merge is proven on range reads, drop the second full FODT export on `scope=full` (or make sidecar fallback-only when index and XHTML disagree).
+
+---
+
+## Rejected Alternative: Hybrid Model-Walk (v1 full read)
 
 A contributor explored reading `ParaStyleName` from the UNO model in lockstep with XHTML body blocks (one `getPropertyValue` per paragraph) to recover real style names when the export emits autostyle classes like `paragraph-P1` instead of `paragraph-Standard`.
 
-**We reject this approach** for the read path:
-- It reintroduces N UNO RPC calls and ordering fragility (tables, frames, lists) on every `get_document_content`.
-- It duplicates work that `_range_to_content_via_temp_doc` already does when building temp docs for selection/range export.
-- It conflicts with the core bet: one fast `XHTML Writer File` export + string post-process.
+**We reject per-paragraph UNO walks paired with every full `get_document_content` in v1** because:
+- v1 bet is export-string normalization (XHTML + sidecar), not mixing UNO RPC with HTML block alignment on every read.
+- Lockstep model-walk + XHTML body blocks reintroduces ordering fragility (tables, frames, lists).
 
-**String massaging is the read path:** decode ODF-encoded class suffixes for named styles, strip spaces for agent-facing `data-lo-style`, resolve autostyle `P*` classes from the same export's `<style>` block when needed; omit `data-lo-style` when unresolvable. Write path maps compact tokens back to UNO via the document style list.
+**Long-term exception:** a **cached** UNO style index (one enumeration per doc revision, not per tool call) is the planned replacement for the FODT sidecar on large documents — see [Architecture: short-term vs long-term](#architecture-short-term-vs-long-term). That is not “walk the model for every paragraph on every read”; it is amortized metadata.
 
-We trust LibreOffice's XHTML export and UNO style APIs — no parallel model-walk, no alternate read path.
+**v1 read path:** XHTML export + string post-process + Flat ODF sidecar merge when XHTML omits tokens. Write path maps compact tokens back to UNO via the document style list.
 
 ---
 
@@ -72,9 +120,11 @@ For round-trip, `data-lo-style` carries the **compact token** (`Heading1`), not 
 
 ---
 
-## Phase 0: XHTML Export Probe (completed)
+## Phase 0: XHTML export shapes (background)
 
-Probe harness: [`tests/writer/test_xhtml_export_uno.py`](../tests/writer/test_xhtml_export_uno.py) (UNO tests; run via `make test` when `soffice` is available).
+Probe harness: [`tests/writer/test_xhtml_filter_probe_uno.py`](../tests/writer/test_xhtml_filter_probe_uno.py) and [`tests/writer/test_xhtml_style_postprocess.py`](../tests/writer/test_xhtml_style_postprocess.py).
+
+See **Phase 0: Filter probe** at the bottom of this doc for the active probe workflow and decision gate.
 
 ### Observed behavior
 
@@ -141,6 +191,17 @@ Probe harness: [`tests/writer/test_xhtml_export_uno.py`](../tests/writer/test_xh
 
 7. **Optional:** Drop empty trailing paragraphs (`&nbsp;` / whitespace-only) so the agent does not see ghost blocks.
 
+### Phase 1b: Flat ODF style sidecar (v1 idempotency fix)
+
+After Phase 0 probe C failed, add this step **before** closing v1:
+
+1. **Second export:** Same document (or same temp-doc slice for `scope=range` / selection) via filter `"Flat XML ODF Text Document"`.
+2. **Parse sidecar:** From `office:styles` + `office:automatic-styles`, build paragraph `style:name → style:parent-style-name`. Walk `office:text` body for block-level `text:p` / `text:h` in document order.
+3. **Resolve chain:** Walk `text:style-name` through parents until a named style (e.g. `P1` → `Caption`); emit compact token via `compact_lo_style_name()`.
+4. **Merge:** For each XHTML block where post-process would `omit` (`omitted_autostyle`, etc.), fill `data-lo-style` from the sidecar at the same block index. On index mismatch, omit + debug log (do not guess).
+
+Sidecar fixes probe B; it does **not** replace XHTML for body or char overrides.
+
 ---
 
 ## Phase 2: Update the Write Path (`apply_document_content`)
@@ -175,6 +236,17 @@ StarWriter HTML import does not understand `data-lo-style`. Write path:
 
 ---
 
+## Phase 4: Long-term — UNO style index (post-v1)
+
+*Target files:* new helper (e.g. `plugin/writer/paragraph_style_index.py`), [`plugin/writer/format.py`](../plugin/writer/format.py), optional [`plugin/writer/tree.py`](../plugin/writer/tree.py).
+
+1. **Build index:** Single enumeration of top-level text content; record `ParaStyleName` per block index; compact tokens; cache per doc key until invalidation.
+2. **Merge on read:** `postprocess_xhtml_export` (or caller) fills `data-lo-style` from index when XHTML omits; use index alone for range reads instead of second full FODT export.
+3. **Drop dual full export:** Remove or gate FODT sidecar to fallback-only once index + round-trip UNO tests pass on probe B.
+4. **Agent workflow:** Document preferring `scope=range` + tree/search on large docs; optional `get_paragraph_styles` if split metadata tool is needed.
+
+---
+
 ## Implementation Details
 
 ### Compact style tokens (agent ↔ UNO)
@@ -193,17 +265,71 @@ If `apply_document_content` cannot resolve a compact `data-lo-style` token to a 
 
 ### Performance
 
-One `storeToURL` export + in-memory string/CSS parsing on the read path; UNO `setPropertyValue` / `apply_paragraph_style_preserving_direct_char` on the write path.
+**v1:** Two `storeToURL` exports on full read (XHTML + Flat ODF sidecar) + in-memory string/CSS/XML parsing; UNO `setPropertyValue` / `apply_paragraph_style_preserving_direct_char` on the write path.
+
+**Long-term:** One XHTML export per read **slice** + cached UNO style index (one enumeration per doc revision). Prefer `scope=range` and navigation tools over `scope=full` on large documents. Chat sidebar already uses plain-text excerpts ([`get_document_context_for_chat`](../plugin/doc/document_helpers.py)), not styled HTML export.
+
+| Source | Paragraph styles | Char overrides | Body HTML | Scales with doc size |
+|--------|------------------|----------------|-------------|----------------------|
+| UNO `ParaStyleName` index | Yes (authoritative) | No | No | O(paragraphs) once per revision |
+| Flat ODF sidecar (v1) | Yes (parent chain) | Possible but not v1 | No | Full serialization |
+| XHTML Writer File | Sometimes (autostyle gap) | Yes | Yes | Full serialization |
 
 ---
 
 ## Design Approval Checklist
 
-Before implementation PR:
+Before v1 PR:
 
-- [ ] Read path: XHTML export + string pipeline only
-- [ ] Autostyle: decode named classes + CSS fingerprint + omit (no `P1` passed to LLM as a style name)
-- [ ] Write path: strip `data-lo-style`, import HTML, apply styles via `apply_paragraph_style_preserving_direct_char`
+- [ ] Read path: XHTML export + string pipeline + Flat ODF sidecar merge (Phase 1b)
+- [ ] Autostyle: decode named classes + CSS fingerprint + sidecar fill + omit when still unresolvable
+- [ ] Write path: strip `data-lo-style`, StarWriter import, apply styles via `apply_paragraph_style_preserving_direct_char`
 - [ ] Agent prompt documents compact `data-lo-style` tokens (no spaces) vs inline `style`
 - [ ] Write path resolves compact tokens → UNO `ParaStyleName` via style list lookup
-- [ ] Unit + UNO round-trip tests included
+- [ ] Unit + UNO round-trip tests included (probe B must recover `Caption` after write→read)
+- [ ] Do **not** switch write path to XHTML Writer File import (probe C failed)
+
+---
+
+## Phase 0: Filter probe (before idempotency fix)
+
+Run **before** choosing symmetric XHTML write vs Flat ODF read sidecar. Instrumentation lives in [`plugin/writer/xhtml_style_postprocess.py`](../plugin/writer/xhtml_style_postprocess.py):
+
+- `analyze_xhtml_export(xhtml)` — per-paragraph resolution trace (`named_class`, `css_fingerprint`, `omitted_*`, …)
+- `format_xhtml_analysis_report(analysis)` — human-readable summary for test failures
+- `compact_lo_style_name()` — agent tokens without spaces
+
+**Tests:**
+
+| File | Role |
+|------|------|
+| [`tests/writer/test_xhtml_style_postprocess.py`](../tests/writer/test_xhtml_style_postprocess.py) | pytest fixtures (no LibreOffice) |
+| [`tests/writer/test_xhtml_filter_probe_uno.py`](../tests/writer/test_xhtml_filter_probe_uno.py) | UNO probes A–D (StarWriter vs XHTML import on write) |
+
+**Run:** `pytest tests/writer/test_xhtml_style_postprocess.py` and `make test` (UNO probes need `soffice`).
+
+### Probe scenarios
+
+| ID | Setup | Assert |
+|----|--------|--------|
+| A | Native `Caption` paragraph → XHTML export | `data_lo_style="Caption"`, resolution `named_class` |
+| B | Write via **StarWriter** import + UNO apply → XHTML re-read | UNO still `Caption`; analysis shows token loss / autostyle (documents the wall) |
+| C | Write via **XHTML Writer File** import + UNO apply → XHTML re-read | **Decision probe:** token still `Caption`? |
+| D | Native `Heading 1` + char bold → XHTML | text-* rules present; postprocess inlines char override |
+
+### Decision gate (resolved)
+
+Probe C **failed** (XHTML import did not insert body paragraphs on maintainer LO build). **Chosen v1 fix:** Flat ODF style sidecar on read (Phase 1b). **Write path unchanged:** StarWriter + UNO style apply.
+
+Do not implement symmetric XHTML write and sidecar as parallel full solutions in v1.
+
+### Probe results
+
+| Probe | Outcome | Notes |
+|-------|---------|-------|
+| A — native `Caption` → XHTML read | Pass | `named_class`, token `Caption`, class `paragraph-Caption` |
+| B — StarWriter write → XHTML re-read | Fail (documents wall) | UNO still `Caption`; export `paragraph-P1`; `omitted_autostyle`, token `None` — sidecar required |
+| C — XHTML import write → re-read | Fail | 0 body paragraphs inserted; symmetric XHTML write rejected |
+| D — `Heading 1` + bold | Pass | `Heading1` token; char `text-T*` inlined to span `style` |
+
+Run locally: `pytest tests/writer/test_xhtml_style_postprocess.py` and UNO probes in [`tests/writer/test_xhtml_filter_probe_uno.py`](../tests/writer/test_xhtml_filter_probe_uno.py) via `make test`.
