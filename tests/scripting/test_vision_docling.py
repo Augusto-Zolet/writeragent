@@ -32,24 +32,34 @@ def _mock_document(*, texts=None, tables=None, markdown=None):
         "tables": tables if tables is not None else [],
     }
     doc.export_to_markdown.return_value = "Line A" if markdown is None else markdown
+    doc.export_to_html.return_value = "<p><strong>Line A</strong></p>" if markdown is None else f"<p>{markdown}</p>"
     return doc
 
 
+@patch(
+    "plugin.scripting.vision_html_export.export_docling_to_html",
+    return_value="<p><strong>Line A</strong></p>",
+)
 @patch("plugin.scripting.vision_docling._convert_image_bytes")
-def test_extract_text_maps_docling_document(mock_convert):
+def test_extract_text_maps_docling_document(mock_convert, _mock_html):
     mock_convert.return_value = _mock_document()
 
     result = extract_text(b"png", {"ocr_backend": "rapidocr_paddle", "lang": "en"})
 
     assert result["status"] == "ok"
     assert result["full_text"] == "Line A"
+    assert "<strong>Line A</strong>" in result["html"]
     assert result["regions"][0]["text"] == "Line A"
     assert result["regions"][0]["box"] == [0, 0, 40, 10]
     assert result["metrics"]["engine"] == "docling"
 
 
+@patch(
+    "plugin.scripting.vision_html_export.export_docling_to_html",
+    return_value="<h2>Title</h2><table></table>",
+)
 @patch("plugin.scripting.vision_docling._convert_image_bytes")
-def test_extract_structure_maps_tables(mock_convert):
+def test_extract_structure_maps_tables(mock_convert, _mock_html):
     mock_convert.return_value = _mock_document(
         texts=[{"text": "Title", "label": "section_header", "prov": []}],
         tables=[{"prov": [], "data": {"grid": [["A", "B"], ["1", "2"]]}}],

@@ -105,7 +105,10 @@ def extract_text(image: Any, params: dict[str, Any]) -> dict[str, Any]:
         log.exception("extract_text OCR failed")
         return _error_result("VISION_ERROR", str(exc), helper=helper)
 
+    from plugin.scripting.vision_html_export import html_from_paddle_regions
+
     full_text = "\n".join(texts)
+    html = html_from_paddle_regions(regions)
     warnings: list[str] = []
     if not full_text:
         warnings.append("No text detected.")
@@ -116,6 +119,7 @@ def extract_text(image: Any, params: dict[str, Any]) -> dict[str, Any]:
 
     return _ok_result(
         helper,
+        html=html,
         full_text=full_text,
         regions=regions,
         metrics={
@@ -342,13 +346,17 @@ def extract_structure(image: Any, params: dict[str, Any]) -> dict[str, Any]:
         log.exception("extract_structure failed")
         return _error_result("VISION_ERROR", str(exc), helper=helper)
 
+    from plugin.scripting.vision_html_export import html_from_paddle_structure
+
     full_text = "\n".join(text_parts)
+    html = html_from_paddle_structure(blocks, tables)
     warnings: list[str] = []
     if not full_text and not tables and not blocks:
         warnings.append("No structure detected.")
 
     return _ok_result(
         helper,
+        html=html,
         full_text=full_text,
         blocks=blocks,
         tables=tables,

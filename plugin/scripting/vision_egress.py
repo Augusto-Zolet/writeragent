@@ -2,7 +2,7 @@
 # Copyright (c) 2026 KeithCu (modifications and relicensing)
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Format trusted vision helper results for Writer document egress."""
+"""Insert trusted vision helper HTML results into Writer and Calc."""
 
 from __future__ import annotations
 
@@ -20,8 +20,8 @@ def is_vision_result(value: Any) -> bool:
     return bool(value.get("helper")) or value.get("status") == "error"
 
 
-def format_vision_structure_for_writer(result: dict[str, Any]) -> str:
-    """Return structure text for Writer insert — full_text, first table TSV, or block text."""
+def vision_html_from_result(result: dict[str, Any]) -> str:
+    """Return Docling/Paddle HTML payload for LO import."""
     if result.get("status") == "error":
         code = str(result.get("code") or "VISION_ERROR")
         message = str(result.get("message") or "Vision helper failed.")
@@ -34,59 +34,49 @@ def format_vision_structure_for_writer(result: dict[str, Any]) -> str:
             details={"vision_result": result},
         )
 
-    full_text = str(result.get("full_text") or "").strip()
-    if full_text:
-        return full_text
-
-    tables = result.get("tables")
-    if isinstance(tables, list) and tables:
-        table = tables[0]
-        if isinstance(table, dict):
-            columns = table.get("columns")
-            table_rows = table.get("rows")
-            lines: list[str] = []
-            if isinstance(columns, list) and columns:
-                lines.append("\t".join(str(c) for c in columns))
-            if isinstance(table_rows, list):
-                for row in table_rows:
-                    if isinstance(row, list):
-                        lines.append("\t".join(str(c) for c in row))
-            if lines:
-                return "\n".join(lines)
-
-    blocks = result.get("blocks")
-    if isinstance(blocks, list):
-        block_texts = [str(b.get("text") or "").strip() for b in blocks if isinstance(b, dict)]
-        block_texts = [t for t in block_texts if t]
-        if block_texts:
-            return "\n".join(block_texts)
-
-    return ""
-
-
-def format_vision_for_writer(result: dict[str, Any]) -> str:
-    """Return plain OCR text for insertion at the Writer text cursor."""
-    helper = str(result.get("helper") or "")
-    if helper == "extract_structure":
-        return format_vision_structure_for_writer(result)
-
-    if result.get("status") == "error":
-        code = str(result.get("code") or "VISION_ERROR")
-        message = str(result.get("message") or "Vision helper failed.")
-        raise ToolExecutionError(message, code=code, details={"vision_result": result})
-
-    if result.get("status") != "ok":
+    html = result.get("html")
+    if html is None:
         raise ToolExecutionError(
-            "Vision helper returned an unexpected status.",
+            "Vision helper result is missing html.",
             code="VISION_ERROR",
             details={"vision_result": result},
         )
+    return str(html)
 
-    full_text = result.get("full_text")
-    if full_text is None:
+
+def insert_vision_result_into_writer(ctx: Any, doc: Any, result: dict[str, Any]) -> None:
+    """Insert formatted vision HTML at the Writer text cursor."""
+    from plugin.writer.format import insert_content_at_position
+
+    html = vision_html_from_result(result)
+    if not html.strip():
         raise ToolExecutionError(
-            "Vision helper result is missing full_text.",
+            "Vision helper returned empty HTML.",
             code="VISION_ERROR",
             details={"vision_result": result},
         )
-    return str(full_text)
+    insert_content_at_position(doc, ctx, html, "selection")
+
+
+def insert_vision_result(ctx: Any, doc: Any, result: dict[str, Any]) -> None:
+    """Insert vision HTML into Writer or Calc."""
+    from plugin.doc.document_helpers import is_calc, is_writer
+    from plugin.calc.vision_egress import insert_vision_html_into_calc
+
+    if is_writer(doc):
+        insert_vision_result_into_writer(ctx, doc, result)
+        return
+    if is_calc(doc):
+        html = vision_html_from_result(result)
+        if not html.strip():
+            raise ToolExecutionError(
+                "Vision helper returned empty HTML.",
+                code="VISION_ERROR",
+                details={"vision_result": result},
+            )
+        insert_vision_html_into_calc(doc, ctx, html)
+        return
+    raise ToolExecutionError(
+        "Vision helpers require a Writer or Calc document.",
+        code="VISION_ERROR",
+    )

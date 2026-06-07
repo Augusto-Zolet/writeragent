@@ -1,12 +1,12 @@
 # Image Recognition — Design (Local OCR & Detection)
 
-**Status:** **Phase 1 + Phase 1b (Calc) + Phase 2 + Phase 3 shipped** — Run Python Script **Vision Helpers** (`[Vision] extract_text`, `[Vision] extract_structure`) on **Writer and Calc**; export by **selection** or **`image_name`** in template params; Writer text-cursor insert; Calc sheet report below graphic anchor; Settings → Python **Test** reports PaddleOCR/Ultralytics and install/timeout hints. Draw/Impress egress → **Phase 1b.2** (deferred). LLM/chat integration (`analyze_image`) is **explicitly later**.
+**Status:** **Phase 1 + Phase 1b (Calc) + Phase 2 + Phase 3 shipped** — Run Python Script **Vision Helpers** (`[Vision] extract_text`, `[Vision] extract_structure`) on **Writer and Calc**; export by **selection** or **`image_name`** in template params; **Docling HTML** insert at Writer cursor or Calc cell (via LO HTML import — not plain text); Settings → Python **Test** reports PaddleOCR/Ultralytics and install/timeout hints. Draw/Impress egress → **Phase 1b.2** (deferred). LLM/chat integration (`analyze_image`) is **explicitly later**.
 
 WriterAgent documents (Writer, Calc, Draw/Impress) embed raster images: scans, screenshots, chart photos, slide exports, logos. **LibreOffice handles graphics I/O** (export, insert, replace, dimensions). **Recognition** (OCR, layout, object detection) runs in the user's venv via the same trusted-module pattern as [`analysis.py`](../plugin/scripting/analysis.py) and [`embeddings_index.py`](../plugin/scripting/embeddings_index.py).
 
 **Priority:** Ship **direct user access** first (Settings + **Run Python Script → Vision Helpers**). Wire the same helpers to the chat agent (`analyze_image`) only after the manual path works.
 
-**Phase 1 scope (Writer):** insert OCR **`full_text` at the text cursor** via [`insert_content_at_position`](../plugin/writer/format.py). **Phase 1b (Calc):** formatted multi-cell report via [`plugin/calc/vision_egress.py`](../plugin/calc/vision_egress.py). Draw/Impress → **Phase 1b.2**.
+**Phase 1 scope (Writer):** insert OCR **`html`** at the text cursor via [`insert_content_at_position`](../plugin/writer/format.py) (StarWriter HTML filter). **Phase 1b (Calc):** same HTML via [`insert_cell_html_rich`](../plugin/calc/rich_html.py) into the cell below the graphic anchor ([`plugin/calc/vision_egress.py`](../plugin/calc/vision_egress.py)). Draw/Impress → **Phase 1b.2**.
 
 **Related:** [Scientific Python / venv bridge](enabling_numpy_in_libreoffice.md) · [Analysis helpers UX (template)](calc-analysis-tools.md) · [Analysis sub-agent (dev-plan style)](analysis-sub-agent.md) · [Image generation (remote)](image-generation.md) · [LO-DOM for vector Draw content](lo-dom-semantic-tree.md) · [Embeddings index (text, not vision)](embeddings.md)
 
@@ -127,9 +127,9 @@ First Docling/Paddle model download uses a **dedicated vision worker timeout** (
 
 | Document | Phase | Behavior |
 |----------|-------|----------|
-| **Writer** | **1** | Insert **`full_text`** as plain text at **text cursor** via [`insert_content_at_position`](../plugin/writer/format.py)(..., `"selection"`) — see [`format_vision_for_writer`](../plugin/scripting/vision_egress.py) |
+| **Writer** | **1** | Insert **`html`** at **text cursor** via [`insert_vision_result`](../plugin/scripting/vision_egress.py) → [`insert_content_at_position`](../plugin/writer/format.py)(..., `"selection"`) |
 | **Writer** | later | Optional **`set_image_properties`** description from OCR summary |
-| **Calc** | **1b / 3** | **`extract_text`** formatted report; **`extract_structure`** multi-cell tables (like [`analysis_egress`](plugin/calc/analysis_egress.py)) |
+| **Calc** | **1b** | Insert **`html`** into cell below graphic anchor via [`insert_vision_html_into_calc`](../plugin/calc/vision_egress.py) → [`insert_cell_html_rich`](../plugin/calc/rich_html.py) |
 | **Draw / Impress** | **1b.2** | Text box near selected graphic; shape annotations later |
 
 **Selection vs output anchor:** On **Writer**, user clicks the **image** (export) and places the **text cursor** for insert (they may differ). On **Calc**, the selected graphic's **anchor cell** defines the sheet insert row (one row below); the image must be cell-anchored.
@@ -184,8 +184,9 @@ Mirror [analysis-sub-agent.md § Current Code State](analysis-sub-agent.md). **R
 |------|--------|
 | **Vision trusted stack + host wiring** | [`vision.py`](../plugin/scripting/vision.py) (dispatcher), [`vision_docling.py`](../plugin/scripting/vision_docling.py) (Docling default), [`vision_paddle.py`](../plugin/scripting/vision_paddle.py) (fallback), [`vision_common.py`](../plugin/scripting/vision_common.py), [`vision_client.py`](../plugin/framework/client/vision_client.py), [`vision_runner.py`](../plugin/scripting/vision_runner.py) (`resolve_vision_image_bytes`, `supports_vision_manual`), [`vision_templates.py`](../plugin/scripting/vision_templates.py), [`vision_egress.py`](../plugin/scripting/vision_egress.py) (Writer) |
 | Image export (selection + name) | [`export_graphic_object_to_bytes`](../plugin/writer/images/image_tools.py), [`resolve_vision_image_bytes`](../plugin/scripting/vision_runner.py), [`_get_graphic_object`](../plugin/writer/images/images.py) |
-| Run Python vision fast path | [`python_runner.py`](../plugin/scripting/python_runner.py) — Writer: `format_vision_for_writer`; Calc: `insert_vision_result_into_calc` |
-| Calc vision egress | [`plugin/calc/vision_egress.py`](../plugin/calc/vision_egress.py) — `format_vision_for_calc`, `calc_output_anchor_from_graphic`, `insert_vision_result_into_calc` |
+| Run Python vision fast path | [`python_runner.py`](../plugin/scripting/python_runner.py) — `insert_vision_result` (Writer + Calc) |
+| Calc vision egress | [`plugin/calc/vision_egress.py`](../plugin/calc/vision_egress.py) — `calc_output_anchor_from_graphic`, `insert_vision_html_into_calc` |
+| HTML export (Docling / Paddle) | [`vision_html_export.py`](../plugin/scripting/vision_html_export.py) — `export_docling_to_html`, `html_from_paddle_*` |
 | Script picker (Writer + Calc) | [`document_scripts.py`](../plugin/scripting/document_scripts.py) — `SCRIPT_ORIGIN_VISION`, `_vision_script_section` |
 | Monaco built-in guards | [`scripts_manager.js`](../plugin/contrib/scripting/assets/editor/scripts_manager.js) — Attach/Save/Delete disabled for `origin === "vision"` |
 | Analysis trusted stack (reference) | [`analysis.py`](../plugin/scripting/analysis.py), [`analysis_client.py`](../plugin/framework/client/analysis_client.py), [`analysis_runner.py`](../plugin/calc/analysis_runner.py) |
@@ -225,9 +226,9 @@ sequenceDiagram
   Host->>VC: run_vision spec image context
   VC->>Venv: fixed stub IPC
   Venv-->>VC: JSON result
-  VC-->>Host: full_text regions
-  Host->>Host: format_vision_for_writer
-  Host->>User: insert_content_at_position
+  VC-->>Host: html regions metrics
+  Host->>Host: insert_vision_result
+  Host->>User: insert_content_at_position / insert_cell_html_rich
 ```
 
 ### 4.2 New modules (create)
@@ -238,7 +239,7 @@ sequenceDiagram
 | [`plugin/framework/client/vision_client.py`](../plugin/framework/client/vision_client.py) | Fixed stub like [`analysis_client.py`](../plugin/framework/client/analysis_client.py); session id `writeragent:vision` |
 | [`plugin/scripting/vision_templates.py`](../plugin/scripting/vision_templates.py) | `# writeragent:vision helper=… params=…`; Phase 1 template: **`extract_text` only** |
 | [`plugin/scripting/vision_runner.py`](../plugin/scripting/vision_runner.py) | `get_selected_image_bytes(ctx, doc)`, `run_trusted_vision(...)` — host-side export + RPC |
-| [`plugin/scripting/vision_egress.py`](../plugin/scripting/vision_egress.py) | `is_vision_result`, `format_vision_for_writer(result) -> str` |
+| [`plugin/scripting/vision_egress.py`](../plugin/scripting/vision_egress.py) | `is_vision_result`, `vision_html_from_result`, `insert_vision_result` |
 
 **`vision_client.py` stub (match analysis pattern):**
 
@@ -254,7 +255,7 @@ result = _run(data["spec"], data.get("image"), data.get("context") or {})
 | File | Change |
 |------|--------|
 | [`document_scripts.py`](../plugin/scripting/document_scripts.py) | `SCRIPT_ORIGIN_VISION`, `VISION_SCRIPT_DISPLAY_PREFIX = "[Vision] "`, `_vision_script_section(doc)` gated on **`is_writer(doc)`**; wire `build_xdl_script_picker_state` / `build_scripts_list_message` / `resolve_script_picker_entry` |
-| [`python_runner.py`](../plugin/scripting/python_runner.py) | Before generic venv run: if `parse_vision_script_header(code)` → export bytes → `run_trusted_vision` → `format_vision_for_writer` → `insert_content_at_position` (Writer only) |
+| [`python_runner.py`](../plugin/scripting/python_runner.py) | Before generic venv run: if `parse_vision_script_header(code)` → export bytes → `run_trusted_vision` → `insert_vision_result` (Writer or Calc) |
 | [`sandbox_imports.py`](../plugin/scripting/sandbox_imports.py) | Add `plugin.scripting.vision` |
 | [`scripts_manager.js`](../plugin/contrib/scripting/assets/editor/scripts_manager.js) | `isBuiltInVision = currentOrigin === "vision"`; disable Attach like analysis |
 
@@ -285,7 +286,7 @@ png_bytes = base64.b64decode(b64)
 - **Lazy-init** one `PaddleOCR` instance per warm worker process (module-level singleton; reset on worker respawn).
 - Phase 1 **`params`:** optional `lang` (string, default `"en"`).
 - Use current PaddleOCR 3.x Python API (`PaddleOCR(...)` + `ocr` / `predict` per installed version — implementer reads installed package docs).
-- Map engine output → [§10](#10-extract_text-result-json-normative) (`full_text`, `regions`, `metrics`).
+- Map engine output → [§10](#10-extract_text-result-json-normative) (`html`, `full_text`, `regions`, `metrics`).
 - **`ImportError` / missing paddle:** return `{"status": "error", "code": "PADDLEOCR_UNAVAILABLE", ...}` — do not raise uncaught from venv for missing pip packages.
 
 **CI / tests:** Mock `PaddleOCR` in [`tests/scripting/test_vision.py`](../tests/scripting/test_vision.py); **`make test` must not download models or require paddle installed.**
@@ -296,7 +297,7 @@ png_bytes = base64.b64decode(b64)
 |------|--------|
 | `tests/scripting/test_vision_templates.py` | Template coverage, `parse_vision_script_header` round-trip |
 | `tests/scripting/test_vision.py` | `run_vision` / `_extract_text` with mocked Paddle |
-| `tests/scripting/test_vision_egress.py` | `is_vision_result`, `format_vision_for_writer` |
+| `tests/scripting/test_vision_egress.py` | `is_vision_result`, `vision_html_from_result`, `insert_vision_result` |
 | `tests/scripting/test_python_runner_vision.py` | Fast path in `execute_and_insert_result` (mock export + RPC + insert) |
 | `tests/scripting/test_document_scripts.py` | `test_build_scripts_list_includes_vision_section_for_writer` (mirror analysis Calc test) |
 
@@ -310,7 +311,7 @@ png_bytes = base64.b64decode(b64)
 
 | File | Role |
 |------|------|
-| [`plugin/calc/vision_egress.py`](../plugin/calc/vision_egress.py) | `calc_output_anchor_from_graphic`, `format_vision_for_calc`, `insert_vision_result_into_calc` |
+| [`plugin/calc/vision_egress.py`](../plugin/calc/vision_egress.py) | `calc_output_anchor_from_graphic`, `insert_vision_html_into_calc` |
 | [`plugin/scripting/vision_runner.py`](../plugin/scripting/vision_runner.py) | `supports_vision_manual(doc)` → Writer or Calc |
 | [`document_scripts.py`](../plugin/scripting/document_scripts.py) | Vision Helpers picker gated on `supports_vision_manual` |
 | [`python_runner.py`](../plugin/scripting/python_runner.py) | Vision fast path branches Writer vs Calc; generic venv fallback routes `is_vision_result` on Calc |
@@ -338,8 +339,9 @@ Draw/Impress: extend `supports_vision_manual` with `is_draw`; minimal `TextShape
 | [`plugin/scripting/vision.py`](../plugin/scripting/vision.py) | `_extract_structure` via lazy `PPStructureV3` singleton; normative JSON ([§10b](#10b-extract_structure-result-json-normative)) |
 | [`plugin/scripting/vision_runner.py`](../plugin/scripting/vision_runner.py) | `resolve_vision_image_bytes`, `export_graphic_object_to_bytes` reuse from [`image_tools.py`](../plugin/writer/images/image_tools.py) |
 | [`plugin/scripting/vision_templates.py`](../plugin/scripting/vision_templates.py) | `[Vision] extract_structure`; default params `lang`, `image_name` |
-| [`plugin/scripting/vision_egress.py`](../plugin/scripting/vision_egress.py) | `format_vision_structure_for_writer` |
-| [`plugin/calc/vision_egress.py`](../plugin/calc/vision_egress.py) | Structure tables in Calc grid (analysis-style table blocks) |
+| [`plugin/scripting/vision_egress.py`](../plugin/scripting/vision_egress.py) | `insert_vision_result`, `vision_html_from_result` |
+| [`plugin/scripting/vision_html_export.py`](../plugin/scripting/vision_html_export.py) | Docling `export_to_html` / Paddle HTML builders |
+| [`plugin/calc/vision_egress.py`](../plugin/calc/vision_egress.py) | `insert_vision_html_into_calc` (rich HTML in cell below anchor) |
 | [`plugin/writer/images/image_tools.py`](../plugin/writer/images/image_tools.py) | `export_graphic_to_bytes`, `export_graphic_object_to_bytes` |
 
 **Image resolution:** `params.image_name` empty → selected graphic; non-empty → [`_get_graphic_object`](plugin/writer/images/images.py) by name (`IMAGE_NOT_FOUND` on miss).
@@ -583,6 +585,7 @@ def is_vision_result(value: Any) -> bool:
   "status": "ok",
   "helper": "extract_text",
   "full_text": "line1\nline2",
+  "html": "<p>line1</p><p>line2</p>",
   "regions": [
     {"box": [x, y, w, h], "text": "line1", "confidence": 0.98}
   ],
@@ -593,7 +596,8 @@ def is_vision_result(value: Any) -> bool:
 
 | Field | Required | Notes |
 |-------|----------|-------|
-| `full_text` | **Yes** on success | Phase 1 Writer egress uses **only** this (plain text) |
+| `html` | **Yes** on success | **Document insert uses this** (Docling `export_to_html` or Paddle HTML builder) |
+| `full_text` | Yes (may be `""`) | Plain reading-order text for metrics / debugging; not inserted into documents |
 | `regions` | Yes (may be `[]`) | `box`: `[x, y, w, h]` pixels, PNG space, origin top-left |
 | `regions[].confidence` | Per line | Float 0–1 |
 | `metrics.line_count` | Recommended | Lines in `full_text` |
@@ -635,6 +639,7 @@ Same [`is_vision_result()`](../plugin/scripting/vision_egress.py) guard as [§10
   "status": "ok",
   "helper": "extract_structure",
   "full_text": "Title\nItem\tQty",
+  "html": "<h2>Title</h2><table>...</table>",
   "blocks": [
     {"type": "text", "text": "Title", "box": [x, y, w, h]},
     {"type": "table", "text": "", "box": [x, y, w, h]}
@@ -649,14 +654,15 @@ Same [`is_vision_result()`](../plugin/scripting/vision_egress.py) guard as [§10
 
 | Field | Required | Notes |
 |-------|----------|-------|
-| `full_text` | Yes (may be `""`) | Reading-order plain text; Writer egress prefers this |
+| `html` | **Yes** on success | **Document insert uses this** (structure + tables as HTML) |
+| `full_text` | Yes (may be `""`) | Plain reading-order text; not inserted into documents |
 | `blocks` | Yes (may be `[]`) | Layout regions from PP-Structure |
-| `tables` | Yes (may be `[]`) | Analysis-compatible table dicts; Calc egress renders these |
+| `tables` | Yes (may be `[]`) | Structured table dicts (also reflected in `html`) |
 | `metrics.block_count` | Recommended | Length of `blocks` |
 | `metrics.table_count` | Recommended | Length of `tables` |
 | `warnings` | Yes (may be `[]`) | e.g. `"No structure detected."` |
 
-Writer egress fallback when `full_text` is empty: first table as TSV, then `blocks[].text`.
+Empty `html` after a successful OCR run is treated as an error at insert time (`VISION_ERROR`).
 
 ### Error
 
@@ -676,8 +682,8 @@ User-visible strings (gettext-ready). Host may raise [`ToolExecutionError`](../p
 | `image_name` set but not in document | `IMAGE_NOT_FOUND` — *Image '{name}' not found. Use list_images or leave image_name empty and select the graphic.* |
 | Calc graphic not cell-anchored | `NO_OUTPUT_ANCHOR` — *Anchor the image to a cell, select it, then Run again.* |
 | Venv missing Docling / Paddle | `DOCLING_UNAVAILABLE` or `PADDLEOCR_UNAVAILABLE` — pip install + Settings → Python path |
-| OCR returns empty | `status: ok`, `full_text: ""`, `warnings: ["No text detected."]` |
-| Success (Writer) | Insert `full_text` (or structure fallback) at text cursor; status — *Extracted N lines* or *Found N blocks and M tables* |
+| OCR returns empty | `status: ok`, `full_text: ""`, `html: ""`, `warnings: ["No text detected."]` — insert fails with empty HTML error |
+| Success (Writer/Calc) | Insert **`html`** at text cursor or cell below anchor; status — *Inserted formatted HTML* |
 | Success (Calc) | Multi-cell report below anchor; status — *Wrote N rows* |
 | Timeout | Docling uses `DOCLING_WORKER_TIMEOUT_SEC` (300s); Paddle uses `VISION_WORKER_TIMEOUT_SEC` (120s); user `python_exec_timeout` unchanged |
 
@@ -760,7 +766,7 @@ Checklist for implementers / QA:
 - [x] `make test` passes with mocked Paddle (no real models in CI)
 - [x] Writer document open → script picker shows **Vision Helpers → [Vision] extract_text**
 - [x] Calc document open → **no** Vision Helpers section (Phase 1)
-- [x] Graphic selected + Run → **`full_text` inserted at text cursor** (manual QA with real Paddle venv)
+- [x] Graphic selected + Run → **formatted HTML inserted** at text cursor (manual QA with real Docling/Paddle venv)
 - [x] No graphic / export fails → `NO_IMAGE_SELECTED` message
 - [x] Missing paddle in venv → `PADDLEOCR_UNAVAILABLE` with Settings hint (venv helper returns error JSON)
 - [x] Monaco: Attach disabled for vision built-ins (`origin === "vision"`)
@@ -842,4 +848,4 @@ For semantics (“explain this diagram”), not raw OCR — hybrid with local OC
 
 Copy when handing work to an coding agent:
 
-> Implement **Phase 1 only** per [docs/image-recognition.md §4 Phase 1 development plan](image-recognition.md#4-phase-1-development-plan-agent-handoff) and [§17 acceptance criteria](image-recognition.md#17-phase-1-acceptance-criteria). Mirror the analysis helpers stack (`analysis_templates`, `document_scripts`, `analysis_client`, `analysis_runner`, `python_runner` fast path, `analysis_egress`). **Writer only.** Export selected graphic to PNG bytes, run `extract_text` via trusted `vision.py`, insert **`full_text` at the text cursor**. Mock PaddleOCR in tests. **Do not** register chat tools, `analyze_image`, or Calc/Draw egress.
+> Implement **Phase 1 only** per [docs/image-recognition.md §4 Phase 1 development plan](image-recognition.md#4-phase-1-development-plan-agent-handoff) and [§17 acceptance criteria](image-recognition.md#17-phase-1-acceptance-criteria). Mirror the analysis helpers stack (`analysis_templates`, `document_scripts`, `analysis_client`, `analysis_runner`, `python_runner` fast path, `analysis_egress`). **Writer only.** Export selected graphic to PNG bytes, run `extract_text` via trusted `vision.py`, insert **`html` at the text cursor**. Mock PaddleOCR in tests. **Do not** register chat tools, `analyze_image`, or Calc/Draw egress.

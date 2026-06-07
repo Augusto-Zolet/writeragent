@@ -2,95 +2,81 @@
 # Copyright (c) 2026 KeithCu (modifications and relicensing)
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Tests for vision helper result egress."""
+"""Tests for vision HTML egress."""
 
 from __future__ import annotations
+
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from plugin.framework.errors import ToolExecutionError
-from plugin.scripting.vision_egress import format_vision_for_writer, is_vision_result
+from plugin.scripting.vision_egress import (
+    insert_vision_result,
+    is_vision_result,
+    vision_html_from_result,
+)
 
 
 def test_is_vision_result_ok():
-    assert is_vision_result({"status": "ok", "helper": "extract_text", "full_text": "hi"})
+    assert is_vision_result({"status": "ok", "helper": "extract_text", "html": "<p>x</p>"})
 
 
 def test_is_vision_result_error():
-    assert is_vision_result({"status": "error", "code": "PADDLEOCR_UNAVAILABLE", "message": "missing"})
-
-
-def test_is_vision_result_rejects_non_dict():
-    assert not is_vision_result("text")
-    assert not is_vision_result(None)
+    assert is_vision_result({"status": "error", "code": "X", "message": "fail"})
 
 
 def test_is_vision_result_rejects_missing_status():
     assert not is_vision_result({"helper": "extract_text"})
 
 
-def test_format_vision_for_writer_success():
-    text = format_vision_for_writer({"status": "ok", "helper": "extract_text", "full_text": "line1\nline2"})
-    assert text == "line1\nline2"
+def test_vision_html_from_result_success():
+    html = vision_html_from_result({"status": "ok", "helper": "extract_text", "html": "<p>line</p>"})
+    assert html == "<p>line</p>"
 
 
-def test_format_vision_for_writer_empty_text():
-    assert format_vision_for_writer({"status": "ok", "helper": "extract_text", "full_text": ""}) == ""
-
-
-def test_format_vision_for_writer_error_raises():
+def test_vision_html_from_result_error_raises():
     with pytest.raises(ToolExecutionError) as exc:
-        format_vision_for_writer(
+        vision_html_from_result(
             {
                 "status": "error",
                 "code": "PADDLEOCR_UNAVAILABLE",
-                "helper": "extract_text",
                 "message": "Install paddleocr",
+                "helper": "extract_text",
             }
         )
     assert exc.value.code == "PADDLEOCR_UNAVAILABLE"
 
 
-def test_format_vision_for_writer_missing_full_text_raises():
+def test_vision_html_from_result_missing_html_raises():
     with pytest.raises(ToolExecutionError) as exc:
-        format_vision_for_writer({"status": "ok", "helper": "extract_text"})
+        vision_html_from_result({"status": "ok", "helper": "extract_text"})
     assert exc.value.code == "VISION_ERROR"
 
 
-def test_format_vision_structure_uses_full_text():
-    text = format_vision_for_writer(
-        {
-            "status": "ok",
-            "helper": "extract_structure",
-            "full_text": "Title\nItem\tQty",
-            "blocks": [],
-            "tables": [],
-        }
-    )
-    assert text == "Title\nItem\tQty"
+@patch("plugin.scripting.vision_egress.insert_vision_result_into_writer")
+def test_insert_vision_result_writer(mock_writer):
+    ctx = MagicMock()
+    doc = MagicMock()
+    result = {"status": "ok", "helper": "extract_text", "html": "<p>hi</p>"}
+
+    with patch("plugin.doc.document_helpers.is_writer", return_value=True), patch(
+        "plugin.doc.document_helpers.is_calc", return_value=False
+    ):
+        insert_vision_result(ctx, doc, result)
+
+    mock_writer.assert_called_once_with(ctx, doc, result)
 
 
-def test_format_vision_structure_table_fallback():
-    text = format_vision_for_writer(
-        {
-            "status": "ok",
-            "helper": "extract_structure",
-            "full_text": "",
-            "tables": [{"name": "table_1", "columns": ["A", "B"], "rows": [["1", "2"]]}],
-            "blocks": [],
-        }
-    )
-    assert text == "A\tB\n1\t2"
+@patch("plugin.calc.vision_egress.insert_vision_html_into_calc")
+def test_insert_vision_result_calc(mock_calc):
+    ctx = MagicMock()
+    doc = MagicMock()
+    result = {"status": "ok", "helper": "extract_text", "html": "<p>hi</p>"}
 
+    with patch("plugin.doc.document_helpers.is_writer", return_value=False), patch(
+        "plugin.doc.document_helpers.is_calc", return_value=True
+    ):
+        insert_vision_result(ctx, doc, result)
 
-def test_format_vision_structure_blocks_fallback():
-    text = format_vision_for_writer(
-        {
-            "status": "ok",
-            "helper": "extract_structure",
-            "full_text": "",
-            "tables": [],
-            "blocks": [{"type": "text", "text": "Block one", "box": [0, 0, 1, 1]}],
-        }
-    )
-    assert text == "Block one"
+    mock_calc.assert_called_once_with(doc, ctx, "<p>hi</p>")

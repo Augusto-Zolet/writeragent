@@ -53,11 +53,13 @@ def _mock_docling_document(*, texts=None, tables=None, markdown=None):
         "tables": tables if tables is not None else [],
     }
     doc.export_to_markdown.return_value = "Hello\nWorld" if markdown is None else markdown
+    doc.export_to_html.return_value = "<p>Hello</p><p>World</p>" if markdown is None else f"<p>{markdown}</p>"
     return doc
 
 
+@patch("plugin.scripting.vision_html_export.export_docling_to_html", return_value="<p>Hello</p><p>World</p>")
 @patch("plugin.scripting.vision_docling._convert_image_bytes")
-def test_extract_text_docling_default_maps_regions(mock_convert):
+def test_extract_text_docling_default_maps_regions(mock_convert, _mock_html):
     mock_convert.return_value = _mock_docling_document()
 
     result = run_vision({"helper": "extract_text", "params": {}}, b"png-bytes", {"source": "selection"})
@@ -65,14 +67,16 @@ def test_extract_text_docling_default_maps_regions(mock_convert):
     assert result["status"] == "ok"
     assert result["helper"] == "extract_text"
     assert result["full_text"] == "Hello\nWorld"
+    assert "<p>Hello</p>" in result["html"]
     assert len(result["regions"]) == 2
     assert result["regions"][0]["box"] == [10, 10, 40, 20]
     assert result["metrics"]["engine"] == "docling"
     assert result["metrics"]["ocr_backend"] == "rapidocr"
 
 
+@patch("plugin.scripting.vision_html_export.export_docling_to_html", return_value="")
 @patch("plugin.scripting.vision_docling._convert_image_bytes")
-def test_extract_text_docling_empty_adds_warning(mock_convert):
+def test_extract_text_docling_empty_adds_warning(mock_convert, _mock_html):
     mock_convert.return_value = _mock_docling_document(texts=[], markdown="")
 
     result = run_vision({"helper": "extract_text", "params": {}}, b"png-bytes", {})
@@ -98,6 +102,7 @@ def test_extract_text_docling_unavailable_falls_back_to_paddle(mock_convert):
 
     assert result["status"] == "ok"
     assert result["full_text"] == "Hello\nWorld"
+    assert "<p>Hello</p>" in result["html"]
     assert "Docling unavailable; fell back to PaddleOCR." in result["warnings"]
     assert result["metrics"]["fallback_from"] == "docling"
 
@@ -128,6 +133,7 @@ def test_extract_text_paddle_engine_maps_regions(mock_get_engine, mock_decode):
 
     assert result["status"] == "ok"
     assert result["full_text"] == "Hello\nWorld"
+    assert "<p>Hello</p>" in result["html"]
     assert result["metrics"]["engine"] == "paddle"
     assert len(result["regions"]) == 2
 
@@ -169,8 +175,9 @@ def _sample_structure_page():
     ]
 
 
+@patch("plugin.scripting.vision_html_export.export_docling_to_html", return_value="<table></table>")
 @patch("plugin.scripting.vision_docling._convert_image_bytes")
-def test_extract_structure_docling_default(mock_convert):
+def test_extract_structure_docling_default(mock_convert, _mock_html):
     mock_convert.return_value = _mock_docling_document(
         texts=[{"text": "Invoice", "label": "text", "prov": [{"bbox": {"l": 10, "t": 10, "r": 100, "b": 30}}]}],
         tables=[

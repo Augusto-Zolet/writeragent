@@ -37,8 +37,8 @@ _DEFAULT_PARAMS: dict[str, dict[str, Any]] = {
 }
 
 _HELPER_DESCRIPTIONS: dict[str, str] = {
-    "extract_text": "OCR selected image — engine docling (default) or paddle; ocr_backend for research.",
-    "extract_structure": "Layout and tables — engine docling (default) or paddle; ocr_backend for research.",
+    "extract_text": "OCR selected image to formatted HTML (Docling default, Paddle fallback).",
+    "extract_structure": "Layout and tables as formatted HTML — Docling default, Paddle fallback.",
 }
 
 

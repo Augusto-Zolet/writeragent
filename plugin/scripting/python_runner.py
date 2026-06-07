@@ -385,12 +385,11 @@ def execute_and_insert_result(
     """Run *code* in the user venv and insert the result into *doc* when possible."""
     from plugin.calc.analysis_egress import insert_analysis_result_into_calc, is_analysis_result
     from plugin.calc.analysis_runner import calc_selection_to_a1, calc_tool_context, run_trusted_analysis
-    from plugin.calc.vision_egress import insert_vision_result_into_calc
     from plugin.calc.python_formula_edit import parse_data_binding_text
     from plugin.calc.venv_python import _resolve_python_data
     from plugin.framework.errors import ToolExecutionError
     from plugin.scripting.analysis_templates import parse_analysis_script_header
-    from plugin.scripting.vision_egress import format_vision_for_writer, is_vision_result
+    from plugin.scripting.vision_egress import insert_vision_result, is_vision_result
     from plugin.scripting.vision_runner import run_trusted_vision, supports_vision_manual
     from plugin.scripting.vision_templates import parse_vision_script_header
     from plugin.scripting.viz_egress import insert_viz_result_into_doc, is_viz_result, try_insert_plot_result
@@ -454,23 +453,7 @@ def execute_and_insert_result(
             return {"ok": False, "message": f"{message} (took {formatted_time})"}
 
         try:
-            if is_writer(doc):
-                text = format_vision_for_writer(result)
-                insert_content_at_position(doc, ctx, text, "selection")
-            elif is_calc(doc):
-                row_count = insert_vision_result_into_calc(doc, ctx, result)
-                formatted_time = format_elapsed_time(time.perf_counter() - t0)
-                return {
-                    "ok": True,
-                    "status_ok_text": _("Vision '{helper}' completed. Wrote {rows} rows. (took {time})").format(
-                        helper=vision_meta.helper,
-                        rows=row_count,
-                        time=formatted_time,
-                    ),
-                    "result": result,
-                }
-            else:
-                return {"ok": False, "message": _("Vision helpers require a Writer or Calc document.")}
+            insert_vision_result(ctx, doc, result)
         except Exception as e:
             elapsed_total = time.perf_counter() - t0
             formatted_time_total = format_elapsed_time(elapsed_total)
@@ -482,21 +465,20 @@ def execute_and_insert_result(
         if line_count is None and vision_meta.helper == "extract_structure":
             line_count = metrics.get("block_count")
         if line_count is None:
-            full_text = str(result.get("full_text") or "")
-            line_count = len(full_text.splitlines()) if full_text else 0
+            html = str(result.get("html") or "")
+            line_count = html.count("<p") + html.count("<h") + html.count("<table")
         formatted_time = format_elapsed_time(time.perf_counter() - t0)
         if vision_meta.helper == "extract_structure":
             table_count = metrics.get("table_count", 0)
-            status_ok = _("Vision '{helper}' completed. Found {blocks} blocks and {tables} tables. (took {time})").format(
+            status_ok = _("Vision '{helper}' completed. Inserted HTML ({blocks} blocks, {tables} tables). (took {time})").format(
                 helper=vision_meta.helper,
                 blocks=line_count,
                 tables=table_count,
                 time=formatted_time,
             )
         else:
-            status_ok = _("Vision '{helper}' completed. Extracted {lines} lines. (took {time})").format(
+            status_ok = _("Vision '{helper}' completed. Inserted formatted HTML. (took {time})").format(
                 helper=vision_meta.helper,
-                lines=line_count,
                 time=formatted_time,
             )
         return {
@@ -826,6 +808,19 @@ def execute_and_insert_result(
                     stdout=stdout,
                     result=result_data,
                 )
+            if isinstance(result_data, dict) and is_vision_result(result_data):
+                insert_vision_result(ctx, doc, result_data)
+                formatted_time = format_elapsed_time(time.perf_counter() - t0)
+                helper = str(result_data.get("helper") or "vision")
+                return {
+                    "ok": True,
+                    "status_ok_text": _("Vision '{helper}' completed. Inserted formatted HTML. (took {time})").format(
+                        helper=helper,
+                        time=formatted_time,
+                    ),
+                    "stdout": stdout,
+                    "result": result_data,
+                }
             if is_calc(doc):
                 if isinstance(result_data, dict) and is_analysis_result(result_data):
                     row_count = insert_analysis_result_into_calc(doc, ctx, result_data)
@@ -869,26 +864,9 @@ def execute_and_insert_result(
                         "stdout": stdout,
                         "result": result_data,
                     }
-                if isinstance(result_data, dict) and is_vision_result(result_data):
-                    row_count = insert_vision_result_into_calc(doc, ctx, result_data)
-                    formatted_time = format_elapsed_time(time.perf_counter() - t0)
-                    helper = str(result_data.get("helper") or "vision")
-                    return {
-                        "ok": True,
-                        "status_ok_text": _("Vision '{helper}' completed. Wrote {rows} rows. (took {time})").format(
-                            helper=helper,
-                            rows=row_count,
-                            time=formatted_time,
-                        ),
-                        "stdout": stdout,
-                        "result": result_data,
-                    }
                 insert_result_into_calc(doc, ctx, result_data)
             elif is_writer(doc):
-                if isinstance(result_data, dict) and is_vision_result(result_data):
-                    formatted = format_vision_for_writer(result_data)
-                else:
-                    formatted = format_result_for_writer(result_data)
+                formatted = format_result_for_writer(result_data)
                 if formatted:
                     insert_content_at_position(doc, ctx, formatted, "selection")
             elif is_draw(doc):

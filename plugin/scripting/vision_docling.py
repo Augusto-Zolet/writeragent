@@ -409,6 +409,9 @@ def extract_text(image: Any, params: dict[str, Any]) -> dict[str, Any]:
     helper = "extract_text"
     try:
         document = _convert_image_bytes(image, params, for_structure=False)
+        from plugin.scripting.vision_html_export import export_docling_to_html
+
+        html = export_docling_to_html(document, params)
         full_text, regions = _map_docling_text(document)
     except ImportError as exc:
         return _handle_docling_import_error(exc, helper=helper)
@@ -431,6 +434,7 @@ def extract_text(image: Any, params: dict[str, Any]) -> dict[str, Any]:
 
     return _ok_result(
         helper,
+        html=html,
         full_text=full_text,
         regions=regions,
         metrics=metrics,
@@ -442,6 +446,9 @@ def extract_structure(image: Any, params: dict[str, Any]) -> dict[str, Any]:
     helper = "extract_structure"
     try:
         document = _convert_image_bytes(image, params, for_structure=True)
+        from plugin.scripting.vision_html_export import export_docling_to_html
+
+        html = export_docling_to_html(document, params)
         blocks, tables, text_parts = _map_docling_structure(document)
     except ImportError as exc:
         return _handle_docling_import_error(exc, helper=helper)
@@ -461,6 +468,7 @@ def extract_structure(image: Any, params: dict[str, Any]) -> dict[str, Any]:
 
     return _ok_result(
         helper,
+        html=html,
         full_text=full_text,
         blocks=blocks,
         tables=tables,
