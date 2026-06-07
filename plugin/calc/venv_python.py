@@ -10,8 +10,6 @@
 from __future__ import annotations
 
 import logging
-import os
-import tempfile
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from plugin.calc.base import ToolCalcPythonBase
@@ -19,6 +17,8 @@ from plugin.calc.bridge import CalcBridge
 from plugin.calc.calc_addin_data import check_python_data_size, finalize_python_data, pack_calc_data_for_wire, values_from_inspector_range
 from plugin.calc.inspector import CellInspector
 from plugin.framework.constants import PYTHON_VENV_AUTO_IMPORTS_TOOL_NOTE
+from plugin.scripting.import_policy import format_matplotlib_plot_hint
+from plugin.scripting.image_payload import write_image_payload_to_temp
 from plugin.scripting.config_limits import configured_python_max_data_cells
 from plugin.scripting.payload_codec import is_image_payload
 from plugin.scripting.venv_worker import run_code_in_user_venv
@@ -74,11 +74,30 @@ _DESCRIPTION_CALC = (
     "For anything beyond tiny grids, use data_range (address) rather than passing values in the data parameter."
 )
 
-_DESCRIPTION_NON_CALC = (
+_DESCRIPTION_WRITER = (
     "Run Python code in the configured venv. Set `result` to a return value (NumPy ndarray, Pandas DataFrame, list, dict, or scalar). "
     + PYTHON_VENV_AUTO_IMPORTS_TOOL_NOTE
     + "Use document tools to read or change the file; this tool does not inject spreadsheet `data`."
 )
+
+_DESCRIPTION_DRAW = (
+    "Run Python code in the configured venv. Set `result` to a return value (NumPy ndarray, Pandas DataFrame, list, dict, or scalar). "
+    + PYTHON_VENV_AUTO_IMPORTS_TOOL_NOTE
+    + "Use document tools to read or change the slide/page; this tool does not inject spreadsheet `data`."
+)
+
+
+def _venv_tool_description(doc_type: str | None) -> str:
+    if doc_type == "calc":
+        base = _DESCRIPTION_CALC
+    elif doc_type in ("draw", "impress"):
+        base = _DESCRIPTION_DRAW
+    else:
+        base = _DESCRIPTION_WRITER
+    hint = format_matplotlib_plot_hint(doc_type=doc_type)
+    if hint:
+        return f"{base} {hint}"
+    return base
 
 
 def _resolve_python_data(ctx: ToolContext, *, data_range: str | None, data: Any) -> tuple[Any | None, str | None]:
@@ -126,9 +145,7 @@ class RunVenvPythonScript(ToolCalcPythonBase):
         return _PARAMETERS_NON_CALC
 
     def get_description(self, doc_type: str | None = None) -> str:
-        if doc_type == "calc":
-            return _DESCRIPTION_CALC
-        return _DESCRIPTION_NON_CALC
+        return _venv_tool_description(doc_type)
 
     def is_async(self) -> bool:
         return True
@@ -163,11 +180,19 @@ class RunVenvPythonScript(ToolCalcPythonBase):
         result = res.get("result")
         if res.get("status") == "ok" and is_image_payload(result):
             img = cast("dict[str, Any]", result)
-            fmt = img.get("format", "png")
-            suffix = ".svg" if fmt == "svg" else ".png"
-            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                tmp.write(img["data"])
-                tmp_path = tmp.name
-            return {"status": "ok", "message": "Plot generated", "image_path": os.path.abspath(tmp_path)}
+            tmp_path = write_image_payload_to_temp(img)
+            out: dict[str, Any] = {
+                "status": "ok",
+                "message": "Plot generated",
+                "image_path": tmp_path,
+            }
+            if ctx.doc_type == "calc":
+                from plugin.calc.python_image_egress import insert_image_result_on_sheet
+                from plugin.framework.queue_executor import execute_on_main_thread
+
+                execute_on_main_thread(insert_image_result_on_sheet, ctx.ctx, img)
+                out["message"] = "Plot inserted on active sheet"
+                out["image_inserted"] = True
+            return out
 
         return res

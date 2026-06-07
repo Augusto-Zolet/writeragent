@@ -265,7 +265,11 @@ def python_specialized_sub_agent_hint(agent_label: str) -> str:
     else:
         data_hint = " run_venv_python_script does not inject spreadsheet `data`—use document tools for content."
     policy = _VENV_IMPORT_POLICY_FULL or _load_venv_import_policy_full()
-    return f" PYTHON (venv): {policy}{data_hint}"
+    from plugin.scripting.import_policy import format_matplotlib_plot_hint
+
+    plot_hint = format_matplotlib_plot_hint(agent_label=agent_label)
+    plot_suffix = f" {plot_hint}" if plot_hint else ""
+    return f" PYTHON (venv): {policy}{data_hint}{plot_suffix}"
 
 
 def _load_venv_import_policy_full() -> str:
@@ -629,18 +633,20 @@ def _init_venv_import_policy_strings() -> None:
     global PYTHON_VENV_AUTO_IMPORTS_TOOL_NOTE, PYTHON_VENV_AUTO_IMPORTS_PROMPT_LINE
     global CALC_FORMULA_SYNTAX, DEFAULT_CALC_CHAT_SYSTEM_PROMPT_TEMPLATE, CALC_PYTHON_FORMULA_LLM_HINT
 
-    from plugin.scripting.import_policy import format_venv_import_policy_for_prompt
+    from plugin.scripting.import_policy import format_matplotlib_plot_hint, format_venv_import_policy_for_prompt
 
     compact = format_venv_import_policy_for_prompt(compact=True)
     _VENV_IMPORT_POLICY_COMPACT = compact
     _VENV_IMPORT_POLICY_FULL = format_venv_import_policy_for_prompt(compact=False)
     PYTHON_VENV_AUTO_IMPORTS_TOOL_NOTE = compact + " "
     PYTHON_VENV_AUTO_IMPORTS_PROMPT_LINE = compact
+    calc_plot_hint = format_matplotlib_plot_hint(doc_type="calc")
     CALC_PYTHON_FORMULA_LLM_HINT = (
         compact
         + " When outputting Calc Python formulas: prefer =PY(...); =PYTHON(...) is equivalent. "
         "Use semicolon (;) argument separators; "
         'format =PY("result = …"; A1:A10); code runs in the venv sandbox above.'
+        + (f" {calc_plot_hint}" if calc_plot_hint else "")
     )
     CALC_FORMULA_SYNTAX = f"""FORMULA SYNTAX: LibreOffice uses semicolon (;) as the formula argument separator in formulas.
 - Correct: =SUM(A1:A10), =IF(A1>0;B1;C1)

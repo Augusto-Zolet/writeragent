@@ -9,8 +9,6 @@ from __future__ import annotations
 
 import logging
 import math
-import os
-import tempfile
 import threading
 from typing import Any, cast
 
@@ -23,6 +21,7 @@ from plugin.calc.calc_addin_data import (
     pack_calc_multi_data_for_wire,
     split_python_addin_data_args,
 )
+from plugin.calc.python_image_egress import insert_image_result_on_sheet
 from plugin.framework.errors import format_error_payload
 from plugin.framework.i18n import _
 from plugin.scripting.config_limits import configured_python_max_data_cells
@@ -187,49 +186,8 @@ def finalize_python_return(
     return to_calc_compatible(result)
 
 
-def _insert_image_result_on_sheet(ctx: Any, payload: dict[str, Any]) -> None:
-    """Write image payload bytes to a temp file and insert as a cell-anchored shape on the active sheet."""
-    import uno
-    from com.sun.star.awt import Size
-
-    img_bytes = payload["data"]
-    fmt = payload.get("format", "png")
-    suffix = ".svg" if fmt == "svg" else ".png"
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        tmp.write(img_bytes)
-        tmp_path = tmp.name
-
-    file_url = uno.systemPathToFileUrl(os.path.abspath(tmp_path))
-    smgr = ctx.ServiceManager
-    desktop = smgr.createInstanceWithContext("com.sun.star.frame.Desktop", ctx)
-    doc = desktop.getCurrentComponent()
-    ctrl = doc.getCurrentController()
-    sheet = ctrl.getActiveSheet()
-    draw_page = sheet.DrawPage
-
-    shape = doc.createInstance("com.sun.star.drawing.GraphicObjectShape")
-    shape.setSize(Size(15000, 10000))
-    draw_page.add(shape)
-    shape.setPropertyValue("GraphicURL", file_url)
-
-    # Anchor the image to the active cell so it moves/scales with the grid.
-    try:
-        from plugin.calc.calc_utils import get_cell_geometry
-        selection = ctrl.getSelection()
-        if selection is not None:
-            addr = selection.getRangeAddress()
-            cell = sheet.getCellByPosition(addr.StartColumn, addr.StartRow)
-            # Bugfix: merged cells report sub-cell geometry via raw cell.Position/Size.
-            # Use calc_utils merged-aware geometry so overlays land on the full merged area.
-            cell_pos, cell_size = get_cell_geometry(sheet, cell)
-            shape.setPropertyValue("Anchor", cell)
-            shape.setPropertyValue("ResizeWithCell", True)
-            if hasattr(shape, "setPosition"):
-                shape.setPosition(cell_pos)
-            if hasattr(shape, "setSize"):
-                shape.setSize(cell_size)
-    except Exception:
-        log.debug("_insert_image_result_on_sheet: could not anchor to cell", exc_info=True)
+# Backward-compatible alias for tests and callers.
+_insert_image_result_on_sheet = insert_image_result_on_sheet
 
 
 def _format_error_for_display(exc: BaseException) -> str:
@@ -298,7 +256,7 @@ def execute_python_addin(
             result = res.get("result")
             log.debug("PYTHON raw result: %r (type: %s)", result, type(result).__name__)
             if is_image_payload(result):
-                _insert_image_result_on_sheet(ctx, cast("dict[str, Any]", result))
+                insert_image_result_on_sheet(ctx, cast("dict[str, Any]", result))
                 return _("Image inserted")
             final_ret = finalize_python_return(ctx, code, result, index_arg=index_arg, worker_data=worker_data)
             log.debug("PYTHON returning scalar: %r (type: %s)", final_ret, type(final_ret).__name__)

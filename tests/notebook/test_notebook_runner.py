@@ -139,6 +139,17 @@ def test_run_cell_empty_code():
     assert "empty" in result.message.lower()
 
 
+def test_insert_run_image_svg_mime():
+    from plugin.notebook.notebook_runner import _insert_run_image
+
+    doc = MagicMock()
+    payload = {"__wa_payload__": "image", "format": "svg", "data": b"<svg></svg>"}
+    with patch("plugin.notebook.notebook_runner._insert_image_in_flow", return_value=True) as insert_flow:
+        assert _insert_run_image(doc, payload, ctx=MagicMock(), images_before=0) is True
+    insert_flow.assert_called_once()
+    assert insert_flow.call_args.kwargs["mime"] == "image/svg+xml"
+
+
 def test_shared_notebook_session_via_sandbox():
     from plugin.scripting.venv_sandbox import clear_all_sandbox_sessions
     from plugin.scripting.worker_harness import _execute_request

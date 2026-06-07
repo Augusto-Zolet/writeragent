@@ -61,7 +61,9 @@ def test_insert_image_result_uses_merged_safe_geometry(monkeypatch: pytest.Monke
         def write(self, _data):
             return None
 
-    monkeypatch.setattr(python_function.tempfile, "NamedTemporaryFile", lambda **kwargs: _TmpFile())
+    import plugin.scripting.image_payload as image_payload
+
+    monkeypatch.setattr(image_payload.tempfile, "NamedTemporaryFile", lambda **kwargs: _TmpFile())
 
     class _UnoModule:
         @staticmethod

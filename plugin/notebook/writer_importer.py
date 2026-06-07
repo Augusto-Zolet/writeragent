@@ -59,7 +59,7 @@ _MAX_OUTPUTS_PER_CELL = 200
 _MAX_IMAGE_DECODE_BYTES = 8 * 1024 * 1024
 _MAX_IMAGE_DISPLAY_WIDTH_MM = 140
 _DEFAULT_IMAGE_HEIGHT_MM = 80
-_IMAGE_MIME_SUFFIX = {"image/png": ".png", "image/jpeg": ".jpg", "image/jpg": ".jpg"}
+_IMAGE_MIME_SUFFIX = {"image/png": ".png", "image/jpeg": ".jpg", "image/jpg": ".jpg", "image/svg+xml": ".svg"}
 
 # Writer paragraph styles (document locale usually provides these English names).
 _STYLE_CELL_HEADING = "Heading 3"

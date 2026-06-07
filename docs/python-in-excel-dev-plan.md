@@ -200,22 +200,24 @@ If you **want** state to accumulate (e.g. a running total across recalcs), that 
 - Chat tool (`run_venv_python_script` / Python specialized domain): Image results are returned with a temp `image_path` that existing image tools can consume.
 - Non-interactive backend forcing (`Agg`) and proper cleanup.
 
-**Current behavior:**
-- Works for both direct `return fig` and code that ends with `plt.show()` / open figures.
-- Images appear in Calc sheets when returned from `=PYTHON()`.
-- Good enough for real use, even if placement, sizing, and multiple-figure handling are not as polished as the Microsoft version.
+**Current behavior (2026-06 polish):**
+- Works for direct `return fig`, implicit open figures, and seaborn plots (via figure capture).
+- Images appear in Calc sheets from `=PYTHON()` and from **Calc chat** `run_venv_python_script` (auto-insert on active cell).
+- Multiple open figures merge into one vertical PNG stack; stdout notes when merge happened.
+- Writer/Draw chat still uses `image_path` + `insert_image`; Writer notebook inserts SVG and PNG correctly.
+- App-specific plot hints in tool descriptions and python sub-agent prompts (`format_matplotlib_plot_hint`).
 
 **Remaining polish (lower priority):**
 - More control over insertion location / anchoring.
-- Better handling of multiple figures.
 - Optional "replace existing chart" behavior.
 - Tighter integration with Calc's drawing layer (z-order, grouping, etc.).
 
 **Key files involved (already updated):**
 - [plugin/scripting/venv_sandbox.py](plugin/scripting/venv_sandbox.py)
-- [plugin/scripting/payload_codec.py](plugin/scripting/payload_codec.py)
-- [plugin/calc/python_function.py](plugin/calc/python_function.py)
+- [plugin/scripting/payload_codec.py](plugin/scripting/payload_codec.py), [plugin/scripting/image_payload.py](plugin/scripting/image_payload.py)
+- [plugin/calc/python_function.py](plugin/calc/python_function.py), [plugin/calc/python_image_egress.py](plugin/calc/python_image_egress.py)
 - [plugin/calc/venv_python.py](plugin/calc/venv_python.py) (chat tool side)
+- [plugin/scripting/import_policy.py](plugin/scripting/import_policy.py) (app-specific plot hints)
 
 **Original goal (for reference):** Python code that calls `plt.show()` or returns a matplotlib `Figure` produces an image inserted into the sheet (or floating above it).
 

@@ -122,6 +122,64 @@ def serialize_result(obj: Any) -> Any:
         raise
 
 
+def _merge_figures_to_image_payload(figs: list[Any], *, fmt: str = "svg") -> dict[str, Any]:
+    """Combine multiple open figures into one image envelope (vertical stack)."""
+    if not figs:
+        raise ValueError("figs must not be empty")
+    if len(figs) == 1:
+        return _figure_to_image_payload(figs[0], fmt=fmt)
+
+    import io
+
+    pil_mod = optional_module("PIL.Image")
+    if pil_mod is None:
+        return _figure_to_image_payload(figs[-1], fmt=fmt)
+
+    images = []
+    for fig in figs:
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", bbox_inches="tight", dpi=150)
+        buf.seek(0)
+        images.append(pil_mod.open(buf))
+
+    total_w = max(im.width for im in images)
+    total_h = sum(im.height for im in images)
+    combined = pil_mod.new("RGB", (total_w, total_h), "white")
+    y = 0
+    for im in images:
+        combined.paste(im, (0, y))
+        y += im.height
+        im.close()
+
+    out = io.BytesIO()
+    if fmt == "svg":
+        # LO Calc/Writer handle SVG well; merged stacks use PNG raster for simplicity.
+        combined.save(out, format="PNG")
+        return {"__wa_payload__": "image", "format": "png", "data": out.getvalue()}
+    combined.save(out, format="PNG")
+    return {"__wa_payload__": "image", "format": "png", "data": out.getvalue()}
+
+
+def _capture_open_figures_payload(*, fmt: str = "svg") -> tuple[dict[str, Any] | None, str]:
+    """Return (image payload from open pyplot figures, optional stdout note)."""
+    plt_mod = optional_module("matplotlib.pyplot")
+    if plt_mod is None:
+        return None, ""
+    fignums = plt_mod.get_fignums()
+    if not fignums:
+        return None, ""
+
+    figs = [plt_mod.figure(num) for num in fignums]
+    note = ""
+    if len(figs) > 1:
+        payload = _merge_figures_to_image_payload(figs, fmt=fmt)
+        note = f"Merged {len(figs)} open figures into one image.\n"
+    else:
+        payload = _figure_to_image_payload(figs[0], fmt=fmt)
+    plt_mod.close("all")
+    return payload, note
+
+
 def _figure_to_image_payload(fig: Any, *, fmt: str = "svg") -> dict[str, Any]:
     """Render a matplotlib Figure to an image payload envelope.
 
@@ -343,13 +401,12 @@ def _run_on_executor(executor: LocalPythonExecutor, code: str) -> dict[str, Any]
         result = executor.state.get("result", code_output.output)
         serialized = serialize_result(result)
 
-        # Capture implicit plt.show() figures when result is not already an image payload.
+        extra_stdout = ""
         if not is_image_payload(serialized):
-            plt_mod = optional_module("matplotlib.pyplot")
-            if plt_mod is not None and plt_mod.get_fignums():
-                fig = plt_mod.gcf()
-                serialized = _figure_to_image_payload(fig)
-                plt_mod.close("all")
+            captured, note = _capture_open_figures_payload()
+            if captured is not None:
+                serialized = captured
+                extra_stdout = note
         else:
             plt_mod = optional_module("matplotlib.pyplot")
             if plt_mod is not None:
@@ -357,10 +414,11 @@ def _run_on_executor(executor: LocalPythonExecutor, code: str) -> dict[str, Any]
 
         if is_split_grid(serialized):
             log.debug("venv_sandbox worker result %s", describe_wire_value(serialized))
+        stdout = (code_output.logs or "") + extra_stdout
         return {
             "status": "ok",
             "result": serialized,
-            "stdout": code_output.logs or "",
+            "stdout": stdout,
         }
     except InterpreterError as e:
         return {

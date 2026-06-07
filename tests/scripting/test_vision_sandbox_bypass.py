@@ -44,5 +44,5 @@ def test_trusted_vision_payload_calls_run_vision():
     mock_run.assert_called_once_with(
         {"helper": "extract_text", "params": {"lang": "en"}},
         b"png",
-        {"source": "selection"},
+        context={"source": "selection"},
     )

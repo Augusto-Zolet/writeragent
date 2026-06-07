@@ -420,14 +420,15 @@ No `viz.py` yet. Matplotlib figures from user/LLM code are captured in the venv 
 
 | Component | Module | Behavior |
 |-----------|--------|----------|
-| Figure → bytes | [`venv_sandbox.py`](../plugin/scripting/venv_sandbox.py) | `_figure_to_image_payload()` (SVG default, PNG @ 150 DPI); `serialize_result()` for returned `Figure`; post-run capture of open pyplot figures; `Agg` backend; figure cleanup |
-| Wire format | [`payload_codec.py`](../plugin/scripting/payload_codec.py) | `PAYLOAD_IMAGE`, `is_image_payload()` |
-| Calc `=PYTHON()` | [`python_function.py`](../plugin/calc/python_function.py) | `_insert_image_result_on_sheet()` → `GraphicObjectShape` anchored to active cell |
-| Chat / LLM | [`venv_python.py`](../plugin/calc/venv_python.py) | Temp `image_path` → agent uses `insert_image` (two-phase workflow) |
-| Writer notebook | [`notebook_runner.py`](../plugin/notebook/notebook_runner.py) | Inline image insert on notebook cell run |
+| Figure → bytes | [`venv_sandbox.py`](../plugin/scripting/venv_sandbox.py) | `_figure_to_image_payload()` (SVG default); `_capture_open_figures_payload()` merges multiple open figures vertically; `serialize_result()` for returned `Figure`; `Agg` backend; figure cleanup |
+| Wire format | [`payload_codec.py`](../plugin/scripting/payload_codec.py), [`image_payload.py`](../plugin/scripting/image_payload.py) | `PAYLOAD_IMAGE`, `is_image_payload()`; shared temp-file helper |
+| Calc `=PYTHON()` | [`python_function.py`](../plugin/calc/python_function.py), [`python_image_egress.py`](../plugin/calc/python_image_egress.py) | `insert_image_result_on_sheet()` → `GraphicObjectShape` anchored to active cell |
+| Chat / LLM | [`venv_python.py`](../plugin/calc/venv_python.py) | **Calc:** auto-insert on active sheet + `image_path`. **Writer/Draw:** `image_path` → `insert_image` |
+| Writer notebook | [`notebook_runner.py`](../plugin/notebook/notebook_runner.py) | Inline image insert (SVG + PNG) on notebook cell run |
+| LLM prompts | [`import_policy.py`](../plugin/scripting/import_policy.py) | App-specific `format_matplotlib_plot_hint()` (Calc / Writer / Draw); not in global import policy |
 | LLM sandbox | [`sandbox_imports.py`](../plugin/scripting/sandbox_imports.py) | `matplotlib`, `seaborn` whitelisted |
 | Settings Test | [`venv_worker.py`](../plugin/scripting/venv_worker.py) | `matplotlib` under **Scientific Libraries** |
-| Tests | [`test_matplotlib_output.py`](../tests/scripting/test_matplotlib_output.py), [`test_python_function.py`](../tests/calc/test_python_function.py) | Codec, sandbox e2e, cell-anchored geometry |
+| Tests | [`test_matplotlib_output.py`](../tests/scripting/test_matplotlib_output.py), [`test_python_function.py`](../tests/calc/test_python_function.py), [`test_venv_python_image.py`](../tests/calc/test_venv_python_image.py) | Codec, sandbox e2e, multi-figure merge, Calc chat insert, cell-anchored geometry |
 
 **Works today:**
 
@@ -438,20 +439,23 @@ plt.plot([1, 2, 3])
 ```
 
 ```text
-# Chat — two-phase
+# Calc chat — one step (plot inserts on active sheet; image_path still returned)
+run_venv_python_script(code="… plt.plot(…) …")
+
+# Writer / Draw chat — two steps
 1. run_venv_python_script(code="… plt.plot(…) …")
 2. insert_image(image_path=<returned path>)
 ```
 
 **Native LO charts** ([`charts.py`](../plugin/calc/charts.py) — `UpsertChart`, `ListCharts`, …) are a **separate** UNO chart path, not matplotlib. The LLM can already create native Calc/Writer charts from structured data; Viz helpers complement that with statistical plotting (seaborn, heatmaps, distribution plots).
 
-**Known limitations:** Only the last/open figure is captured; chat requires two steps; **Run Python Script does not insert image payloads** (see Phase B); no seaborn-specific helpers; no UNO e2e test for full `=PYTHON()` plot insertion (geometry unit-tested with mocks). Detail: [python-in-excel-dev-plan.md Phase 2](python-in-excel-dev-plan.md).
+**Known limitations:** **Run Python Script does not insert image payloads** (see Phase B); no UNO e2e test for full `=PYTHON()` plot insertion (geometry unit-tested with mocks). Multiple open figures are merged into one vertical stack (PNG). Detail: [python-in-excel-dev-plan.md Phase 2](python-in-excel-dev-plan.md).
 
 #### Phase B — Run Python Script + Writer image egress (glue; not shipped)
 
 [`python_runner.py`](../plugin/scripting/python_runner.py) `execute_and_insert_result()` handles analysis and vision result contracts but **does not** check `is_image_payload()`. Matplotlib output from **Tools → Run Python Script…** would be written as broken cell/text instead of a graphic.
 
-**Planned fix (small):** After venv execution, if `is_image_payload(result_data)`: Calc → reuse `_insert_image_result_on_sheet` logic; Writer → [`insert_image_at_locator`](../plugin/writer/images/image_tools.py). Tests: extend [`test_python_runner_*.py`](../tests/scripting/).
+**Planned fix (small):** After venv execution, if `is_image_payload(result_data)`: Calc → reuse [`insert_image_result_on_sheet`](../plugin/calc/python_image_egress.py) logic; Writer → [`insert_image_at_locator`](../plugin/writer/images/image_tools.py). Tests: extend [`test_python_runner_*.py`](../tests/scripting/).
 
 #### Phase C — Trusted Viz helpers (not shipped)
 

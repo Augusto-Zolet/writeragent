@@ -162,3 +162,33 @@ def test_non_matplotlib_code_unaffected():
     assert res["status"] == "ok"
     assert res["result"] == 42
     assert not is_image_payload(res["result"])
+
+
+def test_multiple_open_figures_merged_to_single_payload():
+    """Two implicit figures should merge into one PNG image payload."""
+    pytest.importorskip("matplotlib")
+    from plugin.scripting.venv_sandbox import run_sandboxed_code
+
+    code = (
+        "import matplotlib.pyplot as plt\n"
+        "plt.figure()\nplt.plot([1])\n"
+        "plt.figure()\nplt.plot([2, 3])\n"
+    )
+    res = run_sandboxed_code(code, timeout_sec=30)
+    assert res["status"] == "ok"
+    assert is_image_payload(res["result"])
+    assert res["result"]["format"] == "png"
+    assert "Merged 2 open figures" in (res.get("stdout") or "")
+
+
+def test_seaborn_implicit_figure():
+    """Seaborn plotting should produce an image payload via open-figure capture."""
+    pytest.importorskip("seaborn")
+    from plugin.scripting.venv_sandbox import run_sandboxed_code
+
+    res = run_sandboxed_code(
+        "import seaborn as sns\nsns.lineplot(x=[1, 2, 3], y=[1, 4, 9])\n",
+        timeout_sec=30,
+    )
+    assert res["status"] == "ok"
+    assert is_image_payload(res["result"])

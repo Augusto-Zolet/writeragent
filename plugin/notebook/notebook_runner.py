@@ -152,7 +152,12 @@ def _insert_run_image(doc: Any, payload: dict[str, Any], *, ctx: Any, images_bef
     if not isinstance(raw, (bytes, bytearray)):
         return False
     fmt = str(payload.get("format") or "png").lower()
-    mime = "image/jpeg" if fmt in ("jpg", "jpeg") else "image/png"
+    if fmt == "svg":
+        mime = "image/svg+xml"
+    elif fmt in ("jpg", "jpeg"):
+        mime = "image/jpeg"
+    else:
+        mime = "image/png"
     return _insert_image_in_flow(doc, raw=bytes(raw), mime=mime, images_before=images_before, ctx=ctx)
 
 

@@ -149,3 +149,35 @@ def format_inprocess_import_policy_for_prompt() -> str:
         f"Allowed imports in this sandbox: {allowed}. "
         f"Blocked: {blocked} and anything else not listed."
     )
+
+
+_MATPLOTLIB_PLOT_HINTS: dict[str, str] = {
+    "calc": (
+        "PLOTS: plt.plot(...) or result=fig; chart inserts on the active sheet automatically. "
+        "Do not call insert_image. Use data_range for sheet data."
+    ),
+    "writer": (
+        "PLOTS: plt.plot(...) or result=fig; then insert_image(image_path=<returned path>). "
+        "Use document tools for text/data."
+    ),
+    "draw": (
+        "PLOTS: plt.plot(...) or result=fig; then insert_image(image_path=<returned path>) on the slide/page."
+    ),
+}
+
+
+def _resolve_plot_hint_doc_type(*, doc_type: str | None = None, agent_label: str | None = None) -> str | None:
+    if agent_label:
+        label_map = {"Calc": "calc", "Writer": "writer", "Draw": "draw"}
+        doc_type = label_map.get(agent_label, doc_type)
+    if doc_type in ("impress",):
+        doc_type = "draw"
+    return doc_type
+
+
+def format_matplotlib_plot_hint(*, doc_type: str | None = None, agent_label: str | None = None) -> str:
+    """Return a single-sentence plot egress hint for the active app, or \"\" if unknown."""
+    resolved = _resolve_plot_hint_doc_type(doc_type=doc_type, agent_label=agent_label)
+    if not resolved:
+        return ""
+    return _MATPLOTLIB_PLOT_HINTS.get(resolved, "")
