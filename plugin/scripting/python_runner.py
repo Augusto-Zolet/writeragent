@@ -10,29 +10,15 @@
 import logging
 import time
 from typing import Any, cast
-import uno
-import unohelper
-from com.sun.star.awt import XActionListener, XItemListener, XTopWindowListener
 
 from plugin.framework.uno_context import get_ctx, get_desktop
-from plugin.framework.config import get_config, get_config_str, set_config
+from plugin.framework.config import get_config_str, set_config
 from plugin.framework.i18n import _
-from plugin.chatbot.dialogs import add_dialog_label, add_dialog_edit, add_dialog_button, msgbox, show_approval_dialog
-from plugin.chatbot.dialogs import show_text_input_dialog
-from plugin.framework.worker_pool import run_in_background
+from plugin.chatbot.dialogs import msgbox
 from plugin.scripting.editor_ipc import exception_traceback
-from plugin.scripting.document_scripts import (
-    SCRIPT_ORIGIN_DOCUMENT,
-    SCRIPT_ORIGIN_USER,
-    attach_document_script,
-    build_xdl_script_picker_state,
-    delete_document_script,
-    resolve_script_picker_entry,
-    save_document_script,
-)
 from plugin.scripting.editor_host import launch_monaco_editor, monaco_editor_available
-from plugin.scripting.venv_worker import run_code_in_user_venv, warm_venv_worker
-from plugin.scripting.python_runner_ui import native_run_script_modeless_enabled, show_python_input_dialog
+from plugin.scripting.venv_worker import run_code_in_user_venv
+from plugin.scripting.python_runner_ui import show_python_input_dialog
 from plugin.writer.format import insert_content_at_position
 from plugin.doc.document_helpers import is_calc, is_writer, is_draw
 from plugin.calc.bridge import CalcBridge
@@ -399,7 +385,7 @@ def execute_and_insert_result(
     from plugin.scripting.symbolic_runner import run_trusted_symbolic, supports_symbolic_manual
     from plugin.scripting.symbolic_templates import parse_math_script_header
     from plugin.calc.quant_egress import insert_quant_result_into_calc, is_quant_result
-    from plugin.scripting.quant_runner import run_trusted_quant, supports_quant_manual
+    from plugin.scripting.quant_runner import run_trusted_quant
     from plugin.scripting.quant_templates import parse_quant_script_header
     from plugin.scripting.optimize_egress import insert_optimize_result_into_calc, is_optimize_result
     from plugin.scripting.optimize_runner import run_trusted_optimize

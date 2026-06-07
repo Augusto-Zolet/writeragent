@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import importlib
 import logging
 from typing import Any
 
@@ -90,7 +91,7 @@ def fetch_historical_data(params: dict[str, Any], context: dict[str, Any]) -> di
 
 def technical_analysis(params: dict[str, Any], data: Any, context: dict[str, Any]) -> dict[str, Any]:
     try:
-        import pandas_ta as ta  # type: ignore
+        importlib.import_module("pandas_ta")
     except ImportError:
         return _missing_package_error("technical_analysis", "pandas-ta")
         
@@ -188,7 +189,7 @@ def efficient_frontier(params: dict[str, Any], data: Any, context: dict[str, Any
         S = CovarianceShrinkage(df).ledoit_wolf()
         
         ef = EfficientFrontier(mu, S)
-        weights = ef.max_sharpe()
+        ef.max_sharpe()
         cleaned_weights = ef.clean_weights()
         
         return {

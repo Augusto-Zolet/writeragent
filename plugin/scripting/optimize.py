@@ -15,7 +15,7 @@ Note: Currently uses scipy.optimize. pulp and ortools integration is deferred.
 from __future__ import annotations
 
 import logging
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 import pandas as pd  # type: ignore[import-untyped]

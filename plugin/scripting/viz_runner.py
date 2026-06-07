@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from plugin.calc.analysis_runner import calc_tool_context
 from plugin.calc.venv_python import _resolve_python_data
@@ -15,8 +15,6 @@ from plugin.framework.client.viz_client import run_viz
 from plugin.framework.errors import ToolExecutionError
 from plugin.scripting.viz_common import HELPER_NAMES
 
-if TYPE_CHECKING:
-    from plugin.framework.tool import ToolContext
 
 
 def supports_viz_manual(doc: Any) -> bool:

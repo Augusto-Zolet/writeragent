@@ -60,10 +60,10 @@ def get_quant_template(helper: str) -> str | None:
     
     lines = [
         f"{QUANT_HEADER_PREFIX} helper={helper} params={params_str}",
-        f"#",
+        "#",
         f"# {desc}",
-        f"# This script delegates to the trusted quant venv module.",
-        f"# Edit the JSON params above if needed. No other code runs.",
+        "# This script delegates to the trusted quant venv module.",
+        "# Edit the JSON params above if needed. No other code runs.",
     ]
     
     return "\n".join(lines) + "\n"

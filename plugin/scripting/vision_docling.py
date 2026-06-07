@@ -8,7 +8,7 @@ from __future__ import annotations
 import importlib
 import logging
 from io import BytesIO
-from typing import Any
+from typing import Any, Literal
 
 from plugin.scripting.vision_common import (
     MAX_TABLE_ROWS,
@@ -70,7 +70,7 @@ def _resolve_ocr_options(params: dict[str, Any]) -> Any:
 
     if backend in ("rapidocr", "rapidocr_paddle", "rapidocr_onnx", "rapidocr_openvino", "rapidocr_torch"):
         rapid_cls = pipeline_options_mod.RapidOcrOptions
-        backend_map = {
+        backend_map: dict[str, Literal["onnxruntime", "openvino", "paddle", "torch"]] = {
             "rapidocr": "onnxruntime",
             "rapidocr_paddle": "paddle",
             "rapidocr_onnx": "onnxruntime",
@@ -189,7 +189,8 @@ def _build_pipeline_options(params: dict[str, Any], *, for_structure: bool) -> A
         if bool(params.get("force_full_page_ocr", False)) and hasattr(pipeline_options.ocr_options, "force_full_page_ocr"):
             pipeline_options.ocr_options.force_full_page_ocr = True
     if backend == "surya":
-        pipeline_options.ocr_model = "suryaocr"
+        # Docling sets this at runtime for the Surya plugin; stubs omit ocr_model.
+        setattr(pipeline_options, "ocr_model", "suryaocr")
     _apply_pipeline_params(pipeline_options, params, for_structure=for_structure)
     return pipeline_options
 
