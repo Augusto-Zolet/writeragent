@@ -41,11 +41,6 @@ _ENV_SNAPSHOT_LOGGED = False
 RICH_CONTROL_NAME = "response_rich"
 # Dialog units (AppFont) — inset RichTextControl inside the response placeholder so glyphs are not clipped.
 RICH_CONTROL_EDGE_INSET = 8
-# Default XDL geometry: response starts at x=4 and the bottom button row ends at
-# clear/cancel right edge x=158. Runtime positions are scaled, so derive the same
-# edge from the live response-left coordinate until layout exposes it directly.
-_XDL_RESPONSE_LEFT = 4
-_XDL_BOTTOM_BUTTON_RIGHT = 158
 # History reload: batch hidden-Writer + copy cycles to avoid per-message UI repaint.
 HISTORY_RENDER_BATCH_CHARS = 16384
 _NUDGE_SCROLL_SENTINEL = "\u200b"
@@ -228,36 +223,47 @@ def _is_automatic_char_color(color) -> bool:
     return color < 0 or color == 0xFFFFFFFF
 
 
+def _clear_button_right_edge(root_window, fallback: int) -> int:
+    """Right edge of the Clear button row (matches ``compute_chat_panel_layout`` content_right)."""
+    if root_window is None or not hasattr(root_window, "getControl"):
+        return fallback
+    try:
+        clear = root_window.getControl("clear")
+        if clear is not None:
+            cr = clear.getPosSize()
+            return int(cr.X) + int(cr.Width)
+    except Exception as e:
+        log.debug("_clear_button_right_edge: %s", e)
+    return fallback
+
+
 def _content_bounds_for_rich_control(root_window, placeholder_ctrl, placeholder_rect=None):
     """Return (x, y, width, height) for the rich control inside the response area.
 
-    When ``placeholder_rect`` is supplied by ``_PanelResizeListener``, use it as the sole
-    geometry source. Otherwise inset the live placeholder ``getPosSize()``; query/model width
-    caps live in ``compute_chat_panel_layout``, not here.
+    When ``placeholder_rect`` is supplied by ``_PanelResizeListener``, trust that width
+    (``panel_resize`` already sized the hidden ``response`` placeholder). Early init without
+    a layout rect falls back to the live placeholder size, capped to the Clear button row.
     """
-    def _clamped_width(px: int, pw: int, inset: int) -> int:
-        scale = (float(px) / float(_XDL_RESPONSE_LEFT)) if px > 0 else 1.0
-        default_right = px + int(round((_XDL_BOTTOM_BUTTON_RIGHT - _XDL_RESPONSE_LEFT) * scale))
-        right = min(px + pw - inset, default_right)
-        return max(20, right - (px + inset))
+    inset = RICH_CONTROL_EDGE_INSET
 
     if placeholder_rect is not None:
         px, py, pw, ph = placeholder_rect
-        inset = RICH_CONTROL_EDGE_INSET
         return (
             px + inset,
             py + inset,
-            _clamped_width(px, pw, inset),
+            max(20, pw - 2 * inset),
             max(20, ph - 2 * inset),
         )
 
     ps = placeholder_ctrl.getPosSize()
     px, py, pw, ph = int(ps.X), int(ps.Y), int(ps.Width), int(ps.Height)
-    inset = RICH_CONTROL_EDGE_INSET
+    placeholder_right = px + pw - inset
+    content_right = _clear_button_right_edge(root_window, placeholder_right)
+    right = min(placeholder_right, content_right)
     return (
         px + inset,
         py + inset,
-        _clamped_width(px, pw, inset),
+        max(20, right - (px + inset)),
         max(20, ph - 2 * inset),
     )
 
