@@ -62,7 +62,6 @@ dev = [
     "hypothesis",
     "Cython",
     "setuptools",
-    "docling",
     "build",
     "css-inline",
 ]

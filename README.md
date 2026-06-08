@@ -53,12 +53,16 @@ Unlike proprietary office suites that lock you into a single cloud provider and 
 - **Real-time Grammar Checker**: An asynchronous proofreader with a **sentence cache** and **Unicode-aware splitting**. Includes **Token-aware Overlap Repair** to fix "LLM slop" and ensure surgical replacements. Persistent storage of good/bad sentences with document. Enable in **Settings → Doc → Enable AI grammar checker (Writer)** (off by default); underlines appear shortly after you pause typing. [Read the Plan](docs/realtime-grammar-checker-plan.md).
 - **Rich-text sidebar**: Hosts a rich text control in the sidebar. On by default.
 - **Math & LaTeX**: **MathML** and **TeX** delimiters are automatically turned into **editable LibreOffice Math formulas** (OLE objects). Use `\(...\)` / `$...$` for inline and `$$...$$` / `\[...\]` for display in chat or HTML content; prefer `\(...\)` over bare `$` near numbers. See [docs/math-tex.md](docs/math-tex.md).
+- **Symbolic Math (SymPy)**: Trusted helpers — `solve_equation`, `symbolic_simplify`, `integrate`, `differentiate` — via **Tools → Run Python Script… → Math Helpers →** `[Math] solve_equation`, etc. Results insert as **editable LibreOffice Math** objects.
 
 ### 📊 Calc
 
 - **=PROMPT() Function**: Run AI prompts within spreadsheet cells.
 - **=PY() / =PYTHON() Function**: Run Numpy within spreadsheet cells: `=PY("sp.prime(data)", A10)`.
 - **Analysis helpers (LLM + Run Python Script)**: Fourteen trusted numpy/pandas/scipy helpers run in your configured venv — `describe_data`, `kpi_summary`, `detect_outliers`, `quick_stats`, `format_currency`, `format_percent`, `clean_and_prepare`, `pivot_aggregate`, `group_summary`, `compare_periods`, `correlation_matrix`, `run_regression`, `cluster_numeric`, `monte_carlo`. **For LLMs:** delegate via the Calc analysis sub-agent (`analyze_data` with `data_range` + `helper`; optional `output_range` to write a multi-cell report). **For you:** open **Tools → Run Python Script…**, pick **Analysis Helpers → [Analysis] …**, set the **Data** range, and **Run** — same trusted code path, results written to the sheet. Also includes Goal Seek and Solver. [Analysis Tools](docs/calc-analysis-tools.md) · [Architecture](docs/analysis-sub-agent.md).
+- **Symbolic Math (SymPy)**: Use **Math Helpers** in Run Python Script.
+- **Quantitative Finance**: Four helpers — `fetch_historical_data`, `technical_analysis`, `portfolio_tearsheet`, `efficient_frontier`.  **Tools → Run Python Script… → Quant Helpers →**  **Packages:** `pip install yfinance pandas-ta quantstats pyportfolioopt`.
+- **Optimization & OR**: Three scipy-based helpers — `optimize_portfolio`, `linear_programming`, `solve_scheduling_problem`.`[Optimize] optimize_portfolio`, etc. See [Optimization](docs/enabling_numpy_in_libreoffice.md#optimization).
 - **Rich Text Cells**: Paste **HTML** (bold, links, breaks) into a **single cell** using advanced StarWriter import paths.
 - **Batch Range Edits**: Apply formulas and formatting in bulk. [Specialized Toolsets](docs/calc-specialized-toolsets.md).
 - **Advanced Features**: [Conditional Formatting](docs/calc-conditional-formatting.md) and [Sheet Filtering (AutoFilter)](docs/calc-sheet-filter.md).
@@ -81,10 +85,10 @@ Unlike proprietary office suites that lock you into a single cloud provider and 
 
 ### 🐍 Local Python Execution
 
-- **Execute Python**: Use your own virtual environment (running any version of Python) to access libraries like `numpy`, `pandas`, etc.JSON
-- **Enable it**: Set path in **Settings → Python**. Exposed to LLMs in Writer, Calc, and Draw / Impress (`run_venv_python_script`, `=PY()` / `=PYTHON()`, and Calc **Analysis Helpers** in **Run Python Script…**).
+- **Execute Python**: Use your own virtual environment (running any version of Python) to access libraries like `numpy`, `pandas`, etc.
+- **Enable it**: Set path in **Settings → Python**. Exposed to LLMs in Writer, Calc, and Draw / Impress (`run_venv_python_script`, `=PY()` / `=PYTHON()`, and **Run Python Script…** helper sections: **Analysis**, **Math**, **Quant**, **Optimize**, and **Vision**).
 - **Vision / OCR helpers (Writer & Calc)**: Same venv as above. In **Run Python Script…**, use **Vision Helpers → [Vision] extract_text** or **extract_structure** on a selected embedded image. Install in that venv: `pip install docling rapidocr-paddle numpy pillow onnxruntime` — **`onnxruntime`** is required for the default RapidOCR (ONNX) backend; use **Settings → Python → Test** to confirm **Vision Libraries** (Test loads `docling.document_converter`, not just the top-level package). Optional Paddle fallback: `pip install paddleocr paddlepaddle`.
-- **Recommended packages**: install `pywebview jedi PyQt6 PyQt6-WebEngine qtpy` for the Monaco editor UI. `numpy`, `pandas`, `sympy`, and `math` are auto-imported as `np`, `pd`, `sp`. Use the **Test** button in Settings to see which are installed.
+- **Recommended packages**: install `pywebview jedi PyQt6 PyQt6-WebEngine qtpy` for the Monaco editor UI. `numpy`, `pandas`, `sympy`, and `math` are auto-imported as `np`, `pd`, `sp`. Optional quant packages: `yfinance`, `pandas-ta`, `quantstats`, `pyportfolioopt`. Use the **Test** button in Settings to see which are installed.
 - **New Calc Formula**: Use `=PY("3 ** 8")` or pass a range: `=PY("sum(data)", A1:A10)`. (`=PYTHON(...)` works the same way.) The **`data`** variable is a special variable containing the cell values, dynamically injected into your Python script's execution namespace at runtime ([Data Handoff Guide](docs/enabling_numpy_in_libreoffice.md#data-handoff-and-shaping)). Single-cell or single-entry inputs are automatically unpacked to Python scalars (and coerced to standard Python `int`s when they represent whole numbers), enabling intuitive formulas like `=PY("sp.prime(data)", 100000)`.
 - **Multi-Range Support**: `=PY()` supports an arbitrary number of non-contiguous ranges (e.g., `=PY("np.mean(data)", A1:A10, C1:C10)`) for complex cross-block analysis.
 - **Shared Code Cell**: Store your code in a cell (e.g., `A1`) and reference it across multiple formulas (e.g., `=PY($A$1; B1)`).

@@ -19,7 +19,7 @@ Pure function: `compute_chat_panel_layout(width, height, snapshot)`.
 2. **Measure bottom band height** from the snapshot: `cluster_height = bottom_bottom - status_top` (all controls in `_BOTTOM_CLUSTER`).
 3. **Anchor bottom band**: `bottom_top = height - bottom_margin - cluster_height`; shift every bottom control by the same delta from its XDL `y`.
 4. **Size transcript**: `response.height = bottom_top - gap - response.y` with fixed XDL gap (2px) and minimum height (30px).
-5. **Stretch width** for `response`, `query`, `status`, and model combos; clamp query/model rows with `_content_right_from_layout` / `_CONTENT_EDGE_CLAMP` (Clear button right, capped by panel width).
+5. **Stretch width** for `response`, `query`, `status`, and model combos; clamp `status`/query/model rows with `_content_right_from_layout` / `_CONTENT_EDGE_CLAMP` (Clear button right, capped by panel width).
 
 **XDL baseline:** Mutually exclusive rows (text `model_*` vs image `image_model_*` / aspect / base size) share the same Y positions so `_BOTTOM_CLUSTER` height is identical in both visibility modes.
 
