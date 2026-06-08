@@ -60,7 +60,10 @@ from tests.scripting.serialization_ab_support import (
     run_venv_roundtrip,
     venv_expected_cases,
     venv_transform_cases,
+    ab_hypothesis_max_examples,
 )
+
+_EX = ab_hypothesis_max_examples()
 
 
 def _case_id(case: AbGridCase) -> str:
@@ -196,7 +199,7 @@ def test_identity_echo_roundtrip(case: AbGridCase) -> None:
 
 
 @given(grid=rectangular_grid())
-@settings(max_examples=100, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
+@settings(max_examples=_EX["codec"], deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
 @example([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0], [9.0, 10.0]])
 @example(MIXED_WITH_ZIP)
 @example([[42.0]])
@@ -213,7 +216,7 @@ def test_hypothesis_codec_decode_parity(grid: list[Any] | list[list[Any]]) -> No
 
 
 @given(grid=rectangular_grid())
-@settings(max_examples=100, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
+@settings(max_examples=_EX["venv_echo"], deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
 @example([[1.0, 2.0, 3.0, 4.0]])
 @example(MIXED_WITH_ZIP)
 @example([[42.0]])
@@ -229,7 +232,7 @@ def test_hypothesis_venv_echo_parity(grid: list[Any] | list[list[Any]]) -> None:
 
 
 @given(grid=numeric_rectangular_grid())
-@settings(max_examples=80, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
+@settings(max_examples=_EX["venv_sum"], deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
 @example([[float(r * 4 + c + 1) for c in range(4)] for r in range(4)])
 def test_hypothesis_venv_sum_parity(grid: list[Any] | list[list[Any]]) -> None:
     """Fuzz: np.sum always vs never on numeric-coercible grids."""
@@ -256,7 +259,7 @@ def test_multi_range_venv_echo(grids: list[list[Any] | list[list[Any]]], label: 
 
 
 @given(grids=multi_range_grid())
-@settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
+@settings(max_examples=_EX["multi_range"], deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
 def test_hypothesis_multi_range_venv_echo(grids: list[list[Any] | list[list[Any]]]) -> None:
     """Fuzz: multi-range venv echo."""
     from tests.scripting.serialization_ab_support import run_multi_venv_echo

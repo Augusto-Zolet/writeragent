@@ -179,8 +179,8 @@ help:
 	@echo "  make run_eval               Run benchmark CLI (pass EVAL_ARGS=...)"
 	@echo "  make run_eval-smoke         Quick smoke: one model, one example"
 	@echo "  make test-run               Pytest + LO tests only (skip typecheck/bandit; for quick reruns)"
-	@echo "  make slowtests              Serialization verification + CrossHair (test_serialization_verification.py; not in make test)"
-	@echo "  make vhs                    Visualize Hypothesis Serialization: run fuzz tests with verbose output"
+	@echo "  make slowtests              Slow serialization once each: A/B fixtures, contracts/CrossHair, Hypothesis (vhs)"
+	@echo "  make vhs                    Hypothesis serialization fuzz with verbose output (Hypothesis step of slowtests)"
 	@echo "  make test-visible           Run LO chart + grep UNO tests visibly (GUI) for processEventsToIdle / OLE queue"
 	@echo "  make typecheck              Run ty, then mypy, then pyright (same scope as each single target)"
 	@echo "  make check                  Quick gate: ty only (also used implicitly before fast workflows)"
@@ -532,12 +532,19 @@ test-run:
 	@$(MAKE) lo-kill
 	$(LO_PYTHON) -m plugin.testing_runner; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
 
+_SERIALIZATION_EXTENSIVE = WRITERAGENT_SERIALIZATION_EXTENSIVE=1
+
 slowtests:
-	$(PYTHON) -m pytest tests/scripting/test_serialization_verification.py -q
+	@echo "=== [1/2] Serialization contracts + extensive A/B fixtures ==="
+	$(_SERIALIZATION_EXTENSIVE) $(PYTHON) -m pytest \
+		tests/scripting/test_serialization_verification.py \
+		tests/scripting/test_serialization_ab.py -k "not hypothesis" -q
+	@echo "=== [2/2] Hypothesis fuzz (vhs) ==="
+	@$(MAKE) vhs
 
 vhs:
 	@echo "Running Hypothesis serialization fuzz tests with visualization..."
-	$(PYTHON) -m pytest tests/scripting/test_serialization_ab.py -k hypothesis -s --hypothesis-verbosity=verbose
+	$(_SERIALIZATION_EXTENSIVE) $(PYTHON) -m pytest tests/scripting/test_serialization_ab.py -k hypothesis -s --hypothesis-verbosity=verbose
 
 test-visible:
 	$(LO_PYTHON) -m plugin.testing_runner --visible test_charts_uno test_enhanced_charts_uno test_document_research_grep_uno; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
@@ -556,7 +563,7 @@ verify-serialization:
 	$(MAKE) crosshair-check
 
 test-serialization-ab:
-	$(PYTHON) -m pytest tests/scripting/test_serialization_ab.py -q
+	$(_SERIALIZATION_EXTENSIVE) $(PYTHON) -m pytest tests/scripting/test_serialization_ab.py -q
 
 # CrossHair on entire module files (correctness over speed; see docs/formal_verification.md)
 crosshair-check:

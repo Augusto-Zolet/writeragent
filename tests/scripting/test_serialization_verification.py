@@ -8,7 +8,8 @@
 
 """Verification and contract tests for payload_codec split_grid serialization.
 
-Excluded from default ``make test`` (CrossHair can take minutes). Run: ``make slowtests``.
+Excluded from default ``make test`` (CrossHair can take minutes). Run: ``make slowtests``
+(contracts + CrossHair here; extensive A/B Hypothesis in ``test_serialization_ab.py``).
 """
 
 from __future__ import annotations
@@ -21,21 +22,6 @@ from pathlib import Path
 import pytest
 
 pytestmark = pytest.mark.slow
-
-from typing import Any
-from hypothesis import given, settings, assume, HealthCheck
-from tests.scripting.serialization_ab_support import (
-    rectangular_grid,
-    numeric_rectangular_grid,
-    multi_range_grid,
-    hypothesis_grid_ok,
-    assert_codec_split_vs_nosplit_parity,
-    assert_venv_always_never_parity,
-    VENV_CODE_ECHO,
-    VENV_CODE_SUM,
-    run_multi_venv_echo,
-    flatten_semantic_cells,
-)
 
 from plugin.scripting.payload_codec import (
     PAYLOAD_SPLIT_GRID,
@@ -138,51 +124,3 @@ def test_crosshair_verification_if_available() -> None:
 
     if result.returncode == 2:
         pytest.fail(f"CrossHair internal error (exit 2):\n{combined}")
-
-
-# =============================================================================
-# High-Count Deep Hypothesis Fuzzing (slowtests)
-# =============================================================================
-
-@given(grid=rectangular_grid())
-@settings(max_examples=1000, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
-def test_slow_hypothesis_codec_decode_parity(grid: list[Any] | list[list[Any]]) -> None:
-    """Fuzz (1000 runs): codec child/host decode always vs never."""
-    assume(hypothesis_grid_ok(grid))
-    assert_codec_split_vs_nosplit_parity(grid, label="slow hypothesis codec")
-
-
-@given(grid=rectangular_grid())
-@settings(max_examples=1000, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
-def test_slow_hypothesis_venv_echo_parity(grid: list[Any] | list[list[Any]]) -> None:
-    """Fuzz (1000 runs): venv echo always vs never."""
-    assume(hypothesis_grid_ok(grid))
-    assert_venv_always_never_parity(grid, VENV_CODE_ECHO, label="slow hypothesis venv echo")
-
-
-@given(grid=numeric_rectangular_grid())
-@settings(max_examples=800, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
-def test_slow_hypothesis_venv_sum_parity(grid: list[Any] | list[list[Any]]) -> None:
-    """Fuzz (800 runs): np.sum always vs never on numeric-coercible grids."""
-    assume(hypothesis_grid_ok(grid))
-    flat: list[Any]
-    if grid and isinstance(grid[0], (list, tuple)):
-        flat = [cell for row in grid for cell in row]
-    else:
-        flat = list(grid)
-    assume(flat and not any(isinstance(v, str) for v in flat))
-    assert_venv_always_never_parity(grid, VENV_CODE_SUM, label="slow hypothesis venv sum")
-
-
-@given(grids=multi_range_grid())
-@settings(max_examples=500, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
-def test_slow_hypothesis_multi_range_venv_echo(grids: list[list[Any] | list[list[Any]]]) -> None:
-    """Fuzz (500 runs): multi-range venv echo."""
-    # Filter grids
-    assume(all(hypothesis_grid_ok(g) for g in grids))
-
-    result = run_multi_venv_echo(grids, pack_force="auto")
-    assert len(result) == len(grids)
-    for idx, grid in enumerate(grids):
-        assert flatten_semantic_cells(grid) == flatten_semantic_cells(result[idx]), f"index {idx}"
-
