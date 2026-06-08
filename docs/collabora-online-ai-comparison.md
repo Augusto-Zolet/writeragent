@@ -51,14 +51,14 @@ Collabora registers **11 LLM tools** in `AIChatSession::buildToolDefinitions` (`
 | `list_calc_functions` | **Implemented** | [`plugin/calc/formulas.py`](../plugin/calc/formulas.py) | `.uno:CalcFunctionList` |
 | `evaluate_formula` | **Implemented** | [`plugin/calc/formulas.py`](../plugin/calc/formulas.py) (moved to specialized `errors` tier to avoid chatbot context pollution, allowing LLMs to try it in planning flows) | `.uno:EvaluateFormula` |
 | `set_cell_formula` | **Partial** | [`write_formula_range`](../plugin/calc/cells.py) | Approval + `.uno:GoToCell` / `.uno:EnterString` batch |
-| Formula diagnosis | **Partial** | [`detect_and_explain_errors`](../plugin/calc/errors.py) | Browser `.uno:FormulaDepChain` + `helpfixformulaerror` |
+| Formula diagnosis | **Partial** | [`detect_and_explain_errors`](../plugin/calc/errors.py), [`formula_dep_chain.py`](../plugin/calc/formula_dep_chain.py) | Browser `.uno:FormulaDepChain` + `helpfixformulaerror` |
 | `fetch_models` | **Implemented** | [`plugin/framework/client/model_fetcher.py`](../plugin/framework/client/model_fetcher.py) | `wsd/FileServer.cpp` `/fetch-models` |
 | SSRF / endpoint validation | **Implemented** | `model_fetcher.py`, [`llm_client.py`](../plugin/framework/client/llm_client.py) | `KIT_HOST_ALLOWLIST` env regex |
-| Undo grouping | **Partial** | [`WriterCompoundUndo`](../plugin/doc/document_helpers.py) | LOKit batch dispatches; chat/tools not fully grouped |
+| Undo grouping | **Partial** | [`WriterCompoundUndo`](../plugin/doc/document_helpers.py) on `write_formula_range`; edit-selection / transform | LOKit batch dispatches; chat/tools not fully grouped |
 | Approval / HITL tiers | **Partial** | [`dialogs.py`](../plugin/chatbot/dialogs.py), [`send_handlers.py`](../plugin/chatbot/send_handlers.py) | Inspect vs mutate tool tiers in `executeToolCall` |
 | Tool-round cap | **Implemented** | `chat_max_tool_rounds` in tool loop | Default 5 rounds in `AIChatSession.hpp` |
 | Tool progress UI | **Partial** | [`StreamQueueKind`](../plugin/framework/async_stream.py) | `aichatprogress:` WebSocket frames |
-| `cell://` chat links | **Gap** | — | `Control.AIChatSidebar.ts` markdown post-process |
+| `cell://` chat links | **Implemented** | [`plugin/calc/navigation.py`](../plugin/calc/navigation.py), sidebar rich-text paste (HTML `<a href="cell://…">`) | `Control.AIChatSidebar.ts` markdown post-process |
 
 ---
 

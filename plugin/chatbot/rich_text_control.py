@@ -999,6 +999,9 @@ def clear_control(control):
     if not control:
         return
     try:
+        from plugin.calc.navigation import clear_cell_link_spans
+
+        clear_cell_link_spans(control)
         model = control.getModel()
         if model is not None:
             model.Text = ""

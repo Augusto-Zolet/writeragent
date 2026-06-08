@@ -68,14 +68,16 @@ ERROR_PATTERNS = ["#REF!", "#NAME?", "#VALUE!", "#DIV/0!", "#NULL!", "#N/A", "#N
 class ErrorDetector:
     """Detects and explains formula errors in the worksheet."""
 
-    def __init__(self, bridge, inspector):
+    def __init__(self, bridge, inspector, ctx=None):
         """
         Args:
             bridge: CalcBridge instance.
             inspector: CellInspector instance.
+            ctx: Optional UNO component context (for ``FormulaDepChain`` dispatch).
         """
         self.bridge = bridge
         self.inspector = inspector
+        self.ctx = ctx
 
     @staticmethod
     def get_error_type(cell) -> dict:
@@ -191,7 +193,24 @@ class ErrorDetector:
 
             suggestion = self._generate_suggestion(error_info, precedent_details)
 
-            return {"address": address.upper(), "formula": cell_details.get("formula", ""), "error": error_info, "precedents": precedent_details, "suggestion": suggestion}
+            dependency_chain = None
+            try:
+                from plugin.calc.formula_dep_chain import fetch_formula_dep_chain
+
+                dependency_chain = fetch_formula_dep_chain(self.bridge.doc, self.ctx, address)
+            except Exception as e:
+                logger.debug("FormulaDepChain unavailable for %s: %s", address, e)
+
+            result = {
+                "address": address.upper(),
+                "formula": cell_details.get("formula", ""),
+                "error": error_info,
+                "precedents": precedent_details,
+                "suggestion": suggestion,
+            }
+            if dependency_chain:
+                result["dependency_chain"] = dependency_chain
+            return result
         except Exception as e:
             logger.error("Error explanation failure (%s): %s", address, str(e))
             raise ToolExecutionError(str(e)) from e

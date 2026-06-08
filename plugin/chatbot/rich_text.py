@@ -289,6 +289,9 @@ def append_rich_text(doc, text, role="assistant", style_window=None):
 
         if text and text.strip():
             text = strip_legacy_ai_label(text) if role == "assistant" else text
+            from plugin.calc.navigation import render_calc_cell_refs
+
+            text = render_calc_cell_refs(text)
 
         if text_obj.getString():
             text_obj.insertString(cursor, "\n\n", False)

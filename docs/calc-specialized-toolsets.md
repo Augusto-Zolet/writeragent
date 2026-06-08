@@ -58,7 +58,7 @@ WriterAgent's `write_formula_range` tool takes a different design approach than 
 | **Cells** | ✅ Implemented | `cells.py`: `read_cell_range`, `write_formula_range`, `set_style`, `insert_cell_html` ([`rich_html.py`](../plugin/calc/rich_html.py)), merge/sort/delete helpers | Basic range + style + **HTML → rich text in one cell** ([§ Rich HTML in a single cell](#rich-html-in-a-single-cell)) |
 | **Ranges** | ✅ Implemented | `cells.py`: Get/SetRangeValues, Get/SetRangeFormulas | — |
 | **Sheets** | ✅ Implemented | `sheets.py`, `sheet_filter.py`: ListSheets, CreateSheet, SwitchSheet, GetSheetSummary, `apply_sheet_filter`, `clear_sheet_filter`, `get_sheet_filter` | Basic sheet ops + AutoFilter |
-| **Formulas** | ⚠️ Partial | `cells.py` (`write_formula_range`); Collabora-style `list_calc_functions` / `evaluate_formula` / `FormulaDepChain` — planned — see [collabora-online-ai-comparison.md](collabora-online-ai-comparison.md) roadmap P0 | — |
+| **Formulas** | ⚠️ Partial | `cells.py` (`write_formula_range` + compound undo); `list_calc_functions` / `evaluate_formula` implemented; `FormulaDepChain` via [`formula_dep_chain.py`](../plugin/calc/formula_dep_chain.py) | — |
 | **Charts** | ✅ Implemented | `charts.py`: `manage_charts` (unified experimental tool; shared with Writer and Draw) | Consolidated "Fat API" containing `list`, `get_info`, `create`, `edit`, `delete` actions |
 | **Named Ranges** | ✅ Implemented | `named_ranges.py`: ListNamedRanges, Create/Edit/DeleteNamedRange | — |
 | **Data Validation** | ✅ Implemented | `validation.py`: SetDataValidation, GetDataValidationRules | Specialized tier |

@@ -47,6 +47,13 @@ from plugin.chatbot.rich_text_control import (
     log_rich_scroll,
     nudge_rich_control_view_to_end,
 )
+from plugin.calc.navigation import (
+    extract_cell_links_from_html,
+    normalize_cell_address,
+    portion_cell_href,
+    portion_looks_like_cell_link,
+    register_cell_link_span,
+)
 from plugin.framework.uno_context import focus_preserved, process_events_to_idle
 
 log = logging.getLogger(__name__)
@@ -61,6 +68,9 @@ def build_message_html(text: str, role: str = "assistant") -> str:
     """Wrap chat message body as HTML with a bold role prefix."""
     if not text or not text.strip():
         return ""
+    from plugin.calc.navigation import render_calc_cell_refs
+
+    text = render_calc_cell_refs(text)
     label = "You:" if role == "user" else "Assistant:"
     if _HTML_TAG_RE.search(text):
         body = text
@@ -287,6 +297,7 @@ def _copy_formatted_from_hidden_doc_to_control(
     role: str = "assistant",
     style_window=None,
     auto_scroll: bool = True,
+    cell_link_targets: list[tuple[str, str]] | None = None,
 ) -> tuple[bool, str | None]:
     """Copy formatted Writer body text into the sidebar RichText control (safe — no clipboard/frame paste).
 
@@ -317,6 +328,7 @@ def _copy_formatted_from_hidden_doc_to_control(
             para_enum = src_text.createEnumeration()
             first_para = True
             order_counters: dict = {}
+            pending_links = list(cell_link_targets or [])
             while para_enum.hasMoreElements():
                 para = para_enum.nextElement()
                 line_prefix = _list_prefix_for_paragraph(para, order_counters)
@@ -341,7 +353,17 @@ def _copy_formatted_from_hidden_doc_to_control(
                     _apply_cursor_char_props(dest_cursor, portion, char_color=portion_color, bg_color=fill_color)
                     _normalize_portion_font(portion)
                     _apply_cursor_char_props(dest_cursor, portion, char_color=portion_color, bg_color=fill_color)
+                    before_len = get_control_text_length(control)
                     _insert_string_at_rich_cursor(model, dest_cursor, txt, portion_color)
+                    after_len = get_control_text_length(control)
+                    href = portion_cell_href(portion)
+                    addr = normalize_cell_address(href) if href else None
+                    if not addr and pending_links and pending_links[0][0] == txt:
+                        addr = pending_links.pop(0)[1]
+                    elif not addr and portion_looks_like_cell_link(portion, txt):
+                        addr = normalize_cell_address(txt.strip())
+                    if addr:
+                        register_cell_link_span(control, before_len, after_len, addr)
                     dest_cursor.gotoEnd(False)
                     inserted = True
                 if line_prefix and not prefix_inserted:
@@ -374,10 +396,16 @@ def _copy_formatted_from_hidden_doc_to_control(
     return False, reason
 
 
-def _append_hidden_doc_to_control(doc, control, ctx, style_window=None, auto_scroll=True) -> bool:
+def _append_hidden_doc_to_control(doc, control, ctx, style_window=None, auto_scroll=True, cell_link_targets=None) -> bool:
     """Copy hidden Writer content into the sidebar control via direct copy."""
     ok, _ = _copy_formatted_from_hidden_doc_to_control(
-        doc, control, ctx, role="assistant", style_window=style_window, auto_scroll=auto_scroll,
+        doc,
+        control,
+        ctx,
+        role="assistant",
+        style_window=style_window,
+        auto_scroll=auto_scroll,
+        cell_link_targets=cell_link_targets,
     )
     return ok
 
@@ -405,14 +433,21 @@ def append_rich_messages_via_clipboard(
                 log.warning("append_rich_messages_via_clipboard: hidden Writer unavailable")
                 return
             configure_hidden_writer_for_chat(doc)
+            batch_links: list[tuple[str, str]] = []
             for role, content in batch:
+                from plugin.calc.navigation import extract_cell_links_from_html, render_calc_cell_refs
+
+                rendered = render_calc_cell_refs(content) if content else content
+                batch_links.extend(extract_cell_links_from_html(rendered or ""))
                 append_rich_text(doc, content, role=role, style_window=style_window)
             log.debug(
                 "append_rich_messages_via_clipboard: hidden doc ready messages=%d total_chars=%d",
                 len(batch),
                 sum(len(c or "") for _, c in batch),
             )
-            if _append_hidden_doc_to_control(doc, control, ctx, style_window=style_window, auto_scroll=False):
+            if _append_hidden_doc_to_control(
+                doc, control, ctx, style_window=style_window, auto_scroll=False, cell_link_targets=batch_links,
+            ):
                 any_inserted = True
                 nudge_rich_control_view_to_end(control, ctx=ctx, style_window=style_window, reason="history_batch")
             else:
@@ -486,6 +521,10 @@ def append_rich_text_via_clipboard(
         return
     if role == "assistant":
         text = strip_legacy_ai_label(text)
+    from plugin.calc.navigation import render_calc_cell_refs
+
+    text = render_calc_cell_refs(text)
+    cell_link_targets = extract_cell_links_from_html(text)
     _ensure_message_separator(control)
     doc = None
     try:
@@ -498,7 +537,13 @@ def append_rich_text_via_clipboard(
         log.debug("append_rich_text_via_clipboard: hidden doc ready len=%d role=%s", len(text), role)
         inserted = False
         ok, direct_reason = _copy_formatted_from_hidden_doc_to_control(
-            doc, control, ctx, role=role, style_window=style_window, auto_scroll=auto_scroll,
+            doc,
+            control,
+            ctx,
+            role=role,
+            style_window=style_window,
+            auto_scroll=auto_scroll,
+            cell_link_targets=cell_link_targets,
         )
         if ok:
             inserted = True

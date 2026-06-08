@@ -107,6 +107,8 @@ class WriteCellRange(ToolBase):
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
+        from plugin.doc.document_helpers import WriterCompoundUndo
+
         bridge = CalcBridge(ctx.doc)
         manipulator = CellManipulator(bridge)
         rn = kwargs.get("range_name") or []
@@ -120,12 +122,17 @@ class WriteCellRange(ToolBase):
 
         if len(rn) == 0:
             return self._tool_error("range_name is required")
-        if len(rn) == 1:
-            result = manipulator.write_formula_range(rn[0], fov)
-            return {"status": "ok", "message": result}
-        for r in rn:
-            manipulator.write_formula_range(r, fov)
-        return {"status": "ok", "message": f"Wrote to {len(rn)} ranges"}
+
+        undo = WriterCompoundUndo(ctx.doc, "WriterAgent: Write formulas")
+        try:
+            if len(rn) == 1:
+                result = manipulator.write_formula_range(rn[0], fov)
+                return {"status": "ok", "message": result}
+            for r in rn:
+                manipulator.write_formula_range(r, fov)
+            return {"status": "ok", "message": f"Wrote to {len(rn)} ranges"}
+        finally:
+            undo.close()
 
 
 class InsertCellHtml(ToolBase):

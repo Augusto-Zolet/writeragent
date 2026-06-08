@@ -289,6 +289,21 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):
                     self._panel_resize_listener._c["response_rich"] = rich_control
                 if hasattr(self, "send_listener") and self.send_listener:
                     self.send_listener.set_rich_text_widget(widget)
+                try:
+                    from plugin.calc.navigation import attach_calc_cell_link_listener
+
+                    def _calc_doc_from_panel():
+                        sl = getattr(self, "send_listener", None)
+                        if sl is None or not hasattr(sl, "_get_document_model"):
+                            return None
+                        model = sl._get_document_model()
+                        if model is not None and hasattr(model, "getSheets"):
+                            return model
+                        return None
+
+                    attach_calc_cell_link_listener(self.ctx, rich_control, _calc_doc_from_panel)
+                except Exception as e:
+                    log.debug("calc cell link listener attach failed: %s", e)
                 hide_plain_ok = True
                 hide_response = False
                 hide_label = False

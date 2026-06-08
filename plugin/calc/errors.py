@@ -45,7 +45,7 @@ class DetectErrors(ToolCalcErrorBase):
     def execute(self, ctx, **kwargs):
         bridge = CalcBridge(ctx.doc)
         inspector = CellInspector(bridge)
-        error_detector = ErrorDetector(bridge, inspector)
+        error_detector = ErrorDetector(bridge, inspector, ctx=ctx.ctx)
         rn = kwargs.get("range_name")
         if rn is not None and isinstance(rn, str):
             rn = [rn] if rn else []

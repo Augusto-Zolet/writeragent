@@ -115,6 +115,36 @@ def test_formulas_error_detector():
     err0 = errors[0].get("error", {}) if errors else {}
     assert err0.get("code") == "#REF!", f"Expected #REF!, got: {errors}"
     assert "#REF!" in errors[0].get("suggestion", ""), f"Suggestion does not mention #REF!: {errors[0].get('suggestion')}"
+    # FormulaDepChain / formula_query enrichment (optional on older LO builds)
+    assert "dependency_chain" in errors[0] or "precedents" in errors[0]
+
+
+@native_test
+def test_navigate_to_cell():
+    from plugin.calc.navigation import navigate_to_cell
+
+    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+    active_sheet.getCellByPosition(4, 4).setString("target")
+    ok = navigate_to_cell(_test_doc, _test_ctx, "E5")
+    assert ok, "navigate_to_cell returned False"
+    sel = _test_doc.getCurrentController().getSelection()
+    addr = sel.getCellAddress()
+    assert addr.Column == 4 and addr.Row == 4, f"Expected E5 selected, got col={addr.Column} row={addr.Row}"
+
+
+@native_test
+def test_write_formula_range_compound_undo():
+    """Bulk write_formula_range should group undo (one step reverts all ranges)."""
+    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+    _execute_calc_tool("write_formula_range", {"range_name": ["G1", "G2"], "formula_or_values": "undo-test"})
+    assert active_sheet.getCellByPosition(6, 0).getString() == "undo-test"
+    assert active_sheet.getCellByPosition(6, 1).getString() == "undo-test"
+
+    um = _test_doc.getUndoManager()
+    if um is not None and um.isUndoEnabled():
+        um.undo()
+        assert active_sheet.getCellByPosition(6, 0).getString() == "", "G1 should revert after single undo"
+        assert active_sheet.getCellByPosition(6, 1).getString() == "", "G2 should revert after single undo"
 
 
 @native_test

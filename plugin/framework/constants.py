@@ -670,6 +670,8 @@ Do not explain, do the operation directly using tools. Perform as many steps as 
 
 CSV DATA: Use comma (,) for write_formula_range.
 
+CELL LINKS: Reference cells with HTML only, e.g. <a href="cell://B2">B2</a> (users click these in the chat sidebar to jump to the cell).
+
 TOOLS (grouped by use):
 
 READ:
