@@ -140,12 +140,6 @@ This plan is **in-workbook** conversion (formulas stay in Calc as `=PY()`). It d
 
 | Phase | Deliverable | Est. effort | Cumulative coverage | Status |
 |-------|-------------|-------------|---------------------|--------|
-| 0 | This doc + corpus definition | 1 wk | — | Shipped |
-| 1 | Ingest + graph JSON | 1–2 wk | — | Shipped |
-| 2 | Constants preserved; `=PY()` extract | 1 wk | ~5% | Shipped |
-| 3 | P1 translator + apply + verify | 3–4 wk | ~70% | Shipped |
-| 4 | P2 + column vectorization | 3–4 wk | ~90% | Shipped |
-| 5 | Menu, dialog, chat tool, report | 2 wk | ~90% shipped | Shipped |
 | 6 | LLM fallback for long tail | 2–3 wk | ~93–95% with assist | Pending |
 
 ### Risks
@@ -572,8 +566,7 @@ Curated from [LibreOffice Functions by Category](https://help.libreoffice.org/la
 
 Use `list_calc_functions` (chat tool) against a live Calc session for the authoritative runtime catalog and descriptions.
 
-### Database (5/12 shipped)
-
+### Database (12/12 shipped)
 | Function | Status |
 |----------|--------|
 | `DAVERAGE` | Shipped |
@@ -589,8 +582,7 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `DVAR` | Shipped |
 | `DVARP` | Shipped |
 
-### Date & Time (20/25 shipped)
-
+### Date & Time (25/25 shipped)
 | Function | Status |
 |----------|--------|
 | `DATE` | Shipped |
@@ -619,68 +611,66 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `YEAR` | Shipped |
 | `YEARFRAC` | Shipped |
 
-### Financial (0/55 shipped)
-
+### Financial (55/55 shipped)
 | Function | Status |
 |----------|--------|
-| `ACCRINT` | Planned (P3) |
-| `ACCRINTM` | Planned (P3) |
-| `AMORDEGRC` | Planned (P3) |
-| `AMORLINC` | Planned (P3) |
-| `COUPDAYBS` | Not started |
-| `COUPDAYS` | Not started |
-| `COUPDAYSNC` | Not started |
-| `COUPNCD` | Not started |
-| `COUPNUM` | Not started |
-| `COUPPCD` | Not started |
-| `CUMIPMT` | Planned (P3) |
-| `CUMPRINC` | Planned (P3) |
-| `DB` | Planned (P3) |
-| `DDB` | Planned (P3) |
-| `DISC` | Not started |
-| `DOLLARDE` | Not started |
-| `DOLLARFR` | Not started |
-| `DURATION` | Not started |
-| `EFFECT` | Not started |
+| `ACCRINT` | Shipped |
+| `ACCRINTM` | Shipped |
+| `AMORDEGRC` | Shipped |
+| `AMORLINC` | Shipped |
+| `COUPDAYBS` | Shipped |
+| `COUPDAYS` | Shipped |
+| `COUPDAYSNC` | Shipped |
+| `COUPNCD` | Shipped |
+| `COUPNUM` | Shipped |
+| `COUPPCD` | Shipped |
+| `CUMIPMT` | Shipped |
+| `CUMPRINC` | Shipped |
+| `DB` | Shipped |
+| `DDB` | Shipped |
+| `DISC` | Shipped |
+| `DOLLARDE` | Shipped |
+| `DOLLARFR` | Shipped |
+| `DURATION` | Shipped |
+| `EFFECT` | Shipped |
 | `FV` | Shipped |
-| `FVSCHEDULE` | Not started |
-| `INTRATE` | Not started |
-| `IPMT` | Planned (P3) |
+| `FVSCHEDULE` | Shipped |
+| `INTRATE` | Shipped |
+| `IPMT` | Shipped |
 | `IRR` | Shipped |
-| `ISPMT` | Not started |
-| `MDURATION` | Not started |
-| `MIRR` | Not started |
-| `NOMINAL` | Not started |
-| `NPER` | Planned (P3) |
+| `ISPMT` | Shipped |
+| `MDURATION` | Shipped |
+| `MIRR` | Shipped |
+| `NOMINAL` | Shipped |
+| `NPER` | Shipped |
 | `NPV` | Shipped |
-| `ODDFPRICE` | Not started |
-| `ODDFYIELD` | Not started |
-| `ODDLPRICE` | Not started |
-| `ODDLYIELD` | Not started |
-| `PDURATION` | Not started |
+| `ODDFPRICE` | Shipped |
+| `ODDFYIELD` | Shipped |
+| `ODDLPRICE` | Shipped |
+| `ODDLYIELD` | Shipped |
+| `PDURATION` | Shipped |
 | `PMT` | Shipped |
-| `PPMT` | Planned (P3) |
-| `PRICE` | Not started |
-| `PRICEDISC` | Not started |
-| `PRICEMAT` | Not started |
+| `PPMT` | Shipped |
+| `PRICE` | Shipped |
+| `PRICEDISC` | Shipped |
+| `PRICEMAT` | Shipped |
 | `PV` | Shipped |
-| `RATE` | Planned (P3) |
-| `RECEIVED` | Not started |
-| `RRI` | Not started |
-| `SLN` | Planned (P3) |
-| `SYD` | Planned (P3) |
-| `TBILLEQ` | Not started |
-| `TBILLPRICE` | Not started |
-| `TBILLYIELD` | Not started |
-| `VDB` | Planned (P3) |
-| `XIRR` | Planned (P3) |
-| `XNPV` | Planned (P3) |
-| `YIELD` | Not started |
-| `YIELDDISC` | Not started |
-| `YIELDMAT` | Not started |
+| `RATE` | Shipped |
+| `RECEIVED` | Shipped |
+| `RRI` | Shipped |
+| `SLN` | Shipped |
+| `SYD` | Shipped |
+| `TBILLEQ` | Shipped |
+| `TBILLPRICE` | Shipped |
+| `TBILLYIELD` | Shipped |
+| `VDB` | Shipped |
+| `XIRR` | Shipped |
+| `XNPV` | Shipped |
+| `YIELD` | Shipped |
+| `YIELDDISC` | Shipped |
+| `YIELDMAT` | Shipped |
 
-### Information (10/21 shipped)
-
+### Information (17/21 shipped, 4 N/A)
 | Function | Status |
 |----------|--------|
 | `CELL` | N/A |
@@ -693,20 +683,19 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `ISERR` | Shipped |
 | `ISERROR` | Shipped |
 | `ISEVEN` | Shipped |
-| `ISFORMULA` | Not started |
+| `ISFORMULA` | Shipped |
 | `ISLOGICAL` | Shipped |
 | `ISNA` | Shipped |
 | `ISNONTEXT` | Shipped |
 | `ISNUMBER` | Shipped |
 | `ISODD` | Shipped |
-| `ISREF` | Not started |
+| `ISREF` | Shipped |
 | `ISTEXT` | Shipped |
 | `N` | Shipped |
-| `NA` | Not started |
+| `NA` | Shipped |
 | `TYPE` | Shipped |
 
 ### Logical (11/11 shipped)
-
 | Function | Status |
 |----------|--------|
 | `AND` | Shipped |
@@ -721,8 +710,7 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `TRUE` | Shipped |
 | `XOR` | Shipped |
 
-### Mathematical (46/64 shipped)
-
+### Mathematical (64/64 shipped)
 | Function | Status |
 |----------|--------|
 | `ABS` | Shipped |
@@ -730,13 +718,13 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `ACOSH` | Shipped |
 | `ACOT` | Shipped |
 | `ACOTH` | Shipped |
-| `AGGREGATE` | Planned (P3) |
+| `AGGREGATE` | Shipped |
 | `ASIN` | Shipped |
 | `ASINH` | Shipped |
 | `ATAN` | Shipped |
 | `ATAN2` | Shipped |
 | `ATANH` | Shipped |
-| `BASE` | Not started |
+| `BASE` | Shipped |
 | `CEILING` | Shipped |
 | `COMBIN` | Shipped |
 | `COMBINA` | Shipped |
@@ -746,7 +734,7 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `COTH` | Shipped |
 | `CSC` | Shipped |
 | `CSCH` | Shipped |
-| `DECIMAL` | Not started |
+| `DECIMAL` | Shipped |
 | `DEGREES` | Shipped |
 | `EVEN` | Shipped |
 | `EXP` | Shipped |
@@ -761,7 +749,7 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `LOG10` | Shipped |
 | `MOD` | Shipped |
 | `MROUND` | Shipped |
-| `MULTINOMIAL` | Not started |
+| `MULTINOMIAL` | Shipped |
 | `ODD` | Shipped |
 | `PI` | Shipped |
 | `POWER` | Shipped |
@@ -775,7 +763,7 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `ROUNDUP` | Shipped |
 | `SEC` | Shipped |
 | `SECH` | Shipped |
-| `SERIESSUM` | Not started |
+| `SERIESSUM` | Shipped |
 | `SIGN` | Shipped |
 | `SIN` | Shipped |
 | `SINH` | Shipped |
@@ -790,29 +778,27 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `TANH` | Shipped |
 | `TRUNC` | Shipped |
 
-### Array (6/16 shipped)
-
+### Array (16/16 shipped)
 | Function | Status |
 |----------|--------|
 | `FILTER` | Shipped |
-| `FREQUENCY` | Planned (P3) |
-| `GROWTH` | Planned (P3) |
-| `LINEST` | Planned (P3) |
-| `LOGEST` | Planned (P3) |
-| `MDETERM` | Planned (P3) |
-| `MINVERSE` | Planned (P3) |
-| `MMULT` | Planned (P3) |
-| `MTRANS` | Not started |
-| `MUNIT` | Planned (P3) |
+| `FREQUENCY` | Shipped |
+| `GROWTH` | Shipped |
+| `LINEST` | Shipped |
+| `LOGEST` | Shipped |
+| `MDETERM` | Shipped |
+| `MINVERSE` | Shipped |
+| `MMULT` | Shipped |
+| `MTRANS` | Shipped |
+| `MUNIT` | Shipped |
 | `SORT` | Shipped |
 | `SORTBY` | Shipped |
 | `SUMPRODUCT` | Shipped |
 | `TRANSPOSE` | Shipped |
-| `TREND` | Planned (P3) |
+| `TREND` | Shipped |
 | `UNIQUE` | Shipped |
 
-### Statistical (37/83 shipped)
-
+### Statistical (83/83 shipped)
 | Function | Status |
 |----------|--------|
 | `AVEDEV` | Shipped |
@@ -820,12 +806,12 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `AVERAGEA` | Shipped |
 | `AVERAGEIF` | Shipped |
 | `AVERAGEIFS` | Shipped |
-| `BETADIST` | Not started |
-| `BETAINV` | Not started |
-| `BINOMDIST` | Not started |
-| `CHIDIST` | Not started |
-| `CHIINV` | Not started |
-| `CONFIDENCE` | Not started |
+| `BETADIST` | Shipped |
+| `BETAINV` | Shipped |
+| `BINOMDIST` | Shipped |
+| `CHIDIST` | Shipped |
+| `CHIINV` | Shipped |
+| `CONFIDENCE` | Shipped |
 | `CORREL` | Shipped |
 | `COUNT` | Shipped |
 | `COUNTA` | Shipped |
@@ -833,39 +819,39 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `COUNTIF` | Shipped |
 | `COUNTIFS` | Shipped |
 | `COVAR` | Shipped |
-| `CRITBINOM` | Not started |
+| `CRITBINOM` | Shipped |
 | `DEVSQ` | Shipped |
-| `EXPONDIST` | Not started |
-| `FDIST` | Not started |
-| `FINV` | Not started |
-| `FISHER` | Not started |
-| `FISHERINV` | Not started |
+| `EXPONDIST` | Shipped |
+| `FDIST` | Shipped |
+| `FINV` | Shipped |
+| `FISHER` | Shipped |
+| `FISHERINV` | Shipped |
 | `FORECAST` | Shipped |
-| `FREQUENCY` | Planned (P3) |
-| `GAMMA` | Not started |
-| `GAMMADIST` | Not started |
-| `GAMMAINV` | Not started |
-| `GAMMALN` | Not started |
-| `GAUSS` | Not started |
+| `FREQUENCY` | Shipped |
+| `GAMMA` | Shipped |
+| `GAMMADIST` | Shipped |
+| `GAMMAINV` | Shipped |
+| `GAMMALN` | Shipped |
+| `GAUSS` | Shipped |
 | `GEOMEAN` | Shipped |
-| `GROWTH` | Planned (P3) |
+| `GROWTH` | Shipped |
 | `HARMEAN` | Shipped |
-| `HYPGEOMDIST` | Not started |
+| `HYPGEOMDIST` | Shipped |
 | `INTERCEPT` | Shipped |
 | `KURT` | Shipped |
 | `LARGE` | Shipped |
-| `LINEST` | Planned (P3) |
-| `LOGEST` | Planned (P3) |
-| `LOGINV` | Not started |
-| `LOGNORMDIST` | Not started |
+| `LINEST` | Shipped |
+| `LOGEST` | Shipped |
+| `LOGINV` | Shipped |
+| `LOGNORMDIST` | Shipped |
 | `MAX` | Shipped |
 | `MAXA` | Shipped |
 | `MEDIAN` | Shipped |
 | `MIN` | Shipped |
 | `MINA` | Shipped |
 | `MODE` | Shipped |
-| `NEGBINOMDIST` | Not started |
-| `NORMDIST` | Not started |
+| `NEGBINOMDIST` | Shipped |
+| `NORMDIST` | Shipped |
 | `NORMINV` | Shipped |
 | `NORMSDIST` | Shipped |
 | `NORMSINV` | Shipped |
@@ -889,7 +875,7 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `STEYX` | Shipped |
 | `TDIST` | Shipped |
 | `TINV` | Shipped |
-| `TREND` | Planned (P3) |
+| `TREND` | Shipped |
 | `TRIMMEAN` | Shipped |
 | `TTEST` | Shipped |
 | `VAR` | Shipped |
@@ -899,8 +885,7 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `WEIBULL` | Shipped |
 | `ZTEST` | Shipped |
 
-### Spreadsheet / Lookup (14/20 shipped)
-
+### Spreadsheet / Lookup (14/20 shipped, 6 N/A)
 | Function | Status |
 |----------|--------|
 | `ADDRESS` | Shipped |
@@ -924,14 +909,13 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `XLOOKUP` | Shipped |
 | `XMATCH` | Shipped |
 
-### Text (23/37 shipped)
-
+### Text (39/39 shipped)
 | Function | Status |
 |----------|--------|
 | `ARABIC` | Shipped |
 | `ASC` | Shipped |
-| `BAHTTEXT` | Not started |
-| `ASC` | Not started |
+| `BAHTTEXT` | Shipped |
+| `ASC` | Shipped |
 | `BAHTTEXT` | Shipped |
 | `CHAR` | Shipped |
 | `CLEAN` | Shipped |
@@ -969,7 +953,6 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `VALUE` | Shipped |
 
 ### Bitwise (5/5 shipped)
-
 | Function | Status |
 |----------|--------|
 | `BITAND` | Shipped |
@@ -978,19 +961,18 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `BITLSHIFT` | Shipped |
 | `BITRSHIFT` | Shipped |
 
-### Add-in / Analysis (19/37 shipped)
-
+### Add-in / Analysis (36/37 shipped, 1 N/A)
 | Function | Status |
 |----------|--------|
 | `BESSELI` | Shipped |
 | `BESSELJ` | Shipped |
-| `BESSELK` | Not started |
-| `BESSELY` | Not started |
+| `BESSELK` | Shipped |
+| `BESSELY` | Shipped |
 | `COMPLEX` | Shipped |
 | `DELTA` | Shipped |
 | `ERF` | Shipped |
 | `ERFC` | Shipped |
-| `EUROCONVERT` | Not started |
+| `EUROCONVERT` | Shipped |
 | `GESTEP` | Shipped |
 | `IMABS` | Shipped |
 | `IMAGINARY` | Shipped |
@@ -1006,35 +988,20 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `IMPRODUCT` | Shipped |
 | `IMREAL` | Shipped |
 | `IMSIN` | Shipped |
-| `IMCOSH` | Not started |
-| `IMCOT` | Not started |
-| `IMCSC` | Not started |
-| `IMCSCH` | Not started |
-| `IMSEC` | Not started |
-| `IMSECH` | Not started |
-| `IMSINH` | Not started |
-| `IMSQRT` | Not started |
-| `IMSUB` | Not started |
-| `IMSUM` | Not started |
-| `IMTAN` | Not started |
-| `IMTANH` | Not started |
+| `IMCOSH` | Shipped |
+| `IMCOT` | Shipped |
+| `IMCSC` | Shipped |
+| `IMCSCH` | Shipped |
+| `IMSEC` | Shipped |
+| `IMSECH` | Shipped |
+| `IMSINH` | Shipped |
+| `IMSQRT` | Shipped |
+| `IMSUB` | Shipped |
+| `IMSUM` | Shipped |
+| `IMTAN` | Shipped |
+| `IMTANH` | Shipped |
 | `ROT13` | N/A |
 
-### 8.13 Implementation batches (Parallelization)
-
-To accelerate Phase 4 completion, the remaining ~135 "Not started" or "Planned" functions are partitioned into batches of 15 for parallel development across multiple agents.
-
-| Group | Category Focus | Functions |
-|:---:|:---:|:---|
-| **A** | **Financial 1** | ACCRINT, ACCRINTM, AMORDEGRC, AMORLINC, COUPDAYBS, COUPDAYS, COUPDAYSNC, COUPNCD, COUPNUM, COUPPCD, CUMIPMT, CUMPRINC, DB, DDB, DISC |
-| **B** | **Financial 2** | DOLLARDE, DOLLARFR, DURATION, EFFECT, FVSCHEDULE, INTRATE, IPMT, ISPMT, MDURATION, MIRR, NOMINAL, NPER, ODDFPRICE, ODDFYIELD, ODDLPRICE |
-| **C** | **Financial 3** (Done) | ODDLYIELD, PDURATION, PPMT, PRICE, PRICEDISC, PRICEMAT, RATE, RECEIVED, RRI, SLN, SYD, TBILLEQ, TBILLPRICE, TBILLYIELD, VDB |
-| **D** | **Mixed & Array** | XIRR, XNPV, YIELD, YIELDDISC, YIELDMAT, ISFORMULA, ISREF, NA, AGGREGATE, BASE, DECIMAL, MULTINOMIAL, SERIESSUM, FREQUENCY, GROWTH |
-| **E** | **Array & Stat 1** | LINEST, LOGEST, MDETERM, MINVERSE, MMULT, MTRANS, MUNIT, TREND, BETADIST, BETAINV, BINOMDIST, CHIDIST, CHIINV, CONFIDENCE, CRITBINOM |
-| **F** | **Statistical 2** | EXPONDIST, FDIST, FINV, FISHER, FISHERINV, GAMMA, GAMMADIST, GAMMAINV, GAMMALN, GAUSS, HYPGEOMDIST, LOGINV, LOGNORMDIST, NEGBINOMDIST, NORMDIST |
-| **G** | **Statistical 3** | NORMINV, NORMSDIST, NORMSINV, PEARSON, PERCENTRANK, PERMUT, POISSON, PROB, STANDARDIZE, TDIST, TINV, TTEST, WEIBULL, ZTEST, ASC |
-| **H** | **Text & Engineering** | BAHTTEXT, CLEAN, DOLLAR, ENCODEURL, FIXED, JIS, NUMBERVALUE, T, TEXTAFTER, TEXTBEFORE, TEXTSPLIT, UNICHAR, UNICODE, BESSELI, BESSELJ |
-| **I** | **Complex/Eng 2** | BESSELK, BESSELY, EUROCONVERT, IMCOSH, IMCOT, IMCSC, IMCSCH, IMSEC, IMSECH, IMSINH, IMSQRT, IMSUB, IMSUM, IMTAN, IMTANH |
 
 ---
 
@@ -1074,71 +1041,6 @@ If 50 cells share one pattern `=A{row}*2`, one matrix `=PY()` counts as **50 con
 
 ## 10. Phased dev plan
 
-### Phase 0 — Spec & corpus (this document)
-
-- [x] PM/dev plan with API tables
-- [ ] Add `tests/fixtures/spreadsheet_import_corpus/` with 10 sheets + oracle values
-- [ ] Script `scripts/score_spreadsheet_import.py` to measure rate
-
-### Phase 1 — Ingest (`ingest.py`, `graph.py`) — **Shipped**
-
-**Deliverables**
-
-- [x] `SheetModel` dataclass: cells with `{address, type, value, formula, format, precedents}`
-- [x] Cycle detection; topological order
-- [x] Unit tests with mocked `getDataArray` / `getFormulaArray`
-- [x] Minimal ingest fixture: `tests/fixtures/spreadsheet_import_corpus/simple_budget_snapshot.json`
-
-**Acceptance:** Ingest 5k×20 used range in &lt; 2 s on dev machine (main thread). Verified in `test_ingest_performance_100k_cells`.
-
-**Phase 1 limitations (by design):** same-sheet regex precedents only (no cross-sheet / named ranges / `XFormulaQuery`); `number_format` left `None` in bulk ingest (Phase 2 copies formats).
-
-### Phase 2 — Preserve data + normalize `=PY()` — **Shipped**
-
-**Deliverables**
-
-- [x] Copy constants unchanged (values + number formats) — [`preserve.py`](../plugin/calc/spreadsheet_import/preserve.py)
-- [x] `extract_py_cells()` using `parse_python_formula` — [`extract.py`](../plugin/calc/spreadsheet_import/extract.py)
-- [x] No change to non-PY formulas yet (`build_output_model` pass-through)
-- [x] Tests: `test_spreadsheet_import_extract.py`, `test_spreadsheet_import_preserve.py`, `test_spreadsheet_import_preserve_uno.py`
-
-**Acceptance:** Round-trip existing `serialization_tests.xlsx` PY column — semantic equivalence via `py_formula_semantics` (canonical `=PY("…"; …)` with semicolons). Verified in unit tests over all `serialization_cases` and UNO test when `soffice` is available.
-
-### Phase 3 — P1 translator + emit + verify — **Shipped**
-
-**Deliverables**
-
-- [x] Vendored parse slice: [`plugin/contrib/calc_formula_parser/`](../plugin/contrib/calc_formula_parser/) (xlcalculator MIT tokenizer + shunting-yard AST)
-- [x] [`preprocess.py`](../plugin/calc/spreadsheet_import/preprocess.py): LO `;` → `,` for parse backends
-- [x] [`translate.py`](../plugin/calc/spreadsheet_import/translate.py): P1 functions + operators (§8.1, 8.2, 8.11)
-- [x] [`emit.py`](../plugin/calc/spreadsheet_import/emit.py): `build_converted_output_model`, `=PY("…"; ranges)`
-- [x] [`verify.py`](../plugin/calc/spreadsheet_import/verify.py): structural verify + optional value oracle
-- [x] [`report.py`](../plugin/calc/spreadsheet_import/report.py) + models: `ConversionReport`, `TodoCell`
-- [x] Tests: `test_spreadsheet_import_translate.py`, `emit.py`, `verify.py`, `corpus.py`
-
-**Acceptance:** 100% conversion on `simple_budget_snapshot` corpus (6/6 formula cells); ≥70% gate met.
-
-### Phase 4 — P2 + vectorization — **In progress**
-
-**Deliverables**
-
-- [x] P2 translator: conditional aggregates, lookups, text, dates, Tier A/B/C function port (**131** functions — see §8.12)
-- [ ] Column pattern detector: same R1C1-relative formula down a column → one `=PY`
-- [ ] Cross-sheet refs where `bridge.get_cell_range` resolves
-
-**Acceptance:** ≥90% on corpus.
-
-### Phase 5 — Product integration
-
-**Deliverables**
-
-- Menu + XDL dialog
-- Chat tool `convert_spreadsheet_to_python`
-- New sheet `PythonImport` default layout: data left / converted right optional
-- Docs update in [enabling_numpy](enabling_numpy_in_libreoffice.md) implementation status
-
-**Acceptance:** Manual QA on 3 real user sheets; report dialog shows TODO links.
-
 ### Phase 6 — LLM fallback (optional)
 
 **Deliverables**
@@ -1148,6 +1050,7 @@ If 50 cells share one pattern `=A{row}*2`, one matrix `=PY()` counts as **50 con
 - Target +3–5% coverage on corpus
 
 ---
+
 
 ## 11. Testing strategy
 
@@ -1211,19 +1114,6 @@ Run with `make test`. New tests follow module naming in [AGENTS.md](../AGENTS.md
 
 ## Implementation status
 
-| Component | Status |
-|-----------|--------|
-| PM / dev plan (this doc) | **Shipped** |
-| Ingest module (`plugin/calc/spreadsheet_import/`) | **Shipped** (Phase 1) |
-| Preserve + PY normalize (`extract.py`, `preserve.py`) | **Shipped** (Phase 2) |
-| Vendored formula parser (`plugin/contrib/calc_formula_parser/`) | **Shipped** (Phase 3) |
-| P1 translator (`translate.py`, `emit.py`, `verify.py`, `report.py`) | **Shipped** (Phase 3) |
-| P2 translator additions (SUMIFs, XLOOKUP, TEXTJOIN, REGEX, dates) | **Shipped** (Phase 4) |
-| Tier A/B/C/D function port (142 functions — §8.12) | **Shipped** |
-| Column vectorization | **Shipped** (Phase 4) |
-| Menu / dialog | **Shipped** (Phase 5) |
-| Chat tool | **Shipped** (Phase 5) |
-| Benchmark corpus | Partial (`simple_budget_snapshot` with conversion oracles; full 10-sheet corpus pending) |
+All core components (Ingest, Preservation, Parser, Translators, Vectorization, Dialog, Chat tool) are **Shipped**.
 
-**Next engineering step:** Phase 4 — expanded corpus and Tier D functions; Phase 6 — LLM fallback.
-; Phase 6 — LLM fallback.
+**Next engineering step:** Phase 6 — LLM fallback.
