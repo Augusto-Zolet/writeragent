@@ -62,5 +62,13 @@ HELPER_NAMES = frozenset(
         "time",
         "trimmean",
         "forecast",
+        "fact",
+        "combin",
+        "rept",
+        "arabic",
+        "datevalue",
+        "timevalue",
+        "n",
+        "type",
     }
 )

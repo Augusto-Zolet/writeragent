@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import datetime
+
 import pytest
 
 import plugin.scripting.calc_functions as xl
@@ -425,5 +427,85 @@ def test_translate_tier_d_functions():
     assert res.ok
     # y = [1,2,3,4,5], x = [1,2,3,4,5] -> y = x. for x=6, y=6.
     assert exec_result(res, [[1.0, 2.0, 3.0, 4.0, 5.0], [1.0, 2.0, 3.0, 4.0, 5.0]]) == 6.0
+
+
+def test_translate_new_15_functions():
+    # 1-6. Hyperbolic
+    res = translate_formula("=ACOSH(2)")
+    assert res.ok
+    assert abs(exec_result(res, []) - 1.3169578969) < 1e-9
+
+    res = translate_formula("=ASINH(1)")
+    assert res.ok
+    assert abs(exec_result(res, []) - 0.881373587) < 1e-9
+
+    res = translate_formula("=ATANH(0.5)")
+    assert res.ok
+    assert abs(exec_result(res, []) - 0.5493061443) < 1e-9
+
+    res = translate_formula("=COSH(1)")
+    assert res.ok
+    assert abs(exec_result(res, []) - 1.5430806348) < 1e-9
+
+    res = translate_formula("=SINH(1)")
+    assert res.ok
+    assert abs(exec_result(res, []) - 1.1752011936) < 1e-9
+
+    res = translate_formula("=TANH(1)")
+    assert res.ok
+    assert abs(exec_result(res, []) - 0.76159415595) < 1e-9
+
+    # 7. FACT
+    res = translate_formula("=FACT(5)")
+    assert res.ok
+    assert exec_result(res, []) == 120.0
+
+    # 8. COMBIN
+    res = translate_formula("=COMBIN(5; 2)")
+    assert res.ok
+    assert exec_result(res, []) == 10.0
+
+    # 9. REPT
+    res = translate_formula("=REPT(\"abc\"; 3)")
+    assert res.ok
+    assert exec_result(res, []) == "abcabcabc"
+
+    # 10. EXACT
+    res = translate_formula("=EXACT(\"abc\"; \"ABC\")")
+    assert res.ok
+    assert exec_result(res, []) is False
+    res = translate_formula("=EXACT(\"abc\"; \"abc\")")
+    assert exec_result(res, []) is True
+
+    # 11. ARABIC
+    res = translate_formula("=ARABIC(\"MCMLXXXIV\")")
+    assert res.ok
+    assert exec_result(res, []) == 1984.0
+
+    # 12. DATEVALUE
+    res = translate_formula("=DATEVALUE(\"2023-10-05\")")
+    assert res.ok
+    assert exec_result(res, []) == float(datetime.date(2023, 10, 5).toordinal() - 693594)
+
+    # 13. TIMEVALUE
+    res = translate_formula("=TIMEVALUE(\"12:00:00\")")
+    assert res.ok
+    assert exec_result(res, []) == 0.5
+
+    # 14. N
+    res = translate_formula("=N(TRUE)")
+    assert res.ok
+    assert exec_result(res, []) == 1.0
+    res = translate_formula("=N(\"abc\")")
+    assert exec_result(res, []) == 0.0
+
+    # 15. TYPE
+    res = translate_formula("=TYPE(123)")
+    assert res.ok
+    assert exec_result(res, []) == 1.0
+    res = translate_formula("=TYPE(\"abc\")")
+    assert exec_result(res, []) == 2.0
+    res = translate_formula("=TYPE(TRUE)")
+    assert exec_result(res, []) == 4.0
 
 

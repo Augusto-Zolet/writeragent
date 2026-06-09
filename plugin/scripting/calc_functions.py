@@ -9,6 +9,7 @@ Semantics mirror the inline helpers formerly pasted by spreadsheet import transl
 from __future__ import annotations
 
 import datetime
+import math
 import re
 from collections import Counter
 from typing import Any, Callable
@@ -869,3 +870,92 @@ def forecast(x: Any, data_y: Any, data_x: Any) -> float:
     b = np.sum((x_arr - avg_x) * (y - avg_y)) / ss_xx
     a = avg_y - b * avg_x
     return float(a + b * xv)
+
+
+def fact(n: Any) -> float:
+    try:
+        v = float(n)
+        if v < 0 or v > 170:  # math.factorial limit
+            return float("nan")
+        return float(math.factorial(int(v)))
+    except (ValueError, TypeError, OverflowError):
+        return float("nan")
+
+
+def combin(n: Any, k: Any) -> float:
+    try:
+        return float(math.comb(int(float(n)), int(float(k))))
+    except (ValueError, TypeError):
+        return float("nan")
+
+
+def rept(text: Any, n: Any) -> str:
+    try:
+        return str(text) * int(float(n))
+    except (ValueError, TypeError, OverflowError):
+        return ""
+
+
+def arabic(text: Any) -> float:
+    roman = str(text).upper().strip()
+    roman_values = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
+    res = 0
+    for i in range(len(roman)):
+        if roman[i] not in roman_values:
+            return float("nan")
+        if i + 1 < len(roman) and roman_values[roman[i]] < roman_values[roman[i + 1]]:
+            res -= roman_values[roman[i]]
+        else:
+            res += roman_values[roman[i]]
+    return float(res)
+
+
+def datevalue(text: Any) -> float:
+    s = str(text).strip().strip('"')
+    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y", "%Y/%m/%d", "%d-%b-%Y"):
+        try:
+            dt = datetime.datetime.strptime(s, fmt)
+            return float(dt.toordinal() - 693594)
+        except ValueError:
+            continue
+    return float("nan")
+
+
+def timevalue(text: Any) -> float:
+    s = str(text).strip().strip('"')
+    for fmt in ("%H:%M:%S", "%H:%M", "%I:%M:%S %p", "%I:%M %p"):
+        try:
+            t = datetime.datetime.strptime(s, fmt).time()
+            return float((t.hour * 3600 + t.minute * 60 + t.second) / 86400.0)
+        except ValueError:
+            continue
+    return float("nan")
+
+
+def n(val: Any) -> float:
+    if isinstance(val, (int, float)) and not isinstance(val, bool):
+        return float(val)
+    if isinstance(val, bool):
+        return 1.0 if val else 0.0
+    if isinstance(val, str):
+        try:
+            return float(val)
+        except ValueError:
+            return 0.0
+    return 0.0
+
+
+def type(val: Any) -> float:
+    if val is None or val == "":
+        return 1.0
+    if isinstance(val, (int, float)) and not isinstance(val, bool):
+        return 1.0
+    if isinstance(val, str):
+        if val.startswith("#"):
+            return 16.0
+        return 2.0
+    if isinstance(val, bool):
+        return 4.0
+    if isinstance(val, (list, np.ndarray)):
+        return 64.0
+    return 1.0

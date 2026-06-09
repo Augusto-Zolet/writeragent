@@ -560,7 +560,8 @@ Convention: `data` is the primary injected range; `data[n]` is multi-range varar
 
 Curated from [LibreOffice Functions by Category](https://help.libreoffice.org/latest/en-US/text/scalc/01/04060100.html), [Calc Guide 25.2 Ch.9](https://books.libreoffice.org/en/CG252/CG25209-FormulasAndFunctions.html), and [Microsoft–LibreOffice function comparison](https://wiki.documentfoundation.org/Documentation/Calc_Functions) (~508 LO built-ins total). **Status** reflects [`translate.py`](../plugin/calc/spreadsheet_import/translate.py) as of the Tier A/B/C/D port (142 shipped).
 
-**Inventory summary:** **142 / 374** functions in this master list are **Shipped** in [`translate.py`](../plugin/calc/spreadsheet_import/translate.py) (142 emitters including `ROW`/`COLUMN`/`IFS`/`SWITCH` handlers). LibreOffice Calc exposes **~508** built-ins ([Calc Guide 25.2 Ch.9](https://books.libreoffice.org/en/CG252/CG25209-FormulasAndFunctions.html), [Functions by Category](https://help.libreoffice.org/latest/en-US/text/scalc/01/04060100.html)); this curated list (~374) is the **conversion goal set** for business/statistical workbooks—not every locale alias (`*_ADD`, `*_EXCEL2003`) or extension-only symbol.
+**Inventory summary:** **157 / 374** functions in this master list are **Shipped** in [`translate.py`](../plugin/calc/spreadsheet_import/translate.py) (157 emitters including `ROW`/`COLUMN`/`IFS`/`SWITCH` handlers).
+ LibreOffice Calc exposes **~508** built-ins ([Calc Guide 25.2 Ch.9](https://books.libreoffice.org/en/CG252/CG25209-FormulasAndFunctions.html), [Functions by Category](https://help.libreoffice.org/latest/en-US/text/scalc/01/04060100.html)); this curated list (~374) is the **conversion goal set** for business/statistical workbooks—not every locale alias (`*_ADD`, `*_EXCEL2003`) or extension-only symbol.
 
 | Status | Meaning |
 |--------|---------|
@@ -700,9 +701,9 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `ISODD` | Shipped |
 | `ISREF` | Not started |
 | `ISTEXT` | Shipped |
-| `N` | Not started |
+| `N` | Shipped |
 | `NA` | Not started |
-| `TYPE` | Not started |
+| `TYPE` | Shipped |
 
 ### Logical (10/11 shipped)
 
@@ -726,21 +727,21 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 |----------|--------|
 | `ABS` | Shipped |
 | `ACOS` | Shipped |
-| `ACOSH` | Not started |
+| `ACOSH` | Shipped |
 | `ACOT` | Not started |
 | `ACOTH` | Not started |
 | `AGGREGATE` | Planned (P3) |
 | `ASIN` | Shipped |
-| `ASINH` | Not started |
+| `ASINH` | Shipped |
 | `ATAN` | Shipped |
 | `ATAN2` | Shipped |
-| `ATANH` | Not started |
+| `ATANH` | Shipped |
 | `BASE` | Not started |
 | `CEILING` | Shipped |
-| `COMBIN` | Not started |
+| `COMBIN` | Shipped |
 | `COMBINA` | Not started |
 | `COS` | Shipped |
-| `COSH` | Not started |
+| `COSH` | Shipped |
 | `COT` | Not started |
 | `COTH` | Not started |
 | `CSC` | Not started |
@@ -749,7 +750,7 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `DEGREES` | Shipped |
 | `EVEN` | Shipped |
 | `EXP` | Shipped |
-| `FACT` | Not started |
+| `FACT` | Shipped |
 | `FACTDOUBLE` | Not started |
 | `FLOOR` | Shipped |
 | `GCD` | Shipped |
@@ -777,7 +778,7 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `SERIESSUM` | Not started |
 | `SIGN` | Shipped |
 | `SIN` | Shipped |
-| `SINH` | Not started |
+| `SINH` | Shipped |
 | `SQRT` | Shipped |
 | `SQRTPI` | Not started |
 | `SUBTOTAL` | Shipped |
@@ -786,7 +787,7 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `SUMIFS` | Shipped |
 | `SUMSQ` | Shipped |
 | `TAN` | Shipped |
-| `TANH` | Not started |
+| `TANH` | Shipped |
 | `TRUNC` | Shipped |
 
 ### Array (6/16 shipped)
@@ -1197,3 +1198,4 @@ Run with `make test`. New tests follow module naming in [AGENTS.md](../AGENTS.md
 | Benchmark corpus | Partial (`simple_budget_snapshot` with conversion oracles; full 10-sheet corpus pending) |
 
 **Next engineering step:** Phase 4 — expanded corpus and Tier D functions; Phase 6 — LLM fallback.
+; Phase 6 — LLM fallback.
