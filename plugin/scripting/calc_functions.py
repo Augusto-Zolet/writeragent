@@ -17,7 +17,7 @@ import numpy as np
 
 from plugin.scripting.calc_functions_common import HELPER_NAMES
 
-__all__ = ["HELPER_NAMES"] + sorted(HELPER_NAMES)
+__all__ = ["HELPER_NAMES", *sorted(HELPER_NAMES)]
 
 
 def iferror(f: Callable[[], Any], alt: Any) -> Any:

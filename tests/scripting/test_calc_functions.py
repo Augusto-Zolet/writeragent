@@ -83,6 +83,23 @@ def test_error_handlers():
     assert xl.ifna(lambda: 2.0, 1) == 2.0
 
 
+def test_always_injected_xl_does_not_resolve_bare_x():
+    """Auto-imported ``xl`` must not make undefined bare ``x`` silently succeed."""
+    from plugin.contrib.smolagents.local_python_executor import InterpreterError
+    from plugin.scripting.config_limits import python_exec_timeout_default
+    from plugin.scripting.venv_sandbox import _new_executor, inject_auto_imports
+
+    executor = _new_executor(python_exec_timeout_default())
+    inject_auto_imports(executor, "result = x")
+    assert "xl" in executor.state
+    try:
+        executor("result = x")
+    except InterpreterError:
+        pass
+    else:
+        raise AssertionError("bare x must raise InterpreterError when undefined")
+
+
 def test_helper_names_complete():
     from plugin.scripting.calc_functions_common import HELPER_NAMES
 
