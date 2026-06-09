@@ -23,7 +23,7 @@ For a short executive summary, see [WriterAgent architecture — Scientific Pyth
 8. [Implementation status](#8-implementation-status)
 9. [Multi-Range Support (Varargs)](#9-multi-range-support-varargs)
 
-**Related:** [Venv subprocess IPC & NumPy serialization](numpy-serialization.md) (warm worker, protocol, wire formats, benchmarks) · [Jupyter notebook import](jupyter-notebook-import.md) · [Analysis Sub-Agent](analysis-sub-agent.md) (data discovery + trusted numpy/pandas execution) · [Scientific domain roadmap](#scientific-domain-roadmap-trusted-helpers) (Analysis, Vision, Viz, Symbolic shipped; Forecast, Text, Optimization, Geo, Audio planned) · [SageMath integration (deferred)](sagemath-integration-dev-plan.md)
+**Related:** [Venv subprocess IPC & NumPy serialization](numpy-serialization.md) (warm worker, protocol, wire formats, benchmarks) · [Jupyter notebook import](jupyter-notebook-import.md) · [Analysis Sub-Agent](analysis-sub-agent.md) (data discovery + trusted numpy/pandas execution) · [Scientific domain roadmap](#scientific-domain-roadmap-trusted-helpers) (Analysis, Vision, Viz, Symbolic shipped; Forecast, Text, Optimization, Geo, Audio planned) · [SageMath integration (deferred)](sagemath-integration-dev-plan.md) · [Calc competitive backlog (consider doing)](google-sheets.md)
 
 ---
 
