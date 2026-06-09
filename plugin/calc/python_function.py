@@ -175,6 +175,14 @@ def finalize_python_return(
     worker_data: Any = None,
 ) -> float | str | bool | tuple:
     """Map worker result to a single value Calc's add-in bridge accepts."""
+    import numpy as np
+    if isinstance(result, np.ndarray):
+        res_list = result.tolist()
+        if result.ndim == 1:
+            result = [[x] for x in res_list]
+        else:
+            result = res_list
+
     if isinstance(result, (list, tuple)):
         if index_arg is not None:
             flat = flatten_result_values(result)
@@ -182,7 +190,9 @@ def finalize_python_return(
             if idx < 0 or idx >= len(flat):
                 return f"Error: index {idx} out of range (result length {len(flat)})"
             return to_calc_compatible(flat[idx])
+        
         return scalar_for_list_result(ctx, code, result, worker_data=worker_data)
+
     return to_calc_compatible(result)
 
 
@@ -212,8 +222,24 @@ def execute_python_addin(
         log.debug("PYTHON parsed py_data: %r", py_data)
         is_multi = len(args) > 1
         index_arg = None
-        if py_data is not None and not is_multi and is_scalar_index_arg(py_data) and not is_split_grid(py_data):
-            index_arg = py_data[0]
+        if py_data is not None:
+            if is_multi:
+                last_arg = args[-1]
+                if not isinstance(last_arg, (list, tuple)) or count_cells(py_data[-1]) == 1:
+                    idx_val = py_data[-1]
+                    while isinstance(idx_val, list) and idx_val:
+                        idx_val = idx_val[0]
+                    index_arg = idx_val
+                    py_data = py_data[:-1]
+                    args = args[:-1]
+                    is_multi = len(args) > 1
+                    if py_data:
+                        if not is_multi:
+                            py_data = py_data[0]
+                    else:
+                        py_data = None
+            elif is_scalar_index_arg(py_data) and not is_split_grid(py_data):
+                index_arg = py_data[0]
         max_cells = configured_python_max_data_cells(ctx)
         if py_data is not None:
             if is_multi:

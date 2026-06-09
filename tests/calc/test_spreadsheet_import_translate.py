@@ -106,7 +106,7 @@ def test_translate_p2_logical_trig_date_functions():
     # SWITCH
     res = translate_formula("=SWITCH(A1; 1; \"one\"; 2; \"two\"; \"other\")")
     assert res.ok
-    assert "('one' if data[0] == 1 else ('two' if data[0] == 2 else 'other'))" in res.code
+    assert "('one' if data == 1 else ('two' if data == 2 else 'other'))" in res.code
 
     # Math/Trig
     res = translate_formula("=ASIN(A1)")
@@ -157,5 +157,210 @@ def test_translate_cross_sheet_references():
     res = translate_formula("=Sheet2.A1")
     assert res.ok
     assert res.data_ranges == ["SHEET2.A1"]
+
+
+def test_translate_and_exec_new_functions():
+    import numpy as np
+    import datetime
+
+    # 1. SUMIF
+    res = translate_formula("=SUMIF(A1:A5; \">10\"; B1:B5)")
+    assert res.ok
+    locs = {"data": [[5.0, 12.0, 3.0, 15.0, 8.0], [1.0, 2.0, 3.0, 4.0, 5.0]]}
+    exec(res.code, locs)
+    assert locs["result"] == 6.0
+
+    # 2. SUMIFS
+    res = translate_formula("=SUMIFS(B1:B5; A1:A5; \">5\"; A1:A5; \"<=12\")")
+    assert res.ok
+    locs = {"data": [[1.0, 2.0, 3.0, 4.0, 5.0], [5.0, 12.0, 3.0, 15.0, 8.0]]}
+    exec(res.code, locs)
+    # sum range is B1:B5 (data[0]): 1, 2, 3, 4, 5.
+    # criteria range is A1:A5 (data[1]): 5, 12, 3, 15, 8.
+    # A1:A5 > 5 and <= 12 are 12 (index 1) and 8 (index 4).
+    # Corresponding elements in B1:B5 are 2 and 5. Sum = 7.0.
+    assert locs["result"] == 7.0
+
+    # 3. COUNTIF
+    res = translate_formula("=COUNTIF(A1:A5; \"<=5\")")
+    assert res.ok
+    locs = {"data": [5.0, 12.0, 3.0, 15.0, 8.0]}
+    exec(res.code, locs)
+    # Elements <= 5 are 5 and 3. count = 2.
+    assert locs["result"] == 2.0
+
+    # 4. COUNTIFS
+    res = translate_formula("=COUNTIFS(A1:A5; \">5\"; B1:B5; \"<10\")")
+    assert res.ok
+    locs = {"data": [[5.0, 12.0, 3.0, 15.0, 8.0], [1.0, 2.0, 3.0, 4.0, 5.0]]}
+    exec(res.code, locs)
+    # A1:A5 > 5 are 12, 15, 8.
+    # Corresponding B1:B5 are 2, 4, 5. All are < 10. Count = 3.
+    assert locs["result"] == 3.0
+
+    # 5. AVERAGEIF
+    res = translate_formula("=AVERAGEIF(A1:A5; \">5\"; B1:B5)")
+    assert res.ok
+    locs = {"data": [[5.0, 12.0, 3.0, 15.0, 8.0], [1.0, 2.0, 3.0, 4.0, 5.0]]}
+    exec(res.code, locs)
+    # A1:A5 > 5 are 12, 15, 8.
+    # Corresponding B1:B5 are 2, 4, 5. Mean = (2+4+5)/3 = 3.6666...
+    assert abs(locs["result"] - 11.0 / 3.0) < 1e-9
+
+    # 6. AVERAGEIFS
+    res = translate_formula("=AVERAGEIFS(B1:B5; A1:A5; \">5\")")
+    assert res.ok
+    locs = {"data": [[1.0, 2.0, 3.0, 4.0, 5.0], [5.0, 12.0, 3.0, 15.0, 8.0]]}
+    exec(res.code, locs)
+    assert abs(locs["result"] - 11.0 / 3.0) < 1e-9
+
+    # 7. XLOOKUP
+    res = translate_formula("=XLOOKUP(\"apple\"; A1:A3; B1:B3; \"Not Found\")")
+    assert res.ok
+    locs = {"data": [["pear", "apple", "banana"], [10.0, 20.0, 30.0]]}
+    exec(res.code, locs)
+    assert locs["result"] == 20.0
+
+    res = translate_formula("=XLOOKUP(\"orange\"; A1:A3; B1:B3; \"Not Found\")")
+    assert res.ok
+    locs = {"data": [["pear", "apple", "banana"], [10.0, 20.0, 30.0]]}
+    exec(res.code, locs)
+    assert locs["result"] == "Not Found"
+
+    # 8. TEXTJOIN
+    res = translate_formula("=TEXTJOIN(\", \"; TRUE; A1:A3)")
+    assert res.ok
+    locs = {"data": ["apple", "", "banana"]}
+    exec(res.code, locs)
+    assert locs["result"] == "apple, banana"
+
+    # 9. REGEX
+    res = translate_formula("=REGEX(\"123-456\"; \"[0-9]+\"; \"XXX\"; \"g\")")
+    assert res.ok
+    locs = {}
+    exec(res.code, locs)
+    assert locs["result"] == "XXX-XXX"
+
+    # 10. EOMONTH
+    # 2026-06-09 is 46182 days from 1899-12-30 (since 2026-06-09 is ordinal 739776. 739776 - 693594 = 46182)
+    # EOMONTH(46182; 1) -> End of July 2026 -> 2026-07-31 -> ordinal 739828 -> 739828 - 693594 = 46234
+    res = translate_formula("=EOMONTH(46182; 1)")
+    assert res.ok
+    locs = {}
+    exec(res.code, locs)
+    assert locs["result"] == 46234.0
+
+    # 11. NETWORKDAYS
+    # 2026-06-08 (Mon) to 2026-06-12 (Fri) should be 5 network days.
+    # 2026-06-08 is ordinal 739775 -> 46181
+    # 2026-06-12 is ordinal 739779 -> 46185
+    res = translate_formula("=NETWORKDAYS(46181; 46185)")
+    assert res.ok
+    locs = {}
+    exec(res.code, locs)
+    assert locs["result"] == 5.0
+
+
+def test_translate_tier_abc_functions():
+    import numpy as np
+
+    # Tier A
+    res = translate_formula("=SUBTOTAL(9; A1:A5)")
+    assert res.ok
+    assert "_subtotal(" in res.code
+    assert exec_result(res, [1.0, 2.0, 3.0, 4.0, 5.0]) == 15.0
+
+    res = translate_formula("=ISBLANK(A1)")
+    assert res.ok
+    assert exec_result(res, "") is True
+    assert exec_result(res, 5.0) is False
+
+    res = translate_formula("=ISNUMBER(A1)")
+    assert res.ok
+    assert exec_result(res, 5.0) is True
+    assert exec_result(res, "x") is False
+
+    res = translate_formula("=IFS(A1>10; \"big\"; A1>5; \"mid\"; TRUE; \"small\")")
+    assert res.ok
+    assert exec_result(res, 12.0) == "big"
+    assert exec_result(res, 7.0) == "mid"
+    assert exec_result(res, 1.0) == "small"
+
+    res = translate_formula("=MEDIAN(A1:A5)")
+    assert res.ok
+    assert exec_result(res, [1.0, 2.0, 3.0, 4.0, 100.0]) == 3.0
+
+    res = translate_formula("=COUNTBLANK(A1:A4)")
+    assert res.ok
+    assert exec_result(res, [1.0, "", None, 4.0]) == 2.0
+
+    res = translate_formula("=ROUNDUP(A1; 1)")
+    assert res.ok
+    assert exec_result(res, 1.23) == 1.3
+
+    res = translate_formula("=LOG(A1; 2)")
+    assert res.ok
+    assert abs(exec_result(res, 8.0) - 3.0) < 1e-9
+
+    res = translate_formula("=QUOTIENT(A1; B1)")
+    assert res.ok
+    assert exec_result(res, [10.0, 3.0]) == 3.0
+
+    res = translate_formula("=SUMPRODUCT(A1:A3; B1:B3)")
+    assert res.ok
+    assert exec_result(res, [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]) == 32.0
+
+    res = translate_formula("=DATEDIF(46181; 46185; \"D\")")
+    assert res.ok
+    assert exec_result(res, []) == 4.0
+
+    # Tier B
+    res = translate_formula("=ISTEXT(A1)")
+    assert res.ok
+    assert exec_result(res, "hello") is True
+
+    res = translate_formula("=LARGE(A1:A5; 2)")
+    assert res.ok
+    assert exec_result(res, [1.0, 5.0, 3.0, 4.0, 2.0]) == 4.0
+
+    res = translate_formula("=SMALL(A1:A5; 2)")
+    assert res.ok
+    assert exec_result(res, [1.0, 5.0, 3.0, 4.0, 2.0]) == 2.0
+
+    res = translate_formula("=AVERAGEA(A1:A3)")
+    assert res.ok
+    assert exec_result(res, [10.0, "", 20.0]) == 10.0
+
+    res = translate_formula("=EVEN(A1)")
+    assert res.ok
+    assert exec_result(res, 3.0) == 4.0
+
+    res = translate_formula("=XMATCH(\"b\"; A1:A3)")
+    assert res.ok
+    assert exec_result(res, [["a", "b", "c"]]) == 2.0
+
+    # Tier C
+    res = translate_formula("=FILTER(A1:A5; B1:B5)")
+    assert res.ok
+    assert exec_result(res, [[1.0, 2.0, 3.0, 4.0, 5.0], [True, False, True, False, True]]) == [1.0, 3.0, 5.0]
+
+    res = translate_formula("=SORT(A1:A3; 1; -1)")
+    assert res.ok
+    assert exec_result(res, [3.0, 1.0, 2.0]) == [3.0, 2.0, 1.0]
+
+    res = translate_formula("=UNIQUE(A1:A5)")
+    assert res.ok
+    assert exec_result(res, [1.0, 2.0, 1.0, 3.0, 2.0]) == [1.0, 2.0, 3.0]
+
+
+def exec_result(res, data):
+    import numpy as np
+
+    locs = {"data": data, "np": np}
+    code = res.code
+    if "result =" not in code:
+        code = f"result = {code}"
+    exec(code, locs)
+    return locs["result"]
 
 

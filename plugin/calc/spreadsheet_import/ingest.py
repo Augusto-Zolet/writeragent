@@ -7,8 +7,10 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 from plugin.calc.address_utils import format_address
 from plugin.calc.python_formula_edit import normalize_formula_string

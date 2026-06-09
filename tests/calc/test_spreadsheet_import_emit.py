@@ -49,7 +49,11 @@ def test_emit_vectorized_column():
     model = SheetModel(sheet_name="Sheet1", used_range="A1:B3", cells=cells)
     output, report = build_converted_output_model(model, vectorize=True)
 
-    assert "B1:B3" in output.array_formulas
-    assert "A1:A3" in output.array_formulas["B1:B3"]
+    assert output.cells["B1"].formula is not None
+    assert "0" in output.cells["B1"].formula and "A1:A3" in output.cells["B1"].formula
+    assert output.cells["B2"].formula is not None
+    assert "1" in output.cells["B2"].formula and "A1:A3" in output.cells["B2"].formula
+    assert output.cells["B3"].formula is not None
+    assert "2" in output.cells["B3"].formula and "A1:A3" in output.cells["B3"].formula
     assert len(report.converted) == 3
 

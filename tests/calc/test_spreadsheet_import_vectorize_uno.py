@@ -2,19 +2,20 @@
 # Copyright (c) 2026 KeithCu
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Tests for convert_spreadsheet_to_python tool."""
+"""Tests for convert_spreadsheet_to_python tool vectorization."""
 
 from __future__ import annotations
 
 from plugin.framework.uno_context import get_desktop
 from plugin.testing_runner import setup, teardown, native_test
 
+
 _test_doc = None
 _test_ctx = None
 
 
 @setup
-def setup_import_tool_tests(ctx):
+def setup_vectorize_uno_tests(ctx):
     global _test_doc, _test_ctx
     _test_ctx = ctx
     desktop = get_desktop(ctx)
@@ -28,7 +29,7 @@ def setup_import_tool_tests(ctx):
 
 
 @teardown
-def teardown_import_tool_tests(ctx):
+def teardown_vectorize_uno_tests(ctx):
     global _test_doc, _test_ctx
     if _test_doc:
         _test_doc.close(True)
@@ -49,35 +50,45 @@ def _execute_tool(name, args):
 
 
 @native_test
-def test_convert_spreadsheet_to_python_basic():
+def test_convert_spreadsheet_to_python_vectorized():
     sheet = _test_doc.getCurrentController().getActiveSheet()
 
     # Populate grid
     sheet.getCellByPosition(0, 0).setValue(10)  # A1
     sheet.getCellByPosition(0, 1).setValue(20)  # A2
-    sheet.getCellByPosition(1, 0).setFormula("=A1+A2")  # B1
-    sheet.getCellByPosition(1, 1).setFormula("=SUM(A1:A2)")  # B2
+    sheet.getCellByPosition(0, 2).setValue(30)  # A3
+
+    sheet.getCellByPosition(1, 0).setFormula("=A1*2")  # B1
+    sheet.getCellByPosition(1, 1).setFormula("=A2*2")  # B2
+    sheet.getCellByPosition(1, 2).setFormula("=A3*2")  # B3
 
     res = _execute_tool(
         "convert_spreadsheet_to_python",
         {
             "scope": "sheet",
             "output_mode": "new_sheet",
-            "vectorize": False,
-            "verify": False,
+            "vectorize": True,
+            "verify": True,
         },
     )
 
     assert res.get("status") == "ok", f"Tool failed: {res}"
-    report = res.get("report", {})
-    assert len(report.get("converted", [])) >= 2, f"Expected conversion, got report: {report}"
+    assert not res.get("failed_verifications"), f"Verifications failed: {res.get('failed_verifications')}"
 
-    # Verify sheet PythonImport was created
     sheets = _test_doc.getSheets()
     assert sheets.hasByName("PythonImport")
     target_sheet = sheets.getByName("PythonImport")
 
-    # Check that formulas became =PY(...)
-    from plugin.calc.spreadsheet_import.extract import is_py_formula_text
-    assert is_py_formula_text(target_sheet.getCellByPosition(1, 0).getFormula())
-    assert is_py_formula_text(target_sheet.getCellByPosition(1, 1).getFormula())
+    # Verify values and formulas
+    assert target_sheet.getCellByPosition(1, 0).getValue() == 20.0
+    assert target_sheet.getCellByPosition(1, 1).getValue() == 40.0
+    assert target_sheet.getCellByPosition(1, 2).getValue() == 60.0
+
+    f1 = target_sheet.getCellByPosition(1, 0).getFormula()
+    f2 = target_sheet.getCellByPosition(1, 1).getFormula()
+    f3 = target_sheet.getCellByPosition(1, 2).getFormula()
+
+    assert "0" in f1 and "A1:A3" in f1
+    assert "1" in f2 and "A1:A3" in f2
+    assert "2" in f3 and "A1:A3" in f3
+

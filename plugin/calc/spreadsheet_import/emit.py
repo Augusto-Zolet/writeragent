@@ -12,7 +12,6 @@ from plugin.calc.spreadsheet_import.models import (
     ConversionReport,
     OutputCell,
     OutputSheetModel,
-    PyCellExtract,
     SheetModel,
     TodoCell,
 )
@@ -46,8 +45,10 @@ def build_converted_output_model(
     py_by_addr = {item.address: item for item in py_extracts}
 
     vector_groups = detect_vectorized_columns(model) if vectorize else {}
-    vector_handled_cells = set()
+    vector_handled_cells: dict[str, str] = {}
     array_formulas: dict[str, str] = {}
+
+    import re
 
     for first_addr, group in vector_groups.items():
         first_record = model.cells[first_addr]
@@ -62,18 +63,32 @@ def build_converted_output_model(
                 vec_range = vectorize_range(r1c1_range, first_addr, last_addr)
                 vectorized_data_ranges.append(vec_range)
 
-            array_formula = emit_py_formula(translation.code, vectorized_data_ranges)
-            array_formulas[f"{first_addr}:{last_addr}"] = array_formula
+            # Convert bare data references to np.asarray(data) to support element-wise operations
+            code = translation.code
+            if len(translation.data_ranges) == 1:
+                code = re.sub(r'(?<!np\.asarray\()\bdata\b', 'np.asarray(data)', code)
+            else:
+                for idx in range(len(translation.data_ranges)):
+                    code = re.sub(rf'(?<!np\.asarray\()\bdata\[{idx}\]\b', f'np.asarray(data[{idx}])', code)
 
-            # Mark all cells in this group as handled
-            for addr in group:
-                vector_handled_cells.add(addr)
+            # Strip float(...) wrapping since array formulas return vectors, not scalars
+            if code.startswith("float(") and code.endswith(")"):
+                code = code[6:-1]
+
+            for idx, addr in enumerate(group):
+                formula = emit_py_formula(code, vectorized_data_ranges + [str(idx)])
+                vector_handled_cells[addr] = formula
                 report.converted.append(addr)
 
     cells: dict[str, OutputCell] = {}
     for addr in sorted(model.cells):
         if addr in vector_handled_cells:
-            cells[addr] = OutputCell(address=addr, value=None, formula=None, number_format=None)
+            cells[addr] = OutputCell(
+                address=addr,
+                value=None,
+                formula=vector_handled_cells[addr],
+                number_format=None,
+            )
             continue
 
         record = model.cells[addr]

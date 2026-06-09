@@ -11,7 +11,7 @@ from typing import Any
 import unohelper
 from com.sun.star.awt import XActionListener
 
-from plugin.framework.uno_context import get_active_document, get_desktop
+from plugin.framework.uno_context import get_desktop
 from plugin.framework.i18n import _
 from plugin.chatbot.dialogs import (
     add_dialog_button,
@@ -96,27 +96,26 @@ def get_checkbox_state(ctrl: Any) -> bool:
 
 
 def fetch_actual_values(sheet: Any, addresses: list[str]) -> dict[str, Any]:
-    actual_values = {}
+    try:
+        from com.sun.star.table.CellContentType import EMPTY, VALUE, TEXT, FORMULA
+    except ImportError:
+        EMPTY, VALUE, TEXT, FORMULA = 0, 1, 2, 3  # type: ignore
+
+    actual_values: dict[str, Any] = {}
     for addr in addresses:
         try:
             col, row = parse_address(addr)
             cell = sheet.getCellByPosition(col, row)
             t = cell.getType()
+            log.debug("fetch_actual_values cell %s: type=%s, formula=%r, value=%r", addr, t, cell.getFormula(), cell.getValue())
 
-            import sys
-            CCT = sys.modules.get("com.sun.star.table", None)
-            if CCT is not None and hasattr(CCT, "CellContentType"):
-                CCT = CCT.CellContentType
-            else:
-                from com.sun.star.table import CellContentType as CCT
-
-            if t == CCT.EMPTY:
+            if t == EMPTY:
                 actual_values[addr] = None
-            elif t == CCT.VALUE:
+            elif t == VALUE:
                 actual_values[addr] = cell.getValue()
-            elif t == CCT.TEXT:
+            elif t == TEXT:
                 actual_values[addr] = cell.getString()
-            elif t == CCT.FORMULA:
+            elif t == FORMULA:
                 err = cell.getError()
                 if err != 0:
                     actual_values[addr] = f"Err:{err}"
@@ -128,7 +127,8 @@ def fetch_actual_values(sheet: Any, addresses: list[str]) -> dict[str, Any]:
                         actual_values[addr] = s
             else:
                 actual_values[addr] = cell.getValue()
-        except Exception:
+        except Exception as e:
+            log.exception("Exception in fetch_actual_values for address %s: %s", addr, e)
             actual_values[addr] = None
     return actual_values
 
