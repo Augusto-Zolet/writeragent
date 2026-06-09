@@ -1713,3 +1713,174 @@ def bitrshift(number: Any, shift: Any) -> float:
         return float(n >> s)
     except (ValueError, TypeError):
         return float("nan")
+
+
+def _to_complex(val: Any) -> complex:
+    """Convert Calc complex string (e.g. '1+2i') to Python complex."""
+    import builtins
+    if isinstance(val, (int, float, builtins.complex)):
+        return builtins.complex(val)
+    s = str(val).replace("i", "j").replace("I", "j").replace(" ", "")
+    try:
+        return builtins.complex(s)
+    except ValueError:
+        raise TypeError("Invalid complex string")
+
+
+def _from_complex(c: complex, suffix: str = "i") -> str:
+    """Convert Python complex to Calc string."""
+    import builtins
+    if not isinstance(c, builtins.complex):
+        return str(c)
+    real = c.real
+    imag = c.imag
+    if imag == 0:
+        return str(real)
+    
+    res = ""
+    if real != 0:
+        res += str(real)
+        if imag > 0:
+            res += "+"
+    
+    if imag == 1:
+        res += suffix
+    elif imag == -1:
+        res += "-" + suffix
+    else:
+        res += str(imag) + suffix
+    return res
+
+
+def complex(real_num: Any, imag_num: Any, suffix: Any = "i") -> str:
+    try:
+        import builtins
+        r = float(real_num)
+        i = float(imag_num)
+        s = str(suffix)
+        return _from_complex(builtins.complex(r, i), suffix=s)
+    except (ValueError, TypeError):
+        return "#VALUE!"
+
+
+def imabs(inumber: Any) -> float:
+    try:
+        return float(abs(_to_complex(inumber)))
+    except (ValueError, TypeError):
+        return float("nan")
+
+
+def imaginary(inumber: Any) -> float:
+    try:
+        return float(_to_complex(inumber).imag)
+    except (ValueError, TypeError):
+        return float("nan")
+
+
+def imargument(inumber: Any) -> float:
+    try:
+        import cmath
+        return float(cmath.phase(_to_complex(inumber)))
+    except (ValueError, TypeError):
+        return float("nan")
+
+
+def imconjugate(inumber: Any) -> str:
+    try:
+        c = _to_complex(inumber)
+        return _from_complex(c.conjugate())
+    except (ValueError, TypeError):
+        return "#VALUE!"
+
+
+def imcos(inumber: Any) -> str:
+    try:
+        import cmath
+        c = _to_complex(inumber)
+        return _from_complex(cmath.cos(c))
+    except (ValueError, TypeError):
+        return "#VALUE!"
+
+
+def imdiv(inumber1: Any, inumber2: Any) -> str:
+    try:
+        import builtins
+        c1 = _to_complex(inumber1)
+        c2 = _to_complex(inumber2)
+        return _from_complex(c1 / c2)
+    except (ValueError, TypeError, ZeroDivisionError):
+        return "#VALUE!"
+
+
+def imexp(inumber: Any) -> str:
+    try:
+        import cmath
+        c = _to_complex(inumber)
+        return _from_complex(cmath.exp(c))
+    except (ValueError, TypeError):
+        return "#VALUE!"
+
+
+def imln(inumber: Any) -> str:
+    try:
+        import cmath
+        c = _to_complex(inumber)
+        return _from_complex(cmath.log(c))
+    except (ValueError, TypeError):
+        return "#VALUE!"
+
+
+def imlog10(inumber: Any) -> str:
+    try:
+        import cmath
+        c = _to_complex(inumber)
+        return _from_complex(cmath.log10(c))
+    except (ValueError, TypeError):
+        return "#VALUE!"
+
+
+def imlog2(inumber: Any) -> str:
+    try:
+        import cmath
+        c = _to_complex(inumber)
+        return _from_complex(cmath.log(c, 2))
+    except (ValueError, TypeError):
+        return "#VALUE!"
+
+
+def impower(inumber: Any, number: Any) -> str:
+    try:
+        import builtins
+        c = _to_complex(inumber)
+        p = float(number)
+        return _from_complex(c ** p)
+    except (ValueError, TypeError):
+        return "#VALUE!"
+
+
+def improduct(*args: Any) -> str:
+    try:
+        import builtins
+        res = builtins.complex(1, 0)
+        for arg in args:
+            for v in np.asarray(arg).ravel():
+                res *= _to_complex(v)
+        return _from_complex(res)
+    except (ValueError, TypeError):
+        return "#VALUE!"
+
+
+def imreal(inumber: Any) -> float:
+    try:
+        return float(_to_complex(inumber).real)
+    except (ValueError, TypeError):
+        return float("nan")
+
+
+def imsin(inumber: Any) -> str:
+    try:
+        import cmath
+        c = _to_complex(inumber)
+        return _from_complex(cmath.sin(c))
+    except (ValueError, TypeError):
+        return "#VALUE!"

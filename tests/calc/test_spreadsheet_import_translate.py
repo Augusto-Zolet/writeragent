@@ -849,3 +849,78 @@ def test_translate_yet_more_functions():
     assert exec_result(res, []) == 1.0
 
 
+def test_translate_complex_functions():
+    # 1. COMPLEX
+    res = translate_formula('=COMPLEX(3; 4; "j")')
+    assert res.ok
+    assert exec_result(res, []) == "3.0+4.0j"
+
+    # 2-3. IMABS / IMAGINARY
+    res = translate_formula('=IMABS("3+4i")')
+    assert res.ok
+    assert exec_result(res, []) == 5.0
+
+    res = translate_formula('=IMAGINARY("3+4i")')
+    assert res.ok
+    assert exec_result(res, []) == 4.0
+
+    # 4-5. IMARGUMENT / IMCONJUGATE
+    res = translate_formula('=IMARGUMENT("0+1i")')
+    assert res.ok
+    assert abs(exec_result(res, []) - math.pi/2) < 1e-9
+
+    res = translate_formula('=IMCONJUGATE("3+4i")')
+    assert res.ok
+    assert exec_result(res, []) == "3.0-4.0i"
+
+    # 6-7. IMCOS / IMDIV
+    res = translate_formula('=IMCOS("1+1i")')
+    assert res.ok
+    # cos(1+i) is approx 0.83373 - 0.98889i
+    val = exec_result(res, [])
+    assert "0.83373" in val
+
+    res = translate_formula('=IMDIV("10+10i"; "2")')
+    assert res.ok
+    assert exec_result(res, []) == "5.0+5.0i"
+
+    # 8-10. IMEXP / IMLN / IMLOG10
+    res = translate_formula('=IMEXP("1i")')
+    assert res.ok
+    # exp(i) = cos(1) + i sin(1) approx 0.5403 + 0.84147i
+    assert "0.5403" in exec_result(res, [])
+
+    res = translate_formula('=IMLN("e")') # Note: "e" string depends on cmath/math
+    # Better: IMLN("2.718281828459045")
+    res = translate_formula('=IMLN("2.718281828459045")')
+    assert res.ok
+    assert abs(float(exec_result(res, [])) - 1.0) < 1e-9
+
+    res = translate_formula('=IMLOG10("100")')
+    assert res.ok
+    assert exec_result(res, []) == "2.0"
+
+    # 11-12. IMLOG2 / IMPOWER
+    res = translate_formula('=IMLOG2("8")')
+    assert res.ok
+    assert exec_result(res, []) == "3.0"
+
+    res = translate_formula('=IMPOWER("2"; 3)')
+    assert res.ok
+    assert exec_result(res, []) == "8.0"
+
+    # 13-15. IMPRODUCT / IMREAL / IMSIN
+    res = translate_formula('=IMPRODUCT("2+2i"; "2-2i")') # (2+2i)(2-2i) = 4 - 4i^2 = 8
+    assert res.ok
+    assert exec_result(res, []) == "8.0"
+
+    res = translate_formula('=IMREAL("3+4i")')
+    assert res.ok
+    assert exec_result(res, []) == 3.0
+
+    res = translate_formula('=IMSIN("1i")')
+    assert res.ok
+    # sin(i) = i sinh(1) approx 1.1752i
+    assert "1.1752" in exec_result(res, [])
+
+

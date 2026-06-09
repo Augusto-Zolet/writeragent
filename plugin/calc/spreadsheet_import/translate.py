@@ -336,6 +336,21 @@ _NO_FLOAT_WRAP_PREFIXES = (
     "xl.bitxor(",
     "xl.bitlshift(",
     "xl.bitrshift(",
+    "xl.complex(",
+    "xl.imabs(",
+    "xl.imaginary(",
+    "xl.imargument(",
+    "xl.imconjugate(",
+    "xl.imcos(",
+    "xl.imdiv(",
+    "xl.imexp(",
+    "xl.imln(",
+    "xl.imlog10(",
+    "xl.imlog2(",
+    "xl.impower(",
+    "xl.improduct(",
+    "xl.imreal(",
+    "xl.imsin(",
 )
 
 
@@ -612,6 +627,21 @@ _P1_FUNCTION_EMITTERS: dict[str, Callable[[list[str]], str]] = {
     "BITXOR": lambda a: f"xl.bitxor({a[0]}, {a[1]})",
     "BITLSHIFT": lambda a: f"xl.bitlshift({a[0]}, {a[1]})",
     "BITRSHIFT": lambda a: f"xl.bitrshift({a[0]}, {a[1]})",
+    "COMPLEX": lambda a: f"xl.complex({', '.join(a)})",
+    "IMABS": lambda a: f"xl.imabs({a[0]})",
+    "IMAGINARY": lambda a: f"xl.imaginary({a[0]})",
+    "IMARGUMENT": lambda a: f"xl.imargument({a[0]})",
+    "IMCONJUGATE": lambda a: f"xl.imconjugate({a[0]})",
+    "IMCOS": lambda a: f"xl.imcos({a[0]})",
+    "IMDIV": lambda a: f"xl.imdiv({a[0]}, {a[1]})",
+    "IMEXP": lambda a: f"xl.imexp({a[0]})",
+    "IMLN": lambda a: f"xl.imln({a[0]})",
+    "IMLOG10": lambda a: f"xl.imlog10({a[0]})",
+    "IMLOG2": lambda a: f"xl.imlog2({a[0]})",
+    "IMPOWER": lambda a: f"xl.impower({a[0]}, {a[1]})",
+    "IMPRODUCT": lambda a: f"xl.improduct({', '.join(a)})",
+    "IMREAL": lambda a: f"xl.imreal({a[0]})",
+    "IMSIN": lambda a: f"xl.imsin({a[0]})",
 }
 
 

@@ -560,7 +560,7 @@ Convention: `data` is the primary injected range; `data[n]` is multi-range varar
 
 Curated from [LibreOffice Functions by Category](https://help.libreoffice.org/latest/en-US/text/scalc/01/04060100.html), [Calc Guide 25.2 Ch.9](https://books.libreoffice.org/en/CG252/CG25209-FormulasAndFunctions.html), and [Microsoft–LibreOffice function comparison](https://wiki.documentfoundation.org/Documentation/Calc_Functions) (~508 LO built-ins total). **Status** reflects [`translate.py`](../plugin/calc/spreadsheet_import/translate.py) as of the Tier A/B/C/D port (157 shipped).
 
-**Inventory summary:** **220 / 374** functions in this master list are **Shipped** in [`translate.py`](../plugin/calc/spreadsheet_import/translate.py) (217 emitters including `ROW`/`COLUMN`/`IFS`/`SWITCH` handlers).
+**Inventory summary:** **235 / 374** functions in this master list are **Shipped** in [`translate.py`](../plugin/calc/spreadsheet_import/translate.py) (232 emitters including `ROW`/`COLUMN`/`IFS`/`SWITCH` handlers).
  LibreOffice Calc exposes **~508** built-ins ([Calc Guide 25.2 Ch.9](https://books.libreoffice.org/en/CG252/CG25209-FormulasAndFunctions.html), [Functions by Category](https://help.libreoffice.org/latest/en-US/text/scalc/01/04060100.html)); this curated list (~374) is the **conversion goal set** for business/statistical workbooks—not every locale alias (`*_ADD`, `*_EXCEL2003`) or extension-only symbol.
 
 | Status | Meaning |
@@ -976,7 +976,7 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `BITLSHIFT` | Shipped |
 | `BITRSHIFT` | Shipped |
 
-### Add-in / Analysis (4/37 shipped)
+### Add-in / Analysis (19/37 shipped)
 
 | Function | Status |
 |----------|--------|
@@ -984,33 +984,32 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `BESSELJ` | Not started |
 | `BESSELK` | Not started |
 | `BESSELY` | Not started |
-| `COMPLEX` | Not started |
+| `COMPLEX` | Shipped |
 | `DELTA` | Shipped |
 | `ERF` | Shipped |
 | `ERFC` | Shipped |
 | `EUROCONVERT` | Not started |
 | `GESTEP` | Shipped |
-
-| `IMABS` | Not started |
-| `IMAGINARY` | Not started |
-| `IMARGUMENT` | Not started |
-| `IMCONJUGATE` | Not started |
-| `IMCOS` | Not started |
+| `IMABS` | Shipped |
+| `IMAGINARY` | Shipped |
+| `IMARGUMENT` | Shipped |
+| `IMCONJUGATE` | Shipped |
+| `IMCOS` | Shipped |
+| `IMDIV` | Shipped |
+| `IMEXP` | Shipped |
+| `IMLN` | Shipped |
+| `IMLOG10` | Shipped |
+| `IMLOG2` | Shipped |
+| `IMPOWER` | Shipped |
+| `IMPRODUCT` | Shipped |
+| `IMREAL` | Shipped |
+| `IMSIN` | Shipped |
 | `IMCOSH` | Not started |
 | `IMCOT` | Not started |
 | `IMCSC` | Not started |
 | `IMCSCH` | Not started |
-| `IMDIV` | Not started |
-| `IMEXP` | Not started |
-| `IMLN` | Not started |
-| `IMLOG10` | Not started |
-| `IMLOG2` | Not started |
-| `IMPOWER` | Not started |
-| `IMPRODUCT` | Not started |
-| `IMREAL` | Not started |
 | `IMSEC` | Not started |
 | `IMSECH` | Not started |
-| `IMSIN` | Not started |
 | `IMSINH` | Not started |
 | `IMSQRT` | Not started |
 | `IMSUB` | Not started |
