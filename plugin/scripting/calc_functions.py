@@ -951,17 +951,17 @@ def db(cost: Any, salvage: Any, life: Any, period: Any, month: Any = 12) -> floa
     try:
         c = float(cost)
         s = float(salvage)
-        l = float(life)
+        life_val = float(life)
         p = int(float(period))
         m = int(float(month))
-        if c == 0 or l == 0: return 0.0
-        rate = round(1.0 - math.pow(s / c, 1.0 / l), 3)
+        if c == 0 or life_val == 0: return 0.0
+        rate = round(1.0 - math.pow(s / c, 1.0 / life_val), 3)
         val = c
         dep = 0.0
         for i in range(1, p + 1):
             if i == 1:
                 dep = val * rate * m / 12.0
-            elif i == l + 1:
+            elif i == life_val + 1:
                 dep = val * rate * (12 - m) / 12.0
             else:
                 dep = val * rate
@@ -974,10 +974,10 @@ def ddb(cost: Any, salvage: Any, life: Any, period: Any, factor: Any = 2) -> flo
     try:
         c = float(cost)
         s = float(salvage)
-        l = float(life)
+        life_val = float(life)
         p = int(float(period))
         f = float(factor)
-        rate = f / l
+        rate = f / life_val
         val = c
         dep = 0.0
         for i in range(1, p + 1):
@@ -2179,7 +2179,6 @@ def bitrshift(number: Any, shift: Any) -> float:
 
 def _to_complex(val: Any) -> complex:  # type: ignore
     """Convert Calc complex string (e.g. '1+2i') to Python complex."""
-    import builtins
     if isinstance(val, (int, float, builtins.complex)):
         return builtins.complex(val)
     s = str(val).replace("i", "j").replace("I", "j").replace(" ", "")
@@ -2191,7 +2190,6 @@ def _to_complex(val: Any) -> complex:  # type: ignore
 
 def _from_complex(c: complex, suffix: str = "i") -> str:  # type: ignore
     """Convert Python complex to Calc string."""
-    import builtins
     if not isinstance(c, builtins.complex):
         return str(c)
     real = c.real
@@ -2538,6 +2536,9 @@ def critbinom(trials: Any, prob: Any, alpha: Any) -> float:
         from scipy import stats
         return float(stats.binom.ppf(float(alpha), int(trials), float(prob)))
     except Exception:
+        return float("nan")
+
+
 def expondist(x: Any, lambda_: Any, c: Any = 1) -> float:
     try:
         import scipy.stats as st
@@ -2586,6 +2587,9 @@ def fisher(x: Any) -> float:
         if x_val <= -1 or x_val >= 1:
             return float("nan")
         return float(math.atanh(x_val))
+    except (ValueError, TypeError):
+        return float("nan")
+
 
 def norminv(prob: Any, mean: Any, stdev: Any) -> float:
     try:
@@ -2604,6 +2608,10 @@ def fisherinv(y: Any) -> float:
     try:
         import math
         return float(math.tanh(float(y)))
+    except (ValueError, TypeError):
+        return float("nan")
+
+
 def normsdist(z: Any) -> float:
     try:
         import scipy.stats
@@ -2619,6 +2627,10 @@ def gamma(x: Any) -> float:
         if x_val == 0 or (x_val < 0 and x_val.is_integer()):
             return float("nan")
         return float(math.gamma(x_val))
+    except (ValueError, TypeError):
+        return float("nan")
+
+
 def normsinv(prob: Any) -> float:
     try:
         p = float(prob)
@@ -2666,6 +2678,10 @@ def gammaln(x: Any) -> float:
         if x_val <= 0:
             return float("nan")
         return float(math.lgamma(x_val))
+    except (ValueError, TypeError):
+        return float("nan")
+
+
 def pearson(data1: Any, data2: Any) -> float:
     try:
         d1 = np.asarray(data1).ravel()
@@ -3149,7 +3165,7 @@ def textsplit(text: Any, col_delimiter: Any, row_delimiter: Any = None, ignore_e
     try:
         s = str(text)
         if match_mode == 1:
-            s_search = s.lower()
+            s = s.lower()
             if col_delimiter:
                 col_delimiter = str(col_delimiter).lower()
             if row_delimiter:
