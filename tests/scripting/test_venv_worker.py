@@ -807,9 +807,8 @@ def test_format_self_check_success_with_vision_group():
     assert "Vision Libraries" in msg
     assert "Present: docling, rapidocr, css_inline, paddleocr, paddle" in msg
     assert "Missing: ultralytics, skimage" in msg
-    assert "pip install ultralytics" in msg
-    assert "pip install scikit-image" in msg
-    assert "pip install docling" not in msg
+    assert "pip install" not in msg
+    assert "Helpers" not in msg
 
 
 def test_format_self_check_success_vision_install_hint():
@@ -832,8 +831,8 @@ def test_format_self_check_success_vision_install_hint():
         "vision": ["docling", "rapidocr", "paddleocr", "paddle", "ultralytics", "skimage"],
     }
     msg = _format_self_check_success(data)
-    assert "Vision Helpers (OCR, Docling): pip install docling rapidocr-paddle numpy pillow" in msg
-    assert "Vision Helpers (OCR, Paddle fallback): pip install paddleocr paddlepaddle numpy" in msg
+    assert "pip install" not in msg
+    assert "Helpers" not in msg
 
 
 def test_format_self_check_success_vision_install_hint_when_numpy_missing():
@@ -856,7 +855,8 @@ def test_format_self_check_success_vision_install_hint_when_numpy_missing():
         "vision": ["docling", "rapidocr", "paddleocr", "paddle", "ultralytics", "skimage"],
     }
     msg = _format_self_check_success(data)
-    assert "Vision Helpers (OCR, Docling): pip install docling rapidocr-paddle numpy pillow" in msg
+    assert "pip install" not in msg
+    assert "Helpers" not in msg
 
 
 def test_run_venv_self_check_includes_vision():
@@ -886,7 +886,8 @@ def test_run_venv_self_check_includes_vision():
         ok, msg = run_venv_self_check("/x/python", timeout=1.0)
     assert ok is True
     assert "Vision Libraries" in msg
-    assert "pip install docling rapidocr-paddle numpy pillow" in msg
+    assert "pip install" not in msg
+    assert "Helpers" not in msg
 
 
 def test_format_self_check_success_analysis_install_hint():
@@ -901,7 +902,8 @@ def test_format_self_check_success_analysis_install_hint():
         "vision": [],
     }
     msg = _format_self_check_success(data)
-    assert "Analysis Helpers: pip install numpy pandas scipy scikit-learn statsmodels ydata-profiling pandas-montecarlo" in msg
+    assert "pip install" not in msg
+    assert "Helpers" not in msg
 
 
 def test_format_self_check_success_no_analysis_hint_when_complete():
@@ -920,7 +922,8 @@ def test_format_self_check_success_no_analysis_hint_when_complete():
         "vision": [],
     }
     msg = _format_self_check_success(data)
-    assert "Analysis Helpers:" not in msg
+    assert "pip install" not in msg
+    assert "Helpers" not in msg
 
 
 # --- Subprocess spawn helper tests (relocated from test_subprocess_helpers.py) ---

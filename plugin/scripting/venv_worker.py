@@ -492,61 +492,16 @@ def _format_self_check_success(data: dict[str, Any]) -> str:
         msg_lines.extend(format_group("Scientific Libraries", sci_list))
     if eda_list:
         msg_lines.extend(format_group("Data Analysis / EDA Libraries", eda_list))
-        analysis_incomplete = any(packages.get(k) != "present" for k in eda_list)
-        if analysis_incomplete:
-            msg_lines.append(
-                _("\nAnalysis Helpers: %(cmd)s") % {"cmd": _ANALYSIS_INSTALL_CMD}
-            )
     if ui_list:
         msg_lines.extend(format_group("UI / Monaco Libraries", ui_list))
     if viz_list:
         msg_lines.extend(format_group(_("Visualization Libraries"), viz_list))
-        if any(packages.get(k) != "present" for k in viz_list):
-            msg_lines.append(_("\nViz Helpers: %(cmd)s") % {"cmd": _VIZ_INSTALL_CMD})
     if cas_list:
         msg_lines.extend(format_group(_("Computer Algebra"), cas_list))
-        if any(packages.get(k) != "present" for k in cas_list):
-            msg_lines.append(_("\nSymbolic Math Helpers: %(cmd)s") % {"cmd": _SYMBOLIC_INSTALL_CMD})
     if quant_list:
         msg_lines.extend(format_group(_("Quantitative Finance Libraries"), quant_list))
-        if any(packages.get(k) != "present" for k in quant_list):
-            msg_lines.append(_("\nQuant Helpers: %(cmd)s") % {"cmd": _QUANT_INSTALL_CMD})
     if vision_list:
         msg_lines.extend(format_group(_("Vision Libraries"), vision_list))
-        docling_import_error = packages.get("docling_import_error")
-        if docling_import_error and packages.get("docling") != "present":
-            msg_lines.append(
-                _("\nDocling OCR load failed: %(err)s") % {"err": docling_import_error}
-            )
-        docling_stack_incomplete = (
-            packages.get("docling") != "present"
-            or packages.get("numpy") != "present"
-            or packages.get("css_inline") != "present"
-        )
-        paddle_fallback_present = (
-            packages.get("paddleocr") == "present"
-            and packages.get("paddle") == "present"
-            and packages.get("numpy") == "present"
-        )
-        if docling_stack_incomplete and not paddle_fallback_present:
-            msg_lines.append(
-                _("\nVision Helpers (OCR, Docling): %(cmd)s") % {"cmd": _DOCLING_INSTALL_CMD}
-            )
-            msg_lines.append(
-                _("\nVision Helpers (OCR, Paddle fallback): %(cmd)s") % {"cmd": _VISION_PADDLE_FALLBACK_CMD}
-            )
-        elif docling_stack_incomplete and paddle_fallback_present:
-            msg_lines.append(
-                _("\nVision Helpers (Docling primary): %(cmd)s") % {"cmd": _DOCLING_INSTALL_CMD}
-            )
-        if packages.get("ultralytics") != "present":
-            msg_lines.append(
-                _("Optional (detection helpers): pip install ultralytics")
-            )
-        if packages.get("skimage") != "present":
-            msg_lines.append(
-                _("Optional (image processing in trusted helpers): pip install scikit-image")
-            )
 
     return "\n".join(msg_lines)
 
