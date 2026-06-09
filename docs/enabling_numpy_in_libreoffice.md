@@ -25,7 +25,7 @@ For a short executive summary, see [WriterAgent architecture — Scientific Pyth
 8. [Implementation status](#8-implementation-status)
 9. [Multi-Range Support (Varargs)](#9-multi-range-support-varargs)
 
-**Related:** [Venv subprocess IPC & NumPy serialization](numpy-serialization.md) (warm worker, protocol, wire formats, benchmarks) · [Jupyter notebook import](jupyter-notebook-import.md) · [Analysis Sub-Agent](analysis-sub-agent.md) (data discovery + trusted numpy/pandas execution) · [Scientific domain roadmap](#scientific-domain-roadmap-trusted-helpers) (Analysis, Vision, Viz, Symbolic shipped; Forecast, Text, Optimization, Geo, Audio planned) · [SageMath integration (deferred)](sagemath-integration-dev-plan.md)
+**Related:** [Venv subprocess IPC & NumPy serialization](numpy-serialization.md) (warm worker, protocol, wire formats, benchmarks) · [Jupyter notebook import](jupyter-notebook-import.md) · [Calc spreadsheet → Python import](calc-spreadsheet-to-python-import.md) (convert formulas to `=PY()` while preserving data — proposed) · [Analysis Sub-Agent](analysis-sub-agent.md) (data discovery + trusted numpy/pandas execution) · [Scientific domain roadmap](#scientific-domain-roadmap-trusted-helpers) (Analysis, Vision, Viz, Symbolic shipped; Forecast, Text, Optimization, Geo, Audio planned) · [SageMath integration (deferred)](sagemath-integration-dev-plan.md)
 
 ---
 
@@ -1309,6 +1309,10 @@ Backlog items inspired by Microsoft Python in Excel ([python-in-excel-ideas.md](
 ### Calc backlog from landscape survey
 
 Distilled from a survey of Google Sheets, Excel, Quadratic, Mito, Neptyne, and LibrePythonista. Items below are **not shipped**; shipped Calc/Python capabilities are in [§8](#8-implementation-status). Overlap with [Calc UX and output enhancements](#calc-ux-and-output-enhancements) and [python-in-excel-dev-plan.md](python-in-excel-dev-plan.md) is called out — do not plan twice.
+
+#### Spreadsheet → Python import (bulk formula conversion)
+
+Convert an open Calc sheet so **constants stay the same** and **formula cells become `=PY()`** (venv-backed), targeting ~90% automated coverage on typical business sheets. Full PM/dev plan: [calc-spreadsheet-to-python-import.md](calc-spreadsheet-to-python-import.md). **Touch:** new `plugin/calc/spreadsheet_import/`; reuse [`inspector.py`](../plugin/calc/inspector.py), [`python_formula_edit.py`](../plugin/calc/python_formula_edit.py).
 
 #### Range alignment for multi-range NumPy
 
