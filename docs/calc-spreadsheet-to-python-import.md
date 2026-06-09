@@ -560,7 +560,7 @@ Convention: `data` is the primary injected range; `data[n]` is multi-range varar
 
 Curated from [LibreOffice Functions by Category](https://help.libreoffice.org/latest/en-US/text/scalc/01/04060100.html), [Calc Guide 25.2 Ch.9](https://books.libreoffice.org/en/CG252/CG25209-FormulasAndFunctions.html), and [Microsoft–LibreOffice function comparison](https://wiki.documentfoundation.org/Documentation/Calc_Functions) (~508 LO built-ins total). **Status** reflects [`translate.py`](../plugin/calc/spreadsheet_import/translate.py) as of the Tier A/B/C/D port (157 shipped).
 
-**Inventory summary:** **204 / 374** functions in this master list are **Shipped** in [`translate.py`](../plugin/calc/spreadsheet_import/translate.py) (201 emitters including `ROW`/`COLUMN`/`IFS`/`SWITCH` handlers).
+**Inventory summary:** **220 / 374** functions in this master list are **Shipped** in [`translate.py`](../plugin/calc/spreadsheet_import/translate.py) (217 emitters including `ROW`/`COLUMN`/`IFS`/`SWITCH` handlers).
  LibreOffice Calc exposes **~508** built-ins ([Calc Guide 25.2 Ch.9](https://books.libreoffice.org/en/CG252/CG25209-FormulasAndFunctions.html), [Functions by Category](https://help.libreoffice.org/latest/en-US/text/scalc/01/04060100.html)); this curated list (~374) is the **conversion goal set** for business/statistical workbooks—not every locale alias (`*_ADD`, `*_EXCEL2003`) or extension-only symbol.
 
 | Status | Meaning |
@@ -780,7 +780,7 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `SIN` | Shipped |
 | `SINH` | Shipped |
 | `SQRT` | Shipped |
-| `SQRTPI` | Not started |
+| `SQRTPI` | Shipped |
 | `SUBTOTAL` | Shipped |
 | `SUM` | Shipped |
 | `SUMIF` | Shipped |
@@ -811,7 +811,7 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `TREND` | Planned (P3) |
 | `UNIQUE` | Shipped |
 
-### Statistical (31/83 shipped)
+### Statistical (37/83 shipped)
 
 | Function | Status |
 |----------|--------|
@@ -859,10 +859,10 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `LOGINV` | Not started |
 | `LOGNORMDIST` | Not started |
 | `MAX` | Shipped |
-| `MAXA` | Not started |
+| `MAXA` | Shipped |
 | `MEDIAN` | Shipped |
 | `MIN` | Shipped |
-| `MINA` | Not started |
+| `MINA` | Shipped |
 | `MODE` | Shipped |
 | `NEGBINOMDIST` | Not started |
 | `NORMDIST` | Not started |
@@ -883,9 +883,9 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `SMALL` | Shipped |
 | `STANDARDIZE` | Not started |
 | `STDEV` | Shipped |
-| `STDEVA` | Not started |
+| `STDEVA` | Shipped |
 | `STDEVP` | Shipped |
-| `STDEVPA` | Not started |
+| `STDEVPA` | Shipped |
 | `STEYX` | Shipped |
 | `TDIST` | Not started |
 | `TINV` | Not started |
@@ -893,9 +893,9 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `TRIMMEAN` | Shipped |
 | `TTEST` | Not started |
 | `VAR` | Shipped |
-| `VARA` | Not started |
+| `VARA` | Shipped |
 | `VARP` | Shipped |
-| `VARPA` | Not started |
+| `VARPA` | Shipped |
 | `WEIBULL` | Not started |
 | `ZTEST` | Not started |
 
@@ -966,7 +966,17 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `UPPER` | Shipped |
 | `VALUE` | Shipped |
 
-### Add-in / Analysis (0/37 shipped)
+### Bitwise (5/5 shipped)
+
+| Function | Status |
+|----------|--------|
+| `BITAND` | Shipped |
+| `BITOR` | Shipped |
+| `BITXOR` | Shipped |
+| `BITLSHIFT` | Shipped |
+| `BITRSHIFT` | Shipped |
+
+### Add-in / Analysis (4/37 shipped)
 
 | Function | Status |
 |----------|--------|
@@ -975,11 +985,12 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `BESSELK` | Not started |
 | `BESSELY` | Not started |
 | `COMPLEX` | Not started |
-| `DELTA` | Not started |
-| `ERF` | Not started |
-| `ERFC` | Not started |
+| `DELTA` | Shipped |
+| `ERF` | Shipped |
+| `ERFC` | Shipped |
 | `EUROCONVERT` | Not started |
-| `GESTEP` | Not started |
+| `GESTEP` | Shipped |
+
 | `IMABS` | Not started |
 | `IMAGINARY` | Not started |
 | `IMARGUMENT` | Not started |

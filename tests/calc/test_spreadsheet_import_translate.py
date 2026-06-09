@@ -774,3 +774,78 @@ def test_translate_15_more_more_functions():
     assert abs(exec_result(res, []) - 1.0) < 1e-9
 
 
+def test_translate_yet_more_functions():
+    # 1-4. Statistical A
+    res = translate_formula("=STDEVA(A1:A3)")
+    assert res.ok
+    # [1, 2, "x"] -> [1, 2, 0] -> std ddof=1 approx 1.0
+    assert abs(exec_result(res, [1.0, 2.0, "x"]) - 1.0) < 1e-9
+
+    res = translate_formula("=STDEVPA(A1:A3)")
+    assert res.ok
+    # [1, 2, 0] -> std ddof=0 approx 0.81649658
+    assert abs(exec_result(res, [1.0, 2.0, "x"]) - 0.81649658) < 1e-7
+
+    res = translate_formula("=VARA(A1:A3)")
+    assert res.ok
+    assert abs(exec_result(res, [1.0, 2.0, "x"]) - 1.0) < 1e-9
+
+    res = translate_formula("=VARPA(A1:A3)")
+    assert res.ok
+    assert abs(exec_result(res, [1.0, 2.0, "x"]) - 2/3.0) < 1e-9
+
+    # 5-6. MAXA/MINA
+    res = translate_formula("=MAXA(A1:A3)")
+    assert res.ok
+    assert exec_result(res, [-1.0, -2.0, "x"]) == 0.0  # "x" becomes 0.0
+
+    res = translate_formula("=MINA(A1:A3)")
+    assert res.ok
+    assert exec_result(res, [1.0, 2.0, True]) == 1.0  # TRUE becomes 1.0
+    assert exec_result(res, [1.0, 2.0, False]) == 0.0 # FALSE becomes 0.0
+
+    # 7-8. Error Functions
+    res = translate_formula("=ERF(0.5)")
+    assert res.ok
+    assert abs(exec_result(res, []) - 0.520499877) < 1e-7
+
+    res = translate_formula("=ERFC(0.5)")
+    assert res.ok
+    assert abs(exec_result(res, []) - 0.479500123) < 1e-7
+
+    # 9-10. Engineering
+    res = translate_formula("=DELTA(5; 5)")
+    assert res.ok
+    assert exec_result(res, []) == 1.0
+
+    res = translate_formula("=GESTEP(10; 5)")
+    assert res.ok
+    assert exec_result(res, []) == 1.0
+
+    # 11. SQRTPI
+    res = translate_formula("=SQRTPI(1)")
+    assert res.ok
+    assert abs(exec_result(res, []) - math.sqrt(math.pi)) < 1e-9
+
+    # 12-16. Bitwise
+    res = translate_formula("=BITAND(6; 3)") # 110 & 011 = 010 (2)
+    assert res.ok
+    assert exec_result(res, []) == 2.0
+
+    res = translate_formula("=BITOR(6; 3)") # 110 | 011 = 111 (7)
+    assert res.ok
+    assert exec_result(res, []) == 7.0
+
+    res = translate_formula("=BITXOR(6; 3)") # 110 ^ 011 = 101 (5)
+    assert res.ok
+    assert exec_result(res, []) == 5.0
+
+    res = translate_formula("=BITLSHIFT(1; 3)") # 1 << 3 = 8
+    assert res.ok
+    assert exec_result(res, []) == 8.0
+
+    res = translate_formula("=BITRSHIFT(8; 3)") # 8 >> 3 = 1
+    assert res.ok
+    assert exec_result(res, []) == 1.0
+
+

@@ -1556,3 +1556,160 @@ def sech(x: Any) -> float:
         return float(1.0 / math.cosh(float(x)))
     except (ValueError, TypeError, ZeroDivisionError):
         return float("nan")
+
+
+def _to_float_a(val: Any) -> float:
+    """Helper for *A functions (AVERAGEA, STDEVA, etc.)."""
+    if val is None or val == "":
+        return 0.0
+    if isinstance(val, bool):
+        return 1.0 if val else 0.0
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return 0.0
+
+
+def stdeva(*args: Any) -> float:
+    vals = []
+    for arg in args:
+        for v in np.asarray(arg).ravel():
+            vals.append(_to_float_a(v))
+    if len(vals) < 2:
+        return float("nan")
+    return float(np.std(vals, ddof=1))
+
+
+def stdevpa(*args: Any) -> float:
+    vals = []
+    for arg in args:
+        for v in np.asarray(arg).ravel():
+            vals.append(_to_float_a(v))
+    if not vals:
+        return float("nan")
+    return float(np.std(vals, ddof=0))
+
+
+def vara(*args: Any) -> float:
+    vals = []
+    for arg in args:
+        for v in np.asarray(arg).ravel():
+            vals.append(_to_float_a(v))
+    if len(vals) < 2:
+        return float("nan")
+    return float(np.var(vals, ddof=1))
+
+
+def varpa(*args: Any) -> float:
+    vals = []
+    for arg in args:
+        for v in np.asarray(arg).ravel():
+            vals.append(_to_float_a(v))
+    if not vals:
+        return float("nan")
+    return float(np.var(vals, ddof=0))
+
+
+def maxa(*args: Any) -> float:
+    vals = []
+    for arg in args:
+        for v in np.asarray(arg).ravel():
+            vals.append(_to_float_a(v))
+    if not vals:
+        return 0.0
+    return float(np.max(vals))
+
+
+def mina(*args: Any) -> float:
+    vals = []
+    for arg in args:
+        for v in np.asarray(arg).ravel():
+            vals.append(_to_float_a(v))
+    if not vals:
+        return 0.0
+    return float(np.min(vals))
+
+
+def erf(lower: Any, upper: Any | None = None) -> float:
+    try:
+        lo = float(lower)
+        if upper is None:
+            return float(math.erf(lo))
+        u = float(upper)
+        return float(math.erf(u) - math.erf(lo))
+    except (ValueError, TypeError):
+        return float("nan")
+
+
+def erfc(x: Any) -> float:
+    try:
+        return float(math.erfc(float(x)))
+    except (ValueError, TypeError):
+        return float("nan")
+
+
+def delta(n1: Any, n2: Any = 0) -> float:
+    try:
+        return 1.0 if float(n1) == float(n2) else 0.0
+    except (ValueError, TypeError):
+        return float("nan")
+
+
+def gestep(number: Any, step: Any = 0) -> float:
+    try:
+        return 1.0 if float(number) >= float(step) else 0.0
+    except (ValueError, TypeError):
+        return float("nan")
+
+
+def sqrtpi(number: Any) -> float:
+    try:
+        n = float(number)
+        if n < 0:
+            return float("nan")
+        return float(math.sqrt(n * math.pi))
+    except (ValueError, TypeError):
+        return float("nan")
+
+
+def bitand(n1: Any, n2: Any) -> float:
+    try:
+        return float(int(float(n1)) & int(float(n2)))
+    except (ValueError, TypeError):
+        return float("nan")
+
+
+def bitor(n1: Any, n2: Any) -> float:
+    try:
+        return float(int(float(n1)) | int(float(n2)))
+    except (ValueError, TypeError):
+        return float("nan")
+
+
+def bitxor(n1: Any, n2: Any) -> float:
+    try:
+        return float(int(float(n1)) ^ int(float(n2)))
+    except (ValueError, TypeError):
+        return float("nan")
+
+
+def bitlshift(number: Any, shift: Any) -> float:
+    try:
+        n = int(float(number))
+        s = int(float(shift))
+        if s < 0:
+            return float(n >> abs(s))
+        return float(n << s)
+    except (ValueError, TypeError):
+        return float("nan")
+
+
+def bitrshift(number: Any, shift: Any) -> float:
+    try:
+        n = int(float(number))
+        s = int(float(shift))
+        if s < 0:
+            return float(n << abs(s))
+        return float(n >> s)
+    except (ValueError, TypeError):
+        return float("nan")
