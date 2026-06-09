@@ -76,7 +76,12 @@ def sort_functions(file_path: Path):
     # Reconstruct the file with standard PEP 8 spacing (two blank lines between functions)
     result = header
     for block in sorted_blocks:
-        block_str = "".join(block).rstrip()
+        # Remove leading empty lines from each function block
+        start_idx = 0
+        while start_idx < len(block) and block[start_idx].strip() == "":
+            start_idx += 1
+        block_clean = block[start_idx:]
+        block_str = "".join(block_clean).rstrip()
         result += block_str + "\n\n\n"
 
     result = result.rstrip() + "\n"

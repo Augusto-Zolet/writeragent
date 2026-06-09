@@ -31,7 +31,6 @@ def _coup_days_in_period(frequency: Any, basis: Any) -> float:
     return 365.25 / f
 
 
-
 def _days_between(d1: float, d2: float, basis: int) -> float:
     # 0 = US (NASD) 30/360, 1 = Actual/Actual, 2 = Actual/360, 3 = Actual/365, 4 = EUR 30/360
     # For simplicity, we approximate basis 1 with actual days.
@@ -45,8 +44,6 @@ def _days_between(d1: float, d2: float, basis: int) -> float:
     except (ValueError, TypeError):
         return float("nan")
     return (dt2.year - dt1.year) * 360 + (dt2.month - dt1.month) * 30 + (dt2.day - dt1.day)
-
-
 
 
 def _eval_d_criteria(db: Any, field: Any, criteria: Any, as_float: bool = True) -> list[Any]:
@@ -106,8 +103,6 @@ def _eval_d_criteria(db: Any, field: Any, criteria: Any, as_float: bool = True) 
     return matching_vals
 
 
-
-
 def _from_complex(c: builtins.complex, suffix: str = "i") -> str:
     """Convert Python complex to Calc string."""
     if not isinstance(c, builtins.complex):
@@ -132,7 +127,6 @@ def _from_complex(c: builtins.complex, suffix: str = "i") -> str:
     return res
 
 
-
 def _get_coupon_dates(settlement: Any, maturity: Any, frequency: Any, basis: Any = 0) -> tuple[float, float, float]:
     from datetime import datetime
     def _to_ordinal(val: Any) -> int:
@@ -155,8 +149,6 @@ def _get_coupon_dates(settlement: Any, maturity: Any, frequency: Any, basis: Any
     return prev_ord, curr_ord, days_in_period
 
 
-
-
 def _to_complex(val: Any) -> builtins.complex:
     """Convert Calc complex string (e.g. '1+2i') to Python complex."""
     if isinstance(val, (int, float, builtins.complex)):
@@ -166,8 +158,6 @@ def _to_complex(val: Any) -> builtins.complex:
         return builtins.complex(s)
     except ValueError:
         raise TypeError("Invalid complex string")
-
-
 
 
 def _to_float_a(val: Any) -> float:
@@ -182,7 +172,6 @@ def _to_float_a(val: Any) -> float:
         return 0.0
 
 
-
 def _year_frac(d1: float, d2: float, basis: int) -> float:
     days = _days_between(d1, d2, basis)
     if basis == 2: return days / 360.0
@@ -190,11 +179,6 @@ def _year_frac(d1: float, d2: float, basis: int) -> float:
     if basis == 0 or basis == 4: return days / 360.0
     # basis 1 (Actual/Actual) is complex, approx as days/365.25
     return days / 365.25
-
-
-
-
-
 
 
 def accrint(issue: Any, first_interest: Any, settlement: Any, rate: Any, par: Any, frequency: Any, basis: Any = 0, calc_method: Any = True) -> float:
@@ -208,7 +192,6 @@ def accrint(issue: Any, first_interest: Any, settlement: Any, rate: Any, par: An
         return float("nan")
 
 
-
 def accrintm(issue: Any, settlement: Any, rate: Any, par: Any, basis: Any = 0) -> float:
     try:
         r = float(rate)
@@ -220,16 +203,12 @@ def accrintm(issue: Any, settlement: Any, rate: Any, par: Any, basis: Any = 0) -
         return float("nan")
 
 
-
-
 def acot(x: Any) -> float:
     try:
         xv = float(x)
         return float(math.pi / 2 - math.atan(xv))
     except (ValueError, TypeError):
         return float("nan")
-
-
 
 
 def acoth(x: Any) -> float:
@@ -240,8 +219,6 @@ def acoth(x: Any) -> float:
         return float(0.5 * math.log((xv + 1) / (xv - 1)))
     except (ValueError, TypeError, ZeroDivisionError):
         return float("nan")
-
-
 
 
 def address(row: Any, col: Any, abs_num: Any = 1, a1: Any = True, sheet: Any = None) -> str:
@@ -270,8 +247,6 @@ def address(row: Any, col: Any, abs_num: Any = 1, a1: Any = True, sheet: Any = N
     if sheet:
         res = f"'{str(sheet)}'!{res}"
     return res
-
-
 
 
 def aggregate(function_num: Any, options: Any, *args: Any) -> float:
@@ -310,7 +285,6 @@ def aggregate(function_num: Any, options: Any, *args: Any) -> float:
         return float("nan")
 
 
-
 def amordegrc(cost: Any, date_purchased: Any, first_period: Any, salvage: Any, period: Any, rate: Any, basis: Any = 0) -> float:
     try:
         cost_f = float(cost)
@@ -338,14 +312,11 @@ def amordegrc(cost: Any, date_purchased: Any, first_period: Any, salvage: Any, p
         return float("nan")
 
 
-
 def amorlinc(cost: Any, date_purchased: Any, first_period: Any, salvage: Any, period: Any, rate: Any, basis: Any = 0) -> float:
     try:
         return float(float(cost) * float(rate))
     except Exception:
         return float("nan")
-
-
 
 
 def arabic(text: Any) -> float:
@@ -362,12 +333,8 @@ def arabic(text: Any) -> float:
     return float(res)
 
 
-
-
 def areas(r: Any) -> float:
     return 1.0
-
-
 
 
 def asc(text: Any) -> str:
@@ -392,16 +359,12 @@ def asc(text: Any) -> str:
         return "#VALUE!"
 
 
-
-
 def avedev(r: Any) -> float:
     arr = np.asarray(r, dtype=float).ravel()
     arr = arr[~np.isnan(arr)]
     if not arr.size:
         return float("nan")
     return float(np.mean(np.abs(arr - np.mean(arr))))
-
-
 
 
 def averagea(r: Any) -> float:
@@ -419,8 +382,6 @@ def averagea(r: Any) -> float:
     return float(np.mean(vals))
 
 
-
-
 def averageif(r: Any, crit: Any, ar: Any | None = None) -> float:
     r_flat = np.asarray(r).ravel()
     ar_flat = np.asarray(ar).ravel() if ar is not None else r_flat
@@ -436,8 +397,6 @@ def averageif(r: Any, crit: Any, ar: Any | None = None) -> float:
     if not vals:
         return float("nan")
     return float(np.mean(vals))
-
-
 
 
 def averageifs(ar: Any, *args: Any) -> float:
@@ -466,7 +425,6 @@ def averageifs(ar: Any, *args: Any) -> float:
     return float(np.mean(vals))
 
 
-
 def bahttext(number: Any) -> str | float:
     try:
         val = float(number)
@@ -475,8 +433,6 @@ def bahttext(number: Any) -> str | float:
         return str(val) + " Baht"  # Simplified placeholder
     except (ValueError, TypeError):
         return float("nan")
-
-
 
 
 def base(number: Any, radix: Any, min_length: Any = 0) -> str:
@@ -498,7 +454,6 @@ def base(number: Any, radix: Any, min_length: Any = 0) -> str:
         return "NaN"
 
 
-
 def besseli(x: Any, n: Any) -> float:
     try:
         import scipy.special
@@ -509,7 +464,6 @@ def besseli(x: Any, n: Any) -> float:
         return float(scipy.special.iv(v2, v1))
     except Exception:
         return float("nan")
-
 
 
 def besselj(x: Any, n: Any) -> float:
@@ -524,8 +478,6 @@ def besselj(x: Any, n: Any) -> float:
         return float("nan")
 
 
-
-
 def besselk(x: Any, n: Any) -> float:
     try:
         from scipy.special import kn
@@ -538,8 +490,6 @@ def besselk(x: Any, n: Any) -> float:
         return float("nan")
 
 
-
-
 def bessely(x: Any, n: Any) -> float:
     try:
         from scipy.special import yn
@@ -550,7 +500,6 @@ def bessely(x: Any, n: Any) -> float:
         return float(yn(nv, xv))
     except Exception:
         return float("nan")
-
 
 
 def betadist(*args: Any) -> float:
@@ -578,7 +527,6 @@ def betadist(*args: Any) -> float:
         return float("nan")
 
 
-
 def betainv(*args: Any) -> float:
     try:
         from scipy import stats
@@ -597,7 +545,6 @@ def betainv(*args: Any) -> float:
         return float("nan")
 
 
-
 def binomdist(*args: Any) -> float:
     try:
         from scipy import stats
@@ -613,15 +560,11 @@ def binomdist(*args: Any) -> float:
         return float("nan")
 
 
-
-
 def bitand(n1: Any, n2: Any) -> float:
     try:
         return float(int(float(n1)) & int(float(n2)))
     except (ValueError, TypeError):
         return float("nan")
-
-
 
 
 def bitlshift(number: Any, shift: Any) -> float:
@@ -635,15 +578,11 @@ def bitlshift(number: Any, shift: Any) -> float:
         return float("nan")
 
 
-
-
 def bitor(n1: Any, n2: Any) -> float:
     try:
         return float(int(float(n1)) | int(float(n2)))
     except (ValueError, TypeError):
         return float("nan")
-
-
 
 
 def bitrshift(number: Any, shift: Any) -> float:
@@ -657,8 +596,6 @@ def bitrshift(number: Any, shift: Any) -> float:
         return float("nan")
 
 
-
-
 def bitxor(n1: Any, n2: Any) -> float:
     try:
         return float(int(float(n1)) ^ int(float(n2)))
@@ -666,14 +603,11 @@ def bitxor(n1: Any, n2: Any) -> float:
         return float("nan")
 
 
-
-
 def char(n: Any) -> str:
     try:
         return chr(int(float(n)))
     except (ValueError, TypeError):
         return ""
-
 
 
 def chidist(x: Any, df: Any) -> float:
@@ -684,15 +618,12 @@ def chidist(x: Any, df: Any) -> float:
         return float("nan")
 
 
-
 def chiinv(p: Any, df: Any) -> float:
     try:
         from scipy import stats
         return float(stats.chi2.isf(float(p), int(df)))
     except Exception:
         return float("nan")
-
-
 
 
 def choose(index: Any, *args: Any) -> Any:
@@ -703,7 +634,6 @@ def choose(index: Any, *args: Any) -> Any:
     except (ValueError, TypeError):
         pass
     return None
-
 
 
 def clean(text: Any) -> str | float:
@@ -718,8 +648,6 @@ def clean(text: Any) -> str | float:
         return float("nan")
 
 
-
-
 def code(s: Any) -> float:
     try:
         ss = str(s)
@@ -728,15 +656,11 @@ def code(s: Any) -> float:
         return float("nan")
 
 
-
-
 def combin(n: Any, k: Any) -> float:
     try:
         return float(math.comb(int(float(n)), int(float(k))))
     except (ValueError, TypeError):
         return float("nan")
-
-
 
 
 def combina(n: Any, k: Any) -> float:
@@ -750,8 +674,6 @@ def combina(n: Any, k: Any) -> float:
         return float("nan")
 
 
-
-
 def complex(real_num: Any, imag_num: Any, suffix: Any = "i") -> str:
     try:
         import builtins
@@ -763,7 +685,6 @@ def complex(real_num: Any, imag_num: Any, suffix: Any = "i") -> str:
         return "#VALUE!"
 
 
-
 def confidence(alpha: Any, stddev: Any, size: Any) -> float:
     try:
         from scipy import stats
@@ -773,15 +694,11 @@ def confidence(alpha: Any, stddev: Any, size: Any) -> float:
         return float("nan")
 
 
-
-
 def cot(x: Any) -> float:
     try:
         return float(1.0 / math.tan(float(x)))
     except (ValueError, TypeError, ZeroDivisionError):
         return float("nan")
-
-
 
 
 def coth(x: Any) -> float:
@@ -791,8 +708,6 @@ def coth(x: Any) -> float:
         return float("nan")
 
 
-
-
 def countif(r: Any, crit: Any) -> float:
     r_flat = np.asarray(r).ravel()
     cnt = 0
@@ -800,8 +715,6 @@ def countif(r: Any, crit: Any) -> float:
         if match_criteria(val, crit):
             cnt += 1
     return float(cnt)
-
-
 
 
 def countifs(*args: Any) -> float:
@@ -825,7 +738,6 @@ def countifs(*args: Any) -> float:
     return float(cnt)
 
 
-
 def coupdaybs(settlement: Any, maturity: Any, frequency: Any, basis: Any = 0) -> float:
     try:
         prev_ord, curr_ord, days_in_period = _get_coupon_dates(settlement, maturity, frequency, basis)
@@ -840,13 +752,11 @@ def coupdaybs(settlement: Any, maturity: Any, frequency: Any, basis: Any = 0) ->
         return float("nan")
 
 
-
 def coupdays(settlement: Any, maturity: Any, frequency: Any, basis: Any = 0) -> float:
     try:
         return float(_coup_days_in_period(frequency, basis))
     except Exception:
         return float("nan")
-
 
 
 def coupdaysnc(settlement: Any, maturity: Any, frequency: Any, basis: Any = 0) -> float:
@@ -863,7 +773,6 @@ def coupdaysnc(settlement: Any, maturity: Any, frequency: Any, basis: Any = 0) -
         return float("nan")
 
 
-
 def coupncd(settlement: Any, maturity: Any, frequency: Any, basis: Any = 0) -> float:
     try:
         prev_ord, curr_ord, days_in_period = _get_coupon_dates(settlement, maturity, frequency, basis)
@@ -871,7 +780,6 @@ def coupncd(settlement: Any, maturity: Any, frequency: Any, basis: Any = 0) -> f
         return float(curr_ord - 693594)
     except Exception:
         return float("nan")
-
 
 
 def coupnum(settlement: Any, maturity: Any, frequency: Any, basis: Any = 0) -> float:
@@ -883,7 +791,6 @@ def coupnum(settlement: Any, maturity: Any, frequency: Any, basis: Any = 0) -> f
         return float("nan")
 
 
-
 def couppcd(settlement: Any, maturity: Any, frequency: Any, basis: Any = 0) -> float:
     try:
         prev_ord, curr_ord, days_in_period = _get_coupon_dates(settlement, maturity, frequency, basis)
@@ -891,7 +798,6 @@ def couppcd(settlement: Any, maturity: Any, frequency: Any, basis: Any = 0) -> f
         return float(prev_ord - 693594)
     except Exception:
         return float("nan")
-
 
 
 def critbinom(trials: Any, prob: Any, alpha: Any) -> float:
@@ -902,8 +808,6 @@ def critbinom(trials: Any, prob: Any, alpha: Any) -> float:
         return float("nan")
 
 
-
-
 def csc(x: Any) -> float:
     try:
         return float(1.0 / math.sin(float(x)))
@@ -911,14 +815,11 @@ def csc(x: Any) -> float:
         return float("nan")
 
 
-
-
 def csch(x: Any) -> float:
     try:
         return float(1.0 / math.sinh(float(x)))
     except (ValueError, TypeError, ZeroDivisionError):
         return float("nan")
-
 
 
 def cumipmt(rate: Any, nper: Any, pv: Any, start_period: Any, end_period: Any, type_val: Any) -> float:
@@ -953,7 +854,6 @@ def cumipmt(rate: Any, nper: Any, pv: Any, start_period: Any, end_period: Any, t
         return float(tot_i)
     except Exception:
         return float("nan")
-
 
 
 def cumprinc(rate: Any, nper: Any, pv: Any, start_period: Any, end_period: Any, type_val: Any) -> float:
@@ -991,8 +891,6 @@ def cumprinc(rate: Any, nper: Any, pv: Any, start_period: Any, end_period: Any, 
         return float("nan")
 
 
-
-
 def datedif(start_date: Any, end_date: Any, unit: str = "D") -> float:
     try:
         sd = datetime.date.fromordinal(int(float(start_date)) + 693594)
@@ -1017,8 +915,6 @@ def datedif(start_date: Any, end_date: Any, unit: str = "D") -> float:
     return float((ed - sd).days)
 
 
-
-
 def datevalue(text: Any) -> float:
     s = str(text).strip().strip('"')
     for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y", "%Y/%m/%d", "%d-%b-%Y"):
@@ -1030,13 +926,9 @@ def datevalue(text: Any) -> float:
     return float("nan")
 
 
-
-
 def daverage(db: Any, field: Any, criteria: Any) -> float:
     vals = _eval_d_criteria(db, field, criteria)
     return float(np.mean(vals)) if vals else float("nan")
-
-
 
 
 def days(end_date: Any, start_date: Any) -> float:
@@ -1046,8 +938,6 @@ def days(end_date: Any, start_date: Any) -> float:
         return float(ed - sd)
     except (ValueError, TypeError):
         return float("nan")
-
-
 
 
 def days360(start_date: Any, end_date: Any, method: Any = False) -> float:
@@ -1074,7 +964,6 @@ def days360(start_date: Any, end_date: Any, method: Any = False) -> float:
     return float((y2 - y1) * 360 + (m2 - m1) * 30 + (d2 - d1))
 
 
-
 def db(cost: Any, salvage: Any, life: Any, period: Any, month: Any = 12) -> float:
     try:
         c = float(cost)
@@ -1099,19 +988,14 @@ def db(cost: Any, salvage: Any, life: Any, period: Any, month: Any = 12) -> floa
         return float("nan")
 
 
-
-
 def dcount(db: Any, field: Any, criteria: Any) -> float:
     vals = _eval_d_criteria(db, field, criteria)
     return float(len(vals))
 
 
-
-
 def dcounta(db: Any, field: Any, criteria: Any) -> float:
     vals = _eval_d_criteria(db, field, criteria, as_float=False)
     return float(sum(1 for v in vals if v is not None and v != ""))
-
 
 
 def ddb(cost: Any, salvage: Any, life: Any, period: Any, factor: Any = 2) -> float:
@@ -1133,8 +1017,6 @@ def ddb(cost: Any, salvage: Any, life: Any, period: Any, factor: Any = 2) -> flo
         return float("nan")
 
 
-
-
 def decimal(text: Any, radix: Any) -> float:
     try:
         r = int(float(radix))
@@ -1145,15 +1027,11 @@ def decimal(text: Any, radix: Any) -> float:
         return float("nan")
 
 
-
-
 def delta(n1: Any, n2: Any = 0) -> float:
     try:
         return 1.0 if float(n1) == float(n2) else 0.0
     except (ValueError, TypeError):
         return float("nan")
-
-
 
 
 def devsq(*args: Any) -> float:
@@ -1170,14 +1048,11 @@ def devsq(*args: Any) -> float:
     return float(np.sum((arr - np.mean(arr)) ** 2))
 
 
-
-
 def dget(db: Any, field: Any, criteria: Any) -> Any:
     vals = _eval_d_criteria(db, field, criteria, as_float=False)
     if len(vals) == 1:
         return vals[0]
     return "#NUM!" if len(vals) > 1 else "#VALUE!"
-
 
 
 def disc(settlement: Any, maturity: Any, pr: Any, redemption: Any, basis: Any = 0) -> float:
@@ -1191,19 +1066,14 @@ def disc(settlement: Any, maturity: Any, pr: Any, redemption: Any, basis: Any = 
         return float("nan")
 
 
-
-
 def dmax(db: Any, field: Any, criteria: Any) -> float:
     vals = _eval_d_criteria(db, field, criteria)
     return float(np.max(vals)) if vals else float("nan")
 
 
-
-
 def dmin(db: Any, field: Any, criteria: Any) -> float:
     vals = _eval_d_criteria(db, field, criteria)
     return float(np.min(vals)) if vals else float("nan")
-
 
 
 def dollar(number: Any, decimals: Any = 2) -> str | float:
@@ -1245,7 +1115,6 @@ def dollarde(fractional_dollar: Any, fraction: Any) -> float:
     return sign * (i_part + (f_part * (10 ** power)) / f)
 
 
-
 def dollarfr(decimal_dollar: Any, fraction: Any) -> float:
     try:
         dd = float(decimal_dollar)
@@ -1266,13 +1135,9 @@ def dollarfr(decimal_dollar: Any, fraction: Any) -> float:
     return sign * (i_part + (f_part * f) / (10 ** power))
 
 
-
-
 def dproduct(db: Any, field: Any, criteria: Any) -> float:
     vals = _eval_d_criteria(db, field, criteria)
     return float(np.prod(vals)) if vals else 0.0
-
-
 
 
 def dstdev(db: Any, field: Any, criteria: Any) -> float:
@@ -1280,19 +1145,14 @@ def dstdev(db: Any, field: Any, criteria: Any) -> float:
     return float(np.std(vals, ddof=1)) if len(vals) > 1 else float("nan")
 
 
-
-
 def dstdevp(db: Any, field: Any, criteria: Any) -> float:
     vals = _eval_d_criteria(db, field, criteria)
     return float(np.std(vals, ddof=0)) if vals else float("nan")
 
 
-
-
 def dsum(db: Any, field: Any, criteria: Any) -> float:
     vals = _eval_d_criteria(db, field, criteria)
     return float(np.sum(vals))
-
 
 
 def duration(settlement: Any, maturity: Any, coupon: Any, yld: Any, frequency: Any, basis: Any = 0) -> float:
@@ -1334,20 +1194,14 @@ def duration(settlement: Any, maturity: Any, coupon: Any, yld: Any, frequency: A
     return macd
 
 
-
-
 def dvar(db: Any, field: Any, criteria: Any) -> float:
     vals = _eval_d_criteria(db, field, criteria)
     return float(np.var(vals, ddof=1)) if len(vals) > 1 else float("nan")
 
 
-
-
 def dvarp(db: Any, field: Any, criteria: Any) -> float:
     vals = _eval_d_criteria(db, field, criteria)
     return float(np.var(vals, ddof=0)) if vals else float("nan")
-
-
 
 
 def edate(start_date: Any, months: Any) -> float:
@@ -1366,7 +1220,6 @@ def edate(start_date: Any, months: Any) -> float:
     return float(datetime.date(y, m, d).toordinal() - 693594)
 
 
-
 def effect(nominal_rate: Any, npery: Any) -> float:
     try:
         nr = float(nominal_rate)
@@ -1378,15 +1231,12 @@ def effect(nominal_rate: Any, npery: Any) -> float:
     return (1 + nr / np) ** np - 1
 
 
-
 def encodeurl(text: Any) -> str | float:
     try:
         import urllib.parse
         return urllib.parse.quote(str(text), safe='')
     except (ValueError, TypeError):
         return float("nan")
-
-
 
 
 def eomonth(start_date: Any, months: Any) -> float:
@@ -1406,8 +1256,6 @@ def eomonth(start_date: Any, months: Any) -> float:
     return float(last_day.toordinal() - 693594)
 
 
-
-
 def erf(lower: Any, upper: Any | None = None) -> float:
     try:
         lo = float(lower)
@@ -1419,15 +1267,11 @@ def erf(lower: Any, upper: Any | None = None) -> float:
         return float("nan")
 
 
-
-
 def erfc(x: Any) -> float:
     try:
         return float(math.erfc(float(x)))
     except (ValueError, TypeError):
         return float("nan")
-
-
 
 
 def euroconvert(value: Any, from_currency: Any, to_currency: Any, full_precision: Any = False, triangulation_precision: Any = None) -> float:
@@ -1515,16 +1359,12 @@ def euroconvert(value: Any, from_currency: Any, to_currency: Any, full_precision
     return float(res)
 
 
-
-
 def even(n: Any) -> float:
     v = float(n)
     i = int(np.trunc(v))
     if i % 2 == 0:
         return float(i)
     return float(i + (1 if v >= 0 else -1))
-
-
 
 
 def expondist(x: Any, lambda_: Any, c: Any = 1) -> float:
@@ -1542,8 +1382,6 @@ def expondist(x: Any, lambda_: Any, c: Any = 1) -> float:
         return float("nan")
 
 
-
-
 def fact(n: Any) -> float:
     try:
         v = float(n)
@@ -1552,8 +1390,6 @@ def fact(n: Any) -> float:
         return float(math.factorial(int(v)))
     except (ValueError, TypeError, OverflowError):
         return float("nan")
-
-
 
 
 def factdouble(n: Any) -> float:
@@ -1569,8 +1405,6 @@ def factdouble(n: Any) -> float:
         return float("nan")
 
 
-
-
 def fdist(x: Any, r1: Any, r2: Any) -> float:
     try:
         import scipy.stats as st
@@ -1582,8 +1416,6 @@ def fdist(x: Any, r1: Any, r2: Any) -> float:
         return float(st.f.sf(x_val, df1, df2)) # Calc returns right-tailed by default for FDIST
     except (ValueError, TypeError, ImportError):
         return float("nan")
-
-
 
 
 def filter(range_arr: Any, criteria: Any, if_empty: Any | None = None) -> Any:
@@ -1604,8 +1436,6 @@ def filter(range_arr: Any, criteria: Any, if_empty: Any | None = None) -> Any:
     return out.tolist() if out.ndim > 1 else out.ravel().tolist()
 
 
-
-
 def finv(p: Any, r1: Any, r2: Any) -> float:
     try:
         import scipy.stats as st
@@ -1619,8 +1449,6 @@ def finv(p: Any, r1: Any, r2: Any) -> float:
         return float("nan")
 
 
-
-
 def fisher(x: Any) -> float:
     try:
         import math
@@ -1632,15 +1460,12 @@ def fisher(x: Any) -> float:
         return float("nan")
 
 
-
-
 def fisherinv(y: Any) -> float:
     try:
         import math
         return float(math.tanh(float(y)))
     except (ValueError, TypeError):
         return float("nan")
-
 
 
 def fixed(number: Any, decimals: Any = 2, no_commas: Any = False) -> str | float:
@@ -1657,8 +1482,6 @@ def fixed(number: Any, decimals: Any = 2, no_commas: Any = False) -> str | float
         return float("nan")
 
 
-
-
 def forecast(x: Any, data_y: Any, data_x: Any) -> float:
     xv = float(x)
     y = np.asarray(data_y, dtype=float).ravel()
@@ -1673,8 +1496,6 @@ def forecast(x: Any, data_y: Any, data_x: Any) -> float:
     b = np.sum((x_arr - avg_x) * (y - avg_y)) / ss_xx
     a = avg_y - b * avg_x
     return float(a + b * xv)
-
-
 
 
 def frequency(data: Any, bins: Any) -> Any:
@@ -1695,8 +1516,6 @@ def frequency(data: Any, bins: Any) -> Any:
         return []
 
 
-
-
 def fv(rate: Any, nper: Any, pmt_val: Any, pv_val: Any = 0, type_val: Any = 0) -> float:
     r = float(rate)
     n = float(nper)
@@ -1709,7 +1528,6 @@ def fv(rate: Any, nper: Any, pmt_val: Any, pv_val: Any = 0, type_val: Any = 0) -
     if t == 1:
         return float(-(p * factor + pm * (factor - 1) * (1 + r) / r))
     return float(-(p * factor + pm * (factor - 1) / r))
-
 
 
 def fvschedule(principal: Any, schedule: Any) -> float:
@@ -1726,8 +1544,6 @@ def fvschedule(principal: Any, schedule: Any) -> float:
     return p
 
 
-
-
 def gamma(x: Any) -> float:
     try:
         import math
@@ -1737,8 +1553,6 @@ def gamma(x: Any) -> float:
         return float(math.gamma(x_val))
     except (ValueError, TypeError):
         return float("nan")
-
-
 
 
 def gammadist(x: Any, alpha: Any, beta: Any, c: Any = 1) -> float:
@@ -1757,8 +1571,6 @@ def gammadist(x: Any, alpha: Any, beta: Any, c: Any = 1) -> float:
         return float("nan")
 
 
-
-
 def gammainv(p: Any, alpha: Any, beta: Any) -> float:
     try:
         import scipy.stats as st
@@ -1772,8 +1584,6 @@ def gammainv(p: Any, alpha: Any, beta: Any) -> float:
         return float("nan")
 
 
-
-
 def gammaln(x: Any) -> float:
     try:
         import math
@@ -1785,16 +1595,12 @@ def gammaln(x: Any) -> float:
         return float("nan")
 
 
-
-
 def gauss(x: Any) -> float:
     try:
         import scipy.stats as st
         return float(st.norm.cdf(float(x)) - 0.5)
     except (ValueError, TypeError, ImportError):
         return float("nan")
-
-
 
 
 def geomean(r: Any) -> float:
@@ -1805,15 +1611,11 @@ def geomean(r: Any) -> float:
     return float(np.exp(np.mean(np.log(arr))))
 
 
-
-
 def gestep(number: Any, step: Any = 0) -> float:
     try:
         return 1.0 if float(number) >= float(step) else 0.0
     except (ValueError, TypeError):
         return float("nan")
-
-
 
 
 def growth(known_y: Any, known_x: Any = None, new_x: Any = None, const: Any = True) -> Any:
@@ -1840,16 +1642,12 @@ def growth(known_y: Any, known_x: Any = None, new_x: Any = None, const: Any = Tr
         return []
 
 
-
-
 def harmean(r: Any) -> float:
     arr = np.asarray(r, dtype=float).ravel()
     arr = arr[~np.isnan(arr)]
     if not arr.size or np.any(arr <= 0):
         return float("nan")
     return float(len(arr) / np.sum(1.0 / arr))
-
-
 
 
 def hypgeomdist(x: Any, n_sample: Any, successes: Any, n_pop: Any) -> float:
@@ -1876,8 +1674,6 @@ def iferror(f: Callable[[], Any], alt: Any) -> Any:
         return alt
 
 
-
-
 def ifna(f: Callable[[], Any], alt: Any) -> Any:
     try:
         val = f()
@@ -1888,8 +1684,6 @@ def ifna(f: Callable[[], Any], alt: Any) -> Any:
         return alt
 
 
-
-
 def imabs(inumber: Any) -> float:
     try:
         return float(abs(_to_complex(inumber)))
@@ -1897,15 +1691,11 @@ def imabs(inumber: Any) -> float:
         return float("nan")
 
 
-
-
 def imaginary(inumber: Any) -> float:
     try:
         return float(_to_complex(inumber).imag)
     except (ValueError, TypeError):
         return float("nan")
-
-
 
 
 def imargument(inumber: Any) -> float:
@@ -1916,16 +1706,12 @@ def imargument(inumber: Any) -> float:
         return float("nan")
 
 
-
-
 def imconjugate(inumber: Any) -> str:
     try:
         c = _to_complex(inumber)
         return _from_complex(c.conjugate())
     except (ValueError, TypeError):
         return "#VALUE!"
-
-
 
 
 def imcos(inumber: Any) -> str:
@@ -1937,8 +1723,6 @@ def imcos(inumber: Any) -> str:
         return "#VALUE!"
 
 
-
-
 def imcosh(inumber: Any) -> str:
     try:
         import cmath
@@ -1946,8 +1730,6 @@ def imcosh(inumber: Any) -> str:
         return _from_complex(cmath.cosh(c))
     except (ValueError, TypeError):
         return "#VALUE!"
-
-
 
 
 def imcot(inumber: Any) -> str:
@@ -1959,8 +1741,6 @@ def imcot(inumber: Any) -> str:
         return "#VALUE!"
 
 
-
-
 def imcsc(inumber: Any) -> str:
     try:
         import cmath
@@ -1968,8 +1748,6 @@ def imcsc(inumber: Any) -> str:
         return _from_complex(1.0 / cmath.sin(c))
     except (ValueError, TypeError, ZeroDivisionError):
         return "#VALUE!"
-
-
 
 
 def imcsch(inumber: Any) -> str:
@@ -1981,8 +1759,6 @@ def imcsch(inumber: Any) -> str:
         return "#VALUE!"
 
 
-
-
 def imdiv(inumber1: Any, inumber2: Any) -> str:
     try:
         c1 = _to_complex(inumber1)
@@ -1990,8 +1766,6 @@ def imdiv(inumber1: Any, inumber2: Any) -> str:
         return _from_complex(c1 / c2)
     except (ValueError, TypeError, ZeroDivisionError):
         return "#VALUE!"
-
-
 
 
 def imexp(inumber: Any) -> str:
@@ -2003,8 +1777,6 @@ def imexp(inumber: Any) -> str:
         return "#VALUE!"
 
 
-
-
 def imln(inumber: Any) -> str:
     try:
         import cmath
@@ -2012,8 +1784,6 @@ def imln(inumber: Any) -> str:
         return _from_complex(cmath.log(c))
     except (ValueError, TypeError):
         return "#VALUE!"
-
-
 
 
 def imlog10(inumber: Any) -> str:
@@ -2025,8 +1795,6 @@ def imlog10(inumber: Any) -> str:
         return "#VALUE!"
 
 
-
-
 def imlog2(inumber: Any) -> str:
     try:
         import cmath
@@ -2036,8 +1804,6 @@ def imlog2(inumber: Any) -> str:
         return "#VALUE!"
 
 
-
-
 def impower(inumber: Any, number: Any) -> str:
     try:
         c = _to_complex(inumber)
@@ -2045,8 +1811,6 @@ def impower(inumber: Any, number: Any) -> str:
         return _from_complex(c ** p)
     except (ValueError, TypeError):
         return "#VALUE!"
-
-
 
 
 def improduct(*args: Any) -> str:
@@ -2061,15 +1825,11 @@ def improduct(*args: Any) -> str:
         return "#VALUE!"
 
 
-
-
 def imreal(inumber: Any) -> float:
     try:
         return float(_to_complex(inumber).real)
     except (ValueError, TypeError):
         return float("nan")
-
-
 
 
 def imsec(inumber: Any) -> str:
@@ -2081,8 +1841,6 @@ def imsec(inumber: Any) -> str:
         return "#VALUE!"
 
 
-
-
 def imsech(inumber: Any) -> str:
     try:
         import cmath
@@ -2090,8 +1848,6 @@ def imsech(inumber: Any) -> str:
         return _from_complex(1.0 / cmath.cosh(c))
     except (ValueError, TypeError, ZeroDivisionError):
         return "#VALUE!"
-
-
 
 
 def imsin(inumber: Any) -> str:
@@ -2103,8 +1859,6 @@ def imsin(inumber: Any) -> str:
         return "#VALUE!"
 
 
-
-
 def imsinh(inumber: Any) -> str:
     try:
         import cmath
@@ -2112,8 +1866,6 @@ def imsinh(inumber: Any) -> str:
         return _from_complex(cmath.sinh(c))
     except (ValueError, TypeError):
         return "#VALUE!"
-
-
 
 
 def imsqrt(inumber: Any) -> str:
@@ -2125,8 +1877,6 @@ def imsqrt(inumber: Any) -> str:
         return "#VALUE!"
 
 
-
-
 def imsub(inumber1: Any, inumber2: Any) -> str:
     try:
         c1 = _to_complex(inumber1)
@@ -2134,8 +1884,6 @@ def imsub(inumber1: Any, inumber2: Any) -> str:
         return _from_complex(c1 - c2)
     except (ValueError, TypeError):
         return "#VALUE!"
-
-
 
 
 def imsum(*args: Any) -> str:
@@ -2150,8 +1898,6 @@ def imsum(*args: Any) -> str:
         return "#VALUE!"
 
 
-
-
 def imtan(inumber: Any) -> str:
     try:
         import cmath
@@ -2159,8 +1905,6 @@ def imtan(inumber: Any) -> str:
         return _from_complex(cmath.tan(c))
     except (ValueError, TypeError):
         return "#VALUE!"
-
-
 
 
 def imtanh(inumber: Any) -> str:
@@ -2172,8 +1916,6 @@ def imtanh(inumber: Any) -> str:
         return "#VALUE!"
 
 
-
-
 def intercept(data_y: Any, data_x: Any) -> float:
     s = slope(data_y, data_x)
     if np.isnan(s):
@@ -2182,7 +1924,6 @@ def intercept(data_y: Any, data_x: Any) -> float:
     x = np.asarray(data_x, dtype=float).ravel()
     mask = ~np.isnan(y) & ~np.isnan(x)
     return float(np.mean(y[mask]) - s * np.mean(x[mask]))
-
 
 
 def intrate(settlement: Any, maturity: Any, investment: Any, redemption: Any, basis: Any = 0) -> float:
@@ -2200,7 +1941,6 @@ def intrate(settlement: Any, maturity: Any, investment: Any, redemption: Any, ba
     if yf == 0:
         return float("nan")
     return (red - inv) / inv / yf
-
 
 
 def ipmt(rate: Any, per: Any, nper: Any, pv_val: Any, fv_val: Any = 0, type_val: Any = 0) -> float:
@@ -2242,8 +1982,6 @@ def ipmt(rate: Any, per: Any, nper: Any, pv_val: Any, fv_val: Any = 0, type_val:
         return -(bal2 + pmt_amt) * r
 
 
-
-
 def irr(values: Any, guess: Any = 0.1) -> float:
     vals = np.asarray(values, dtype=float).ravel()
     # Simple Newton's method for IRR
@@ -2263,12 +2001,8 @@ def irr(values: Any, guess: Any = 0.1) -> float:
     return float("nan")
 
 
-
-
 def isblank(val: Any) -> bool:
     return val is None or val == ""
-
-
 
 
 def iserr(val: Any) -> bool:
@@ -2277,12 +2011,8 @@ def iserr(val: Any) -> bool:
     return False
 
 
-
-
 def iserror(val: Any) -> bool:
     return isinstance(val, str) and val.startswith("#")
-
-
 
 
 def iseven(val: Any) -> bool:
@@ -2295,19 +2025,13 @@ def iseven(val: Any) -> bool:
         return False
 
 
-
-
 def isformula(val: Any) -> bool:
     # We do not have access to formula strings in PY() by default.
     return False
 
 
-
-
 def islogical(val: Any) -> bool:
     return isinstance(val, bool)
-
-
 
 
 def isna(val: Any) -> bool:
@@ -2316,18 +2040,12 @@ def isna(val: Any) -> bool:
     return val is None or (isinstance(val, float) and np.isnan(val))
 
 
-
-
 def isnontext(val: Any) -> bool:
     return not isinstance(val, str) or val == "" or val.startswith("#")
 
 
-
-
 def isnumber(val: Any) -> bool:
     return isinstance(val, (int, float)) and not isinstance(val, bool)
-
-
 
 
 def isodd(val: Any) -> bool:
@@ -2340,15 +2058,12 @@ def isodd(val: Any) -> bool:
         return False
 
 
-
-
 def isoweeknum(serial: Any) -> float:
     try:
         d = datetime.date.fromordinal(int(float(serial)) + 693594)
         return float(d.isocalendar()[1])
     except Exception:
         return float("nan")
-
 
 
 def ispmt(rate: Any, per: Any, nper: Any, pv_val: Any) -> float:
@@ -2367,18 +2082,13 @@ def ispmt(rate: Any, per: Any, nper: Any, pv_val: Any) -> float:
     return -(bal * r)
 
 
-
-
 def isref(val: Any) -> bool:
     # We do not have object references in PY(), only values.
     return False
 
 
-
-
 def istext(val: Any) -> bool:
     return isinstance(val, str) and not (isinstance(val, str) and val.startswith("#"))
-
 
 
 def jis(text: Any) -> str | float:
@@ -2388,8 +2098,6 @@ def jis(text: Any) -> str | float:
         return str(text)
     except (ValueError, TypeError):
         return float("nan")
-
-
 
 
 def kurt(*args: Any) -> float:
@@ -2416,13 +2124,10 @@ def kurt(*args: Any) -> float:
     return float(term1 * term2 - term3)
 
 
-
-
 def large(r: Any, k: Any) -> float:
     arr = sorted([float(x) for x in np.asarray(r).ravel() if x is not None and x != ""], reverse=True)
     ki = int(float(k))
     return float(arr[ki - 1]) if 0 < ki <= len(arr) else float("nan")
-
 
 
 def linest(*args: Any) -> Any:
@@ -2442,8 +2147,6 @@ def linest(*args: Any) -> Any:
         return c.tolist()
     except Exception:
         return "#VALUE!"
-
-
 
 
 def logest(*args: Any) -> Any:
@@ -2466,8 +2169,6 @@ def logest(*args: Any) -> Any:
         return "#VALUE!"
 
 
-
-
 def loginv(p: Any, mean: Any, stdev: Any) -> float:
     try:
         import scipy.stats as st
@@ -2480,8 +2181,6 @@ def loginv(p: Any, mean: Any, stdev: Any) -> float:
         return float(st.lognorm.ppf(prob, s, scale=math.exp(m)))
     except (ValueError, TypeError, ImportError):
         return float("nan")
-
-
 
 
 def lognormdist(x: Any, mean: Any, stdev: Any, c: Any = 1) -> float:
@@ -2499,8 +2198,6 @@ def lognormdist(x: Any, mean: Any, stdev: Any, c: Any = 1) -> float:
         return float(st.lognorm.pdf(x_val, s, scale=math.exp(m)))
     except (ValueError, TypeError, ImportError):
         return float("nan")
-
-
 
 
 def lookup(lookup_val: Any, *args: Any) -> Any:
@@ -2522,8 +2219,6 @@ def lookup(lookup_val: Any, *args: Any) -> Any:
     if best_idx is None:
         return None
     return result[best_idx]
-
-
 
 
 def match_criteria(val: Any, crit: Any) -> bool:
@@ -2572,8 +2267,6 @@ def match_criteria(val: Any, crit: Any) -> bool:
     return str(val) == str(crit)
 
 
-
-
 def maxa(*args: Any) -> float:
     vals = []
     for arg in args:
@@ -2582,7 +2275,6 @@ def maxa(*args: Any) -> float:
     if not vals:
         return 0.0
     return float(np.max(vals))
-
 
 
 def mdeterm(matrix: Any) -> float:
@@ -2594,7 +2286,6 @@ def mdeterm(matrix: Any) -> float:
         return float(np.linalg.det(m))
     except Exception:
         return float("nan")
-
 
 
 def mduration(settlement: Any, maturity: Any, coupon: Any, yld: Any, frequency: Any, basis: Any = 0) -> float:
@@ -2613,8 +2304,6 @@ def mduration(settlement: Any, maturity: Any, coupon: Any, yld: Any, frequency: 
     return macd / (1 + y / f)
 
 
-
-
 def mina(*args: Any) -> float:
     vals = []
     for arg in args:
@@ -2623,7 +2312,6 @@ def mina(*args: Any) -> float:
     if not vals:
         return 0.0
     return float(np.min(vals))
-
 
 
 def minverse(matrix: Any) -> Any:
@@ -2635,7 +2323,6 @@ def minverse(matrix: Any) -> Any:
         return np.linalg.inv(m).tolist()
     except Exception:
         return "#VALUE!"
-
 
 
 def mirr(values: Any, finance_rate: Any, reinvest_rate: Any) -> float:
@@ -2664,7 +2351,6 @@ def mirr(values: Any, finance_rate: Any, reinvest_rate: Any) -> float:
         return float("nan")
 
 
-
 def mmult(array1: Any, array2: Any) -> Any:
     try:
         import numpy as np
@@ -2679,16 +2365,12 @@ def mmult(array1: Any, array2: Any) -> Any:
         return "#VALUE!"
 
 
-
-
 def mode(r: Any) -> Any:
     vals = [x for x in np.asarray(r).ravel() if x is not None and x != ""]
     if not vals:
         return float("nan")
     counts = Counter(vals)
     return counts.most_common(1)[0][0]
-
-
 
 
 def mround(number: Any, multiple: Any) -> float:
@@ -2699,7 +2381,6 @@ def mround(number: Any, multiple: Any) -> float:
     if (n > 0 and m < 0) or (n < 0 and m > 0):
         return float("nan")
     return float(round(n / m) * m)
-
 
 
 def mtrans(matrix: Any) -> Any:
@@ -2713,8 +2394,6 @@ def mtrans(matrix: Any) -> Any:
         return "#VALUE!"
 
 
-
-
 def multinomial(*args: Any) -> float:
     try:
         vals = []
@@ -2726,15 +2405,12 @@ def multinomial(*args: Any) -> float:
         return float("nan")
 
 
-
 def munit(dimension: Any) -> Any:
     try:
         import numpy as np
         return np.eye(int(dimension)).tolist()
     except Exception:
         return "#VALUE!"
-
-
 
 
 def n(val: Any) -> float:
@@ -2750,13 +2426,9 @@ def n(val: Any) -> float:
     return 0.0
 
 
-
-
 def na() -> float:
     # Usually #N/A in Calc maps to NaN in Python data array
     return float("nan")
-
-
 
 
 def negbinomdist(x: Any, r: Any, p: Any) -> float:
@@ -2770,8 +2442,6 @@ def negbinomdist(x: Any, r: Any, p: Any) -> float:
         return float(st.nbinom.pmf(k, r_val, prob))
     except (ValueError, TypeError, ImportError):
         return float("nan")
-
-
 
 
 def networkdays(start_date: Any, end_date: Any, holidays: Any | None = None) -> float:
@@ -2800,8 +2470,6 @@ def networkdays(start_date: Any, end_date: Any, holidays: Any | None = None) -> 
             days += 1
         curr += datetime.timedelta(days=1)
     return float(sign * days)
-
-
 
 
 def networkdays_intl(start_date: Any, end_date: Any, weekend: Any = 1, holidays: Any | None = None) -> float:
@@ -2859,7 +2527,6 @@ def networkdays_intl(start_date: Any, end_date: Any, weekend: Any = 1, holidays:
     return float(sign * days)
 
 
-
 def nominal(effect_rate: Any, npery: Any) -> float:
     try:
         er = float(effect_rate)
@@ -2869,8 +2536,6 @@ def nominal(effect_rate: Any, npery: Any) -> float:
     if er <= 0 or np_y < 1:
         return float("nan")
     return np_y * ((er + 1) ** (1.0 / np_y) - 1)
-
-
 
 
 def normdist(x: Any, mean: Any, stdev: Any, c: Any = 1) -> float:
@@ -2889,8 +2554,6 @@ def normdist(x: Any, mean: Any, stdev: Any, c: Any = 1) -> float:
         return float("nan")
 
 
-
-
 def norminv(prob: Any, mean: Any, stdev: Any) -> float:
     try:
         p = float(prob)
@@ -2904,16 +2567,12 @@ def norminv(prob: Any, mean: Any, stdev: Any) -> float:
         return float("nan")
 
 
-
-
 def normsdist(z: Any) -> float:
     try:
         import scipy.stats
         return float(scipy.stats.norm.cdf(float(z)))
     except (ValueError, TypeError):
         return float("nan")
-
-
 
 
 def normsinv(prob: Any) -> float:
@@ -2925,7 +2584,6 @@ def normsinv(prob: Any) -> float:
         return float(scipy.stats.norm.ppf(p))
     except (ValueError, TypeError):
         return float("nan")
-
 
 
 def nper(rate: Any, pmt_val: Any, pv_val: Any, fv_val: Any = 0, type_val: Any = 0) -> float:
@@ -2957,8 +2615,6 @@ def nper(rate: Any, pmt_val: Any, pv_val: Any, fv_val: Any = 0, type_val: Any = 
     return math.log(val) / math.log(1 + r)
 
 
-
-
 def npv(rate: Any, *args: Any) -> float:
     r = float(rate)
     vals = []
@@ -2974,7 +2630,6 @@ def npv(rate: Any, *args: Any) -> float:
     return float(res)
 
 
-
 def numbervalue(text: Any, dec_sep: Any = ".", grp_sep: Any = ",") -> float:
     try:
         s = str(text).strip()
@@ -2988,15 +2643,12 @@ def numbervalue(text: Any, dec_sep: Any = ".", grp_sep: Any = ",") -> float:
         return float("nan")
 
 
-
-
 def odd(n: Any) -> float:
     v = float(n)
     i = int(np.trunc(v))
     if i % 2 != 0:
         return float(i)
     return float(i + (1 if v >= 0 else -1))
-
 
 
 def oddfprice(settlement: Any, maturity: Any, issue: Any, first_coupon: Any, rate: Any, yld: Any, redemption: Any, frequency: Any, basis: Any = 0) -> float:
@@ -3024,7 +2676,6 @@ def oddfprice(settlement: Any, maturity: Any, issue: Any, first_coupon: Any, rat
     return price
 
 
-
 def oddfyield(settlement: Any, maturity: Any, issue: Any, first_coupon: Any, rate: Any, pr: Any, redemption: Any, frequency: Any, basis: Any = 0) -> float:
     try:
         s = float(settlement)
@@ -3046,7 +2697,6 @@ def oddfyield(settlement: Any, maturity: Any, issue: Any, first_coupon: Any, rat
     c = 100 * r
     approx_y = (c + (red - price) / years) / ((red + price) / 2)
     return approx_y
-
 
 
 def oddlprice(settlement: Any, maturity: Any, last_interest: Any, rate: Any, yld: Any, redemption: Any, frequency: Any, basis: Any = 0) -> float:
@@ -3081,8 +2731,6 @@ def oddlprice(settlement: Any, maturity: Any, last_interest: Any, rate: Any, yld
     accrued_interest = c * accrued_frac
 
     return price - accrued_interest
-
-
 
 
 def pearson(data1: Any, data2: Any) -> float:
@@ -3144,8 +2792,6 @@ def percentrank(data: Any, x: Any, significance: Any = 3) -> float:
         return float("nan")
 
 
-
-
 def permut(n: Any, k: Any) -> float:
     try:
         n_val = int(float(n))
@@ -3155,8 +2801,6 @@ def permut(n: Any, k: Any) -> float:
         return float(math.perm(n_val, k_val))
     except (ValueError, TypeError):
         return float("nan")
-
-
 
 
 def pmt(rate: Any, nper: Any, pv: Any, fv_val: Any = 0, type_val: Any = 0) -> float:
@@ -3173,8 +2817,6 @@ def pmt(rate: Any, nper: Any, pv: Any, fv_val: Any = 0, type_val: Any = 0) -> fl
     return float(-(p * factor + f) * r / (factor - 1))
 
 
-
-
 def poisson(x: Any, mean: Any, cumulative: Any = False) -> float:
     try:
         k = int(float(x))
@@ -3188,8 +2830,6 @@ def poisson(x: Any, mean: Any, cumulative: Any = False) -> float:
             return float(scipy.stats.poisson.pmf(k, m))
     except (ValueError, TypeError):
         return float("nan")
-
-
 
 
 def prob(data: Any, probs: Any, x_start: Any, x_end: Any | None = None) -> float:
@@ -3208,8 +2848,6 @@ def prob(data: Any, probs: Any, x_start: Any, x_end: Any | None = None) -> float
         return float("nan")
 
 
-
-
 def pv(rate: Any, nper: Any, pmt_val: Any, fv_val: Any = 0, type_val: Any = 0) -> float:
     r = float(rate)
     n = float(nper)
@@ -3224,16 +2862,12 @@ def pv(rate: Any, nper: Any, pmt_val: Any, fv_val: Any = 0, type_val: Any = 0) -
     return float(-(f + pm * (factor - 1) / r) / factor)
 
 
-
-
 def quartile(r: Any, q: Any) -> float:
     arr = np.asarray(r, dtype=float).ravel()
     arr = arr[~np.isnan(arr)]
     qi = int(float(q))
     pct = {0: 0.0, 1: 25.0, 2: 50.0, 3: 75.0, 4: 100.0}.get(qi, float(qi) * 25.0)
     return float(np.percentile(arr, pct)) if len(arr) else float("nan")
-
-
 
 
 def rank(val: Any, r: Any, order: int | float = 0) -> float:
@@ -3250,8 +2884,6 @@ def rank(val: Any, r: Any, order: int | float = 0) -> float:
         return float(arr.index(target) + 1)
     except ValueError:
         return float("nan")
-
-
 
 
 def regex(text: Any, expr: Any, replacement: Any | None = None, flags: str = "") -> str:
@@ -3280,15 +2912,11 @@ def regex(text: Any, expr: Any, replacement: Any | None = None, flags: str = "")
     return re.sub(expr_str, rep_str, text_str, count=1, flags=re_flags)
 
 
-
-
 def rept(text: Any, n: Any) -> str:
     try:
         return str(text) * int(float(n))
     except (ValueError, TypeError, OverflowError):
         return ""
-
-
 
 
 def rsq(data_y: Any, data_x: Any) -> float:
@@ -3302,8 +2930,6 @@ def rsq(data_y: Any, data_x: Any) -> float:
     return float(corr**2)
 
 
-
-
 def sec(x: Any) -> float:
     try:
         return float(1.0 / math.cos(float(x)))
@@ -3311,15 +2937,11 @@ def sec(x: Any) -> float:
         return float("nan")
 
 
-
-
 def sech(x: Any) -> float:
     try:
         return float(1.0 / math.cosh(float(x)))
     except (ValueError, TypeError, ZeroDivisionError):
         return float("nan")
-
-
 
 
 def seriessum(x: Any, n: Any, m: Any, coefficients: Any) -> float:
@@ -3334,8 +2956,6 @@ def seriessum(x: Any, n: Any, m: Any, coefficients: Any) -> float:
         return res
     except Exception:
         return float("nan")
-
-
 
 
 def skew(*args: Any) -> float:
@@ -3361,8 +2981,6 @@ def skew(*args: Any) -> float:
     return float(term1 * term2)
 
 
-
-
 def slope(data_y: Any, data_x: Any) -> float:
     y = np.asarray(data_y, dtype=float).ravel()
     x = np.asarray(data_x, dtype=float).ravel()
@@ -3376,14 +2994,10 @@ def slope(data_y: Any, data_x: Any) -> float:
     return float(ss_xy / ss_xx) if ss_xx != 0 else float("nan")
 
 
-
-
 def small(r: Any, k: Any) -> float:
     arr = sorted([float(x) for x in np.asarray(r).ravel() if x is not None and x != ""])
     ki = int(float(k))
     return float(arr[ki - 1]) if 0 < ki <= len(arr) else float("nan")
-
-
 
 
 def sort(range_arr: Any, sort_index: int | float = 1, sort_order: int | float = 1, by_col: bool = False) -> list:
@@ -3406,8 +3020,6 @@ def sort(range_arr: Any, sort_index: int | float = 1, sort_order: int | float = 
     return arr[order].tolist()
 
 
-
-
 def sortby(range_arr: Any, by_array: Any, sort_order: int | float = 1, *extra: Any) -> list:
     arr = np.asarray(range_arr)
     by = np.asarray(by_array).ravel()
@@ -3423,8 +3035,6 @@ def sortby(range_arr: Any, by_array: Any, sort_order: int | float = 1, *extra: A
     return arr[order].tolist()
 
 
-
-
 def sqrtpi(number: Any) -> float:
     try:
         n = float(number)
@@ -3433,8 +3043,6 @@ def sqrtpi(number: Any) -> float:
         return float(math.sqrt(n * math.pi))
     except (ValueError, TypeError):
         return float("nan")
-
-
 
 
 def standardize(x: Any, mean: Any, stdev: Any) -> float:
@@ -3449,8 +3057,6 @@ def standardize(x: Any, mean: Any, stdev: Any) -> float:
         return float("nan")
 
 
-
-
 def stdeva(*args: Any) -> float:
     vals = []
     for arg in args:
@@ -3461,8 +3067,6 @@ def stdeva(*args: Any) -> float:
     return float(np.std(vals, ddof=1))
 
 
-
-
 def stdevpa(*args: Any) -> float:
     vals = []
     for arg in args:
@@ -3471,8 +3075,6 @@ def stdevpa(*args: Any) -> float:
     if not vals:
         return float("nan")
     return float(np.std(vals, ddof=0))
-
-
 
 
 def steyx(data_y: Any, data_x: Any) -> float:
@@ -3488,8 +3090,6 @@ def steyx(data_y: Any, data_x: Any) -> float:
     y_hat = s * x + i
     ss_resid = np.sum((y - y_hat) ** 2)
     return float(math.sqrt(ss_resid / (n - 2)))
-
-
 
 
 def subtotal(fn_num: Any, r: Any) -> float:
@@ -3531,8 +3131,6 @@ def subtotal(fn_num: Any, r: Any) -> float:
     return float(np.sum(arr))
 
 
-
-
 def sumif(r: Any, crit: Any, sr: Any | None = None) -> float:
     r_flat = np.asarray(r).ravel()
     sr_flat = np.asarray(sr).ravel() if sr is not None else r_flat
@@ -3546,8 +3144,6 @@ def sumif(r: Any, crit: Any, sr: Any | None = None) -> float:
             except (ValueError, TypeError):
                 pass
     return float(total)
-
-
 
 
 def sumifs(sr: Any, *args: Any) -> float:
@@ -3574,8 +3170,6 @@ def sumifs(sr: Any, *args: Any) -> float:
     return float(total)
 
 
-
-
 def sumproduct(*args: Any) -> float:
     arrays = [np.asarray(a).ravel() for a in args]
     if not arrays:
@@ -3594,8 +3188,6 @@ def sumproduct(*args: Any) -> float:
     return float(total)
 
 
-
-
 def sumsq(*args: Any) -> float:
     total = 0.0
     for arg in args:
@@ -3608,13 +3200,10 @@ def sumsq(*args: Any) -> float:
     return float(total)
 
 
-
 def t(value: Any) -> str:
     if isinstance(value, str):
         return value
     return ""
-
-
 
 
 def tdist(x: Any, df: Any, tails: Any) -> float:
@@ -3633,8 +3222,6 @@ def tdist(x: Any, df: Any, tails: Any) -> float:
         return float("nan")
 
 
-
-
 def text(val: Any, fmt: Any) -> str:
     fmt_str = str(fmt).strip('"')
     if fmt_str in ("0", "0.00", "#,##0"):
@@ -3643,7 +3230,6 @@ def text(val: Any, fmt: Any) -> str:
         except (ValueError, TypeError):
             return str(val)
     return str(val)
-
 
 
 def textafter(text: Any, delimiter: Any, instance_num: Any = 1, match_mode: Any = 0, match_end: Any = 0, if_not_found: Any = float("nan")) -> str | float:
@@ -3683,7 +3269,6 @@ def textafter(text: Any, delimiter: Any, instance_num: Any = 1, match_mode: Any 
             return float("nan")
     except (ValueError, TypeError):
         return float("nan")
-
 
 
 def textbefore(text: Any, delimiter: Any, instance_num: Any = 1, match_mode: Any = 0, match_end: Any = 0, if_not_found: Any = float("nan")) -> str | float:
@@ -3726,8 +3311,6 @@ def textbefore(text: Any, delimiter: Any, instance_num: Any = 1, match_mode: Any
         return float("nan")
 
 
-
-
 def textjoin(delim: Any, ignore_empty: Any, *args: Any) -> str:
     parts = []
     for arg in args:
@@ -3738,7 +3321,6 @@ def textjoin(delim: Any, ignore_empty: Any, *args: Any) -> str:
             else:
                 parts.append(str(val))
     return str(delim).join(parts)
-
 
 
 def textsplit(text: Any, col_delimiter: Any, row_delimiter: Any = None, ignore_empty: Any = False, match_mode: Any = 0, pad_with: Any = float("nan")) -> Any:
@@ -3778,16 +3360,12 @@ def textsplit(text: Any, col_delimiter: Any, row_delimiter: Any = None, ignore_e
         return float("nan")
 
 
-
-
 def time(hour: Any, minute: Any, second: Any) -> float:
     h = int(float(hour))
     m = int(float(minute))
     s = int(float(second))
     total_seconds = h * 3600 + m * 60 + s
     return float(total_seconds / 86400.0)
-
-
 
 
 def timevalue(text: Any) -> float:
@@ -3801,8 +3379,6 @@ def timevalue(text: Any) -> float:
     return float("nan")
 
 
-
-
 def tinv(prob: Any, df: Any) -> float:
     try:
         p = float(prob)
@@ -3814,7 +3390,6 @@ def tinv(prob: Any, df: Any) -> float:
         return float(scipy.stats.t.ppf(1 - p / 2, d))
     except (ValueError, TypeError):
         return float("nan")
-
 
 
 def trend(*args: Any) -> Any:
@@ -3841,8 +3416,6 @@ def trend(*args: Any) -> Any:
         return "#VALUE!"
 
 
-
-
 def trimmean(r: Any, percent: Any) -> float:
     arr = np.asarray(r, dtype=float).ravel()
     arr = arr[~np.isnan(arr)]
@@ -3856,8 +3429,6 @@ def trimmean(r: Any, percent: Any) -> float:
         return float(np.mean(arr))
     arr.sort()
     return float(np.mean(arr[k:-k]))
-
-
 
 
 def ttest(data1: Any, data2: Any, tails: Any, type_: Any) -> float:
@@ -3902,8 +3473,6 @@ def ttest(data1: Any, data2: Any, tails: Any, type_: Any) -> float:
         return float("nan")
 
 
-
-
 def type(val: Any) -> float:
     if val is None or val == "":
         return 1.0
@@ -3920,7 +3489,6 @@ def type(val: Any) -> float:
     return 1.0
 
 
-
 def unichar(number: Any) -> str | float:
     try:
         val = int(float(number))
@@ -3931,7 +3499,6 @@ def unichar(number: Any) -> str | float:
         return float("nan")
 
 
-
 def unicode(text: Any) -> float:
     try:
         s = str(text)
@@ -3940,8 +3507,6 @@ def unicode(text: Any) -> float:
         return float(ord(s[0]))
     except (ValueError, TypeError):
         return float("nan")
-
-
 
 
 def unique(arr: Any, by_col: bool = False, unique_only: bool = False) -> list:
@@ -3967,8 +3532,6 @@ def unique(arr: Any, by_col: bool = False, unique_only: bool = False) -> list:
     return [list(r) for r in seen_rows]
 
 
-
-
 def vara(*args: Any) -> float:
     vals = []
     for arg in args:
@@ -3979,8 +3542,6 @@ def vara(*args: Any) -> float:
     return float(np.var(vals, ddof=1))
 
 
-
-
 def varpa(*args: Any) -> float:
     vals = []
     for arg in args:
@@ -3989,8 +3550,6 @@ def varpa(*args: Any) -> float:
     if not vals:
         return float("nan")
     return float(np.var(vals, ddof=0))
-
-
 
 
 def weekday(serial: Any, return_type: int | float = 1) -> float:
@@ -4009,8 +3568,6 @@ def weekday(serial: Any, return_type: int | float = 1) -> float:
     return float(wd + 1)
 
 
-
-
 def weeknum(serial: Any, return_type: int | float = 1) -> float:
     try:
         d = datetime.date.fromordinal(int(float(serial)) + 693594)
@@ -4018,8 +3575,6 @@ def weeknum(serial: Any, return_type: int | float = 1) -> float:
         return float("nan")
     iso = d.isocalendar()
     return float(iso[1])
-
-
 
 
 def weibull(x: Any, alpha: Any, beta: Any, cumulative: Any = True) -> float:
@@ -4037,8 +3592,6 @@ def weibull(x: Any, alpha: Any, beta: Any, cumulative: Any = True) -> float:
             return float(scipy.stats.weibull_min.pdf(val, a, scale=b))
     except (ValueError, TypeError):
         return float("nan")
-
-
 
 
 def workday(start_date: Any, days: Any, holidays: Any | None = None) -> float:
@@ -4061,8 +3614,6 @@ def workday(start_date: Any, days: Any, holidays: Any | None = None) -> float:
         if curr.weekday() < 5 and curr not in h_dates:
             remaining -= step
     return float(curr.toordinal() - 693594)
-
-
 
 
 def workday_intl(start_date: Any, days: Any, weekend: Any = 1, holidays: Any | None = None) -> float:
@@ -4114,8 +3665,6 @@ def workday_intl(start_date: Any, days: Any, weekend: Any = 1, holidays: Any | N
     return float(curr.toordinal() - 693594)
 
 
-
-
 def xirr(values: Any, dates: Any, guess: Any = 0.1) -> float:
     try:
         vals = np.asarray(values, dtype=float).ravel()
@@ -4139,8 +3688,6 @@ def xirr(values: Any, dates: Any, guess: Any = 0.1) -> float:
         return float("nan")
     except Exception:
         return float("nan")
-
-
 
 
 def xlookup(
@@ -4209,8 +3756,6 @@ def xlookup(
     return r_flat.ravel()[best_idx]
 
 
-
-
 def xmatch(lookup_val: Any, lookup_arr: Any, match_mode: int | float = 0, search_mode: int | float = 1) -> float:
     l_flat = np.asarray(lookup_arr).ravel()
     indices = list(range(len(l_flat)))
@@ -4241,8 +3786,6 @@ def xmatch(lookup_val: Any, lookup_arr: Any, match_mode: int | float = 0, search
     return float("nan")
 
 
-
-
 def xnpv(rate: Any, values: Any, dates: Any) -> float:
     try:
         r = float(rate)
@@ -4259,16 +3802,12 @@ def xnpv(rate: Any, values: Any, dates: Any) -> float:
         return float("nan")
 
 
-
-
 def xor(*args: Any) -> bool:
     true_count = 0
     for arg in args:
         if bool(arg):
             true_count += 1
     return true_count % 2 == 1
-
-
 
 
 def yearfrac(start_date: Any, end_date: Any, basis: Any = 0) -> float:
@@ -4296,13 +3835,9 @@ def yearfrac(start_date: Any, end_date: Any, basis: Any = 0) -> float:
     return diff / 365.0
 
 
-
-
 def yield_calc(settlement: Any, maturity: Any, rate: Any, pr: Any, redemption: Any, frequency: Any, basis: Any = 0) -> float:
     # Approximate stub
     return float("nan")
-
-
 
 
 def yielddisc(settlement: Any, maturity: Any, pr: Any, redemption: Any, basis: Any = 0) -> float:
@@ -4310,13 +3845,9 @@ def yielddisc(settlement: Any, maturity: Any, pr: Any, redemption: Any, basis: A
     return float("nan")
 
 
-
-
 def yieldmat(settlement: Any, maturity: Any, issue: Any, rate: Any, pr: Any, basis: Any = 0) -> float:
     # Approximate stub
     return float("nan")
-
-
 
 
 def ztest(data: Any, x: Any, sigma: Any | None = None) -> float:
