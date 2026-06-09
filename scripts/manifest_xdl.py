@@ -103,11 +103,21 @@ def _add_menulist(board, field_name, schema, y):
 def _add_combobox(board, field_name, schema, y):
     attrs = _common_attrs(field_name, y)
     attrs[_dlg("dropdown")] = "true"
+    attrs[_dlg("spin")] = "true"
+    attrs[_dlg("border")] = "1"
     attrs[_dlg("autocomplete")] = "true"
     attrs[_dlg("linecount")] = "20"
     combo_el = ET.SubElement(board, _dlg("combobox"), attrs)
+    
     # menupopup child is required for the dropdown to initialize
-    ET.SubElement(combo_el, _dlg("menupopup"))
+    menu_el = ET.SubElement(combo_el, _dlg("menupopup"))
+    for opt in schema.get("options", []):
+        if isinstance(opt, dict):
+            menu_val = opt.get("label", opt.get("value", str(opt)))
+        else:
+            menu_val = str(opt)
+        ET.SubElement(menu_el, _dlg("menuitem"), {_dlg("value"): menu_val})
+
 
 
 def _add_label(board, field_name, label_text, y):
@@ -337,9 +347,7 @@ def _add_inline_list_detail(board, field_name, schema, y):
             _add_textfield(board, ctrl_id, item_schema, y, echo_char=42)
         elif widget in ("number", "slider"):
             _add_numericfield(board, ctrl_id, item_schema, y)
-        elif widget == "select":
-            _add_menulist(board, ctrl_id, item_schema, y)
-        elif widget == "combo":
+        elif widget in ("select", "combo"):
             _add_combobox(board, ctrl_id, item_schema, y)
         else:
             _add_textfield(board, ctrl_id, item_schema, y)
@@ -465,9 +473,7 @@ def generate_xdl(module_name, config_fields, title=None,
             y += _ROW_HEIGHT * 2
         elif widget in ("number", "slider"):
             _add_numericfield(board, field_name, schema, y)
-        elif widget == "select":
-            _add_menulist(board, field_name, schema, y)
-        elif widget == "combo":
+        elif widget in ("select", "combo"):
             _add_combobox(board, field_name, schema, y)
         elif widget in ("file", "folder"):
             _add_filefield(board, field_name, schema, y)
@@ -532,9 +538,7 @@ def generate_xdl(module_name, config_fields, title=None,
                     y += _ROW_HEIGHT * 2
                 elif widget in ("number", "slider"):
                     _add_numericfield(board, prefixed, schema, y)
-                elif widget == "select":
-                    _add_menulist(board, prefixed, schema, y)
-                elif widget == "combo":
+                elif widget in ("select", "combo"):
                     _add_combobox(board, prefixed, schema, y)
                 elif widget in ("file", "folder"):
                     _add_filefield(board, prefixed, schema, y)
@@ -673,9 +677,7 @@ def generate_list_detail_xdl(module_name, field_name, schema):
             _add_textfield(board, ctrl_id, item_schema, y, echo_char=42)
         elif widget in ("number", "slider"):
             _add_numericfield(board, ctrl_id, item_schema, y)
-        elif widget == "select":
-            _add_menulist(board, ctrl_id, item_schema, y)
-        elif widget == "combo":
+        elif widget in ("select", "combo"):
             _add_combobox(board, ctrl_id, item_schema, y)
         else:
             _add_textfield(board, ctrl_id, item_schema, y)
@@ -771,22 +773,22 @@ def _add_standalone_field(board, field_name, schema, y, page):
             attrs[_dlg("value-max")] = str(schema["max"])
         attrs[_dlg("decimal-accuracy")] = "1" if schema.get("type") == "float" else "0"
         ET.SubElement(board, _dlg("numericfield"), attrs)
-    elif widget == "select":
+    elif widget in ("select", "combo"):
         attrs = _standalone_common_attrs(field_name, y)
         attrs[_dlg("page")] = str(page)
         attrs[_dlg("dropdown")] = "true"
+        attrs[_dlg("spin")] = "true"
+        attrs[_dlg("border")] = "1"
         attrs[_dlg("autocomplete")] = "true"
         attrs[_dlg("linecount")] = "20"
-        combo_el = ET.SubElement(board, _dlg("combobox"), attrs)
-        ET.SubElement(combo_el, _dlg("menupopup"))
-    elif widget == "combo":
-        attrs = _standalone_common_attrs(field_name, y)
-        attrs[_dlg("page")] = str(page)
-        attrs[_dlg("dropdown")] = "true"
-        attrs[_dlg("autocomplete")] = "true"
-        attrs[_dlg("linecount")] = "20"
-        combo_el = ET.SubElement(board, _dlg("combobox"), attrs)
-        ET.SubElement(combo_el, _dlg("menupopup"))
+        el = ET.SubElement(board, _dlg("combobox"), attrs)
+        menu = ET.SubElement(el, _dlg("menupopup"))
+        for opt in schema.get("options", []):
+            if isinstance(opt, dict):
+                menu_val = opt.get("label", opt.get("value", str(opt)))
+            else:
+                menu_val = str(opt)
+            ET.SubElement(menu, _dlg("menuitem"), {_dlg("value"): menu_val})
     else:
         attrs = _standalone_common_attrs(field_name, y)
         attrs[_dlg("page")] = str(page)

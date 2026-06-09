@@ -93,8 +93,6 @@ def input_box(ctx, message, title="", default="", x=None, y=None):
             dlg.dispose()
 
 
-# ── Settings Dialog ──────────────────────────────────────────────────
-
 class SettingsDialog:
     """Manages the lifecycle of the WriterAgent Settings dialog."""
 
