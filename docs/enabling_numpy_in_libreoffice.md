@@ -20,10 +20,12 @@ For a short executive summary, see [WriterAgent architecture — Scientific Pyth
    - [Empty cells vs NaN](#empty-cells-vs-nan)
    - [Calc formula lexer quirks (inline code)](#calc-formula-lexer-quirks-inline-code)
 7. [Deferred roadmap](#7-deferred-roadmap)
+   - [Competitive landscape (Google Sheets vs Calc)](#competitive-landscape-google-sheets-vs-calc)
+   - [Calc backlog from landscape survey](#calc-backlog-from-landscape-survey)
 8. [Implementation status](#8-implementation-status)
 9. [Multi-Range Support (Varargs)](#9-multi-range-support-varargs)
 
-**Related:** [Venv subprocess IPC & NumPy serialization](numpy-serialization.md) (warm worker, protocol, wire formats, benchmarks) · [Jupyter notebook import](jupyter-notebook-import.md) · [Analysis Sub-Agent](analysis-sub-agent.md) (data discovery + trusted numpy/pandas execution) · [Scientific domain roadmap](#scientific-domain-roadmap-trusted-helpers) (Analysis, Vision, Viz, Symbolic shipped; Forecast, Text, Optimization, Geo, Audio planned) · [SageMath integration (deferred)](sagemath-integration-dev-plan.md) · [Calc competitive backlog (consider doing)](google-sheets.md)
+**Related:** [Venv subprocess IPC & NumPy serialization](numpy-serialization.md) (warm worker, protocol, wire formats, benchmarks) · [Jupyter notebook import](jupyter-notebook-import.md) · [Analysis Sub-Agent](analysis-sub-agent.md) (data discovery + trusted numpy/pandas execution) · [Scientific domain roadmap](#scientific-domain-roadmap-trusted-helpers) (Analysis, Vision, Viz, Symbolic shipped; Forecast, Text, Optimization, Geo, Audio planned) · [SageMath integration (deferred)](sagemath-integration-dev-plan.md)
 
 ---
 
@@ -974,6 +976,39 @@ Tier 1 reuses existing `DialogProvider` / XDL patterns ([`plugin/chatbot/dialogs
 
 ## 7. Deferred roadmap
 
+### Competitive landscape (Google Sheets vs Calc)
+
+**Google Sheets does not run Python natively in cells.** Its built-in programmable layer is [**Google Apps Script**](https://developers.google.com/apps-script/guides/sheets) — **JavaScript** bound to the spreadsheet (`SpreadsheetApp`, custom menus, triggers). Cloud AI (`=AI()`, Gemini sidebar) runs on Google endpoints, not a user Python sandbox in the grid.
+
+| Pattern | What it is |
+|---------|------------|
+| **Apps Script (JS)** | Native in-browser scripting; reads/writes cells as **2D arrays** via `getRange(...).getValues()` / `setValues()`. |
+| **External Python** | `gspread`, `pygsheets`, etc. — scripts on a laptop or server call the Sheets API; code and data are **outside** the sheet. |
+| **Bridge add-ons** | e.g. xlwings — Apps Script calls a **hosted Python service**; still not a `=PYTHON()` formula in the cell. |
+
+WriterAgent Calc **does** run Python in cells (`=PY()` / `=PYTHON()` in a local venv) — closer to **Excel Python in Excel** or **Neptyne** than to Google Sheets.
+
+**Non-goals:** gspread, Sheets API sync, Apps Script execution inside WriterAgent, or cloud `=AI()` cell parity (non-deterministic text in cells conflicts with reproducible spreadsheets). Local-first LibreOffice remains the product boundary.
+
+**Design stance (vs cloud spreadsheet AI):**
+
+- **Local-first** — compute in the user's venv subprocess, not a managed cloud container ([§2](#2-strategy-decision)).
+- **Auditable code over black-box cell AI** — prefer generated Python plus existing tools over LLM text written directly into cells ([§3 two-phase workflow](#two-phase-llm-workflow)).
+- **Explicit `data` wiring for recalc order** — shared kernel does not give Excel co-volatility; pass upstream cells as `data` args and write idempotent side effects ([Shared kernel lifecycle](#shared-kernel-lifecycle--recalc-semantics) below).
+
+#### Apps Script as API design reference (not as runtime)
+
+The Apps Script **spreadsheet object model** is a reasonable **reference for a Python-facing Calc API**, not something to embed or call:
+
+- Familiar to spreadsheet authors: active sheet → range by A1 → `getValues()` / `setValues()` on **2D lists**.
+- Maps cleanly to UNO (`getCellRangeByName`, batch `setValues`) and to tools we already expose (`read_cell_range`, `write_formula_range` in [`manipulator.py`](../plugin/calc/manipulator.py)).
+
+**Suggested direction:** After [venv ↔ LO tool RPC](#venv--libreoffice-tool-rpc) ships, add optional thin Python sugar (e.g. `sheet.range("A1:B2").values = matrix`) implemented as RPC to those tools — **inspired by** Apps Script / Neptyne ergonomics, **implemented against** Calc UNO.
+
+**Not a substitute for:** `data` / `result` on `=PYTHON()` (formula-safe, DAG-friendly) or NumPy `split_grid` ingress — sugar is for imperative write-back inside long scripts once RPC exists.
+
+**External inspiration:** [Apps Script — Extend Sheets](https://developers.google.com/apps-script/guides/sheets) · [Quadratic](https://www.quadratichq.com/python) · [Mito](https://www.trymito.io/) · [Neptyne](https://www.ycombinator.com/companies/neptyne)
+
 ### Managed venv (Strategy 2)
 
 “Setup Python Environment” in Settings: detect LO Python version, create venv, install numpy/pandas/matplotlib, set `scripting.python_venv_path`. Deferred to respect custom stacks and reduce scope.
@@ -998,6 +1033,8 @@ Tier 1 reuses existing `DialogProvider` / XDL patterns ([`plugin/chatbot/dialogs
 | worker → host | `tool_call` | Proxy requests LO tool |
 | host → worker | `execute` | Run code (today) |
 | host → worker | `tool_result` | Answer `tool_call` |
+
+**Follow-on (Neptyne / Apps Script–style write-back):** optional Python sugar after RPC — e.g. `sheet.range("A1:B2").values = matrix` backed by `read_cell_range` / `write_formula_range` proxies. Risks: recalc loops if writes trigger upstream recalc; needs main-thread UNO dispatch and mutex ([`manipulator.py`](../plugin/calc/manipulator.py)). Tests: `tests/uno/` with `@native_test` for thread-safe batch `setValues`.
 
 ### Serialization performance
 
@@ -1269,6 +1306,40 @@ Backlog items inspired by Microsoft Python in Excel ([python-in-excel-ideas.md](
 | **Formula-bar IntelliSense** | Jedi (debounced) in the expanded formula bar / inline cell editor, not only in the Monaco webview child. See [python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md) (Jedi stub shipped in editor only). |
 | **Cell-level traceback** | Short traceback snippet in the cell error string; full trace in the diagnostics pane ([python-in-excel-dev-plan.md](python-in-excel-dev-plan.md) Phase 6). Until the pane ships, truncate worker `traceback` to N lines in the cell. |
 
+### Calc backlog from landscape survey
+
+Distilled from a survey of Google Sheets, Excel, Quadratic, Mito, Neptyne, and LibrePythonista. Items below are **not shipped**; shipped Calc/Python capabilities are in [§8](#8-implementation-status). Overlap with [Calc UX and output enhancements](#calc-ux-and-output-enhancements) and [python-in-excel-dev-plan.md](python-in-excel-dev-plan.md) is called out — do not plan twice.
+
+#### Range alignment for multi-range NumPy
+
+Varargs deliver separate arrays per range ([§9](#9-multi-range-support-varargs)). Mismatched shapes (e.g. `A1:A10` and `C1:C15`) still require manual padding or masking before `np.corrcoef`, regression, or element-wise math.
+
+**Consider:** alignment helper projecting mismatched grids into a common shape using masked arrays (`np.ma`).
+
+**Touch:** [`plugin/scripting/`](../plugin/scripting/) or [`plugin/calc/calc_addin_data.py`](../plugin/calc/calc_addin_data.py). **Tests:** `tests/scripting/`.
+
+#### Shared-kernel dependency / invalidation (optional)
+
+With shared globals, Calc's DAG tracks `data` cell references, not Python global mutations. A downstream cell may read stale namespace state if an upstream cell changed a global without passing it through `data`.
+
+**Consider:** AST read/write analysis per cell formula to build a dependency graph and invalidate dependents. **Defer** until users report stale cells in shared-kernel workbooks. **Touch:** [`session_manager.py`](../plugin/scripting/session_manager.py).
+
+#### Blank vs NaN semantics on ingress
+
+Empty Calc cells become `np.nan` in numeric `split_grid` paths; naive `np.mean(data)` returns NaN. **Planned separately:** [calc-blanks-vs-nans.md](calc-blanks-vs-nans.md).
+
+#### Mito-style action recorder (exploratory)
+
+Record sort/filter/pivot/chart GUI ops as reproducible pandas code in Monaco. Calc modify listeners → compile to script; generated code must pass AST sandbox. Large UX surface — low priority.
+
+#### Dynamic sidebar controls from sheet context (low priority)
+
+LLM-generated sidebar control layouts bound to active sheet ranges (A2UI-style). Overlaps chat tool loop unless product requests it.
+
+#### Shared-kernel memory bounds (low priority)
+
+LRU eviction of large inactive DataFrames in long-lived workbook sessions — distinct from [payload decode cache](numpy-serialization.md#future-work--serialization-performance). Defer until OOM reports.
+
 ---
 
 ## 8. Implementation status
@@ -1296,7 +1367,9 @@ Jupyter `.ipynb` import (separate feature): [jupyter-notebook-import.md](jupyter
 - **Scientific domain roadmaps (remaining)** — [Forecasting](#forecasting), [Text Analytics](#text-analytics), [Optimization](#optimization), [Geospatial](#geospatial), [Audio/Signal](#audio-signal). **Shipped:** [Analysis](#scientific-domain-roadmap-trusted-helpers), [Vision](image-recognition.md), [Visualization (Phase A–C)](#visualization), [Symbolic Math (SymPy)](#symbolic-math).
 - **SageMath integration** — optional future CAS backend; SymPy ships today — [sagemath-integration-dev-plan.md](sagemath-integration-dev-plan.md).
 - **Serialization next steps** — [Future work](numpy-serialization.md#future-work--serialization-performance): LO profile first, Tier 0, opaque blob, float32, pandas egress, worker cache; Tier 2b codecs; optional [Cython `vec_pack`](numpy-serialization.md#building-host-native-extensions-cython) (not started).
-- Venv ↔ LO **tool RPC** ([§7](#7-deferred-roadmap)) — [`writeragent_api.py`](../plugin/scripting/writeragent_api.py) stubs only.
+- Venv ↔ LO **tool RPC** ([§7](#venv--libreoffice-tool-rpc)) — [`writeragent_api.py`](../plugin/scripting/writeragent_api.py) stubs only.
+- **Calc landscape backlog** — range alignment, shared-kernel invalidation, Mito recorder, dynamic sidebar UI, shared-kernel memory bounds ([§7 Calc backlog](#calc-backlog-from-landscape-survey)).
+- **Blank vs NaN wire semantics** — [calc-blanks-vs-nans.md](calc-blanks-vs-nans.md).
 - Managed venv (Strategy 2), session persistence, worker idle shutdown, per-formula `timeout_sec`, Python edit dialog tiers 1–3.
 - **Jupyter notebook import** — see [jupyter-notebook-import.md](jupyter-notebook-import.md) (Writer import shipped; execution loop deferred).
 - ~~**Run Python Script – document-attached scripts** (Priority 3)~~ — **Shipped.** See section above and [`document_scripts.py`](../plugin/scripting/document_scripts.py).
