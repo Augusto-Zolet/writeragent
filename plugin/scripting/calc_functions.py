@@ -737,3 +737,135 @@ def sortby(range_arr: Any, by_array: Any, sort_order: int | float = 1, *extra: A
     if not asc:
         order = order[::-1]
     return arr[order].tolist()
+
+
+def pmt(rate: Any, nper: Any, pv: Any, fv_val: Any = 0, type_val: Any = 0) -> float:
+    r = float(rate)
+    n = float(nper)
+    p = float(pv)
+    f = float(fv_val)
+    t = int(float(type_val))
+    if r == 0:
+        return float(-(p + f) / n)
+    factor = (1 + r) ** n
+    if t == 1:
+        return float(-(p * factor + f) * r / (factor - 1) / (1 + r))
+    return float(-(p * factor + f) * r / (factor - 1))
+
+
+def fv(rate: Any, nper: Any, pmt_val: Any, pv_val: Any = 0, type_val: Any = 0) -> float:
+    r = float(rate)
+    n = float(nper)
+    pm = float(pmt_val)
+    p = float(pv_val)
+    t = int(float(type_val))
+    if r == 0:
+        return float(-(p + pm * n))
+    factor = (1 + r) ** n
+    if t == 1:
+        return float(-(p * factor + pm * (factor - 1) * (1 + r) / r))
+    return float(-(p * factor + pm * (factor - 1) / r))
+
+
+def pv(rate: Any, nper: Any, pmt_val: Any, fv_val: Any = 0, type_val: Any = 0) -> float:
+    r = float(rate)
+    n = float(nper)
+    pm = float(pmt_val)
+    f = float(fv_val)
+    t = int(float(type_val))
+    if r == 0:
+        return float(-(f + pm * n))
+    factor = (1 + r) ** n
+    if t == 1:
+        return float(-(f + pm * (factor - 1) * (1 + r) / r) / factor)
+    return float(-(f + pm * (factor - 1) / r) / factor)
+
+
+def mround(number: Any, multiple: Any) -> float:
+    n = float(number)
+    m = float(multiple)
+    if m == 0:
+        return 0.0
+    if (n > 0 and m < 0) or (n < 0 and m > 0):
+        return float("nan")
+    return float(round(n / m) * m)
+
+
+def sumsq(*args: Any) -> float:
+    total = 0.0
+    for arg in args:
+        for val in np.asarray(arg).ravel():
+            if val is not None and val != "":
+                try:
+                    total += float(val) ** 2
+                except (ValueError, TypeError):
+                    pass
+    return float(total)
+
+
+def iseven(val: Any) -> bool:
+    try:
+        f = float(val)
+        if np.isnan(f):
+            return False
+        return int(f) % 2 == 0
+    except (ValueError, TypeError):
+        return False
+
+
+def isodd(val: Any) -> bool:
+    try:
+        f = float(val)
+        if np.isnan(f):
+            return False
+        return int(f) % 2 != 0
+    except (ValueError, TypeError):
+        return False
+
+
+def days(end_date: Any, start_date: Any) -> float:
+    try:
+        ed = float(end_date)
+        sd = float(start_date)
+        return float(ed - sd)
+    except (ValueError, TypeError):
+        return float("nan")
+
+
+def time(hour: Any, minute: Any, second: Any) -> float:
+    h = int(float(hour))
+    m = int(float(minute))
+    s = int(float(second))
+    total_seconds = h * 3600 + m * 60 + s
+    return float(total_seconds / 86400.0)
+
+
+def trimmean(r: Any, percent: Any) -> float:
+    arr = np.asarray(r, dtype=float).ravel()
+    arr = arr[~np.isnan(arr)]
+    if not arr.size:
+        return float("nan")
+    p = float(percent)
+    if p < 0 or p >= 1:
+        return float("nan")
+    k = int(len(arr) * p / 2)
+    if k == 0:
+        return float(np.mean(arr))
+    arr.sort()
+    return float(np.mean(arr[k:-k]))
+
+
+def forecast(x: Any, data_y: Any, data_x: Any) -> float:
+    xv = float(x)
+    y = np.asarray(data_y, dtype=float).ravel()
+    x_arr = np.asarray(data_x, dtype=float).ravel()
+    if y.size != x_arr.size or y.size < 2:
+        return float("nan")
+    avg_x = np.mean(x_arr)
+    avg_y = np.mean(y)
+    ss_xx = np.sum((x_arr - avg_x) ** 2)
+    if ss_xx == 0:
+        return float("nan")
+    b = np.sum((x_arr - avg_x) * (y - avg_y)) / ss_xx
+    a = avg_y - b * avg_x
+    return float(a + b * xv)

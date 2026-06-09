@@ -51,5 +51,16 @@ HELPER_NAMES = frozenset(
         "sort",
         "unique",
         "sortby",
+        "pmt",
+        "fv",
+        "pv",
+        "mround",
+        "sumsq",
+        "iseven",
+        "isodd",
+        "days",
+        "time",
+        "trimmean",
+        "forecast",
     }
 )

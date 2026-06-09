@@ -94,8 +94,8 @@ def test_always_injected_xl_does_not_resolve_bare_x():
     assert "xl" in executor.state
     try:
         executor("result = x")
-    except InterpreterError:
-        pass
+    except InterpreterError as exc:
+        assert "xl" in str(exc)
     else:
         raise AssertionError("bare x must raise InterpreterError when undefined")
 
@@ -105,3 +105,29 @@ def test_helper_names_complete():
 
     exported = {name for name in dir(xl) if not name.startswith("_") and callable(getattr(xl, name))}
     assert HELPER_NAMES <= exported
+
+
+def test_tier_d_helpers():
+    # Financial
+    # PMT(0.05/12, 60, 10000) approx -188.71
+    assert abs(xl.pmt(0.05 / 12, 60, 10000) - (-188.712336)) < 1e-2
+    # FV(0.05/12, 60, -200, -10000) approx 26434.80
+    assert abs(xl.fv(0.05 / 12, 60, -200, -10000) - 26434.80) < 1.0
+    # PV(0.05/12, 60, -200, 26434.80) should be approx -10000
+    assert abs(xl.pv(0.05 / 12, 60, -200, 26434.80) - (-10000.0)) < 1.0
+
+    # Math
+    assert xl.mround(1.23, 0.5) == 1.0
+    assert xl.sumsq([3.0, 4.0]) == 25.0
+
+    # Information
+    assert xl.iseven(4) is True
+    assert xl.iseven(3) is False
+    assert xl.isodd(3) is True
+    assert xl.isodd(4) is False
+
+    # Date/Time
+    assert xl.days(46185, 46181) == 4.0
+    assert xl.time(12, 0, 0) == 0.5
+    assert xl.trimmean([1.0, 2.0, 3.0, 4.0, 5.0], 0.2) == 3.0
+    assert xl.forecast(6, [1.0, 2.0, 3.0, 4.0, 5.0], [1.0, 2.0, 3.0, 4.0, 5.0]) == 6.0

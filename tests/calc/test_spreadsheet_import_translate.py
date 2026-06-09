@@ -371,3 +371,59 @@ def exec_result(res, data):
     return locs["result"]
 
 
+def test_translate_tier_d_functions():
+    # Financial
+    res = translate_formula("=PMT(0.05/12; 60; 10000)")
+    assert res.ok
+    assert "xl.pmt" in res.code
+    # PMT(0.05/12, 60, 10000) approx -188.71
+    assert abs(exec_result(res, []) - (-188.712336)) < 1e-2
+
+    res = translate_formula("=FV(0.05/12; 60; -200; -10000)")
+    assert res.ok
+    assert "xl.fv" in res.code
+    # FV approx 26434.80
+    assert abs(exec_result(res, []) - 26434.80) < 1.0
+
+    res = translate_formula("=PV(0.05/12; 60; -200; 26434.80)")
+    assert res.ok
+    assert "xl.pv" in res.code
+    assert abs(exec_result(res, []) - (-10000.0)) < 1.0
+
+    # Math
+    res = translate_formula("=MROUND(1.23; 0.5)")
+    assert res.ok
+    assert exec_result(res, []) == 1.0
+
+    res = translate_formula("=SUMSQ(A1; B1)")
+    assert res.ok
+    assert exec_result(res, [3.0, 4.0]) == 25.0
+
+    # Information
+    res = translate_formula("=ISEVEN(4)")
+    assert res.ok
+    assert exec_result(res, []) is True
+
+    res = translate_formula("=ISODD(4)")
+    assert res.ok
+    assert exec_result(res, []) is False
+
+    # Date/Time
+    res = translate_formula("=DAYS(46185; 46181)")  # 2026-06-12 - 2026-06-08
+    assert res.ok
+    assert exec_result(res, []) == 4.0
+
+    res = translate_formula("=TIME(12; 0; 0)")
+    assert res.ok
+    assert exec_result(res, []) == 0.5
+
+    res = translate_formula("=TRIMMEAN(A1:A5; 0.2)")
+    assert res.ok
+    assert exec_result(res, [1.0, 2.0, 3.0, 4.0, 5.0]) == 3.0
+
+    res = translate_formula("=FORECAST(6; A1:A5; B1:B5)")
+    assert res.ok
+    # y = [1,2,3,4,5], x = [1,2,3,4,5] -> y = x. for x=6, y=6.
+    assert exec_result(res, [[1.0, 2.0, 3.0, 4.0, 5.0], [1.0, 2.0, 3.0, 4.0, 5.0]]) == 6.0
+
+

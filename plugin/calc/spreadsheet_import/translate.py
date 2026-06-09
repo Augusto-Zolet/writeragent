@@ -464,6 +464,17 @@ _P1_FUNCTION_EMITTERS: dict[str, Callable[[list[str]], str]] = {
     "SORT": lambda a: f"xl.sort({', '.join(a)})",
     "UNIQUE": lambda a: f"xl.unique({', '.join(a)})",
     "SORTBY": lambda a: f"xl.sortby({', '.join(a)})",
+    "PMT": lambda a: f"xl.pmt({', '.join(a)})",
+    "FV": lambda a: f"xl.fv({', '.join(a)})",
+    "PV": lambda a: f"xl.pv({', '.join(a)})",
+    "MROUND": lambda a: f"xl.mround({a[0]}, {a[1]})",
+    "SUMSQ": lambda a: f"xl.sumsq({', '.join(a)})",
+    "ISEVEN": lambda a: f"xl.iseven({a[0]})",
+    "ISODD": lambda a: f"xl.isodd({a[0]})",
+    "DAYS": lambda a: f"xl.days({a[0]}, {a[1]})",
+    "TIME": lambda a: f"xl.time({a[0]}, {a[1]}, {a[2]})",
+    "TRIMMEAN": lambda a: f"xl.trimmean({a[0]}, {a[1]})",
+    "FORECAST": lambda a: f"xl.forecast({a[0]}, {a[1]}, {a[2]})",
 }
 
 

@@ -16,10 +16,10 @@ todos:
     status: completed
   - id: phase4-translate-p2
     content: "Phase 4: P2 functions + Tier A/B/C port (131 fns) + vectorized column detection (~90% cumulative)"
-    status: in_progress
+    status: completed
   - id: phase5-apply-verify
     content: "Phase 5: Apply to new sheet, oracle diff, report TODO cells, menu + chat tool"
-    status: pending
+    status: completed
   - id: phase6-llm-fallback
     content: "Phase 6: LLM assist for remaining cells + cross-sheet edge cases"
     status: pending
@@ -30,7 +30,7 @@ isProject: false
 
 Back to [Enabling NumPy & Python in LibreOffice](enabling_numpy_in_libreoffice.md).
 
-**Status: Proposed — not implemented.**
+**Status: Shipped.**
 
 ## Executive summary
 
@@ -138,15 +138,15 @@ This plan is **in-workbook** conversion (formulas stay in Calc as `=PY()`). It d
 
 ### Milestone timeline (engineering estimate)
 
-| Phase | Deliverable | Est. effort | Cumulative coverage |
-|-------|-------------|-------------|---------------------|
-| 0 | This doc + corpus definition | 1 wk | — |
-| 1 | Ingest + graph JSON | 1–2 wk | — |
-| 2 | Constants preserved; `=PY()` extract | 1 wk | ~5% (normalize only) |
-| 3 | P1 translator + apply + verify | 3–4 wk | ~70% |
-| 4 | P2 + column vectorization | 3–4 wk | ~90% |
-| 5 | Menu, dialog, chat tool, report | 2 wk | ~90% shipped |
-| 6 | LLM fallback for long tail | 2–3 wk | ~93–95% with assist |
+| Phase | Deliverable | Est. effort | Cumulative coverage | Status |
+|-------|-------------|-------------|---------------------|--------|
+| 0 | This doc + corpus definition | 1 wk | — | Shipped |
+| 1 | Ingest + graph JSON | 1–2 wk | — | Shipped |
+| 2 | Constants preserved; `=PY()` extract | 1 wk | ~5% | Shipped |
+| 3 | P1 translator + apply + verify | 3–4 wk | ~70% | Shipped |
+| 4 | P2 + column vectorization | 3–4 wk | ~90% | Shipped |
+| 5 | Menu, dialog, chat tool, report | 2 wk | ~90% shipped | Shipped |
+| 6 | LLM fallback for long tail | 2–3 wk | ~93–95% with assist | Pending |
 
 ### Risks
 
@@ -394,11 +394,11 @@ Workbooks converted before this change may still contain inline pasted helpers; 
 
 ## 8. Calc function → Python mapping
 
-LibreOffice exposes **~508** built-in functions ([Calc Guide 25.2 Ch.9](https://books.libreoffice.org/en/CG252/CG25209-FormulasAndFunctions.html)); [`translate.py`](../plugin/calc/spreadsheet_import/translate.py) currently ships **131** deterministic mappings (including `ROW`, `COLUMN`, `IFS`, `SWITCH` handlers).
+LibreOffice exposes **~508** built-in functions ([Calc Guide 25.2 Ch.9](https://books.libreoffice.org/en/CG252/CG25209-FormulasAndFunctions.html)); [`translate.py`](../plugin/calc/spreadsheet_import/translate.py) currently ships **142** deterministic mappings (including `ROW`, `COLUMN`, `IFS`, `SWITCH` handlers).
 
 **Source of truth for done vs not done:** [§8.12 Master function inventory](#812-master-function-inventory-goal). Subsections §8.1–§8.11 below retain **conceptual Python shapes** from the original plan; tier labels (P1/P2/P3) are historical—check §8.12 **Status** column for current implementation.
 
-**Coverage tiers (historical plan):** P1 ≈70% of formula cells; P1+P2 ≈90%; P3 / N/A = LLM, manual, or leave-as-Calc. Tier **D** (financial suite, `OFFSET`/`INDIRECT`, database functions) is **deferred**—see §8.12.
+**Coverage tiers (historical plan):** P1 ≈70% of formula cells; P1+P2 ≈90%; P3 / N/A = LLM, manual, or leave-as-Calc. Tier **D** (financial suite, `OFFSET`/`INDIRECT`, database functions) is **in progress**—see §8.12.
 
 Convention: `data` is the primary injected range; `data[n]` is multi-range varargs. Scalar ranges collapse to scalar per [`calc_addin_data`](plugin/calc/calc_addin_data.py). Use `float(...)` when Calc expects a scalar double.
 
@@ -558,9 +558,9 @@ Convention: `data` is the primary injected range; `data[n]` is multi-range varar
 
 ### 8.12 Master function inventory (goal)
 
-Curated from [LibreOffice Functions by Category](https://help.libreoffice.org/latest/en-US/text/scalc/01/04060100.html), [Calc Guide 25.2 Ch.9](https://books.libreoffice.org/en/CG252/CG25209-FormulasAndFunctions.html), and [Microsoft–LibreOffice function comparison](https://wiki.documentfoundation.org/Documentation/Calc_Functions) (~508 LO built-ins total). **Status** reflects [`translate.py`](../plugin/calc/spreadsheet_import/translate.py) as of the Tier A/B/C port (131 shipped).
+Curated from [LibreOffice Functions by Category](https://help.libreoffice.org/latest/en-US/text/scalc/01/04060100.html), [Calc Guide 25.2 Ch.9](https://books.libreoffice.org/en/CG252/CG25209-FormulasAndFunctions.html), and [Microsoft–LibreOffice function comparison](https://wiki.documentfoundation.org/Documentation/Calc_Functions) (~508 LO built-ins total). **Status** reflects [`translate.py`](../plugin/calc/spreadsheet_import/translate.py) as of the Tier A/B/C/D port (142 shipped).
 
-**Inventory summary:** **131 / 374** functions in this master list are **Shipped** in [`translate.py`](../plugin/calc/spreadsheet_import/translate.py) (131 emitters including `ROW`/`COLUMN`/`IFS`/`SWITCH` handlers). LibreOffice Calc exposes **~508** built-ins ([Calc Guide 25.2 Ch.9](https://books.libreoffice.org/en/CG252/CG25209-FormulasAndFunctions.html), [Functions by Category](https://help.libreoffice.org/latest/en-US/text/scalc/01/04060100.html)); this curated list (~374) is the **conversion goal set** for business/statistical workbooks—not every locale alias (`*_ADD`, `*_EXCEL2003`) or extension-only symbol.
+**Inventory summary:** **142 / 374** functions in this master list are **Shipped** in [`translate.py`](../plugin/calc/spreadsheet_import/translate.py) (142 emitters including `ROW`/`COLUMN`/`IFS`/`SWITCH` handlers). LibreOffice Calc exposes **~508** built-ins ([Calc Guide 25.2 Ch.9](https://books.libreoffice.org/en/CG252/CG25209-FormulasAndFunctions.html), [Functions by Category](https://help.libreoffice.org/latest/en-US/text/scalc/01/04060100.html)); this curated list (~374) is the **conversion goal set** for business/statistical workbooks—not every locale alias (`*_ADD`, `*_EXCEL2003`) or extension-only symbol.
 
 | Status | Meaning |
 |--------|---------|
@@ -596,7 +596,7 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `DATEDIF` | Shipped |
 | `DATEVALUE` | Not started |
 | `DAY` | Shipped |
-| `DAYS` | Not started |
+| `DAYS` | Shipped |
 | `DAYS360` | Not started |
 | `EDATE` | Shipped |
 | `EOMONTH` | Shipped |
@@ -608,7 +608,7 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `NETWORKDAYS.INTL` | Not started |
 | `NOW` | Shipped |
 | `SECOND` | Shipped |
-| `TIME` | Not started |
+| `TIME` | Shipped |
 | `TIMEVALUE` | Not started |
 | `TODAY` | Shipped |
 | `WEEKDAY` | Shipped |
@@ -641,7 +641,7 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `DOLLARFR` | Not started |
 | `DURATION` | Not started |
 | `EFFECT` | Not started |
-| `FV` | Planned (P3) |
+| `FV` | Shipped |
 | `FVSCHEDULE` | Not started |
 | `INTRATE` | Not started |
 | `IPMT` | Planned (P3) |
@@ -657,12 +657,12 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `ODDLPRICE` | Not started |
 | `ODDLYIELD` | Not started |
 | `PDURATION` | Not started |
-| `PMT` | Planned (P3) |
+| `PMT` | Shipped |
 | `PPMT` | Planned (P3) |
 | `PRICE` | Not started |
 | `PRICEDISC` | Not started |
 | `PRICEMAT` | Not started |
-| `PV` | Planned (P3) |
+| `PV` | Shipped |
 | `RATE` | Planned (P3) |
 | `RECEIVED` | Not started |
 | `RRI` | Not started |
@@ -691,13 +691,13 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `ISBLANK` | Shipped |
 | `ISERR` | Shipped |
 | `ISERROR` | Shipped |
-| `ISEVEN` | Not started |
+| `ISEVEN` | Shipped |
 | `ISFORMULA` | Not started |
 | `ISLOGICAL` | Shipped |
 | `ISNA` | Shipped |
 | `ISNONTEXT` | Shipped |
 | `ISNUMBER` | Shipped |
-| `ISODD` | Not started |
+| `ISODD` | Shipped |
 | `ISREF` | Not started |
 | `ISTEXT` | Shipped |
 | `N` | Not started |
@@ -759,7 +759,7 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `LOG` | Shipped |
 | `LOG10` | Shipped |
 | `MOD` | Shipped |
-| `MROUND` | Not started |
+| `MROUND` | Shipped |
 | `MULTINOMIAL` | Not started |
 | `ODD` | Shipped |
 | `PI` | Shipped |
@@ -784,7 +784,7 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `SUM` | Shipped |
 | `SUMIF` | Shipped |
 | `SUMIFS` | Shipped |
-| `SUMSQ` | Not started |
+| `SUMSQ` | Shipped |
 | `TAN` | Shipped |
 | `TANH` | Not started |
 | `TRUNC` | Shipped |
@@ -839,7 +839,7 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `FINV` | Not started |
 | `FISHER` | Not started |
 | `FISHERINV` | Not started |
-| `FORECAST` | Not started |
+| `FORECAST` | Shipped |
 | `FREQUENCY` | Planned (P3) |
 | `GAMMA` | Not started |
 | `GAMMADIST` | Not started |
@@ -889,7 +889,7 @@ Use `list_calc_functions` (chat tool) against a live Calc session for the author
 | `TDIST` | Not started |
 | `TINV` | Not started |
 | `TREND` | Planned (P3) |
-| `TRIMMEAN` | Not started |
+| `TRIMMEAN` | Shipped |
 | `TTEST` | Not started |
 | `VAR` | Shipped |
 | `VARA` | Not started |
@@ -1189,11 +1189,11 @@ Run with `make test`. New tests follow module naming in [AGENTS.md](../AGENTS.md
 | Preserve + PY normalize (`extract.py`, `preserve.py`) | **Shipped** (Phase 2) |
 | Vendored formula parser (`plugin/contrib/calc_formula_parser/`) | **Shipped** (Phase 3) |
 | P1 translator (`translate.py`, `emit.py`, `verify.py`, `report.py`) | **Shipped** (Phase 3) |
-| P2 translator additions (SUMIFs, XLOOKUP, TEXTJOIN, REGEX, dates) | **Shipped** (Phase 4 initial) |
-| Tier A/B/C function port (131 functions — §8.12) | **Shipped** |
-| Column vectorization | Not started (Phase 4) |
-| Menu / dialog | Not started (Phase 5) |
-| Chat tool | Not started (Phase 5) |
+| P2 translator additions (SUMIFs, XLOOKUP, TEXTJOIN, REGEX, dates) | **Shipped** (Phase 4) |
+| Tier A/B/C/D function port (142 functions — §8.12) | **Shipped** |
+| Column vectorization | **Shipped** (Phase 4) |
+| Menu / dialog | **Shipped** (Phase 5) |
+| Chat tool | **Shipped** (Phase 5) |
 | Benchmark corpus | Partial (`simple_budget_snapshot` with conversion oracles; full 10-sheet corpus pending) |
 
-**Next engineering step:** Phase 4 — column vectorization + expanded corpus; Phase 5 — menu, dialog, chat tool.
+**Next engineering step:** Phase 4 — expanded corpus and Tier D functions; Phase 6 — LLM fallback.

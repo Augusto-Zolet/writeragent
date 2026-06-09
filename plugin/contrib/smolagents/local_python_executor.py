@@ -936,6 +936,14 @@ def evaluate_call(
         return func(*args, **kwargs)
 
 
+def _close_match_hint(needle: str, candidates: list[str], *, label: str = "names") -> str:
+    """Error-message hint only — never substitute or resolve via fuzzy match."""
+    close_matches = difflib.get_close_matches(needle, candidates)
+    if not close_matches:
+        return ""
+    return f". Maybe you meant one of these {label} instead: {close_matches}"
+
+
 def evaluate_subscript(
     subscript: ast.Subscript,
     state: dict[str, Any],
@@ -950,9 +958,7 @@ def evaluate_subscript(
     except (KeyError, IndexError, TypeError) as e:
         error_message = f"Could not index {value} with '{index}': {type(e).__name__}: {e}"
         if isinstance(index, str) and isinstance(value, Mapping):
-            close_matches = difflib.get_close_matches(index, list(value.keys()))
-            if len(close_matches) > 0:
-                error_message += f". Maybe you meant one of these indexes instead: {str(close_matches)}"
+            error_message += _close_match_hint(index, list(value.keys()), label="indexes")
         raise InterpreterError(error_message) from e
 
 
@@ -971,7 +977,8 @@ def evaluate_name(
         return custom_tools[name.id]
     elif name.id in ERRORS:
         return ERRORS[name.id]
-    raise InterpreterError(f"The variable `{name.id}` is not defined.")
+    hint = _close_match_hint(name.id, list(state.keys()), label="variables")
+    raise InterpreterError(f"The variable `{name.id}` is not defined{hint}.")
 
 
 def evaluate_condition(
