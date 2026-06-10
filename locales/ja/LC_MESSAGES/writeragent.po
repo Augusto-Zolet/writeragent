@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-08 18:08-0400\n"
+"POT-Creation-Date: 2026-06-10 00:44-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Japanese <LL@li.org>\n"
@@ -21,6 +21,21 @@ msgid ""
 "Document research reads require specialized task delegation (USE_SUB_AGENT)."
 " Enable this in configuration."
 msgstr "ドキュメントのリサーチ読み取りには専門的なタスク委任（USE_SUB_AGENT）が必要です。設定でこれを有効にしてください。"
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session started."
+msgstr "ブレインストーミングセッションを開始しました。"
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session completed."
+msgstr "ブレインストーミングセッションが完了しました。"
+
+#: plugin/doc/specialized_base.py
+msgid ""
+"Brainstorming requires sidebar session wiring "
+"(start_brainstorming_session_callback)."
+msgstr ""
+"ブレインストーミングにはサイドバーセッションの接続が必要です (start_brainstorming_session_callback)。"
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -338,6 +353,15 @@ msgid ""
 "without seeing or changing your document. Let's chat."
 msgstr "AI: ドキュメントを見たり変更したりすることなく、ウェブ検索を行って質問に答えたり、ウェブページを要約したりできます。お話ししましょう。"
 
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's explore and design your idea together. I'll ask questions, suggest"
+" approaches, and help you build an approved spec in your document when "
+"you're ready."
+msgstr ""
+"AI: "
+"あなたのアイデアを一緒に探求し、設計しましょう。質問をしたり、アプローチを提案したりして、準備ができたらドキュメント内に承認済みの仕様書を作成するお手伝いをします。"
+
 #: plugin/framework/client/errors.py
 #, python-brace-format
 msgid "HTTP Error {0} from AI Provider: {1}"
@@ -395,6 +419,10 @@ msgstr "画像をセルにアンカーし、選択してから、もう一度実
 #: plugin/calc/vision_egress.py
 msgid "No structured tables or text blocks to insert."
 msgstr "挿入可能な構造化テーブルやテキストブロックがありません。"
+
+#: plugin/calc/spreadsheet_import/import_dialog.py
+msgid "Convert Sheet to Python"
+msgstr "シートをPythonに変換"
 
 #: plugin/calc/python_editor.py
 msgid ""
@@ -839,6 +867,22 @@ msgstr "エラー: ツールキットが利用できません"
 msgid "Opening '%s' for read-only access."
 msgstr "'%s' を読み取り専用で開いています。"
 
+#: plugin/chatbot/chat_sidebar_mode.py plugin/xdl_strings.py
+msgid "Chat"
+msgstr "チャット"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Use Image model"
+msgstr "画像モデルを使用"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Web Research"
+msgstr "Webリサーチ"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Brainstorming"
+msgstr "ブレインストーミング"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "承認"
@@ -971,6 +1015,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "エディタを開始できませんでした: {0}"
 
+#: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
+msgid "Brainstorming complete."
+msgstr "ブレインストーミング完了。"
+
 #: plugin/chatbot/send_handlers.py
 msgid "Transcribing audio..."
 msgstr "音声を文字起こし中..."
@@ -1008,6 +1056,15 @@ msgstr "不明なライブラリアンエラー。"
 #, python-brace-format
 msgid "[Librarian error: {0}]"
 msgstr "[ライブラリアンエラー：{0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown brainstorming error."
+msgstr "不明なブレインストーミングエラーが発生しました。"
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Brainstorming error: {0}]"
+msgstr "[ブレインストーミングエラー: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."
@@ -1344,101 +1401,20 @@ msgid "Could not talk to the Python editor."
 msgstr "Pythonエディターと通信できませんでした。"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Analysis Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"分析ヘルパー: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "可視化ライブラリ"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Viz Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"可視化ヘルパー: %(cmd)s"
 
 #: plugin/scripting/venv_worker.py
 msgid "Computer Algebra"
 msgstr "数式処理"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Symbolic Math Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"数式処理ヘルパー: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Quantitative Finance Libraries"
 msgstr "金融工学ライブラリ"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Quant Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"金融工学ヘルパー: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "ビジョンライブラリ"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Docling OCR load failed: %(err)s"
-msgstr ""
-"\n"
-"Docling OCRの読み込みに失敗しました: %(err)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Docling): %(cmd)s"
-msgstr ""
-"\n"
-"ビジョンヘルパー (OCR, Docling): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Paddle fallback): %(cmd)s"
-msgstr ""
-"\n"
-"ビジョンヘルパー (OCR, Paddle フォールバック): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (Docling primary): %(cmd)s"
-msgstr ""
-"\n"
-"ビジョンヘルパー (Docling プライマリ): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-msgid "Optional (detection helpers): pip install ultralytics"
-msgstr "オプション (検出ヘルパー): pip install ultralytics"
-
-#: plugin/scripting/venv_worker.py
-msgid ""
-"Optional (image processing in trusted helpers): pip install scikit-image"
-msgstr "オプション (信頼されたヘルパーでの画像処理): pip install scikit-image"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1784,6 +1760,10 @@ msgid "Insert LaTeX Math..."
 msgstr "LaTeX数式を挿入..."
 
 #: plugin/main.py
+msgid "Convert Sheet to Python..."
+msgstr "シートをPythonに変換..."
+
+#: plugin/main.py
 msgid "Dispatch Error"
 msgstr "ディスパッチエラー"
 
@@ -1954,14 +1934,6 @@ msgstr "タイムアウト(秒):"
 #: plugin/xdl_strings.py
 msgid "Use AI Horde for Image Generation"
 msgstr "画像生成にAI Hordeを使用"
-
-#: plugin/xdl_strings.py
-msgid "Use Image model"
-msgstr "画像モデルを使用"
-
-#: plugin/xdl_strings.py
-msgid "Web Research"
-msgstr "Webリサーチ"
 
 #: plugin/xdl_strings.py
 msgid "Writer"
@@ -2273,24 +2245,6 @@ msgstr ""
 msgid "Vision / OCR"
 msgstr "ビジョン / OCR"
 
-msgid "Device"
-msgstr "デバイス"
-
-msgid "Hardware for Docling models. auto picks GPU when available."
-msgstr "Doclingモデル用のハードウェア。利用可能な場合は自動的にGPUを選択します。"
-
-msgid "Auto"
-msgstr "自動"
-
-msgid "CPU"
-msgstr "CPU"
-
-msgid "CUDA (NVIDIA)"
-msgstr "CUDA (NVIDIA)"
-
-msgid "MPS (Apple Silicon)"
-msgstr "MPS (Apple Silicon)"
-
 msgid "Image scale"
 msgstr "画像の拡大率"
 
@@ -2320,18 +2274,6 @@ msgstr "画像全体をOCR"
 
 msgid "Recommended for embedded graphics exported from LibreOffice."
 msgstr "LibreOfficeからエクスポートされた埋め込みグラフィックに推奨。"
-
-msgid "OCR language"
-msgstr "OCR言語"
-
-msgid "Language code for OCR backends that support it (e.g. en, de)."
-msgstr "対応するOCRバックエンド用の言語コード（例: en, de）。"
-
-msgid "CPU threads"
-msgstr "CPUスレッド数"
-
-msgid "Thread count for Docling model inference on CPU."
-msgstr "CPU上でのDoclingモデル推論に使用するスレッド数。"
 
 msgid "Table extraction mode"
 msgstr "テーブル抽出モード"
@@ -2396,12 +2338,6 @@ msgstr "Doclingドキュメントのタイムアウト（秒）"
 
 msgid "Per-conversion timeout inside Docling. 0 = no limit."
 msgstr "Docling内での変換ごとのタイムアウト。0は制限なし。"
-
-msgid "Allow external Docling plugins"
-msgstr "外部Doclingプラグインを許可"
-
-msgid "Required for Surya OCR (docling-surya)."
-msgstr "Surya OCR (docling-surya) に必要です。"
 
 msgid "Writer document tools (including navigation and search)"
 msgstr "Writer ドキュメントツール (ナビゲーションと検索を含む)"

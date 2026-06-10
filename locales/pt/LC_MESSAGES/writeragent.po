@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-08 18:08-0400\n"
+"POT-Creation-Date: 2026-06-10 00:44-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Portuguese <LL@li.org>\n"
@@ -24,6 +24,22 @@ msgid ""
 msgstr ""
 "As leituras de pesquisa de documentos requerem delegação de tarefas "
 "especializada (USE_SUB_AGENT). Ative isto na configuração."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session started."
+msgstr "Sessão de brainstorming iniciada."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session completed."
+msgstr "Sessão de brainstorming concluída."
+
+#: plugin/doc/specialized_base.py
+msgid ""
+"Brainstorming requires sidebar session wiring "
+"(start_brainstorming_session_callback)."
+msgstr ""
+"O brainstorming requer a conexão da sessão na barra lateral "
+"(start_brainstorming_session_callback)."
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -373,6 +389,16 @@ msgstr ""
 "resumir uma página da web, sem ver ou alterar seu documento. Vamos "
 "conversar."
 
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's explore and design your idea together. I'll ask questions, suggest"
+" approaches, and help you build an approved spec in your document when "
+"you're ready."
+msgstr ""
+"IA: Vamos explorar e projetar sua ideia juntos. Farei perguntas, sugerirei "
+"abordagens e ajudarei você a criar uma especificação aprovada em seu "
+"documento quando estiver pronto."
+
 #: plugin/framework/client/errors.py
 #, python-brace-format
 msgid "HTTP Error {0} from AI Provider: {1}"
@@ -432,6 +458,10 @@ msgstr "Ancore a imagem a uma célula, selecione-a e execute novamente."
 #: plugin/calc/vision_egress.py
 msgid "No structured tables or text blocks to insert."
 msgstr "Não existem tabelas ou blocos de texto estruturados para inserir."
+
+#: plugin/calc/spreadsheet_import/import_dialog.py
+msgid "Convert Sheet to Python"
+msgstr "Converter Planilha para Python"
 
 #: plugin/calc/python_editor.py
 msgid ""
@@ -879,6 +909,22 @@ msgstr "Erro: Kit de ferramentas indisponível"
 msgid "Opening '%s' for read-only access."
 msgstr "A abrir '%s' para acesso apenas de leitura."
 
+#: plugin/chatbot/chat_sidebar_mode.py plugin/xdl_strings.py
+msgid "Chat"
+msgstr "Chat"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Use Image model"
+msgstr "Usar modelo de imagem"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Web Research"
+msgstr "Pesquisa na Web"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Brainstorming"
+msgstr "Brainstorming"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "Aceitar"
@@ -1020,6 +1066,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "Não foi possível iniciar o editor: {0}"
 
+#: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
+msgid "Brainstorming complete."
+msgstr "Brainstorming concluído."
+
 #: plugin/chatbot/send_handlers.py
 msgid "Transcribing audio..."
 msgstr "A transcrever áudio..."
@@ -1059,6 +1109,15 @@ msgstr "Erro desconhecido do bibliotecário."
 #, python-brace-format
 msgid "[Librarian error: {0}]"
 msgstr "[Erro do bibliotecário: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown brainstorming error."
+msgstr "Erro de brainstorming desconhecido."
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Brainstorming error: {0}]"
+msgstr "[Erro de brainstorming: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."
@@ -1403,103 +1462,20 @@ msgid "Could not talk to the Python editor."
 msgstr "Não foi possível comunicar com o editor Python."
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Analysis Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Auxiliares de Análise: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "Bibliotecas de visualização"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Viz Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Assistentes de visualização: %(cmd)s"
 
 #: plugin/scripting/venv_worker.py
 msgid "Computer Algebra"
 msgstr "Álgebra Computacional"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Symbolic Math Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Auxiliares de Matemática Simbólica: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Quantitative Finance Libraries"
 msgstr "Bibliotecas de Finanças Quantitativas"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Quant Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Auxiliares Quant: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "Bibliotecas de Visão"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Docling OCR load failed: %(err)s"
-msgstr ""
-"\n"
-"Falha ao carregar Docling OCR: %(err)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Docling): %(cmd)s"
-msgstr ""
-"\n"
-"Auxiliares de Visão (OCR, Docling): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Paddle fallback): %(cmd)s"
-msgstr ""
-"\n"
-"Auxiliares de visão (OCR, fallback Paddle): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (Docling primary): %(cmd)s"
-msgstr ""
-"\n"
-"Auxiliares de visão (Docling primário): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-msgid "Optional (detection helpers): pip install ultralytics"
-msgstr "Opcional (auxiliares de detecção): pip install ultralytics"
-
-#: plugin/scripting/venv_worker.py
-msgid ""
-"Optional (image processing in trusted helpers): pip install scikit-image"
-msgstr ""
-"Opcional (processamento de imagem em auxiliares confiáveis): pip install "
-"scikit-image"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1878,6 +1854,10 @@ msgid "Insert LaTeX Math..."
 msgstr "Inserir fórmula LaTeX..."
 
 #: plugin/main.py
+msgid "Convert Sheet to Python..."
+msgstr "Converter folha para Python..."
+
+#: plugin/main.py
 msgid "Dispatch Error"
 msgstr "Erro de despacho"
 
@@ -2048,14 +2028,6 @@ msgstr "Tempo limite (s):"
 #: plugin/xdl_strings.py
 msgid "Use AI Horde for Image Generation"
 msgstr "Usar AI Horde para geração de imagens"
-
-#: plugin/xdl_strings.py
-msgid "Use Image model"
-msgstr "Usar modelo de imagem"
-
-#: plugin/xdl_strings.py
-msgid "Web Research"
-msgstr "Pesquisa na Web"
 
 #: plugin/xdl_strings.py
 msgid "Writer"
@@ -2394,26 +2366,6 @@ msgstr ""
 msgid "Vision / OCR"
 msgstr "Visão / OCR"
 
-msgid "Device"
-msgstr "Dispositivo"
-
-msgid "Hardware for Docling models. auto picks GPU when available."
-msgstr ""
-"Hardware para modelos Docling. Seleciona automaticamente a GPU quando "
-"disponível."
-
-msgid "Auto"
-msgstr "Automático"
-
-msgid "CPU"
-msgstr "CPU"
-
-msgid "CUDA (NVIDIA)"
-msgstr "CUDA (NVIDIA)"
-
-msgid "MPS (Apple Silicon)"
-msgstr "MPS (Apple Silicon)"
-
 msgid "Image scale"
 msgstr "Escala da imagem"
 
@@ -2449,18 +2401,6 @@ msgstr "OCR da imagem inteira"
 
 msgid "Recommended for embedded graphics exported from LibreOffice."
 msgstr "Recomendado para gráficos incorporados exportados do LibreOffice."
-
-msgid "OCR language"
-msgstr "Idioma do OCR"
-
-msgid "Language code for OCR backends that support it (e.g. en, de)."
-msgstr "Código de idioma para backends de OCR que o suportam (ex: en, de)."
-
-msgid "CPU threads"
-msgstr "Threads da CPU"
-
-msgid "Thread count for Docling model inference on CPU."
-msgstr "Contagem de threads para inferência do modelo Docling na CPU."
 
 msgid "Table extraction mode"
 msgstr "Modo de extração de tabela"
@@ -2527,12 +2467,6 @@ msgstr "Tempo limite do documento Docling (s)"
 
 msgid "Per-conversion timeout inside Docling. 0 = no limit."
 msgstr "Tempo limite por conversão dentro do Docling. 0 = sem limite."
-
-msgid "Allow external Docling plugins"
-msgstr "Permitir plugins externos do Docling"
-
-msgid "Required for Surya OCR (docling-surya)."
-msgstr "Necessário para Surya OCR (docling-surya)."
 
 msgid "Writer document tools (including navigation and search)"
 msgstr "Ferramentas de documento do Writer (incluindo navegação e pesquisa)"

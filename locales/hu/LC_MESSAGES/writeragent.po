@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-08 18:08-0400\n"
+"POT-Creation-Date: 2026-06-10 00:44-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Hungarian <LL@li.org>\n"
@@ -24,6 +24,22 @@ msgid ""
 msgstr ""
 "A dokumentumkutatási olvasások speciális feladatdelegálást igényelnek "
 "(USE_SUB_AGENT). Engedélyezze ezt a konfigurációban."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session started."
+msgstr "Ötletbörze munkamenet elindítva."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session completed."
+msgstr "Ötletbörze munkamenet befejezve."
+
+#: plugin/doc/specialized_base.py
+msgid ""
+"Brainstorming requires sidebar session wiring "
+"(start_brainstorming_session_callback)."
+msgstr ""
+"Az ötletbörzéhez oldalsáv-munkamenet összekapcsolása szükséges "
+"(start_brainstorming_session_callback)."
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -370,6 +386,16 @@ msgstr ""
 "összefoglalhatok egy weboldalt anélkül, hogy látnám vagy módosítanám a "
 "dokumentumát. Beszélgessünk."
 
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's explore and design your idea together. I'll ask questions, suggest"
+" approaches, and help you build an approved spec in your document when "
+"you're ready."
+msgstr ""
+"AI: Fedezzük fel és tervezzük meg együtt az ötletét. Kérdéseket teszek fel, "
+"megközelítéseket javaslok, és segítek egy jóváhagyott specifikációt "
+"összeállítani a dokumentumában, amikor készen áll."
+
 #: plugin/framework/client/errors.py
 #, python-brace-format
 msgid "HTTP Error {0} from AI Provider: {1}"
@@ -429,6 +455,10 @@ msgstr "Horgonyozza a képet egy cellához, jelölje ki, majd futtassa újra."
 #: plugin/calc/vision_egress.py
 msgid "No structured tables or text blocks to insert."
 msgstr "Nincsenek beszúrható strukturált táblázatok vagy szövegblokkok."
+
+#: plugin/calc/spreadsheet_import/import_dialog.py
+msgid "Convert Sheet to Python"
+msgstr "Munkalap konvertálása Pythonra"
 
 #: plugin/calc/python_editor.py
 msgid ""
@@ -877,6 +907,22 @@ msgstr "Hiba: Az eszközkészlet nem érhető el"
 msgid "Opening '%s' for read-only access."
 msgstr "„%s” megnyitása csak olvasható módban."
 
+#: plugin/chatbot/chat_sidebar_mode.py plugin/xdl_strings.py
+msgid "Chat"
+msgstr "Csevegés"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Use Image model"
+msgstr "Képmodell használata"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Web Research"
+msgstr "Webes kutatás"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Brainstorming"
+msgstr "Ötletbörze"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "Elfogadás"
@@ -1016,6 +1062,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "A szerkesztő nem indítható: {0}"
 
+#: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
+msgid "Brainstorming complete."
+msgstr "Ötletbörze kész."
+
 #: plugin/chatbot/send_handlers.py
 msgid "Transcribing audio..."
 msgstr "Hang átírása..."
@@ -1055,6 +1105,15 @@ msgstr "Ismeretlen könyvtárosi hiba."
 #, python-brace-format
 msgid "[Librarian error: {0}]"
 msgstr "[Könyvtárosi hiba: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown brainstorming error."
+msgstr "Ismeretlen ötletbörze-hiba."
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Brainstorming error: {0}]"
+msgstr "[Ötletbörze-hiba: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."
@@ -1399,102 +1458,20 @@ msgid "Could not talk to the Python editor."
 msgstr "Nem sikerült kommunikálni a Python-szerkesztővel."
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Analysis Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Elemzési segédek: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "Vizualizációs könyvtárak"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Viz Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Vizualizációs segédek: %(cmd)s"
 
 #: plugin/scripting/venv_worker.py
 msgid "Computer Algebra"
 msgstr "Számítógépes algebra"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Symbolic Math Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Szimbolikus matematikai segédeszközök: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Quantitative Finance Libraries"
 msgstr "Kvantitatív pénzügyi könyvtárak"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Quant Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Kvantitatív segédeszközök: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "Látáskönyvtárak"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Docling OCR load failed: %(err)s"
-msgstr ""
-"\n"
-"A Docling OCR betöltése sikertelen: %(err)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Docling): %(cmd)s"
-msgstr ""
-"\n"
-"Látássegédek (OCR, Docling): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Paddle fallback): %(cmd)s"
-msgstr ""
-"\n"
-"Látássegítők (OCR, Paddle tartalék): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (Docling primary): %(cmd)s"
-msgstr ""
-"\n"
-"Látássegítők (Docling elsődleges): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-msgid "Optional (detection helpers): pip install ultralytics"
-msgstr "Opcionális (észlelési segítők): pip install ultralytics"
-
-#: plugin/scripting/venv_worker.py
-msgid ""
-"Optional (image processing in trusted helpers): pip install scikit-image"
-msgstr ""
-"Opcionális (képfeldolgozás megbízható segítőkben): pip install scikit-image"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1885,6 +1862,10 @@ msgid "Insert LaTeX Math..."
 msgstr "LaTeX-képlet beszúrása..."
 
 #: plugin/main.py
+msgid "Convert Sheet to Python..."
+msgstr "Munkalap konvertálása Pythonra..."
+
+#: plugin/main.py
 msgid "Dispatch Error"
 msgstr "Küldési hiba"
 
@@ -2055,14 +2036,6 @@ msgstr "Időtúllépés (mp):"
 #: plugin/xdl_strings.py
 msgid "Use AI Horde for Image Generation"
 msgstr "AI Horde használata képgeneráláshoz"
-
-#: plugin/xdl_strings.py
-msgid "Use Image model"
-msgstr "Képmodell használata"
-
-#: plugin/xdl_strings.py
-msgid "Web Research"
-msgstr "Webes kutatás"
 
 #: plugin/xdl_strings.py
 msgid "Writer"
@@ -2406,26 +2379,6 @@ msgstr ""
 msgid "Vision / OCR"
 msgstr "Látásmód / OCR"
 
-msgid "Device"
-msgstr "Eszköz"
-
-msgid "Hardware for Docling models. auto picks GPU when available."
-msgstr ""
-"Hardver a Docling modellekhez. Automatikusan kiválasztja a GPU-t, ha "
-"elérhető."
-
-msgid "Auto"
-msgstr "Automatikus"
-
-msgid "CPU"
-msgstr "CPU"
-
-msgid "CUDA (NVIDIA)"
-msgstr "CUDA (NVIDIA)"
-
-msgid "MPS (Apple Silicon)"
-msgstr "MPS (Apple Silicon)"
-
 msgid "Image scale"
 msgstr "Képméretezés"
 
@@ -2460,18 +2413,6 @@ msgstr "Teljes kép OCR-ezése"
 
 msgid "Recommended for embedded graphics exported from LibreOffice."
 msgstr "Ajánlott a LibreOffice-ból exportált beágyazott grafikákhoz."
-
-msgid "OCR language"
-msgstr "OCR nyelve"
-
-msgid "Language code for OCR backends that support it (e.g. en, de)."
-msgstr "Nyelvkód az azt támogató OCR-háttérprogramokhoz (pl. en, de)."
-
-msgid "CPU threads"
-msgstr "CPU-szálak"
-
-msgid "Thread count for Docling model inference on CPU."
-msgstr "Szálak száma a Docling modell CPU-n történő futtatásához."
 
 msgid "Table extraction mode"
 msgstr "Táblázatkinyerési mód"
@@ -2539,12 +2480,6 @@ msgstr "Docling dokumentum-időtúllépés (mp)"
 
 msgid "Per-conversion timeout inside Docling. 0 = no limit."
 msgstr "Konverziónkénti időtúllépés a Doclingben. 0 = nincs korlát."
-
-msgid "Allow external Docling plugins"
-msgstr "Külső Docling-bővítmények engedélyezése"
-
-msgid "Required for Surya OCR (docling-surya)."
-msgstr "Szükséges a Surya OCR-hez (docling-surya)."
 
 msgid "Writer document tools (including navigation and search)"
 msgstr "Writer-dokumentumeszközök (beleértve a navigációt és a keresést)"

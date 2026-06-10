@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-08 18:08-0400\n"
+"POT-Creation-Date: 2026-06-10 00:44-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Slovak <LL@li.org>\n"
@@ -24,6 +24,22 @@ msgid ""
 msgstr ""
 "Čítanie výskumu dokumentov vyžaduje špecializovanú delegáciu úloh "
 "(USE_SUB_AGENT). Povoľte túto možnosť v konfigurácii."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session started."
+msgstr "Relácia brainstormingu sa začala."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session completed."
+msgstr "Relácia brainstormingu sa skončila."
+
+#: plugin/doc/specialized_base.py
+msgid ""
+"Brainstorming requires sidebar session wiring "
+"(start_brainstorming_session_callback)."
+msgstr ""
+"Brainstorming vyžaduje prepojenie relácie na bočnom paneli "
+"(start_brainstorming_session_callback)."
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -368,6 +384,16 @@ msgstr ""
 "webovú stránku bez toho, aby som videl alebo menil váš dokument. Poďme "
 "chatovať."
 
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's explore and design your idea together. I'll ask questions, suggest"
+" approaches, and help you build an approved spec in your document when "
+"you're ready."
+msgstr ""
+"AI: Poďme spoločne preskúmať a navrhnúť váš nápad. Budem klásť otázky, "
+"navrhovať prístupy a pomôžem vám vytvoriť schválenú špecifikáciu vo vašom "
+"dokumente, keď budete pripravení."
+
 #: plugin/framework/client/errors.py
 #, python-brace-format
 msgid "HTTP Error {0} from AI Provider: {1}"
@@ -427,6 +453,10 @@ msgstr "Ukotvite obrázok do bunky, vyberte ho a potom znova spustite."
 #: plugin/calc/vision_egress.py
 msgid "No structured tables or text blocks to insert."
 msgstr "Žiadne štruktúrované tabuľky alebo textové bloky na vloženie."
+
+#: plugin/calc/spreadsheet_import/import_dialog.py
+msgid "Convert Sheet to Python"
+msgstr "Konvertovať hárok na Python"
 
 #: plugin/calc/python_editor.py
 msgid ""
@@ -873,6 +903,22 @@ msgstr "Chyba: Sada nástrojov nie je k dispozícii"
 msgid "Opening '%s' for read-only access."
 msgstr "Otváram „%s“ na čítanie."
 
+#: plugin/chatbot/chat_sidebar_mode.py plugin/xdl_strings.py
+msgid "Chat"
+msgstr "Chat"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Use Image model"
+msgstr "Použiť model obrázkov"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Web Research"
+msgstr "Webový prieskum"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Brainstorming"
+msgstr "Brainstorming"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "Prijať"
@@ -1013,6 +1059,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "Nepodarilo sa spustiť editor: {0}"
 
+#: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
+msgid "Brainstorming complete."
+msgstr "Brainstorming dokončený."
+
 #: plugin/chatbot/send_handlers.py
 msgid "Transcribing audio..."
 msgstr "Prepisujem zvuk..."
@@ -1052,6 +1102,15 @@ msgstr "Neznáma chyba knihovníka."
 #, python-brace-format
 msgid "[Librarian error: {0}]"
 msgstr "[Chyba knihovníka: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown brainstorming error."
+msgstr "Neznáma chyba brainstormingu."
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Brainstorming error: {0}]"
+msgstr "[Chyba brainstormingu: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."
@@ -1393,103 +1452,20 @@ msgid "Could not talk to the Python editor."
 msgstr "Nepodarilo sa komunikovať s editorom Pythonu."
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Analysis Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Pomocníci analýzy: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "Vizualizačné knižnice"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Viz Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Vizualizační pomocníci: %(cmd)s"
 
 #: plugin/scripting/venv_worker.py
 msgid "Computer Algebra"
 msgstr "Počítačová algebra"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Symbolic Math Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Pomocníci pre symbolickú matematiku: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Quantitative Finance Libraries"
 msgstr "Knižnice pre kvantitatívne financie"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Quant Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Kvantitatívni pomocníci: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "Knižnice videnia"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Docling OCR load failed: %(err)s"
-msgstr ""
-"\n"
-"Načítanie Docling OCR zlyhalo: %(err)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Docling): %(cmd)s"
-msgstr ""
-"\n"
-"Pomocníci videnia (OCR, Docling): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Paddle fallback): %(cmd)s"
-msgstr ""
-"\n"
-"Pomocníci pre videnie (OCR, záloha Paddle): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (Docling primary): %(cmd)s"
-msgstr ""
-"\n"
-"Pomocníci pre videnie (primárne Docling): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-msgid "Optional (detection helpers): pip install ultralytics"
-msgstr "Voliteľné (pomocníci detekcie): pip install ultralytics"
-
-#: plugin/scripting/venv_worker.py
-msgid ""
-"Optional (image processing in trusted helpers): pip install scikit-image"
-msgstr ""
-"Voliteľné (spracovanie obrázkov v dôveryhodných pomocníkoch): pip install "
-"scikit-image"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1865,6 +1841,10 @@ msgid "Insert LaTeX Math..."
 msgstr "Vložiť matematický výraz LaTeX..."
 
 #: plugin/main.py
+msgid "Convert Sheet to Python..."
+msgstr "Konvertovať hárok na Python..."
+
+#: plugin/main.py
 msgid "Dispatch Error"
 msgstr "Chyba odoslania"
 
@@ -2035,14 +2015,6 @@ msgstr "Časový limit (s):"
 #: plugin/xdl_strings.py
 msgid "Use AI Horde for Image Generation"
 msgstr "Použiť AI Horde na generovanie obrázkov"
-
-#: plugin/xdl_strings.py
-msgid "Use Image model"
-msgstr "Použiť model obrázkov"
-
-#: plugin/xdl_strings.py
-msgid "Web Research"
-msgstr "Webový prieskum"
 
 #: plugin/xdl_strings.py
 msgid "Writer"
@@ -2384,25 +2356,6 @@ msgstr ""
 msgid "Vision / OCR"
 msgstr "Vízia / OCR"
 
-msgid "Device"
-msgstr "Zariadenie"
-
-msgid "Hardware for Docling models. auto picks GPU when available."
-msgstr ""
-"Hardvér pre modely Docling. Automaticky vyberie GPU, ak je k dispozícii."
-
-msgid "Auto"
-msgstr "Automaticky"
-
-msgid "CPU"
-msgstr "CPU"
-
-msgid "CUDA (NVIDIA)"
-msgstr "CUDA (NVIDIA)"
-
-msgid "MPS (Apple Silicon)"
-msgstr "MPS (Apple Silicon)"
-
 msgid "Image scale"
 msgstr "Mierka obrázka"
 
@@ -2437,18 +2390,6 @@ msgstr "OCR celého obrázka"
 
 msgid "Recommended for embedded graphics exported from LibreOffice."
 msgstr "Odporúčané pre vloženú grafiku exportovanú z LibreOffice."
-
-msgid "OCR language"
-msgstr "Jazyk OCR"
-
-msgid "Language code for OCR backends that support it (e.g. en, de)."
-msgstr "Jazykový kód pre OCR backendy, ktoré ho podporujú (napr. en, de)."
-
-msgid "CPU threads"
-msgstr "Vlákna CPU"
-
-msgid "Thread count for Docling model inference on CPU."
-msgstr "Počet vlákien pre inferenciu modelu Docling na CPU."
 
 msgid "Table extraction mode"
 msgstr "Režim extrakcie tabuliek"
@@ -2514,12 +2455,6 @@ msgstr "Časový limit dokumentu Docling (s)"
 
 msgid "Per-conversion timeout inside Docling. 0 = no limit."
 msgstr "Časový limit na konverziu v rámci Docling. 0 = bez limitu."
-
-msgid "Allow external Docling plugins"
-msgstr "Povoliť externé doplnky Docling"
-
-msgid "Required for Surya OCR (docling-surya)."
-msgstr "Vyžaduje sa pre Surya OCR (docling-surya)."
 
 msgid "Writer document tools (including navigation and search)"
 msgstr "Nástroje dokumentu Writer (vrátane navigácie a vyhľadávania)"

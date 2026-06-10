@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-08 18:08-0400\n"
+"POT-Creation-Date: 2026-06-10 00:44-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Ukrainian <LL@li.org>\n"
@@ -24,6 +24,22 @@ msgid ""
 msgstr ""
 "Читання результатів дослідження документа потребує спеціалізованого "
 "делегування завдань (USE_SUB_AGENT). Увімкніть це в налаштуваннях."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session started."
+msgstr "Сеанс мозкового штурму розпочато."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session completed."
+msgstr "Сеанс мозкового штурму завершено."
+
+#: plugin/doc/specialized_base.py
+msgid ""
+"Brainstorming requires sidebar session wiring "
+"(start_brainstorming_session_callback)."
+msgstr ""
+"Для мозкового штурму потрібне підключення сеансу бічної панелі "
+"(start_brainstorming_session_callback)."
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -376,6 +392,16 @@ msgstr ""
 "підсумувати веб-сторінку, не бачачи та не змінюючи ваш документ. Давайте "
 "поспілкуємося."
 
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's explore and design your idea together. I'll ask questions, suggest"
+" approaches, and help you build an approved spec in your document when "
+"you're ready."
+msgstr ""
+"ШІ: Давайте разом дослідимо та розробимо вашу ідею. Я ставитиму запитання, "
+"пропонуватиму підходи та допоможу створити затверджену специфікацію у вашому"
+" документі, коли ви будете готові."
+
 #: plugin/framework/client/errors.py
 #, python-brace-format
 msgid "HTTP Error {0} from AI Provider: {1}"
@@ -436,6 +462,10 @@ msgstr ""
 #: plugin/calc/vision_egress.py
 msgid "No structured tables or text blocks to insert."
 msgstr "Немає структурованих таблиць або текстових блоків для вставлення."
+
+#: plugin/calc/spreadsheet_import/import_dialog.py
+msgid "Convert Sheet to Python"
+msgstr "Перетворити аркуш на Python"
 
 #: plugin/calc/python_editor.py
 msgid ""
@@ -883,6 +913,22 @@ msgstr "Помилка: набір інструментів недоступни
 msgid "Opening '%s' for read-only access."
 msgstr "Відкриття '%s' для доступу лише для читання."
 
+#: plugin/chatbot/chat_sidebar_mode.py plugin/xdl_strings.py
+msgid "Chat"
+msgstr "Чат"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Use Image model"
+msgstr "Використовувати модель зображень"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Web Research"
+msgstr "Веб-пошук"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Brainstorming"
+msgstr "Мозковий штурм"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "Прийняти"
@@ -1022,6 +1068,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "Не вдалося запустити редактор: {0}"
 
+#: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
+msgid "Brainstorming complete."
+msgstr "Мозковий штурм завершено."
+
 #: plugin/chatbot/send_handlers.py
 msgid "Transcribing audio..."
 msgstr "Транскрибування аудіо..."
@@ -1061,6 +1111,15 @@ msgstr "Невідома помилка бібліотекаря."
 #, python-brace-format
 msgid "[Librarian error: {0}]"
 msgstr "[Помилка бібліотекаря: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown brainstorming error."
+msgstr "Невідома помилка мозкового штурму."
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Brainstorming error: {0}]"
+msgstr "[Помилка мозкового штурму: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."
@@ -1402,103 +1461,20 @@ msgid "Could not talk to the Python editor."
 msgstr "Не вдалося зв'язатися з редактором Python."
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Analysis Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Помічники аналізу: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "Бібліотеки візуалізації"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Viz Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Помічники візуалізації: %(cmd)s"
 
 #: plugin/scripting/venv_worker.py
 msgid "Computer Algebra"
 msgstr "Комп'ютерна алгебра"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Symbolic Math Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Помічники з символьної математики: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Quantitative Finance Libraries"
 msgstr "Бібліотеки кількісних фінансів"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Quant Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Помічники з кількісних обчислень: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "Бібліотеки зору"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Docling OCR load failed: %(err)s"
-msgstr ""
-"\n"
-"Помилка завантаження Docling OCR: %(err)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Docling): %(cmd)s"
-msgstr ""
-"\n"
-"Помічники зору (OCR, Docling): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Paddle fallback): %(cmd)s"
-msgstr ""
-"\n"
-"Помічники зору (OCR, резервний варіант Paddle): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (Docling primary): %(cmd)s"
-msgstr ""
-"\n"
-"Помічники зору (основний Docling): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-msgid "Optional (detection helpers): pip install ultralytics"
-msgstr "Необов'язково (помічники виявлення): pip install ultralytics"
-
-#: plugin/scripting/venv_worker.py
-msgid ""
-"Optional (image processing in trusted helpers): pip install scikit-image"
-msgstr ""
-"Необов'язково (обробка зображень у довірених помічниках): pip install "
-"scikit-image"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1877,6 +1853,10 @@ msgid "Insert LaTeX Math..."
 msgstr "Вставити формулу LaTeX..."
 
 #: plugin/main.py
+msgid "Convert Sheet to Python..."
+msgstr "Перетворити аркуш на Python..."
+
+#: plugin/main.py
 msgid "Dispatch Error"
 msgstr "Помилка диспетчеризації"
 
@@ -2047,14 +2027,6 @@ msgstr "Час очікування (с):"
 #: plugin/xdl_strings.py
 msgid "Use AI Horde for Image Generation"
 msgstr "Використовувати AI Horde для генерації зображень"
-
-#: plugin/xdl_strings.py
-msgid "Use Image model"
-msgstr "Використовувати модель зображень"
-
-#: plugin/xdl_strings.py
-msgid "Web Research"
-msgstr "Веб-пошук"
 
 #: plugin/xdl_strings.py
 msgid "Writer"
@@ -2395,26 +2367,6 @@ msgstr ""
 msgid "Vision / OCR"
 msgstr "Бачення / OCR"
 
-msgid "Device"
-msgstr "Пристрій"
-
-msgid "Hardware for Docling models. auto picks GPU when available."
-msgstr ""
-"Апаратне забезпечення для моделей Docling. «Авто» обирає GPU, якщо він "
-"доступний."
-
-msgid "Auto"
-msgstr "Авто"
-
-msgid "CPU"
-msgstr "ЦП"
-
-msgid "CUDA (NVIDIA)"
-msgstr "CUDA (NVIDIA)"
-
-msgid "MPS (Apple Silicon)"
-msgstr "MPS (Apple Silicon)"
-
 msgid "Image scale"
 msgstr "Масштаб зображення"
 
@@ -2450,18 +2402,6 @@ msgstr "OCR всього зображення"
 
 msgid "Recommended for embedded graphics exported from LibreOffice."
 msgstr "Рекомендовано для вбудованої графіки, експортованої з LibreOffice."
-
-msgid "OCR language"
-msgstr "Мова OCR"
-
-msgid "Language code for OCR backends that support it (e.g. en, de)."
-msgstr "Код мови для бекендів OCR, що її підтримують (наприклад, en, de)."
-
-msgid "CPU threads"
-msgstr "Потоки процесора"
-
-msgid "Thread count for Docling model inference on CPU."
-msgstr "Кількість потоків для виведення моделі Docling на процесорі."
 
 msgid "Table extraction mode"
 msgstr "Режим вилучення таблиць"
@@ -2530,12 +2470,6 @@ msgstr "Таймаут документа Docling (с)"
 
 msgid "Per-conversion timeout inside Docling. 0 = no limit."
 msgstr "Таймаут для кожного перетворення в Docling. 0 = без обмежень."
-
-msgid "Allow external Docling plugins"
-msgstr "Дозволити зовнішні плагіни Docling"
-
-msgid "Required for Surya OCR (docling-surya)."
-msgstr "Потрібно для Surya OCR (docling-surya)."
 
 msgid "Writer document tools (including navigation and search)"
 msgstr "Інструменти документа Writer (включаючи навігацію та пошук)"

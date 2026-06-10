@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-08 18:08-0400\n"
+"POT-Creation-Date: 2026-06-10 00:44-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Croatian <LL@li.org>\n"
@@ -24,6 +24,22 @@ msgid ""
 msgstr ""
 "Čitanje istraživanja dokumenata zahtijeva delegiranje specijaliziranih "
 "zadataka (USE_SUB_AGENT). Omogućite ovo u konfiguraciji."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session started."
+msgstr "Sesija brainstorminga je započela."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session completed."
+msgstr "Sesija brainstorminga je završena."
+
+#: plugin/doc/specialized_base.py
+msgid ""
+"Brainstorming requires sidebar session wiring "
+"(start_brainstorming_session_callback)."
+msgstr ""
+"Brainstorming zahtijeva povezivanje sesije na bočnoj traci "
+"(start_brainstorming_session_callback)."
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -368,6 +384,16 @@ msgstr ""
 "AI: Mogu pretraživati web kako bih odgovorio na bilo koje pitanje ili sažeo "
 "web stranicu, bez gledanja ili mijenjanja vašeg dokumenta. Razgovarajmo."
 
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's explore and design your idea together. I'll ask questions, suggest"
+" approaches, and help you build an approved spec in your document when "
+"you're ready."
+msgstr ""
+"AI: Istražimo i osmislimo vašu ideju zajedno. Postavljat ću pitanja, "
+"predlagati pristupe i pomoći vam da izradite odobrenu specifikaciju u vašem "
+"dokumentu kada budete spremni."
+
 #: plugin/framework/client/errors.py
 #, python-brace-format
 msgid "HTTP Error {0} from AI Provider: {1}"
@@ -427,6 +453,10 @@ msgstr "Sidrite sliku na ćeliju, odaberite je, a zatim ponovno pokrenite."
 #: plugin/calc/vision_egress.py
 msgid "No structured tables or text blocks to insert."
 msgstr "Nema strukturiranih tablica ili blokova teksta za umetanje."
+
+#: plugin/calc/spreadsheet_import/import_dialog.py
+msgid "Convert Sheet to Python"
+msgstr "Pretvori list u Python"
 
 #: plugin/calc/python_editor.py
 msgid ""
@@ -873,6 +903,22 @@ msgstr "Pogreška: Alatna traka nije dostupna"
 msgid "Opening '%s' for read-only access."
 msgstr "Otvaranje '%s' za pristup samo za čitanje."
 
+#: plugin/chatbot/chat_sidebar_mode.py plugin/xdl_strings.py
+msgid "Chat"
+msgstr "Razgovor"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Use Image model"
+msgstr "Koristi model slike"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Web Research"
+msgstr "Web istraživanje"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Brainstorming"
+msgstr "Brainstorming"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "Prihvati"
@@ -1013,6 +1059,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "Nije bilo moguće pokrenuti uređivač: {0}"
 
+#: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
+msgid "Brainstorming complete."
+msgstr "Brainstorming dovršen."
+
 #: plugin/chatbot/send_handlers.py
 msgid "Transcribing audio..."
 msgstr "Transkribiranje zvuka..."
@@ -1052,6 +1102,15 @@ msgstr "Nepoznata pogreška knjižničara."
 #, python-brace-format
 msgid "[Librarian error: {0}]"
 msgstr "[Pogreška knjižničara: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown brainstorming error."
+msgstr "Nepoznata pogreška u brainstormingu."
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Brainstorming error: {0}]"
+msgstr "[Pogreška u brainstormingu: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."
@@ -1393,102 +1452,20 @@ msgid "Could not talk to the Python editor."
 msgstr "Nije bilo moguće komunicirati s Python uređivačem."
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Analysis Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Pomoćnici za analizu: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "Biblioteke za vizualizaciju"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Viz Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Pomoćnici za vizualizaciju: %(cmd)s"
 
 #: plugin/scripting/venv_worker.py
 msgid "Computer Algebra"
 msgstr "Računalna algebra"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Symbolic Math Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Pomoćnici za simboličku matematiku: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Quantitative Finance Libraries"
 msgstr "Knjižnice za kvantitativne financije"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Quant Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Kvantni pomoćnici: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "Biblioteke za vid"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Docling OCR load failed: %(err)s"
-msgstr ""
-"\n"
-"Učitavanje Docling OCR-a nije uspjelo: %(err)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Docling): %(cmd)s"
-msgstr ""
-"\n"
-"Pomoćnici za vid (OCR, Docling): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Paddle fallback): %(cmd)s"
-msgstr ""
-"\n"
-"Pomoćnici za vid (OCR, pričuvni sustav Paddle): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (Docling primary): %(cmd)s"
-msgstr ""
-"\n"
-"Pomoćnici za vid (primarni Docling): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-msgid "Optional (detection helpers): pip install ultralytics"
-msgstr "Neobavezno (pomoćnici za otkrivanje): pip install ultralytics"
-
-#: plugin/scripting/venv_worker.py
-msgid ""
-"Optional (image processing in trusted helpers): pip install scikit-image"
-msgstr ""
-"Neobavezno (obrada slika u pouzdanim pomoćnicima): pip install scikit-image"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1863,6 +1840,10 @@ msgid "Insert LaTeX Math..."
 msgstr "Umetni LaTeX formulu..."
 
 #: plugin/main.py
+msgid "Convert Sheet to Python..."
+msgstr "Pretvori list u Python..."
+
+#: plugin/main.py
 msgid "Dispatch Error"
 msgstr "Pogreška slanja"
 
@@ -2033,14 +2014,6 @@ msgstr "Vremensko ograničenje (s):"
 #: plugin/xdl_strings.py
 msgid "Use AI Horde for Image Generation"
 msgstr "Koristi AI Horde za generiranje slika"
-
-#: plugin/xdl_strings.py
-msgid "Use Image model"
-msgstr "Koristi model slike"
-
-#: plugin/xdl_strings.py
-msgid "Web Research"
-msgstr "Web istraživanje"
 
 #: plugin/xdl_strings.py
 msgid "Writer"
@@ -2379,24 +2352,6 @@ msgstr ""
 msgid "Vision / OCR"
 msgstr "Vizija / OCR"
 
-msgid "Device"
-msgstr "Uređaj"
-
-msgid "Hardware for Docling models. auto picks GPU when available."
-msgstr "Hardver za Docling modele. Automatski odabire GPU ako je dostupan."
-
-msgid "Auto"
-msgstr "Automatski"
-
-msgid "CPU"
-msgstr "CPU"
-
-msgid "CUDA (NVIDIA)"
-msgstr "CUDA (NVIDIA)"
-
-msgid "MPS (Apple Silicon)"
-msgstr "MPS (Apple Silicon)"
-
 msgid "Image scale"
 msgstr "Skaliranje slike"
 
@@ -2431,19 +2386,6 @@ msgstr "OCR cijele slike"
 
 msgid "Recommended for embedded graphics exported from LibreOffice."
 msgstr "Preporučeno za ugrađenu grafiku izvezenu iz LibreOfficea."
-
-msgid "OCR language"
-msgstr "OCR jezik"
-
-msgid "Language code for OCR backends that support it (e.g. en, de)."
-msgstr ""
-"Jezični kod za OCR pozadinske programe koji ga podržavaju (npr. en, de)."
-
-msgid "CPU threads"
-msgstr "CPU dretve"
-
-msgid "Thread count for Docling model inference on CPU."
-msgstr "Broj dretvi za Docling model zaključivanja na CPU-u."
 
 msgid "Table extraction mode"
 msgstr "Način izdvajanja tablica"
@@ -2509,12 +2451,6 @@ msgstr "Vremensko ograničenje Docling dokumenta (s)"
 msgid "Per-conversion timeout inside Docling. 0 = no limit."
 msgstr ""
 "Vremensko ograničenje po pretvorbi unutar Doclinga. 0 = bez ograničenja."
-
-msgid "Allow external Docling plugins"
-msgstr "Dopusti vanjske Docling dodatke"
-
-msgid "Required for Surya OCR (docling-surya)."
-msgstr "Potrebno za Surya OCR (docling-surya)."
 
 msgid "Writer document tools (including navigation and search)"
 msgstr "Alati za Writer dokumente (uključujući navigaciju i pretraživanje)"

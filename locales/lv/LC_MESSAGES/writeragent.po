@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-08 18:08-0400\n"
+"POT-Creation-Date: 2026-06-10 00:44-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Latvian <LL@li.org>\n"
@@ -24,6 +24,22 @@ msgid ""
 msgstr ""
 "Dokumentu izpētes lasījumiem ir nepieciešama specializēta uzdevumu "
 "deleģēšana (USE_SUB_AGENT). Iespējojiet to konfigurācijā."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session started."
+msgstr "Prāta vētras sesija ir sākta."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session completed."
+msgstr "Prāta vētras sesija ir pabeigta."
+
+#: plugin/doc/specialized_base.py
+msgid ""
+"Brainstorming requires sidebar session wiring "
+"(start_brainstorming_session_callback)."
+msgstr ""
+"Prāta vētrai ir nepieciešams sānjoslas sesijas savienojums "
+"(start_brainstorming_session_callback)."
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -371,6 +387,16 @@ msgstr ""
 "AI: Es varu veikt tīmekļa izpēti, lai atbildētu uz jebkuru jautājumu, vai "
 "apkopot tīmekļa lapu, neredzot un nemainot jūsu dokumentu. Parunāsim."
 
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's explore and design your idea together. I'll ask questions, suggest"
+" approaches, and help you build an approved spec in your document when "
+"you're ready."
+msgstr ""
+"AI: Izpētīsim un izstrādāsim jūsu ideju kopā. Es uzdošu jautājumus, ieteikšu"
+" pieejas un palīdzēšu jums izveidot apstiprinātu specifikāciju jūsu "
+"dokumentā, kad būsiet gatavs."
+
 #: plugin/framework/client/errors.py
 #, python-brace-format
 msgid "HTTP Error {0} from AI Provider: {1}"
@@ -430,6 +456,10 @@ msgstr "Noenkurojiet attēlu šūnā, atlasiet to un palaidiet vēlreiz."
 #: plugin/calc/vision_egress.py
 msgid "No structured tables or text blocks to insert."
 msgstr "Nav strukturētu tabulu vai teksta bloku, ko ievietot."
+
+#: plugin/calc/spreadsheet_import/import_dialog.py
+msgid "Convert Sheet to Python"
+msgstr "Konvertēt lapu uz Python"
 
 #: plugin/calc/python_editor.py
 msgid ""
@@ -877,6 +907,22 @@ msgstr "Kļūda: rīkkopa nav pieejama"
 msgid "Opening '%s' for read-only access."
 msgstr "Atver '%s' lasīšanai tikai režīmā."
 
+#: plugin/chatbot/chat_sidebar_mode.py plugin/xdl_strings.py
+msgid "Chat"
+msgstr "Tērzēšana"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Use Image model"
+msgstr "Izmantot attēlu modeli"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Web Research"
+msgstr "Tīmekļa izpēte"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Brainstorming"
+msgstr "Prāta vētra"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "Pieņemt"
@@ -1017,6 +1063,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "Neizdevās palaist redaktoru: {0}"
 
+#: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
+msgid "Brainstorming complete."
+msgstr "Prāta vētra pabeigta."
+
 #: plugin/chatbot/send_handlers.py
 msgid "Transcribing audio..."
 msgstr "Notiek audio transkribēšana..."
@@ -1056,6 +1106,15 @@ msgstr "Nezināma bibliotekāra kļūda."
 #, python-brace-format
 msgid "[Librarian error: {0}]"
 msgstr "[Bibliotekāra kļūda: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown brainstorming error."
+msgstr "Nezināma prāta vētras kļūda."
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Brainstorming error: {0}]"
+msgstr "[Prāta vētras kļūda: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."
@@ -1398,102 +1457,20 @@ msgid "Could not talk to the Python editor."
 msgstr "Neizdevās sazināties ar Python redaktoru."
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Analysis Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Analīzes palīgrīki: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "Vizualizācijas bibliotēkas"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Viz Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Vizualizācijas palīgi: %(cmd)s"
 
 #: plugin/scripting/venv_worker.py
 msgid "Computer Algebra"
 msgstr "Datoralgebra"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Symbolic Math Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Simboliskās matemātikas palīgi: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Quantitative Finance Libraries"
 msgstr "Kvantitatīvās finanses bibliotēkas"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Quant Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Kvantitatīvie palīgi: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "Vīzijas bibliotēkas"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Docling OCR load failed: %(err)s"
-msgstr ""
-"\n"
-"Docling OCR ielāde neizdevās: %(err)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Docling): %(cmd)s"
-msgstr ""
-"\n"
-"Vīzijas palīgrīki (OCR, Docling): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Paddle fallback): %(cmd)s"
-msgstr ""
-"\n"
-"Redzes palīgi (OCR, Paddle atkāpšanās): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (Docling primary): %(cmd)s"
-msgstr ""
-"\n"
-"Redzes palīgi (Docling primārais): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-msgid "Optional (detection helpers): pip install ultralytics"
-msgstr "Neobligāti (noteikšanas palīgi): pip install ultralytics"
-
-#: plugin/scripting/venv_worker.py
-msgid ""
-"Optional (image processing in trusted helpers): pip install scikit-image"
-msgstr ""
-"Neobligāti (attēlu apstrāde uzticamos palīgos): pip install scikit-image"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1872,6 +1849,10 @@ msgid "Insert LaTeX Math..."
 msgstr "Ievietot LaTeX formulu..."
 
 #: plugin/main.py
+msgid "Convert Sheet to Python..."
+msgstr "Konvertēt lapu uz Python..."
+
+#: plugin/main.py
 msgid "Dispatch Error"
 msgstr "Nosūtīšanas kļūda"
 
@@ -2042,14 +2023,6 @@ msgstr "Noildze (s):"
 #: plugin/xdl_strings.py
 msgid "Use AI Horde for Image Generation"
 msgstr "Izmantot AI Horde attēlu ģenerēšanai"
-
-#: plugin/xdl_strings.py
-msgid "Use Image model"
-msgstr "Izmantot attēlu modeli"
-
-#: plugin/xdl_strings.py
-msgid "Web Research"
-msgstr "Tīmekļa izpēte"
 
 #: plugin/xdl_strings.py
 msgid "Writer"
@@ -2390,25 +2363,6 @@ msgstr ""
 msgid "Vision / OCR"
 msgstr "Vīzija / OCR"
 
-msgid "Device"
-msgstr "Ierīce"
-
-msgid "Hardware for Docling models. auto picks GPU when available."
-msgstr ""
-"Aparatūra Docling modeļiem. Automātiski izvēlas GPU, ja tas ir pieejams."
-
-msgid "Auto"
-msgstr "Automātiski"
-
-msgid "CPU"
-msgstr "CPU"
-
-msgid "CUDA (NVIDIA)"
-msgstr "CUDA (NVIDIA)"
-
-msgid "MPS (Apple Silicon)"
-msgstr "MPS (Apple Silicon)"
-
 msgid "Image scale"
 msgstr "Attēla mērogošana"
 
@@ -2443,18 +2397,6 @@ msgstr "OCR visam attēlam"
 
 msgid "Recommended for embedded graphics exported from LibreOffice."
 msgstr "Ieteicams iegultai grafikai, kas eksportēta no LibreOffice."
-
-msgid "OCR language"
-msgstr "OCR valoda"
-
-msgid "Language code for OCR backends that support it (e.g. en, de)."
-msgstr "Valodas kods OCR dzinējiem, kas to atbalsta (piem., en, de)."
-
-msgid "CPU threads"
-msgstr "CPU pavedieni"
-
-msgid "Thread count for Docling model inference on CPU."
-msgstr "Pavedienu skaits Docling modeļa secinājumiem CPU."
 
 msgid "Table extraction mode"
 msgstr "Tabulu izvilkšanas režīms"
@@ -2520,12 +2462,6 @@ msgstr "Docling dokumenta noildze (s)"
 
 msgid "Per-conversion timeout inside Docling. 0 = no limit."
 msgstr "Noildze katrai konvertēšanai Docling ietvaros. 0 = bez ierobežojuma."
-
-msgid "Allow external Docling plugins"
-msgstr "Atļaut ārējos Docling spraudņus"
-
-msgid "Required for Surya OCR (docling-surya)."
-msgstr "Nepieciešams Surya OCR (docling-surya) darbībai."
 
 msgid "Writer document tools (including navigation and search)"
 msgstr "Writer dokumentu rīki (tostarp navigācija un meklēšana)"

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-08 18:08-0400\n"
+"POT-Creation-Date: 2026-06-10 00:44-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Estonian <LL@li.org>\n"
@@ -24,6 +24,22 @@ msgid ""
 msgstr ""
 "Dokumendi uurimine nõuab spetsiaalset ülesannete delegeerimist "
 "(USE_SUB_AGENT). Lubage see seadistustes."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session started."
+msgstr "Ajurünnak on alanud."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session completed."
+msgstr "Ajurünnak on lõpetatud."
+
+#: plugin/doc/specialized_base.py
+msgid ""
+"Brainstorming requires sidebar session wiring "
+"(start_brainstorming_session_callback)."
+msgstr ""
+"Ajurünnak nõuab külgpaneeli seansi ühendamist "
+"(start_brainstorming_session_callback)."
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -365,6 +381,16 @@ msgstr ""
 "AI: Saan teha veebiotsinguid, et vastata mis tahes küsimusele, või võtta "
 "veebilehe kokku, ilma et näeksin või muudaksin teie dokumenti. Vestleme."
 
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's explore and design your idea together. I'll ask questions, suggest"
+" approaches, and help you build an approved spec in your document when "
+"you're ready."
+msgstr ""
+"AI: Uurime ja kavandame teie ideed koos. Esitan küsimusi, pakun välja "
+"lähenemisviise ja aitan teil koostada kinnitatud spetsifikatsiooni teie "
+"dokumenti, kui olete valmis."
+
 #: plugin/framework/client/errors.py
 #, python-brace-format
 msgid "HTTP Error {0} from AI Provider: {1}"
@@ -424,6 +450,10 @@ msgstr "Ankurdage pilt lahtrisse, valige see ja käivitage uuesti."
 #: plugin/calc/vision_egress.py
 msgid "No structured tables or text blocks to insert."
 msgstr "Ühtegi struktureeritud tabelit või tekstiplokki pole võimalik lisada."
+
+#: plugin/calc/spreadsheet_import/import_dialog.py
+msgid "Convert Sheet to Python"
+msgstr "Teisenda tabel Pythoniks"
 
 #: plugin/calc/python_editor.py
 msgid ""
@@ -870,6 +900,22 @@ msgstr "Viga: tööriistakomplekt pole saadaval"
 msgid "Opening '%s' for read-only access."
 msgstr "Avatakse '%s' kirjutuskaitstud režiimis."
 
+#: plugin/chatbot/chat_sidebar_mode.py plugin/xdl_strings.py
+msgid "Chat"
+msgstr "Vestlus"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Use Image model"
+msgstr "Kasuta pildimudelit"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Web Research"
+msgstr "Veebiuuring"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Brainstorming"
+msgstr "Ajurünnak"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "Nõustu"
@@ -1007,6 +1053,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "Redaktorit ei saanud käivitada: {0}"
 
+#: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
+msgid "Brainstorming complete."
+msgstr "Ajurünnak on lõpetatud."
+
 #: plugin/chatbot/send_handlers.py
 msgid "Transcribing audio..."
 msgstr "Transkribeerin heli..."
@@ -1046,6 +1096,15 @@ msgstr "Tundmatu Librarian-i viga."
 #, python-brace-format
 msgid "[Librarian error: {0}]"
 msgstr "[Librarian-i viga: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown brainstorming error."
+msgstr "Tundmatu ajurünnaku viga."
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Brainstorming error: {0}]"
+msgstr "[Ajurünnaku viga: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."
@@ -1387,103 +1446,20 @@ msgid "Could not talk to the Python editor."
 msgstr "Pythoni redaktoriga ei saanud ühendust."
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Analysis Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Analüüsi abivahendid: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "Visualiseerimisteegid"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Viz Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Visualiseerimise abivahendid: %(cmd)s"
 
 #: plugin/scripting/venv_worker.py
 msgid "Computer Algebra"
 msgstr "Arvutialgebra"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Symbolic Math Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Sümbolarvutuse abivahendid: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Quantitative Finance Libraries"
 msgstr "Kvantitatiivse rahanduse teegid"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Quant Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Kvant-abivahendid: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "Visuaalsed teegid"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Docling OCR load failed: %(err)s"
-msgstr ""
-"\n"
-"Docling OCR-i laadimine ebaõnnestus: %(err)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Docling): %(cmd)s"
-msgstr ""
-"\n"
-"Visuaalsed abivahendid (OCR, Docling): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Paddle fallback): %(cmd)s"
-msgstr ""
-"\n"
-"Visuaalsed abivahendid (OCR, Paddle varuvalik): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (Docling primary): %(cmd)s"
-msgstr ""
-"\n"
-"Visuaalsed abivahendid (Docling esmane): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-msgid "Optional (detection helpers): pip install ultralytics"
-msgstr "Valikuline (tuvastamise abivahendid): pip install ultralytics"
-
-#: plugin/scripting/venv_worker.py
-msgid ""
-"Optional (image processing in trusted helpers): pip install scikit-image"
-msgstr ""
-"Valikuline (pilditöötlus usaldusväärsetes abivahendites): pip install "
-"scikit-image"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1855,6 +1831,10 @@ msgid "Insert LaTeX Math..."
 msgstr "Lisa LaTeX-valem..."
 
 #: plugin/main.py
+msgid "Convert Sheet to Python..."
+msgstr "Teisenda leht Pythoniks..."
+
+#: plugin/main.py
 msgid "Dispatch Error"
 msgstr "Käsuviga"
 
@@ -2025,14 +2005,6 @@ msgstr "Ajalõpp (s):"
 #: plugin/xdl_strings.py
 msgid "Use AI Horde for Image Generation"
 msgstr "Kasuta piltide genereerimiseks AI Horde'i"
-
-#: plugin/xdl_strings.py
-msgid "Use Image model"
-msgstr "Kasuta pildimudelit"
-
-#: plugin/xdl_strings.py
-msgid "Web Research"
-msgstr "Veebiuuring"
 
 #: plugin/xdl_strings.py
 msgid "Writer"
@@ -2369,26 +2341,6 @@ msgstr ""
 msgid "Vision / OCR"
 msgstr "Visioon / OCR"
 
-msgid "Device"
-msgstr "Seade"
-
-msgid "Hardware for Docling models. auto picks GPU when available."
-msgstr ""
-"Riistvara Docling-mudelite jaoks. Valib automaatselt GPU, kui see on "
-"saadaval."
-
-msgid "Auto"
-msgstr "Automaatne"
-
-msgid "CPU"
-msgstr "CPU"
-
-msgid "CUDA (NVIDIA)"
-msgstr "CUDA (NVIDIA)"
-
-msgid "MPS (Apple Silicon)"
-msgstr "MPS (Apple Silicon)"
-
 msgid "Image scale"
 msgstr "Pildi skaleerimine"
 
@@ -2422,18 +2374,6 @@ msgstr "OCR-i rakendamine kogu pildile"
 
 msgid "Recommended for embedded graphics exported from LibreOffice."
 msgstr "Soovitatav LibreOffice'ist eksporditud manustatud graafika jaoks."
-
-msgid "OCR language"
-msgstr "OCR-i keel"
-
-msgid "Language code for OCR backends that support it (e.g. en, de)."
-msgstr "Keelekood OCR-i taustaprogrammidele, mis seda toetavad (nt en, de)."
-
-msgid "CPU threads"
-msgstr "CPU lõimed"
-
-msgid "Thread count for Docling model inference on CPU."
-msgstr "Lõimede arv Doclingi mudeli järelduste tegemiseks protsessoril."
 
 msgid "Table extraction mode"
 msgstr "Tabelite eraldamise režiim"
@@ -2500,12 +2440,6 @@ msgstr "Doclingi dokumendi ajalõpp (s)"
 
 msgid "Per-conversion timeout inside Docling. 0 = no limit."
 msgstr "Doclingi-sisene teisenduse ajalõpp. 0 = piiranguta."
-
-msgid "Allow external Docling plugins"
-msgstr "Luba välised Doclingi pistikprogrammid"
-
-msgid "Required for Surya OCR (docling-surya)."
-msgstr "Nõutav Surya OCR-i jaoks (docling-surya)."
 
 msgid "Writer document tools (including navigation and search)"
 msgstr "Writeri dokumenditööriistad (sh navigeerimine ja otsing)"

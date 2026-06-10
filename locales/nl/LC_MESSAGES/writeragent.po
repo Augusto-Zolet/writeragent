@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-08 18:08-0400\n"
+"POT-Creation-Date: 2026-06-10 00:44-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Dutch <LL@li.org>\n"
@@ -24,6 +24,22 @@ msgid ""
 msgstr ""
 "Documentonderzoek vereist gespecialiseerde taakdelegatie (USE_SUB_AGENT). "
 "Schakel dit in via de configuratie."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session started."
+msgstr "Brainstormsessie gestart."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session completed."
+msgstr "Brainstormsessie voltooid."
+
+#: plugin/doc/specialized_base.py
+msgid ""
+"Brainstorming requires sidebar session wiring "
+"(start_brainstorming_session_callback)."
+msgstr ""
+"Brainstormen vereist sidebar-sessiekoppeling "
+"(start_brainstorming_session_callback)."
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -369,6 +385,16 @@ msgstr ""
 "webpagina samenvatten, zonder uw document te zien of te wijzigen. Laten we "
 "chatten."
 
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's explore and design your idea together. I'll ask questions, suggest"
+" approaches, and help you build an approved spec in your document when "
+"you're ready."
+msgstr ""
+"AI: Laten we samen uw idee verkennen en uitwerken. Ik zal vragen stellen, "
+"benaderingen voorstellen en u helpen een goedgekeurde specificatie in uw "
+"document op te bouwen wanneer u er klaar voor bent."
+
 #: plugin/framework/client/errors.py
 #, python-brace-format
 msgid "HTTP Error {0} from AI Provider: {1}"
@@ -429,6 +455,10 @@ msgstr ""
 #: plugin/calc/vision_egress.py
 msgid "No structured tables or text blocks to insert."
 msgstr "Geen gestructureerde tabellen of tekstblokken om in te voegen."
+
+#: plugin/calc/spreadsheet_import/import_dialog.py
+msgid "Convert Sheet to Python"
+msgstr "Blad naar Python converteren"
 
 #: plugin/calc/python_editor.py
 msgid ""
@@ -876,6 +906,22 @@ msgstr "Fout: Toolkit niet beschikbaar"
 msgid "Opening '%s' for read-only access."
 msgstr "'%s' openen voor alleen-lezen toegang."
 
+#: plugin/chatbot/chat_sidebar_mode.py plugin/xdl_strings.py
+msgid "Chat"
+msgstr "Chat"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Use Image model"
+msgstr "Afbeeldingsmodel gebruiken"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Web Research"
+msgstr "Webonderzoek"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Brainstorming"
+msgstr "Brainstormen"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "Accepteren"
@@ -1015,6 +1061,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "Kon editor niet starten: {0}"
 
+#: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
+msgid "Brainstorming complete."
+msgstr "Brainstormen voltooid."
+
 #: plugin/chatbot/send_handlers.py
 msgid "Transcribing audio..."
 msgstr "Audio transcriberen..."
@@ -1054,6 +1104,15 @@ msgstr "Onbekende Librarian-fout."
 #, python-brace-format
 msgid "[Librarian error: {0}]"
 msgstr "[Librarian-fout: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown brainstorming error."
+msgstr "Onbekende brainstormfout."
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Brainstorming error: {0}]"
+msgstr "[Brainstormfout: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."
@@ -1397,103 +1456,20 @@ msgid "Could not talk to the Python editor."
 msgstr "Kon niet communiceren met de Python-editor."
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Analysis Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Hulpmiddelen voor analyse: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "Visualisatiebibliotheken"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Viz Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Viz-helpers: %(cmd)s"
 
 #: plugin/scripting/venv_worker.py
 msgid "Computer Algebra"
 msgstr "Computeralgebra"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Symbolic Math Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Symbolische wiskundehulpmiddelen: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Quantitative Finance Libraries"
 msgstr "Kwantitatieve financiële bibliotheken"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Quant Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Quant-hulpmiddelen: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "Visiebibliotheken"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Docling OCR load failed: %(err)s"
-msgstr ""
-"\n"
-"Laden van Docling OCR mislukt: %(err)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Docling): %(cmd)s"
-msgstr ""
-"\n"
-"Hulpmiddelen voor visie (OCR, Docling): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Paddle fallback): %(cmd)s"
-msgstr ""
-"\n"
-"Vision-helpers (OCR, Paddle-fallback): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (Docling primary): %(cmd)s"
-msgstr ""
-"\n"
-"Vision-helpers (Docling primair): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-msgid "Optional (detection helpers): pip install ultralytics"
-msgstr "Optioneel (detectie-helpers): pip install ultralytics"
-
-#: plugin/scripting/venv_worker.py
-msgid ""
-"Optional (image processing in trusted helpers): pip install scikit-image"
-msgstr ""
-"Optioneel (afbeeldingsverwerking in vertrouwde helpers): pip install scikit-"
-"image"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1867,6 +1843,10 @@ msgid "Insert LaTeX Math..."
 msgstr "LaTeX-formule invoegen..."
 
 #: plugin/main.py
+msgid "Convert Sheet to Python..."
+msgstr "Blad naar Python converteren..."
+
+#: plugin/main.py
 msgid "Dispatch Error"
 msgstr "Verzendfout"
 
@@ -2037,14 +2017,6 @@ msgstr "Time-out (s):"
 #: plugin/xdl_strings.py
 msgid "Use AI Horde for Image Generation"
 msgstr "AI Horde gebruiken voor afbeeldingsgeneratie"
-
-#: plugin/xdl_strings.py
-msgid "Use Image model"
-msgstr "Afbeeldingsmodel gebruiken"
-
-#: plugin/xdl_strings.py
-msgid "Web Research"
-msgstr "Webonderzoek"
 
 #: plugin/xdl_strings.py
 msgid "Writer"
@@ -2384,25 +2356,6 @@ msgstr ""
 msgid "Vision / OCR"
 msgstr "Visie / OCR"
 
-msgid "Device"
-msgstr "Apparaat"
-
-msgid "Hardware for Docling models. auto picks GPU when available."
-msgstr ""
-"Hardware voor Docling-modellen. 'Auto' kiest de GPU indien beschikbaar."
-
-msgid "Auto"
-msgstr "Auto"
-
-msgid "CPU"
-msgstr "CPU"
-
-msgid "CUDA (NVIDIA)"
-msgstr "CUDA (NVIDIA)"
-
-msgid "MPS (Apple Silicon)"
-msgstr "MPS (Apple Silicon)"
-
 msgid "Image scale"
 msgstr "Afbeeldingsschaal"
 
@@ -2439,18 +2392,6 @@ msgstr "OCR volledige afbeelding"
 msgid "Recommended for embedded graphics exported from LibreOffice."
 msgstr ""
 "Aanbevolen voor ingesloten afbeeldingen geëxporteerd vanuit LibreOffice."
-
-msgid "OCR language"
-msgstr "OCR-taal"
-
-msgid "Language code for OCR backends that support it (e.g. en, de)."
-msgstr "Taalcode voor OCR-backends die dit ondersteunen (bijv. en, de)."
-
-msgid "CPU threads"
-msgstr "CPU-threads"
-
-msgid "Thread count for Docling model inference on CPU."
-msgstr "Aantal threads voor Docling-modelinferentie op CPU."
 
 msgid "Table extraction mode"
 msgstr "Modus voor tabelextractie"
@@ -2515,12 +2456,6 @@ msgstr "Docling document-time-out (s)"
 
 msgid "Per-conversion timeout inside Docling. 0 = no limit."
 msgstr "Time-out per conversie binnen Docling. 0 = geen limiet."
-
-msgid "Allow external Docling plugins"
-msgstr "Externe Docling-plugins toestaan"
-
-msgid "Required for Surya OCR (docling-surya)."
-msgstr "Vereist voor Surya OCR (docling-surya)."
 
 msgid "Writer document tools (including navigation and search)"
 msgstr "Writer-documenttools (inclusief navigatie en zoeken)"

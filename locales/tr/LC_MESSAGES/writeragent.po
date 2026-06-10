@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-08 18:08-0400\n"
+"POT-Creation-Date: 2026-06-10 00:44-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Turkish <LL@li.org>\n"
@@ -24,6 +24,22 @@ msgid ""
 msgstr ""
 "Belge araştırması okumaları özel görev delegasyonu (USE_SUB_AGENT) "
 "gerektirir. Bunu yapılandırmadan etkinleştirin."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session started."
+msgstr "Beyin fırtınası oturumu başlatıldı."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session completed."
+msgstr "Beyin fırtınası oturumu tamamlandı."
+
+#: plugin/doc/specialized_base.py
+msgid ""
+"Brainstorming requires sidebar session wiring "
+"(start_brainstorming_session_callback)."
+msgstr ""
+"Beyin fırtınası, kenar çubuğu oturum bağlantısı gerektirir "
+"(start_brainstorming_session_callback)."
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -373,6 +389,16 @@ msgstr ""
 "için web araştırması yapabilir veya bir web sayfasını özetleyebilirim. Hadi "
 "sohbet edelim."
 
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's explore and design your idea together. I'll ask questions, suggest"
+" approaches, and help you build an approved spec in your document when "
+"you're ready."
+msgstr ""
+"YZ: Fikrinizi birlikte keşfedelim ve tasarlayalım. Size sorular soracağım, "
+"yaklaşımlar önereceğim ve hazır olduğunuzda belgenizde onaylanmış bir "
+"şartname oluşturmanıza yardımcı olacağım."
+
 #: plugin/framework/client/errors.py
 #, python-brace-format
 msgid "HTTP Error {0} from AI Provider: {1}"
@@ -432,6 +458,10 @@ msgstr "Resmi bir hücreye sabitleyin, seçin ve ardından tekrar Çalıştırı
 #: plugin/calc/vision_egress.py
 msgid "No structured tables or text blocks to insert."
 msgstr "Eklenecek yapılandırılmış tablo veya metin bloğu yok."
+
+#: plugin/calc/spreadsheet_import/import_dialog.py
+msgid "Convert Sheet to Python"
+msgstr "Sayfayı Python'a Dönüştür"
 
 #: plugin/calc/python_editor.py
 msgid ""
@@ -880,6 +910,22 @@ msgstr "Hata: Araç takımı kullanılamıyor"
 msgid "Opening '%s' for read-only access."
 msgstr "'%s' salt okunur erişim için açılıyor."
 
+#: plugin/chatbot/chat_sidebar_mode.py plugin/xdl_strings.py
+msgid "Chat"
+msgstr "Sohbet"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Use Image model"
+msgstr "Görsel modeli kullan"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Web Research"
+msgstr "Web Araştırması"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Brainstorming"
+msgstr "Beyin Fırtınası"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "Kabul Et"
@@ -1018,6 +1064,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "Düzenleyici başlatılamadı: {0}"
 
+#: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
+msgid "Brainstorming complete."
+msgstr "Beyin fırtınası tamamlandı."
+
 #: plugin/chatbot/send_handlers.py
 msgid "Transcribing audio..."
 msgstr "Ses dökümü alınıyor..."
@@ -1056,6 +1106,15 @@ msgstr "Bilinmeyen kütüphaneci hatası."
 #, python-brace-format
 msgid "[Librarian error: {0}]"
 msgstr "[Kütüphaneci hatası: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown brainstorming error."
+msgstr "Bilinmeyen beyin fırtınası hatası."
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Brainstorming error: {0}]"
+msgstr "[Beyin fırtınası hatası: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."
@@ -1395,103 +1454,20 @@ msgid "Could not talk to the Python editor."
 msgstr "Python düzenleyicisi ile iletişim kurulamadı."
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Analysis Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Analiz Yardımcıları: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "Görselleştirme Kütüphaneleri"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Viz Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Görsel Yardımcıları: %(cmd)s"
 
 #: plugin/scripting/venv_worker.py
 msgid "Computer Algebra"
 msgstr "Bilgisayarlı Cebir"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Symbolic Math Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Sembolik Matematik Yardımcıları: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Quantitative Finance Libraries"
 msgstr "Nicel Finans Kütüphaneleri"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Quant Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Nicel Yardımcılar: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "Görüntü Kütüphaneleri"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Docling OCR load failed: %(err)s"
-msgstr ""
-"\n"
-"Docling OCR yüklemesi başarısız oldu: %(err)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Docling): %(cmd)s"
-msgstr ""
-"\n"
-"Görüntü Yardımcıları (OCR, Docling): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Paddle fallback): %(cmd)s"
-msgstr ""
-"\n"
-"Görüntü Yardımcıları (OCR, Paddle yedeği): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (Docling primary): %(cmd)s"
-msgstr ""
-"\n"
-"Görüntü Yardımcıları (Docling birincil): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-msgid "Optional (detection helpers): pip install ultralytics"
-msgstr "İsteğe bağlı (algılama yardımcıları): pip install ultralytics"
-
-#: plugin/scripting/venv_worker.py
-msgid ""
-"Optional (image processing in trusted helpers): pip install scikit-image"
-msgstr ""
-"İsteğe bağlı (güvenilir yardımcılarda görüntü işleme): pip install scikit-"
-"image"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1865,6 +1841,10 @@ msgid "Insert LaTeX Math..."
 msgstr "LaTeX Matematiği Ekle..."
 
 #: plugin/main.py
+msgid "Convert Sheet to Python..."
+msgstr "Sayfayı Python'a Dönüştür..."
+
+#: plugin/main.py
 msgid "Dispatch Error"
 msgstr "Gönderim Hatası"
 
@@ -2035,14 +2015,6 @@ msgstr "Zaman Aşımı (sn):"
 #: plugin/xdl_strings.py
 msgid "Use AI Horde for Image Generation"
 msgstr "Görsel Oluşturma için AI Horde Kullan"
-
-#: plugin/xdl_strings.py
-msgid "Use Image model"
-msgstr "Görsel modeli kullan"
-
-#: plugin/xdl_strings.py
-msgid "Web Research"
-msgstr "Web Araştırması"
 
 #: plugin/xdl_strings.py
 msgid "Writer"
@@ -2381,26 +2353,6 @@ msgstr ""
 msgid "Vision / OCR"
 msgstr "Vizyon / OCR"
 
-msgid "Device"
-msgstr "Aygıt"
-
-msgid "Hardware for Docling models. auto picks GPU when available."
-msgstr ""
-"Docling modelleri için donanım. Kullanılabilir olduğunda otomatik olarak "
-"GPU'yu seçer."
-
-msgid "Auto"
-msgstr "Otomatik"
-
-msgid "CPU"
-msgstr "CPU"
-
-msgid "CUDA (NVIDIA)"
-msgstr "CUDA (NVIDIA)"
-
-msgid "MPS (Apple Silicon)"
-msgstr "MPS (Apple Silicon)"
-
 msgid "Image scale"
 msgstr "Görüntü ölçeği"
 
@@ -2434,18 +2386,6 @@ msgstr "Tüm görüntüyü OCR ile işle"
 
 msgid "Recommended for embedded graphics exported from LibreOffice."
 msgstr "LibreOffice'ten dışa aktarılan gömülü grafikler için önerilir."
-
-msgid "OCR language"
-msgstr "OCR dili"
-
-msgid "Language code for OCR backends that support it (e.g. en, de)."
-msgstr "Destekleyen OCR arka uçları için dil kodu (ör. en, de)."
-
-msgid "CPU threads"
-msgstr "CPU iş parçacıkları"
-
-msgid "Thread count for Docling model inference on CPU."
-msgstr "CPU üzerinde Docling model çıkarımı için iş parçacığı sayısı."
 
 msgid "Table extraction mode"
 msgstr "Tablo çıkarma modu"
@@ -2510,12 +2450,6 @@ msgstr "Docling belge zaman aşımı (sn)"
 
 msgid "Per-conversion timeout inside Docling. 0 = no limit."
 msgstr "Docling içinde dönüştürme başına zaman aşımı. 0 = sınır yok."
-
-msgid "Allow external Docling plugins"
-msgstr "Harici Docling eklentilerine izin ver"
-
-msgid "Required for Surya OCR (docling-surya)."
-msgstr "Surya OCR (docling-surya) için gereklidir."
 
 msgid "Writer document tools (including navigation and search)"
 msgstr "Writer belge araçları (gezinme ve arama dahil)"

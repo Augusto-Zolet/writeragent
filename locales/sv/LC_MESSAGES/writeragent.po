@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: WriterAgent 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-08 18:08-0400\n"
+"POT-Creation-Date: 2026-06-10 00:44-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: \n"
 "Language-Team: Swedish\n"
@@ -19,6 +19,22 @@ msgid ""
 msgstr ""
 "Dokumentforskning kräver specialiserad uppgiftsdelegering (USE_SUB_AGENT). "
 "Aktivera detta i konfigurationen."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session started."
+msgstr "Brainstormingssession har startat."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session completed."
+msgstr "Brainstormingssession har slutförts."
+
+#: plugin/doc/specialized_base.py
+msgid ""
+"Brainstorming requires sidebar session wiring "
+"(start_brainstorming_session_callback)."
+msgstr ""
+"Brainstorming kräver anslutning till sidopanelen "
+"(start_brainstorming_session_callback)."
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -361,6 +377,16 @@ msgstr ""
 "AI: Jag kan söka på webben för att besvara frågor eller sammanfatta en "
 "webbsida, utan att se eller ändra ditt dokument. Låt oss chatta."
 
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's explore and design your idea together. I'll ask questions, suggest"
+" approaches, and help you build an approved spec in your document when "
+"you're ready."
+msgstr ""
+"AI: Låt oss utforska och utforma din idé tillsammans. Jag ställer frågor, "
+"föreslår metoder och hjälper dig att skapa en godkänd specifikation i ditt "
+"dokument när du är redo."
+
 #: plugin/framework/client/errors.py
 #, python-brace-format
 msgid "HTTP Error {0} from AI Provider: {1}"
@@ -420,6 +446,10 @@ msgstr "Förankra bilden i en cell, markera den och kör sedan igen."
 #: plugin/calc/vision_egress.py
 msgid "No structured tables or text blocks to insert."
 msgstr "Inga strukturerade tabeller eller textblock att infoga."
+
+#: plugin/calc/spreadsheet_import/import_dialog.py
+msgid "Convert Sheet to Python"
+msgstr "Konvertera kalkylblad till Python"
 
 #: plugin/calc/python_editor.py
 msgid ""
@@ -867,6 +897,22 @@ msgstr "Fel: Verktygskit otillgängligt"
 msgid "Opening '%s' for read-only access."
 msgstr "Öppnar \"%s\" för skrivskyddad åtkomst."
 
+#: plugin/chatbot/chat_sidebar_mode.py plugin/xdl_strings.py
+msgid "Chat"
+msgstr "Chatt"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Use Image model"
+msgstr "Använd bildmodell"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Web Research"
+msgstr "Webbforskning"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Brainstorming"
+msgstr "Brainstorming"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "Acceptera"
@@ -1006,6 +1052,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "Kunde inte starta editor: {0}"
 
+#: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
+msgid "Brainstorming complete."
+msgstr "Brainstorming slutförd."
+
 #: plugin/chatbot/send_handlers.py
 msgid "Transcribing audio..."
 msgstr "Transkriberar ljud..."
@@ -1045,6 +1095,15 @@ msgstr "Okänt bibliotekarfel."
 #, python-brace-format
 msgid "[Librarian error: {0}]"
 msgstr "[Bibliotekarfel: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown brainstorming error."
+msgstr "Okänt brainstorming-fel."
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Brainstorming error: {0}]"
+msgstr "[Brainstorming-fel: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."
@@ -1386,102 +1445,20 @@ msgid "Could not talk to the Python editor."
 msgstr "Kunde inte kommunicera med Python-redigeraren."
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Analysis Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Analyshjälpmedel: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "Visualiseringsbibliotek"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Viz Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Visualiseringshjälpmedel: %(cmd)s"
 
 #: plugin/scripting/venv_worker.py
 msgid "Computer Algebra"
 msgstr "Datoralgebra"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Symbolic Math Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Symboliska matematikverktyg: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Quantitative Finance Libraries"
 msgstr "Bibliotek för kvantitativ finans"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Quant Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Kvantverktyg: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "Vision-bibliotek"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Docling OCR load failed: %(err)s"
-msgstr ""
-"\n"
-"Docling OCR-inläsning misslyckades: %(err)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Docling): %(cmd)s"
-msgstr ""
-"\n"
-"Vision-hjälpmedel (OCR, Docling): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Paddle fallback): %(cmd)s"
-msgstr ""
-"\n"
-"Vision-hjälpmedel (OCR, Paddle-fallback): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (Docling primary): %(cmd)s"
-msgstr ""
-"\n"
-"Vision-hjälpmedel (Docling primär): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-msgid "Optional (detection helpers): pip install ultralytics"
-msgstr "Valfritt (detekteringshjälpmedel): pip install ultralytics"
-
-#: plugin/scripting/venv_worker.py
-msgid ""
-"Optional (image processing in trusted helpers): pip install scikit-image"
-msgstr ""
-"Valfritt (bildbehandling i betrodda hjälpmedel): pip install scikit-image"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1851,6 +1828,10 @@ msgid "Insert LaTeX Math..."
 msgstr "Infoga LaTeX-formel..."
 
 #: plugin/main.py
+msgid "Convert Sheet to Python..."
+msgstr "Konvertera blad till Python..."
+
+#: plugin/main.py
 msgid "Dispatch Error"
 msgstr "Dispatch-fel"
 
@@ -2021,14 +2002,6 @@ msgstr "Tidsgräns (s):"
 #: plugin/xdl_strings.py
 msgid "Use AI Horde for Image Generation"
 msgstr "Använd AI Horde för bildgenerering"
-
-#: plugin/xdl_strings.py
-msgid "Use Image model"
-msgstr "Använd bildmodell"
-
-#: plugin/xdl_strings.py
-msgid "Web Research"
-msgstr "Webbforskning"
 
 #: plugin/xdl_strings.py
 msgid "Writer"
@@ -2363,25 +2336,6 @@ msgstr ""
 msgid "Vision / OCR"
 msgstr "Vision / OCR"
 
-msgid "Device"
-msgstr "Enhet"
-
-msgid "Hardware for Docling models. auto picks GPU when available."
-msgstr ""
-"Hårdvara för Docling-modeller. Väljer automatiskt GPU när tillgängligt."
-
-msgid "Auto"
-msgstr "Auto"
-
-msgid "CPU"
-msgstr "CPU"
-
-msgid "CUDA (NVIDIA)"
-msgstr "CUDA (NVIDIA)"
-
-msgid "MPS (Apple Silicon)"
-msgstr "MPS (Apple Silicon)"
-
 msgid "Image scale"
 msgstr "Bildskala"
 
@@ -2414,18 +2368,6 @@ msgstr "OCR-läs hela bilden"
 
 msgid "Recommended for embedded graphics exported from LibreOffice."
 msgstr "Rekommenderas för inbäddad grafik som exporterats från LibreOffice."
-
-msgid "OCR language"
-msgstr "OCR-språk"
-
-msgid "Language code for OCR backends that support it (e.g. en, de)."
-msgstr "Språkkod för OCR-motorer som stöder det (t.ex. en, de)."
-
-msgid "CPU threads"
-msgstr "CPU-trådar"
-
-msgid "Thread count for Docling model inference on CPU."
-msgstr "Antal trådar för Docling-modellinferens på CPU."
 
 msgid "Table extraction mode"
 msgstr "Läge för tabellutvinning"
@@ -2491,12 +2433,6 @@ msgstr "Tidsgräns för Docling-dokument (s)"
 
 msgid "Per-conversion timeout inside Docling. 0 = no limit."
 msgstr "Tidsgräns per konvertering i Docling. 0 = ingen gräns."
-
-msgid "Allow external Docling plugins"
-msgstr "Tillåt externa Docling-insticksprogram"
-
-msgid "Required for Surya OCR (docling-surya)."
-msgstr "Krävs för Surya OCR (docling-surya)."
 
 msgid "Writer document tools (including navigation and search)"
 msgstr "Writer-dokumentverktyg (inklusive navigering och sökning)"

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-08 18:08-0400\n"
+"POT-Creation-Date: 2026-06-10 00:44-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Urdu <LL@li.org>\n"
@@ -24,6 +24,22 @@ msgid ""
 msgstr ""
 "دستاویزی تحقیق کے مطالعے کے لیے خصوصی ٹاسک ڈیلیگیشن (USE_SUB_AGENT) کی ضرورت"
 " ہوتی ہے۔ اسے کنفیگریشن میں فعال کریں۔"
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session started."
+msgstr "برین سٹارمنگ سیشن شروع ہو گیا۔"
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session completed."
+msgstr "برین سٹارمنگ سیشن مکمل ہو گیا۔"
+
+#: plugin/doc/specialized_base.py
+msgid ""
+"Brainstorming requires sidebar session wiring "
+"(start_brainstorming_session_callback)."
+msgstr ""
+"برین سٹارمنگ کے لیے سائڈبار سیشن وائرنگ "
+"(start_brainstorming_session_callback) درکار ہے۔"
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -371,6 +387,16 @@ msgstr ""
 "دستاویز کو دیکھے یا تبدیل کیے بغیر کسی ویب صفحہ کا خلاصہ کر سکتا ہوں۔ آئیے "
 "بات کرتے ہیں۔"
 
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's explore and design your idea together. I'll ask questions, suggest"
+" approaches, and help you build an approved spec in your document when "
+"you're ready."
+msgstr ""
+"AI: آئیے آپ کے آئیڈیا کو ایک ساتھ تلاش کریں اور ڈیزائن کریں۔ میں سوالات "
+"پوچھوں گا، طریقے تجویز کروں گا، اور جب آپ تیار ہوں گے تو آپ کی دستاویز میں "
+"منظور شدہ تفصیلات بنانے میں آپ کی مدد کروں گا۔"
+
 #: plugin/framework/client/errors.py
 #, python-brace-format
 msgid "HTTP Error {0} from AI Provider: {1}"
@@ -430,6 +456,10 @@ msgstr "تصویر کو سیل کے ساتھ اینکر کریں، اسے منت
 #: plugin/calc/vision_egress.py
 msgid "No structured tables or text blocks to insert."
 msgstr "اندراج کے لیے کوئی ساختی جدول یا متن کے بلاکس موجود نہیں ہیں۔"
+
+#: plugin/calc/spreadsheet_import/import_dialog.py
+msgid "Convert Sheet to Python"
+msgstr "شیٹ کو پائتھن میں تبدیل کریں"
 
 #: plugin/calc/python_editor.py
 msgid ""
@@ -877,6 +907,22 @@ msgstr "خرابی: ٹول کٹ دستیاب نہیں ہے"
 msgid "Opening '%s' for read-only access."
 msgstr "'%s' کو صرف پڑھنے کی رسائی کے لیے کھولا جا رہا ہے۔"
 
+#: plugin/chatbot/chat_sidebar_mode.py plugin/xdl_strings.py
+msgid "Chat"
+msgstr "چیٹ"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Use Image model"
+msgstr "تصویری ماڈل استعمال کریں"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Web Research"
+msgstr "ویب ریسرچ"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Brainstorming"
+msgstr "برین سٹارمنگ"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "قبول کریں"
@@ -1016,6 +1062,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "ایڈیٹر شروع نہیں کیا جا سکا: {0}"
 
+#: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
+msgid "Brainstorming complete."
+msgstr "برین سٹارمنگ مکمل۔"
+
 #: plugin/chatbot/send_handlers.py
 msgid "Transcribing audio..."
 msgstr "آڈیو کی نقل نویسی ہو رہی ہے..."
@@ -1054,6 +1104,15 @@ msgstr "نامعلوم لائبریرین خرابی۔"
 #, python-brace-format
 msgid "[Librarian error: {0}]"
 msgstr "[لائبریرین خرابی: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown brainstorming error."
+msgstr "نامعلوم برین سٹارمنگ خرابی۔"
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Brainstorming error: {0}]"
+msgstr "[برین سٹارمنگ خرابی: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."
@@ -1396,102 +1455,20 @@ msgid "Could not talk to the Python editor."
 msgstr "پائتھون ایڈیٹر سے رابطہ نہیں ہو سکا۔"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Analysis Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"تجزیاتی معاونین: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "تصوراتی لائبریریاں"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Viz Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Viz معاونین: %(cmd)s"
 
 #: plugin/scripting/venv_worker.py
 msgid "Computer Algebra"
 msgstr "کمپیوٹر الجبرا"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Symbolic Math Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"علامتی ریاضی کے معاونین: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Quantitative Finance Libraries"
 msgstr "مقداری مالیاتی لائبریریاں"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Quant Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"مقداری معاونین: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "بصری لائبریریاں"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Docling OCR load failed: %(err)s"
-msgstr ""
-"\n"
-"Docling OCR لوڈ ناکام: %(err)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Docling): %(cmd)s"
-msgstr ""
-"\n"
-"بصری معاونین (OCR, Docling): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Paddle fallback): %(cmd)s"
-msgstr ""
-"\n"
-"ویژن ہیلپرز (OCR، پیڈل فال بیک): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (Docling primary): %(cmd)s"
-msgstr ""
-"\n"
-"ویژن ہیلپرز (Docling پرائمری): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-msgid "Optional (detection helpers): pip install ultralytics"
-msgstr "اختیاری (ڈیٹیکشن ہیلپرز): pip install ultralytics"
-
-#: plugin/scripting/venv_worker.py
-msgid ""
-"Optional (image processing in trusted helpers): pip install scikit-image"
-msgstr ""
-"اختیاری (قابل اعتماد ہیلپرز میں امیج پروسیسنگ): pip install scikit-image"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1863,6 +1840,10 @@ msgid "Insert LaTeX Math..."
 msgstr "LaTeX ریاضی درج کریں..."
 
 #: plugin/main.py
+msgid "Convert Sheet to Python..."
+msgstr "شیٹ کو پائتھن میں تبدیل کریں..."
+
+#: plugin/main.py
 msgid "Dispatch Error"
 msgstr "ڈسپیچ کی خرابی"
 
@@ -2033,14 +2014,6 @@ msgstr "ٹائم آؤٹ (سیکنڈز):"
 #: plugin/xdl_strings.py
 msgid "Use AI Horde for Image Generation"
 msgstr "تصویر کی تخلیق کے لیے AI Horde استعمال کریں"
-
-#: plugin/xdl_strings.py
-msgid "Use Image model"
-msgstr "تصویری ماڈل استعمال کریں"
-
-#: plugin/xdl_strings.py
-msgid "Web Research"
-msgstr "ویب ریسرچ"
 
 #: plugin/xdl_strings.py
 msgid "Writer"
@@ -2372,26 +2345,6 @@ msgstr ""
 msgid "Vision / OCR"
 msgstr "ویژن / OCR"
 
-msgid "Device"
-msgstr "آلہ"
-
-msgid "Hardware for Docling models. auto picks GPU when available."
-msgstr ""
-"Docling ماڈلز کے لیے ہارڈویئر۔ دستیاب ہونے پر خودکار طور پر GPU کا انتخاب "
-"کرتا ہے۔"
-
-msgid "Auto"
-msgstr "خودکار"
-
-msgid "CPU"
-msgstr "CPU"
-
-msgid "CUDA (NVIDIA)"
-msgstr "CUDA (NVIDIA)"
-
-msgid "MPS (Apple Silicon)"
-msgstr "MPS (Apple Silicon)"
-
 msgid "Image scale"
 msgstr "تصویر کا پیمانہ"
 
@@ -2423,19 +2376,6 @@ msgstr "مکمل تصویر کی OCR کریں"
 
 msgid "Recommended for embedded graphics exported from LibreOffice."
 msgstr "LibreOffice سے برآمد کردہ ایمبیڈڈ گرافکس کے لیے تجویز کردہ۔"
-
-msgid "OCR language"
-msgstr "OCR زبان"
-
-msgid "Language code for OCR backends that support it (e.g. en, de)."
-msgstr ""
-"ان OCR بیک اینڈز کے لیے زبان کا کوڈ جو اسے سپورٹ کرتے ہیں (مثلاً en, de)۔"
-
-msgid "CPU threads"
-msgstr "CPU تھریڈز"
-
-msgid "Thread count for Docling model inference on CPU."
-msgstr "CPU پر Docling ماڈل انفرنس کے لیے تھریڈ کی تعداد۔"
 
 msgid "Table extraction mode"
 msgstr "ٹیبل نکالنے کا موڈ"
@@ -2501,12 +2441,6 @@ msgstr "Docling دستاویز کا ٹائم آؤٹ (سیکنڈ)"
 
 msgid "Per-conversion timeout inside Docling. 0 = no limit."
 msgstr "Docling کے اندر فی کنورژن ٹائم آؤٹ۔ 0 = کوئی حد نہیں۔"
-
-msgid "Allow external Docling plugins"
-msgstr "بیرونی Docling پلگ انز کی اجازت دیں"
-
-msgid "Required for Surya OCR (docling-surya)."
-msgstr "Surya OCR (docling-surya) کے لیے درکار ہے۔"
 
 msgid "Writer document tools (including navigation and search)"
 msgstr "Writer دستاویز کے ٹولز (بشمول نیویگیشن اور تلاش)"

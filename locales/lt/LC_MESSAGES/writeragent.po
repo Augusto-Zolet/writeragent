@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-08 18:08-0400\n"
+"POT-Creation-Date: 2026-06-10 00:44-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Lithuanian <LL@li.org>\n"
@@ -24,6 +24,22 @@ msgid ""
 msgstr ""
 "Dokumentų tyrimo užklausoms reikalingas specializuotas užduočių delegavimas "
 "(USE_SUB_AGENT). Įgalinkite tai konfigūracijoje."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session started."
+msgstr "Pradėta idėjų generavimo sesija."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session completed."
+msgstr "Idėjų generavimo sesija baigta."
+
+#: plugin/doc/specialized_base.py
+msgid ""
+"Brainstorming requires sidebar session wiring "
+"(start_brainstorming_session_callback)."
+msgstr ""
+"Idėjų generavimui reikalingas šoninės juostos sesijos susiejimas "
+"(start_brainstorming_session_callback)."
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -366,6 +382,16 @@ msgstr ""
 "arba apibendrinti tinklalapį, nematydamas ir nekeisdamas jūsų dokumento. "
 "Pasikalbėkime."
 
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's explore and design your idea together. I'll ask questions, suggest"
+" approaches, and help you build an approved spec in your document when "
+"you're ready."
+msgstr ""
+"DI: Išnagrinėkime ir sukurkime jūsų idėją kartu. Užduosiu klausimų, "
+"pasiūlysiu būdų ir padėsiu parengti patvirtintą specifikaciją jūsų "
+"dokumente, kai būsite pasiruošę."
+
 #: plugin/framework/client/errors.py
 #, python-brace-format
 msgid "HTTP Error {0} from AI Provider: {1}"
@@ -428,6 +454,10 @@ msgstr ""
 msgid "No structured tables or text blocks to insert."
 msgstr ""
 "Nėra struktūrizuotų lentelių ar teksto blokų, kuriuos būtų galima įterpti."
+
+#: plugin/calc/spreadsheet_import/import_dialog.py
+msgid "Convert Sheet to Python"
+msgstr "Konvertuoti skaičiuoklę į „Python“"
 
 #: plugin/calc/python_editor.py
 msgid ""
@@ -875,6 +905,22 @@ msgstr "Klaida: įrankių rinkinys nepasiekiamas"
 msgid "Opening '%s' for read-only access."
 msgstr "Atveriamas „%s“ tik skaitymo prieigai."
 
+#: plugin/chatbot/chat_sidebar_mode.py plugin/xdl_strings.py
+msgid "Chat"
+msgstr "Pokalbis"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Use Image model"
+msgstr "Naudoti vaizdų modelį"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Web Research"
+msgstr "Žiniatinklio paieška"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Brainstorming"
+msgstr "Idėjų generavimas"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "Priimti"
@@ -1013,6 +1059,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "Nepavyko paleisti redaktoriaus: {0}"
 
+#: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
+msgid "Brainstorming complete."
+msgstr "Idėjų generavimas baigtas."
+
 #: plugin/chatbot/send_handlers.py
 msgid "Transcribing audio..."
 msgstr "Transkribuojamas garsas..."
@@ -1052,6 +1102,15 @@ msgstr "Nežinoma bibliotekininko klaida."
 #, python-brace-format
 msgid "[Librarian error: {0}]"
 msgstr "[Bibliotekininko klaida: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown brainstorming error."
+msgstr "Nežinoma idėjų generavimo klaida."
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Brainstorming error: {0}]"
+msgstr "[Idėjų generavimo klaida: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."
@@ -1392,103 +1451,20 @@ msgid "Could not talk to the Python editor."
 msgstr "Nepavyko susisiekti su Python redaktoriumi."
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Analysis Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Analizės pagalbinės priemonės: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "Vizualizacijos bibliotekos"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Viz Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Vizualizacijos pagalbininkai: %(cmd)s"
 
 #: plugin/scripting/venv_worker.py
 msgid "Computer Algebra"
 msgstr "Kompiuterinė algebra"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Symbolic Math Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Simbolinės matematikos pagalbinės priemonės: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Quantitative Finance Libraries"
 msgstr "Kiekybinės finansų bibliotekos"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Quant Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Kiekybinės analizės pagalbinės priemonės: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "Regėjimo bibliotekos"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Docling OCR load failed: %(err)s"
-msgstr ""
-"\n"
-"„Docling OCR“ įkėlimas nepavyko: %(err)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Docling): %(cmd)s"
-msgstr ""
-"\n"
-"Regėjimo pagalbinės priemonės (OCR, „Docling“): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Paddle fallback): %(cmd)s"
-msgstr ""
-"\n"
-"Regėjimo pagalbininkai (OCR, „Paddle“ atsarginis variantas): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (Docling primary): %(cmd)s"
-msgstr ""
-"\n"
-"Regėjimo pagalbininkai („Docling“ pirminis): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-msgid "Optional (detection helpers): pip install ultralytics"
-msgstr "Pasirenkama (aptikimo pagalbininkai): pip install ultralytics"
-
-#: plugin/scripting/venv_worker.py
-msgid ""
-"Optional (image processing in trusted helpers): pip install scikit-image"
-msgstr ""
-"Pasirenkama (vaizdų apdorojimas patikimuose pagalbininkuose): pip install "
-"scikit-image"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1863,6 +1839,10 @@ msgid "Insert LaTeX Math..."
 msgstr "Įterpti „LaTeX“ formulę..."
 
 #: plugin/main.py
+msgid "Convert Sheet to Python..."
+msgstr "Konvertuoti lapą į Python..."
+
+#: plugin/main.py
 msgid "Dispatch Error"
 msgstr "Siuntimo klaida"
 
@@ -2033,14 +2013,6 @@ msgstr "Skirtasis laikas (s):"
 #: plugin/xdl_strings.py
 msgid "Use AI Horde for Image Generation"
 msgstr "Naudoti „AI Horde“ vaizdų generavimui"
-
-#: plugin/xdl_strings.py
-msgid "Use Image model"
-msgstr "Naudoti vaizdų modelį"
-
-#: plugin/xdl_strings.py
-msgid "Web Research"
-msgstr "Žiniatinklio paieška"
 
 #: plugin/xdl_strings.py
 msgid "Writer"
@@ -2384,25 +2356,6 @@ msgstr ""
 msgid "Vision / OCR"
 msgstr "Vizija / OCR"
 
-msgid "Device"
-msgstr "Įrenginys"
-
-msgid "Hardware for Docling models. auto picks GPU when available."
-msgstr ""
-"Aparatūra „Docling“ modeliams. „Auto“ parenka GPU, jei jis pasiekiamas."
-
-msgid "Auto"
-msgstr "Automatinis"
-
-msgid "CPU"
-msgstr "CPU"
-
-msgid "CUDA (NVIDIA)"
-msgstr "CUDA (NVIDIA)"
-
-msgid "MPS (Apple Silicon)"
-msgstr "MPS („Apple Silicon“)"
-
 msgid "Image scale"
 msgstr "Vaizdo mastelis"
 
@@ -2439,18 +2392,6 @@ msgstr "Atpažinti visą vaizdą (OCR)"
 
 msgid "Recommended for embedded graphics exported from LibreOffice."
 msgstr "Rekomenduojama įterptajai grafikai, eksportuotai iš „LibreOffice“."
-
-msgid "OCR language"
-msgstr "OCR kalba"
-
-msgid "Language code for OCR backends that support it (e.g. en, de)."
-msgstr "OCR sistemų kalbos kodas (pvz., en, de)."
-
-msgid "CPU threads"
-msgstr "CPU gijos"
-
-msgid "Thread count for Docling model inference on CPU."
-msgstr "„Docling“ modelio vykdymo CPU gijų skaičius."
 
 msgid "Table extraction mode"
 msgstr "Lentelių išgavimo režimas"
@@ -2520,12 +2461,6 @@ msgstr "„Docling“ dokumento skirtasis laikas (s)"
 msgid "Per-conversion timeout inside Docling. 0 = no limit."
 msgstr ""
 "Vienos konversijos skirtasis laikas „Docling“ programoje. 0 = be apribojimų."
-
-msgid "Allow external Docling plugins"
-msgstr "Leisti išorinius „Docling“ įskiepius"
-
-msgid "Required for Surya OCR (docling-surya)."
-msgstr "Būtina „Surya OCR“ (docling-surya) veikimui."
 
 msgid "Writer document tools (including navigation and search)"
 msgstr "„Writer“ dokumentų įrankiai (įskaitant naršymą ir paiešką)"

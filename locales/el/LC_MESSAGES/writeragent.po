@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-08 18:08-0400\n"
+"POT-Creation-Date: 2026-06-10 00:44-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Greek <LL@li.org>\n"
@@ -24,6 +24,22 @@ msgid ""
 msgstr ""
 "Οι αναγνώσεις έρευνας εγγράφων απαιτούν εξειδικευμένη ανάθεση εργασιών "
 "(USE_SUB_AGENT). Ενεργοποιήστε το στις ρυθμίσεις."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session started."
+msgstr "Η συνεδρία καταιγισμού ιδεών ξεκίνησε."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session completed."
+msgstr "Η συνεδρία καταιγισμού ιδεών ολοκληρώθηκε."
+
+#: plugin/doc/specialized_base.py
+msgid ""
+"Brainstorming requires sidebar session wiring "
+"(start_brainstorming_session_callback)."
+msgstr ""
+"Ο καταιγισμός ιδεών απαιτεί σύνδεση συνεδρίας στην πλευρική εργαλειοθήκη "
+"(start_brainstorming_session_callback)."
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -381,6 +397,16 @@ msgstr ""
 "ερώτηση ή να συνοψίσω μια ιστοσελίδα, χωρίς να βλέπω ή να αλλάζω το έγγραφό "
 "σας. Ας συνομιλήσουμε."
 
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's explore and design your idea together. I'll ask questions, suggest"
+" approaches, and help you build an approved spec in your document when "
+"you're ready."
+msgstr ""
+"AI: Ας εξερευνήσουμε και ας σχεδιάσουμε μαζί την ιδέα σας. Θα κάνω "
+"ερωτήσεις, θα προτείνω προσεγγίσεις και θα σας βοηθήσω να δημιουργήσετε μια "
+"εγκεκριμένη προδιαγραφή στο έγγραφό σας όταν είστε έτοιμοι."
+
 #: plugin/framework/client/errors.py
 #, python-brace-format
 msgid "HTTP Error {0} from AI Provider: {1}"
@@ -442,6 +468,10 @@ msgstr ""
 #: plugin/calc/vision_egress.py
 msgid "No structured tables or text blocks to insert."
 msgstr "Δεν υπάρχουν δομημένοι πίνακες ή μπλοκ κειμένου για εισαγωγή."
+
+#: plugin/calc/spreadsheet_import/import_dialog.py
+msgid "Convert Sheet to Python"
+msgstr "Μετατροπή φύλλου σε Python"
 
 #: plugin/calc/python_editor.py
 msgid ""
@@ -894,6 +924,22 @@ msgstr "Σφάλμα: Το εργαλειοθήκη δεν είναι διαθέ
 msgid "Opening '%s' for read-only access."
 msgstr "Άνοιγμα του '%s' για πρόσβαση μόνο για ανάγνωση."
 
+#: plugin/chatbot/chat_sidebar_mode.py plugin/xdl_strings.py
+msgid "Chat"
+msgstr "Συνομιλία"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Use Image model"
+msgstr "Χρήση μοντέλου εικόνας"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Web Research"
+msgstr "Διαδικτυακή έρευνα"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Brainstorming"
+msgstr "Καταιγισμός ιδεών"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "Αποδοχή"
@@ -1034,6 +1080,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "Αδυναμία εκκίνησης του επεξεργαστή: {0}"
 
+#: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
+msgid "Brainstorming complete."
+msgstr "Ο καταιγισμός ιδεών ολοκληρώθηκε."
+
 #: plugin/chatbot/send_handlers.py
 msgid "Transcribing audio..."
 msgstr "Μεταγραφή ήχου..."
@@ -1073,6 +1123,15 @@ msgstr "Άγνωστο σφάλμα βιβλιοθηκάριου."
 #, python-brace-format
 msgid "[Librarian error: {0}]"
 msgstr "[Σφάλμα βιβλιοθηκάριου: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown brainstorming error."
+msgstr "Άγνωστο σφάλμα καταιγισμού ιδεών."
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Brainstorming error: {0}]"
+msgstr "[Σφάλμα καταιγισμού ιδεών: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."
@@ -1418,103 +1477,20 @@ msgid "Could not talk to the Python editor."
 msgstr "Δεν ήταν δυνατή η επικοινωνία με τον επεξεργαστή Python."
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Analysis Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Βοηθήματα ανάλυσης: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "Βιβλιοθήκες οπτικοποίησης"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Viz Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Βοηθοί οπτικοποίησης: %(cmd)s"
 
 #: plugin/scripting/venv_worker.py
 msgid "Computer Algebra"
 msgstr "Υπολογιστική Άλγεβρα"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Symbolic Math Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Βοηθοί Συμβολικών Μαθηματικών: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Quantitative Finance Libraries"
 msgstr "Βιβλιοθήκες Ποσοτικών Οικονομικών"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Quant Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Βοηθοί Ποσοτικής Ανάλυσης: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "Βιβλιοθήκες όρασης"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Docling OCR load failed: %(err)s"
-msgstr ""
-"\n"
-"Αποτυχία φόρτωσης Docling OCR: %(err)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Docling): %(cmd)s"
-msgstr ""
-"\n"
-"Βοηθήματα όρασης (OCR, Docling): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Paddle fallback): %(cmd)s"
-msgstr ""
-"\n"
-"Βοηθοί όρασης (OCR, εφεδρικό Paddle): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (Docling primary): %(cmd)s"
-msgstr ""
-"\n"
-"Βοηθοί όρασης (πρωτεύον Docling): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-msgid "Optional (detection helpers): pip install ultralytics"
-msgstr "Προαιρετικά (βοηθοί ανίχνευσης): pip install ultralytics"
-
-#: plugin/scripting/venv_worker.py
-msgid ""
-"Optional (image processing in trusted helpers): pip install scikit-image"
-msgstr ""
-"Προαιρετικά (επεξεργασία εικόνας σε έμπιστους βοηθούς): pip install scikit-"
-"image"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1900,6 +1876,10 @@ msgid "Insert LaTeX Math..."
 msgstr "Εισαγωγή μαθηματικού τύπου LaTeX..."
 
 #: plugin/main.py
+msgid "Convert Sheet to Python..."
+msgstr "Μετατροπή φύλλου σε Python..."
+
+#: plugin/main.py
 msgid "Dispatch Error"
 msgstr "Σφάλμα αποστολής"
 
@@ -2070,14 +2050,6 @@ msgstr "Χρονικό όριο (s):"
 #: plugin/xdl_strings.py
 msgid "Use AI Horde for Image Generation"
 msgstr "Χρήση του AI Horde για δημιουργία εικόνας"
-
-#: plugin/xdl_strings.py
-msgid "Use Image model"
-msgstr "Χρήση μοντέλου εικόνας"
-
-#: plugin/xdl_strings.py
-msgid "Web Research"
-msgstr "Διαδικτυακή έρευνα"
 
 #: plugin/xdl_strings.py
 msgid "Writer"
@@ -2425,26 +2397,6 @@ msgstr ""
 msgid "Vision / OCR"
 msgstr "Όραση / OCR"
 
-msgid "Device"
-msgstr "Συσκευή"
-
-msgid "Hardware for Docling models. auto picks GPU when available."
-msgstr ""
-"Υλικό για μοντέλα Docling. Η επιλογή «Αυτόματα» επιλέγει GPU όταν είναι "
-"διαθέσιμη."
-
-msgid "Auto"
-msgstr "Αυτόματα"
-
-msgid "CPU"
-msgstr "CPU"
-
-msgid "CUDA (NVIDIA)"
-msgstr "CUDA (NVIDIA)"
-
-msgid "MPS (Apple Silicon)"
-msgstr "MPS (Apple Silicon)"
-
 msgid "Image scale"
 msgstr "Κλίμακα εικόνας"
 
@@ -2481,20 +2433,6 @@ msgstr "OCR ολόκληρης της εικόνας"
 
 msgid "Recommended for embedded graphics exported from LibreOffice."
 msgstr "Συνιστάται για ενσωματωμένα γραφικά που εξάγονται από το LibreOffice."
-
-msgid "OCR language"
-msgstr "Γλώσσα OCR"
-
-msgid "Language code for OCR backends that support it (e.g. en, de)."
-msgstr ""
-"Κωδικός γλώσσας για υποσυστήματα OCR που την υποστηρίζουν (π.χ. en, de)."
-
-msgid "CPU threads"
-msgstr "Νήματα CPU"
-
-msgid "Thread count for Docling model inference on CPU."
-msgstr ""
-"Αριθμός νημάτων για την εξαγωγή συμπερασμάτων του μοντέλου Docling στην CPU."
 
 msgid "Table extraction mode"
 msgstr "Λειτουργία εξαγωγής πίνακα"
@@ -2562,12 +2500,6 @@ msgstr "Χρονικό όριο εγγράφου Docling (s)"
 
 msgid "Per-conversion timeout inside Docling. 0 = no limit."
 msgstr "Χρονικό όριο ανά μετατροπή εντός του Docling. 0 = χωρίς όριο."
-
-msgid "Allow external Docling plugins"
-msgstr "Να επιτρέπονται εξωτερικά πρόσθετα Docling"
-
-msgid "Required for Surya OCR (docling-surya)."
-msgstr "Απαιτείται για το Surya OCR (docling-surya)."
 
 msgid "Writer document tools (including navigation and search)"
 msgstr ""

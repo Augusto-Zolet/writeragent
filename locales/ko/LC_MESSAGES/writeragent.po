@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-08 18:08-0400\n"
+"POT-Creation-Date: 2026-06-10 00:44-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Korean <LL@li.org>\n"
@@ -22,6 +22,20 @@ msgid ""
 "Document research reads require specialized task delegation (USE_SUB_AGENT)."
 " Enable this in configuration."
 msgstr "문서 조사 읽기에는 전문적인 작업 위임(USE_SUB_AGENT)이 필요합니다. 구성에서 이 기능을 활성화하십시오."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session started."
+msgstr "브레인스토밍 세션이 시작되었습니다."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session completed."
+msgstr "브레인스토밍 세션이 완료되었습니다."
+
+#: plugin/doc/specialized_base.py
+msgid ""
+"Brainstorming requires sidebar session wiring "
+"(start_brainstorming_session_callback)."
+msgstr "브레인스토밍을 위해서는 사이드바 세션 연결(start_brainstorming_session_callback)이 필요합니다."
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -338,6 +352,15 @@ msgid ""
 msgstr ""
 "AI: 문서를 보거나 변경하지 않고도 웹 검색을 통해 질문에 답하거나 웹 페이지를 요약할 수 있습니다. 대화를 시작해 보세요."
 
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's explore and design your idea together. I'll ask questions, suggest"
+" approaches, and help you build an approved spec in your document when "
+"you're ready."
+msgstr ""
+"AI: 아이디어를 함께 탐색하고 설계해 봅시다. 질문을 던지고 접근 방식을 제안하며, 준비가 되면 문서에 승인된 사양을 작성하도록 "
+"도와드리겠습니다."
+
 #: plugin/framework/client/errors.py
 #, python-brace-format
 msgid "HTTP Error {0} from AI Provider: {1}"
@@ -395,6 +418,10 @@ msgstr "이미지를 셀에 고정하고 선택한 후 다시 실행하십시오
 #: plugin/calc/vision_egress.py
 msgid "No structured tables or text blocks to insert."
 msgstr "삽입할 구조화된 표나 텍스트 블록이 없습니다."
+
+#: plugin/calc/spreadsheet_import/import_dialog.py
+msgid "Convert Sheet to Python"
+msgstr "시트를 Python으로 변환"
 
 #: plugin/calc/python_editor.py
 msgid ""
@@ -839,6 +866,22 @@ msgstr "오류: 툴킷을 사용할 수 없음"
 msgid "Opening '%s' for read-only access."
 msgstr "'%s' 파일을 읽기 전용으로 여는 중입니다."
 
+#: plugin/chatbot/chat_sidebar_mode.py plugin/xdl_strings.py
+msgid "Chat"
+msgstr "채팅"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Use Image model"
+msgstr "이미지 모델 사용"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Web Research"
+msgstr "웹 검색"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Brainstorming"
+msgstr "브레인스토밍"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "수락"
@@ -970,6 +1013,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "편집기를 시작할 수 없습니다: {0}"
 
+#: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
+msgid "Brainstorming complete."
+msgstr "브레인스토밍 완료."
+
 #: plugin/chatbot/send_handlers.py
 msgid "Transcribing audio..."
 msgstr "오디오를 받아쓰는 중..."
@@ -1007,6 +1054,15 @@ msgstr "알 수 없는 사서 오류입니다."
 #, python-brace-format
 msgid "[Librarian error: {0}]"
 msgstr "[사서 오류: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown brainstorming error."
+msgstr "알 수 없는 브레인스토밍 오류입니다."
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Brainstorming error: {0}]"
+msgstr "[브레인스토밍 오류: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."
@@ -1343,101 +1399,20 @@ msgid "Could not talk to the Python editor."
 msgstr "Python 편집기와 통신할 수 없습니다."
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Analysis Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"분석 도우미: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "시각화 라이브러리"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Viz Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"시각화 도우미: %(cmd)s"
 
 #: plugin/scripting/venv_worker.py
 msgid "Computer Algebra"
 msgstr "컴퓨터 대수학"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Symbolic Math Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"기호 수학 도우미: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Quantitative Finance Libraries"
 msgstr "금융 공학 라이브러리"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Quant Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"금융 공학 도우미: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "비전 라이브러리"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Docling OCR load failed: %(err)s"
-msgstr ""
-"\n"
-"Docling OCR 로드 실패: %(err)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Docling): %(cmd)s"
-msgstr ""
-"\n"
-"비전 도우미(OCR, Docling): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Paddle fallback): %(cmd)s"
-msgstr ""
-"\n"
-"비전 도우미 (OCR, Paddle 대체): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (Docling primary): %(cmd)s"
-msgstr ""
-"\n"
-"비전 도우미 (Docling 기본): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-msgid "Optional (detection helpers): pip install ultralytics"
-msgstr "선택 사항 (감지 도우미): pip install ultralytics"
-
-#: plugin/scripting/venv_worker.py
-msgid ""
-"Optional (image processing in trusted helpers): pip install scikit-image"
-msgstr "선택 사항 (신뢰할 수 있는 도우미의 이미지 처리): pip install scikit-image"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1784,6 +1759,10 @@ msgid "Insert LaTeX Math..."
 msgstr "LaTeX 수식 삽입..."
 
 #: plugin/main.py
+msgid "Convert Sheet to Python..."
+msgstr "시트를 Python으로 변환..."
+
+#: plugin/main.py
 msgid "Dispatch Error"
 msgstr "디스패치 오류"
 
@@ -1954,14 +1933,6 @@ msgstr "시간 제한 (초):"
 #: plugin/xdl_strings.py
 msgid "Use AI Horde for Image Generation"
 msgstr "이미지 생성에 AI Horde 사용"
-
-#: plugin/xdl_strings.py
-msgid "Use Image model"
-msgstr "이미지 모델 사용"
-
-#: plugin/xdl_strings.py
-msgid "Web Research"
-msgstr "웹 검색"
 
 #: plugin/xdl_strings.py
 msgid "Writer"
@@ -2274,24 +2245,6 @@ msgstr ""
 msgid "Vision / OCR"
 msgstr "비전 / OCR"
 
-msgid "Device"
-msgstr "장치"
-
-msgid "Hardware for Docling models. auto picks GPU when available."
-msgstr "Docling 모델용 하드웨어입니다. GPU 사용 가능 시 자동으로 선택합니다."
-
-msgid "Auto"
-msgstr "자동"
-
-msgid "CPU"
-msgstr "CPU"
-
-msgid "CUDA (NVIDIA)"
-msgstr "CUDA (NVIDIA)"
-
-msgid "MPS (Apple Silicon)"
-msgstr "MPS (Apple Silicon)"
-
 msgid "Image scale"
 msgstr "이미지 배율"
 
@@ -2321,18 +2274,6 @@ msgstr "전체 이미지 OCR"
 
 msgid "Recommended for embedded graphics exported from LibreOffice."
 msgstr "LibreOffice에서 내보낸 포함된 그래픽에 권장됩니다."
-
-msgid "OCR language"
-msgstr "OCR 언어"
-
-msgid "Language code for OCR backends that support it (e.g. en, de)."
-msgstr "지원되는 OCR 백엔드를 위한 언어 코드 (예: en, de)."
-
-msgid "CPU threads"
-msgstr "CPU 스레드"
-
-msgid "Thread count for Docling model inference on CPU."
-msgstr "CPU에서 Docling 모델 추론을 위한 스레드 수."
 
 msgid "Table extraction mode"
 msgstr "표 추출 모드"
@@ -2397,12 +2338,6 @@ msgstr "Docling 문서 시간 제한 (초)"
 
 msgid "Per-conversion timeout inside Docling. 0 = no limit."
 msgstr "Docling 내부 변환당 시간 제한입니다. 0은 제한 없음입니다."
-
-msgid "Allow external Docling plugins"
-msgstr "외부 Docling 플러그인 허용"
-
-msgid "Required for Surya OCR (docling-surya)."
-msgstr "Surya OCR(docling-surya)에 필요합니다."
 
 msgid "Writer document tools (including navigation and search)"
 msgstr "Writer 문서 도구 (탐색 및 검색 포함)"

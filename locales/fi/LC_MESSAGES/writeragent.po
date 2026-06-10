@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-08 18:08-0400\n"
+"POT-Creation-Date: 2026-06-10 00:44-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Finnish <LL@li.org>\n"
@@ -24,6 +24,22 @@ msgid ""
 msgstr ""
 "Asiakirjatutkimus vaatii erikoistuneen tehtävän delegoinnin (USE_SUB_AGENT)."
 " Ota tämä käyttöön asetuksista."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session started."
+msgstr "Ideointiistunto aloitettu."
+
+#: plugin/doc/specialized_base.py
+msgid "Brainstorming session completed."
+msgstr "Ideointiistunto valmis."
+
+#: plugin/doc/specialized_base.py
+msgid ""
+"Brainstorming requires sidebar session wiring "
+"(start_brainstorming_session_callback)."
+msgstr ""
+"Ideointi vaatii sivupalkin istunnon kytkennän "
+"(start_brainstorming_session_callback)."
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
@@ -365,6 +381,16 @@ msgstr ""
 "AI: Voin tehdä verkkohakuja vastatakseni mihin tahansa kysymykseen tai "
 "tiivistää verkkosivun näkemättä tai muuttamatta asiakirjaasi. Jutellaan."
 
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's explore and design your idea together. I'll ask questions, suggest"
+" approaches, and help you build an approved spec in your document when "
+"you're ready."
+msgstr ""
+"AI: Tutkitaan ja suunnitellaan ideaasi yhdessä. Esitän kysymyksiä, ehdotan "
+"lähestymistapoja ja autan sinua laatimaan hyväksytyn määrittelyn "
+"asiakirjaasi, kun olet valmis."
+
 #: plugin/framework/client/errors.py
 #, python-brace-format
 msgid "HTTP Error {0} from AI Provider: {1}"
@@ -424,6 +450,10 @@ msgstr "Ankkuroi kuva soluun, valitse se ja suorita uudelleen."
 #: plugin/calc/vision_egress.py
 msgid "No structured tables or text blocks to insert."
 msgstr "Ei jäsenneltyjä taulukoita tai tekstilohkoja lisättäväksi."
+
+#: plugin/calc/spreadsheet_import/import_dialog.py
+msgid "Convert Sheet to Python"
+msgstr "Muunna taulukko Pythoniksi"
 
 #: plugin/calc/python_editor.py
 msgid ""
@@ -871,6 +901,22 @@ msgstr "Virhe: Työkalupakki ei käytettävissä"
 msgid "Opening '%s' for read-only access."
 msgstr "Avataan '%s' vain luku -tilassa."
 
+#: plugin/chatbot/chat_sidebar_mode.py plugin/xdl_strings.py
+msgid "Chat"
+msgstr "Chat"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Use Image model"
+msgstr "Käytä kuvamallia"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Web Research"
+msgstr "Verkkohaku"
+
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Brainstorming"
+msgstr "Ideointi"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "Hyväksy"
@@ -1008,6 +1054,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "Editoria ei voitu käynnistää: {0}"
 
+#: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
+msgid "Brainstorming complete."
+msgstr "Ideointi valmis."
+
 #: plugin/chatbot/send_handlers.py
 msgid "Transcribing audio..."
 msgstr "Muunnetaan ääntä tekstiksi..."
@@ -1047,6 +1097,15 @@ msgstr "Tuntematon kirjastonhoitajan virhe."
 #, python-brace-format
 msgid "[Librarian error: {0}]"
 msgstr "[Kirjastonhoitajan virhe: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown brainstorming error."
+msgstr "Tuntematon ideointivirhe."
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Brainstorming error: {0}]"
+msgstr "[Ideointivirhe: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."
@@ -1389,103 +1448,20 @@ msgid "Could not talk to the Python editor."
 msgstr "Yhteyden muodostaminen Python-editoriin epäonnistui."
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Analysis Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Analyysiapulaiset: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "Visualisointikirjastot"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Viz Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Visualisointiapulaiset: %(cmd)s"
 
 #: plugin/scripting/venv_worker.py
 msgid "Computer Algebra"
 msgstr "Tietokonealgebra"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Symbolic Math Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Symbolisen matematiikan apuvälineet: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Quantitative Finance Libraries"
 msgstr "Kvantitatiivisen rahoituksen kirjastot"
 
 #: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Quant Helpers: %(cmd)s"
-msgstr ""
-"\n"
-"Kvant-apuvälineet: %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "Näkökirjastot"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Docling OCR load failed: %(err)s"
-msgstr ""
-"\n"
-"Docling OCR:n lataus epäonnistui: %(err)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Docling): %(cmd)s"
-msgstr ""
-"\n"
-"Näköapulaiset (OCR, Docling): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (OCR, Paddle fallback): %(cmd)s"
-msgstr ""
-"\n"
-"Näköapulaiset (OCR, Paddle-varajärjestelmä): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-#, python-format
-msgid ""
-"\n"
-"Vision Helpers (Docling primary): %(cmd)s"
-msgstr ""
-"\n"
-"Näköapulaiset (Docling-ensisijainen): %(cmd)s"
-
-#: plugin/scripting/venv_worker.py
-msgid "Optional (detection helpers): pip install ultralytics"
-msgstr "Valinnainen (tunnistusapulaiset): pip install ultralytics"
-
-#: plugin/scripting/venv_worker.py
-msgid ""
-"Optional (image processing in trusted helpers): pip install scikit-image"
-msgstr ""
-"Valinnainen (kuvankäsittely luotetuissa apulaisissa): pip install scikit-"
-"image"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1856,6 +1832,10 @@ msgid "Insert LaTeX Math..."
 msgstr "Lisää LaTeX-yhtälö..."
 
 #: plugin/main.py
+msgid "Convert Sheet to Python..."
+msgstr "Muunna laskentataulukko Pythoniksi..."
+
+#: plugin/main.py
 msgid "Dispatch Error"
 msgstr "Lähetysvirhe"
 
@@ -2026,14 +2006,6 @@ msgstr "Aikakatkaisu (s):"
 #: plugin/xdl_strings.py
 msgid "Use AI Horde for Image Generation"
 msgstr "Käytä AI Horde -palvelua kuvien luomiseen"
-
-#: plugin/xdl_strings.py
-msgid "Use Image model"
-msgstr "Käytä kuvamallia"
-
-#: plugin/xdl_strings.py
-msgid "Web Research"
-msgstr "Verkkohaku"
 
 #: plugin/xdl_strings.py
 msgid "Writer"
@@ -2373,26 +2345,6 @@ msgstr ""
 msgid "Vision / OCR"
 msgstr "Vision / OCR"
 
-msgid "Device"
-msgstr "Laite"
-
-msgid "Hardware for Docling models. auto picks GPU when available."
-msgstr ""
-"Docling-mallien laitteisto. Valitsee automaattisesti GPU:n, jos se on "
-"käytettävissä."
-
-msgid "Auto"
-msgstr "Automaattinen"
-
-msgid "CPU"
-msgstr "CPU"
-
-msgid "CUDA (NVIDIA)"
-msgstr "CUDA (NVIDIA)"
-
-msgid "MPS (Apple Silicon)"
-msgstr "MPS (Apple Silicon)"
-
 msgid "Image scale"
 msgstr "Kuvan skaalaus"
 
@@ -2426,19 +2378,6 @@ msgstr "OCR koko kuvalle"
 
 msgid "Recommended for embedded graphics exported from LibreOffice."
 msgstr "Suositellaan LibreOfficesta viedyille upotetuille grafiikoille."
-
-msgid "OCR language"
-msgstr "OCR-kieli"
-
-msgid "Language code for OCR backends that support it (e.g. en, de)."
-msgstr ""
-"Kielikoodi OCR-taustajärjestelmille, jotka tukevat sitä (esim. en, de)."
-
-msgid "CPU threads"
-msgstr "CPU-säikeet"
-
-msgid "Thread count for Docling model inference on CPU."
-msgstr "Säikeiden määrä Docling-mallin päättelyyn suorittimella."
 
 msgid "Table extraction mode"
 msgstr "Taulukon erotustila"
@@ -2506,12 +2445,6 @@ msgstr "Docling-asiakirjan aikakatkaisu (s)"
 
 msgid "Per-conversion timeout inside Docling. 0 = no limit."
 msgstr "Muunnoskohtainen aikakatkaisu Doclingissa. 0 = ei rajoitusta."
-
-msgid "Allow external Docling plugins"
-msgstr "Salli ulkoiset Docling-liitännäiset"
-
-msgid "Required for Surya OCR (docling-surya)."
-msgstr "Vaaditaan Surya OCR:ää varten (docling-surya)."
 
 msgid "Writer document tools (including navigation and search)"
 msgstr "Writer-asiakirjatyökalut (mukaan lukien siirtyminen ja haku)"
