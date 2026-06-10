@@ -53,9 +53,9 @@ def test_convert_spreadsheet_to_python_vectorized():
     sheet.getCellByPosition(0, 1).setValue(20)  # A2
     sheet.getCellByPosition(0, 2).setValue(30)  # A3
 
-    sheet.getCellByPosition(1, 0).setFormula("=A1*2")  # B1
-    sheet.getCellByPosition(1, 1).setFormula("=A2*2")  # B2
-    sheet.getCellByPosition(1, 2).setFormula("=A3*2")  # B3
+    sheet.getCellByPosition(1, 0).setFormula("=ABS(A1)*2")  # B1
+    sheet.getCellByPosition(1, 1).setFormula("=ABS(A2)*2")  # B2
+    sheet.getCellByPosition(1, 2).setFormula("=ABS(A3)*2")  # B3
 
     res = _run_conversion(
         scope="sheet",

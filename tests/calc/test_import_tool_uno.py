@@ -50,8 +50,8 @@ def test_convert_spreadsheet_to_python_basic():
     # Populate grid
     sheet.getCellByPosition(0, 0).setValue(10)  # A1
     sheet.getCellByPosition(0, 1).setValue(20)  # A2
-    sheet.getCellByPosition(1, 0).setFormula("=A1+A2")  # B1
-    sheet.getCellByPosition(1, 1).setFormula("=SUM(A1:A2)")  # B2
+    sheet.getCellByPosition(1, 0).setFormula("=ABS(A1)+ABS(A2)")  # B1
+    sheet.getCellByPosition(1, 1).setFormula("=AVERAGE(A1:A2)")  # B2
 
     res = _run_conversion(
         scope="sheet",

@@ -13,13 +13,13 @@ import builtins
 import math
 import re
 from collections import Counter
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 import numpy as np
 
 from plugin.scripting.calc_functions_common import HELPER_NAMES
 
-__all__ = ["HELPER_NAMES", *sorted(HELPER_NAMES)]
+__all__ = ["HELPER_NAMES", *sorted(HELPER_NAMES)]  # pyright: ignore[reportUnsupportedDunderAll]
 
 
 
@@ -253,9 +253,9 @@ def aggregate(function_num: Any, options: Any, *args: Any) -> float:
     try:
         fn = int(float(function_num))
         opt = int(float(options))
-        vals = []
+        vals: list[float] = []
         for arg in args:
-            vals.extend(np.asarray(arg).ravel())
+            vals.extend(np.asarray(arg, dtype=float).ravel().tolist())
 
         arr = np.array(vals, dtype=float)
         # Handle ignore options
@@ -456,7 +456,7 @@ def base(number: Any, radix: Any, min_length: Any = 0) -> str:
 
 def besseli(x: Any, n: Any) -> float:
     try:
-        import scipy.special
+        import scipy.special  # type: ignore[import-untyped]
         v1 = float(x)
         v2 = int(float(n))
         if v2 < 0:
@@ -1369,7 +1369,7 @@ def even(n: Any) -> float:
 
 def expondist(x: Any, lambda_: Any, c: Any = 1) -> float:
     try:
-        import scipy.stats as st
+        import scipy.stats as st  # type: ignore[import-untyped]
         x_val = float(x)
         lam = float(lambda_)
         cum = bool(float(c))
@@ -2746,9 +2746,9 @@ def pearson(data1: Any, data2: Any) -> float:
         d2_clean = np.asarray(d2[mask], dtype=float)
         if len(d1_clean) <= 1:
             return float("nan")
-        import scipy.stats
-        res = scipy.stats.pearsonr(d1_clean, d2_clean)[0]
-        return float(res)
+        import scipy.stats  # type: ignore[import-untyped]
+        corr, _p = scipy.stats.pearsonr(d1_clean, d2_clean)
+        return float(cast(float, corr))
     except (ValueError, TypeError):
         return float("nan")
 
@@ -3366,10 +3366,10 @@ def textsplit(text: Any, col_delimiter: Any, row_delimiter: Any = None, ignore_e
                     cols = [c for c in cols if c]
                 res.append(cols)
             # pad with pad_with to make rectangle
-            max_cols = max(len(r) for r in res) if res else 0
-            for r in res:
-                while len(r) < max_cols:
-                    r.append(pad_with)
+            max_cols = max(len(row) for row in res) if res else 0
+            for row in res:
+                while len(row) < max_cols:
+                    row.append(pad_with)
             return res
         else:
             cols = s.split(str(col_delimiter))
@@ -3484,7 +3484,7 @@ def ttest(data1: Any, data2: Any, tails: Any, type_: Any) -> float:
             # Two-sample unequal variance
             res = scipy.stats.ttest_ind(d1_clean, d2_clean, equal_var=False)
 
-        p = res.pvalue
+        p = float(cast(float, res[1]))
         if t == 1:
             p /= 2.0
 
