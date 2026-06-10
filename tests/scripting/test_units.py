@@ -10,7 +10,12 @@ from unittest.mock import patch
 
 import pytest
 
-from plugin.scripting.units import run_units
+from plugin.scripting.units import (
+    format_units_for_calc,
+    resolve_output_style,
+    run_units,
+    split_helper_params,
+)
 
 pytest.importorskip("pint")
 
@@ -24,7 +29,46 @@ def test_run_units_convert_quantity():
     assert result["status"] == "ok"
     assert result["helper"] == "convert_quantity"
     assert result["magnitude"] == pytest.approx(36.0)
-    assert "kilometer" in str(result["formatted"]).lower()
+    assert result["formatted"] == "36 km/h"
+
+
+def test_resolve_output_style_defaults():
+    assert resolve_output_style("convert_quantity", None) == "formatted"
+    assert resolve_output_style("parse_quantity", None) == "formatted"
+    assert resolve_output_style("check_dimensionality", None) == "detailed"
+    assert resolve_output_style("convert_quantity", "detailed") == "detailed"
+
+
+def test_split_helper_params_strips_output_style():
+    clean, style = split_helper_params(
+        {"value": "1", "from_unit": "m", "to_unit": "ft", "output_style": "detailed"}
+    )
+    assert clean == {"value": "1", "from_unit": "m", "to_unit": "ft"}
+    assert style == "detailed"
+
+
+def test_format_units_for_calc_formatted_mode():
+    grid = format_units_for_calc(
+        {"status": "ok", "helper": "convert_quantity", "formatted": "36 km/h", "magnitude": 36.0},
+        output_style="formatted",
+    )
+    assert grid == [["36 km/h"]]
+
+
+def test_format_units_for_calc_detailed_mode():
+    grid = format_units_for_calc(
+        {
+            "status": "ok",
+            "helper": "check_dimensionality",
+            "formatted": "compatible",
+            "compatible": True,
+            "dimensionality_a": "[length] / [time]",
+            "dimensionality_b": "[length] / [time]",
+        },
+        output_style="detailed",
+    )
+    assert grid[0] == ["compatible"]
+    assert ["Compatible", True] in grid
 
 
 def test_run_units_parse_quantity():

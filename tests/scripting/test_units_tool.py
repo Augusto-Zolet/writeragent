@@ -50,6 +50,31 @@ def test_units_happy_path(mock_run, mock_main_thread, mock_insert, writer_ctx):
     mock_run.assert_called_once()
 
 
+@patch("plugin.calc.units.insert_units_result_into_doc")
+@patch("plugin.framework.queue_executor.execute_on_main_thread")
+@patch("plugin.scripting.units.run_trusted_units")
+def test_units_passes_output_style_to_insert(mock_run, mock_main_thread, mock_insert, writer_ctx):
+    mock_run.return_value = {
+        "status": "ok",
+        "helper": "convert_quantity",
+        "formatted": "36 km/h",
+        "text": "36 km/h",
+    }
+    mock_main_thread.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
+
+    tool = UnitsTool()
+    result = tool.execute(
+        writer_ctx,
+        helper="convert_quantity",
+        params={"value": "10", "from_unit": "m/s", "to_unit": "km/h"},
+        output_style="detailed",
+    )
+
+    assert result["status"] == "ok"
+    mock_insert.assert_called_once()
+    assert mock_insert.call_args.kwargs.get("output_style") == "detailed"
+
+
 def test_units_requires_helper(writer_ctx):
     tool = UnitsTool()
     result = tool.execute(writer_ctx)

@@ -403,7 +403,14 @@ def execute_and_insert_result(
     from plugin.scripting.vision_templates import parse_vision_script_header
     from plugin.scripting.viz import insert_viz_result_into_doc, is_viz_result, try_insert_plot_result, run_trusted_viz, supports_viz_manual, parse_viz_script_header
     from plugin.scripting.symbolic import insert_symbolic_result_into_doc, is_symbolic_result, run_trusted_symbolic, supports_symbolic_manual, parse_math_script_header
-    from plugin.scripting.units import insert_units_result_into_doc, is_units_result, run_trusted_units, supports_units_manual, parse_units_script_header
+    from plugin.scripting.units import (
+        insert_units_result_into_doc,
+        is_units_result,
+        run_trusted_units,
+        supports_units_manual,
+        parse_units_script_header,
+        split_helper_params,
+    )
     from plugin.calc.quant_egress import insert_quant_result_into_calc, is_quant_result
     from plugin.scripting.quant import run_trusted_quant, parse_quant_script_header
     from plugin.scripting.optimize import insert_optimize_result_into_calc, is_optimize_result, run_trusted_optimize, parse_optimize_script_header
@@ -602,12 +609,13 @@ def execute_and_insert_result(
                 "ok": False,
                 "message": _("Units helpers require a Writer or Calc document."),
             }
+        units_params, units_output_style = split_helper_params(units_meta.params)
         try:
             result = run_trusted_units(
                 ctx,
                 doc,
                 helper=units_meta.helper,
-                params=units_meta.params,
+                params=units_params,
             )
         except ToolExecutionError as exc:
             elapsed = time.perf_counter() - t0
@@ -630,7 +638,7 @@ def execute_and_insert_result(
             return {"ok": False, "message": f"{message} (took {formatted_time})"}
 
         try:
-            insert_units_result_into_doc(ctx, doc, result)
+            insert_units_result_into_doc(ctx, doc, result, output_style=units_output_style)
         except Exception as e:
             elapsed_total = time.perf_counter() - t0
             formatted_time_total = format_elapsed_time(elapsed_total)

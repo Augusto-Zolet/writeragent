@@ -28,7 +28,8 @@ class UnitsTool(ToolCalcPythonBase):
         "Run a trusted Pint unit conversion helper. "
         f"Helpers: {_UNITS_HELPERS}. "
         "On Writer, the result inserts as formatted text at the selection. "
-        "On Calc, results write to the active sheet."
+        "On Calc, convert/parse helpers default to a single formatted cell (e.g. 36 km/h); "
+        "use output_style=detailed for a key-value grid."
     )
     parameters = {
         "type": "object",
@@ -39,6 +40,10 @@ class UnitsTool(ToolCalcPythonBase):
             },
             "params": {"type": "object", "description": "Helper-specific parameters (value, from_unit, to_unit, quantity, …)."},
             "task_hint": {"type": "string", "description": "Optional hint echoed in result context."},
+            "output_style": {
+                "type": "string",
+                "description": "Calc egress layout: formatted (single cell, default for convert/parse) or detailed (key-value grid).",
+            },
         },
         "required": ["helper"],
     }
@@ -56,6 +61,10 @@ class UnitsTool(ToolCalcPythonBase):
 
         params = kwargs.get("params") if isinstance(kwargs.get("params"), dict) else None
         task_hint = str(kwargs["task_hint"]) if kwargs.get("task_hint") else None
+        raw_output_style = kwargs.get("output_style")
+        output_style = str(raw_output_style).strip() if raw_output_style else None
+        if output_style == "":
+            output_style = None
 
         from plugin.scripting.units import run_trusted_units
 
@@ -81,7 +90,7 @@ class UnitsTool(ToolCalcPythonBase):
         out: dict[str, Any] = dict(result)
 
         def _insert() -> None:
-            insert_units_result_into_doc(ctx.ctx, ctx.doc, result)
+            insert_units_result_into_doc(ctx.ctx, ctx.doc, result, output_style=output_style)
 
         try:
             execute_on_main_thread(_insert)

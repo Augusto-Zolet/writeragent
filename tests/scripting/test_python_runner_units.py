@@ -39,6 +39,30 @@ def test_execute_and_insert_units_fast_path(mock_run, mock_insert):
 
 
 @patch("plugin.scripting.units.insert_units_result_into_doc")
+@patch("plugin.scripting.units.run_trusted_units")
+def test_execute_and_insert_units_passes_output_style(mock_run, mock_insert):
+    ctx = MagicMock()
+    doc = MagicMock()
+
+    with patch("plugin.scripting.python_runner.is_writer", return_value=True):
+        mock_run.return_value = {
+            "status": "ok",
+            "helper": "convert_quantity",
+            "formatted": "36 km/h",
+            "text": "36 km/h",
+        }
+        code = (
+            '# writeragent:units helper=convert_quantity params={"value":"10","from_unit":"m/s","to_unit":"km/h","output_style":"detailed"}\n'
+            "from plugin.scripting.units import run_units\nresult = run_units(...)\n"
+        )
+        outcome = execute_and_insert_result(ctx, doc, code)
+
+    assert outcome["ok"] is True
+    mock_insert.assert_called_once()
+    assert mock_insert.call_args.kwargs.get("output_style") == "detailed"
+
+
+@patch("plugin.scripting.units.insert_units_result_into_doc")
 @patch("plugin.scripting.python_runner.run_code_in_user_venv")
 def test_execute_and_insert_detects_units_result_from_venv(mock_venv, mock_insert):
     ctx = MagicMock()

@@ -524,6 +524,18 @@ run_venv_python_script(code="… plt.plot(…) …")
 
 **Run Python Script templates:** **Units Helpers →** `[Units] convert_quantity`, `[Units] parse_quantity`, `[Units] check_dimensionality`.
 
+**Calc egress:** By default, `convert_quantity` and `parse_quantity` write a **single formatted cell** at the selection anchor (e.g. `36 km/h`). Writer inserts the same formatted string as plain text. For a debug/report layout, pass `output_style: "detailed"` in template params or the `units` tool — this writes a key-value grid (formatted value on the first row, then magnitude/units or compatibility fields). `check_dimensionality` defaults to `detailed`.
+
+```text
+# formatted (default for convert/parse) — anchor cell:
+36 km/h
+
+# detailed — starting at anchor cell:
+36 km/h
+Magnitude | 36
+Units     | kilometer / hour
+```
+
 **Tests:** [`test_units.py`](../tests/scripting/test_units.py), [`test_units_templates.py`](../tests/scripting/test_units_templates.py), [`test_python_runner_units.py`](../tests/scripting/test_python_runner_units.py), [`test_units_tool.py`](../tests/scripting/test_units_tool.py).
 
 **Out of scope (deferred):** `xl.convert()` Calc-parity wrapper, `pyarrow` / `plugin/scripting/io.py`.

@@ -55,6 +55,10 @@ _HELPER_DESCRIPTIONS: dict[str, str] = {
 
 _UREG: Any | None = None
 
+OUTPUT_STYLES = frozenset({"formatted", "detailed"})
+_FORMATTED_DEFAULT_HELPERS = frozenset({"convert_quantity", "parse_quantity"})
+_EGRESS_PARAM_KEYS = frozenset({"output_style"})
+
 
 # --- Templates ---
 
@@ -138,8 +142,9 @@ def run_trusted_units(
         raise ToolExecutionError("Units helpers require a Writer or Calc document.", code="UNITS_ERROR")
 
     spec: dict[str, Any] = {"helper": name}
-    if isinstance(params, dict) and params:
-        spec["params"] = params
+    clean_params, _output_style = split_helper_params(params if isinstance(params, dict) else None)
+    if clean_params:
+        spec["params"] = clean_params
 
     context: dict[str, Any] = {}
     if task_hint:
@@ -149,6 +154,27 @@ def run_trusted_units(
 
 
 # --- Egress ---
+
+def resolve_output_style(helper: str, output_style: str | None) -> str:
+    """Resolve Calc egress layout: formatted (single cell) or detailed (key-value grid)."""
+    if output_style in OUTPUT_STYLES:
+        return output_style
+    if helper in _FORMATTED_DEFAULT_HELPERS:
+        return "formatted"
+    return "detailed"
+
+
+def split_helper_params(params: dict[str, Any] | None) -> tuple[dict[str, Any], str | None]:
+    """Strip egress-only keys before dispatching to Pint helpers."""
+    if not isinstance(params, dict):
+        return {}, None
+    clean = dict(params)
+    raw_style = clean.pop("output_style", None)
+    output_style = str(raw_style).strip() if raw_style is not None else None
+    if output_style == "":
+        output_style = None
+    return clean, output_style
+
 
 def is_units_result(value: Any) -> bool:
     """True when *value* matches the compact units helper result contract."""
@@ -162,7 +188,7 @@ def is_units_result(value: Any) -> bool:
     return "formatted" in value and "magnitude" in value
 
 
-def format_units_for_calc(result: dict[str, Any]) -> list[list[Any]]:
+def format_units_for_calc(result: dict[str, Any], *, output_style: str | None = None) -> list[list[Any]]:
     """Turn a units helper result into a row-major grid for sheet egress."""
     if result.get("status") == "error":
         code = str(result.get("code") or "ERROR")
@@ -170,16 +196,23 @@ def format_units_for_calc(result: dict[str, Any]) -> list[list[Any]]:
         return [[f"Units error ({code})"], [message]]
 
     helper = str(result.get("helper") or "units")
-    rows: list[list[Any]] = [[helper]]
+    formatted = str(result.get("formatted") or result.get("text") or "").strip()
+    style = resolve_output_style(helper, output_style)
+
+    if style == "formatted":
+        return [[formatted]] if formatted else [[helper]]
+
+    rows: list[list[Any]] = []
+    if formatted:
+        rows.append([formatted])
+    else:
+        rows.append([helper])
     magnitude = result.get("magnitude")
     if magnitude is not None:
         rows.append(["Magnitude", magnitude])
     units = str(result.get("units") or "").strip()
     if units:
         rows.append(["Units", units])
-    formatted = str(result.get("formatted") or result.get("text") or "").strip()
-    if formatted:
-        rows.append(["Formatted", formatted])
     compatible = result.get("compatible")
     if compatible is not None:
         rows.append(["Compatible", compatible])
@@ -212,14 +245,21 @@ def insert_units_result_into_writer(ctx: Any, doc: Any, result: dict[str, Any]) 
     insert_content_at_position(doc, ctx, text, "selection")
 
 
-def insert_units_result_into_calc(doc: Any, ctx: Any, result: dict[str, Any]) -> int:
+def insert_units_result_into_calc(
+    doc: Any,
+    ctx: Any,
+    result: dict[str, Any],
+    *,
+    output_style: str | None = None,
+) -> int:
     """Write units result rows on the active Calc sheet."""
     from plugin.calc.analysis_egress import calc_anchor_from_selection
     from plugin.calc.address_utils import index_to_column
     from plugin.calc.bridge import CalcBridge
     from plugin.calc.manipulator import CellManipulator
 
-    grid = format_units_for_calc(result)
+    helper = str(result.get("helper") or "")
+    grid = format_units_for_calc(result, output_style=resolve_output_style(helper, output_style))
     col, row = calc_anchor_from_selection(doc)
     bridge = CalcBridge(doc)
     manipulator = CellManipulator(bridge)
@@ -228,22 +268,34 @@ def insert_units_result_into_calc(doc: Any, ctx: Any, result: dict[str, Any]) ->
     return len(grid)
 
 
-def insert_units_result_into_doc(ctx: Any, doc: Any, result: dict[str, Any]) -> None:
+def insert_units_result_into_doc(
+    ctx: Any,
+    doc: Any,
+    result: dict[str, Any],
+    *,
+    output_style: str | None = None,
+) -> None:
     """Insert a units helper result into Writer or Calc."""
     if is_writer(doc):
         insert_units_result_into_writer(ctx, doc, result)
         return
     if is_calc(doc):
-        insert_units_result_into_calc(doc, ctx, result)
+        insert_units_result_into_calc(doc, ctx, result, output_style=output_style)
         return
     raise ToolExecutionError(_("Unsupported document type for units insertion."), code="UNITS_ERROR")
 
 
-def try_insert_units_result(ctx: Any, doc: Any, result_data: Any) -> bool:
+def try_insert_units_result(
+    ctx: Any,
+    doc: Any,
+    result_data: Any,
+    *,
+    output_style: str | None = None,
+) -> bool:
     """Insert units results when present. Returns True if insertion ran."""
     if not is_units_result(result_data):
         return False
-    insert_units_result_into_doc(ctx, doc, result_data)
+    insert_units_result_into_doc(ctx, doc, result_data, output_style=output_style)
     return True
 
 
@@ -307,10 +359,13 @@ def _get_ureg() -> Any:
     return _UREG
 
 
-def _quantity_payload(qty: Any, *, helper: str) -> dict[str, Any]:
+def _quantity_payload(qty: Any, *, helper: str, display_unit: str | None = None) -> dict[str, Any]:
     magnitude = float(qty.magnitude)
     units = str(qty.units)
-    formatted = f"{qty.magnitude:g} {units}"
+    if display_unit:
+        formatted = f"{qty.magnitude:g} {display_unit}"
+    else:
+        formatted = f"{qty.magnitude:g} {qty.units:~}"
     return _ok_result(helper, magnitude=magnitude, units=units, formatted=formatted)
 
 
@@ -346,7 +401,7 @@ def convert_quantity(*, value: str, from_unit: str, to_unit: str) -> dict[str, A
         ureg = _get_ureg()
         qty = ureg.Quantity(f"{float(str(value or '0').strip())} {from_text}")
         converted = qty.to(to_text)
-        return _quantity_payload(converted, helper=helper)
+        return _quantity_payload(converted, helper=helper, display_unit=to_text)
     except ValueError as exc:
         if str(exc) == "MISSING_PACKAGE":
             return _missing_package(helper)
@@ -481,7 +536,8 @@ def run_units(
     if not isinstance(params, dict):
         params = {}
 
-    result = _dispatch_helper(helper, params)
+    clean_params, _output_style = split_helper_params(params)
+    result = _dispatch_helper(helper, clean_params)
     if result.get("status") == "ok" and context:
         for key in ("task_hint",):
             if key in context:
