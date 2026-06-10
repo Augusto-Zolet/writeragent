@@ -21,7 +21,7 @@ import sys
 import threading
 import time
 import uuid
-from typing import Any, Dict, IO, Optional, Tuple
+from typing import Any, Callable, Dict, IO, Optional, Tuple
 
 from plugin.framework.config import get_config_str
 from plugin.framework.i18n import _
@@ -474,56 +474,224 @@ def _probe_vision_packages(
     return parsed, None
 
 
-def _format_self_check_success(data: dict[str, Any]) -> str:
+_SELF_CHECK_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("Scientific Libraries", ("numpy", "pandas", "scipy", "sklearn", "matplotlib", "sympy")),
+    ("Data Analysis / EDA Libraries", ("data_profiling", "statsmodels", "pandas_montecarlo")),
+    ("UI / Monaco Libraries", ("webview", "jedi", "PyQt6", "PyQt6.QtWebEngineWidgets", "qtpy")),
+    ("Visualization Libraries", ("matplotlib", "seaborn")),
+    ("Computer Algebra", ("sympy",)),
+    ("Quantitative Finance Libraries", ("yfinance", "pandas_ta", "quantstats", "pypfopt")),
+)
+
+_ALLOWED_PROBE_MODULES = frozenset(pkg for _title, pkgs in _SELF_CHECK_GROUPS for pkg in pkgs)
+
+_VERSION_PROBE_SCRIPT = """
+import platform
+result = {'v': platform.python_version(), 'arch': platform.machine()}
+"""
+
+
+def _package_probe_script(module: str) -> str:
+    """Return a sandbox-safe one-import probe script for a whitelisted *module*."""
+    if module not in _ALLOWED_PROBE_MODULES:
+        raise ValueError(f"unsupported probe module: {module}")
+    if module == "PyQt6.QtWebEngineWidgets":
+        import_stmt = "import PyQt6.QtWebEngineWidgets"
+    else:
+        import_stmt = f"import {module}"
+    return f"""
+try:
+    {import_stmt}
+    result = 'present'
+except ImportError:
+    result = None
+"""
+
+
+def _format_group_lines(title: str, keys: tuple[str, ...] | list[str], packages: dict[str, Any]) -> list[str]:
+    found: list[str] = []
+    missing: list[str] = []
+    for key in keys:
+        if packages.get(key) == "present":
+            found.append(key)
+        else:
+            missing.append(key)
+    lines = [f"\n{title}:"]
+    if found:
+        lines.append(f"  Present: {', '.join(found)}")
+    if missing:
+        lines.append(f"  Missing: {', '.join(missing)}")
+    return lines
+
+
+def _self_check_group_specs(data: dict[str, Any]) -> list[tuple[str, tuple[str, ...]]]:
+    return [
+        ("Scientific Libraries", tuple(data.get("sci", ()))),
+        ("Data Analysis / EDA Libraries", tuple(data.get("eda", ()))),
+        ("UI / Monaco Libraries", tuple(data.get("ui", ()))),
+        (_("Visualization Libraries"), tuple(data.get("viz", ()))),
+        (_("Computer Algebra"), tuple(data.get("cas", ()))),
+        (_("Quantitative Finance Libraries"), tuple(data.get("quant", ()))),
+        (_("Vision Libraries"), tuple(data.get("vision", ()))),
+    ]
+
+
+def _build_probe_display(
+    data: dict[str, Any],
+    *,
+    completed_groups: int,
+    partial_group_keys: tuple[str, ...] | None = None,
+    partial_group_title: str | None = None,
+    extra_lines_after_header: tuple[str, ...] | None = None,
+    include_vision: bool = False,
+) -> str:
+    """Rebuild the Settings → Python Test body in the legacy grouped Present/Missing format."""
     version = data.get("v", "unknown")
     arch = data.get("arch", "")
     packages = data.get("p", {})
-    sci_list = data.get("sci", [])
-    eda_list = data.get("eda", [])
-    ui_list = data.get("ui", [])
-    vision_list = data.get("vision", [])
-    viz_list = data.get("viz", [])
-    cas_list = data.get("cas", [])
-    quant_list = data.get("quant", [])
-
     header = f"Python {version} ({arch})" if arch else f"Python {version}"
     msg_lines = [f"{header} responds OK."]
+    if extra_lines_after_header:
+        msg_lines.extend(extra_lines_after_header)
 
-    def format_group(title, keys):
-        found = []
-        missing = []
-        for k in keys:
-            if packages.get(k) == "present":
-                found.append(k)
-            else:
-                missing.append(k)
-
-        lines = [f"\n{title}:"]
-        if found:
-            lines.append(f"  Present: {', '.join(found)}")
-        if missing:
-            lines.append(f"  Missing: {', '.join(missing)}")
-        return lines
-
-    if sci_list:
-        msg_lines.extend(format_group("Scientific Libraries", sci_list))
-    if eda_list:
-        msg_lines.extend(format_group("Data Analysis / EDA Libraries", eda_list))
-    if ui_list:
-        msg_lines.extend(format_group("UI / Monaco Libraries", ui_list))
-    if viz_list:
-        msg_lines.extend(format_group(_("Visualization Libraries"), viz_list))
-    if cas_list:
-        msg_lines.extend(format_group(_("Computer Algebra"), cas_list))
-    if quant_list:
-        msg_lines.extend(format_group(_("Quantitative Finance Libraries"), quant_list))
-    if vision_list:
-        msg_lines.extend(format_group(_("Vision Libraries"), vision_list))
-        vision_failure = data.get("vision_probe_failure")
-        if vision_failure:
-            msg_lines.append(f"  {vision_failure}")
+    specs = _self_check_group_specs(data)
+    for idx, (title, keys) in enumerate(specs):
+        if not keys:
+            continue
+        if idx < completed_groups:
+            msg_lines.extend(_format_group_lines(title, keys, packages))
+        elif idx == completed_groups and partial_group_keys and partial_group_title:
+            msg_lines.extend(_format_group_lines(partial_group_title, partial_group_keys, packages))
+        elif include_vision and title == _("Vision Libraries"):
+            msg_lines.extend(_format_group_lines(title, keys, packages))
+            vision_failure = data.get("vision_probe_failure")
+            if vision_failure:
+                msg_lines.append(f"  {vision_failure}")
 
     return "\n".join(msg_lines)
+
+
+def _format_self_check_success(data: dict[str, Any]) -> str:
+    data = dict(data)
+    data.setdefault("vision", list(_VISION_PACKAGE_KEYS))
+    return _build_probe_display(data, completed_groups=len(_SELF_CHECK_GROUPS), include_vision=True)
+
+
+def run_venv_self_check_with_progress(
+    python_exe: str,
+    on_display: Callable[[str], None],
+    timeout: float = 10.0,
+    on_status: Callable[[str], None] | None = None,
+    extra_lines_after_header: tuple[str, ...] | None = None,
+) -> Tuple[bool, str]:
+    """Like :func:`run_venv_self_check` but refreshes the legacy grouped view through *on_display*."""
+    timeout_sec = max(1, int(timeout))
+    per_pkg_timeout = max(3, min(30, timeout_sec))
+
+    def _status(text: str) -> None:
+        if on_status is not None:
+            on_status(text)
+
+    def _refresh(
+        data: dict[str, Any],
+        *,
+        completed_groups: int = 0,
+        partial_group_keys: tuple[str, ...] | None = None,
+        partial_group_title: str | None = None,
+        include_vision: bool = False,
+    ) -> None:
+        on_display(
+            _build_probe_display(
+                data,
+                completed_groups=completed_groups,
+                partial_group_keys=partial_group_keys,
+                partial_group_title=partial_group_title,
+                extra_lines_after_header=extra_lines_after_header,
+                include_vision=include_vision,
+            )
+        )
+
+    _status(_("Starting Python worker..."))
+    try:
+        manager = PythonWorkerManager.get(python_exe, scrub_subprocess_env(dict(os.environ)))
+    except OSError as e:
+        return False, f"Could not run Python: {e}"
+
+    _status(_("Reading Python version..."))
+    try:
+        response = manager.execute(_VERSION_PROBE_SCRIPT, timeout_sec=per_pkg_timeout)
+    except OSError as e:
+        return False, f"Could not run Python: {e}"
+
+    if response.get("status") != "ok":
+        msg = str(response.get("message", "Unknown error"))
+        if "timed out" in msg.lower() or "timeout" in msg.lower():
+            return False, "Timed out waiting for Python (check venv and try again)."
+        return False, msg
+
+    version_data = response.get("result")
+    if not isinstance(version_data, dict):
+        return False, f"Unexpected output from test run: {version_data!r}"
+
+    data: dict[str, Any] = {
+        "v": version_data.get("v", "unknown"),
+        "arch": version_data.get("arch", ""),
+        "p": {},
+        "sci": list(_SELF_CHECK_GROUPS[0][1]),
+        "eda": list(_SELF_CHECK_GROUPS[1][1]),
+        "ui": list(_SELF_CHECK_GROUPS[2][1]),
+        "viz": list(_SELF_CHECK_GROUPS[3][1]),
+        "cas": list(_SELF_CHECK_GROUPS[4][1]),
+        "quant": list(_SELF_CHECK_GROUPS[5][1]),
+    }
+    _refresh(data)
+
+    for group_index, (group_title, packages) in enumerate(_SELF_CHECK_GROUPS):
+        checked: list[str] = []
+        for pkg in packages:
+            _status(f"{group_title}: {pkg}")
+            try:
+                pkg_resp = manager.execute(_package_probe_script(pkg), timeout_sec=per_pkg_timeout)
+            except OSError as e:
+                return False, f"Could not run Python: {e}"
+            if pkg_resp.get("status") != "ok":
+                msg = str(pkg_resp.get("message", "Unknown error"))
+                return False, msg
+            present = pkg_resp.get("result") == "present"
+            data["p"][pkg] = "present" if present else None
+            checked.append(pkg)
+            _refresh(
+                data,
+                completed_groups=group_index,
+                partial_group_keys=tuple(checked),
+                partial_group_title=group_title,
+            )
+        _refresh(data, completed_groups=group_index + 1)
+
+    _status(_("Vision Libraries: loading (first run may take a while)..."))
+    vision_probes, vision_failure = _probe_vision_packages(
+        python_exe,
+        timeout=float(VISION_PROBE_TIMEOUT_SEC),
+    )
+    packages = data.setdefault("p", {})
+    if isinstance(packages, dict) and vision_probes:
+        packages.update(vision_probes)
+    data["vision"] = list(_VISION_PACKAGE_KEYS)
+    if vision_failure:
+        data["vision_probe_failure"] = vision_failure
+    _refresh(data, completed_groups=len(_SELF_CHECK_GROUPS), include_vision=True)
+
+    try:
+        final_msg = _build_probe_display(
+            data,
+            completed_groups=len(_SELF_CHECK_GROUPS),
+            include_vision=True,
+            extra_lines_after_header=extra_lines_after_header,
+        )
+        on_display(final_msg)
+        return True, final_msg
+    except Exception as e:
+        return False, f"Failed to parse diagnostic output: {e}\nRaw output: {data!r}"
 
 
 def run_venv_self_check(python_exe: str, timeout: float = 10.0) -> Tuple[bool, str]:
@@ -584,6 +752,60 @@ def probe_venv_path(venv_dir: str, timeout: float = 10.0) -> Tuple[bool, str]:
             )
         return False, f"Path not found: {expanded}"
     return run_venv_self_check(exe, timeout=timeout)
+
+
+def probe_venv_path_with_progress(
+    venv_dir: str,
+    on_display: Callable[[str], None],
+    timeout: float = 10.0,
+    on_status: Callable[[str], None] | None = None,
+    extra_lines_after_header: tuple[str, ...] | None = None,
+) -> Tuple[bool, str]:
+    """Resolve *venv_dir* and run a self-check, refreshing the legacy grouped view."""
+    def _status(text: str) -> None:
+        if on_status is not None:
+            on_status(text)
+
+    if not venv_dir or not str(venv_dir).strip():
+        _status(_("Using LibreOffice process Python..."))
+        exe = resolve_libreoffice_python()
+        if not exe:
+            msg = "No process interpreter: sys.executable is missing, not a file, or not executable. Set a venv path in Settings → Python, or fix the LibreOffice install."
+            on_display(msg)
+            return False, msg
+        ok, msg = run_venv_self_check_with_progress(
+            exe,
+            on_display,
+            timeout=timeout,
+            on_status=on_status,
+            extra_lines_after_header=extra_lines_after_header,
+        )
+        if ok:
+            return True, f"LibreOffice process Python ({exe}) responds OK."
+        return ok, msg
+    expanded = os.path.expanduser(os.path.expandvars(str(venv_dir).strip()))
+    _status(_("Resolving venv Python..."))
+    exe = resolve_venv_python(str(venv_dir).strip())
+    if not exe:
+        if os.path.isfile(expanded):
+            msg = f"Not a Python executable: {expanded}"
+        elif os.path.isdir(expanded):
+            msg = (
+                "No python found. Use the venv root (folder containing bin/), "
+                "the bin/ folder, or the full path to bin/python."
+            )
+        else:
+            msg = f"Path not found: {expanded}"
+        on_display(msg)
+        return False, msg
+    _status(f"{_('Using')} {exe}")
+    return run_venv_self_check_with_progress(
+        exe,
+        on_display,
+        timeout=timeout,
+        on_status=on_status,
+        extra_lines_after_header=extra_lines_after_header,
+    )
 
 
 # --- Warm worker ---

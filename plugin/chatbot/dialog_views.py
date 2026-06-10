@@ -20,7 +20,7 @@ import uno
 from com.sun.star.awt import XItemListener, XTextListener
 
 from plugin.framework.errors import format_error_payload, UnoObjectError
-from plugin.framework.uno_context import get_active_document, get_extension_url, get_toolkit
+from plugin.framework.uno_context import get_active_document, get_desktop, get_extension_url, get_toolkit
 from plugin.framework.i18n import _
 from plugin.framework.config import get_config, get_current_endpoint, set_config, get_config_str, as_bool, parse_int_robust, parse_float_robust
 from plugin.framework.client.model_fetcher import get_text_model
@@ -30,9 +30,9 @@ from plugin.chatbot.history_db import HAS_SQLITE
 
 from .listeners import BaseActionListener, BaseListener
 from .dialogs import (
-    TabListener, is_checkbox_control, get_checkbox_state, set_checkbox_state, 
+    TabListener, is_checkbox_control, get_checkbox_state, set_checkbox_state,
     get_optional, set_control_enabled, set_control_text, get_control_text, translate_dialog,
-    msgbox
+    msgbox, add_dialog_button, add_dialog_label, add_dialog_edit,
 )
 
 log = logging.getLogger(__name__)
@@ -313,6 +313,154 @@ class EditConfigListener(BaseActionListener):
         open_writeragent_json_in_editor(self._ctx)
 
 
+def _dialog_parent_for_child(ctx, parent_dlg):
+    """Resolve a parent window for a child modal opened above an executing dialog."""
+    if parent_dlg is not None:
+        try:
+            peer = parent_dlg.getPeer()
+            if peer is not None:
+                return peer
+        except Exception:
+            log.debug("parent_dlg.getPeer failed for child modal", exc_info=True)
+    try:
+        desktop = get_desktop(ctx)
+        frame = desktop.getCurrentFrame() if desktop else None
+        if frame is not None:
+            return frame.getContainerWindow()
+    except Exception:
+        log.debug("getCurrentFrame parent fallback failed for child modal", exc_info=True)
+    return None
+
+
+class _VenvProbeProgressDialog:
+    """Modal progress window for Settings → Python Test (probe runs in a worker thread)."""
+
+    def __init__(self, ctx, parent_dlg=None):
+        self._ctx = ctx
+        self._parent_dlg = parent_dlg
+        self._dlg = None
+
+    def run_modal_probe(self, probe_fn) -> bool:
+        """Show a modal dialog immediately and run *probe_fn(on_display, on_status)* in a worker."""
+        from plugin.framework.queue_executor import post_to_main_thread
+        from plugin.framework.worker_pool import run_in_background
+
+        if not self._create_dialog():
+            return False
+
+        def on_display(text: str) -> None:
+            post_to_main_thread(lambda body=text: self.set_display(body))
+
+        def on_status(text: str) -> None:
+            post_to_main_thread(lambda status=text: self.set_status(status))
+
+        def work() -> None:
+            try:
+                ok, _msg = probe_fn(on_display, on_status)
+
+                def finish_ui() -> None:
+                    self.finish(_("Venv OK") if ok else _("Venv check failed"), ok)
+
+                post_to_main_thread(finish_ui)
+            except Exception as exc:
+                log.exception("Scripting venv probe failed")
+
+                def error_ui(exc=exc) -> None:
+                    self.set_display(str(exc))
+                    self.finish(_("Venv check failed"), False)
+
+                post_to_main_thread(error_ui)
+
+        run_in_background(work, name="settings-venv-test")
+        dlg = self._dlg
+        assert dlg is not None
+        try:
+            dlg.execute()
+        finally:
+            self._dispose()
+        return True
+
+    def _create_dialog(self) -> bool:
+        try:
+            parent = _dialog_parent_for_child(self._ctx, self._parent_dlg)
+            smgr = self._ctx.getServiceManager()
+            dlg_model = smgr.createInstanceWithContext("com.sun.star.awt.UnoControlDialogModel", self._ctx)
+            dlg_model.Title = _("Python Test")
+            dlg_model.Width = 320
+            dlg_model.Height = 288
+
+            add_dialog_label(dlg_model, "StatusLbl", _("Testing Python environment..."), 8, 8, 304, 12, multiline=False)
+            log_edit = add_dialog_edit(dlg_model, "LogArea", "", 8, 24, 304, 228, readonly=True)
+            log_edit.MultiLine = True
+            log_edit.VScroll = True
+            add_dialog_button(dlg_model, "BtnClose", _("Close"), 252, 258, 60, 14, enabled=False)
+
+            self._dlg = smgr.createInstanceWithContext("com.sun.star.awt.UnoControlDialog", self._ctx)
+            self._dlg.setModel(dlg_model)
+            toolkit = smgr.createInstanceWithContext("com.sun.star.awt.Toolkit", self._ctx)
+            self._dlg.createPeer(toolkit, parent)
+            self._dlg.getControl("BtnClose").addActionListener(_VenvProbeCloseListener(self))
+            return True
+        except Exception:
+            log.exception("Failed to open venv probe progress dialog")
+            self._dlg = None
+            return False
+
+    def set_display(self, text: str) -> None:
+        if self._dlg is None:
+            return
+        set_control_text(self._dlg.getControl("LogArea"), text)
+        self._pump_events()
+
+    def set_status(self, text: str) -> None:
+        if self._dlg is None:
+            return
+        status = text.strip() or _("Testing Python environment...")
+        if len(status) > 80:
+            status = status[:77] + "..."
+        set_control_text(self._dlg.getControl("StatusLbl"), status)
+        self._pump_events()
+
+    def finish(self, title: str, ok: bool) -> None:
+        if self._dlg is None:
+            return
+        try:
+            self._dlg.getModel().Title = _(title)
+        except Exception:
+            pass
+        set_control_text(self._dlg.getControl("StatusLbl"), _("Done") if ok else _("Failed"))
+        set_control_enabled(self._dlg.getControl("BtnClose"), True)
+        self._pump_events()
+
+    def _dispose(self) -> None:
+        dlg = self._dlg
+        self._dlg = None
+        if dlg is None:
+            return
+        try:
+            dlg.dispose()
+        except Exception:
+            log.debug("Failed to dispose venv probe progress dialog", exc_info=True)
+
+    def _pump_events(self) -> None:
+        toolkit = get_toolkit(self._ctx)
+        if toolkit and hasattr(toolkit, "processEventsToIdle"):
+            toolkit.processEventsToIdle()
+
+
+class _VenvProbeCloseListener(BaseActionListener):
+    def __init__(self, progress: _VenvProbeProgressDialog):
+        self._progress = progress
+
+    def on_action_performed(self, rEvent):
+        dlg = self._progress._dlg
+        if dlg is not None:
+            try:
+                dlg.endDialog(0)
+            except Exception:
+                log.debug("Failed to close venv probe progress dialog", exc_info=True)
+
+
 class ScriptingVenvTestListener(BaseActionListener):
     """Settings → Python: run a quick subprocess check using the path in the text field (saved or not)."""
 
@@ -321,40 +469,39 @@ class ScriptingVenvTestListener(BaseActionListener):
         self._dlg = dlg
 
     def on_action_performed(self, rEvent):
-        from plugin.framework.queue_executor import post_to_main_thread
-        from plugin.framework.worker_pool import run_in_background
-        from plugin.scripting.venv_worker import probe_venv_path
+        from plugin.scripting.venv_worker import probe_venv_path, probe_venv_path_with_progress
         from plugin.scripting.payload_codec import fast_flatten_grid_2d
 
         path_ctrl = get_optional(self._dlg, "scripting__python_venv_path")
         raw = get_control_text(path_ctrl) if path_ctrl else ""
-        
-        host_optimized = fast_flatten_grid_2d is not None
 
-        def work():
+        host_optimized = fast_flatten_grid_2d is not None
+        host_status = "Active (Optimized)" if host_optimized else "Inactive (Pure Python)"
+
+        cython_line = f"Cython Accelerator: {host_status}"
+
+        def probe(on_display, on_status):
+            return probe_venv_path_with_progress(
+                raw,
+                on_display,
+                on_status=on_status,
+                extra_lines_after_header=(cython_line,),
+            )
+
+        progress = _VenvProbeProgressDialog(self._ctx, parent_dlg=self._dlg)
+        if not progress.run_modal_probe(probe):
             try:
                 ok, msg = probe_venv_path(raw)
             except Exception as e:
                 ok, msg = False, str(e)
                 log.exception("Scripting venv probe failed")
-
-            def ui():
-                title = _("Venv OK") if ok else _("Venv check failed")
-                
-                host_status = "Active (Optimized)" if host_optimized else "Inactive (Pure Python)"
-                
-                # Splice the host status right after the Python version line
-                parts = msg.split("\n", 1)
-                if len(parts) > 1:
-                    final_msg = f"{parts[0]}\nCython Accelerator: {host_status}\n{parts[1]}"
-                else:
-                    final_msg = f"{msg}\nCython Accelerator: {host_status}"
-                
-                msgbox(self._ctx, title, final_msg)
-
-            post_to_main_thread(ui)
-
-        run_in_background(work, name="settings-venv-test")
+            parts = msg.split("\n", 1)
+            if len(parts) > 1:
+                final_msg = f"{parts[0]}\nCython Accelerator: {host_status}\n{parts[1]}"
+            else:
+                final_msg = f"{msg}\nCython Accelerator: {host_status}"
+            title = _("Venv OK") if ok else _("Venv check failed")
+            msgbox(self._ctx, title, final_msg)
 
 
 class ApiKeyTextListener(BaseListener, XTextListener):

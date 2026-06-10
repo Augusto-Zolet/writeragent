@@ -11,10 +11,8 @@ def _ensure_main_import_stubs() -> None:
     if task is None:
         task = types.ModuleType("com.sun.star.task")
         sys.modules["com.sun.star.task"] = task
-    if not hasattr(task, "XJobExecutor"):
-        task.XJobExecutor = type("XJobExecutor", (), {})
-    if not hasattr(task, "XJob"):
-        task.XJob = type("XJob", (), {})
+    task.XJobExecutor = type("XJobExecutor", (), {})
+    task.XJob = type("XJob", (), {})
 
     frame = sys.modules.get("com.sun.star.frame")
     if frame is None:
@@ -49,9 +47,7 @@ _patch_unohelper_implementation_helper()
 
 def test_run_test_suite_invokes_run_module_suite_on_main_thread() -> None:
     """``run_module_suite`` must run on the UI thread so UNO tools pass ``execute_safe``."""
-    import importlib
     import plugin.main as main_mod
-    importlib.reload(main_mod)
     
     threads_seen: list[threading.Thread] = []
 
