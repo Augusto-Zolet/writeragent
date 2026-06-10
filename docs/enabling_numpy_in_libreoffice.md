@@ -400,6 +400,18 @@ flowchart TD
 
 **Visualization note:** Phase A uses the venv worker and `__wa_payload__: "image"` envelope for raw matplotlib (no trusted module required). **Phases B–C shipped:** Run Python Script image egress and trusted Viz helpers (`viz.py`, `[Viz]` templates, `plot_data`, analysis auto-plot).
 
+### New Domain Proposals
+
+We are actively expanding the set of supported scientific libraries. These packages are not part of the standard LLM sandbox and must be accessed via trusted extension modules.
+
+| Domain | Packages | Implementation |
+|--------|----------|----------------|
+| **Data Engineering** | `pint`, `pyarrow` | Trusted module `plugin/scripting/units.py` or `io.py` |
+| **NLP** | `spacy`, `langdetect` | Trusted module `plugin/scripting/nlp.py` |
+| **Bayesian Opt** | `scikit-optimize` | Trusted module `plugin/scripting/optimization.py` |
+
+The implementation should follow the [Domain helper pattern](#domain-helper-pattern-analysis--vision-canonical) using the established RPC stub architecture.
+
 ### Prioritization
 
 | Priority | Domain | Status today | First target |
@@ -412,6 +424,9 @@ flowchart TD
 | 5 | **Optimization & OR** | Partial (scipy, `monte_carlo`) | `optimize_portfolio` |
 | 6 | **Geospatial** | Not started | `[Geo] map_data` |
 | 7 | **Audio / Signal Processing** | Recording shipped; no librosa analysis | Spectrogram via Viz egress |
+| 8 | **Data Engineering** | Not started | `pint` units, `arrow` IO |
+| 9 | **NLP** | Not started | `spacy` entity extraction |
+| 10 | **Bayesian Opt** | Not started | `skopt` |
 
 ---
 

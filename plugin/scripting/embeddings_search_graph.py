@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, TypedDict
+from typing import Any, NotRequired, TypedDict
 
 from plugin.scripting.embeddings_chroma import get_collection
 from plugin.scripting.embeddings_index import embed_texts
@@ -19,16 +19,16 @@ log = logging.getLogger(__name__)
 MMR_LAMBDA = 0.7
 
 
-class SearchState(TypedDict, total=False):
+class SearchState(TypedDict):
     persist_dir: str
     collection_name: str
     model: str
     query: str
     k: int
-    doc_url_filter: str | None
-    query_vec: list[float]
-    candidates: list[dict[str, Any]]
-    hits: list[dict[str, Any]]
+    doc_url_filter: NotRequired[str | None]
+    query_vec: NotRequired[list[float]]
+    candidates: NotRequired[list[dict[str, Any]]]
+    hits: NotRequired[list[dict[str, Any]]]
 
 
 def embed_query(state: SearchState) -> dict[str, Any]:

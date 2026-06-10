@@ -12,7 +12,7 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any, NotRequired, TypedDict
 
 from plugin.doc.embeddings_cache import SCHEMA_VERSION
 from plugin.scripting.embeddings_chroma import (
@@ -29,18 +29,18 @@ CHUNK_SIZE = 512
 CHUNK_OVERLAP = 64
 
 
-class IngestState(TypedDict, total=False):
+class IngestState(TypedDict):
     persist_dir: str
     collection_name: str
     meta_path: str
     model: str
-    rows: list[dict[str, Any]]
-    delete_keys: list[dict[str, Any]]
-    documents: list[Any]
-    chunks: list[dict[str, Any]]
-    vectors: list[list[float]]
-    upserted: int
-    dim: int
+    rows: NotRequired[list[dict[str, Any]]]
+    delete_keys: NotRequired[list[dict[str, Any]]]
+    documents: NotRequired[list[Any]]
+    chunks: NotRequired[list[dict[str, Any]]]
+    vectors: NotRequired[list[list[float]]]
+    upserted: NotRequired[int]
+    dim: NotRequired[int]
 
 
 def _import_splitter() -> Any:
