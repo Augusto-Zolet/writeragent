@@ -70,6 +70,8 @@ class SendHandlerHost(Protocol):
     _in_librarian_mode: bool
     _in_brainstorming_mode: bool
     _brainstorming_topic: str
+    _in_writing_plan_mode: bool
+    _writing_plan_topic: str
     session: "ChatSession"
     response_control: Any
     status_control: Any
@@ -441,6 +443,23 @@ class SendHandlersMixin:
         for effect in step.effects:
             interpreter.interpret(effect)
 
+    def _run_writing_plan(self: SendHandlerHost, query_text: str, model: Any) -> None:
+        """Run the writing plan sub-agent and stream its result into the response area."""
+        interpreter = EffectInterpreter(self)
+        current_state = SendHandlerState(handler_type="web", status="ready")
+
+        self._in_writing_plan_mode = True
+        self.session.add_user_message(query_text)
+
+        step = next_state(current_state, StartEvent(query_text, model, "web"))
+        current_state = step.state
+        interpreter.current_state = current_state
+
+        setattr(self, "_active_run_writing_plan", True)
+
+        for effect in step.effects:
+            interpreter.interpret(effect)
+
     def _run_web_research(self: SendHandlerHost, query_text: str, model: Any) -> None:
         """Run the web_research tool via the sub-agent and stream its result into the response area."""
         interpreter = EffectInterpreter(self)
@@ -463,6 +482,9 @@ class SendHandlersMixin:
         is_brainstorming = getattr(self, "_active_run_brainstorming", False)
         if hasattr(self, "_active_run_brainstorming"):
             delattr(self, "_active_run_brainstorming")
+        is_writing_plan = getattr(self, "_active_run_writing_plan", False)
+        if hasattr(self, "_active_run_writing_plan"):
+            delattr(self, "_active_run_writing_plan")
 
 
 
@@ -576,9 +598,10 @@ class SendHandlersMixin:
                         q.put((StreamQueueKind.CHUNK, answer + "\n"))
                         self.session.add_assistant_message(content=answer)
                     elif data.get("status") == "finished":
+                        spec_saved = bool(data.get("spec_saved", False))
                         finished_cb = getattr(self, "on_brainstorming_session_finished", None)
                         if callable(finished_cb):
-                            finished_cb()
+                            finished_cb(spec_saved=spec_saved)
                         else:
                             self._in_brainstorming_mode = False
                         answer = data.get("result", _("Brainstorming complete."))
@@ -591,6 +614,47 @@ class SendHandlersMixin:
                         self._in_brainstorming_mode = False
                         msg = data.get("message", _("Unknown brainstorming error."))
                         q.put((StreamQueueKind.CHUNK, "\n" + _("[Brainstorming error: {0}]").format(msg) + "\n"))
+
+                    q.put((StreamQueueKind.STREAM_DONE, {}))
+                elif is_writing_plan:
+                    topic = getattr(self, "_writing_plan_topic", "") or ""
+                    res = get_tools().execute(
+                        "writing_plan_session",
+                        tctx,
+                        bypass_thread_guard=False,
+                        **{"query": query_text, "history_text": history_text, "topic": topic},
+                    )
+                    result = json.dumps(res) if isinstance(res, dict) else str(res)
+
+                    data = safe_json_loads(result)
+                    if not isinstance(data, dict):
+                        log.error("Failed to parse writing plan result [doc: %s]", doc_type)
+                        parsed_err = AgentParsingError("Invalid JSON from writing plan tool.", details={"raw_result": result})
+                        data = format_error_payload(parsed_err)
+
+                    if data.get("status") == "ok":
+                        answer = data.get("result", "")
+                        if not isinstance(answer, str):
+                            answer = str(answer)
+                        self._record_assistant_start = True
+                        q.put((StreamQueueKind.CHUNK, answer + "\n"))
+                        self.session.add_assistant_message(content=answer)
+                    elif data.get("status") == "finished":
+                        finished_cb = getattr(self, "on_writing_plan_session_finished", None)
+                        if callable(finished_cb):
+                            finished_cb()
+                        else:
+                            self._in_writing_plan_mode = False
+                        answer = data.get("result", _("Writing plan complete."))
+                        if not isinstance(answer, str):
+                            answer = str(answer)
+                        self._record_assistant_start = True
+                        q.put((StreamQueueKind.CHUNK, answer + "\n"))
+                        self.session.add_assistant_message(content=answer)
+                    else:
+                        self._in_writing_plan_mode = False
+                        msg = data.get("message", _("Unknown writing plan error."))
+                        q.put((StreamQueueKind.CHUNK, "\n" + _("[Writing plan error: {0}]").format(msg) + "\n"))
 
                     q.put((StreamQueueKind.STREAM_DONE, {}))
                 else:

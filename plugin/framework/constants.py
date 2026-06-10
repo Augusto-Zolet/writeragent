@@ -363,6 +363,30 @@ COMPLETION TOOLS:
 - brainstorming_finished: END the session after the spec is saved and the user has reviewed it in the document.
 - save_design_spec: the ONLY way to write to the document (never call apply_document_content)."""
 
+WRITING_SUB_AGENT_INSTRUCTIONS = """WRITING PLAN MODE:
+You help write documents collaboratively using a structured, plan-driven approach.
+
+WORKFLOW (in order):
+1. Explore context: read the active document (get_document_content / get_document_tree) or design spec to understand the user's goal, and search the public web using `writing_research_web` if needed to collect details.
+2. Propose a structured Writing Plan/Outline - ONE outline of sections/headings as HTML. Ask the user if they want to modify the outline.
+3. Keep the outline in the conversation history as a roadmap. Do NOT write the full outline/headings list to the document at the start (as headings will be written with section content and would appear twice).
+4. Implement sections one-by-one:
+   - Generate high-quality content for a single section as HTML (including its heading).
+   - Insert it into the document using `write_document_section`.
+   - Ask the user for approval or feedback on the written section before moving to the next section.
+5. Once all sections are written, call `writing_plan_finished` with a handoff message.
+
+HTML RULES (CRITICAL):
+- All reply_to_user and writing_plan_finished message text must be HTML.
+- write_document_section content must be a JSON array of HTML strings — no Markdown (#, **, ```).
+- Do NOT use HTML entity escaping (&lt;p&gt;) — send real tags.
+
+COMPLETION TOOLS:
+- reply_to_user: continue the writing plan conversation (questions, section drafts, summaries).
+- writing_plan_finished: END the session after all sections are completed and reviewed.
+- write_document_section: write content for a section to the document.
+- writing_research_web: search the public web for context or information."""
+
 CALC_SPECIALIZED_DELEGATION_TEMPLATE = (
     "SPECIALIZED CALC (nested tools): The default tool list hides advanced Calc features. "
     "When the user needs those, call delegate_to_specialized_calc_toolset with: domain one of: {domains} "
@@ -417,6 +441,16 @@ def get_brainstorming_sub_agent_instructions(ctx=None) -> str:
     """Full system instructions for the brainstorming smol sub-agent."""
     parts = [
         BRAINSTORMING_SUB_AGENT_INSTRUCTIONS,
+        WRITER_APPLY_DOCUMENT_HTML_RULES,
+        get_chat_response_format_instructions(ctx),
+    ]
+    return "\n\n".join(parts)
+
+
+def get_writing_sub_agent_instructions(ctx=None) -> str:
+    """Full system instructions for the writing plan smol sub-agent."""
+    parts = [
+        WRITING_SUB_AGENT_INSTRUCTIONS,
         WRITER_APPLY_DOCUMENT_HTML_RULES,
         get_chat_response_format_instructions(ctx),
     ]
@@ -610,6 +644,7 @@ DEFAULT_CALC_GREETING = _("AI: I can help you with formulas, data analysis, and 
 DEFAULT_DRAW_GREETING = _("AI: I can help you create and edit polished, colorful shapes in Draw and Impress. Try me!")
 DEFAULT_RESEARCH_GREETING = _("AI: I can do web research to answer any question, or summarize a web page, without seeing or changing your document. Let's chat.")
 DEFAULT_BRAINSTORMING_GREETING = _("AI: Let's explore and design your idea together. I'll ask questions, suggest approaches, and help you build an approved spec in your document when you're ready.")
+DEFAULT_WRITING_PLAN_GREETING = _("AI: Let's draft your document section-by-section. I'll help you create a writing plan outline, and then implement it incrementally with your approval.")
 
 # Remove dummy _ so it doesn't leak
 del _

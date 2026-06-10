@@ -15,7 +15,9 @@ from plugin.chatbot.chat_sidebar_mode import (
     CHAT_MODE_CHAT,
     CHAT_MODE_IMAGE,
     CHAT_MODE_WEB_RESEARCH,
+    CHAT_MODE_WRITING_PLAN,
     clear_brainstorming_session,
+    clear_writing_plan_session,
     get_mode_labels,
     mode_from_label,
     mode_from_selector,
@@ -28,17 +30,19 @@ from plugin.chatbot.chat_sidebar_mode import (
 
 def test_mode_labels_include_brainstorming_when_writer():
     labels = get_mode_labels(include_brainstorming=True)
-    assert len(labels) == 4
+    assert len(labels) == 5
     assert mode_from_label(labels[0]) == CHAT_MODE_CHAT
     assert mode_from_label(labels[1]) == CHAT_MODE_IMAGE
     assert mode_from_label(labels[2]) == CHAT_MODE_WEB_RESEARCH
     assert mode_from_label(labels[3]) == CHAT_MODE_BRAINSTORMING
+    assert mode_from_label(labels[4]) == CHAT_MODE_WRITING_PLAN
 
 
 def test_mode_labels_omit_brainstorming_for_calc_draw():
     labels = get_mode_labels(include_brainstorming=False)
-    assert len(labels) == 3
-    assert mode_from_label(labels[-1], include_brainstorming=False) == CHAT_MODE_WEB_RESEARCH
+    assert len(labels) == 4
+    assert mode_from_label(labels[2], include_brainstorming=False) == CHAT_MODE_WEB_RESEARCH
+    assert mode_from_label(labels[3], include_brainstorming=False) == CHAT_MODE_WRITING_PLAN
 
 
 def test_mode_from_selector_reads_combobox_text():
@@ -105,3 +109,12 @@ def test_clear_brainstorming_session_resets_flags():
     clear_brainstorming_session(listener)
     assert listener._in_brainstorming_mode is False
     assert listener._brainstorming_topic == ""
+
+
+def test_clear_writing_plan_session_resets_flags():
+    listener = MagicMock()
+    listener._in_writing_plan_mode = True
+    listener._writing_plan_topic = "topic"
+    clear_writing_plan_session(listener)
+    assert listener._in_writing_plan_mode is False
+    assert listener._writing_plan_topic == ""

@@ -2748,7 +2748,7 @@ def pearson(data1: Any, data2: Any) -> float:
             return float("nan")
         import scipy.stats  # type: ignore[import-untyped]
         corr, _p = scipy.stats.pearsonr(d1_clean, d2_clean)
-        return float(cast(float, corr))
+        return float(cast("float", corr))
     except (ValueError, TypeError):
         return float("nan")
 
@@ -3484,7 +3484,7 @@ def ttest(data1: Any, data2: Any, tails: Any, type_: Any) -> float:
             # Two-sample unequal variance
             res = scipy.stats.ttest_ind(d1_clean, d2_clean, equal_var=False)
 
-        p = float(cast(float, res[1]))
+        p = float(cast("float", res[1]))
         if t == 1:
             p /= 2.0
 

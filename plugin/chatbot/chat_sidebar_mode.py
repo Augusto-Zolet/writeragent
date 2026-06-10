@@ -21,8 +21,9 @@ CHAT_MODE_CHAT = "chat"
 CHAT_MODE_IMAGE = "image"
 CHAT_MODE_WEB_RESEARCH = "web_research"
 CHAT_MODE_BRAINSTORMING = "brainstorming"
+CHAT_MODE_WRITING_PLAN = "writing_plan"
 
-_VALID_MODES = frozenset({CHAT_MODE_CHAT, CHAT_MODE_IMAGE, CHAT_MODE_WEB_RESEARCH, CHAT_MODE_BRAINSTORMING})
+_VALID_MODES = frozenset({CHAT_MODE_CHAT, CHAT_MODE_IMAGE, CHAT_MODE_WEB_RESEARCH, CHAT_MODE_BRAINSTORMING, CHAT_MODE_WRITING_PLAN})
 
 
 def _label_chat() -> str:
@@ -41,12 +42,16 @@ def _label_brainstorming() -> str:
     return _("Brainstorming")
 
 
+def _label_writing_plan() -> str:
+    return _("Writing Plan")
+
+
 def get_mode_labels(*, include_brainstorming: bool = True) -> tuple[str, ...]:
     """Translated combobox labels in display order."""
     labels = (_label_chat(), _label_image(), _label_web_research())
     if include_brainstorming:
-        return labels + (_label_brainstorming(),)
-    return labels
+        return labels + (_label_brainstorming(), _label_writing_plan())
+    return labels + (_label_writing_plan(),)
 
 
 def mode_from_label(label: str, *, include_brainstorming: bool = True) -> str:
@@ -61,8 +66,8 @@ def mode_from_label(label: str, *, include_brainstorming: bool = True) -> str:
 def _modes_for(include_brainstorming: bool) -> tuple[str, ...]:
     modes = (CHAT_MODE_CHAT, CHAT_MODE_IMAGE, CHAT_MODE_WEB_RESEARCH)
     if include_brainstorming:
-        return modes + (CHAT_MODE_BRAINSTORMING,)
-    return modes
+        return modes + (CHAT_MODE_BRAINSTORMING, CHAT_MODE_WRITING_PLAN)
+    return modes + (CHAT_MODE_WRITING_PLAN,)
 
 
 def mode_from_selector(ctrl: Any, *, include_brainstorming: bool = True) -> str:
@@ -196,3 +201,13 @@ def is_web_research_mode(mode: str) -> bool:
 
 def is_brainstorming_mode(mode: str) -> bool:
     return mode == CHAT_MODE_BRAINSTORMING
+
+
+def is_writing_plan_mode(mode: str) -> bool:
+    return mode == CHAT_MODE_WRITING_PLAN
+
+
+def clear_writing_plan_session(send_listener: Any) -> None:
+    """Drop in-progress writing plan state."""
+    send_listener._in_writing_plan_mode = False
+    send_listener._writing_plan_topic = ""

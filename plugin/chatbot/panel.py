@@ -330,6 +330,8 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         self._in_librarian_mode = False
         self._in_brainstorming_mode = False
         self._brainstorming_topic = ""
+        self._in_writing_plan_mode = False
+        self._writing_plan_topic = ""
         self.client = None
         self.audio_wav_path = None
         self._current_agent_backend = None  # Set during _do_send_via_agent_backend for Stop button
@@ -456,11 +458,38 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         if self.chat_mode_selector:
             set_selector_mode(self.chat_mode_selector, CHAT_MODE_BRAINSTORMING, include_brainstorming=self.sidebar_include_brainstorming)
 
-    def on_brainstorming_session_finished(self) -> None:
-        """Reset sidebar after brainstorming_finished (dropdown returns to Chat)."""
-        from plugin.chatbot.chat_sidebar_mode import CHAT_MODE_CHAT, clear_brainstorming_session, persist_mode_to_config, set_selector_mode
+    def on_brainstorming_session_finished(self, spec_saved: bool = False) -> None:
+        """Reset sidebar after brainstorming_finished (dropdown transitions to Writing Plan or Chat)."""
+        from plugin.chatbot.chat_sidebar_mode import (
+            CHAT_MODE_CHAT,
+            CHAT_MODE_WRITING_PLAN,
+            clear_brainstorming_session,
+            persist_mode_to_config,
+            set_selector_mode,
+        )
 
         clear_brainstorming_session(self)
+        if spec_saved:
+            self._in_writing_plan_mode = True
+            self._writing_plan_topic = f"Implement the saved spec: {self._brainstorming_topic}"
+            if self.chat_mode_selector:
+                set_selector_mode(self.chat_mode_selector, CHAT_MODE_WRITING_PLAN, include_brainstorming=self.sidebar_include_brainstorming)
+            persist_mode_to_config(self.ctx, CHAT_MODE_WRITING_PLAN)
+        else:
+            if self.chat_mode_selector:
+                set_selector_mode(self.chat_mode_selector, CHAT_MODE_CHAT, include_brainstorming=self.sidebar_include_brainstorming)
+            persist_mode_to_config(self.ctx, CHAT_MODE_CHAT)
+
+    def on_writing_plan_session_finished(self) -> None:
+        """Reset sidebar after writing_plan_finished (dropdown returns to Chat)."""
+        from plugin.chatbot.chat_sidebar_mode import (
+            CHAT_MODE_CHAT,
+            clear_writing_plan_session,
+            persist_mode_to_config,
+            set_selector_mode,
+        )
+
+        clear_writing_plan_session(self)
         if self.chat_mode_selector:
             set_selector_mode(self.chat_mode_selector, CHAT_MODE_CHAT, include_brainstorming=self.sidebar_include_brainstorming)
         persist_mode_to_config(self.ctx, CHAT_MODE_CHAT)
@@ -1043,6 +1072,7 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
             CHAT_MODE_BRAINSTORMING,
             CHAT_MODE_IMAGE,
             CHAT_MODE_WEB_RESEARCH,
+            CHAT_MODE_WRITING_PLAN,
             mode_from_selector,
         )
 
@@ -1063,6 +1093,13 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
                 self._brainstorming_topic = query_text
             log.info("_do_send: using brainstorming sub-agent")
             self._run_brainstorming(query_text, model)
+            return
+
+        if sidebar_mode == CHAT_MODE_WRITING_PLAN and doc_type_str.lower() == "writer":
+            if not getattr(self, "_writing_plan_topic", None):
+                self._writing_plan_topic = query_text
+            log.info("_do_send: using writing plan sub-agent")
+            self._run_writing_plan(query_text, model)
             return
 
         # Agent backend (Aider, Hermes): use external agent instead of built-in LLM

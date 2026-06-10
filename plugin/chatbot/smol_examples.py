@@ -106,6 +106,56 @@ Action:
 }
 Observation: {"status": "finished"}
 
+
+"""
+
+WRITING_PLAN_EXAMPLES = """Task: "Write a short article about LibreOffice history."
+
+Action:
+{
+  "name": "reply_to_user",
+  "arguments": {"answer": "<p>I will help you write a short article. Here is a proposed Writing Plan/Outline:</p><ol><li><strong>Section 1: Origin and Fork</strong> (covering the OOo history)</li><li><strong>Section 2: The Document Foundation era</strong></li><li><strong>Section 3: Community growth and modern status</strong></li></ol><p>Does this outline look good to start writing?</p>"}
+}
+Observation: {"status": "ok"}
+
+Task: "Yes, start writing."
+
+Action:
+{
+  "name": "write_document_section",
+  "arguments": {
+    "content": ["<h2>Section 1: Origin and Fork</h2>", "<p>LibreOffice was forked from OpenOffice.org in 2010 due to concerns over Oracle's acquisition of Sun Microsystems.</p>"],
+    "target": "end"
+  }
+}
+Observation: {"status": "ok"}
+
+Action:
+{
+  "name": "reply_to_user",
+  "arguments": {"answer": "<p>I've written Section 1 (Origin and Fork). Should I proceed to Section 2 (TDF Era)?</p>"}
+}
+Observation: {"status": "ok"}
+
+Task: "Go ahead"
+
+Action:
+{
+  "name": "write_document_section",
+  "arguments": {
+    "content": ["<h2>Section 2: TDF Era</h2>", "<p>The Document Foundation was created to host and guide the development of LibreOffice in a community-driven manner.</p>"],
+    "target": "end"
+  }
+}
+Observation: {"status": "ok"}
+
+Action:
+{
+  "name": "writing_plan_finished",
+  "arguments": {"message": "<p>Writing plan execution completed. Sections 1 & 2 have been successfully drafted in the document.</p>", "plan_completed": true}
+}
+Observation: {"status": "finished"}
+
 """
 
 # Venv guidance for python few-shots (prepended to the block; not part of the Task: line).
@@ -144,6 +194,8 @@ def get_examples_block(key: str) -> str:
         return LIBRARIAN_EXAMPLES
     if key == "brainstorming":
         return BRAINSTORMING_EXAMPLES
+    if key == "writing_plan":
+        return WRITING_PLAN_EXAMPLES
     if key == "web_research":
         return WEB_RESEARCH_EXAMPLES_BLOCK
     if key.endswith(":python"):

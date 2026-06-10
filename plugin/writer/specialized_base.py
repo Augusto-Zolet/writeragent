@@ -266,6 +266,15 @@ class ToolWriterCustomizationBase(ToolWriterSpecialBase):
 '''
 
 
+class ToolWriterWritingPlanBase(ToolWriterSpecialBase):
+    specialized_domain: ClassVar[str | None] = "writing_plan"
+    specialized_domain_description: ClassVar[str | None] = (
+        "Collaborative document writing: save writing plan, write document section-by-section, and track status."
+    )
+    required_core_tools: ClassVar[frozenset[str] | None] = (ToolWriterSpecialBase.required_core_tools or frozenset()) | frozenset(["search_in_document"])
+    intent = "edit"
+
+
 class SpecializedWorkflowFinished(ToolBase):
     """Tool called by the main chat model to indicate it has completed its specialized task.
     This mimics the built-in 'final_answer' tool of smolagents for the in-place switching approach.
