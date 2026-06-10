@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-10 02:04-0400\n"
+"POT-Creation-Date: 2026-06-10 17:40-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Greek <LL@li.org>\n"
@@ -1208,6 +1208,27 @@ msgstr "Venv OK"
 msgid "Venv check failed"
 msgstr "Ο έλεγχος του Venv απέτυχε"
 
+#: plugin/chatbot/dialog_views.py
+msgid "Python Test"
+msgstr "Δοκιμή Python"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing Python environment..."
+msgstr "Έλεγχος περιβάλλοντος Python..."
+
+#: plugin/chatbot/dialog_views.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Κλείσιμο"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Done"
+msgstr "Ολοκληρώθηκε"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Failed"
+msgstr "Απέτυχε"
+
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
 msgstr "(Εισαγάγετε το κλειδί API για τη φόρτωση μοντέλων)"
@@ -1274,6 +1295,10 @@ msgid "Math Helpers"
 msgstr "Βοηθοί μαθηματικών"
 
 #: plugin/scripting/document_scripts.py
+msgid "Units Helpers"
+msgstr "Βοηθήματα μονάδων"
+
+#: plugin/scripting/document_scripts.py
 msgid "Quant Helpers"
 msgstr "Βοηθοί ποσοτικών δεδομένων"
 
@@ -1296,11 +1321,6 @@ msgstr "Εκτέλεση σεναρίου Python"
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Run"
 msgstr "Εκτέλεση"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Κλείσιμο"
 
 #: plugin/scripting/python_runner_ui.py
 msgid "Script:"
@@ -1438,18 +1458,6 @@ msgstr "Επιτυχία"
 msgid "Output"
 msgstr "Έξοδος"
 
-#: plugin/scripting/viz_egress.py
-msgid "Unsupported document type for plot insertion."
-msgstr "Μη υποστηριζόμενος τύπος εγγράφου για εισαγωγή γραφήματος."
-
-#: plugin/scripting/viz_egress.py plugin/scripting/python_runner.py
-msgid "Viz helper failed."
-msgstr "Ο βοηθός οπτικοποίησης απέτυχε."
-
-#: plugin/scripting/viz_egress.py
-msgid "Viz helper returned no image payload."
-msgstr "Ο βοηθός οπτικοποίησης δεν επέστρεψε δεδομένα εικόνας."
-
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid "Saved script '{0}' to My Scripts."
@@ -1508,6 +1516,17 @@ msgid "Could not talk to the Python editor."
 msgstr "Δεν ήταν δυνατή η επικοινωνία με τον επεξεργαστή Python."
 
 #: plugin/scripting/venv_worker.py
+msgid ""
+"Vision probe timed out (Docling import can take 10–30s on first check)."
+msgstr ""
+"Το χρονικό όριο του ανιχνευτή όρασης έληξε (η εισαγωγή Docling μπορεί να "
+"διαρκέσει 10–30 δευτερόλεπτα κατά τον πρώτο έλεγχο)."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision probe failed (see writeragent_debug.log)."
+msgstr "Ο ανιχνευτής όρασης απέτυχε (δείτε το αρχείο writeragent_debug.log)."
+
+#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "Βιβλιοθήκες οπτικοποίησης"
 
@@ -1520,8 +1539,38 @@ msgid "Quantitative Finance Libraries"
 msgstr "Βιβλιοθήκες Ποσοτικών Οικονομικών"
 
 #: plugin/scripting/venv_worker.py
+msgid "Data Engineering Libraries"
+msgstr "Βιβλιοθήκες μηχανικής δεδομένων"
+
+#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "Βιβλιοθήκες όρασης"
+
+#: plugin/scripting/venv_worker.py
+msgid "Starting Python worker..."
+msgstr "Εκκίνηση εργάτη Python..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Reading Python version..."
+msgstr "Ανάγνωση έκδοσης Python..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision Libraries: loading (first run may take a while)..."
+msgstr ""
+"Βιβλιοθήκες Vision: φόρτωση (η πρώτη εκτέλεση ενδέχεται να διαρκέσει "
+"λίγο)..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using LibreOffice process Python..."
+msgstr "Χρήση της Python της διεργασίας του LibreOffice..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Resolving venv Python..."
+msgstr "Επίλυση της Python του venv..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using"
+msgstr "Χρήση"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1537,26 +1586,38 @@ msgstr ""
 msgid "Image '{name}' could not be exported."
 msgstr "Η εικόνα '{name}' δεν ήταν δυνατό να εξαχθεί."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper failed."
 msgstr "Ο συμβολικός βοηθός απέτυχε."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper returned no LaTeX."
 msgstr "Ο συμβολικός βοηθός δεν επέστρεψε LaTeX."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 #, python-brace-format
 msgid "Failed to convert LaTeX to Writer Math: {error}"
 msgstr "Αποτυχία μετατροπής LaTeX σε Writer Math: {error}"
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "No active document view."
 msgstr "Δεν υπάρχει ενεργή προβολή εγγράφου."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Unsupported document type for symbolic insertion."
 msgstr "Μη υποστηριζόμενος τύπος εγγράφου για συμβολική εισαγωγή."
+
+#: plugin/scripting/viz.py
+msgid "Unsupported document type for plot insertion."
+msgstr "Μη υποστηριζόμενος τύπος εγγράφου για εισαγωγή γραφήματος."
+
+#: plugin/scripting/viz.py plugin/scripting/python_runner.py
+msgid "Viz helper failed."
+msgstr "Ο βοηθός οπτικοποίησης απέτυχε."
+
+#: plugin/scripting/viz.py
+msgid "Viz helper returned no image payload."
+msgstr "Ο βοηθός οπτικοποίησης δεν επέστρεψε δεδομένα εικόνας."
 
 #: plugin/scripting/session_manager.py
 msgid ""
@@ -1629,6 +1690,18 @@ msgstr ""
 "Χρησιμοποιήστε Εργαλεία → Εισαγωγή Jupyter Notebook… για να ενεργοποιήσετε "
 "την επαναφορά συνεδρίας Python του σημειωματάριου."
 
+#: plugin/scripting/units.py plugin/scripting/python_runner.py
+msgid "Units helper failed."
+msgstr "Το βοηθητικό πρόγραμμα μονάδων απέτυχε."
+
+#: plugin/scripting/units.py
+msgid "Units helper returned no formatted text."
+msgstr "Το βοηθητικό πρόγραμμα μονάδων δεν επέστρεψε μορφοποιημένο κείμενο."
+
+#: plugin/scripting/units.py
+msgid "Unsupported document type for units insertion."
+msgstr "Μη υποστηριζόμενος τύπος εγγράφου για εισαγωγή μονάδων."
+
 #: plugin/scripting/python_runner.py
 #, python-format
 msgid "Failed to insert result into Calc: %s"
@@ -1658,6 +1731,12 @@ msgstr "Το Viz '{helper}' ολοκληρώθηκε. {msg}"
 #, python-brace-format
 msgid "Math '{helper}' completed. Inserted: {preview} (took {time})"
 msgstr "Το Math '{helper}' ολοκληρώθηκε. Εισήχθη: {preview} (διάρκεια {time})"
+
+#: plugin/scripting/python_runner.py
+#, python-brace-format
+msgid "Units '{helper}' completed. Inserted: {preview} (took {time})"
+msgstr ""
+"Οι μονάδες '{helper}' ολοκληρώθηκαν. Εισήχθησαν: {preview} (διάρκεια {time})"
 
 #: plugin/scripting/python_runner.py
 msgid "Vision helpers require a Writer or Calc document."
@@ -1707,6 +1786,10 @@ msgstr "Οι βοηθοί Math απαιτούν έγγραφο Writer ή Calc."
 #: plugin/scripting/python_runner.py
 msgid "Math helper failed."
 msgstr "Ο βοηθός Math απέτυχε."
+
+#: plugin/scripting/python_runner.py
+msgid "Units helpers require a Writer or Calc document."
+msgstr "Τα βοηθητικά προγράμματα μονάδων απαιτούν έγγραφο Writer ή Calc."
 
 #: plugin/scripting/python_runner.py
 msgid ""
@@ -2288,17 +2371,27 @@ msgstr ""
 "OpenRouter ή άλλους παρόχους που επιτρέπουν παράλληλα αιτήματα· "
 "χρησιμοποιήστε το με προσοχή παράλληλα με τη συνομιλία στην πλευρική γραμμή."
 
-msgid "Detect and correct sentence language"
-msgstr "Εντοπισμός και διόρθωση γλώσσας πρότασης"
+msgid "Sentence language detection"
+msgstr "Ανίχνευση γλώσσας πρότασης"
 
 msgid ""
-"When on, asks the AI to verify the language of each sentence against the "
-"document's used locales. If incorrect, the language property is updated "
-"automatically."
+"Verify each complete sentence's language against the document locale. AI "
+"uses your grammar/chat API; Local uses bundled langdetect (no API call, no "
+"venv). Mismatches update CharLocale and re-check grammar."
 msgstr ""
-"Όταν είναι ενεργό, ζητά από το AI να επαληθεύσει τη γλώσσα κάθε πρότασης σε "
-"σχέση με τις τοπικές ρυθμίσεις που χρησιμοποιούνται στο έγγραφο. Εάν είναι "
-"λανθασμένη, η ιδιότητα γλώσσας ενημερώνεται αυτόματα."
+"Επαλήθευση κάθε πλήρους πρότασης ως προς τη γλώσσα του εγγράφου. Το AI "
+"χρησιμοποιεί το API γραμματικής/συνομιλίας σας· το Τοπικό χρησιμοποιεί το "
+"ενσωματωμένο langdetect (χωρίς κλήση API, χωρίς venv). Οι αναντιστοιχίες "
+"ενημερώνουν το CharLocale και επανελέγχουν τη γραμματική."
+
+msgid "Off"
+msgstr "Απενεργοποίηση"
+
+msgid "AI (LLM)"
+msgstr "AI (LLM)"
+
+msgid "Local (langdetect)"
+msgstr "Τοπικό (langdetect)"
 
 msgid "Enter key sends sidebar chat message"
 msgstr "Το πλήκτρο Enter στέλνει μήνυμα συνομιλίας στην πλευρική στήλη"

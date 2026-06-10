@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-10 02:04-0400\n"
+"POT-Creation-Date: 2026-06-10 17:40-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: English (US) <LL@li.org>\n"
@@ -1178,6 +1178,27 @@ msgstr "Venv OK"
 msgid "Venv check failed"
 msgstr "Venv check failed"
 
+#: plugin/chatbot/dialog_views.py
+msgid "Python Test"
+msgstr "Python Test"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing Python environment..."
+msgstr "Testing Python environment..."
+
+#: plugin/chatbot/dialog_views.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Close"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Done"
+msgstr "Done"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Failed"
+msgstr "Failed"
+
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
 msgstr "(Enter API Key to load models)"
@@ -1242,6 +1263,10 @@ msgid "Math Helpers"
 msgstr "Math Helpers"
 
 #: plugin/scripting/document_scripts.py
+msgid "Units Helpers"
+msgstr "Units Helpers"
+
+#: plugin/scripting/document_scripts.py
 msgid "Quant Helpers"
 msgstr "Quant Helpers"
 
@@ -1264,11 +1289,6 @@ msgstr "Run Python Script"
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Run"
 msgstr "Run"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Close"
 
 #: plugin/scripting/python_runner_ui.py
 msgid "Script:"
@@ -1404,18 +1424,6 @@ msgstr "Success"
 msgid "Output"
 msgstr "Output"
 
-#: plugin/scripting/viz_egress.py
-msgid "Unsupported document type for plot insertion."
-msgstr "Unsupported document type for plot insertion."
-
-#: plugin/scripting/viz_egress.py plugin/scripting/python_runner.py
-msgid "Viz helper failed."
-msgstr "Viz helper failed."
-
-#: plugin/scripting/viz_egress.py
-msgid "Viz helper returned no image payload."
-msgstr "Viz helper returned no image payload."
-
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid "Saved script '{0}' to My Scripts."
@@ -1473,6 +1481,16 @@ msgid "Could not talk to the Python editor."
 msgstr "Could not talk to the Python editor."
 
 #: plugin/scripting/venv_worker.py
+msgid ""
+"Vision probe timed out (Docling import can take 10–30s on first check)."
+msgstr ""
+"Vision probe timed out (Docling import can take 10–30s on first check)."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision probe failed (see writeragent_debug.log)."
+msgstr "Vision probe failed (see writeragent_debug.log)."
+
+#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "Visualization Libraries"
 
@@ -1485,8 +1503,36 @@ msgid "Quantitative Finance Libraries"
 msgstr "Quantitative Finance Libraries"
 
 #: plugin/scripting/venv_worker.py
+msgid "Data Engineering Libraries"
+msgstr "Data Engineering Libraries"
+
+#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "Vision Libraries"
+
+#: plugin/scripting/venv_worker.py
+msgid "Starting Python worker..."
+msgstr "Starting Python worker..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Reading Python version..."
+msgstr "Reading Python version..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision Libraries: loading (first run may take a while)..."
+msgstr "Vision Libraries: loading (first run may take a while)..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using LibreOffice process Python..."
+msgstr "Using LibreOffice process Python..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Resolving venv Python..."
+msgstr "Resolving venv Python..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using"
+msgstr "Using"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1502,26 +1548,38 @@ msgstr ""
 msgid "Image '{name}' could not be exported."
 msgstr "Image '{name}' could not be exported."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper failed."
 msgstr "Symbolic helper failed."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper returned no LaTeX."
 msgstr "Symbolic helper returned no LaTeX."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 #, python-brace-format
 msgid "Failed to convert LaTeX to Writer Math: {error}"
 msgstr "Failed to convert LaTeX to Writer Math: {error}"
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "No active document view."
 msgstr "No active document view."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Unsupported document type for symbolic insertion."
 msgstr "Unsupported document type for symbolic insertion."
+
+#: plugin/scripting/viz.py
+msgid "Unsupported document type for plot insertion."
+msgstr "Unsupported document type for plot insertion."
+
+#: plugin/scripting/viz.py plugin/scripting/python_runner.py
+msgid "Viz helper failed."
+msgstr "Viz helper failed."
+
+#: plugin/scripting/viz.py
+msgid "Viz helper returned no image payload."
+msgstr "Viz helper returned no image payload."
 
 #: plugin/scripting/session_manager.py
 msgid ""
@@ -1589,6 +1647,18 @@ msgstr ""
 "This Writer document has no imported notebook registry. Use Tools → Import "
 "Jupyter Notebook… to enable notebook Python session reset."
 
+#: plugin/scripting/units.py plugin/scripting/python_runner.py
+msgid "Units helper failed."
+msgstr "Units helper failed."
+
+#: plugin/scripting/units.py
+msgid "Units helper returned no formatted text."
+msgstr "Units helper returned no formatted text."
+
+#: plugin/scripting/units.py
+msgid "Unsupported document type for units insertion."
+msgstr "Unsupported document type for units insertion."
+
 #: plugin/scripting/python_runner.py
 #, python-format
 msgid "Failed to insert result into Calc: %s"
@@ -1616,6 +1686,11 @@ msgstr "Viz '{helper}' completed. {msg}"
 #, python-brace-format
 msgid "Math '{helper}' completed. Inserted: {preview} (took {time})"
 msgstr "Math '{helper}' completed. Inserted: {preview} (took {time})"
+
+#: plugin/scripting/python_runner.py
+#, python-brace-format
+msgid "Units '{helper}' completed. Inserted: {preview} (took {time})"
+msgstr "Units '{helper}' completed. Inserted: {preview} (took {time})"
 
 #: plugin/scripting/python_runner.py
 msgid "Vision helpers require a Writer or Calc document."
@@ -1663,6 +1738,10 @@ msgstr "Math helpers require a Writer or Calc document."
 #: plugin/scripting/python_runner.py
 msgid "Math helper failed."
 msgstr "Math helper failed."
+
+#: plugin/scripting/python_runner.py
+msgid "Units helpers require a Writer or Calc document."
+msgstr "Units helpers require a Writer or Calc document."
 
 #: plugin/scripting/python_runner.py
 msgid ""
@@ -2220,17 +2299,26 @@ msgstr ""
 "behavior. Raise for OpenRouter or other providers that allow parallel "
 "requests; use with care alongside sidebar chat."
 
-msgid "Detect and correct sentence language"
-msgstr "Detect and correct sentence language"
+msgid "Sentence language detection"
+msgstr "Sentence language detection"
 
 msgid ""
-"When on, asks the AI to verify the language of each sentence against the "
-"document's used locales. If incorrect, the language property is updated "
-"automatically."
+"Verify each complete sentence's language against the document locale. AI "
+"uses your grammar/chat API; Local uses bundled langdetect (no API call, no "
+"venv). Mismatches update CharLocale and re-check grammar."
 msgstr ""
-"When on, asks the AI to verify the language of each sentence against the "
-"document's used locales. If incorrect, the language property is updated "
-"automatically."
+"Verify each complete sentence's language against the document locale. AI "
+"uses your grammar/chat API; Local uses bundled langdetect (no API call, no "
+"venv). Mismatches update CharLocale and re-check grammar."
+
+msgid "Off"
+msgstr "Off"
+
+msgid "AI (LLM)"
+msgstr "AI (LLM)"
+
+msgid "Local (langdetect)"
+msgstr "Local (langdetect)"
 
 msgid "Enter key sends sidebar chat message"
 msgstr "Enter key sends sidebar chat message"

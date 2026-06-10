@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-10 02:04-0400\n"
+"POT-Creation-Date: 2026-06-10 17:40-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Norwegian Bokmål <LL@li.org>\n"
@@ -1187,6 +1187,27 @@ msgstr "Venv OK"
 msgid "Venv check failed"
 msgstr "Venv-sjekk feilet"
 
+#: plugin/chatbot/dialog_views.py
+msgid "Python Test"
+msgstr "Python-test"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing Python environment..."
+msgstr "Tester Python-miljø..."
+
+#: plugin/chatbot/dialog_views.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Lukk"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Done"
+msgstr "Ferdig"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Failed"
+msgstr "Mislyktes"
+
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
 msgstr "(Skriv inn API-nøkkel for å laste inn modeller)"
@@ -1251,6 +1272,10 @@ msgid "Math Helpers"
 msgstr "Mattehjelpere"
 
 #: plugin/scripting/document_scripts.py
+msgid "Units Helpers"
+msgstr "Enhetshjelpere"
+
+#: plugin/scripting/document_scripts.py
 msgid "Quant Helpers"
 msgstr "Kvantehjelpere"
 
@@ -1273,11 +1298,6 @@ msgstr "Kjør Python-skript"
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Run"
 msgstr "Kjør"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Lukk"
 
 #: plugin/scripting/python_runner_ui.py
 msgid "Script:"
@@ -1416,18 +1436,6 @@ msgstr "Suksess"
 msgid "Output"
 msgstr "Utdata"
 
-#: plugin/scripting/viz_egress.py
-msgid "Unsupported document type for plot insertion."
-msgstr "Dokumenttypen støttes ikke for innsetting av plott."
-
-#: plugin/scripting/viz_egress.py plugin/scripting/python_runner.py
-msgid "Viz helper failed."
-msgstr "Visualiseringshjelper feilet."
-
-#: plugin/scripting/viz_egress.py
-msgid "Viz helper returned no image payload."
-msgstr "Visualiseringshjelper returnerte ingen bilde-nyttelast."
-
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid "Saved script '{0}' to My Scripts."
@@ -1486,6 +1494,17 @@ msgid "Could not talk to the Python editor."
 msgstr "Kunne ikke kommunisere med Python-redigeringsprogrammet."
 
 #: plugin/scripting/venv_worker.py
+msgid ""
+"Vision probe timed out (Docling import can take 10–30s on first check)."
+msgstr ""
+"Vision-sonde tidsavbrudd (Docling-import kan ta 10–30 sekunder ved første "
+"sjekk)."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision probe failed (see writeragent_debug.log)."
+msgstr "Vision-sonde mislyktes (se writeragent_debug.log)."
+
+#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "Visualiseringsbiblioteker"
 
@@ -1498,8 +1517,36 @@ msgid "Quantitative Finance Libraries"
 msgstr "Biblioteker for kvantitativ finans"
 
 #: plugin/scripting/venv_worker.py
+msgid "Data Engineering Libraries"
+msgstr "Datatekniske biblioteker"
+
+#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "Synsbiblioteker"
+
+#: plugin/scripting/venv_worker.py
+msgid "Starting Python worker..."
+msgstr "Starter Python-arbeider..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Reading Python version..."
+msgstr "Leser Python-versjon..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision Libraries: loading (first run may take a while)..."
+msgstr "Vision-biblioteker: laster inn (første kjøring kan ta litt tid)..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using LibreOffice process Python..."
+msgstr "Bruker LibreOffice-prosess Python..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Resolving venv Python..."
+msgstr "Løser opp venv Python..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using"
+msgstr "Bruker"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1515,26 +1562,38 @@ msgstr ""
 msgid "Image '{name}' could not be exported."
 msgstr "Bilde '{name}' kunne ikke eksporteres."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper failed."
 msgstr "Symbolsk hjelper feilet."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper returned no LaTeX."
 msgstr "Symbolsk hjelper returnerte ingen LaTeX."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 #, python-brace-format
 msgid "Failed to convert LaTeX to Writer Math: {error}"
 msgstr "Kunne ikke konvertere LaTeX til Writer Math: {error}"
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "No active document view."
 msgstr "Ingen aktiv dokumentvisning."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Unsupported document type for symbolic insertion."
 msgstr "Dokumenttypen støttes ikke for symbolsk innsetting."
+
+#: plugin/scripting/viz.py
+msgid "Unsupported document type for plot insertion."
+msgstr "Dokumenttypen støttes ikke for innsetting av plott."
+
+#: plugin/scripting/viz.py plugin/scripting/python_runner.py
+msgid "Viz helper failed."
+msgstr "Visualiseringshjelper feilet."
+
+#: plugin/scripting/viz.py
+msgid "Viz helper returned no image payload."
+msgstr "Visualiseringshjelper returnerte ingen bilde-nyttelast."
 
 #: plugin/scripting/session_manager.py
 msgid ""
@@ -1606,6 +1665,18 @@ msgstr ""
 "Verktøy → Importer Jupyter-notatbok… for å aktivere tilbakestilling av "
 "Python-økt for notatbøker."
 
+#: plugin/scripting/units.py plugin/scripting/python_runner.py
+msgid "Units helper failed."
+msgstr "Enhetshjelper mislyktes."
+
+#: plugin/scripting/units.py
+msgid "Units helper returned no formatted text."
+msgstr "Enhetshjelper returnerte ingen formatert tekst."
+
+#: plugin/scripting/units.py
+msgid "Unsupported document type for units insertion."
+msgstr "Dokumenttypen støttes ikke for innsetting av enheter."
+
 #: plugin/scripting/python_runner.py
 #, python-format
 msgid "Failed to insert result into Calc: %s"
@@ -1635,6 +1706,11 @@ msgstr "Viz «{helper}» fullført. {msg}"
 #, python-brace-format
 msgid "Math '{helper}' completed. Inserted: {preview} (took {time})"
 msgstr "Math «{helper}» fullført. Satt inn: {preview} (tok {time})"
+
+#: plugin/scripting/python_runner.py
+#, python-brace-format
+msgid "Units '{helper}' completed. Inserted: {preview} (took {time})"
+msgstr "Enheter '{helper}' fullført. Satt inn: {preview} (tok {time})"
 
 #: plugin/scripting/python_runner.py
 msgid "Vision helpers require a Writer or Calc document."
@@ -1682,6 +1758,10 @@ msgstr "Math-hjelpere krever et Writer- eller Calc-dokument."
 #: plugin/scripting/python_runner.py
 msgid "Math helper failed."
 msgstr "Math-hjelper feilet."
+
+#: plugin/scripting/python_runner.py
+msgid "Units helpers require a Writer or Calc document."
+msgstr "Enhetshjelpere krever et Writer- eller Calc-dokument."
 
 #: plugin/scripting/python_runner.py
 msgid ""
@@ -2242,17 +2322,27 @@ msgstr ""
 "leverandører som tillater parallelle forespørsler; bruk med forsiktighet "
 "sammen med sidepanelchat."
 
-msgid "Detect and correct sentence language"
-msgstr "Oppdag og rett språk i setninger"
+msgid "Sentence language detection"
+msgstr "Gjenkjenning av setningsspråk"
 
 msgid ""
-"When on, asks the AI to verify the language of each sentence against the "
-"document's used locales. If incorrect, the language property is updated "
-"automatically."
+"Verify each complete sentence's language against the document locale. AI "
+"uses your grammar/chat API; Local uses bundled langdetect (no API call, no "
+"venv). Mismatches update CharLocale and re-check grammar."
 msgstr ""
-"Når denne er på, blir KI-en bedt om å kontrollere språket i hver setning mot"
-" dokumentets brukte språkinnstillinger. Hvis språket er feil, blir "
-"språkegenskapen oppdatert automatisk."
+"Verifiser hvert fullstendige setningsspråk mot dokumentets lokalitet. AI "
+"bruker din grammatikk-/chat-API; Lokal bruker medfølgende langdetect (ingen "
+"API-kall, ingen venv). Avvik oppdaterer CharLocale og sjekker grammatikken "
+"på nytt."
+
+msgid "Off"
+msgstr "Av"
+
+msgid "AI (LLM)"
+msgstr "AI (LLM)"
+
+msgid "Local (langdetect)"
+msgstr "Lokal (langdetect)"
 
 msgid "Enter key sends sidebar chat message"
 msgstr "Enter-tasten sender chatmelding i sidepanelet"

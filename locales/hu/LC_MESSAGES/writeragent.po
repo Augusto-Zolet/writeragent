@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-10 02:04-0400\n"
+"POT-Creation-Date: 2026-06-10 17:40-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Hungarian <LL@li.org>\n"
@@ -1190,6 +1190,27 @@ msgstr "Venv OK"
 msgid "Venv check failed"
 msgstr "A virtuális környezet ellenőrzése sikertelen"
 
+#: plugin/chatbot/dialog_views.py
+msgid "Python Test"
+msgstr "Python-teszt"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing Python environment..."
+msgstr "Python-környezet tesztelése..."
+
+#: plugin/chatbot/dialog_views.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Bezárás"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Done"
+msgstr "Kész"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Failed"
+msgstr "Sikertelen"
+
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
 msgstr "(Adja meg az API-kulcsot a modellek betöltéséhez)"
@@ -1256,6 +1277,10 @@ msgid "Math Helpers"
 msgstr "Matematikai segédek"
 
 #: plugin/scripting/document_scripts.py
+msgid "Units Helpers"
+msgstr "Mértékegység-segédek"
+
+#: plugin/scripting/document_scripts.py
 msgid "Quant Helpers"
 msgstr "Mennyiségi segédek"
 
@@ -1278,11 +1303,6 @@ msgstr "Python-szkript futtatása"
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Run"
 msgstr "Futtatás"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Bezárás"
 
 #: plugin/scripting/python_runner_ui.py
 msgid "Script:"
@@ -1420,18 +1440,6 @@ msgstr "Siker"
 msgid "Output"
 msgstr "Kimenet"
 
-#: plugin/scripting/viz_egress.py
-msgid "Unsupported document type for plot insertion."
-msgstr "Nem támogatott dokumentumtípus diagram beszúrásához."
-
-#: plugin/scripting/viz_egress.py plugin/scripting/python_runner.py
-msgid "Viz helper failed."
-msgstr "A vizualizációs segéd sikertelen."
-
-#: plugin/scripting/viz_egress.py
-msgid "Viz helper returned no image payload."
-msgstr "A vizualizációs segéd nem adott vissza képi adatot."
-
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid "Saved script '{0}' to My Scripts."
@@ -1489,6 +1497,17 @@ msgid "Could not talk to the Python editor."
 msgstr "Nem sikerült kommunikálni a Python-szerkesztővel."
 
 #: plugin/scripting/venv_worker.py
+msgid ""
+"Vision probe timed out (Docling import can take 10–30s on first check)."
+msgstr ""
+"A vizuális szonda időtúllépést jelzett (a Docling importálása az első "
+"ellenőrzéskor 10–30 másodpercet is igénybe vehet)."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision probe failed (see writeragent_debug.log)."
+msgstr "A vizuális szonda sikertelen (lásd: writeragent_debug.log)."
+
+#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "Vizualizációs könyvtárak"
 
@@ -1501,8 +1520,36 @@ msgid "Quantitative Finance Libraries"
 msgstr "Kvantitatív pénzügyi könyvtárak"
 
 #: plugin/scripting/venv_worker.py
+msgid "Data Engineering Libraries"
+msgstr "Adatmérnöki könyvtárak"
+
+#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "Látáskönyvtárak"
+
+#: plugin/scripting/venv_worker.py
+msgid "Starting Python worker..."
+msgstr "Python-háttérfolyamat indítása..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Reading Python version..."
+msgstr "Python-verzió olvasása..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision Libraries: loading (first run may take a while)..."
+msgstr "Vision Libraries: betöltés (az első futtatás eltarthat egy ideig)..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using LibreOffice process Python..."
+msgstr "LibreOffice-folyamat Python használata..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Resolving venv Python..."
+msgstr "venv Python feloldása..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using"
+msgstr "Használat:"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1518,26 +1565,38 @@ msgstr ""
 msgid "Image '{name}' could not be exported."
 msgstr "A(z) '{name}' kép nem exportálható."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper failed."
 msgstr "A szimbolikus segédeszköz sikertelen."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper returned no LaTeX."
 msgstr "A szimbolikus segédeszköz nem adott vissza LaTeX-kódot."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 #, python-brace-format
 msgid "Failed to convert LaTeX to Writer Math: {error}"
 msgstr "A LaTeX konvertálása Writer Math formátumba sikertelen: {error}"
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "No active document view."
 msgstr "Nincs aktív dokumentumnézet."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Unsupported document type for symbolic insertion."
 msgstr "Nem támogatott dokumentumtípus a szimbolikus beszúráshoz."
+
+#: plugin/scripting/viz.py
+msgid "Unsupported document type for plot insertion."
+msgstr "Nem támogatott dokumentumtípus diagram beszúrásához."
+
+#: plugin/scripting/viz.py plugin/scripting/python_runner.py
+msgid "Viz helper failed."
+msgstr "A vizualizációs segéd sikertelen."
+
+#: plugin/scripting/viz.py
+msgid "Viz helper returned no image payload."
+msgstr "A vizualizációs segéd nem adott vissza képi adatot."
 
 #: plugin/scripting/session_manager.py
 msgid ""
@@ -1611,6 +1670,18 @@ msgstr ""
 "Használja az Eszközök → Jupyter Notebook importálása… menüpontot a notebook "
 "Python-munkamenetének alaphelyzetbe állításához."
 
+#: plugin/scripting/units.py plugin/scripting/python_runner.py
+msgid "Units helper failed."
+msgstr "Az egységsegítő (Units helper) sikertelen."
+
+#: plugin/scripting/units.py
+msgid "Units helper returned no formatted text."
+msgstr "Az egységsegítő nem adott vissza formázott szöveget."
+
+#: plugin/scripting/units.py
+msgid "Unsupported document type for units insertion."
+msgstr "Nem támogatott dokumentumtípus az egységek beszúrásához."
+
 #: plugin/scripting/python_runner.py
 #, python-format
 msgid "Failed to insert result into Calc: %s"
@@ -1642,6 +1713,12 @@ msgid "Math '{helper}' completed. Inserted: {preview} (took {time})"
 msgstr ""
 "A(z) „{helper}” matematikai művelet befejeződött. Beszúrva: {preview} "
 "({time} idő alatt)"
+
+#: plugin/scripting/python_runner.py
+#, python-brace-format
+msgid "Units '{helper}' completed. Inserted: {preview} (took {time})"
+msgstr ""
+"'{helper}' egységek befejeződött. Beszúrva: {preview} ({time} idő alatt)"
 
 #: plugin/scripting/python_runner.py
 msgid "Vision helpers require a Writer or Calc document."
@@ -1695,6 +1772,10 @@ msgstr ""
 #: plugin/scripting/python_runner.py
 msgid "Math helper failed."
 msgstr "A matematikai segédeszköz hibát jelzett."
+
+#: plugin/scripting/python_runner.py
+msgid "Units helpers require a Writer or Calc document."
+msgstr "Az egységsegítők Writer vagy Calc dokumentumot igényelnek."
 
 #: plugin/scripting/python_runner.py
 msgid ""
@@ -2271,17 +2352,27 @@ msgstr ""
 " kéréseket engedélyező szolgáltatók esetén; használja körültekintően az "
 "oldalsávos csevegés mellett."
 
-msgid "Detect and correct sentence language"
-msgstr "Mondatnyelv észlelése és javítása"
+msgid "Sentence language detection"
+msgstr "Mondatnyelv-felismerés"
 
 msgid ""
-"When on, asks the AI to verify the language of each sentence against the "
-"document's used locales. If incorrect, the language property is updated "
-"automatically."
+"Verify each complete sentence's language against the document locale. AI "
+"uses your grammar/chat API; Local uses bundled langdetect (no API call, no "
+"venv). Mismatches update CharLocale and re-check grammar."
 msgstr ""
-"Ha be van kapcsolva, az AI ellenőrzi az egyes mondatok nyelvét a "
-"dokumentumban használt területi beállítások alapján. Ha eltérést talál, a "
-"nyelvi tulajdonság automatikusan frissül."
+"Ellenőrzi minden teljes mondat nyelvét a dokumentum területi beállításai "
+"alapján. Az AI a nyelvtani/csevegési API-t használja; a Helyi a beépített "
+"langdetectet (nincs API-hívás, nincs venv). Az eltérések frissítik a "
+"CharLocale-t és újraellenőrzik a nyelvtant."
+
+msgid "Off"
+msgstr "Ki"
+
+msgid "AI (LLM)"
+msgstr "AI (LLM)"
+
+msgid "Local (langdetect)"
+msgstr "Helyi (langdetect)"
 
 msgid "Enter key sends sidebar chat message"
 msgstr "Enter billentyű küldi az oldalsáv csevegőüzenetét"

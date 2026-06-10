@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-10 02:04-0400\n"
+"POT-Creation-Date: 2026-06-10 17:40-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Bengali <LL@li.org>\n"
@@ -1192,6 +1192,27 @@ msgstr "Venv ঠিক আছে"
 msgid "Venv check failed"
 msgstr "Venv পরীক্ষা ব্যর্থ হয়েছে"
 
+#: plugin/chatbot/dialog_views.py
+msgid "Python Test"
+msgstr "পাইথন পরীক্ষা"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing Python environment..."
+msgstr "পাইথন পরিবেশ পরীক্ষা করা হচ্ছে..."
+
+#: plugin/chatbot/dialog_views.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "বন্ধ করুন"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Done"
+msgstr "সম্পন্ন"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Failed"
+msgstr "ব্যর্থ"
+
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
 msgstr "(মডেল লোড করতে API কী লিখুন)"
@@ -1256,6 +1277,10 @@ msgid "Math Helpers"
 msgstr "Math সহায়তাকারী"
 
 #: plugin/scripting/document_scripts.py
+msgid "Units Helpers"
+msgstr "ইউনিট হেল্পার"
+
+#: plugin/scripting/document_scripts.py
 msgid "Quant Helpers"
 msgstr "Quant সহায়তাকারী"
 
@@ -1278,11 +1303,6 @@ msgstr "পাইথন স্ক্রিপ্ট চালান"
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Run"
 msgstr "চালান"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "বন্ধ করুন"
 
 #: plugin/scripting/python_runner_ui.py
 msgid "Script:"
@@ -1419,18 +1439,6 @@ msgstr "সফল"
 msgid "Output"
 msgstr "আউটপুট"
 
-#: plugin/scripting/viz_egress.py
-msgid "Unsupported document type for plot insertion."
-msgstr "প্লট সন্নিবেশের জন্য অসমর্থিত নথির ধরন।"
-
-#: plugin/scripting/viz_egress.py plugin/scripting/python_runner.py
-msgid "Viz helper failed."
-msgstr "Viz সহায়তাকারী ব্যর্থ হয়েছে।"
-
-#: plugin/scripting/viz_egress.py
-msgid "Viz helper returned no image payload."
-msgstr "Viz সহায়তাকারী কোনো চিত্র পেলোড প্রদান করেনি।"
-
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid "Saved script '{0}' to My Scripts."
@@ -1488,6 +1496,17 @@ msgid "Could not talk to the Python editor."
 msgstr "পাইথন এডিটরের সাথে যোগাযোগ করা সম্ভব হয়নি।"
 
 #: plugin/scripting/venv_worker.py
+msgid ""
+"Vision probe timed out (Docling import can take 10–30s on first check)."
+msgstr ""
+"ভিশন প্রোব সময়সীমা অতিক্রম করেছে (প্রথমবার চেক করার সময় ডকলিং ইমপোর্ট করতে"
+" ১০-৩০ সেকেন্ড সময় লাগতে পারে)।"
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision probe failed (see writeragent_debug.log)."
+msgstr "ভিশন প্রোব ব্যর্থ হয়েছে (writeragent_debug.log দেখুন)।"
+
+#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "ভিজ্যুয়ালাইজেশন লাইব্রেরি"
 
@@ -1500,8 +1519,36 @@ msgid "Quantitative Finance Libraries"
 msgstr "কোয়ান্টিটেটিভ ফিন্যান্স লাইব্রেরি"
 
 #: plugin/scripting/venv_worker.py
+msgid "Data Engineering Libraries"
+msgstr "ডেটা ইঞ্জিনিয়ারিং লাইব্রেরি"
+
+#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "ভিশন লাইব্রেরি"
+
+#: plugin/scripting/venv_worker.py
+msgid "Starting Python worker..."
+msgstr "পাইথন ওয়ার্কার শুরু হচ্ছে..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Reading Python version..."
+msgstr "পাইথন সংস্করণ পড়া হচ্ছে..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision Libraries: loading (first run may take a while)..."
+msgstr "Vision Libraries: লোড হচ্ছে (প্রথমবার চলতে কিছুটা সময় নিতে পারে)..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using LibreOffice process Python..."
+msgstr "LibreOffice প্রসেস Python ব্যবহার করা হচ্ছে..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Resolving venv Python..."
+msgstr "venv Python সমাধান করা হচ্ছে..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using"
+msgstr "ব্যবহার করা হচ্ছে"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1517,26 +1564,38 @@ msgstr ""
 msgid "Image '{name}' could not be exported."
 msgstr "ইমেজ '{name}' এক্সপোর্ট করা সম্ভব হয়নি।"
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper failed."
 msgstr "সিম্বলিক হেল্পার ব্যর্থ হয়েছে।"
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper returned no LaTeX."
 msgstr "সিম্বলিক হেল্পার কোনো LaTeX প্রদান করেনি।"
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 #, python-brace-format
 msgid "Failed to convert LaTeX to Writer Math: {error}"
 msgstr "LaTeX থেকে Writer Math-এ রূপান্তর ব্যর্থ হয়েছে: {error}"
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "No active document view."
 msgstr "কোনো সক্রিয় ডকুমেন্ট ভিউ নেই।"
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Unsupported document type for symbolic insertion."
 msgstr "সিম্বলিক ইনসারশনের জন্য অসমর্থিত ডকুমেন্ট টাইপ।"
+
+#: plugin/scripting/viz.py
+msgid "Unsupported document type for plot insertion."
+msgstr "প্লট সন্নিবেশের জন্য অসমর্থিত নথির ধরন।"
+
+#: plugin/scripting/viz.py plugin/scripting/python_runner.py
+msgid "Viz helper failed."
+msgstr "Viz সহায়তাকারী ব্যর্থ হয়েছে।"
+
+#: plugin/scripting/viz.py
+msgid "Viz helper returned no image payload."
+msgstr "Viz সহায়তাকারী কোনো চিত্র পেলোড প্রদান করেনি।"
 
 #: plugin/scripting/session_manager.py
 msgid ""
@@ -1607,6 +1666,18 @@ msgstr ""
 "এই Writer নথিতে কোনো ইমপোর্ট করা নোটবুক রেজিস্ট্রি নেই। নোটবুক পাইথন সেশন "
 "রিসেট সক্ষম করতে Tools → Import Jupyter Notebook… ব্যবহার করুন।"
 
+#: plugin/scripting/units.py plugin/scripting/python_runner.py
+msgid "Units helper failed."
+msgstr "Units helper ব্যর্থ হয়েছে।"
+
+#: plugin/scripting/units.py
+msgid "Units helper returned no formatted text."
+msgstr "Units helper কোনো ফরম্যাট করা টেক্সট প্রদান করেনি।"
+
+#: plugin/scripting/units.py
+msgid "Unsupported document type for units insertion."
+msgstr "ইউনিট ইনসার্ট করার জন্য অসমর্থিত ডকুমেন্ট টাইপ।"
+
 #: plugin/scripting/python_runner.py
 #, python-format
 msgid "Failed to insert result into Calc: %s"
@@ -1635,6 +1706,13 @@ msgstr "'{helper}' সম্পন্ন হয়েছে। {msg}"
 msgid "Math '{helper}' completed. Inserted: {preview} (took {time})"
 msgstr ""
 "Math '{helper}' সম্পন্ন হয়েছে। সন্নিবেশিত: {preview} ({time} সময় লেগেছে)"
+
+#: plugin/scripting/python_runner.py
+#, python-brace-format
+msgid "Units '{helper}' completed. Inserted: {preview} (took {time})"
+msgstr ""
+"Units '{helper}' সম্পন্ন হয়েছে। ইনসার্ট করা হয়েছে: {preview} ({time} সময় "
+"লেগেছে)"
 
 #: plugin/scripting/python_runner.py
 msgid "Vision helpers require a Writer or Calc document."
@@ -1684,6 +1762,10 @@ msgstr "Math হেল্পারের জন্য একটি Writer বা
 #: plugin/scripting/python_runner.py
 msgid "Math helper failed."
 msgstr "Math হেল্পার ব্যর্থ হয়েছে।"
+
+#: plugin/scripting/python_runner.py
+msgid "Units helpers require a Writer or Calc document."
+msgstr "Units helper-এর জন্য একটি Writer বা Calc ডকুমেন্ট প্রয়োজন।"
 
 #: plugin/scripting/python_runner.py
 msgid ""
@@ -2249,17 +2331,27 @@ msgstr ""
 "অনুমতি দেয় তাদের জন্য এটি বাড়ান; সাইডবার চ্যাটের সাথে ব্যবহারের সময় সতর্ক"
 " থাকুন।"
 
-msgid "Detect and correct sentence language"
-msgstr "বাক্যের ভাষা শনাক্ত করুন এবং সংশোধন করুন"
+msgid "Sentence language detection"
+msgstr "বাক্যের ভাষা শনাক্তকরণ"
 
 msgid ""
-"When on, asks the AI to verify the language of each sentence against the "
-"document's used locales. If incorrect, the language property is updated "
-"automatically."
+"Verify each complete sentence's language against the document locale. AI "
+"uses your grammar/chat API; Local uses bundled langdetect (no API call, no "
+"venv). Mismatches update CharLocale and re-check grammar."
 msgstr ""
-"এটি চালু থাকলে, AI-কে নথিতে ব্যবহৃত লোকেল অনুযায়ী প্রতিটি বাক্যের ভাষা "
-"যাচাই করতে বলা হয়। যদি ভাষা ভুল হয়, তবে ভাষার বৈশিষ্ট্যটি স্বয়ংক্রিয়ভাবে"
-" আপডেট করা হয়।"
+"প্রতিটি সম্পূর্ণ বাক্যের ভাষা নথির লোকেইলের সাথে মিলিয়ে যাচাই করুন। AI "
+"আপনার গ্রামার/চ্যাট API ব্যবহার করে; Local বান্ডিল করা langdetect ব্যবহার "
+"করে (কোনো API কল বা venv প্রয়োজন নেই)। অমিল থাকলে CharLocale আপডেট করা হয় "
+"এবং গ্রামার পুনরায় চেক করা হয়।"
+
+msgid "Off"
+msgstr "বন্ধ"
+
+msgid "AI (LLM)"
+msgstr "AI (LLM)"
+
+msgid "Local (langdetect)"
+msgstr "Local (langdetect)"
 
 msgid "Enter key sends sidebar chat message"
 msgstr "এন্টার কী সাইডবার চ্যাট বার্তা পাঠায়"

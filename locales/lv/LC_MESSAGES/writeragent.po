@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-10 02:04-0400\n"
+"POT-Creation-Date: 2026-06-10 17:40-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Latvian <LL@li.org>\n"
@@ -1190,6 +1190,27 @@ msgstr "Venv OK"
 msgid "Venv check failed"
 msgstr "Venv pārbaude neizdevās"
 
+#: plugin/chatbot/dialog_views.py
+msgid "Python Test"
+msgstr "Python tests"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing Python environment..."
+msgstr "Pārbauda Python vidi..."
+
+#: plugin/chatbot/dialog_views.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Aizvērt"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Done"
+msgstr "Gatavs"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Failed"
+msgstr "Neizdevās"
+
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
 msgstr "(Ievadiet API atslēgu, lai ielādētu modeļus)"
@@ -1255,6 +1276,10 @@ msgid "Math Helpers"
 msgstr "Matemātikas palīgi"
 
 #: plugin/scripting/document_scripts.py
+msgid "Units Helpers"
+msgstr "Mērvienību palīgi"
+
+#: plugin/scripting/document_scripts.py
 msgid "Quant Helpers"
 msgstr "Kvantitatīvie palīgi"
 
@@ -1277,11 +1302,6 @@ msgstr "Izpildīt Python skriptu"
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Run"
 msgstr "Izpildīt"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Aizvērt"
 
 #: plugin/scripting/python_runner_ui.py
 msgid "Script:"
@@ -1418,18 +1438,6 @@ msgstr "Veiksmīgi"
 msgid "Output"
 msgstr "Izvade"
 
-#: plugin/scripting/viz_egress.py
-msgid "Unsupported document type for plot insertion."
-msgstr "Neatbalstīts dokumenta tips diagrammas ievietošanai."
-
-#: plugin/scripting/viz_egress.py plugin/scripting/python_runner.py
-msgid "Viz helper failed."
-msgstr "Vizualizācijas palīgs neizdevās."
-
-#: plugin/scripting/viz_egress.py
-msgid "Viz helper returned no image payload."
-msgstr "Vizualizācijas palīgs neatgrieza attēla datus."
-
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid "Saved script '{0}' to My Scripts."
@@ -1487,6 +1495,17 @@ msgid "Could not talk to the Python editor."
 msgstr "Neizdevās sazināties ar Python redaktoru."
 
 #: plugin/scripting/venv_worker.py
+msgid ""
+"Vision probe timed out (Docling import can take 10–30s on first check)."
+msgstr ""
+"Redzes zondes noildze (Docling importēšana pirmajā pārbaudē var aizņemt "
+"10–30 s)."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision probe failed (see writeragent_debug.log)."
+msgstr "Redzes zondes kļūda (skatīt writeragent_debug.log)."
+
+#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "Vizualizācijas bibliotēkas"
 
@@ -1499,8 +1518,37 @@ msgid "Quantitative Finance Libraries"
 msgstr "Kvantitatīvās finanses bibliotēkas"
 
 #: plugin/scripting/venv_worker.py
+msgid "Data Engineering Libraries"
+msgstr "Datu inženierijas bibliotēkas"
+
+#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "Vīzijas bibliotēkas"
+
+#: plugin/scripting/venv_worker.py
+msgid "Starting Python worker..."
+msgstr "Startē Python darbinieku..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Reading Python version..."
+msgstr "Nolasa Python versiju..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision Libraries: loading (first run may take a while)..."
+msgstr ""
+"Vision bibliotēkas: ielādē (pirmā palaišana var aizņemt kādu laiku)..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using LibreOffice process Python..."
+msgstr "Izmanto LibreOffice procesa Python..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Resolving venv Python..."
+msgstr "Atrisina venv Python..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using"
+msgstr "Izmanto"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1516,26 +1564,38 @@ msgstr ""
 msgid "Image '{name}' could not be exported."
 msgstr "Attēlu '{name}' neizdevās eksportēt."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper failed."
 msgstr "Simboliskā palīga kļūme."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper returned no LaTeX."
 msgstr "Simboliskais palīgs neatgrieza LaTeX."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 #, python-brace-format
 msgid "Failed to convert LaTeX to Writer Math: {error}"
 msgstr "Neizdevās konvertēt LaTeX uz Writer Math: {error}"
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "No active document view."
 msgstr "Nav aktīva dokumenta skata."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Unsupported document type for symbolic insertion."
 msgstr "Neatbalstīts dokumenta tips simboliskai ievietošanai."
+
+#: plugin/scripting/viz.py
+msgid "Unsupported document type for plot insertion."
+msgstr "Neatbalstīts dokumenta tips diagrammas ievietošanai."
+
+#: plugin/scripting/viz.py plugin/scripting/python_runner.py
+msgid "Viz helper failed."
+msgstr "Vizualizācijas palīgs neizdevās."
+
+#: plugin/scripting/viz.py
+msgid "Viz helper returned no image payload."
+msgstr "Vizualizācijas palīgs neatgrieza attēla datus."
 
 #: plugin/scripting/session_manager.py
 msgid ""
@@ -1607,6 +1667,18 @@ msgstr ""
 "Izmantojiet Rīki → Importēt Jupyter piezīmju grāmatiņu…, lai iespējotu "
 "piezīmju grāmatiņas Python sesijas atiestatīšanu."
 
+#: plugin/scripting/units.py plugin/scripting/python_runner.py
+msgid "Units helper failed."
+msgstr "Mērvienību palīgrīks neizdevās."
+
+#: plugin/scripting/units.py
+msgid "Units helper returned no formatted text."
+msgstr "Mērvienību palīgrīks neatgrieza formatētu tekstu."
+
+#: plugin/scripting/units.py
+msgid "Unsupported document type for units insertion."
+msgstr "Neatbalstīts dokumenta tips mērvienību ievietošanai."
+
 #: plugin/scripting/python_runner.py
 #, python-format
 msgid "Failed to insert result into Calc: %s"
@@ -1636,6 +1708,12 @@ msgstr "Viz '{helper}' pabeigts. {msg}"
 #, python-brace-format
 msgid "Math '{helper}' completed. Inserted: {preview} (took {time})"
 msgstr "Math '{helper}' pabeigts. Ievietots: {preview} (aizņēma {time})"
+
+#: plugin/scripting/python_runner.py
+#, python-brace-format
+msgid "Units '{helper}' completed. Inserted: {preview} (took {time})"
+msgstr ""
+"Mērvienības '{helper}' pabeigtas. Ievietots: {preview} (aizņēma {time})"
 
 #: plugin/scripting/python_runner.py
 msgid "Vision helpers require a Writer or Calc document."
@@ -1684,6 +1762,10 @@ msgstr "Math palīgiem ir nepieciešams Writer vai Calc dokuments."
 #: plugin/scripting/python_runner.py
 msgid "Math helper failed."
 msgstr "Math palīgs neizdevās."
+
+#: plugin/scripting/python_runner.py
+msgid "Units helpers require a Writer or Calc document."
+msgstr "Mērvienību palīgrīkiem nepieciešams Writer vai Calc dokuments."
 
 #: plugin/scripting/python_runner.py
 msgid ""
@@ -2255,17 +2337,27 @@ msgstr ""
 "pakalpojumu sniedzējiem, kas atļauj paralēlus pieprasījumus; izmantojiet "
 "piesardzīgi kopā ar sānjoslas tērzēšanu."
 
-msgid "Detect and correct sentence language"
-msgstr "Noteikt un labot teikuma valodu"
+msgid "Sentence language detection"
+msgstr "Teikuma valodas noteikšana"
 
 msgid ""
-"When on, asks the AI to verify the language of each sentence against the "
-"document's used locales. If incorrect, the language property is updated "
-"automatically."
+"Verify each complete sentence's language against the document locale. AI "
+"uses your grammar/chat API; Local uses bundled langdetect (no API call, no "
+"venv). Mismatches update CharLocale and re-check grammar."
 msgstr ""
-"Ja šī opcija ir ieslēgta, AI pārbauda katra teikuma valodu atbilstoši "
-"dokumentā izmantotajiem lokalizācijas iestatījumiem. Ja valoda ir nepareiza,"
-" tā tiek automātiski atjaunināta."
+"Pārbaudīt katra pilna teikuma valodu atbilstoši dokumenta lokalizācijai. AI "
+"izmanto jūsu gramatikas/tērzēšanas API; Local izmanto komplektā iekļauto "
+"langdetect (bez API izsaukuma, bez venv). Neatbilstības atjaunina CharLocale"
+" un atkārtoti pārbauda gramatiku."
+
+msgid "Off"
+msgstr "Izslēgts"
+
+msgid "AI (LLM)"
+msgstr "AI (LLM)"
+
+msgid "Local (langdetect)"
+msgstr "Local (langdetect)"
 
 msgid "Enter key sends sidebar chat message"
 msgstr "Enter taustiņš nosūta sānjoslas tērzēšanas ziņojumu"

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-10 02:04-0400\n"
+"POT-Creation-Date: 2026-06-10 17:40-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: French <LL@li.org>\n"
@@ -1201,6 +1201,27 @@ msgstr "Venv OK"
 msgid "Venv check failed"
 msgstr "La vérification de l'environnement virtuel (venv) a échoué"
 
+#: plugin/chatbot/dialog_views.py
+msgid "Python Test"
+msgstr "Test Python"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing Python environment..."
+msgstr "Test de l'environnement Python..."
+
+#: plugin/chatbot/dialog_views.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Fermer"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Done"
+msgstr "Terminé"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Failed"
+msgstr "Échec"
+
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
 msgstr "(Entrez la clé API pour charger les modèles)"
@@ -1268,6 +1289,10 @@ msgid "Math Helpers"
 msgstr "Assistants mathématiques"
 
 #: plugin/scripting/document_scripts.py
+msgid "Units Helpers"
+msgstr "Assistants d'unités"
+
+#: plugin/scripting/document_scripts.py
 msgid "Quant Helpers"
 msgstr "Assistants quantitatifs"
 
@@ -1290,11 +1315,6 @@ msgstr "Exécuter un script Python"
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Run"
 msgstr "Exécuter"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Fermer"
 
 #: plugin/scripting/python_runner_ui.py
 msgid "Script:"
@@ -1431,18 +1451,6 @@ msgstr "Succès"
 msgid "Output"
 msgstr "Sortie"
 
-#: plugin/scripting/viz_egress.py
-msgid "Unsupported document type for plot insertion."
-msgstr "Type de document non pris en charge pour l'insertion de graphique."
-
-#: plugin/scripting/viz_egress.py plugin/scripting/python_runner.py
-msgid "Viz helper failed."
-msgstr "L'assistant de visualisation a échoué."
-
-#: plugin/scripting/viz_egress.py
-msgid "Viz helper returned no image payload."
-msgstr "L'assistant de visualisation n'a renvoyé aucune image."
-
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid "Saved script '{0}' to My Scripts."
@@ -1500,6 +1508,17 @@ msgid "Could not talk to the Python editor."
 msgstr "Impossible de communiquer avec l'éditeur Python."
 
 #: plugin/scripting/venv_worker.py
+msgid ""
+"Vision probe timed out (Docling import can take 10–30s on first check)."
+msgstr ""
+"Délai d'attente de la sonde de vision dépassé (l'importation de Docling peut"
+" prendre 10 à 30 s lors de la première vérification)."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision probe failed (see writeragent_debug.log)."
+msgstr "Échec de la sonde de vision (voir writeragent_debug.log)."
+
+#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "Bibliothèques de visualisation"
 
@@ -1512,8 +1531,38 @@ msgid "Quantitative Finance Libraries"
 msgstr "Bibliothèques de finance quantitative"
 
 #: plugin/scripting/venv_worker.py
+msgid "Data Engineering Libraries"
+msgstr "Bibliothèques d'ingénierie de données"
+
+#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "Bibliothèques de vision"
+
+#: plugin/scripting/venv_worker.py
+msgid "Starting Python worker..."
+msgstr "Démarrage du processus Python..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Reading Python version..."
+msgstr "Lecture de la version de Python..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision Libraries: loading (first run may take a while)..."
+msgstr ""
+"Bibliothèques de vision : chargement (le premier lancement peut prendre du "
+"temps)..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using LibreOffice process Python..."
+msgstr "Utilisation du processus Python de LibreOffice..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Resolving venv Python..."
+msgstr "Résolution du venv Python..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using"
+msgstr "Utilisation de"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1529,26 +1578,38 @@ msgstr ""
 msgid "Image '{name}' could not be exported."
 msgstr "L'image « {name} » n'a pas pu être exportée."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper failed."
 msgstr "L'assistant symbolique a échoué."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper returned no LaTeX."
 msgstr "L'assistant symbolique n'a renvoyé aucun LaTeX."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 #, python-brace-format
 msgid "Failed to convert LaTeX to Writer Math: {error}"
 msgstr "Échec de la conversion du LaTeX vers Writer Math : {error}"
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "No active document view."
 msgstr "Aucune vue de document active."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Unsupported document type for symbolic insertion."
 msgstr "Type de document non pris en charge pour l'insertion symbolique."
+
+#: plugin/scripting/viz.py
+msgid "Unsupported document type for plot insertion."
+msgstr "Type de document non pris en charge pour l'insertion de graphique."
+
+#: plugin/scripting/viz.py plugin/scripting/python_runner.py
+msgid "Viz helper failed."
+msgstr "L'assistant de visualisation a échoué."
+
+#: plugin/scripting/viz.py
+msgid "Viz helper returned no image payload."
+msgstr "L'assistant de visualisation n'a renvoyé aucune image."
 
 #: plugin/scripting/session_manager.py
 msgid ""
@@ -1620,6 +1681,18 @@ msgstr ""
 "Outils → Importer un notebook Jupyter… pour activer la réinitialisation de "
 "la session Python du notebook."
 
+#: plugin/scripting/units.py plugin/scripting/python_runner.py
+msgid "Units helper failed."
+msgstr "L'assistant d'unités a échoué."
+
+#: plugin/scripting/units.py
+msgid "Units helper returned no formatted text."
+msgstr "L'assistant d'unités n'a renvoyé aucun texte formaté."
+
+#: plugin/scripting/units.py
+msgid "Unsupported document type for units insertion."
+msgstr "Type de document non pris en charge pour l'insertion d'unités."
+
 #: plugin/scripting/python_runner.py
 #, python-format
 msgid "Failed to insert result into Calc: %s"
@@ -1649,6 +1722,11 @@ msgstr "Viz « {helper} » terminé. {msg}"
 #, python-brace-format
 msgid "Math '{helper}' completed. Inserted: {preview} (took {time})"
 msgstr "Math « {helper} » terminé. Inséré : {preview} ({time})"
+
+#: plugin/scripting/python_runner.py
+#, python-brace-format
+msgid "Units '{helper}' completed. Inserted: {preview} (took {time})"
+msgstr "Unités '{helper}' terminées. Inséré : {preview} (durée : {time})"
 
 #: plugin/scripting/python_runner.py
 msgid "Vision helpers require a Writer or Calc document."
@@ -1696,6 +1774,10 @@ msgstr "Les assistants Math nécessitent un document Writer ou Calc."
 #: plugin/scripting/python_runner.py
 msgid "Math helper failed."
 msgstr "L'assistant Math a échoué."
+
+#: plugin/scripting/python_runner.py
+msgid "Units helpers require a Writer or Calc document."
+msgstr "Les assistants d'unités nécessitent un document Writer ou Calc."
 
 #: plugin/scripting/python_runner.py
 msgid ""
@@ -2273,17 +2355,27 @@ msgstr ""
 "OpenRouter ou d'autres fournisseurs autorisant les requêtes parallèles ; à "
 "utiliser avec précaution en parallèle du chat latéral."
 
-msgid "Detect and correct sentence language"
-msgstr "Détecter et corriger la langue des phrases"
+msgid "Sentence language detection"
+msgstr "Détection de la langue de la phrase"
 
 msgid ""
-"When on, asks the AI to verify the language of each sentence against the "
-"document's used locales. If incorrect, the language property is updated "
-"automatically."
+"Verify each complete sentence's language against the document locale. AI "
+"uses your grammar/chat API; Local uses bundled langdetect (no API call, no "
+"venv). Mismatches update CharLocale and re-check grammar."
 msgstr ""
-"Si activé, demande à l'IA de vérifier la langue de chaque phrase par rapport"
-" aux paramètres régionaux utilisés dans le document. Si elle est incorrecte,"
-" la propriété de langue est mise à jour automatiquement."
+"Vérifier la langue de chaque phrase complète par rapport à la langue du "
+"document. L'IA utilise votre API de grammaire/chat ; Local utilise "
+"langdetect intégré (aucun appel API, aucun venv). Les incohérences mettent à"
+" jour CharLocale et relancent la vérification grammaticale."
+
+msgid "Off"
+msgstr "Désactivé"
+
+msgid "AI (LLM)"
+msgstr "IA (LLM)"
+
+msgid "Local (langdetect)"
+msgstr "Local (langdetect)"
 
 msgid "Enter key sends sidebar chat message"
 msgstr "La touche Entrée envoie le message de discussion de la barre latérale"

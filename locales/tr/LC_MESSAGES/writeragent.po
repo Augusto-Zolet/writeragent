@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-10 02:04-0400\n"
+"POT-Creation-Date: 2026-06-10 17:40-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Turkish <LL@li.org>\n"
@@ -1190,6 +1190,27 @@ msgstr "Venv Tamam"
 msgid "Venv check failed"
 msgstr "Venv denetimi başarısız oldu"
 
+#: plugin/chatbot/dialog_views.py
+msgid "Python Test"
+msgstr "Python Testi"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing Python environment..."
+msgstr "Python ortamı test ediliyor..."
+
+#: plugin/chatbot/dialog_views.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Kapat"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Done"
+msgstr "Tamamlandı"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Failed"
+msgstr "Başarısız"
+
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
 msgstr "(API Anahtarını girerek modelleri yükleyin)"
@@ -1254,6 +1275,10 @@ msgid "Math Helpers"
 msgstr "Matematik Yardımcıları"
 
 #: plugin/scripting/document_scripts.py
+msgid "Units Helpers"
+msgstr "Birim Yardımcıları"
+
+#: plugin/scripting/document_scripts.py
 msgid "Quant Helpers"
 msgstr "Nicel Yardımcılar"
 
@@ -1276,11 +1301,6 @@ msgstr "Python Betiğini Çalıştır"
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Run"
 msgstr "Çalıştır"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Kapat"
 
 #: plugin/scripting/python_runner_ui.py
 msgid "Script:"
@@ -1416,18 +1436,6 @@ msgstr "Başarılı"
 msgid "Output"
 msgstr "Çıktı"
 
-#: plugin/scripting/viz_egress.py
-msgid "Unsupported document type for plot insertion."
-msgstr "Grafik ekleme için desteklenmeyen belge türü."
-
-#: plugin/scripting/viz_egress.py plugin/scripting/python_runner.py
-msgid "Viz helper failed."
-msgstr "Görsel yardımcısı başarısız oldu."
-
-#: plugin/scripting/viz_egress.py
-msgid "Viz helper returned no image payload."
-msgstr "Görsel yardımcısı görüntü verisi döndürmedi."
-
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid "Saved script '{0}' to My Scripts."
@@ -1485,6 +1493,18 @@ msgid "Could not talk to the Python editor."
 msgstr "Python düzenleyicisi ile iletişim kurulamadı."
 
 #: plugin/scripting/venv_worker.py
+msgid ""
+"Vision probe timed out (Docling import can take 10–30s on first check)."
+msgstr ""
+"Görüntüleme probu zaman aşımına uğradı (Docling içe aktarımı ilk kontrolde "
+"10–30 saniye sürebilir)."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision probe failed (see writeragent_debug.log)."
+msgstr ""
+"Görüntüleme probu başarısız oldu (writeragent_debug.log dosyasına bakın)."
+
+#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "Görselleştirme Kütüphaneleri"
 
@@ -1497,8 +1517,36 @@ msgid "Quantitative Finance Libraries"
 msgstr "Nicel Finans Kütüphaneleri"
 
 #: plugin/scripting/venv_worker.py
+msgid "Data Engineering Libraries"
+msgstr "Veri Mühendisliği Kütüphaneleri"
+
+#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "Görüntü Kütüphaneleri"
+
+#: plugin/scripting/venv_worker.py
+msgid "Starting Python worker..."
+msgstr "Python çalışanı başlatılıyor..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Reading Python version..."
+msgstr "Python sürümü okunuyor..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision Libraries: loading (first run may take a while)..."
+msgstr "Vision Libraries: yükleniyor (ilk çalıştırma biraz zaman alabilir)..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using LibreOffice process Python..."
+msgstr "LibreOffice işlem Python'u kullanılıyor..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Resolving venv Python..."
+msgstr "venv Python çözümleniyor..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using"
+msgstr "Kullanılıyor"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1514,26 +1562,38 @@ msgstr ""
 msgid "Image '{name}' could not be exported."
 msgstr "'{name}' görüntüsü dışa aktarılamadı."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper failed."
 msgstr "Sembolik yardımcı başarısız oldu."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper returned no LaTeX."
 msgstr "Sembolik yardımcı LaTeX döndürmedi."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 #, python-brace-format
 msgid "Failed to convert LaTeX to Writer Math: {error}"
 msgstr "LaTeX, Writer Math'e dönüştürülemedi: {error}"
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "No active document view."
 msgstr "Etkin belge görünümü yok."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Unsupported document type for symbolic insertion."
 msgstr "Sembolik ekleme için desteklenmeyen belge türü."
+
+#: plugin/scripting/viz.py
+msgid "Unsupported document type for plot insertion."
+msgstr "Grafik ekleme için desteklenmeyen belge türü."
+
+#: plugin/scripting/viz.py plugin/scripting/python_runner.py
+msgid "Viz helper failed."
+msgstr "Görsel yardımcısı başarısız oldu."
+
+#: plugin/scripting/viz.py
+msgid "Viz helper returned no image payload."
+msgstr "Görsel yardımcısı görüntü verisi döndürmedi."
 
 #: plugin/scripting/session_manager.py
 msgid ""
@@ -1604,6 +1664,18 @@ msgstr ""
 "Python oturum sıfırlamasını etkinleştirmek için Araçlar → Jupyter Not "
 "Defterini İçe Aktar… seçeneğini kullanın."
 
+#: plugin/scripting/units.py plugin/scripting/python_runner.py
+msgid "Units helper failed."
+msgstr "Birim yardımcısı başarısız oldu."
+
+#: plugin/scripting/units.py
+msgid "Units helper returned no formatted text."
+msgstr "Birim yardımcısı biçimlendirilmiş metin döndürmedi."
+
+#: plugin/scripting/units.py
+msgid "Unsupported document type for units insertion."
+msgstr "Birim ekleme için desteklenmeyen belge türü."
+
 #: plugin/scripting/python_runner.py
 #, python-format
 msgid "Failed to insert result into Calc: %s"
@@ -1633,6 +1705,11 @@ msgstr "Viz '{helper}' tamamlandı. {msg}"
 #, python-brace-format
 msgid "Math '{helper}' completed. Inserted: {preview} (took {time})"
 msgstr "Math '{helper}' tamamlandı. Eklendi: {preview} ({time} sürdü)"
+
+#: plugin/scripting/python_runner.py
+#, python-brace-format
+msgid "Units '{helper}' completed. Inserted: {preview} (took {time})"
+msgstr "'{helper}' birimleri tamamlandı. Eklenen: {preview} ({time} sürdü)"
 
 #: plugin/scripting/python_runner.py
 msgid "Vision helpers require a Writer or Calc document."
@@ -1681,6 +1758,10 @@ msgstr "Math yardımcıları bir Writer veya Calc belgesi gerektirir."
 #: plugin/scripting/python_runner.py
 msgid "Math helper failed."
 msgstr "Math yardımcısı başarısız oldu."
+
+#: plugin/scripting/python_runner.py
+msgid "Units helpers require a Writer or Calc document."
+msgstr "Birim yardımcıları bir Writer veya Calc belgesi gerektirir."
 
 #: plugin/scripting/python_runner.py
 msgid ""
@@ -2246,17 +2327,27 @@ msgstr ""
 "sağlayıcılar için artırın; kenar çubuğu sohbetiyle birlikte kullanırken "
 "dikkatli olun."
 
-msgid "Detect and correct sentence language"
-msgstr "Cümle dilini algıla ve düzelt"
+msgid "Sentence language detection"
+msgstr "Cümle dili algılama"
 
 msgid ""
-"When on, asks the AI to verify the language of each sentence against the "
-"document's used locales. If incorrect, the language property is updated "
-"automatically."
+"Verify each complete sentence's language against the document locale. AI "
+"uses your grammar/chat API; Local uses bundled langdetect (no API call, no "
+"venv). Mismatches update CharLocale and re-check grammar."
 msgstr ""
-"Etkinleştirildiğinde, yapay zekadan her cümlenin dilini belgede kullanılan "
-"yerel ayarlara göre doğrulamasını ister. Dil yanlışsa, dil özelliği otomatik"
-" olarak güncellenir."
+"Her tam cümleyi belge yerel ayarına göre doğrulayın. AI, dil bilgisi/sohbet "
+"API'nizi kullanır; Yerel ise paketlenmiş langdetect kullanır (API çağrısı "
+"yok, sanal ortam yok). Uyuşmazlıklar CharLocale'i günceller ve dil bilgisini"
+" yeniden kontrol eder."
+
+msgid "Off"
+msgstr "Kapalı"
+
+msgid "AI (LLM)"
+msgstr "AI (LLM)"
+
+msgid "Local (langdetect)"
+msgstr "Yerel (langdetect)"
 
 msgid "Enter key sends sidebar chat message"
 msgstr "Enter tuşu kenar çubuğu sohbet iletisini gönderir"

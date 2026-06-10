@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-10 02:04-0400\n"
+"POT-Creation-Date: 2026-06-10 17:40-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Romanian <LL@li.org>\n"
@@ -1194,6 +1194,27 @@ msgstr "Venv OK"
 msgid "Venv check failed"
 msgstr "Verificarea Venv a eșuat"
 
+#: plugin/chatbot/dialog_views.py
+msgid "Python Test"
+msgstr "Test Python"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing Python environment..."
+msgstr "Se testează mediul Python..."
+
+#: plugin/chatbot/dialog_views.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Închide"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Done"
+msgstr "Finalizat"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Failed"
+msgstr "Eșuat"
+
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
 msgstr "(Introduceți cheia API pentru a încărca modelele)"
@@ -1260,6 +1281,10 @@ msgid "Math Helpers"
 msgstr "Asistenți matematici"
 
 #: plugin/scripting/document_scripts.py
+msgid "Units Helpers"
+msgstr "Utilitare unități"
+
+#: plugin/scripting/document_scripts.py
 msgid "Quant Helpers"
 msgstr "Asistenți cantitativi"
 
@@ -1282,11 +1307,6 @@ msgstr "Execută script Python"
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Run"
 msgstr "Execută"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Închide"
 
 #: plugin/scripting/python_runner_ui.py
 msgid "Script:"
@@ -1423,18 +1443,6 @@ msgstr "Succes"
 msgid "Output"
 msgstr "Ieșire"
 
-#: plugin/scripting/viz_egress.py
-msgid "Unsupported document type for plot insertion."
-msgstr "Tip de document neacceptat pentru inserarea graficelor."
-
-#: plugin/scripting/viz_egress.py plugin/scripting/python_runner.py
-msgid "Viz helper failed."
-msgstr "Asistentul de vizualizare a eșuat."
-
-#: plugin/scripting/viz_egress.py
-msgid "Viz helper returned no image payload."
-msgstr "Asistentul de vizualizare nu a returnat nicio imagine."
-
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid "Saved script '{0}' to My Scripts."
@@ -1492,6 +1500,17 @@ msgid "Could not talk to the Python editor."
 msgstr "Nu s-a putut comunica cu editorul Python."
 
 #: plugin/scripting/venv_worker.py
+msgid ""
+"Vision probe timed out (Docling import can take 10–30s on first check)."
+msgstr ""
+"Sonda de vizualizare a expirat (importul Docling poate dura 10–30s la prima "
+"verificare)."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision probe failed (see writeragent_debug.log)."
+msgstr "Sonda de vizualizare a eșuat (consultați writeragent_debug.log)."
+
+#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "Biblioteci de vizualizare"
 
@@ -1504,8 +1523,36 @@ msgid "Quantitative Finance Libraries"
 msgstr "Biblioteci de finanțe cantitative"
 
 #: plugin/scripting/venv_worker.py
+msgid "Data Engineering Libraries"
+msgstr "Biblioteci de inginerie a datelor"
+
+#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "Biblioteci de viziune"
+
+#: plugin/scripting/venv_worker.py
+msgid "Starting Python worker..."
+msgstr "Se pornește worker-ul Python..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Reading Python version..."
+msgstr "Se citește versiunea Python..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision Libraries: loading (first run may take a while)..."
+msgstr "Biblioteci Vision: se încarcă (prima rulare poate dura)..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using LibreOffice process Python..."
+msgstr "Se utilizează procesul Python din LibreOffice..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Resolving venv Python..."
+msgstr "Se rezolvă Python din venv..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using"
+msgstr "Se utilizează"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1521,26 +1568,38 @@ msgstr ""
 msgid "Image '{name}' could not be exported."
 msgstr "Imaginea „{name}” nu a putut fi exportată."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper failed."
 msgstr "Asistentul simbolic a eșuat."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper returned no LaTeX."
 msgstr "Asistentul simbolic nu a returnat niciun cod LaTeX."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 #, python-brace-format
 msgid "Failed to convert LaTeX to Writer Math: {error}"
 msgstr "Conversia LaTeX în Writer Math a eșuat: {error}"
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "No active document view."
 msgstr "Nicio vizualizare de document activă."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Unsupported document type for symbolic insertion."
 msgstr "Tip de document neacceptat pentru inserarea simbolică."
+
+#: plugin/scripting/viz.py
+msgid "Unsupported document type for plot insertion."
+msgstr "Tip de document neacceptat pentru inserarea graficelor."
+
+#: plugin/scripting/viz.py plugin/scripting/python_runner.py
+msgid "Viz helper failed."
+msgstr "Asistentul de vizualizare a eșuat."
+
+#: plugin/scripting/viz.py
+msgid "Viz helper returned no image payload."
+msgstr "Asistentul de vizualizare nu a returnat nicio imagine."
 
 #: plugin/scripting/session_manager.py
 msgid ""
@@ -1613,6 +1672,18 @@ msgstr ""
 " Instrumente → Importă notebook Jupyter… pentru a activa resetarea sesiunii "
 "Python a notebook-ului."
 
+#: plugin/scripting/units.py plugin/scripting/python_runner.py
+msgid "Units helper failed."
+msgstr "Asistentul de unități a eșuat."
+
+#: plugin/scripting/units.py
+msgid "Units helper returned no formatted text."
+msgstr "Asistentul de unități nu a returnat niciun text formatat."
+
+#: plugin/scripting/units.py
+msgid "Unsupported document type for units insertion."
+msgstr "Tip de document neacceptat pentru inserarea unităților."
+
 #: plugin/scripting/python_runner.py
 #, python-format
 msgid "Failed to insert result into Calc: %s"
@@ -1642,6 +1713,11 @@ msgstr "Viz '{helper}' finalizat. {msg}"
 #, python-brace-format
 msgid "Math '{helper}' completed. Inserted: {preview} (took {time})"
 msgstr "Math '{helper}' finalizat. Inserat: {preview} (a durat {time})"
+
+#: plugin/scripting/python_runner.py
+#, python-brace-format
+msgid "Units '{helper}' completed. Inserted: {preview} (took {time})"
+msgstr "Unități „{helper}” finalizate. Inserat: {preview} (durată: {time})"
 
 #: plugin/scripting/python_runner.py
 msgid "Vision helpers require a Writer or Calc document."
@@ -1689,6 +1765,10 @@ msgstr "Asistenții Math necesită un document Writer sau Calc."
 #: plugin/scripting/python_runner.py
 msgid "Math helper failed."
 msgstr "Asistentul Math a eșuat."
+
+#: plugin/scripting/python_runner.py
+msgid "Units helpers require a Writer or Calc document."
+msgstr "Asistenții de unități necesită un document Writer sau Calc."
 
 #: plugin/scripting/python_runner.py
 msgid ""
@@ -2261,17 +2341,27 @@ msgstr ""
 "sau alți furnizori care permit cereri paralele; utilizați cu precauție "
 "împreună cu chat-ul din bara laterală."
 
-msgid "Detect and correct sentence language"
-msgstr "Detectează și corectează limba propoziției"
+msgid "Sentence language detection"
+msgstr "Detectarea limbii propoziției"
 
 msgid ""
-"When on, asks the AI to verify the language of each sentence against the "
-"document's used locales. If incorrect, the language property is updated "
-"automatically."
+"Verify each complete sentence's language against the document locale. AI "
+"uses your grammar/chat API; Local uses bundled langdetect (no API call, no "
+"venv). Mismatches update CharLocale and re-check grammar."
 msgstr ""
-"Când este activat, solicită AI-ului să verifice limba fiecărei propoziții în"
-" raport cu setările regionale utilizate în document. Dacă este incorectă, "
-"proprietatea limbii este actualizată automat."
+"Verifică limba fiecărei propoziții complete în raport cu setările regionale "
+"ale documentului. AI utilizează API-ul pentru gramatică/chat; Local "
+"utilizează langdetect inclus (fără apel API, fără venv). Nepotrivirile "
+"actualizează CharLocale și re-verifică gramatica."
+
+msgid "Off"
+msgstr "Oprit"
+
+msgid "AI (LLM)"
+msgstr "AI (LLM)"
+
+msgid "Local (langdetect)"
+msgstr "Local (langdetect)"
 
 msgid "Enter key sends sidebar chat message"
 msgstr "Tasta Enter trimite mesajul de chat din bara laterală"

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-10 02:04-0400\n"
+"POT-Creation-Date: 2026-06-10 17:40-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Korean <LL@li.org>\n"
@@ -1136,6 +1136,27 @@ msgstr "가상 환경(Venv) 정상"
 msgid "Venv check failed"
 msgstr "가상 환경(Venv) 확인 실패"
 
+#: plugin/chatbot/dialog_views.py
+msgid "Python Test"
+msgstr "Python 테스트"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing Python environment..."
+msgstr "Python 환경 테스트 중..."
+
+#: plugin/chatbot/dialog_views.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "닫기"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Done"
+msgstr "완료"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Failed"
+msgstr "실패"
+
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
 msgstr "(API 키를 입력하여 모델 불러오기)"
@@ -1198,6 +1219,10 @@ msgid "Math Helpers"
 msgstr "수학 도우미"
 
 #: plugin/scripting/document_scripts.py
+msgid "Units Helpers"
+msgstr "단위 도우미"
+
+#: plugin/scripting/document_scripts.py
 msgid "Quant Helpers"
 msgstr "수량 도우미"
 
@@ -1220,11 +1245,6 @@ msgstr "Python 스크립트 실행"
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Run"
 msgstr "실행"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "닫기"
 
 #: plugin/scripting/python_runner_ui.py
 msgid "Script:"
@@ -1359,18 +1379,6 @@ msgstr "성공"
 msgid "Output"
 msgstr "출력"
 
-#: plugin/scripting/viz_egress.py
-msgid "Unsupported document type for plot insertion."
-msgstr "플롯 삽입을 지원하지 않는 문서 형식입니다."
-
-#: plugin/scripting/viz_egress.py plugin/scripting/python_runner.py
-msgid "Viz helper failed."
-msgstr "시각화 도우미가 실패했습니다."
-
-#: plugin/scripting/viz_egress.py
-msgid "Viz helper returned no image payload."
-msgstr "시각화 도우미가 이미지 페이로드를 반환하지 않았습니다."
-
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid "Saved script '{0}' to My Scripts."
@@ -1428,6 +1436,15 @@ msgid "Could not talk to the Python editor."
 msgstr "Python 편집기와 통신할 수 없습니다."
 
 #: plugin/scripting/venv_worker.py
+msgid ""
+"Vision probe timed out (Docling import can take 10–30s on first check)."
+msgstr "비전 프로브 시간 초과 (첫 확인 시 Docling 가져오기에 10~30초가 소요될 수 있습니다)."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision probe failed (see writeragent_debug.log)."
+msgstr "비전 프로브 실패 (writeragent_debug.log 참조)."
+
+#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "시각화 라이브러리"
 
@@ -1440,8 +1457,36 @@ msgid "Quantitative Finance Libraries"
 msgstr "금융 공학 라이브러리"
 
 #: plugin/scripting/venv_worker.py
+msgid "Data Engineering Libraries"
+msgstr "데이터 엔지니어링 라이브러리"
+
+#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "비전 라이브러리"
+
+#: plugin/scripting/venv_worker.py
+msgid "Starting Python worker..."
+msgstr "Python 워커 시작 중..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Reading Python version..."
+msgstr "Python 버전 읽는 중..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision Libraries: loading (first run may take a while)..."
+msgstr "Vision 라이브러리: 로드 중 (첫 실행 시 시간이 다소 걸릴 수 있습니다)..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using LibreOffice process Python..."
+msgstr "LibreOffice 프로세스 Python 사용 중..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Resolving venv Python..."
+msgstr "venv Python 확인 중..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using"
+msgstr "사용 중"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1456,26 +1501,38 @@ msgstr ""
 msgid "Image '{name}' could not be exported."
 msgstr "이미지 '{name}'을(를) 내보낼 수 없습니다."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper failed."
 msgstr "기호 도우미가 실패했습니다."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper returned no LaTeX."
 msgstr "기호 도우미가 LaTeX를 반환하지 않았습니다."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 #, python-brace-format
 msgid "Failed to convert LaTeX to Writer Math: {error}"
 msgstr "LaTeX를 Writer 수식으로 변환하지 못했습니다: {error}"
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "No active document view."
 msgstr "활성 문서 보기가 없습니다."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Unsupported document type for symbolic insertion."
 msgstr "기호 삽입을 지원하지 않는 문서 형식입니다."
+
+#: plugin/scripting/viz.py
+msgid "Unsupported document type for plot insertion."
+msgstr "플롯 삽입을 지원하지 않는 문서 형식입니다."
+
+#: plugin/scripting/viz.py plugin/scripting/python_runner.py
+msgid "Viz helper failed."
+msgstr "시각화 도우미가 실패했습니다."
+
+#: plugin/scripting/viz.py
+msgid "Viz helper returned no image payload."
+msgstr "시각화 도우미가 이미지 페이로드를 반환하지 않았습니다."
 
 #: plugin/scripting/session_manager.py
 msgid ""
@@ -1537,6 +1594,18 @@ msgstr ""
 "이 Writer 문서에는 가져온 노트북 레지스트리가 없습니다. 노트북 Python 세션 재설정을 활성화하려면 도구 → Jupyter "
 "노트북 가져오기…를 사용하십시오."
 
+#: plugin/scripting/units.py plugin/scripting/python_runner.py
+msgid "Units helper failed."
+msgstr "단위 도우미가 실패했습니다."
+
+#: plugin/scripting/units.py
+msgid "Units helper returned no formatted text."
+msgstr "단위 도우미가 서식 있는 텍스트를 반환하지 않았습니다."
+
+#: plugin/scripting/units.py
+msgid "Unsupported document type for units insertion."
+msgstr "단위 삽입을 지원하지 않는 문서 형식입니다."
+
 #: plugin/scripting/python_runner.py
 #, python-format
 msgid "Failed to insert result into Calc: %s"
@@ -1564,6 +1633,11 @@ msgstr "Viz '{helper}' 완료됨. {msg}"
 #, python-brace-format
 msgid "Math '{helper}' completed. Inserted: {preview} (took {time})"
 msgstr "Math '{helper}' 완료됨. 삽입됨: {preview} ({time} 소요)"
+
+#: plugin/scripting/python_runner.py
+#, python-brace-format
+msgid "Units '{helper}' completed. Inserted: {preview} (took {time})"
+msgstr "단위 '{helper}' 완료. 삽입됨: {preview} (소요 시간: {time})"
 
 #: plugin/scripting/python_runner.py
 msgid "Vision helpers require a Writer or Calc document."
@@ -1608,6 +1682,10 @@ msgstr "Math 도우미는 Writer 또는 Calc 문서가 필요합니다."
 #: plugin/scripting/python_runner.py
 msgid "Math helper failed."
 msgstr "Math 도우미 실패."
+
+#: plugin/scripting/python_runner.py
+msgid "Units helpers require a Writer or Calc document."
+msgstr "단위 도우미는 Writer 또는 Calc 문서가 필요합니다."
 
 #: plugin/scripting/python_runner.py
 msgid ""
@@ -2147,16 +2225,26 @@ msgstr ""
 "최대 동시 백그라운드 문법 API 호출 수(1-8). 1은 이전 동작과 동일합니다. OpenRouter 또는 병렬 요청을 허용하는 다른 "
 "공급자를 사용하는 경우 이 값을 높이십시오. 사이드바 채팅과 함께 사용할 때는 주의하십시오."
 
-msgid "Detect and correct sentence language"
-msgstr "문장 언어 감지 및 수정"
+msgid "Sentence language detection"
+msgstr "문장 언어 감지"
 
 msgid ""
-"When on, asks the AI to verify the language of each sentence against the "
-"document's used locales. If incorrect, the language property is updated "
-"automatically."
+"Verify each complete sentence's language against the document locale. AI "
+"uses your grammar/chat API; Local uses bundled langdetect (no API call, no "
+"venv). Mismatches update CharLocale and re-check grammar."
 msgstr ""
-"이 기능을 켜면 AI가 각 문장의 언어를 문서에 사용된 로캘과 비교하여 확인합니다. 일치하지 않을 경우 언어 속성이 자동으로 "
-"업데이트됩니다."
+"문서 언어 설정에 따라 각 문장의 언어를 확인합니다. AI는 사용자의 문법/채팅 API를 사용하며, Local은 번들된 "
+"langdetect를 사용합니다(API 호출 없음, venv 필요 없음). 언어가 일치하지 않으면 CharLocale을 업데이트하고 "
+"문법을 다시 확인합니다."
+
+msgid "Off"
+msgstr "끄기"
+
+msgid "AI (LLM)"
+msgstr "AI (LLM)"
+
+msgid "Local (langdetect)"
+msgstr "Local (langdetect)"
 
 msgid "Enter key sends sidebar chat message"
 msgstr "Enter 키로 사이드바 채팅 메시지 전송"

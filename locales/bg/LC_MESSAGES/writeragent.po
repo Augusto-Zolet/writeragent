@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-10 02:04-0400\n"
+"POT-Creation-Date: 2026-06-10 17:40-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Bulgarian <LL@li.org>\n"
@@ -1191,6 +1191,27 @@ msgstr "Venv е наред"
 msgid "Venv check failed"
 msgstr "Проверката на виртуалната среда (venv) е неуспешна"
 
+#: plugin/chatbot/dialog_views.py
+msgid "Python Test"
+msgstr "Python тест"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing Python environment..."
+msgstr "Тестване на Python средата..."
+
+#: plugin/chatbot/dialog_views.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Затваряне"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Done"
+msgstr "Готово"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Failed"
+msgstr "Неуспешно"
+
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
 msgstr "(Въведете API ключ, за да заредите модели)"
@@ -1257,6 +1278,10 @@ msgid "Math Helpers"
 msgstr "Помощници за математика"
 
 #: plugin/scripting/document_scripts.py
+msgid "Units Helpers"
+msgstr "Помощни инструменти за единици"
+
+#: plugin/scripting/document_scripts.py
 msgid "Quant Helpers"
 msgstr "Помощници за количествени данни"
 
@@ -1279,11 +1304,6 @@ msgstr "Изпълнение на Python скрипт"
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Run"
 msgstr "Изпълнение"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Затваряне"
 
 #: plugin/scripting/python_runner_ui.py
 msgid "Script:"
@@ -1420,18 +1440,6 @@ msgstr "Успех"
 msgid "Output"
 msgstr "Изход"
 
-#: plugin/scripting/viz_egress.py
-msgid "Unsupported document type for plot insertion."
-msgstr "Неподдържан тип документ за вмъкване на графика."
-
-#: plugin/scripting/viz_egress.py plugin/scripting/python_runner.py
-msgid "Viz helper failed."
-msgstr "Помощникът за визуализация не успя."
-
-#: plugin/scripting/viz_egress.py
-msgid "Viz helper returned no image payload."
-msgstr "Помощникът за визуализация не върна изображение."
-
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid "Saved script '{0}' to My Scripts."
@@ -1489,6 +1497,17 @@ msgid "Could not talk to the Python editor."
 msgstr "Неуспешна връзка с редактора на Python."
 
 #: plugin/scripting/venv_worker.py
+msgid ""
+"Vision probe timed out (Docling import can take 10–30s on first check)."
+msgstr ""
+"Времето за изчакване на визуалната сонда изтече (импортирането на Docling "
+"може да отнеме 10–30 сек. при първата проверка)."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision probe failed (see writeragent_debug.log)."
+msgstr "Визуалната сонда се провали (вижте writeragent_debug.log)."
+
+#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "Библиотеки за визуализация"
 
@@ -1501,8 +1520,37 @@ msgid "Quantitative Finance Libraries"
 msgstr "Библиотеки за количествени финанси"
 
 #: plugin/scripting/venv_worker.py
+msgid "Data Engineering Libraries"
+msgstr "Библиотеки за обработка на данни"
+
+#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "Библиотеки за зрение"
+
+#: plugin/scripting/venv_worker.py
+msgid "Starting Python worker..."
+msgstr "Стартиране на Python работник..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Reading Python version..."
+msgstr "Четене на версията на Python..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision Libraries: loading (first run may take a while)..."
+msgstr ""
+"Библиотеки Vision: зареждане (първото стартиране може да отнеме време)..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using LibreOffice process Python..."
+msgstr "Използване на Python процеса на LibreOffice..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Resolving venv Python..."
+msgstr "Разрешаване на venv Python..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using"
+msgstr "Използване на"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1518,26 +1566,38 @@ msgstr ""
 msgid "Image '{name}' could not be exported."
 msgstr "Изображението „{name}“ не можа да бъде експортирано."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper failed."
 msgstr "Помощникът за символни изчисления не успя."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper returned no LaTeX."
 msgstr "Помощникът за символни изчисления не върна LaTeX."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 #, python-brace-format
 msgid "Failed to convert LaTeX to Writer Math: {error}"
 msgstr "Неуспешно преобразуване на LaTeX към Writer Math: {error}"
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "No active document view."
 msgstr "Няма активен изглед на документ."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Unsupported document type for symbolic insertion."
 msgstr "Неподдържан тип документ за вмъкване на символи."
+
+#: plugin/scripting/viz.py
+msgid "Unsupported document type for plot insertion."
+msgstr "Неподдържан тип документ за вмъкване на графика."
+
+#: plugin/scripting/viz.py plugin/scripting/python_runner.py
+msgid "Viz helper failed."
+msgstr "Помощникът за визуализация не успя."
+
+#: plugin/scripting/viz.py
+msgid "Viz helper returned no image payload."
+msgstr "Помощникът за визуализация не върна изображение."
 
 #: plugin/scripting/session_manager.py
 msgid ""
@@ -1608,6 +1668,18 @@ msgstr ""
 "Инструменти → Импортиране на Jupyter Notebook…, за да активирате нулирането "
 "на Python сесията на тетрадката."
 
+#: plugin/scripting/units.py plugin/scripting/python_runner.py
+msgid "Units helper failed."
+msgstr "Помощникът за единици не успя."
+
+#: plugin/scripting/units.py
+msgid "Units helper returned no formatted text."
+msgstr "Помощникът за единици не върна форматиран текст."
+
+#: plugin/scripting/units.py
+msgid "Unsupported document type for units insertion."
+msgstr "Неподдържан тип документ за вмъкване на единици."
+
 #: plugin/scripting/python_runner.py
 #, python-format
 msgid "Failed to insert result into Calc: %s"
@@ -1637,6 +1709,12 @@ msgstr "Viz '{helper}' завърши. {msg}"
 #, python-brace-format
 msgid "Math '{helper}' completed. Inserted: {preview} (took {time})"
 msgstr "Math '{helper}' завърши. Вмъкнато: {preview} (отне {time})"
+
+#: plugin/scripting/python_runner.py
+#, python-brace-format
+msgid "Units '{helper}' completed. Inserted: {preview} (took {time})"
+msgstr ""
+"Помощникът за единици '{helper}' завърши. Вмъкнато: {preview} (отне {time})"
 
 #: plugin/scripting/python_runner.py
 msgid "Vision helpers require a Writer or Calc document."
@@ -1684,6 +1762,10 @@ msgstr "Помощниците Math изискват документ на Write
 #: plugin/scripting/python_runner.py
 msgid "Math helper failed."
 msgstr "Помощникът Math се провали."
+
+#: plugin/scripting/python_runner.py
+msgid "Units helpers require a Writer or Calc document."
+msgstr "Помощниците за единици изискват документ на Writer или Calc."
 
 #: plugin/scripting/python_runner.py
 msgid ""
@@ -2253,17 +2335,27 @@ msgstr ""
 "доставчици, които позволяват паралелни заявки; използвайте внимателно заедно"
 " със страничния панел за чат."
 
-msgid "Detect and correct sentence language"
-msgstr "Откриване и коригиране на езика на изречението"
+msgid "Sentence language detection"
+msgstr "Откриване на езика на изречението"
 
 msgid ""
-"When on, asks the AI to verify the language of each sentence against the "
-"document's used locales. If incorrect, the language property is updated "
-"automatically."
+"Verify each complete sentence's language against the document locale. AI "
+"uses your grammar/chat API; Local uses bundled langdetect (no API call, no "
+"venv). Mismatches update CharLocale and re-check grammar."
 msgstr ""
-"Когато е включено, изисква от ИИ да проверява езика на всяко изречение "
-"спрямо използваните в документа локали. Ако е неправилен, свойството за език"
-" се актуализира автоматично."
+"Проверка на всяко пълно изречение спрямо езика на документа. AI използва "
+"вашия API за граматика/чат; Local използва вграден langdetect (без API "
+"извикване, без venv). Несъответствията актуализират CharLocale и повторно "
+"проверяват граматиката."
+
+msgid "Off"
+msgstr "Изключено"
+
+msgid "AI (LLM)"
+msgstr "AI (LLM)"
+
+msgid "Local (langdetect)"
+msgstr "Локално (langdetect)"
 
 msgid "Enter key sends sidebar chat message"
 msgstr "Клавишът Enter изпраща съобщение в чата на страничната лента"

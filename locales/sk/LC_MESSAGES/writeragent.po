@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-10 02:04-0400\n"
+"POT-Creation-Date: 2026-06-10 17:40-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Slovak <LL@li.org>\n"
@@ -1185,6 +1185,27 @@ msgstr "Venv OK"
 msgid "Venv check failed"
 msgstr "Kontrola virtuálneho prostredia zlyhala"
 
+#: plugin/chatbot/dialog_views.py
+msgid "Python Test"
+msgstr "Test Python"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing Python environment..."
+msgstr "Testuje sa prostredie Python..."
+
+#: plugin/chatbot/dialog_views.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Zavrieť"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Done"
+msgstr "Hotovo"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Failed"
+msgstr "Zlyhalo"
+
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
 msgstr "(Zadajte kľúč API na načítanie modelov)"
@@ -1250,6 +1271,10 @@ msgid "Math Helpers"
 msgstr "Matematickí pomocníci"
 
 #: plugin/scripting/document_scripts.py
+msgid "Units Helpers"
+msgstr "Pomocníci jednotiek"
+
+#: plugin/scripting/document_scripts.py
 msgid "Quant Helpers"
 msgstr "Kvantitatívni pomocníci"
 
@@ -1272,11 +1297,6 @@ msgstr "Spustiť skript Python"
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Run"
 msgstr "Spustiť"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Zavrieť"
 
 #: plugin/scripting/python_runner_ui.py
 msgid "Script:"
@@ -1413,18 +1433,6 @@ msgstr "Úspech"
 msgid "Output"
 msgstr "Výstup"
 
-#: plugin/scripting/viz_egress.py
-msgid "Unsupported document type for plot insertion."
-msgstr "Nepodporovaný typ dokumentu na vloženie grafu."
-
-#: plugin/scripting/viz_egress.py plugin/scripting/python_runner.py
-msgid "Viz helper failed."
-msgstr "Vizualizačný pomocník zlyhal."
-
-#: plugin/scripting/viz_egress.py
-msgid "Viz helper returned no image payload."
-msgstr "Vizualizačný pomocník nevrátil žiadne obrazové dáta."
-
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid "Saved script '{0}' to My Scripts."
@@ -1482,6 +1490,17 @@ msgid "Could not talk to the Python editor."
 msgstr "Nepodarilo sa komunikovať s editorom Pythonu."
 
 #: plugin/scripting/venv_worker.py
+msgid ""
+"Vision probe timed out (Docling import can take 10–30s on first check)."
+msgstr ""
+"Časový limit vizuálnej sondy vypršal (import Docling môže pri prvej kontrole"
+" trvať 10 – 30 s)."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision probe failed (see writeragent_debug.log)."
+msgstr "Vizuálna sonda zlyhala (pozri writeragent_debug.log)."
+
+#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "Vizualizačné knižnice"
 
@@ -1494,8 +1513,36 @@ msgid "Quantitative Finance Libraries"
 msgstr "Knižnice pre kvantitatívne financie"
 
 #: plugin/scripting/venv_worker.py
+msgid "Data Engineering Libraries"
+msgstr "Knižnice dátového inžinierstva"
+
+#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "Knižnice videnia"
+
+#: plugin/scripting/venv_worker.py
+msgid "Starting Python worker..."
+msgstr "Spúšťa sa pracovný proces Python..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Reading Python version..."
+msgstr "Číta sa verzia Pythonu..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision Libraries: loading (first run may take a while)..."
+msgstr "Knižnice Vision: načítava sa (prvé spustenie môže chvíľu trvať)..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using LibreOffice process Python..."
+msgstr "Používa sa proces Python v LibreOffice..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Resolving venv Python..."
+msgstr "Rozlišuje sa venv Python..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using"
+msgstr "Používa sa"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1511,26 +1558,38 @@ msgstr ""
 msgid "Image '{name}' could not be exported."
 msgstr "Obrázok '{name}' sa nepodarilo exportovať."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper failed."
 msgstr "Symbolický pomocník zlyhal."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper returned no LaTeX."
 msgstr "Symbolický pomocník nevrátil žiadny LaTeX."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 #, python-brace-format
 msgid "Failed to convert LaTeX to Writer Math: {error}"
 msgstr "Konverzia LaTeXu do Writer Math zlyhala: {error}"
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "No active document view."
 msgstr "Žiadne aktívne zobrazenie dokumentu."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Unsupported document type for symbolic insertion."
 msgstr "Nepodporovaný typ dokumentu pre symbolické vloženie."
+
+#: plugin/scripting/viz.py
+msgid "Unsupported document type for plot insertion."
+msgstr "Nepodporovaný typ dokumentu na vloženie grafu."
+
+#: plugin/scripting/viz.py plugin/scripting/python_runner.py
+msgid "Viz helper failed."
+msgstr "Vizualizačný pomocník zlyhal."
+
+#: plugin/scripting/viz.py
+msgid "Viz helper returned no image payload."
+msgstr "Vizualizačný pomocník nevrátil žiadne obrazové dáta."
 
 #: plugin/scripting/session_manager.py
 msgid ""
@@ -1601,6 +1660,18 @@ msgstr ""
 " Nástroje → Importovať Jupyter Notebook…, aby ste povolili reset relácie "
 "Pythonu pre poznámkový blok."
 
+#: plugin/scripting/units.py plugin/scripting/python_runner.py
+msgid "Units helper failed."
+msgstr "Pomocník pre jednotky zlyhal."
+
+#: plugin/scripting/units.py
+msgid "Units helper returned no formatted text."
+msgstr "Pomocník pre jednotky nevrátil žiadny formátovaný text."
+
+#: plugin/scripting/units.py
+msgid "Unsupported document type for units insertion."
+msgstr "Nepodporovaný typ dokumentu na vloženie jednotiek."
+
 #: plugin/scripting/python_runner.py
 #, python-format
 msgid "Failed to insert result into Calc: %s"
@@ -1629,6 +1700,11 @@ msgstr "Viz '{helper}' dokončený. {msg}"
 #, python-brace-format
 msgid "Math '{helper}' completed. Inserted: {preview} (took {time})"
 msgstr "Math '{helper}' dokončený. Vložené: {preview} (trvalo {time})"
+
+#: plugin/scripting/python_runner.py
+#, python-brace-format
+msgid "Units '{helper}' completed. Inserted: {preview} (took {time})"
+msgstr "Jednotky '{helper}' dokončené. Vložené: {preview} (trvalo {time})"
 
 #: plugin/scripting/python_runner.py
 msgid "Vision helpers require a Writer or Calc document."
@@ -1677,6 +1753,10 @@ msgstr "Pomocníci Math vyžadujú dokument Writer alebo Calc."
 #: plugin/scripting/python_runner.py
 msgid "Math helper failed."
 msgstr "Pomocník Math zlyhal."
+
+#: plugin/scripting/python_runner.py
+msgid "Units helpers require a Writer or Calc document."
+msgstr "Pomocníci pre jednotky vyžadujú dokument Writer alebo Calc."
 
 #: plugin/scripting/python_runner.py
 msgid ""
@@ -2249,17 +2329,27 @@ msgstr ""
 "alebo iných poskytovateľov, ktorí povoľujú paralelné požiadavky; používajte "
 "opatrne spolu s chatom na bočnom paneli."
 
-msgid "Detect and correct sentence language"
-msgstr "Detekovať a opraviť jazyk vety"
+msgid "Sentence language detection"
+msgstr "Detekcia jazyka vety"
 
 msgid ""
-"When on, asks the AI to verify the language of each sentence against the "
-"document's used locales. If incorrect, the language property is updated "
-"automatically."
+"Verify each complete sentence's language against the document locale. AI "
+"uses your grammar/chat API; Local uses bundled langdetect (no API call, no "
+"venv). Mismatches update CharLocale and re-check grammar."
 msgstr ""
-"Ak je táto možnosť zapnutá, AI overí jazyk každej vety vzhľadom na jazykové "
-"nastavenia použité v dokumente. Ak je jazyk nesprávny, vlastnosť jazyka sa "
-"automaticky aktualizuje."
+"Overte každú celú vetu podľa jazyka dokumentu. AI používa vaše rozhranie API"
+" pre gramatiku/chat; Lokálne používa pribalený nástroj langdetect (žiadne "
+"volanie API, žiadne venv). Neshody aktualizujú CharLocale a znova "
+"skontrolujú gramatiku."
+
+msgid "Off"
+msgstr "Vypnuté"
+
+msgid "AI (LLM)"
+msgstr "AI (LLM)"
+
+msgid "Local (langdetect)"
+msgstr "Lokálne (langdetect)"
 
 msgid "Enter key sends sidebar chat message"
 msgstr "Kláves Enter odošle správu v bočnom paneli"

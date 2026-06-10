@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-10 02:04-0400\n"
+"POT-Creation-Date: 2026-06-10 17:40-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Finnish <LL@li.org>\n"
@@ -1181,6 +1181,27 @@ msgstr "Venv OK"
 msgid "Venv check failed"
 msgstr "Venv-tarkistus epäonnistui"
 
+#: plugin/chatbot/dialog_views.py
+msgid "Python Test"
+msgstr "Python-testi"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing Python environment..."
+msgstr "Testataan Python-ympäristöä..."
+
+#: plugin/chatbot/dialog_views.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Sulje"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Done"
+msgstr "Valmis"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Failed"
+msgstr "Epäonnistui"
+
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
 msgstr "(Syötä API-avain ladataksesi malleja)"
@@ -1247,6 +1268,10 @@ msgid "Math Helpers"
 msgstr "Matematiikka-apulaiset"
 
 #: plugin/scripting/document_scripts.py
+msgid "Units Helpers"
+msgstr "Yksikköapulaiset"
+
+#: plugin/scripting/document_scripts.py
 msgid "Quant Helpers"
 msgstr "Kvanttiapulaiset"
 
@@ -1269,11 +1294,6 @@ msgstr "Suorita Python-skripti"
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Run"
 msgstr "Suorita"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-#: plugin/xdl_strings.py
-msgid "Close"
-msgstr "Sulje"
 
 #: plugin/scripting/python_runner_ui.py
 msgid "Script:"
@@ -1410,18 +1430,6 @@ msgstr "Onnistui"
 msgid "Output"
 msgstr "Tuloste"
 
-#: plugin/scripting/viz_egress.py
-msgid "Unsupported document type for plot insertion."
-msgstr "Tiedostotyyppi ei tue kaavion lisäämistä."
-
-#: plugin/scripting/viz_egress.py plugin/scripting/python_runner.py
-msgid "Viz helper failed."
-msgstr "Visualisointiapulainen epäonnistui."
-
-#: plugin/scripting/viz_egress.py
-msgid "Viz helper returned no image payload."
-msgstr "Visualisointiapulainen ei palauttanut kuvadataa."
-
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid "Saved script '{0}' to My Scripts."
@@ -1479,6 +1487,17 @@ msgid "Could not talk to the Python editor."
 msgstr "Yhteyden muodostaminen Python-editoriin epäonnistui."
 
 #: plugin/scripting/venv_worker.py
+msgid ""
+"Vision probe timed out (Docling import can take 10–30s on first check)."
+msgstr ""
+"Vision-koettimen aikakatkaisu (Docling-tuonti voi kestää 10–30 s "
+"ensimmäisellä tarkistuskerralla)."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision probe failed (see writeragent_debug.log)."
+msgstr "Vision-koetin epäonnistui (katso writeragent_debug.log)."
+
+#: plugin/scripting/venv_worker.py
 msgid "Visualization Libraries"
 msgstr "Visualisointikirjastot"
 
@@ -1491,8 +1510,36 @@ msgid "Quantitative Finance Libraries"
 msgstr "Kvantitatiivisen rahoituksen kirjastot"
 
 #: plugin/scripting/venv_worker.py
+msgid "Data Engineering Libraries"
+msgstr "Data Engineering -kirjastot"
+
+#: plugin/scripting/venv_worker.py
 msgid "Vision Libraries"
 msgstr "Näkökirjastot"
+
+#: plugin/scripting/venv_worker.py
+msgid "Starting Python worker..."
+msgstr "Käynnistetään Python-työntekijää..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Reading Python version..."
+msgstr "Luetaan Python-versiota..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Vision Libraries: loading (first run may take a while)..."
+msgstr "Vision-kirjastot: ladataan (ensimmäinen kerta voi kestää hetken)..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using LibreOffice process Python..."
+msgstr "Käytetään LibreOffice-prosessin Pythonia..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Resolving venv Python..."
+msgstr "Selvitetään venv-Pythonia..."
+
+#: plugin/scripting/venv_worker.py
+msgid "Using"
+msgstr "Käytetään"
 
 #: plugin/scripting/vision_runner.py
 #, python-brace-format
@@ -1508,26 +1555,38 @@ msgstr ""
 msgid "Image '{name}' could not be exported."
 msgstr "Kuvaa '{name}' ei voitu viedä."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper failed."
 msgstr "Symbolinen apuväline epäonnistui."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Symbolic helper returned no LaTeX."
 msgstr "Symbolinen apuväline ei palauttanut LaTeX-koodia."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 #, python-brace-format
 msgid "Failed to convert LaTeX to Writer Math: {error}"
 msgstr "LaTeX-koodin muuntaminen Writer Math -muotoon epäonnistui: {error}"
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "No active document view."
 msgstr "Ei aktiivista asiakirjanäkymää."
 
-#: plugin/scripting/symbolic_egress.py
+#: plugin/scripting/symbolic.py
 msgid "Unsupported document type for symbolic insertion."
 msgstr "Tuetun asiakirjatyypin puute symbolista lisäystä varten."
+
+#: plugin/scripting/viz.py
+msgid "Unsupported document type for plot insertion."
+msgstr "Tiedostotyyppi ei tue kaavion lisäämistä."
+
+#: plugin/scripting/viz.py plugin/scripting/python_runner.py
+msgid "Viz helper failed."
+msgstr "Visualisointiapulainen epäonnistui."
+
+#: plugin/scripting/viz.py
+msgid "Viz helper returned no image payload."
+msgstr "Visualisointiapulainen ei palauttanut kuvadataa."
 
 #: plugin/scripting/session_manager.py
 msgid ""
@@ -1597,6 +1656,18 @@ msgstr ""
 " Työkalut → Tuo Jupyter-muistikirja… ottaaksesi muistikirjan Python-istunnon"
 " nollauksen käyttöön."
 
+#: plugin/scripting/units.py plugin/scripting/python_runner.py
+msgid "Units helper failed."
+msgstr "Yksikköapulainen epäonnistui."
+
+#: plugin/scripting/units.py
+msgid "Units helper returned no formatted text."
+msgstr "Yksikköapulainen ei palauttanut muotoiltua tekstiä."
+
+#: plugin/scripting/units.py
+msgid "Unsupported document type for units insertion."
+msgstr "Yksiköiden lisääminen ei tue tätä asiakirjatyyppiä."
+
 #: plugin/scripting/python_runner.py
 #, python-format
 msgid "Failed to insert result into Calc: %s"
@@ -1626,6 +1697,11 @@ msgstr "Viz '{helper}' suoritettu. {msg}"
 #, python-brace-format
 msgid "Math '{helper}' completed. Inserted: {preview} (took {time})"
 msgstr "Math '{helper}' suoritettu. Lisätty: {preview} (kesti {time})"
+
+#: plugin/scripting/python_runner.py
+#, python-brace-format
+msgid "Units '{helper}' completed. Inserted: {preview} (took {time})"
+msgstr "Yksiköt '{helper}' valmiit. Lisätty: {preview} (kesti {time})"
 
 #: plugin/scripting/python_runner.py
 msgid "Vision helpers require a Writer or Calc document."
@@ -1673,6 +1749,10 @@ msgstr "Math-apulaiset vaativat Writer- tai Calc-asiakirjan."
 #: plugin/scripting/python_runner.py
 msgid "Math helper failed."
 msgstr "Math-apulainen epäonnistui."
+
+#: plugin/scripting/python_runner.py
+msgid "Units helpers require a Writer or Calc document."
+msgstr "Yksikköapulaiset vaativat Writer- tai Calc-asiakirjan."
 
 #: plugin/scripting/python_runner.py
 msgid ""
@@ -2238,17 +2318,27 @@ msgstr ""
 "pyyntöjä sallivien palveluntarjoajien kohdalla; käytä varoen sivupalkin "
 "keskustelun ohella."
 
-msgid "Detect and correct sentence language"
-msgstr "Tunnista ja korjaa lauseen kieli"
+msgid "Sentence language detection"
+msgstr "Lauseen kielen tunnistus"
 
 msgid ""
-"When on, asks the AI to verify the language of each sentence against the "
-"document's used locales. If incorrect, the language property is updated "
-"automatically."
+"Verify each complete sentence's language against the document locale. AI "
+"uses your grammar/chat API; Local uses bundled langdetect (no API call, no "
+"venv). Mismatches update CharLocale and re-check grammar."
 msgstr ""
-"Kun tämä on käytössä, tekoäly tarkistaa kunkin lauseen kielen asiakirjassa "
-"käytettyjen kieliasetusten perusteella. Jos kieli on väärä, kieliasetus "
-"päivitetään automaattisesti."
+"Tarkista jokaisen kokonaisen lauseen kieli asiakirjan kielen asetusta "
+"vasten. AI käyttää kielioppi-/chat-rajapintaa; Paikallinen käyttää mukana "
+"tulevaa langdetect-kirjastoa (ei API-kutsua, ei venv-ympäristöä). Epäsuhdat "
+"päivittävät CharLocale-asetuksen ja tarkistavat kieliopin uudelleen."
+
+msgid "Off"
+msgstr "Pois"
+
+msgid "AI (LLM)"
+msgstr "AI (LLM)"
+
+msgid "Local (langdetect)"
+msgstr "Paikallinen (langdetect)"
 
 msgid "Enter key sends sidebar chat message"
 msgstr "Enter-näppäin lähettää sivupalkin chat-viestin"
