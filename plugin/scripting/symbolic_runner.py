@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from plugin.doc.document_helpers import is_calc, is_writer
-from plugin.framework.client.symbolic_client import run_symbolic
+from plugin.scripting.client import run_symbolic
 from plugin.framework.errors import ToolExecutionError
 from plugin.scripting.symbolic_common import HELPER_NAMES
 

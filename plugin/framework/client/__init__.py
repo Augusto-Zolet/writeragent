@@ -26,7 +26,7 @@ from .llm_client import (
     merge_openrouter_chat_extra,
     strip_leaked_chat_template_control_tokens,
 )
-from .analysis_client import run_analysis as run_trusted_analysis
+from plugin.scripting.client import run_analysis as run_trusted_analysis
 from .embedding_client import EmbeddingBatch, embed_texts, get_embedding_model
 from .embeddings_service import delete_paragraphs, index_paragraphs, knn_search
 from .requests import sync_request

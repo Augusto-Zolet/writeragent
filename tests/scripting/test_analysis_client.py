@@ -2,7 +2,7 @@
 # Copyright (c) 2026 KeithCu (modifications and relicensing)
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Tests for plugin.framework.client.analysis_client."""
+"""Tests for plugin.scripting.client.run_analysis."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from plugin.framework.client.analysis_client import run_analysis
+from plugin.scripting.client import run_analysis
 from plugin.framework.errors import ToolExecutionError
 from plugin.tests.testing_utils import setup_uno_mocks
 
@@ -36,9 +36,9 @@ def test_run_analysis_happy_path(ctx):
     context = {"sheet_name": "Sheet1"}
 
     with (
-        patch("plugin.framework.client.analysis_client.configured_python_exec_timeout", return_value=30),
-        patch("plugin.framework.client.analysis_client.run_code_in_user_venv", return_value=worker_result) as mock_run,
-    ):
+        patch("plugin.scripting.client.configured_python_exec_timeout", return_value=30),
+        patch("plugin.scripting.client.run_code_in_user_venv", return_value=worker_result) as mock_run,
+     ):
         result = run_analysis(ctx, spec, data, context=context)
 
     assert result["helper"] == "describe_data"
@@ -53,9 +53,9 @@ def test_run_analysis_happy_path(ctx):
 
 def test_run_analysis_worker_error(ctx):
     with (
-        patch("plugin.framework.client.analysis_client.configured_python_exec_timeout", return_value=10),
+        patch("plugin.scripting.client.configured_python_exec_timeout", return_value=10),
         patch(
-            "plugin.framework.client.analysis_client.run_code_in_user_venv",
+            "plugin.scripting.client.run_code_in_user_venv",
             return_value={"status": "error", "message": "boom"},
         ),
     ):
@@ -65,9 +65,9 @@ def test_run_analysis_worker_error(ctx):
 
 def test_run_analysis_malformed_result(ctx):
     with (
-        patch("plugin.framework.client.analysis_client.configured_python_exec_timeout", return_value=10),
+        patch("plugin.scripting.client.configured_python_exec_timeout", return_value=10),
         patch(
-            "plugin.framework.client.analysis_client.run_code_in_user_venv",
+            "plugin.scripting.client.run_code_in_user_venv",
             return_value={"status": "ok", "result": "not-a-dict"},
         ),
     ):

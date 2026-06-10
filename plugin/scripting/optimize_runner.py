@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, cast
 from plugin.calc.bridge import CalcBridge
 from plugin.calc.venv_python import _resolve_python_data
 from plugin.doc.document_helpers import is_calc
-from plugin.framework.client.optimize_client import run_optimize
+from plugin.scripting.client import run_optimize
 from plugin.framework.errors import ToolExecutionError
 from plugin.scripting.optimize_common import HELPER_NAMES
 

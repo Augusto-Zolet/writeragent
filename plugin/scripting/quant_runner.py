@@ -11,7 +11,7 @@ from typing import Any
 from plugin.calc.analysis_runner import calc_tool_context
 from plugin.calc.venv_python import _resolve_python_data
 from plugin.doc.document_helpers import is_calc, is_writer
-from plugin.framework.client.quant_client import run_quant
+from plugin.scripting.client import run_quant
 from plugin.framework.errors import ToolExecutionError
 from plugin.scripting.quant_common import HELPER_NAMES
 

@@ -12,7 +12,7 @@ from plugin.calc.address_utils import index_to_column
 from plugin.calc.bridge import CalcBridge
 from plugin.calc.venv_python import _resolve_python_data
 from plugin.doc.document_helpers import is_calc
-from plugin.framework.client.analysis_client import run_analysis
+from plugin.scripting.client import run_analysis
 from plugin.framework.errors import ToolExecutionError
 from plugin.scripting.analysis_common import HELPER_NAMES
 

@@ -241,9 +241,9 @@ def test_extract_text_runtime_error_returns_vision_error(mock_get_engine, mock_d
     assert "model failed" in result["message"]
 
 
-@patch("plugin.framework.client.vision_client.run_code_in_user_venv")
+@patch("plugin.scripting.client.run_code_in_user_venv")
 def test_vision_client_passes_payload(mock_venv):
-    from plugin.framework.client.vision_client import run_vision as run_trusted_vision
+    from plugin.scripting.client import run_vision as run_trusted_vision
 
     ctx = MagicMock()
     mock_venv.return_value = {
