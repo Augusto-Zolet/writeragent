@@ -340,7 +340,7 @@ def _analysis_script_section(doc: Any | None) -> dict[str, Any] | None:
             return None
     except Exception:
         return None
-    from plugin.scripting.analysis_templates import get_analysis_script_templates
+    from plugin.scripting.analysis import get_analysis_script_templates
 
     templates = get_analysis_script_templates()
     display_scripts = {analysis_script_display_name(name): code for name, code in templates.items()}
@@ -367,14 +367,14 @@ def _vision_script_section(doc: Any | None) -> dict[str, Any] | None:
 def _viz_script_section(doc: Any | None) -> dict[str, Any] | None:
     if doc is None:
         return None
-    from plugin.scripting.viz_runner import supports_viz_manual
+    from plugin.scripting.viz import supports_viz_manual
 
     try:
         if not supports_viz_manual(doc):
             return None
     except Exception:
         return None
-    from plugin.scripting.viz_templates import get_viz_script_templates
+    from plugin.scripting.viz import get_viz_script_templates
 
     templates = get_viz_script_templates()
     display_scripts = {viz_script_display_name(name): code for name, code in templates.items()}
@@ -384,14 +384,14 @@ def _viz_script_section(doc: Any | None) -> dict[str, Any] | None:
 def _math_script_section(doc: Any | None) -> dict[str, Any] | None:
     if doc is None:
         return None
-    from plugin.scripting.symbolic_runner import supports_symbolic_manual
+    from plugin.scripting.symbolic import supports_symbolic_manual
 
     try:
         if not supports_symbolic_manual(doc):
             return None
     except Exception:
         return None
-    from plugin.scripting.symbolic_templates import get_math_script_templates
+    from plugin.scripting.symbolic import get_math_script_templates
 
     templates = get_math_script_templates()
     display_scripts = {math_script_display_name(name): code for name, code in templates.items()}
@@ -401,15 +401,14 @@ def _math_script_section(doc: Any | None) -> dict[str, Any] | None:
 def _quant_script_section(doc: Any | None) -> dict[str, Any] | None:
     if doc is None:
         return None
-    from plugin.scripting.quant_runner import supports_quant_manual
+    from plugin.scripting.quant import supports_quant_manual
 
     try:
         if not supports_quant_manual(doc):
             return None
     except Exception:
         return None
-    from plugin.scripting.quant_templates import get_quant_template
-    from plugin.scripting.quant_common import HELPER_NAMES
+    from plugin.scripting.quant import get_quant_template, HELPER_NAMES
 
     templates = {name: get_quant_template(name) for name in HELPER_NAMES if get_quant_template(name)}
     display_scripts = {quant_script_display_name(name): code for name, code in templates.items()}
@@ -424,8 +423,7 @@ def _optimize_script_section(doc: Any | None) -> dict[str, Any] | None:
             return None
     except Exception:
         return None
-    from plugin.scripting.optimize_templates import get_optimize_template
-    from plugin.scripting.optimize_common import HELPER_NAMES
+    from plugin.scripting.optimize import get_optimize_template, HELPER_NAMES
 
     templates = {name: get_optimize_template(name) for name in HELPER_NAMES if get_optimize_template(name)}
     display_scripts = {optimize_script_display_name(name): code for name, code in templates.items()}

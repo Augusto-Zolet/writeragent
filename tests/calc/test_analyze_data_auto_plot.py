@@ -48,7 +48,7 @@ def test_build_viz_request_regression():
     assert params["spec"]["chart_type"] == "scatter"
 
 
-@patch("plugin.scripting.viz_egress.insert_viz_result_into_doc")
+@patch("plugin.scripting.viz.insert_viz_result_into_doc")
 @patch("plugin.calc.viz_auto_plot.run_auto_plot_after_analysis")
 @patch("plugin.framework.queue_executor.execute_on_main_thread")
 @patch("plugin.calc.analysis_runner.run_trusted_analysis")

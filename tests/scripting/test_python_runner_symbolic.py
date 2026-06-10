@@ -9,14 +9,14 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 from plugin.scripting.python_runner import execute_and_insert_result
-from plugin.scripting.symbolic_templates import get_math_script_templates
+from plugin.scripting.symbolic import get_math_script_templates
 from plugin.tests.testing_utils import setup_uno_mocks
 
 setup_uno_mocks()
 
 
-@patch("plugin.scripting.symbolic_egress.insert_symbolic_result_into_doc")
-@patch("plugin.scripting.symbolic_runner.run_trusted_symbolic")
+@patch("plugin.scripting.symbolic.insert_symbolic_result_into_doc")
+@patch("plugin.scripting.symbolic.run_trusted_symbolic")
 def test_execute_and_insert_math_fast_path(mock_run, mock_insert):
     ctx = MagicMock()
     doc = MagicMock()
@@ -37,7 +37,7 @@ def test_execute_and_insert_math_fast_path(mock_run, mock_insert):
     mock_insert.assert_called_once()
 
 
-@patch("plugin.scripting.symbolic_egress.insert_symbolic_result_into_doc")
+@patch("plugin.scripting.symbolic.insert_symbolic_result_into_doc")
 @patch("plugin.scripting.python_runner.run_code_in_user_venv")
 def test_execute_and_insert_detects_symbolic_result_from_venv(mock_venv, mock_insert):
     ctx = MagicMock()

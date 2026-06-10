@@ -2,22 +2,163 @@
 # Copyright (c) 2026 KeithCu (modifications and relicensing)
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Trusted venv quantitative finance helpers."""
+"""Trusted venv quantitative finance helpers.
+
+Includes execution templates, runner, and dispatch logic.
+"""
 
 from __future__ import annotations
 
 import importlib
+import json
 import logging
+import re
+from dataclasses import dataclass
 from typing import Any
 
-from plugin.scripting.analysis_coerce import CoerceResult, coerce_to_dataframe
-from plugin.scripting.quant_common import HELPER_NAMES, QUANT_VENV_PIP_INSTALL
+from plugin.calc.analysis_runner import calc_tool_context
+from plugin.calc.venv_python import _resolve_python_data
+from plugin.doc.document_helpers import is_calc, is_writer
+from plugin.scripting.analysis import CoerceResult, coerce_to_dataframe
+from plugin.scripting.client import run_quant as client_run_quant
+from plugin.framework.errors import ToolExecutionError
 
 log = logging.getLogger(__name__)
 
-# Note: We are using yfinance, pandas-ta, quantstats, and pyportfolioopt as the MVP
-# quantitative finance stack. Consider adding OpenBB SDK or pandas-datareader later
-# if users request more comprehensive data and analytics.
+# --- Constants & Common ---
+
+HELPER_NAMES = (
+    "fetch_historical_data",
+    "technical_analysis",
+    "portfolio_tearsheet",
+    "efficient_frontier",
+)
+
+QUANT_VENV_PIP_INSTALL = "pip install yfinance pandas-ta quantstats pyportfolioopt"
+
+QUANT_HEADER_PREFIX = "# writeragent:quant"
+_QUANT_HEADER_RE = re.compile(
+    r"^\s*#\s*writeragent:quant\s+helper=(\w+)\s+params=(\{.*\})\s*$",
+    re.MULTILINE,
+)
+
+_DEFAULT_PARAMS: dict[str, dict[str, Any]] = {
+    "fetch_historical_data": {"tickers": ["AAPL", "MSFT"], "start_date": "2023-01-01", "end_date": "2024-01-01", "interval": "1d"},
+    "technical_analysis": {"indicators": ["macd", "rsi", "bbands"]},
+    "portfolio_tearsheet": {},
+    "efficient_frontier": {},
+}
+
+_HELPER_DESCRIPTIONS: dict[str, str] = {
+    "fetch_historical_data": "Fetch historical prices via yfinance",
+    "technical_analysis": "Calculate MACD, RSI, and Bollinger Bands",
+    "portfolio_tearsheet": "Generate portfolio performance metrics via quantstats",
+    "efficient_frontier": "Optimize portfolio weights via PyPortfolioOpt",
+}
+
+
+# --- Templates ---
+
+@dataclass
+class QuantScriptHeader:
+    helper: str
+    params: dict[str, Any]
+
+
+def parse_quant_script_header(code: str) -> QuantScriptHeader | None:
+    match = _QUANT_HEADER_RE.search(code)
+    if not match:
+        return None
+    try:
+        params = json.loads(match.group(2))
+        return QuantScriptHeader(helper=match.group(1), params=params)
+    except Exception:
+        return None
+
+
+def get_quant_template(helper: str) -> str | None:
+    if helper not in HELPER_NAMES:
+        return None
+    params = _DEFAULT_PARAMS.get(helper, {})
+    params_str = json.dumps(params)
+    
+    desc = _HELPER_DESCRIPTIONS.get(helper, helper.replace("_", " ").title())
+    
+    lines = [
+        f"{QUANT_HEADER_PREFIX} helper={helper} params={params_str}",
+        "#",
+        f"# {desc}",
+        "# This script delegates to the trusted quant venv module.",
+        "# Edit the JSON params above if needed. No other code runs.",
+    ]
+    
+    return "\n".join(lines) + "\n"
+
+
+# --- Runner ---
+
+def supports_quant_manual(doc: Any) -> bool:
+    """True when Run Python Script should expose Quant Helpers for *doc*."""
+    if doc is None:
+        return False
+    try:
+        return is_writer(doc) or is_calc(doc)
+    except Exception:
+        return False
+
+
+def run_trusted_quant(
+    uno_ctx: Any,
+    doc: Any,
+    *,
+    helper: str,
+    params: dict[str, Any] | None = None,
+    data_range: str | None = None,
+    data: Any = None,
+    headers: bool = True,
+    task_hint: str | None = None,
+) -> dict[str, Any]:
+    """Fetch Calc data and run a trusted quant helper in the user venv."""
+    name = str(helper or "").strip()
+    if not name:
+        raise ToolExecutionError("helper is required", code="QUANT_ERROR")
+    if name not in HELPER_NAMES:
+        raise ToolExecutionError(f"Unknown helper {name!r}", code="QUANT_ERROR")
+
+    if not is_calc(doc) and not is_writer(doc):
+        raise ToolExecutionError("Quant helpers require a Writer or Calc document.", code="QUANT_ERROR")
+
+    dr = str(data_range).strip() if data_range else None
+    
+    py_data = None
+    if dr or data is not None:
+        tool_ctx = calc_tool_context(uno_ctx, doc)
+        py_data, err = _resolve_python_data(tool_ctx, data_range=dr, data=data)
+        if err:
+            raise ToolExecutionError(err, code="QUANT_ERROR")
+            
+    # Some helpers like fetch_historical_data do not need py_data
+    if name != "fetch_historical_data" and py_data is None:
+        raise ToolExecutionError("Provide data_range or data for this quant helper", code="QUANT_ERROR")
+
+    spec_params = params or {}
+
+    context: dict[str, Any] = {}
+    if is_calc(doc):
+        try:
+            from plugin.calc.bridge import CalcBridge
+            context["sheet_name"] = CalcBridge(doc).get_active_sheet().getName()
+        except Exception:
+            pass
+    if task_hint:
+        context["task_hint"] = str(task_hint)
+    if dr:
+        context["range_a1"] = dr
+
+    return client_run_quant(uno_ctx, name, spec_params, py_data, context=context or None)
+
+
+# --- Core Helper Implementations (Venv Execution Path) ---
 
 def _error_result(code: str, message: str, *, helper: str | None = None) -> dict[str, Any]:
     out: dict[str, Any] = {"status": "error", "code": code, "message": message}
@@ -48,6 +189,7 @@ def _resolve_df(data: Any, *, headers: bool = True, header_row: int = 0, sheet_h
             meta["sheet_hint"] = sheet_hint
         return CoerceResult(df=df, metadata=meta)
     return coerce_to_dataframe(data, headers=headers, header_row=header_row, sheet_hint=sheet_hint)
+
 
 def fetch_historical_data(params: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
     try:
@@ -89,6 +231,7 @@ def fetch_historical_data(params: dict[str, Any], context: dict[str, Any]) -> di
         log.exception("Error in fetch_historical_data")
         return _error_result("EXECUTION_ERROR", str(e), helper="fetch_historical_data")
 
+
 def technical_analysis(params: dict[str, Any], data: Any, context: dict[str, Any]) -> dict[str, Any]:
     try:
         importlib.import_module("pandas_ta")
@@ -101,8 +244,6 @@ def technical_analysis(params: dict[str, Any], data: Any, context: dict[str, Any
     
     try:
         # Assuming df has typical columns like Close, High, Low
-        # We need to make sure the case is somewhat flexible
-        # If 'Close' isn't there, we might fallback
         close_col = next((c for c in df.columns if c.lower() == 'close'), None)
         if close_col:
             for ind in indicators:
@@ -112,7 +253,6 @@ def technical_analysis(params: dict[str, Any], data: Any, context: dict[str, Any
                     df.ta.rsi(close=close_col, append=True)
                 elif ind.lower() == 'bbands':
                     df.ta.bbands(close=close_col, append=True)
-                # Could add more indicator handlers here
         else:
             return _error_result("MISSING_COLUMN", "Could not find 'Close' column for technical analysis.")
             
@@ -132,6 +272,7 @@ def technical_analysis(params: dict[str, Any], data: Any, context: dict[str, Any
         log.exception("Error in technical_analysis")
         return _error_result("EXECUTION_ERROR", str(e), helper="technical_analysis")
 
+
 def portfolio_tearsheet(params: dict[str, Any], data: Any, context: dict[str, Any]) -> dict[str, Any]:
     try:
         import quantstats as qs  # type: ignore
@@ -141,17 +282,14 @@ def portfolio_tearsheet(params: dict[str, Any], data: Any, context: dict[str, An
     res = _resolve_df(data)
     df = res.df
     
-    # Needs a returns series. If price series is provided, convert to returns.
     try:
         if df.shape[1] > 1:
-            # Maybe the first column is date, second is prices
             prices = df.iloc[:, 1]
             returns = prices.pct_change().dropna()
         else:
             returns = df.iloc[:, 0].dropna()
             
         metrics = qs.reports.metrics(returns, display=False)
-        # metrics is a DataFrame, convert to dict
         metrics_dict = metrics.to_dict()
         
         return {
@@ -162,6 +300,7 @@ def portfolio_tearsheet(params: dict[str, Any], data: Any, context: dict[str, An
     except Exception as e:
         log.exception("Error in portfolio_tearsheet")
         return _error_result("EXECUTION_ERROR", str(e), helper="portfolio_tearsheet")
+
 
 def efficient_frontier(params: dict[str, Any], data: Any, context: dict[str, Any]) -> dict[str, Any]:
     try:
@@ -175,14 +314,11 @@ def efficient_frontier(params: dict[str, Any], data: Any, context: dict[str, Any
     df = res.df
     
     try:
-        # Assuming df contains prices for multiple assets
-        # First column might be Date, which we should set as index if possible
         if 'Date' in df.columns or 'date' in df.columns:
             date_col = 'Date' if 'Date' in df.columns else 'date'
             df = df.set_index(date_col)
             
-        import pandas as pd  # type: ignore[import-untyped]
-        # Ensure numeric
+        import pandas as pd
         df = df.apply(pd.to_numeric, errors='coerce').dropna()
         
         mu = mean_historical_return(df)
@@ -200,6 +336,7 @@ def efficient_frontier(params: dict[str, Any], data: Any, context: dict[str, Any
     except Exception as e:
         log.exception("Error in efficient_frontier")
         return _error_result("EXECUTION_ERROR", str(e), helper="efficient_frontier")
+
 
 def run_quant(
     helper: str,

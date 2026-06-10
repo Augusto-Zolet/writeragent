@@ -1,31 +1,42 @@
 # WriterAgent - AI Writing Assistant for LibreOffice
 # Copyright (c) 2026 KeithCu (modifications and relicensing)
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Trusted venv analysis helpers — Excel/Python-in-Excel inspired standard functions.
 
-Invoked from the LO host through a fixed RPC stub (see analysis_client.py), not
-from LLM-submitted code. See docs/analysis-sub-agent.md.
+Includes coercion, execution templates, and dispatch logic.
 """
+
 from __future__ import annotations
 
 import json
 import logging
+import re
+from dataclasses import dataclass
 from typing import Any, cast
 
-import numpy as np
-import pandas as pd  # type: ignore[import-untyped]
-from scipy import stats  # type: ignore[import-untyped]
-from sklearn.cluster import KMeans  # type: ignore[import-untyped]
-from sklearn.ensemble import IsolationForest  # type: ignore[import-untyped]
-
-from plugin.scripting.analysis_coerce import CoerceResult, coerce_to_dataframe
-from plugin.scripting.analysis_common import HELPER_NAMES
-
 log = logging.getLogger(__name__)
+
+# --- Constants & Common ---
+
+HELPER_NAMES = frozenset(
+    {
+        "describe_data",
+        "kpi_summary",
+        "detect_outliers",
+        "quick_stats",
+        "format_currency",
+        "format_percent",
+        "clean_and_prepare",
+        "pivot_aggregate",
+        "group_summary",
+        "compare_periods",
+        "correlation_matrix",
+        "run_regression",
+        "cluster_numeric",
+        "monte_carlo",
+    }
+)
 
 MAX_TABLE_ROWS = 50
 MAX_COLS = 40
@@ -42,14 +53,293 @@ _NUMERIC_PROFILE_KEYS = (
     ("median", "50%"),
 )
 
+_LO_ERROR_TOKENS = frozenset(
+    {
+        "#N/A",
+        "#DIV/0!",
+        "#VALUE!",
+        "#REF!",
+        "#NAME?",
+        "#NUM!",
+        "#NULL!",
+        "#N/A N/A",
+    }
+)
 
-def _missing_package_error(helper: str, package: str) -> dict[str, Any]:
-    return _error_result(
-        "MISSING_PACKAGE",
-        f"{package} is required for {helper}. Install: {ANALYSIS_VENV_PIP_INSTALL}",
-        helper=helper,
+_CURRENCY_RE = re.compile(r"^[\s$€£¥₹]+\s*([\d,]+(?:\.\d+)?)\s*$")
+_PERCENT_RE = re.compile(r"^([\d,]+(?:\.\d+)?)\s*%\s*$")
+_NUMERIC_RE = re.compile(r"^[\s$€£¥₹+-]*([\d,]+(?:\.\d+)?)\s*$")
+
+ANALYSIS_HEADER_PREFIX = "# writeragent:analysis"
+_ANALYSIS_HEADER_RE = re.compile(
+    r"^\s*#\s*writeragent:analysis\s+helper=(\w+)\s+params=(\{.*\})\s*$",
+    re.MULTILINE,
+)
+
+_DEFAULT_PARAMS: dict[str, dict[str, Any]] = {
+    "describe_data": {},
+    "kpi_summary": {"metrics": ["Column1"]},
+    "detect_outliers": {},
+    "quick_stats": {},
+    "format_currency": {},
+    "format_percent": {},
+    "clean_and_prepare": {},
+    "pivot_aggregate": {"index": "Category", "values": "Amount"},
+    "group_summary": {"by": "Region", "metrics": ["Sales"]},
+    "compare_periods": {"date_col": "Date", "value_col": "Amount"},
+    "correlation_matrix": {},
+    "run_regression": {"target": "Y", "features": ["X1", "X2"]},
+    "cluster_numeric": {},
+    "monte_carlo": {},
+}
+
+_HELPER_DESCRIPTIONS: dict[str, str] = {
+    "describe_data": "Extended EDA and column quality summary",
+    "kpi_summary": "Mean/min/max/sum for selected numeric columns",
+    "detect_outliers": "Flag outlier rows (IQR, z-score, or isolation forest)",
+    "quick_stats": "Compact metric card for numeric columns",
+    "format_currency": "Format values as currency strings",
+    "format_percent": "Format values as percentage strings",
+    "clean_and_prepare": "Light dedupe and imputation",
+    "pivot_aggregate": "Pivot table aggregate",
+    "group_summary": "Group-by aggregates",
+    "compare_periods": "Period-over-period change (YoY/QoQ/MoM)",
+    "correlation_matrix": "Pairwise correlations and top pairs",
+    "run_regression": "OLS linear regression (R² and coefficients)",
+    "cluster_numeric": "KMeans clustering on numeric columns",
+    "monte_carlo": "Resampling simulation on a numeric series",
+}
+
+
+# --- Coercion & CoerceResult ---
+
+@dataclass(frozen=True)
+class CoerceResult:
+    """DataFrame plus structural metadata for analysis helpers."""
+    df: Any
+    metadata: dict[str, Any]
+
+
+def _is_missing_cell(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped == "" or stripped in _LO_ERROR_TOKENS:
+            return True
+    return False
+
+
+def _parse_numeric_string(text: str) -> float | None:
+    stripped = text.strip()
+    if not stripped or stripped in _LO_ERROR_TOKENS:
+        return None
+    pct = _PERCENT_RE.match(stripped)
+    if pct:
+        try:
+            return float(pct.group(1).replace(",", "")) / 100.0
+        except ValueError:
+            return None
+    cur = _CURRENCY_RE.match(stripped)
+    if cur:
+        try:
+            return float(cur.group(1).replace(",", ""))
+        except ValueError:
+            return None
+    num = _NUMERIC_RE.match(stripped)
+    if num:
+        try:
+            return float(num.group(1).replace(",", ""))
+        except ValueError:
+            return None
+    return None
+
+
+def _coerce_cell(value: Any) -> Any:
+    if _is_missing_cell(value):
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    if isinstance(value, float):
+        return value
+    if isinstance(value, str):
+        parsed = _parse_numeric_string(value)
+        if parsed is not None:
+            return parsed
+        return value.strip()
+    return value
+
+
+def _dedupe_column_names(names: list[str]) -> list[str]:
+    seen: dict[str, int] = {}
+    out: list[str] = []
+    for raw in names:
+        base = (raw or "column").strip() or "column"
+        count = seen.get(base, 0)
+        if count:
+            out.append(f"{base}_{count}")
+        else:
+            out.append(base)
+        seen[base] = count + 1
+    return out
+
+
+def _normalize_input_grid(data: Any) -> list[list[Any]]:
+    if data is None:
+        return []
+    if isinstance(data, dict):
+        columns = data.get("columns")
+        rows = data.get("rows")
+        if isinstance(columns, list) and isinstance(rows, list):
+            return [list(columns)] + [list(row) if isinstance(row, (list, tuple)) else [row] for row in rows]
+    if isinstance(data, (list, tuple)):
+        if not data:
+            return []
+        first = data[0]
+        if isinstance(first, dict):
+            keys: list[str] = []
+            for row in data:
+                if isinstance(row, dict):
+                    for key in row:
+                        if key not in keys:
+                            keys.append(key)
+            return [[key for key in keys]] + [[row.get(key) if isinstance(row, dict) else None for key in keys] for row in data]
+        if isinstance(first, (list, tuple)):
+            return [list(row) for row in data]
+        return [[item] for item in data]
+    return [[data]]
+
+
+def _coerce_column_types(df: Any) -> Any:
+    import pandas as pd
+    out = df.copy()
+    for col in out.columns:
+        series = out[col]
+        if series.dtype == object or str(series.dtype) == "string":
+            coerced = series.map(_coerce_cell)
+            numeric: Any = pd.to_numeric(coerced, errors="coerce")
+            non_null = coerced.notna().sum()
+            numeric_non_null = numeric.notna().sum()
+            if non_null > 0 and numeric_non_null >= max(1, int(non_null * 0.8)):
+                out[col] = numeric
+            else:
+                dt: Any = pd.to_datetime(coerced, errors="coerce", utc=False, format="mixed")
+                dt_non_null = dt.notna().sum()
+                if non_null > 0 and dt_non_null >= max(1, int(non_null * 0.8)):
+                    out[col] = dt
+                else:
+                    out[col] = coerced
+    return out
+
+
+def _build_metadata(df: Any, *, sheet_hint: str | None, dropped_rows: int) -> dict[str, Any]:
+    numeric_cols = [str(c) for c in df.columns if str(df[c].dtype).startswith(("float", "int", "Int", "uint"))]
+    categorical_cols = [str(c) for c in df.columns if c not in numeric_cols and not str(df[c].dtype).startswith("datetime")]
+    datetime_cols = [str(c) for c in df.columns if str(df[c].dtype).startswith("datetime")]
+    meta: dict[str, Any] = {
+        "n_rows": int(len(df)),
+        "n_cols": int(len(df.columns)),
+        "numeric_cols": numeric_cols,
+        "categorical_cols": categorical_cols,
+        "datetime_cols": datetime_cols,
+        "dropped_rows": dropped_rows,
+    }
+    if sheet_hint:
+        meta["sheet_hint"] = sheet_hint
+    return meta
+
+
+def coerce_to_dataframe(
+    data: Any,
+    *,
+    headers: bool = True,
+    header_row: int = 0,
+    sheet_hint: str | None = None,
+) -> CoerceResult:
+    """Convert wire-format *data* into a typed DataFrame with metadata."""
+    import pandas as pd
+    grid = _normalize_input_grid(data)
+    dropped_rows = 0
+
+    if not grid:
+        empty = pd.DataFrame()
+        return CoerceResult(df=empty, metadata=_build_metadata(empty, sheet_hint=sheet_hint, dropped_rows=0))
+
+    if headers:
+        header_idx = max(0, min(header_row, len(grid) - 1))
+        raw_headers = [_coerce_cell(cell) for cell in grid[header_idx]]
+        col_names = _dedupe_column_names([str(h) if h is not None else "" for h in raw_headers])
+        body = grid[header_idx + 1 :]
+    else:
+        width = max((len(row) for row in grid), default=0)
+        col_names = [f"col_{i}" for i in range(width)]
+        body = grid
+
+    rows: list[list[Any]] = []
+    for row in body:
+        padded = list(row) + [None] * (len(col_names) - len(row))
+        coerced_row = [_coerce_cell(cell) for cell in padded[: len(col_names)]]
+        if all(cell is None for cell in coerced_row):
+            dropped_rows += 1
+            continue
+        rows.append(coerced_row)
+
+    df = pd.DataFrame(rows, columns=cast(Any, col_names))
+    df = _coerce_column_types(df)
+    return CoerceResult(df=df, metadata=_build_metadata(df, sheet_hint=sheet_hint, dropped_rows=dropped_rows))
+
+
+# --- Templates ---
+
+@dataclass(frozen=True)
+class AnalysisScriptMeta:
+    helper: str
+    params: dict[str, Any]
+
+
+def _template_body(helper: str, params: dict[str, Any]) -> str:
+    params_json = json.dumps(params, separators=(",", ":"))
+    desc = _HELPER_DESCRIPTIONS.get(helper, helper)
+    return (
+        f"{ANALYSIS_HEADER_PREFIX} helper={helper} params={params_json}\n"  # nosec
+        f"# {desc}\n"
+        f"# Set the data range in the toolbar (or select cells), then Run.\n"
+        f"from plugin.scripting.analysis import run_analysis\n\n"
+        f"result = run_analysis(\n"
+        f'    {{"helper": "{helper}", "params": {params_json}}},\n'
+        f"    data,\n"
+        f"    {{}},\n"
+        f")\n"
     )
 
+
+def get_analysis_script_templates() -> dict[str, str]:
+    """Return built-in analysis helper scripts keyed by helper name."""
+    return {helper: _template_body(helper, dict(_DEFAULT_PARAMS.get(helper, {}))) for helper in sorted(HELPER_NAMES)}
+
+
+def parse_analysis_script_header(code: str) -> AnalysisScriptMeta | None:
+    """Parse the machine-readable header from a built-in or copied analysis script."""
+    if not code or ANALYSIS_HEADER_PREFIX not in code:
+        return None
+    match = _ANALYSIS_HEADER_RE.search(code)
+    if not match:
+        return None
+    helper = match.group(1)
+    if helper not in HELPER_NAMES:
+        return None
+    try:
+        params = json.loads(match.group(2))
+    except json.JSONDecodeError:
+        params = {}
+    if not isinstance(params, dict):
+        params = {}
+    return AnalysisScriptMeta(helper=helper, params=params)
+
+
+# --- Core Helper Implementations (Venv Execution Path) ---
 
 def _table_from_df(df: Any, *, name: str, max_rows: int = MAX_TABLE_ROWS) -> dict[str, Any]:
     limited = df.head(max_rows)
@@ -85,6 +375,14 @@ def _error_result(code: str, message: str, *, helper: str | None = None, details
     if details:
         out["details"] = details
     return out
+
+
+def _missing_package_error(helper: str, package: str) -> dict[str, Any]:
+    return _error_result(
+        "MISSING_PACKAGE",
+        f"{package} is required for {helper}. Install: {ANALYSIS_VENV_PIP_INSTALL}",
+        helper=helper,
+    )
 
 
 def _resolve_df(data: Any, *, headers: bool = True, header_row: int = 0, sheet_hint: str | None = None) -> CoerceResult:
@@ -149,9 +447,6 @@ def format_percent(values: Any, *, decimals: int = 1) -> list[str]:
             continue
         out.append(f"{num * 100:.{decimals}f}%")
     return out
-
-
-
 
 
 def _describe_columns_from_profile(
@@ -306,6 +601,10 @@ def detect_outliers(
     sheet_hint: str | None = None,
 ) -> dict[str, Any]:
     """Flag outliers using IQR, z-score, or sklearn IsolationForest."""
+    import numpy as np
+    import pandas as pd
+    from scipy import stats as scipy_stats
+
     coerced = _resolve_df(data, headers=headers, header_row=header_row, sheet_hint=sheet_hint)
     df = coerced.df
     if df.empty:
@@ -324,11 +623,12 @@ def detect_outliers(
     per_column: dict[str, int] = {col: 0 for col in numeric_cols}
 
     if method == "zscore":
-        z = np.abs(cast("Any", stats.zscore(sample.values, axis=0, nan_policy="omit")))
+        z = np.abs(cast("Any", scipy_stats.zscore(sample.values, axis=0, nan_policy="omit")))
         col_mask = pd.DataFrame(z > threshold, index=sample.index, columns=sample.columns).fillna(False)
         mask = col_mask.any(axis=1)
         per_column = {str(col): int(col_mask[col].sum()) for col in numeric_cols}
     elif method == "isolation_forest":
+        from sklearn.ensemble import IsolationForest
         if not sample.empty:
             filled = sample.fillna(sample.median())
             model = IsolationForest(random_state=42, contamination="auto")
@@ -514,6 +814,7 @@ def compare_periods(
     sheet_hint: str | None = None,
 ) -> dict[str, Any]:
     """YoY / QoQ style period-over-period change."""
+    import pandas as pd
     coerced = _resolve_df(data, headers=headers, header_row=header_row, sheet_hint=sheet_hint)
     df = coerced.df.copy()
     if date_col not in df.columns or value_col not in df.columns:
@@ -605,11 +906,9 @@ def run_regression(
 
     y = sample[target].astype(float)
     x = sample[feature_cols].astype(float)
-    metrics: dict[str, Any]
-    coef_rows: list[list[Any]]
 
     try:
-        import statsmodels.api as sm  # type: ignore[import-untyped]
+        import statsmodels.api as sm
     except ImportError:
         return _missing_package_error("run_regression", "statsmodels")
 
@@ -650,6 +949,8 @@ def cluster_numeric(
     sheet_hint: str | None = None,
 ) -> dict[str, Any]:
     """Cluster numeric columns with sklearn KMeans."""
+    from sklearn.cluster import KMeans
+
     coerced = _resolve_df(data, headers=headers, header_row=header_row, sheet_hint=sheet_hint)
     df = coerced.df
     try:
@@ -701,8 +1002,9 @@ def monte_carlo(
     sheet_hint: str | None = None,
 ) -> dict[str, Any]:
     """Monte Carlo simulation on a numeric series (pandas-montecarlo)."""
+    import numpy as np
     try:
-        from pandas_montecarlo import montecarlo as pmc_montecarlo  # type: ignore[import-untyped]
+        from pandas_montecarlo import montecarlo as pmc_montecarlo
     except ImportError:
         return _missing_package_error("monte_carlo", "pandas-montecarlo")
 

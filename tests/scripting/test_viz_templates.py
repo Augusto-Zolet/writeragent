@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from plugin.scripting.viz_templates import get_viz_script_templates, parse_viz_script_header
+from plugin.scripting.viz import get_viz_script_templates, parse_viz_script_header
 
 
 def test_get_viz_script_templates_include_header():

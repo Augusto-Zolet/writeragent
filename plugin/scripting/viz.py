@@ -2,19 +2,265 @@
 # Copyright (c) 2026 KeithCu (modifications and relicensing)
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Trusted venv visualization helpers — matplotlib/seaborn plots from sheet data."""
+"""Trusted venv visualization helpers — matplotlib/seaborn plots from sheet data.
+
+Includes execution templates, egress formatting, runner, and dispatch logic.
+"""
 
 from __future__ import annotations
 
+import json
+import logging
+import re
+from dataclasses import dataclass
 from typing import Any
 
-import pandas as pd  # type: ignore[import-untyped]
+from plugin.calc.analysis_runner import calc_tool_context
+from plugin.calc.venv_python import _resolve_python_data
+from plugin.doc.document_helpers import is_calc, is_draw, is_writer
+from plugin.scripting.analysis import CoerceResult, coerce_to_dataframe
+from plugin.scripting.client import run_viz as client_run_viz
+from plugin.scripting.image_payload import write_image_payload_to_temp
+from plugin.scripting.payload_codec import is_image_payload
+from plugin.framework.errors import ToolExecutionError
+from plugin.framework.i18n import _
 
-from plugin.scripting.analysis_coerce import CoerceResult, coerce_to_dataframe
-from plugin.scripting.viz_common import HELPER_NAMES, VIZ_VENV_PIP_INSTALL
+log = logging.getLogger(__name__)
 
-__all__ = ["HELPER_NAMES", "run_viz"]
+# --- Constants & Common ---
 
+HELPER_NAMES = frozenset(
+    {
+        "quick_plot",
+        "plot_data",
+        "correlation_heatmap",
+        "time_series_plot",
+    }
+)
+
+VIZ_VENV_PIP_INSTALL = "pip install matplotlib seaborn"
+
+VIZ_HEADER_PREFIX = "# writeragent:viz"
+_VIZ_HEADER_RE = re.compile(
+    r"^\s*#\s*writeragent:viz\s+helper=(\w+)\s+params=(\{.*\})\s*$",
+    re.MULTILINE,
+)
+
+_SHIPPED_TEMPLATES = frozenset({"quick_plot", "correlation_heatmap", "time_series_plot"})
+
+_DEFAULT_PARAMS: dict[str, dict[str, Any]] = {
+    "quick_plot": {},
+    "correlation_heatmap": {"method": "pearson"},
+    "time_series_plot": {"date_col": "Date", "value_col": "Amount"},
+}
+
+_HELPER_DESCRIPTIONS: dict[str, str] = {
+    "quick_plot": "Auto line/bar chart from numeric columns in the data range.",
+    "correlation_heatmap": "Heatmap of pairwise correlations (matplotlib/seaborn).",
+    "time_series_plot": "Line plot for date_col vs value_col.",
+}
+
+
+# --- Templates ---
+
+@dataclass(frozen=True)
+class VizScriptMeta:
+    helper: str
+    params: dict[str, Any]
+
+
+def _template_body(helper: str, params: dict[str, Any]) -> str:
+    params_json = json.dumps(params, separators=(",", ":"))
+    desc = _HELPER_DESCRIPTIONS.get(helper, helper)
+    return (
+        f"{VIZ_HEADER_PREFIX} helper={helper} params={params_json}\n"  # nosec
+        f"# {desc}\n"
+        f"# Set the data range in the toolbar (or select cells), then Run.\n"
+        f"from plugin.scripting.viz import run_viz\n\n"
+        f"result = run_viz(\n"
+        f'    {{"helper": "{helper}", "params": {params_json}}},\n'
+        f"    data,\n"
+        f"    {{}},\n"
+        f")\n"
+    )
+
+
+def get_viz_script_templates() -> dict[str, str]:
+    """Return built-in viz helper scripts keyed by helper name."""
+    return {
+        helper: _template_body(helper, dict(_DEFAULT_PARAMS.get(helper, {})))
+        for helper in sorted(_SHIPPED_TEMPLATES)
+        if helper in HELPER_NAMES
+    }
+
+
+def parse_viz_script_header(code: str) -> VizScriptMeta | None:
+    """Parse the machine-readable header from a built-in or copied viz script."""
+    if not code or VIZ_HEADER_PREFIX not in code:
+        return None
+    match = _VIZ_HEADER_RE.search(code)
+    if not match:
+        return None
+    helper = match.group(1)
+    if helper not in HELPER_NAMES:
+        return None
+    try:
+        params = json.loads(match.group(2))
+    except json.JSONDecodeError:
+        params = {}
+    if not isinstance(params, dict):
+        params = {}
+    return VizScriptMeta(helper=helper, params=params)
+
+
+# --- Runner ---
+
+def supports_viz_manual(doc: Any) -> bool:
+    """True when Run Python Script should expose Viz Helpers for *doc*."""
+    if doc is None:
+        return False
+    try:
+        return is_writer(doc) or is_calc(doc)
+    except Exception:
+        return False
+
+
+def run_trusted_viz(
+    uno_ctx: Any,
+    doc: Any,
+    *,
+    helper: str,
+    params: dict[str, Any] | None = None,
+    data_range: str | None = None,
+    data: Any = None,
+    headers: bool = True,
+    task_hint: str | None = None,
+) -> dict[str, Any]:
+    """Fetch Calc data and run a trusted viz helper in the user venv."""
+    name = str(helper or "").strip()
+    if not name:
+        raise ToolExecutionError("helper is required", code="VIZ_ERROR")
+    if name not in HELPER_NAMES:
+        raise ToolExecutionError(f"Unknown helper {name!r}", code="VIZ_ERROR")
+
+    if not is_calc(doc) and not is_writer(doc):
+        raise ToolExecutionError("Viz helpers require a Writer or Calc document.", code="VIZ_ERROR")
+
+    dr = str(data_range).strip() if data_range else None
+    if not dr and data is None:
+        raise ToolExecutionError("Provide data_range or data", code="VIZ_ERROR")
+
+    tool_ctx = calc_tool_context(uno_ctx, doc)
+    py_data, err = _resolve_python_data(tool_ctx, data_range=dr, data=data)
+    if err:
+        raise ToolExecutionError(err, code="VIZ_ERROR")
+    if py_data is None:
+        raise ToolExecutionError("No data to plot", code="VIZ_ERROR")
+
+    spec: dict[str, Any] = {"helper": name, "headers": bool(headers)}
+    if isinstance(params, dict) and params:
+        spec["params"] = params
+
+    context: dict[str, Any] = {}
+    if is_calc(doc):
+        try:
+            from plugin.calc.bridge import CalcBridge
+
+            context["sheet_name"] = CalcBridge(doc).get_active_sheet().getName()
+        except Exception:
+            pass
+    if task_hint:
+        context["task_hint"] = str(task_hint)
+    if dr:
+        context["range_a1"] = dr
+
+    return client_run_viz(uno_ctx, spec, py_data, context=context or None)
+
+
+# --- Egress ---
+
+def is_viz_result(value: Any) -> bool:
+    """True when *value* matches the compact viz helper result contract."""
+    if not isinstance(value, dict):
+        return False
+    if "status" not in value:
+        return False
+    helper = value.get("helper")
+    if isinstance(helper, str) and helper in HELPER_NAMES:
+        return True
+    image = value.get("image")
+    return is_image_payload(image)
+
+
+def extract_image_payload(value: Any) -> dict[str, Any] | None:
+    """Return the ``__wa_payload__: image`` envelope from raw or viz-wrapped results."""
+    if is_image_payload(value):
+        return value
+    if isinstance(value, dict):
+        image = value.get("image")
+        if is_image_payload(image):
+            return image
+    return None
+
+
+def insert_image_payload_for_doc(
+    ctx: Any,
+    doc: Any,
+    payload: dict[str, Any],
+    *,
+    title: str = "Plot",
+) -> None:
+    """Insert an image envelope into Calc, Writer, or Draw/Impress."""
+    if is_calc(doc):
+        from plugin.calc.python_image_egress import insert_image_result_on_sheet
+
+        insert_image_result_on_sheet(ctx, payload)
+        return
+    if is_writer(doc):
+        from plugin.writer.images.image_tools import insert_image_at_locator
+
+        path = write_image_payload_to_temp(payload)
+        insert_image_at_locator(ctx, doc, path, title=title, description="WriterAgent plot")
+        return
+    if is_draw(doc):
+        from plugin.writer.images.image_tools import insert_image
+
+        path = write_image_payload_to_temp(payload)
+        insert_image(ctx, doc, path, 400, 300, title=title, description="WriterAgent plot", add_to_gallery=False)
+        return
+    raise ToolExecutionError(_("Unsupported document type for plot insertion."), code="VIZ_ERROR")
+
+
+def insert_viz_result_into_doc(ctx: Any, doc: Any, result: dict[str, Any]) -> None:
+    """Insert a viz helper result (image nested under ``image`` key)."""
+    if result.get("status") == "error":
+        code = str(result.get("code") or "VIZ_ERROR")
+        message = str(result.get("message") or _("Viz helper failed."))
+        raise ToolExecutionError(message, code=code, details={"viz_result": result})
+    payload = extract_image_payload(result)
+    if payload is None:
+        raise ToolExecutionError(
+            _("Viz helper returned no image payload."),
+            code="VIZ_ERROR",
+            details={"viz_result": result},
+        )
+    title = str(result.get("title") or result.get("helper") or "Plot")
+    insert_image_payload_for_doc(ctx, doc, payload, title=title)
+
+
+def try_insert_plot_result(ctx: Any, doc: Any, result_data: Any) -> bool:
+    """Insert plot/image results when present. Returns True if insertion ran."""
+    payload = extract_image_payload(result_data)
+    if payload is None:
+        return False
+    title = "Plot"
+    if isinstance(result_data, dict):
+        title = str(result_data.get("title") or result_data.get("helper") or "Plot")
+    insert_image_payload_for_doc(ctx, doc, payload, title=title)
+    return True
+
+
+# --- Core Helper Implementations (Venv Execution Path) ---
 
 def _error_result(code: str, message: str, *, helper: str | None = None) -> dict[str, Any]:
     out: dict[str, Any] = {"status": "error", "code": code, "message": message}
@@ -47,7 +293,7 @@ def _resolve_df(data: Any, *, headers: bool = True, header_row: int = 0, sheet_h
     return coerce_to_dataframe(data, headers=headers, header_row=header_row, sheet_hint=sheet_hint)
 
 
-def _numeric_columns(df: pd.DataFrame, columns: list[str] | None = None) -> list[str]:
+def _numeric_columns(df: Any, columns: list[str] | None = None) -> list[str]:
     if columns:
         missing = [c for c in columns if c not in df.columns]
         if missing:
@@ -82,7 +328,7 @@ def _ok_viz(helper: str, fig: Any, *, chart_type: str, title: str = "", legend: 
 
 def _require_matplotlib(helper: str) -> Any | None:
     try:
-        import matplotlib.pyplot as plt  # type: ignore[import-untyped]
+        import matplotlib.pyplot as plt
 
         plt.switch_backend("Agg")
         return plt
@@ -219,7 +465,7 @@ def correlation_heatmap(
     fig, ax = plt.subplots(figsize=(max(6, numeric.shape[1]), max(5, numeric.shape[1] - 1)))
 
     try:
-        import seaborn as sns  # type: ignore[import-untyped]
+        import seaborn as sns
 
         sns.heatmap(corr, annot=numeric.shape[1] <= 8, fmt=".2f", cmap="coolwarm", ax=ax)
     except ImportError:
@@ -260,6 +506,7 @@ def time_series_plot(
     if series.empty:
         return _error_result("INSUFFICIENT_DATA", "No rows to plot.", helper="time_series_plot")
 
+    import pandas as pd
     dates = pd.to_datetime(series[date_col], errors="coerce")
     values = series[value_col].astype(float)
     mask = dates.notna()

@@ -92,6 +92,7 @@ runtime-evaluated-decorators = ["dataclasses.dataclass"]
 [tool.mypy]
 python_version = "3.11"
 explicit_package_bases = true
+ignore_missing_imports = true
 disable_error_code = ["annotation-unchecked"]
 packages = ["plugin"]
 exclude = [

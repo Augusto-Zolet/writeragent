@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from plugin.scripting.viz_common import HELPER_NAMES
+from plugin.scripting.viz import HELPER_NAMES
 
 AUTO_PLOT_ANALYSIS_HELPERS = frozenset(
     {
@@ -110,7 +110,7 @@ def run_auto_plot_after_analysis(
     viz_helper, viz_params = request
     if viz_helper not in HELPER_NAMES:
         return None
-    from plugin.scripting.viz_runner import run_trusted_viz
+    from plugin.scripting.viz import run_trusted_viz
 
     return run_trusted_viz(
         uno_ctx,

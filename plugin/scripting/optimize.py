@@ -1,33 +1,294 @@
 # WriterAgent - AI Writing Assistant for LibreOffice
 # Copyright (c) 2026 KeithCu (modifications and relicensing)
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Trusted venv optimization helpers — Operations Research capabilities.
 
-Invoked from the LO host through a fixed RPC stub (see optimize_client.py), not
-from LLM-submitted code. See docs/enabling_numpy_in_libreoffice.md.
-
-Note: Currently uses scipy.optimize. pulp and ortools integration is deferred.
+Includes execution templates, egress formatting, runner, and dispatch logic.
 """
+
 from __future__ import annotations
 
+import json
 import logging
-from typing import Any
+import re
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, cast
 
-import numpy as np
-import pandas as pd  # type: ignore[import-untyped]
-from scipy import optimize  # type: ignore[import-untyped]
+# LO host imports (only imported/used if running on LO host)
+from plugin.calc.address_utils import index_to_column
+from plugin.calc.bridge import CalcBridge
+from plugin.calc.manipulator import CellManipulator
+from plugin.calc.python_function import to_calc_compatible
+from plugin.calc.venv_python import _resolve_python_data
+from plugin.doc.document_helpers import is_calc
+from plugin.framework.errors import ToolExecutionError
+from plugin.scripting.analysis import CoerceResult, coerce_to_dataframe
+from plugin.scripting.client import run_optimize as client_run_optimize
 
-from plugin.scripting.analysis_coerce import CoerceResult, coerce_to_dataframe
-from plugin.scripting.optimize_common import HELPER_NAMES
+if TYPE_CHECKING:
+    from plugin.framework.tool import ToolContext
 
 log = logging.getLogger(__name__)
 
+# --- Common & Constants ---
+
+HELPER_NAMES = {
+    "optimize_portfolio",
+    "linear_programming",
+    "solve_scheduling_problem",
+}
+
 MAX_TABLE_ROWS = 50
 
+OPTIMIZE_HEADER_PREFIX = "# writeragent:optimize"
+_OPTIMIZE_HEADER_RE = re.compile(
+    r"^\s*#\s*writeragent:optimize\s+helper=(\w+)\s+params=(\{.*\})\s*$",
+    re.MULTILINE,
+)
+
+_DEFAULT_PARAMS: dict[str, dict[str, Any]] = {
+    "optimize_portfolio": {"returns_col": None, "target_return": None, "risk_free_rate": 0.0},
+    "linear_programming": {"c_col": "c", "a_cols": ["a1"], "b_col": "b", "maximize": False},
+    "solve_scheduling_problem": {"cost_cols": ["cost1"]},
+}
+
+_HELPER_DESCRIPTIONS: dict[str, str] = {
+    "optimize_portfolio": "Mean-variance portfolio optimization",
+    "linear_programming": "Linear programming solver",
+    "solve_scheduling_problem": "Assignment problem solver (e.g., workers to tasks)",
+}
+
+
+# --- Templates ---
+
+@dataclass
+class OptimizeScriptHeader:
+    helper: str
+    params: dict[str, Any]
+
+
+def parse_optimize_script_header(code: str) -> OptimizeScriptHeader | None:
+    match = _OPTIMIZE_HEADER_RE.search(code)
+    if not match:
+        return None
+    try:
+        params = json.loads(match.group(2))
+        return OptimizeScriptHeader(helper=match.group(1), params=params)
+    except Exception:
+        return None
+
+
+def get_optimize_template(helper: str) -> str | None:
+    if helper not in HELPER_NAMES:
+        return None
+    params = _DEFAULT_PARAMS.get(helper, {})
+    params_str = json.dumps(params)
+    
+    desc = _HELPER_DESCRIPTIONS.get(helper, helper.replace("_", " ").title())
+    
+    lines = [
+        f"{OPTIMIZE_HEADER_PREFIX} helper={helper} params={params_str}",
+        "#",
+        f"# {desc}",
+        "# This script delegates to the trusted optimize venv module.",
+        "# Edit the JSON params above if needed. No other code runs.",
+    ]
+    
+    return "\n".join(lines) + "\n"
+
+
+# --- Runner ---
+
+def calc_tool_context(uno_ctx: Any, doc: Any) -> ToolContext:
+    """Minimal ToolContext-like object for range reads on the main thread."""
+    from types import SimpleNamespace
+
+    return cast(
+        "ToolContext",
+        SimpleNamespace(ctx=uno_ctx, doc=doc, doc_type="calc" if is_calc(doc) else None, active_domain=None),
+    )
+
+
+def run_trusted_optimize(
+    uno_ctx: Any,
+    doc: Any,
+    *,
+    helper: str,
+    params: dict[str, Any] | None = None,
+    data_range: str | None = None,
+    data: Any = None,
+    headers: bool = True,
+    task_hint: str | None = None,
+) -> dict[str, Any]:
+    """Fetch Calc data and run a trusted optimization helper in the user venv."""
+    name = str(helper or "").strip()
+    if not name:
+        raise ToolExecutionError("helper is required", code="OPTIMIZE_ERROR")
+    if name not in HELPER_NAMES:
+        raise ToolExecutionError(f"Unknown helper {name!r}", code="OPTIMIZE_ERROR")
+
+    dr = str(data_range).strip() if data_range else None
+    if not dr and data is None:
+        raise ToolExecutionError("Provide data_range or data", code="OPTIMIZE_ERROR")
+
+    tool_ctx = calc_tool_context(uno_ctx, doc)
+    py_data, err = _resolve_python_data(tool_ctx, data_range=dr, data=data)
+    if err:
+        raise ToolExecutionError(err, code="OPTIMIZE_ERROR")
+    if py_data is None:
+        raise ToolExecutionError("No data to optimize", code="OPTIMIZE_ERROR")
+
+    spec: dict[str, Any] = {"helper": name, "headers": bool(headers)}
+    if isinstance(params, dict) and params:
+        spec["params"] = params
+
+    context: dict[str, Any] = {}
+    try:
+        bridge = CalcBridge(doc)
+        context["sheet_name"] = bridge.get_active_sheet().getName()
+    except Exception:
+        pass
+    if task_hint:
+        context["task_hint"] = str(task_hint)
+    if dr:
+        context["range_a1"] = dr
+
+    return client_run_optimize(uno_ctx, spec, py_data, context=context or None)
+
+
+# --- Egress ---
+
+def is_optimize_result(value: Any) -> bool:
+    """True when *value* matches the compact optimize helper result contract."""
+    if not isinstance(value, dict):
+        return False
+    if "status" not in value:
+        return False
+    helper = value.get("helper")
+    if isinstance(helper, str) and helper in HELPER_NAMES:
+        return True
+    if value.get("status") == "error":
+        code = str(value.get("code") or "")
+        return code == "OPTIMIZE_ERROR" or "OPTIMIZ" in code
+    return False
+
+
+def _cell(value: Any) -> Any:
+    return to_calc_compatible(value)
+
+
+def _append_blank(rows: list[list[Any]]) -> None:
+    if rows and rows[-1]:
+        rows.append([])
+
+
+def _append_key_value_block(rows: list[list[Any]], title: str, mapping: dict[str, Any]) -> None:
+    if not mapping:
+        return
+    _append_blank(rows)
+    rows.append([title])
+    rows.append(["Key", "Value"])
+    for key, val in mapping.items():
+        if isinstance(val, (dict, list)):
+            rows.append([str(key), str(val)])
+        else:
+            rows.append([str(key), _cell(val)])
+
+
+def format_optimize_for_calc(result: dict[str, Any]) -> list[list[Any]]:
+    """Turn an optimize helper result dict into a row-major grid for ``write_formula_range``."""
+    rows: list[list[Any]] = []
+
+    if result.get("status") == "error":
+        code = str(result.get("code") or "ERROR")
+        message = str(result.get("message") or "Optimization failed.")
+        return [[f"Optimization error ({code})"], [message]]
+
+    helper = str(result.get("helper") or "optimization")
+    raw_ctx = result.get("context")
+    ctx: dict[str, Any] = raw_ctx if isinstance(raw_ctx, dict) else {}
+    range_a1 = str(ctx.get("range_a1") or "").strip()
+    title = f"{helper} — {range_a1}" if range_a1 else helper
+    rows.append([title])
+
+    metrics = result.get("metrics")
+    if isinstance(metrics, dict) and metrics:
+        _append_key_value_block(rows, "Metrics", metrics)
+
+    flags = result.get("flags")
+    if isinstance(flags, list) and flags:
+        _append_blank(rows)
+        rows.append(["Flags"])
+        for item in flags:
+            rows.append([str(item)])
+
+    tables = result.get("tables")
+    if isinstance(tables, list):
+        for table in tables:
+            if not isinstance(table, dict):
+                continue
+            _append_blank(rows)
+            rows.append([str(table.get("name") or "table")])
+            columns = table.get("columns")
+            table_rows = table.get("rows")
+            if isinstance(columns, list) and columns:
+                rows.append([str(c) for c in columns])
+            if isinstance(table_rows, list):
+                for row in table_rows:
+                    if isinstance(row, list):
+                        rows.append([_cell(cell) for cell in row])
+                    else:
+                        rows.append([_cell(row)])
+            if table.get("truncated"):
+                total = table.get("total_rows")
+                note = f"(showing first rows; {total} total)" if total is not None else "(truncated)"
+                rows.append([note])
+
+    metadata = result.get("metadata")
+    if isinstance(metadata, dict) and metadata:
+        subset = {k: metadata[k] for k in ("n_rows", "n_cols", "numeric_cols") if k in metadata}
+        if subset:
+            _append_key_value_block(rows, "Metadata", subset)
+
+    if len(rows) == 1:
+        rows.append(["(no tabular output)"])
+    return rows
+
+
+def calc_anchor_from_selection(doc: Any) -> tuple[int, int]:
+    """Return (start_col, start_row) from the current Calc selection."""
+    controller = doc.getCurrentController()
+    selection = controller.getSelection()
+    if selection is not None and hasattr(selection, "getRangeAddress"):
+        addr = selection.getRangeAddress()
+        return int(addr.StartColumn), int(addr.StartRow)
+    return 0, 0
+
+
+def insert_optimize_result_into_calc(
+    doc: Any,
+    uno_ctx: Any,
+    result: dict[str, Any],
+    *,
+    start_col: int | None = None,
+    start_row: int | None = None,
+) -> int:
+    """Write formatted optimization output starting at *start_col*/*start_row* (or selection). Returns row count."""
+    if start_col is None or start_row is None:
+        col, row = calc_anchor_from_selection(doc)
+        start_col = col if start_col is None else start_col
+        start_row = row if start_row is None else start_row
+
+    grid = format_optimize_for_calc(result)
+    bridge = CalcBridge(doc)
+    manipulator = CellManipulator(bridge)
+    addr = f"{index_to_column(start_col)}{start_row + 1}"
+    manipulator.write_formula_range(addr, grid)
+    return len(grid)
+
+
+# --- Core Helper Implementations (Venv Execution Path) ---
 
 def _missing_package_error(helper: str, package: str) -> dict[str, Any]:
     return _error_result(
@@ -103,6 +364,10 @@ def linear_programming(
     
     Future: Consider pulp for more complex formulations.
     """
+    import numpy as np
+    import pandas as pd
+    from scipy import optimize as scipy_optimize
+
     coerced = _resolve_df(data, headers=headers, header_row=header_row, sheet_hint=sheet_hint)
     df = coerced.df.dropna(subset=[c_col, b_col] + a_cols)
     
@@ -125,7 +390,7 @@ def linear_programming(
         b_ub = np.zeros(A_ub.shape[0]) # if b isn't correctly dimensioned
 
     try:
-        res = optimize.linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=(bounds,) * len(c) if bounds else None)
+        res = scipy_optimize.linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=(bounds,) * len(c) if bounds else None)
     except Exception as e:
         return _error_result("OPTIMIZATION_FAILED", str(e), helper="linear_programming")
 
@@ -158,6 +423,10 @@ def optimize_portfolio(
     sheet_hint: str | None = None,
 ) -> dict[str, Any]:
     """Mean-variance portfolio optimization."""
+    import numpy as np
+    import pandas as pd
+    from scipy import optimize as scipy_optimize
+
     coerced = _resolve_df(data, headers=headers, header_row=header_row, sheet_hint=sheet_hint)
     df = coerced.df
     
@@ -197,7 +466,7 @@ def optimize_portfolio(
     init_guess = np.array(num_assets * [1.0 / num_assets])
 
     try:
-        result = optimize.minimize(
+        result = scipy_optimize.minimize(
             portfolio_variance,
             init_guess,
             method="SLSQP",
@@ -242,6 +511,9 @@ def solve_scheduling_problem(
     sheet_hint: str | None = None,
 ) -> dict[str, Any]:
     """Solve an assignment problem (e.g. workers to tasks) using linear_sum_assignment."""
+    import pandas as pd
+    from scipy import optimize as scipy_optimize
+
     coerced = _resolve_df(data, headers=headers, header_row=header_row, sheet_hint=sheet_hint)
     df = coerced.df
     
@@ -256,7 +528,7 @@ def solve_scheduling_problem(
     cost_matrix = df[numeric_cols].values.astype(float)
     
     try:
-        row_ind, col_ind = optimize.linear_sum_assignment(cost_matrix)
+        row_ind, col_ind = scipy_optimize.linear_sum_assignment(cost_matrix)
     except Exception as e:
         return _error_result("OPTIMIZATION_FAILED", str(e), helper="solve_scheduling_problem")
 

@@ -27,7 +27,7 @@ def writer_ctx():
 
 @patch("plugin.calc.symbolic_math.insert_symbolic_result_into_doc")
 @patch("plugin.framework.queue_executor.execute_on_main_thread")
-@patch("plugin.scripting.symbolic_runner.run_trusted_symbolic")
+@patch("plugin.scripting.symbolic.run_trusted_symbolic")
 def test_symbolic_math_happy_path(mock_run, mock_main_thread, mock_insert, writer_ctx):
     mock_run.return_value = {
         "status": "ok",

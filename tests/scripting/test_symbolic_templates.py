@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from plugin.scripting.symbolic_templates import get_math_script_templates, parse_math_script_header
+from plugin.scripting.symbolic import get_math_script_templates, parse_math_script_header
 
 
 def test_get_math_script_templates_include_header():

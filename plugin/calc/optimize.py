@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from plugin.calc.base import ToolCalcAnalysisBase
 from plugin.framework.errors import ToolExecutionError
-from plugin.scripting.optimize_common import HELPER_NAMES
+from plugin.scripting.optimize import HELPER_NAMES
 
 if TYPE_CHECKING:
     from plugin.framework.tool import ToolContext
@@ -81,8 +81,7 @@ class OptimizeDataTool(ToolCalcAnalysisBase):
         if not (data_range and str(data_range).strip()) and data is None:
             return self._tool_error("Provide data_range or data")
 
-        from plugin.scripting.optimize_runner import run_trusted_optimize
-        from plugin.scripting.optimize_egress import insert_optimize_result_into_calc
+        from plugin.scripting.optimize import run_trusted_optimize, insert_optimize_result_into_calc
         from plugin.calc.address_utils import parse_address
         from plugin.framework.queue_executor import execute_on_main_thread
 

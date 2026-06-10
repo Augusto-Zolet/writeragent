@@ -12,7 +12,7 @@ from plugin.calc.address_utils import index_to_column
 from plugin.calc.bridge import CalcBridge
 from plugin.calc.manipulator import CellManipulator
 from plugin.calc.python_function import to_calc_compatible
-from plugin.scripting.analysis_common import HELPER_NAMES
+from plugin.scripting.analysis import HELPER_NAMES
 
 
 def is_analysis_result(value: Any) -> bool:

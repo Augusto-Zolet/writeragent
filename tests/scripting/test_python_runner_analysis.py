@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from plugin.scripting.analysis_templates import get_analysis_script_templates
+from plugin.scripting.analysis import get_analysis_script_templates
 from plugin.scripting.python_runner import execute_and_insert_result
 from plugin.tests.testing_utils import setup_uno_mocks
 

@@ -11,8 +11,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from plugin.calc.base import ToolCalcPythonBase
 from plugin.framework.errors import ToolExecutionError
 from plugin.framework.queue_executor import execute_on_main_thread
-from plugin.scripting.symbolic_common import HELPER_NAMES
-from plugin.scripting.symbolic_egress import insert_symbolic_result_into_doc
+from plugin.scripting.symbolic import HELPER_NAMES, insert_symbolic_result_into_doc
 
 if TYPE_CHECKING:
     from plugin.framework.tool import ToolContext
@@ -60,7 +59,7 @@ class SymbolicMathTool(ToolCalcPythonBase):
         task_hint = str(kwargs["task_hint"]) if kwargs.get("task_hint") else None
         display_block = bool(kwargs.get("display_block", False))
 
-        from plugin.scripting.symbolic_runner import run_trusted_symbolic
+        from plugin.scripting.symbolic import run_trusted_symbolic
 
         def _run() -> dict[str, Any]:
             return run_trusted_symbolic(

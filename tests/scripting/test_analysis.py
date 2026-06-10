@@ -15,7 +15,7 @@ pytest.importorskip("sklearn")
 pytest.importorskip("scipy")
 
 from plugin.scripting import analysis
-from plugin.scripting.analysis_coerce import coerce_to_dataframe
+from plugin.scripting.analysis import coerce_to_dataframe
 
 
 SALES_GRID = [

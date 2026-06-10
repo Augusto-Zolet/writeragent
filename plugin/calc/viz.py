@@ -11,8 +11,7 @@ from typing import TYPE_CHECKING, Any
 from plugin.calc.base import ToolCalcAnalysisBase
 from plugin.framework.errors import ToolExecutionError
 from plugin.framework.queue_executor import execute_on_main_thread
-from plugin.scripting.viz_common import HELPER_NAMES
-from plugin.scripting.viz_egress import insert_viz_result_into_doc
+from plugin.scripting.viz import HELPER_NAMES, insert_viz_result_into_doc
 
 if TYPE_CHECKING:
     from plugin.framework.tool import ToolContext
@@ -76,9 +75,8 @@ class PlotDataTool(ToolCalcAnalysisBase):
         headers = bool(kwargs.get("headers", True)) if "headers" in kwargs else True
         task_hint = str(kwargs["task_hint"]) if kwargs.get("task_hint") else None
 
-        from plugin.scripting.viz_runner import run_trusted_viz
+        from plugin.scripting.viz import run_trusted_viz, extract_image_payload
         from plugin.scripting.image_payload import write_image_payload_to_temp
-        from plugin.scripting.viz_egress import extract_image_payload
 
         def _run() -> dict[str, Any]:
             return run_trusted_viz(

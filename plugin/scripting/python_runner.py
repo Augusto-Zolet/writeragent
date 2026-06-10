@@ -374,22 +374,15 @@ def execute_and_insert_result(
     from plugin.calc.python_formula_edit import parse_data_binding_text
     from plugin.calc.venv_python import _resolve_python_data
     from plugin.framework.errors import ToolExecutionError
-    from plugin.scripting.analysis_templates import parse_analysis_script_header
+    from plugin.scripting.analysis import parse_analysis_script_header
     from plugin.scripting.vision_egress import insert_vision_result, is_vision_result
     from plugin.scripting.vision_runner import run_trusted_vision, supports_vision_manual
     from plugin.scripting.vision_templates import parse_vision_script_header
-    from plugin.scripting.viz_egress import insert_viz_result_into_doc, is_viz_result, try_insert_plot_result
-    from plugin.scripting.viz_runner import run_trusted_viz, supports_viz_manual
-    from plugin.scripting.viz_templates import parse_viz_script_header
-    from plugin.scripting.symbolic_egress import insert_symbolic_result_into_doc, is_symbolic_result
-    from plugin.scripting.symbolic_runner import run_trusted_symbolic, supports_symbolic_manual
-    from plugin.scripting.symbolic_templates import parse_math_script_header
+    from plugin.scripting.viz import insert_viz_result_into_doc, is_viz_result, try_insert_plot_result, run_trusted_viz, supports_viz_manual, parse_viz_script_header
+    from plugin.scripting.symbolic import insert_symbolic_result_into_doc, is_symbolic_result, run_trusted_symbolic, supports_symbolic_manual, parse_math_script_header
     from plugin.calc.quant_egress import insert_quant_result_into_calc, is_quant_result
-    from plugin.scripting.quant_runner import run_trusted_quant
-    from plugin.scripting.quant_templates import parse_quant_script_header
-    from plugin.scripting.optimize_egress import insert_optimize_result_into_calc, is_optimize_result
-    from plugin.scripting.optimize_runner import run_trusted_optimize
-    from plugin.scripting.optimize_templates import parse_optimize_script_header
+    from plugin.scripting.quant import run_trusted_quant, parse_quant_script_header
+    from plugin.scripting.optimize import insert_optimize_result_into_calc, is_optimize_result, run_trusted_optimize, parse_optimize_script_header
 
     t0 = time.perf_counter()
     vision_meta = parse_vision_script_header(code)
@@ -878,10 +871,10 @@ def execute_and_insert_result(
 def _run_python_monaco(ctx: Any, doc: Any, *, config_key: str, initial_code: str, exe: str) -> bool:
     """Open Monaco for Run Python Script. Return True when the editor session started."""
     from plugin.calc.analysis_runner import calc_selection_to_a1
-    from plugin.scripting.analysis_templates import parse_analysis_script_header
-    from plugin.scripting.viz_templates import parse_viz_script_header
-    from plugin.scripting.quant_templates import parse_quant_script_header
-    from plugin.scripting.optimize_templates import parse_optimize_script_header
+    from plugin.scripting.analysis import parse_analysis_script_header
+    from plugin.scripting.viz import parse_viz_script_header
+    from plugin.scripting.quant import parse_quant_script_header
+    from plugin.scripting.optimize import parse_optimize_script_header
 
     run_ok_text = _("Script executed successfully.")
     save_ok_text = _("Script saved.")

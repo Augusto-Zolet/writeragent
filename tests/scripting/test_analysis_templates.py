@@ -6,8 +6,8 @@
 
 from __future__ import annotations
 
-from plugin.scripting.analysis import HELPER_NAMES
-from plugin.scripting.analysis_templates import (
+from plugin.scripting.analysis import (
+    HELPER_NAMES,
     ANALYSIS_HEADER_PREFIX,
     get_analysis_script_templates,
     parse_analysis_script_header,
