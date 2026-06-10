@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-10 00:44-0400\n"
+"POT-Creation-Date: 2026-06-10 02:04-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Catalan <LL@li.org>\n"
@@ -394,6 +394,16 @@ msgstr ""
 "IA: Explorem i dissenyem la vostra idea junts. Us faré preguntes, us "
 "suggeriré enfocaments i us ajudaré a crear una especificació aprovada al "
 "vostre document quan estigueu a punt."
+
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's draft your document section-by-section. I'll help you create a "
+"writing plan outline, and then implement it incrementally with your "
+"approval."
+msgstr ""
+"IA: Redactem el teu document secció per secció. T'ajudaré a crear un esquema"
+" del pla d'escriptura i, després, l'implementarem de manera incremental amb "
+"la teva aprovació."
 
 #: plugin/framework/client/errors.py
 #, python-brace-format
@@ -924,6 +934,10 @@ msgstr "Cerca web"
 msgid "Brainstorming"
 msgstr "Pluja d'idees"
 
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Writing Plan"
+msgstr "Pla d'escriptura"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "Accepta"
@@ -1065,6 +1079,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "No s'ha pogut iniciar l'editor: {0}"
 
+#: plugin/chatbot/writing.py
+msgid "Writing session complete."
+msgstr "Sessió d'escriptura finalitzada."
+
 #: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
 msgid "Brainstorming complete."
 msgstr "Pluja d'idees completada."
@@ -1117,6 +1135,19 @@ msgstr "Error desconegut en la pluja d'idees."
 #, python-brace-format
 msgid "[Brainstorming error: {0}]"
 msgstr "[Error de pluja d'idees: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Writing plan complete."
+msgstr "Pla d'escriptura completat."
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown writing plan error."
+msgstr "Error desconegut en el pla d'escriptura."
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Writing plan error: {0}]"
+msgstr "[Error del pla d'escriptura: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."

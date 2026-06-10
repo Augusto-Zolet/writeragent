@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-10 00:44-0400\n"
+"POT-Creation-Date: 2026-06-10 02:04-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Japanese <LL@li.org>\n"
@@ -361,6 +361,13 @@ msgid ""
 msgstr ""
 "AI: "
 "あなたのアイデアを一緒に探求し、設計しましょう。質問をしたり、アプローチを提案したりして、準備ができたらドキュメント内に承認済みの仕様書を作成するお手伝いをします。"
+
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's draft your document section-by-section. I'll help you create a "
+"writing plan outline, and then implement it incrementally with your "
+"approval."
+msgstr "AI: ドキュメントをセクションごとに作成しましょう。執筆計画の構成案を作成し、あなたの承認を得ながら段階的に実装をお手伝いします。"
 
 #: plugin/framework/client/errors.py
 #, python-brace-format
@@ -883,6 +890,10 @@ msgstr "Webリサーチ"
 msgid "Brainstorming"
 msgstr "ブレインストーミング"
 
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Writing Plan"
+msgstr "執筆計画"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "承認"
@@ -1015,6 +1026,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "エディタを開始できませんでした: {0}"
 
+#: plugin/chatbot/writing.py
+msgid "Writing session complete."
+msgstr "執筆セッションが完了しました。"
+
 #: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
 msgid "Brainstorming complete."
 msgstr "ブレインストーミング完了。"
@@ -1065,6 +1080,19 @@ msgstr "不明なブレインストーミングエラーが発生しました。
 #, python-brace-format
 msgid "[Brainstorming error: {0}]"
 msgstr "[ブレインストーミングエラー: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Writing plan complete."
+msgstr "執筆計画が完了しました。"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown writing plan error."
+msgstr "不明な執筆計画エラーが発生しました。"
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Writing plan error: {0}]"
+msgstr "[執筆計画エラー: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-10 00:44-0400\n"
+"POT-Creation-Date: 2026-06-10 02:04-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Lithuanian <LL@li.org>\n"
@@ -391,6 +391,15 @@ msgstr ""
 "DI: Išnagrinėkime ir sukurkime jūsų idėją kartu. Užduosiu klausimų, "
 "pasiūlysiu būdų ir padėsiu parengti patvirtintą specifikaciją jūsų "
 "dokumente, kai būsite pasiruošę."
+
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's draft your document section-by-section. I'll help you create a "
+"writing plan outline, and then implement it incrementally with your "
+"approval."
+msgstr ""
+"AI: Parengkime jūsų dokumentą dalimis. Padėsiu sudaryti rašymo plano "
+"metmenis, o tada juos įgyvendinsime palaipsniui, jums pritarus."
 
 #: plugin/framework/client/errors.py
 #, python-brace-format
@@ -921,6 +930,10 @@ msgstr "Žiniatinklio paieška"
 msgid "Brainstorming"
 msgstr "Idėjų generavimas"
 
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Writing Plan"
+msgstr "Rašymo planas"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "Priimti"
@@ -1059,6 +1072,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "Nepavyko paleisti redaktoriaus: {0}"
 
+#: plugin/chatbot/writing.py
+msgid "Writing session complete."
+msgstr "Rašymo sesija baigta."
+
 #: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
 msgid "Brainstorming complete."
 msgstr "Idėjų generavimas baigtas."
@@ -1111,6 +1128,19 @@ msgstr "Nežinoma idėjų generavimo klaida."
 #, python-brace-format
 msgid "[Brainstorming error: {0}]"
 msgstr "[Idėjų generavimo klaida: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Writing plan complete."
+msgstr "Rašymo planas baigtas."
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown writing plan error."
+msgstr "Nežinoma rašymo plano klaida."
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Writing plan error: {0}]"
+msgstr "[Rašymo plano klaida: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."

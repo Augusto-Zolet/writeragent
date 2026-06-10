@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-10 00:44-0400\n"
+"POT-Creation-Date: 2026-06-10 02:04-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -349,6 +349,13 @@ msgid ""
 "AI: Let's explore and design your idea together. I'll ask questions, suggest"
 " approaches, and help you build an approved spec in your document when "
 "you're ready."
+msgstr ""
+
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's draft your document section-by-section. I'll help you create a "
+"writing plan outline, and then implement it incrementally with your "
+"approval."
 msgstr ""
 
 #: plugin/framework/client/errors.py
@@ -860,6 +867,10 @@ msgstr ""
 msgid "Brainstorming"
 msgstr ""
 
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Writing Plan"
+msgstr ""
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr ""
@@ -987,6 +998,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr ""
 
+#: plugin/chatbot/writing.py
+msgid "Writing session complete."
+msgstr ""
+
 #: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
 msgid "Brainstorming complete."
 msgstr ""
@@ -1036,6 +1051,19 @@ msgstr ""
 #: plugin/chatbot/send_handlers.py
 #, python-brace-format
 msgid "[Brainstorming error: {0}]"
+msgstr ""
+
+#: plugin/chatbot/send_handlers.py
+msgid "Writing plan complete."
+msgstr ""
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown writing plan error."
+msgstr ""
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Writing plan error: {0}]"
 msgstr ""
 
 #: plugin/chatbot/send_handlers.py

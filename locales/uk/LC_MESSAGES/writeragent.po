@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-10 00:44-0400\n"
+"POT-Creation-Date: 2026-06-10 02:04-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Ukrainian <LL@li.org>\n"
@@ -401,6 +401,15 @@ msgstr ""
 "ШІ: Давайте разом дослідимо та розробимо вашу ідею. Я ставитиму запитання, "
 "пропонуватиму підходи та допоможу створити затверджену специфікацію у вашому"
 " документі, коли ви будете готові."
+
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's draft your document section-by-section. I'll help you create a "
+"writing plan outline, and then implement it incrementally with your "
+"approval."
+msgstr ""
+"ШІ: Давайте створимо ваш документ по розділах. Я допоможу вам скласти план "
+"написання, а потім поступово реалізувати його з вашого схвалення."
 
 #: plugin/framework/client/errors.py
 #, python-brace-format
@@ -929,6 +938,10 @@ msgstr "Веб-пошук"
 msgid "Brainstorming"
 msgstr "Мозковий штурм"
 
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Writing Plan"
+msgstr "План написання"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "Прийняти"
@@ -1068,6 +1081,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "Не вдалося запустити редактор: {0}"
 
+#: plugin/chatbot/writing.py
+msgid "Writing session complete."
+msgstr "Сеанс написання завершено."
+
 #: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
 msgid "Brainstorming complete."
 msgstr "Мозковий штурм завершено."
@@ -1120,6 +1137,19 @@ msgstr "Невідома помилка мозкового штурму."
 #, python-brace-format
 msgid "[Brainstorming error: {0}]"
 msgstr "[Помилка мозкового штурму: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Writing plan complete."
+msgstr "План написання завершено."
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown writing plan error."
+msgstr "Невідома помилка плану написання."
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Writing plan error: {0}]"
+msgstr "[Помилка плану написання: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-10 00:44-0400\n"
+"POT-Creation-Date: 2026-06-10 02:04-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Latvian <LL@li.org>\n"
@@ -396,6 +396,15 @@ msgstr ""
 "AI: Izpētīsim un izstrādāsim jūsu ideju kopā. Es uzdošu jautājumus, ieteikšu"
 " pieejas un palīdzēšu jums izveidot apstiprinātu specifikāciju jūsu "
 "dokumentā, kad būsiet gatavs."
+
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's draft your document section-by-section. I'll help you create a "
+"writing plan outline, and then implement it incrementally with your "
+"approval."
+msgstr ""
+"AI: Sastādīsim jūsu dokumentu pa daļām. Es palīdzēšu izveidot rakstīšanas "
+"plāna uzmetumu un pēc tam pakāpeniski to īstenot ar jūsu apstiprinājumu."
 
 #: plugin/framework/client/errors.py
 #, python-brace-format
@@ -923,6 +932,10 @@ msgstr "Tīmekļa izpēte"
 msgid "Brainstorming"
 msgstr "Prāta vētra"
 
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Writing Plan"
+msgstr "Rakstīšanas plāns"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "Pieņemt"
@@ -1063,6 +1076,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "Neizdevās palaist redaktoru: {0}"
 
+#: plugin/chatbot/writing.py
+msgid "Writing session complete."
+msgstr "Rakstīšanas sesija pabeigta."
+
 #: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
 msgid "Brainstorming complete."
 msgstr "Prāta vētra pabeigta."
@@ -1115,6 +1132,19 @@ msgstr "Nezināma prāta vētras kļūda."
 #, python-brace-format
 msgid "[Brainstorming error: {0}]"
 msgstr "[Prāta vētras kļūda: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Writing plan complete."
+msgstr "Rakstīšanas plāns pabeigts."
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown writing plan error."
+msgstr "Nezināma rakstīšanas plāna kļūda."
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Writing plan error: {0}]"
+msgstr "[Rakstīšanas plāna kļūda: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."

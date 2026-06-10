@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-10 00:44-0400\n"
+"POT-Creation-Date: 2026-06-10 02:04-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Danish <LL@li.org>\n"
@@ -392,6 +392,16 @@ msgstr ""
 "AI: Lad os udforske og designe din idé sammen. Jeg vil stille spørgsmål, "
 "foreslå tilgange og hjælpe dig med at opbygge en godkendt specifikation i "
 "dit dokument, når du er klar."
+
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's draft your document section-by-section. I'll help you create a "
+"writing plan outline, and then implement it incrementally with your "
+"approval."
+msgstr ""
+"AI: Lad os udarbejde dit dokument sektion for sektion. Jeg hjælper dig med "
+"at oprette en disposition for skriveplanen og derefter implementere den "
+"trinvist med din godkendelse."
 
 #: plugin/framework/client/errors.py
 #, python-brace-format
@@ -919,6 +929,10 @@ msgstr "Websøgning"
 msgid "Brainstorming"
 msgstr "Brainstorming"
 
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Writing Plan"
+msgstr "Skriveplan"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "Acceptér"
@@ -1058,6 +1072,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "Kunne ikke starte editor: {0}"
 
+#: plugin/chatbot/writing.py
+msgid "Writing session complete."
+msgstr "Skrivesession fuldført."
+
 #: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
 msgid "Brainstorming complete."
 msgstr "Brainstorming fuldført."
@@ -1110,6 +1128,19 @@ msgstr "Ukendt brainstorming-fejl."
 #, python-brace-format
 msgid "[Brainstorming error: {0}]"
 msgstr "[Brainstorming-fejl: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Writing plan complete."
+msgstr "Skriveplan fuldført."
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown writing plan error."
+msgstr "Ukendt fejl i skriveplan."
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Writing plan error: {0}]"
+msgstr "[Fejl i skriveplan: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."

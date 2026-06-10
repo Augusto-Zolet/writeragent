@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-10 00:44-0400\n"
+"POT-Creation-Date: 2026-06-10 02:04-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Greek <LL@li.org>\n"
@@ -406,6 +406,16 @@ msgstr ""
 "AI: Ας εξερευνήσουμε και ας σχεδιάσουμε μαζί την ιδέα σας. Θα κάνω "
 "ερωτήσεις, θα προτείνω προσεγγίσεις και θα σας βοηθήσω να δημιουργήσετε μια "
 "εγκεκριμένη προδιαγραφή στο έγγραφό σας όταν είστε έτοιμοι."
+
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's draft your document section-by-section. I'll help you create a "
+"writing plan outline, and then implement it incrementally with your "
+"approval."
+msgstr ""
+"AI: Ας συντάξουμε το έγγραφό σας ενότητα προς ενότητα. Θα σας βοηθήσω να "
+"δημιουργήσετε ένα προσχέδιο πλάνου συγγραφής και, στη συνέχεια, να το "
+"υλοποιήσουμε σταδιακά με την έγκρισή σας."
 
 #: plugin/framework/client/errors.py
 #, python-brace-format
@@ -940,6 +950,10 @@ msgstr "Διαδικτυακή έρευνα"
 msgid "Brainstorming"
 msgstr "Καταιγισμός ιδεών"
 
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Writing Plan"
+msgstr "Πλάνο συγγραφής"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "Αποδοχή"
@@ -1080,6 +1094,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "Αδυναμία εκκίνησης του επεξεργαστή: {0}"
 
+#: plugin/chatbot/writing.py
+msgid "Writing session complete."
+msgstr "Η συνεδρία συγγραφής ολοκληρώθηκε."
+
 #: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
 msgid "Brainstorming complete."
 msgstr "Ο καταιγισμός ιδεών ολοκληρώθηκε."
@@ -1132,6 +1150,19 @@ msgstr "Άγνωστο σφάλμα καταιγισμού ιδεών."
 #, python-brace-format
 msgid "[Brainstorming error: {0}]"
 msgstr "[Σφάλμα καταιγισμού ιδεών: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Writing plan complete."
+msgstr "Το πλάνο συγγραφής ολοκληρώθηκε."
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown writing plan error."
+msgstr "Άγνωστο σφάλμα πλάνου συγγραφής."
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Writing plan error: {0}]"
+msgstr "[Σφάλμα πλάνου συγγραφής: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."

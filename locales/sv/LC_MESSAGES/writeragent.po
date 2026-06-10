@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: WriterAgent 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-10 00:44-0400\n"
+"POT-Creation-Date: 2026-06-10 02:04-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: \n"
 "Language-Team: Swedish\n"
@@ -386,6 +386,16 @@ msgstr ""
 "AI: Låt oss utforska och utforma din idé tillsammans. Jag ställer frågor, "
 "föreslår metoder och hjälper dig att skapa en godkänd specifikation i ditt "
 "dokument när du är redo."
+
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's draft your document section-by-section. I'll help you create a "
+"writing plan outline, and then implement it incrementally with your "
+"approval."
+msgstr ""
+"AI: Låt oss utforma ditt dokument sektion för sektion. Jag hjälper dig att "
+"skapa en disposition för skrivplanen och sedan genomföra den stegvis med "
+"ditt godkännande."
 
 #: plugin/framework/client/errors.py
 #, python-brace-format
@@ -913,6 +923,10 @@ msgstr "Webbforskning"
 msgid "Brainstorming"
 msgstr "Brainstorming"
 
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Writing Plan"
+msgstr "Skrivplan"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "Acceptera"
@@ -1052,6 +1066,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "Kunde inte starta editor: {0}"
 
+#: plugin/chatbot/writing.py
+msgid "Writing session complete."
+msgstr "Skrivsessionen är avslutad."
+
 #: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
 msgid "Brainstorming complete."
 msgstr "Brainstorming slutförd."
@@ -1104,6 +1122,19 @@ msgstr "Okänt brainstorming-fel."
 #, python-brace-format
 msgid "[Brainstorming error: {0}]"
 msgstr "[Brainstorming-fel: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Writing plan complete."
+msgstr "Skrivplanen är klar."
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown writing plan error."
+msgstr "Okänt fel i skrivplanen."
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Writing plan error: {0}]"
+msgstr "[Fel i skrivplan: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."

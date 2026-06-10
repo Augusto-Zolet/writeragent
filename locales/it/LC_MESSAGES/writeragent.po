@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-10 00:44-0400\n"
+"POT-Creation-Date: 2026-06-10 02:04-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Italian <LL@li.org>\n"
@@ -395,6 +395,16 @@ msgstr ""
 "IA: Esploriamo e progettiamo insieme la tua idea. Ti farò domande, suggerirò"
 " approcci e ti aiuterò a creare una specifica approvata nel tuo documento "
 "quando sarai pronto."
+
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's draft your document section-by-section. I'll help you create a "
+"writing plan outline, and then implement it incrementally with your "
+"approval."
+msgstr ""
+"IA: Elaboriamo il tuo documento sezione per sezione. Ti aiuterò a creare una"
+" scaletta del piano di scrittura e poi a implementarla in modo incrementale "
+"con la tua approvazione."
 
 #: plugin/framework/client/errors.py
 #, python-brace-format
@@ -923,6 +933,10 @@ msgstr "Ricerca web"
 msgid "Brainstorming"
 msgstr "Brainstorming"
 
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Writing Plan"
+msgstr "Piano di scrittura"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "Accetta"
@@ -1063,6 +1077,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "Impossibile avviare l'editor: {0}"
 
+#: plugin/chatbot/writing.py
+msgid "Writing session complete."
+msgstr "Sessione di scrittura completata."
+
 #: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
 msgid "Brainstorming complete."
 msgstr "Brainstorming completato."
@@ -1115,6 +1133,19 @@ msgstr "Errore di brainstorming sconosciuto."
 #, python-brace-format
 msgid "[Brainstorming error: {0}]"
 msgstr "[Errore di brainstorming: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Writing plan complete."
+msgstr "Piano di scrittura completato."
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown writing plan error."
+msgstr "Errore sconosciuto nel piano di scrittura."
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Writing plan error: {0}]"
+msgstr "[Errore del piano di scrittura: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."

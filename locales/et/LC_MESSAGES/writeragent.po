@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-10 00:44-0400\n"
+"POT-Creation-Date: 2026-06-10 02:04-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Estonian <LL@li.org>\n"
@@ -390,6 +390,15 @@ msgstr ""
 "AI: Uurime ja kavandame teie ideed koos. Esitan küsimusi, pakun välja "
 "lähenemisviise ja aitan teil koostada kinnitatud spetsifikatsiooni teie "
 "dokumenti, kui olete valmis."
+
+#: plugin/framework/constants.py
+msgid ""
+"AI: Let's draft your document section-by-section. I'll help you create a "
+"writing plan outline, and then implement it incrementally with your "
+"approval."
+msgstr ""
+"AI: Koostame teie dokumendi jaokaupa. Aitan teil luua kirjutamisplaani ja "
+"seejärel seda teie heakskiidul järk-järgult ellu viia."
 
 #: plugin/framework/client/errors.py
 #, python-brace-format
@@ -916,6 +925,10 @@ msgstr "Veebiuuring"
 msgid "Brainstorming"
 msgstr "Ajurünnak"
 
+#: plugin/chatbot/chat_sidebar_mode.py
+msgid "Writing Plan"
+msgstr "Kirjutamisplaan"
+
 #: plugin/chatbot/panel.py
 msgid "Accept"
 msgstr "Nõustu"
@@ -1053,6 +1066,10 @@ msgstr ""
 msgid "Could not start editor: {0}"
 msgstr "Redaktorit ei saanud käivitada: {0}"
 
+#: plugin/chatbot/writing.py
+msgid "Writing session complete."
+msgstr "Kirjutamisseanss on lõpetatud."
+
 #: plugin/chatbot/brainstorming.py plugin/chatbot/send_handlers.py
 msgid "Brainstorming complete."
 msgstr "Ajurünnak on lõpetatud."
@@ -1105,6 +1122,19 @@ msgstr "Tundmatu ajurünnaku viga."
 #, python-brace-format
 msgid "[Brainstorming error: {0}]"
 msgstr "[Ajurünnaku viga: {0}]"
+
+#: plugin/chatbot/send_handlers.py
+msgid "Writing plan complete."
+msgstr "Kirjutamisplaan on valmis."
+
+#: plugin/chatbot/send_handlers.py
+msgid "Unknown writing plan error."
+msgstr "Tundmatu kirjutamisplaani viga."
+
+#: plugin/chatbot/send_handlers.py
+#, python-brace-format
+msgid "[Writing plan error: {0}]"
+msgstr "[Kirjutamisplaani viga: {0}]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Unknown research error."
