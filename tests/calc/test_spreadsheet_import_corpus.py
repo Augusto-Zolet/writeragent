@@ -66,3 +66,7 @@ def test_budget_expected_conversions():
     for addr, want in expected.items():
         got = output.cells[addr].formula
         assert got == want, f"{addr}: {got!r} != {want!r}"
+        if got and got.startswith("=PY("):
+            assert "float(" not in got
+            assert "int(" not in got
+            assert ".text(" not in got

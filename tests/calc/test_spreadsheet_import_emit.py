@@ -6,21 +6,29 @@
 
 from __future__ import annotations
 
+from plugin.calc.python_formula_edit import inline_py_code_has_lexer_collisions
 from plugin.calc.spreadsheet_import.emit import emit_py_formula
 from plugin.calc.spreadsheet_import.extract import py_formula_semantics
 from plugin.calc.spreadsheet_import.translate import translate_formula
 
 
 def test_emit_py_formula_semicolons():
-    formula = emit_py_formula("result = float(np.sum(data))", ["A1:A10"])
+    formula = emit_py_formula("np.sum(data)", ["A1:A10"])
     assert formula.startswith('=PY("')
     assert ";A1:A10)" in formula
     assert "," not in formula.split(";", 1)[-1]
+    assert "float(" not in formula
 
 
 def test_emit_multi_range():
-    formula = emit_py_formula("result = float(data[0] + data[1])", ["B2", "C2"])
+    formula = emit_py_formula("data[0] + data[1]", ["B2", "C2"])
     assert ";B2;C2)" in formula
+    assert not inline_py_code_has_lexer_collisions(formula)
+
+
+def test_emit_cross_sheet_range_quotes():
+    formula = emit_py_formula("np.sum(data)", ["Dashboard Finished.C4:C6"])
+    assert "'Dashboard Finished'.C4:C6" in formula
 
 
 def test_emit_round_trip_semantics():

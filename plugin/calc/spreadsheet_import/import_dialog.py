@@ -120,11 +120,24 @@ def fetch_actual_values(sheet: Any, addresses: list[str]) -> dict[str, Any]:
                 if err != 0:
                     actual_values[addr] = f"Err:{err}"
                 else:
-                    s = cell.getString()
-                    try:
-                        actual_values[addr] = float(s)
-                    except ValueError:
-                        actual_values[addr] = s
+                    display = cell.getString()
+                    if "Code execution failed" in display or display.strip().startswith("Error:"):
+                        actual_values[addr] = display
+                    else:
+                        try:
+                            v = cell.getValue()
+                            # Text results (e.g. TEXT/MONTH) keep getValue()==0; use display.
+                            if (
+                                v == 0.0
+                                and display
+                                and display.strip() not in ("", "0", "0.0", "0.00")
+                                and not any(ch.isdigit() for ch in display)
+                            ):
+                                actual_values[addr] = display.strip()
+                            else:
+                                actual_values[addr] = v
+                        except Exception:
+                            actual_values[addr] = display
             else:
                 actual_values[addr] = cell.getValue()
         except Exception as e:

@@ -74,16 +74,17 @@ def test_translate_p2_functions():
 
     res = translate_formula("=LEFT(A1;2)")
     assert res.ok
-    assert "[:int(2)]" in res.code or "[:2]" in res.code
+    assert "[:((2)//1)]" in res.code or "[:2]" in res.code
 
     res = translate_formula("=LEN(A1)")
     assert res.ok
-    assert "len(str(data))" in res.code
+    assert "len(xl.py_str(data))" in res.code
 
     # Date
     res = translate_formula("=TODAY()")
     assert res.ok
-    assert res.code == "float(datetime.date.today().toordinal() - 693594)"
+    assert "datetime.date.today().toordinal() - 693594" in res.code
+    assert "float(" not in res.code
 
     # Statistical
     res = translate_formula("=STDEV(A1:A10)")
@@ -95,7 +96,7 @@ def test_translate_p2_functions():
     res = translate_formula("=VLOOKUP(A1;B1:C10;2;0)")
     assert res.ok
     assert "next" in res.code
-    assert "r[int(2)-1]" in res.code or "r[1]" in res.code
+    assert "r[" in res.code and "-1]" in res.code
 
 
 def test_translate_p2_logical_trig_date_functions():
@@ -130,7 +131,8 @@ def test_translate_p2_logical_trig_date_functions():
     # Date
     res = translate_formula("=DATE(2023; 10; 5)")
     assert res.ok
-    assert "datetime.date(int(2023), int(10), int(5)).toordinal() - 693594" in res.code
+    assert "datetime.date" in res.code and "toordinal() - 693594" in res.code
+    assert "int(" not in res.code
 
     # Time
     res = translate_formula("=HOUR(A1)")
@@ -140,11 +142,13 @@ def test_translate_p2_logical_trig_date_functions():
     # Row/Col/Rows/Cols
     res = translate_formula("=ROW()", "B5")
     assert res.ok
-    assert "float(5)" in res.code
+    assert "5" in res.code
+    assert "float(" not in res.code
 
     res = translate_formula("=COLUMN()", "B5")
     assert res.ok
-    assert "float(2)" in res.code
+    assert "2" in res.code
+    assert "float(" not in res.code
 
     res = translate_formula("=ROW(C10:C20)", "A1")
     assert res.ok
@@ -152,11 +156,13 @@ def test_translate_p2_logical_trig_date_functions():
 
     res = translate_formula("=ROWS(A1:B10)")
     assert res.ok
-    assert res.code == "float(10)"
+    assert "10" in res.code
+    assert "float(" not in res.code
 
     res = translate_formula("=COLUMNS(A1:B10)")
     assert res.ok
-    assert res.code == "float(2)"
+    assert "2" in res.code
+    assert "float(" not in res.code
 
 
 def test_translate_cross_sheet_references():
@@ -348,6 +354,15 @@ def test_translate_tier_abc_functions():
     res = translate_formula("=XMATCH(\"b\"; A1:A3)")
     assert res.ok
     assert exec_result(res, [["a", "b", "c"]]) == 2.0
+
+    res = translate_formula('=TEXT(B5; "MMMM")')
+    assert res.ok
+    assert "xl.fmt" in res.code
+    assert "xl.text(" not in res.code
+
+    res = translate_formula("=ROUNDUP(7692.30769230769; 0)")
+    assert res.ok
+    assert "int(" not in res.code
 
     # Tier C
     res = translate_formula("=FILTER(A1:A5; B1:B5)")
@@ -1427,4 +1442,24 @@ def test_translate_group_i():
     assert translate_formula("=IMSUM(A1; B1)").code == 'xl.imsum(data[0], data[1])'
     assert translate_formula("=IMTAN(A1)").code == 'xl.imtan(data)'
     assert translate_formula("=IMTANH(A1)").code == 'xl.imtanh(data)'
+
+
+def test_translate_multiple_arguments_aggregates():
+    res = translate_formula("=SUM(C7; C12)")
+    assert res.ok
+    assert res.code == "xl.calc_sum(*data)"
+    assert res.data_ranges == ["C7", "C12"]
+
+    res = translate_formula("=AVERAGE(A1:A3; B1:B3)")
+    assert res.ok
+    assert "np.concatenate" in res.code
+
+    res = translate_formula("=PRODUCT(A1; B1)")
+    assert res.ok
+    assert "np.prod" in res.code
+
+    res = translate_formula("=COUNT(A1; B1)")
+    assert res.ok
+    assert "sum(np.sum" in res.code
+
 

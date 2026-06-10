@@ -155,9 +155,80 @@ def parse_python_formula(formula: str) -> PythonFormulaParts | None:
     return PythonFormulaParts(prefix=raw[:inner_start], code=code, data_suffix=data_suffix)
 
 
+# Calc's formula lexer scans inside PY code strings and treats these as spreadsheet calls.
+_LEXER_COLLISION_FLOAT_RE = re.compile(r"\bfloat\s*\(")
+_LEXER_COLLISION_INT_RE = re.compile(r"\bint\s*\(")
+_LEXER_COLLISION_STR_RE = re.compile(r"\bstr\s*\(")
+_LEXER_COLLISION_XL_TEXT_RE = re.compile(r"\.text\s*\(")
+
+
+def _find_matching_paren(s: str, open_idx: int) -> int:
+    """Return index of ``)`` matching ``(`` at *open_idx*, or -1."""
+    depth = 0
+    i = open_idx
+    while i < len(s):
+        ch = s[i]
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                return i
+        i += 1
+    return -1
+
+
+def _rewrite_token_calls(code: str, token: str, rewrite_inner) -> str:
+    """Replace ``token(inner)`` calls; *token* must not contain regex metacharacters."""
+    pattern = re.compile(rf"\b{token}\s*\(")
+    out: list[str] = []
+    pos = 0
+    while True:
+        m = pattern.search(code, pos)
+        if not m:
+            out.append(code[pos:])
+            break
+        out.append(code[pos : m.start()])
+        open_paren = m.end() - 1
+        close_paren = _find_matching_paren(code, open_paren)
+        if close_paren < 0:
+            out.append(code[m.start() :])
+            break
+        inner = code[open_paren + 1 : close_paren]
+        out.append(rewrite_inner(inner))
+        pos = close_paren + 1
+    return "".join(out)
+
+
+def sanitize_inline_py_code(code: str) -> str:
+    """Rewrite tokens that trigger Calc ``#NAME?`` inside ``=PY("…")`` code strings."""
+    if not code:
+        return code
+    sanitized = code.replace("dtype=float", "dtype=np.float64")
+    sanitized = _LEXER_COLLISION_XL_TEXT_RE.sub(".fmt(", sanitized)
+    sanitized = _rewrite_token_calls(sanitized, "float", lambda inner: f"({inner})+0.0")
+    sanitized = _rewrite_token_calls(sanitized, "int", lambda inner: f"(({inner})//1)")
+    sanitized = _rewrite_token_calls(sanitized, "str", lambda inner: f"xl.py_str({inner})")
+    return sanitized
+
+
+def inline_py_code_has_lexer_collisions(code: str) -> list[str]:
+    """Return Calc-lexer collision token names still present in *code*."""
+    hits: list[str] = []
+    if _LEXER_COLLISION_FLOAT_RE.search(code):
+        hits.append("float")
+    if _LEXER_COLLISION_INT_RE.search(code):
+        hits.append("int")
+    if _LEXER_COLLISION_STR_RE.search(code):
+        hits.append("str")
+    if _LEXER_COLLISION_XL_TEXT_RE.search(code):
+        hits.append("xl.text")
+    return hits
+
+
 def escape_code_for_formula(code: str) -> str:
     """Escape Python source for embedding in a Calc string literal."""
-    return code.replace('"', '""')
+    return sanitize_inline_py_code(code).replace('"', '""')
 
 
 def rebuild_python_formula(parts: PythonFormulaParts, new_code: str) -> str:
@@ -195,9 +266,32 @@ def format_data_binding_text(data_args: list[str]) -> str:
     return ", ".join(cleaned)
 
 
+def format_py_data_range(range_addr: str) -> str:
+    """Format a range for ``=PY()`` data args (quote sheet names with spaces/special chars)."""
+    addr = str(range_addr).strip().replace("$", "")
+    if "!" in addr:
+        sheet, _, rest = addr.partition("!")
+        sheet = sheet.strip("'\"")
+        rest = rest.replace("$", "")
+        if re.search(r"\s", sheet) or not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", sheet):
+            return f"'{sheet}'.{rest}"
+        return f"{sheet}.{rest}"
+    if "." not in addr:
+        return addr
+    sheet, _, rest = addr.partition(".")
+    if not sheet or not rest:
+        return addr
+    if re.match(r"^\$?[A-Z]+\$?\d", sheet, re.IGNORECASE):
+        return addr
+    if re.search(r"\s", sheet) or not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", sheet):
+        quoted = sheet if sheet.startswith("'") else f"'{sheet}'"
+        return f"{quoted}.{rest}"
+    return f"{sheet}.{rest}"
+
+
 def build_data_suffix(data_args: list[str]) -> str:
     """Build the ``data_suffix`` fragment from parsed range/index tokens."""
-    args = [a.strip() for a in data_args if a.strip()]
+    args = [format_py_data_range(a.strip()) for a in data_args if a.strip()]
     if not args:
         return ")"
     return f';{";".join(args)})'

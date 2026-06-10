@@ -45,7 +45,12 @@ def build_converted_output_model(
     vectorize: bool = False,
 ) -> tuple[OutputSheetModel, ConversionReport]:
     """Translate formula cells to ``=PY()``; preserve constants and normalized PY."""
-    from plugin.calc.spreadsheet_import.vectorize import detect_vectorized_columns, to_r1c1, vectorize_range
+    from plugin.calc.spreadsheet_import.vectorize import (
+        detect_vectorized_columns,
+        to_r1c1,
+        translation_has_cross_sheet_ranges,
+        vectorize_range,
+    )
 
     report = ConversionReport()
     circular = _circular_addresses(model)
@@ -69,7 +74,13 @@ def build_converted_output_model(
         except Exception:
             pass
         translation = translate_formula(first_record.formula, cell_addr=first_addr)
-        if translation.ok and translation.code and translation.data_ranges is not None:
+        if (
+            translation.ok
+            and translation.code
+            and translation.data_ranges is not None
+            and not translation_has_cross_sheet_ranges(translation.data_ranges)
+            and "xl.fmt(" not in translation.code
+        ):
             last_addr = group[-1]
             vectorized_data_ranges = []
             for a1_range in translation.data_ranges:
@@ -85,8 +96,10 @@ def build_converted_output_model(
                 for idx in range(len(translation.data_ranges)):
                     code = re.sub(rf'(?<!np\.asarray\()\bdata\[{idx}\]\b', f'np.asarray(data[{idx}])', code)
 
-            # Strip float(...) wrapping since array formulas return vectors, not scalars
-            if code.startswith("float(") and code.endswith(")"):
+            # Strip scalar coercion since array formulas return vectors, not scalars
+            if code.endswith("+0.0") and code.startswith("(") and code.count("(") == 1:
+                code = code[1:-5]
+            elif code.startswith("float(") and code.endswith(")"):
                 code = code[6:-1]
 
             for idx, addr in enumerate(group):

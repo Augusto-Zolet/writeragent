@@ -109,6 +109,21 @@ def r1c1_to_a1(r1c1_formula: str, cell_addr: str) -> str:
     return re.sub(pattern, replace_r1c1, r1c1_formula)
 
 
+def is_cross_sheet_range(range_addr: str) -> bool:
+    """True when *range_addr* refers to another sheet (not a same-sheet A1 range)."""
+    addr = str(range_addr).strip()
+    if "!" in addr:
+        return True
+    if "." not in addr:
+        return False
+    sheet, _, rest = addr.partition(".")
+    return bool(sheet and rest and not re.match(r"^\$?[A-Z]+\$?\d", sheet, re.IGNORECASE))
+
+
+def translation_has_cross_sheet_ranges(ranges: list[str]) -> bool:
+    return any(is_cross_sheet_range(r) for r in ranges)
+
+
 def detect_vectorized_columns(model: SheetModel) -> dict[str, list[str]]:
     """Detect homogeneous relative formulas down columns.
 

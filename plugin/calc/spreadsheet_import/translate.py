@@ -20,6 +20,7 @@ from plugin.contrib.calc_formula_parser import (
     RangeNode,
     parse_formula,
 )
+from plugin.calc.python_formula_edit import sanitize_inline_py_code
 from plugin.calc.spreadsheet_import.models import TranslationResult
 from plugin.calc.spreadsheet_import.preprocess import normalize_lo_formula_for_parse
 from plugin.calc.address_utils import parse_address, parse_range_string
@@ -115,7 +116,7 @@ def _emit_operator(node: OperatorNode, state: _CodegenState, cell_addr: str | No
     if op == "<>":
         return f"({left} != {right})"
     if op == "&":
-        return f"(str({left}) + str({right}))"
+        return f"(xl.py_str({left}) + xl.py_str({right}))"
     return f"({left} {op} {right})"
 
 
@@ -273,7 +274,7 @@ _NO_FLOAT_WRAP_PREFIXES = (
     "xl.datedif(",
     "xl.sumproduct(",
     "xl.averagea(",
-    "xl.text(",
+    "xl.fmt(",
     "xl.bahttext(",
     "xl.clean(",
     "xl.dollar(",
@@ -442,8 +443,14 @@ def _emit_function(node: FunctionNode, state: _CodegenState, cell_addr: str | No
     return emitted(args)
 
 
-def _float_wrap(expr: str) -> str:
-    return f"float({expr})"
+def _scalar(expr: str) -> str:
+    """Coerce to scalar without ``float(`` (Calc formula lexer treats it as #NAME?)."""
+    return f"({expr})+0.0"
+
+
+def _py_index(expr: str) -> str:
+    """Integer index without ``int(`` token."""
+    return f"(({expr})//1)"
 
 
 def _emit_if(args: list[str]) -> str:
@@ -469,13 +476,13 @@ _P1_FUNCTION_EMITTERS: dict[str, Callable[[list[str]], str]] = {
     "DB": lambda a: f"xl.db({', '.join(a)})",
     "DDB": lambda a: f"xl.ddb({', '.join(a)})",
     "DISC": lambda a: f"xl.disc({', '.join(a)})",
-    "SUM": lambda a: f"np.sum({a[0]})",
-    "AVERAGE": lambda a: f"np.mean({a[0]})",
-    "PRODUCT": lambda a: f"np.prod({a[0]})",
-    "MAX": lambda a: f"np.nanmax({a[0]})",
-    "MIN": lambda a: f"np.nanmin({a[0]})",
-    "COUNT": lambda a: f"np.sum(np.isfinite(np.asarray({a[0]}, dtype=float).ravel()))",
-    "COUNTA": lambda a: f"sum(1 for x in np.asarray({a[0]}).ravel() if x is not None and str(x) != '')",
+    "SUM": lambda a: "xl.calc_sum(*data)" if len(a) > 1 else "xl.calc_sum(data)",
+    "AVERAGE": lambda a: f"np.mean({a[0]})" if len(a) == 1 else f"np.mean(np.concatenate([np.asarray(x).ravel() for x in [{', '.join(a)}]]))",
+    "PRODUCT": lambda a: f"np.prod({a[0]})" if len(a) == 1 else f"np.prod([np.prod(x) for x in [{', '.join(a)}]])",
+    "MAX": lambda a: f"np.nanmax({a[0]})" if len(a) == 1 else f"np.nanmax([np.nanmax(x) for x in [{', '.join(a)}]])",
+    "MIN": lambda a: f"np.nanmin({a[0]})" if len(a) == 1 else f"np.nanmin([np.nanmin(x) for x in [{', '.join(a)}]])",
+    "COUNT": lambda a: f"np.sum(np.isfinite(np.asarray({a[0]}, dtype=float).ravel()))" if len(a) == 1 else f"sum(np.sum(np.isfinite(np.asarray(x, dtype=float).ravel())) for x in [{', '.join(a)}])",
+    "COUNTA": lambda a: f"sum(1 for x in np.asarray({a[0]}).ravel() if x is not None and str(x) != '')" if len(a) == 1 else f"sum(sum(1 for val in np.asarray(x).ravel() if val is not None and str(val) != '') for x in [{', '.join(a)}])",
     "ABS": lambda a: f"np.abs({a[0]})",
     "SQRT": lambda a: f"np.sqrt({a[0]})",
     "SIGN": lambda a: f"np.sign({a[0]})",
@@ -635,7 +642,7 @@ _P1_FUNCTION_EMITTERS: dict[str, Callable[[list[str]], str]] = {
     "COVAR": lambda a: f"np.cov(np.asarray({a[0]}).ravel(), np.asarray({a[1]}).ravel())[0, 1]",
     "MODE": lambda a: f"xl.mode({a[0]})",
     "AVERAGEA": lambda a: f"xl.averagea({a[0]})",
-    "TEXT": lambda a: f"xl.text({a[0]}, {a[1]})" if len(a) > 1 else f"str({a[0]})",
+    "TEXT": lambda a: f"xl.fmt({a[0]}, {a[1]})" if len(a) > 1 else f"xl.py_str({a[0]})",
     "EVEN": lambda a: f"xl.even({a[0]})",
     "ODD": lambda a: f"xl.odd({a[0]})",
     "RAND": lambda _a: "float(np.random.random())",
@@ -869,18 +876,6 @@ def translate_formula(formula: str, cell_addr: str | None = None) -> Translation
             return TranslationResult(ok=False, reason="UNSUPPORTED_FUNCTION")
         return TranslationResult(ok=False, reason="PARSE_ERROR")
 
-    if not state.ranges:
-        # Literal-only (e.g. =PI() still has no ranges; =1+2 has none)
-        pass
-    else:
-        # Scalar-wrap bare arithmetic for Calc double semantics.
-        if isinstance(ast, OperatorNode):
-            if (
-                not body.startswith("float(")
-                and body not in ("True", "False")
-            ):
-                body = _float_wrap(body)
-
-    return TranslationResult(ok=True, code=body, data_ranges=list(state.ranges))
+    return TranslationResult(ok=True, code=sanitize_inline_py_code(body), data_ranges=list(state.ranges))
 
 

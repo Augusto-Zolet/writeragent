@@ -2426,6 +2426,19 @@ def n(val: Any) -> float:
     return 0.0
 
 
+def calc_sum(*parts: Any) -> float:
+    """Calc-compatible SUM over one or more ranges/scalars (skips blanks, coerces via ``n``)."""
+    import numpy as np
+
+    total = 0.0
+    for part in parts:
+        for item in np.ravel(np.asarray(part, dtype=object)):
+            if item is None or item == "":
+                continue
+            total += n(item)
+    return total
+
+
 def na() -> float:
     # Usually #N/A in Calc maps to NaN in Python data array
     return float("nan")
@@ -3223,12 +3236,32 @@ def tdist(x: Any, df: Any, tails: Any) -> float:
 
 
 def text(val: Any, fmt: Any) -> str:
-    fmt_str = str(fmt).strip('"')
+    fmt_str = str(fmt).strip('"').strip("'")
     if fmt_str in ("0", "0.00", "#,##0"):
         try:
             return format(float(val), fmt_str.replace("#", "").replace(",", "") or ".0f")
         except (ValueError, TypeError):
             return str(val)
+    if fmt_str == "MMMM":
+        try:
+            return datetime.date.fromordinal(int(float(val)) + 693594).strftime("%B")
+        except (ValueError, TypeError, OverflowError):
+            return str(val)
+    if fmt_str == "MMM":
+        try:
+            return datetime.date.fromordinal(int(float(val)) + 693594).strftime("%b")
+        except (ValueError, TypeError, OverflowError):
+            return str(val)
+    return str(val)
+
+
+# Alias for spreadsheet-import emission: Calc's formula lexer treats ``TEXT(`` inside
+# ``=PY("xl.text(...)")`` as a spreadsheet function (#NAME?).
+fmt = text
+
+
+def py_str(val: Any) -> str:
+    """Stringify for inline ``=PY()`` code without emitting the ``str(`` token."""
     return str(val)
 
 
