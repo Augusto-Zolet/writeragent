@@ -110,9 +110,11 @@ plugin/
 │       └── assets/editor/
 │           ├── index.html
 │           ├── editor.js
+│           ├── scripts_manager.js  # Run Python Script picker (Sample + My Scripts)
 │           ├── style.css
 │           └── vs/                   # Monaco bundle (generated)
 └── scripting/
+    ├── document_scripts.py         # scripts_list IPC + document-attached scripts
     ├── editor_host.py                # Spawn, PersistentEditor, session launch
     ├── editor_ipc.py                 # Pickle protocol 5 + failure formatting
     └── editor_main.py                # pywebview child entry (+ JediSession)
@@ -145,6 +147,7 @@ tests/
 9. Right-click a cell — **Edit Python in Cell…** should appear at the bottom of the cell context menu.
 10. On save error (if reproducible), toolbar shows red error text and the editor stays open.
 11. **Run Python Script…** (Writer/Calc/Draw): with venv + pywebview, opens Monaco with colored Python, **Run** / **Save** / **Close** buttons (no Data/plain-text controls). **Run** executes and inserts result; **Save** persists script to config only; **Close** hides the editor. Without pywebview, the plain multiline dialog appears (no error msgbox).
+12. **Run Python Script… script picker:** save scratchpad content via **Save** while **Sample** is selected; switch to a **My Scripts** entry — editor changes; switch back to **Sample** — scratchpad content must reload (not a no-op). **Delete** on Sample clears the scratchpad.
 
 **If it fails:** the msgbox should include child stderr and a Python traceback. Also check `writeragent_debug.log` under the LO user profile (`writeragent.json` directory). Common causes: wrong venv path in Settings, pywebview not installed in *that* venv, or missing display/GTK backend on Linux.
 
@@ -276,10 +279,27 @@ Port spawn helpers from LibrePythonista (see analysis doc): detect sandbox, wrap
 
 | Item | Rationale | Status |
 |------|-----------|--------|
-| **Run Python Script… → Monaco** | Reuse bridge with `load` from `last_python_script_*` config keys; **Run** persists config and executes (not formula save). Falls back to native dialog when pywebview unavailable. Shared launcher: [`editor_session_launch.py`](../plugin/scripting/editor_host.py). | **Done** |
+| **Run Python Script… → Monaco** | Reuse bridge with `load` from `last_python_script_*` config keys; **Run** persists config and executes (not formula save). Falls back to native dialog when pywebview unavailable. Shared launcher: [`editor_host.py`](../plugin/scripting/editor_host.py). Script picker UI: [`scripts_manager.js`](../plugin/contrib/scripting/assets/editor/scripts_manager.js) + [`document_scripts.py`](../plugin/scripting/document_scripts.py). | **Done** |
+| **Sample scratchpad reload** | **Sample** in the picker is the personal scratchpad (`last_python_script_*`), not a saved script. Initial open loads via `load.code`; switching back to Sample after picking **My Scripts** must reload scratchpad text (native XDL dialog already did this; Monaco initially did not). | **Done** |
 | **Formula bar button** | Needs LO UI extension research (Calc input line customization). High effort; do after context menu. | |
 | **Tier-2 document store** | [`enabling_numpy_in_libreoffice.md`](enabling_numpy_in_libreoffice.md) Tier 2 (formula key + side store) is a **separate** product decision — do not mix with Monaco until formula-in-cell workflow is stable. | |
 | **Core extension split** | Keep all editor code in `plugin/scripting/` + thin `plugin/calc/python_editor.py` per [`ROADMAP.md`](../docs/ROADMAP.md) Phase 3–4 so a future core OXT can ship `=PYTHON()` + editor without the LLM stack. | |
+
+#### Phase 3 fix: Sample scratchpad in script picker (2026-06)
+
+**Symptom:** In **Run Python Script…** Monaco, the dropdown shows **Sample** at the top (personal scratchpad), then **My Scripts** / helper sections. First open worked; selecting another script and clicking **Sample** again did nothing — the editor kept the other script’s text.
+
+**Root cause:** [`scripts_manager.js`](../plugin/contrib/scripting/assets/editor/scripts_manager.js) builds Sample as `<option value="">Sample</option>`. `onDropdownChange` only called `editor.setValue` when the name matched `scriptIndex` (named scripts). Empty value fell through to a no-op. The native fallback in [`python_runner_ui.py`](../plugin/scripting/python_runner_ui.py) correctly loads `get_config_str(ctx, config_key)` when **Sample** is selected.
+
+**Fix (no new IPC message types):**
+
+| Layer | Change |
+|-------|--------|
+| **LO → child** | [`build_scripts_list_message()`](../plugin/scripting/document_scripts.py) adds `sample_code`: `get_config_str(ctx, resolve_run_script_config_key(doc))`. Sent on every `request_scripts` / `_send_scripts_list` (same path as section refresh). |
+| **Child JS** | Track module-level `sampleCode` from `load.code` (run_script), `scripts_list.sample_code`, and `saved` while `currentOrigin === "sample"`. On Sample select (`value === ""`), `editor.setValue(sampleCode)`. Clear `sampleCode` when user confirms scratchpad delete. |
+| **Tests** | [`test_build_scripts_list_message_includes_sample_code`](../tests/scripting/test_document_scripts.py); [`test_persistent_editor_dispatches_script_actions`](../tests/scripting/test_python_runner_monaco.py) asserts `sample_code` on `scripts_list`. |
+
+**Parity note:** Sample remains a reserved scratchpad label (see [`enabling_numpy_in_libreoffice.md`](enabling_numpy_in_libreoffice.md)). A user script literally named `"Sample"` under **My Scripts** is a separate `<option value="Sample">` — pre-existing ambiguity in the native list too.
 
 ---
 
@@ -292,6 +312,7 @@ Phase 2C: + pick_range | range_result
 Phase 2D: + completions (child-internal, optional calc_symbols from LO)
 Phase 2E: load.theme field (no new type)
 Phase 3:  load.mode / save_label / show_plain_text / show_data_binding / status_ok_text (no new IPC types)
+         scripts_list.sample_code field (scratchpad text for Sample picker entry)
 ```
 
 Consider a top-level `seq: int` on all messages once 2B is in place so async validate/range responses never apply out of order.
@@ -302,7 +323,7 @@ Consider a top-level `seq: int` on all messages once 2B is in place so async val
 
 | Layer | What to add |
 |-------|-------------|
-| **Unit** | `validate` compile helper; Jedi completion formatting (no LO) |
+| **Unit** | `validate` compile helper; Jedi completion formatting (no LO); `scripts_list.sample_code` in [`test_document_scripts.py`](../tests/scripting/test_document_scripts.py) |
 | **Integration** | subprocess test: spawn `editor_main.py`, write `ready`/`load`, read responses (headless skip if no display); optional probe test against a fixture venv with pywebview |
 | **UNO** | range picker happy path; optional “edit cell → save → recalc” one-shot |
 | **Manual** | checklist in §7 extended per phase; Flatpak row when 2F ships |
@@ -357,6 +378,18 @@ flowchart TD
 | Child `sys.path` | [`editor_main.py`](../plugin/scripting/editor_main.py) bootstraps repo root so `plugin.scripting.editor_protocol` imports |
 | Save errors to UI | Bridge sends `error` + `traceback` to child; red toolbar status (Phase 2A) |
 | Formula function name | Always English `PYTHON`; localized tokens are a bug, not supported |
+
+### Run Python Script behavior reference (Phase 3)
+
+| Topic | Behavior |
+|-------|----------|
+| Scratchpad (**Sample**) | Personal-only; stored in `last_python_script_writer` / `_calc` / `_draw` via `resolve_run_script_config_key`. Dropdown value is `""`; label is **Sample**. |
+| Initial load | `load.code` from config key; `scripts_manager.js` seeds `sampleCode` from the same string. |
+| Switch to named script | `onDropdownChange` loads from `scriptIndex[name].code` (from `scripts_list.sections`). |
+| Switch back to Sample | Reload `sampleCode` from latest `scripts_list.sample_code` (or last Save while Sample selected). |
+| Save while Sample | **Save** → `notify_save_script` → `set_config(config_key, code)`; JS updates `sampleCode` on `saved`. |
+| Delete while Sample | Confirms clear; `notify_save_script("")`; clears editor and `sampleCode`. |
+| Named script Save | Intercepted in `scripts_manager.js` → `save_script` IPC (user or document origin). |
 
 ---
 

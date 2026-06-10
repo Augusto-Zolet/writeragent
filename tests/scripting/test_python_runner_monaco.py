@@ -267,19 +267,21 @@ def test_persistent_editor_dispatches_script_actions():
     doc = MagicMock()
 
     with patch("plugin.framework.config.get_config", return_value={"MyScript": "print(123)"}) as mock_get:
-        with patch("plugin.framework.config.set_config") as mock_set:
-            with patch("plugin.scripting.document_scripts.get_active_document_for_scripts", return_value=None):
-                pe._dispatch_incoming({"type": "request_scripts"})
-                mock_get.assert_called_with(pe.ctx, "saved_python_scripts")
-                sent = pe.send.call_args[0][0]
-                assert sent["type"] == "scripts_list"
-                assert sent["sections"][0]["scripts"] == {"MyScript": "print(123)"}
+        with patch("plugin.framework.config.get_config_str", return_value="scratch"):
+            with patch("plugin.framework.config.set_config") as mock_set:
+                with patch("plugin.scripting.document_scripts.get_active_document_for_scripts", return_value=None):
+                    pe._dispatch_incoming({"type": "request_scripts"})
+                    mock_get.assert_any_call(pe.ctx, "saved_python_scripts")
+                    sent = pe.send.call_args[0][0]
+                    assert sent["type"] == "scripts_list"
+                    assert sent["sections"][0]["scripts"] == {"MyScript": "print(123)"}
+                    assert sent["sample_code"] == "scratch"
 
-            pe._dispatch_incoming({"type": "save_script", "name": "NewScript", "code": "x = 1", "origin": SCRIPT_ORIGIN_USER})
-            mock_set.assert_called_with(pe.ctx, "saved_python_scripts", {"MyScript": "print(123)", "NewScript": "x = 1"})
+                pe._dispatch_incoming({"type": "save_script", "name": "NewScript", "code": "x = 1", "origin": SCRIPT_ORIGIN_USER})
+                mock_set.assert_called_with(pe.ctx, "saved_python_scripts", {"MyScript": "print(123)", "NewScript": "x = 1"})
 
-            pe._dispatch_incoming({"type": "delete_script", "name": "MyScript", "origin": SCRIPT_ORIGIN_USER})
-            mock_set.assert_called_with(pe.ctx, "saved_python_scripts", {"NewScript": "x = 1"})
+                pe._dispatch_incoming({"type": "delete_script", "name": "MyScript", "origin": SCRIPT_ORIGIN_USER})
+                mock_set.assert_called_with(pe.ctx, "saved_python_scripts", {"NewScript": "x = 1"})
 
     with patch("plugin.scripting.document_scripts.get_active_document_for_scripts", return_value=doc):
         with patch("plugin.scripting.document_scripts.save_document_script", return_value=None) as mock_save_doc:

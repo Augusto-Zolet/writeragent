@@ -143,7 +143,11 @@ def test_build_scripts_list_message_sections():
     doc = _DocWithUserDefinedProperties(props)
     doc.getURL = MagicMock(return_value="file:///tmp/test.odt")
     attach_document_script(doc, "Regional", "result = 3")
-    with patch("plugin.framework.config.get_config", return_value={"Prime": "result = 2"}):
+    with patch("plugin.framework.config.get_config", return_value={"Prime": "result = 2"}), patch(
+        "plugin.framework.config.get_config_str", return_value=""
+    ), patch(
+        "plugin.scripting.python_runner.resolve_run_script_config_key", return_value="last_python_script_writer"
+    ):
         msg = build_scripts_list_message(ctx, session_doc=doc, session_doc_url="file:///tmp/test.odt")
     assert msg["document_available"] is True
     assert msg["document_stale"] is False
@@ -152,13 +156,31 @@ def test_build_scripts_list_message_sections():
     assert sections["document"] == {"Regional": "result = 3"}
 
 
+def test_build_scripts_list_message_includes_sample_code():
+    ctx = MagicMock()
+    doc = MagicMock()
+    with patch("plugin.framework.config.get_config", return_value={}), patch(
+        "plugin.framework.config.get_config_str", return_value="print('scratchpad')"
+    ) as mock_get_str, patch(
+        "plugin.scripting.python_runner.resolve_run_script_config_key", return_value="last_python_script_writer"
+    ) as mock_key:
+        msg = build_scripts_list_message(ctx, session_doc=doc, session_doc_url=None)
+    mock_key.assert_called_once_with(doc)
+    mock_get_str.assert_called_once_with(ctx, "last_python_script_writer")
+    assert msg["sample_code"] == "print('scratchpad')"
+
+
 def test_build_scripts_list_message_stale_when_url_changes():
     ctx = MagicMock()
     props = _UserDefinedProperties()
     doc = _DocWithUserDefinedProperties(props)
     doc.getURL = MagicMock(return_value="file:///tmp/other.odt")
     attach_document_script(doc, "A", "x")
-    with patch("plugin.framework.config.get_config", return_value={}):
+    with patch("plugin.framework.config.get_config", return_value={}), patch(
+        "plugin.framework.config.get_config_str", return_value=""
+    ), patch(
+        "plugin.scripting.python_runner.resolve_run_script_config_key", return_value="last_python_script_writer"
+    ):
         msg = build_scripts_list_message(ctx, session_doc=doc, session_doc_url="file:///tmp/original.odt")
     assert msg["document_stale"] is True
     sections = {s["id"]: s["scripts"] for s in msg["sections"]}

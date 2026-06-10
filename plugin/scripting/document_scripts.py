@@ -522,7 +522,8 @@ def build_scripts_list_message(
     status_ok_text: str | None = None,
     status_error_text: str | None = None,
 ) -> dict[str, Any]:
-    from plugin.framework.config import get_config
+    from plugin.framework.config import get_config, get_config_str
+    from plugin.scripting.python_runner import resolve_run_script_config_key
 
     user_scripts = get_config(ctx, "saved_python_scripts")
     if not isinstance(user_scripts, dict):
@@ -569,12 +570,16 @@ def build_scripts_list_message(
         sections.append(optimize_section)
     sections.append({"id": SCRIPT_ORIGIN_DOCUMENT, "title": _("This Document"), "scripts": doc_scripts})
 
+    config_key = resolve_run_script_config_key(doc)
+    sample_code = get_config_str(ctx, config_key)
+
     msg: dict[str, Any] = {
         "type": "scripts_list",
         "sections": sections,
         "document_available": document_available,
         "document_readonly": document_readonly,
         "document_stale": document_stale,
+        "sample_code": sample_code,
     }
     if status_ok_text:
         msg["status_ok_text"] = status_ok_text
