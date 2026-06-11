@@ -112,7 +112,7 @@ flowchart LR
 
 **Before (outer):** `list_nearby_files(filter="budget")` → guess → open → `search_in_document` / `get_document_content` on each candidate.
 
-**After (outer):** `search_embeddings("Q4 revenue figures")` → `[Budget_2026.ods, sheet hint / loc, score], …` → `delegate_read_document` on **top hits only** → inner `read_cell_range` / `get_document_content` at the referenced region.
+**After (outer):** `search_embeddings("Q4 revenue figures")` → `[{doc_url, score, snippet: matched passage ~512 chars}, …]` → `delegate_read_document` on **top hits only** → inner `search_in_document` / range read using the snippet or topic.
 
 Main chat may also call the index before delegating, but the **major integration point is the outer document_research tool surface** — smarter, faster file pick, no filename lottery.
 
@@ -124,7 +124,7 @@ The index is **not** a document store. It holds:
 
 - Normalized **float32 vectors** in **Chroma** ([Corpus storage](#corpus-storage)); schema v1 used SQLite BLOB / optional sqlite-vec — removed on upgrade.
 - **Locators** — enough to find the passage again in LO (paragraph + offset, and Calc/Draw-specific fields as needed later).
-- **No duplicated chunk text** in the cache (text is read at index time only to **encode** in the venv or cloud API, then discarded from persistent storage).
+- **Chunk text in Chroma `documents`** — retained at index time for hit previews ([Search hit shape](#search-hit-shape)); not a second FTS index for agents.
 
 Lookup returns **where to look**; opening **one** (or a few) files and reading at that locator is intentional and cheap. That beats opening many files and running semantic search inside each.
 
@@ -889,9 +889,24 @@ Default model `all-MiniLM-L6-v2` (384-dim) → **~1.5 KiB per non-empty paragrap
 {"doc_url": "file:///…/notes.odt", "score": 0.85, "snippet": "…passage that was embedded…", "para_index": 12}
 ```
 
-- **`snippet`** — truncated preview from the Chroma `documents` column (the text that was embedded). Inner agent should **`search_in_document`** for this text (or the query topic) after `delegate_read_document`.
+- **`snippet`** — the **full embedded chunk** from the Chroma `documents` column (whitespace-normalized, capped at ingest [`CHUNK_SIZE`](../plugin/scripting/embeddings_ingest_graph.py) — 512 characters today). This is the same text the vector was computed over, not a short prefix. Inner agent should **`search_in_document`** for this text (or the query topic) after `delegate_read_document`.
 - **`para_index`** — weak hint (ODF extract ordinal; may not match LO body enumeration). **Do not** treat as an exact jump target.
 - **`char_start` / `char_end`** — **not** returned in hits (ODF-local sub-chunk offsets; misleading vs live Writer). Still stored in Chroma metadata for internal `chunk_id` stability.
+
+### Retrieval quality — shipped vs future {#retrieval-quality}
+
+**Shipped (Phase A):** bi-encoder retrieval (`embed_texts` query + Chroma kNN) → MMR dedupe → return **full matched chunk** in each hit. No keyword boost, no parallel FTS index in the cache.
+
+**Future (not shipped):**
+
+| Phase | Idea | When to consider |
+|-------|------|------------------|
+| **Parent paragraph expansion** | Index sub-chunks for sharp vectors; return full ODF paragraph on hit (parent-child RAG) | Sub-chunk boundaries still feel too narrow after full-chunk display |
+| **Cross-encoder rerank** | Second-stage `(query, chunk)` scoring in the embeddings venv after wide retrieve | Short identifiers (e.g. library names) rank poorly with bi-encoder alone |
+| **Stronger embedding model** | Settings `embedding_model` → re-index (e.g. `BAAI/bge-small-en-v1.5`) | Before adding rerank complexity |
+| **Hybrid BM25 + dense** | Industry default in Elasticsearch/Weaviate | **Out of scope** — would duplicate corpus text as a second index ([Minimal index](#minimal-index)) |
+
+Professionals rarely grep hit previews; they align **display size with indexed chunk size** and improve **ranking** (reranker, model) when bi-encoder recall is imprecise.
 
 ### Locator fields (internal + host JSON)
 

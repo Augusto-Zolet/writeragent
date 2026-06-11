@@ -217,6 +217,26 @@ def _strip_html_boilerplate(html_string):
     return html_string
 
 
+# XHTML export embeds graphics as data:image/...;base64,... — strip payload only, keep external src URLs.
+_DATA_URI_IMAGE_RE = re.compile(
+    r"data:image/[^\"'\s);>]+;base64,[A-Za-z0-9+/=\s]+",
+    re.IGNORECASE,
+)
+
+
+def strip_embedded_image_data(html: str) -> str:
+    """Remove inline ``data:image`` base64 payloads from exported HTML; external URLs unchanged."""
+    if not html:
+        return html
+    return _DATA_URI_IMAGE_RE.sub("", html)
+
+
+def _apply_image_export_options(content: str, *, include_images: bool) -> str:
+    if include_images or not content:
+        return content
+    return strip_embedded_image_data(content)
+
+
 # ---------------------------------------------------------------------------
 # Semantic style model (read path): XHTML filter -> semantic data-lo-style HTML.
 # Pure string/CSS pipeline: xhtml_style_postprocess (no UNO). This module owns UNO export
@@ -527,7 +547,7 @@ def html_to_plain_text(html_string, ctx, config_svc=None):
 _PARAGRAPH_BREAK = 0
 
 
-def _range_to_content_via_temp_doc(model, ctx, start, end, max_chars, config_svc):
+def _range_to_content_via_temp_doc(model, ctx, start, end, max_chars, config_svc, *, include_images=False):
     """Export a character range to content via a hidden temp document."""
     temp_doc = None
     try:
@@ -598,6 +618,7 @@ def _range_to_content_via_temp_doc(model, ctx, start, end, max_chars, config_svc
                 with open(path, "r", encoding="utf-8", errors="replace") as f:
                     content = f.read()
             content = _strip_html_boilerplate(content)
+        content = _apply_image_export_options(content, include_images=include_images)
         if max_chars and len(content) > max_chars:
             content = content[:max_chars] + "\n\n[... truncated ...]"
         return content
@@ -612,7 +633,17 @@ def _range_to_content_via_temp_doc(model, ctx, start, end, max_chars, config_svc
                 pass
 
 
-def document_to_content(model, ctx, services, max_chars=None, scope="full", range_start=None, range_end=None):
+def document_to_content(
+    model,
+    ctx,
+    services,
+    max_chars=None,
+    scope="full",
+    range_start=None,
+    range_end=None,
+    *,
+    include_images=False,
+):
     """Export a Writer document (or part of it) as HTML.
 
     Args:
@@ -623,6 +654,7 @@ def document_to_content(model, ctx, services, max_chars=None, scope="full", rang
         scope: ``'full'``, ``'selection'``, or ``'range'``.
         range_start: Character offset start (for scope ``'range'``).
         range_end: Character offset end (for scope ``'range'``).
+        include_images: When False (default), strip ``data:image`` base64 from export; external img URLs kept.
 
     Returns:
         Content string.
@@ -631,7 +663,7 @@ def document_to_content(model, ctx, services, max_chars=None, scope="full", rang
 
     if scope == "selection":
         start, end = get_selection_range(model)
-        return _range_to_content_via_temp_doc(model, ctx, start, end, max_chars, config_svc)
+        return _range_to_content_via_temp_doc(model, ctx, start, end, max_chars, config_svc, include_images=include_images)
 
     if scope == "range":
         start = int(range_start) if range_start is not None else 0
@@ -639,13 +671,14 @@ def document_to_content(model, ctx, services, max_chars=None, scope="full", rang
         doc_len = services.document.get_document_length(model) if services else 0
         start = max(0, min(start, doc_len))
         end = min(end, doc_len)
-        return _range_to_content_via_temp_doc(model, ctx, start, end, max_chars, config_svc)
+        return _range_to_content_via_temp_doc(model, ctx, start, end, max_chars, config_svc, include_images=include_images)
 
     # scope == "full" — preferred: XHTML (+ flat-ODF parent map) -> semantic data-lo-style.
     try:
         xhtml = _export_xhtml(model, config_svc)
         parents = _autostyle_parents(model, config_svc)
         content = xhtml_post.xhtml_to_semantic_html(xhtml, parents)
+        content = _apply_image_export_options(content, include_images=include_images)
         if max_chars and len(content) > max_chars:
             content = content[:max_chars] + "\n\n[... truncated ...]"
         return content
@@ -661,6 +694,7 @@ def document_to_content(model, ctx, services, max_chars=None, scope="full", rang
             with open(path, "r", encoding="utf-8", errors="replace") as f:
                 content = f.read()
             content = _strip_html_boilerplate(content)
+            content = _apply_image_export_options(content, include_images=include_images)
             if max_chars and len(content) > max_chars:
                 content = content[:max_chars] + "\n\n[... truncated ...]"
             return content

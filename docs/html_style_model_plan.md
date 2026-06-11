@@ -160,6 +160,8 @@ See **Phase 0: Filter probe** at the bottom of this doc for the active probe wor
 
 1. **Export (read path only):** Switch `document_to_content()` / `_range_to_content_via_temp_doc()` from `HTML (StarWriter)` to `XHTML Writer File`. Keep `HTML (StarWriter)` for **import** until Phase 2 applies styles via UNO after insert.
 
+1b. **Embedded images (optional):** XHTML export inlines graphics as `data:image/...;base64,...`. `get_document_content` accepts **`include_images`** (default `false`); when false, [`strip_embedded_image_data()`](../plugin/writer/format.py) removes base64 payloads after post-processing. External `<img src="...">` URLs are unchanged.
+
 2. **Parse `<style>` block:** Build `class → declaration` map for `.text-*` and `.paragraph-*`. Normalize whitespace for fingerprint comparison.
 
 3. **Inline char autostyles:** Replace `class="text-T1"` (and other `text-*`) with `style="..."` from the map. Remove empty `class` on spans.

@@ -981,9 +981,9 @@ class _WriterProxy:
         """Delegates a specialized task to a sub-agent with a focused toolset."""
         return _rpc_call("delegate_to_specialized_writer_toolset", domain=domain, task=task)
 
-    def get_document_content(self, *, scope: str = "", max_chars: int = 0, start: int = 0, end: int = 0) -> dict:
+    def get_document_content(self, *, scope: str = "", max_chars: int = 0, start: int = 0, end: int = 0, include_images: bool = False) -> dict:
         """Get document (or selection/range) content."""
-        return _rpc_call("get_document_content", scope=scope, max_chars=max_chars, start=start, end=end)
+        return _rpc_call("get_document_content", scope=scope, max_chars=max_chars, start=start, end=end, include_images=include_images)
 
     def get_document_tree(self, *, content_strategy: str = "", depth: int = 0) -> dict:
         """Get the document heading tree with bookmarks and content previews, plus document statistics."""

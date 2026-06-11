@@ -41,11 +41,23 @@ def test_mmr_reduces_redundant_candidates():
     assert picked[0]["chunk_id"] == "a"
 
 
-def test_hit_snippet_truncates_long_text():
-    text = "word " * 50
-    snippet = embeddings_search_graph._hit_snippet(text, max_chars=40)
+def test_hit_snippet_returns_full_chunk_within_limit():
+    from plugin.scripting.embeddings_ingest_graph import CHUNK_SIZE
+
+    text = "alpha " * 60
+    cleaned = " ".join(text.split())
+    snippet = embeddings_search_graph._hit_snippet(text)
+    assert snippet == cleaned
+    assert len(snippet) <= CHUNK_SIZE
+
+
+def test_hit_snippet_truncates_beyond_chunk_size():
+    from plugin.scripting.embeddings_ingest_graph import CHUNK_SIZE
+
+    text = "word " * 200
+    snippet = embeddings_search_graph._hit_snippet(text)
     assert snippet.endswith("…")
-    assert len(snippet) == 40
+    assert len(snippet) == CHUNK_SIZE
 
 
 def test_hit_snippet_collapses_whitespace():

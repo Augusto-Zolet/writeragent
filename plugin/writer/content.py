@@ -342,6 +342,7 @@ class GetDocumentContent(ToolBase):
             "max_chars": {"type": "integer", "description": "Maximum characters to return."},
             "start": {"type": "integer", "description": "Start character offset (0-based). Required for scope 'range'."},
             "end": {"type": "integer", "description": "End character offset (exclusive). Required for scope 'range'."},
+            "include_images": {"type": "boolean", "description": "Include embedded image data (base64) in export. Default false."},
         },
         "required": [],
     }
@@ -358,7 +359,17 @@ class GetDocumentContent(ToolBase):
         if scope == "range" and (range_start is None or range_end is None):
             return self._tool_error("scope 'range' requires start and end.")
 
-        content = format_support.document_to_content(ctx.doc, ctx.ctx, ctx.services, max_chars=max_chars, scope=scope, range_start=range_start, range_end=range_end)
+        include_images = bool(kwargs.get("include_images", False))
+        content = format_support.document_to_content(
+            ctx.doc,
+            ctx.ctx,
+            ctx.services,
+            max_chars=max_chars,
+            scope=scope,
+            range_start=range_start,
+            range_end=range_end,
+            include_images=include_images,
+        )
         doc_len = ctx.services.document.get_document_length(ctx.doc)
         result = {"status": "ok", "content": content, "length": len(content), "document_length": doc_len}
         if scope == "range" and range_start is not None and range_end is not None:

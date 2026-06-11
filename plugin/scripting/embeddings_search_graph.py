@@ -12,17 +12,18 @@ import logging
 from typing import Any, NotRequired, TypedDict
 
 from plugin.scripting.embeddings_chroma import get_collection
+from plugin.scripting.embeddings_ingest_graph import CHUNK_SIZE
 from plugin.scripting.embeddings_index import embed_texts
 
 log = logging.getLogger(__name__)
 
 MMR_LAMBDA = 0.7
-# Public hit preview — full chunk text lives in Chroma documents until a slimmer storage path ships.
-SNIPPET_MAX_CHARS = 160
+# Hit preview cap matches ingest CHUNK_SIZE — return the embedded unit the vector matched.
+SNIPPET_MAX_CHARS = CHUNK_SIZE
 
 
 def _hit_snippet(text: str, *, max_chars: int = SNIPPET_MAX_CHARS) -> str:
-    """Truncate embedded chunk text for search_embeddings hits."""
+    """Normalize embedded chunk text for search_embeddings hits (full chunk up to CHUNK_SIZE)."""
     cleaned = " ".join(str(text or "").split())
     if not cleaned:
         return ""

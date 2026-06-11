@@ -271,6 +271,8 @@ Some Writer tools intentionally use the default main-chat tier (**`tier = "core"
 
 **Math:** Editable **MathML in HTML** is imported on the **default core** tool `apply_document_content` (math-aware segmentation and OLE Math insertion in `format_support`), not through `delegate_to_specialized_writer_toolset`. There is no separate specialized **domain** for equations; models use the same HTML rules as other body content (`WRITER_APPLY_DOCUMENT_HTML_RULES` in `[plugin/framework/constants.py](../../plugin/framework/constants.py)`). See [docs/math-tex.md](math-tex.md).
 
+**`get_document_content` (core read):** [`plugin/writer/content.py`](../../plugin/writer/content.py) → [`document_to_content()`](../plugin/writer/format.py) (XHTML export + semantic HTML). Parameters: `scope` (`full` / `selection` / `range`), `max_chars`, `start` / `end`, and **`include_images`** (boolean, default **`false`**). When `include_images` is false, inline `data:image/...;base64,...` payloads are removed from the export; external `<img src="...">` URLs are kept. Pass `include_images: true` to include embedded image bytes. See also [docs/llm-styles.md](llm-styles.md) and [docs/html_style_model_plan.md](html_style_model_plan.md).
+
 
 | Domain / area               | WriterAgent status      | Module & tools                                                                                                                                                                                                                                     | Extended LO API (gaps)                                                                                 |
 | --------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
@@ -424,10 +426,8 @@ Instead of replacing the whole document, the agent uses its structural awareness
 *   **Application**: It uses `target='search'` or `target='selection'` to update the text within specific ranges.
 *   **Integrity**: Because the agent never calls `full_document` replace, any images anchored "To Page" or "To Paragraph" that were not part of the edited text remain perfectly untouched.
 
-#### Strategy 3: Base64 Embedding (Small Assets Only)
-The `FormatService` can be updated to embed images as Base64 data URLs inside the HTML.
-*   **Constraint**: This is only viable for small icons or diagrams. Large high-res images will exceed the token limits of most LLMs and slow down the request significantly.
-*   **Usage**: Best used as a fallback for objects that cannot be easily tokenized.
+#### Strategy 3: Base64 embedding (export default; optional in tool output)
+The XHTML read path embeds graphics as `data:image/...;base64,...` in the HTML. By default, `get_document_content` **strips** those payloads (`include_images: false`); external image URLs in `<img src="...">` are unchanged. Pass **`include_images: true`** when the agent needs the embedded bytes (small assets only — large images blow token budgets).
 
 ### 6.7 Cross-cutting Enhancements
 
