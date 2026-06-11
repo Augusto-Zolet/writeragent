@@ -1108,4 +1108,4 @@ Approximate nearest neighbor for bounded in-RAM subsets — not for full corpus 
 | Multi-file discovery | [multi-document-dev-plan.md](multi-document-dev-plan.md) |
 | Chat memory / summarization | [langchain-plan.md](langchain-plan.md) |
 | Realtime grammar / hash patterns | [realtime-grammar-checker-plan.md](realtime-grammar-checker-plan.md) |
-| User profile memory | [agent-memory-and-skills.md](agent-memory-and-skills.md) |
+| User profile memory | [hermes-agent-patterns.md](hermes-agent-patterns.md) |

@@ -70,7 +70,7 @@ Broader phased plan (embedding client, RAG, deprioritized LangChain agent): [lan
   1. **Inject `USER.md`** into the main chat system prompt every send (Hermes read path).
   2. **Summarize** old sidebar turns when total history size threatens context limits.
   3. **Embeddings / corpus index** — outer document_research semantic find (locators only, no FTS double-cache) — see [embeddings.md](embeddings.md).
-  4. Optional **background reviewer** to write `USER.md` without expanding the main tool schema ([agent-memory-and-skills.md](agent-memory-and-skills.md)).
+  4. Optional **background reviewer** to write `USER.md` without expanding the main tool schema ([hermes-agent-patterns.md](hermes-agent-patterns.md)).
 
 ---
 

@@ -53,7 +53,7 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 - **Chat:** Sidebar + menu chat (Writer/Calc deck; Draw per code paths)—multi-turn, tools, history (SQLite when available, else JSON under `writeragent_history.db.d/`).
 - **Extend / Edit selection:** Writer uses `get_string_without_tracked_deletions()` for prompts; undo/session details in [`plugin/doc/document_helpers.py`](plugin/doc/document_helpers.py).
 - **Settings:** `writeragent.json` under the LibreOffice user profile—see **Config** in [Tips](#tips-and-sharp-edges); keys and validation in [`plugin/framework/config.py`](plugin/framework/config.py).
-- **Memory (experimental):** [`plugin/chatbot/memory.py`](plugin/chatbot/memory.py); `MEMORY_GUIDANCE` in [`plugin/framework/constants.py`](plugin/framework/constants.py)—full notes [docs/agent-memory-and-skills.md](docs/agent-memory-and-skills.md).
+- **Memory (experimental):** [`plugin/chatbot/memory.py`](plugin/chatbot/memory.py); `MEMORY_GUIDANCE` in [`plugin/framework/constants.py`](plugin/framework/constants.py)—full notes [docs/hermes-agent-patterns.md](docs/hermes-agent-patterns.md).
 - **Calc:** `=PROMPT()` — [`plugin/calc/prompt_addin.py`](plugin/calc/prompt_addin.py) / [`plugin/calc/prompt_function.py`](plugin/calc/prompt_function.py); `=PYTHON()` — [`plugin/calc/python_addin.py`](plugin/calc/python_addin.py) / [`plugin/calc/python_function.py`](plugin/calc/python_function.py).
 - **Eval / benchmarks:** `make run_eval` / [`scripts/benchmark.py`](scripts/benchmark.py) → [`scripts/prompt_optimization/`](scripts/prompt_optimization/) (`eval_auth.py` for CLI credentials; judge via `LlmClient`). Setup: `uv sync`, `make eval-deps`. [`scripts/prompt_optimization/README.md`](scripts/prompt_optimization/README.md), [`docs/eval-dev-plan.md`](docs/eval-dev-plan.md).
 
@@ -199,7 +199,7 @@ UNO helpers are split: [`uno_context.py`](plugin/framework/uno_context.py), [`do
 | Grammar pipeline (cache, queue) | [docs/realtime-grammar-checker-plan.md](docs/realtime-grammar-checker-plan.md) |
 | Test Architecture | [docs/test_architecture_analysis.md](docs/test_architecture_analysis.md) |
 | LLM Hacks & Workarounds | [docs/llm-hacks.md](docs/llm-hacks.md) |
-| Experimental memory / roadmap | [docs/agent-memory-and-skills.md](docs/agent-memory-and-skills.md), [docs/ROADMAP.md](docs/ROADMAP.md), [docs/robustness-roadmap.md](docs/robustness-roadmap.md) |
+| Experimental memory / roadmap | [docs/hermes-agent-patterns.md](docs/hermes-agent-patterns.md), [docs/ROADMAP.md](docs/ROADMAP.md), [docs/robustness-roadmap.md](docs/robustness-roadmap.md) |
 
 ---
 
