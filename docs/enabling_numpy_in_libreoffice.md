@@ -15,15 +15,18 @@ WriterAgent runs user Python (including **NumPy**, **pandas**, **scipy**, and si
    - [Trusted Extension Code Opportunities with the Full Scientific Stack](#trusted-extension-code-opportunities-with-the-full-scientific-stack)
    - [Scientific domain roadmap (trusted helpers)](#scientific-domain-roadmap-trusted-helpers)
 6. [The `=PYTHON()` Calc function](#6-the-python-calc-function) <!-- anchor: the-python-calc-function -->
+   - [Session modes and recalc semantics](#session-modes-and-recalc-semantics)
+   - [Keyboard shortcuts and recalc](#keyboard-shortcuts-and-recalc)
    - [Empty cells vs NaN](#empty-cells-vs-nan)
    - [Calc formula lexer quirks (inline code)](#calc-formula-lexer-quirks-inline-code)
 7. [Deferred roadmap](#7-deferred-roadmap)
+   - [Microsoft Python in Excel vs WriterAgent](#microsoft-python-in-excel-vs-writeragent)
    - [Competitive landscape (Google Sheets vs Calc)](#competitive-landscape-google-sheets-vs-calc)
    - [Calc backlog from landscape survey](#calc-backlog-from-landscape-survey)
 8. [Implementation status](#8-implementation-status)
 9. [Multi-Range Support (Varargs)](#9-multi-range-support-varargs)
 
-**Related:** [Venv subprocess IPC & NumPy serialization](numpy-serialization.md) (warm worker, protocol, wire formats, benchmarks) · [Jupyter notebook import](jupyter-notebook-import.md) · [Calc spreadsheet → Python import](calc-spreadsheet-to-python-import.md) (convert formulas to `=PY()` while preserving data — proposed) · [Analysis Sub-Agent](analysis-sub-agent.md) (data discovery + trusted numpy/pandas execution) · [Scientific domain roadmap](#scientific-domain-roadmap-trusted-helpers) (Analysis, Vision, Viz, Symbolic shipped; Forecast, Text, Optimization, Geo, Audio planned) · [SageMath integration (deferred)](sagemath-integration-dev-plan.md)
+**Related:** [Venv subprocess IPC & NumPy serialization](numpy-serialization.md) (warm worker, protocol, wire formats, benchmarks) · [Monaco editor dev plan](python-monaco-editor-dev-plan.md) (IPC, phases 2B–2F, manual tests) · [Python-in-Calc future work](python-in-excel-dev-plan.md) (Phases 3–7 + backlog) · [Jupyter notebook import](jupyter-notebook-import.md) · [Calc spreadsheet → Python import](calc-spreadsheet-to-python-import.md) (convert formulas to `=PY()` while preserving data — proposed) · [Analysis Sub-Agent](analysis-sub-agent.md) (data discovery + trusted numpy/pandas execution) · [Scientific domain roadmap](#scientific-domain-roadmap-trusted-helpers) (Analysis, Vision, Viz, Symbolic shipped; Forecast, Text, Optimization, Geo, Audio planned) · [SageMath integration (deferred)](sagemath-integration-dev-plan.md)
 
 ---
 
@@ -50,14 +53,14 @@ All design choices below follow from that constraint.
 
 Appending the user’s `site-packages` to LibreOffice’s `sys.path` and `import numpy` there only works if the venv was built with the **same** minor Python version and architecture as LibreOffice’s embedded interpreter. In practice users create venvs with system Python 3.12+; LO embeds an older runtime — **immediate ABI crash**. Do not use this pattern.
 
-### Chosen: warm worker + fresh sandbox per call
+### Chosen: warm worker + session-aware sandbox
 
 1. **Persistent worker:** [`PythonWorkerManager`](plugin/scripting/venv_worker.py) spawns the venv’s `python` once per executable path and keeps it alive.
-2. **Fresh namespace per request:** [`worker_harness.py`](plugin/scripting/worker_harness.py) → [`venv_sandbox.py`](plugin/scripting/venv_sandbox.py) runs each call in a new [`LocalPythonExecutor`](plugin/contrib/smolagents/local_python_executor.py) — no variables carry over between `run_venv_python_script` / `=PYTHON()` invocations.
+2. **Namespace per request (configurable):** [`worker_harness.py`](plugin/scripting/worker_harness.py) → [`venv_sandbox.py`](plugin/scripting/venv_sandbox.py) uses a [`LocalPythonExecutor`](plugin/contrib/smolagents/local_python_executor.py). Default **Isolated** mode gives each `=PYTHON()` cell a fresh namespace (init script still seeds once). **Shared kernel** mode ([`session_manager.py`](plugin/scripting/session_manager.py)) keeps one workbook namespace across cells — see [§6 Session modes](#session-modes-and-recalc-semantics). Chat `run_venv_python_script` always uses isolated execution.
 3. **Length-prefixed Pickle5 IPC:** [`PythonWorkerManager`](plugin/scripting/venv_worker.py) ↔ [`worker_harness.py`](plugin/scripting/worker_harness.py) exchange framed request/response dicts; `data` / `result` use [`split_grid`](numpy-serialization.md#strategy-3-split-grid-serialization-detail) when dense. Protocol detail: [Venv subprocess IPC](numpy-serialization.md#worker-protocol). Bidirectional **tool RPC** is **not** wired yet ([§7](#7-deferred-roadmap)).
 
-**Pros:** Sidesteps ABI issues; any Python version in the venv; avoids spawn overhead on every call.  
-**Cons:** User must create and maintain a venv; no notebook-style shared kernel — re-pass data via `data` / `data_range` or cell references.
+**Pros:** Sidesteps ABI issues; any Python version in the venv; avoids spawn overhead on every call; optional shared-kernel mode for multi-cell pipelines.  
+**Cons:** User must create and maintain a venv; in **Isolated** mode, re-pass data via `data` / `data_range` or cell references unless Shared kernel is enabled.
 
 ---
 
@@ -72,6 +75,7 @@ Users can ask the AI to run Monte Carlo simulations, statistics, or other librar
 | Setting | Description | Example |
 |---------|-------------|---------|
 | `scripting.python_venv_path` | Absolute path to an existing venv directory | `~/.writeragent_venv` |
+| `scripting.python_session_mode` | **`isolated`** (default) or **`shared`** (Shared kernel for `=PYTHON()` cells) | `isolated` |
 | `scripting.python_exec_timeout` | Wall-clock limit (seconds) for Run Python Script, `=PYTHON()`, and `run_venv_python_script` (Vision Helpers use a separate internal budget — see [Image Recognition](image-recognition.md)) | `10` (default; range 1–600) |
 
 Module implementation: `plugin/scripting/` (no top-level `python/` package — avoids clashing with the stdlib name).
@@ -125,6 +129,20 @@ This keeps user scripts free of UNO and matches today’s shipped behavior. Prom
 3. Status: *Running Python script…*
 4. Results return as JSON; the model updates the document via normal tools.
 5. On error, the model sees the message and can retry.
+
+### Monaco editor & Run Python Script
+
+WriterAgent ships a **Monaco-based code editor** (pywebview child in the configured venv) for Calc formulas and ad-hoc scripts. IPC, threading, and phase 2B–2F backlog: [python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md).
+
+| Feature | Status | Entry |
+|---------|--------|-------|
+| **Edit Python in Cell…** (Calc menubar + cell context menu) | **Shipped** | [`python_editor.py`](plugin/calc/python_editor.py) — dual save (`=PYTHON("…")` or plain text for `=PYTHON($A$1; …)`), editable **Data:** range textbox |
+| **Run Python Script…** (Writer/Calc/Draw) | **Shipped** | [`python_runner.py`](plugin/scripting/python_runner.py) + [`editor_host.py`](plugin/scripting/editor_host.py) — **Run** / **Save** / script picker |
+| **Document-attached scripts** (`WriterAgentDocumentPythonScripts`) | **Shipped** | [`document_scripts.py`](plugin/scripting/document_scripts.py) — **This Document** vs **My Scripts** in picker |
+| **Edit Initialization Script…** (Calc) | **Shipped** | [`init_script_editor.py`](plugin/calc/init_script_editor.py) — workbook startup script in document properties |
+| Syntax squiggles (2B), range picker (2C), full Jedi (2D), theme sync (2E), sheet cell list | **Backlog** | [Monaco dev plan §8](python-monaco-editor-dev-plan.md#8-next-development-plan-detailed) |
+
+**Requirements:** Settings → Python → `scripting.python_venv_path` with `pip install pywebview` (on Linux, also `PyQt6 PyQt6-WebEngine qtpy` for a self-contained WebEngine backend). **Edit Python in Cell…** does not fall back to embedded LO Python — fix the venv if the editor fails to open. **Run Python Script…** falls back to the native multiline dialog when pywebview is unavailable.
 
 ---
 
@@ -385,7 +403,7 @@ run_venv_python_script(code="… plt.plot(…) …")
 
 **Native LO charts** ([`charts.py`](../plugin/calc/charts.py) — `UpsertChart`, `ListCharts`, …) are a **separate** UNO chart path, not matplotlib. The LLM can already create native Calc/Writer charts from structured data; Viz helpers complement that with statistical plotting (seaborn, heatmaps, distribution plots).
 
-**Known limitations:** No UNO e2e test for full `=PYTHON()` plot insertion (geometry unit-tested with mocks). Multiple open figures are merged into one vertical stack (PNG). Detail: [python-in-excel-dev-plan.md Phase 2](python-in-excel-dev-plan.md).
+**Known limitations:** No UNO e2e test for full `=PYTHON()` plot insertion (geometry unit-tested with mocks). Multiple open figures are merged into one vertical stack (PNG). Optional polish: [python-in-excel-dev-plan.md Phase 3](python-in-excel-dev-plan.md#phase-3-monaco--calc-editor-ux-in-progress).
 
 #### Phase B — Run Python Script + Writer image egress (shipped)
 
@@ -644,7 +662,7 @@ Keep each domain lean: reuse `payload_codec`, split-grid, document-attached scri
 
 ---
 
-Shared-kernel **Calc semantics** (reset, recalc, idempotent cells): [§7 — Calc UX and output enhancements](#calc-ux-and-output-enhancements). Worker lifecycle and code hot cache: [numpy-serialization.md — Warm worker](numpy-serialization.md#warm-worker-lifecycle).
+Shared-kernel **Calc semantics** (reset, recalc, idempotent cells): [§6 — Session modes and recalc semantics](#session-modes-and-recalc-semantics). Worker lifecycle and code hot cache: [numpy-serialization.md — Warm worker](numpy-serialization.md#warm-worker-lifecycle).
 
 ### Specialized domain
 
@@ -668,6 +686,142 @@ IDL: `any python( [in] string code, [in] any data );` in [`extension/idl/XPython
 |-----|------|----------|------|
 | 0 | `code` | Yes | Python source; evaluated result is returned |
 | 1 | `data` | No | Optional range → variable **`data`** ([Data handoff](#data-handoff-and-shaping)) |
+
+### Session modes and recalc semantics {#session-modes-and-recalc-semantics}
+
+Settings → Python → **`scripting.python_session_mode`**:
+
+| Mode | Behavior |
+|------|----------|
+| **Isolated** (default) | Each `=PYTHON()` evaluation gets a **fresh** namespace. The **initialization script** still runs once per workbook and its imports/helpers are **seeded** into every cell — but variables assigned in one cell do **not** leak to the next. |
+| **Shared kernel** | One **persistent global namespace** per workbook (`calc:…` session). Any cell can read or overwrite any name set by any other cell. **WriterAgent → Reset Python Session** clears it. |
+
+Chat **`run_venv_python_script`** always uses isolated execution (not workbook session mode).
+
+> [!IMPORTANT]
+> **Mental model (Shared kernel):** Calc may recalculate cells in **any order** — not row-major. The only ordering guarantee you get for free is **init script before any cell**. Assume each cell **can run zero, one, or many times** per workbook session. Write **idempotent** code (safe to re-run).
+
+#### Excel vs WriterAgent: persistence and ordering
+
+Microsoft Python in Excel keeps one global namespace per workbook. F9 / auto-recalc does **not** reset it — globals persist until **Reset Runtime**. Excel compensates with **co-volatility**: when any `=PY` cell recalculates, **all** PY cells re-execute in row-major order ([co-volatility overview](https://fastexcel.wordpress.com/2023/11/01/python-in-excel-py-calculation-globals-co-volatility/)).
+
+WriterAgent **Shared kernel** matches persistence (no auto-reset on F9) but **does not** co-volatile all Python cells. Calc uses its native **dependency DAG**: only dirty cells and their dependents recalculate. That sounds weaker than Excel until you use **`data` as a dependency edge** — see below.
+
+| Approach | Ordering mechanism | Partial recalc |
+|----------|-------------------|----------------|
+| Excel `=PY` + globals | Row-major + all PY cells re-run | Heavy (co-volatility) |
+| WriterAgent Shared kernel + **`data` refs** | Calc DAG (precedents first) | Only dirty subgraph recalcs |
+
+#### Why pass upstream cells as `data`
+
+Excel's shared globals depend on **sheet position** and co-volatility. WriterAgent's **`data` argument declares a Calc dependency.** When cell `B1` uses a global set in `A1`, still write:
+
+```calc
+=PYTHON("result = x + 1"; A1)
+```
+
+Calc tracks that `B1` depends on `A1` and runs **`A1` before `B1`** — no Python string parsing, no co-volatility tax. Chain pipelines (load → clean → aggregate → plot) by passing each stage as `data`, even when cells are not adjacent or not in row-major order.
+
+This is a main reason to keep **`=PYTHON(code, data)`** instead of Excel's `xl()`-inside-string model ([§7 comparison](#microsoft-python-in-excel-vs-writeragent)): the second argument wires **recalc order**, not only values.
+
+#### Rules of the shared namespace
+t
+| Rule | Meaning |
+|------|---------|
+| **One namespace per workbook** | The `calc:…` session lives until **Reset Python Session**, worker crash/restart, init-script hash change + re-seed, or (optional, not wired by default) document unload via [`python_workbook_lifecycle.py`](../plugin/calc/python_workbook_lifecycle.py). |
+| **Any cell can clobber any name** | True shared mutable globals — cell B1 can overwrite a name from A1. |
+| **Order via `data`, not layout** | `result = x + 1` with **no** second arg has **no** ordering guarantee. Pass upstream cells/ranges as **`data`**. Init script always runs before any cell. |
+| **Runs any time** | Partial recalc, matrix spill, manual F9 — treat every cell as **restartable**. |
+| **Escape hatch** | **Reset Python Session** clears workbook namespace and init cache. |
+
+| When state clears | When state persists |
+|-------------------|---------------------|
+| **WriterAgent → Reset Python Session** | F9 / automatic / partial recalc |
+| Worker subprocess restart or crash | Names from cells that did not recalc this pass |
+| Init script hash change (re-seed) | Until user resets (matches Excel: no reset on F9) |
+| Optional document unload (not wired by default) | |
+
+#### Authoring guidelines
+
+1. **Wire dependencies with `data`** — pass upstream cells/ranges as the second arg so Calc's DAG runs precedents first; keep one-off setup in the **initialization script** (runs once per workbook — see [§7 Calc UX](#calc-ux-and-output-enhancements)).
+2. **Avoid unbounded accumulation** — `mylist.append(x)` every recalc grows forever unless intentional.
+3. **One-time expensive work** belongs in the init script, not repeated in every cell.
+4. **Side effects** (sheet writes, files, shapes) should be idempotent or clearly intentional on re-run.
+
+#### What “idempotent” means
+
+A cell is **idempotent** when running it again (F9, edit elsewhere, partial recalc) produces the **same intended outcome** — it does not keep adding unwanted changes.
+
+| Pattern | Idempotent? | Why |
+|---------|-------------|-----|
+| `result = data * 2` | Yes | Same inputs → same `result`. |
+| `result = df.groupby("col").sum()` | Yes | Derives from current `data` only. |
+| `runs += 1; result = runs` | No | Counter grows on every recalc. |
+| `cache.append(x)` with no reset | No | List grows each invocation. |
+| Write a file / insert a shape every run | Usually no | Re-run duplicates side effects. |
+
+Deliberate accumulation (running totals, etc.) is fine — treat it as a choice, not an accident. When in doubt, compute `result` from `data` and init helpers; use **Reset Python Session** for a clean slate.
+
+**Not reset automatically:** F9, Ctrl+Shift+F9, or editing one cell does **not** clear the shared kernel.
+
+**Related:** [`WorkerResultSession`](../plugin/calc/python_function.py) is a **separate** thread-local cache for matrix list results within one recalc pass — it does not hold cross-cell Python globals. See [Matrix Formula Optimization](#matrix-formula-optimization-fast-path).
+
+**Implementation:** [`session_manager.py`](../plugin/scripting/session_manager.py), [`venv_sandbox.py`](../plugin/scripting/venv_sandbox.py) (`_SESSION_EXECUTORS`).
+
+#### `result` vs `print()` (egress model) {#result-vs-print-egress-model}
+
+| | Microsoft Python in Excel | WriterAgent `=PYTHON()` |
+|---|---------------------------|-------------------------|
+| **Cell value** | Last evaluated expression (Jupyter-style) | Explicit **`result = …`** assignment |
+| **`print()` / stdout** | Diagnostics pane only; cell gets `None` | Captured in worker response; **not** shown in the cell today ([Phase 6 diagnostics](python-in-excel-dev-plan.md#phase-6-diagnostics-pane)) |
+| **Top-level `return`** | Syntax error in Excel | Use `result = …` instead |
+
+### Keyboard shortcuts and recalc {#keyboard-shortcuts-and-recalc}
+
+#### LibreOffice Calc recalc (native)
+
+These are **Calc** shortcuts. They recalculate formulas; they do **not** clear the Python shared kernel unless noted.
+
+| Shortcut | Calc action | Effect on Python session |
+|----------|-------------|---------------------------|
+| **F9** | Recalculate changed cells | Re-runs dirty `=PYTHON()` cells; **Shared kernel** globals **persist** |
+| **Ctrl+Shift+F9** | Hard recalculate (all formulas) | Re-runs all `=PYTHON()` cells; globals **persist**. Use after worker crash/`NameError` to rebuild DAG state ([landscape backlog](#shared-kernel-dependency--invalidation--soft-timeout-recovery)) |
+| **Shift+F9** | Recalculate current sheet | Same persistence rules as F9, sheet-scoped |
+
+**Clear Python memory:** **WriterAgent → Reset Python Session** (menu). Excel’s analogue is **Ctrl+Alt+Shift+F9** (Reset Runtime) — see target mapping below.
+
+**Matrix formulas:** Confirm multi-cell blocks with **Ctrl+Shift+Enter** ([Matrix formulas](#2-normal-single-cell-formulas-vs-matrix-array-formulas)).
+
+#### Microsoft Python in Excel shortcuts (reference)
+
+Parity targets for WriterAgent UX. Source: Microsoft Python in Excel product docs (summarized in our former ideas spec).
+
+| Excel shortcut | Excel action | WriterAgent today | Target / notes |
+|----------------|--------------|-------------------|----------------|
+| **=PY** / **Ctrl+Alt+Shift+P** | Start Python cell / editor | Type `=PYTHON("…")` or **Edit Python in Cell…** (menu / cell context menu) | Optional accelerator for Monaco cell editor ([Monaco Phase 3](python-monaco-editor-dev-plan.md#phase-3--broader-surfaces)) |
+| **Ctrl+Enter** | Commit code in editor | Monaco **Save** (Calc cell editor) | Same pattern in Monaco when editing multi-line scripts |
+| **Ctrl+Alt+Shift+F9** | **Reset Python runtime** | **WriterAgent → Reset Python Session** (no accelerator yet) | **Adopt this chord** for reset when we wire [`Accelerators.xcu`](../extension/Accelerators.xcu) |
+| **Ctrl+Alt+Shift+F2** | Toggle Python editor pane | Monaco window (separate process) | Optional: dock/focus toggle |
+| **Ctrl+Alt+Shift+C** | Toggle plot float vs embedded | Plots insert as sheet images only | Floating plot layer → backlog |
+| **Ctrl+Alt+Shift+M** | Toggle Value vs Object return | Always value egress today; object cards → [Phase 5](python-in-excel-dev-plan.md#phase-5-python-object-cards) | |
+| **Ctrl+Shift+F5** | Open object card preview | Not shipped | Phase 5 |
+| **Ctrl+Shift+U** | Expand formula bar | Calc native (multi-line formula bar) | Formula-bar Jedi → backlog |
+| **F2** | Edit vs point mode (range pick) | Calc native cell edit | Monaco **range picker** should use same Enter/Point idea ([Monaco 2C](python-monaco-editor-dev-plan.md#phase-2c--calc-range-picker-medium-risk-high-value)) |
+| **Ctrl+F2** | Focus formula bar ↔ grid | Calc native | — |
+
+WriterAgent **chat** shortcuts (Writer/Calc): **Ctrl+Q** extend selection, **Ctrl+E** edit selection ([`Accelerators.xcu`](../extension/Accelerators.xcu)) — unrelated to `=PYTHON()`, but often used alongside the sidebar.
+
+#### Excel error codes (reference for diagnostics)
+
+WriterAgent today surfaces errors as **cell text** (and worker `traceback` in logs). [Phase 6](python-in-excel-dev-plan.md#phase-6-diagnostics-pane) targets Excel-like structured codes + diagnostics pane.
+
+| Excel code | Typical cause | WriterAgent today |
+|------------|---------------|-------------------|
+| **#PYTHON!** | Syntax/runtime error | Error string in cell; Monaco on manual edit |
+| **#SPILL!** | Blocked dynamic array spill | Not shipped — manual matrix only ([backlog](#calc-ux-and-output-enhancements)) |
+| **#TIMEOUT!** | Exceeded runtime limit | Timeout message; Settings → `scripting.python_exec_timeout` |
+| **#BUSY!** / **#CONNECT!** | Cloud kernel (N/A locally) | Worker spawn failure / venv misconfig |
+| **#CALC!** | Payload too large / volatile deps | `python_max_data_cells` cap; avoid `RAND()`/`NOW()` in `data` precedents if problematic |
 
 ### Return Types, Coercion, and Matrix (Array) Formulas
 
@@ -772,7 +926,7 @@ Without the index argument, repeated evaluations in the same recalc pass return 
 
 #### Today vs Excel dynamic spill
 
-Microsoft Excel can **auto-spill** multi-cell results (DataFrames, 2D arrays) into adjacent rows and columns and surfaces **`#SPILL!`** when blocking cells are in the way ([python-in-excel-ideas.md](python-in-excel-ideas.md) §1.1, §7.1). WriterAgent does **not** do that yet: you must select the output range, use a **matrix formula** (**Ctrl+Shift+Enter**), and usually pass a **per-row index** (`ROW()-n`) as the 2nd argument so each cell pulls the correct slice from a cached list result (see [Matrix Formula Optimization](#matrix-formula-optimization-fast-path) above). **Automatic dynamic spill** with graceful blocked-cell errors is on the deferred backlog ([§7 Calc UX and output enhancements](#calc-ux-and-output-enhancements)).
+Microsoft Excel can **auto-spill** multi-cell results (DataFrames, 2D arrays) into adjacent rows and columns and surfaces **`#SPILL!`** when blocking cells are in the way ([Microsoft Python in Excel vs WriterAgent](#microsoft-python-in-excel-vs-writeragent)). WriterAgent does **not** do that yet: you must select the output range, use a **matrix formula** (**Ctrl+Shift+Enter**), and usually pass a **per-row index** (`ROW()-n`) as the 2nd argument so each cell pulls the correct slice from a cached list result (see [Matrix Formula Optimization](#matrix-formula-optimization-fast-path) above). **Automatic dynamic spill** with graceful blocked-cell errors is on the deferred backlog ([§7 Calc UX and output enhancements](#calc-ux-and-output-enhancements)).
 
 * **Grid egress over a data range** — use **two arguments only**: `=PYTHON("np.sum(data)"; B1:B10)` or `=PYTHON("(np.array(data) * 2).tolist()"; D6:G9)` as a matrix formula (**Ctrl+Shift+Enter**). The add-in IDL accepts only `(code, data)`; a third argument such as `ROW()-1` causes **Err:504** (error in parameter list). When the 2nd argument is the full range, `data` in Python is that grid; use `ROW()-n` as the 2nd argument only when it is the per-cell index, not together with a range.
 
@@ -861,7 +1015,7 @@ These are **not** implemented; kept here so design discussions do not rediscover
 
 ### How it runs
 
-Uses the same warm worker and fresh executor as the chat tool ([§2](#2-strategy-decision)). **`execute_python_script`** is separate and not used for formulas. Variables do **not** persist across cells.
+Uses the same warm worker as the chat tool ([§2](#2-strategy-decision)). **`execute_python_script`** is separate and not used for formulas. **Isolated** mode (default): variables do **not** persist across cells. **Shared kernel**: one workbook namespace until reset — [§6 Session modes](#session-modes-and-recalc-semantics).
 
 ### Code Oracle (`=PROMPT()` + `=PYTHON()`)
 
@@ -950,6 +1104,51 @@ Tier 1 reuses existing `DialogProvider` / XDL patterns ([`plugin/chatbot/dialogs
 
 ## 7. Deferred roadmap
 
+### Microsoft Python in Excel vs WriterAgent {#microsoft-python-in-excel-vs-writeragent}
+
+Microsoft **Python in Excel** runs user code in **cloud containers** with `=PY(code, return_type)` and an `xl()` bridge inside Python strings. WriterAgent runs **locally** in the user's venv with **`=PYTHON(code, data?)`** — closer to Neptyne or LibrePythonista's compute model, but with explicit formula arguments instead of parsing `xl("A1")` out of code strings.
+
+| Feature dimension | Microsoft Excel (`=PY`) | WriterAgent Calc (`=PYTHON`) |
+|-------------------|-------------------------|------------------------------|
+| **Data ingress** | Implicit: `xl("A1:B10")` inside Python code | Explicit: range as formula arg → injected as **`data`** |
+| **Output egress** | Jupyter-style last expression | Explicit **`result = …`** assignment |
+| **Dependency tracking** | Engine must parse Python strings for `xl()` refs | **Native Calc DAG** on `data` arguments |
+| **Multi-range** | Unlimited `xl()` calls in script | Varargs: `data[0]`, `data[1]`, … ([§9](#9-multi-range-support-varargs)) |
+| **Shared state** | Global namespace + row-major **co-volatility** | Opt-in **Shared kernel** + **`data` refs** for ordering ([§6](#session-modes-and-recalc-semantics)) |
+| **Runtime** | Cloud sandbox (offline requires connectivity) | User venv subprocess (offline, any pip packages) |
+| **Editor** | Monaco task pane in Excel | Monaco via pywebview ([§3 Monaco](#monaco-editor--run-python-script)) |
+
+**Design stance — keep explicit `data` + `result`:** Calc's formula engine tracks range dependencies without fragile string/AST pre-parsing. The `result` convention is deterministic for sandboxed execution. For long scripts, use **code in a cell**: `A1` holds Python; `=PYTHON($A$1; B1:B10)` — supported today and editable in Monaco with **Save as plain text**.
+
+**Excel features not copied (backlog or non-goals):**
+
+- Cloud container execution, compute tiers, `#CONNECT!` / `#BUSY!` cloud errors
+- `xl()` string dependency extraction (would need Calc core changes or a fragile preprocessor)
+- Row-major **co-volatility** (all PY cells re-run together)
+- **Dynamic auto-spill** of DataFrames with `#SPILL!` ([Calc UX backlog](#calc-ux-and-output-enhancements))
+- **Python Object cards** (in-memory reference + preview dialog) — [Phase 5](python-in-excel-dev-plan.md)
+- Curated Anaconda-only package set — WriterAgent uses the **user's full venv**
+
+**Local-first advantages (competitive):**
+
+- **Offline** — no network required for recalc or editing
+- **Any pip packages** — enterprise stacks, MKL/OpenBLAS, custom wheels
+- **Native Calc DAG** — partial recalc without co-volatility tax when using `data` refs
+- **Auditable formulas** — Python source visible in cells or referenced cells, not opaque cloud black boxes
+
+**Excel parity summary (2026):**
+
+| Bucket | Excel reference | WriterAgent status |
+|--------|-----------------|-------------------|
+| **Dynamic spill** | Auto-fill adjacent cells; `#SPILL!` when blocked | **Manual matrix** (Ctrl+Shift+Enter + `ROW()` + result cache) — [backlog](#calc-ux-and-output-enhancements) |
+| **Output / plots** | Object cards; embedded plot images | **Plots shipped**; table + JSON egress + object cards → backlog |
+| **UI / editor** | Monaco task pane; sheet grouping | **Cell editor + Run Python Script Monaco shipped**; grouping, range picker → [Monaco 2C](python-monaco-editor-dev-plan.md#phase-2c--calc-range-picker-medium-risk-high-value); shortcuts → [§6](enabling_numpy_in_libreoffice.md#keyboard-shortcuts-and-recalc) |
+| **Data handoff** | `xl()` names, tables, `headers=True` | **Range args + varargs shipped**; names/tables/labels → backlog |
+| **Session / init** | Global init script; persistent kernel | **Shared kernel + init scripts shipped** |
+| **Perf / debug** | Diagnostics pane; `#PYTHON!` opens editor | **Cell error string**; AST cache shipped; diagnostics pane → [Phase 6](python-in-excel-dev-plan.md) |
+
+Phased implementation todos: [python-in-excel-dev-plan.md](python-in-excel-dev-plan.md) (Phases 3–7 + backlog).
+
 ### Competitive landscape (Google Sheets vs Calc)
 
 **Google Sheets does not run Python natively in cells.** Its built-in programmable layer is [**Google Apps Script**](https://developers.google.com/apps-script/guides/sheets) — **JavaScript** bound to the spreadsheet (`SpreadsheetApp`, custom menus, triggers). Cloud AI (`=AI()`, Gemini sidebar) runs on Google endpoints, not a user Python sandbox in the grid.
@@ -968,7 +1167,7 @@ WriterAgent Calc **does** run Python in cells (`=PY()` / `=PYTHON()` in a local 
 
 - **Local-first** — compute in the user's venv subprocess, not a managed cloud container ([§2](#2-strategy-decision)).
 - **Auditable code over black-box cell AI** — prefer generated Python plus existing tools over LLM text written directly into cells ([§3 two-phase workflow](#two-phase-llm-workflow)).
-- **Explicit `data` wiring for recalc order** — shared kernel does not give Excel co-volatility; pass upstream cells as `data` args and write idempotent side effects ([Shared kernel lifecycle](#shared-kernel-lifecycle--recalc-semantics) below).
+- **Explicit `data` wiring for recalc order** — shared kernel does not give Excel co-volatility; pass upstream cells as `data` args and write idempotent side effects ([§6 Session modes](#session-modes-and-recalc-semantics)).
 
 #### Apps Script as API design reference (not as runtime)
 
@@ -1020,54 +1219,43 @@ WriterAgent can import Jupyter notebooks into **Writer** via **Tools → Import 
 
 Full usage, document layout, debugging, and notebook-specific roadmap: **[Jupyter notebook import](jupyter-notebook-import.md)**.
 
-### Run Python Script – document-attached scripts (Priority 3)
+### Run Python Script – document-attached scripts {#run-python-script--document-attached-scripts}
 
-**Status:** Shipped (2026-05).
-
-To ensure Python scripts can travel with spreadsheets and documents (.odt/.ods/.odg files), WriterAgent supports attaching scripts directly to documents (stored in JSON form within document `UserDefinedProperties`). The Monaco editor's script picker separates these into **This Document** and **My Scripts** sections.
-
-For the detailed design, UI integration, storage model, and implementation phases of this feature, see [python-monaco-editor-dev-plan.md (Run Python Script: Document-Attached Scripts)](python-monaco-editor-dev-plan.md#10-run-python-script-document-attached-scripts-design--implementation).
+**Status:** Shipped (2026-05). Named scripts can be stored in document `UserDefinedProperties` (`WriterAgentDocumentPythonScripts`) so they travel with `.odt`/`.ods`/`.odg`. The Monaco script picker shows **My Scripts** (personal library in `writeragent.json`) and **This Document** separately. Implementation: [`document_scripts.py`](plugin/scripting/document_scripts.py). **Attach** / **Copy to My Scripts** in Monaco; read-only documents fall back to the personal library with a clear message.
 
 ---
 
 ### Other enhancements {#other-enhancements}
 
 - **OooDev / ScriptForge:** optional venv install for UNO-from-Python; or keep compute-in-venv + document-via-tools (recommended).
-- **Matplotlib Phase A (shipped):** `matplotlib` / `plt` figures from `=PYTHON()` or `run_venv_python_script` are captured in the worker, serialized via the `__wa_payload__: "image"` envelope, and inserted as `GraphicObjectShape` on the Calc draw page (chat path returns a temp `image_path` for existing image tools). See [python-in-excel-dev-plan.md](python-in-excel-dev-plan.md) Phase 2 and [Scientific domain roadmap — Visualization Phase A](#visualization).
+- **Matplotlib Phase A (shipped):** `matplotlib` / `plt` figures from `=PYTHON()` or `run_venv_python_script` are captured in the worker, serialized via the `__wa_payload__: "image"` envelope, and inserted as `GraphicObjectShape` on the Calc draw page (chat path returns a temp `image_path` for existing image tools). See [Visualization §1](#visualization).
 - **Trusted Viz helpers (Phase B–C, shipped):** `plot_data`, Run Python Script **[Viz]** templates, analysis auto-plot — [Visualization §1](#visualization).
 - **Trusted Symbolic Math (SymPy, shipped):** `symbolic_math`, Run Python Script **[Math]** templates, Writer Math OLE insert — [Symbolic Math §3](#symbolic-math). Sage deferred.
 - **Worker idle shutdown:** terminate venv process after N minutes idle.
 - **Formula `timeout_sec`:** optional per-formula override (Settings remains the default).
 - **LO serialization profiler:** debug-menu or UNO test harness for legs A–D ([Priority 1](numpy-serialization.md#priority-1--profile-inside-libreoffice-gate-for-everything-else)).
-- **Run Python Script – document-attached scripts** (Priority 3) — see detailed technical plan in the section immediately below. Complements the existing personal `saved_python_scripts` library and Calc init scripts.
 
-Phased implementation plan: [python-in-excel-dev-plan.md](python-in-excel-dev-plan.md). Monaco editor detail: [python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md).
+Phased future work: [python-in-excel-dev-plan.md](python-in-excel-dev-plan.md). Monaco IPC and phase detail: [python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md).
 
 ### Calc UX and output enhancements
 
-**Shared kernel (shipped):** Settings → Python → **Python session mode** → **Shared kernel** keeps one Python namespace per Calc workbook across `=PYTHON()` cells (default **Isolated** preserves the old one-namespace-per-cell behavior). Use **WriterAgent → Reset Python Session** to clear variables for the active spreadsheet. Implementation: [`session_manager.py`](../plugin/scripting/session_manager.py), [python-in-excel-dev-plan.md](python-in-excel-dev-plan.md) Phase 1.
+**Shared kernel (shipped):** Settings → Python → **Python session mode** → **Shared kernel**. Full mental model, ordering via `data`, idempotent authoring: [§6 Session modes and recalc semantics](#session-modes-and-recalc-semantics).
 
-#### Shared kernel lifecycle & recalc semantics
+**Initialization scripts (shipped):** **WriterAgent → Edit Initialization Script…** (Calc only) — workbook startup script in document properties; runs once in `calc:…:init` even when session mode is Isolated. [`document_scripts.py`](../plugin/scripting/document_scripts.py).
 
-> [!IMPORTANT]
-> **Mental model:** One persistent global Python namespace per workbook. Any `=PYTHON()` cell can read or overwrite any name. Calc may run cells out of row-major / DAG order. The only reliable ordering guarantee is **after the Initialization Script**. Assume each cell **can run any time, any number of times** — write **idempotent** code (running the cell again should not accidentally pile on extra side effects; see [What “idempotent” means](python-in-excel-dev-plan.md#shared-kernel-lifecycle--recalc-semantics) in the dev plan).
+Example helpers (Excel init-script pattern — no `excel` module; use auto-imported `np`/`pd` or explicit imports):
 
-| When state clears | When state persists |
-|-------------------|---------------------|
-| **WriterAgent → Reset Python Session** | F9 / automatic / partial recalc |
-| Worker subprocess restart or crash | Variables from cells that did not recalc this pass |
-| Init script hash change (re-seed) | Until user resets (matches Excel: no reset on F9) |
-| Optional document unload ([`python_workbook_lifecycle.py`](../plugin/calc/python_workbook_lifecycle.py), not wired by default) | |
+```python
+import pandas as pd
 
-Excel keeps globals across recalc and uses **co-volatility** (all `=PY` cells re-run together in row-major order). WriterAgent does **not** co-volatile all Python cells; instead, **`=PYTHON(code, data)` wires Calc's DAG** so precedents run first — pass upstream cells as `data` to chain load → transform → output pipelines without Excel's positional fragility. See [Why explicit `data` args unlock complicated multi-cell scripts](python-in-excel-dev-plan.md#why-explicit-data-args-unlock-complicated-multi-cell-scripts) in the dev plan.
+def format_currency(series):
+    return series.apply(lambda x: f"${x:,.2f}")
 
-**Authoring:** put one-time setup in the init script; avoid unbounded `append` loops; make side effects idempotent. **Pipeline tip:** pass each upstream stage as `data` (e.g. `=PYTHON("result = g(df)"; A1)`) — that declares recalc order and is the main way to build complicated multi-cell scripts. Full detail: [python-in-excel-dev-plan.md § Shared kernel lifecycle](python-in-excel-dev-plan.md#shared-kernel-lifecycle--recalc-semantics).
+def kpi_summary(df, metrics):
+    return df[metrics].agg(["mean", "min", "max"]).round(2)
+```
 
-**Future (not planned as default):** A "reset shared kernel on full workbook recalc" opt-in would require best-effort detection (e.g. a document calculate listener if available). Cell-position heuristics (`last cell < previous`) are **not** reliable — Calc does not expose recalc-pass boundaries to add-ins.
-
-**Initialization scripts (shipped):** **WriterAgent → Edit Initialization Script…** (Calc only) stores a workbook startup script in document properties. It runs **once** per workbook in a dedicated `calc:…:init` session (even when session mode is Isolated); expensive setup is shared across all `=PYTHON()` cells. Cell-to-cell variables remain isolated unless Shared kernel is enabled. [`document_scripts.py`](../plugin/scripting/document_scripts.py), Phase 4 in [`python-in-excel-dev-plan.md`](python-in-excel-dev-plan.md).
-
-Backlog items inspired by Microsoft Python in Excel ([python-in-excel-ideas.md](python-in-excel-ideas.md) §10). **Status: not implemented** unless noted otherwise.
+Backlog items inspired by Microsoft Python in Excel ([parity summary above](#microsoft-python-in-excel-vs-writeragent)). **Status: not implemented** unless noted otherwise.
 
 | Enhancement | Design note |
 |-------------|-------------|
@@ -1144,6 +1332,9 @@ LRU eviction of large inactive DataFrames in long-lived workbook sessions — di
 | Matplotlib + Viz helpers (Phase A–C) | [`venv_sandbox.py`](../plugin/scripting/venv_sandbox.py), [`viz.py`](../plugin/scripting/viz.py), [`viz_egress.py`](../plugin/scripting/viz_egress.py), [`python_runner.py`](../plugin/scripting/python_runner.py) — [Visualization §1](#visualization) |
 | Symbolic Math (SymPy) | [`symbolic.py`](../plugin/scripting/symbolic.py), [`symbolic_egress.py`](../plugin/scripting/symbolic_egress.py), [`symbolic_math`](../plugin/calc/symbolic_math.py) — [Symbolic Math §3](#symbolic-math) |
 | Run Python Script UI split | [`python_runner_ui.py`](../plugin/scripting/python_runner_ui.py) (native dialog); execution in [`python_runner.py`](../plugin/scripting/python_runner.py) |
+| Monaco editor (Calc cell + Run Python Script) | [`python_editor.py`](../plugin/calc/python_editor.py), [`editor_host.py`](../plugin/scripting/editor_host.py) — [§3 Monaco](#monaco-editor--run-python-script) |
+| Document-attached scripts | [`document_scripts.py`](../plugin/scripting/document_scripts.py) — [`tests/scripting/test_document_scripts.py`](../tests/scripting/test_document_scripts.py) |
+| Multi-range varargs (`=PYTHON(code; A1; B1)`) | [§9](#9-multi-range-support-varargs) |
 
 Jupyter `.ipynb` import (separate feature): [jupyter-notebook-import.md](jupyter-notebook-import.md).
 
@@ -1155,9 +1346,10 @@ Jupyter `.ipynb` import (separate feature): [jupyter-notebook-import.md](jupyter
 - Venv ↔ LO **tool RPC** ([§7](#venv--libreoffice-tool-rpc)) — [`writeragent_api.py`](../plugin/scripting/writeragent_api.py) stubs only.
 - **Calc landscape backlog** — range alignment, shared-kernel invalidation, Mito recorder, dynamic sidebar UI, shared-kernel memory bounds ([§7 Calc backlog](#calc-backlog-from-landscape-survey)).
 - **Blank vs NaN wire semantics** — [calc-blanks-vs-nans.md](calc-blanks-vs-nans.md).
-- Managed venv (Strategy 2), session persistence, worker idle shutdown, per-formula `timeout_sec`, Python edit dialog tiers 1–3.
+- Managed venv (Strategy 2), worker idle shutdown, per-formula `timeout_sec`, Python edit dialog tiers 1–3.
+- **Monaco backlog** — syntax validate (2B), range picker (2C), full Jedi (2D), theme sync (2E), sheet-level Python cell list — [python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md).
 - **Jupyter notebook import** — see [jupyter-notebook-import.md](jupyter-notebook-import.md) (Writer import shipped; execution loop deferred).
-- ~~**Run Python Script – document-attached scripts** (Priority 3)~~ — **Shipped.** See section above and [`document_scripts.py`](../plugin/scripting/document_scripts.py).
+- **Calc UX backlog** — dynamic spill, object cards, diagnostics pane, named ranges/tables — [§7 Calc UX](#calc-ux-and-output-enhancements).
 
 ---
 
