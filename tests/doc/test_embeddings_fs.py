@@ -62,7 +62,7 @@ def test_paragraph_chunks_from_path(tmp_path: Path):
     assert chunks[0].doc_url.startswith("file:")
 
 
-def test_guess_writer_paths_skips_non_writer(tmp_path: Path):
+def test_guess_indexable_paths_includes_ods(tmp_path: Path):
     (tmp_path / "notes.txt").write_text("x", encoding="utf-8")
     odt = tmp_path / "doc.odt"
     content_xml = b"""<?xml version="1.0"?>
@@ -72,6 +72,13 @@ def test_guess_writer_paths_skips_non_writer(tmp_path: Path):
 </office:document-content>"""
     with zipfile.ZipFile(odt, "w") as zf:
         zf.writestr("content.xml", content_xml)
-    entries = embeddings_fs.guess_writer_paths(str(tmp_path))
-    assert len(entries) == 1
-    assert entries[0].name == "doc.odt"
+    (tmp_path / "Budget.ods").write_bytes(b"placeholder")
+    (tmp_path / "deck.odp").write_bytes(b"placeholder")
+    entries = embeddings_fs.guess_indexable_paths(str(tmp_path))
+    names = sorted(entry.name for entry in entries)
+    assert names == ["Budget.ods", "deck.odp", "doc.odt"]
+
+
+def test_guess_writer_paths_alias(tmp_path: Path):
+    (tmp_path / "doc.odt").write_bytes(b"x")
+    assert embeddings_fs.guess_writer_paths(str(tmp_path)) == embeddings_fs.guess_indexable_paths(str(tmp_path))

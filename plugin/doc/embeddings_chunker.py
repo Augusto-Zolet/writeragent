@@ -9,22 +9,28 @@
 from __future__ import annotations
 
 from plugin.doc.embeddings_fs import (
+    DRAW_EXTENSIONS,
     ParagraphChunk,
     WriterFileEntry,
     chunk_to_index_row,
     content_hash,
+    extract_indexable_passages,
     extract_writer_paragraphs,
+    guess_indexable_paths,
     guess_writer_paths,
     paragraph_chunks_from_path,
     path_to_file_url,
 )
 
 __all__ = [
+    "DRAW_EXTENSIONS",
     "ParagraphChunk",
     "WriterFileEntry",
     "chunk_to_index_row",
     "content_hash",
+    "extract_indexable_passages",
     "extract_writer_paragraphs",
+    "guess_indexable_paths",
     "guess_writer_paths",
     "list_indexable_sibling_files",
     "paragraph_chunks_from_path",

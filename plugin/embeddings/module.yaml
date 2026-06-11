@@ -7,7 +7,7 @@ config:
     default: none
     widget: select
     label: Cross-file search mode
-    helper: "How document_research discovers content across nearby files. None: grep_nearby_files only. Embeddings: search_embeddings + grep_nearby_files (requires Settings → Python venv with sentence-transformers, chromadb, langgraph, langchain-core, langchain-text-splitters, envwrap; see Settings → Python Test). SQLite FTS (venv): search_nearby_files only — replaces slow in-proc grep (index via stdlib sqlite3 in the embeddings venv worker)."
+    helper: "Cross-file search for document_research. Requires embeddings venv — see Python Test."
     options:
       - value: none
         label: None

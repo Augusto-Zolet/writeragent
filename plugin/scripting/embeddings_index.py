@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 
 EMBEDDINGS_VENV_PIP_INSTALL = (
     "pip install sentence-transformers numpy chromadb langgraph "
-    "langchain-core langchain-text-splitters envwrap"
+    "langchain-core langchain-text-splitters envwrap odfpy"
 )
 
 _MODEL_CACHE: dict[str, Any] = {}

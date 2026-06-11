@@ -462,6 +462,7 @@ _EMBEDDINGS_PACKAGE_KEYS = (
     "langgraph",
     "langchain_core",
     "langchain_text_splitters",
+    "odfpy",
 )
 _EMBEDDINGS_PROBE_SCRIPT = """
 import json
@@ -497,6 +498,11 @@ try:
     out["langchain_text_splitters"] = "present"
 except Exception:
     out["langchain_text_splitters"] = None
+try:
+    import odf  # noqa: F401
+    out["odfpy"] = "present"
+except Exception:
+    out["odfpy"] = None
 print(json.dumps(out))
 """
 

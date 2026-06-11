@@ -5,7 +5,7 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-"""Stdlib-only Writer ODF extract and folder scan for embeddings indexing (no UNO)."""
+"""Writer/Calc/Impress/Draw ODF extract and folder scan for embeddings / FTS indexing (no UNO)."""
 from __future__ import annotations
 
 import dataclasses
@@ -22,6 +22,9 @@ log = logging.getLogger(__name__)
 TEXT_NS = "{urn:oasis:names:tc:opendocument:xmlns:text:1.0}"
 
 WRITER_EXTENSIONS = frozenset({".odt", ".ott", ".fodt"})
+CALC_EXTENSIONS = frozenset({".ods", ".ots", ".fods"})
+DRAW_EXTENSIONS = frozenset({".odp", ".otp", ".fodp", ".odg"})
+INDEXABLE_EXTENSIONS = WRITER_EXTENSIONS | CALC_EXTENSIONS | DRAW_EXTENSIONS
 
 
 @dataclasses.dataclass(frozen=True)
@@ -89,21 +92,37 @@ def extract_writer_paragraphs(path: str) -> list[str]:
         return []
 
 
-def guess_writer_paths(directory: str) -> list[WriterFileEntry]:
-    """List Writer siblings in *directory* (stdlib scan, no UNO)."""
+def extract_indexable_passages(path: str) -> list[str]:
+    """Extract indexable passage text from Writer, Calc, or Impress/Draw files on disk."""
+    ext = os.path.splitext(path)[1].lower()
+    if ext in WRITER_EXTENSIONS:
+        return extract_writer_paragraphs(path)
+    if ext in CALC_EXTENSIONS:
+        from plugin.scripting.embeddings_ods_extract import extract_calc_rows
+
+        return extract_calc_rows(path)
+    if ext in DRAW_EXTENSIONS:
+        from plugin.scripting.embeddings_odp_extract import extract_draw_pages
+
+        return extract_draw_pages(path)
+    return []
+
+
+def guess_indexable_paths(directory: str) -> list[WriterFileEntry]:
+    """List Writer, Calc, and Impress/Draw siblings in *directory* (stdlib scan, no UNO)."""
     listing_root = _normalize_path(directory)
     entries: list[WriterFileEntry] = []
     try:
         names = sorted(os.listdir(listing_root))
     except OSError:
-        log.debug("guess_writer_paths listdir failed for %s", listing_root, exc_info=True)
+        log.debug("guess_indexable_paths listdir failed for %s", listing_root, exc_info=True)
         return []
     for name in names:
         full = os.path.join(listing_root, name)
         if not os.path.isfile(full):
             continue
         ext = os.path.splitext(name)[1].lower()
-        if ext not in WRITER_EXTENSIONS:
+        if ext not in INDEXABLE_EXTENSIONS:
             continue
         try:
             mtime = float(os.path.getmtime(full))
@@ -121,8 +140,13 @@ def guess_writer_paths(directory: str) -> list[WriterFileEntry]:
     return entries
 
 
+def guess_writer_paths(directory: str) -> list[WriterFileEntry]:
+    """Alias for :func:`guess_indexable_paths` (Writer, Calc, Impress/Draw)."""
+    return guess_indexable_paths(directory)
+
+
 def paragraph_chunks_from_path(path: str, *, doc_url: str | None = None, file_mtime: float | None = None) -> list[ParagraphChunk]:
-    """Build indexable paragraph chunks from one Writer file on disk."""
+    """Build indexable passage chunks from one Writer, Calc, or Impress/Draw file on disk."""
     norm = _normalize_path(path)
     url = doc_url if doc_url else path_to_file_url(norm)
     try:
@@ -130,7 +154,7 @@ def paragraph_chunks_from_path(path: str, *, doc_url: str | None = None, file_mt
     except OSError:
         mtime = 0.0
     chunks: list[ParagraphChunk] = []
-    for para_index, text in enumerate(extract_writer_paragraphs(norm)):
+    for para_index, text in enumerate(extract_indexable_passages(norm)):
         stripped = text.strip()
         if not stripped:
             continue

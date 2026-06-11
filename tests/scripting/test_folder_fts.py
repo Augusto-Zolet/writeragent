@@ -76,6 +76,46 @@ def test_fts_stats(tmp_path):
     assert stats["schema_version"] == "1"
 
 
+def test_maintain_and_search_ods_cold(tmp_path: Path):
+    listing = tmp_path / "reporting"
+    listing.mkdir()
+    from tests.scripting.ods_fixtures import write_budget_ods
+
+    write_budget_ods(listing / "Budget.ods")
+
+    result = folder_fts.maintain_folder_fts(str(listing), mode="cold")
+    assert result["mode"] == "cold"
+    assert result["indexed_paragraphs"] >= 1
+
+    db_path = listing / "writeragent_embeddings" / "fts5.db"
+    assert db_path.is_file()
+
+    search = folder_fts.search_folder_fts(str(db_path), "Q4 revenue", k=5, near_slop=10)
+    assert search["hits"]
+    assert any((h.get("doc_url") or "").endswith("Budget.ods") for h in search["hits"])
+    assert any("Revenue" in (h.get("snippet") or "") for h in search["hits"])
+
+
+def test_maintain_and_search_odp_cold(tmp_path: Path):
+    listing = tmp_path / "slides"
+    listing.mkdir()
+    from tests.scripting.odp_fixtures import write_deck_odp
+
+    write_deck_odp(listing / "deck.odp", body="Q4 Revenue growth")
+
+    result = folder_fts.maintain_folder_fts(str(listing), mode="cold")
+    assert result["mode"] == "cold"
+    assert result["indexed_paragraphs"] >= 1
+
+    db_path = listing / "writeragent_embeddings" / "fts5.db"
+    assert db_path.is_file()
+
+    search = folder_fts.search_folder_fts(str(db_path), "Q4 revenue", k=5, near_slop=10)
+    assert search["hits"]
+    assert any((h.get("doc_url") or "").endswith("deck.odp") for h in search["hits"])
+    assert any("Revenue" in (h.get("snippet") or "") for h in search["hits"])
+
+
 def _write_minimal_odt(path: Path, paragraphs: list[str]) -> None:
     import zipfile
 

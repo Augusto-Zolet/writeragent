@@ -27,7 +27,7 @@ from plugin.doc.embeddings_cache import (
 from plugin.doc.embeddings_fs import (
     ParagraphChunk,
     WriterFileEntry,
-    guess_writer_paths,
+    guess_indexable_paths,
     paragraph_chunks_from_path,
 )
 from plugin.framework.constants import EMBEDDINGS_HEARTBEAT_INTERVAL_S
@@ -119,7 +119,7 @@ def _cold_build(
         hb.ping({"phase": "extract", "file": entry.name, "paragraphs": len(chunks)})
 
     if not all_rows:
-        log.debug("No indexable Writer paragraphs in %s", listing_root)
+        log.debug("No indexable passages in %s", listing_root)
         return {"mode": "cold", "indexed_paragraphs": 0, "files": total}
 
     hb.force({"phase": "embed", "paragraphs": len(all_rows), "mode": "cold"})
@@ -200,7 +200,7 @@ def maintain_folder_index(
     hb = _HeartbeatThrottle(heartbeat_fn)
     hb.force({"phase": "start", "mode": resolved_mode, "listing_root": root})
 
-    files = guess_writer_paths(root)
+    files = guess_indexable_paths(root)
     if resolved_mode == "cold":
         out = _cold_build(root, folder_key, model, files, hb)
     else:

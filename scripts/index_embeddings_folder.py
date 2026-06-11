@@ -19,8 +19,8 @@ from plugin.scripting.embeddings_folder_maintain import maintain_folder_index
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Maintain per-folder WriterAgent embeddings cache")
-    parser.add_argument("folder", type=Path, help="Document directory containing .odt siblings")
+    parser = argparse.ArgumentParser(description="Maintain per-folder WriterAgent embeddings cache (.odt, .ods, .odp, .odg siblings)")
+    parser.add_argument("folder", type=Path, help="Document directory containing LibreOffice siblings")
     parser.add_argument("--model", default="all-MiniLM-L6-v2", help="SentenceTransformer model id")
     parser.add_argument(
         "--mode",

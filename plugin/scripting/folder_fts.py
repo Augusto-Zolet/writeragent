@@ -22,7 +22,7 @@ from plugin.doc.embeddings_cache import (
 from plugin.doc.embeddings_fs import (
     ParagraphChunk,
     WriterFileEntry,
-    guess_writer_paths,
+    guess_indexable_paths,
     paragraph_chunks_from_path,
 )
 from plugin.doc.folder_fts_cache import (
@@ -305,7 +305,7 @@ def maintain_folder_fts(
     hb = _HeartbeatThrottle(heartbeat_fn)
     hb.force({"phase": "start", "mode": resolved_mode, "listing_root": root})
 
-    files = guess_writer_paths(root)
+    files = guess_indexable_paths(root)
     if resolved_mode == "cold":
         out = _cold_build(root, files, hb)
     else:

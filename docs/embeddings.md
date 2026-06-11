@@ -1,6 +1,6 @@
 # Embeddings — Development Plan
 
-> **Status (2026-06):** **Chroma + LangGraph shipped (schema v2)** — per-folder **Chroma** persist dir + `corpus_meta.json` / `file_index_state.json` beside documents ([`embeddings_cache.py`](../plugin/doc/embeddings_cache.py)). **Index maintenance:** stdlib ODF extract in venv ([`embeddings_fs.py`](../plugin/doc/embeddings_fs.py) + [`embeddings_folder_maintain.py`](../plugin/scripting/embeddings_folder_maintain.py)) via one **`maintain_folder_index` RPC** with **heartbeat** sliding timeout (`EMBEDDINGS_HEARTBEAT_GRACE_S`); host only resolves folder path and `_inflight` dedupe ([`embeddings_indexer.py`](../plugin/doc/embeddings_indexer.py)). **Ingest/search:** LangGraph in [`embeddings_ingest_graph.py`](../plugin/scripting/embeddings_ingest_graph.py) / [`embeddings_search_graph.py`](../plugin/scripting/embeddings_search_graph.py). RPC facades: [`embeddings_index.py`](../plugin/scripting/embeddings_index.py), [`embeddings_service.py`](../plugin/framework/client/embeddings_service.py). **Dedicated embeddings subprocess** — `worker_pool=WORKER_POOL_EMBEDDINGS`. Offline re-index: [`scripts/index_embeddings_folder.py`](../scripts/index_embeddings_folder.py). Offline search: [`scripts/search_embeddings_folder.py`](../scripts/search_embeddings_folder.py). **Search mode:** Settings `embeddings.folder_search_mode` (`none` | `embeddings` | `fts`). **Scope:** one cache per filesystem folder.
+> **Status (2026-06):** **Chroma + LangGraph shipped (schema v2)** — per-folder **Chroma** persist dir + `corpus_meta.json` / `file_index_state.json` beside documents ([`embeddings_cache.py`](../plugin/doc/embeddings_cache.py)). **Index maintenance:** Writer stdlib ODF extract; **Calc `.ods`** via pandas + odfpy ([`embeddings_ods_extract.py`](../plugin/scripting/embeddings_ods_extract.py)); **Impress/Draw `.odp`/`.odg`** via odfpy ([`embeddings_odp_extract.py`](../plugin/scripting/embeddings_odp_extract.py)) — dispatch in [`embeddings_fs.py`](../plugin/doc/embeddings_fs.py) + [`embeddings_folder_maintain.py`](../plugin/scripting/embeddings_folder_maintain.py) via one **`maintain_folder_index` RPC** with **heartbeat** sliding timeout (`EMBEDDINGS_HEARTBEAT_GRACE_S`); host only resolves folder path and `_inflight` dedupe ([`embeddings_indexer.py`](../plugin/doc/embeddings_indexer.py)). **Same extract path** feeds **SQLite FTS5** when `folder_search_mode` is `fts` ([`folder_fts.py`](../plugin/scripting/folder_fts.py)). **Ingest/search:** LangGraph in [`embeddings_ingest_graph.py`](../plugin/scripting/embeddings_ingest_graph.py) / [`embeddings_search_graph.py`](../plugin/scripting/embeddings_search_graph.py). RPC facades: [`embeddings_index.py`](../plugin/scripting/embeddings_index.py), [`embeddings_service.py`](../plugin/framework/client/embeddings_service.py). **Dedicated embeddings subprocess** — `worker_pool=WORKER_POOL_EMBEDDINGS`. Offline re-index: [`scripts/index_embeddings_folder.py`](../scripts/index_embeddings_folder.py). Offline search: [`scripts/search_embeddings_folder.py`](../scripts/search_embeddings_folder.py). **Search mode:** Settings `embeddings.folder_search_mode` (`none` | `embeddings` | `fts`). **Scope:** one cache per filesystem folder (`.odt`, `.ods`, `.odp`, `.odg` siblings).
 
 **Related:** [cython-extension.md](cython-extension.md) · [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md) · [multi-document-dev-plan.md](multi-document-dev-plan.md) · [langchain-plan.md](langchain-plan.md) (chat memory / summarization only)
 
@@ -183,7 +183,9 @@ Scores and file ranks **will change** with model upgrades (`bge-small`, etc.), c
 |--------|------|
 | [`embeddings_cache.py`](../plugin/doc/embeddings_cache.py) | Folder keys, paths, host JSON state, legacy `index.db` removal |
 | [`embeddings_indexer.py`](../plugin/doc/embeddings_indexer.py) | Background index enqueue + `_inflight` guard (venv maintain RPC) |
-| [`embeddings_fs.py`](../plugin/doc/embeddings_fs.py) | Stdlib ODF paragraph extract + folder scan (no UNO) |
+| [`embeddings_fs.py`](../plugin/doc/embeddings_fs.py) | Folder scan + Writer stdlib ODF extract + dispatch to Calc/Impress extract (no UNO) |
+| [`embeddings_ods_extract.py`](../plugin/scripting/embeddings_ods_extract.py) | Calc `.ods`/`.ots`/`.fods` row extract (pandas + odfpy, trusted venv) |
+| [`embeddings_odp_extract.py`](../plugin/scripting/embeddings_odp_extract.py) | Impress/Draw `.odp`/`.odg` page extract (odfpy, trusted venv) |
 | [`embeddings_folder_maintain.py`](../plugin/scripting/embeddings_folder_maintain.py) | Trusted venv cold/incremental maintain loop |
 | [`embeddings_periodic.py`](../plugin/doc/embeddings_periodic.py) | Periodic folder tick when cache enabled |
 | [`document_research_search_tool.py`](../plugin/doc/document_research_search_tool.py) | `search_embeddings` tool |
@@ -197,7 +199,7 @@ Scores and file ranks **will change** with model upgrades (`bge-small`, etc.), c
 **Venv install (minimum):**
 
 ```bash
-pip install numpy sentence-transformers chromadb langgraph langchain-core langchain-text-splitters envwrap
+pip install numpy sentence-transformers chromadb langgraph langchain-core langchain-text-splitters envwrap odfpy
 ```
 
 Legacy **`index.db`** (SQLite BLOB / sqlite-vec) is removed on upgrade; the next index pass cold-builds into Chroma.
@@ -518,7 +520,7 @@ writeragent_embeddings/
   file_index_state.json  # shared incremental paragraph hashes with embeddings
 ```
 
-Implementation: [`folder_fts.py`](../plugin/scripting/folder_fts.py) (venv), [`folder_fts_service.py`](../plugin/framework/client/folder_fts_service.py) (host RPC), [`folder_fts_indexer.py`](../plugin/doc/folder_fts_indexer.py) (background maintain). Periodic wakeups share [`embeddings_periodic.py`](../plugin/doc/embeddings_periodic.py) with the Chroma indexer when either flag is on.
+Implementation: [`folder_fts.py`](../plugin/scripting/folder_fts.py) (venv), [`folder_fts_service.py`](../plugin/framework/client/folder_fts_service.py) (host RPC), [`folder_fts_indexer.py`](../plugin/doc/folder_fts_indexer.py) (background maintain). Periodic wakeups share [`embeddings_periodic.py`](../plugin/doc/embeddings_periodic.py) with the Chroma indexer when either flag is on. **Calc `.ods` and Impress/Draw `.odp`/`.odg` siblings** use the same extract path as Writer `.odt`; `search_nearby_files` returns hits with the same `doc_url` / `snippet` / `para_index` shape.
 
 **Embeddings vs FTS:** embeddings excel at long paraphrase queries; FTS excels at short keyword/proximity routing (see [Performance: embeddings vs grep](#performance-embeddings-vs-grep)). Choose one mode in Settings; they share folder scan/extract helpers but use separate stores (`chroma/` vs `fts5.db`).
 
@@ -894,7 +896,7 @@ NumPy carries a heavy "tax" inside a LibreOffice `.oxt`:
 
 Two tiers. **Shipped today (Phase A):** local **`sentence-transformers`** in the configured venv only — via [`embedding_client.embed_texts`](../plugin/framework/client/embedding_client.py). **Tier two (not implemented):** OpenRouter / Together / Ollama HTTP when no venv.
 
-**Current dispatch:** `embedding_provider` must be `local` (default). Host calls `run_code_in_user_venv` with a fixed stub → [`embeddings_index.embed_texts`](../plugin/scripting/embeddings_index.py). Requires `scripting.python_venv_path` (or LO fallback interpreter) with `pip install sentence-transformers numpy chromadb langgraph langchain-core langchain-text-splitters envwrap`.
+**Current dispatch:** `embedding_provider` must be `local` (default). Host calls `run_code_in_user_venv` with a fixed stub → [`embeddings_index.embed_texts`](../plugin/scripting/embeddings_index.py). Requires `scripting.python_venv_path` (or LO fallback interpreter) with `pip install sentence-transformers numpy chromadb langgraph langchain-core langchain-text-splitters envwrap odfpy`.
 
 **Future dispatch (when HTTP ships):** if venv + local model → venv RPC; else if chat endpoint supports embeddings → HTTP; else prompt user to configure venv or API.
 
@@ -954,7 +956,7 @@ Store **`embedding_model`** in config as the HuggingFace id (local) or provider 
 
 ```bash
 # In the venv referenced by scripting.python_venv_path
-pip install sentence-transformers numpy chromadb langgraph langchain-core langchain-text-splitters envwrap
+pip install sentence-transformers numpy chromadb langgraph langchain-core langchain-text-splitters envwrap odfpy
 # PyTorch CPU wheel is pulled by sentence-transformers; first run downloads model weights.
 ```
 
@@ -1250,6 +1252,34 @@ Naive character splits destroy meaning. Vendor MIT **RecursiveCharacterTextSplit
 - **Repository:** [langchain-text-splitters](https://github.com/langchain-ai/langchain/tree/master/libs/text-splitters/langchain_text_splitters)
 - **Key file:** `recursive_character.py` — separators `["\n\n", "\n", " ", ""]`, `chunk_overlap` for context bridging.
 - **Index-time only:** while splitting, record **paragraph index and internal char offsets** for stable `chunk_id`s. Public search hits expose **snippets** only ([Search hit shape](#search-hit-shape)).
+
+### Calc ODS indexing {#calc-ods-indexing}
+
+Cross-folder index maintain includes **Calc** siblings (`.ods`, `.ots`, `.fods`) beside Writer files in the same folder.
+
+| Aspect | Behavior |
+|--------|----------|
+| **Extract** | [`embeddings_ods_extract.extract_calc_rows`](../plugin/scripting/embeddings_ods_extract.py) — `pandas.read_excel(..., engine="odf")` |
+| **Passage grain** | One indexable unit per **non-empty spreadsheet row** (tab-joined cell values) |
+| **Sheet context** | Row text prefixed with `[Sheet: {name}]\t…` for semantic / FTS snippets |
+| **`para_index`** | Stable row index across the file (sheet order, then row order) — weak locator hint; inner agent uses `search_in_spreadsheet` after open |
+| **Deps** | **`odfpy`** required in the embeddings venv (`pandas` typically already present); probed in Settings → Python Test |
+| **FTS mode** | Same rows land in `fts5.db` — no separate Calc extract |
+
+Existing caches pick up `.ods` on the next incremental or cold maintain pass.
+
+### Impress/Draw ODP/ODG indexing {#impress-odp-odg-indexing}
+
+Cross-folder index maintain includes **Impress** (`.odp`, `.otp`, `.fodp`) and **Draw** (`.odg`) siblings beside Writer and Calc files.
+
+| Aspect | Behavior |
+|--------|----------|
+| **Extract** | [`embeddings_odp_extract.extract_draw_pages`](../plugin/scripting/embeddings_odp_extract.py) — `odfpy` `load()` + `getElementsByType(DrawPage)` |
+| **Passage grain** | One indexable unit per **slide/page body**; optional second passage for **speaker notes** |
+| **Context prefix** | `[Slide: {name}]\t…` and `[Notes: {name}]\t…` |
+| **`para_index`** | Monotonic over all passages in the file — weak locator; inner agent uses Draw/Impress read tools after open |
+| **Deps** | **`odfpy`** (same as Calc ODS) |
+| **FTS mode** | Same passages land in `fts5.db` |
 
 ---
 

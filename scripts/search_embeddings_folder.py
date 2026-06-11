@@ -3,7 +3,7 @@
 """Search writeragent_embeddings for a document folder (no LibreOffice).
 
 Embeddings (default) requires the same venv packages as index maintenance:
-  pip install sentence-transformers numpy chromadb langgraph langchain-core langchain-text-splitters envwrap
+  pip install sentence-transformers numpy chromadb langgraph langchain-core langchain-text-splitters envwrap odfpy
 
 FTS mode (--fts) uses stdlib sqlite3 only; build fts5.db via Settings in LO or:
   .venv/bin/python -c "from plugin.scripting.folder_fts import maintain_folder_fts; maintain_folder_fts('~/Desktop/Writing')"
