@@ -37,6 +37,11 @@ def test_build_match_query_empty_raises():
         folder_fts.build_match_query("   ")
 
 
+def test_strip_fts_snippet_markers():
+    assert folder_fts.strip_fts_snippet_markers("[web] [search] tool-call") == "web search tool-call"
+    assert folder_fts.strip_fts_snippet_markers("…[WEB]_[SEARCH]…") == "…WEB_SEARCH…"
+
+
 def test_maintain_and_search_cold(tmp_path):
     listing = tmp_path / "writing"
     listing.mkdir()
@@ -53,6 +58,10 @@ def test_maintain_and_search_cold(tmp_path):
     search = folder_fts.search_folder_fts(str(db_path), "web search", k=5, near_slop=10)
     assert search["hits"]
     assert any("web" in (h.get("snippet") or "").lower() for h in search["hits"])
+    for hit in search["hits"]:
+        snippet = hit.get("snippet") or ""
+        assert "[" not in snippet
+        assert "]" not in snippet
 
 
 def test_fts_stats(tmp_path):

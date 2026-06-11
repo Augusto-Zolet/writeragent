@@ -44,6 +44,7 @@ __all__ = [
     "fts_stats",
     "maintain_folder_fts",
     "search_folder_fts",
+    "strip_fts_snippet_markers",
 ]
 
 _NEAR_SLASH_RE = re.compile(r"(.+?)\s+NEAR\s*/\s*(\d+)\s+(.+)", re.IGNORECASE)
@@ -315,6 +316,11 @@ def maintain_folder_fts(
     return out
 
 
+def strip_fts_snippet_markers(snippet: str) -> str:
+    """Remove FTS5 snippet() highlight brackets; readable plain text for agents and UI."""
+    return str(snippet or "").replace("[", "").replace("]", "")
+
+
 def search_folder_fts(
     fts_db_path_str: str,
     query: str,
@@ -353,7 +359,7 @@ def search_folder_fts(
             {
                 "doc_url": str(row["doc_url"] or ""),
                 "para_index": int(row["para_index"] or 0),
-                "snippet": str(row["snippet"] or ""),
+                "snippet": strip_fts_snippet_markers(str(row["snippet"] or "")),
                 "score": float(row["score"] or 0.0),
             }
         )
