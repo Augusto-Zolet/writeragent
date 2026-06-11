@@ -22,6 +22,10 @@ def test_run_venv_self_check_with_progress_emits_grouped_present_missing() -> No
     with (
         patch("plugin.scripting.venv_worker.PythonWorkerManager.get", return_value=mock_mgr),
         patch("plugin.scripting.venv_worker._probe_vision_packages", return_value=({"docling": "present"}, None)),
+        patch(
+            "plugin.scripting.venv_worker._probe_embeddings_packages",
+            return_value=({"envwrap": "present", "chromadb": "present"}, None),
+        ),
     ):
         ok, msg = run_venv_self_check_with_progress(
             "/fake/python",
@@ -33,12 +37,14 @@ def test_run_venv_self_check_with_progress_emits_grouped_present_missing() -> No
 
     assert ok is True
     assert "responds OK" in msg
-    assert "Present:" in msg
+    assert "Scientific Libraries: numpy" in msg
     assert "Missing:" in msg
     assert "Cython Accelerator: Active (Optimized)" in msg
-    assert any("Present:" in text for text in displays)
+    assert any("Scientific Libraries: numpy" in text for text in displays)
     assert any("numpy" in text for text in displays)
     assert any("Vision" in text for text in displays)
+    assert any("Embeddings" in text for text in displays)
     assert any("docling" in text for text in displays)
+    assert any("envwrap" in text for text in displays)
     assert not any("... OK" in text for text in displays)
     assert any("numpy" in status for status in statuses)

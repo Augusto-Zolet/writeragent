@@ -20,6 +20,11 @@ from typing import Any
 
 log = logging.getLogger(__name__)
 
+EMBEDDINGS_VENV_PIP_INSTALL = (
+    "pip install sentence-transformers numpy chromadb langgraph "
+    "langchain-core langchain-text-splitters envwrap"
+)
+
 _MODEL_CACHE: dict[str, Any] = {}
 
 
@@ -34,8 +39,7 @@ def _get_embedder(model_name: str) -> Any:
         detail = f"{exc}; caused by: {cause}" if cause else str(exc)
         raise ImportError(
             "sentence-transformers failed to import in the configured Python venv "
-            f"({detail}). Install with: pip install sentence-transformers numpy chromadb "
-            "langgraph langchain-core langchain-text-splitters"
+            f"({detail}). Install with: {EMBEDDINGS_VENV_PIP_INSTALL}"
         ) from exc
     embedder = st_mod.SentenceTransformer(model_name)
     _MODEL_CACHE[model_name] = embedder

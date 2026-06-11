@@ -23,7 +23,7 @@ def test_python_test_uses_modal_incremental_probe() -> None:
             return True
 
     def fake_probe(_raw, on_display, on_status=None, extra_lines_after_header=None):
-        on_display("Python 3.12 responds OK.\nCython Accelerator: Inactive (Pure Python)\n\nScientific Libraries:\n  Present: numpy\n  Missing: pandas")
+        on_display("Python 3.12 responds OK. Cython Accelerator: Inactive (Pure Python)\n\nScientific Libraries: numpy\nMissing: pandas")
         if on_status:
             on_status("Scientific Libraries: numpy")
         return True, "Python 3.12 responds OK."
@@ -38,7 +38,7 @@ def test_python_test_uses_modal_incremental_probe() -> None:
         listener.on_action_performed(MagicMock())
 
     assert "progress_run_modal" in order
-    assert any("Present:" in text for text in probe_displays)
+    assert any("Scientific Libraries: numpy" in text for text in probe_displays)
     assert any("Cython Accelerator" in text for text in probe_displays)
     assert any("numpy" in status for status in probe_statuses)
 

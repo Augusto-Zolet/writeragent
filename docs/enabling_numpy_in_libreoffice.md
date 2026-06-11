@@ -82,7 +82,7 @@ Module implementation: `plugin/scripting/` (no top-level `python/` package — a
 
 - **Empty path:** `run_venv_python_script` and `=PYTHON()` fall back to **`sys.executable`** (LibreOffice’s embedded Python) — stdlib-only unless that interpreter happens to have extra packages; **use a dedicated venv for NumPy**.
 - **No automatic venv creation** — the user brings their own environment.
-- **Test button:** Validates the path is a directory, resolves `bin/python` or `Scripts\python.exe`, and runs a warm-worker diagnostic via [`run_venv_self_check`](../plugin/scripting/venv_worker.py). Reports **Scientific**, **Data Analysis / EDA**, **UI / Monaco**, and **Vision Libraries** groups (Present/Missing). Vision imports use a dedicated ~30s host subprocess probe (`VISION_PROBE_TIMEOUT_SEC` in [`config_limits.py`](../plugin/scripting/config_limits.py)) because Docling cold import can exceed 5s on modest hardware. When OCR packages are absent, the message includes `pip install docling rapidocr-paddle numpy pillow css-inline` (see [Image Recognition](image-recognition.md)).
+- **Test button:** Validates the path is a directory, resolves `bin/python` or `Scripts\python.exe`, and runs a warm-worker diagnostic via [`run_venv_self_check`](../plugin/scripting/venv_worker.py). Reports **Scientific**, **Data Analysis / EDA**, **UI / Monaco**, **Vision Libraries**, and **Embeddings Libraries** groups (Present/Missing). Vision and Embeddings imports use dedicated ~30s host subprocess probes (`EMBEDDINGS_PROBE_TIMEOUT_SEC`, `VISION_PROBE_TIMEOUT_SEC` in [`config_limits.py`](../plugin/scripting/config_limits.py)) because cold `sentence-transformers` / Docling imports can exceed 5s on modest hardware. See [Embeddings venv packages](#embeddings-venv-packages) and [Image Recognition](image-recognition.md).
 
 ### Execution paths (shipped)
 
@@ -283,12 +283,26 @@ Helpers that need a missing package return `MISSING_PACKAGE` with the install li
 
 Full design and egress rules: [Image Recognition](image-recognition.md). **Future:** visual/layout HTML (colored panels, multi-column flyers) — deferred dev plan in [Image Recognition §21](image-recognition.md#21-visuallayout-html-fidelity-deferred-dev-plan).
 
+#### Embeddings venv packages {#embeddings-venv-packages}
+
+Per-folder semantic search ([embeddings.md](embeddings.md)) runs in the user venv via trusted RPC modules. Settings → Python **Test** reports these under **Embeddings Libraries**:
+
+| Package | Install | Used by |
+|---------|---------|---------|
+| [sentence-transformers](https://www.sbert.net/) (`sentence_transformers`) + **numpy** | `pip install sentence-transformers numpy chromadb langgraph langchain-core langchain-text-splitters envwrap` | Encode queries and corpus chunks |
+| [ChromaDB](https://www.trychroma.com/) (`chromadb`) | (same line) | Per-folder vector store beside documents |
+| [LangGraph](https://github.com/langchain-ai/langgraph) + [langchain-core](https://github.com/langchain-ai/langchain) + [langchain-text-splitters](https://github.com/langchain-ai/langchain) | (same line) | Ingest/search graphs in trusted venv modules |
+| [envwrap](https://pypi.org/project/envwrap/) | (same line) | Transitive dependency for `sentence-transformers` / Hugging Face stack on some Python versions |
+
+Canonical install constant: `EMBEDDINGS_VENV_PIP_INSTALL` in [`embeddings_index.py`](../plugin/scripting/embeddings_index.py).
+
 #### Planned domain package groups
 
 Future trusted-helper domains (Forecasting, Text Analytics, Optimization, Geospatial, Audio) will each declare required venv packages and a Settings → Python **Test** group when implemented. **Shipped today:**
 
 | Domain | Settings → Python **Test** group | Entry doc |
 |--------|----------------------------------|-----------|
+| **Embeddings** | **Embeddings Libraries** (`envwrap`, `sentence_transformers`, `chromadb`, `langgraph`, `langchain_core`, `langchain_text_splitters`) | [embeddings.md](embeddings.md) |
 | **Visualization** | **Visualization Libraries** (`matplotlib`, `seaborn`) | [Visualization § Phase A–C](#visualization) |
 | **Symbolic Math (SymPy)** | **Computer Algebra** (`sympy`) | [Symbolic Math §3](#symbolic-math) |
 

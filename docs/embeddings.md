@@ -44,7 +44,7 @@ python scripts/dump_embeddings_cache.py --limit 20 --doc-url file:///path/to/doc
 **Venv install (minimum):**
 
 ```bash
-pip install numpy sentence-transformers chromadb langgraph langchain-core langchain-text-splitters
+pip install numpy sentence-transformers chromadb langgraph langchain-core langchain-text-splitters envwrap
 ```
 
 Legacy **`index.db`** (SQLite BLOB / sqlite-vec) is removed on upgrade; the next index pass cold-builds into Chroma.
@@ -712,7 +712,7 @@ NumPy carries a heavy "tax" inside a LibreOffice `.oxt`:
 
 Two tiers. **Shipped today (Phase A):** local **`sentence-transformers`** in the configured venv only — via [`embedding_client.embed_texts`](../plugin/framework/client/embedding_client.py). **Tier two (not implemented):** OpenRouter / Together / Ollama HTTP when no venv.
 
-**Current dispatch:** `embedding_provider` must be `local` (default). Host calls `run_code_in_user_venv` with a fixed stub → [`embeddings_index.embed_texts`](../plugin/scripting/embeddings_index.py). Requires `scripting.python_venv_path` (or LO fallback interpreter) with `pip install sentence-transformers numpy`.
+**Current dispatch:** `embedding_provider` must be `local` (default). Host calls `run_code_in_user_venv` with a fixed stub → [`embeddings_index.embed_texts`](../plugin/scripting/embeddings_index.py). Requires `scripting.python_venv_path` (or LO fallback interpreter) with `pip install sentence-transformers numpy chromadb langgraph langchain-core langchain-text-splitters envwrap`.
 
 **Future dispatch (when HTTP ships):** if venv + local model → venv RPC; else if chat endpoint supports embeddings → HTTP; else prompt user to configure venv or API.
 
@@ -772,7 +772,7 @@ Store **`embedding_model`** in config as the HuggingFace id (local) or provider 
 
 ```bash
 # In the venv referenced by scripting.python_venv_path
-pip install sentence-transformers numpy
+pip install sentence-transformers numpy chromadb langgraph langchain-core langchain-text-splitters envwrap
 # PyTorch CPU wheel is pulled by sentence-transformers; first run downloads model weights.
 ```
 

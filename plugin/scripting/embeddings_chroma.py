@@ -33,12 +33,13 @@ def chunk_id_for(
 def _import_chromadb() -> Any:
     import importlib
 
+    from plugin.scripting.embeddings_index import EMBEDDINGS_VENV_PIP_INSTALL
+
     try:
         return importlib.import_module("chromadb")
     except ImportError as exc:
         raise ImportError(
-            "chromadb is not installed in the configured Python venv. "
-            "Install with: pip install chromadb langgraph langchain-core langchain-text-splitters"
+            f"chromadb is not installed in the configured Python venv. Install with: {EMBEDDINGS_VENV_PIP_INSTALL}"
         ) from exc
 
 

@@ -21,7 +21,7 @@ from plugin.scripting.embeddings_chroma import (
     delete_paragraph_keys,
     get_collection,
 )
-from plugin.scripting.embeddings_index import embed_texts
+from plugin.scripting.embeddings_index import EMBEDDINGS_VENV_PIP_INSTALL, embed_texts
 
 log = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ def _import_splitter() -> Any:
     except ImportError as exc:
         raise ImportError(
             "langchain-text-splitters is not installed in the configured Python venv. "
-            "Install with: pip install langchain-text-splitters langgraph langchain-core chromadb"
+            f"Install with: {EMBEDDINGS_VENV_PIP_INSTALL}"
         ) from exc
     return mod.RecursiveCharacterTextSplitter(
         chunk_size=CHUNK_SIZE,

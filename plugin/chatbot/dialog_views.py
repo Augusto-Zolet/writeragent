@@ -344,13 +344,12 @@ class _VenvProbeProgressDialog:
         self._parent_dlg = parent_dlg
         self._dlg = None
 
-    def run_modal_probe(self, probe_fn) -> bool:
+    def run_modal_probe(self, probe_fn) -> None:
         """Show a modal dialog immediately and run *probe_fn(on_display, on_status)* in a worker."""
         from plugin.framework.queue_executor import post_to_main_thread
         from plugin.framework.worker_pool import run_in_background
 
-        if not self._create_dialog():
-            return False
+        self._create_dialog()
 
         def on_display(text: str) -> None:
             post_to_main_thread(lambda body=text: self.set_display(body))
@@ -382,33 +381,26 @@ class _VenvProbeProgressDialog:
             dlg.execute()
         finally:
             self._dispose()
-        return True
 
-    def _create_dialog(self) -> bool:
-        try:
-            parent = _dialog_parent_for_child(self._ctx, self._parent_dlg)
-            smgr = self._ctx.getServiceManager()
-            dlg_model = smgr.createInstanceWithContext("com.sun.star.awt.UnoControlDialogModel", self._ctx)
-            dlg_model.Title = _("Python Test")
-            dlg_model.Width = 320
-            dlg_model.Height = 317
+    def _create_dialog(self) -> None:
+        parent = _dialog_parent_for_child(self._ctx, self._parent_dlg)
+        smgr = self._ctx.getServiceManager()
+        dlg_model = smgr.createInstanceWithContext("com.sun.star.awt.UnoControlDialogModel", self._ctx)
+        dlg_model.Title = _("Python Test")
+        dlg_model.Width = 320
+        dlg_model.Height = 285
 
-            add_dialog_label(dlg_model, "StatusLbl", _("Testing Python environment..."), 8, 8, 304, 12, multiline=False)
-            log_edit = add_dialog_edit(dlg_model, "LogArea", "", 8, 24, 304, 257, readonly=True)
-            log_edit.MultiLine = True
-            log_edit.VScroll = True
-            add_dialog_button(dlg_model, "BtnClose", _("Close"), 252, 287, 60, 14, enabled=False)
+        add_dialog_label(dlg_model, "StatusLbl", _("Testing Python environment..."), 8, 8, 304, 12, multiline=False)
+        log_edit = add_dialog_edit(dlg_model, "LogArea", "", 8, 24, 304, 225, readonly=True)
+        log_edit.MultiLine = True
+        log_edit.VScroll = True
+        add_dialog_button(dlg_model, "BtnClose", _("Close"), 252, 255, 60, 14, enabled=False)
 
-            self._dlg = smgr.createInstanceWithContext("com.sun.star.awt.UnoControlDialog", self._ctx)
-            self._dlg.setModel(dlg_model)
-            toolkit = smgr.createInstanceWithContext("com.sun.star.awt.Toolkit", self._ctx)
-            self._dlg.createPeer(toolkit, parent)
-            self._dlg.getControl("BtnClose").addActionListener(_VenvProbeCloseListener(self))
-            return True
-        except Exception:
-            log.exception("Failed to open venv probe progress dialog")
-            self._dlg = None
-            return False
+        self._dlg = smgr.createInstanceWithContext("com.sun.star.awt.UnoControlDialog", self._ctx)
+        self._dlg.setModel(dlg_model)
+        toolkit = smgr.createInstanceWithContext("com.sun.star.awt.Toolkit", self._ctx)
+        self._dlg.createPeer(toolkit, parent)
+        self._dlg.getControl("BtnClose").addActionListener(_VenvProbeCloseListener(self))
 
     def set_display(self, text: str) -> None:
         if self._dlg is None:
@@ -473,7 +465,7 @@ class ScriptingVenvTestListener(BaseActionListener):
         self._dlg = dlg
 
     def on_action_performed(self, rEvent):
-        from plugin.scripting.venv_worker import probe_venv_path, probe_venv_path_with_progress
+        from plugin.scripting.venv_worker import probe_venv_path_with_progress
         from plugin.scripting.payload_codec import fast_flatten_grid_2d
 
         path_ctrl = get_optional(self._dlg, "scripting__python_venv_path")
@@ -493,19 +485,7 @@ class ScriptingVenvTestListener(BaseActionListener):
             )
 
         progress = _VenvProbeProgressDialog(self._ctx, parent_dlg=self._dlg)
-        if not progress.run_modal_probe(probe):
-            try:
-                ok, msg = probe_venv_path(raw)
-            except Exception as e:
-                ok, msg = False, str(e)
-                log.exception("Scripting venv probe failed")
-            parts = msg.split("\n", 1)
-            if len(parts) > 1:
-                final_msg = f"{parts[0]}\nCython Accelerator: {host_status}\n{parts[1]}"
-            else:
-                final_msg = f"{msg}\nCython Accelerator: {host_status}"
-            title = _("Venv OK") if ok else _("Venv check failed")
-            msgbox(self._ctx, title, final_msg)
+        progress.run_modal_probe(probe)
 
 
 class ApiKeyTextListener(BaseListener, XTextListener):
