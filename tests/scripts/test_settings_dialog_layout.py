@@ -55,7 +55,7 @@ def test_chatbot_paired_checkbox_fields_share_row(tmp_path: Path) -> None:
     xdl_path, _xdl = _generate_settings_xdl(tmp_path)
     tops = _control_tops(xdl_path)
 
-    assert tops["chatbot__show_search_thinking"] == tops["chatbot__prompt_for_web_research"]
+    assert tops["chatbot__web_research_cache_enabled"] == tops["chatbot__prompt_for_web_research"]
 
 
 def test_chatbot_paired_cache_fields_share_row(tmp_path: Path) -> None:
@@ -65,12 +65,12 @@ def test_chatbot_paired_cache_fields_share_row(tmp_path: Path) -> None:
     assert tops["chatbot__web_cache_max_mb"] == tops["chatbot__web_cache_validity_days"]
 
 
-def test_web_research_cache_before_web_search_controls(tmp_path: Path) -> None:
+def test_web_research_cache_before_web_cache_size_controls(tmp_path: Path) -> None:
     _xdl_path, xdl = _generate_settings_xdl(tmp_path)
 
     cache_idx = xdl.index('dlg:id="chatbot__web_research_cache_enabled"')
-    thinking_idx = xdl.index('dlg:id="chatbot__show_search_thinking"')
-    assert cache_idx < thinking_idx
+    max_mb_idx = xdl.index('dlg:id="chatbot__web_cache_max_mb"')
+    assert cache_idx < max_mb_idx
 
 
 def test_right_column_number_labels_use_label_x(tmp_path: Path) -> None:
@@ -118,6 +118,7 @@ def test_json_only_settings_absent_from_settings_xdl(tmp_path: Path) -> None:
         "mcp__cors_allow_private_origins",
         "scripting__native_run_script_modeless",
         "scripting__force_internal_script_editor",
+        "chatbot__show_search_thinking",
     ):
         assert hidden_id not in tops
 
