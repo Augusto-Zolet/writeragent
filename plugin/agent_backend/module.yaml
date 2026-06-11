@@ -1,6 +1,7 @@
 name: agent_backend
 title: ACP
 requires: [config, document]
+config_inline: mcp
 
 config:
   backend_id:
