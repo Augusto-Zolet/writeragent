@@ -17,6 +17,29 @@ from plugin.scripting.embeddings_index import embed_texts
 log = logging.getLogger(__name__)
 
 MMR_LAMBDA = 0.7
+# Public hit preview — full chunk text lives in Chroma documents until a slimmer storage path ships.
+SNIPPET_MAX_CHARS = 160
+
+
+def _hit_snippet(text: str, *, max_chars: int = SNIPPET_MAX_CHARS) -> str:
+    """Truncate embedded chunk text for search_embeddings hits."""
+    cleaned = " ".join(str(text or "").split())
+    if not cleaned:
+        return ""
+    if len(cleaned) <= max_chars:
+        return cleaned
+    return cleaned[: max_chars - 1] + "…"
+
+
+def _public_hit_from_candidate(cand: dict[str, Any]) -> dict[str, Any]:
+    """Tool-facing hit: file router + snippet; no char offsets (ODF-local, not LO-native)."""
+    return {
+        "chunk_id": cand.get("chunk_id"),
+        "doc_url": cand.get("doc_url"),
+        "para_index": cand.get("para_index"),
+        "snippet": str(cand.get("snippet") or ""),
+        "score": float(cand.get("score") or 0.0),
+    }
 
 
 class SearchState(TypedDict):
@@ -62,27 +85,28 @@ def chroma_retrieve(state: SearchState) -> dict[str, Any]:
     result = collection.query(
         query_embeddings=[query_vec],
         n_results=n_results,
-        include=["metadatas", "distances", "embeddings"],
+        include=["metadatas", "distances", "embeddings", "documents"],
     )
     ids = (result.get("ids") or [[]])[0]
     metadatas = (result.get("metadatas") or [[]])[0]
     distances = (result.get("distances") or [[]])[0]
     embeddings = (result.get("embeddings") or [[]])[0]
+    documents = (result.get("documents") or [[]])[0]
 
     candidates: list[dict[str, Any]] = []
     for i, cid in enumerate(ids):
         meta = metadatas[i] if i < len(metadatas) else {}
         dist = float(distances[i]) if i < len(distances) else 1.0
         emb = embeddings[i] if i < len(embeddings) else None
+        doc_text = documents[i] if i < len(documents) else ""
         score = max(0.0, 1.0 - dist)
         candidates.append(
             {
                 "chunk_id": str(cid),
                 "doc_url": str((meta or {}).get("doc_url") or ""),
                 "para_index": int((meta or {}).get("para_index") or 0),
-                "char_start": int((meta or {}).get("char_start") or 0),
-                "char_end": int((meta or {}).get("char_end") or 0),
                 "embedding_model": str((meta or {}).get("embedding_model") or ""),
+                "snippet": _hit_snippet(str(doc_text or "")),
                 "score": score,
                 "embedding": emb,
             }
@@ -166,30 +190,12 @@ def rerank(state: SearchState) -> dict[str, Any]:
 
     hits: list[dict[str, Any]] = []
     for cand in reranked[:k]:
-        hits.append(
-            {
-                "chunk_id": cand.get("chunk_id"),
-                "doc_url": cand.get("doc_url"),
-                "para_index": cand.get("para_index"),
-                "char_start": cand.get("char_start"),
-                "char_end": cand.get("char_end"),
-                "score": float(cand.get("score") or 0.0),
-            }
-        )
+        hits.append(_public_hit_from_candidate(cand))
     if len(hits) < k and without:
         for cand in without:
             if len(hits) >= k:
                 break
-            hits.append(
-                {
-                    "chunk_id": cand.get("chunk_id"),
-                    "doc_url": cand.get("doc_url"),
-                    "para_index": cand.get("para_index"),
-                    "char_start": cand.get("char_start"),
-                    "char_end": cand.get("char_end"),
-                    "score": float(cand.get("score") or 0.0),
-                }
-            )
+            hits.append(_public_hit_from_candidate(cand))
     return {"hits": hits}
 
 

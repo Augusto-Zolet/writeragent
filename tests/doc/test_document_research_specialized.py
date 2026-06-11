@@ -88,6 +88,7 @@ def test_document_research_workflow_hint_modes():
     with patch("plugin.framework.constants.document_research_uses_embeddings", return_value=True):
         embed_hint = get_document_research_workflow_hint(ctx)
     assert "search_embeddings" in embed_hint
+    assert "snippet" in embed_hint
     assert "grep_nearby_files" not in embed_hint
 
 

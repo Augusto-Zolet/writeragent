@@ -26,7 +26,7 @@ class SearchEmbeddings(ToolBase):
     name = "search_embeddings"
     description = (
         "Search the active folder's semantic index for passages related to your query. "
-        "Returns ranked doc_url + paragraph locators (para_index, char offsets, score). "
+        "Returns ranked doc_url, score, snippet (passage preview), and optional para_index hint. "
         "Use before delegate_read_document when you need cross-file discovery by meaning or topic."
     )
     tier = "specialized"

@@ -117,9 +117,9 @@ def get_document_research_workflow_hint(ctx=None) -> str:
         return (
             common
             + "For cross-file discovery (semantic or keyword topics), use search_embeddings(query, k) over the active folder index. "
-            "It returns ranked doc_url + paragraph locators (para_index, char_start, char_end, score). "
-            "Open the top one or few hits with delegate_read_document and pass locator hints in the task string "
-            "so the inner read agent can jump to the right passage.\n"
+            "It returns ranked doc_url, score, snippet (indexed passage preview), and optional para_index (weak hint). "
+            "Open the top one or few hits with delegate_read_document and tell the inner read agent to search for the snippet "
+            "or topic with search_in_document — do not rely on para_index or character offsets as exact LO coordinates.\n"
             "If search_embeddings returns status indexing, retry after the background index finishes.\n"
         )
     return (

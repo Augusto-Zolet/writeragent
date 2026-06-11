@@ -57,7 +57,7 @@ The expensive case is **many documents**, not one.
 
 Today the **outer** [document_research](../plugin/doc/document_research.py) sub-agent discovers siblings with `list_nearby_files`, guesses filenames from vague user language, opens candidates, and greps with `search_in_document` / full reads. That is **better than opening 100 files blindly**, but still slow, token-heavy, and weak on paraphrase ("remote work" vs "WFH policy" in an oddly named `Notes_v3.odt`).
 
-**Embeddings** replace that **outer-layer grep** with semantic lookup over a **per-directory Chroma index** ([Corpus storage](#corpus-storage)) — vectors in **`chroma/`** plus JSON locators/state on the host (`file_index_state.json`), with metadata tying hits back to `doc_url`, paragraph, and offset (not a second full-text cache). The outer agent searches **that folder’s cache** and gets ranked hits **without opening LO**; it then opens **one or a few** files and hands precise locations to the inner read agent. Opening one file at a known locator is cheap compared to opening dozens and searching each.
+**Embeddings** replace that **outer-layer grep** with semantic lookup over a **per-directory Chroma index** ([Corpus storage](#corpus-storage)) — vectors in **`chroma/`** plus JSON locators/state on the host (`file_index_state.json`). Search hits return **`doc_url` + `score` + `snippet`** (and an optional weak `para_index` hint) — not a second full-text cache for agents. The outer agent searches **that folder’s cache** without opening LO; it then opens **one or a few** files and the inner read agent uses **`search_in_document`** on the snippet or topic. Opening one file after semantic routing is cheap compared to opening dozens and grepping each.
 
 ### Why embeddings (semantic search) vs pure lexical/grep, and why the difference is bigger for office documents than code
 
@@ -69,7 +69,7 @@ Recent experience with AI coding agents shows a split in retrieval strategy:
 
 In short: code search is mostly *lexical lookup of known identifiers*; document search is often *semantic discovery of unknown phrasing*.
 
-This project already exploits the practical consequence of ODF files being ZIP archives: a naive "list siblings then open-and-grep many" path pays repeated unzip + XML parse costs for every candidate. The per-directory embeddings index lets the outer agent perform a cheap semantic ranking *before* paying the extraction cost for most files. Hits return locators; only the top 1–few documents are opened, and the inner agent then uses precise tools (`search_in_document`, range reads, outline navigation, etc.) on the live content.
+This project already exploits the practical consequence of ODF files being ZIP archives: a naive "list siblings then open-and-grep many" path pays repeated unzip + XML parse costs for every candidate. The per-directory embeddings index lets the outer agent perform a cheap semantic ranking *before* paying the extraction cost for most files. Hits return **which file** plus a **snippet** preview; only the top 1–few documents are opened, and the inner agent then uses precise tools (`search_in_document`, range reads, outline navigation, etc.) on the live content — not blind character offsets.
 
 Industry data on coding agents is consistent with a hybrid view rather than "embeddings are dead":
 
@@ -314,7 +314,7 @@ See also [Index size growth](#index-size-growth) for when RAM footprint matters.
    - `knn_search(db_path, query_text, k)` or `knn_search(db_path, query_vec, k)` — vec0 `MATCH` when `sqlite_vec` loads; else NumPy dot + top-k (port search half of [`bench_embeddings.py`](../scripts/bench_embeddings.py))
    - Probe sqlite-vec once at module load; log fallback at debug
 
-4. **`search_embeddings` tool** — register on outer document_research surface ([`document_research_tools.py`](../plugin/doc/document_research_tools.py)); resolve folder from active doc; call venv `knn_search` with `index.db` path reference; return `{doc_url, para_index, char_start, char_end, score}[]`
+4. **`search_embeddings` tool** — register on outer document_research surface ([`document_research_tools.py`](../plugin/doc/document_research_tools.py)); resolve folder from active doc; call venv `knn_search`; return `{doc_url, snippet, score, para_index?}[]` ([Search hit shape](#search-hit-shape))
 
 5. **Background folder indexer (host thread + venv IPC)** — [Background folder indexer](#background-folder-indexer): cold build + mtime/hash incremental refresh; **must not block** tool loop; enqueue on document_research start or first `search_embeddings` miss
 
@@ -325,7 +325,7 @@ See also [Index size growth](#index-size-growth) for when RAM footprint matters.
 - [x] Paragraph chunker with **locator capture** (`para_index`, `char_start`, `char_end`, `content_hash`)
 - [x] Persist per-folder Chroma cache beside documents ([Corpus cache layout](#corpus-cache-layout), [Corpus storage](#corpus-storage))
 - [x] **`search_embeddings`** on outer document_research tool surface (mutually exclusive with grep via `embeddings.embeddings_cache_enabled`)
-- [x] Open top 1–few hits → `delegate_read_document` → inner read at locator (prompt guidance)
+- [x] Open top 1–few hits → `delegate_read_document` → inner read via snippet / `search_in_document` (prompt guidance)
 - [x] Search executes in the venv via LangGraph + Chroma `query` + MMR ([`embeddings_search_graph.py`](../plugin/scripting/embeddings_search_graph.py))
 - [x] Background **index maintenance worker** (separate from agent tool loop) — [Background folder indexer](#background-folder-indexer)
 
@@ -878,21 +878,48 @@ Default model `all-MiniLM-L6-v2` (384-dim) → **~1.5 KiB per non-empty paragrap
 | Part | Contents | Size driver |
 |------|----------|-------------|
 | **Chroma collection** | Normalized float32 embeddings (primary) | `n × dim × 4` bytes + Chroma overhead |
-| **Chunk metadata** | `doc_url`, locators, `content_hash` in Chroma metadata + `file_index_state.json` | Tiny per row |
+| **Chroma `documents`** | Full embedded chunk text (today) | ~bytes of indexed prose (see [Search hit shape](#search-hit-shape)) |
+| **Chunk metadata** | `doc_url`, `para_index`, internal `char_start`/`char_end`, `content_hash` + `file_index_state.json` | Tiny per row |
 
-### Locator fields (dig up original text later)
+### Search hit shape {#search-hit-shape}
 
-Persist enough to re-read from LO after opening **one** file:
+**Shipped (2026-06):** `search_embeddings` returns tool-facing hits only:
+
+```json
+{"doc_url": "file:///…/notes.odt", "score": 0.85, "snippet": "…passage that was embedded…", "para_index": 12}
+```
+
+- **`snippet`** — truncated preview from the Chroma `documents` column (the text that was embedded). Inner agent should **`search_in_document`** for this text (or the query topic) after `delegate_read_document`.
+- **`para_index`** — weak hint (ODF extract ordinal; may not match LO body enumeration). **Do not** treat as an exact jump target.
+- **`char_start` / `char_end`** — **not** returned in hits (ODF-local sub-chunk offsets; misleading vs live Writer). Still stored in Chroma metadata for internal `chunk_id` stability.
+
+### Locator fields (internal + host JSON)
 
 - **`doc_url`** — which file.
-- **`doc_revision`** — invalidate when file changes.
-- **`para_index`** — paragraph (or outline node) in Writer; analogous anchor for Calc sheet / Draw page when extended.
-- **`char_start`**, **`char_end`** — character offsets within that paragraph (or range within sheet cell block).
-- **`chunk_id`** — joins `chunks` to `vec_chunks` vec0 row.
+- **`doc_revision`** / **`file_mtime`** — invalidate when file changes.
+- **`para_index`** — ODF paragraph ordinal at index time (not guaranteed LO-native).
+- **`char_start`**, **`char_end`** — internal sub-chunk identity only (ingest / Chroma upsert).
+- **`content_hash`** — incremental invalidation per paragraph.
+- **`chunk_id`** — deterministic id joining vector to metadata.
 
-At **index time**, extract a chunk of text → **venv batch encode** (MVP) or HTTP embed → write vector + locator → **do not** persist the chunk body. Optional: keep a **short hash** of source text to detect drift; not the text itself.
+At **index time**, extract chunk text → embed → upsert vector + metadata; Chroma **`documents`** currently retains the full chunk body for snippet retrieval.
 
-At **query time**, top-k returns locators → outer agent opens `doc_url` → inner agent uses existing read tools (`get_document_content` with range, `search_in_document` near offset, `read_cell_range`, …) to fetch **live** text.
+At **query time**, top-k returns **`doc_url` + `snippet`** → outer agent opens file → inner agent searches live content.
+
+### Future: slimmer corpus storage (research)
+
+**Goal:** avoid retaining a **full duplicate** of indexed prose in `writeragent_embeddings/` long term — vectors + locators + **short snippet/hash** only.
+
+**Options under consideration** (not shipped):
+
+| Direction | Pros | Cons |
+|-----------|------|------|
+| **Snippet-only in Chroma** | Drop `documents` column; store capped snippet in metadata at ingest | Re-index on format change; snippet already stale vs live doc |
+| **Stronger stdlib ODF walk** | Better `para_index` without LO ([`embeddings_fs.py`](../plugin/doc/embeddings_fs.py) body-order walk) | Still not full LO parity (tables, fields) |
+| **Headless LO in venv subprocess** | Matches `getString()` / enumeration | Spawn cost; Flatpak; another moving part |
+| **Shared document_research extract** | One parse path for grep + embeddings | Same alignment research as [document_research](../plugin/doc/document_research.py) |
+
+Keep **own parsing vs background LO** on the document_research roadmap; embeddings should converge on whichever extract wins parity measurement ([`scripts/compare_embeddings_extract.py`](../scripts/compare_embeddings_extract.py)).
 
 ### Host metadata schema
 
@@ -963,7 +990,7 @@ Normalized text for hashing should match what the chunker sees (tracked-deletion
 **Lookup never blocks on re-embed.** `search_embeddings` reads the **current** Chroma index:
 
 - **Unchanged paragraphs** — existing vectors remain valid (hash match).
-- **Changed paragraphs** — old vectors may still rank until the incremental worker replaces them; locators may drift slightly if paragraph boundaries moved — **re-resolve offset on open** via inner read tools (same as today when structure shifts).
+- **Changed paragraphs** — old vectors may still rank until the incremental worker replaces them; locators may drift if paragraph boundaries moved — **re-resolve on open** via `search_in_document` on the hit **snippet** (not character offsets).
 - **New paragraphs** — no row yet → optional low-priority enqueue; search may miss until embedded.
 - **Deleted paragraphs** — tombstone or delete locator rows on next maintenance pass.
 
@@ -1025,7 +1052,7 @@ Naive character splits destroy meaning. Vendor MIT **RecursiveCharacterTextSplit
 
 - **Repository:** [langchain-text-splitters](https://github.com/langchain-ai/langchain/tree/master/libs/text-splitters/langchain_text_splitters)
 - **Key file:** `recursive_character.py` — separators `["\n\n", "\n", " ", ""]`, `chunk_overlap` for context bridging.
-- **Index-time only:** while splitting, record **paragraph index and char offsets** for each chunk so locators can be stored without keeping chunk text on disk.
+- **Index-time only:** while splitting, record **paragraph index and internal char offsets** for stable `chunk_id`s. Public search hits expose **snippets** only ([Search hit shape](#search-hit-shape)).
 
 ---
 

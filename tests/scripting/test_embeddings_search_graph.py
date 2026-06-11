@@ -41,6 +41,69 @@ def test_mmr_reduces_redundant_candidates():
     assert picked[0]["chunk_id"] == "a"
 
 
+def test_hit_snippet_truncates_long_text():
+    text = "word " * 50
+    snippet = embeddings_search_graph._hit_snippet(text, max_chars=40)
+    assert snippet.endswith("…")
+    assert len(snippet) == 40
+
+
+def test_hit_snippet_collapses_whitespace():
+    assert embeddings_search_graph._hit_snippet("  hello\n\nworld  ") == "hello world"
+
+
+def test_public_hit_omits_char_offsets():
+    hit = embeddings_search_graph._public_hit_from_candidate(
+        {
+            "chunk_id": "abc",
+            "doc_url": "file:///a.odt",
+            "para_index": 3,
+            "snippet": "preview text",
+            "score": 0.91,
+            "char_start": 10,
+            "char_end": 20,
+        }
+    )
+    assert hit == {
+        "chunk_id": "abc",
+        "doc_url": "file:///a.odt",
+        "para_index": 3,
+        "snippet": "preview text",
+        "score": 0.91,
+    }
+    assert "char_start" not in hit
+    assert "char_end" not in hit
+
+
+def test_rerank_returns_snippet_hits():
+    state = {
+        "k": 2,
+        "query_vec": [1.0, 0.0],
+        "candidates": [
+            {
+                "chunk_id": "a",
+                "doc_url": "file:///a.odt",
+                "para_index": 1,
+                "snippet": "first hit",
+                "score": 0.9,
+                "embedding": None,
+            },
+            {
+                "chunk_id": "b",
+                "doc_url": "file:///b.odt",
+                "para_index": 0,
+                "snippet": "second hit",
+                "score": 0.8,
+                "embedding": None,
+            },
+        ],
+    }
+    out = embeddings_search_graph.rerank(state)
+    assert len(out["hits"]) == 2
+    assert out["hits"][0]["snippet"] == "first hit"
+    assert "char_start" not in out["hits"][0]
+
+
 def test_search_embeddings_graph_invokes_graph():
     with patch.object(embeddings_search_graph, "_get_search_graph") as mock_graph_factory:
         mock_graph = MagicMock()
