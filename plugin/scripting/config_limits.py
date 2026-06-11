@@ -22,6 +22,9 @@ WARM_WORKER_TIMEOUT_SEC = 30
 # Trusted vision helpers (model load / first download) — not charged against user script timeout.
 VISION_WORKER_TIMEOUT_SEC = 120
 
+# Trusted embeddings RPC (sentence-transformers load, Chroma ingest/search) — not user script timeout.
+EMBEDDINGS_WORKER_TIMEOUT_SEC = 120
+
 # Docling layout + OCR cold start can exceed the Paddle-only budget.
 DOCLING_WORKER_TIMEOUT_SEC = 300
 
@@ -119,6 +122,12 @@ def configured_python_exec_timeout(ctx: Any) -> int:
     except Exception:
         val = python_exec_timeout_default()
     return _clamp_timeout(val)
+
+
+def embeddings_worker_timeout_sec(_ctx: Any | None = None) -> int:
+    """Wall-clock budget for trusted embeddings RPC in the venv worker (not user script timeout)."""
+    del _ctx
+    return EMBEDDINGS_WORKER_TIMEOUT_SEC
 
 
 # --- python_max_data_cells ---

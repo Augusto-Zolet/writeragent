@@ -26,7 +26,7 @@ def ctx():
 def test_knn_search_happy_path(ctx):
     worker_payload = {"hits": [{"doc_url": "file:///a.odt", "para_index": 0, "score": 0.9}]}
     with patch("plugin.framework.client.embeddings_service.run_code_in_user_venv", return_value={"status": "ok", "result": worker_payload}) as mock_run:
-        with patch("plugin.framework.client.embeddings_service.configured_python_exec_timeout", return_value=30):
+        with patch("plugin.framework.client.embeddings_service.embeddings_worker_timeout_sec", return_value=120):
             result = embeddings_service.knn_search(
                 ctx,
                 "/tmp/chroma",
@@ -44,7 +44,7 @@ def test_knn_search_happy_path(ctx):
 
 def test_index_paragraphs_worker_error(ctx):
     with patch("plugin.framework.client.embeddings_service.run_code_in_user_venv", return_value={"status": "error", "message": "boom"}):
-        with patch("plugin.framework.client.embeddings_service.configured_python_exec_timeout", return_value=30):
+        with patch("plugin.framework.client.embeddings_service.embeddings_worker_timeout_sec", return_value=120):
             with pytest.raises(ToolExecutionError, match="boom"):
                 embeddings_service.index_paragraphs(
                     ctx,
@@ -58,6 +58,6 @@ def test_index_paragraphs_worker_error(ctx):
 
 def test_collection_stats_rpc(ctx):
     with patch("plugin.framework.client.embeddings_service.run_code_in_user_venv", return_value={"status": "ok", "result": {"chunk_count": 5}}):
-        with patch("plugin.framework.client.embeddings_service.configured_python_exec_timeout", return_value=30):
+        with patch("plugin.framework.client.embeddings_service.embeddings_worker_timeout_sec", return_value=120):
             result = embeddings_service.collection_stats(ctx, "/tmp/chroma", "folder_key", "/tmp/meta.json")
     assert result["chunk_count"] == 5

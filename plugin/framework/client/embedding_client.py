@@ -14,7 +14,7 @@ from typing import Any
 from plugin.framework.config import get_config
 from plugin.framework.constants import DEFAULT_EMBEDDING_MODEL, EMBEDDINGS_WORKER_SESSION_PREFIX, WORKER_POOL_EMBEDDINGS
 from plugin.framework.errors import ConfigError, ToolExecutionError
-from plugin.scripting.config_limits import configured_python_exec_timeout
+from plugin.scripting.config_limits import embeddings_worker_timeout_sec
 from plugin.scripting.venv_worker import run_code_in_user_venv
 
 _EMBED_STUB = """\
@@ -88,7 +88,7 @@ def embed_texts(ctx: Any, texts: list[str], *, model: str | None = None) -> Embe
     if texts is None:
         texts = []
 
-    timeout_sec = configured_python_exec_timeout(ctx)
+    timeout_sec = embeddings_worker_timeout_sec(ctx)
     response = run_code_in_user_venv(
         ctx,
         _EMBED_STUB,

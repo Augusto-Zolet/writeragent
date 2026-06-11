@@ -13,11 +13,14 @@ import logging
 import os
 import urllib.parse
 import urllib.request
-from typing import Any, Literal, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
 
 import uno
 
 from plugin.doc.document_helpers import DocumentType, get_document_path, get_document_type, resolve_document_by_url
+
+if TYPE_CHECKING:
+    from plugin.framework.tool import ToolBase
 
 log = logging.getLogger(__name__)
 
@@ -97,7 +100,7 @@ def guess_doc_type_from_path(path: str) -> DocTypeGuess:
     return _EXTENSION_DOC_TYPE.get(ext, "unknown")
 
 
-def get_document_research_workflow_hint() -> str:
+def get_document_research_workflow_hint(ctx=None) -> str:
     """Outer document_research sub-agent workflow text (grep vs embeddings mode)."""
     from plugin.framework.constants import document_research_uses_embeddings
 
@@ -110,7 +113,7 @@ def get_document_research_workflow_hint() -> str:
         "Pass filter with a substring from their description (e.g. filter='budget' for \"the budget spreadsheet\"), "
         "then delegate_read_document on the matched file name. One delegate_read_document per office file.\n"
     )
-    if document_research_uses_embeddings():
+    if document_research_uses_embeddings(ctx):
         return (
             common
             + "For cross-file discovery (semantic or keyword topics), use search_embeddings(query, k) over the active folder index. "
@@ -129,16 +132,46 @@ def get_document_research_workflow_hint() -> str:
     )
 
 
+def filter_document_research_discovery_tools(tools: list[ToolBase], ctx) -> list[ToolBase]:
+    """Keep grep_nearby_files or search_embeddings based on embeddings.embeddings_cache_enabled."""
+    from plugin.framework.constants import document_research_uses_embeddings
+
+    hidden = "grep_nearby_files" if document_research_uses_embeddings(ctx) else "search_embeddings"
+    return [t for t in tools if t.name != hidden]
+
+
 def _normalize_path(path: str) -> str:
     return os.path.normpath(os.path.abspath(path))
 
 
 def _path_to_file_url(path: str) -> str:
-    return urllib.parse.urljoin("file:", urllib.request.pathname2url(_normalize_path(path)))
+    """Build a LO-compatible file URL (file:/// on Unix).
+
+    urljoin('file:', pathname2url(...)) wrongly yields file:/home/... (two slashes);
+    loadComponentFromURL and open_document_for_read require file:///home/...
+    """
+    norm = _normalize_path(path)
+    quoted = urllib.request.pathname2url(norm)
+    if quoted.startswith("/"):
+        return "file://" + quoted
+    return "file:" + quoted
+
+
+def _normalize_file_url(url: str) -> str:
+    """Repair file:/path URLs from the old urljoin-based _path_to_file_url."""
+    raw = str(url).strip()
+    if raw.startswith("file:///"):
+        return raw
+    if raw.startswith("file:/") and not raw.startswith("file://"):
+        return "file://" + raw[len("file:") :]
+    return raw
 
 
 def _system_path_from_url(url: str) -> str | None:
-    if not url or not str(url).startswith("file://"):
+    if not url or not str(url).startswith("file:"):
+        return None
+    url = _normalize_file_url(str(url))
+    if not url.startswith("file://"):
         return None
     try:
         return _normalize_path(str(uno.fileUrlToSystemPath(url)))
@@ -470,8 +503,8 @@ def open_document_for_read(ctx: Any, path_or_url: str) -> tuple[Any | None, str 
     path: str | None = None
     url: str | None = None
     raw = str(path_or_url).strip()
-    if raw.startswith("file://"):
-        url = raw
+    if raw.startswith("file:"):
+        url = _normalize_file_url(raw)
         path = _system_path_from_url(url)
     elif os.path.isabs(raw) and os.path.isfile(raw):
         path = _normalize_path(raw)

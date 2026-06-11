@@ -235,9 +235,10 @@ def _write_meta(state: IngestState, *, chunk_count_override: int, dim: int) -> N
 
 def _build_ingest_graph() -> Any:
     import importlib
+    from typing import cast
 
     lg = importlib.import_module("langgraph.graph")
-    graph = lg.StateGraph(IngestState)
+    graph = lg.StateGraph(cast("Any", IngestState))
     graph.add_node("rows_to_documents", rows_to_documents)
     graph.add_node("split_chunks", split_chunks)
     graph.add_node("delete_stale", delete_stale)

@@ -1314,6 +1314,11 @@ def get_safe_module(raw_module, authorized_imports, visited=None):
                 "mpl_toolkits",
                 "matplotlib.",
                 "sentence_transformers",
+                "chromadb",
+                "langgraph",
+                "langchain",
+                "plugin.scripting.embeddings",
+                "plugin.scripting.vision",
             )
         )
         or name in ("math", "random", "datetime", "re", "collections", "itertools", "functools", "json", "time", "os", "sys")

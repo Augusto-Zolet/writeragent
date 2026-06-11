@@ -9,7 +9,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 from plugin.doc import embeddings_cache, embeddings_indexer
-from plugin.doc.embeddings_chunker import ParagraphChunk, content_hash
+from plugin.doc.embeddings_chunker import ParagraphChunk, chunk_to_index_row, content_hash
 
 
 def test_file_is_stale_when_no_rows(tmp_path):
@@ -131,14 +131,65 @@ def test_refresh_marks_unchanged_file_after_mtime_bump(tmp_path):
             with patch("plugin.doc.embeddings_indexer.file_index_state_path", return_value=state_path):
                 with patch("plugin.doc.embeddings_indexer.chroma_persist_dir", return_value=persist_dir):
                     with patch("plugin.doc.embeddings_indexer.needs_cold_rebuild", return_value=False):
-                        with patch("plugin.doc.embeddings_indexer.list_indexable_sibling_files", return_value=([entry], None)):
-                            with patch("plugin.doc.embeddings_indexer.extract_paragraph_chunks_from_file", return_value=[chunk]):
+                        with patch(
+                            "plugin.doc.embeddings_indexer._execute_uno_phase",
+                            side_effect=lambda _ctx, fn: fn(),
+                        ):
+                            with patch(
+                                "plugin.doc.embeddings_indexer._collect_incremental_uno_work",
+                                return_value=([(entry, doc_url, 200.0, [chunk], [], [])], None),
+                            ):
                                 with patch("plugin.doc.embeddings_indexer.delete_paragraphs") as del_mock:
                                     with patch("plugin.doc.embeddings_indexer.index_paragraphs") as idx_mock:
                                         embeddings_indexer.refresh_folder_index_incremental(
-                                            ctx, services, model, folder_key=folder_key
+                                            ctx, services, model, folder_key=folder_key, listing_root="/tmp"
                                         )
                                         del_mock.assert_not_called()
                                         idx_mock.assert_not_called()
 
     assert embeddings_indexer.file_is_stale(state_path, doc_url, 200.0) is False
+
+
+def test_rebuild_folder_index_runs_uno_collection_on_main_thread():
+    ctx = MagicMock()
+    services = MagicMock()
+    model = MagicMock()
+    captured: list[str] = []
+
+    def _fake_execute(_ctx, fn):
+        captured.append("main")
+        return fn()
+
+    chunk = ParagraphChunk(
+        doc_url="file:///a.odt",
+        para_index=0,
+        char_start=0,
+        char_end=3,
+        text="hello",
+        content_hash=content_hash("hello"),
+        file_mtime=1.0,
+    )
+    entry = {"url": "file:///a.odt", "path": "/tmp/a.odt", "modified": 1.0, "doc_type_guess": "writer"}
+
+    with patch("plugin.doc.embeddings_indexer._execute_uno_phase", side_effect=_fake_execute):
+        with patch(
+            "plugin.doc.embeddings_indexer._collect_cold_build_chunks",
+            return_value=([entry], [chunk_to_index_row(chunk)], {"file:///a.odt": [chunk]}, None),
+        ):
+            with patch("plugin.doc.embeddings_indexer.clear_folder_cache"):
+                with patch("plugin.doc.embeddings_indexer.ensure_corpus_meta"):
+                    with patch("plugin.doc.embeddings_indexer.get_embedding_model", return_value="m"):
+                        with patch("plugin.doc.embeddings_indexer.chroma_persist_dir", return_value=MagicMock()):
+                            with patch("plugin.doc.embeddings_indexer.corpus_meta_path", return_value=MagicMock()):
+                                with patch("plugin.doc.embeddings_indexer.file_index_state_path", return_value=MagicMock()):
+                                    with patch("plugin.doc.embeddings_indexer.index_paragraphs") as idx_mock:
+                                        with patch("plugin.doc.embeddings_indexer.sync_file_paragraph_state"):
+                                            embeddings_indexer.rebuild_folder_index(
+                                                ctx,
+                                                services,
+                                                model,
+                                                folder_key="k",
+                                                listing_root="/tmp",
+                                            )
+                                            idx_mock.assert_called_once()
+    assert captured == ["main"]

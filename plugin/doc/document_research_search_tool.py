@@ -50,7 +50,14 @@ class SearchEmbeddings(ToolBase):
         return True
 
     def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
+        from plugin.framework.constants import document_research_uses_embeddings
         from plugin.framework.queue_executor import execute_on_main_thread
+
+        if not document_research_uses_embeddings(ctx.ctx):
+            return self._tool_error(
+                "Embeddings cache is disabled. Enable it in Settings → Embeddings.",
+                code="EMBEDDINGS_CACHE_DISABLED",
+            )
 
         query = kwargs.get("query")
         if not query:

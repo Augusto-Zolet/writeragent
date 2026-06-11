@@ -45,7 +45,7 @@ DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 EMBEDDINGS_WORKER_SESSION_PREFIX = "embeddings"
 # Host corpus_meta.json / Chroma schema version (docs/embeddings.md).
 EMBEDDINGS_SCHEMA_VERSION = "2"
-# Background folder index tick when DOCUMENT_RESEARCH_SEARCH_MODE=embeddings (docs/embeddings.md).
+# Background folder index tick when embeddings cache is enabled (docs/embeddings.md).
 EMBEDDINGS_INDEX_INTERVAL_S = 300
 # Warm venv worker pools (docs/embeddings.md — dedicated embeddings subprocess).
 WORKER_POOL_DEFAULT = "default"
@@ -71,14 +71,15 @@ class ModelCapability(IntFlag):
 # Approach B: In-Place Tool Switching (False) - Switches the main model's tools.
 USE_SUB_AGENT = True
 
-# document_research cross-file discovery: "grep" (default) or "embeddings" (search_embeddings only).
-# Edit before make release; no Settings UI in Phase B. See docs/embeddings.md.
-DOCUMENT_RESEARCH_SEARCH_MODE = "grep"
+# document_research cross-file discovery: embeddings cache vs grep (Settings: embeddings.embeddings_cache_enabled).
+# See docs/embeddings.md.
 
 
-def document_research_uses_embeddings() -> bool:
+def document_research_uses_embeddings(ctx=None) -> bool:
     """True when outer document_research exposes search_embeddings instead of grep_nearby_files."""
-    return DOCUMENT_RESEARCH_SEARCH_MODE.strip().lower() == "embeddings"
+    from plugin.framework.config import get_config_bool_safe
+
+    return get_config_bool_safe(ctx, "embeddings.embeddings_cache_enabled")
 
 
 # Browser-style user agent for a small, whitelisted set of sites

@@ -21,11 +21,11 @@ def test_folder_corpus_key_stable_and_normalized():
     assert len(a) == 64
 
 
-def test_chroma_persist_dir_under_profile(tmp_path):
-    ctx = MagicMock()
-    with patch("plugin.doc.embeddings_cache.user_config_dir", return_value=str(tmp_path)):
-        path = embeddings_cache.chroma_persist_dir(ctx, "abc123")
-    assert path == tmp_path / "writeragent_embeddings" / "abc123" / "chroma"
+def test_chroma_persist_dir_beside_documents(tmp_path):
+    listing = tmp_path / "project"
+    listing.mkdir()
+    path = embeddings_cache.chroma_persist_dir(str(listing))
+    assert path == listing / "writeragent_embeddings" / "chroma"
     assert path.is_dir()
 
 
@@ -69,12 +69,11 @@ def test_resolve_index_context_ok(tmp_path):
     listing = str(tmp_path / "project")
     Path(listing).mkdir()
     with patch("plugin.doc.embeddings_cache.resolve_folder_for_active_doc", return_value=listing):
-        with patch("plugin.doc.embeddings_cache.user_config_dir", return_value=str(tmp_path / "profile")):
-            key, persist, meta, root = embeddings_cache.resolve_index_context(ctx, model)
+        key, persist, meta, root = embeddings_cache.resolve_index_context(ctx, model)
     assert root == listing
     assert key == embeddings_cache.folder_corpus_key(listing)
-    assert persist.name == "chroma"
-    assert meta.name == "corpus_meta.json"
+    assert persist == Path(listing) / "writeragent_embeddings" / "chroma"
+    assert meta == Path(listing) / "writeragent_embeddings" / "corpus_meta.json"
 
 
 def test_model_matches_index(tmp_path):
@@ -85,14 +84,13 @@ def test_model_matches_index(tmp_path):
 
 
 def test_remove_legacy_index_db(tmp_path):
-    ctx = MagicMock()
-    folder_key = "abc"
-    with patch("plugin.doc.embeddings_cache.user_config_dir", return_value=str(tmp_path)):
-        base = embeddings_cache.folder_cache_dir(ctx, folder_key)
-        legacy = base / "index.db"
-        legacy.write_text("sqlite", encoding="utf-8")
-        assert embeddings_cache.remove_legacy_index(ctx, folder_key) is True
-        assert not legacy.is_file()
+    listing = str(tmp_path / "project")
+    Path(listing).mkdir()
+    base = embeddings_cache.folder_cache_dir(listing)
+    legacy = base / "index.db"
+    legacy.write_text("sqlite", encoding="utf-8")
+    assert embeddings_cache.remove_legacy_index(listing) is True
+    assert not legacy.is_file()
 
 
 def test_file_index_state_and_diff(tmp_path):

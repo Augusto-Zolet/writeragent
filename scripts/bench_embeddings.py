@@ -96,29 +96,46 @@ def write_paragraphs_json(odt_path: Path, texts: list[str]) -> None:
 def encode_corpus_code(model_name: str) -> str:
     return f'''
 import time
-import numpy as np
-from sentence_transformers import SentenceTransformer
+from plugin.scripting.embeddings_ingest_graph import ingest_paragraphs
 
 texts = data
 
-t0 = time.perf_counter()
-embedder = SentenceTransformer({model_name!r})
-load_sec = time.perf_counter() - t0
+rows = [
+    {{
+        "text": text,
+        "doc_url": "file:///tmp/bench.odt",
+        "para_index": idx,
+        "content_hash": f"hash_{{idx}}",
+        "file_mtime": 12345.67,
+    }}
+    for idx, text in enumerate(texts)
+]
 
 t0 = time.perf_counter()
-batch = embedder.encode(texts, convert_to_tensor=False, show_progress_bar=False)
+res = ingest_paragraphs(
+    persist_dir="/tmp/writeragent_embed_bench_chroma",
+    collection_name="bench_collection",
+    meta_path="/tmp/writeragent_embed_bench_chroma/corpus_meta.json",
+    model_name={model_name!r},
+    rows=rows,
+)
 encode_corpus_sec = time.perf_counter() - t0
 
-corpus_matrix = np.stack(batch).astype(np.float32)
-n, dim = corpus_matrix.shape
+# Retrieve info to verify
+from plugin.scripting.embeddings_chroma import get_collection
+collection = get_collection("/tmp/writeragent_embed_bench_chroma", "bench_collection")
+n = collection.count()
+try:
+    first_chunk = collection.get(limit=1, include=["embeddings"])
+    dim = len(first_chunk["embeddings"][0]) if first_chunk.get("embeddings") else 0
+except Exception:
+    dim = 0
 
 result = {{
     "model": {model_name!r},
     "n": int(n),
     "dim": int(dim),
-    "load_sec": load_sec,
     "encode_corpus_sec": encode_corpus_sec,
-    "sidecar_bytes": 8 + int(corpus_matrix.nbytes),
 }}
 '''
 
@@ -126,30 +143,22 @@ result = {{
 def search_corpus_code(query: str, k: int, search_iters: int) -> str:
     return f'''
 import time
-import numpy as np
+from plugin.scripting.embeddings_search_graph import search_embeddings_graph
 
-n = corpus_matrix.shape[0]
-
-encode_query_times = []
-dot_topk_times = []
-total_times = []
-top_k = []
+search_times = []
+hits = []
 
 for _ in range({search_iters}):
     t0 = time.perf_counter()
-    query_emb = embedder.encode({query!r}, convert_to_tensor=False, show_progress_bar=False)
-    encode_query_times.append(time.perf_counter() - t0)
-
-    t0 = time.perf_counter()
-    similarities = np.clip(np.dot(corpus_matrix, query_emb), -1.0, 1.0)
-    if {k} >= n:
-        top_idx = np.argsort(similarities)[-{k}:][::-1]
-    else:
-        part = np.argpartition(similarities, -{k})[-{k}:]
-        top_idx = part[np.argsort(similarities[part])][::-1]
-    dot_topk_times.append(time.perf_counter() - t0)
-    total_times.append(encode_query_times[-1] + dot_topk_times[-1])
-    top_k = [{{"para_index": int(i), "score": float(similarities[i])}} for i in top_idx]
+    res = search_embeddings_graph(
+        persist_dir="/tmp/writeragent_embed_bench_chroma",
+        collection_name="bench_collection",
+        query_text={query!r},
+        k={k},
+        model_name=model_name,
+    )
+    search_times.append(time.perf_counter() - t0)
+    hits = res.get("hits") or []
 
 def _median(xs):
     s = sorted(xs)
@@ -157,26 +166,10 @@ def _median(xs):
     return s[m] if len(s) % 2 else (s[m - 1] + s[m]) / 2
 
 result = {{
-    "encode_query_median_ms": _median(encode_query_times) * 1000.0,
-    "dot_topk_median_ms": _median(dot_topk_times) * 1000.0,
-    "query_total_median_ms": _median(total_times) * 1000.0,
-    "top_k": top_k,
+    "query_total_median_ms": _median(search_times) * 1000.0,
+    "top_k": [{{"para_index": h["para_index"], "score": h["score"]}} for h in hits],
 }}
 '''
-
-
-def write_sidecar_bin(path: str, matrix: object) -> None:
-    """Write float32 sidecar on the host (venv sandbox forbids open() in worker code)."""
-    import numpy as np
-
-    arr = np.asarray(matrix, dtype=np.float32)
-    if arr.ndim != 2:
-        raise ValueError(f"expected 2D corpus matrix, got shape {arr.shape!r}")
-    n, dim = arr.shape
-    header = np.array([n, dim], dtype=np.uint32).tobytes()
-    with open(path, "wb") as out:
-        out.write(header)
-        out.write(arr.tobytes())
 
 
 def _require_ok(response: dict, phase: str) -> dict:
@@ -210,6 +203,9 @@ def bench_model(
         ),
         "encode",
     )
+    # Set model_name in worker namespace for search bench
+    mgr.execute(f"model_name = {model_name!r}", timeout_sec=timeout_sec, session_id=session_id)
+
     print(f"Model {model_name!r}: search bench ({search_iters} iterations)...", flush=True)
     search = _require_ok(
         mgr.execute(
@@ -219,28 +215,18 @@ def bench_model(
         ),
         "search",
     )
-    matrix_resp = mgr.execute(
-        "result = corpus_matrix",
-        timeout_sec=timeout_sec,
-        session_id=session_id,
-    )
-    if matrix_resp.get("status") == "ok" and matrix_resp.get("result") is not None:
-        write_sidecar_bin(SIDECAR_PATH, matrix_resp["result"])
     return {**encode, **search}
 
 
 def print_row(model: str, stats: dict) -> None:
-    sidecar_mb = stats["sidecar_bytes"] / (1024 * 1024)
     print(f"Model: {model}")
-    print(f"  paragraphs: {stats['n']}  dim: {stats['dim']}  sidecar: {sidecar_mb:.2f} MiB")
-    print(f"  load: {stats['load_sec']:.3f}s  encode corpus: {stats['encode_corpus_sec']:.3f}s")
+    print(f"  paragraphs: {stats['n']}  dim: {stats['dim']}")
+    print(f"  ingest corpus: {stats['encode_corpus_sec']:.3f}s")
     print(
-        f"  query encode: {stats['encode_query_median_ms']:.3f} ms  "
-        f"dot+top-k: {stats['dot_topk_median_ms']:.3f} ms  "
-        f"total: {stats['query_total_median_ms']:.3f} ms"
+        f"  query total median: {stats['query_total_median_ms']:.3f} ms"
     )
     print("  top hits:")
-    for hit in stats.get("top_k", [])[:5]:
+    for hit in stats.get("top_k", []):
         print(f"    para {hit['para_index']:4d}  score {hit['score']:.4f}")
     print()
 
@@ -280,6 +266,9 @@ def main() -> int:
     print(f"Sidecar: {SIDECAR_PATH}")
     print(f"Query: {args.query!r}")
     print()
+
+    import shutil
+    shutil.rmtree("/tmp/writeragent_embed_bench_chroma", ignore_errors=True)
 
     mgr = PythonWorkerManager.get(exe, scrub_subprocess_env(dict(os.environ)))
     try:

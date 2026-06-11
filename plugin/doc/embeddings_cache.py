@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import Any
 
 from plugin.doc.document_research import resolve_listing_directory
-from plugin.framework.config import user_config_dir
 from plugin.framework.constants import EMBEDDINGS_SCHEMA_VERSION as SCHEMA_VERSION
 
 log = logging.getLogger(__name__)
@@ -42,43 +41,39 @@ def resolve_folder_for_active_doc(ctx: Any, model: Any) -> str | None:
     return resolve_listing_directory(ctx, model)
 
 
-def embeddings_cache_root(ctx: Any) -> Path:
-    """Profile-local root for all per-folder embedding caches."""
-    root = user_config_dir(ctx)
-    if not root:
-        raise OSError("Could not resolve WriterAgent user config directory")
-    return Path(root) / EMBEDDINGS_CACHE_DIRNAME
+def _normalized_listing_root(listing_root: str) -> str:
+    return os.path.normpath(os.path.abspath(listing_root))
 
 
-def folder_cache_dir(ctx: Any, folder_key: str, *, create_parent: bool = True) -> Path:
-    """Base directory for one folder's Chroma + JSON state."""
-    path = embeddings_cache_root(ctx) / folder_key
+def folder_cache_dir(listing_root: str, *, create_parent: bool = True) -> Path:
+    """Base directory for one folder's Chroma + JSON state (beside indexed documents)."""
+    path = Path(_normalized_listing_root(listing_root)) / EMBEDDINGS_CACHE_DIRNAME
     if create_parent:
         path.mkdir(parents=True, exist_ok=True)
     return path
 
 
-def chroma_persist_dir(ctx: Any, folder_key: str, *, create_parent: bool = True) -> Path:
-    """Chroma PersistentClient path for *folder_key*."""
-    path = folder_cache_dir(ctx, folder_key, create_parent=create_parent) / CHROMA_SUBDIR
+def chroma_persist_dir(listing_root: str, *, create_parent: bool = True) -> Path:
+    """Chroma PersistentClient path for the document folder."""
+    path = folder_cache_dir(listing_root, create_parent=create_parent) / CHROMA_SUBDIR
     if create_parent:
         path.mkdir(parents=True, exist_ok=True)
     return path
 
 
-def corpus_meta_path(ctx: Any, folder_key: str, *, create_parent: bool = True) -> Path:
+def corpus_meta_path(listing_root: str, *, create_parent: bool = True) -> Path:
     """JSON corpus metadata beside the Chroma directory."""
-    return folder_cache_dir(ctx, folder_key, create_parent=create_parent) / CORPUS_META_FILENAME
+    return folder_cache_dir(listing_root, create_parent=create_parent) / CORPUS_META_FILENAME
 
 
-def file_index_state_path(ctx: Any, folder_key: str, *, create_parent: bool = True) -> Path:
+def file_index_state_path(listing_root: str, *, create_parent: bool = True) -> Path:
     """Host-side paragraph/file indexing state for incremental maintenance."""
-    return folder_cache_dir(ctx, folder_key, create_parent=create_parent) / FILE_INDEX_STATE_FILENAME
+    return folder_cache_dir(listing_root, create_parent=create_parent) / FILE_INDEX_STATE_FILENAME
 
 
-def legacy_index_db_path(ctx: Any, folder_key: str) -> Path:
+def legacy_index_db_path(listing_root: str) -> Path:
     """Pre-Chroma SQLite index path (removed on upgrade)."""
-    return folder_cache_dir(ctx, folder_key, create_parent=False) / LEGACY_INDEX_DB
+    return folder_cache_dir(listing_root, create_parent=False) / LEGACY_INDEX_DB
 
 
 def read_corpus_meta(meta_path: Path) -> dict[str, str]:
@@ -176,23 +171,26 @@ def schema_matches(meta_path: Path) -> bool:
     return meta.get("schema_version", "") == SCHEMA_VERSION
 
 
-def remove_legacy_index(ctx: Any, folder_key: str) -> bool:
+def remove_legacy_index(listing_root: str) -> bool:
     """Delete legacy index.db when upgrading to Chroma (cold rebuild follows)."""
-    legacy = legacy_index_db_path(ctx, folder_key)
+    legacy = legacy_index_db_path(listing_root)
     if not legacy.is_file():
         return False
     try:
         legacy.unlink()
-        log.info("Removed legacy embeddings index.db for folder key %s (Chroma cold rebuild)", folder_key[:8])
+        log.info(
+            "Removed legacy embeddings index.db in %s (Chroma cold rebuild)",
+            folder_cache_dir(listing_root, create_parent=False),
+        )
         return True
     except OSError:
         log.debug("Could not remove legacy index.db at %s", legacy, exc_info=True)
         return False
 
 
-def clear_folder_cache(ctx: Any, folder_key: str) -> None:
+def clear_folder_cache(listing_root: str) -> None:
     """Remove Chroma data and JSON state for a cold rebuild."""
-    base = folder_cache_dir(ctx, folder_key, create_parent=False)
+    base = folder_cache_dir(listing_root, create_parent=False)
     chroma = base / CHROMA_SUBDIR
     if chroma.is_dir():
         shutil.rmtree(chroma, ignore_errors=True)
@@ -203,12 +201,12 @@ def clear_folder_cache(ctx: Any, folder_key: str) -> None:
                 path.unlink()
             except OSError:
                 log.debug("Could not remove %s", path, exc_info=True)
-    remove_legacy_index(ctx, folder_key)
+    remove_legacy_index(listing_root)
 
 
-def maybe_upgrade_legacy_index(ctx: Any, folder_key: str) -> None:
+def maybe_upgrade_legacy_index(listing_root: str) -> None:
     """On first access after upgrade, drop stale index.db so Chroma rebuilds."""
-    remove_legacy_index(ctx, folder_key)
+    remove_legacy_index(listing_root)
 
 
 def resolve_index_context(ctx: Any, model: Any) -> tuple[str, Path, Path, str] | tuple[None, None, None, str]:
@@ -217,16 +215,16 @@ def resolve_index_context(ctx: Any, model: Any) -> tuple[str, Path, Path, str] |
     if not listing_root:
         return None, None, None, "No nearby files found. Save the document or open sibling files in LibreOffice."
     folder_key = folder_corpus_key(listing_root)
-    maybe_upgrade_legacy_index(ctx, folder_key)
-    persist = chroma_persist_dir(ctx, folder_key)
-    meta = corpus_meta_path(ctx, folder_key)
+    maybe_upgrade_legacy_index(listing_root)
+    persist = chroma_persist_dir(listing_root)
+    meta = corpus_meta_path(listing_root)
     return folder_key, persist, meta, listing_root
 
 
 # Backward-compatible aliases for tests/code in transition
-def index_db_path(ctx: Any, folder_key: str, *, create_parent: bool = True) -> Path:
+def index_db_path(listing_root: str, *, create_parent: bool = True) -> Path:
     """Deprecated: returns chroma persist dir (historical name kept for minimal churn)."""
-    return chroma_persist_dir(ctx, folder_key, create_parent=create_parent)
+    return chroma_persist_dir(listing_root, create_parent=create_parent)
 
 
 def _file_entry(state: dict[str, Any], doc_url: str) -> dict[str, Any]:

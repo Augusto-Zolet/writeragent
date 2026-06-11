@@ -15,6 +15,7 @@ from plugin.framework.tool import ToolBase, ToolContext, ToolRegistry
 from tests.chatbot.test_tool_loop import _mock_get_config_int_for_sub_agent
 from plugin.writer.specialized_base import DelegateToSpecializedWriter, SpecializedWorkflowFinished
 from plugin.doc.document_research_grep_tool import GrepNearbyFiles
+from plugin.doc.document_research_search_tool import SearchEmbeddings
 from plugin.doc.document_research_tools import ListNearbyFiles
 
 
@@ -47,32 +48,30 @@ def test_document_research_in_draw_delegate_enum():
     assert "document_research" in _document_research_domains(gw)
 
 
-def test_document_research_tools_registered_with_cross_cutting():
+def test_filter_document_research_discovery_tools_respects_config():
+    from plugin.doc.document_research import filter_document_research_discovery_tools
+
     r = ToolRegistry(services={})
     r.register(ListNearbyFiles())
     r.register(GrepNearbyFiles())
+    r.register(SearchEmbeddings())
     r.register(DelegateReadDocument())
     r.register(SpecializedWorkflowFinished())
     tools = r.get_tools(doc=MagicMock(), active_domain="document_research", exclude_tiers=())
-    names = {t.name for t in tools}
+    ctx = MagicMock()
+
+    with patch("plugin.framework.constants.document_research_uses_embeddings", return_value=False):
+        filtered = filter_document_research_discovery_tools(tools, ctx)
+    names = {t.name for t in filtered}
     assert "list_nearby_files" in names
     assert "grep_nearby_files" in names
     assert "delegate_read_document" in names
     assert "specialized_workflow_finished" in names
     assert "search_embeddings" not in names
 
-
-@patch("plugin.framework.constants.DOCUMENT_RESEARCH_SEARCH_MODE", "embeddings")
-def test_document_research_embeddings_mode_registers_search_only():
-    import importlib
-
-    import plugin.doc.document_research_search_tool as search_mod
-
-    importlib.reload(search_mod)
-    r = ToolRegistry(services={})
-    r.auto_discover(search_mod)
-    tools = r.get_tools(doc=MagicMock(), active_domain="document_research", exclude_tiers=())
-    names = {t.name for t in tools}
+    with patch("plugin.framework.constants.document_research_uses_embeddings", return_value=True):
+        filtered = filter_document_research_discovery_tools(tools, ctx)
+    names = {t.name for t in filtered}
     assert "search_embeddings" in names
     assert "grep_nearby_files" not in names
 
@@ -80,13 +79,14 @@ def test_document_research_embeddings_mode_registers_search_only():
 def test_document_research_workflow_hint_modes():
     from plugin.doc.document_research import get_document_research_workflow_hint
 
-    with patch("plugin.framework.constants.DOCUMENT_RESEARCH_SEARCH_MODE", "grep"):
-        grep_hint = get_document_research_workflow_hint()
+    ctx = MagicMock()
+    with patch("plugin.framework.constants.document_research_uses_embeddings", return_value=False):
+        grep_hint = get_document_research_workflow_hint(ctx)
     assert "grep_nearby_files" in grep_hint
     assert "search_embeddings" not in grep_hint
 
-    with patch("plugin.framework.constants.DOCUMENT_RESEARCH_SEARCH_MODE", "embeddings"):
-        embed_hint = get_document_research_workflow_hint()
+    with patch("plugin.framework.constants.document_research_uses_embeddings", return_value=True):
+        embed_hint = get_document_research_workflow_hint(ctx)
     assert "search_embeddings" in embed_hint
     assert "grep_nearby_files" not in embed_hint
 

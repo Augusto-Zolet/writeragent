@@ -9,6 +9,9 @@
 
 Used by worker_harness.py (venv child adds repo root to sys.path for ``plugin.*`` imports).
 Import policy is only VENV_AUTHORIZED_IMPORTS passed to LocalPythonExecutor—no find_spec pre-checks.
+
+Fixed host RPC stubs (vision, embeddings_index, …) bypass the executor entirely — see
+``_is_trusted_*_stub`` and ``run_sandboxed_code``.
 """
 
 from __future__ import annotations
@@ -356,23 +359,35 @@ def _inject_data(executor: LocalPythonExecutor, data: Any | None) -> None:
 
 
 _TRUSTED_VISION_STUB_MARKER = "from plugin.scripting.vision import run_vision"
+_TRUSTED_EMBEDDINGS_STUB_MARKER = "from plugin.scripting.embeddings_index import"
 
 
 def _is_trusted_vision_stub(code: str) -> bool:
     return _TRUSTED_VISION_STUB_MARKER in (code or "")
 
 
+def _is_trusted_embeddings_stub(code: str) -> bool:
+    return _TRUSTED_EMBEDDINGS_STUB_MARKER in (code or "")
+
+
+def _unpack_trusted_payload(data: Any | None) -> dict[str, Any]:
+    if data is None:
+        return {}
+    unpacked = child_unpack_data(data)
+    if is_multi_data(unpacked):
+        if isinstance(unpacked, list) and unpacked and isinstance(unpacked[0], dict):
+            return unpacked[0]
+        return {}
+    if isinstance(unpacked, dict):
+        return unpacked
+    return {}
+
+
 def _run_trusted_vision_payload(data: Any | None) -> dict[str, Any]:
     """Run vision helpers outside LocalPythonExecutor (docling/paddle are not sandbox imports)."""
     from plugin.scripting.vision import run_vision
 
-    payload: dict[str, Any] = {}
-    if data is not None:
-        unpacked = child_unpack_data(data)
-        if is_multi_data(unpacked):
-            payload = unpacked[0] if isinstance(unpacked, list) and unpacked and isinstance(unpacked[0], dict) else {}
-        elif isinstance(unpacked, dict):
-            payload = unpacked
+    payload = _unpack_trusted_payload(data)
     try:
         spec = payload.get("spec")
         if spec is None:
@@ -387,6 +402,69 @@ def _run_trusted_vision_payload(data: Any | None) -> dict[str, Any]:
         import traceback
 
         log.exception("trusted vision unsandboxed run failed")
+        return {
+            "status": "error",
+            "message": str(e),
+            "traceback": traceback.format_exc(),
+            "stdout": "",
+        }
+
+
+def _run_trusted_embeddings_payload(code: str, data: Any | None) -> dict[str, Any]:
+    """Run fixed embeddings_index RPC stubs outside LocalPythonExecutor (torch/ST/Chroma need real imports)."""
+    from plugin.scripting import embeddings_index
+
+    payload = _unpack_trusted_payload(data)
+    stub = code or ""
+    try:
+        if "index_paragraphs" in stub:
+            result = embeddings_index.index_paragraphs(
+                str(payload.get("persist_dir") or ""),
+                str(payload.get("collection_name") or ""),
+                str(payload.get("meta_path") or ""),
+                str(payload.get("model") or ""),
+                list(payload.get("rows") or []),
+            )
+        elif "delete_paragraphs" in stub:
+            result = embeddings_index.delete_paragraphs(
+                str(payload.get("persist_dir") or ""),
+                str(payload.get("collection_name") or ""),
+                str(payload.get("meta_path") or ""),
+                list(payload.get("keys") or []),
+                model_name=str(payload.get("model") or ""),
+            )
+        elif "knn_search" in stub:
+            result = embeddings_index.knn_search(
+                str(payload.get("persist_dir") or ""),
+                str(payload.get("collection_name") or ""),
+                str(payload.get("query") or ""),
+                int(payload.get("k") or 5),
+                model_name=str(payload.get("model") or ""),
+                doc_url_filter=payload.get("doc_url_filter"),
+            )
+        elif "collection_stats" in stub:
+            result = embeddings_index.collection_stats(
+                str(payload.get("persist_dir") or ""),
+                str(payload.get("collection_name") or ""),
+                str(payload.get("meta_path") or ""),
+                model_name=str(payload.get("model") or ""),
+            )
+        elif "embed_texts" in stub:
+            result = embeddings_index.embed_texts(
+                str(payload.get("model") or ""),
+                list(payload.get("texts") or []),
+            )
+        else:
+            return {
+                "status": "error",
+                "message": "Unrecognized trusted embeddings stub.",
+                "stdout": "",
+            }
+        return {"status": "ok", "result": serialize_result(result), "stdout": ""}
+    except Exception as e:
+        import traceback
+
+        log.exception("trusted embeddings unsandboxed run failed")
         return {
             "status": "error",
             "message": str(e),
@@ -459,9 +537,11 @@ def run_sandboxed_code(
     if timeout_sec is None:
         timeout_sec = python_exec_timeout_default()
 
-    # Trusted vision RPC uses real imports (same as Settings → Test vision probe).
+    # Trusted host RPC stubs use real imports (not LocalPythonExecutor).
     if _is_trusted_vision_stub(code):
         return _run_trusted_vision_payload(data)
+    if _is_trusted_embeddings_stub(code):
+        return _run_trusted_embeddings_payload(code, data)
 
     # Force non-interactive backend so plt.show() doesn't block in the subprocess.
     mpl = optional_module("matplotlib")

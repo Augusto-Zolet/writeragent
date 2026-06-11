@@ -199,9 +199,10 @@ def format_hits(state: SearchState) -> dict[str, Any]:
 
 def _build_search_graph() -> Any:
     import importlib
+    from typing import cast
 
     lg = importlib.import_module("langgraph.graph")
-    graph = lg.StateGraph(SearchState)
+    graph = lg.StateGraph(cast("Any", SearchState))
     graph.add_node("embed_query", embed_query)
     graph.add_node("chroma_retrieve", chroma_retrieve)
     graph.add_node("metadata_filter", metadata_filter)

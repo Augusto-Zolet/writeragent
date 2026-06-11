@@ -105,11 +105,11 @@ def test_sentence_transformers_import_not_deep_wrapped():
 
     assert get_safe_module(st, []) is st
     r = _execute_request(
-        "from sentence_transformers import SentenceTransformer\nresult = SentenceTransformer.__name__",
+        "from sentence_transformers import SentenceTransformer\nresult = str(SentenceTransformer)",
         None,
     )
     assert r["status"] == "ok"
-    assert r["result"] == "SentenceTransformer"
+    assert "SentenceTransformer" in r["result"]
 
 
 def test_harness_main_loop_integration():

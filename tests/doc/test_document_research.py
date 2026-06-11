@@ -14,6 +14,8 @@ import pytest
 from plugin.doc.document_research import (
     NEARBY_FILE_EXTENSIONS,
     NEARBY_IMAGE_EXTENSIONS,
+    _normalize_file_url,
+    _path_to_file_url,
     close_document_research_document,
     guess_doc_type_from_path,
     get_document_directory,
@@ -30,6 +32,17 @@ def test_guess_doc_type_from_path():
     assert guess_doc_type_from_path("/tmp/Slides.odp") == "draw"
     assert guess_doc_type_from_path("/tmp/photo.png") == "image"
     assert guess_doc_type_from_path("/tmp/readme.txt") == "unknown"
+
+
+def test_path_to_file_url_uses_three_slashes_on_unix():
+    url = _path_to_file_url("/home/user/Writing/Test.odt")
+    assert url.startswith("file:///")
+    assert url.endswith("/home/user/Writing/Test.odt") or "Writing" in url
+
+
+def test_normalize_file_url_repairs_legacy_urljoin_form():
+    legacy = "file:/home/user/Writing/Test.odt"
+    assert _normalize_file_url(legacy) == "file:///home/user/Writing/Test.odt"
 
 
 def test_get_document_directory():
@@ -72,6 +85,8 @@ def test_list_nearby_files_scandir_sort_exclude_self():
         assert "draft.tmp" not in names
         assert names[0] == "Budget_2026.ods"
         assert "Budget_2025.ods" in names
+        for entry in result["files"]:
+            assert str(entry["url"]).startswith("file:///")
 
 
 def test_list_nearby_files_filter():

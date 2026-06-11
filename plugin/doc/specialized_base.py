@@ -179,6 +179,10 @@ class DelegateToSpecializedBase(ToolBase):
         # ``isinstance(..., _special_base_class)`` alone misses Calc-registered tools on Writer delegate.
         registry = ctx.services.get("tools")
         domain_tools = registry.get_tools(doc=getattr(ctx, "doc", None), active_domain=domain, exclude_tiers=())
+        if domain == "document_research":
+            from plugin.doc.document_research import filter_document_research_discovery_tools
+
+            domain_tools = filter_document_research_discovery_tools(domain_tools, ctx.ctx)
 
         if not domain_tools:
             return self._tool_error(f"No specialized tools found for domain '{domain}'. Ensure the tools are implemented and registered.")
@@ -215,7 +219,7 @@ class DelegateToSpecializedBase(ToolBase):
             except Exception as e:
                 log.warning("Failed to get Calc context for sub-agent: %s", e)
 
-        document_research_hint = get_document_research_workflow_hint() if domain == "document_research" else ""
+        document_research_hint = get_document_research_workflow_hint(ctx.ctx) if domain == "document_research" else ""
         open_docs_context = ""
         if domain == "document_research":
             try:

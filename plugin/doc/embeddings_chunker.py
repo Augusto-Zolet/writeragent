@@ -16,6 +16,7 @@ from typing import Any
 
 from plugin.doc.document_research import (
     FileEntry,
+    _path_to_file_url,
     close_document_research_document,
     list_nearby_files,
     open_document_for_read,
@@ -108,7 +109,7 @@ def extract_paragraph_chunks_from_file(
                 mtime = os.path.getmtime(path)
             except OSError:
                 mtime = 0.0
-        doc_url = url or f"file://{path}"
+        doc_url = url or _path_to_file_url(path)
         return _writer_paragraph_chunks(
             model,
             services,

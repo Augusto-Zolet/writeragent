@@ -30,9 +30,12 @@ def _get_embedder(model_name: str) -> Any:
     try:
         st_mod = importlib.import_module("sentence_transformers")
     except ImportError as exc:
+        cause = exc.__cause__
+        detail = f"{exc}; caused by: {cause}" if cause else str(exc)
         raise ImportError(
-            "sentence-transformers is not installed in the configured Python venv. "
-            "Install it with: pip install sentence-transformers numpy chromadb langgraph langchain-core langchain-text-splitters"
+            "sentence-transformers failed to import in the configured Python venv "
+            f"({detail}). Install with: pip install sentence-transformers numpy chromadb "
+            "langgraph langchain-core langchain-text-splitters"
         ) from exc
     embedder = st_mod.SentenceTransformer(model_name)
     _MODEL_CACHE[model_name] = embedder

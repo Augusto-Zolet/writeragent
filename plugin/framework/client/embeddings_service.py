@@ -13,7 +13,7 @@ from typing import Any
 from plugin.framework.client.embedding_client import _embedding_session_id
 from plugin.framework.constants import WORKER_POOL_EMBEDDINGS
 from plugin.framework.errors import ToolExecutionError
-from plugin.scripting.config_limits import configured_python_exec_timeout
+from plugin.scripting.config_limits import embeddings_worker_timeout_sec
 from plugin.scripting.venv_worker import run_code_in_user_venv
 
 _INDEX_STUB = """\
@@ -62,7 +62,7 @@ result = _stats(
 
 
 def _run_worker(ctx: Any, stub: str, payload: dict[str, Any], *, model: str) -> dict[str, Any]:
-    timeout_sec = configured_python_exec_timeout(ctx)
+    timeout_sec = embeddings_worker_timeout_sec(ctx)
     response = run_code_in_user_venv(
         ctx,
         stub,

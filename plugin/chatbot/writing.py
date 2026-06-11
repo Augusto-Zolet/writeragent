@@ -25,6 +25,7 @@ _WRITING_DOC_RESEARCH_TOOL_NAMES = frozenset(
         "list_nearby_files",
         "grep_nearby_files",
         "delegate_read_document",
+        "search_embeddings",
     }
 )
 
@@ -67,9 +68,12 @@ def _normalize_html_content_array(content: Any) -> list[str] | None:
 
 def collect_writing_tools(ctx: ToolContext) -> list[ToolBase]:
     """Tools for the writing plan smol sub-agent."""
+    from plugin.doc.document_research import filter_document_research_discovery_tools
+
     registry = ctx.services.get("tools")
     primary = registry.get_tools(doc=ctx.doc, doc_type=ctx.doc_type, active_domain="writing_plan", exclude_tiers=())
     doc_res = registry.get_tools(doc=ctx.doc, doc_type=ctx.doc_type, active_domain="document_research", exclude_tiers=())
+    doc_res = filter_document_research_discovery_tools(doc_res, ctx.ctx)
     allow = set(_WRITING_DOC_RESEARCH_TOOL_NAMES)
     by_name = {t.name: t for t in primary if t.name}
     for t in doc_res:
