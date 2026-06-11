@@ -12,9 +12,19 @@ from dataclasses import dataclass, field
 from html import unescape
 from typing import Any, Callable
 
+import uno
+
 from plugin.calc.address_utils import parse_address
 
 log = logging.getLogger("writeragent.calc")
+
+_XACCESSIBLE_TEXT = "com.sun.star.accessibility.XAccessibleText"
+
+
+def _query_interface(obj: Any, typename: str) -> Any:
+    """PyUNO requires ``uno.getTypeByName`` for ``queryInterface``; imported IDL classes fail."""
+
+    return obj.queryInterface(uno.getTypeByName(typename))
 
 # HTML: <a href="cell://B2">B2</a> (Calc chat uses HTML, not markdown)
 _CELL_LINK_HTML_RE = re.compile(
@@ -249,20 +259,21 @@ def lookup_cell_ref_at_index(control, index: int) -> str | None:
 
 def _accessible_text(control) -> Any | None:
     try:
-        from com.sun.star.accessibility import XAccessibleText
-
         ctx = control.getAccessibleContext()
         if ctx is None:
             return None
-        if ctx.queryInterface(XAccessibleText):
-            return ctx
+        ax = _query_interface(ctx, _XACCESSIBLE_TEXT)
+        if ax:
+            return ax
         for i in range(ctx.getAccessibleChildCount()):
             child = ctx.getAccessibleChild(i)
             if child is None:
                 continue
             child_ctx = child.getAccessibleContext() if hasattr(child, "getAccessibleContext") else child
-            if child_ctx is not None and child_ctx.queryInterface(XAccessibleText):
-                return child_ctx
+            if child_ctx is not None:
+                ax = _query_interface(child_ctx, _XACCESSIBLE_TEXT)
+                if ax:
+                    return ax
     except Exception:
         log.debug("cell link: accessible text lookup failed", exc_info=True)
     return None

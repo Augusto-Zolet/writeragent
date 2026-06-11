@@ -122,26 +122,20 @@ def language_detect_llm_sync(ec: Any, messages: list[dict[str, str]], max_tokens
 
 
 def grammar_llm_sync(ec: Any, messages: list[dict[str, str]], max_tokens: int) -> str:
-    """Sync grammar LLM call with minimal reasoning and one retry when content is empty."""
+    """Sync grammar LLM call with minimal reasoning effort (no retry on empty content)."""
     model = ec.model or None
-    kwargs = {
-        "max_tokens": max_tokens,
-        "model": model,
-        "response_format": {"type": "json_object"},
-        "prepend_dev_build_system_prefix": False,
-        "chat_extra": _GRAMMAR_CHAT_EXTRA,
-    }
-    content = ec.client.chat_completion_sync(messages, **kwargs)
-    if (content or "").strip():
-        return content
-    grammar_obs("grammar_llm_empty_response", model=model or "", max_tokens=max_tokens)
-    log.warning("[grammar] grammar LLM returned empty content (max_tokens=%s model=%s); retrying with higher cap", max_tokens, model)
-    retry_cap = max(max_tokens * 2, ec.max_tok)
-    kwargs["max_tokens"] = retry_cap
-    content = ec.client.chat_completion_sync(messages, **kwargs)
+    content = ec.client.chat_completion_sync(
+        messages,
+        max_tokens=max_tokens,
+        model=model,
+        response_format={"type": "json_object"},
+        prepend_dev_build_system_prefix=False,
+        chat_extra=_GRAMMAR_CHAT_EXTRA,
+    )
     if not (content or "").strip():
-        grammar_obs("grammar_llm_empty_response", model=model or "", max_tokens=retry_cap, retry=True)
-        log.warning("[grammar] grammar LLM still empty after retry (max_tokens=%s model=%s)", retry_cap, model)
+        # Some reasoning models (e.g. Inception Mercury) return content: null with stop — treated as clean in call_grammar_llm.
+        grammar_obs("grammar_llm_empty_response", model=model or "", max_tokens=max_tokens)
+        log.debug("[grammar] grammar LLM returned empty content (max_tokens=%s model=%s)", max_tokens, model)
     return content or ""
 
 
@@ -178,7 +172,7 @@ def call_grammar_llm(
     if batch:
         return grammar_proofread_json.parse_grammar_batch_json(content or ""), elapsed_ms
     sent_results = grammar_proofread_json.parse_grammar_json(content or "")
-    return ([sent_results] if content else []), elapsed_ms
+    return ([sent_results], elapsed_ms)
 
 
 def _obs_lang_detect_item(idx: int, source: str, raw: str | None, canon: str | None, text: str) -> None:

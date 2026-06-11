@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from plugin.calc.navigation import (
     WRITERAGENT_CELL_URL_PREFIX,
@@ -13,6 +13,7 @@ from plugin.calc.navigation import (
     lookup_cell_ref_at_index,
     normalize_cell_address,
     render_calc_cell_refs,
+    _accessible_text,
 )
 
 
@@ -57,3 +58,18 @@ def test_cell_ref_at_index_html():
     idx = text.index("writeragent-cell")
     assert cell_ref_at_index(text, idx) == "B2"
     assert cell_ref_at_index(text, 0) is None
+
+
+def test_accessible_text_query_interface_uses_uno_type():
+    """Imported IDL classes break queryInterface under pyuno; use getTypeByName."""
+    control = MagicMock()
+    ctx = MagicMock()
+    axtext = MagicMock()
+    control.getAccessibleContext.return_value = ctx
+    type_mock = MagicMock()
+    with patch("plugin.calc.navigation.uno") as mock_uno:
+        mock_uno.getTypeByName.return_value = type_mock
+        ctx.queryInterface.return_value = axtext
+        assert _accessible_text(control) is axtext
+        mock_uno.getTypeByName.assert_called_with("com.sun.star.accessibility.XAccessibleText")
+        ctx.queryInterface.assert_called_once_with(type_mock)
