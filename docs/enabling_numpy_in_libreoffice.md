@@ -221,7 +221,7 @@ The **AST sandbox** (`LocalPythonExecutor` + `VENV_AUTHORIZED_IMPORTS`) applies 
 
 | Layer | Interpreter | Sandbox? | Typical use |
 |-------|-------------|----------|-------------|
-| **LibreOffice host** | Embedded Python in-process | No NumPy; stdlib + UNO | UNO, config, chunk extract, **`file_index_state.json`** / **`corpus_meta.json`**, enqueue index work |
+| **LibreOffice host** | Embedded Python in-process | No NumPy; stdlib + UNO | UNO, config, resolve folder path, enqueue **maintain** RPC + heartbeat timeout |
 | **User venv worker** | User’s venv subprocess | **Yes** for user `code` strings | `=PYTHON()`, `run_venv_python_script` |
 | **Trusted venv modules** | Same subprocess | **No** (normal CPython inside the module) | [`embeddings_index.py`](../plugin/scripting/embeddings_index.py), [`embeddings_chroma.py`](../plugin/scripting/embeddings_chroma.py), [`embeddings_ingest_graph.py`](../plugin/scripting/embeddings_ingest_graph.py), [`embeddings_search_graph.py`](../plugin/scripting/embeddings_search_graph.py), [`payload_codec.py`](../plugin/scripting/payload_codec.py), [`calc_functions.py`](../plugin/scripting/calc_functions.py) |
 

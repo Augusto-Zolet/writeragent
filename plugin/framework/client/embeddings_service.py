@@ -8,13 +8,16 @@
 """Host-side embeddings index RPC — Chroma + LangGraph in the venv worker."""
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from plugin.framework.client.embedding_client import _embedding_session_id
-from plugin.framework.constants import WORKER_POOL_EMBEDDINGS
+from plugin.framework.constants import EMBEDDINGS_HEARTBEAT_GRACE_S, WORKER_POOL_EMBEDDINGS
 from plugin.framework.errors import ToolExecutionError
 from plugin.scripting.config_limits import embeddings_worker_timeout_sec
 from plugin.scripting.venv_worker import run_code_in_user_venv
+
+log = logging.getLogger(__name__)
 
 _INDEX_STUB = """\
 from plugin.scripting.embeddings_index import index_paragraphs as _index
@@ -60,6 +63,15 @@ result = _stats(
 )
 """
 
+_MAINTAIN_STUB = """\
+from plugin.scripting.embeddings_index import maintain_folder_index as _maintain
+result = _maintain(
+    data["listing_root"],
+    data["model"],
+    data.get("mode", "auto"),
+)
+"""
+
 
 def _run_worker(ctx: Any, stub: str, payload: dict[str, Any], *, model: str) -> dict[str, Any]:
     timeout_sec = embeddings_worker_timeout_sec(ctx)
@@ -82,6 +94,65 @@ def _run_worker(ctx: Any, stub: str, payload: dict[str, Any], *, model: str) -> 
             details={"result_type": type(result).__name__},
         )
     return result
+
+
+def _run_worker_with_heartbeat(
+    ctx: Any,
+    stub: str,
+    payload: dict[str, Any],
+    *,
+    model: str,
+) -> dict[str, Any]:
+    timeout_sec = embeddings_worker_timeout_sec(ctx)
+
+    def _on_heartbeat(hb: dict[str, Any]) -> None:
+        log.debug("embeddings index heartbeat: %s", hb)
+
+    response = run_code_in_user_venv(
+        ctx,
+        stub,
+        data=payload,
+        timeout_sec=timeout_sec,
+        session_id=_embedding_session_id(model),
+        worker_pool=WORKER_POOL_EMBEDDINGS,
+        allow_heartbeat=True,
+        heartbeat_grace_sec=EMBEDDINGS_HEARTBEAT_GRACE_S,
+        on_heartbeat=_on_heartbeat,
+    )
+    if response.get("status") != "ok":
+        message = str(response.get("message") or "Embeddings worker failed.")
+        raise ToolExecutionError(message, code="EMBEDDING_INDEX_ERROR", details={"worker": response})
+    result = response.get("result")
+    if not isinstance(result, dict):
+        raise ToolExecutionError(
+            "Embeddings worker returned an unexpected result.",
+            code="EMBEDDING_INDEX_ERROR",
+            details={"result_type": type(result).__name__},
+        )
+    return result
+
+
+def maintain_folder_index(
+    ctx: Any,
+    listing_root: str,
+    *,
+    model: str,
+    mode: str = "auto",
+) -> dict[str, Any]:
+    """Run full folder index maintenance in the embeddings venv (ODF extract + Chroma)."""
+    model_name = (model or "").strip()
+    if not model_name:
+        raise ToolExecutionError("No embedding model configured.", code="EMBEDDING_MODEL_MISSING")
+    return _run_worker_with_heartbeat(
+        ctx,
+        _MAINTAIN_STUB,
+        {
+            "listing_root": str(listing_root),
+            "model": model_name,
+            "mode": str(mode or "auto"),
+        },
+        model=model_name,
+    )
 
 
 def index_paragraphs(
@@ -190,4 +261,10 @@ def collection_stats(
     )
 
 
-__all__ = ["collection_stats", "delete_paragraphs", "index_paragraphs", "knn_search"]
+__all__ = [
+    "collection_stats",
+    "delete_paragraphs",
+    "index_paragraphs",
+    "knn_search",
+    "maintain_folder_index",
+]

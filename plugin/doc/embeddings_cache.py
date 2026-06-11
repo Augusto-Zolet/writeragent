@@ -17,7 +17,6 @@ import time
 from pathlib import Path
 from typing import Any
 
-from plugin.doc.document_research import resolve_listing_directory
 from plugin.framework.constants import EMBEDDINGS_SCHEMA_VERSION as SCHEMA_VERSION
 
 log = logging.getLogger(__name__)
@@ -38,6 +37,9 @@ def folder_corpus_key(directory_path: str) -> str:
 
 def resolve_folder_for_active_doc(ctx: Any, model: Any) -> str | None:
     """Directory whose siblings are indexed — same scope as list_nearby_files."""
+    # Lazy import: document_research pulls uno; venv maintain code must not load it at import time.
+    from plugin.doc.document_research import resolve_listing_directory
+
     return resolve_listing_directory(ctx, model)
 
 
@@ -288,7 +290,7 @@ def diff_paragraph_rows(
     chunks: list[Any],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Return (rows_to_index, keys_to_delete) comparing extracted chunks to host JSON state."""
-    from plugin.doc.embeddings_chunker import ParagraphChunk, chunk_to_index_row
+    from plugin.doc.embeddings_fs import ParagraphChunk, chunk_to_index_row
 
     state = read_file_index_state(state_path)
     to_index: list[dict[str, Any]] = []
@@ -326,7 +328,7 @@ def diff_paragraph_rows(
 
 def sync_file_paragraph_state(state_path: Path, doc_url: str, chunks: list[Any], file_mtime: float) -> None:
     """Update paragraph hashes after a successful venv index pass."""
-    from plugin.doc.embeddings_chunker import ParagraphChunk
+    from plugin.doc.embeddings_fs import ParagraphChunk
 
     paragraphs: dict[str, str] = {}
     for chunk in chunks:

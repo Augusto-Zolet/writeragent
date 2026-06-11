@@ -45,7 +45,48 @@ def _execute_request(
     )
 
 
-def _handle_request(request: dict[str, Any]) -> dict[str, Any]:
+def _unpack_request_data(data: Any | None) -> dict[str, Any]:
+    from plugin.scripting.payload_codec import child_unpack_data, is_multi_data
+
+    if data is None:
+        return {}
+    unpacked = child_unpack_data(data)
+    if is_multi_data(unpacked):
+        if isinstance(unpacked, list) and unpacked and isinstance(unpacked[0], dict):
+            return unpacked[0]
+        return {}
+    if isinstance(unpacked, dict):
+        return unpacked
+    return {}
+
+
+def _handle_maintain_with_heartbeat(request: dict[str, Any], stdout: Any) -> None:
+    """Run maintain_folder_index and stream heartbeat frames before the result frame."""
+    from plugin.scripting.embeddings_index import maintain_folder_index
+    from plugin.scripting.worker_heartbeat import HeartbeatEmitter, write_result_frame
+
+    req_id = str(request.get("id", ""))
+    payload = _unpack_request_data(request.get("data"))
+    emitter = HeartbeatEmitter(stdout)
+    try:
+        result = maintain_folder_index(
+            str(payload.get("listing_root") or ""),
+            str(payload.get("model") or ""),
+            str(payload.get("mode") or "auto"),
+            heartbeat_fn=emitter.emit,
+        )
+        write_result_frame(stdout, {"id": req_id, "status": "ok", "result": result})
+    except Exception as e:
+        write_result_frame(stdout, {"id": req_id, "status": "error", "message": str(e)})
+
+
+def _handle_request(request: dict[str, Any], *, stdout: Any | None = None) -> dict[str, Any] | None:
+    if request.get("allow_heartbeat") and stdout is not None:
+        stub_code = str(request.get("code") or "")
+        if "maintain_folder_index" in stub_code:
+            _handle_maintain_with_heartbeat(request, stdout)
+            return None
+
     action = request.get("action")
     if action == "reset_session":
         session_id = request.get("session_id")
@@ -98,11 +139,14 @@ def main() -> None:
             # Trusted IPC: bytes from WriterAgent host that spawned this harness process.
             request = pickle.loads(payload)  # nosec B301
             req_id = str(request.get("id", ""))
-            response = _handle_request(request)
+            response = _handle_request(request, stdout=stdout)
         except pickle.UnpicklingError as e:
             response = {"status": "error", "message": f"Invalid pickle request: {e}"}
         except Exception as e:
             response = {"status": "error", "message": str(e)}
+
+        if response is None:
+            continue
 
         response["id"] = req_id
         try:

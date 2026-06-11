@@ -159,6 +159,27 @@ def knn_search(
     )
 
 
+def maintain_folder_index(
+    listing_root: str,
+    embedding_model: str,
+    mode: str = "auto",
+    *,
+    heartbeat_fn: Any | None = None,
+) -> dict[str, Any]:
+    """Folder index maintenance (ODF extract + Chroma) — trusted RPC entry point."""
+    from typing import cast
+
+    from plugin.scripting.embeddings_folder_maintain import MaintainMode, maintain_folder_index as _maintain
+
+    resolved_mode: MaintainMode = cast("MaintainMode", mode if mode in ("auto", "cold", "incremental") else "auto")
+    return _maintain(
+        str(listing_root),
+        embedding_model=str(embedding_model),
+        mode=resolved_mode,
+        heartbeat_fn=heartbeat_fn,
+    )
+
+
 def collection_stats(
     persist_dir: str,
     collection_name: str,
@@ -201,4 +222,5 @@ __all__ = [
     "embed_texts",
     "index_paragraphs",
     "knn_search",
+    "maintain_folder_index",
 ]

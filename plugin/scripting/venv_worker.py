@@ -886,6 +886,7 @@ class PythonWorkerManager:
         init_script: str | None = None,
         init_session_id: str | None = None,
         init_script_hash: str | None = None,
+        allow_heartbeat: bool = False,
     ) -> dict[str, Any]:
         request: dict[str, Any] = {"id": str(uuid.uuid4())}
         if action:
@@ -904,6 +905,8 @@ class PythonWorkerManager:
                 request["init_session_id"] = init_session_id
             if init_script_hash:
                 request["init_script_hash"] = init_script_hash
+            if allow_heartbeat:
+                request["allow_heartbeat"] = True
         return request
 
     def _execute_ipc_unlocked(
@@ -917,6 +920,9 @@ class PythonWorkerManager:
         init_script: str | None = None,
         init_session_id: str | None = None,
         init_script_hash: str | None = None,
+        allow_heartbeat: bool = False,
+        heartbeat_grace_sec: int | None = None,
+        on_heartbeat: Callable[[dict[str, Any]], None] | None = None,
     ) -> dict[str, Any]:
         request = self._build_request(
             code,
@@ -926,6 +932,7 @@ class PythonWorkerManager:
             init_script=init_script,
             init_session_id=init_session_id,
             init_script_hash=init_script_hash,
+            allow_heartbeat=allow_heartbeat,
         )
         payload = pickle.dumps(request, protocol=5)
         header = struct.pack("!I", len(payload))
@@ -940,7 +947,18 @@ class PythonWorkerManager:
                 stdin.write(payload)
                 stdin.flush()
 
-                response_bytes = self._read_response_bytes(stdout, timeout_sec)
+                if allow_heartbeat:
+                    from plugin.framework.constants import EMBEDDINGS_HEARTBEAT_GRACE_S
+
+                    grace = int(heartbeat_grace_sec if heartbeat_grace_sec is not None else EMBEDDINGS_HEARTBEAT_GRACE_S)
+                    response_bytes = self._read_response_with_heartbeats(
+                        stdout,
+                        timeout_sec,
+                        grace,
+                        on_heartbeat,
+                    )
+                else:
+                    response_bytes = self._read_response_bytes(stdout, timeout_sec)
                 if not response_bytes:
                     stderr_out = self._drain_stderr()
                     raise RuntimeError(f"Worker closed stdout without a response{stderr_out}")
@@ -965,6 +983,9 @@ class PythonWorkerManager:
         init_script: str | None = None,
         init_session_id: str | None = None,
         init_script_hash: str | None = None,
+        allow_heartbeat: bool = False,
+        heartbeat_grace_sec: int | None = None,
+        on_heartbeat: Callable[[dict[str, Any]], None] | None = None,
     ) -> dict[str, Any]:
         """Run *code* in the warm worker, or handle *action* (e.g. reset_session).
 
@@ -990,6 +1011,9 @@ class PythonWorkerManager:
                 init_script=init_script,
                 init_session_id=init_session_id,
                 init_script_hash=init_script_hash,
+                allow_heartbeat=allow_heartbeat,
+                heartbeat_grace_sec=heartbeat_grace_sec,
+                on_heartbeat=on_heartbeat,
             )
 
     def _normalize_response(self, response: dict[str, Any]) -> dict[str, Any]:
@@ -1101,6 +1125,76 @@ class PythonWorkerManager:
             raise error[0]
         return result[0]
 
+    def _read_exact_before_deadline(self, stdout: IO[bytes], nbytes: int, deadline: float) -> bytes:
+        if sys.platform == "win32":
+            result: list[bytes] = [b""]
+
+            def _reader() -> None:
+                result[0] = stdout.read(nbytes)
+
+            t = threading.Thread(target=_reader, daemon=True)
+            t.start()
+            t.join(timeout=max(0.1, deadline - time.time()))
+            if t.is_alive():
+                raise subprocess.TimeoutExpired(cmd=self.exe, timeout=max(1, int(deadline - time.time())))
+            return result[0] or b""
+
+        buf = bytearray()
+        while len(buf) < nbytes:
+            if time.time() >= deadline:
+                raise subprocess.TimeoutExpired(cmd=self.exe, timeout=max(1, int(deadline - time.time())))
+            remaining = deadline - time.time()
+            ready, _, _ = select.select([stdout], [], [], min(1.0, remaining))
+            if ready:
+                chunk = stdout.read(nbytes - len(buf))
+                if not chunk:
+                    break
+                buf.extend(chunk)
+            if self._proc is not None and self._proc.poll() is not None and not ready:
+                break
+        return bytes(buf)
+
+    def _read_response_with_heartbeats(
+        self,
+        stdout: IO[bytes],
+        timeout_sec: int,
+        grace_sec: int,
+        on_heartbeat: Callable[[dict[str, Any]], None] | None,
+    ) -> bytes:
+        from plugin.scripting.worker_heartbeat import FRAME_HEARTBEAT, FRAME_RESULT, parse_frame
+
+        deadline_holder = [time.time() + max(timeout_sec, grace_sec)]
+
+        def _read_exact(n: int) -> bytes:
+            return self._read_exact_before_deadline(stdout, n, deadline_holder[0])
+
+        while True:
+            frame_bytes = self._read_frame_bytes(stdout, _read_exact)
+            if not frame_bytes:
+                return b""
+            data = parse_frame(frame_bytes)
+            frame_type = data.get("frame_type")
+            if frame_type == FRAME_HEARTBEAT:
+                payload = data.get("payload")
+                if on_heartbeat is not None and isinstance(payload, dict):
+                    on_heartbeat(payload)
+                deadline_holder[0] = time.time() + grace_sec
+                continue
+            if frame_type == FRAME_RESULT or frame_type is None:
+                return frame_bytes
+            if data.get("status") in ("ok", "error"):
+                return frame_bytes
+
+    def _read_frame_bytes(self, stdout: IO[bytes], read_exact: Callable[[int], bytes]) -> bytes:
+        header = read_exact(4)
+        if len(header) < 4:
+            return b""
+        size = struct.unpack("!I", header)[0]
+        payload = read_exact(size)
+        if len(payload) < size:
+            return b""
+        return payload
+
     def _drain_stderr(self) -> str:
         """Read any pending stderr from the crashed worker for diagnostics."""
         if self._proc is None or self._proc.stderr is None:
@@ -1196,6 +1290,9 @@ def run_code_in_user_venv(
     active_domain: str | None = None,
     python_tool_domain: str | None = None,
     worker_pool: str = WORKER_POOL_DEFAULT,
+    allow_heartbeat: bool = False,
+    heartbeat_grace_sec: int | None = None,
+    on_heartbeat: Callable[[dict[str, Any]], None] | None = None,
 ) -> Dict[str, Any]:
     """Execute *code* via :class:`PythonWorkerManager` (warm process).
 
@@ -1226,6 +1323,9 @@ def run_code_in_user_venv(
         init_script=init_script,
         init_session_id=init_session_id,
         init_script_hash=init_script_hash,
+        allow_heartbeat=allow_heartbeat,
+        heartbeat_grace_sec=heartbeat_grace_sec,
+        on_heartbeat=on_heartbeat,
     )
 
 

@@ -9,12 +9,12 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 from plugin.doc import embeddings_cache, embeddings_indexer
-from plugin.doc.embeddings_chunker import ParagraphChunk, chunk_to_index_row, content_hash
+from plugin.doc.embeddings_fs import ParagraphChunk, content_hash
 
 
 def test_file_is_stale_when_no_rows(tmp_path):
     state_path = tmp_path / "file_index_state.json"
-    assert embeddings_indexer.file_is_stale(state_path, "file:///a.odt", 100.0) is True
+    assert embeddings_cache.file_is_stale(state_path, "file:///a.odt", 100.0) is True
 
 
 def test_file_is_stale_when_mtime_newer(tmp_path):
@@ -26,8 +26,8 @@ def test_file_is_stale_when_mtime_newer(tmp_path):
         indexed_at=50.0,
         paragraphs={"0": "h"},
     )
-    assert embeddings_indexer.file_is_stale(state_path, "file:///a.odt", 100.0) is True
-    assert embeddings_indexer.file_is_stale(state_path, "file:///a.odt", 40.0) is False
+    assert embeddings_cache.file_is_stale(state_path, "file:///a.odt", 100.0) is True
+    assert embeddings_cache.file_is_stale(state_path, "file:///a.odt", 40.0) is False
 
 
 def test_diff_paragraph_rows_detects_change_and_delete(tmp_path):
@@ -67,129 +67,36 @@ def test_diff_paragraph_rows_detects_change_and_delete(tmp_path):
     assert to_delete == [{"doc_url": "file:///a.odt", "para_index": 2}]
 
 
-def test_needs_cold_rebuild_on_model_change(tmp_path):
-    meta_path = tmp_path / "corpus_meta.json"
-    embeddings_cache.ensure_corpus_meta(meta_path, embedding_model="model-a", chunk_count=1)
-    assert embeddings_cache.needs_cold_rebuild(meta_path, "model-b") is True
-    assert embeddings_cache.needs_cold_rebuild(meta_path, "model-a") is False
-
-
 def test_enqueue_skipped_in_grep_mode():
     with patch("plugin.doc.embeddings_indexer.document_research_uses_embeddings", return_value=False):
         embeddings_indexer.enqueue_folder_index(MagicMock(), MagicMock(), MagicMock())
 
 
-def test_mark_file_indexed_clears_stale_mtime(tmp_path):
-    state_path = tmp_path / "file_index_state.json"
-    doc_url = "file:///a.odt"
-    embeddings_cache.mark_file_indexed(
-        state_path,
-        doc_url,
-        90.0,
-        indexed_at=50.0,
-        paragraphs={"0": "h"},
-    )
-    assert embeddings_indexer.file_is_stale(state_path, doc_url, 100.0) is True
-    embeddings_cache.mark_file_indexed(state_path, doc_url, 100.0, indexed_at=150.0, paragraphs={"0": "h"})
-    state = embeddings_cache.get_file_index_state(state_path, doc_url)
-    assert state["file_mtime"] == 100.0
-    assert state["last_indexed_at"] == 150.0
-    assert embeddings_indexer.file_is_stale(state_path, doc_url, 100.0) is False
-
-
-def test_refresh_marks_unchanged_file_after_mtime_bump(tmp_path):
+def test_enqueue_skipped_when_inflight():
     ctx = MagicMock()
-    services = MagicMock()
-    model = MagicMock()
-    folder_key = "abc123"
-    doc_url = "file:///a.odt"
-    entry = {"url": doc_url, "path": "/tmp/a.odt", "modified": 200.0, "doc_type_guess": "writer"}
-    chunk = ParagraphChunk(
-        doc_url=doc_url,
-        para_index=0,
-        char_start=0,
-        char_end=3,
-        text="same",
-        content_hash=content_hash("same"),
-        file_mtime=200.0,
-    )
-    meta_path = tmp_path / "corpus_meta.json"
-    state_path = tmp_path / "file_index_state.json"
-    persist_dir = tmp_path / "chroma"
-
-    embeddings_cache.ensure_corpus_meta(meta_path, embedding_model="m", chunk_count=1)
-    embeddings_cache.mark_file_indexed(
-        state_path,
-        doc_url,
-        100.0,
-        indexed_at=50.0,
-        paragraphs={"0": content_hash("same")},
-    )
-
-    with patch("plugin.doc.embeddings_indexer.get_embedding_model", return_value="m"):
-        with patch("plugin.doc.embeddings_indexer.corpus_meta_path", return_value=meta_path):
-            with patch("plugin.doc.embeddings_indexer.file_index_state_path", return_value=state_path):
-                with patch("plugin.doc.embeddings_indexer.chroma_persist_dir", return_value=persist_dir):
-                    with patch("plugin.doc.embeddings_indexer.needs_cold_rebuild", return_value=False):
-                        with patch(
-                            "plugin.doc.embeddings_indexer._execute_uno_phase",
-                            side_effect=lambda _ctx, fn: fn(),
-                        ):
-                            with patch(
-                                "plugin.doc.embeddings_indexer._collect_incremental_uno_work",
-                                return_value=([(entry, doc_url, 200.0, [chunk], [], [])], None),
-                            ):
-                                with patch("plugin.doc.embeddings_indexer.delete_paragraphs") as del_mock:
-                                    with patch("plugin.doc.embeddings_indexer.index_paragraphs") as idx_mock:
-                                        embeddings_indexer.refresh_folder_index_incremental(
-                                            ctx, services, model, folder_key=folder_key, listing_root="/tmp"
-                                        )
-                                        del_mock.assert_not_called()
-                                        idx_mock.assert_not_called()
-
-    assert embeddings_indexer.file_is_stale(state_path, doc_url, 200.0) is False
-
-
-def test_rebuild_folder_index_runs_uno_collection_on_main_thread():
-    ctx = MagicMock()
-    services = MagicMock()
-    model = MagicMock()
-    captured: list[str] = []
-
-    def _fake_execute(_ctx, fn):
-        captured.append("main")
-        return fn()
-
-    chunk = ParagraphChunk(
-        doc_url="file:///a.odt",
-        para_index=0,
-        char_start=0,
-        char_end=3,
-        text="hello",
-        content_hash=content_hash("hello"),
-        file_mtime=1.0,
-    )
-    entry = {"url": "file:///a.odt", "path": "/tmp/a.odt", "modified": 1.0, "doc_type_guess": "writer"}
-
-    with patch("plugin.doc.embeddings_indexer._execute_uno_phase", side_effect=_fake_execute):
+    with patch("plugin.doc.embeddings_indexer.document_research_uses_embeddings", return_value=True):
         with patch(
-            "plugin.doc.embeddings_indexer._collect_cold_build_chunks",
-            return_value=([entry], [chunk_to_index_row(chunk)], {"file:///a.odt": [chunk]}, None),
+            "plugin.doc.embeddings_indexer.resolve_index_context",
+            return_value=("key", MagicMock(), MagicMock(), "/tmp/folder"),
         ):
-            with patch("plugin.doc.embeddings_indexer.clear_folder_cache"):
-                with patch("plugin.doc.embeddings_indexer.ensure_corpus_meta"):
-                    with patch("plugin.doc.embeddings_indexer.get_embedding_model", return_value="m"):
-                        with patch("plugin.doc.embeddings_indexer.chroma_persist_dir", return_value=MagicMock()):
-                            with patch("plugin.doc.embeddings_indexer.corpus_meta_path", return_value=MagicMock()):
-                                with patch("plugin.doc.embeddings_indexer.file_index_state_path", return_value=MagicMock()):
-                                    with patch("plugin.doc.embeddings_indexer.index_paragraphs") as idx_mock:
-                                        with patch("plugin.doc.embeddings_indexer.sync_file_paragraph_state"):
-                                            embeddings_indexer.rebuild_folder_index(
-                                                ctx,
-                                                services,
-                                                model,
-                                                folder_key="k",
-                                                listing_root="/tmp",
-                                            )
-                                            idx_mock.assert_called_once()
-    assert captured == ["main"]
+            with patch("plugin.doc.embeddings_indexer._try_enqueue", return_value=False):
+                with patch("plugin.doc.embeddings_indexer.run_in_background") as bg_mock:
+                    embeddings_indexer.enqueue_folder_index(ctx, MagicMock(), MagicMock())
+                    bg_mock.assert_not_called()
+
+
+def test_index_worker_calls_maintain_rpc():
+    ctx = MagicMock()
+    with patch("plugin.doc.embeddings_indexer.get_embedding_model", return_value="m"):
+        with patch("plugin.doc.embeddings_indexer.maintain_folder_index_rpc") as maintain_mock:
+            embeddings_indexer._index_worker(ctx, "folderkey", "/tmp/listing")
+            maintain_mock.assert_called_once_with(ctx, "/tmp/listing", model="m", mode="auto")
+
+
+def test_index_worker_clears_inflight_on_failure():
+    ctx = MagicMock()
+    embeddings_indexer._inflight.add("folderkey")
+    with patch("plugin.doc.embeddings_indexer.get_embedding_model", return_value="m"):
+        with patch("plugin.doc.embeddings_indexer.maintain_folder_index_rpc", side_effect=RuntimeError("fail")):
+            embeddings_indexer._index_worker(ctx, "folderkey", "/tmp/listing")
+    assert "folderkey" not in embeddings_indexer._inflight

@@ -47,6 +47,9 @@ EMBEDDINGS_WORKER_SESSION_PREFIX = "embeddings"
 EMBEDDINGS_SCHEMA_VERSION = "2"
 # Background folder index tick when embeddings cache is enabled (docs/embeddings.md).
 EMBEDDINGS_INDEX_INTERVAL_S = 300
+# Worker heartbeat during long folder maintain RPC (docs/embeddings.md).
+EMBEDDINGS_HEARTBEAT_INTERVAL_S = 5
+EMBEDDINGS_HEARTBEAT_GRACE_S = 90
 # Warm venv worker pools (docs/embeddings.md — dedicated embeddings subprocess).
 WORKER_POOL_DEFAULT = "default"
 WORKER_POOL_EMBEDDINGS = "embeddings"

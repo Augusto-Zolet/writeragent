@@ -417,7 +417,13 @@ def _run_trusted_embeddings_payload(code: str, data: Any | None) -> dict[str, An
     payload = _unpack_trusted_payload(data)
     stub = code or ""
     try:
-        if "index_paragraphs" in stub:
+        if "maintain_folder_index" in stub:
+            result = embeddings_index.maintain_folder_index(
+                str(payload.get("listing_root") or ""),
+                str(payload.get("model") or ""),
+                str(payload.get("mode") or "auto"),
+            )
+        elif "index_paragraphs" in stub:
             result = embeddings_index.index_paragraphs(
                 str(payload.get("persist_dir") or ""),
                 str(payload.get("collection_name") or ""),

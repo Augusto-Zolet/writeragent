@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 from typing import Any, NotRequired, TypedDict
 
-from plugin.doc.embeddings_cache import SCHEMA_VERSION
+from plugin.framework.constants import EMBEDDINGS_SCHEMA_VERSION as SCHEMA_VERSION
 from plugin.scripting.embeddings_chroma import (
     build_chunk_metadata,
     chunk_id_for,
