@@ -61,13 +61,9 @@ config:
   force_internal_script_editor:
     type: bool
     default: false
-    widget: checkbox
-    label: Force internal script editor
-    helper: If checked, bypasses the Monaco script editor and uses the LibreOffice dialog.
+    internal: true
 
   native_run_script_modeless:
     type: bool
     default: true
-    widget: checkbox
-    label: Modeless Run Python Script dialog
-    helper: When checked, the plain-text Run Python Script dialog floats so you can edit the document while it is open. Uncheck for the classic modal dialog.
+    internal: true

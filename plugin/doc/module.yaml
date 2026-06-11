@@ -9,13 +9,20 @@ config:
     widget: checkbox
     label: Enable AI grammar checker (Writer)
     helper: "When on, WriterAgent registers its AI grammar proofreader with Linguistic; checked text uses your API (Tools → Options → AI). Underlines appear shortly after you pause typing. Off by default."
+    inline: true
+    x: 8
+    width: 205
 
   grammar_proofreader_model:
     type: string
     default: ""
     widget: text
-    label: Grammar check model (optional)
+    label: Model (optional)
     helper: "Leave empty to use the same text model as chat."
+    label_x: 220
+    label_width: 95
+    x: 318
+    width: 106
 
   grammar_proofreader_pause_during_agent:
     type: boolean
@@ -30,8 +37,11 @@ config:
     min: 1
     max: 8
     widget: number
-    label: Grammar batch sentences
+    label: Batch sentences
     helper: "Number of sentences to send per LLM request (1-8). 1 (default) is most reliable; higher values are faster and cheaper but may hit token limits or cause model errors."
+    inline: true
+    x: 110
+    width: 100
 
   grammar_proofreader_max_in_flight:
     type: int
@@ -39,8 +49,12 @@ config:
     min: 1
     max: 8
     widget: number
-    label: Grammar concurrent requests
+    label: Concurrent requests
     helper: "Max simultaneous background grammar API calls (1-8). 1 matches prior behavior. Raise for OpenRouter or other providers that allow parallel requests; use with care alongside sidebar chat."
+    label_x: 220
+    label_width: 100
+    x: 322
+    width: 100
 
   grammar_proofreader_detect_language:
     type: string

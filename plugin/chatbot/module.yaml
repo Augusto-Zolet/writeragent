@@ -42,7 +42,10 @@ config:
     min: 10
     max: 4096
     widget: number
-    label: Extend Selection Max Tokens
+    label: Extend max tokens
+    inline: true
+    x: 110
+    width: 100
 
   edit_selection_max_new_tokens:
     type: int
@@ -50,8 +53,12 @@ config:
     min: 0
     max: 4096
     widget: number
-    label: Edit Selection Extra Tokens
+    label: Edit extra tokens
     helper: "Extra tokens beyond original text length. 0 = same length as original."
+    label_x: 220
+    label_width: 100
+    x: 322
+    width: 100
 
 #  tool_broker:
 #    type: boolean
@@ -60,11 +67,21 @@ config:
 #    label: Tool Broker
 #    helper: "Two-tier tool delivery: LLM gets core tools first, activates others by intent"
 
+  web_research_cache_enabled:
+    type: boolean
+    default: true
+    widget: checkbox
+    label: Web Research Cache
+    helper: "Cache completed web research reports by normalized query (reuses web search cache database)."
+
   show_search_thinking:
     type: boolean
     default: false
     widget: checkbox
     label: Show Web Search Thinking
+    inline: true
+    x: 8
+    width: 200
 
   prompt_for_web_research:
     type: boolean
@@ -72,6 +89,8 @@ config:
     widget: checkbox
     label: Prompt for Web Research
     helper: "Ask for confirmation before sending a web search query"
+    x: 220
+    width: 200
 
   web_cache_max_mb:
     type: int
@@ -79,8 +98,11 @@ config:
     min: 0
     max: 500
     widget: number
-    label: Web Cache Max Size (MB)
+    label: Cache max (MB)
     helper: "Max disk size for web search cache (0 to disable)"
+    inline: true
+    x: 110
+    width: 100
 
   web_cache_validity_days:
     type: int
@@ -88,15 +110,12 @@ config:
     min: 1
     max: 30
     widget: number
-    label: Web Cache Validity (Days)
+    label: Cache validity (days)
     helper: "How many days cache entries should be considered valid."
-
-  web_research_cache_enabled:
-    type: boolean
-    default: true
-    widget: checkbox
-    label: Web Research Cache
-    helper: "Cache completed web research reports by normalized query (reuses web search cache database)."
+    label_x: 220
+    label_width: 100
+    x: 322
+    width: 100
 
   web_research_cache_jaccard_percent:
     type: int

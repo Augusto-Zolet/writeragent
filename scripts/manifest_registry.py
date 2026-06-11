@@ -416,10 +416,12 @@ def generate_settings_dialog_tabs(modules, tpl_path, output_path):
                 field_x = str(schema.get("x", 110))
                 field_w = str(schema.get("width", 144))
                 
-                # We render our own UI to avoid the standard XDL layout gap padding, 
+                # We render our own UI to avoid the standard XDL layout gap padding,
                 # because SettingsDialog uses slightly tighter spacing
+                label_x = str(schema.get("label_x", 8))
+                label_w = str(schema.get("label_width", 100))
                 if not schema.get("inline_no_label"):
-                    _common_add_label(board, f"label_{ctrl_id}", label_text, 8, curr_y + 2, 100, 10, align="left")
+                    _common_add_label(board, f"label_{ctrl_id}", label_text, label_x, curr_y + 2, label_w, 10, align="left")
                 
                 if widget == "checkbox":
                     # Remove the duplicate label for checkbox

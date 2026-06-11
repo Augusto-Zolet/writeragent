@@ -236,7 +236,11 @@ class SettingsDialog:
 
     def _apply_sqlite_restrictions(self):
         if not HAS_SQLITE:
-            for name in ("web_cache_max_mb", "web_cache_validity_days", "web_research_cache_enabled"):
+            for name in (
+                "chatbot__web_cache_max_mb",
+                "chatbot__web_cache_validity_days",
+                "chatbot__web_research_cache_enabled",
+            ):
                 ctrl = get_optional(self._dlg, name)
                 if ctrl:
                     set_control_enabled(ctrl, False)

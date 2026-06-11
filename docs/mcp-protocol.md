@@ -73,12 +73,12 @@ Expect:
 
 Browser MCP clients send an `Origin` header (e.g. `https://localai.local`). The server must reflect that exact origin in `Access-Control-Allow-Origin` (no wildcard patterns).
 
-**Settings → MCP → Allow CORS from local/private browser origins** (`mcp.cors_allow_private_origins`, default **on**): automatically allows Origins whose host is:
+**JSON-only** (`mcp.cors_allow_private_origins` in `writeragent.json`, default **on**): automatically allows Origins whose host is:
 
 - A suffix: `.local`, `.lan`, `.home.arpa`, `.internal`, `.intern` (e.g. `https://localai.local`, `http://nas.lan:8080`, `https://localai.intern:3000`)
 - A private or link-local IP in the Origin (e.g. `http://192.168.1.50:3000`)
 
-**Loopback** (`localhost`, `127.0.0.1`, `[::1]`) is always allowed without the checkbox.
+**Loopback** (`localhost`, `127.0.0.1`, `[::1]`) is always allowed without this setting.
 
 **Optional explicit list** — only for origins **not** covered above (e.g. public `https://app.company.com`). Edit `writeragent.json` (not the Settings dialog):
 

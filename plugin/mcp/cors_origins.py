@@ -108,7 +108,7 @@ def is_extra_allowed_origin(origin: str) -> bool:
 
 
 def reload_cors_policy_from_config(services) -> None:
-    """Refresh CORS caches from mcp config (explicit list + private-origin checkbox)."""
+    """Refresh CORS caches from mcp config (explicit list + private-origin JSON setting)."""
     try:
         cfg = services.config.proxy_for("mcp")
         raw = cfg.get("cors_allowed_origins")
