@@ -95,7 +95,7 @@ def cleanup_local_chrome() -> None:
                 pass
         _CHROME_PROCESS = None
 
-def get_local_chrome_cdp_url(ctx: Any = None) -> str:
+def get_local_chrome_cdp_url(ctx: Any = None, browser_type: str = "chrome") -> str:
     global _CHROME_PROCESS
     # Try querying existing CDP connection first
     try:
@@ -109,7 +109,7 @@ def get_local_chrome_cdp_url(ctx: Any = None) -> str:
     except Exception:
         pass
 
-    # Spawn Chrome non-headlessly if not already running
+    # Spawn browser non-headlessly if not already running
     from plugin.framework.config import user_config_dir
     config_dir = None
     if ctx is not None:
@@ -120,35 +120,92 @@ def get_local_chrome_cdp_url(ctx: Any = None) -> str:
     if not config_dir:
         config_dir = os.path.expanduser("~/.config/writeragent")
     
-    profile_dir = os.path.join(config_dir, "chrome_profile")
+    safe_name = "".join([c if c.isalnum() else "_" for c in browser_type])
+    profile_dir = os.path.join(config_dir, f"{safe_name}_profile")
     os.makedirs(profile_dir, exist_ok=True)
     
-    # Find Chrome/Chromium executable
     executable = None
-    for name in ["google-chrome", "chromium-browser", "chromium", "chrome", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"]:
-        try:
-            if os.path.isabs(name) and os.path.exists(name):
+    if os.path.exists(browser_type) or "/" in browser_type or "\\" in browser_type:
+        executable = browser_type
+    elif browser_type == "firefox":
+        for name in ["firefox", "/Applications/Firefox.app/Contents/MacOS/firefox"]:
+            try:
+                if os.path.isabs(name) and os.path.exists(name):
+                    executable = name
+                    break
+                subprocess.run(["which", name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
                 executable = name
                 break
-            subprocess.run(["which", name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-            executable = name
-            break
-        except Exception:
-            continue
-    if not executable:
-        executable = "google-chrome" # fallback
-    
-    cmd = [
-        executable,
-        "--remote-debugging-port=9222",
-        f"--user-data-dir={profile_dir}",
-        "--no-first-run",
-        "--no-default-browser-check"
-    ]
-    logger.info("Spawning local Chrome: %s", " ".join(cmd))
+            except Exception:
+                continue
+        if not executable:
+            executable = "firefox"
+    elif browser_type == "chromium":
+        for name in ["chromium-browser", "chromium", "google-chrome", "chrome", "/Applications/Chromium.app/Contents/MacOS/Chromium"]:
+            try:
+                if os.path.isabs(name) and os.path.exists(name):
+                    executable = name
+                    break
+                subprocess.run(["which", name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                executable = name
+                break
+            except Exception:
+                continue
+        if not executable:
+            executable = "chromium"
+    elif browser_type == "chrome":
+        for name in ["google-chrome", "chrome", "chromium-browser", "chromium", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"]:
+            try:
+                if os.path.isabs(name) and os.path.exists(name):
+                    executable = name
+                    break
+                subprocess.run(["which", name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                executable = name
+                break
+            except Exception:
+                continue
+        if not executable:
+            executable = "google-chrome"
+    else:
+        search_names = [browser_type]
+        if browser_type.lower() == "brave":
+            search_names.extend(["brave-browser", "brave", "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"])
+        elif browser_type.lower() in ["edge", "microsoft-edge"]:
+            search_names.extend(["microsoft-edge-stable", "microsoft-edge", "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"])
+        for name in search_names:
+            try:
+                if os.path.isabs(name) and os.path.exists(name):
+                    executable = name
+                    break
+                subprocess.run(["which", name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                executable = name
+                break
+            except Exception:
+                continue
+        if not executable:
+            executable = browser_type
+
+    is_firefox = "firefox" in browser_type.lower() or "firefox" in executable.lower()
+    if is_firefox:
+        cmd = [
+            executable,
+            "--remote-debugging-port=9222",
+            "--profile", profile_dir,
+            "--no-first-run"
+        ]
+    else:
+        cmd = [
+            executable,
+            "--remote-debugging-port=9222",
+            f"--user-data-dir={profile_dir}",
+            "--no-first-run",
+            "--no-default-browser-check"
+        ]
+        
+    logger.info("Spawning local browser (%s): %s", browser_type, " ".join(cmd))
     _CHROME_PROCESS = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     
-    # Wait for Chrome to listen on port 9222
+    # Wait for browser to listen on port 9222
     deadline = time.time() + 6.0
     while time.time() < deadline:
         try:
@@ -163,12 +220,21 @@ def get_local_chrome_cdp_url(ctx: Any = None) -> str:
             pass
         time.sleep(0.2)
         
-    raise RuntimeError("Chrome CDP did not start listening on port 9222 after 6 seconds")
+    raise RuntimeError(f"Browser ({browser_type}) CDP did not start listening on port 9222 after 6 seconds")
 
 def _resolve_cdp_endpoint(ctx: Any = None) -> str:
     """Return the normalized CDP WebSocket URL, or empty string if unavailable."""
     try:
-        return get_local_chrome_cdp_url(ctx)
+        from plugin.framework.config import get_config
+        browser_type = "chrome"
+        if ctx is not None:
+            try:
+                cfg_val = get_config(getattr(ctx, "ctx", ctx), "chatbot.web_research_browser")
+                if cfg_val in ["chrome", "firefox"]:
+                    browser_type = cfg_val
+            except Exception:
+                pass
+        return get_local_chrome_cdp_url(ctx, browser_type)
     except Exception as exc:
         logger.debug("browser_cdp: failed to resolve CDP endpoint: %s", exc)
         return ""

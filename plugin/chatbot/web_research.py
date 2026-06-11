@@ -272,15 +272,24 @@ class WebResearchTool(ToolCalcWebResearchBase, ToolDrawWebResearchBase):
         cache_max_mb = 0 if raw_mb <= 0 else max(1, min(500, raw_mb))
         cache_path = os.path.join(udir, "writeragent_web_cache.db") if (udir and cache_max_mb > 0) else None
 
-        cdp_enabled = get_config_bool_safe(ctx.ctx, "web_research_cdp_enabled")
+        from plugin.framework.config import get_config
+        browser_type = "off"
+        try:
+            val = get_config(ctx.ctx, "chatbot.web_research_browser")
+            if isinstance(val, str):
+                browser_type = val
+        except Exception:
+            pass
+
+        cdp_enabled = (browser_type in ["chrome", "firefox"])
         cdp_url = None
         if cdp_enabled:
             try:
                 from plugin.chatbot.browser_cdp_tool import get_local_chrome_cdp_url
-                cdp_url = get_local_chrome_cdp_url(ctx.ctx)
-                log.info("CDP web research enabled. Local Chrome debug WS URL: %s", cdp_url)
+                cdp_url = get_local_chrome_cdp_url(ctx.ctx, browser_type)
+                log.info("CDP web research enabled (%s). Local debug WS URL: %s", browser_type, cdp_url)
             except Exception as e:
-                log.warning("Failed to launch or connect to local Chrome via CDP: %s. Falling back to static HTTP.", e)
+                log.warning("Failed to launch or connect to local %s via CDP: %s. Falling back to static HTTP.", browser_type, e)
                 cdp_enabled = False
 
         stop_checker = getattr(ctx, "stop_checker", None)
