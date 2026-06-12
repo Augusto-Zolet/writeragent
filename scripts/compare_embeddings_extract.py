@@ -18,7 +18,7 @@ from pathlib import Path
 project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
 
-from plugin.doc.embeddings_fs import content_hash, extract_writer_paragraphs
+from plugin.embeddings.embeddings_fs import content_hash, extract_writer_paragraphs, paragraph_chunks_from_path
 
 
 def _odf_hashes(path: Path) -> list[str]:
@@ -30,35 +30,8 @@ def _uno_hashes(path: Path) -> list[str] | None:
         import uno  # noqa: F401
     except ImportError:
         return None
-    from unittest.mock import MagicMock
-
-    from plugin.doc.embeddings_chunker import _writer_paragraph_chunks
-
     url = f"file://{path.resolve()}"
-    services = MagicMock()
-    para_texts: list[str] = []
-
-    class _Para:
-        def supportsService(self, name: str) -> bool:
-            return name == "com.sun.star.text.Paragraph"
-
-        def getString(self) -> str:
-            return para_texts.pop(0) if para_texts else ""
-
-    # Use ODF extract to seed UNO mock only when we cannot open LO — parity script uses ODF as ground truth
-    # for offline runs. With soffice, replace with real open_document_for_read path.
-    odf_texts = extract_writer_paragraphs(str(path))
-    services.document.get_paragraph_ranges.return_value = [
-        type("P", (), {"supportsService": _Para().supportsService, "getString": lambda self, t=t: t})()
-        for t in odf_texts
-    ]
-    chunks = _writer_paragraph_chunks(
-        MagicMock(),
-        services,
-        doc_url=url,
-        doc_path=str(path),
-        file_mtime=0.0,
-    )
+    chunks = paragraph_chunks_from_path(str(path), doc_url=url, file_mtime=0.0)
     return [c.content_hash for c in chunks]
 
 

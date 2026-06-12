@@ -20,7 +20,7 @@ from plugin.scripting.venv_worker import run_code_in_user_venv
 log = logging.getLogger(__name__)
 
 _INDEX_STUB = """\
-from plugin.scripting.embeddings_index import index_paragraphs as _index
+from plugin.embeddings.venv.embeddings_index import index_paragraphs as _index
 result = _index(
     data["persist_dir"],
     data["collection_name"],
@@ -31,7 +31,7 @@ result = _index(
 """
 
 _DELETE_STUB = """\
-from plugin.scripting.embeddings_index import delete_paragraphs as _delete
+from plugin.embeddings.venv.embeddings_index import delete_paragraphs as _delete
 result = _delete(
     data["persist_dir"],
     data["collection_name"],
@@ -42,7 +42,7 @@ result = _delete(
 """
 
 _SEARCH_STUB = """\
-from plugin.scripting.embeddings_index import knn_search as _search
+from plugin.embeddings.venv.embeddings_index import knn_search as _search
 result = _search(
     data["persist_dir"],
     data["collection_name"],
@@ -54,7 +54,7 @@ result = _search(
 """
 
 _STATS_STUB = """\
-from plugin.scripting.embeddings_index import collection_stats as _stats
+from plugin.embeddings.venv.embeddings_index import collection_stats as _stats
 result = _stats(
     data["persist_dir"],
     data["collection_name"],
@@ -64,7 +64,7 @@ result = _stats(
 """
 
 _MAINTAIN_STUB = """\
-from plugin.scripting.embeddings_index import maintain_folder_index as _maintain
+from plugin.embeddings.venv.embeddings_index import maintain_folder_index as _maintain
 result = _maintain(
     data["listing_root"],
     data["model"],

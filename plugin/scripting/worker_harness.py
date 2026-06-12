@@ -62,7 +62,7 @@ def _unpack_request_data(data: Any | None) -> dict[str, Any]:
 
 def _handle_maintain_with_heartbeat(request: dict[str, Any], stdout: Any) -> None:
     """Run maintain_folder_index and stream heartbeat frames before the result frame."""
-    from plugin.scripting.embeddings_index import maintain_folder_index
+    from plugin.embeddings.venv.embeddings_index import maintain_folder_index
     from plugin.scripting.worker_heartbeat import HeartbeatEmitter, write_result_frame
 
     req_id = str(request.get("id", ""))

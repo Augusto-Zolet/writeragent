@@ -18,7 +18,7 @@ from plugin.scripting.config_limits import embeddings_worker_timeout_sec
 from plugin.scripting.venv_worker import run_code_in_user_venv
 
 _EMBED_STUB = """\
-from plugin.scripting.embeddings_index import embed_texts as _embed
+from plugin.embeddings.venv.embeddings_index import embed_texts as _embed
 result = _embed(data["model"], data["texts"])
 """
 

@@ -25,7 +25,7 @@ log = logging.getLogger(__name__)
 _FTS_SESSION_ID = f"{EMBEDDINGS_WORKER_SESSION_PREFIX}:folder_fts"
 
 _MAINTAIN_STUB = """\
-from plugin.scripting.folder_fts import maintain_folder_fts as _maintain
+from plugin.embeddings.venv.folder_fts import maintain_folder_fts as _maintain
 result = _maintain(
     data["listing_root"],
     data.get("mode", "auto"),
@@ -33,7 +33,7 @@ result = _maintain(
 """
 
 _SEARCH_STUB = """\
-from plugin.scripting.folder_fts import search_folder_fts as _search
+from plugin.embeddings.venv.folder_fts import search_folder_fts as _search
 result = _search(
     data["fts_db_path"],
     data["query"],
@@ -43,7 +43,7 @@ result = _search(
 """
 
 _STATS_STUB = """\
-from plugin.scripting.folder_fts import fts_stats as _stats
+from plugin.embeddings.venv.folder_fts import fts_stats as _stats
 result = _stats(
     data["fts_db_path"],
     data["meta_path"],

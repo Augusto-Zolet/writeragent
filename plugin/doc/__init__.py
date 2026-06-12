@@ -16,13 +16,15 @@ class CommonModule(ModuleBase):
 
         from . import (
             diagnostics,
-            document_research_fts_tool,
             document_research_grep_tool,
-            document_research_search_tool,
             document_research_specialized,
             document_research_tools,
             print_doc,
             undo,
+        )
+        from plugin.embeddings import (
+            document_research_fts_tool,
+            document_research_search_tool,
         )
 
         discovery_modules = (

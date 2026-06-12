@@ -359,8 +359,8 @@ def _inject_data(executor: LocalPythonExecutor, data: Any | None) -> None:
 
 
 _TRUSTED_VISION_STUB_MARKER = "from plugin.scripting.vision import run_vision"
-_TRUSTED_EMBEDDINGS_STUB_MARKER = "from plugin.scripting.embeddings_index import"
-_TRUSTED_FOLDER_FTS_STUB_MARKER = "from plugin.scripting.folder_fts import"
+_TRUSTED_EMBEDDINGS_STUB_MARKER = "from plugin.embeddings.venv.embeddings_index import"
+_TRUSTED_FOLDER_FTS_STUB_MARKER = "from plugin.embeddings.venv.folder_fts import"
 
 
 def _is_trusted_vision_stub(code: str) -> bool:
@@ -414,13 +414,13 @@ def _run_trusted_vision_payload(data: Any | None) -> dict[str, Any]:
 
 def _run_trusted_embeddings_payload(code: str, data: Any | None) -> dict[str, Any]:
     """Run fixed embeddings_index / folder_fts RPC stubs outside LocalPythonExecutor."""
-    from plugin.scripting import embeddings_index
+    from plugin.embeddings.venv import embeddings_index
 
     payload = _unpack_trusted_payload(data)
     stub = code or ""
     try:
         if _TRUSTED_FOLDER_FTS_STUB_MARKER in stub:
-            from plugin.scripting import folder_fts
+            from plugin.embeddings.venv import folder_fts
 
             if "maintain_folder_fts" in stub:
                 from typing import cast, Literal

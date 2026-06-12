@@ -1,6 +1,6 @@
 # Embeddings — Development Plan
 
-> **Status (2026-06):** **Chroma + LangGraph shipped (schema v2)** — per-folder **Chroma** persist dir + `corpus_meta.json` / `file_index_state.json` beside documents ([`embeddings_cache.py`](../plugin/doc/embeddings_cache.py)). **Index maintenance:** Writer stdlib ODF extract; **Calc `.ods`** via pandas + odfpy ([`embeddings_ods_extract.py`](../plugin/scripting/embeddings_ods_extract.py)); **Impress/Draw `.odp`/`.odg`** via odfpy ([`embeddings_odp_extract.py`](../plugin/scripting/embeddings_odp_extract.py)) — dispatch in [`embeddings_fs.py`](../plugin/doc/embeddings_fs.py) + [`embeddings_folder_maintain.py`](../plugin/scripting/embeddings_folder_maintain.py) via one **`maintain_folder_index` RPC** with **heartbeat** sliding timeout (`EMBEDDINGS_HEARTBEAT_GRACE_S`); host only resolves folder path and `_inflight` dedupe ([`embeddings_indexer.py`](../plugin/doc/embeddings_indexer.py)). **Same extract path** feeds **SQLite FTS5** when `folder_search_mode` is `fts` ([`folder_fts.py`](../plugin/scripting/folder_fts.py)). **Ingest/search:** LangGraph in [`embeddings_ingest_graph.py`](../plugin/scripting/embeddings_ingest_graph.py) / [`embeddings_search_graph.py`](../plugin/scripting/embeddings_search_graph.py). RPC facades: [`embeddings_index.py`](../plugin/scripting/embeddings_index.py), [`embeddings_service.py`](../plugin/framework/client/embeddings_service.py). **Dedicated embeddings subprocess** — `worker_pool=WORKER_POOL_EMBEDDINGS`. Offline re-index: [`scripts/index_embeddings_folder.py`](../scripts/index_embeddings_folder.py). Offline search: [`scripts/search_embeddings_folder.py`](../scripts/search_embeddings_folder.py). **Search mode:** Settings `embeddings.folder_search_mode` (`none` | `embeddings` | `fts`). **Scope:** one cache per filesystem folder (`.odt`, `.ods`, `.odp`, `.odg` siblings).
+> **Status (2026-06):** **Chroma + LangGraph shipped (schema v2)** — per-folder **Chroma** persist dir + `corpus_meta.json` / `file_index_state.json` beside documents ([`embeddings_cache.py`](../plugin/embeddings/embeddings_cache.py)). **Index maintenance:** Writer stdlib ODF extract; **Calc `.ods` and Impress/Draw `.odp`/`.odg`** via odfpy/pandas ([`embeddings_odf_extract.py`](../plugin/embeddings/venv/embeddings_odf_extract.py)) — dispatch in [`embeddings_fs.py`](../plugin/embeddings/embeddings_fs.py) + [`embeddings_folder_maintain.py`](../plugin/embeddings/venv/embeddings_folder_maintain.py) via one **`maintain_folder_index` RPC** with **heartbeat** sliding timeout (`EMBEDDINGS_HEARTBEAT_GRACE_S`); host only resolves folder path and `_inflight` dedupe ([`embeddings_indexer.py`](../plugin/embeddings/embeddings_indexer.py)). **Same extract path** feeds **SQLite FTS5** when `folder_search_mode` is `fts` ([`folder_fts.py`](../plugin/embeddings/venv/folder_fts.py)). **Ingest/search:** LangGraph in [`embeddings_ingest_graph.py`](../plugin/embeddings/venv/embeddings_ingest_graph.py) / [`embeddings_search_graph.py`](../plugin/embeddings/venv/embeddings_search_graph.py). RPC facades: [`embeddings_index.py`](../plugin/embeddings/venv/embeddings_index.py), [`embeddings_service.py`](../plugin/framework/client/embeddings_service.py). **Dedicated embeddings subprocess** — `worker_pool=WORKER_POOL_EMBEDDINGS`. Offline re-index: [`scripts/index_embeddings_folder.py`](../scripts/index_embeddings_folder.py). Offline search: [`scripts/search_embeddings_folder.py`](../scripts/search_embeddings_folder.py). **Search mode:** Settings `embeddings.folder_search_mode` (`none` | `embeddings` | `fts`). **Scope:** one cache per filesystem folder (`.odt`, `.ods`, `.odp`, `.odg` siblings).
 
 **Related:** [cython-extension.md](cython-extension.md) · [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md) · [multi-document-dev-plan.md](multi-document-dev-plan.md) · [langchain-plan.md](langchain-plan.md) (chat memory / summarization only)
 
@@ -55,7 +55,7 @@ Future work on **when** to call `search_embeddings` vs `grep_nearby_files` (or a
 **Method (2026-06):**
 
 1. **Semantic:** [`scripts/search_embeddings_folder.py`](../scripts/search_embeddings_folder.py) → `knn_search` → LangGraph + Chroma; record **top-1** hit (`score`, `doc_url`, `snippet`).
-2. **Lexical baselines** (stdlib ODF extract via [`embeddings_fs.extract_writer_paragraphs`](../plugin/doc/embeddings_fs.py)):
+2. **Lexical baselines** (stdlib ODF extract via [`embeddings_fs.extract_writer_paragraphs`](../plugin/embeddings/embeddings_fs.py)):
    - **Strict grep** — paragraph must contain **all** query tokens.
    - **Nearby-style grep** — rank files by paragraph hit count for **any** query token (approximates `grep_nearby_files` file picking).
 3. **Winner** (when an expected file is known): **grep** if nearby/strict grep hits that file but semantic top-1 does not; **embed** if semantic hits expected file but nearby grep’s top file does not; **both** if either method routes correctly; **neither** if both miss.
@@ -181,18 +181,17 @@ Scores and file ranks **will change** with model upgrades (`bge-small`, etc.), c
 
 | Module | Role |
 |--------|------|
-| [`embeddings_cache.py`](../plugin/doc/embeddings_cache.py) | Folder keys, paths, host JSON state, legacy `index.db` removal |
-| [`embeddings_indexer.py`](../plugin/doc/embeddings_indexer.py) | Background index enqueue + `_inflight` guard (venv maintain RPC) |
-| [`embeddings_fs.py`](../plugin/doc/embeddings_fs.py) | Folder scan + Writer stdlib ODF extract + dispatch to Calc/Impress extract (no UNO) |
-| [`embeddings_ods_extract.py`](../plugin/scripting/embeddings_ods_extract.py) | Calc `.ods`/`.ots`/`.fods` row extract (pandas + odfpy, trusted venv) |
-| [`embeddings_odp_extract.py`](../plugin/scripting/embeddings_odp_extract.py) | Impress/Draw `.odp`/`.odg` page extract (odfpy, trusted venv) |
-| [`embeddings_folder_maintain.py`](../plugin/scripting/embeddings_folder_maintain.py) | Trusted venv cold/incremental maintain loop |
-| [`embeddings_periodic.py`](../plugin/doc/embeddings_periodic.py) | Periodic folder tick when cache enabled |
-| [`document_research_search_tool.py`](../plugin/doc/document_research_search_tool.py) | `search_embeddings` tool |
-| [`embeddings_chroma.py`](../plugin/scripting/embeddings_chroma.py) | Chroma client, chunk IDs, metadata schema |
-| [`embeddings_ingest_graph.py`](../plugin/scripting/embeddings_ingest_graph.py) | LangGraph: split → embed → upsert / delete |
-| [`embeddings_search_graph.py`](../plugin/scripting/embeddings_search_graph.py) | LangGraph: query → Chroma → filter → MMR → hits |
-| [`embeddings_index.py`](../plugin/scripting/embeddings_index.py) | Trusted venv RPC facades + `embed_texts()` |
+| [`embeddings_cache.py`](../plugin/embeddings/embeddings_cache.py) | Folder keys, paths, host JSON state, legacy `index.db` removal |
+| [`embeddings_indexer.py`](../plugin/embeddings/embeddings_indexer.py) | Background index enqueue + `_inflight` guard (venv maintain RPC) |
+| [`embeddings_fs.py`](../plugin/embeddings/embeddings_fs.py) | Folder scan + Writer stdlib ODF extract + dispatch to Calc/Impress extract (no UNO) |
+| [`embeddings_odf_extract.py`](../plugin/embeddings/venv/embeddings_odf_extract.py) | Impress/Draw `.odp`/`.odg` page and Calc `.ods`/`.ots`/`.fods` row extract (pandas + odfpy, trusted venv) |
+| [`embeddings_folder_maintain.py`](../plugin/embeddings/venv/embeddings_folder_maintain.py) | Trusted venv cold/incremental maintain loop |
+| [`embeddings_periodic.py`](../plugin/embeddings/embeddings_periodic.py) | Periodic folder tick when cache enabled |
+| [`document_research_search_tool.py`](../plugin/embeddings/document_research_search_tool.py) | `search_embeddings` tool |
+| [`embeddings_chroma.py`](../plugin/embeddings/venv/embeddings_chroma.py) | Chroma client, chunk IDs, metadata schema |
+| [`embeddings_ingest_graph.py`](../plugin/embeddings/venv/embeddings_ingest_graph.py) | LangGraph: split → embed → upsert / delete |
+| [`embeddings_search_graph.py`](../plugin/embeddings/venv/embeddings_search_graph.py) | LangGraph: query → Chroma → filter → MMR → hits |
+| [`embeddings_index.py`](../plugin/embeddings/venv/embeddings_index.py) | Trusted venv RPC facades + `embed_texts()` |
 | [`embeddings_service.py`](../plugin/framework/client/embeddings_service.py) | Host index/search/stats RPC |
 | [`embedding_client.py`](../plugin/framework/client/embedding_client.py) | Host `embed_texts()` RPC |
 
@@ -354,7 +353,7 @@ The **only** persisted index shape for now:
 | `sentence_transformers` on venv whitelist | **Done** — [`sandbox_imports.py`](../plugin/scripting/sandbox_imports.py) |
 | `get_safe_module` bypass for ST | **Done** — avoid hang on import ([`local_python_executor.py`](../plugin/contrib/smolagents/local_python_executor.py)) |
 | [`embedding_client.py`](../plugin/framework/client/embedding_client.py) | **Done** — `embed_texts()` via venv RPC (Phase A; HTTP deferred) |
-| [`embeddings_index.py`](../plugin/scripting/embeddings_index.py) | **Done** — trusted batch encode module (Phase A; index/search in Phase B) |
+| [`embeddings_index.py`](../plugin/embeddings/venv/embeddings_index.py) | **Done** — trusted batch encode module (Phase A; index/search in Phase B) |
 | Config `embedding_model` / `embedding_provider` / `folder_search_mode` | **Done** — Settings → Embeddings ([`plugin/embeddings/module.yaml`](../plugin/embeddings/module.yaml)) |
 
 See [Benchmark on your machine](#benchmark-on-your-machine) for sample numbers (349 paragraphs, dot+top-k **0.17 ms** median on Arch).
@@ -367,9 +366,9 @@ The persistent index is **Chroma** under `<document_folder>/writeragent_embeddin
 
 Typical flow:
 
-1. **Host** resolves `listing_root` from the active document folder and enqueues one **maintain** RPC ([`embeddings_indexer.enqueue_folder_index`](../plugin/doc/embeddings_indexer.py)); `_inflight` prevents duplicate jobs per folder key.
-2. **Host → venv (RPC stub):** `maintain_folder_index` sends `{listing_root, model, mode}` only. The venv runs stdlib ODF extract ([`embeddings_fs.py`](../plugin/doc/embeddings_fs.py)), mtime / `content_hash` diff (`file_index_state.json`), embed, and Chroma upsert at full CPU. **Heartbeat frames** reset the host sliding timeout during long cold builds (`EMBEDDINGS_HEARTBEAT_GRACE_S`). Search still sends query text + `k` + paths.
-3. **Venv (trusted module):** fixed stubs are detected in [`venv_sandbox.py`](../plugin/scripting/venv_sandbox.py) (`_is_trusted_embeddings_stub`) and run **outside** `LocalPythonExecutor` — `_run_trusted_embeddings_payload` calls [`embeddings_index`](../plugin/scripting/embeddings_index.py) directly (same pattern as vision). LangGraph ingest/search graphs use real imports (`sentence-transformers`, `chromadb`). Only small results travel back (top-k hits, counts, errors).
+1. **Host** resolves `listing_root` from the active document folder and enqueues one **maintain** RPC ([`embeddings_indexer.enqueue_folder_index`](../plugin/embeddings/embeddings_indexer.py)); `_inflight` prevents duplicate jobs per folder key.
+2. **Host → venv (RPC stub):** `maintain_folder_index` sends `{listing_root, model, mode}` only. The venv runs stdlib ODF extract ([`embeddings_fs.py`](../plugin/embeddings/embeddings_fs.py)), mtime / `content_hash` diff (`file_index_state.json`), embed, and Chroma upsert at full CPU. **Heartbeat frames** reset the host sliding timeout during long cold builds (`EMBEDDINGS_HEARTBEAT_GRACE_S`). Search still sends query text + `k` + paths.
+3. **Venv (trusted module):** fixed stubs are detected in [`venv_sandbox.py`](../plugin/scripting/venv_sandbox.py) (`_is_trusted_embeddings_stub`) and run **outside** `LocalPythonExecutor` — `_run_trusted_embeddings_payload` calls [`embeddings_index`](../plugin/embeddings/venv/embeddings_index.py) directly (same pattern as vision). LangGraph ingest/search graphs use real imports (`sentence-transformers`, `chromadb`). Only small results travel back (top-k hits, counts, errors).
 4. **Session:** reuse worker `session_id` so the loaded `SentenceTransformer` survives across calls ([`EMBEDDINGS_WORKER_SESSION_PREFIX`](../plugin/framework/constants.py)). Embeddings RPC uses a **separate warm child** (`worker_pool=WORKER_POOL_EMBEDDINGS`) from Calc `=PYTHON()` and chat scripts — see [Dedicated embeddings subprocess](#dedicated-embeddings-subprocess). **Timeout:** [`embeddings_worker_timeout_sec`](../plugin/scripting/config_limits.py) (**120 s**), not Settings `scripting.python_exec_timeout`.
 
 The **LLM / `=PYTHON()` sandbox** still applies to **user-submitted** scripts. **Embeddings RPC does not** — `torch` / `chromadb` cannot load inside the AST sandbox. Bulk *source text for embedding* flows over IPC **`data=`** at index time; vectors live in Chroma beside the document folder.
@@ -390,7 +389,7 @@ Embeddings encode, index persist, and `knn_search` run in a **second** warm venv
 
 **Implementation:**
 
-- Same `scripting.python_venv_path` interpreter, same Pickle5 stub protocol ([`embeddings_service.py`](../plugin/framework/client/embeddings_service.py) / [`embedding_client.py`](../plugin/framework/client/embedding_client.py) → [`embeddings_index.py`](../plugin/scripting/embeddings_index.py)).
+- Same `scripting.python_venv_path` interpreter, same Pickle5 stub protocol ([`embeddings_service.py`](../plugin/framework/client/embeddings_service.py) / [`embedding_client.py`](../plugin/framework/client/embedding_client.py) → [`embeddings_index.py`](../plugin/embeddings/venv/embeddings_index.py)).
 - Host passes `worker_pool=WORKER_POOL_EMBEDDINGS` on the two RPC entry points only.
 - Optional Settings later: dedicated venv path vs shared venv (same packages, different process — not required).
 - **Not** a third HTTP stack or a different embedding library — process isolation + caching only.
@@ -432,7 +431,7 @@ See also [Index size growth](#index-size-growth) for when RAM footprint matters.
 
 - [x] Host [`embedding_client.py`](../plugin/framework/client/embedding_client.py) — `embed_texts(ctx, texts) -> EmbeddingBatch` via venv RPC
 - [x] Config: `embedding_model`, `embedding_provider`, `folder_search_mode` — Settings → Embeddings ([`plugin/embeddings/module.yaml`](../plugin/embeddings/module.yaml)); `local` provider only implemented; HTTP tier deferred
-- [x] Trusted venv module [`embeddings_index.py`](../plugin/scripting/embeddings_index.py) + fixed host stub — see [Trusted extension code in the venv](enabling_numpy_in_libreoffice.md#trusted-extension-code-in-the-venv)
+- [x] Trusted venv module [`embeddings_index.py`](../plugin/embeddings/venv/embeddings_index.py) + fixed host stub — see [Trusted extension code in the venv](enabling_numpy_in_libreoffice.md#trusted-extension-code-in-the-venv)
 - [x] Tests: mocked venv RPC + mocked SentenceTransformer ([`test_embedding_client.py`](../tests/framework/test_embedding_client.py), [`test_embeddings_index.py`](../tests/scripting/test_embeddings_index.py))
 - Default model: `all-MiniLM-L6-v2` ([`DEFAULT_EMBEDDING_MODEL`](../plugin/framework/constants.py)) until multi-model bench says otherwise
 
@@ -442,11 +441,11 @@ See also [Index size growth](#index-size-growth) for when RAM footprint matters.
 |-------|----------|----------|
 | Host API | [`embedding_client.embed_texts`](../plugin/framework/client/embedding_client.py) | `EmbeddingBatch(model, dim, vectors, indices)` — `vectors` are L2-normalized float32 nested lists; `indices` maps each vector back to the input list position (empty strings skipped) |
 | Model config | `get_embedding_model(ctx)` | Reads `embedding_model` from config; falls back to `all-MiniLM-L6-v2` |
-| Venv encode | [`embeddings_index.embed_texts`](../plugin/scripting/embeddings_index.py) | Same shape as worker `result` dict; lazy `SentenceTransformer` cache per model name |
+| Venv encode | [`embeddings_index.embed_texts`](../plugin/embeddings/venv/embeddings_index.py) | Same shape as worker `result` dict; lazy `SentenceTransformer` cache per model name |
 | IPC transport | `run_code_in_user_venv` + fixed stub | `session_id=f"embeddings:{model_slug}"` reuses loaded model; **stub bypasses LLM sandbox**; timeout from `embeddings_worker_timeout_sec` (120 s) |
-| Whitelist | [`sandbox_imports.py`](../plugin/scripting/sandbox_imports.py) | `plugin.scripting.embeddings_index` allowed for stub import only |
+| Whitelist | [`sandbox_imports.py`](../plugin/scripting/sandbox_imports.py) | `plugin.embeddings.venv.embeddings_index` allowed for stub import only |
 
-**All of the above now ship in Phase B/C** — Chroma + LangGraph replace schema v1 `index.db`. Host-side batch encode during tests may still call `embedding_client.embed_texts`; index/search persist via [`embeddings_service.py`](../plugin/framework/client/embeddings_service.py) → [`embeddings_index`](../plugin/scripting/embeddings_index.py) → ingest/search graphs.
+**All of the above now ship in Phase B/C** — Chroma + LangGraph replace schema v1 `index.db`. Host-side batch encode during tests may still call `embedding_client.embed_texts`; index/search persist via [`embeddings_service.py`](../plugin/framework/client/embeddings_service.py) → [`embeddings_index`](../plugin/embeddings/venv/embeddings_index.py) → ingest/search graphs.
 
 ### Phase B — Minimal index + `search_embeddings` tool {#phase-b}
 
@@ -458,7 +457,7 @@ See also [Index size growth](#index-size-growth) for when RAM footprint matters.
 
 **Suggested implementation order** (each step should have tests before moving on):
 
-1. **Folder key + cache paths (host, stdlib only)** — new module e.g. `plugin/doc/embeddings_cache.py`:
+1. **Folder key + cache paths (host, stdlib only)** — new module e.g. `plugin/embeddings/embeddings_cache.py`:
    - `folder_corpus_key(directory_path) -> str` — stable hash/normalized path (same sibling scope as [`list_nearby_files`](../plugin/doc/document_research.py))
    - `folder_cache_dir(listing_root) -> Path` under `<document_folder>/writeragent_embeddings/`
    - Host creates JSON state files + Chroma persist dir ([Corpus storage](#corpus-storage))
@@ -482,7 +481,7 @@ See also [Index size growth](#index-size-growth) for when RAM footprint matters.
 - [x] Persist per-folder Chroma cache beside documents ([Corpus cache layout](#corpus-cache-layout), [Corpus storage](#corpus-storage))
 - [x] **`search_embeddings`** on outer document_research tool surface (when `folder_search_mode` is `embeddings`; grep stays available)
 - [x] Open top 1–few hits → `delegate_read_document` → inner read via snippet / `search_in_document` (prompt guidance)
-- [x] Search executes in the venv via LangGraph + Chroma `query` + MMR ([`embeddings_search_graph.py`](../plugin/scripting/embeddings_search_graph.py))
+- [x] Search executes in the venv via LangGraph + Chroma `query` + MMR ([`embeddings_search_graph.py`](../plugin/embeddings/venv/embeddings_search_graph.py))
 - [x] Background **index maintenance worker** (separate from agent tool loop) — [Background folder indexer](#background-folder-indexer)
 
 ### Search mode flag {#search-mode-flag}
@@ -520,7 +519,7 @@ writeragent_embeddings/
   file_index_state.json  # shared incremental paragraph hashes with embeddings
 ```
 
-Implementation: [`folder_fts.py`](../plugin/scripting/folder_fts.py) (venv), [`folder_fts_service.py`](../plugin/framework/client/folder_fts_service.py) (host RPC), [`folder_fts_indexer.py`](../plugin/doc/folder_fts_indexer.py) (background maintain). Periodic wakeups share [`embeddings_periodic.py`](../plugin/doc/embeddings_periodic.py) with the Chroma indexer when either flag is on. **Calc `.ods` and Impress/Draw `.odp`/`.odg` siblings** use the same extract path as Writer `.odt`; `search_nearby_files` returns hits with the same `doc_url` / `snippet` / `para_index` shape.
+Implementation: [`folder_fts.py`](../plugin/embeddings/venv/folder_fts.py) (venv), [`folder_fts_service.py`](../plugin/framework/client/folder_fts_service.py) (host RPC), [`folder_fts_indexer.py`](../plugin/embeddings/folder_fts_indexer.py) (background maintain). Periodic wakeups share [`embeddings_periodic.py`](../plugin/embeddings/embeddings_periodic.py) with the Chroma indexer when either flag is on. **Calc `.ods` and Impress/Draw `.odp`/`.odg` siblings** use the same extract path as Writer `.odt`; `search_nearby_files` returns hits with the same `doc_url` / `snippet` / `para_index` shape.
 
 **Embeddings vs FTS:** embeddings excel at long paraphrase queries; FTS excels at short keyword/proximity routing (see [Performance: embeddings vs grep](#performance-embeddings-vs-grep)). Choose one mode in Settings; they share folder scan/extract helpers but use separate stores (`chroma/` vs `fts5.db`).
 
@@ -545,7 +544,7 @@ One cache per document directory (sibling folder around the active doc), never p
 
 **Linux example:** `/home/user/Desktop/Writing/writeragent_embeddings/` when working in `~/Desktop/Writing/`.
 
-> **Profile cache (historical):** early builds used `~/.config/libreoffice/…/user/writeragent_embeddings/<hash>/`. Current code writes beside the document folder ([`embeddings_cache.py`](../plugin/doc/embeddings_cache.py)).
+> **Profile cache (historical):** early builds used `~/.config/libreoffice/…/user/writeragent_embeddings/<hash>/`. Current code writes beside the document folder ([`embeddings_cache.py`](../plugin/embeddings/embeddings_cache.py)).
 
 ### Background folder indexer {#background-folder-indexer}
 
@@ -553,11 +552,11 @@ Indexing and refresh run on a **background maintenance worker** (host thread + v
 
 | Trigger | When |
 |---------|------|
-| **Periodic tick** | Every `EMBEDDINGS_INDEX_INTERVAL_S` (default **300 s / 5 min**) for the **active document’s folder** — started once per process from sidebar wiring ([`embeddings_periodic.py`](../plugin/doc/embeddings_periodic.py)) when `embeddings.folder_search_mode` is `embeddings` or `fts` |
+| **Periodic tick** | Every `EMBEDDINGS_INDEX_INTERVAL_S` (default **300 s / 5 min**) for the **active document’s folder** — started once per process from sidebar wiring ([`embeddings_periodic.py`](../plugin/embeddings/embeddings_periodic.py)) when `embeddings.folder_search_mode` is `embeddings` or `fts` |
 | **document_research** | Outer delegate starts in a folder ([`specialized_base.py`](../plugin/doc/specialized_base.py)) |
-| **search miss** | `search_embeddings` against empty/stale cache ([`document_research_search_tool.py`](../plugin/doc/document_research_search_tool.py)) |
+| **search miss** | `search_embeddings` against empty/stale cache ([`document_research_search_tool.py`](../plugin/embeddings/document_research_search_tool.py)) |
 
-Only one folder job runs at a time per folder key (`_inflight` guard in [`embeddings_indexer.py`](../plugin/doc/embeddings_indexer.py)); periodic ticks are no-ops while a job is already queued or running.
+Only one folder job runs at a time per folder key (`_inflight` guard in [`embeddings_indexer.py`](../plugin/embeddings/embeddings_indexer.py)); periodic ticks are no-ops while a job is already queued or running.
 
 **Two modes:**
 
@@ -573,8 +572,8 @@ Only one folder job runs at a time per folder key (`_inflight` guard in [`embedd
 3. **`mtime ≤ last_indexed_at`** (and model unchanged) → **skip file** — no extract, no embed.
 4. **File may have changed** → read-only extract (same path as document_research) → compute **`content_hash` per paragraph** → compare to locator rows.
 5. Send **only paragraphs with new or changed hashes** to the embedder (batch RPC). Unchanged paragraphs keep existing vectors.
-6. The background worker passes changed paragraphs + Chroma path references to the venv. The trusted module runs the LangGraph ingest pipeline ([`embeddings_ingest_graph.py`](../plugin/scripting/embeddings_ingest_graph.py)): split → batch embed → Chroma upsert; host updates `file_index_state.json` and `corpus_meta.json`.
-7. **Save with unchanged content:** if mtime bumped but hash diff finds nothing to embed or delete, the host calls **`mark_file_indexed`** ([`embeddings_indexer.py`](../plugin/doc/embeddings_indexer.py)) to advance `last_indexed_at` / `file_mtime` without a venv RPC — avoids re-scanning the same file on every periodic tick.
+6. The background worker passes changed paragraphs + Chroma path references to the venv. The trusted module runs the LangGraph ingest pipeline ([`embeddings_ingest_graph.py`](../plugin/embeddings/venv/embeddings_ingest_graph.py)): split → batch embed → Chroma upsert; host updates `file_index_state.json` and `corpus_meta.json`.
+7. **Save with unchanged content:** if mtime bumped but hash diff finds nothing to embed or delete, the host calls **`mark_file_indexed`** ([`embeddings_indexer.py`](../plugin/embeddings/embeddings_indexer.py)) to advance `last_indexed_at` / `file_mtime` without a venv RPC — avoids re-scanning the same file on every periodic tick.
 
 Search always uses the **current** index ([Always search](#always-search-update-in-the-background)); maintenance catches up in the background via **mtime + hash diff** on the periodic and event-driven wakeups above. Index may be a few minutes stale — acceptable for cross-file semantic find.
 
@@ -600,9 +599,9 @@ Do not block `search_embeddings` or document_research on embed completion; enque
 
 ### Corpus storage (Chroma — schema v2) {#corpus-storage}
 
-**Default (shipped today):** vectors and chunk metadata live in **Chroma** under `<folder>/writeragent_embeddings/chroma/`. Host-side incremental state is JSON (`file_index_state.json`, `corpus_meta.json`). **Ingest:** LangGraph split → [`embed_texts`](../plugin/scripting/embeddings_index.py) → Chroma upsert ([`embeddings_ingest_graph.py`](../plugin/scripting/embeddings_ingest_graph.py)). **Search:** query embed → Chroma `query` → MMR rerank ([`embeddings_search_graph.py`](../plugin/scripting/embeddings_search_graph.py)). On-disk size tracks **live chunk count × dim**, not edit history.
+**Default (shipped today):** vectors and chunk metadata live in **Chroma** under `<folder>/writeragent_embeddings/chroma/`. Host-side incremental state is JSON (`file_index_state.json`, `corpus_meta.json`). **Ingest:** LangGraph split → [`embed_texts`](../plugin/embeddings/venv/embeddings_index.py) → Chroma upsert ([`embeddings_ingest_graph.py`](../plugin/embeddings/venv/embeddings_ingest_graph.py)). **Search:** query embed → Chroma `query` → MMR rerank ([`embeddings_search_graph.py`](../plugin/embeddings/venv/embeddings_search_graph.py)). On-disk size tracks **live chunk count × dim**, not edit history.
 
-**Upgrade:** legacy **`index.db`** (schema v1 — SQLite BLOB / optional sqlite-vec) is deleted on first access; next index pass **cold-builds into Chroma** ([`embeddings_cache.py`](../plugin/doc/embeddings_cache.py)). See [Search fallback (schema v1 historical)](#search-fallback) for the old BLOB/vec0 design.
+**Upgrade:** legacy **`index.db`** (schema v1 — SQLite BLOB / optional sqlite-vec) is deleted on first access; next index pass **cold-builds into Chroma** ([`embeddings_cache.py`](../plugin/embeddings/embeddings_cache.py)). See [Search fallback (schema v1 historical)](#search-fallback) for the old BLOB/vec0 design.
 
 ```mermaid
 flowchart LR
@@ -857,7 +856,7 @@ Chroma + JSON state live beside the document folder. The host orchestrates extra
 
 **MVP path:** the worker receives Chroma path references (plus small payloads) over the RPC. Encode and search happen inside trusted modules **outside** the LLM sandbox. [`scripts/bench_embeddings.py`](../scripts/bench_embeddings.py) still validates batch encode + NumPy dot/top-k at 349 paragraphs (dot+top-k **0.17 ms** median) — production search uses Chroma, not full-matrix reload per query. See [Development plan](#development-plan) and [Trusted extension code in the venv](enabling_numpy_in_libreoffice.md#trusted-extension-code-in-the-venv).
 
-**Do not** add `chromadb` / `os` to the **LLM** import whitelist — keep Chroma and model load inside shipped `plugin.scripting.*` modules invoked via trusted RPC stubs that bypass the sandbox.
+**Do not** add `chromadb` / `os` to the **LLM** import whitelist — keep Chroma and model load inside shipped `plugin.embeddings.venv.*` modules invoked via trusted RPC stubs that bypass the sandbox.
 
 ---
 
@@ -896,11 +895,11 @@ NumPy carries a heavy "tax" inside a LibreOffice `.oxt`:
 
 Two tiers. **Shipped today (Phase A):** local **`sentence-transformers`** in the configured venv only — via [`embedding_client.embed_texts`](../plugin/framework/client/embedding_client.py). **Tier two (not implemented):** OpenRouter / Together / Ollama HTTP when no venv.
 
-**Current dispatch:** `embedding_provider` must be `local` (default). Host calls `run_code_in_user_venv` with a fixed stub → [`embeddings_index.embed_texts`](../plugin/scripting/embeddings_index.py). Requires `scripting.python_venv_path` (or LO fallback interpreter) with `pip install sentence-transformers numpy chromadb langgraph langchain-core langchain-text-splitters envwrap odfpy`.
+**Current dispatch:** `embedding_provider` must be `local` (default). Host calls `run_code_in_user_venv` with a fixed stub → [`embeddings_index.embed_texts`](../plugin/embeddings/venv/embeddings_index.py). Requires `scripting.python_venv_path` (or LO fallback interpreter) with `pip install sentence-transformers numpy chromadb langgraph langchain-core langchain-text-splitters envwrap odfpy`.
 
 **Future dispatch (when HTTP ships):** if venv + local model → venv RPC; else if chat endpoint supports embeddings → HTTP; else prompt user to configure venv or API.
 
-**Production path:** indexing and search call [`embeddings_service`](../plugin/framework/client/embeddings_service.py) → [`embeddings_index`](../plugin/scripting/embeddings_index.py) → LangGraph/Chroma. Host may still call `embedding_client.embed_texts` for raw vectors in tests.
+**Production path:** indexing and search call [`embeddings_service`](../plugin/framework/client/embeddings_service.py) → [`embeddings_index`](../plugin/embeddings/venv/embeddings_index.py) → LangGraph/Chroma. Host may still call `embedding_client.embed_texts` for raw vectors in tests.
 
 ---
 
@@ -1073,7 +1072,7 @@ Default model `all-MiniLM-L6-v2` (384-dim) → **~1.5 KiB per non-empty paragrap
 {"doc_url": "file:///…/notes.odt", "score": 0.85, "snippet": "…passage that was embedded…", "para_index": 12}
 ```
 
-- **`snippet`** — the **full embedded chunk** from the Chroma `documents` column (whitespace-normalized, capped at ingest [`CHUNK_SIZE`](../plugin/scripting/embeddings_ingest_graph.py) — 512 characters today). This is the same text the vector was computed over, not a short prefix. Inner agent should **`search_in_document`** for this text (or the query topic) after `delegate_read_document`.
+- **`snippet`** — the **full embedded chunk** from the Chroma `documents` column (whitespace-normalized, capped at ingest [`CHUNK_SIZE`](../plugin/embeddings/venv/embeddings_ingest_graph.py) — 512 characters today). This is the same text the vector was computed over, not a short prefix. Inner agent should **`search_in_document`** for this text (or the query topic) after `delegate_read_document`.
 - **`para_index`** — weak hint (ODF extract ordinal; may not match LO body enumeration). **Do not** treat as an exact jump target.
 - **`char_start` / `char_end`** — **not** returned in hits (ODF-local sub-chunk offsets; misleading vs live Writer). Still stored in Chroma metadata for internal `chunk_id` stability.
 
@@ -1114,7 +1113,7 @@ At **query time**, top-k returns **`doc_url` + `snippet`** → outer agent opens
 | Direction | Pros | Cons |
 |-----------|------|------|
 | **Snippet-only in Chroma** | Drop `documents` column; store capped snippet in metadata at ingest | Re-index on format change; snippet already stale vs live doc |
-| **Stronger stdlib ODF walk** | Better `para_index` without LO ([`embeddings_fs.py`](../plugin/doc/embeddings_fs.py) body-order walk) | Still not full LO parity (tables, fields) |
+| **Stronger stdlib ODF walk** | Better `para_index` without LO ([`embeddings_fs.py`](../plugin/embeddings/embeddings_fs.py) body-order walk) | Still not full LO parity (tables, fields) |
 | **Headless LO in venv subprocess** | Matches `getString()` / enumeration | Spawn cost; Flatpak; another moving part |
 | **Shared document_research extract** | One parse path for grep + embeddings | Same alignment research as [document_research](../plugin/doc/document_research.py) |
 
@@ -1259,7 +1258,7 @@ Cross-folder index maintain includes **Calc** siblings (`.ods`, `.ots`, `.fods`)
 
 | Aspect | Behavior |
 |--------|----------|
-| **Extract** | [`embeddings_ods_extract.extract_calc_rows`](../plugin/scripting/embeddings_ods_extract.py) — `pandas.read_excel(..., engine="odf")` |
+| **Extract** | [`embeddings_ods_extract.extract_calc_rows`](../plugin/embeddings/venv/embeddings_ods_extract.py) — `pandas.read_excel(..., engine="odf")` |
 | **Passage grain** | One indexable unit per **non-empty spreadsheet row** (tab-joined cell values) |
 | **Sheet context** | Row text prefixed with `[Sheet: {name}]\t…` for semantic / FTS snippets |
 | **`para_index`** | Stable row index across the file (sheet order, then row order) — weak locator hint; inner agent uses `search_in_spreadsheet` after open |
@@ -1274,7 +1273,7 @@ Cross-folder index maintain includes **Impress** (`.odp`, `.otp`, `.fodp`) and *
 
 | Aspect | Behavior |
 |--------|----------|
-| **Extract** | [`embeddings_odp_extract.extract_draw_pages`](../plugin/scripting/embeddings_odp_extract.py) — `odfpy` `load()` + `getElementsByType(DrawPage)` |
+| **Extract** | [`embeddings_odp_extract.extract_draw_pages`](../plugin/embeddings/venv/embeddings_odp_extract.py) — `odfpy` `load()` + `getElementsByType(DrawPage)` |
 | **Passage grain** | One indexable unit per **slide/page body**; optional second passage for **speaker notes** |
 | **Context prefix** | `[Slide: {name}]\t…` and `[Notes: {name}]\t…` |
 | **`para_index`** | Monotonic over all passages in the file — weak locator; inner agent uses Draw/Impress read tools after open |

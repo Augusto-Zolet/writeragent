@@ -25,7 +25,7 @@ from typing import Any
 project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
 
-from plugin.doc.embeddings_cache import (  # noqa: E402
+from plugin.embeddings.embeddings_cache import (  # noqa: E402
     CHROMA_SUBDIR,
     CORPUS_META_FILENAME,
     EMBEDDINGS_CACHE_DIRNAME,

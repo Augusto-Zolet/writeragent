@@ -41,6 +41,7 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 | Errors / `safe_json_loads` | [`plugin/framework/errors.py`](plugin/framework/errors.py) |
 | Weekly extension update check | [`plugin/chatbot/extension_update_check.py`](plugin/chatbot/extension_update_check.py) |
 | Python venv sandbox import policy | [`plugin/scripting/import_policy.py`](plugin/scripting/import_policy.py), whitelist in [`plugin/scripting/sandbox_imports.py`](plugin/scripting/sandbox_imports.py) |
+| Embeddings / folder FTS | [`plugin/embeddings/`](plugin/embeddings/) (host cache, indexers, tools); venv worker in [`plugin/embeddings/venv/`](plugin/embeddings/venv/); RPC in [`plugin/framework/client/embeddings_service.py`](plugin/framework/client/embeddings_service.py), [`embedding_client.py`](plugin/framework/client/embedding_client.py), [`folder_fts_service.py`](plugin/framework/client/folder_fts_service.py) — [docs/embeddings.md](docs/embeddings.md) |
 
 **Layout:** `plugin/` → `framework/` (config, service, state, logging), `modules/` (ai, chatbot—including shared UNO dialogs/listeners/dialog_views/settings_dialog UI, writer, calc, draw, http), [`extension/`](extension/) (OXT resources, [`WriterAgentDialogs/`](extension/WriterAgentDialogs/), [`idl/`](extension/idl/), [`metadata/`](extension/metadata/)), [`scripts/`](scripts/), [`Makefile`](Makefile), [`pyproject.toml`](pyproject.toml).
 
@@ -189,6 +190,7 @@ UNO helpers are split: [`uno_context.py`](plugin/framework/uno_context.py), [`do
 | Draw/Impress specialized | [docs/draw-impress-specialized-toolsets.md](docs/draw-impress-specialized-toolsets.md), [docs/shape_support.md](docs/shape_support.md) |
 | Calc specialized | [docs/calc-specialized-toolsets.md](docs/calc-specialized-toolsets.md) |
 | Calc filters / formatting | [docs/calc-conditional-formatting.md](docs/calc-conditional-formatting.md), [docs/calc-sheet-filter.md](docs/calc-sheet-filter.md) |
+| Embeddings / folder FTS | [docs/embeddings.md](docs/embeddings.md) |
 | Agent Search / Web | [docs/agent-search.md](docs/agent-search.md) |
 | MCP protocol | [docs/mcp-protocol.md](docs/mcp-protocol.md) |
 | Localization / translations / `make extract-strings` | [docs/localization.md](docs/localization.md), [locales/README.md](locales/README.md) |

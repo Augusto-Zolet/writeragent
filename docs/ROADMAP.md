@@ -5,6 +5,13 @@
 
 ---
 
+
+---
+**Bugreport**: One last thing I noticed, though possibly it already might have been fixed by now. Sometimes the sidebar chat acts a bit counterintuitively in copies of documents.
+A few times I had the impression that two copies ended up sharing the same chat history. When I had interacted with a model in one of the two files, after I had made the copies, the chat history also turned up in the second document; when I cleared the chat history in the second document it was also gone in the first. However, it appeared that this had 'unlinked' both documents' chat histories.
+
+---
+
 **Last Updated**: 2026-05-06
 **Status**: Active Development
 

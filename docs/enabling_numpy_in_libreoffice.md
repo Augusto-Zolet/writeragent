@@ -223,15 +223,15 @@ The **AST sandbox** (`LocalPythonExecutor` + `VENV_AUTHORIZED_IMPORTS`) applies 
 |-------|-------------|----------|-------------|
 | **LibreOffice host** | Embedded Python in-process | No NumPy; stdlib + UNO | UNO, config, resolve folder path, enqueue **maintain** RPC + heartbeat timeout |
 | **User venv worker** | User’s venv subprocess | **Yes** for user `code` strings | `=PYTHON()`, `run_venv_python_script` |
-| **Trusted venv modules** | Same subprocess | **No** (normal CPython inside the module) | [`embeddings_index.py`](../plugin/scripting/embeddings_index.py), [`embeddings_chroma.py`](../plugin/scripting/embeddings_chroma.py), [`embeddings_ingest_graph.py`](../plugin/scripting/embeddings_ingest_graph.py), [`embeddings_search_graph.py`](../plugin/scripting/embeddings_search_graph.py), [`payload_codec.py`](../plugin/scripting/payload_codec.py), [`calc_functions.py`](../plugin/scripting/calc_functions.py) |
+| **Trusted venv modules** | Same subprocess | **No** (normal CPython inside the module) | [`embeddings_index.py`](../plugin/embeddings/venv/embeddings_index.py), [`embeddings_chroma.py`](../plugin/embeddings/venv/embeddings_chroma.py), [`embeddings_ingest_graph.py`](../plugin/embeddings/venv/embeddings_ingest_graph.py), [`embeddings_search_graph.py`](../plugin/embeddings/venv/embeddings_search_graph.py), [`payload_codec.py`](../plugin/scripting/payload_codec.py), [`calc_functions.py`](../plugin/scripting/calc_functions.py) |
 
 #### How trusted venv code runs
 
-1. **Ship a normal module** under `plugin/scripting/` (e.g. [`payload_codec.py`](../plugin/scripting/payload_codec.py), [`embeddings_index.py`](../plugin/scripting/embeddings_index.py) for [embeddings](embeddings.md) Phase A encode).
+1. **Ship a normal module** under `plugin/scripting/` or `plugin/embeddings/venv/` (e.g. [`payload_codec.py`](../plugin/scripting/payload_codec.py), [`embeddings_index.py`](../plugin/embeddings/venv/embeddings_index.py) for [embeddings](embeddings.md) Phase A encode).
 2. **Host calls** [`run_code_in_user_venv`](../plugin/scripting/venv_worker.py) with a **fixed stub** string — not LLM output — for example:
 
    ```python
-   from plugin.scripting.embeddings_index import knn_search
+   from plugin.embeddings.venv.embeddings_index import knn_search
    result = knn_search(persist_dir, collection_name, query, k, model_name=model)
    ```
 
@@ -294,7 +294,7 @@ Per-folder semantic search ([embeddings.md](embeddings.md)) runs in the user ven
 | [LangGraph](https://github.com/langchain-ai/langgraph) + [langchain-core](https://github.com/langchain-ai/langchain) + [langchain-text-splitters](https://github.com/langchain-ai/langchain) | (same line) | Ingest/search graphs in trusted venv modules |
 | [envwrap](https://pypi.org/project/envwrap/) | (same line) | Transitive dependency for `sentence-transformers` / Hugging Face stack on some Python versions |
 
-Canonical install constant: `EMBEDDINGS_VENV_PIP_INSTALL` in [`embeddings_index.py`](../plugin/scripting/embeddings_index.py).
+Canonical install constant: `EMBEDDINGS_VENV_PIP_INSTALL` in [`embeddings_index.py`](../plugin/embeddings/venv/embeddings_index.py).
 
 #### Planned domain package groups
 
@@ -1342,7 +1342,7 @@ LRU eviction of large inactive DataFrames in long-lived workbook sessions — di
 | `run_venv_python_script` / `=PYTHON()` | [`venv_python.py`](../plugin/calc/venv_python.py), [`python_function.py`](../plugin/calc/python_function.py) |
 | Shared kernel (`python_session_mode`) | [`session_manager.py`](../plugin/scripting/session_manager.py), [`venv_sandbox.py`](../plugin/scripting/venv_sandbox.py) — [`tests/scripting/test_session_persistence.py`](../tests/scripting/test_session_persistence.py) |
 | Calc init scripts | [`document_scripts.py`](../plugin/scripting/document_scripts.py), [`init_script_editor.py`](../plugin/calc/init_script_editor.py) — [`tests/scripting/test_init_scripts.py`](../tests/scripting/test_init_scripts.py) |
-| Embeddings encode (Phase A) | [`embedding_client.py`](../plugin/framework/client/embedding_client.py), [`embeddings_index.py`](../plugin/scripting/embeddings_index.py) — see [embeddings.md § Phase B](embeddings.md#phase-b) |
+| Embeddings encode (Phase A) | [`embedding_client.py`](../plugin/framework/client/embedding_client.py), [`embeddings_index.py`](../plugin/embeddings/venv/embeddings_index.py) — see [embeddings.md § Phase B](embeddings.md#phase-b) |
 | Matplotlib + Viz helpers (Phase A–C) | [`venv_sandbox.py`](../plugin/scripting/venv_sandbox.py), [`viz.py`](../plugin/scripting/viz.py), [`viz_egress.py`](../plugin/scripting/viz_egress.py), [`python_runner.py`](../plugin/scripting/python_runner.py) — [Visualization §1](#visualization) |
 | Symbolic Math (SymPy) | [`symbolic.py`](../plugin/scripting/symbolic.py), [`symbolic_egress.py`](../plugin/scripting/symbolic_egress.py), [`symbolic_math`](../plugin/calc/symbolic_math.py) — [Symbolic Math §3](#symbolic-math) |
 | Run Python Script UI split | [`python_runner_ui.py`](../plugin/scripting/python_runner_ui.py) (native dialog); execution in [`python_runner.py`](../plugin/scripting/python_runner.py) |

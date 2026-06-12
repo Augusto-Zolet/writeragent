@@ -452,7 +452,7 @@ _VISION_PROBE_FAILED_HINT = _("Vision probe failed (see writeragent_debug.log)."
 
 # Embeddings stack (docs/embeddings.md): probed outside the AST sandbox because
 # chromadb/langgraph/langchain_* are not whitelisted for LLM-submitted venv scripts.
-from plugin.scripting.embeddings_index import EMBEDDINGS_VENV_PIP_INSTALL
+from plugin.embeddings.venv.embeddings_index import EMBEDDINGS_VENV_PIP_INSTALL
 
 _EMBEDDINGS_INSTALL_CMD = EMBEDDINGS_VENV_PIP_INSTALL
 _EMBEDDINGS_PACKAGE_KEYS = (

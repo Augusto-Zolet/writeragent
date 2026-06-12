@@ -6,7 +6,7 @@ Embeddings (default) requires the same venv packages as index maintenance:
   pip install sentence-transformers numpy chromadb langgraph langchain-core langchain-text-splitters envwrap odfpy
 
 FTS mode (--fts) uses stdlib sqlite3 only; build fts5.db via Settings in LO or:
-  .venv/bin/python -c "from plugin.scripting.folder_fts import maintain_folder_fts; maintain_folder_fts('~/Desktop/Writing')"
+  .venv/bin/python -c "from plugin.embeddings.venv.folder_fts import maintain_folder_fts; maintain_folder_fts('~/Desktop/Writing')"
 
 Example:
   .venv/bin/python scripts/search_embeddings_folder.py "remote work policy"
@@ -27,23 +27,16 @@ from typing import Any
 project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
 
-from plugin.doc.embeddings_cache import (  # noqa: E402
+from plugin.embeddings.embeddings_cache import (  # noqa: E402
     chroma_persist_dir,
     corpus_meta_path,
     folder_corpus_key,
     index_is_empty,
     read_corpus_meta,
 )
-from plugin.doc.embeddings_cache import (  # noqa: E402
-    chroma_persist_dir,
-    corpus_meta_path,
-    folder_corpus_key,
-    index_is_empty,
-    read_corpus_meta,
-)
-from plugin.doc.folder_fts_cache import fts_db_path, fts_index_is_empty, fts_meta_path  # noqa: E402
-from plugin.scripting.embeddings_index import EMBEDDINGS_VENV_PIP_INSTALL, knn_search  # noqa: E402
-from plugin.scripting.folder_fts import search_folder_fts  # noqa: E402
+from plugin.embeddings.folder_fts_cache import fts_db_path, fts_index_is_empty, fts_meta_path  # noqa: E402
+from plugin.embeddings.venv.embeddings_index import EMBEDDINGS_VENV_PIP_INSTALL, knn_search  # noqa: E402
+from plugin.embeddings.venv.folder_fts import search_folder_fts  # noqa: E402
 
 DEFAULT_FOLDER = Path("~/Desktop/Writing")
 DEFAULT_K = 10
@@ -148,7 +141,7 @@ def search_folder_fts_cli(
         raise SearchFolderError(
             f"No FTS index under {listing_root / 'writeragent_embeddings'}. "
             f"Enable folder FTS in WriterAgent or build with: "
-            f".venv/bin/python -c \"from plugin.scripting.folder_fts import maintain_folder_fts; "
+            f".venv/bin/python -c \"from plugin.embeddings.venv.folder_fts import maintain_folder_fts; "
             f"maintain_folder_fts({listing_root!r})\""
         )
 

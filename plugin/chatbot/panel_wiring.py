@@ -258,7 +258,7 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):
         log.warning("extension update check schedule failed: %s", e)
 
     try:
-        from plugin.doc.embeddings_periodic import schedule_periodic_embeddings_indexer_once
+        from plugin.embeddings.embeddings_periodic import schedule_periodic_embeddings_indexer_once
 
         schedule_periodic_embeddings_indexer_once(self.ctx)
     except Exception as e:

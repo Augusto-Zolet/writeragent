@@ -14,9 +14,9 @@ from plugin.draw.specialized import DelegateToSpecializedDraw
 from plugin.framework.tool import ToolBase, ToolContext, ToolRegistry
 from tests.chatbot.test_tool_loop import _mock_get_config_int_for_sub_agent
 from plugin.writer.specialized_base import DelegateToSpecializedWriter, SpecializedWorkflowFinished
-from plugin.doc.document_research_fts_tool import SearchNearbyFiles
+from plugin.embeddings.document_research_fts_tool import SearchNearbyFiles
 from plugin.doc.document_research_grep_tool import GrepNearbyFiles
-from plugin.doc.document_research_search_tool import SearchEmbeddings
+from plugin.embeddings.document_research_search_tool import SearchEmbeddings
 from plugin.doc.document_research_tools import ListNearbyFiles
 
 

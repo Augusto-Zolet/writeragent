@@ -8,4 +8,4 @@ from plugin.framework.module_base import ModuleBase
 
 
 class EmbeddingsModule(ModuleBase):
-    """Config-only module; indexing and search tools live under plugin.doc."""
+    """Embeddings module — per-folder semantic search cache and folder FTS."""

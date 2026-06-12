@@ -96,7 +96,7 @@ def write_paragraphs_json(odt_path: Path, texts: list[str]) -> None:
 def encode_corpus_code(model_name: str) -> str:
     return f'''
 import time
-from plugin.scripting.embeddings_ingest_graph import ingest_paragraphs
+from plugin.embeddings.venv.embeddings_ingest_graph import ingest_paragraphs
 
 texts = data
 
@@ -122,7 +122,7 @@ res = ingest_paragraphs(
 encode_corpus_sec = time.perf_counter() - t0
 
 # Retrieve info to verify
-from plugin.scripting.embeddings_chroma import get_collection
+from plugin.embeddings.venv.embeddings_chroma import get_collection
 collection = get_collection("/tmp/writeragent_embed_bench_chroma", "bench_collection")
 n = collection.count()
 try:
@@ -143,7 +143,7 @@ result = {{
 def search_corpus_code(query: str, k: int, search_iters: int) -> str:
     return f'''
 import time
-from plugin.scripting.embeddings_search_graph import search_embeddings_graph
+from plugin.embeddings.venv.embeddings_search_graph import search_embeddings_graph
 
 search_times = []
 hits = []

@@ -164,7 +164,7 @@ class DelegateToSpecializedBase(ToolBase):
 
         if domain == "document_research":
             try:
-                from plugin.doc.embeddings_indexer import enqueue_folder_index
+                from plugin.embeddings.embeddings_indexer import enqueue_folder_index
 
                 enqueue_folder_index(ctx.ctx, ctx.services, ctx.doc)
             except Exception:

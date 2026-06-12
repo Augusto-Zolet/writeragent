@@ -15,7 +15,7 @@ from pathlib import Path
 project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
 
-from plugin.scripting.embeddings_folder_maintain import maintain_folder_index
+from plugin.embeddings.venv.embeddings_folder_maintain import maintain_folder_index
 
 
 def main() -> int:
