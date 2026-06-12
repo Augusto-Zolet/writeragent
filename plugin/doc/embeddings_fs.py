@@ -98,11 +98,11 @@ def extract_indexable_passages(path: str) -> list[str]:
     if ext in WRITER_EXTENSIONS:
         return extract_writer_paragraphs(path)
     if ext in CALC_EXTENSIONS:
-        from plugin.scripting.embeddings_ods_extract import extract_calc_rows
+        from plugin.scripting.embeddings_odf_extract import extract_calc_rows
 
         return extract_calc_rows(path)
     if ext in DRAW_EXTENSIONS:
-        from plugin.scripting.embeddings_odp_extract import extract_draw_pages
+        from plugin.scripting.embeddings_odf_extract import extract_draw_pages
 
         return extract_draw_pages(path)
     return []

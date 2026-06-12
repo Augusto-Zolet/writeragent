@@ -2,7 +2,7 @@
 # Copyright (c) 2026 KeithCu (modifications and relicensing)
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Trusted venv Impress/Draw page extract for folder embeddings / FTS (odfpy)."""
+"""Trusted venv Impress/Draw page and Calc row extract for folder embeddings / FTS (odfpy + pandas)."""
 from __future__ import annotations
 
 import logging
@@ -10,8 +10,10 @@ from typing import Any
 
 log = logging.getLogger(__name__)
 
-__all__ = ["extract_draw_pages"]
+__all__ = ["extract_draw_pages", "extract_calc_rows"]
 
+
+# --- Impress/Draw (.odp/.odg) extract helpers ---
 
 def _paragraph_plain_text(paragraph: Any) -> str:
     if paragraph.firstChild is not None and hasattr(paragraph.firstChild, "data"):
@@ -82,3 +84,30 @@ def extract_draw_pages(path: str) -> list[str]:
         if notes:
             passages.append(f"[Notes: {name}]\t{notes}")
     return passages
+
+
+# --- Calc (.ods) extract ---
+
+def extract_calc_rows(path: str) -> list[str]:
+    """Read indexable row text from a Calc .ods/.ots/.fods (one passage per non-empty row)."""
+    try:
+        import pandas as pd
+    except ImportError:
+        log.debug("pandas not installed — ODS extract skipped for %s", path, exc_info=True)
+        return []
+    try:
+        sheets = pd.read_excel(path, engine="odf", sheet_name=None, header=None)
+    except ImportError:
+        log.debug("odfpy not installed — ODS extract skipped for %s", path, exc_info=True)
+        return []
+    except Exception:
+        log.debug("extract_calc_rows failed for %s", path, exc_info=True)
+        return []
+
+    rows: list[str] = []
+    for sheet_name, frame in sheets.items():
+        for _, row in frame.iterrows():
+            cells = [str(value).strip() for value in row if pd.notna(value) and str(value).strip()]
+            if cells:
+                rows.append(f"[Sheet: {sheet_name}]\t" + "\t".join(cells))
+    return rows
