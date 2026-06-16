@@ -439,7 +439,27 @@ class MCPProtocolHandler:
 
         doc = self.queue_executor.execute(_get_doc, timeout=10.0)
 
-        schemas = self.tool_registry.get_schemas("mcp", doc=doc, exclude_tiers=frozenset({"specialized", "specialized_control"}))
+        try:
+            mode = self.services.config.get("mcp.tool_exposure_mode", "delegate") or "delegate"
+        except Exception:
+            mode = "delegate"
+        # direct_flat advertises the specialized tools directly (control tools stay hidden --
+        # they only make sense inside an active delegated domain). Every other mode keeps
+        # today's core-only list (specialized tools are still callable by name -- via the
+        # delegate gateway, or the find_tools discovery tool in direct_discovery).
+        if mode == "direct_flat":
+            exclude_tiers = frozenset({"specialized_control"})
+        else:
+            exclude_tiers = frozenset({"specialized", "specialized_control"})
+
+        schemas = self.tool_registry.get_schemas("mcp", doc=doc, exclude_tiers=exclude_tiers)
+
+        # find_tools is the discovery search tool, useful only in direct_discovery mode
+        # (small core list + on-demand search). delegate advertises the gateway and
+        # direct_flat already lists everything, so hide it by name in those modes.
+        if mode != "direct_discovery":
+            schemas = [s for s in schemas if s.get("name") != "find_tools"]
+
         return {"tools": schemas}
 
     def _mcp_resources_list(self, params):
