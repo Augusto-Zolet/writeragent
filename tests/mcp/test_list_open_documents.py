@@ -37,9 +37,11 @@ def test_list_open_documents_execute():
     mock_doc1 = MagicMock()
     mock_doc1.getURL.return_value = "file:///home/user/document.odt"
     mock_doc1.getController.return_value = None
+    mock_doc1.RuntimeUID = "uid-saved-1"
     mock_doc2 = MagicMock()
     mock_doc2.getURL.return_value = ""  # Untitled document
     mock_doc2.getController.return_value = None
+    mock_doc2.RuntimeUID = "uid-untitled-2"
 
     mock_components = [mock_doc1, mock_doc2]
 
@@ -75,7 +77,11 @@ def test_list_open_documents_execute():
         assert docs[0]["url"] == "file:///home/user/document.odt"
         assert docs[0]["doc_type"] == "writer"
         assert not docs[0]["is_active"]
+        # The stable RuntimeUID is exposed so a caller can target the doc by uid.
+        assert docs[0]["uid"] == "uid-saved-1"
 
         assert docs[1]["name"] == "Untitled"
         assert docs[1]["url"] == ""
         assert docs[1]["doc_type"] == "calc"
+        # An unsaved doc has no URL but still exposes a uid for targeting.
+        assert docs[1]["uid"] == "uid-untitled-2"

@@ -597,7 +597,7 @@ def close_document_research_document(model: Any, *, opened_for_document_research
 def get_open_documents(uno_ctx: Any, active_model: Any = None) -> list[dict[str, Any]]:
     """Retrieve all open documents from the desktop context with metadata."""
     from plugin.framework.uno_context import get_desktop
-    from plugin.doc.document_helpers import get_document_type, DocumentType
+    from plugin.doc.document_helpers import get_document_type, DocumentType, get_runtime_uid
     import os
 
     desktop = get_desktop(uno_ctx)
@@ -625,6 +625,7 @@ def get_open_documents(uno_ctx: Any, active_model: Any = None) -> list[dict[str,
                 docs.append({
                     "name": "Untitled",
                     "url": "",
+                    "uid": get_runtime_uid(model),
                     "path": "",
                     "doc_type": doc_type,
                     "is_active": (active_model is not None and model == active_model)
@@ -651,6 +652,7 @@ def get_open_documents(uno_ctx: Any, active_model: Any = None) -> list[dict[str,
         docs.append({
             "name": name,
             "url": str(url),
+            "uid": get_runtime_uid(model),
             "path": path,
             "doc_type": doc_type_guess,
             "is_active": (active_model is not None and model == active_model)

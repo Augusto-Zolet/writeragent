@@ -591,9 +591,26 @@ def _normalize_doc_url(url):
     return s
 
 
-def resolve_document_by_url(ctx, url):
-    """Resolve an open document by URL. Must be called on the UNO main thread.
+def get_runtime_uid(model):
+    """Stable per-session id for an open component.
 
+    Unlike the document URL, ``RuntimeUID`` exists even for unsaved/untitled
+    documents, so it can address a document that has no file on disk yet.
+    Returns "" if unavailable.
+    """
+    try:
+        uid = getattr(model, "RuntimeUID", None)
+        return str(uid) if uid else ""
+    except Exception:
+        return ""
+
+
+def resolve_document_by_url(ctx, url):
+    """Resolve an open document by URL or RuntimeUID. Must be called on the UNO main thread.
+
+    ``url`` may be a document URL or a ``RuntimeUID`` (as returned by
+    ``list_open_documents``); the RuntimeUID also matches unsaved/untitled
+    documents that have no URL yet.
     Returns (doc, doc_type) or (None, None) if not found.
     doc_type is one of 'writer', 'calc', 'draw'.
     """
@@ -618,9 +635,10 @@ def resolve_document_by_url(ctx, url):
                     model = elem
                 elif hasattr(elem, "getController") and elem.getController():
                     model = elem.getController().getModel()
-                if model and hasattr(model, "getURL"):
-                    doc_url = _normalize_doc_url(model.getURL())
-                    if doc_url and doc_url == target:
+                if model is not None:
+                    doc_url = _normalize_doc_url(model.getURL()) if hasattr(model, "getURL") else ""
+                    uid = get_runtime_uid(model)
+                    if (doc_url and doc_url == target) or (uid and uid == target):
                         doc_type_enum = get_document_type(model)
                         doc_type = "writer"
                         if doc_type_enum == DocumentType.CALC:
