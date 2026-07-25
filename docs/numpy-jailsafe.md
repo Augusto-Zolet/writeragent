@@ -56,15 +56,17 @@ Track with Collabora: [online#16010](https://github.com/CollaboraOnline/online/i
 
 ### Excel `xl()` compatibility is handled before execution
 
-The Online bridge deliberately accepts the native, explicit-data surface `=PY(code, data…)`; it does not implement Microsoft's runtime `xl()` callback. Excel Python workbooks can instead pass through the bidirectional rewriter in [`plugin/calc/excel_py_convert/`](../plugin/calc/excel_py_convert/) (CLI and **auto-convert on open**; scripts **>1000 chars** use visible `py_code_<Sheet>` banks, shorter stay inline — see [ms-py §5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import)):
+The Online bridge deliberately accepts the native, explicit-data surface `=PY(code, data…)`; it does not implement Microsoft's runtime `xl()` callback. Excel Python workbooks instead pass through the bidirectional rewriter in [`plugin/calc/excel_py_convert/`](../plugin/calc/excel_py_convert/) (CLI, **auto-convert on open**, **ZipFile native export on save**; scripts **>1000 chars** use visible `py_code_<Sheet>` banks, shorter stay inline — full detail in [ms-py §5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import)):
 
 ```text
-pythonScripts.xml:  df = xl(%P2%, headers=True)
+pythonScripts.xml:  df = xl(%P2%,headers=True)
 worksheet cell:     _xlws.PY(0, 1, A1:C100)
 
-rewritten code:     df = pd.DataFrame(data[1:], columns=data[0])
+rewritten code:     df = data.to_pandas()
 Calc formula:       =PY("..."; A1:C100)
 ```
+
+(Older Excel-style rewrites used `pd.DataFrame(data[1:], columns=data[0])`; reverse export still accepts that form.)
 
 This is important for both correctness and the jail boundary:
 
@@ -72,9 +74,9 @@ This is important for both correctness and the jail boundary:
 2. coolkit extracts that already-declared range once and includes it in the request; Python does not synchronously call back through service → wsd → kit for each `xl()` invocation.
 3. The compute service remains document-blind: it receives code and plain values, not a capability for arbitrary live worksheet reads.
 
-Excel scripts that share globals across multiple PY cells need two separate guarantees. The rewriter adds the representative prior PY stage as an ordering-only formula argument, making Calc schedule the stages as a DAG chain instead of using Excel co-volatility. The Online compute service must also run those cells in **shared** mode for the same document/session so the prior stage's Python names persist. DAG order without a shared namespace orders the calls but cannot preserve variables; a shared namespace without DAG edges does not guarantee which stage runs first.
+Excel scripts that share globals across multiple PY cells need a **shared** compute session so prior-stage Python names persist. The OOXML rewriter maps formula-static `xl()` ranges onto real `=PY` data precedents only; it does **not** inject synthetic prior-PY order edges (every trailing arg is a real binding). Enabling shared-kernel mode and managing run order is the operator’s responsibility (same advisory as LibrePy [§6](enabling_numpy_in_libreoffice.md#session-modes-and-recalc-semantics)). A shared namespace without Calc precedents on real data ranges still will not refresh when those ranges change. `returnType` / Object egress is preserved via conversion meta on open→save (`ExcelPyDagMeta`); Table/`ANCHORARRAY` tokens become A1 snapshots on both import and export (MVP).
 
-The rewriter handles formula-static references: fixed ranges, scalar cells, sheet-qualified table `[#All]` references, and `ANCHORARRAY`/spill anchors (the latter two become fixed A1 snapshots from workbook metadata). It **fails closed** on computed Python references such as `xl(f"A1:A{n}")` or `xl(name)`, and on missing table/anchor snapshots, rather than emitting shifted `data[i]` formulas.
+The rewriter handles formula-static references: fixed ranges, scalar cells, sheet-qualified table `[#All]` references, and `ANCHORARRAY`/spill anchors (the latter two become fixed A1 snapshots from workbook metadata). It **fails closed** on computed Python references such as `xl(f"A1:A{n}")` or `xl(name)`, and on missing table/anchor snapshots, rather than emitting shifted `data[i]` formulas. Sample fidelity: [`scripts/roundtrip_excel_py_samples.py`](../scripts/roundtrip_excel_py_samples.py) over [`PythonExcelSamples/`](../PythonExcelSamples/).
 
 ```mermaid
 flowchart LR
@@ -424,7 +426,7 @@ Prefer **kit-side binary insert via existing LOK document APIs**, not reimplemen
 4. **Lifecycle:**
    - On DocumentBroker destroy / last session leave: `POST /v1/session/reset` (new service endpoint) or include `reset:true` on next unused call — implement `reset` in executor by dropping sandboxed globals for that `session_id` (mirror LibrePy `reset_python_session`).
    - TTL: expire idle shared sessions in the service (dict + last-used timestamp) to bound memory.
-5. **Recalc semantics:** document Online limitation — without Excel-style co-volatility, shared cells can see stale ordering unless `data` precedents are used (same advisory as LibrePy §6). Do not invent Online co-volatility in v1.
+5. **Recalc semantics:** document Online limitation — without Excel-style co-volatility, multi-cell shared-kernel scripts need real `data` precedents for dirtying and operator-managed run order (same advisory as LibrePy §6; the OOXML rewriter does not invent prior-PY edges). Do not invent Online co-volatility in v1.
 6. **Tests:**
    - Service unit: two sequential executes with same `session_id` share a name; different ids do not.
    - UnitWSD: enable shared; `pythonexecute` twice with `code` setting then reading a global; assert second sees first; second docKey does not.

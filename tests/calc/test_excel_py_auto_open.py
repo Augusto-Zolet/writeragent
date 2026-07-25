@@ -12,6 +12,7 @@ from plugin.calc.excel_py_convert.auto_open import (
     _CONVERTED_PROP,
     install_excel_py_auto_convert,
     maybe_convert_excel_py_document,
+    maybe_export_excel_py_on_save,
 )
 from plugin.calc.excel_py_convert.models import ConvertedCell, ConversionReport
 from plugin.calc.excel_py_convert.parse_excel_ooxml import has_excel_python_xlsx
@@ -301,7 +302,10 @@ def test_maybe_convert_uno_marks_converted(tmp_path: Path):
     ):
         assert maybe_convert_excel_py_document(MagicMock(), doc) is True
         apply_uno.assert_called_once()
-        set_prop.assert_called_once_with(doc, _CONVERTED_PROP, "1")
+        names = [c.args[1] for c in set_prop.call_args_list]
+        assert _CONVERTED_PROP in names
+        assert "ExcelPyDagMeta" in names
+        set_prop.assert_any_call(doc, _CONVERTED_PROP, "1")
 
 
 def test_install_excel_py_auto_convert_once():
@@ -317,4 +321,84 @@ def test_install_excel_py_auto_convert_once():
     install_excel_py_auto_convert(ctx)
     install_excel_py_auto_convert(ctx)
     assert broadcaster.addDocumentEventListener.call_count == 1
-    mod._doc_listener = None
+
+
+def test_maybe_export_skips_without_py_cells(tmp_path: Path):
+    path = tmp_path / "plain.xlsx"
+    _minimal_xlsx(path)
+    doc = MagicMock()
+    doc.supportsService.return_value = True
+    empty = ConversionReport(direction="excel", cells=[])
+    with (
+        patch("plugin.doc.document_helpers.get_document_path", return_value=str(path)),
+        patch("plugin.calc.excel_py_convert.convert.convert_uno_doc_to_excel", return_value=empty),
+        patch("plugin.calc.excel_py_convert.convert.write_excel_python_xlsx") as write_xlsx,
+    ):
+        assert maybe_export_excel_py_on_save(MagicMock(), doc) is False
+        write_xlsx.assert_not_called()
+
+
+def test_maybe_export_writes_native_package(tmp_path: Path):
+    path = tmp_path / "dag.xlsx"
+    _minimal_xlsx(path)
+    doc = MagicMock()
+    doc.supportsService.return_value = True
+    report = ConversionReport(
+        direction="excel",
+        cells=[
+            ConvertedCell(
+                sheet="Sheet1",
+                cell="A1",
+                direction="excel",
+                original_code="df = data.to_pandas()",
+                converted_code="df = xl(%P2%, headers=True)",
+                data_args=["B1:C2"],
+                converted=True,
+                script_index=0,
+                excel_formula="=_xlfn._xlws.PY(0,0,B1:C2)",
+            )
+        ],
+    )
+    with (
+        patch("plugin.doc.document_helpers.get_document_path", return_value=str(path)),
+        patch("plugin.calc.excel_py_convert.convert.convert_uno_doc_to_excel", return_value=report),
+        patch("plugin.calc.excel_py_convert.convert.write_excel_python_xlsx") as write_xlsx,
+        patch("plugin.calc.excel_py_convert.parse_excel_ooxml.has_excel_python_xlsx", return_value=True),
+    ):
+        assert maybe_export_excel_py_on_save(MagicMock(), doc) is True
+        write_xlsx.assert_called_once()
+
+
+def test_maybe_export_msgbox_on_failure(tmp_path: Path):
+    path = tmp_path / "dag.xlsx"
+    _minimal_xlsx(path)
+    doc = MagicMock()
+    doc.supportsService.return_value = True
+    report = ConversionReport(
+        direction="excel",
+        cells=[
+            ConvertedCell(
+                sheet="Sheet1",
+                cell="A1",
+                direction="excel",
+                original_code="x",
+                converted_code="xl(%P2%)",
+                data_args=["A1"],
+                converted=True,
+                script_index=0,
+            )
+        ],
+    )
+    ctx = MagicMock()
+    with (
+        patch("plugin.doc.document_helpers.get_document_path", return_value=str(path)),
+        patch("plugin.calc.excel_py_convert.convert.convert_uno_doc_to_excel", return_value=report),
+        patch(
+            "plugin.calc.excel_py_convert.convert.write_excel_python_xlsx",
+            side_effect=ValueError("boom"),
+        ),
+        patch("plugin.chatbot.dialogs.msgbox") as box,
+    ):
+        assert maybe_export_excel_py_on_save(ctx, doc) is False
+        box.assert_called_once()
+        assert "boom" in box.call_args[0][2]

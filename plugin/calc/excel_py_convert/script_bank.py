@@ -143,7 +143,8 @@ def formula_for_converted_cell(
     Inline when ``len(converted_code) <= 1000``; otherwise reference
     ``py_code_<Sheet>.A1`` (same address as the caller).
     """
-    args = list(cell.data_args) + list(cell.ordering_args)
+    # Data bindings only — ordering_args are legacy/empty (never formula args).
+    args = list(cell.data_args)
     if use_script_bank and cell.cell and cell.sheet and not should_inline_code(cell.converted_code):
         try:
             return rebuild_python_formula_with_code_ref(

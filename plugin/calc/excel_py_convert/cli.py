@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """CLI: convert Excel Python-in-Excel scripts ↔ DAG-style ``=PY(code; ranges)``.
 
-``--to excel`` is a script/dependency export (not native ``pythonScripts.xml``).
+``--to excel --write-xlsx`` writes native ``pythonScripts.xml`` / ``_xlws.PY``.
+Pass ``--from-report dag.json`` with ``--to excel`` to preserve return_type /
+data_args from a DAG conversion report.
 """
 
 from __future__ import annotations
@@ -18,9 +20,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--to", choices=("dag", "excel"), required=True, dest="direction")
     parser.add_argument("-o", "--report", type=Path, help="Write JSON conversion report")
     parser.add_argument(
+        "--from-report",
+        type=Path,
+        help="DAG conversion JSON for --to excel (preserves return_type / data_args)",
+    )
+    parser.add_argument(
         "--write-xlsx",
         type=Path,
-        help="(dag only) Write workbook copy with DAG =PY formulas applied",
+        help="Write workbook: DAG =PY (--to dag) or native Excel PY package (--to excel)",
     )
     parser.add_argument(
         "--best-effort",
@@ -29,23 +36,32 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    from plugin.calc.excel_py_convert.convert import convert_path, write_dag_formulas_xlsx
+    from plugin.calc.excel_py_convert.convert import (
+        convert_path,
+        write_dag_formulas_xlsx,
+        write_excel_python_xlsx,
+    )
+
+    if args.from_report and args.direction != "excel":
+        print("--from-report only valid with --to excel", file=sys.stderr)
+        return 2
 
     report = convert_path(
         args.path,
         direction=args.direction,
         out_report=args.report,
         best_effort=args.best_effort,
+        from_report=args.from_report,
     )
     if args.write_xlsx:
-        if args.direction != "dag":
-            print("--write-xlsx only valid with --to dag", file=sys.stderr)
-            return 2
         if args.path.suffix.lower() != ".xlsx":
-            print("--write-xlsx requires an .xlsx source", file=sys.stderr)
+            print("--write-xlsx requires an .xlsx source (package shell)", file=sys.stderr)
             return 2
         try:
-            write_dag_formulas_xlsx(args.path, report, args.write_xlsx)
+            if args.direction == "dag":
+                write_dag_formulas_xlsx(args.path, report, args.write_xlsx)
+            else:
+                write_excel_python_xlsx(args.path, report, args.write_xlsx)
         except ValueError as exc:
             print(str(exc), file=sys.stderr)
             return 1

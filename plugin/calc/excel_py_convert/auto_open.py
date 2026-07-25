@@ -1,10 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Automatically rewrite Excel Python-in-Excel workbooks to DAG ``=PY`` on open.
+"""Excel Python-in-Excel ↔ DAG ``=PY`` automatic round-trip on open/save.
 
-No menu: a GlobalEventBroadcaster listener runs on Calc ``OnLoadFinished``.
-Detection re-reads the ``.xlsx`` on disk (stock import often drops
-``pythonScripts.xml``). Applies formulas directly in-place via UNO ``setFormula``.
-Failures leave the original document open.
+* **Open** (``OnLoadFinished``): if the ``.xlsx`` on disk still has
+  ``pythonScripts.xml`` / ``_xlws.PY``, rewrite in-place to DAG ``=PY`` via UNO.
+* **Save** (``OnSaveDone`` / ``OnSaveAsDone`` / ``OnSaveToDone``): if the open
+  Calc doc has DAG ``=PY`` cells and the destination is ``.xlsx``, snapshot
+  formulas from memory (UNO) and ZipFile-patch the saved file to native Excel
+  PY (``pythonScripts.xml`` + ``_xlws.PY``). Failures show a MessageBox.
 """
 
 from __future__ import annotations
@@ -22,6 +24,9 @@ _CONVERTED_PROP = "ExcelPyDagConverted"
 _lock = threading.Lock()
 _doc_listener: Any = None
 _busy_paths: set[str] = set()
+
+# Only *Done* events — OnSave/OnSaveAs also fire and would double-patch the file.
+_SAVE_DONE_EVENTS = frozenset({"OnSaveDone", "OnSaveAsDone", "OnSaveToDone"})
 
 
 def _is_calc_doc(doc: Any) -> bool:
@@ -86,6 +91,12 @@ def maybe_convert_excel_py_document(ctx: Any, doc: Any) -> bool:
             return False
         set_document_property(doc, _CONVERTED_PROP, "1")
         try:
+            from plugin.calc.excel_py_convert.convert import store_dag_meta_on_doc
+
+            store_dag_meta_on_doc(doc, report)
+        except Exception:
+            log.warning("excel_py auto-open: failed to store ExcelPyDagMeta", exc_info=True)
+        try:
             if hasattr(doc, "setModified"):
                 doc.setModified(True)
         except Exception:
@@ -94,6 +105,77 @@ def maybe_convert_excel_py_document(ctx: Any, doc: Any) -> bool:
         return True
     except Exception:
         log.warning("excel_py auto-open: conversion failed for %s", path, exc_info=True)
+        return False
+    finally:
+        with _lock:
+            _busy_paths.discard(path_str)
+
+
+def _save_fail_message(path: Path, detail: str) -> str:
+    from plugin.framework.i18n import _
+
+    return _(
+        "Could not write Microsoft Excel Python package parts for:\n{0}\n\n"
+        "The file was saved with LibreOffice =PY formulas. "
+        "Excel will not see pythonScripts.xml / _xlws.PY until export succeeds.\n\n{1}"
+    ).format(path, detail)
+
+
+def maybe_export_excel_py_on_save(ctx: Any, doc: Any) -> bool:
+    """After LO stores a Calc ``.xlsx``, rewrite disk to native Excel PY. Return True if patched."""
+    if not _is_calc_doc(doc):
+        return False
+
+    from plugin.doc.document_helpers import get_document_path
+
+    path_str = get_document_path(doc)
+    if not path_str:
+        return False
+    path = Path(path_str)
+    if path.suffix.lower() != ".xlsx" or not path.is_file():
+        return False
+
+    with _lock:
+        if path_str in _busy_paths:
+            return False
+        _busy_paths.add(path_str)
+
+    try:
+        from plugin.calc.excel_py_convert.convert import convert_uno_doc_to_excel, write_excel_python_xlsx
+        from plugin.calc.excel_py_convert.parse_excel_ooxml import has_excel_python_xlsx
+        from plugin.chatbot.dialogs import msgbox
+        from plugin.framework.i18n import _
+
+        report = convert_uno_doc_to_excel(doc)
+        if not any(c.converted for c in report.cells):
+            # No DAG =PY in memory — leave the saved file alone (plain spreadsheet).
+            return False
+
+        try:
+            write_excel_python_xlsx(path, report, path)
+        except Exception as exc:
+            detail = str(exc)
+            log.warning("excel_py auto-save: ZipFile export failed for %s: %s", path, detail, exc_info=True)
+            msgbox(ctx, _("WriterAgent"), _save_fail_message(path, detail), box_type=2)
+            return False
+
+        if not has_excel_python_xlsx(path):
+            detail = "pythonScripts.xml / _xlws.PY missing after write"
+            log.warning("excel_py auto-save: %s for %s", detail, path)
+            msgbox(ctx, _("WriterAgent"), _save_fail_message(path, detail), box_type=2)
+            return False
+
+        log.info("excel_py auto-save: wrote native Excel PY package for %s", path)
+        return True
+    except Exception as exc:
+        log.warning("excel_py auto-save: failed for %s", path, exc_info=True)
+        try:
+            from plugin.chatbot.dialogs import msgbox
+            from plugin.framework.i18n import _
+
+            msgbox(ctx, _("WriterAgent"), _save_fail_message(path, str(exc)), box_type=2)
+        except Exception:
+            pass
         return False
     finally:
         with _lock:
@@ -121,7 +203,7 @@ def _doc_from_event(event: Any) -> Any | None:
 
 
 def install_excel_py_auto_convert(ctx: Any) -> None:
-    """Attach a global listener so Excel-PY ``.xlsx`` files convert on open."""
+    """Attach a global listener for Excel-PY convert on open and export on save."""
     global _doc_listener
     with _lock:
         if _doc_listener is not None:
@@ -129,26 +211,27 @@ def install_excel_py_auto_convert(ctx: Any) -> None:
     try:
         from plugin.framework.uno_listeners import BaseDocumentEventListener
 
-        class _ExcelPyOpenListener(BaseDocumentEventListener):  # type: ignore[misc, valid-type]
+        class _ExcelPyLifecycleListener(BaseDocumentEventListener):  # type: ignore[misc, valid-type]
             def on_document_event(self, Event: Any) -> None:  # noqa: N803 -- UNO signature
                 try:
                     name = getattr(Event, "EventName", "") or ""
-                    # OnLoadFinished is enough; OnLoad/OnViewCreated can race mid-import.
-                    if name != "OnLoadFinished":
-                        return
                     doc = _doc_from_event(Event)
                     if doc is None:
                         return
-                    maybe_convert_excel_py_document(ctx, doc)
+                    if name == "OnLoadFinished":
+                        maybe_convert_excel_py_document(ctx, doc)
+                        return
+                    if name in _SAVE_DONE_EVENTS:
+                        maybe_export_excel_py_on_save(ctx, doc)
                 except Exception:
-                    log.warning("excel_py auto-open: doc-event handling failed", exc_info=True)
+                    log.warning("excel_py lifecycle: doc-event handling failed", exc_info=True)
 
         smgr = ctx.getServiceManager()
         broadcaster = smgr.createInstanceWithContext("com.sun.star.frame.GlobalEventBroadcaster", ctx)
-        listener = _ExcelPyOpenListener()
+        listener = _ExcelPyLifecycleListener()
         broadcaster.addDocumentEventListener(listener)
         with _lock:
             _doc_listener = listener
-        log.debug("excel_py auto-open: global OnLoadFinished listener attached")
+        log.debug("excel_py lifecycle: OnLoadFinished + OnSave* listener attached")
     except Exception:
-        log.warning("excel_py auto-open: listener install failed", exc_info=True)
+        log.warning("excel_py lifecycle: listener install failed", exc_info=True)

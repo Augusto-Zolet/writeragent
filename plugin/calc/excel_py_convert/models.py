@@ -144,6 +144,45 @@ class ConvertedCell:
             "script_index": self.script_index,
         }
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ConvertedCell:
+        bindings: list[BindingInfo] = []
+        for b in data.get("bindings") or []:
+            if isinstance(b, dict):
+                hm = b.get("header_mode") or "omit"
+                if hm not in ("true", "false", "omit"):
+                    hm = "omit"
+                role = b.get("role") or "data"
+                if role not in ("data", "ordering"):
+                    role = "data"
+                bindings.append(
+                    BindingInfo(
+                        a1=str(b.get("a1") or ""),
+                        header_mode=hm,  # type: ignore[arg-type]
+                        role=role,  # type: ignore[arg-type]
+                        original_indices=list(b.get("original_indices") or []),
+                    )
+                )
+        return cls(
+            sheet=str(data.get("sheet") or "Sheet1"),
+            cell=str(data.get("cell") or "A1"),
+            direction=str(data.get("direction") or "dag"),
+            original_code=str(data.get("original_code") or ""),
+            converted_code=str(data.get("converted_code") or ""),
+            data_args=[str(a) for a in (data.get("data_args") or [])],
+            ordering_args=[str(a) for a in (data.get("ordering_args") or [])],
+            bindings=bindings,
+            dag_formula=str(data.get("dag_formula") or ""),
+            excel_formula=str(data.get("excel_formula") or ""),
+            issues=[str(i) for i in (data.get("issues") or [])],
+            shared_kernel=bool(data.get("shared_kernel")),
+            snapshot_deps=[str(s) for s in (data.get("snapshot_deps") or [])],
+            return_type=int(data.get("return_type") or 0),
+            converted=bool(data.get("converted", True)),
+            array_ref=str(data.get("array_ref") or ""),
+            script_index=int(data.get("script_index") if data.get("script_index") is not None else -1),
+        )
+
 
 @dataclass
 class ConversionReport:
@@ -168,3 +207,13 @@ class ConversionReport:
             "issues": list(self.issues),
             "cells": [c.to_dict() for c in self.cells],
         }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ConversionReport:
+        cells = [ConvertedCell.from_dict(c) for c in (data.get("cells") or []) if isinstance(c, dict)]
+        return cls(
+            direction=str(data.get("direction") or "dag"),
+            source_path=str(data.get("source_path") or ""),
+            cells=cells,
+            issues=[str(i) for i in (data.get("issues") or [])],
+        )

@@ -6,10 +6,11 @@ Only reverses the *data bridge* we introduced: ``data`` / ``data[i]`` / ``inputs
 ``pd.DataFrame(data[1:], columns=data[0])`` form) become ``xl(...)`` again. Other
 Python is unchanged.
 
-This is a **script/dependency export**, not a writer of native
-``pythonScripts.xml`` / ``_xlws.PY``. Ordering-only deps are ignored when
-reconstructing ``xl(%Pn%)``. Header mode and ``return_type`` are preserved when
-present on the conversion report / cell metadata.
+Native OOXML write banks restored scripts into ``pythonScripts.xml`` and cell
+formulas as ``_xlfn._xlws.PY(...)`` (see ``xlws_py_formula`` /
+``python_scripts_xml``). Ordering-only deps are ignored when reconstructing
+``xl(%Pn%)``. Header mode and ``return_type`` are preserved when present on the
+conversion report / cell metadata.
 """
 
 from __future__ import annotations
@@ -17,10 +18,15 @@ from __future__ import annotations
 import ast
 import re
 from typing import Any, Sequence, cast
+from xml.sax.saxutils import escape as xml_escape
 
 from plugin.calc.excel_py_convert.models import BindingInfo, ConvertedCell, ConversionReport, DepRole, HeaderMode
 from plugin.calc.excel_py_convert.to_dag import ast_source_offset
 from plugin.calc.python.formula_edit import escape_code_for_excel_formula, parse_python_formula
+
+_PY_NS = "http://schemas.microsoft.com/office/spreadsheetml/2022/pythonscript"
+# Calc ``Sheet.A1`` → Excel ``Sheet!A1`` for _xlws.PY deps (leave ranges without a sheet alone).
+_CALC_SHEET_REF_RE = re.compile(r"^((?:'[^']*(?:''[^']*)*')|[^'!.]+)\.(\$?[A-Za-z]+\$?\d+(?::\$?[A-Za-z]+\$?\d+)?)$")
 
 _DF_DATA_RE = re.compile(
     r"pd\.DataFrame\(\s*(data(?:\[\s*(\d+)\s*\])?)\[1:\]\s*,\s*columns\s*=\s*(data(?:\[\s*(\d+)\s*\])?)\[0\]\s*\)",
@@ -48,11 +54,12 @@ def _p_token(index: int) -> str:
 
 
 def _xl_expr(index: int, header_mode: HeaderMode) -> str:
+    # Match Microsoft samples: no space after the comma in ``headers=…``.
     tok = _p_token(index)
     if header_mode == "true":
-        return f"xl({tok}, headers=True)"
+        return f"xl({tok},headers=True)"
     if header_mode == "false":
-        return f"xl({tok}, headers=False)"
+        return f"xl({tok},headers=False)"
     return f"xl({tok})"
 
 
@@ -232,6 +239,57 @@ def excel_formulatext(code: str, return_type: int = 0) -> str:
     return f'=PY("{escaped}",{int(return_type)})'
 
 
+def excel_dep_ref(ref: str) -> str:
+    """Normalize a Calc/Excel range token for ``_xlws.PY`` args (``Sheet.A1`` → ``Sheet!A1``)."""
+    raw = (ref or "").strip()
+    if not raw or "!" in raw:
+        return raw
+    m = _CALC_SHEET_REF_RE.match(raw)
+    if not m:
+        return raw
+    return f"{m.group(1)}!{m.group(2)}"
+
+
+def xlws_py_formula(script_index: int, return_type: int, data_args: Sequence[str]) -> str:
+    """Build ``_xlfn._xlws.PY(scriptIndex, returnType, deps…)`` (no leading ``=``)."""
+    parts = [str(int(script_index)), str(int(return_type))]
+    parts.extend(excel_dep_ref(a) for a in data_args if a)
+    return "_xlfn._xlws.PY(" + ",".join(parts) + ")"
+
+
+def python_scripts_xml(scripts: Sequence[str]) -> bytes:
+    """Serialize ordered script bank to ``xl/pythonScripts.xml`` bytes (UTF-8)."""
+    chunks = [
+        '<?xml version="1.0" encoding="UTF-8"?>\n',
+        f'<pythonScripts xmlns="{_PY_NS}">\n',
+    ]
+    for body in scripts:
+        chunks.append(f"  <pythonScript><code>{xml_escape(body or '')}</code></pythonScript>\n")
+    chunks.append("</pythonScripts>\n")
+    return "".join(chunks).encode("utf-8")
+
+
+def assign_script_bank(cells: Sequence[ConvertedCell]) -> tuple[list[str], list[ConvertedCell]]:
+    """Content-dedup ``converted_code`` → ``scripts`` and set ``script_index`` on each cell.
+
+    Returns ``(scripts, cells)`` — *cells* are the same objects, mutated in place.
+    """
+    scripts: list[str] = []
+    index_by_code: dict[str, int] = {}
+    for cell in cells:
+        if not cell.converted or not (cell.converted_code or "").strip():
+            continue
+        code = cell.converted_code
+        idx = index_by_code.get(code)
+        if idx is None:
+            idx = len(scripts)
+            scripts.append(code)
+            index_by_code[code] = idx
+        cell.script_index = idx
+        cell.excel_formula = "=" + xlws_py_formula(idx, cell.return_type, cell.data_args)
+    return scripts, list(cells)
+
+
 def expand_placeholders_to_literals(code: str, deps: list[str]) -> str:
     """Replace ``%Pk%`` with quoted A1 deps for FORMULATEXT-style output."""
 
@@ -311,11 +369,8 @@ def convert_dag_formula_to_excel(
     excel_code, deps, issues = rewrite_dag_code_to_excel(parts.code, data_args, header_modes=modes)
     if ordering_args:
         issues.append("ignored ordering-only deps on reverse export")
-    issues.append("script/dependency export only — does not write native pythonScripts.xml / _xlws.PY")
-    display_code = expand_placeholders_to_literals(excel_code, deps)
-    excel_formula = excel_formulatext(display_code, return_type=rt)
-
-    return ConvertedCell(
+    array_ref = str(meta.get("array_ref") or "")
+    out = ConvertedCell(
         sheet=sheet,
         cell=cell,
         direction="excel",
@@ -324,12 +379,15 @@ def convert_dag_formula_to_excel(
         data_args=deps,
         ordering_args=ordering_args,
         bindings=bindings,
-        excel_formula=excel_formula,
+        excel_formula="",  # filled by assign_script_bank
         issues=issues,
         shared_kernel=not deps and "data" not in parts.code,
         return_type=rt,
         converted=True,
+        array_ref=array_ref,
     )
+    assign_script_bank([out])
+    return out
 
 
 def convert_dag_cells_to_excel(
@@ -342,9 +400,6 @@ def convert_dag_cells_to_excel(
     report = ConversionReport(direction="excel")
     if report_meta and report_meta.get("source_path"):
         report.source_path = str(report_meta.get("source_path") or "")
-    report.issues.append(
-        "to-excel is a script/dependency export until native OOXML pythonScripts/_xlws.PY writing ships"
-    )
     for item in formulas:
         sheet = item[0]
         cell = item[1]
@@ -355,4 +410,65 @@ def convert_dag_cells_to_excel(
         report.cells.append(
             convert_dag_formula_to_excel(formula, sheet=sheet, cell=cell, return_type=return_type, meta=meta)
         )
+    assign_script_bank(report.cells)
     return report
+
+
+def convert_dag_report_to_excel(dag_report: ConversionReport) -> ConversionReport:
+    """Reverse a DAG ``ConversionReport`` to Excel shape (preserves return_type / data_args).
+
+    Ordering-only args are kept on the cell for diagnostics but are **not** emitted
+    on ``_xlws.PY`` (``assign_script_bank`` uses ``data_args`` only).
+    """
+    out = ConversionReport(direction="excel", source_path=dag_report.source_path)
+    for cell in dag_report.cells:
+        if not cell.converted or not (cell.converted_code or "").strip():
+            out.cells.append(
+                ConvertedCell(
+                    sheet=cell.sheet,
+                    cell=cell.cell,
+                    direction="excel",
+                    original_code=cell.converted_code or cell.original_code,
+                    converted_code="",
+                    issues=list(cell.issues) + ["skipped: not converted on DAG pass"],
+                    converted=False,
+                    return_type=cell.return_type,
+                    array_ref=cell.array_ref,
+                )
+            )
+            continue
+        modes: list[HeaderMode] = []
+        if cell.bindings:
+            for b in cell.bindings:
+                if b.role == "ordering":
+                    continue
+                modes.append(_as_header_mode(b.header_mode))
+        while len(modes) < len(cell.data_args):
+            modes.append("omit")
+        excel_code, deps, issues = rewrite_dag_code_to_excel(
+            cell.converted_code,
+            list(cell.data_args),
+            header_modes=modes,
+        )
+        if cell.ordering_args:
+            issues.append("ignored ordering-only deps on reverse export")
+        out.cells.append(
+            ConvertedCell(
+                sheet=cell.sheet,
+                cell=cell.cell,
+                direction="excel",
+                original_code=cell.converted_code,
+                converted_code=excel_code,
+                data_args=deps,
+                ordering_args=list(cell.ordering_args),
+                bindings=list(cell.bindings),
+                issues=issues,
+                shared_kernel=cell.shared_kernel,
+                snapshot_deps=list(cell.snapshot_deps),
+                return_type=int(cell.return_type or 0),
+                converted=True,
+                array_ref=cell.array_ref,
+            )
+        )
+    assign_script_bank(out.cells)
+    return out

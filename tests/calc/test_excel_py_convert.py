@@ -9,9 +9,10 @@ from pathlib import Path
 
 import pytest
 
-from plugin.calc.excel_py_convert.convert import write_dag_formulas_xlsx
+from plugin.calc.excel_py_convert.convert import convert_to_excel, write_dag_formulas_xlsx, write_excel_python_xlsx
 from plugin.calc.excel_py_convert.models import ExcelPyCell, ExcelWorkbookModel, SheetInfo
 from plugin.calc.excel_py_convert.parse_excel_ooxml import (
+    has_excel_python_xlsx,
     load_excel_model,
     parse_xlws_py_formula,
     split_top_level_args,
@@ -20,9 +21,12 @@ from plugin.calc.excel_py_convert.resolve_refs import resolve_dep
 from plugin.calc.excel_py_convert.script_bank import iter_a1_span
 from plugin.calc.excel_py_convert.to_dag import convert_model_to_dag, rewrite_excel_code
 from plugin.calc.excel_py_convert.to_excel import (
+    assign_script_bank,
     convert_dag_formula_to_excel,
     expand_placeholders_to_literals,
+    python_scripts_xml,
     rewrite_dag_code_to_excel,
+    xlws_py_formula,
 )
 from plugin.calc.python.formula_edit import (
     escape_code_for_excel_formula,
@@ -328,12 +332,14 @@ def test_demo1_fillna_specifics():
     assert h4.return_type == 1
     assert "result = None" in h4.converted_code
     assert not h4.ordering_args
-    assert by_cell["H5"].ordering_args == ["H4"]
+    assert not by_cell["H5"].ordering_args
+    assert "H4" not in (by_cell["H5"].dag_formula or "")
     h6 = by_cell["H6"]
     assert h6.shared_kernel
     assert "merge" in h6.converted_code
-    assert h6.ordering_args == ["H5"]
-
+    assert not h6.ordering_args
+    assert "H5" not in (h6.dag_formula or "")
+    assert any("does not add order edges" in i for i in h6.issues)
 
 def test_demo3_table_and_scalar_groupby():
     report = convert_model_to_dag(demo3_groupby())
@@ -343,11 +349,13 @@ def test_demo3_table_and_scalar_groupby():
     assert "to_pandas()" in c1.converted_code
     c9 = by_cell["C9"]
     assert c9.data_args == ["C4", "C5", "C6"]
-    assert c9.ordering_args == ["C3"]
+    assert not c9.ordering_args
+    assert "C3" not in (c9.dag_formula or "")
     assert "data" in c9.converted_code and "inputs[2]" in c9.converted_code
     d9 = by_cell["D9"]
     assert d9.data_args == ["D4", "D5", "D6"]
-    assert d9.ordering_args == ["C9"]
+    assert not d9.ordering_args
+    assert "C9" not in (d9.dag_formula or "")
 
 
 def test_demo5_table1():
@@ -364,7 +372,7 @@ def test_demo6_multi_range_and_headers_false():
     assert by_cell["L2"].data_args == ["A4:I63"]
     n17 = by_cell["N17"]
     assert n17.data_args[:2] == ["U8:U15", "M8:T15"]
-    assert n17.ordering_args
+    assert not n17.ordering_args
     assert "data" in n17.converted_code and "inputs[1]" in n17.converted_code
     ak = by_cell["AK34"]
     assert "data" in ak.converted_code and "inputs[1]" in ak.converted_code
@@ -399,7 +407,7 @@ def test_fail_closed_unresolved_dep():
 def test_roundtrip_dag_excel_headers():
     dag_code = "df = data.to_pandas()"
     excel_code, deps, issues = rewrite_dag_code_to_excel(dag_code, ["A3:F23"], header_modes=["true"])
-    assert "xl(%P2%, headers=True)" in excel_code
+    assert "xl(%P2%,headers=True)" in excel_code
     assert deps == ["A3:F23"]
     assert not issues
     again, _issues2, _used, modes = rewrite_excel_code(excel_code, num_deps=1)
@@ -417,7 +425,7 @@ def test_roundtrip_multi_dep_data_and_inputs():
     assert out_deps == deps
     assert "xl(%P2%)" in excel_code
     assert "xl(%P3%)" in excel_code
-    assert "xl(%P4%, headers=True)" in excel_code
+    assert "xl(%P4%,headers=True)" in excel_code
     assert "inputs[" not in excel_code
     assert not any("ambiguous" in i for i in issues)
     again, _issues2, used, modes = rewrite_excel_code(excel_code, num_deps=3)
@@ -463,6 +471,84 @@ def test_reverse_preserves_headers_false_and_return_type():
     assert "Y1" not in cell.converted_code
 
 
+def test_convert_dag_report_preserves_return_type_drops_legacy_ordering():
+    """Legacy reports may still carry ordering_args; export must not put them on _xlws.PY."""
+    from plugin.calc.excel_py_convert.models import BindingInfo, ConvertedCell, ConversionReport
+    from plugin.calc.excel_py_convert.to_excel import convert_dag_report_to_excel, xlws_py_formula
+
+    dag = ConversionReport(
+        direction="dag",
+        cells=[
+            ConvertedCell(
+                sheet="Sheet1",
+                cell="H5",
+                direction="dag",
+                original_code="x = data.to_pandas()",
+                converted_code="x = data.to_pandas()",
+                data_args=["A1:B2"],
+                ordering_args=["H4"],
+                bindings=[BindingInfo(a1="A1:B2", header_mode="true", role="data", original_indices=[0])],
+                return_type=1,
+                converted=True,
+                array_ref="H5:I10",
+            )
+        ],
+    )
+    excel = convert_dag_report_to_excel(dag)
+    assert excel.ok
+    c = excel.cells[0]
+    assert c.return_type == 1
+    assert c.data_args == ["A1:B2"]
+    assert c.ordering_args == ["H4"]
+    assert "H4" not in xlws_py_formula(c.script_index, c.return_type, c.data_args)
+    assert "xl(%P2%,headers=True)" in c.converted_code
+    assert c.excel_formula.startswith("=_xlfn._xlws.PY(0,1,")
+
+
+def test_dag_meta_payload_roundtrip():
+    from plugin.calc.excel_py_convert.convert import (
+        cell_meta_key,
+        dag_report_to_meta_payload,
+        load_dag_meta_from_doc,
+        store_dag_meta_on_doc,
+    )
+    from plugin.calc.excel_py_convert.models import ConvertedCell, ConversionReport
+    from unittest.mock import MagicMock, patch
+
+    report = ConversionReport(
+        direction="dag",
+        cells=[
+            ConvertedCell(
+                sheet="S",
+                cell="A1",
+                direction="dag",
+                original_code="",
+                converted_code="data",
+                data_args=["B1"],
+                ordering_args=["Z9"],
+                return_type=1,
+                converted=True,
+            )
+        ],
+    )
+    payload = dag_report_to_meta_payload(report)
+    assert cell_meta_key("S", "A1") in payload
+    assert payload[cell_meta_key("S", "A1")]["return_type"] == 1
+    assert payload[cell_meta_key("S", "A1")]["ordering_args"] == ["Z9"]
+
+    doc = MagicMock()
+    with patch("plugin.doc.udprops.set_document_property") as set_prop:
+        store_dag_meta_on_doc(doc, report)
+        set_prop.assert_called_once()
+        name, value = set_prop.call_args[0][1], set_prop.call_args[0][2]
+        assert name == "ExcelPyDagMeta"
+        assert "return_type" in value
+
+    with patch("plugin.doc.udprops.get_document_property", return_value=value):
+        loaded = load_dag_meta_from_doc(doc)
+        assert loaded[cell_meta_key("S", "A1")]["data_args"] == ["B1"]
+
+
 def test_excel_escape_skips_calc_sanitizer():
     code = "x = float(1)"
     assert "+0.0" in escape_code_for_formula(code)
@@ -482,7 +568,8 @@ def test_roundtrip_via_formula_string():
     cell = convert_dag_formula_to_excel(formula, cell="H1")
     assert "xl(" in cell.converted_code
     assert "A3:F23" in expand_placeholders_to_literals(cell.converted_code, cell.data_args)
-    assert cell.excel_formula.startswith('=PY("')
+    assert cell.excel_formula.startswith("=_xlfn._xlws.PY(")
+    assert cell.script_index == 0
 
 
 def test_convert_model_api():
@@ -729,3 +816,84 @@ def test_libreoffice_import_smoke(tmp_path: Path):
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120, check=False)
     assert proc.returncode == 0, proc.stderr
     assert any(tmp_path.glob("*.csv"))
+
+
+def test_xlws_and_python_scripts_builders():
+    assert xlws_py_formula(0, 1, ["A1:B2", "Sheet1.C1"]) == "_xlfn._xlws.PY(0,1,A1:B2,Sheet1!C1)"
+    raw = python_scripts_xml(["df = xl(%P2%, headers=True)", "x = 1"])
+    text = raw.decode("utf-8")
+    assert 'xmlns="http://schemas.microsoft.com/office/spreadsheetml/2022/pythonscript"' in text
+    assert "df = xl(%P2%, headers=True)" in text
+    assert "&lt;" not in text  # no accidental double-escape of plain code
+
+
+def test_assign_script_bank_dedupes():
+    from plugin.calc.excel_py_convert.models import ConvertedCell
+
+    a = ConvertedCell(
+        sheet="S", cell="A1", direction="excel", original_code="", converted_code="x = data", data_args=["A1"], converted=True
+    )
+    b = ConvertedCell(
+        sheet="S", cell="B1", direction="excel", original_code="", converted_code="x = data", data_args=["B1"], converted=True
+    )
+    c = ConvertedCell(
+        sheet="S", cell="C1", direction="excel", original_code="", converted_code="y = data", data_args=["C1"], converted=True
+    )
+    scripts, _ = assign_script_bank([a, b, c])
+    assert scripts == ["x = data", "y = data"]
+    assert a.script_index == b.script_index == 0
+    assert c.script_index == 1
+    assert "_xlws.PY(0," in a.excel_formula
+
+
+def _dag_xlsx_bytes() -> bytes:
+    """Minimal DAG =PY workbook (stdlib only) for native Excel export tests."""
+    workbook = """<?xml version="1.0" encoding="UTF-8"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets>
+</workbook>"""
+    rels = """<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+</Relationships>"""
+    # Quoted quotes in OOXML formula: "" inside the attribute-free <f> text.
+    sheet = """<?xml version="1.0" encoding="UTF-8"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <sheetData>
+    <row r="1">
+      <c r="A1"><f>PY(&quot;df = data.to_pandas()&quot;,B1:C2)</f></c>
+      <c r="B1"><v>1</v></c>
+    </row>
+  </sheetData>
+</worksheet>"""
+    return _minimal_xlsx_bytes(sheet_xml=sheet, workbook_xml=workbook, rels_xml=rels)
+
+
+def test_write_excel_python_xlsx_roundtrip(tmp_path: Path):
+    src = tmp_path / "dag.xlsx"
+    src.write_bytes(_dag_xlsx_bytes())
+    report = convert_to_excel(src)
+    assert any(c.converted for c in report.cells), report.to_dict()
+    out = tmp_path / "excel_native.xlsx"
+    write_excel_python_xlsx(src, report, out)
+    assert has_excel_python_xlsx(out)
+    model = load_excel_model(out, prefer_openpyxl_anchors=False)
+    assert model.scripts
+    assert "xl(%P2%" in model.scripts[0]
+    assert model.cells
+    assert model.cells[0].deps
+    again = convert_model_to_dag(model)
+    assert again.ok
+    assert "to_pandas()" in again.cells[0].converted_code
+
+
+def test_cli_excel_write_xlsx(tmp_path: Path):
+    from plugin.calc.excel_py_convert.cli import main
+
+    src = tmp_path / "dag.xlsx"
+    src.write_bytes(_dag_xlsx_bytes())
+    out = tmp_path / "out.xlsx"
+    rc = main([str(src), "--to", "excel", "--write-xlsx", str(out)])
+    assert rc == 0
+    assert has_excel_python_xlsx(out)

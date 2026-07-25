@@ -3,7 +3,7 @@
 **Audience:** Collabora and LibreOffice engineers who want Excel compatibility, plus product people who need the short version.  
 **Scope:** What Microsoft’s Python-in-Excel formula model actually requires of a spreadsheet engine, compared to the local `=PY(code, data?)` design already shipping in WriterAgent / LibrePy, and what would have to change in LibreOffice core (`sc/`, `formula/`, OOXML filters) to match Excel.
 
-**Recommendation up front:** Keep **`=PY(code, data?)`** (explicit range arguments + Calc’s dependency DAG) as the native, first-class design. If Excel workbook interchange is ever required, add a **compatibility surface later** (e.g. `=PY_XL(...)` or an import rewriter)—do **not** make Microsoft’s `xl()` + co-volatility model the default Calc API. That model is not “a different syntax”; it is a **second calculation engine** bolted onto Excel’s, with serious performance and correctness costs that LibreOffice would have to reinvent from scratch.
+**Recommendation up front:** Keep **`=PY(code, data?)`** (explicit range arguments + Calc’s dependency DAG) as the native, first-class design. Do **not** make Microsoft’s `xl()` + co-volatility model the default Calc API. Excel workbook interchange is a **file conversion** problem: WriterAgent already ships a bidirectional OOXML rewriter ([§5.8](#58-ooxml--xlfnpy-import)) that maps formula-static `xl(%Pn%)` / `_xlws.PY` onto native `=PY(…; ranges)`. That is not “run Excel’s calc model inside Calc.”
 
 Related: [Enabling NumPy in LibreOffice](enabling_numpy_in_libreoffice.md) (shipped design), [Collabora Online / jail-safe compute](numpy-jailsafe.md) (thin C++ Add-In + remote service), [Python-in-Calc future work](python-in-excel-dev-plan.md).
 
@@ -15,13 +15,14 @@ Related: [Enabling NumPy in LibreOffice](enabling_numpy_in_libreoffice.md) (ship
 |--|----------------------|----------------------------------------|
 | How you pass sheet data into Python | Inside the code string: `xl("A1:B10")` | As a formula argument: `=PY("…"; A1:B10)` → variable `data` |
 | How the spreadsheet knows what to recalculate | Formula arg is only a string—so either **`xl()` registers deps at runtime**, PY is **volatile**, and/or **co-volatility** re-runs all PY cells | Calc already knows: the second argument is a normal precedent |
-| Shared variables across cells | Globals + **re-run every PY cell** in row-major order when any PY runs | Optional shared kernel; order via `data` refs (normal DAG) |
+| Shared variables across cells | Globals + **re-run every PY cell** in row-major order when any PY runs | Optional shared kernel; authors pass upstream cells as `data` when order/dirtying matters (converter does **not** invent prior-PY edges) |
 | Where code runs | Microsoft cloud container (Anaconda) | User’s local venv (or Collabora compute service for Online) |
 | Multi-cell results | Native dynamic-array **spill** | Extension spill registry + deferred writes (not engine spill) |
+| Excel `.xlsx` with Python-in-Excel | Native `_xlws.PY` + `pythonScripts.xml` | Bidirectional rewriter ([§5.8](#58-ooxml--xlfnpy-import)): auto on open/save + CLI |
 
-**Why “just make it compatible” is expensive:** You do **not** need Calc to parse Python to *implement* `xl()`—that is a Python-side helper that reads ranges. The cost is everything around it: **when does the PY cell become dirty**, **co-volatility / flip-flop scheduling**, **Online round-trips per `xl()` call**, and **engine spill**. Microsoft’s own performance community documents co-volatility as a **heavy tax** ([Charles Williams](https://fastexcel.wordpress.com/2023/11/01/python-in-excel-py-calculation-globals-co-volatility/)).
+**Why “just make it compatible” is expensive:** You do **not** need Calc to parse Python to *implement* `xl()`—that is a Python-side helper that reads ranges. The cost is everything around it: **when does the PY cell become dirty**, **co-volatility / flip-flop scheduling**, **Online round-trips per `xl()` call**, and **engine spill**. Microsoft’s own performance community documents co-volatility as a **heavy tax** ([Charles Williams](https://fastexcel.wordpress.com/2023/11/01/python-in-excel-py-calculation-globals-co-volatility/)). File import/export (rewriter) is the cheap half; copying Excel’s scheduler is the expensive half.
 
-**Better product story:** ship a correct, offline, DAG-friendly `=PY` now (done / Online path in progress). Offer Excel import compatibility later as a **secondary** path, once native spill and import mapping exist—or never, if users care more about NumPy offline than byte-identical `xl()` formulas.
+**Better product story:** ship a correct, offline, DAG-friendly `=PY` (done / Online path in progress). Treat Excel Python files as a **migration path** via the shipped rewriter—not as a reason to make `xl()` + co-volatility the default Calc API.
 
 ---
 
@@ -307,49 +308,49 @@ Copying “the MS design” including cloud:
 
 ---
 
-### 5.8 OOXML / `xlfn.PY` import
+### 5.8 OOXML / `xlfn.PY` import and export
 
-Stock filters understand many `_xlfn.*` names; **not** Python-in-Excel. Importing workbooks with `=PY(...)` today cannot round-trip semantics.
+Stock LibreOffice filters understand many `_xlfn.*` names; they do **not** understand Python-in-Excel (`pythonScripts.xml` / `_xlfn._xlws.PY`). Without a rewriter, those workbooks lose Python semantics on open/save.
 
-The shipped converter under [`plugin/calc/excel_py_convert/`](../plugin/calc/excel_py_convert/) implements the practical compatibility path for the formula-static workbooks tested so far. Microsoft does not store the visible formula literally: Python source lives in `xl/pythonScripts.xml` with calls such as `xl(%P2%, headers=True)`, while the worksheet cell stores `_xlfn._xlws.PY(scriptIndex, returnType, A1:B10, ...)`. The converter joins those two parts and changes only the data bridge:
+The shipped converter under [`plugin/calc/excel_py_convert/`](../plugin/calc/excel_py_convert/) is the practical compatibility path for **formula-static** workbooks (validated on [`PythonExcelSamples/`](../PythonExcelSamples/)). Microsoft does not store the visible formula literally: Python source lives in `xl/pythonScripts.xml` with calls such as `xl(%P2%,headers=True)`, while the worksheet cell stores `_xlfn._xlws.PY(scriptIndex, returnType, A1:B10, ...)`. The converter joins those two parts and changes only the data bridge:
 
 ```text
-Excel code:      df = xl(%P2%, headers=True)
+Excel code:      df = xl(%P2%,headers=True)
 Excel cell:      _xlws.PY(0, 1, A1:C100)
 
 DAG code:        df = data.to_pandas()
 Calc formula:    =PY("..."; A1:C100)
-OOXML write:     =PY("...",A1:C100)   # commas for .xlsx; Calc still uses ;
+OOXML (DAG):     =PY("...",A1:C100)          # CLI --to dag --write-xlsx
+OOXML (Excel):   pythonScripts + _xlws.PY(…) # CLI --to excel --write-xlsx / auto-save
 ```
 
-(Multi-range scripts use `data` for the first binding and `inputs[i]` for the rest. The reverse export still accepts the older `pd.DataFrame(data[1:], columns=data[0])` form.)
+(Multi-range scripts use `data` for the first binding and `inputs[i]` for the rest. Reverse export still accepts the older `pd.DataFrame(data[1:], columns=data[0])` form and restores `xl(%Pn%)`. Emit style matches Microsoft samples: no space after the comma in `headers=True` / `headers=False`.)
 
-Everything around `xl(...)`—pandas operations, groupby logic, plots, and ordinary Python statements—is preserved. Bare Excel `%Pn%` tokens are rewritten to equal-length `_Pn_` sentinels (outside strings/comments) so a single AST pass can find direct `xl(...)` call sites; there is no regex `xl(` scanner. Strings and comments stay intact. Tables (`Table1[#All]`) are resolved to **sheet-qualified** A1 snapshots (so a table on `Data` is not read from `Pivots`). Spill anchors (`ANCHORARRAY(A6)`) require a live array `ref` / snapshot; missing snapshots fail closed instead of shrinking to the anchor cell.
+Everything around `xl(...)`—pandas operations, groupby logic, plots, and ordinary Python statements—is preserved. Bare Excel `%Pn%` tokens are rewritten to equal-length `_Pn_` sentinels (outside strings/comments) so a single AST pass can find direct `xl(...)` call sites; there is no regex `xl(` scanner. Strings and comments stay intact. Tables (`Table1[#All]`) are resolved to **sheet-qualified** A1 snapshots (so a table on `Data` is not read from `Pivots`). Spill anchors (`ANCHORARRAY(A6)`) require a live array `ref` / snapshot; missing snapshots fail closed instead of shrinking to the anchor cell. Export currently restores those **A1 snapshots**, not the original `Table[#All]` / `ANCHORARRAY(...)` tokens (accepted MVP limitation).
 
 #### Why the rewritten workbook still follows the DAG
 
-The conversion does not replace hidden `xl()` reads with host RPC. It moves every formula-static range onto the Calc formula as a real argument. Consequently, editing `A1` dirties the converted `=PY(...; A1:C100)` through Calc's normal precedent graph.
+The conversion does not replace hidden `xl()` reads with host RPC. It moves every formula-static range onto the Calc formula as a real argument. Consequently, editing `A1` dirties the converted `=PY(...; A1:C100)` through Calc's normal precedent graph. Every trailing formula arg is a **real data binding**—there is no separate “ordering-only” arg class.
 
-Excel samples also split scripts across cells and share Python globals. The converter chains PY cells in **workbook sheet order, then row/column** (not script-bank index alone) and appends the previous stage as an **ordering-only formula argument**. Duplicate ranges are deduplicated with a stable `%Pn%` → `data` / `inputs[i]` map. `returnType=1` (Object) suppresses cell value egress (`result = None`) until object cards exist, while leaving the setup assignments in the script for the shared kernel.
+Excel samples also split scripts across cells and share Python globals via co-volatility. The converter **does not** append prior PY stages (e.g. `H4` on `H5`) as synthetic formula arguments. Multi-cell demos convert; enabling **shared-kernel** session mode and ensuring useful run order is the operator’s job (see [session modes](enabling_numpy_in_libreoffice.md#session-modes-and-recalc-semantics)). Duplicate ranges are deduplicated with a stable `%Pn%` → `data` / `inputs[i]` map. `returnType=1` (Object) suppresses cell value egress (`result = None`) until object cards exist, while leaving the setup assignments in the script for the shared kernel.
 
-Unresolved deps, dynamic `xl()`, syntax errors after placeholder normalization, and missing anchor snapshots **fail closed** (cell left unchanged; CLI exits nonzero) unless `--best-effort` is set. `--write-xlsx` clears the source array/spill range around each converted anchor, refuses unmapped sheet titles, and strips obsolete `pythonScripts` package parts.
+Unresolved deps, dynamic `xl()`, syntax errors after placeholder normalization, and missing anchor snapshots **fail closed** (cell left unchanged; CLI exits nonzero) unless `--best-effort` is set. `--write-xlsx` clears the source array/spill range around each converted anchor, refuses unmapped sheet titles, and strips obsolete `pythonScripts` package parts on the DAG write path.
 
-#### Auto-convert on open (no menu)
+#### Auto round-trip on open / save (no menu)
 
-LibreOffice Calc (with the Python/`=PY` extension) registers a Calc `OnLoadFinished` listener ([`plugin/calc/excel_py_convert/auto_open.py`](../plugin/calc/excel_py_convert/auto_open.py)). When the opened document’s URL is a local `.xlsx` that still contains `xl/pythonScripts.xml` and/or `_xlws.PY` **on disk**, the converter rewrites to DAG `=PY` automatically:
+LibreOffice Calc (with the Python/`=PY` extension) registers a global document listener ([`auto_open.py`](../plugin/calc/excel_py_convert/auto_open.py)):
+
+**On open (`OnLoadFinished`):** when the local `.xlsx` still contains `xl/pythonScripts.xml` and/or `_xlws.PY` **on disk**, rewrite to DAG `=PY` in memory:
 
 1. Peek the ZIP on disk (stock Calc import may have dropped `pythonScripts` from the in-memory model).
 2. Fail-closed: if any cell cannot convert, leave the imported workbook open and log a warning — never block File → Open.
-3. Apply formulas **in place** via UNO `setFormula` ([`apply_calc.py`](../plugin/calc/excel_py_convert/apply_calc.py)) and set document property `ExcelPyDagConverted` so later view events do not re-run. (CLI `--write-xlsx` can still emit a sibling converted workbook with openpyxl; auto-open does not swap documents.)
+3. Apply formulas **in place** via UNO `setFormula` ([`apply_calc.py`](../plugin/calc/excel_py_convert/apply_calc.py)), set document property `ExcelPyDagConverted`, and store per-cell `ExcelPyDagMeta` JSON (`return_type` / `data_args`, plus legacy empty `ordering_args`) so File → Save can restore Excel fidelity.
 
-**Script bank (MAXSTRLEN workaround):** Excel keeps Python in `pythonScripts.xml` and cells only hold a short `_xlws.PY(index, …)` formula. Calc formula string symbols are capped near `MAXSTRLEN` (1024). After convert, **rewritten scripts longer than 1000 characters** are parked on a **visible** sheet **per source worksheet** (`Pivots!H4` → `py_code_Pivots!H4`) and formulas become `=PY(py_code_Pivots.H4; ranges…)`. **Shorter scripts stay inline** as `=PY("…"; ranges)`. Same A1 on two data sheets can hold different long scripts without colliding. If Calc raises `MAXSTRLEN` (e.g. toward 32 KB), the bank path can be retired. Multi-cell Excel workbooks still need **shared-kernel** session mode (admin/config flag — conversion does not flip it).
+**On save (`OnSaveDone` / `OnSaveAsDone` / `OnSaveToDone`):** when the open Calc doc has DAG `=PY`/`=PYTHON` cells and the destination is `.xlsx`, snapshot formulas from memory (UNO — including `py_code_*` bank cells), merge `ExcelPyDagMeta` when present, and **ZipFile-patch** the just-saved file to native Excel PY (`pythonScripts.xml` + `_xlfn._xlws.PY`, strip `py_code_*` sheets). LO’s XLSX filter cannot write `pythonScripts.xml`; UNO only provides the snapshot and the save hook. Failures leave LO’s DAG xlsx on disk and show a **MessageBox**. Plain spreadsheets without `=PY` are left unchanged. In-memory editing stays DAG until the next open.
 
-There is **no** new menu item. Re-opening an already-converted file (no `pythonScripts` / `_xlws.PY`) is a no-op.
+**Script bank (MAXSTRLEN workaround):** Excel keeps Python in `pythonScripts.xml` and cells only hold a short `_xlws.PY(index, …)` formula. Calc formula string symbols are capped near `MAXSTRLEN` (1024). After convert, **rewritten scripts longer than 1000 characters** are parked on a **visible** sheet **per source worksheet** (`Pivots!H4` → `py_code_Pivots!H4`) and formulas become `=PY(py_code_Pivots.H4; ranges…)`. **Shorter scripts stay inline** as `=PY("…"; ranges)`. Same A1 on two data sheets can hold different long scripts without colliding. If Calc raises `MAXSTRLEN` (e.g. toward 32 KB), the bank path can be retired. Conversion does **not** flip shared-kernel mode and does **not** invent order edges.
 
-That ordering edge does **not** carry Python globals by itself: converted multi-cell scripts still require shared-kernel/session mode so names created by the prior stage remain in the namespace. The two mechanisms have separate jobs:
-
-- formula arguments give Calc correct dirtying and execution order;
-- the shared session preserves Python variables between ordered cells.
+There is **no** new menu item.
 
 The converter is intentionally not sound for computed references such as `xl(f"A1:A{n}")` or `xl(name)`. It reports those as unresolved instead of pretending they are DAG-safe. Supported formula-static shapes include fixed ranges, scalar cells, tables, and spill anchors.
 
@@ -357,10 +358,14 @@ CLI:
 
 ```bash
 python -m plugin.calc.excel_py_convert --to dag input.xlsx --write-xlsx converted.xlsx
-python -m plugin.calc.excel_py_convert --to excel converted.xlsx -o excel-shape.json
+python -m plugin.calc.excel_py_convert --to excel converted.xlsx --write-xlsx excel_native.xlsx
+# Prefer preserving return_type from the DAG conversion report:
+python -m plugin.calc.excel_py_convert --to excel converted.xlsx --from-report dag.json --write-xlsx excel_native.xlsx
 ```
 
-`--to excel` is a **script/dependency export** (reconstructs `xl(%Pn%)`, header mode, and `return_type`; ignores ordering-only deps). It does not write native `pythonScripts.xml` / `_xlws.PY` yet.
+`--to excel --write-xlsx` writes native `pythonScripts.xml` / `_xlws.PY` via **stdlib ZipFile** (no openpyxl). Reconstructs `xl(%Pn%)`, header mode, and `return_type` from real data args. Prefer `--from-report dag.json` or in-memory `convert_dag_report_to_excel` so `return_type` survives; re-parsing a DAG `.xlsx` alone cannot recover it. Legacy `ordering_args` in old reports (from an earlier converter that injected prior-PY edges) are ignored on export.
+
+**Sample round-trip check:** [`scripts/roundtrip_excel_py_samples.py`](../scripts/roundtrip_excel_py_samples.py) runs Excel → DAG → Excel over [`PythonExcelSamples/`](../PythonExcelSamples/) and fails on script-text or `returnType` drift. Table/`ANCHORARRAY` → A1 snapshot dep remaps are accepted warnings.
 
 ---
 
@@ -390,7 +395,7 @@ WriterAgent keeps a **defensive** `sanitize_inline_py_code` when *emitting* Calc
 |--------|----------------|-----------|---------|
 | **A. Native only (current)** `=PY(code, data?)` | Correct DAG, offline NumPy, Online-friendly requests | Thin Add-In + volatile + matrix (Collabora path) | **Do this** |
 | **B. Cosmetic Excel** Same name, still `data` args; docs say “like Excel” | Familiar name, different formulas | Almost none | Honest marketing only |
-| **C. Import rewriter** XLSX `xl` / `%Pn%` → `; ranges` (DAG-style) | Many Excel sheets become native PY | [`plugin/calc/excel_py_convert/`](../plugin/calc/excel_py_convert/) (CLI + **auto on open**); formula-static samples only | **Shipped (auto-convert + CLI)** |
+| **C. Import/export rewriter** XLSX `xl` / `%Pn%` ↔ `; ranges` (DAG-style) | Formula-static Excel Python sheets open/save via ZipFile + auto open/save | [`plugin/calc/excel_py_convert/`](../plugin/calc/excel_py_convert/) (CLI, **auto on open/save**, sample round-trip script) | **Shipped** |
 | **D. `=PY_XL(code)` compatibility function** Runtime `xl()` + dynamic dirty registration (and/or volatile) + optional co-volatility | IPC + listeners + optional scheduler | **Defer**; quarantine complexity | Acceptable long-term escape hatch |
 | **E. Full Excel semantics as default `=PY`** `xl` + co-volatility + engine spill + object cards + cloud | §§5.1–5.3 as platform projects | **Do not schedule as PY MVP** | |
 
@@ -411,7 +416,7 @@ WriterAgent keeps a **defensive** `sanitize_inline_py_code` when *emitting* Calc
 | Co-volatility + Excel↔PY flip-flop | Yes | **No — harmful** | Multi-month core; ongoing perf debt |
 | Engine dynamic spill | Yes | Nice-to-have for all Calc | Multi-release platform |
 | Cloud container runtime | Yes (MS product) | No | Separate product |
-| OOXML `xlfn.PY` | Yes (files) | After API choice | Medium |
+| OOXML `xlfn.PY` / `pythonScripts.xml` | Yes (files) | Via rewriter ([§5.8](#58-ooxml--xlfnpy-import)), not core filter | **Shipped** (formula-static); Table/`ANCHORARRAY` tokens → A1 snapshots |
 
 **Bottom line for Collabora planning:** The Online/jail-safe design already chose the **native** data path. Folding Microsoft’s default model into that path reopens dependency and scheduling problems the kit architecture was designed to avoid. Excel compatibility is a **file and migration** problem (option C/D), not the definition of `=PY`.
 
@@ -420,13 +425,13 @@ WriterAgent keeps a **defensive** `sanitize_inline_py_code` when *emitting* Calc
 ## 8. Responses to common objections
 
 **“Users will demand Excel compatibility.”**  
-They demand **workbooks that recalculate correctly** and **Python that can use NumPy**. Native `=PY` delivers both. Literal Excel formula text is a narrower import concern—handle with rewriter / `PY_XL` when there is measured demand.
+They demand **workbooks that recalculate correctly** and **Python that can use NumPy**. Native `=PY` delivers both. Literal Excel Python packages are handled by the shipped OOXML rewriter ([§5.8](#58-ooxml--xlfnpy-import)) for formula-static sheets; full Excel co-volatility / spill / object cards remain separate (and mostly undesirable as defaults).
 
 **“Calc just needs an `xl()` function—it doesn’t need to parse Python.”**  
-Half right. **`xl()` as a Python helper that reads ranges does not require a Calc Python parser.** Without also solving **dirtying** (volatile PY, dynamic listeners from each `xl()` call, or explicit `data` args), editing `A1` leaves the PY cell stale. Reads ≠ recalc graph.
+Half right. **`xl()` as a Python helper that reads ranges does not require a Calc Python parser.** Without also solving **dirtying** (volatile PY, dynamic listeners from each `xl()` call, or explicit `data` args), editing `A1` leaves the PY cell stale. Reads ≠ recalc graph. The rewriter’s job is to turn static `xl(%Pn%)` sites into those `data` args up front.
 
 **“Co-volatility is how shared globals must work.”**  
-False. Globals need an **ordering rule**. Excel picked geometry + co-volatility. Calc can pick **DAG edges** (`data` arguments) and get partial recalc for free. WriterAgent’s shared kernel already documents this ([session modes](enabling_numpy_in_libreoffice.md#session-modes-and-recalc-semantics)).
+False. Globals need an **ordering / persistence rule**. Excel picked geometry + co-volatility. Calc can use **shared-kernel mode** plus real `data` precedents where dirtying matters. The Excel→DAG converter does **not** fake prior-PY formula edges for shared-kernel order—that remains the author’s / session-mode responsibility ([session modes](enabling_numpy_in_libreoffice.md#session-modes-and-recalc-semantics)).
 
 **“Microsoft proved it’s possible.”**  
 Microsoft proved it’s possible **inside Excel’s cloud + editor + calc scheduler**, with a documented performance escape hatch (Partial/Manual Python calc). LibreOffice would re-implement the expensive half without the cloud editor constraints that make `xl()` literals the common case.
@@ -443,7 +448,7 @@ Registering a name is the easy 5%. Precedents, co-volatility, and spill are the 
 
 1. **Standardize on** `=PY(code, data…)` **(and `PYTHON` alias)** as the Calc-native API—desktop extension today, core/Online Add-In as in [numpy-jailsafe.md](numpy-jailsafe.md).
 2. **Invest core effort** in: volatile busy results, robust matrix return, eventually **real dynamic spill for all of Calc**, and (when scheduled) formula-string limits for long `=PY("…")` — see [Future LibreOffice formula-string work](enabling_numpy_in_libreoffice.md#future-libreoffice-formula-string-work). Do **not** make `xl()` + co-volatility the default dependency model.
-3. **Treat Microsoft’s formula shape as a later compatibility lane** (`PY_XL` and/or XLSX import rewrite), scheduled only with explicit demand and after spill/import foundations exist.
+3. **Treat Microsoft’s formula shape as file migration, not the Calc default:** the extension already ships XLSX import/export rewrite ([§5.8](#58-ooxml--xlfnpy-import)). Keep runtime `PY_XL` / co-volatility deferred unless there is measured demand beyond formula-static interchange.
 4. **Do not** make co-volatility the default in LibreOffice; if ever offered, gate it behind a compatibility mode and expect to document Partial-calc analogues.
 5. **Keep compute pluggable** (local venv vs HTTP service). Formula semantics must not require cloud `xl()` round-trips.
 
@@ -464,7 +469,8 @@ Registering a name is the easy 5%. Precedents, co-volatility, and spill are the 
 - [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md) — shipped `=PY`, session modes, MS comparison table
 - [numpy-jailsafe.md](numpy-jailsafe.md) — Online compute service + core Add-In
 - [python-in-excel-dev-plan.md](python-in-excel-dev-plan.md) — UX backlog (objects, diagnostics); explicitly out-of-scope: cloud / `xl()` as default
-- Implementation: `plugin/calc/python/function.py` (spill registry), `plugin/scripting/venv_worker.py`
+- Implementation: `plugin/calc/python/function.py` (spill registry), `plugin/scripting/venv_worker.py`, [`plugin/calc/excel_py_convert/`](../plugin/calc/excel_py_convert/) (OOXML Excel ↔ DAG rewriter)
+- Sample fidelity: [`scripts/roundtrip_excel_py_samples.py`](../scripts/roundtrip_excel_py_samples.py) over [`PythonExcelSamples/`](../PythonExcelSamples/)
 
 ### Microsoft / independent analysis
 
@@ -476,4 +482,4 @@ Registering a name is the easy 5%. Precedents, co-volatility, and spill are the 
 
 ## 11. One-paragraph summary for a mail thread
 
-Microsoft’s `=PY` is not “Python in a cell”; it is a **Python-side `xl()` bridge** (easy), plus **dirtying/recalc rules that are not normal formula precedents** (volatile and/or runtime-registered deps), plus **workbook-global co-volatility**, **engine spill**, and a **cloud** runtime. LibreOffice does **not** need to parse Python to offer `xl()` reads—but stock Calc **will not dirty** a string-only `=PY` when `A1` changes unless you add that machinery. WriterAgent’s `=PY(code, data?)` keeps deps as real tokens and matches Collabora Online’s jail-safe compute shape. **Ship native `=PY`; defer `PY_XL` until there is a concrete interchange need.**
+Microsoft’s `=PY` is not “Python in a cell”; it is a **Python-side `xl()` bridge** (easy), plus **dirtying/recalc rules that are not normal formula precedents** (volatile and/or runtime-registered deps), plus **workbook-global co-volatility**, **engine spill**, and a **cloud** runtime. LibreOffice does **not** need to parse Python to offer `xl()` reads—but stock Calc **will not dirty** a string-only `=PY` when `A1` changes unless you add that machinery. WriterAgent’s `=PY(code, data?)` keeps deps as real tokens and matches Collabora Online’s jail-safe compute shape. **Ship native `=PY`.** Excel Python **files** are a separate, shipped migration path ([§5.8](#58-ooxml--xlfnpy-import)): rewrite static `xl(%Pn%)` onto formula args; do **not** make Excel’s scheduler the default Calc API. Defer runtime `PY_XL` / co-volatility.

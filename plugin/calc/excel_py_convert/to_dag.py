@@ -22,8 +22,9 @@ Per cell we do two paired steps:
    ``inputs[i]`` / ``.to_pandas()`` for header modes. Unrelated source
    (strings, comments) is left intact where possible.
 2. **Formula:** emit ``=PY("…rewritten…"; resolved_ranges)`` with deduplicated
-   data args, then append **ordering-only** edges for prior PY cells in Excel
-   workbook sheet/row order (shared kernel). Tables / ``ANCHORARRAY`` are
+   data args only (every trailing arg is a real binding). The converter does
+   **not** append prior PY cells for shared-kernel order — enable shared
+   session and manage run order separately. Tables / ``ANCHORARRAY`` are
    snapped to A1 at convert time.
 
 Fail-closed: unresolved deps, dynamic ``xl()``, or syntax errors leave the cell
@@ -340,11 +341,6 @@ def _excel_execution_order(model: ExcelWorkbookModel) -> list[ExcelPyCell]:
     return cells
 
 
-def _cell_addr(cell: ExcelPyCell) -> str:
-    """Sheet-qualified A1 for cross-sheet ordering edges."""
-    return f"{cell.sheet}!{cell.cell}" if cell.sheet else cell.cell
-
-
 def _normalize_bindings(
     resolved: list[ResolvedDep],
     header_modes: dict[int, HeaderMode],
@@ -444,17 +440,14 @@ def convert_cell_to_dag(
         issues.extend(i for i in rewrite_issues if i not in issues)
         dynamic = dynamic or any("dynamic xl()" in i for i in rewrite_issues)
 
-    # Ordering-only: immediate previous PY cell in Excel workbook sheet/row order.
+    # Advisory only: multi-cell Excel workbooks often need shared-kernel mode.
+    # We do not inject prior-PY formula args for Calc ordering.
     prior = prior_in_order or []
-    ordering_args: list[str] = []
-    if prior:
-        prev = prior[-1]
-        addr = prev.cell if prev.sheet == cell.sheet else _cell_addr(prev)
-        if addr not in data_args:
-            ordering_args.append(addr)
-            issues.append("added prior PY stage as a DAG ordering edge (shared kernel)")
-
     shared_kernel = bool(prior) or (not cell.deps and "xl(" not in original.replace(" ", ""))
+    if shared_kernel and prior:
+        issues.append(
+            "shared-kernel workbook: enable shared session; converter does not add order edges"
+        )
 
     if cell.return_type == 1:
         new_code = (new_code or "") + _OBJECT_SUPPRESS
@@ -465,7 +458,7 @@ def convert_cell_to_dag(
     if fatal and not best_effort:
         base.converted_code = original
         base.data_args = data_args
-        base.ordering_args = ordering_args
+        base.ordering_args = []
         base.bindings = bindings
         base.issues = list(dict.fromkeys(issues + (["dynamic xl()"] if dynamic else []) + (["unresolved dependency"] if unresolved else [])))
         base.shared_kernel = shared_kernel
@@ -481,12 +474,12 @@ def convert_cell_to_dag(
         # Placeholder ConvertedCell for formula builder (fields already on base below).
         base.converted_code = new_code
         base.data_args = data_args
-        base.ordering_args = ordering_args
+        base.ordering_args = []
         dag_formula = formula_for_converted_cell(base, separator=";", use_script_bank=True)
 
     base.converted_code = new_code
     base.data_args = data_args
-    base.ordering_args = ordering_args
+    base.ordering_args = []
     base.bindings = bindings
     base.dag_formula = dag_formula
     base.issues = list(dict.fromkeys(issues))
@@ -503,7 +496,7 @@ def convert_model_to_dag(model: ExcelWorkbookModel, *, best_effort: bool = False
         report.issues.append("no pythonScripts found")
     ordered = _excel_execution_order(model)
     prior: list[ExcelPyCell] = []
-    # Convert in execution order so ordering edges follow Excel.
+    # Convert in Excel sheet/row order so shared_kernel advisory matches stage order.
     converted_by_key: dict[tuple[str, str], ConvertedCell] = {}
     for cell in ordered:
         converted = convert_cell_to_dag(model, cell, prior_in_order=prior, best_effort=best_effort)
