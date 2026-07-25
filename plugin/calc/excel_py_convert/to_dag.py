@@ -341,20 +341,36 @@ def _excel_execution_order(model: ExcelWorkbookModel) -> list[ExcelPyCell]:
     return cells
 
 
+def _prefer_excel_dep_token(current: str, candidate: str) -> str:
+    """When merging deps that snap to the same A1, keep the Excel-native token if any.
+
+    See ``EXCEL_DEP_TOKEN_FIDELITY`` / models module doc — fidelity only, not Calc semantics.
+    """
+    cand = (candidate or "").strip()
+    cur = (current or "").strip()
+    if not cand:
+        return cur
+    if "[#" in cand or "ANCHORARRAY" in cand.upper():
+        return cand
+    return cur or cand
+
+
 def _normalize_bindings(
     resolved: list[ResolvedDep],
     header_modes: dict[int, HeaderMode],
-) -> tuple[list[BindingInfo], dict[int, int], list[str], list[str]]:
+) -> tuple[list[BindingInfo], dict[int, int], list[str], list[str], list[str]]:
     """Deduplicate resolved A1s; map original indices → normalized data indices.
 
-    Returns ``(bindings, index_map, data_args, issues)``. Unresolved deps produce
-    issues and an empty a1 — caller must fail-closed.
+    Returns ``(bindings, index_map, data_args, excel_deps, issues)``.
+    ``excel_deps`` is parallel to ``data_args`` (original Excel tokens for export fidelity).
+    Unresolved deps produce issues and an empty a1 — caller must fail-closed.
     """
     issues: list[str] = []
     bindings: list[BindingInfo] = []
     index_map: dict[int, int] = {}
     a1_to_norm: dict[str, int] = {}
     data_args: list[str] = []
+    excel_deps: list[str] = []
 
     for orig_i, r in enumerate(resolved):
         if r.kind == "unresolved" or not r.a1:
@@ -366,6 +382,7 @@ def _normalize_bindings(
             norm = a1_to_norm[key]
             index_map[orig_i] = norm
             bindings[norm].original_indices.append(orig_i)
+            excel_deps[norm] = _prefer_excel_dep_token(excel_deps[norm], r.original)
             # Prefer explicit headers=True over omit/false when merging.
             hm = header_modes.get(orig_i, "omit")
             if hm == "true":
@@ -375,6 +392,7 @@ def _normalize_bindings(
         a1_to_norm[key] = norm
         index_map[orig_i] = norm
         data_args.append(key)
+        excel_deps.append((r.original or key).strip() or key)
         bindings.append(
             BindingInfo(
                 a1=key,
@@ -383,7 +401,7 @@ def _normalize_bindings(
                 original_indices=[orig_i],
             )
         )
-    return bindings, index_map, data_args, issues
+    return bindings, index_map, data_args, excel_deps, issues
 
 
 def convert_cell_to_dag(
@@ -415,7 +433,7 @@ def convert_cell_to_dag(
     resolved = resolve_deps(cell.deps, model, sheet_hint=cell.sheet)
     # Discover header modes from xl() calls against original arity (no index remap yet).
     _code0, rewrite_issues0, _used0, header_modes = rewrite_excel_code(original, num_deps=len(cell.deps))
-    bindings, index_map, data_args, bind_issues = _normalize_bindings(resolved, header_modes)
+    bindings, index_map, data_args, excel_deps, bind_issues = _normalize_bindings(resolved, header_modes)
     issues: list[str] = list(bind_issues)
 
     snapshot_notes = [r.note for r in resolved if r.kind in ("table_snapshot", "anchor_snapshot") and r.note]
@@ -458,6 +476,7 @@ def convert_cell_to_dag(
     if fatal and not best_effort:
         base.converted_code = original
         base.data_args = data_args
+        base.excel_deps = excel_deps
         base.ordering_args = []
         base.bindings = bindings
         base.issues = list(dict.fromkeys(issues + (["dynamic xl()"] if dynamic else []) + (["unresolved dependency"] if unresolved else [])))
@@ -474,11 +493,13 @@ def convert_cell_to_dag(
         # Placeholder ConvertedCell for formula builder (fields already on base below).
         base.converted_code = new_code
         base.data_args = data_args
+        base.excel_deps = excel_deps
         base.ordering_args = []
         dag_formula = formula_for_converted_cell(base, separator=";", use_script_bank=True)
 
     base.converted_code = new_code
     base.data_args = data_args
+    base.excel_deps = excel_deps
     base.ordering_args = []
     base.bindings = bindings
     base.dag_formula = dag_formula

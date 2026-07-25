@@ -205,7 +205,8 @@ help:
 	@echo "                              Set WRITERAGENT_ARCH=x86-64-v[1-4] to override."
 	@echo "  make check-ext              Verify extension is registered"
 	@echo "  make set-config             List all config keys"
-	@echo "  make test                   Run ty, mypy, pyright, bandit, then pytest + in-process LO tests"
+	@echo "  make test                   Run ty, mypy, pyright, bandit, pytest + LO tests + excel-py-roundtrip"
+	@echo "  make excel-py-roundtrip     Excel↔DAG sample fidelity over PythonExcelSamples/"
 	@echo ""
 	@echo "Benchmarks (prompt optimization / eval):"
 	@echo "  make eval-deps              uv pip install dspy-ai (after uv sync)"
@@ -684,10 +685,20 @@ else
 	curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh | bash
 endif
 
+# Excel Python-in-Excel sample round-trip (Excel → DAG → Excel).
+# Skips cleanly when PythonExcelSamples/ has no .xlsx (nested demos checkout optional).
+excel-py-roundtrip:
+	@if ! ls PythonExcelSamples/*.xlsx >/dev/null 2>&1; then \
+		echo "excel-py-roundtrip: no PythonExcelSamples/*.xlsx — skipped"; \
+	else \
+		$(PYTHON) scripts/roundtrip_excel_py_samples.py --samples PythonExcelSamples --out build/excel_py_roundtrip; \
+	fi
+
 test:
 	@$(MAKE) typecheck
 	@$(MAKE) opengrep-lint
 	@$(MAKE) test-run
+	@$(MAKE) excel-py-roundtrip
 	@$(MAKE) bandit
 
 CROSSHAIR_MODULE = plugin/scripting/payload_codec.py

@@ -25,6 +25,7 @@ from plugin.calc.excel_py_convert.to_excel import (
     assign_script_bank,
     convert_dag_cells_to_excel,
     convert_dag_report_to_excel,
+    deps_for_xlws_export,
     python_scripts_xml,
     xlws_py_formula,
 )
@@ -32,8 +33,12 @@ from plugin.calc.excel_py_convert.models import ConversionReport, ConvertedCell
 
 log = logging.getLogger(__name__)
 
-# Udprop: per-cell JSON so auto-save can restore return_type / data_args.
+# Udprop: per-cell JSON so auto-save can restore return_type / data_args / excel_deps.
 EXCEL_PY_DAG_META_PROP = "ExcelPyDagMeta"
+# Optional same payload inside a DAG .xlsx (CLI without --from-report). Kept implemented but
+# off by default — product path uses in-memory udprop; flip to True if needed later.
+PACKAGE_META_PART = "xl/writeragentExcelPyMeta.json"
+USE_PACKAGE_META = False
 
 _SSML_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 _RE_A1 = re.compile(r"^([A-Za-z]+)(\d+)$")
@@ -65,8 +70,19 @@ def convert_to_excel(path: str | Path) -> ConversionReport:
 
             return convert_dag_report_to_excel(_CR.from_dict(data))
         return convert_dag_cells_to_excel(_triples_from_json(data), report_meta=data if isinstance(data, dict) else None)
-    triples = iter_dag_py_formulas_xlsx(path)
-    report = convert_dag_cells_to_excel(triples)
+    items = iter_dag_py_formulas_xlsx(path)
+    package_meta = load_package_meta(path) if USE_PACKAGE_META else {}
+    if package_meta:
+        rebuilt: list[tuple[str, str, str, dict[str, Any]]] = []
+        for sheet, cell, formula in items:
+            meta: dict[str, Any] = {}
+            stored = package_meta.get(cell_meta_key(sheet, cell))
+            if isinstance(stored, dict):
+                meta = dict(stored)
+            rebuilt.append((sheet, cell, formula, meta))
+        report = convert_dag_cells_to_excel(rebuilt)
+    else:
+        report = convert_dag_cells_to_excel(items)
     report.source_path = str(path)
     return report
 
@@ -76,7 +92,10 @@ def cell_meta_key(sheet: str, cell: str) -> str:
 
 
 def dag_report_to_meta_payload(report: ConversionReport) -> dict[str, Any]:
-    """Compact per-cell meta for ``ExcelPyDagMeta`` udprop (auto-save reverse)."""
+    """Compact per-cell meta for udprop / ``PACKAGE_META_PART`` (auto-save / CLI reverse).
+
+    Includes ``excel_deps`` for Table/ANCHORARRAY export fidelity — see models module doc.
+    """
     out: dict[str, Any] = {}
     for c in report.cells:
         if not c.converted:
@@ -84,6 +103,7 @@ def dag_report_to_meta_payload(report: ConversionReport) -> dict[str, Any]:
         out[cell_meta_key(c.sheet, c.cell)] = {
             "return_type": int(c.return_type or 0),
             "data_args": list(c.data_args),
+            "excel_deps": list(c.excel_deps),
             "ordering_args": list(c.ordering_args),
             "array_ref": c.array_ref,
             "bindings": [
@@ -97,6 +117,40 @@ def dag_report_to_meta_payload(report: ConversionReport) -> dict[str, Any]:
             ],
         }
     return out
+
+
+def write_package_meta(out_path: Path, report: ConversionReport) -> None:
+    """Embed ``PACKAGE_META_PART`` JSON into a DAG xlsx (after formula rewrite).
+
+    Not called when ``USE_PACKAGE_META`` is False (default). Kept for a possible
+    later CLI/offline path; prefer ``--from-report`` / udprop for now.
+    """
+    payload = dag_report_to_meta_payload(report)
+    blob = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    tmp = out_path.with_suffix(out_path.suffix + ".tmpmeta")
+    with zipfile.ZipFile(out_path, "r") as zin, zipfile.ZipFile(tmp, "w", compression=zipfile.ZIP_DEFLATED) as zout:
+        for info in zin.infolist():
+            if info.filename == PACKAGE_META_PART:
+                continue
+            zout.writestr(info, zin.read(info.filename))
+        zout.writestr(PACKAGE_META_PART, blob)
+    tmp.replace(out_path)
+
+
+def load_package_meta(path: str | Path) -> dict[str, Any]:
+    """Load ``PACKAGE_META_PART`` from an xlsx, or ``{}``.
+
+    Callers should respect ``USE_PACKAGE_META`` before relying on this.
+    """
+    path = Path(path)
+    try:
+        with zipfile.ZipFile(path, "r") as zin:
+            if PACKAGE_META_PART not in zin.namelist():
+                return {}
+            data = json.loads(zin.read(PACKAGE_META_PART).decode("utf-8"))
+    except (OSError, zipfile.BadZipFile, json.JSONDecodeError, UnicodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def store_dag_meta_on_doc(doc: Any, report: ConversionReport) -> None:
@@ -291,6 +345,8 @@ def write_dag_formulas_xlsx(
     wb.close()
     if strip_python_parts:
         _strip_python_in_excel_parts(out_path)
+    if USE_PACKAGE_META:
+        write_package_meta(out_path, report)
 
 
 def _a1_row_col(a1: str) -> tuple[int, str] | None:
@@ -497,7 +553,9 @@ def write_excel_python_xlsx(
                 try:
                     if cell.array_ref:
                         _clear_spill_xml(root, cell.cell, cell.array_ref)
-                    formula = xlws_py_formula(cell.script_index, cell.return_type, cell.data_args)
+                    formula = xlws_py_formula(
+                        cell.script_index, cell.return_type, deps_for_xlws_export(cell)
+                    )
                     _set_cell_xlws_formula(root, cell.cell, formula, array_ref=cell.array_ref)
                 except Exception as exc:
                     errors.append(f"{cell.sheet}!{cell.cell}: {exc}")
@@ -516,7 +574,7 @@ def write_excel_python_xlsx(
             written_scripts = False
             for info in zin.infolist():
                 name = info.filename
-                if name in drop_parts:
+                if name in drop_parts or name == PACKAGE_META_PART:
                     continue
                 if name.startswith("xl/worksheets/_rels/") and any(
                     p.split("/")[-1] in name for p in drop_parts

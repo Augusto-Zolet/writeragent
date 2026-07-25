@@ -326,7 +326,9 @@ OOXML (Excel):   pythonScripts + _xlws.PY(…) # CLI --to excel --write-xlsx / a
 
 (Multi-range scripts use `data` for the first binding and `inputs[i]` for the rest. Reverse export still accepts the older `pd.DataFrame(data[1:], columns=data[0])` form and restores `xl(%Pn%)`. Emit style matches Microsoft samples: no space after the comma in `headers=True` / `headers=False`.)
 
-Everything around `xl(...)`—pandas operations, groupby logic, plots, and ordinary Python statements—is preserved. Bare Excel `%Pn%` tokens are rewritten to equal-length `_Pn_` sentinels (outside strings/comments) so a single AST pass can find direct `xl(...)` call sites; there is no regex `xl(` scanner. Strings and comments stay intact. Tables (`Table1[#All]`) are resolved to **sheet-qualified** A1 snapshots (so a table on `Data` is not read from `Pivots`). Spill anchors (`ANCHORARRAY(A6)`) require a live array `ref` / snapshot; missing snapshots fail closed instead of shrinking to the anchor cell. Export currently restores those **A1 snapshots**, not the original `Table[#All]` / `ANCHORARRAY(...)` tokens (accepted MVP limitation).
+Everything around `xl(...)`—pandas operations, groupby logic, plots, and ordinary Python statements—is preserved. Bare Excel `%Pn%` tokens are rewritten to equal-length `_Pn_` sentinels (outside strings/comments) so a single AST pass can find direct `xl(...)` call sites; there is no regex `xl(` scanner. Strings and comments stay intact.
+
+**Tables / spill tokens (import vs export):** Calc cannot evaluate Excel structured refs (`Table1[#All]`) or spill parents (`ANCHORARRAY(A6)`). On import the converter **snapshots** them to sheet-qualified A1 ranges on the DAG `=PY` formula so the workbook can run (missing table/anchor snapshots fail closed). The original tokens are kept in `ConvertedCell.excel_deps` and in conversion meta (`ExcelPyDagMeta` udprop on auto-open) **only so export can put them back on `_xlws.PY`**. That is round-trip fidelity, not Calc Table/spill support—growing tables and live spill parents will not update the snapped A1 args until LibreOffice adds those features. Canonical note in code: [`models.py`](../plugin/calc/excel_py_convert/models.py) module doc / `EXCEL_DEP_TOKEN_FIDELITY`. (An optional `xl/writeragentExcelPyMeta.json` package part exists in code but is **disabled** by default — `USE_PACKAGE_META`; CLI fidelity uses `--from-report` / in-memory reports.)
 
 #### Why the rewritten workbook still follows the DAG
 
@@ -344,7 +346,7 @@ LibreOffice Calc (with the Python/`=PY` extension) registers a global document l
 
 1. Peek the ZIP on disk (stock Calc import may have dropped `pythonScripts` from the in-memory model).
 2. Fail-closed: if any cell cannot convert, leave the imported workbook open and log a warning — never block File → Open.
-3. Apply formulas **in place** via UNO `setFormula` ([`apply_calc.py`](../plugin/calc/excel_py_convert/apply_calc.py)), set document property `ExcelPyDagConverted`, and store per-cell `ExcelPyDagMeta` JSON (`return_type` / `data_args`, plus legacy empty `ordering_args`) so File → Save can restore Excel fidelity.
+3. Apply formulas **in place** via UNO `setFormula` ([`apply_calc.py`](../plugin/calc/excel_py_convert/apply_calc.py)), set document property `ExcelPyDagConverted`, and store per-cell `ExcelPyDagMeta` JSON (`return_type` / `data_args` / `excel_deps`) so File → Save can restore Excel fidelity (including Table/`ANCHORARRAY` tokens on export).
 
 **On save (`OnSaveDone` / `OnSaveAsDone` / `OnSaveToDone`):** when the open Calc doc has DAG `=PY`/`=PYTHON` cells and the destination is `.xlsx`, snapshot formulas from memory (UNO — including `py_code_*` bank cells), merge `ExcelPyDagMeta` when present, and **ZipFile-patch** the just-saved file to native Excel PY (`pythonScripts.xml` + `_xlfn._xlws.PY`, strip `py_code_*` sheets). LO’s XLSX filter cannot write `pythonScripts.xml`; UNO only provides the snapshot and the save hook. Failures leave LO’s DAG xlsx on disk and show a **MessageBox**. Plain spreadsheets without `=PY` are left unchanged. In-memory editing stays DAG until the next open.
 
@@ -365,7 +367,7 @@ python -m plugin.calc.excel_py_convert --to excel converted.xlsx --from-report d
 
 `--to excel --write-xlsx` writes native `pythonScripts.xml` / `_xlws.PY` via **stdlib ZipFile** (no openpyxl). Reconstructs `xl(%Pn%)`, header mode, and `return_type` from real data args. Prefer `--from-report dag.json` or in-memory `convert_dag_report_to_excel` so `return_type` survives; re-parsing a DAG `.xlsx` alone cannot recover it. Legacy `ordering_args` in old reports (from an earlier converter that injected prior-PY edges) are ignored on export.
 
-**Sample round-trip check:** [`scripts/roundtrip_excel_py_samples.py`](../scripts/roundtrip_excel_py_samples.py) runs Excel → DAG → Excel over [`PythonExcelSamples/`](../PythonExcelSamples/) and fails on script-text or `returnType` drift. Table/`ANCHORARRAY` → A1 snapshot dep remaps are accepted warnings.
+**Sample round-trip check:** [`scripts/roundtrip_excel_py_samples.py`](../scripts/roundtrip_excel_py_samples.py) (`make excel-py-roundtrip`) runs Excel → DAG → Excel over [`PythonExcelSamples/`](../PythonExcelSamples/) and fails on script-text, `returnType`, or lost Table/`ANCHORARRAY` tokens. Sheet punctuation (`.` vs `!`) may warn.
 
 ---
 
@@ -416,7 +418,7 @@ WriterAgent keeps a **defensive** `sanitize_inline_py_code` when *emitting* Calc
 | Co-volatility + Excel↔PY flip-flop | Yes | **No — harmful** | Multi-month core; ongoing perf debt |
 | Engine dynamic spill | Yes | Nice-to-have for all Calc | Multi-release platform |
 | Cloud container runtime | Yes (MS product) | No | Separate product |
-| OOXML `xlfn.PY` / `pythonScripts.xml` | Yes (files) | Via rewriter ([§5.8](#58-ooxml--xlfnpy-import)), not core filter | **Shipped** (formula-static); Table/`ANCHORARRAY` tokens → A1 snapshots |
+| OOXML `xlfn.PY` / `pythonScripts.xml` | Yes (files) | Via rewriter ([§5.8](#58-ooxml--xlfnpy-import)), not core filter | **Shipped** (formula-static); Calc uses A1 snapshots; export restores Table/`ANCHORARRAY` tokens via `excel_deps` meta |
 
 **Bottom line for Collabora planning:** The Online/jail-safe design already chose the **native** data path. Folding Microsoft’s default model into that path reopens dependency and scheduling problems the kit architecture was designed to avoid. Excel compatibility is a **file and migration** problem (option C/D), not the definition of `=PY`.
 

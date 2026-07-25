@@ -34,36 +34,37 @@ def _norm_code(s: str) -> str:
     return s
 
 
-def _is_snapshot_dep_pair(orig: str, back: str) -> bool:
-    """True when *orig* is a Table/ANCHORARRAY token and *back* looks like an A1 snapshot."""
-    o = (orig or "").strip()
-    b = (back or "").strip()
-    if "[#All]" in o or "ANCHORARRAY" in o.upper():
-        return bool(re.search(r"[A-Za-z]+\d+", b))
-    return False
+def _is_excel_structured_token(dep: str) -> bool:
+    d = (dep or "").strip()
+    return "[#" in d or "ANCHORARRAY" in d.upper()
 
 
 def _deps_acceptable(orig_deps: list[str], back_deps: list[str], ordering: list[str]) -> tuple[bool, str]:
-    """Return (ok, message). Fail if ordering leaked; warn-level snapshots are ok."""
+    """Return (ok, message).
+
+    Table/ANCHORARRAY tokens must round-trip exactly (export fidelity via excel_deps).
+    Sheet punctuation (. vs !) may warn. Ordering leaks fail.
+    """
     ord_set = {a.replace("$", "") for a in ordering}
     leaked = [d for d in back_deps if d.replace("$", "") in ord_set]
     if leaked:
         return False, f"ordering deps leaked into export: {leaked}"
     if orig_deps == back_deps:
         return True, ""
-    # Allow length-equal snapshot substitutions / sheet qualification.
     if len(orig_deps) == len(back_deps):
+        warns: list[str] = []
         for o, b in zip(orig_deps, back_deps, strict=True):
             if o == b:
                 continue
-            if _is_snapshot_dep_pair(o, b):
-                continue
-            # Same range, different sheet punctuation (. vs !)
+            if _is_excel_structured_token(o) and o != b:
+                return False, f"structured dep lost: {o!r} → {b!r}"
             if o.replace(".", "!") == b.replace(".", "!"):
+                warns.append(f"{o!r}→{b!r}")
                 continue
             return True, f"warn dep morph {o!r} → {b!r}"
-        return True, "warn: deps remapped (snapshots / sheet sep)"
-    # Extra trailing args that aren't ordering → fail
+        if warns:
+            return True, "warn: deps remapped (sheet sep)"
+        return True, ""
     if len(back_deps) > len(orig_deps):
         extra = back_deps[len(orig_deps) :]
         return False, f"extra deps on round-trip: {extra}"

@@ -1,5 +1,18 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Data models for Excel ↔ DAG-style ``=PY`` conversion."""
+"""Data models for Excel ↔ DAG-style ``=PY`` conversion.
+
+Excel structured-table / spill tokens (``Table[#All]``, ``ANCHORARRAY(...)``)
+===========================================================================
+Calc cannot evaluate those tokens today. On import we **snapshot** them to A1
+ranges on the DAG ``=PY`` formula so the workbook can run. We also keep the
+original Excel tokens in ``ConvertedCell.excel_deps`` (and package/udprop meta)
+**only so export can put them back on ``_xlws.PY``** for round-trip fidelity.
+
+This is an interchange hack, not Calc Table/spill support. LibreOffice/Calc
+should grow real structured references and dynamic-array spill later; until
+then, growing tables / live spill parents will not update the snapped A1 args.
+See docs/ms-py-libreoffice-compatibility.md §5.8.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +22,11 @@ from typing import Any, Literal
 HeaderMode = Literal["true", "false", "omit"]
 DepRole = Literal["data", "ordering"]
 
+# Canonical pointer for callers that need to cite the fidelity policy in logs/tests.
+EXCEL_DEP_TOKEN_FIDELITY = (
+    "excel_deps are for Excel round-trip fidelity only; Calc uses A1 data_args snapshots "
+    "(Table[#All] / ANCHORARRAY need real Calc support later — see models.py module doc)"
+)
 
 @dataclass
 class SheetInfo:
@@ -111,6 +129,8 @@ class ConvertedCell:
     converted_code: str
     data_args: list[str] = field(default_factory=list)
     ordering_args: list[str] = field(default_factory=list)
+    # Parallel to data_args: original Excel dep tokens for _xlws.PY export (see module doc).
+    excel_deps: list[str] = field(default_factory=list)
     bindings: list[BindingInfo] = field(default_factory=list)
     dag_formula: str = ""
     excel_formula: str = ""
@@ -132,6 +152,7 @@ class ConvertedCell:
             "converted_code": self.converted_code,
             "data_args": list(self.data_args),
             "ordering_args": list(self.ordering_args),
+            "excel_deps": list(self.excel_deps),
             "bindings": [asdict(b) for b in self.bindings],
             "dag_formula": self.dag_formula,
             "excel_formula": self.excel_formula,
@@ -171,6 +192,7 @@ class ConvertedCell:
             converted_code=str(data.get("converted_code") or ""),
             data_args=[str(a) for a in (data.get("data_args") or [])],
             ordering_args=[str(a) for a in (data.get("ordering_args") or [])],
+            excel_deps=[str(a) for a in (data.get("excel_deps") or [])],
             bindings=bindings,
             dag_formula=str(data.get("dag_formula") or ""),
             excel_formula=str(data.get("excel_formula") or ""),

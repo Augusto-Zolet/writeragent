@@ -250,6 +250,18 @@ def excel_dep_ref(ref: str) -> str:
     return f"{m.group(1)}!{m.group(2)}"
 
 
+def deps_for_xlws_export(cell: ConvertedCell) -> list[str]:
+    """Deps to write on ``_xlws.PY``: prefer ``excel_deps`` tokens when aligned with ``data_args``.
+
+    Policy: ``plugin.calc.excel_py_convert.models`` module doc / ``EXCEL_DEP_TOKEN_FIDELITY``.
+    """
+    data = [a for a in cell.data_args if a]
+    excel = [a for a in cell.excel_deps if a]
+    if excel and len(excel) == len(data):
+        return excel
+    return data
+
+
 def xlws_py_formula(script_index: int, return_type: int, data_args: Sequence[str]) -> str:
     """Build ``_xlfn._xlws.PY(scriptIndex, returnType, deps…)`` (no leading ``=``)."""
     parts = [str(int(script_index)), str(int(return_type))]
@@ -286,7 +298,7 @@ def assign_script_bank(cells: Sequence[ConvertedCell]) -> tuple[list[str], list[
             scripts.append(code)
             index_by_code[code] = idx
         cell.script_index = idx
-        cell.excel_formula = "=" + xlws_py_formula(idx, cell.return_type, cell.data_args)
+        cell.excel_formula = "=" + xlws_py_formula(idx, cell.return_type, deps_for_xlws_export(cell))
     return scripts, list(cells)
 
 
@@ -370,6 +382,14 @@ def convert_dag_formula_to_excel(
     if ordering_args:
         issues.append("ignored ordering-only deps on reverse export")
     array_ref = str(meta.get("array_ref") or "")
+    excel_deps_meta = [str(a) for a in (meta.get("excel_deps") or []) if a]
+    # Keep export tokens aligned with rewritten data_args length.
+    if excel_deps_meta and len(excel_deps_meta) == len(deps):
+        excel_deps_out = excel_deps_meta
+    elif excel_deps_meta and len(excel_deps_meta) == len(data_args) and deps == data_args:
+        excel_deps_out = excel_deps_meta
+    else:
+        excel_deps_out = list(excel_deps_meta) if len(excel_deps_meta) == len(deps) else []
     out = ConvertedCell(
         sheet=sheet,
         cell=cell,
@@ -377,6 +397,7 @@ def convert_dag_formula_to_excel(
         original_code=parts.code,
         converted_code=excel_code,
         data_args=deps,
+        excel_deps=excel_deps_out,
         ordering_args=ordering_args,
         bindings=bindings,
         excel_formula="",  # filled by assign_script_bank
@@ -415,10 +436,10 @@ def convert_dag_cells_to_excel(
 
 
 def convert_dag_report_to_excel(dag_report: ConversionReport) -> ConversionReport:
-    """Reverse a DAG ``ConversionReport`` to Excel shape (preserves return_type / data_args).
+    """Reverse a DAG ``ConversionReport`` to Excel shape (preserves return_type / excel_deps).
 
-    Ordering-only args are kept on the cell for diagnostics but are **not** emitted
-    on ``_xlws.PY`` (``assign_script_bank`` uses ``data_args`` only).
+    ``_xlws.PY`` deps use ``deps_for_xlws_export`` (original Table/ANCHORARRAY tokens when
+    present — see models module doc). Legacy ``ordering_args`` are not emitted.
     """
     out = ConversionReport(direction="excel", source_path=dag_report.source_path)
     for cell in dag_report.cells:
@@ -452,6 +473,10 @@ def convert_dag_report_to_excel(dag_report: ConversionReport) -> ConversionRepor
         )
         if cell.ordering_args:
             issues.append("ignored ordering-only deps on reverse export")
+        excel_deps = list(cell.excel_deps)
+        if excel_deps and len(excel_deps) != len(deps):
+            # data_args rewrite rarely changes length; if it does, fall back to A1.
+            excel_deps = []
         out.cells.append(
             ConvertedCell(
                 sheet=cell.sheet,
@@ -460,6 +485,7 @@ def convert_dag_report_to_excel(dag_report: ConversionReport) -> ConversionRepor
                 original_code=cell.converted_code,
                 converted_code=excel_code,
                 data_args=deps,
+                excel_deps=excel_deps,
                 ordering_args=list(cell.ordering_args),
                 bindings=list(cell.bindings),
                 issues=issues,

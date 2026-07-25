@@ -329,9 +329,11 @@ def test_demo1_fillna_specifics():
     h4 = by_cell["H4"]
     assert "to_pandas()" in h4.converted_code
     assert h4.data_args == ["A6:B254"]
+    assert h4.excel_deps == ["_xlfn.ANCHORARRAY(A6)"]
     assert h4.return_type == 1
     assert "result = None" in h4.converted_code
     assert not h4.ordering_args
+    assert by_cell["H5"].excel_deps == ["_xlfn.ANCHORARRAY(D6)"]
     assert not by_cell["H5"].ordering_args
     assert "H4" not in (by_cell["H5"].dag_formula or "")
     h6 = by_cell["H6"]
@@ -346,6 +348,7 @@ def test_demo3_table_and_scalar_groupby():
     by_cell = {c.cell: c for c in report.cells}
     c1 = by_cell["C1"]
     assert c1.data_args == ["Data!A1:AA5850"]
+    assert c1.excel_deps == ["tradeData[#All]"]
     assert "to_pandas()" in c1.converted_code
     c9 = by_cell["C9"]
     assert c9.data_args == ["C4", "C5", "C6"]
@@ -362,8 +365,57 @@ def test_demo5_table1():
     report = convert_model_to_dag(demo5_melted())
     h1 = next(c for c in report.cells if c.cell == "H1")
     assert h1.data_args == ["Data!A3:F23"]
+    assert h1.excel_deps == ["Table1[#All]"]
     h3 = next(c for c in report.cells if c.cell == "H3")
     assert h3.shared_kernel
+
+
+def test_excel_deps_roundtrip_on_xlws_export():
+    """Table/ANCHORARRAY tokens are restored on _xlws.PY; Calc still uses A1 snapshots.
+
+    Policy: EXCEL_DEP_TOKEN_FIDELITY / models.py module doc.
+    """
+    from plugin.calc.excel_py_convert.models import EXCEL_DEP_TOKEN_FIDELITY
+    from plugin.calc.excel_py_convert.to_excel import convert_dag_report_to_excel, deps_for_xlws_export
+
+    assert "round-trip fidelity" in EXCEL_DEP_TOKEN_FIDELITY
+    dag = convert_model_to_dag(demo3_groupby())
+    excel = convert_dag_report_to_excel(dag)
+    c1 = next(c for c in excel.cells if c.cell == "C1")
+    assert c1.data_args == ["Data!A1:AA5850"]
+    assert deps_for_xlws_export(c1) == ["tradeData[#All]"]
+    assert "tradeData[#All]" in c1.excel_formula
+
+
+def test_package_meta_helpers_when_enabled(tmp_path: Path):
+    """Package JSON helpers stay available; default path does not write them (USE_PACKAGE_META)."""
+    from plugin.calc.excel_py_convert.convert import (
+        PACKAGE_META_PART,
+        USE_PACKAGE_META,
+        convert_to_dag,
+        load_package_meta,
+        write_dag_formulas_xlsx,
+        write_package_meta,
+    )
+
+    assert USE_PACKAGE_META is False
+    samples = Path("PythonExcelSamples")
+    srcs = sorted(samples.glob("*Groupby.xlsx")) if samples.is_dir() else []
+    if not srcs:
+        pytest.skip("PythonExcelSamples not present")
+    src = srcs[0]
+    out = tmp_path / "dag.xlsx"
+    report = convert_to_dag(src)
+    assert report.ok
+    write_dag_formulas_xlsx(src, report, out)
+    # Default: no package meta part.
+    assert load_package_meta(out) == {}
+    with zipfile.ZipFile(out) as zf:
+        assert PACKAGE_META_PART not in zf.namelist()
+    # Helpers still work when called explicitly (future enablement).
+    write_package_meta(out, report)
+    meta = load_package_meta(out)
+    assert any(isinstance(v, dict) and v.get("excel_deps") for v in meta.values())
 
 
 def test_demo6_multi_range_and_headers_false():
