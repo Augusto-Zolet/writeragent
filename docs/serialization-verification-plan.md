@@ -33,7 +33,7 @@ This is the reference implementation for Tier-0 (pure Python) contract + CrossHa
 
 Round-trip oracles are validated in pytest, not as `@deal.ensure` (too expensive for CrossHair):
 
-- **Host unpack:** semantic equality via `flatten_semantic_cells` — buffer NaN holes match Python `None` in the oracle (see [Blank vs NaN egress policy](calc-blanks-vs-nans.md); host preserves `float('nan')` on unpack).
+- **Host unpack:** semantic equality via `flatten_semantic_cells` — buffer NaN holes match Python `None` in the oracle (see [Blank vs NaN egress policy](calc-py-data-shapes.md#empty-cells-vs-nan); host preserves `float('nan')` on unpack).
 - **Child unpack (mixed grids, `strings` non-empty):** strict equality — ingress restores `None` for empty cells.
 - **Child unpack (pure numeric, `strings` empty):** ndarray fast path; pytest checks non-`None` only.
 

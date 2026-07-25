@@ -846,6 +846,7 @@ See [numpy-domains.md](numpy-domains.md) and [image-recognition.md](image-recogn
 ## Related documentation
 
 - [Enabling NumPy & Python in LibreOffice](enabling_numpy_in_libreoffice.md) — user guide, architecture, `=PY()` behavior
+- [Calc `=PY()` data shapes](calc-py-data-shapes.md) — `CalcRange`, blanks/NaN, multi-range
 - [NumPy domain helpers](numpy-domains.md) — Analysis, Viz, Symbolic, Units, Forecast, Optimize, Quant, Text
 - [Venv subprocess IPC & serialization](numpy-serialization.md) — warm worker, protocol, wire formats
 - [Monaco editor dev plan](python-monaco-editor-dev-plan.md) — IPC, phases 2B–2F

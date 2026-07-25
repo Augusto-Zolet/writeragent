@@ -187,7 +187,7 @@ run_venv_python_script(code="… plt.plot(…) …")
 
 **Native LO charts** ([`charts.py`](../plugin/calc/charts.py) — `UpsertChart`, `ListCharts`, …) are a **separate** UNO chart path, not matplotlib. The LLM can already create native Calc/Writer charts from structured data; Viz helpers complement that with statistical plotting (seaborn, heatmaps, distribution plots).
 
-**Known limitations:** No UNO e2e test for full `=PYTHON()` plot insertion (geometry unit-tested with mocks). Multiple open figures are merged into one vertical stack (PNG). Optional polish: [python-in-excel-dev-plan.md Phase 3](python-in-excel-dev-plan.md#phase-3-monaco--calc-editor-ux-in-progress).
+**Known limitations:** No UNO e2e test for full `=PYTHON()` plot insertion (geometry unit-tested with mocks). Multiple open figures are merged into one vertical stack (PNG). Optional polish (anchor/z-order, replace-existing-chart, UNO e2e): [Monaco Phase 3](python-monaco-editor-dev-plan.md#phase-3--broader-surfaces).
 
 #### Phase B — Run Python Script + Writer image egress (shipped)
 

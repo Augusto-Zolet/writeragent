@@ -2,6 +2,8 @@
 
 WriterAgent can run scientific Python — **NumPy**, **pandas**, **scipy**, and similar C-extension stacks — **without** loading those packages into LibreOffice’s embedded interpreter. Point **Settings → Python** at a **user-provided virtual environment**, then use **Run Python Script…**, Calc `=PY()` / **Edit Python in Cell…**. Code runs in a sandboxed child process and returns serializable results to your sheet or script UI.
 
+**Glossary:** `=PY()` and `=PYTHON()` are the same Calc add-in (`XPythonFunction`). Docs and examples use either name interchangeably.
+
 These Python / NumPy features also now ship in **LibrePy.oxt**. The WriterAgent extension covers the same Python surfaces plus a prototype Calc to =PY() spreadsheet conversion, chat and related tools — install **one** OXT at a time (see [extension packaging](libreoffice-core-python-extension-split.md)).
 
 ## Table of contents
@@ -9,45 +11,31 @@ These Python / NumPy features also now ship in **LibrePy.oxt**. The WriterAgent 
 1. [The problem: ABI and embedded Python](#1-the-problem-abi-and-embedded-python)
 2. [Strategy decision](#2-strategy-decision)
 3. [User guide](#3-user-guide)
-  - [Settings → Python](#settings--python)
-  - [Ways to run Python](#ways-to-run-python)
-  - [Run Python Script & Monaco](#run-python-script--monaco)
-  - [Assign](#assign-result) `result`
-  - [Using the chat assistant (optional)](#using-the-chat-assistant-optional)
 4. [Architecture](#4-architecture)
 5. [Developer reference](#5-developer-reference)
-  - [Trusted extension code in the venv](#trusted-extension-code-in-the-venv)
-6. [The](#6-the-py-calc-function) `=PY()` [Calc function](#6-the-py-calc-function) 
+6. [The `=PY()` Calc function](#6-the-py-calc-function)
   - [Session modes and recalc semantics](#session-modes-and-recalc-semantics)
   - [Keyboard shortcuts and recalc](#keyboard-shortcuts-and-recalc)
-  - [Empty cells vs NaN](#empty-cells-vs-nan)
   - [Calc formula lexer quirks (inline code)](#calc-formula-lexer-quirks-inline-code)
-  - [Future LibreOffice formula-string work](#future-libreoffice-formula-string-work)
-  - [Data handoff and shaping](#data-handoff-and-shaping)
-  - [Multi-range support (varargs)](#multi-range-support-varargs)
+  - [Data shapes (`data` / blanks / varargs)](calc-py-data-shapes.md)
 7. [Deferred roadmap](#7-deferred-roadmap)
-  - [Microsoft Python in Excel vs Calc](#microsoft-python-in-excel-vs-writeragent) `=PY()`
-  - [Competitive landscape (Google Sheets vs Calc)](#competitive-landscape-google-sheets-vs-calc)
-  - [Calc backlog from landscape survey](#calc-backlog-from-landscape-survey)
+  - [Calc UX backlog](#calc-ux-backlog)
 8. [Collabora Online and jail-safe execution](numpy-jailsafe.md)
 9. [Implementation status](#9-implementation-status)
+
 ### Related Documents
 
 | Document | Description / Notes |
 | :--- | :--- |
-| [Extension packaging](libreoffice-core-python-extension-split.md) | Packaging split between LibreOffice core and Python extension |
+| [Calc `=PY()` data shapes](calc-py-data-shapes.md) | `CalcRange`, ingress/egress, blanks vs NaN, dates, multi-range |
 | [Venv subprocess IPC & NumPy serialization](numpy-serialization.md) | Warm worker, protocol, wire formats, benchmarks |
-| [NumPy domain helpers](numpy-domains.md) | Analysis, Viz, Symbolic, Units, Text, Forecasting roadmaps |
-| [Monaco editor dev plan](python-monaco-editor-dev-plan.md) | IPC, phases 2B–2F, manual tests |
-| [Python-in-Calc future work](python-in-excel-dev-plan.md) | Phases 3–7 + backlog |
-| [Why not copy Microsoft’s `=PY()`](ms-py-libreoffice-compatibility.md) | LibreOffice/Collabora analysis: `xl()` + co-volatility costs vs native `=PY(code, data?)`; defer `PY_XL` |
-| [DuckDB Calc integration (Phases A–C landed)](duckdb-calc-dev-plan.md) | DuckDB Calc integration plan |
-| [Jupyter notebook import](jupyter-notebook-import.md) | Notebook import details |
-| [Calc spreadsheet → Python import](calc-spreadsheet-to-python-import.md) | Convert formulas to `=PY()` while preserving data (proposed) |
-| [Image Recognition](image-recognition.md) | Image recognition and OCR features |
-| [Embeddings](embeddings.md) | Document and folder embeddings |
-| [Analysis Sub-Agent](analysis-sub-agent.md) | Chat path analysis subagent |
-| [SageMath integration (deferred)](sagemath-integration-dev-plan.md) | SageMath integration roadmap |
+| [Why not copy Microsoft’s `=PY()`](ms-py-libreoffice-compatibility.md) | `xl()` + co-volatility costs vs native `=PY(code, data?)` |
+| [NumPy domain helpers](numpy-domains.md) | Analysis, Viz, Symbolic, Units, Text, Forecasting |
+| [Extension packaging](libreoffice-core-python-extension-split.md) | LibrePy vs WriterAgent packaging |
+| [Monaco editor dev plan](python-monaco-editor-dev-plan.md) | IPC, phases 2B–2F |
+| [Collabora Online / jail-safe](numpy-jailsafe.md) | Thin C++ Add-In + compute service |
+| [Calc spreadsheet → Python import](calc-spreadsheet-to-python-import.md) | Convert formulas to `=PY()` |
+| [Jupyter notebook import](jupyter-notebook-import.md) | Writer `.ipynb` import (not venv compute) |
 
 ---
 
@@ -353,7 +341,7 @@ IDL: `any python( [in] string code, [in] any data );` in `[extension/idl/XPython
 | Arg | Name   | Required | Role                                                                         |
 | --- | ------ | -------- | ---------------------------------------------------------------------------- |
 | 0   | `code` | Yes      | Python source; evaluated result is returned                                  |
-| 1   | `data` | No       | Optional range → variable `data` ([Data handoff](#data-handoff-and-shaping)) |
+| 1   | `data` | No       | Optional range(s) → `data` / `inputs` ([Data shapes](calc-py-data-shapes.md)) |
 
 
 
@@ -479,7 +467,7 @@ Deliberate accumulation (running totals, etc.) is fine — treat it as a choice,
 |                        | Microsoft Python in Excel                 | Calc `=PY()`                                                                                                                               |
 | ---------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Cell value**         | Last evaluated expression (Jupyter-style) | Explicit `result = …` assignment                                                                                                           |
-| `print()` **/ stdout** | Diagnostics pane only; cell gets `None`   | Captured in worker response; shown in **LibrePy Python sidebar** diagnostics ([Phase 6](python-in-excel-dev-plan.md#phase-6-diagnostics-pane)); not written into the cell |
+| `print()` **/ stdout** | Diagnostics pane only; cell gets `None`   | Captured in worker response; shown in **LibrePy Python sidebar** diagnostics (shipped); not written into the cell |
 | **Top-level** `return` | Syntax error in Excel                     | Use `result = …` instead                                                                                                                   |
 
 
@@ -497,7 +485,7 @@ These are **Calc** shortcuts. They recalculate formulas; they do **not** clear t
 | Shortcut          | Calc action                     | Effect on Python session                                                                                                                                                                      |
 | ----------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **F9**            | Recalculate changed cells       | Re-runs dirty `=PY()` cells; **Shared kernel** globals **persist**                                                                                                                            |
-| **Ctrl+Shift+F9** | Hard recalculate (all formulas) | Re-runs all `=PY()` cells; globals **persist**. Use after worker crash/`NameError` to rebuild DAG state ([landscape backlog](#shared-kernel-dependency--invalidation--soft-timeout-recovery)) |
+| **Ctrl+Shift+F9** | Hard recalculate (all formulas) | Re-runs all `=PY()` cells; globals **persist**. Use after worker crash/`NameError` to rebuild DAG state ([shared-kernel soft timeout](#calc-ux-backlog)) |
 | **Shift+F9**      | Recalculate current sheet       | Same persistence rules as F9, sheet-scoped                                                                                                                                                    |
 
 
@@ -517,9 +505,9 @@ Parity targets for Calc `=PY()` UX. Source: Microsoft Python in Excel product do
 | **Ctrl+Alt+Shift+F9**          | **Reset Python runtime**        | **Reset Python Session** (no accelerator yet)                                                                | **Adopt this chord** for reset when we wire `[Accelerators.xcu](../extension/Accelerators.xcu)`                                                             |
 | **Ctrl+Alt+Shift+F2**          | Toggle Python editor pane       | Monaco window (separate process)                                                                             | Optional: dock/focus toggle                                                                                                                                 |
 | **Ctrl+Alt+Shift+C**           | Toggle plot float vs embedded   | Plots insert as sheet images only                                                                            | Floating plot layer → backlog                                                                                                                               |
-| **Ctrl+Alt+Shift+M**           | Toggle Value vs Object return   | Always value egress today; object cards → [Phase 5](python-in-excel-dev-plan.md#phase-5-python-object-cards) |                                                                                                                                                             |
-| **Ctrl+Shift+F5**              | Open object card preview        | Not shipped                                                                                                  | Phase 5                                                                                                                                                     |
-| **Ctrl+Shift+U**               | Expand formula bar              | Calc native (multi-line formula bar)                                                                         | Formula-bar Jedi → backlog                                                                                                                                  |
+| **Ctrl+Alt+Shift+M**           | Toggle Value vs Object return   | Always value egress today; object cards → [Calc UX backlog](#calc-ux-backlog) |                                                                                                                                                             |
+| **Ctrl+Shift+F5**              | Open object card preview        | Not shipped                                                                                                  | [Object cards](#calc-ux-backlog)                                                                                                                                                     |
+| **Ctrl+Shift+U**               | Expand formula bar              | Calc native (multi-line formula bar)                                                                         | Formula-bar Jedi → [Monaco 2D](python-monaco-editor-dev-plan.md#phase-2d--jedi-autocompletion-child-only-performance-sensitive)                                                                                                                                  |
 | **F2**                         | Edit vs point mode (range pick) | Calc native cell edit                                                                                        | Monaco **range picker** should use same Enter/Point idea ([Monaco 2C](python-monaco-editor-dev-plan.md#phase-2c--calc-range-picker-medium-risk-high-value)) |
 | **Ctrl+F2**                    | Focus formula bar ↔ grid        | Calc native                                                                                                  | —                                                                                                                                                           |
 
@@ -528,7 +516,7 @@ WriterAgent **chat** shortcuts (Writer/Calc): **Ctrl+Q** extend selection, **Ctr
 
 #### Excel error codes (reference for diagnostics)
 
-Errors surface as **cell text** (and worker `traceback` in logs). [Phase 6](python-in-excel-dev-plan.md#phase-6-diagnostics-pane) targets Excel-like structured codes + diagnostics pane.
+Errors surface as **cell text** (and worker `traceback` in logs). LibrePy Python sidebar already shows structured diagnostics; optional glanceable cell traceback remains in [Calc UX backlog](#calc-ux-backlog).
 
 
 | Excel code                 | Typical cause                     | Today                                                                                   |
@@ -563,46 +551,9 @@ LibreOffice Calc operates strictly on double-precision floats (`double`/`float`)
 
 #### Empty cells vs NaN
 
-Calc **empty cells** and Python/NumPy **NaN** are intentionally **not distinguished on the wire**. Both use NaN slots in the `split_grid` float64 buffer (or `None` in small/mixed list results). The production transport is **length-prefixed Pickle5** carrying `split_grid` (or plain nested lists below threshold). JSON is not used on the runtime wire.
+Calc empty cells and Python/NumPy NaN are **not distinguished on the wire**. Ingress blanks become `None` or `np.nan`; egress `None` → empty cell, computed `nan` → cascading Calc error. Prefer `np.nansum` / `np.nanmean` when blanks should be ignored.
 
-**Ingress (Calc → Python):**
-
-- Empty cell → `None` (mixed or small grids) or `np.nan` (pure numeric split_grid ndarray).
-- Ingress blanks can poison naive functions like `np.sum` or `np.mean` — use `np.nansum`, `np.nanmean`, or boolean masks when blanks should be ignored.
-
-
-| Grid type in the venv                     | Empty Calc cell becomes         | Notes                                                                                       |
-| ----------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------- |
-| **Mixed** (any text in range)             | `None` in `list` / `list[list]` | Same as pre–split-grid list behavior.                                                       |
-| **Pure numeric** (≥100 cells, split_grid) | `np.nan` in `data`              | Fast path; use `np.nansum`, `np.nanmean`, or `np.isnan` when holes must be ignored.         |
-| **Small range** (<100 cells, nested list) | `None` in lists                 | Same as mixed; may be promoted to `ndarray` only if the child reloads a clean numeric grid. |
-
-
-**Egress (Python → Calc):**
-
-- Python `None` → `""` (empty cell).
-- `float('nan')` / `np.nan` → raw NaN; Calc renders this as a **cascading error cell** (typically `#NUM!` or `#VALUE!`) that propagates to dependent formulas. There is no longer a silent-blank surprise for computed undefined values.
-- `±inf` passes through (may also error in formulas).
-- If you prefer a visible non-error text marker in the sheet (e.g. `"NaN"`), explicitly return a string instead of a float NaN:
-  ```python
-  val = np.mean(data)
-  result = "NaN" if (isinstance(val, float) and math.isnan(val)) else val
-  ```
-
-**Examples:**
-
-```python
-# Ingress
-result = np.nansum(data)          # ignores blanks/NaNs
-result = np.sum(data)             # poisons on blanks/NaN (returns NaN)
-
-# Egress
-result = None                     # empty cell
-result = float("nan")             # #NUM! / #VALUE! (cascades)
-result = [[1.0, np.nan, 3.0]]     # 1, error, 3
-```
-
-**We do not round-trip "real NaN" as a special visible sentinel.** `±inf` is never coerced to empty.
+Full tables, decision rationale, and author/LLM summary: **[Empty cells vs NaN](calc-py-data-shapes.md#empty-cells-vs-nan)**.
 
 #### 2. Normal (Single-Cell) Formulas vs. Matrix (Array) Formulas
 
@@ -680,8 +631,10 @@ No code changes or new APIs (such as `PythonCell()`) are required.
 
 #### Gotchas & Design Invariants:
 
-- **Empty Code Cells**: If the referenced code cell evaluates to an empty string, our robust subprocess script runner gracefully detects the empty code block and returns a cell with the error message: `Error: No code provided.`
-- **Implicit Intersection**: If a user passes a multi-cell range as the first argument (e.g., `=PY(A1:A2; B1:B10)`), Calc will perform implicit intersection using the active row/column. To ensure predictable behavior, users should always pass ### Calc formula lexer quirks (inline code)
+- **Empty Code Cells**: If the referenced code cell evaluates to an empty string, the script runner returns `Error: No code provided.`
+- **Implicit Intersection**: If a user passes a multi-cell range as the first argument (e.g., `=PY(A1:A2; B1:B10)`), Calc performs implicit intersection using the active row/column. Always pass a **single cell** for the code argument (e.g. `$A$1`).
+
+### Calc formula lexer quirks (inline code) {#calc-formula-lexer-quirks-inline-code}
 
 **Status (corrected 2026-07):** Calc’s formula compiler parses the cell **before** the `=PY()` add-in runs. Failures here are **not** venv/NumPy/sandbox errors — Python never executes.
 
@@ -731,9 +684,9 @@ These are **not** implemented; kept so design discussions do not rediscover the 
 3. **Native ODS fixtures** — Shipped: [`tests/fixtures/numpy_domains_demo.ods`](../tests/fixtures/numpy_domains_demo.ods). Use ODS for manual `=PY()` QA (preserves uppercase add-in name; semicolon args).
 4. **Documentation parity** — Serialization fixtures intentionally use `np.sum` / `np.max` without unnecessary `float()`.
 
-### Future LibreOffice formula-string work
+### Future LibreOffice formula-string work {#future-libreoffice-formula-string-work}
 
-> **Deferred upstream work** — not in WriterAgent. Schedule as a LibreOffice/Collabora Calc patch when long inline `=PY("…")` / Excel import becomes a product priority. Details below are a future **dev plan** for core.
+> **Deferred upstream work** — not in WriterAgent. Schedule as a LibreOffice/Collabora Calc patch when long inline `=PY("…")` / Excel import becomes a product priority.
 
 ASCII-quoted opacity is already correct. Remaining compiler gaps:
 
@@ -743,11 +696,6 @@ ASCII-quoted opacity is already correct. Remaining compiler gaps:
 4. **Optional Bugzilla** — Attach the three `LEN` reproducers after a patch lands or when filing.
 
 Until then: keep scripts in cells for large Python; WriterAgent normalizes curly quotes on formula parse and may sanitize `float(` when emitting Calc formulas defensively.
-
-
-.max` without `float()`; README generated alongside the sheet documents the quirk.
-
-
 
 ### How it runs
 
@@ -766,7 +714,7 @@ flowchart LR
   subgraph ourPy [Calc =PY]
     F1["=PY(code, data?)"]
     F1 --> Venv["venv subprocess"]
-    Venv --> Inject["inject data list"]
+    Venv --> Inject["inject CalcRange as data"]
   end
   subgraph librePythonista [LibrePythonista PY.C]
     F2["=PY.C(SHEET(), CELL(...), extras?)"]
@@ -776,163 +724,36 @@ flowchart LR
   end
 ```
 
+| Capability                     | `data` / `inputs`                         | LibrePythonista             |
+| ------------------------------ | ----------------------------------------- | --------------------------- |
+| Pass one range                 | Yes — `CalcRange` (always 2D)             | `lp("A1:B10")`              |
+| Multiple ranges in one formula | Yes — `inputs[0]`, `inputs[1]`, …         | Multiple `lp()` calls       |
+| Named ranges                   | Only as formula args                      | `lp("MyRange")`             |
+| Trim empty rows (`collapse`)   | No                                        | `collapse=True` on `lp()`   |
+| Typed date columns             | Raw Calc values (user coerces)            | `column_types` + pandas     |
+| Return type for ranges         | `CalcRange` / explicit `.to_pandas()`     | `pandas.DataFrame`          |
+| Cell context                   | Not exposed                               | `sheetIdx` + `cAddress`     |
+| Execution                      | User venv                                 | LO embedded + pip bootstrap |
 
+**What we kept:** formula args + venv NumPy; rectangular orientation via [`CalcRange`](../plugin/scripting/calc_range.py). **What we did not copy:** `PY.C` metadata formula, in-LO pandas bootstrap, mandatory `lp()` for every read.
 
+|                    | `=PY()`                                                             | LibrePythonista                                                 |
+| ------------------ | ------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Where users edit   | Formula bar, **Edit Python in Cell…** (Monaco), or code-in-cell ref | LibrePythonista menu / Edit Code; cell shows short `=PY.C(...)` |
+| Where source lives | In the `.ods` formula (or a referenced cell)                        | Document-side store (`PySourceManager`, etc.)                   |
 
-| Capability                     | `data` (arg 1)                          | LibrePythonista             |
-| ------------------------------ | --------------------------------------- | --------------------------- |
-| Pass one range                 | Yes — flat list or 2D list              | `lp("A1:B10")`              |
-| Multiple ranges in one formula | Yes — `data[0]`, `data[1]`, … (varargs) | Multiple `lp()` calls       |
-| Named ranges                   | Only as 2nd arg                         | `lp("MyRange")`             |
-| Trim empty rows (`collapse`)   | No                                      | `collapse=True` on `lp()`   |
-| Typed date columns             | Raw Calc values                         | `column_types` + pandas     |
-| Return type for ranges         | `list` / `list[list]`                   | `pandas.DataFrame`          |
-| Cell context                   | Not exposed                             | `sheetIdx` + `cAddress`     |
-| Execution                      | User venv                               | LO embedded + pip bootstrap |
+**Design stance:** treat each `=PY` cell as a **pure function** (`data` in → `result` out). Monaco / code-in-cell helps for long scripts ([Calc UX backlog](#calc-ux-backlog); [Monaco plan](python-monaco-editor-dev-plan.md)). Flatpak/Snap spawn patterns for the Monaco child remain tracked in [python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md) (phase 2F).
 
+### Data shapes (`data` / blanks / varargs)
 
-**What we kept:** two-argument formula + venv NumPy; flat 1D shaping for single rows/columns (`[normalize_python_data_shape](plugin/calc/calc_addin_data.py)`). **What we did not copy:** `PY.C` metadata formula, in-LO pandas bootstrap, mandatory `lp()` for every read.
-
-
-|                    | `=PY()`                             | LibrePythonista                                                 |
-| ------------------ | ----------------------------------- | --------------------------------------------------------------- |
-| Where users edit   | Formula bar: code inside `=PY("…")` | LibrePythonista menu / Edit Code; cell shows short `=PY.C(...)` |
-| Where source lives | In the `.ods` formula               | Document-side store (`PySourceManager`, etc.)                   |
-
-
-**Design stance:** treat each `=PY` cell as a **pure function** (`data` in → `result` out). External storage + IDE editor helps for long scripts ([§7](#7-deferred-roadmap) — editor tiers).
-
-### Data handoff and shaping
-
-**Where does the** `data` **variable come from?**
-If you are editing your Python code in an IDE or reading it statically, referencing `data` might look like a `NameError` (an undefined variable).
-
-In the `=PY()` environment, `data` **is a special variable injected dynamically into your script's execution namespace at runtime.**
-
-When you pass a range (or cell reference) as the second argument to `=PY(code; range)`, the LibreOffice Add-In:
-
-1. Resolves the range inside Calc and reads all cell values as a **rectangular 2D grid** (orientation preserved).
-2. Packs the grid in a `calc_range` wire envelope (`split_grid` remains a private storage optimization).
-3. Materializes a :class:`~plugin.scripting.calc_range.CalcRange` in the sandbox as `data`, and sets `inputs = (data, …)` for every call.
-4. Runs your Python script. Because of this runtime injection, your script can immediately access `data` / `inputs`.
-
-| Range you pass in Calc             | Structure of `data` in Python | Example usage |
-| ---------------------------------- | ----------------------------- | ------------- |
-| **Single cell** (e.g., `B1`)       | `CalcRange` shape `(1, 1)` — use `data.values[0][0]` or `float(np.asarray(data))` | `data.values[0][0] * 2` |
-| **Row** (e.g., `B1:D1`)            | `CalcRange` shape `(1, N)` | `np.mean(data)` (via `__array__`) |
-| **Column** (e.g., `B1:B10`)        | `CalcRange` shape `(N, 1)` | `np.mean(data)` |
-| **2D rectangle** (e.g., `B1:C5`)   | `CalcRange` shape `(rows, cols)` | `data.to_pandas()` or `data.to_numpy()` |
-
-**API (explicit conversions):**
-
-```python
-data.values                          # exact list[list] (None for blanks)
-data.to_numpy()                      # ndarray
-data.to_pandas()                     # header_row=0 by default
-data.to_pandas(header_row=None)      # all rows are data; columns col_0…
-data.to_pandas(parse_strings=True)   # opt-in currency/percent/date string parsing
-inputs[1]                            # second range (never `data[1]` for another range)
-```
-
-Returning a **pandas DataFrame** spills/writes with its **column header row** included. Returning a list/ndarray writes values only.
-
-Conversion logic: [`plugin/calc/calc_addin_data.py`](../plugin/calc/calc_addin_data.py), [`plugin/scripting/calc_range.py`](../plugin/scripting/calc_range.py). Empty cells map to `None` in `.values` (or `np.nan` inside pure-numeric `split_grid` transport — see [Empty cells vs NaN](#empty-cells-vs-nan)). Payload size cap: `scripting.python_max_data_cells` ([numpy-serialization.md — config](numpy-serialization.md#subprocess-module-map-and-config)).
-
-**Dates, Datetimes, and Coercion Policy**:
-
-- **Why we don't automatically coerce on ingress**: Calc stores dates internally as float serial numbers (days since `1899-12-30`). Checking whether a cell is a date requires checking the `NumberFormat` property on the main thread via UNO, which is extremely slow and degrades range performance.
-- **Ingress shape**: Date/datetime values from Calc ranges arrive as standard floats (serial numbers) or strings.
-- **User Coercion**: User scripts should explicitly parse dates using pandas or standard python libraries:
-  - Float serial dates: `pd.to_datetime(df["date_col"], unit="D", origin="1899-12-30")`
-  - String dates: `pd.to_datetime(df["date_col"])`
-- **Text stays text** by default (`"00123"` remains a string). Opt into string parsing with `to_pandas(parse_strings=True)`.
-
-**Host↔venv pipeline** (UNO read → pack → worker → unpack): [numpy-serialization.md — Current pipeline](numpy-serialization.md#current-pipeline-and-costs).
-
-**Gaps vs LibrePythonista (workarounds):** chat tool still single `data_range` (use multiple `=PY` cells or varargs in formulas); no `collapse` (tighter range or strip `None` in Python); DataFrame conversion is explicit via `data.to_pandas()` (not automatic).
-
-**Future formula parameters (not planned unless needed):** 3rd arg `extras` for recalc deps; `collapse` on conversion; host `lp()` bridge; `timeout_sec` on the formula (today uses the same Settings value as the chat tool).
-
-Wire format and cell semantics: [numpy-serialization.md](numpy-serialization.md) ([split_grid](numpy-serialization.md#strategy-3-split-grid-serialization-detail), [Cell semantics](numpy-serialization.md#cell-semantics-calc-python-and-numpy)).
-
-#### Multi-range support (varargs)
-
-**Status:** Shipped — varargs IDL and multi-range injection. `inputs` is always a `tuple[CalcRange, …]`; `data` is always `inputs[0]` when at least one range was passed. Wire envelope: [numpy-serialization.md — Multi-range](numpy-serialization.md#multi-range-wire-format). Chat tool multi `data_range` remains future work.
-
-`=PY()` accepts **one or more** optional data arguments after `code`. Calc packs trailing arguments into a single `sequence<any>` (UNO varargs). Multiple ranges become `inputs = (range0, range1, …)` with `data = inputs[0]`.
-
-##### Technical Approach: UNO Varargs
-
-In the UNO IDL, the **last** parameter is `sequence<any>`, so Calc packs all remaining inputs into one tuple.
-
-**IDL (shipped):**
-
-```idl
-// extension/idl/XPythonFunction.idl
-interface XPythonFunction : com::sun::star::uno::XInterface
-{
-    any python( [in] string code, [in] sequence< any > data );
-};
-```
-
-Rebuild after IDL changes: `scripts/rebuild_xprompt_rdb.sh` → `[extension/XPythonFunction.rdb](../extension/XPythonFunction.rdb)`.
-
-##### Why Multi-Range NumPy?
-
-While Calc's `=AVERAGE()` or `=SUM()` can handle multiple ranges, the power of `=PY()` with NumPy is the ability to perform **cross-range logic** that is otherwise difficult or "messy" to build with standard formulas.
-
-###### 1. Beyond the "Flat" Average: Weighted Analysis
-
-A common spreadsheet task is to find a weighted average across different data sets. For example, if you have Sales data from three different regions (A, B, and C), but Region B is "twice as important" for your target:
-
-- **Calc way**: `=(AVERAGE(A1:A10) + AVERAGE(C1:C10)*2 + AVERAGE(E1:E10)) / 4`
-- **NumPy way**: `=PY("result = (np.mean(data) + np.mean(inputs[1])*2 + np.mean(inputs[2])) / 4"; A1:A10; C1:C10; E1:E10)`
-
-The NumPy version is often easier to read and maintain as the logic grows in complexity.
-
-###### 2. Pattern Matching and "Frequency" (FFT)
-
-Simple math like `SUM` and `AVERAGE` tells you the "size" or "center" of your data, but it doesn't tell you the **rhythm**. 
-
-- **The Concept**: Fast Fourier Transform (FFT) sounds complicated, but it's just a way to find "hidden rhythms" in your numbers (e.g., "does this sales data spike every 7 days?"). 
-- **The Power**: By passing multiple non-contiguous ranges (like "Week 1" and "Week 3"), you can use NumPy to compare rhythms across different time periods without manually copying the data into a single block.
-
-
-
-###### 3. High-Confidence Verification
-
-Testing serialization is easier with operations that have a clear, predictable output.
-
-- **Sum**: Easy to verify manually (e.g., `1 + 2 + 3 = 6`).
-- **Mean (Average)**: Harder to verify by eye when you have 20 floating-point numbers (e.g., `1.2345 + 6.789 ... / 20`).
-
-By using NumPy to calculate the `mean` across multiple ranges, we ensure our **marshalling** (the process of moving data from Calc to Python) is perfectly accurate down to the last decimal point. If the `np.mean(data)` returned by the worker matches the `=AVERAGE()` calculated by Calc, we know the "plumbing" is working perfectly, even for massive 2D grids of complex numbers.
-
-##### Data Representation in Python
-
-| Formula | `data` | `inputs` |
-| ------- | ------ | -------- |
-| `=PY("…"; A1:A5)` | `CalcRange` for `A1:A5` | `(data,)` |
-| `=PY("…"; A1:A5; C1:C5)` | first range | `(range0, range1)` |
-
-`data_list` remains an alias for `list(inputs)` for helpers that iterate ranges. Prefer `inputs` in new scripts.
-
-Example:
-
-```python
-result = float(np.mean([np.mean(r) for r in inputs]))
-```
-
----
-
-
+Trailing formula arguments become `CalcRange` values: `data` is the first range, `inputs` is the full tuple. Orientation is always 2D (`(1,1)`, `(1,N)`, `(N,1)`, or `(rows, cols)`). Blank vs NaN policy, dates, logicals, and multi-range examples: **[calc-py-data-shapes.md](calc-py-data-shapes.md)**.
 
 ### Optional: Python edit dialog (deferred UX)
 
 
 | Tier      | User sees                          | Code location           | Effort       |
 | --------- | ---------------------------------- | ----------------------- | ------------ |
-| 0 (today) | Formula bar                        | Inside `=PY("…")`       | Done         |
+| 0 (today) | Formula bar + Monaco cell editor   | Inside `=PY("…")` or code cell | Done   |
 | 1         | Modal XDL edit dialog              | Still in formula        | Small–medium |
 | 2         | Short formula + document store key | Outside formula         | Medium       |
 | 3         | LibrePythonista-like IDE surface   | LP-scale infrastructure | Very large   |
@@ -946,209 +767,84 @@ Tier 1 reuses existing `DialogProvider` / XDL patterns (`[plugin/chatbot/dialogs
 
 ## 7. Deferred roadmap
 
-
-
 ### Microsoft Python in Excel vs Calc `=PY()` {#microsoft-python-in-excel-vs-writeragent}
 
-> **Collabora / LibreOffice deep dive:** For why matching Microsoft’s formula model is a bad default for Calc (hidden `xl()` deps, co-volatility vs the DAG, engine spill), and why a later `PY_XL` / import rewriter is the right compatibility lane, see **[ms-py-libreoffice-compatibility.md](ms-py-libreoffice-compatibility.md)**.
+Microsoft runs Python in **cloud containers** with `=PY(code, return_type)` and an `xl()` bridge inside code strings. Calc uses a **local venv** with `=PY(code, data?)` — explicit formula args for DAG dependencies.
 
-Microsoft **Python in Excel** runs user code in **cloud containers** with `=PY(code, return_type)` and an `xl()` bridge inside Python strings. Here code runs **locally** in the user's venv with `=PY(code, data?)` — closer to Neptyne or LibrePythonista's compute model, but with explicit formula arguments instead of parsing `xl("A1")` out of code strings.
+| Feature dimension | Microsoft Excel (`=PY`) | Calc `=PY()` |
+| --- | --- | --- |
+| **Data ingress** | `xl("A1:B10")` inside Python | Range as formula arg → `data` / `inputs` |
+| **Output egress** | Last expression | Explicit `result = …` (last-expr also accepted) |
+| **Dependency tracking** | Engine must parse Python for `xl()` | Native Calc DAG on `data` args |
+| **Multi-range** | Unlimited `xl()` calls | Varargs → `inputs` ([data shapes](calc-py-data-shapes.md#multi-range-support-varargs)) |
+| **Shared state** | Globals + row-major co-volatility | Opt-in shared kernel + `data` refs ([§6](#session-modes-and-recalc-semantics)) |
+| **Runtime** | Cloud sandbox | User venv (offline, any pip packages) |
+| **Editor** | Monaco task pane | Monaco via pywebview ([§3](#run-python-script--monaco)) |
 
+**Design stance:** keep explicit `data` + `result`. Deep dive for Collabora/LibreOffice (why not copy `xl()` / co-volatility): **[ms-py-libreoffice-compatibility.md](ms-py-libreoffice-compatibility.md)**.
 
-| Feature dimension       | Microsoft Excel (`=PY`)                          | Calc `=PY()`                                                                                        |
-| ----------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| **Data ingress**        | Implicit: `xl("A1:B10")` inside Python code      | Explicit: range as formula arg → injected as `data`                                                 |
-| **Output egress**       | Jupyter-style last expression                    | Explicit `result = …` assignment                                                                    |
-| **Dependency tracking** | Engine must parse Python strings for `xl()` refs | **Native Calc DAG** on `data` arguments                                                             |
-| **Multi-range**         | Unlimited `xl()` calls in script                 | Varargs: `data[0]`, `data[1]`, … ([Multi-range support (varargs)](#multi-range-support-varargs))    |
-| **Shared state**        | Global namespace + row-major **co-volatility**   | Opt-in **Shared kernel** + `data` **refs** for ordering ([§6](#session-modes-and-recalc-semantics)) |
-| **Runtime**             | Cloud sandbox (offline requires connectivity)    | User venv subprocess (offline, any pip packages)                                                    |
-| **Editor**              | Monaco task pane in Excel                        | Monaco via pywebview ([§3 Monaco](#run-python-script--monaco))                                      |
+**Excel parity (summary):** dynamic spill, plots, Monaco cell editor, shared kernel + init scripts, and LibrePy sidebar diagnostics are **shipped**. Object cards, rich DataFrame tables, names/tables labels → [Calc UX backlog](#calc-ux-backlog).
 
+### Competitive landscape (pointer)
 
-**Design stance — keep explicit** `data` **+** `result`**:** Calc's formula engine tracks range dependencies without fragile string/AST pre-parsing. The `result` convention is deterministic for sandboxed execution. For long scripts, use **code in a cell**: `A1` holds Python; `=PY($A$1; B1:B10)` — supported today and editable in Monaco with **Save as plain text**.
+Google Sheets does not run Python in cells (Apps Script = JS; external Python via APIs). Calc `=PY()` is closer to Excel / Neptyne than to Sheets. Non-goals: gspread, Sheets API sync, Apps Script runtime, cloud `=AI()` cell parity.
 
-**Excel features not copied (backlog or non-goals):**
-
-- Cloud container execution, compute tiers, `#CONNECT!` / `#BUSY!` cloud errors
-- `xl()` string dependency extraction (would need Calc core changes or a fragile preprocessor)
-- Row-major **co-volatility** (all PY cells re-run together)
-- **Python Object cards** (in-memory reference + preview dialog) — [Phase 5](python-in-excel-dev-plan.md)
-- Curated Anaconda-only package set — this path uses the **user's full venv**
-
-**Local-first advantages (competitive):**
-
-- **Offline** — no network required for recalc or editing
-- **Any pip packages** — enterprise stacks, MKL/OpenBLAS, custom wheels
-- **Native Calc DAG** — partial recalc without co-volatility tax when using `data` refs
-- **Auditable formulas** — Python source visible in cells or referenced cells, not opaque cloud black boxes
-
-**Excel parity summary (2026):**
-
-
-| Bucket             | Excel reference                                  | Status                                                                                                                                                                                                                                                          |
-| ------------------ | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Dynamic spill**  | Auto-fill adjacent cells; `#SPILL!` when blocked | **Shipped** — [§6 Dynamic auto-spill](#dynamic-auto-spill); `python_function.py` spill registry + deferred write                                                                                                                                                |
-| **Output / plots** | Object cards; embedded plot images               | **Plots shipped**; table + JSON egress + object cards → backlog                                                                                                                                                                                                 |
-| **UI / editor**    | Monaco task pane; sheet grouping                 | **Cell editor + Run Python Script Monaco shipped**; **LibrePy Python sidebar** (cell list + diagnostics) shipped in LibrePy.oxt; Monaco grouping/range picker → [Monaco 2C](python-monaco-editor-dev-plan.md#phase-2c--calc-range-picker-medium-risk-high-value); shortcuts → [§6](enabling_numpy_in_libreoffice.md#keyboard-shortcuts-and-recalc) |
-| **Data handoff**   | `xl()` names, tables, `headers=True`             | **Range args + varargs shipped**; names/tables/labels → backlog                                                                                                                                                                                                 |
-| **Session / init** | Global init script; persistent kernel            | **Shared kernel + init scripts shipped**                                                                                                                                                                                                                        |
-| **Perf / debug**   | Diagnostics pane; `#PYTHON!` opens editor        | **LibrePy sidebar diagnostics** (stdout/errors + click-to-navigate) shipped; cell error string remains; AST cache shipped                                                                                                                                       |
-
-
-Phased implementation todos: [python-in-excel-dev-plan.md](python-in-excel-dev-plan.md) (Phases 3–7 + backlog).
-
-### Competitive landscape (Google Sheets vs Calc)
-
-**Google Sheets does not run Python natively in cells.** Its built-in programmable layer is **[Google Apps Script](https://developers.google.com/apps-script/guides/sheets)** — **JavaScript** bound to the spreadsheet (`SpreadsheetApp`, custom menus, triggers). Cloud AI (`=AI()`, Gemini sidebar) runs on Google endpoints, not a user Python sandbox in the grid.
-
-
-| Pattern              | What it is                                                                                                                 |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| **Apps Script (JS)** | Native in-browser scripting; reads/writes cells as **2D arrays** via `getRange(...).getValues()` / `setValues()`.          |
-| **External Python**  | `gspread`, `pygsheets`, etc. — scripts on a laptop or server call the Sheets API; code and data are **outside** the sheet. |
-| **Bridge add-ons**   | e.g. xlwings — Apps Script calls a **hosted Python service**; still not a `=PY()` formula in the cell.                     |
-
-
-Calc `=PY()` **does** run Python in cells in a local venv — closer to **Excel Python in Excel** or **Neptyne** than to Google Sheets.
-
-**Non-goals:** gspread, Sheets API sync, Apps Script execution inside the extension, or cloud `=AI()` cell parity (non-deterministic text in cells conflicts with reproducible spreadsheets). Local-first LibreOffice remains the product boundary.
-
-**Design stance (vs cloud spreadsheet AI):**
-
-- **Local-first** — compute in the user's venv subprocess, not a managed cloud container ([§2](#2-strategy-decision)).
-- **Auditable code over black-box cell AI** — prefer generated Python plus existing tools over LLM text written directly into cells ([§3 chat assistant](#using-the-chat-assistant-optional)).
-- **Explicit** `data` **wiring for recalc order** — shared kernel does not give Excel co-volatility; pass upstream cells as `data` args and write idempotent side effects ([§6 Session modes](#session-modes-and-recalc-semantics)).
-
-
-
-#### Apps Script as API design reference (not as runtime)
-
-The Apps Script **spreadsheet object model** is a reasonable **reference for a Python-facing Calc API**, not something to embed or call:
-
-- Familiar to spreadsheet authors: active sheet → range by A1 → `getValues()` / `setValues()` on **2D lists**.
-- Maps cleanly to UNO (`getCellRangeByName`, batch `setValues`) and to tools we already expose (`read_cell_range`, `write_formula_range` in `[manipulator.py](../plugin/calc/manipulator.py)`).
-
-**Suggested direction:** After [venv ↔ LO tool RPC](#venv--libreoffice-tool-rpc) ships, add optional thin Python sugar (e.g. `sheet.range("A1:B2").values = matrix`) implemented as RPC to those tools — **inspired by** Apps Script / Neptyne ergonomics, **implemented against** Calc UNO.
-
-**Not a substitute for:** `data` / `result` on `=PY()` (formula-safe, DAG-friendly) or NumPy `split_grid` ingress — sugar is for imperative write-back inside long scripts once RPC exists.
-
-**External inspiration:** [Apps Script — Extend Sheets](https://developers.google.com/apps-script/guides/sheets) · [Quadratic](https://www.quadratichq.com/python) · [Mito](https://www.trymito.io/) · [Neptyne](https://www.ycombinator.com/companies/neptyne)
-
+Apps Script’s sheet object model remains a useful **API design reference** for future venv↔LO tool RPC sugar — not a runtime to embed. Remaining UX / landscape items: [Calc UX backlog](#calc-ux-backlog).
 
 ### Venv ↔ LibreOffice tool RPC
 
-> **Status: Not implemented.** `[writeragent_api.py](plugin/scripting/writeragent_api.py)` is generated from tool metadata (`[scripts/generate_tool_proxies.py](scripts/generate_tool_proxies.py)`), but the warm worker does **not** handle `tool_call` lines yet. Scripts must assign `result`; on the optional chat path the model calls Calc/Writer tools after compute ([§3 chat assistant](#using-the-chat-assistant-optional)).
+> **Status: Not implemented.** [`writeragent_api.py`](../plugin/scripting/writeragent_api.py) is generated from tool metadata (`scripts/generate_tool_proxies.py`), but the warm worker does **not** handle `tool_call` lines yet. There is no shipping dual-mode `import writeragent as wa` SDK for venv scripts today — assign `result`; on the optional chat path the model calls Calc/Writer tools after compute ([§3](#using-the-chat-assistant-optional)).
 
-**Intended behavior (when built):**
+**Intended behavior (when built):** venv proxies send `tool_call` on the wire; `PythonWorkerManager` dispatches via `ToolRegistry.execute()` and replies with `tool_result` until `code_result`. Domain-scoped tools only. Follow-on sugar (`sheet.range("A1:B2").values = matrix`) only after RPC exists.
 
-- User code in the venv calls generated proxies (e.g. `footnote.insert(...)`).
-- Worker writes `{"type": "tool_call", "id", "tool", "args"}` on stdout.
-- `PythonWorkerManager` dispatches via `ToolRegistry.execute()`, writes `tool_result` on stdin, continues until final `code_result`.
-- **Domain-scoped:** only tools for the active specialized domain (mirrors `delegate_to_specialized_*_toolset`), not the full registry.
-- **Fresh namespace per top-level execute;** RPC happens inside one request.
+### Calc UX backlog {#calc-ux-backlog}
 
-**Protocol extension (sketch):**
+Not shipped unless noted. Monaco editor gaps live in [python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md) (2B–2F, Phase 3 formula-bar polish).
 
+#### Object cards
 
-| Direction     | `type`        | Purpose                                       |
-| ------------- | ------------- | --------------------------------------------- |
-| worker → host | `code_result` | Normal completion (today’s `status`/`result`) |
-| worker → host | `tool_call`   | Proxy requests LO tool                        |
-| host → worker | `execute`     | Run code (today)                              |
-| host → worker | `tool_result` | Answer `tool_call`                            |
+Complex returns (DataFrame, dict, class) should show a compact cell label (e.g. `[DataFrame 150×4]`) and an inspect dialog — not `#VALUE!`.
 
+- Object references in shared-kernel session (`__pyobj_N__`; object stays in worker namespace)
+- Worker `inspect_object` → shape, dtypes, `head(5)`
+- XDL preview dialog ([`dialogs.py`](../plugin/chatbot/dialogs.py) patterns); optional Spill to Grid on top of matrix formulas
+- Touch: [`venv_sandbox.py`](../plugin/scripting/venv_sandbox.py), [`worker_harness.py`](../plugin/scripting/venv/worker_harness.py), [`function.py`](../plugin/calc/python/function.py)
 
-**Follow-on (Neptyne / Apps Script–style write-back):** optional Python sugar after RPC — e.g. `sheet.range("A1:B2").values = matrix` backed by `read_cell_range` / `write_formula_range` proxies. Risks: recalc loops if writes trigger upstream recalc; needs main-thread UNO dispatch and mutex (`[manipulator.py](../plugin/calc/manipulator.py)`). Tests: `tests/uno/` with `@native_test` for thread-safe batch `setValues`.
+#### AI code synthesis
 
-### Serialization performance
+- Context-aware `=PY()` generation (nearby ranges/headers when chat builds formulas)
+- Formalize `=PROMPT()` → pasteable `=PY("…")` template
+- Stronger multi-step analysis prompts (clean → stats → chart)
+- Touch: [`venv.py`](../plugin/calc/python/venv.py), [`prompt_function.py`](../plugin/calc/prompt_function.py)
 
-Prioritized future work (LO profiling gate, host pack/unpack, payload cache, Cython): [numpy-serialization.md — Future work](numpy-serialization.md#future-work--serialization-performance).
+#### Unphased items
 
-### Jupyter notebook import (`.ipynb`)
+| Item | Notes / touch |
+|------|----------------|
+| **DataFrame → rich Calc table** | Headers, formats, filters — distinct from object cards |
+| **JSON `result` envelope** | Multi-cell agent updates via `__wa_payload__`; `payload_codec` + host apply |
+| **Inline result preview** | Stdout/thumbnail under cell |
+| **Formula-bar Jedi** | [Monaco 2D](python-monaco-editor-dev-plan.md#phase-2d--jedi-autocompletion-child-only-performance-sensitive) |
+| **Named ranges / structured tables / `headers` in `data`** | [`calc_addin_data.py`](../plugin/calc/calc_addin_data.py) |
+| **Label preservation** | First row/column as pandas Index when requested |
+| **Keyboard shortcuts (Excel parity)** | **Ctrl+Alt+Shift+F9** → Reset Python Session — [§6 shortcuts](#keyboard-shortcuts-and-recalc), [`Accelerators.xcu`](../extension/Accelerators.xcu) |
+| **Spreadsheet → Python import** | [calc-spreadsheet-to-python-import.md](calc-spreadsheet-to-python-import.md) |
+| **Range alignment for multi-range NumPy** | Mismatched shapes before `np.corrcoef` — [data shapes deferred](calc-py-data-shapes.md#deferred-upgrades) |
+| **Shared-kernel soft timeout / invalidation** | Prefer `SIGINT` then `SIGKILL`; user **Ctrl+Shift+F9** rebuilds DAG after worker wipe — [`session_manager.py`](../plugin/scripting/session_manager.py), [`venv_worker.py`](../plugin/scripting/venv_worker.py) |
+| **Blank side-channel** | Pass-through blanks stay empty — [data shapes deferred](calc-py-data-shapes.md#deferred-upgrades) |
+| **Cell-level traceback snippet** | Short trace in cell error string; full trace already in LibrePy sidebar |
+| **Mito-style action recorder** | GUI → pandas in Monaco; low priority |
+| **Dynamic sidebar controls from sheet context** | A2UI-style; low priority |
+| **Shared-kernel memory bounds** | LRU large DataFrames; defer until OOM reports |
 
-WriterAgent can import Jupyter notebooks into **Writer** via **Tools → Import Jupyter Notebook…** (menu + UNO; vendored nbformat v4). **WriterAgent only** — not part of the core Python/NumPy extension. This is **not** part of the venv compute bridge — imported code cells are editable TextFields, not executed in the user venv.
+### Other deferred pointers
 
-Full usage, document layout, debugging, and notebook-specific roadmap: **[Jupyter notebook import](jupyter-notebook-import.md)**.
-
-### Other enhancements {#other-enhancements}
-
-- **OooDev / ScriptForge:** optional venv install for UNO-from-Python; or keep compute-in-venv + document-via-tools (recommended).
-- **Matplotlib Phase A (shipped):** `matplotlib` / `plt` figures from `=PY()` or `run_venv_python_script` are captured in the worker, serialized via the `__wa_payload__: "image"` envelope, and inserted as `GraphicObjectShape` on the Calc draw page (chat path returns a temp `image_path` for existing image tools). See [Visualization](numpy-domains.md#visualization).
-- **Trusted Viz helpers (Phase B–C, shipped):** `plot_data`, Run Python Script **[Viz]** templates, analysis auto-plot — [Visualization](numpy-domains.md#visualization).
-- **Trusted Symbolic Math (SymPy, shipped):** `symbolic_math`, Run Python Script **[Math]** templates, Writer Math OLE insert — [Symbolic Math](numpy-domains.md#symbolic-math). Sage deferred.
-- **Worker idle shutdown:** terminate venv process after N minutes idle.
-- **Formula** `timeout_sec`**:** optional per-formula override (Settings remains the default).
-- **LO serialization profiler:** debug-menu or UNO test harness for legs A–D ([Priority 1](numpy-serialization.md#priority-1--profile-inside-libreoffice-gate-for-everything-else)).
-
-Phased future work: [python-in-excel-dev-plan.md](python-in-excel-dev-plan.md). Monaco IPC and phase detail: [python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md).
-
-### Calc UX and output enhancements (Backlog)
-
-Backlog items inspired by Microsoft Python in Excel ([parity summary above](#microsoft-python-in-excel-vs-writeragent)). **Status: not implemented** unless noted otherwise.
-
-
-| Enhancement                               | Design note                                                                                                                                                                                                                                                                                        |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **DataFrame → rich table**                | On DataFrame egress, optional host path: create or update a Calc table with header row, column formats, and filters — not only raw cell values. Distinct from [Phase 5 object cards](python-in-excel-dev-plan.md) (in-memory reference + preview dialog).                                          |
-| **JSON-structured** `result` **envelope** | Extend the `__wa_payload__` pattern (already used for images) for structured dicts (e.g. `{ "cells": …, "formats": … }`) so `=PY()` and chat scripts can drive multi-cell updates in one evaluation. Complements the optional [chat compute-then-insert flow](#using-the-chat-assistant-optional). |
-| **Structured tables**                     | Ingest Calc database ranges / table objects with column keys and bounds (Excel ListObject equivalent); optional `headers=True` on range conversion.                                                                                                                                                |
-| **Label preservation**                    | Treat the first row and/or column as pandas `Index` when requested; round-trip labels on egress where Calc supports named columns.                                                                                                                                                                 |
-| **Inline result preview**                 | Lightweight preview beside or below the formula cell (stdout snippet, shape summary, image thumbnail) without opening Monaco or the full diagnostics pane.                                                                                                                                         |
-| **Formula-bar IntelliSense**              | Jedi (debounced) in the expanded formula bar / inline cell editor, not only in the Monaco webview child. See [python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md) (Jedi stub shipped in editor only).                                                                              |
-| **Cell-level traceback**                  | Short traceback snippet in the cell error string; full trace in the diagnostics pane ([python-in-excel-dev-plan.md](python-in-excel-dev-plan.md) Phase 6). Until the pane ships, truncate worker `traceback` to N lines in the cell.                                                               |
-
-
-
-
-### Calc backlog from landscape survey
-
-Distilled from a survey of Google Sheets, Excel, Quadratic, Mito, Neptyne, and LibrePythonista. Items below are **not shipped**; shipped Calc/Python capabilities are in [§9](#9-implementation-status). Overlap with [Calc UX and output enhancements](#calc-ux-and-output-enhancements) and [python-in-excel-dev-plan.md](python-in-excel-dev-plan.md) is called out — do not plan twice.
-
-#### Spreadsheet → Python import (bulk formula conversion)
-
-Convert an open Calc sheet so **constants stay the same** and **formula cells become** `=PY()` (venv-backed), targeting ~90% automated coverage on typical business sheets. Full PM/dev plan: [calc-spreadsheet-to-python-import.md](calc-spreadsheet-to-python-import.md). **Touch:** new `plugin/calc/spreadsheet_import/`; reuse `[inspector.py](../plugin/calc/inspector.py)`, `[python_formula_edit.py](../plugin/calc/python/formula_edit.py)`.
-
-#### Range alignment for multi-range NumPy
-
-Varargs deliver separate arrays per range ([Multi-range support (varargs)](#multi-range-support-varargs)). Mismatched shapes (e.g. `A1:A10` and `C1:C15`) still require manual padding or masking before `np.corrcoef`, regression, or element-wise math.
-
-**Consider:** alignment helper projecting mismatched grids into a common shape using masked arrays (`np.ma`).
-
-**Touch:** `[plugin/scripting/](../plugin/scripting/)` or `[plugin/calc/calc_addin_data.py](../plugin/calc/calc_addin_data.py)`. **Tests:** `tests/scripting/`.
-
-#### Shared-kernel dependency / invalidation & soft-timeout recovery
-
-With shared globals, Calc's DAG tracks `data` cell references, not Python global mutations. A downstream cell may read stale namespace state if an upstream cell changed a global without passing it through `data`.
-
-Furthermore, if the worker process is terminated (e.g., due to a timeout/infinite loop in user code), the entire shared global namespace is wiped. On partial recalculations, unaffected upstream cells (which are still marked as "clean" by Calc) are skipped, meaning their variables are not re-declared in the new process, leading to subsequent `NameError` failures in downstream cells.
-
-**Solutions & Considerations:**
-
-- **Process Recovery (Soft Timeout):** Instead of immediately restarting/killing the worker on timeout, the host can send a `SIGINT` (KeyboardInterrupt) signal to halt the specific running loop while keeping the subprocess (and its shared memory namespace) alive. If the child remains unresponsive after a brief grace period (e.g., 2 seconds), the host escalates to `SIGKILL` (hard restart).
-- **Manual Rebuild (Full Recalculate):** If the memory state is wiped and results in a `NameError` on partial recalcs, the user can easily force Calc to rebuild the entire DAG state by executing a hard recalculate (**Ctrl+Shift+F9**). We reject building a complex internal AST dependency graph to automatically track and invalidate variables, as a manual hard recalc or process recovery is a far simpler and more reliable developer experience.
-
-**Touch:** `[session_manager.py](../plugin/scripting/session_manager.py)` / `[venv_worker.py](../plugin/scripting/venv_worker.py)`.
-
-#### Blank vs NaN semantics on ingress
-
-Empty Calc cells become `np.nan` in numeric `split_grid` paths; naive `np.mean(data)` returns NaN. **Planned separately:** [calc-blanks-vs-nans.md](calc-blanks-vs-nans.md).
-
-#### Mito-style action recorder (exploratory)
-
-Record sort/filter/pivot/chart GUI ops as reproducible pandas code in Monaco. Calc modify listeners → compile to script; generated code must pass AST sandbox. Large UX surface — low priority.
-
-#### Dynamic sidebar controls from sheet context (low priority)
-
-LLM-generated sidebar control layouts bound to active sheet ranges (A2UI-style). Overlaps chat tool loop unless product requests it.
-
-#### Shared-kernel memory bounds (low priority)
-
-LRU eviction of large inactive DataFrames in long-lived workbook sessions — distinct from [payload decode cache](numpy-serialization.md#future-work--serialization-performance). Defer until OOM reports.
+- Serialization performance: [numpy-serialization.md — Future work](numpy-serialization.md#future-work--serialization-performance)
+- Jupyter `.ipynb` import (Writer only, not venv compute): [jupyter-notebook-import.md](jupyter-notebook-import.md)
+- Monaco remaining phases: [python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md)
+- Domain roadmaps: [numpy-domains.md](numpy-domains.md)
 
 ---
-
-
 
 ## 8. Collabora Online and jail-safe execution
 
@@ -1169,10 +865,9 @@ See [numpy-jailsafe.md](numpy-jailsafe.md) for details on Collabora Online and j
 - **Serialization next steps** — [Future work](numpy-serialization.md#future-work--serialization-performance): LO profile first, Tier 0, opaque blob, float32 (pandas rectangular+columns egress shipped), worker cache; Tier 2b codecs; optional [Cython](numpy-serialization.md#building-host-native-extensions-cython) `vec_pack` (not started).
 - Venv ↔ LO **tool RPC** ([§7](#venv--libreoffice-tool-rpc)) — `[writeragent_api.py](../plugin/scripting/writeragent_api.py)` stubs only.
 - **Collabora Online / jail-safe Python compute** — **Steps A–C** landed: `compute_service/`, kit/wsd wire, Core Calc AddIn (`scaddins/pythoncompute`, volatile `#BUSY!`, ScMatrix spill). Rebuild LO+Online to exercise `=PY()` Online; plot insert / Monaco remain ([Collabora Online and jail-safe execution](numpy-jailsafe.md); [online#16010](https://github.com/CollaboraOnline/online/issues/16010)).
-- **Calc landscape backlog** — range alignment, shared-kernel invalidation, Mito recorder, dynamic sidebar UI, shared-kernel memory bounds ([§7 Calc backlog](#calc-backlog-from-landscape-survey)).
-- **Blank vs NaN wire semantics** — [calc-blanks-vs-nans.md](calc-blanks-vs-nans.md).
+- **Calc landscape / UX backlog** — object cards, named ranges/tables, range alignment, shared-kernel soft timeout, Mito recorder — [§7 Calc UX backlog](#calc-ux-backlog). LibrePy Python sidebar diagnostics are **shipped**.
+- **Blank vs NaN** — shipped egress policy; deferred blank side-channel — [calc-py-data-shapes.md](calc-py-data-shapes.md#empty-cells-vs-nan).
 - Worker idle shutdown, per-formula `timeout_sec`, Python edit dialog tiers 1–3.
-- **Monaco backlog** — syntax validate (2B), range picker (2C), full Jedi (2D) — [python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md). Theme sync (2E) and LibrePy sidebar cell list / diagnostics are shipped.
+- **Monaco backlog** — syntax validate (2B), range picker (2C), full Jedi (2D), formula-bar polish — [python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md). Theme sync (2E) and LibrePy sidebar cell list / diagnostics are shipped.
 - **Jupyter notebook import** — see [jupyter-notebook-import.md](jupyter-notebook-import.md) (Writer import shipped; execution loop deferred).
-- **Calc UX backlog** — object cards, named ranges/tables — [§7 Calc UX](#calc-ux-and-output-enhancements). Diagnostics pane shipped as LibrePy Python sidebar.
 

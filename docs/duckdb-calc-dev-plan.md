@@ -392,8 +392,8 @@ No cloud telemetry required. Suggested signals:
 | Analysis helpers (pattern to mirror) | [calc-analysis-tools.md](calc-analysis-tools.md), [analysis-sub-agent.md](analysis-sub-agent.md) |
 | Wire format | [numpy-serialization.md](numpy-serialization.md) |
 | Folder / sibling files | [multi-document-dev-plan.md](multi-document-dev-plan.md) |
-| Blank vs NaN (ingress quality for SQL inputs) | [calc-blanks-vs-nans.md](calc-blanks-vs-nans.md) |
-| Python-in-Calc UX backlog | [python-in-excel-dev-plan.md](python-in-excel-dev-plan.md) |
+| Blank vs NaN (ingress quality for SQL inputs) | [calc-py-data-shapes.md](calc-py-data-shapes.md#empty-cells-vs-nan) |
+| Python-in-Calc UX backlog | [enabling_numpy §7 Calc UX backlog](enabling_numpy_in_libreoffice.md#calc-ux-backlog) |
 
 ---
 

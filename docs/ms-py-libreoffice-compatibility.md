@@ -5,7 +5,7 @@
 
 **Recommendation up front:** Keep **`=PY(code, data?)`** (explicit range arguments + Calc’s dependency DAG) as the native, first-class design. Do **not** make Microsoft’s `xl()` + co-volatility model the default Calc API. Excel workbook interchange is a **file conversion** problem: WriterAgent already ships a bidirectional OOXML rewriter ([§5.8](#58-ooxml--xlfnpy-import)) that maps formula-static `xl(%Pn%)` / `_xlws.PY` onto native `=PY(…; ranges)`. That is not “run Excel’s calc model inside Calc.”
 
-Related: [Enabling NumPy in LibreOffice](enabling_numpy_in_libreoffice.md) (shipped design), [Collabora Online / jail-safe compute](numpy-jailsafe.md) (thin C++ Add-In + remote service), [Python-in-Calc future work](python-in-excel-dev-plan.md).
+Related: [Enabling NumPy in LibreOffice](enabling_numpy_in_libreoffice.md) (shipped design), [Collabora Online / jail-safe compute](numpy-jailsafe.md) (thin C++ Add-In + remote service), [Calc UX backlog](enabling_numpy_in_libreoffice.md#calc-ux-backlog).
 
 ---
 
@@ -472,7 +472,7 @@ Registering a name is the easy 5%. Precedents, co-volatility, and spill are the 
 
 - [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md) — shipped `=PY`, session modes, MS comparison table
 - [numpy-jailsafe.md](numpy-jailsafe.md) — Online compute service + core Add-In
-- [python-in-excel-dev-plan.md](python-in-excel-dev-plan.md) — UX backlog (objects, diagnostics); explicitly out-of-scope: cloud / `xl()` as default
+- [enabling_numpy §7 Calc UX backlog](enabling_numpy_in_libreoffice.md#calc-ux-backlog) — object cards and related UX; explicitly out-of-scope: cloud / `xl()` as default
 - Implementation: `plugin/calc/python/function.py` (spill registry), `plugin/scripting/venv_worker.py`, [`plugin/calc/excel_py_convert/`](../plugin/calc/excel_py_convert/) (OOXML Excel ↔ DAG rewriter)
 - Sample fidelity: [`scripts/roundtrip_excel_py_samples.py`](../scripts/roundtrip_excel_py_samples.py) over [`PythonExcelSamples/`](../PythonExcelSamples/)
 

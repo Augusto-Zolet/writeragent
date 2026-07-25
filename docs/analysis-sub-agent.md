@@ -20,7 +20,7 @@ This is the focused evolution of the high-level analysis ideas previously sketch
 - [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md): trusted extension code pattern (e.g. `embeddings_index.py`), payload_codec / split-grid for efficient numeric handoff, full venv stack without AST sandbox for shipped modules.
 - [smol-main-chat-tool-architecture.md](smol-main-chat-tool-architecture.md): sub-agents (librarian, specialized) often run via smol/ ReAct for focused tasks.
 - Chat / tool loop for main agent coordination.
-- [python-in-excel-dev-plan.md](python-in-excel-dev-plan.md) and [enabling_numpy_in_libreoffice.md — Microsoft Python in Excel vs WriterAgent](enabling_numpy_in_libreoffice.md#microsoft-python-in-excel-vs-writeragent): Mapping of Microsoft Python-in-Excel features (we copy useful *features* such as curated init-script helpers, rich object previews, strong data handoff for tables/named ranges/headers, AI-assisted workflows, etc., while keeping our local venv + explicit `data`/`result` architecture).
+- [enabling_numpy_in_libreoffice.md — Microsoft Python in Excel vs WriterAgent](enabling_numpy_in_libreoffice.md#microsoft-python-in-excel-vs-writeragent) and [Calc UX backlog](enabling_numpy_in_libreoffice.md#calc-ux-backlog): Mapping of Microsoft Python-in-Excel features (we copy useful *features* such as curated init-script helpers, rich object previews, strong data handoff for tables/named ranges/headers, AI-assisted workflows, etc., while keeping our local venv + explicit `data`/`result` architecture).
 - **TaskWeaver** (`taskweaver/`, [microsoft/TaskWeaver](https://github.com/microsoft/TaskWeaver)): agent orchestration reference (plugin-only mode, eval harness, plugin selection)—**not** analysis math; shipped plugins are weak demos. See [External code sources §7](#7-agent-orchestration--microsoft-taskweaver-taskweaver).
 
 ---
@@ -449,7 +449,7 @@ Previously planned helpers (not yet separate tools):
    - Add thin Writer-side "cleanup" helpers (or just document how to use existing `apply_document_content` + rich text on the compact results). This is our version of turning analysis into nice presentation (Excel has spill + object cards; we have explicit cleanup + future rich table egress).
    - Result contract as above.
    - Start adopting more Excel data handoff ergonomics (named ranges, structured table awareness, headers) in `calc_addin_data.py` so both raw Python and the high-level helpers feel more like `xl(..., headers=True)`.
-   - Update `docs/analysis-sub-agent.md` (this file) and cross-reference from writer-specialized-toolsets.md and the python-in-excel docs.
+   - Update `docs/analysis-sub-agent.md` (this file) and cross-reference from writer-specialized-toolsets.md and [enabling_numpy Calc UX backlog](enabling_numpy_in_libreoffice.md#calc-ux-backlog).
 
 4. **Phase 3+ (deeper parity + advanced)**:
    - Caches, dedicated worker pool for long jobs, vision digitization of charts found in Writer (feed numbers into Calc analysis — copying the image + data analysis workflow).

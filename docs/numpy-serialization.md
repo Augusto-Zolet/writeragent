@@ -4,7 +4,7 @@ Back to the [core NumPy and Python guide](enabling_numpy_in_libreoffice.md).
 
 **Production wire format:** length-prefixed **Pickle5** frames carrying `split_grid` envelopes (for qualifying 2D grids) or plain nested Python lists (small grids). There is no JSON on the runtime host↔venv path for data/results. JSON and Base64 variants exist only in the benchmark suite and a few legacy test helpers.
 
-This page is the technical reference for WriterAgent's **host↔venv compute bridge**: warm worker lifecycle, length-prefixed Pickle5 IPC, Linux pipe performance, wire formats (`split_grid`, `multi_data`), benchmarks, pipeline costs, and future optimization work. The [core guide](enabling_numpy_in_libreoffice.md) covers ABI strategy, Settings, sandbox safety, trusted extension code, and `=PY()` author UX.
+This page is the technical reference for WriterAgent's **host↔venv compute bridge**: warm worker lifecycle, length-prefixed Pickle5 IPC, Linux pipe performance, wire formats (`split_grid`, `multi_data`), benchmarks, pipeline costs, and future optimization work. The [core guide](enabling_numpy_in_libreoffice.md) covers ABI strategy, Settings, sandbox safety, trusted extension code, and `=PY()` author UX. Range/`data` behavior: [calc-py-data-shapes.md](calc-py-data-shapes.md).
 
 ## Table of contents
 
@@ -237,125 +237,21 @@ flowchart TD
 
 ### Cell semantics: Calc, Python, and NumPy
 
-This section documents **behavior** for real inputs (rectangular Calc ranges and tool payloads), not only wire layout.
+**Author-facing behavior** (what scripts see as `data` / `inputs`, blanks vs NaN, dates, logicals, rectangular orientation): **[calc-py-data-shapes.md](calc-py-data-shapes.md)**.
 
-#### Supported input shape
+This section keeps **codec / wire** invariants only.
 
-- **2D data must be rectangular:** every row has the same length (`len(row) == ncols`). Calc `=PY(code; range)` passes UNO range blocks this way; empty cells are `None` in a full-width row, not “missing” list elements.
+#### Supported input shape (wire)
+
+- **2D data must be rectangular:** every row has the same length. Calc `=PY(code; range)` passes UNO range blocks this way; empty cells are `None` in a full-width row, not missing list elements.
 - **Uneven row lengths** (jagged nested lists) are **unsupported**. [`_flatten_grid_to_components`](../plugin/scripting/payload_codec.py) logs an error and raises `ValueError` if row lengths differ. We do not pad short rows.
+- User scripts materialize ranges as [`CalcRange`](../plugin/scripting/calc_range.py) (always 2D). Host packing uses rectangular `list[list]` via `ensure_rectangular_2d` — **not** flat 1D lists for rows/columns.
 
 #### Formal verification
 
-The split-grid codec is the project's reference Tier-0 verification target: `deal` contracts on pack/unpack functions, optional CrossHair concolic checking, and pytest round-trip oracles. The A/B suite ([`tests/scripting/test_serialization_ab.py`](../tests/scripting/test_serialization_ab.py) + Hypothesis + venv worker harness) compares `force="always"` (split_grid) vs `force="never"` (nested list) on small varied grids. See [`docs/serialization-verification-plan.md`](serialization-verification-plan.md) for workflow and status; background in [`docs/formal_verification.md`](formal_verification.md).
-
-#### Calc → Python ([`calc_addin_data.py`](../plugin/calc/calc_addin_data.py))
-
-| Calc / UNO | Python `data` before pack |
-|------------|---------------------------|
-| Empty cell / `""` | `None` |
-| Number | `int` or `float` |
-| Logical constant (`TRUE`/`FALSE` in sheet) | Usually **`1.0`/`0.0`** from add-in bridge (VALUE cells), not Python `bool` |
-| UNO boolean (rare on range args) | `bool` |
-| Text | `str` (including literal `"True"` — **not** coerced to bool; same as JSON/pickle) |
-| Single row/column range | Flat `list` ([`normalize_python_data_shape`](../plugin/calc/calc_addin_data.py)) |
-| 2D block (e.g. `A1:C5`) | `list[list]`, rectangular |
+The split-grid codec is the project's reference Tier-0 verification target: `deal` contracts on pack/unpack functions, optional CrossHair concolic checking, and pytest round-trip oracles. The A/B suite ([`tests/scripting/test_serialization_ab.py`](../tests/scripting/test_serialization_ab.py) + Hypothesis + venv worker harness) compares `force="always"` (split_grid) vs `force="never"` (nested list) on small varied grids. See [`docs/serialization-verification-plan.md`](serialization-verification-plan.md); background in [`docs/formal_verification.md`](formal_verification.md).
 
 **Wire fidelity:** split_grid + Pickle5 must behave like nested Python lists + standard pickle — no extra type coercion in [`payload_codec.py`](../plugin/scripting/payload_codec.py). Optimized `frombuffer` paths are a performance implementation of that contract.
-
-#### Logical string coercion at Calc ingress
-
-**Status:** Implemented (2026-05).
-
-When a user enters a logical in Calc (e.g., `TRUE` in the formula bar), the add-in bridge usually delivers **`1.0`/`0.0`** (VALUE cells). That already works with `np.sum` and split_grid.
-
-The implementation now also gracefully handles text that looks like a logical or formula after import/paste (e.g., from CSVs or Python output). In `calc_addin_data._unwrap_cell`, the system intercepts exact strings and coerces them to Python `bool` **before** packing.
-
-| What the user sees | What `_unwrap_cell` gets | Python `data` |
-|--------------------|--------------------------|---------------|
-| Logical typed in Calc | `1.0` / `0.0` | `1.0` / `0.0` |
-| Formula string | `"=TRUE()"` / `"=WAHR()"` | `True` |
-| Plain text | `"TRUE"` / `"WAHR"` | `True` |
-| Python text | `"True"` / `"False"` | `True` / `False` |
-
-**How it works:**
-1.  **Localized Discovery:** At add-in initialization (`PythonFunction.__init__`), the extension uses the `XFormulaOpCodeMapper` service to discover the user's localized boolean function names (e.g., `WAHR` for German, `VRAI` for French).
-2.  **Standard Coercion Sets:** It builds sets of strings to coerce, including formulas (`"=TRUE()"`), plain uppercase (`"TRUE"`), and Python-style title case (`"True"`), along with their localized equivalents.
-3.  **Efficiency:** These sets are cached and passed to the serialization layer, ensuring coercion happens in a single pass without extra UNO calls during range processing.
-
-This prevents `np.sum(data)` from failing when ranges contain text-based logicals, while strictly avoiding broad rules that might misinterpret arbitrary text labels.
-
-**Related fixes already shipped:** nested generator expressions in [`local_python_executor.evaluate_generatorexp`](../plugin/contrib/smolagents/local_python_executor.py) (mixed-grid `sum(v for row in data …)`); fixed 2×5 input groups in [`scripts/generate_serialization_spreadsheet.py`](../scripts/generate_serialization_spreadsheet.py).
-
-#### Calc logical display vs `=PY()` — manual experiments
-
-Use this when designing new serialization or bool tests ([`tests/calc/serialization_cases.py`](../tests/calc/serialization_cases.py): `bool_true`, `bool_false`, `bool_col_11_sum`; manual sheet uses numeric **1/0** in input grids because XLSX import does not evaluate `=TRUE()`).
-
-**What Calc shows vs what math uses**
-
-| Concept | In the cell UI | In `=SUM(...)`, `=A1*2`, etc. |
-|---------|----------------|-------------------------------|
-| Logical TRUE / FALSE | `TRUE` / `FALSE` (locale may differ, e.g. `WAHR`) | **1** / **0** |
-| Number 1 / 0 | `1` / `0` | 1 / 0 |
-| Text `"TRUE"` / `"1"` | looks like true / one | text is **not** a number; `SUM` skips or NumPy sums strings fail |
-
-**`=PY()` egress:** Python `True` / `False` from the worker are mapped to UNO booleans in [`to_calc_compatible`](../plugin/calc/python/function.py). A one-cell formula `=PY("True")` should display a **logical** TRUE, not the text `"True"`.
-
-**`=PY()` ingress (second argument = range):** What Python sees as `data` depends on how the cell is stored:
-
-| Cell contents | Typical `data` in Python | `np.sum(data)` on a 1-cell range |
-|---------------|--------------------------|----------------------------------|
-| `=TRUE()` / `=FALSE()` | Often `1.0` / `0.0` from the bridge; sometimes `bool` | Works (sums to 1 or 0) |
-| Typed `1` / `0` | `1` / `0` | Works |
-| Text `'True'` / `'1'` | `"True"` / `"1"` (`str`) | **Fails** (Unicode dtype / wrong semantics) |
-| After string coercion (see table above) | `True` / `False` | Works once coerced to bool before pack |
-
-**Quick paste tests (empty sheet)**
-
-1. **Return type from PYTHON**
-
-   ```text
-   =PY("True")
-   =PY("False")
-   =PY("type(True).__name__")
-   ```
-
-   Expect: logical TRUE/FALSE; third cell shows `bool` as text.
-
-2. **Compare to native Calc logicals**
-
-   ```text
-   =TRUE()
-   =FALSE()
-   =PY("True")
-   =PY("1 == 1")
-   ```
-
-3. **Numeric use**
-
-   ```text
-   =SUM(TRUE();FALSE();TRUE())
-   =PY("True") + PYTHON("False") + PYTHON("True")
-   ```
-
-   Both should evaluate to **2**.
-
-4. **What Python receives from one cell** — put value in **D1**, then in **E1**:
-
-   ```text
-   =PY("repr(data)", D1)
-   ```
-
-   Try D1 = `=TRUE()`, `1`, and text `1` (format as text). Compare `repr` output.
-
-5. **One-line probe over a small range** — **A1:C1** = `TRUE`, `FALSE`, `1`:
-
-   ```text
-   =PY("f'{data=} {type(data).__name__}'", A1:C1)
-   ```
-
-   For flat ranges, `data` is a list; inspect element types before adding `np.sum` cases to the manual suite.
-
-**Future test ideas:** matrix block of logicals; mixed column TRUE + label text; localized `=WAHR()` strings after CSV import; PYTHON returning bool vs `1.0` and compare column to `=IF(A1,"PASS","FAIL")`.
 
 #### Split-Grid encoding (host pack)
 
@@ -364,62 +260,32 @@ Use this when designing new serialization or bool tests ([`tests/calc/serializat
 | `None` (empty Calc cell) | `NaN` | — |
 | `int` / `float` | numeric value | — |
 | `bool` | `0.0` / `1.0` | — |
-| `str` (including `"02138"`) | `NaN` | text preserved by flat index (never treated as a numeric cell for `np.array(list)` reload) |
+| `str` (including `"02138"`) | `NaN` | text preserved by flat index |
 
 Grids with **&lt; 100 cells** use nested Pickle lists ([`BINARY_MIN_CELLS`](../plugin/scripting/payload_codec.py)); `_cell_for_json` only normalizes Python `None`; `float('nan')` is preserved so it becomes a Calc error on egress (not a silent blank).
 
-#### Child materialization (ingress)
+#### Child materialization (ingress, before CalcRange wrap)
 
-| Grid type | Child sees |
-|-----------|------------|
-| **Pure numeric** (`strings` empty) | `np.ndarray` float64; empty Calc cells → **`np.nan`**, not Python `None` |
+| Grid type | Child sees inside the envelope |
+|-----------|--------------------------------|
+| **Pure numeric** (`strings` empty) | `np.ndarray` float64; empty Calc cells → **`np.nan`** |
 | **Mixed** (any string cells) | Nested `list[list]`; empty/NaN slots → **`None`** |
-| **Single cell** (length-1 flat list or 1-element array) | Scalar; whole floats like `100000.0` → `int` when `.is_integer()` |
 
-Use `np.nansum(data)` (or mask with `np.isnan`) on numeric-only ingress when you need to ignore holes.
+After unpack, `=PY()` exposes a `CalcRange` (see [data shapes](calc-py-data-shapes.md)). Use `np.nansum` / masks when ignoring holes.
 
 #### Egress (child → host / Calc)
 
 | Child `result` | Host / UI after unpack |
 |----------------|------------------------|
-| `np.ndarray` with `np.nan` | `float('nan')` preserved in nested lists (becomes Calc error on =PY() egress) |
+| `np.ndarray` with `np.nan` | `float('nan')` preserved (Calc error on `=PY()` egress) |
 | `np.inf` / `-np.inf` | Still **inf** (not treated as missing) |
-| Large numeric array (≥ 100 cells) | `split_grid` on wire (Pickle5); host unpack → nested lists (NaN preserved) for Calc / LLM |
+| Large numeric array (≥ 100 cells) | `split_grid` on wire; host unpack → nested lists (NaN preserved) |
 
-#### Empty cells vs NaN (policy)
+Blank vs NaN policy (locked): [calc-py-data-shapes.md — Empty cells vs NaN](calc-py-data-shapes.md#empty-cells-vs-nan). Host unpack preserves buffer NaN as `float('nan')`; `to_calc_compatible` maps `None` → `""` and leaves NaN as a double for Calc.
 
-Author-facing summary (script examples and LLM guidance): [Empty cells vs NaN](enabling_numpy_in_libreoffice.md#empty-cells-vs-nan).
+#### Dates on the wire
 
-We **do not** distinguish empty Calc cells from Python/NumPy NaN on the wire (both use `NaN` in the split_grid buffer, or `None` in small mixed lists). Production transport: **length-prefixed Pickle5** + `split_grid` (or plain lists below threshold). No JSON on the runtime wire.
-
-**Ingress:** empty → `None` (mixed/small) or `np.nan` (numeric split_grid). Use `nan*` helpers when blanks must be ignored.
-
-**Egress (Calc):** `None` → `""` (empty cell); `nan` → raw NaN (Calc renders a cascading `#NUM!`/`#VALUE!` error). `±inf` is unchanged.
-
-**Wire / host unpack:** buffer NaN slots are preserved as `float('nan')` in nested lists (not coerced to `None`); `to_calc_compatible` leaves NaN as a double for Calc (error) and maps `None` to `""`.
-
-#### Dates, Datetimes, and Coercion (policy)
-
-To optimize speed and maintain a clean separation of concerns, the bridge delegates date/time coercion to user/client scripts rather than attempting automatic detection on the host.
-
-* **The Problem with Automatic Detection**:
-  LibreOffice Calc represents date and time values internally as floating-point serial numbers (days since `1899-12-30`). The only way to identify them as dates is to inspect the cell format (`NumberFormat`) on the main thread via UNO. Querying every cell's format individually would cause massive IPC overhead and serialize range reading.
-* **Ingress Behavior**:
-  - **Serial Dates (Floats)**: Arrive in the user's script namespace as raw floats (serial numbers).
-  - **String Dates**: Arrive as strings.
-  - **Python `datetime.date` / `datetime.datetime` / `pd.Timestamp`**:
-    - *Below threshold* (plain list path): Types are fully preserved via standard Pickle serialization.
-    - *Above threshold* (`split_grid`): Coerced to their ISO string representations in the `strings` dictionary.
-* **Egress Behavior**:
-  - Returning a NumPy `np.datetime64` array above the threshold (`split_grid`) casts elements to float64, converting them to units (like days) since the Epoch (`1970-01-01`). For example, `np.datetime64("2026-06-25")` becomes `20629.0`.
-* **Client Coercion Guide**:
-  Clients should manually coerce these inputs in pandas or python. For example:
-  - Float serial dates: `pd.to_datetime(df["date_col"], unit="D", origin="1899-12-30")`
-  - String dates: `pd.to_datetime(df["date_col"])`
-
-#### Performance Impact:
-- **~20x Speedup** over Column-Wise mixed grids.
-- Binary materialization is done at C-speed via `frombuffer` + `.tolist()`, and pure Python loops only process the small fraction of cells that actually contain string text.
+Serial floats stay floats; large-grid `datetime` / `Timestamp` values become ISO strings in the `strings` map. Author coercion guide: [Dates and datetimes](calc-py-data-shapes.md#dates-and-datetimes).
 
 **Benchmarked** outside LO ([`scripts/bench_serialization.py`](../scripts/bench_serialization.py)) — [results](#benchmark-results-2026-05). Defer vendored msgpack, mmap, and payload cache unless real Calc profiles disagree.
 

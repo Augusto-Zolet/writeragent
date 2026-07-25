@@ -43,7 +43,7 @@ Back to [Enabling NumPy & Python in LibreOffice](enabling_numpy_in_libreoffice.m
 
 This plan is **in-workbook** conversion (formulas stay in Calc as `=PY()`). It does **not** replace the two-phase chat workflow ([compute in venv → write back with tools](enabling_numpy_in_libreoffice.md#two-phase-llm-workflow)); it automates that rewrite for existing sheets.
 
-**Related:** [Jupyter notebook import](jupyter-notebook-import.md) (external `.ipynb` → Writer) · [Enabling NumPy in LibreOffice](enabling_numpy_in_libreoffice.md) (shipped `=PY()` infrastructure) · [Python-in-Calc future work](python-in-excel-dev-plan.md) · [Analysis sub-agent](analysis-sub-agent.md) (xlcalculator / excel_in_python references) · [Microsoft `xl()` vs WriterAgent `xl.*`](#microsoft-xl-vs-writeragent-xl-different-apis-same-name) (formula-parity helpers vs Excel data bridge)
+**Related:** [Jupyter notebook import](jupyter-notebook-import.md) (external `.ipynb` → Writer) · [Enabling NumPy in LibreOffice](enabling_numpy_in_libreoffice.md) (shipped `=PY()` infrastructure) · [Calc UX backlog](enabling_numpy_in_libreoffice.md#calc-ux-backlog) · [Analysis sub-agent](analysis-sub-agent.md) (xlcalculator / excel_in_python references) · [Microsoft `xl()` vs WriterAgent `xl.*`](#microsoft-xl-vs-writeragent-xl-different-apis-same-name) (formula-parity helpers vs Excel data bridge)
 
 ---
 
@@ -150,7 +150,7 @@ This plan is **in-workbook** conversion (formulas stay in Calc as `=PY()`). It d
 | Localized function names (`SOMME`, `WENN`) | Translator misses calls | Map via `FunctionOpCodeMapper` + English canonical names |
 | Array / matrix formulas | Low automation | Leave as Calc + TODO; document in report |
 | Circular references | Infinite recalc | Detect cycle in graph; skip with `CIRCULAR_REF` |
-| Float / date semantics | False verify failures | Use same rules as [calc-blanks-vs-nans](calc-blanks-vs-nans.md) |
+| Float / date semantics | False verify failures | Use same rules as [calc-py-data-shapes](calc-py-data-shapes.md#empty-cells-vs-nan) |
 | Main-thread UNO on large sheets | UI freeze | Batch reads (`getDataArray`); optional background ingest later |
 | 90% marketing vs reality | User trust | Report exact %; never silent fallback |
 

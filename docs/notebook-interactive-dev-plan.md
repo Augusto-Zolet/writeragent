@@ -331,7 +331,7 @@ From [`jupyter-notebook-import.md`](jupyter-notebook-import.md):
 ## References
 
 - [Jupyter notebook import (user-facing)](jupyter-notebook-import.md)
-- [Shared kernel semantics (§6)](enabling_numpy_in_libreoffice.md#session-modes-and-recalc-semantics) · [Python-in-Calc future work](python-in-excel-dev-plan.md)
+- [Shared kernel semantics (§6)](enabling_numpy_in_libreoffice.md#session-modes-and-recalc-semantics) · [Calc UX backlog](enabling_numpy_in_libreoffice.md#calc-ux-backlog)
 - [NumPy / venv bridge](enabling_numpy_in_libreoffice.md)
 - [Writer forms / in-flow controls](../plugin/writer/specialized/forms.py)
 - [Session persistence tests](../tests/scripting/test_session_persistence.py)

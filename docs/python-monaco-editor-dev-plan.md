@@ -226,7 +226,7 @@ Session 1 proves the **pipe + subprocess + Monaco** spine. The work below is ord
 
 1. Toolbar button in `editor.js` → `api.request_range()`.
 2. Child writes `{"type": "pick_range"}`.
-3. LO main thread: `GlobalCalcRangeSelector` (see LP analysis in [`libre_pythonista_features_analysis.md`](libre_pythonista_features_analysis.md)), modal selection, format range with [`address_utils`](../plugin/calc/address_utils.py), reply `{"type": "range_result", "text": "A1:B10"}` or cancel.
+3. LO main thread: `GlobalCalcRangeSelector` (LibrePythonista-style modal range pick; merged-cell geometry via [`get_cell_geometry`](../plugin/calc/calc_utils.py)), format range with [`address_utils`](../plugin/calc/address_utils.py), reply `{"type": "range_result", "text": "A1:B10"}` or cancel.
 4. Child queues `range_result` → JS inserts at `editor.getPosition()`.
 
 **Threading:** selector and all UNO on main thread only; child blocks in API method with `threading.Event` until result (same pattern as MCP `execute_on_main_thread` with timeout). Cap wait at 120s.
@@ -536,10 +536,11 @@ Port spawn helpers from LibrePythonista (see analysis doc): detect sandbox, wrap
 |------|-----------|--------|
 | **Run Python Script… → Monaco** | Reuse bridge with `load` from `last_python_script_*` config keys; **Run** persists config and executes (not formula save). Falls back to native dialog when pywebview unavailable. Shared launcher: [`editor_host.py`](../plugin/scripting/editor_host.py). Script picker UI: [`scripts_manager.js`](../plugin/contrib/scripting/assets/editor/scripts_manager.js) + [`document_scripts.py`](../plugin/scripting/document_scripts.py). | **Done** |
 | **Sample scratchpad reload** | **Sample** in the picker is the personal scratchpad (`last_python_script_*`), not a saved script. Initial open loads via `load.code`; switching back to Sample after picking **My Scripts** must reload scratchpad text (native XDL dialog already did this; Monaco initially did not). | **Done** |
-| **Formula bar button** | Needs LO UI extension research (Calc input line customization). High effort; do after context menu. | |
+| **Formula bar button** | Needs LO UI extension research (Calc input line customization). High effort; do after context menu. Optional: double-click cell → editor when menu path is insufficient. Touch [`python_editor.py`](../plugin/calc/python/editor.py), [`Addons.xcu`](../extension/Addons.xcu). | |
 | **Excel-style accelerators** | Wire **Ctrl+Alt+Shift+F9** → **Reset Python Session**; optional **Ctrl+Alt+Shift+P** → **Edit Python in Cell…** per [enabling_numpy §6 shortcuts](enabling_numpy_in_libreoffice.md#keyboard-shortcuts-and-recalc). Touch [`Accelerators.xcu`](../extension/Accelerators.xcu). | |
 | **Tier-2 document store** | [`enabling_numpy_in_libreoffice.md`](enabling_numpy_in_libreoffice.md) Tier 2 (formula key + side store) is a **separate** product decision — do not mix with Monaco until formula-in-cell workflow is stable. | |
 | **Core extension split** | Keep all editor code in `plugin/scripting/` + thin `plugin/calc/python/editor.py` per [`ROADMAP.md`](../docs/ROADMAP.md) Phase 3–4 so a future core OXT can ship `=PY()` + editor without the LLM stack. | |
+| **Viz plot polish** | Plot anchor/z-order, replace-existing-chart, UNO e2e for `=PYTHON()` image insert — [Visualization](numpy-domains.md#visualization). | |
 
 #### Phase 3 fix: Sample scratchpad in script picker (2026-06)
 
