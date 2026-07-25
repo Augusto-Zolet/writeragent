@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-12 15:42-0400\n"
+"POT-Creation-Date: 2026-07-24 21:04-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Chinese (Traditional) <LL@li.org>\n"
@@ -337,6 +337,38 @@ msgstr "請在「設定」中選擇有效的模型（而非預留位置）。"
 msgid "Edit Python in Cell..."
 msgstr "編輯儲存格中的 Python..."
 
+#: plugin/calc/python/init_script_editor.py
+msgid "Edit Initialization Script"
+msgstr "編輯初始化指令碼"
+
+#: plugin/calc/python/init_script_editor.py
+msgid "Open a Calc spreadsheet first."
+msgstr "請先開啟一個 Calc 試算表。"
+
+#: plugin/calc/python/init_script_editor.py
+msgid ""
+"The Monaco editor is disabled by \"scripting.force_internal_script_editor\" "
+"in writeragent.json."
+msgstr ""
+"Monaco 編輯器已由 writeragent.json 中的 "
+"\"scripting.force_internal_script_editor\" 停用。"
+
+#: plugin/calc/python/init_script_editor.py
+msgid "Configure a Python venv path in Settings → Python."
+msgstr "請在「設定」→「Python」中設定 Python venv 路徑。"
+
+#: plugin/calc/python/init_script_editor.py
+msgid "Cannot import webview (pywebview) in the configured venv."
+msgstr "無法在設定的 venv 中匯入 webview (pywebview)。"
+
+#: plugin/calc/python/init_script_editor.py
+msgid "Initialization script saved."
+msgstr "初始化指令碼已儲存。"
+
+#: plugin/calc/python/init_script_editor.py
+msgid "Save initialization script"
+msgstr "儲存初始化指令碼"
+
 #: plugin/calc/python/editor.py
 msgid ""
 "Could not preserve this cell's PY formula arguments (e.g. data ranges). Edit "
@@ -425,6 +457,29 @@ msgstr "已插入影像"
 msgid "Images inserted"
 msgstr "已插入影像"
 
+#: plugin/calc/excel_py_convert/auto_open.py
+#, python-brace-format
+msgid ""
+"Could not write Microsoft Excel Python package parts for:\n"
+"{0}\n"
+"\n"
+"The file was saved with LibreOffice =PY formulas. Excel will not see "
+"pythonScripts.xml / _xlws.PY until export succeeds.\n"
+"\n"
+"{1}"
+msgstr ""
+"無法為以下項目寫入 Microsoft Excel Python 套件組件：\n"
+"{0}\n"
+"\n"
+"該檔案已使用 LibreOffice =PY 公式儲存。在匯出成功前，Excel 將無法讀取 "
+"pythonScripts.xml / _xlws.PY。\n"
+"\n"
+"{1}"
+
+#: plugin/calc/excel_py_convert/auto_open.py
+msgid "WriterAgent"
+msgstr "WriterAgent"
+
 #: plugin/calc/editselection.py
 msgid "WriterAgent: Edit Selection (Calc)"
 msgstr "WriterAgent：編輯選取 (Calc)"
@@ -446,27 +501,6 @@ msgstr "請將圖片錨定至儲存格，選取它，然後再次執行。"
 msgid "No structured tables or text blocks to insert."
 msgstr "沒有可插入的結構化表格或文字區塊。"
 
-#: plugin/librepy/settings.py plugin/chatbot/dialog_views.py
-msgid "Venv OK"
-msgstr "Venv 正常"
-
-#: plugin/librepy/settings.py plugin/chatbot/dialog_views.py
-msgid "Venv check failed"
-msgstr "虛擬環境檢查失敗"
-
-#: plugin/librepy/settings.py plugin/chatbot/dialog_views.py
-#: plugin/xdl_strings.py
-msgid "Testing Python environment..."
-msgstr "正在測試 Python 環境..."
-
-#: plugin/librepy/settings.py plugin/chatbot/dialog_views.py
-msgid "Done"
-msgstr "完成"
-
-#: plugin/librepy/settings.py plugin/chatbot/dialog_views.py
-msgid "Failed"
-msgstr "失敗"
-
 #: plugin/librepy/settings.py
 msgid "Cython Accelerator Download"
 msgstr "Cython 加速器下載"
@@ -474,6 +508,61 @@ msgstr "Cython 加速器下載"
 #: plugin/librepy/settings.py
 msgid "Python Settings"
 msgstr "Python 設定"
+
+#: plugin/librepy/python_sidebar.py plugin/xdl_strings.py
+msgid "All"
+msgstr "全部"
+
+#: plugin/librepy/python_sidebar.py
+msgid "Errors"
+msgstr "錯誤"
+
+#: plugin/librepy/python_sidebar.py plugin/scripting/python_runner_ui.py
+msgid "Output"
+msgstr "輸出"
+
+#: plugin/librepy/python_sidebar.py
+msgid "Shared kernel"
+msgstr "共用核心"
+
+#: plugin/librepy/python_sidebar.py
+msgid "Isolated"
+msgstr "已隔離"
+
+#: plugin/librepy/python_sidebar.py
+#, python-brace-format
+msgid ""
+"{mode}\n"
+"Venv: (LibreOffice embedded Python)"
+msgstr ""
+"{mode}\n"
+"虛擬環境：(LibreOffice 內嵌 Python)"
+
+#: plugin/librepy/python_sidebar.py
+#, python-brace-format
+msgid ""
+"{mode}\n"
+"Venv: {path}"
+msgstr ""
+"{mode}\n"
+"虛擬環境：{path}"
+
+#: plugin/librepy/python_sidebar.py
+#, python-brace-format
+msgid ""
+"{mode}\n"
+"Venv: missing python at {path}"
+msgstr ""
+"{mode}\n"
+"虛擬環境：在 {path} 找不到 Python"
+
+#: plugin/librepy/python_sidebar.py
+msgid "(no =PY() cells on active sheet)"
+msgstr "(目前工作表無 =PY() 儲存格)"
+
+#: plugin/librepy/python_sidebar.py
+msgid "(no diagnostics yet)"
+msgstr "(尚無診斷資訊)"
 
 #: plugin/writer/change_context_menu.py
 msgid "Accept whole change (agent)"
@@ -498,6 +587,27 @@ msgstr "WriterAgent：擴展選取"
 #: plugin/writer/editselection.py
 msgid "WriterAgent: Edit Selection"
 msgstr "WriterAgent：編輯選取"
+
+#: plugin/writer/locale/grammar_proofread_text.py
+msgid "No automatic replacement is available."
+msgstr "無法使用自動取代。"
+
+#: plugin/writer/locale/grammar_proofread_text.py
+msgid ""
+"Suggested fix: delete the highlighted text (the blank replacement below)."
+msgstr "建議修正：刪除反白顯示的文字（下方空白處）。"
+
+#: plugin/writer/locale/grammar_proofread_text.py
+msgid "Suggested fix: replace with one space (the blank replacement below)."
+msgstr "建議修正：以一個空格取代（下方空白處）。"
+
+#: plugin/writer/locale/grammar_proofread_text.py
+msgid "Choose a replacement below."
+msgstr "請在下方選擇一個替代項目。"
+
+#: plugin/writer/locale/ai_grammar_proofreader.py
+msgid "AI Grammar"
+msgstr "AI 文法"
 
 #: plugin/writer/math/latex_dialog.py
 msgid "This command is only available in Writer documents."
@@ -1459,9 +1569,25 @@ msgstr "指令稿執行成功，但未傳回結果且未產生輸出。"
 msgid "Success"
 msgstr "成功"
 
-#: plugin/scripting/python_runner_ui.py
-msgid "Output"
-msgstr "輸出"
+#: plugin/scripting/venv_probe_ui.py
+msgid "Venv OK"
+msgstr "Venv 正常"
+
+#: plugin/scripting/venv_probe_ui.py
+msgid "Venv check failed"
+msgstr "虛擬環境檢查失敗"
+
+#: plugin/scripting/venv_probe_ui.py plugin/xdl_strings.py
+msgid "Testing Python environment..."
+msgstr "正在測試 Python 環境..."
+
+#: plugin/scripting/venv_probe_ui.py
+msgid "Done"
+msgstr "完成"
+
+#: plugin/scripting/venv_probe_ui.py
+msgid "Failed"
+msgstr "失敗"
 
 #: plugin/scripting/editor_host.py
 msgid ""
@@ -1813,42 +1939,6 @@ msgstr "{domain} '{helper}' 已完成。寫入 {rows} 列。（耗時 {time}）"
 #, python-brace-format
 msgid "{domain} '{helper}' completed. (took {time})"
 msgstr "{domain} '{helper}' 已完成。（耗時 {time}）"
-
-#: plugin/scripting/domain_registry.py
-msgid "Analysis Helpers"
-msgstr "分析輔助工具"
-
-#: plugin/scripting/domain_registry.py
-msgid "SQL Helpers"
-msgstr "SQL 輔助工具"
-
-#: plugin/scripting/domain_registry.py
-msgid "Vision Helpers"
-msgstr "視覺輔助工具"
-
-#: plugin/scripting/domain_registry.py
-msgid "Viz Helpers"
-msgstr "視覺化輔助工具"
-
-#: plugin/scripting/domain_registry.py
-msgid "Math Helpers"
-msgstr "數學輔助工具"
-
-#: plugin/scripting/domain_registry.py
-msgid "Units Helpers"
-msgstr "單位輔助程式"
-
-#: plugin/scripting/domain_registry.py
-msgid "Quant Helpers"
-msgstr "量化輔助工具"
-
-#: plugin/scripting/domain_registry.py
-msgid "Optimize Helpers"
-msgstr "最佳化輔助工具"
-
-#: plugin/scripting/domain_registry.py
-msgid "Forecast Helpers"
-msgstr "預測助手"
 
 #: plugin/scripting/session_manager.py
 msgid ""
@@ -2253,8 +2343,20 @@ msgid "Copy"
 msgstr "複製"
 
 #: plugin/xdl_strings.py
+msgid "Diagnostics:"
+msgstr "診斷："
+
+#: plugin/xdl_strings.py
 msgid "Draw"
 msgstr "繪圖"
+
+#: plugin/xdl_strings.py
+msgid "Edit Cell"
+msgstr "編輯儲存格"
+
+#: plugin/xdl_strings.py
+msgid "Edit Init Script"
+msgstr "編輯初始化指令稿"
 
 #: plugin/xdl_strings.py
 msgid "Edit config file (JSON)…"
@@ -2299,6 +2401,10 @@ msgstr "擴充最大 Token："
 #: plugin/xdl_strings.py
 msgid "Extra tokens beyond original text length. 0 = same length as original."
 msgstr "超出原始文字長度的額外 token。0 = 與原始長度相同。"
+
+#: plugin/xdl_strings.py
+msgid "Filter:"
+msgstr "篩選："
 
 #: plugin/xdl_strings.py
 msgid "General"
@@ -2381,8 +2487,20 @@ msgid "Preserve number formats"
 msgstr "保留數字格式"
 
 #: plugin/xdl_strings.py
+msgid "Python Settings…"
+msgstr "Python 設定…"
+
+#: plugin/xdl_strings.py
 msgid "Python Test"
 msgstr "Python 測試"
+
+#: plugin/xdl_strings.py
+msgid "Python cells (active sheet):"
+msgstr "Python 儲存格（現用工作表）："
+
+#: plugin/xdl_strings.py
+msgid "Python:"
+msgstr "Python："
 
 #: plugin/xdl_strings.py
 msgid "Readability"
@@ -2393,12 +2511,24 @@ msgid "Rebuild"
 msgstr "重建"
 
 #: plugin/xdl_strings.py
+msgid "Refresh"
+msgstr "重新整理"
+
+#: plugin/xdl_strings.py
+msgid "Reset Session"
+msgstr "重設工作階段"
+
+#: plugin/xdl_strings.py
 msgid "Results:"
 msgstr "結果："
 
 #: plugin/xdl_strings.py
 msgid "Run Benchmark"
 msgstr "執行基準測試"
+
+#: plugin/xdl_strings.py
+msgid "Run Script"
+msgstr "執行指令碼"
 
 #: plugin/xdl_strings.py
 msgid "Scope"
@@ -2905,9 +3035,6 @@ msgstr ""
 
 msgid "Isolated (default)"
 msgstr "隔離模式（預設）"
-
-msgid "Shared kernel"
-msgstr "共用核心"
 
 msgid "Python auto spill in Calc"
 msgstr "Calc 中的 Python 自動溢出"

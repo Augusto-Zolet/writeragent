@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-21 19:07-0400\n"
+"POT-Creation-Date: 2026-07-24 21:04-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Greek <LL@li.org>\n"
@@ -31,8 +31,8 @@ msgstr "Εκτέλεση τοπικής OCR στην επιλεγμένη εικ
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Document research reads require specialized task delegation (USE_SUB_AGENT)."
-" Enable this in configuration."
+"Document research reads require specialized task delegation (USE_SUB_AGENT). "
+"Enable this in configuration."
 msgstr ""
 "Οι αναγνώσεις έρευνας εγγράφων απαιτούν εξειδικευμένη ανάθεση εργασιών "
 "(USE_SUB_AGENT). Ενεργοποιήστε το στις ρυθμίσεις."
@@ -40,8 +40,8 @@ msgstr ""
 #: plugin/doc/specialized_base.py
 #, python-brace-format
 msgid ""
-"Tool call switched to '{0}'. You are in a specialized toolset mode. You must"
-" call 'specialized_workflow_finished' when done to restore the full set of "
+"Tool call switched to '{0}'. You are in a specialized toolset mode. You must "
+"call 'specialized_workflow_finished' when done to restore the full set of "
 "APIs."
 msgstr ""
 "Η κλήση εργαλείου άλλαξε σε '{0}'. Βρίσκεστε σε λειτουργία εξειδικευμένου "
@@ -58,8 +58,8 @@ msgstr "Η εκτέλεση σημειωματάριου υποστηρίζετ�
 
 #: plugin/notebook/notebook_runner.py
 msgid ""
-"This document has no imported notebook. Use Tools → Import Jupyter Notebook…"
-" first."
+"This document has no imported notebook. Use Tools → Import Jupyter Notebook… "
+"first."
 msgstr ""
 "Αυτό το έγγραφο δεν έχει εισαγόμενο σημειωματάριο. Χρησιμοποιήστε πρώτα "
 "Εργαλεία → Εισαγωγή σημειωματάριου Jupyter…."
@@ -256,8 +256,7 @@ msgstr ""
 "Ρυθμίσεις."
 
 #: plugin/framework/errors.py
-msgid ""
-"Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
+msgid "Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
 msgstr ""
 "Η σύνδεση απορρίφθηκε. Είναι ενεργός ο τοπικός διακομιστής AI (Ollama/LM "
 "Studio);"
@@ -265,8 +264,7 @@ msgstr ""
 #: plugin/framework/errors.py
 msgid "DNS Error. Could not resolve the endpoint URL."
 msgstr ""
-"Σφάλμα DNS. Δεν ήταν δυνατή η ανάλυση της διεύθυνσης URL του τελικού "
-"σημείου."
+"Σφάλμα DNS. Δεν ήταν δυνατή η ανάλυση της διεύθυνσης URL του τελικού σημείου."
 
 #: plugin/framework/errors.py
 #, python-brace-format
@@ -294,11 +292,11 @@ msgstr "Σφάλμα HTTP {0} από τον πάροχο AI: {1}"
 #: plugin/framework/client/errors.py
 #, python-brace-format
 msgid ""
-" If your API key is from a GLM Coding Plan subscription, set endpoint to {0}"
-" (not the general /api/paas URL)."
+" If your API key is from a GLM Coding Plan subscription, set endpoint to {0} "
+"(not the general /api/paas URL)."
 msgstr ""
-" Εάν το κλειδί API προέρχεται από συνδρομή GLM Coding Plan, ορίστε το τελικό"
-" σημείο (endpoint) στο {0} (όχι στο γενικό URL /api/paas)."
+" Εάν το κλειδί API προέρχεται από συνδρομή GLM Coding Plan, ορίστε το τελικό "
+"σημείο (endpoint) στο {0} (όχι στο γενικό URL /api/paas)."
 
 #: plugin/framework/client/errors.py
 #, python-brace-format
@@ -361,11 +359,42 @@ msgstr ""
 msgid "Edit Python in Cell..."
 msgstr "Επεξεργασία Python στο κελί..."
 
+#: plugin/calc/python/init_script_editor.py
+msgid "Edit Initialization Script"
+msgstr "Επεξεργασία σεναρίου αρχικοποίησης"
+
+#: plugin/calc/python/init_script_editor.py
+msgid "Open a Calc spreadsheet first."
+msgstr "Ανοίξτε πρώτα ένα υπολογιστικό φύλλο Calc."
+
+#: plugin/calc/python/init_script_editor.py
+msgid ""
+"The Monaco editor is disabled by \"scripting.force_internal_script_editor\" "
+"in writeragent.json."
+msgstr ""
+"Ο επεξεργαστής Monaco είναι απενεργοποιημένος από το "
+"\"scripting.force_internal_script_editor\" στο writeragent.json."
+
+#: plugin/calc/python/init_script_editor.py
+msgid "Configure a Python venv path in Settings → Python."
+msgstr "Ρυθμίστε μια διαδρομή Python venv στις Ρυθμίσεις → Python."
+
+#: plugin/calc/python/init_script_editor.py
+msgid "Cannot import webview (pywebview) in the configured venv."
+msgstr "Αδυναμία εισαγωγής του webview (pywebview) στο ρυθμισμένο venv."
+
+#: plugin/calc/python/init_script_editor.py
+msgid "Initialization script saved."
+msgstr "Το σενάριο αρχικοποίησης αποθηκεύτηκε."
+
+#: plugin/calc/python/init_script_editor.py
+msgid "Save initialization script"
+msgstr "Αποθήκευση σεναρίου αρχικοποίησης"
+
 #: plugin/calc/python/editor.py
 msgid ""
-"Could not preserve this cell's PY formula arguments (e.g. data ranges). Edit"
-" the formula in Calc, or use a quoted code string like =PY(\"code\"; "
-"A1:B10)."
+"Could not preserve this cell's PY formula arguments (e.g. data ranges). Edit "
+"the formula in Calc, or use a quoted code string like =PY(\"code\"; A1:B10)."
 msgstr ""
 "Δεν ήταν δυνατή η διατήρηση των ορισμάτων τύπου PY αυτού του κελιού (π.χ. "
 "περιοχές δεδομένων). Επεξεργαστείτε τον τύπο στο Calc ή χρησιμοποιήστε μια "
@@ -410,13 +439,19 @@ msgstr ""
 
 #: plugin/calc/python/editor.py
 msgid ""
-"Edit Python in Cell requires the Monaco editor, which is disabled by \"scripting.force_internal_script_editor\" in writeragent.json.\n"
+"Edit Python in Cell requires the Monaco editor, which is disabled by "
+"\"scripting.force_internal_script_editor\" in writeragent.json.\n"
 "\n"
-"Set it to false and restart LibreOffice to use this command, or edit PYTHON formulas in the Calc formula bar."
+"Set it to false and restart LibreOffice to use this command, or edit PYTHON "
+"formulas in the Calc formula bar."
 msgstr ""
-"Η επεξεργασία Python σε κελί απαιτεί τον επεξεργαστή Monaco, ο οποίος είναι απενεργοποιημένος από το \"scripting.force_internal_script_editor\" στο writeragent.json.\n"
+"Η επεξεργασία Python σε κελί απαιτεί τον επεξεργαστή Monaco, ο οποίος είναι "
+"απενεργοποιημένος από το \"scripting.force_internal_script_editor\" στο "
+"writeragent.json.\n"
 "\n"
-"Ορίστε το σε false και επανεκκινήστε το LibreOffice για να χρησιμοποιήσετε αυτήν την εντολή ή επεξεργαστείτε τους τύπους PYTHON στη γραμμή τύπων του Calc."
+"Ορίστε το σε false και επανεκκινήστε το LibreOffice για να χρησιμοποιήσετε "
+"αυτήν την εντολή ή επεξεργαστείτε τους τύπους PYTHON στη γραμμή τύπων του "
+"Calc."
 
 #: plugin/calc/python/editor.py
 msgid "No Python interpreter available for the editor."
@@ -425,13 +460,15 @@ msgstr "Δεν υπάρχει διαθέσιμος διερμηνέας Python �
 #: plugin/calc/python/editor.py
 #, python-format
 msgid ""
-"Cannot import webview (pywebview) or rocher with the Python from Settings → Python:\n"
+"Cannot import webview (pywebview) or rocher with the Python from Settings → "
+"Python:\n"
 "%(exe)s\n"
 "\n"
 "In that venv run: uv pip install pywebview rocher\n"
 "(import name is webview, package name is pywebview)."
 msgstr ""
-"Δεν είναι δυνατή η εισαγωγή του webview (pywebview) ή του rocher με την Python από τις Ρυθμίσεις → Python:\n"
+"Δεν είναι δυνατή η εισαγωγή του webview (pywebview) ή του rocher με την "
+"Python από τις Ρυθμίσεις → Python:\n"
 "%(exe)s\n"
 "\n"
 "Σε αυτό το venv εκτελέστε: uv pip install pywebview rocher\n"
@@ -448,6 +485,30 @@ msgstr "Η εικόνα εισήχθη"
 #: plugin/calc/python/function.py
 msgid "Images inserted"
 msgstr "Εικόνες που εισήχθησαν"
+
+#: plugin/calc/excel_py_convert/auto_open.py
+#, python-brace-format
+msgid ""
+"Could not write Microsoft Excel Python package parts for:\n"
+"{0}\n"
+"\n"
+"The file was saved with LibreOffice =PY formulas. Excel will not see "
+"pythonScripts.xml / _xlws.PY until export succeeds.\n"
+"\n"
+"{1}"
+msgstr ""
+"Δεν ήταν δυνατή η εγγραφή των τμημάτων του πακέτου Python για το Microsoft "
+"Excel για το:\n"
+"{0}\n"
+"\n"
+"Το αρχείο αποθηκεύτηκε με τύπους =PY του LibreOffice. Το Excel δεν θα βλέπει "
+"τα pythonScripts.xml / _xlws.PY μέχρι να ολοκληρωθεί η εξαγωγή.\n"
+"\n"
+"{1}"
+
+#: plugin/calc/excel_py_convert/auto_open.py
+msgid "WriterAgent"
+msgstr "WriterAgent"
 
 #: plugin/calc/editselection.py
 msgid "WriterAgent: Edit Selection (Calc)"
@@ -479,6 +540,61 @@ msgstr "Λήψη επιταχυντή Cython"
 #: plugin/librepy/settings.py
 msgid "Python Settings"
 msgstr "Ρυθμίσεις Python"
+
+#: plugin/librepy/python_sidebar.py plugin/xdl_strings.py
+msgid "All"
+msgstr "Όλα"
+
+#: plugin/librepy/python_sidebar.py
+msgid "Errors"
+msgstr "Σφάλματα"
+
+#: plugin/librepy/python_sidebar.py plugin/scripting/python_runner_ui.py
+msgid "Output"
+msgstr "Έξοδος"
+
+#: plugin/librepy/python_sidebar.py
+msgid "Shared kernel"
+msgstr "Κοινόχρηστος πυρήνας"
+
+#: plugin/librepy/python_sidebar.py
+msgid "Isolated"
+msgstr "Απομονωμένο"
+
+#: plugin/librepy/python_sidebar.py
+#, python-brace-format
+msgid ""
+"{mode}\n"
+"Venv: (LibreOffice embedded Python)"
+msgstr ""
+"{mode}\n"
+"Venv: (Ενσωματωμένη Python του LibreOffice)"
+
+#: plugin/librepy/python_sidebar.py
+#, python-brace-format
+msgid ""
+"{mode}\n"
+"Venv: {path}"
+msgstr ""
+"{mode}\n"
+"Venv: {path}"
+
+#: plugin/librepy/python_sidebar.py
+#, python-brace-format
+msgid ""
+"{mode}\n"
+"Venv: missing python at {path}"
+msgstr ""
+"{mode}\n"
+"Venv: η Python λείπει από τη διαδρομή {path}"
+
+#: plugin/librepy/python_sidebar.py
+msgid "(no =PY() cells on active sheet)"
+msgstr "(δεν υπάρχουν κελιά =PY() στο ενεργό φύλλο)"
+
+#: plugin/librepy/python_sidebar.py
+msgid "(no diagnostics yet)"
+msgstr "(δεν υπάρχουν ακόμη διαγνωστικά)"
 
 #: plugin/writer/change_context_menu.py
 msgid "Accept whole change (agent)"
@@ -971,8 +1087,8 @@ msgid ""
 "[Model {0} does not support native audio. Please select an STT Model in "
 "Settings.]"
 msgstr ""
-"[Το μοντέλο {0} δεν υποστηρίζει εγγενή ήχο. Παρακαλούμε επιλέξτε ένα μοντέλο"
-" STT στις Ρυθμίσεις.]"
+"[Το μοντέλο {0} δεν υποστηρίζει εγγενή ήχο. Παρακαλούμε επιλέξτε ένα μοντέλο "
+"STT στις Ρυθμίσεις.]"
 
 #: plugin/chatbot/web_research_chat.py
 #, python-format
@@ -1043,8 +1159,8 @@ msgid ""
 "No editor found (install Kate or Gedit, or set EDITOR). Path:\n"
 "{0}"
 msgstr ""
-"Δεν βρέθηκε επεξεργαστής κειμένου (εγκαταστήστε το Kate ή το Gedit, ή ορίστε"
-" τη μεταβλητή EDITOR). Διαδρομή: {0}"
+"Δεν βρέθηκε επεξεργαστής κειμένου (εγκαταστήστε το Kate ή το Gedit, ή ορίστε "
+"τη μεταβλητή EDITOR). Διαδρομή: {0}"
 
 #: plugin/chatbot/external_editor.py
 #, python-brace-format
@@ -1080,11 +1196,10 @@ msgstr "[Το υποσύστημα του πράκτορα '{0}' δεν βρέθ
 
 #: plugin/chatbot/send_handlers.py
 #, python-brace-format
-msgid ""
-"[Agent backend '{0}' is not available. Check Settings (path, install).]"
+msgid "[Agent backend '{0}' is not available. Check Settings (path, install).]"
 msgstr ""
-"[Το υποσύστημα του πράκτορα '{0}' δεν είναι διαθέσιμο. Ελέγξτε τις Ρυθμίσεις"
-" (διαδρομή, εγκατάσταση).]"
+"[Το υποσύστημα του πράκτορα '{0}' δεν είναι διαθέσιμο. Ελέγξτε τις Ρυθμίσεις "
+"(διαδρομή, εγκατάσταση).]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Perfect! I'm switching you to the main assistant now."
@@ -1414,15 +1529,13 @@ msgstr "Είστε βέβαιοι ότι θέλετε να διαγράψετε 
 #: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner.py
 msgid "Select data range or enter A1 address (injected as data)."
 msgstr ""
-"Επιλέξτε περιοχή δεδομένων ή εισαγάγετε διεύθυνση A1 (εισάγεται ως "
-"δεδομένα)."
+"Επιλέξτε περιοχή δεδομένων ή εισαγάγετε διεύθυνση A1 (εισάγεται ως δεδομένα)."
 
 #: plugin/scripting/document_scripts.py
 #, python-brace-format
 msgid "Document scripts are too large to store in the document ({0} bytes)."
 msgstr ""
-"Τα σενάρια εγγράφου είναι πολύ μεγάλα για αποθήκευση στο έγγραφο ({0} "
-"bytes)."
+"Τα σενάρια εγγράφου είναι πολύ μεγάλα για αποθήκευση στο έγγραφο ({0} bytes)."
 
 #: plugin/scripting/document_scripts.py plugin/scripting/python_runner_ui.py
 #: plugin/scripting/editor_host.py
@@ -1523,10 +1636,6 @@ msgstr ""
 msgid "Success"
 msgstr "Επιτυχία"
 
-#: plugin/scripting/python_runner_ui.py
-msgid "Output"
-msgstr "Έξοδος"
-
 #: plugin/scripting/venv_probe_ui.py
 msgid "Venv OK"
 msgstr "Venv OK"
@@ -1554,8 +1663,8 @@ msgid ""
 "cannot run the Monaco editor."
 msgstr ""
 "Ορίστε τη διαδρομή του Python venv στις Ρυθμίσεις του WriterAgent → Python "
-"(το ίδιο venv όπου εκτελέσατε την εντολή 'uv pip install pywebview rocher')."
-" Η ενσωματωμένη Python του LibreOffice δεν μπορεί να εκτελέσει τον "
+"(το ίδιο venv όπου εκτελέσατε την εντολή 'uv pip install pywebview rocher'). "
+"Η ενσωματωμένη Python του LibreOffice δεν μπορεί να εκτελέσει τον "
 "επεξεργαστή Monaco."
 
 #: plugin/scripting/editor_host.py
@@ -1652,8 +1761,7 @@ msgid "Text/NLP probe failed (see writeragent_debug.log)."
 msgstr "Το κείμενο/NLP probe απέτυχε (δείτε το writeragent_debug.log)."
 
 #: plugin/scripting/venv_diagnostics.py
-msgid ""
-"Vision probe timed out (Docling import can take 10–30s on first check)."
+msgid "Vision probe timed out (Docling import can take 10–30s on first check)."
 msgstr ""
 "Το χρονικό όριο του ανιχνευτή όρασης έληξε (η εισαγωγή Docling μπορεί να "
 "διαρκέσει 10–30 δευτερόλεπτα κατά τον πρώτο έλεγχο)."
@@ -1739,20 +1847,19 @@ msgstr "Ηχογράφηση: έλεγχος sounddevice..."
 #: plugin/scripting/venv_diagnostics.py
 msgid "Text / NLP Libraries: loading (first run may take a while)..."
 msgstr ""
-"Βιβλιοθήκες κειμένου / NLP: φόρτωση (η πρώτη εκτέλεση ενδέχεται να διαρκέσει"
-" λίγο)..."
+"Βιβλιοθήκες κειμένου / NLP: φόρτωση (η πρώτη εκτέλεση ενδέχεται να διαρκέσει "
+"λίγο)..."
 
 #: plugin/scripting/venv_diagnostics.py
 msgid "Vision Libraries: loading (first run may take a while)..."
 msgstr ""
-"Βιβλιοθήκες Vision: φόρτωση (η πρώτη εκτέλεση ενδέχεται να διαρκέσει "
-"λίγο)..."
+"Βιβλιοθήκες Vision: φόρτωση (η πρώτη εκτέλεση ενδέχεται να διαρκέσει λίγο)..."
 
 #: plugin/scripting/venv_diagnostics.py
 msgid "Vector Search Libraries: loading (first run may take a while)..."
 msgstr ""
-"Βιβλιοθήκες διανυσματικής αναζήτησης: φόρτωση (η πρώτη εκτέλεση ενδέχεται να"
-" διαρκέσει λίγο)..."
+"Βιβλιοθήκες διανυσματικής αναζήτησης: φόρτωση (η πρώτη εκτέλεση ενδέχεται να "
+"διαρκέσει λίγο)..."
 
 #: plugin/scripting/venv_diagnostics.py
 msgid "Using LibreOffice process Python..."
@@ -1784,7 +1891,8 @@ msgid ""
 "Error from the Text Analytics worker:\n"
 "{err}\n"
 "\n"
-"The features in this dialog require these packages in the python it is using:\n"
+"The features in this dialog require these packages in the python it is "
+"using:\n"
 "  • spacy + a model          (entities, key phrases, basic stats)\n"
 "  • textdescriptives         (real Readability scores)\n"
 "  • transformers + torch     (Sentiment using the multilingual model)\n"
@@ -1792,20 +1900,26 @@ msgid ""
 "Install them with:\n"
 "  {install}\n"
 "\n"
-"The worker reported the module as missing. Verify the packages are installed in the exact python executable the worker resolved for your configured venv."
+"The worker reported the module as missing. Verify the packages are installed "
+"in the exact python executable the worker resolved for your configured venv."
 msgstr ""
 "Σφάλμα από τον εργάτη ανάλυσης κειμένου:\n"
 "{err}\n"
 "\n"
-"Οι λειτουργίες σε αυτόν τον διάλογο απαιτούν αυτά τα πακέτα στην Python που χρησιμοποιεί:\n"
-"  • spacy + ένα μοντέλο          (οντότητες, φράσεις-κλειδιά, βασικά στατιστικά)\n"
+"Οι λειτουργίες σε αυτόν τον διάλογο απαιτούν αυτά τα πακέτα στην Python που "
+"χρησιμοποιεί:\n"
+"  • spacy + ένα μοντέλο          (οντότητες, φράσεις-κλειδιά, βασικά "
+"στατιστικά)\n"
 "  • textdescriptives         (πραγματικά σκορ αναγνωσιμότητας)\n"
-"  • transformers + torch     (Ανάλυση συναισθήματος χρησιμοποιώντας το πολύγλωσσο μοντέλο)\n"
+"  • transformers + torch     (Ανάλυση συναισθήματος χρησιμοποιώντας το "
+"πολύγλωσσο μοντέλο)\n"
 "\n"
 "Εγκαταστήστε τα με:\n"
 "  {install}\n"
 "\n"
-"Ο εργάτης ανέφερε ότι η ενότητα λείπει. Επαληθεύστε ότι τα πακέτα είναι εγκατεστημένα στο ακριβές εκτελέσιμο αρχείο Python που επέλυσε ο εργάτης για το ρυθμισμένο venv σας."
+"Ο εργάτης ανέφερε ότι η ενότητα λείπει. Επαληθεύστε ότι τα πακέτα είναι "
+"εγκατεστημένα στο ακριβές εκτελέσιμο αρχείο Python που επέλυσε ο εργάτης για "
+"το ρυθμισμένο venv σας."
 
 #: plugin/scripting/text_analytics_ui.py
 msgid "Open a Writer document to analyze."
@@ -1824,11 +1938,16 @@ msgstr "Ανάλυση..."
 msgid ""
 "Error: %s\n"
 "\n"
-"Required packages may be missing in your configured venv (Settings → Python). Click Check Venv in this dialog or use the full Test in Settings → Python for details on spacy, textdescriptives, transformers, torch etc."
+"Required packages may be missing in your configured venv (Settings → "
+"Python). Click Check Venv in this dialog or use the full Test in Settings → "
+"Python for details on spacy, textdescriptives, transformers, torch etc."
 msgstr ""
 "Σφάλμα: %s\n"
 "\n"
-"Ενδέχεται να λείπουν απαιτούμενα πακέτα από το ρυθμισμένο venv (Ρυθμίσεις → Python). Κάντε κλικ στο «Έλεγχος Venv» σε αυτό το παράθυρο διαλόγου ή χρησιμοποιήστε τον πλήρη έλεγχο (Test) στις Ρυθμίσεις → Python για λεπτομέρειες σχετικά με τα spacy, textdescriptives, transformers, torch κ.λπ."
+"Ενδέχεται να λείπουν απαιτούμενα πακέτα από το ρυθμισμένο venv (Ρυθμίσεις → "
+"Python). Κάντε κλικ στο «Έλεγχος Venv» σε αυτό το παράθυρο διαλόγου ή "
+"χρησιμοποιήστε τον πλήρη έλεγχο (Test) στις Ρυθμίσεις → Python για "
+"λεπτομέρειες σχετικά με τα spacy, textdescriptives, transformers, torch κ.λπ."
 
 #: plugin/scripting/text_analytics_ui.py
 msgid "No Writer document to insert into."
@@ -1935,8 +2054,7 @@ msgstr "Δεν ήταν δυνατή η επίλυση της συνεδρίας
 
 #: plugin/scripting/session_manager.py
 msgid "Notebook Python session reset for this document."
-msgstr ""
-"Η συνεδρία Python του σημειωματαρίου επαναφέρθηκε για αυτό το έγγραφο."
+msgstr "Η συνεδρία Python του σημειωματαρίου επαναφέρθηκε για αυτό το έγγραφο."
 
 #: plugin/scripting/session_manager.py
 msgid "Could not reset Python session."
@@ -2043,8 +2161,8 @@ msgstr "Οι βοηθοί όρασης απαιτούν έγγραφο Writer ή
 #: plugin/scripting/python_runner.py
 #, python-brace-format
 msgid ""
-"Script executed successfully, but returned no result and produced no output."
-" (took {time})"
+"Script executed successfully, but returned no result and produced no output. "
+"(took {time})"
 msgstr ""
 "Το σενάριο εκτελέστηκε με επιτυχία, αλλά δεν επέστρεψε αποτέλεσμα και δεν "
 "παρήγαγε έξοδο. (διάρκεια {time})"
@@ -2334,8 +2452,20 @@ msgid "Copy"
 msgstr "Αντιγραφή"
 
 #: plugin/xdl_strings.py
+msgid "Diagnostics:"
+msgstr "Διαγνωστικά:"
+
+#: plugin/xdl_strings.py
 msgid "Draw"
 msgstr "Draw"
+
+#: plugin/xdl_strings.py
+msgid "Edit Cell"
+msgstr "Επεξεργασία κελιού"
+
+#: plugin/xdl_strings.py
+msgid "Edit Init Script"
+msgstr "Επεξεργασία σεναρίου αρχικοποίησης"
 
 #: plugin/xdl_strings.py
 msgid "Edit config file (JSON)…"
@@ -2384,6 +2514,10 @@ msgid "Extra tokens beyond original text length. 0 = same length as original."
 msgstr ""
 "Επιπλέον διακριτικά πέρα από το αρχικό μήκος κειμένου. 0 = ίδιο μήκος με το "
 "αρχικό."
+
+#: plugin/xdl_strings.py
+msgid "Filter:"
+msgstr "Φίλτρο:"
 
 #: plugin/xdl_strings.py
 msgid "General"
@@ -2466,8 +2600,20 @@ msgid "Preserve number formats"
 msgstr "Διατήρηση μορφών αριθμών"
 
 #: plugin/xdl_strings.py
+msgid "Python Settings…"
+msgstr "Ρυθμίσεις Python…"
+
+#: plugin/xdl_strings.py
 msgid "Python Test"
 msgstr "Δοκιμή Python"
+
+#: plugin/xdl_strings.py
+msgid "Python cells (active sheet):"
+msgstr "Κελιά Python (ενεργό φύλλο):"
+
+#: plugin/xdl_strings.py
+msgid "Python:"
+msgstr "Python:"
 
 #: plugin/xdl_strings.py
 msgid "Readability"
@@ -2478,12 +2624,24 @@ msgid "Rebuild"
 msgstr "Αναδόμηση"
 
 #: plugin/xdl_strings.py
+msgid "Refresh"
+msgstr "Ανανέωση"
+
+#: plugin/xdl_strings.py
+msgid "Reset Session"
+msgstr "Επαναφορά συνεδρίας"
+
+#: plugin/xdl_strings.py
 msgid "Results:"
 msgstr "Αποτελέσματα:"
 
 #: plugin/xdl_strings.py
 msgid "Run Benchmark"
 msgstr "Εκτέλεση σημείου αναφοράς"
+
+#: plugin/xdl_strings.py
+msgid "Run Script"
+msgstr "Εκτέλεση δέσμης ενεργειών"
 
 #: plugin/xdl_strings.py
 msgid "Scope"
@@ -2594,8 +2752,8 @@ msgid "Path / URL"
 msgstr "Διαδρομή / URL"
 
 msgid ""
-"Path to backend CLI (e.g. aider) or ACP server URL (e.g. "
-"http://localhost:8000 for Hermes). Empty = try default."
+"Path to backend CLI (e.g. aider) or ACP server URL (e.g. http://"
+"localhost:8000 for Hermes). Empty = try default."
 msgstr ""
 "Διαδρομή προς το CLI του backend (π.χ. aider) ή URL διακομιστή ACP (π.χ. "
 "http://localhost:8000 για το Hermes). Κενό = προσπάθεια χρήσης του "
@@ -2605,8 +2763,7 @@ msgid "Extra arguments"
 msgstr "Επιπλέον ορίσματα"
 
 msgid "Optional arguments for the selected backend (space-separated)."
-msgstr ""
-"Προαιρετικά ορίσματα για το επιλεγμένο backend (διαχωρισμένα με κενά)."
+msgstr "Προαιρετικά ορίσματα για το επιλεγμένο backend (διαχωρισμένα με κενά)."
 
 msgid "ACP agent name"
 msgstr "Όνομα πράκτορα ACP"
@@ -2718,9 +2875,9 @@ msgstr "Δεξιότητα εξανθρωπισμού (φυσικός λόγος
 msgid ""
 "When enabled, injects guidance into the system prompt so the model makes "
 "generated or revised document text sound more natural and human (removes AI "
-"slop patterns). Edit the rules in your LibreOffice profile under "
-"writeragent/skills/humanizer/SKILL.md (the file is auto-created on first "
-"use). A dedicated Skills tab can be added later."
+"slop patterns). Edit the rules in your LibreOffice profile under writeragent/"
+"skills/humanizer/SKILL.md (the file is auto-created on first use). A "
+"dedicated Skills tab can be added later."
 msgstr ""
 "Όταν είναι ενεργοποιημένο, εισάγει καθοδήγηση στο σύστημα προτροπών (system "
 "prompt) ώστε το μοντέλο να κάνει το παραγόμενο ή αναθεωρημένο κείμενο του "
@@ -2747,14 +2904,14 @@ msgid "Enable grammar checker (Writer)"
 msgstr "Ενεργοποίηση ελέγχου γραμματικής (Writer)"
 
 msgid ""
-"Off = disabled. AI (LLM) = use your configured text model/API. LanguageTool "
-"/ Vale = local engines via Settings → Python venv. Harper = offline Rust "
-"binary auto-downloaded to your profile (no venv required)."
+"Off = disabled. AI (LLM) = use your configured text model/API. "
+"LanguageTool / Vale = local engines via Settings → Python venv. Harper = "
+"offline Rust binary auto-downloaded to your profile (no venv required)."
 msgstr ""
-"Off = απενεργοποιημένο. AI (LLM) = χρήση του ρυθμισμένου μοντέλου "
-"κειμένου/API. LanguageTool / Vale = τοπικές μηχανές μέσω Ρυθμίσεις → Python "
-"venv. Harper = δυαδικό αρχείο Rust εκτός σύνδεσης που λαμβάνεται αυτόματα "
-"στο προφίλ σας (δεν απαιτείται venv)."
+"Off = απενεργοποιημένο. AI (LLM) = χρήση του ρυθμισμένου μοντέλου κειμένου/"
+"API. LanguageTool / Vale = τοπικές μηχανές μέσω Ρυθμίσεις → Python venv. "
+"Harper = δυαδικό αρχείο Rust εκτός σύνδεσης που λαμβάνεται αυτόματα στο "
+"προφίλ σας (δεν απαιτείται venv)."
 
 msgid "Off"
 msgstr "Απενεργοποίηση"
@@ -2826,10 +2983,10 @@ msgid ""
 "grammar."
 msgstr ""
 "Επαλήθευση της γλώσσας κάθε ολοκληρωμένης πρότασης με βάση τις ρυθμίσεις "
-"τοπικών ρυθμίσεων του εγγράφου. Το AI χρησιμοποιεί το API "
-"γραμματικής/συνομιλίας σας· το Local χρησιμοποιεί το langdetect στο Python "
-"venv σας (Ρυθμίσεις → Python· χωρίς κλήση API). Οι αναντιστοιχίες "
-"ενημερώνουν το CharLocale και επανελέγχουν τη γραμματική."
+"τοπικών ρυθμίσεων του εγγράφου. Το AI χρησιμοποιεί το API γραμματικής/"
+"συνομιλίας σας· το Local χρησιμοποιεί το langdetect στο Python venv σας "
+"(Ρυθμίσεις → Python· χωρίς κλήση API). Οι αναντιστοιχίες ενημερώνουν το "
+"CharLocale και επανελέγχουν τη γραμματική."
 
 msgid "Local (langdetect)"
 msgstr "Τοπικό (langdetect)"
@@ -2841,8 +2998,8 @@ msgid ""
 "When on, Enter in the sidebar query runs the same action as Send; "
 "Shift+Enter inserts a newline. When off, Enter inserts a newline."
 msgstr ""
-"Όταν είναι ενεργοποιημένο, το Enter στο ερώτημα της πλευρικής στήλης εκτελεί"
-" την ίδια ενέργεια με την Αποστολή· το Shift+Enter εισάγει μια νέα γραμμή. "
+"Όταν είναι ενεργοποιημένο, το Enter στο ερώτημα της πλευρικής στήλης εκτελεί "
+"την ίδια ενέργεια με την Αποστολή· το Shift+Enter εισάγει μια νέα γραμμή. "
 "Όταν είναι απενεργοποιημένο, το Enter εισάγει μια νέα γραμμή."
 
 msgid "Agent edit review"
@@ -2853,9 +3010,9 @@ msgid ""
 "Wait = apply_document_content blocks (on chat/MCP worker thread) until you "
 "review."
 msgstr ""
-"Off = απευθείας επεξεργασίες. Record = παρακολούθηση αλλαγών που "
-"αποδέχεστε/απορρίπτετε εσείς. Wait = το apply_document_content αναμένει (στο"
-" νήμα συνομιλίας/MCP) μέχρι να ελέγξετε."
+"Off = απευθείας επεξεργασίες. Record = παρακολούθηση αλλαγών που αποδέχεστε/"
+"απορρίπτετε εσείς. Wait = το apply_document_content αναμένει (στο νήμα "
+"συνομιλίας/MCP) μέχρι να ελέγξετε."
 
 msgid "Record (track changes)"
 msgstr "Record (παρακολούθηση αλλαγών)"
@@ -2914,8 +3071,8 @@ msgid "Rerank model"
 msgstr "Μοντέλο ανακατάταξης"
 
 msgid ""
-"Used only when rerank is enabled. English MiniLM is fast; bge-reranker-v2-m3"
-" is multilingual and downloads ~2.3 GB."
+"Used only when rerank is enabled. English MiniLM is fast; bge-reranker-v2-m3 "
+"is multilingual and downloads ~2.3 GB."
 msgstr ""
 "Χρησιμοποιείται μόνο όταν η ανακατάταξη είναι ενεργοποιημένη. Το αγγλικό "
 "MiniLM είναι γρήγορο· το bge-reranker-v2-m3 είναι πολύγλωσσο και απαιτεί "
@@ -2937,11 +3094,11 @@ msgid "Enable MCP Server"
 msgstr "Ενεργοποίηση διακομιστή MCP"
 
 msgid ""
-"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable"
-" HTTP)."
+"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable "
+"HTTP)."
 msgstr ""
-"Μόνο localhost, χωρίς έλεγχο ταυτότητας. Οι πελάτες χρησιμοποιούν το "
-"http://localhost:<port>/mcp (HTTP με δυνατότητα ροής)."
+"Μόνο localhost, χωρίς έλεγχο ταυτότητας. Οι πελάτες χρησιμοποιούν το http://"
+"localhost:<port>/mcp (HTTP με δυνατότητα ροής)."
 
 msgid "MCP Port"
 msgstr "Θύρα MCP"
@@ -2986,10 +3143,10 @@ msgid ""
 "stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
 "paddlepaddle)."
 msgstr ""
-"Εάν οριστεί, εκτελεί εργαλεία σε αυτό το venv (bin/python ή "
-"Scripts/python.exe). Εάν είναι κενό, το run_venv_python_script χρησιμοποιεί "
-"το sys.executable αυτής της διεργασίας (βασική stdlib)· χρησιμοποιήστε ένα "
-"venv για numpy/pandas και Βοηθούς Όρασης (paddleocr, paddlepaddle)."
+"Εάν οριστεί, εκτελεί εργαλεία σε αυτό το venv (bin/python ή Scripts/"
+"python.exe). Εάν είναι κενό, το run_venv_python_script χρησιμοποιεί το "
+"sys.executable αυτής της διεργασίας (βασική stdlib)· χρησιμοποιήστε ένα venv "
+"για numpy/pandas και Βοηθούς Όρασης (paddleocr, paddlepaddle)."
 
 msgid "Test"
 msgstr "Δοκιμή"
@@ -3012,8 +3169,8 @@ msgid "Max Calc data cells"
 msgstr "Μέγιστα κελιά δεδομένων Calc"
 
 msgid ""
-"Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger"
-" values use more RAM and time; UNO range read still dominates."
+"Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger "
+"values use more RAM and time; UNO range read still dominates."
 msgstr ""
 "Μέγιστος αριθμός κελιών σε δεδομένα =PYTHON() ή δεδομένα/data_range του Run "
 "Python Script. Μεγαλύτερες τιμές καταναλώνουν περισσότερη μνήμη RAM και "
@@ -3026,15 +3183,12 @@ msgid ""
 "Isolated: each =PYTHON() cell gets a fresh namespace. Shared: one namespace "
 "per workbook (variables carry between cells)."
 msgstr ""
-"Απομονωμένο: κάθε κελί =PYTHON() αποκτά έναν νέο χώρο ονομάτων. Κοινόχρηστο:"
-" ένας χώρος ονομάτων ανά βιβλίο εργασίας (οι μεταβλητές μεταφέρονται μεταξύ "
+"Απομονωμένο: κάθε κελί =PYTHON() αποκτά έναν νέο χώρο ονομάτων. Κοινόχρηστο: "
+"ένας χώρος ονομάτων ανά βιβλίο εργασίας (οι μεταβλητές μεταφέρονται μεταξύ "
 "των κελιών)."
 
 msgid "Isolated (default)"
 msgstr "Απομονωμένο (προεπιλογή)"
-
-msgid "Shared kernel"
-msgstr "Κοινόχρηστος πυρήνας"
 
 msgid "Python auto spill in Calc"
 msgstr "Αυτόματη επέκταση Python στο Calc"
@@ -3050,29 +3204,28 @@ msgid "Convert Date/Time and Timedelta Strings"
 msgstr "Μετατροπή συμβολοσειρών ημερομηνίας/ώρας και χρονικού διαστήματος"
 
 msgid ""
-"Automatically detect and convert date/time and duration strings to "
-"datetime/timedelta objects when sending data to the Python worker. Requires "
-"the 'pandas' and 'dateparser' packages in your venv."
+"Automatically detect and convert date/time and duration strings to datetime/"
+"timedelta objects when sending data to the Python worker. Requires the "
+"'pandas' and 'dateparser' packages in your venv."
 msgstr ""
 "Αυτόματος εντοπισμός και μετατροπή συμβολοσειρών ημερομηνίας/ώρας και "
-"διάρκειας σε αντικείμενα datetime/timedelta κατά την αποστολή δεδομένων στον"
-" εργάτη Python. Απαιτεί τα πακέτα 'pandas' και 'dateparser' στο venv σας."
+"διάρκειας σε αντικείμενα datetime/timedelta κατά την αποστολή δεδομένων στον "
+"εργάτη Python. Απαιτεί τα πακέτα 'pandas' και 'dateparser' στο venv σας."
 
 msgid "PPT-Master data path"
 msgstr "Διαδρομή δεδομένων PPT-Master"
 
 msgid ""
-"Path to the ppt-master skill tree (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Clone hugohe3/ppt-master on GitHub and point here at "
-"the clone root (.../ppt-master) or the inner skill dir (.../ppt-"
-"master/skills/ppt-master). Leave empty to auto-detect (dev clone beside "
-"repo, then env)."
+"Path to the ppt-master skill tree (SKILL.md, templates/, scripts/"
+"svg_to_pptx/). Clone hugohe3/ppt-master on GitHub and point here at the "
+"clone root (.../ppt-master) or the inner skill dir (.../ppt-master/skills/"
+"ppt-master). Leave empty to auto-detect (dev clone beside repo, then env)."
 msgstr ""
-"Διαδρομή προς το δέντρο δεξιοτήτων ppt-master (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Κλωνοποιήστε το hugohe3/ppt-master στο GitHub και "
-"υποδείξτε εδώ τη ρίζα του κλώνου (.../ppt-master) ή τον εσωτερικό κατάλογο "
-"δεξιοτήτων (.../ppt-master/skills/ppt-master). Αφήστε το κενό για αυτόματη "
-"ανίχνευση (κλώνος ανάπτυξης δίπλα στο αποθετήριο, μετά env)."
+"Διαδρομή προς το δέντρο δεξιοτήτων ppt-master (SKILL.md, templates/, scripts/"
+"svg_to_pptx/). Κλωνοποιήστε το hugohe3/ppt-master στο GitHub και υποδείξτε "
+"εδώ τη ρίζα του κλώνου (.../ppt-master) ή τον εσωτερικό κατάλογο δεξιοτήτων "
+"(.../ppt-master/skills/ppt-master). Αφήστε το κενό για αυτόματη ανίχνευση "
+"(κλώνος ανάπτυξης δίπλα στο αποθετήριο, μετά env)."
 
 msgid "Vision / OCR"
 msgstr "Όραση / OCR"

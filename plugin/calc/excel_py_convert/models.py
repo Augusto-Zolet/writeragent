@@ -202,7 +202,7 @@ class ConvertedCell:
             return_type=int(data.get("return_type") or 0),
             converted=bool(data.get("converted", True)),
             array_ref=str(data.get("array_ref") or ""),
-            script_index=int(data.get("script_index") if data.get("script_index") is not None else -1),
+            script_index=int(data["script_index"]) if data.get("script_index") is not None else -1,
         )
 
 

@@ -52,7 +52,14 @@ def test_python_sidebar_xdl_uses_menulist_not_listbox():
     and aborts soffice with 'pure virtual method called' when the Calc sidebar opens."""
     from pathlib import Path
 
-    xdl = Path(__file__).resolve().parents[2] / "extension" / "Dialogs" / "PythonSidebarDialog.xdl"
+    root = Path(__file__).resolve().parents[2]
+    # Repo: extension/Dialogs/; make release bundle: Dialogs/ at OXT root.
+    candidates = (
+        root / "extension" / "Dialogs" / "PythonSidebarDialog.xdl",
+        root / "Dialogs" / "PythonSidebarDialog.xdl",
+    )
+    xdl = next((p for p in candidates if p.is_file()), None)
+    assert xdl is not None, f"PythonSidebarDialog.xdl not found under {root} (tried {[str(p) for p in candidates]})"
     text = xdl.read_text(encoding="utf-8")
     assert "dlg:listbox" not in text
     assert 'dlg:id="cells_list"' in text and "dlg:menulist" in text

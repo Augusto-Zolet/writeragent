@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-21 19:07-0400\n"
+"POT-Creation-Date: 2026-07-24 21:09-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -327,6 +327,36 @@ msgstr ""
 msgid "Edit Python in Cell..."
 msgstr ""
 
+#: plugin/calc/python/init_script_editor.py
+msgid "Edit Initialization Script"
+msgstr ""
+
+#: plugin/calc/python/init_script_editor.py
+msgid "Open a Calc spreadsheet first."
+msgstr ""
+
+#: plugin/calc/python/init_script_editor.py
+msgid ""
+"The Monaco editor is disabled by \"scripting.force_internal_script_editor\" "
+"in writeragent.json."
+msgstr ""
+
+#: plugin/calc/python/init_script_editor.py
+msgid "Configure a Python venv path in Settings → Python."
+msgstr ""
+
+#: plugin/calc/python/init_script_editor.py
+msgid "Cannot import webview (pywebview) in the configured venv."
+msgstr ""
+
+#: plugin/calc/python/init_script_editor.py
+msgid "Initialization script saved."
+msgstr ""
+
+#: plugin/calc/python/init_script_editor.py
+msgid "Save initialization script"
+msgstr ""
+
 #: plugin/calc/python/editor.py
 msgid ""
 "Could not preserve this cell's PY formula arguments (e.g. data ranges). Edit"
@@ -399,6 +429,21 @@ msgstr ""
 msgid "Images inserted"
 msgstr ""
 
+#: plugin/calc/excel_py_convert/auto_open.py
+#, python-brace-format
+msgid ""
+"Could not write Microsoft Excel Python package parts for:\n"
+"{0}\n"
+"\n"
+"The file was saved with LibreOffice =PY formulas. Excel will not see pythonScripts.xml / _xlws.PY until export succeeds.\n"
+"\n"
+"{1}"
+msgstr ""
+
+#: plugin/calc/excel_py_convert/auto_open.py
+msgid "WriterAgent"
+msgstr ""
+
 #: plugin/calc/editselection.py
 msgid "WriterAgent: Edit Selection (Calc)"
 msgstr ""
@@ -426,6 +471,55 @@ msgstr ""
 
 #: plugin/librepy/settings.py
 msgid "Python Settings"
+msgstr ""
+
+#: plugin/librepy/python_sidebar.py plugin/xdl_strings.py
+msgid "All"
+msgstr ""
+
+#: plugin/librepy/python_sidebar.py
+msgid "Errors"
+msgstr ""
+
+#: plugin/librepy/python_sidebar.py plugin/scripting/python_runner_ui.py
+msgid "Output"
+msgstr ""
+
+#: plugin/librepy/python_sidebar.py
+msgid "Shared kernel"
+msgstr ""
+
+#: plugin/librepy/python_sidebar.py
+msgid "Isolated"
+msgstr ""
+
+#: plugin/librepy/python_sidebar.py
+#, python-brace-format
+msgid ""
+"{mode}\n"
+"Venv: (LibreOffice embedded Python)"
+msgstr ""
+
+#: plugin/librepy/python_sidebar.py
+#, python-brace-format
+msgid ""
+"{mode}\n"
+"Venv: {path}"
+msgstr ""
+
+#: plugin/librepy/python_sidebar.py
+#, python-brace-format
+msgid ""
+"{mode}\n"
+"Venv: missing python at {path}"
+msgstr ""
+
+#: plugin/librepy/python_sidebar.py
+msgid "(no =PY() cells on active sheet)"
+msgstr ""
+
+#: plugin/librepy/python_sidebar.py
+msgid "(no diagnostics yet)"
 msgstr ""
 
 #: plugin/writer/change_context_menu.py
@@ -1427,10 +1521,6 @@ msgstr ""
 msgid "Success"
 msgstr ""
 
-#: plugin/scripting/python_runner_ui.py
-msgid "Output"
-msgstr ""
-
 #: plugin/scripting/venv_probe_ui.py
 msgid "Venv OK"
 msgstr ""
@@ -2161,7 +2251,19 @@ msgid "Copy"
 msgstr ""
 
 #: plugin/xdl_strings.py
+msgid "Diagnostics:"
+msgstr ""
+
+#: plugin/xdl_strings.py
 msgid "Draw"
+msgstr ""
+
+#: plugin/xdl_strings.py
+msgid "Edit Cell"
+msgstr ""
+
+#: plugin/xdl_strings.py
+msgid "Edit Init Script"
 msgstr ""
 
 #: plugin/xdl_strings.py
@@ -2204,6 +2306,10 @@ msgstr ""
 
 #: plugin/xdl_strings.py
 msgid "Extra tokens beyond original text length. 0 = same length as original."
+msgstr ""
+
+#: plugin/xdl_strings.py
+msgid "Filter:"
 msgstr ""
 
 #: plugin/xdl_strings.py
@@ -2287,7 +2393,19 @@ msgid "Preserve number formats"
 msgstr ""
 
 #: plugin/xdl_strings.py
+msgid "Python Settings…"
+msgstr ""
+
+#: plugin/xdl_strings.py
 msgid "Python Test"
+msgstr ""
+
+#: plugin/xdl_strings.py
+msgid "Python cells (active sheet):"
+msgstr ""
+
+#: plugin/xdl_strings.py
+msgid "Python:"
 msgstr ""
 
 #: plugin/xdl_strings.py
@@ -2299,11 +2417,23 @@ msgid "Rebuild"
 msgstr ""
 
 #: plugin/xdl_strings.py
+msgid "Refresh"
+msgstr ""
+
+#: plugin/xdl_strings.py
+msgid "Reset Session"
+msgstr ""
+
+#: plugin/xdl_strings.py
 msgid "Results:"
 msgstr ""
 
 #: plugin/xdl_strings.py
 msgid "Run Benchmark"
+msgstr ""
+
+#: plugin/xdl_strings.py
+msgid "Run Script"
 msgstr ""
 
 #: plugin/xdl_strings.py
@@ -2768,9 +2898,6 @@ msgid ""
 msgstr ""
 
 msgid "Isolated (default)"
-msgstr ""
-
-msgid "Shared kernel"
 msgstr ""
 
 msgid "Python auto spill in Calc"

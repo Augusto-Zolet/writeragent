@@ -540,7 +540,7 @@ def write_excel_python_xlsx(
         # Pre-parse worksheet roots we will patch
         patched: dict[str, ET.Element] = {}
         for sheet_title, cells in by_sheet.items():
-            part = title_to_part.get(sheet_title) or title_to_part_l.get(sheet_title.lower())
+            part = title_to_part.get(sheet_title) or title_to_part_l.get(sheet_title.lower(), "")
             if not part:
                 errors.append(f"unmapped sheet {sheet_title!r}")
                 continue

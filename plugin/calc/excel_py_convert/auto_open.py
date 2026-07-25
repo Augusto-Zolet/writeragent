@@ -183,22 +183,24 @@ def maybe_export_excel_py_on_save(ctx: Any, doc: Any) -> bool:
 
 
 def _doc_from_event(event: Any) -> Any | None:
-    controller = getattr(event, "ViewController", None)
-    if controller is not None and hasattr(controller, "getModel"):
-        try:
+    # UNO getattr on a disposed ViewController raises RuntimeException (not AttributeError),
+    # so getattr(..., None) is not enough — common on unload / Draw teardown during tests.
+    try:
+        controller = getattr(event, "ViewController", None)
+        if controller is not None and hasattr(controller, "getModel"):
             return controller.getModel()
-        except Exception:
-            pass
-    source = getattr(event, "Source", None)
-    if source is not None and hasattr(source, "getCurrentController"):
-        try:
+    except Exception:
+        pass
+    try:
+        source = getattr(event, "Source", None)
+        if source is not None and hasattr(source, "getCurrentController"):
             ctrl = source.getCurrentController()
             if ctrl is not None and hasattr(ctrl, "getModel"):
                 return ctrl.getModel()
-        except Exception:
-            pass
-    if source is not None and _is_calc_doc(source):
-        return source
+        if source is not None and _is_calc_doc(source):
+            return source
+    except Exception:
+        pass
     return None
 
 

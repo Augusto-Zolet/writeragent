@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 from plugin.calc.excel_py_convert.apply_calc import apply_dag_formulas_to_calc_doc
 from plugin.calc.excel_py_convert.auto_open import (
     _CONVERTED_PROP,
+    _doc_from_event,
     install_excel_py_auto_convert,
     maybe_convert_excel_py_document,
     maybe_export_excel_py_on_save,
@@ -321,6 +322,48 @@ def test_install_excel_py_auto_convert_once():
     install_excel_py_auto_convert(ctx)
     install_excel_py_auto_convert(ctx)
     assert broadcaster.addDocumentEventListener.call_count == 1
+
+
+class _DisposedViewControllerEvent:
+    """Simulates UNO DocumentEvent where ViewController access raises (disposed)."""
+
+    def __init__(self, source=None):
+        self.Source = source
+
+    def __getattr__(self, name: str):
+        if name == "ViewController":
+            raise RuntimeError("DrawController object has already been disposed")
+        raise AttributeError(name)
+
+
+def test_doc_from_event_disposed_view_controller_returns_none():
+    assert _doc_from_event(_DisposedViewControllerEvent()) is None
+
+
+def test_doc_from_event_disposed_view_controller_falls_back_to_calc_source():
+    source = MagicMock()
+    source.supportsService.return_value = True
+    source.getCurrentController.return_value = None
+    assert _doc_from_event(_DisposedViewControllerEvent(source=source)) is source
+
+
+def test_excel_py_listener_disposed_view_controller_does_not_warn():
+    """Listener must not hit the outer warning path when ViewController is disposed."""
+    import plugin.calc.excel_py_convert.auto_open as mod
+
+    ctx = MagicMock()
+    smgr = MagicMock()
+    broadcaster = MagicMock()
+    ctx.getServiceManager.return_value = smgr
+    smgr.createInstanceWithContext.return_value = broadcaster
+    mod._doc_listener = None
+    install_excel_py_auto_convert(ctx)
+    listener = broadcaster.addDocumentEventListener.call_args[0][0]
+    event = _DisposedViewControllerEvent()
+    event.EventName = "OnLoadFinished"
+    with patch.object(mod.log, "warning") as warn:
+        listener.on_document_event(event)
+        warn.assert_not_called()
 
 
 def test_maybe_export_skips_without_py_cells(tmp_path: Path):
