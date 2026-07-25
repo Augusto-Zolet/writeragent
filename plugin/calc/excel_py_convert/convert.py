@@ -8,7 +8,7 @@ import logging
 import re
 import zipfile
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from xml.etree import ElementTree as ET  # nosemgrep: use-defused-xml  # local .xlsx ZIP parts
 
 from plugin.calc.excel_py_convert.parse_dag_formulas import iter_dag_py_formulas_xlsx
@@ -29,7 +29,9 @@ from plugin.calc.excel_py_convert.to_excel import (
     python_scripts_xml,
     xlws_py_formula,
 )
-from plugin.calc.excel_py_convert.models import ConversionReport, ConvertedCell
+
+if TYPE_CHECKING:
+    from plugin.calc.excel_py_convert.models import ConversionReport, ConvertedCell
 
 log = logging.getLogger(__name__)
 
