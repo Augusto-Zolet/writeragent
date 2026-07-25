@@ -8,6 +8,10 @@
 
 Only removes standalone expression-statement calls to ``grammar_obs`` or ``_grammar_obs``.
 Imports, re-exports, the ``grammar_obs.py`` module, and ``emit_grammar_status`` are left intact.
+
+Line edits / empty-suite ``pass`` live in
+[`plugin.framework.ast_stmt_edit`](../plugin/framework/ast_stmt_edit.py) (shared with
+Excel PY discarded-``xl()`` stripping).
 """
 
 from __future__ import annotations
@@ -16,6 +20,12 @@ import argparse
 import ast
 import os
 import sys
+
+from plugin.framework.ast_stmt_edit import (
+    is_name_call_expr,
+    iter_matching_expr_statements,
+    remove_expr_statements,
+)
 
 GRAMMAR_OBS_CALL_NAMES: frozenset[str] = frozenset({"grammar_obs", "_grammar_obs"})
 
@@ -39,17 +49,14 @@ def should_skip_strip(rel_path: str) -> bool:
 
 def _is_grammar_obs_call(node: ast.Expr) -> bool:
     """True if ``node`` is an expression-statement call to grammar_obs / _grammar_obs."""
-    if not isinstance(node.value, ast.Call):
-        return False
-    func = node.value.func
-    return isinstance(func, ast.Name) and func.id in GRAMMAR_OBS_CALL_NAMES
+    return is_name_call_expr(node, GRAMMAR_OBS_CALL_NAMES)
 
 
 def strip_grammar_obs_calls(bundle_path: str, dry_run: bool = False) -> None:
     """Remove ``grammar_obs(...)`` / ``_grammar_obs(...)`` expression statements from Python files.
 
-    Uses AST line ranges (including multi-line calls). Inserts ``pass`` when stripping would
-    leave an otherwise empty block.
+    Uses :func:`plugin.framework.ast_stmt_edit.remove_expr_statements` (AST line ranges,
+    including multi-line calls; inserts ``pass`` when stripping would leave an empty block).
     """
     action = "Dry run: would strip" if dry_run else "Stripping"
     print(f"  {action} grammar_obs calls from {bundle_path} using AST...")
@@ -65,92 +72,30 @@ def strip_grammar_obs_calls(bundle_path: str, dry_run: bool = False) -> None:
             try:
                 with open(path, encoding="utf-8") as f:
                     content = f.read()
+
+                if dry_run:
+                    nodes = iter_matching_expr_statements(content, _is_grammar_obs_call)
+                    if not nodes:
+                        continue
                     lines = content.splitlines(keepends=True)
-
-                tree = ast.parse(content)
-
-                parent_map: dict[ast.AST, ast.AST] = {}
-                for node in ast.walk(tree):
-                    for child in ast.iter_child_nodes(node):
-                        parent_map[child] = node
-
-                nodes_to_remove: list[ast.Expr] = []
-
-                class FindVisitor(ast.NodeVisitor):
-                    def visit_Expr(self, node: ast.Expr) -> None:
-                        if _is_grammar_obs_call(node):
-                            nodes_to_remove.append(node)
-                        self.generic_visit(node)
-
-                FindVisitor().visit(tree)
-                if not nodes_to_remove:
-                    continue
-
-                replacements: dict[int, str] = {}
-                to_delete: set[int] = set()
-
-                def get_container(node: ast.AST) -> list[ast.stmt] | None:
-                    parent = parent_map.get(node)
-                    if not parent:
-                        return None
-                    for attr in ("body", "orelse", "finalbody"):
-                        if hasattr(parent, attr):
-                            container = getattr(parent, attr)
-                            if isinstance(container, list) and node in container:
-                                return container
-                    if isinstance(parent, ast.Try):
-                        for handler in parent.handlers:
-                            if node in handler.body:
-                                return handler.body
-                    return None
-
-                for node in nodes_to_remove:
-                    start_line = node.lineno
-                    end_line = getattr(node, "end_lineno", None) or start_line
-                    first_idx = start_line - 1
-                    last_idx = end_line - 1
-                    original_line = lines[first_idx]
-                    indent = original_line[: len(original_line) - len(original_line.lstrip())]
-
-                    if dry_run:
-                        rel_p = os.path.relpath(path, bundle_path)
+                    for node in nodes:
+                        start_line = node.lineno
+                        end_line = getattr(node, "end_lineno", None) or start_line
+                        original_line = lines[start_line - 1]
                         snippet = original_line.strip()
                         if end_line > start_line:
                             snippet += f" ... (spans {end_line - start_line + 1} lines)"
-                        print(f"    [DryRun] {rel_p}: L{start_line}-{end_line}: {snippet}")
-                        continue
-
-                    container = get_container(node)
-                    needs_pass = False
-                    if container and not isinstance(parent_map.get(node), ast.Module):
-                        remaining = [s for s in container if s not in nodes_to_remove]
-                        if not remaining:
-                            first_removed = next(s for s in container if s in nodes_to_remove)
-                            if node is first_removed:
-                                needs_pass = True
-
-                    if needs_pass:
-                        replacements[first_idx] = f"{indent}pass  # stripped grammar_obs\n"
-                        for idx in range(first_idx + 1, last_idx + 1):
-                            to_delete.add(idx)
-                    else:
-                        for idx in range(first_idx, last_idx + 1):
-                            to_delete.add(idx)
-
-                if dry_run:
+                        print(f"    [DryRun] {rel_path}: L{start_line}-{end_line}: {snippet}")
                     continue
 
-                new_lines: list[str] = []
-                for i, line in enumerate(lines):
-                    if i in to_delete and i not in replacements:
-                        continue
-                    if i in replacements:
-                        new_lines.append(replacements[i])
-                    else:
-                        new_lines.append(line)
-
-                with open(path, "w", encoding="utf-8") as f:
-                    f.write("".join(new_lines))
+                new_content, removed = remove_expr_statements(
+                    content,
+                    _is_grammar_obs_call,
+                    pass_comment="stripped obs call",
+                )
+                if removed:
+                    with open(path, "w", encoding="utf-8") as f:
+                        f.write(new_content)
 
             except Exception as e:
                 if "match" not in str(e):

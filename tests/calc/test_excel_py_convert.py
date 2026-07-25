@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import ast
 import io
+import re
 import zipfile
 from pathlib import Path
 
@@ -260,10 +262,79 @@ def test_rewrite_ignores_attribute_xl_calls():
     """``obj.xl(...)`` is not the Excel data-bridge builtin — leave it alone."""
     src = "x = obj.xl(%P2%)\ny = xl(%P2%)\n"
     code, issues, used, _modes = rewrite_excel_code(src, num_deps=1)
-    assert "obj.xl(%P2%)" in code
+    # Bare ``%Pn%`` is normalized to ``_Pn_`` for AST; attribute call is not rewritten.
+    assert "obj.xl(_P2_)" in code or "obj.xl(%P2%)" in code
     assert "y = data" in code
     assert used == ["0"]
     assert not any("dynamic" in i for i in issues)
+
+
+def test_rewrite_discarded_xl_statement_under_if_to_pass():
+    """Bare statement ``xl`` under ``if`` must not become ``data`` (empty-suite → pass)."""
+    src = "if config_param == 3:\n    xl(%P2%)\n"
+    code, issues, used, _modes = rewrite_excel_code(src, num_deps=1)
+    assert "pass" in code
+    assert "xl(" not in code
+    assert re.search(r"\bdata\b", code) is None
+    assert used == []
+    assert not any("dynamic" in i for i in issues)
+    ast.parse(code)
+
+
+def test_rewrite_discarded_xl_literal_statement_not_fail_closed():
+    """Literal statement ``xl("A1")`` under ``if`` → pass; do not fail-close the cell."""
+    src = 'if config_param == 3:\n    xl("A1")\n'
+    code, issues, used, _modes = rewrite_excel_code(src, num_deps=0)
+    assert "pass" in code
+    assert "xl(" not in code
+    assert used == []
+    assert not any("dynamic" in i for i in issues)
+    ast.parse(code)
+
+
+def test_rewrite_discarded_xl_with_siblings_deletes_line():
+    src = "if True:\n    xl(%P2%)\n    x = 1\n"
+    code, issues, used, _modes = rewrite_excel_code(src, num_deps=1)
+    assert "xl(" not in code
+    assert "x = 1" in code
+    assert used == []
+    ast.parse(code)
+
+
+def test_rewrite_top_level_xl_still_egress_data():
+    """Sole / last top-level ``xl(%P2%)`` remains Jupyter last-expression → ``data``."""
+    code, issues, used, _modes = rewrite_excel_code("xl(%P2%)", num_deps=1)
+    assert code.strip() == "data"
+    assert used == ["0"]
+    assert not any("dynamic" in i for i in issues)
+
+
+def test_rewrite_assignment_literal_xl_still_dynamic():
+    code, issues, _used, _modes = rewrite_excel_code('x = xl("A1")', num_deps=0)
+    assert any("dynamic" in i for i in issues)
+    assert "xl(" in code
+
+
+def test_rewrite_multiline_discarded_xl_no_dangling():
+    src = "if True:\n    xl(\n        %P2%,\n        headers=True,\n    )\n"
+    code, issues, used, _modes = rewrite_excel_code(src, num_deps=1)
+    assert "xl(" not in code
+    assert "pass" in code
+    assert used == []
+    ast.parse(code)
+
+
+def test_convert_discarded_xl_statement_cell_converts():
+    model = ExcelWorkbookModel(
+        scripts=["if True:\n    xl(%P2%)\n"],
+        cells=[_cell("S", "A1", 0, deps=["B1"], row=1, col=1)],
+        sheets=[_sheet("S")],
+    )
+    report = convert_model_to_dag(model)
+    cell = report.cells[0]
+    assert cell.converted
+    assert "pass" in cell.converted_code
+    assert "xl(" not in cell.converted_code
 
 
 def test_rewrite_syntax_error_with_placeholder_fail_closed():
@@ -877,6 +948,17 @@ def test_xlws_and_python_scripts_builders():
     assert 'xmlns="http://schemas.microsoft.com/office/spreadsheetml/2022/pythonscript"' in text
     assert "df = xl(%P2%, headers=True)" in text
     assert "&lt;" not in text  # no accidental double-escape of plain code
+
+
+def test_python_scripts_xml_escapes_text_nodes():
+    """Script bodies with &, <, > must be entity-escaped in pythonScripts.xml."""
+    raw = python_scripts_xml(["a = 1 & 2\nif x < 3:\n    y = x > 0"])
+    text = raw.decode("utf-8")
+    assert "a = 1 &amp; 2" in text
+    assert "if x &lt; 3:" in text
+    assert "y = x &gt; 0" in text
+    assert "1 & 2" not in text
+    assert "x < 3" not in text
 
 
 def test_assign_script_bank_dedupes():

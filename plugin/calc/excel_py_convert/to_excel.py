@@ -18,7 +18,6 @@ from __future__ import annotations
 import ast
 import re
 from typing import Any, Sequence, cast
-from xml.sax.saxutils import escape as xml_escape
 
 from plugin.calc.excel_py_convert.models import BindingInfo, ConvertedCell, ConversionReport, DepRole, HeaderMode
 from plugin.calc.excel_py_convert.to_dag import ast_source_offset
@@ -27,7 +26,6 @@ from plugin.calc.python.formula_edit import escape_code_for_excel_formula, parse
 _PY_NS = "http://schemas.microsoft.com/office/spreadsheetml/2022/pythonscript"
 # Calc ``Sheet.A1`` → Excel ``Sheet!A1`` for _xlws.PY deps (leave ranges without a sheet alone).
 _CALC_SHEET_REF_RE = re.compile(r"^((?:'[^']*(?:''[^']*)*')|[^'!.]+)\.(\$?[A-Za-z]+\$?\d+(?::\$?[A-Za-z]+\$?\d+)?)$")
-
 _DF_DATA_RE = re.compile(
     r"pd\.DataFrame\(\s*(data(?:\[\s*(\d+)\s*\])?)\[1:\]\s*,\s*columns\s*=\s*(data(?:\[\s*(\d+)\s*\])?)\[0\]\s*\)",
     re.IGNORECASE,
@@ -48,6 +46,10 @@ _OBJECT_SUPPRESS_RE = re.compile(
 # (sheet, cell, formula) or (sheet, cell, formula, report-cell-meta)
 DagFormulaItem = tuple[str, str, str] | tuple[str, str, str, dict[str, Any]]
 
+
+def _xml_text_escape(text: str) -> str:
+    """Escape &, <, > for XML text nodes (not an XML parser — no XXE surface)."""
+    return (text or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 def _p_token(index: int) -> str:
     return f"%P{index + 2}%"
@@ -276,7 +278,7 @@ def python_scripts_xml(scripts: Sequence[str]) -> bytes:
         f'<pythonScripts xmlns="{_PY_NS}">\n',
     ]
     for body in scripts:
-        chunks.append(f"  <pythonScript><code>{xml_escape(body or '')}</code></pythonScript>\n")
+        chunks.append(f"  <pythonScript><code>{_xml_text_escape(body or '')}</code></pythonScript>\n")
     chunks.append("</pythonScripts>\n")
     return "".join(chunks).encode("utf-8")
 

@@ -29,6 +29,12 @@ Per cell we do two paired steps:
 
 Fail-closed: unresolved deps, dynamic ``xl()``, or syntax errors leave the cell
 unconverted (no ``dag_formula``) unless the caller opts into best-effort mode.
+
+Discarded statement-form ``xl(...)`` (e.g. under ``if``) is removed via
+:func:`plugin.framework.ast_stmt_edit.remove_expr_statements` (same empty-suite
+``pass`` rule as release ``grammar_obs`` stripping) so it does not become a
+useless ``data`` expression or fail-close a literal ``xl("A1")``. The last
+top-level expression is kept for Jupyter/Excel last-expression egress.
 """
 
 from __future__ import annotations
@@ -46,6 +52,9 @@ from plugin.calc.excel_py_convert.models import (
     HeaderMode,
 )
 from plugin.calc.excel_py_convert.resolve_refs import ResolvedDep, resolve_deps
+from plugin.framework.ast_stmt_edit import is_name_call_expr, remove_expr_statements
+
+_XL_CALL_NAMES: frozenset[str] = frozenset({"xl"})
 
 _P_TOKEN_RE = re.compile(r"^%P(\d+)%$", re.IGNORECASE)
 # Bare Excel placeholder in source (not anchored); same length as ``_Pn_`` sentinel.
@@ -258,6 +267,11 @@ def ast_source_offset(src: str, lineno: int, col: int) -> int:
     return line_start + len(raw[:col].decode("utf-8"))
 
 
+def _is_xl_expr_stmt(node: ast.Expr) -> bool:
+    """True if *node* is a bare ``xl(...)`` expression statement."""
+    return is_name_call_expr(node, _XL_CALL_NAMES)
+
+
 def rewrite_excel_code(
     code: str,
     *,
@@ -268,9 +282,34 @@ def rewrite_excel_code(
 
     *index_map* maps original 0-based dep index → normalized ``data`` index after dedup.
     Returns ``(new_code, issues, used_original_indices, header_modes_by_original_index)``.
+
+    Bugfix — discarded statement ``xl``:
+    Excel UI often looks like ``if cond: xl("A1")``. On disk that may be
+    ``xl(%Pn%)`` or a literal. Treating those as value sites produced a useless
+    ``data`` under the ``if``, or fail-closed the whole cell for literals.
+    Shared :func:`remove_expr_statements` (release stripper empty-suite rule)
+    removes those statements first; last top-level ``xl`` is kept for egress.
+    Re-export will not restore a discarded statement call site.
     """
     issues: list[str] = []
     src = code or ""
+
+    # Placeholder normalize so ``xl(%P2%)`` parses; strip discarded statements on
+    # that text (same length tokens). Remaining value sites still rewrite below.
+    normalized = _normalize_excel_placeholders(src)
+    try:
+        stripped, _n_removed = remove_expr_statements(
+            normalized,
+            _is_xl_expr_stmt,
+            pass_comment="discarded statement",
+            skip_last_module_expr=True,
+        )
+    except SyntaxError as exc:
+        # Same fail-closed path as _find_xl_calls — do not guess with a scanner.
+        issues.append(f"Python syntax error in script: {exc.msg}")
+        return src, issues, [], {}
+
+    src = stripped
     calls, find_issues = _find_xl_calls(src)
     issues.extend(find_issues)
 

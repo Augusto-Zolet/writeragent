@@ -78,6 +78,34 @@ Excel scripts that share globals across multiple PY cells need a **shared** comp
 
 The rewriter handles formula-static references: fixed ranges, scalar cells, sheet-qualified table `[#All]` references, and `ANCHORARRAY`/spill anchors (the latter two become fixed A1 snapshots from workbook metadata). It **fails closed** on computed Python references such as `xl(f"A1:A{n}")` or `xl(name)`, and on missing table/anchor snapshots, rather than emitting shifted `data[i]` formulas. Sample fidelity: [`scripts/roundtrip_excel_py_samples.py`](../scripts/roundtrip_excel_py_samples.py) over [`PythonExcelSamples/`](../PythonExcelSamples/).
 
+#### Why we do not fold pure-subset ranges (research note)
+
+A natural optimization idea: if one PY cell’s deps include both `A3` and `A1:A10`, the single cell is already inside the larger range, so import could keep only `A1:A10` on `=PY` and rewrite the small site as a view into `data`. That is the hard case. **Pure duplicates are already handled** and should not be confused with subset folding.
+
+**Verdict: not worth doing in this stack.** Subset fold is correct as a pure-Python “don’t send the same cells twice” cleanup; expensive and fidelity-hostile once Calc precedents, `CalcRange` shapes, and Excel export are in the picture. Status quo: keep subset deps as separate formula args; keep collapsing identical A1s. Details below so we do not re-litigate it casually.
+
+**What Excel actually stores.** Authors type `xl("A3")` in the UI, but the package is formula-static bridges: `pythonScripts.xml` has `xl(%P2%)` / `xl(%P3%)`, and the cell formula is `_xlws.PY(scriptIndex, returnType, A3, A1:A10, …)`. Literal `xl("A3")` / `xl(f"…")` / `xl(name)` never enter the binding pipeline — fail-closed as dynamic. So both “duplicate fold” and “subset fold” mean collapsing **resolved trailing deps**, not scanning string literals in source.
+
+**Pure duplicates (already done).** Authors often repeat the same `xl(...)` instead of `x = xl(...); … use x …`. On disk that becomes multiple `%Pn%` sites and repeated trailing deps, e.g. `_xlws.PY(…, A3, A3, A3)`. [`_normalize_bindings`](../plugin/calc/excel_py_convert/to_dag.py) keys on the **exact** resolved A1 string after [`resolve_deps`](../plugin/calc/excel_py_convert/resolve_refs.py): identical tokens collapse to one `data_args` entry, and a second rewrite remaps every original `%Pn%` site onto the same `data` / `inputs[i]` expression (with header-mode merge preferring explicit `headers=True`). That is identity-preserving — same Python value, one Calc precedent — and is covered by `test_dedup_duplicate_range_bindings`. From our side this is easier than asking authors to use a local: we only need one formula arg and N call sites pointing at it. Export prefers `excel_deps` when length-aligned with the collapsed `data_args` ([`deps_for_xlws_export`](../plugin/calc/excel_py_convert/to_excel.py); policy in [`models.py`](../plugin/calc/excel_py_convert/models.py)), so arity can shrink (`A3,A3` → one `A3` on re-export); that is acceptable for identical tokens.
+
+**What is *not* done.** `A3` and `A1:A10` stay two `data_args` and two precedents. That is the subset idea below — different geometry, different value shapes, not another exact-key hit.
+
+**Why a pure-Python fold feels easy.** In a world where `xl()` is just “fetch these cells into a dict of arrays,” you would union/parent the geometry, hand the script one buffer, and index the subset in user code. No formula engine, no reverse OOXML rewrite, no type contract with Microsoft’s bridge. That is not our world.
+
+**Why Calc makes it a different story.**
+
+1. **Value shape, not just bytes.** Microsoft’s docs/UI treat `xl("A3")` as a **scalar** and a multi-cell `xl("A1:A10")` as a frame/range. WriterAgent injects **`CalcRange`** for every binding ([`calc_range.py`](../plugin/scripting/calc_range.py)): `__getitem__` is **row** access, so `data[2]` on a column range is a row list, not “the scalar that used to be `A3`.” Folding is not an `index_map` remap the way exact duplicates are; it needs a geometry rewrite that preserves the object shape each call site expects (scalar / 1×1 / row slice / 2D block), including `headers=True` → `.to_pandas()` vs bare `CalcRange`.
+
+2. **`data[i]` already means binding index on the reverse path.** [`rewrite_dag_code_to_excel`](../plugin/calc/excel_py_convert/to_excel.py) maps `data` / `data[i]` / `inputs[i]` back to `xl(%Pn%)` where `i` is the **nth formula dep**, not a sheet row offset. If import rewrote the `A3` site to `data[2]` meaning “row 2 of the parent,” export would invent a third `%Pn%` (or mis-bind), not restore `A3`. Subset fold needs a distinct IR (named view helper) or “export restores original script + original deps from meta and never reverse-rewrites slices.” Either is real design work, not a one-liner in `_normalize_bindings`.
+
+3. **Round-trip fidelity fights collapsed arity.** `excel_deps` is parallel to collapsed `data_args`. Dropping `A3` from Calc args also drops what export can put on `_xlws.PY` unless meta grows a separate full original-dep list (Calc uses parent-only; Excel export uses the pre-collapse list). Exact `B1`,`B1` dedup already shrinks arity in a boring way; subset fold would shrink it in a visible, geometry-dependent way. “Perfect” Excel package restore and “smarter Calc wire” pull opposite directions unless that split meta exists.
+
+4. **Unsafe cases beyond pure inclusion.** Different header modes on parent vs child; Table/`ANCHORARRAY` parent with a plain A1 child that only sits inside the snapshot; cross-sheet addresses; overlaps that are not subsets (`A1:A5` ∪ `A3:A10`). Only same-sheet, axis-aligned, inclusive subsets with compatible headers are even candidates — and those still hit (1)–(3).
+
+5. **Payoff is usually small.** `A3` inside `A1:A10` saves almost nothing on the wire. The interesting win is large pure subsets (`A1:A5000` inside `A1:A10000`). Samples and common one-range cells do not justify the rewrite/export tax. Online’s jail-safe path already extracts each declared precedent once into the JSON request; duplicate small cells are cheap compared to an incorrect reverse rewrite.
+
+**If someone revives this later**, the least-wrong sketch is: detect pure geometric subsets only; refuse header / Table-token conflicts; keep **full original deps** for `_xlws.PY` export; emit a DAG view helper that reverse will never confuse with binding indices (or skip reverse and restore original bridge text from meta); test scalar cell, column slice, 2D cell-in-block, conflict refuse, and Excel→DAG→Excel arity/token fidelity. Until measured large-subset pain appears, **leave subsets as separate precedents**.
+
 ```mermaid
 flowchart LR
   subgraph classic [Classic / LO desktop]

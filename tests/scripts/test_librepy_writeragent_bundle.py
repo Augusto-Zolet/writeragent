@@ -26,3 +26,9 @@ def test_librepy_bundle_includes_settings_fields():
     paths = collect_librepy_plugin_paths(str(_REPO_ROOT))
     assert "plugin/chatbot/settings_fields.py" in paths
     assert "plugin/scripting/venv_probe_ui.py" in paths
+
+
+def test_librepy_bundle_includes_ast_stmt_edit():
+    """excel_py_convert/to_dag imports this; must ship in LibrePy.oxt allowlist."""
+    paths = collect_librepy_plugin_paths(str(_REPO_ROOT))
+    assert "plugin/framework/ast_stmt_edit.py" in paths
