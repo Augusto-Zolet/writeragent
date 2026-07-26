@@ -225,7 +225,7 @@ def sanitize_inline_py_code(code: str) -> str:
     sanitized = _LEXER_COLLISION_XL_TEXT_RE.sub(".fmt(", sanitized)
     sanitized = _rewrite_token_calls(sanitized, "float", lambda inner: f"({inner})+0.0")
     sanitized = _rewrite_token_calls(sanitized, "int", lambda inner: f"(({inner})//1)")
-    sanitized = _rewrite_token_calls(sanitized, "str", lambda inner: f"xl.py_str({inner})")
+    sanitized = _rewrite_token_calls(sanitized, "str", lambda inner: f"calc.py_str({inner})")
     return sanitized
 
 
@@ -239,7 +239,7 @@ def inline_py_code_has_lexer_collisions(code: str) -> list[str]:
     if _LEXER_COLLISION_STR_RE.search(code):
         hits.append("str")
     if _LEXER_COLLISION_XL_TEXT_RE.search(code):
-        hits.append("xl.text")
+        hits.append("calc.text")
     return hits
 
 

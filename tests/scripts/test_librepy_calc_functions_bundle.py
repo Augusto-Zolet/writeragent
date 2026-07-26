@@ -1,4 +1,4 @@
-"""LibrePy bundle excludes spreadsheet-import xl helpers; keeps calc_functions_common."""
+"""LibrePy bundle excludes spreadsheet-import calc helpers; keeps calc_functions_common."""
 
 from __future__ import annotations
 

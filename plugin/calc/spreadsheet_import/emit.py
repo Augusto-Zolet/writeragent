@@ -93,7 +93,7 @@ def build_converted_output_model(
             and translation.code
             and translation.data_ranges is not None
             and not translation_has_cross_sheet_ranges(translation.data_ranges)
-            and "xl.fmt(" not in translation.code
+            and "calc.fmt(" not in translation.code
         ):
             last_addr = group[-1]
             vectorized_data_ranges = []

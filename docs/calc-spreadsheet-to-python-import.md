@@ -43,7 +43,7 @@ Back to [Enabling NumPy & Python in LibreOffice](enabling_numpy_in_libreoffice.m
 
 This plan is **in-workbook** conversion (formulas stay in Calc as `=PY()`). It does **not** replace the two-phase chat workflow ([compute in venv → write back with tools](enabling_numpy_in_libreoffice.md#two-phase-llm-workflow)); it automates that rewrite for existing sheets.
 
-**Related:** [Jupyter notebook import](jupyter-notebook-import.md) (external `.ipynb` → Writer) · [Enabling NumPy in LibreOffice](enabling_numpy_in_libreoffice.md) (shipped `=PY()` infrastructure) · [Calc UX backlog](enabling_numpy_in_libreoffice.md#calc-ux-backlog) · [Analysis sub-agent](analysis-sub-agent.md) (xlcalculator / excel_in_python references) · [Microsoft `xl()` vs WriterAgent `xl.*`](#microsoft-xl-vs-writeragent-xl-different-apis-same-name) (formula-parity helpers vs Excel data bridge)
+**Related:** [Jupyter notebook import](jupyter-notebook-import.md) (external `.ipynb` → Writer) · [Enabling NumPy in LibreOffice](enabling_numpy_in_libreoffice.md) (shipped `=PY()` infrastructure) · [Calc UX backlog](enabling_numpy_in_libreoffice.md#calc-ux-backlog) · [Analysis sub-agent](analysis-sub-agent.md) (xlcalculator / excel_in_python references) · [Microsoft `xl()` vs WriterAgent `calc.*`](#microsoft-xl-vs-writeragent-calc) (formula-parity helpers vs Excel data bridge)
 
 ---
 
@@ -305,32 +305,32 @@ Tier-1 **code cell** (long scripts):
 
 Uses existing Monaco dual-save pattern ([python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md)).
 
-### `xl` Calc-parity helpers (spreadsheet import)
+### `calc` Calc-parity helpers (spreadsheet import)
 
-Complex Calc functions that need shared semantics (SUMIF, XLOOKUP, FILTER, SUBTOTAL, date helpers, etc.) emit **`xl.*` calls** — not pasted `def` blocks. The venv sandbox auto-imports [`plugin.scripting.calc_functions`](../plugin/scripting/calc_functions.py) as **`xl`** (same mechanism as `np` / `pd`).
+Complex Calc functions that need shared semantics (SUMIF, XLOOKUP, FILTER, SUBTOTAL, date helpers, etc.) emit **`calc.*` calls** — not pasted `def` blocks. The venv sandbox auto-imports [`plugin.scripting.calc_functions`](../plugin/scripting/calc_functions.py) as **`calc`** (same mechanism as `np` / `pd`). The alias used to be `xl`; it was renamed so Microsoft’s Excel data-bridge `xl()` can own that name later.
 
 ```calc
-=PY("xl.sumif(data[0], \">10\", data[1])"; A1:A5; B1:B5)
-=PY("xl.xlookup(\"apple\", data[0], data[1], \"Not Found\")"; A1:A3; B1:B3)
+=PY("calc.sumif(data[0], \">10\", data[1])"; A1:A5; B1:B5)
+=PY("calc.xlookup(\"apple\", data[0], data[1], \"Not Found\")"; A1:A3; B1:B3)
 ```
 
-- **Translator:** [`translate.py`](../plugin/calc/spreadsheet_import/translate.py) maps Calc builtins to `xl.foo(...)` or inline `np`/`math` expressions.
-- **Runtime:** [`AUTO_IMPORTS`](../plugin/framework/constants.py) + [`inject_auto_imports`](../plugin/scripting/venv_sandbox.py) bind `xl` when the formula references it.
+- **Translator:** [`translate.py`](../plugin/calc/spreadsheet_import/translate.py) maps Calc builtins to `calc.foo(...)` or inline `np`/`math` expressions.
+- **Runtime:** [`AUTO_IMPORTS`](../plugin/framework/constants.py) + [`inject_auto_imports`](../plugin/scripting/venv_sandbox.py) bind `calc` when the formula references it.
 - **Tests:** behavioral parity in [`test_calc_functions.py`](../tests/scripting/test_calc_functions.py); emitter shape in [`test_spreadsheet_import_translate.py`](../tests/calc/test_spreadsheet_import_translate.py).
 
-Workbooks converted before this change may still contain inline pasted helpers; re-import to shrink formulas.
+Workbooks converted before this change may still contain inline pasted helpers or old `xl.*` helper calls; re-import to shrink formulas / pick up `calc.*`.
 
-#### Microsoft `xl()` vs WriterAgent `xl.*` (different APIs, same name) {#microsoft-xl-vs-writeragent-xl-different-apis-same-name}
+#### Microsoft `xl()` vs WriterAgent `calc.*` (different APIs) {#microsoft-xl-vs-writeragent-calc}
 
-**Name collision warning:** Microsoft Python in Excel and WriterAgent both use the name `xl`, but they are **not the same API**. Microsoft’s `xl("A1:B10")` is a **data bridge** (UI literals rewritten at edit/save to `xl(%Pn%)` in `pythonScripts.xml` plus trailing deps on `_xlws.PY` — [ms-py §5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import)); WriterAgent’s `xl.sumif(...)` is a **Calc formula emulator**. There is no Microsoft-shipped `xl.sumif`, `xl.xlookup`, or similar library.
+Microsoft’s `xl("A1:B10")` is a **data bridge** (UI literals rewritten at edit/save to `xl(%Pn%)` in `pythonScripts.xml` plus trailing deps on `_xlws.PY` — [ms-py §5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import)). WriterAgent’s `calc.sumif(...)` is a **Calc formula emulator**. There is no Microsoft-shipped `calc.sumif` / `xl.sumif` formula-parity library.
 
-| | Microsoft `xl()` | WriterAgent `xl.*` |
+| | Microsoft `xl()` | WriterAgent `calc.*` |
 |--|------------------|-------------------|
-| **Shape** | One callable: `xl("A1:C10", headers=True)` (package: `%Pn%` + `_xlws.PY` deps) | Module alias with **259** helpers: `xl.sumif(...)`, `xl.xlookup(...)`, … |
+| **Shape** | One callable: `xl("A1:C10", headers=True)` (package: `%Pn%` + `_xlws.PY` deps) | Module alias with **259** helpers: `calc.sumif(...)`, `calc.xlookup(...)`, … |
 | **Purpose** | Data **ingress** (ranges, tables, names, images, Power Query) → usually a pandas DataFrame | Replicate **Calc/Excel formula semantics** inside Python during spreadsheet conversion |
-| **Where it lives** | Script bank + `_xlws.PY` cell stub (not a long inline `=PY("…")` string) | Data arrives via explicit `=PY(...; range)` args as `data`; `xl` auto-imported from [`AUTO_IMPORTS`](../plugin/framework/constants.py) |
+| **Where it lives** | Script bank + `_xlws.PY` cell stub (not a long inline `=PY("…")` string) | Data arrives via explicit `=PY(...; range)` args as `data`; `calc` auto-imported from [`AUTO_IMPORTS`](../plugin/framework/constants.py) |
 | **Plumbing** | Required `import excel` + `excel.set_xl_scalar_conversion(...)` / `excel.set_xl_array_conversion(...)` | [`plugin/scripting/venv/calc_functions_*.py`](../plugin/scripting/venv/) (WriterAgent OXT only; excluded from LibrePy for now) |
-| **Spreadsheet math** | Use **pandas/NumPy** after `xl()` pull, or leave formulas as Excel cells | Translator emits **`xl.foo(...)`** from [`translate.py`](../plugin/calc/spreadsheet_import/translate.py) |
+| **Spreadsheet math** | Use **pandas/NumPy** after `xl()` pull, or leave formulas as Excel cells | Translator emits **`calc.foo(...)`** from [`translate.py`](../plugin/calc/spreadsheet_import/translate.py) |
 
 **Do not confuse with xlwings** — a third-party library (`@xw.func` UDFs, Excel object-model automation). Unrelated to either API above.
 
@@ -342,7 +342,7 @@ Workbooks converted before this change may still contain inline pasted helpers; 
 - **User-defined init helpers** — e.g. `QuickStats`, `kpi_summary`, `format_currency` in the editable initialization pane; community patterns, **not** 259 built-in formula emulators.
 - **Excel formulas remain Excel formulas** — Microsoft’s product model keeps `=SUMIF` / `=XLOOKUP` in normal cells and uses Python for analysis on table data pulled via `xl()`. They are **not** converting formula cells to Python the way this import pipeline does.
 
-For a SUMIF-like operation in Python in Excel, the intended path is pandas (e.g. `df.loc[df["Region"] == "East", "Sales"].sum()`) or referencing a cell that still holds `=SUMIF(...)`. WriterAgent’s `xl.*` library exists because **spreadsheet import** must emit readable Python that preserves Calc semantics without hand-rolling 200+ functions per workbook — a gap Microsoft does not fill.
+For a SUMIF-like operation in Python in Excel, the intended path is pandas (e.g. `df.loc[df["Region"] == "East", "Sales"].sum()`) or referencing a cell that still holds `=SUMIF(...)`. WriterAgent’s `calc.*` library exists because **spreadsheet import** must emit readable Python that preserves Calc semantics without hand-rolling 200+ functions per workbook — a gap Microsoft does not fill.
 
 ```mermaid
 flowchart TB
@@ -356,17 +356,17 @@ flowchart TB
     LO_form[Calc formula cell]
     Trans[translate.py]
     WA_PY["=PY code; data ranges"]
-    WA_xl["xl.sumif etc in code"]
+    WA_calc["calc.sumif etc in code"]
     LO_form --> Trans --> WA_PY
-    WA_PY --> WA_xl
+    WA_PY --> WA_calc
   end
 ```
 
 **Coverage:** WriterAgent ships **259** helpers in [`HELPER_NAMES`](../plugin/scripting/calc_functions_common.py); the translator maps **~157** Calc builtins today (see [§8.12](#812-master-function-inventory-goal)); gaps become TODO cells, inline `np`/`math`, or native Calc. Microsoft has no equivalent library.
 
-**Packaging:** The `xl.*` stack is **WriterAgent-only** for now ([LibrePy exclusion](libreoffice-core-python-extension-split.md)); LibrePy keeps explicit `data` args but not formula-parity helpers until spreadsheet conversion ships in core.
+**Packaging:** The `calc.*` stack is **WriterAgent-only** for now ([LibrePy exclusion](libreoffice-core-python-extension-split.md)); LibrePy keeps explicit `data` args but not formula-parity helpers until spreadsheet conversion ships in core.
 
-**See also:** [Enabling NumPy — Microsoft Python in Excel vs WriterAgent](enabling_numpy_in_libreoffice.md#microsoft-python-in-excel-vs-writeragent) for `=PY` architecture, dependency tracking, and runtime comparison (canonical doc for data ingress — this section covers the **`xl` naming / formula-parity** angle only).
+**See also:** [Enabling NumPy — Microsoft Python in Excel vs WriterAgent](enabling_numpy_in_libreoffice.md#microsoft-python-in-excel-vs-writeragent) for `=PY` architecture, dependency tracking, and runtime comparison (canonical doc for data ingress — this section covers the **`calc.*` formula-parity** angle only).
 
 ---
 

@@ -12,7 +12,7 @@ import numpy as np
 
 import pytest
 
-import plugin.scripting.calc_functions as xl
+import plugin.scripting.calc_functions as calc
 
 from plugin.calc.spreadsheet_import.preprocess import normalize_lo_formula_for_parse
 from plugin.calc.spreadsheet_import.translate import translate_formula
@@ -77,7 +77,7 @@ def test_translate_p2_functions():
 
     res = translate_formula("=LEN(A1)")
     assert res.ok
-    assert "len(xl.py_str(data))" in res.code
+    assert "len(calc.py_str(data))" in res.code
 
     # Date
     res = translate_formula("=TODAY()")
@@ -102,12 +102,12 @@ def test_translate_p2_logical_trig_date_functions():
     # IFERROR / IFNA
     res = translate_formula("=IFERROR(A1; 0)")
     assert res.ok
-    assert "xl.iferror" in res.code
+    assert "calc.iferror" in res.code
     assert "def " not in res.code
 
     res = translate_formula("=IFNA(A1; 1)")
     assert res.ok
-    assert "xl.ifna" in res.code
+    assert "calc.ifna" in res.code
 
     # SWITCH
     res = translate_formula("=SWITCH(A1; 1; \"one\"; 2; \"two\"; \"other\")")
@@ -175,7 +175,7 @@ def test_translate_and_exec_new_functions():
 
     import numpy as np
 
-    base_locs = {"np": np, "xl": xl, "math": math, "dt": dt}
+    base_locs = {"np": np, "calc": calc, "math": math, "dt": dt}
 
     # 1. SUMIF
     res = translate_formula("=SUMIF(A1:A5; \">10\"; B1:B5)")
@@ -281,7 +281,7 @@ def test_translate_tier_abc_functions():
     # Tier A
     res = translate_formula("=SUBTOTAL(9; A1:A5)")
     assert res.ok
-    assert "xl.subtotal(" in res.code
+    assert "calc.subtotal(" in res.code
     assert exec_result(res, [1.0, 2.0, 3.0, 4.0, 5.0]) == 15.0
 
     res = translate_formula("=ISBLANK(A1)")
@@ -355,8 +355,8 @@ def test_translate_tier_abc_functions():
 
     res = translate_formula('=TEXT(B5; "MMMM")')
     assert res.ok
-    assert "xl.fmt" in res.code
-    assert "xl.text(" not in res.code
+    assert "calc.fmt" in res.code
+    assert "calc.text(" not in res.code
 
     res = translate_formula("=ROUNDUP(7692.30769230769; 0)")
     assert res.ok
@@ -381,7 +381,7 @@ def exec_result(res, data):
 
     import numpy as np
 
-    locs = {"data": data, "np": np, "xl": xl, "math": math, "dt": dt}
+    locs = {"data": data, "np": np, "calc": calc, "math": math, "dt": dt}
     code = f"result = {res.code}"
     exec(code, locs)
     return locs["result"]
@@ -391,19 +391,19 @@ def test_translate_tier_d_functions():
     # Financial
     res = translate_formula("=PMT(0.05/12; 60; 10000)")
     assert res.ok
-    assert "xl.pmt" in res.code
+    assert "calc.pmt" in res.code
     # PMT(0.05/12, 60, 10000) approx -188.71
     assert abs(exec_result(res, []) - (-188.712336)) < 1e-2
 
     res = translate_formula("=FV(0.05/12; 60; -200; -10000)")
     assert res.ok
-    assert "xl.fv" in res.code
+    assert "calc.fv" in res.code
     # FV approx 26434.80
     assert abs(exec_result(res, []) - 26434.80) < 1.0
 
     res = translate_formula("=PV(0.05/12; 60; -200; 26434.80)")
     assert res.ok
-    assert "xl.pv" in res.code
+    assert "calc.pv" in res.code
     assert abs(exec_result(res, []) - (-10000.0)) < 1.0
 
     # Math
@@ -863,7 +863,7 @@ def test_translate_yet_more_functions():
 
 def test_translate_group_d_functions():
     def exec_result(res, *data_args):
-        ns: dict = {"np": np, "math": math, "dt": dt, "xl": xl}
+        ns: dict = {"np": np, "math": math, "dt": dt, "calc": calc}
         code = str(res.code)
         # replace data[i] with data_args[i]
         for i in range(len(data_args)):
@@ -875,66 +875,66 @@ def test_translate_group_d_functions():
 
     res = translate_formula("=XIRR(A1:A3, B1:B3)")
     assert res.ok
-    assert "xl.xirr" in res.code
+    assert "calc.xirr" in res.code
     assert abs(exec_result(res, [-10000, 2750, 4250], [733042, 733102, 733345])) > 0
 
     res = translate_formula("=XNPV(0.1, A1:A3, B1:B3)")
     assert res.ok
-    assert "xl.xnpv" in res.code
+    assert "calc.xnpv" in res.code
     assert abs(exec_result(res, [-10000, 2750, 4250], [733042, 733102, 733345])) > 0
 
     res = translate_formula("=YIELD(A1, B1, C1, D1, E1, F1)")
     assert res.ok
-    assert "xl.yield_calc" in res.code
+    assert "calc.yield_calc" in res.code
 
     res = translate_formula("=ISFORMULA(A1)")
     assert res.ok
-    assert "xl.isformula" in res.code
+    assert "calc.isformula" in res.code
     assert exec_result(res, 42) is False
 
     res = translate_formula("=ISREF(A1)")
     assert res.ok
-    assert "xl.isref" in res.code
+    assert "calc.isref" in res.code
     assert exec_result(res, 42) is False
 
     res = translate_formula("=NA()")
     assert res.ok
-    assert "xl.na" in res.code
+    assert "calc.na" in res.code
     assert math.isnan(exec_result(res))
 
     res = translate_formula("=AGGREGATE(9, 4, A1:A3)")
     assert res.ok
-    assert "xl.aggregate" in res.code
+    assert "calc.aggregate" in res.code
     assert exec_result(res, [1, 2, 3]) == 6
 
     res = translate_formula("=BASE(10, 2)")
     assert res.ok
-    assert "xl.base" in res.code
+    assert "calc.base" in res.code
     assert exec_result(res) == "1010"
 
     res = translate_formula("=DECIMAL(\"1010\", 2)")
     assert res.ok
-    assert "xl.decimal" in res.code
+    assert "calc.decimal" in res.code
     assert exec_result(res) == 10
 
     res = translate_formula("=MULTINOMIAL(2, 3)")
     assert res.ok
-    assert "xl.multinomial" in res.code
+    assert "calc.multinomial" in res.code
     assert exec_result(res) == 10
 
     res = translate_formula("=SERIESSUM(1, 0, 1, A1:A3)")
     assert res.ok
-    assert "xl.seriessum" in res.code
+    assert "calc.seriessum" in res.code
     assert exec_result(res, [1, 2, 3]) == 6
 
     res = translate_formula("=FREQUENCY(A1:A5, B1:B2)")
     assert res.ok
-    assert "xl.frequency" in res.code
+    assert "calc.frequency" in res.code
     assert exec_result(res, [1, 2, 3, 4, 5], [2, 4]) == [2, 2, 1]
 
     res = translate_formula("=GROWTH(A1:A3, B1:B3, C1:C2)")
     assert res.ok
-    assert "xl.growth" in res.code
+    assert "calc.growth" in res.code
     assert len(exec_result(res, [10, 20, 40], [1, 2, 3], [4, 5])) == 2
 
 
@@ -1018,87 +1018,87 @@ def test_translate_financial_group_c():
     # 1. ODDLYIELD
     res = translate_formula('=ODDLYIELD("2008-04-20"; "2008-06-15"; "2008-03-12"; 0.05; 99.875; 100; 2; 0)')
     assert res.ok
-    assert "xl.oddlyield" in res.code
+    assert "calc.oddlyield" in res.code
 
     # 2. PDURATION
     res = translate_formula('=PDURATION(0.025; 10000; 12000)')
     assert res.ok
-    assert "xl.pduration" in res.code
+    assert "calc.pduration" in res.code
 
     # 3. PPMT
     res = translate_formula('=PPMT(0.01; 1; 24; 2000)')
     assert res.ok
-    assert "xl.ppmt" in res.code
+    assert "calc.ppmt" in res.code
 
     # 4. PRICE
     res = translate_formula('=PRICE("2008-02-15"; "2017-11-15"; 0.0575; 0.065; 100; 2; 0)')
     assert res.ok
-    assert "xl.price" in res.code
+    assert "calc.price" in res.code
 
     # 5. PRICEDISC
     res = translate_formula('=PRICEDISC("2008-02-15"; "2008-03-01"; 0.0525; 100; 2)')
     assert res.ok
-    assert "xl.pricedisc" in res.code
+    assert "calc.pricedisc" in res.code
 
     # 6. PRICEMAT
     res = translate_formula('=PRICEMAT("2008-02-15"; "2008-04-13"; "2007-11-11"; 0.061; 0.061; 2)')
     assert res.ok
-    assert "xl.pricemat" in res.code
+    assert "calc.pricemat" in res.code
 
     # 7. RATE
     res = translate_formula('=RATE(48; -200; 8000)')
     assert res.ok
-    assert "xl.rate" in res.code
+    assert "calc.rate" in res.code
 
     # 8. RECEIVED
     res = translate_formula('=RECEIVED("2008-02-15"; "2008-05-15"; 1000000; 0.0575; 2)')
     assert res.ok
-    assert "xl.received" in res.code
+    assert "calc.received" in res.code
 
     # 9. RRI
     res = translate_formula('=RRI(48; 10000; 12000)')
     assert res.ok
-    assert "xl.rri" in res.code
+    assert "calc.rri" in res.code
 
     # 10. SLN
     res = translate_formula('=SLN(30000; 7500; 10)')
     assert res.ok
-    assert "xl.sln" in res.code
+    assert "calc.sln" in res.code
 
     # 11. SYD
     res = translate_formula('=SYD(30000; 7500; 10; 1)')
     assert res.ok
-    assert "xl.syd" in res.code
+    assert "calc.syd" in res.code
 
     # 12. TBILLEQ
     res = translate_formula('=TBILLEQ("2008-03-31"; "2008-06-01"; 0.0914)')
     assert res.ok
-    assert "xl.tbilleq" in res.code
+    assert "calc.tbilleq" in res.code
 
     # 13. TBILLPRICE
     res = translate_formula('=TBILLPRICE("2008-03-31"; "2008-06-01"; 0.09)')
     assert res.ok
-    assert "xl.tbillprice" in res.code
+    assert "calc.tbillprice" in res.code
 
     # 14. TBILLYIELD
     res = translate_formula('=TBILLYIELD("2008-03-31"; "2008-06-01"; 98.45)')
     assert res.ok
-    assert "xl.tbillyield" in res.code
+    assert "calc.tbillyield" in res.code
 
     # 15. VDB
     res = translate_formula('=VDB(2400; 300; 10; 0; 0.875; 1.5)')
     assert res.ok
-    assert "xl.vdb" in res.code
+    assert "calc.vdb" in res.code
 
 
 def test_translate_financial_group_a():
     res = translate_formula("=ACCRINT(A1, B1, C1, 0.05, 100, 2)")
     assert res.ok
-    assert "xl.accrint(data[0], data[1], data[2], 0.05, 100, 2)" in res.code
+    assert "calc.accrint(data[0], data[1], data[2], 0.05, 100, 2)" in res.code
 
     res = translate_formula("=DB(10000, 1000, 5, 1)")
     assert res.ok
-    assert "xl.db(10000, 1000, 5, 1)" in res.code
+    assert "calc.db(10000, 1000, 5, 1)" in res.code
 def test_translate_group_e_functions():
     # 1. MDETERM
     res = translate_formula("=MDETERM(A1:B2)")
@@ -1134,7 +1134,7 @@ def test_translate_group_e_functions():
     res = translate_formula("=BETADIST(0.5; 2; 3)")
     assert res.ok
     # SciPy needed for execution, but we can verify AST emit
-    assert "xl.betadist(0.5, 2, 3)" in res.code or "xl.betadist(float(0.5), float(2), float(3))" in res.code
+    assert "calc.betadist(0.5, 2, 3)" in res.code or "calc.betadist(float(0.5), float(2), float(3))" in res.code
 
     # 7. BINOMDIST
     res = translate_formula("=BINOMDIST(2; 10; 0.5; 0)")
@@ -1159,7 +1159,7 @@ def test_translate_group_e_functions():
     # 12. BETAINV
     res = translate_formula("=BETAINV(0.5; 2; 3)")
     assert res.ok
-    assert "xl.betainv(0.5, 2, 3)" in res.code or "xl.betainv(float(0.5), float(2), float(3))" in res.code
+    assert "calc.betainv(0.5, 2, 3)" in res.code or "calc.betainv(float(0.5), float(2), float(3))" in res.code
 
     # 13. CHIDIST
     res = translate_formula("=CHIDIST(3; 2)")
@@ -1257,94 +1257,94 @@ def test_translate_group_f_functions():
 def test_translate_norminv():
     res = translate_formula("=NORMINV(0.5; 0; 1)")
     assert res.ok
-    assert res.code == "xl.norminv(0.5, 0, 1)"
+    assert res.code == "calc.norminv(0.5, 0, 1)"
 
 def test_translate_normsdist():
     res = translate_formula("=NORMSDIST(1)")
     assert res.ok
-    assert res.code == "xl.normsdist(1)"
+    assert res.code == "calc.normsdist(1)"
 
 def test_translate_normsinv():
     res = translate_formula("=NORMSINV(0.5)")
     assert res.ok
-    assert res.code == "xl.normsinv(0.5)"
+    assert res.code == "calc.normsinv(0.5)"
 
 def test_translate_pearson():
     res = translate_formula("=PEARSON(A1:A10; B1:B10)")
     assert res.ok
-    assert "xl.pearson(data[0], data[1])" in res.code
+    assert "calc.pearson(data[0], data[1])" in res.code
 
 def test_translate_percentrank():
     res = translate_formula("=PERCENTRANK(A1:A10; 5)")
     assert res.ok
-    assert "xl.percentrank(data, 5)" in res.code
+    assert "calc.percentrank(data, 5)" in res.code
 
 def test_translate_permut():
     res = translate_formula("=PERMUT(5; 2)")
     assert res.ok
-    assert res.code == "xl.permut(5, 2)"
+    assert res.code == "calc.permut(5, 2)"
 
 def test_translate_poisson():
     res = translate_formula("=POISSON(2; 2; 0)")
     assert res.ok
-    assert res.code == "xl.poisson(2, 2, 0)"
+    assert res.code == "calc.poisson(2, 2, 0)"
 
 def test_translate_prob():
     res = translate_formula("=PROB(A1:A10; B1:B10; 2; 5)")
     assert res.ok
-    assert "xl.prob(data[0], data[1], 2, 5)" in res.code
+    assert "calc.prob(data[0], data[1], 2, 5)" in res.code
 
 def test_translate_standardize():
     res = translate_formula("=STANDARDIZE(42; 40; 1.5)")
     assert res.ok
-    assert res.code == "xl.standardize(42, 40, 1.5)"
+    assert res.code == "calc.standardize(42, 40, 1.5)"
 
 def test_translate_tdist():
     res = translate_formula("=TDIST(1.96; 60; 2)")
     assert res.ok
-    assert res.code == "xl.tdist(1.96, 60, 2)"
+    assert res.code == "calc.tdist(1.96, 60, 2)"
 
 def test_translate_tinv():
     res = translate_formula("=TINV(0.05; 60)")
     assert res.ok
-    assert res.code == "xl.tinv(0.05, 60)"
+    assert res.code == "calc.tinv(0.05, 60)"
 
 def test_translate_ttest():
     res = translate_formula("=TTEST(A1:A10; B1:B10; 2; 1)")
     assert res.ok
-    assert "xl.ttest(data[0], data[1], 2, 1)" in res.code
+    assert "calc.ttest(data[0], data[1], 2, 1)" in res.code
 
 def test_translate_weibull():
     res = translate_formula("=WEIBULL(105; 20; 100; 1)")
     assert res.ok
-    assert res.code == "xl.weibull(105, 20, 100, 1)"
+    assert res.code == "calc.weibull(105, 20, 100, 1)"
 
 def test_translate_ztest():
     res = translate_formula("=ZTEST(A1:A10; 4)")
     assert res.ok
-    assert "xl.ztest(data, 4)" in res.code
+    assert "calc.ztest(data, 4)" in res.code
 
 def test_translate_asc():
     res = translate_formula("=ASC(A1)")
     assert res.ok
-    assert "xl.asc(data)" in res.code
+    assert "calc.asc(data)" in res.code
 
 def test_translate_group_h():
-    assert translate_formula("=BAHTTEXT(A1)").code == 'xl.bahttext(data)'
-    assert translate_formula("=CLEAN(A1)").code == 'xl.clean(data)'
-    assert translate_formula("=DOLLAR(A1; 2)").code == 'xl.dollar(data, 2)'
-    assert translate_formula("=ENCODEURL(A1)").code == 'xl.encodeurl(data)'
-    assert translate_formula("=FIXED(A1; 2; TRUE)").code == 'xl.fixed(data, 2, True)'
-    assert translate_formula("=JIS(A1)").code == 'xl.jis(data)'
-    assert translate_formula("=NUMBERVALUE(A1; \".\"; \",\")").code == "xl.numbervalue(data, '.', ',')"
-    assert translate_formula("=T(A1)").code == 'xl.t(data)'
-    assert translate_formula("=TEXTAFTER(A1; \"-\")").code == "xl.textafter(data, '-')"
-    assert translate_formula("=TEXTBEFORE(A1; \"-\")").code == "xl.textbefore(data, '-')"
-    assert translate_formula("=TEXTSPLIT(A1; \"-\")").code == "xl.textsplit(data, '-')"
-    assert translate_formula("=UNICHAR(A1)").code == 'xl.unichar(data)'
-    assert translate_formula("=UNICODE(A1)").code == 'xl.unicode(data)'
-    assert translate_formula("=BESSELI(A1; B1)").code == 'xl.besseli(data[0], data[1])'
-    assert translate_formula("=BESSELJ(A1; B1)").code == 'xl.besselj(data[0], data[1])'
+    assert translate_formula("=BAHTTEXT(A1)").code == 'calc.bahttext(data)'
+    assert translate_formula("=CLEAN(A1)").code == 'calc.clean(data)'
+    assert translate_formula("=DOLLAR(A1; 2)").code == 'calc.dollar(data, 2)'
+    assert translate_formula("=ENCODEURL(A1)").code == 'calc.encodeurl(data)'
+    assert translate_formula("=FIXED(A1; 2; TRUE)").code == 'calc.fixed(data, 2, True)'
+    assert translate_formula("=JIS(A1)").code == 'calc.jis(data)'
+    assert translate_formula("=NUMBERVALUE(A1; \".\"; \",\")").code == "calc.numbervalue(data, '.', ',')"
+    assert translate_formula("=T(A1)").code == 'calc.t(data)'
+    assert translate_formula("=TEXTAFTER(A1; \"-\")").code == "calc.textafter(data, '-')"
+    assert translate_formula("=TEXTBEFORE(A1; \"-\")").code == "calc.textbefore(data, '-')"
+    assert translate_formula("=TEXTSPLIT(A1; \"-\")").code == "calc.textsplit(data, '-')"
+    assert translate_formula("=UNICHAR(A1)").code == 'calc.unichar(data)'
+    assert translate_formula("=UNICODE(A1)").code == 'calc.unicode(data)'
+    assert translate_formula("=BESSELI(A1; B1)").code == 'calc.besseli(data[0], data[1])'
+    assert translate_formula("=BESSELJ(A1; B1)").code == 'calc.besselj(data[0], data[1])'
 
 def test_translate_group_b_functions():
     # 1. DOLLARDE
@@ -1424,21 +1424,21 @@ def test_translate_group_b_functions():
 
 
 def test_translate_group_i():
-    assert translate_formula("=BESSELK(A1; B1)").code == 'xl.besselk(data[0], data[1])'
-    assert translate_formula("=BESSELY(A1; B1)").code == 'xl.bessely(data[0], data[1])'
-    assert translate_formula("=EUROCONVERT(A1; \"ATS\"; \"EUR\")").code == "xl.euroconvert(data, 'ATS', 'EUR')"
-    assert translate_formula("=IMCOSH(A1)").code == 'xl.imcosh(data)'
-    assert translate_formula("=IMCOT(A1)").code == 'xl.imcot(data)'
-    assert translate_formula("=IMCSC(A1)").code == 'xl.imcsc(data)'
-    assert translate_formula("=IMCSCH(A1)").code == 'xl.imcsch(data)'
-    assert translate_formula("=IMSEC(A1)").code == 'xl.imsec(data)'
-    assert translate_formula("=IMSECH(A1)").code == 'xl.imsech(data)'
-    assert translate_formula("=IMSINH(A1)").code == 'xl.imsinh(data)'
-    assert translate_formula("=IMSQRT(A1)").code == 'xl.imsqrt(data)'
-    assert translate_formula("=IMSUB(A1; B1)").code == 'xl.imsub(data[0], data[1])'
-    assert translate_formula("=IMSUM(A1; B1)").code == 'xl.imsum(data[0], data[1])'
-    assert translate_formula("=IMTAN(A1)").code == 'xl.imtan(data)'
-    assert translate_formula("=IMTANH(A1)").code == 'xl.imtanh(data)'
+    assert translate_formula("=BESSELK(A1; B1)").code == 'calc.besselk(data[0], data[1])'
+    assert translate_formula("=BESSELY(A1; B1)").code == 'calc.bessely(data[0], data[1])'
+    assert translate_formula("=EUROCONVERT(A1; \"ATS\"; \"EUR\")").code == "calc.euroconvert(data, 'ATS', 'EUR')"
+    assert translate_formula("=IMCOSH(A1)").code == 'calc.imcosh(data)'
+    assert translate_formula("=IMCOT(A1)").code == 'calc.imcot(data)'
+    assert translate_formula("=IMCSC(A1)").code == 'calc.imcsc(data)'
+    assert translate_formula("=IMCSCH(A1)").code == 'calc.imcsch(data)'
+    assert translate_formula("=IMSEC(A1)").code == 'calc.imsec(data)'
+    assert translate_formula("=IMSECH(A1)").code == 'calc.imsech(data)'
+    assert translate_formula("=IMSINH(A1)").code == 'calc.imsinh(data)'
+    assert translate_formula("=IMSQRT(A1)").code == 'calc.imsqrt(data)'
+    assert translate_formula("=IMSUB(A1; B1)").code == 'calc.imsub(data[0], data[1])'
+    assert translate_formula("=IMSUM(A1; B1)").code == 'calc.imsum(data[0], data[1])'
+    assert translate_formula("=IMTAN(A1)").code == 'calc.imtan(data)'
+    assert translate_formula("=IMTANH(A1)").code == 'calc.imtanh(data)'
 
 
 def test_translate_multiple_arguments_aggregates():

@@ -60,19 +60,19 @@ Aligned with [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md
 
 #### Calc-parity `xl` helpers (deferred from LibrePy) {#calc-parity-xl-helpers-deferred-from-librepy}
 
-WriterAgent ships [`plugin/scripting/calc_functions.py`](../plugin/scripting/calc_functions.py) and [`plugin/scripting/venv/calc_functions_*.py`](../plugin/scripting/venv/) — **259** Calc/Excel formula parity helpers auto-imported as **`xl`** in the venv (e.g. `xl.sumif(...)`, `xl.xlookup(...)`). They exist so spreadsheet import can emit compact Python instead of pasting inline `def` blocks per workbook ([calc-spreadsheet-to-python-import.md](calc-spreadsheet-to-python-import.md)). This is **not** the same as Microsoft Python in Excel’s `xl()` range bridge ([comparison](calc-spreadsheet-to-python-import.md#microsoft-xl-vs-writeragent-xl-different-apis-same-name)).
+WriterAgent ships [`plugin/scripting/calc_functions.py`](../plugin/scripting/calc_functions.py) and [`plugin/scripting/venv/calc_functions_*.py`](../plugin/scripting/venv/) — **259** Calc/Excel formula parity helpers auto-imported as **`calc`** in the venv (e.g. `calc.sumif(...)`, `calc.xlookup(...)`). They exist so spreadsheet import can emit compact Python instead of pasting inline `def` blocks per workbook ([calc-spreadsheet-to-python-import.md](calc-spreadsheet-to-python-import.md)). This is **not** the same as Microsoft Python in Excel’s `xl()` range bridge ([comparison](calc-spreadsheet-to-python-import.md#microsoft-xl-vs-writeragent-calc)).
 
 **LibrePy (core OXT) excludes them for now** (~134 KB source; filtered in [`scripts/librepy_bundle_paths.py`](../scripts/librepy_bundle_paths.py) via `LIBREPY_CALC_FUNCTIONS_EXCLUDES`). Rationale:
 
 - **Minimal core first** — Layers 0–6 should prove `=PY()`, Run Python Script, domain helpers, Monaco, Vision, and TeX before adding spreadsheet-conversion surface area.
-- **Spreadsheet import is WriterAgent-only** — menu, translator, and chat tool are not in the core bundle; nothing in LibrePy menus calls `xl.*` today.
+- **Spreadsheet import is WriterAgent-only** — menu, translator, and chat tool are not in the core bundle; nothing in LibrePy menus calls `calc.*` today.
 - **Coverage not fully exercised in core QA** — parity tests live in WriterAgent (`tests/scripting/test_calc_functions.py`); bundling without a core conversion workflow would ship dead weight for most installs.
 
 **What LibrePy still ships:** [`calc_functions_common.py`](../plugin/scripting/calc_functions_common.py) — host-side name frozensets for Analysis, Viz, Forecast, etc. (no NumPy on the LO host).
 
-**Runtime without the library:** `inject_auto_imports` skips `xl` when the module is absent; `=PY()` and Run Python Script work with `np`/`pd` and domain helpers. Only `xl.*` in user scripts or converted formulas would fail.
+**Runtime without the library:** `inject_auto_imports` skips `calc` when the module is absent; `=PY()` and Run Python Script work with `np`/`pd` and domain helpers. Only `calc.*` in user scripts or converted formulas would fail.
 
-**Likely re-include later** when spreadsheet conversion moves into core and parity is validated — remove `LIBREPY_CALC_FUNCTIONS_EXCLUDES` from the bundle filter; no refactor required. Power users may also want `xl.*` in `=PY()` cells even before the conversion menu ships; that is a reasonable follow-on once tests and docs catch up.
+**Likely re-include later** when spreadsheet conversion moves into core and parity is validated — remove `LIBREPY_CALC_FUNCTIONS_EXCLUDES` from the bundle filter; no refactor required. Power users may also want `calc.*` in `=PY()` cells even before the conversion menu ships; that is a reasonable follow-on once tests and docs catch up.
 
 ---
 

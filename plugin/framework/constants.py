@@ -143,7 +143,7 @@ AUTO_IMPORTS: dict[str, str] = {
     "itertools": "import itertools",
     "json": "import json",
     "csv": "import csv",
-    "plugin.scripting.calc_functions": "import plugin.scripting.calc_functions as xl",
+    "plugin.scripting.calc_functions": "import plugin.scripting.calc_functions as calc",
 }
 
 

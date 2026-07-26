@@ -2,20 +2,20 @@
 # Copyright (c) 2026 KeithCu
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Tests for Calc formula parity helpers (plugin.scripting.calc_functions / xl)."""
+"""Tests for Calc formula parity helpers (plugin.scripting.calc_functions / calc)."""
 
 from __future__ import annotations
 import math
 
-import plugin.scripting.calc_functions as xl
+import plugin.scripting.calc_functions as calc
 import math
 
 
 def test_conditional_aggregates():
-    assert xl.sumif([5.0, 12.0, 3.0, 15.0, 8.0], ">10", [1.0, 2.0, 3.0, 4.0, 5.0]) == 6.0
+    assert calc.sumif([5.0, 12.0, 3.0, 15.0, 8.0], ">10", [1.0, 2.0, 3.0, 4.0, 5.0]) == 6.0
 
     assert (
-        xl.sumifs(
+        calc.sumifs(
             [1.0, 2.0, 3.0, 4.0, 5.0],
             [5.0, 12.0, 3.0, 15.0, 8.0],
             ">5",
@@ -25,10 +25,10 @@ def test_conditional_aggregates():
         == 7.0
     )
 
-    assert xl.countif([5.0, 12.0, 3.0, 15.0, 8.0], "<=5") == 2.0
+    assert calc.countif([5.0, 12.0, 3.0, 15.0, 8.0], "<=5") == 2.0
 
     assert (
-        xl.countifs(
+        calc.countifs(
             [5.0, 12.0, 3.0, 15.0, 8.0],
             ">5",
             [1.0, 2.0, 3.0, 4.0, 5.0],
@@ -37,67 +37,71 @@ def test_conditional_aggregates():
         == 3.0
     )
 
-    assert abs(xl.averageif([5.0, 12.0, 3.0, 15.0, 8.0], ">5", [1.0, 2.0, 3.0, 4.0, 5.0]) - 11.0 / 3.0) < 1e-9
+    assert abs(calc.averageif([5.0, 12.0, 3.0, 15.0, 8.0], ">5", [1.0, 2.0, 3.0, 4.0, 5.0]) - 11.0 / 3.0) < 1e-9
 
-    assert abs(xl.averageifs([1.0, 2.0, 3.0, 4.0, 5.0], [5.0, 12.0, 3.0, 15.0, 8.0], ">5") - 11.0 / 3.0) < 1e-9
+    assert abs(calc.averageifs([1.0, 2.0, 3.0, 4.0, 5.0], [5.0, 12.0, 3.0, 15.0, 8.0], ">5") - 11.0 / 3.0) < 1e-9
 
 
 def test_lookup_text_date():
-    assert xl.xlookup("apple", ["pear", "apple", "banana"], [10.0, 20.0, 30.0], "Not Found") == 20.0
-    assert xl.xlookup("orange", ["pear", "apple", "banana"], [10.0, 20.0, 30.0], "Not Found") == "Not Found"
+    assert calc.xlookup("apple", ["pear", "apple", "banana"], [10.0, 20.0, 30.0], "Not Found") == 20.0
+    assert calc.xlookup("orange", ["pear", "apple", "banana"], [10.0, 20.0, 30.0], "Not Found") == "Not Found"
 
-    assert xl.textjoin(", ", True, ["apple", "", "banana"]) == "apple, banana"
+    assert calc.textjoin(", ", True, ["apple", "", "banana"]) == "apple, banana"
 
-    assert xl.regex("123-456", "[0-9]+", "XXX", "g") == "XXX-XXX"
+    assert calc.regex("123-456", "[0-9]+", "XXX", "g") == "XXX-XXX"
 
-    assert xl.eomonth(46182, 1) == 46234.0
-    assert xl.networkdays(46181, 46185) == 5.0
+    assert calc.eomonth(46182, 1) == 46234.0
+    assert calc.networkdays(46181, 46185) == 5.0
 
 
 def test_tier_abc_helpers():
-    assert xl.subtotal(9, [1.0, 2.0, 3.0, 4.0, 5.0]) == 15.0
+    assert calc.subtotal(9, [1.0, 2.0, 3.0, 4.0, 5.0]) == 15.0
 
-    assert xl.isblank("") is True
-    assert xl.isblank(5.0) is False
+    assert calc.isblank("") is True
+    assert calc.isblank(5.0) is False
 
-    assert xl.isnumber(5.0) is True
-    assert xl.isnumber("x") is False
+    assert calc.isnumber(5.0) is True
+    assert calc.isnumber("x") is False
 
-    assert xl.sumproduct([1.0, 2.0, 3.0], [4.0, 5.0, 6.0]) == 32.0
-    assert xl.datedif(46181, 46185, "D") == 4.0
+    assert calc.sumproduct([1.0, 2.0, 3.0], [4.0, 5.0, 6.0]) == 32.0
+    assert calc.datedif(46181, 46185, "D") == 4.0
 
-    assert xl.istext("hello") is True
-    assert xl.large([1.0, 5.0, 3.0, 4.0, 2.0], 2) == 4.0
-    assert xl.small([1.0, 5.0, 3.0, 4.0, 2.0], 2) == 2.0
-    assert xl.averagea([10.0, "", 20.0]) == 10.0
-    assert xl.even(3.0) == 4.0
-    assert xl.xmatch("b", ["a", "b", "c"]) == 2.0
+    assert calc.istext("hello") is True
+    assert calc.large([1.0, 5.0, 3.0, 4.0, 2.0], 2) == 4.0
+    assert calc.small([1.0, 5.0, 3.0, 4.0, 2.0], 2) == 2.0
+    assert calc.averagea([10.0, "", 20.0]) == 10.0
+    assert calc.even(3.0) == 4.0
+    assert calc.xmatch("b", ["a", "b", "c"]) == 2.0
 
-    assert xl.filter([1.0, 2.0, 3.0, 4.0, 5.0], [True, False, True, False, True]) == [1.0, 3.0, 5.0]
-    assert xl.sort([3.0, 1.0, 2.0], 1, -1) == [3.0, 2.0, 1.0]
-    assert xl.unique([1.0, 2.0, 1.0, 3.0, 2.0]) == [1.0, 2.0, 3.0]
+    assert calc.filter([1.0, 2.0, 3.0, 4.0, 5.0], [True, False, True, False, True]) == [1.0, 3.0, 5.0]
+    assert calc.sort([3.0, 1.0, 2.0], 1, -1) == [3.0, 2.0, 1.0]
+    assert calc.unique([1.0, 2.0, 1.0, 3.0, 2.0]) == [1.0, 2.0, 3.0]
 
 
 def test_error_handlers():
-    assert xl.iferror(lambda: 1 / 0, 0) == 0
-    assert xl.iferror(lambda: 5.0, 0) == 5.0
-    assert xl.ifna(lambda: None, 1) == 1
-    assert xl.ifna(lambda: 2.0, 1) == 2.0
+    assert calc.iferror(lambda: 1 / 0, 0) == 0
+    assert calc.iferror(lambda: 5.0, 0) == 5.0
+    assert calc.ifna(lambda: None, 1) == 1
+    assert calc.ifna(lambda: 2.0, 1) == 2.0
 
 
-def test_always_injected_xl_does_not_resolve_bare_x():
-    """Auto-imported ``xl`` must not make undefined bare ``x`` silently succeed."""
+def test_always_injected_calc_does_not_resolve_bare_x():
+    """Auto-imported ``calc`` must not make undefined bare ``x`` silently succeed.
+
+    (Previously the helpers alias was ``xl``, which smolagents could fuzzy-match from ``x``.)
+    """
     from plugin.contrib.smolagents.local_python_executor import InterpreterError
     from plugin.scripting.config_limits import python_exec_timeout_default
     from plugin.scripting.venv.venv_sandbox import _new_executor, inject_auto_imports
 
     executor = _new_executor(python_exec_timeout_default())
     inject_auto_imports(executor, "result = x")
-    assert "xl" in executor.state
+    assert "calc" in executor.state
+    assert "xl" not in executor.state
     try:
         executor("result = x")
-    except InterpreterError as exc:
-        assert "xl" in str(exc)
+    except InterpreterError:
+        pass
     else:
         raise AssertionError("bare x must raise InterpreterError when undefined")
 
@@ -136,54 +140,54 @@ def test_auto_imports_inject_st_dt_plt_aliases():
 def test_helper_names_complete():
     from plugin.scripting.calc_functions_common import HELPER_NAMES
 
-    exported = {name for name in dir(xl) if not name.startswith("_") and callable(getattr(xl, name))}
+    exported = {name for name in dir(calc) if not name.startswith("_") and callable(getattr(calc, name))}
     assert HELPER_NAMES <= exported
 
 
 def test_tier_d_helpers():
     # Financial
     # PMT(0.05/12, 60, 10000) approx -188.71
-    assert abs(xl.pmt(0.05 / 12, 60, 10000) - (-188.712336)) < 1e-2
+    assert abs(calc.pmt(0.05 / 12, 60, 10000) - (-188.712336)) < 1e-2
     # FV(0.05/12, 60, -200, -10000) approx 26434.80
-    assert abs(xl.fv(0.05 / 12, 60, -200, -10000) - 26434.80) < 1.0
+    assert abs(calc.fv(0.05 / 12, 60, -200, -10000) - 26434.80) < 1.0
     # PV(0.05/12, 60, -200, 26434.80) should be approx -10000
-    assert abs(xl.pv(0.05 / 12, 60, -200, 26434.80) - (-10000.0)) < 1.0
+    assert abs(calc.pv(0.05 / 12, 60, -200, 26434.80) - (-10000.0)) < 1.0
 
     # Math
-    assert xl.mround(1.23, 0.5) == 1.0
-    assert xl.sumsq([3.0, 4.0]) == 25.0
+    assert calc.mround(1.23, 0.5) == 1.0
+    assert calc.sumsq([3.0, 4.0]) == 25.0
 
     # Information
-    assert xl.iseven(4) is True
-    assert xl.iseven(3) is False
-    assert xl.isodd(3) is True
-    assert xl.isodd(4) is False
+    assert calc.iseven(4) is True
+    assert calc.iseven(3) is False
+    assert calc.isodd(3) is True
+    assert calc.isodd(4) is False
 
     # Date/Time
-    assert xl.days(46185, 46181) == 4.0
-    assert xl.time(12, 0, 0) == 0.5
-    assert xl.trimmean([1.0, 2.0, 3.0, 4.0, 5.0], 0.2) == 3.0
-    assert xl.forecast(6, [1.0, 2.0, 3.0, 4.0, 5.0], [1.0, 2.0, 3.0, 4.0, 5.0]) == 6.0
+    assert calc.days(46185, 46181) == 4.0
+    assert calc.time(12, 0, 0) == 0.5
+    assert calc.trimmean([1.0, 2.0, 3.0, 4.0, 5.0], 0.2) == 3.0
+    assert calc.forecast(6, [1.0, 2.0, 3.0, 4.0, 5.0], [1.0, 2.0, 3.0, 4.0, 5.0]) == 6.0
 
 
 def test_15_more_helpers():
     # Lookup
-    assert xl.choose(2, "a", "b", "c") == "b"
-    assert xl.address(1, 1) == "$A$1"
-    assert xl.address(1, 1, 4) == "A1"
-    assert xl.areas("any") == 1.0
+    assert calc.choose(2, "a", "b", "c") == "b"
+    assert calc.address(1, 1) == "$A$1"
+    assert calc.address(1, 1, 4) == "A1"
+    assert calc.areas("any") == 1.0
 
     # Date & Time
-    assert abs(xl.yearfrac(44927, 45292, 1) - 1.0) < 0.1
-    assert xl.days360(44927, 45292) == 360.0
-    assert xl.networkdays_intl(46181, 46185, 1) == 5.0
-    assert xl.workday_intl(46181, 4, 1) == 46185.0
+    assert abs(calc.yearfrac(44927, 45292, 1) - 1.0) < 0.1
+    assert calc.days360(44927, 45292) == 360.0
+    assert calc.networkdays_intl(46181, 46185, 1) == 5.0
+    assert calc.workday_intl(46181, 4, 1) == 46185.0
 
     # Logical/Text
-    assert xl.xor(True, False, True) is False
-    assert xl.xor(True, False, False) is True
-    assert xl.char(65) == "A"
-    assert xl.code("A") == 65.0
+    assert calc.xor(True, False, True) is False
+    assert calc.xor(True, False, False) is True
+    assert calc.char(65) == "A"
+    assert calc.code("A") == 65.0
 
     # Database
     db = [
@@ -196,37 +200,37 @@ def test_15_more_helpers():
         ["Apple", 8.0, 9.0, 6.0, 45.0],
     ]
     crit = [["Tree", "Height"], ["Apple", ">10"]]
-    assert xl.dcount(db, "Yield", crit) == 2.0
-    assert xl.dsum(db, "Profit", crit) == 180.0
-    assert xl.daverage(db, "Yield", crit) == 12.0
-    assert xl.dmax(db, "Height", crit) == 18.0
-    assert xl.dmin(db, "Height", crit) == 14.0
+    assert calc.dcount(db, "Yield", crit) == 2.0
+    assert calc.dsum(db, "Profit", crit) == 180.0
+    assert calc.daverage(db, "Yield", crit) == 12.0
+    assert calc.dmax(db, "Height", crit) == 18.0
+    assert calc.dmin(db, "Height", crit) == 14.0
 
 def test_financial_group_a():
     # Basic math validation - dates represented as strings/floats are accepted
-    assert not math.isnan(xl.accrint(43831, 43862, 43891, 0.05, 1000, 2))
-    assert not math.isnan(xl.accrintm(43831, 43891, 0.05, 1000))
-    assert not math.isnan(xl.amordegrc(1000, 43831, 43983, 100, 1, 0.1))
-    assert xl.amorlinc(1000, 43831, 43983, 100, 1, 0.1) == 100.0
+    assert not math.isnan(calc.accrint(43831, 43862, 43891, 0.05, 1000, 2))
+    assert not math.isnan(calc.accrintm(43831, 43891, 0.05, 1000))
+    assert not math.isnan(calc.amordegrc(1000, 43831, 43983, 100, 1, 0.1))
+    assert calc.amorlinc(1000, 43831, 43983, 100, 1, 0.1) == 100.0
 
-    assert not math.isnan(xl.coupdaybs(43831, 43983, 2))
-    assert not math.isnan(xl.coupdays(43831, 43983, 2))
-    assert not math.isnan(xl.coupdaysnc(43831, 43983, 2))
+    assert not math.isnan(calc.coupdaybs(43831, 43983, 2))
+    assert not math.isnan(calc.coupdays(43831, 43983, 2))
+    assert not math.isnan(calc.coupdaysnc(43831, 43983, 2))
 
     # coupncd returns a date ordinal (which we stubbed as nan)
-    assert xl.coupncd(43831, 43983, 2) == 43983.0
-    assert not math.isnan(xl.coupnum(43831, 43983, 2))
+    assert calc.coupncd(43831, 43983, 2) == 43983.0
+    assert not math.isnan(calc.coupnum(43831, 43983, 2))
 
     # couppcd returns a date ordinal (which we stubbed as nan for simplified implementation)
-    assert xl.couppcd(43831, 43983, 2) == 43803.0
+    assert calc.couppcd(43831, 43983, 2) == 43803.0
 
-    assert not math.isnan(xl.cumipmt(0.05/12, 60, 100000, 1, 12, 0))
-    assert not math.isnan(xl.cumprinc(0.05/12, 60, 100000, 1, 12, 0))
+    assert not math.isnan(calc.cumipmt(0.05/12, 60, 100000, 1, 12, 0))
+    assert not math.isnan(calc.cumprinc(0.05/12, 60, 100000, 1, 12, 0))
 
-    assert not math.isnan(xl.db(10000, 1000, 5, 1))
-    assert not math.isnan(xl.ddb(10000, 1000, 5, 1))
+    assert not math.isnan(calc.db(10000, 1000, 5, 1))
+    assert not math.isnan(calc.ddb(10000, 1000, 5, 1))
 
-    assert not math.isnan(xl.disc(43831, 43983, 95, 100))
+    assert not math.isnan(calc.disc(43831, 43983, 95, 100))
 
 def test_norminv():
     from plugin.scripting.calc_functions import norminv
@@ -325,92 +329,92 @@ def test_asc():
     res = asc("Ｅｘｃｅｌ　Ｐｙｔｈｏｎ")
     assert res == "Excel Python"
 def test_bahttext():
-    assert "Baht" in xl.bahttext(123)
+    assert "Baht" in calc.bahttext(123)
 
 def test_clean():
-    assert xl.clean("A" + chr(7) + "B" + chr(10)) == "AB"
-    assert isinstance(xl.clean(float("nan")), float) and math.isnan(xl.clean(float("nan")))
+    assert calc.clean("A" + chr(7) + "B" + chr(10)) == "AB"
+    assert isinstance(calc.clean(float("nan")), float) and math.isnan(calc.clean(float("nan")))
 
 def test_dollar():
-    assert xl.dollar(1234.567) == "$1,234.57"
-    assert xl.dollar(1234.567, 1) == "$1,234.6"
+    assert calc.dollar(1234.567) == "$1,234.57"
+    assert calc.dollar(1234.567, 1) == "$1,234.6"
 
 def test_encodeurl():
-    assert xl.encodeurl("http://example.com") == "http%3A%2F%2Fexample.com"
+    assert calc.encodeurl("http://example.com") == "http%3A%2F%2Fexample.com"
 
 def test_fixed():
-    assert xl.fixed(1234.567) == "1,234.57"
-    assert xl.fixed(1234.567, 1, True) == "1234.6"
+    assert calc.fixed(1234.567) == "1,234.57"
+    assert calc.fixed(1234.567, 1, True) == "1234.6"
 
 def test_jis():
-    assert xl.jis("test") == "test"
+    assert calc.jis("test") == "test"
 
 def test_numbervalue():
-    assert xl.numbervalue("1,234.56") == 1234.56
-    assert xl.numbervalue("1.234,56", ",", ".") == 1234.56
+    assert calc.numbervalue("1,234.56") == 1234.56
+    assert calc.numbervalue("1.234,56", ",", ".") == 1234.56
 
 def test_t():
-    assert xl.t("test") == "test"
-    assert xl.t(123) == ""
+    assert calc.t("test") == "test"
+    assert calc.t(123) == ""
 
 def test_textafter():
-    assert xl.textafter("a-b-c", "-") == "b-c"
-    assert xl.textafter("a-b-c", "-", 2) == "c"
+    assert calc.textafter("a-b-c", "-") == "b-c"
+    assert calc.textafter("a-b-c", "-", 2) == "c"
 
 def test_textbefore():
-    assert xl.textbefore("a-b-c", "-") == "a"
-    assert xl.textbefore("a-b-c", "-", 2) == "a-b"
+    assert calc.textbefore("a-b-c", "-") == "a"
+    assert calc.textbefore("a-b-c", "-", 2) == "a-b"
 
 def test_textsplit():
-    assert xl.textsplit("a-b-c", "-") == [["a", "b", "c"]]
-    assert xl.textsplit("a-b;c-d", "-", ";") == [["a", "b"], ["c", "d"]]
+    assert calc.textsplit("a-b-c", "-") == [["a", "b", "c"]]
+    assert calc.textsplit("a-b;c-d", "-", ";") == [["a", "b"], ["c", "d"]]
 
 def test_unichar():
-    assert xl.unichar(65) == "A"
-    assert math.isnan(xl.unichar(-1))
+    assert calc.unichar(65) == "A"
+    assert math.isnan(calc.unichar(-1))
 
 def test_unicode():
-    assert xl.unicode("A") == 65
-    assert math.isnan(xl.unicode(""))
+    assert calc.unicode("A") == 65
+    assert math.isnan(calc.unicode(""))
 
 def test_besseli():
     import scipy.special
-    assert math.isclose(xl.besseli(1.5, 1), scipy.special.iv(1, 1.5))
-    assert math.isnan(xl.besseli(1.5, -1))
+    assert math.isclose(calc.besseli(1.5, 1), scipy.special.iv(1, 1.5))
+    assert math.isnan(calc.besseli(1.5, -1))
 
 def test_besselj():
     import scipy.special
-    assert math.isclose(xl.besselj(1.5, 1), scipy.special.jv(1, 1.5))
-    assert math.isnan(xl.besselj(1.5, -1))
+    assert math.isclose(calc.besselj(1.5, 1), scipy.special.jv(1, 1.5))
+    assert math.isnan(calc.besselj(1.5, -1))
 
 
 def test_group_i_functions():
     # Bessel K and Y
-    assert not math.isnan(xl.besselk(1.5, 1))
-    assert not math.isnan(xl.bessely(1.5, 1))
-    assert math.isnan(xl.besselk(-1.0, 1))
-    assert math.isnan(xl.bessely(-1.0, 1))
+    assert not math.isnan(calc.besselk(1.5, 1))
+    assert not math.isnan(calc.bessely(1.5, 1))
+    assert math.isnan(calc.besselk(-1.0, 1))
+    assert math.isnan(calc.bessely(-1.0, 1))
 
     # Euroconvert
-    assert xl.euroconvert(100.0, "ATS", "ATS") == 100.0
-    assert xl.euroconvert(100.0, "ATS", "EUR") == 7.27
-    assert xl.euroconvert(100.0, "EUR", "DEM") == 195.58
-    assert xl.euroconvert(100.0, "DEM", "ATS") == 703.55
-    assert xl.euroconvert(100.0, "DEM", "ATS", False, 3) == 703.15
-    assert abs(xl.euroconvert(100.0, "DEM", "ATS", True) - 703.55296) < 1e-3
-    assert math.isnan(xl.euroconvert(100.0, "INVALID", "ATS"))
+    assert calc.euroconvert(100.0, "ATS", "ATS") == 100.0
+    assert calc.euroconvert(100.0, "ATS", "EUR") == 7.27
+    assert calc.euroconvert(100.0, "EUR", "DEM") == 195.58
+    assert calc.euroconvert(100.0, "DEM", "ATS") == 703.55
+    assert calc.euroconvert(100.0, "DEM", "ATS", False, 3) == 703.15
+    assert abs(calc.euroconvert(100.0, "DEM", "ATS", True) - 703.55296) < 1e-3
+    assert math.isnan(calc.euroconvert(100.0, "INVALID", "ATS"))
 
     # Complex functions
-    assert xl.imcosh("1+2i") != "#VALUE!"
-    assert xl.imsinh("1+2i") != "#VALUE!"
-    assert xl.imtanh("1+2i") != "#VALUE!"
-    assert xl.imtan("1+2i") != "#VALUE!"
-    assert xl.imcot("1+2i") != "#VALUE!"
-    assert xl.imcsc("1+2i") != "#VALUE!"
-    assert xl.imcsch("1+2i") != "#VALUE!"
-    assert xl.imsec("1+2i") != "#VALUE!"
-    assert xl.imsech("1+2i") != "#VALUE!"
-    assert xl.imsqrt("1+2i") != "#VALUE!"
-    assert xl.imsub("1+2i", "3+4i") == "-2.0-2.0i"
-    assert xl.imsum("1+2i", "3+4i") == "4.0+6.0i"
+    assert calc.imcosh("1+2i") != "#VALUE!"
+    assert calc.imsinh("1+2i") != "#VALUE!"
+    assert calc.imtanh("1+2i") != "#VALUE!"
+    assert calc.imtan("1+2i") != "#VALUE!"
+    assert calc.imcot("1+2i") != "#VALUE!"
+    assert calc.imcsc("1+2i") != "#VALUE!"
+    assert calc.imcsch("1+2i") != "#VALUE!"
+    assert calc.imsec("1+2i") != "#VALUE!"
+    assert calc.imsech("1+2i") != "#VALUE!"
+    assert calc.imsqrt("1+2i") != "#VALUE!"
+    assert calc.imsub("1+2i", "3+4i") == "-2.0-2.0i"
+    assert calc.imsum("1+2i", "3+4i") == "4.0+6.0i"
 

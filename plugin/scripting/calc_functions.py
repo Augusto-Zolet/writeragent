@@ -2,7 +2,7 @@
 # Copyright (c) 2026 KeithCu (modifications and relicensing)
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Public ``xl`` facade — NumPy-heavy implementation in ``plugin.scripting.venv.calc_functions``."""
+"""Public ``calc`` facade — NumPy-heavy implementation in ``plugin.scripting.venv.calc_functions``."""
 
 from __future__ import annotations
 

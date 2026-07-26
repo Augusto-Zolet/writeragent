@@ -523,7 +523,7 @@ Units     | kilometer / hour
 
 **Tests:** [`test_units.py`](../tests/scripting/test_units.py), [`test_units_templates.py`](../tests/scripting/test_units_templates.py), [`test_python_runner_units.py`](../tests/scripting/test_python_runner_units.py).
 
-**Out of scope (deferred):** `xl.convert()` Calc-parity wrapper, `pyarrow` / `plugin/scripting/io.py`.
+**Out of scope (deferred):** `calc.convert()` Calc-parity wrapper, `pyarrow` / `plugin/scripting/io.py`.
 
 ---
 

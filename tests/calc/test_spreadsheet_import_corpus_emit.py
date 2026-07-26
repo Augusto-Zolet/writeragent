@@ -30,7 +30,7 @@ def test_corpus_text_month_emission():
     assert res.ok
     formula = emit_py_formula(res.code, res.data_ranges or [])
     _assert_lexer_safe_formula(formula)
-    assert "xl.fmt" in formula
+    assert "calc.fmt" in formula
 
 
 def test_corpus_roundup_emission():
@@ -77,7 +77,7 @@ def test_vectorize_skipped_for_cross_sheet_sumifs():
 def test_clip_whole_column_data_ranges():
     bounds = {"ACTUAL": (5, 54)}  # end_col, end_row (0-based row 54 → row 55)
     formula = emit_py_formula(
-        "xl.sumifs(data[0], data[1], data[2], data[3], data[4])",
+        "calc.sumifs(data[0], data[1], data[2], data[3], data[4])",
         ["ACTUAL.F:F", "ACTUAL.C:C", "DASHBOARD FINISHED.C4", "ACTUAL.D:D", "B8"],
         sheet_bounds=bounds,
         current_sheet="Dashboard Finished",

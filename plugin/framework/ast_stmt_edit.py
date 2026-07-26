@@ -23,7 +23,10 @@ Python 3.10+ compatible (build/release tooling). Stdlib ``ast`` only.
 from __future__ import annotations
 
 import ast
-from collections.abc import Callable
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def is_name_call_expr(node: ast.Expr, names: frozenset[str]) -> bool:
