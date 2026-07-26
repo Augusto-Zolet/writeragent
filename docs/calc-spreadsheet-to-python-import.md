@@ -322,13 +322,13 @@ Workbooks converted before this change may still contain inline pasted helpers; 
 
 #### Microsoft `xl()` vs WriterAgent `xl.*` (different APIs, same name) {#microsoft-xl-vs-writeragent-xl-different-apis-same-name}
 
-**Name collision warning:** Microsoft Python in Excel and WriterAgent both use the name `xl`, but they are **not the same API**. Microsoft’s `xl("A1:B10")` is a **data bridge**; WriterAgent’s `xl.sumif(...)` is a **Calc formula emulator**. There is no Microsoft-shipped `xl.sumif`, `xl.xlookup`, or similar library.
+**Name collision warning:** Microsoft Python in Excel and WriterAgent both use the name `xl`, but they are **not the same API**. Microsoft’s `xl("A1:B10")` is a **data bridge** (UI literals rewritten at edit/save to `xl(%Pn%)` in `pythonScripts.xml` plus trailing deps on `_xlws.PY` — [ms-py §5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import)); WriterAgent’s `xl.sumif(...)` is a **Calc formula emulator**. There is no Microsoft-shipped `xl.sumif`, `xl.xlookup`, or similar library.
 
 | | Microsoft `xl()` | WriterAgent `xl.*` |
 |--|------------------|-------------------|
-| **Shape** | One callable: `xl("A1:C10", headers=True)` | Module alias with **259** helpers: `xl.sumif(...)`, `xl.xlookup(...)`, … |
+| **Shape** | One callable: `xl("A1:C10", headers=True)` (package: `%Pn%` + `_xlws.PY` deps) | Module alias with **259** helpers: `xl.sumif(...)`, `xl.xlookup(...)`, … |
 | **Purpose** | Data **ingress** (ranges, tables, names, images, Power Query) → usually a pandas DataFrame | Replicate **Calc/Excel formula semantics** inside Python during spreadsheet conversion |
-| **Where it lives** | Inside the Python code string in `=PY(...)` | Data arrives via explicit `=PY(...; range)` args as `data`; `xl` auto-imported from [`AUTO_IMPORTS`](../plugin/framework/constants.py) |
+| **Where it lives** | Script bank + `_xlws.PY` cell stub (not a long inline `=PY("…")` string) | Data arrives via explicit `=PY(...; range)` args as `data`; `xl` auto-imported from [`AUTO_IMPORTS`](../plugin/framework/constants.py) |
 | **Plumbing** | Required `import excel` + `excel.set_xl_scalar_conversion(...)` / `excel.set_xl_array_conversion(...)` | [`plugin/scripting/venv/calc_functions_*.py`](../plugin/scripting/venv/) (WriterAgent OXT only; excluded from LibrePy for now) |
 | **Spreadsheet math** | Use **pandas/NumPy** after `xl()` pull, or leave formulas as Excel cells | Translator emits **`xl.foo(...)`** from [`translate.py`](../plugin/calc/spreadsheet_import/translate.py) |
 

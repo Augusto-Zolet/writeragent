@@ -10,7 +10,7 @@ Related:
 | --- | --- |
 | [Enabling NumPy & Python](enabling_numpy_in_libreoffice.md) | User guide, session modes, spill/matrix UX, architecture overview |
 | [Venv IPC & serialization](numpy-serialization.md) | Pickle5 wire, `split_grid`, benchmarks, codec invariants |
-| [Microsoft `=PY` design stance](ms-py-libreoffice-compatibility.md) | Why Calc keeps explicit `data` args instead of Excel `xl()` |
+| [Microsoft `=PY` design stance](ms-py-libreoffice-compatibility.md) | Why Calc keeps explicit `data` args; Excel packages already bind ranges as trailing `_xlws.PY` args that the rewriter maps onto `data` / `inputs` ([§5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import)) |
 
 Code: [`plugin/scripting/calc_range.py`](../plugin/scripting/calc_range.py), [`plugin/calc/calc_addin_data.py`](../plugin/calc/calc_addin_data.py), [`plugin/calc/python/function.py`](../plugin/calc/python/function.py) (`to_calc_compatible`).
 

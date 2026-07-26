@@ -389,7 +389,7 @@ Excel's shared globals depend on **sheet position** and co-volatility. Here the 
 
 Calc tracks that `B1` depends on `A1` and runs `A1` **before** `B1` — no Python string parsing, no co-volatility tax. Chain pipelines (load → clean → aggregate → plot) by passing each stage as `data`, even when cells are not adjacent or not in row-major order.
 
-This is a main reason to keep `=PY(code, data)` instead of Excel's `xl()`-inside-string model ([§7 comparison](#microsoft-python-in-excel-vs-writeragent)): the second argument wires **recalc order**, not only values.
+Excel’s *saved* static bridges already put ranges on `_xlws.PY` trailing args (Excel→PY dirtying works); co-volatility is still how Excel orders **PY↔PY** / shared globals, not a substitute for DAG partial recalc among PY cells. Prefer `=PY(code, data)` over a naive UI-shaped `xl()`-inside-string Calc port ([§7 comparison](#microsoft-python-in-excel-vs-writeragent); package details in [ms-py §5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import)).
 
 #### Rules of the shared namespace
 
@@ -769,19 +769,19 @@ Tier 1 reuses existing `DialogProvider` / XDL patterns (`[plugin/chatbot/dialogs
 
 ### Microsoft Python in Excel vs Calc `=PY()` {#microsoft-python-in-excel-vs-writeragent}
 
-Microsoft runs Python in **cloud containers** with `=PY(code, return_type)` and an `xl()` bridge inside code strings. Calc uses a **local venv** with `=PY(code, data?)` — explicit formula args for DAG dependencies.
+Microsoft runs Python in **cloud containers**. Authors type `xl("…")` literals in the editor; the package stores `pythonScripts.xml` with `xl(%Pn%)` and `_xlws.PY(scriptIndex, returnType, …deps)`. Calc uses a **local venv** with `=PY(code, data?)` — explicit formula args for DAG dependencies (the rewriter maps Excel’s trailing deps onto that shape).
 
 | Feature dimension | Microsoft Excel (`=PY`) | Calc `=PY()` |
 | --- | --- | --- |
-| **Data ingress** | `xl("A1:B10")` inside Python | Range as formula arg → `data` / `inputs` |
+| **Data ingress** | UI `xl("A1:B10")` → package `%Pn%` + trailing `_xlws.PY` deps | Range as formula arg → `data` / `inputs` |
 | **Output egress** | Last expression | Explicit `result = …` (last-expr also accepted) |
-| **Dependency tracking** | Engine must parse Python for `xl()` | Native Calc DAG on `data` args |
-| **Multi-range** | Unlimited `xl()` calls | Varargs → `inputs` ([data shapes](calc-py-data-shapes.md#multi-range-support-varargs)) |
+| **Dependency tracking** | **Excel→PY:** trailing formula deps (literals rewritten at edit/save; no Python parse at recalc). **PY↔PY:** co-volatility ([ms-py §5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import), [jailsafe](numpy-jailsafe.md)) | Native Calc DAG on `data` args |
+| **Multi-range** | Multiple `%Pn%` / trailing deps | Varargs → `inputs` ([data shapes](calc-py-data-shapes.md#multi-range-support-varargs)) |
 | **Shared state** | Globals + row-major co-volatility | Opt-in shared kernel + `data` refs ([§6](#session-modes-and-recalc-semantics)) |
 | **Runtime** | Cloud sandbox | User venv (offline, any pip packages) |
 | **Editor** | Monaco task pane | Monaco via pywebview ([§3](#run-python-script--monaco)) |
 
-**Design stance:** keep explicit `data` + `result`. Deep dive for Collabora/LibreOffice (why not copy `xl()` / co-volatility): **[ms-py-libreoffice-compatibility.md](ms-py-libreoffice-compatibility.md)**.
+**Design stance:** keep explicit `data` + `result`. Deep dive for Collabora/LibreOffice (why not copy co-volatility as the default; file rewrite for Excel packages): **[ms-py-libreoffice-compatibility.md](ms-py-libreoffice-compatibility.md)**.
 
 **Excel parity (summary):** dynamic spill, plots, Monaco cell editor, shared kernel + init scripts, and LibrePy sidebar diagnostics are **shipped**. Object cards, rich DataFrame tables, names/tables labels → [Calc UX backlog](#calc-ux-backlog).
 

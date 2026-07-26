@@ -142,7 +142,7 @@ See the Cross-Document Workflows section for how a Writer LLM becomes aware of t
 
 ## Data finding ("somehow find the relevant data") — Calc focused
 
-- **Cross-folder (Calc siblings)**: Primary tool is the embeddings index (see [embeddings.md](embeddings.md) — per-directory only, outer router for `document_research`). A semantic query ("sales data", "budget assumptions") surfaces candidate Calc `doc_url` + sheet/paragraph hints. Then use Calc-specific tools on the opened (hidden/read-only) Calc model. (We copy the *feature* of rich cross-workbook data awareness from Python-in-Excel, but implement it via our per-directory embeddings + document_research rather than their cloud `xl()` mechanism.)
+- **Cross-folder (Calc siblings)**: Primary tool is the embeddings index (see [embeddings.md](embeddings.md) — per-directory only, outer router for `document_research`). A semantic query ("sales data", "budget assumptions") surfaces candidate Calc `doc_url` + sheet/paragraph hints. Then use Calc-specific tools on the opened (hidden/read-only) Calc model. (We copy the *feature* of rich cross-workbook data awareness from Python-in-Excel, but implement it via our per-directory embeddings + document_research rather than their cloud `xl()` / `%Pn%` formula-static bridges.)
 - **Within a Calc file**: `get_sheet_summary`, `read_cell_range`, named range inspection, pivot table / cache access, chart data source enumeration, range heuristics (numeric columns + header detection). These are the natural, reliable sources. (Future: copy more of Excel's structured table / named range / `headers=True` ergonomics via `calc_addin_data.py` enhancements.)
 - **User hints + LLM planning**: The task from main (or from a Writer caller) often contains clues ("the sales table in the budget file"). The analysis sub-agent LLM uses those + the tools above to locate the right data.
 - **Metadata / structure**: Leverage Calc's own structures (named ranges, database ranges, pivot fields, chart series) far more than Writer-style paragraphs or tables.
@@ -440,7 +440,7 @@ Previously planned helpers (not yet separate tools):
 
 2. **Phase 1 (sub-agent surface + discovery)**:
    - ~~Make "analysis" a proper delegable domain with its own focused toolset.~~ **Done** — `domain="analysis"` includes `analyze_data`, `calc_goal_seek`, and `calc_solver`.
-   - Add discovery-oriented tools inside it (compose with existing `get_sheet_summary`, range tools, and document_research when needed). Support the Excel-like feature of rich data awareness (we implement via embeddings + our explicit data handoff rather than `xl()` string parsing).
+   - Add discovery-oriented tools inside it (compose with existing `get_sheet_summary`, range tools, and document_research when needed). Support the Excel-like feature of rich data awareness (we implement via embeddings + our explicit data handoff rather than Excel-style formula-static `%Pn%` bridges / co-volatility; see [ms-py §5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import)).
    - ~~Full sub-agent support (smol with limited toolset for the analysis task).~~ **Done** via existing delegation path.
    - Define a standard compact result schema (metrics + data_tables + suggested_writes + writer_cleanup_hints) — this helps both Calc application and Writer "cleanup".
 
@@ -469,7 +469,7 @@ Previously planned helpers (not yet separate tools):
 
 This plan reuses almost everything that already exists (delegation, smol sub-agents, python venv execution + data injection, calc_addin_data shaping, SheetAnalyzer, document_research cross-doc, trusted module pattern, init scripts). The new surface area is mainly the trusted analysis helper module (the "standard functions" layer) + a few high-level spec-driven tools, plus the "analysis" domain wiring, Writer cleanup awareness, and targeted adoption of useful Excel Python features (curated helpers, better data ergonomics, rich previews, cross-workbook agentic analysis) while preserving our architectural advantages (local/offline, explicit `data` for native DAG, no cloud lock-in, deterministic `result` assignment).
 
-We will copy *features* from Microsoft Python-in-Excel (initialization-script helpers and classes, rich object/data handling, strong support for tables/named ranges/headers, agentic data workflows across files, etc.) but implement them on top of WriterAgent's local venv + explicit signature model rather than copying their `=PY` + `xl()` string parsing or row-major co-volatility.
+We will copy *features* from Microsoft Python-in-Excel (initialization-script helpers and classes, rich object/data handling, strong support for tables/named ranges/headers, agentic data workflows across files, etc.) but implement them on top of WriterAgent's local venv + explicit signature model rather than copying their formula-static `%Pn%` / `_xlws.PY` package shape or row-major co-volatility ([ms-py §5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import)).
 
 ---
 

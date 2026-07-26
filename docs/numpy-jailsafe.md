@@ -61,6 +61,11 @@ The Online bridge deliberately accepts the native, explicit-data surface `=PY(co
 ```text
 pythonScripts.xml:  df = xl(%P2%,headers=True)
 worksheet cell:     _xlws.PY(0, 1, A1:C100)
+                    │              │  └── %P2% = first trailing dep
+                    │              └── returnType (headers= is on xl() in the script)
+                    └── scriptIndex
+
+%Pn% numbering: %P2% → first trailing dep, %P3% → second (idx = p_num - 2).
 
 rewritten code:     df = data.to_pandas()
 Calc formula:       =PY("..."; A1:C100)
@@ -76,7 +81,7 @@ This is important for both correctness and the jail boundary:
 
 Excel scripts that share globals across multiple PY cells need a **shared** compute session so prior-stage Python names persist. The OOXML rewriter maps formula-static `xl()` ranges onto real `=PY` data precedents only; it does **not** inject synthetic prior-PY order edges (every trailing arg is a real binding). Enabling shared-kernel mode and managing run order is the operator’s responsibility (same advisory as LibrePy [§6](enabling_numpy_in_libreoffice.md#session-modes-and-recalc-semantics)). A shared namespace without Calc precedents on real data ranges still will not refresh when those ranges change. `returnType` is preserved via conversion meta (`ExcelPyDagMeta` udprop on auto-open; CLI via `--from-report`). Table/`ANCHORARRAY` tokens are **A1 snapshots for Calc** and restored on Excel export for file fidelity only — not live Calc Table/spill support ([ms-py §5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import); code note in [`models.py`](../plugin/calc/excel_py_convert/models.py)).
 
-The rewriter handles formula-static references: fixed ranges, scalar cells, sheet-qualified table `[#All]` references, and `ANCHORARRAY`/spill anchors (the latter two become fixed A1 snapshots from workbook metadata). It **fails closed** on computed Python references such as `xl(f"A1:A{n}")` or `xl(name)`, and on missing table/anchor snapshots, rather than emitting shifted `data[i]` formulas. Sample fidelity: [`scripts/roundtrip_excel_py_samples.py`](../scripts/roundtrip_excel_py_samples.py) over [`PythonExcelSamples/`](../PythonExcelSamples/).
+The rewriter handles formula-static references: fixed ranges, scalar cells, sheet-qualified table `[#All]` references, and `ANCHORARRAY`/spill anchors (the latter two become fixed A1 snapshots from workbook metadata). Microsoft does **not** productize true dynamic `xl(variable)` / `xl(f"A{n}")` (they fail in Excel). WriterAgent **fails closed** on those shapes if they appear (defense + not DAG-safe), and on missing table/anchor snapshots, rather than emitting shifted `data[i]` formulas. Sample fidelity: [`scripts/roundtrip_excel_py_samples.py`](../scripts/roundtrip_excel_py_samples.py) over [`PythonExcelSamples/`](../PythonExcelSamples/).
 
 #### Why we do not fold pure-subset ranges (research note)
 
@@ -84,7 +89,7 @@ A natural optimization idea: if one PY cell’s deps include both `A3` and `A1:A
 
 **Verdict: not worth doing in this stack.** Subset fold is correct as a pure-Python “don’t send the same cells twice” cleanup; expensive and fidelity-hostile once Calc precedents, `CalcRange` shapes, and Excel export are in the picture. Status quo: keep subset deps as separate formula args; keep collapsing identical A1s. Details below so we do not re-litigate it casually.
 
-**What Excel actually stores.** Authors type `xl("A3")` in the UI, but the package is formula-static bridges: `pythonScripts.xml` has `xl(%P2%)` / `xl(%P3%)`, and the cell formula is `_xlws.PY(scriptIndex, returnType, A3, A1:A10, …)`. Literal `xl("A3")` / `xl(f"…")` / `xl(name)` never enter the binding pipeline — fail-closed as dynamic. So both “duplicate fold” and “subset fold” mean collapsing **resolved trailing deps**, not scanning string literals in source.
+**What Excel actually stores.** Authors type `xl("A3")` in the UI; at edit/save Excel rewrites literals to formula-static bridges: `pythonScripts.xml` has `xl(%P2%)` / `xl(%P3%)` (`%P2%` = first trailing dep), and the cell formula is `_xlws.PY(scriptIndex, returnType, A3, A1:A10, …)`. Well-formed MS packages should not still contain UI-style `xl("A3")` string literals in the bank. True `xl(f"…")` / `xl(name)` is unsupported by Microsoft and fail-closed by WriterAgent if present. So both “duplicate fold” and “subset fold” mean collapsing **resolved trailing deps**, not scanning string literals in source.
 
 **Pure duplicates (already done).** Authors often repeat the same `xl(...)` instead of `x = xl(...); … use x …`. On disk that becomes multiple `%Pn%` sites and repeated trailing deps, e.g. `_xlws.PY(…, A3, A3, A3)`. [`_normalize_bindings`](../plugin/calc/excel_py_convert/to_dag.py) keys on the **exact** resolved A1 string after [`resolve_deps`](../plugin/calc/excel_py_convert/resolve_refs.py): identical tokens collapse to one `data_args` entry, and a second rewrite remaps every original `%Pn%` site onto the same `data` / `inputs[i]` expression (with header-mode merge preferring explicit `headers=True`). That is identity-preserving — same Python value, one Calc precedent — and is covered by `test_dedup_duplicate_range_bindings`. From our side this is easier than asking authors to use a local: we only need one formula arg and N call sites pointing at it. Export prefers `excel_deps` when length-aligned with the collapsed `data_args` ([`deps_for_xlws_export`](../plugin/calc/excel_py_convert/to_excel.py); policy in [`models.py`](../plugin/calc/excel_py_convert/models.py)), so arity can shrink (`A3,A3` → one `A3` on re-export); that is acceptable for identical tokens.
 

@@ -9,8 +9,13 @@ pandas/seaborn/plot logic.
 Excel stores Python separately from the cell formula:
 
 * ``xl/pythonScripts.xml`` — e.g. ``df = xl(%P2%, headers=True)``
+  (``%P2%`` = first trailing dep; ``headers=`` is an ``xl()`` kwarg, not a
+  ``_xlws.PY`` formula arg; arg 2 of ``_xlws.PY`` is returnType)
 * cell ``_xlfn._xlws.PY(scriptIndex, returnType, A1:B10, ...)`` — trailing args
   fill ``%P2%``, ``%P3%``, …
+
+Microsoft does not productize true dynamic ``xl(variable)`` / ``xl(f"…")``;
+those fail closed here as defense and because they are not DAG-safe.
 
 Bare ``%Pn%`` tokens are not valid Python, so before ``ast.parse`` we rewrite
 them (outside strings/comments) to equal-length ``_Pn_`` sentinels. Call sites
