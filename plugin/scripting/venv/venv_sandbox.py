@@ -55,6 +55,7 @@ _INIT_STATE_SKIP_KEYS = frozenset(
         "data",
         "data_list",
         "inputs",
+        "xl",  # binding-only Excel data bridge; re-injected each run
     }
 )
 
@@ -504,10 +505,21 @@ def convert_datetimes_and_deltas(data: Any, locale: str | None, convert_datetime
     return _rec(data)
 
 
-def _inject_data(executor: LocalPythonExecutor, data: Any | None, locale: str | None = None, convert_datetime: bool = False) -> None:
-    """Inject ``inputs`` (tuple of CalcRange) and ``data`` (= inputs[0] when present)."""
+def _inject_excel_xl(executor: LocalPythonExecutor, inputs: tuple[Any, ...] | None = None) -> None:
+    """Inject binding-only Excel ``xl()`` closed over *inputs* (may be empty)."""
+    from plugin.scripting.excel_xl import make_xl
+
+    executor.send_variables({"xl": make_xl(inputs)})
+
+
+def _inject_data(executor: LocalPythonExecutor, data: Any | None, locale: str | None = None, convert_datetime: bool = False) -> tuple[Any, ...]:
+    """Inject ``inputs`` (tuple of CalcRange) and ``data`` (= inputs[0] when present).
+
+    Returns the materialized ``inputs`` tuple (empty when *data* is None) so callers
+    can bind Excel ``xl()`` to the same ranges.
+    """
     if data is None:
-        return
+        return ()
     from plugin.scripting.calc_range import CalcRange, materialize_inputs
     from plugin.scripting.payload_codec import describe_wire_value, is_calc_range_payload, is_multi_data, is_split_grid
 
@@ -531,6 +543,7 @@ def _inject_data(executor: LocalPythonExecutor, data: Any | None, locale: str | 
     # Alias kept for internal helpers that still iterate ranges as a list.
     variables["data_list"] = list(inputs)
     executor.send_variables(variables)
+    return inputs
 
 
 def _inject_bindings(executor: LocalPythonExecutor, bindings: dict[str, Any] | None) -> None:
@@ -639,6 +652,7 @@ def run_sandboxed_code(
             _seed_executor_from_init(executor, init_sid)
 
     inject_auto_imports(executor, code)
-    _inject_data(executor, data, locale=locale, convert_datetime=convert_datetime)
+    inputs = _inject_data(executor, data, locale=locale, convert_datetime=convert_datetime)
+    _inject_excel_xl(executor, inputs)
     _inject_bindings(executor, bindings)
     return _run_on_executor(executor, code)

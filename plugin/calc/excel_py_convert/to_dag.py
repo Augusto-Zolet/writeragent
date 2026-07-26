@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Excel ``xl(%Pn%)`` → DAG-style ``data`` / ``inputs[i]`` (code + formula args).
+"""Excel ``xl(%Pn%)`` → runnable DAG ``xl("%Pn%")`` + formula range args.
 
 What the converter does
 -----------------------
@@ -23,23 +23,21 @@ are found only via AST; there is no regex ``xl(`` scanner.
 
 Per cell we do two paired steps:
 
-1. **Code:** rewrite each direct ``xl(...)`` *call* (AST positions) to ``data`` /
-   ``inputs[i]`` / ``.to_pandas()`` for header modes. Unrelated source
-   (strings, comments) is left intact where possible.
-2. **Formula:** emit ``=PY("…rewritten…"; resolved_ranges)`` with deduplicated
-   data args only (every trailing arg is a real binding). The converter does
-   **not** append prior PY cells for shared-kernel order — enable shared
-   session and manage run order separately. Tables / ``ANCHORARRAY`` are
-   snapped to A1 at convert time.
+1. **Code:** keep ``xl(...)`` call sites; emit runnable ``xl("%Pn%", …)`` string
+   refs (remap indices after dep dedup). The sandbox injects a binding-only
+   ``xl`` that looks up ``inputs`` — see :mod:`plugin.scripting.excel_xl`.
+2. **Formula:** emit ``=PY("…"; resolved_ranges)`` with deduplicated data args
+   only (every trailing arg is a real binding). The converter does **not**
+   append prior PY cells for shared-kernel order — enable shared session and
+   manage run order separately. Tables / ``ANCHORARRAY`` are snapped to A1 at
+   convert time.
 
 Fail-closed: unresolved deps, dynamic ``xl()``, or syntax errors leave the cell
 unconverted (no ``dag_formula``) unless the caller opts into best-effort mode.
 
-Discarded statement-form ``xl(...)`` (e.g. under ``if``) is removed via
-:func:`plugin.framework.ast_stmt_edit.remove_expr_statements` (same empty-suite
-``pass`` rule as release ``grammar_obs`` stripping) so it does not become a
-useless ``data`` expression or fail-close a literal ``xl("A1")``. The last
-top-level expression is kept for Jupyter/Excel last-expression egress.
+Statement-form ``xl("%Pn%")`` (including under ``if``) is left in place — the
+sandbox binding shim makes those calls valid. Unsupported literals / dynamics
+fail closed rather than being silently stripped.
 """
 
 from __future__ import annotations
@@ -57,9 +55,6 @@ from plugin.calc.excel_py_convert.models import (
     HeaderMode,
 )
 from plugin.calc.excel_py_convert.resolve_refs import ResolvedDep, resolve_deps
-from plugin.framework.ast_stmt_edit import is_name_call_expr, remove_expr_statements
-
-_XL_CALL_NAMES: frozenset[str] = frozenset({"xl"})
 
 _P_TOKEN_RE = re.compile(r"^%P(\d+)%$", re.IGNORECASE)
 # Bare Excel placeholder in source (not anchored); same length as ``_Pn_`` sentinel.
@@ -90,18 +85,15 @@ def _placeholder_to_data_index(p_num: int) -> int:
     return p_num - 2
 
 
-def _data_expr(index: int) -> str:
-    if index == 0:
-        return "data"
-    return f"inputs[{index}]"
-
-
-def _headers_dataframe_expr(data_expr: str) -> str:
-    return f"{data_expr}.to_pandas()"
-
-
-def _no_headers_dataframe_expr(data_expr: str) -> str:
-    return f"{data_expr}.to_pandas(header_row=None)"
+def _xl_binding_expr(index: int, header_mode: HeaderMode) -> str:
+    """Runnable DAG ``xl("%Pn%", …)`` (quoted token; MS package uses bare ``%Pn%``)."""
+    tok = f'"%P{index + 2}%"'
+    # Match Microsoft samples: no space after the comma in ``headers=…``.
+    if header_mode == "true":
+        return f"xl({tok},headers=True)"
+    if header_mode == "false":
+        return f"xl({tok},headers=False)"
+    return f"xl({tok})"
 
 
 def _header_mode_from_keywords(node: ast.Call) -> HeaderMode:
@@ -272,49 +264,24 @@ def ast_source_offset(src: str, lineno: int, col: int) -> int:
     return line_start + len(raw[:col].decode("utf-8"))
 
 
-def _is_xl_expr_stmt(node: ast.Expr) -> bool:
-    """True if *node* is a bare ``xl(...)`` expression statement."""
-    return is_name_call_expr(node, _XL_CALL_NAMES)
-
-
 def rewrite_excel_code(
     code: str,
     *,
     num_deps: int,
     index_map: dict[int, int] | None = None,
 ) -> tuple[str, list[str], list[str], dict[int, HeaderMode]]:
-    """Replace ``xl(...)`` call expressions only; leave the rest of the script intact.
+    """Normalize ``xl(...)`` bindings to runnable ``xl("%Pn%", …)``; leave other code intact.
 
-    *index_map* maps original 0-based dep index → normalized ``data`` index after dedup.
+    *index_map* maps original 0-based dep index → normalized binding index after dedup.
     Returns ``(new_code, issues, used_original_indices, header_modes_by_original_index)``.
 
-    Bugfix — discarded statement ``xl``:
-    Excel UI often looks like ``if cond: xl("A1")``. On disk that may be
-    ``xl(%Pn%)`` or a literal. Treating those as value sites produced a useless
-    ``data`` under the ``if``, or fail-closed the whole cell for literals.
-    Shared :func:`remove_expr_statements` (release stripper empty-suite rule)
-    removes those statements first; last top-level ``xl`` is kept for egress.
-    Re-export will not restore a discarded statement call site.
+    Statement-form ``xl`` (e.g. under ``if``) is kept and quoted like any other
+    binding site. Literal / dynamic ``xl(...)`` is reported and fail-closed by
+    the converter — not silently deleted.
     """
     issues: list[str] = []
     src = code or ""
 
-    # Placeholder normalize so ``xl(%P2%)`` parses; strip discarded statements on
-    # that text (same length tokens). Remaining value sites still rewrite below.
-    normalized = _normalize_excel_placeholders(src)
-    try:
-        stripped, _n_removed = remove_expr_statements(
-            normalized,
-            _is_xl_expr_stmt,
-            pass_comment="discarded statement",
-            skip_last_module_expr=True,
-        )
-    except SyntaxError as exc:
-        # Same fail-closed path as _find_xl_calls — do not guess with a scanner.
-        issues.append(f"Python syntax error in script: {exc.msg}")
-        return src, issues, [], {}
-
-    src = stripped
     calls, find_issues = _find_xl_calls(src)
     issues.extend(find_issues)
 
@@ -342,7 +309,7 @@ def rewrite_excel_code(
         elif prev != call.header_mode and call.header_mode != "omit":
             issues.append(f"conflicting headers mode for %P{call.p_num}%: {prev} vs {call.header_mode}")
 
-    # Apply replacements from end → start so offsets stay valid.
+    # Rewrite binding call sites to quoted ``%Pn%`` (valid Python) with remapped indices.
     new_code = src
     for call in sorted(calls, key=lambda c: c.start, reverse=True):
         if call.dynamic and call.p_num is None:
@@ -353,15 +320,7 @@ def rewrite_excel_code(
         if orig_idx < 0:
             continue
         norm_idx = imap.get(orig_idx, orig_idx)
-        expr = _data_expr(norm_idx)
-        hm = call.header_mode
-        if hm == "true":
-            repl = _headers_dataframe_expr(expr)
-        elif hm == "false":
-            repl = _no_headers_dataframe_expr(expr)
-        else:
-            # omitted → bare CalcRange; scripts that need a DataFrame call to_pandas()
-            repl = expr
+        repl = _xl_binding_expr(norm_idx, call.header_mode)
         new_code = new_code[: call.start] + repl + new_code[call.end :]
 
     return new_code, issues, [str(i) for i in sorted(used)], header_modes

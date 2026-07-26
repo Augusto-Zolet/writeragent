@@ -335,23 +335,21 @@ worksheet cell:     _xlfn._xlws.PY(0, 1, A1:C100)
 headers=True/False stays on xl() in the script — never a _xlws.PY formula arg.
 ```
 
-The converter joins those two parts and changes only the data bridge:
+The converter joins those two parts: lift ranges onto `=PY` args, and make `xl(...)` runnable in the sandbox (quoted `%Pn%` strings). Formula helpers use the separate `calc.*` auto-import ([`excel_xl.py`](../plugin/scripting/excel_xl.py)):
 
 ```text
 Excel code:      df = xl(%P2%,headers=True)
 Excel cell:      _xlws.PY(0, 1, A1:C100)
 
-DAG code:        df = data.to_pandas()
+DAG code:        df = xl("%P2%",headers=True)   # sandbox xl → inputs[0].to_pandas()
 Calc formula:    =PY("..."; A1:C100)
 OOXML (DAG):     =PY("...",A1:C100)          # CLI --to dag --write-xlsx
 OOXML (Excel):   pythonScripts + _xlws.PY(…) # CLI --to excel --write-xlsx / auto-save
 ```
 
-(Multi-range scripts use `data` for the first binding and `inputs[i]` for the rest. Reverse export still accepts the older `pd.DataFrame(data[1:], columns=data[0])` form and restores `xl(%Pn%)`. Emit style matches Microsoft samples: no space after the comma in `headers=True` / `headers=False`.)
+(Bare Excel `%Pn%` is not valid Python — import quotes it as `"%Pn%"`. Export unquotes for the package. Legacy DAG cells that still use `data` / `inputs[i]` / `.to_pandas()` reverse to `xl(%Pn%)` as before. Emit style matches Microsoft samples: no space after the comma in `headers=True` / `headers=False`.)
 
-Everything around `xl(...)`—pandas operations, groupby logic, plots, and ordinary Python statements—is preserved. Bare Excel `%Pn%` tokens are rewritten to equal-length `_Pn_` sentinels (outside strings/comments) so a single AST pass can find direct `xl(...)` call sites; there is no regex `xl(` scanner. Strings and comments stay intact.
-
-**Discarded statement `xl(...)`:** A bare expression-statement call such as `if cond: xl("A1")` / `xl(%P2%)` is not a value use. The rewriter removes it via the shared empty-suite helper [`ast_stmt_edit.py`](../plugin/framework/ast_stmt_edit.py) (same rule as release `grammar_obs` stripping in [`strip_code.py`](../scripts/strip_code.py)): insert `pass` when the suite would otherwise be empty, else delete the lines. The last top-level expression is kept for Jupyter/Excel last-expression egress (`xl(%P2%)` → `data`). Assignment / argument uses of leftover `xl("A1")` literals (should not appear in well-formed MS packages after rewrite) still fail closed. Re-export does not restore a discarded statement call site.
+Everything around `xl(...)`—pandas operations, groupby logic, plots, and ordinary Python statements—is preserved. Call sites are found only via AST after equal-length `_Pn_` sentinel normalize; there is no regex `xl(` scanner. Strings and comments stay intact. Statement-form `xl("%Pn%")` (including under `if`) is left in place; leftover `xl("A1")` / dynamic forms fail closed.
 
 **Tables / spill tokens (import vs export):** Calc cannot evaluate Excel structured refs (`Table1[#All]`) or spill parents (`ANCHORARRAY(A6)`). On import the converter **snapshots** them to sheet-qualified A1 ranges on the DAG `=PY` formula so the workbook can run (missing table/anchor snapshots fail closed). The original tokens are kept in `ConvertedCell.excel_deps` and in conversion meta (`ExcelPyDagMeta` udprop on auto-open) **only so export can put them back on `_xlws.PY`**. That is round-trip fidelity, not Calc Table/spill support—growing tables and live spill parents will not update the snapped A1 args until LibreOffice adds those features. Canonical note in code: [`models.py`](../plugin/calc/excel_py_convert/models.py) module doc / `EXCEL_DEP_TOKEN_FIDELITY`. (An optional `xl/writeragentExcelPyMeta.json` package part exists in code but is **disabled** by default — `USE_PACKAGE_META`; CLI fidelity uses `--from-report` / in-memory reports.)
 
@@ -359,7 +357,7 @@ Everything around `xl(...)`—pandas operations, groupby logic, plots, and ordin
 
 The conversion does not replace hidden `xl()` reads with host RPC. It moves every formula-static range onto the Calc formula as a real argument. Consequently, editing `A1` dirties the converted `=PY(...; A1:C100)` through Calc's normal precedent graph. Every trailing formula arg is a **real data binding**—there is no separate “ordering-only” arg class.
 
-Excel samples also split scripts across cells and share Python globals via co-volatility. The converter **does not** append prior PY stages (e.g. `H4` on `H5`) as synthetic formula arguments. Multi-cell demos convert; enabling **shared-kernel** session mode and ensuring useful run order is the operator’s job (see [session modes](enabling_numpy_in_libreoffice.md#session-modes-and-recalc-semantics)). Duplicate ranges are deduplicated with a stable `%Pn%` → `data` / `inputs[i]` map (arity may shrink on re-export). `returnType=1` (Object) suppresses cell value egress (`result = None`) until object cards exist, while leaving the setup assignments in the script for the shared kernel.
+Excel samples also split scripts across cells and share Python globals via co-volatility. The converter **does not** append prior PY stages (e.g. `H4` on `H5`) as synthetic formula arguments. Multi-cell demos convert; enabling **shared-kernel** session mode and ensuring useful run order is the operator’s job (see [session modes](enabling_numpy_in_libreoffice.md#session-modes-and-recalc-semantics)). Duplicate ranges are deduplicated with a stable `%Pn%` remap onto fewer formula args (arity may shrink on re-export). `returnType=1` (Object) suppresses cell value egress (`result = None`) until object cards exist, while leaving the setup assignments in the script for the shared kernel.
 
 Unresolved deps, leftover dynamic-looking `xl()`, syntax errors after placeholder normalization, and missing anchor snapshots **fail closed** (cell left unchanged; CLI exits nonzero) unless `--best-effort` is set. `--write-xlsx` clears the source array/spill range around each converted anchor, refuses unmapped sheet titles, and strips obsolete `pythonScripts` package parts on the DAG write path.
 
@@ -457,7 +455,7 @@ WriterAgent keeps a **defensive** `sanitize_inline_py_code` when *emitting* Calc
 They demand **workbooks that recalculate correctly** and **Python that can use NumPy**. Native `=PY` delivers both. Literal Excel Python packages are handled by the shipped OOXML rewriter ([§5.8](#58-ooxml--xlfnpy-import)) for formula-static sheets; full Excel co-volatility / spill / object cards remain separate (and mostly undesirable as defaults).
 
 **“Calc just needs an `xl()` function—it doesn’t need to parse Python.”**  
-Half right for a *runtime* `xl()` port. **`xl()` as a Python helper that reads ranges does not require a Calc Python parser.** Without also solving **dirtying** (lift ranges onto formula args, volatile PY, or dynamic listeners), a string-only Calc `=PY` goes stale when `A1` changes. Reads ≠ recalc graph. Excel’s *saved* static bridges already put ranges on `_xlws.PY`; the rewriter’s job is to turn those `xl(%Pn%)` sites into Calc `data` args up front.
+Half right for a *runtime* `xl()` port. **`xl()` as a Python helper that reads ranges does not require a Calc Python parser.** Without also solving **dirtying** (lift ranges onto formula args, volatile PY, or dynamic listeners), a string-only Calc `=PY` goes stale when `A1` changes. Reads ≠ recalc graph. Excel’s *saved* static bridges already put ranges on `_xlws.PY`; the rewriter’s job is to lift those onto `=PY(…; ranges)` and keep quoted `xl("%Pn%")` for the binding-only sandbox shim.
 
 **“Co-volatility is how shared globals must work.”**  
 False. Globals need an **ordering / persistence rule**. Excel picked geometry + co-volatility. Calc can use **shared-kernel mode** plus real `data` precedents where dirtying matters. The Excel→DAG converter does **not** fake prior-PY formula edges for shared-kernel order—that remains the author’s / session-mode responsibility ([session modes](enabling_numpy_in_libreoffice.md#session-modes-and-recalc-semantics)).

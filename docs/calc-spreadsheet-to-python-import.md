@@ -307,7 +307,7 @@ Uses existing Monaco dual-save pattern ([python-monaco-editor-dev-plan.md](pytho
 
 ### `calc` Calc-parity helpers (spreadsheet import)
 
-Complex Calc functions that need shared semantics (SUMIF, XLOOKUP, FILTER, SUBTOTAL, date helpers, etc.) emit **`calc.*` calls** — not pasted `def` blocks. The venv sandbox auto-imports [`plugin.scripting.calc_functions`](../plugin/scripting/calc_functions.py) as **`calc`** (same mechanism as `np` / `pd`). The alias used to be `xl`; it was renamed so Microsoft’s Excel data-bridge `xl()` can own that name later.
+Complex Calc functions that need shared semantics (SUMIF, XLOOKUP, FILTER, SUBTOTAL, date helpers, etc.) emit **`calc.*` calls** — not pasted `def` blocks. The venv sandbox auto-imports [`plugin.scripting.calc_functions`](../plugin/scripting/calc_functions.py) as **`calc`** (same mechanism as `np` / `pd`). The alias used to be `xl`; it was renamed so Microsoft’s Excel data-bridge `xl()` can own that name (binding-only over `=PY` data args — [`excel_xl.py`](../plugin/scripting/excel_xl.py)).
 
 ```calc
 =PY("calc.sumif(data[0], \">10\", data[1])"; A1:A5; B1:B5)

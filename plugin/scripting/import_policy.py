@@ -114,6 +114,7 @@ def format_venv_import_policy_for_prompt(*, compact: bool = False) -> str:
     auto_imports = (
         "Pre-imported (do not write import lines): np, pd, sp, st, plt, math, dt, re, random, "
         "statistics, collections, itertools, json, csv, calc. "
+        "When =PY has data range args, xl(\"%Pn%\") is also injected (binding-only Excel bridge; not a live sheet read). "
         "DO NOT import numpy, pandas, sympy, scipy.stats, matplotlib.pyplot, math, datetime, "
         "or plugin.scripting.calc_functions. "
         "Prefer np/sp/pd/st and scipy over hand-rolled Python; use dt for dates, plt for charts. "

@@ -70,6 +70,8 @@ def test_venv_policy_preimported_lists_aliases():
     assert "Pre-imported" in policy
     for name in ("np", "pd", "sp", "st", "plt", "dt", "calc"):
         assert name in policy
+    assert 'xl("%Pn%")' in policy
+    assert "binding-only" in policy
     assert "scipy.stats" in policy
     assert "matplotlib.pyplot" in policy
 

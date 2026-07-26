@@ -44,9 +44,10 @@ CODE_SHEET_NOTE = (
 
 INLINE_CODE_MAX_CHARS = 1000
 
-_XL_CALL_RE = re.compile(r"\bxl\s*\(", re.IGNORECASE)
 _RE_A1 = re.compile(r"^\$?([A-Za-z]+)\$?(\d+)$")
 _SAFE_SHEET = re.compile(r"[^\w]+", re.UNICODE)
+# Binding-only sandbox xl accepts "%Pn%" strings (same as excel_xl.make_xl).
+_P_TOKEN_RE = re.compile(r"^%P(\d+)%$", re.IGNORECASE)
 
 
 def code_sheet_name_for(source_sheet: str) -> str:
@@ -195,12 +196,26 @@ def collect_script_bank(report: ConversionReport) -> tuple[dict[str, dict[str, s
     return banks, warnings
 
 
+def _is_binding_xl_call(node: ast.Call) -> bool:
+    """True when ``xl("%Pn%")`` — intentional sandbox bridge, not a live sheet read."""
+    if not (isinstance(node.func, ast.Name) and node.func.id == "xl"):
+        return False
+    if not node.args:
+        return False
+    ref = node.args[0]
+    if isinstance(ref, ast.Constant) and isinstance(ref.value, str):
+        return bool(_P_TOKEN_RE.match(ref.value.strip()))
+    return False
+
+
 def collect_safety_warnings(code: str) -> list[str]:
-    """Advisory checks: leftover ``xl()``, imports outside the venv whitelist."""
+    """Advisory checks: non-binding ``xl()``, imports outside the venv whitelist.
+
+    ``xl("%Pn%")`` is the converted Excel shape (sandbox injects binding-only ``xl``).
+    Warn only on A1 / dynamic / non-string forms that are not DAG-safe.
+    """
     warnings: list[str] = []
     src = code or ""
-    if _XL_CALL_RE.search(src):
-        warnings.append("leftover xl() call (venv xl is Calc helpers, not Excel sheet bridge)")
 
     try:
         tree = ast.parse(src)
@@ -225,10 +240,11 @@ def collect_safety_warnings(code: str) -> list[str]:
             root = node.module.split(".", 1)[0]
             if root and root not in authorized:
                 warnings.append(f"import not in venv whitelist: {node.module}")
-        elif isinstance(node, ast.Call):
-            func = node.func
-            if isinstance(func, ast.Name) and func.id == "xl":
-                warnings.append("leftover xl() call (venv xl is Calc helpers, not Excel sheet bridge)")
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "xl":
+            if not _is_binding_xl_call(node):
+                warnings.append(
+                    "non-binding xl() call (sandbox xl only resolves \"%Pn%\" formula bindings; no live sheet reads)"
+                )
     return list(dict.fromkeys(warnings))
 
 

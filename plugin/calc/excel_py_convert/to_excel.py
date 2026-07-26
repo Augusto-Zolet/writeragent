@@ -1,10 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""DAG-style ``data`` / DataFrame patterns → Excel ``xl(%Pn%)`` (inverse of ``to_dag``).
+"""DAG ``xl("%Pn%")`` / legacy ``data`` patterns → Excel package ``xl(%Pn%)``.
 
-Only reverses the *data bridge* we introduced: ``data`` / ``data[i]`` / ``inputs[i]`` /
-``data.to_pandas()`` / ``data.to_pandas(header_row=None)`` (and the older
-``pd.DataFrame(data[1:], columns=data[0])`` form) become ``xl(...)`` again. Other
-Python is unchanged.
+Forward import keeps runnable ``xl("%Pn%", …)`` call sites (sandbox binding-only
+``xl``). Export:
+
+* If code already has binding-style ``xl(`` / ``%P``, unquote tokens for the
+  Microsoft package (``xl("%P2%")`` → ``xl(%P2%)``) and normalize headers spacing.
+* Legacy DAG workbooks that still use ``data`` / ``inputs[i]`` / ``.to_pandas()``
+  (and the older ``pd.DataFrame(data[1:], columns=data[0])`` form) are reversed
+  to ``xl(...)`` as before.
 
 Native OOXML write banks restored scripts into ``pythonScripts.xml`` and cell
 formulas as ``_xlfn._xlws.PY(...)`` (see ``xlws_py_formula`` /
@@ -42,6 +46,12 @@ _OBJECT_SUPPRESS_RE = re.compile(
     r"\n?# excel_py: returnType=1 \(Object\).*?\nresult = None\s*$",
     re.DOTALL,
 )
+# Runnable DAG form uses quoted tokens; Excel package uses bare %Pn%.
+_QUOTED_P_TOKEN_RE = re.compile(
+    r"""xl\(\s*(['"])%P(\d+)%\1\s*(,\s*headers\s*=\s*(True|False))?\s*\)""",
+    re.IGNORECASE,
+)
+_HAS_XL_BINDING_RE = re.compile(r"""xl\s*\(\s*['"]?%P\d+%""", re.IGNORECASE)
 
 # (sheet, cell, formula) or (sheet, cell, formula, report-cell-meta)
 DagFormulaItem = tuple[str, str, str] | tuple[str, str, str, dict[str, Any]]
@@ -83,6 +93,26 @@ def _omit_modes(n: int) -> list[HeaderMode]:
     return ["omit" for _ in range(max(n, 0))]
 
 
+def _dag_xl_already_bound(code: str) -> bool:
+    """True when *code* already uses binding-style ``xl("%Pn%")`` / ``xl(%Pn%)``."""
+    return bool(_HAS_XL_BINDING_RE.search(code or ""))
+
+
+def _unquote_xl_binding_tokens(code: str) -> str:
+    """``xl("%P2%",headers=True)`` → ``xl(%P2%,headers=True)`` for pythonScripts.xml."""
+
+    def repl(m: re.Match[str]) -> str:
+        p_num = m.group(2)
+        headers = m.group(3)
+        if headers:
+            # Normalize to MS sample style: no spaces around =.
+            flag = m.group(4)
+            return f"xl(%P{p_num}%,headers={flag})"
+        return f"xl(%P{p_num}%)"
+
+    return _QUOTED_P_TOKEN_RE.sub(repl, code or "")
+
+
 def rewrite_dag_code_to_excel(
     code: str,
     data_args: list[str],
@@ -90,7 +120,7 @@ def rewrite_dag_code_to_excel(
     header_modes: list[HeaderMode] | None = None,
     strip_object_suppress: bool = True,
 ) -> tuple[str, list[str], list[str]]:
-    """Rewrite DAG ``data`` usage to ``xl(%Pn%)`` / ``xl(%Pn%, headers=…)``.
+    """Rewrite DAG code to Excel package ``xl(%Pn%)`` / ``xl(%Pn%, headers=…)``.
 
     Returns ``(excel_code, deps, issues)``. Only *data* args are returned as deps
     (ordering-only args must already be filtered by the caller).
@@ -103,6 +133,10 @@ def rewrite_dag_code_to_excel(
     text = code or ""
     if strip_object_suppress:
         text = _OBJECT_SUPPRESS_RE.sub("", text)
+
+    # New forward path keeps xl("%Pn%"); only unquote for the Excel package.
+    if _dag_xl_already_bound(text):
+        return _unquote_xl_binding_tokens(text), deps, issues
 
     def df_repl(m: re.Match[str]) -> str:
         left_idx = m.group(2)

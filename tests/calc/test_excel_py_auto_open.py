@@ -217,7 +217,9 @@ def test_script_bank_only_long_scripts_and_mirrors_a1():
     f_long = formula_for_converted_cell(long_a, separator=";")
     assert f_long == "=PY(py_code_Data.H4;A1)"
 
-    assert any("xl()" in w for w in collect_safety_warnings("y = xl(1)"))
+    assert any("non-binding xl()" in w for w in collect_safety_warnings("y = xl(1)"))
+    assert any("non-binding xl()" in w for w in collect_safety_warnings('y = xl("A1")'))
+    assert collect_safety_warnings('y = xl("%P2%", headers=True)') == []
     assert any("whitelist" in w for w in collect_safety_warnings("import requests\nx=1"))
 
 

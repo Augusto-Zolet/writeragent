@@ -67,16 +67,16 @@ worksheet cell:     _xlws.PY(0, 1, A1:C100)
 
 %Pn% numbering: %P2% → first trailing dep, %P3% → second (idx = p_num - 2).
 
-rewritten code:     df = data.to_pandas()
+DAG code:           df = xl("%P2%",headers=True)   # sandbox xl looks up inputs
 Calc formula:       =PY("..."; A1:C100)
 ```
 
-(Older Excel-style rewrites used `pd.DataFrame(data[1:], columns=data[0])`; reverse export still accepts that form.)
+(Bare `%Pn%` is quoted for valid Python; the sandbox injects a binding-only `xl` — [`excel_xl.py`](../plugin/scripting/excel_xl.py). Legacy `data` / `.to_pandas()` DAG cells still reverse-export. Formula helpers are `calc.*`, not `xl`.)
 
 This is important for both correctness and the jail boundary:
 
 1. `A1:C100` becomes a real Calc formula precedent, so normal dirty tracking and DAG order still work.
-2. coolkit extracts that already-declared range once and includes it in the request; Python does not synchronously call back through service → wsd → kit for each `xl()` invocation.
+2. coolkit extracts that already-declared range once and includes it in the request; Python `xl("%P2%")` only indexes that payload — no synchronous call back through service → wsd → kit.
 3. The compute service remains document-blind: it receives code and plain values, not a capability for arbitrary live worksheet reads.
 
 Excel scripts that share globals across multiple PY cells need a **shared** compute session so prior-stage Python names persist. The OOXML rewriter maps formula-static `xl()` ranges onto real `=PY` data precedents only; it does **not** inject synthetic prior-PY order edges (every trailing arg is a real binding). Enabling shared-kernel mode and managing run order is the operator’s responsibility (same advisory as LibrePy [§6](enabling_numpy_in_libreoffice.md#session-modes-and-recalc-semantics)). A shared namespace without Calc precedents on real data ranges still will not refresh when those ranges change. `returnType` is preserved via conversion meta (`ExcelPyDagMeta` udprop on auto-open; CLI via `--from-report`). Table/`ANCHORARRAY` tokens are **A1 snapshots for Calc** and restored on Excel export for file fidelity only — not live Calc Table/spill support ([ms-py §5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import); code note in [`models.py`](../plugin/calc/excel_py_convert/models.py)).

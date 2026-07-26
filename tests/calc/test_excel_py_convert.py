@@ -185,8 +185,8 @@ def test_parse_xlws_py_formula():
 
 def test_rewrite_headers_single():
     code, issues, used, modes = rewrite_excel_code("df = xl(%P2%, headers=True)", num_deps=1)
-    assert "data.to_pandas()" in code
-    assert "xl(" not in code
+    assert 'xl("%P2%",headers=True)' in code
+    assert "to_pandas" not in code
     assert used == ["0"]
     assert modes[0] == "true"
     assert not any("dynamic" in i for i in issues)
@@ -194,7 +194,7 @@ def test_rewrite_headers_single():
 
 def test_rewrite_headers_false_preserved_in_mode():
     code, _issues, _used, modes = rewrite_excel_code("x = xl(%P2%, headers=False)", num_deps=1)
-    assert "to_pandas(header_row=None)" in code
+    assert 'xl("%P2%",headers=False)' in code
     assert modes[0] == "false"
 
 
@@ -203,8 +203,7 @@ def test_rewrite_multi_and_scalar():
         "filterDF.groupby(xl(%P2%))[[xl(%P3%)]].agg(xl(%P4%))",
         num_deps=3,
     )
-    assert "data" in code and "inputs[1]" in code and "inputs[2]" in code
-    assert "xl(" not in code
+    assert 'xl("%P2%")' in code and 'xl("%P3%")' in code and 'xl("%P4%")' in code
     assert used == ["0", "1", "2"]
 
 
@@ -219,7 +218,7 @@ def test_rewrite_ignores_xl_in_strings_and_comments():
     code, issues, used, _modes = rewrite_excel_code(src, num_deps=1)
     assert "a = 'xl(%P2%)'" in code
     assert "# xl(%P3%)" in code
-    assert "b = data" in code
+    assert 'b = xl("%P2%")' in code
     assert used == ["0"]
     assert not any("dynamic" in i for i in issues)
 
@@ -233,7 +232,7 @@ def test_rewrite_ignores_xl_in_escaped_and_triple_quoted_strings():
     code, issues, used, _modes = rewrite_excel_code(src, num_deps=1)
     assert 'xl(%P3%)' in code
     assert 'xl(%P4%)' in code
-    assert "c = data" in code
+    assert 'c = xl("%P2%")' in code
     assert used == ["0"]
     assert not any("dynamic" in i for i in issues)
 
@@ -241,7 +240,7 @@ def test_rewrite_ignores_xl_in_escaped_and_triple_quoted_strings():
 def test_rewrite_quoted_placeholder_constant():
     """Quoted ``xl("%P2%")`` is valid Python; AST Constant path must still bind."""
     code, issues, used, modes = rewrite_excel_code('df = xl("%P2%", headers=True)', num_deps=1)
-    assert "data.to_pandas()" in code
+    assert 'xl("%P2%",headers=True)' in code
     assert used == ["0"]
     assert modes[0] == "true"
     assert not any("dynamic" in i for i in issues)
@@ -252,8 +251,7 @@ def test_rewrite_non_ascii_prefix_offsets():
     src = "café = 1\ndf = xl(%P2%, headers=True)\n"
     code, issues, used, _modes = rewrite_excel_code(src, num_deps=1)
     assert "café = 1" in code
-    assert "df = data.to_pandas()" in code
-    assert "xl(" not in code
+    assert 'df = xl("%P2%",headers=True)' in code
     assert used == ["0"]
     assert not any("dynamic" in i for i in issues)
 
@@ -264,47 +262,44 @@ def test_rewrite_ignores_attribute_xl_calls():
     code, issues, used, _modes = rewrite_excel_code(src, num_deps=1)
     # Bare ``%Pn%`` is normalized to ``_Pn_`` for AST; attribute call is not rewritten.
     assert "obj.xl(_P2_)" in code or "obj.xl(%P2%)" in code
-    assert "y = data" in code
+    assert 'y = xl("%P2%")' in code
     assert used == ["0"]
     assert not any("dynamic" in i for i in issues)
 
 
-def test_rewrite_discarded_xl_statement_under_if_to_pass():
-    """Bare statement ``xl`` under ``if`` must not become ``data`` (empty-suite → pass)."""
+def test_rewrite_keeps_xl_statement_under_if():
+    """Statement ``xl`` under ``if`` stays as a quoted binding (no strip/pass)."""
     src = "if config_param == 3:\n    xl(%P2%)\n"
     code, issues, used, _modes = rewrite_excel_code(src, num_deps=1)
-    assert "pass" in code
-    assert "xl(" not in code
-    assert re.search(r"\bdata\b", code) is None
-    assert used == []
+    assert 'xl("%P2%")' in code
+    assert "pass" not in code
+    assert used == ["0"]
     assert not any("dynamic" in i for i in issues)
     ast.parse(code)
 
 
-def test_rewrite_discarded_xl_literal_statement_not_fail_closed():
-    """Literal statement ``xl("A1")`` under ``if`` → pass; do not fail-close the cell."""
+def test_rewrite_literal_xl_statement_fail_closed():
+    """Literal statement ``xl("A1")`` under ``if`` is dynamic — not silently stripped."""
     src = 'if config_param == 3:\n    xl("A1")\n'
     code, issues, used, _modes = rewrite_excel_code(src, num_deps=0)
-    assert "pass" in code
-    assert "xl(" not in code
+    assert 'xl("A1")' in code
+    assert any("dynamic" in i for i in issues)
     assert used == []
-    assert not any("dynamic" in i for i in issues)
-    ast.parse(code)
 
 
-def test_rewrite_discarded_xl_with_siblings_deletes_line():
+def test_rewrite_keeps_xl_statement_with_siblings():
     src = "if True:\n    xl(%P2%)\n    x = 1\n"
     code, issues, used, _modes = rewrite_excel_code(src, num_deps=1)
-    assert "xl(" not in code
+    assert 'xl("%P2%")' in code
     assert "x = 1" in code
-    assert used == []
+    assert used == ["0"]
     ast.parse(code)
 
 
-def test_rewrite_top_level_xl_still_egress_data():
-    """Sole / last top-level ``xl(%P2%)`` remains Jupyter last-expression → ``data``."""
+def test_rewrite_top_level_xl_still_egress_binding():
+    """Sole / last top-level ``xl(%P2%)`` remains Jupyter last-expression → ``xl("%P2%")``."""
     code, issues, used, _modes = rewrite_excel_code("xl(%P2%)", num_deps=1)
-    assert code.strip() == "data"
+    assert code.strip() == 'xl("%P2%")'
     assert used == ["0"]
     assert not any("dynamic" in i for i in issues)
 
@@ -315,16 +310,16 @@ def test_rewrite_assignment_literal_xl_still_dynamic():
     assert "xl(" in code
 
 
-def test_rewrite_multiline_discarded_xl_no_dangling():
+def test_rewrite_multiline_xl_statement_quoted():
     src = "if True:\n    xl(\n        %P2%,\n        headers=True,\n    )\n"
     code, issues, used, _modes = rewrite_excel_code(src, num_deps=1)
-    assert "xl(" not in code
-    assert "pass" in code
-    assert used == []
+    assert 'xl("%P2%",headers=True)' in code
+    assert "pass" not in code
+    assert used == ["0"]
     ast.parse(code)
 
 
-def test_convert_discarded_xl_statement_cell_converts():
+def test_convert_xl_statement_cell_keeps_binding():
     model = ExcelWorkbookModel(
         scripts=["if True:\n    xl(%P2%)\n"],
         cells=[_cell("S", "A1", 0, deps=["B1"], row=1, col=1)],
@@ -333,9 +328,20 @@ def test_convert_discarded_xl_statement_cell_converts():
     report = convert_model_to_dag(model)
     cell = report.cells[0]
     assert cell.converted
-    assert "pass" in cell.converted_code
-    assert "xl(" not in cell.converted_code
+    assert 'xl("%P2%")' in cell.converted_code
+    assert "pass" not in cell.converted_code
 
+
+def test_convert_literal_xl_statement_fail_closed():
+    model = ExcelWorkbookModel(
+        scripts=['if True:\n    xl("A1")\n'],
+        cells=[_cell("S", "A1", 0, deps=[], row=1, col=1)],
+        sheets=[_sheet("S")],
+    )
+    report = convert_model_to_dag(model)
+    cell = report.cells[0]
+    assert not cell.converted
+    assert any("dynamic" in i for i in cell.issues)
 
 def test_rewrite_syntax_error_with_placeholder_fail_closed():
     """Malformed scripts fail closed even when they contain ``%Pn%`` (no regex guess)."""
@@ -391,14 +397,20 @@ def test_inline_models_convert_to_dag(name: str, factory):
     for cell in report.cells:
         assert cell.converted
         assert cell.dag_formula.startswith("=PY("), cell
-        assert "%P" not in cell.converted_code, (name, cell.cell, cell.converted_code)
+        # Runnable DAG keeps xl("%Pn%") bindings (sandbox resolves them).
+        if "xl(" in (cell.original_code or ""):
+            assert 'xl("%P' in cell.converted_code or "xl('%P" in cell.converted_code, (
+                name,
+                cell.cell,
+                cell.converted_code,
+            )
 
 
 def test_demo1_fillna_specifics():
     report = convert_model_to_dag(demo1_fillna())
     by_cell = {c.cell: c for c in report.cells}
     h4 = by_cell["H4"]
-    assert "to_pandas()" in h4.converted_code
+    assert 'xl("%P2%",headers=True)' in h4.converted_code
     assert h4.data_args == ["A6:B254"]
     assert h4.excel_deps == ["_xlfn.ANCHORARRAY(A6)"]
     assert h4.return_type == 1
@@ -420,12 +432,12 @@ def test_demo3_table_and_scalar_groupby():
     c1 = by_cell["C1"]
     assert c1.data_args == ["Data!A1:AA5850"]
     assert c1.excel_deps == ["tradeData[#All]"]
-    assert "to_pandas()" in c1.converted_code
+    assert 'xl("%P2%",headers=True)' in c1.converted_code
     c9 = by_cell["C9"]
     assert c9.data_args == ["C4", "C5", "C6"]
     assert not c9.ordering_args
     assert "C3" not in (c9.dag_formula or "")
-    assert "data" in c9.converted_code and "inputs[2]" in c9.converted_code
+    assert 'xl("%P2%")' in c9.converted_code and 'xl("%P4%")' in c9.converted_code
     d9 = by_cell["D9"]
     assert d9.data_args == ["D4", "D5", "D6"]
     assert not d9.ordering_args
@@ -496,9 +508,9 @@ def test_demo6_multi_range_and_headers_false():
     n17 = by_cell["N17"]
     assert n17.data_args[:2] == ["U8:U15", "M8:T15"]
     assert not n17.ordering_args
-    assert "data" in n17.converted_code and "inputs[1]" in n17.converted_code
+    assert 'xl("%P2%")' in n17.converted_code and 'xl("%P3%")' in n17.converted_code
     ak = by_cell["AK34"]
-    assert "data" in ak.converted_code and "inputs[1]" in ak.converted_code
+    assert 'xl("%P2%",headers=False)' in ak.converted_code and 'xl("%P3%")' in ak.converted_code
     assert ak.bindings[0].header_mode == "false"
 
 
@@ -512,7 +524,9 @@ def test_dedup_duplicate_range_bindings():
     cell = report.cells[0]
     assert cell.converted
     assert cell.data_args == ["B1"]
-    assert "data[1]" not in cell.converted_code
+    # Both sites remap onto the single binding.
+    assert cell.converted_code.count('xl("%P2%")') == 2
+    assert "%P3%" not in cell.converted_code
 
 
 def test_fail_closed_unresolved_dep():
@@ -528,18 +542,19 @@ def test_fail_closed_unresolved_dep():
 
 
 def test_roundtrip_dag_excel_headers():
+    """Legacy ``data.to_pandas()`` still reverses; forward path keeps ``xl("%Pn%")``."""
     dag_code = "df = data.to_pandas()"
     excel_code, deps, issues = rewrite_dag_code_to_excel(dag_code, ["A3:F23"], header_modes=["true"])
     assert "xl(%P2%,headers=True)" in excel_code
     assert deps == ["A3:F23"]
     assert not issues
     again, _issues2, _used, modes = rewrite_excel_code(excel_code, num_deps=1)
-    assert "data.to_pandas()" in again
+    assert 'xl("%P2%",headers=True)' in again
     assert modes[0] == "true"
 
 
 def test_roundtrip_multi_dep_data_and_inputs():
-    """Forward ``data`` + ``inputs[i]`` must reverse to ``xl(%Pn%)`` for each binding."""
+    """Legacy ``data`` / ``inputs[i]`` reverse to ``xl(%Pn%)``; re-import keeps ``xl("%Pn%")``."""
     dag_code = "a = data\nb = inputs[1]\nc = inputs[2].to_pandas()\n"
     deps = ["A1:A2", "B1:B2", "C1:C2"]
     excel_code, out_deps, issues = rewrite_dag_code_to_excel(
@@ -552,9 +567,22 @@ def test_roundtrip_multi_dep_data_and_inputs():
     assert "inputs[" not in excel_code
     assert not any("ambiguous" in i for i in issues)
     again, _issues2, used, modes = rewrite_excel_code(excel_code, num_deps=3)
-    assert "data" in again and "inputs[1]" in again and "inputs[2].to_pandas()" in again
+    assert 'xl("%P2%")' in again and 'xl("%P3%")' in again and 'xl("%P4%",headers=True)' in again
     assert used == ["0", "1", "2"]
     assert modes[2] == "true"
+
+
+def test_export_passthrough_quoted_xl_bindings():
+    """DAG code that already has ``xl("%Pn%")`` unquotes for the Excel package."""
+    dag_code = 'df = xl("%P2%",headers=True)\nx = xl("%P3%")\n'
+    excel_code, deps, issues = rewrite_dag_code_to_excel(
+        dag_code, ["A1:B2", "C1"], header_modes=["true", "omit"]
+    )
+    assert deps == ["A1:B2", "C1"]
+    assert "xl(%P2%,headers=True)" in excel_code
+    assert "xl(%P3%)" in excel_code
+    assert '"%P' not in excel_code
+    assert not issues
 
 
 def test_reverse_non_ascii_prefix_offsets():
@@ -1019,7 +1047,7 @@ def test_write_excel_python_xlsx_roundtrip(tmp_path: Path):
     assert model.cells[0].deps
     again = convert_model_to_dag(model)
     assert again.ok
-    assert "to_pandas()" in again.cells[0].converted_code
+    assert 'xl("%P2%"' in again.cells[0].converted_code
 
 
 def test_cli_excel_write_xlsx(tmp_path: Path):
