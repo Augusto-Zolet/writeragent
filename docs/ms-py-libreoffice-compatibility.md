@@ -341,13 +341,13 @@ The converter joins those two parts: lift ranges onto `=PY` args, and make `xl(.
 Excel code:      df = xl(%P2%,headers=True)
 Excel cell:      _xlws.PY(0, 1, A1:C100)
 
-DAG code:        df = xl("%P2%",headers=True)   # sandbox xl → inputs[0].to_pandas()
+DAG code:        df = xl("%P2%",headers=True)   # sandbox xl → data.to_pandas()
 Calc formula:    =PY("..."; A1:C100)
 OOXML (DAG):     =PY("...",A1:C100)          # CLI --to dag --write-xlsx
 OOXML (Excel):   pythonScripts + _xlws.PY(…) # CLI --to excel --write-xlsx / auto-save
 ```
 
-(Bare Excel `%Pn%` is not valid Python — import quotes it as `"%Pn%"`. Export unquotes for the package. Legacy DAG cells that still use `data` / `inputs[i]` / `.to_pandas()` reverse to `xl(%Pn%)` as before. Emit style matches Microsoft samples: no space after the comma in `headers=True` / `headers=False`.)
+(Bare Excel `%Pn%` is not valid Python — import quotes it as `"%Pn%"`. Export unquotes for the package. Legacy DAG cells that still use `data` / `data_list[i]` / `.to_pandas()` reverse to `xl(%Pn%)` as before. Emit style matches Microsoft samples: no space after the comma in `headers=True` / `headers=False`.)
 
 Everything around `xl(...)`—pandas operations, groupby logic, plots, and ordinary Python statements—is preserved. Call sites are found only via AST after equal-length `_Pn_` sentinel normalize; there is no regex `xl(` scanner. Strings and comments stay intact. Statement-form `xl("%Pn%")` (including under `if`) is left in place; leftover `xl("A1")` / dynamic forms fail closed.
 

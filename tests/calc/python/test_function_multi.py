@@ -24,7 +24,7 @@ def test_execute_python_addin_multi_range_uses_multi_envelope():
     try:
         with unittest.mock.patch("plugin.calc.python.function.run_code_in_user_venv") as mock_run:
             mock_run.return_value = {"status": "ok", "result": 15.0}
-            res = execute_python_addin(ctx, "result = float(np.sum(data)) + float(np.sum(inputs[1]))", (col_a, col_b))
+            res = execute_python_addin(ctx, "result = float(np.sum(data)) + float(np.sum(data_list[1]))", (col_a, col_b))
             assert res == 15.0
             mock_run.assert_called_once()
             wire = mock_run.call_args.kwargs["data"]
@@ -86,7 +86,7 @@ def test_execute_python_addin_two_single_cells_not_treated_as_index():
     try:
         with unittest.mock.patch("plugin.calc.python.function.run_code_in_user_venv") as mock_run:
             mock_run.return_value = {"status": "ok", "result": 37750.0}
-            res = execute_python_addin(ctx, "inputs[0].values[0][0] + inputs[1].values[0][0]", (cell_a, cell_b))
+            res = execute_python_addin(ctx, "data_list[0].values[0][0] + data_list[1].values[0][0]", (cell_a, cell_b))
             assert res == 37750.0
             wire = mock_run.call_args.kwargs["data"]
             assert is_multi_data(wire)

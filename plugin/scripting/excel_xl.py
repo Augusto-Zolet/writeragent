@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Binding-only Excel ``xl()`` data bridge for ``=PY`` sandboxes.
 
-Looks up ranges already passed as formula ``data`` / ``inputs`` args. No sheet
+Looks up ranges already passed as formula ``data`` / ``data_list`` args. No sheet
 RPC, no co-volatility, no dynamic ``xl(variable)`` / f-strings.
 
-Refs are ``%Pn%`` strings (``%P2%`` = ``inputs[0]``). Header modes match the
+Refs are ``%Pn%`` strings (``%P2%`` = first range / ``data``). Header modes match the
 Excel→DAG converter:
 ``True`` → ``to_pandas()``, ``False`` → ``to_pandas(header_row=None)``, omitted → bare ``CalcRange``.
 """
@@ -20,9 +20,9 @@ _P_TOKEN_RE = re.compile(r"^%P(\d+)%$", re.IGNORECASE)
 _HEADERS_OMIT = object()
 
 
-def make_xl(inputs: tuple[Any, ...] | list[Any] | None) -> Any:
-    """Return an Excel-shaped ``xl(ref, headers=…)`` closed over *inputs*."""
-    ranges = tuple(inputs or ())
+def make_xl(ranges: tuple[Any, ...] | list[Any] | None) -> Any:
+    """Return an Excel-shaped ``xl(ref, headers=…)`` closed over *ranges*."""
+    bound = tuple(ranges or ())
 
     def xl(ref: Any, headers: Any = _HEADERS_OMIT) -> Any:
         if not isinstance(ref, str):
@@ -37,12 +37,12 @@ def make_xl(inputs: tuple[Any, ...] | list[Any] | None) -> Any:
                 f"got {ref!r} (no live sheet reads)"
             )
         idx = int(m.group(1)) - 2
-        if idx < 0 or idx >= len(ranges):
+        if idx < 0 or idx >= len(bound):
             raise ValueError(
                 f"xl({ref!r}) has no matching data binding "
-                f"(need index {idx}, have {len(ranges)} inputs)"
+                f"(need index {idx}, have {len(bound)} ranges)"
             )
-        rng = ranges[idx]
+        rng = bound[idx]
         if headers is _HEADERS_OMIT:
             return rng
         to_pandas = getattr(rng, "to_pandas", None)

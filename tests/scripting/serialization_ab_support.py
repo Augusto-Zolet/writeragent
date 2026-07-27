@@ -105,10 +105,10 @@ VENV_CODE_NANSUM = "result = float(np.nansum(data))"
 VENV_CODE_MIXED_SUM = (
     "result = sum(v for row in data.values for v in row if isinstance(v, (int, float)))"
 )
-VENV_CODE_MULTI_SUM = "result = sum(float(np.sum(d)) for d in inputs)"
+VENV_CODE_MULTI_SUM = "result = sum(float(np.sum(d)) for d in data_list)"
 VENV_CODE_MULTI_MIXED_SUM = (
     "result = float(sum("
-    "v for g in inputs "
+    "v for g in data_list "
     "for row in g.values "
     "for v in row "
     "if isinstance(v, (int, float))"
@@ -888,7 +888,7 @@ def run_multi_venv_echo(
     use_subprocess: bool = False,
 ) -> Any:
     """Echo ``data`` through venv when injected as a multi-range list."""
-    code = "result = [r.values for r in inputs]"
+    code = "result = [r.values for r in data_list]"
     wire = host_pack_multi_data(grids, force=pack_force)
     if use_subprocess:
         mgr = PythonWorkerManager.get(sys.executable, _WORKER_ENV)

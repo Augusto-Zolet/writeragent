@@ -54,7 +54,6 @@ _INIT_STATE_SKIP_KEYS = frozenset(
         "result",
         "data",
         "data_list",
-        "inputs",
         "xl",  # binding-only Excel data bridge; re-injected each run
     }
 )
@@ -505,17 +504,17 @@ def convert_datetimes_and_deltas(data: Any, locale: str | None, convert_datetime
     return _rec(data)
 
 
-def _inject_excel_xl(executor: LocalPythonExecutor, inputs: tuple[Any, ...] | None = None) -> None:
-    """Inject binding-only Excel ``xl()`` closed over *inputs* (may be empty)."""
+def _inject_excel_xl(executor: LocalPythonExecutor, ranges: tuple[Any, ...] | None = None) -> None:
+    """Inject binding-only Excel ``xl()`` closed over *ranges* (may be empty)."""
     from plugin.scripting.excel_xl import make_xl
 
-    executor.send_variables({"xl": make_xl(inputs)})
+    executor.send_variables({"xl": make_xl(ranges)})
 
 
 def _inject_data(executor: LocalPythonExecutor, data: Any | None, locale: str | None = None, convert_datetime: bool = False) -> tuple[Any, ...]:
-    """Inject ``inputs`` (tuple of CalcRange) and ``data`` (= inputs[0] when present).
+    """Inject ``data`` (first CalcRange) and ``data_list`` (all ranges as a list).
 
-    Returns the materialized ``inputs`` tuple (empty when *data* is None) so callers
+    Returns the materialized ranges tuple (empty when *data* is None) so callers
     can bind Excel ``xl()`` to the same ranges.
     """
     if data is None:
@@ -526,24 +525,22 @@ def _inject_data(executor: LocalPythonExecutor, data: Any | None, locale: str | 
     if is_split_grid(data) or is_calc_range_payload(data) or is_multi_data(data):
         log.debug("venv_sandbox injecting data %s", describe_wire_value(data))
 
-    inputs = materialize_inputs(data)
+    ranges = materialize_inputs(data)
     # Optional datetime conversion walks nested values inside each range.
     if convert_datetime or locale:
         converted: list[CalcRange] = []
-        for r in inputs:
+        for r in ranges:
             vals = convert_datetimes_and_deltas(r.values, locale, convert_datetime)
             converted.append(CalcRange(vals, address=r.address))
-        inputs = tuple(converted)
+        ranges = tuple(converted)
 
-    variables: dict[str, Any] = {"inputs": inputs}
-    if inputs:
-        variables["data"] = inputs[0]
-    else:
-        variables["data"] = None
-    # Alias kept for internal helpers that still iterate ranges as a list.
-    variables["data_list"] = list(inputs)
+    data_list = list(ranges)
+    variables: dict[str, Any] = {
+        "data": ranges[0] if ranges else None,
+        "data_list": data_list,
+    }
     executor.send_variables(variables)
-    return inputs
+    return ranges
 
 
 def _inject_bindings(executor: LocalPythonExecutor, bindings: dict[str, Any] | None) -> None:
@@ -652,7 +649,7 @@ def run_sandboxed_code(
             _seed_executor_from_init(executor, init_sid)
 
     inject_auto_imports(executor, code)
-    inputs = _inject_data(executor, data, locale=locale, convert_datetime=convert_datetime)
-    _inject_excel_xl(executor, inputs)
+    ranges = _inject_data(executor, data, locale=locale, convert_datetime=convert_datetime)
+    _inject_excel_xl(executor, ranges)
     _inject_bindings(executor, bindings)
     return _run_on_executor(executor, code)

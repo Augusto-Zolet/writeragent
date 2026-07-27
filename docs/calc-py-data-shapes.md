@@ -2,7 +2,7 @@
 
 **Glossary:** `=PY()` and `=PYTHON()` are the same Calc add-in (`XPythonFunction`). Formulas below use `=PY`; either name works.
 
-This doc is the authoritative **behavior** contract for range arguments: what `data` / `inputs` look like in Python, blank vs NaN, dates, logicals, and multi-range varargs.
+This doc is the authoritative **behavior** contract for range arguments: what `data` / `data_list` look like in Python, blank vs NaN, dates, logicals, and multi-range varargs.
 
 Related:
 
@@ -10,7 +10,7 @@ Related:
 | --- | --- |
 | [Enabling NumPy & Python](enabling_numpy_in_libreoffice.md) | User guide, session modes, spill/matrix UX, architecture overview |
 | [Venv IPC & serialization](numpy-serialization.md) | Pickle5 wire, `split_grid`, benchmarks, codec invariants |
-| [Microsoft `=PY` design stance](ms-py-libreoffice-compatibility.md) | Why Calc keeps explicit `data` args; Excel packages already bind ranges as trailing `_xlws.PY` args that the rewriter maps onto `data` / `inputs` ([§5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import)) |
+| [Microsoft `=PY` design stance](ms-py-libreoffice-compatibility.md) | Why Calc keeps explicit `data` args; Excel packages already bind ranges as trailing `_xlws.PY` args that the rewriter maps onto `data` / `data_list` ([§5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import)) |
 
 Code: [`plugin/scripting/calc_range.py`](../plugin/scripting/calc_range.py), [`plugin/calc/calc_addin_data.py`](../plugin/calc/calc_addin_data.py), [`plugin/calc/python/function.py`](../plugin/calc/python/function.py) (`to_calc_compatible`).
 
@@ -34,8 +34,8 @@ When you write `=PY(code; range)`, the add-in:
 
 1. Resolves the range in Calc and reads cell values as a **rectangular 2D grid** (orientation preserved).
 2. Packs the grid in a `calc_range` wire envelope (`split_grid` is a private transport optimization — see [serialization](numpy-serialization.md#strategy-3-split-grid-serialization-detail)).
-3. Materializes a [`CalcRange`](../plugin/scripting/calc_range.py) in the sandbox as `data`, and sets `inputs = (data, …)`.
-4. Runs your script with `data` / `inputs` already bound.
+3. Materializes a [`CalcRange`](../plugin/scripting/calc_range.py) in the sandbox as `data`, and sets `data_list = [data, …]`.
+4. Runs your script with `data` / `data_list` already bound.
 
 | Range you pass in Calc | Structure of `data` in Python | Example usage |
 | --- | --- | --- |
@@ -52,7 +52,7 @@ data.to_numpy()                      # ndarray (None → nan for numeric dtype)
 data.to_pandas()                     # header_row=0 by default
 data.to_pandas(header_row=None)      # all rows are data; columns col_0…
 data.to_pandas(parse_strings=True)   # opt-in currency/percent/date string parsing
-inputs[1]                            # second range (never `data[1]` for another range)
+data_list[1]                         # second range (never `data[1]` for another range)
 ```
 
 Returning a **pandas DataFrame** spills/writes with its **column header row** included. Returning a list/ndarray writes values only.
@@ -65,7 +65,7 @@ Payload size cap: `scripting.python_max_data_cells` ([serialization config](nump
 
 ## Multi-range support (varargs) {#multi-range-support-varargs}
 
-**Status:** Shipped. `inputs` is always a `tuple[CalcRange, …]`; `data` is always `inputs[0]` when at least one range was passed. Wire envelope: [Multi-range wire format](numpy-serialization.md#multi-range-wire-format). Chat-tool multi `data_range` remains future work.
+**Status:** Shipped. `data_list` is always a `list[CalcRange]`; `data` is always `data_list[0]` when at least one range was passed. Wire envelope: [Multi-range wire format](numpy-serialization.md#multi-range-wire-format). Chat-tool multi `data_range` remains future work.
 
 `=PY()` accepts **one or more** optional data arguments after `code`. Calc packs trailing arguments into a single `sequence<any>` (UNO varargs).
 
@@ -81,21 +81,19 @@ interface XPythonFunction : com::sun::star::uno::XInterface
 
 Rebuild after IDL changes: `scripts/rebuild_xprompt_rdb.sh` → [`extension/XPythonFunction.rdb`](../extension/XPythonFunction.rdb).
 
-| Formula | `data` | `inputs` |
+| Formula | `data` | `data_list` |
 | --- | --- | --- |
-| `=PY("…"; A1:A5)` | `CalcRange` for `A1:A5` | `(data,)` |
-| `=PY("…"; A1:A5; C1:C5)` | first range | `(range0, range1)` |
-
-`data_list` remains an alias for `list(inputs)`. Prefer `inputs` in new scripts.
+| `=PY("…"; A1:A5)` | `CalcRange` for `A1:A5` | `[data]` |
+| `=PY("…"; A1:A5; C1:C5)` | first range | `[range0, range1]` |
 
 **Example — weighted average across regions:**
 
 ```text
-=PY("result = (np.mean(data) + np.mean(inputs[1])*2 + np.mean(inputs[2])) / 4"; A1:A10; C1:C10; E1:E10)
+=PY("result = (np.mean(data) + np.mean(data_list[1])*2 + np.mean(data_list[2])) / 4"; A1:A10; C1:C10; E1:E10)
 ```
 
 ```python
-result = float(np.mean([np.mean(r) for r in inputs]))
+result = float(np.mean([np.mean(r) for r in data_list]))
 ```
 
 ---

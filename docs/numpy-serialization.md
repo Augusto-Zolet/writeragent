@@ -237,7 +237,7 @@ flowchart TD
 
 ### Cell semantics: Calc, Python, and NumPy
 
-**Author-facing behavior** (what scripts see as `data` / `inputs`, blanks vs NaN, dates, logicals, rectangular orientation): **[calc-py-data-shapes.md](calc-py-data-shapes.md)**.
+**Author-facing behavior** (what scripts see as `data` / `data_list`, blanks vs NaN, dates, logicals, rectangular orientation): **[calc-py-data-shapes.md](calc-py-data-shapes.md)**.
 
 This section keeps **codec / wire** invariants only.
 
@@ -440,7 +440,7 @@ This caches **execution output** on the host — separate from the worker [**cod
 
 **Status:** Shipped — varargs IDL + `multi_data` of `calc_range` envelopes.
 
-Multiple ranges use a `multi_data` envelope (`__wa_payload__`: `"multi_data"`, `items`: per-range `calc_range` payloads). Each `calc_range` wraps an inner list or `split_grid`. In the venv, this becomes `inputs: tuple[CalcRange, …]` with `data = inputs[0]`.
+Multiple ranges use a `multi_data` envelope (`__wa_payload__`: `"multi_data"`, `items`: per-range `calc_range` payloads). Each `calc_range` wraps an inner list or `split_grid`. In the venv, this becomes `data_list: list[CalcRange]` with `data = data_list[0]`.
 
 | Layer | Module |
 |-------|--------|

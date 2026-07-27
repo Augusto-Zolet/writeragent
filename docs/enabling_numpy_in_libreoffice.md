@@ -341,7 +341,7 @@ IDL: `any python( [in] string code, [in] any data );` in `[extension/idl/XPython
 | Arg | Name   | Required | Role                                                                         |
 | --- | ------ | -------- | ---------------------------------------------------------------------------- |
 | 0   | `code` | Yes      | Python source; evaluated result is returned                                  |
-| 1   | `data` | No       | Optional range(s) → `data` / `inputs` ([Data shapes](calc-py-data-shapes.md)) |
+| 1   | `data` | No       | Optional range(s) → `data` / `data_list` ([Data shapes](calc-py-data-shapes.md)) |
 
 
 
@@ -724,10 +724,10 @@ flowchart LR
   end
 ```
 
-| Capability                     | `data` / `inputs`                         | LibrePythonista             |
+| Capability                     | `data` / `data_list`                      | LibrePythonista             |
 | ------------------------------ | ----------------------------------------- | --------------------------- |
 | Pass one range                 | Yes — `CalcRange` (always 2D)             | `lp("A1:B10")`              |
-| Multiple ranges in one formula | Yes — `inputs[0]`, `inputs[1]`, …         | Multiple `lp()` calls       |
+| Multiple ranges in one formula | Yes — `data_list[0]`, `data_list[1]`, …   | Multiple `lp()` calls       |
 | Named ranges                   | Only as formula args                      | `lp("MyRange")`             |
 | Trim empty rows (`collapse`)   | No                                        | `collapse=True` on `lp()`   |
 | Typed date columns             | Raw Calc values (user coerces)            | `column_types` + pandas     |
@@ -746,7 +746,7 @@ flowchart LR
 
 ### Data shapes (`data` / blanks / varargs)
 
-Trailing formula arguments become `CalcRange` values: `data` is the first range, `inputs` is the full tuple. Orientation is always 2D (`(1,1)`, `(1,N)`, `(N,1)`, or `(rows, cols)`). Blank vs NaN policy, dates, logicals, and multi-range examples: **[calc-py-data-shapes.md](calc-py-data-shapes.md)**.
+Trailing formula arguments become `CalcRange` values: `data` is the first range, `data_list` is the full list. Orientation is always 2D (`(1,1)`, `(1,N)`, `(N,1)`, or `(rows, cols)`). Blank vs NaN policy, dates, logicals, and multi-range examples: **[calc-py-data-shapes.md](calc-py-data-shapes.md)**.
 
 ### Optional: Python edit dialog (deferred UX)
 
@@ -773,10 +773,10 @@ Microsoft runs Python in **cloud containers**. Authors type `xl("…")` literals
 
 | Feature dimension | Microsoft Excel (`=PY`) | Calc `=PY()` |
 | --- | --- | --- |
-| **Data ingress** | UI `xl("A1:B10")` → package `%Pn%` + trailing `_xlws.PY` deps | Range as formula arg → `data` / `inputs` |
+| **Data ingress** | UI `xl("A1:B10")` → package `%Pn%` + trailing `_xlws.PY` deps | Range as formula arg → `data` / `data_list` |
 | **Output egress** | Last expression | Explicit `result = …` (last-expr also accepted) |
 | **Dependency tracking** | **Excel→PY:** trailing formula deps (literals rewritten at edit/save; no Python parse at recalc). **PY↔PY:** co-volatility ([ms-py §5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import), [jailsafe](numpy-jailsafe.md)) | Native Calc DAG on `data` args |
-| **Multi-range** | Multiple `%Pn%` / trailing deps | Varargs → `inputs` ([data shapes](calc-py-data-shapes.md#multi-range-support-varargs)) |
+| **Multi-range** | Multiple `%Pn%` / trailing deps | Varargs → `data_list` ([data shapes](calc-py-data-shapes.md#multi-range-support-varargs)) |
 | **Shared state** | Globals + row-major co-volatility | Opt-in shared kernel + `data` refs ([§6](#session-modes-and-recalc-semantics)) |
 | **Runtime** | Cloud sandbox | User venv (offline, any pip packages) |
 | **Editor** | Monaco task pane | Monaco via pywebview ([§3](#run-python-script--monaco)) |

@@ -383,7 +383,7 @@ def execute_and_insert_result(
         drs = _resolve_data_ranges()
         if drs:
             tool_ctx = calc_tool_context(ctx, doc)
-            # Pass the full address list so multi Data: bindings become inputs[0], inputs[1], …
+            # Pass the full address list so multi Data: bindings become data / data_list.
             py_data, err = _resolve_python_data(tool_ctx, data_range=drs, data=None)
             if err:
                 return {"ok": False, "message": err}

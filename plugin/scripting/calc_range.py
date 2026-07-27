@@ -262,7 +262,7 @@ def _scalar(v: Any) -> Any:
 
 
 def materialize_inputs(wire: Any) -> tuple[CalcRange, ...]:
-    """Materialize worker ``data`` wire into a stable ``inputs`` tuple of CalcRange.
+    """Materialize worker ``data`` wire into a stable tuple of CalcRange.
 
     - ``calc_range`` → ``(range,)``
     - ``multi_data`` of ranges/grids → one CalcRange per item

@@ -6,7 +6,7 @@ Forward import keeps runnable ``xl("%Pn%", …)`` call sites (sandbox binding-on
 
 * If code already has binding-style ``xl(`` / ``%P``, unquote tokens for the
   Microsoft package (``xl("%P2%")`` → ``xl(%P2%)``) and normalize headers spacing.
-* Legacy DAG workbooks that still use ``data`` / ``inputs[i]`` / ``.to_pandas()``
+* Legacy DAG workbooks that still use ``data`` / ``data_list[i]`` / ``.to_pandas()``
   (and the older ``pd.DataFrame(data[1:], columns=data[0])`` form) are reversed
   to ``xl(...)`` as before.
 
@@ -35,11 +35,11 @@ _DF_DATA_RE = re.compile(
     re.IGNORECASE,
 )
 _TO_PANDAS_TRUE_RE = re.compile(
-    r"(data|inputs)(?:\[\s*(\d+)\s*\])?\.to_pandas\(\s*\)",
+    r"(data_list|data)(?:\[\s*(\d+)\s*\])?\.to_pandas\(\s*\)",
     re.IGNORECASE,
 )
 _TO_PANDAS_FALSE_RE = re.compile(
-    r"(data|inputs)(?:\[\s*(\d+)\s*\])?\.to_pandas\(\s*header_row\s*=\s*None\s*\)",
+    r"(data_list|data)(?:\[\s*(\d+)\s*\])?\.to_pandas\(\s*header_row\s*=\s*None\s*\)",
     re.IGNORECASE,
 )
 _OBJECT_SUPPRESS_RE = re.compile(
@@ -170,13 +170,13 @@ def rewrite_dag_code_to_excel(
     text = _TO_PANDAS_TRUE_RE.sub(to_pandas_true_repl, text)
     text = _DF_DATA_RE.sub(df_repl, text)
 
-    # Token-position rewrite for data / data[i] / inputs[i] via AST when possible.
+    # Token-position rewrite for data / data[i] / data_list[i] via AST when possible.
     rewritten, ast_issues = _rewrite_data_names_ast(text, deps, modes)
     issues.extend(ast_issues)
     if rewritten is not None:
         return rewritten, deps, issues
 
-    # Regex fallback (legacy data[i] plus forward emit shape data / inputs[i]).
+    # Regex fallback (legacy data[i] plus data_list[i]).
     def index_repl(m: re.Match[str]) -> str:
         idx = int(m.group(1))
         if idx >= len(deps):
@@ -185,7 +185,7 @@ def rewrite_dag_code_to_excel(
         hm: HeaderMode = modes[idx] if idx < len(modes) else "omit"
         return _xl_expr(idx, hm)
 
-    text = re.sub(r"\b(?:data|inputs)\[\s*(\d+)\s*\]", index_repl, text)
+    text = re.sub(r"\b(?:data_list|data)\[\s*(\d+)\s*\]", index_repl, text)
 
     if deps:
 
@@ -194,7 +194,7 @@ def rewrite_dag_code_to_excel(
             hm: HeaderMode = modes[0] if modes else "omit"
             return _xl_expr(0, hm)
 
-        text = re.sub(r"(?<![\w.])data(?!\s*\[)", bare_repl, text)
+        text = re.sub(r"(?<![\w.])data(?!\w)", bare_repl, text)
 
     return text, deps, issues
 
@@ -204,7 +204,7 @@ def _rewrite_data_names_ast(
     deps: list[str],
     modes: list[HeaderMode],
 ) -> tuple[str | None, list[str]]:
-    """Rewrite ``data`` / ``data[i]`` / ``inputs[i]`` Name/Subscript nodes."""
+    """Rewrite ``data`` / ``data[i]`` / ``data_list[i]`` Name/Subscript nodes."""
     issues: list[str] = []
     try:
         tree = ast.parse(code)
@@ -222,7 +222,7 @@ def _rewrite_data_names_ast(
     hits: list[_Hit] = []
 
     for node in ast.walk(tree):
-        if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name) and node.value.id in ("data", "inputs"):
+        if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name) and node.value.id in ("data", "data_list"):
             sl = node.slice
             idx = None
             if isinstance(sl, ast.Constant) and isinstance(sl.value, int):

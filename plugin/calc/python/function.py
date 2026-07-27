@@ -609,9 +609,9 @@ def _format_error_for_display(exc: BaseException) -> str:
 
 
 def _code_uses_indexed_multi_data(code: str) -> bool:
-    """True when inline code references ``data[n]`` or ``inputs[n]`` (all PY args are data ranges)."""
+    """True when inline code references ``data[n]`` or ``data_list[n]`` (all PY args are data ranges)."""
     src = code or ""
-    return "data[" in src or "inputs[" in src
+    return "data[" in src or "data_list[" in src
 
 
 def get_python_init_kwargs(ctx: Any) -> dict[str, Any]:

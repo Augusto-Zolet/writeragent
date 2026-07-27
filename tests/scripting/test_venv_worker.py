@@ -69,11 +69,11 @@ def test_execute_request_injects_data():
 
 def test_execute_request_injects_data_list_single_range():
     r = _execute_request(
-        "result = (len(inputs), data is inputs[0], len(data_list))",
+        "result = (len(data_list), data is data_list[0])",
         [[1, 2, 3]],
     )
     assert r["status"] == "ok"
-    assert r["result"] == [1, True, 1]
+    assert r["result"] == [1, True]
 
 
 def test_execute_request_injects_data_list_multi_range():
@@ -81,11 +81,18 @@ def test_execute_request_injects_data_list_multi_range():
 
     wire = pack_calc_multi_data_for_wire([[[1.0, 2.0, 3.0]], [[4.0, 5.0]]], force="never")
     r = _execute_request(
-        "result = (len(inputs), data is inputs[0], data_list[1] is inputs[1])",
+        "result = (len(data_list), data is data_list[0], data_list[1].values[0][0])",
         wire,
     )
     assert r["status"] == "ok"
-    assert r["result"] == [2, True, True]
+    assert r["result"] == [2, True, 4.0]
+
+
+def test_execute_request_does_not_inject_inputs():
+    # LocalPythonExecutor raises InterpreterError (not NameError) for missing names.
+    r = _execute_request("result = inputs", [[1]])
+    assert r["status"] == "error"
+    assert "inputs" in r.get("message", "").lower() and "not defined" in r.get("message", "").lower()
 
 
 def test_blocked_import_os():

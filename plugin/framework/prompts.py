@@ -525,7 +525,7 @@ def python_specialized_sub_agent_hint(agent_label: str) -> str:
         data_hint = (
             " For bulk data use data_range with run_venv_python_script "
             "(one A1 address, comma-separated addresses, or an array); "
-            "`data` is inputs[0] and extra ranges are inputs[1:]. "
+            "`data` is the first range and extra ranges are in `data_list`. "
             "The host resolves addresses out-of-band. Avoid passing large values in the data parameter."
         )
     else:
