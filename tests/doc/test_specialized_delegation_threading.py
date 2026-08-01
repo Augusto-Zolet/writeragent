@@ -15,6 +15,7 @@ from plugin.calc.sheets import ListSheets
 from plugin.calc.specialized import DelegateToSpecializedCalc
 from plugin.chatbot.smol_agent import SmolToolAdapter
 from plugin.contrib.smolagents.memory import FinalAnswerStep
+from plugin.framework import thread_guard as tg
 from plugin.framework.tool import ToolBase, ToolContext, ToolRegistry
 from plugin.framework.worker_pool import run_in_background
 from plugin.tests.testing_utils import setup_uno_mocks
@@ -119,6 +120,76 @@ def test_calc_delegate_marshals_spreadsheet_context_to_main_thread(
     instructions = mock_agent_class.call_args.kwargs["instructions"]
     assert "[SPREADSHEET CONTEXT]" in instructions
     assert "Sheets: Sheet1" in instructions
+
+
+@patch("plugin.doc.specialized_base.USE_SUB_AGENT", True)
+@patch(
+    "plugin.chatbot.smol_agent.get_config_int",
+    side_effect=lambda key: 25 if key == "chatbot.max_tool_rounds" else 1024,
+)
+@patch("plugin.chatbot.smol_agent.get_api_config", create=True, return_value={"model": "test/model"})
+@patch("plugin.chatbot.smol_agent.ToolCallingAgent")
+@patch("plugin.chatbot.smol_agent.WriterAgentSmolModel")
+@patch("plugin.chatbot.smol_agent.LlmClient")
+@patch("plugin.doc.document_helpers.get_calc_context_for_chat")
+def test_calc_delegate_guard_proxied_doc_presence_is_identity_safe(
+    mock_get_calc_context,
+    _mock_llm,
+    _mock_smol_model,
+    mock_agent_class,
+    _mock_get_config,
+    _mock_get_config_int,
+):
+    """Regression: truthiness on guard-proxied ctx.doc trips UNO bool on MCP/long-running worker."""
+    mock_get_calc_context.return_value = "Sheets: Sheet1\nActive Sheet: Sheet1"
+    mock_agent_instance = MagicMock()
+    mock_agent_instance.run.return_value = [FinalAnswerStep(output="done")]
+    mock_agent_class.return_value = mock_agent_instance
+
+    registry = ToolRegistry(MagicMock())
+    registry.register(_DummyAnalysisTool())
+    registry.register(DelegateToSpecializedCalc())
+
+    raw_doc = MagicMock()
+    raw_doc.supportsService.return_value = True
+    # MagicMock bypasses guard_uno(); wrap explicitly so __bool__ asserts main thread.
+    proxied_doc = tg._UnoThreadGuardProxy(raw_doc)
+
+    ctx = MagicMock()
+    ctx.services = {"tools": registry}
+    ctx.doc = proxied_doc
+    ctx.ctx = MagicMock()
+    ctx.doc_type = "calc"
+    ctx.stop_checker = lambda: False
+
+    gateway = registry.get("delegate_to_specialized_calc_toolset")
+    session = start_uno_thread_safety_session()
+    was_guard = tg.GUARD_ON
+    tg.GUARD_ON = True
+    err: BaseException | None = None
+    result: dict | None = None
+    try:
+        # Avoid modal MessageBox if a violation fires during the run.
+        with patch.object(tg, "_notify_thread_violation"):
+
+            def worker():
+                nonlocal err, result
+                try:
+                    result = gateway.execute_safe(ctx, domain="analysis", task="Describe sales data")
+                except BaseException as e:
+                    err = e
+
+            t = run_in_background(worker, name="calc-delegate-uno-bool", daemon=False)
+            t.join(timeout=5.0)
+    finally:
+        tg.GUARD_ON = was_guard
+        session.close()
+
+    assert err is None, f"UNO touch from worker: {err}"
+    assert result is not None and result.get("status") == "ok"
+    mock_get_calc_context.assert_called_once()
+    instructions = mock_agent_class.call_args.kwargs["instructions"]
+    assert "[SPREADSHEET CONTEXT]" in instructions
 
 
 @patch("plugin.doc.specialized_base.USE_SUB_AGENT", True)
