@@ -1036,11 +1036,21 @@ def generate_xdl_files(modules, output_dir):
             generated_paths.add(ld_path)
             count += 1
 
-    # Clean stale XDL files (e.g. modules that became inlined)
+    # Clean stale module-page XDLs (e.g. modules that became inlined).
+    # Dialogs/ is shared with SettingsDialog and standalone config_dialog XDLs —
+    # never delete those (they are written by other generators in the same tree).
+    preserve_basenames = {"SettingsDialog.xdl"}
+    for m in modules:
+        cfg_dialog = m.get("config_dialog")
+        if not cfg_dialog:
+            continue
+        dialog_id = cfg_dialog.get("id") or ("WriterAgent_%sSettings" % m["name"].replace(".", "_"))
+        preserve_basenames.add("%s.xdl" % dialog_id)
+
     for stale in os.listdir(output_dir):
         if stale.endswith(".xdl"):
             stale_path = os.path.join(output_dir, stale)
-            if stale_path not in generated_paths:
+            if stale_path not in generated_paths and stale not in preserve_basenames:
                 os.remove(stale_path)
                 count_removed += 1
 

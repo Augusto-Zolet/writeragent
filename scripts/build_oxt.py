@@ -99,9 +99,10 @@ EXCLUDE_PATTERNS = (
     ".tpl",
 )
 
-# Generated files (XCS/XCU, XDL dialogs)
+# Generated files (XCS/XCU, XDL dialogs). One Dialogs/ tree only — a separate
+# lowercase dialogs/ collides with Dialogs/ on Windows case-insensitive FS and
+# wiped ChatPanelDialog.xdl during hot-deploy (empty sidebar).
 GENERATED_INCLUDES = [
-    "build/generated/dialogs/",
     "build/generated/Dialogs/",
     "build/generated/Addons.xcu",
     "build/generated/Accelerators.xcu",

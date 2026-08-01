@@ -315,7 +315,9 @@ function Install-ToCache {
         }
     }
 
-    # Sync dialogs (static + dynamically generated)
+    # Sync Dialogs/ (static + generated). Do not sync a separate lowercase
+    # dialogs/ — on Windows that path is the same folder and Remove-Item wiped
+    # ChatPanelDialog.xdl (empty sidebar).
     $staticDialogs = Join-Path $ProjectRoot "extension\Dialogs"
     $generatedDialogs = Join-Path $ProjectRoot "build\generated\Dialogs"
     if (Test-Path $staticDialogs) {
@@ -332,15 +334,6 @@ function Install-ToCache {
         if (Test-Path $dst) { Remove-Item -Path $dst -Recurse -Force }
         Copy-Item -Path $generatedDialogs -Destination $dst -Recurse -Force
         Write-Host "    Dialogs/ (generated) synced"
-        $deployed++
-    }
-
-    $generatedDialogPages = Join-Path $ProjectRoot "build\generated\dialogs"
-    if (Test-Path $generatedDialogPages) {
-        $dst = Join-Path $extDir "dialogs"
-        if (Test-Path $dst) { Remove-Item -Path $dst -Recurse -Force }
-        Copy-Item -Path $generatedDialogPages -Destination $dst -Recurse -Force
-        Write-Host "    dialogs/ synced"
         $deployed++
     }
 

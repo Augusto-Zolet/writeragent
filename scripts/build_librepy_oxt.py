@@ -49,7 +49,6 @@ LIBREPY_EXTENSION_INCLUDES = [
     "extension/assets/",
     "extension/Dialogs/",
     "build/generated/Dialogs/",
-    "build/generated/dialogs/",
 ]
 
 LIBREPY_DIALOG_FILES = (

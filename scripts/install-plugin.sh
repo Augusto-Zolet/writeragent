@@ -278,7 +278,8 @@ install_to_cache() {
         fi
     done
 
-    # Sync dialogs (static + dynamically generated)
+    # Sync Dialogs/ (static + generated). No separate lowercase dialogs/ —
+    # that collided with Dialogs/ on Windows and wiped ChatPanelDialog.xdl.
     if [ -d "$PROJECT_ROOT/extension/Dialogs" ]; then
         local excludes=()
         if [ -d "$PROJECT_ROOT/build/generated/Dialogs" ]; then
@@ -295,11 +296,6 @@ install_to_cache() {
     if [ -d "$PROJECT_ROOT/build/generated/Dialogs" ]; then
         rsync -av "$PROJECT_ROOT/build/generated/Dialogs/" "$ext_dir/Dialogs/"
         echo "    Dialogs/ (generated) synced"
-    fi
-    if [ -d "$PROJECT_ROOT/build/generated/dialogs" ]; then
-        rsync -av --delete "$PROJECT_ROOT/build/generated/dialogs/" "$ext_dir/dialogs/"
-        echo "    dialogs/ synced"
-        deployed=$((deployed + 1))
     fi
 
 

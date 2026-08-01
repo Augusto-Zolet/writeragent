@@ -309,21 +309,46 @@ class ChatPanelElement(unohelper.Base, XUIElement):
                   id(self.xParentWindow) if self.xParentWindow else None)
         base_url = get_extension_url()
         dialog_url = base_url + "/" + XDL_PATH
-        log.debug("dialog_url: %s" % dialog_url)
+        # INFO so missing-XDL failures are visible at default WARN when we escalate below.
+        log.info("[RICH-LIFECYCLE] dialog_url=%s", dialog_url)
         from plugin.framework.uno_context import get_ctx
 
         ctx = get_ctx()
         provider = ctx.getServiceManager().createInstanceWithContext("com.sun.star.awt.ContainerWindowProvider", ctx)
-        log.info("[RICH-LIFECYCLE] calling createContainerWindow for rich-text sidebar...")
+        log.info("[RICH-LIFECYCLE] calling createContainerWindow for chat sidebar...")
         self.m_panelRootWindow = provider.createContainerWindow(dialog_url, "", self.xParentWindow, None)
         log.info("[RICH-LIFECYCLE] createContainerWindow returned root_window=%s", bool(self.m_panelRootWindow))
+        if not self.m_panelRootWindow:
+            # Empty white sidebar: ContainerWindowProvider returns null when the XDL
+            # URL cannot be loaded (e.g. Dialogs/ wiped by Windows dialogs/ case collision).
+            xdl_fs_path = ""
+            xdl_exists = False
+            try:
+                ext_path = get_extension_path(self.ctx)
+                if ext_path:
+                    xdl_fs_path = os.path.join(ext_path, *XDL_PATH.split("/"))
+                    xdl_exists = os.path.isfile(xdl_fs_path)
+            except Exception as e:
+                log.debug("[RICH-LIFECYCLE] could not resolve XDL filesystem path: %s", e)
+            log.error(
+                "[RICH-LIFECYCLE] createContainerWindow returned no window url=%s xdl_path=%s exists=%s",
+                dialog_url,
+                xdl_fs_path or "(unknown)",
+                xdl_exists,
+            )
+            raise UnoObjectError(
+                "ChatPanel createContainerWindow returned no window",
+                details={"dialog_url": dialog_url, "xdl_path": xdl_fs_path, "xdl_exists": xdl_exists},
+            )
         # Sidebar does not show the panel content without this (framework does not make it visible).
-        if self.m_panelRootWindow and hasattr(self.m_panelRootWindow, "setVisible"):
+        if hasattr(self.m_panelRootWindow, "setVisible"):
             try:
                 self.m_panelRootWindow.setVisible(True)
             except Exception as e:
                 if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
                     log.debug("Failed to set panel root window visible (likely disposed): %s", e)
+                else:
+                    log.warning("[RICH-LIFECYCLE] setVisible(True) failed: %s", e)
         # Bug fix: on restored-wide startup, createContainerWindow can leave the root
         # at a stale frame-sized width before DeckLayouter calls getHeightForWidth.
         # Briefly cap that pre-negotiation size so sfx2 does not seed an H-scroll

@@ -116,16 +116,26 @@ See also [math-tex.md](math-tex.md) (TeX/MathML import) and [brainstorming-mode.
 - **Parent window type:** Passing `ParentWindow` directly to `createContainerWindow()` works; using `parent_window.getPeer()` (XWindowPeer) was tried and is **not** required.
 - **Visibility:** Omitting `setVisible(True)` causes the panel content to not appear; the panel is created but stays blank. So **only** the explicit `setVisible(True)` was required to fix the “no sub-controls” issue.
 
+### Troubleshooting: empty sidebar on Windows after `make deploy`
+
+If the deck title shows but the content area is blank (rich or plain), check `writeragent_debug.log` for:
+
+```text
+createContainerWindow returned root_window=False
+```
+
+That means `Dialogs/ChatPanelDialog.xdl` was not loadable. A past hot-deploy bug synced both `Dialogs/` and lowercase `dialogs/`; on Windows those are the same folder, so the second sync wiped `ChatPanelDialog.xdl`. Deploy and packaging now use a single **`Dialogs/`** tree only. Confirm the file exists under the unopkg cache `WriterAgent.oxt/Dialogs/` after deploy; panel creation logs `dialog_url` and raises if the window is missing.
+
 ### Debug Logging
 
-All extension logging goes through `plugin/framework/logging.py` (`init_logging`). The single log file is **`writeragent_debug.log`** in the LibreOffice user config directory (same folder as `writeragent.json`, e.g. `~/.config/libreoffice/4/user/` on Linux). Use `log_level` in `writeragent.json` and standard `logging.getLogger(...)` calls; optional structured agent traces use `agent_log()` when `enable_agent_log` is set (same file).
+All extension logging goes through `plugin/framework/logging.py` (`init_logging`). The single log file is **`writeragent_debug.log`** in the LibreOffice user config directory (same folder as `writeragent.json`, e.g. `~/.config/libreoffice/4/user/` on Linux; `%APPDATA%\LibreOffice\4\user\config\` on Windows). Use `log_level` in `writeragent.json` and standard `logging.getLogger(...)` calls; optional structured agent traces use `agent_log()` when `enable_agent_log` is set (same file).
 
 ### Key Files (Current)
 
 | File | Role |
 |------|------|
 | `chat_panel.py` | ChatPanelFactory, ChatPanelElement, ChatToolPanel, SendButtonListener; ContainerWindowProvider + setVisible(True) |
-| `WriterAgentDialogs/ChatPanelDialog.xdl` | Panel UI (response, query, send); `withtitlebar="false"` |
+| `Dialogs/ChatPanelDialog.xdl` | Panel UI (response, query, send); `withtitlebar="false"` |
 | `registry/org/openoffice/Office/UI/Sidebar.xcu` | WriterAgent deck + ChatPanel; `WantsAWT` true |
 | `registry/org/openoffice/Office/UI/Factories.xcu` | ChatPanelFactory registration |
 | `META-INF/manifest.xml` | Registers chat_panel.py, Sidebar.xcu, Factories.xcu |

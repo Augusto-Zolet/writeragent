@@ -266,8 +266,8 @@ def main():
     manifest_path = args.manifest_output or os.path.join(PROJECT_ROOT, "plugin", "_manifest.py")
     generate_manifest_py(sorted_modules, manifest_path, librepy_flavor=librepy_flavor)
 
-    # 4. XDL dialog pages
-    dialogs_dir = os.path.join(build_dir, "dialogs")
+    # 4. XDL dialog pages (single Dialogs/ tree — lowercase dialogs/ collides on Windows)
+    dialogs_dir = os.path.join(build_dir, "Dialogs")
     generate_xdl_files(sorted_modules, dialogs_dir)
     standalone_dialog_ids = generate_standalone_config_dialogs(sorted_modules, build_dir)
     wa_dialogs_ext = os.path.join(PROJECT_ROOT, "extension", "Dialogs")
