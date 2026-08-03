@@ -29,7 +29,7 @@ _DEFAULT_PARAMS: dict[str, dict[str, Any]] = {
 }
 
 _HELPER_DESCRIPTIONS: dict[str, str] = {
-    "extract_text": "OCR selected image to formatted HTML (Docling default, Paddle fallback).",
+    "extract_text": "OCR selected image(s) to formatted HTML (Docling default, Paddle fallback).",
     "extract_structure": "Layout and tables as formatted HTML — Docling default, Paddle fallback.",
 }
 
@@ -41,7 +41,7 @@ def _template_body(helper: str, params: dict[str, Any]) -> str:
     desc = _HELPER_DESCRIPTIONS.get(helper, helper)
     lines = [
         f"# {desc}",
-        "# Select an image in the document, then Run.",
+        "# Select an image (or a Writer range with multiple images), then Run.",
         "from writeragent.vision import run_vision\n",
         f"result = run_vision({helper!r}, image)",
         "",

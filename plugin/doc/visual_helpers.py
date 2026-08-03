@@ -135,7 +135,7 @@ def is_graphic_object(obj: Any) -> bool:
     return safe_get_property(obj, "GraphicURL") is not None
 
 
-def selected_graphic_object(model: Any) -> Any | None:
+def _controller_selection(model: Any) -> Any | None:
     try:
         controller = None
         try:
@@ -151,6 +151,22 @@ def selected_graphic_object(model: Any) -> Any | None:
             selection = None
         if selection is None:
             selection = getattr(controller, "Selection", None)
+        return selection if selection else None
+    except Exception as ex:
+        log.debug("_controller_selection failed: %s", ex)
+        return None
+
+
+def _graphic_object_name(obj: Any) -> str:
+    try:
+        return str(obj.getName() or "").strip()
+    except Exception:
+        return ""
+
+
+def selected_graphic_object(model: Any) -> Any | None:
+    try:
+        selection = _controller_selection(model)
         if not selection:
             return None
         if hasattr(selection, "getCount"):
@@ -163,6 +179,124 @@ def selected_graphic_object(model: Any) -> Any | None:
     except Exception as ex:
         log.debug("selected_graphic_object failed: %s", ex)
         return None
+
+
+def _anchor_start(graphic: Any) -> Any | None:
+    try:
+        anchor = graphic.getAnchor()
+        if anchor is None:
+            return None
+        if hasattr(anchor, "getStart"):
+            return anchor.getStart()
+        return anchor
+    except Exception:
+        return None
+
+
+def _sort_graphics_by_anchor(text: Any, pairs: list[tuple[str, Any]]) -> list[tuple[str, Any]]:
+    """Stable document-order sort using ``compareRegionStarts`` on graphic anchors."""
+    if len(pairs) <= 1 or text is None:
+        return pairs
+
+    def _cmp(a: tuple[str, Any], b: tuple[str, Any]) -> int:
+        a_start = _anchor_start(a[1])
+        b_start = _anchor_start(b[1])
+        if a_start is None or b_start is None:
+            return 0
+        try:
+            # compareRegionStarts(A,B): 1 if A before B → A should sort first → negative cmp.
+            return -int(text.compareRegionStarts(a_start, b_start))
+        except Exception:
+            return 0
+
+    from functools import cmp_to_key
+
+    return sorted(pairs, key=cmp_to_key(_cmp))
+
+
+def _graphics_in_text_range(doc: Any, range_obj: Any) -> list[tuple[str, Any]]:
+    """Named graphics whose anchors fall inside *range_obj* (intervening text ignored)."""
+    try:
+        text = range_obj.getText()
+        sel_start = range_obj.getStart()
+        sel_end = range_obj.getEnd()
+    except Exception:
+        return []
+    if text is None or sel_start is None or sel_end is None:
+        return []
+
+    found: list[tuple[str, Any]] = []
+    for name, graphic in list_graphic_objects(doc):
+        if not name:
+            continue
+        anchor_start = _anchor_start(graphic)
+        if anchor_start is None:
+            continue
+        try:
+            # sel_start <= anchor_start <= sel_end
+            if text.compareRegionStarts(sel_start, anchor_start) < 0:
+                continue
+            if text.compareRegionStarts(anchor_start, sel_end) < 0:
+                continue
+            found.append((name, graphic))
+        except Exception:
+            continue
+    return _sort_graphics_by_anchor(text, found)
+
+
+def graphic_objects_in_selection(doc: Any) -> list[tuple[str, Any]]:
+    """Return named ``(name, graphic)`` pairs covered by the current selection.
+
+    Writer supports: a single selected graphic, multi-selected graphics, or a text
+    range that contains embedded images (text in the range is ignored). Non-Writer
+    documents return at most the single selected graphic (Calc multi stays out of scope).
+    """
+    try:
+        selection = _controller_selection(doc)
+        if not selection:
+            return []
+
+        if get_visual_doc_type(doc) != "writer":
+            graphic = selected_graphic_object(doc)
+            if graphic is None:
+                return []
+            name = _graphic_object_name(graphic)
+            return [(name, graphic)] if name else []
+
+        if hasattr(selection, "getCount"):
+            graphics_from_sel: list[tuple[str, Any]] = []
+            for i in range(selection.getCount()):
+                obj = selection.getByIndex(i)
+                if not is_graphic_object(obj):
+                    continue
+                name = _graphic_object_name(obj)
+                if name:
+                    graphics_from_sel.append((name, obj))
+            if graphics_from_sel:
+                text = None
+                try:
+                    anchor = graphics_from_sel[0][1].getAnchor()
+                    text = anchor.getText() if anchor is not None else None
+                except Exception:
+                    text = None
+                return _sort_graphics_by_anchor(text, graphics_from_sel)
+
+            if selection.getCount() > 0:
+                range_obj = selection.getByIndex(0)
+                if hasattr(range_obj, "getStart") and hasattr(range_obj, "getEnd"):
+                    return _graphics_in_text_range(doc, range_obj)
+            return []
+
+        if is_graphic_object(selection):
+            name = _graphic_object_name(selection)
+            return [(name, selection)] if name else []
+
+        if hasattr(selection, "getStart") and hasattr(selection, "getEnd"):
+            return _graphics_in_text_range(doc, selection)
+        return []
+    except Exception as ex:
+        log.debug("graphic_objects_in_selection failed: %s", ex)
+        return []
 
 
 def get_active_draw_page(doc: Any, doc_type: str | None = None) -> Any | None:

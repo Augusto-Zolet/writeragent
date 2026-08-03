@@ -345,6 +345,7 @@ from plugin.scripting.helper_domain import (
     plot_insert_ok_outcome,
     rps_error_outcome,
     rps_insert_failed_outcome,
+    rps_ok_outcome,
 )
 
 
@@ -407,7 +408,7 @@ def execute_and_insert_result(
     if "run_vision" in code and script_uses_run_import(code, run_name="run_vision"):
         from plugin.framework.errors import ToolExecutionError
         from plugin.vision.vision_common import merge_vision_params
-        from plugin.vision.vision_runner import resolve_vision_image_bytes, supports_vision_manual
+        from plugin.vision.vision_runner import resolve_vision_image_bytes, run_and_insert_vision_for_selection, supports_vision_manual
 
         if not supports_vision_manual(doc):
             return {"ok": False, "message": _("Vision helpers require a Writer or Calc document.")}
@@ -415,6 +416,40 @@ def execute_and_insert_result(
         raw_params = call_spec.get("params") if isinstance(call_spec.get("params"), dict) else None
         params = merge_vision_params(ctx, raw_params)
         image_name = str(params.get("image_name") or "").strip() or None
+        helper_name = str(call_spec.get("helper") or "extract_text").strip() or "extract_text"
+
+        # Writer selection with discovered graphic(s): host OCR+insert by name.
+        # Covers multi-select and text ranges (even one image) — selection export cannot.
+        if not image_name and is_writer(doc):
+            from plugin.doc.visual_helpers import graphic_objects_in_selection
+
+            discovered = graphic_objects_in_selection(doc)
+            if discovered:
+                try:
+                    result = run_and_insert_vision_for_selection(
+                        ctx,
+                        doc,
+                        helper=helper_name,
+                        params=params,
+                        insert_into_document=True,
+                    )
+                except ToolExecutionError as exc:
+                    return rps_error_outcome(str(exc), t0=t0)
+                if result.get("status") == "error":
+                    return rps_error_outcome(str(result.get("message") or _("Vision helper failed.")), t0=t0)
+                formatted_time = format_elapsed_time(time.perf_counter() - t0)
+                count = int(result.get("images_processed") or len(discovered))
+                if count > 1:
+                    status_ok = _(
+                        "Vision '{helper}' completed. Inserted formatted HTML for {count} images. (took {time})"
+                    ).format(helper=helper_name, count=count, time=formatted_time)
+                else:
+                    status_ok = _("Vision '{helper}' completed. Inserted formatted HTML. (took {time})").format(
+                        helper=helper_name,
+                        time=formatted_time,
+                    )
+                return rps_ok_outcome(status_ok, result=result, stdout=None)
+
         try:
             bindings = {"image": resolve_vision_image_bytes(ctx, doc, image_name=image_name)}
         except ToolExecutionError as exc:

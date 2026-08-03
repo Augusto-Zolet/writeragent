@@ -12,8 +12,7 @@ from plugin.calc.base import ToolCalcVisionBase
 from plugin.framework.errors import ToolExecutionError
 from plugin.framework.i18n import _
 from plugin.framework.queue_executor import execute_on_main_thread
-from plugin.vision.vision_egress import insert_vision_result
-from plugin.vision.vision_runner import run_trusted_vision
+from plugin.vision.vision_runner import run_and_insert_vision_for_selection
 
 if TYPE_CHECKING:
     from plugin.framework.tool import ToolContext
@@ -31,16 +30,17 @@ class ExtractTextFromImage(ToolCalcVisionBase):
     name = "extract_text_from_image"
     specialized_cross_cutting: ClassVar[bool] = True
     description = (
-        "OCR text from an embedded document image using local Docling/Paddle (Settings → Python venv). "
-        "Leave image_name empty to use the currently selected graphic. "
-        "By default inserts formatted HTML at the Writer cursor or Calc cell below the graphic anchor."
+        "OCR text from embedded document image(s) using local Docling/Paddle (Settings → Python venv). "
+        "Leave image_name empty to use the currently selected graphic, or a Writer selection that "
+        "contains multiple images (intervening text is ignored). "
+        "By default inserts formatted HTML after each graphic (Writer) or below the Calc anchor."
     )
     parameters = {
         "type": "object",
         "properties": {
             "image_name": {
                 "type": "string",
-                "description": "Graphic name from list_images (images domain). Empty = selected graphic.",
+                "description": "Graphic name from list_images (images domain). Empty = selected graphic(s).",
             },
             "insert_into_document": {
                 "type": "boolean",
@@ -61,7 +61,7 @@ class ExtractTextFromImage(ToolCalcVisionBase):
 
     def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
         # Sub-agent / async tools run off the UI thread; use ctx.doc_type (no UNO) here.
-        # run_trusted_vision and insert_vision_result are marshaled to the main thread below.
+        # run_and_insert_vision_for_selection is marshaled to the main thread below.
         if ctx.doc_type not in _VISION_DOC_TYPES:
             return self._tool_error(
                 _("Vision OCR requires a Writer or Calc document."),
@@ -77,7 +77,13 @@ class ExtractTextFromImage(ToolCalcVisionBase):
             params_dict["image_name"] = image_name
 
         def _run() -> dict[str, Any]:
-            return run_trusted_vision(ctx.ctx, doc, helper="extract_text", params=params_dict or None)
+            return run_and_insert_vision_for_selection(
+                ctx.ctx,
+                doc,
+                helper="extract_text",
+                params=params_dict or None,
+                insert_into_document=insert_into_document,
+            )
 
         try:
             result = execute_on_main_thread(_run)
@@ -91,26 +97,17 @@ class ExtractTextFromImage(ToolCalcVisionBase):
             message = str(result.get("message") or "Vision helper failed.")
             return self._tool_error(message, code=code, vision_result=result)
 
-        inserted = False
-        if insert_into_document:
-            try:
-                execute_on_main_thread(lambda: insert_vision_result(ctx.ctx, doc, result, params=params_dict or None))
-                inserted = True
-            except ToolExecutionError as exc:
-                return self._tool_error(str(exc), code=getattr(exc, "code", "VISION_ERROR"), vision_result=result)
-            except Exception as exc:
-                return self._tool_error(f"Failed to insert OCR result: {exc}", code="VISION_ERROR", vision_result=result)
-
-        full_text = str(result.get("full_text") or "")
-        metrics = result.get("metrics") if isinstance(result.get("metrics"), dict) else {}
-        warnings = result.get("warnings") if isinstance(result.get("warnings"), list) else []
-        message = _("OCR complete.") if inserted else _("OCR complete (text returned only; not inserted).")
-        return {
+        out = {
             "status": "ok",
             "helper": "extract_text",
-            "full_text": full_text,
-            "metrics": metrics,
-            "warnings": warnings,
-            "inserted": inserted,
-            "message": message,
+            "full_text": str(result.get("full_text") or ""),
+            "metrics": result.get("metrics") if isinstance(result.get("metrics"), dict) else {},
+            "warnings": result.get("warnings") if isinstance(result.get("warnings"), list) else [],
+            "inserted": bool(result.get("inserted")),
+            "images_processed": int(result.get("images_processed") or 1),
+            "message": str(result.get("message") or _("OCR complete.")),
         }
+        names = result.get("image_names")
+        if isinstance(names, list) and names:
+            out["image_names"] = names
+        return out

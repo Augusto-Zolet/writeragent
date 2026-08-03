@@ -106,9 +106,10 @@ Mirror [**Analysis Helpers**](calc-analysis-tools.md#1b-run-python-script--analy
    (Paddle-only fallback: pip install paddleocr paddlepaddle numpy — set params engine=paddle)
    (ultralytics not required until Phase 4 helpers)
 3. Open a Writer document
-4. Click the embedded image so it is selected
+4. Click one embedded image, or select a range that includes multiple images
+   (intervening text in the range is ignored)
 5. WriterAgent → Run Python Script… → Vision Helpers → [Vision] extract_text → Run
-6. Recognized text is inserted immediately after the selected image
+6. Recognized text is inserted immediately after each selected image
 ```
 
 ### 2.3b User workflow (Calc)
@@ -128,12 +129,12 @@ First Docling/Paddle model download uses the long trusted worker budget (Docling
 
 | Document | Phase | Behavior |
 |----------|-------|----------|
-| **Writer** | **1** | Insert pre-built **`html`** immediately after the selected graphic anchor. With **`vision.insert_mode=structured`**, layout HTML is built in the **venv worker** (needs css-inline there), not in LibreOffice's bundled Python |
+| **Writer** | **1** | Insert pre-built **`html`** immediately after each selected graphic anchor. With **`vision.insert_mode=structured`**, layout HTML is built in the **venv worker** (needs css-inline there), not in LibreOffice's bundled Python |
 | **Writer** | later | Optional **`set_image_properties`** description from OCR summary |
 | **Calc** | **1b** | Default: insert **`html`** into cell below graphic anchor. **`vision.insert_mode=structured`** + **`extract_structure`**: write `tables[]` (and prose `blocks[]`) as a multi-cell grid via [`insert_vision_structure_into_calc`](../plugin/calc/vision_egress.py) |
 | **Draw / Impress** | **1b.2** | Text box near selected graphic; shape annotations later |
 
-**Selection vs output anchor:** On **Writer**, select the **image** for OCR export; recognized text is inserted **after** that graphic in the text flow. On **Calc**, the selected graphic's **anchor cell** defines the sheet insert row (one row below); the image must be cell-anchored.
+**Selection vs output anchor:** On **Writer**, select one **image**, multi-select graphics, or a **text range containing images**; OCR runs per graphic and HTML is inserted **after each** graphic (host collapses the selection before insert so a range selection cannot replace intervening text). On **Calc**, the selected graphic's **anchor cell** defines the sheet insert row (one row below); the image must be cell-anchored (single graphic only).
 
 Errors surface in the Monaco status line / msgbox — see [§11](#11-selection-and-error-ux).
 
@@ -183,8 +184,8 @@ Mirror [analysis-sub-agent.md § Current Code State](analysis-sub-agent.md). **R
 
 | Area | Files |
 |------|--------|
-| **Vision trusted stack + host wiring** | [`vision.py`](../plugin/vision/venv/vision.py) (dispatcher), [`vision_docling.py`](../plugin/vision/venv/vision_docling.py) (Docling default), [`vision_paddle.py`](../plugin/vision/venv/vision_paddle.py) (fallback), [`vision_common.py`](../plugin/vision/vision_common.py), [`vision_client.py`](../plugin/framework/client/vision_client.py), [`vision_runner.py`](../plugin/vision/vision_runner.py) (`resolve_vision_image_bytes`, `supports_vision_manual`), [`vision_templates.py`](../plugin/vision/vision_templates.py), [`vision_egress.py`](../plugin/vision/vision_egress.py) (Writer) |
-| Image export (selection + name) | [`export_graphic_object_to_bytes`](../plugin/writer/images/image_tools.py), [`resolve_vision_image_bytes`](../plugin/vision/vision_runner.py), [`_get_graphic_object`](../plugin/writer/images/images.py) |
+| **Vision trusted stack + host wiring** | [`vision.py`](../plugin/vision/venv/vision.py) (dispatcher), [`vision_docling.py`](../plugin/vision/venv/vision_docling.py) (Docling default), [`vision_paddle.py`](../plugin/vision/venv/vision_paddle.py) (fallback), [`vision_common.py`](../plugin/vision/vision_common.py), [`vision_client.py`](../plugin/framework/client/vision_client.py), [`vision_runner.py`](../plugin/vision/vision_runner.py) (`resolve_vision_image_bytes`, `run_and_insert_vision_for_selection`, `supports_vision_manual`), [`vision_templates.py`](../plugin/vision/vision_templates.py), [`vision_egress.py`](../plugin/vision/vision_egress.py) (Writer) |
+| Image export (selection + name) | [`export_graphic_object_to_bytes`](../plugin/writer/images/image_tools.py), [`resolve_vision_image_bytes`](../plugin/vision/vision_runner.py), [`graphic_objects_in_selection`](../plugin/doc/visual_helpers.py), [`_get_graphic_object`](../plugin/writer/images/images.py) |
 | Run Python vision fast path | [`python_runner.py`](../plugin/scripting/python_runner.py) — `insert_vision_result` (Writer + Calc) |
 | Calc vision egress | [`plugin/calc/vision_egress.py`](../plugin/calc/vision_egress.py) — `calc_output_anchor_from_graphic`, `insert_vision_html_into_calc` |
 | HTML export (Docling / Paddle) | [`vision_html_export.py`](../plugin/vision/venv/vision_html_export.py) — `export_docling_to_html`, `prepare_html_for_lo_import` (**css-inline** required; heading/body augment) |
@@ -695,19 +696,21 @@ User-visible strings (gettext-ready). Host may raise [`ToolExecutionError`](../p
 |-----------|----------|
 | No document | Same as Run Python Script today |
 | Not Writer/Calc | Vision Helpers **hidden** in picker; fast path returns error if header run anyway |
-| Selection is not a graphic / export fails | `NO_IMAGE_SELECTED` — *Select an embedded image, then Run again.* |
+| No graphic in selection / export fails | `NO_IMAGE_SELECTED` — *Select an embedded image (or a range containing images), then Run again.* |
+| Writer selection spans multiple images | OCR each graphic separately; insert HTML after **each**; intervening text ignored; selection collapsed before insert |
 | `image_name` set but not in document | `IMAGE_NOT_FOUND` — *Image '{name}' not found. Use list_images or leave image_name empty and select the graphic.* |
 | Calc graphic not cell-anchored | `NO_OUTPUT_ANCHOR` — *Anchor the image to a cell, select it, then Run again.* |
 | Venv missing Docling / Paddle | `DOCLING_UNAVAILABLE` or `PADDLEOCR_UNAVAILABLE` — pip install + Settings → Python path |
 | OCR returns empty | `status: ok`, `full_text: ""`, `html: ""`, `warnings: ["No text detected."]` — insert fails with empty HTML error |
-| Success (Writer/Calc) | Insert **`html`** at text cursor or cell below anchor; status — *Inserted formatted HTML* |
+| Success (Writer/Calc) | Insert **`html`** after each Writer graphic or cell below Calc anchor; status — *Inserted formatted HTML* |
 | HTML looks like plain body text | Check log for `insert_vision_result:`; redeploy extension; confirm `css-inline` in venv. Headings need post-inline augment (see [§10 HTML pipeline](#html-insert-pipeline-and-expectations)) |
 | Success (Calc) | Multi-cell report below anchor; status — *Wrote N rows* |
 | Timeout | Docling/Paddle use the long trusted budget (with paddle slightly lower); user `python_exec_timeout` unchanged. See scripting client resolver. |
 | Insert fails with “no text selection” while image is selected | Rare with current builds; report if `prepare_vision_writer_insert` raises before insert. |
 | OCR text inserted but image vanished | StarWriter HTML import at the graphic anchor can replace the image. Fixed: model-level paragraph break after the anchor, then collapse the view cursor before `insert_html_at_cursor`. |
+| Range selection deleted intervening text | Insert must not run while a multi-character selection is active. Fixed: discover graphic names first, collapse selection, insert by name after each graphic. |
 
-**UX note:** Select the **embedded image**, then Run. Writer inserts OCR output immediately **after** that graphic.
+**UX note:** Select an **embedded image**, multi-select graphics, or a **range containing images**, then Run. Writer inserts OCR output immediately **after each** graphic.
 
 ---
 

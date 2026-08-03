@@ -141,8 +141,8 @@ class DelegateToSpecializedBase(ToolBase):
 
             if USE_SUB_AGENT:
                 if status_callback:
-                    status_callback(_("Running local OCR on selected image..."))
-                # Gateway shortcut: no sub-agent parses task — always insert OCR at cursor/cell.
+                    status_callback(_("Running local OCR on selected image(s)..."))
+                # Gateway shortcut: no sub-agent parses task — always insert OCR after graphic(s).
                 return ExtractTextFromImage().execute(ctx, insert_into_document=True)
 
         if domain == "document_research" and not USE_SUB_AGENT:

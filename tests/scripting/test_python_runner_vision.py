@@ -251,3 +251,63 @@ def test_execute_and_insert_vision_venv_path_without_prompts_module(mock_resolve
     assert outcome["ok"] is True
     mock_resolve.assert_called_once()
     mock_venv.assert_called_once()
+
+
+@patch("plugin.vision.vision_runner.run_and_insert_vision_for_selection")
+@patch("plugin.doc.visual_helpers.graphic_objects_in_selection")
+def test_execute_and_insert_vision_multi_image_host_loop(mock_pairs, mock_orchestrator):
+    ctx = MagicMock()
+    doc = MagicMock()
+    mock_pairs.return_value = [("A", MagicMock()), ("B", MagicMock())]
+    mock_orchestrator.return_value = {
+        "status": "ok",
+        "helper": "extract_text",
+        "full_text": "a\n\nb",
+        "images_processed": 2,
+        "inserted": True,
+    }
+    code = get_vision_script_templates()["extract_text"]
+
+    with patch("plugin.scripting.python_runner.is_writer", return_value=True), patch(
+        "plugin.scripting.python_runner.is_calc", return_value=False
+    ), patch("plugin.vision.vision_runner.supports_vision_manual", return_value=True), patch(
+        "plugin.scripting.python_runner.run_code_in_user_venv"
+    ) as mock_venv, patch("plugin.vision.vision_runner.resolve_vision_image_bytes") as mock_resolve:
+        outcome = execute_and_insert_result(ctx, doc, code)
+
+    assert outcome["ok"] is True
+    assert "2 images" in outcome["status_ok_text"]
+    mock_orchestrator.assert_called_once()
+    mock_venv.assert_not_called()
+    mock_resolve.assert_not_called()
+
+
+@patch("plugin.vision.vision_runner.run_and_insert_vision_for_selection")
+@patch("plugin.doc.visual_helpers.graphic_objects_in_selection")
+def test_execute_and_insert_vision_single_image_in_text_range_uses_host_loop(mock_pairs, mock_orchestrator):
+    """Text range with one image: selection export fails; host orchestrator must run."""
+    ctx = MagicMock()
+    doc = MagicMock()
+    mock_pairs.return_value = [("OnlyImg", MagicMock())]
+    mock_orchestrator.return_value = {
+        "status": "ok",
+        "helper": "extract_text",
+        "full_text": "one",
+        "images_processed": 1,
+        "inserted": True,
+    }
+    code = get_vision_script_templates()["extract_text"]
+
+    with patch("plugin.scripting.python_runner.is_writer", return_value=True), patch(
+        "plugin.scripting.python_runner.is_calc", return_value=False
+    ), patch("plugin.vision.vision_runner.supports_vision_manual", return_value=True), patch(
+        "plugin.scripting.python_runner.run_code_in_user_venv"
+    ) as mock_venv, patch("plugin.vision.vision_runner.resolve_vision_image_bytes") as mock_resolve:
+        outcome = execute_and_insert_result(ctx, doc, code)
+
+    assert outcome["ok"] is True
+    assert "Inserted formatted HTML" in outcome["status_ok_text"]
+    assert "2 images" not in outcome["status_ok_text"]
+    mock_orchestrator.assert_called_once()
+    mock_venv.assert_not_called()
+    mock_resolve.assert_not_called()

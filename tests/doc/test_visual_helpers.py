@@ -171,6 +171,101 @@ def test_selected_graphic_object_rejects_multi_selection():
     assert visual_helpers.selected_graphic_object(model) is None
 
 
+class FakeTextRange:
+    """Minimal XTextRange stand-in with compareRegionStarts-based containment."""
+
+    def __init__(self, text: "FakeText", start: int, end: int):
+        self._text = text
+        self._start = start
+        self._end = end
+
+    def getText(self):
+        return self._text
+
+    def getStart(self):
+        return FakeTextRange(self._text, self._start, self._start)
+
+    def getEnd(self):
+        return FakeTextRange(self._text, self._end, self._end)
+
+
+class FakeText:
+    def compareRegionStarts(self, a: FakeTextRange, b: FakeTextRange) -> int:
+        if a._start < b._start:
+            return 1
+        if a._start > b._start:
+            return -1
+        return 0
+
+
+class FakeAnchoredGraphic(FakePropertyObject):
+    def __init__(self, name: str, text: FakeText, pos: int):
+        super().__init__({"Graphic": object()}, {visual_helpers.WRITER_GRAPHIC_SERVICE})
+        self._name = name
+        self._anchor = FakeTextRange(text, pos, pos)
+
+    def getName(self) -> str:
+        return self._name
+
+    def getAnchor(self):
+        return self._anchor
+
+
+def test_graphic_objects_in_selection_multi_graphics():
+    text = FakeText()
+    g1 = FakeAnchoredGraphic("Image1", text, 10)
+    g2 = FakeAnchoredGraphic("Image2", text, 30)
+    controller = FakeController(selection=FakeSelection([g2, g1]))
+    doc = FakeWriterDoc({"Image1": g1, "Image2": g2})
+    doc.CurrentController = controller
+
+    pairs = visual_helpers.graphic_objects_in_selection(doc)
+    assert [n for n, _ in pairs] == ["Image1", "Image2"]
+
+
+def test_graphic_objects_in_selection_text_range_contains_images():
+    text = FakeText()
+    g1 = FakeAnchoredGraphic("Image1", text, 10)
+    g2 = FakeAnchoredGraphic("Image2", text, 40)
+    outside = FakeAnchoredGraphic("Outside", text, 100)
+    sel = FakeTextRange(text, 0, 50)
+    controller = FakeController(selection=sel)
+    doc = FakeWriterDoc({"Image1": g1, "Image2": g2, "Outside": outside})
+    doc.CurrentController = controller
+
+    pairs = visual_helpers.graphic_objects_in_selection(doc)
+    assert [n for n, _ in pairs] == ["Image1", "Image2"]
+
+
+def test_graphic_objects_in_selection_single_graphic():
+    graphic = FakeGraphicShape("Only")
+    controller = FakeController(selection=FakeSelection([graphic]))
+    doc = FakeWriterDoc({"Only": graphic})
+    doc.CurrentController = controller
+
+    pairs = visual_helpers.graphic_objects_in_selection(doc)
+    assert pairs == [("Only", graphic)]
+
+
+def test_graphic_objects_in_selection_empty():
+    controller = FakeController(selection=None)
+    doc = FakeWriterDoc({})
+    doc.CurrentController = controller
+    assert visual_helpers.graphic_objects_in_selection(doc) == []
+
+
+def test_graphic_objects_in_selection_calc_single_only():
+    g1 = FakeGraphicShape("A")
+    g2 = FakeGraphicShape("B")
+    doc = FakeCalcDoc(FakeDrawPage([g1, g2]))
+    doc.CurrentController.Selection = FakeSelection([g1, g2])
+    # Multi-select rejected for Calc — selected_graphic_object returns None.
+    assert visual_helpers.graphic_objects_in_selection(doc) == []
+
+    doc.CurrentController.Selection = FakeSelection([g1])
+    assert visual_helpers.graphic_objects_in_selection(doc) == [("A", g1)]
+
+
 def test_active_draw_page_resolves_calc_sheet_and_draw_current_page():
     calc_page = FakeDrawPage([])
     draw_page = FakeDrawPage([])

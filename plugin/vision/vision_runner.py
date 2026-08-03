@@ -35,7 +35,7 @@ def get_selected_image_bytes(ctx: Any, doc: Any) -> bytes:
     b64 = get_selected_image_base64(doc, ctx)
     if not b64:
         raise ToolExecutionError(
-            _("Select an embedded image, then Run again."),
+            _("Select an embedded image (or a range containing images), then Run again."),
             code="NO_IMAGE_SELECTED",
         )
     return base64.b64decode(b64)
@@ -141,3 +141,90 @@ def run_trusted_vision(
     if source == "graphic_name":
         context["image_name"] = str(image_name).strip()
     return run_vision(ctx, spec, png_bytes, context=context)
+
+
+def run_and_insert_vision_for_selection(
+    ctx: Any,
+    doc: Any,
+    *,
+    helper: str,
+    params: dict[str, Any] | None = None,
+    insert_into_document: bool = True,
+) -> dict[str, Any]:
+    """OCR each graphic in the selection (or one named image) and optionally insert.
+
+    Discovers named graphics while the selection is intact, then OCRs and inserts
+    by ``image_name`` so a text-range selection is collapsed before any edit and
+    intervening text is never replaced.
+    """
+    from plugin.doc.visual_helpers import graphic_objects_in_selection
+    from plugin.vision.vision_egress import insert_vision_result
+
+    name = str(helper or "").strip()
+    if not name:
+        raise ToolExecutionError("helper is required", code="VISION_ERROR")
+    if name not in HELPER_NAMES:
+        raise ToolExecutionError(f"Unknown helper {name!r}", code="VISION_ERROR")
+
+    params_dict = merge_vision_params(ctx, dict(params) if isinstance(params, dict) else None)
+    explicit_name = str(params_dict.get("image_name") or "").strip()
+
+    if explicit_name:
+        target_names = [explicit_name]
+    else:
+        # Capture names before any insert collapses/clears the selection.
+        pairs = graphic_objects_in_selection(doc)
+        target_names = [n for n, _unused in pairs if n]
+        if not target_names:
+            raise ToolExecutionError(
+                _("Select an embedded image (or a range containing images), then Run again."),
+                code="NO_IMAGE_SELECTED",
+            )
+
+    results: list[dict[str, Any]] = []
+    for image_name in target_names:
+        per_params = dict(params_dict)
+        per_params["image_name"] = image_name
+        result = run_trusted_vision(ctx, doc, helper=name, params=per_params)
+        if result.get("status") == "error":
+            return result
+        if insert_into_document:
+            # prepare_vision_writer_insert collapses any range selection before HTML import.
+            insert_vision_result(ctx, doc, result, params=per_params)
+        results.append(result)
+
+    full_parts = [str(r.get("full_text") or "") for r in results]
+    warnings: list[Any] = []
+    for r in results:
+        w = r.get("warnings")
+        if isinstance(w, list):
+            warnings.extend(w)
+    metrics: dict[str, Any] = {"images_processed": len(results)}
+    if len(results) == 1:
+        single_metrics = results[0].get("metrics")
+        if isinstance(single_metrics, dict):
+            metrics.update(single_metrics)
+
+    inserted = bool(insert_into_document)
+    if inserted:
+        message = (
+            _("OCR complete ({count} images).").format(count=len(results))
+            if len(results) > 1
+            else _("OCR complete.")
+        )
+    else:
+        message = _("OCR complete (text returned only; not inserted).")
+
+    return {
+        "status": "ok",
+        "helper": name,
+        "full_text": "\n\n".join(p for p in full_parts if p) if any(full_parts) else "\n\n".join(full_parts),
+        "html": results[-1].get("html") if len(results) == 1 else "",
+        "metrics": metrics,
+        "warnings": warnings,
+        "inserted": inserted,
+        "images_processed": len(results),
+        "image_names": list(target_names),
+        "message": message,
+        "results": results if len(results) > 1 else None,
+    }

@@ -12,7 +12,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from plugin.framework.errors import ToolExecutionError
-from plugin.vision.vision_runner import get_selected_image_bytes, resolve_vision_image_bytes, run_trusted_vision
+from plugin.vision.vision_runner import (
+    get_selected_image_bytes,
+    resolve_vision_image_bytes,
+    run_and_insert_vision_for_selection,
+    run_trusted_vision,
+)
 from plugin.tests.testing_utils import setup_uno_mocks
 
 setup_uno_mocks()
@@ -135,3 +140,78 @@ def test_run_trusted_vision_resolves_lang_from_locale(mock_bytes, mock_run_visio
         b"png",
         context={"source": "selection"},
     )
+
+
+@patch("plugin.vision.vision_runner.merge_vision_params", side_effect=lambda _ctx, params: dict(params or {}))
+@patch("plugin.vision.vision_runner.run_trusted_vision")
+@patch("plugin.doc.visual_helpers.graphic_objects_in_selection")
+def test_run_and_insert_vision_for_selection_loops_by_name(mock_pairs, mock_run, _mock_merge):
+    ctx = MagicMock()
+    doc = MagicMock()
+    mock_pairs.return_value = [("Img1", MagicMock()), ("Img2", MagicMock())]
+
+    def _run(_ctx, _doc, *, helper, params):
+        name = params["image_name"]
+        return {
+            "status": "ok",
+            "helper": helper,
+            "full_text": f"text-{name}",
+            "html": f"<p>{name}</p>",
+            "metrics": {"line_count": 1},
+            "warnings": [],
+        }
+
+    mock_run.side_effect = _run
+
+    with patch("plugin.vision.vision_egress.insert_vision_result") as insert:
+        result = run_and_insert_vision_for_selection(ctx, doc, helper="extract_text", params={"lang": "en"})
+
+    assert result["status"] == "ok"
+    assert result["images_processed"] == 2
+    assert result["full_text"] == "text-Img1\n\ntext-Img2"
+    assert mock_run.call_count == 2
+    assert mock_run.call_args_list[0].kwargs["params"]["image_name"] == "Img1"
+    assert mock_run.call_args_list[1].kwargs["params"]["image_name"] == "Img2"
+    assert insert.call_count == 2
+
+
+@patch("plugin.vision.vision_runner.merge_vision_params", side_effect=lambda _ctx, params: dict(params or {}))
+@patch("plugin.vision.vision_runner.run_trusted_vision")
+@patch("plugin.doc.visual_helpers.graphic_objects_in_selection")
+def test_run_and_insert_vision_for_selection_image_name_short_circuits(mock_pairs, mock_run, _mock_merge):
+    ctx = MagicMock()
+    doc = MagicMock()
+    mock_run.return_value = {
+        "status": "ok",
+        "helper": "extract_text",
+        "full_text": "only",
+        "html": "<p>only</p>",
+        "metrics": {},
+        "warnings": [],
+    }
+
+    with patch("plugin.vision.vision_egress.insert_vision_result") as insert:
+        result = run_and_insert_vision_for_selection(
+            ctx,
+            doc,
+            helper="extract_text",
+            params={"image_name": "Photo1"},
+            insert_into_document=True,
+        )
+
+    mock_pairs.assert_not_called()
+    mock_run.assert_called_once()
+    assert mock_run.call_args.kwargs["params"]["image_name"] == "Photo1"
+    insert.assert_called_once()
+    assert result["images_processed"] == 1
+
+
+@patch("plugin.vision.vision_runner.merge_vision_params", side_effect=lambda _ctx, params: dict(params or {}))
+@patch("plugin.doc.visual_helpers.graphic_objects_in_selection", return_value=[])
+def test_run_and_insert_vision_for_selection_no_images(mock_pairs, _mock_merge):
+    ctx = MagicMock()
+    doc = MagicMock()
+    with pytest.raises(ToolExecutionError) as exc:
+        run_and_insert_vision_for_selection(ctx, doc, helper="extract_text")
+    assert exc.value.code == "NO_IMAGE_SELECTED"
+    mock_pairs.assert_called_once()

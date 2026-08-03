@@ -166,10 +166,8 @@ def test_filter_vision_specialized_tools_removes_tool():
 
 
 @patch("plugin.framework.queue_executor.execute_on_main_thread")
-@patch("plugin.vision.vision_tools.run_trusted_vision")
-@patch("plugin.vision.vision_tools.insert_vision_result")
+@patch("plugin.vision.vision_tools.run_and_insert_vision_for_selection")
 def test_extract_text_happy_path_inserts(
-    mock_insert,
     mock_run,
     mock_main_thread,
     tool_ctx,
@@ -181,6 +179,9 @@ def test_extract_text_happy_path_inserts(
         "html": "<p>Hello scan</p>",
         "metrics": {"line_count": 1},
         "warnings": [],
+        "inserted": True,
+        "images_processed": 1,
+        "message": "OCR complete.",
     }
     mock_main_thread.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
 
@@ -192,14 +193,12 @@ def test_extract_text_happy_path_inserts(
     assert result["inserted"] is True
     mock_run.assert_called_once()
     assert mock_run.call_args.kwargs["helper"] == "extract_text"
-    mock_insert.assert_called_once()
+    assert mock_run.call_args.kwargs["insert_into_document"] is True
 
 
 @patch("plugin.framework.queue_executor.execute_on_main_thread")
-@patch("plugin.vision.vision_tools.run_trusted_vision")
-@patch("plugin.vision.vision_tools.insert_vision_result")
+@patch("plugin.vision.vision_tools.run_and_insert_vision_for_selection")
 def test_extract_text_return_only_skips_insert(
-    mock_insert,
     mock_run,
     mock_main_thread,
     tool_ctx,
@@ -211,6 +210,9 @@ def test_extract_text_return_only_skips_insert(
         "html": "<p>text only</p>",
         "metrics": {},
         "warnings": [],
+        "inserted": False,
+        "images_processed": 1,
+        "message": "OCR complete (text returned only; not inserted).",
     }
     mock_main_thread.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
 
@@ -219,7 +221,7 @@ def test_extract_text_return_only_skips_insert(
 
     assert result["status"] == "ok"
     assert result["inserted"] is False
-    mock_insert.assert_not_called()
+    assert mock_run.call_args.kwargs["insert_into_document"] is False
 
 
 def test_extract_text_rejects_unsupported_doc(tool_ctx):

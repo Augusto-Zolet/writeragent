@@ -154,13 +154,10 @@ def test_insert_vision_result_into_writer_without_edit_review(mock_prepare, mock
 def test_prepare_vision_writer_insert_inserts_paragraph_break_and_collapses_view_cursor():
     from plugin.vision.vision_egress import prepare_vision_writer_insert
 
-    anchor_start = MagicMock()
     anchor = MagicMock()
-    anchor.getStart.return_value = anchor_start
     text = MagicMock()
     anchor_cursor = MagicMock()
-    anchor_cursor.goRight.return_value = True
-    text.createTextCursorByRange.side_effect = lambda pos: anchor_cursor if pos is anchor_start else MagicMock()
+    text.createTextCursorByRange.return_value = anchor_cursor
     anchor.getText.return_value = text
 
     graphic = MagicMock()
@@ -171,6 +168,9 @@ def test_prepare_vision_writer_insert_inserts_paragraph_break_and_collapses_view
     window = MagicMock()
     frame = MagicMock()
     frame.getContainerWindow.return_value = window
+    dispatcher = MagicMock()
+    smgr = MagicMock()
+    smgr.createInstanceWithContext.return_value = dispatcher
     controller = MagicMock()
     controller.getFrame.return_value = frame
     controller.getViewCursor.return_value = view_cursor
@@ -179,6 +179,7 @@ def test_prepare_vision_writer_insert_inserts_paragraph_break_and_collapses_view
     doc = MagicMock()
     doc.getCurrentController.return_value = controller
     ctx = MagicMock()
+    ctx.ServiceManager = smgr
 
     with patch("plugin.doc.visual_helpers.selected_graphic_object", side_effect=[graphic, None]), patch(
         "plugin.doc.visual_helpers.list_graphic_objects", return_value=[("Image1", graphic)]
@@ -186,8 +187,55 @@ def test_prepare_vision_writer_insert_inserts_paragraph_break_and_collapses_view
         out = prepare_vision_writer_insert(doc, ctx)
 
     assert out is anchor_cursor
-    anchor_cursor.goRight.assert_any_call(1, False)
+    dispatcher.executeDispatch.assert_called()
+    text.createTextCursorByRange.assert_called_with(anchor)
+    anchor_cursor.collapseToEnd.assert_called_once()
     text.insertControlCharacter.assert_called_once_with(anchor_cursor, 0, False)
     window.setFocus.assert_called_once()
     view_cursor.gotoRange.assert_called_with("insert-start", False)
     controller.select.assert_called_with(view_cursor)
+
+
+def test_prepare_vision_writer_insert_prefers_image_name_over_selection():
+    from plugin.vision.vision_egress import prepare_vision_writer_insert
+
+    named = MagicMock()
+    named.getName.return_value = "NamedImg"
+    anchor = MagicMock()
+    text = MagicMock()
+    cursor = MagicMock()
+    cursor.getStart.return_value = "pos"
+    text.createTextCursorByRange.return_value = cursor
+    anchor.getText.return_value = text
+    named.getAnchor.return_value = anchor
+
+    selected = MagicMock()
+    selected.getName.return_value = "SelectedImg"
+
+    view_cursor = MagicMock()
+    frame = MagicMock()
+    frame.getContainerWindow.return_value = MagicMock()
+    dispatcher = MagicMock()
+    smgr = MagicMock()
+    smgr.createInstanceWithContext.return_value = dispatcher
+    controller = MagicMock()
+    controller.getFrame.return_value = frame
+    controller.getViewCursor.return_value = view_cursor
+    doc = MagicMock()
+    doc.getCurrentController.return_value = controller
+    ctx = MagicMock()
+    ctx.ServiceManager = smgr
+
+    with patch("plugin.doc.visual_helpers.selected_graphic_object", return_value=None) as mock_sel, patch(
+        "plugin.doc.visual_helpers.list_graphic_objects", return_value=[("NamedImg", named), ("SelectedImg", selected)]
+    ), patch("plugin.doc.visual_helpers.get_graphic_object_by_name", return_value=named) as mock_get:
+        out = prepare_vision_writer_insert(doc, ctx, image_name="NamedImg")
+
+    assert out is cursor
+    mock_get.assert_called_with(doc, "NamedImg")
+    named.getAnchor.assert_called()
+    selected.getAnchor.assert_not_called()
+    cursor.collapseToEnd.assert_called_once()
+    dispatcher.executeDispatch.assert_called()
+    assert mock_sel.call_count >= 0
+

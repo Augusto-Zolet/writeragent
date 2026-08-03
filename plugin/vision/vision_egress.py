@@ -81,47 +81,81 @@ def _collapse_writer_view_cursor(controller: Any, position: Any) -> None:
         log.debug("prepare_vision_writer_insert: view cursor collapse failed: %s", ex)
 
 
-def prepare_vision_writer_insert(doc: Any, ctx: Any, *, image_name: str | None = None) -> Any:
-    """Return a collapsed text cursor in a new paragraph after the selected graphic.
+def prepare_vision_writer_insert(
+    doc: Any,
+    ctx: Any,
+    *,
+    image_name: str | None = None,
+    graphic: Any | None = None,
+) -> Any:
+    """Return a collapsed text cursor in a new paragraph after the target graphic.
 
     StarWriter HTML import at the graphic anchor can absorb/replace the embedded
     image even when ``selected_graphic_object`` is empty. Insert a paragraph break
     at the model layer first, then collapse the UI caret there (Monaco may still
     hold focus during Run Script).
+
+    Resolve order: explicit *graphic*, then *image_name*, then current single
+    graphic selection. Collapse any range/graphic selection **before** anchor math
+    and model edits so StarWriter does not treat a multi-character selection as the
+    insert target (which would delete intervening text between images).
     """
     from plugin.doc.visual_helpers import get_graphic_object_by_name, list_graphic_objects, selected_graphic_object
 
-    graphic = selected_graphic_object(doc)
     name = str(image_name or "").strip()
-    if graphic is None and name:
-        graphic = get_graphic_object_by_name(doc, name)
-    if graphic is None:
+    resolved = graphic
+    # Prefer name over a live selection so multi-image OCR can insert after each
+    # graphic by stable name after the user's range selection was collapsed.
+    if resolved is None and name:
+        resolved = get_graphic_object_by_name(doc, name)
+    if resolved is None and not name:
+        resolved = selected_graphic_object(doc)
+    if resolved is None:
         raise ToolExecutionError(
-            _("Select an embedded image, then Run again."),
+            _("Select an embedded image (or a range containing images), then Run again."),
             code="NO_IMAGE_SELECTED",
         )
 
     graphic_name = ""
     try:
-        graphic_name = str(graphic.getName() or "")
+        graphic_name = str(resolved.getName() or "")
     except Exception:
         pass
+    if name and not graphic_name:
+        graphic_name = name
     graphics_before = len(list_graphic_objects(doc))
 
+    controller = doc.getCurrentController()
+    if controller is None:
+        raise ToolExecutionError(
+            _("Writer document has no controller."),
+            code="VISION_ERROR",
+        )
+
+    _focus_writer_frame(controller)
+    # Clear range/graphic selection before reading anchors or inserting. A live
+    # multi-character selection makes HTML import replace that range (deletes text).
     try:
-        anchor = graphic.getAnchor()
+        frame = controller.getFrame()
+        if frame is not None and ctx is not None:
+            smgr = ctx.ServiceManager
+            dispatcher = smgr.createInstanceWithContext("com.sun.star.frame.DispatchHelper", ctx)
+            dispatcher.executeDispatch(frame, ".uno:Escape", "", 0, ())
+    except Exception as ex:
+        log.debug("prepare_vision_writer_insert: early escape failed: %s", ex)
+
+    try:
+        anchor = resolved.getAnchor()
         if anchor is None:
             raise ToolExecutionError(
                 _("Could not resolve the image anchor for insert."),
                 code="VISION_ERROR",
             )
         text = anchor.getText()
-        # Step past the in-text graphic character (getEnd() can resolve before the image
-        # while the graphic stays UI-selected).
-        cursor = text.createTextCursorByRange(anchor.getStart())
-        if not cursor.goRight(1, False):
-            cursor = text.createTextCursorByRange(anchor)
-            cursor.collapseToEnd()
+        # Selection was cleared above so collapseToEnd is trustworthy (getEnd() can
+        # resolve before the image while a graphic stays UI-selected).
+        cursor = text.createTextCursorByRange(anchor)
+        cursor.collapseToEnd()
         # Model-level separator: keeps the graphic char out of the HTML import range.
         text.insertControlCharacter(cursor, _PARAGRAPH_BREAK, False)
         cursor.goRight(1, False)
@@ -133,14 +167,6 @@ def prepare_vision_writer_insert(doc: Any, ctx: Any, *, image_name: str | None =
             code="VISION_ERROR",
         ) from ex
 
-    controller = doc.getCurrentController()
-    if controller is None:
-        raise ToolExecutionError(
-            _("Writer document has no controller."),
-            code="VISION_ERROR",
-        )
-
-    _focus_writer_frame(controller)
     _collapse_writer_view_cursor(controller, cursor.getStart())
 
     if selected_graphic_object(doc) is not None:

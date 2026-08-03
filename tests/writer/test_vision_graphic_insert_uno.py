@@ -80,3 +80,51 @@ def test_vision_html_insert_keeps_selected_graphic():
     after = list_graphic_objects(_test_doc)
     assert len(after) == 1, f"graphic was removed during HTML insert: before={before!r} after={after!r}"
     assert "Vision OCR line after image." in _test_doc.getText().getString()
+
+
+@native_test
+def test_vision_html_insert_after_each_graphic_preserves_intervening_text():
+    """Select a range covering two images + text; insert by name must not delete the text."""
+    from plugin.doc.visual_helpers import graphic_objects_in_selection
+
+    # Shared setup doc may retain content from prior tests in this module.
+    text = _test_doc.getText()
+    text.setString("")
+
+    cursor = text.createTextCursor()
+    text.insertString(cursor, "BEFORE ", False)
+
+    g1 = insert_image_at_locator(_test_ctx, _test_doc, _logo_path, width_mm=15, height_mm=15)
+    assert g1 is not None
+    name1 = g1.getName()
+
+    cursor.gotoEnd(False)
+    intervening = "BETWEEN_IMAGES"
+    text.insertString(cursor, intervening, False)
+
+    g2 = insert_image_at_locator(_test_ctx, _test_doc, _logo_path, width_mm=15, height_mm=15)
+    assert g2 is not None
+    name2 = g2.getName()
+
+    cursor.gotoEnd(False)
+    text.insertString(cursor, " AFTER", False)
+
+    # Select whole document so both graphics are in range.
+    view = _test_doc.getCurrentController().getViewCursor()
+    view.gotoStart(False)
+    view.gotoEnd(True)
+
+    pairs = graphic_objects_in_selection(_test_doc)
+    names = [n for n, _unused in pairs]
+    assert name1 in names and name2 in names, f"expected both graphics in selection, got {names!r}"
+
+    html1 = "<p>OCR_ONE</p>"
+    html2 = "<p>OCR_TWO</p>"
+    for name, html in ((name1, html1), (name2, html2)):
+        insert_cursor = prepare_vision_writer_insert(_test_doc, _test_ctx, image_name=name)
+        insert_html_at_cursor(_test_doc, _test_ctx, insert_cursor, html, apply_styles=False)
+
+    body = _test_doc.getText().getString()
+    assert intervening in body, f"intervening text was deleted during multi OCR insert: {body!r}"
+    assert "OCR_ONE" in body and "OCR_TWO" in body
+    assert len(list_graphic_objects(_test_doc)) >= 2
