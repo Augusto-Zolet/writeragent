@@ -225,7 +225,7 @@ class TestConfigSyncFileIO(unittest.TestCase):
         with open(self.config_path, 'w', encoding='utf-8') as f:
             f.write(corrupt)
         self._reset_config_cache()
-        self.assertEqual(get_config('calc_prompt_max_tokens'), 70)
+        self.assertEqual(get_config('calc_prompt_max_tokens'), 4096)
         self.assertTrue(os.path.exists(self._backup_path()))
         with open(self.config_path, 'r', encoding='utf-8') as f:
             self.assertEqual(f.read(), corrupt)
@@ -243,7 +243,7 @@ class TestConfigSyncFileIO(unittest.TestCase):
         if os.path.exists(self.config_path):
             os.remove(self.config_path)
         from plugin.framework.errors import ConfigError
-        self.assertEqual(get_config('calc_prompt_max_tokens'), 70)
+        self.assertEqual(get_config('calc_prompt_max_tokens'), 4096)
         self.assertEqual(get_config('prompt_lru'), [])
         self.assertEqual(get_config('endpoint'), 'http://localhost:11434')
         self.assertEqual(get_config('model_lru@http://localhost:11434'), [])
@@ -267,6 +267,36 @@ class TestConfigSyncFileIO(unittest.TestCase):
             get_config('some_new_lru')
         with self.assertRaises(ConfigError):
             get_config('custom_by_endpoint')
+
+    def test_stale_calc_prompt_max_tokens_upgraded_and_persisted(self):
+        with open(self.config_path, 'w', encoding='utf-8') as f:
+            json.dump({'text_model': 'gpt', 'calc_prompt_max_tokens': 70}, f)
+        self._reset_config_cache()
+        self.assertEqual(get_config('calc_prompt_max_tokens'), 4096)
+        with open(self.config_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        self.assertEqual(data['calc_prompt_max_tokens'], 4096)
+        self.assertEqual(data['text_model'], 'gpt')
+
+    def test_calc_prompt_max_tokens_at_or_above_100_preserved(self):
+        with open(self.config_path, 'w', encoding='utf-8') as f:
+            json.dump({'calc_prompt_max_tokens': 150}, f)
+        self._reset_config_cache()
+        self.assertEqual(get_config('calc_prompt_max_tokens'), 150)
+        with open(self.config_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        self.assertEqual(data['calc_prompt_max_tokens'], 150)
+
+    def test_writeragent_config_validate_bumps_stale_prompt_tokens(self):
+        from plugin.framework.config import WriterAgentConfig
+
+        cfg = WriterAgentConfig(calc_prompt_max_tokens=70)
+        cfg.validate()
+        self.assertEqual(cfg.calc_prompt_max_tokens, 4096)
+
+        cfg2 = WriterAgentConfig(calc_prompt_max_tokens=150)
+        cfg2.validate()
+        self.assertEqual(cfg2.calc_prompt_max_tokens, 150)
         with self.assertRaises(ConfigError):
             get_config('some_custom_map')
 

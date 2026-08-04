@@ -506,7 +506,7 @@ class WriterAgentConfig:
     extend_selection_system_prompt: str = ""
     edit_selection_system_prompt: str = ""
     audio_support_map: Dict[str, bool] = dataclasses.field(default_factory=dict)
-    calc_prompt_max_tokens: int = 70
+    calc_prompt_max_tokens: int = 4096
     # When True, treat endpoint as OpenRouter (e.g. custom proxy) even if the URL lacks openrouter.ai.
     is_openrouter: bool = False
     # When True, the Chat Completions request includes parallel_tool_calls: True to allow multiple tool calls.
@@ -583,6 +583,16 @@ class WriterAgentConfig:
                 self.chat_max_tokens = 16384
         if self.chat_max_tokens < 0:
             raise ConfigValidationError(_("Chat max tokens must be >= 0"), code="INVALID_CHAT_MAX_TOKENS")
+
+        # Old shipped default was 70; values below 100 are treated as stale and upgraded.
+        if not isinstance(self.calc_prompt_max_tokens, int):
+            try:
+                self.calc_prompt_max_tokens = parse_int_robust(self.calc_prompt_max_tokens)
+            except ValueError:
+                self.calc_prompt_max_tokens = 4096
+        if self.calc_prompt_max_tokens < 100:
+            log.info("Upgrading calc_prompt_max_tokens from %s to 4096", self.calc_prompt_max_tokens)
+            self.calc_prompt_max_tokens = 4096
 
         if not isinstance(self.request_timeout, int):
             try:
@@ -1157,6 +1167,23 @@ def _get_validated_config_dict():
         config.validate()
 
         out = _build_validated_config_export(data, config)
+
+        # Persist stale calc_prompt_max_tokens upgrade (old default 70 → 4096).
+        raw_prompt_tokens = data.get("calc_prompt_max_tokens")
+        try:
+            raw_int = parse_int_robust(raw_prompt_tokens) if raw_prompt_tokens is not None and raw_prompt_tokens != "" else None
+        except ValueError:
+            raw_int = None
+        if raw_int is not None and raw_int < 100 and out.get("calc_prompt_max_tokens") == 4096:
+            try:
+                _write_config_file(config_file_path, out)
+                try:
+                    current_mtime = os.path.getmtime(config_file_path)
+                except OSError:
+                    pass
+                log.info("Persisted calc_prompt_max_tokens upgrade (%s → 4096)", raw_int)
+            except OSError as e:
+                log.warning("Failed to persist calc_prompt_max_tokens upgrade: %s", e)
 
         _cache.data = out
         _cache.mtime = current_mtime

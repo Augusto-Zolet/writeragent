@@ -515,8 +515,14 @@ PYTHON_VENV_AUTO_IMPORTS_TOOL_NOTE = ""
 
 PYTHON_VENV_AUTO_IMPORTS_PROMPT_LINE = ""
 
-# Default for =PROMPT() when extend_selection_system_prompt is empty (LLM may emit =PY formulas).
+# Used when the LLM should emit =PY formulas (chat / specialized python paths). Not the =PROMPT() default.
 CALC_PYTHON_FORMULA_LLM_HINT = ""
+
+# Default system prompt for Calc =PROMPT() when systemPrompt arg and extend_selection_system_prompt are empty.
+CALC_PROMPT_CELL_SYSTEM_PROMPT = (
+    "Answer the user's request directly in plain text suitable for a spreadsheet cell. "
+    "Do not use HTML or markdown fences unless the user asks for them."
+)
 
 
 def python_specialized_sub_agent_hint(agent_label: str) -> str:

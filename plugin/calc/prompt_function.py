@@ -7,15 +7,55 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Mapping
 
 from plugin.framework.async_stream import run_blocking_in_thread
 from plugin.framework.client.errors import format_error_for_display
 from plugin.framework.client.llm_client import LlmClient
 from plugin.framework.config import get_api_config, get_config_int, get_config_str
 from plugin.framework.client.model_fetcher import get_text_model
+from plugin.framework.prompts import CALC_PROMPT_CELL_SYSTEM_PROMPT
 
 log = logging.getLogger(__name__)
+
+# Cap diagnostic cell text so Calc stays readable when reasoning excerpts are long.
+_EMPTY_DIAGNOSTIC_MAX_LEN = 500
+_REASONING_EXCERPT_MAX = 200
+
+
+def _assistant_text(result: Mapping[str, Any]) -> str:
+    content = result.get("content")
+    if content is None:
+        return ""
+    return str(content)
+
+
+def _format_empty_prompt_diagnostic(result: Mapping[str, Any], *, model: str) -> str:
+    """Visible cell message when the provider returned no assistant text (never a silent blank)."""
+    usage = result.get("usage") if isinstance(result.get("usage"), dict) else {}
+    parts = [
+        f"finish_reason={result.get('finish_reason')!r}",
+        f"completion_tokens={usage.get('completion_tokens', '?')}",
+        f"reasoning_tokens={usage.get('reasoning_tokens', '?')}",
+        f"model={model}",
+    ]
+    msg = "Error: model returned no text. " + "; ".join(parts) + "."
+    for key in ("reasoning", "reasoning_content"):
+        val = result.get(key)
+        if isinstance(val, str) and val.strip():
+            excerpt = " ".join(val.split())
+            if len(excerpt) > _REASONING_EXCERPT_MAX:
+                excerpt = excerpt[:_REASONING_EXCERPT_MAX] + "…"
+            msg += f" Reasoning excerpt: {excerpt}"
+            break
+    if len(msg) > _EMPTY_DIAGNOSTIC_MAX_LEN:
+        msg = msg[: _EMPTY_DIAGNOSTIC_MAX_LEN - 1] + "…"
+    return msg
+
+
+def _call_prompt_llm(ctx: Any, client: LlmClient, messages: list[dict[str, str]], max_tokens: int) -> dict[str, Any]:
+    result = run_blocking_in_thread(ctx, client.request_with_tools, messages, max_tokens=max_tokens, tools=None, stream=False)
+    return result if isinstance(result, dict) else {}
 
 
 def execute_prompt_addin(
@@ -28,8 +68,8 @@ def execute_prompt_addin(
     client_holder: list[LlmClient | None],
 ) -> str:
     """Call the chat API for =PROMPT(); *client_holder* is a one-element list for reuse across recalcs."""
-    # NOTE: We do not recommend HTML formatting in the system prompt for cell calculations 
-    # (unlike the sidebar chat window which supports rich HTML). Thus, we do not strip HTML 
+    # NOTE: We do not recommend HTML formatting in the system prompt for cell calculations
+    # (unlike the sidebar chat window which supports rich HTML). Thus, we do not strip HTML
     # tags here. If users see raw tags in cells, they can prompt for plain text output.
     log.debug("=== PROMPT(%s) ===", message)
     try:
@@ -38,15 +78,13 @@ def execute_prompt_addin(
         else:
             resolved_system = get_config_str("extend_selection_system_prompt")
             if not str(resolved_system).strip():
-                from plugin.framework.prompts import CALC_PYTHON_FORMULA_LLM_HINT
-
-                resolved_system = CALC_PYTHON_FORMULA_LLM_HINT
-        model_name = model if model is not None else get_text_model()
+                resolved_system = CALC_PROMPT_CELL_SYSTEM_PROMPT
+        model_name = str(model) if model is not None else get_text_model()
         if max_tokens is not None:
             try:
                 resolved_max = int(max_tokens)
             except (TypeError, ValueError):
-                resolved_max = 70
+                resolved_max = get_config_int("calc_prompt_max_tokens")
         else:
             resolved_max = get_config_int("calc_prompt_max_tokens")
 
@@ -66,7 +104,16 @@ def execute_prompt_addin(
         else:
             client.config = config
 
-        return run_blocking_in_thread(ctx, client.chat_completion_sync, messages, max_tokens=resolved_max)
+        result = _call_prompt_llm(ctx, client, messages, resolved_max)
+        text = _assistant_text(result)
+        if text.strip():
+            return text
+
+        # Reasoning models can burn max_tokens on reasoning and return content:null;
+        # surface diagnostics so the cell is never a silent blank.
+        diagnostic = _format_empty_prompt_diagnostic(result, model=model_name)
+        log.warning("PROMPT empty response: %s", diagnostic)
+        return diagnostic
     except Exception as e:
         log.error("PROMPT error: %s", e)
         return format_error_for_display(e)
