@@ -35,7 +35,7 @@ def test_calc_image_result_inserts_on_sheet():
     assert out["image_inserted"] is True
     assert out["image_path"] == "/tmp/plot.svg"
     assert "active sheet" in out["message"]
-    assert main_thread.call_count == 2
+    assert main_thread.call_count == 1
     insert.assert_called_once_with(ctx.ctx, _IMAGE_PAYLOAD)
 
 

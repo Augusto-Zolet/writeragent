@@ -348,6 +348,9 @@ def _resolve_python_data(ctx: Any, *, data_range: Any = None, data: Any = None) 
 
 def resolve_python_data_on_main_thread(ctx: Any, *, data_range: Any = None, data: Any = None) -> tuple[Any | None, str | None]:
     """Marshal Calc range reads to the LO main thread (``is_async`` tools run on workers)."""
+    from plugin.framework.thread_guard import on_main_thread
     from plugin.framework.queue_executor import execute_on_main_thread
 
+    if on_main_thread():
+        return _resolve_python_data(ctx, data_range=data_range, data=data)
     return execute_on_main_thread(_resolve_python_data, ctx, data_range=data_range, data=data)

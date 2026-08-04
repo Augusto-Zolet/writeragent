@@ -155,31 +155,21 @@ def _get_calc_doc(ctx: Any) -> Any | None:
 
 
 def session_key(ctx: Any, code: str) -> tuple:
-    from plugin.framework.thread_guard import on_main_thread
-    from plugin.framework.queue_executor import execute_on_main_thread
-
-    def _session_key_impl() -> tuple:
-        doc_url = ""
-        sheet_name = ""
-        try:
-            if not (hasattr(ctx, "ServiceManager") or hasattr(ctx, "getServiceManager")):
-                return (doc_url, sheet_name, code)
+    doc_url = ""
+    sheet_name = ""
+    try:
+        if hasattr(ctx, "ServiceManager") or hasattr(ctx, "getServiceManager"):
             doc = _get_calc_doc(ctx)
             if doc is not None:
                 doc_url = getattr(doc, "getURL", lambda: "")() or ""
                 ctrl = getattr(doc, "getCurrentController", lambda: None)()
                 if ctrl is not None:
-                    sheet = ctrl.getActiveSheet()
+                    sheet = getattr(ctrl, "getActiveSheet", lambda: None)()
                     if sheet is not None:
-                        sheet_name = sheet.getName()
-        except Exception:
-            pass
-        return (doc_url, sheet_name, code)
-
-    if not on_main_thread():
-        return execute_on_main_thread(_session_key_impl)
-
-    return _session_key_impl()
+                        sheet_name = getattr(sheet, "getName", lambda: "")() or ""
+    except Exception:
+        log.debug("session_key inline metadata lookup exception", exc_info=True)
+    return (doc_url, sheet_name, code)
 
 
 class WorkerResultSession:
@@ -615,19 +605,13 @@ def _code_uses_indexed_multi_data(code: str) -> bool:
 
 
 def get_python_init_kwargs(ctx: Any) -> dict[str, Any]:
-    from plugin.framework.thread_guard import on_main_thread
-    from plugin.framework.queue_executor import execute_on_main_thread
-
-    def _get_python_init_kwargs_impl() -> dict[str, Any]:
+    try:
         doc = get_calc_document_from_ctx(ctx)
         if doc is not None:
             return build_python_eval_init_kwargs(doc)
-        return {}
-
-    if not on_main_thread():
-        return execute_on_main_thread(_get_python_init_kwargs_impl)
-
-    return _get_python_init_kwargs_impl()
+    except Exception:
+        log.debug("get_python_init_kwargs inline lookup exception", exc_info=True)
+    return {}
 
 
 def execute_python_addin(

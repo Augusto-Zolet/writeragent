@@ -55,9 +55,10 @@ def test_execute_passes_data(mock_run):
     assert mock_run.call_args.kwargs["data"] == packed
 
 
+@patch("plugin.framework.thread_guard.on_main_thread", return_value=False)
 @patch("plugin.framework.queue_executor.execute_on_main_thread")
 @patch("plugin.calc.python.venv.run_code_in_user_venv")
-def test_run_venv_python_resolves_calc_data_on_main_thread(mock_run, mock_main_thread):
+def test_run_venv_python_resolves_calc_data_on_main_thread(mock_run, mock_main_thread, mock_on_main):
     mock_run.return_value = {"status": "ok", "result": 1}
     call_order: list[str] = []
 
