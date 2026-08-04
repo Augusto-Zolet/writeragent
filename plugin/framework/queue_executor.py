@@ -171,9 +171,12 @@ def _fn_label(fn: Callable) -> str:
 
 
 @contextmanager
-def llm_request_lane() -> Generator[None, None, None]:
+def llm_request_lane(timeout: float = 60.0) -> Generator[None, None, None]:
     """Serialize LLM requests when callers choose to opt in."""
-    _LLM_REQUEST_LOCK.acquire()
+    acquired = _LLM_REQUEST_LOCK.acquire(timeout=timeout)
+    if not acquired:
+        log.warning("llm_request_lane timed out after %ss waiting for LLM lock", timeout)
+        raise TimeoutError("Timed out waiting for LLM request lane lock after %ss" % timeout)
     try:
         yield
     finally:
@@ -181,19 +184,21 @@ def llm_request_lane() -> Generator[None, None, None]:
 
 
 @contextmanager
-def grammar_llm_request_gate(ctx: Any) -> Generator[None, None, None]:
+def grammar_llm_request_gate(ctx: Any, timeout: float = 60.0) -> Generator[None, None, None]:
     """Gate grammar proofreader HTTP: limit=1 uses global lane; limit>1 allows N parallel grammar calls."""
     from plugin.writer.locale.grammar_proofread_locale import grammar_max_in_flight
 
     limit = grammar_max_in_flight(ctx)
     if limit <= 1:
-        with llm_request_lane():
+        with llm_request_lane(timeout=timeout):
             yield
         return
     global _GRAMMAR_INFLIGHT_COUNT
     with _GRAMMAR_INFLIGHT_CV:
         while _GRAMMAR_INFLIGHT_COUNT >= limit:
-            _GRAMMAR_INFLIGHT_CV.wait()
+            if not _GRAMMAR_INFLIGHT_CV.wait(timeout=timeout):
+                log.warning("grammar_llm_request_gate timed out after %ss waiting for slot", timeout)
+                raise TimeoutError("Timed out waiting for grammar request gate slot after %ss" % timeout)
         _GRAMMAR_INFLIGHT_COUNT += 1
     try:
         yield

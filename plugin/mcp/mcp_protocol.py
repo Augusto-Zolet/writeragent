@@ -222,14 +222,19 @@ def _tool_needs_document_mutation_gate(tool, arguments=None):
 
 
 @contextmanager
-def _document_mutation_gate(doc_key, *, enabled):
-    # Future: optional acquire timeout + debug log when waiting on a contended gate
-    # (same class of "hung MCP" reports as _tool_semaphore blocking).
+def _document_mutation_gate(doc_key, *, enabled, timeout: float = 30.0):
     if not enabled:
         yield
         return
-    with _get_document_mutation_gate(doc_key):
+    gate = _get_document_mutation_gate(doc_key)
+    acquired = gate.acquire(timeout=timeout)
+    if not acquired:
+        log.warning("MCP _document_mutation_gate timed out after %ss waiting for %s", timeout, doc_key)
+        raise BusyError(f"Timed out waiting for document mutation lock ({doc_key})")
+    try:
         yield
+    finally:
+        gate.release()
 
 
 class BusyError(WriterAgentException):

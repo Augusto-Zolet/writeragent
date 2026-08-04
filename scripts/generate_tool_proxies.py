@@ -50,8 +50,11 @@ class MockModule(types.ModuleType):
     def __init__(self, name):
         super().__init__(name)
         self.__path__ = []
+        self.__file__ = None
+
     def __getattr__(self, name):
-        # Return a unique mock class for each attribute name
+        if name.startswith("__") and name.endswith("__"):
+            raise AttributeError(name)
         return get_mock_class(name)
 
 sys.modules["uno"] = MagicMock()
