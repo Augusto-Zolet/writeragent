@@ -37,7 +37,13 @@ log = logging.getLogger(__name__)
 
 
 from plugin.framework.errors import format_error_payload
-from plugin.framework.queue_executor import _marshal_thread_tag, default_executor, pump_ui_idle
+from plugin.framework.queue_executor import (
+    NestedDrainOwnerError,
+    _marshal_thread_tag,
+    default_executor,
+    drain_owner_scope,
+    pump_ui_idle,
+)
 
 
 class StreamQueueKind(str, Enum):
@@ -417,61 +423,72 @@ def run_stream_drain_loop(q, toolkit, job_done, apply_chunk_fn, on_stream_done, 
     log.debug("run_stream_drain_loop start %s", _marshal_thread_tag())
     first_batch_logged = [False]
     try:
-        while not job_done[0]:
-            if stop_checker and stop_checker():
-                log.info("run_stream_drain_loop: Stop requested via checker.")
-                on_stopped()
-                job_done[0] = True
-                break
+        # One active drain owner: nested Send/drain must not start a second pump loop.
+        with drain_owner_scope("stream"):
+            while not job_done[0]:
+                if stop_checker and stop_checker():
+                    log.info("run_stream_drain_loop: Stop requested via checker.")
+                    on_stopped()
+                    job_done[0] = True
+                    break
 
-            try:
-                items = _drain_batch(q, 0.1)
-            except Exception as e:
-                error_payload = format_error_payload(e)
-                log.error("Stream queue error: %s" % error_payload)
-                on_error(error_payload)
-                job_done[0] = True
-                break
+                try:
+                    items = _drain_batch(q, 0.1)
+                except Exception as e:
+                    error_payload = format_error_payload(e)
+                    log.error("Stream queue error: %s" % error_payload)
+                    on_error(error_payload)
+                    job_done[0] = True
+                    break
 
-            if not items:
-                marshal_depth = default_executor._work_queue.qsize()
+                if not items:
+                    marshal_depth = default_executor._work_queue.qsize()
+                    if toolkit:
+                        pump_ui_idle(toolkit)
+                    if marshal_depth > 0:
+                        remaining = default_executor._work_queue.qsize()
+                        if remaining > 0:
+                            log.warning(
+                                "drain_idle: marshal queue_depth=%d after pump (worker may be blocked) %s",
+                                remaining,
+                                _marshal_thread_tag(),
+                            )
+                        else:
+                            log.debug(
+                                "drain_idle: stream queue empty, marshal depth %d cleared by pump %s",
+                                marshal_depth,
+                                _marshal_thread_tag(),
+                            )
+                    continue
+
+                if not first_batch_logged[0]:
+                    first_batch_logged[0] = True
+
+                try:
+                    _process_batch(state, items, stop_checker)
+                except Exception as e:
+                    error_payload = format_error_payload(e)
+                    log.error("run_stream_drain_loop EXCEPTION: %s" % error_payload)
+                    job_done[0] = True
+                    try:
+                        on_error(error_payload)
+                    except Exception:
+                        pass
+
                 if toolkit:
                     pump_ui_idle(toolkit)
-                if marshal_depth > 0:
-                    remaining = default_executor._work_queue.qsize()
-                    if remaining > 0:
-                        log.warning(
-                            "drain_idle: marshal queue_depth=%d after pump (worker may be blocked) %s",
-                            remaining,
-                            _marshal_thread_tag(),
-                        )
-                    else:
-                        log.debug(
-                            "drain_idle: stream queue empty, marshal depth %d cleared by pump %s",
-                            marshal_depth,
-                            _marshal_thread_tag(),
-                        )
-                continue
-
-            if not first_batch_logged[0]:
-                first_batch_logged[0] = True
-
-            try:
-                _process_batch(state, items, stop_checker)
-            except Exception as e:
-                error_payload = format_error_payload(e)
-                log.error("run_stream_drain_loop EXCEPTION: %s" % error_payload)
-                job_done[0] = True
-                try:
-                    on_error(error_payload)
-                except Exception:
-                    pass
 
             if toolkit:
                 pump_ui_idle(toolkit)
 
-        if toolkit:
-            pump_ui_idle(toolkit)
+    except NestedDrainOwnerError as e:
+        error_payload = format_error_payload(e)
+        log.error("Nested stream drain rejected: %s", error_payload)
+        try:
+            on_error(error_payload)
+        except Exception:
+            log.error("Failed to notify error handler for nested drain")
+        job_done[0] = True
 
     except Exception as e:
         error_payload = format_error_payload(e)
@@ -665,6 +682,8 @@ def run_blocking_in_thread(ctx, func, *args, **kwargs):
 
     run_in_background(worker, daemon=True, name="blocking-thread")
 
+    # Do not take drain_owner_scope here: this helper may run under an active stream
+    # drain. pump_ui_idle remains the owner-safe VCL pump path.
     while True:
         try:
             # Check for result without long block

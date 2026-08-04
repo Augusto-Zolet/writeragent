@@ -411,11 +411,9 @@ def flush_ui_idle(ctx: Any | None) -> None:
     if ctx is None:
         return
     try:
-        from plugin.framework.uno_context import get_toolkit
+        from plugin.framework.uno_context import process_events_to_idle
 
-        toolkit = get_toolkit(ctx)
-        if toolkit is not None and hasattr(toolkit, "processEventsToIdle"):
-            toolkit.processEventsToIdle()
+        process_events_to_idle(ctx)
     except Exception:
         log.debug("processEventsToIdle failed", exc_info=True)
 

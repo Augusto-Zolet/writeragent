@@ -124,12 +124,32 @@ def test_focus_preserved_restores_focus_window():
 
 def test_process_events_to_idle_calls_toolkit():
     from plugin.framework.uno_context import process_events_to_idle
+    from plugin.framework.queue_executor import reset_suppressed_vcl_pump_count
 
+    reset_suppressed_vcl_pump_count()
     toolkit = MagicMock()
     with patch("plugin.framework.uno_context.get_toolkit", return_value=toolkit):
-        process_events_to_idle(MagicMock(), rounds=3)
+        assert process_events_to_idle(MagicMock(), rounds=3) is True
 
     assert toolkit.processEventsToIdle.call_count == 3
+
+
+def test_process_events_to_idle_suppressed_under_drain_owner():
+    from plugin.framework.queue_executor import (
+        drain_owner_scope,
+        get_suppressed_vcl_pump_count,
+        reset_suppressed_vcl_pump_count,
+    )
+    from plugin.framework.uno_context import process_events_to_idle
+
+    reset_suppressed_vcl_pump_count()
+    toolkit = MagicMock()
+    with patch("plugin.framework.uno_context.get_toolkit", return_value=toolkit):
+        with drain_owner_scope("stream"):
+            assert process_events_to_idle(MagicMock(), rounds=2) is False
+
+    assert toolkit.processEventsToIdle.call_count == 0
+    assert get_suppressed_vcl_pump_count() >= 1
 
 
 def test_resolve_package_extension_id_prefers_librepy():

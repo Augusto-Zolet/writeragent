@@ -246,12 +246,27 @@ def focus_preserved(ctx):
 
 
 @main_thread_only
-def process_events_to_idle(ctx, rounds: int = 1) -> None:
-    """Drain the UI event queue *rounds* times; no-op when toolkit is unavailable."""
-    for idx in range(max(1, rounds)):
+def process_events_to_idle(ctx, rounds: int = 1) -> bool:
+    """Drain the UI event queue *rounds* times via the approved VCL pump chokepoint.
+
+    When a chat/MCP :func:`~plugin.framework.queue_executor.drain_owner_scope` is
+    active, skips VCL pumping so secondary progress helpers (grep, Harper status,
+    notebook import) cannot nest ``processEventsToIdle`` inside the drain loop.
+    Returns True if at least one VCL pump ran.
+    """
+    from plugin.framework.queue_executor import _note_suppressed_vcl_pump, _pump_vcl_events, get_drain_owner
+
+    owner = get_drain_owner()
+    if owner is not None:
+        _note_suppressed_vcl_pump(owner)
+        return False
+
+    pumped = False
+    for _idx in range(max(1, rounds)):
         try:
             tk = get_toolkit(ctx)
-            if tk and hasattr(tk, "processEventsToIdle"):
-                tk.processEventsToIdle()
+            if _pump_vcl_events(tk):
+                pumped = True
         except Exception:
-            pass
+            log.debug("process_events_to_idle failed", exc_info=True)
+    return pumped

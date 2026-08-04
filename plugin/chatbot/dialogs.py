@@ -94,8 +94,12 @@ def msgbox(ctx, title, message, *, box_type=1):
                 box.dispose()
             except Exception:
                 log.debug("msgbox dispose failed", exc_info=True)
-        if hasattr(toolkit, "processEventsToIdle"):
-            toolkit.processEventsToIdle()
+        try:
+            from plugin.framework.uno_context import process_events_to_idle
+
+            process_events_to_idle(ctx)
+        except Exception:
+            log.debug("msgbox process_events_to_idle failed", exc_info=True)
         log.debug("msgbox execute done title=%s", title)
     except Exception:
         log.exception("MSGBOX fallback - %s: %s", title, message)

@@ -24,6 +24,7 @@ from plugin.framework.config import get_config_str, get_config_bool_safe
 from plugin.framework.i18n import get_active_locale
 from plugin.framework.thread_guard import background
 from plugin.framework.constants import WORKER_POOL_DEFAULT, WORKER_POOL_EMBEDDINGS
+from plugin.framework.worker_pool import StderrTail, start_stderr_drain
 from plugin.scripting.config_limits import (
     WARM_WORKER_TIMEOUT_SEC,
     configured_python_exec_timeout,
@@ -93,6 +94,7 @@ class PythonWorkerManager:
         self._proc: subprocess.Popen[Any] | None = None
         self._io_lock = threading.Lock()
         self._primed = False
+        self._stderr_drain: StderrTail | None = None
 
     @classmethod
     def get(cls, exe: str, env: dict[str, str], *, pool: str = WORKER_POOL_DEFAULT) -> PythonWorkerManager:
@@ -378,6 +380,11 @@ class PythonWorkerManager:
             popen_kw["preexec_fn"] = os.setsid
         self._proc = subprocess.Popen(wrap_command_for_sandbox([self.exe, _HARNESS_PATH]), **popen_kw)
         optimize_popen_pipes(self._proc)
+        # Live stderr drain: prevent 64KB pipe deadlock while parent blocks on stdin/stdout.
+        self._stderr_drain = start_stderr_drain(
+            self._proc.stderr,
+            name=f"venv-stderr-{self._proc.pid}",
+        )
         log.debug("Started Python worker pid=%s exe=%s", self._proc.pid, self.exe)
 
     def _read_response_bytes(self, stdout: IO[bytes], timeout_sec: int) -> bytes:
@@ -495,11 +502,15 @@ class PythonWorkerManager:
         return read_frame_payload(stdout, read_exact=read_exact) or b""
 
     def _drain_stderr(self) -> str:
-        """Read any pending stderr from the crashed worker for diagnostics."""
+        """Return bounded stderr captured by the live drain thread (crash diagnostics)."""
+        drain = self._stderr_drain
+        if drain is not None:
+            text = drain.text().strip()
+            return f"\nWorker stderr:\n{text}" if text else ""
+        # Fallback if spawn raced before the drain was attached.
         if self._proc is None or self._proc.stderr is None:
             return ""
         try:
-            # Worker already exited (stdout closed); wait briefly then read stderr.
             self._proc.wait(timeout=2)
         except Exception:
             pass
@@ -516,6 +527,7 @@ class PythonWorkerManager:
         proc = self._proc
         self._proc = None
         self._primed = False
+        self._stderr_drain = None
         if proc is None:
             return
         try:

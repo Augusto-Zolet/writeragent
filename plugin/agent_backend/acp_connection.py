@@ -28,9 +28,8 @@ import subprocess
 import threading
 from typing import cast
 
-from plugin.framework.worker_pool import get_subprocess_creationflags
 from plugin.framework.errors import ToolExecutionError
-from plugin.framework.worker_pool import run_in_background
+from plugin.framework.worker_pool import get_subprocess_creationflags, run_in_background, start_stderr_drain
 
 log = logging.getLogger(__name__)
 
@@ -52,6 +51,7 @@ class ACPConnection:
         self._request_id = 0
         self._pending = {}  # id -> threading.Event, response dict
         self._reader_thread = None
+        self._stderr_drain = None
         self._running = False
         self._notifications = []  # queue of notification dicts
         self._notify_callback = None
@@ -78,6 +78,10 @@ class ACPConnection:
                 **get_subprocess_creationflags(),
             ),
         )
+        self._stderr_drain = start_stderr_drain(
+            self._proc.stderr,
+            name=f"acp-stderr-{self._proc.pid}",
+        )
         self._running = True
         self._reader_thread = run_in_background(self._reader_loop, daemon=True, name="acp-reader")
 
@@ -99,6 +103,7 @@ class ACPConnection:
                 except Exception:
                     pass
             self._proc = None
+            self._stderr_drain = None
 
     @property
     def is_alive(self):
@@ -236,14 +241,11 @@ class ACPConnection:
                     log.error(f"Reader error: {e}")
                 break
 
-        # Read stderr for debugging
-        if self._proc and self._proc.stderr:
-            try:
-                stderr = self._proc.stderr.read()
-                if stderr:
-                    stderr_text = stderr.decode("utf-8", errors="replace")[:500]
-                    log.warning(f"ACP stderr: {stderr_text}")
-            except Exception:
-                pass
+        # Live drain already collected stderr; log a bounded tail for debugging.
+        drain = self._stderr_drain
+        if drain is not None:
+            stderr_text = drain.text().strip()
+            if stderr_text:
+                log.warning("ACP stderr: %s", stderr_text[:500])
 
         log.info("Reader loop ended")

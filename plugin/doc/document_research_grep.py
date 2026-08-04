@@ -324,11 +324,10 @@ def _search_opened_document(
 
 def _process_events_if_available(ctx: Any) -> None:
     try:
-        from plugin.framework.uno_context import get_toolkit
+        from plugin.framework.uno_context import process_events_to_idle
 
-        toolkit = get_toolkit(ctx)
-        if toolkit is not None and hasattr(toolkit, "processEventsToIdle"):
-            toolkit.processEventsToIdle()
+        # No-ops while chat/MCP drain_owner_scope is active (avoids nested VCL pumps).
+        process_events_to_idle(ctx)
     except Exception:
         log.debug("processEventsToIdle during grep failed", exc_info=True)
 

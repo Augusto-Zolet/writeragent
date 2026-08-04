@@ -20,17 +20,22 @@ Background threads created here are tagged (via thread_guard) so that the
 UNO main-thread runtime guard (Layer A) can name the offending task on violation.
 """
 
+from __future__ import annotations
+
 import logging
 import subprocess
 import sys
 import threading
 import traceback
 import uuid
-from typing import Optional, Callable, Any
+from collections import deque
+from typing import Optional, Callable, Any, IO
 
 from plugin.framework.errors import WorkerPoolError
 
 log = logging.getLogger("writeragent.framework.worker_pool")
+
+_DEFAULT_STDERR_TAIL_CHARS = 8192
 
 # Thread-safety guard (Layer A): tag threads born here so assert_main_thread
 # can name the offending background task in diagnostics.
@@ -87,6 +92,79 @@ def get_subprocess_creationflags() -> dict[str, Any]:
     if sys.platform == "win32":
         return {"creationflags": subprocess.CREATE_NO_WINDOW}
     return {}
+
+
+class StderrTail:
+    """Bounded stderr text captured by a continuous drain thread.
+
+    Prevents the classic OS pipe deadlock: child fills stderr while parent
+    blocks on stdin/stdout. Keeps a diagnostic tail for crash messages.
+    """
+
+    __slots__ = ("_lock", "_chunks", "_chars", "_max_chars", "_thread")
+
+    def __init__(self, max_chars: int = _DEFAULT_STDERR_TAIL_CHARS) -> None:
+        self._lock = threading.Lock()
+        self._chunks: deque[str] = deque()
+        self._chars = 0
+        self._max_chars = max(256, max_chars)
+        self._thread: threading.Thread | None = None
+
+    def _append(self, text: str) -> None:
+        if not text:
+            return
+        with self._lock:
+            self._chunks.append(text)
+            self._chars += len(text)
+            while self._chunks and self._chars > self._max_chars:
+                dropped = self._chunks.popleft()
+                self._chars -= len(dropped)
+
+    def text(self) -> str:
+        with self._lock:
+            return "".join(self._chunks)
+
+    def attach_thread(self, thread: threading.Thread) -> None:
+        self._thread = thread
+
+
+def start_stderr_drain(
+    stream: IO[Any] | None,
+    *,
+    max_tail_chars: int = _DEFAULT_STDERR_TAIL_CHARS,
+    name: str = "stderr-drain",
+) -> StderrTail | None:
+    """Continuously drain a child stderr pipe into a bounded :class:`StderrTail`.
+
+    Call this immediately after ``Popen(..., stderr=PIPE)`` for long-lived workers.
+    Returns None when *stream* is None (e.g. stderr redirected to DEVNULL).
+    """
+    if stream is None:
+        return None
+    tail = StderrTail(max_chars=max_tail_chars)
+
+    def _loop() -> None:
+        try:
+            while True:
+                chunk = stream.read(4096)
+                if not chunk:
+                    break
+                if isinstance(chunk, bytes):
+                    text = chunk.decode("utf-8", errors="replace")
+                else:
+                    text = chunk
+                tail._append(text)
+        except Exception:
+            log.debug("%s failed", name, exc_info=True)
+        finally:
+            try:
+                stream.close()
+            except Exception:
+                pass
+
+    thread = run_in_background(_loop, name=name)
+    tail.attach_thread(thread)
+    return tail
 
 
 class AsyncProcess:

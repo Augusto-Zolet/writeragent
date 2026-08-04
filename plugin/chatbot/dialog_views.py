@@ -20,7 +20,7 @@ import uno
 from com.sun.star.awt import XItemListener, XTextListener
 
 from plugin.framework.errors import format_error_payload, UnoObjectError, ConfigValidationError
-from plugin.framework.uno_context import get_active_document, get_desktop, get_extension_url, get_toolkit
+from plugin.framework.uno_context import get_active_document, get_desktop, get_extension_url
 from plugin.framework.i18n import _
 from plugin.framework.config import get_config, get_current_endpoint, set_config, get_config_str, get_config_int, as_bool
 from plugin.framework.client.model_fetcher import get_text_model, get_stt_model, set_text_model
@@ -646,8 +646,8 @@ class EvalRunListener(BaseActionListener):
 
     def run_suite(self):
         from tests.eval_runner import run_benchmark_suite
-        toolkit = get_toolkit(self.ctx)
-        
+        from plugin.framework.uno_context import process_events_to_idle
+
         model_name = self.dialog.getControl("models").getText()
         categories = []
         for cat in ("writer", "calc", "draw", "multimodal"):
@@ -656,8 +656,7 @@ class EvalRunListener(BaseActionListener):
 
         self.dialog.getControl("log_area").setText(f"Starting benchmark for {model_name}...\n")
         self.dialog.getControl("status").setText("Running...")
-        if toolkit:
-            toolkit.processEventsToIdle()
+        process_events_to_idle(self.ctx)
 
         doc = get_active_document(self.ctx)
         summary = run_benchmark_suite(self.ctx, doc, model_name, categories)

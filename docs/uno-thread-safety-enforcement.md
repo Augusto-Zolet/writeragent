@@ -375,5 +375,6 @@ trace," which is the bulk of the user's pain.
 
 - [`docs/threading_architecture.md`](threading_architecture.md) — the model being enforced.
 - [`docs/streaming-and-threading.md`](streaming-and-threading.md) — drain loop, Stop/cancellation, the `execute_on_main_thread` checklist.
+- [`docs/reentrancy-and-ipc-deadlock-prevention-plan.md`](reentrancy-and-ipc-deadlock-prevention-plan.md) — same-thread nested drain / VCL reentry and piped-subprocess stderr safety (orthogonal to off-main-thread Layer A–C).
 - [`docs/formal_verification.md`](formal_verification.md) — why FV is the wrong tool for this class of bug.
 - Reference fix this doc generalizes: commit `0cfc6891b679f3fcc2ad4a47107763a1b5bd93d7` (charts hang).

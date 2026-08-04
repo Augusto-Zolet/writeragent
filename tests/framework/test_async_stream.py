@@ -9,8 +9,11 @@ from plugin.framework.async_stream import StreamQueueKind, run_stream_drain_loop
 from plugin.framework.worker_pool import run_in_background
 
 class DummyToolkit:
+    def __init__(self):
+        self.idle_calls = 0
+
     def processEventsToIdle(self):
-        pass
+        self.idle_calls += 1
 
 def test_run_stream_drain_loop_basic():
     q = queue.Queue()
@@ -781,6 +784,50 @@ def test_pump_ui_idle_unblocks_execute_on_main_thread_when_poke_noop():
                 qe.set_force_marshal_mode(False)
                 while not qe.default_executor._work_queue.empty():
                     qe.default_executor.process_queue()
+
+
+def test_drain_owner_scope_rejects_nesting():
+    from plugin.framework.queue_executor import NestedDrainOwnerError, drain_owner_scope, get_drain_owner
+
+    with drain_owner_scope("stream"):
+        assert get_drain_owner() == "stream"
+        with pytest.raises(NestedDrainOwnerError):
+            with drain_owner_scope("nested"):
+                pass
+    assert get_drain_owner() is None
+
+
+def test_pump_ui_idle_still_pumps_vcl_under_drain_owner():
+    """Owner path must keep pumping so Send stays responsive / Stop works."""
+    from plugin.framework import queue_executor as qe
+
+    toolkit = DummyToolkit()
+    with qe.drain_owner_scope("stream"):
+        qe.pump_ui_idle(toolkit)
+    assert toolkit.idle_calls >= 1
+
+
+def test_nested_stream_drain_rejected():
+    """A second run_stream_drain_loop under an active owner must not hang forever."""
+    from plugin.framework.queue_executor import drain_owner_scope
+
+    errors: list = []
+    job_done = [False]
+    q: queue.Queue = queue.Queue()
+
+    with drain_owner_scope("outer"):
+        run_stream_drain_loop(
+            q,
+            DummyToolkit(),
+            job_done,
+            lambda _t, _th: None,
+            on_stream_done=lambda _i: True,
+            on_stopped=lambda: None,
+            on_error=errors.append,
+        )
+
+    assert job_done[0] is True
+    assert errors
 
 
 def test_run_stream_drain_loop_idle_unblocks_marshaled_worker():

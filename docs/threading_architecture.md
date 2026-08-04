@@ -93,7 +93,7 @@ The core chatbot interaction relies heavily on threads to handle streaming LLM r
 *   **`plugin/framework/logging.py`:** Spawns a background thread (`_watchdog_loop`) to periodically flush status logs or monitor system health without interrupting document flow. Uses `_init_lock` and `_activity_lock` to protect logging state.
 *   **`plugin/chatbot/dialogs.py`:** Spawns a probe update thread (`run_in_background(_probe_update)`) to dynamically update dialog UI elements in the background.
 *   **`plugin/framework/worker_pool.py`:** Provides the `run_in_background(func, *args, error_callback=None)` function to spawn an un-blocking thread with standardized exception handling and logging.
-*   **`plugin/framework/process_manager.py`:** Provides the `AsyncProcess` class, standardizing how external processes are started and how their `stdout`, `stderr`, and exit callbacks are handled safely without blocking.
+*   **`plugin/framework/worker_pool.py` (`AsyncProcess`):** Standardizes how external processes are started and how their `stdout`, `stderr`, and exit callbacks are handled safely without blocking.
 
 ---
 
@@ -102,7 +102,7 @@ The core chatbot interaction relies heavily on threads to handle streaming LLM r
 The threading model has recently been refactored to eliminate duplicate concurrency patterns that had evolved independently. 
 
 ### 1. Unified Background Process Monitoring (`AsyncProcess`)
-Multiple modules previously spawned `subprocess.Popen` manually and wrapped them in custom `threading.Thread` implementations to monitor stdout/stderr loops. This has been consolidated into an `AsyncProcess` class in `plugin/framework/process_manager.py`. It encapsulates process spawning, thread-based stream monitoring (via asynchronous readers), and exit handling. It provides cleaner process lifecycle monitoring in `launcher`, `tunnel`, and `agent_backend/cli_backend`.
+Multiple modules previously spawned `subprocess.Popen` manually and wrapped them in custom `threading.Thread` implementations to monitor stdout/stderr loops. This has been consolidated into an `AsyncProcess` class in `plugin/framework/worker_pool.py`. It encapsulates process spawning, thread-based stream monitoring (via asynchronous readers), and exit handling. It provides cleaner process lifecycle monitoring in `launcher`, `tunnel`, and `agent_backend/cli_backend`. Long-lived children that keep `stderr=PIPE` must drain stderr continuously or redirect it — see [reentrancy-and-ipc-deadlock-prevention-plan.md](reentrancy-and-ipc-deadlock-prevention-plan.md).
 
 ### 2. Main Thread Execution (`main_thread.py` vs `mcp_protocol.py`)
 Both `mcp_protocol.py` and `main_thread.py` previously contained duplicate logic for pushing execution callbacks back to the LibreOffice UI thread. These have been consolidated: `mcp_protocol` now relies on standard main thread dispatch mechanisms, eliminating redundant `_Future` wait implementations.

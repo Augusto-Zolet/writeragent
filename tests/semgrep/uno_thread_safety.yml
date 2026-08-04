@@ -146,3 +146,53 @@ rules:
       - pattern-not: |
           def get_extension_path(...):
             ...
+
+  - id: raw-process-events-to-idle
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Call process_events_to_idle()/pump_ui_idle() instead of raw
+      toolkit.processEventsToIdle(). See docs/reentrancy-and-ipc-deadlock-prevention-plan.md.
+    patterns:
+      - pattern-either:
+          - pattern: $TK.processEventsToIdle()
+          - pattern: $TK.XYield()
+      - pattern-not-inside: |
+          def _pump_vcl_events(...):
+            ...
+      - pattern-not-inside: |
+          def process_events_to_idle(...):
+            ...
+      - pattern-not-inside: |
+          def pump_ui_idle(...):
+            ...
+    paths:
+      exclude:
+        - "**/tests/**"
+        - "**/plugin/tests/**"
+        - "**/plugin/framework/queue_executor.py"
+
+  - id: piped-stderr-needs-drain
+    languages: [python]
+    severity: WARNING
+    message: >-
+      Long-lived Popen with stderr=PIPE needs start_stderr_drain() (or DEVNULL).
+      See docs/reentrancy-and-ipc-deadlock-prevention-plan.md Feature #4.
+    patterns:
+      - pattern: subprocess.Popen(..., stderr=subprocess.PIPE, ...)
+      - pattern-not-inside: |
+          class AsyncProcess:
+            ...
+      - pattern-not-inside: |
+          def start_stderr_drain(...):
+            ...
+    paths:
+      exclude:
+        - "**/tests/**"
+        - "**/plugin/tests/**"
+        - "**/plugin/framework/worker_pool.py"
+        - "**/plugin/scripting/venv_worker.py"
+        - "**/plugin/agent_backend/acp_connection.py"
+        - "**/plugin/scripting/audio_recorder_service.py"
+        - "**/plugin/scripting/editor_host.py"
+        - "**/plugin/writer/locale/harper.py"

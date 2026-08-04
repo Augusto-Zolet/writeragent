@@ -139,7 +139,7 @@ class DelegateReadDocument(ToolBase):
         return True
 
     def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
-        from plugin.framework.queue_executor import SendCancelled, execute_on_main_thread
+        from plugin.framework.queue_executor import SendCancelled
 
         path_or_name = kwargs.get("path_or_name")
         task = kwargs.get("task")

@@ -32,3 +32,10 @@ def good_cross_function_worker():
         execute_on_main_thread(get_desktop)
 
     _marshalled_helper()
+
+
+def approved_vcl_pump(ctx):
+    from plugin.framework.uno_context import process_events_to_idle
+
+    # ok: raw-process-events-to-idle
+    process_events_to_idle(ctx)

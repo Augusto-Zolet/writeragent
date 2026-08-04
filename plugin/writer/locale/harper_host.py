@@ -24,13 +24,12 @@ def _pump_grammar_status_ui(ctx: Any) -> None:
     linting even though status painting is optional.
     """
     from plugin.framework.queue_executor import post_to_main_thread, pump_main_thread_work_queue
-    from plugin.framework.uno_context import get_toolkit
+    from plugin.framework.uno_context import process_events_to_idle
 
     def _pump() -> None:
         pump_main_thread_work_queue(max_items=8)
-        toolkit = get_toolkit(ctx)
-        if toolkit is not None and hasattr(toolkit, "processEventsToIdle"):
-            toolkit.processEventsToIdle()
+        # Chokepoint: no-ops while a stream drain owns VCL pumping.
+        process_events_to_idle(ctx)
 
     try:
         post_to_main_thread(_pump)

@@ -424,7 +424,7 @@ flowchart LR
 **Goal:** Large files do not block the UI LO instance.
 
 - Persistent or one-shot `soffice --headless` with separate user profile (`--env:UserInstallation=...`).
-- Worker script or UNO bridge; [`AsyncProcess`](../plugin/framework/process_manager.py) for lifecycle.
+- Worker script or UNO bridge; [`AsyncProcess`](../plugin/framework/worker_pool.py) for lifecycle.
 - Default to headless for non-small docs once stable; fallback to in-process hidden open on failure.
 - Inner sub-agent API unchanged; transport only.
 

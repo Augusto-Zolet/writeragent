@@ -45,6 +45,60 @@ _GRAMMAR_INFLIGHT_CV = threading.Condition(_GRAMMAR_INFLIGHT_LOCK)
 _GRAMMAR_INFLIGHT_COUNT = 0
 _current_send_cancellation: ContextVar["SendCancellation | None"] = ContextVar("current_send_cancellation", default=None)
 
+# Drain ownership: one active VCL pump owner per thread (chat/MCP drain loop).
+# Secondary process_events_to_idle callers no-op while an owner is active; pump_ui_idle
+# (the owner path) keeps pumping so Send stays responsive and Stop works.
+_drain_tls = threading.local()
+_suppressed_vcl_pumps = 0
+_suppressed_vcl_lock = threading.Lock()
+
+
+class NestedDrainOwnerError(RuntimeError):
+    """Raised when a second drain_owner_scope nests inside an active owner."""
+
+
+def get_drain_owner() -> str | None:
+    """Return the active drain owner name on this thread, or None."""
+    return getattr(_drain_tls, "owner", None)
+
+
+def get_suppressed_vcl_pump_count() -> int:
+    """Test/diagnostics: how many secondary VCL pumps were skipped under an owner."""
+    with _suppressed_vcl_lock:
+        return _suppressed_vcl_pumps
+
+
+def reset_suppressed_vcl_pump_count() -> None:
+    """Test hook: clear the suppressed-pump counter."""
+    global _suppressed_vcl_pumps
+    with _suppressed_vcl_lock:
+        _suppressed_vcl_pumps = 0
+
+
+def _note_suppressed_vcl_pump(owner: str) -> None:
+    global _suppressed_vcl_pumps
+    with _suppressed_vcl_lock:
+        _suppressed_vcl_pumps += 1
+    log.debug("process_events_to_idle suppressed (drain owner=%s)", owner)
+
+
+@contextmanager
+def drain_owner_scope(name: str) -> "Generator[None, None, None]":
+    """Mark this stack as the sole VCL pump owner (e.g. chat ``run_stream_drain_loop``).
+
+    Nested owners raise :class:`NestedDrainOwnerError` — a second Send/drain must not
+    start while one is already pumping. The owner may call :func:`pump_ui_idle`; other
+    code must use :func:`process_events_to_idle`, which no-ops VCL while owned.
+    """
+    prev = getattr(_drain_tls, "owner", None)
+    if prev is not None:
+        raise NestedDrainOwnerError(f"Cannot nest drain owner {name!r} while {prev!r} is active")
+    _drain_tls.owner = name
+    try:
+        yield
+    finally:
+        _drain_tls.owner = None
+
 
 def set_force_marshal_mode(enabled: bool) -> None:
     """Test hook: force cross-thread marshal via the work queue (Layer B)."""
@@ -525,8 +579,24 @@ def pump_main_thread_work_queue(*, max_items: int = 1, executor: QueueExecutor |
         log.debug("pump_main_thread_work_queue processed=%d %s", processed, _marshal_thread_tag(ex))
 
 
-def pump_ui_idle(toolkit: Any, *, max_queue_items: int = 1, executor: QueueExecutor | None = None) -> None:
-    """Idle tick for main-thread wait loops: drain QueueExecutor then pump VCL events."""
-    pump_main_thread_work_queue(max_items=max_queue_items, executor=executor)
+def _pump_vcl_events(toolkit: Any) -> bool:
+    """Call toolkit.processEventsToIdle(); only used from approved pump entry points."""
     if toolkit is not None and hasattr(toolkit, "processEventsToIdle"):
-        toolkit.processEventsToIdle()
+        try:
+            toolkit.processEventsToIdle()
+            return True
+        except Exception:
+            log.debug("processEventsToIdle failed", exc_info=True)
+    return False
+
+
+def pump_ui_idle(toolkit: Any, *, max_queue_items: int = 1, executor: QueueExecutor | None = None) -> None:
+    """Idle tick for main-thread wait loops: drain QueueExecutor then pump VCL events.
+
+    This is the drain-owner path: always pumps VCL when a toolkit is present so chat
+    Send stays responsive. Secondary UI progress must use
+    :func:`plugin.framework.uno_context.process_events_to_idle`, which no-ops while
+    a :func:`drain_owner_scope` is active.
+    """
+    pump_main_thread_work_queue(max_items=max_queue_items, executor=executor)
+    _pump_vcl_events(toolkit)

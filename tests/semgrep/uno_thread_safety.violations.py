@@ -37,3 +37,8 @@ def bad_cross_function_worker():
 def spawn_raw_thread():
     # ruleid: raw-uno-thread-ban
     threading.Thread(target=bad_background_worker, daemon=True).start()
+
+
+def raw_vcl_pump(toolkit):
+    # ruleid: raw-process-events-to-idle
+    toolkit.processEventsToIdle()

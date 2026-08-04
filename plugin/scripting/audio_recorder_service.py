@@ -14,7 +14,7 @@ import tempfile
 from typing import TYPE_CHECKING, Any
 
 from plugin.framework.config import get_config_str
-from plugin.framework.worker_pool import run_in_background
+from plugin.framework.worker_pool import StderrTail, run_in_background, start_stderr_drain
 
 if TYPE_CHECKING:
     import threading
@@ -31,6 +31,8 @@ _AUDIO_RECORD_MAIN = os.path.join(
 )
 _RECORDING_READY_TIMEOUT_SEC = 30
 _RECORDING_STOP_TIMEOUT_SEC = 15
+# Live stderr drains keyed by id(proc) — avoids pipe deadlock during record.
+_recording_stderr_drains: dict[int, StderrTail] = {}
 
 _VENV_NOT_CONFIGURED = (
     "Set the Python venv path in WriterAgent Settings → Python, then run "
@@ -100,7 +102,11 @@ def spawn_recording_process(
     if silence_config is not None:
         cmd.extend(_silence_cli_args(silence_config))
     cmd = wrap_command_for_sandbox(cmd)
-    return subprocess.Popen(cmd, **_popen_kwargs())
+    proc = subprocess.Popen(cmd, **_popen_kwargs())
+    drain = start_stderr_drain(proc.stderr, name=f"audio-rec-stderr-{proc.pid}")
+    if drain is not None:
+        _recording_stderr_drains[id(proc)] = drain
+    return proc
 
 
 def _read_json_line(proc: subprocess.Popen[str], timeout: float) -> dict[str, Any]:
@@ -118,7 +124,8 @@ def _read_json_line(proc: subprocess.Popen[str], timeout: float) -> dict[str, An
     except Exception as exc:
         raise RuntimeError(f"Failed to read from recording subprocess: {exc}") from exc
     if payload is None:
-        stderr = (proc.stderr.read() if proc.stderr else "") or ""
+        drain = _recording_stderr_drains.get(id(proc))
+        stderr = (drain.text() if drain is not None else "") or ""
         code = proc.poll()
         detail = stderr.strip() or f"exit code {code}"
         raise RuntimeError(f"Recording subprocess ended before responding ({detail}).")
@@ -177,6 +184,7 @@ def stop_recording_process(
         proc.wait(timeout=timeout_sec)
     except subprocess.TimeoutExpired:
         proc.terminate()
+    _recording_stderr_drains.pop(id(proc), None)
     return path
 
 
@@ -237,6 +245,7 @@ def terminate_recording_process(proc: subprocess.Popen[str] | None) -> None:
                 proc.kill()
             except OSError:
                 pass
+    _recording_stderr_drains.pop(id(proc), None)
 
 
 def make_temp_wav_path() -> str:
