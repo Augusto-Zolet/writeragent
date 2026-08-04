@@ -124,11 +124,18 @@ def test_format_self_check_success_with_data_engineering_group():
         "sci": [],
         "eda": [],
         "ui": [],
+        "nlp": [],
+        "audio": [],
+        "vector_search": [],
+        "vision": [],
+        "data_eng": ["pint", "duckdb"],
     }
     msg = _format_self_check_success(data)
     assert "Data Engineering Libraries" in msg
     assert "Data Engineering Libraries: pint" in msg
     assert "duckdb" in msg
+    assert "uv pip install duckdb" in msg
+    assert "pip install duckdb" in msg
 
 
 def test_build_probe_display_includes_nlp_when_keys_present():
@@ -167,14 +174,52 @@ def test_format_self_check_success_with_vision_group():
         "sci": ["numpy"],
         "eda": [],
         "ui": [],
+        "nlp": [],
+        "audio": [],
+        "vector_search": [],
+        "data_eng": [],
         "vision": ["docling", "rapidocr", "css_inline", "paddleocr", "paddle", "ultralytics", "skimage"],
     }
     msg = _format_self_check_success(data)
     assert "Vision Libraries" in msg
     assert "Vision Libraries: docling, rapidocr, css_inline, paddleocr, paddle" in msg
-    assert "Missing: ultralytics, skimage" in msg
+    assert "OCR: ready (Docling)" in msg
+    assert "Optional (not installed): ultralytics, skimage" in msg
+    assert "Missing: ultralytics" not in msg
+    assert "Missing (OCR)" not in msg
     assert "pip install" not in msg
     assert "Helpers" not in msg
+
+
+def test_format_self_check_success_vision_optional_paddle_when_docling_ready():
+    from plugin.scripting.venv_diagnostics import _format_self_check_success
+
+    data = {
+        "v": "3.12.0",
+        "p": {
+            "docling": "present",
+            "rapidocr": "present",
+            "css_inline": "present",
+            "paddleocr": None,
+            "paddle": None,
+            "ultralytics": None,
+            "skimage": None,
+        },
+        "sci": [],
+        "eda": [],
+        "ui": [],
+        "nlp": [],
+        "audio": [],
+        "vector_search": [],
+        "data_eng": [],
+        "vision": ["docling", "rapidocr", "css_inline", "paddleocr", "paddle", "ultralytics", "skimage"],
+    }
+    msg = _format_self_check_success(data)
+    assert "OCR: ready (Docling)" in msg
+    assert "Optional (not installed): paddleocr, paddle, ultralytics, skimage" in msg
+    assert "Missing (OCR)" not in msg
+    assert "To install remaining packages:" not in msg
+    assert "pip install" not in msg
 
 
 def test_format_self_check_success_vision_install_hint():
@@ -185,6 +230,7 @@ def test_format_self_check_success_vision_install_hint():
         "p": {
             "docling": None,
             "rapidocr": None,
+            "css_inline": None,
             "paddleocr": None,
             "paddle": None,
             "numpy": None,
@@ -194,11 +240,56 @@ def test_format_self_check_success_vision_install_hint():
         "sci": [],
         "eda": [],
         "ui": [],
-        "vision": ["docling", "rapidocr", "paddleocr", "paddle", "ultralytics", "skimage"],
+        "nlp": [],
+        "audio": [],
+        "vector_search": [],
+        "data_eng": [],
+        "vision": ["docling", "rapidocr", "css_inline", "paddleocr", "paddle", "ultralytics", "skimage"],
     }
     msg = _format_self_check_success(data)
-    assert "pip install" not in msg
+    assert "OCR: not ready" in msg
+    assert "Missing (OCR): docling, rapidocr, css_inline" in msg
+    assert "Optional (not installed): paddleocr, paddle, ultralytics, skimage" in msg
+    assert "To install remaining packages:" in msg
+    install_idx = msg.index("To install remaining packages:")
+    footer = msg[install_idx:]
+    assert "uv pip install docling rapidocr-paddle css-inline" in footer
+    pip_line = [line for line in footer.splitlines() if line.startswith("pip install ")][0]
+    uv_line = [line for line in footer.splitlines() if line.startswith("uv pip install ")][0]
+    assert footer.index(uv_line) < footer.index(pip_line)
+    assert "paddleocr" not in footer
+    assert "ultralytics" not in footer
     assert "Helpers" not in msg
+
+
+def test_format_self_check_success_vision_paddle_only_ready():
+    from plugin.scripting.venv_diagnostics import _format_self_check_success
+
+    data = {
+        "v": "3.12.0",
+        "p": {
+            "docling": None,
+            "rapidocr": None,
+            "css_inline": "present",
+            "paddleocr": "present",
+            "paddle": "present",
+            "ultralytics": None,
+            "skimage": None,
+        },
+        "sci": [],
+        "eda": [],
+        "ui": [],
+        "nlp": [],
+        "audio": [],
+        "vector_search": [],
+        "data_eng": [],
+        "vision": ["docling", "rapidocr", "css_inline", "paddleocr", "paddle", "ultralytics", "skimage"],
+    }
+    msg = _format_self_check_success(data)
+    assert "OCR: ready (Paddle)" in msg
+    assert "Optional (not installed): ultralytics, skimage, docling, rapidocr" in msg
+    assert "Missing (OCR)" not in msg
+    assert "pip install" not in msg
 
 
 def test_format_self_check_success_vision_install_hint_when_numpy_missing():
@@ -209,6 +300,7 @@ def test_format_self_check_success_vision_install_hint_when_numpy_missing():
         "p": {
             "docling": "present",
             "rapidocr": "present",
+            "css_inline": "present",
             "paddleocr": "present",
             "paddle": "present",
             "numpy": None,
@@ -218,10 +310,19 @@ def test_format_self_check_success_vision_install_hint_when_numpy_missing():
         "sci": ["numpy"],
         "eda": [],
         "ui": [],
-        "vision": ["docling", "rapidocr", "paddleocr", "paddle", "ultralytics", "skimage"],
+        "nlp": [],
+        "audio": [],
+        "vector_search": [],
+        "data_eng": [],
+        "vision": ["docling", "rapidocr", "css_inline", "paddleocr", "paddle", "ultralytics", "skimage"],
     }
     msg = _format_self_check_success(data)
-    assert "pip install" not in msg
+    assert "OCR: ready (Docling)" in msg
+    assert "To install remaining packages:" in msg
+    footer = msg[msg.index("To install remaining packages:") :]
+    assert "uv pip install numpy" in footer
+    assert "pip install numpy" in footer
+    assert footer.index("uv pip install") < footer.index("\npip install")
     assert "Helpers" not in msg
 
 
@@ -242,6 +343,10 @@ def test_format_self_check_success_with_vector_search_group():
         "sci": [],
         "eda": [],
         "ui": [],
+        "nlp": [],
+        "audio": [],
+        "vision": [],
+        "data_eng": [],
         "vector_search": [
             "envwrap",
             "sentence_transformers",
@@ -256,6 +361,9 @@ def test_format_self_check_success_with_vector_search_group():
     assert "Vector Search Libraries" in msg
     assert "Vector Search Libraries: envwrap, sentence_transformers, sqlite_vec, langchain_core" in msg
     assert "Missing: zvec, langgraph, langchain_text_splitters" in msg
+    footer = msg[msg.index("To install remaining packages:") :]
+    assert "uv pip install zvec langgraph langchain-text-splitters" in footer
+    assert "pip install zvec langgraph langchain-text-splitters" in footer
 
 
 def test_format_self_check_success_vector_search_probe_failure_hint():
@@ -267,6 +375,10 @@ def test_format_self_check_success_vector_search_probe_failure_hint():
         "sci": [],
         "eda": [],
         "ui": [],
+        "nlp": [],
+        "audio": [],
+        "vision": [],
+        "data_eng": [],
         "vector_search": [
             "envwrap",
             "sentence_transformers",
@@ -281,6 +393,8 @@ def test_format_self_check_success_vector_search_probe_failure_hint():
     msg = _format_self_check_success(data)
     assert "Vector Search probe timed out" in msg
     assert "Missing: envwrap" in msg
+    assert "To install remaining packages:" in msg
+    assert "sentence-transformers" in msg
 
 
 def test_run_venv_self_check_includes_vision():
@@ -299,6 +413,7 @@ def test_run_venv_self_check_includes_vision():
     vision_probes = {
         "docling": None,
         "rapidocr": None,
+        "css_inline": None,
         "paddleocr": "present",
         "paddle": None,
         "ultralytics": None,
@@ -309,13 +424,16 @@ def test_run_venv_self_check_includes_vision():
         patch("plugin.scripting.venv_diagnostics._probe_nlp_packages", return_value=({}, None)),
         patch("plugin.scripting.venv_diagnostics._probe_vision_packages", return_value=(vision_probes, None)),
         patch("plugin.scripting.venv_diagnostics._probe_vector_search_packages", return_value=({}, None)),
+        patch("plugin.scripting.venv_diagnostics._probe_audio_packages", return_value=({"sounddevice": "present", "input_device": "present"}, None)),
     ):
         ok, msg = run_venv_self_check("/x/python", timeout=1.0)
     assert ok is True
     assert "Text / NLP Libraries" in msg
     assert "Vision Libraries" in msg
     assert "Vector Search Libraries" in msg
-    assert "pip install" not in msg
+    assert "OCR: not ready" in msg
+    assert "To install remaining packages:" in msg
+    assert "uv pip install" in msg
     assert "Helpers" not in msg
 
 
@@ -408,12 +526,17 @@ def test_probe_vision_packages_timeout_reports_failure():
         patch("plugin.scripting.venv_diagnostics._probe_nlp_packages", return_value=({}, None)),
         patch("plugin.scripting.venv_diagnostics._probe_vision_packages", return_value=({}, timeout_hint)),
         patch("plugin.scripting.venv_diagnostics._probe_vector_search_packages", return_value=({}, None)),
+        patch(
+            "plugin.scripting.venv_diagnostics._probe_audio_packages",
+            return_value=({"sounddevice": "present", "input_device": "present"}, None),
+        ),
     ):
         ok, msg = run_venv_self_check("/x/python", timeout=1.0)
     assert ok is True
     assert "Vision Libraries" in msg
     assert timeout_hint in msg
-    assert "Missing: docling" in msg
+    assert "Missing (OCR): docling" in msg
+    assert "To install remaining packages:" in msg
 
 
 def test_probe_vector_search_packages_subprocess_timeout():
@@ -438,12 +561,18 @@ def test_format_self_check_success_vision_probe_failure_hint():
         "sci": [],
         "eda": [],
         "ui": [],
+        "nlp": [],
+        "audio": [],
+        "vector_search": [],
+        "data_eng": [],
         "vision": ["docling", "rapidocr", "css_inline", "paddleocr", "paddle", "ultralytics", "skimage"],
         "vision_probe_failure": "Vision probe timed out (Docling import can take 10–30s on first check).",
     }
     msg = _format_self_check_success(data)
     assert "Vision probe timed out" in msg
-    assert "Missing: docling" in msg
+    assert "Missing (OCR): docling, rapidocr, css_inline" in msg
+    assert "To install remaining packages:" in msg
+    assert "uv pip install docling rapidocr-paddle css-inline" in msg
 
 
 def test_probe_vision_packages_subprocess_timeout():
@@ -468,10 +597,18 @@ def test_format_self_check_success_analysis_install_hint():
         "sci": [],
         "eda": ["data_profiling", "statsmodels", "pandas_montecarlo"],
         "ui": [],
+        "nlp": [],
+        "audio": [],
+        "vector_search": [],
+        "data_eng": [],
         "vision": [],
     }
     msg = _format_self_check_success(data)
-    assert "pip install" not in msg
+    assert "To install remaining packages:" in msg
+    footer = msg[msg.index("To install remaining packages:") :]
+    assert "uv pip install ydata-profiling pandas-montecarlo" in footer
+    assert "pip install ydata-profiling pandas-montecarlo" in footer
+    assert footer.index("uv pip install") < footer.index("\npip install")
     assert "Helpers" not in msg
 
 
@@ -488,11 +625,48 @@ def test_format_self_check_success_no_analysis_hint_when_complete():
         "sci": [],
         "eda": ["data_profiling", "statsmodels", "pandas_montecarlo"],
         "ui": [],
+        "nlp": [],
+        "audio": [],
+        "vector_search": [],
+        "data_eng": [],
         "vision": [],
     }
     msg = _format_self_check_success(data)
+    assert "To install remaining packages:" not in msg
     assert "pip install" not in msg
     assert "Helpers" not in msg
+
+
+def test_format_self_check_success_global_install_footer_mixed_groups():
+    from plugin.scripting.venv_diagnostics import _format_self_check_success
+
+    data = {
+        "v": "3.12.0",
+        "p": {
+            "numpy": "present",
+            "scipy": None,
+            "sklearn": None,
+            "docling": None,
+            "rapidocr": None,
+            "css_inline": None,
+        },
+        "sci": ["numpy", "scipy", "sklearn"],
+        "eda": [],
+        "ui": [],
+        "nlp": [],
+        "audio": [],
+        "vector_search": [],
+        "data_eng": [],
+        "vision": ["docling", "rapidocr", "css_inline", "paddleocr", "paddle", "ultralytics", "skimage"],
+    }
+    msg = _format_self_check_success(data)
+    footer = msg[msg.index("To install remaining packages:") :]
+    assert "uv pip install scipy scikit-learn docling rapidocr-paddle css-inline" in footer
+    assert "pip install scipy scikit-learn docling rapidocr-paddle css-inline" in footer
+    lines = footer.splitlines()
+    uv_idx = next(i for i, line in enumerate(lines) if line.startswith("uv pip install "))
+    pip_idx = next(i for i, line in enumerate(lines) if line.startswith("pip install "))
+    assert uv_idx < pip_idx
 
 
 def test_run_venv_self_check_default_uses_import_probe_timeout():

@@ -14,7 +14,7 @@ from typing import Any
 from plugin.framework.config import get_config_str
 from plugin.scripting.config_limits import VISION_PROBE_TIMEOUT_SEC
 from plugin.scripting.sandbox import resolve_venv_python
-from plugin.scripting.venv_diagnostics import _probe_vision_packages
+from plugin.scripting.venv_diagnostics import _probe_vision_packages, vision_ocr_stack_ready
 
 log = logging.getLogger(__name__)
 
@@ -47,12 +47,6 @@ def _resolve_vision_python_exe(ctx: Any) -> str | None:
     return resolve_venv_python(venv_dir)
 
 
-def _ocr_backend_ready(probe: dict[str, Any]) -> bool:
-    if probe.get("docling") == "present":
-        return True
-    return probe.get("paddleocr") == "present" and probe.get("paddle") == "present"
-
-
 def _probe_ready(python_exe: str) -> bool:
     try:
         mtime = os.path.getmtime(python_exe)
@@ -65,7 +59,7 @@ def _probe_ready(python_exe: str) -> bool:
     probe, err = _probe_vision_packages(python_exe, timeout=float(VISION_PROBE_TIMEOUT_SEC))
     if err:
         log.debug("vision_packages_probe_ready: probe note: %s", err)
-    ready = _ocr_backend_ready(probe) and probe.get("css_inline") == "present"
+    ready = vision_ocr_stack_ready(probe)
     _probe_cache[cache_key] = ready
     return ready
 
@@ -82,7 +76,7 @@ def vision_venv_configured(ctx: Any) -> bool:
 
 
 def vision_packages_probe_ready(ctx: Any) -> bool:
-    """True when the venv subprocess probe finds Docling or PaddleOCR+Paddle and css-inline.
+    """True when the venv subprocess probe finds a ready OCR stack (see vision_ocr_stack_ready).
 
     For Settings diagnostics only — do not call from get_schemas or chat send setup.
     """

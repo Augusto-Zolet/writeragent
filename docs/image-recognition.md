@@ -76,7 +76,7 @@ Recognition must be usable **without the chat sidebar** — offline, predictable
 
 | UI | Role for vision |
 |----|-----------------|
-| **WriterAgent → Settings → Python** | Venv path, exec timeout (user scripts only), **Test** button — reports scientific + **Vision Libraries** (`docling`, `rapidocr`, `paddleocr`, `paddle`, `ultralytics`, optional `skimage`) and pip install hints when OCR packages are missing |
+| **WriterAgent → Settings → Python** | Venv path, exec timeout (user scripts only), **Test** button — reports scientific + **Vision Libraries** (OCR ready via Docling or Paddle; `paddleocr`/`paddle`/`ultralytics`/`skimage` optional) and a bottom **uv** then **pip** install footer for all Missing packages across groups |
 | **WriterAgent → Run Python Script…** | Monaco editor ([`editor_host.py`](../plugin/scripting/editor_host.py)) or legacy XDL dialog; **Analysis Helpers** (**Calc only**); **Vision Helpers** (**Writer + Calc**) — `[Vision] extract_text`, `[Vision] extract_structure` via [`vision_templates.py`](../plugin/vision/vision_templates.py), [`supports_vision_manual`](plugin/vision/vision_runner.py), and [`document_scripts.py`](../plugin/scripting/document_scripts.py) `_vision_script_section` |
 | **Chat sidebar** | Text chat + remote **image generation** — **not** in-document OCR/recognition |
 | **Settings → Image** tab | Image **generation** providers — unrelated to local OCR |
@@ -145,7 +145,7 @@ Docling pipeline defaults live in a **separate modeless dialog**, not on the cro
 | Launch | Role |
 |--------|------|
 | **WriterAgent → Vision OCR Settings…** menu | Opens [`VisionSettingsDialog`](../extension/WriterAgentDialogs/) (General \| OCR \| Tables \| Advanced); persisted as `vision.*` keys in `writeragent.json` |
-| Settings → Python **Test** | [`run_venv_self_check`](../plugin/scripting/venv_worker.py) reports `docling`, `rapidocr`, `paddleocr`, `paddle`, `ultralytics`, optional `skimage` under **Vision Libraries** |
+| Settings → Python **Test** | [`run_venv_self_check`](../plugin/scripting/venv_diagnostics.py) reports OCR ready (Docling or Paddle) under **Vision Libraries**; paddle/ultralytics/skimage as Optional; global uv/pip footer for Missing packages |
 
 | Related Settings key | Role |
 |---------------------|------|
@@ -733,14 +733,22 @@ pip install docling rapidocr-paddle numpy pillow
 
 **First run:** Uses the single long trusted budget (vision resolver chooses appropriate value for engine + optional `vision.worker_timeout_sec` override). Does not use the user `scripting.python_exec_timeout`.
 
-**Self-check (shipped):** [`run_venv_self_check`](../plugin/scripting/venv_worker.py) merges a **host subprocess** probe for vision packages (not the sandboxed warm-worker diagnostic — `docling`/`paddleocr` are intentionally absent from the LLM/venv AST whitelist per §15):
+**Self-check (shipped):** [`run_venv_self_check`](../plugin/scripting/venv_diagnostics.py) merges a **host subprocess** probe for vision packages (not the sandboxed warm-worker diagnostic — `docling`/`paddleocr` are intentionally absent from the LLM/venv AST whitelist per §15):
 
 | Probe | Report |
 |-------|--------|
-| `import docling`, `import rapidocr` (or onnxruntime variant) | present / missing |
-| `import paddleocr`, `import paddle` | present / missing (fallback stack) |
-| `import ultralytics` | present / missing (informational until Phase 4) |
-| Optional `import skimage` | present / missing |
+| `import docling`, `import rapidocr` (or onnxruntime variant), `css_inline` | OCR required (Docling primary); Missing (OCR) when stack not ready |
+| `import paddleocr`, `import paddle` | optional fallback (or OCR ready when Paddle-only); never required Missing when Docling works |
+| `import ultralytics` | Optional (not installed) until Phase 4 |
+| Optional `import skimage` | Optional (not installed) |
+
+When any group still has Missing packages, Test ends with copy-paste lines:
+
+```text
+To install remaining packages:
+uv pip install …
+pip install …
+```
 
 Tied to **Settings → Python → Test** only.
 
@@ -817,10 +825,9 @@ Checklist for implementers / QA:
 ## 17c. Phase 2 acceptance criteria
 
 - [x] `make test` passes (mocked self-check formatting; no real paddle in CI)
-- [x] Settings → Python → **Test** shows **Vision Libraries** group with Present/Missing for `paddleocr`, `paddle`, `ultralytics`, `skimage`
-- [x] When `docling` or primary stack is missing, Test success message includes `pip install docling rapidocr-paddle numpy pillow`
-- [x] When `paddleocr` or `paddle` is missing, Test may note Paddle fallback: `pip install paddleocr paddlepaddle numpy`
-- [x] When `ultralytics` is missing, Test message notes optional `pip install ultralytics`
+- [x] Settings → Python → **Test** shows **Vision Libraries** with OCR ready / Optional for `paddleocr`, `paddle`, `ultralytics`, `skimage` (not required Missing when Docling works)
+- [x] When required packages are Missing (any group), Test appends `uv pip install …` then `pip install …` at the bottom
+- [x] When `paddleocr`/`paddle`/`ultralytics`/`skimage` are absent but OCR is ready, they appear under Optional (not installed), not in the required install footer
 - [x] Vision RPC uses `DOCLING_WORKER_TIMEOUT_SEC` (docling default) or `VISION_WORKER_TIMEOUT_SEC` (`engine=paddle`), not `scripting.python_exec_timeout`
 - [x] `PADDLEOCR_UNAVAILABLE` includes concrete pip install command
 

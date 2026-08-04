@@ -202,6 +202,10 @@ _ANALYSIS_INSTALL_CMD = (
     "uv pip install numpy pandas scipy scikit-learn statsmodels ydata-profiling pandas-montecarlo"
 )
 _VISION_PACKAGE_KEYS = ("docling", "rapidocr", "css_inline", "paddleocr", "paddle", "ultralytics", "skimage")
+# Primary Docling OCR keys shown under Missing (OCR) when the stack is not ready.
+_VISION_OCR_PRIMARY_KEYS = ("docling", "rapidocr", "css_inline")
+# Always optional in Test output (never required Missing once OCR readiness is decided).
+_VISION_OPTIONAL_KEYS = ("paddleocr", "paddle", "ultralytics", "skimage")
 _DOCLING_INSTALL_CMD = "uv pip install docling rapidocr-paddle numpy pillow css-inline"
 _VISION_OCR_INSTALL_CMD = _DOCLING_INSTALL_CMD
 _VISION_PADDLE_FALLBACK_CMD = "uv pip install paddleocr paddlepaddle numpy"
@@ -210,6 +214,26 @@ _SYMBOLIC_INSTALL_CMD = "uv pip install sympy"
 _AUDIO_PACKAGE_KEYS = ("sounddevice", "input_device")
 _AUDIO_INSTALL_CMD = "uv pip install sounddevice"
 _AUDIO_LINUX_PORTAUDIO_HINT = _("On Linux also install system PortAudio: sudo pacman -S portaudio")
+# Hardware / non-PyPI probe keys must not appear in the copy-paste install footer.
+_NON_PIP_PROBE_KEYS = frozenset({"input_device"})
+# Probe import/key name → PyPI package name for the global install footer.
+_PROBE_KEY_TO_PIP: dict[str, str] = {
+    "sklearn": "scikit-learn",
+    "data_profiling": "ydata-profiling",
+    "pandas_montecarlo": "pandas-montecarlo",
+    "pandas_ta": "pandas-ta",
+    "pypfopt": "pyportfolioopt",
+    "PyQt6.QtWebEngineWidgets": "PyQt6-WebEngine",
+    "rapidocr": "rapidocr-paddle",
+    "css_inline": "css-inline",
+    "language_tool_python": "language-tool-python",
+    "python_docx": "python-docx",
+    "sentence_transformers": "sentence-transformers",
+    "sqlite_vec": "sqlite-vec",
+    "langchain_core": "langchain-core",
+    "langchain_text_splitters": "langchain-text-splitters",
+    "paddle": "paddlepaddle",
+}
 _AUDIO_PROBE_SCRIPT = """
 import json
 out = {}
@@ -589,6 +613,29 @@ except ImportError:
 """
 
 
+def _ocr_backend_ready(probe: dict[str, Any]) -> bool:
+    """True when Docling or PaddleOCR+Paddle is present (css-inline checked separately)."""
+    if probe.get("docling") == "present":
+        return True
+    return probe.get("paddleocr") == "present" and probe.get("paddle") == "present"
+
+
+def vision_ocr_stack_ready(probe: dict[str, Any]) -> bool:
+    """True when an OCR backend and css-inline are present (Settings Test / diagnostics)."""
+    return _ocr_backend_ready(probe) and probe.get("css_inline") == "present"
+
+
+def _probe_key_to_pip(key: str) -> str | None:
+    """Map a probe key to a PyPI name, or None when the key is not installable via pip."""
+    if key in _NON_PIP_PROBE_KEYS:
+        return None
+    return _PROBE_KEY_TO_PIP.get(key, key)
+
+
+def _missing_keys(keys: tuple[str, ...] | list[str], packages: dict[str, Any]) -> list[str]:
+    return [key for key in keys if packages.get(key) != "present"]
+
+
 def _format_group_lines(title: str, keys: tuple[str, ...] | list[str], packages: dict[str, Any]) -> list[str]:
     found: list[str] = []
     missing: list[str] = []
@@ -604,6 +651,40 @@ def _format_group_lines(title: str, keys: tuple[str, ...] | list[str], packages:
         lines.append(f"\n{title}:")
     if missing:
         lines.append(f"Missing: {', '.join(missing)}")
+    return lines
+
+
+def _format_vision_group_lines(title: str, keys: tuple[str, ...] | list[str], packages: dict[str, Any]) -> list[str]:
+    """Present/OCR-ready/Optional formatting — paddle/ultralytics/skimage are never required Missing."""
+    present = [key for key in keys if packages.get(key) == "present"]
+    lines: list[str] = []
+    if present:
+        lines.append(f"\n{title}: {', '.join(present)}")
+    else:
+        lines.append(f"\n{title}:")
+
+    if vision_ocr_stack_ready(packages):
+        engine = "Docling" if packages.get("docling") == "present" else "Paddle"
+        lines.append(f"OCR: ready ({engine})")
+        optional_missing: list[str] = []
+        for key in _VISION_OPTIONAL_KEYS:
+            if packages.get(key) != "present":
+                optional_missing.append(key)
+        # Paddle-only readiness: Docling primary packages are optional, not Missing.
+        if packages.get("docling") != "present":
+            for key in ("docling", "rapidocr"):
+                if packages.get(key) != "present" and key not in optional_missing:
+                    optional_missing.append(key)
+        if optional_missing:
+            lines.append(f"Optional (not installed): {', '.join(optional_missing)}")
+    else:
+        lines.append("OCR: not ready")
+        primary_missing = [key for key in _VISION_OCR_PRIMARY_KEYS if packages.get(key) != "present"]
+        if primary_missing:
+            lines.append(f"Missing (OCR): {', '.join(primary_missing)}")
+        optional_missing = [key for key in _VISION_OPTIONAL_KEYS if packages.get(key) != "present"]
+        if optional_missing:
+            lines.append(f"Optional (not installed): {', '.join(optional_missing)}")
     return lines
 
 
@@ -623,6 +704,97 @@ def _self_check_group_specs(data: dict[str, Any]) -> list[tuple[str, tuple[str, 
     ]
 
 
+def _collect_missing_probe_keys_for_display(
+    data: dict[str, Any],
+    *,
+    completed_groups: int,
+    partial_group_keys: tuple[str, ...] | None,
+    partial_group_title: str | None,
+    include_vector_search: bool,
+    include_vision: bool,
+    include_audio: bool,
+) -> list[str]:
+    """Probe keys that appear under Missing in the rendered Test body (stable group order)."""
+    packages = data.get("p", {})
+    if not isinstance(packages, dict):
+        packages = {}
+    missing: list[str] = []
+    seen: set[str] = set()
+
+    def _add(keys: list[str]) -> None:
+        for key in keys:
+            if key in _NON_PIP_PROBE_KEYS or key in seen:
+                continue
+            seen.add(key)
+            missing.append(key)
+
+    specs = _self_check_group_specs(data)
+    sandbox_titles = [
+        _("Scientific Libraries"),
+        _("Data Analysis / EDA Libraries"),
+        _("UI / Monaco Libraries"),
+        _("Visualization Libraries"),
+        _("Computer Algebra"),
+        _("Quantitative Finance Libraries"),
+        _("Data Engineering Libraries"),
+    ]
+    for title, keys in specs:
+        if not keys:
+            continue
+        if title in sandbox_titles:
+            s_idx = sandbox_titles.index(title)
+            if s_idx < completed_groups:
+                _add(_missing_keys(keys, packages))
+            elif s_idx == completed_groups and partial_group_keys and partial_group_title == title:
+                _add(_missing_keys(partial_group_keys, packages))
+        elif title == _("Text / NLP Libraries"):
+            if completed_groups >= _SELF_CHECK_DISPLAY_GROUP_COUNT:
+                _add(_missing_keys(keys, packages))
+        elif title == _("Vision Libraries"):
+            if include_vision:
+                if not vision_ocr_stack_ready(packages):
+                    _add([key for key in _VISION_OCR_PRIMARY_KEYS if packages.get(key) != "present"])
+        elif title == _("Vector Search Libraries"):
+            if include_vector_search:
+                _add(_missing_keys(keys, packages))
+        elif title == _("Audio Recording"):
+            if include_audio:
+                _add(_missing_keys(keys, packages))
+    return missing
+
+
+def _format_install_footer(missing_probe_keys: list[str]) -> list[str]:
+    """Copy-paste uv then pip lines for remaining Missing packages; empty when nothing to install."""
+    pip_names: list[str] = []
+    seen_pip: set[str] = set()
+    for key in missing_probe_keys:
+        pip_name = _probe_key_to_pip(key)
+        if not pip_name or pip_name in seen_pip:
+            continue
+        seen_pip.add(pip_name)
+        pip_names.append(pip_name)
+    if not pip_names:
+        return []
+
+    pkg_args = " ".join(pip_names)
+    lines = [
+        "",
+        _("To install remaining packages:"),
+        f"uv pip install {pkg_args}",
+        f"pip install {pkg_args}",
+    ]
+    # NLP often needs the PyTorch CPU index + a spaCy model after the main packages.
+    nlp_need_extras = any(
+        key in missing_probe_keys for key in ("spacy", "textdescriptives", "transformers", "language_tool_python")
+    )
+    if nlp_need_extras:
+        lines.append("uv pip install torch --index-url https://download.pytorch.org/whl/cpu")
+        lines.append("pip install torch --index-url https://download.pytorch.org/whl/cpu")
+        if "spacy" in missing_probe_keys:
+            lines.append("python -m spacy download xx_sent_ud_sm")
+    return lines
+
+
 def _build_probe_display(
     data: dict[str, Any],
     *,
@@ -638,6 +810,8 @@ def _build_probe_display(
     version = data.get("v", "unknown")
     arch = data.get("arch", "")
     packages = data.get("p", {})
+    if not isinstance(packages, dict):
+        packages = {}
     header = f"Python {version} ({arch})" if arch else f"Python {version}"
     first_line = f"{header} responds OK."
     if extra_lines_after_header:
@@ -673,7 +847,7 @@ def _build_probe_display(
                     msg_lines.append(f"  {nlp_failure}")
         elif title == _("Vision Libraries"):
             if include_vision:
-                msg_lines.extend(_format_group_lines(title, keys, packages))
+                msg_lines.extend(_format_vision_group_lines(title, keys, packages))
                 vision_failure = data.get("vision_probe_failure")
                 if vision_failure:
                     msg_lines.append(f"  {vision_failure}")
@@ -697,6 +871,17 @@ def _build_probe_display(
         for warning in probe_warnings:
             if warning:
                 msg_lines.append(f"\nWarning: {warning}")
+
+    missing_keys = _collect_missing_probe_keys_for_display(
+        data,
+        completed_groups=completed_groups,
+        partial_group_keys=partial_group_keys,
+        partial_group_title=partial_group_title,
+        include_vector_search=include_vector_search,
+        include_vision=include_vision,
+        include_audio=include_audio,
+    )
+    msg_lines.extend(_format_install_footer(missing_keys))
 
     return "\n".join(msg_lines)
 

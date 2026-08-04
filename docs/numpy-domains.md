@@ -28,11 +28,11 @@ WriterAgent builds **domain-specific trusted helpers** on top of the warm venv s
 
 ## Venv packages by domain {#venv-packages-by-domain}
 
-Trusted helpers require packages in the user venv (`scripting.python_venv_path`). Settings → Python **Test** reports Present/Missing per group.
+Trusted helpers require packages in the user venv (`scripting.python_venv_path`). Settings → Python **Test** reports Present/Missing per group, and when anything is still Missing appends copy-paste **`uv pip install …`** then **`pip install …`** lines at the bottom for those packages.
 
 ### Required venv packages (trusted analysis helpers)
 
-The 14 Calc **Analysis Helpers** in [`plugin/scripting/analysis.py`](../plugin/scripting/analysis.py) require a fixed scientific stack in the user venv. Settings → Python **Test** reports these under **Data Analysis / EDA Libraries** and prints an install line when any are missing.
+The 14 Calc **Analysis Helpers** in [`plugin/scripting/analysis.py`](../plugin/scripting/analysis.py) require a fixed scientific stack in the user venv. Settings → Python **Test** reports these under **Data Analysis / EDA Libraries** and includes them in the bottom uv/pip install footer when any are missing.
 
 ```bash
 uv pip install numpy pandas scipy scikit-learn statsmodels ydata-profiling pandas-montecarlo
@@ -65,7 +65,7 @@ Future trusted-helper domains (Geospatial, Audio, optional `prophet`) will each 
 
 | Domain | Settings → Python **Test** group | Entry doc |
 |--------|----------------------------------|-----------|
-| **Vision** | **Vision Libraries** (`docling`, `rapidocr`, `paddleocr`, `paddle`, `ultralytics`, optional `skimage`) | [image-recognition.md](image-recognition.md) |
+| **Vision** | **Vision Libraries** — OCR required: Docling (`docling`, `rapidocr`, `css_inline`) **or** Paddle (`paddleocr`, `paddle`, `css_inline`); optional: `paddleocr`/`paddle` fallback, `ultralytics`, `skimage` | [image-recognition.md](image-recognition.md) |
 | **Embeddings** | **Embeddings Libraries** (`envwrap`, `sentence_transformers`, `sqlite_vec`, `langgraph`, `langchain_core`, `langchain_text_splitters`) | [embeddings.md](embeddings.md#embeddings-venv-packages) |
 | **Visualization** | **Visualization Libraries** (`matplotlib`, `seaborn`) | [Visualization § Phase A–C](#visualization) |
 | **Symbolic Math (SymPy)** | **Computer Algebra** (`sympy`) | [Symbolic Math §3](#symbolic-math) |
