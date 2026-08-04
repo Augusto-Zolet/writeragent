@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-24 21:09-0400\n"
+"POT-Creation-Date: 2026-08-04 16:24-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -24,7 +24,7 @@ msgid ""
 msgstr ""
 
 #: plugin/doc/specialized_base.py
-msgid "Running local OCR on selected image..."
+msgid "Running local OCR on selected image(s)..."
 msgstr ""
 
 #: plugin/doc/specialized_base.py
@@ -452,8 +452,7 @@ msgstr ""
 msgid "WriterAgent: Extend Selection (Calc)"
 msgstr ""
 
-#: plugin/calc/vision_egress.py plugin/vision/vision_runner.py
-#: plugin/vision/vision_egress.py
+#: plugin/calc/vision_egress.py
 msgid "Select an embedded image, then Run again."
 msgstr ""
 
@@ -1846,7 +1845,7 @@ msgid ""
 "tables). (took {time})"
 msgstr ""
 
-#: plugin/scripting/domain_registry.py
+#: plugin/scripting/domain_registry.py plugin/scripting/python_runner.py
 #, python-brace-format
 msgid "Vision '{helper}' completed. Inserted formatted HTML. (took {time})"
 msgstr ""
@@ -1969,6 +1968,17 @@ msgid "Vision helpers require a Writer or Calc document."
 msgstr ""
 
 #: plugin/scripting/python_runner.py
+msgid "Vision helper failed."
+msgstr ""
+
+#: plugin/scripting/python_runner.py
+#, python-brace-format
+msgid ""
+"Vision '{helper}' completed. Inserted formatted HTML for {count} images. "
+"(took {time})"
+msgstr ""
+
+#: plugin/scripting/python_runner.py
 #, python-brace-format
 msgid ""
 "Script executed successfully, but returned no result and produced no output."
@@ -2009,6 +2019,11 @@ msgstr ""
 msgid "Dispatch Error"
 msgstr ""
 
+#: plugin/vision/vision_runner.py plugin/vision/vision_egress.py
+msgid ""
+"Select an embedded image (or a range containing images), then Run again."
+msgstr ""
+
 #: plugin/vision/vision_runner.py
 #, python-brace-format
 msgid ""
@@ -2021,16 +2036,25 @@ msgstr ""
 msgid "Image '{name}' could not be exported."
 msgstr ""
 
+#: plugin/vision/vision_runner.py
+#, python-brace-format
+msgid "OCR complete ({count} images)."
+msgstr ""
+
+#: plugin/vision/vision_runner.py plugin/vision/vision_tools.py
+msgid "OCR complete."
+msgstr ""
+
+#: plugin/vision/vision_runner.py
+msgid "OCR complete (text returned only; not inserted)."
+msgstr ""
+
 #: plugin/vision/vision_tools.py
 msgid "Vision OCR requires a Writer or Calc document."
 msgstr ""
 
-#: plugin/vision/vision_tools.py
-msgid "OCR complete."
-msgstr ""
-
-#: plugin/vision/vision_tools.py
-msgid "OCR complete (text returned only; not inserted)."
+#: plugin/vision/vision_egress.py
+msgid "Writer document has no controller."
 msgstr ""
 
 #: plugin/vision/vision_egress.py
@@ -2040,10 +2064,6 @@ msgstr ""
 #: plugin/vision/vision_egress.py
 #, python-format
 msgid "Could not position insert after the image: %s"
-msgstr ""
-
-#: plugin/vision/vision_egress.py
-msgid "Writer document has no controller."
 msgstr ""
 
 #: plugin/vision/vision_egress.py

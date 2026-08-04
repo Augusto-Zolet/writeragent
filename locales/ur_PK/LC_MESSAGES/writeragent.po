@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-24 21:04-0400\n"
+"POT-Creation-Date: 2026-08-04 16:24-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Urdu <LL@li.org>\n"
@@ -26,22 +26,22 @@ msgstr ""
 "(Settings → Python → Test برائے تنصیبی اشارے)۔"
 
 #: plugin/doc/specialized_base.py
-msgid "Running local OCR on selected image..."
-msgstr "منتخب تصویر پر مقامی OCR چل رہا ہے..."
+msgid "Running local OCR on selected image(s)..."
+msgstr "منتخب کردہ تصویر (تصاویر) پر مقامی OCR چل رہا ہے..."
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Document research reads require specialized task delegation (USE_SUB_AGENT). "
-"Enable this in configuration."
+"Document research reads require specialized task delegation (USE_SUB_AGENT)."
+" Enable this in configuration."
 msgstr ""
-"دستاویزی تحقیق کے مطالعے کے لیے خصوصی ٹاسک ڈیلیگیشن (USE_SUB_AGENT) کی ضرورت "
-"ہوتی ہے۔ اسے کنفیگریشن میں فعال کریں۔"
+"دستاویزی تحقیق کے مطالعے کے لیے خصوصی ٹاسک ڈیلیگیشن (USE_SUB_AGENT) کی ضرورت"
+" ہوتی ہے۔ اسے کنفیگریشن میں فعال کریں۔"
 
 #: plugin/doc/specialized_base.py
 #, python-brace-format
 msgid ""
-"Tool call switched to '{0}'. You are in a specialized toolset mode. You must "
-"call 'specialized_workflow_finished' when done to restore the full set of "
+"Tool call switched to '{0}'. You are in a specialized toolset mode. You must"
+" call 'specialized_workflow_finished' when done to restore the full set of "
 "APIs."
 msgstr ""
 "ٹول کال '{0}' پر منتقل ہو گئی۔ آپ ایک خصوصی ٹول سیٹ موڈ میں ہیں۔ مکمل APIs "
@@ -58,8 +58,8 @@ msgstr "نوٹ بک چلانا صرف LibreOffice Writer میں معاون ہے�
 
 #: plugin/notebook/notebook_runner.py
 msgid ""
-"This document has no imported notebook. Use Tools → Import Jupyter Notebook… "
-"first."
+"This document has no imported notebook. Use Tools → Import Jupyter Notebook…"
+" first."
 msgstr ""
 "اس دستاویز میں کوئی درآمد شدہ نوٹ بک نہیں ہے۔ پہلے Tools → Import Jupyter "
 "Notebook… استعمال کریں۔"
@@ -179,8 +179,8 @@ msgid ""
 "Cross-file search is disabled. Enable Embeddings + FTS in Settings → "
 "Embeddings."
 msgstr ""
-"فائلوں کے مابین تلاش غیر فعال ہے۔ ترتیبات → ایمبیڈنگز میں ایمبیڈنگز + FTS کو "
-"فعال کریں۔"
+"فائلوں کے مابین تلاش غیر فعال ہے۔ ترتیبات → ایمبیڈنگز میں ایمبیڈنگز + FTS کو"
+" فعال کریں۔"
 
 #: plugin/embeddings/search_ui.py
 msgid "Error: "
@@ -252,9 +252,11 @@ msgstr ""
 "کریں۔"
 
 #: plugin/framework/errors.py
-msgid "Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
+msgid ""
+"Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
 msgstr ""
-"کنکشن مسترد کر دیا گیا۔ کیا آپ کا مقامی AI سرور (Ollama/LM Studio) چل رہا ہے؟"
+"کنکشن مسترد کر دیا گیا۔ کیا آپ کا مقامی AI سرور (Ollama/LM Studio) چل رہا "
+"ہے؟"
 
 #: plugin/framework/errors.py
 msgid "DNS Error. Could not resolve the endpoint URL."
@@ -286,8 +288,8 @@ msgstr "AI فراہم کنندہ کی طرف سے HTTP خرابی {0}: {1}"
 #: plugin/framework/client/errors.py
 #, python-brace-format
 msgid ""
-" If your API key is from a GLM Coding Plan subscription, set endpoint to {0} "
-"(not the general /api/paas URL)."
+" If your API key is from a GLM Coding Plan subscription, set endpoint to {0}"
+" (not the general /api/paas URL)."
 msgstr ""
 " اگر آپ کی API کلید GLM کوڈنگ پلان سبسکرپشن سے ہے، تو اینڈ پوائنٹ کو {0} پر "
 "سیٹ کریں (عام /api/paas URL پر نہیں)۔"
@@ -385,12 +387,13 @@ msgstr "ابتدائی اسکرپٹ محفوظ کریں"
 
 #: plugin/calc/python/editor.py
 msgid ""
-"Could not preserve this cell's PY formula arguments (e.g. data ranges). Edit "
-"the formula in Calc, or use a quoted code string like =PY(\"code\"; A1:B10)."
+"Could not preserve this cell's PY formula arguments (e.g. data ranges). Edit"
+" the formula in Calc, or use a quoted code string like =PY(\"code\"; "
+"A1:B10)."
 msgstr ""
 "اس سیل کے PY فارمولا دلائل (مثلاً ڈیٹا رینجز) کو محفوظ نہیں کیا جا سکا۔ "
-"فارمولا کو Calc میں ترمیم کریں، یا =PY(\"code\"; A1:B10) جیسی کوٹڈ کوڈ سٹرنگ "
-"استعمال کریں۔"
+"فارمولا کو Calc میں ترمیم کریں، یا =PY(\"code\"; A1:B10) جیسی کوٹڈ کوڈ سٹرنگ"
+" استعمال کریں۔"
 
 #: plugin/calc/python/editor.py plugin/scripting/editor_ui_strings.py
 msgid "Saved without =PY()."
@@ -423,24 +426,19 @@ msgid ""
 "another cell). Edit it in the formula bar, or use =PY(\"code\"; range) with "
 "quoted code."
 msgstr ""
-"یہ PY فارمولا ایسی شکل استعمال کرتا ہے جسے ایڈیٹر محفوظ طریقے سے دوبارہ نہیں "
-"لکھ سکتا (مثلاً کسی دوسرے سیل میں کوڈ)۔ اسے فارمولا بار میں ترمیم کریں، یا "
+"یہ PY فارمولا ایسی شکل استعمال کرتا ہے جسے ایڈیٹر محفوظ طریقے سے دوبارہ نہیں"
+" لکھ سکتا (مثلاً کسی دوسرے سیل میں کوڈ)۔ اسے فارمولا بار میں ترمیم کریں، یا "
 "کوٹڈ کوڈ کے ساتھ =PY(\"code\"; range) استعمال کریں۔"
 
 #: plugin/calc/python/editor.py
 msgid ""
-"Edit Python in Cell requires the Monaco editor, which is disabled by "
-"\"scripting.force_internal_script_editor\" in writeragent.json.\n"
+"Edit Python in Cell requires the Monaco editor, which is disabled by \"scripting.force_internal_script_editor\" in writeragent.json.\n"
 "\n"
-"Set it to false and restart LibreOffice to use this command, or edit PYTHON "
-"formulas in the Calc formula bar."
+"Set it to false and restart LibreOffice to use this command, or edit PYTHON formulas in the Calc formula bar."
 msgstr ""
-"سیل میں پائتھن (Python) کی تدوین کے لیے موناکو ایڈیٹر درکار ہے، جو "
-"writeragent.json میں \"scripting.force_internal_script_editor\" کے ذریعے غیر "
-"فعال ہے۔\n"
+"سیل میں پائتھن (Python) کی تدوین کے لیے موناکو ایڈیٹر درکار ہے، جو writeragent.json میں \"scripting.force_internal_script_editor\" کے ذریعے غیر فعال ہے۔\n"
 "\n"
-"اس کمانڈ کو استعمال کرنے کے لیے اسے false پر سیٹ کریں اور LibreOffice کو "
-"دوبارہ شروع کریں، یا Calc فارمولا بار میں PYTHON فارمولوں میں ترمیم کریں۔"
+"اس کمانڈ کو استعمال کرنے کے لیے اسے false پر سیٹ کریں اور LibreOffice کو دوبارہ شروع کریں، یا Calc فارمولا بار میں PYTHON فارمولوں میں ترمیم کریں۔"
 
 #: plugin/calc/python/editor.py
 msgid "No Python interpreter available for the editor."
@@ -449,15 +447,13 @@ msgstr "ایڈیٹر کے لیے کوئی پائتھون انٹرپریٹر دس
 #: plugin/calc/python/editor.py
 #, python-format
 msgid ""
-"Cannot import webview (pywebview) or rocher with the Python from Settings → "
-"Python:\n"
+"Cannot import webview (pywebview) or rocher with the Python from Settings → Python:\n"
 "%(exe)s\n"
 "\n"
 "In that venv run: uv pip install pywebview rocher\n"
 "(import name is webview, package name is pywebview)."
 msgstr ""
-"Settings → Python سے Python کا استعمال کرتے ہوئے webview (pywebview) یا "
-"rocher کو درآمد نہیں کیا جا سکا:\n"
+"Settings → Python سے Python کا استعمال کرتے ہوئے webview (pywebview) یا rocher کو درآمد نہیں کیا جا سکا:\n"
 "%(exe)s\n"
 "\n"
 "اس venv میں چلائیں: uv pip install pywebview rocher\n"
@@ -481,17 +477,14 @@ msgid ""
 "Could not write Microsoft Excel Python package parts for:\n"
 "{0}\n"
 "\n"
-"The file was saved with LibreOffice =PY formulas. Excel will not see "
-"pythonScripts.xml / _xlws.PY until export succeeds.\n"
+"The file was saved with LibreOffice =PY formulas. Excel will not see pythonScripts.xml / _xlws.PY until export succeeds.\n"
 "\n"
 "{1}"
 msgstr ""
 "مندرجہ ذیل کے لیے Microsoft Excel Python پیکیج کے حصے نہیں لکھے جا سکے:\n"
 "{0}\n"
 "\n"
-"فائل کو LibreOffice =PY فارمولوں کے ساتھ محفوظ کیا گیا تھا۔ Excel اس وقت تک "
-"pythonScripts.xml / _xlws.PY نہیں دیکھے گا جب تک ایکسپورٹ کامیاب نہ ہو "
-"جائے۔\n"
+"فائل کو LibreOffice =PY فارمولوں کے ساتھ محفوظ کیا گیا تھا۔ Excel اس وقت تک pythonScripts.xml / _xlws.PY نہیں دیکھے گا جب تک ایکسپورٹ کامیاب نہ ہو جائے۔\n"
 "\n"
 "{1}"
 
@@ -507,8 +500,7 @@ msgstr "WriterAgent: انتخاب میں ترمیم کریں (Calc)"
 msgid "WriterAgent: Extend Selection (Calc)"
 msgstr "WriterAgent: انتخاب کو بڑھائیں (Calc)"
 
-#: plugin/calc/vision_egress.py plugin/vision/vision_runner.py
-#: plugin/vision/vision_egress.py
+#: plugin/calc/vision_egress.py
 msgid "Select an embedded image, then Run again."
 msgstr "ایک ایمبیڈڈ تصویر منتخب کریں، پھر دوبارہ چلائیں۔"
 
@@ -1142,8 +1134,8 @@ msgid ""
 "No editor found (install Kate or Gedit, or set EDITOR). Path:\n"
 "{0}"
 msgstr ""
-"کوئی ایڈیٹر نہیں ملا (Kate یا Gedit انسٹال کریں، یا EDITOR سیٹ کریں۔) راستہ: "
-"{0}"
+"کوئی ایڈیٹر نہیں ملا (Kate یا Gedit انسٹال کریں، یا EDITOR سیٹ کریں۔) راستہ:"
+" {0}"
 
 #: plugin/chatbot/external_editor.py
 #, python-brace-format
@@ -1179,7 +1171,8 @@ msgstr "[ایجنٹ بیک اینڈ '{0}' نہیں ملا۔]"
 
 #: plugin/chatbot/send_handlers.py
 #, python-brace-format
-msgid "[Agent backend '{0}' is not available. Check Settings (path, install).]"
+msgid ""
+"[Agent backend '{0}' is not available. Check Settings (path, install).]"
 msgstr ""
 "[ایجنٹ بیک اینڈ '{0}' دستیاب نہیں ہے۔ ترتیبات (پاتھ، انسٹال) چیک کریں۔]"
 
@@ -1284,8 +1277,8 @@ msgid ""
 "A newer WriterAgent (%s) is available. Use Tools → Extension Manager to "
 "check for updates and install the latest extension."
 msgstr ""
-"ایک نیا WriterAgent (%s) دستیاب ہے۔ اپ ڈیٹس چیک کرنے اور تازہ ترین ایکسٹینشن "
-"انسٹال کرنے کے لیے Tools → Extension Manager استعمال کریں۔"
+"ایک نیا WriterAgent (%s) دستیاب ہے۔ اپ ڈیٹس چیک کرنے اور تازہ ترین ایکسٹینشن"
+" انسٹال کرنے کے لیے Tools → Extension Manager استعمال کریں۔"
 
 #: plugin/chatbot/librarian.py
 msgid "Switching to document mode..."
@@ -1417,8 +1410,8 @@ msgstr "میری اسکرپٹس"
 #: plugin/scripting/editor_ui_strings.py
 msgid "Built-in helpers are read-only. Use Copy to My Scripts to customize."
 msgstr ""
-"بلٹ ان ہیلپرز صرف پڑھنے کے لیے ہیں۔ حسب ضرورت بنانے کے لیے 'میری اسکرپٹس میں "
-"کاپی کریں' استعمال کریں۔"
+"بلٹ ان ہیلپرز صرف پڑھنے کے لیے ہیں۔ حسب ضرورت بنانے کے لیے 'میری اسکرپٹس میں"
+" کاپی کریں' استعمال کریں۔"
 
 #: plugin/scripting/editor_ui_strings.py
 msgid ""
@@ -1715,7 +1708,8 @@ msgstr "Linux پر سسٹم PortAudio بھی انسٹال کریں: sudo pacman 
 
 #: plugin/scripting/venv_diagnostics.py
 msgid "Audio probe timed out (sounddevice import failed or hung)."
-msgstr "آڈیو پروب کا وقت ختم ہو گیا (sounddevice امپورٹ ناکام یا ہینگ ہو گیا)۔"
+msgstr ""
+"آڈیو پروب کا وقت ختم ہو گیا (sounddevice امپورٹ ناکام یا ہینگ ہو گیا)۔"
 
 #: plugin/scripting/venv_diagnostics.py
 msgid "Audio probe failed (see writeragent_debug.log)."
@@ -1734,7 +1728,8 @@ msgid "Text/NLP probe failed (see writeragent_debug.log)."
 msgstr "Text/NLP پروب ناکام ہو گیا (writeragent_debug.log ملاحظہ کریں)۔"
 
 #: plugin/scripting/venv_diagnostics.py
-msgid "Vision probe timed out (Docling import can take 10–30s on first check)."
+msgid ""
+"Vision probe timed out (Docling import can take 10–30s on first check)."
 msgstr ""
 "ویژن پروب کا وقت ختم ہو گیا (پہلی بار چیک کرنے پر Docling امپورٹ میں 10 سے "
 "30 سیکنڈ لگ سکتے ہیں)۔"
@@ -1748,8 +1743,8 @@ msgid ""
 "Vector Search probe timed out (sentence-transformers import can take 10–30s "
 "on first check)."
 msgstr ""
-"ویکٹر سرچ پروب کا وقت ختم ہو گیا (پہلی بار چیک کرنے پر sentence-transformers "
-"امپورٹ میں 10-30 سیکنڈ لگ سکتے ہیں)۔"
+"ویکٹر سرچ پروب کا وقت ختم ہو گیا (پہلی بار چیک کرنے پر sentence-transformers"
+" امپورٹ میں 10-30 سیکنڈ لگ سکتے ہیں)۔"
 
 #: plugin/scripting/venv_diagnostics.py
 msgid "Vector Search probe failed (see writeragent_debug.log)."
@@ -1860,8 +1855,7 @@ msgid ""
 "Error from the Text Analytics worker:\n"
 "{err}\n"
 "\n"
-"The features in this dialog require these packages in the python it is "
-"using:\n"
+"The features in this dialog require these packages in the python it is using:\n"
 "  • spacy + a model          (entities, key phrases, basic stats)\n"
 "  • textdescriptives         (real Readability scores)\n"
 "  • transformers + torch     (Sentiment using the multilingual model)\n"
@@ -1869,25 +1863,20 @@ msgid ""
 "Install them with:\n"
 "  {install}\n"
 "\n"
-"The worker reported the module as missing. Verify the packages are installed "
-"in the exact python executable the worker resolved for your configured venv."
+"The worker reported the module as missing. Verify the packages are installed in the exact python executable the worker resolved for your configured venv."
 msgstr ""
 "ٹیکسٹ اینالیٹکس ورکر کی جانب سے خرابی:\n"
 "{err}\n"
 "\n"
-"اس ڈائیلاگ میں خصوصیات کے لیے استعمال ہونے والے پائتھون میں ان پیکیجز کی "
-"ضرورت ہے:\n"
+"اس ڈائیلاگ میں خصوصیات کے لیے استعمال ہونے والے پائتھون میں ان پیکیجز کی ضرورت ہے:\n"
 "  • spacy + a model          (اینٹٹیز، کلیدی جملے، بنیادی اعدادوشمار)\n"
 "  • textdescriptives         (حقیقی ریڈ ایبلٹی اسکور)\n"
-"  • transformers + torch     (کثیر لسانی ماڈل کا استعمال کرتے ہوئے جذبات کا "
-"تجزیہ)\n"
+"  • transformers + torch     (کثیر لسانی ماڈل کا استعمال کرتے ہوئے جذبات کا تجزیہ)\n"
 "\n"
 "انہیں اس کمانڈ سے انسٹال کریں:\n"
 "  {install}\n"
 "\n"
-"ورکر نے اطلاع دی ہے کہ ماڈیول غائب ہے۔ تصدیق کریں کہ پیکیجز اسی پائتھون "
-"ایگزیکیوٹیبل میں انسٹال ہیں جسے ورکر نے آپ کے کنفیگر کردہ venv کے لیے حل کیا "
-"ہے۔"
+"ورکر نے اطلاع دی ہے کہ ماڈیول غائب ہے۔ تصدیق کریں کہ پیکیجز اسی پائتھون ایگزیکیوٹیبل میں انسٹال ہیں جسے ورکر نے آپ کے کنفیگر کردہ venv کے لیے حل کیا ہے۔"
 
 #: plugin/scripting/text_analytics_ui.py
 msgid "Open a Writer document to analyze."
@@ -1906,16 +1895,11 @@ msgstr "تجزیہ کیا جا رہا ہے..."
 msgid ""
 "Error: %s\n"
 "\n"
-"Required packages may be missing in your configured venv (Settings → "
-"Python). Click Check Venv in this dialog or use the full Test in Settings → "
-"Python for details on spacy, textdescriptives, transformers, torch etc."
+"Required packages may be missing in your configured venv (Settings → Python). Click Check Venv in this dialog or use the full Test in Settings → Python for details on spacy, textdescriptives, transformers, torch etc."
 msgstr ""
 "خرابی: %s\n"
 "\n"
-"آپ کے تشکیل کردہ venv (ترتیبات ← پائتھون) میں مطلوبہ پیکیجز غائب ہو سکتے "
-"ہیں۔ اس ڈائیلاگ میں 'Check Venv' پر کلک کریں یا spacy، textdescriptives، "
-"transformers، torch وغیرہ کی تفصیلات کے لیے ترتیبات ← پائتھون میں مکمل ٹیسٹ "
-"استعمال کریں۔"
+"آپ کے تشکیل کردہ venv (ترتیبات ← پائتھون) میں مطلوبہ پیکیجز غائب ہو سکتے ہیں۔ اس ڈائیلاگ میں 'Check Venv' پر کلک کریں یا spacy، textdescriptives، transformers، torch وغیرہ کی تفصیلات کے لیے ترتیبات ← پائتھون میں مکمل ٹیسٹ استعمال کریں۔"
 
 #: plugin/scripting/text_analytics_ui.py
 msgid "No Writer document to insert into."
@@ -1980,7 +1964,7 @@ msgstr ""
 "Vision '{helper}' مکمل ہوا۔ HTML اندراج شدہ ({blocks} بلاکس، {tables} "
 "ٹیبلز)۔ ({time} وقت لگا)"
 
-#: plugin/scripting/domain_registry.py
+#: plugin/scripting/domain_registry.py plugin/scripting/python_runner.py
 #, python-brace-format
 msgid "Vision '{helper}' completed. Inserted formatted HTML. (took {time})"
 msgstr ""
@@ -2062,7 +2046,8 @@ msgid ""
 "Jupyter Notebook… to enable notebook Python session reset."
 msgstr ""
 "اس رائٹر دستاویز میں کوئی درآمد شدہ نوٹ بک رجسٹری نہیں ہے۔ نوٹ بک پائتھون "
-"سیشن ری سیٹ کو فعال کرنے کے لیے ٹولز → امپورٹ جیوپیٹر نوٹ بک... استعمال کریں۔"
+"سیشن ری سیٹ کو فعال کرنے کے لیے ٹولز → امپورٹ جیوپیٹر نوٹ بک... استعمال "
+"کریں۔"
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."
@@ -2121,13 +2106,26 @@ msgid "Vision helpers require a Writer or Calc document."
 msgstr "ویژن ہیلپرز کے لیے Writer یا Calc دستاویز درکار ہے۔"
 
 #: plugin/scripting/python_runner.py
+msgid "Vision helper failed."
+msgstr "ویژن ہیلپر ناکام ہو گیا۔"
+
+#: plugin/scripting/python_runner.py
 #, python-brace-format
 msgid ""
-"Script executed successfully, but returned no result and produced no output. "
+"Vision '{helper}' completed. Inserted formatted HTML for {count} images. "
 "(took {time})"
 msgstr ""
-"اسکرپٹ کامیابی سے چل گیا، لیکن کوئی نتیجہ واپس نہیں کیا اور کوئی آؤٹ پٹ پیدا "
-"نہیں ہوا۔ ({time} لگا)"
+"ویژن '{helper}' مکمل ہوا۔ {count} تصاویر کے لیے فارمیٹ شدہ HTML داخل کر دی "
+"گئی۔ ({time} وقت لگا)"
+
+#: plugin/scripting/python_runner.py
+#, python-brace-format
+msgid ""
+"Script executed successfully, but returned no result and produced no output."
+" (took {time})"
+msgstr ""
+"اسکرپٹ کامیابی سے چل گیا، لیکن کوئی نتیجہ واپس نہیں کیا اور کوئی آؤٹ پٹ پیدا"
+" نہیں ہوا۔ ({time} لگا)"
 
 #: plugin/scripting/python_runner.py
 #, python-brace-format
@@ -2167,31 +2165,46 @@ msgstr ""
 msgid "Dispatch Error"
 msgstr "ڈسپیچ کی خرابی"
 
+#: plugin/vision/vision_runner.py plugin/vision/vision_egress.py
+msgid ""
+"Select an embedded image (or a range containing images), then Run again."
+msgstr ""
+"ایک ایمبیڈڈ تصویر (یا تصاویر پر مشتمل رینج) منتخب کریں، پھر دوبارہ چلائیں۔"
+
 #: plugin/vision/vision_runner.py
 #, python-brace-format
 msgid ""
 "Image '{name}' not found. Use list_images or leave image_name empty and "
 "select the graphic."
 msgstr ""
-"تصویر '{name}' نہیں ملی۔ list_images استعمال کریں یا image_name کو خالی چھوڑ "
-"کر گرافک منتخب کریں۔"
+"تصویر '{name}' نہیں ملی۔ list_images استعمال کریں یا image_name کو خالی چھوڑ"
+" کر گرافک منتخب کریں۔"
 
 #: plugin/vision/vision_runner.py
 #, python-brace-format
 msgid "Image '{name}' could not be exported."
 msgstr "تصویر '{name}' ایکسپورٹ نہیں کی جا سکی۔"
 
+#: plugin/vision/vision_runner.py
+#, python-brace-format
+msgid "OCR complete ({count} images)."
+msgstr "OCR مکمل ({count} تصاویر)۔"
+
+#: plugin/vision/vision_runner.py plugin/vision/vision_tools.py
+msgid "OCR complete."
+msgstr "OCR مکمل ہوا۔"
+
+#: plugin/vision/vision_runner.py
+msgid "OCR complete (text returned only; not inserted)."
+msgstr "OCR مکمل ہوا (صرف متن واپس آیا؛ داخل نہیں کیا گیا)۔"
+
 #: plugin/vision/vision_tools.py
 msgid "Vision OCR requires a Writer or Calc document."
 msgstr "Vision OCR کے لیے Writer یا Calc کی دستاویز درکار ہے۔"
 
-#: plugin/vision/vision_tools.py
-msgid "OCR complete."
-msgstr "OCR مکمل ہوا۔"
-
-#: plugin/vision/vision_tools.py
-msgid "OCR complete (text returned only; not inserted)."
-msgstr "OCR مکمل ہوا (صرف متن واپس آیا؛ داخل نہیں کیا گیا)۔"
+#: plugin/vision/vision_egress.py
+msgid "Writer document has no controller."
+msgstr "Writer دستاویز کا کوئی کنٹرولر نہیں ہے۔"
 
 #: plugin/vision/vision_egress.py
 msgid "Could not resolve the image anchor for insert."
@@ -2201,10 +2214,6 @@ msgstr "اندراج کے لیے امیج اینکر حل نہیں کیا جا �
 #, python-format
 msgid "Could not position insert after the image: %s"
 msgstr "تصویر کے بعد اندراج کو پوزیشن نہیں دی جا سکی: %s"
-
-#: plugin/vision/vision_egress.py
-msgid "Writer document has no controller."
-msgstr "Writer دستاویز کا کوئی کنٹرولر نہیں ہے۔"
 
 #: plugin/vision/vision_egress.py
 msgid "The image was removed while preparing OCR insert."
@@ -2449,7 +2458,8 @@ msgstr "اینڈ پوائنٹ یو آر ایل:"
 
 #: plugin/xdl_strings.py
 msgid "Enter LaTeX math code to convert and insert as formula:"
-msgstr "تبدیل کرنے اور بطور فارمولا داخل کرنے کے لیے LaTeX ریاضی کوڈ درج کریں:"
+msgstr ""
+"تبدیل کرنے اور بطور فارمولا داخل کرنے کے لیے LaTeX ریاضی کوڈ درج کریں:"
 
 #: plugin/xdl_strings.py
 msgid ""
@@ -2708,11 +2718,11 @@ msgid "Path / URL"
 msgstr "Path / URL"
 
 msgid ""
-"Path to backend CLI (e.g. aider) or ACP server URL (e.g. http://"
-"localhost:8000 for Hermes). Empty = try default."
+"Path to backend CLI (e.g. aider) or ACP server URL (e.g. "
+"http://localhost:8000 for Hermes). Empty = try default."
 msgstr ""
-"بیک اینڈ CLI (مثلاً aider) یا ACP سرور URL (مثلاً http://localhost:8000 برائے "
-"Hermes) کا راستہ۔ خالی = ڈیفالٹ آزمانا۔"
+"بیک اینڈ CLI (مثلاً aider) یا ACP سرور URL (مثلاً http://localhost:8000 "
+"برائے Hermes) کا راستہ۔ خالی = ڈیفالٹ آزمانا۔"
 
 msgid "Extra arguments"
 msgstr "اضافی دلائل"
@@ -2816,7 +2826,8 @@ msgid "Rich Text Control Sidebar"
 msgstr "رچ ٹیکسٹ کنٹرول سائڈبار"
 
 msgid "Formatted chat via RichTextControl. Requires restart."
-msgstr "RichTextControl کے ذریعے فارمیٹ شدہ چیٹ۔ دوبارہ شروع کرنے کی ضرورت ہے۔"
+msgstr ""
+"RichTextControl کے ذریعے فارمیٹ شدہ چیٹ۔ دوبارہ شروع کرنے کی ضرورت ہے۔"
 
 msgid "Humanizer skill (natural prose)"
 msgstr "ہیومنائزر مہارت (قدرتی نثر)"
@@ -2824,15 +2835,16 @@ msgstr "ہیومنائزر مہارت (قدرتی نثر)"
 msgid ""
 "When enabled, injects guidance into the system prompt so the model makes "
 "generated or revised document text sound more natural and human (removes AI "
-"slop patterns). Edit the rules in your LibreOffice profile under writeragent/"
-"skills/humanizer/SKILL.md (the file is auto-created on first use). A "
-"dedicated Skills tab can be added later."
+"slop patterns). Edit the rules in your LibreOffice profile under "
+"writeragent/skills/humanizer/SKILL.md (the file is auto-created on first "
+"use). A dedicated Skills tab can be added later."
 msgstr ""
 "جب فعال ہو، تو سسٹم پرامپٹ میں رہنمائی شامل کرتا ہے تاکہ ماڈل تیار کردہ یا "
 "نظر ثانی شدہ دستاویز کے متن کو زیادہ قدرتی اور انسانی آواز دے (AI کے غیر "
-"ضروری نمونوں کو ہٹاتا ہے)۔ اپنے LibreOffice پروفائل میں writeragent/skills/"
-"humanizer/SKILL.md کے تحت قواعد میں ترمیم کریں (یہ فائل پہلی بار استعمال پر "
-"خود بخود بن جاتی ہے)۔ مہارتوں کا ایک وقف ٹیب بعد میں شامل کیا جا سکتا ہے۔"
+"ضروری نمونوں کو ہٹاتا ہے)۔ اپنے LibreOffice پروفائل میں "
+"writeragent/skills/humanizer/SKILL.md کے تحت قواعد میں ترمیم کریں (یہ فائل "
+"پہلی بار استعمال پر خود بخود بن جاتی ہے)۔ مہارتوں کا ایک وقف ٹیب بعد میں "
+"شامل کیا جا سکتا ہے۔"
 
 msgid "Silence before send (ms)"
 msgstr "بھیجنے سے پہلے خاموشی (ملی سیکنڈ)"
@@ -2841,8 +2853,8 @@ msgid ""
 "Pause after you stop talking, then auto-stop and send (Record). 0 = wait "
 "until you click Stop Rec."
 msgstr ""
-"بولنا بند کرنے کے بعد توقف کریں، پھر خودکار طور پر رکیں اور بھیجیں (ریکارڈ)۔ "
-"0 = جب تک آپ 'اسٹاپ ریکارڈ' پر کلک نہ کریں تب تک انتظار کریں۔"
+"بولنا بند کرنے کے بعد توقف کریں، پھر خودکار طور پر رکیں اور بھیجیں (ریکارڈ)۔"
+" 0 = جب تک آپ 'اسٹاپ ریکارڈ' پر کلک نہ کریں تب تک انتظار کریں۔"
 
 msgid "Doc"
 msgstr "دستاویز"
@@ -2851,13 +2863,13 @@ msgid "Enable grammar checker (Writer)"
 msgstr "گرامر چیکر فعال کریں (Writer)"
 
 msgid ""
-"Off = disabled. AI (LLM) = use your configured text model/API. "
-"LanguageTool / Vale = local engines via Settings → Python venv. Harper = "
-"offline Rust binary auto-downloaded to your profile (no venv required)."
+"Off = disabled. AI (LLM) = use your configured text model/API. LanguageTool "
+"/ Vale = local engines via Settings → Python venv. Harper = offline Rust "
+"binary auto-downloaded to your profile (no venv required)."
 msgstr ""
 "آف = غیر فعال۔ AI (LLM) = اپنے تشکیل کردہ ٹیکسٹ ماڈل/API کا استعمال کریں۔ "
-"LanguageTool / Vale = ترتیبات → Python venv کے ذریعے مقامی انجن۔ Harper = آپ "
-"کے پروفائل میں خودکار ڈاؤن لوڈ ہونے والی آف لائن Rust بائنری (کسی venv کی "
+"LanguageTool / Vale = ترتیبات → Python venv کے ذریعے مقامی انجن۔ Harper = آپ"
+" کے پروفائل میں خودکار ڈاؤن لوڈ ہونے والی آف لائن Rust بائنری (کسی venv کی "
 "ضرورت نہیں)۔"
 
 msgid "Off"
@@ -2925,8 +2937,8 @@ msgid ""
 "(Settings → Python; no API call). Mismatches update CharLocale and re-check "
 "grammar."
 msgstr ""
-"ہر مکمل جملے کی زبان کو دستاویز کے لوکیل (locale) کے مطابق تصدیق کریں۔ AI آپ "
-"کا گرامر/چیٹ API استعمال کرتا ہے؛ Local آپ کے Python venv میں langdetect "
+"ہر مکمل جملے کی زبان کو دستاویز کے لوکیل (locale) کے مطابق تصدیق کریں۔ AI آپ"
+" کا گرامر/چیٹ API استعمال کرتا ہے؛ Local آپ کے Python venv میں langdetect "
 "استعمال کرتا ہے (ترتیبات → Python؛ کوئی API کال نہیں)۔ مماثلت نہ ہونے پر "
 "CharLocale کو اپ ڈیٹ کریں اور گرامر کو دوبارہ چیک کریں۔"
 
@@ -2941,8 +2953,8 @@ msgid ""
 "Shift+Enter inserts a newline. When off, Enter inserts a newline."
 msgstr ""
 "جب آن ہو، تو سائڈبار کیوری میں Enter دبانے سے وہی عمل ہوتا ہے جو 'بھیجیں' "
-"(Send) کا ہے؛ Shift+Enter نئی لائن داخل کرتا ہے۔ جب آف ہو، تو Enter نئی لائن "
-"داخل کرتا ہے۔"
+"(Send) کا ہے؛ Shift+Enter نئی لائن داخل کرتا ہے۔ جب آف ہو، تو Enter نئی لائن"
+" داخل کرتا ہے۔"
 
 msgid "Agent edit review"
 msgstr "ایجنٹ ترمیم کا جائزہ"
@@ -3012,8 +3024,8 @@ msgid "Rerank model"
 msgstr "ریرینک ماڈل"
 
 msgid ""
-"Used only when rerank is enabled. English MiniLM is fast; bge-reranker-v2-m3 "
-"is multilingual and downloads ~2.3 GB."
+"Used only when rerank is enabled. English MiniLM is fast; bge-reranker-v2-m3"
+" is multilingual and downloads ~2.3 GB."
 msgstr ""
 "صرف تب استعمال ہوتا ہے جب ریرینک فعال ہو۔ انگریزی MiniLM تیز ہے؛ bge-"
 "reranker-v2-m3 کثیر لسانی ہے اور تقریباً 2.3 جی بی ڈاؤن لوڈ کرتا ہے۔"
@@ -3034,8 +3046,8 @@ msgid "Enable MCP Server"
 msgstr "MCP سرور فعال کریں"
 
 msgid ""
-"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable "
-"HTTP)."
+"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable"
+" HTTP)."
 msgstr ""
 "صرف لوکل ہوسٹ، کوئی تصدیق نہیں۔ کلائنٹس http://localhost:<port>/mcp "
 "(اسٹریمیبل HTTP) استعمال کرتے ہیں۔"
@@ -3107,11 +3119,11 @@ msgid "Max Calc data cells"
 msgstr "زیادہ سے زیادہ Calc ڈیٹا سیلز"
 
 msgid ""
-"Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger "
-"values use more RAM and time; UNO range read still dominates."
+"Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger"
+" values use more RAM and time; UNO range read still dominates."
 msgstr ""
-"=PYTHON() ڈیٹا یا Run Python Script ڈیٹا/data_range میں زیادہ سے زیادہ سیلز۔ "
-"بڑی اقدار زیادہ RAM اور وقت استعمال کرتی ہیں؛ UNO رینج ریڈ اب بھی غالب ہے۔"
+"=PYTHON() ڈیٹا یا Run Python Script ڈیٹا/data_range میں زیادہ سے زیادہ سیلز۔"
+" بڑی اقدار زیادہ RAM اور وقت استعمال کرتی ہیں؛ UNO رینج ریڈ اب بھی غالب ہے۔"
 
 msgid "Python session mode"
 msgstr "Python سیشن موڈ"
@@ -3120,8 +3132,8 @@ msgid ""
 "Isolated: each =PYTHON() cell gets a fresh namespace. Shared: one namespace "
 "per workbook (variables carry between cells)."
 msgstr ""
-"Isolated: ہر =PYTHON() سیل ایک نیا نیم اسپیس حاصل کرتا ہے۔ Shared: فی ورک بک "
-"ایک نیم اسپیس (متغیرات سیلز کے درمیان منتقل ہوتے ہیں)۔"
+"Isolated: ہر =PYTHON() سیل ایک نیا نیم اسپیس حاصل کرتا ہے۔ Shared: فی ورک بک"
+" ایک نیم اسپیس (متغیرات سیلز کے درمیان منتقل ہوتے ہیں)۔"
 
 msgid "Isolated (default)"
 msgstr "Isolated (پہلے سے طے شدہ)"
@@ -3133,16 +3145,16 @@ msgid ""
 "Automatically spill multi-cell array/DataFrame results from =PYTHON() into "
 "adjacent cells."
 msgstr ""
-"=PYTHON() سے ملٹی سیل ارے/ڈیٹا فریم کے نتائج کو خودکار طور پر ملحقہ سیلز میں "
-"اسپل کریں۔"
+"=PYTHON() سے ملٹی سیل ارے/ڈیٹا فریم کے نتائج کو خودکار طور پر ملحقہ سیلز میں"
+" اسپل کریں۔"
 
 msgid "Convert Date/Time and Timedelta Strings"
 msgstr "تاریخ/وقت اور ٹائم ڈیلٹا سٹرنگز کو تبدیل کریں"
 
 msgid ""
-"Automatically detect and convert date/time and duration strings to datetime/"
-"timedelta objects when sending data to the Python worker. Requires the "
-"'pandas' and 'dateparser' packages in your venv."
+"Automatically detect and convert date/time and duration strings to "
+"datetime/timedelta objects when sending data to the Python worker. Requires "
+"the 'pandas' and 'dateparser' packages in your venv."
 msgstr ""
 "Python ورکر کو ڈیٹا بھیجتے وقت تاریخ/وقت اور دورانیے کی سٹرنگز کو خود بخود "
 "شناخت کر کے datetime/timedelta آبجیکٹس میں تبدیل کریں۔ آپ کے venv میں "
@@ -3152,14 +3164,15 @@ msgid "PPT-Master data path"
 msgstr "PPT-Master ڈیٹا کا راستہ"
 
 msgid ""
-"Path to the ppt-master skill tree (SKILL.md, templates/, scripts/"
-"svg_to_pptx/). Clone hugohe3/ppt-master on GitHub and point here at the "
-"clone root (.../ppt-master) or the inner skill dir (.../ppt-master/skills/"
-"ppt-master). Leave empty to auto-detect (dev clone beside repo, then env)."
+"Path to the ppt-master skill tree (SKILL.md, templates/, "
+"scripts/svg_to_pptx/). Clone hugohe3/ppt-master on GitHub and point here at "
+"the clone root (.../ppt-master) or the inner skill dir (.../ppt-"
+"master/skills/ppt-master). Leave empty to auto-detect (dev clone beside "
+"repo, then env)."
 msgstr ""
 "ppt-master اسکل ٹری کا راستہ (SKILL.md, templates/, scripts/svg_to_pptx/)۔ "
-"GitHub پر hugohe3/ppt-master کو کلون کریں اور یہاں کلون روٹ (.../ppt-master) "
-"یا اندرونی اسکل ڈائریکٹری (.../ppt-master/skills/ppt-master) کی نشاندہی "
+"GitHub پر hugohe3/ppt-master کو کلون کریں اور یہاں کلون روٹ (.../ppt-master)"
+" یا اندرونی اسکل ڈائریکٹری (.../ppt-master/skills/ppt-master) کی نشاندہی "
 "کریں۔ خودکار شناخت کے لیے خالی چھوڑ دیں (ریپو کے ساتھ dev کلون، پھر env)۔"
 
 msgid "Vision / OCR"
@@ -3210,7 +3223,8 @@ msgid "Table cell matching"
 msgstr "ٹیبل سیل کی مطابقت"
 
 msgid "Align detected table cells with content (extract_structure)."
-msgstr "دریافت شدہ ٹیبل سیلز کو مواد کے ساتھ ہم آہنگ کریں (extract_structure)۔"
+msgstr ""
+"دریافت شدہ ٹیبل سیلز کو مواد کے ساتھ ہم آہنگ کریں (extract_structure)۔"
 
 msgid "Keep orphan text clusters"
 msgstr "یتیم ٹیکسٹ کلسٹرز کو برقرار رکھیں"
