@@ -90,14 +90,18 @@ def drain_owner_scope(name: str) -> "Generator[None, None, None]":
     start while one is already pumping. The owner may call :func:`pump_ui_idle`; other
     code must use :func:`process_events_to_idle`, which no-ops VCL while owned.
     """
-    prev = getattr(_drain_tls, "owner", None)
-    if prev is not None:
-        raise NestedDrainOwnerError(f"Cannot nest drain owner {name!r} while {prev!r} is active")
+    from plugin.framework.async_drain_guard import drain_owner_sentry, NestedDrainOwnerError as SentryNestedError
+
     _drain_tls.owner = name
     try:
-        yield
+        with drain_owner_sentry(name):
+            yield
+    except SentryNestedError as e:
+        raise NestedDrainOwnerError(str(e)) from e
     finally:
-        _drain_tls.owner = None
+        from plugin.framework.async_drain_guard import get_active_drain_owner
+        _drain_tls.owner = get_active_drain_owner()
+
 
 
 def set_force_marshal_mode(enabled: bool) -> None:

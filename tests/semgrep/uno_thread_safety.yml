@@ -196,3 +196,23 @@ rules:
         - "**/plugin/scripting/audio_recorder_service.py"
         - "**/plugin/scripting/editor_host.py"
         - "**/plugin/writer/locale/harper.py"
+
+  - id: uno-disposed-check-required
+    languages: [python]
+    severity: WARNING
+    message: >-
+      UNO document model access should check disposal status via check_disposed or is_document_disposed.
+      See docs/ui-sentry-and-opengrep-rules-plan.md.
+    patterns:
+      - pattern: $DOC.getImplementationName()
+      - pattern-not-inside: |
+          def is_document_disposed(...):
+            ...
+      - pattern-not-inside: |
+          def check_disposed(...):
+            ...
+    paths:
+      exclude:
+        - "**/tests/**"
+        - "**/plugin/tests/**"
+

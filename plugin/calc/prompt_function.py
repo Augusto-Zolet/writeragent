@@ -32,13 +32,15 @@ def _assistant_text(result: Mapping[str, Any]) -> str:
 
 def _format_empty_prompt_diagnostic(result: Mapping[str, Any], *, model: str) -> str:
     """Visible cell message when the provider returned no assistant text (never a silent blank)."""
-    usage = result.get("usage") if isinstance(result.get("usage"), dict) else {}
+    usage = result.get("usage")
+    usage_dict = usage if isinstance(usage, dict) else {}
     parts = [
         f"finish_reason={result.get('finish_reason')!r}",
-        f"completion_tokens={usage.get('completion_tokens', '?')}",
-        f"reasoning_tokens={usage.get('reasoning_tokens', '?')}",
+        f"completion_tokens={usage_dict.get('completion_tokens', '?')}",
+        f"reasoning_tokens={usage_dict.get('reasoning_tokens', '?')}",
         f"model={model}",
     ]
+
     msg = "Error: model returned no text. " + "; ".join(parts) + "."
     for key in ("reasoning", "reasoning_content"):
         val = result.get(key)
