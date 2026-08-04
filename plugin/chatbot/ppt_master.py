@@ -44,6 +44,7 @@ def _run_ppt_master_venv_agent(
         status_callback("PPT-Master...")
 
     from plugin.framework.uno_context import get_active_document, get_ctx
+    from plugin.framework.thread_guard import on_main_thread
     from plugin.framework.queue_executor import execute_on_main_thread
 
     # Bugfix: The tool runs on a background thread (is_async=True). Accessing ctx.doc,
@@ -56,7 +57,10 @@ def _run_ppt_master_venv_agent(
         selected_model = _selected_chat_model(ctx)
         return sess_id, selected_model
 
-    session_id, resolved_model = execute_on_main_thread(_resolve_session_and_model)
+    if on_main_thread():
+        session_id, resolved_model = _resolve_session_and_model()
+    else:
+        session_id, resolved_model = execute_on_main_thread(_resolve_session_and_model)
 
     def on_worker_event(event: dict[str, Any]) -> None:
         kind = event.get("kind")

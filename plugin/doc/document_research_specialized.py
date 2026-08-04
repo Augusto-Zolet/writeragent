@@ -26,6 +26,15 @@ READ_TOOLS_BY_DOC_TYPE: dict[str, frozenset[str]] = {
 }
 
 
+def _run_on_main(fn: Any) -> Any:
+    from plugin.framework.thread_guard import on_main_thread
+    from plugin.framework import queue_executor
+
+    if on_main_thread():
+        return fn()
+    return queue_executor.execute_on_main_thread(fn)
+
+
 def run_inner_read_agent(parent_ctx: ToolContext, opened_model: Any, doc_type: str, task: str) -> dict[str, Any] | str:
     """Run a focused read-only smol agent on *opened_model*; not a delegate gateway recurse."""
     registry = parent_ctx.services.get("tools")
@@ -47,14 +56,12 @@ def run_inner_read_agent(parent_ctx: ToolContext, opened_model: Any, doc_type: s
         uno_services_supported=getattr(parent_ctx, "uno_services_supported", None),
     )
 
-    from plugin.framework import queue_executor
-
     def _fetch_inner_tools():
         domain_tools = registry.get_tools(doc=opened_model, doc_type=doc_type, names=list(allowlist), exclude_tiers=())
         finish_tools = registry.get_tools(names=["specialized_workflow_finished"], exclude_tiers=())
         return domain_tools, finish_tools
 
-    domain_tools, finish_tools = queue_executor.execute_on_main_thread(_fetch_inner_tools)
+    domain_tools, finish_tools = _run_on_main(_fetch_inner_tools)
     missing = allowlist - {t.name for t in domain_tools if t.name}
     if missing:
         log.warning("Inner document_research agent missing tools: %s", sorted(missing))
@@ -151,7 +158,7 @@ class DelegateReadDocument(ToolBase):
             return (path, model, doc_type, opened_for_document_research)
 
         try:
-            opened = execute_on_main_thread(_open_on_main)
+            opened = _run_on_main(_open_on_main)
         except SendCancelled:
             return self._tool_error("Document read stopped by user.", code="USER_STOPPED")
 
@@ -166,7 +173,7 @@ class DelegateReadDocument(ToolBase):
             result = run_inner_read_agent(ctx, model, doc_type, str(task))
         finally:
             try:
-                execute_on_main_thread(
+                _run_on_main(
                     lambda: close_document_research_document(model, opened_for_document_research=opened_for_document_research)
                 )
             except SendCancelled:

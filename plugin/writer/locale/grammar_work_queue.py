@@ -161,7 +161,11 @@ def _get_cached_document_locales(ctx: Any, doc_id: str) -> list[str]:
         return sorted(list(locales))
 
     try:
-        locs = queue_executor.execute_on_main_thread(_query_locales)
+        from plugin.framework.thread_guard import on_main_thread
+        if on_main_thread():
+            locs = _query_locales()
+        else:
+            locs = queue_executor.execute_on_main_thread(_query_locales)
         with grammar_persistence.grammar_registry.lock:
             grammar_persistence.grammar_registry.doc_locales_cache[doc_id] = (now, locs)
         return locs
@@ -214,7 +218,11 @@ def _apply_language_change(ctx: Any, doc_id: str, sentence_text: str, detected_b
             log.info("[grammar] Updated CharLocale for sentence to %s", detected_bcp47)
             
     try:
-        queue_executor.execute_on_main_thread(_do_update)
+        from plugin.framework.thread_guard import on_main_thread
+        if on_main_thread():
+            _do_update()
+        else:
+            queue_executor.execute_on_main_thread(_do_update)
     except Exception as e:
         log.warning("Failed to update language property: %s", e)
 

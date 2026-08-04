@@ -90,8 +90,11 @@ def _read_doc_char_locale(doc: Any) -> tuple[str, str] | None:
 
 def _resolve_on_main(fn):
     """Run UNO work on the main thread (web_research runs on an async worker)."""
+    from plugin.framework.thread_guard import on_main_thread
     from plugin.framework.queue_executor import execute_on_main_thread
 
+    if on_main_thread():
+        return fn()
     return execute_on_main_thread(fn, timeout=30.0)
 
 

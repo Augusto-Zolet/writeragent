@@ -26,6 +26,12 @@ from com.sun.star.text.TextContentAnchorType import AS_CHARACTER
 from ..specialized_base import ToolWriterFormBase
 from plugin.framework.errors import format_error_payload, ToolExecutionError
 from plugin.framework.queue_executor import execute_on_main_thread
+from plugin.framework.thread_guard import on_main_thread
+
+def _run_on_main(fn, *args, **kwargs):
+    if on_main_thread():
+        return fn(*args, **kwargs)
+    return execute_on_main_thread(fn, *args, **kwargs)
 
 log = logging.getLogger("writeragent.writer.forms")
 
@@ -146,7 +152,7 @@ class CreateFormControl(ToolWriterFormBase):
     }
 
     def execute(self, ctx, **kwargs):
-        return execute_on_main_thread(self._execute_main, ctx, **kwargs)
+        return _run_on_main(self._execute_main, ctx, **kwargs)
 
     def _execute_main(self, ctx, **kwargs):
         doc = ctx.doc
@@ -261,7 +267,7 @@ class CreateForm(ToolWriterFormBase):
             res = creator._execute_main(ctx, **field)
             results.append(res)
             # Add a space after each control if we are inserting series
-            execute_on_main_thread(self._insert_space, ctx)
+            _run_on_main(self._insert_space, ctx)
 
         return {"status": "ok", "message": f"Processed {len(fields)} form fields", "results": results}
 
@@ -332,11 +338,11 @@ Output ONLY the HTML content. No explanations. No Markdown like # Header.
                 # Parse the field tag
                 params = self._parse_field_tag(part)
                 if params:
-                    execute_on_main_thread(creator._execute_main, ctx, **params)
+                    _run_on_main(creator._execute_main, ctx, **params)
             else:
                 # Insert regular text
                 if part:
-                    execute_on_main_thread(self._insert_text, ctx, part)
+                    _run_on_main(self._insert_text, ctx, part)
 
         return {"status": "ok", "message": "Form generation completed and inserted."}
 
@@ -387,7 +393,7 @@ class ListFormControls(ToolWriterFormBase):
     parameters = {"type": "object", "properties": {}, "required": []}
 
     def execute(self, ctx, **kwargs):
-        return execute_on_main_thread(self._execute_main, ctx, **kwargs)
+        return _run_on_main(self._execute_main, ctx, **kwargs)
 
     def _execute_main(self, ctx, **kwargs):
         doc = ctx.doc
@@ -447,7 +453,7 @@ class EditFormControl(ToolWriterFormBase):
     }
 
     def execute(self, ctx, **kwargs):
-        return execute_on_main_thread(self._execute_main, ctx, **kwargs)
+        return _run_on_main(self._execute_main, ctx, **kwargs)
 
     def _execute_main(self, ctx, **kwargs):
         doc = ctx.doc
@@ -496,7 +502,7 @@ class DeleteFormControl(ToolWriterFormBase):
     parameters = {"type": "object", "properties": {"shape_index": {"type": "integer", "description": "The index of the control shape to delete."}}, "required": ["shape_index"]}
 
     def execute(self, ctx, **kwargs):
-        return execute_on_main_thread(self._execute_main, ctx, **kwargs)
+        return _run_on_main(self._execute_main, ctx, **kwargs)
 
     def _execute_main(self, ctx, **kwargs):
         doc = ctx.doc

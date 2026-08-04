@@ -142,4 +142,8 @@ class SearchEmbeddings(ToolBase):
                 "stale": False,
             }
 
+        from plugin.framework.thread_guard import on_main_thread
+
+        if on_main_thread():
+            return _run()
         return execute_on_main_thread(_run)

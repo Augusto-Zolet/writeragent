@@ -48,6 +48,7 @@ class GrepNearbyFiles(ToolBase):
         return True
 
     def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
+        from plugin.framework.thread_guard import on_main_thread
         from plugin.framework.queue_executor import execute_on_main_thread
 
         pattern = kwargs.get("pattern")
@@ -71,4 +72,6 @@ class GrepNearbyFiles(ToolBase):
                 status_callback=ctx.status_callback,
             )
 
+        if on_main_thread():
+            return _run()
         return execute_on_main_thread(_run)

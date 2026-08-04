@@ -46,6 +46,7 @@ class ListNearbyFiles(ToolBase):
         return True
 
     def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
+        from plugin.framework.thread_guard import on_main_thread
         from plugin.framework.queue_executor import execute_on_main_thread
 
         filt = kwargs.get("filter")
@@ -55,6 +56,8 @@ class ListNearbyFiles(ToolBase):
         def _run() -> dict[str, Any]:
             return list_nearby_files(ctx.ctx, ctx.doc, filter=filt, file_kind=file_kind)
 
+        if on_main_thread():
+            return _run()
         return execute_on_main_thread(_run)
 
 
@@ -80,6 +83,7 @@ class ListOpenDocuments(ToolBase):
     }
 
     def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
+        from plugin.framework.thread_guard import on_main_thread
         from plugin.framework.queue_executor import execute_on_main_thread
         from plugin.doc.document_research import get_open_documents
 
@@ -87,6 +91,8 @@ class ListOpenDocuments(ToolBase):
             docs = get_open_documents(ctx.ctx, ctx.doc)
             return {"status": "ok", "documents": docs}
 
+        if on_main_thread():
+            return _run()
         return execute_on_main_thread(_run)
 
 
