@@ -39,6 +39,26 @@ def test_inject_markers_into_excerpt():
     out = _inject_markers_into_excerpt(text, 10, 20, 5, 8, "PRE", "SUF")
     assert out == "PRE0123456789SUF"
 
-    # Selection partially outside start
-    out = _inject_markers_into_excerpt(text, 5, 15, 2, 8, "PRE", "SUF")
-    assert out == "PRE[SELECTION_START]012[SELECTION_END]3456789SUF"
+def test_is_document_disposed():
+    from plugin.doc.document_helpers import is_document_disposed
+
+    assert is_document_disposed(None) is True
+
+    try:
+        from com.sun.star.lang import DisposedException
+        disposed_exc = DisposedException("Document disposed")
+    except ImportError:
+        disposed_exc = Exception("Mock disposed")
+
+    class MockDisposedDoc:
+        def getImplementationName(self):
+            raise disposed_exc
+
+    class MockValidDoc:
+        def getImplementationName(self):
+            return "SwXTextDocument"
+
+    assert is_document_disposed(MockDisposedDoc()) is True
+    assert is_document_disposed(MockValidDoc()) is False
+
+

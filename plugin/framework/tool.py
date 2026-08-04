@@ -374,7 +374,15 @@ class ToolBase(ABC):
             # bypass_thread_guard is honored at the call site in ToolRegistry.execute (it calls .execute directly).
             if not self.is_async():
                 assert_main_thread(self.name or "synchronous tool")
+                if self.requires_document and ctx is not None and getattr(ctx, "doc", None) is not None:
+                    from plugin.doc.document_helpers import is_document_disposed
+
+                    if is_document_disposed(ctx.doc):
+                        return self._tool_error("Document was closed or disposed by LibreOffice", code="DOCUMENT_DISPOSED")
+
+
             return self.execute(ctx, **kwargs)
+
         except Exception as e:
             _log.exception("Tool '%s' execution failed", self.name if self.name else "<unknown>")
             return self._tool_error(f"Tool execution failed: {str(e)}", code="TOOL_EXECUTION_ERROR", original_error=str(e), error_type=type(e).__name__)

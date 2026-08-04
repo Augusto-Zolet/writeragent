@@ -1213,6 +1213,10 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
             global_event_bus.unsubscribe("grammar:status", self._on_grammar_status)
         except Exception as e:
             log.debug("SendButtonListener.disposing: error unsubscribing from event bus: %s", e)
+        finally:
+            self.panel = None
+            self.ctx = None
+
 
 
 # ---------------------------------------------------------------------------

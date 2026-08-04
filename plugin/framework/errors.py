@@ -273,6 +273,8 @@ def check_disposed(model, context_name="Object"):
         pass
 
 
+
+
 def safe_uno_call(default=None):
     """Decorator to safely call UNO methods with automatic error handling."""
 

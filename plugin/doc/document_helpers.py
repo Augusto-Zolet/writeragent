@@ -46,6 +46,23 @@ except ImportError:
     UNO_DISPOSED_EXCEPTIONS = cast("Any", (Exception,))
 
 
+def is_document_disposed(doc: Any) -> bool:
+    """Safely check if a UNO document or component is disposed or invalid."""
+    if doc is None:
+        return True
+    if hasattr(doc, "getImplementationName"):
+        try:
+            _ = doc.getImplementationName()
+            return False
+        except UNO_DISPOSED_EXCEPTIONS:
+            return True
+        except Exception:
+            return True
+    return False
+
+
+
+
 
 def normalize_linebreaks(text: str | None) -> str:
     """Ensure all linebreaks use \n (LF).
