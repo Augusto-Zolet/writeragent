@@ -18,12 +18,25 @@
 
 from __future__ import annotations
 
+import importlib
 import ipaddress
 import logging
 import re
+from typing import Any
 from urllib.parse import urlparse
 
 log = logging.getLogger("writeragent.mcp.cors")
+
+deal: Any
+try:
+    deal = importlib.import_module("deal")
+except ImportError:
+
+    class _DummyDeal:
+        def __getattr__(self, name: str) -> Any:
+            return lambda *args, **kwargs: lambda f: f
+
+    deal = _DummyDeal()
 
 MCP_CORS_ORIGINS_KEY = "mcp.cors_allowed_origins"
 
@@ -50,6 +63,14 @@ _ORIGIN_RE = re.compile(r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$")
 PREFLIGHT_MAX_AGE = "86400"
 
 
+@deal.post(
+    lambda result: result is None
+    or (
+        isinstance(result, str)
+        and (result.lower().startswith("http://") or result.lower().startswith("https://"))
+        and not result.endswith("/")
+    )
+)
 def normalize_cors_origin(value: str | None) -> str | None:
     """Return a canonical origin URL or None if empty/invalid."""
     if value is None:
@@ -65,6 +86,8 @@ def normalize_cors_origin(value: str | None) -> str | None:
     return origin
 
 
+@deal.post(lambda result: isinstance(result, list) and all(isinstance(x, str) for x in result))
+@deal.ensure(lambda value, result: len(result) == len(set(result)))
 def normalize_origins_list(value) -> list[str]:
     """Coerce config value to a deduped list of normalized origin strings."""
     if value is None:
@@ -84,6 +107,8 @@ def normalize_origins_list(value) -> list[str]:
     return out
 
 
+@deal.pre(lambda origin: isinstance(origin, str))
+@deal.post(lambda result: isinstance(result, bool))
 def is_private_browser_origin(origin: str) -> bool:
     """True when Origin is http(s) with a LAN-style hostname or private/link-local IP."""
     normalized = normalize_cors_origin(origin)
@@ -127,6 +152,8 @@ def set_allow_private_origins(allow: bool) -> None:
     _allow_private_origins = bool(allow)
 
 
+@deal.pre(lambda origin: isinstance(origin, str))
+@deal.post(lambda result: isinstance(result, bool))
 def is_extra_allowed_origin(origin: str) -> bool:
     if not origin:
         return False
@@ -157,6 +184,8 @@ def reload_extra_allowed_origins_from_config(services) -> None:
     reload_cors_policy_from_config(services)
 
 
+@deal.pre(lambda origin: isinstance(origin, str))
+@deal.post(lambda result: isinstance(result, bool))
 def is_safe_origin(origin: str) -> bool:
     """True when Origin may receive Access-Control-Allow-Origin reflection."""
     if not origin:
@@ -170,6 +199,7 @@ def is_safe_origin(origin: str) -> bool:
     return False
 
 
+@deal.post(lambda result: isinstance(result, str) and "Content-Type" in result)
 def merge_allow_headers(access_control_request_headers: str | None) -> str:
     """Build Access-Control-Allow-Headers: base list union preflight request list."""
     merged: dict[str, str] = {}

@@ -22,19 +22,10 @@ deal: Any
 try:
     deal = importlib.import_module("deal")
 except ImportError:
-    # Dummy decorators for production where deal is not installed
+
     class _DummyDeal:
-        @staticmethod
-        def pre(func):
-            return lambda f: f
-
-        @staticmethod
-        def post(func):
-            return lambda f: f
-
-        @staticmethod
-        def ensure(func):
-            return lambda f: f
+        def __getattr__(self, name: str) -> Any:
+            return lambda *args, **kwargs: lambda f: f
 
     deal = _DummyDeal()
 

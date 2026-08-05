@@ -21,3 +21,11 @@ disabled_rule_ids = [
         assert f'"{rid}"' in out
     # Trusted GitHub audio_source.zip extract — accepted, disabled in wrapper.
     assert "ZIPSLIP001" in _DISABLED_RULE_IDS
+
+
+def test_semgrep_adapter_converts_rules() -> None:
+    from scripts.pyspector_semgrep_adapter import get_converted_semgrep_rules
+    rules_toml = get_converted_semgrep_rules()
+    assert "WRITERAGENT_NO_TEMPFILE_MKTEMP" in rules_toml
+    assert "RAW_UNO_THREAD_BAN" in rules_toml
+

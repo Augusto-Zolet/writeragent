@@ -23,6 +23,7 @@ to keep the LibreOffice UI responsive (pump_ui_idle: QueueExecutor + VCL).
 
 from __future__ import annotations
 
+import importlib
 import json
 import logging
 import queue
@@ -34,6 +35,17 @@ from typing import Any, TypeAlias, Callable, cast
 from plugin.framework.worker_pool import run_in_background
 
 log = logging.getLogger(__name__)
+
+deal: Any
+try:
+    deal = importlib.import_module("deal")
+except ImportError:
+
+    class _DummyDeal:
+        def __getattr__(self, name: str) -> Any:
+            return lambda *args, **kwargs: lambda f: f
+
+    deal = _DummyDeal()
 
 
 from plugin.framework.errors import format_error_payload
@@ -709,6 +721,9 @@ def run_blocking_in_thread(ctx, func, *args, **kwargs):
 # License: Apache 2.0 (https://github.com/openai/openai-python/blob/main/LICENSE)
 
 
+@deal.pre(lambda acc, delta: isinstance(acc, dict) and isinstance(delta, dict))
+@deal.post(lambda result: isinstance(result, dict))
+@deal.raises(TypeError, RuntimeError)
 def accumulate_delta(acc: dict[object, object], delta: dict[object, object]) -> dict[object, object]:
     """Merge a streaming chunk delta into an accumulated message/snapshot.
 

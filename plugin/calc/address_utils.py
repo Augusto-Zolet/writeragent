@@ -39,6 +39,25 @@ except ImportError:
     deal = _DummyDeal()
 
 
+@deal.pre(lambda index: isinstance(index, int) and index >= 0)
+@deal.post(lambda result: isinstance(result, str) and len(result) > 0)
+def index_to_column(index: int) -> str:
+    """Convert 0-based column index to column letter.
+
+    Args:
+        index: 0-based column index.
+
+    Returns:
+        Column letter (e.g. "A", "AB").
+    """
+    result = []
+    index += 1
+    while index > 0:
+        index, remainder = divmod(index - 1, 26)
+        result.append(chr(ord("A") + remainder))
+    return "".join(reversed(result))
+
+
 @deal.pre(lambda col_str: isinstance(col_str, str) and col_str.isascii() and col_str.isalpha())
 @deal.post(lambda result: isinstance(result, int) and result >= 0)
 @deal.ensure(lambda col_str, result: index_to_column(result) == col_str.upper())
@@ -55,25 +74,6 @@ def column_to_index(col_str: str) -> int:
     for char in col_str.upper():
         result = result * 26 + (ord(char) - ord("A") + 1)
     return result - 1
-
-
-@deal.pre(lambda index: isinstance(index, int) and index >= 0)
-@deal.post(lambda result: isinstance(result, str) and result.isalpha() and result.isupper())
-def index_to_column(index: int) -> str:
-    """Convert 0-based column index to letter notation.
-
-    Args:
-        index: 0-based column index.
-
-    Returns:
-        Column letter (e.g. "A", "AB").
-    """
-    result = ""
-    index += 1
-    while index > 0:
-        index, remainder = divmod(index - 1, 26)
-        result = chr(ord("A") + remainder) + result
-    return result
 
 
 @deal.pre(lambda address: isinstance(address, str))

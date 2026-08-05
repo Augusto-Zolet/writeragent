@@ -406,12 +406,15 @@ Maintain a `verification_status.json` file tracking which components have been v
 
 **Status (partial):**
 
-1. **`plugin/framework/url_utils.py`** — `deal` + Hypothesis + CrossHair hook ([`tests/framework/test_url_utils_verification.py`](../tests/framework/test_url_utils_verification.py))
+1. **`plugin/framework/url_utils.py`** — `deal` + Hypothesis + CrossHair ([`tests/framework/test_url_utils_verification.py`](../tests/framework/test_url_utils_verification.py))
 2. **`plugin/calc/address_utils.py`** — inverse column/address contracts + Hypothesis ([`tests/calc/test_address_utils_verification.py`](../tests/calc/test_address_utils_verification.py))
-3. **`plugin/writer/format_support.py`** — planned
-4. **`plugin/framework/async_stream.py`** — planned
+3. **`plugin/mcp/cors.py`** — origin normalize / safety ([`tests/mcp/test_cors_verification.py`](../tests/mcp/test_cors_verification.py))
+4. **`plugin/framework/config.py`** — `as_bool` / `parse_int_robust` only ([`tests/framework/test_config_coerce_verification.py`](../tests/framework/test_config_coerce_verification.py)); not whole-file CrossHair
+5. **`plugin/framework/tool.py`** — `_normalize_schema_for_strict_providers` FQN ([`tests/framework/test_tool_schema_verification.py`](../tests/framework/test_tool_schema_verification.py))
+6. **`plugin/framework/async_stream.py`** — `accumulate_delta` FQN ([`tests/framework/test_accumulate_delta_verification.py`](../tests/framework/test_accumulate_delta_verification.py))
+7. **FSM catch-up** — CrossHair on `state_machine.py` + `tool_loop_state.next_state` FQN ([`tests/chatbot/test_fsm_verification.py`](../tests/chatbot/test_fsm_verification.py))
 
-(URL helpers live in `url_utils.py`, not `config.py`.)
+(`format_support.py` does not exist; Writer HTML paths are UNO-heavy and deferred.)
 
 ## Conclusion
 

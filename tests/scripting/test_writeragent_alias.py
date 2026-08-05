@@ -128,7 +128,6 @@ def test_writeragent_namespace_fallback_when_api_missing():
     _clear_writeragent_modules()
     with patch("importlib.util.find_spec", side_effect=_find_spec_without_writeragent_api):
         register_alias_importer()
-        import writeragent
 
         assert "writeragent" in sys.modules
         from writeragent.scripting.analysis import run_analysis

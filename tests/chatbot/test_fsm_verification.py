@@ -30,6 +30,13 @@ from plugin.chatbot.send_state import (
     UpdateUIEffect,
     next_state as send_next_state,
 )
+from plugin.chatbot.state_machine import (
+    CompleteJobEffect,
+    SendHandlerState,
+    SpawnAgentWorkerEffect,
+    StopRequestedEvent,
+    next_state as send_handler_next_state,
+)
 from plugin.chatbot.tool_loop_state import (
     EventKind,
     ExitLoopEffect,
@@ -119,6 +126,21 @@ def test_tool_loop_stop_emits_exit_loop() -> None:
     assert tr.state.round_num <= max(state.round_num + 1, state.max_rounds)
 
 
+def test_send_handler_stop_does_not_spawn_workers() -> None:
+    state = SendHandlerState(
+        handler_type="agent",
+        status="running",
+        query_text="hi",
+        round_num=0,
+        pending_tools=[],
+        max_rounds=5,
+    )
+    tr = send_handler_next_state(state, StopRequestedEvent())
+    assert tr.state.round_num <= tr.state.max_rounds
+    assert not any(isinstance(e, SpawnAgentWorkerEffect) for e in tr.effects)
+    assert any(isinstance(e, CompleteJobEffect) for e in tr.effects)
+
+
 @pytest.mark.slow
 def test_crosshair_send_state_if_available() -> None:
     _run_crosshair("plugin/chatbot/send_state.py")
@@ -127,3 +149,14 @@ def test_crosshair_send_state_if_available() -> None:
 @pytest.mark.slow
 def test_crosshair_audio_recorder_state_if_available() -> None:
     _run_crosshair("plugin/chatbot/audio_recorder_state.py")
+
+
+@pytest.mark.slow
+def test_crosshair_state_machine_if_available() -> None:
+    _run_crosshair("plugin/chatbot/state_machine.py", timeout=300)
+
+
+@pytest.mark.slow
+def test_crosshair_tool_loop_state_fqn_if_available() -> None:
+    # Full module is heavy; target next_state FQN with a bounded timeout.
+    _run_crosshair("plugin.chatbot.tool_loop_state.next_state", timeout=180)

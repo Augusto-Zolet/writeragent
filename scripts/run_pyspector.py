@@ -44,11 +44,17 @@ def main(argv: list[str] | None = None) -> int:
 
     from pyspector import cli as pyspector_cli
     from pyspector import config as pyspector_config
+    try:
+        from scripts.pyspector_semgrep_adapter import get_converted_semgrep_rules
+    except ImportError:
+        from pyspector_semgrep_adapter import get_converted_semgrep_rules
 
     original = pyspector_config.get_default_rules
 
     def patched_get_default_rules(ai_scan: bool = False) -> str:
-        return _inject_disabled_rules(original(ai_scan))
+        base_rules = _inject_disabled_rules(original(ai_scan))
+        semgrep_rules = get_converted_semgrep_rules()
+        return f"{base_rules}\n\n{semgrep_rules}" if semgrep_rules else base_rules
 
     pyspector_config.get_default_rules = patched_get_default_rules
     pyspector_cli.get_default_rules = patched_get_default_rules

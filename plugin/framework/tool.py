@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import copy
+import importlib
 import logging
 import queue
 from abc import ABC, abstractmethod
@@ -28,10 +29,23 @@ from plugin.framework.worker_pool import run_in_background
 from plugin.framework.thread_guard import assert_main_thread
 from plugin.framework.queue_executor import execute_on_main_thread
 
+deal: Any
+try:
+    deal = importlib.import_module("deal")
+except ImportError:
+
+    class _DummyDeal:
+        def __getattr__(self, name: str) -> Any:
+            return lambda *args, **kwargs: lambda f: f
+
+    deal = _DummyDeal()
+
 
 _SCALAR_TYPES = frozenset({"integer", "number", "boolean", "string"})
 
 
+@deal.pre(lambda types: isinstance(types, list))
+@deal.post(lambda result: isinstance(result, (str, list)))
 def _collapse_union_type(types: list) -> str | list:
     """Collapse messy unions for Gemini; preserve scalar+null pairs for Groq."""
     if not types:
@@ -48,6 +62,7 @@ def _type_allows_null(type_val: Any) -> bool:
     return isinstance(type_val, list) and "null" in type_val
 
 
+@deal.ensure(lambda prop_schema, result: not isinstance(prop_schema, dict) or isinstance(result, dict))
 def _make_optional_scalar_nullable(prop_schema: dict) -> dict:
     """Add null to optional scalar property types (strict providers reject bare null otherwise)."""
     if not isinstance(prop_schema, dict):
@@ -62,6 +77,8 @@ def _make_optional_scalar_nullable(prop_schema: dict) -> dict:
     return prop_schema
 
 
+@deal.ensure(lambda params, result: (not isinstance(params, dict) or not params) or isinstance(result, dict))
+@deal.ensure(lambda params, result: not isinstance(result, dict) or result.get("required") != [])
 def _normalize_schema_for_strict_providers(params):
     """Normalize JSON Schema for strict upstream validators (Gemini, Groq, etc.).
 

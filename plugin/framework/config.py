@@ -32,6 +32,7 @@ so UI controllers can pass raw dialog values to ``set_config`` without copying
 validation rules from ``module.yaml``.
 """
 import dataclasses
+import importlib
 import json
 import logging
 import os
@@ -44,6 +45,17 @@ from plugin.framework.errors import ConfigError, ConfigValidationError, safe_cal
 from plugin.framework.event_bus import global_event_bus
 from plugin.framework.i18n import _
 from plugin.framework.json_utils import repair_json
+
+deal: Any
+try:
+    deal = importlib.import_module("deal")
+except ImportError:
+
+    class _DummyDeal:
+        def __getattr__(self, name: str) -> Any:
+            return lambda *args, **kwargs: lambda f: f
+
+    deal = _DummyDeal()
 
 try:
     from plugin._manifest import MODULES
@@ -90,6 +102,7 @@ AI_SIMPLE_FIELDS = {"endpoint", "text_model", "image_model", "stt_model", "tempe
 # --- Small helpers ---
 
 
+@deal.post(lambda result: isinstance(result, bool))
 def as_bool(value):
     """Parse a value as boolean (handles str, int, float)."""
     if isinstance(value, bool):
@@ -115,6 +128,8 @@ def _safe_int(value, default):
         return default
 
 
+@deal.post(lambda result: isinstance(result, int))
+@deal.raises(ValueError)
 def parse_int_robust(val) -> int:
     """Robustly parse an integer value from a string, float, or other type,
     handling locale-specific decimal commas (like "8765,0" in German)."""
