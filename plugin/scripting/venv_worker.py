@@ -26,12 +26,13 @@ from plugin.framework.thread_guard import background
 from plugin.framework.constants import WORKER_POOL_DEFAULT, WORKER_POOL_EMBEDDINGS
 from plugin.framework.worker_pool import StderrTail, start_stderr_drain
 from plugin.scripting.config_limits import (
+    VENV_IPC_WRITE_TIMEOUT_SEC,
     WARM_WORKER_TIMEOUT_SEC,
     configured_python_exec_timeout,
     python_exec_timeout_default,
     resolve_python_exec_timeout,
 )
-from plugin.scripting.ipc import read_frame_payload, unpack_pickle_frame, write_pickle_frame
+from plugin.scripting.ipc import pack_pickle_frame, read_frame_payload, unpack_pickle_frame
 from plugin.scripting.payload_codec import host_unpack_data
 from plugin.scripting.sandbox import (
     optimize_popen_pipes,
@@ -44,6 +45,10 @@ from plugin.scripting.sandbox import (
 log = logging.getLogger(__name__)
 
 _TIMEOUT_AFTER = " timed out after "
+
+
+class _NonReplayableIpcWriteTimeout(RuntimeError):
+    """A mid-turn host response timed out after side effects may have occurred."""
 
 
 def _worker_error_message(exc: BaseException) -> str:
@@ -95,6 +100,7 @@ class PythonWorkerManager:
         self._io_lock = threading.Lock()
         self._primed = False
         self._stderr_drain: StderrTail | None = None
+        self._stdin_writer_thread: threading.Thread | None = None
 
     @classmethod
     def get(cls, exe: str, env: dict[str, str], *, pool: str = WORKER_POOL_DEFAULT) -> PythonWorkerManager:
@@ -217,7 +223,8 @@ class PythonWorkerManager:
                 assert self._proc is not None and self._proc.stdin is not None and self._proc.stdout is not None
                 stdin = self._proc.stdin
                 stdout = self._proc.stdout
-                write_pickle_frame(stdin, request)
+                write_timeout_sec = min(float(timeout_sec), float(VENV_IPC_WRITE_TIMEOUT_SEC))
+                self._write_frame_with_timeout(stdin, request, timeout_sec=write_timeout_sec, label="request")
 
                 while True:
                     if allow_heartbeat:
@@ -240,8 +247,19 @@ class PythonWorkerManager:
                         raise RuntimeError("Worker response must be a dict")
                     if isinstance(response, dict):
                         def _stdin_write(blob: bytes) -> None:
-                            stdin.write(blob)
-                            stdin.flush()
+                            try:
+                                self._write_bytes_with_timeout(
+                                    stdin,
+                                    blob,
+                                    timeout_sec=write_timeout_sec,
+                                    label="PPT-Master host response",
+                                )
+                            except subprocess.TimeoutExpired as exc:
+                                # The worker requested host work before this write. Retrying the
+                                # whole turn could duplicate UNO mutations already performed.
+                                raise _NonReplayableIpcWriteTimeout(
+                                    f"PPT-Master host response timed out after {write_timeout_sec:g} seconds"
+                                ) from exc
 
                         if _maybe_dispatch_ppt_master_response(
                             response,
@@ -252,6 +270,10 @@ class PythonWorkerManager:
                             continue
                     break
                 return self._normalize_response(response)
+            except _NonReplayableIpcWriteTimeout as e:
+                log.warning("Python worker failed without replay: %s", e)
+                self._terminate_worker()
+                return {"status": "error", "message": f"Python worker failed: {e}"}
             except (BrokenPipeError, ValueError, RuntimeError, subprocess.TimeoutExpired, OSError) as e:
                 log.warning("Python worker failed (attempt %s): %s", attempt + 1, e)
                 self._terminate_worker()
@@ -339,6 +361,57 @@ class PythonWorkerManager:
         if isinstance(inner, dict):
             return inner
         return {"status": "ok", "result": str(inner) if inner is not None else ""}
+
+    def _write_frame_with_timeout(
+        self,
+        stdin: IO[bytes],
+        message: Any,
+        *,
+        timeout_sec: float,
+        label: str,
+    ) -> None:
+        """Serialize one frame, then bound only the potentially blocking pipe write."""
+        frame = pack_pickle_frame(message)
+        self._write_bytes_with_timeout(stdin, frame, timeout_sec=timeout_sec, label=label)
+
+    def _write_bytes_with_timeout(
+        self,
+        stdin: IO[bytes],
+        payload: bytes,
+        *,
+        timeout_sec: float,
+        label: str,
+    ) -> None:
+        """Write and flush bytes without allowing a stalled child to hold ``_io_lock`` forever."""
+        errors: list[Exception] = []
+
+        def _writer() -> None:
+            try:
+                stdin.write(payload)
+                stdin.flush()
+            except Exception as exc:
+                errors.append(exc)
+
+        writer = threading.Thread(
+            target=_writer,
+            name=f"venv-stdin-{label.replace(' ', '-').lower()}",
+            daemon=True,
+        )
+        self._stdin_writer_thread = writer
+        writer.start()
+        writer.join(timeout=max(0.01, timeout_sec))
+        if writer.is_alive():
+            # Previously a child that stopped reading stdin left this thread and the
+            # caller blocked in write()/flush() while _io_lock serialized the whole
+            # pool. Killing the child closes the pipe reader and unblocks the writer.
+            log.warning("%s write timed out after %ss; terminating Python worker", label, timeout_sec)
+            self._terminate_worker()
+            writer.join(timeout=5)
+            if writer.is_alive():
+                log.error("%s writer thread remained blocked after worker termination", label)
+            raise subprocess.TimeoutExpired(cmd=self.exe, timeout=timeout_sec)
+        if errors:
+            raise errors[0]
 
     def _normalize_response(self, response: dict[str, Any]) -> dict[str, Any]:
         if response.get("status") == "ok":
@@ -525,10 +598,13 @@ class PythonWorkerManager:
 
     def _terminate_worker(self) -> None:
         proc = self._proc
+        stderr_drain = self._stderr_drain
         self._proc = None
         self._primed = False
         self._stderr_drain = None
         if proc is None:
+            if stderr_drain is not None:
+                stderr_drain.join(timeout=1)
             return
         try:
             if proc.poll() is None:
@@ -543,8 +619,14 @@ class PythonWorkerManager:
         except (subprocess.TimeoutExpired, ProcessLookupError, OSError):
             try:
                 proc.kill()
-            except OSError:
+                proc.wait(timeout=5)
+            except (OSError, subprocess.TimeoutExpired):
                 pass
+        finally:
+            if stderr_drain is not None:
+                stderr_drain.join(timeout=2)
+                if stderr_drain.is_alive:
+                    log.debug("Python worker stderr drain still exiting after process termination")
 
 
 # --- Public entrypoints ---

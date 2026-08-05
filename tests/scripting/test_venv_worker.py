@@ -194,6 +194,154 @@ def test_manager_two_calls_same_process():
     PythonWorkerManager.shutdown_all()
 
 
+def test_manager_real_spawn_drains_stderr_flood(tmp_path, monkeypatch):
+    """The manager's actual Popen path must drain stderr before waiting for a response."""
+    import plugin.scripting.venv_worker as venv_worker_module
+
+    child = tmp_path / "stderr_flood_worker.py"
+    child.write_text(
+        """
+import pickle
+import struct
+import sys
+
+sys.stderr.buffer.write(b"x" * (128 * 1024))
+sys.stderr.buffer.flush()
+
+while True:
+    header = sys.stdin.buffer.read(4)
+    if len(header) < 4:
+        break
+    size = struct.unpack("!I", header)[0]
+    payload = sys.stdin.buffer.read(size)
+    if len(payload) < size:
+        break
+    request = pickle.loads(payload)
+    response = {"id": request.get("id"), "status": "ok", "result": 42, "stdout": ""}
+    encoded = pickle.dumps(response, protocol=5)
+    sys.stdout.buffer.write(struct.pack("!I", len(encoded)) + encoded)
+    sys.stdout.buffer.flush()
+""".lstrip(),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(venv_worker_module, "_HARNESS_PATH", str(child))
+    monkeypatch.setattr(venv_worker_module, "wrap_command_for_sandbox", lambda cmd: cmd)
+
+    mgr = PythonWorkerManager(sys.executable, {"PATH": os.environ.get("PATH", "")})
+    drain = None
+    try:
+        result = mgr.execute("result = 42", timeout_sec=5)
+        drain = mgr._stderr_drain
+        assert result["status"] == "ok"
+        assert result["result"] == 42
+        assert drain is not None
+        assert "x" * 1024 in drain.text()
+    finally:
+        mgr._terminate_worker()
+    assert drain is not None
+    assert not drain.is_alive
+
+
+def test_blocked_stdin_write_times_out_and_releases_lock(tmp_path, monkeypatch):
+    """A child that never reads stdin must not hold the manager's pool lock forever."""
+    import plugin.scripting.venv_worker as venv_worker_module
+
+    child = tmp_path / "blocked_stdin_worker.py"
+    child.write_text("import time\ntime.sleep(60)\n", encoding="utf-8")
+    monkeypatch.setattr(venv_worker_module, "_HARNESS_PATH", str(child))
+    monkeypatch.setattr(venv_worker_module, "wrap_command_for_sandbox", lambda cmd: cmd)
+
+    mgr = PythonWorkerManager(sys.executable, {"PATH": os.environ.get("PATH", "")})
+    try:
+        mgr._ensure_running()
+        assert mgr._proc is not None and mgr._proc.stdin is not None
+        started = time.monotonic()
+        with mgr._io_lock:
+            with pytest.raises(subprocess.TimeoutExpired):
+                mgr._write_bytes_with_timeout(
+                    mgr._proc.stdin,
+                    b"x" * (8 * 1024 * 1024),
+                    timeout_sec=0.2,
+                    label="test request",
+                )
+        assert time.monotonic() - started < 5
+        assert mgr._proc is None
+        assert mgr._stdin_writer_thread is not None
+        assert not mgr._stdin_writer_thread.is_alive()
+        assert mgr._io_lock.acquire(timeout=1)
+        mgr._io_lock.release()
+    finally:
+        mgr._terminate_worker()
+
+
+def test_large_stdin_write_completes_intact():
+    mgr = PythonWorkerManager(sys.executable, {})
+    stream = io.BytesIO()
+    payload = b"large-payload-" * (256 * 1024)
+    mgr._write_bytes_with_timeout(stream, payload, timeout_sec=2, label="test request")
+    assert stream.getvalue() == payload
+    assert mgr._stdin_writer_thread is not None
+    assert not mgr._stdin_writer_thread.is_alive()
+
+
+def test_initial_write_timeout_retries_once():
+    mgr = PythonWorkerManager(sys.executable, {})
+    proc = MagicMock()
+    proc.poll.return_value = None
+    proc.stdin = io.BytesIO()
+    proc.stdout = io.BytesIO()
+    mgr._proc = proc
+    mgr._ensure_running = MagicMock()  # type: ignore[method-assign]
+    mgr._write_frame_with_timeout = MagicMock(  # type: ignore[method-assign]
+        side_effect=subprocess.TimeoutExpired(cmd=sys.executable, timeout=1)
+    )
+    mgr._terminate_worker = MagicMock()  # type: ignore[method-assign]
+
+    result = mgr._execute_ipc_unlocked("result = 1", timeout_sec=1)
+
+    assert result["status"] == "error"
+    assert "timed out after 1 seconds" in result["message"]
+    assert mgr._write_frame_with_timeout.call_count == 2
+    assert mgr._terminate_worker.call_count == 2
+
+
+def test_ppt_master_write_timeout_does_not_replay(monkeypatch):
+    import plugin.scripting.venv_worker as venv_worker_module
+
+    mgr = PythonWorkerManager(sys.executable, {})
+    proc = MagicMock()
+    proc.poll.return_value = None
+    proc.stdin = io.BytesIO()
+    proc.stdout = io.BytesIO()
+    mgr._proc = proc
+    mgr._ensure_running = MagicMock()  # type: ignore[method-assign]
+    mgr._write_frame_with_timeout = MagicMock()  # type: ignore[method-assign]
+    mgr._write_bytes_with_timeout = MagicMock(  # type: ignore[method-assign]
+        side_effect=subprocess.TimeoutExpired(cmd=sys.executable, timeout=1)
+    )
+    response_payload = pickle.dumps({"status": "host_request"}, protocol=5)
+    mgr._read_response_bytes = MagicMock(return_value=response_payload)  # type: ignore[method-assign]
+    mgr._terminate_worker = MagicMock()  # type: ignore[method-assign]
+    dispatch_calls = []
+
+    def dispatch(response, *, stdin_write, on_worker_event=None, stop_checker=None):
+        del response, on_worker_event, stop_checker
+        dispatch_calls.append(True)
+        stdin_write(b"host response")
+        return True
+
+    monkeypatch.setattr(venv_worker_module, "_maybe_dispatch_ppt_master_response", dispatch)
+
+    result = mgr._execute_ipc_unlocked("result = 1", timeout_sec=1)
+
+    assert result["status"] == "error"
+    assert "PPT-Master host response timed out" in result["message"]
+    assert len(dispatch_calls) == 1
+    assert mgr._write_frame_with_timeout.call_count == 1
+    assert mgr._read_response_bytes.call_count == 1
+    assert mgr._terminate_worker.call_count == 1
+
+
 def test_manager_separate_pools_same_exe():
     from plugin.framework.constants import WORKER_POOL_DEFAULT, WORKER_POOL_EMBEDDINGS
 

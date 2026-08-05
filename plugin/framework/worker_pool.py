@@ -127,6 +127,18 @@ class StderrTail:
     def attach_thread(self, thread: threading.Thread) -> None:
         self._thread = thread
 
+    def join(self, timeout: float | None = None) -> None:
+        """Wait for the drain thread after its child pipe reaches EOF."""
+        thread = self._thread
+        if thread is not None:
+            thread.join(timeout)
+
+    @property
+    def is_alive(self) -> bool:
+        """Return whether the drain thread is still consuming the pipe."""
+        thread = self._thread
+        return thread is not None and thread.is_alive()
+
 
 def start_stderr_drain(
     stream: IO[Any] | None,

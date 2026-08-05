@@ -19,6 +19,10 @@ _TIMEOUT_FALLBACK_MAX = 600
 # Spawn + auto-import prime in PythonWorkerManager._ensure_warmed — not charged against user timeout.
 WARM_WORKER_TIMEOUT_SEC = 30
 
+# Local pipe writes should complete quickly even for large Calc payloads. A separate
+# bound prevents a child that stopped reading stdin from holding the pool lock forever.
+VENV_IPC_WRITE_TIMEOUT_SEC = 10
+
 # Single long budget for trusted helpers known to take a long time
 # (OCR/layout via vision resolver, spaCy text analytics, SymPy symbolic,
 # embeddings, and any future additions in the LONG_TRUSTED_PREFIXES list).

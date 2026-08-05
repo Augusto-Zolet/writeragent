@@ -202,7 +202,7 @@ rules:
     severity: WARNING
     message: >-
       UNO document model access should check disposal status via check_disposed or is_document_disposed.
-      See docs/ui-sentry-and-opengrep-rules-plan.md.
+      See docs/reentrancy-and-ipc-deadlock-prevention-plan.md Feature #5.
     patterns:
       - pattern: $DOC.getImplementationName()
       - pattern-not-inside: |
