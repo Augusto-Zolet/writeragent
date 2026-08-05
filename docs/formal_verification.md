@@ -373,7 +373,7 @@ def next_state(state: ToolLoopState, event: ToolLoopEvent) -> Tuple[ToolLoopStat
 
 **Reference implementation:** [`plugin/scripting/payload_codec.py`](../plugin/scripting/payload_codec.py) — see [`docs/serialization-verification-plan.md`](serialization-verification-plan.md).
 
-**Status (partial):** `deal` on `send_state.next_state` (send/stop mutual exclusion), `audio_recorder_state.next_state` (valid status + error path), and thin ensures on `tool_loop_state.next_state` (STOP→`ExitLoopEffect`, round bound). Pytest oracles + slow CrossHair hooks in [`tests/chatbot/test_fsm_verification.py`](../tests/chatbot/test_fsm_verification.py). Tracking: [`verification_status.json`](../verification_status.json).
+**Status (partial):** `deal` on `send_state.next_state` (send/stop mutual exclusion), `audio_recorder_state.next_state` (valid status + error path), thin ensures on `tool_loop_state.next_state` (STOP→`ExitLoopEffect`, round bound), and `mcp_state.next_state` (missing tool_name → `SendErrorEffect`, `TOOL_COMPLETED` → `StreamResponseEffect`, `REQUEST_ERROR` sets `is_error`). Pytest oracles + slow CrossHair hooks in [`tests/chatbot/test_fsm_verification.py`](../tests/chatbot/test_fsm_verification.py) and [`tests/mcp/test_mcp_state_verification.py`](../tests/mcp/test_mcp_state_verification.py). Tracking: [`verification_status.json`](../verification_status.json).
 
 ### Step 1: Add Design by Contract to State Machines
 
@@ -393,7 +393,8 @@ def next_state(...):
 ```bash
 crosshair check plugin/chatbot/send_state.py
 crosshair check plugin/chatbot/audio_recorder_state.py
-# tool_loop_state: deal+pytest only for now (larger event surface)
+crosshair check plugin.mcp.mcp_state.next_state
+# tool_loop_state: deal+pytest + FQN CrossHair (larger event surface)
 ```
 
 ### Step 3: Add Verification to CI
@@ -409,12 +410,63 @@ Maintain a `verification_status.json` file tracking which components have been v
 1. **`plugin/framework/url_utils.py`** — `deal` + Hypothesis + CrossHair ([`tests/framework/test_url_utils_verification.py`](../tests/framework/test_url_utils_verification.py))
 2. **`plugin/calc/address_utils.py`** — inverse column/address contracts + Hypothesis ([`tests/calc/test_address_utils_verification.py`](../tests/calc/test_address_utils_verification.py))
 3. **`plugin/mcp/cors.py`** — origin normalize / safety ([`tests/mcp/test_cors_verification.py`](../tests/mcp/test_cors_verification.py))
-4. **`plugin/framework/config.py`** — `as_bool` / `parse_int_robust` only ([`tests/framework/test_config_coerce_verification.py`](../tests/framework/test_config_coerce_verification.py)); not whole-file CrossHair
+4. **`plugin/framework/config.py`** — `as_bool` / `parse_int_robust` / `parse_float_robust` ([`tests/framework/test_config_coerce_verification.py`](../tests/framework/test_config_coerce_verification.py)); not whole-file CrossHair
 5. **`plugin/framework/tool.py`** — `_normalize_schema_for_strict_providers` FQN ([`tests/framework/test_tool_schema_verification.py`](../tests/framework/test_tool_schema_verification.py))
 6. **`plugin/framework/async_stream.py`** — `accumulate_delta` FQN ([`tests/framework/test_accumulate_delta_verification.py`](../tests/framework/test_accumulate_delta_verification.py))
-7. **FSM catch-up** — CrossHair on `state_machine.py` + `tool_loop_state.next_state` FQN ([`tests/chatbot/test_fsm_verification.py`](../tests/chatbot/test_fsm_verification.py))
+7. **FSM catch-up** — CrossHair on `state_machine.py` + `tool_loop_state.next_state` FQN ([`tests/chatbot/test_fsm_verification.py`](../tests/chatbot/test_fsm_verification.py)); `mcp_state.next_state` ([`tests/mcp/test_mcp_state_verification.py`](../tests/mcp/test_mcp_state_verification.py))
+8. **`plugin/framework/json_utils.py`** — `safe_json_loads` FQN ([`tests/framework/test_json_utils_verification.py`](../tests/framework/test_json_utils_verification.py))
+9. **`plugin/framework/errors.py`** — `format_error_payload` and `format_error_message` ([`tests/framework/test_error_payload_verification.py`](../tests/framework/test_error_payload_verification.py))
+10. **`plugin/scripting/sandbox.py`** — `scrub_subprocess_env` FQN ([`tests/scripting/test_scrub_env_verification.py`](../tests/scripting/test_scrub_env_verification.py))
+11. **`plugin/framework/i18n.py`** — `_` translation and `get_active_locale` ([`tests/framework/test_i18n_and_memory_verification.py`](../tests/framework/test_i18n_and_memory_verification.py))
+12. **`plugin/chatbot/memory.py`** — `upsert_memory_arguments_dict`, `memory_key_from_tool_arguments`, `format_upsert_memory_chat_line` ([`tests/framework/test_i18n_and_memory_verification.py`](../tests/framework/test_i18n_and_memory_verification.py))
+13. **`plugin/framework/openrouter_model_id.py`** — `_split_suffix`, `resolve_openrouter_catalog_id`, `openrouter_model_ids_equivalent` ([`tests/framework/test_framework_modules_verification.py`](../tests/framework/test_framework_modules_verification.py))
+14. **`plugin/framework/ast_stmt_edit.py`** — `is_name_call_expr`, `remove_expr_statements` ([`tests/framework/test_framework_modules_verification.py`](../tests/framework/test_framework_modules_verification.py))
+15. **`plugin/framework/default_models.py`** — `resolve_model_id`, `get_provider_defaults` ([`tests/framework/test_framework_modules_verification.py`](../tests/framework/test_framework_modules_verification.py))
+16. **`plugin/framework/constants.py`** — `get_local_timezone`, `now_aware` ([`tests/framework/test_framework_modules_verification.py`](../tests/framework/test_framework_modules_verification.py))
+17. **`plugin/framework/appearance.py`** — `_luminance`, `get_monaco_theme_info` ([`tests/framework/test_framework_phase3_verification.py`](../tests/framework/test_framework_phase3_verification.py))
+18. **`plugin/framework/event_bus.py`** — `EventBus.emit` exception isolation ([`tests/framework/test_framework_phase3_verification.py`](../tests/framework/test_framework_phase3_verification.py))
+19. **`plugin/framework/config_service.py`** — `_check_read_access`, `_check_write_access` ([`tests/framework/test_framework_phase3_verification.py`](../tests/framework/test_framework_phase3_verification.py))
+20. **`plugin/chatbot/chat_sidebar_mode.py`** — `sidebar_mode_flags_for_doc_type`, `get_mode_labels`, `mode_from_label` ([`tests/chatbot/test_chatbot_pure_verification.py`](../tests/chatbot/test_chatbot_pure_verification.py))
+21. **`plugin/chatbot/skills.py`** — `HUMANIZER_GUIDANCE` constant & skill store ([`tests/chatbot/test_chatbot_pure_verification.py`](../tests/chatbot/test_chatbot_pure_verification.py))
+22. **`plugin/chatbot/research_cache_fluff.py`** — `translated_research_cache_fluff` ([`tests/chatbot/test_chatbot_pure_verification.py`](../tests/chatbot/test_chatbot_pure_verification.py))
+23. **`plugin/chatbot/web_research_cache.py`** — `snowball_lang_from_locale_tag`, `parse_research_cache_key`, `format_research_cache_key`, `jaccard`, `research_cache_similarity` ([`tests/chatbot/test_chatbot_pure_verification.py`](../tests/chatbot/test_chatbot_pure_verification.py))
+24. **`plugin/scripting/import_policy.py`** — `venv_authorized_top_level_modules`, `venv_blocked_modules`, `inprocess_authorized_modules`, `format_venv_import_policy_for_prompt` ([`tests/scripting/test_scripting_pure_verification.py`](../tests/scripting/test_scripting_pure_verification.py))
+25. **`plugin/scripting/config_limits.py`** — `_clamp_timeout`, `resolve_python_exec_timeout` ([`tests/scripting/test_scripting_pure_verification.py`](../tests/scripting/test_scripting_pure_verification.py))
+26. **`plugin/scripting/calc_range.py`** — `ensure_rectangular_2d`, `is_calc_range_payload`, `pack_calc_range_envelope`, `_dedupe_column_names` ([`tests/scripting/test_scripting_pure_verification.py`](../tests/scripting/test_scripting_pure_verification.py))
+27. **`plugin/scripting/helper_domain.py`** — `header_prefix`, `parse_helper_script_header`, `parse_run_import_call_spec` ([`tests/scripting/test_scripting_phase2_verification.py`](../tests/scripting/test_scripting_phase2_verification.py))
+28. **`plugin/scripting/trusted_action_registry.py`** — `get_trusted_action_wiring` ([`tests/scripting/test_scripting_phase2_verification.py`](../tests/scripting/test_scripting_phase2_verification.py))
+29. **`plugin/scripting/duckdb_sql.py`** — `get_sql_script_templates`, `parse_sql_script_header` ([`tests/scripting/test_scripting_phase2_verification.py`](../tests/scripting/test_scripting_phase2_verification.py))
+30. **`plugin/scripting/sandbox_cache.py`** — `validate_sandbox_ast` ([`tests/scripting/test_scripting_ast_verification.py`](../tests/scripting/test_scripting_ast_verification.py))
+31. **`plugin/scripting/trusted_rpc.py`** — `parse_worker_dict_result` ([`tests/scripting/test_scripting_high_value_verification.py`](../tests/scripting/test_scripting_high_value_verification.py))
+32. **`plugin/scripting/editor_ipc.py`** — `failure_detail`, `failure_message` ([`tests/scripting/test_scripting_high_value_verification.py`](../tests/scripting/test_scripting_high_value_verification.py))
+33. **`plugin/scripting/excel_xl.py`** — `make_xl` ([`tests/scripting/test_scripting_high_value_verification.py`](../tests/scripting/test_scripting_high_value_verification.py))
+34. **`plugin/calc/formula_dep_chain.py`** — `_resolve_sheet_and_cell` ([`tests/calc/test_calc_dep_and_filter_verification.py`](../tests/calc/test_calc_dep_and_filter_verification.py))
+35. **`plugin/calc/sheet_filter_criteria.py`** — `filter_connection_code`, `resolve_filter_operator_code`, `parse_sheet_filter_criterion` ([`tests/calc/test_calc_dep_and_filter_verification.py`](../tests/calc/test_calc_dep_and_filter_verification.py))
+36. **`plugin/calc/excel_py_convert/resolve_refs.py`** — `resolve_dep` ([`tests/calc/test_calc_dep_and_filter_verification.py`](../tests/calc/test_calc_dep_and_filter_verification.py))
+37. **`plugin/mcp/wire_types.py`** — `parse_jsonrpc_request`, `is_jsonrpc_notification`, `initialize_result`, `call_tool_result_image` ([`tests/mcp/test_mcp_wire_verification.py`](../tests/mcp/test_mcp_wire_verification.py))
+38. **`plugin/writer/word_diff_split.py`** — `tokenize`, `split_change` ([`tests/writer/test_writer_diff_and_html_verification.py`](../tests/writer/test_writer_diff_and_html_verification.py))
+39. **`plugin/writer/xhtml_style_postprocess.py`** — `decode_lo_css_class_suffix`, `compact_lo_style_name`, `extract_autostyle_parents_from_fodt`, `parse_style_block` ([`tests/writer/test_writer_diff_and_html_verification.py`](../tests/writer/test_writer_diff_and_html_verification.py))
+40. **`plugin/calc/calc_addin_data.py`** — `_unwrap_cell`, `normalize_python_data_shape`, `finalize_python_data`, `calc_addin_data_to_python` ([`tests/calc/test_calc_dep_and_filter_verification.py`](../tests/calc/test_calc_dep_and_filter_verification.py))
+41. **`plugin/scripting/audio_silence_detector.py`** — `pcm_energy_int16` ([`tests/scripting/test_scripting_phase2_verification.py`](../tests/scripting/test_scripting_phase2_verification.py))
+42. **`plugin/calc/cells.py`** — `_parse_color` ([`tests/scripting/test_scripting_phase2_verification.py`](../tests/scripting/test_scripting_phase2_verification.py))
 
 (`format_support.py` does not exist; Writer HTML paths are UNO-heavy and deferred.)
+
+---
+
+## 8. Development Guidelines & Best Practices
+
+1. **`deal_shim` Import Pattern (CRITICAL)**:
+   - Always import `deal` via `from plugin.framework.deal_shim import deal` in all `plugin/` files.
+   - LibreOffice's bundled Python runtime does **not** install `deal`. Using `import deal` directly will break LibreOffice component initialization at runtime. The `deal_shim` transparently falls back to no-op decorators when `deal` is missing.
+2. **Filtering Low-Value Targets**:
+   - Do NOT add contracts to pure constant sets or trivial single-line wrappers (e.g. `calc_functions_common.py`, `_lazy_venv.py`). Focus SMT verification on pure algorithms, security boundaries (`validate_sandbox_ast`, `scrub_subprocess_env`), data codecs (`payload_codec.py`), and state transition machines.
+3. **Excluding Evolving Modules**:
+   - Skip rapidly changing or experimental modules (e.g. vector search, folder FTS indexers) until their APIs stabilize.
+4. **CI & Verification Suite**:
+   - All verification unit tests MUST be added to `make verify` in `Makefile` and registered in `verification_status.json`.
+
+---
 
 ## Conclusion
 
@@ -446,10 +498,10 @@ By adopting concolic execution (CrossHair) and Design by Contract (`deal`), we c
          # ... implementation ...
      ```
 
-2. **`plugin/writer/format_support.py`**
-   - Text normalization functions
-   - Used across all document types
-   - Verify format preservation invariants
+2. **Pure Data Parsing & AST Transformation Modules**
+   - Pure string operations, payload codecs, AST policy validators, and tokenizers
+   - Used across Writer, Calc, and MCP protocols
+   - Verify format preservation, mathematical bounds, and contract invariants
 
 3. **`plugin/framework/tool.py`** (`to_openai_schema` / `to_mcp_schema` / `_normalize_schema_for_strict_providers`)
    - JSON schema transformations

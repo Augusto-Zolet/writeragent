@@ -1,22 +1,204 @@
 {
   "framework": {
-    "config.py": {
-      "status": "planned",
-      "priority": "high"
+    "url_utils.py": {
+      "status": "verified",
+      "priority": "high",
+      "tool": "crosshair+deal+hypothesis",
+      "functions_contracted": [
+        "get_api_version_suffix",
+        "normalize_endpoint_url",
+        "get_url_hostname",
+        "get_url_domain",
+        "get_url_path",
+        "get_url_query_dict",
+        "get_url_path_and_query",
+        "is_pdf_url"
+      ],
+      "crosshair_last_run": "2026-08-05",
+      "crosshair_result": "no_counterexamples",
+      "ci_integration": true
     },
-    "format_support.py": {
-      "status": "planned",
-      "priority": "medium"
+    "config.py": {
+      "status": "verified",
+      "priority": "high",
+      "tool": "deal+hypothesis",
+      "functions_contracted": [
+        "as_bool",
+        "parse_int_robust",
+        "parse_float_robust"
+      ],
+      "notes": "Coerce helpers verified with Hypothesis and deal contracts",
+      "ci_integration": true
+    },
+    "html_stripper.py": {
+      "status": "verified",
+      "priority": "high",
+      "tool": "deal+hypothesis",
+      "functions_contracted": [
+        "StreamingHTMLStripper.feed",
+        "StreamingHTMLStripper.finalize",
+        "strip_html_tags"
+      ],
+      "ci_integration": true
+    },
+    "i18n.py": {
+      "status": "verified",
+      "priority": "high",
+      "tool": "deal+hypothesis",
+      "functions_contracted": [
+        "_",
+        "get_active_locale"
+      ],
+      "ci_integration": true
+    },
+    "auth.py": {
+      "status": "verified",
+      "priority": "high",
+      "tool": "deal+hypothesis",
+      "functions_contracted": [
+        "provider_requires_api_key",
+        "provider_requires_slug_model_id",
+        "build_auth_headers"
+      ],
+      "ci_integration": true
+    },
+    "tool.py": {
+      "status": "partial",
+      "priority": "high",
+      "tool": "crosshair+deal+hypothesis",
+      "functions_contracted": [
+        "_collapse_union_type",
+        "_make_optional_scalar_nullable",
+        "_normalize_schema_for_strict_providers"
+      ],
+      "crosshair_target": "plugin.framework.tool._normalize_schema_for_strict_providers",
+      "ci_integration": false
+    },
+    "async_stream.py": {
+      "status": "partial",
+      "priority": "high",
+      "tool": "crosshair+deal+hypothesis",
+      "functions_contracted": [
+        "accumulate_delta"
+      ],
+      "crosshair_target": "plugin.framework.async_stream.accumulate_delta",
+      "ci_integration": false
+    },
+    "json_utils.py": {
+      "status": "partial",
+      "priority": "high",
+      "tool": "crosshair+deal+hypothesis",
+      "functions_contracted": [
+        "safe_json_loads"
+      ],
+      "crosshair_target": "plugin.framework.json_utils.safe_json_loads",
+      "crosshair_last_run": "2026-08-05",
+      "crosshair_result": "no_counterexamples",
+      "ci_integration": false
+    },
+    "errors.py": {
+      "status": "partial",
+      "priority": "high",
+      "tool": "crosshair+deal+hypothesis",
+      "functions_contracted": [
+        "format_error_payload",
+        "format_error_message"
+      ],
+      "crosshair_target": "plugin.framework.errors.format_error_payload",
+      "crosshair_last_run": "2026-08-05",
+      "crosshair_result": "no_counterexamples",
+      "ci_integration": false
+    },
+    "openrouter_model_id.py": {
+      "status": "verified",
+      "priority": "high",
+      "tool": "deal+hypothesis",
+      "functions_contracted": [
+        "_split_suffix",
+        "resolve_openrouter_catalog_id",
+        "openrouter_model_ids_equivalent"
+      ],
+      "ci_integration": true
+    },
+    "ast_stmt_edit.py": {
+      "status": "verified",
+      "priority": "high",
+      "tool": "deal+hypothesis",
+      "functions_contracted": [
+        "is_name_call_expr",
+        "remove_expr_statements"
+      ],
+      "ci_integration": true
+    },
+    "default_models.py": {
+      "status": "verified",
+      "priority": "high",
+      "tool": "deal+hypothesis",
+      "functions_contracted": [
+        "resolve_model_id",
+        "get_provider_defaults"
+      ],
+      "ci_integration": true
+    },
+    "constants.py": {
+      "status": "verified",
+      "priority": "high",
+      "tool": "deal+hypothesis",
+      "functions_contracted": [
+        "get_local_timezone",
+        "now_aware"
+      ],
+      "ci_integration": true
+    },
+    "appearance.py": {
+      "status": "verified",
+      "priority": "high",
+      "tool": "deal+hypothesis",
+      "functions_contracted": [
+        "_luminance",
+        "get_monaco_theme_info"
+      ],
+      "ci_integration": true
+    },
+    "event_bus.py": {
+      "status": "verified",
+      "priority": "high",
+      "tool": "deal+hypothesis",
+      "functions_contracted": [
+        "EventBus.emit"
+      ],
+      "ci_integration": true
+    },
+    "config_service.py": {
+      "status": "verified",
+      "priority": "high",
+      "tool": "deal+hypothesis",
+      "functions_contracted": [
+        "ConfigService._check_read_access",
+        "ConfigService._check_write_access"
+      ],
+      "ci_integration": true
     }
   },
   "modules": {
     "scripting": {
+      "audio_silence_detector.py": {
+        "status": "verified",
+        "priority": "high",
+        "tool": "deal+hypothesis",
+        "functions_contracted": [
+          "pcm_energy_int16"
+        ],
+        "ci_integration": true
+      },
       "payload_codec.py": {
         "status": "partial",
         "tool": "crosshair+deal+pytest",
-        "contracts": 8,
+        "contracts": 10,
         "functions_contracted": [
           "_flatten_grid_to_components",
+          "column_kinds_for_grid",
+          "should_use_binary_envelope",
           "host_pack_split_grid",
           "host_pack_data",
           "host_unpack_split_grid",
@@ -25,15 +207,347 @@
           "child_pack_split_grid",
           "child_pack_result"
         ],
-        "crosshair_last_run": "2026-05-23",
+        "crosshair_last_run": "2026-08-05",
+        "crosshair_result": "no_counterexamples_historical",
+        "ci_integration": false
+      },
+      "import_policy.py": {
+        "status": "verified",
+        "priority": "high",
+        "tool": "deal+hypothesis",
+        "functions_contracted": [
+          "venv_authorized_top_level_modules",
+          "venv_blocked_modules",
+          "inprocess_authorized_modules",
+          "format_venv_import_policy_for_prompt"
+        ],
+        "ci_integration": true
+      },
+      "config_limits.py": {
+        "status": "verified",
+        "priority": "high",
+        "tool": "deal+hypothesis",
+        "functions_contracted": [
+          "_clamp_timeout",
+          "resolve_python_exec_timeout"
+        ],
+        "ci_integration": true
+      },
+      "calc_range.py": {
+        "status": "verified",
+        "priority": "high",
+        "tool": "deal+hypothesis",
+        "functions_contracted": [
+          "ensure_rectangular_2d",
+          "is_calc_range_payload",
+          "pack_calc_range_envelope",
+          "_dedupe_column_names"
+        ],
+        "ci_integration": true
+      },
+      "helper_domain.py": {
+        "status": "verified",
+        "priority": "high",
+        "tool": "deal+hypothesis",
+        "functions_contracted": [
+          "header_prefix",
+          "parse_helper_script_header",
+          "parse_run_import_call_spec"
+        ],
+        "ci_integration": true
+      },
+      "trusted_action_registry.py": {
+        "status": "verified",
+        "priority": "high",
+        "tool": "deal+hypothesis",
+        "functions_contracted": [
+          "get_trusted_action_wiring"
+        ],
+        "ci_integration": true
+      },
+      "duckdb_sql.py": {
+        "status": "verified",
+        "priority": "high",
+        "tool": "deal+hypothesis",
+        "functions_contracted": [
+          "get_sql_script_templates",
+          "parse_sql_script_header"
+        ],
+        "ci_integration": true
+      },
+      "sandbox_cache.py": {
+        "status": "verified",
+        "priority": "high",
+        "tool": "deal+hypothesis",
+        "functions_contracted": [
+          "validate_sandbox_ast"
+        ],
+        "ci_integration": true
+      },
+      "trusted_rpc.py": {
+        "status": "verified",
+        "priority": "high",
+        "tool": "deal+hypothesis",
+        "functions_contracted": [
+          "parse_worker_dict_result"
+        ],
+        "ci_integration": true
+      },
+      "editor_ipc.py": {
+        "status": "verified",
+        "priority": "high",
+        "tool": "deal+hypothesis",
+        "functions_contracted": [
+          "failure_detail",
+          "failure_message"
+        ],
+        "ci_integration": true
+      },
+      "excel_xl.py": {
+        "status": "verified",
+        "priority": "high",
+        "tool": "deal+hypothesis",
+        "functions_contracted": [
+          "make_xl"
+        ],
+        "ci_integration": true
+      },
+      "sandbox.py": {
+        "status": "partial",
+        "priority": "high",
+        "tool": "crosshair+deal+hypothesis",
+        "functions_contracted": [
+          "scrub_subprocess_env"
+        ],
+        "crosshair_target": "plugin.scripting.sandbox.scrub_subprocess_env",
+        "crosshair_last_run": "2026-08-05",
         "crosshair_result": "no_counterexamples",
-        "crosshair_notes": [
-          "Core module targeted as full file in test_serialization_verification.py and Makefile crosshair-check",
-          "Most ensures report Not confirmed; no counterexamples found",
-          "child_pack_split_grid pre may report Unable to meet precondition (ndarray synthesis)",
-          "Round-trip invariants validated in pytest, not deal ensures"
+        "notes": "Security env scrub only; detect_sandbox / path resolvers deferred",
+        "ci_integration": false
+      }
+    },
+    "calc": {
+      "cells.py": {
+        "status": "verified",
+        "priority": "high",
+        "tool": "deal+hypothesis",
+        "functions_contracted": [
+          "_parse_color"
+        ],
+        "ci_integration": true
+      },
+      "calc_addin_data.py": {
+        "status": "verified",
+        "priority": "high",
+        "tool": "deal+hypothesis",
+        "functions_contracted": [
+          "_unwrap_cell",
+          "normalize_python_data_shape",
+          "finalize_python_data",
+          "calc_addin_data_to_python"
+        ],
+        "ci_integration": true
+      },
+      "address_utils.py": {
+        "status": "partial",
+        "priority": "high",
+        "tool": "crosshair+deal+hypothesis",
+        "functions_contracted": [
+          "column_to_index",
+          "index_to_column",
+          "parse_address",
+          "parse_range_string",
+          "format_address"
+        ],
+        "crosshair_last_run": "2026-08-05",
+        "crosshair_result": "no_counterexamples",
+        "ci_integration": false
+      },
+      "formula_dep_chain.py": {
+        "status": "verified",
+        "priority": "high",
+        "tool": "deal+hypothesis",
+        "functions_contracted": [
+          "_resolve_sheet_and_cell"
+        ],
+        "ci_integration": true
+      },
+      "sheet_filter_criteria.py": {
+        "status": "verified",
+        "priority": "high",
+        "tool": "deal+hypothesis",
+        "functions_contracted": [
+          "filter_connection_code",
+          "resolve_filter_operator_code",
+          "parse_sheet_filter_criterion"
+        ],
+        "ci_integration": true
+      },
+      "excel_py_convert/resolve_refs.py": {
+        "status": "verified",
+        "priority": "high",
+        "tool": "deal+hypothesis",
+        "functions_contracted": [
+          "resolve_dep"
+        ],
+        "ci_integration": true
+      }
+    },
+    "mcp": {
+      "cors.py": {
+        "status": "partial",
+        "priority": "high",
+        "tool": "crosshair+deal+hypothesis",
+        "functions_contracted": [
+          "normalize_cors_origin",
+          "normalize_origins_list",
+          "is_private_browser_origin",
+          "is_extra_allowed_origin",
+          "is_safe_origin",
+          "merge_allow_headers"
         ],
         "ci_integration": false
+      },
+      "mcp_state.py": {
+        "status": "partial",
+        "tool": "crosshair+deal+pytest",
+        "functions_contracted": [
+          "next_state"
+        ],
+        "crosshair_target": "plugin.mcp.mcp_state.next_state",
+        "crosshair_last_run": "2026-08-05",
+        "crosshair_result": "no_counterexamples",
+        "notes": "Missing tool_name → SendErrorEffect; TOOL_COMPLETED → StreamResponseEffect; REQUEST_ERROR sets is_error",
+        "ci_integration": false
+      },
+      "wire_types.py": {
+        "status": "verified",
+        "priority": "high",
+        "tool": "deal+hypothesis",
+        "functions_contracted": [
+          "parse_jsonrpc_request",
+          "is_jsonrpc_notification",
+          "initialize_result",
+          "call_tool_result_image"
+        ],
+        "ci_integration": true
+      }
+    },
+    "chatbot": {
+      "chat_sidebar_mode.py": {
+        "status": "verified",
+        "priority": "high",
+        "tool": "deal+hypothesis",
+        "functions_contracted": [
+          "sidebar_mode_flags_for_doc_type",
+          "get_mode_labels",
+          "mode_from_label"
+        ],
+        "ci_integration": true
+      },
+      "skills.py": {
+        "status": "verified",
+        "priority": "high",
+        "tool": "deal+hypothesis",
+        "functions_contracted": [
+          "HUMANIZER_GUIDANCE"
+        ],
+        "ci_integration": true
+      },
+      "research_cache_fluff.py": {
+        "status": "verified",
+        "priority": "high",
+        "tool": "deal+hypothesis",
+        "functions_contracted": [
+          "translated_research_cache_fluff"
+        ],
+        "ci_integration": true
+      },
+      "web_research_cache.py": {
+        "status": "verified",
+        "priority": "high",
+        "tool": "deal+hypothesis",
+        "functions_contracted": [
+          "snowball_lang_from_locale_tag",
+          "parse_research_cache_key",
+          "format_research_cache_key",
+          "jaccard",
+          "research_cache_similarity"
+        ],
+        "ci_integration": true
+      },
+      "memory.py": {
+        "status": "verified",
+        "tool": "deal+hypothesis",
+        "functions_contracted": [
+          "upsert_memory_arguments_dict",
+          "memory_key_from_tool_arguments",
+          "format_upsert_memory_chat_line",
+          "format_upsert_memory_chat_line_from_arguments"
+        ],
+        "ci_integration": true
+      },
+      "send_state.py": {
+        "status": "partial",
+        "tool": "crosshair+deal+pytest",
+        "functions_contracted": [
+          "next_state"
+        ],
+        "crosshair_last_run": "2026-08-05",
+        "crosshair_result": "no_counterexamples",
+        "ci_integration": false
+      },
+      "audio_recorder_state.py": {
+        "status": "partial",
+        "tool": "crosshair+deal+pytest",
+        "functions_contracted": [
+          "next_state"
+        ],
+        "crosshair_last_run": "2026-08-05",
+        "crosshair_result": "no_counterexamples",
+        "ci_integration": false
+      },
+      "state_machine.py": {
+        "status": "partial",
+        "tool": "crosshair+deal+pytest",
+        "functions_contracted": [
+          "next_state"
+        ],
+        "notes": "STOP must not spawn workers; CrossHair via test_fsm_verification",
+        "ci_integration": false
+      },
+      "tool_loop_state.py": {
+        "status": "partial",
+        "tool": "crosshair+deal+pytest",
+        "functions_contracted": [
+          "next_state"
+        ],
+        "notes": "Thin ensures; CrossHair FQN next_state only",
+        "ci_integration": false
+      }
+    },
+    "writer": {
+      "word_diff_split.py": {
+        "status": "verified",
+        "priority": "high",
+        "tool": "deal+hypothesis",
+        "functions_contracted": [
+          "tokenize",
+          "split_change"
+        ],
+        "ci_integration": true
+      },
+      "xhtml_style_postprocess.py": {
+        "status": "verified",
+        "priority": "high",
+        "tool": "deal+hypothesis",
+        "functions_contracted": [
+          "decode_lo_css_class_suffix",
+          "compact_lo_style_name",
+          "extract_autostyle_parents_from_fodt",
+          "parse_style_block"
+        ],
+        "ci_integration": true
       }
     }
   }

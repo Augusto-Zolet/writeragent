@@ -17,6 +17,7 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
+from plugin.framework.deal_shim import deal
 from plugin.framework.i18n import _
 
 if TYPE_CHECKING:
@@ -33,6 +34,7 @@ class HelperScriptMeta:
     params: dict[str, Any]
 
 
+@deal.post(lambda result: isinstance(result, str) and result.startswith("# writeragent:"))
 def header_prefix(tag: str) -> str:
     """Return ``# writeragent:<tag>`` (no trailing space)."""
     return f"# writeragent:{tag}"
@@ -46,6 +48,7 @@ def _header_re(tag: str) -> re.Pattern[str]:
     )
 
 
+@deal.post(lambda result: result is None or isinstance(result, HelperScriptMeta))
 def parse_helper_script_header(
     code: str,
     *,
@@ -111,6 +114,7 @@ def _literal_value(node: ast.AST) -> Any:
     return None
 
 
+@deal.post(lambda result: result is None or isinstance(result, dict))
 def parse_run_import_call_params(code: str, *, run_name: str) -> dict[str, Any] | None:
     """Return the ``params`` dict from ``run_name({"helper": ..., "params": {...}}, ...)`` when literal."""
     spec = parse_run_import_call_spec(code, run_name=run_name)
@@ -120,6 +124,7 @@ def parse_run_import_call_params(code: str, *, run_name: str) -> dict[str, Any] 
     return params if isinstance(params, dict) else None
 
 
+@deal.post(lambda result: result is None or isinstance(result, dict))
 def parse_run_import_call_spec(code: str, *, run_name: str) -> dict[str, Any] | None:
     """Return the first positional spec dict from ``run_name({...}, ...)`` or direct helper call when literal."""
     if not code:

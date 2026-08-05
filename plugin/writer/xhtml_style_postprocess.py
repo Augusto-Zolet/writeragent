@@ -41,12 +41,16 @@ _TRAILING_EMPTY_P_RE = re.compile(
     r"\s*<p\b[^>]*>(?:\s|&nbsp;|&#160;|&#xa0;| )*</p>\s*$", re.IGNORECASE
 )
 
+from plugin.framework.deal_shim import deal
 
+
+@deal.post(lambda result: isinstance(result, str))
 def decode_lo_css_class_suffix(suffix):
     """Reverse ODF URL-style encoding in a CSS class suffix (``Heading_20_1`` -> ``Heading 1``)."""
     return re.sub(r"_([0-9a-fA-F]{2})_", lambda m: chr(int(m.group(1), 16)), suffix)
 
 
+@deal.post(lambda result: isinstance(result, str) and " " not in result)
 def compact_lo_style_name(uno_name):
     """Agent-facing token: drop spaces (``Heading 1`` -> ``Heading1``)."""
     return uno_name.replace(" ", "")
@@ -55,6 +59,7 @@ def compact_lo_style_name(uno_name):
 _FODT_STYLE_RE = re.compile(r"<style:style\b([^>]*?)/?>", re.IGNORECASE)
 
 
+@deal.post(lambda result: isinstance(result, dict))
 def extract_autostyle_parents_from_fodt(fodt):
     """Map automatic paragraph style name (``P1``, ``P2``, ...) -> its parent named style, from a
     flat ODF (.fodt) export. The XHTML export flattens this parent away, so an autostyle's CSS
@@ -89,6 +94,7 @@ def _normalize_decl(decl):
     return ";".join(sorted(parts))
 
 
+@deal.post(lambda result: isinstance(result, tuple) and len(result) == 2 and isinstance(result[0], dict) and isinstance(result[1], dict))
 def parse_style_block(xhtml):
     """Return ``(raw_map, norm_map)`` for every class rule in the ``<style>`` block(s).
 

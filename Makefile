@@ -638,7 +638,7 @@ typecheck: manifest
 	@$(MAKE) pyright-run
 
 test-run:
-	$(PYTHON) -m pytest tests
+	$(PYTHON) -m pytest tests -m "not slow"
 	@$(MAKE) lo-kill
 	$(LO_PYTHON) -m plugin.testing_runner; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
 
@@ -716,6 +716,32 @@ verify-serialization:
 	$(PYTHON) -m pytest tests/scripting/test_serialization_verification.py -k "not crosshair" -q
 	@echo "=== CrossHair check (full module, live filtered) ==="
 	$(MAKE) crosshair-check
+
+verify:
+	@echo "=== Running All Formal Verification Unit Tests ==="
+	$(PYTHON) -m pytest tests/framework/test_url_utils_verification.py \
+		tests/framework/test_config_coerce_verification.py \
+		tests/framework/test_tool_schema_verification.py \
+		tests/framework/test_accumulate_delta_verification.py \
+		tests/framework/test_json_utils_verification.py \
+		tests/framework/test_error_payload_verification.py \
+		tests/framework/test_html_and_auth_verification.py \
+		tests/framework/test_i18n_and_memory_verification.py \
+		tests/framework/test_framework_modules_verification.py \
+		tests/framework/test_framework_phase3_verification.py \
+		tests/chatbot/test_chatbot_pure_verification.py \
+		tests/scripting/test_scripting_pure_verification.py \
+		tests/scripting/test_scripting_phase2_verification.py \
+		tests/scripting/test_scripting_ast_verification.py \
+		tests/scripting/test_scripting_high_value_verification.py \
+		tests/writer/test_writer_diff_and_html_verification.py \
+		tests/calc/test_calc_dep_and_filter_verification.py \
+		tests/mcp/test_mcp_wire_verification.py \
+		tests/calc/test_address_utils_verification.py \
+		tests/mcp/test_cors_verification.py \
+		tests/scripting/test_scrub_env_verification.py \
+		tests/chatbot/test_fsm_verification.py \
+		tests/mcp/test_mcp_state_verification.py -q
 
 test-serialization-ab:
 	$(_SERIALIZATION_EXTENSIVE) $(PYTHON) -m pytest tests/scripting/test_serialization_ab.py -q
