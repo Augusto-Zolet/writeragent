@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from typing import Any
 
 from plugin.framework.client import stream_normalizer as sn
 from plugin.framework.client.stream_normalizer import _extract_thinking_from_delta

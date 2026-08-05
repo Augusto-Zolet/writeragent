@@ -17,7 +17,6 @@ from plugin.scripting.document_scripts import (
     set_calc_init_script,
 )
 from plugin.scripting.venv.venv_sandbox import clear_all_sandbox_sessions, reset_sandbox_session, run_sandboxed_code
-from plugin.scripting.venv.worker_harness import _execute_request
 from plugin.tests.testing_utils import setup_uno_mocks
 from tests.writer.test_document_helpers import _DocWithUserDefinedProperties, _UserDefinedProperties
 

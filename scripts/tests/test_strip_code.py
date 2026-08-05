@@ -6,9 +6,12 @@
 from __future__ import annotations
 
 import ast
-from pathlib import Path
 
 from scripts.strip_code import should_skip_strip, strip_grammar_obs_calls, strip_production_code
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_should_skip_strip() -> None:

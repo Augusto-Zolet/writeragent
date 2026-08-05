@@ -2,12 +2,10 @@
 
 import json
 from unittest.mock import MagicMock, patch
-import pytest
 
 from plugin.contrib.cdp.browser_cdp_tool import (
     get_local_chrome_cdp_url,
     cleanup_local_chrome,
-    browser_cdp,
     tool_error,
     _WS_AVAILABLE,
 )

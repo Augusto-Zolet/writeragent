@@ -310,8 +310,6 @@ class TestingFactory:
     def create_doc(env="mock", doc_type="writer", content=None, use_mock=True, **kwargs):
         """Creates a document instance (mock or native)."""
         if env == "native":
-            from plugin.framework.uno_context import get_desktop
-            import uno
             raise NotImplementedError("Native doc creation requires a ctx. Use create_native_doc(ctx, ...)")
 
         # Mock implementation

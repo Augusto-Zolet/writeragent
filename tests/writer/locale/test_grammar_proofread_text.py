@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from plugin.writer.locale import grammar_proofread_text as gt
-from plugin.testing_runner import native_test
 
 import pytest
 from unittest.mock import MagicMock, patch

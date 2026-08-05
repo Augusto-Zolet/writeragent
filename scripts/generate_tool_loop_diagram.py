@@ -6,8 +6,7 @@ Extracted from the full super-unified diagram to show only tool loop states and 
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, List, Dict, Any
-import json
+from typing import Optional, List
 
 
 class Component(str, Enum):

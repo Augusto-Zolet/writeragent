@@ -9,7 +9,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from plugin.framework.i18n import _
 
 
 def pytest_collection_modifyitems(config, items):

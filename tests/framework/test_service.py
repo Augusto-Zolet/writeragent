@@ -1,7 +1,6 @@
 
 import dataclasses
 import pytest
-import pytest
 from plugin.framework.service import BaseState, FsmTransition
 from plugin.framework.service import ServiceRegistry, ServiceBase
 'Tests for plugin.framework.state FSM contracts.'

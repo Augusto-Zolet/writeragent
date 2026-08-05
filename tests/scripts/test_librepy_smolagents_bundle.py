@@ -6,11 +6,9 @@
 
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 import sys
-import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 

@@ -16,7 +16,6 @@
 """Tests for Writer form tools, running inside LibreOffice."""
 
 import uno
-from types import SimpleNamespace
 from typing import Any
 from plugin.framework.uno_context import get_desktop
 from plugin.testing_runner import setup, teardown, native_test

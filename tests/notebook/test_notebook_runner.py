@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from plugin.notebook.cell_registry import NotebookCodeCell, NotebookDocState, cell_id_to_hex, new_code_cell_entry
+from plugin.notebook.cell_registry import NotebookDocState, cell_id_to_hex, new_code_cell_entry
 from plugin.notebook.notebook_runner import (
     execute_code,
     format_run_output_text,

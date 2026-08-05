@@ -1,10 +1,8 @@
-import sys
 from unittest.mock import MagicMock
 
 from plugin.tests.testing_utils import setup_uno_mocks
 setup_uno_mocks()
 
-import pytest
 from plugin.writer.specialized.indexes import IndexesList, IndexesCreate, IndexesAddMark
 
 def test_indexes_list():
@@ -54,7 +52,7 @@ def test_indexes_create():
 
     doc.createInstance.assert_called_with("com.sun.star.text.ContentIndex")
     assert index_mock.Title == "My TOC"
-    assert index_mock.CreateFromOutline == True
+    assert index_mock.CreateFromOutline
 
     text_mock = cursor_mock.getText()
     text_mock.insertTextContent.assert_called_with(cursor_mock, index_mock, False)

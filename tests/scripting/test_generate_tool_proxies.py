@@ -1,7 +1,6 @@
 import sys
 import os
 import pytest
-from unittest.mock import MagicMock
 from typing import cast
 
 from plugin.framework.tool import ToolBase

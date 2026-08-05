@@ -1,6 +1,4 @@
-import sys
-import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from tests.testing_utils import setup_uno_mocks
 setup_uno_mocks()

@@ -125,7 +125,7 @@ class AppendRichTextTests(unittest.TestCase):
 
         doc = MockDoc()
         created_cursors = []
-        orig = doc.getText().createTextCursorByRange
+        doc.getText().createTextCursorByRange
 
         def track_cursor(rng):
             c = MockTextCursor()
@@ -263,7 +263,7 @@ class TightenListIndentTests(unittest.TestCase):
     def _make_list_para(self, text="• item", level=0, list_id="list1", is_number=True):
         """Create a mock paragraph that uses NumberingRules."""
         import sys
-        mock_uno = sys.modules["uno"]
+        sys.modules["uno"]
 
         para = MagicMock()
         props = {

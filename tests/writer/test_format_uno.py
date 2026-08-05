@@ -332,14 +332,14 @@ def test_find_text():
 
 @native_test
 def test_content_has_markup_auto_detection():
-    assert _content_has_markup("**bold**") == True
-    assert _content_has_markup("<b>bold</b>") == True
-    assert _content_has_markup("# Heading") == True
-    assert _content_has_markup("| col1 | col2 |") == True
-    assert _content_has_markup("Jane Doe") == False
-    assert _content_has_markup("Hello world, this is plain text.") == False
-    assert _content_has_markup("") == False
-    assert _content_has_markup(None) == False
+    assert _content_has_markup("**bold**")
+    assert _content_has_markup("<b>bold</b>")
+    assert _content_has_markup("# Heading")
+    assert _content_has_markup("| col1 | col2 |")
+    assert not _content_has_markup("Jane Doe")
+    assert not _content_has_markup("Hello world, this is plain text.")
+    assert not _content_has_markup("")
+    assert not _content_has_markup(None)
 
 
 # Helper: create text with per-character background colors and return the range

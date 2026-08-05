@@ -1,4 +1,3 @@
-import pytest
 import json
 import socket
 from unittest.mock import patch, MagicMock, mock_open
@@ -28,7 +27,6 @@ def test_is_audio_unsupported_error():
 
 def test_format_error_message():
     import urllib.error
-    import http.client
 
     # HTTP errors
     err = urllib.error.HTTPError("url", 401, "Unauthorized", {}, None)

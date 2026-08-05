@@ -6,8 +6,7 @@ Includes ALL components: Send Button, Send Handler, Tool Loop, Web Search, AND S
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, List, Dict, Any
-import json
+from typing import Optional, List
 
 
 class Component(str, Enum):

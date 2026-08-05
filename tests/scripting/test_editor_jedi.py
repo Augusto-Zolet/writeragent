@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from unittest.mock import MagicMock
-import pytest
 
 from plugin.scripting.venv import editor_main as ej
 

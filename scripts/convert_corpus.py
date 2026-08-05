@@ -123,7 +123,7 @@ def convert_spreadsheet(ctx, file_path: Path) -> bool:
                     for fail in failed:
                         print(f"      * Cell {fail.get('address')}: expected {fail.get('expected')!r}, got {fail.get('actual')!r} ({fail.get('message')})")
                 else:
-                    print(f"    - Verification PASSED for all converted cells.")
+                    print("    - Verification PASSED for all converted cells.")
             except Exception as e:
                 print(f"    - Error converting sheet: {e}")
 

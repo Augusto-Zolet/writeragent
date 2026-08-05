@@ -1,4 +1,3 @@
-import pytest
 from plugin.chatbot.tool_loop_state import (
     ToolLoopState,
     ToolLoopEvent,
@@ -6,7 +5,6 @@ from plugin.chatbot.tool_loop_state import (
     SpawnLLMWorkerEffect,
     SpawnToolWorkerEffect,
     ToolLoopUIEffect,
-    LogAgentEffect,
     AddMessageEffect,
     UpdateActivityStateEffect,
     ExitLoopEffect,
@@ -81,7 +79,7 @@ def test_stream_done_finish_reasons():
     # finish_reason="content_filter"
     event_filt = create_event(EventKind.STREAM_DONE, response={"finish_reason": "content_filter", "content": None})
     tr_filt = next_state(state, event_filt)
-    new_state_filt, effects_filt = tr_filt.state, tr_filt.effects
+    _new_state_filt, effects_filt = tr_filt.state, tr_filt.effects
     assert any(isinstance(e, ToolLoopUIEffect) and "Content filter" in e.text for e in effects_filt)
 
 def test_stream_done_no_text_includes_debug_sidebar():
@@ -346,7 +344,7 @@ def test_next_tool_when_stopped():
     state = create_base_state(is_stopped=True)
     event = create_event(EventKind.NEXT_TOOL)
     tr = next_state(state, event)
-    new_state, effects = tr.state, tr.effects
+    _new_state, effects = tr.state, tr.effects
     
     assert not any(isinstance(e, ToolLoopUIEffect) and e.kind == "status" for e in effects)
     assert any(isinstance(e, SpawnLLMWorkerEffect) for e in effects)
@@ -364,7 +362,7 @@ def test_tool_result_parsing():
         mutates_document=True
     )
     tr_valid = next_state(state, event_valid)
-    new_state, effects = tr_valid.state, tr_valid.effects
+    _new_state, effects = tr_valid.state, tr_valid.effects
     assert any(isinstance(e, TriggerNextToolEffect) for e in effects)
     assert any(isinstance(e, UpdateDocumentContextEffect) for e in effects)  # is_success=True and mutates=True
     
@@ -383,7 +381,7 @@ def test_tool_result_parsing():
         mutates_document=False
     )
     tr_adc = next_state(state, event_adc)
-    new_state_adc, effects_adc = tr_adc.state, tr_adc.effects
+    _new_state_adc, effects_adc = tr_adc.state, tr_adc.effects
     
     ui_effs = [e for e in effects_adc if isinstance(e, ToolLoopUIEffect)]
     assert any("[Debug: params" in e.text for e in ui_effs)

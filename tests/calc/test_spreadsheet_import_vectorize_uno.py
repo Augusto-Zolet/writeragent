@@ -46,8 +46,7 @@ def _run_conversion(**kwargs):
 
 @native_test
 def test_convert_spreadsheet_to_python_vectorized():
-    sheet = _test_doc.getCurrentController().getActiveSheet()
-
+    pass
 
 '''
     # Populate grid

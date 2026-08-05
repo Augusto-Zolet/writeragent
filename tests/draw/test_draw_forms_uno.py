@@ -1,5 +1,4 @@
 # WriterAgent - AI Writing Assistant for LibreOffice
-import json
 from typing import Any
 from plugin.framework.logging import log
 from plugin.framework.uno_context import get_desktop

@@ -42,8 +42,8 @@ try:
     import sys
     sys.path.append(str(Path(__file__).resolve().parent.parent))
     
-    from plugin.framework.client.auth import resolve_auth_for_config, build_auth_headers
-    from plugin.framework.config import get_config, get_config_dict
+    # get_config_dict is looked up via globals() in _resolve_openrouter_api_key.
+    from plugin.framework.config import get_config_dict  # noqa: F401
     from plugin.framework.constants import USER_AGENT, APP_REFERER, APP_TITLE
     from plugin.framework.json_utils import safe_json_loads
 except ImportError:
@@ -333,7 +333,7 @@ def call_translate_batch(texts: List[str], target_lang: str, model: str = "x-ai/
                     return [_sanitize_msgstr(str(t)) for t in translations]
                 log.error("Response size mismatch or invalid JSON array")
             else:
-                log.error(f"Unexpected response")
+                log.error("Unexpected response")
     except Exception as e:
         log.error(f"Translate batch error: {e}")
         

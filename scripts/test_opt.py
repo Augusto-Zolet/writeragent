@@ -1,12 +1,8 @@
 
 import time
-import cProfile
-import pstats
-import sys
-from pathlib import Path
 import math
 import array
-from typing import Any, cast
+from typing import Any
 
 # Mocking parts of payload_codec
 SPLIT_GRID_WIRE_DTYPE = "float64"

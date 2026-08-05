@@ -6,7 +6,6 @@
 
 from unittest.mock import MagicMock
 
-import pytest
 
 from plugin.framework import appearance
 

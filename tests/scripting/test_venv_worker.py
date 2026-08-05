@@ -10,10 +10,8 @@
 from __future__ import annotations
 
 import io
-import json
 import os
 import pickle
-import stat
 import struct
 import subprocess
 import sys
@@ -23,7 +21,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from plugin.scripting.config_limits import EMBEDDINGS_PROBE_TIMEOUT_SEC, VISION_PROBE_TIMEOUT_SEC, WARM_WORKER_TIMEOUT_SEC
+from plugin.scripting.config_limits import WARM_WORKER_TIMEOUT_SEC
 from plugin.scripting.ipc import pack_pickle_frame, read_pickle_frame
 from plugin.scripting.venv_worker import (
     PythonWorkerManager,
@@ -167,7 +165,6 @@ def test_harness_main_loop_integration():
 @patch("plugin.scripting.venv_worker.get_config_str", return_value="")
 @patch("plugin.scripting.venv_worker.resolve_libreoffice_python", return_value=sys.executable)
 def test_run_code_uses_manager(mock_lo_python, mock_cfg):
-    from plugin.scripting.venv_worker import run_code_in_user_venv
 
     PythonWorkerManager.shutdown_all()
     ctx = MagicMock()
@@ -356,7 +353,7 @@ def test_manager_separate_pools_same_exe():
 
 def test_split_grid_data_round_trip_execute_request():
     """Ingress split_grid: child receives CalcRange backed by numeric values."""
-    np = pytest.importorskip("numpy")
+    pytest.importorskip("numpy")
     from plugin.calc.calc_addin_data import pack_calc_data_for_wire
     from plugin.scripting.payload_codec import BINARY_MIN_CELLS, is_split_grid
     from plugin.scripting.calc_range import is_calc_range_payload
@@ -455,7 +452,6 @@ def test_automatic_imports_explicit():
 @patch("plugin.scripting.venv_worker.resolve_libreoffice_python", return_value=sys.executable)
 @patch("plugin.scripting.venv_worker.PythonWorkerManager.execute")
 def test_run_venv_code_timeout_capped(mock_execute, mock_lo_python, mock_cfg, mock_configured_timeout):
-    from plugin.scripting.venv_worker import run_code_in_user_venv
     ctx = MagicMock()
 
     # Call with no timeout and verify it gets default timeout of 10s
@@ -680,7 +676,6 @@ def test_terminate_worker_re_primes_on_next_execute():
 @patch("plugin.scripting.venv_worker.get_config_str", return_value="")
 @patch("plugin.scripting.venv_worker.resolve_libreoffice_python", return_value=sys.executable)
 def test_warm_venv_worker_resolves_and_warms(mock_lo_python, mock_cfg):
-    from plugin.scripting.venv_worker import warm_venv_worker
 
     PythonWorkerManager.shutdown_all()
     ctx = MagicMock()
@@ -691,7 +686,7 @@ def test_warm_venv_worker_resolves_and_warms(mock_lo_python, mock_cfg):
 
 
 def test_split_grid_integration_pickle_mode():
-    np = pytest.importorskip("numpy")
+    pytest.importorskip("numpy")
     from plugin.scripting.venv_worker import PythonWorkerManager
 
     PythonWorkerManager.shutdown_all()

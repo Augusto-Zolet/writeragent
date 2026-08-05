@@ -2,7 +2,7 @@ import unittest
 import os
 import json
 import tempfile
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from plugin.framework.client.model_fetcher import endpoint_url_suitable_for_v1_models_fetch
 
 class TestEndpointUrlSuitableForModelFetch(unittest.TestCase):
@@ -52,7 +52,6 @@ class TestFetchAvailableModelsCache(unittest.TestCase):
     def test_fetch_available_models_sends_bearer_when_ctx_and_api_key(self):
         'GET /v1/models must use the same per-endpoint key as chat (LocalAI, etc.).'
         from plugin.framework.client import model_fetcher as cfg
-        ctx = MagicMock()
         endpoint = 'http://127.0.0.1:58903'
         
         with patch('plugin.framework.client.model_fetcher.get_api_key_for_endpoint', return_value='secret-token'):
@@ -68,7 +67,6 @@ class TestFetchAvailableModelsCache(unittest.TestCase):
 
     def test_model_fetch_cache_key_differs_for_override(self):
         from plugin.framework.client import model_fetcher as cfg
-        ctx = MagicMock()
         url = 'http://127.0.0.1:58906/v1/models'
         base = 'http://127.0.0.1:58906'
         with patch.object(cfg, 'get_api_key_for_endpoint', return_value='saved'):
@@ -100,7 +98,6 @@ class TestTextModelPlaceholderGuards(unittest.TestCase):
         'Settings passes live api_key field; override must win over api_keys_by_endpoint.'
         from plugin.framework.client import model_fetcher as cfg
         from plugin.framework.url_utils import normalize_endpoint_url
-        ctx = MagicMock()
         with tempfile.TemporaryDirectory() as tmp:
             config_path = os.path.join(tmp, 'writeragent.json')
             endpoint = 'http://127.0.0.1:58904'
@@ -132,7 +129,6 @@ class TestTextModelPlaceholderGuards(unittest.TestCase):
     def test_fetch_override_and_saved_key_separate_cache(self):
         from plugin.framework.client import model_fetcher as cfg
         from plugin.framework.url_utils import normalize_endpoint_url
-        ctx = MagicMock()
         with tempfile.TemporaryDirectory() as tmp:
             config_path = os.path.join(tmp, 'writeragent.json')
             endpoint = 'http://127.0.0.1:58905'
@@ -170,16 +166,12 @@ class TestGetModelCapabilityOpenRouter(unittest.TestCase):
 class TestHasNativeAudio(unittest.TestCase):
     def test_audio_only_stt_model_is_not_native_audio(self):
         from plugin.framework.client.model_fetcher import has_native_audio
-
-        ctx = MagicMock()
         with patch('plugin.framework.client.model_fetcher.get_config', return_value={}):
             result = has_native_audio('mistralai/voxtral-mini-transcribe', 'https://openrouter.ai/api')
         self.assertIsNot(result, True)
 
     def test_chat_and_audio_model_is_native_audio(self):
         from plugin.framework.client.model_fetcher import has_native_audio
-
-        ctx = MagicMock()
         with patch('plugin.framework.client.model_fetcher.get_config', return_value={}):
             result = has_native_audio('google/gemini-3.1-flash-lite-preview', 'https://openrouter.ai/api')
         self.assertTrue(result)
@@ -278,13 +270,11 @@ class TestHasNativeVision(unittest.TestCase):
 
     def test_static_default_model_has_vision(self):
         from plugin.framework.client.model_fetcher import has_native_vision
-        ctx = MagicMock()
         with patch('plugin.framework.client.model_fetcher.get_config', return_value={}):
             self.assertTrue(has_native_vision('google/gemini-3.1-flash-lite-preview', 'https://openrouter.ai/api'))
 
     def test_config_cache_has_vision(self):
         from plugin.framework.client.model_fetcher import has_native_vision, set_native_vision_support
-        ctx = MagicMock()
         cache_dict = {}
 
         def mock_get_config(key):
@@ -306,7 +296,6 @@ class TestHasNativeVision(unittest.TestCase):
 
     def test_openrouter_dynamic_modality_detection(self):
         from plugin.framework.client.model_fetcher import has_native_vision, _model_fetch_vision_cache
-        ctx = MagicMock()
         with patch('plugin.framework.client.model_fetcher.get_api_key_for_endpoint', return_value=''), \
              patch('plugin.framework.client.model_fetcher.get_config', return_value={}):
             
@@ -320,7 +309,6 @@ class TestHasNativeVision(unittest.TestCase):
 
     def test_ollama_api_show_capabilities(self):
         from plugin.framework.client.model_fetcher import has_native_vision
-        ctx = MagicMock()
         
         with patch('plugin.framework.client.requests.sync_request') as mock_sync, \
              patch('plugin.framework.client.model_fetcher.get_config', return_value={}):
@@ -330,7 +318,6 @@ class TestHasNativeVision(unittest.TestCase):
 
     def test_name_heuristics_removed(self):
         from plugin.framework.client.model_fetcher import has_native_vision
-        ctx = MagicMock()
         with patch('plugin.framework.client.model_fetcher.get_config', return_value={}):
             self.assertFalse(has_native_vision('unknown-vision-model', 'https://api.openai.com/v1'))
 

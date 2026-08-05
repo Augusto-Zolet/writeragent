@@ -9,7 +9,6 @@ import tempfile
 import time
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from plugin.doc.document_research import (
     NEARBY_FILE_EXTENSIONS,

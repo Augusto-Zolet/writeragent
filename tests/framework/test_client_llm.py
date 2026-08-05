@@ -509,7 +509,6 @@ def test_make_chat_request_skips_dev_build_prefix_when_disabled():
 
 def test_make_chat_request_does_not_duplicate_dev_prefix_on_repeated_calls():
     """Tool loops reuse the same messages list; date + dev-prefix injection must stay idempotent."""
-    from plugin.framework.prompts import LLM_DEV_BUILD_SYSTEM_PREFIX
 
     ctx = MockContext()
     client = LlmClient({"endpoint": "http://test", "model": "test-model"}, ctx)

@@ -66,7 +66,7 @@ def test_per_helper_templates_are_executable(template_fn, helper_names, module_p
         code = template_fn(helper)
         assert code is not None
         assert f"from {module_path} import {helper}" in code
-        assert f"# writeragent:" not in code.splitlines()[0]
+        assert "# writeragent:" not in code.splitlines()[0]
 
 
 def test_legacy_header_parsers_still_work():

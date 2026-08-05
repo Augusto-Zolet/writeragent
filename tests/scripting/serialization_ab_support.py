@@ -14,7 +14,7 @@ import os
 import sys
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 import hypothesis.strategies as st
 from hypothesis import strategies
@@ -28,10 +28,8 @@ from plugin.scripting.payload_codec import (
     host_pack_data,
     host_pack_multi_data,
     host_unpack_data,
-    is_multi_data,
     is_numeric_grid,
     is_split_grid,
-    fast_flatten_grid_2d,
 )
 
 # Set by Makefile (test-serialization-ab, slowtests, vhs) before pytest starts.
@@ -527,7 +525,6 @@ def normalize_for_oracle(value: Any) -> Any:
 
 def assert_semantically_equal(a: Any, b: Any, *, label: str = "") -> None:
     """Assert two results are semantically equivalent (ndarray vs list, NaN, scalars)."""
-    import numpy as np
 
     a_norm = normalize_for_oracle(a)
     b_norm = normalize_for_oracle(b)

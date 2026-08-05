@@ -90,7 +90,7 @@ def resolve_venv_paths(venv_base: str) -> tuple[str, str, str]:
 
 def uno_import_works(venv_python: str) -> bool:
     try:
-        result = subprocess.run(
+        subprocess.run(
             [venv_python, "-c", "import uno"],
             check=True,
             capture_output=True,

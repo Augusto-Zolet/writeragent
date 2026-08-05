@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import tempfile
 import textwrap
 from pathlib import Path
 

@@ -239,7 +239,7 @@ def build_domain_sheet_rows(
         excel_row += len(block)
 
     if extra_matplotlib:
-        out.append([f"__section__:matplotlib_raw"] + [None] * (layout.width - 1))
+        out.append(["__section__:matplotlib_raw"] + [None] * (layout.width - 1))
         excel_row += 1
         for mblock in matplotlib_demo_blocks():
             block = matplotlib_block_rows(layout, mblock, excel_row)

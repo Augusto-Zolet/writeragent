@@ -124,7 +124,7 @@ def test_crosshair_verification_if_available() -> None:
     print(f"CrossHair output:\n{combined}")
 
     errors = [line for line in combined.splitlines() if _CROSSHAIR_ERROR_RE.search(line)]
-    assert not errors, f"CrossHair counterexamples found:\n" + "\n".join(errors)
+    assert not errors, "CrossHair counterexamples found:\n" + "\n".join(errors)
 
     if result.returncode == 2:
         pytest.fail(f"CrossHair internal error (exit 2):\n{combined}")

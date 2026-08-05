@@ -216,10 +216,12 @@ def run_egress(
 
     if nrows == 1 and ncols == 1:
         result: Any = float(random.random())
-        kind_pack = lambda: result
+        def kind_pack():
+            return result
     else:
         arr = np.random.rand(nrows, ncols) if ncols > 1 else np.random.rand(nrows)
-        kind_pack = lambda: arr
+        def kind_pack():
+            return arr
 
     if wire_format in ("pickle5", "pickle5+sg"):
         pack_force: ForceBinary = "never" if wire_format == "pickle5" else "always"

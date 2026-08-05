@@ -12,7 +12,6 @@ from pathlib import Path
 
 import pytest
 
-from plugin.calc.python.formula_edit import parse_python_formula
 from plugin.calc.spreadsheet_import.extract import (
     canonicalize_py_formula_for_parse,
     extract_py_cells,
@@ -20,7 +19,6 @@ from plugin.calc.spreadsheet_import.extract import (
     normalize_py_formula,
     py_formula_semantics,
 )
-from plugin.calc.spreadsheet_import.ingest import ingest_from_arrays
 from plugin.calc.spreadsheet_import.models import CellRecord, SheetModel
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

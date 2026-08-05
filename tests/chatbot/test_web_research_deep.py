@@ -2,7 +2,6 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from plugin.chatbot.web_research_deep import (
     ResearchProgress,

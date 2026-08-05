@@ -23,7 +23,7 @@ import pytest
 
 # Ensure UNO is mocked if running outside LibreOffice
 try:
-    import uno
+    import uno  # noqa: F401
 except ImportError:
     sys.modules["uno"] = MagicMock()
     sys.modules["unohelper"] = MagicMock()

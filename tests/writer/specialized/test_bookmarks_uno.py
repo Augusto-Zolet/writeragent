@@ -1,6 +1,5 @@
 try:
     import uno
-    import pytest
 except ImportError:
     pass
 
@@ -12,7 +11,6 @@ try:
     from plugin.testing_runner import setup, teardown, native_test
     from plugin.framework.uno_context import get_desktop
     from plugin.doc.document_helpers import DocumentService
-    from plugin.framework.event_bus import EventBus
     from plugin.writer.specialized.bookmarks import BookmarkService
 except ImportError:
     setup, teardown, native_test = (lambda f: f), (lambda f: f), (lambda f: f)

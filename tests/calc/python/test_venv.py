@@ -18,7 +18,7 @@ def test_resolve_python_data_prefers_data_range():
 
     ctx = MagicMock()
     ctx.doc = MagicMock()
-    with patch("plugin.calc.bridge.CalcBridge") as bridge_cls, patch("plugin.calc.inspector.CellInspector") as insp_cls:
+    with patch("plugin.calc.bridge.CalcBridge"), patch("plugin.calc.inspector.CellInspector") as insp_cls:
         insp = insp_cls.return_value
         insp.read_range.return_value = [[{"value": 1}, {"value": 2}]]
         py_data, err = _resolve_python_data(ctx, data_range="A1:B1", data=[[99]])

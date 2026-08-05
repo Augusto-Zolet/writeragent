@@ -6,7 +6,6 @@
 
 from unittest.mock import MagicMock, patch
 from pathlib import Path
-import pytest
 
 from plugin.embeddings.search_ui import SearchDialog, show_search_dialog
 
@@ -64,7 +63,6 @@ class TestSearchDialog:
 
         mock_frame = MagicMock()
         mock_get_desktop.return_value.getCurrentFrame.return_value = mock_frame
-        mock_parent_window = mock_frame.getContainerWindow.return_value
 
         dialog = SearchDialog(mock_ctx)
 

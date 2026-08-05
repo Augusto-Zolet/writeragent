@@ -10,7 +10,7 @@ def get_model_slugs(page, url):
     page.goto(url)
     try:
         page.wait_for_selector('a[href*="/"] h3', timeout=20000)
-    except:
+    except Exception:
         pass
     
     # Scroll a bit to ensure all lazy loaded cards appear
@@ -34,7 +34,7 @@ def scrape_model_details(page, slug):
         try:
             page.wait_for_selector('h1', timeout=5000)
             name = page.locator('h1').inner_text().strip()
-        except:
+        except Exception:
             name = slug # Fallback to slug if h1 isn't found
             
         text = page.locator('body').inner_text()
@@ -56,7 +56,7 @@ def scrape_model_details(page, slug):
                     break
         
         return name, price
-    except Exception as e:
+    except Exception:
         return slug, "N/A"
 
 def list_image_models():

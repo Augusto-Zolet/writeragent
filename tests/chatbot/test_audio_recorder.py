@@ -1,4 +1,3 @@
-import json
 import os
 import threading
 import wave
@@ -126,7 +125,7 @@ def test_audio_record_main_protocol(tmp_path, monkeypatch):
     def fake_emit(payload):
         emitted.append(payload)
 
-    stop_event = threading.Event()
+    threading.Event()
 
     def fake_record(output, event, *, on_stream_started=None, silence_config=None, on_ipc_emit=None):
         if on_stream_started is not None:

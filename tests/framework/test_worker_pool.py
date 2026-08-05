@@ -4,11 +4,9 @@ import pytest
 import time
 import subprocess
 import sys
-import threading
-from unittest.mock import MagicMock, patch
 
 from plugin.framework.worker_pool import run_in_background, AsyncProcess, start_stderr_drain
-from plugin.framework.errors import WorkerPoolError, ToolExecutionError
+from plugin.framework.errors import ToolExecutionError
 
 def test_run_in_background_success():
     result = []

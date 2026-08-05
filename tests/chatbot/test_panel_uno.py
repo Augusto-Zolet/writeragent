@@ -1,6 +1,5 @@
 import sys
 from plugin.framework.constants import get_plugin_dir
-import os
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -36,7 +35,7 @@ sys.path.insert(0, get_plugin_dir())
 # To avoid top-level mock pollution, we import these inside the test or use targeted patches
 # SendButtonListener lives in panel.py; panel_factory no longer re-exports it (lazy import for unopkg).
 from plugin.chatbot.panel import SendButtonListener
-from plugin.chatbot.dialogs import set_control_text, get_control_text
+from plugin.chatbot.dialogs import set_control_text
 
 class TestChatModelLogic(unittest.TestCase):
     def setUp(self):
@@ -161,7 +160,6 @@ if __name__ == '__main__':
 
 from plugin.framework.uno_context import get_desktop
 from plugin.testing_runner import setup, teardown, native_test
-from plugin.chatbot.panel import ChatSession, SendButtonListener
 
 _test_doc = None
 _test_ctx = None
@@ -308,7 +306,7 @@ def test_session_id_isolation_on_url_change():
     the session ID is regenerated to isolate chat history.
     """
     from plugin.chatbot.panel_factory import ChatPanelElement
-    from plugin.doc.document_helpers import get_document_property, set_document_property
+    from plugin.doc.document_helpers import get_document_property
     
     # Create a dummy element instance
     element = ChatPanelElement(_test_ctx, None, None, "test_resource_url")

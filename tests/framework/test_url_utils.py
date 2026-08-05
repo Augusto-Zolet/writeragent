@@ -1,4 +1,3 @@
-import pytest
 import unittest
 from plugin.framework.url_utils import (
     dispatch_command_from_url,

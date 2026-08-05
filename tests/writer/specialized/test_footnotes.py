@@ -1,8 +1,6 @@
 import sys
 import types
-from typing import Any
 from unittest.mock import MagicMock
-import pytest
 
 # Mock UNO modules before any plugin imports
 sys.modules["uno"] = MagicMock()

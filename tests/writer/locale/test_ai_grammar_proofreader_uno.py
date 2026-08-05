@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from typing import Any
-from plugin.writer.locale import ai_grammar_proofreader as proofreader
 from plugin.writer.locale import grammar_proofread_cache as gc
 from plugin.writer.locale import grammar_proofread_text as gt
 from plugin.framework.config import get_config, set_config

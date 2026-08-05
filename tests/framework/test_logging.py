@@ -14,7 +14,6 @@ from plugin.framework.logging import (
     LOG_REDACT_IMAGE_PLACEHOLDER,
     OptionalFlushFileHandler,
     SafeLogger,
-    _enable_agent_log,
     agent_log,
     format_tool_call_for_display,
     format_tool_result_for_display,

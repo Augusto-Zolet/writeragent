@@ -1,9 +1,7 @@
 import pytest
-import os
 import json
 from plugin.framework.config_service import ConfigService, ConfigAccessError
 from plugin.framework.event_bus import EventBus
-from unittest.mock import patch
 
 @pytest.fixture
 def config_dir(tmp_path):

@@ -14,7 +14,6 @@ from plugin.vision.vision_common import (
 
 
 def test_resolve_vision_insert_mode_template_overrides_config():
-    from unittest.mock import patch
 
     ctx = object()
     assert resolve_vision_insert_mode(ctx, {"insert_mode": "structured"}) == "structured"

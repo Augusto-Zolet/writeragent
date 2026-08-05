@@ -17,7 +17,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 from plugin.framework.html_stripper import StreamingHTMLStripper, strip_html_tags
 

@@ -2,7 +2,6 @@ from unittest.mock import MagicMock, patch
 
 from plugin.framework.async_stream import StreamQueueKind
 from plugin.chatbot.send_handlers import SendHandlersMixin
-from plugin.chatbot.web_research import WebResearchTool
 from plugin.tests.testing_utils import MockContext, MockDocument
 import pytest
 pytest.importorskip("requests")
@@ -580,7 +579,7 @@ def test_web_research_tool_approval():
             mock_resp = MagicMock()
             mock_resp.read.return_value = b"<html><body>Search Results</body></html>"
             mock_url.return_value.__enter__.return_value = mock_resp
-            with patch("requests.get") as mock_get:
+            with patch("requests.get"):
                 from plugin.writer.specialized_base import DelegateToSpecializedWriter
                 tool = DelegateToSpecializedWriter()
                 # Mock config to prompt_for_web_research = "true"

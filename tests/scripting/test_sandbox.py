@@ -9,13 +9,11 @@
 
 from __future__ import annotations
 
-import os
 import stat
 import sys
 import types
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 if "fcntl" not in sys.modules:
     fake_fcntl = types.ModuleType("fcntl")
@@ -80,7 +78,6 @@ def test_resolve_venv_python_accepts_bin_directory(tmp_path):
     assert resolve_venv_python(str(bindir)) == str(py)
 
 
-from plugin.scripting.sandbox import resolve_libreoffice_python
 
 
 def test_resolve_libreoffice_python_returns_executable(tmp_path, monkeypatch):

@@ -11,13 +11,13 @@ sys.path.insert(0, os.path.dirname(get_plugin_dir()))
 
 from plugin.writer.images.image_utils import ImageService, EndpointImageProvider
 from plugin.framework.client.llm_client import LlmClient
-from plugin.tests.testing_utils import MockContext, create_mock_client, create_mock_http_response
+from plugin.tests.testing_utils import MockContext, create_mock_client
 
 class TestEndpointImageProvider(unittest.TestCase):
     def setUp(self):
         self.mock_ctx = MockContext()
         self.api_config = {"model": "test-model"}
-        with patch('plugin.writer.images.image_utils.LlmClient') as mock_client_cls:
+        with patch('plugin.writer.images.image_utils.LlmClient'):
             self.provider = EndpointImageProvider(self.api_config, self.mock_ctx)
             self.mock_client = self.provider.client
 
@@ -275,9 +275,6 @@ class TestImageService(unittest.TestCase):
 
         def fake_request_with_tools(messages, body_override=None, model=None, **kw):
             captured["rwt_model"] = model
-            import json as _json
-
-            d = _json.loads(body_override) if body_override else {}
             return {"content": "", "images": []}
 
         with (

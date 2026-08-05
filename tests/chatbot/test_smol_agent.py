@@ -384,14 +384,14 @@ def test_smol_tool_adapter_handles_positional_arguments():
     adapter = SmolToolAdapter(tool, ctx, safe=False, inputs_style="librarian")
 
     # Positional string argument should map to the first input key 'p'
-    out = adapter.forward("positional_value")
+    adapter.forward("positional_value")
     tool.execute.assert_called_once()
     _, kwargs = tool.execute.call_args
     assert kwargs.get("p") == "positional_value"
 
     # Positional dict argument should be merged
     tool.execute.reset_mock()
-    out = adapter.forward({"p": "dict_value", "extra": 42})
+    adapter.forward({"p": "dict_value", "extra": 42})
     tool.execute.assert_called_once()
     _, kwargs = tool.execute.call_args
     assert kwargs.get("p") == "dict_value"
@@ -594,7 +594,7 @@ class TestLibrarianSmol(unittest.TestCase):
             mock_agent.run.return_value = [fa]
 
             tool = LibrarianOnboardingTool()
-            res = tool.execute(ctx, query="hi")
+            tool.execute(ctx, query="hi")
             
             self.assertTrue(mock_agent_class.called)
             kwargs = mock_agent_class.call_args.kwargs

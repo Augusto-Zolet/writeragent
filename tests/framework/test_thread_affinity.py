@@ -7,9 +7,8 @@
 from __future__ import annotations
 
 import threading
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import pytest
 
 from plugin.framework import thread_guard as tg
 from plugin.framework.queue_executor import execute_on_main_thread, post_to_main_thread

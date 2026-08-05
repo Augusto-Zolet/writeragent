@@ -3,7 +3,6 @@
 
 import logging
 from unittest.mock import MagicMock
-import pytest
 
 from tests.testing_utils import setup_uno_mocks
 setup_uno_mocks()

@@ -177,13 +177,6 @@ def test_monaco_index_html_lives_under_assets_not_scripting_dir():
 # _handle_disconnect) could race and wipe the new session's callbacks.
 # ---------------------------------------------------------------------------
 
-from plugin.scripting.editor_host import (
-    EditorSession,
-    PersistentEditor,
-    set_active_session,
-    _PERSISTENT_EDITOR,
-)
-from plugin.framework.queue_executor import QueueExecutor
 
 
 def _make_editor_with_callbacks(on_save=None, on_closed=None):
@@ -201,8 +194,10 @@ def test_handle_disconnect_does_not_wipe_new_session_callbacks():
     old_on_closed = editor.on_closed
 
     # Simulate new session installing its own callback before disconnect fires.
-    new_on_save = lambda *a, **kw: {"type": "saved", "ok": True}
-    new_on_closed = lambda: None
+    def new_on_save(*a, **kw):
+        return {"type": "saved", "ok": True}
+    def new_on_closed():
+        return None
     editor.on_save = new_on_save
     editor.on_closed = new_on_closed
 
@@ -225,10 +220,14 @@ def test_finish_does_not_wipe_new_session_callbacks():
     """EditorSession._finish must not clear on_save if a new session has set a different one."""
     # Simulate the state just after a new session's __init__ ran but _finish from
     # the old session fires (via set_active_session(new_session)).
-    old_on_save = lambda *a, **kw: {"type": "saved", "ok": True}
-    old_on_closed = lambda: None
-    new_on_save = lambda *a, **kw: {"type": "saved", "ok": True}
-    new_on_closed = lambda: None
+    def old_on_save(*a, **kw):
+        return {"type": "saved", "ok": True}
+    def old_on_closed():
+        return None
+    def new_on_save(*a, **kw):
+        return {"type": "saved", "ok": True}
+    def new_on_closed():
+        return None
 
     with patch.object(launch_mod, "_PERSISTENT_EDITOR") as mock_pe:
         mock_pe.on_save = new_on_save   # new session already installed
@@ -255,8 +254,10 @@ def test_dispatch_incoming_close_does_not_wipe_new_session_callbacks():
     captured_on_closed = old_on_closed
 
     # New session installs its callbacks before _handle_close runs on the executor.
-    new_on_save = lambda *a, **kw: {"type": "saved", "ok": True}
-    new_on_closed = lambda: None
+    def new_on_save(*a, **kw):
+        return {"type": "saved", "ok": True}
+    def new_on_closed():
+        return None
     editor.on_save = new_on_save
     editor.on_closed = new_on_closed
 

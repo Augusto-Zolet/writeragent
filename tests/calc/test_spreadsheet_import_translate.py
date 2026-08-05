@@ -10,7 +10,6 @@ import datetime as dt
 import math
 import numpy as np
 
-import pytest
 
 import plugin.scripting.calc_functions as calc
 
@@ -276,7 +275,6 @@ def test_translate_and_exec_new_functions():
 
 
 def test_translate_tier_abc_functions():
-    import numpy as np
 
     # Tier A
     res = translate_formula("=SUBTOTAL(9; A1:A5)")

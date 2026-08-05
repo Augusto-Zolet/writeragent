@@ -9,7 +9,6 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from plugin.scripting.document_scripts import (
     ANALYSIS_SCRIPT_DISPLAY_PREFIX,

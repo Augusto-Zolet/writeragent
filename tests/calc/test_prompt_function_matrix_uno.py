@@ -57,7 +57,6 @@ def test_python_matrix_via_index_argument():
     """Simulate matrix formula: six calls with index 0..5 return six scalars."""
     from plugin.calc.python.addin import PythonFunction
 
-    sheet = _test_doc.getSheets().getByIndex(0)
     primes = [7919.0, 7927.0, 7933.0, 7937.0, 7949.0, 7951.0]
     func = PythonFunction(_test_ctx)
     code = "result = [sp.prime(x) for x in range(1000, 1006)]"

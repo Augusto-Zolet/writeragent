@@ -1,5 +1,4 @@
 
-import pytest
 from unittest.mock import patch
 from plugin.framework.module_base import ModuleLoader
 from unittest.mock import MagicMock
@@ -41,7 +40,6 @@ def test_load_modules(mock_load_manifest):
     mock_module.TestModule = TestModule
     import os
     with patch('importlib.import_module', return_value=mock_module), patch.object(os.path, 'isdir', return_value=True):
-        import sys
         import inspect
         original_isclass = inspect.isclass
 

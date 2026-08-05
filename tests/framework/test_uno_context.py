@@ -107,7 +107,6 @@ def test_get_ctx_fallback_uno_returns_none():
 
 
 def test_focus_preserved_restores_focus_window():
-    from contextlib import contextmanager
 
     from plugin.framework.uno_context import focus_preserved
 
@@ -157,7 +156,6 @@ def test_resolve_package_extension_id_prefers_librepy():
         get_extension_url,
         reset_package_extension_id_for_tests,
         resolve_package_extension_id,
-        set_package_extension_id,
     )
 
     reset_package_extension_id_for_tests()

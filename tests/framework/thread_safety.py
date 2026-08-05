@@ -16,7 +16,6 @@ from unittest.mock import MagicMock
 
 from plugin.framework import queue_executor as qe
 from plugin.framework import thread_guard as tg
-from plugin.framework.worker_pool import run_in_background
 
 
 def _affine_wrap_value(val: Any, main_thread: threading.Thread, label: str) -> Any:

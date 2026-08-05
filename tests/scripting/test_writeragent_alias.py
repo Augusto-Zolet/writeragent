@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import importlib.util
 import sys
-import pytest
 from unittest.mock import MagicMock, patch
 
 from plugin.framework.uno_bootstrap import (
@@ -70,7 +69,6 @@ def test_sandboxed_code_resolves_writeragent_imports():
 
 
 def test_writeragent_api_in_process_rpc():
-    import plugin.main
     import writeragent
 
     with patch("plugin.main.get_tools") as mock_get_tools, \
@@ -96,7 +94,6 @@ def test_writeragent_api_in_process_rpc():
 
 
 def test_venv_worker_bidirectional_tool_call():
-    import plugin.main
     from plugin.scripting.venv_worker import run_code_in_user_venv
     from plugin.framework.uno_context import get_ctx
 

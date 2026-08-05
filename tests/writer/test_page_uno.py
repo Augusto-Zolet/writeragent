@@ -11,9 +11,7 @@ setattr(sys.modules['com.sun.star.style.BreakType'], "PAGE_BEFORE", 4)
 from plugin.writer.page import (
     GetPageStyleProperties,
     SetPageStyleProperties,
-    GetHeaderFooterText,
     SetHeaderFooterText,
-    GetPageColumns,
     SetPageColumns,
     InsertPageBreak,
 )

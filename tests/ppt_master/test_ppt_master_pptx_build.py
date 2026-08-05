@@ -8,7 +8,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from plugin.ppt_master.pptx_build import build_project_pptx, ensure_project_pptx, find_project_pptx
 

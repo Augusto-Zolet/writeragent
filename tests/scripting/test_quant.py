@@ -16,7 +16,6 @@ from plugin.scripting.quant import (
     HELPER_NAMES,
     QUANT_HEADER_PREFIX,
     get_quant_template,
-    parse_quant_script_header,
 )
 from plugin.scripting.venv.quant import run_quant as venv_run_quant
 from plugin.framework.errors import ToolExecutionError

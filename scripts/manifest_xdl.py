@@ -16,7 +16,6 @@ from scripts.manifest_common import (
 
 # ── XDL Generation (using xml.etree.ElementTree) ─────────────────────
 
-import xml.etree.ElementTree as ET
 
 # Layout constants for XDL pages (dialog units)
 _PAGE_WIDTH = 260

@@ -17,7 +17,7 @@ import pytest
 
 from compute_service.executor import clamp_timeout_sec, execute_code, timeout_ms_to_sec
 from compute_service.json_egress import sanitize_for_strict_json, to_dumb_json_value
-from compute_service.server import DualStackThreadingHTTPServer, create_wsgi_app
+from compute_service.server import create_wsgi_app
 from compute_service.config import ComputeSettings, load_settings
 
 

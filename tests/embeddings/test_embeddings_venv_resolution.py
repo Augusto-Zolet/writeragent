@@ -10,11 +10,9 @@
 from __future__ import annotations
 
 import stat
-import subprocess
 import sys
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from plugin.framework.constants import WORKER_POOL_DEFAULT, WORKER_POOL_EMBEDDINGS
 from plugin.scripting.venv_worker import _resolve_worker_python

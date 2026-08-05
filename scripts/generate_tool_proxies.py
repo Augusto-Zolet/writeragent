@@ -13,11 +13,9 @@ Usage: python scripts/generate_tool_proxies.py > plugin/scripting/writeragent_ap
 
 import os
 import sys
-import textwrap
 import pprint
 from collections import defaultdict
 from importlib.abc import Loader, MetaPathFinder
-from typing import Any, Iterable, cast
 
 # Ensure the project root is in sys.path
 scripts_dir = os.path.dirname(os.path.abspath(__file__))
@@ -76,7 +74,10 @@ class MockFinder(MetaPathFinder, Loader):
 
 sys.meta_path.insert(0, MockFinder())
 
-from plugin.framework.tool import ToolBase
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from plugin.framework.tool import ToolBase
 
 JSON_TO_PYTHON = {
     "string": "str",
@@ -112,7 +113,7 @@ def _param_default(schema: dict) -> str:
     return DEFAULTS_BY_TYPE.get(_get_schema_type(schema), "None")
 
 
-def schema_to_signature(tool: ToolBase) -> tuple[list[str], list[str]]:
+def schema_to_signature(tool: "ToolBase") -> tuple[list[str], list[str]]:
     """Convert a tool's JSON Schema parameters to Python positional and keyword args."""
     props = (tool.parameters or {}).get("properties", {})
     required = set((tool.parameters or {}).get("required", []))
@@ -129,9 +130,9 @@ def schema_to_signature(tool: ToolBase) -> tuple[list[str], list[str]]:
     return positional, keyword
 
 
-def group_tools(tools: list[ToolBase]) -> dict[str, list[tuple[str, ToolBase]]]:
+def group_tools(tools: list["ToolBase"]) -> dict[str, list[tuple[str, "ToolBase"]]]:
     """Group tools by namespace prefix, stripping the prefix from method names."""
-    groups: dict[str, list[tuple[str, ToolBase]]] = defaultdict(list)
+    groups: dict[str, list[tuple[str, "ToolBase"]]] = defaultdict(list)
     for tool in tools:
         name = tool.name or ""
         # 1. Check specialized_domain
@@ -188,7 +189,7 @@ def group_tools(tools: list[ToolBase]) -> dict[str, list[tuple[str, ToolBase]]]:
     return dict(groups)
 
 
-def generate_module(tools: list[ToolBase]) -> str:
+def generate_module(tools: list["ToolBase"]) -> str:
     """Generate the complete writeragent_api.py module."""
     groups = group_tools(tools)
 

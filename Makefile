@@ -229,8 +229,8 @@ help:
 	@echo "  make fix-uno                Same as ensure-uno with verbose output"
 	@echo "  make mypy / make pyright / make pyrefly / make bandit   Single-tool runs (bandit: plugin/, excludes contrib + tests)"
 	@echo "  make pyrefly                Experimental Meta Pyrefly checker (same scope as ty; not part of make test)"
-	@echo "  make ruff                   Ruff lint (plugin/, excludes contrib + tests; see pyproject.toml)"
-	@echo "  make ruff-fix               Ruff with --fix; make ruff-format-check = ruff format --check"
+	@echo "  make ruff                   Ruff lint (plugin tests scripts demos; excludes contrib/lib; see pyproject.toml)"
+	@echo "  make ruff-fix               Ruff with --fix; make ruff-format-check = ruff format --check plugin/"
 	@echo "  make ruff-for-build         Ruff --fix then check (used by make build)"
 	@echo "  make ruff-format-grammar    Ruff format ai_grammar_proofreader.py only (project line-length 320)"
 	@echo ""
@@ -797,10 +797,10 @@ bandit:
 	$(PYTHON) -m bandit -r plugin -c pyproject.toml --severity-level medium
 
 ruff:
-	$(PYTHON) -m ruff check plugin
+	$(PYTHON) -m ruff check plugin tests scripts demos
 
 ruff-fix:
-	$(PYTHON) -m ruff check plugin --fix
+	$(PYTHON) -m ruff check plugin tests scripts demos --fix
 
 # Build gate: auto-fix then verify (standalone `make ruff` remains check-only).
 ruff-for-build: ruff-fix ruff

@@ -1,6 +1,5 @@
 try:
     import uno
-    import pytest
 except ImportError:
     pass
 

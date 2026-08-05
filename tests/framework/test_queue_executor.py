@@ -3,7 +3,6 @@ from __future__ import annotations
 import threading
 import time
 import plugin.framework.queue_executor as lc
-import threading
 import queue
 import pytest
 import plugin.framework.queue_executor as mt
@@ -223,7 +222,7 @@ def test_get_async_callback_success(monkeypatch):
         mock_make.return_value = mock_instance
         res = default_executor._get_async_callback()
     assert (res == mock_service)
-    assert (default_executor._initialized == True)
+    assert (default_executor._initialized)
     assert (default_executor._async_callback_service == mock_service)
     assert (default_executor._callback_instance == mock_instance)
 
@@ -241,7 +240,7 @@ def test_get_async_callback_failure(monkeypatch):
     with patch('plugin.framework.queue_executor.log.warning') as mock_warn:
         res = default_executor._get_async_callback()
     assert (res is None)
-    assert (default_executor._initialized == True)
+    assert (default_executor._initialized)
     assert (default_executor._async_callback_service is None)
     mock_warn.assert_called()
 
@@ -257,7 +256,7 @@ def test_get_async_callback_returns_none(monkeypatch):
     with patch('plugin.framework.queue_executor.log.warning') as mock_warn:
         res = default_executor._get_async_callback()
     assert (res is None)
-    assert (default_executor._initialized == True)
+    assert (default_executor._initialized)
     mock_warn.assert_called()
 
 def test_make_callback_instance():

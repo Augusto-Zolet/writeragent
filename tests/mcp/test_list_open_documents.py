@@ -1,7 +1,6 @@
-import pytest
 from unittest.mock import MagicMock, patch
 from plugin.doc.document_research_tools import ListOpenDocuments
-from plugin.framework.tool import ToolContext, ToolRegistry
+from plugin.framework.tool import ToolRegistry
 
 
 def test_list_open_documents_properties():
@@ -27,7 +26,6 @@ def test_list_open_documents_registry_filtering():
 
 
 def test_list_open_documents_execute():
-    services = MagicMock()
     context = MagicMock()
     context.ctx = MagicMock()
     context.doc = MagicMock()

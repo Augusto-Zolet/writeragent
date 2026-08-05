@@ -1,4 +1,3 @@
-import pytest
 
 from plugin.chatbot.audio_recorder_state import (
     AudioRecorderState,

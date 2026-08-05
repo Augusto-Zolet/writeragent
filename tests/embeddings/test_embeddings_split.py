@@ -133,7 +133,7 @@ def test_whitespace_locale_uses_grammar_split(monkeypatch: pytest.MonkeyPatch):
         lambda key: key.startswith("th"),
     )
     monkeypatch.setattr(split_mod, "_split_passage_whitespace_to_sentences", _fake_whitespace)
-    rows = split_mod.split_passage_to_chunk_meta(
+    split_mod.split_passage_to_chunk_meta(
         passage,
         {"doc_url": "file:///x"},
         prose=True,

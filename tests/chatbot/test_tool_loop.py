@@ -344,7 +344,7 @@ def test_malformed_tool_calls_handling(mock_update_activity, mock_get_config, mo
         nonlocal captured_q
         captured_q = q
         on_stream_done((StreamQueueKind.STREAM_DONE, {"content": None, "tool_calls": tool_calls}))
-        item = q.get()
+        q.get()
         res = on_stream_done((StreamQueueKind.NEXT_TOOL,))
         results.append(res)
 

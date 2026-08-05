@@ -19,7 +19,7 @@ import pytest
 from hypothesis import given, settings, example, assume, HealthCheck
 
 from plugin.scripting.payload_codec import fast_flatten_grid_2d
-from tests.scripting.payload_codec_test_support import MIXED_WITH_ZIP, NUMERIC_4X4
+from tests.scripting.payload_codec_test_support import MIXED_WITH_ZIP
 from tests.scripting.serialization_ab_support import (
     VENV_CODE_ECHO,
     VENV_CODE_SUM,
@@ -28,7 +28,6 @@ from tests.scripting.serialization_ab_support import (
     all_codec_ab_cases,
     assert_cython_vs_python_parity,
     prepare_grid,
-    venv_expected_cases,
     venv_transform_cases,
     rectangular_grid,
     numeric_rectangular_grid,

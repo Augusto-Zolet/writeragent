@@ -11,7 +11,6 @@ from scripts.manifest_common import (
     add_numericfield as _common_add_numericfield,
     add_combobox as _common_add_combobox,
     add_button as _common_add_button,
-    add_helper as _common_add_helper,
     write_if_changed as _write_if_changed,
 )
 
@@ -522,7 +521,6 @@ def generate_settings_dialog_tabs(modules, tpl_path, output_path, *, librepy_fla
 def generate_manifest_xml(modules, output_path):
     """Generate META-INF/manifest.xml with XCS/XCU entries for selected modules."""
     MANIFEST_NS = "http://openoffice.org/2001/manifest"
-    MF = "manifest:"
 
     # Static entries (always present)
     entries = [

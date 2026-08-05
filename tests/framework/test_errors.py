@@ -3,14 +3,12 @@ import queue
 import unittest
 import pytest
 import sys
-import unittest
-import json
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 from plugin.framework.errors import WriterAgentException, format_error_payload, safe_json_loads
 from plugin.framework.tool import ToolBase
 from plugin.framework.client.errors import format_error_for_display
 from plugin.framework.async_stream import StreamQueueKind, run_stream_drain_loop
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from plugin.framework.errors import WriterError
 from plugin.calc.manipulator import CellManipulator
 from plugin.calc import CalcError

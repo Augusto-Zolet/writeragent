@@ -349,8 +349,8 @@ def test_show_python_input_dialog_run_button_keeps_dialog_open():
     with patch("plugin.framework.uno_context.get_desktop", return_value=desktop):
         with _patch_modal_native():
             with patch.object(ui, "set_config") as mock_set:
-                with patch.object(ui, "get_config", return_value={"Sample": "result = 42"}) as mock_get:
-                    with patch.object(ui, "get_config_str", return_value="") as mock_get_str:
+                with patch.object(ui, "get_config", return_value={"Sample": "result = 42"}):
+                    with patch.object(ui, "get_config_str", return_value=""):
                         with patch("plugin.scripting.python_runner.execute_and_insert_result", return_value={"ok": True, "status_ok_text": "done"}) as mock_execute:
                             def fake_execute_dialog():
                                 for listener in listeners:
@@ -407,7 +407,7 @@ def test_show_python_input_dialog_save_button():
 
     btn_save = MagicMock()
     listeners = []
-    btn_save.addActionListener.side_effect = lambda l: listeners.append(l)
+    btn_save.addActionListener.side_effect = lambda listener: listeners.append(listener)
     
     def fake_get_control(name):
         if name == "BtnSave":
@@ -420,8 +420,8 @@ def test_show_python_input_dialog_save_button():
     with patch("plugin.framework.uno_context.get_desktop", return_value=desktop):
         with _patch_modal_native():
             with patch.object(ui, "set_config") as mock_set:
-                with patch.object(ui, "get_config", return_value={"Sample": "print('hello')"}) as mock_get:
-                    with patch.object(ui, "get_config_str", return_value="") as mock_get_str:
+                with patch.object(ui, "get_config", return_value={"Sample": "print('hello')"}):
+                    with patch.object(ui, "get_config_str", return_value=""):
                         def fake_execute():
                             for listener in listeners:
                                 if "SaveListener" in type(listener).__name__:
@@ -512,7 +512,7 @@ def test_show_python_input_dialog_save_as_button():
 
     btn_save_as = MagicMock()
     listeners = []
-    btn_save_as.addActionListener.side_effect = lambda l: listeners.append(l)
+    btn_save_as.addActionListener.side_effect = lambda listener: listeners.append(listener)
     
     def fake_get_control(name):
         if name == "ScriptSelect":

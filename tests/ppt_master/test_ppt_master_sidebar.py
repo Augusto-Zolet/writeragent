@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
 
 
 def test_ppt_master_not_in_draw_delegate_enum():

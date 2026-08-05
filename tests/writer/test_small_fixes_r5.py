@@ -30,7 +30,7 @@ def test_dry_run_reports_matches_without_mutating():
     r1.getString.return_value = "clause 3.2 text"
     r2.getString.return_value = "clause 3.2 again"
     ctx = _edit_ctx()
-    with patch.object(content_mod, "_find_all_ranges", return_value=[r1, r2]) as fa, \
+    with patch.object(content_mod, "_find_all_ranges", return_value=[r1, r2]), \
          patch("plugin.writer.search.describe_match_location", return_value="body"), \
          patch.object(content_mod, "_normalize_search_string_for_find", side_effect=lambda s: s), \
          patch("plugin.writer.format.content_has_markup", return_value=False):

@@ -82,7 +82,7 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 | `make ensure-uno` | Link system UNO into `.venv` if `import uno` fails (auto-run before typecheck/test) |
 | `make fix-uno` | Same as **`ensure-uno`** with verbose output |
 
-**Ruff:** `[tool.ruff]` line length **320** (Ruff’s maximum; fits dense one-line calls without wrapping); `[tool.ruff.format]` **`skip-magic-trailing-comma` true**—see [`pyproject.toml`](pyproject.toml). **`make build`** runs **`ruff-fix`** then **`ruff check`** (`ruff-for-build`); standalone **`make ruff`** is check-only. Not part of **`make test`**.
+**Ruff:** `[tool.ruff]` line length **320** (Ruff’s maximum; fits dense one-line calls without wrapping); `[tool.ruff.format]` **`skip-magic-trailing-comma` true**—see [`pyproject.toml`](pyproject.toml). **`make build`** runs **`ruff-fix`** then **`ruff check`** (`ruff-for-build`) over **`plugin/`**, **`tests/`**, **`scripts/`**, and **`demos/`** (format targets stay **`plugin/`**-scoped). Typecheck remains **`plugin`** + **`compute_service`** only. Standalone **`make ruff`** is check-only. Not part of **`make test`**.
 
 **Optional:** **`make pyrefly`** — not in **`make test`**; see [`docs/type-checking.md`](docs/type-checking.md).
 

@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
 
 from compute_service.executor import execute_code
 from compute_service.json_egress import to_dumb_json_value

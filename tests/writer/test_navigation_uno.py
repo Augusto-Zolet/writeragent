@@ -1,13 +1,11 @@
 import unittest
-import sys
 
 from plugin.tests.testing_utils import setup_uno_mocks, ElementStub, WriterDocStub
 setup_uno_mocks()
 
 from plugin.doc.document_helpers import (
     build_heading_tree,
-    resolve_locator,
-    get_paragraph_ranges
+    resolve_locator
 )
 
 class TestWriterNavigation(unittest.TestCase):

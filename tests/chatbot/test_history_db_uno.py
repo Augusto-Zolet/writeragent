@@ -253,8 +253,6 @@ def test_message_to_dict_list():
     assert "hello" in res["content"]
     assert "[Audio Attached]" in res["content"]
 
-import sys
-from importlib import reload
 
 def test_sqlite_available():
     # Typically sqlite3 is available in python env

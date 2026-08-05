@@ -13,7 +13,6 @@ import subprocess
 import sys
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from plugin.scripting.config_limits import (
     SELF_CHECK_IMPORT_PROBE_TIMEOUT_SEC,
@@ -100,7 +99,6 @@ def test_run_venv_self_check_reports_architecture():
 
 
 def test_format_self_check_success_with_arch():
-    from plugin.scripting.venv_diagnostics import _format_self_check_success
     data = {"v": "3.12.0", "arch": "ARM64", "p": {}, "sci": [], "ui": []}
     msg = _format_self_check_success(data)
     assert "Python 3.12.0 (ARM64)" in msg
@@ -108,7 +106,6 @@ def test_format_self_check_success_with_arch():
 
 
 def test_format_self_check_success_without_arch():
-    from plugin.scripting.venv_diagnostics import _format_self_check_success
     data = {"v": "3.11.5", "p": {}, "sci": [], "ui": []}
     msg = _format_self_check_success(data)
     assert "Python 3.11.5 responds OK" in msg
@@ -116,7 +113,6 @@ def test_format_self_check_success_without_arch():
 
 
 def test_format_self_check_success_with_data_engineering_group():
-    from plugin.scripting.venv_diagnostics import _format_self_check_success
 
     data = {
         "v": "3.12.0",
@@ -185,7 +181,6 @@ def test_build_probe_display_omits_install_footer_while_progressive():
 
 
 def test_format_self_check_success_with_vision_group():
-    from plugin.scripting.venv_diagnostics import _format_self_check_success
 
     data = {
         "v": "3.12.0",
@@ -219,7 +214,6 @@ def test_format_self_check_success_with_vision_group():
     assert "Helpers" not in msg
 
 def test_format_self_check_success_vision_optional_paddle_when_docling_ready():
-    from plugin.scripting.venv_diagnostics import _format_self_check_success
 
     data = {
         "v": "3.12.0",
@@ -250,7 +244,6 @@ def test_format_self_check_success_vision_optional_paddle_when_docling_ready():
 
 
 def test_format_self_check_success_vision_install_hint():
-    from plugin.scripting.venv_diagnostics import _format_self_check_success
 
     data = {
         "v": "3.12.0",
@@ -290,7 +283,6 @@ def test_format_self_check_success_vision_install_hint():
 
 
 def test_format_self_check_success_vision_paddle_only_ready():
-    from plugin.scripting.venv_diagnostics import _format_self_check_success
 
     data = {
         "v": "3.12.0",
@@ -320,7 +312,6 @@ def test_format_self_check_success_vision_paddle_only_ready():
 
 
 def test_format_self_check_success_vision_install_hint_when_numpy_missing():
-    from plugin.scripting.venv_diagnostics import _format_self_check_success
 
     data = {
         "v": "3.12.0",
@@ -354,7 +345,6 @@ def test_format_self_check_success_vision_install_hint_when_numpy_missing():
 
 
 def test_format_self_check_success_with_vector_search_group():
-    from plugin.scripting.venv_diagnostics import _format_self_check_success
 
     data = {
         "v": "3.12.0",
@@ -394,7 +384,6 @@ def test_format_self_check_success_with_vector_search_group():
 
 
 def test_format_self_check_success_vector_search_probe_failure_hint():
-    from plugin.scripting.venv_diagnostics import _format_self_check_success
 
     data = {
         "v": "3.12.0",
@@ -567,7 +556,6 @@ def test_probe_vision_packages_timeout_reports_failure():
 
 
 def test_probe_vector_search_packages_subprocess_timeout():
-    from plugin.scripting.venv_diagnostics import _probe_vector_search_packages
 
     with patch(
         "plugin.scripting.venv_diagnostics.subprocess.run",
@@ -580,7 +568,6 @@ def test_probe_vector_search_packages_subprocess_timeout():
 
 
 def test_format_self_check_success_vision_probe_failure_hint():
-    from plugin.scripting.venv_diagnostics import _format_self_check_success
 
     data = {
         "v": "3.12.0",
@@ -603,7 +590,6 @@ def test_format_self_check_success_vision_probe_failure_hint():
 
 
 def test_probe_vision_packages_subprocess_timeout():
-    from plugin.scripting.venv_diagnostics import _probe_vision_packages
 
     with patch(
         "plugin.scripting.venv_diagnostics.subprocess.run",
@@ -616,7 +602,6 @@ def test_probe_vision_packages_subprocess_timeout():
 
 
 def test_format_self_check_success_analysis_install_hint():
-    from plugin.scripting.venv_diagnostics import _format_self_check_success
 
     data = {
         "v": "3.12.0",
@@ -640,7 +625,6 @@ def test_format_self_check_success_analysis_install_hint():
 
 
 def test_format_self_check_success_no_analysis_hint_when_complete():
-    from plugin.scripting.venv_diagnostics import _format_self_check_success
 
     data = {
         "v": "3.12.0",
@@ -665,7 +649,6 @@ def test_format_self_check_success_no_analysis_hint_when_complete():
 
 
 def test_format_self_check_success_global_install_footer_mixed_groups():
-    from plugin.scripting.venv_diagnostics import _format_self_check_success
 
     data = {
         "v": "3.12.0",

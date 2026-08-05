@@ -1,6 +1,5 @@
 import pytest
 import sys
-import types
 from unittest.mock import MagicMock, patch
 
 from plugin.tests.testing_utils import setup_uno_mocks
@@ -343,11 +342,11 @@ def _mock_text_input_dialog_uno(text_on_ok: str):
             return text_edit
         if name == "BtnOK":
             btn = MagicMock()
-            btn.addActionListener.side_effect = lambda l: ok_listeners.append(l)
+            btn.addActionListener.side_effect = lambda listener: ok_listeners.append(listener)
             return btn
         if name == "BtnCancel":
             btn = MagicMock()
-            btn.addActionListener.side_effect = lambda l: cancel_listeners.append(l)
+            btn.addActionListener.side_effect = lambda listener: cancel_listeners.append(listener)
             return btn
         return MagicMock()
 

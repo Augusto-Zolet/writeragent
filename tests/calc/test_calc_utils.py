@@ -9,9 +9,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-import pytest
 
-from plugin.calc.calc_utils import get_cell_geometry, get_cell_geometry_target, resolve_sheet
+from plugin.calc.calc_utils import get_cell_geometry, get_cell_geometry_target
 
 
 class TestGetCellGeometry:

@@ -7,7 +7,6 @@ Extracts .so and .pyd files from wheels and places them in plugin/contrib/vec_pa
 import os
 import shutil
 import zipfile
-import platform
 import subprocess
 import json
 import tempfile

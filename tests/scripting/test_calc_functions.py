@@ -8,7 +8,6 @@ from __future__ import annotations
 import math
 
 import plugin.scripting.calc_functions as calc
-import math
 
 
 def test_conditional_aggregates():

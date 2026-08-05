@@ -13,11 +13,9 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-import uno
 from plugin.testing_runner import native_test, setup, teardown
 from plugin.writer.styles import GetStyleInfo
 from plugin.tests.testing_utils import TestingFactory
-import json
 
 _test_doc = None
 _test_ctx = None

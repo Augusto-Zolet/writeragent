@@ -4,7 +4,6 @@ import cProfile
 import pstats
 import sys
 from pathlib import Path
-import math
 
 # Add project root to sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -17,7 +16,7 @@ def bench_with_nones():
     ncols = 5
     grid = [[float(i + j) if (i+j) % 10 != 0 else None for j in range(ncols)] for i in range(nrows)]
     
-    print(f"Benchmarking 100k cells with Nones...")
+    print("Benchmarking 100k cells with Nones...")
     t0 = time.perf_counter()
     for _ in range(10):
         host_pack_data(grid, force="always")

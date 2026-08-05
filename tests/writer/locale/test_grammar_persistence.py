@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
-from plugin.writer.locale.grammar_persistence import get_persistence, GRAMMAR_CACHE_VERSION
+from plugin.writer.locale.grammar_persistence import GRAMMAR_CACHE_VERSION
 
 class TestGrammarPersistence(unittest.TestCase):
     def setUp(self):

@@ -13,7 +13,6 @@ from plugin.framework.prompts import (
     get_core_directives,
     get_specialized_delegation_for_model,
     python_specialized_sub_agent_hint,
-    PYTHON_VENV_AUTO_IMPORTS_PROMPT_LINE,
     WRITER_CORE_DIRECTIVES,
     CALC_CORE_DIRECTIVES,
     DRAW_CORE_DIRECTIVES,

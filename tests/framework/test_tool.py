@@ -509,7 +509,9 @@ class TestToolIsolation:
         registry.register(FailingTool())
 
         class DummyContext:
-            doc = None; doc_type = None; caller = None
+            doc = None
+            doc_type = None
+            caller = None
         result = registry.execute("test_fail", DummyContext())
         assert result["status"] == "error"
         assert "Test error" in result["details"]["original_error"]
@@ -529,7 +531,9 @@ class TestToolIsolation:
         registry = ToolRegistry(services={})
         registry.register(SlowTool())
         class DummyContext:
-            doc = None; doc_type = None; caller = None
+            doc = None
+            doc_type = None
+            caller = None
         result = registry.execute("test_slow", DummyContext())
         assert result["status"] == "error"
         assert result["code"] == "TOOL_TIMEOUT"
@@ -653,7 +657,7 @@ def test_execute_async_delegate_skips_uno_doc_probe(monkeypatch):
 
 
 def test_get_tools_off_main_thread_without_doc_probe():
-    from plugin.framework.tool import ToolBase, tool_supports_document
+    from plugin.framework.tool import ToolBase
 
     doc = MagicMock()
     doc.supportsService.return_value = True

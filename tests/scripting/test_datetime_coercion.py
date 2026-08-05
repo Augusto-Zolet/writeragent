@@ -10,10 +10,9 @@ def test_convert_datetimes_and_deltas_disabled():
     assert res == "2026-06-29"
 
 def test_convert_datetimes_and_deltas_enabled():
-    try:
-        import pandas
-        import dateparser
-    except ImportError:
+    import importlib.util
+
+    if importlib.util.find_spec("pandas") is None or importlib.util.find_spec("dateparser") is None:
         pytest.skip("pandas or dateparser not installed in testing environment")
 
     # Test date-time strings

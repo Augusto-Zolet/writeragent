@@ -7,7 +7,6 @@
 # (at your option) any later version.
 
 from plugin.testing_runner import setup, native_test
-import uno
 
 _ctx = None
 

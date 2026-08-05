@@ -16,7 +16,7 @@ def bench():
     ncols = 5
     grid = [[float(i + j) for j in range(ncols)] for i in range(nrows)]
     
-    print(f"Benchmarking 100k cells...")
+    print("Benchmarking 100k cells...")
     t0 = time.perf_counter()
     for _ in range(10):
         host_pack_data(grid, force="always")

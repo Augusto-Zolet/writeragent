@@ -11,7 +11,7 @@ from typing import Any
 
 from plugin.framework.logging import log
 from plugin.framework.uno_context import get_desktop
-from plugin.testing_runner import native_test, setup, teardown
+from plugin.testing_runner import setup, teardown
 
 # ``make test`` LO runner: skip this file until clipboard/formatted-copy UNO path is stable.
 SKIP_NATIVE_RUN_ALL = True
