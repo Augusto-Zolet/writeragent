@@ -156,6 +156,34 @@ def test_build_probe_display_includes_nlp_when_keys_present():
     assert "spacy" in msg
 
 
+def test_build_probe_display_omits_install_footer_while_progressive():
+    """Mid-Test refresh must not show a partial uv/pip install recipe."""
+    data = {
+        "v": "3.12.0",
+        "p": {
+            "numpy": "present",
+            "scipy": None,
+            "sklearn": None,
+            "sounddevice": "present",
+            "input_device": "present",
+        },
+        "sci": ["numpy", "scipy", "sklearn"],
+        "eda": [],
+        "ui": [],
+        "audio": ["sounddevice", "input_device"],
+        "nlp": [],
+        "vision": [],
+        "vector_search": [],
+        "data_eng": [],
+    }
+    msg = _build_probe_display(data, completed_groups=2, include_audio=True)
+    assert "Scientific Libraries" in msg
+    assert "Missing: scipy, sklearn" in msg
+    assert "To install remaining packages:" not in msg
+    assert "uv pip install" not in msg
+    assert "pip install" not in msg
+
+
 def test_format_self_check_success_with_vision_group():
     from plugin.scripting.venv_diagnostics import _format_self_check_success
 
@@ -189,7 +217,6 @@ def test_format_self_check_success_with_vision_group():
     assert "Missing (OCR)" not in msg
     assert "pip install" not in msg
     assert "Helpers" not in msg
-
 
 def test_format_self_check_success_vision_optional_paddle_when_docling_ready():
     from plugin.scripting.venv_diagnostics import _format_self_check_success

@@ -742,7 +742,7 @@ pip install docling rapidocr-paddle numpy pillow
 | `import ultralytics` | Optional (not installed) until Phase 4 |
 | Optional `import skimage` | Optional (not installed) |
 
-When any group still has Missing packages, Test ends with copy-paste lines:
+When any group still has Missing packages, Test ends (after all probes finish) with copy-paste lines:
 
 ```text
 To install remaining packages:

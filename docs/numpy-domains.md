@@ -28,7 +28,7 @@ WriterAgent builds **domain-specific trusted helpers** on top of the warm venv s
 
 ## Venv packages by domain {#venv-packages-by-domain}
 
-Trusted helpers require packages in the user venv (`scripting.python_venv_path`). Settings → Python **Test** reports Present/Missing per group, and when anything is still Missing appends copy-paste **`uv pip install …`** then **`pip install …`** lines at the bottom for those packages.
+Trusted helpers require packages in the user venv (`scripting.python_venv_path`). Settings → Python **Test** reports Present/Missing per group, and **after Test finishes**, when anything is still Missing, appends copy-paste **`uv pip install …`** then **`pip install …`** lines at the bottom for those packages.
 
 ### Required venv packages (trusted analysis helpers)
 

@@ -805,6 +805,7 @@ def _build_probe_display(
     include_vector_search: bool = False,
     include_vision: bool = False,
     include_audio: bool = False,
+    include_install_footer: bool = False,
 ) -> str:
     """Rebuild the Settings → Python Test body in the legacy grouped Present/Missing format."""
     version = data.get("v", "unknown")
@@ -872,16 +873,18 @@ def _build_probe_display(
             if warning:
                 msg_lines.append(f"\nWarning: {warning}")
 
-    missing_keys = _collect_missing_probe_keys_for_display(
-        data,
-        completed_groups=completed_groups,
-        partial_group_keys=partial_group_keys,
-        partial_group_title=partial_group_title,
-        include_vector_search=include_vector_search,
-        include_vision=include_vision,
-        include_audio=include_audio,
-    )
-    msg_lines.extend(_format_install_footer(missing_keys))
+    # Progressive _refresh must not show a partial install recipe; only the final display does.
+    if include_install_footer:
+        missing_keys = _collect_missing_probe_keys_for_display(
+            data,
+            completed_groups=completed_groups,
+            partial_group_keys=partial_group_keys,
+            partial_group_title=partial_group_title,
+            include_vector_search=include_vector_search,
+            include_vision=include_vision,
+            include_audio=include_audio,
+        )
+        msg_lines.extend(_format_install_footer(missing_keys))
 
     return "\n".join(msg_lines)
 
@@ -899,6 +902,7 @@ def _format_self_check_success(data: dict[str, Any]) -> str:
         include_vector_search=True,
         include_vision=True,
         include_audio=True,
+        include_install_footer=True,
     )
 
 
@@ -1086,6 +1090,7 @@ def run_venv_self_check_with_progress(
             include_vector_search=True,
             include_vision=True,
             include_audio=True,
+            include_install_footer=True,
             extra_lines_after_header=extra_lines_after_header,
         )
         on_display(final_msg)
