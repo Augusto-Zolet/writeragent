@@ -20,6 +20,7 @@ from plugin.framework.logging import (
     get_debug_log_path,
     init_logging,
     redact_sensitive_payload_for_log,
+    resolve_log_level,
     safe_log_exception,
     update_activity_state,
     _activity_state,
@@ -184,6 +185,14 @@ class TestLogRedaction(unittest.TestCase):
         self.assertEqual(r['data'][0]['b64_json'], (LOG_REDACT_IMAGE_PLACEHOLDER % 4))
         self.assertEqual(r['data'][0]['url'], 'http://ok')
         self.assertEqual(r['data'][1]['url'], (LOG_REDACT_IMAGE_PLACEHOLDER % len('data:image/png;base64,QQ==')))
+
+def test_resolve_log_level_allowlist():
+    assert resolve_log_level("DEBUG") == logging.DEBUG
+    assert resolve_log_level("warn") == logging.WARNING
+    assert resolve_log_level("WARN") == logging.WARNING
+    assert resolve_log_level("__dict__") == logging.WARNING
+    assert resolve_log_level(None) == logging.WARNING
+
 
 def test_format_tool_call_for_display():
     assert (format_tool_call_for_display('my_tool', {'arg': 'val'}) == "my_tool(arg='val')")

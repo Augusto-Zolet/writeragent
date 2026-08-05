@@ -45,6 +45,20 @@ _exception_hooks_installed = False
 
 log = logging.getLogger("writeragent")
 
+# Config log_level strings allowed through getattr(logging, ...); others → WARNING.
+_LOG_LEVEL_NAMES = frozenset({"CRITICAL", "ERROR", "WARNING", "WARN", "INFO", "DEBUG", "NOTSET"})
+
+
+def resolve_log_level(level_str: str | None) -> int:
+    """Map a config log_level string to a logging level; unknown values → WARNING."""
+    name = str(level_str or "WARN").strip().upper()
+    if name == "WARN":
+        name = "WARNING"
+    if name not in _LOG_LEVEL_NAMES:
+        return logging.WARNING
+    return int(getattr(logging, name))
+
+
 # Watchdog: shared state (main thread updates, watchdog reads)
 _activity_state = {"phase": "", "round_num": -1, "tool_name": None, "last_activity": 0.0}
 _activity_lock = threading.Lock()
@@ -180,7 +194,7 @@ def init_logging(ctx=None):
         level_str = "WARN"
         try:
             level_str = config.get_config_str("log_level") or "WARN"
-            numeric_level = getattr(logging, str(level_str).upper(), logging.WARNING)
+            numeric_level = resolve_log_level(level_str)
             global _log_level_numeric
             _log_level_numeric = numeric_level
 

@@ -123,6 +123,12 @@ ifneq ($(wildcard .venv/Scripts/python.exe),)
     PYTHON := $(PROJECT_ROOT)/.venv/Scripts/python.exe
 endif
 endif
+# Optional PySpector CLI (console script; no python -m). Not part of make test.
+ifeq ($(OS),Windows_NT)
+    PYSPECTOR := $(PROJECT_ROOT)/.venv/Scripts/pyspector.exe
+else
+    PYSPECTOR := $(PROJECT_ROOT)/.venv/bin/pyspector
+endif
 OPENGREP := $(shell "$(PYTHON)" $(SCRIPTS)/opengrep_path.py 2>/dev/null)
 ifeq ($(OPENGREP),)
 ifeq ($(OS),Windows_NT)
@@ -145,7 +151,7 @@ endif
         log log-tail lo-log test test-run slowtests vhs test-visible lo-test-threadguard lo-test-threadguard-visible typecheck check-ext check-setup deploy ensure-uno \
         lo-start-log opengrep-lint opengrep-lint-advisory opengrep-rules-sync opengrep-rules-audit uno-thread-lint uno-thread-lint-advisory opengrep-install \
         writer calc draw impress \
-        set-config vendor docker-build compile-translations compile-translations-core merge-translations refresh-pot reset-lang preview-translations check ty mypy pyright pyrefly bandit ty-run mypy-run pyright-run pyrefly-run \
+        set-config vendor docker-build compile-translations compile-translations-core merge-translations refresh-pot reset-lang preview-translations check ty mypy pyright pyrefly bandit pyspector pyspector-report ty-run mypy-run pyright-run pyrefly-run \
         ruff ruff-fix ruff-for-build ruff-format-check ruff-format-grammar \
         eval-deps run_eval run_eval-smoke
 
@@ -229,6 +235,8 @@ help:
 	@echo "  make fix-uno                Same as ensure-uno with verbose output"
 	@echo "  make mypy / make pyright / make pyrefly / make bandit   Single-tool runs (bandit: plugin/, excludes contrib + tests)"
 	@echo "  make pyrefly                Experimental Meta Pyrefly checker (same scope as ty; not part of make test)"
+	@echo "  make pyspector              Optional PySpector AI/taint SAST on plugin/ (--ai; not part of make test)"
+	@echo "  make pyspector-report       Same scan, write build/pyspector-report.json"
 	@echo "  make ruff                   Ruff lint (plugin tests scripts demos; excludes contrib/lib; see pyproject.toml)"
 	@echo "  make ruff-fix               Ruff with --fix; make ruff-format-check = ruff format --check plugin/"
 	@echo "  make ruff-for-build         Ruff --fix then check (used by make build)"
@@ -795,6 +803,17 @@ pyrefly-run: ensure-uno
 
 bandit:
 	$(PYTHON) -m bandit -r plugin -c pyproject.toml --severity-level medium
+
+# Optional cross-file / AI-agent SAST (not part of make test/build/release).
+# Wrapper disables reviewed FP rules; see scripts/run_pyspector.py.
+pyspector:
+	@$(PYTHON) -c "import pyspector" 2>/dev/null || (echo "pyspector not found — run: uv sync" && exit 1)
+	$(PYTHON) $(SCRIPTS)/run_pyspector.py scan plugin --ai -c pyspector.toml --msg=False
+
+pyspector-report:
+	@$(PYTHON) -c "import pyspector" 2>/dev/null || (echo "pyspector not found — run: uv sync" && exit 1)
+	@$(MKDIR) build
+	$(PYTHON) $(SCRIPTS)/run_pyspector.py scan plugin --ai -c pyspector.toml --msg=False -f json -o build/pyspector-report.json
 
 ruff:
 	$(PYTHON) -m ruff check plugin tests scripts demos

@@ -1,0 +1,23 @@
+# Optional PySpector config (make pyspector). Not part of make test/build/release.
+# https://github.com/ParzivalHack/PySpector
+# Scan root is plugin/ (see Makefile), so excludes are path components / globs under that tree.
+# User exclude replaces PySpector defaults entirely — keep common noise patterns here too.
+[tool.pyspector]
+severity = "MEDIUM"
+exclude = [
+  ".venv",
+  "venv",
+  ".git",
+  "__pycache__",
+  "build",
+  "dist",
+  "node_modules",
+  "vendor",
+  "contrib",
+  "lib",
+  "tests",
+  "demos",
+  "*/tests/fixtures/*",
+  "**/test_*.py",
+  "**/*_test.py",
+]
