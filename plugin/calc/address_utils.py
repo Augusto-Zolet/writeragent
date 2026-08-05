@@ -21,9 +21,27 @@ Pure utility functions with no UNO dependency. Ported from
 core/calc_address_utils.py for the plugin framework.
 """
 
+from __future__ import annotations
+
+import importlib
 import re
+from typing import Any
+
+deal: Any
+try:
+    deal = importlib.import_module("deal")
+except ImportError:
+
+    class _DummyDeal:
+        def __getattr__(self, name: str) -> Any:
+            return lambda *args, **kwargs: lambda f: f
+
+    deal = _DummyDeal()
 
 
+@deal.pre(lambda col_str: isinstance(col_str, str) and col_str.isascii() and col_str.isalpha())
+@deal.post(lambda result: isinstance(result, int) and result >= 0)
+@deal.ensure(lambda col_str, result: index_to_column(result) == col_str.upper())
 def column_to_index(col_str: str) -> int:
     """Convert column letter to 0-based index.
 
@@ -39,6 +57,8 @@ def column_to_index(col_str: str) -> int:
     return result - 1
 
 
+@deal.pre(lambda index: isinstance(index, int) and index >= 0)
+@deal.post(lambda result: isinstance(result, str) and result.isalpha() and result.isupper())
 def index_to_column(index: int) -> str:
     """Convert 0-based column index to letter notation.
 
@@ -56,6 +76,9 @@ def index_to_column(index: int) -> str:
     return result
 
 
+@deal.pre(lambda address: isinstance(address, str))
+@deal.post(lambda result: isinstance(result, tuple) and len(result) == 2 and result[0] >= 0 and result[1] >= 0)
+@deal.raises(ValueError)
 def parse_address(address: str) -> tuple[int, int]:
     """Convert cell address to column and row indices.
 
@@ -82,6 +105,13 @@ def parse_address(address: str) -> tuple[int, int]:
     return col_index, row_index
 
 
+@deal.pre(lambda range_str: isinstance(range_str, str))
+@deal.post(
+    lambda result: isinstance(result, tuple)
+    and len(result) == 2
+    and all(isinstance(p, tuple) and len(p) == 2 and p[0] >= 0 and p[1] >= 0 for p in result)
+)
+@deal.raises(ValueError)
 def parse_range_string(range_str: str) -> tuple[tuple[int, int], tuple[int, int]]:
     """Convert cell range string to column/row indices.
 
@@ -115,6 +145,9 @@ def parse_range_string(range_str: str) -> tuple[tuple[int, int], tuple[int, int]
     return (start_col, start_row), (end_col, end_row)
 
 
+@deal.pre(lambda col, row: isinstance(col, int) and col >= 0 and isinstance(row, int) and row >= 0)
+@deal.post(lambda result: isinstance(result, str) and bool(re.match(r"^[A-Z]+\d+$", result)))
+@deal.ensure(lambda col, row, result: parse_address(result) == (col, row))
 def format_address(col: int, row: int) -> str:
     """Create cell address from column and row indices.
 

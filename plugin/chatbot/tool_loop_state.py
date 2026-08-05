@@ -1,4 +1,5 @@
 import dataclasses
+import importlib
 import json
 from enum import Enum, auto
 from typing import Any, Dict, List, Mapping, Optional, NamedTuple
@@ -7,6 +8,17 @@ from plugin.framework.service import BaseState, FsmTransition
 from plugin.chatbot.state_machine import UIEffectKind
 from plugin.chatbot.memory import format_upsert_memory_chat_line
 from plugin.framework.client.stream_normalizer import reasoning_replay_from_assistant_response
+
+deal: Any
+try:
+    deal = importlib.import_module("deal")
+except ImportError:
+
+    class _DummyDeal:
+        def __getattr__(self, name: str) -> Any:
+            return lambda *args, **kwargs: lambda f: f
+
+    deal = _DummyDeal()
 
 # Short sidebar chat labels for delegate_to_specialized_*_toolset gateway tools.
 DELEGATE_GATEWAY_TOOL_NAMES = frozenset(
@@ -210,6 +222,13 @@ class CleanupAudioEffect:
 
 
 # --- State Machine Transition ---
+@deal.pre(lambda state, event: isinstance(state.max_rounds, int) and state.max_rounds > 0 and state.round_num >= 0)
+@deal.post(lambda result: result.state.round_num >= 0)
+@deal.ensure(
+    lambda state, event, result: event.kind != EventKind.STOP_REQUESTED
+    or any(isinstance(e, ExitLoopEffect) for e in result.effects)
+)
+@deal.ensure(lambda state, event, result: result.state.round_num <= max(state.round_num + 1, state.max_rounds))
 def next_state(state: ToolLoopState, event: ToolLoopEvent) -> FsmTransition[ToolLoopState]:
     """Pure transition function for the tool-calling loop."""
     effects: List[Any] = []

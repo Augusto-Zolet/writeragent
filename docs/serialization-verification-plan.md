@@ -10,7 +10,7 @@ This is the reference implementation for Tier-0 (pure Python) contract + CrossHa
 
 | Item | State |
 |------|--------|
-| `deal` contracts | 8 functions in `payload_codec.py` (see list below) |
+| `deal` contracts | 10 functions in `payload_codec.py` (see list below) |
 | Dev dependencies | `deal`, `crosshair-tool` in [`pyproject.toml`](../pyproject.toml) |
 | Release strip | [`scripts/strip_code.py`](../scripts/strip_code.py) removes `@deal.*` decorators and import shim |
 | Pytest hook | [`tests/scripting/test_serialization_verification.py`](../tests/scripting/test_serialization_verification.py) |
@@ -21,13 +21,15 @@ This is the reference implementation for Tier-0 (pure Python) contract + CrossHa
 **Functions with contracts:**
 
 1. `_flatten_grid_to_components` — core flatten logic
-2. `host_pack_split_grid`
-3. `host_pack_data`
-4. `host_unpack_split_grid`
-5. `child_unpack_split_grid`
-6. `child_unpack_data`
-7. `child_pack_split_grid`
-8. `child_pack_result`
+2. `column_kinds_for_grid` — kinds ⊆ `{int,float,bool}`
+3. `should_use_binary_envelope` — force always/never overrides
+4. `host_pack_split_grid`
+5. `host_pack_data`
+6. `host_unpack_split_grid`
+7. `child_unpack_split_grid`
+8. `child_unpack_data`
+9. `child_pack_split_grid`
+10. `child_pack_result`
 
 `host_unpack_data` is a thin dispatcher with **no** contracts (delegates to `host_unpack_split_grid`).
 
@@ -168,7 +170,7 @@ make crosshair-check
 ## Next steps
 
 1. Optional CI job running `make verify-serialization` on a schedule or PR label.
-2. Extend contracts to other Tier-0 helpers: `should_use_binary_envelope`, `column_kinds_for_grid`.
+2. Broader Tier-0 / FSM coverage: `address_utils`, `url_utils`, send/audio FSM — see [`verification_status.json`](../verification_status.json) and [`docs/formal_verification.md`](formal_verification.md) Phase 6/7.
 3. Consider `scripts/update_verification_status.py` to refresh [`verification_status.json`](../verification_status.json) after CrossHair runs.
 
 ---

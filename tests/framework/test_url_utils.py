@@ -39,10 +39,28 @@ class TestNormalizeEndpointUrl():
         assert stored + suffix + "/chat/completions" == "https://api.z.ai/api/paas/v4/chat/completions"
 
     def test_openwebui_normalization(self):
-        # Test that /api is stripped when is_openwebui is True
+        # /api is stripped when is_openwebui is True (re-appended as get_api_version_suffix)
         assert normalize_endpoint_url("http://localhost:3000/api", is_openwebui=True) == "http://localhost:3000"
-        # Test that /api is NOT stripped when is_openwebui is False
+        # /api is NOT stripped when is_openwebui is False (OpenRouter-style bases keep /api)
         assert normalize_endpoint_url("http://localhost:3000/api", is_openwebui=False) == "http://localhost:3000/api"
+        # Pasted /api/v1 must become host-only in one pass (avoid stored .../api → .../api/api/...)
+        assert normalize_endpoint_url("http://localhost:3000/api/v1", is_openwebui=True) == "http://localhost:3000"
+        assert normalize_endpoint_url("http://localhost:3000/api/v1/", is_openwebui=True) == "http://localhost:3000"
+        assert normalize_endpoint_url("http://localhost:3000/v1", is_openwebui=True) == "http://localhost:3000"
+
+    def test_openwebui_normalize_idempotent(self):
+        for raw in (
+            "http://localhost:3000",
+            "http://localhost:3000/api",
+            "http://localhost:3000/api/v1",
+            "http://localhost:3000/v1",
+            "http://localhost:3000/api/",
+        ):
+            once = normalize_endpoint_url(raw, is_openwebui=True)
+            twice = normalize_endpoint_url(once, is_openwebui=True)
+            assert twice == once
+            # Round-trip to chat URL uses /api once
+            assert once + get_api_version_suffix(once, is_openwebui=True) + "/chat/completions" == "http://localhost:3000/api/chat/completions"
 
 class TestApiVersionSuffix():
 

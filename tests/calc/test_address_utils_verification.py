@@ -1,0 +1,97 @@
+# WriterAgent - AI Writing Assistant for LibreOffice
+# Copyright (c) 2026 KeithCu
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+"""deal / CrossHair / Hypothesis verification for calc address_utils.
+
+CrossHair marked slow (excluded from default ``make test``).
+"""
+
+from __future__ import annotations
+
+import re
+import shutil
+import subprocess
+from pathlib import Path
+
+import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
+
+from plugin.calc.address_utils import (
+    column_to_index,
+    format_address,
+    index_to_column,
+    parse_address,
+    parse_range_string,
+)
+
+CROSSHAIR_MODULE = "plugin/calc/address_utils.py"
+_CROSSHAIR_ERROR_RE = re.compile(r": error:")
+
+# Bound column width so Hypothesis stays fast (Excel max is wider; invariant holds generally).
+_col_letters = st.text(alphabet=st.characters(min_codepoint=ord("A"), max_codepoint=ord("Z")), min_size=1, max_size=3)
+_col_index = st.integers(min_value=0, max_value=26**3 - 1)
+_row_index = st.integers(min_value=0, max_value=10_000)
+
+
+def _find_crosshair() -> str | None:
+    crosshair_path = shutil.which("crosshair")
+    if crosshair_path:
+        return crosshair_path
+    venv_bin_ch = Path(".venv/bin/crosshair")
+    if venv_bin_ch.exists():
+        return str(venv_bin_ch)
+    return None
+
+
+def test_column_index_round_trip_named() -> None:
+    for col in ("A", "Z", "AA", "AB", "ZZ", "abc"):
+        assert index_to_column(column_to_index(col)) == col.upper()
+
+
+@given(col=_col_letters)
+@settings(max_examples=100)
+def test_hypothesis_column_letter_round_trip(col: str) -> None:
+    assert index_to_column(column_to_index(col)) == col.upper()
+
+
+@given(index=_col_index)
+@settings(max_examples=100)
+def test_hypothesis_column_index_round_trip(index: int) -> None:
+    assert column_to_index(index_to_column(index)) == index
+
+
+@given(col=_col_index, row=_row_index)
+@settings(max_examples=80)
+def test_hypothesis_format_parse_round_trip(col: int, row: int) -> None:
+    addr = format_address(col, row)
+    assert parse_address(addr) == (col, row)
+
+
+def test_parse_address_raises_on_invalid() -> None:
+    with pytest.raises(ValueError):
+        parse_address("Invalid")
+    with pytest.raises(ValueError):
+        parse_range_string("A1:Z")
+
+
+@pytest.mark.slow
+def test_crosshair_address_utils_if_available() -> None:
+    crosshair_path = _find_crosshair()
+    if not crosshair_path:
+        pytest.skip("CrossHair concolic execution engine is not installed.")
+
+    result = subprocess.run(
+        [crosshair_path, "check", "-v", "--report_all", CROSSHAIR_MODULE],
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    combined = f"{result.stdout}\n{result.stderr}".strip()
+    print(f"CrossHair output:\n{combined}")
+    errors = [line for line in combined.splitlines() if _CROSSHAIR_ERROR_RE.search(line)]
+    assert not errors, "CrossHair counterexamples found:\n" + "\n".join(errors)
+    if result.returncode == 2:
+        pytest.fail(f"CrossHair internal error (exit 2):\n{combined}")

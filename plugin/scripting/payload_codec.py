@@ -372,6 +372,7 @@ def _is_ndarray(obj: object) -> bool:
 
 @deal.pre(lambda grid, *_, **__: _is_grid_sequence(grid))
 @deal.post(lambda result, *_, **__: isinstance(result, list))
+@deal.ensure(lambda grid, result: all(k in ("int", "float", "bool") for k in result))
 def column_kinds_for_grid(grid: list[Any] | list[list[Any]]) -> list[str]:
     """Policy helper (tests): per-column int/float/bool from source types; mirrors host_pack_split_grid."""
     try:
@@ -494,6 +495,11 @@ def cell_count(shape: tuple[int, ...]) -> int:
     return n
 
 
+@deal.pre(lambda shape, *_, **__: isinstance(shape, tuple) and all(isinstance(d, int) and d >= 0 for d in shape))
+@deal.pre(lambda shape, *_, min_cells=BINARY_MIN_CELLS, force="auto", **__: force in ("auto", "always", "never") and isinstance(min_cells, int) and min_cells >= 0)
+@deal.post(lambda result: isinstance(result, bool))
+@deal.ensure(lambda shape, result, *_, force="auto", **__: force != "always" or result is True)
+@deal.ensure(lambda shape, result, *_, force="auto", **__: force != "never" or result is False)
 def should_use_binary_envelope(
     shape: tuple[int, ...],
     *,

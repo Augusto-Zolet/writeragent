@@ -371,47 +371,47 @@ def next_state(state: ToolLoopState, event: ToolLoopEvent) -> Tuple[ToolLoopStat
 
 ## Phase 6: Formal Verification of State Machines
 
-**Reference implementation:** [`plugin/scripting/payload_codec.py`](../plugin/scripting/payload_codec.py) already carries `deal` contracts and CrossHair/pytest verification for split-grid serialization — see [`docs/serialization-verification-plan.md`](serialization-verification-plan.md). Use that module as the pattern for adding contracts to state machines below.
+**Reference implementation:** [`plugin/scripting/payload_codec.py`](../plugin/scripting/payload_codec.py) — see [`docs/serialization-verification-plan.md`](serialization-verification-plan.md).
 
-Now that the state machine infrastructure is in place, we can apply formal verification:
+**Status (partial):** `deal` on `send_state.next_state` (send/stop mutual exclusion), `audio_recorder_state.next_state` (valid status + error path), and thin ensures on `tool_loop_state.next_state` (STOP→`ExitLoopEffect`, round bound). Pytest oracles + slow CrossHair hooks in [`tests/chatbot/test_fsm_verification.py`](../tests/chatbot/test_fsm_verification.py). Tracking: [`verification_status.json`](../verification_status.json).
 
 ### Step 1: Add Design by Contract to State Machines
-Add `deal` contracts to the `next_state` functions:
+
+Contracts use `FsmTransition.state` / `.effects` (not tuple indexing):
 
 ```python
-# Example from tool_loop_state.py
-@deal.pre(lambda state, event: state.round_num <= state.max_rounds)
-@deal.post(lambda result: result[0].round_num <= result[0].max_rounds)
-@deal.ensure(lambda state, event, result:
-    not (event.kind == EventKind.STOP_REQUESTED and
-         "exit_loop" not in result[1]))
-def next_state(state: ToolLoopState, event: ToolLoopEvent) -> Tuple[ToolLoopState, List[Any]]:
-    # ... existing implementation ...
+@deal.ensure(lambda state, event, result: not (result.state.is_busy and result.state.is_recording))
+@deal.ensure(
+    lambda state, event, result: event.kind != EventKind.STOP_REQUESTED
+    or any(isinstance(e, ExitLoopEffect) for e in result.effects)
+)
+def next_state(...):
+    ...
 ```
 
 ### Step 2: Run CrossHair Verification
 ```bash
-crosshair check plugin/chatbot/tool_loop_state.py --contracts
-crosshair check plugin/chatbot/state_machine.py --contracts
-crosshair check plugin/chatbot/send_state.py --contracts
+crosshair check plugin/chatbot/send_state.py
+crosshair check plugin/chatbot/audio_recorder_state.py
+# tool_loop_state: deal+pytest only for now (larger event surface)
 ```
 
 ### Step 3: Add Verification to CI
-Integrate CrossHair into the CI pipeline to run verification on every commit.
+Integrate CrossHair into the CI pipeline to run verification on every commit. (Not wired yet.)
 
 ### Step 4: Document Verification Status
 Maintain a `verification_status.json` file tracking which components have been verified.
 
 ## Phase 7: Expand Verification to Tier 0 Modules
 
-With state machines verified, expand to utility modules:
+**Status (partial):**
 
-1. **`plugin/framework/config.py`** - Settings and URL utilities
-2. **`plugin/writer/format_support.py`** - Text normalization
-3. **`plugin/calc/address_utils.py`** - Calc address math
-4. **`plugin/framework/async_stream.py`** - Streaming protocol
+1. **`plugin/framework/url_utils.py`** — `deal` + Hypothesis + CrossHair hook ([`tests/framework/test_url_utils_verification.py`](../tests/framework/test_url_utils_verification.py))
+2. **`plugin/calc/address_utils.py`** — inverse column/address contracts + Hypothesis ([`tests/calc/test_address_utils_verification.py`](../tests/calc/test_address_utils_verification.py))
+3. **`plugin/writer/format_support.py`** — planned
+4. **`plugin/framework/async_stream.py`** — planned
 
-Add contracts and run CrossHair verification on each module.
+(URL helpers live in `url_utils.py`, not `config.py`.)
 
 ## Conclusion
 

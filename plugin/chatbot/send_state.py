@@ -1,10 +1,21 @@
 from dataclasses import dataclass
-from typing import List, NamedTuple, Union
-# import deal
+from typing import Any, List, NamedTuple, Union
+import importlib
 
 from enum import Enum, auto
 
 from plugin.framework.service import BaseState, FsmTransition
+
+deal: Any
+try:
+    deal = importlib.import_module("deal")
+except ImportError:
+
+    class _DummyDeal:
+        def __getattr__(self, name: str) -> Any:
+            return lambda *args, **kwargs: lambda f: f
+
+    deal = _DummyDeal()
 
 # Imperative effects for the send panel interpreter (distinct from
 # audio_recorder_state.StartRecordingEffect / StopRecordingEffect types).
@@ -85,17 +96,23 @@ def _get_send_label(state: SendButtonState) -> str:
     return "Record" if state.audio_supported else "Send"
 
 
-# Contract: Send and Stop button states are mutually exclusive
-# @deal.ensure(lambda state, event, result:
-#              not (result[0].is_busy and result[0].is_recording))
-# @deal.ensure(lambda state, event, result:
-#              not any(isinstance(e, UpdateUIEffect) and e.send_enabled and e.stop_enabled for e in result[1]))
-# @deal.ensure(lambda state, event, result:
-#              all(not getattr(e, 'send_enabled') or not result[0].is_busy
-#                  for e in result[1] if isinstance(e, UpdateUIEffect)))
-# @deal.ensure(lambda state, event, result:
-#              all(not getattr(e, 'stop_enabled') or result[0].is_busy
-#                  for e in result[1] if isinstance(e, UpdateUIEffect)))
+# Contract: Send and Stop button states are mutually exclusive (FsmTransition.state / .effects).
+@deal.ensure(lambda state, event, result: not (result.state.is_busy and result.state.is_recording))
+@deal.ensure(
+    lambda state, event, result: not any(
+        isinstance(e, UpdateUIEffect) and e.send_enabled and e.stop_enabled for e in result.effects
+    )
+)
+@deal.ensure(
+    lambda state, event, result: all(
+        (not e.send_enabled) or (not result.state.is_busy) for e in result.effects if isinstance(e, UpdateUIEffect)
+    )
+)
+@deal.ensure(
+    lambda state, event, result: all(
+        (not e.stop_enabled) or result.state.is_busy for e in result.effects if isinstance(e, UpdateUIEffect)
+    )
+)
 def next_state(state: SendButtonState, event: SendEvent) -> FsmTransition[SendButtonState]:
     """Pure state transition for the Send button."""
 

@@ -24,12 +24,15 @@ import pytest
 pytestmark = pytest.mark.slow
 
 from plugin.scripting.payload_codec import (
+    BINARY_MIN_CELLS,
     PAYLOAD_SPLIT_GRID,
     SPLIT_GRID_WIRE_DTYPE,
     _flatten_grid_to_components,
     child_unpack_split_grid,
+    column_kinds_for_grid,
     host_pack_split_grid,
     host_unpack_split_grid,
+    should_use_binary_envelope,
 )
 from tests.scripting.serialization_ab_support import flatten_semantic_cells
 
@@ -96,6 +99,23 @@ def test_jagged_grid_raises_value_error() -> None:
     jagged = [[1.0, 2.0], [3.0]]
     with pytest.raises(ValueError, match="Uneven row lengths"):
         _flatten_grid_to_components(jagged)
+
+
+def test_column_kinds_for_grid_contract_kinds() -> None:
+    """column_kinds_for_grid kinds are only int/float/bool (deal.ensure); empty/cover edges."""
+    assert column_kinds_for_grid([]) == []
+    assert column_kinds_for_grid([0]) == ["int"]
+    kinds = column_kinds_for_grid([[1, "x", True], [2, "y", False]])
+    assert kinds == ["int", "int", "bool"]
+    assert all(k in ("int", "float", "bool") for k in kinds)
+
+
+def test_should_use_binary_envelope_force_contracts() -> None:
+    """force=always/never overrides cell threshold (deal.ensure); cover-style empty shape."""
+    assert should_use_binary_envelope((), force="always") is True
+    assert should_use_binary_envelope((BINARY_MIN_CELLS,), force="never") is False
+    assert should_use_binary_envelope((), min_cells=0, force="auto") is False
+    assert should_use_binary_envelope((0,), min_cells=0, force="auto") is True
 
 
 _CROSSHAIR_ERROR_RE = re.compile(r": error:")

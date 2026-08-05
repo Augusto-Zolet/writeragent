@@ -10,19 +10,12 @@ try:
 except ImportError:
 
     class _DummyDeal:
-        @staticmethod
-        def pre(func):
-            return lambda f: f
-
-        @staticmethod
-        def post(func):
-            return lambda f: f
-
-        @staticmethod
-        def ensure(func):
-            return lambda f: f
+        def __getattr__(self, name: str) -> Any:
+            return lambda *args, **kwargs: lambda f: f
 
     deal = _DummyDeal()
+
+_VALID_AUDIO_STATUSES = ("idle", "initializing", "recording", "stopping", "error")
 
 # --- State ---
 
@@ -80,7 +73,15 @@ AudioRecorderEffect = InitializeDeviceEffect | StartRecordingEffect | StopRecord
 # --- Pure Transition Function ---
 
 
-@deal.post(lambda result: result.state.status in ("idle", "initializing", "recording", "stopping", "error"))
+@deal.pre(lambda state, event: state.status in _VALID_AUDIO_STATUSES)
+@deal.post(lambda result: result.state.status in _VALID_AUDIO_STATUSES)
+@deal.ensure(
+    lambda state, event, result: not isinstance(event, ErrorOccurredEvent) or result.state.status == "error"
+)
+@deal.ensure(
+    lambda state, event, result: not isinstance(event, ErrorOccurredEvent)
+    or any(isinstance(e, ReportErrorEffect) for e in result.effects)
+)
 def next_state(state: AudioRecorderState, event: AudioRecorderEvent) -> FsmTransition[AudioRecorderState]:
     """Pure state transition for the audio recorder - NO SIDE EFFECTS"""
 

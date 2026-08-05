@@ -8,8 +8,20 @@ URL parsing utilities for WriterAgent.
 """
 from __future__ import annotations
 
+import importlib
 import urllib.parse
 from typing import Any
+
+deal: Any
+try:
+    deal = importlib.import_module("deal")
+except ImportError:
+
+    class _DummyDeal:
+        def __getattr__(self, name: str) -> Any:
+            return lambda *args, **kwargs: lambda f: f
+
+    deal = _DummyDeal()
 
 LIBREPY_DISPATCH_PROTOCOL = "org.extension.librepy:"
 
@@ -43,15 +55,21 @@ def dispatch_command_from_url(url: Any, *, protocol_prefix: str = LIBREPY_DISPAT
 
 def _is_zai_host(url):
     """True when URL targets Z.ai (general or coding-plan API)."""
-    url_lower = (url or "").lower()
+    if not isinstance(url, str):
+        return False
+    url_lower = url.lower()
     return "api.z.ai" in url_lower or "z.ai" in url_lower
 
 
 def _zai_url_path(url):
     """Normalized path without trailing slash (empty string when bare host)."""
-    return (urllib.parse.urlparse(url or "").path or "").rstrip("/")
+    if not isinstance(url, str):
+        return ""
+    return (urllib.parse.urlparse(url).path or "").rstrip("/")
 
 
+@deal.pre(lambda url, is_openwebui=False: url is None or isinstance(url, str))
+@deal.post(lambda result: isinstance(result, str) and result.startswith("/"))
 def get_api_version_suffix(url, is_openwebui=False):
     """Return the API version suffix (e.g. '/v1', '/v4', '/api/paas/v4') for a given endpoint URL."""
     if is_openwebui:
@@ -64,6 +82,8 @@ def get_api_version_suffix(url, is_openwebui=False):
     return "/v1"
 
 
+@deal.post(lambda result: isinstance(result, str))
+@deal.ensure(lambda url, is_openwebui=False, result="": bool(isinstance(url, str) and url.strip()) or result == "")
 def normalize_endpoint_url(url, is_openwebui=False):
     """Clean up endpoint URL: strip whitespace, trailing slashes, and domain-specific version suffixes."""
     if not url or not isinstance(url, str):
@@ -73,10 +93,22 @@ def normalize_endpoint_url(url, is_openwebui=False):
     while url.endswith("/"):
         url = url[:-1]
 
-    # Remove the version suffix we expect to add back (e.g. /v1, /v4, /api/paas/v4, /api)
-    suffix = get_api_version_suffix(url, is_openwebui=is_openwebui)
+    # Open WebUI chat is {base}/api/chat/completions — strip pasted /api/v1, /api, or /v1 in one pass.
+    # (Half-stripping /api/v1 → /api then appending /api again yields /api/api/chat/completions.)
+    if is_openwebui:
+        lower = url.lower()
+        if lower.endswith("/api/v1"):
+            return url[: -len("/api/v1")]
+        if lower.endswith("/api"):
+            return url[: -len("/api")]
+        if lower.endswith("/v1"):
+            return url[:-3]
+        return url
+
+    # Remove the version suffix we expect to add back (e.g. /v1, /v4, /api/paas/v4)
+    suffix = get_api_version_suffix(url, is_openwebui=False)
     if url.lower().endswith(suffix):
-        url = url[:-len(suffix)]
+        url = url[: -len(suffix)]
     elif _is_zai_host(url) and url.lower().endswith("/v4"):
         # Legacy preset stored https://api.z.ai/v4 before general base was /api/paas/v4.
         url = url[:-3]
@@ -86,14 +118,18 @@ def normalize_endpoint_url(url, is_openwebui=False):
 
     return url
 
+@deal.post(lambda result: isinstance(result, str))
 def get_url_hostname(url):
     """Return hostname from URL safely."""
     try:
         parsed = urllib.parse.urlparse(url)
         return parsed.hostname or ""
-    except ValueError:
+    except (ValueError, TypeError, AttributeError):
+        # urlparse rejects non-str (TypeError); keep "safely" for CrossHair/fuzz inputs.
         return ""
 
+
+@deal.post(lambda result: isinstance(result, str))
 def get_url_domain(url):
     """Return 'example.com' from 'https://api.example.com/v1'."""
     host = get_url_hostname(url)
@@ -104,14 +140,18 @@ def get_url_domain(url):
         return ".".join(parts[-2:])
     return host
 
+
+@deal.post(lambda result: isinstance(result, str))
 def get_url_path(url):
     """Return path from URL safely."""
     try:
         parsed = urllib.parse.urlparse(url)
         return parsed.path or ""
-    except ValueError:
+    except (ValueError, TypeError, AttributeError):
         return ""
 
+
+@deal.post(lambda result: isinstance(result, dict))
 def get_url_query_dict(url):
     """Return query parameters as dict (values are lists)."""
     if not url:
@@ -119,9 +159,11 @@ def get_url_query_dict(url):
     try:
         parsed = urllib.parse.urlparse(url)
         return urllib.parse.parse_qs(parsed.query)
-    except ValueError:
+    except (ValueError, TypeError, AttributeError):
         return {}
 
+
+@deal.post(lambda result: isinstance(result, str))
 def get_url_path_and_query(url):
     """Return path + query string from URL."""
     try:
@@ -130,13 +172,15 @@ def get_url_path_and_query(url):
         if parsed.query:
             return f"{path}?{parsed.query}"
         return path
-    except ValueError:
+    except (ValueError, TypeError, AttributeError):
         return "/"
 
+
+@deal.post(lambda result: isinstance(result, bool))
 def is_pdf_url(url):
     """Check for .pdf in the URL path safely."""
     try:
         parsed = urllib.parse.urlparse(url)
         return (parsed.path or "").lower().endswith(".pdf")
-    except ValueError:
+    except (ValueError, TypeError, AttributeError):
         return False
