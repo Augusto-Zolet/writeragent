@@ -63,7 +63,8 @@ def _format_category_from_type(format_type) -> str | None:
 def _iso8601_from_serial(value: float, category: str, null_date) -> str:
     """Convert a Calc day serial to ISO 8601 using the document's configured epoch."""
     base = datetime.datetime(int(null_date.Year), int(null_date.Month), int(null_date.Day))
-    converted = base + datetime.timedelta(days=float(value))
+    # Round to whole seconds so IEEE float noise does not leak as microseconds.
+    converted = base + datetime.timedelta(seconds=round(float(value) * 86400.0))
     if category == "date":
         return converted.date().isoformat()
     if category == "time":
@@ -72,7 +73,7 @@ def _iso8601_from_serial(value: float, category: str, null_date) -> str:
         # https://lists.freedesktop.org/archives/libreoffice/2018-July/080606.html
         return converted.time().isoformat()
     if category == "datetime":
-        return converted.isoformat()
+        return converted.isoformat(timespec="seconds")
     raise ValueError(f"Unsupported date/time format category: {category}")
 
 
@@ -138,8 +139,15 @@ class CellInspector:
         """Return date/time column spans by row, or an empty map for the common fast path."""
         # Cheap native preflight: constant date/time values. Skip the Python formula walk
         # when these exist — getUniqueCellFormatRanges still covers date-formatted formulas.
-        date_cells = cell_range.queryContentCells(_CELL_FLAG_DATETIME)
-        date_addresses = tuple(date_cells.getRangeAddresses()) if date_cells is not None else ()
+        # queryContentCells usually returns an empty XSheetCellRanges, not None; treat any
+        # UNO failure like "no date constants" and continue to the formula / format-group path.
+        date_addresses: tuple = ()
+        try:
+            date_cells = cell_range.queryContentCells(_CELL_FLAG_DATETIME)
+            if date_cells is not None:
+                date_addresses = tuple(date_cells.getRangeAddresses() or ())
+        except Exception:
+            logger.debug("queryContentCells(DATETIME) preflight failed", exc_info=True)
         if not date_addresses:
             has_formula = any(isinstance(formula, str) and formula.startswith("=") for row in formula_array for formula in row)
             if not has_formula:

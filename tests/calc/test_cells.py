@@ -62,6 +62,19 @@ def test_calc_serial_iso8601_uses_document_null_date():
     assert _format_category_from_type(16) is None
 
 
+def test_calc_serial_iso8601_rounds_float_noise_to_whole_seconds():
+    from plugin.calc.inspector import _iso8601_from_serial
+
+    null_date = SimpleNamespace(Year=1899, Month=12, Day=30)
+    # 0.6s past noon rounds up to 12:00:01 (use a small serial so float has room).
+    assert _iso8601_from_serial(0.5 + 0.6 / 86400.0, "time", null_date) == "12:00:01"
+    assert _iso8601_from_serial(0.5 + 0.6 / 86400.0, "datetime", null_date) == "1899-12-30T12:00:01"
+    # Sub-second float dust must not leak microseconds into ISO.
+    dusty = 0.5 + 1e-12
+    assert _iso8601_from_serial(dusty, "time", null_date) == "12:00:00"
+    assert "." not in _iso8601_from_serial(dusty, "datetime", null_date).split("T", 1)[1]
+
+
 def test_inspector_default_range_read_does_not_query_formats():
     from plugin.calc.inspector import CellInspector
 
@@ -187,6 +200,35 @@ def test_inspector_format_info_uses_format_groups_for_formula_only_ranges():
     assert result[0][0]["iso8601"] == "2026-08-03"
     assert result[0][0]["format_category"] == "date"
     cell_range.queryContentCells.assert_called_once()
+    cell_range.getUniqueCellFormatRanges.assert_called_once()
+    formats.getByKey.assert_called_once_with(11)
+
+
+def test_inspector_format_info_survives_queryContentCells_failure():
+    from plugin.calc.inspector import CellInspector
+
+    formula_addr = SimpleNamespace(StartColumn=0, EndColumn=0, StartRow=0, EndRow=0)
+    representative = MagicMock()
+    representative.getPropertyValue.return_value = 11
+    date_group = MagicMock()
+    date_group.getCount.return_value = 1
+    date_group.getByIndex.return_value = representative
+    date_group.getRangeAddresses.return_value = (formula_addr,)
+    format_groups = MagicMock()
+    format_groups.getCount.return_value = 1
+    format_groups.getByIndex.return_value = date_group
+
+    bridge, cell_range, formats = _make_range_bridge(
+        data_array=((46237.0, 1.0),),
+        formula_array=(("=TODAY()", "1"),),
+        date_addresses=(),
+        format_groups=format_groups,
+    )
+    cell_range.queryContentCells.side_effect = RuntimeError("UNO bridge glitch")
+
+    result = CellInspector(bridge).read_range("A1:B1", include_format_info=True)
+
+    assert result[0][0]["iso8601"] == "2026-08-03"
     cell_range.getUniqueCellFormatRanges.assert_called_once()
     formats.getByKey.assert_called_once_with(11)
 
