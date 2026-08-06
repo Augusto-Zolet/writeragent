@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-04 16:24-0400\n"
+"POT-Creation-Date: 2026-08-06 13:58-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Chinese (Simplified) <LL@li.org>\n"
@@ -1733,6 +1733,10 @@ msgstr "视觉库"
 #: plugin/scripting/venv_diagnostics.py
 msgid "Vector Search Libraries"
 msgstr "向量搜索库"
+
+#: plugin/scripting/venv_diagnostics.py
+msgid "To install remaining packages:"
+msgstr "若要安装剩余的软件包："
 
 #: plugin/scripting/venv_diagnostics.py
 msgid "No microphone input devices detected."
