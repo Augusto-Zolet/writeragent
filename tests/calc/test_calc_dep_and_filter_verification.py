@@ -99,8 +99,6 @@ def test_resolve_dep_range_and_table() -> None:
 from plugin.calc.calc_addin_data import (
     _unwrap_cell,
     calc_addin_data_to_python,
-    split_python_addin_data_args,
-    normalize_python_data_shape,
 )
 
 

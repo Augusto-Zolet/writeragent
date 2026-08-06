@@ -13,7 +13,7 @@ from hypothesis import strategies as st
 
 from plugin.framework.errors import ToolExecutionError
 from plugin.scripting.trusted_rpc import parse_worker_dict_result
-from plugin.scripting.editor_ipc import failure_detail, failure_message
+from plugin.scripting.editor_ipc import failure_message
 from plugin.scripting.excel_xl import make_xl
 
 

@@ -20,7 +20,6 @@ from plugin.scripting.import_policy import (
 from plugin.scripting.config_limits import (
     python_exec_timeout_min,
     python_exec_timeout_max,
-    _clamp_timeout,
     resolve_python_exec_timeout,
 )
 from plugin.scripting.calc_range import (

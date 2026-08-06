@@ -11,9 +11,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from plugin.scripting.helper_domain import (
-    HelperScriptMeta,
     header_prefix,
-    parse_helper_script_header,
     parse_run_import_call_spec,
     parse_run_import_call_params,
 )
@@ -25,7 +23,6 @@ from plugin.scripting.duckdb_sql import (
     SqlScriptMeta,
     get_sql_script_templates,
     parse_sql_script_header,
-    SQL_HELPER_NAMES,
 )
 
 
