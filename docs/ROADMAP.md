@@ -19,6 +19,20 @@ This document outlines the planned features, improvements, and technical debt to
 
 ---
 
+## LibreOffice API fidelity (product)
+
+Primary product focus: close the gap between the agent and the full UNO surface so AI can drive professional Writer / Calc / Draw / Impress features.
+
+- **Writer**: Mail Merge (CSV/DB/Sheets), bibliographies, watermarks; Sections lifecycle (multi-column, conditional visibility, password protection).
+- **Calc**: Macros & VBA compatibility, Scenarios, external data (SQL/Web), table slicers, sheet protection; deepen [Python/NumPy](enabling_numpy_in_libreoffice.md).
+- **Draw & Impress**: Slide animations, layer management, slide show controls; audio/video insertion and 3D shape manipulation.
+- **Cross-document** (partially shipped): sibling-folder reads work today ([multi-document plan](multi-document-dev-plan.md)); still ahead: configurable extra directories, `@` mention UI, headless opens, broader directory-wide synthesis.
+- **Long documents**: page-at-a-time navigation and caching for 100+ page files.
+
+User-facing feature map: [features.md](features.md).
+
+---
+
 ## Large modules (navigation)
 
 > - **Very large modules:** optional **section markers** (`# --- … ---`) so major entrypoints (e.g. UNO interfaces) stay discoverable.

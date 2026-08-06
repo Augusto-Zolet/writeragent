@@ -136,6 +136,7 @@ Do not shadow **`logging`**, module **`log`**, or gettext **`_`**. UI modules im
 
 | Topic | Doc |
 |-------|-----|
+| User-facing feature index | [docs/features.md](docs/features.md) |
 | Chat sidebar implementation | [docs/chat-sidebar-implementation.md](docs/chat-sidebar-implementation.md) |
 | Rich text control sidebar | [docs/rich-text-control-sidebar.md](docs/rich-text-control-sidebar.md) |
 | Streaming / threading | [docs/streaming-and-threading.md](docs/streaming-and-threading.md) |
@@ -166,6 +167,7 @@ Do not shadow **`logging`**, module **`log`**, or gettext **`_`**. UI modules im
 | Test Architecture | [docs/test_architecture_analysis.md](docs/test_architecture_analysis.md) |
 | LLM Hacks & Workarounds | [docs/llm-hacks.md](docs/llm-hacks.md) |
 | Experimental memory / roadmap | [docs/hermes-agent-patterns.md](docs/hermes-agent-patterns.md), [docs/ROADMAP.md](docs/ROADMAP.md), [docs/robustness-roadmap.md](docs/robustness-roadmap.md) |
+| LLM evals / benchmarks | [docs/benchmarks.md](docs/benchmarks.md), [scripts/prompt_optimization/README.md](scripts/prompt_optimization/README.md) |
 
 ---
 
