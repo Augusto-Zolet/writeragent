@@ -55,7 +55,7 @@ WriterAgent's `write_formula_range` tool takes a different design approach than 
 
 | Domain / area | WriterAgent status | Module & tools | Notes |
 |---------------|--------------------|----------------|-------|
-| **Cells** | ✅ Implemented | `cells.py`: `read_cell_range`, `write_formula_range`, `set_style`, `insert_cell_html` ([`rich_html.py`](../plugin/calc/rich_html.py)), merge/sort/delete helpers | Basic range + style + **HTML → rich text in one cell** ([§ Rich HTML in a single cell](#rich-html-in-a-single-cell)) |
+| **Cells** | ✅ Implemented | `cells.py`: `read_cell_range`, `write_formula_range`, `set_style`, `insert_cell_html` ([`rich_html.py`](../plugin/calc/rich_html.py)), merge/sort/delete helpers | Basic range + style + **HTML → rich text in one cell** ([§ Rich HTML in a single cell](#rich-html-in-a-single-cell)). `read_cell_range` adds `iso8601` + `format_category` for date/time-formatted numerics (raw `value` stays the Calc serial); internal `CellInspector.read_range()` defaults remain unenriched for `=PY`/analysis |
 | **Ranges** | ✅ Implemented | `cells.py`: Get/SetRangeValues, Get/SetRangeFormulas | — |
 | **Sheets** | ✅ Implemented | `sheets.py`, `sheet_filter.py`: ListSheets, CreateSheet, SwitchSheet, GetSheetSummary, `apply_sheet_filter`, `clear_sheet_filter`, `get_sheet_filter` | Basic sheet ops + AutoFilter |
 | **Formulas** | ⚠️ Partial | `cells.py` (`write_formula_range` + compound undo); `list_calc_functions` / `evaluate_formula` implemented; `FormulaDepChain` via [`formula_dep_chain.py`](../plugin/calc/formula_dep_chain.py) | — |

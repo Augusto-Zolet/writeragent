@@ -8,6 +8,8 @@
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 
 def test_cells_parse_color():
@@ -23,27 +25,179 @@ def test_cells_parse_color():
 
 
 def test_inspector_single_cell_range_fallback():
-    from unittest.mock import MagicMock
     from plugin.calc.inspector import CellInspector
-    
+
     bridge = MagicMock()
     mock_range = MagicMock()
     mock_range.getRangeAddress.return_value = MagicMock(StartColumn=1, EndColumn=1, StartRow=2, EndRow=2)
-    
+
     if hasattr(mock_range, "getType"):
         delattr(mock_range, "getType")
-        
+
     mock_cell = MagicMock()
-    mock_cell.getType.return_value = 1 # VALUE
+    mock_cell.getType.return_value = 1  # VALUE
     mock_cell.getValue.return_value = 42.0
     mock_cell.getFormula.return_value = "=42"
-    
+
     mock_range.getCellByPosition.return_value = mock_cell
     bridge.resolve_range_or_address.return_value = mock_range
-    
+
     inspector = CellInspector(bridge)
     res = inspector.read_cell("B3")
     assert res["value"] == 42.0
     bridge.resolve_range_or_address.assert_called_with("B3")
     mock_range.getCellByPosition.assert_called_with(0, 0)
 
+
+def test_calc_serial_iso8601_uses_document_null_date():
+    from plugin.calc.inspector import _format_category_from_type, _iso8601_from_serial
+
+    null_date = SimpleNamespace(Year=1899, Month=12, Day=30)
+    assert _iso8601_from_serial(46237.0, "date", null_date) == "2026-08-03"
+    assert _iso8601_from_serial(46237.5, "datetime", null_date) == "2026-08-03T12:00:00"
+    assert _iso8601_from_serial(0.5, "time", null_date) == "12:00:00"
+    assert _format_category_from_type(2) == "date"
+    assert _format_category_from_type(5) == "time"  # DEFINED | TIME
+    assert _format_category_from_type(7) == "datetime"  # DEFINED | DATETIME
+    assert _format_category_from_type(16) is None
+
+
+def test_inspector_default_range_read_does_not_query_formats():
+    from plugin.calc.inspector import CellInspector
+
+    addr = SimpleNamespace(StartColumn=0, EndColumn=1, StartRow=0, EndRow=0)
+    cell_range = MagicMock()
+    cell_range.getRangeAddress.return_value = addr
+    cell_range.getDataArray.return_value = ((1.0, 2.0),)
+    cell_range.getFormulaArray.return_value = (("1", "2"),)
+    bridge = MagicMock()
+    bridge.resolve_range_or_address.return_value = cell_range
+    bridge._index_to_column.side_effect = ("A", "B")
+
+    result = CellInspector(bridge).read_range("A1:B1")
+
+    assert [cell["value"] for cell in result[0]] == [1.0, 2.0]
+    cell_range.queryContentCells.assert_not_called()
+    cell_range.getUniqueCellFormatRanges.assert_not_called()
+    bridge.get_active_document.assert_not_called()
+
+
+def _make_range_bridge(*, data_array, formula_array, date_addresses=(), format_groups=None, null_date=None, format_type=2, format_key=10):
+    """Build a mocked bridge/range for include_format_info reads."""
+    rows = len(data_array)
+    cols = len(data_array[0]) if rows else 0
+    addr = SimpleNamespace(StartColumn=0, EndColumn=max(cols - 1, 0), StartRow=0, EndRow=max(rows - 1, 0))
+    cell_range = MagicMock()
+    cell_range.getRangeAddress.return_value = addr
+    cell_range.getDataArray.return_value = data_array
+    cell_range.getFormulaArray.return_value = formula_array
+    cell_range.queryContentCells.return_value.getRangeAddresses.return_value = tuple(date_addresses)
+
+    if format_groups is None:
+        format_groups = MagicMock()
+        format_groups.getCount.return_value = 0
+    cell_range.getUniqueCellFormatRanges.return_value = format_groups
+
+    formats = MagicMock()
+    format_props = MagicMock()
+    format_props.getPropertyValue.return_value = format_type
+    formats.getByKey.return_value = format_props
+    doc = MagicMock()
+    doc.getNumberFormats.return_value = formats
+    doc.getNumberFormatSettings.return_value.getPropertyValue.return_value = null_date or SimpleNamespace(Year=1899, Month=12, Day=30)
+    bridge = MagicMock()
+    bridge.resolve_range_or_address.return_value = cell_range
+    bridge.get_active_document.return_value = doc
+    letters = tuple(chr(ord("A") + i) for i in range(max(cols, 1)))
+    bridge._index_to_column.side_effect = letters
+    return bridge, cell_range, formats
+
+
+def test_inspector_enriches_range_once_per_unique_format_group():
+    from plugin.calc.inspector import CellInspector
+
+    date_addr = SimpleNamespace(StartColumn=0, EndColumn=0, StartRow=0, EndRow=0)
+    representative = MagicMock()
+    representative.getPropertyValue.return_value = 10
+    date_group = MagicMock()
+    date_group.getCount.return_value = 1
+    date_group.getByIndex.return_value = representative
+    date_group.getRangeAddresses.return_value = (date_addr,)
+    format_groups = MagicMock()
+    format_groups.getCount.return_value = 1
+    format_groups.getByIndex.return_value = date_group
+
+    bridge, cell_range, formats = _make_range_bridge(
+        data_array=((46237.0, 42.0),),
+        formula_array=(("46237", "42"),),
+        date_addresses=(date_addr,),
+        format_groups=format_groups,
+    )
+
+    result = CellInspector(bridge).read_range("A1:B1", include_format_info=True)
+
+    assert result[0][0]["iso8601"] == "2026-08-03"
+    assert result[0][0]["format_category"] == "date"
+    assert "iso8601" not in result[0][1]
+    formats.getByKey.assert_called_once_with(10)
+    # Date constants present: skip the formula walk and go straight to format groups.
+    cell_range.getUniqueCellFormatRanges.assert_called_once()
+
+
+def test_inspector_format_info_skips_format_groups_when_no_dates_or_formulas():
+    from plugin.calc.inspector import CellInspector
+
+    bridge, cell_range, _formats = _make_range_bridge(
+        data_array=((1.0, 2.0),),
+        formula_array=(("1", "2"),),
+        date_addresses=(),
+    )
+
+    result = CellInspector(bridge).read_range("A1:B1", include_format_info=True)
+
+    assert [cell["value"] for cell in result[0]] == [1.0, 2.0]
+    cell_range.queryContentCells.assert_called_once()
+    cell_range.getUniqueCellFormatRanges.assert_not_called()
+
+
+def test_inspector_format_info_uses_format_groups_for_formula_only_ranges():
+    from plugin.calc.inspector import CellInspector
+
+    formula_addr = SimpleNamespace(StartColumn=0, EndColumn=0, StartRow=0, EndRow=0)
+    representative = MagicMock()
+    representative.getPropertyValue.return_value = 11
+    date_group = MagicMock()
+    date_group.getCount.return_value = 1
+    date_group.getByIndex.return_value = representative
+    date_group.getRangeAddresses.return_value = (formula_addr,)
+    format_groups = MagicMock()
+    format_groups.getCount.return_value = 1
+    format_groups.getByIndex.return_value = date_group
+
+    # Formulas are not DATETIME content cells, so the preflight is empty and we must
+    # fall through via the formula scan before consulting format groups.
+    bridge, cell_range, formats = _make_range_bridge(
+        data_array=((46237.0, 1.0),),
+        formula_array=(("=TODAY()", "1"),),
+        date_addresses=(),
+        format_groups=format_groups,
+    )
+    result = CellInspector(bridge).read_range("A1:B1", include_format_info=True)
+
+    assert result[0][0]["iso8601"] == "2026-08-03"
+    assert result[0][0]["format_category"] == "date"
+    cell_range.queryContentCells.assert_called_once()
+    cell_range.getUniqueCellFormatRanges.assert_called_once()
+    formats.getByKey.assert_called_once_with(11)
+
+
+def test_read_cell_range_tool_opts_into_format_info():
+    from plugin.calc.cells import ReadCellRange
+
+    ctx = SimpleNamespace(doc=MagicMock())
+    with patch("plugin.calc.cells.CellInspector") as inspector_cls:
+        inspector_cls.return_value.read_range.return_value = [[{"value": 1.0}]]
+        result = ReadCellRange().execute(ctx, range_name=["A1"])
+
+    assert result["status"] == "ok"
+    inspector_cls.return_value.read_range.assert_called_once_with("A1", include_format_info=True)

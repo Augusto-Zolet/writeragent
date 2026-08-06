@@ -249,7 +249,7 @@ Other MCP surfaces (for integrators):
 | Surface | Status | Delegation / routing hints |
 |---------|--------|----------------------------|
 | **`tools/list`** | Implemented | **Primary** — use the delegate gateway tool metadata above |
-| **`initialize` → `instructions`** | Short stub + pointer to the on-demand manual (`get_guidance` topics, per document type) | Does not include the full chat prompt; the behavioral manual is pulled per topic via `get_guidance` |
+| **`initialize` → `instructions`** | Connection-time local date/time + short stub + pointer to the on-demand manual (`get_guidance` topics, per document type) | Does not include the full chat prompt; the behavioral manual is pulled per topic via `get_guidance`. Clock is fixed until the client reconnects; hosts **may** ignore `instructions` (verify Page Assist / Claude Desktop) |
 | **`prompts/list` / `prompts/get`** | Empty | Could expose full system prompt later; not implemented |
 | **`resources/list` / `resources/read`** | Empty | Not used for guidance |
 | **`GET /`** | Server name, version, routes | Does **not** return agent instructions (older docs were wrong) |
@@ -474,7 +474,7 @@ is straightforward.
 
 Use **`POST /mcp`** with JSON-RPC 2.0:
 
-- **`initialize`** — protocol handshake; `result.instructions` is a short WriterAgent/MCP workflow stub plus a pointer to `get_guidance(topic)`, the on-demand behavioral manual (not the full sidebar system prompt).
+- **`initialize`** — protocol handshake; `result.instructions` starts with the host machine's local date/time (zero tool calls), then a short WriterAgent/MCP workflow stub plus a pointer to `get_guidance(topic)`, the on-demand behavioral manual (not the full sidebar system prompt). Sidebar chat date injection is unchanged and separate.
 - **`tools/list`** — core-tier tools for the target document (`X-Document-URL` header or active document). Each tool has `name`, `description`, and `inputSchema`. Specialized domains are documented on **`delegate_to_specialized_{writer|calc|draw}_toolset`** (see [Where delegation guidance lives](#where-delegation-guidance-lives-mcp-vs-sidebar-chat)).
 - **`tools/call`** — run a tool on the LibreOffice main thread.
 

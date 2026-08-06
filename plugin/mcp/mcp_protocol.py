@@ -20,6 +20,7 @@ Pure protocol logic — no HTTP server, no request handler class.
 Route handlers are registered with the HTTP route registry by MCPModule.
 """
 
+import datetime
 import json
 import logging
 import select
@@ -85,7 +86,15 @@ _MCP_GUIDANCE_POINTER = (
 )
 
 
-def build_initialize_instructions(mode: str) -> str:
+def _format_mcp_clock_context(now: datetime.datetime | None = None) -> str:
+    """Return connection-time local clock context for an MCP host's model prompt."""
+    local_now = now.astimezone() if now is not None else datetime.datetime.now().astimezone()
+    timezone_name = local_now.tzname()
+    timezone_suffix = f" ({timezone_name})" if timezone_name else ""
+    return f"Current local date and time: {local_now.strftime('%A')}, {local_now.isoformat(timespec='seconds')}{timezone_suffix}."
+
+
+def build_initialize_instructions(mode: str, *, now: datetime.datetime | None = None) -> str:
     """Assemble the MCP initialize `instructions` string for a tool-exposure mode.
 
     Pure function (no server/UNO) so the wording is unit-testable. `mode` is one of
@@ -110,7 +119,7 @@ def build_initialize_instructions(mode: str) -> str:
             " For specialized capabilities, call delegate_to_specialized_*_toolset with domain and task "
             "(requires a WriterAgent chat endpoint for the inner agent)."
         )
-    return base + mode_hint + _MCP_GUIDANCE_POINTER
+    return _format_mcp_clock_context(now) + " " + base + mode_hint + _MCP_GUIDANCE_POINTER
 
 
 def _get_request_protocol_version(handler) -> str | None:

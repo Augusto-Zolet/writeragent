@@ -71,7 +71,7 @@ class ReadCellRange(ToolBase):
     """Read values from one or more cell ranges."""
 
     name = "read_cell_range"
-    description = "Reads values from the specified cell range(s). Supports lists for non-contiguous areas."
+    description = "Reads values from the specified cell range(s). Date/time-formatted numeric cells also include an ISO 8601 string in `iso8601` and their `format_category`. Supports lists for non-contiguous areas."
     parameters = {"type": "object", "properties": {"range_name": {"type": "array", "items": {"type": "string"}, "description": ('Cell range(s) (e.g. ["A1:D10"] or ["A1", "C2:E5"]) for one or more ranges/cells.')}}, "required": ["range_name"]}
     uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
     tier = "core"
@@ -86,9 +86,9 @@ class ReadCellRange(ToolBase):
         if len(rn) == 0:
             return self._tool_error("range_name is required")
         if len(rn) == 1:
-            result = inspector.read_range(rn[0])
+            result = inspector.read_range(rn[0], include_format_info=True)
             return {"status": "ok", "result": [result]}
-        results = [inspector.read_range(r) for r in rn]
+        results = [inspector.read_range(r, include_format_info=True) for r in rn]
         return {"status": "ok", "result": results}
 
 

@@ -20,6 +20,7 @@
 Ported from core/calc_inspector.py for the plugin framework.
 """
 
+import datetime
 import logging
 import re
 
@@ -38,6 +39,41 @@ except ImportError:
 logger = logging.getLogger("writeragent.calc")
 
 _FORMULA_REF_RE = re.compile(r"\$?([A-Z]+)\$?(\d+)")
+_CELL_FLAG_DATETIME = 2
+_NUMBER_FORMAT_DEFINED = 1
+_NUMBER_FORMAT_DATE = 2
+_NUMBER_FORMAT_TIME = 4
+
+
+def _format_category_from_type(format_type) -> str | None:
+    """Map a UNO NumberFormat.Type to the date/time category exposed to tools."""
+    try:
+        base_type = int(format_type) & ~_NUMBER_FORMAT_DEFINED
+    except (TypeError, ValueError):
+        return None
+    if base_type == (_NUMBER_FORMAT_DATE | _NUMBER_FORMAT_TIME):
+        return "datetime"
+    if base_type == _NUMBER_FORMAT_DATE:
+        return "date"
+    if base_type == _NUMBER_FORMAT_TIME:
+        return "time"
+    return None
+
+
+def _iso8601_from_serial(value: float, category: str, null_date) -> str:
+    """Convert a Calc day serial to ISO 8601 using the document's configured epoch."""
+    base = datetime.datetime(int(null_date.Year), int(null_date.Month), int(null_date.Day))
+    converted = base + datetime.timedelta(days=float(value))
+    if category == "date":
+        return converted.date().isoformat()
+    if category == "time":
+        # Values >= 1.0 are durations longer than 24h; .time() drops whole days.
+        # Calc itself is ambiguous here (TIME vs datetime edit/display heuristic):
+        # https://lists.freedesktop.org/archives/libreoffice/2018-July/080606.html
+        return converted.time().isoformat()
+    if category == "datetime":
+        return converted.isoformat()
+    raise ValueError(f"Unsupported date/time format category: {category}")
 
 
 class CellInspector:
@@ -73,9 +109,78 @@ class CellInspector:
             logger.debug("_safe_prop exception for %s: %s", name, e)
             return default
 
+    def _format_category(self, format_key, formats, cache: dict[int, str | None]) -> str | None:
+        """Resolve one number-format key, caching across equal-format ranges."""
+        try:
+            key = int(format_key)
+        except (TypeError, ValueError):
+            return None
+        if key not in cache:
+            props = formats.getByKey(key)
+            cache[key] = _format_category_from_type(props.getPropertyValue("Type"))
+        return cache[key]
+
+    def _enrich_cell_format(self, info: dict, cell) -> None:
+        """Add date metadata without changing the raw value used by internal consumers."""
+        value = info.get("value")
+        if not isinstance(value, (int, float)):
+            return
+        doc = self.bridge.get_active_document()
+        formats = doc.getNumberFormats()
+        category = self._format_category(self._safe_prop(cell, "NumberFormat"), formats, {})
+        if category is None:
+            return
+        null_date = doc.getNumberFormatSettings().getPropertyValue("NullDate")
+        info["iso8601"] = _iso8601_from_serial(float(value), category, null_date)
+        info["format_category"] = category
+
+    def _range_format_rows(self, cell_range, formula_array) -> tuple[dict[int, list[tuple[int, int, str]]], object | None]:
+        """Return date/time column spans by row, or an empty map for the common fast path."""
+        # Cheap native preflight: constant date/time values. Skip the Python formula walk
+        # when these exist — getUniqueCellFormatRanges still covers date-formatted formulas.
+        date_cells = cell_range.queryContentCells(_CELL_FLAG_DATETIME)
+        date_addresses = tuple(date_cells.getRangeAddresses()) if date_cells is not None else ()
+        if not date_addresses:
+            has_formula = any(isinstance(formula, str) and formula.startswith("=") for row in formula_array for formula in row)
+            if not has_formula:
+                return {}, None
+
+        doc = self.bridge.get_active_document()
+        formats = doc.getNumberFormats()
+        cache: dict[int, str | None] = {}
+        rows: dict[int, list[tuple[int, int, str]]] = {}
+
+        # Calc dates are numeric VALUE cells, so the normal content type loses their
+        # meaning. Grouping equal formats keeps this classification out of the per-cell
+        # UNO loop while also covering formulas whose evaluated result is date-formatted.
+        format_groups = cell_range.getUniqueCellFormatRanges()
+        for group_idx in range(format_groups.getCount()):
+            group = format_groups.getByIndex(group_idx)
+            if group.getCount() == 0:
+                continue
+            representative = group.getByIndex(0)
+            category = self._format_category(self._safe_prop(representative, "NumberFormat"), formats, cache)
+            if category is None:
+                continue
+            for address in group.getRangeAddresses():
+                for row in range(address.StartRow, address.EndRow + 1):
+                    rows.setdefault(row, []).append((address.StartColumn, address.EndColumn, category))
+
+        if not rows:
+            return {}, None
+        null_date = doc.getNumberFormatSettings().getPropertyValue("NullDate")
+        return rows, null_date
+
+    @staticmethod
+    def _category_for_position(format_rows: dict[int, list[tuple[int, int, str]]], row: int, col: int) -> str | None:
+        for start_col, end_col, category in format_rows.get(row, ()):
+            if start_col <= col <= end_col:
+                return category
+        return None
+
     # ── Public API ─────────────────────────────────────────────────────
 
-    def read_cell(self, address: str) -> dict:
+    def read_cell(self, address: str, *, include_format_info: bool = False) -> dict:
         """Read basic cell information.
 
         Args:
@@ -107,7 +212,14 @@ class CellInspector:
 
             formula = cell.getFormula() if cell_type == FORMULA else None
 
-            return {"address": address.upper(), "value": value, "formula": formula, "type": self._cell_type_name(cell_type)}
+            info = {"address": address.upper(), "value": value, "formula": formula, "type": self._cell_type_name(cell_type)}
+            if include_format_info:
+                try:
+                    self._enrich_cell_format(info, cell)
+                except Exception:
+                    # Format metadata must never turn a previously valid core read into an error.
+                    logger.exception("Date/time format enrichment failed for cell %s; returning the raw value", address)
+            return info
         except Exception as e:
             logger.error("Cell reading error (%s): %s", address, str(e))
             raise ToolExecutionError(str(e)) from e
@@ -164,7 +276,7 @@ class CellInspector:
             logger.error("Cell detailed reading error (%s): %s", address, str(e))
             raise ToolExecutionError(str(e)) from e
 
-    def read_range(self, range_name: str) -> list[list[dict]]:
+    def read_range(self, range_name: str, *, include_format_info: bool = False) -> list[list[dict]]:
         """Read values and formulas in a cell range.
 
         Args:
@@ -179,14 +291,23 @@ class CellInspector:
             if hasattr(cell_range, "getRangeAddress"):
                 addr = cell_range.getRangeAddress()
                 if addr.StartColumn == addr.EndColumn and addr.StartRow == addr.EndRow:
-                    cell_info = self.read_cell(range_name)
+                    cell_info = self.read_cell(range_name, include_format_info=include_format_info)
                     return [[cell_info]]
             else:
-                cell_info = self.read_cell(range_name)
+                cell_info = self.read_cell(range_name, include_format_info=include_format_info)
                 return [[cell_info]]
 
             data_array = cell_range.getDataArray()
             formula_array = cell_range.getFormulaArray()
+            format_rows: dict[int, list[tuple[int, int, str]]] = {}
+            null_date = None
+            if include_format_info:
+                try:
+                    format_rows, null_date = self._range_format_rows(cell_range, formula_array)
+                except Exception:
+                    # Some older/embedded Calc builds may not expose format-range queries.
+                    # Preserve the old raw response instead of failing read_cell_range.
+                    logger.exception("Date/time format enrichment failed for range %s; returning raw values", range_name)
 
             result = []
             for row_idx, row in enumerate(range(addr.StartRow, addr.EndRow + 1)):
@@ -214,7 +335,13 @@ class CellInspector:
                     col_letter = self.bridge._index_to_column(col)
                     cell_address = f"{col_letter}{row + 1}"
 
-                    row_data.append({"address": cell_address, "value": value, "formula": formula, "type": self._cell_type_name(cell_type)})
+                    cell_info = {"address": cell_address, "value": value, "formula": formula, "type": self._cell_type_name(cell_type)}
+                    if null_date is not None and isinstance(value, (int, float)):
+                        category = self._category_for_position(format_rows, row, col)
+                        if category is not None:
+                            cell_info["iso8601"] = _iso8601_from_serial(float(value), category, null_date)
+                            cell_info["format_category"] = category
+                    row_data.append(cell_info)
                 result.append(row_data)
 
             return result

@@ -135,6 +135,152 @@ def test_read_cell_range():
     assert grid[2][2]["formula"] == "=A2+B2"
 
 
+def _set_number_format(cell, format_str: str) -> None:
+    formats = _test_doc.getNumberFormats()
+    locale = _test_doc.getPropertyValue("CharLocale")
+    format_id = formats.queryKey(format_str, locale, False)
+    if format_id == -1:
+        format_id = formats.addNew(format_str, locale)
+    cell.setPropertyValue("NumberFormat", format_id)
+
+
+@native_test
+def test_read_cell_range_date_time_enrichment():
+    """Public read_cell_range adds iso8601 for date/time formats; raw value stays a serial."""
+    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+
+    date_cell = active_sheet.getCellByPosition(0, 20)  # A21
+    date_cell.setValue(46240.0)
+    _set_number_format(date_cell, "YYYY-MM-DD")
+
+    time_cell = active_sheet.getCellByPosition(1, 20)  # B21
+    time_cell.setValue(0.5)
+    _set_number_format(time_cell, "HH:MM:SS")
+
+    datetime_cell = active_sheet.getCellByPosition(2, 20)  # C21
+    datetime_cell.setValue(46240.5)
+    _set_number_format(datetime_cell, "YYYY-MM-DD HH:MM:SS")
+
+    formula_cell = active_sheet.getCellByPosition(3, 20)  # D21
+    formula_cell.setFormula("=A21")
+    _set_number_format(formula_cell, "YYYY-MM-DD")
+
+    plain_cell = active_sheet.getCellByPosition(4, 20)  # E21
+    plain_cell.setValue(42.0)
+
+    res = _execute_calc_tool("read_cell_range", {"range_name": ["A21:E21"]})
+    assert res.get("status") == "ok", f"read_cell_range failed: {res}"
+    row = res["result"][0][0]
+
+    assert row[0]["value"] == 46240.0
+    assert row[0]["iso8601"] == "2026-08-06"
+    assert row[0]["format_category"] == "date"
+
+    assert row[1]["value"] == 0.5
+    assert row[1]["iso8601"] == "12:00:00"
+    assert row[1]["format_category"] == "time"
+
+    assert row[2]["value"] == 46240.5
+    assert row[2]["iso8601"] == "2026-08-06T12:00:00"
+    assert row[2]["format_category"] == "datetime"
+
+    assert row[3]["formula"] == "=A21"
+    assert row[3]["value"] == 46240.0
+    assert row[3]["iso8601"] == "2026-08-06"
+    assert row[3]["format_category"] == "date"
+
+    assert row[4]["value"] == 42.0
+    assert "iso8601" not in row[4]
+    assert "format_category" not in row[4]
+
+    # Internal default path must stay raw for =PY / analysis consumers.
+    from plugin.calc.bridge import CalcBridge
+    from plugin.calc.inspector import CellInspector
+
+    raw = CellInspector(CalcBridge(_test_doc)).read_range("A21")
+    assert raw[0][0]["value"] == 46240.0
+    assert "iso8601" not in raw[0][0]
+
+
+@native_test
+def test_read_range_format_info_performance():
+    """Opt-in enrichment must stay cheap for plain numbers and scale with format groups."""
+    import time
+
+    from plugin.calc.bridge import CalcBridge
+    from plugin.calc.inspector import CellInspector
+
+    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+    inspector = CellInspector(CalcBridge(_test_doc))
+
+    def _avg_ms(addr: str, *, include_format_info: bool, rounds: int = 3) -> float:
+        t0 = time.perf_counter()
+        for _ in range(rounds):
+            inspector.read_range(addr, include_format_info=include_format_info)
+        return (time.perf_counter() - t0) * 1000.0 / rounds
+
+    # 100x100 = 10_000 plain numbers starting at AA1 (col 26).
+    plain = active_sheet.getCellRangeByPosition(26, 0, 125, 99)
+    plain.setDataArray(tuple(tuple(float(r * 100 + c) for c in range(100)) for r in range(100)))
+
+    # Warm the UNO path (first reads after sheet fill can be anomalously slow).
+    for _ in range(3):
+        inspector.read_range("AA1:DV100")
+        inspector.read_range("AA1:DV100", include_format_info=True)
+    raw_ms = _avg_ms("AA1:DV100", include_format_info=False)
+    plain_enriched_ms = _avg_ms("AA1:DV100", include_format_info=True)
+
+    # One shared date format on a same-sized block (worst case: every cell is a date).
+    date_rng = active_sheet.getCellRangeByPosition(26, 110, 125, 209)
+    date_rng.setDataArray(tuple(tuple(46200.0 + r for _c in range(100)) for r in range(100)))
+    _set_number_format(date_rng, "YYYY-MM-DD")
+    sample = inspector.read_range("AA111:DV210", include_format_info=True)
+    assert sample[0][0].get("format_category") == "date", sample[0][0]
+    date_enriched_ms = _avg_ms("AA111:DV210", include_format_info=True)
+
+    # Realistic mix: 10 of 100 columns (~10% of cells) are dates; the rest stay plain numbers.
+    # Layout at FA1:IV100 (col 156..255). First 10 columns (FA:FJ) get date serials + date format.
+    mixed = active_sheet.getCellRangeByPosition(156, 0, 255, 99)
+    mixed_rows = []
+    for r in range(100):
+        row = []
+        for c in range(100):
+            row.append(46200.0 + r if c < 10 else float(r * 100 + c))
+        mixed_rows.append(tuple(row))
+    mixed.setDataArray(tuple(mixed_rows))
+    date_cols = active_sheet.getCellRangeByPosition(156, 0, 165, 99)
+    _set_number_format(date_cols, "YYYY-MM-DD")
+
+    mixed_sample = inspector.read_range("FA1:IV100", include_format_info=True)
+    date_hits = sum(1 for row in mixed_sample for cell in row if cell.get("format_category") == "date")
+    plain_hits = sum(1 for row in mixed_sample for cell in row if "iso8601" not in cell)
+    assert date_hits == 1000, f"expected 10% date cells (1000), got {date_hits}"
+    assert plain_hits == 9000, f"expected 90% plain cells (9000), got {plain_hits}"
+    assert mixed_sample[0][0].get("iso8601")
+    assert "iso8601" not in mixed_sample[0][10]
+
+    mixed_enriched_ms = _avg_ms("FA1:IV100", include_format_info=True)
+
+    print(
+        f"[read_range perf] raw={raw_ms:.1f}ms plain_enriched={plain_enriched_ms:.1f}ms "
+        f"mixed_10pct_dates={mixed_enriched_ms:.1f}ms all_dates={date_enriched_ms:.1f}ms "
+        f"(avg of 3 over 10k cells)"
+    )
+
+    # Plain-number enrichment should stay near the raw path (preflight finds no date cells
+    # and no formulas). Allow generous headroom for CI variance without accepting a collapse.
+    assert plain_enriched_ms < max(raw_ms * 3.0, raw_ms + 50.0), (
+        f"plain enriched too slow: raw={raw_ms:.1f}ms enriched={plain_enriched_ms:.1f}ms"
+    )
+    # Mixed 10% dates should land between plain and all-dates, not near the all-dates worst case.
+    assert mixed_enriched_ms < max(raw_ms * 6.0, 400.0), (
+        f"mixed 10% dates too slow: raw={raw_ms:.1f}ms mixed={mixed_enriched_ms:.1f}ms"
+    )
+    assert date_enriched_ms < max(raw_ms * 8.0, 500.0), (
+        f"all-dates too slow: raw={raw_ms:.1f}ms all_dates={date_enriched_ms:.1f}ms"
+    )
+
+
 @native_test
 def test_read_after_write_stability():
     # 1. Write data

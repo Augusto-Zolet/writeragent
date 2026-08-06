@@ -1,8 +1,9 @@
+import datetime
 import json
 import urllib.request
 
 from plugin.mcp.server import mcp_endpoint_url
-from plugin.mcp.mcp_protocol import build_initialize_instructions
+from plugin.mcp.mcp_protocol import _format_mcp_clock_context, build_initialize_instructions
 
 
 def test_mcp_endpoint_url_helper():
@@ -10,11 +11,20 @@ def test_mcp_endpoint_url_helper():
     assert mcp_endpoint_url("127.0.0.1", 9000, use_ssl=True) == "https://127.0.0.1:9000/mcp"
 
 
+def test_mcp_clock_context_is_timezone_aware():
+    now = datetime.datetime(2026, 8, 6, 13, 11, 0, tzinfo=datetime.timezone(datetime.timedelta(hours=-4), "EDT"))
+    text = _format_mcp_clock_context(now)
+    assert text.startswith("Current local date and time: Thursday, 2026-08-06T13:11:00-04:00")
+    assert "(EDT)" in text
+
+
 def test_initialize_instructions_lean_pointer_in_every_mode():
     """T4/G2: every exposure mode keeps the base + its mode hint + the get_guidance pointer, and
     stays LEAN (clients drop/truncate the connect-time text, so the manual moved out of it)."""
+    now = datetime.datetime(2026, 8, 6, 13, 11, 0, tzinfo=datetime.timezone.utc)
     for mode in ("delegate", "direct_flat", "direct_discovery", "unknown"):
-        text = build_initialize_instructions(mode)
+        text = build_initialize_instructions(mode, now=now)
+        assert "Current local date and time:" in text
         assert "WriterAgent MCP" in text          # base preserved
         assert "get_guidance" in text             # the pointer to the on-demand manual
         assert "get_document_tree" not in text    # the nav workflow moved to the manual
@@ -145,6 +155,7 @@ def test_mcp_initialize_instructions_are_lean_and_point_to_the_manual(mcp_server
         data = json.loads(response.read().decode("utf-8"))
 
     instr = data["result"]["instructions"]
+    assert "Current local date and time:" in instr        # connection-time clock for MCP hosts
     assert "get_guidance" in instr                        # the pointer to the on-demand manual
     assert "structured fields" in instr                   # invariant: confirm edits structurally
     assert "accept/reject" in instr                       # invariant: tracked changes are the user's
