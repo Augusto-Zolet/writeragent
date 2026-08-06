@@ -1,29 +1,39 @@
-# WriterAgent — Feature Index
+# WriterAgent — Feature docs index
 
-User-facing catalog of what ships today. The root [README](../README.md) is the landing page; this file is the deeper map with links into topic docs.
-
----
+Product overview lives in the root [README](../README.md). This page maps each area to deeper topic docs.
 
 ## Writer
 
-- **Core + specialized tools**: Everyday chat keeps a small default tool list; [domain-scoped sub-agents](writer-specialized-toolsets.md) unlock page layout, [shapes](shape_support.md), charts, [bookmarks](bookmarks-api-reference.md), fields, [footnotes](footnotes-api-reference.md), [track changes](writer-tracking-api-reference.md), indexes, forms, and more ([page API](page-api-reference.md)).
-- **Format preservation**: Surgical replacements keep bold, italics, highlights, and font sizes. See [reviewable agent edits](reviewable-agent-edits.md) and [styles](llm-styles.md) / [LLM_STYLES.md](../LLM_STYLES.md).
-- **Grammar & style**: Async proofreader with sentence cache and Unicode-aware splitting. Backends: AI (LLM), [LanguageTool](https://languagetool.org), or [Harper](https://github.com/Automattic/harper). Optional sentence language detection in Settings → Doc. [Grammar plan](realtime-grammar-checker-plan.md).
-- **Math & LaTeX**: MathML / TeX → editable LibreOffice Math OLE objects. [math-tex.md](math-tex.md).
-- **Symbolic math & charts**: SymPy helpers and Matplotlib figures from Viz Helpers insert into the document.
-- **Text analytics (spaCy)**: Readability, NER, key phrases via **WriterAgent → Text Analytics…** (venv packages required).
-- **Rich-text sidebar**: Optional rich text control in the sidebar (off by default). [Rich text control](rich-text-control-sidebar.md).
+| Topic | Docs |
+|-------|------|
+| Specialized toolsets | [writer-specialized-toolsets.md](writer-specialized-toolsets.md) |
+| Page layout | [page-api-reference.md](page-api-reference.md) |
+| Shapes | [shape_support.md](shape_support.md) |
+| Bookmarks | [bookmarks-api-reference.md](bookmarks-api-reference.md) |
+| Footnotes | [footnotes-api-reference.md](footnotes-api-reference.md) |
+| Track changes | [writer-tracking-api-reference.md](writer-tracking-api-reference.md) |
+| Grammar pipeline | [realtime-grammar-checker-plan.md](realtime-grammar-checker-plan.md) |
+| Math / TeX | [math-tex.md](math-tex.md) |
+| Styles / LLM HTML | [llm-styles.md](llm-styles.md) · [LLM_STYLES.md](../LLM_STYLES.md) |
+| Reviewable edits | [reviewable-agent-edits.md](reviewable-agent-edits.md) |
+| Rich-text sidebar | [rich-text-control-sidebar.md](rich-text-control-sidebar.md) |
+| Chat sidebar | [chat-sidebar-implementation.md](chat-sidebar-implementation.md) |
 
 ## Calc
 
-- **`=PROMPT()`**: AI prompts inside spreadsheet cells.
-- **`=PY()` / `=PYTHON()`**: NumPy/pandas in cells with multi-range `data` / `data_list`, auto spill, shared kernel, init scripts. [NumPy in LibreOffice](enabling_numpy_in_libreoffice.md) · [data shapes](calc-py-data-shapes.md).
-- **Python sidebar**: Diagnostics deck for `=PY()` cells (**View → Sidebar → Python**).
-- **Trusted helpers**: Analysis, Viz, Math, Quant, Optimize, Units via chat or **Tools → Run Python Script**. [Analysis tools](calc-analysis-tools.md) · [numpy domains](numpy-domains.md) · [analysis sub-agent](analysis-sub-agent.md).
-- **Sheet → Python**: Convert formulas to `=PY()` while keeping constants and formats. [Spreadsheet → Python](calc-spreadsheet-to-python-import.md).
-- **Agent toolsets**: Batch edits, [conditional formatting](calc-conditional-formatting.md), [sheet filters](calc-sheet-filter.md). [Calc specialized toolsets](calc-specialized-toolsets.md).
+| Topic | Docs |
+|-------|------|
+| NumPy / `=PY()` | [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md) |
+| Data shapes | [calc-py-data-shapes.md](calc-py-data-shapes.md) |
+| Domain helpers (Viz, Math, Quant, …) | [numpy-domains.md](numpy-domains.md) |
+| Analysis tools | [calc-analysis-tools.md](calc-analysis-tools.md) · [analysis-sub-agent.md](analysis-sub-agent.md) |
+| Specialized toolsets | [calc-specialized-toolsets.md](calc-specialized-toolsets.md) |
+| Sheet → Python | [calc-spreadsheet-to-python-import.md](calc-spreadsheet-to-python-import.md) |
+| Conditional formatting | [calc-conditional-formatting.md](calc-conditional-formatting.md) |
+| Sheet filters | [calc-sheet-filter.md](calc-sheet-filter.md) |
+| Serialization | [numpy-serialization.md](numpy-serialization.md) |
 
-### Analysis helpers (quick list)
+### Analysis helpers
 
 | Helper | Purpose |
 |--------|---------|
@@ -43,54 +53,53 @@ User-facing catalog of what ships today. The root [README](../README.md) is the 
 | `calc_goal_seek` | Single-variable what-if (native Calc) |
 | `calc_solver` | Constrained optimization on formulas (native Calc) |
 
-Full contracts and RPC details: [calc-analysis-tools.md](calc-analysis-tools.md).
+Contracts and RPC: [calc-analysis-tools.md](calc-analysis-tools.md).
 
-## Multi-modal & research
+## Multi-modal
 
-- **Web research**: Local [smolagents](https://github.com/huggingface/smolagents) loop + DuckDuckGo. [agent-search.md](agent-search.md) · [search-engine-integration.md](search-engine-integration.md).
-- **Audio / voice**: [audio-architecture.md](audio-architecture.md).
-- **Image generation**: [image-generation.md](image-generation.md).
-- **Local OCR**: Docling / RapidOCR via Vision Helpers. [image-recognition.md](image-recognition.md).
+| Topic | Docs |
+|-------|------|
+| Web research | [agent-search.md](agent-search.md) · [search-engine-integration.md](search-engine-integration.md) |
+| Image generation | [image-generation.md](image-generation.md) |
+| Vision / OCR | [image-recognition.md](image-recognition.md) |
+| Audio | [audio-architecture.md](audio-architecture.md) |
 
 ## Cross-document & intelligence
 
-- **LO-DOM**: Structural document model. [lo-dom-semantic-tree.md](lo-dom-semantic-tree.md).
-- **Memory / librarian**: [hermes-agent-patterns.md](hermes-agent-patterns.md) · [librarian-agentic-onboarding.md](librarian-agentic-onboarding.md).
-- **Locales**: [localization.md](localization.md).
-- **Sibling-folder reads**: Say *my* / *our* in chat to read other files beside the saved document. [multi-document plan](multi-document-dev-plan.md).
-- **Embeddings + FTS** (optional): `writeragent_embeddings/` corpus beside documents. [embeddings.md](embeddings.md).
+| Topic | Docs |
+|-------|------|
+| LO-DOM | [lo-dom-semantic-tree.md](lo-dom-semantic-tree.md) |
+| Embeddings / FTS | [embeddings.md](embeddings.md) |
+| Multi-document | [multi-document-dev-plan.md](multi-document-dev-plan.md) |
+| Memory | [hermes-agent-patterns.md](hermes-agent-patterns.md) |
+| Librarian | [librarian-agentic-onboarding.md](librarian-agentic-onboarding.md) |
+| Localization | [localization.md](localization.md) |
 
-## Local Python execution
+## Draw / Impress
 
-- **Run Python Script**: Analysis, Viz, Math, Units, Quant, Optimize, Vision, SQL (DuckDB). Configure venv in **Settings → Python**.
-- **Shared kernel / init scripts / document-attached scripts**: Jupyter-like state, workbook startup, scripts stored in the document.
-- **Sandbox**: Out-of-process venv + AST executor. [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md) · [numpy-serialization.md](numpy-serialization.md).
+| Topic | Docs |
+|-------|------|
+| Specialized toolsets | [draw-impress-specialized-toolsets.md](draw-impress-specialized-toolsets.md) |
+| Shapes | [shape_support.md](shape_support.md) |
+| PPT-Master | [ppt-master-integration-plan.md](ppt-master-integration-plan.md) |
 
-## Editing & formatting
+## MCP & integrations
 
-- Surgical text replacement; HTML import for tables/lists; tracked deletions; single-undo streamed rewrites. [llm-styles.md](llm-styles.md) · [reviewable-agent-edits.md](reviewable-agent-edits.md).
+| Topic | Docs |
+|-------|------|
+| MCP protocol | [mcp-protocol.md](mcp-protocol.md) |
+| Cursor plugin | [cursor-libreoffice](https://github.com/KeithCu/cursor-libreoffice) |
+| LibreOffice skill | [libreoffice-skill](https://github.com/KeithCu/libreoffice-skill) |
+| Config examples | [CONFIG_EXAMPLES.md](../CONFIG_EXAMPLES.md) |
 
-## MCP & external agents
+## Engineering
 
-- **MCP server**: Enable in Settings; default `http://localhost:8765/mcp`. Full protocol, document targeting, and integrator notes: [mcp-protocol.md](mcp-protocol.md).
-- **Cursor / Hermes helpers**: [cursor-libreoffice](https://github.com/KeithCu/cursor-libreoffice) · [libreoffice-skill](https://github.com/KeithCu/libreoffice-skill).
-- **Agent backends**: Local (Ollama, LM Studio) or cloud (OpenRouter, Together.AI, …). Optional external ACP agents ([Hermes](https://github.com/NousResearch/hermes-agent), Grok Build) with HITL approve/reject.
-
-## Architecture, evals, roadmap
-
-| Topic | Doc |
-|-------|-----|
-| Architecture overview | [writeragent-architecture.md](writeragent-architecture.md) |
-| Sidebar / chat FSM | [chat-sidebar-implementation.md](chat-sidebar-implementation.md) |
+| Topic | Docs |
+|-------|------|
+| Architecture | [writeragent-architecture.md](writeragent-architecture.md) |
 | Streaming / threading | [streaming-and-threading.md](streaming-and-threading.md) |
 | Formal verification | [formal_verification.md](formal_verification.md) |
-| LLM evals & benchmarks | [benchmarks.md](benchmarks.md) · [scripts/prompt_optimization/](../scripts/prompt_optimization/README.md) |
-| Product / engineering roadmap | [ROADMAP.md](ROADMAP.md) |
-
-## Showcase
-
-Screenshots and sample docs live under [`Showcase/`](../Showcase/).
-
-## Build chronicle (blog)
-
-See [The Evolution of WriterAgent](../README.md#the-evolution-of-writeragent) in the root README for the weekly writeups.
+| Test architecture | [test_architecture_analysis.md](test_architecture_analysis.md) |
+| LLM hacks | [llm-hacks.md](llm-hacks.md) |
+| Benchmarks | [benchmarks.md](benchmarks.md) · [scripts/prompt_optimization/](../scripts/prompt_optimization/README.md) |
+| Type checking | [type-checking.md](type-checking.md) |
