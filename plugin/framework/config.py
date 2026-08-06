@@ -105,11 +105,13 @@ AI_SIMPLE_FIELDS = {"endpoint", "text_model", "image_model", "stt_model", "tempe
 @deal.post(lambda result: isinstance(result, bool))
 def as_bool(value):
     """Parse a value as boolean (handles str, int, float)."""
-    if isinstance(value, bool):
+    # crosshair: off
+    # Plain types only — isinstance(str)/float() on CrossHair symbolic values engine-crash.
+    if type(value) is bool:
         return value
-    if isinstance(value, str):
+    if type(value) is str:
         return value.strip().lower() in ("1", "true", "yes", "on")
-    if isinstance(value, (int, float)):
+    if type(value) in (int, float):
         return value != 0
     return False
 

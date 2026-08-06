@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+import math
+
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -65,6 +67,13 @@ def test_parse_sheet_filter_criterion_basic() -> None:
     assert str_val == "test"
 
 
+def test_parse_sheet_filter_criterion_bad_field_raises_uno() -> None:
+    with pytest.raises(UnoObjectError, match="Invalid filter 'field'"):
+        parse_sheet_filter_criterion({"field": "", "operator": "EQUAL", "value": "x"}, is_first=True)
+    with pytest.raises(UnoObjectError, match="Invalid filter 'field'"):
+        parse_sheet_filter_criterion({"field": None, "operator": "EQUAL", "value": "x"}, is_first=True)
+
+
 class DummyModel:
     def __init__(self) -> None:
         self.anchor_snapshots = {"A6": "A6:C10"}
@@ -100,6 +109,8 @@ def test_unwrap_cell_invariants(val) -> None:
     res = _unwrap_cell(val)
     if val == "":
         assert res is None
+    elif isinstance(val, float) and math.isnan(val):
+        assert isinstance(res, float) and math.isnan(res)
     elif isinstance(val, (int, float, bool)) or val is None:
         assert res == val
 

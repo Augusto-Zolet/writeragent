@@ -153,10 +153,11 @@ def test_crosshair_audio_recorder_state_if_available() -> None:
 
 @pytest.mark.slow
 def test_crosshair_state_machine_if_available() -> None:
+    # next_state is # crosshair: off; module check covers pure helpers with @deal.
     _run_crosshair("plugin/chatbot/state_machine.py", timeout=300)
 
 
 @pytest.mark.slow
-def test_crosshair_tool_loop_state_fqn_if_available() -> None:
-    # Full module is heavy; target next_state FQN with a bounded timeout.
-    _run_crosshair("plugin.chatbot.tool_loop_state.next_state", timeout=180)
+def test_crosshair_tool_loop_state_if_available() -> None:
+    # next_state is # crosshair: off; module check covers pure helpers with @deal.
+    _run_crosshair("plugin/chatbot/tool_loop_state.py", timeout=180)

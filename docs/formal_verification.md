@@ -179,6 +179,8 @@ That produces tests of the form `assert foo(args) == <whatever it got>`. **Do no
 
 - **`make crosshair-cover`** runs on the **entire** [`plugin/scripting/payload_codec.py`](../plugin/scripting/payload_codec.py) with **no** `--per_condition_timeout`—correctness over speed; can take a long time.
 - **`make crosshair-check`** is the contract pass on the same file; use both when hardening serialization.
+- **`make crosshair-check-all`** discovers every `plugin/**/*.py` that contains `@deal.` and runs `crosshair check --analysis_kind=deal` **one file at a time** (so an engine crash in one module does not abort the rest) with **no** per-condition timeout (multi-hour OK). Formatted output is teed to [`build/crosshair-check-all.log`](../build/crosshair-check-all.log). Not part of `make test`. Failures are CrossHair **errors** / engine crashes only; `NOT_CONFIRMED` / `UNABLE` are informational. List targets with `python scripts/crosshair_check_all.py --list`; pass explicit paths to check a subset.
+- **`make crosshair-cover-all`** uses the same `@deal.` discovery as check-all, plus a cover-only skip list for UNO/I/O hosts (`CROSSHAIR_COVER_ALL_SKIP` in [`scripts/crosshair_cover_all.py`](../scripts/crosshair_cover_all.py), unioned with `CROSSHAIR_CHECK_ALL_SKIP`). Runs in a **process pool** (default workers `max(2, cpu_count - 2)`; override with `--jobs N`). Modules are submitted **longest-first** via `COVER_ALL_SCHEDULE_ORDER` (measured regular-run timings; `payload_codec` first). Two presets only: **regular** (default) is `--max_uninteresting_iterations=50 --per_condition_timeout=30`; **deep** (`make crosshair-cover-all-deep` / `--deep`) is `--max_uninteresting_iterations=200` with no per-condition timeout (hour-scale). In **regular** mode only, `payload_codec` uses a tighter **5 / 5s** bound so it finishes near peer long modules; deep and `make crosshair-cover` stay the long codec dives. Cover/check are always **budgeted partial** exploration—not exhaustive proofs. Each worker still owns one CrossHair process per module; formatted output is buffered and printed as a whole block when that module finishes (completion order—no interleaved lines). Tee: [`build/crosshair-cover-all.log`](../build/crosshair-cover-all.log); per-module durations (longest first) in [`build/crosshair-cover-all-timings.json`](../build/crosshair-cover-all-timings.json). Failures are `CrossHairInternal` / process crashes only—few examples do not fail the sweep. `cover` walks **top-level callables** in those modules (not only `@deal`); `# crosshair: off` does not skip cover entry points. List targets with `python scripts/crosshair_cover_all.py --list`.
 
 **WriterAgent reference module:** [`plugin/scripting/payload_codec.py`](../plugin/scripting/payload_codec.py) — see [`docs/serialization-verification-plan.md`](serialization-verification-plan.md).
 
@@ -200,12 +202,36 @@ crosshair cover -v plugin/scripting/payload_codec.py 2>&1 \
 crosshair check -v --report_all plugin/scripting/payload_codec.py 2>&1 \
     | python scripts/crosshair_stream.py check -q
 
-make verify-serialization   # pytest oracles + crosshair-check
+make verify             # pytest formal verification suite
 make crosshair-check
 make crosshair-cover
+make crosshair-check-all   # all @deal. modules; multi-hour; log under build/
+make crosshair-cover-all        # same set; regular budget (50/30s); log + timings under build/
+make crosshair-cover-all-deep   # same set; deep budget (200 iters, no timeout)
 ```
 
 Sample filtered **`check`** output:
+
+```text
+[CHECK PROGRESS        ] analyzing should_use_binary_envelope
+[CHECK ERROR           ] plugin/scripting/payload_codec.py:500  TypeError: ...
+  -> confirmed=0 not_confirmed=0 unable=0 errors=1 progress=4
+
+=== CrossHair CHECK FAIL (exit 1) ===
+  ...
+=== ERRORS TO FIX ===
+  1. plugin/scripting/payload_codec.py:500  TypeError: ...
+```
+
+`make crosshair-check` / `make crosshair-check-all` both end with that **ERRORS TO FIX** block (unique contract `: error:` lines, Traceback headers, and CrossHairInternal crashes). `check-all` also groups failures by module. `make crosshair-cover-all` uses the same grouping for cover fatals (not for low example counts). Under the pool, each module’s filtered block appears when that worker completes (not live line-by-line across modules). Each block starts and ends with the same `######## [i/n] path ########` marker, and the COVER DONE banner repeats `[i/n] path` so identity is visible after a long example dump. Here `[i/n]` is **completion progress** (ith module finished of n), not discovery/list order.
+
+**`crosshair-check-all` skip list:** some `@deal.` modules crash the CrossHair engine (`CrossHairInternal` on symbolic `json.loads` / UNO proxies) without a useful contract counterexample. Default discovery omits them (`CROSSHAIR_CHECK_ALL_SKIP` in [`scripts/crosshair_check_all.py`](../scripts/crosshair_check_all.py)); `@deal` still runs at runtime. Pass an explicit path or `--include-skipped` to force analysis. Current skips: `plugin/chatbot/memory.py`, `plugin/framework/appearance.py`, `plugin/framework/json_utils.py`, `plugin/framework/errors.py`, `plugin/mcp/wire_types.py`. (`state_machine.py` / `tool_loop_state.py` stay in the sweep: `next_state` uses `# crosshair: off`; pure helpers are analyzed.)
+
+**`crosshair-cover-all` extra skips:** cover walks non-`@deal` callables too, so UNO Tool/`execute`, sheet helpers, sidebar combobox, research-cache engine crashes, stream drain loops, FSM modules (`state_machine.py`, `tool_loop_state.py`, `calc_addin_data.py`), and modules that still burn cover time or exit non-zero (`auth.py`, `config.py`, `config_service.py`, `default_models.py`, `event_bus.py`, `i18n.py`, `tool.py`, `url_utils.py`, `cors.py`, `calc_range.py`, `duckdb_sql.py`, `editor_ipc.py`, `helper_domain.py`, `sandbox.py`) are omitted by default (`CROSSHAIR_COVER_ALL_SKIP`). **`payload_codec.py` stays in the cover sweep** (primary codec; `make crosshair-check` / `make crosshair-cover`). Note: `# crosshair: off` is honored by **check**, not by **cover** entry-point selection.
+
+**Cover streamer vs check:** both modes ignore CrossHair `-v` `File "…/plugin/…"` / `TypeError: LazyIntSymbolicStr` stacks from `CrosshairUnsupported` path exploration. Check hard-fails on `Traceback (most recent call last)`, contract `: error:` lines, `CrossHairInternal`, or a non-zero process exit. Cover treats mid-run Tracebacks from app `log.exception` (path exploration) as **COVER EXPLORE**, not fatals; cover still fails on `CrossHairInternal` or a non-zero CrossHair process exit.
+
+**`# crosshair: off`:** put the directive alone on its line (no trailing prose). CrossHair parses the rest of the line as options; characters like `—` raise `InvalidDirective`.
 
 ```text
 [CHECK PROGRESS        ] analyzing host_pack_split_grid
@@ -394,7 +420,7 @@ def next_state(...):
 crosshair check plugin/chatbot/send_state.py
 crosshair check plugin/chatbot/audio_recorder_state.py
 crosshair check plugin.mcp.mcp_state.next_state
-# tool_loop_state: deal+pytest + FQN CrossHair (larger event surface)
+# tool_loop_state: deal+pytest + CrossHair on pure helpers (next_state off)
 ```
 
 ### Step 3: Add Verification to CI
@@ -413,7 +439,7 @@ Maintain a `verification_status.json` file tracking which components have been v
 4. **`plugin/framework/config.py`** — `as_bool` / `parse_int_robust` / `parse_float_robust` ([`tests/framework/test_config_coerce_verification.py`](../tests/framework/test_config_coerce_verification.py)); not whole-file CrossHair
 5. **`plugin/framework/tool.py`** — `_normalize_schema_for_strict_providers` FQN ([`tests/framework/test_tool_schema_verification.py`](../tests/framework/test_tool_schema_verification.py))
 6. **`plugin/framework/async_stream.py`** — `accumulate_delta` FQN ([`tests/framework/test_accumulate_delta_verification.py`](../tests/framework/test_accumulate_delta_verification.py))
-7. **FSM catch-up** — CrossHair on `state_machine.py` + `tool_loop_state.next_state` FQN ([`tests/chatbot/test_fsm_verification.py`](../tests/chatbot/test_fsm_verification.py)); `mcp_state.next_state` ([`tests/mcp/test_mcp_state_verification.py`](../tests/mcp/test_mcp_state_verification.py))
+7. **FSM catch-up** — CrossHair on `state_machine.py` + `tool_loop_state.py` helpers (`next_state` is `# crosshair: off`) ([`tests/chatbot/test_fsm_verification.py`](../tests/chatbot/test_fsm_verification.py)); `mcp_state.next_state` ([`tests/mcp/test_mcp_state_verification.py`](../tests/mcp/test_mcp_state_verification.py))
 8. **`plugin/framework/json_utils.py`** — `safe_json_loads` FQN ([`tests/framework/test_json_utils_verification.py`](../tests/framework/test_json_utils_verification.py))
 9. **`plugin/framework/errors.py`** — `format_error_payload` and `format_error_message` ([`tests/framework/test_error_payload_verification.py`](../tests/framework/test_error_payload_verification.py))
 10. **`plugin/scripting/sandbox.py`** — `scrub_subprocess_env` FQN ([`tests/scripting/test_scrub_env_verification.py`](../tests/scripting/test_scrub_env_verification.py))

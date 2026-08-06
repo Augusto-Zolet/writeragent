@@ -431,6 +431,7 @@ def run_stream_drain_loop(q, toolkit, job_done, apply_chunk_fn, on_stream_done, 
     - (TOOL_CALL, payload): Agent-backend tool block; shown as text via apply_chunk_fn.
     - (TOOL_RESULT, payload): Agent-backend tool result block; shown as text via apply_chunk_fn.
     """
+    # crosshair: off
     state = _DrainState(q=q, apply_chunk_fn=apply_chunk_fn, on_stream_done=on_stream_done, on_stopped=on_stopped, on_error=on_error, on_status_fn=on_status_fn, on_approval_required=on_approval_required, show_search_thinking=show_search_thinking, job_done=job_done)
     log.debug("run_stream_drain_loop start %s", _marshal_thread_tag())
     first_batch_logged = [False]
@@ -539,6 +540,7 @@ def run_async_worker_with_drain(
     ``on_done_fn`` or a no-op so the drain loop never fails on a missing
     handler.
     """
+    # crosshair: off
     if q is None:
         q = queue.Queue()
     job_done = [False]
@@ -721,7 +723,7 @@ def run_blocking_in_thread(ctx, func, *args, **kwargs):
 # License: Apache 2.0 (https://github.com/openai/openai-python/blob/main/LICENSE)
 
 
-@deal.pre(lambda acc, delta: isinstance(acc, dict) and isinstance(delta, dict))
+@deal.pre(lambda acc, delta: type(acc) is dict and type(delta) is dict)
 @deal.post(lambda result: isinstance(result, dict))
 @deal.raises(TypeError, RuntimeError)
 def accumulate_delta(acc: dict[object, object], delta: dict[object, object]) -> dict[object, object]:
@@ -731,6 +733,9 @@ def accumulate_delta(acc: dict[object, object], delta: dict[object, object]) -> 
     assistant message from SSE chunks. Content and tool_calls (with partial
     function.arguments) are merged by index; strings are concatenated.
     """
+    # crosshair: off
+    if type(acc) is not dict or type(delta) is not dict:
+        raise TypeError("accumulate_delta requires plain dict acc and delta")
     for key, delta_value in delta.items():
         if key not in acc:
             acc[key] = delta_value

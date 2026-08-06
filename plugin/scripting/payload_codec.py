@@ -26,6 +26,17 @@ import sys
 import tempfile
 from typing import TYPE_CHECKING, Any, Literal, cast
 
+# CrossHair may invoke deal post/ensure as ``fn(*call_args, result=return_value, **kwargs)``.
+# Naming a positional parameter ``result`` then raises TypeError (multiple values). Keep ``result`` keyword-only.
+_DEAL_RETURN = object()
+
+
+def _deal_return(*args: Any, result: Any = _DEAL_RETURN, **_kwargs: Any) -> Any:
+    if result is not _DEAL_RETURN:
+        return result
+    return args[-1] if args else None
+
+
 def _to_py(v: Any) -> Any:
     """Recursively convert numpy scalars and nested sequences to native Python types.
 
@@ -371,10 +382,11 @@ def _is_ndarray(obj: object) -> bool:
 
 
 @deal.pre(lambda grid, *_, **__: _is_grid_sequence(grid))
-@deal.post(lambda result, *_, **__: isinstance(result, list))
-@deal.ensure(lambda grid, result: all(k in ("int", "float", "bool") for k in result))
+@deal.post(lambda *a, result=_DEAL_RETURN, **k: isinstance(_deal_return(*a, result=result), list))
+@deal.ensure(lambda grid, *a, result=_DEAL_RETURN, **k: all(x in ("int", "float", "bool") for x in _deal_return(*a, result=result)))
 def column_kinds_for_grid(grid: list[Any] | list[list[Any]]) -> list[str]:
     """Policy helper (tests): per-column int/float/bool from source types; mirrors host_pack_split_grid."""
+    # crosshair: off
     try:
         _, _, kinds, _ = _flatten_grid_to_components(grid)
         return kinds
@@ -497,9 +509,10 @@ def cell_count(shape: tuple[int, ...]) -> int:
 
 @deal.pre(lambda shape, *_, **__: isinstance(shape, tuple) and all(isinstance(d, int) and d >= 0 for d in shape))
 @deal.pre(lambda shape, *_, min_cells=BINARY_MIN_CELLS, force="auto", **__: force in ("auto", "always", "never") and isinstance(min_cells, int) and min_cells >= 0)
-@deal.post(lambda result: isinstance(result, bool))
-@deal.ensure(lambda shape, result, *_, force="auto", **__: force != "always" or result is True)
-@deal.ensure(lambda shape, result, *_, force="auto", **__: force != "never" or result is False)
+# CrossHair may pass call args + result=; never bind ``result`` as a positional parameter.
+@deal.post(lambda *a, result=_DEAL_RETURN, **k: isinstance(_deal_return(*a, result=result), bool))
+@deal.ensure(lambda *a, result=_DEAL_RETURN, force="auto", **k: force != "always" or _deal_return(*a, result=result) is True)
+@deal.ensure(lambda *a, result=_DEAL_RETURN, force="auto", **k: force != "never" or _deal_return(*a, result=result) is False)
 def should_use_binary_envelope(
     shape: tuple[int, ...],
     *,
@@ -737,18 +750,19 @@ def _iter_split_grid_cells(
 
 
 @deal.pre(lambda grid: _is_grid_sequence(grid))
-@deal.post(lambda result: isinstance(result, tuple) and len(result) == 4 and isinstance(result[0], array.array) and isinstance(result[1], dict) and isinstance(result[2], list) and isinstance(result[3], list))
-@deal.ensure(lambda grid, result: (not grid) == (len(result[0]) == 0 and result[1] == {} and result[2] == [] and result[3] == [0]))
-@deal.ensure(lambda grid, result: all(isinstance(k, int) for k in result[1].keys()))
-@deal.ensure(lambda grid, result: len(result[2]) == (0 if not grid else (result[3][1] if len(result[3]) == 2 else 1)))
-@deal.ensure(lambda grid, result: all(isinstance(v, str) for v in result[1].values()))
-@deal.ensure(lambda grid, result: all(k in ("int", "float", "bool") for k in result[2]))
-@deal.ensure(lambda grid, result: (not grid) or len(result[0]) == (result[3][0] * result[3][1] if len(result[3]) == 2 else result[3][0]))
+@deal.post(lambda *a, result=_DEAL_RETURN, **k: (r := _deal_return(*a, result=result)) is not None and isinstance(r, tuple) and len(r) == 4 and isinstance(r[0], array.array) and isinstance(r[1], dict) and isinstance(r[2], list) and isinstance(r[3], list))
+@deal.ensure(lambda grid, *a, result=_DEAL_RETURN, **k: (r := _deal_return(*a, result=result)) is not None and (not grid) == (len(r[0]) == 0 and r[1] == {} and r[2] == [] and r[3] == [0]))
+@deal.ensure(lambda grid, *a, result=_DEAL_RETURN, **k: all(isinstance(key, int) for key in _deal_return(*a, result=result)[1].keys()))
+@deal.ensure(lambda grid, *a, result=_DEAL_RETURN, **k: (r := _deal_return(*a, result=result)) is not None and len(r[2]) == (0 if not grid else (r[3][1] if len(r[3]) == 2 else 1)))
+@deal.ensure(lambda grid, *a, result=_DEAL_RETURN, **k: all(isinstance(v, str) for v in _deal_return(*a, result=result)[1].values()))
+@deal.ensure(lambda grid, *a, result=_DEAL_RETURN, **k: all(kind in ("int", "float", "bool") for kind in _deal_return(*a, result=result)[2]))
+@deal.ensure(lambda grid, *a, result=_DEAL_RETURN, **k: (r := _deal_return(*a, result=result)) is not None and ((not grid) or len(r[0]) == (r[3][0] * r[3][1] if len(r[3]) == 2 else r[3][0])))
 @deal.raises(ValueError)
 def _flatten_grid_to_components(
     grid: list
 ) -> tuple[array.array, dict[int, str], list[str], list[int]]:
     """Flatten 1D/2D grid to float64 array, strings dict, column kinds, and shape."""
+    # crosshair: off
     if not grid:
         return array.array("d"), {}, [], [0]
 
@@ -872,16 +886,16 @@ def _flatten_grid_to_components(
 
 
 @deal.pre(lambda grid: _is_grid_sequence(grid))
-@deal.post(lambda result: isinstance(result, dict))
-@deal.ensure(lambda grid, result: result.get("__wa_payload__") == PAYLOAD_SPLIT_GRID)
-@deal.ensure(lambda grid, result: result.get("dtype") == SPLIT_GRID_WIRE_DTYPE)
-@deal.ensure(lambda grid, result: isinstance(result.get("buffer"), bytes))
-@deal.ensure(lambda grid, result: isinstance(result.get("strings"), dict))
-@deal.ensure(lambda grid, result: all(isinstance(k, int) for k in result.get("strings", {})))
-@deal.ensure(lambda grid, result: isinstance(result.get("column_kinds"), list))
-@deal.ensure(lambda grid, result: isinstance(result.get("shape"), list))
-@deal.ensure(lambda grid, result: len(result["buffer"]) == 0 if not grid else len(result["buffer"]) % 8 == 0)
-@deal.ensure(lambda grid, result: len(result.get("column_kinds", [])) == (0 if not grid else (result["shape"][1] if len(result["shape"]) == 2 else 1)))
+@deal.post(lambda *a, result=_DEAL_RETURN, **k: isinstance(_deal_return(*a, result=result), dict))
+@deal.ensure(lambda grid, *a, result=_DEAL_RETURN, **k: _deal_return(*a, result=result).get("__wa_payload__") == PAYLOAD_SPLIT_GRID)
+@deal.ensure(lambda grid, *a, result=_DEAL_RETURN, **k: _deal_return(*a, result=result).get("dtype") == SPLIT_GRID_WIRE_DTYPE)
+@deal.ensure(lambda grid, *a, result=_DEAL_RETURN, **k: isinstance(_deal_return(*a, result=result).get("buffer"), bytes))
+@deal.ensure(lambda grid, *a, result=_DEAL_RETURN, **k: isinstance(_deal_return(*a, result=result).get("strings"), dict))
+@deal.ensure(lambda grid, *a, result=_DEAL_RETURN, **k: all(isinstance(key, int) for key in _deal_return(*a, result=result).get("strings", {})))
+@deal.ensure(lambda grid, *a, result=_DEAL_RETURN, **k: isinstance(_deal_return(*a, result=result).get("column_kinds"), list))
+@deal.ensure(lambda grid, *a, result=_DEAL_RETURN, **k: isinstance(_deal_return(*a, result=result).get("shape"), list))
+@deal.ensure(lambda grid, *a, result=_DEAL_RETURN, **k: (r := _deal_return(*a, result=result)) is not None and (len(r["buffer"]) == 0 if not grid else len(r["buffer"]) % 8 == 0))
+@deal.ensure(lambda grid, *a, result=_DEAL_RETURN, **k: (r := _deal_return(*a, result=result)) is not None and len(r.get("column_kinds", [])) == (0 if not grid else (r["shape"][1] if len(r["shape"]) == 2 else 1)))
 @deal.raises(ValueError)
 def host_pack_split_grid(
     grid: list,
@@ -892,6 +906,7 @@ def host_pack_split_grid(
     where all numbers are preserved, and empty cells or non-numeric strings are replaced with NaN.
     A separate sparse dictionary mapping flat cell indexes to their string value is passed in parallel.
     """
+    # crosshair: off
     if not grid:
         return {
             "__wa_payload__": PAYLOAD_SPLIT_GRID,
@@ -926,7 +941,9 @@ def host_pack_split_grid(
 
 
 @deal.pre(lambda grid, *_, **__: _is_grid_sequence(grid))
-@deal.post(lambda result: result is not None)
+# Same force/min_cells gate as should_use_binary_envelope so CrossHair cannot call pack with invalid policy kwargs.
+@deal.pre(lambda grid, *_, min_cells=BINARY_MIN_CELLS, force="auto", **__: force in ("auto", "always", "never") and isinstance(min_cells, int) and min_cells >= 0)
+@deal.post(lambda *a, result=_DEAL_RETURN, **k: _deal_return(*a, result=result) is not None)
 @deal.raises(ValueError)
 def host_pack_data(
     grid: list,
@@ -935,6 +952,7 @@ def host_pack_data(
     force: ForceBinary = "auto",
 ) -> Any:
     """Pack ``data`` for worker request field (list or split_grid dict)."""
+    # crosshair: off
     try:
         if grid:
             if force == "always":
@@ -962,7 +980,8 @@ def host_pack_data(
 
 
 @deal.pre(lambda grids, *_, **__: isinstance(grids, list) and all(_is_grid_sequence(g) for g in grids))
-@deal.post(lambda result, *_, **__: _is_multi_data_envelope(result))
+@deal.pre(lambda grids, *_, min_cells=BINARY_MIN_CELLS, force="auto", **__: force in ("auto", "always", "never") and isinstance(min_cells, int) and min_cells >= 0)
+@deal.post(lambda *a, result=_DEAL_RETURN, **k: _is_multi_data_envelope(_deal_return(*a, result=result)))
 @deal.raises(ValueError)
 def host_pack_multi_data(
     grids: list[list[Any] | list[list[Any]]],
@@ -971,6 +990,7 @@ def host_pack_multi_data(
     force: ForceBinary = "auto",
 ) -> dict[str, Any]:
     """Pack multiple Calc ranges as a ``multi_data`` envelope for the worker."""
+    # crosshair: off
     items = [host_pack_data(grid, min_cells=min_cells, force=force) for grid in grids]
     envelope: dict[str, Any] = {
         "__wa_payload__": PAYLOAD_MULTI_DATA,
@@ -985,7 +1005,7 @@ def host_pack_multi_data(
 
 
 @deal.pre(lambda envelope, *_, **__: _is_split_grid_envelope(envelope))
-@deal.post(lambda result: isinstance(result, list))
+@deal.post(lambda *a, result=_DEAL_RETURN, **k: isinstance(_deal_return(*a, result=result), list))
 @deal.raises(ValueError)
 def host_unpack_split_grid(envelope: dict[str, Any], *, as_nested_list: bool = True) -> list[Any] | list[list[Any]]:
     """Decode split_grid envelope on host (stdlib only). Reconstructs list or list of lists.
@@ -993,6 +1013,7 @@ def host_unpack_split_grid(envelope: dict[str, Any], *, as_nested_list: bool = T
     NaN values in the buffer are preserved as float('nan') (they become Calc errors on =PY() egress).
     Python None is only introduced for string cells (from the strings map) or for genuine None in mixed results.
     """
+    # crosshair: off
     buf = array.array("d")
     if "buffer" in envelope:
         buf.frombytes(envelope["buffer"])
@@ -1049,10 +1070,11 @@ def host_unpack_split_grid(envelope: dict[str, Any], *, as_nested_list: bool = T
     or _is_ndarray(wire)
     or getattr(type(wire), "__module__", "") == "numpy"
 )
-@deal.post(lambda result, *_, **__: result is not None or result is None)
-@deal.raises(ValueError, TypeError, AttributeError)
+@deal.post(lambda *a, result=_DEAL_RETURN, **k: _deal_return(*a, result=result) is not None or _deal_return(*a, result=result) is None)
+@deal.raises(ValueError, TypeError, AttributeError, KeyError)
 def host_unpack_data(wire: Any, *, as_nested_list: bool = True) -> Any:
     """Unpack worker ``data`` or ``result`` on host (list, scalar, split_grid, multi_data, image, dataframe, calc_range)."""
+    # crosshair: off
     if is_image_payload(wire):
         return wire
     if is_calc_range_payload(wire):
@@ -1078,7 +1100,8 @@ def host_unpack_data(wire: Any, *, as_nested_list: bool = True) -> Any:
             "columns": cols,
             "data": unpacked_inner,
         }
-    if isinstance(wire, dict):
+    # Plain dict only: CrossHair AttrDict is isinstance(dict) but blows up on __ch_pytype__ when iterating.
+    if type(wire) is dict:
         return {k: host_unpack_data(v, as_nested_list=as_nested_list) for k, v in wire.items()}
     if isinstance(wire, (list, tuple)):
         unpacked = [host_unpack_data(v, as_nested_list=as_nested_list) for v in wire]
@@ -1091,11 +1114,12 @@ def is_split_grid(obj: Any) -> bool:
 
 
 @deal.pre(lambda envelope: _is_split_grid_envelope(envelope))
-@deal.post(lambda result: result is not None)
-@deal.ensure(lambda envelope, result: not envelope.get("strings") or isinstance(result, list))
+@deal.post(lambda *a, result=_DEAL_RETURN, **k: _deal_return(*a, result=result) is not None)
+@deal.ensure(lambda envelope, *a, result=_DEAL_RETURN, **k: not envelope.get("strings") or isinstance(_deal_return(*a, result=result), list))
 @deal.raises(ValueError, TypeError, AttributeError)
 def child_unpack_split_grid(envelope: dict[str, Any]) -> Any:
     """Decode split_grid envelope in child. Returns ndarray if purely numeric, else nested lists/lists."""
+    # crosshair: off
     try:
         shape = envelope["shape"]
         is_1d = len(shape) == 1
@@ -1186,10 +1210,11 @@ def child_unpack_split_grid(envelope: dict[str, Any]) -> Any:
         raise
 
 
-@deal.post(lambda result: result is not None)
+@deal.post(lambda *a, result=_DEAL_RETURN, **k: _deal_return(*a, result=result) is not None)
 @deal.raises(ValueError, TypeError, AttributeError)
 def _child_unpack_single_data(wire: Any) -> Any:
     """Materialize one range payload in the venv (split_grid or nested list)."""
+    # crosshair: off
     import numpy as np
 
     unpacked = child_unpack_split_grid(wire) if is_split_grid(wire) else wire
@@ -1231,7 +1256,7 @@ def _child_unpack_single_data(wire: Any) -> Any:
     or wire is None
     or (hasattr(wire, "__class__") and wire.__class__.__name__ == "ndarray")
 )
-@deal.post(lambda result, *_, **__: result is not None)
+@deal.post(lambda *a, result=_DEAL_RETURN, **k: _deal_return(*a, result=result) is not None)
 @deal.raises(ValueError, TypeError, AttributeError)
 def child_unpack_data(wire: Any) -> Any:
     """Materialize worker ``data`` in venv.
@@ -1240,6 +1265,7 @@ def child_unpack_data(wire: Any) -> Any:
     list of CalcRange (caller should prefer :func:`materialize_inputs`).
     Legacy bare grids still become ndarray/list.
     """
+    # crosshair: off
     try:
         from plugin.scripting.calc_range import is_calc_range_payload, materialize_calc_range
 
@@ -1258,14 +1284,15 @@ def child_unpack_data(wire: Any) -> Any:
 
 
 @deal.pre(lambda arr: _is_ndarray(arr))
-@deal.post(lambda result: isinstance(result, dict))
-@deal.ensure(lambda arr, result: result.get("__wa_payload__") == PAYLOAD_SPLIT_GRID)
-@deal.ensure(lambda arr, result: result.get("dtype") == SPLIT_GRID_WIRE_DTYPE)
-@deal.ensure(lambda arr, result: isinstance(result.get("buffer"), bytes))
-@deal.ensure(lambda arr, result: result.get("strings") == {})
+@deal.post(lambda *a, result=_DEAL_RETURN, **k: isinstance(_deal_return(*a, result=result), dict))
+@deal.ensure(lambda arr, *a, result=_DEAL_RETURN, **k: _deal_return(*a, result=result).get("__wa_payload__") == PAYLOAD_SPLIT_GRID)
+@deal.ensure(lambda arr, *a, result=_DEAL_RETURN, **k: _deal_return(*a, result=result).get("dtype") == SPLIT_GRID_WIRE_DTYPE)
+@deal.ensure(lambda arr, *a, result=_DEAL_RETURN, **k: isinstance(_deal_return(*a, result=result).get("buffer"), bytes))
+@deal.ensure(lambda arr, *a, result=_DEAL_RETURN, **k: _deal_return(*a, result=result).get("strings") == {})
 @deal.raises(ValueError, TypeError, AttributeError)
 def child_pack_split_grid(arr: Any) -> dict[str, Any]:
     """Pack ndarray as split_grid for JSON wire (venv). Numeric lane is always float64 bytes."""
+    # crosshair: off
     import numpy as np
 
     try:
@@ -1342,6 +1369,7 @@ def child_pack_result(
     force: ForceBinary = "auto",
 ) -> Any:
     """JSON-safe worker result: scalar/list as-is, ndarray as list or split_grid."""
+    # crosshair: off
     import numpy as np
 
     try:

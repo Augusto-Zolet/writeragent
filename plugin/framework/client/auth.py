@@ -204,8 +204,10 @@ def build_auth_headers(auth_info: Dict[str, Any]) -> Dict[str, str]:
     the responsibility of the caller, so they can be shared between API and
     other HTTP clients).
     """
+    # crosshair: off
     headers: Dict[str, str] = {}
-    style = (auth_info.get("header_style") or "bearer").lower()
+    # Coerce: callers/CrossHair may pass non-str header_style (e.g. int 2).
+    style = str(auth_info.get("header_style") or "bearer").lower().strip()
     api_key = str(auth_info.get("api_key") or "").strip()
 
     if style == "bearer" and api_key:
@@ -215,8 +217,9 @@ def build_auth_headers(auth_info: Dict[str, Any]) -> Dict[str, str]:
     # style == "none" -> no auth header
 
     # Merge any provider-specific static headers (e.g., version pins).
+    # Plain dict only — isinstance(dict) is true for CrossHair AttrDict and .items() can crash.
     extra = auth_info.get("headers") or {}
-    if isinstance(extra, dict):
+    if type(extra) is dict:
         for k, v in extra.items():
             # Do not overwrite explicitly set auth headers.
             if k in headers:
