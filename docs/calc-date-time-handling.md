@@ -97,7 +97,11 @@ When `read_cell_range` is invoked with `include_format_info=True` (enabled by de
    - `NUMBER_FORMAT_DATE | NUMBER_FORMAT_TIME` $\rightarrow$ `"datetime"`
 4. **Serial-to-ISO translation**:
    Reads `NullDate` from `doc.getNumberFormatSettings().getPropertyValue("NullDate")` and computes:
-   $$\text{timestamp} = \text{NullDate} + \text{timedelta}(\text{seconds} = \text{round}(\text{serial\_value} \times 86400))$$
+
+   ```text
+   timestamp = NullDate + timedelta(seconds=round(serial_value * 86400))
+   ```
+
    Outputs formatted ISO string (`iso8601`) and `format_category`. Helpers live in [plugin/calc/inspector.py](../plugin/calc/inspector.py).
 
 ### 3.2 Current Wire Shape vs Future Symmetry
