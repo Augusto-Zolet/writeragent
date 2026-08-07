@@ -1,12 +1,28 @@
 # Date and Time Lifecycle in LibreOffice Calc
 
-**Current behavior, target wire contract, and implementation plan**
+**Wire contract and write-path implementation plan**
 
-This document separates what WriterAgent ships today from the proposed Calc write behavior. It covers PyUNO cell values, read-path format enrichment, MCP clock context, and the planned conversion of date/time strings into Calc serial values.
+This document covers PyUNO cell values, read-path format enrichment, MCP clock context, and the planned conversion of date/time strings into Calc serial values.
 
-> **Status:** MCP clock context and LLM read enrichment (ISO in `value`) are implemented. ISO-shaped write ingestion is not implemented. Sections marked **Target** describe future write behavior.
+### LLM wire schema
 
-> **Every LibreOffice behavior claim in this document was measured**, not assumed. See [§8 Measured behavior](#8-measured-behavior-libreoffice-26252). Two earlier design assumptions turned out to be wrong, and one shipping bug was found. Re-run the probes before trusting any claim here on a new LibreOffice major version.
+For LLM tools (`read_cell_range` with format enrichment; the same strings are the write target), a date/time-formatted numeric cell looks like:
+
+```json
+[
+  {"address": "A20", "value": "2026-08-05", "formula": null, "type": "date", "format_category": "date"},
+  {"address": "B20", "value": "08:00:00", "formula": null, "type": "time", "format_category": "time"}
+]
+```
+
+- `value` is the ISO 8601 string (`YYYY-MM-DD`, `HH:MM:SS`, or `YYYY-MM-DDTHH:MM:SS`).
+- `type` and `format_category` are `date`, `time`, or `datetime`.
+- There is no separate `iso8601` field.
+- Internal callers (`CellInspector.read_range(include_format_info=False)`) still receive raw Calc serial floats for NumPy / `=PY` / analysis.
+
+> **Status:** MCP clock context is in place. ISO-shaped write ingestion is not. Sections marked **Target** describe future write behavior.
+
+> **Every LibreOffice behavior claim in this document was measured**, not assumed. See [§8 Measured behavior](#8-measured-behavior-libreoffice-26252). Re-run the probes before trusting any claim here on a new LibreOffice major version.
 
 ---
 
@@ -40,12 +56,11 @@ Earlier revisions of this document claimed that `NumberFormat.DURATION` (8196) i
 | `[MM]:SS` | 5 | `"time"` |
 | `HH:MM:SS` | 4 | `"time"` |
 
-Consequence, verified end to end: a cell holding `1.25` under `[HH]:MM:SS` displays `30:00:00`, but `read_cell_range` reports `"value": "06:00:00"` with `type: "time"`. The whole day is silently dropped by `.time()` in `_iso8601_from_serial` ([plugin/calc/inspector.py](../plugin/calc/inspector.py)). This is a **live read-path bug**, independent of the write work — see [§3.3](#33-known-read-path-bug-elapsed-times-over-24-hours).
+Consequence, verified end to end: a cell holding `1.25` under `[HH]:MM:SS` displays `30:00:00`, but `read_cell_range` reports `"value": "06:00:00"` with `type: "time"`. The whole day is silently dropped by `.time()` in `_iso8601_from_serial` ([plugin/calc/inspector.py](../plugin/calc/inspector.py)). This is a **live read-path bug**, independent of the write work — see [§3.2](#32-known-read-path-bug-elapsed-times-over-24-hours).
 
-### 1.2 The LLM Friction Points
+### 1.2 The LLM Friction Point
 
-- **Read Path**: Solved for LLM tools — date/time-formatted cells return ISO in `value` with `type` / `format_category` of date, time, or datetime (§3.2). Internal pipelines still see raw serials.
-- **Write Path Friction**: When an LLM generates data to write (e.g. `["2026-08-08", "08:00"]`), standard string assignment puts literal text (`com.sun.star.table.CellContentType.TEXT`) into the cell. This breaks spreadsheet formulas (e.g. `=A26+1`), numeric sorting, and native Calc filtering.
+When an LLM generates data to write (e.g. `["2026-08-08", "08:00"]`), standard string assignment puts literal text (`com.sun.star.table.CellContentType.TEXT`) into the cell. This breaks spreadsheet formulas (e.g. `=A26+1`), numeric sorting, and native Calc filtering.
 
 ---
 
@@ -74,19 +89,17 @@ The end-to-end date/time architecture consists of three synchronized phases:
 
 **Implementation status:**
 
-- Area A: MCP clock context is **implemented**; write-tool ISO guidance is not.
-- Area B / D: LLM read puts ISO in `value` with `type` / `format_category` — **implemented**. Duration bug in §3.3 outstanding.
-- Area C: ISO string → serial + `NumberFormat` is **planned**. Blocked on the Table B sign-off in [§5.1](#51-decision-ledger). Round-trips work once Area C ships.
+- MCP clock context is in place; write-tool ISO guidance is not.
+- ISO string → serial + `NumberFormat` is **planned**. Blocked on the Table B sign-off in [§5.1](#51-decision-ledger).
+- Duration enrichment bug in §3.2 is outstanding.
 
 ---
 
-## 3. Read Path (Implemented)
-
-*Status: Implemented in commit [`2650d3b`](https://github.com/KeithCu/writeragent/commit/2650d3bbc39f2c3ab29102d8d50208ea1e817656)*
+## 3. Read Path
 
 ### 3.1 Mechanism
 
-When `read_cell_range` is invoked with `include_format_info=True` (enabled by default for LLM tool invocations):
+When `read_cell_range` is invoked with `include_format_info=True` (enabled by default for LLM tool invocations), enrichment follows the wire schema above:
 
 1. **Pre-flight Check**: To prevent performance degradation on large datasets, `CellInspector._range_format_rows()` scans the range for cell formats. If no date/time formats or formulas exist in the target block, format inspection returns early.
 2. **Format grouping**: Queries `cell_range.getUniqueCellFormatRanges()` to group cells sharing a format. The response still requires an $O(N \times M)$ serialization walk, but format-related UNO round-trips scale with format groups rather than cells.
@@ -101,22 +114,9 @@ When `read_cell_range` is invoked with `include_format_info=True` (enabled by de
    timestamp = NullDate + timedelta(seconds=round(serial_value * 86400))
    ```
 
-   For LLM enrichment (`include_format_info=True`), puts the ISO string in `value`, sets `type` to the category, and adds `format_category`. Helpers live in [plugin/calc/inspector.py](../plugin/calc/inspector.py).
+   Then sets `value` to the ISO string, `type` to the category, and `format_category`. Helpers live in [plugin/calc/inspector.py](../plugin/calc/inspector.py).
 
-### 3.2 LLM wire shape: ISO in `value`
-
-**Shipped contract for LLM tools:** a date/time cell's `value` is the ISO string. Once Area C lands, read and write use the same shape so a model can copy `value` back into `write_formula_range` without inventing serials:
-
-```json
-[
-  {"address": "A20", "value": "2026-08-05", "formula": null, "type": "date", "format_category": "date"},
-  {"address": "B20", "value": "08:00:00", "formula": null, "type": "time", "format_category": "time"}
-]
-```
-
-Raw Calc serials stay an implementation detail. Internal callers (`CellInspector.read_range(include_format_info=False)`) get un-enriched floats for NumPy / `=PY` / analysis and **keep that invariant**.
-
-### 3.3 Known read-path bug: elapsed times over 24 hours
+### 3.2 Known read-path bug: elapsed times over 24 hours
 
 Because elapsed formats classify as `"time"` (§1.1), `_iso8601_from_serial` routes them through `.time()`, which discards whole days:
 
@@ -158,7 +158,7 @@ The previously "unresolved" alternative — preserve wall-clock fields and disca
 
 ### 4.2 Tool Schema Definitions
 
-- **`ReadCellRange`** (`read_cell_range` in [plugin/calc/cells.py](../plugin/calc/cells.py)): date/time cells return ISO in `value` with `type` / `format_category`.
+- **`ReadCellRange`** (`read_cell_range` in [plugin/calc/cells.py](../plugin/calc/cells.py)): see the LLM wire schema above.
 - **`WriteCellRange`** (`write_formula_range`): **does not yet** mention date/time strings.
 
 Proposed description text, to be reviewed for accuracy and token cost before it ships. Tool descriptions are paid for on every request, so the wording is part of the contract, not a comment:
@@ -181,7 +181,6 @@ The first implementation applies only to the public `write_formula_range` path i
 
 | ID | Decision |
 | :--- | :--- |
-| S1 | LLM read puts ISO in `value` with `type` / `format_category` (§3.2). Internal `include_format_info=False` keeps raw serials. |
 | S2 | A leading `=` routes to the formula path and never reaches the date gate. |
 | S3 | The accepted grammar (§5.3) is the wire contract; it is a gate, not a parser. |
 | S4 | Anything the gate rejects is written as literal text. |
@@ -360,7 +359,7 @@ Return message: `Range A1:D1 filled with 4 values (2 dates, 1 text, 1 formula).`
 
 ### 5.5 Merge-Safe Implementation Sequence
 
-1. **Read-path duration fix** (§3.3). Independent, small, and fixes a shipping bug.
+1. **Read-path duration fix** (§3.2). Independent, small, and fixes a shipping bug.
 2. **Mixed-formula commit correction.** Change `write_formula_range` to commit `data_array` first and overlay formulas. Add regression coverage proving a formula-free range and a mixed range now treat the same input identically.
 3. **Complete user-visible feature.** Gate, `detectNumberFormat` conversion, format policy per D1, tool-schema guidance, coercion report, and UNO write/readback tests together. Do not merge a state that writes serials without usable number formats — that is exactly Candidate B's failure.
 
@@ -414,7 +413,7 @@ Retain the previous approach: resolve `DATE_DIN_YYYYMMDD` (formatindex 33) and `
 
 ### 6.4 Locale-Independent Wire Contract
 
-1. **Read:** LLM `value` is ISO 8601 (§3.2). Internally, `_iso8601_from_serial()` stays the converter.
+1. **Read:** LLM wire schema above. Internally, `_iso8601_from_serial()` stays the converter.
 2. **Write:** the gate accepts only the locale-independent subset in §5.3.
 3. **Display:** whatever key Calc detects for that locale. Display is deliberately not part of the contract.
 
@@ -434,7 +433,7 @@ The gate is pure and belongs in pytest. Conversion is not, and belongs in UNO te
 
 ### 7.2 Native UNO Integration Tests (`tests/calc/test_cells_uno.py`)
 
-End-to-end write and readback against the shipped LLM read shape (ISO in `value`):
+End-to-end write and readback against the LLM wire schema:
 
 ```python
 @native_test
@@ -467,7 +466,7 @@ One named test per Table B row, plus:
 - D10: the coercion report counts.
 - D19: a text value written into a date column — assert the chosen format behavior.
 - Non-default `NullDate` round trip.
-- §3.3: `1.25` under `[HH]:MM:SS` must not report `06:00:00`.
+- §3.2: `1.25` under `[HH]:MM:SS` must not report `06:00:00`.
 
 ### 7.3 Testing locales and epochs without changing the installation
 
