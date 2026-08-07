@@ -2,7 +2,7 @@
 
 **Architecture, Storage Model, Serialization & Tool Integration Specification**
 
-This document provides a comprehensive technical plan for senior developers on how WriterAgent handles date, time, and datetime values across their entire lifecycle in LibreOffice Calc. It details the underlying PyUNO storage mechanics, read-path format enrichment, MCP/system prompt context injection, and write-path string-to-serial conversion with number-format preservation.
+This document describes how WriterAgent handles date, time, and datetime values across their lifecycle in LibreOffice Calc: PyUNO storage, read-path format enrichment, MCP/system prompt context injection, and write-path string-to-serial conversion with number-format preservation.
 
 ---
 
@@ -48,6 +48,11 @@ The end-to-end date/time architecture consists of three synchronized phases:
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
+**Implementation status:**
+- Phase 1 (MCP clock) and Phase 2 (read enrichment with `iso8601` + `format_category`) are **implemented**.
+- Phase 3 (write ISO → serial + NumberFormat) is **planned, not yet in code**.
+- Symmetric LLM read (`value` = ISO string) is a **future follow-up** (§3.2); ship write against today's read shape first.
+
 ---
 
 ## 3. Phase 1: Read Path (Inspection & Serialization)
@@ -64,14 +69,15 @@ When `read_cell_range` is invoked with `include_format_info=True` (enabled by de
    - `NUMBER_FORMAT_TIME` $\rightarrow$ `"time"`
    - `NUMBER_FORMAT_DATE | NUMBER_FORMAT_TIME` $\rightarrow$ `"datetime"`
 4. **Serial to ISO-8601 Translation**:
-   Reads `NullDate` struct (`Year`, `Month`, `Day`) from document settings and computes:
+   Reads `NullDate` from `doc.getNumberFormatSettings().getPropertyValue("NullDate")` and computes:
    $$\text{timestamp} = \text{NullDate} + \text{timedelta}(\text{seconds} = \text{round}(\text{serial\_value} \times 86400))$$
-   Outputs formatted ISO string (`iso8601`) and `format_category`.
+   Outputs formatted ISO string (`iso8601`) and `format_category`. Helpers live in `plugin/calc/inspector.py` today; write work should move the shared serial math into `plugin/calc/datetime_serial.py` (§5.2).
 
-### 3.2 Read/Write Symmetry Evolution
+### 3.2 Current Wire Shape vs Future Symmetry
 
-#### Initial Design (Commit `2650d3b`)
-In commit [`2650d3b`](https://github.com/KeithCu/writeragent/commit/2650d3bbc39f2c3ab29102d8d50208ea1e817656), the read path returned the raw Calc serial double as `value` and appended an extra `iso8601` field:
+#### Current design (shipped; matches UNO tests)
+`read_cell_range` returns the raw Calc serial double as `value` and appends `iso8601` + `format_category`:
+
 ```json
 {
   "address": "A20",
@@ -83,15 +89,14 @@ In commit [`2650d3b`](https://github.com/KeithCu/writeragent/commit/2650d3bbc39f
 }
 ```
 
-#### Why We Changed to Symmetric Read/Write
-While returning `value: 46239.0` reflected the underlying PyUNO `CellContentType.VALUE`, it introduced **asymmetric friction for LLMs**:
-1. **Transformation Loops**: In common tool workflows (e.g. read table $\rightarrow$ filter/edit $\rightarrow$ write back), an LLM would naturally extract `row["value"]` and pass `46239.0` back into `write_formula_range`.
-2. **Model Reasoning**: LLMs operate natively on ISO 8601 strings (`"2026-08-05"`). Having `value` be a serial double forced the model to reconcile `value` vs `iso8601`.
+Internal callers use `CellInspector.read_range(include_format_info=False)` and get un-enriched raw float serials (NumPy, `=PY`, analysis).
 
-#### Symmetric Design Specification
-To achieve **100% read/write symmetry**, `read_cell_range` returns the ISO 8601 string directly as `value` and updates `type` to `"date"`, `"time"`, or `"datetime"`.
+#### Future symmetry (not implemented — do after write path)
+Returning `value: 46239.0` reflects `CellContentType.VALUE` but creates LLM friction:
+1. **Transformation loops**: read → edit → write often reuses `row["value"]`, so serials bounce back into `write_formula_range`.
+2. **Model reasoning**: LLMs prefer ISO strings (`"2026-08-05"`) and must reconcile `value` vs `iso8601`.
 
-The raw float serial (e.g. `46239.0`) is **omitted from the LLM payload** to reduce token overhead, prevent context clutter, and eliminate model confusion between serial numbers and price/quantity metrics.
+A later change can put ISO in `value` and set `type` to `"date"` / `"time"` / `"datetime"`, omitting the raw serial from the LLM payload:
 
 ```json
 [
@@ -112,13 +117,9 @@ The raw float serial (e.g. `46239.0`) is **omitted from the LLM payload** to red
 ]
 ```
 
-With this design:
-- **Read Path**: `read_cell_range` returns `"value": "2026-08-05"`.
-- **Write Path**: `write_formula_range` accepts `"value": "2026-08-05"`.
-- **Token Efficiency**: Omitting `raw_value` keeps JSON responses lean and clutter-free.
-- **Internal Python Tools**: NumPy, `=PY`, and analytical pipelines call `CellInspector.read_range(include_format_info=False)` which returns un-enriched raw float serials directly.
+Until then, **write accepts ISO strings** while **read still exposes serial + `iso8601`**. Do not flip the read shape in the same change as the write path.
 
-> **Invariant**: Internal PyUNO / analysis callers (`CellInspector.read_range(include_format_info=False)`) remain un-enriched to preserve raw numerical performance for NumPy and internal computational pipelines.
+> **Invariant**: Internal PyUNO / analysis callers (`include_format_info=False`) remain un-enriched for NumPy and computational pipelines.
 
 ---
 
@@ -136,131 +137,107 @@ def _format_mcp_clock_context(now: datetime.datetime | None = None) -> str:
 Example string prepended to system instructions:
 `Current local date and time: Thursday, 2026-08-07T11:04:25-04:00 (EDT).`
 
+Calc serials are timezone-less. When parsing write inputs, accept optional trailing `Z` or `±HH:MM` and **strip to naive wall time** (no zone conversion). Do not reject timezone suffixes — that increases TEXT fallbacks when models copy the MCP clock.
+
 ### 4.2 Tool Schema Definitions
-`WriteCellRange` (`write_formula_range` in `plugin/calc/cells.py`) and `ReadCellRange` (`read_cell_range`) explicitly detail date/time support in their parameter descriptions so LLMs reliably output ISO 8601 strings when writing cell data.
+- **`ReadCellRange`** (`read_cell_range` in `plugin/calc/cells.py`): already documents `iso8601` / `format_category`.
+- **`WriteCellRange`** (`write_formula_range`): **does not yet** mention ISO dates. When implementing Phase 3, update its description so LLMs emit ISO 8601 date/time/datetime strings (formulas still use `=`).
+
+Do not broaden write parsing to locale display forms (`08/05/2026`, `5.8.2026`); the wire contract stays ISO-shaped only.
 
 ---
 
 ## 5. Phase 3: Write Path (Parsing, Serial Conversion & Formatting)
 
-*Implementation Plan for Senior Developers*
+*Implementation plan — not yet in code*
 
 ### 5.1 Architecture & Design Requirements
 
 When writing via `CellManipulator.write_formula_range` or `write_formula`:
-1. **String Parsing**: When a written element is a string (and does not start with `"="` for formulas), attempt ISO 8601 parsing before falling back to `float()` or literal text.
-2. **Serial Calculation**: Compute double float value relative to `NullDate`.
+1. **String Parsing**: When a written element is a string (and does not start with `"="` for formulas), attempt ISO 8601 parsing (with optional TZ strip) before falling back to `float()` or literal text.
+2. **Serial Calculation**: Compute double float value relative to `NullDate` from `doc.getNumberFormatSettings()` (same source as the read path).
 3. **Format Application**:
-   - If the destination cell already has a Date, Time, or Datetime `NumberFormat`, preserve its format key.
-   - If the destination cell has General/Text format, apply the corresponding default format string:
-     - Date: `"YYYY-MM-DD"`
-     - Time: `"HH:MM:SS"`
-     - Datetime: `"YYYY-MM-DD HH:MM:SS"`
-4. **Batch Execution**: Maintain fast $O(1)$ batch write performance using `cell_range.setDataArray()`.
+   - If the destination cell already has **any** Date, Time, or Datetime `NumberFormat`, **preserve** that format key (even if the written subtype differs, e.g. date string into a datetime-formatted cell).
+   - If the destination cell has General/Text/plain numeric format, apply a locale-safe default via `getFormatIndex` / composed FormatString (§6) — never hardcode ASCII `"YYYY-MM-DD"` into `queryKey()`.
+4. **Batch Execution**: Prefer `cell_range.setDataArray()` for values. See §5.3 for the mixed formula hole.
+5. **Single-cell path**: Mirror the same parse + `setValue` + format logic in `write_formula`, not only `write_formula_range`.
 
-### 5.2 Helper Module Specification (`plugin/calc/manipulator.py`)
+### 5.2 Shared Helper Module (`plugin/calc/datetime_serial.py`)
+
+Put parse and format-inverse next to each other so NullDate epoch math and second-rounding stay shared. Today `_iso8601_from_serial` lives in `plugin/calc/inspector.py`; move (or re-export) it with `_parse_datetime_string` into `plugin/calc/datetime_serial.py`. `manipulator.py` and `inspector.py` both import from there.
 
 #### ISO Regular Expressions
+Keep ISO-shaped patterns only. Fast prefilter before regex:
+
+```python
+if not any(c in val for c in ("-", ":", "/")):
+    return None  # Skip regexes for plain text, numbers, and prose
+```
+
 ```python
 _DATE_RE = re.compile(r"^(\d{4})[-/](0[1-9]|1[0-2])[-/](0[1-9]|[12]\d|3[01])$")
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d)(?:\.(\d+))?)?$")
-_DATETIME_RE = re.compile(r"^(\d{4})[-/](0[1-9]|1[0-2])[-/](0[1-9]|[12]\d|3[01])[T ]([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d)(?:\.(\d+))?)?$")
+_DATETIME_RE = re.compile(
+    r"^(\d{4})[-/](0[1-9]|1[0-2])[-/](0[1-9]|[12]\d|3[01])[T ]"
+    r"([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d)(?:\.(\d+))?)?"
+    r"(?:Z|[+-]\d{2}:?\d{2})?$"
+)
 ```
+
+Optional `Z` / offset on datetime (and similarly on bare dates if needed) is stripped; treat the remaining wall clock as naive.
 
 #### Parsing & Serial Conversion Logic
 ```python
-def _parse_datetime_string(val_str: str, null_date=None) -> tuple[float, str, str] | None:
+def _parse_datetime_string(val_str: str, null_date=None) -> tuple[float, str] | None:
     """Parse an ISO 8601 date, time, or datetime string.
 
     Returns:
-        tuple of (serial_float, format_category, format_pattern) or None if unparseable.
+        tuple of (serial_float, format_category) or None if unparseable.
+        format_category is \"date\", \"time\", or \"datetime\".
     """
-    if not isinstance(val_str, str) or not val_str.strip():
-        return None
-    
-    val = val_str.strip()
-    
-    # NullDate default: 1899-12-30
-    null_y = int(null_date.Year) if null_date else 1899
-    null_m = int(null_date.Month) if null_date else 12
-    null_d = int(null_date.Day) if null_date else 30
-    epoch_base = datetime.datetime(null_y, null_m, null_d)
-
-    # 1. Date check
-    m_date = _DATE_RE.match(val)
-    if m_date:
-        try:
-            dt = datetime.datetime(int(m_date.group(1)), int(m_date.group(2)), int(m_date.group(3)))
-            serial = float((dt - epoch_base).days)
-            return (serial, "date", "YYYY-MM-DD")
-        except ValueError:
-            return None
-
-    # 2. Datetime check
-    m_dt = _DATETIME_RE.match(val)
-    if m_dt:
-        try:
-            sec = int(m_dt.group(6)) if m_dt.group(6) else 0
-            usec = int(m_dt.group(7).ljust(6, "0")[:6]) if m_dt.group(7) else 0
-            dt = datetime.datetime(
-                int(m_dt.group(1)), int(m_dt.group(2)), int(m_dt.group(3)),
-                int(m_dt.group(4)), int(m_dt.group(5)), sec, usec
-            )
-            delta = dt - epoch_base
-            serial = delta.total_seconds() / 86400.0
-            return (serial, "datetime", "YYYY-MM-DD HH:MM:SS")
-        except ValueError:
-            return None
-
-    # 3. Time check
-    m_time = _TIME_RE.match(val)
-    if m_time:
-        try:
-            hr, mn = int(m_time.group(1)), int(m_time.group(2))
-            sec = int(m_time.group(3)) if m_time.group(3) else 0
-            usec = int(m_time.group(4).ljust(6, "0")[:6]) if m_time.group(4) else 0
-            total_sec = hr * 3600 + mn * 60 + sec + usec / 1e6
-            serial = total_sec / 86400.0
-            return (serial, "time", "HH:MM:SS")
-        except ValueError:
-            return None
-
-    return None
+    # 1. strip + fast char guard
+    # 2. strip optional trailing Z / ±HH:MM (no zone conversion)
+    # 3. match DATE, then DATETIME, then TIME (same NullDate epoch as _iso8601_from_serial)
+    # 4. invalid calendar dates (e.g. 2026-02-30) → None
+    ...
 ```
+
+Default NumberFormat keys are resolved separately via `NumberFormatIndex` (§6), not by returning ASCII format pattern strings from the parser.
 
 ### 5.3 Execution Workflow in `CellManipulator.write_formula_range`
 
+**Critical:** today's code, when any cell in the range is a formula, commits the **entire** range via `setFormulaArray` of stringified inputs and **ignores** `data_array`. Parsing ISO into serials is useless for mixed ranges unless the commit path is fixed.
+
 1. **Retrieve Document Settings**:
-   Fetch `NullDate` from active document settings via PyUNO bridge.
-2. **Build Data Array**:
-   Iterate over input values. For string inputs:
-   - Check if formula (`value.startswith("=")`).
-   - Attempt `_parse_datetime_string(value, null_date)`.
-   - If matched: record `serial_float` into `data_row`, and track formatting requirement for cell `(col, row)`.
-   - If not matched: attempt `float()`, fallback to string text.
-3. **Commit Bulk Data**:
-   Call `cell_range.setDataArray(tuple(data_array))`.
-4. **Apply Format Adjustments**:
-   For cells identified as date/time/datetime:
-   - Query existing `NumberFormat` property.
-   - If existing format category is not date/time, query/add format string (`YYYY-MM-DD`, `HH:MM:SS`, `YYYY-MM-DD HH:MM:SS`) using `doc.getNumberFormats()` and set `cell.setPropertyValue("NumberFormat", format_id)`.
+   `null_date = doc.getNumberFormatSettings().getPropertyValue("NullDate")` once per invocation. Also fetch `CharLocale` once for format resolution.
+2. **Build Data Array + Formula Overlay List**:
+   For each input:
+   - `startswith("=")` → leave data cell empty; record formula for overlay.
+   - else `_parse_datetime_string(...)` → put `serial_float` in `data_array`; mark cell for format pass if needed.
+   - else `float()` → number; else TEXT string.
+3. **Commit Values First**:
+   `cell_range.setDataArray(tuple(data_array))` always (serials / numbers / text; formula cells empty).
+4. **Overlay Formulas**:
+   For each recorded formula cell, `setFormula` (or a formula-only pass). Do **not** send ISO date strings through `setFormulaArray`.
+5. **Apply Format Adjustments (blocked)**:
+   - Prefer one `getUniqueCellFormatRanges()` (or a category mask built while parsing) to skip cells already in date/time/datetime.
+   - Coalesce remaining cells that need a default into contiguous blocks; apply `NumberFormat` per block — never per-cell `setPropertyValue` inside a tight loop.
+   - Resolve default keys once per category via §6 and cache in a Python `dict` for the invocation.
 
 ### 5.4 Write-Path Performance & Optimization Rules
 
-To guarantee high throughput on bulk dataset writes (e.g. 10,000 cells written in < 15 ms), senior developers MUST enforce the following three performance invariants:
+1. **Fast String Pre-filtering**: $O(1)$ char guard before regex (§5.2).
+2. **Range / Block `NumberFormat`**: Never set NumberFormat per cell in a loop. Homogeneous ranges → one range set. Sparse mixed grids → coalesce contiguous same-category blocks ($O(\text{blocks})$ IPC, not a hard $\le 6$ for every sparse layout).
+3. **Format Key Caching**: Cache resolved keys per category (`date` / `time` / `datetime`) for the write invocation (and optionally per document session).
 
-1. **Fast String Pre-filtering**:
-   Before running full regex matches in `_parse_datetime_string()`, execute a fast $O(1)$ character guard check:
-   ```python
-   if not any(c in val for c in ("-", ":", "/")):
-       return None  # Skip regexes instantly for plain text, numbers, and prose
-   ```
-2. **Range-Level `NumberFormat` Ingestion (Zero Per-Cell UNO RPCs)**:
-   - **NEVER** call `cell.setPropertyValue("NumberFormat", format_id)` inside a per-cell loop.
-   - If an entire range or column contains dates, apply `cell_range.setPropertyValue("NumberFormat", format_id)` **once to the range** ($O(1)$ IPC calls).
-   - For mixed ranges, group contiguous date cells into range blocks (e.g. `A2:A50`) and apply `NumberFormat` per block.
-3. **Format Key Session Caching**:
-   - Cache resolved `NumberFormat` IDs in a Python dictionary (`{"YYYY-MM-DD": format_id, "HH:MM:SS": format_id}`) per document session to eliminate redundant `formats.queryKey()` / `formats.addNew()` bridge calls.
+Typical homogeneous write stays at a handful of UNO calls (`NullDate`, `CharLocale`, $\le 3$ format resolutions, `setDataArray`, one format set). Sparse mixed grids scale with block count.
+
+### 5.5 Follow-ups (out of scope for the first write PR)
+
+- Symmetric LLM read (`value` = ISO) — §3.2 future.
+- Locale-display write parsing.
+- Fixing existing `set_style` / `_set_number_format` ASCII `queryKey("YYYY-MM-DD", …)` (same locale-letter bug; prefer `getFormatIndex` / FormatString there too).
+- Changing NumPy / `include_format_info=False` raw serial behavior.
 
 ---
 
@@ -276,53 +253,60 @@ In non-English locales, passing raw ASCII format codes like `"YYYY-MM-DD"` direc
 
 Hardcoding `"YYYY-MM-DD"` inside `queryKey()` on a German or French LibreOffice installation returns `-1` or registers a corrupt custom format string.
 
-### 6.2 The Native PyUNO Solution: `XNumberFormatTypes.getFormatIndex()`
-LibreOffice UNO provides a built-in, locale-independent abstraction via the `com.sun.star.util.XNumberFormatTypes` interface (implemented directly on `doc.getNumberFormats()`) and `com.sun.star.i18n.NumberFormatIndex` constants.
+### 6.2 Correct `NumberFormatIndex` Constants
 
-Instead of translating format letters manually for 34 locales, PyUNO resolves the exact localized format key for **any locale** automatically:
+LibreOffice UNO does **not** define `DATE_ISO` or `DATETIME_SYSTEM_SHORT_HHMMSS`. Use the real [`NumberFormatIndex`](https://api.libreoffice.org/docs/idl/ref/namespacecom_1_1sun_1_1star_1_1i18n_1_1NumberFormatIndex.html) values:
+
+| Category | Constant | Notes |
+| :--- | :--- | :--- |
+| date | `DATE_DIN_YYYYMMDD` | DIN/EN/ISO `1997-10-08` (formatindex 33) — closest built-in ISO date |
+| time | `TIME_HHMMSS` | `HH:MM:SS` |
+| datetime | *(composed)* | No ISO datetime index exists. `DATETIME_SYSTEM_SHORT_HHMM` / `DATETIME_SYS_DDMMYYYY_HHMMSS` are **locale short** forms, not ISO — do not use them for the ISO wire display default |
 
 ```python
 from com.sun.star.i18n.NumberFormatIndex import (
-    DATE_ISO,                          # Standard ISO 8601 date (YYYY-MM-DD)
-    TIME_HHMMSS,                       # Standard time (HH:MM:SS)
-    DATETIME_SYSTEM_SHORT_HHMMSS,      # Standard datetime (YYYY-MM-DD HH:MM:SS)
-    DATE_SYS_DDMMYYYY,                 # System short date for active locale
+    DATE_DIN_YYYYMMDD,
+    TIME_HHMMSS,
 )
 
 doc = self.bridge.get_active_document()
 formats = doc.getNumberFormats()
 locale = doc.getPropertyValue("CharLocale")
 
-# Query localized format key natively across ANY of LibreOffice's 34+ locales:
-iso_date_key = formats.getFormatIndex(DATE_ISO, locale)
+date_key = formats.getFormatIndex(DATE_DIN_YYYYMMDD, locale)
 time_key = formats.getFormatIndex(TIME_HHMMSS, locale)
-datetime_key = formats.getFormatIndex(DATETIME_SYSTEM_SHORT_HHMMSS, locale)
+
+# Datetime: locale-letter-safe compose from the two built-ins' FormatString,
+# then queryKey / addNew once and cache.
+date_fmt = formats.getByKey(date_key).FormatString
+time_fmt = formats.getByKey(time_key).FormatString
+datetime_pattern = f"{date_fmt} {time_fmt}"
+datetime_key = formats.queryKey(datetime_pattern, locale, False)
+if datetime_key == -1:
+    datetime_key = formats.addNew(datetime_pattern, locale)
 ```
 
+Never pass ASCII `"YYYY-MM-DD"` into `queryKey` / `addNew` for defaults. Built-in `getFormatIndex` keys already carry the correct localized format letters; composing datetime from those FormatStrings stays safe across locales.
+
 ### 6.3 Universal ISO 8601 Wire Contract Across Locales
-1. **Read Path**: `_iso8601_from_serial()` translates serial doubles to ISO 8601 strings (`YYYY-MM-DD`, `HH:MM:SS`, `YYYY-MM-DDTHH:MM:SS`), which are 100% locale-independent.
-2. **Write Path**: `_parse_datetime_string()` parses ISO 8601 strings into floating-point day serials in Python. ISO 8601 is language-agnostic across all 34 locales.
-3. **Display Formatting**: `formats.getFormatIndex(DATE_ISO, locale)` resolves the correct native number format key for the document's active locale (whether `en-US`, `de-DE`, `fr-FR`, `ja-JP`, `zh-CN`, `es-ES`, etc.).
+1. **Read Path**: `_iso8601_from_serial()` translates serial doubles to ISO 8601 strings (`YYYY-MM-DD`, `HH:MM:SS`, `YYYY-MM-DDTHH:MM:SS`), locale-independent.
+2. **Write Path**: `_parse_datetime_string()` parses ISO 8601 (optional TZ stripped) into day serials in Python.
+3. **Display Formatting**: `DATE_DIN_YYYYMMDD` / `TIME_HHMMSS` / composed datetime FormatString for defaults when the cell has no date/time format yet.
 
 ### 6.4 Performance & Call Frequency Analysis for Locale APIs
 
-A core requirement for multi-locale support across WriterAgent's 34 locales is keeping PyUNO IPC round-trips to a minimum.
+During a typical homogeneous `write_formula_range` invocation:
 
-#### Call Frequency & Caching Accounting
-During a `write_formula_range` invocation:
+| UNO API Method | Frequency | Optimization Strategy |
+| :--- | :--- | :--- |
+| `NullDate` via `getNumberFormatSettings()` | Once per write | Retrieved once per batch |
+| `CharLocale` | Once per write | Retrieved once per batch |
+| `getFormatIndex` / composed datetime `queryKey` | Once per category used ($\le 3$) | Cached in `format_key_cache[category]` |
+| `cell_range.setDataArray(...)` | Once | Bulk 2D grid write |
+| Formula overlay | Per formula cell (or batched) | Only when the range mixes formulas |
+| `setPropertyValue("NumberFormat", key)` | Once per contiguous block needing a default | Skip cells that already have date/time/datetime formats |
 
-| UNO API Method | Frequency | Total Calls | Optimization Strategy |
-| :--- | :--- | :--- | :--- |
-| `NullDate` (`getPropertyValue("NullDate")`) | Once per write invocation | **1 call** | Retrieved once per batch invocation |
-| `CharLocale` (`getPropertyValue("CharLocale")`) | Once per write invocation | **1 call** | Retrieved once per batch invocation |
-| `getFormatIndex(NumberFormatIndex, locale)` | Once per format category used (`"date"`, `"time"`, `"datetime"`) | **$\le 3$ calls** | Cached in Python `dict` (`format_key_cache[category]`) |
-| `cell_range.setDataArray(...)` | Once per cell range write | **1 call** | Bulk 2D grid write ($O(1)$ IPC calls) |
-| `cell_range.setPropertyValue("NumberFormat", key)` | Once per cell range / block | **1 call** | Applied at range/column level ($O(1)$ IPC calls) |
-
-#### Performance Guarantee Across All 34 Locales
-- **Total PyUNO IPC Calls**: **$\le 6$ calls total**, regardless of whether writing 1 cell or 10,000 cells.
-- **Bridge Overhead**: **$\sim 2-5\text{ ms}$** total UNO bridge execution time.
-- **Scalability**: Completely $O(1)$ with respect to range cell count, guaranteeing high performance across all 34 supported LibreOffice locales.
+Homogeneous ranges stay near a small constant IPC count. Sparse mixed grids are $O(\text{blocks})$ for format sets — still independent of total cell count for `setDataArray`.
 
 ---
 
@@ -333,35 +317,39 @@ During a `write_formula_range` invocation:
   - Valid dates (`2026-08-08`, `2026/08/08`)
   - Valid times (`08:00`, `08:00:00`, `14:30:45.500`)
   - Valid datetimes (`2026-08-08T08:00:00`, `2026-08-08 08:00:00`)
-  - Invalid calendar dates (`2026-02-30`, `2026-13-45`) $\rightarrow$ returns `None`.
-  - Non-date strings (`"Hello World"`, `"=SUM(A1:A10)"`) $\rightarrow$ returns `None`.
+  - Timezone / `Z` stripped to naive (`2026-08-08T08:00:00-04:00`, `…Z`)
+  - Invalid calendar dates (`2026-02-30`, `2026-13-45`) $\rightarrow$ returns `None`
+  - Non-date strings (`"Hello World"`, `"=SUM(A1:A10)"`) $\rightarrow$ returns `None`
+  - NullDate ≠ default epoch (serial math matches `_iso8601_from_serial`)
 
 ### 7.2 Native UNO Integration Tests (`tests/calc/test_cells_uno.py`)
-- Test end-to-end write and readback in live LibreOffice Calc instance using `@native_test`:
-  ```python
-  @native_test
-  def test_write_and_read_date_time_cells():
-      # Write ISO date and time strings
-      res = _execute_calc_tool("write_formula_range", {
-          "range_name": ["A26:B26"],
-          "formula_or_values": "[\"2026-08-08\", \"08:00\"]"
-      })
-      assert res.get("status") == "ok"
+End-to-end write and readback against the **current** read shape (serial `value` + `iso8601`), not the future symmetric shape:
 
-      # Read back values
-      read_res = _execute_calc_tool("read_cell_range", {"range_name": ["A26:B26"]})
-      row = read_res["result"][0][0]
+```python
+@native_test
+def test_write_and_read_date_time_cells():
+    res = _execute_calc_tool("write_formula_range", {
+        "range_name": ["A26:B26"],
+        "formula_or_values": "[\"2026-08-08\", \"08:00\"]",
+    })
+    assert res.get("status") == "ok"
 
-      # Assert A26 (date)
-      assert row[0]["type"] == "date"
-      assert row[0]["value"] == "2026-08-08"
-      assert row[0]["format_category"] == "date"
+    read_res = _execute_calc_tool("read_cell_range", {"range_name": ["A26:B26"]})
+    row = read_res["result"][0][0]
 
-      # Assert B26 (time)
-      assert row[1]["type"] == "time"
-      assert row[1]["value"] == "08:00:00"
-      assert row[1]["format_category"] == "time"
-  ```
+    assert row[0]["iso8601"] == "2026-08-08"
+    assert row[0]["format_category"] == "date"
+    assert isinstance(row[0]["value"], (int, float))
+
+    assert row[1]["iso8601"] == "08:00:00"
+    assert row[1]["format_category"] == "time"
+```
+
+Also cover:
+- Mixed range: ISO date + formula in one `write_formula_range` (proves two-step commit).
+- Preserve existing NumberFormat when overwriting a date-formatted cell.
+- `write_formula` single-cell date.
+- Non-default `NullDate` round-trip when practical in UNO tests.
 
 ---
 
@@ -370,4 +358,3 @@ During a `write_formula_range` invocation:
 - [Calc Specialized Toolsets](calc-specialized-toolsets.md) — Tool delegation, tiers, and Calc domain status.
 - [MCP Protocol & Invariants](mcp-protocol.md) — Model Context Protocol instructions and clock context formatting.
 - [NumPy & Python Venv Bridge](enabling_numpy_in_libreoffice.md) — Raw numeric serialization for analytical pipelines.
-
