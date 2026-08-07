@@ -90,7 +90,7 @@ The end-to-end date/time architecture consists of three synchronized phases:
 **Implementation status:**
 
 - MCP clock context is in place; write-tool ISO guidance is not.
-- ISO string → serial + `NumberFormat` is **planned**. Blocked on the Table B sign-off in [§5.1](#51-decision-ledger).
+- ISO string → serial + `NumberFormat` is **planned**. Settled rules are in [§5.1](#51-decision-ledger).
 - Duration enrichment bug in §3.2 is outstanding.
 
 ---
@@ -177,7 +177,7 @@ The first implementation applies only to the public `write_formula_range` path i
 
 ### 5.1 Decision Ledger
 
-#### Table A — Settled (build against these; no sign-off needed)
+#### Settled (build against these)
 
 | ID | Decision |
 | :--- | :--- |
@@ -193,30 +193,37 @@ The first implementation applies only to the public `write_formula_range` path i
 | S11 | Tests split unit and UNO per [AGENTS.md](../AGENTS.md). |
 | S12 | Fractional seconds, leap seconds, `24:00`, durations-as-input, and locale display forms stay out of scope. |
 | S13 | Inspect destination formats only when at least one value passed the gate. |
+| S14 | Preserve the destination `NumberFormat` when it already displays the committed value without loss; otherwise apply the detected key. |
+| S15 | Midnight datetime into a date cell, and date into a datetime cell, preserve the existing format (lossless under S14). |
+| S16 | Time into an elapsed-time cell (`[HH]:MM` / `[HH]:MM:SS`) preserves that format. |
+| S17 | ISO string into a Text (`@`) cell: apply the detected temporal format (`@` does not block conversion). |
+| S18 | Leading apostrophe (`'2026-08-08`) forces literal text (and sets the cell format to `@`). |
+| S19 | Gate stays padded in v1; reject unpadded `2026-8-8`. |
+| S20 | Offset and `Z` datetimes stay text; tool wording in §4.2 must say so. |
+| S21 | Bare `08:00` is always a clock serial below `1.0`; never impute today's date from clock context. |
+| S22 | Partial coercion is per-cell, with a coercion summary in the return message. |
+| S23 | Range bounds are left to `NotNumericException` and Calc's own limits. |
+| S24 | No format application for formula cells in v1. |
+| S25 | Empty cells inside a coerced contiguous block receive the block format. |
+| S26 | Route `set_style(number_format=…)` date/time cases through the same helper as the write path. |
+| S27 | Use the key returned by `detectNumberFormat` as-is (including locale-preferred times such as `en-US` AM/PM). |
+| S28 | Locale is an explicit argument to `detectNumberFormat` / `getStandardIndex`, not an ambient document property. |
+| S29 | On text fallback, restore the prior `NumberFormat` key after `setDataArray` (which otherwise forces `@`). |
+| S30 | The format pass is best-effort: log failures and return success with a note rather than failing the whole write. |
 
-#### Table B — Open decisions (need sign-off)
+#### Why these rules
 
-"Reversible" marks decisions that are cheap to change later. Format application mutates the user's saved file and is effectively a one-way door; return-message wording is free.
+Probe measurements in §8 closed the former open questions. The non-obvious ones, briefly:
 
-| ID | Situation | Recommendation | Reversible | Status |
-| :--- | :--- | :--- | :--- | :--- |
-| D1 | Destination format category differs from the value's | Replace "same category" with **"preserve when the existing format displays the value without loss"** | No | Measured: a date-formatted cell given `08:00` displays `1899-12-30` |
-| D2 | Datetime at exactly midnight into a date cell | Preserve the date format | No | Open |
-| D3 | Date into a datetime cell | Preserve; a date is midnight | No | Open |
-| D4 | Time into an elapsed-time cell (`[HH]:MM`) | Preserve. These report `Type` 4, so a naive "non-temporal formats get replaced" rule would **not** clobber them — but a "same category" rule would treat them as ordinary times | No | Resolved by §1.1 measurement |
-| D5 | ISO string into a Text (`@`) cell | Calc converts it anyway and renders `46242`. Either apply a temporal format or skip the cell entirely; doing nothing is the one option that is definitely wrong | No | Measured: `@` does **not** block conversion via the API |
-| D6 | Escape hatch | Leading apostrophe (`'2026-08-08`). It is the only mechanism that works; note that it also sets the cell format to `@` | Yes | Measured |
-| D7 | Near-miss strings the model emits | Keep the gate strict; optionally admit unpadded `2026-8-8`, which is unambiguous in every locale tested | Yes | Measured (§8) |
-| D8 | Offset and `Z` datetimes | Text. Free — Calc rejects them everywhere. Add the tool wording in §4.2 | Yes | Resolved |
-| D9 | Bare `08:00` | Always a clock serial below `1.0`; never impute today's date from clock context | No | Open |
-| D10 | Partial coercion inside one range | Per-cell, plus a coercion summary in the return message | Yes | Open |
-| D11 | Range bounds | Largely dissolves: `NotNumericException` and Calc's own limits handle it. State the supported window | Yes | Resolved by design choice |
-| D13 | Formula cells in a coerced range | No format application for formulas in v1 | Yes | Open |
-| D14 | Empty cells inside a coerced block | Include them so the column stays uniform | Yes | Open |
-| D16 | `set_style(number_format=…)` collision | Route date/time cases through the same helper; fixes the ASCII `queryKey` bug at [plugin/calc/manipulator.py](../plugin/calc/manipulator.py) | Yes | Open |
-| D17 | Which format key to apply for times | `detectNumberFormat` returns the **locale-preferred** key, which for `en-US` is `HH:MM:SS AM/PM`, not ISO. Dates detect as ISO in every locale; times do not | No | New; see §6.2 |
-| D18 | Locale selection for unformatted cells | **Dissolved.** Locale becomes an explicit argument to `detectNumberFormat`, not an ambient document property | — | Resolved |
-| D19 | Text fallback clobbers the destination format | `setDataArray` with a number-like string forces `@` onto the cell, stripping a date column's format. Decide: restore the prior key, accept it, or route text differently | No | New; pre-existing behavior, not caused by this feature |
+- **Lossless preserve (S14–S16), not “same category”.** A date-formatted cell given `08:00` displays `1899-12-30`. Elapsed formats report `Type` `TIME`, so a category-equality rule would wrongly clobber `[HH]:MM`. Midnight datetime↔date and date→datetime are lossless, so they keep the existing key.
+- **`@` must get a temporal format (S17).** The Text format does not block API conversion; leaving `@` shows the raw serial.
+- **Strict padded gate (S19); offsets stay text (S20).** Unpadded `2026-8-8` is unambiguous in every locale tested, but admitting it is a one-line later change. Calc rejects `Z`/offsets everywhere; the tool description must still tell the model to drop the offset printed by MCP clock context.
+- **No date imputation for bare times (S21).** Matches the read-path wire schema (`type: "time"`).
+- **Detected key as-is (S27–S28).** Hand-building localized format letters is unsafe (§6.1). Display is not part of the wire contract, so `en-US` AM/PM times are fine. Passing an explicit locale key dissolves ambient-locale selection.
+- **Restore format on text fallback (S29).** `setDataArray` with a number-like string forces `@` and would otherwise strip a date column when one near-miss lands in the range.
+- **Best-effort format pass (S30).** Values are the payload; a failed cosmetic pass must not look like a failed write.
+
+**Still to write:** a destination-format matrix probe under [`scripts/playground/`](../scripts/playground/) covering date+time, datetime+date, elapsed+clock, and `@`+ISO. Existing probes already justify the rules above; this script is the dedicated fixture so implementers and UNO tests can copy measured expectations without re-deriving them.
 
 ### 5.2 Design: three candidates, one recommendation
 
@@ -228,7 +235,7 @@ The measurements in §8 change which implementation is cheapest. All three keep 
 | Epoch / `NullDate` | Our arithmetic | Calc | Calc |
 | Format key | `getFormatIndex` + compose | **Not applied at all** | Calc returns it |
 | Localized format letters | Must hand-build (§6.1) | n/a | Automatic |
-| Locale control | Ambient (D18) | Ambient | Explicit argument |
+| Locale control | Ambient | Ambient | Explicit argument |
 | Round trip through `read_cell_range` | Works | **Broken** | Works |
 
 Candidate B is disqualified on its own: `setFormula` converts the value but leaves the cell **General**, so the cell displays `46242` and `read_cell_range` does not enrich it as a date (§8, Q3).
@@ -238,8 +245,8 @@ Candidate B is disqualified on its own: `setFormula` converts the value but leav
 ```python
 # formatter: com.sun.star.util.NumberFormatter, attached to the document's
 # XNumberFormatsSupplier once per invocation.
-# std_key: formats.getStandardIndex(locale) — the locale is now explicit, which is
-# what dissolves D18. Calc parses in the locale of the key you hand it.
+# std_key: formats.getStandardIndex(locale) — locale is explicit (S28).
+# Calc parses in the locale of the key you hand it.
 try:
     detected_key = formatter.detectNumberFormat(std_key, text)
     value = formatter.convertStringToNumber(std_key, text)
@@ -300,7 +307,7 @@ What the gate deliberately rejects, and what Calc would otherwise do with it (§
 
 | Input | Calc would produce | Gate verdict |
 | :--- | :--- | :--- |
-| `2026-8-8` | date, identical in all locales | Text (D7: candidate for admission) |
+| `2026-8-8` | date, identical in all locales | Text (S19) |
 | `08/05/2026` | `en-US` 5 Aug, `fr-FR` 8 May, `de-DE` text | Text |
 | `05.08.2026` | `de-DE`/`fr-FR` date, `en-US` text | Text |
 | `08:00 AM` | `en-US`/`fr-FR` time, else text | Text |
@@ -325,18 +332,17 @@ So date handling **already** differs today depending on whether the range happen
 3. **Convert temporal candidates** via `detectNumberFormat` / `convertStringToNumber`, recording `(value, detected_key)`. On `NotNumericException`, demote to text.
 4. **Commit values** with one `setDataArray`, leaving formula cells empty.
 5. **Overlay formulas** with `setFormula` per recorded cell. Never send ISO strings through `setFormulaArray`.
-6. **Apply formats** per contiguous block, skipping cells whose existing format already displays the value losslessly (D1). Cache keys per category for the invocation.
+6. **Apply formats** per contiguous block, skipping cells whose existing format already displays the value losslessly (S14). Cache keys per category for the invocation. Skip formula cells (S24); include empties inside a coerced block (S25).
 
 #### Failure modes and partial writes
 
-`write_formula_range` currently wraps everything in one `try` / `except` that raises `ToolExecutionError`. If step 4 succeeds and step 6 throws, the serials are committed and rendering as raw numbers while the tool reports failure. Decide explicitly:
+`write_formula_range` currently wraps everything in one `try` / `except` that raises `ToolExecutionError`. If step 4 succeeds and step 6 throws, the serials are committed and rendering as raw numbers while the tool reports failure. Per S30 the format pass is **best-effort**: log the exception and return `wrote values; could not apply date formats`.
 
-- Recommended: the format pass is **best-effort**. Log the exception and return `wrote values; could not apply date formats`, because the values are the user-visible payload and a failed cosmetic pass should not look like a failed write.
-- `WriteCellRange.execute` in [plugin/calc/cells.py](../plugin/calc/cells.py) already opens `WriterCompoundUndo`, so all steps collapse into one undo entry **only if** the format pass lives inside `write_formula_range`. The scripting API path in [plugin/scripting/writeragent_api.py](../plugin/scripting/writeragent_api.py) has no compound undo.
+`WriteCellRange.execute` in [plugin/calc/cells.py](../plugin/calc/cells.py) already opens `WriterCompoundUndo`, so all steps collapse into one undo entry **only if** the format pass lives inside `write_formula_range`. The scripting API path in [plugin/scripting/writeragent_api.py](../plugin/scripting/writeragent_api.py) has no compound undo.
 
-#### Coercion report (D10)
+#### Coercion report
 
-Return what actually happened, so the model can self-correct without a second read:
+Return what actually happened (S22), so the model can self-correct without a second read:
 
 ```
 Range A1:A12 filled with 12 values (10 dates, 2 text).
@@ -351,9 +357,9 @@ Input `["2026-08-08", "08:00", "08/05/2026", "=A1+1"]` into `A1:D1`, all cells G
 | Cell | Committed as | Format key applied | Displays | `read_cell_range` returns |
 | :--- | :--- | :--- | :--- | :--- |
 | A1 | `46242.0` | detected date | `2026-08-08` | `value: "2026-08-08"`, `type: "date"` |
-| B1 | `0.3333…` | detected time | `08:00:00 AM` (see D17) | `value: "08:00:00"`, `type: "time"` |
-| C1 | text `08/05/2026` | none; format becomes `@` (D19) | `08/05/2026` | plain text, no date enrichment |
-| D1 | formula | Calc propagates from A1 | `2026-08-09` | `value: "2026-08-09"`, `type: "date"` |
+| B1 | `0.3333…` | detected time | `08:00:00 AM` (locale-preferred; S27) | `value: "08:00:00"`, `type: "time"` |
+| C1 | text `08/05/2026` | none; restore prior key if the cell had one (S29) | `08/05/2026` | plain text, no date enrichment |
+| D1 | formula | none (S24); Calc propagates from A1 | `2026-08-09` | `value: "2026-08-09"`, `type: "date"` |
 
 Return message: `Range A1:D1 filled with 4 values (2 dates, 1 text, 1 formula).`
 
@@ -361,7 +367,7 @@ Return message: `Range A1:D1 filled with 4 values (2 dates, 1 text, 1 formula).`
 
 1. **Read-path duration fix** (§3.2). Independent, small, and fixes a shipping bug.
 2. **Mixed-formula commit correction.** Change `write_formula_range` to commit `data_array` first and overlay formulas. Add regression coverage proving a formula-free range and a mixed range now treat the same input identically.
-3. **Complete user-visible feature.** Gate, `detectNumberFormat` conversion, format policy per D1, tool-schema guidance, coercion report, and UNO write/readback tests together. Do not merge a state that writes serials without usable number formats — that is exactly Candidate B's failure.
+3. **Complete user-visible feature.** Gate, `detectNumberFormat` conversion, lossless format policy (S14), tool-schema guidance, coercion report, and UNO write/readback tests together. Do not merge a state that writes serials without usable number formats — that is exactly Candidate B's failure.
 
 ### 5.6 Performance rules
 
@@ -405,11 +411,11 @@ These are not hypothetical; they are the exact strings `detectNumberFormat` retu
 
 In all cases the production classifier `_format_category_from_type` returns the expected `date` / `time` / `datetime`, so the read path round-trips.
 
-**D17 is the one wrinkle.** Dates detect as ISO everywhere, but `en-US` times detect as `HH:MM:SS AM/PM`. If the goal is ISO-looking display, override the time category with `NumberFormatIndex.TIME_HHMMSS` via `getFormatIndex`; if the goal is "what a local user expects," take the detected key. Recommend taking the detected key and documenting it, since the wire contract is already locale-independent regardless of display.
+Dates detect as ISO everywhere, but `en-US` times detect as `HH:MM:SS AM/PM`. Per S27 the write path takes that detected key; the wire contract on read is already locale-independent ISO regardless of display.
 
 ### 6.3 If Candidate A is chosen instead
 
-Retain the previous approach: resolve `DATE_DIN_YYYYMMDD` (formatindex 33) and `TIME_HHMMSS` via `getFormatIndex`, and compose the datetime pattern from the two built-ins' `FormatString`. Measured: `getFormatIndex(33, en-US)` does return a key whose `FormatString` is `YYYY-MM-DD`. This path also reopens D18, since it needs a document-level locale for unformatted cells.
+Retain the previous approach: resolve `DATE_DIN_YYYYMMDD` (formatindex 33) and `TIME_HHMMSS` via `getFormatIndex`, and compose the datetime pattern from the two built-ins' `FormatString`. Measured: `getFormatIndex(33, en-US)` does return a key whose `FormatString` is `YYYY-MM-DD`. This path needs a document-level locale for unformatted cells, unlike Candidate C's explicit locale argument (S28).
 
 ### 6.4 Locale-Independent Wire Contract
 
@@ -429,7 +435,7 @@ The gate is pure and belongs in pytest. Conversion is not, and belongs in UNO te
 - Gate rejects: slash and dot forms, `Z` and offsets, fractional seconds, `24:00`, `30:00`, `08:00 AM`, `Hello World`, `=SUM(A1:A10)`.
 - Gate rejects `2026-02-30` and `2026-13-45` (or documents that they reach `detectNumberFormat` and fail there).
 - Apostrophe handling and whitespace stripping.
-- D7: whether unpadded `2026-8-8` is admitted — assert whichever way it is decided.
+- Gate rejects unpadded `2026-8-8` (S19).
 
 ### 7.2 Native UNO Integration Tests (`tests/calc/test_cells_uno.py`)
 
@@ -456,15 +462,15 @@ def test_write_and_read_date_time_cells():
     assert row[1]["format_category"] == "time"
 ```
 
-One named test per Table B row, plus:
+Coverage for the settled write rules, plus:
 
-- Mixed range: ISO date + formula in one call (proves the two-step commit, D13).
-- D1/D2/D3: preserve a lossless existing format; replace a lossy one.
-- D4: an elapsed `[HH]:MM` destination keeps its format.
-- D5: ISO string into an `@` cell.
-- D6: `'2026-08-08` stays text.
-- D10: the coercion report counts.
-- D19: a text value written into a date column — assert the chosen format behavior.
+- Mixed range: ISO date + formula in one call (two-step commit; no format apply on the formula cell).
+- Preserve a lossless existing format; replace a lossy one (including midnight datetime↔date).
+- Elapsed `[HH]:MM` destination keeps its format.
+- ISO string into an `@` cell gets a temporal format.
+- `'2026-08-08` stays text.
+- Coercion report counts.
+- Text value written into a date column restores the prior format key.
 - Non-default `NullDate` round trip.
 - §3.2: `1.25` under `[HH]:MM:SS` must not report `06:00:00`.
 
