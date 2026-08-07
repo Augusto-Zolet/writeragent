@@ -22,6 +22,8 @@ For LLM tools (`read_cell_range` with format enrichment; the same strings are th
 
 > **Status:** MCP clock context is in place. ISO-shaped write ingestion is not. Sections marked **Target** describe future write behavior.
 
+> **Write design (locked):** After a strict ISO gate, convert with `XNumberFormatter.detectNumberFormat` / `convertStringToNumber`, commit the serial, and apply the detected format key when the destination does not already display the value losslessly. Do not hand-roll epoch arithmetic or format codes; do not rely on `setFormula` alone (it leaves General and breaks read enrichment).
+
 > **Every LibreOffice behavior claim in this document was measured**, not assumed. See [§8 Measured behavior](#8-measured-behavior-libreoffice-26252). Re-run the probes before trusting any claim here on a new LibreOffice major version.
 
 ---
@@ -222,7 +224,6 @@ These are not re-opened product debates. Each is a how-to that is expensive to r
 | M1 | How does the code decide S14 “lossless”? | Category / elapsed matrix for v1: preserve when destination Type matches (with S15/S16 cases); apply detected for General, `@`, non-temporal, or wrong category. Format-and-compare is a later refinement. | Design sign-off |
 | M2 | Which `Locale` does S28 pass to `getStandardIndex`? | Document `CharLocale` (same as current `set_style`). Alternatives: UI/system locale, or fixed `en-US`. | Design sign-off (+ quick check that CharLocale vs view locale can diverge) |
 | M3 | Does `setDataArray` with **floats** preserve an existing `NumberFormat`? | Expect yes (only the string path was measured forcing `@`). If yes, snapshot keys only for text fallbacks (S29); if no, snapshot before every commit. | One measurement |
-| M4 | Keep Candidate A as a live alternative? | No — Candidate C only. A reopens hand-built localized format letters. | Doc lock (strike or move §6.3 to rejected) |
 
 #### Why these rules
 
@@ -238,22 +239,9 @@ Probe measurements in §8 closed the former product-level open questions. The no
 
 **Still to write:** a destination-format matrix probe under [`scripts/playground/`](../scripts/playground/) covering date+time, datetime+date, elapsed+clock, and `@`+ISO. Existing probes already justify the rules above; this script is the dedicated fixture so implementers and UNO tests can copy measured expectations without re-deriving them.
 
-### 5.2 Design: three candidates, one recommendation
+### 5.2 Write conversion design
 
-The measurements in §8 change which implementation is cheapest. All three keep the same strict wire contract; they differ in who computes the serial and who chooses the format key.
-
-| | A. Hand-rolled | B. `setFormula` router | C. `XNumberFormatter` (recommended) |
-| :--- | :--- | :--- | :--- |
-| Parse | Our regex + `datetime` | Calc | Calc |
-| Epoch / `NullDate` | Our arithmetic | Calc | Calc |
-| Format key | `getFormatIndex` + compose | **Not applied at all** | Calc returns it |
-| Localized format letters | Must hand-build (§6.1) | n/a | Automatic |
-| Locale control | Ambient | Ambient | Explicit argument |
-| Round trip through `read_cell_range` | Works | **Broken** | Works |
-
-Candidate B is disqualified on its own: `setFormula` converts the value but leaves the cell **General**, so the cell displays `46242` and `read_cell_range` does not enrich it as a date (§8, Q3).
-
-**Candidate C** is the recommendation. Per parsed cell:
+Per gated cell, convert and obtain a format key through `XNumberFormatter` (locked at the top of this document). Hand-rolling serial arithmetic or ASCII format codes is rejected: localized format letters differ by locale (§6.1), and `detectNumberFormat` already returns the right key. Relying on `setFormula` alone is also rejected: it converts the value but leaves the cell **General**, so the cell displays `46242` and `read_cell_range` does not enrich it as a date (§8.1, §8.4).
 
 ```python
 # formatter: com.sun.star.util.NumberFormatter, attached to the document's
@@ -314,7 +302,7 @@ _DATETIME_RE = re.compile(
 )
 ```
 
-Under Candidate C these are a **shape filter only**. Calendar validity, epoch arithmetic, and format selection all belong to Calc. `2026-02-30` passes the regex and then fails `detectNumberFormat`, which is the intended fallback to text.
+Under this design these are a **shape filter only**. Calendar validity, epoch arithmetic, and format selection all belong to Calc. `2026-02-30` passes the regex and then fails `detectNumberFormat`, which is the intended fallback to text.
 
 What the gate deliberately rejects, and what Calc would otherwise do with it (§8):
 
@@ -380,7 +368,7 @@ Return message: `Range A1:D1 filled with 4 values (2 dates, 1 text, 1 formula).`
 
 1. **Read-path duration fix** (§3.2). Independent, small, and fixes a shipping bug.
 2. **Mixed-formula commit correction.** Change `write_formula_range` to commit `data_array` first and overlay formulas. Add regression coverage proving a formula-free range and a mixed range now treat the same input identically.
-3. **Complete user-visible feature.** Gate, `detectNumberFormat` conversion, lossless format policy (S14), tool-schema guidance, coercion report, and UNO write/readback tests together. Do not merge a state that writes serials without usable number formats — that is exactly Candidate B's failure.
+3. **Complete user-visible feature.** Gate, `detectNumberFormat` conversion, lossless format policy (S14), tool-schema guidance, coercion report, and UNO write/readback tests together. Do not merge a state that writes serials without usable number formats — that is exactly the `setFormula`-only failure (General / no enrichment).
 
 ### 5.6 Performance rules
 
@@ -412,7 +400,7 @@ Format code letters are localized. Passing raw ASCII codes like `"YYYY-MM-DD"` t
 
 These are not hypothetical; they are the exact strings `detectNumberFormat` returned in §8.
 
-### 6.2 Candidate C removes the problem
+### 6.2 Detected keys carry localized format codes
 
 `detectNumberFormat` hands back a key that already carries the right localized code, so there is nothing to compose and nothing to guess:
 
@@ -426,11 +414,7 @@ In all cases the production classifier `_format_category_from_type` returns the 
 
 Dates detect as ISO everywhere, but `en-US` times detect as `HH:MM:SS AM/PM`. Per S27 the write path takes that detected key; the wire contract on read is already locale-independent ISO regardless of display.
 
-### 6.3 If Candidate A is chosen instead
-
-Retain the previous approach: resolve `DATE_DIN_YYYYMMDD` (formatindex 33) and `TIME_HHMMSS` via `getFormatIndex`, and compose the datetime pattern from the two built-ins' `FormatString`. Measured: `getFormatIndex(33, en-US)` does return a key whose `FormatString` is `YYYY-MM-DD`. This path needs a document-level locale for unformatted cells, unlike Candidate C's explicit locale argument (S28).
-
-### 6.4 Locale-Independent Wire Contract
+### 6.3 Locale-Independent Wire Contract
 
 1. **Read:** LLM wire schema above. Internally, `_iso8601_from_serial()` stays the converter.
 2. **Write:** the gate accepts only the locale-independent subset in §5.3.
@@ -553,8 +537,8 @@ Through the production `CellInspector.read_range(include_format_info=True)`:
 
 | Write method | `read_cell_range` result |
 | :--- | :--- |
-| Candidate B (`setFormula` only) | General format → LLM sees `{"value": 46242.0, "type": "value"}` (no date enrichment) |
-| Candidate C (`detectNumberFormat` + `setValue` + detected key) | LLM sees `{"value": "2026-08-08", "type": "date", "format_category": "date"}`, cell displays `2026-08-08` |
+| `setFormula` only | General format → LLM sees `{"value": 46242.0, "type": "value"}` (no date enrichment) |
+| `detectNumberFormat` + value + detected key | LLM sees `{"value": "2026-08-08", "type": "date", "format_category": "date"}`, cell displays `2026-08-08` |
 
 ---
 
