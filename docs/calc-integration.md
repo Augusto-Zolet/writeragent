@@ -134,7 +134,7 @@ core/
   calc_inspector.py       # CellInspector-style read (read_range, get_cell_details, ...)
   calc_sheet_analyzer.py  # get_sheet_summary, optional detect_data_regions
   calc_error_detector.py  # detect_and_explain_errors
-  calc_manipulator.py     # write_formula, set_cell_style, merge_cells, sort_range, ...
+  calc_manipulator.py     # write_formula_range, set_cell_style, merge_cells, sort_range, ...
   calc_tools.py           # CALC_TOOLS (schemas) + execute_calc_tool / CalcToolDispatcher
 ```
 
@@ -205,10 +205,10 @@ Your current 11 tools cover the essentials, but expanding to more advanced opera
 - **Smarter Parameters and Defaults**:
   - For tools like `sort_range`, add optional `orientation="rows"` (default) or `"columns"` (sort by rows).
   - For `create_chart`, enhance to support primary/secondary axes and custom colors.
-  - Add response details: After `write_formula`, include the computed result (e.g., "Total: 123.45" if it's a formula).
+  - Add response details: After `write_formula_range`, include the computed result (e.g., "Total: 123.45" if it's a formula).
 
 - **Composited/Batch Tools**: Reduce tool-call chain length for common workflows.
-  - `create_table(range_str, headers_list, has_borders=True)`: Combine `write_formula` for headers, `set_cell_style` for borders, `merge_cells` for multi-column headers.
+  - `create_table(range_str, headers_list, has_borders=True)`: Combine `write_formula_range` for headers, `set_cell_style` for borders, `merge_cells` for multi-column headers.
   - `format_range(range_str, preset="header"|"data"|"total")`: Apply predefined style combos (e.g., header=bold+centered, total=bold+border).
 
 - **Better Error Recovery**:
@@ -231,7 +231,7 @@ Your current 11 tools cover the essentials, but expanding to more advanced opera
 
 #### 5. **Performance and Scaling**
 - **Lazy Reading**: For large ranges, `read_cell_range` should page results or sample (e.g., max 1000 cells; warn if truncated).
-- **Bulk Operations**: Instead of single `write_formula` calls in loops, add `write_formula_batch(cell_values_dict)` for writing multiple cells in one go.
+- **Bulk Operations**: Already covered by `write_formula_range`, which commits a whole range in one `setDataArray` call; prefer it over per-cell writes in loops.
 - **Caching**: Cache sheet summaries and headers for 30s to avoid redundant UNO calls in rapid tool chains.
 
 #### 6. **Integration with LibreOffice Ecosystem**
@@ -261,7 +261,6 @@ Your current 11 tools cover the essentials, but expanding to more advanced opera
 - Updated `DEFAULT_CALC_CHAT_SYSTEM_PROMPT` to reference new tools: "Use `write_formula_range` for bulk writes or bulk CSV data inserts. `set_cell_style` works on ranges (e.g. 'A1:D10') for efficient formatting."
 
 **Next Steps** (Future Enhancements):
-- Add `write_formula_batch` for bulk cell writes (dict of cell->value) to avoid loops.
 - Enhance `read_cell_range` with paging (e.g., `max_cells: int` parameter, warn if truncated) for large ranges.
 
 

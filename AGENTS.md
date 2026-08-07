@@ -151,6 +151,7 @@ Do not shadow **`logging`**, module **`log`**, or gettext **`_`**. UI modules im
 | Draw/Impress specialized | [docs/draw-impress-specialized-toolsets.md](docs/draw-impress-specialized-toolsets.md), [docs/shape_support.md](docs/shape_support.md) |
 | Calc specialized | [docs/calc-specialized-toolsets.md](docs/calc-specialized-toolsets.md) |
 | Calc filters / formatting | [docs/calc-conditional-formatting.md](docs/calc-conditional-formatting.md), [docs/calc-sheet-filter.md](docs/calc-sheet-filter.md) |
+| Calc date / time lifecycle | [docs/calc-date-time-handling.md](docs/calc-date-time-handling.md) |
 | Embeddings / folder FTS | [docs/embeddings.md](docs/embeddings.md) |
 | NumPy / Python venv bridge | [docs/enabling_numpy_in_libreoffice.md](docs/enabling_numpy_in_libreoffice.md), [docs/calc-py-data-shapes.md](docs/calc-py-data-shapes.md), [docs/numpy-serialization.md](docs/numpy-serialization.md) |
 | NumPy domain helpers (Viz, Symbolic, Units, Text, …) | [docs/numpy-domains.md](docs/numpy-domains.md) |
