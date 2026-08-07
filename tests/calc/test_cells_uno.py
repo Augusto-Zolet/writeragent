@@ -146,7 +146,7 @@ def _set_number_format(cell, format_str: str) -> None:
 
 @native_test
 def test_read_cell_range_date_time_enrichment():
-    """Public read_cell_range adds iso8601 for date/time formats; raw value stays a serial."""
+    """Public read_cell_range puts ISO in value; internal raw path keeps serials."""
     active_sheet = _test_doc.getCurrentController().getActiveSheet()
 
     date_cell = active_sheet.getCellByPosition(0, 20)  # A21
@@ -172,25 +172,26 @@ def test_read_cell_range_date_time_enrichment():
     assert res.get("status") == "ok", f"read_cell_range failed: {res}"
     row = res["result"][0][0]
 
-    assert row[0]["value"] == 46240.0
-    assert row[0]["iso8601"] == "2026-08-06"
+    assert row[0]["value"] == "2026-08-06"
+    assert row[0]["type"] == "date"
     assert row[0]["format_category"] == "date"
+    assert "iso8601" not in row[0]
 
-    assert row[1]["value"] == 0.5
-    assert row[1]["iso8601"] == "12:00:00"
+    assert row[1]["value"] == "12:00:00"
+    assert row[1]["type"] == "time"
     assert row[1]["format_category"] == "time"
 
-    assert row[2]["value"] == 46240.5
-    assert row[2]["iso8601"] == "2026-08-06T12:00:00"
+    assert row[2]["value"] == "2026-08-06T12:00:00"
+    assert row[2]["type"] == "datetime"
     assert row[2]["format_category"] == "datetime"
 
     assert row[3]["formula"] == "=A21"
-    assert row[3]["value"] == 46240.0
-    assert row[3]["iso8601"] == "2026-08-06"
+    assert row[3]["value"] == "2026-08-06"
+    assert row[3]["type"] == "date"
     assert row[3]["format_category"] == "date"
 
     assert row[4]["value"] == 42.0
-    assert "iso8601" not in row[4]
+    assert row[4]["type"] == "value"
     assert "format_category" not in row[4]
 
     # Internal default path must stay raw for =PY / analysis consumers.
@@ -199,7 +200,8 @@ def test_read_cell_range_date_time_enrichment():
 
     raw = CellInspector(CalcBridge(_test_doc)).read_range("A21")
     assert raw[0][0]["value"] == 46240.0
-    assert "iso8601" not in raw[0][0]
+    assert raw[0][0]["type"] == "value"
+    assert "format_category" not in raw[0][0]
 
 
 @native_test
@@ -253,11 +255,12 @@ def test_read_range_format_info_performance():
 
     mixed_sample = inspector.read_range("FA1:IV100", include_format_info=True)
     date_hits = sum(1 for row in mixed_sample for cell in row if cell.get("format_category") == "date")
-    plain_hits = sum(1 for row in mixed_sample for cell in row if "iso8601" not in cell)
+    plain_hits = sum(1 for row in mixed_sample for cell in row if "format_category" not in cell)
     assert date_hits == 1000, f"expected 10% date cells (1000), got {date_hits}"
     assert plain_hits == 9000, f"expected 90% plain cells (9000), got {plain_hits}"
-    assert mixed_sample[0][0].get("iso8601")
-    assert "iso8601" not in mixed_sample[0][10]
+    assert isinstance(mixed_sample[0][0].get("value"), str) and mixed_sample[0][0].get("type") == "date"
+    assert isinstance(mixed_sample[0][10].get("value"), float)
+    assert "format_category" not in mixed_sample[0][10]
 
     mixed_enriched_ms = _avg_ms("FA1:IV100", include_format_info=True)
 

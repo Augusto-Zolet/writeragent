@@ -122,7 +122,11 @@ class CellInspector:
         return cache[key]
 
     def _enrich_cell_format(self, info: dict, cell) -> None:
-        """Add date metadata without changing the raw value used by internal consumers."""
+        """Rewrite LLM-facing date/time cells to ISO in ``value``.
+
+        Only used when ``include_format_info=True`` (tool path). Internal
+        callers that need raw Calc serials must keep ``include_format_info=False``.
+        """
         value = info.get("value")
         if not isinstance(value, (int, float)):
             return
@@ -132,7 +136,8 @@ class CellInspector:
         if category is None:
             return
         null_date = doc.getNumberFormatSettings().getPropertyValue("NullDate")
-        info["iso8601"] = _iso8601_from_serial(float(value), category, null_date)
+        info["value"] = _iso8601_from_serial(float(value), category, null_date)
+        info["type"] = category
         info["format_category"] = category
 
     def _range_format_rows(self, cell_range, formula_array) -> tuple[dict[int, list[tuple[int, int, str]]], object | None]:
@@ -292,6 +297,9 @@ class CellInspector:
 
         Returns:
             2D list of dicts, each with keys: address, value, formula, type.
+            When ``include_format_info`` is True, date/time-formatted numeric
+            cells use an ISO string as ``value``, ``type`` of date/time/datetime,
+            and ``format_category``; otherwise ``value`` stays the raw serial.
         """
         try:
             cell_range = self.bridge.resolve_range_or_address(range_name)
@@ -347,7 +355,9 @@ class CellInspector:
                     if null_date is not None and isinstance(value, (int, float)):
                         category = self._category_for_position(format_rows, row, col)
                         if category is not None:
-                            cell_info["iso8601"] = _iso8601_from_serial(float(value), category, null_date)
+                            # LLM path: ISO in value for round-trips; raw serials stay on include_format_info=False.
+                            cell_info["value"] = _iso8601_from_serial(float(value), category, null_date)
+                            cell_info["type"] = category
                             cell_info["format_category"] = category
                     row_data.append(cell_info)
                 result.append(row_data)

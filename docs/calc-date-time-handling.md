@@ -4,7 +4,7 @@
 
 This document separates what WriterAgent ships today from the proposed Calc write behavior. It covers PyUNO cell values, read-path format enrichment, MCP clock context, and the planned conversion of date/time strings into Calc serial values.
 
-> **Status:** MCP clock context and read enrichment are implemented. ISO-shaped write ingestion is not implemented. Sections marked **Target** describe future behavior, not the current API.
+> **Status:** MCP clock context and LLM read enrichment (ISO in `value`) are implemented. ISO-shaped write ingestion is not implemented. Sections marked **Target** describe future write behavior.
 
 > **Every LibreOffice behavior claim in this document was measured**, not assumed. See [§8 Measured behavior](#8-measured-behavior-libreoffice-26252). Two earlier design assumptions turned out to be wrong, and one shipping bug was found. Re-run the probes before trusting any claim here on a new LibreOffice major version.
 
@@ -40,11 +40,11 @@ Earlier revisions of this document claimed that `NumberFormat.DURATION` (8196) i
 | `[MM]:SS` | 5 | `"time"` |
 | `HH:MM:SS` | 4 | `"time"` |
 
-Consequence, verified end to end: a cell holding `1.25` under `[HH]:MM:SS` displays `30:00:00`, but `read_cell_range` reports `"iso8601": "06:00:00"`. The whole day is silently dropped by `.time()` in `_iso8601_from_serial` ([plugin/calc/inspector.py](../plugin/calc/inspector.py)). This is a **live read-path bug**, independent of the write work — see [§3.3](#33-known-read-path-bug-elapsed-times-over-24-hours).
+Consequence, verified end to end: a cell holding `1.25` under `[HH]:MM:SS` displays `30:00:00`, but `read_cell_range` reports `"value": "06:00:00"` with `type: "time"`. The whole day is silently dropped by `.time()` in `_iso8601_from_serial` ([plugin/calc/inspector.py](../plugin/calc/inspector.py)). This is a **live read-path bug**, independent of the write work — see [§3.3](#33-known-read-path-bug-elapsed-times-over-24-hours).
 
 ### 1.2 The LLM Friction Points
 
-- **Read Path Friction**: When an LLM reads a spreadsheet via raw `read_cell_range`, receiving `value: 46239.0` without context leaves the model unable to determine if the cell represents currency, a raw quantity, or a date.
+- **Read Path**: Solved for LLM tools — date/time-formatted cells return ISO in `value` with `type` / `format_category` of date, time, or datetime (§3.2). Internal pipelines still see raw serials.
 - **Write Path Friction**: When an LLM generates data to write (e.g. `["2026-08-08", "08:00"]`), standard string assignment puts literal text (`com.sun.star.table.CellContentType.TEXT`) into the cell. This breaks spreadsheet formulas (e.g. `=A26+1`), numeric sorting, and native Calc filtering.
 
 ---
@@ -62,7 +62,7 @@ The end-to-end date/time architecture consists of three synchronized phases:
                         ▼
 ┌────────────────────────────────────────────────────────────────────────────────┐
 │                         B. READ PATH ENRICHMENT                                │
-│  detects NumberFormat category ──► converts serial double ──► outputs iso8601   │
+│  detects NumberFormat category ──► serial → ISO in value + type/format_category │
 └───────────────────────┬────────────────────────────────────────────────────────┘
                         │
                         ▼
@@ -75,9 +75,8 @@ The end-to-end date/time architecture consists of three synchronized phases:
 **Implementation status:**
 
 - Area A: MCP clock context is **implemented**; write-tool ISO guidance is not.
-- Area B: read enrichment with `iso8601` + `format_category` is **implemented**, with the duration bug in §3.3 outstanding.
-- Area C: ISO string → serial + `NumberFormat` is **planned**. Blocked on the Table B sign-off in [§5.1](#51-decision-ledger).
-- Symmetric LLM read (`value` = ISO string) is a **future follow-up** (§3.2); ship write against today's read shape first.
+- Area B / D: LLM read puts ISO in `value` with `type` / `format_category` — **implemented**. Duration bug in §3.3 outstanding.
+- Area C: ISO string → serial + `NumberFormat` is **planned**. Blocked on the Table B sign-off in [§5.1](#51-decision-ledger). Round-trips work once Area C ships.
 
 ---
 
@@ -102,35 +101,11 @@ When `read_cell_range` is invoked with `include_format_info=True` (enabled by de
    timestamp = NullDate + timedelta(seconds=round(serial_value * 86400))
    ```
 
-   Outputs formatted ISO string (`iso8601`) and `format_category`. Helpers live in [plugin/calc/inspector.py](../plugin/calc/inspector.py).
+   For LLM enrichment (`include_format_info=True`), puts the ISO string in `value`, sets `type` to the category, and adds `format_category`. Helpers live in [plugin/calc/inspector.py](../plugin/calc/inspector.py).
 
-### 3.2 Current Wire Shape vs Future Symmetry
+### 3.2 LLM wire shape: ISO in `value`
 
-#### Current design (shipped; matches UNO tests)
-
-`read_cell_range` returns the raw Calc serial double as `value` and appends `iso8601` + `format_category`:
-
-```json
-{
-  "address": "A20",
-  "value": 46239.0,
-  "formula": null,
-  "type": "value",
-  "iso8601": "2026-08-05",
-  "format_category": "date"
-}
-```
-
-Internal callers use `CellInspector.read_range(include_format_info=False)` and get un-enriched raw float serials (NumPy, `=PY`, analysis).
-
-#### Future symmetry (not implemented — do after write path)
-
-Returning `value: 46239.0` reflects `CellContentType.VALUE` but creates LLM friction:
-
-1. **Transformation loops**: read → edit → write often reuses `row["value"]`, so serials bounce back into `write_formula_range`.
-2. **Model reasoning**: LLMs prefer ISO strings (`"2026-08-05"`) and must reconcile `value` vs `iso8601`.
-
-A later change can put ISO in `value` and set `type` to `"date"` / `"time"` / `"datetime"`, omitting the raw serial from the LLM payload:
+**Shipped contract for LLM tools:** a date/time cell's `value` is the ISO string. Once Area C lands, read and write use the same shape so a model can copy `value` back into `write_formula_range` without inventing serials:
 
 ```json
 [
@@ -139,24 +114,22 @@ A later change can put ISO in `value` and set `type` to `"date"` / `"time"` / `"
 ]
 ```
 
-After Area C ships, **write will accept the subset in §5.3** while **read still exposes serial + `iso8601`**. Do not flip the read shape in the same change as the write path.
-
-> **Invariant**: Internal PyUNO / analysis callers (`include_format_info=False`) remain un-enriched for NumPy and computational pipelines.
+Raw Calc serials stay an implementation detail. Internal callers (`CellInspector.read_range(include_format_info=False)`) get un-enriched floats for NumPy / `=PY` / analysis and **keep that invariant**.
 
 ### 3.3 Known read-path bug: elapsed times over 24 hours
 
 Because elapsed formats classify as `"time"` (§1.1), `_iso8601_from_serial` routes them through `.time()`, which discards whole days:
 
-| Cell value | Format | Calc displays | `iso8601` reported | Correct? |
+| Cell value | Format | Calc displays | LLM `value` reported | Correct? |
 | :--- | :--- | :--- | :--- | :--- |
 | `1.25` | `[HH]:MM:SS` | `30:00:00` | `06:00:00` | No |
 | `0.333…` | `[HH]:MM:SS` | `08:00:00` | `08:00:00` | Yes |
 
 The existing comment at [plugin/calc/inspector.py](../plugin/calc/inspector.py) anticipates the ambiguity but the guard was written against `NumberFormat.DURATION`, which never fires. Options, in preference order:
 
-1. Detect elapsed formats by inspecting the `FormatString` for a bracketed leading element (`[H`, `[HH`, `[MM`, `[SS`), and omit `iso8601` for those cells (keeping `format_category` absent as originally intended).
+1. Detect elapsed formats by inspecting the `FormatString` for a bracketed leading element (`[H`, `[HH`, `[MM`, `[SS`), and omit enrichment for those cells (keep raw serial / `type: "value"` as originally intended for non-clock times).
 2. Emit an ISO 8601 duration (`PT30H`) under a distinct key, which is a wire-contract change.
-3. Emit `iso8601` only when the serial is below `1.0`.
+3. Enrich only when the serial is below `1.0`.
 
 Recommend option 1: it restores the documented intent with a single string check and no contract change. Fix separately from Area C.
 
@@ -185,7 +158,7 @@ The previously "unresolved" alternative — preserve wall-clock fields and disca
 
 ### 4.2 Tool Schema Definitions
 
-- **`ReadCellRange`** (`read_cell_range` in [plugin/calc/cells.py](../plugin/calc/cells.py)): already documents `iso8601` / `format_category`. Add a write-back hint (see D12).
+- **`ReadCellRange`** (`read_cell_range` in [plugin/calc/cells.py](../plugin/calc/cells.py)): date/time cells return ISO in `value` with `type` / `format_category`.
 - **`WriteCellRange`** (`write_formula_range`): **does not yet** mention date/time strings.
 
 Proposed description text, to be reviewed for accuracy and token cost before it ships. Tool descriptions are paid for on every request, so the wording is part of the contract, not a comment:
@@ -208,7 +181,7 @@ The first implementation applies only to the public `write_formula_range` path i
 
 | ID | Decision |
 | :--- | :--- |
-| S1 | Read path keeps serial `value` + `iso8601`. Do not flip it in this change. |
+| S1 | LLM read puts ISO in `value` with `type` / `format_category` (§3.2). Internal `include_format_info=False` keeps raw serials. |
 | S2 | A leading `=` routes to the formula path and never reaches the date gate. |
 | S3 | The accepted grammar (§5.3) is the wire contract; it is a gate, not a parser. |
 | S4 | Anything the gate rejects is written as literal text. |
@@ -239,7 +212,6 @@ The first implementation applies only to the public `write_formula_range` path i
 | D9 | Bare `08:00` | Always a clock serial below `1.0`; never impute today's date from clock context | No | Open |
 | D10 | Partial coercion inside one range | Per-cell, plus a coercion summary in the return message | Yes | Open |
 | D11 | Range bounds | Largely dissolves: `NotNumericException` and Calc's own limits handle it. State the supported window | Yes | Resolved by design choice |
-| D12 | LLM echoes `value: 46239.0` back | Accept for v1; add a write-back hint to the `read_cell_range` description | Yes | Open |
 | D13 | Formula cells in a coerced range | No format application for formulas in v1 | Yes | Open |
 | D14 | Empty cells inside a coerced block | Include them so the column stays uniform | Yes | Open |
 | D16 | `set_style(number_format=…)` collision | Route date/time cases through the same helper; fixes the ASCII `queryKey` bug at [plugin/calc/manipulator.py](../plugin/calc/manipulator.py) | Yes | Open |
@@ -260,7 +232,7 @@ The measurements in §8 change which implementation is cheapest. All three keep 
 | Locale control | Ambient (D18) | Ambient | Explicit argument |
 | Round trip through `read_cell_range` | Works | **Broken** | Works |
 
-Candidate B is disqualified on its own: `setFormula` converts the value but leaves the cell **General**, so the cell displays `46242` and `read_cell_range` returns no `iso8601` at all (§8, Q3).
+Candidate B is disqualified on its own: `setFormula` converts the value but leaves the cell **General**, so the cell displays `46242` and `read_cell_range` does not enrich it as a date (§8, Q3).
 
 **Candidate C** is the recommendation. Per parsed cell:
 
@@ -379,10 +351,10 @@ Input `["2026-08-08", "08:00", "08/05/2026", "=A1+1"]` into `A1:D1`, all cells G
 
 | Cell | Committed as | Format key applied | Displays | `read_cell_range` returns |
 | :--- | :--- | :--- | :--- | :--- |
-| A1 | `46242.0` | detected date | `2026-08-08` | `iso8601: "2026-08-08"`, `format_category: "date"` |
-| B1 | `0.3333…` | detected time | `08:00:00 AM` (see D17) | `iso8601: "08:00:00"`, `format_category: "time"` |
-| C1 | text `08/05/2026` | none; format becomes `@` (D19) | `08/05/2026` | no `iso8601` |
-| D1 | formula | Calc propagates from A1 | `2026-08-09` | `iso8601: "2026-08-09"` |
+| A1 | `46242.0` | detected date | `2026-08-08` | `value: "2026-08-08"`, `type: "date"` |
+| B1 | `0.3333…` | detected time | `08:00:00 AM` (see D17) | `value: "08:00:00"`, `type: "time"` |
+| C1 | text `08/05/2026` | none; format becomes `@` (D19) | `08/05/2026` | plain text, no date enrichment |
+| D1 | formula | Calc propagates from A1 | `2026-08-09` | `value: "2026-08-09"`, `type: "date"` |
 
 Return message: `Range A1:D1 filled with 4 values (2 dates, 1 text, 1 formula).`
 
@@ -401,12 +373,11 @@ Return message: `Range A1:D1 filled with 4 values (2 dates, 1 text, 1 formula).`
 
 A homogeneous write should cost roughly: one formatter setup, one `getStandardIndex`, two calls per distinct input string, one `setDataArray`, and one format-block set. Sparse mixed grids scale with formula overlays and block count. These are design targets, not guarantees.
 
-### 5.7 Follow-ups (out of scope)
+### 5.7 Follow-ups
 
-- Symmetric LLM read (`value` = ISO) — §3.2.
 - Locale-display write parsing.
 - Fractional seconds, offsets/timezones, `24:00`, leap seconds, and durations as input.
-- Changing NumPy / `include_format_info=False` raw serial behavior.
+- Changing NumPy / `include_format_info=False` raw serial behavior (stays out of scope — internal pipelines keep floats).
 - `=PY` spill coercion, NumPy `datetime64` epoch conversion, and spreadsheet-import epoch cleanup.
 
 ---
@@ -443,9 +414,9 @@ Retain the previous approach: resolve `DATE_DIN_YYYYMMDD` (formatindex 33) and `
 
 ### 6.4 Locale-Independent Wire Contract
 
-1. **Read**: `_iso8601_from_serial()` emits ISO 8601, locale-independent.
-2. **Write**: the gate accepts only the locale-independent subset in §5.3.
-3. **Display**: whatever key Calc detects for that locale. Display is deliberately not part of the contract.
+1. **Read:** LLM `value` is ISO 8601 (§3.2). Internally, `_iso8601_from_serial()` stays the converter.
+2. **Write:** the gate accepts only the locale-independent subset in §5.3.
+3. **Display:** whatever key Calc detects for that locale. Display is deliberately not part of the contract.
 
 ---
 
@@ -463,7 +434,7 @@ The gate is pure and belongs in pytest. Conversion is not, and belongs in UNO te
 
 ### 7.2 Native UNO Integration Tests (`tests/calc/test_cells_uno.py`)
 
-End-to-end write and readback against the **current** read shape (serial `value` + `iso8601`):
+End-to-end write and readback against the shipped LLM read shape (ISO in `value`):
 
 ```python
 @native_test
@@ -477,11 +448,12 @@ def test_write_and_read_date_time_cells():
     read_res = _execute_calc_tool("read_cell_range", {"range_name": ["A26:B26"]})
     row = read_res["result"][0][0]
 
-    assert row[0]["iso8601"] == "2026-08-08"
+    assert row[0]["value"] == "2026-08-08"
+    assert row[0]["type"] == "date"
     assert row[0]["format_category"] == "date"
-    assert isinstance(row[0]["value"], (int, float))
 
-    assert row[1]["iso8601"] == "08:00:00"
+    assert row[1]["value"] == "08:00:00"
+    assert row[1]["type"] == "time"
     assert row[1]["format_category"] == "time"
 ```
 
@@ -525,7 +497,7 @@ PYTHONPATH=. python3 scripts/playground/probe_calc_datetime_locale.py
 
 `setFormula("2026-08-08")` produces `VALUE 46242.0` with the format left **General**, displaying `46242`. This holds for pristine cells and for cells explicitly reset to key 0, and it applies to times and datetimes too.
 
-The often-cited guarantee from LibreOffice's i18n maintainer — that ISO input "leads to the YYYY-MM-DD format being applied" ([date acceptance patterns](https://erack.org/blog/archives/8-LibreOffice-date-acceptance-patterns.html)) — describes **interactive** cell input. It does not hold on the UNO API path. Any design that relies on it will ship cells that display raw serials and return no `iso8601`.
+The often-cited guarantee from LibreOffice's i18n maintainer — that ISO input "leads to the YYYY-MM-DD format being applied" ([date acceptance patterns](https://erack.org/blog/archives/8-LibreOffice-date-acceptance-patterns.html)) — describes **interactive** cell input. It does not hold on the UNO API path. Any design that relies on it will ship cells that display raw serials and are not enriched as dates by `read_cell_range`.
 
 ### 8.2 Locale behavior of the scanner
 
@@ -563,8 +535,8 @@ Through the production `CellInspector.read_range(include_format_info=True)`:
 
 | Write method | `read_cell_range` result |
 | :--- | :--- |
-| Candidate B (`setFormula` only) | `{"value": 46242.0, "type": "value"}` — **no `iso8601`** |
-| Candidate C (`detectNumberFormat` + `setValue` + detected key) | `{"value": 46242.0, "iso8601": "2026-08-08", "format_category": "date"}`, cell displays `2026-08-08` |
+| Candidate B (`setFormula` only) | General format → LLM sees `{"value": 46242.0, "type": "value"}` (no date enrichment) |
+| Candidate C (`detectNumberFormat` + `setValue` + detected key) | LLM sees `{"value": "2026-08-08", "type": "date", "format_category": "date"}`, cell displays `2026-08-08` |
 
 ---
 

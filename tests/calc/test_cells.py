@@ -149,9 +149,12 @@ def test_inspector_enriches_range_once_per_unique_format_group():
 
     result = CellInspector(bridge).read_range("A1:B1", include_format_info=True)
 
-    assert result[0][0]["iso8601"] == "2026-08-03"
+    assert result[0][0]["value"] == "2026-08-03"
+    assert result[0][0]["type"] == "date"
     assert result[0][0]["format_category"] == "date"
-    assert "iso8601" not in result[0][1]
+    assert "iso8601" not in result[0][0]
+    assert result[0][1]["value"] == 42.0
+    assert "format_category" not in result[0][1]
     formats.getByKey.assert_called_once_with(10)
     # Date constants present: skip the formula walk and go straight to format groups.
     cell_range.getUniqueCellFormatRanges.assert_called_once()
@@ -197,7 +200,8 @@ def test_inspector_format_info_uses_format_groups_for_formula_only_ranges():
     )
     result = CellInspector(bridge).read_range("A1:B1", include_format_info=True)
 
-    assert result[0][0]["iso8601"] == "2026-08-03"
+    assert result[0][0]["value"] == "2026-08-03"
+    assert result[0][0]["type"] == "date"
     assert result[0][0]["format_category"] == "date"
     cell_range.queryContentCells.assert_called_once()
     cell_range.getUniqueCellFormatRanges.assert_called_once()
@@ -228,7 +232,8 @@ def test_inspector_format_info_survives_queryContentCells_failure():
 
     result = CellInspector(bridge).read_range("A1:B1", include_format_info=True)
 
-    assert result[0][0]["iso8601"] == "2026-08-03"
+    assert result[0][0]["value"] == "2026-08-03"
+    assert result[0][0]["type"] == "date"
     cell_range.getUniqueCellFormatRanges.assert_called_once()
     formats.getByKey.assert_called_once_with(11)
 
