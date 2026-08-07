@@ -180,11 +180,11 @@ That produces tests of the form `assert foo(args) == <whatever it got>`. **Do no
 - **`make crosshair-cover`** runs on the **entire** [`plugin/scripting/payload_codec.py`](../plugin/scripting/payload_codec.py) with **no** `--per_condition_timeout`—correctness over speed; can take a long time.
 - **`make crosshair-check`** is the contract pass on the same file; use both when hardening serialization.
 - **`make crosshair-check-all`** discovers every `plugin/**/*.py` that contains `@deal.` and runs `crosshair check --analysis_kind=deal` **one file at a time** (so an engine crash in one module does not abort the rest) with **no** per-condition timeout (multi-hour OK). Formatted output is teed to [`build/crosshair-check-all.log`](../build/crosshair-check-all.log). Not part of `make test`. Failures are CrossHair **errors** / engine crashes only; `NOT_CONFIRMED` / `UNABLE` are informational. List targets with `python scripts/crosshair_check_all.py --list`; pass explicit paths to check a subset.
-- **`make crosshair-cover-all`** uses the same `@deal.` discovery as check-all, plus a cover-only skip list for UNO/I/O hosts (`CROSSHAIR_COVER_ALL_SKIP` in [`scripts/crosshair_cover_all.py`](../scripts/crosshair_cover_all.py), unioned with `CROSSHAIR_CHECK_ALL_SKIP`). Runs in a **process pool** (default workers `max(2, cpu_count - 2)`; override with `--jobs N`). Modules are submitted **longest-first** via `COVER_ALL_SCHEDULE_ORDER` (measured regular-run timings; `payload_codec` first). Two presets only: **regular** (default) is `--max_uninteresting_iterations=50 --per_condition_timeout=30`; **deep** (`make crosshair-cover-all-deep` / `--deep`) is `--max_uninteresting_iterations=200` with no per-condition timeout (hour-scale). In **regular** mode only, `payload_codec` uses a tighter **5 / 5s** bound so it finishes near peer long modules; deep and `make crosshair-cover` stay the long codec dives. Cover/check are always **budgeted partial** exploration—not exhaustive proofs. Each worker still owns one CrossHair process per module; formatted output is buffered and printed as a whole block when that module finishes (completion order—no interleaved lines). Tee: [`build/crosshair-cover-all.log`](../build/crosshair-cover-all.log); per-module durations (longest first) in [`build/crosshair-cover-all-timings.json`](../build/crosshair-cover-all-timings.json). Failures are `CrossHairInternal` / process crashes only—few examples do not fail the sweep. `cover` walks **top-level callables** in those modules (not only `@deal`); `# crosshair: off` does not skip cover entry points. List targets with `python scripts/crosshair_cover_all.py --list`.
+- **`make crosshair-cover-all`** uses the same `@deal.` discovery as check-all, plus a cover-only skip list for UNO/I/O hosts (`CROSSHAIR_COVER_ALL_SKIP` in [`scripts/crosshair_cover_all.py`](../scripts/crosshair_cover_all.py), unioned with `CROSSHAIR_CHECK_ALL_SKIP`). Runs in a **process pool** (default workers `max(2, cpu_count - 2)`; override with `--jobs N`). Submit order: modules **not** in `COVER_ALL_SCHEDULE_ORDER` first (stable by path — new `@deal.` files until timed), then **longest-first** known schedule (measured regular-run timings). Two presets only: **regular** (default) is `--max_uninteresting_iterations=25 --per_condition_timeout=5` (breadth over depth) plus a hard **120s per-module wall** (kill process group; timeout is exit 0 / not a sweep failure); **deep** (`make crosshair-cover-all-deep` / `--deep`) is `--max_uninteresting_iterations=200` with no per-condition timeout and no wall (hour-scale). In **regular** mode only, `payload_codec` uses a tighter **5 / 5s** bound; deep and `make crosshair-cover` stay the long codec dives. Cover/check are always **budgeted partial** exploration—not exhaustive proofs. Each worker still owns one CrossHair process per module; formatted output is buffered and printed as a whole block when that module finishes (completion order—no interleaved lines). Tee: [`build/crosshair-cover-all.log`](../build/crosshair-cover-all.log); per-module durations (longest first) in [`build/crosshair-cover-all-timings.json`](../build/crosshair-cover-all-timings.json). Failures are `CrossHairInternal` / process crashes only—few examples and wall timeouts do not fail the sweep. `cover` walks **top-level callables** in those modules (not only `@deal`); `# crosshair: off` does not skip cover entry points. List targets with `python scripts/crosshair_cover_all.py --list`.
 
 **WriterAgent reference module:** [`plugin/scripting/payload_codec.py`](../plugin/scripting/payload_codec.py) — see [`docs/serialization-verification-plan.md`](serialization-verification-plan.md).
 
-**CrossHair + `typing.Literal`:** CrossHair cannot proxy `Literal[...]` in parameter annotations (it calls `get_type_hints` on the literal itself). Use `str` in function signatures and keep `ColumnKind = Literal[...]` for casts/comments only (fixed in `payload_codec.py`).
+**CrossHair + `typing.Literal`:** CrossHair cannot proxy `Literal[...]` (it calls `get_type_hints` on the literal itself). Use `str` in function **parameter** annotations and in **TypedDict fields** that may land on the type heap via imports; keep `Literal` aliases (e.g. `ColumnKind`, `StatusValue`) for casts/comments only. Parameter case fixed in `payload_codec.py`; TypedDict case fixed in [`errors.py`](../plugin/framework/errors.py) (`ToolSuccess`/`ToolError`) after flaky check-all crashes on importers such as `stream_normalizer`.
 
 #### Live output while CrossHair runs
 
@@ -206,8 +206,8 @@ make verify             # pytest formal verification suite
 make crosshair-check
 make crosshair-cover
 make crosshair-check-all   # all @deal. modules; multi-hour; log under build/
-make crosshair-cover-all        # same set; regular budget (50/30s); log + timings under build/
-make crosshair-cover-all-deep   # same set; deep budget (200 iters, no timeout)
+make crosshair-cover-all        # same set; regular budget (25/5s + 120s wall); log + timings under build/
+make crosshair-cover-all-deep   # same set; deep budget (200 iters, no timeout/wall)
 ```
 
 Sample filtered **`check`** output:
@@ -318,7 +318,7 @@ The refactor **separates concerns** in the same “hexagonal” spirit as the re
 
 This was a **pragmatic** foundation: Phase 5 records design tradeoffs and what we avoided over-engineering. Attaching `deal` and running CrossHair on every transition is **Phase 6**, not something we claim is already complete.
 
-For **remaining** orchestration that could be extracted in the future, see [STATE_MACHINE_ROADMAP.md](STATE_MACHINE_ROADMAP.md).
+For **remaining** orchestration that could be extracted in the future, see [docs/ROADMAP.md](ROADMAP.md) and the FSM modules listed under Phase 5.
 
 ## Phase 5: Elevating Orchestration to Pure State Machines
 
@@ -475,6 +475,11 @@ Maintain a `verification_status.json` file tracking which components have been v
 40. **`plugin/calc/calc_addin_data.py`** — `_unwrap_cell`, `normalize_python_data_shape`, `finalize_python_data`, `calc_addin_data_to_python` ([`tests/calc/test_calc_dep_and_filter_verification.py`](../tests/calc/test_calc_dep_and_filter_verification.py))
 41. **`plugin/scripting/audio_silence_detector.py`** — `pcm_energy_int16` ([`tests/scripting/test_scripting_phase2_verification.py`](../tests/scripting/test_scripting_phase2_verification.py))
 42. **`plugin/calc/cells.py`** — `_parse_color` ([`tests/scripting/test_scripting_phase2_verification.py`](../tests/scripting/test_scripting_phase2_verification.py))
+43. **`plugin/framework/client/stream_normalizer.py`** — `accumulate_streaming_thinking`, `_merge_reasoning_details`, `_normalize_stream_delta`, `_thinking_text_from_delta`, `_normalize_delta` ([`tests/framework/test_stream_normalizer_verification.py`](../tests/framework/test_stream_normalizer_verification.py))
+44. **`plugin/framework/client/response_normalizers.py`** — `strip_leaked_chat_template_control_tokens`, `extract_and_strip_images_from_message` ([`tests/framework/test_response_normalizers_verification.py`](../tests/framework/test_response_normalizers_verification.py))
+45. **`plugin/calc/python/formula_edit.py`** — quoted/unquoted `=PY()` parse, sanitize/escape, rebuild, data-range formatters ([`tests/calc/python/test_formula_edit_verification.py`](../tests/calc/python/test_formula_edit_verification.py))
+46. **`plugin/calc/spreadsheet_import/preprocess.py`** — `normalize_lo_formula_for_parse` ([`tests/calc/python/test_formula_edit_verification.py`](../tests/calc/python/test_formula_edit_verification.py))
+47. **`plugin/scripting/payload_codec.py`** (policy helpers) — `cell_count`, `is_numeric_coercible`, `is_numeric_grid`, `wire_cell_count` ([`tests/scripting/test_payload_codec_policy_verification.py`](../tests/scripting/test_payload_codec_policy_verification.py)); pack/unpack contracts listed earlier / serialization plan
 
 (`format_support.py` does not exist; Writer HTML paths are UNO-heavy and deferred.)
 
@@ -491,6 +496,69 @@ Maintain a `verification_status.json` file tracking which components have been v
    - Skip rapidly changing or experimental modules (e.g. vector search, folder FTS indexers) until their APIs stabilize.
 4. **CI & Verification Suite**:
    - All verification unit tests MUST be added to `make verify` in `Makefile` and registered in `verification_status.json`.
+
+### 8.1 Contract pitfalls (read before writing `@deal`)
+
+These mistakes keep recurring when AIs add verification. Fix them in the contract/test, not by weakening production behavior.
+
+#### A. Optional / defaulted parameters break naive contract lambdas
+
+`deal` only forwards **arguments the caller actually passed**. Omitted defaults are **not** filled into `@deal.pre` / `@deal.ensure` lambdas. `@deal.ensure` also receives the return value as a **keyword** `result=...` (not always as a trailing positional).
+
+**Wrong** (TypeError at runtime when callers omit the default, or when `result=` is passed):
+
+```python
+@deal.pre(lambda message, strip_structured_image_blocks: isinstance(message, dict))
+@deal.ensure(lambda message, strip_structured_image_blocks, result: ...)
+@deal.ensure(lambda *args: _ok(args[0]))  # missing **kwargs → TypeError: unexpected keyword argument 'result'
+def extract_and_strip_images_from_message(message: dict, strip_structured_image_blocks: bool = True) -> list:
+    ...
+```
+
+**Right** (absorb missing defaults + `result=` kwarg):
+
+```python
+@deal.pre(lambda *args, **kwargs: bool(args) and isinstance(args[0], dict))
+@deal.post(lambda result: isinstance(result, list))
+@deal.ensure(lambda *args, result=None, **kwargs: _string_content_ok(args[0]))
+def extract_and_strip_images_from_message(message: dict, strip_structured_image_blocks: bool = True) -> list:
+    ...
+```
+
+For keyword-only / multi-default APIs (especially when CrossHair must see the return value reliably), prefer the [`payload_codec.py`](../plugin/scripting/payload_codec.py) pattern: `_DEAL_RETURN` sentinel + `_deal_return(*a, result=result)` and `@deal.pre(lambda arg, *_, **__: ...)`. See also [`docs/serialization-verification-plan.md`](serialization-verification-plan.md) (“Functions with keyword-only parameters…”).
+
+**Rule of thumb:** if the function has any defaulted parameter, do **not** write a fixed-arity `lambda a, b, result: ...` unless every call site always passes `b` positionally.
+
+#### B. Keep runtime guards when `deal` is shimmed
+
+Under LibreOffice, `deal_shim` is a no-op — `@deal.pre` does **not** run. If you delete `if not isinstance(x, dict): return` because “the pre already checks,” production regains AttributeError on bad inputs.
+
+**Wrong:** replace a defensive early-return with only `@deal.pre(lambda x: isinstance(x, dict))` and remove the body guard.
+
+**Right:** keep the cheap runtime guard in the body; let `@deal.pre` tighten CrossHair/Hypothesis under the dev venv.
+
+#### C. Hypothesis oracles vs greedy production regexes
+
+When fuzzing extractors that use greedy character classes (e.g. base64 `data:image/...;base64,([A-Za-z0-9+/=\s]+)`), random **suffix/prefix** text often uses the same alphabet. The regex then consumes past your intended payload and the oracle fails even though production is correct.
+
+**Wrong:** `content = prefix + uri + suffix` with unrestricted `st.text()` around a greedy URI match, then assert exact `b64` equality.
+
+**Right:** force a delimiter outside the regex alphabet (e.g. suffix = `"!" + …`), or assert weaker invariants (`mime_type` present, URI gone, `[Image Ref]` inserted) without requiring exact greedy-span equality.
+
+Same idea for any greedy tokenizer: Hypothesis neighbors must not be absorbable by the match.
+
+#### D. CrossHair annotation / directive traps (already easy to reintroduce)
+
+- Do **not** put `typing.Literal[...]` in **parameter** annotations or **TypedDict fields** CrossHair must proxy — use `str` (or similar); keep `Literal` aliases for casts/comments only ([`payload_codec.py`](../plugin/scripting/payload_codec.py), [`errors.py`](../plugin/framework/errors.py) tool result TypedDicts). Skipping a module in `CROSSHAIR_CHECK_ALL_SKIP` does not protect importers that pull those TypedDicts onto the heap.
+- `# crosshair: off` must sit alone on its line (no trailing prose). Extra characters can raise `InvalidDirective`.
+- Prefer **FQN** `crosshair check plugin.pkg.mod.fn` in `@pytest.mark.slow` tests for new slices; whole-module `cover` walks every top-level callable once `@deal.` exists in the file (I/O helpers, shims, SSE iterators) and may need `CROSSHAIR_COVER_ALL_SKIP` — do not add skips preemptively; only after a real cover/engine failure.
+
+#### E. Checklist when finishing a verification slice
+
+1. Run existing unit tests for the module **with deal installed** (contracts execute in the dev venv).
+2. Run the new `*_verification.py` file with `-m "not slow"`, then the slow CrossHair FQN tests.
+3. Update [`verification_status.json`](../verification_status.json) and the Phase 7 list in this doc.
+4. Do not leave broken doc links to non-existent roadmaps.
 
 ---
 
@@ -758,6 +826,15 @@ def ensure_scheme(url: str) -> str:
 4. **❌ Avoid verifying *tangled* UI/orchestration code**
    - Do not attempt to attach FV contracts to functions that intermingle state mutation and I/O (e.g., updating UI side-by-side with calculating states).
    - Instead, extract the implied state machine into a pure transition function (as described in Phase 5), and strictly verify *that* function instead.
+
+5. **❌ Don't write fixed-arity `@deal.ensure` / `@deal.pre` lambdas for defaulted parameters**
+   - Causes `TypeError: missing … argument` / `unexpected keyword argument 'result'` under real call sites. See §8.1 A and the `_DEAL_RETURN` helpers in `payload_codec.py`.
+
+6. **❌ Don't delete runtime type guards because `@deal.pre` “already checks”**
+   - `deal_shim` is a no-op inside LibreOffice. See §8.1 B.
+
+7. **❌ Don't build Hypothesis oracles that fight greedy regex alphabets**
+   - Delimit fuzz neighbors outside the match class. See §8.1 C.
 
 ## Recommended Tool Chain
 
