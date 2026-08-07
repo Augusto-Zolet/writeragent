@@ -90,7 +90,7 @@ The end-to-end date/time architecture consists of three synchronized phases:
 **Implementation status:**
 
 - MCP clock context is in place; write-tool ISO guidance is not.
-- ISO string → serial + `NumberFormat` is **planned**. Settled rules are in [§5.1](#51-decision-ledger).
+- ISO string → serial + `NumberFormat` is **planned**. Policy in [§5.1](#51-decision-ledger) Settled; a few mechanism items remain Open there.
 - Duration enrichment bug in §3.2 is outstanding.
 
 ---
@@ -177,6 +177,8 @@ The first implementation applies only to the public `write_formula_range` path i
 
 ### 5.1 Decision Ledger
 
+Policy from the probes is closed under **Settled**. A short **Open** table remains for mechanism choices that still need a decision (or one measurement) before Phase 3 — these are easy to miss because the product rules above them already sound final.
+
 #### Settled (build against these)
 
 | ID | Decision |
@@ -193,7 +195,7 @@ The first implementation applies only to the public `write_formula_range` path i
 | S11 | Tests split unit and UNO per [AGENTS.md](../AGENTS.md). |
 | S12 | Fractional seconds, leap seconds, `24:00`, durations-as-input, and locale display forms stay out of scope. |
 | S13 | Inspect destination formats only when at least one value passed the gate. |
-| S14 | Preserve the destination `NumberFormat` when it already displays the committed value without loss; otherwise apply the detected key. |
+| S14 | Preserve the destination `NumberFormat` when it already displays the committed value without loss; otherwise apply the detected key. *(How to detect “lossless” is still Open — see M1.)* |
 | S15 | Midnight datetime into a date cell, and date into a datetime cell, preserve the existing format (lossless under S14). |
 | S16 | Time into an elapsed-time cell (`[HH]:MM` / `[HH]:MM:SS`) preserves that format. |
 | S17 | ISO string into a Text (`@`) cell: apply the detected temporal format (`@` does not block conversion). |
@@ -207,13 +209,24 @@ The first implementation applies only to the public `write_formula_range` path i
 | S25 | Empty cells inside a coerced contiguous block receive the block format. |
 | S26 | Route `set_style(number_format=…)` date/time cases through the same helper as the write path. |
 | S27 | Use the key returned by `detectNumberFormat` as-is (including locale-preferred times such as `en-US` AM/PM). |
-| S28 | Locale is an explicit argument to `detectNumberFormat` / `getStandardIndex`, not an ambient document property. |
+| S28 | Locale is an explicit argument to `detectNumberFormat` / `getStandardIndex`, not an ambient document property. *(Which locale struct to pass is still Open — see M2.)* |
 | S29 | On text fallback, restore the prior `NumberFormat` key after `setDataArray` (which otherwise forces `@`). |
 | S30 | The format pass is best-effort: log failures and return success with a note rather than failing the whole write. |
 
+#### Open (mechanism — resolve before Phase 3)
+
+These are not re-opened product debates. Each is a how-to that is expensive to reverse once coded into `write_formula_range`.
+
+| ID | Situation | Recommendation | What closes it |
+| :--- | :--- | :--- | :--- |
+| M1 | How does the code decide S14 “lossless”? | Category / elapsed matrix for v1: preserve when destination Type matches (with S15/S16 cases); apply detected for General, `@`, non-temporal, or wrong category. Format-and-compare is a later refinement. | Design sign-off |
+| M2 | Which `Locale` does S28 pass to `getStandardIndex`? | Document `CharLocale` (same as current `set_style`). Alternatives: UI/system locale, or fixed `en-US`. | Design sign-off (+ quick check that CharLocale vs view locale can diverge) |
+| M3 | Does `setDataArray` with **floats** preserve an existing `NumberFormat`? | Expect yes (only the string path was measured forcing `@`). If yes, snapshot keys only for text fallbacks (S29); if no, snapshot before every commit. | One measurement |
+| M4 | Keep Candidate A as a live alternative? | No — Candidate C only. A reopens hand-built localized format letters. | Doc lock (strike or move §6.3 to rejected) |
+
 #### Why these rules
 
-Probe measurements in §8 closed the former open questions. The non-obvious ones, briefly:
+Probe measurements in §8 closed the former product-level open questions. The non-obvious settled ones, briefly:
 
 - **Lossless preserve (S14–S16), not “same category”.** A date-formatted cell given `08:00` displays `1899-12-30`. Elapsed formats report `Type` `TIME`, so a category-equality rule would wrongly clobber `[HH]:MM`. Midnight datetime↔date and date→datetime are lossless, so they keep the existing key.
 - **`@` must get a temporal format (S17).** The Text format does not block API conversion; leaving `@` shows the raw serial.
