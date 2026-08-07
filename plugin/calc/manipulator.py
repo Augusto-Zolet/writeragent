@@ -362,41 +362,6 @@ class CellManipulator:
             # Wrap other exceptions
             raise CalcError(f"Failed to get cell value: {str(e)}", code="CALC_CELL_VALUE_ERROR", details={"address": cell_address, "original_error": str(e), "error_type": type(e).__name__}) from e
 
-    def write_formula(self, address: str, formula: str) -> str:
-        """Write formula, text, or number to a cell.
-
-        If the value starts with ``=`` it is written as a formula.  If it
-        can be converted to a number it is written as a numeric value.
-        Otherwise it is written as text.
-
-        Args:
-            address: Cell address (e.g. "A1").
-            formula: Content to write (e.g. "=SUM(A1:A10)", "Header", "42").
-
-        Returns:
-            Description of the written value.
-        """
-        try:
-            cell = self.bridge.get_cell_by_address(address)
-
-            if formula.startswith("="):
-                cell.setFormula(formula)
-                logger.info("Cell %s <- formula '%s' written.", address.upper(), formula)
-                return f"Formula written to cell {address}: {formula}"
-            else:
-                try:
-                    num = float(formula)
-                    cell.setValue(num)
-                    logger.info("Cell %s <- number %s written.", address.upper(), formula)
-                    return f"Number written to cell {address}: {formula}"
-                except ValueError:
-                    cell.setString(formula)
-                    logger.info("Cell %s <- text '%s' written.", address.upper(), formula)
-                    return f"Text written to cell {address}: {formula}"
-        except Exception as e:
-            logger.error("Formula writing error (%s): %s", address, str(e))
-            raise ToolExecutionError(str(e)) from e
-
     # ── Style operations ───────────────────────────────────────────────
 
     def set_cell_style(
