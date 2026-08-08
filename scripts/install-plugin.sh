@@ -262,6 +262,30 @@ install_to_cache() {
     echo "    plugin/ synced"
     deployed=$((deployed + 1))
 
+    # vendor/ → plugin/lib/ overlay.
+    # build_oxt puts wheels in the OXT and refreshes project plugin/lib/, but a
+    # stale plugin/lib plus rsync --delete used to wipe isodate (and friends)
+    # from the cache so Calc cell tools failed to import/register.
+    if [ -d "$PROJECT_ROOT/vendor" ]; then
+        mkdir -p "$ext_dir/plugin/lib"
+        for entry in "$PROJECT_ROOT/vendor"/*; do
+            [ -e "$entry" ] || continue
+            base=$(basename "$entry")
+            case "$base" in
+                *.dist-info|.*|_* ) continue ;;
+            esac
+            if [ -d "$entry" ]; then
+                rsync -a --delete \
+                    --exclude '__pycache__' --exclude '*.pyc' --exclude '*.pyo' \
+                    "$entry/" "$ext_dir/plugin/lib/$base/"
+            elif [ -f "$entry" ]; then
+                rsync -a "$entry" "$ext_dir/plugin/lib/$base"
+            fi
+        done
+        echo "    plugin/lib/ (vendor) synced"
+        deployed=$((deployed + 1))
+    fi
+
     # extension/ resources -> .oxt root
     for item in Addons.xcu Accelerators.xcu description.xml XPythonFunction.rdb XPromptFunction.rdb; do
         if [ -f "$PROJECT_ROOT/extension/$item" ]; then

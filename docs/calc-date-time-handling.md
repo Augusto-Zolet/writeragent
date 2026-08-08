@@ -134,7 +134,7 @@ Because elapsed formats classify as `"time"` (§1.1), routing them through `_iso
 | `1.25` | `[HH]:MM:SS` | `30:00:00` | `06:00:00` | `"PT30H"`, `type: "duration"` |
 | `0.333…` | `[HH]:MM:SS` | `08:00:00` | `08:00:00` | `"PT8H"`, `type: "duration"` |
 
-The old guard against `NumberFormat.DURATION` never fired. **Shipped:** [`is_elapsed_format_string`](../plugin/calc/datetime_wire.py) detects bracketed units; wire category becomes `"duration"`; emit via [`iso_duration_from_serial`](../plugin/calc/datetime_wire.py) (hours may exceed 24 — `PT30H`, not `P1DT6H`). Write accepts the same `PT…` gate, parses with vendored [`isodate`](https://github.com/gweis/isodate), applies built-in formatindex 43 (`[HH]:MM:SS`) unless M1 preserves a TIME destination.
+The old guard against `NumberFormat.DURATION` never fired. **Shipped:** [`is_elapsed_format_string`](../plugin/calc/datetime_wire.py) detects bracketed units; wire category becomes `"duration"`; emit via [`iso_duration_from_serial`](../plugin/calc/datetime_wire.py) (hours may exceed 24 — `PT30H`, not `P1DT6H`). Write accepts the same `PT…` gate, parses with vendored [`isodate`](https://github.com/gweis/isodate) from [`requirements-vendor.txt`](../requirements-vendor.txt) → `plugin/lib/` (build + hot-deploy overlay; without it `datetime_wire` fails to import and `write_formula_range` never registers), applies built-in formatindex 43 (`[HH]:MM:SS`) unless M1 preserves a TIME destination.
 
 ---
 
@@ -615,6 +615,11 @@ Per gated cell, convert and obtain a format key through `XNumberFormatter` (lock
 #   with the documented en-US fallback.
 # std_key: formats.getStandardIndex(locale)
 # Calc parses in the locale of the key you hand it.
+#
+# Chat tools resolve docs via guard_uno (Layer A). attachNumberFormatsSupplier
+# is not called through that proxy, so CellManipulator._make_number_formatter
+# must _unwrap_uno(doc) (and ctx) before attach — otherwise ISO writes fail
+# and =DATE/=TIME still work because they skip the formatter path.
 try:
     detected_key = formatter.detectNumberFormat(std_key, text)
     value = formatter.convertStringToNumber(std_key, text)

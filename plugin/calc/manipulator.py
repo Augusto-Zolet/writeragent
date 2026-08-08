@@ -537,11 +537,19 @@ class CellManipulator:
             raise ToolExecutionError(str(e)) from e
 
     def _make_number_formatter(self, doc):
-        """Attach a NumberFormatter to *doc* once per write invocation."""
-        uno_ctx = get_ctx()
+        """Attach a NumberFormatter to *doc* once per write invocation.
+
+        Chat tools pass a Layer-A guarded document. ``attachNumberFormatsSupplier``
+        is called on the formatter (not through the doc proxy), so the proxy is
+        not auto-unwrapped — hand it the raw UNO supplier or attach fails with
+        an often-empty UNO message and ISO writes never run.
+        """
+        from plugin.framework.thread_guard import _unwrap_uno
+
+        uno_ctx = _unwrap_uno(get_ctx())
         smgr = uno_ctx.getServiceManager()
         formatter = smgr.createInstanceWithContext("com.sun.star.util.NumberFormatter", uno_ctx)
-        formatter.attachNumberFormatsSupplier(doc)
+        formatter.attachNumberFormatsSupplier(_unwrap_uno(doc))
         return formatter
 
     def _resolve_elapsed_format_key(self, formats, locale) -> int:
@@ -846,8 +854,10 @@ class CellManipulator:
             logger.info("%s", msg)
             return msg
         except Exception as e:
-            logger.error("Range formula write error (%s): %s", range_str, str(e))
-            raise ToolExecutionError(str(e)) from e
+            # UNO often yields str(e) == ""; keep a usable message for the agent.
+            msg = str(e) or getattr(e, "Message", None) or type(e).__name__
+            logger.error("Range formula write error (%s): %s", range_str, msg, exc_info=True)
+            raise ToolExecutionError(msg) from e
 
     # ── Chart ──────────────────────────────────────────────────────────
 

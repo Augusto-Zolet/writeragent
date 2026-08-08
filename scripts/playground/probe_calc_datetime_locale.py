@@ -232,9 +232,6 @@ def q3_roundtrip(doc, sheet):
     b.setFormula("2026-08-08")
 
     # Candidate C: convertStringToNumber + detected key
-    import uno  # noqa: F401
-
-    smgr = doc.getCurrentController().getFrame().getController() if False else None  # placeholder
     c = sheet.getCellByPosition(9, 1)  # J2
     c.setPropertyValue("NumberFormat", 0)
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 
-from scripts.build_oxt import GENERATED_INCLUDES, remap_path, should_exclude
+from scripts.build_oxt import GENERATED_INCLUDES, remap_path, should_exclude, sync_vendor_into_lib
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -36,3 +36,22 @@ def test_remap_path_chat_panel_and_generated_dialogs():
 def test_extension_chat_panel_xdl_exists():
     path = os.path.join(PROJECT_ROOT, "extension", "Dialogs", "ChatPanelDialog.xdl")
     assert os.path.isfile(path), "sidebar XDL missing at %s" % path
+
+
+def test_sync_vendor_into_lib_copies_isodate(tmp_path):
+    """Hot-deploy needs isodate under plugin/lib or datetime_wire fails to import."""
+    vendor = tmp_path / "vendor"
+    (vendor / "isodate").mkdir(parents=True)
+    (vendor / "isodate" / "__init__.py").write_text("x = 1\n", encoding="utf-8")
+    (vendor / "isodate-0.7.2.dist-info").mkdir()
+    (vendor / ".cache").mkdir()
+    lib = tmp_path / "plugin" / "lib"
+    n = sync_vendor_into_lib(str(vendor), str(lib), prune_websockets=False)
+    assert n == 1
+    assert (lib / "isodate" / "__init__.py").is_file()
+    assert not (lib / "isodate-0.7.2.dist-info").exists()
+    assert not (lib / ".cache").exists()
+    # Replace existing tree on re-sync
+    (lib / "isodate" / "stale.py").write_text("stale\n", encoding="utf-8")
+    sync_vendor_into_lib(str(vendor), str(lib), prune_websockets=False)
+    assert not (lib / "isodate" / "stale.py").exists()

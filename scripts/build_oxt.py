@@ -121,6 +121,38 @@ def _vendor_copy_ignore(_dir: str, names: list[str]) -> list[str]:
     return ignored
 
 
+def sync_vendor_into_lib(vendor_dir: str, lib_dir: str, *, prune_websockets: bool = True) -> int:
+    """Copy ``vendor/`` package trees into a ``plugin/lib/`` directory.
+
+    Hot-deploy rsyncs project ``plugin/`` into the LibreOffice cache. The OXT
+    bundle already received these wheels, but a stale/incomplete project
+    ``plugin/lib/`` would wipe them (``rsync --delete``) and break imports such
+    as ``isodate`` — Calc cell tools then fail to register.
+    """
+    if not os.path.isdir(vendor_dir):
+        return 0
+    os.makedirs(lib_dir, exist_ok=True)
+    vendor_count = 0
+    for entry in sorted(os.listdir(vendor_dir)):
+        if entry.endswith(".dist-info") or entry.startswith(("_", ".")):
+            continue
+        src_path = os.path.join(vendor_dir, entry)
+        dst_path = os.path.join(lib_dir, entry)
+        if os.path.isdir(src_path):
+            if os.path.exists(dst_path):
+                shutil.rmtree(dst_path)
+            shutil.copytree(src_path, dst_path, ignore=_vendor_copy_ignore)
+            if prune_websockets and entry == "websockets":
+                pruned = prune_vendored_websockets(dst_path)
+                if pruned:
+                    print("  Pruned websockets for CDP client (%d paths)" % len(pruned))
+        elif os.path.isfile(src_path):
+            os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+            shutil.copy2(src_path, dst_path)
+        vendor_count += 1
+    return vendor_count
+
+
 def should_exclude(path, with_tests=False):
     # When with_tests, allow tests/ at root and plugin/tests/; otherwise exclude them
     path_norm = path.replace("\\", "/")
@@ -187,6 +219,13 @@ def assemble_bundle(base_dir, modules, no_recording=False, with_tests=False, dry
     if os.path.exists(bundle_path):
         shutil.rmtree(bundle_path)
 
+    # Refresh project plugin/lib before collect/hot-deploy so rsync --delete does
+    # not strip wheels that only lived in the OXT bundle (see sync_vendor_into_lib).
+    vendor_dir = os.path.join(base_dir, "vendor")
+    vendor_count = sync_vendor_into_lib(vendor_dir, os.path.join(base_dir, "plugin", "lib"))
+    if vendor_count:
+        print("Vendored %d packages into plugin/lib/" % vendor_count)
+
     include = list(ALWAYS_INCLUDE_EXTENSION)
     include.extend(get_always_include_plugin(base_dir))
     if with_tests:
@@ -228,29 +267,10 @@ def assemble_bundle(base_dir, modules, no_recording=False, with_tests=False, dry
             shutil.copy2(src, dst)
         count += 1
 
-    # Copy vendored pip packages into plugin/lib/ inside the bundle
-    vendor_dir = os.path.join(base_dir, "vendor")
-    if os.path.isdir(vendor_dir):
-        vendor_count = 0
-        for entry in sorted(os.listdir(vendor_dir)):
-            if entry.endswith(".dist-info") or entry.startswith(("_", ".")):
-                continue
-            src_path = os.path.join(vendor_dir, entry)
-            dst_path = os.path.join(bundle_path, "plugin", "lib", entry)
-            if os.path.isdir(src_path):
-                if os.path.exists(dst_path):
-                    shutil.rmtree(dst_path)
-                shutil.copytree(src_path, dst_path, ignore=_vendor_copy_ignore)
-                if entry == "websockets":
-                    pruned = prune_vendored_websockets(dst_path)
-                    if pruned:
-                        print("  Pruned websockets for CDP client (%d paths)" % len(pruned))
-            elif os.path.isfile(src_path):
-                os.makedirs(os.path.dirname(dst_path), exist_ok=True)
-                shutil.copy2(src_path, dst_path)
-            vendor_count += 1
-        if vendor_count:
-            print("Vendored %d packages into plugin/lib/" % vendor_count)
+    # Overlay again into the bundle (keeps prune messaging; safe if collect already copied lib/)
+    bundle_vendor_count = sync_vendor_into_lib(vendor_dir, os.path.join(bundle_path, "plugin", "lib"))
+    if bundle_vendor_count and not vendor_count:
+        print("Vendored %d packages into plugin/lib/" % bundle_vendor_count)
 
     # Release build: strip Debug (test) menu and write Addons.xcu to bundle
     if not with_tests:

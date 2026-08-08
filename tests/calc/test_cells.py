@@ -393,3 +393,43 @@ def test_apply_temporal_format_runs_vertically_merges_homogeneous_column():
     assert applied == 3
     sheet.getCellRangeByPosition.assert_called_once_with(0, 10, 0, 12)
     target.setPropertyValue.assert_called_once_with("NumberFormat", 42)
+
+
+def test_make_number_formatter_unwraps_guarded_doc():
+    """attachNumberFormatsSupplier must get the raw doc, not a Layer-A proxy."""
+    from plugin.calc.manipulator import CellManipulator
+    from plugin.framework.thread_guard import _UnoThreadGuardProxy
+
+    raw_doc = MagicMock(name="raw_doc")
+    proxied_doc = _UnoThreadGuardProxy(raw_doc)
+    raw_ctx = MagicMock(name="raw_ctx")
+    smgr = MagicMock()
+    formatter = MagicMock()
+    raw_ctx.getServiceManager.return_value = smgr
+    smgr.createInstanceWithContext.return_value = formatter
+
+    manip = CellManipulator(MagicMock())
+    with patch("plugin.calc.manipulator.get_ctx", return_value=raw_ctx):
+        out = manip._make_number_formatter(proxied_doc)
+
+    assert out is formatter
+    formatter.attachNumberFormatsSupplier.assert_called_once_with(raw_doc)
+
+
+def test_write_formula_range_empty_uno_error_uses_type_name():
+    """Blank UNO str(e) must not surface as an empty ToolExecutionError."""
+    from plugin.calc.manipulator import CellManipulator
+    from plugin.framework.errors import ToolExecutionError
+
+    class _BlankUno(Exception):
+        def __str__(self):
+            return ""
+
+    bridge = MagicMock()
+    bridge.resolve_range_or_address.side_effect = _BlankUno()
+    manip = CellManipulator(bridge)
+    try:
+        manip.write_formula_range("A1", "2026-08-08")
+        raise AssertionError("expected ToolExecutionError")
+    except ToolExecutionError as e:
+        assert str(e) == "_BlankUno"

@@ -35,13 +35,13 @@ def teardown_calc_tests(ctx):
     _test_doc = None
     _test_ctx = None
 
-def _execute_calc_tool(name, args):
+def _execute_calc_tool(name, args, doc=None):
     from plugin.main import get_tools, get_services
     from plugin.framework.tool import ToolContext
     # Pass suite bootstrap ctx (same as setup_calc_tests); None makes
     # get_desktop() use uno.getComponentContext() and can segfault under
     # python -m plugin.testing_runner.
-    tctx = ToolContext(_test_doc, _test_ctx, "calc", get_services(), "test")
+    tctx = ToolContext(doc if doc is not None else _test_doc, _test_ctx, "calc", get_services(), "test")
     try:
         res = get_tools().execute(name, tctx, **args)
     except (KeyError, ValueError) as e:
@@ -428,6 +428,29 @@ def test_write_iso_into_text_format_applies_temporal():
     info = read_res["result"][0][0][0]
     assert info["value"] == "2026-08-08"
     assert info["type"] == "date"
+
+
+@native_test
+def test_write_iso_date_time_with_guarded_doc():
+    """Chat passes guard_uno(doc); NumberFormatter attach must unwrap or ISO writes fail."""
+    from plugin.framework.thread_guard import guard_uno
+
+    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+    for col in (0, 1):
+        active_sheet.getCellByPosition(col, 35).setPropertyValue("NumberFormat", 0)  # A36:B36
+
+    guarded = guard_uno(_test_doc)
+    res = _execute_calc_tool(
+        "write_formula_range",
+        {"range_name": ["A36:B36"], "formula_or_values": '["2026-08-08", "08:00"]'},
+        doc=guarded,
+    )
+    assert res.get("status") == "ok", res
+
+    read_res = _execute_calc_tool("read_cell_range", {"range_name": ["A36:B36"]}, doc=guarded)
+    row = read_res["result"][0][0]
+    assert row[0]["value"] == "2026-08-08" and row[0]["type"] == "date", row[0]
+    assert row[1]["value"] == "08:00:00" and row[1]["type"] == "time", row[1]
 
 
 @native_test
