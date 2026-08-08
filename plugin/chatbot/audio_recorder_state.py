@@ -1,19 +1,9 @@
 from dataclasses import dataclass
-from typing import List, Optional, Any
-import importlib
+from typing import List, Optional
 
 from plugin.framework.service import BaseState, FsmTransition
 
-deal: Any
-try:
-    deal = importlib.import_module("deal")
-except ImportError:
-
-    class _DummyDeal:
-        def __getattr__(self, name: str) -> Any:
-            return lambda *args, **kwargs: lambda f: f
-
-    deal = _DummyDeal()
+from plugin.framework.deal_shim import deal
 
 _VALID_AUDIO_STATUSES = ("idle", "initializing", "recording", "stopping", "error")
 

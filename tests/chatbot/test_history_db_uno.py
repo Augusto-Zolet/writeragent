@@ -34,38 +34,7 @@ _HISTORY_DB_TMPDIR = None
 _ORIGINAL_USER_CONFIG_DIR = None
 
 
-@setup
-def _setup_history_db_redirect(ctx):
-    """Redirect history_db's user_config_dir to a temp directory (native-only)."""
-    global _HISTORY_DB_TMPDIR, _ORIGINAL_USER_CONFIG_DIR
-    import tempfile
 
-    if _HISTORY_DB_TMPDIR:
-        return
-
-    import plugin.chatbot.history_db as hdb
-
-    _ORIGINAL_USER_CONFIG_DIR = getattr(hdb, "user_config_dir", None)
-    _HISTORY_DB_TMPDIR = tempfile.mkdtemp(prefix="writeragent_history_test_")
-    hdb.user_config_dir = lambda: _HISTORY_DB_TMPDIR
-
-
-@teardown
-def _teardown_history_db_redirect(ctx):
-    """Restore history_db user_config_dir and remove the temp directory."""
-    global _HISTORY_DB_TMPDIR, _ORIGINAL_USER_CONFIG_DIR
-    import shutil
-
-    try:
-        import plugin.chatbot.history_db as hdb
-
-        if _ORIGINAL_USER_CONFIG_DIR is not None:
-            hdb.user_config_dir = _ORIGINAL_USER_CONFIG_DIR
-    finally:
-        if _HISTORY_DB_TMPDIR:
-            shutil.rmtree(_HISTORY_DB_TMPDIR, ignore_errors=True)
-        _HISTORY_DB_TMPDIR = None
-        _ORIGINAL_USER_CONFIG_DIR = None
 
 def test_history_roundtrip_sqlite(tmp_path):
     import plugin.chatbot.history_db as hdb
@@ -192,7 +161,7 @@ class MockDocumentModel:
 
 
 @native_test
-def test_session_id_stability():
+def test_session_id_stability(ctx):
     import hashlib
 
     from plugin.chatbot.panel_factory import ChatPanelElement

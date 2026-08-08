@@ -12,22 +12,14 @@ except ImportError:
     sys.modules["com"] = com_mock
     sys.modules["com.sun.star.text"] = MagicMock()
 
+from plugin.tests.testing_utils import TestingFactory
 from plugin.writer.specialized.fields import FieldsInsert, FieldsList, FieldsDelete
 
 
 @pytest.fixture
 def mock_ctx():
-    # Provide an ad-hoc ToolContext-like object
-    class DummyContext:
-        def __init__(self):
-            self.doc = MagicMock()
-            self.doc_type = "writer"
-            self.services = {}
-            self.ctx = MagicMock()
-
-        def get(self, key, default=None):
-            return self.services.get(key, default)
-    return DummyContext()
+    # Fields APIs (getTextFields, etc.) stay MagicMock; factory owns ToolContext wiring.
+    return TestingFactory.create_context(doc=MagicMock(), doc_type="writer")
 
 
 def test_fields_list_empty(mock_ctx):

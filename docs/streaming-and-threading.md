@@ -276,7 +276,7 @@ This flat architecture avoids nested callbacks and makes state transitions expli
 
 ### Tool-loop command boundary
 
-The main-chat loop keeps the transition layer pure. Queue items from worker threads are normalized in [`plugin/chatbot/tool_loop.py`](../plugin/chatbot/tool_loop.py) by `_create_event_from_stream_item()`, then [`plugin/chatbot/tool_loop_state.py`](../plugin/chatbot/tool_loop_state.py) `next_state()` returns only a new `ToolLoopState` plus effect dataclasses. [`plugin/chatbot/tool_loop_actions.py`](../plugin/chatbot/tool_loop_actions.py) is the interpreter that executes those effects against concrete dependencies: sidebar UI, `ChatSession`, worker spawning, tool execution, and document-context refresh after successful mutating tools. This keeps document mutations out of the FSM while preserving the main-thread drain-loop boundary for UNO work.
+The main-chat loop keeps the transition layer pure. Queue items from worker threads are normalized in [`plugin/chatbot/tool_loop.py`](../plugin/chatbot/tool_loop.py) by `_create_event_from_stream_item()`, then [`plugin/chatbot/tool_loop_state.py`](../plugin/chatbot/tool_loop_state.py) `next_state()` returns only a new `ToolLoopState` plus effect dataclasses. Control fields (`round_num`, `pending_tools`, `is_stopped`, …) live solely in that frozen state (`sidebar_state.tool_loop`). [`plugin/chatbot/tool_loop_actions.py`](../plugin/chatbot/tool_loop_actions.py) is the interpreter that executes those effects against host session handles (`_active_q` / `_active_batched_q`, client, tool schemas/fn, model)—not a parallel copy of the FSM counters. This keeps document mutations out of the FSM while preserving the main-thread drain-loop boundary for UNO work.
 
 > [!WARNING]
 > **`job_done` ownership invariant:** `job_done[0]` must **only** be written by the drain loop (main thread) when it processes a terminal queue item (`STREAM_DONE`, `ERROR`, or `STOPPED`). The worker thread must never set `job_done[0] = True` directly, even in a `finally` block.
@@ -554,7 +554,7 @@ Because we are doing `q.get(timeout=0.1)` followed by `pump_ui_idle(toolkit)`, t
 
 ### The `next_tool` Queuing System
 The final piece of the puzzle handles slow external tools (like Web Research or Image Generation).
-If we executed [web_research](file:///home/keithcu/Desktop/Python/writeragent/plugin/core/document_tools.py#213-291) on the main thread, the `processEventsToIdle` loop would halt until the search returned, freezing the UI again.
+If we executed [`web_research`](../plugin/chatbot/web_research.py) on the main thread, the `processEventsToIdle` loop would halt until the search returned, freezing the UI again.
 
 Our solution is the `next_tool` dispatcher:
 - When a tool is popped from the queue, we check `if name in ASYNC_TOOLS`.

@@ -3,17 +3,10 @@
 import unittest
 from unittest.mock import patch
 
-from plugin.tests.testing_utils import setup_uno_mocks
+from plugin.tests.testing_utils import WriterDocStub, setup_uno_mocks
 setup_uno_mocks()
 
 from plugin.main import get_tools
-
-
-class _WriterDocStub:
-    """Minimal UNO-like doc for registry filtering (supportsService)."""
-
-    def supportsService(self, svc):
-        return svc == "com.sun.star.text.TextDocument"
 
 
 class TestWriterToolsSmoke(unittest.TestCase):
@@ -27,7 +20,7 @@ class TestWriterToolsSmoke(unittest.TestCase):
 
     def test_registration(self):
         registry = get_tools()
-        doc = _WriterDocStub()
+        doc = WriterDocStub()
         writer_tools = {t.name for t in registry.get_tools(doc=doc)}
         # Core / navigation
         self.assertIn("get_document_tree", writer_tools)
@@ -58,7 +51,7 @@ class TestWriterToolsSmoke(unittest.TestCase):
 
     def test_structural_domain_includes_navigation_tools(self):
         registry = get_tools()
-        doc = _WriterDocStub()
+        doc = WriterDocStub()
         names = {t.name for t in registry.get_tools(doc=doc, active_domain="structural")}
         for name in (
             "navigate_heading",
@@ -72,7 +65,7 @@ class TestWriterToolsSmoke(unittest.TestCase):
 
     def test_schemas(self):
         registry = get_tools()
-        doc = _WriterDocStub()
+        doc = WriterDocStub()
         schemas = registry.get_schemas("openai", doc=doc)
         names = {s["function"]["name"] for s in schemas}
         for name in ("get_document_tree", "get_document_content", "search_in_document"):

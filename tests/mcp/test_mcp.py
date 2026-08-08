@@ -7,7 +7,7 @@ from plugin.mcp.mcp_protocol import _format_mcp_clock_context, build_initialize_
 
 
 def test_mcp_endpoint_url_helper():
-    assert mcp_endpoint_url("localhost", 8765) == "http://localhost:8765/mcp"
+    assert mcp_endpoint_url("localhost", 18765) == "http://localhost:18765/mcp"
     assert mcp_endpoint_url("127.0.0.1", 9000, use_ssl=True) == "https://127.0.0.1:9000/mcp"
 
 

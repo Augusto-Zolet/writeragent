@@ -311,6 +311,8 @@ Elapsed formats (`[HH]:MM`, `[HH]:MM:SS`, …) sit in the Dest TIME column — n
 
 **Rule:** When M1 says **apply** because the destination is non-temporal (General / empty / `@` after S17), scan **nearest cell above** in the same column (bounded upward scan, production `max_scan=100`) for a `NumberFormat` key whose category is compatible with the gated input. If found → apply that key. If not → `detectNumberFormat` / formatindex 43. Temporal writes only — plain numbers into General stay General. Skip General (`key == 0`) and incompatible categories while scanning; do not sample the whole column for “mixed formats.” Still honor S17: never leave a coerced temporal serial under `@`.
 
+**P1 vs M1:** Inherit is stricter than preserve. M1 still keeps date→datetime and clock/duration→elapsed when the **destination cell itself** already has that format (S15/S16). P1 template matching does **not** copy those cross-kinds onto General/`@`: date inherits only date (not datetime — otherwise readback becomes `…T00:00:00`); clock time skips elapsed `[HH]:…` FormatString templates (otherwise readback becomes `PT…` / `duration`); duration inputs still accept any TIME template including elapsed.
+
 ##### Worked examples
 
 | Write | Cell already formatted as | Decision | Why |

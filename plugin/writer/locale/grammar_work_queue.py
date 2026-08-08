@@ -1028,8 +1028,3 @@ _grammar_queue_singleton = GrammarWorkQueue()
 grammar_queue: GrammarWorkQueue = _grammar_queue_singleton
 
 _lang_detect_cache = grammar_persistence.grammar_registry.lang_detect_cache
-
-# Test / legacy aliases (TD2 seam tests patch these names on grammar_work_queue).
-_detect_languages = detect_languages_for_chunk
-
-_call_grammar_llm = call_grammar_llm

@@ -290,8 +290,13 @@ function Install-ToCache {
     $pluginDst = Join-Path $extDir "plugin"
     if (Test-Path $pluginDst) { Remove-Item -Path $pluginDst -Recurse -Force }
     Copy-Item -Path $pluginSrc -Destination $pluginDst -Recurse -Force
-    Get-ChildItem -Path $pluginDst -Recurse -Include "__pycache__", "*.pyc", "module.yaml" -ErrorAction SilentlyContinue |
+    # .pyspector_cache: make pyspector writes under plugin/; never ship to LO cache.
+    Get-ChildItem -Path $pluginDst -Recurse -Include "__pycache__", "*.pyc", "module.yaml", ".pyspector_cache", ".pyspector_baseline.json" -ErrorAction SilentlyContinue |
         Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    $pyspectorCache = Join-Path $pluginDst ".pyspector_cache"
+    if (Test-Path $pyspectorCache) { Remove-Item -Path $pyspectorCache -Recurse -Force }
+    $pyspectorBaseline = Join-Path $pluginDst ".pyspector_baseline.json"
+    if (Test-Path $pyspectorBaseline) { Remove-Item -Path $pyspectorBaseline -Force }
     Write-Host "    plugin/ synced"
     $deployed++
 

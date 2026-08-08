@@ -55,10 +55,6 @@ def _deadline_remaining(deadline: float) -> float:
     return max(0.0, deadline - time.monotonic())
 
 
-# Re-export for unit tests that exercise partial stream reads.
-_read_exactly = json_rpc_framing.read_exactly
-
-
 def _harper_lsp_settings(bcp47: str, user_config_dir: str) -> dict:
     dialect = _BCP47_TO_DIALECT.get(bcp47, "American")
     settings: dict = {"dialect": dialect}

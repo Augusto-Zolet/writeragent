@@ -6,20 +6,14 @@
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 
-from plugin.testing_runner import setup, native_test
+from plugin.testing_runner import native_test
 
-_ctx = None
-
-@setup
-def setup_test(ctx):
-    global _ctx
-    _ctx = ctx
 
 @native_test
-def test_prompt_addin_metadata():
+def test_prompt_addin_metadata(ctx):
     from plugin.calc.prompt_addin import PromptFunction
 
-    func = PromptFunction(_ctx)
+    func = PromptFunction(ctx)
     assert func.getProgrammaticFunctionName("PROMPT") == "prompt"
     assert func.getDisplayFunctionName("prompt") == "PROMPT"
     assert func.getArgumentCount("prompt") == 4
@@ -27,26 +21,8 @@ def test_prompt_addin_metadata():
     assert func.getArgumentCount("python") == 0
 
 
-# @native_test
-# def test_python_addin_metadata():
-#     from plugin.calc.python.addin import PythonFunction
-#
-#     func = PythonFunction(_ctx)
-#     assert func.getProgrammaticFunctionName("PY") == "py"
-#     assert func.getProgrammaticFunctionName("PYTHON") == "python"
-#     assert func.getDisplayFunctionName("py") == "PY"
-#     assert func.getDisplayFunctionName("python") == "PYTHON"
-#     assert func.getArgumentCount("py") == 2
-#     assert func.getArgumentCount("python") == 2
-#     assert func.getArgumentName("python", 0) == "code"
-#     assert "Python code" in func.getArgumentDescription("python", 0)
-#     assert func.getArgumentName("python", 1) == "data"
-#     assert func.getArgumentIsOptional("python", 1) is True
-#     assert func.getProgrammaticFunctionName("PROMPT") == ""
-
-
 @native_test
-def test_python_addin_execution():
+def test_python_addin_execution(ctx):
     from plugin.calc.python.addin import PythonFunction
     from plugin.calc.python.function import MATRIX_SCALAR_SESSIONS
     import unittest.mock
@@ -54,7 +30,7 @@ def test_python_addin_execution():
     if hasattr(MATRIX_SCALAR_SESSIONS, "sessions"):
         MATRIX_SCALAR_SESSIONS.sessions.clear()
 
-    func = PythonFunction(_ctx)
+    func = PythonFunction(ctx)
 
     try:
         with unittest.mock.patch("plugin.calc.python.function.run_code_in_user_venv") as mock_run:

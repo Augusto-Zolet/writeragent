@@ -1,18 +1,17 @@
 # Unit tests for apply_document_content search helpers (no LibreOffice required).
 from plugin.writer.content import (
-    _all_start_indices,
-    _drawing_shape_containing,
     _escape_for_lo_regex,
     _HORIZONTAL_SPACE_CLASS,
     _normalize_search_string_for_find,
     _SPACE_NORMALIZE_MAP,
 )
+from plugin.writer.search import all_start_indices, drawing_shape_containing
 
 
 def test_all_start_indices_non_overlapping():
-    assert _all_start_indices("abababa", "aba") == [0, 4]
-    assert _all_start_indices("", "x") == []
-    assert _all_start_indices("abc", "") == []
+    assert all_start_indices("abababa", "aba") == [0, 4]
+    assert all_start_indices("", "x") == []
+    assert all_start_indices("abc", "") == []
 
 
 def test_normalize_search_string_collapses_nbsp():
@@ -46,7 +45,7 @@ def test_escape_for_lo_regex_escapes_regex_metacharacters():
     assert _escape_for_lo_regex("(test)") == r"\(test\)"
 
 
-# --- _drawing_shape_containing (C7): actionable "text is inside a shape" diagnostic -----------
+# --- drawing_shape_containing (C7): actionable "text is inside a shape" diagnostic -----------
 
 class _FakeShape:
     def __init__(self, text, name="", raise_on_get=False):
@@ -84,35 +83,35 @@ class _FakeDocWithShapes:
 
 def test_drawing_shape_containing_returns_name():
     doc = _FakeDocWithShapes([_FakeShape("body of box", name="Caixa de Texto 8")])
-    assert _drawing_shape_containing(doc, "of box") == "Caixa de Texto 8"
+    assert drawing_shape_containing(doc, "of box") == "Caixa de Texto 8"
 
 
 def test_drawing_shape_containing_unnamed_shape():
     doc = _FakeDocWithShapes([_FakeShape("<O QUE ORIGINOU A DEMANDA?>", name="")])
-    assert _drawing_shape_containing(doc, "ORIGINOU") == "(unnamed shape)"
+    assert drawing_shape_containing(doc, "ORIGINOU") == "(unnamed shape)"
 
 
 def test_drawing_shape_containing_not_found_returns_none():
     doc = _FakeDocWithShapes([_FakeShape("something else")])
-    assert _drawing_shape_containing(doc, "missing") is None
+    assert drawing_shape_containing(doc, "missing") is None
 
 
 def test_drawing_shape_containing_empty_needle_returns_none():
     doc = _FakeDocWithShapes([_FakeShape("anything")])
-    assert _drawing_shape_containing(doc, "   ") is None
+    assert drawing_shape_containing(doc, "   ") is None
 
 
 def test_drawing_shape_containing_no_draw_page_returns_none():
-    assert _drawing_shape_containing(object(), "x") is None
+    assert drawing_shape_containing(object(), "x") is None
 
 
 def test_drawing_shape_containing_skips_failing_shape():
     # A shape whose getString raises must be skipped, not abort the scan -- the match is in the next.
     doc = _FakeDocWithShapes([_FakeShape("", raise_on_get=True), _FakeShape("here is the marker")])
-    assert _drawing_shape_containing(doc, "marker") == "(unnamed shape)"
+    assert drawing_shape_containing(doc, "marker") == "(unnamed shape)"
 
 
 def test_drawing_shape_containing_fails_safe_on_count_error():
     doc = _FakeDocWithShapes([_FakeShape("marker")], raise_count=True)
-    assert _drawing_shape_containing(doc, "marker") is None
+    assert drawing_shape_containing(doc, "marker") is None
 

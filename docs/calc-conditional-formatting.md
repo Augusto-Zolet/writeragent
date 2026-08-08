@@ -87,7 +87,7 @@ File: [`plugin/calc/conditional.py`](../plugin/calc/conditional.py).
    - Safer behavior when the container is missing or empty (clear is a no-op if there is nothing to clear).
 
 6. **Tests**  
-   - UNO: [`plugin/tests/uno/test_calc.py`](../plugin/tests/uno/test_calc.py) — `test_calc_conditional_formatting` covers **BETWEEN** and **DUPLICATE** behavior (operator labels exercised indirectly).
+   - UNO: [`tests/calc/test_calc_uno.py`](../tests/calc/test_calc_uno.py) — `test_calc_conditional_formatting` covers **BETWEEN** and **DUPLICATE** behavior (operator labels exercised indirectly).
 ---
 
 ## 5. What to do next (recommended roadmap)

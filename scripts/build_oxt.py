@@ -96,6 +96,9 @@ EXCLUDE_PATTERNS = (
     "tests/",
     "test_",
     ".tpl",
+    # make pyspector writes under plugin/; never ship in OXT
+    ".pyspector_cache",
+    ".pyspector_baseline.json",
 )
 
 # Generated files (XCS/XCU, XDL dialogs). One Dialogs/ tree only — a separate

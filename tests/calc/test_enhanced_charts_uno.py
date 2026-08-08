@@ -10,50 +10,22 @@
 
 import unittest
 
-from plugin.framework.uno_context import get_desktop
-from plugin.testing_runner import setup, teardown, native_test
-import uno
-
-_calc_doc = None
-_writer_doc = None
-_draw_doc = None
+from plugin.testing_runner import native_test, show_window
+from plugin.tests.testing_utils import TestingFactory, with_native_doc
 
 
-@setup
-def setup_docs(ctx):
-    global _calc_doc, _writer_doc, _draw_doc
-    desktop = get_desktop(ctx)
-    from plugin.testing_runner import show_window
-    props = (uno.createUnoStruct("com.sun.star.beans.PropertyValue", Name="Hidden", Value=not show_window),)
-
-    _calc_doc = desktop.loadComponentFromURL("private:factory/scalc", "_blank", 0, props)
-    _writer_doc = desktop.loadComponentFromURL("private:factory/swriter", "_blank", 0, props)
-    _draw_doc = desktop.loadComponentFromURL("private:factory/simpress", "_blank", 0, props)
-
-
-@teardown
-def teardown_docs(ctx):
-    global _calc_doc, _writer_doc, _draw_doc
-    for d in [_calc_doc, _writer_doc, _draw_doc]:
-        if d:
-            d.close(True)
-    _calc_doc = _writer_doc = _draw_doc = None
-
-
-def _execute(doc, name, args, domain="calc"):
-    from plugin.main import get_tools, get_services
-    from plugin.framework.tool import ToolContext
-    tctx = ToolContext(doc, None, domain, get_services(), "test")
-    return get_tools().execute(name, tctx, **args)
+def _execute(doc, ctx, name, args, domain="calc"):
+    return TestingFactory.execute_tool(doc, ctx, name, args, doc_type=domain)
 
 
 @native_test
-def test_calc_enhanced_chart():
+@with_native_doc("calc", hidden=not show_window)
+def test_calc_enhanced_chart(ctx, doc):
     # 1. Setup data
-    _execute(_calc_doc, "write_formula_range", {"range_name": "A1:B3", "formula_or_values": [["A", 1], ["B", 2], ["C", 3]]})
+    _execute(doc, ctx, "write_formula_range", {"range_name": "A1:B3", "formula_or_values": [["A", 1], ["B", 2], ["C", 3]]})
     
     # 2. Create 3D Stacked Chart
-    res = _execute(_calc_doc, "manage_charts", {
+    res = _execute(doc, ctx, "manage_charts", {
         "action": "create",
         "data_range": "A1:B3",
         "chart_type": "column",
@@ -68,7 +40,7 @@ def test_calc_enhanced_chart():
     chart_name = res.get("chart_name")
     
     # 3. Verify Info
-    info = _execute(_calc_doc, "manage_charts", {"action": "get_info", "chart_name": chart_name})
+    info = _execute(doc, ctx, "manage_charts", {"action": "get_info", "chart_name": chart_name})
     assert info.get("status") == "ok"
     assert info.get("is_3d") is True
     assert info.get("stacked") is True
@@ -77,7 +49,7 @@ def test_calc_enhanced_chart():
     assert info.get("y_axis_title") == "Y Axis"
     
     # 4. Edit properties
-    edit_res = _execute(_calc_doc, "manage_charts", {
+    edit_res = _execute(doc, ctx, "manage_charts", {
         "action": "edit",
         "chart_name": chart_name,
         "is_3d": False,
@@ -86,18 +58,19 @@ def test_calc_enhanced_chart():
     })
     assert edit_res.get("status") == "ok"
     
-    info2 = _execute(_calc_doc, "manage_charts", {"action": "get_info", "chart_name": chart_name})
+    info2 = _execute(doc, ctx, "manage_charts", {"action": "get_info", "chart_name": chart_name})
     assert info2.get("is_3d") is False
     assert info2.get("y_axis_title") == "New Y"
 
 
 @native_test
-def test_calc_chart_colors():
+@with_native_doc("calc", hidden=not show_window)
+def test_calc_chart_colors(ctx, doc):
     # 1. Setup data
-    _execute(_calc_doc, "write_formula_range", {"range_name": "A1:B3", "formula_or_values": [["A", 1], ["B", 2], ["C", 3]]})
+    _execute(doc, ctx, "write_formula_range", {"range_name": "A1:B3", "formula_or_values": [["A", 1], ["B", 2], ["C", 3]]})
 
     # 2. Create Chart with custom/arbitrary colors (RGB and hex)
-    res = _execute(_calc_doc, "manage_charts", {
+    res = _execute(doc, ctx, "manage_charts", {
         "action": "create",
         "data_range": "A1:B3",
         "chart_type": "column",
@@ -108,7 +81,7 @@ def test_calc_chart_colors():
     chart_name = res.get("chart_name")
 
     # 3. Edit chart with another color (e.g. shorthand hex and CSS name)
-    edit_res = _execute(_calc_doc, "manage_charts", {
+    edit_res = _execute(doc, ctx, "manage_charts", {
         "action": "edit",
         "chart_name": chart_name,
         "bg_color": "yellow",
@@ -117,14 +90,12 @@ def test_calc_chart_colors():
     assert edit_res.get("status") == "ok", f"Edit with colors failed: {edit_res}"
 
 
-
-
-
 @unittest.skip("Disabled as per user request: internal test causing problems")
 @native_test
-def test_writer_chart_polymorphic():
+@with_native_doc("writer", hidden=not show_window)
+def test_writer_chart_polymorphic(ctx, doc):
     # 1. Create in Writer
-    res = _execute(_writer_doc, "manage_charts", {
+    res = _execute(doc, ctx, "manage_charts", {
         "action": "create",
         "chart_type": "pie",
         "title": "Writer Pie"
@@ -132,7 +103,7 @@ def test_writer_chart_polymorphic():
     assert res.get("status") == "ok", f"Writer create failed: {res}"
     name = res.get("chart_name")
 
-    probe = _execute(_writer_doc, "manage_charts", {"action": "get_info", "chart_name": name}, domain="writer")
+    probe = _execute(doc, ctx, "manage_charts", {"action": "get_info", "chart_name": name}, domain="writer")
     if probe.get("status") != "ok":
         raise unittest.SkipTest(
             "Writer chart embed not available in this LibreOffice runtime "
@@ -140,7 +111,7 @@ def test_writer_chart_polymorphic():
         )
 
     # 2. List in Writer
-    list_res = _execute(_writer_doc, "manage_charts", {"action": "list"}, domain="writer")
+    list_res = _execute(doc, ctx, "manage_charts", {"action": "list"}, domain="writer")
     assert list_res.get("status") == "ok", f"list_charts failed: {list_res}"
     names = [c["name"] for c in list_res.get("charts", [])]
     assert name in names, (
@@ -148,18 +119,17 @@ def test_writer_chart_polymorphic():
     )
     
     # 3. Info
-    info = _execute(_writer_doc, "manage_charts", {"action": "get_info", "chart_name": name}, domain="writer")
+    info = _execute(doc, ctx, "manage_charts", {"action": "get_info", "chart_name": name}, domain="writer")
     assert info.get("title") == "Writer Pie"
     assert "PieDiagram" in info.get("diagram_type", "")
 
 
-from plugin.testing_runner import show_window
-
 @unittest.skipIf(not show_window, "Draw/Impress chart create_chart hangs in headless testing_runner (processEventsToIdle in charts.py)")
 @native_test
-def test_draw_chart_polymorphic():
+@with_native_doc("impress", hidden=not show_window)
+def test_draw_chart_polymorphic(ctx, doc):
     # 1. Create in Draw
-    res = _execute(_draw_doc, "manage_charts", {
+    res = _execute(doc, ctx, "manage_charts", {
         "action": "create",
         "chart_type": "line",
         "title": "Slide Chart",
@@ -169,13 +139,13 @@ def test_draw_chart_polymorphic():
     name = res.get("chart_name")
     
     # 2. Info
-    info = _execute(_draw_doc, "manage_charts", {"action": "get_info", "chart_name": name}, domain="draw")
+    info = _execute(doc, ctx, "manage_charts", {"action": "get_info", "chart_name": name}, domain="draw")
     assert info.get("is_3d") is True
     assert info.get("title") == "Slide Chart"
     
     # 3. Delete
-    del_res = _execute(_draw_doc, "manage_charts", {"action": "delete", "chart_name": name}, domain="draw")
+    del_res = _execute(doc, ctx, "manage_charts", {"action": "delete", "chart_name": name}, domain="draw")
     assert del_res.get("status") == "ok"
     
-    list_res = _execute(_draw_doc, "manage_charts", {"action": "list"}, domain="draw")
+    list_res = _execute(doc, ctx, "manage_charts", {"action": "list"}, domain="draw")
     assert len(list_res.get("charts", [])) == 0

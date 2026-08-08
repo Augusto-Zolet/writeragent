@@ -119,8 +119,6 @@ class PythonFunction(SingleFunctionAddInBase, _XPythonFunctionBase):  # pyright:
         return _IMPL_NAME
 
 
-PythonAddIn = PythonFunction
-
 g_ImplementationHelper = unohelper.ImplementationHelper()
 g_ImplementationHelper.addImplementation(
     PythonFunction,

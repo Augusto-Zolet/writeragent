@@ -136,9 +136,20 @@ def run_module_suite(ctx, module, name, doc_model=None):
         for test_func in test_funcs:
             test_line = f"Running test: {test_func.__name__}"
             try:
-                # Pass doc_model if test_func accepts arguments, otherwise call normally
-                # (Existing tests assume global _test_doc from setup)
-                test_func()
+                # After suite @setup removal, native tests take ctx (and often doc via
+                # @with_native_doc). Pass ctx when the signature accepts it; no-arg
+                # tests (pure schema checks) stay parameterless.
+                import inspect
+
+                try:
+                    sig = inspect.signature(test_func)
+                    accepts_ctx = "ctx" in sig.parameters
+                except Exception:
+                    accepts_ctx = True
+                if accepts_ctx:
+                    test_func(ctx=ctx)
+                else:
+                    test_func()
                 total_passed += 1
                 suite_log.append(f"{test_line} — OK")
             except ModuleNotFoundError as e:

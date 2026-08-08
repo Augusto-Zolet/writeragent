@@ -478,9 +478,5 @@ def load_excel_model(path: str | Path, *, prefer_openpyxl_anchors: bool = True) 
     return model
 
 
-# Back-compat alias used in older call sites / docs.
-load_workbook_model = load_excel_model
-
-
 def dump_model_json(model: ExcelWorkbookModel) -> dict[str, Any]:
     return model.to_dict()

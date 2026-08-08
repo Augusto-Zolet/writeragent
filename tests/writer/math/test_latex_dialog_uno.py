@@ -16,48 +16,8 @@ from plugin.framework.uno_context import get_desktop
 from plugin.writer.math.latex_dialog import insert_latex_math_dialog
 from plugin.framework.config import get_config
 from plugin.writer.math.math_mml_convert import MATH_CLSID
-from plugin.testing_runner import native_test, setup, teardown
-
-_test_doc: Any = None
-_test_ctx: Any = None
-_desktop_patcher: Any = None
-
-
-@setup
-def setup_latex_dialog_tests(ctx: Any) -> None:
-    global _test_doc, _test_ctx, _desktop_patcher
-    _test_ctx = ctx
-    import uno
-
-    hidden_prop = uno.createUnoStruct(
-        "com.sun.star.beans.PropertyValue",
-        Name="Hidden",
-        Value=True,
-    )
-    desktop = get_desktop(ctx)
-    _test_doc = desktop.loadComponentFromURL(
-        "private:factory/swriter", "_blank", 0, (hidden_prop,)
-    )
-    assert _test_doc is not None
-
-    mock_desktop = MagicMock()
-    mock_desktop.getCurrentComponent.return_value = _test_doc
-    _desktop_patcher = patch(
-        "plugin.writer.math.latex_dialog.get_desktop", return_value=mock_desktop
-    )
-    _desktop_patcher.start()
-
-
-@teardown
-def teardown_latex_dialog_tests(ctx: Any) -> None:
-    global _test_doc, _test_ctx, _desktop_patcher
-    if _desktop_patcher:
-        _desktop_patcher.stop()
-        _desktop_patcher = None
-    if _test_doc:
-        _test_doc.close(True)
-    _test_doc = None
-    _test_ctx = None
+from plugin.testing_runner import native_test
+from plugin.tests.testing_utils import TestingFactory, with_native_doc
 
 
 def _embed_count(doc: Any) -> int:
@@ -80,15 +40,17 @@ def _first_math_formula(doc: Any) -> str:
 
 
 @native_test
-def test_insert_latex_math_dialog_success() -> None:
-    assert _test_doc is not None and _test_ctx is not None
+@with_native_doc("writer")
+def test_insert_latex_math_dialog_success(ctx: Any, doc: Any) -> None:
+    mock_desktop = MagicMock()
+    mock_desktop.getCurrentComponent.return_value = doc
 
-    # We patch show_latex_input_dialog to return a valid LaTeX string and True for display_block
     latex_input = r"a^2 + b^2 = c^2"
-    with patch("plugin.writer.math.latex_dialog.monaco_editor_available", return_value=(None, False)), \
+    with patch("plugin.writer.math.latex_dialog.get_desktop", return_value=mock_desktop), \
+         patch("plugin.writer.math.latex_dialog.monaco_editor_available", return_value=(None, False)), \
          patch("plugin.writer.math.latex_dialog.show_latex_input_dialog", return_value=(latex_input, True)):
         # Call the dialog insertion entry point
-        insert_latex_math_dialog(_test_ctx)
+        insert_latex_math_dialog(ctx)
 
         # Verify configuration was saved
         saved_latex = get_config("last_latex_input")
@@ -98,8 +60,8 @@ def test_insert_latex_math_dialog_success() -> None:
         assert saved_display is True
 
         # Verify a formula was embedded
-        assert _embed_count(_test_doc) >= 1
-        formula = _first_math_formula(_test_doc)
+        assert _embed_count(doc) >= 1
+        formula = _first_math_formula(doc)
         assert formula != ""
         assert "a" in formula
         assert "b" in formula
@@ -107,26 +69,32 @@ def test_insert_latex_math_dialog_success() -> None:
 
 
 @native_test
-def test_insert_latex_math_dialog_cancelled() -> None:
-    assert _test_doc is not None and _test_ctx is not None
+@with_native_doc("writer")
+def test_insert_latex_math_dialog_cancelled(ctx: Any, doc: Any) -> None:
+    mock_desktop = MagicMock()
+    mock_desktop.getCurrentComponent.return_value = doc
 
-    initial_count = _embed_count(_test_doc)
-    with patch("plugin.writer.math.latex_dialog.monaco_editor_available", return_value=(None, False)), \
+    initial_count = _embed_count(doc)
+    with patch("plugin.writer.math.latex_dialog.get_desktop", return_value=mock_desktop), \
+         patch("plugin.writer.math.latex_dialog.monaco_editor_available", return_value=(None, False)), \
          patch("plugin.writer.math.latex_dialog.show_latex_input_dialog", return_value=None):
-        insert_latex_math_dialog(_test_ctx)
+        insert_latex_math_dialog(ctx)
         # Verify no new formula was embedded
-        assert _embed_count(_test_doc) == initial_count
+        assert _embed_count(doc) == initial_count
 
 
 @native_test
-def test_insert_latex_math_dialog_non_writer_fails() -> None:
-    assert _test_ctx is not None
+@with_native_doc("writer")
+def test_insert_latex_math_dialog_non_writer_fails(ctx: Any, doc: Any) -> None:
+    mock_desktop = MagicMock()
+    mock_desktop.getCurrentComponent.return_value = doc
 
     # Patch is_writer to return False, simulating a spreadsheet or drawing document
-    with patch("plugin.writer.math.latex_dialog.is_writer", return_value=False), \
+    with patch("plugin.writer.math.latex_dialog.get_desktop", return_value=mock_desktop), \
+         patch("plugin.writer.math.latex_dialog.is_writer", return_value=False), \
          patch("plugin.writer.math.latex_dialog.msgbox") as mock_msgbox:
 
-        insert_latex_math_dialog(_test_ctx)
+        insert_latex_math_dialog(ctx)
 
         # Verify an error msgbox was shown
         mock_msgbox.assert_called_once()
@@ -135,17 +103,20 @@ def test_insert_latex_math_dialog_non_writer_fails() -> None:
 
 
 @native_test
-def test_insert_latex_math_dialog_monaco_success() -> None:
-    assert _test_doc is not None and _test_ctx is not None
+@with_native_doc("writer")
+def test_insert_latex_math_dialog_monaco_success(ctx: Any, doc: Any) -> None:
+    mock_desktop = MagicMock()
+    mock_desktop.getCurrentComponent.return_value = doc
 
     mock_exe = "mock_python"
     latex_input = r"E = m c^2"
 
-    with patch("plugin.writer.math.latex_dialog.monaco_editor_available", return_value=(mock_exe, True)), \
+    with patch("plugin.writer.math.latex_dialog.get_desktop", return_value=mock_desktop), \
+         patch("plugin.writer.math.latex_dialog.monaco_editor_available", return_value=(mock_exe, True)), \
          patch("plugin.writer.math.latex_dialog.launch_monaco_editor") as mock_launch, \
          patch("plugin.writer.math.latex_dialog.set_config") as mock_set_config:
 
-        insert_latex_math_dialog(_test_ctx)
+        insert_latex_math_dialog(ctx)
 
         # Verify launch_monaco_editor was called with the correct options
         mock_launch.assert_called_once()
@@ -167,8 +138,7 @@ def test_insert_latex_math_dialog_monaco_success() -> None:
         assert res["ok"] is True
         assert res["status_ok_text"] == "Formula inserted."
 
-        # Verify the on_save closure attempted to persist via set_config (mocked to prevent
-        # writing the test example "E = m c^2" into the real user profile's writeragent.json).
+        # Verify the on_save closure attempted to persist via set_config
         mock_set_config.assert_any_call("last_latex_input", latex_input)
         mock_set_config.assert_any_call("last_latex_display_block", True)
 

@@ -18,60 +18,27 @@ import json
 from typing import Any
 
 from plugin.framework.logging import log
-from plugin.framework.uno_context import get_desktop
-from plugin.testing_runner import setup, teardown, native_test
+from plugin.framework.logging import log
+from plugin.testing_runner import native_test
+from plugin.tests.testing_utils import with_native_doc
 
 
-_test_doc: Any = None
-_test_ctx: Any = None
-
-
-@setup
-def setup_draw_tests(ctx):
-    global _test_doc, _test_ctx
-    _test_ctx = ctx
-
-    desktop = get_desktop(ctx)
-    import uno
-
-    hidden_prop = uno.createUnoStruct(
-        "com.sun.star.beans.PropertyValue",
-        Name="Hidden",
-        Value=True,
-    )
-
-    _test_doc = desktop.loadComponentFromURL("private:factory/sdraw", "_blank", 0, (hidden_prop,))
-    assert _test_doc is not None, "Could not create Draw document"
-    assert hasattr(_test_doc, "getDrawPages"), "Not a valid Draw document"
-
-    log.info("[DrawTests] draw_tests: starting tests")
-
-
-@teardown
-def teardown_draw_tests(ctx):
-    global _test_doc, _test_ctx
-    if _test_doc:
-        _test_doc.close(True)
-    _test_doc = None
-    _test_ctx = None
-
-
-def _exec_tool(name, args):
+def _exec_tool(doc, ctx, name, args):
     from plugin.main import get_tools
     from plugin.framework.tool import ToolContext
     
-    active_idx = _active_draw_page_index()
-    tctx = ToolContext(_test_doc, _test_ctx, "draw", get_tools()._services, "test", active_page_index=active_idx)
+    active_idx = _active_draw_page_index(doc)
+    tctx = ToolContext(doc, ctx, "draw", get_tools()._services, "test", active_page_index=active_idx)
     res = get_tools().execute(name, tctx, **args)
     return json.dumps(res) if isinstance(res, dict) else res
 
 
-def _active_draw_page_index():
+def _active_draw_page_index(doc):
     """Index of the page the Draw controller treats as current (0 if unknown)."""
-    if _test_doc is None:
+    if doc is None:
         return 0
-    pages = _test_doc.getDrawPages()
-    ctrl = _test_doc.getCurrentController()
+    pages = doc.getDrawPages()
+    ctrl = doc.getCurrentController()
     if ctrl is None or not hasattr(ctrl, "getCurrentPage"):
         return 0
     page = ctrl.getCurrentPage()
@@ -84,14 +51,9 @@ def _active_draw_page_index():
 
 
 @native_test
-def test_list_pages():
-    try:
-        import pytest
-        if _test_doc is None:
-            pytest.skip("Requires LibreOffice document from native runner")
-    except ImportError:
-        pass
-    result = _exec_tool("list_pages", {})
+@with_native_doc("draw")
+def test_list_pages(ctx, doc):
+    result = _exec_tool(doc, ctx, "list_pages", {})
     data = json.loads(result)
     assert data.get("status") == "ok", f"list_pages failed: {result}"
     num_pages = data.get("count", len(data.get("pages", [])))
@@ -99,32 +61,26 @@ def test_list_pages():
 
 
 @native_test
-def test_upsert_and_verify_shape():
-    try:
-        import pytest
-        if _test_doc is None:
-            pytest.skip("Requires LibreOffice document from native runner")
-    except ImportError:
-        pass
-
+@with_native_doc("draw")
+def test_upsert_and_verify_shape(ctx, doc):
     # 0. Test add_slide
-    initial_page_count = _test_doc.getDrawPages().getCount()
-    result = _exec_tool("add_slide", {})
+    initial_page_count = doc.getDrawPages().getCount()
+    result = _exec_tool(doc, ctx, "add_slide", {})
     data = json.loads(result)
     assert data.get("status") == "ok", f"add_slide failed: {result}"
-    new_page_count = _test_doc.getDrawPages().getCount()
+    new_page_count = doc.getDrawPages().getCount()
     assert new_page_count == initial_page_count + 1, "Page count did not increase after add_slide"
-    inserted = _test_doc.getDrawPages().getByIndex(new_page_count - 1)
-    cur = _test_doc.getCurrentController().getCurrentPage()
+    inserted = doc.getDrawPages().getByIndex(new_page_count - 1)
+    cur = doc.getCurrentController().getCurrentPage()
     assert cur is not None and cur == inserted, "add_slide should activate the new slide for subsequent tools"
 
     # 1. Create shape
-    active_page = _test_doc.getCurrentController().getCurrentPage()
+    active_page = doc.getCurrentController().getCurrentPage()
     if active_page is None:
-        active_page = _test_doc.getDrawPages().getByIndex(0)
+        active_page = doc.getDrawPages().getByIndex(0)
     initial_shape_count = active_page.getCount()
 
-    result = _exec_tool("upsert_shape", {
+    result = _exec_tool(doc, ctx, "upsert_shape", {
         "action": "create",
         "shape_type": "rectangle",
         "x": 1000, "y": 1000, "width": 5000, "height": 3000,
@@ -147,7 +103,7 @@ def test_upsert_and_verify_shape():
     assert size.Height == 3000, f"Expected Height=3000, got {size.Height}"
 
     # 2. Get draw summary to find shape_id
-    result = _exec_tool("get_draw_summary", {"page_index": new_page_count - 1})
+    result = _exec_tool(doc, ctx, "get_draw_summary", {"page_index": new_page_count - 1})
     data = json.loads(result)
     assert data.get("status") == "ok", f"get_draw_summary failed: {result}"
     shapes = data.get("shapes", [])
@@ -159,7 +115,7 @@ def test_upsert_and_verify_shape():
     assert shape_id is not None, "Summary missing the created rectangle"
 
     # 3. Edit shape
-    result = _exec_tool("upsert_shape", {
+    result = _exec_tool(doc, ctx, "upsert_shape", {
         "action": "edit",
         "shape_index": shape_id,
         "x": 3000, "y": 3000,
@@ -169,27 +125,21 @@ def test_upsert_and_verify_shape():
     assert data.get("status") == "ok", f"upsert_shape edit failed: {result}"
 
     # 4. Delete shape
-    result = _exec_tool("delete_shape", {"shape_index": shape_id})
+    result = _exec_tool(doc, ctx, "delete_shape", {"shape_index": shape_id})
     data = json.loads(result)
     assert data.get("status") == "ok", f"delete_shape failed: {result}"
 
 
 @native_test
-def test_create_custom_shape_octagon():
+@with_native_doc("draw")
+def test_create_custom_shape_octagon(ctx, doc):
     """Enhanced CustomShape types need CustomShapeEngine + geometry Type (e.g. octagon)."""
-    try:
-        import pytest
-        if _test_doc is None:
-            pytest.skip("Requires LibreOffice document from native runner")
-    except ImportError:
-        pass
-
-    active_page = _test_doc.getCurrentController().getCurrentPage()
+    active_page = doc.getCurrentController().getCurrentPage()
     if active_page is None:
-        active_page = _test_doc.getDrawPages().getByIndex(0)
+        active_page = doc.getDrawPages().getByIndex(0)
     initial_shape_count = active_page.getCount()
 
-    result = _exec_tool("upsert_shape", {
+    result = _exec_tool(doc, ctx, "upsert_shape", {
         "action": "create",
         "shape_type": "octagon",
         "x": 1000,
@@ -216,30 +166,20 @@ def test_create_custom_shape_octagon():
 
 
 @native_test
-def test_get_draw_context_for_chat():
-    try:
-        import pytest
-        if _test_doc is None:
-            pytest.skip("Requires LibreOffice document from native runner")
-    except ImportError:
-        pass
+@with_native_doc("draw")
+def test_get_draw_context_for_chat(ctx, doc):
     from plugin.doc.document_helpers import get_draw_context_for_chat
-    ctx_str = get_draw_context_for_chat(_test_doc, 8000, _test_ctx)
+    ctx_str = get_draw_context_for_chat(doc, 8000, ctx)
     has_doc_type = "Draw Document" in ctx_str or "Impress Presentation" in ctx_str
     has_total = "Total" in ctx_str and ("Pages" in ctx_str or "Slides" in ctx_str)
     assert has_doc_type and has_total, "get_draw_context_for_chat missing expected headers"
 
-@native_test
-def test_master_slides():
-    try:
-        import pytest
-        if _test_doc is None:
-            pytest.skip("Requires LibreOffice document from native runner")
-    except ImportError:
-        pass
 
+@native_test
+@with_native_doc("draw")
+def test_master_slides(ctx, doc):
     # 1. List master slides
-    result = _exec_tool("list_master_slides", {})
+    result = _exec_tool(doc, ctx, "list_master_slides", {})
     data = json.loads(result)
     assert data.get("status") == "ok", f"list_master_slides failed: {result}"
     master_slides = data.get("master_slides", [])
@@ -249,33 +189,27 @@ def test_master_slides():
     assert first_master_name is not None, "Master slide name is missing"
 
     # 2. Get slide master for page 0
-    result = _exec_tool("get_slide_master", {"page_index": 0})
+    result = _exec_tool(doc, ctx, "get_slide_master", {"page_index": 0})
     data = json.loads(result)
     assert data.get("status") == "ok", f"get_slide_master failed: {result}"
 
     # 3. Set slide master for page 0 to the first master we found
-    result = _exec_tool("set_slide_master", {"page_index": 0, "master_name": first_master_name})
+    result = _exec_tool(doc, ctx, "set_slide_master", {"page_index": 0, "master_name": first_master_name})
     data = json.loads(result)
     assert data.get("status") == "ok", f"set_slide_master failed: {result}"
 
     # 4. Verify it was set
-    result = _exec_tool("get_slide_master", {"page_index": 0})
+    result = _exec_tool(doc, ctx, "get_slide_master", {"page_index": 0})
     data = json.loads(result)
     assert data.get("status") == "ok", f"get_slide_master verify failed: {result}"
     assert data.get("master_name") == first_master_name, f"Master name mismatch: {data.get('master_name')}"
 
 
 @native_test
-def test_get_draw_tree():
-    try:
-        import pytest
-        if _test_doc is None:
-            pytest.skip("Requires LibreOffice document from native runner")
-    except ImportError:
-        pass
-
+@with_native_doc("draw")
+def test_get_draw_tree(ctx, doc):
     # Ensure there is at least one shape to build a tree with
-    _exec_tool("upsert_shape", {
+    _exec_tool(doc, ctx, "upsert_shape", {
         "action": "create",
         "shape_type": "rectangle",
         "x": 1000, "y": 1000, "width": 5000, "height": 3000,
@@ -283,7 +217,7 @@ def test_get_draw_tree():
         "bg_color": "#FF0000"
     })
 
-    result = _exec_tool("get_draw_tree", {"page_index": _active_draw_page_index()})
+    result = _exec_tool(doc, ctx, "get_draw_tree", {"page_index": _active_draw_page_index(doc)})
     data = json.loads(result)
     assert data.get("status") == "ok", f"get_draw_tree failed: {result}"
     tree = data.get("tree", [])
@@ -297,17 +231,12 @@ def test_get_draw_tree():
             break
     assert found, "Created shape not found in draw tree"
 
-@native_test
-def test_insert_math_draw():
-    try:
-        import pytest
-        if _test_doc is None:
-            pytest.skip("Requires LibreOffice document from native runner")
-    except ImportError:
-        pass
 
+@native_test
+@with_native_doc("draw")
+def test_insert_math_draw(ctx, doc):
     # Insert math (formula_type + formula + page_index + x + y; size from UNO/heuristic)
-    result = _exec_tool("insert_math", {
+    result = _exec_tool(doc, ctx, "insert_math", {
         "formula_type": "latex",
         "formula": "E = mc^2",
         "page_index": 0,
@@ -319,7 +248,7 @@ def test_insert_math_draw():
     assert data.get("status") == "ok", f"insert_math failed: {result}"
 
     # insert_math used page_index 0 — read shape from that page (current slide may differ after prior tests).
-    target_page = _test_doc.getDrawPages().getByIndex(0)
+    target_page = doc.getDrawPages().getByIndex(0)
     shape = target_page.getByIndex(data.get("shape_index"))
 
     assert shape.CLSID == "078B7ABA-54FC-457F-8551-6147e776a997"

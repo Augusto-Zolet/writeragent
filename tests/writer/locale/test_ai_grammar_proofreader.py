@@ -89,21 +89,17 @@ def test_uno_setup_teardown_preserves_string_grammar_provider() -> None:
     key = "doc.grammar_proofreader_enabled"
     set_calls: list[tuple[str, Any]] = []
 
-    try:
-        with (
-            patch.object(uno_tests, "get_config", side_effect=lambda requested: "harper" if requested == key else None),
-            patch.object(uno_tests, "set_config", side_effect=lambda requested, value: set_calls.append((requested, value))),
-            patch.object(uno_tests.gc, "cache_clear"),
-            patch.object(uno_tests.gc, "clear_sentence_cache"),
-            patch.object(uno_tests.gc, "ignore_rules_clear"),
-        ):
-            uno_tests.setup_grammar_proof_tests(MagicMock())
-            uno_tests.teardown_grammar_proof_tests(MagicMock())
+    with (
+        patch.object(uno_tests, "get_config", side_effect=lambda requested: "harper" if requested == key else None),
+        patch.object(uno_tests, "set_config", side_effect=lambda requested, value: set_calls.append((requested, value))),
+        patch.object(uno_tests.gc, "cache_clear"),
+        patch.object(uno_tests.gc, "clear_sentence_cache"),
+        patch.object(uno_tests.gc, "ignore_rules_clear"),
+    ):
+        saved = uno_tests.setup_grammar_proof_tests(MagicMock())
+        uno_tests.teardown_grammar_proof_tests(saved)
 
-        assert set_calls == [(key, "llm"), (key, "harper")]
-    finally:
-        uno_tests._saved_enabled = None
-        uno_tests._test_ctx = None
+    assert set_calls == [(key, "llm"), (key, "harper")]
 
 
 def test_worker_skips_when_agent_active_and_pause_enabled() -> None:

@@ -11,6 +11,7 @@ from plugin.chatbot.tool_loop_state import (
     TriggerNextToolEffect,
     SpawnFinalStreamEffect,
     UpdateDocumentContextEffect,
+    CleanupAudioEffect,
     format_empty_model_response_debug,
     format_tool_result_chat_text,
     format_tool_running_ui,
@@ -61,6 +62,32 @@ def test_final_done():
     msg_effect = next(e for e in effects if isinstance(e, AddMessageEffect))
     assert msg_effect.content == "Final words"
     assert msg_effect.role == "assistant"
+
+
+def test_final_done_empty_content_skips_add_message():
+    state = create_base_state()
+    tr = next_state(state, create_event(EventKind.FINAL_DONE, content=""))
+    assert tr.state.status == "Ready"
+    assert any(isinstance(e, ExitLoopEffect) for e in tr.effects)
+    assert not any(isinstance(e, AddMessageEffect) for e in tr.effects)
+
+    tr_missing = next_state(state, create_event(EventKind.FINAL_DONE))
+    assert tr_missing.state.status == "Ready"
+    assert any(isinstance(e, ExitLoopEffect) for e in tr_missing.effects)
+    assert not any(isinstance(e, AddMessageEffect) for e in tr_missing.effects)
+
+
+def test_stream_done_with_audio_emits_cleanup_audio():
+    state = create_base_state()
+    event = create_event(
+        EventKind.STREAM_DONE,
+        response={"finish_reason": "stop", "content": "hi"},
+        has_audio=True,
+    )
+    tr = next_state(state, event)
+    assert any(isinstance(e, CleanupAudioEffect) for e in tr.effects)
+    assert any(isinstance(e, ExitLoopEffect) for e in tr.effects)
+
 
 def test_error_event():
     state = create_base_state()

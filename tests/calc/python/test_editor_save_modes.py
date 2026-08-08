@@ -6,14 +6,13 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
-
 from plugin.calc.python.editor import (
     _apply_cell_save,
     build_editor_formula_save,
     editor_load_save_as_plain,
 )
 from plugin.calc.python.formula_edit import parse_python_formula
+from plugin.tests.testing_utils import CalcCellStub, CalcDocStub
 
 
 def test_editor_load_save_as_plain_python_formula():
@@ -66,8 +65,8 @@ def test_build_editor_formula_save_clear_data_binding():
 
 
 def test_apply_cell_save_with_data_binding():
-    doc = MagicMock()
-    cell = MagicMock()
+    doc = CalcDocStub()
+    cell = CalcCellStub()
 
     result = _apply_cell_save(
         doc,
@@ -79,10 +78,10 @@ def test_apply_cell_save_with_data_binding():
     )
 
     assert result == {"type": "saved", "ok": True, "save_as_plain": False}
-    formula = cell.setFormula.call_args[0][0]
+    formula = cell.getFormula()
     assert "D1:D10" in formula
     assert "np.sum(data)" in formula
-    doc.calculateAll.assert_called_once()
+    assert doc.calculate_all_count == 1
 
 
 def test_build_editor_formula_save_new_cell():
@@ -121,8 +120,8 @@ def test_build_editor_formula_save_unparsed_python_returns_error():
 
 
 def test_apply_cell_save_formula_mode():
-    doc = MagicMock()
-    cell = MagicMock()
+    doc = CalcDocStub()
+    cell = CalcCellStub()
     parts = parse_python_formula('=PYTHON("old"; C1:C5)')
     assert parts is not None
 
@@ -135,20 +134,20 @@ def test_apply_cell_save_formula_mode():
     )
 
     assert result == {"type": "saved", "ok": True, "save_as_plain": False}
-    cell.setFormula.assert_called_once()
-    cell.setString.assert_not_called()
-    formula = cell.setFormula.call_args[0][0]
+    formula = cell.getFormula()
+    assert formula.startswith("=")
+    assert cell.getString() == ""
     assert "C1:C5" in formula
     assert "new" in formula
     reparsed = parse_python_formula(formula)
     assert reparsed is not None
     assert reparsed.code == "new"
-    doc.calculateAll.assert_called_once()
+    assert doc.calculate_all_count == 1
 
 
 def test_apply_cell_save_plain_text_mode():
-    doc = MagicMock()
-    cell = MagicMock()
+    doc = CalcDocStub()
+    cell = CalcCellStub()
     parts = parse_python_formula('=PYTHON("old"; C1:C5)')
     assert parts is not None
     code = "np.mean(data)\n"
@@ -165,6 +164,6 @@ def test_apply_cell_save_plain_text_mode():
     assert result["ok"] is True
     assert result["save_as_plain"] is True
     assert "Saved without =PY()" in result["status_ok_text"]
-    cell.setString.assert_called_once_with(code)
-    cell.setFormula.assert_not_called()
-    doc.calculateAll.assert_called_once()
+    assert cell.getString() == code
+    assert cell.getFormula() == ""
+    assert doc.calculate_all_count == 1

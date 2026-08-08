@@ -16,69 +16,26 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import json
 from plugin.framework.logging import log
-from plugin.framework.uno_context import get_desktop
-from plugin.testing_runner import setup, teardown, native_test
+from plugin.testing_runner import native_test
+from plugin.tests.testing_utils import TestingFactory, with_native_doc
 
 
-_test_doc = None
-_test_ctx = None
-
-
-@setup
-def setup_impress_tests(ctx):
-    global _test_doc, _test_ctx
-    _test_ctx = ctx
-
-    desktop = get_desktop(ctx)
-    import uno
-
-    hidden_prop = uno.createUnoStruct(
-        "com.sun.star.beans.PropertyValue",
-        Name="Hidden",
-        Value=True,
-    )
-
-    _test_doc = desktop.loadComponentFromURL("private:factory/simpress", "_blank", 0, (hidden_prop,))
-    assert _test_doc is not None, "Could not create Impress document"
-    assert hasattr(_test_doc, "getDrawPages"), "Not a valid Impress document"
-
-    log.info("[ImpressTests] impress_tests: starting tests")
-
-
-@teardown
-def teardown_impress_tests(ctx):
-    global _test_doc, _test_ctx
-    if _test_doc:
-        _test_doc.close(True)
-    _test_doc = None
-    _test_ctx = None
-
-
-def _exec_tool(name, args):
-    from plugin.main import get_tools, get_services
-    from plugin.framework.tool import ToolContext
-    tctx = ToolContext(_test_doc, _test_ctx, "impress", get_services(), "test")
-    res = get_tools().execute(name, tctx, **args)
+def _exec_tool(doc, ctx, name, args):
+    res = TestingFactory.execute_tool(doc, ctx, name, args, doc_type="impress")
     return json.dumps(res) if isinstance(res, dict) else res
 
 
 
 @native_test
-def test_slide_transitions():
-    try:
-        import pytest
-        if _test_doc is None:
-            pytest.skip("Requires LibreOffice document from native runner")
-    except ImportError:
-        pass
-
+@with_native_doc("impress")
+def test_slide_transitions(ctx, doc):
     # Initial transition state
-    result = _exec_tool("get_slide_transition", {"page_index": 0})
+    result = _exec_tool(doc, ctx, "get_slide_transition", {"page_index": 0})
     data = json.loads(result)
     assert data.get("status") == "ok", f"get_slide_transition failed: {result}"
 
     # Set a transition
-    result = _exec_tool("set_slide_transition", {
+    result = _exec_tool(doc, ctx, "set_slide_transition", {
         "page_index": 0,
         "effect": "fade_from_left",
         "speed": "fast",
@@ -90,7 +47,7 @@ def test_slide_transitions():
     assert data.get("status") == "ok", f"set_slide_transition failed: {result}"
 
     # Verify the transition is set correctly
-    result = _exec_tool("get_slide_transition", {"page_index": 0})
+    result = _exec_tool(doc, ctx, "get_slide_transition", {"page_index": 0})
     data = json.loads(result)
     assert data.get("status") == "ok", f"get_slide_transition failed: {result}"
     assert data.get("effect") == "fade_from_left", f"Effect mismatch: {data.get('effect')}"
@@ -100,16 +57,10 @@ def test_slide_transitions():
 
 
 @native_test
-def test_speaker_notes():
-    try:
-        import pytest
-        if _test_doc is None:
-            pytest.skip("Requires LibreOffice document from native runner")
-    except ImportError:
-        pass
-
+@with_native_doc("impress")
+def test_speaker_notes(ctx, doc):
     # Set new notes
-    result = _exec_tool("set_speaker_notes", {
+    result = _exec_tool(doc, ctx, "set_speaker_notes", {
         "page_index": 0,
         "text": "These are my speaker notes for the first slide."
     })
@@ -117,7 +68,7 @@ def test_speaker_notes():
     assert data.get("status") == "ok", f"set_speaker_notes failed: {result}"
 
     # Append to notes
-    result = _exec_tool("set_speaker_notes", {
+    result = _exec_tool(doc, ctx, "set_speaker_notes", {
         "page_index": 0,
         "text": "And some more notes.",
         "append": True
@@ -126,7 +77,7 @@ def test_speaker_notes():
     assert data.get("status") == "ok", f"set_speaker_notes append failed: {result}"
 
     # Get notes and verify
-    result = _exec_tool("get_speaker_notes", {"page_index": 0})
+    result = _exec_tool(doc, ctx, "get_speaker_notes", {"page_index": 0})
     data = json.loads(result)
     assert data.get("status") == "ok", f"get_speaker_notes failed: {result}"
     notes = data.get("notes")

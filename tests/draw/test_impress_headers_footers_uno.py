@@ -18,71 +18,29 @@
 import json
 import unittest
 from plugin.framework.logging import log
-from plugin.framework.uno_context import get_desktop
-from plugin.testing_runner import setup, teardown, native_test
-
-_test_doc = None
-_test_ctx = None
+from plugin.testing_runner import native_test
+from plugin.tests.testing_utils import TestingFactory, with_native_doc
 
 
-@setup
-def setup_impress_tests(ctx):
-    global _test_doc, _test_ctx
-    _test_ctx = ctx
-
-    desktop = get_desktop(ctx)
-    import uno
-
-    hidden_prop = uno.createUnoStruct(
-        "com.sun.star.beans.PropertyValue",
-        Name="Hidden",
-        Value=True,
-    )
-
-    _test_doc = desktop.loadComponentFromURL("private:factory/simpress", "_blank", 0, (hidden_prop,))
-    assert _test_doc is not None, "Could not create Impress document"
-    assert hasattr(_test_doc, "getDrawPages"), "Not a valid Impress document"
-
-    log.info("[ImpressTests] test_impress_headers_footers: starting tests")
-
-
-@teardown
-def teardown_impress_tests(ctx):
-    global _test_doc, _test_ctx
-    if _test_doc:
-        _test_doc.close(True)
-    _test_doc = None
-    _test_ctx = None
-
-
-def _exec_tool(name, args):
-    from plugin.main import get_tools, get_services
-    from plugin.framework.tool import ToolContext
-    tctx = ToolContext(_test_doc, _test_ctx, "impress", get_services(), "test")
-    res = get_tools().execute(name, tctx, **args)
+def _exec_tool(doc, ctx, name, args):
+    res = TestingFactory.execute_tool(doc, ctx, name, args, doc_type="impress")
     return json.dumps(res) if isinstance(res, dict) else res
 
 
 #FIXME: bugs to fix
 @unittest.skip("Disabled as per user request: internal test causing problems")
 @native_test
-def test_headers_footers():
-    try:
-        import pytest
-        if _test_doc is None:
-            pytest.skip("Requires LibreOffice document from native runner")
-    except ImportError:
-        pass
-
+@with_native_doc("impress")
+def test_headers_footers(ctx, doc):
     # 1. Get initial headers/footers
-    result_str = _exec_tool("get_headers_footers", {"page_index": 0})
+    result_str = _exec_tool(doc, ctx, "get_headers_footers", {"page_index": 0})
     result = json.loads(result_str)
 
     assert result.get("status") == "ok"
     assert "properties" in result
 
     # 2. Set headers/footers
-    set_result_str = _exec_tool("set_headers_footers", {
+    set_result_str = _exec_tool(doc, ctx, "set_headers_footers", {
         "page_index": 0,
         "footer_text": "This is a test footer",
         "is_footer_visible": True,
@@ -97,7 +55,7 @@ def test_headers_footers():
     assert set_result.get("updated_properties") > 0
 
     # 3. Verify changes
-    result_str = _exec_tool("get_headers_footers", {"page_index": 0})
+    result_str = _exec_tool(doc, ctx, "get_headers_footers", {"page_index": 0})
     result = json.loads(result_str)
 
     props = result.get("properties", {})
@@ -109,7 +67,7 @@ def test_headers_footers():
     assert props.get("IsDateTimeFixed") is True
 
     # 4. Test master page
-    set_result_str = _exec_tool("set_headers_footers", {
+    set_result_str = _exec_tool(doc, ctx, "set_headers_footers", {
         "page_index": 0,
         "is_master_page": True,
         "footer_text": "Master Footer"
@@ -117,7 +75,7 @@ def test_headers_footers():
     set_result = json.loads(set_result_str)
     assert set_result.get("status") == "ok"
 
-    result_str = _exec_tool("get_headers_footers", {"page_index": 0, "is_master_page": True})
+    result_str = _exec_tool(doc, ctx, "get_headers_footers", {"page_index": 0, "is_master_page": True})
     result = json.loads(result_str)
     props = result.get("properties", {})
     assert props.get("FooterText") == "Master Footer"

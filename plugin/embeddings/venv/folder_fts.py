@@ -14,7 +14,7 @@ from typing import Any, Callable, Literal
 
 from plugin.embeddings.embeddings_cache import (
     corpus_db_path,
-    diff_paragraph_rows,
+    diff_chunk_rows,
     file_is_stale,
     mark_file_indexed,
     sync_file_paragraph_state,
@@ -259,7 +259,7 @@ def _incremental_refresh(
                 continue
             hb.force({"phase": "extract", "file": entry.name, "index": index, "total": total, "mode": "incremental"})
             chunks = paragraph_chunks_from_path(entry.path, doc_url=entry.url, file_mtime=entry.modified)
-            to_index, to_delete = diff_paragraph_rows(db_path, chunks)
+            to_index, to_delete = diff_chunk_rows(db_path, chunks)
             if to_delete:
                 hb.force({"phase": "delete", "file": entry.name, "keys": len(to_delete)})
                 _delete_keys(conn, to_delete)

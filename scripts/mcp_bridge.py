@@ -6,7 +6,7 @@
 """Resilient stdio<->HTTP MCP bridge for WriterAgent (R7 — plug-and-play connect).
 
 WHY: WriterAgent's MCP server is an HTTP server that lives INSIDE LibreOffice
-(http://localhost:8765/mcp). An MCP client configured to talk to that URL directly
+(http://localhost:18765/mcp). An MCP client configured to talk to that URL directly
 (``{"type":"http","url":"..."}``) tries to connect once at startup; if LibreOffice
 is not running yet, the connection fails and the user must restart the client to
 reconnect ("I have to close and reopen to connect").
@@ -30,7 +30,7 @@ import threading
 import urllib.error
 import urllib.request
 
-MCP_URL = os.environ.get("WRITERAGENT_MCP_URL", "http://localhost:8765/mcp")
+MCP_URL = os.environ.get("WRITERAGENT_MCP_URL", "http://localhost:18765/mcp")
 # Keep default in sync with plugin/mcp/wire_types.py MCP_PROTOCOL_VERSION.
 PROTOCOL_VERSION = os.environ.get("WRITERAGENT_MCP_PROTOCOL", "2025-11-25")
 _HEALTH_URL = MCP_URL.rsplit("/mcp", 1)[0] + "/health"

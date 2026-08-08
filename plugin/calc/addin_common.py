@@ -22,25 +22,6 @@ from typing import Any
 import unohelper
 
 
-from plugin.framework.uno_bootstrap import ensure_plugin_on_path
-
-
-def ensure_addin_paths() -> str:
-    """
-    Legacy wrapper around the central bootstrap for Calc add-ins.
-
-    Prefer calling ensure_plugin_on_path directly in new code.
-    This function is kept for backward compatibility during the TD1 migration.
-    """
-    # levels_up=3 from inside plugin/calc/
-    # also_add_plugin_dir gives us the plugin/ directory itself
-    return ensure_plugin_on_path(
-        __file__,
-        levels_up=3,
-        also_add_plugin_dir=True,
-    )
-
-
 @dataclass(frozen=True)
 class CalcFunctionSpec:
     """Metadata for one Calc add-in function (display name, args, descriptions)."""

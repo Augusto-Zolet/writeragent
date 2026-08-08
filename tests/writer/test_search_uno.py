@@ -1,33 +1,10 @@
-try:
-    import uno
-except ImportError:
-    pass
+from plugin.testing_runner import native_test
+from plugin.tests.testing_utils import with_native_doc
+from plugin.writer.search import SearchInDocument
 
-try:
-    from plugin.testing_runner import setup, teardown, native_test
-    from plugin.framework.uno_context import get_desktop
-    from plugin.writer.search import SearchInDocument
-except ImportError:
-    setup, teardown, native_test = (lambda f: f), (lambda f: f), (lambda f: f)
 
-_test_doc = None
-_test_ctx = None
-
-@setup
-def setup_search_tests(ctx):
-    global _test_doc, _test_ctx
-    _test_ctx = ctx
-
-    desktop = get_desktop(ctx)
-
-    hidden_prop = uno.createUnoStruct(
-        "com.sun.star.beans.PropertyValue",
-        Name="Hidden",
-        Value=True,
-    )
-    _test_doc = desktop.loadComponentFromURL("private:factory/swriter", "_blank", 0, (hidden_prop,))
-
-    text = _test_doc.getText()
+def _populate_search_doc(doc):
+    text = doc.getText()
     cursor = text.createTextCursor()
 
     # 0: Heading
@@ -44,16 +21,13 @@ def setup_search_tests(ctx):
     text.insertString(cursor, "Another paragraph. Needles are sharp. We also have some testing data here.", False)
     text.insertControlCharacter(cursor, 0, False)
 
-@teardown
-def teardown_search_tests():
-    if _test_doc:
-        _test_doc.close(True)
 
 class MockContext:
     def __init__(self, doc, ctx):
         self.doc = doc
         self.ctx = ctx
         self.services = MockServices(doc)
+
 
 class MockWriterIndexService:
     def search_boolean(self, doc, query, max_results=20, context_paragraphs=1):
@@ -66,30 +40,25 @@ class MockWriterIndexService:
     def get_index_stats(self, doc):
         return {"stems": 100, "paragraphs": 3}
 
+
 class MockServices:
     def __init__(self, doc):
         from plugin.doc.document_helpers import DocumentService
         from plugin.framework.event_bus import EventBus
         self.events = EventBus()
-        # DocumentService does not take constructor arguments; it uses the
-        # active UNO context when needed.
         self.document = DocumentService()
         self.writer_index = MockWriterIndexService()
 
-@native_test
-def test_search_in_document_basic():
-    try:
-        import pytest
-        if _test_doc is None:
-            pytest.skip("Requires LibreOffice document from native runner")
-    except ImportError:
-        pass
 
+@native_test
+@with_native_doc("writer")
+def test_search_in_document_basic(ctx, doc):
+    _populate_search_doc(doc)
     tool = SearchInDocument()
-    ctx = MockContext(_test_doc, _test_ctx)
+    mock_ctx = MockContext(doc, ctx)
 
     # Simple search
-    res = tool.execute(ctx, pattern="needle")
+    res = tool.execute(mock_ctx, pattern="needle")
     assert res["status"] == "ok"
     assert res["count"] == 2
     assert len(res["matches"]) == 2
@@ -100,54 +69,43 @@ def test_search_in_document_basic():
     assert "needle" in match1["context"].lower()
 
     match2 = res["matches"][1]
-    # SearchInDocument returns the matched substring with original casing
-    # from the paragraph text. The second match comes from "Needles..."
-    # so the 6-letter substring is "Needle".
     assert match2["text"] == "Needle"
     assert match2["location"] == "body"
     assert "Needle" in match2["context"]
 
+
 @native_test
-def test_search_in_document_case_sensitive():
-    try:
-        import pytest
-        if _test_doc is None:
-            pytest.skip("Requires LibreOffice document from native runner")
-    except ImportError:
-        pass
-
+@with_native_doc("writer")
+def test_search_in_document_case_sensitive(ctx, doc):
+    _populate_search_doc(doc)
     tool = SearchInDocument()
-    ctx = MockContext(_test_doc, _test_ctx)
+    mock_ctx = MockContext(doc, ctx)
 
-    res = tool.execute(ctx, pattern="Needle", case_sensitive=True)
+    res = tool.execute(mock_ctx, pattern="Needle", case_sensitive=True)
     assert res["status"] == "ok"
     assert res["count"] == 1
     assert res["matches"][0]["location"] == "body"
     assert res["matches"][0]["text"] == "Needle"
 
+
 @native_test
-def test_search_in_document_regex():
-    try:
-        import pytest
-        if _test_doc is None:
-            pytest.skip("Requires LibreOffice document from native runner")
-    except ImportError:
-        pass
-
+@with_native_doc("writer")
+def test_search_in_document_regex(ctx, doc):
+    _populate_search_doc(doc)
     tool = SearchInDocument()
-    ctx = MockContext(_test_doc, _test_ctx)
+    mock_ctx = MockContext(doc, ctx)
 
-    res = tool.execute(ctx, pattern=r"Needles? are \w+", regex=True)
+    res = tool.execute(mock_ctx, pattern=r"Needles? are \w+", regex=True)
     assert res["status"] == "ok"
     assert res["count"] == 1
     assert res["matches"][0]["text"] == "Needles are sharp"
 
+
 @native_test
 def test_advanced_search_tool():
-    # pytest.skip("advanced_search tool currently not exposed to LLM/MCP API")
     return
+
 
 @native_test
 def test_get_index_stats():
-    # get_index_stats tool currently not exposed to LLM/MCP API
     return

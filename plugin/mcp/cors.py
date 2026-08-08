@@ -18,25 +18,14 @@
 
 from __future__ import annotations
 
-import importlib
 import ipaddress
 import logging
 import re
-from typing import Any
 from urllib.parse import urlparse
 
 log = logging.getLogger("writeragent.mcp.cors")
 
-deal: Any
-try:
-    deal = importlib.import_module("deal")
-except ImportError:
-
-    class _DummyDeal:
-        def __getattr__(self, name: str) -> Any:
-            return lambda *args, **kwargs: lambda f: f
-
-    deal = _DummyDeal()
+from plugin.framework.deal_shim import deal
 
 MCP_CORS_ORIGINS_KEY = "mcp.cors_allowed_origins"
 
@@ -177,11 +166,6 @@ def reload_cors_policy_from_config(services) -> None:
     if origins:
         log.info("MCP CORS explicit allowed origins: %s", ", ".join(origins))
     log.debug("MCP CORS allow private/local browser origins: %s", _allow_private_origins)
-
-
-def reload_extra_allowed_origins_from_config(services) -> None:
-    """Backward-compatible alias for reload_cors_policy_from_config."""
-    reload_cors_policy_from_config(services)
 
 
 @deal.pre(lambda origin: isinstance(origin, str))

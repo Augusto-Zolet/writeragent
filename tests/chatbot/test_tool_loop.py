@@ -103,6 +103,14 @@ def setup_mock_panel():
     panel = FakePanel(ctx, session)
     return panel, session
 
+_MIRRORED_CONTROL_ATTRS = (
+    "_active_round_num",
+    "_active_pending_tools",
+    "_active_async_tools",
+    "_active_max_tool_rounds",
+)
+
+
 @patch('plugin.chatbot.tool_loop.run_stream_drain_loop')
 @patch('plugin.chatbot.tool_loop.get_config')
 def test_stream_done_no_tools(mock_get_config, mock_drain_loop):
@@ -126,6 +134,64 @@ def test_stream_done_no_tools(mock_get_config, mock_drain_loop):
 
     panel._append_response.assert_called_with("\n")
     panel._set_status.assert_called_with("Ready")
+
+
+@patch("plugin.chatbot.tool_loop.run_stream_drain_loop")
+@patch("plugin.chatbot.tool_loop.get_config")
+def test_kickoff_uses_sm_state_round_num(mock_get_config, mock_drain_loop):
+    """First LLM worker spawn takes round_num from ToolLoopState, not a host mirror."""
+    panel, _session = setup_mock_panel()
+    mock_drain_loop.side_effect = lambda *a, **k: None
+
+    panel._start_tool_calling_async(Mock(), model="mock-model", max_tokens=100, tools=[], execute_tool_fn=Mock())
+
+    assert panel._spawn_llm_worker.call_count >= 1
+    # args: q, client, max_tokens, tools, round_num, …
+    assert panel._spawn_llm_worker.call_args[0][4] == 0
+    for attr in _MIRRORED_CONTROL_ATTRS:
+        assert not hasattr(panel, attr) or getattr(panel, attr, None) is None
+
+
+@patch("plugin.chatbot.tool_loop.run_stream_drain_loop")
+@patch("plugin.chatbot.tool_loop.get_config")
+def test_control_state_lives_only_on_sm_state(mock_get_config, mock_drain_loop):
+    """After STREAM_DONE with tools, pending/round live on _sm_state; host has no mirror attrs."""
+    panel, _session = setup_mock_panel()
+    tool_calls = [
+        {"id": "call_abc", "type": "function", "function": {"name": "get_weather", "arguments": "{}"}}
+    ]
+    seen = {}
+
+    def mock_drain_impl(q, toolkit, thinking_open, append_fn, on_stream_done=None, **kwargs):
+        on_stream_done((StreamQueueKind.STREAM_DONE, {"content": "checking", "tool_calls": tool_calls}))
+        seen["round_num"] = panel._sm_state.round_num
+        seen["pending_tools"] = list(panel._sm_state.pending_tools)
+        seen["has_mirrors"] = {attr: hasattr(panel, attr) for attr in _MIRRORED_CONTROL_ATTRS}
+
+    mock_drain_loop.side_effect = mock_drain_impl
+
+    panel._start_tool_calling_async(Mock(), model="mock-model", max_tokens=100, tools=[], execute_tool_fn=Mock())
+
+    assert seen["round_num"] == 0
+    assert len(seen["pending_tools"]) == 1
+    assert seen["pending_tools"][0]["id"] == "call_abc"
+    assert not any(seen["has_mirrors"].values())
+
+
+@patch("plugin.chatbot.tool_loop.run_stream_drain_loop")
+@patch("plugin.chatbot.tool_loop.get_config")
+def test_handle_stream_stopped_sets_sm_state_only(mock_get_config, mock_drain_loop):
+    panel, _session = setup_mock_panel()
+
+    def mock_drain_impl(q, toolkit, thinking_open, append_fn, on_stream_done=None, on_stopped=None, **kwargs):
+        on_stopped()
+        assert panel._sm_state.is_stopped is True
+        for attr in _MIRRORED_CONTROL_ATTRS:
+            assert not hasattr(panel, attr)
+
+    mock_drain_loop.side_effect = mock_drain_impl
+
+    panel._start_tool_calling_async(Mock(), model="mock-model", max_tokens=100, tools=[], execute_tool_fn=Mock())
 
 
 @patch('plugin.chatbot.tool_loop.run_stream_drain_loop')

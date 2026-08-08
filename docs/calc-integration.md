@@ -16,10 +16,10 @@ All planned modules are implemented in `core/` and integrated into the **Chat Si
 
 - **Core Calc Logic**: Ported and translated `calc_bridge.py`, `calc_address_utils.py`, `calc_inspector.py`, `calc_sheet_analyzer.py`, `calc_error_detector.py`, and `calc_manipulator.py`.
 - **AI Toolset**: `CALC_TOOLS` in `core/calc_tools.py` (read ranges, write formulas, format, merge, sheet management, chart creation, detect_and_explain_errors).
-- **Dynamic Tool Loading**: `chat_panel.py` detects document type and switches between `WRITER_TOOLS` and `CALC_TOOLS`.
+- **Dynamic Tool Loading**: `panel.py` detects document type and switches between `WRITER_TOOLS` and `CALC_TOOLS`.
 - **Calc Chat Context**: `get_calc_context_for_chat(model, max_context, ctx)` in `core/document.py` provides a summary of the active sheet and selection. **Requires `ctx`** (component context); callers pass it from the panel or MainJob so we never use `uno.getComponentContext()` in this path.
-- **Robust prompt selection**: `get_chat_system_prompt_for_document(model, additional_instructions)` in `core/constants.py` is the single source of truth for the chat system prompt. It returns `DEFAULT_CALC_CHAT_SYSTEM_PROMPT` for Calc and `DEFAULT_CHAT_SYSTEM_PROMPT` for Writer, so Writer/Calc prompts cannot be mixed. Used by `chat_panel.py` and `main.py` for both sidebar and menu Chat.
-- **Calc System Prompt**: `DEFAULT_CALC_CHAT_SYSTEM_PROMPT` in `core/constants.py` states semicolon formula syntax, a 4-step workflow (understand → get state if needed → use tools → short confirmation), and tools grouped by use (READ / WRITE & FORMAT / SHEET MANAGEMENT / CHART / ERRORS). Structure inspired by libre_calc_ai `prompt_templates.py` (workflow, grouped tools, “do not explain—do the operation”).
+- **Robust prompt selection**: `get_chat_system_prompt_for_document(model, additional_instructions)` in `plugin/framework/prompts.py` is the single source of truth for the chat system prompt. It returns `DEFAULT_CALC_CHAT_SYSTEM_PROMPT` for Calc and `DEFAULT_CHAT_SYSTEM_PROMPT` for Writer, so Writer/Calc prompts cannot be mixed. Used by `panel.py` and `main.py` for both sidebar and menu Chat.
+- **Calc System Prompt**: `DEFAULT_CALC_CHAT_SYSTEM_PROMPT` in `plugin/framework/prompts.py` states semicolon formula syntax, a 4-step workflow (understand → get state if needed → use tools → short confirmation), and tools grouped by use (READ / WRITE & FORMAT / SHEET MANAGEMENT / CHART / ERRORS). Structure inspired by libre_calc_ai `prompt_templates.py` (workflow, grouped tools, “do not explain—do the operation”).
 - **Menu**: "Chat with Document" for Calc in `main.py` (streams response to "AI Response" sheet; uses same prompt helper and `ctx` for context).
 - **Tests**: `tests/test_calc_address_utils.py` and `core/calc_tests.py`.
 
@@ -87,7 +87,7 @@ All planned modules are implemented in `core/` and integrated into the **Chat Si
 **Source:** [CalcAI/llm/tool_definitions.py](libre_calc_ai-1.0.2/Scripts/python/CalcAI/llm/tool_definitions.py)
 
 - **Status:** **IMPLEMENTED** in `core/calc_tools.py`.
-- **Action:** Defined `CALC_TOOLS` and `execute_calc_tool` dispatcher. Integrated with `chat_panel.py` and `main.py`.
+- **Action:** Defined `CALC_TOOLS` and `execute_calc_tool` dispatcher. Integrated with `panel.py` and `main.py`.
 
 ---
 
@@ -95,7 +95,7 @@ All planned modules are implemented in `core/` and integrated into the **Chat Si
 
 **Source:** [CalcAI/llm/prompt_templates.py](libre_calc_ai-1.0.2/Scripts/python/CalcAI/llm/prompt_templates.py)
 
-- **Status:** **IMPLEMENTED** in [core/constants.py](core/constants.py).
+- **Status:** **IMPLEMENTED** in [plugin/framework/prompts.py](plugin/framework/prompts.py).
 - **Implementation:** `DEFAULT_CALC_CHAT_SYSTEM_PROMPT` plus `get_chat_system_prompt_for_document(model, additional_instructions)` so the correct prompt is chosen by document type (Calc vs Writer). The Calc prompt includes:
   - “Do not explain—do the operation directly using tools” and “Perform as many steps as needed in one turn when possible.”
   - A 4-step **WORKFLOW**: understand → get state (get_sheet_summary/read_cell_range) if needed → use tools → short confirmation (mention cell/range addresses when changing).
@@ -119,7 +119,7 @@ All planned modules are implemented in `core/` and integrated into the **Chat Si
 
 - **Entry point:** Chat from Calc uses the same sidebar/menu as Writer; `ctx` comes from the UNO component (panel or MainJob). Both pass `ctx` into `get_document_context_for_chat` so the extension context is always used.
 - **Single process:** All Calc code runs in LO’s Python. No BridgeServer, BridgeClient, or subprocess.
-- **LlmClient:** Reuse [core/api.py](core/api.py) (streaming, tool-calling, reasoning). Pass **CALC_TOOLS** and `execute_calc_tool` when the active document is a spreadsheet.
+- **LlmClient:** Reuse [`plugin/framework/client/llm_client.py`](../plugin/framework/client/llm_client.py) (streaming, tool-calling, reasoning). Pass **CALC_TOOLS** and `execute_calc_tool` when the active document is a spreadsheet.
 - **UI:** Same sidebar (WriterAgent deck) and menu for Writer and Calc; ContextList includes `com.sun.star.sheet.SpreadsheetDocument`. Response area + input + Send/Stop. No PyQt5.
 - **Undo:** Undo grouping for AI edits is out of scope for now (Writer has the same limitation).
 
@@ -138,7 +138,7 @@ core/
   calc_tools.py           # CALC_TOOLS (schemas) + execute_calc_tool / CalcToolDispatcher
 ```
 
-Optional: a single `core/calc.py` that re-exports the public API (get_calc_context, get_sheet_summary, execute_calc_tool, CALC_TOOLS) so chat_panel or a Calc panel only imports from one place.
+Optional: a single Calc facade module that re-exports the public API (get_calc_context, get_sheet_summary, execute_calc_tool, CALC_TOOLS) so chat_panel or a Calc panel only imports from one place.
 
 ---
 
@@ -152,22 +152,22 @@ Optional: a single `core/calc.py` that re-exports the public API (get_calc_conte
 
 ---
 
-- **Status:** **DONE**. Integrated into `main.py` and `chat_panel.py`.
+- **Status:** **DONE**. Integrated into `main.py` and `panel.py`.
 - **Order of Implementation (Actual):**
   1. Ported and translated core logic (`calc_bridge` to `calc_manipulator`).
   2. Integrated `get_calc_context_for_chat` in `core/document.py`.
   3. Created `core/calc_tools.py` with schemas and dispatcher.
-  4. Updated `chat_panel.py` for document type detection and tool swapping.
+  4. Updated `panel.py` for document type detection and tool swapping.
   5. Updated `main.py` for menu support and response-to-sheet flow.
   6. Added tests in `tests/test_calc_address_utils.py` and `core/calc_tests.py`.
-  7. **Robustness:** Added `get_chat_system_prompt_for_document()` in `core/constants.py`; all chat entry points use it so Writer/Calc prompt cannot be mixed. Added required `ctx` parameter to `get_document_context_for_chat` and `get_calc_context_for_chat`; callers pass component context (no `uno.getComponentContext()` in this path).
+  7. **Robustness:** Added `get_chat_system_prompt_for_document()` in `plugin/framework/prompts.py`; all chat entry points use it so Writer/Calc prompt cannot be mixed. Added required `ctx` parameter to `get_document_context_for_chat` and `get_calc_context_for_chat`; callers pass component context (no `uno.getComponentContext()` in this path).
   8. **Calc system prompt:** Added `DEFAULT_CALC_CHAT_SYSTEM_PROMPT` with workflow, grouped tools, and formula syntax; structure inspired by libre_calc_ai `prompt_templates.py`.
 Based on my analysis of your Calc tool-calling API implementation in `core/calc_tools.py`, `core/calc_bridge.py`, `core/calc_manipulator.py`, `core/calc_inspector.py`, `core/calc_sheet_analyzer.py`, `core/calc_error_detector.py`, and related files, I'll summarize what's currently implemented and suggest targeted improvements to make it better, more robust, and more capable.
 
 ### Current Strengths
 - **Comprehensive coverage**: You have a solid foundation covering most common Calc operations (reading, writing, formatting,_sheet management, charts, error detection, sorting, clearing).
 - **Modular architecture**: Clean separation of concerns (`Bridge` for low-level UNO, `Inspector` for reading, `Manipulator` for writing, `Analyzer` for structure, `Detector` for errors).
-- **Context-aware system prompt**: The `DEFAULT_CALC_CHAT_SYSTEM_PROMPT` in `core/constants.py` effectively guides the AI to use tools properly, reminds about semicolon syntax, and structures workflow (understand → read → use tools → confirm).
+- **Context-aware system prompt**: The `DEFAULT_CALC_CHAT_SYSTEM_PROMPT` in `plugin/framework/prompts.py` effectively guides the AI to use tools properly, reminds about semicolon syntax, and structures workflow (understand → read → use tools → confirm).
 - **Performance optimizations**: Persistent HTTP connections, global shared instances for tools (avoiding recreation per call), and batch-friendly logic in many places.
 - **Error handling**: `format_error_for_display` for user-friendly messages, detailed error explanations in `ErrorDetector`, and exception catching throughout.
 - **Calc-specific context**: `get_calc_context_for_chat` provides basic sheet summary (name, range, headers, selection), which is a good start for relevant context without overwhelming tokens.

@@ -212,7 +212,7 @@ flowchart LR
 
 ### 3.1 Registry: default exclusion of specialized tiers
 
-**File:** `[plugin/framework/tool_registry.py](../../plugin/framework/tool_registry.py)`
+**File:** [`plugin/framework/tool.py`](../../plugin/framework/tool.py)
 
 - Constants: `_DEFAULT_EXCLUDE_TIERS = frozenset({"specialized", "specialized_control"})`.
 - `get_tools(..., exclude_tiers=...)`:
@@ -243,7 +243,7 @@ flowchart LR
 
 ### 3.3 System prompt guidance
 
-**File:** `[plugin/framework/constants.py](../../plugin/framework/constants.py)`
+**File:** `[plugin/framework/prompts.py](../../plugin/framework/prompts.py)`
 
 Block `WRITER_SPECIALIZED_DELEGATION` is prepended into `DEFAULT_CHAT_SYSTEM_PROMPT` so the main Writer model is told **when** to call the gateway and **which** domain strings are valid.
 
@@ -259,7 +259,7 @@ Some Writer tools intentionally use the default main-chat tier (**`tier = "core"
 ## 4. Testing and operations
 
 - **Default tool list:** Specialized tools must **not** appear in `get_schemas(..., doc=...)` without overriding `exclude_tiers`.
-- **Registration checks:** Use `get_tools(..., exclude_tiers=())` (and a real or mock `doc` as required by `uno_services`) to assert that table tools and other specialized tools are registered. See `[plugin/tests/modules/writer/smoke_writer_tools.py](../../plugin/tests/modules/writer/smoke_writer_tools.py)` and `[plugin/tests/framework/test_tool.py](../../plugin/tests/framework/test_tool.py)` (`TestExcludeSpecializedTiers`).
+- **Registration checks:** Use `get_tools(..., exclude_tiers=())` (and a real or mock `doc` as required by `uno_services`) to assert that table tools and other specialized tools are registered. See [`tests/framework/test_tool.py`](../tests/framework/test_tool.py) (`TestExcludeSpecializedTiers`).
 - **Run tests from the WriterAgent repo root** (`make test`), not from `nelson-mcp/` (different project and pytest layout).
 
 ---
@@ -270,7 +270,7 @@ Some Writer tools intentionally use the default main-chat tier (**`tier = "core"
 
 **WriterAgent** modules/tools (columns 1–3) and **broader LibreOffice** gaps not covered by the agent (column 4). Core/advanced narrative lists remain in §5.5–5.6.
 
-**Math:** Editable **MathML in HTML** is imported on the **default core** tool `apply_document_content` (math-aware segmentation and OLE Math insertion in `format_support`), not through `delegate_to_specialized_writer_toolset`. There is no separate specialized **domain** for equations; models use the same HTML rules as other body content (`WRITER_APPLY_DOCUMENT_HTML_RULES` in `[plugin/framework/constants.py](../../plugin/framework/constants.py)`). See [docs/math-tex.md](math-tex.md).
+**Math:** Editable **MathML in HTML** is imported on the **default core** tool `apply_document_content` (math-aware segmentation and OLE Math insertion in `format_support`), not through `delegate_to_specialized_writer_toolset`. There is no separate specialized **domain** for equations; models use the same HTML rules as other body content (`WRITER_APPLY_DOCUMENT_HTML_RULES` in `[plugin/framework/prompts.py](../../plugin/framework/prompts.py)`). See [docs/math-tex.md](math-tex.md).
 
 **`get_document_content` (core read):** [`plugin/writer/content.py`](../../plugin/writer/content.py) → [`document_to_content()`](../plugin/writer/format.py) (XHTML export + semantic HTML). Parameters: `scope` (`full` / `selection` / `range`), `max_chars`, `start` / `end`, and **`include_images`** (boolean, default **`false`**). When `include_images` is false, inline `data:image/...;base64,...` payloads are removed from the export; external `<img src="...">` URLs are kept. Pass `include_images: true` to include embedded image bytes. See also [docs/llm-styles.md](llm-styles.md) and [docs/html_style_model_plan.md](html_style_model_plan.md).
 

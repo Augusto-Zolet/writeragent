@@ -471,7 +471,7 @@ Run **`make test`** before merge each phase.
 | Users expect Diffusers in-extension | Document Ollama path; Phase 0b for URL responses; defer venv |
 | GPU blocking | ComfyUI/Ollama external; never import torch in `plugin/` host |
 | Stop/cancel mid-generation | Phase 1b ComfyUI interrupt |
-| Security (local URLs) | Reuse `_is_local_host` / SSL helpers from [`ssl_helpers.py`](../plugin/framework/client/ssl_helpers.py); default to localhost |
+| Security (local URLs) | Reuse `is_local_host` from [`provider_detection.py`](../plugin/framework/client/provider_detection.py); default to localhost |
 
 ---
 

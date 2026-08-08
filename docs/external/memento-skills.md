@@ -65,7 +65,7 @@ Adopt the Hermes/Memento pattern of a **Background Agent**. After the main write
 To achieve this without destabilizing the current extension:
 
 1.  **Phase 1: Hydrate Memory**: Enable the [MemoryStore](cci:2://file:///home/keithcu/Desktop/Python/writeragent/plugin/chatbot/memory.py:11:0-32:19) and [MemoryTool](cci:2://file:///home/keithcu/Desktop/Python/writeragent/plugin/chatbot/memory.py:34:0-106:67) to start populating `USER.md` using the "Librarian" toggle (reducing the toolset to *only* memory/chat).
-2.  **Phase 2: Progressive Skill Disclosure**: Implement the "Skill Router" in `tool_registry.py`. Instead of returning all `tier=core` tools, return `core` + `matched_skills` based on a quick keyword match or embedding search of the [skills/](cci:1://file:///home/keithcu/Desktop/Python/writeragent/plugin/chatbot/skills.py:34:4-55:21) directory.
+2.  **Phase 2: Progressive Skill Disclosure**: Implement the "Skill Router" in `plugin/framework/tool.py`. Instead of returning all `tier=core` tools, return `core` + `matched_skills` based on a quick keyword match or embedding search of the [skills/](cci:1://file:///home/keithcu/Desktop/Python/writeragent/plugin/chatbot/skills.py:34:4-55:21) directory.
 3.  **Phase 3: Sandbox Evolution**: Introduce a `skill-creator` tool (inspired by Memento) that can write new `SKILL.md` files describing how to combine existing Writer tools (e.g., "First call `get_styles`, then `apply_style` to every Heading 1").
 4.  **Phase 4: Async Reflection**: Use the `run_in_background` pool to trigger a "Reflect" pass after the `UI_THREAD` has finished rendering the response to the user.
 

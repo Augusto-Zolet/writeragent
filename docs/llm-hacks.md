@@ -30,7 +30,7 @@ In `core/calc_manipulator.py`, we use a regular expression to normalize JSON arr
 **gotcha**: LibreOffice is very strict about formula syntax. Using a comma instead of a semicolon as an argument separator results in "Error 508".
 
 ### [Workaround] Explicit Prompt Rules
-In `core/constants.py`, the system prompt includes high-pressure instructions on formula syntax.
+In `plugin/framework/prompts.py`, the system prompt includes high-pressure instructions on formula syntax.
 - **Constraint**: "FORMULA SYNTAX: LibreOffice uses semicolon (;) as the formula argument separator. Wrong: =SUM(A1,A10) (no commas)."
 - **Duality**: We also explicitly warn about CSV: "CSV DATA: Use comma (,) for write_formula_range." to counteract the formula semicolon rule.
 

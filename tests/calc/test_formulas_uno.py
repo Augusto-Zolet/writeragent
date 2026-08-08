@@ -8,87 +8,56 @@
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 
-from plugin.framework.uno_context import get_desktop
-from plugin.testing_runner import setup, teardown, native_test
+from plugin.testing_runner import native_test
+from plugin.tests.testing_utils import TestingFactory, with_native_doc
 
-_test_doc = None
-_test_ctx = None
 
-@setup
-def setup_calc_tests(ctx):
-    global _test_doc, _test_ctx
-    _test_ctx = ctx
-    desktop = get_desktop(ctx)
-    import uno
-    hidden_prop = uno.createUnoStruct(
-        "com.sun.star.beans.PropertyValue",
-        Name="Hidden",
-        Value=True,
-    )
-    _test_doc = desktop.loadComponentFromURL("private:factory/scalc", "_blank", 0, (hidden_prop,))
-
-@teardown
-def teardown_calc_tests(ctx):
-    global _test_doc, _test_ctx
-    if _test_doc:
-        _test_doc.close(True)
-    _test_doc = None
-    _test_ctx = None
-
-def _execute_calc_tool(name, args):
-    from plugin.main import get_tools, get_services
-    from plugin.framework.tool import ToolContext
-    # Pass suite bootstrap ctx (same as setup_calc_tests); None makes
-    # get_desktop() use uno.getComponentContext() and can segfault under
-    # python -m plugin.testing_runner.
-    tctx = ToolContext(_test_doc, _test_ctx, "calc", get_services(), "test")
-    try:
-        res = get_tools().execute(name, tctx, **args)
-    except (KeyError, ValueError) as e:
-        res = {"status": "error", "error": str(e)}
-    return res
+def _execute_calc_tool(doc, ctx, name, args):
+    return TestingFactory.execute_tool(doc, ctx, name, args, doc_type="calc")
 
 
 @native_test
-def test_write_formula_range():
-    active_sheet = _test_doc.getCurrentController().getActiveSheet()
-    res = _execute_calc_tool("write_formula_range", {"range_name": "A1", "formula_or_values": "Hello"})
+@with_native_doc("calc")
+def test_write_formula_range(ctx, doc):
+    active_sheet = doc.getCurrentController().getActiveSheet()
+    res = _execute_calc_tool(doc, ctx, "write_formula_range", {"range_name": "A1", "formula_or_values": "Hello"})
     assert res.get("status") == "ok", f"write_formula_range failed: {res}"
     assert active_sheet.getCellByPosition(0, 0).getString() == "Hello", "Value mismatch"
 
     # Batch write
-    _execute_calc_tool("write_formula_range", {"range_name": ["B1", "B2"], "formula_or_values": "Batch"})
+    _execute_calc_tool(doc, ctx, "write_formula_range", {"range_name": ["B1", "B2"], "formula_or_values": "Batch"})
     assert active_sheet.getCellByPosition(1, 0).getString() == "Batch", "Batch write cell 1 failed"
     assert active_sheet.getCellByPosition(1, 1).getString() == "Batch", "Batch write cell 2 failed"
 
     # Single cell: commas in comments / prose must not split into multiple "cells"
     comment = "Note: see section 3, paragraph 2."
-    res_comment = _execute_calc_tool("write_formula_range", {"range_name": "C1", "formula_or_values": comment})
+    res_comment = _execute_calc_tool(doc, ctx, "write_formula_range", {"range_name": "C1", "formula_or_values": comment})
     assert res_comment.get("status") == "ok", f"write_formula_range comment failed: {res_comment}"
     assert active_sheet.getCellByPosition(2, 0).getString() == comment, "Comma in single-cell comment mangled"
 
     jp_sentence = "Hello ケイス, this is a test."
-    res_jp = _execute_calc_tool("write_formula_range", {"range_name": ["D1"], "formula_or_values": jp_sentence})
+    res_jp = _execute_calc_tool(doc, ctx, "write_formula_range", {"range_name": ["D1"], "formula_or_values": jp_sentence})
     assert res_jp.get("status") == "ok", f"write_formula_range JP sentence failed: {res_jp}"
     assert active_sheet.getCellByPosition(3, 0).getString() == jp_sentence, "Comma in single-cell prose mangled"
 
     # Two cells in one contiguous range: comma-separated row still maps one field per cell
-    res_two = _execute_calc_tool("write_formula_range", {"range_name": "E1:F1", "formula_or_values": "Left,Right"})
+    res_two = _execute_calc_tool(doc, ctx, "write_formula_range", {"range_name": "E1:F1", "formula_or_values": "Left,Right"})
     assert res_two.get("status") == "ok", f"write_formula_range two-cell CSV failed: {res_two}"
     assert active_sheet.getCellByPosition(4, 0).getString() == "Left", "E1 should be first CSV field"
     assert active_sheet.getCellByPosition(5, 0).getString() == "Right", "F1 should be second CSV field"
 
 
 @native_test
-def test_formulas_error_detector():
+@with_native_doc("calc")
+def test_detect_and_explain_errors(ctx, doc):
     from plugin.calc.errors import DetectErrors
     from plugin.framework.tool import ToolContext
 
-    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+    active_sheet = doc.getCurrentController().getActiveSheet()
 
     # Test #DIV/0!
     active_sheet.getCellByPosition(8, 0).setFormula("=1/0")
-    tctx = ToolContext(_test_doc, None, "calc", {}, "test")
+    tctx = ToolContext(doc, ctx, "calc", {}, "test")
     res = DetectErrors().execute(tctx, range_name="I1")
 
     assert res.get("status") == "ok", f"detect_and_explain_errors failed: {res}"
@@ -120,27 +89,29 @@ def test_formulas_error_detector():
 
 
 @native_test
-def test_navigate_to_cell():
+@with_native_doc("calc")
+def test_navigate_to_cell(ctx, doc):
     from plugin.calc.navigation import navigate_to_cell
 
-    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+    active_sheet = doc.getCurrentController().getActiveSheet()
     active_sheet.getCellByPosition(4, 4).setString("target")
-    ok = navigate_to_cell(_test_doc, _test_ctx, "E5")
+    ok = navigate_to_cell(doc, ctx, "E5")
     assert ok, "navigate_to_cell returned False"
-    sel = _test_doc.getCurrentController().getSelection()
+    sel = doc.getCurrentController().getSelection()
     addr = sel.getCellAddress()
     assert addr.Column == 4 and addr.Row == 4, f"Expected E5 selected, got col={addr.Column} row={addr.Row}"
 
 
 @native_test
-def test_write_formula_range_compound_undo():
+@with_native_doc("calc")
+def test_write_formula_range_compound_undo(ctx, doc):
     """Bulk write_formula_range should group undo (one step reverts all ranges)."""
-    active_sheet = _test_doc.getCurrentController().getActiveSheet()
-    _execute_calc_tool("write_formula_range", {"range_name": ["G1", "G2"], "formula_or_values": "undo-test"})
+    active_sheet = doc.getCurrentController().getActiveSheet()
+    _execute_calc_tool(doc, ctx, "write_formula_range", {"range_name": ["G1", "G2"], "formula_or_values": "undo-test"})
     assert active_sheet.getCellByPosition(6, 0).getString() == "undo-test"
     assert active_sheet.getCellByPosition(6, 1).getString() == "undo-test"
 
-    um = _test_doc.getUndoManager()
+    um = doc.getUndoManager()
     if um is not None:
         undo_enabled = False
         try:
@@ -160,10 +131,9 @@ def test_write_formula_range_compound_undo():
                 pass
 
 
-
 @native_test
-def test_cross_sheet_formula():
-    doc = _test_doc
+@with_native_doc("calc")
+def test_cross_sheet_formula(ctx, doc):
     sheets = doc.getSheets()
 
     # Create Sheet2 if it doesn't exist
@@ -177,7 +147,7 @@ def test_cross_sheet_formula():
     # Active sheet is usually Sheet1
     active_sheet = doc.getCurrentController().getActiveSheet()
 
-    res = _execute_calc_tool("write_formula_range", {
+    res = _execute_calc_tool(doc, ctx, "write_formula_range", {
         "range_name": ["D1"],
         "formula_or_values": "=Sheet2.A1 * 2"
     })
@@ -194,15 +164,16 @@ def test_cross_sheet_formula():
 
 
 @native_test
-def test_list_calc_functions():
+@with_native_doc("calc")
+def test_list_calc_functions(ctx, doc):
     # Test listing all functions (no filter)
-    res = _execute_calc_tool("list_calc_functions", {})
+    res = _execute_calc_tool(doc, ctx, "list_calc_functions", {})
     assert res.get("status") == "ok", f"list_calc_functions failed: {res}"
     functions = res.get("functions", [])
     assert len(functions) > 100, f"Expected many functions, got {len(functions)}"
 
     # Test filtering by name
-    res_filter = _execute_calc_tool("list_calc_functions", {"filter": "SUM"})
+    res_filter = _execute_calc_tool(doc, ctx, "list_calc_functions", {"filter": "SUM"})
     assert res_filter.get("status") == "ok", f"list_calc_functions with filter failed: {res_filter}"
     filtered_funcs = res_filter.get("functions", [])
     assert len(filtered_funcs) > 0, "No functions returned for filter 'SUM'"
@@ -210,7 +181,7 @@ def test_list_calc_functions():
         assert "SUM" in f["name"].upper() or "SUM" in f["description"].upper(), f"Function {f['name']} does not contain 'SUM'"
 
     # Test filtering by description (e.g. 'hyperbolic')
-    res_desc = _execute_calc_tool("list_calc_functions", {"filter": "hyperbolic"})
+    res_desc = _execute_calc_tool(doc, ctx, "list_calc_functions", {"filter": "hyperbolic"})
     assert res_desc.get("status") == "ok", f"list_calc_functions with description filter failed: {res_desc}"
     desc_funcs = res_desc.get("functions", [])
     assert len(desc_funcs) > 0, "No functions returned for description filter 'hyperbolic'"
@@ -219,11 +190,12 @@ def test_list_calc_functions():
 
 
 @native_test
-def test_evaluate_formula():
+@with_native_doc("calc")
+def test_evaluate_formula(ctx, doc):
     from plugin.calc.formulas import EvaluateFormula
     from plugin.framework.tool import ToolContext
 
-    tctx = ToolContext(_test_doc, _test_ctx, "calc", {}, "test")
+    tctx = ToolContext(doc, ctx, "calc", {}, "test")
     eval_tool = EvaluateFormula()
 
     # Simple valid formula evaluation
@@ -238,7 +210,7 @@ def test_evaluate_formula():
     assert res_text.get("result") == "Hello World", f"Expected 'Hello World', got {res_text.get('result')}"
 
     # Relative formula evaluation utilizing copied sheet cell values
-    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+    active_sheet = doc.getCurrentController().getActiveSheet()
     active_sheet.getCellByPosition(0, 0).setValue(10.0) # A1
     active_sheet.getCellByPosition(1, 0).setValue(20.0) # B1
 
@@ -251,4 +223,3 @@ def test_evaluate_formula():
     assert res_err.get("status") == "error", f"Expected error status, got {res_err}"
     assert "error_code" in res_err, f"Expected error_code in response: {res_err}"
     assert "#DIV/0!" in res_err.get("message", ""), f"Expected division by zero message, got {res_err.get('message')}"
-

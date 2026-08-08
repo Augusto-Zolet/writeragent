@@ -1,12 +1,13 @@
 from unittest.mock import MagicMock
 
-from plugin.tests.testing_utils import setup_uno_mocks
+from plugin.tests.testing_utils import TestingFactory, setup_uno_mocks
+
 setup_uno_mocks()
 
 # Set up BreakType PAGE_BEFORE constant explicitly if needed for the test
 import sys
-setattr(sys.modules['com.sun.star.style.BreakType'], "PAGE_BEFORE", 4)
 
+setattr(sys.modules["com.sun.star.style.BreakType"], "PAGE_BEFORE", 4)
 
 from plugin.writer.page import (
     GetPageStyleProperties,
@@ -15,16 +16,9 @@ from plugin.writer.page import (
     SetPageColumns,
     InsertPageBreak,
 )
-from plugin.testing_runner import native_test
 
-class MockToolContext:
-    def __init__(self, doc):
-        self.doc = doc
-        self.services = MagicMock()
 
-@native_test
 def test_get_page_style_properties():
-    # Setup mock doc
     doc = MagicMock()
     families = MagicMock()
     page_styles = MagicMock()
@@ -58,12 +52,13 @@ def test_get_page_style_properties():
             "NumberingType": 4,
             "FootnoteHeight": 0,
             "RegisterParagraphStyle": "",
-            "PageStyleLayout": MagicMock(value=0)
+            "PageStyleLayout": MagicMock(value=0),
         }
         return props[name]
+
     style.getPropertyValue.side_effect = get_prop
 
-    ctx = MockToolContext(doc)
+    ctx = TestingFactory.create_context(doc=doc, doc_type="writer")
     tool = GetPageStyleProperties()
     res = tool.execute(ctx, style_name="Standard")
 
@@ -73,7 +68,7 @@ def test_get_page_style_properties():
     assert res["properties"]["header_is_on"] is True
     assert res["properties"]["footer_is_on"] is False
 
-@native_test
+
 def test_set_page_style_properties():
     doc = MagicMock()
     families = MagicMock()
@@ -85,7 +80,7 @@ def test_set_page_style_properties():
     page_styles.hasByName.return_value = True
     page_styles.getByName.return_value = style
 
-    ctx = MockToolContext(doc)
+    ctx = TestingFactory.create_context(doc=doc, doc_type="writer")
     tool = SetPageStyleProperties()
     res = tool.execute(ctx, style_name="Standard", width_mm=300, is_landscape=True, header_is_on=False)
 
@@ -97,7 +92,7 @@ def test_set_page_style_properties():
     style.setPropertyValue.assert_any_call("IsLandscape", True)
     style.setPropertyValue.assert_any_call("HeaderIsOn", False)
 
-@native_test
+
 def test_set_header_footer_text():
     doc = MagicMock()
     families = MagicMock()
@@ -112,7 +107,7 @@ def test_set_header_footer_text():
     header_text_obj = MagicMock()
     style.getPropertyValue.return_value = header_text_obj
 
-    ctx = MockToolContext(doc)
+    ctx = TestingFactory.create_context(doc=doc, doc_type="writer")
     tool = SetHeaderFooterText()
     res = tool.execute(ctx, style_name="Standard", region="header", content="My Header Content")
 
@@ -122,7 +117,7 @@ def test_set_header_footer_text():
     style.setPropertyValue.assert_called_with("HeaderIsOn", True)
     header_text_obj.setString.assert_called_with("My Header Content")
 
-@native_test
+
 def test_set_page_columns():
     doc = MagicMock()
     families = MagicMock()
@@ -140,20 +135,19 @@ def test_set_page_columns():
     col2 = MagicMock()
     text_columns.getColumns.return_value = (col1, col2)
 
-    ctx = MockToolContext(doc)
+    ctx = TestingFactory.create_context(doc=doc, doc_type="writer")
     tool = SetPageColumns()
     res = tool.execute(ctx, style_name="Standard", column_count=2, spacing_mm=5)
 
     assert res["status"] == "ok"
     text_columns.setColumnCount.assert_called_with(2)
 
-    # Check spacing
     assert col1.RightMargin == 250
     assert col2.LeftMargin == 250
     text_columns.setColumns.assert_called_with((col1, col2))
     style.setPropertyValue.assert_called_with("TextColumns", text_columns)
 
-@native_test
+
 def test_insert_page_break():
     doc = MagicMock()
     controller = MagicMock()
@@ -166,10 +160,10 @@ def test_insert_page_break():
     view_cursor.getText.return_value = text_obj
     text_obj.createTextCursorByRange.return_value = text_cursor
 
-    ctx = MockToolContext(doc)
+    ctx = TestingFactory.create_context(doc=doc, doc_type="writer")
     tool = InsertPageBreak()
     res = tool.execute(ctx)
 
     assert res["status"] == "ok"
-    text_cursor.setPropertyValue.assert_called_with("BreakType", 4) # PAGE_BEFORE
+    text_cursor.setPropertyValue.assert_called_with("BreakType", 4)  # PAGE_BEFORE
     text_obj.insertControlCharacter.assert_called_with(text_cursor, 0, False)

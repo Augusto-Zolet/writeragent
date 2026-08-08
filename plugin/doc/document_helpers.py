@@ -34,7 +34,7 @@ from enum import Enum, auto
 from plugin.calc.bridge import CalcBridge
 from plugin.calc.analyzer import SheetAnalyzer
 from plugin.framework.constants import CHAT_DOCUMENT_CONTEXT_MAX_CHARS
-from plugin.framework.uno_context import get_active_document as get_active_doc
+from plugin.framework.uno_context import get_active_document
 from plugin.framework.errors import UnoObjectError, check_disposed, safe_call, safe_uno_call
 from plugin.framework.thread_guard import main_thread_only, _wrap_uno
 
@@ -1512,7 +1512,7 @@ class DocumentService(ServiceBase):
         pass
 
     def get_active_document(self):
-        return get_active_doc()
+        return get_active_document()
 
     def resolve_document_by_url(self, url):
         """Resolve (doc, doc_type) by document URL; (None, None) if not found. Main-thread only."""

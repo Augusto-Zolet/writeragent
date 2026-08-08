@@ -69,10 +69,6 @@ def _unwrap_single_cell(py_data: Any) -> Any:
     return val
 
 
-# Tests and legacy imports
-_is_scalar_index_arg = is_scalar_index_arg
-
-
 def result_to_calc_grid(result: Any, *, include_dataframe_header: bool = True) -> Any:
     """Normalize worker results for Calc consumers.
 
@@ -181,10 +177,6 @@ class WorkerResultSession:
         self.raw = raw
         self.flat = tuple(flat)
         self.next_index = 0
-
-
-# Legacy alias for tests
-_WorkerResultSession = WorkerResultSession
 
 
 def scalar_for_list_result(ctx: Any, code: str, result: Any, *, worker_data: Any = None) -> float | str | bool:
@@ -585,10 +577,6 @@ def finalize_python_return(
 
     return to_calc_compatible(result)
 
-
-
-# Backward-compatible alias for tests and callers.
-_insert_image_result_on_sheet = insert_image_result_on_sheet
 
 
 def _format_error_for_display(exc: BaseException) -> str:

@@ -15,20 +15,12 @@ from plugin.testing_runner import setup, teardown, native_test
 from plugin.tests.testing_utils import TestingFactory
 
 
-_test_doc: Any = None
-_test_ctx: Any = None
+from plugin.testing_runner import native_test
+from plugin.tests.testing_utils import TestingFactory, with_native_doc
 
 
-@setup
-def setup_doc_helpers_tests(ctx):
-    global _test_doc, _test_ctx
-    _test_ctx = ctx
-
-    _test_doc = TestingFactory.create_native_doc(ctx, "writer", hidden=True)
-    assert _test_doc is not None, "Could not create hidden test writer document"
-
-    # 1. Setup doc content
-    text = _test_doc.getText()
+def _populate_doc_helpers(doc):
+    text = doc.getText()
     cursor = text.createTextCursor()
 
     # H1
@@ -62,51 +54,35 @@ def setup_doc_helpers_tests(ctx):
     cursor.setPropertyValue("ParaStyleName", "Heading 1")
 
     # Populate cache.length
-    get_document_length(_test_doc)
-
-
-@teardown
-def teardown_doc_helpers_tests(ctx):
-    global _test_doc, _test_ctx
-    if _test_doc:
-        _test_doc.close(True)
-    _test_doc = None
-    _test_ctx = None
+    get_document_length(doc)
 
 
 @native_test
-def test_ensure_heading_bookmarks():
-    ensure_heading_bookmarks(_test_doc)
-    bookmarks = _test_doc.getBookmarks()
+@with_native_doc("writer")
+def test_ensure_heading_bookmarks(ctx, doc):
+    _populate_doc_helpers(doc)
+    ensure_heading_bookmarks(doc)
+    bookmarks = doc.getBookmarks()
     bnames = bookmarks.getElementNames()
     assert len(bnames) == 3, f"ensure_heading_bookmarks created {len(bnames)} bookmarks instead of 3"
 
     # Running ensure_heading_bookmarks again should not duplicate
-    ensure_heading_bookmarks(_test_doc)
-    bnames = _test_doc.getBookmarks().getElementNames()
+    ensure_heading_bookmarks(doc)
+    bnames = doc.getBookmarks().getElementNames()
     assert len(bnames) == 3, f"ensure_heading_bookmarks duplicated bookmarks, total: {len(bnames)}"
 
 
 @native_test
-def test_get_paragraph_ranges():
-    ranges = get_paragraph_ranges(_test_doc)
+@with_native_doc("writer")
+def test_get_paragraph_ranges(ctx, doc):
+    _populate_doc_helpers(doc)
+    ranges = get_paragraph_ranges(doc)
     assert len(ranges) == 5, f"get_paragraph_ranges expected 5 paragraphs, got {len(ranges)}"
 
 
 @native_test
-def test_get_string_without_tracked_deletions_hides_deleted_text():
-    import uno
-
-    desktop = get_desktop(_test_ctx)
-    hidden_prop = uno.createUnoStruct(
-        "com.sun.star.beans.PropertyValue",
-        Name="Hidden",
-        Value=True,
-    )
-    doc = desktop.loadComponentFromURL("private:factory/swriter", "_blank", 0, (hidden_prop,))
-    assert doc is not None, "Could not create hidden Writer document"
-
-    try:
+def test_get_string_without_tracked_deletions_hides_deleted_text(ctx):
+    with TestingFactory.native_doc(ctx, "writer") as doc:
         text = doc.getText()
         cursor = text.createTextCursor()
         text.insertString(cursor, "Alpha Beta", False)
@@ -125,24 +101,11 @@ def test_get_string_without_tracked_deletions_hides_deleted_text():
 
         redline_enum = doc.getRedlines().createEnumeration()
         assert redline_enum.hasMoreElements(), "Expected a tracked deletion redline"
-    finally:
-        doc.close(True)
 
 
 @native_test
-def test_get_document_context_for_chat_hides_tracked_deletions():
-    import uno
-
-    desktop = get_desktop(_test_ctx)
-    hidden_prop = uno.createUnoStruct(
-        "com.sun.star.beans.PropertyValue",
-        Name="Hidden",
-        Value=True,
-    )
-    doc = desktop.loadComponentFromURL("private:factory/swriter", "_blank", 0, (hidden_prop,))
-    assert doc is not None, "Could not create hidden Writer document"
-
-    try:
+def test_get_document_context_for_chat_hides_tracked_deletions(ctx):
+    with TestingFactory.native_doc(ctx, "writer") as doc:
         text = doc.getText()
         cursor = text.createTextCursor()
         text.insertString(cursor, "Hello Beta", False)
@@ -153,28 +116,15 @@ def test_get_document_context_for_chat_hides_tracked_deletions():
         cursor.goRight(4, True)
         cursor.setString("")
 
-        ctx = get_document_context_for_chat(doc, include_selection=False)
+        ctx_str = get_document_context_for_chat(doc, include_selection=False)
 
-        assert "Hello " in ctx
-        assert "Beta" not in ctx
-    finally:
-        doc.close(True)
+        assert "Hello " in ctx_str
+        assert "Beta" not in ctx_str
 
 
 @native_test
-def test_writer_streamed_rewrite_session_collapses_chunked_edit():
-    import uno
-
-    desktop = get_desktop(_test_ctx)
-    hidden_prop = uno.createUnoStruct(
-        "com.sun.star.beans.PropertyValue",
-        Name="Hidden",
-        Value=True,
-    )
-    doc = desktop.loadComponentFromURL("private:factory/swriter", "_blank", 0, (hidden_prop,))
-    assert doc is not None, "Could not create hidden Writer document"
-
-    try:
+def test_writer_streamed_rewrite_session_collapses_chunked_edit(ctx):
+    with TestingFactory.native_doc(ctx, "writer") as doc:
         text = doc.getText()
         cursor = text.createTextCursor()
         text.insertString(cursor, "Alpha Beta", False)
@@ -210,13 +160,13 @@ def test_writer_streamed_rewrite_session_collapses_chunked_edit():
         full_range_undo.gotoStart(False)
         full_range_undo.gotoEnd(True)
         assert get_string_without_tracked_deletions(full_range_undo) == "Alpha Beta"
-    finally:
-        doc.close(True)
 
 
 @native_test
-def test_build_heading_tree():
-    tree = build_heading_tree(_test_doc)
+@with_native_doc("writer")
+def test_build_heading_tree(ctx, doc):
+    _populate_doc_helpers(doc)
+    tree = build_heading_tree(doc)
     assert "children" in tree and len(tree["children"]) == 2, "build_heading_tree did not find 2 root children"
     h1 = tree["children"][0]
     h2 = tree["children"][1]
@@ -228,12 +178,14 @@ def test_build_heading_tree():
 
 
 @native_test
-def test_resolve_locator():
-    res1 = resolve_locator(_test_doc, "paragraph:1")
+@with_native_doc("writer")
+def test_resolve_locator(ctx, doc):
+    _populate_doc_helpers(doc)
+    res1 = resolve_locator(doc, "paragraph:1")
     assert res1 and res1["para_index"] == 1, f"resolve_locator paragraph:1 failed: {res1}"
 
-    res2 = resolve_locator(_test_doc, "heading:2") # should be index 4 (H2)
+    res2 = resolve_locator(doc, "heading:2") # should be index 4 (H2)
     assert res2 and res2["para_index"] == 4, f"resolve_locator heading:2 failed: {res2}"
 
-    res3 = resolve_locator(_test_doc, "heading:1.1") # should be index 2 (H1.1)
+    res3 = resolve_locator(doc, "heading:1.1") # should be index 2 (H1.1)
     assert res3 and res3["para_index"] == 2, f"resolve_locator heading:1.1 failed: {res3}"

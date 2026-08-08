@@ -1,18 +1,11 @@
 # WriterAgent Roadmap 🗺️
 
 **High Priority / Immediate Action**:
-- **Consolidate Test Infrastructure**: Create a `TestingFactory` in `plugin/tests/testing_utils.py` to provide a unified way to setup/teardown document instances and ToolContexts for both native (LO) and mock (pytest) environments. This will significantly reduce test boilerplate and enforce engineering standards for all new features.
+- **Consolidate Test Infrastructure**: Create a `TestingFactory` in `tests/testing_utils.py` to provide a unified way to setup/teardown document instances and ToolContexts for both native (LO) and mock (pytest) environments. This will significantly reduce test boilerplate and enforce engineering standards for all new features.
 
 ---
 
-
----
-**Bugreport**: One last thing I noticed, though possibly it already might have been fixed by now. Sometimes the sidebar chat acts a bit counterintuitively in copies of documents.
-A few times I had the impression that two copies ended up sharing the same chat history. When I had interacted with a model in one of the two files, after I had made the copies, the chat history also turned up in the second document; when I cleared the chat history in the second document it was also gone in the first. However, it appeared that this had 'unlinked' both documents' chat histories.
-
----
-
-**Last Updated**: 2026-06-29
+**Last Updated**: 2026-08-08
 **Status**: Active Development
 
 This document outlines the planned features, improvements, and technical debt to address in WriterAgent. Items are organized by priority and domain.
@@ -283,17 +276,15 @@ The original plan text is preserved below for historical context.
 ## 🛠️ Technical Improvements
 
 ### 5. **Test Infrastructure Consolidation** 🧪
-**Files**: `plugin/tests/testing_utils.py`
-**Status**: Identified opportunity
+**Files**: `tests/testing_utils.py`
+**Status**: In progress (stubs + factory)
 
-- [ ] Create reusable mock factory functions
-  - `create_mock_ctx()` - standardized context mock
-  - `create_mock_document()` - with service support
-  - `create_mock_cursor()` - with positioning
-  - `create_mock_page()` - for Draw/Impress tests
-- [ ] Consolidate duplicate UNO mocks across test files
-- [ ] Add common test patterns and assertions
-- [ ] Document testing best practices
+- [x] **Shared stubs via `TestingFactory`**: `create_doc` returns `WriterDocStub` / `CalcDocStub` (no MagicMock wrapper); `create_context` for ToolContext; native path requires `doc=` + `@with_native_doc`
+- [x] **Calc document stub**: sheet/cell/range, `queryContentCells`, doc props/listeners; high-churn Calc pytest stacks migrated
+- [x] **Writer factory cleanup**: stub-by-default; `test_styles.py` uses `items=` families; removed unused `setup_tool`; mail_merge refactor docs updated
+- [x] **Common native pattern**: `TestingFactory.execute_tool` + `create_context(..., services=)`; Calc/Impress `_uno` helpers migrated; fake-native `test_page_uno.py` demoted to pytest `test_page.py`
+- [ ] Consolidate remaining duplicate UNO mocks (deferred: Calc number-format stacks in `test_cells.py`; cell geometry in `test_calc_utils.py`)
+- [ ] Draw/Impress page stubs only if pytest coverage needs them (not needed today — `supportsService` via stub `doc_type` is enough)
 
 **Impact**: Reduces test code duplication by ~40%
 **Dependencies**: None
@@ -366,7 +357,7 @@ The original plan text is preserved below for historical context.
 ## 🐛 Known Issues & Technical Debt
 
 ### 11. **Tool Registry Improvements** 🔧
-**Files**: `plugin/framework/tool_registry.py`
+**Files**: `plugin/framework/tool.py`
 **Status**: Technical debt
 
 - [ ] Review tool discovery performance
@@ -548,7 +539,7 @@ The original plan text is preserved below for historical context.
 - ✅ Complete Shape API enhancements (with rich formatting, connectors, groups)
 - ✅ Finish Fields domain (full field type support, master/dependent system)
 - ✅ Complete Indexes domain (TOC creation, marks, comprehensive management)
-- [ ] Begin test infrastructure consolidation
+- [x] Begin test infrastructure consolidation (stubs + `TestingFactory.execute_tool`; see §5)
 - [ ] Review and organize documentation files
 - [ ] Add integration tests for new features
 

@@ -17,7 +17,7 @@ from plugin.calc.excel_py_convert.auto_open import (
 )
 from plugin.calc.excel_py_convert.models import ConvertedCell, ConversionReport
 from plugin.calc.excel_py_convert.parse_excel_ooxml import has_excel_python_xlsx
-from plugin.tests.testing_utils import setup_uno_mocks
+from plugin.tests.testing_utils import CalcDocStub, setup_uno_mocks
 
 setup_uno_mocks()
 
@@ -87,30 +87,19 @@ def test_apply_dag_formulas_sets_calc_semicolon_formula():
     )
     report = ConversionReport(direction="dag", cells=[cell])
 
-    spill = MagicMock()
-    anchor = MagicMock()
-    sheet = MagicMock()
-
-    def _range(name: str):
-        if name == "C1":
-            return anchor
-        return spill
-
-    sheet.getCellRangeByName.side_effect = _range
-    sheets = MagicMock()
-    sheets.hasByName.return_value = True
-    sheets.getByName.return_value = sheet
-    doc = MagicMock()
-    doc.getSheets.return_value = sheets
+    doc = CalcDocStub()
+    # Pre-fill a spill cell so clearing is observable.
+    doc.getSheets().getByName("Sheet1").getCellRangeByName("D1").setFormula("=OLD")
 
     errors = apply_dag_formulas_to_calc_doc(doc, report)
     assert errors == []
-    sheets.insertNewByName.assert_not_called()
-    formula = anchor.setFormula.call_args[0][0]
+    assert not doc.getSheets().hasByName("py_code_Sheet1")
+    sheet = doc.getSheets().getByName("Sheet1")
+    formula = sheet.getCellRangeByName("C1").getFormula()
     assert formula.startswith('=PY("')
     assert "df = pd.DataFrame(data)" in formula
     assert ";A1:B2)" in formula or formula.endswith(";A1:B2)")
-    assert spill.setFormula.called  # spill cells cleared
+    assert sheet.getCellRangeByName("D1").getFormula() == ""  # spill cells cleared
 
 
 def test_apply_dag_formulas_banks_long_scripts():
@@ -127,38 +116,15 @@ def test_apply_dag_formulas_banks_long_scripts():
     )
     report = ConversionReport(direction="dag", cells=[cell])
 
-    anchor = MagicMock()
-    sheet = MagicMock()
-    code_sheet = MagicMock()
-    code_cell = MagicMock()
-    sheet.getCellRangeByName.return_value = anchor
-    code_sheet.getCellRangeByName.return_value = code_cell
-    sheets = MagicMock()
-
-    def _has(name: str) -> bool:
-        return name in ("Sheet1",)
-
-    def _get(name: str):
-        if name == "Sheet1":
-            return sheet
-        if name == "py_code_Sheet1":
-            return code_sheet
-        raise KeyError(name)
-
-    sheets.hasByName.side_effect = _has
-    sheets.getByName.side_effect = _get
-    sheets.getCount.return_value = 1
-    doc = MagicMock()
-    doc.getSheets.return_value = sheets
-
+    doc = CalcDocStub()
     errors = apply_dag_formulas_to_calc_doc(doc, report)
     assert errors == []
-    sheets.insertNewByName.assert_called_once_with("py_code_Sheet1", 1)
-    assert code_cell.setString.called
-    formula = anchor.setFormula.call_args[0][0]
+    assert doc.getSheets().hasByName("py_code_Sheet1")
+    code_sheet = doc.getSheets().getByName("py_code_Sheet1")
+    assert code_sheet.getCellRangeByName("C1").getString() == long_code
+    formula = doc.getSheets().getByName("Sheet1").getCellRangeByName("C1").getFormula()
     assert "py_code_Sheet1.C1" in formula
     assert not formula.startswith('=PY("')
-
 
 def test_script_bank_only_long_scripts_and_mirrors_a1():
     from plugin.calc.excel_py_convert.script_bank import (
@@ -225,8 +191,7 @@ def test_script_bank_only_long_scripts_and_mirrors_a1():
 
 
 def test_maybe_convert_skips_non_candidate(tmp_path: Path):
-    doc = MagicMock()
-    doc.supportsService.return_value = True
+    doc = CalcDocStub()
     with (
         patch("plugin.doc.document_helpers.get_document_path", return_value=None),
         patch("plugin.doc.udprops.get_document_property", return_value=None),
@@ -245,8 +210,7 @@ def test_maybe_convert_skips_non_candidate(tmp_path: Path):
 def test_maybe_convert_fail_closed_leaves_original(tmp_path: Path):
     src = tmp_path / "bad.xlsx"
     _minimal_xlsx(src, with_scripts=True)
-    doc = MagicMock()
-    doc.supportsService.return_value = True
+    doc = CalcDocStub()
     # One cell converted so we pass the "any convertible" gate; overall report.ok is False.
     bad = ConversionReport(
         direction="dag",
@@ -278,14 +242,13 @@ def test_maybe_convert_fail_closed_leaves_original(tmp_path: Path):
     ):
         assert maybe_convert_excel_py_document(MagicMock(), doc) is False
         apply_uno.assert_not_called()
-        doc.close.assert_not_called()
+        assert doc._close_calls == []
 
 
 def test_maybe_convert_uno_marks_converted(tmp_path: Path):
     src = tmp_path / "py.xlsx"
     _minimal_xlsx(src, with_scripts=True)
-    doc = MagicMock()
-    doc.supportsService.return_value = True
+    doc = CalcDocStub()
     ok_cell = ConvertedCell(
         sheet="Sheet1",
         cell="A1",
@@ -309,7 +272,6 @@ def test_maybe_convert_uno_marks_converted(tmp_path: Path):
         assert _CONVERTED_PROP in names
         assert "ExcelPyDagMeta" in names
         set_prop.assert_any_call(doc, _CONVERTED_PROP, "1")
-
 
 def test_install_excel_py_auto_convert_once():
     ctx = MagicMock()
@@ -343,9 +305,9 @@ def test_doc_from_event_disposed_view_controller_returns_none():
 
 
 def test_doc_from_event_disposed_view_controller_falls_back_to_calc_source():
-    source = MagicMock()
-    source.supportsService.return_value = True
-    source.getCurrentController.return_value = None
+    source = CalcDocStub()
+    source.CurrentController = None
+    source._controller = None
     assert _doc_from_event(_DisposedViewControllerEvent(source=source)) is source
 
 
@@ -371,8 +333,7 @@ def test_excel_py_listener_disposed_view_controller_does_not_warn():
 def test_maybe_export_skips_without_py_cells(tmp_path: Path):
     path = tmp_path / "plain.xlsx"
     _minimal_xlsx(path)
-    doc = MagicMock()
-    doc.supportsService.return_value = True
+    doc = CalcDocStub()
     empty = ConversionReport(direction="excel", cells=[])
     with (
         patch("plugin.doc.document_helpers.get_document_path", return_value=str(path)),
@@ -386,8 +347,7 @@ def test_maybe_export_skips_without_py_cells(tmp_path: Path):
 def test_maybe_export_writes_native_package(tmp_path: Path):
     path = tmp_path / "dag.xlsx"
     _minimal_xlsx(path)
-    doc = MagicMock()
-    doc.supportsService.return_value = True
+    doc = CalcDocStub()
     report = ConversionReport(
         direction="excel",
         cells=[
@@ -417,8 +377,7 @@ def test_maybe_export_writes_native_package(tmp_path: Path):
 def test_maybe_export_msgbox_on_failure(tmp_path: Path):
     path = tmp_path / "dag.xlsx"
     _minimal_xlsx(path)
-    doc = MagicMock()
-    doc.supportsService.return_value = True
+    doc = CalcDocStub()
     report = ConversionReport(
         direction="excel",
         cells=[

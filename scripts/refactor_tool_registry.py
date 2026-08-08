@@ -4,9 +4,6 @@
 - Default: read-only AST audit of send-handler FSM string usage (safe).
 - ``--audit-uieffect``: collect ``kind=`` / positional kind strings for UI channel effects.
 - ``--audit-chat-fsm``: send-handler audit plus UI-effect kind audit.
-- ``--tool-registry``: legacy refactor of JSON schema lines in tool_registry.py only.
-
-Do not use the tool-registry rewrite on arbitrary Python files.
 """
 
 from __future__ import annotations
@@ -21,10 +18,8 @@ REPO_ROOT = Path(__file__).resolve().parent
 SEND_HANDLER_AUDIT_PATHS = (
     "plugin/chatbot/state_machine.py",
     "plugin/chatbot/send_handlers.py",
-    "tests/test_state_machine.py",
+    "tests/chatbot/test_state_machine.py",
 )
-
-TOOL_REGISTRY_PATH = "plugin/framework/tool_registry.py"
 
 UI_EFFECT_KIND_PATHS = (
     "plugin/chatbot/tool_loop_state.py",
@@ -201,28 +196,6 @@ def audit_send_handler_fsms(paths: tuple[str, ...] | list[str]) -> int:
     return 0
 
 
-def refactor_tool_registry_status_literals() -> int:
-    """Legacy: add Literal to typing import and rewrite schema status lines in tool_registry."""
-    file_path = REPO_ROOT / TOOL_REGISTRY_PATH
-    if not file_path.is_file():
-        print(f"Missing: {file_path}", file=sys.stderr)
-        return 1
-    content = file_path.read_text(encoding="utf-8")
-    if "from typing import" in content and "Literal" not in content:
-        content = content.replace(
-            "from typing import",
-            "from typing import Literal, ",
-        )
-        print(f"Added Literal to typing import in {TOOL_REGISTRY_PATH}")
-    else:
-        print(f"Literal already imported or no typing import in {TOOL_REGISTRY_PATH}")
-    content = content.replace('"status": "ok"', '"status": Literal["ok"]')
-    content = content.replace('"status": "error"', '"status": Literal["error"]')
-    file_path.write_text(content, encoding="utf-8")
-    print(f"Refactored status fields in {TOOL_REGISTRY_PATH}")
-    return 0
-
-
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -240,15 +213,8 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Run send-handler audit then UI-effect kind audit",
     )
-    parser.add_argument(
-        "--tool-registry",
-        action="store_true",
-        help="Rewrite tool_registry.py schema status strings (destructive)",
-    )
     args = parser.parse_args(argv)
 
-    if args.tool_registry:
-        return refactor_tool_registry_status_literals()
     if args.audit_chat_fsm:
         rc = audit_send_handler_fsms(SEND_HANDLER_AUDIT_PATHS)
         if rc != 0:

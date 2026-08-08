@@ -14,7 +14,6 @@ from typing import Any
 from plugin.scripting._lazy_venv import make_getattr, venv_attr
 from plugin.scripting.helper_domain import (
     DomainFacadeConfig,
-    HelperScriptMeta,
     header_prefix,
     make_template_api,
 )
@@ -97,7 +96,6 @@ __getattr__ = make_getattr("analysis", _ANALYSIS_VENV_EXPORTS - frozenset({"Coer
 
 # --- Templates ---
 
-AnalysisScriptMeta = HelperScriptMeta
 
 _API = make_template_api(
     DomainFacadeConfig(

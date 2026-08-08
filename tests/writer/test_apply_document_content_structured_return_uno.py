@@ -13,31 +13,13 @@
 # keeps the existing abort behavior.) These tests cover single-match, all_matches, and no-match.
 import uno  # noqa: F401
 
-from plugin.testing_runner import native_test, setup, teardown
+from plugin.testing_runner import native_test
 from plugin.writer.content import ApplyDocumentContent
-from plugin.tests.testing_utils import TestingFactory
-
-_test_doc = None
-_test_ctx = None
+from plugin.tests.testing_utils import TestingFactory, with_native_doc
 
 
-@setup
-def my_setup(ctx):
-    global _test_doc, _test_ctx
-    _test_ctx = ctx
-    _test_doc = TestingFactory.create_native_doc(ctx, doc_type="writer", hidden=True)
-
-
-@teardown
-def my_teardown(ctx):
-    global _test_doc
-    if _test_doc:
-        _test_doc.close(True)
-    _test_doc = None
-
-
-def _set_body(text_value):
-    text = _test_doc.getText()
+def _set_body(doc, text_value):
+    text = doc.getText()
     cur = text.createTextCursor()
     cur.gotoStart(False)
     cur.gotoEnd(True)
@@ -46,39 +28,43 @@ def _set_body(text_value):
     text.insertString(cur, text_value, False)
 
 
-def _ctx():
-    return TestingFactory.create_context(doc=_test_doc, ctx=_test_ctx, env="native")
-
-
 @native_test
-def test_single_match_reports_replaced_count_uno():
-    _set_body("alpha foo beta")
-    res = ApplyDocumentContent().execute(_ctx(), target="search", old_content="foo", content="BAR")
+@with_native_doc("writer")
+def test_single_match_reports_replaced_count_uno(ctx, doc):
+    _set_body(doc, "alpha foo beta")
+    tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
+    res = ApplyDocumentContent().execute(tool_ctx, target="search", old_content="foo", content="BAR")
     assert res.get("status") == "ok", res
     assert res.get("replaced_count") == 1, res
 
 
 @native_test
-def test_no_match_reports_zero_and_errors_uno():
+@with_native_doc("writer")
+def test_no_match_reports_zero_and_errors_uno(ctx, doc):
     """The anti silent-failure case: a search that matches nothing must report status=error."""
-    _set_body("nothing relevant here")
-    res = ApplyDocumentContent().execute(_ctx(), target="search", old_content="zzz-not-present", content="BAR")
+    _set_body(doc, "nothing relevant here")
+    tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
+    res = ApplyDocumentContent().execute(tool_ctx, target="search", old_content="zzz-not-present", content="BAR")
     assert res.get("status") == "error", res
     assert res.get("replaced_count") == 0, res
 
 
 @native_test
-def test_all_matches_reports_total_count_uno():
-    _set_body("x foo y foo z foo w")
-    res = ApplyDocumentContent().execute(_ctx(), target="search", old_content="foo", content="BAR", all_matches=True)
+@with_native_doc("writer")
+def test_all_matches_reports_total_count_uno(ctx, doc):
+    _set_body(doc, "x foo y foo z foo w")
+    tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
+    res = ApplyDocumentContent().execute(tool_ctx, target="search", old_content="foo", content="BAR", all_matches=True)
     assert res.get("status") == "ok", res
     assert res.get("replaced_count") == 3, res
 
 
 @native_test
-def test_all_matches_no_match_errors_uno():
-    _set_body("nothing here")
-    res = ApplyDocumentContent().execute(_ctx(), target="search", old_content="zzz", content="BAR", all_matches=True)
+@with_native_doc("writer")
+def test_all_matches_no_match_errors_uno(ctx, doc):
+    _set_body(doc, "nothing here")
+    tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
+    res = ApplyDocumentContent().execute(tool_ctx, target="search", old_content="zzz", content="BAR", all_matches=True)
     assert res.get("status") == "error", res
     assert res.get("replaced_count") == 0, res
     # The consumer's legacy string fallback relies on this exact prefix.
@@ -86,16 +72,20 @@ def test_all_matches_no_match_errors_uno():
 
 
 @native_test
-def test_insert_branch_succeeds_uno():
-    _set_body("seed")
-    res = ApplyDocumentContent().execute(_ctx(), target="end", content="more")
+@with_native_doc("writer")
+def test_insert_branch_succeeds_uno(ctx, doc):
+    _set_body(doc, "seed")
+    tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
+    res = ApplyDocumentContent().execute(tool_ctx, target="end", content="more")
     assert res.get("status") == "ok", res
 
 
 @native_test
-def test_empty_old_content_is_a_parameter_error_uno():
+@with_native_doc("writer")
+def test_empty_old_content_is_a_parameter_error_uno(ctx, doc):
     """old_content that normalizes to empty is a parameter error (like old_content=None), not a
     search no-op: status="error" and the search never ran (no replaced_count)."""
-    _set_body("some content here")
-    res = ApplyDocumentContent().execute(_ctx(), target="search", old_content="   ", content="BAR")
+    _set_body(doc, "some content here")
+    tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
+    res = ApplyDocumentContent().execute(tool_ctx, target="search", old_content="   ", content="BAR")
     assert res.get("status") == "error", res

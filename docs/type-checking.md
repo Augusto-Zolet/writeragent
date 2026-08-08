@@ -67,11 +67,11 @@ All three tools share **`types-unopy`**, **`make fix-uno`**, and the same **`plu
 
 ### `dict` payload widening
 
-- If the first assignments build a **`dict[str, str]`**, later **`payload["details"] = {...}`** can fail in Pyright. **`ty`** may not flag the same. **Fix**: annotate **`payload: dict[str, Any]`** or **`cast(dict[str, Any], ...)`** (**`format_error_payload`**, **`tool_registry`** merges).
+- If the first assignments build a **`dict[str, str]`**, later **`payload["details"] = {...}`** can fail in Pyright. **`ty`** may not flag the same. **Fix**: annotate **`payload: dict[str, Any]`** or **`cast(dict[str, Any], ...)`** (**`format_error_payload`**, tool schema merges in **`tool.py`**).
 
 ### `getattr` / UNO context chains
 
-- Nested patterns like **`getattr(ctx_any, "ServiceManager", getattr(ctx_any, "getServiceManager", lambda: None)())`** triggered **`reportAttributeAccessIssue`** / optional access on **`Any`**. **Fix**: small helper or sequential **`getattr`** + **`callable`** checks, **`assert smgr is not None`**, then **`cast(Any, smgr).createInstanceWithContext(...)`** (**`uno_context`**, **`dialogs._load_xdl`**, [**`image_tools`**](../plugin/writer/image_tools.py), **`queue_executor`**, **`main`** icon loading).
+- Nested patterns like **`getattr(ctx_any, "ServiceManager", getattr(ctx_any, "getServiceManager", lambda: None)())`** triggered **`reportAttributeAccessIssue`** / optional access on **`Any`**. **Fix**: small helper or sequential **`getattr`** + **`callable`** checks, **`assert smgr is not None`**, then **`cast(Any, smgr).createInstanceWithContext(...)`** (**`uno_context`**, **`dialogs._load_xdl`**, [**`images.py`**](../plugin/writer/images/images.py), **`queue_executor`**, **`main`** icon loading).
 
 ### Import / branch typing quirks
 

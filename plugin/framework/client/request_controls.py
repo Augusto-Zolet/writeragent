@@ -9,7 +9,8 @@ import logging
 import time
 from typing import Callable
 
-from .ssl_helpers import _is_certificate_verify_error, _is_local_host
+from .ssl_helpers import _is_certificate_verify_error
+from .provider_detection import is_local_host
 
 log = logging.getLogger(__name__)
 
@@ -50,13 +51,13 @@ class LocalHttpsCertificateFallback:
         """Return ``verified``, ``unverified``, or ``plain`` for the next connection."""
         if scheme != "https":
             return "plain"
-        if _is_local_host(host) and host not in self._fallback_hosts:
+        if is_local_host(host) and host not in self._fallback_hosts:
             return "verified"
         return "unverified"
 
     def enable_if_applicable(self, host: str, err: BaseException) -> bool:
         """Enable unverified retry for a local host after certificate validation fails."""
-        if not host or not _is_local_host(host) or not _is_certificate_verify_error(err):
+        if not host or not is_local_host(host) or not _is_certificate_verify_error(err):
             return False
         if host in self._fallback_hosts:
             return False

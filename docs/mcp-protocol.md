@@ -16,9 +16,11 @@ what to consider doing next.
 
 ## Current HTTP MCP (2026)
 
-**Enable:** Settings → **Enable MCP Server** (`mcp.mcp_enabled`, default off). Default port **8765** (`mcp.mcp_port`).
+**Enable:** Settings → **Enable MCP Server** (`mcp.mcp_enabled`, default off). Default port **18765** (`mcp.mcp_port`).
 
-**Client URL:** `http://localhost:8765/mcp` (streamable HTTP / JSON-RPC 2.0). External clients must include the `/mcp` path (not the server base URL alone).
+**Client URL:** `http://localhost:18765/mcp` (streamable HTTP / JSON-RPC 2.0). External clients must include the `/mcp` path (not the server base URL alone).
+
+**Start failures:** If the HTTP listener cannot bind (usually port already in use), Toggle / Settings / Status show `host:port`, the exception line, and guidance to free the port or change `mcp.mcp_port` — not only “check the debug log”. Port conflicts do not offer Report bug. Full traceback remains in `writeragent_debug.log`. Formatter: `format_mcp_start_failure` in [`plugin/mcp/server.py`](../plugin/mcp/server.py).
 
 | Method | Path | Purpose |
 |--------|------|---------|
@@ -38,7 +40,7 @@ what to consider doing next.
 
 ### Live smoke test (running LibreOffice)
 
-Use [`scripts/mcp_live_smoke.py`](../scripts/mcp_live_smoke.py) when LibreOffice is already open with WriterAgent and MCP enabled. It does **not** start `soffice`; it checks `/health`, `tools/list`, then calls `apply_document_content` with plain text at `target=end` (default) so you can confirm edits **on screen** in the active Writer window. The chat sidebar shows `[MCP Result]` for JSON-RPC `tools/call` (not for `--use-debug`). Default host is **localhost** (port 8765).
+Use [`scripts/mcp_live_smoke.py`](../scripts/mcp_live_smoke.py) when LibreOffice is already open with WriterAgent and MCP enabled. It does **not** start `soffice`; it checks `/health`, `tools/list`, then calls `apply_document_content` with plain text at `target=end` (default) so you can confirm edits **on screen** in the active Writer window. The chat sidebar shows `[MCP Result]` for JSON-RPC `tools/call` (not for `--use-debug`). Default host is **localhost** (port 18765).
 
 ```bash
 python scripts/mcp_live_smoke.py
@@ -58,7 +60,7 @@ CORS must allow every header the client names in `Access-Control-Request-Headers
 Verify preflight from a shell:
 
 ```bash
-curl -i -X OPTIONS 'http://localhost:8765/mcp' \
+curl -i -X OPTIONS 'http://localhost:18765/mcp' \
   -H 'Origin: http://localhost:3000' \
   -H 'Access-Control-Request-Method: POST' \
   -H 'Access-Control-Request-Headers: content-type, Mcp-Protocol-Version, Mcp-Session-Id'
@@ -119,7 +121,7 @@ This section is for **future** changes if you need HTTP/1.1 on the wire (some pr
 Commit `2418a7b9` added `protocol_version = "HTTP/1.1"` on the MCP HTTP handler. Shortly after, shell clients reported:
 
 ```bash
-curl -X POST http://127.0.0.1:8765/mcp -H 'Content-Type: application/json' \
+curl -X POST http://127.0.0.1:18765/mcp -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 ```
 
@@ -150,7 +152,7 @@ Quick confirmation from a shell:
 
 ```bash
 # If this works but default curl hangs, suspect Expect / HTTP/1.1:
-curl -v -H 'Expect:' -X POST http://127.0.0.1:8765/mcp \
+curl -v -H 'Expect:' -X POST http://127.0.0.1:18765/mcp \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 ```
@@ -333,7 +335,7 @@ There is **no** per-MCP-client or per-TCP-connection LLM profile. A Cursor sessi
 **Could this change?** Yes, but it is awkward:
 
 - A per-connection override (e.g. “this MCP client uses endpoint B”) would need to live on the **HTTP session** (`Mcp-Session-Id` or similar) or a client-identifying header, not a single global `writeragent.json` key—otherwise two clients would fight over one setting.
-- **Multiple MCP servers** (e.g. two LibreOffice processes on ports 8765 and 8766) are uncommon but possible. Each process has its own config file path only if it uses a **different LibreOffice user profile**; two instances sharing one profile still share one `writeragent.json` and the same API keys. Only one process can bind a given port on `localhost`.
+- **Multiple MCP servers** (e.g. two LibreOffice processes on ports 18765 and 18766) are uncommon but possible. Each process has its own config file path only if it uses a **different LibreOffice user profile**; two instances sharing one profile still share one `writeragent.json` and the same API keys. Only one process can bind a given port on `localhost`.
 - Any future per-client endpoint feature must **not** assume a single global “MCP model” key; design for **session-scoped** or **instance-scoped** settings so a second server or parallel client does not break the first.
 
 Until then, document for users: **point MCP at `http://localhost:<port>/mcp`, enable MCP in Settings, and configure the chat endpoint for WriterAgent—the inner sub-agent uses that stack.**
@@ -405,7 +407,7 @@ The MCP server is **implemented and opt-in** (default off). Summary:
     - General agents / Hermes: https://github.com/KeithCu/libreoffice-skill (SKILL.md with targeting best practices).
 
   This design avoids races when multiple documents or users are involved; “active document only” was not used.
-- **Config**: `mcp_enabled` (default false), `mcp_port` (default 8765). Documented in `core/config.py`.
+- **Config**: `mcp_enabled` (default false), `mcp_port` (default 18765). Documented in `core/config.py`.
 - **Settings**: MCP section on **Page 1** of the Settings dialog (no separate tab): “Enable MCP Server” checkbox, Port field, “Localhost only, no auth.” label. Dialog layout was compacted so short fields share rows and the OK button sits at the bottom with minimal gap.
 - **Menu**: “Toggle MCP Server” and “MCP Server Status” under WriterAgent. Status dialog shows RUNNING/STOPPED, port, URL, and health check.
 - **Auto-start**: When the user saves Settings with MCP enabled, the server (and timer) start if not already running.
@@ -488,7 +490,7 @@ Supporting HTTP routes: **`GET /health`**, **`GET /`** (server info and `mcp_end
 
 WriterAgent's live server speaks **JSON-RPC 2.0 over HTTP** on `POST /mcp` (streamable HTTP). That works directly with Cursor and other HTTP-capable MCP hosts.
 
-Clients that only support **stdio** (e.g. Claude Desktop spawning a subprocess) cannot connect to `http://localhost:8765/mcp` natively. Use the shipped stdio bridge instead.
+Clients that only support **stdio** (e.g. Claude Desktop spawning a subprocess) cannot connect to `http://localhost:18765/mcp` natively. Use the shipped stdio bridge instead.
 
 ### Stdio bridge (`scripts/mcp_bridge.py`)
 
@@ -509,7 +511,7 @@ The bridge is a **pure-stdlib** stdio MCP server that forwards JSON-RPC to Libre
 
 | Env var | Default | Purpose |
 |---------|---------|---------|
-| `WRITERAGENT_MCP_URL` | `http://localhost:8765/mcp` | Target MCP endpoint |
+| `WRITERAGENT_MCP_URL` | `http://localhost:18765/mcp` | Target MCP endpoint |
 | `WRITERAGENT_MCP_PROTOCOL` | `2025-11-25` (keep in sync with [`wire_types.py`](../plugin/mcp/wire_types.py)) | Protocol version in placeholder `initialize` when LO is down |
 
 **When LibreOffice is down at handshake:** `initialize` still succeeds locally (placeholder `instructions`, `tools.listChanged: true`); `tools/list` returns `[]`; other methods return a clear "not reachable" error. A background watcher emits `notifications/tools/list_changed` when `/health` transitions to up, so tools refresh **without restarting the MCP client**.

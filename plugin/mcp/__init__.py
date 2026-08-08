@@ -22,7 +22,7 @@ from typing import Any
 
 from plugin.framework.module_base import ModuleBase
 from plugin.mcp.cors import reload_cors_policy_from_config
-from plugin.mcp.server import mcp_endpoint_url
+from plugin.mcp.server import mcp_endpoint_url, format_mcp_start_failure, is_port_in_use_error
 
 log = logging.getLogger("writeragent.http")
 
@@ -33,6 +33,12 @@ _primary_http_module: "McpModule | None" = None
 _shared_registry: Any = None
 _shared_http_server: Any = None
 _http_peer_lock = threading.Lock()
+
+# Last failed start — module-level so peer McpModule instances (second bootstrap) see the same
+# reason when Toggle/Status run on a non-primary instance. Cleared on successful start.
+_last_start_error: BaseException | None = None
+_last_start_host: str = "localhost"
+_last_start_port: Any = None
 
 
 class McpModule(ModuleBase):
@@ -129,14 +135,65 @@ class McpModule(ModuleBase):
 
         bound = self._bound_http_server()
         if enabled and not (bound and bound.is_running()):
-            self._start_server(self._services)
+            ok = self._start_server(self._services)
+            # Settings OK emits bulk config:changed with an empty key. Show the failure there
+            # (user-initiated). Toggle uses mcp_enabled key then shows its own dialog — skip
+            # that key here to avoid a double msgbox. Bootstrap never goes through this path.
+            if not ok and not key:
+                self._show_start_failure_dialog(data.get("ctx"))
         elif not enabled and bound:
             self._stop_server()
 
-    def _start_server(self, services):
+    def _clear_start_failure(self) -> None:
+        global _last_start_error, _last_start_host, _last_start_port
+        _last_start_error = None
+        _last_start_host = "localhost"
+        _last_start_port = None
+
+    def _record_start_failure(self, host: str, port: Any, exc: BaseException) -> None:
+        global _last_start_error, _last_start_host, _last_start_port
+        _last_start_error = exc
+        _last_start_host = host or "localhost"
+        _last_start_port = port
+
+    def _formatted_start_failure(self) -> str:
+        if _last_start_error is None:
+            return ""
+        port = _last_start_port if _last_start_port is not None else "?"
+        return format_mcp_start_failure(_last_start_host, port, _last_start_error)
+
+    def _start_failure_reportable(self) -> bool:
+        # Port conflicts are local config, not product bugs — don't nudge a GitHub report.
+        if _last_start_error is None:
+            return True
+        return not is_port_in_use_error(_last_start_error)
+
+    def _show_start_failure_dialog(self, ctx=None) -> None:
+        from plugin.chatbot.dialogs import msgbox_with_report
+        from plugin.framework.i18n import _
+        from plugin.framework.uno_context import get_ctx
+
+        if ctx is None:
+            ctx = get_ctx()
+        detail = self._formatted_start_failure()
+        if detail:
+            message = _("MCP server failed to start") + "\n" + detail
+        else:
+            message = _("MCP server failed to start") + "\n" + _("Check writeragent_debug.log in your LibreOffice user config folder")
+        msgbox_with_report(
+            ctx,
+            "WriterAgent",
+            message,
+            box_type=3,
+            reportable=self._start_failure_reportable(),
+            report_title="MCP server failed to start",
+            report_extra=detail,
+        )
+
+    def _start_server(self, services) -> bool:
         import os
         if os.environ.get("WRITERAGENT_TESTING"):
-            return
+            return True
 
         global _shared_http_server
         from plugin.mcp.server import HttpServer
@@ -146,12 +203,23 @@ class McpModule(ModuleBase):
         with self._srv_lock:
             bound = self._bound_http_server()
             if bound is not None and bound.is_running():
-                return
+                self._clear_start_failure()
+                return True
 
             cfg = services.config.proxy_for(self.name)
             event_bus = getattr(services, "events", None)
+            host = cfg.get("host") or "localhost"
+            port = cfg.get("mcp_port")
 
-            srv = HttpServer(route_registry=self._registry, port=cfg.get("port") or cfg.get("mcp_port") or 8765, host=cfg.get("host") or "localhost", use_ssl=cfg.get("use_ssl") or False, ssl_cert=cfg.get("ssl_cert") or "", ssl_key=cfg.get("ssl_key") or "")
+            # Schema default is mcp/module.yaml mcp_port; ConfigService supplies it when unset.
+            srv = HttpServer(
+                route_registry=self._registry,
+                port=port,
+                host=host,
+                use_ssl=cfg.get("use_ssl") or False,
+                ssl_cert=cfg.get("ssl_cert") or "",
+                ssl_key=cfg.get("ssl_key") or "",
+            )
             try:
                 srv.start()
                 if event_bus:
@@ -161,12 +229,18 @@ class McpModule(ModuleBase):
                     event_bus.emit("menu:update")
                 self._server = srv
                 _shared_http_server = srv
-            except Exception:
+                self._clear_start_failure()
+                return True
+            except Exception as e:
+                # Stash for Toggle/Status/Settings UI — previously only log.exception left a trail
+                # and the dialog said "check the debug log" with no host/port or bind reason (#379).
                 log.exception("Failed to start HTTP server")
+                self._record_start_failure(host, port, e)
                 try:
                     srv.stop()
                 except Exception:
                     log.debug("HttpServer.stop after failed start", exc_info=True)
+                return False
 
     def _stop_server(self):
         global _shared_http_server
@@ -281,17 +355,18 @@ class McpModule(ModuleBase):
                 mcp_url = status.get("mcp_url", status.get("url", ""))
                 msgbox(ctx, "WriterAgent", _("MCP server started") + "\n{0}".format(mcp_url))
             else:
-                from plugin.chatbot.dialogs import msgbox_with_report
-                from plugin.framework.i18n import _
+                self._show_start_failure_dialog(ctx)
 
-                msgbox_with_report(
-                    ctx,
-                    "WriterAgent",
-                    _("MCP server failed to start") + "\n" + _("Check writeragent_debug.log in your LibreOffice user config folder"),
-                    box_type=3,
-                    reportable=True,
-                    report_title="MCP server failed to start",
-                )
+    def _not_running_status_message(self) -> str:
+        from plugin.framework.i18n import _
+
+        msg = _("MCP server is not running")
+        detail = self._formatted_start_failure()
+        if detail:
+            # One short reason: first line is host:port + exception; enough for Status.
+            first = detail.split("\n", 1)[0]
+            msg = msg + "\n" + first
+        return msg
 
     def _action_server_status(self):
         import unohelper
@@ -303,13 +378,13 @@ class McpModule(ModuleBase):
         ctx = get_ctx()
         b = self._bound_http_server()
         if not b:
-            msgbox(ctx, "WriterAgent", _("MCP server is not running"))
+            msgbox(ctx, "WriterAgent", self._not_running_status_message())
             return
 
         status = b.get_status()
         running = status.get("running", False)
         if not running:
-            msgbox(ctx, "WriterAgent", _("MCP server is not running"))
+            msgbox(ctx, "WriterAgent", self._not_running_status_message())
             return
 
         url = status.get("mcp_url", status.get("url", "?"))
@@ -357,7 +432,7 @@ class McpModule(ModuleBase):
 
     def _mcp_endpoint_from_config(self):
         cfg = self._services.config.proxy_for(self.name)
-        return mcp_endpoint_url(cfg.get("host") or "localhost", cfg.get("port") or cfg.get("mcp_port") or 8765, bool(cfg.get("use_ssl")))
+        return mcp_endpoint_url(cfg.get("host") or "localhost", cfg.get("mcp_port"), bool(cfg.get("use_ssl")))
 
     def _handle_info(self, body, headers, query):
         log.info("Request: GET / (info) from %s", headers.get("User-Agent"))

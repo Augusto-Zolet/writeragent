@@ -10,7 +10,6 @@ import logging
 import traceback
 from typing import Any
 
-from plugin.draw.base import ToolDrawPptMasterBase
 from plugin.framework.tool import ToolBase, ToolContext
 
 log = logging.getLogger(__name__)
@@ -129,5 +128,4 @@ class PptMasterSessionTool(ToolBase):
             return format_error_payload(err)
 
 
-# Re-export for tests that import ppt-master domain tool base.
-__all__ = ["PptMasterSessionTool", "ToolDrawPptMasterBase"]
+__all__ = ["PptMasterSessionTool"]

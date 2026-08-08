@@ -125,9 +125,6 @@ class PythonFunction(SingleFunctionAddInBase, _XPythonFunctionBase):  # pyright:
         return "org.extension.writeragent.PythonFunction"
 
 
-# Back-compat alias from the split refactor.
-PythonAddIn = PythonFunction
-
 g_ImplementationHelper = unohelper.ImplementationHelper()
 g_ImplementationHelper.addImplementation(
     PythonFunction,

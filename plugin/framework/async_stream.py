@@ -23,7 +23,6 @@ to keep the LibreOffice UI responsive (pump_ui_idle: QueueExecutor + VCL).
 
 from __future__ import annotations
 
-import importlib
 import json
 import logging
 import queue
@@ -33,21 +32,7 @@ from enum import Enum
 from typing import Any, TypeAlias, Callable, cast
 
 from plugin.framework.worker_pool import run_in_background
-
-log = logging.getLogger(__name__)
-
-deal: Any
-try:
-    deal = importlib.import_module("deal")
-except ImportError:
-
-    class _DummyDeal:
-        def __getattr__(self, name: str) -> Any:
-            return lambda *args, **kwargs: lambda f: f
-
-    deal = _DummyDeal()
-
-
+from plugin.framework.deal_shim import deal
 from plugin.framework.errors import format_error_payload
 from plugin.framework.queue_executor import (
     NestedDrainOwnerError,
@@ -56,6 +41,8 @@ from plugin.framework.queue_executor import (
     drain_owner_scope,
     pump_ui_idle,
 )
+
+log = logging.getLogger(__name__)
 
 
 class StreamQueueKind(str, Enum):

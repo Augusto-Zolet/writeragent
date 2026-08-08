@@ -1,21 +1,11 @@
 from dataclasses import dataclass
-from typing import Any, List, NamedTuple, Union
-import importlib
+from typing import List, NamedTuple, Union
 
 from enum import Enum, auto
 
 from plugin.framework.service import BaseState, FsmTransition
 
-deal: Any
-try:
-    deal = importlib.import_module("deal")
-except ImportError:
-
-    class _DummyDeal:
-        def __getattr__(self, name: str) -> Any:
-            return lambda *args, **kwargs: lambda f: f
-
-    deal = _DummyDeal()
+from plugin.framework.deal_shim import deal
 
 # Imperative effects for the send panel interpreter (distinct from
 # audio_recorder_state.StartRecordingEffect / StopRecordingEffect types).

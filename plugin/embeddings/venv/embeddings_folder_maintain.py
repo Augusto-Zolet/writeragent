@@ -14,7 +14,7 @@ from plugin.embeddings.embeddings_cache import (
     clear_folder_cache,
     corpus_db_path,
     corpus_meta_path,
-    diff_paragraph_rows,
+    diff_chunk_rows,
     ensure_corpus_meta,
     file_is_stale,
     index_is_empty,
@@ -269,7 +269,7 @@ def _incremental_refresh(
             continue
         hb.force({"phase": "extract", "file": entry.name, "index": index, "total": total, "mode": "incremental"})
         paragraph_count, chunks = _extract_file_chunks(entry)
-        to_index, to_delete = diff_paragraph_rows(db_path, chunks)
+        to_index, to_delete = diff_chunk_rows(db_path, chunks)
         hb.force(
             {
                 "phase": "extract",

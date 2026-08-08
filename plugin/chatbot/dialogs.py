@@ -52,7 +52,7 @@ import logging
 import os
 from typing import Any, cast
 import unohelper
-from .listeners import BaseActionListener
+from plugin.framework.uno_listeners import BaseActionListener
 from plugin.framework.worker_pool import run_in_background
 from com.sun.star.awt import XActionListener
 from plugin.framework.uno_context import get_ctx, get_desktop, get_extension_url

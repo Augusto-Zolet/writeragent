@@ -6,46 +6,21 @@
 
 from __future__ import annotations
 
-from plugin.framework.uno_context import get_desktop
-from plugin.testing_runner import setup, teardown, native_test
-
-_test_doc = None
-_test_ctx = None
+from plugin.testing_runner import native_test
+from plugin.tests.testing_utils import with_native_doc
 
 
-@setup
-def setup_import_tool_tests(ctx):
-    global _test_doc, _test_ctx
-    _test_ctx = ctx
-    desktop = get_desktop(ctx)
-    import uno
-    hidden_prop = uno.createUnoStruct(
-        "com.sun.star.beans.PropertyValue",
-        Name="Hidden",
-        Value=True,
-    )
-    _test_doc = desktop.loadComponentFromURL("private:factory/scalc", "_blank", 0, (hidden_prop,))
-
-
-@teardown
-def teardown_import_tool_tests(ctx):
-    global _test_doc, _test_ctx
-    if _test_doc:
-        _test_doc.close(True)
-    _test_doc = None
-    _test_ctx = None
-
-
-def _run_conversion(**kwargs):
+def _run_conversion(doc, ctx, **kwargs):
     from plugin.calc.spreadsheet_import.import_dialog import run_sheet_conversion
 
-    sheet = _test_doc.getCurrentController().getActiveSheet()
-    return run_sheet_conversion(_test_ctx, _test_doc, sheet, **kwargs)
+    sheet = doc.getCurrentController().getActiveSheet()
+    return run_sheet_conversion(ctx, doc, sheet, **kwargs)
 
 
 @native_test
-def test_convert_spreadsheet_to_python_basic():
-    sheet = _test_doc.getCurrentController().getActiveSheet()
+@with_native_doc("calc")
+def test_convert_spreadsheet_to_python_basic(ctx, doc):
+    sheet = doc.getCurrentController().getActiveSheet()
 
     # Populate grid
     sheet.getCellByPosition(0, 0).setValue(10)  # A1
@@ -54,6 +29,8 @@ def test_convert_spreadsheet_to_python_basic():
     sheet.getCellByPosition(1, 1).setFormula("=AVERAGE(A1:A2)")  # B2
 
     res = _run_conversion(
+        doc,
+        ctx,
         scope="sheet",
         output_mode="new_sheet",
         vectorize=False,
@@ -63,7 +40,7 @@ def test_convert_spreadsheet_to_python_basic():
     assert len(report.get("converted", [])) >= 2, f"Expected conversion, got report: {report}"
 
     # Verify sheet PythonImport was created
-    sheets = _test_doc.getSheets()
+    sheets = doc.getSheets()
     assert sheets.hasByName("PythonImport")
     target_sheet = sheets.getByName("PythonImport")
 

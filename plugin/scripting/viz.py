@@ -18,7 +18,6 @@ from plugin.calc.calc_addin_data import _resolve_python_data
 from plugin.doc.document_helpers import is_calc, is_draw, is_writer
 from plugin.scripting.client import run_viz as client_run_viz
 from plugin.scripting.helper_domain import (
-    HelperScriptMeta,
     header_prefix,
 )
 from plugin.scripting.payload_codec import is_image_payload, find_image_payloads, write_image_payload_to_temp
@@ -62,7 +61,6 @@ __getattr__ = make_getattr("viz", _VIZ_VENV_EXPORTS)
 
 from plugin.scripting.helper_domain import DomainFacadeConfig, make_template_api
 
-VizScriptMeta = HelperScriptMeta
 
 _API = make_template_api(
     DomainFacadeConfig(

@@ -13,7 +13,6 @@ import threading
 from typing import Any
 
 from plugin.embeddings.embeddings_cache import (
-    file_is_stale,
     resolve_index_context,
 )
 from plugin.framework.client.embedding_client import get_embedding_model
@@ -22,11 +21,9 @@ from plugin.framework.config import get_config
 from plugin.framework.constants import folder_search_enabled
 from plugin.framework.worker_pool import run_in_background
 
-# Re-export for tests
 __all__ = [
     "enqueue_folder_index",
     "ensure_index_wakeup",
-    "file_is_stale",
 ]
 
 log = logging.getLogger(__name__)

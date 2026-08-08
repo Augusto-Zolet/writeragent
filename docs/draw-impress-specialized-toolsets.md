@@ -366,13 +366,10 @@ Create new specialized domains for sub-agent delegation:
 - Test **edge cases**: deleting last slide, grouping all shapes, etc.
 
 **Recommended test additions:**
-- `plugin/tests/uno/test_draw_shapes.py` - Shape CRUD in Draw
-- `plugin/tests/uno/test_impress_shapes.py` - Shape CRUD in Impress
-- `plugin/tests/uno/test_draw_pages.py` - Page management
-- `plugin/tests/uno/test_impress_slides.py` - Slide-specific features
-- `plugin/tests/uno/test_draw_transitions.py` - Transition handling
-- `plugin/tests/uno/test_impress_notes.py` - Speaker notes
-- `plugin/tests/uno/test_impress_placeholders.py` - Placeholder handling
+- `tests/draw/test_draw_uno.py` - Draw/Impress UNO shape and page coverage
+- `tests/draw/test_draw_specialized_tiers.py` - Specialized tier registration
+- `tests/draw/test_draw_forms_uno.py` - Forms
+- `tests/draw/test_draw_headers_footers.py` - Headers/footers
 
 ----
 

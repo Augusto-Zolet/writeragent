@@ -8,6 +8,7 @@ from plugin.chatbot.state_machine import (
     ErrorEvent,
     SendHandlerUIEffect,
     CompleteJobEffect,
+    ProceedToChatEffect,
     SpawnAudioWorkerEffect,
     SpawnAgentWorkerEffect,
     SpawnDirectImageEffect,
@@ -144,6 +145,28 @@ class TestSendHandlerStateMachine:
         step = next_state(state, event)
         new_state = step.state
         assert new_state.round_num <= 10 # Post condition passes
+
+    def test_audio_stream_done_proceeds_to_chat(self):
+        state = SendHandlerState(
+            handler_type="audio",
+            status="running",
+            query_text="typed note",
+            model="m1",
+            doc_type_str="writer",
+        )
+        step = next_state(state, StreamDoneEvent(response="spoken words"))
+        assert any(isinstance(e, ProceedToChatEffect) for e in step.effects)
+        proceed = next(e for e in step.effects if isinstance(e, ProceedToChatEffect))
+        assert proceed.combined_text == "typed note\nspoken words"
+        assert proceed.model == "m1"
+        assert proceed.doc_type_str == "writer"
+
+    def test_audio_stream_done_empty_completes_ready(self):
+        state = SendHandlerState(handler_type="audio", status="running", query_text="")
+        step = next_state(state, StreamDoneEvent(response=""))
+        assert any(isinstance(e, CompleteJobEffect) and e.terminal_status == "Ready" for e in step.effects)
+        assert any(isinstance(e, SendHandlerUIEffect) and e.kind == "status" and e.text == "Ready" for e in step.effects)
+        assert not any(isinstance(e, ProceedToChatEffect) for e in step.effects)
 
 
 class TestSendHandlerHelpers:

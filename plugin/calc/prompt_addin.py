@@ -91,9 +91,6 @@ class PromptFunction(SingleFunctionAddInBase, _XPromptFunctionBase):  # pyright:
         return "org.extension.writeragent.PromptFunction"
 
 
-# Back-compat alias from the split refactor.
-PromptAddIn = PromptFunction
-
 g_ImplementationHelper = unohelper.ImplementationHelper()
 g_ImplementationHelper.addImplementation(
     PromptFunction,

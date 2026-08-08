@@ -53,7 +53,7 @@ def test_file_is_stale_when_mtime_newer(tmp_path):
     assert embeddings_cache.file_is_stale(db_path, "file:///a.odt", 40.0) is False
 
 
-def test_diff_paragraph_rows_detects_change_and_delete(tmp_path):
+def test_diff_chunk_rows_detects_change_and_delete(tmp_path):
     from plugin.embeddings.venv.embeddings_sqlite import connect_corpus_db, ensure_schema, upsert_chunk_with_vector
 
     db_path = tmp_path / "corpus.db"
@@ -101,7 +101,7 @@ def test_diff_paragraph_rows_detects_change_and_delete(tmp_path):
             file_mtime=1.0,
         ),
     ]
-    to_index, to_delete = embeddings_cache.diff_paragraph_rows(db_path, chunks)
+    to_index, to_delete = embeddings_cache.diff_chunk_rows(db_path, chunks)
     assert len(to_index) == 2
     assert to_delete == [
         {"doc_url": "file:///a.odt", "para_index": 2, "char_start": 0, "char_end": 4}

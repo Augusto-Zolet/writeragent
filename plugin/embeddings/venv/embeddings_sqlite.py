@@ -704,14 +704,6 @@ def diff_chunk_rows_in_db(
     return to_index, to_delete
 
 
-def diff_paragraph_rows_in_db(
-    conn: sqlite3.Connection,
-    chunks: list[Any],
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Backward-compatible alias — diff at chunk locator grain."""
-    return diff_chunk_rows_in_db(conn, chunks)
-
-
 def paragraph_body_for_locator(conn: sqlite3.Connection, doc_url: str, para_index: int) -> str:
     """Concatenate embed sub-chunks for one ODF paragraph (ordered by char_start)."""
     bodies = paragraph_bodies_for_locators(conn, {(str(doc_url or ""), int(para_index or 0))})
@@ -777,7 +769,6 @@ __all__ = [
     "delete_by_doc_para",
     "delete_paragraph_keys",
     "diff_chunk_rows_in_db",
-    "diff_paragraph_rows_in_db",
     "ensure_schema",
     "file_is_stale_in_db",
     "fts_corpus_search",

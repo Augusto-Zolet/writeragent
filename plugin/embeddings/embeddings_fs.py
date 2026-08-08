@@ -201,10 +201,6 @@ def guess_indexable_paths(directory: str) -> list[WriterFileEntry]:
     return entries
 
 
-def guess_writer_paths(directory: str) -> list[WriterFileEntry]:
-    """Alias for :func:`guess_indexable_paths`."""
-    return guess_indexable_paths(directory)
-
 
 def path_uses_prose_chunking(path: str) -> bool:
     """Return True when index chunks should use sentence splitting (Writer-style prose)."""

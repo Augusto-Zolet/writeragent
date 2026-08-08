@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, Any
 from plugin.scripting._lazy_venv import make_getattr
 from plugin.scripting.helper_domain import (
     DomainFacadeConfig,
-    HelperScriptMeta,
     header_prefix,
     make_template_api,
 )
@@ -71,7 +70,6 @@ get_text_analytics_script_templates = _API.get_templates
 parse_text_analytics_script_header = _API.parse_header
 
 
-TextAnalyticsScriptMeta = HelperScriptMeta
 
 
 def supports_text_analytics_manual(doc: Any) -> bool:
@@ -94,7 +92,7 @@ def resolve_text_analytics_document_inputs(doc: Any, helper: str) -> tuple[str |
     else:
         text = _get_writer_text(doc)
     context: dict[str, Any] = {}
-    lang = _get_doc_lang(doc)
+    lang = get_doc_language(doc)
     if lang:
         context["lang"] = lang
     return text, context
@@ -248,9 +246,6 @@ def get_doc_language(doc: Any) -> str | None:
     return None
 
 
-# Back-compat alias (internal)
-_get_doc_lang = get_doc_language
-
 
 def is_text_analytics_result(value: Any) -> bool:
     """True when *value* looks like a text analytics helper result."""
@@ -370,7 +365,3 @@ def insert_text_analytics_result_into_doc(ctx: Any, doc: Any, result: dict[str, 
     insert_content_at_position(doc, ctx, html, "selection")
     return 1
 
-
-def insert_text_analytics_result_into_writer(ctx: Any, doc: Any, result: dict[str, Any]) -> None:
-    """Writer-specific alias for insert."""
-    insert_text_analytics_result_into_doc(ctx, doc, result)

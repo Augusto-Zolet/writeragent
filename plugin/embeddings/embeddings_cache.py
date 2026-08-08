@@ -108,15 +108,6 @@ def corpus_meta_path(listing_root: str, *, create_parent: bool = True) -> Path:
     return folder_cache_dir(listing_root, create_parent=create_parent) / CORPUS_META_FILENAME
 
 
-def legacy_file_index_state_path(listing_root: str) -> Path:
-    """Pre-v4 JSON incremental state (removed; delete on cache clear)."""
-    return folder_cache_dir(listing_root, create_parent=False) / LEGACY_FILE_INDEX_STATE_FILENAME
-
-
-def legacy_index_db_path(listing_root: str) -> Path:
-    """Pre-v3 SQLite index path (removed on upgrade)."""
-    return folder_cache_dir(listing_root, create_parent=False) / LEGACY_INDEX_DB
-
 
 def _remove_path(path: Path) -> bool:
     if not path.exists():
@@ -233,13 +224,6 @@ def diff_chunk_rows(
         conn.close()
 
 
-def diff_paragraph_rows(
-    db_path: Path,
-    chunks: list[Any],
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Alias for :func:`diff_chunk_rows` (chunk-locator incremental diff)."""
-    return diff_chunk_rows(db_path, chunks)
-
 
 def sync_file_paragraph_state(db_path: Path, doc_url: str, chunks: list[Any], file_mtime: float) -> None:
     """Update paragraph hashes in corpus.db after a successful index pass."""
@@ -322,11 +306,6 @@ def remove_stale_corpus_stores(listing_root: str) -> bool:
     return removed
 
 
-def remove_legacy_index(listing_root: str) -> bool:
-    """Backward-compatible alias for stale store cleanup."""
-    return remove_stale_corpus_stores(listing_root)
-
-
 def clear_folder_cache(listing_root: str) -> None:
     """Remove corpus.db and JSON state for a cold rebuild. Also clears zvec store for the folder."""
     base = folder_cache_dir(listing_root, create_parent=False)
@@ -358,11 +337,6 @@ def resolve_index_context(ctx: Any, model: Any) -> tuple[str, Path, Path, str] |
     db_path = corpus_db_path(listing_root)
     meta = corpus_meta_path(listing_root)
     return folder_key, db_path, meta, listing_root
-
-
-def index_db_path(listing_root: str, *, create_parent: bool = True) -> Path:
-    """Deprecated alias for corpus_db_path."""
-    return corpus_db_path(listing_root, create_parent=create_parent)
 
 
 def needs_cold_rebuild(meta_path: Path, embedding_model: str) -> bool:

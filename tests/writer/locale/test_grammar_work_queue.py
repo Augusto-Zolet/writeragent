@@ -683,7 +683,7 @@ def test_language_validation_does_not_trust_persisted_grammar_heuristic() -> Non
 
 def test_language_detect_skips_llm_when_persisted_grammar_exists() -> None:
     """Persisted grammar for sentence (fp) implies skip language-detect LLM (reopen heuristic)."""
-    from plugin.writer.locale.grammar_work_queue import GrammarWorkerContext, _detect_languages, _lang_detect_cache
+    from plugin.writer.locale.grammar_work_queue import GrammarWorkerContext, detect_languages_for_chunk, _lang_detect_cache
 
     item = _make_item("The cat sat.", doc_id="doc99")
     ec = GrammarWorkerContext(
@@ -703,7 +703,7 @@ def test_language_detect_skips_llm_when_persisted_grammar_exists() -> None:
         _lang_detect_cache.pop(item.text, None)
         with patch("plugin.writer.locale.grammar_persistence.get_persistence", return_value=mock_p) as mock_get_p:
             with patch("plugin.writer.locale.grammar_worker_llm.get_cached_language", return_value=None):
-                detected = _detect_languages([(item, item.text)], "", ec)
+                detected = detect_languages_for_chunk([(item, item.text)], "", ec)
         ec.client.chat_completion_sync.assert_not_called()
         assert detected == ["en-US"]
         mock_get_p.assert_called_once()
@@ -712,7 +712,7 @@ def test_language_detect_skips_llm_when_persisted_grammar_exists() -> None:
 
 
 def test_language_detect_calls_llm_when_no_persisted_grammar() -> None:
-    from plugin.writer.locale.grammar_work_queue import GrammarWorkerContext, _detect_languages, _lang_detect_cache
+    from plugin.writer.locale.grammar_work_queue import GrammarWorkerContext, detect_languages_for_chunk, _lang_detect_cache
 
     item = _make_item("Fresh sentence.", doc_id="doc100")
     mock_client = MagicMock()
@@ -739,7 +739,7 @@ def test_language_detect_calls_llm_when_no_persisted_grammar() -> None:
         with patch("plugin.writer.locale.grammar_persistence.get_persistence", return_value=mock_p):
             with patch("plugin.writer.locale.grammar_worker_llm.get_cached_language", return_value=None):
                 with patch("plugin.framework.queue_executor.grammar_llm_request_gate", return_value=mock_lane):
-                    detected = _detect_languages([(item, item.text)], "", ec)
+                    detected = detect_languages_for_chunk([(item, item.text)], "", ec)
         mock_client.chat_completion_sync.assert_called_once()
         assert detected == ["en-US"]
     finally:

@@ -15,15 +15,7 @@ from typing import Any
 from plugin.framework.constants import ModelCapability
 from plugin.framework.default_models import DEFAULT_MODELS, get_provider_defaults, resolve_model_id
 from plugin.framework.url_utils import normalize_endpoint_url, get_api_version_suffix
-from plugin.framework.client.provider_detection import (
-    get_provider_from_endpoint as _central_get_provider_from_endpoint,
-    is_local_host,  # noqa: F401 - re-export for backward compat
-    is_openrouter_endpoint,  # noqa: F401 - re-export for backward compat
-)
-
-# Re-export the canonical versions so existing `from .model_fetcher import ...`
-# sites keep working during the transition.
-get_provider_from_endpoint = _central_get_provider_from_endpoint  # type: ignore[no-redef]
+from plugin.framework.client.provider_detection import get_provider_from_endpoint
 from plugin.framework.errors import NetworkError
 from plugin.framework.config import (
     get_api_key_for_endpoint,
@@ -352,12 +344,6 @@ def _filter_fetched_models(models: list[str], req_cap: str) -> list[str]:
 
 
 # --- Provider and Endpoint resolution ---
-
-
-# get_provider_from_endpoint is re-exported from the central implementation in
-# provider_detection.py (see the 2026 provider heuristic consolidation).
-# The name is bound above via the import alias for backward-compat with any
-# internal `from .model_fetcher import get_provider_from_endpoint` sites.
 
 
 def get_endpoint_presets():

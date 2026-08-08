@@ -13,33 +13,14 @@
 # not wrap it in an extra <p>.
 import uno  # noqa: F401
 
-from plugin.testing_runner import native_test, setup, teardown
+from plugin.testing_runner import native_test
 from plugin.writer.content import ApplyDocumentContent
-from plugin.tests.testing_utils import TestingFactory
-
-_test_doc = None
-_test_ctx = None
+from plugin.tests.testing_utils import TestingFactory, with_native_doc
 
 _HEADING_TEXT = "4.1.1 Engine selection"
 
 
-@setup
-def my_setup(ctx):
-    global _test_doc, _test_ctx
-    _test_ctx = ctx
-    _test_doc = TestingFactory.create_native_doc(ctx, doc_type="writer", hidden=True)
-
-
-@teardown
-def my_teardown(ctx):
-    global _test_doc
-    if _test_doc:
-        _test_doc.close(True)
-    _test_doc = None
-
-
-def _doc_with_heading3():
-    doc = _test_doc
+def _doc_with_heading3(doc):
     text = doc.getText()
     cur = text.createTextCursor()
     cur.gotoStart(False)
@@ -67,10 +48,11 @@ def _char_prop_over_paragraph(text, name):
 
 
 @native_test
-def test_apply_document_content_preserves_heading_level_span_uno():
+@with_native_doc("writer")
+def test_apply_document_content_preserves_heading_level_span_uno(ctx, doc):
     """Replacing heading text with inline <span> must not demote the paragraph."""
-    doc, text = _doc_with_heading3()
-    tool_ctx = TestingFactory.create_context(doc=doc, ctx=_test_ctx, env="native")
+    doc, text = _doc_with_heading3(doc)
+    tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
     res = ApplyDocumentContent().execute(
         tool_ctx,
         content=['<span style="background: transparent">%s</span>' % _HEADING_TEXT],
@@ -83,10 +65,11 @@ def test_apply_document_content_preserves_heading_level_span_uno():
 
 
 @native_test
-def test_apply_document_content_preserves_heading_level_b_uno():
+@with_native_doc("writer")
+def test_apply_document_content_preserves_heading_level_b_uno(ctx, doc):
     """Replacing heading text with inline <b> must not demote the paragraph."""
-    doc, text = _doc_with_heading3()
-    tool_ctx = TestingFactory.create_context(doc=doc, ctx=_test_ctx, env="native")
+    doc, text = _doc_with_heading3(doc)
+    tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
     res = ApplyDocumentContent().execute(
         tool_ctx,
         content=["<b>%s</b>" % _HEADING_TEXT],
@@ -99,10 +82,11 @@ def test_apply_document_content_preserves_heading_level_b_uno():
 
 
 @native_test
-def test_apply_document_content_block_markup_changes_heading_level_uno():
+@with_native_doc("writer")
+def test_apply_document_content_block_markup_changes_heading_level_uno(ctx, doc):
     """Block-level HTML (e.g. <h2>) must apply its own paragraph style, not preserve Heading 3."""
-    doc, text = _doc_with_heading3()
-    tool_ctx = TestingFactory.create_context(doc=doc, ctx=_test_ctx, env="native")
+    doc, text = _doc_with_heading3(doc)
+    tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
     res = ApplyDocumentContent().execute(
         tool_ctx,
         content=["<h2>New title</h2>"],
@@ -116,13 +100,14 @@ def test_apply_document_content_block_markup_changes_heading_level_uno():
 
 
 @native_test
-def test_apply_document_content_preserves_inline_color_on_heading_uno():
+@with_native_doc("writer")
+def test_apply_document_content_preserves_inline_color_on_heading_uno(ctx, doc):
     """Inline content with DIRECT character formatting (a red <span>) replacing a heading
     must keep both the heading level AND the direct color. The StarWriter HTML import
     applies the color, but restoring the heading paragraph style used to wipe it; the
     restore must preserve direct Char* formatting."""
-    doc, text = _doc_with_heading3()
-    tool_ctx = TestingFactory.create_context(doc=doc, ctx=_test_ctx, env="native")
+    doc, text = _doc_with_heading3(doc)
+    tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
     res = ApplyDocumentContent().execute(
         tool_ctx,
         content=['<span style="color: #ff0000">%s</span>' % _HEADING_TEXT],
@@ -138,11 +123,12 @@ def test_apply_document_content_preserves_inline_color_on_heading_uno():
 
 
 @native_test
-def test_apply_document_content_preserves_inline_highlight_on_heading_uno():
+@with_native_doc("writer")
+def test_apply_document_content_preserves_inline_highlight_on_heading_uno(ctx, doc):
     """A direct character highlight (background) on inline content replacing a heading
     must survive the paragraph-style restore, just like the colour."""
-    doc, text = _doc_with_heading3()
-    tool_ctx = TestingFactory.create_context(doc=doc, ctx=_test_ctx, env="native")
+    doc, text = _doc_with_heading3(doc)
+    tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
     res = ApplyDocumentContent().execute(
         tool_ctx,
         content=['<span style="background: #ffff00">%s</span>' % _HEADING_TEXT],

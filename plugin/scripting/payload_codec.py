@@ -26,6 +26,8 @@ import sys
 import tempfile
 from typing import TYPE_CHECKING, Any, Literal, cast
 
+from plugin.framework.deal_shim import deal
+
 # CrossHair may invoke deal post/ensure as ``fn(*call_args, result=return_value, **kwargs)``.
 # Naming a positional parameter ``result`` then raises TypeError (multiple values). Keep ``result`` keyword-only.
 _DEAL_RETURN = object()
@@ -195,17 +197,6 @@ def host_cython_status_line(*, reload: bool = False) -> str:
 
 # Initial load attempt
 load_cython_accelerator()
-
-import importlib
-
-deal: Any
-try:
-    deal = importlib.import_module("deal")
-except ImportError:
-    class _DummyDeal:
-        def __getattr__(self, name: str) -> Any:
-            return lambda *args, **kwargs: lambda f: f
-    deal = _DummyDeal()
 
 # --- Wire kind (JSON-safe dict tag) -----------------------------------------------
 

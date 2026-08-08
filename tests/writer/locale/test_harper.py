@@ -12,10 +12,10 @@ import os
 import queue
 import pytest
 
+from plugin.contrib.lsp.json_rpc_framing import read_exactly
 from plugin.writer.locale.harper import (
     HarperLSClient,
     _harper_lsp_settings,
-    _read_exactly,
     lsp_range_to_offset,
     run_harper_check,
 )
@@ -435,7 +435,7 @@ def test_read_exactly_handles_partial_reads() -> None:
         def read(self, n: int) -> bytes:
             return next(self._parts, b"")
 
-    assert _read_exactly(PartialReader(), len(payload)) == payload
+    assert read_exactly(PartialReader(), len(payload)) == payload
 
 
 def test_read_installed_version_sidecar(tmp_path: Path) -> None:

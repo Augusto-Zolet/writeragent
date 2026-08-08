@@ -373,12 +373,9 @@ def sweep_comment_preview_matches(doc, pattern, use_regex, case_sensitive, limit
     return matches
 
 
-# Underscore aliases for tracking.py, comments.py, and older imports.
+# Underscore aliases used by tracking.py / comments.py.
 _describe_match_location = describe_match_location
 _enclosing_paragraph_text = enclosing_paragraph_text
-_comment_matches = comment_matches
-_iter_draw_shapes = iter_draw_shapes
-_shape_text_hits = shape_text_hits
 
 
 class SearchInDocument(ToolBase):

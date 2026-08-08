@@ -9,7 +9,7 @@ Does not start LibreOffice. Enable MCP in WriterAgent Settings first.
 Usage (from repo root):
   python scripts/mcp_live_smoke.py
   python scripts/mcp_live_smoke.py --text "Hello from MCP"
-  python scripts/mcp_live_smoke.py --host localhost --port 8765
+  python scripts/mcp_live_smoke.py --host localhost --port 18765
   python scripts/mcp_live_smoke.py --use-debug
   python scripts/mcp_live_smoke.py --document-url 'vnd.libreoffice:...'
   python scripts/mcp_live_smoke.py --target full_document
@@ -219,7 +219,7 @@ def main() -> None:
         default=None,
         help="Plain text to insert (default: timestamped MCP smoke message)",
     )
-    parser.add_argument("--port", type=int, default=8765, help="MCP port (default: 8765)")
+    parser.add_argument("--port", type=int, default=18765, help="MCP port (default: 18765)")
     parser.add_argument("--ssl", action="store_true", help="Use https://")
     parser.add_argument(
         "--target",

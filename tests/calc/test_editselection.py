@@ -1,45 +1,16 @@
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-
-class _FakeCell:
-    def __init__(self, value=""):
-        self.value = value
-
-    def setString(self, value):
-        self.value = value
-
-
-class _FakeCellRange:
-    def __init__(self, data):
-        self._data = data
-
-    def getDataArray(self):
-        return self._data
-
-
-class _FakeSheet:
-    def __init__(self, data):
-        self.data = data
-        self.cells = {
-            (col, row): _FakeCell(str(value) if value != "" and value is not None else "")
-            for row, values in enumerate(data)
-            for col, value in enumerate(values)
-        }
-
-    def getCellRangeByPosition(self, start_col, start_row, end_col, end_row):
-        return _FakeCellRange(self.data)
-
-    def getCellByPosition(self, col, row):
-        return self.cells[(col, row)]
+from plugin.tests.testing_utils import CalcDocStub
 
 
 def _model_for_data(data):
-    sheet = _FakeSheet(data)
-    selection = MagicMock()
-    selection.getRangeAddress.return_value = SimpleNamespace(StartColumn=0, EndColumn=len(data[0]) - 1, StartRow=0, EndRow=len(data) - 1)
-    controller = SimpleNamespace(ActiveSheet=sheet, Selection=selection)
-    return SimpleNamespace(CurrentController=controller), sheet
+    """Build a CalcDocStub with selection covering the full seeded data rectangle."""
+    end_col = max(0, len(data[0]) - 1) if data and data[0] else 0
+    end_row = max(0, len(data) - 1) if data else 0
+    doc = CalcDocStub(data=data)
+    sheet = doc.getSheets().getByIndex(0)
+    doc.CurrentController.Selection = sheet.getCellRangeByPosition(0, 0, end_col, end_row)
+    return doc, sheet
 
 
 def _config_str(key):
@@ -74,8 +45,8 @@ def test_calc_extend_streams_each_non_empty_cell():
         do_calc_extend_edit(MagicMock(), model, MagicMock(), is_edit=False)
 
     assert stream_calls == [("A", "extend system", 50)]
-    assert sheet.getCellByPosition(0, 0).value == "A plus"
-    assert sheet.getCellByPosition(1, 0).value == ""
+    assert sheet.getCellByPosition(0, 0).getString() == "A plus"
+    assert sheet.getCellByPosition(1, 0).getString() == ""
 
 
 def test_calc_edit_uses_extra_prompt_and_restores_original_on_error():
@@ -103,5 +74,5 @@ def test_calc_edit_uses_extra_prompt_and_restores_original_on_error():
     assert stream_calls[0][1] == "extra system"
     assert stream_calls[0][2] == len("Original") + 7
     assert "ORIGINAL VERSION:\nOriginal" in stream_calls[0][0]
-    assert sheet.getCellByPosition(0, 0).value == "Original"
+    assert sheet.getCellByPosition(0, 0).getString() == "Original"
     msgbox.assert_called_once()

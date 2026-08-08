@@ -132,11 +132,6 @@ def test_paragraph_chunks_from_txt(tmp_path: Path):
     assert chunks[0].doc_url.endswith("/notes.txt")
 
 
-def test_guess_writer_paths_alias(tmp_path: Path):
-    (tmp_path / "doc.odt").write_bytes(b"x")
-    assert embeddings_fs.guess_writer_paths(str(tmp_path)) == embeddings_fs.guess_indexable_paths(str(tmp_path))
-
-
 def test_extract_indexable_passage_runs_mixed_odt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     import zipfile
 

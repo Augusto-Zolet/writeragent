@@ -426,7 +426,7 @@ Calc UNO range
 
 Calc add-ins return **one scalar per evaluation**. A 1,000-row matrix formula would otherwise cause 1,000 IPC crossings and serialization pack taxes.
 
-WriterAgent implements a **Worker Result Session** cache ([`_WorkerResultSession`](../plugin/calc/python/function.py)):
+WriterAgent implements a **Worker Result Session** cache ([`WorkerResultSession`](../plugin/calc/python/function.py)):
 
 1. **First cell** in the range runs the full worker; the serialized list is cached on the **LibreOffice host**.
 2. **Remaining cells** with the same `code` + `data` signature bypass the worker and read by index from the host cache.
@@ -563,7 +563,7 @@ Often beats another codec — product, prompts, and formula patterns:
 | Area | Action |
 |------|--------|
 | **Chat / LLM** | Prompts + tool behavior: return scalars/summaries (`result = float(np.mean(...))`), two-phase “compute in venv → `write_formula_range`”, not 10⁵-element lists in `result`. |
-| **`=PY()` matrix** | Prefer **`ROW()-1`** index form — one worker run + [`_WorkerResultSession`](../plugin/calc/python/function.py); avoid N recalcs each resending the same `data`. |
+| **`=PY()` matrix** | Prefer **`ROW()-1`** index form — one worker run + [`WorkerResultSession`](../plugin/calc/python/function.py); avoid N recalcs each resending the same `data`. |
 | **Ranges** | Tighter sheet ranges; strip `None` in script; no `collapse` on host yet (LibrePythonista gap) but same intent. |
 
 See [core two-phase workflow](enabling_numpy_in_libreoffice.md#two-phase-llm-workflow).

@@ -17,6 +17,7 @@ except ImportError:
     # We don't strictly need class stubs here if we just mock the module objects,
     # but let's make sure it doesn't fail on imports.
 
+from plugin.tests.testing_utils import TestingFactory
 from plugin.writer.specialized.bookmarks import (
     CreateBookmark,
     DeleteBookmark,
@@ -28,14 +29,7 @@ from plugin.writer.specialized.bookmarks import (
 
 @pytest.fixture
 def mock_ctx():
-    class DummyContext:
-        def __init__(self):
-            self.doc = MagicMock()
-            self.doc_type = "writer"
-            self.services = MagicMock()
-            self.ctx = MagicMock()
-
-    return DummyContext()
+    return TestingFactory.create_context(doc=MagicMock(), doc_type="writer")
 
 
 def test_create_bookmark(mock_ctx):

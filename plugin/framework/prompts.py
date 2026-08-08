@@ -161,8 +161,6 @@ When the user wants {DELEGATION_PUBLIC_WEB_HINT}, delegate_to_specialized_draw_t
 {delegation_math_to_python_hint(delegate_toolset="delegate_to_specialized_draw_toolset")}
 When asked to make a script or run Python, use delegate_to_specialized_draw_toolset(domain="python")."""
 
-CORE_DIRECTIVES = WRITER_CORE_DIRECTIVES
-
 
 def get_core_directives(model) -> str:
     """Return the application-specific core directives dynamically based on document type."""
@@ -257,9 +255,6 @@ EXAMPLES:
 - Bad: ["<p><img src=\\"...\\" alt=\\"equation\\"></p>"] (equation images; use LaTeX delimiters)
 - Bad: ["# Title", "Paragraph"] (No Markdown)
 - Bad: ["&ldquo;Smart quotes&rdquo;"] (use straight quotes ")"""
-
-# Legacy alias for eval harness and older docs — prefer WRITER_APPLY_DOCUMENT_HTML_RULES in new code.
-FORMATTING_RULES = WRITER_APPLY_DOCUMENT_HTML_RULES
 
 MEMORY_GUIDANCE = """MEMORY:
 You have a persistent file-backed memory tool.

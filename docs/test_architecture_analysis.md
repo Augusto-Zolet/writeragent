@@ -17,9 +17,9 @@ The design avoids the "mock everything" anti-pattern for integration tests while
 
 #### 2.1 Strengths of the Current Design
 *   **Zero-Dependency Native Runner:** `plugin/testing_runner.py` is an excellent architectural choice. By using lightweight decorators (`@native_test`, `@setup`, `@teardown`) and aggregating results into a simple JSON payload, tests can run directly inside the complex, stateful LibreOffice environment without requiring users or CI runners to wrestle with installing `pytest` inside the LibreOffice bundled Python.
-*   **Clear Separation of Concerns:** The project correctly uses `pytest_ignore_collect` in `conftest.py` to skip UNO-dependent tests (e.g., `test_writer.py`, `test_calc.py`) when running pytest externally. This prevents test suite crashes and clearly delineates "unit" tests from "integration" tests.
+*   **Clear Separation of Concerns:** `tests/conftest.py` uses `pytest_collection_modifyitems` to deselect native/UNO suites (typically `*_uno.py`) when running pytest outside LibreOffice, so pure unit tests stay fast and do not touch a live soffice bridge.
 *   **Live Document Testing over Mocking:** Natively testing against hidden LibreOffice instances (`PropertyValue(Name="Hidden", Value=True)`) ensures that format preservation, cursor movement, and document caching are tested against the actual UNO engine, preventing false positives that often occur when mocking complex third-party APIs.
-*   **Centralized Test Utilities:** `testing_utils.py` provides standardized stubs (`WriterDocStub`, `MockDocument`, `MockContext`) for the pure Python tests that don't need a live LO instance, keeping test files clean.
+*   **Centralized Test Utilities:** `testing_utils.py` provides standardized stubs (`WriterDocStub`, `CalcDocStub` with sheet/cell/range helpers, `MockDocument`, `MockContext`) for the pure Python tests that don't need a live LO instance, keeping test files clean. `TestingFactory.create_doc` returns a stateful stub for both Writer and Calc (no MagicMock wrapper). Calc covers default `Sheet1` / A1 selection, `queryContentCells`, `calculateAll` counting, doc props, and event listeners; Writer covers text enumeration, `supportsService`, style families via `items=`, `createInstance`, and `loadStylesFromURL`. Native Calc/Draw suites share `TestingFactory.execute_tool` (live `get_services()` + registry execute) instead of per-file `_execute_calc_tool` copies.
 *   **Clean Setup/Teardown Boundaries:** The native runner handles the lifecycle of the hidden test documents properly, ensuring they are closed in the `@teardown` phase, preventing zombie `soffice.bin` processes.
 
 #### 2.2 Current Coverage Gaps
@@ -44,13 +44,14 @@ Since the `LlmClient` and streaming logic are pure Python, they should be heavil
 
 #### 3.2 Deepening UNO Integration Tests (Native Runner)
 The native runner should focus on the "physics" of LibreOffice.
-*   **Format Preservation Matrices:** Expand `test_format_tests.py` to include parameterized matrices of text replacement: replacing bold with plain, replacing long strings with short strings while retaining background colors, and cross-paragraph replacements.
-*   **Multi-Document Scoping:** Write a native test that opens two hidden documents, initializes two separate `DocumentCache` instances, and verifies that operations performed on one do not bleed into the other (verifying the recent multi-document scoping fix).
+*   **Format Preservation Matrices:** Expand Writer format/native suites (e.g. `tests/writer/test_format_uno.py` and related apply/replace paths) with parameterized matrices: replacing bold with plain, long↔short strings while retaining background colors, and cross-paragraph replacements.
+*   **Multi-Document Scoping:** Prefer frame/URL document resolution tests over any `DocumentCache` assumptions (`DocumentCache` is not active). Open two hidden documents and assert operations on one do not bleed into the other.
 *   **Calc Batch Operations:** Add specific native tests for `write_formula_range` and `setDataArray` wrappers to ensure they correctly pad 2D arrays and strictly format formulas as strings, as noted in the project guidelines.
 
 #### 3.3 UI & State Machine Testing (Pytest + Mocks)
 Testing the LibreOffice UI directly is notoriously difficult. Instead, test the *state management* behind the UI.
-*   **ChatSession State:** Write pure Python tests for the `ChatSession` logic (in `panel_factory.py` or equivalent). Mock the UNO UI controls, then simulate user actions (Click Send, Click Stop) and verify that the internal state (`_send_busy`, `current_model`) transitions correctly.
+*   **ChatSession history:** Pure pytest for [`ChatSession`](../plugin/chatbot/panel.py) message/`[DOCUMENT CONTENT]`/history-DB rules — see [`tests/chatbot/test_chat_session.py`](../tests/chatbot/test_chat_session.py). No UNO.
+*   **Send/Stop busy flags:** Pure `next_state` coverage in [`tests/chatbot/test_send_state.py`](../tests/chatbot/test_send_state.py) and [`tests/chatbot/test_sidebar_state.py`](../tests/chatbot/test_sidebar_state.py) (`SendButtonState` / `SidebarCompositeState`). Do not mock the sidebar UNO controls just to assert `_send_busy`.
 *   **Config Synchronization:** Verify that changes to the configuration schema correctly notify listeners and update the LRU caches without requiring a live UNO dialog instance.
 
 #### 3.4 Expanding Evaluation Metrics

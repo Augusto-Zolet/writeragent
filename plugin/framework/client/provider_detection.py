@@ -17,11 +17,10 @@ effort) for answering questions like:
 Before consolidation the same (or very similar) string matching logic was
 scattered across at least these locations:
 
-- plugin/framework/client/model_fetcher.py          (get_provider_from_endpoint)
+- plugin/framework/client/model_fetcher.py          (imports get_provider_from_endpoint)
 - plugin/framework/client/auth.py                    (_resolve_provider_id + host_matches)
-- plugin/framework/client/ssl_helpers.py             (_is_local_host - private)
-- plugin/framework/client/llm_client.py              (various _is_local_host + provider == "ollama" checks)
-- plugin/framework/client/requests.py                (indirect via ssl_helpers)
+- plugin/framework/client/llm_client.py              (is_openrouter_endpoint)
+- plugin/framework/client/requests.py / request_controls.py (is_local_host)
 - plugin/framework/client/errors.py (historical)     (connection refused / DNS strings in the mapper)
 - plugin/framework/config.py                         (is_openrouter + openwebui string checks)
 - plugin/framework/url_utils.py                      (z.ai / openwebui special cases)
@@ -103,7 +102,7 @@ def is_local_host(host: str) -> bool:
     """Heuristic: is this host a localhost / LAN address where self-signed TLS is common?
 
     Consolidated here in the 2026 janitor effort. Previously lived as the private
-    _is_local_host in ssl_helpers.py and had near-duplicate string checks in the
+    private helpers in ssl_helpers.py and had near-duplicate string checks in the
     (now centralized) error message mapper in errors.py.
 
     Used by:

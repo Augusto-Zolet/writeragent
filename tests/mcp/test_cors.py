@@ -131,7 +131,7 @@ def test_is_safe_origin_localhost():
 
 def test_is_safe_origin_ipv6_and_ports():
     assert is_safe_origin("http://[::1]:3000")
-    assert is_safe_origin("http://127.0.0.1:8765")
+    assert is_safe_origin("http://127.0.0.1:18765")
     assert not is_safe_origin("http://evil.localhost")
 
 

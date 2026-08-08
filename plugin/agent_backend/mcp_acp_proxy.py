@@ -33,8 +33,6 @@ _LOG = "MCPACP"
 
 from plugin.mcp.server import mcp_endpoint_url
 
-_DEFAULT_MCP_URL = mcp_endpoint_url("localhost", 8765)
-
 
 class MCPACPProxy(AgentBackend):
     """ACP backend that bridges to WriterAgent's MCP server."""
@@ -44,7 +42,7 @@ class MCPACPProxy(AgentBackend):
 
     def __init__(self, ctx=None):
         self._ctx = ctx
-        self._mcp_url = _DEFAULT_MCP_URL
+        self._mcp_url = ""
         self._session_id = None
         self._stop_requested = False
         self._prompt_done = threading.Event()
@@ -54,20 +52,19 @@ class MCPACPProxy(AgentBackend):
         self._load_config()
 
     def _load_config(self):
-        """Read MCP server URL from WriterAgent config."""
-        try:
-            from plugin.framework.config import get_config, get_config_int_safe
+        """Read MCP server URL from WriterAgent config (port from mcp.mcp_port schema default)."""
+        from plugin.framework.config import get_config, get_config_int_safe
 
+        path = ""
+        try:
             path = str(get_config("agent_backend.path") or "").strip()
-            if path and path.startswith("http"):
-                self._mcp_url = path
-            else:
-                mcp_port = get_config_int_safe("mcp.mcp_port")
-                # MCP binds localhost only; mcp.host / mcp.use_ssl are not in module.yaml.
-                self._mcp_url = mcp_endpoint_url("localhost", mcp_port, False)
         except Exception as e:
-            log.warning(f"Failed to load config: {e}")
-            self._mcp_url = _DEFAULT_MCP_URL
+            log.warning("Failed to read agent_backend.path: %s", e)
+        if path.startswith("http"):
+            self._mcp_url = path
+        else:
+            # MCP binds localhost only; mcp.host / mcp.use_ssl are not in module.yaml.
+            self._mcp_url = mcp_endpoint_url("localhost", get_config_int_safe("mcp.mcp_port"), False)
 
     def _call_mcp(self, method: str, params: Optional[Dict] = None, document_url: Optional[str] = None) -> Dict:
         """Call MCP JSON-RPC method."""

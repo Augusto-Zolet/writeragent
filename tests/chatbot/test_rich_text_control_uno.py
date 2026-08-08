@@ -10,38 +10,11 @@
 from typing import Any
 
 from plugin.framework.logging import log
-from plugin.framework.uno_context import get_desktop
-from plugin.testing_runner import setup, teardown
+from plugin.testing_runner import setup, teardown, native_test
+from plugin.tests.testing_utils import TestingFactory
 
 # ``make test`` LO runner: skip this file until clipboard/formatted-copy UNO path is stable.
 SKIP_NATIVE_RUN_ALL = True
-
-_test_ctx: Any = None
-_test_doc: Any = None
-
-
-@setup
-def setup_rich_text_control(ctx):
-    global _test_ctx, _test_doc
-    _test_ctx = ctx
-    desktop = get_desktop(ctx)
-    import uno
-
-    hidden = uno.createUnoStruct("com.sun.star.beans.PropertyValue", Name="Hidden", Value=True)
-    _test_doc = desktop.loadComponentFromURL("private:factory/swriter", "_blank", 0, (hidden,))
-    assert _test_doc is not None, "Could not create Writer document for RichTextControl test"
-
-
-@teardown
-def teardown_rich_text_control(ctx):
-    global _test_ctx, _test_doc
-    if _test_doc:
-        try:
-            _test_doc.close(True)
-        except Exception:
-            pass
-    _test_doc = None
-    _test_ctx = None
 
 
 def _create_test_dialog_with_rich_control(ctx):

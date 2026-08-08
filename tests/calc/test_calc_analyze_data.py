@@ -105,9 +105,10 @@ def test_analyze_data_worker_error(mock_run_trusted, mock_main_thread, calc_ctx)
 def test_analysis_domain_includes_all_tools():
     from plugin.main import get_tools
 
+    from plugin.tests.testing_utils import CalcDocStub
+
     registry = get_tools()
-    doc = MagicMock()
-    doc.supportsService.return_value = True
+    doc = CalcDocStub()
     names = {t.name for t in registry.get_tools(doc=doc, active_domain="analysis", exclude_tiers=())}
     assert "analyze_data" in names
     assert "plot_data" in names
@@ -123,9 +124,10 @@ def test_analysis_domain_includes_all_tools():
 def test_analyze_data_not_in_default_core_list():
     from plugin.main import get_tools
 
+    from plugin.tests.testing_utils import CalcDocStub
+
     registry = get_tools()
-    doc = MagicMock()
-    doc.supportsService.return_value = True
+    doc = CalcDocStub()
     names = {t.name for t in registry.get_tools(doc=doc)}
     assert "analyze_data" not in names
     assert "calc_goal_seek" not in names

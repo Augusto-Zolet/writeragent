@@ -88,7 +88,7 @@ Future scope, pass-through ideas, and out-of-scope workflows are in **§5** belo
 
 | File | Purpose |
 |------|---------|
-| [`plugin/calc/sheet_filter_criteria.py`](../plugin/calc/sheet_filter_criteria.py) | `FilterOperator2` labels + JSON → `TableFilterField2` field tuple parsing (covered by sheet-filter UNO tests in [`plugin/tests/uno/test_calc.py`](../plugin/tests/uno/test_calc.py), e.g. `test_calc_sheet_filter_apply_get_clear`). |
+| [`plugin/calc/sheet_filter_criteria.py`](../plugin/calc/sheet_filter_criteria.py) | `FilterOperator2` labels + JSON → `TableFilterField2` field tuple parsing (covered by sheet-filter UNO tests in [`tests/calc/test_calc_uno.py`](../tests/calc/test_calc_uno.py), e.g. `test_calc_sheet_filter_apply_get_clear`). |
 | [`plugin/calc/sheet_filter.py`](../plugin/calc/sheet_filter.py) | Tools + UNO helpers. |
 | [`plugin/calc/bridge.py`](../plugin/calc/bridge.py) | Range resolution. |
 

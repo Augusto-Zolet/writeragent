@@ -15,65 +15,43 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Tests for Writer form tools, running inside LibreOffice."""
 
-import uno
 from typing import Any
-from plugin.framework.uno_context import get_desktop
-from plugin.testing_runner import setup, teardown, native_test
+from plugin.testing_runner import native_test
+from plugin.tests.testing_utils import with_native_doc
 
-_test_doc: Any = None
-_test_ctx: Any = None
 
-@setup
-def setup_form_tests(ctx):
-    global _test_doc, _test_ctx
-    _test_ctx = ctx
-    desktop = get_desktop(ctx)
-
-    hidden_prop = uno.createUnoStruct(
-        "com.sun.star.beans.PropertyValue",
-        Name="Hidden",
-        Value=True,
-    )
-    _test_doc = desktop.loadComponentFromURL("private:factory/swriter", "_blank", 0, (hidden_prop,))
-    assert _test_doc is not None, "Could not create test writer document"
-
-@teardown
-def teardown_form_tests(ctx):
-    global _test_doc
-    if _test_doc:
-        _test_doc.close(True)
-    _test_doc = None
-
-def _clear_doc():
-    global _test_doc
-    if not _test_doc:
+def _clear_doc(doc):
+    if not doc:
         return
-    dp = _test_doc.getDrawPage()
+    dp = doc.getDrawPage()
     while dp.getCount() > 0:
         dp.remove(dp.getByIndex(0))
     # Reset text too
-    _test_doc.getText().setString("")
+    doc.getText().setString("")
+
 
 class MockCtx:
     def __init__(self, doc):
         self.doc = doc
         self.doc_type = "writer"
 
+
 @native_test
-def test_create_form_control_checkbox():
+@with_native_doc("writer")
+def test_create_form_control_checkbox(ctx, doc):
     from plugin.main import get_tools
     registry = get_tools()
     tool = registry.get("create_form_control")
     assert tool is not None, "create_form_control tool not found"
     
-    mock_ctx = MockCtx(_test_doc)
+    mock_ctx = MockCtx(doc)
     
     # Test creating a checkbox
     res = tool.execute(mock_ctx, type="checkbox", name="test_check", label="Test Label")
     assert res["status"] == "ok", f"Tool execution failed: {res}"
     
     # Verify shape exists on draw page
-    dp = _test_doc.getDrawPage()
+    dp = doc.getDrawPage()
     found = False
     for i in range(dp.getCount()):
         shape = dp.getByIndex(i)
@@ -84,14 +62,16 @@ def test_create_form_control_checkbox():
                 break
     assert found, "Checkbox shape not found in draw page"
 
+
 @native_test
-def test_create_form_fat_api():
+@with_native_doc("writer")
+def test_create_form_fat_api(ctx, doc):
     from plugin.main import get_tools
     registry = get_tools()
     tool = registry.get("create_form")
     assert tool is not None, "create_form tool not found"
     
-    mock_ctx = MockCtx(_test_doc)
+    mock_ctx = MockCtx(doc)
     
     fields = [
         {"type": "text", "name": "f1", "label": "Field 1", "placeholder": "Hint"},
@@ -103,7 +83,7 @@ def test_create_form_fat_api():
     assert len(res["results"]) == 2
     
     # Verify both exist
-    dp = _test_doc.getDrawPage()
+    dp = doc.getDrawPage()
     names = []
     for i in range(dp.getCount()):
         shape = dp.getByIndex(i)
@@ -113,13 +93,15 @@ def test_create_form_fat_api():
     assert "f1" in names
     assert "f2" in names
 
+
 @native_test
-def test_generate_form_processing_logic():
+@with_native_doc("writer")
+def test_generate_form_processing_logic(ctx, doc):
     # We test the parser and processor directly to avoid flaky LLM calls in CI
     from plugin.writer.specialized.forms import GenerateForm
     tool = GenerateForm()
     
-    mock_ctx = MockCtx(_test_doc)
+    mock_ctx = MockCtx(doc)
     
     # Test markdown snippet with multiple field types
     content = (
@@ -132,10 +114,11 @@ def test_generate_form_processing_logic():
     assert res["status"] == "ok"
     
     # Verify draw page count increased
-    dp = _test_doc.getDrawPage()
+    dp = doc.getDrawPage()
     names = [dp.getByIndex(i).Control.Name for i in range(dp.getCount()) if dp.getByIndex(i).getShapeType() == "com.sun.star.drawing.ControlShape"]
     assert "nm" in names
     assert "cb" in names
+
 
 @native_test
 def test_parse_field_tag():
@@ -162,34 +145,33 @@ def test_parse_field_tag():
     assert params3["type"] == "button"
     assert params3["label"] == "Click"
 
+
 @native_test
-def test_insert_text_with_view_cursor():
+@with_native_doc("writer")
+def test_insert_text_with_view_cursor(ctx, doc):
     """Verify that _insert_text correctly handles the ViewCursor by converting it."""
     from plugin.writer.specialized.forms import GenerateForm
     tool = GenerateForm()
     
-    mock_ctx = MockCtx(_test_doc)
+    mock_ctx = MockCtx(doc)
     
-    # This call previously crashed because it passed ViewCursor to insert_html_at_cursor
-    try:
-        tool._insert_text(mock_ctx, "<b>Bold Text</b>")
-    except Exception as e:
-        import pytest
-        pytest.fail(f"_insert_text crashed with: {str(e)}")
+    tool._insert_text(mock_ctx, "<b>Bold Text</b>")
     
     # Verify insertion
-    text = _test_doc.getText().getString()
+    text = doc.getText().getString()
     assert "Bold Text" in text
 
+
 @native_test
-def test_list_form_controls():
-    _clear_doc()
+@with_native_doc("writer")
+def test_list_form_controls(ctx, doc):
+    _clear_doc(doc)
     from plugin.main import get_tools
     registry = get_tools()
     
     # 1. Create a few controls
     create_tool = registry.get("create_form_control")
-    mock_ctx = MockCtx(_test_doc)
+    mock_ctx = MockCtx(doc)
     create_tool.execute(mock_ctx, type="text", name="txt1", label="Label 1")
     create_tool.execute(mock_ctx, type="checkbox", name="chk1", label="Label 2")
     
@@ -208,12 +190,14 @@ def test_list_form_controls():
     assert "text" in types
     assert "checkbox" in types
 
+
 @native_test
-def test_edit_form_control():
-    _clear_doc()
+@with_native_doc("writer")
+def test_edit_form_control(ctx, doc):
+    _clear_doc(doc)
     from plugin.main import get_tools
     registry = get_tools()
-    mock_ctx = MockCtx(_test_doc)
+    mock_ctx = MockCtx(doc)
     
     # 1. Create a control (use checkbox which has Label)
     create_tool = registry.get("create_form_control")
@@ -238,7 +222,7 @@ def test_edit_form_control():
     assert "text" not in ctrl
 
     # 5. Test text field editing
-    _clear_doc()
+    _clear_doc(doc)
     create_tool.execute(mock_ctx, type="text", name="txt_orig", default_value="Original Text")
     list_res3 = list_tool.execute(mock_ctx)
     idx2 = list_res3["controls"][0]["index"]
@@ -249,12 +233,14 @@ def test_edit_form_control():
     assert ctrl2["text"] == "New Text"
     assert "label" not in ctrl2
 
+
 @native_test
-def test_delete_form_control():
-    _clear_doc()
+@with_native_doc("writer")
+def test_delete_form_control(ctx, doc):
+    _clear_doc(doc)
     from plugin.main import get_tools
     registry = get_tools()
-    mock_ctx = MockCtx(_test_doc)
+    mock_ctx = MockCtx(doc)
     
     # 1. Create a control
     create_tool = registry.get("create_form_control")

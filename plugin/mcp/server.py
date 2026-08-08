@@ -42,6 +42,46 @@ def mcp_endpoint_url(host: str, port: int, use_ssl: bool = False) -> str:
     return f"{scheme}://{host}:{port}/mcp"
 
 
+# Shared with log.error on bind failure and the Toggle/Status/Settings msgbox so users
+# see the same actionable text that used to live only in writeragent_debug.log (#379).
+_PORT_IN_USE_GUIDANCE = (
+    "The port is in use by another process. "
+    "Close whatever is holding it, or set mcp.mcp_port in Settings "
+    "(or writeragent.json) to a free port, then try again. "
+    "A local preview/viewer server may default to the same port."
+)
+
+# errno.EADDRINUSE is 98 (Linux) / 48 (macOS); Windows uses winerror 10048 (WSAEADDRINUSE).
+_PORT_IN_USE_ERRNOS = frozenset({98, 48, 10048})
+
+
+def is_port_in_use_error(exc: BaseException) -> bool:
+    """True when *exc* is a bind failure because the TCP port is already taken."""
+    if isinstance(exc, OSError):
+        err = getattr(exc, "errno", None)
+        if err in _PORT_IN_USE_ERRNOS:
+            return True
+        winerr = getattr(exc, "winerror", None)
+        if winerr in _PORT_IN_USE_ERRNOS:
+            return True
+    msg = str(exc).lower()
+    return "address already in use" in msg or "only one usage of each socket address" in msg
+
+
+def format_mcp_start_failure(host: str, port: int | str, exc: BaseException) -> str:
+    """Short user-facing body for MCP/HTTP start failures (no full traceback).
+
+    Always includes host:port and the exception line. Port conflicts get the same
+    guidance as the bind log so the dialog is actionable without opening the debug log.
+    """
+    endpoint = f"{host}:{port}"
+    exc_line = f"{type(exc).__name__}: {exc}"
+    lines = [f"Could not bind {endpoint} — {exc_line}"]
+    if is_port_in_use_error(exc):
+        lines.append(_PORT_IN_USE_GUIDANCE)
+    return "\n".join(lines)
+
+
 class _ThreadedHTTPServer(socketserver.ThreadingMixIn, HTTPServer):
     """HTTP server that handles each request in its own thread."""
 
@@ -139,16 +179,7 @@ class GenericRequestHandler(BaseHTTPRequestHandler):
 class HttpServer:
     """Generic threaded HTTP server with optional TLS."""
 
-    # Port-bind resilience. The configured port (default 8765) can be briefly held by a previous
-    # instance that is still shutting down, or collide with another local server that defaults to
-    # the same port (e.g. a code editor's preview/"viewer" server). A single bind attempt then
-    # raises and the MCP server never comes up — the user just sees "I have to restart to connect".
-    # Retry a few times so a transient holder clears on its own; on persistent failure raise with a
-    # CLEAR, actionable message instead of a bare OSError.
-    _BIND_ATTEMPTS = 5
-    _BIND_RETRY_DELAY = 1.0
-
-    def __init__(self, route_registry, port=8766, host="localhost", use_ssl=False, ssl_cert="", ssl_key=""):
+    def __init__(self, route_registry, port, host="localhost", use_ssl=False, ssl_cert="", ssl_key=""):
         self.route_registry = route_registry
         self.port = port
         self.host = host
@@ -166,7 +197,14 @@ class HttpServer:
 
         GenericRequestHandler.route_registry = self.route_registry
 
-        self._server = self._bind_with_retry()
+        # Single bind — no retry/sleep. A busy port used to block bootstrap and the Start MCP
+        # menu for ~4s (5×1s). Stdio clients that start before LO are handled by mcp_bridge.py;
+        # callers stash OSError and show _PORT_IN_USE_GUIDANCE in the UI.
+        try:
+            self._server = _ThreadedHTTPServer((self.host, self.port), GenericRequestHandler)
+        except OSError:
+            log.error("Could not bind %s:%s — %s", self.host, self.port, _PORT_IN_USE_GUIDANCE)
+            raise
 
         if self.use_ssl:
             # TLS server mode requires explicit certificates.
@@ -190,34 +228,6 @@ class HttpServer:
         scheme = "https" if self.use_ssl else "http"
         url = "%s://%s:%s" % (scheme, self.host, self.port)
         log.info("HTTP server ready — %s (%d routes)", url, self.route_registry.route_count)
-
-    def _bind_with_retry(self):
-        """Bind the listening socket, retrying briefly if the port is transiently in use.
-
-        Returns the bound server. Raises the last OSError (with a clear log) if the port stays
-        busy across all attempts — preserving start()'s "raise on failure" contract so the caller
-        still reports the failure, but now after retries and with an actionable message."""
-        import time
-
-        last_err = None
-        for attempt in range(1, self._BIND_ATTEMPTS + 1):
-            try:
-                return _ThreadedHTTPServer((self.host, self.port), GenericRequestHandler)
-            except OSError as e:
-                last_err = e
-                log.warning(
-                    "HTTP bind %s:%s failed (%s) — attempt %d/%d",
-                    self.host, self.port, getattr(e, "errno", e), attempt, self._BIND_ATTEMPTS,
-                )
-                if attempt < self._BIND_ATTEMPTS:
-                    time.sleep(self._BIND_RETRY_DELAY)
-        log.error(
-            "Could not bind %s:%s after %d attempts — the port is in use by another process. "
-            "Close whatever is holding it, or set the MCP 'port' (or 'mcp_port') config to a free "
-            "port, then restart. A local preview/viewer server may default to the same port.",
-            self.host, self.port, self._BIND_ATTEMPTS,
-        )
-        raise last_err if last_err is not None else OSError("bind failed")
 
     def stop(self):
         if not self._running:

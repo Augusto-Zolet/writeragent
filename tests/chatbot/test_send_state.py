@@ -94,6 +94,15 @@ def test_send_clicked_with_no_input_emits_no_start_send():
     assert not any(isinstance(e, StartSendEffect) for e in tr.effects)
 
 
+def test_send_clicked_with_audio_only_starts_send():
+    """Cold send with recorded audio and no text (not via Stop Rec auto-send)."""
+    state = SendButtonState(False, False, False, True, True)
+    tr = next_state(state, SendEvent(SendEventKind.SEND_CLICKED))
+    assert tr.state.is_busy is True
+    assert tr.state.has_audio is True
+    assert any(isinstance(e, StartSendEffect) for e in tr.effects)
+
+
 def test_stop_clicked_when_idle_emits_no_stop_send():
     state = SendButtonState(False, False, True, False, True)
     tr = next_state(state, SendEvent(SendEventKind.STOP_CLICKED))

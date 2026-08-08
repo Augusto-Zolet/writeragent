@@ -33,7 +33,7 @@ When the setting is off, behavior reverts to the legacy plain-text sidebar; mode
 
 ### Streaming experience
 
-During an assistant stream, text is appended as **plain** characters on the RichTextControl (styled with assistant body color). If the model streams HTML tags, users may see raw tags until the stream finishes — that is expected today.
+During an assistant stream, text is appended as **plain** characters on the RichTextControl (styled with assistant body color). Chunks go through [`StreamingHTMLStripper`](../plugin/framework/html_stripper.py) (`SendButtonListener._plain_text_stripper` in [`panel.py`](../plugin/chatbot/panel.py)) so raw HTML tags are not shown mid-stream. Fallback path uses `strip_html_tags` when the stateful stripper is unset.
 
 After **`STREAM_DONE`** / **`FINAL_DONE`**, if the final assistant message contains HTML tags (detected by `_HTML_TAG_RE`), the sidebar **re-renders only the tail** of that message: it truncates from `_assistant_stream_start_len`, then pastes formatted content via the hidden-Writer bridge. Earlier messages in the control keep their formatting.
 
@@ -165,7 +165,7 @@ flowchart LR
 
 ## Limitations and backlog
 
-- **Raw HTML during streaming** — Tags may be visible until rerender; an incremental stripper on the hot path is possible future work but not shipped.
+- **Shipped (do not re-open):** Mid-stream raw HTML flash — fixed via `StreamingHTMLStripper` on the append path; see [Streaming experience](#streaming-experience). Still open below is *formatted* HTML during stream (vs plain stripped text + end-of-stream rerender), which is a different feature.
 - **Rerender only when tags match `_HTML_TAG_RE`** — Plain-text-looking HTML or unusual tags may skip formatted rerender.
 - **Form component caveat** — `RichTextControl` is designed around database forms; extension dialogs use form components without a bound DB, but edge cases on some LO builds are possible ([forum discussion](https://forum.openoffice.org/en/forum/viewtopic.php?t=92134)).
 - **Calc/Draw QA** — Same wiring as Writer deck; verify formatted paste and resize on non-Writer sidebars when changing behavior.
@@ -343,7 +343,7 @@ Run `make test` and the manual QA checklist above after changes. Preserve histor
 
 ### Open questions
 
-- Incremental HTML formatting during stream (vs. rerender on done)?
+- Incremental **formatted** HTML during stream (bold/lists live) vs. today’s strip-then-rerender-on-done? (Tag stripping mid-stream is already shipped — do not re-implement that.)
 - Preserve real `NumberingRules` on paste and drop manual list-prefix reconstruction?
 - Spellcheck/grammar on the transcript?
 - Out-of-process webview still worth it long-term?

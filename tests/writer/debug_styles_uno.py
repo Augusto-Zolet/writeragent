@@ -13,40 +13,26 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-from plugin.testing_runner import native_test, setup, teardown
+from plugin.testing_runner import native_test
 from plugin.writer.styles import GetStyleInfo
-from plugin.tests.testing_utils import TestingFactory
+from plugin.tests.testing_utils import TestingFactory, with_native_doc
 
-_test_doc = None
-_test_ctx = None
-
-@setup
-def my_setup(ctx):
-    global _test_doc, _test_ctx
-    _test_ctx = ctx
-    _test_doc = TestingFactory.create_native_doc(ctx, doc_type="writer")
-
-@teardown
-def my_teardown(ctx):
-    global _test_doc
-    if _test_doc:
-        _test_doc.close(True)
 
 @native_test
-def test_inspect_heading1_properties():
-    doc = _test_doc
-    tool_ctx = TestingFactory.create_context(doc=doc, ctx=_test_ctx, env="native")
-    
+@with_native_doc("writer")
+def test_inspect_heading1_properties(ctx, doc):
+    tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
+
     tool = GetStyleInfo()
     res = tool.execute(tool_ctx, style_name="Heading 1", family="ParagraphStyles")
-    
+
     # Print all keys to find the parent style property
     print("STYLE PROPERTIES:", list(res.get("properties", {}).keys()))
     if "ParentStyle" in res.get("properties", {}):
         print("Found ParentStyle:", res["properties"]["ParentStyle"])
     elif "ParentStyleName" in res.get("properties", {}):
         print("Found ParentStyleName:", res["properties"]["ParentStyleName"])
-    
+
     # Also check the object directly
     style = doc.getStyleFamilies().getByName("ParagraphStyles").getByName("Heading 1")
     print("HAS ParentStyle:", hasattr(style, "ParentStyle"))

@@ -19,6 +19,8 @@ import logging
 import re
 from typing import Any, cast
 
+from plugin.framework.appearance import get_theme_colors
+
 log = logging.getLogger(__name__)
 
 _HTML_TAG_RE = re.compile(
@@ -156,14 +158,6 @@ class HiddenDocHTMLImporter:
     def tighten_list_indent(self, body_range) -> None:
         """Tighten indentation on list paragraphs within *body_range*."""
         _tighten_list_indent(body_range)
-
-
-# Re-export / delegate to shared implementation (single source of truth for
-# StyleSettings luminance + dark/light decision used by chat + Monaco editor).
-from plugin.framework.appearance import get_theme_colors  # noqa: F401
-
-# The old implementation body has been extracted to appearance.py to avoid
-# duplication and make the Monaco editor theme follow LO automatically.
 
 
 def _tighten_list_indent(body_range):

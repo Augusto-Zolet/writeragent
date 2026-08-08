@@ -77,7 +77,7 @@ try:
 except ImportError:
     TOOLPANEL = 3  # Fallback
 
-from plugin.chatbot.listeners import BaseItemListener, BaseTextListener
+from plugin.framework.uno_listeners import BaseItemListener, BaseTextListener
 from plugin.framework.config import get_config, get_current_endpoint
 from plugin.framework.client.model_fetcher import get_text_model, get_image_model, set_image_model, set_text_model
 from plugin.framework.i18n import _
@@ -91,9 +91,6 @@ log = logging.getLogger(__name__)
 EXTENSION_ID = "org.extension.writeragent"
 XDL_PATH = "Dialogs/ChatPanelDialog.xdl"
 _PRE_NEGOTIATION_PANEL_WIDTH = 420
-
-# Default max tool rounds when not in config (get_api_config supplies chat_max_tool_rounds)
-DEFAULT_MAX_TOOL_ROUNDS = 5
 
 # Default system prompt for the chat sidebar (imported from main inside methods to avoid unopkg errors)
 DEFAULT_SYSTEM_PROMPT_FALLBACK = "You are a helpful assistant."

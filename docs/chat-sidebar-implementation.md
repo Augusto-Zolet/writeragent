@@ -18,7 +18,7 @@ The sidebar is a **chat window**: assistant text is stored in session history an
 | Research then write (e.g. web report in the doc) | Delegate research (sub-agent returns **plain text** in `result`), main agent formats HTML and **`apply_document_content`** in the same send |
 | Large edit plus acknowledgment | Tool call(s) + **brief** chat confirmation |
 
-Prompt text lives in [`plugin/framework/constants.py`](../plugin/framework/constants.py): blocks are ordered to match runtime assembly in `get_chat_system_prompt_for_document` (see [Chat prompt constants](#chat-prompt-constants) below). Key pieces: **`SIDEBAR_VS_DOCUMENT`** (routing) and **`WRITER_CORE_DIRECTIVES`** (delegation, including research plain-text → format → `apply_document_content`), composed by **`get_chat_system_prompt_for_document`**. Generic delegate `task` guidance in the specialized block is one short line; per-domain detail is injected on the sub-agent at runtime ([`specialized_base.py`](../plugin/doc/specialized_base.py)). **Sub-agents** (web research, librarian, specialized delegate) use different completion tools (`final_answer`, `reply_to_user`, delegate `task`)—not this routing block.
+Prompt text lives in [`plugin/framework/prompts.py`](../plugin/framework/prompts.py): blocks are ordered to match runtime assembly in `get_chat_system_prompt_for_document` (see [Chat prompt constants](#chat-prompt-constants) below). Key pieces: **`SIDEBAR_VS_DOCUMENT`** (routing) and **`WRITER_CORE_DIRECTIVES`** (delegation, including research plain-text → format → `apply_document_content`), composed by **`get_chat_system_prompt_for_document`**. Generic delegate `task` guidance in the specialized block is one short line; per-domain detail is injected on the sub-agent at runtime ([`specialized_base.py`](../plugin/doc/specialized_base.py)). **Sub-agents** (web research, librarian, specialized delegate) use different completion tools (`final_answer`, `reply_to_user`, delegate `task`)—not this routing block.
 
 **Menu chat** (non-sidebar entry) has no tool-calling; it is conversational only.
 
@@ -32,7 +32,7 @@ See [streaming-and-threading.md](streaming-and-threading.md) §§3.3–3.4 for i
 
 ## Chat prompt constants
 
-Writer main-chat system prompt blocks in [`constants.py`](../plugin/framework/constants.py) are ordered to match runtime assembly in `get_chat_system_prompt_for_document` (persona → chat format → sidebar routing → core directives → tools → translation → usage patterns → review modes → `apply_document_content` HTML rules → specialized delegation → memory). The delivery is hybrid: the reference pieces (search, navigation, images) are NOT ambient — the sidebar pulls them on demand via the `get_guidance` tool (topics mapped in `plugin/framework/agent_manual.py`, the same single source the MCP serves).
+Writer main-chat system prompt blocks in [`prompts.py`](../plugin/framework/prompts.py) are ordered to match runtime assembly in `get_chat_system_prompt_for_document` (persona → chat format → sidebar routing → core directives → tools → translation → usage patterns → review modes → `apply_document_content` HTML rules → specialized delegation → memory). The delivery is hybrid: the reference pieces (search, navigation, images) are NOT ambient — the sidebar pulls them on demand via the `get_guidance` tool (topics mapped in `plugin/framework/agent_manual.py`, the same single source the MCP serves).
 
 Design notes for prompt authors live in this section so the source file stays scannable.
 
@@ -134,11 +134,11 @@ All extension logging goes through `plugin/framework/logging.py` (`init_logging`
 
 | File | Role |
 |------|------|
-| `chat_panel.py` | ChatPanelFactory, ChatPanelElement, ChatToolPanel, SendButtonListener; ContainerWindowProvider + setVisible(True) |
+| `panel_factory.py` / `panel.py` | ChatPanelFactory, ChatPanelElement, ChatToolPanel, SendButtonListener; ContainerWindowProvider + setVisible(True) |
 | `Dialogs/ChatPanelDialog.xdl` | Panel UI (response, query, send); `withtitlebar="false"` |
 | `registry/org/openoffice/Office/UI/Sidebar.xcu` | WriterAgent deck + ChatPanel; `WantsAWT` true |
 | `registry/org/openoffice/Office/UI/Factories.xcu` | ChatPanelFactory registration |
-| `META-INF/manifest.xml` | Registers chat_panel.py, Sidebar.xcu, Factories.xcu |
+| `META-INF/manifest.xml` | Registers panel factory, Sidebar.xcu, Factories.xcu |
 
 ---
 
@@ -311,7 +311,7 @@ except Exception as e:
 Now that the sidebar panel works, possible next steps:
 
 1. **Send button wiring**: Ensure the panel’s Send button is connected via `getControl()` on the container window (or an event handler) so chat works from the sidebar.
-2. **Remove or reduce debug logging** in `chat_panel.py` for production if desired (or keep for diagnostics).
+2. **Remove or reduce debug logging** in `panel.py` / `tool_loop.py` for production if desired (or keep for diagnostics).
 3. **Optional**: Dockable toolbar or modeless dialog as an alternative entry point; sidebar remains the primary UX.
 4. **Optional**: Add panel to an existing Writer deck instead of a custom deck to reduce clutter.
 
@@ -472,10 +472,10 @@ Simpler approach:
 |------|--------|
 | `registry/org/openoffice/Office/UI/Sidebar.xcu` | Deck + panel; include `WantsAWT` true |
 | `registry/org/openoffice/Office/UI/Factories.xcu` | ChatPanelFactory registration |
-| `chat_panel.py` | ChatPanelFactory, ChatPanelElement, ChatToolPanel; ContainerWindowProvider + setVisible(True) |
+| `panel_factory.py` / `panel.py` | ChatPanelFactory, ChatPanelElement, ChatToolPanel; ContainerWindowProvider + setVisible(True) |
 | `WriterAgentDialogs/ChatPanelDialog.xdl` | Panel UI; `dlg:withtitlebar="false"` |
-| `META-INF/manifest.xml` | Register chat_panel.py, Sidebar.xcu, Factories.xcu |
-| `build.sh` | Include `chat_panel.py`, `registry/` in zip |
+| `META-INF/manifest.xml` | Register panel factory, Sidebar.xcu, Factories.xcu |
+| `Makefile` / OXT bundle | Include `plugin/chatbot/panel*.py` and registry in the extension zip |
 | `Addons.xcu` | Optional: keep Chat with Document menu as fallback |
 
 ---

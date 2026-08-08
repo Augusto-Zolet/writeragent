@@ -6,16 +6,15 @@
 from unittest.mock import MagicMock, patch
 
 from plugin.calc.formula_dep_chain import _resolve_sheet_and_cell, fetch_formula_dep_chain
+from plugin.tests.testing_utils import CalcDocStub
 
 
 def test_resolve_sheet_and_cell_with_sheet_prefix():
-    doc = MagicMock()
-    sheets = MagicMock()
-    sheets.hasByName.return_value = True
-    sheet = MagicMock()
-    sheets.getByName.return_value = sheet
-    doc.getSheets.return_value = sheets
-    doc.getCurrentController.return_value = None
+    doc = CalcDocStub()
+    sheet = doc.getSheets().getByName("Sheet1")
+    # No active controller path for prefixed addresses — still resolves via getSheets.
+    doc.CurrentController = None
+    doc._controller = None
 
     resolved = _resolve_sheet_and_cell(doc, "Sheet1.B2")
     assert resolved is not None
@@ -26,12 +25,7 @@ def test_resolve_sheet_and_cell_with_sheet_prefix():
 
 
 def test_fetch_formula_dep_chain_uses_command_values_when_available():
-    doc = MagicMock()
-    controller = MagicMock()
-    sheet = MagicMock()
-    controller.getActiveSheet.return_value = sheet
-    doc.getCurrentController.return_value = controller
-    doc.getCommandValues.return_value = '{"commandValues": {"root": {"address": "B2"}}}'
+    doc = CalcDocStub(command_values='{"commandValues": {"root": {"address": "B2"}}}')
 
     with patch("plugin.calc.navigation.navigate_to_cell"):
         chain = fetch_formula_dep_chain(doc, MagicMock(), "B2")
@@ -42,11 +36,7 @@ def test_fetch_formula_dep_chain_uses_command_values_when_available():
 
 
 def test_fetch_formula_dep_chain_falls_back_to_formula_query():
-    doc = MagicMock()
-    controller = MagicMock()
-    sheet = MagicMock()
-    controller.getActiveSheet.return_value = sheet
-    doc.getCurrentController.return_value = controller
+    doc = CalcDocStub()
 
     fallback = {"source": "formula_query", "precedents": [{"address": "A1", "type": "value"}]}
     with patch("plugin.calc.navigation.navigate_to_cell"), patch(

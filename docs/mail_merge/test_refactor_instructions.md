@@ -1,72 +1,73 @@
 # Test Refactoring Instructions - TestingFactory Migration
 
 ## Objective
-Consolidate test infrastructure by replacing manual mock setups, redundant `MockDoc` classes, and boilerplate `ToolContext` initialization with calls to the unified `TestingFactory` in `plugin/tests/testing_utils.py`.
 
-## Key Utility: `TestingFactory`
-Located in: [testing_utils.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/tests/testing_utils.py)
+Consolidate test infrastructure by replacing manual mock setups, redundant `MockDoc` classes, and boilerplate `ToolContext` initialization with the shared stubs and `TestingFactory` in [`tests/testing_utils.py`](../../tests/testing_utils.py) (imported as `plugin.tests.testing_utils`).
 
-### Main Methods:
-- `TestingFactory.create_doc(env="mock", doc_type="writer", content=None, **kwargs)`
-  - Returns a mock document (default) or a stub.
-  - Supports `items` (for style families/collections) and `content` (list of paragraph stubs).
-- `TestingFactory.create_context(doc=None, ctx=None, env="mock", doc_type="writer")`
-  - Returns a `ToolContext` initialized with mock or native services.
-- `TestingFactory.setup_tool(tool_class, env="mock", doc_type="writer", ...)`
-  - Convenience helper to get a tool instance and its context.
-- `TestingFactory.create_native_doc(ctx, doc_type="writer")`
-  - Creates a real LibreOffice document (requires a valid UNO context).
+## Key utilities
 
-## Refactoring Patterns
+| API | Role |
+|-----|------|
+| `WriterDocStub` / `ElementStub` | Stateful Writer document for pure pytest |
+| `CalcDocStub` (+ sheet/cell/range) | Stateful Calc document for pure pytest |
+| `TestingFactory.create_doc(doc_type=...)` | Returns `WriterDocStub` or `CalcDocStub` (no MagicMock wrapper) |
+| `TestingFactory.create_context(...)` | Builds a `ToolContext`; mock env creates a stub doc when `doc` omitted; pass `services=` for live plugin registry |
+| `TestingFactory.execute_tool(doc, ctx, name, args, doc_type=...)` | Shared native tool runner (replaces per-file `_execute_calc_tool`) |
+| `TestingFactory.create_native_doc` / `native_doc` / `@with_native_doc` | Live LibreOffice documents for `*_uno.py` tests |
+
+### `create_doc` notes
+
+- **Writer:** `content=` list of `ElementStub` paragraphs; `items=` style-family map for `getStyleFamilies()`.
+- **Calc:** prefer `data=` 2D grid; also `selection=`, `props=`, `command_values=`.
+- Native creation is **not** via `create_doc(env="native")` — use `create_native_doc(ctx, ...)` or `@with_native_doc`.
+
+### `create_context` notes
+
+- **Mock:** `TestingFactory.create_context(doc_type="writer"|"calc")`.
+- **Native:** must pass an existing `doc=` (compose with `@with_native_doc`). Does not open documents itself.
+
+## Refactoring patterns
 
 ### 1. Replacing manual MockDoc
-**Before:**
-```python
-class MockDoc:
-    def supportsService(self, s): ...
-doc = MockDoc()
-```
-**After:**
+
 ```python
 from plugin.tests.testing_utils import TestingFactory
-doc = TestingFactory.create_doc(doc_type="writer")
+doc = TestingFactory.create_doc(doc_type="writer")  # WriterDocStub
+# or
+doc = TestingFactory.create_doc(doc_type="calc", data=(("a", 1),))
 ```
 
 ### 2. Replacing manual ToolContext
-**Before:**
-```python
-ctx = ToolContext(doc=doc, ctx=None, doc_type="writer", services=ServiceRegistry())
-```
-**After:**
+
 ```python
 from plugin.tests.testing_utils import TestingFactory
-ctx = TestingFactory.create_context(doc=doc, doc_type="writer")
+ctx = TestingFactory.create_context(doc_type="writer")
+# When the tool needs UNO surfaces the stub does not model yet:
+ctx = TestingFactory.create_context(doc=MagicMock(), doc_type="writer")
 ```
 
-### 3. Native Test Setup
-**Before:**
+### 3. Native test setup
+
 ```python
-@setup
-def setup_tests(ctx):
-    desktop = get_desktop(ctx)
-    _test_doc = desktop.loadComponentFromURL("private:factory/swriter", ...)
-```
-**After:**
-```python
-@setup
-def setup_tests(ctx):
-    _test_doc = TestingFactory.create_native_doc(ctx, "writer")
+from plugin.tests.testing_utils import TestingFactory, with_native_doc
+
+@with_native_doc("writer")
+def test_something(ctx, doc):
+    tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
+    ...
 ```
 
-## Step-by-Step for Agent
-1. **Identify** redundant mock classes (like `MockDoc`, `MockContext`) and remove them.
-2. **Import** `TestingFactory` from `plugin.tests.testing_utils`.
-3. **Replace** document/context creation with factory methods.
-4. **Verify** that test-specific properties (like `items` for style tests) are passed to `create_doc`.
-5. **Run** the specific test file using `pytest` (for unit tests) or `testing_runner` (for native tests).
-6. **Ensure** all tests in the file pass before completing.
+## Step-by-step
 
-## Example Refactored Files
-- [test_tool.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/tests/test_tool.py)
-- [test_writer_styles.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/tests/test_writer_styles.py)
-- [uno/test_writer.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/tests/uno/test_writer.py)
+1. Prefer `WriterDocStub` / `CalcDocStub` over ad-hoc `MagicMock` document stacks.
+2. Import from `plugin.tests.testing_utils`.
+3. Use `create_context` instead of hand-rolled `ToolContext` / `DummyContext`.
+4. Keep format-heavy Calc stacks (`test_cells.py`) on MagicMock until number-format stubs exist.
+5. Run `pytest` for unit files; native suites via `testing_runner` / `make test`.
+
+## Example files
+
+- [`tests/framework/test_tool.py`](../../tests/framework/test_tool.py)
+- [`tests/writer/test_styles.py`](../../tests/writer/test_styles.py)
+- [`tests/calc/test_editselection.py`](../../tests/calc/test_editselection.py)
+- [`tests/test_testing_utils.py`](../../tests/test_testing_utils.py)

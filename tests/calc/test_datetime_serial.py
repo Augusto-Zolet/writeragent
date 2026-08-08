@@ -107,23 +107,27 @@ def test_should_preserve_temporal_format(input_cat, serial, dest, preserve):
 
 
 @pytest.mark.parametrize(
-    "input_cat,template,compatible",
+    "input_cat,template,format_code,compatible",
     [
-        ("date", "date", True),
-        ("date", "datetime", True),
-        ("date", "time", False),
-        ("date", None, False),
-        ("time", "time", True),
-        ("time", "date", False),
-        ("duration", "time", True),
-        ("duration", "date", False),
-        ("datetime", "datetime", True),
-        ("datetime", "date", True),
-        ("datetime", "time", False),
+        ("date", "date", None, True),
+        ("date", "datetime", None, False),  # P1 stricter than M1 preserve
+        ("date", "time", None, False),
+        ("date", None, None, False),
+        ("time", "time", None, True),
+        ("time", "time", "HH:MM:SS", True),
+        ("time", "time", "[HH]:MM:SS", False),  # clock must not inherit elapsed
+        ("time", "time", "[H]:MM", False),
+        ("time", "date", None, False),
+        ("duration", "time", None, True),
+        ("duration", "time", "[HH]:MM:SS", True),  # duration may inherit elapsed
+        ("duration", "date", None, False),
+        ("datetime", "datetime", None, True),
+        ("datetime", "date", None, True),
+        ("datetime", "time", None, False),
     ],
 )
-def test_is_compatible_temporal_template(input_cat, template, compatible):
-    assert is_compatible_temporal_template(input_cat, template) is compatible
+def test_is_compatible_temporal_template(input_cat, template, format_code, compatible):
+    assert is_compatible_temporal_template(input_cat, template, format_code) is compatible
 
 
 @pytest.mark.parametrize(

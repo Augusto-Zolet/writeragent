@@ -94,7 +94,6 @@ LIBREPY_PLUGIN_FILES: tuple[str, ...] = (
     "plugin/writer/images/__init__.py",
     "plugin/writer/images/image_tools.py",
     "plugin/chatbot/dialogs.py",
-    "plugin/chatbot/listeners.py",
     "plugin/chatbot/module_config_dialog.py",
     "plugin/chatbot/settings_fields.py",
     "plugin/chatbot/settings_tab_order.py",

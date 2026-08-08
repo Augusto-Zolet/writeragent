@@ -659,8 +659,13 @@ class CellManipulator:
 
         Returns:
             {col_index: inherited_format_key} for columns where a template was found.
+
+        Compatibility is stricter than M1 preserve (see ``is_compatible_temporal_template``):
+        date does not inherit datetime; clock time skips elapsed FormatString templates.
         """
         column_templates: dict[int, int] = {}
+        # FormatString beside Type so clock-time P1 can skip elapsed [HH]:… templates.
+        format_code_cache: dict[int, object | None] = {}
         for col, input_category in columns_needing_templates.items():
             start_r = scan_start_row - 1
             min_r = max(0, scan_start_row - max_scan)
@@ -672,14 +677,20 @@ class CellManipulator:
                     continue
                 if key == 0:
                     continue
-                if key not in category_cache:
+                if key not in category_cache or key not in format_code_cache:
                     try:
                         props = formats.getByKey(key)
-                        category_cache[key] = _format_category_from_type(props.getPropertyValue("Type"))
+                        if key not in category_cache:
+                            category_cache[key] = _format_category_from_type(props.getPropertyValue("Type"))
+                        if key not in format_code_cache:
+                            format_code_cache[key] = props.getPropertyValue("FormatString")
                     except Exception:
-                        category_cache[key] = None
+                        if key not in category_cache:
+                            category_cache[key] = None
+                        if key not in format_code_cache:
+                            format_code_cache[key] = None
                 cat = category_cache[key]
-                if is_compatible_temporal_template(input_category, cat):
+                if is_compatible_temporal_template(input_category, cat, format_code_cache.get(key)):
                     column_templates[col] = key
                     break
         return column_templates

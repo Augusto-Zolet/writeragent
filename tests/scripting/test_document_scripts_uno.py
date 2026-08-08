@@ -28,51 +28,28 @@ def _hidden_prop():
     return uno.createUnoStruct("com.sun.star.beans.PropertyValue", Name="Hidden", Value=True)
 
 
-@setup
-def setup_document_scripts_uno(ctx):
-    global _test_ctx, _temp_dir, _saved_path
-    _test_ctx = ctx
-    _temp_dir = tempfile.mkdtemp(prefix="wa_doc_scripts_")
-
-
-@teardown
-def teardown_document_scripts_uno(ctx):
-    global _test_ctx, _temp_dir, _saved_path
-    _test_ctx = None
-    if _temp_dir and os.path.isdir(_temp_dir):
-        for name in os.listdir(_temp_dir):
-            try:
-                os.remove(os.path.join(_temp_dir, name))
-            except OSError:
-                pass
-        try:
-            os.rmdir(_temp_dir)
-        except OSError:
-            pass
-    _temp_dir = None
-    _saved_path = None
-
-
 @native_test
-def test_document_scripts_survive_save_reopen():
-    global _saved_path
+def test_document_scripts_survive_save_reopen(ctx):
     from plugin.framework.uno_context import get_desktop
 
-    desktop = get_desktop(_test_ctx)
-    doc = TestingFactory.create_native_doc(_test_ctx, "writer", hidden=True)
-    assert attach_document_script(doc, "RoundTrip", "result = 42") is None
-    assert get_document_scripts(doc)["RoundTrip"] == "result = 42"
+    desktop = get_desktop(ctx)
+    with tempfile.TemporaryDirectory(prefix="wa_doc_scripts_") as temp_dir:
+        doc = TestingFactory.create_native_doc(ctx, "writer", hidden=True)
+        try:
+            assert attach_document_script(doc, "RoundTrip", "result = 42") is None
+            assert get_document_scripts(doc)["RoundTrip"] == "result = 42"
 
-    _saved_path = os.path.join(_temp_dir, "doc_scripts_test.odt")
-    file_url = uno.systemPathToFileUrl(_saved_path)
-    doc.storeAsURL(file_url, ())
-    doc.close(True)
+            saved_path = os.path.join(temp_dir, "doc_scripts_test.odt")
+            file_url = uno.systemPathToFileUrl(saved_path)
+            doc.storeAsURL(file_url, ())
+        finally:
+            doc.close(True)
 
-    reopened = desktop.loadComponentFromURL(file_url, "_blank", 0, (_hidden_prop(),))
-    try:
-        scripts = get_document_scripts(reopened)
-        assert scripts.get("RoundTrip") == "result = 42"
-        raw = reopened.getDocumentProperties().UserDefinedProperties.getPropertyValue(DOCUMENT_SCRIPTS_UDPROP)
-        assert "RoundTrip" in str(raw)
-    finally:
-        reopened.close(True)
+        reopened = desktop.loadComponentFromURL(file_url, "_blank", 0, (_hidden_prop(),))
+        try:
+            scripts = get_document_scripts(reopened)
+            assert scripts.get("RoundTrip") == "result = 42"
+            raw = reopened.getDocumentProperties().UserDefinedProperties.getPropertyValue(DOCUMENT_SCRIPTS_UDPROP)
+            assert "RoundTrip" in str(raw)
+        finally:
+            reopened.close(True)

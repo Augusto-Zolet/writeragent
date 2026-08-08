@@ -89,44 +89,8 @@ def _find_text(doc, ctx, params):
         return {"status": "error", "message": str(e)}
 
 
-from plugin.testing_runner import setup, teardown, native_test
-
-
-_test_doc = None
-_test_ctx = None
-
-
-@setup
-def setup_format_tests(ctx):
-    global _test_doc, _test_ctx
-    _test_ctx = ctx
-
-    desktop = get_desktop(ctx)
-    import uno
-
-    hidden_prop = uno.createUnoStruct(
-        "com.sun.star.beans.PropertyValue",
-        Name="Hidden",
-        Value=True,
-    )
-
-    _test_doc = desktop.loadComponentFromURL("private:factory/swriter", "_blank", 0, (hidden_prop,))
-    assert _test_doc is not None, "Could not create Writer document"
-    assert hasattr(_test_doc, "getText"), "Not a valid Writer document"
-
-    log.info("[Tests] format_tests: run start")
-
-
-@teardown
-def teardown_format_tests(ctx):
-    global _test_doc, _test_ctx
-    if _test_doc:
-        try:
-            _test_doc.close(True)
-        except Exception:
-            pass
-    _test_doc = None
-    _test_ctx = None
+from plugin.testing_runner import native_test
+from plugin.tests.testing_utils import with_native_doc
 
 
 def _read_doc_text(d):
@@ -137,33 +101,37 @@ def _read_doc_text(d):
 
 
 @native_test
-def test_document_to_content():
-    md = document_to_content(_test_doc, _test_ctx, None, scope="full")
+@with_native_doc("writer")
+def test_document_to_content(ctx, doc):
+    md = document_to_content(doc, ctx, None, scope="full")
     assert isinstance(md, str), f"document_to_content did not return string: {type(md)}"
 
 
 @native_test
-def test_tool_get_document_content():
-    result = _get_document_content(_test_doc, _test_ctx, {"scope": "full"})
+@with_native_doc("writer")
+def test_tool_get_document_content(ctx, doc):
+    result = _get_document_content(doc, ctx, {"scope": "full"})
     assert result.get("status") == "ok", f"tool_get_document_content failed: {result}"
     assert "content" in result, "Missing content"
 
 
 @native_test
-def test_get_document_content_returns_document_length():
-    result = _get_document_content(_test_doc, _test_ctx, {"scope": "full"})
-    doc_len_actual = len(_read_doc_text(_test_doc))
+@with_native_doc("writer")
+def test_get_document_content_returns_document_length(ctx, doc):
+    result = _get_document_content(doc, ctx, {"scope": "full"})
+    doc_len_actual = len(_read_doc_text(doc))
     assert result.get("status") == "ok", f"tool_get_document_content failed: {result}"
     assert result.get("document_length") == doc_len_actual, f"Length mismatch: {result.get('document_length')} vs {doc_len_actual}"
 
 
 @native_test
-def test_apply_at_end_via_insert_content():
+@with_native_doc("writer")
+def test_apply_at_end_via_insert_content(ctx, doc):
     test_content = "Format test\n\nThis was inserted by the test."
     insert_needle = "Format test"
 
-    _insert_content_at_position(_test_doc, _test_ctx, test_content, "end")
-    full_text = _read_doc_text(_test_doc)
+    _insert_content_at_position(doc, ctx, test_content, "end")
+    full_text = _read_doc_text(doc)
     assert insert_needle in full_text, "Content not found after apply at end"
 
 
@@ -209,20 +177,21 @@ def test_apply_at_end_via_insert_content():
 
 
 @native_test
-def test_search_and_replace():
+@with_native_doc("writer")
+def test_search_and_replace(ctx, doc):
     marker = "REPLACE_ME_MARKER"
-    text = _test_doc.getText()
+    text = doc.getText()
     cursor = text.createTextCursor()
     cursor.gotoEnd(False)
     text.insertString(cursor, "\n" + marker, False)
 
     replacement = "<b>replaced</b>"
 
-    result = _apply_document_content(_test_doc, _test_ctx, {
+    result = _apply_document_content(doc, ctx, {
         "content": replacement,
         "old_content": marker,
     })
-    full_text = _read_doc_text(_test_doc)
+    full_text = _read_doc_text(doc)
     assert result.get("status") == "ok", f"search-and-replace failed: {result}"
     assert "replaced" in full_text, "'replaced' not found"
     assert marker not in full_text, "marker not gone"
@@ -263,23 +232,25 @@ def test_search_and_replace():
 
 
 @native_test
-def test_get_document_content_scope_range():
-    full_text = _read_doc_text(_test_doc)
+@with_native_doc("writer")
+def test_get_document_content_scope_range(ctx, doc):
+    full_text = _read_doc_text(doc)
     if len(full_text) >= 10:
-        result = _get_document_content(_test_doc, _test_ctx, {"scope": "range", "start": 0, "end": 10})
+        result = _get_document_content(doc, ctx, {"scope": "range", "start": 0, "end": 10})
         assert result.get("status") == "ok", f"get_document_content scope=range failed: {result}"
         assert result.get("start") == 0 and result.get("end") == 10 and "content" in result, "Malformed response"
 
 
 @native_test
-def test_find_text():
+@with_native_doc("writer")
+def test_find_text(ctx, doc):
     marker_find = "FIND_ME_UNIQUE_xyz"
-    text = _test_doc.getText()
+    text = doc.getText()
     cursor = text.createTextCursor()
     cursor.gotoEnd(False)
     text.insertString(cursor, "\n" + marker_find, False)
 
-    result = _find_text(_test_doc, _test_ctx, {
+    result = _find_text(doc, ctx, {
         "search": marker_find,
         "case_sensitive": True
     })
@@ -287,7 +258,7 @@ def test_find_text():
     ranges = result.get("ranges", [])
     assert len(ranges) == 1, f"Expected 1 match, got {len(ranges)}"
     r = ranges[0]
-    text_at_range = _read_doc_text(_test_doc)[r["start"]:r["end"]]
+    text_at_range = _read_doc_text(doc)[r["start"]:r["end"]]
     assert text_at_range == marker_find, f"find_text mismatch. Expected '{marker_find}', got '{text_at_range}'"
 
 
@@ -345,9 +316,9 @@ def test_content_has_markup_auto_detection():
 # Helper: create text with per-character background colors and return the range
 COLORS = [0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0xFF00FF]  # Red Green Blue Yellow Magenta
 
-def _create_colored_text(chars):
+def _create_colored_text(doc, chars):
     """Insert chars at end of doc, color each char, return an XTextCursor spanning them."""
-    text = _test_doc.getText()
+    text = doc.getText()
     sep_cursor = text.createTextCursor()
     sep_cursor.gotoEnd(False)
     text.insertString(sep_cursor, "\n", False)
@@ -376,9 +347,9 @@ def _create_colored_text(chars):
     return range_cursor
 
 
-def _get_char_colors(range_cursor):
+def _get_char_colors(doc, range_cursor):
     """Read CharBackColor for each character in the range. Returns list of ints."""
-    text = _test_doc.getText()
+    text = doc.getText()
     colors = []
     pos = text.createTextCursorByRange(range_cursor.getStart())
     range_text = range_cursor.getString()
@@ -394,82 +365,86 @@ def _get_char_colors(range_cursor):
 
 
 @native_test
-def test_same_length_replacement_preserves_colors():
+@with_native_doc("writer")
+def test_same_length_replacement_preserves_colors(ctx, doc):
     old_chars = "ABCDE"
-    rng = _create_colored_text(old_chars)
+    rng = _create_colored_text(doc, old_chars)
     expected_colors = [COLORS[i % len(COLORS)] for i in range(len(old_chars))]
-    
-    actual_before = _get_char_colors(rng)
+
+    actual_before = _get_char_colors(doc, rng)
     assert actual_before == expected_colors, f"SETUP FAILED: expected {expected_colors} got {actual_before}"
 
-    _replace_text_preserving_format(_test_doc, rng, "PQRST", _test_ctx)
-    sd = _test_doc.createSearchDescriptor()
+    _replace_text_preserving_format(doc, rng, "PQRST", ctx)
+    sd = doc.createSearchDescriptor()
     sd.SearchString = "PQRST"
-    found = _test_doc.findFirst(sd)
+    found = doc.findFirst(sd)
     assert found, "'PQRST' not found after replace"
-    actual_colors = _get_char_colors(found)
+    actual_colors = _get_char_colors(doc, found)
     assert actual_colors == expected_colors and found.getString() == "PQRST", f"Expected {expected_colors}, got {actual_colors}, text='{found.getString()}'"
 
 
 @native_test
-def test_longer_replacement_inherits_last_color():
+@with_native_doc("writer")
+def test_longer_replacement_inherits_last_color(ctx, doc):
     old_chars = "ABC"
-    rng = _create_colored_text(old_chars)
+    rng = _create_colored_text(doc, old_chars)
     expected_setup = [COLORS[0], COLORS[1], COLORS[2]]
-    actual_before = _get_char_colors(rng)
+    actual_before = _get_char_colors(doc, rng)
     assert actual_before == expected_setup, f"SETUP FAILED: expected {expected_setup} got {actual_before}"
 
     expected_colors = [
         COLORS[0], COLORS[1], COLORS[2],  # overlap: inherit from A, B, C
         COLORS[2], COLORS[2],             # extra chars: inherit from last (C = Blue)
     ]
-    _replace_text_preserving_format(_test_doc, rng, "MNOPQ", _test_ctx)
-    sd = _test_doc.createSearchDescriptor()
+    _replace_text_preserving_format(doc, rng, "MNOPQ", ctx)
+    sd = doc.createSearchDescriptor()
     sd.SearchString = "MNOPQ"
-    found = _test_doc.findFirst(sd)
+    found = doc.findFirst(sd)
     assert found, "'MNOPQ' not found after replace"
-    actual_colors = _get_char_colors(found)
+    actual_colors = _get_char_colors(doc, found)
     assert actual_colors == expected_colors and found.getString() == "MNOPQ", f"Expected {expected_colors}, got {actual_colors}, text='{found.getString()}'"
 
 
 @native_test
-def test_shorter_replacement_leftover_deleted():
+@with_native_doc("writer")
+def test_shorter_replacement_leftover_deleted(ctx, doc):
     old_chars = "ABCDE"
-    rng = _create_colored_text(old_chars)
+    rng = _create_colored_text(doc, old_chars)
     expected_setup = [COLORS[i % len(COLORS)] for i in range(5)]
-    actual_before = _get_char_colors(rng)
+    actual_before = _get_char_colors(doc, rng)
     assert actual_before == expected_setup, f"SETUP FAILED: expected {expected_setup} got {actual_before}"
 
     expected_colors = [COLORS[0], COLORS[1]]  # only first 2 colors survive
-    _replace_text_preserving_format(_test_doc, rng, "UV", _test_ctx)
-    sd = _test_doc.createSearchDescriptor()
+    _replace_text_preserving_format(doc, rng, "UV", ctx)
+    sd = doc.createSearchDescriptor()
     sd.SearchString = "UV"
-    found = _test_doc.findFirst(sd)
+    found = doc.findFirst(sd)
     assert found, "'UV' not found after replace"
-    actual_colors = _get_char_colors(found)
+    actual_colors = _get_char_colors(doc, found)
     result_text = found.getString()
     assert actual_colors == expected_colors and result_text == "UV", f"Expected {expected_colors}, got {actual_colors}, text={repr(result_text)}"
 
 
 @native_test
-def test_long_replacement_process_events():
+@with_native_doc("writer")
+def test_long_replacement_process_events(ctx, doc):
     long_len = 50
     old_chars = "X" * long_len
-    rng = _create_colored_text(old_chars)
+    rng = _create_colored_text(doc, old_chars)
 
     new_chars = "Y" * long_len
-    _replace_text_preserving_format(_test_doc, rng, new_chars, _test_ctx)
+    _replace_text_preserving_format(doc, rng, new_chars, ctx)
 
-    sd = _test_doc.createSearchDescriptor()
+    sd = doc.createSearchDescriptor()
     sd.SearchString = new_chars
-    found = _test_doc.findFirst(sd)
+    found = doc.findFirst(sd)
     assert found and found.getString() == new_chars, "Failed to replace %d chars" % long_len
 
 
-def _insert_table_with_cell_text(cell_name, cell_text):
+def _insert_table_with_cell_text(doc, cell_name, cell_text):
     """Insert a 2x2 table at doc end with *cell_text* in *cell_name* (e.g. 'A1')."""
-    text = _test_doc.getText()
-    tbl = _test_doc.createInstance("com.sun.star.text.TextTable")
+    text = doc.getText()
+    tbl = doc.createInstance("com.sun.star.text.TextTable")
     tbl.initialize(2, 2)
     ins = text.createTextCursor()
     ins.gotoEnd(False)
@@ -479,20 +454,21 @@ def _insert_table_with_cell_text(cell_name, cell_text):
 
 
 @native_test
-def test_replace_preserving_format_table_cell_uno():
+@with_native_doc("writer")
+def test_replace_preserving_format_table_cell_uno(ctx, doc):
     """replace_preserving_format must use the cell's XText, not model.getText() body."""
-    tbl = _insert_table_with_cell_text("A1", "TableCell")
-    sd = _test_doc.createSearchDescriptor()
+    tbl = _insert_table_with_cell_text(doc, "A1", "TableCell")
+    sd = doc.createSearchDescriptor()
     sd.SearchString = "TableCell"
-    found = _test_doc.findFirst(sd)
+    found = doc.findFirst(sd)
     assert found is not None, "setup: TableCell not found"
-    _replace_text_preserving_format(_test_doc, found, "TableCell-EDIT", _test_ctx)
+    _replace_text_preserving_format(doc, found, "TableCell-EDIT", ctx)
     assert "TableCell-EDIT" in tbl.getCellByName("A1").getString()
 
 
-def _insert_colored_word(word):
+def _insert_colored_word(doc, word):
     """Insert word at end of doc with per-char background colors. Returns (start_offset, end_offset)."""
-    text = _test_doc.getText()
+    text = doc.getText()
     sep = text.createTextCursor()
     sep.gotoEnd(False)
     text.insertString(sep, "\n", False)
@@ -516,9 +492,9 @@ def _insert_colored_word(word):
     return start_off, end_off
 
 
-def _get_colors_at_range(start_off, length):
+def _get_colors_at_range(doc, start_off, length):
     """Read CharBackColor for `length` chars starting at absolute offset start_off."""
-    text = _test_doc.getText()
+    text = doc.getText()
     colors = []
     pos_cursor = text.createTextCursor()
     pos_cursor.gotoStart(False)
@@ -534,56 +510,59 @@ def _get_colors_at_range(start_off, length):
     return colors
 
 
-def _check_colors_at_search(search_str, expected_colors):
+def _check_colors_at_search(doc, search_str, expected_colors):
     """Find search_str in doc and check its per-char colors."""
-    text = _test_doc.getText()
-    sd = _test_doc.createSearchDescriptor()
+    text = doc.getText()
+    sd = doc.createSearchDescriptor()
     sd.SearchString = search_str
-    found = _test_doc.findFirst(sd)
+    found = doc.findFirst(sd)
     if not found:
         return False, "not found in document"
     tmp = text.createTextCursorByRange(found.getStart())
     tmp.gotoStart(True)
     start_off = len(_normalize(tmp.getString()))
-    actual = _get_colors_at_range(start_off, len(search_str))
+    actual = _get_colors_at_range(doc, start_off, len(search_str))
     if actual == expected_colors:
         return True, ""
     return False, "expected %s got %s" % (expected_colors, actual)
 
 
 @native_test
-def test_apply_document_content_target_search_preserves_colors():
+@with_native_doc("writer")
+def test_apply_document_content_target_search_preserves_colors(ctx, doc):
     word = "zBertPicklez"   # unique sentinel around the name
-    start_off, end_off = _insert_colored_word(word)
+    start_off, end_off = _insert_colored_word(doc, word)
     expected_colors = [COLORS[i % len(COLORS)] for i in range(len(word))]
 
-    result = _apply_document_content(_test_doc, _test_ctx, {
+    result = _apply_document_content(doc, ctx, {
         "content": "zBertTicklez",
         "old_content": "zBertPicklez",
     })
     assert result.get("status") == "ok", f"tool target=search failed: {result}"
-    ok_flag, detail = _check_colors_at_search("zBertTicklez", expected_colors)
+    ok_flag, detail = _check_colors_at_search(doc, "zBertTicklez", expected_colors)
     assert ok_flag, f"colors not preserved: {detail}"
 
 
 @native_test
-def test_apply_document_content_target_range_preserves_colors():
+@with_native_doc("writer")
+def test_apply_document_content_target_range_preserves_colors(ctx, doc):
     word = "zNormaFlintez"
-    start_off, end_off = _insert_colored_word(word)
+    start_off, end_off = _insert_colored_word(doc, word)
     expected_colors = [COLORS[i % len(COLORS)] for i in range(len(word))]
 
-    result = _apply_document_content(_test_doc, _test_ctx, {
+    result = _apply_document_content(doc, ctx, {
         "content": "zNormaGlintez",
         "old_content": "zNormaFlintez",
     })
     assert result.get("status") == "ok", f"tool target=range failed: {result}"
-    ok_flag, detail = _check_colors_at_search("zNormaGlintez", expected_colors)
+    ok_flag, detail = _check_colors_at_search(doc, "zNormaGlintez", expected_colors)
     assert ok_flag, f"colors not preserved: {detail}"
 
 
 @native_test
-def test_apply_document_content_target_full_preserves_colors():
-    desktop = get_desktop(_test_ctx)
+@with_native_doc("writer")
+def test_apply_document_content_target_full_preserves_colors(ctx, doc):
+    desktop = get_desktop(ctx)
     import uno
     hidden_prop = uno.createUnoStruct(
         "com.sun.star.beans.PropertyValue",
@@ -607,7 +586,7 @@ def test_apply_document_content_target_full_preserves_colors():
             cc.setPropertyValue("CharBackColor", COLORS[i % len(COLORS)])
         expected_colors = [COLORS[i % len(COLORS)] for i in range(len(word))]
 
-        result = _apply_document_content(small_doc, _test_ctx, {
+        result = _apply_document_content(small_doc, ctx, {
             "content": new_word,
             "old_content": word,
         })
@@ -641,5 +620,6 @@ def test_apply_document_content_target_full_preserves_colors():
             small_doc.close(True)
         except Exception:
             pass
+
 
 

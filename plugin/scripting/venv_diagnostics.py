@@ -207,7 +207,6 @@ _VISION_OCR_PRIMARY_KEYS = ("docling", "rapidocr", "css_inline")
 # Always optional in Test output (never required Missing once OCR readiness is decided).
 _VISION_OPTIONAL_KEYS = ("paddleocr", "paddle", "ultralytics", "skimage")
 _DOCLING_INSTALL_CMD = "uv pip install docling rapidocr-paddle numpy pillow css-inline"
-_VISION_OCR_INSTALL_CMD = _DOCLING_INSTALL_CMD
 _VISION_PADDLE_FALLBACK_CMD = "uv pip install paddleocr paddlepaddle numpy"
 _VIZ_INSTALL_CMD = "uv pip install matplotlib seaborn"
 _SYMBOLIC_INSTALL_CMD = "uv pip install sympy"

@@ -426,7 +426,7 @@ class TestRobustNumericParsing(unittest.TestCase):
             "config": {
                 "mcp_port": {
                     "type": "int",
-                    "default": 8765
+                    "default": 18765
                 },
                 "mcp_host": {
                     "type": "string",

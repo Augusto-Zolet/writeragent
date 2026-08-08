@@ -13,31 +13,15 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-from plugin.testing_runner import native_test, setup, teardown
+from plugin.testing_runner import native_test
 from plugin.writer.styles import CreateStyle, ListStyles, UpdateStyle
-from plugin.tests.testing_utils import TestingFactory
+from plugin.tests.testing_utils import TestingFactory, with_native_doc
 
-_test_doc = None
-_test_ctx = None
-
-@setup
-def my_setup(ctx):
-    global _test_doc, _test_ctx
-    _test_ctx = ctx
-    # Create a fresh writer doc for style tests
-    _test_doc = TestingFactory.create_native_doc(ctx, doc_type="writer")
-
-@teardown
-def my_teardown(ctx):
-    global _test_doc
-    if _test_doc:
-        _test_doc.close(True)
-    _test_doc = None
 
 @native_test
-def test_create_paragraph_style_uno():
-    doc = _test_doc
-    tool_ctx = TestingFactory.create_context(doc=doc, ctx=_test_ctx, env="native")
+@with_native_doc("writer")
+def test_create_paragraph_style_uno(ctx, doc):
+    tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
     
     style_name = "AgentCustomPara"
     tool = CreateStyle()
@@ -54,10 +38,11 @@ def test_create_paragraph_style_uno():
     assert style.getPropertyValue("CharWeight") == 150.0
     assert int(style.getPropertyValue("CharColor")) == 0xFF0000
 
+
 @native_test
-def test_create_conditional_style_uno():
-    doc = _test_doc
-    tool_ctx = TestingFactory.create_context(doc=doc, ctx=_test_ctx, env="native")
+@with_native_doc("writer")
+def test_create_conditional_style_uno(ctx, doc):
+    tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
     
     style_name = "AgentCondPara"
     rules = [{"context": "Table", "target_style": "Heading 1"}]
@@ -76,10 +61,11 @@ def test_create_conditional_style_uno():
     # We verify the style was created and registered successfully.
     assert style.getParentStyle() == "Standard"
 
+
 @native_test
-def test_update_style_parent_uno():
-    doc = _test_doc
-    tool_ctx = TestingFactory.create_context(doc=doc, ctx=_test_ctx, env="native")
+@with_native_doc("writer")
+def test_update_style_parent_uno(ctx, doc):
+    tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
     
     # Create a style first
     style_name = "UpdateParentTest"
@@ -94,10 +80,11 @@ def test_update_style_parent_uno():
     style = doc.getStyleFamilies().getByName("ParagraphStyles").getByName(style_name)
     assert style.getParentStyle() == "Heading 1"
 
+
 @native_test
-def test_list_styles_uno():
-    doc = _test_doc
-    tool_ctx = TestingFactory.create_context(doc=doc, ctx=_test_ctx, env="native")
+@with_native_doc("writer")
+def test_list_styles_uno(ctx, doc):
+    tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
     
     tool = ListStyles()
     res = tool.execute(tool_ctx, family="ParagraphStyles")

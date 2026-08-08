@@ -18,7 +18,6 @@ from plugin.calc.calc_addin_data import _resolve_python_data
 from plugin.doc.document_helpers import is_calc, is_writer
 from plugin.scripting.client import run_quant as client_run_quant
 from plugin.scripting.helper_domain import (
-    HelperScriptMeta,
     header_prefix,
 )
 from plugin.framework.errors import ToolExecutionError
@@ -60,7 +59,6 @@ __getattr__ = make_getattr("quant", _QUANT_VENV_EXPORTS)
 
 from plugin.scripting.helper_domain import DomainFacadeConfig, make_template_api
 
-QuantScriptHeader = HelperScriptMeta
 
 _API = make_template_api(
     DomainFacadeConfig(

@@ -4,7 +4,7 @@ Brainstorming is a **multi-turn design sub-agent** the user starts from the Writ
 
 **Entry:** Writer deck → mode dropdown → **Brainstorming** → Send (first message sets the topic).
 
-Brainstorming is **not** exposed to the main chat LLM (`delegate_to_specialized_writer_toolset` omits `brainstorming` and `writing_plan` via `WRITER_SIDEBAR_ONLY_DOMAINS` in [`plugin/framework/constants.py`](../plugin/framework/constants.py)).
+Brainstorming is **not** exposed to the main chat LLM (`delegate_to_specialized_writer_toolset` omits `brainstorming` and `writing_plan` via `WRITER_SIDEBAR_ONLY_DOMAINS` in [`plugin/framework/prompts.py`](../plugin/framework/prompts.py)).
 
 **Exit:** `brainstorming_finished` resets the dropdown to **Chat** (or **Writing Plan** when a spec was saved). Changing the dropdown away from Brainstorming mid-session cancels the in-progress session (history is kept).
 
@@ -50,7 +50,7 @@ All brainstorming outputs use HTML — no Markdown in tool arguments.
 | Saved spec (`save_design_spec`) | JSON **array** of HTML strings (same as `apply_document_content.content`) |
 | Research shown to user | Sub-agent reformats plain-text web/doc results as HTML in chat |
 
-Rules: [`HTML_FRAGMENT_RULES`](../plugin/framework/constants.py), [`WRITER_APPLY_DOCUMENT_HTML_RULES`](../plugin/framework/constants.py), [`get_chat_response_format_instructions`](../plugin/framework/constants.py).
+Rules: [`HTML_FRAGMENT_RULES`](../plugin/framework/prompts.py), [`WRITER_APPLY_DOCUMENT_HTML_RULES`](../plugin/framework/prompts.py), [`get_chat_response_format_instructions`](../plugin/framework/prompts.py).
 
 Example spec array:
 
@@ -105,7 +105,7 @@ Adapted from [superpowers brainstorming](../superpowers/skills/brainstorming/SKI
 | Markdown spec + git commit | Replaced by HTML array in Writer document |
 | writing-plans handoff | Optional transition to Writing Plan sidebar mode after spec save |
 
-Constants: `BRAINSTORMING_SUB_AGENT_INSTRUCTIONS`, `get_brainstorming_sub_agent_instructions()` in [`plugin/framework/constants.py`](../plugin/framework/constants.py). Few-shots: `BRAINSTORMING_EXAMPLES` in [`plugin/chatbot/smol_examples.py`](../plugin/chatbot/smol_examples.py) (approaches, section approval, self-review, full spec save).
+Constants: `BRAINSTORMING_SUB_AGENT_INSTRUCTIONS`, `get_brainstorming_sub_agent_instructions()` in [`plugin/framework/prompts.py`](../plugin/framework/prompts.py). Few-shots: `BRAINSTORMING_EXAMPLES` in [`plugin/chatbot/smol_examples.py`](../plugin/chatbot/smol_examples.py) (approaches, section approval, self-review, full spec save).
 
 ---
 

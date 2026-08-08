@@ -81,7 +81,7 @@ def mcp_server():
     config_svc.proxy_for.return_value = {
         "enabled": True,
         "mcp_enabled": True,
-        "port": port,
+        "mcp_port": port,
         "host": "127.0.0.1",
         "use_ssl": False,
     }

@@ -314,7 +314,7 @@ The refactor **separates concerns** in the same “hexagonal” spirit as the re
 
 **Why this matters for formal verification:** We treat the UNO bridge as axiomatic (opening of this document); we want proofs about **our** Python. `deal` contracts and CrossHair apply to **pure** functions. Code that mixes UI updates, I/O, and state updates in one procedure is a poor verification target—see *Verification Anti-Patterns* (do not verify tangled orchestration; verify the extracted machine instead).
 
-**Why this matters even before full FV:** Deterministic, fast **unit tests** over transition functions (`plugin/tests/test_tool_loop_state.py`, `plugin/tests/test_state_machine.py`, `plugin/tests/test_send_state.py`, `plugin/chatbot/tests/test_audio_recorder_state.py`, etc.) document **allowed transitions**, catch regressions without a running office, and make refactors in chat, MCP, and audio paths safer.
+**Why this matters even before full FV:** Deterministic, fast **unit tests** over transition functions (`tests/chatbot/test_tool_loop_state.py`, `tests/chatbot/test_state_machine.py`, `tests/chatbot/test_send_state.py`, `tests/chatbot/test_audio_recorder_state.py`, etc.) document **allowed transitions**, catch regressions without a running office, and make refactors in chat, MCP, and audio paths safer.
 
 This was a **pragmatic** foundation: Phase 5 records design tradeoffs and what we avoided over-engineering. Attaching `deal` and running CrossHair on every transition is **Phase 6**, not something we claim is already complete.
 
@@ -338,17 +338,18 @@ The following summarizes the implemented modules and the simplified patterns we 
 1. **Tool Loop State Machine** (`plugin/chatbot/tool_loop_state.py`)
    - Pure transition function with comprehensive event handling
    - Simple string effects mixed with structured effect types
-   - Full test coverage in `plugin/tests/test_tool_loop_state.py`
+   - Full test coverage in `tests/chatbot/test_tool_loop_state.py`
+   - **Host dual-mirrors removed:** round/pending/stop/async/max live only in `ToolLoopState` (`sidebar_state.tool_loop` via `_sm_state`). Remaining `_active_*` fields on the panel are session I/O handles (queues, client, tools, model) for the effect interpreter in `tool_loop_actions.py` — not a second control state.
 
 2. **Send Handler State Machine** (`plugin/chatbot/state_machine.py`)
    - Handles audio, image, agent, and web workflows
    - Uses union types for events and effects (cleaner than inheritance hierarchies)
-   - Comprehensive test coverage in `plugin/tests/test_state_machine.py`
+   - Comprehensive test coverage in `tests/chatbot/test_state_machine.py`
 
 3. **Send Button State Machine** (`plugin/chatbot/send_state.py`)
    - Manages UI button state transitions
    - Simple enum-based events and union effects
-   - Test coverage in `plugin/tests/test_send_state.py`
+   - Test coverage in `tests/chatbot/test_send_state.py`
 
 4. **MCP State Machine** (`plugin/mcp/mcp_state.py`)
    - HTTP protocol state management
@@ -358,7 +359,7 @@ The following summarizes the implemented modules and the simplified patterns we 
 5. **Audio Recorder State Machine** (`plugin/chatbot/audio_recorder_state.py`)
    - Audio recording lifecycle management
    - Minimal state and effect types
-   - Test coverage in `plugin/chatbot/tests/test_audio_recorder_state.py`
+   - Test coverage in `tests/chatbot/test_audio_recorder_state.py`
 
 ### What We Avoided (Over-Engineering Traps)
 

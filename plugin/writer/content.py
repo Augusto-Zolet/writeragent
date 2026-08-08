@@ -308,12 +308,10 @@ def _find_first_range(doc, search_string):
     return _find_chained_range(doc, search_string, all_matches=False)
 
 
-# Re-export find helpers for tests and sibling modules.
+# Local names for search helpers used in this module (tests import public APIs from search.py).
 _normalize_search_string_for_find = search_mod.normalize_search_string_for_find
 _find_ranges_regex_case = search_mod.find_ranges_regex_case
 _drawing_shape_object_containing = search_mod.drawing_shape_object_containing
-_drawing_shape_containing = search_mod.drawing_shape_containing
-_all_start_indices = search_mod.all_start_indices
 
 
 def _replace_text_in_shape(shape, old, new):

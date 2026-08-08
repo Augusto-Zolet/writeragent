@@ -1,32 +1,8 @@
 # WriterAgent - matrix formula integration for =PYTHON()
 
-from plugin.framework.uno_context import get_desktop
-from plugin.testing_runner import setup, teardown, native_test
+from plugin.testing_runner import native_test
+from plugin.tests.testing_utils import with_native_doc
 import unittest.mock
-
-_test_doc = None
-_test_ctx = None
-
-
-@setup
-def setup_test(ctx):
-    global _test_doc, _test_ctx
-    _test_ctx = ctx
-    import uno
-
-    desktop = get_desktop(ctx)
-    hidden = uno.createUnoStruct("com.sun.star.beans.PropertyValue", Name="Hidden", Value=True)
-    global _test_doc
-    _test_doc = desktop.loadComponentFromURL("private:factory/scalc", "_blank", 0, (hidden,))
-
-
-@teardown
-def teardown_test(ctx):
-    global _test_doc, _test_ctx
-    if _test_doc:
-        _test_doc.close(True)
-    _test_doc = None
-    _test_ctx = None
 
 
 def _cell_value(sheet, col, row):
@@ -53,12 +29,13 @@ def test_finalize_python_return_helpers():
 
 
 @native_test
-def test_python_matrix_via_index_argument():
+@with_native_doc("calc")
+def test_python_matrix_via_index_argument(ctx, doc):
     """Simulate matrix formula: six calls with index 0..5 return six scalars."""
     from plugin.calc.python.addin import PythonFunction
 
     primes = [7919.0, 7927.0, 7933.0, 7937.0, 7949.0, 7951.0]
-    func = PythonFunction(_test_ctx)
+    func = PythonFunction(ctx)
     code = "result = [sp.prime(x) for x in range(1000, 1006)]"
     with unittest.mock.patch("plugin.calc.python.function.run_code_in_user_venv") as mock_run:
         mock_run.return_value = {"status": "ok", "result": [int(p) for p in primes]}
@@ -69,11 +46,12 @@ def test_python_matrix_via_index_argument():
 
 
 @native_test
-def test_python_matrix_via_session_counter():
+@with_native_doc("calc")
+def test_python_matrix_via_session_counter(ctx, doc):
     """Without index arg, repeated calls emit successive list elements."""
     from plugin.calc.python.addin import PythonFunction
 
-    func = PythonFunction(_test_ctx)
+    func = PythonFunction(ctx)
     code = "result = [2, 3, 5]"
     with unittest.mock.patch("plugin.calc.python.function.run_code_in_user_venv") as mock_run:
         mock_run.return_value = {"status": "ok", "result": [2, 3, 5]}

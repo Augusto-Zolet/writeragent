@@ -53,8 +53,9 @@ def test_plot_data_requires_helper(calc_ctx):
 def test_plot_data_in_analysis_domain():
     from plugin.main import get_tools
 
+    from plugin.tests.testing_utils import CalcDocStub
+
     registry = get_tools()
-    doc = MagicMock()
-    doc.supportsService.return_value = True
+    doc = CalcDocStub()
     names = {t.name for t in registry.get_tools(doc=doc, active_domain="analysis", exclude_tiers=())}
     assert "plot_data" in names

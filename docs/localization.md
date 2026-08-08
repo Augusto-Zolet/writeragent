@@ -19,7 +19,7 @@ There is **no separate “UI language” override in `writeragent.json`** today:
 
 3. **Module metadata**: [`scripts/merge_module_yaml_into_pot.py`](../scripts/merge_module_yaml_into_pot.py) merges translatable entries from `plugin/**/module.yaml` (titles, labels, options) into the same POT, deduplicated by `msgid`. Requires `polib` and PyYAML.
 
-4. **Dialogs at runtime**: [`translate_dialog` in `plugin/chatbot/dialogs.py`](../plugin/chatbot/dialogs.py) walks controls and applies translated text. **Do not** pass raw saved config values through `_()` in [`legacy_ui.py`](../plugin/chatbot/legacy_ui.py): empty strings can pick up gettext header garbage. Config validation strips bogus gettext headers; see [`plugin/tests/test_i18n.py`](../plugin/tests/test_i18n.py).
+4. **Dialogs at runtime**: [`translate_dialog` in `plugin/chatbot/dialogs.py`](../plugin/chatbot/dialogs.py) walks controls and applies translated text. **Do not** pass raw saved config values through `_()`: empty strings can pick up gettext header garbage. Config validation strips bogus gettext headers; see [`tests/framework/test_i18n.py`](../tests/framework/test_i18n.py).
 
 5. **Monaco editor (pywebview)**: User-visible strings live in Python only — [`plugin/scripting/editor_ui_strings.py`](../plugin/scripting/editor_ui_strings.py). [`launch_monaco_editor()`](../plugin/scripting/editor_host.py) enriches every IPC `load` message with a pre-translated `ui` dict; [`editor.js`](../plugin/contrib/scripting/assets/editor/editor.js) applies it in `applyLoadMessage()`. Add new shell strings in Python `_()`, run `make extract-strings`, then read the key from `load.ui` in JS. See [python-monaco-editor-dev-plan.md § Localization](python-monaco-editor-dev-plan.md#localization).
 

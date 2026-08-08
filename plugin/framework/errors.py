@@ -21,22 +21,12 @@ All custom exceptions should inherit from WriterAgentException.
 
 from __future__ import annotations
 
-import importlib
 from typing import Any, Literal, TypedDict
 
 from plugin.framework.i18n import _
 from plugin.framework.json_utils import safe_json_loads, safe_python_literal_eval
 
-deal: Any
-try:
-    deal = importlib.import_module("deal")
-except ImportError:
-
-    class _DummyDeal:
-        def __getattr__(self, name: str) -> Any:
-            return lambda *args, **kwargs: lambda f: f
-
-    deal = _DummyDeal()
+from plugin.framework.deal_shim import deal
 
 
 # Status values for tool execution results (cast/docs alias only — not TypedDict fields).

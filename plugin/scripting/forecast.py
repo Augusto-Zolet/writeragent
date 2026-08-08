@@ -19,7 +19,6 @@ from plugin.calc.calc_addin_data import _resolve_python_data
 from plugin.framework.errors import ToolExecutionError
 from plugin.scripting.client import run_forecast as client_run_forecast
 from plugin.scripting.helper_domain import (
-    HelperScriptMeta,
     header_prefix,
 )
 
@@ -76,7 +75,6 @@ __getattr__ = make_getattr("forecast", _FORECAST_VENV_EXPORTS)
 
 from plugin.scripting.helper_domain import DomainFacadeConfig, make_template_api
 
-ForecastScriptHeader = HelperScriptMeta
 
 _API = make_template_api(
     DomainFacadeConfig(

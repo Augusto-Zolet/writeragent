@@ -14,41 +14,23 @@
 # resolves to the cell.
 import uno  # noqa: F401
 
-from plugin.testing_runner import native_test, setup, teardown
+from plugin.testing_runner import native_test
 from plugin.writer.content import ApplyDocumentContent
-from plugin.tests.testing_utils import TestingFactory
-
-_test_doc = None
-_test_ctx = None
-
-
-@setup
-def my_setup(ctx):
-    global _test_doc, _test_ctx
-    _test_ctx = ctx
-    _test_doc = TestingFactory.create_native_doc(ctx, doc_type="writer", hidden=True)
-
-
-@teardown
-def my_teardown(ctx):
-    global _test_doc
-    if _test_doc:
-        _test_doc.close(True)
-    _test_doc = None
+from plugin.tests.testing_utils import TestingFactory, with_native_doc
 
 
 @native_test
-def test_apply_document_content_edits_table_cell_uno():
+@with_native_doc("writer")
+def test_apply_document_content_edits_table_cell_uno(ctx, doc):
     """Editing a cell's text via target='search' should work; it used to raise a
     cursor RuntimeException (body XText vs the cell's XText)."""
-    doc = _test_doc
     text = doc.getText()
     tbl = doc.createInstance("com.sun.star.text.TextTable")
     tbl.initialize(3, 2)
     text.insertTextContent(text.createTextCursor(), tbl, False)
     tbl.getCellByName("A2").setString("MinerU")
 
-    tool_ctx = TestingFactory.create_context(doc=doc, ctx=_test_ctx, env="native")
+    tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
     # plain-text content -> format-preserving path (where the bug lived).
     res = ApplyDocumentContent().execute(
         tool_ctx, content=["MinerU-EDIT"], old_content="MinerU", target="search"

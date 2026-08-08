@@ -9,33 +9,15 @@
 # Integration tests for native regex-based and chaining-based content searches.
 import uno  # noqa: F401
 
-from plugin.testing_runner import native_test, setup, teardown
+from plugin.testing_runner import native_test
 from plugin.writer.content import _find_first_range, _find_all_ranges
-from plugin.tests.testing_utils import TestingFactory
-
-_test_doc = None
-_test_ctx = None
-
-
-@setup
-def my_setup(ctx):
-    global _test_doc, _test_ctx
-    _test_ctx = ctx
-    _test_doc = TestingFactory.create_native_doc(ctx, doc_type="writer", hidden=True)
-
-
-@teardown
-def my_teardown(ctx):
-    global _test_doc
-    if _test_doc:
-        _test_doc.close(True)
-    _test_doc = None
+from plugin.tests.testing_utils import with_native_doc
 
 
 @native_test
-def test_search_multi_paragraph_body_uno():
+@with_native_doc("writer")
+def test_search_multi_paragraph_body_uno(ctx, doc):
     """Verify that multi-paragraph search succeeds using chaining in the body."""
-    doc = _test_doc
     text = doc.getText()
     cursor = text.createTextCursor()
 
@@ -48,9 +30,9 @@ def test_search_multi_paragraph_body_uno():
 
 
 @native_test
-def test_search_exotic_space_in_cell_uno():
+@with_native_doc("writer")
+def test_search_exotic_space_in_cell_uno(ctx, doc):
     """Verify that search finds exotic space matches inside a table cell."""
-    doc = _test_doc
     text = doc.getText()
     tbl = doc.createInstance("com.sun.star.text.TextTable")
     tbl.initialize(2, 2)
@@ -65,9 +47,9 @@ def test_search_exotic_space_in_cell_uno():
 
 
 @native_test
-def test_search_multi_paragraph_in_frame_uno():
+@with_native_doc("writer")
+def test_search_multi_paragraph_in_frame_uno(ctx, doc):
     """Verify that search finds multi-paragraph matches inside a text frame."""
-    doc = _test_doc
     text = doc.getText()
     frame = doc.createInstance("com.sun.star.text.TextFrame")
     text.insertTextContent(text.createTextCursor(), frame, False)
@@ -83,9 +65,9 @@ def test_search_multi_paragraph_in_frame_uno():
 
 
 @native_test
-def test_search_real_paragraph_break_body_uno():
+@with_native_doc("writer")
+def test_search_real_paragraph_break_body_uno(ctx, doc):
     """Multi-paragraph chaining with real paragraph breaks (multiple XText paragraphs)."""
-    doc = _test_doc
     text = doc.getText()
     cursor = text.createTextCursor()
     cursor.gotoEnd(False)
@@ -101,9 +83,9 @@ def test_search_real_paragraph_break_body_uno():
 
 
 @native_test
-def test_search_newline_collapsed_artifact_uno():
+@with_native_doc("writer")
+def test_search_newline_collapsed_artifact_uno(ctx, doc):
     """HTML wrap artifact: old_content has \\n but document has a normal space on one line."""
-    doc = _test_doc
     text = doc.getText()
     cursor = text.createTextCursor()
     cursor.gotoEnd(False)
@@ -115,9 +97,9 @@ def test_search_newline_collapsed_artifact_uno():
 
 
 @native_test
-def test_search_case_insensitive_uno():
+@with_native_doc("writer")
+def test_search_case_insensitive_uno(ctx, doc):
     """LO regex case-insensitive pass matches mixed-case document text."""
-    doc = _test_doc
     text = doc.getText()
     cursor = text.createTextCursor()
     cursor.gotoEnd(False)
@@ -132,9 +114,9 @@ def test_search_case_insensitive_uno():
 
 
 @native_test
-def test_search_middle_anchor_chaining_uno():
+@with_native_doc("writer")
+def test_search_middle_anchor_chaining_uno(ctx, doc):
     """Chaining with anchor on a middle paragraph (backward + forward verification)."""
-    doc = _test_doc
     text = doc.getText()
     cursor = text.createTextCursor()
     cursor.gotoEnd(False)
@@ -153,9 +135,9 @@ def test_search_middle_anchor_chaining_uno():
 
 
 @native_test
-def test_search_all_matches_uno():
+@with_native_doc("writer")
+def test_search_all_matches_uno(ctx, doc):
     """all_matches returns every LO regex hit in document order."""
-    doc = _test_doc
     text = doc.getText()
     cursor = text.createTextCursor()
     cursor.gotoEnd(False)
@@ -168,9 +150,9 @@ def test_search_all_matches_uno():
 
 
 @native_test
-def test_search_all_matches_multi_paragraph_chaining_uno():
+@with_native_doc("writer")
+def test_search_all_matches_multi_paragraph_chaining_uno(ctx, doc):
     """all_matches with paragraph chaining finds multiple cross-paragraph occurrences."""
-    doc = _test_doc
     text = doc.getText()
     cursor = text.createTextCursor()
     cursor.gotoEnd(False)

@@ -1,38 +1,13 @@
-try:
-    import uno
-except ImportError:
-    pass
+from types import SimpleNamespace
 
-from typing import Any
+from plugin.testing_runner import native_test
+from plugin.tests.testing_utils import with_native_doc
+from plugin.doc.document_helpers import DocumentService
+from plugin.writer.specialized.bookmarks import BookmarkService
 
-try:
-    from types import SimpleNamespace
 
-    from plugin.testing_runner import setup, teardown, native_test
-    from plugin.framework.uno_context import get_desktop
-    from plugin.doc.document_helpers import DocumentService
-    from plugin.writer.specialized.bookmarks import BookmarkService
-except ImportError:
-    setup, teardown, native_test = (lambda f: f), (lambda f: f), (lambda f: f)
-
-_test_doc: Any = None
-_test_ctx: Any = None
-
-@setup
-def setup_bookmark_tests(ctx):
-    global _test_doc, _test_ctx
-    _test_ctx = ctx
-
-    desktop = get_desktop(ctx)
-
-    hidden_prop = uno.createUnoStruct(
-        "com.sun.star.beans.PropertyValue",
-        Name="Hidden",
-        Value=True,
-    )
-    _test_doc = desktop.loadComponentFromURL("private:factory/swriter", "_blank", 0, (hidden_prop,))
-
-    text = _test_doc.getText()
+def _setup_headings(doc):
+    text = doc.getText()
     cursor = text.createTextCursor()
 
     # 0: Heading 1
@@ -50,30 +25,20 @@ def setup_bookmark_tests(ctx):
     cursor.setPropertyValue("ParaStyleName", "Heading 2")
     text.insertControlCharacter(cursor, 0, False)
 
-@teardown
-def teardown_bookmark_tests():
-    if _test_doc:
-        _test_doc.close(True)
 
 @native_test
-def test_ensure_heading_bookmarks_and_map():
-    try:
-        import pytest
-        if _test_doc is None:
-            pytest.skip("Requires LibreOffice document from native runner")
-    except ImportError:
-        pass
-
+@with_native_doc("writer")
+def test_ensure_heading_bookmarks_and_map(ctx, doc):
+    _setup_headings(doc)
     doc_svc = DocumentService()
     bookmark_svc = BookmarkService(SimpleNamespace(document=doc_svc))
 
     # Initially no bookmarks
-    assert _test_doc is not None
-    bms = _test_doc.getBookmarks().getElementNames()
+    bms = doc.getBookmarks().getElementNames()
     assert len([b for b in bms if b.startswith("_mcp_")]) == 0
 
     # Ensure bookmarks
-    bookmark_map = bookmark_svc.ensure_heading_bookmarks(_test_doc)
+    bookmark_map = bookmark_svc.ensure_heading_bookmarks(doc)
 
     # We have 2 headings (index 0 and 2)
     assert len(bookmark_map) == 2
@@ -81,28 +46,23 @@ def test_ensure_heading_bookmarks_and_map():
     assert 2 in bookmark_map
 
     # Verify in document
-    assert _test_doc is not None
-    bms = _test_doc.getBookmarks().getElementNames()
+    bms = doc.getBookmarks().getElementNames()
     mcp_bms = [b for b in bms if b.startswith("_mcp_")]
     assert len(mcp_bms) == 2
 
     # Verify map retrieval
-    retrieved_map = bookmark_svc.get_mcp_bookmark_map(_test_doc)
+    retrieved_map = bookmark_svc.get_mcp_bookmark_map(doc)
     assert retrieved_map == bookmark_map
 
-@native_test
-def test_find_nearest_heading_bookmark():
-    try:
-        import pytest
-        if _test_doc is None:
-            pytest.skip("Requires LibreOffice document from native runner")
-    except ImportError:
-        pass
 
+@native_test
+@with_native_doc("writer")
+def test_find_nearest_heading_bookmark(ctx, doc):
+    _setup_headings(doc)
     doc_svc = DocumentService()
     bookmark_svc = BookmarkService(SimpleNamespace(document=doc_svc))
 
-    bookmark_map = bookmark_svc.ensure_heading_bookmarks(_test_doc)
+    bookmark_map = bookmark_svc.ensure_heading_bookmarks(doc)
 
     # Nearest heading before or at index 1 is index 0
     res = bookmark_svc.find_nearest_heading_bookmark(1, bookmark_map)
@@ -116,31 +76,26 @@ def test_find_nearest_heading_bookmark():
     assert res["heading_para_index"] == 2
     assert res["bookmark"] == bookmark_map[2]
 
-@native_test
-def test_cleanup_mcp_bookmarks():
-    try:
-        import pytest
-        if _test_doc is None:
-            pytest.skip("Requires LibreOffice document from native runner")
-    except ImportError:
-        pass
 
+@native_test
+@with_native_doc("writer")
+def test_cleanup_mcp_bookmarks(ctx, doc):
+    _setup_headings(doc)
     doc_svc = DocumentService()
     bookmark_svc = BookmarkService(SimpleNamespace(document=doc_svc))
 
     # Ensure we have some bookmarks
-    bookmark_svc.ensure_heading_bookmarks(_test_doc)
+    bookmark_svc.ensure_heading_bookmarks(doc)
 
     # Clean them up
-    removed_count = bookmark_svc.cleanup_mcp_bookmarks(_test_doc)
+    removed_count = bookmark_svc.cleanup_mcp_bookmarks(doc)
     assert removed_count == 2
 
     # Verify they are gone from document
-    assert _test_doc is not None
-    bms = _test_doc.getBookmarks().getElementNames()
+    bms = doc.getBookmarks().getElementNames()
     mcp_bms = [b for b in bms if b.startswith("_mcp_")]
     assert len(mcp_bms) == 0
 
     # Verify map is empty on next read
-    empty_map = bookmark_svc.get_mcp_bookmark_map(_test_doc)
+    empty_map = bookmark_svc.get_mcp_bookmark_map(doc)
     assert len(empty_map) == 0

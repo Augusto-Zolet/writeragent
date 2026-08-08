@@ -151,5 +151,4 @@ def get_monaco_theme_info(doc: Any = None, style_window: Any = None, ctx: Any = 
     }
 
 
-# Back-compat re-exports for any direct imports (rare)
 __all__ = ["get_style_window", "get_theme_colors", "get_monaco_theme_info"]

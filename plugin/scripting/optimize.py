@@ -19,7 +19,6 @@ from plugin.calc.calc_addin_data import _resolve_python_data
 from plugin.framework.errors import ToolExecutionError
 from plugin.scripting.client import run_optimize as client_run_optimize
 from plugin.scripting.helper_domain import (
-    HelperScriptMeta,
     header_prefix,
 )
 
@@ -61,7 +60,6 @@ __getattr__ = make_getattr("optimize", _OPTIMIZE_VENV_EXPORTS)
 
 from plugin.scripting.helper_domain import DomainFacadeConfig, make_template_api
 
-OptimizeScriptHeader = HelperScriptMeta
 
 _API = make_template_api(
     DomainFacadeConfig(

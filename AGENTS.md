@@ -31,6 +31,8 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 | Bootstrap, settings apply, MCP bootstrap | [`plugin/main.py`](plugin/main.py) |
 | Sidebar, send, document resolution | [`plugin/chatbot/panel_factory.py`](plugin/chatbot/panel_factory.py), [`plugin/chatbot/panel.py`](plugin/chatbot/panel.py) |
 | Tool loop / chat FSM | [`plugin/chatbot/tool_loop.py`](plugin/chatbot/tool_loop.py), [`plugin/chatbot/tool_loop_state.py`](plugin/chatbot/tool_loop_state.py) |
+| Smol / librarian ReAct (separate runtime; shares `LlmClient`) | [`plugin/chatbot/smol_agent.py`](plugin/chatbot/smol_agent.py) — [docs/smol-main-chat-tool-architecture.md](docs/smol-main-chat-tool-architecture.md). Do **not** merge with the main chat FSM. |
+| External agent backends (optional; not the default learning path) | [`plugin/agent_backend/`](plugin/agent_backend/) — selected via `agent_backend.backend_id` when not `builtin` |
 | HTTP / LLM | [`plugin/framework/client/llm_client.py`](plugin/framework/client/llm_client.py) (`make_chat_request`, `request_with_tools`, token stripping, shims, pacing) |
 | Tools registry | [`plugin/framework/tool.py`](plugin/framework/tool.py) |
 | UNO document helpers | [`plugin/doc/document_helpers.py`](plugin/doc/document_helpers.py) |
@@ -45,7 +47,7 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 | Vision / OCR | [`plugin/vision/`](plugin/vision/) (host runner, egress, templates, LLM `extract_text_from_image` via `domain=vision`); venv worker in [`plugin/vision/venv/`](plugin/vision/venv/); RPC in [`plugin/scripting/client.py`](plugin/scripting/client.py) `run_vision`; gating in [`vision_availability.py`](plugin/vision/vision_availability.py) — [docs/image-recognition.md](docs/image-recognition.md) |
 | PPT-Master (Impress/Draw sidebar) | Adapter code [`plugin/contrib/ppt_master/`](plugin/contrib/ppt_master/) (upstream pin + symbol map in [`README.md`](plugin/contrib/ppt_master/README.md)); upstream via user skill tree; UNO in [`plugin/ppt_master/`](plugin/ppt_master/); session [`plugin/chatbot/ppt_master.py`](plugin/chatbot/ppt_master.py) — [integration plan + roadmap](docs/ppt-master-integration-plan.md#roadmap) |
 
-**Layout:** `plugin/` → `framework/` (config, service, state, logging), `modules/` (ai, chatbot—including shared UNO dialogs/listeners/dialog_views/settings_dialog UI, writer, calc, draw, http), [`extension/`](extension/) (OXT resources, [`Dialogs/`](extension/Dialogs/), [`idl/`](extension/idl/), [`metadata/`](extension/metadata/)), [`scripts/`](scripts/), [`Makefile`](Makefile), [`pyproject.toml`](pyproject.toml).
+**Layout:** `plugin/` → `framework/` (config, service, state, logging, UNO listeners in [`uno_listeners.py`](plugin/framework/uno_listeners.py)), `modules/` (ai, chatbot—including shared UNO dialogs/dialog_views/settings_dialog UI, writer, calc, draw, http), [`extension/`](extension/) (OXT resources, [`Dialogs/`](extension/Dialogs/), [`idl/`](extension/idl/), [`metadata/`](extension/metadata/)), [`scripts/`](scripts/), [`Makefile`](Makefile), [`pyproject.toml`](pyproject.toml).
 
 ---
 
@@ -56,7 +58,7 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 - **Chat:** Sidebar + menu chat (Writer/Calc deck; Draw per code paths)—multi-turn, tools, history (SQLite when available, else JSON under `writeragent_history.db.d/`).
 - **Extend / Edit selection:** Writer uses `get_string_without_tracked_deletions()` for prompts; undo/session details in [`plugin/doc/document_helpers.py`](plugin/doc/document_helpers.py).
 - **Settings:** `writeragent.json` under the LibreOffice user profile—see [`plugin/framework/config.py`](plugin/framework/config.py) module doc.
-- **Memory (experimental):** [`plugin/chatbot/memory.py`](plugin/chatbot/memory.py); `MEMORY_GUIDANCE` in [`plugin/framework/constants.py`](plugin/framework/constants.py)—full notes [docs/hermes-agent-patterns.md](docs/hermes-agent-patterns.md).
+- **Memory (experimental):** [`plugin/chatbot/memory.py`](plugin/chatbot/memory.py); `MEMORY_GUIDANCE` in [`plugin/framework/prompts.py`](plugin/framework/prompts.py)—full notes [docs/hermes-agent-patterns.md](docs/hermes-agent-patterns.md).
 - **Calc:** `=PROMPT()` — [`plugin/calc/prompt_addin.py`](plugin/calc/prompt_addin.py) / [`plugin/calc/prompt_function.py`](plugin/calc/prompt_function.py); `=PYTHON()` — [`plugin/calc/python/addin.py`](plugin/calc/python/addin.py) / [`plugin/calc/python/function.py`](plugin/calc/python/function.py).
 - **Eval / benchmarks:** `make run_eval` / [`scripts/benchmark.py`](scripts/benchmark.py) → [`scripts/prompt_optimization/`](scripts/prompt_optimization/) (`eval_auth.py` for CLI credentials; judge via `LlmClient`). Setup: `uv sync`, `make eval-deps`. [`scripts/prompt_optimization/README.md`](scripts/prompt_optimization/README.md), [`docs/eval-dev-plan.md`](docs/eval-dev-plan.md).
 

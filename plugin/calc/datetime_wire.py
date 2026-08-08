@@ -139,13 +139,26 @@ def should_preserve_temporal_format(input_category: str, serial: float, dest_cat
     return False
 
 
-def is_compatible_temporal_template(input_category: str, template_category: str | None) -> bool:
-    """Check if a column template's format category is compatible with input_category."""
+def is_compatible_temporal_template(
+    input_category: str,
+    template_category: str | None,
+    format_code: object | None = None,
+) -> bool:
+    """P1: whether a nearest-above NumberFormat may be inherited for this gated input.
+
+    Stricter than M1 preserve: date does not inherit datetime (detect yields a
+    date format so wire stays ``YYYY-MM-DD``); clock time does not inherit
+    elapsed ``[HH]:…`` templates (those flip read enrichment to ``duration`` /
+    ``PT…``). Duration inputs still accept any TIME template including elapsed.
+    """
     if template_category is None:
         return False
-    if input_category == "date" and template_category in ("date", "datetime"):
+    if input_category == "date" and template_category == "date":
         return True
     if input_category == "time" and template_category == "time":
+        # Elapsed FormatString is still UNO Type TIME; skip so clock writes keep clock wire.
+        if is_elapsed_format_string(format_code):
+            return False
         return True
     if input_category == "duration" and template_category == "time":
         return True

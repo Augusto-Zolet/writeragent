@@ -22,7 +22,7 @@ import os
 import threading
 from typing import Any, cast
 
-from plugin.chatbot.listeners import BaseWindowListener
+from plugin.framework.uno_listeners import BaseWindowListener
 from plugin.chatbot.rich_text import (
     CHAT_FONT_HEIGHT,
     CHAT_FONT_NAME,

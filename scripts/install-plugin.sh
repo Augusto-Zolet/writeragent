@@ -255,10 +255,15 @@ install_to_cache() {
     local deployed=0
 
     # plugin/
+    # .pyspector_cache: make pyspector writes under plugin/; never ship to LO cache.
     rsync -av --delete \
         --exclude '__pycache__' --exclude '*.pyc' \
         --exclude 'module.yaml' \
+        --exclude '.pyspector_cache' --exclude '.pyspector_baseline.json' \
         "$PROJECT_ROOT/plugin/" "$ext_dir/plugin/"
+    # rsync --delete does not remove newly excluded trees; prune any prior deploy.
+    rm -rf "$ext_dir/plugin/.pyspector_cache"
+    rm -f "$ext_dir/plugin/.pyspector_baseline.json"
     echo "    plugin/ synced"
     deployed=$((deployed + 1))
 

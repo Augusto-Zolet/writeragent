@@ -1,26 +1,11 @@
-import logging
-from plugin.testing_runner import setup, teardown, native_test
-from plugin.tests.testing_utils import TestingFactory
+from plugin.testing_runner import native_test
+from plugin.tests.testing_utils import with_native_doc
 from plugin.doc.document_helpers import get_paragraph_ranges, find_paragraph_for_range as doc_find_para
 from plugin.writer.ops import find_paragraph_for_range as ops_find_para
 
-_test_doc = None
-_lg = logging.getLogger(__name__)
 
-@setup
-def setup_binary_search_tests(ctx):
-    global _test_doc
-    _test_doc = TestingFactory.create_native_doc(ctx, "writer", hidden=True)
-
-@teardown
-def teardown_binary_search_tests(ctx):
-    global _test_doc
-    if _test_doc:
-        _test_doc.close(True)
-    _test_doc = None
-
-def _setup_paragraphs(count):
-    text = _test_doc.getText()
+def _setup_paragraphs(doc, count):
+    text = doc.getText()
     cursor = text.createTextCursor()
     cursor.gotoStart(False)
     cursor.gotoEnd(True)
@@ -31,11 +16,13 @@ def _setup_paragraphs(count):
         if i < count - 1:
             text.insertControlCharacter(cursor, 0, False) # com.sun.star.text.ControlCharacter.PARAGRAPH_BREAK
 
+
 @native_test
-def test_find_para_boundaries():
-    _setup_paragraphs(5)
-    para_ranges = get_paragraph_ranges(_test_doc)
-    text = _test_doc.getText()
+@with_native_doc("writer")
+def test_find_para_boundaries(ctx, doc):
+    _setup_paragraphs(doc, 5)
+    para_ranges = get_paragraph_ranges(doc)
+    text = doc.getText()
     
     # Test first paragraph (index 0)
     p0 = para_ranges[0]
@@ -49,11 +36,13 @@ def test_find_para_boundaries():
     idx = doc_find_para(cursor, para_ranges, text)
     assert idx == 4, f"Expected index 4 for last para, got {idx}"
 
+
 @native_test
-def test_find_para_middle():
-    _setup_paragraphs(10)
-    para_ranges = get_paragraph_ranges(_test_doc)
-    text = _test_doc.getText()
+@with_native_doc("writer")
+def test_find_para_middle(ctx, doc):
+    _setup_paragraphs(doc, 10)
+    para_ranges = get_paragraph_ranges(doc)
+    text = doc.getText()
     
     # Test middle paragraph (index 5)
     p5 = para_ranges[5]
@@ -66,22 +55,26 @@ def test_find_para_middle():
     idx = doc_find_para(cursor, para_ranges, text)
     assert idx == 5, f"Expected index 5 for cursor inside middle para, got {idx}"
 
+
 @native_test
-def test_find_para_single():
-    _setup_paragraphs(1)
-    para_ranges = get_paragraph_ranges(_test_doc)
-    text = _test_doc.getText()
+@with_native_doc("writer")
+def test_find_para_single(ctx, doc):
+    _setup_paragraphs(doc, 1)
+    para_ranges = get_paragraph_ranges(doc)
+    text = doc.getText()
     
     p0 = para_ranges[0]
     cursor = text.createTextCursorByRange(p0.getStart())
     idx = doc_find_para(cursor, para_ranges, text)
     assert idx == 0, f"Expected index 0 for single para, got {idx}"
 
+
 @native_test
-def test_find_para_exactly_at_end():
-    _setup_paragraphs(3)
-    para_ranges = get_paragraph_ranges(_test_doc)
-    text = _test_doc.getText()
+@with_native_doc("writer")
+def test_find_para_exactly_at_end(ctx, doc):
+    _setup_paragraphs(doc, 3)
+    para_ranges = get_paragraph_ranges(doc)
+    text = doc.getText()
     
     # Test range exactly at end of P1
     p1 = para_ranges[1]
@@ -89,13 +82,15 @@ def test_find_para_exactly_at_end():
     idx = doc_find_para(cursor, para_ranges, text)
     assert idx == 1, f"Expected index 1 for cursor at end of P1, got {idx}"
 
+
 @native_test
-def test_find_para_large_document():
+@with_native_doc("writer")
+def test_find_para_large_document(ctx, doc):
     # Test with 150 paragraphs to ensure binary search efficiency and correctness
     count = 150
-    _setup_paragraphs(count)
-    para_ranges = get_paragraph_ranges(_test_doc)
-    text = _test_doc.getText()
+    _setup_paragraphs(doc, count)
+    para_ranges = get_paragraph_ranges(doc)
+    text = doc.getText()
     
     for i in [0, 1, 75, 149]:
         p = para_ranges[i]
@@ -103,12 +98,14 @@ def test_find_para_large_document():
         idx = doc_find_para(cursor, para_ranges, text)
         assert idx == i, f"Large doc: expected index {i}, got {idx}"
 
+
 @native_test
-def test_find_para_ops_equivalence():
+@with_native_doc("writer")
+def test_find_para_ops_equivalence(ctx, doc):
     # Ensure ops.py version behaves the same way
-    _setup_paragraphs(5)
-    para_ranges = get_paragraph_ranges(_test_doc)
-    text = _test_doc.getText()
+    _setup_paragraphs(doc, 5)
+    para_ranges = get_paragraph_ranges(doc)
+    text = doc.getText()
     
     p2 = para_ranges[2]
     cursor = text.createTextCursorByRange(p2.getStart())

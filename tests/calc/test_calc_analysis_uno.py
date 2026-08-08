@@ -13,62 +13,27 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-from plugin.framework.uno_context import get_desktop
-from plugin.testing_runner import setup, teardown, native_test
+from plugin.testing_runner import native_test
+from plugin.tests.testing_utils import TestingFactory, with_native_doc
 
 
-_test_doc = None
-_test_ctx = None
-
-
-@setup
-def setup_calc_analysis_tests(ctx):
-    global _test_doc, _test_ctx
-    _test_ctx = ctx
-
-    desktop = get_desktop(ctx)
-    import uno
-
-    hidden_prop = uno.createUnoStruct(
-        "com.sun.star.beans.PropertyValue",
-        Name="Hidden",
-        Value=True,
+def _execute_calc_tool(doc, ctx, name, args):
+    # Callbacks emulate specialized-delegation ToolContext fields.
+    return TestingFactory.execute_tool(
+        doc,
+        ctx,
+        name,
+        args,
+        doc_type="calc",
+        status_callback=lambda m: None,
+        append_thinking_callback=lambda m: None,
     )
-
-    _test_doc = desktop.loadComponentFromURL("private:factory/scalc", "_blank", 0, (hidden_prop,))
-    assert _test_doc is not None, "Could not create test calc document"
-
-
-@teardown
-def teardown_calc_analysis_tests(ctx):
-    global _test_doc, _test_ctx
-    if _test_doc:
-        try:
-            _test_doc.close(True)
-        except Exception:
-            pass
-    _test_doc = None
-    _test_ctx = None
-
-
-def _execute_calc_tool(name, args):
-    from plugin.main import get_tools, get_services
-    from plugin.framework.tool import ToolContext
-    tctx = ToolContext(_test_doc, _test_ctx, "calc", get_services(), "test")
-    # Add callbacks for specialized delegation emulation
-    tctx.status_callback = lambda m: None
-    tctx.append_thinking_callback = lambda m: None
-    
-    try:
-        res = get_tools().execute(name, tctx, **args)
-    except (KeyError, ValueError) as e:
-        res = {"status": "error", "error": str(e)}
-    return res
 
 
 @native_test
-def test_goal_seek():
-    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+@with_native_doc("calc")
+def test_goal_seek(ctx, doc):
+    active_sheet = doc.getCurrentController().getActiveSheet()
     
     # Problem: Find x such that x^2 = 100
     # A1: Variable (x)
@@ -76,7 +41,7 @@ def test_goal_seek():
     active_sheet.getCellByPosition(0, 0).setValue(1.0) # Initial guess
     active_sheet.getCellByPosition(1, 0).setFormula("=A1*A1")
     
-    res = _execute_calc_tool("calc_goal_seek", {
+    res = _execute_calc_tool(doc, ctx, "calc_goal_seek", {
         "formula_cell": "A1.B1", # Testing sheet name prefix (assuming default sheet name is Sheet1 or similar)
         "variable_cell": "B1",   # Wait, _get_cell_address might fail if sheet name is wrong. 
                                  # Let's get the real sheet name.
@@ -84,7 +49,7 @@ def test_goal_seek():
     
     sheet_name = active_sheet.getName()
     
-    res = _execute_calc_tool("calc_goal_seek", {
+    res = _execute_calc_tool(doc, ctx, "calc_goal_seek", {
         "formula_cell": f"{sheet_name}.B1",
         "variable_cell": f"{sheet_name}.A1",
         "target_value": 100.0,
@@ -101,8 +66,9 @@ def test_goal_seek():
 
 
 @native_test
-def test_solver():
-    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+@with_native_doc("calc")
+def test_solver(ctx, doc):
+    active_sheet = doc.getCurrentController().getActiveSheet()
     sheet_name = active_sheet.getName()
 
     # Problem: Maximize 3x + 5y subject to x + y <= 10 and x, y >= 0
@@ -116,7 +82,7 @@ def test_solver():
     active_sheet.getCellByPosition(3, 2).setFormula("=A3+B3")
     
     # Linear program: use built-in linear solver (avoids Java NLPSolver / DEPS on hidden docs).
-    res = _execute_calc_tool("calc_solver", {
+    res = _execute_calc_tool(doc, ctx, "calc_solver", {
         "objective_cell": f"{sheet_name}.C3",
         "variables": [f"{sheet_name}.A3", f"{sheet_name}.B3"],
         "maximize": True,

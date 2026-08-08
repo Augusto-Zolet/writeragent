@@ -25,11 +25,11 @@ The original `smolagents` web tools (`DuckDuckGoSearchTool` and `VisitWebpageToo
 - **Parsing**: Replaced `beautifulsoup4` and `markdownify` with custom subclasses of standard `html.parser.HTMLParser` to extract search results and strip tags for page content reading.
 
 ### LlmClient Wrapper
-To ensure the sub-agent uses the exact same model, endpoint, and API keys as the rest of WriterAgent, we created `WriterAgentSmolModel` (in `core/smol_model.py`). This class extends the `smolagents` base `Model` class but overrides `generate()` to proxy all requests directly to WriterAgent's existing `core.api.LlmClient`. For CLI testing without LibreOffice we also provide `OpenRouterSmolModel` in `scripts/test_search_web.py`, which talks directly to OpenRouter’s OpenAI-compatible HTTP API.
+To ensure the sub-agent uses the exact same model, endpoint, and API keys as the rest of WriterAgent, we created `WriterAgentSmolModel` (in [`plugin/chatbot/smol_agent.py`](../plugin/chatbot/smol_agent.py)). This class extends the `smolagents` base `Model` class but overrides `generate()` to proxy all requests directly to WriterAgent's existing `LlmClient`. For CLI testing without LibreOffice we also provide `OpenRouterSmolModel` in `scripts/test_search_web.py`, which talks directly to OpenRouter’s OpenAI-compatible HTTP API.
 
-### The `search_web` Tool
-Exposed in `core/document_tools.py`, the `search_web` tool accepts a `query` and an optional `rationale`. When invoked:
-1. It instantiates the `WriterAgentSmolModel`.
+### The `web_research` Tool
+Exposed in [`plugin/chatbot/web_research.py`](../plugin/chatbot/web_research.py) (also reachable via specialized delegate `domain=web_research`), the tool accepts a research `query` and optional history. When invoked:
+1. It builds a `WriterAgentSmolModel` via [`plugin/chatbot/smol_agent.py`](../plugin/chatbot/smol_agent.py).
 2. It initializes a `ToolCallingAgent` equipped with the zero-dependency DuckDuckGo and Webpage Visitor tools.
 3. It kicks off the `smolagents` run loop, which autonomously researches the query until it calls the `final_answer` tool or hits a timeout/max-steps limit.
 4. It catches the final answer and returns it to the main agent as JSON: `{"status": "ok", "result": "<answer>"}` (or `{"status": "error", "message": "..."}` on failure/timeout).
@@ -55,8 +55,8 @@ This file defines the base `Tool` class and the infrastructure for exposing Pyth
 **`plugin/contrib/smolagents/default_tools.py`**
 This file houses the actual tools that the web search sub-agent relies on to achieve its goals. Most notably, it contains `DuckDuckGoSearchTool` for querying the web and `VisitWebpageTool` for scraping actual page content. We have completely overhauled this file to use only standard Python libraries (`urllib.request` and `html.parser`), eliminating the need for `requests`, `beautifulsoup4`, or `markdownify`.
 
-**`core/smol_model.py`**
-This is a custom file specific to WriterAgent, acting as the bridge between `smolagents` and our existing `core/api.py`. It provides the `WriterAgentSmolModel` class, which implements the `smolagents.models.Model` interface but delegates all LLM generation logic strictly to our `LlmClient`. This ensures the sub-agent uses the exact same model preferences, API keys, and enterprise endpoints configured by the user.
+**[`plugin/chatbot/smol_agent.py`](../plugin/chatbot/smol_agent.py)**
+This is the bridge between `smolagents` and WriterAgent's `LlmClient`. It provides `WriterAgentSmolModel` (implements `smolagents.models.Model`), plus `to_smol_inputs` / `SmolToolAdapter` and `build_toolcalling_agent`. This ensures the sub-agent uses the exact same model preferences, API keys, and enterprise endpoints configured by the user.
 
 ### Trivial / Supporting Files
 
@@ -75,8 +75,8 @@ This is a custom file specific to WriterAgent, acting as the bridge between `smo
 **What is Done:**
 - **Vendoring core files**: Copied `agents.py`, `models.py`, `tools.py`, `default_tools.py`, etc. to `plugin/contrib/smolagents`.
 - **Tool Adaptation**: Completely rewrote `DuckDuckGoSearchTool` and `VisitWebpageTool` in `default_tools.py` to use `urllib.request` and standard library parsers, with a realistic Firefox user agent to reduce 403s.
-- **Model Wrapper**: Built `WriterAgentSmolModel` (`core/smol_model.py`) to connect the sub-agent directly to WriterAgent's existing `LlmClient`.
-- **Tool Registration**: Registered the `search_web` task in `core/document_tools.py` executing the ReAct loop inline.
+- **Model Wrapper**: Built `WriterAgentSmolModel` ([`plugin/chatbot/smol_agent.py`](../plugin/chatbot/smol_agent.py)) to connect the sub-agent directly to WriterAgent's existing `LlmClient`.
+- **Tool Registration**: Registered the `search_web` / web-research path so the ReAct loop runs via the shared smol agent construction.
 - **YAML/Jinja2 removal for ToolCallingAgent**: Replaced `populate_template()` in `ToolCallingAgent.initialize_system_prompt()` with `_render_toolcalling_system_prompt()` and prompts in `toolcalling_agent_prompts.py` using simple placeholders. The search_web path no longer depends on Jinja2.
 - **Optional Rich/logging**: `monitoring.py` and `agents.py` use lightweight stubs when `rich` is absent; the search_web path logs to stderr/stdout only, and our `Console` stub ignores Rich-only kwargs like `style=...`.
 - **Optional heavy deps (PIL/requests/audio)**: `agent_types.py` treats Pillow and requests as optional; image/audio types only require them if actually used. This keeps the vendored package importable on a minimal Python install while search_web (text only) continues to work.

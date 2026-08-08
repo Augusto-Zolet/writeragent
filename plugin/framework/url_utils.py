@@ -8,20 +8,10 @@ URL parsing utilities for WriterAgent.
 """
 from __future__ import annotations
 
-import importlib
 import urllib.parse
 from typing import Any
 
-deal: Any
-try:
-    deal = importlib.import_module("deal")
-except ImportError:
-
-    class _DummyDeal:
-        def __getattr__(self, name: str) -> Any:
-            return lambda *args, **kwargs: lambda f: f
-
-    deal = _DummyDeal()
+from plugin.framework.deal_shim import deal
 
 LIBREPY_DISPATCH_PROTOCOL = "org.extension.librepy:"
 

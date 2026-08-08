@@ -1,6 +1,7 @@
 # testing_utils.py
 # Centralized testing utilities and mocks for WriterAgent tests.
 
+import contextlib
 import sys
 import types
 from unittest.mock import MagicMock
@@ -223,6 +224,8 @@ class WriterDocStub:
         self.doc_type = doc_type
         self._items = items or {}
         self.url = f"test://{doc_type}"
+        self._created = {}
+        self._load_styles_calls = []
 
     def getText(self):
         class TextStub:
@@ -267,6 +270,16 @@ class WriterDocStub:
     def getMyItems(self):
         return self.getStyleFamilies()
 
+    def createInstance(self, name):
+        inst = self._created.get(name)
+        if inst is None:
+            inst = MagicMock(name=name)
+            self._created[name] = inst
+        return inst
+
+    def loadStylesFromURL(self, url, props):
+        self._load_styles_calls.append((url, props))
+
 class MockDocument:
     def __init__(self):
         self.url = "test://mock"
@@ -288,9 +301,417 @@ class MockTextCursor:
     def goLeft(self, count, expand): pass
     def setPropertyValue(self, name, val): pass
 
-class MockSheet:
-    def __init__(self):
+
+# UNO CellContentType values (com.sun.star.table.CellContentType).
+_CELL_EMPTY = 0
+_CELL_VALUE = 1
+_CELL_TEXT = 2
+_CELL_FORMULA = 3
+
+
+class _RangeAddress:
+    __slots__ = ("StartColumn", "StartRow", "EndColumn", "EndRow", "Sheet")
+
+    def __init__(self, start_col, start_row, end_col, end_row, sheet=0):
+        self.StartColumn = start_col
+        self.StartRow = start_row
+        self.EndColumn = end_col
+        self.EndRow = end_row
+        self.Sheet = sheet
+
+
+class _CellAddress:
+    __slots__ = ("Column", "Row", "Sheet")
+
+    def __init__(self, col, row, sheet=0):
+        self.Column = col
+        self.Row = row
+        self.Sheet = sheet
+
+
+class CalcCellStub:
+    """Stateful stand-in for a Calc cell / single-cell range."""
+
+    def __init__(self, col=0, row=0, sheet=None):
+        self._col = col
+        self._row = row
+        self._sheet = sheet
+        self._string = ""
+        self._value = 0.0
+        self._formula = ""
+        self._kind = _CELL_EMPTY  # empty | value | text | formula
+
+    def getString(self):
+        return self._string
+
+    def setString(self, value):
+        self._string = "" if value is None else str(value)
+        self._formula = ""
+        self._value = 0.0
+        self._kind = _CELL_TEXT if self._string else _CELL_EMPTY
+
+    def getValue(self):
+        return self._value
+
+    def setValue(self, value):
+        try:
+            self._value = float(value)
+        except (TypeError, ValueError):
+            self._value = 0.0
+        self._string = ""
+        self._formula = ""
+        self._kind = _CELL_VALUE
+
+    def getFormula(self):
+        return self._formula
+
+    def setFormula(self, value):
+        text = "" if value is None else str(value)
+        self._formula = text
+        if not text:
+            self._string = ""
+            self._value = 0.0
+            self._kind = _CELL_EMPTY
+        else:
+            self._kind = _CELL_FORMULA
+
+    def getType(self):
+        return self._kind
+
+    def clearContents(self, _flags=0):
+        self._string = ""
+        self._value = 0.0
+        self._formula = ""
+        self._kind = _CELL_EMPTY
+
+    def getCellAddress(self):
+        return _CellAddress(self._col, self._row)
+
+    def getRangeAddress(self):
+        return _RangeAddress(self._col, self._row, self._col, self._row)
+
+    def getPropertyValue(self, _name):
+        return None
+
+    def setPropertyValue(self, _name, _val):
         pass
+
+    def getSpreadsheet(self):
+        return self._sheet
+
+
+class CalcRangeStub:
+    """Rectangular range backed by a CalcSheetStub grid."""
+
+    def __init__(self, sheet, start_col, start_row, end_col, end_row):
+        self._sheet = sheet
+        self._start_col = start_col
+        self._start_row = start_row
+        self._end_col = end_col
+        self._end_row = end_row
+
+    def getRangeAddress(self):
+        return _RangeAddress(self._start_col, self._start_row, self._end_col, self._end_row)
+
+    def getCellByPosition(self, col, row):
+        # Relative to range origin (UNO XCellRange).
+        return self._sheet.getCellByPosition(self._start_col + col, self._start_row + row)
+
+    def getDataArray(self):
+        rows = []
+        for r in range(self._start_row, self._end_row + 1):
+            row_vals = []
+            for c in range(self._start_col, self._end_col + 1):
+                cell = self._sheet.getCellByPosition(c, r)
+                if cell.getType() == _CELL_VALUE:
+                    row_vals.append(cell.getValue())
+                elif cell.getType() == _CELL_FORMULA:
+                    row_vals.append(cell.getFormula())
+                else:
+                    row_vals.append(cell.getString())
+            rows.append(tuple(row_vals))
+        return tuple(rows)
+
+    def setDataArray(self, data):
+        for r_off, row in enumerate(data or ()):
+            for c_off, value in enumerate(row):
+                cell = self._sheet.getCellByPosition(self._start_col + c_off, self._start_row + r_off)
+                if isinstance(value, (int, float)) and not isinstance(value, bool):
+                    cell.setValue(value)
+                elif value is None or value == "":
+                    cell.clearContents()
+                else:
+                    text = str(value)
+                    if text.startswith("="):
+                        cell.setFormula(text)
+                    else:
+                        cell.setString(text)
+
+    def getFormulas(self):
+        rows = []
+        for r in range(self._start_row, self._end_row + 1):
+            row_vals = []
+            for c in range(self._start_col, self._end_col + 1):
+                row_vals.append(self._sheet.getCellByPosition(c, r).getFormula())
+            rows.append(tuple(row_vals))
+        return tuple(rows)
+
+    def getFormula(self):
+        return self.getCellByPosition(0, 0).getFormula()
+
+    def setFormula(self, value):
+        self.getCellByPosition(0, 0).setFormula(value)
+
+    def getString(self):
+        return self.getCellByPosition(0, 0).getString()
+
+    def setString(self, value):
+        self.getCellByPosition(0, 0).setString(value)
+
+    def getValue(self):
+        return self.getCellByPosition(0, 0).getValue()
+
+    def setValue(self, value):
+        self.getCellByPosition(0, 0).setValue(value)
+
+    def getType(self):
+        return self.getCellByPosition(0, 0).getType()
+
+    def clearContents(self, flags=0):
+        for r in range(self._start_row, self._end_row + 1):
+            for c in range(self._start_col, self._end_col + 1):
+                self._sheet.getCellByPosition(c, r).clearContents(flags)
+
+    def getSpreadsheet(self):
+        return self._sheet
+
+
+class CalcSheetStub:
+    """Named sheet with an expandable cell grid."""
+
+    def __init__(self, name="Sheet1", data=None):
+        self._name = name
+        self._cells = {}
+        self.DrawPage = MagicMock(name=f"{name}.DrawPage")
+        if data is not None:
+            self._seed_data(data)
+
+    def _seed_data(self, data):
+        for row_idx, row in enumerate(data):
+            for col_idx, value in enumerate(row):
+                if value is None or value == "":
+                    continue
+                cell = self.getCellByPosition(col_idx, row_idx)
+                if isinstance(value, (int, float)) and not isinstance(value, bool):
+                    cell.setValue(value)
+                else:
+                    text = str(value)
+                    if text.startswith("="):
+                        cell.setFormula(text)
+                    else:
+                        cell.setString(text)
+
+    def getName(self):
+        return self._name
+
+    def getCellByPosition(self, col, row):
+        key = (int(col), int(row))
+        cell = self._cells.get(key)
+        if cell is None:
+            cell = CalcCellStub(col=key[0], row=key[1], sheet=self)
+            self._cells[key] = cell
+        return cell
+
+    def getCellRangeByPosition(self, start_col, start_row, end_col, end_row):
+        return CalcRangeStub(self, int(start_col), int(start_row), int(end_col), int(end_row))
+
+    def getCellRangeByName(self, name):
+        from plugin.calc.address_utils import parse_range_string
+
+        (start_col, start_row), (end_col, end_row) = parse_range_string(name)
+        if start_col == end_col and start_row == end_row:
+            return self.getCellByPosition(start_col, start_row)
+        return self.getCellRangeByPosition(start_col, start_row, end_col, end_row)
+
+    def addModifyListener(self, _listener):
+        pass
+
+    def removeModifyListener(self, _listener):
+        pass
+
+    def queryContentCells(self, _flags=0):
+        """Return formula cells as a UNO-like enum (CellFlags.FORMULA = 16 in production).
+
+        Stub ignores *flags* and always enumerates formula cells — enough for pytest
+        discovery paths that only query formulas.
+        """
+        formula_keys = [(c, r) for (c, r), cell in self._cells.items() if cell.getType() == _CELL_FORMULA]
+        if not formula_keys:
+            return _ContentCellsEnum([])
+        cols = [c for c, _r in formula_keys]
+        rows = [r for _c, r in formula_keys]
+        rng = self.getCellRangeByPosition(min(cols), min(rows), max(cols), max(rows))
+        return _ContentCellsEnum([rng])
+
+
+class _ContentCellsEnum:
+    """Minimal stand-in for XSheetCellRanges enumeration from queryContentCells."""
+
+    def __init__(self, ranges):
+        self._ranges = list(ranges)
+
+    def getCount(self):
+        return len(self._ranges)
+
+    def getByIndex(self, index):
+        return self._ranges[int(index)]
+
+
+class CalcSheetsStub:
+    """XSpreadsheets-like collection."""
+
+    def __init__(self, sheets=None):
+        self._sheets = {}
+        self._order = []
+        if sheets:
+            for sheet in sheets:
+                self._add(sheet)
+        else:
+            self._add(CalcSheetStub("Sheet1"))
+
+    def _add(self, sheet):
+        name = sheet.getName()
+        if name not in self._sheets:
+            self._order.append(name)
+        self._sheets[name] = sheet
+
+    def hasByName(self, name):
+        return name in self._sheets
+
+    def getByName(self, name):
+        return self._sheets[name]
+
+    def getByIndex(self, index):
+        return self._sheets[self._order[int(index)]]
+
+    def getCount(self):
+        return len(self._order)
+
+    def getElementNames(self):
+        return tuple(self._order)
+
+    def insertNewByName(self, name, index):
+        sheet = CalcSheetStub(name)
+        idx = max(0, min(int(index), len(self._order)))
+        if name in self._sheets:
+            self._sheets[name] = sheet
+            return
+        self._order.insert(idx, name)
+        self._sheets[name] = sheet
+
+
+class CalcControllerStub:
+    """Current controller with both attribute and method access styles."""
+
+    def __init__(self, active_sheet, selection=None):
+        self.ActiveSheet = active_sheet
+        self.Selection = selection if selection is not None else active_sheet.getCellByPosition(0, 0)
+
+    def getActiveSheet(self):
+        return self.ActiveSheet
+
+    def getSelection(self):
+        return self.Selection
+
+
+class CalcDocStub:
+    """Stateful SpreadsheetDocument stub for pure pytest (no live LibreOffice).
+
+    Defaults: one sheet ``Sheet1``, selection A1, ``url='test://calc'``.
+    Seed a 2D grid with ``data=``; override selection / command values via kwargs.
+    """
+
+    def __init__(
+        self,
+        data=None,
+        sheets=None,
+        url="test://calc",
+        command_values=None,
+        selection=None,
+        active_sheet=None,
+        props=None,
+        **_kwargs,
+    ):
+        if sheets is not None:
+            sheet_list = list(sheets)
+        else:
+            sheet_list = [CalcSheetStub("Sheet1", data=data)]
+        self._sheets = CalcSheetsStub(sheet_list)
+        active = active_sheet
+        if active is None:
+            active = self._sheets.getByIndex(0)
+        elif isinstance(active, str):
+            active = self._sheets.getByName(active)
+        if selection is None:
+            selection = active.getCellByPosition(0, 0)
+        elif isinstance(selection, str):
+            selection = active.getCellRangeByName(selection)
+        self._controller = CalcControllerStub(active, selection=selection)
+        self.CurrentController = self._controller
+        self.url = url
+        self._command_values = command_values
+        self._close_calls = []
+        self._created = {}
+        self._props = dict(props or {})
+        self._document_event_listeners = []
+        self._calculate_all_calls = 0
+
+    def supportsService(self, svc):
+        return svc == "com.sun.star.sheet.SpreadsheetDocument"
+
+    def getSheets(self):
+        return self._sheets
+
+    def getCurrentController(self):
+        return self._controller
+
+    def getURL(self):
+        return self.url
+
+    def calculateAll(self):
+        self._calculate_all_calls += 1
+
+    @property
+    def calculate_all_count(self):
+        return self._calculate_all_calls
+
+    def getCommandValues(self, _command=None):
+        return self._command_values
+
+    def getPropertyValue(self, name):
+        if name not in self._props:
+            raise KeyError(name)
+        return self._props[name]
+
+    def setPropertyValue(self, name, value):
+        self._props[name] = value
+
+    def addDocumentEventListener(self, listener):
+        self._document_event_listeners.append(listener)
+
+    def createInstance(self, name):
+        inst = self._created.get(name)
+        if inst is None:
+            inst = MagicMock(name=name)
+            self._created[name] = inst
+        return inst
+
+    def close(self, unused=True):
+        self._close_calls.append(unused)
+
+    def dispose(self):
+        self.close(True)
+
 
 class MockContext:
     """Mock context object used as a stand-in for the UNO ComponentContext outside of LibreOffice."""
@@ -307,30 +728,23 @@ class TestingFactory:
     """Unified factory for creating test documents and contexts."""
 
     @staticmethod
-    def create_doc(env="mock", doc_type="writer", content=None, use_mock=True, **kwargs):
-        """Creates a document instance (mock or native)."""
+    def create_doc(env="mock", doc_type="writer", content=None, **kwargs):
+        """Create a mock document stub (or raise for native — use create_native_doc).
+
+        - ``calc`` → :class:`CalcDocStub` (prefer ``data=`` 2D grid)
+        - otherwise → :class:`WriterDocStub` (``content=`` paragraph list, ``items=`` style families)
+        """
         if env == "native":
             raise NotImplementedError("Native doc creation requires a ctx. Use create_native_doc(ctx, ...)")
 
-        # Mock implementation
-        if not use_mock:
-            return WriterDocStub(content if isinstance(content, list) else [], doc_type=doc_type, **kwargs)
+        if doc_type == "calc":
+            calc_kwargs = dict(kwargs)
+            if "data" not in calc_kwargs and content is not None and not isinstance(content, list):
+                calc_kwargs["data"] = content
+            return CalcDocStub(**calc_kwargs)
 
-        mock_doc = MagicMock()
-        mock_doc.url = f"test://{doc_type}"
-        
-        # If content or items are provided, use the stub logic
-        if content is not None or kwargs.get("items") is not None:
-            stub = WriterDocStub(content if isinstance(content, list) else [], doc_type=doc_type, **kwargs)
-            mock_doc.getText.side_effect = stub.getText
-            mock_doc.supportsService.side_effect = stub.supportsService
-            mock_doc.getStyleFamilies.side_effect = stub.getStyleFamilies
-            mock_doc.getMyItems.side_effect = stub.getMyItems
-        else:
-            # Default behavior for a mock doc: supports standard service
-            mock_doc.supportsService.return_value = (doc_type == "writer")
-            
-        return mock_doc
+        elements = content if isinstance(content, list) else []
+        return WriterDocStub(elements, doc_type=doc_type, **kwargs)
 
     @staticmethod
     def create_native_doc(ctx, doc_type="writer", hidden=True):
@@ -343,19 +757,55 @@ class TestingFactory:
         if hidden:
             props.append(uno.createUnoStruct("com.sun.star.beans.PropertyValue", Name="Hidden", Value=True))
         
-        factory_url = {
-            "writer": "private:factory/swriter",
-            "calc": "private:factory/scalc",
-            "draw": "private:factory/sdraw",
-            "impress": "private:factory/simpress"
-        }.get(doc_type, "private:factory/swriter")
+        if doc_type.startswith("private:") or doc_type.startswith("file://"):
+            factory_url = doc_type
+        else:
+            factory_url = {
+                "writer": "private:factory/swriter",
+                "calc": "private:factory/scalc",
+                "draw": "private:factory/sdraw",
+                "impress": "private:factory/simpress"
+            }.get(doc_type, "private:factory/swriter")
 
         doc = desktop.loadComponentFromURL(factory_url, "_blank", 0, tuple(props))
         return doc
 
     @staticmethod
-    def create_context(doc=None, ctx=None, env="mock", doc_type="writer"):
-        """Creates a ToolContext with appropriate services."""
+    def close_doc(doc):
+        """Safely closes a document instance if available."""
+        if not doc:
+            return
+        try:
+            if hasattr(doc, "close"):
+                doc.close(True)
+            elif hasattr(doc, "dispose"):
+                doc.dispose()
+        except Exception:
+            pass
+
+    @staticmethod
+    @contextlib.contextmanager
+    def native_doc(ctx, doc_type="writer", hidden=True):
+        """Context manager for creating and automatically disposing a native LO document."""
+        doc = TestingFactory.create_native_doc(ctx, doc_type=doc_type, hidden=hidden)
+        try:
+            yield doc
+        finally:
+            TestingFactory.close_doc(doc)
+
+
+    @staticmethod
+    def create_context(doc=None, ctx=None, env="mock", doc_type="writer", services=None, **ctx_kwargs):
+        """Create a ToolContext for mock or native tests.
+
+        Mock: builds a stub doc via :meth:`create_doc` when ``doc`` is omitted.
+        Native: requires an existing ``doc`` (compose with ``@with_native_doc`` /
+        :meth:`native_doc`); does not open documents itself.
+
+        Pass ``services=`` to use the live plugin registry (``get_services()``) instead
+        of a fresh ``ServiceRegistry``. Extra ``ctx_kwargs`` go to ``ToolContext``
+        (e.g. ``status_callback``, ``active_page_index``).
+        """
         from plugin.framework.tool import ToolContext
         from plugin.framework.service import ServiceRegistry
 
@@ -364,25 +814,76 @@ class TestingFactory:
                 doc = TestingFactory.create_doc(env="mock", doc_type=doc_type)
             if ctx is None:
                 ctx = MockContext()
-            
+            if services is None:
+                services = ServiceRegistry()
+            return ToolContext(doc=doc, ctx=ctx, doc_type=doc_type, services=services, caller="test", **ctx_kwargs)
+
+        # Native env — caller owns document lifecycle (@with_native_doc).
+        if doc is None:
+            raise ValueError("create_context(env='native') requires doc= (use @with_native_doc)")
+        if services is None:
+            from plugin.doc.document_helpers import DocumentService
+            from plugin.framework.event_bus import EventBus
             services = ServiceRegistry()
-            # Register basic services if needed
-            return ToolContext(doc=doc, ctx=ctx, doc_type=doc_type, services=services, caller="test")
-        
-        # Native env
-        from plugin.doc.document_helpers import DocumentService
-        from plugin.framework.event_bus import EventBus
-        services = ServiceRegistry()
-        services.register("document", DocumentService())
-        services.register("events", EventBus())
-        
-        return ToolContext(doc=doc, ctx=ctx, doc_type=doc_type, services=services, caller="test")
+            services.register("document", DocumentService())
+            services.register("events", EventBus())
+
+        return ToolContext(doc=doc, ctx=ctx, doc_type=doc_type, services=services, caller="test", **ctx_kwargs)
 
     @staticmethod
-    def setup_tool(tool_class, env="mock", doc_type="writer", ctx=None, doc=None):
-        """Convenience to setup a tool and its context."""
-        context = TestingFactory.create_context(doc=doc, ctx=ctx, env=env, doc_type=doc_type)
-        return tool_class(), context
+    def execute_tool(doc, ctx, name, args=None, *, doc_type="calc", services=None, **ctx_kwargs):
+        """Run a registered tool against a live (or stub) document.
+
+        Defaults to ``get_services()`` so native Calc/Draw suites share one path.
+        ``KeyError`` / ``ValueError`` from the registry become
+        ``{"status": "error", "error": ...}`` (same contract as the old per-file helpers).
+        """
+        from plugin.main import get_tools, get_services
+
+        if services is None:
+            services = get_services()
+        tctx = TestingFactory.create_context(
+            doc=doc,
+            ctx=ctx,
+            env="native",
+            doc_type=doc_type,
+            services=services,
+            **ctx_kwargs,
+        )
+        try:
+            return get_tools().execute(name, tctx, **(args or {}))
+        except (KeyError, ValueError) as e:
+            return {"status": "error", "error": str(e)}
+
+
+def with_native_doc(doc_type="writer", hidden=True):
+    """Decorator to inject a native LibreOffice document into a test function and guarantee teardown."""
+    def decorator(func):
+        import functools
+        import inspect
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            # Resolve ctx from args if present (native_test functions may receive ctx as first arg or kwargs)
+            ctx = kwargs.get("ctx", None)
+            if ctx is None and len(args) > 0:
+                ctx = args[0]
+
+            with TestingFactory.native_doc(ctx, doc_type=doc_type, hidden=hidden) as doc:
+                sig = inspect.signature(func)
+                call_kwargs = {}
+                # Inject by parameter name so ctx is never dropped when doc is added.
+                if "ctx" in sig.parameters:
+                    call_kwargs["ctx"] = ctx
+                if "doc" in sig.parameters:
+                    call_kwargs["doc"] = doc
+                if call_kwargs:
+                    return func(**call_kwargs)
+                if len(sig.parameters) == 1:
+                    return func(doc)
+                return func(*args, **kwargs)
+        return wrapper
+    return decorator
 
 def create_mock_client():
     """Creates a pre-configured MagicMock for an LlmClient."""

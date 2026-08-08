@@ -251,7 +251,7 @@ These are intentional trade-offs in v1. Tests document the behavior ([`test_xhtm
 
 1. **Unit tests (pytest):** [`tests/writer/test_xhtml_style_postprocess.py`](../tests/writer/test_xhtml_style_postprocess.py) — decode/compact, CSS map, char inline, autostyle fingerprint, FODT parent recovery, collision, whole-para override limitation.
 2. **UNO tests:** [`tests/writer/test_content_style_model_uno.py`](../tests/writer/test_content_style_model_uno.py) — read tokens, write resolution, round-trip, FODT write→read, partial-edit non-corruption, math+style.
-3. **Prompts:** `WRITER_APPLY_DOCUMENT_HTML_RULES` in [`plugin/framework/constants.py`](../plugin/framework/constants.py) — agent reads/writes compact `data-lo-style` tokens (no spaces: `Heading1`, `Textbody`); inline `style` for overrides only.
+3. **Prompts:** `WRITER_APPLY_DOCUMENT_HTML_RULES` in [`plugin/framework/prompts.py`](../plugin/framework/prompts.py) — agent reads/writes compact `data-lo-style` tokens (no spaces: `Heading1`, `Textbody`); inline `style` for overrides only.
 4. **Docs:** [`docs/llm-styles.md`](llm-styles.md) — `data-lo-style` is the agent-facing convention; legacy `class="Style Name"` via StarWriter remains for non-agent HTML.
 5. **`get_paragraph_metadata`:** Keep as optional `specialized` tier only if needed for debugging; not required for core read/write.
 

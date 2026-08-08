@@ -19,6 +19,14 @@ def test_python_logo_dev_sources_excluded_from_oxt():
     assert should_exclude("extension/assets/python_32.png") is False
 
 
+def test_pyspector_cache_excluded_from_oxt():
+    """Hot-deploy and OXT must not ship make pyspector AST cache under plugin/."""
+    assert should_exclude("plugin/.pyspector_cache") is True
+    assert should_exclude("plugin/.pyspector_cache/ast/foo.json") is True
+    assert should_exclude("plugin/.pyspector_baseline.json") is True
+    assert should_exclude("plugin/main.py") is False
+
+
 def test_generated_includes_single_dialogs_tree():
     """Lowercase dialogs/ must not be packaged — it collides with Dialogs/ on Windows."""
     assert "build/generated/Dialogs/" in GENERATED_INCLUDES

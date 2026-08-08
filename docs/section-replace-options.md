@@ -6,7 +6,7 @@ This document summarizes the failure when the model uses **find_text + get_markd
 
 ## Observed in logs (agent run)
 
-In a run captured in `writeragent_debug.log` (LO user config folder), the model **never** called get_markdown(scope="range"). Flow: find_text("## Summary") → (112, 119); get_markdown(scope="full"); then apply_markdown(target="search", search="## Summary\n\nA legendary...", markdown="## Yhteenveto\n\n...") → **0 replacements**. After retrying find_text and find_text("## Skills", start=112) → (343, 349), the run hit MAX_TOOL_ROUNDS (5) and stopped. So the **immediate** failure was the search path (0 replacements), not the range path. If the model had used get_markdown(scope="range", start=112, end=343) and then apply_markdown(target="range", ...), the coordinate mismatch below would still apply and could produce wrong range content. Steering the model to **prefer** the range path for section replace (find_text → get_markdown(scope="range") → apply_markdown(target="range")) in the system prompt would avoid depending on search and would make fixing the range coordinates worthwhile.
+In a run captured in `writeragent_debug.log` (LO user config folder), the model **never** called get_markdown(scope="range"). Flow: find_text("## Summary") → (112, 119); get_markdown(scope="full"); then apply_markdown(target="search", search="## Summary\n\nA legendary...", markdown="## Yhteenveto\n\n...") → **0 replacements**. After retrying find_text and find_text("## Skills", start=112) → (343, 349), the run hit `chat_max_tool_rounds` (default 5) and stopped. So the **immediate** failure was the search path (0 replacements), not the range path. If the model had used get_markdown(scope="range", start=112, end=343) and then apply_markdown(target="range", ...), the coordinate mismatch below would still apply and could produce wrong range content. Steering the model to **prefer** the range path for section replace (find_text → get_markdown(scope="range") → apply_markdown(target="range")) in the system prompt would avoid depending on search and would make fixing the range coordinates worthwhile.
 
 ---
 
@@ -21,7 +21,7 @@ Range/selection export no longer uses `_document_to_markdown_structural`; it use
 - **User:** e.g. “Translate my Summary Section (and word Summary) to Finnish.”
 - **Model:** Calls find_text("## Summary") → `start=112, end=119`; find_text("## Skills") → `start=343, end=349`. Then get_markdown(scope="range", start=112, end=340) to read the section.
 - **Result of get_markdown:** The returned markdown is wrong: it shows `"## ary\nA legendary..."` instead of `"## Summary\nA legendary..."`. So “Summary” is corrupted to “ary” and the range content is misaligned.
-- **Consequence:** The model never gets correct section text, may retry or run out of tool rounds (e.g. MAX_TOOL_ROUNDS=5), and never calls apply_markdown.
+- **Consequence:** The model never gets correct section text, may retry or run out of tool rounds (e.g. `chat_max_tool_rounds`=5), and never calls apply_markdown.
 
 So the core bug is: **character offsets from find_text (cursor-based) don’t match the offsets used inside get_markdown when scope="range"** (which uses a paragraph-enumeration and summed paragraph lengths). The same numeric range is interpreted in two different “coordinate systems,” so the structural exporter trims the wrong slice and produces corrupted output.
 
@@ -66,7 +66,7 @@ So the core bug is: **character offsets from find_text (cursor-based) don’t ma
 
 **How:**
 
-- In the system prompt (core/constants.py), state clearly that for “translate / replace section”:
+- In the system prompt (plugin/framework/prompts.py), state clearly that for “translate / replace section”:
   - **Preferred:** Use get_markdown(scope="full") (or the relevant slice from full markdown in memory), then apply_markdown(target="search", search=<full section text from get_markdown>, markdown=<translated full section including heading>). Do not use find_text + get_markdown(scope="range") for section content.
   - **If** the model must use find_text, then use apply_markdown(target="range", start=..., end=..., markdown=...) with a **translated** markdown string the model builds itself (e.g. "## Yhteenveto\n\nLegendaarinen...") and **not** by reading get_markdown(scope="range") until the range bug is fixed.
 - No code change to markdown_support.py; only prompt/docs.
@@ -76,13 +76,13 @@ So the core bug is: **character offsets from find_text (cursor-based) don’t ma
 
 ---
 
-## Option D: Increase MAX_TOOL_ROUNDS (mitigation only)
+## Option D: Increase chat_max_tool_rounds (mitigation only)
 
 **Idea:** Give the model more tool-calling rounds so it can retry or try a different strategy (e.g. fall back to search) after get_markdown(range) returns bad content.
 
 **How:**
 
-- In chat_panel.py, increase MAX_TOOL_ROUNDS from 5 to something higher (e.g. 8).
+- In settings / `WriterAgentConfig.chat_max_tool_rounds`, raise the limit from 5 to something higher (e.g. 8).
 
 **Pros:** Trivial change; may let the model complete in some cases.  
 **Cons:** Does **not** fix the corrupted range content; the model still gets "## ary..." and may keep failing or waste rounds.
@@ -118,7 +118,7 @@ So the core bug is: **character offsets from find_text (cursor-based) don’t ma
 
 **Proper future fix to work on one day:** Option A as above is the right long-term fix. Option F (compareRegionStarts/Ends) is elegant and delegates overlap to UNO, but it depends on UNO behavior and may need more care with edge cases (e.g. getting the exact substring for partial paragraphs). Option A is explicit, easy to reason about, and matches how find_text and get_document_length already work. Combine it with a small prompt tweak: in the system prompt, state that for section replacement (e.g. translate the Summary section), the preferred flow is find_text(section heading) → find_text(next section heading) to get end → get_markdown(scope="range", start, end) → apply_markdown(target="range", start, end, markdown=...). That way the model uses the range path first and does not depend on the search path matching document line endings.
 
-**Until then:** Option C (prompt-only: prefer range path, or avoid get_markdown(range) until fixed) plus optionally Option D (bump MAX_TOOL_ROUNDS) reduces pain without code changes to the exporter.
+**Until then:** Option C (prompt-only: prefer range path, or avoid get_markdown(range) until fixed) plus optionally Option D (bump `chat_max_tool_rounds`) reduces pain without code changes to the exporter.
 
 ---
 

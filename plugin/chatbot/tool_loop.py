@@ -63,8 +63,6 @@ from plugin.chatbot.tool_loop_state import (
 
 log = logging.getLogger(__name__)
 
-# DEFAULT_MAX_TOOL_ROUNDS removed; now managed by WriterAgentConfig.chat_max_tool_rounds
-
 # Producer-side batch interval for streamed chat display text (CHUNK and THINKING items).
 # The BatchingStreamQueue uses a hard deadline measured from the *first* fragment
 # of each burst ("send data every N ms max, or when done" / flush on boundary).
@@ -89,18 +87,15 @@ class ToolLoopHost(Protocol):
     sidebar_state: Any
     _terminal_status: str
 
+    # Session I/O handles for the effect interpreter (not FSM control state).
     _active_q: "queue.Queue[Any]"
     _active_client: "LlmClient"
     _active_max_tokens: int
     _active_tools: list[dict[str, Any]]
     _active_execute_tool_fn: Callable[..., Any]
-    _active_max_tool_rounds: int
     _active_query_text: str | None
     _active_model: Any
-    _active_async_tools: frozenset[str]
     _active_supports_status: bool
-    _active_round_num: int
-    _active_pending_tools: list[Any]
     _current_tool_call_id: str | None
     _assistant_stream_start_len: int | None
     _record_assistant_start: bool
@@ -141,7 +136,12 @@ class ToolLoopHost(Protocol):
 
 
 class ToolCallingMixin:
-    """Tool loop state lives in ``sidebar_state.tool_loop`` when mixed with SendButtonListener."""
+    """Tool-loop control state lives only in ``sidebar_state.tool_loop`` (via ``_sm_state``).
+
+    Remaining ``_active_*`` fields on the host are session I/O handles (queues, client,
+    tool schemas/fn, model, query text) for :class:`ToolLoopEffectInterpreter` — not a
+    second copy of round/pending/stop.
+    """
 
     client: LlmClient | None
     audio_wav_path: str | None
@@ -263,7 +263,7 @@ class ToolCallingMixin:
         try:
             doc_text = get_document_context_for_chat(model, max_context, include_end=True, include_selection=True, ctx=self.ctx)
             log.debug("_do_send: document context length=%d" % len(doc_text))
-            agent_log("chat_panel.py:doc_context", "Document context for AI", data={"doc_length": len(doc_text), "doc_prefix_first_200": (doc_text or "")[:200], "max_context": max_context}, hypothesis_id="B")
+            agent_log("tool_loop.py:doc_context", "Document context for AI", data={"doc_length": len(doc_text), "doc_prefix_first_200": (doc_text or "")[:200], "max_context": max_context}, hypothesis_id="B")
             
             base_prompt = get_chat_system_prompt_for_document(model, extra_instructions, ctx=self.ctx)
             self.session.set_system_context(base_prompt, doc_text)
@@ -508,10 +508,6 @@ class ToolCallingMixin:
         tr = next_state(self._sm_state, event)
         self._sm_state = tr.state
 
-        # Keep old instance variables synced for external readers or edge cases
-        self._active_round_num = self._sm_state.round_num
-        self._active_pending_tools = list(self._sm_state.pending_tools)
-
         # Execute the effects
         exit_loop = False
         for effect in tr.effects:
@@ -609,16 +605,12 @@ class ToolCallingMixin:
             self._active_batched_q: BatchingStreamQueue | None = BatchingStreamQueue(
                 raw_q, batch_interval=CHAT_STREAM_BATCH_INTERVAL
             )
-            self._active_round_num = 0
-            self._active_pending_tools = []
-            self._active_async_tools = async_tools
 
             self._active_client = client
             self._active_model = model
             self._active_max_tokens = max_tokens
             self._active_tools = tools
             self._active_execute_tool_fn = execute_tool_fn
-            self._active_max_tool_rounds = max_tool_rounds
             self._active_query_text = query_text
             self._tool_loop_interpreter = ToolLoopEffectInterpreter(self)
 
@@ -645,7 +637,7 @@ class ToolCallingMixin:
 
             # --- Kick off the first LLM stream (producer batching at 250 ms) ---
             self._refresh_active_tools_for_session()
-            self._spawn_llm_worker(self._active_batched_q or self._active_q, self._active_client, self._active_max_tokens, self._active_tools, self._active_round_num, query_text=self._active_query_text)
+            self._spawn_llm_worker(self._active_batched_q or self._active_q, self._active_client, self._active_max_tokens, self._active_tools, self._sm_state.round_num, query_text=self._active_query_text)
 
             run_stream_drain_loop(
                 self._active_q,

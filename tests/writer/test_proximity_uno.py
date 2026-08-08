@@ -6,46 +6,25 @@ from plugin.doc.document_helpers import (
     get_document_length,
     resolve_locator,
 )
-from plugin.testing_runner import setup, teardown, native_test
-from plugin.tests.testing_utils import TestingFactory
-
-
-_test_doc: Any = None
-_test_ctx: Any = None
-
-
-@setup
-def setup_proximity_tests(ctx):
-    global _test_doc, _test_ctx
-    _test_ctx = ctx
-
-    _test_doc = TestingFactory.create_native_doc(ctx, "writer", hidden=True)
-    assert _test_doc is not None, "Could not create hidden test writer document"
-
-    # Setup minimal doc content
-    text = _test_doc.getText()
-    cursor = text.createTextCursor()
-    text.insertString(cursor, "P1", False)
-    text.insertControlCharacter(cursor, 0, False)
-    text.insertString(cursor, "P2", False)
-
-
-@teardown
-def teardown_proximity_tests(ctx):
-    global _test_doc, _test_ctx
-    if _test_doc:
-        _test_doc.close(True)
-    _test_doc = None
-    _test_ctx = None
+from plugin.testing_runner import native_test
+from plugin.tests.testing_utils import with_native_doc
 
 
 @native_test
-def test_proximity_service():
+@with_native_doc("writer")
+def test_proximity_service(ctx, doc):
     from plugin.writer.proximity import ProximityService
     from plugin.writer.specialized.bookmarks import BookmarkService
     from plugin.writer.tree import TreeService
     from plugin.framework.event_bus import EventBus
     from plugin.writer.ops import find_paragraph_for_range as ops_find_paragraph_for_range
+
+    # Setup minimal doc content
+    text = doc.getText()
+    cursor = text.createTextCursor()
+    text.insertString(cursor, "P1", False)
+    text.insertControlCharacter(cursor, 0, False)
+    text.insertString(cursor, "P2", False)
 
     events = EventBus()
 
@@ -70,5 +49,5 @@ def test_proximity_service():
     services.writer_tree = TreeService(services)
     services.writer_proximity = ProximityService(services)
 
-    res = services.writer_proximity.get_surroundings(_test_doc, "paragraph:0", radius=0)
+    res = services.writer_proximity.get_surroundings(doc, "paragraph:0", radius=0)
     assert res is not None and res.get("center_para_index") == 0, f"ProximityService get_surroundings failed: {res}"

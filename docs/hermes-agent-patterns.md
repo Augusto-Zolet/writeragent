@@ -2,7 +2,7 @@
 
 WriterAgent adopts substantial design from [Nous Hermes Agent](https://github.com/NousResearch/hermes-agent): file-backed **memory**, procedural **skills** (`SKILL.md` layout), ACP as an external agent backend, todo/planning stores, tool-call parsers, and JSON repair patterns. This document is the **canonical** reference for upstream patterns, current WriterAgent implementation, and integration priorities.
 
-**Entry points:** [`plugin/chatbot/memory.py`](../plugin/chatbot/memory.py), [`plugin/chatbot/skills.py`](../plugin/chatbot/skills.py), [`plugin/framework/constants.py`](../plugin/framework/constants.py) (`MEMORY_GUIDANCE`, injection in `get_chat_system_prompt_for_document`).
+**Entry points:** [`plugin/chatbot/memory.py`](../plugin/chatbot/memory.py), [`plugin/chatbot/skills.py`](../plugin/chatbot/skills.py), [`plugin/framework/prompts.py`](../plugin/framework/prompts.py) (`MEMORY_GUIDANCE`, injection in `get_chat_system_prompt_for_document`).
 
 **Status (2026-06):** `upsert_memory` + `USER.md` injection are active. The first skill (`humanizer`) ships with ambient prompt injection only (Settings checkbox). General skills list/view/manage tools remain aspirational.
 
@@ -111,7 +111,7 @@ Split **who you are** from **what we edit** using **different tool sets**, not n
 - Nested key update via dot-separated path; writes indented JSON back to `USER.md`
 - Registered via `auto_discover` in [`plugin/chatbot/__init__.py`](../plugin/chatbot/__init__.py)
 
-**Injection:** In `get_chat_system_prompt_for_document` ([`constants.py`](../plugin/framework/constants.py) ~704–715), when `USER.md` is non-empty:
+**Injection:** In `get_chat_system_prompt_for_document` ([`prompts.py`](../plugin/framework/prompts.py)), when `USER.md` is non-empty:
 
 ```
 [USER PROFILE / MEMORY]
@@ -183,7 +183,7 @@ flowchart LR
   end
   UserMd -->|"injects USER PROFILE"| Constants
   HumSkill -->|"injects HUMANIZER when enabled"| Constants
-  Constants -->|"MEMORY_GUIDANCE"| Mem
+  Prompts -->|"MEMORY_GUIDANCE"| Mem
   Mem --> UserMd
 ```
 

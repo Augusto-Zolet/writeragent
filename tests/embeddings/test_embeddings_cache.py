@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from plugin.embeddings import embeddings_cache
-from plugin.embeddings.embeddings_chunker import ParagraphChunk, content_hash
+from plugin.embeddings.embeddings_fs import ParagraphChunk, content_hash
 
 
 def test_folder_corpus_key_stable_and_normalized():
@@ -104,13 +104,13 @@ def test_model_matches_index(tmp_path):
     assert embeddings_cache.model_matches_index(meta_path, "") is True
 
 
-def test_remove_legacy_index_db(tmp_path):
+def test_remove_stale_corpus_stores_db(tmp_path):
     listing = str(tmp_path / "project")
     Path(listing).mkdir()
     base = embeddings_cache.folder_cache_dir(listing)
     legacy = base / "index.db"
     legacy.write_text("sqlite", encoding="utf-8")
-    assert embeddings_cache.remove_legacy_index(listing) is True
+    assert embeddings_cache.remove_stale_corpus_stores(listing) is True
     assert not legacy.is_file()
 
 

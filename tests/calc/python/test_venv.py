@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 from plugin.calc.calc_addin_data import _resolve_python_data
 from plugin.calc.python.venv import RunVenvPythonScript
-from plugin.framework.tool import ToolContext
+from plugin.tests.testing_utils import TestingFactory
 
 
 def test_resolve_python_data_prefers_data_range():
@@ -45,7 +45,7 @@ def test_execute_passes_data(mock_run):
 
     mock_run.return_value = {"status": "ok", "result": 1}
     tool = RunVenvPythonScript()
-    ctx = ToolContext(doc=MagicMock(), ctx=MagicMock(), doc_type="calc", services=MagicMock())
+    ctx = TestingFactory.create_context(doc_type="calc")
     packed = {"__wa_payload__": "calc_range", "shape": [1, 1], "data": [[10]]}
     with patch("plugin.calc.python.venv.resolve_python_data_on_main_thread", return_value=(packed, None)):
         out = tool.execute(ctx, code="result = float(np.sum(data))")
@@ -69,7 +69,7 @@ def test_run_venv_python_resolves_calc_data_on_main_thread(mock_run, mock_main_t
     mock_main_thread.side_effect = main_thread
 
     tool = RunVenvPythonScript()
-    ctx = ToolContext(doc=MagicMock(), ctx=MagicMock(), doc_type="calc", services=MagicMock())
+    ctx = TestingFactory.create_context(doc_type="calc")
     with patch("plugin.calc.calc_addin_data._resolve_python_data", return_value=([42], None)) as mock_resolve:
         out = tool.execute(ctx, code="result = data[0]", data_range="A1")
 
@@ -82,7 +82,7 @@ def test_run_venv_python_resolves_calc_data_on_main_thread(mock_run, mock_main_t
 def test_execute_writer_ignores_data(mock_run):
     mock_run.return_value = {"status": "ok", "result": 0}
     tool = RunVenvPythonScript()
-    ctx = ToolContext(doc=MagicMock(), ctx=MagicMock(), doc_type="writer", services=MagicMock())
+    ctx = TestingFactory.create_context(doc_type="writer")
     with patch("plugin.calc.python.venv.resolve_python_data_on_main_thread") as mock_resolve:
         out = tool.execute(ctx, code="result = 1", data=[[1, 2]], data_range="A1:A2")
     assert out["status"] == "ok"
@@ -103,15 +103,11 @@ def test_get_parameters_calc_vs_writer():
 def test_calc_schema_includes_data_range():
     from plugin.framework.tool import ToolRegistry
 
+    from plugin.tests.testing_utils import CalcDocStub
+
     registry = ToolRegistry(services={})
     registry.register(RunVenvPythonScript())
-    mock_sheet = MagicMock()
-
-    def supports(svc):
-        return svc == "com.sun.star.sheet.SpreadsheetDocument"
-
-    mock_sheet.supportsService = supports
-    schemas = registry.get_schemas("openai", doc=mock_sheet, active_domain="python")
+    schemas = registry.get_schemas("openai", doc=CalcDocStub(), active_domain="python")
     py_schema = next(s for s in schemas if s["function"]["name"] == "run_venv_python_script")
     props = py_schema["function"]["parameters"]["properties"]
     assert "data_range" in props

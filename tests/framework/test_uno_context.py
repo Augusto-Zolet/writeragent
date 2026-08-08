@@ -10,27 +10,7 @@ _test_doc1 = None
 _test_doc2 = None
 _test_ctx = None
 
-@setup
-def setup_framework_tests(ctx):
-    global _test_doc1, _test_doc2, _test_ctx
-    _test_ctx = ctx
-    desktop = get_desktop(ctx)
-    import uno
-    hidden_prop = uno.createUnoStruct('com.sun.star.beans.PropertyValue', Name='Hidden', Value=True)
-    _test_doc1 = desktop.loadComponentFromURL('private:factory/swriter', '_blank', 0, (hidden_prop,))
-    _test_doc2 = desktop.loadComponentFromURL('private:factory/swriter', '_blank', 0, (hidden_prop,))
-    assert ((_test_doc1 is not None) and (_test_doc2 is not None)), 'Could not create test documents'
 
-@teardown
-def teardown_framework_tests(ctx):
-    global _test_doc1, _test_doc2, _test_ctx
-    if _test_doc1:
-        _test_doc1.close(True)
-    if _test_doc2:
-        _test_doc2.close(True)
-    _test_doc1 = None
-    _test_doc2 = None
-    _test_ctx = None
 
 @native_test
 def test_event_bus():

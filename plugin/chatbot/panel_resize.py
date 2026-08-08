@@ -2,7 +2,7 @@ import logging
 
 from dataclasses import dataclass
 
-from plugin.chatbot.listeners import BaseWindowListener
+from plugin.framework.uno_listeners import BaseWindowListener
 
 log = logging.getLogger(__name__)
 

@@ -21,7 +21,7 @@ from plugin.chatbot.dialogs import (
     set_control_visible,
     translate_dialog,
 )
-from plugin.chatbot.listeners import BaseActionListener
+from plugin.framework.uno_listeners import BaseActionListener
 from plugin.framework.config import as_bool
 from plugin.framework.i18n import _
 from plugin.framework.logging import init_logging

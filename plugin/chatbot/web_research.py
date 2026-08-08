@@ -88,7 +88,7 @@ class WebResearchToolCallingAgent(ToolCallingAgent):
         remaining = max_steps - current_step + 1
         used = current_step - 1
 
-        # Match test expectations in plugin/tests/test_web_research_step_budget.py
+        # Match test expectations in tests/chatbot/test_web_research.py (step budget section)
         budget_msg = f"Step budget: {used} step(s) used, {remaining} step(s) remaining (maximum {max_steps}). You are on step {current_step} of {max_steps}."
         if remaining <= 2:
             budget_msg += " You are almost out of steps! You MUST call final_answer in your next turn with your best summary."

@@ -2,13 +2,17 @@
 # Copyright (c) 2026 KeithCu
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""R7: the HTTP/MCP server must be resilient to a transiently/busy port instead of failing
-silently on the first bind (the "I have to restart to connect" symptom). No LibreOffice required."""
+"""HTTP/MCP bind: single attempt, clear failure — no LibreOffice required."""
 import socket
 
 import pytest
 
-from plugin.mcp.server import HttpServer
+from plugin.mcp.server import (
+    HttpServer,
+    _PORT_IN_USE_GUIDANCE,
+    format_mcp_start_failure,
+    is_port_in_use_error,
+)
 
 
 def _free_port() -> int:
@@ -19,17 +23,21 @@ def _free_port() -> int:
     return port
 
 
-def test_bind_with_retry_succeeds_on_free_port():
-    srv = HttpServer(route_registry=None, port=_free_port(), host="127.0.0.1")
-    server = srv._bind_with_retry()
+class _EmptyRoutes:
+    route_count = 0
+
+
+def test_start_binds_on_free_port():
+    srv = HttpServer(route_registry=_EmptyRoutes(), port=_free_port(), host="127.0.0.1")
+    srv.start()
     try:
-        assert server is not None
+        assert srv.is_running()
     finally:
-        server.server_close()
+        srv.stop()
 
 
-def test_bind_with_retry_retries_then_raises_when_busy(monkeypatch):
-    # Hold the port with an active listener so the bind keeps failing.
+def test_start_raises_immediately_when_port_busy(monkeypatch):
+    # Persistent holder — must not sleep/retry (used to block LO bootstrap ~4s).
     occupier = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     occupier.bind(("127.0.0.1", 0))
     occupier.listen(1)
@@ -39,33 +47,84 @@ def test_bind_with_retry_retries_then_raises_when_busy(monkeypatch):
     monkeypatch.setattr("time.sleep", lambda *_a, **_k: sleeps.__setitem__("n", sleeps["n"] + 1))
 
     try:
-        srv = HttpServer(route_registry=None, port=port, host="127.0.0.1")
-        srv._BIND_ATTEMPTS = 3
+        srv = HttpServer(route_registry=_EmptyRoutes(), port=port, host="127.0.0.1")
         with pytest.raises(OSError):
-            srv._bind_with_retry()
-        # 3 attempts => 2 sleeps between them (it retried, not failed on the first try).
-        assert sleeps["n"] == 2
+            srv.start()
+        assert sleeps["n"] == 0
     finally:
         occupier.close()
 
+def test_is_port_in_use_error_by_errno():
+    assert is_port_in_use_error(OSError(98, "Address already in use"))
+    assert is_port_in_use_error(OSError(48, "Address already in use"))
+    err = OSError("busy")
+    err.winerror = 10048
+    assert is_port_in_use_error(err)
+    assert not is_port_in_use_error(OSError(13, "Permission denied"))
+    assert not is_port_in_use_error(RuntimeError("boom"))
 
-def test_bind_with_retry_recovers_when_port_frees_midway(monkeypatch):
-    """If the holder releases the port between attempts, the next attempt should bind."""
-    occupier = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    occupier.bind(("127.0.0.1", 0))
-    occupier.listen(1)
-    port = occupier.getsockname()[1]
 
-    # Free the port on the first retry sleep, so attempt #2 succeeds.
-    def _free_on_sleep(*_a, **_k):
-        occupier.close()
+def test_format_mcp_start_failure_port_in_use():
+    msg = format_mcp_start_failure("localhost", 18765, OSError(98, "Address already in use"))
+    assert "localhost:18765" in msg
+    assert "OSError" in msg
+    assert _PORT_IN_USE_GUIDANCE in msg
+    assert "mcp.mcp_port" in msg
 
-    monkeypatch.setattr("time.sleep", _free_on_sleep)
 
-    srv = HttpServer(route_registry=None, port=port, host="127.0.0.1")
-    srv._BIND_ATTEMPTS = 5
-    server = srv._bind_with_retry()
-    try:
-        assert server is not None
-    finally:
-        server.server_close()
+def test_format_mcp_start_failure_other_oserror():
+    msg = format_mcp_start_failure("127.0.0.1", 9000, OSError(13, "Permission denied"))
+    assert "127.0.0.1:9000" in msg
+    assert "Permission denied" in msg
+    assert _PORT_IN_USE_GUIDANCE not in msg
+
+
+def test_start_server_stashes_last_start_error(monkeypatch):
+    """Failed HttpServer.start must leave a reason for Toggle/Status (#379)."""
+    import threading
+    from unittest.mock import MagicMock
+
+    import plugin.mcp as mcp_mod
+
+    monkeypatch.delenv("WRITERAGENT_TESTING", raising=False)
+
+    services = MagicMock()
+    proxy = MagicMock()
+    proxy.get.side_effect = lambda k, d=None: {
+        "mcp_port": 18765,
+        "host": "localhost",
+        "use_ssl": False,
+        "ssl_cert": "",
+        "ssl_key": "",
+    }.get(k, d)
+    services.config.proxy_for.return_value = proxy
+    services.events = None
+
+    mod = mcp_mod.McpModule.__new__(mcp_mod.McpModule)
+    mod._registry = MagicMock()
+    mod._srv_lock = threading.Lock()
+    mod._server = None
+    mod.name = "mcp"
+
+    boom = OSError(98, "Address already in use")
+
+    class _FailingServer:
+        def __init__(self, **_kwargs):
+            pass
+
+        def start(self):
+            raise boom
+
+        def stop(self):
+            pass
+
+    monkeypatch.setattr(mcp_mod, "_shared_http_server", None)
+    monkeypatch.setattr("plugin.mcp.server.HttpServer", _FailingServer)
+    monkeypatch.setattr("plugin.mcp.reload_cors_policy_from_config", lambda *_a, **_k: None)
+
+    assert mod._start_server(services) is False
+    assert mcp_mod._last_start_error is boom
+    detail = mod._formatted_start_failure()
+    assert "localhost:18765" in detail
+    assert _PORT_IN_USE_GUIDANCE in detail
+    assert mod._start_failure_reportable() is False

@@ -9,8 +9,8 @@ from plugin.framework.config import (
     get_api_key_for_endpoint,
 )
 from plugin.framework.client.auth import provider_requires_api_key, provider_requires_slug_model_id
+from plugin.framework.client.provider_detection import get_provider_from_endpoint
 from plugin.framework.client.model_fetcher import (
-    get_provider_from_endpoint,
     get_image_model,
     ENDPOINT_PRESETS,
 )

@@ -9,7 +9,6 @@
 
 from __future__ import annotations
 
-import importlib
 import os
 import sys
 from typing import TYPE_CHECKING, Any, Optional
@@ -17,16 +16,7 @@ from typing import TYPE_CHECKING, Any, Optional
 if TYPE_CHECKING:
     import subprocess
 
-deal: Any
-try:
-    deal = importlib.import_module("deal")
-except ImportError:
-
-    class _DummyDeal:
-        def __getattr__(self, name: str) -> Any:
-            return lambda *args, **kwargs: lambda f: f
-
-    deal = _DummyDeal()
+from plugin.framework.deal_shim import deal
 
 # --- Import whitelist (shared by venv_sandbox and import_policy) ---
 

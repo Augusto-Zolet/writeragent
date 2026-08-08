@@ -349,10 +349,6 @@ from plugin.scripting.helper_domain import (
 )
 
 
-# Re-export under legacy private names for any external imports/tests.
-_plot_insert_ok_outcome = plot_insert_ok_outcome
-
-
 def execute_and_insert_result(
     ctx: Any,
     doc: Any,

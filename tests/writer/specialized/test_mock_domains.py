@@ -84,14 +84,9 @@ if _MOCKS_ACTIVE:
 
 @pytest.fixture
 def mock_ctx():
-    class DummyContext:
-        def __init__(self):
-            self.doc = MagicMock()
-            self.doc_type = "writer"
-            self.services = MagicMock()
-            self.ctx = MagicMock()
+    from plugin.tests.testing_utils import TestingFactory
 
-    return DummyContext()
+    return TestingFactory.create_context(doc=MagicMock(), doc_type="writer")
 
 
 def test_mock_domains_registration():

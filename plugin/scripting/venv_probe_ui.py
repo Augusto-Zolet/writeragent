@@ -16,7 +16,7 @@ from plugin.chatbot.dialogs import (
     set_control_enabled,
     set_control_text,
 )
-from plugin.chatbot.listeners import BaseActionListener
+from plugin.framework.uno_listeners import BaseActionListener
 from plugin.framework.i18n import _
 from plugin.framework.queue_executor import post_to_main_thread
 from plugin.framework.uno_context import process_events_to_idle

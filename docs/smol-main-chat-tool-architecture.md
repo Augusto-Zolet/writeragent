@@ -88,17 +88,17 @@ flowchart TB
 
 | Concern | Location |
 |---------|-----------|
-| Smol wire policy **send generated schemas** | [`plugin/framework/smol_model.py`](../plugin/framework/smol_model.py) — `WriterAgentSmolModel.generate` |
+| Smol wire policy **send generated schemas** | [`plugin/chatbot/smol_agent.py`](../plugin/chatbot/smol_agent.py) — `WriterAgentSmolModel.generate` |
 | Smol agent construction | [`plugin/chatbot/smol_agent.py`](../plugin/chatbot/smol_agent.py) — `build_toolcalling_agent` |
 | Smol few-shot examples (Action/Observation) | [`plugin/chatbot/smol_examples.py`](../plugin/chatbot/smol_examples.py) — edit in place; refresh with [`scripts/generate_smol_examples.py`](../scripts/generate_smol_examples.py) |
-| `ToolBase` → smol `inputs` | [`plugin/framework/smol_tool_adapter.py`](../plugin/framework/smol_tool_adapter.py) |
+| `ToolBase` → smol `inputs` | [`plugin/chatbot/smol_agent.py`](../plugin/chatbot/smol_agent.py) — `to_smol_inputs` / `SmolToolAdapter` |
 | Librarian | [`plugin/chatbot/librarian.py`](../plugin/chatbot/librarian.py) |
 | Specialized delegation | [`plugin/doc/specialized_base.py`](../plugin/doc/specialized_base.py) |
 | Main chat loop | [`plugin/chatbot/tool_loop.py`](../plugin/chatbot/tool_loop.py), [`tool_loop_state.py`](../plugin/chatbot/tool_loop_state.py) |
 | HTTP client | [`plugin/framework/client/llm_client.py`](../plugin/framework/client/llm_client.py) |
-| Orientation | [`AGENTS.md`](../AGENTS.md) §4, §8 |
+| Orientation | [`AGENTS.md`](../AGENTS.md) Quick orientation; invariants on Smol HTTP |
 
-Tests: [`test_smol_model.py`](../plugin/tests/test_smol_model.py), [`test_smol_tool_adapter.py`](../plugin/tests/test_smol_tool_adapter.py), [`test_librarian_smol.py`](../plugin/tests/test_librarian_smol.py), [`test_specialized_delegation.py`](../plugin/tests/test_specialized_delegation.py).
+Tests: [`tests/chatbot/test_smol_agent.py`](../tests/chatbot/test_smol_agent.py), [`tests/doc/test_specialized_delegation_threading.py`](../tests/doc/test_specialized_delegation_threading.py).
 
 ---
 

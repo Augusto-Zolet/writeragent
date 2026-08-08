@@ -124,21 +124,3 @@ def web_research_cache_chat_text(fields: Mapping[str, Any]) -> str:
     block += "\n"
     return block
 
-
-def web_research_outer_chat_block(outer_query: str, history_text: str | None = None) -> str:
-    """Format the main model's web_research arguments (research request + optional history).
-
-    Chat UI no longer prepends this automatically; the response area shows internal web_search step
-    text from the sub-agent instead. Kept for callers that need the same wording (e.g. tests, logging).
-    """
-    from plugin.framework.i18n import _
-
-    block = "\n" + _("[Web research]") + "\n"
-    block += _("Research request:") + "\n%s\n" % (outer_query or "").strip()
-    if history_text and str(history_text).strip():
-        hist = str(history_text).strip()
-        if len(hist) > 8000:
-            hist = hist[:8000] + "\n…"
-        block += "\n" + _("Context for the research agent:") + "\n%s\n" % hist
-    block += "\n"
-    return block

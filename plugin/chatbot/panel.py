@@ -49,8 +49,6 @@ except ImportError:
     _AudioRecorderCls = None
 HAS_RECORDING = _AudioRecorderCls is not None
 from plugin.scripting.audio_recorder_service import is_audio_recording_supported
-# Default max tool rounds when not in config (get_api_config supplies chat_max_tool_rounds)
-DEFAULT_MAX_TOOL_ROUNDS = 5
 
 
 _GRAMMAR_STATUS_PREVIEW_CHARS = 10
@@ -212,7 +210,7 @@ class ChatSession:
 # QueryTextListener - dynamic button toggling
 # ---------------------------------------------------------------------------
 
-from plugin.chatbot.listeners import BaseActionListener, BaseKeyListener, BaseTextListener
+from plugin.framework.uno_listeners import BaseActionListener, BaseKeyListener, BaseTextListener
 from plugin.chatbot.audio_recorder_state import AudioRecorderState
 from plugin.chatbot.send_state import SendButtonState, SendEvent, SendEventKind, StartRecordingEffect, StartSendEffect, StopRecordingEffect, StopSendEffect, UpdateUIEffect
 from plugin.chatbot.sidebar_state import LogSidebarEffect, SidebarCompositeState, SidebarEvent, SidebarEventKind, sidebar_next_state
@@ -345,18 +343,15 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         self.audio_wav_path = None
         self._current_agent_backend = None  # Set during _do_send_via_agent_backend for Stop button
         self._fixed_send_width = None
+        # Session I/O handles for the tool-loop interpreter (not FSM control state).
         self._active_q: Any = None
         self._active_client: Any = None
         self._active_max_tokens: Any = None
         self._active_tools: Any = None
         self._active_execute_tool_fn: Any = None
-        self._active_max_tool_rounds: Any = None
         self._active_query_text: Any = None
         self._active_model: Any = None
-        self._active_async_tools: Any = None
         self._active_supports_status: Any = None
-        self._active_round_num: Any = None
-        self._active_pending_tools: Any = None
         self._current_tool_call_id = None
         self._record_assistant_start = False
         self._assistant_stream_start_len = None
@@ -415,17 +410,6 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
             )
         except Exception:
             log.exception("rerender_rich_text_session (rich control) failed")
-
-    @property
-    def state(self):
-        """Send-button slice of :attr:`sidebar_state` (migration alias)."""
-        return self.sidebar_state.send
-
-    @state.setter
-    def state(self, value):
-        import dataclasses
-
-        self.sidebar_state = dataclasses.replace(self.sidebar_state, send=value)
 
     @property
     def stop_requested(self) -> bool:
@@ -1196,6 +1180,7 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
 
     @property
     def _sm_state(self) -> Any:
+        # Idle panel has tool_loop=None; mixin raises when a session is required.
         return self.sidebar_state.tool_loop
 
     @_sm_state.setter

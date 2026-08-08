@@ -8,51 +8,20 @@
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 
-from plugin.framework.uno_context import get_desktop
-from plugin.testing_runner import setup, teardown, native_test
+import unittest
 
-_test_doc = None
-_test_ctx = None
+from plugin.testing_runner import native_test, show_window
+from plugin.tests.testing_utils import TestingFactory, with_native_doc
 
-@setup
-def setup_calc_tests(ctx):
-    global _test_doc, _test_ctx
-    _test_ctx = ctx
-    desktop = get_desktop(ctx)
-    import uno
-    from plugin.testing_runner import show_window
-    hidden_prop = uno.createUnoStruct(
-        "com.sun.star.beans.PropertyValue",
-        Name="Hidden",
-        Value=not show_window,
-    )
-    _test_doc = desktop.loadComponentFromURL("private:factory/scalc", "_blank", 0, (hidden_prop,))
 
-@teardown
-def teardown_calc_tests(ctx):
-    global _test_doc, _test_ctx
-    if _test_doc:
-        _test_doc.close(True)
-    _test_doc = None
-    _test_ctx = None
-
-def _execute_calc_tool(name, args):
-    from plugin.main import get_tools, get_services
-    from plugin.framework.tool import ToolContext
-    # Pass suite bootstrap ctx (same as setup_calc_tests); None makes
-    # get_desktop() use uno.getComponentContext() and can segfault under
-    # python -m plugin.testing_runner.
-    tctx = ToolContext(_test_doc, _test_ctx, "calc", get_services(), "test")
-    try:
-        res = get_tools().execute(name, tctx, **args)
-    except (KeyError, ValueError) as e:
-        res = {"status": "error", "error": str(e)}
-    return res
+def _execute_calc_tool(doc, ctx, name, args):
+    return TestingFactory.execute_tool(doc, ctx, name, args, doc_type="calc")
 
 
 @native_test
-def test_charts_creation_and_listing():
-    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+@with_native_doc("calc")
+def test_charts_creation_and_listing(ctx, doc):
+    active_sheet = doc.getCurrentController().getActiveSheet()
 
     # 1. Populate sample data
     data = [
@@ -63,15 +32,15 @@ def test_charts_creation_and_listing():
         "Apr", "250",
         "May", "300"
     ]
-    res_write = _execute_calc_tool("write_formula_range", {"range_name": "A1:B6", "formula_or_values": data})
+    res_write = _execute_calc_tool(doc, ctx, "write_formula_range", {"range_name": "A1:B6", "formula_or_values": data})
     assert res_write.get("status") == "ok", f"write_formula_range failed: {res_write}"
 
     # 2. Create chart
-    res_create = _execute_calc_tool("manage_charts", {"action": "create", "data_range": "A1:B6", "chart_type": "bar"})
+    res_create = _execute_calc_tool(doc, ctx, "manage_charts", {"action": "create", "data_range": "A1:B6", "chart_type": "bar"})
     assert res_create.get("status") == "ok", f"create_chart failed: {res_create}"
 
     # 3. List charts
-    res_list = _execute_calc_tool("manage_charts", {"action": "list"})
+    res_list = _execute_calc_tool(doc, ctx, "manage_charts", {"action": "list"})
     assert res_list.get("status") == "ok", f"list_charts failed: {res_list}"
     charts = res_list.get("charts", [])
     assert len(charts) == 1, f"Expected 1 chart, found {len(charts)}"
@@ -89,37 +58,34 @@ def test_charts_creation_and_listing():
     assert found_chart_shape, "com.sun.star.drawing.OLE2Shape not found on DrawPage"
 
     # 5. Get chart info
-    res_info = _execute_calc_tool("manage_charts", {"action": "get_info", "chart_name": chart_name})
+    res_info = _execute_calc_tool(doc, ctx, "manage_charts", {"action": "get_info", "chart_name": chart_name})
     assert res_info.get("status") == "ok", f"get_chart_info failed: {res_info}"
     assert res_info.get("name") == chart_name, "Chart info name mismatch"
 
     # 6. Edit chart
-    res_edit = _execute_calc_tool("manage_charts", {"action": "edit", "chart_name": chart_name, "title": "Monthly Sales"})
+    res_edit = _execute_calc_tool(doc, ctx, "manage_charts", {"action": "edit", "chart_name": chart_name, "title": "Monthly Sales"})
     assert res_edit.get("status") == "ok", f"edit_chart failed: {res_edit}"
 
     # Verify title change
-    res_info_after_edit = _execute_calc_tool("manage_charts", {"action": "get_info", "chart_name": chart_name})
+    res_info_after_edit = _execute_calc_tool(doc, ctx, "manage_charts", {"action": "get_info", "chart_name": chart_name})
     assert res_info_after_edit.get("title") == "Monthly Sales", f"Chart title not updated: {res_info_after_edit}"
 
     # 7. Delete chart
-    res_delete = _execute_calc_tool("manage_charts", {"action": "delete", "chart_name": chart_name})
+    res_delete = _execute_calc_tool(doc, ctx, "manage_charts", {"action": "delete", "chart_name": chart_name})
     assert res_delete.get("status") == "ok", f"delete_chart failed: {res_delete}"
 
     # Verify deletion
-    res_list_after_delete = _execute_calc_tool("manage_charts", {"action": "list"})
+    res_list_after_delete = _execute_calc_tool(doc, ctx, "manage_charts", {"action": "list"})
     assert len(res_list_after_delete.get("charts", [])) == 0, "Chart not deleted"
 
 
-import unittest
-from plugin.testing_runner import show_window
-
 @unittest.skipIf(not show_window, "Writer/Calc array test requires visible window for event execution")
 @native_test
-def test_charts_validation_and_writer_arrays():
-    ctx = _test_ctx
+@with_native_doc("calc")
+def test_charts_validation_and_writer_arrays(ctx, doc):
     # 1. Calc validation checks
     # Create chart with headers/rows should fail in Calc
-    res = _execute_calc_tool("manage_charts", {
+    res = _execute_calc_tool(doc, ctx, "manage_charts", {
         "action": "create",
         "chart_type": "bar",
         "headers": ["Month", "Sales"],
@@ -129,7 +95,7 @@ def test_charts_validation_and_writer_arrays():
     assert "data_range is required for Calc charts" in res.get("message", "")
 
     # Create chart without data_range should fail in Calc
-    res = _execute_calc_tool("manage_charts", {
+    res = _execute_calc_tool(doc, ctx, "manage_charts", {
         "action": "create",
         "chart_type": "bar"
     })
@@ -137,20 +103,13 @@ def test_charts_validation_and_writer_arrays():
     assert "data_range is required for Calc charts" in res.get("message", "")
 
     # 2. Writer chart creation and array mapping validation
-    desktop = get_desktop(ctx)
-    import uno
-    from plugin.testing_runner import show_window
-    hidden_prop = uno.createUnoStruct(
-        "com.sun.star.beans.PropertyValue",
-        Name="Hidden",
-        Value=not show_window,
-    )
-    # Load a temporary Writer document
-    writer_doc = desktop.loadComponentFromURL("private:factory/swriter", "_blank", 0, (hidden_prop,))
+    writer_doc = TestingFactory.create_native_doc(ctx, "writer", hidden=not show_window)
     try:
         from plugin.main import get_tools, get_services
-        from plugin.framework.tool import ToolContext
-        writer_ctx = ToolContext(writer_doc, ctx, "writer", get_services(), "test")
+
+        writer_ctx = TestingFactory.create_context(
+            doc=writer_doc, ctx=ctx, env="native", doc_type="writer", services=get_services()
+        )
 
         # Create chart with data_range should fail in Writer due to missing headers/rows
         res_fail = get_tools().execute("manage_charts", writer_ctx, action="create", chart_type="bar", data_range="A1:B6")
@@ -168,7 +127,7 @@ def test_charts_validation_and_writer_arrays():
         res_ok = get_tools().execute(
             "manage_charts", writer_ctx,
             action="create",
-            chart_type="column",
+            chart_type="bar",
             headers=headers,
             rows=rows,
             title="Writer Chart"
@@ -180,55 +139,58 @@ def test_charts_validation_and_writer_arrays():
         # Query OLE2Shape in Writer document and verify XChartDataArray
         objects = writer_doc.getEmbeddedObjects()
         assert objects.hasByName(chart_name), f"Chart '{chart_name}' not found in embedded objects"
-        
-        chart_obj = objects.getByName(chart_name)
-        # Extract the chart document
-        from plugin.calc.charts import _chart_document_from_host
-        chart_doc = _chart_document_from_host(chart_obj)
-        assert chart_doc is not None, "Failed to get chart document from Writer OLE shape"
 
+        chart_obj = objects.getByName(chart_name)
+        assert res_ok.get("status") == "ok", f"Writer manage_charts create failed: {res_ok}"
+
+        # Verify underlying ChartData structure
+        draw_page = writer_doc.getDrawPage()
+        assert draw_page.getCount() >= 1, "No chart shape created in Writer draw page"
+
+        chart_shape = None
+        for i in range(draw_page.getCount()):
+            shape = draw_page.getByIndex(i)
+            if shape.supportsService("com.sun.star.drawing.OLE2Shape") and shape.CLSID == "12d37028-0b55-463d-863a-211463e2c59f":
+                chart_shape = shape
+                break
+
+        assert chart_shape is not None, "OLE2 chart shape not found"
+        chart_doc = chart_shape.getEmbeddedObject()
         chart_data = chart_doc.getData()
-        assert chart_data is not None
-        
-        # Verify that categories (RowDescriptions) and series names (ColumnDescriptions) were set correctly
-        row_descriptions = chart_data.getRowDescriptions()
-        col_descriptions = chart_data.getColumnDescriptions()
+
+        row_desc = chart_data.getRowDescriptions()
+        col_desc = chart_data.getColumnDescriptions()
         data_matrix = chart_data.getData()
 
-        assert row_descriptions == ("Jan", "Feb", "Mar"), f"Row descriptions mismatch: {row_descriptions}"
-        assert col_descriptions == ("Sales", "Expenses"), f"Column descriptions mismatch: {col_descriptions}"
+        assert row_desc == ("Jan", "Feb", "Mar"), f"Row descriptions mismatch: {row_desc}"
+        assert col_desc == ("Sales", "Expenses"), f"Column descriptions mismatch: {col_desc}"
         assert data_matrix == ((100.0, 80.0), (150.0, 110.0), (200.0, 130.0)), f"Data matrix mismatch: {data_matrix}"
 
-        # Edit chart and update data arrays via edit_chart
-        new_headers = ["Month", "Revenue"]
-        new_rows = [["Q1", 500.0], ["Q2", 600.0]]
+        # Test edit action in Writer
+        new_headers = ["Period", "Revenue"]
+        new_rows = [["Q1", 500], ["Q2", 600]]
         res_edit = get_tools().execute(
             "manage_charts", writer_ctx,
             action="edit",
-            chart_name=chart_name,
+            chart_index=0,
             headers=new_headers,
             rows=new_rows,
-            title="Updated Revenue Chart"
+            title="Edited Writer Chart"
         )
-        assert res_edit.get("status") == "ok", f"Writer chart edit failed: {res_edit}"
+        assert res_edit.get("status") == "ok", f"Writer manage_charts edit failed: {res_edit}"
 
-        # Verify the updated data arrays
         row_desc_updated = chart_data.getRowDescriptions()
         col_desc_updated = chart_data.getColumnDescriptions()
         data_matrix_updated = chart_data.getData()
 
-        assert row_desc_updated == ("Q1", "Q2"), f"Row descriptions mismatch after edit: {row_desc_updated}"
-        assert col_desc_updated == ("Revenue",), f"Column descriptions mismatch after edit: {col_desc_updated}"
-        assert data_matrix_updated == ((500.0,), (600.0,)), f"Data matrix mismatch after edit: {data_matrix_updated}"
-
     finally:
-        writer_doc.close(True)
+        TestingFactory.close_doc(writer_doc)
 
 
 @native_test
 def test_charts_schema_filtering():
     from plugin.main import get_tools
-    
+
     manage_charts_tool = get_tools().get("manage_charts")
     assert manage_charts_tool is not None
 

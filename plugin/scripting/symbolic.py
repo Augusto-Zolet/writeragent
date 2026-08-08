@@ -15,7 +15,6 @@ from plugin.doc.document_helpers import is_calc, is_writer
 from plugin.scripting._lazy_venv import make_getattr
 from plugin.scripting.client import run_symbolic as client_run_symbolic
 from plugin.scripting.helper_domain import (
-    HelperScriptMeta,
     header_prefix,
 )
 from plugin.framework.errors import ToolExecutionError
@@ -57,7 +56,6 @@ __getattr__ = make_getattr("symbolic", _SYMBOLIC_VENV_EXPORTS)
 
 from plugin.scripting.helper_domain import DomainFacadeConfig, make_template_api
 
-MathScriptMeta = HelperScriptMeta
 
 _API = make_template_api(
     DomainFacadeConfig(

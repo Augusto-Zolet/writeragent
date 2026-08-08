@@ -17,7 +17,6 @@ from plugin.framework.i18n import _
 from plugin.scripting._lazy_venv import make_getattr
 from plugin.scripting.client import run_units as client_run_units
 from plugin.scripting.helper_domain import (
-    HelperScriptMeta,
     header_prefix,
 )
 
@@ -61,7 +60,6 @@ _EGRESS_PARAM_KEYS = frozenset({"output_style"})
 
 from plugin.scripting.helper_domain import DomainFacadeConfig, make_template_api
 
-UnitsScriptMeta = HelperScriptMeta
 
 _API = make_template_api(
     DomainFacadeConfig(

@@ -18,7 +18,6 @@
 from __future__ import annotations
 
 import copy
-import importlib
 import logging
 import queue
 from abc import ABC, abstractmethod
@@ -29,16 +28,7 @@ from plugin.framework.worker_pool import run_in_background
 from plugin.framework.thread_guard import assert_main_thread
 from plugin.framework.queue_executor import execute_on_main_thread
 
-deal: Any
-try:
-    deal = importlib.import_module("deal")
-except ImportError:
-
-    class _DummyDeal:
-        def __getattr__(self, name: str) -> Any:
-            return lambda *args, **kwargs: lambda f: f
-
-    deal = _DummyDeal()
+from plugin.framework.deal_shim import deal
 
 
 _SCALAR_TYPES = frozenset({"integer", "number", "boolean", "string"})

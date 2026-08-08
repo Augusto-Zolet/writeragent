@@ -27,6 +27,7 @@ from plugin.framework.client.provider_detection import (
     is_openrouter_endpoint,
 )
 from plugin.framework.errors import ConfigError
+from plugin.framework.deal_shim import deal
 
 
 class AuthError(ConfigError):
@@ -102,20 +103,6 @@ def _resolve_provider_id(endpoint: str, provider_hint: Optional[str] = None) -> 
             return pid
 
     return "custom"
-
-
-import importlib
-
-deal: Any
-try:
-    deal = importlib.import_module("deal")
-except ImportError:
-
-    class _DummyDeal:
-        def __getattr__(self, name: str) -> Any:
-            return lambda *args, **kwargs: lambda f: f
-
-    deal = _DummyDeal()
 
 
 @deal.post(lambda result: isinstance(result, bool))

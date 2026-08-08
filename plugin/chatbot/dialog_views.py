@@ -29,7 +29,7 @@ from plugin.chatbot.config_ui_helpers import populate_combobox_with_lru
 from plugin.chatbot.history_db import HAS_SQLITE
 from plugin.scripting.venv_probe_ui import ScriptingVenvTestListener, VenvProbeProgressDialog
 
-from .listeners import BaseActionListener, BaseListener
+from plugin.framework.uno_listeners import BaseActionListener, BaseListener
 from .dialogs import (
     TabListener, is_checkbox_control, get_checkbox_state, set_checkbox_state,
     get_optional, set_control_enabled, set_control_text, get_control_text, translate_dialog,
@@ -258,7 +258,7 @@ class SettingsDialog:
     def _schedule_initial_models_fetch(self, endpoint):
         """OpenRouter/Together skip inline fetch; load full catalog when a saved key exists."""
         from plugin.framework.config import get_api_key_for_endpoint
-        from plugin.framework.client.model_fetcher import get_provider_from_endpoint
+        from plugin.framework.client.provider_detection import get_provider_from_endpoint
 
         listener = self._endpoint_listener
         if not listener or not endpoint:
@@ -439,9 +439,10 @@ class EndpointCombinedListener(BaseListener, XItemListener, XTextListener):
             populate_combobox_with_lru, populate_image_model_selector, endpoint_from_selector_text,
             _sanitize_model_combobox_value,
         )
+        from plugin.framework.client.provider_detection import get_provider_from_endpoint
         from plugin.framework.client.model_fetcher import (
             endpoint_url_suitable_for_v1_models_fetch, fetch_available_models, fetch_available_image_models,
-            get_provider_from_endpoint, get_image_model,
+            get_image_model,
         )
 
         self._dlg = dialog

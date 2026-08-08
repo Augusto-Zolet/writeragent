@@ -31,12 +31,3 @@ def _is_certificate_verify_error(e):
         if marker in msg:
             return True
     return False
-
-
-# Re-export the canonical implementation after the 2026 provider detection consolidation.
-# New code should prefer `from plugin.framework.client.provider_detection import is_local_host`.
-from plugin.framework.client.provider_detection import is_local_host as _is_local_host  # noqa: F401 - re-export under old private name for compat
-
-# Keep the old private name for existing internal callers (llm_client, requests)
-# so we don't have to touch every import site in this first-pass cleanup.
-# The real logic now lives in provider_detection.py.
