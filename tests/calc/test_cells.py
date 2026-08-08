@@ -396,24 +396,37 @@ def test_apply_temporal_format_runs_vertically_merges_homogeneous_column():
 
 
 def test_make_number_formatter_unwraps_guarded_doc():
-    """attachNumberFormatsSupplier must get the raw doc, not a Layer-A proxy."""
+    """attachNumberFormatsSupplier must get the raw doc, not a Layer-A proxy.
+
+    Release OXT stubs omit ``_UnoThreadGuardProxy``; patch ``_unwrap_uno`` so the
+    test exercises the call site under both full and stub thread_guard modules.
+    """
     from plugin.calc.manipulator import CellManipulator
-    from plugin.framework.thread_guard import _UnoThreadGuardProxy
 
     raw_doc = MagicMock(name="raw_doc")
-    proxied_doc = _UnoThreadGuardProxy(raw_doc)
+    proxied_doc = object()
     raw_ctx = MagicMock(name="raw_ctx")
+    proxied_ctx = object()
     smgr = MagicMock()
     formatter = MagicMock()
     raw_ctx.getServiceManager.return_value = smgr
     smgr.createInstanceWithContext.return_value = formatter
 
+    def fake_unwrap(obj):
+        if obj is proxied_doc:
+            return raw_doc
+        if obj is proxied_ctx:
+            return raw_ctx
+        return obj
+
     manip = CellManipulator(MagicMock())
-    with patch("plugin.calc.manipulator.get_ctx", return_value=raw_ctx):
-        out = manip._make_number_formatter(proxied_doc)
+    with patch("plugin.calc.manipulator.get_ctx", return_value=proxied_ctx):
+        with patch("plugin.framework.thread_guard._unwrap_uno", side_effect=fake_unwrap):
+            out = manip._make_number_formatter(proxied_doc)
 
     assert out is formatter
     formatter.attachNumberFormatsSupplier.assert_called_once_with(raw_doc)
+    smgr.createInstanceWithContext.assert_called_once_with("com.sun.star.util.NumberFormatter", raw_ctx)
 
 
 def test_write_formula_range_empty_uno_error_uses_type_name():
