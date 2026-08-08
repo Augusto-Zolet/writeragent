@@ -2,7 +2,12 @@
 # Copyright (c) 2026 KeithCu (modifications and relicensing)
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Trusted Harper Rust grammar linter helper executing inside the embedded interpreter (in-process)."""
+"""Harper grammar: persistent harper-ls LSP client plus host entry for the grammar queue.
+
+Runs in-process on LibreOffice's grammar drain thread (not the warm venv worker / trusted
+RPC path used by LanguageTool and Vale). Status UI refresh during progress is best-effort
+(``post_to_main_thread``); a busy main thread must not abort the check.
+"""
 
 from __future__ import annotations
 
@@ -13,7 +18,7 @@ import subprocess
 import threading
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, BinaryIO, cast
+from typing import TYPE_CHECKING, Any, BinaryIO, cast
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -296,8 +301,8 @@ def _get_or_create_client(harper_bin: str, user_config_dir: str, bcp47: str, *, 
     return client
 
 
-def run_harper_check(text: str, user_config_dir: str, bcp47: str = "en-US", *, heartbeat_fn: Callable[[dict[str, str]], None] | None = None) -> dict:
-    """Run harper-ls on text segment and return parsed errors."""
+def run_harper_lint(text: str, user_config_dir: str, bcp47: str = "en-US", *, heartbeat_fn: Callable[[dict[str, str]], None] | None = None) -> dict:
+    """Run harper-ls on a text segment and return parsed errors (no LibreOffice UI)."""
     try:
         harper_bin = _get_harper_binary(user_config_dir, heartbeat_fn=heartbeat_fn)
     except Exception as e:
@@ -345,3 +350,40 @@ def run_harper_check(text: str, user_config_dir: str, bcp47: str = "en-US", *, h
         )
 
     return {"errors": errors}
+
+
+def _pump_grammar_status_ui(ctx: Any) -> None:
+    """Best-effort drain of grammar status UI on the LO main thread.
+
+    Must never block or fail the Harper check: a busy VCL / delayed AsyncCallback
+    used to raise TimeoutError from execute_on_main_thread(timeout=2.0) and abort
+    linting even though status painting is optional.
+    """
+    from plugin.framework.queue_executor import post_to_main_thread, pump_main_thread_work_queue
+    from plugin.framework.uno_context import process_events_to_idle
+
+    def _pump() -> None:
+        pump_main_thread_work_queue(max_items=8)
+        # Chokepoint: no-ops while a stream drain owns VCL pumping.
+        process_events_to_idle(ctx)
+
+    try:
+        post_to_main_thread(_pump)
+    except Exception as e:
+        log.warning("[grammar] Harper status UI pump skipped: %s", e)
+
+
+def run_harper_check(ctx: Any, text: str, config_dir: str, *, bcp47: str = "en-US") -> dict[str, Any]:
+    """Grammar-queue entry: status UI + in-process harper-ls lint (no venv worker)."""
+    from plugin.writer.locale.grammar_obs import emit_harper_worker_status
+
+    emit_harper_worker_status(text, "Starting Harper…")
+    _pump_grammar_status_ui(ctx)
+
+    def _on_progress(payload: dict[str, Any]) -> None:
+        message = str(payload.get("message") or "").strip()
+        if message:
+            emit_harper_worker_status(text, message)
+            _pump_grammar_status_ui(ctx)
+
+    return run_harper_lint(text, config_dir, bcp47=bcp47, heartbeat_fn=_on_progress)

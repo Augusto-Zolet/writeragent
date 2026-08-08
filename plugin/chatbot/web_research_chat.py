@@ -2,10 +2,12 @@
 # Copyright (c) 2024 John Balis
 # Copyright (c) 2026 KeithCu (modifications and relicensing)
 #
-# Shared text for web research search-engine steps in the chat response (all paths).
+# Shared text for research steps in the chat response (web search-engine + document open status).
 
 from __future__ import annotations
 
+import os
+import posixpath
 from typing import Any, Mapping
 
 from plugin.framework.html_stripper import strip_html_tags
@@ -124,3 +126,51 @@ def web_research_cache_chat_text(fields: Mapping[str, Any]) -> str:
     block += "\n"
     return block
 
+
+def web_research_outer_chat_block(outer_query: str, history_text: str | None = None) -> str:
+    """Format the main model's web_research arguments (research request + optional history).
+
+    Chat UI no longer prepends this automatically; the response area shows internal web_search step
+    text from the sub-agent instead. Kept for callers that need the same wording (e.g. tests, logging).
+    """
+    from plugin.framework.i18n import _
+
+    block = "\n" + _("[Web research]") + "\n"
+    block += _("Research request:") + "\n%s\n" % (outer_query or "").strip()
+    if history_text and str(history_text).strip():
+        hist = str(history_text).strip()
+        if len(hist) > 8000:
+            hist = hist[:8000] + "\n…"
+        block += "\n" + _("Context for the research agent:") + "\n%s\n" % hist
+    block += "\n"
+    return block
+
+
+def display_name_for_path_or_name(path_or_name: str) -> str:
+    """Basename for absolute paths; otherwise the string as given (basename, filter, URL fragment)."""
+    raw = (path_or_name or "").strip()
+    if not raw:
+        return ""
+    if raw.startswith("/"):
+        return posixpath.basename(raw) or raw
+    if os.path.isabs(raw):
+        return os.path.basename(raw) or raw
+    return raw
+
+
+def document_open_preview_line(path_or_name: str) -> str:
+    """Sentence shown before a read-only sibling document open."""
+    from plugin.framework.i18n import _
+
+    label = display_name_for_path_or_name(path_or_name)
+    return _("Opening '%s' for read-only access.") % (label,)
+
+
+def document_open_step_chat_text(path_or_name: str, step_index: int) -> str:
+    """Chat text for each delegate_read_document step (tool name + open preview only)."""
+    from plugin.framework.i18n import _
+
+    del step_index  # callers pass index; format is the same for every step
+    block = "\n" + _("Tool: %s") % "delegate_read_document" + "\n"
+    block += document_open_preview_line(path_or_name) + "\n\n"
+    return block

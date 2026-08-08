@@ -1,4 +1,4 @@
-# Optional PySpector config (make pyspector). Not part of make test/build/release.
+# PySpector config (make pyspector; part of make test-run / make test; not build/release alone).
 # https://github.com/ParzivalHack/PySpector
 # Scan root is plugin/ (see Makefile), so excludes are path components / globs under that tree.
 # User exclude replaces PySpector defaults entirely — keep common noise patterns here too.

@@ -595,7 +595,7 @@ def _run_grammar_check(
                     emit_grammar_status("failed", "Vale style linter", result=str(ex))
             return
         if provider == "harper":
-            from plugin.writer.locale.harper_host import run_harper_check
+            from plugin.writer.locale.harper import run_harper_check
             from plugin.framework.config import user_config_dir
 
             cfg_dir = user_config_dir() or ""

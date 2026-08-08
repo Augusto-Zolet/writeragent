@@ -45,7 +45,6 @@ LIBREHARPER_PLUGIN_FILES: tuple[str, ...] = (
     "plugin/scripting/venv/__init__.py",
     "plugin/writer/locale/__init__.py",
     "plugin/writer/locale/ai_grammar_proofreader.py",
-    "plugin/writer/locale/harper_host.py",
     "plugin/writer/locale/harper.py",
     "plugin/writer/locale/harper_binary.py",
     "plugin/writer/locale/harper_proofreader.py",
@@ -128,8 +127,8 @@ def slim_libreharper_package_inits(bundle_plugin_dir: str) -> None:
     with open(os.path.join(client_dir, "__init__.py"), "w", encoding="utf-8") as fh:
         fh.write(LIBREHARPER_CLIENT_INIT)
 
-    # scripting/venv needs to be a package for harper imports.
+    # scripting/venv stays a package so optional empty package layout matches WriterAgent.
     venv_init = os.path.join(bundle_plugin_dir, "scripting", "venv", "__init__.py")
     if not os.path.isfile(venv_init):
         with open(venv_init, "w", encoding="utf-8") as fh:
-            fh.write('"""Harper binary + LSP helpers (LibreHarper)."""\n')
+            fh.write('"""Empty venv package stub (LibreHarper; Harper lives under writer.locale)."""\n')

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run PySpector on plugin/ with project FP rules disabled.
 
-Used by ``make pyspector`` / ``make pyspector-report``. Not part of make test.
+Used by ``make pyspector`` / ``make pyspector-report`` (``make pyspector`` is part of make test-run / make test).
 Disables rules reviewed as false positives or accepted known risks for WriterAgent.
 """
 

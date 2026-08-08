@@ -2,7 +2,7 @@
 # Copyright (c) 2026 KeithCu (modifications and relicensing)
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Unit tests for the Harper Rust linter helper."""
+"""Unit tests for Harper LSP client, binary install, and grammar-queue host entry."""
 
 from io import BytesIO
 from pathlib import Path
@@ -16,8 +16,10 @@ from plugin.contrib.lsp.json_rpc_framing import read_exactly
 from plugin.writer.locale.harper import (
     HarperLSClient,
     _harper_lsp_settings,
+    _pump_grammar_status_ui,
     lsp_range_to_offset,
     run_harper_check,
+    run_harper_lint,
 )
 from plugin.writer.locale.harper_binary import (
     HarperReleaseAsset,
@@ -30,7 +32,7 @@ import plugin.writer.locale.harper_binary as harper_binary_module
 
 @pytest.fixture(autouse=True)
 def _reset_harper_client_cache() -> None:
-    """Each run_harper_check test owns a fresh LSP client and mocked stdout stream."""
+    """Each run_harper_lint test owns a fresh LSP client and mocked stdout stream."""
     for client in harper_module._HARPER_CLIENT_CACHE.values():
         client.close()
     harper_module._HARPER_CLIENT_CACHE.clear()
@@ -189,7 +191,7 @@ def test_harper_ls_client_and_check(mock_popen: MagicMock, mock_get_bin: MagicMo
     )
 
     with patch("time.time_ns", return_value=123):
-        res = run_harper_check("this is text", "/tmp")
+        res = run_harper_lint("this is text", "/tmp")
 
     assert "errors" in res
     assert len(res["errors"]) == 1
@@ -269,7 +271,7 @@ def test_harper_check_soft_line_break_offsets(mock_popen: MagicMock, mock_get_bi
 
     sentence = "Hello,\nworld."
     with patch("time.time_ns", return_value=123):
-        res = run_harper_check(sentence, "/tmp")
+        res = run_harper_lint(sentence, "/tmp")
 
     assert len(res["errors"]) == 1
     err = res["errors"][0]
@@ -318,7 +320,7 @@ def test_harper_check_empty_diagnostics(mock_popen: MagicMock, mock_get_bin: Mag
     )
 
     with patch("time.time_ns", return_value=123):
-        res = run_harper_check("clean sentence.", "/tmp")
+        res = run_harper_lint("clean sentence.", "/tmp")
 
     assert res == {"errors": []}
 
@@ -357,7 +359,7 @@ def test_harper_check_zero_width_diagnostic(mock_popen: MagicMock, mock_get_bin:
     )
 
     with patch("time.time_ns", return_value=123):
-        res = run_harper_check("hello world", "/tmp")
+        res = run_harper_lint("hello world", "/tmp")
 
     assert len(res["errors"]) == 1
     err = res["errors"][0]
@@ -401,14 +403,14 @@ def test_harper_workspace_configuration_dialect(mock_popen: MagicMock, mock_get_
     mock_popen.return_value = mock_proc
 
     with patch("time.time_ns", return_value=123):
-        run_harper_check("colour is fine.", "/tmp", bcp47="en-GB")
+        run_harper_lint("colour is fine.", "/tmp", bcp47="en-GB")
 
     written = b"".join(call.args[0] for call in mock_proc.stdin.write.call_args_list if call.args)
     assert b'"dialect": "British"' in written
 
 
 @patch("plugin.writer.locale.harper._get_harper_binary")
-def test_harper_run_harper_check_retries_after_failure(mock_get_bin: MagicMock) -> None:
+def test_harper_run_harper_lint_retries_after_failure(mock_get_bin: MagicMock) -> None:
     mock_get_bin.return_value = "/bin/harper-ls"
     broken_client = MagicMock()
     broken_client.lint.side_effect = TimeoutError("Harper LSP operation timed out")
@@ -417,7 +419,7 @@ def test_harper_run_harper_check_retries_after_failure(mock_get_bin: MagicMock) 
 
     with patch("plugin.writer.locale.harper._get_or_create_client", return_value=broken_client), \
          patch("plugin.writer.locale.harper.HarperLSClient", return_value=fresh_client) as mock_ctor:
-        res = run_harper_check("retry me.", "/tmp")
+        res = run_harper_lint("retry me.", "/tmp")
 
     assert res == {"errors": []}
     broken_client.close.assert_called_once()
@@ -666,7 +668,7 @@ def test_get_harper_binary_emits_heartbeat_progress(
 
 @patch("plugin.writer.locale.harper._get_harper_binary")
 @patch("subprocess.Popen")
-def test_run_harper_check_emits_heartbeat_progress(mock_popen: MagicMock, mock_get_bin: MagicMock) -> None:
+def test_run_harper_lint_emits_heartbeat_progress(mock_popen: MagicMock, mock_get_bin: MagicMock) -> None:
     mock_get_bin.return_value = "/bin/harper-ls"
     messages: list[str] = []
 
@@ -693,7 +695,7 @@ def test_run_harper_check_emits_heartbeat_progress(mock_popen: MagicMock, mock_g
     )
 
     with patch("time.time_ns", return_value=123):
-        run_harper_check("clean sentence.", "/tmp", heartbeat_fn=heartbeat_fn)
+        run_harper_lint("clean sentence.", "/tmp", heartbeat_fn=heartbeat_fn)
 
     assert "Linting…" in messages
     mock_get_bin.assert_called_once()
@@ -747,11 +749,11 @@ def test_download_harper_binary_logs_error_with_exc_info(mock_log: MagicMock, mo
 
 @patch("plugin.writer.locale.harper._get_harper_binary")
 @patch("plugin.writer.locale.harper.log")
-def test_run_harper_check_logs_binary_resolve_failure(mock_log: MagicMock, mock_get_bin: MagicMock) -> None:
+def test_run_harper_lint_logs_binary_resolve_failure(mock_log: MagicMock, mock_get_bin: MagicMock) -> None:
     mock_get_bin.side_effect = RuntimeError("Failed to auto-download Harper binary: boom")
 
     with pytest.raises(RuntimeError, match="Failed to auto-download"):
-        run_harper_check("They is here.", "/tmp")
+        run_harper_lint("They is here.", "/tmp")
 
     mock_log.error.assert_called()
     assert "Failed to resolve harper-ls binary" in mock_log.error.call_args[0][0]
@@ -766,3 +768,91 @@ def test_harper_lsp_initialize_logs_exception_on_failure(mock_log: MagicMock) ->
 
     mock_log.exception.assert_called()
     assert "Failed to start/initialize harper-ls" in mock_log.exception.call_args[0][0]
+
+
+def test_pump_grammar_status_ui_posts_not_blocking_execute() -> None:
+    ctx = MagicMock()
+    with (
+        patch("plugin.framework.queue_executor.post_to_main_thread") as mock_post,
+        patch("plugin.framework.queue_executor.execute_on_main_thread") as mock_execute,
+    ):
+        _pump_grammar_status_ui(ctx)
+
+    mock_post.assert_called_once()
+    mock_execute.assert_not_called()
+
+
+def test_pump_grammar_status_ui_swallows_post_errors() -> None:
+    ctx = MagicMock()
+    with patch("plugin.framework.queue_executor.post_to_main_thread", side_effect=RuntimeError("no AsyncCallback")):
+        _pump_grammar_status_ui(ctx)  # must not raise
+
+
+def test_run_harper_check_continues_when_pump_post_times_out() -> None:
+    """Regression: status UI pump must not abort Harper when main-thread post fails."""
+    ctx = MagicMock()
+
+    def _fake_lint(text, config_dir, *, bcp47="en-US", heartbeat_fn=None):
+        if heartbeat_fn is not None:
+            heartbeat_fn({"message": "Downloading harper-ls…"})
+        return {"errors": [{"n_error_start": 0, "n_error_length": 4}]}
+
+    with (
+        patch("plugin.writer.locale.grammar_obs.emit_harper_worker_status"),
+        patch(
+            "plugin.framework.queue_executor.post_to_main_thread",
+            side_effect=TimeoutError("Main-thread execution of _pump timed out after 2.0s"),
+        ),
+        patch("plugin.writer.locale.harper.run_harper_lint", side_effect=_fake_lint) as mock_lint,
+    ):
+        result = run_harper_check(ctx, "They is here.", "/tmp/cfg", bcp47="en-US")
+
+    assert result == {"errors": [{"n_error_start": 0, "n_error_length": 4}]}
+    mock_lint.assert_called_once()
+
+
+def test_run_harper_check_pumps_ui_after_start_and_heartbeat() -> None:
+    ctx = MagicMock()
+    pump_calls: list[object] = []
+
+    def _record_pump(c: object) -> None:
+        pump_calls.append(c)
+
+    def _fake_lint(text, config_dir, *, bcp47="en-US", heartbeat_fn=None):
+        if heartbeat_fn is not None:
+            heartbeat_fn({"message": "Downloading harper-ls v2.7.0…"})
+        return {"errors": []}
+
+    with (
+        patch("plugin.writer.locale.grammar_obs.emit_harper_worker_status") as mock_emit,
+        patch("plugin.writer.locale.harper._pump_grammar_status_ui", side_effect=_record_pump),
+        patch("plugin.writer.locale.harper.run_harper_lint", side_effect=_fake_lint) as mock_lint,
+    ):
+        result = run_harper_check(ctx, "They is here.", "/tmp/cfg", bcp47="en-US")
+
+    assert result == {"errors": []}
+    mock_lint.assert_called_once()
+    assert mock_emit.call_args_list[0].args == ("They is here.", "Starting Harper…")
+    assert mock_emit.call_args_list[1].args == ("They is here.", "Downloading harper-ls v2.7.0…")
+    assert pump_calls == [ctx, ctx]
+
+
+def test_run_harper_check_heartbeat_skips_empty_message() -> None:
+    ctx = MagicMock()
+
+    def _fake_lint(text, config_dir, *, bcp47="en-US", heartbeat_fn=None):
+        if heartbeat_fn is not None:
+            heartbeat_fn({"message": "   "})
+        return {"errors": []}
+
+    with (
+        patch("plugin.writer.locale.grammar_obs.emit_harper_worker_status") as mock_emit,
+        patch("plugin.writer.locale.harper._pump_grammar_status_ui") as mock_pump,
+        patch("plugin.writer.locale.harper.run_harper_lint", side_effect=_fake_lint),
+    ):
+        run_harper_check(ctx, "Hi.", "/tmp/cfg")
+
+    assert mock_emit.call_count == 1
+    mock_emit.assert_called_once_with("Hi.", "Starting Harper…")
+    # Start pump once; empty heartbeat must not emit or pump again
+    assert mock_pump.call_count == 1

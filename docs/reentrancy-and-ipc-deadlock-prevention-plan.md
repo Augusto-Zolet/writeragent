@@ -69,7 +69,7 @@ If pumps become no-ops whenever “listener depth > 0”, Send freezes and cance
 | [`document_research_grep.py`](../plugin/doc/document_research_grep.py) | Batch progress pumps | Route through chokepoint; no-op or reduce when drain already owns |
 | [`editor_host.py`](../plugin/scripting/editor_host.py) `wait_for_ready` | Startup wait loop | Use the guarded chokepoint; do not take a nested owner (`ready` is set by its reader thread) |
 | [`dialogs.py`](../plugin/chatbot/dialogs.py) / [`dialog_views.py`](../plugin/chatbot/dialog_views.py) | Modal / eval suite pumps | Route through chokepoint; evaluate whether pump is needed |
-| [`harper_host.py`](../plugin/writer/locale/harper_host.py) | Status UI pump via `post_to_main_thread` | Keep deferral; still use chokepoint (note: `post` can inline — see §3.3) |
+| [`harper.py`](../plugin/writer/locale/harper.py) `_pump_grammar_status_ui` | Status UI pump via `post_to_main_thread` | Keep deferral; still use chokepoint (note: `post` can inline — see §3.3) |
 | [`writer_importer.py`](../plugin/notebook/writer_importer.py) | Cell render flush | Route through chokepoint |
 | [`calc/charts.py`](../plugin/calc/charts.py) | Headless-guarded pump | Keep headless short-circuit; use chokepoint |
 | [`inline_review.py`](../plugin/writer/inline_review.py) | **Intentionally avoids** pump | Document as hang class: idle may never arrive |
@@ -99,7 +99,7 @@ flowchart TD
 
     subgraph nonOwner [Secondary callers]
         Grep[grep progress]
-        Harper[harper_host status]
+        Harper[harper status]
         Grep -->|no-op VCL when owner active| ProcessEvents[process_events_to_idle]
         Harper --> ProcessEvents
     end
@@ -286,7 +286,7 @@ None of these are part of the current IPC closure work.
 | Phase | Description | Risk | Target | Verification |
 |---|---|---|---|---|
 | **1 — done** | Drain ownership + guarded `pump_ui_idle` / `process_events_to_idle` | Low–Med | `queue_executor.py`, `uno_context.py`, `async_stream.py` | pytest ownership / pump tests |
-| **2 — done** | Nested Send rejection + migrate raw pumps with per-site policy | Medium | `panel.py`, grep, dialogs, editor wait, harper_host, notebook importer | async_stream + targeted unit tests; UNO smoke |
+| **2 — done** | Nested Send rejection + migrate raw pumps with per-site policy | Medium | `panel.py`, grep, dialogs, editor wait, harper status pump, notebook importer | async_stream + targeted unit tests; UNO smoke |
 | **3 — done** | Shared stderr drain helper; wire venv / ACP / audio | Medium | `worker_pool.py`, `venv_worker.py`, `acp_connection.py`, `audio_recorder_service.py` | shared pipe-flood pytest |
 | **4 — done** | Opengrep extensions + AGENTS.md / cross-doc links | Low | `tests/semgrep/`, `AGENTS.md` | `make opengrep-lint` (already in `make test`) |
 | **5 — done** | Bound venv stdin writes without unsafe replay | Medium | `venv_worker.py`, `config_limits.py` | real-path flood, blocked-write, cleanup, and PPT-Master no-replay tests |

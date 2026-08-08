@@ -34,7 +34,7 @@ def is_grammar_enabled():
 
 ## 3. Dependency Management (Binary Fetching)
 
-Binary resolution, download, and install live in [`plugin/scripting/venv/harper_binary.py`](../plugin/scripting/venv/harper_binary.py). To avoid compiling Rust from source, WriterAgent fetches the official precompiled `harper-ls` binary based on the host architecture:
+Binary resolution, download, and install live in [`plugin/writer/locale/harper_binary.py`](../plugin/writer/locale/harper_binary.py). To avoid compiling Rust from source, WriterAgent fetches the official precompiled `harper-ls` binary based on the host architecture:
 1. **GitHub Releases API:** Resolve the latest release via `https://api.github.com/repos/Automattic/harper/releases/latest` (checked at most once per week per profile, persisted in `harper/harper-ls.release.json`), then download the matching asset URL and verify GitHub's published `digest` (SHA256).
 2. **Platform Resolution:**
    * **Linux x86_64:** `harper-ls-x86_64-unknown-linux-gnu.tar.gz`
@@ -44,9 +44,9 @@ Binary resolution, download, and install live in [`plugin/scripting/venv/harper_
 
 ---
 
-## 4. Host-Side Harper Helper (`plugin/scripting/venv/harper.py`)
+## 4. Host-Side Harper Helper (`plugin/writer/locale/harper.py`)
 
-Rather than spawning a new process and writing temporary files on every grammar check, WriterAgent runs `harper-ls --stdio` as a persistent background process **on the host** (LibreOffice’s Python grammar drain thread). No Settings → Python venv is required: the native binary is downloaded into the user profile, and the LSP client talks to it over stdin/stdout. Communication uses the JSON-RPC Language Server Protocol (LSP). The LSP client and `run_harper_check` live in [`harper.py`](../plugin/scripting/venv/harper.py); binary fetch/install is in [`harper_binary.py`](../plugin/scripting/venv/harper_binary.py); the host entry is [`harper_host.py`](../plugin/scripting/harper_host.py) (re-exported from [`client.py`](../plugin/scripting/client.py) — in-process, not the warm venv worker IPC used by LanguageTool/Vale). Status UI refresh during Harper progress is **best-effort** (`post_to_main_thread`); a busy main thread must not abort the check.
+Rather than spawning a new process and writing temporary files on every grammar check, WriterAgent runs `harper-ls --stdio` as a persistent background process **on the host** (LibreOffice’s Python grammar drain thread). No Settings → Python venv is required: the native binary is downloaded into the user profile, and the LSP client talks to it over stdin/stdout. Communication uses the JSON-RPC Language Server Protocol (LSP). [`harper.py`](../plugin/writer/locale/harper.py) holds both the LSP client (`run_harper_lint` / `HarperLSClient`) and the grammar-queue entry (`run_harper_check` with best-effort status UI via `post_to_main_thread`); binary fetch/install is in [`harper_binary.py`](../plugin/writer/locale/harper_binary.py). This is in-process, not the warm venv worker IPC used by LanguageTool/Vale. A busy main thread must not abort the check.
 
 ### Persistent LSP Client implementation (`HarperLSClient`)
 The class `HarperLSClient` manages:
@@ -60,7 +60,7 @@ The class `HarperLSClient` manages:
 
 ### Position mapping (`lsp_range_to_offset`)
 
-Harper returns diagnostic ranges as LSP `{line, character}` pairs; the grammar queue expects `n_error_start` / `n_error_length` as offsets into the checked sentence string. [`run_harper_check`](../plugin/scripting/venv/harper.py) maps each diagnostic through `lsp_range_to_offset`.
+Harper returns diagnostic ranges as LSP `{line, character}` pairs; the grammar queue expects `n_error_start` / `n_error_length` as offsets into the checked sentence string. [`run_harper_lint`](../plugin/writer/locale/harper.py) maps each diagnostic through `lsp_range_to_offset`.
 
 Grammar work is **sentence-scoped**, not line-scoped: each `run_harper_check` call lints one sentence string from [`GrammarWorkItem.text`](../plugin/writer/locale/grammar_work_queue.py). That does **not** mean every sentence is a single visual line — Writer soft line breaks (Shift+Enter) can embed `\n` inside one sentence, and Harper may report `line > 0` for text after the break.
 
@@ -84,7 +84,7 @@ Harper runs on **one sentence per `run_harper_check` call**. Upstream, [`ai_gram
 Integrate Harper directly into the linter work queue:
 ```python
         if provider == "harper":
-            from plugin.scripting.client import run_harper_check
+            from plugin.writer.locale.harper import run_harper_check
             from plugin.framework.config import user_config_dir
 
             cfg_dir = user_config_dir() or ""
@@ -114,7 +114,7 @@ The Harper Rust linter integration is fully implemented and optimized:
 2. **Standard LSP Protocol:** Implemented handshake, configuration negotiation, diagnostics handling, and code actions queries natively over stdin/stdout streams.
 3. **Integration Testing:** Verified via [`scripts/test_harper.py`](../scripts/test_harper.py). Unit tests cover offset mapping (including UTF-16 surrogate pairs), mocked LSP flows (stale versions, didChange, soft breaks, code actions), timeout behavior, download/upgrade logic, and the vendored framing + pooch helpers (in `tests/contrib/`). See the Test coverage subsection under Known Limitations for details.
 
-Primary implementation: [`plugin/scripting/venv/harper.py`](../plugin/scripting/venv/harper.py) (`HarperLSClient`, `run_harper_check`); binary fetch/install: [`plugin/scripting/venv/harper_binary.py`](../plugin/scripting/venv/harper_binary.py). Host entry: [`plugin/scripting/harper_host.py`](../plugin/scripting/harper_host.py) (best-effort status UI pump; re-exported from `client.py`). Queue wiring: [`plugin/writer/locale/grammar_work_queue.py`](../plugin/writer/locale/grammar_work_queue.py).
+Primary implementation: [`plugin/writer/locale/harper.py`](../plugin/writer/locale/harper.py) (`HarperLSClient`, `run_harper_lint`, grammar-queue `run_harper_check` + status UI pump); binary fetch/install: [`plugin/writer/locale/harper_binary.py`](../plugin/writer/locale/harper_binary.py). Queue wiring: [`plugin/writer/locale/grammar_work_queue.py`](../plugin/writer/locale/grammar_work_queue.py).
 
 Supporting vendored helpers live in [`plugin/contrib/lsp/`](../plugin/contrib/lsp/) (framing + UTF-16 position codec) and [`plugin/contrib/pooch/`](../plugin/contrib/pooch/) (secure hashed downloads + safe archive extraction). Both include provenance READMEs and dedicated tests.
 
@@ -190,7 +190,7 @@ We implemented the proposed `didChange` pattern. We reuse a stable URI per clien
 
 ### 8.2 Other improvements (lower priority)
 
-Additional items identified in a post-implementation review of `plugin/scripting/venv/harper.py` (and related queue/client paths):
+Additional items identified in a post-implementation review of `plugin/writer/locale/harper.py` (and related queue paths):
 
 | Item | Rationale | Status |
 |------|-----------|--------|
@@ -255,8 +255,8 @@ flowchart TB
   LO[LibreOffice Linguistic2] --> XCU[LinguisticLibreHarperGrammar.xcu]
   XCU --> PR[HarperProofreader]
   PR --> GQ[grammar_work_queue]
-  GQ -->|"provider harper"| Host[harper_host.run_harper_check]
-  Host --> LSP[venv/harper.py HarperLSClient]
+  GQ -->|"provider harper"| Host[harper.run_harper_check]
+  Host --> LSP[harper.run_harper_lint HarperLSClient]
   LSP --> Bin[harper_binary.py + contrib/pooch]
   Bin --> Profile["user profile harper/harper-ls"]
   LSP -->|stdio LSP| Profile
@@ -274,8 +274,7 @@ flowchart TB
   PR2 --> GQ2[grammar_work_queue]
   GQ2 -->|"top-level import"| ClientPkg["framework.client.__init__"]
   ClientPkg --> Heavy[llm_client embeddings scripting.client]
-  GQ2 -->|"lazy harper branch"| HarperClient["scripting.client.run_harper_check"]
-  HarperClient --> HarperMod[venv/harper.py]
+  GQ2 -->|"lazy harper branch"| HarperMod["writer.locale.harper.run_harper_check"]
   Pers[grammar_persistence] -->|"lazy"| DocHelp[document_helpers]
   DocHelp --> Calc[calc.bridge analyzer]
 ```
@@ -284,7 +283,7 @@ Critical edges:
 
 1. [`grammar_work_queue.py`](../plugin/writer/locale/grammar_work_queue.py) top-level `from plugin.framework.client import model_fetcher, llm_client` loads entire [`client/__init__.py`](../plugin/framework/client/__init__.py) (LLM + embeddings + `scripting.client`).
 2. Same file top-level import of [`grammar_worker_llm`](../plugin/writer/locale/grammar_worker_llm.py) — LLM-only.
-3. Harper branch imports [`run_harper_check`](../plugin/scripting/client.py) from `plugin.scripting.client`, whose module top pulls trusted RPC / vision.
+3. ~~Harper branch imported via `plugin.scripting.client`~~ — fixed: queue imports [`run_harper_check`](../plugin/writer/locale/harper.py) directly (no vision / trusted RPC).
 4. [`grammar_persistence.py`](../plugin/writer/locale/grammar_persistence.py) lazy-imports `get`/`set_document_property` from [`document_helpers.py`](../plugin/doc/document_helpers.py), which imports Calc at module load.
 5. Full [`plugin/writer/__init__.py`](../plugin/writer/__init__.py) must not ship as-is (Writer tools + linguistic index).
 
@@ -294,7 +293,7 @@ Without the refactors below, a “Harper-only” OXT is not small.
 
 These landed in the main tree so the filtered bundle stays small:
 
-1. **Extracted** `run_harper_check` (+ UI pump) to [`plugin/scripting/harper_host.py`](../plugin/scripting/harper_host.py); thin re-export remains in `client.py`.
+1. **Harper host + LSP** live in [`plugin/writer/locale/harper.py`](../plugin/writer/locale/harper.py) (`run_harper_check` / `run_harper_lint`); grammar queue does not import `scripting.client`.
 2. **Lazy-import** LLM client / `grammar_worker_llm` only when `provider == "llm"`; local providers never construct `LlmClient`.
 3. **Extracted** udprop get/set to [`plugin/doc/udprops.py`](../plugin/doc/udprops.py); `grammar_persistence` uses it.
 4. **Bundle** ships empty/slim `plugin/writer/__init__.py` and `plugin/doc/__init__.py` (assemble-time rewrite).
@@ -327,7 +326,7 @@ Empty `plugin/writer/__init__.py`. Under `plugin/writer/locale/`: proofreader en
 
 #### Harper (~5)
 
-`plugin/scripting/__init__.py`, [`sandbox.py`](../plugin/scripting/sandbox.py) (Flatpak command wrap), [`venv/harper.py`](../plugin/scripting/venv/harper.py), [`venv/harper_binary.py`](../plugin/scripting/venv/harper_binary.py), **new** `harper_host.py`.
+`plugin/scripting/__init__.py`, [`sandbox.py`](../plugin/scripting/sandbox.py) (Flatpak command wrap). Under `plugin/writer/locale/`: [`harper.py`](../plugin/writer/locale/harper.py), [`harper_binary.py`](../plugin/writer/locale/harper_binary.py).
 
 **Do not ship** whole [`client.py`](../plugin/scripting/client.py), LanguageTool/Vale modules, or the venv worker tree.
 
@@ -349,7 +348,7 @@ Chat / MCP / sidebar / tools / smolagents; embeddings / folder FTS / langdetect;
 
 ### 9.7 Build targets (mirror LibrePy)
 
-Inverse of LibrePy’s filter: LibrePy **excludes** `venv/harper.py` / `harper_binary.py` ([`librepy_bundle_paths.py`](../scripts/librepy_bundle_paths.py)); LibreHarper **ships only** those among scripting modules.
+Inverse of LibrePy’s filter: LibrePy omits Harper (`writer/locale/harper*.py`) via its package allowlists ([`librepy_bundle_paths.py`](../scripts/librepy_bundle_paths.py)); LibreHarper ships Harper under `plugin/writer/locale/` plus `scripting/sandbox.py` for Flatpak command wrap.
 
 | Artifact | LibreHarper |
 |----------|-------------|

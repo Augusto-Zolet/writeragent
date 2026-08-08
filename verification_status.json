@@ -182,6 +182,35 @@
         "ConfigService._check_write_access"
       ],
       "ci_integration": true
+    },
+    "client/stream_normalizer.py": {
+      "status": "partial",
+      "priority": "high",
+      "tool": "crosshair+deal+hypothesis",
+      "functions_contracted": [
+        "accumulate_streaming_thinking",
+        "_merge_reasoning_details",
+        "_normalize_stream_delta",
+        "_thinking_text_from_delta",
+        "_normalize_delta"
+      ],
+      "crosshair_target": "plugin.framework.client.stream_normalizer._merge_reasoning_details",
+      "crosshair_last_run": "2026-08-06",
+      "crosshair_result": "no_counterexamples",
+      "ci_integration": false
+    },
+    "client/response_normalizers.py": {
+      "status": "partial",
+      "priority": "high",
+      "tool": "crosshair+deal+hypothesis",
+      "functions_contracted": [
+        "strip_leaked_chat_template_control_tokens",
+        "extract_and_strip_images_from_message"
+      ],
+      "crosshair_target": "plugin.framework.client.response_normalizers.strip_leaked_chat_template_control_tokens",
+      "crosshair_last_run": "2026-08-06",
+      "crosshair_result": "no_counterexamples",
+      "ci_integration": false
     }
   },
   "modules": {
@@ -196,9 +225,9 @@
         "ci_integration": true
       },
       "payload_codec.py": {
-        "status": "verified",
-        "tool": "crosshair+deal+hypothesis+pytest",
-        "contracts": 10,
+        "status": "partial",
+        "tool": "crosshair+deal+pytest",
+        "contracts": 14,
         "functions_contracted": [
           "_flatten_grid_to_components",
           "column_kinds_for_grid",
@@ -209,11 +238,16 @@
           "child_unpack_split_grid",
           "child_unpack_data",
           "child_pack_split_grid",
-          "child_pack_result"
+          "child_pack_result",
+          "cell_count",
+          "is_numeric_coercible",
+          "is_numeric_grid",
+          "wire_cell_count"
         ],
-        "crosshair_last_run": "2026-08-05",
-        "crosshair_result": "no_counterexamples_historical",
-        "ci_integration": true
+        "crosshair_last_run": "2026-08-06",
+        "crosshair_result": "no_counterexamples",
+        "ci_integration": false,
+        "notes": "Policy helpers contracted 2026-08-06; wire_cell_count is deal+Hypothesis only (# crosshair: off \u2014 envelope Literal proxy crashes); pack/unpack remain primary module CrossHair target"
       },
       "import_policy.py": {
         "status": "verified",
@@ -408,13 +442,41 @@
         "ci_integration": true
       },
       "spreadsheet_import/preprocess.py": {
-        "status": "verified",
+        "status": "partial",
         "priority": "high",
-        "tool": "deal+hypothesis",
+        "tool": "crosshair+deal+hypothesis",
         "functions_contracted": [
           "normalize_lo_formula_for_parse"
         ],
-        "ci_integration": true
+        "ci_integration": false,
+        "crosshair_target": "plugin.calc.spreadsheet_import.preprocess.normalize_lo_formula_for_parse",
+        "crosshair_last_run": "2026-08-06",
+        "crosshair_result": "no_counterexamples"
+      },
+      "python/formula_edit.py": {
+        "status": "partial",
+        "priority": "high",
+        "tool": "crosshair+deal+hypothesis",
+        "functions_contracted": [
+          "_parse_quoted_string",
+          "_parse_unquoted_code_arg",
+          "normalize_formula_string",
+          "parse_python_formula",
+          "_find_matching_paren",
+          "_rewrite_token_calls",
+          "sanitize_inline_py_code",
+          "escape_code_for_formula",
+          "rebuild_python_formula",
+          "format_py_data_range",
+          "format_excel_data_range",
+          "build_data_suffix",
+          "rebuild_python_formula_with_data"
+        ],
+        "crosshair_target": "plugin.calc.python.formula_edit.parse_python_formula",
+        "crosshair_last_run": "2026-08-06",
+        "crosshair_result": "no_counterexamples",
+        "notes": "CrossHair found IndexError on _parse_quoted_string('', -1); fixed with start < 0 guard",
+        "ci_integration": false
       }
     },
     "embeddings": {
@@ -453,7 +515,7 @@
         "crosshair_target": "plugin.mcp.mcp_state.next_state",
         "crosshair_last_run": "2026-08-05",
         "crosshair_result": "no_counterexamples",
-        "notes": "Missing tool_name → SendErrorEffect; TOOL_COMPLETED → StreamResponseEffect; REQUEST_ERROR sets is_error",
+        "notes": "Missing tool_name \u2192 SendErrorEffect; TOOL_COMPLETED \u2192 StreamResponseEffect; REQUEST_ERROR sets is_error",
         "ci_integration": false
       },
       "wire_types.py": {
@@ -524,7 +586,7 @@
           "format_upsert_memory_chat_line_from_arguments"
         ],
         "crosshair_result": "skipped_engine_limitation",
-        "notes": "safe_json_loads / symbolic str → CrossHairInternal; omitted from crosshair-check-all",
+        "notes": "safe_json_loads / symbolic str \u2192 CrossHairInternal; omitted from crosshair-check-all",
         "ci_integration": true
       },
       "send_state.py": {

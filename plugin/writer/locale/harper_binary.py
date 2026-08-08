@@ -2,7 +2,7 @@
 # Copyright (c) 2026 KeithCu (modifications and relicensing)
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Harper-ls binary resolution, download, and install for the venv worker."""
+"""Harper-ls binary resolution, download, and install into the user profile."""
 
 from __future__ import annotations
 

@@ -77,7 +77,7 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 | `make build` | **`ty`** + **`ruff-fix`** then **`ruff`** + bundle (produces `build/WriterAgent.oxt` only) |
 | `make deploy` | **`make build`** + one-time **`unopkg`** register (if needed) + cache hot-sync (restart LO) |
 | `make typecheck` | **`ty`** + **mypy** + **pyright** |
-| `make test` | Full typecheck + **opengrep-lint** + pytest (includes all formal verification tests) + LO tests + **bandit** |
+| `make test` | Full typecheck + **opengrep-lint** + **pyspector** + pytest (includes all formal verification tests) + LO tests + **bandit** |
 | `make verify` | Fast pass over pure formal verification test suites (`pytest tests/ -k verification`) |
 | `make slowtests` | Heavy extensive A/B serialization fixtures + live Hypothesis fuzzing (`make vhs`) |
 | `make opengrep-lint` | Opengrep UNO thread + vendored security rules (ERROR; part of `make test`) |
@@ -85,12 +85,12 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 | `make release` | **`make test`** then **`release-build`** (includes **`openrouter-catalog`** → [`extension/metadata/openrouter_models.json`](extension/metadata/openrouter_models.json)—not in OXT—plus [`default_models.py`](plugin/framework/default_models.py), translations, OXT) |
 | `make ensure-uno` | Link system UNO into `.venv` if `import uno` fails (auto-run before typecheck/test) |
 | `make fix-uno` | Same as **`ensure-uno`** with verbose output |
-| `make pyspector` | Optional PySpector AI/taint SAST on `plugin/` (`--ai`; **not** part of `make test`) |
-| `make pyspector-report` | Same scan; writes `build/pyspector-report.json` |
+| `make pyspector` | PySpector AI/taint SAST on `plugin/` (`--ai`; part of **`make test-run`** / **`make test`**) |
+| `make pyspector-report` | Same scan; writes `build/pyspector-report.json` (optional report) |
 
 **Ruff:** `[tool.ruff]` line length **320** (Ruff’s maximum; fits dense one-line calls without wrapping); `[tool.ruff.format]` **`skip-magic-trailing-comma` true**—see [`pyproject.toml`](pyproject.toml). **`make build`** runs **`ruff-fix`** then **`ruff check`** (`ruff-for-build`) over **`plugin/`**, **`tests/`**, **`scripts/`**, and **`demos/`** (format targets stay **`plugin/`**-scoped). Typecheck remains **`plugin`** + **`compute_service`** only. Standalone **`make ruff`** is check-only. Not part of **`make test`**.
 
-**Optional:** **`make pyrefly`** — not in **`make test`**; see [`docs/type-checking.md`](docs/type-checking.md). **`make pyspector`** / **`make pyspector-report`** — [PySpector](https://github.com/ParzivalHack/PySpector) via [`scripts/run_pyspector.py`](scripts/run_pyspector.py) (`--ai`, [`pyspector.toml`](pyspector.toml)); not in **`make test`** / **`make build`** / **`make release`**. Wrapper disables reviewed false-positive / accepted-risk rules (e.g. PY101 on `Tool.execute`, ZIPSLIP001 on trusted GitHub audio zip).
+**Optional:** **`make pyrefly`** — not in **`make test`**; see [`docs/type-checking.md`](docs/type-checking.md). **`make pyspector`** — [PySpector](https://github.com/ParzivalHack/PySpector) via [`scripts/run_pyspector.py`](scripts/run_pyspector.py) (`--ai`, [`pyspector.toml`](pyspector.toml)); part of **`make test-run`** / **`make test`** (not **`make build`** / **`make release`** alone). **`make pyspector-report`** writes `build/pyspector-report.json` and remains optional. Wrapper disables reviewed false-positive / accepted-risk rules (e.g. PY101 on `Tool.execute`, ZIPSLIP001 on trusted GitHub audio zip).
 
 Restart LibreOffice after **`make deploy`** (or use `make deploy writer/calc/draw/impress` to launch automatically).
 

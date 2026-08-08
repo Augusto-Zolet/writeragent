@@ -293,7 +293,7 @@ class DelegateToSpecializedBase(ToolBase):
         def tool_call_handler(step):
             nonlocal document_open_step_index
             if domain == "document_research" and step.name == "delegate_read_document" and chat_append_callback:
-                from plugin.chatbot.document_research_chat import document_open_step_chat_text
+                from plugin.chatbot.web_research_chat import document_open_step_chat_text
 
                 path_or_name = _path_or_name_from_tool_arguments(step.arguments)
                 chat_append_callback(document_open_step_chat_text(path_or_name, document_open_step_index))

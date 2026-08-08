@@ -28,8 +28,6 @@ LIBREPY_PLUGIN_DIRS: dict[str, tuple[str, ...]] = {
         "venv/duckdb_sql.py",
         "venv/languagetool.py",
         "venv/vale.py",
-        "venv/harper.py",
-        "venv/harper_binary.py",
         "venv/audio_recorder.py",
         "venv/audio_record_main.py",
         "audio_silence_detector.py",

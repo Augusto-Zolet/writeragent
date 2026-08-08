@@ -228,7 +228,7 @@ def _run_writing_agent(ctx: ToolContext, *, query: str, history_text: str | None
             return format_error_payload(ToolExecutionError("Writing stopped by user.", code="USER_STOPPED"))
         if isinstance(step, ToolCall):
             if step.name == "delegate_read_document" and chat_append_callback:
-                from plugin.chatbot.document_research_chat import document_open_step_chat_text
+                from plugin.chatbot.web_research_chat import document_open_step_chat_text
 
                 path_or_name = _field_from_tool_arguments(step.arguments, "path_or_name")
                 chat_append_callback(document_open_step_chat_text(path_or_name, document_open_step_index))

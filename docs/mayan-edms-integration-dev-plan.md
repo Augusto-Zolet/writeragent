@@ -301,7 +301,7 @@ Project metadata type: "Project Code"
 
 **Implementer (priority):**
 
-5. **Reuse machinery** — Inner read agent, `open_document_for_read`, `document_research_chat.py`, `DelegateToSpecializedBase`, `READ_TOOLS_BY_DOC_TYPE` — shared with local track.
+5. **Reuse machinery** — Inner read agent, `open_document_for_read`, `web_research_chat.py` (document open status helpers), `DelegateToSpecializedBase`, `READ_TOOLS_BY_DOC_TYPE` — shared with local track.
 6. **Extend `document_research`** — Add `source` on list/delegate tools; avoid a parallel `mayan_documents` domain.
 7. **Least code** — Thin `mayan_client.py`; `sync_request` only; pluggable `DocumentSource` only after Mayan is solid (Phase 4).
 8. **One search API** — Dialog, CLI, and sub-agent tools call the same list/search/open helpers.
@@ -385,7 +385,7 @@ The thin `mayan_client.py` prefers `/cabinets/{id}/documents/` + filters over gl
 ### Threading and status
 
 - Download in async tool worker; `open` on main thread via `execute_on_main_thread`.
-- Extend [`document_research_chat.py`](../plugin/chatbot/document_research_chat.py): e.g. “Searching Mayan…”, “delegate_read_document (mayan:42 — Budget_2026.pdf)”.
+- Extend [`web_research_chat.py`](../plugin/chatbot/web_research_chat.py) document-open helpers: e.g. “Searching Mayan…”, “delegate_read_document (mayan:42 — Budget_2026.pdf)”.
 
 ### Why not a separate `mayan_documents` domain?
 
@@ -401,7 +401,7 @@ Would duplicate gateway wiring, prompts, status formatters, MCP entries, and tes
 | Search UI (Phase 1) | `mayan_search_ui.py` + `MayanSearchDialog.xdl` (names TBD) |
 | CLI (Phase 1) | `scripts/search_mayan_documents.py` |
 | Open / temp | [`document_research.py`](../plugin/doc/document_research.py) |
-| Chat status | [`document_research_chat.py`](../plugin/chatbot/document_research_chat.py) |
+| Chat status | [`web_research_chat.py`](../plugin/chatbot/web_research_chat.py) |
 | Prompts | [`constants.py`](../plugin/framework/constants.py), [`specialized_base.py`](../plugin/doc/specialized_base.py) |
 | Unit tests | `tests/doc/test_mayan_client.py`, extend `test_document_research*.py` |
 | UNO tests | `tests/doc/test_mayan_uno.py` |
