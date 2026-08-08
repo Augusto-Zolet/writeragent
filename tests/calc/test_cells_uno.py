@@ -314,3 +314,375 @@ def test_read_after_write_stability():
     # Filter matches to only check Z column to avoid false positives from other tests
     z_matches = [m for m in res_search.get("matches", []) if m.get("cell", "").startswith("Z")]
     assert len(z_matches) == 0, f"Expected 0 matches for Apple in Z column, found {len(z_matches)}"
+
+
+@native_test
+def test_elapsed_time_over_24h_reads_as_duration():
+    """§3.2: 1.25 under [HH]:MM:SS becomes PT30H, not 06:00:00."""
+    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+    cell = active_sheet.getCellByPosition(0, 30)  # A31
+    cell.setValue(1.25)
+    _set_number_format(cell, "[HH]:MM:SS")
+
+    res = _execute_calc_tool("read_cell_range", {"range_name": ["A31"]})
+    assert res.get("status") == "ok", res
+    info = res["result"][0][0][0]
+    assert info["value"] == "PT30H", f"expected duration wire, got {info}"
+    assert info["type"] == "duration"
+    assert info["format_category"] == "duration"
+
+
+@native_test
+def test_write_and_read_date_time_cells():
+    res = _execute_calc_tool(
+        "write_formula_range",
+        {"range_name": ["A26:B26"], "formula_or_values": '["2026-08-08", "08:00"]'},
+    )
+    assert res.get("status") == "ok", res
+    msg = res.get("message", "")
+    assert "1 date" in msg and "1 time" in msg, msg
+
+    read_res = _execute_calc_tool("read_cell_range", {"range_name": ["A26:B26"]})
+    assert read_res.get("status") == "ok", read_res
+    row = read_res["result"][0][0]
+
+    assert row[0]["value"] == "2026-08-08"
+    assert row[0]["type"] == "date"
+    assert row[0]["format_category"] == "date"
+
+    assert row[1]["value"] == "08:00:00"
+    assert row[1]["type"] == "time"
+    assert row[1]["format_category"] == "time"
+
+
+@native_test
+def test_write_iso_mixed_with_formula_same_as_constants():
+    """Phase 2: constants use setDataArray even when a formula is in the range."""
+    res = _execute_calc_tool(
+        "write_formula_range",
+        {"range_name": ["A32:C32"], "formula_or_values": '["2026-08-08", "08:00", "=A32+1"]'},
+    )
+    assert res.get("status") == "ok", res
+    msg = res.get("message", "")
+    assert "1 date" in msg and "1 time" in msg and "1 formula" in msg, msg
+
+    read_res = _execute_calc_tool("read_cell_range", {"range_name": ["A32:C32"]})
+    row = read_res["result"][0][0]
+    assert row[0]["value"] == "2026-08-08" and row[0]["type"] == "date"
+    assert row[1]["value"] == "08:00:00" and row[1]["type"] == "time"
+    assert row[2]["formula"] == "=A32+1"
+    # S24: no format apply on formula cells — value may stay a raw serial under General.
+    assert row[2]["value"] in ("2026-08-09", 46243.0) or (
+        isinstance(row[2]["value"], float) and abs(row[2]["value"] - 46243.0) < 1e-6
+    )
+
+
+@native_test
+def test_write_preserves_compatible_date_format():
+    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+    cell = active_sheet.getCellByPosition(0, 33)  # A34
+    cell.setValue(0)
+    _set_number_format(cell, "MM/DD/YYYY")
+    prior_key = int(cell.getPropertyValue("NumberFormat"))
+
+    res = _execute_calc_tool(
+        "write_formula_range",
+        {"range_name": ["A34"], "formula_or_values": "2026-08-08"},
+    )
+    assert res.get("status") == "ok", res
+    assert int(cell.getPropertyValue("NumberFormat")) == prior_key
+
+    read_res = _execute_calc_tool("read_cell_range", {"range_name": ["A34"]})
+    info = read_res["result"][0][0][0]
+    assert info["type"] == "date"
+    assert info["value"] == "2026-08-08"
+
+
+@native_test
+def test_write_time_preserves_elapsed_format():
+    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+    cell = active_sheet.getCellByPosition(1, 33)  # B34
+    _set_number_format(cell, "[HH]:MM:SS")
+    prior_key = int(cell.getPropertyValue("NumberFormat"))
+
+    res = _execute_calc_tool(
+        "write_formula_range",
+        {"range_name": ["B34"], "formula_or_values": "08:00"},
+    )
+    assert res.get("status") == "ok", res
+    assert int(cell.getPropertyValue("NumberFormat")) == prior_key
+
+
+@native_test
+def test_write_iso_into_text_format_applies_temporal():
+    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+    cell = active_sheet.getCellByPosition(2, 33)  # C34
+    _set_number_format(cell, "@")
+
+    res = _execute_calc_tool(
+        "write_formula_range",
+        {"range_name": ["C34"], "formula_or_values": "2026-08-08"},
+    )
+    assert res.get("status") == "ok", res
+    read_res = _execute_calc_tool("read_cell_range", {"range_name": ["C34"]})
+    info = read_res["result"][0][0][0]
+    assert info["value"] == "2026-08-08"
+    assert info["type"] == "date"
+
+
+@native_test
+def test_write_apostrophe_forces_text_keeps_at():
+    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+    cell = active_sheet.getCellByPosition(3, 33)  # D34
+    _set_number_format(cell, "YYYY-MM-DD")
+
+    res = _execute_calc_tool(
+        "write_formula_range",
+        {"range_name": ["D34"], "formula_or_values": "'2026-08-08"},
+    )
+    assert res.get("status") == "ok", res
+    assert cell.getString() == "2026-08-08"
+    # Text format @
+    formats = _test_doc.getNumberFormats()
+    props = formats.getByKey(int(cell.getPropertyValue("NumberFormat")))
+    assert props.getPropertyValue("FormatString") == "@"
+
+
+@native_test
+def test_write_ordinary_text_restores_prior_format():
+    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+    cell = active_sheet.getCellByPosition(4, 33)  # E34
+    _set_number_format(cell, "YYYY-MM-DD")
+    prior_key = int(cell.getPropertyValue("NumberFormat"))
+
+    res = _execute_calc_tool(
+        "write_formula_range",
+        {"range_name": ["E34"], "formula_or_values": "08/05/2026"},
+    )
+    assert res.get("status") == "ok", res
+    assert cell.getString() == "08/05/2026"
+    assert int(cell.getPropertyValue("NumberFormat")) == prior_key
+
+
+@native_test
+def test_write_idempotent_second_iso_keeps_format():
+    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+    cell = active_sheet.getCellByPosition(5, 33)  # F34
+    cell.setPropertyValue("NumberFormat", 0)
+
+    _execute_calc_tool("write_formula_range", {"range_name": ["F34"], "formula_or_values": "2026-08-08"})
+    key_after_first = int(cell.getPropertyValue("NumberFormat"))
+    assert key_after_first != 0
+
+    _execute_calc_tool("write_formula_range", {"range_name": ["F34"], "formula_or_values": "2026-08-08"})
+    assert int(cell.getPropertyValue("NumberFormat")) == key_after_first
+
+
+@native_test
+def test_write_midnight_datetime_preserves_date_format():
+    """S15: midnight datetime into a date cell keeps the destination format."""
+    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+    cell = active_sheet.getCellByPosition(0, 34)  # A35
+    cell.setValue(0)
+    _set_number_format(cell, "MM/DD/YYYY")
+    prior_key = int(cell.getPropertyValue("NumberFormat"))
+
+    res = _execute_calc_tool(
+        "write_formula_range",
+        {"range_name": ["A35"], "formula_or_values": "2026-08-08T00:00:00"},
+    )
+    assert res.get("status") == "ok", res
+    assert "1 datetime" in res.get("message", ""), res.get("message")
+    assert int(cell.getPropertyValue("NumberFormat")) == prior_key
+
+    read_res = _execute_calc_tool("read_cell_range", {"range_name": ["A35"]})
+    info = read_res["result"][0][0][0]
+    assert info["type"] == "date"
+    assert info["value"] == "2026-08-08"
+
+
+@native_test
+def test_write_non_midnight_datetime_applies_into_date_format():
+    """S15: non-midnight datetime into a date cell applies a datetime format."""
+    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+    cell = active_sheet.getCellByPosition(1, 34)  # B35
+    cell.setValue(0)
+    _set_number_format(cell, "MM/DD/YYYY")
+    prior_key = int(cell.getPropertyValue("NumberFormat"))
+
+    res = _execute_calc_tool(
+        "write_formula_range",
+        {"range_name": ["B35"], "formula_or_values": "2026-08-08T08:00:00"},
+    )
+    assert res.get("status") == "ok", res
+    assert "1 datetime" in res.get("message", ""), res.get("message")
+    assert int(cell.getPropertyValue("NumberFormat")) != prior_key
+
+    read_res = _execute_calc_tool("read_cell_range", {"range_name": ["B35"]})
+    info = read_res["result"][0][0][0]
+    assert info["type"] == "datetime"
+    assert info["value"] == "2026-08-08T08:00:00"
+
+
+@native_test
+def test_write_empty_cell_does_not_bridge_disagreeing_format_runs():
+    """S25: apply | empty | preserve must not bridge formats across the empty cell."""
+    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+    left = active_sheet.getCellByPosition(0, 35)  # A36
+    mid = active_sheet.getCellByPosition(1, 35)  # B36
+    right = active_sheet.getCellByPosition(2, 35)  # C36
+    left.setPropertyValue("NumberFormat", 0)
+    mid.setPropertyValue("NumberFormat", 0)
+    right.setValue(0)
+    _set_number_format(right, "MM/DD/YYYY")
+    right_prior = int(right.getPropertyValue("NumberFormat"))
+
+    res = _execute_calc_tool(
+        "write_formula_range",
+        {"range_name": ["A36:C36"], "formula_or_values": '["2026-08-08", "", "2026-08-09"]'},
+    )
+    assert res.get("status") == "ok", res
+    assert "2 dates" in res.get("message", ""), res.get("message")
+
+    left_key = int(left.getPropertyValue("NumberFormat"))
+    mid_key = int(mid.getPropertyValue("NumberFormat"))
+    right_key = int(right.getPropertyValue("NumberFormat"))
+    assert left_key != 0, "left General cell should receive an applied date format"
+    assert right_key == right_prior, "right compatible date format must be preserved"
+    # Empty stays General: disagreeing neighbors (apply vs preserve) do not bridge.
+    assert mid_key == 0, f"empty cell format bridged unexpectedly: {mid_key}"
+
+
+@native_test
+def test_write_invalid_calendar_day_falls_back_to_text_with_s29_restore():
+    """Gate accepts 2026-02-30 shape; Calc NotNumericException → text + S29 restore."""
+    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+    cell = active_sheet.getCellByPosition(0, 36)  # A37
+    _set_number_format(cell, "YYYY-MM-DD")
+    prior_key = int(cell.getPropertyValue("NumberFormat"))
+
+    res = _execute_calc_tool(
+        "write_formula_range",
+        {"range_name": ["A37"], "formula_or_values": "2026-02-30"},
+    )
+    assert res.get("status") == "ok", res
+    msg = res.get("message", "")
+    assert "1 text" in msg, msg
+    assert "1 date" not in msg and "dates" not in msg, msg
+    assert cell.getString() == "2026-02-30"
+    assert int(cell.getPropertyValue("NumberFormat")) == prior_key
+
+
+@native_test
+def test_write_read_iso_round_trip_with_non_default_null_date():
+    """Wire ISO is stable when document NullDate is not the Calc default."""
+    import uno
+
+    settings = _test_doc.getNumberFormatSettings()
+    old_null = settings.getPropertyValue("NullDate")
+    try:
+        nd = uno.createUnoStruct("com.sun.star.util.Date")
+        nd.Year, nd.Month, nd.Day = 1904, 1, 1
+        settings.setPropertyValue("NullDate", nd)
+
+        res = _execute_calc_tool(
+            "write_formula_range",
+            {"range_name": ["A38"], "formula_or_values": "2026-08-08"},
+        )
+        assert res.get("status") == "ok", res
+        assert "1 date" in res.get("message", ""), res.get("message")
+
+        active_sheet = _test_doc.getCurrentController().getActiveSheet()
+        serial = active_sheet.getCellByPosition(0, 37).getValue()  # A38
+        # Under NullDate 1904-01-01, 2026-08-08 is 44780 (46242 − 1462).
+        assert abs(serial - 44780.0) < 1e-6, f"expected 1904-epoch serial, got {serial}"
+
+        read_res = _execute_calc_tool("read_cell_range", {"range_name": ["A38"]})
+        info = read_res["result"][0][0][0]
+        assert info["value"] == "2026-08-08"
+        assert info["type"] == "date"
+        assert info["format_category"] == "date"
+    finally:
+        settings.setPropertyValue("NullDate", old_null)
+
+
+@native_test
+def test_write_iso_date_column_formats_all_cells():
+    """Vertical merge correctness: homogeneous ISO column still enriches every cell."""
+    res = _execute_calc_tool(
+        "write_formula_range",
+        {"range_name": ["A40:A42"], "formula_or_values": '["2026-08-08", "2026-08-09", "2026-08-10"]'},
+    )
+    assert res.get("status") == "ok", res
+    assert "3 dates" in res.get("message", ""), res.get("message")
+
+    read_res = _execute_calc_tool("read_cell_range", {"range_name": ["A40:A42"]})
+    assert read_res.get("status") == "ok", read_res
+    col = [row[0] for row in read_res["result"][0]]
+    assert [c["value"] for c in col] == ["2026-08-08", "2026-08-09", "2026-08-10"]
+    assert all(c["type"] == "date" and c["format_category"] == "date" for c in col)
+
+
+@native_test
+def test_write_and_read_duration_pt30h():
+    """PT30H into General → duration serial + elapsed format; read back PT30H."""
+    from plugin.calc.datetime_wire import is_elapsed_format_string
+
+    res = _execute_calc_tool(
+        "write_formula_range",
+        {"range_name": ["A43"], "formula_or_values": "PT30H"},
+    )
+    assert res.get("status") == "ok", res
+    assert "1 duration" in res.get("message", ""), res.get("message")
+
+    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+    cell = active_sheet.getCellByPosition(0, 42)  # A43
+    assert abs(cell.getValue() - 1.25) < 1e-9
+    formats = _test_doc.getNumberFormats()
+    props = formats.getByKey(int(cell.getPropertyValue("NumberFormat")))
+    assert is_elapsed_format_string(props.getPropertyValue("FormatString"))
+
+    read_res = _execute_calc_tool("read_cell_range", {"range_name": ["A43"]})
+    info = read_res["result"][0][0][0]
+    assert info["value"] == "PT30H"
+    assert info["type"] == "duration"
+    assert info["format_category"] == "duration"
+
+
+@native_test
+def test_write_duration_preserves_elapsed_format():
+    """Duration into an elapsed column keeps the destination format (S16)."""
+    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+    cell = active_sheet.getCellByPosition(1, 42)  # B43
+    _set_number_format(cell, "[HH]:MM:SS")
+    prior_key = int(cell.getPropertyValue("NumberFormat"))
+
+    res = _execute_calc_tool(
+        "write_formula_range",
+        {"range_name": ["B43"], "formula_or_values": "PT8H"},
+    )
+    assert res.get("status") == "ok", res
+    assert "1 duration" in res.get("message", ""), res.get("message")
+    assert int(cell.getPropertyValue("NumberFormat")) == prior_key
+    assert abs(cell.getValue() - (8.0 / 24.0)) < 1e-9
+
+
+@native_test
+def test_write_and_read_duration_pt1h30m():
+    """Multi-component PT1H30M round-trips as duration wire, not clock time."""
+    res = _execute_calc_tool(
+        "write_formula_range",
+        {"range_name": ["C43"], "formula_or_values": "PT1H30M"},
+    )
+    assert res.get("status") == "ok", res
+    assert "1 duration" in res.get("message", ""), res.get("message")
+
+    active_sheet = _test_doc.getCurrentController().getActiveSheet()
+    cell = active_sheet.getCellByPosition(2, 42)  # C43
+    assert abs(cell.getValue() - (1.5 / 24.0)) < 1e-9
+
+    read_res = _execute_calc_tool("read_cell_range", {"range_name": ["C43"]})
+    info = read_res["result"][0][0][0]
+    assert info["value"] == "PT1H30M"
+    assert info["type"] == "duration"
+    assert info["format_category"] == "duration"

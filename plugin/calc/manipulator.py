@@ -45,8 +45,17 @@ else:
         pass
 
 
-from plugin.framework.errors import ToolExecutionError, UnoObjectError, safe_json_loads
 from plugin.calc import CalcError
+from plugin.calc.datetime_wire import (
+    coalesce_temporal_apply_rects,
+    duration_serial_from_iso,
+    match_iso_duration,
+    match_iso_temporal,
+    should_preserve_temporal_format,
+)
+from plugin.calc.inspector import _format_category_from_type
+from plugin.framework.errors import ToolExecutionError, UnoObjectError, safe_json_loads
+from plugin.framework.uno_context import get_ctx
 
 logger = logging.getLogger("writeragent.calc")
 
@@ -322,8 +331,6 @@ class CellManipulator:
             # Get value with type handling
             cell_type = cell.getType()
 
-            import sys
-
             CCT = sys.modules.get("com.sun.star.table", None)
             if CCT is not None and hasattr(CCT, "CellContentType"):
                 CCT = CCT.CellContentType
@@ -415,11 +422,30 @@ class CellManipulator:
         cell_range = self.bridge.resolve_range_or_address(range_str)
         self._apply_style_properties(cell_range, bold, italic, bg_color, font_color, font_size, h_align, v_align, wrap_text, border_color)
 
+    @staticmethod
+    def _resolve_document_locale(doc):
+        """Return document CharLocale, or en-US when Language is empty/unusable (M2)."""
+        import uno
+
+        try:
+            locale = doc.getPropertyValue("CharLocale")
+            language = getattr(locale, "Language", None) or ""
+            if language:
+                return locale
+        except Exception:
+            logger.debug("CharLocale unavailable; using en-US fallback", exc_info=True)
+        return uno.createUnoStruct("com.sun.star.lang.Locale", Language="en", Country="US", Variant="")
+
+    @staticmethod
+    def _apply_number_format_key(target, format_key: int) -> None:
+        """Set NumberFormat from an integer registry key (detected keys, not format strings)."""
+        target.setPropertyValue("NumberFormat", int(format_key))
+
     def _set_range_number_format(self, range_str: str, format_str: str):
         cell_range = self.bridge.resolve_range_or_address(range_str)
         doc = self.bridge.get_active_document()
         formats = doc.getNumberFormats()
-        locale = doc.getPropertyValue("CharLocale")
+        locale = self._resolve_document_locale(doc)
         format_id = formats.queryKey(format_str, locale, False)
         if format_id == -1:
             format_id = formats.addNew(format_str, locale)
@@ -429,7 +455,7 @@ class CellManipulator:
         cell = self.bridge.get_cell_by_address(address)
         doc = self.bridge.get_active_document()
         formats = doc.getNumberFormats()
-        locale = doc.getPropertyValue("CharLocale")
+        locale = self._resolve_document_locale(doc)
         format_id = formats.queryKey(format_str, locale, False)
         if format_id == -1:
             format_id = formats.addNew(format_str, locale)
@@ -510,8 +536,120 @@ class CellManipulator:
             logger.error("Sort error (%s): %s", range_str, str(e))
             raise ToolExecutionError(str(e)) from e
 
+    def _make_number_formatter(self, doc):
+        """Attach a NumberFormatter to *doc* once per write invocation."""
+        uno_ctx = get_ctx()
+        smgr = uno_ctx.getServiceManager()
+        formatter = smgr.createInstanceWithContext("com.sun.star.util.NumberFormatter", uno_ctx)
+        formatter.attachNumberFormatsSupplier(doc)
+        return formatter
+
+    def _resolve_elapsed_format_key(self, formats, locale) -> int:
+        """Built-in ``[HH]:MM:SS`` key (formatindex 43), with queryKey/addNew fallback."""
+        try:
+            return int(formats.getFormatIndex(43, locale))
+        except Exception:
+            logger.debug("getFormatIndex(43) failed; falling back to queryKey", exc_info=True)
+        key = formats.queryKey("[HH]:MM:SS", locale, False)
+        if key == -1:
+            key = formats.addNew("[HH]:MM:SS", locale)
+        return int(key)
+
+    def _classify_write_cell(self, value, formatter, std_key, *, elapsed_format_key: int | None = None):
+        """Classify one write input into data/formula/meta for the ISO write path.
+
+        Returns ``(data_value, formula_or_empty, meta)`` where *meta* keys are:
+        ``kind`` (formula|forced_text|temporal|number|text|empty),
+        ``input_category``, ``detected_key``, ``restore_format`` (S29).
+        """
+        meta: dict = {"kind": "empty", "input_category": None, "detected_key": None, "restore_format": False}
+
+        if value is None:
+            return "", "", meta
+
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            meta["kind"] = "number"
+            return value, "", meta
+
+        if not isinstance(value, str):
+            meta["kind"] = "text"
+            meta["restore_format"] = True
+            return str(value), "", meta
+
+        if value == "":
+            return "", "", meta
+
+        if value.startswith("="):
+            meta["kind"] = "formula"
+            return "", value, meta
+
+        # Leading apostrophe forces literal text and leaves @ (S18) — no S29 restore.
+        if value.startswith("'"):
+            meta["kind"] = "forced_text"
+            return value[1:], "", meta
+
+        stripped = value.strip()
+        # Duration is WriterAgent arithmetic (isodate); Calc's formatter does not parse PT….
+        if match_iso_duration(stripped) and elapsed_format_key is not None:
+            try:
+                serial = duration_serial_from_iso(stripped)
+            except Exception as e:
+                logger.debug("Duration convert failed for %r: %s", stripped, e)
+                meta["kind"] = "text"
+                meta["restore_format"] = True
+                return value, "", meta
+            meta["kind"] = "temporal"
+            meta["input_category"] = "duration"
+            meta["detected_key"] = int(elapsed_format_key)
+            return float(serial), "", meta
+
+        input_category = match_iso_temporal(stripped)
+        if input_category is not None and formatter is not None:
+            try:
+                detected_key = formatter.detectNumberFormat(std_key, stripped)
+                serial = formatter.convertStringToNumber(std_key, stripped)
+                meta["kind"] = "temporal"
+                meta["input_category"] = input_category
+                meta["detected_key"] = int(detected_key)
+                return float(serial), "", meta
+            except Exception as e:
+                # NotNumericException and peers → ordinary text fallback (S4).
+                if "NotNumeric" not in type(e).__name__:
+                    logger.debug("ISO convert failed for %r: %s", stripped, e)
+                meta["kind"] = "text"
+                meta["restore_format"] = True
+                return value, "", meta
+
+        try:
+            num = float(value)
+            meta["kind"] = "number"
+            return num, "", meta
+        except ValueError:
+            meta["kind"] = "text"
+            meta["restore_format"] = True
+            return value, "", meta
+
+    def _apply_temporal_format_runs(self, sheet, start, decisions):
+        """Apply detected NumberFormat keys as coalesced 2D rectangles (S8/S25).
+
+        Resolves empty-cell bridging per row, finds horizontal apply runs, then
+        vertically merges identical ``(c0, c1, key)`` spans before one range set
+        per rectangle.
+        """
+        start_col, start_row = start
+        rects = coalesce_temporal_apply_rects(decisions)
+        applied = 0
+        for r0, r1, c0, c1, key in rects:
+            target = sheet.getCellRangeByPosition(start_col + c0, start_row + r0, start_col + c1, start_row + r1)
+            self._apply_number_format_key(target, key)
+            applied += (r1 - r0 + 1) * (c1 - c0 + 1)
+        return applied
+
     def write_formula_range(self, range_str: str, formula_or_values):
         """Write formula(s) or value(s) to a cell range.
+
+        ISO date/time strings matching the wire gate become Calc serials with
+        category-compatible NumberFormat preservation (see docs/calc-date-time-handling.md).
 
         Args:
             range_str: Cell range (e.g. "A1:A10", "B2:D2").
@@ -559,7 +697,7 @@ class CellManipulator:
                         num_cols = end[0] - start[0] + 1
                         total_cells = num_rows * num_cols
 
-                        range_str = f"{self.bridge._index_to_column(start[0])}{start[1]}:{self.bridge._index_to_column(end[0])}{end[1]}"
+                        range_str = f"{self.bridge._index_to_column(start[0])}{start[1] + 1}:{self.bridge._index_to_column(end[0])}{end[1] + 1}"
 
                     # Pad rows to ensure uniform width, and flatten into 1D
                     flat_vals = []
@@ -576,62 +714,137 @@ class CellManipulator:
             else:
                 values = [formula_or_values] * total_cells
 
-            data_array = []
-            formula_array = []
-            has_formulas = False
+            doc = self.bridge.get_active_document()
+            formats = doc.getNumberFormats()
+            locale = self._resolve_document_locale(doc)
+            std_key = formats.getStandardIndex(locale)
+            # Lazy setup: one pass over values for ISO date/time vs PT duration candidates.
+            needs_formatter = False
+            needs_duration = False
+            for v in values:
+                if not isinstance(v, str) or v.startswith("=") or v.startswith("'"):
+                    continue
+                stripped = v.strip()
+                if not needs_formatter and match_iso_temporal(stripped):
+                    needs_formatter = True
+                if not needs_duration and match_iso_duration(stripped):
+                    needs_duration = True
+                if needs_formatter and needs_duration:
+                    break
+            formatter = self._make_number_formatter(doc) if needs_formatter else None
+            elapsed_format_key = self._resolve_elapsed_format_key(formats, locale) if needs_duration else None
+
+            data_array: list[list] = []
+            formula_cells: list[tuple[int, int, str]] = []  # (col, row, formula)
+            # Per-cell meta in row-major order matching values
+            cell_metas: list[dict] = []
+            counts = {"date": 0, "time": 0, "datetime": 0, "duration": 0, "text": 0, "formula": 0, "number": 0}
 
             cell_idx = 0
             for row in range(start[1], end[1] + 1):
-                data_row: list[str | int | float] = []
-                formula_row = []
+                data_row: list = []
                 for col in range(start[0], end[0] + 1):
-                    value = values[cell_idx]
-
-                    if isinstance(value, str):
-                        if value.startswith("="):
-                            data_row.append("")
-                            formula_row.append(value)
-                            has_formulas = True
-                        else:
-                            try:
-                                num = float(value)
-                                data_row.append(num)
-                                formula_row.append("")
-                            except ValueError:
-                                data_row.append(value)
-                                formula_row.append("")
-                    elif isinstance(value, (int, float)):
-                        data_row.append(value)
-                        formula_row.append("")
-                    else:
-                        data_row.append(str(value))
-                        formula_row.append("")
-
+                    data_val, formula, meta = self._classify_write_cell(values[cell_idx], formatter, std_key, elapsed_format_key=elapsed_format_key)
+                    if formula:
+                        formula_cells.append((col, row, formula))
+                        counts["formula"] += 1
+                    elif meta["kind"] == "temporal":
+                        counts[meta["input_category"]] = counts.get(meta["input_category"], 0) + 1
+                    elif meta["kind"] in ("text", "forced_text"):
+                        counts["text"] += 1
+                    elif meta["kind"] == "number":
+                        counts["number"] += 1
+                    data_row.append(data_val)
+                    cell_metas.append(meta)
                     cell_idx += 1
-                data_array.append(tuple(data_row))
-                formula_array.append(tuple(formula_row))
+                data_array.append(data_row)
 
-            cell_range = cell_range.getSpreadsheet().getCellRangeByPosition(start[0], start[1], end[0], end[1])
+            sheet = cell_range.getSpreadsheet()
+            cell_range = sheet.getCellRangeByPosition(start[0], start[1], end[0], end[1])
 
-            if not has_formulas:
-                cell_range.setDataArray(tuple(data_array))
-            else:
-                string_formulas = []
+            # Snapshot NumberFormat keys before setDataArray for ordinary text (S29) and
+            # for temporal cells (M1 destination category). Floats keep format through commit.
+            s29_snapshots: list[tuple[int, int, int]] = []  # col, row, key
+            dest_categories: dict[tuple[int, int], str | None] = {}
+            category_cache: dict[int, str | None] = {}
+            any_temporal = any(m["kind"] == "temporal" for m in cell_metas)
+
+            cell_idx = 0
+            for row in range(start[1], end[1] + 1):
+                for col in range(start[0], end[0] + 1):
+                    meta = cell_metas[cell_idx]
+                    if meta["restore_format"] or (any_temporal and meta["kind"] == "temporal"):
+                        cell = sheet.getCellByPosition(col, row)
+                        try:
+                            key = int(cell.getPropertyValue("NumberFormat"))
+                        except Exception:
+                            key = 0
+                        if meta["restore_format"]:
+                            s29_snapshots.append((col, row, key))
+                        if meta["kind"] == "temporal":
+                            if key not in category_cache:
+                                try:
+                                    props = formats.getByKey(key)
+                                    category_cache[key] = _format_category_from_type(props.getPropertyValue("Type"))
+                                except Exception:
+                                    category_cache[key] = None
+                            dest_categories[(col, row)] = category_cache[key]
+                    cell_idx += 1
+
+            cell_range.setDataArray(tuple(tuple(r) for r in data_array))
+
+            for col, row, key in s29_snapshots:
+                sheet.getCellByPosition(col, row).setPropertyValue("NumberFormat", key)
+
+            for col, row, formula in formula_cells:
+                sheet.getCellByPosition(col, row).setFormula(formula)
+
+            format_warning = ""
+            if any_temporal:
+                # Build row decisions: None | "empty" | ("apply", key) | ("preserve", None)
+                decisions: list[list[tuple[str, int | None] | str | None]] = []
                 cell_idx = 0
                 for row in range(start[1], end[1] + 1):
-                    row_data = []
+                    row_dec: list[tuple[str, int | None] | str | None] = []
                     for col in range(start[0], end[0] + 1):
-                        value = values[cell_idx]
-                        if value is None:
-                            row_data.append("")
+                        meta = cell_metas[cell_idx]
+                        data_val = data_array[row - start[1]][col - start[0]]
+                        if meta["kind"] == "formula":
+                            row_dec.append(None)
+                        elif meta["kind"] == "temporal":
+                            dest_cat = dest_categories.get((col, row))
+                            if should_preserve_temporal_format(meta["input_category"], float(data_val), dest_cat):
+                                row_dec.append(("preserve", None))
+                            else:
+                                row_dec.append(("apply", meta["detected_key"]))
+                        elif data_val == "" and meta["kind"] == "empty":
+                            row_dec.append("empty")
                         else:
-                            row_data.append(str(value))
+                            row_dec.append(None)
                         cell_idx += 1
-                    string_formulas.append(tuple(row_data))
-                cell_range.setFormulaArray(tuple(string_formulas))
+                    decisions.append(row_dec)
+                try:
+                    self._apply_temporal_format_runs(sheet, start, decisions)
+                except Exception:
+                    logger.exception("Date/time format pass failed for range %s", range_str)
+                    # S30: count cells that needed apply, not preserve-only temporals.
+                    apply_n = sum(1 for row_dec in decisions for d in row_dec if isinstance(d, tuple) and d[0] == "apply")
+                    if apply_n:
+                        format_warning = f"; could not apply date/time formats to {apply_n} cells in {range_str}"
+                    else:
+                        format_warning = f"; date/time format pass failed for {range_str}"
 
-            logger.info("Range %s filled with %d values.", range_str.upper(), len(values))
-            return f"Range {range_str} filled with {len(values)} values."
+            parts = []
+            for singular, count_key in (("date", "date"), ("time", "time"), ("datetime", "datetime"), ("duration", "duration"), ("number", "number"), ("text", "text"), ("formula", "formula")):
+                n = counts.get(count_key, 0)
+                if n:
+                    parts.append(f"{n} {singular}" + ("s" if n != 1 and singular != "text" else ""))
+            detail = f" ({', '.join(parts)})" if parts else ""
+            n_vals = len(values)
+            values_word = "value" if n_vals == 1 else "values"
+            msg = f"Range {range_str} filled with {n_vals} {values_word}{detail}{format_warning}."
+            logger.info("%s", msg)
+            return msg
         except Exception as e:
             logger.error("Range formula write error (%s): %s", range_str, str(e))
             raise ToolExecutionError(str(e)) from e

@@ -71,7 +71,7 @@ class ReadCellRange(ToolBase):
     """Read values from one or more cell ranges."""
 
     name = "read_cell_range"
-    description = "Reads values from the specified cell range(s). Date/time-formatted numeric cells return an ISO 8601 string in `value` with `type` and `format_category` of date, time, or datetime. Supports lists for non-contiguous areas."
+    description = "Reads values from the specified cell range(s). Date/time-formatted numeric cells return an ISO 8601 string in `value` with `type` and `format_category` of date, time, or datetime. Elapsed/stopwatch formats (`[HH]:MM:SS`, …) return `PTnHnMnS` (e.g. PT30H) with type/format_category duration. Supports lists for non-contiguous areas."
     parameters = {"type": "object", "properties": {"range_name": {"type": "array", "items": {"type": "string"}, "description": ('Cell range(s) (e.g. ["A1:D10"] or ["A1", "C2:E5"]) for one or more ranges/cells.')}}, "required": ["range_name"]}
     uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
     tier = "core"
@@ -96,7 +96,7 @@ class WriteCellRange(ToolBase):
     """Write formulas or values to a cell range."""
 
     name = "write_formula_range"
-    description = "Writes formulas or values to a cell range(s) efficiently. Single string fills entire range; JSON array must match range size exactly (one value per cell). Use an empty string or empty array to clear contents. Supports lists for non-contiguous areas."
+    description = "Writes formulas or values to a cell range(s) efficiently. Single string fills entire range; JSON array must match range size exactly (one value per cell). Use an empty string or empty array to clear contents. Supports lists for non-contiguous areas. Dates and times: use ISO 8601 only — YYYY-MM-DD, HH:MM[:SS], or YYYY-MM-DDTHH:MM[:SS]. These become real Calc date/time values. Elapsed/stopwatch values: use PTnHnMnS (e.g. PT30H, PT1H30M); these become duration serials with elapsed formatting. Do not include a timezone offset or Z, and do not use locale forms like 08/05/2026; those are stored as text. Prefix with an apostrophe ('2026-08-08) to force text."
     parameters = {
         "type": "object",
         "properties": {

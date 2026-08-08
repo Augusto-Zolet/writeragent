@@ -87,11 +87,27 @@ _MCP_GUIDANCE_POINTER = (
 
 
 def _format_mcp_clock_context(now: datetime.datetime | None = None) -> str:
-    """Return connection-time local clock context for an MCP host's model prompt."""
+    """Return connection-time local clock context for an MCP host's model prompt.
+
+    Emits the local wall clock in Calc's accepted ISO shape (no offset / ``Z``).
+    Weekday and timezone *name* follow the process locale / OS tzname; the numeric
+    stamp itself stays locale-independent so models can copy it into ``write_formula_range``.
+    """
     local_now = now.astimezone() if now is not None else datetime.datetime.now().astimezone()
+    # Drop tzinfo so isoformat() cannot emit +HH:MM / Z — Calc serials are timezone-less.
+    wall = local_now.replace(tzinfo=None)
+    weekday = local_now.strftime("%A")
     timezone_name = local_now.tzname()
     timezone_suffix = f" ({timezone_name})" if timezone_name else ""
-    return f"Current local date and time: {local_now.strftime('%A')}, {local_now.isoformat(timespec='seconds')}{timezone_suffix}."
+    return f"Current local date and time: {weekday}, {wall.isoformat(timespec='seconds')}{timezone_suffix}."
+
+
+# Clock stamp is already offset-free; remind models not to re-add Z/offsets from other sources.
+_MCP_CALC_DATETIME_HINT = (
+    " When writing Calc date/time cells, use the same offset-free ISO as the clock above "
+    "(YYYY-MM-DD, HH:MM[:SS], YYYY-MM-DDTHH:MM[:SS]) or PTnHnMnS for elapsed values; "
+    "do not append a timezone offset or Z."
+)
 
 
 def build_initialize_instructions(mode: str, *, now: datetime.datetime | None = None) -> str:
@@ -119,7 +135,7 @@ def build_initialize_instructions(mode: str, *, now: datetime.datetime | None = 
             " For specialized capabilities, call delegate_to_specialized_*_toolset with domain and task "
             "(requires a WriterAgent chat endpoint for the inner agent)."
         )
-    return _format_mcp_clock_context(now) + " " + base + mode_hint + _MCP_GUIDANCE_POINTER
+    return _format_mcp_clock_context(now) + " " + base + mode_hint + _MCP_CALC_DATETIME_HINT + _MCP_GUIDANCE_POINTER
 
 
 def _get_request_protocol_version(handler) -> str | None:
