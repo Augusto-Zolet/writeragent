@@ -19,15 +19,9 @@ except Exception:
 # Under pytest (no UNO available), we still want the module to import so
 # collection can succeed and `pytestmark` can skip the tests.
 try:
-    from plugin.testing_runner import native_test, setup, teardown
+    from plugin.testing_runner import native_test
 except Exception:
     def native_test(func):
-        return func
-
-    def setup(func):
-        return func
-
-    def teardown(func):
         return func
 
 _HISTORY_DB_TMPDIR = None

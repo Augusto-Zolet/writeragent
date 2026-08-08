@@ -2,7 +2,7 @@
 import builtins
 import sys
 from plugin.framework.uno_context import get_desktop
-from plugin.testing_runner import setup, teardown, native_test
+from plugin.testing_runner import native_test
 from unittest.mock import MagicMock, patch
 from plugin.tests.testing_utils import setup_uno_mocks
 from plugin.framework.uno_context import set_fallback_ctx, get_ctx

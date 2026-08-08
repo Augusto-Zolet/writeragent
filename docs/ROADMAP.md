@@ -1,14 +1,16 @@
-# WriterAgent Roadmap 🗺️
+# WriterAgent Roadmap
 
-**High Priority / Immediate Action**:
-- **Consolidate Test Infrastructure**: Create a `TestingFactory` in `tests/testing_utils.py` to provide a unified way to setup/teardown document instances and ToolContexts for both native (LO) and mock (pytest) environments. This will significantly reduce test boilerplate and enforce engineering standards for all new features.
-
----
-
-**Last Updated**: 2026-08-08
+**Last Updated**: 2026-08-08  
 **Status**: Active Development
 
-This document outlines the planned features, improvements, and technical debt to address in WriterAgent. Items are organized by priority and domain.
+Planned features, technical debt, and product gaps. For day-to-day orientation use [`AGENTS.md`](../AGENTS.md); this file is the longer backlog.
+
+**Immediate focus (approachability / debt):**
+- Finish remaining test-factory edges (Draw/Impress page stubs only if pytest needs them; geometry helpers can stay focused MagicMocks).
+- Keep shrinking boilerplate and fixing stale `docs/` paths when you touch a topic.
+- Optional: section markers in megamodules (`content.py`, `document_helpers.py`, `format.py`, `panel.py`, …) before any large splits.
+
+`TestingFactory` / `with_native_doc` / `execute_tool` are the standard test path (see §5). Do not reintroduce per-file `@setup` / `@teardown` lifecycle.
 
 ---
 
@@ -210,52 +212,21 @@ Unified via `get_text_model()` / `set_text_model()` in [`plugin/framework/client
 
 ---
 
-
-# ROADMAP.md — WriterAgent Development
-
-This document tracks the long-term vision, medium-term priorities, and immediate research goals for WriterAgent.
-
----
-
-## 🚀 High-Level Vision
-Our primary focus is **LibreOffice Fidelity**—systematically closing the gap between the AI's capabilities and the full breadth of the UNO API to ensure the agent can manipulate every professional feature the suite offers.
-
----
-
-## 🛠️ Medium Priority Roadmap
+## Medium Priority Roadmap
 
 | Feature | Description |
 | :--- | :--- |
-| **LLM Response Parsing Refactor** | ✅ **COMPLETED** — Provider-specific parsing and normalizers extracted to `plugin/framework/client/response_normalizers.py` (plus dedicated shims) for better modularity and resilience. |
-| **Batch Section Rewriting** | Implement heading-based document segmentation for whole-document processing. |
-| **Advanced Impress Layouts** | Adopt native shape positioning/sizing for Draw/Impress image generation. |
+| **LLM Response Parsing Refactor** | ✅ **COMPLETED** — Provider-specific parsing and normalizers in `plugin/framework/client/response_normalizers.py` (+ provider shims). |
+| **Batch Section Rewriting** | Heading-based document segmentation for whole-document processing. |
+| **Advanced Impress Layouts** | Native shape positioning/sizing for Draw/Impress image generation. |
+
+### LLM Parsing for Resilience ✅ **COMPLETED**
+
+Provider-specific response parsing lives in `plugin/framework/client/response_normalizers.py` (`OpenAIShim` and siblings). `llm_client.py` delegates wire/pacing concerns; quirks (Gemini roles, Anthropic nested content, Ollama formatting) stay isolated there.
 
 ---
 
-## 💡 Refactoring Plan: LLM Parsing for Resilience ✅ **COMPLETED**
-
-Provider-specific response parsing and normalization were extracted (see `plugin/framework/client/response_normalizers.py`, `OpenAIShim`, and sibling shims in `anthropic_shim.py`, `google_shim.py`, `grok_shim.py`).
-
-### Why it was needed
-LLM APIs frequently update their JSON structures. These quirks were previously interleaved with request logic in `llm_client.py`, making them hard to test and maintain. The implementation follows patterns from LibreAI-style modular clients.
-
-### What was delivered
-- Central `response_normalizers.py` now owns token stripping, image extraction, multimodal normalization, and provider shims.
-- `llm_client.py` imports and delegates to the normalizers (keeps wire/pacing concerns separate).
-- Common quirks isolated (Gemini roles, Anthropic nested content, Ollama formatting, etc.).
-
-The original plan text is preserved below for historical context.
-
-### Common Quirks Addressed
-1. **Gemini Role Mapping:** Gemini uses `model` for assistant roles.
-2. **Anthropic Nested Content:** Content wrapped in arrays.
-3. **Ollama JSON Non-Standard:** Trailing newlines / formatting tolerance.
-4. **Hardcoded Fallbacks** and resilient chunk parsing remain available.
-
----
-
-
-## 📋 Medium Priority Features
+## Medium Priority Features
 
 ### 4. **Enhanced Style Management** 🎭 ✅ **COMPLETED**
 **Files**: `plugin/writer/styles.py`
@@ -277,16 +248,18 @@ The original plan text is preserved below for historical context.
 
 ### 5. **Test Infrastructure Consolidation** 🧪
 **Files**: `tests/testing_utils.py`
-**Status**: In progress (stubs + factory)
+**Status**: Mostly done — factory is the standard path
 
-- [x] **Shared stubs via `TestingFactory`**: `create_doc` returns `WriterDocStub` / `CalcDocStub` (no MagicMock wrapper); `create_context` for ToolContext; native path requires `doc=` + `@with_native_doc`
-- [x] **Calc document stub**: sheet/cell/range, `queryContentCells`, doc props/listeners; high-churn Calc pytest stacks migrated
-- [x] **Writer factory cleanup**: stub-by-default; `test_styles.py` uses `items=` families; removed unused `setup_tool`; mail_merge refactor docs updated
-- [x] **Common native pattern**: `TestingFactory.execute_tool` + `create_context(..., services=)`; Calc/Impress `_uno` helpers migrated; fake-native `test_page_uno.py` demoted to pytest `test_page.py`
-- [ ] Consolidate remaining duplicate UNO mocks (deferred: Calc number-format stacks in `test_cells.py`; cell geometry in `test_calc_utils.py`)
+- [x] **Shared stubs via `TestingFactory`**: `create_doc` returns `WriterDocStub` / `CalcDocStub`; `create_context` for ToolContext; native path uses `doc=` + `@with_native_doc` / `native_doc`
+- [x] **Calc document stub**: sheet/cell/range, `queryContentCells`, doc props/listeners; `getNumberFormats` / `getNumberFormatSettings` for inspector enrichment pytest
+- [x] **Writer factory cleanup**: stub-by-default; `test_styles.py` uses `items=` families; removed unused `setup_tool`
+- [x] **Common native pattern**: `TestingFactory.execute_tool` + `create_context(..., services=)`; Calc/Impress `_uno` helpers migrated; fake-native `test_page_uno.py` → pytest `test_page.py`
+- [x] **Drop leftover `@setup` / `@teardown` imports** in suites that already use the factory
+- [x] **Calc number-format pytest** (`test_cells.py`) uses `TestingFactory.create_doc(..., number_formats=…)` instead of bare MagicMock docs
 - [ ] Draw/Impress page stubs only if pytest coverage needs them (not needed today — `supportsService` via stub `doc_type` is enough)
+- Note: `test_calc_utils.py` cell-geometry cases stay focused MagicMocks (unit-testing merge-cursor helpers, not document stubs)
 
-**Impact**: Reduces test code duplication by ~40%
+**Impact**: Less duplicated lifecycle / stub code; new UNO tests should follow the factory
 **Dependencies**: None
 **Blockers**: None
 
@@ -533,97 +506,56 @@ The original plan text is preserved below for historical context.
 
 ---
 
-## 📅 Timeline Estimates
+## Contribution opportunities
 
-### Next 2 Weeks (Sprint 1) ✅ **COMPLETED**
-- ✅ Complete Shape API enhancements (with rich formatting, connectors, groups)
-- ✅ Finish Fields domain (full field type support, master/dependent system)
-- ✅ Complete Indexes domain (TOC creation, marks, comprehensive management)
-- [x] Begin test infrastructure consolidation (stubs + `TestingFactory.execute_tool`; see §5)
-- [ ] Review and organize documentation files
-- [ ] Add integration tests for new features
+### Good first issues
+- Fix stale paths in a topic doc when you touch that area (`format.py` not `format_support.py`; chat prompts in `prompts.py`)
+- Migrate a remaining MagicMock-heavy pytest to `TestingFactory` where a stub already fits
+- Error-message consistency pass (`log.exception`, `format_error_payload`)
+- Section markers in a megamodule before any split
 
-### Next 4 Weeks (Sprint 2)
-- Complete Fields and Indexes domains
-- Continue test improvements
+### Larger / mentored
+- Batch section rewriting; advanced Impress layouts (see Medium Priority table)
+- Document acquisition / resolution unification (DocumentService + frame resolution + RuntimeUID)
+- Remaining specialized-domain gaps in [features.md](features.md) / toolset docs
 
-### Next 8 Weeks (Sprint 3)
-- Complete remaining specialized domains
-- Enhance documentation
-- Address technical debt
-- Begin future research
+### Research
+- Agent personality / memory UX beyond current librarian + USER.md
+- Voice interface; collaborative editing
 
 ---
 
-## 🤝 Contribution Opportunities
+## Changelog
 
-### Good First Issues
-- Test infrastructure consolidation
-- Documentation improvements
-- Error message enhancements
-- Code quality initiatives
+**2026-08-08**: Approachability pass
+- MCP docs: live `plugin/mcp/` + `queue_executor` status; historical `core/` narrative quarantined
+- Topic docs: `format.py` / `prompts.py` path corrections (AGENTS.md left alone)
+- Test factory: CalcDocStub number-format hooks; leftover `@setup`/`@teardown` imports removed
+- Roadmap: removed duplicate second title, refreshed status / good-first-issues
 
-### Mentored Projects
-- Shape API enhancements
-- Fields domain completion
+**2024-03-25**: Initial roadmap created (Shapes, Fields, Indexes, tech debt inventory)
 
-### Research Projects
-- Agent personality system
-- Voice interface
-- Collaborative features
+**2024-03-24**: Tool switching + specialized domains documented
 
 ---
 
-## 📝 Changelog
+## Current status
 
-**2024-03-25**: Initial roadmap created
-- Added high priority features (Shapes, Fields, Indexes)
-- Organized medium priority features
-- Identified technical improvements
-- Added documentation tasks
-- Listed known issues and technical debt
-
-**2024-03-24**: Previous work
-- Completed tool switching architecture
-- Implemented specialized domains
-- Created comprehensive documentation
-
----
-
-## 🎯 Vision
-
-WriterAgent aims to be the most powerful, flexible, and user-friendly document automation platform for LibreOffice. By systematically addressing this roadmap, we'll create a tool that:
-
-- **Empowers users** with intuitive interfaces
-- **Automates complex tasks** through intelligent tools
-- **Adapts to workflows** with personalized experiences
-- **Scales with needs** from simple edits to complex document systems
-- **Delights users** with thoughtful design and helpful guidance
-
-## 📊 Current Status
-
-**Recently Completed** 🎉:
-- ✅ Chatbot import architecture & exception standardization (purged "AI slop", consolidated 100+ imports)
-- ✅ Shape API enhancements (rich formatting, connectors, groups)
-- ✅ Fields domain (full field type support, master/dependent system)
-- ✅ Indexes domain (TOC creation, marks, comprehensive management)
+**Recently completed:**
+- ✅ Shape / Fields / Indexes Writer domains
 - ✅ Librarian agentic onboarding ([`plugin/chatbot/librarian.py`](../plugin/chatbot/librarian.py))
-- ✅ Track Changes domain ([`plugin/writer/tracking.py`](../plugin/writer/tracking.py))
-- ✅ Tool switching architecture
-- ✅ Specialized domain system
-- ✅ Calc tool integration
-- ✅ Tunnel module removal
-- ✅ Memory management simplification
-- ✅ Config / chat model unification (`text_model` canonical via `get_text_model()` + `set_text_model()` in model_fetcher; legacy `model` ignored; LRU updates centralized)
-- ✅ LLM Response Parsing Refactor (extracted to `plugin/framework/client/response_normalizers.py` + provider shims; `llm_client.py` now delegates)
+- ✅ Track Changes ([`plugin/writer/tracking.py`](../plugin/writer/tracking.py))
+- ✅ Specialized domain system + Calc tool integration
+- ✅ Config / chat model unification (`text_model` via `get_text_model` / `set_text_model`)
+- ✅ LLM response parsing refactor (`response_normalizers.py` + shims)
+- ✅ Test infrastructure consolidation (factory + native helpers; see §5)
+- ✅ MCP bind/port cleanup and shared native tool executor (WIP squash onto master)
 
-**Active Development**:
-- Test infrastructure consolidation
-- Document acquisition / resolution unification (DocumentService + frame resolution + RuntimeUID identity)
-- Documentation enhancement
+**Active:**
+- Document acquisition / resolution unification (DocumentService + frame + RuntimeUID)
+- Approachability: stale docs, megamodule navigation markers, leftover mock edges
+- Product fidelity gaps under [LibreOffice API fidelity](#libreoffice-api-fidelity-product)
 
-**Up Next**:
-- Test infrastructure consolidation
-- Documentation enhancement
-
-Every item on this roadmap brings us closer to that vision. 🚀
+**Up next:**
+- Section markers (then selective splits) on largest entry modules
+- Batch section rewriting / Impress layout work when prioritized

@@ -163,7 +163,7 @@ class KnowledgeGoal:
 
 ### **System Prompt Additions**
 
-Add to `DEFAULT_CHAT_SYSTEM_PROMPT`:
+Add via `get_chat_system_prompt_for_document` / `prompts.py`:
 
 ```
 LIBRARIAN PERSONALITY:
@@ -416,7 +416,7 @@ Want to try it? Select some text and say 'make this bold' - I'll handle the rest
 
 1. **`plugin/chatbot/librarian.py`** - Core agent logic
 2. **`plugin/chatbot/knowledge_goals.py`** - Goal system
-3. **`plugin/framework/constants.py`** - Add LIBRARIAN prompts
+3. **`plugin/framework/prompts.py`** - Add LIBRARIAN prompts
 4. **`plugin/chatbot/panel_factory.py`** - Integration
 5. **`plugin/chatbot/memory.py`** - Enhanced knowledge storage
 

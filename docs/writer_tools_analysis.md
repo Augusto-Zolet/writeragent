@@ -7,7 +7,7 @@
 | [bookmarks.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/bookmarks.py) | ListBookmarks, CleanupBookmarks | 51 | 1.8K |
 | [comments.py](../../plugin/writer/comments.py) | ListComments, AddComment, DeleteComment, ResolveComment, workflow | 548 | 19.1K |
 | [content.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/content.py) | GetDocumentContent, ApplyDocumentContent, FindText, ReadParagraphs, InsertAtParagraph, SetParagraphText, SetParagraphStyle, DeleteParagraph, DuplicateParagraph, CloneHeadingBlock, InsertParagraphsBatch | 1032 | 36.4K |
-| [format_support.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/format_support.py) | *(helper module, no tools)* | 580 | 20.2K |
+| [format.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/format.py) | *(helper module, no tools)* | 580 | 20.2K |
 | [frames.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/frames.py) | ListTextFrames, GetTextFrameInfo, SetTextFrameProperties | 276 | 9.1K |
 | [fulltext.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/fulltext.py) | SearchFulltext, GetIndexStats | 160 | 5.5K |
 | [images.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/images.py) | GenerateImage, EditImage | 123 | 3.6K |
@@ -38,7 +38,7 @@ Both deal with heading/outline navigation. The overlap is significant:
 | `get_document_outline` | `get_document_tree` | Both build the heading tree — `get_document_tree` is the richer version with bookmarks and content strategies |
 | `get_heading_content` | `get_heading_children` | Both drill into heading content — `get_heading_children` is richer with locator support |
 
-**Proposal:** Merge into [outline.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/outline.py). Keep `get_document_tree` and `get_heading_children` as the canonical tools. `get_document_outline` can become a thin wrapper or be absorbed into `get_document_tree` with a [format](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/format_support.py#30-43) parameter. `get_heading_content` can be absorbed into `get_heading_children`.
+**Proposal:** Merge into [outline.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/outline.py). Keep `get_document_tree` and `get_heading_children` as the canonical tools. `get_document_outline` can become a thin wrapper or be absorbed into `get_document_tree` with a [format](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/format.py#30-43) parameter. `get_heading_content` can be absorbed into `get_heading_children`.
 
 **Savings:** ~2 tool classes eliminated, 1 file removed (~94 lines)
 
@@ -137,7 +137,7 @@ Both tools in [tracking.py](file:///home/keithcu/Desktop/Python/writeragent/plug
 > The big content files ([content.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/content.py) at 1032 lines, [comments.py](../../plugin/writer/comments.py) at 548 lines, [images_doc.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/images_doc.py) at 729 lines) are already large. The proposed merges keep them from getting unwieldy — the largest merge adds ~160 lines to [search.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/search.py) for fulltext.
 
 > [!IMPORTANT]
-> The [format_support.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/format_support.py) and [ops.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/ops.py) helper modules (705 lines combined) are not tool files and should remain as-is. They provide shared utilities used across multiple tool files.
+> The [format.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/format.py) and [ops.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/ops.py) helper modules (705 lines combined) are not tool files and should remain as-is. They provide shared utilities used across multiple tool files.
 
 ## Not Recommended
 

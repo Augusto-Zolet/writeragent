@@ -164,7 +164,7 @@ While the "Fat API" approach drastically reduces tool count and could potentiall
 
 ### 1.4 Two Implementations for Specialized Workflows
 
-We currently support two alternative implementations for the `delegate_to_specialized_writer_toolset` tool. This allows us to experiment, research, and quantify which approach works best (e.g., perhaps smaller models need the sub-agent approach to avoid confusion, while larger models can handle in-place tool switching seamlessly). You can toggle between them using the `USE_SUB_AGENT` global variable in `plugin/writer/specialized.py`. Both modes use a `final_answer` tool to explicitly return control and exit the mode.
+We currently support two alternative implementations for the `delegate_to_specialized_writer_toolset` tool. This allows us to experiment, research, and quantify which approach works best (e.g., perhaps smaller models need the sub-agent approach to avoid confusion, while larger models can handle in-place tool switching seamlessly). You can toggle between them using the `USE_SUB_AGENT` flag in [`plugin/framework/constants.py`](../../plugin/framework/constants.py). Both modes use a `final_answer` tool to explicitly return control and exit the mode.
 
 **Approach A: The Sub-Agent Model (`USE_SUB_AGENT = True`)**
 
@@ -245,7 +245,7 @@ flowchart LR
 
 **File:** `[plugin/framework/prompts.py](../../plugin/framework/prompts.py)`
 
-Block `WRITER_SPECIALIZED_DELEGATION` is prepended into `DEFAULT_CHAT_SYSTEM_PROMPT` so the main Writer model is told **when** to call the gateway and **which** domain strings are valid.
+Block `WRITER_SPECIALIZED_DELEGATION_TEMPLATE` is injected into `DEFAULT_CHAT_SYSTEM_PROMPT_TEMPLATE` via `get_chat_system_prompt_for_document` so the main Writer model is told **when** to call the gateway and **which** domain strings are valid.
 
 ### 3.4 Exceptions: tools that stay on the main list
 
@@ -270,7 +270,7 @@ Some Writer tools intentionally use the default main-chat tier (**`tier = "core"
 
 **WriterAgent** modules/tools (columns 1–3) and **broader LibreOffice** gaps not covered by the agent (column 4). Core/advanced narrative lists remain in §5.5–5.6.
 
-**Math:** Editable **MathML in HTML** is imported on the **default core** tool `apply_document_content` (math-aware segmentation and OLE Math insertion in `format_support`), not through `delegate_to_specialized_writer_toolset`. There is no separate specialized **domain** for equations; models use the same HTML rules as other body content (`WRITER_APPLY_DOCUMENT_HTML_RULES` in `[plugin/framework/prompts.py](../../plugin/framework/prompts.py)`). See [docs/math-tex.md](math-tex.md).
+**Math:** Editable **MathML in HTML** is imported on the **default core** tool `apply_document_content` (math-aware segmentation and OLE Math insertion in [`format.py`](../../plugin/writer/format.py)), not through `delegate_to_specialized_writer_toolset`. There is no separate specialized **domain** for equations; models use the same HTML rules as other body content (`WRITER_APPLY_DOCUMENT_HTML_RULES` in [`plugin/framework/prompts.py`](../../plugin/framework/prompts.py)). See [docs/math-tex.md](math-tex.md).
 
 **`get_document_content` (core read):** [`plugin/writer/content.py`](../../plugin/writer/content.py) → [`document_to_content()`](../plugin/writer/format.py) (XHTML export + semantic HTML). Parameters: `scope` (`full` / `selection` / `range`), `max_chars`, `start` / `end`, and **`include_images`** (boolean, default **`false`**). When `include_images` is false, inline `data:image/...;base64,...` payloads are removed from the export; external `<img src="...">` URLs are kept. Pass `include_images: true` to include embedded image bytes. See also [docs/llm-styles.md](llm-styles.md) and [docs/html_style_model_plan.md](html_style_model_plan.md).
 
@@ -301,7 +301,7 @@ Some Writer tools intentionally use the default main-chat tier (**`tier = "core"
 | **Document automation**     | ❌ Not in agent          | —                                                                                                                                                                                                                                                  | Macros/scripting (Basic/Python/JS); event handling; custom functions; add-ins/extensions               |
 | **Security**                | ❌ Not in agent          | —                                                                                                                                                                                                                                                  | Digital signatures; encryption; password protection; redaction                                         |
 | **Document management**     | ❌ Not in agent          | —                                                                                                                                                                                                                                                  | Properties/metadata; version history; document comparison; assembly                                    |
-| **Math (MathML in HTML)**   | ✅ Implemented (core)    | `content.py`: `apply_document_content`; `format_support.py`, `html_math_segment.py`, `math_mml_convert.py`, `math_formula_insert.py`. Not a delegated domain.                                                                                      | MathML or TeX (preferred) as-input in HTML; chemistry notation; plotting; extra UNO beyond import path |
+| **Math (MathML in HTML)**   | ✅ Implemented (core)    | `content.py`: `apply_document_content`; `format.py`, `html_math_segment.py`, `math_mml_convert.py`, `math_formula_insert.py`. Not a delegated domain.                                                                                      | MathML or TeX (preferred) as-input in HTML; chemistry notation; plotting; extra UNO beyond import path |
 | **Real-time collaboration** | ❌ Not in agent          | —                                                                                                                                                                                                                                                  | Co-authoring; shared access; change notification; conflict resolution                                  |
 | **External integration**    | ❌ Not in agent          | —                                                                                                                                                                                                                                                  | Database connectivity; web services; cloud storage; API access                                         |
 | **Customization**           | ❌ Not in agent          | —                                                                                                                                                                                                                                                  | Custom toolbars/menus; keyboard shortcuts; UI customization; extension development                     |
@@ -314,7 +314,7 @@ Some Writer tools intentionally use the default main-chat tier (**`tier = "core"
 - **Tier filtering:** `exclude_tiers` default in `ToolRegistry.get_tools` / `get_schemas` hides specialized tools from default chat/MCP lists.
 - **Domain grouping:** `ToolWriter*Base.specialized_domain` + `tier = "specialized"`.
 - **Gateway:** `delegate_to_specialized_writer_toolset` (`tier = "core"`, `is_async()`); sub-agent or in-place domain switch per `specialized.py`.
-- **Prompt:** `WRITER_SPECIALIZED_DELEGATION` in `constants.py` teaches when to delegate.
+- **Prompt:** `WRITER_SPECIALIZED_DELEGATION_TEMPLATE` in `prompts.py` teaches when to delegate.
 - **Execution:** `ToolRegistry.execute` unchanged — tier affects listing, not dispatch.
 
 
@@ -448,7 +448,7 @@ The XHTML read path embeds graphics as `data:image/...;base64,...` in the HTML. 
 | Domain grouping           | `ToolWriter*Base.specialized_domain` + `tier = "specialized"`           |
 | User/model entry point    | `delegate_to_specialized_writer_toolset` (`tier = "core"`, async)       |
 | Sub-agent completion      | `final_answer` (`tier = "specialized_control"`)                         |
-| Prompt teaching           | `WRITER_SPECIALIZED_DELEGATION` in `constants.py`                       |
+| Prompt teaching           | `WRITER_SPECIALIZED_DELEGATION_TEMPLATE` in `prompts.py`                       |
 | Execution by name         | Unchanged `execute()` — tier only affects **listing**, not **dispatch** |
 
 

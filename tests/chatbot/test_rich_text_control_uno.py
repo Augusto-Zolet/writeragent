@@ -10,7 +10,7 @@
 from typing import Any
 
 from plugin.framework.logging import log
-from plugin.testing_runner import setup, teardown, native_test
+from plugin.testing_runner import native_test
 from plugin.tests.testing_utils import TestingFactory
 
 # ``make test`` LO runner: skip this file until clipboard/formatted-copy UNO path is stable.

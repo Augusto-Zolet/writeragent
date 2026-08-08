@@ -11,6 +11,8 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from plugin.tests.testing_utils import TestingFactory
+
 
 def test_cells_parse_color():
     from plugin.calc.cells import _parse_color
@@ -116,9 +118,12 @@ def _make_range_bridge(*, data_array, formula_array, date_addresses=(), format_g
     # Type bitmask vs FormatString (observability field on temporal enrich).
     format_props.getPropertyValue.side_effect = lambda name: format_type if name == "Type" else "YYYY-MM-DD"
     formats.getByKey.return_value = format_props
-    doc = MagicMock()
-    doc.getNumberFormats.return_value = formats
-    doc.getNumberFormatSettings.return_value.getPropertyValue.return_value = null_date or SimpleNamespace(Year=1899, Month=12, Day=30)
+    # CalcDocStub supplies getNumberFormats / getNumberFormatSettings (not a bare MagicMock doc).
+    doc = TestingFactory.create_doc(
+        doc_type="calc",
+        number_formats=formats,
+        null_date=null_date or SimpleNamespace(Year=1899, Month=12, Day=30),
+    )
     bridge = MagicMock()
     bridge.resolve_range_or_address.return_value = cell_range
     bridge.get_active_document.return_value = doc
@@ -308,9 +313,11 @@ def test_write_formula_range_s30_format_pass_warning():
     format_props.getPropertyValue.return_value = 0  # non-temporal Type
     formats.getByKey.return_value = format_props
 
-    doc = MagicMock()
-    doc.getNumberFormats.return_value = formats
-    doc.getPropertyValue.return_value = SimpleNamespace(Language="en", Country="US", Variant="")
+    doc = TestingFactory.create_doc(
+        doc_type="calc",
+        number_formats=formats,
+        props={"CharLocale": SimpleNamespace(Language="en", Country="US", Variant="")},
+    )
 
     bridge = MagicMock()
     bridge.resolve_range_or_address.return_value = cell_range
@@ -358,9 +365,11 @@ def test_write_formula_range_s30_warning_counts_apply_only():
 
     formats.getByKey.side_effect = _props_for_key
 
-    doc = MagicMock()
-    doc.getNumberFormats.return_value = formats
-    doc.getPropertyValue.return_value = SimpleNamespace(Language="en", Country="US", Variant="")
+    doc = TestingFactory.create_doc(
+        doc_type="calc",
+        number_formats=formats,
+        props={"CharLocale": SimpleNamespace(Language="en", Country="US", Variant="")},
+    )
 
     bridge = MagicMock()
     bridge.resolve_range_or_address.return_value = cell_range

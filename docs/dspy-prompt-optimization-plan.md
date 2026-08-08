@@ -11,7 +11,7 @@ isProject: false
 
 DSPy is built for exactly this: **optimizing prompts (instructions) to maximize a metric** without hand-tuning. Its optimizers (especially **MIPROv2**) propose and search over natural-language instructions using your program, a small train/val set, and a scoring function. So your goal—find a better system prompt—maps directly onto DSPy’s instruction optimization.
 
-- **What gets optimized**: The “instruction” of a DSPy predictor. That instruction is what MIPROv2 varies; you seed it with your current `DEFAULT_CHAT_SYSTEM_PROMPT` and optional formatting rules from [core/constants.py](core/constants.py).
+- **What gets optimized**: The “instruction” of a DSPy predictor. That instruction is what MIPROv2 varies; you seed it with your current `DEFAULT_CHAT_SYSTEM_PROMPT` and optional formatting rules from [plugin/framework/prompts.py](../plugin/framework/prompts.py).
 - **How**: You define a **program** (e.g. a tool-using agent that mirrors Writer chat), a **metric** (LLM-as-a-Judge score + token penalty), and a **dataset** of (document, question) pairs. MIPROv2 runs many instruction candidates and keeps the one that scores best on your metric.
 - **0-shot**: You can optimize **only the instruction** (no few-shot examples) by using MIPROv2 with `max_bootstrapped_demos=0, max_labeled_demos=0`.
 
@@ -135,7 +135,7 @@ Result: MIPROv2 will propose alternative instructions, evaluate each on your met
 
 - After `teleprompter.compile(...)`, save the compiled program: `optimized_program.save("optimized_writer_prompt.json")`.  
 - The saved JSON contains the winning **instruction** text. You can either:  
-  - **Manually** copy that instruction into `DEFAULT_CHAT_SYSTEM_PROMPT` in [core/constants.py](core/constants.py), or  
+  - **Manually** copy that instruction into `DEFAULT_CHAT_SYSTEM_PROMPT` in [plugin/framework/prompts.py](../plugin/framework/prompts.py), or  
   - Add a small helper that reads the JSON, extracts the instruction, and optionally overwrites a constant or a config file (if you later move the prompt to config).
 - Keep `FORMAT_RULES` (and any other non-optimized parts) out of the optimized instruction or append them after optimization so formatting rules stay consistent.
 
@@ -152,7 +152,7 @@ Result: MIPROv2 will propose alternative instructions, evaluate each on your met
   - `requirements.txt`: `dspy-ai` (and any deps for your endpoint).
 2. **Judge and gold**: The judge (in `eval_core.JudgeModule` / `score_with_judge`) handles all task types: structural (e.g. table, cleanup) and creative (e.g. resume, rewriting). It uses weighted accuracy/formatting/naturalness and optional gold references from `gold_standards.json`. Generate gold once with `run_eval_multi.py --generate-golds` for better judge consistency.
 3. **Run optimization** (e.g. `python run_optimize.py`). Use `auto="light"` first to limit cost; inspect the winning instruction and metric scores, then try `"medium"` if needed.
-4. **Apply the result**: Copy the best instruction from the saved program into `DEFAULT_CHAT_SYSTEM_PROMPT` in [core/constants.py](core/constants.py) (or merge with `FORMAT_RULES` as you do now). Test in WriterAgent with the same evaluation tasks to confirm behavior and token usage.
+4. **Apply the result**: Copy the best instruction from the saved program into `DEFAULT_CHAT_SYSTEM_PROMPT` in [plugin/framework/prompts.py](../plugin/framework/prompts.py) (or merge with `FORMAT_RULES` as you do now). Test in WriterAgent with the same evaluation tasks to confirm behavior and token usage.
 5. **Documentation**: See `scripts/prompt_optimization/README.md` for how to run the optimizer, the judge-based metric (`--judge`, gold standards), and how to update constants.py from the output.
 
 ---
@@ -189,6 +189,6 @@ So: **“How many is too many?”** is best answered by your own **sweep over to
 - **DSPy can help** by treating your Writer system prompt as the instruction of a DSPy program and using MIPROv2 to search for a better instruction on fixed, scoreable tasks.
 - **Your evaluation tasks** (“mess → table”, “reformat resume”, etc.) are well-suited: fixed inputs, judge-based correctness, and comparable token counts.
 - **Metric**: **LLM-as-a-Judge** score (shared `score_with_judge` in `eval_core`) minus a token penalty. No string-match fallback; optimization and multi-model eval use the same judge. Optional gold references from `gold_standards.json` improve consistency.
-- **Implementation**: Separate script under `scripts/prompt_optimization/`, ReAct with mock Writer tools, small dataset (same as run_eval_multi), **`make_judge_metric(judge_lm)`** for MIPROv2, 0-shot instruction-only, then copy the winning instruction into [core/constants.py](core/constants.py).
+- **Implementation**: Separate script under `scripts/prompt_optimization/`, ReAct with mock Writer tools, small dataset (same as run_eval_multi), **`make_judge_metric(judge_lm)`** for MIPROv2, 0-shot instruction-only, then copy the winning instruction into [plugin/framework/prompts.py](../plugin/framework/prompts.py).
 
 This gives you a repeatable, data-driven way to improve `DEFAULT_CHAT_SYSTEM_PROMPT` and keep token use under control.

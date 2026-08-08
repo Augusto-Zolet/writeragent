@@ -11,10 +11,6 @@ from plugin.doc.document_helpers import (
     WriterStreamedRewriteSession,
 )
 from plugin.framework.uno_context import get_desktop
-from plugin.testing_runner import setup, teardown, native_test
-from plugin.tests.testing_utils import TestingFactory
-
-
 from plugin.testing_runner import native_test
 from plugin.tests.testing_utils import TestingFactory, with_native_doc
 

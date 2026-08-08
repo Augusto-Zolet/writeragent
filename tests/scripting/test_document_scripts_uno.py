@@ -16,7 +16,7 @@ from plugin.scripting.document_scripts import (
     attach_document_script,
     get_document_scripts,
 )
-from plugin.testing_runner import native_test, setup, teardown
+from plugin.testing_runner import native_test
 from plugin.tests.testing_utils import TestingFactory
 
 _test_ctx = None

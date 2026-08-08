@@ -108,7 +108,7 @@ Some imports stay as `# type: ignore[unresolved-import]` where the checker still
 
 ### 2. Structs, `Any`, and callbacks
 
-`uno.createUnoStruct("com.sun.star.beans.PropertyValue")` and similar return values that stubs treat loosely. The codebase uses **`cast(Any, …)`** where a struct is built and passed through (e.g. [`plugin/writer/format_support.py`](../plugin/writer/format_support.py)).
+`uno.createUnoStruct("com.sun.star.beans.PropertyValue")` and similar return values that stubs treat loosely. The codebase uses **`cast(Any, …)`** where a struct is built and passed through (e.g. [`plugin/writer/format.py`](../plugin/writer/format.py)).
 
 [`plugin/framework/queue_executor.py`](../plugin/framework/queue_executor.py) passes **`uno.Any("void", None)`** into UNO callbacks; that line is explicitly ignored where the stub contract does not match pyuno’s usage.
 

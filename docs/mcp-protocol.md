@@ -214,7 +214,7 @@ Pick **one** small change at a time; avoid combining socket timeouts, `tools/lis
 - Large worker-pool or `tools/list` refactors bundled with a transport tweak.
 - Mandatory integration tests for `100-continue` unless HTTP/1.1 is re-enabled permanently.
 
-> **Historical note:** Sections below that describe `GET /tools`, `POST /tools/{name}`, and `core/mcp_server.py` refer to an older REST-style API. The live server uses JSON-RPC on `/mcp` only.
+> **Historical note:** From [Historical archive (pre-`plugin/` layout)](#historical-archive-pre-plugin-layout) downward, text that mentions `GET /tools`, `POST /tools/{name}`, or `core/*.py` describes an older REST-style layout. The live server uses JSON-RPC on `/mcp` only — see [Current HTTP MCP (2026)](#current-http-mcp-2026).
 
 ---
 
@@ -227,14 +227,14 @@ This section is the important mental model for integrating Cursor, LM Studio, or
 `tools/list` returns **core-tier** tools only. Tools with `tier="specialized"` or `tier="specialized_control"` are **omitted** from the default registry filter (see [`plugin/framework/tool.py`](../plugin/framework/tool.py) `get_tools` / `get_schemas`). The host typically receives:
 
 - Document I/O: `get_document_content`, `apply_document_content`, `search_in_document`, `get_document_tree`, …
-- Guidance: **`get_guidance(topic)`** — the on-demand how-to manual (topics per document type; single source: the shared prompt pieces in `plugin/framework/constants.py`, mapped by `plugin/framework/agent_manual.py`)
+- Guidance: **`get_guidance(topic)`** — the on-demand how-to manual (topics per document type; single source: the shared prompt pieces in `plugin/framework/prompts.py`, mapped by `plugin/framework/agent_manual.py`)
 - A single gateway: **`delegate_to_specialized_writer_toolset`** ([`plugin/doc/specialized_base.py`](../plugin/doc/specialized_base.py), Writer variant in [`plugin/writer/specialized_base.py`](../plugin/writer/specialized_base.py))
 
 It does **not** receive dozens of low-level UNO tools (`list_styles`, page margin APIs, chart editors, etc.) as separate MCP tools.
 
 ### Where delegation guidance lives (MCP vs sidebar chat)
 
-Sidebar chat injects the same specialized-delegation block into the **system prompt** via [`get_chat_system_prompt_for_document()`](../plugin/framework/constants.py) (`WRITER_SPECIALIZED_DELEGATION_TEMPLATE` and siblings, with a dynamic `domain: description` list).
+Sidebar chat injects the same specialized-delegation block into the **system prompt** via [`get_chat_system_prompt_for_document()`](../plugin/framework/prompts.py) (`WRITER_SPECIALIZED_DELEGATION_TEMPLATE` and siblings, with a dynamic `domain: description` list).
 
 MCP hosts do **not** get that system prompt by default. Instead, **`tools/list`** enriches the gateway tool only (see [`to_mcp_schema()`](../plugin/framework/tool.py)):
 
@@ -242,7 +242,7 @@ MCP hosts do **not** get that system prompt by default. Instead, **`tools/list`*
 |--------|-------------------|
 | **`delegate_to_specialized_*_toolset` → `description`** | Short tool summary + full delegation template (semicolon-separated domains, `task` rules for Writer, **same single-line text as chat**) |
 | **`inputSchema.properties.domain.description`** | `domain one of:` plus the same semicolon-separated domain list (enum values stay in `enum`) |
-| **`inputSchema.properties.task.description`** | [`DELEGATE_SPECIALIZED_TASK_PARAM_HINT`](../plugin/framework/constants.py) (Writer’s detailed `task` rules are in the tool `description`) |
+| **`inputSchema.properties.task.description`** | [`DELEGATE_SPECIALIZED_TASK_PARAM_HINT`](../plugin/framework/prompts.py) (Writer’s detailed `task` rules are in the tool `description`) |
 
 OpenAI/chat tool schemas are **not** duplicated this way—the sidebar already has the system prompt.
 
@@ -390,35 +390,30 @@ The direct modes **add** direct access; they don't remove delegation. The `deleg
 
 ## Current Status — What Was Implemented
 
-The MCP server is **implemented and opt-in** (default off). Summary:
+The MCP server is **implemented and opt-in** (default off). Live summary (paths under `plugin/`):
 
-- **`core/mcp_thread.py`**: `_Future`, `execute_on_main_thread()`, `drain_mcp_queue()`. Work from HTTP handler threads is queued and executed on LibreOffice’s main thread.
-- **`core/mcp_server.py`**: HTTP server on localhost; GET `/health`, `/`, `/tools`, `/documents`; POST `/tools/{name}`. Port utilities: `_probe_health`, `_is_port_bound`, `_kill_zombies_on_port`.
-- **Idle-time draining**: **`AsyncCallback` thread** in `main.py`. A background Python thread loops and queues an `XCallback` invocation via `com.sun.star.awt.AsyncCallback` every 100ms, which safely executes `drain_mcp_queue()` on the main VCL thread. Option of piggybacking on the chat stream drain loop was **not** used — it would only service MCP during active chat, which is inadequate for standalone MCP use.
+- **HTTP + JSON-RPC:** [`plugin/mcp/server.py`](../plugin/mcp/server.py), [`plugin/mcp/mcp_protocol.py`](../plugin/mcp/mcp_protocol.py), [`plugin/mcp/wire_types.py`](../plugin/mcp/wire_types.py), [`plugin/mcp/cors.py`](../plugin/mcp/cors.py), package wiring in [`plugin/mcp/__init__.py`](../plugin/mcp/__init__.py). Endpoints: `/mcp`, `/health`, `/`, optional localhost `POST /debug` (see [Current HTTP MCP (2026)](#current-http-mcp-2026)).
+- **Main-thread marshalling:** [`plugin/framework/queue_executor.py`](../plugin/framework/queue_executor.py) (`execute_on_main_thread`, queue drain via `com.sun.star.awt.AsyncCallback`). Chat streaming uses [`plugin/framework/async_stream.py`](../plugin/framework/async_stream.py) separately — MCP does **not** piggyback on the chat drain loop.
 - **Document targeting** (two supported paths):
-  - **Preferred (modern clients):** `document_url` parameter passed **directly in the tool call `arguments`** (e.g. in `tools/call` JSON-RPC). The server pops it from args and uses it for resolution. This works cleanly for multi-document workflows without header management and is the recommended path for Cursor, Hermes, custom agents, etc.
-  - **Fallback / legacy:** `X-Document-URL` HTTP header on requests (still supported for compatibility and simple "active doc" cases).
-  - **RuntimeUID:** `document_url` may be a document file URL **or** the document's **RuntimeUID** (string). RuntimeUID is stable for the open session and works for **unsaved/untitled** documents that have no file URL yet. Discovery: call `list_open_documents` — each entry includes `url` (may be empty for untitled docs) and `uid` (RuntimeUID). Pass either value as the `document_url` tool argument; prefer `uid` for untitled docs.
-  - **Per-result echo:** Tool results echo the resolved target as `document: {name, uid}` unless the tool already returns its own `document` field. Use this to confirm which file a call acted on when focus may have changed between calls.
-  - **Mutation gate keys:** resolved documents map to `uid:{RuntimeUID}` when available, else `url:{normalized URL}`. Targeting the same document by URL or UID shares one gate so concurrent mutating calls serialize. Unresolved handles use `url:{request}`; stale URLs after Save As do not auto-rekey (clients should refresh from `list_open_documents`).
-  - See implementation in `plugin/mcp/mcp_protocol.py` (`_resolve_mcp_doc_key`, `_mcp_tools_call` pops `document_url` from arguments before falling back to header).
-  - Full client guidance + examples live in the companion meta repos:
-    - Cursor users: https://github.com/KeithCu/cursor-libreoffice (includes rules for MCP usage).
-    - General agents / Hermes: https://github.com/KeithCu/libreoffice-skill (SKILL.md with targeting best practices).
+  - **Preferred:** `document_url` in `tools/call` arguments (popped before tool dispatch). Best for multi-document clients (Cursor, Hermes, custom agents).
+  - **Fallback:** `X-Document-URL` HTTP header.
+  - **RuntimeUID:** `document_url` may be a file URL **or** session `RuntimeUID` (untitled docs). Discover via `list_open_documents` (`url` + `uid`).
+  - **Per-result echo / mutation gates:** resolved target echoed as `document: {name, uid}` when the tool does not supply its own; concurrent mutating calls serialize per `uid:` / `url:` key. See `_resolve_mcp_doc_key` / `_mcp_tools_call` in `mcp_protocol.py`.
+  - Companion guidance: https://github.com/KeithCu/cursor-libreoffice , https://github.com/KeithCu/libreoffice-skill
+- **Config:** `mcp.mcp_enabled` (default false), `mcp.mcp_port` (default **18765**) in [`plugin/framework/config.py`](../plugin/framework/config.py) / `writeragent.json`.
+- **UI:** Settings Page 1 (enable + port); menu Toggle / Status under WriterAgent; auto-start when Settings saves with MCP enabled.
+- **Stdio bridge (optional):** [`scripts/mcp_bridge.py`](../scripts/mcp_bridge.py) for clients that speak stdio MCP.
+- **Prompts / guidance:** specialized-delegation and review rules live in [`plugin/framework/prompts.py`](../plugin/framework/prompts.py); MCP `get_guidance` maps the same pieces via [`plugin/framework/agent_manual.py`](../plugin/framework/agent_manual.py). `USE_SUB_AGENT` remains in [`plugin/framework/constants.py`](../plugin/framework/constants.py).
 
-  This design avoids races when multiple documents or users are involved; “active document only” was not used.
-- **Config**: `mcp_enabled` (default false), `mcp_port` (default 18765). Documented in `core/config.py`.
-- **Settings**: MCP section on **Page 1** of the Settings dialog (no separate tab): “Enable MCP Server” checkbox, Port field, “Localhost only, no auth.” label. Dialog layout was compacted so short fields share rows and the OK button sits at the bottom with minimal gap.
-- **Menu**: “Toggle MCP Server” and “MCP Server Status” under WriterAgent. Status dialog shows RUNNING/STOPPED, port, URL, and health check.
-- **Auto-start**: When the user saves Settings with MCP enabled, the server (and timer) start if not already running.
-- **Icons**: Six PNGs copied from `libreoffice-mcp-extension/icons/` to `assets/` (for possible future dynamic menu icons).
-- **Import fix**: `XTimerListener` is imported only inside `_start_mcp_timer()` so that the Python loader can load `main.py` for registry info without requiring UNO.
-
-See **AGENTS.md** (Section “MCP Server — DONE”) and the code in `main.py`, `core/mcp_thread.py`, and `core/mcp_server.py` for details.
+Orientation for AI assistants: [`AGENTS.md`](../AGENTS.md). Deep threading notes: [threading architecture — MCP](threading_architecture.md#2-http-server-and-mcp-protocol-pluginmcp).
 
 ---
 
-## What Had Already Been Done (Writer Tools, Pre-MCP)
+## Historical archive (pre-`plugin/` layout)
+
+> **Archive mixed with later notes.** Subsections that still say `core/*.py` or REST `GET /tools` / `POST /tools/{name}` are design history — **not** the live map. Prefer [Current HTTP MCP (2026)](#current-http-mcp-2026) and [Current Status](#current-status--what-was-implemented) when anything conflicts. Rough path map: `core/mcp_server.py` → `plugin/mcp/`; main-thread helpers → `plugin/framework/queue_executor.py`; `core/async_stream.py` → `plugin/framework/async_stream.py`; prompt constants → `plugin/framework/prompts.py`; `core/config.py` → `plugin/framework/config.py`; `core/format_support.py` → `plugin/writer/format.py`.
+
+### What Had Already Been Done (Writer Tools, Pre-MCP)
 
 Before building the MCP server itself, the Writer tool set was expanded so that WriterAgent's
 embedded AI (and future MCP clients) have a richer set of operations to work with.
@@ -445,10 +440,9 @@ Ported from `libreoffice-mcp-extension/pythonpath/uno_bridge.py` and adapted to 
 - Imports `WRITER_OPS_TOOLS` from `writer_ops.py` and adds all 12 new functions to
   `TOOL_DISPATCH`. `WRITER_TOOLS` went from 5 tools to 17.
 
-### Updated: `core/constants.py`
+### Updated: `core/constants.py` (now `plugin/framework/prompts.py`)
 
-`DEFAULT_CHAT_SYSTEM_PROMPT` updated to list the new tool groups so the embedded AI knows
-they exist.
+`DEFAULT_CHAT_SYSTEM_PROMPT` / template assembly updated historically to list the new tool groups so the embedded AI knows they exist (live: `prompts.py`).
 
 ---
 
@@ -561,9 +555,11 @@ By having a background Python thread repeatedly schedule an `XCallback`, we guar
 
 ---
 
-## Existing Pattern to Reuse
+## Existing Pattern to Reuse (archive)
 
-WriterAgent already has the correct threading pattern in `core/async_stream.py`:
+> Live chat drain: [`plugin/framework/async_stream.py`](../plugin/framework/async_stream.py). Live MCP main-thread queue: [`plugin/framework/queue_executor.py`](../plugin/framework/queue_executor.py). The sketch below is the original design note.
+
+WriterAgent already had the correct threading pattern in `core/async_stream.py` (now `plugin/framework/async_stream.py`):
 
 - **Worker thread** puts items on a `queue.Queue`.
 - **Main thread** runs `run_stream_drain_loop()` — a `while not job_done` loop that calls
@@ -622,12 +618,9 @@ would never be serviced if we only drained there.
 
 **Piggybacking on the chat drain loop was not used.** Servicing MCP only during active chat would break standalone use (e.g. external client with no sidebar chat). So we use the AsyncCallback thread only.
 
-### Reference: `core/mcp_server.py` (implemented)
+### Reference: `core/mcp_server.py` (archive — live is `plugin/mcp/`)
 
-Thin HTTP server that reuses `execute_tool()`, `execute_calc_tool()`, and `execute_draw_tool()`.
-The **actual implementation** in `core/mcp_server.py` uses `_resolve_document(ctx, X-Document-URL header)` to target a document by URL (or active document if header is absent), and implements GET `/documents`, GET `/`, GET `/tools`, GET `/health`, and POST `/tools/{name}` with CORS. The sketch below shows the dispatch pattern; document resolution is via header in the real code.
-
-See `core/mcp_server.py` for the full implementation. Dispatch pattern: `_resolve_document(ctx, X-Document-URL)` returns `(doc, doc_type)`; then call `execute_calc_tool`, `execute_draw_tool`, or `execute_tool` accordingly. All run via `execute_on_main_thread(_run, timeout=30)`.
+Early REST sketch: thin HTTP server reusing `execute_tool()` / Calc / Draw helpers, `GET /tools`, `POST /tools/{name}`, header-based `_resolve_document`. **Shipped surface is JSON-RPC on `/mcp`** in [`plugin/mcp/mcp_protocol.py`](../plugin/mcp/mcp_protocol.py) + [`plugin/mcp/server.py`](../plugin/mcp/server.py), with `document_url` args and `X-Document-URL` fallback, all UNO work via `execute_on_main_thread`.
 
 ---
 
@@ -641,25 +634,22 @@ to its own embedded AI:
 `set_track_changes`, `get_tracked_changes`, `accept_all_changes`, `reject_all_changes`,
 `list_tables`, `get_table_cells`, `set_table_cell`, `generate_image` (create or edit with `source_image='selection'`).
 
-**Calc**: All `CALC_TOOLS` from `core/calc_tools.py`.
+**Calc / Draw**: Core-tier tools registered from `plugin/calc/` and `plugin/draw/` (same registry MCP `tools/list` uses).
 
-**Draw**: All `DRAW_TOOLS` from `core/draw_tools.py`.
-
-The server resolves the target document via the **`X-Document-URL`** header (or active
-document if absent) and routes to the correct dispatcher by type.
+The server resolves the target document via **`document_url` in `tools/call` arguments** (preferred) or the **`X-Document-URL`** header (or active document if absent) and routes by document type.
 
 ---
 
 ## Document Targeting (implemented)
 
 When multiple documents are open, the server does **not** rely on “active document” only —
-that would race with focus and multiple users. **Implemented: `X-Document-URL` header.**
+that would race with focus and multiple users.
 
-- The client sends the document URL in the `X-Document-URL` HTTP header (e.g. from `GET /documents`).
-- The server iterates `desktop.getComponents()` and matches `doc.getURL()` to the header value.
-- If the header is missing, the server falls back to `desktop.getCurrentComponent()` for simple single-document use.
+- **Preferred:** `document_url` argument on `tools/call` (file URL or RuntimeUID from `list_open_documents`).
+- **Fallback:** `X-Document-URL` HTTP header; if both missing, active document.
+- Resolution and mutation gates: see [Current Status](#current-status--what-was-implemented) and `plugin/mcp/mcp_protocol.py`.
 
-No tool schema changes; targeting is at the transport layer. Optional per-call `file_path` (or similar) can be considered later if needed.
+(Older notes below that only mention the header or `GET /documents` are incomplete.)
 
 ---
 
@@ -862,8 +852,9 @@ WriterAgent already handles settings.
 
 The standalone extension has no `AGENT.md` (the file doesn't exist — `GET /` returns empty
 instructions). So this comparison is entirely about tool `description` strings in
-`mcp_server.py` vs WriterAgent's descriptions in `core/writer_ops.py`,
-`core/format_support.py`, and `core/constants.py`.
+`mcp_server.py` vs WriterAgent's descriptions (archive paths `core/writer_ops.py`,
+`core/format_support.py`, `core/constants.py` → live `plugin/writer/`, `plugin/writer/format.py`,
+`plugin/framework/prompts.py`).
 
 ---
 
@@ -954,7 +945,7 @@ document-tree session.
 
 #### 1. System prompt provides overarching workflow
 
-WriterAgent's `DEFAULT_CHAT_SYSTEM_PROMPT` in `core/constants.py` provides the AI with
+WriterAgent's `DEFAULT_CHAT_SYSTEM_PROMPT` in `core/constants.py` (live: `plugin/framework/prompts.py`) provides the AI with
 high-level workflow guidance before any tool call happens:
 
 ```
@@ -993,9 +984,9 @@ is much simpler and doesn't explain when to use it vs rewriting the whole docume
 
 ### System prompt additions worth making now
 
-> **Historical analysis — superseded.** The review-workflow suggestion below predates the shipped review-mode contract: `WRITER_REVIEW_MODES_RULES` (constants.py) now says the USER picks the review mode and the agent must NEVER accept/reject its own tracked changes. Paths/names are also stale (`core/constants.py` → `plugin/framework/constants.py`; `target="full"` → `full_document`; "FORMATTING RULES" → "APPLY_DOCUMENT_CONTENT AND HTML"). Kept for history only.
+> **Historical analysis — superseded.** The review-workflow suggestion below predates the shipped review-mode contract: `WRITER_REVIEW_MODES_RULES` in [`prompts.py`](../plugin/framework/prompts.py) now says the USER picks the review mode and the agent must NEVER accept/reject its own tracked changes. Paths/names are also stale (`core/constants.py` → `plugin/framework/prompts.py`; `target="full"` → `full_document`; "FORMATTING RULES" → "APPLY_DOCUMENT_CONTENT AND HTML"). Kept for history only.
 
-The `DEFAULT_CHAT_SYSTEM_PROMPT` in `core/constants.py` should get a workflow section for
+The `DEFAULT_CHAT_SYSTEM_PROMPT` in `core/constants.py` (archive) should get a workflow section for
 the new tools. Currently the TOOLS list mentions them but gives no usage patterns. Suggested
 additions to that section:
 

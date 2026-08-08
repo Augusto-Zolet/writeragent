@@ -13,7 +13,7 @@ Canonical design and execution reference for **editable math** in WriterAgent: H
 | **Phase 2** (TeX fallback) | **Done** (core) | Delimiters `$…$`, `$$…$$`, `\(...\)`, `\[...\]`; `latex2mathml` → same LO MathML path; mixed scan + precedence in `html_math_segment.py`; `convert_latex_to_starmath` in `math_mml_convert.py`; prompts in `prompts.py` / `apply_document_content` schema. Optional: KaTeX `<annotation encoding="application/x-tex">` retry on MathML failure (not implemented). |
 | **Phase 3** (robustness) | **Not started** | See [Phase 3](#phase-3-robustness-and-quality). |
 
-**Shipped modules (WriterAgent):** `html_math_segment.py` (MathML + TeX segmentation), `math_mml_convert.py` (MathML + LaTeX→MathML→StarMath), orchestration in `format_support.py` (`html_fragment_contains_mixed_math`, `content_has_markup` TeX patterns); trusted SymPy helpers (`symbolic_math` tool, Run Python Script **[Math]**) insert via `symbolic_egress.py` → `convert_latex_to_starmath` → `insert_writer_math_formula`; vendored **`latex2mathml`** via `requirements-vendor.txt` (see `pyproject.toml` dev group for typecheck); tests under `tests/` and `tests/uno/`; agent context in `AGENTS.md`; model hints in `plugin/framework/prompts.py` (`WRITER_APPLY_DOCUMENT_HTML_RULES`) and `plugin/writer/content.py` (`ApplyDocumentContent`).
+**Shipped modules (WriterAgent):** `html_math_segment.py` (MathML + TeX segmentation), `math_mml_convert.py` (MathML + LaTeX→MathML→StarMath), orchestration in `format.py` (`html_fragment_contains_mixed_math`, `content_has_markup` TeX patterns); trusted SymPy helpers (`symbolic_math` tool, Run Python Script **[Math]**) insert via `symbolic_egress.py` → `convert_latex_to_starmath` → `insert_writer_math_formula`; vendored **`latex2mathml`** via `requirements-vendor.txt` (see `pyproject.toml` dev group for typecheck); tests under `tests/` and `tests/uno/`; agent context in `AGENTS.md`; model hints in `plugin/framework/prompts.py` (`WRITER_APPLY_DOCUMENT_HTML_RULES`) and `plugin/writer/content.py` (`ApplyDocumentContent`).
 
 **Next priorities (pick from):** Phase 3 quality; Phase 1 backlog (test matrix, optional `warnings` in tool return); optional `"".join` for `apply_document_content` list `content`; policy for true multi-line / `mtable` vs global `newline` stripping; trim DEBUG logging; upstream LO Writer OLE + `newline` rendering; optional KaTeX annotation fallback; TexMaths-inspired UX/interop ([TexMaths feature review](#texmaths-feature-review-porting-candidates)).
 
@@ -83,7 +83,7 @@ The task is **detect math islands inside HTML**, then convert through a math-awa
 
 ### Why this fits WriterAgent
 
-Math is a **specialized preprocessor** in front of `format_support.py` HTML import — not a rewrite of the whole stack. Math has its own representation, failure modes, and insertion semantics (see also [writer-specialized-toolsets.md](writer-specialized-toolsets.md); equations ship on core `apply_document_content`, not a separate specialized domain).
+Math is a **specialized preprocessor** in front of `format.py` HTML import — not a rewrite of the whole stack. Math has its own representation, failure modes, and insertion semantics (see also [writer-specialized-toolsets.md](writer-specialized-toolsets.md); equations ship on core `apply_document_content`, not a separate specialized domain).
 
 ### External references (research)
 
@@ -228,7 +228,7 @@ Support the most structured and realistic first wave of HTML math inputs.
 2. [x] Segmentation (`segment_html_with_mixed_math`; `segment_html_with_mathml` is an alias)
 3. [x] Formula insertion (`math_formula_insert.py`)
 4. [x] MathML → StarMath (`math_mml_convert.py`, LO Math doc + `collapse_starmath_newline_tokens_for_writer_embed`)
-5. [x] Orchestration (`format_support.py`, all `insertDocumentFromURL` entry paths + cursor-to-end after each segment)
+5. [x] Orchestration (`format.py`, all `insertDocumentFromURL` entry paths + cursor-to-end after each segment)
 6. [x] Unsupported conversion: `[Math import failed]…` text + debug log (not structured tool JSON)
 7. [x] Tests: unit + UNO (not every row of the “minimum test matrix” below—see **Not done yet**)
 
@@ -249,7 +249,7 @@ Support the most structured and realistic first wave of HTML math inputs.
 | Segmentation (MathML + TeX order) | [`plugin/writer/html_math_segment.py`](../plugin/writer/html_math_segment.py) |
 | MathML → StarMath; LaTeX → MathML (`latex2mathml`) → StarMath; `newline` mitigation | [`plugin/writer/math_mml_convert.py`](../plugin/writer/math_mml_convert.py) |
 | OLE insert | [`plugin/writer/math_formula_insert.py`](../plugin/writer/math_formula_insert.py) |
-| HTML + math orchestration, `content_has_markup` (`<math`, `$$`, `\(`, `\[`) | [`plugin/writer/format_support.py`](../plugin/writer/format_support.py) |
+| HTML + math orchestration, `content_has_markup` (`<math`, `$$`, `\(`, `\[`) | [`plugin/writer/format.py`](../plugin/writer/format.py) |
 | Chat / tool text for `apply_document_content` | [`plugin/framework/prompts.py`](../plugin/framework/prompts.py) (`WRITER_APPLY_DOCUMENT_HTML_RULES`: prompt recommends inline `\\(...\\)` only; parser also accepts display delimiters `$...$`, `$$...$$`, `\\[...\\]`), [`plugin/writer/content.py`](../plugin/writer/content.py) (`ApplyDocumentContent`) |
 | Unit tests | `tests/writer/math/test_html_math_segment.py`, `tests/writer/math/test_math_mml_convert.py` |
 | UNO tests | `tests/writer/math/test_math_formula_insert_uno.py` (MathML + TeX cases) |
@@ -260,7 +260,7 @@ Support the most structured and realistic first wave of HTML math inputs.
 - **StarMath `newline` (word)** — Not ASCII `\n`. LibreOffice MathML import builds a root layout that serializes with the `newline` **operator** (`starmath` `SmNodeToTextVisitor`, root table-of-lines from `mathmlimport.cxx`). Writer’s **embedded** formula paint often showed **`?`** per `newline`; we **collapse** those tokens for Writer embeds in `math_mml_convert.py` (comment points at LO sources). **Tradeoff:** true multi-line / `mtable` via `newline` is not preserved until we add a policy (see **Current status**).
 - **List `content` arrays** — `"\n".join` still used in `apply_document_content`; newlines stay **between** HTML fragments only; optional change to `"".join` is backlog, not done.
 - **Cursor** — After each `insertDocumentFromURL`, cursor must move to document end or later segments overwrite earlier HTML.
-- **DEBUG logging** — Optional verbose logs in `content.py` / `format_support.py` / `math_mml_convert.py`; trim or gate when stable.
+- **DEBUG logging** — Optional verbose logs in `content.py` / `format.py` / `math_mml_convert.py`; trim or gate when stable.
 
 ### Not done yet (still Phase 1 scope or immediate backlog)
 
@@ -546,7 +546,7 @@ The implementation could become an open-ended parser project.
 2. [x] Conversion path (LO Math `.mml` import)
 3. [x] Writer formula helper
 4. [x] Math detection + segmentation
-5. [x] Wire into `format_support` HTML import paths
+5. [x] Wire into `format.py` HTML import paths
 6. [x] Unit tests (segmentation, StarMath collapse)
 7. [x] UNO tests (conversion, mixed insert, tool path)
 8. [x] Non-math HTML regression (existing suite + new cases)
@@ -555,7 +555,7 @@ The implementation could become an open-ended parser project.
 **Completed (Phase 2 — core):**
 
 10. [x] TeX delimiter detection + mixed segmentation (`html_math_segment.py`)
-11. [x] `convert_latex_to_starmath` + `format_support` wiring + `content_has_markup` TeX patterns
+11. [x] `convert_latex_to_starmath` + `format.py` wiring + `content_has_markup` TeX patterns
 12. [x] Unit + UNO tests for TeX and mixed MathML/TeX
 13. [x] Model/tool copy (`prompts.py`, `content.py`)
 
@@ -604,7 +604,7 @@ The extension **normalizes** both into **LibreOffice Math** embedded objects (`T
 - Segmentation: [`plugin/writer/html_math_segment.py`](../plugin/writer/html_math_segment.py)
 - Conversion: [`plugin/writer/math_mml_convert.py`](../plugin/writer/math_mml_convert.py) (`convert_latex_to_starmath`, `convert_mathml_to_starmath`)
 - Insertion: [`plugin/writer/math_formula_insert.py`](../plugin/writer/math_formula_insert.py)
-- Orchestration: [`plugin/writer/format_support.py`](../plugin/writer/format_support.py) (`_insert_mixed_html_and_math_at_cursor`)
+- Orchestration: [`plugin/writer/format.py`](../plugin/writer/format.py) (`_insert_mixed_html_and_math_at_cursor`)
 
 For a **second turn** (“edit this equation”), the model needs a **stable, prompt-friendly** representation of what is in the document. Today:
 
@@ -843,7 +843,7 @@ flowchart TB
 | Capability | WriterAgent |
 |------------|-------------|
 | LaTeX entry UI | [`latex_dialog.py`](../plugin/writer/math/latex_dialog.py) + `writer.insert_latex_dialog` |
-| TeX in HTML → editable math | [`html_math_segment.py`](../plugin/writer/html_math_segment.py), [`format_support.py`](../plugin/writer/format_support.py) |
+| TeX in HTML → editable math | [`html_math_segment.py`](../plugin/writer/html_math_segment.py), [`format.py`](../plugin/writer/format.py) |
 | Display vs inline | `display_block` on insert + delimiter rules in prompts |
 | LLM-driven authoring | `apply_document_content` with structured math rules |
 
@@ -875,7 +875,7 @@ See also: [Math extraction and edit loops](#math-extraction-and-edit-loops-roadm
 
 | Area | Path |
 |------|------|
-| HTML + math orchestration | [`plugin/writer/format_support.py`](../plugin/writer/format_support.py) |
+| HTML + math orchestration | [`plugin/writer/format.py`](../plugin/writer/format.py) |
 | MathML + TeX segmentation | [`plugin/writer/html_math_segment.py`](../plugin/writer/html_math_segment.py) |
 | MathML / LaTeX conversion | [`plugin/writer/math_mml_convert.py`](../plugin/writer/math_mml_convert.py) |
 | Formula OLE insert | [`plugin/writer/math_formula_insert.py`](../plugin/writer/math_formula_insert.py) |

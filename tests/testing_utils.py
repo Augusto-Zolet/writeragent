@@ -4,6 +4,7 @@
 import contextlib
 import sys
 import types
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 # `com.sun.*` names created/updated by setup_uno_mocks (for-loop).
@@ -665,6 +666,11 @@ class CalcDocStub:
         self._props = dict(props or {})
         self._document_event_listeners = []
         self._calculate_all_calls = 0
+        # Number-format supplier hooks for inspector/enrichment pytest (override via kwargs).
+        self._number_formats = _kwargs.get("number_formats")
+        if self._number_formats is None:
+            self._number_formats = MagicMock(name="NumberFormats")
+        self._null_date = _kwargs.get("null_date") or SimpleNamespace(Year=1899, Month=12, Day=30)
 
     def supportsService(self, svc):
         return svc == "com.sun.star.sheet.SpreadsheetDocument"
@@ -677,6 +683,14 @@ class CalcDocStub:
 
     def getURL(self):
         return self.url
+
+    def getNumberFormats(self):
+        return self._number_formats
+
+    def getNumberFormatSettings(self):
+        settings = MagicMock(name="NumberFormatSettings")
+        settings.getPropertyValue.return_value = self._null_date
+        return settings
 
     def calculateAll(self):
         self._calculate_all_calls += 1
