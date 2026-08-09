@@ -1,6 +1,4 @@
 # WriterAgent - AI Writing Assistant for LibreOffice
-from typing import Any
-from plugin.framework.logging import log
 from plugin.testing_runner import native_test
 from plugin.tests.testing_utils import with_native_doc
 

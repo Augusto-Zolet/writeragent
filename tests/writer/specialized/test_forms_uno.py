@@ -15,7 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Tests for Writer form tools, running inside LibreOffice."""
 
-from typing import Any
 from plugin.testing_runner import native_test
 from plugin.tests.testing_utils import with_native_doc
 

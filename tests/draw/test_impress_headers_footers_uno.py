@@ -17,7 +17,6 @@
 
 import json
 import unittest
-from plugin.framework.logging import log
 from plugin.testing_runner import native_test
 from plugin.tests.testing_utils import TestingFactory, with_native_doc
 

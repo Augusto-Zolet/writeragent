@@ -11,7 +11,7 @@
 import uno  # noqa: F401
 
 from plugin.testing_runner import native_test
-from plugin.tests.testing_utils import TestingFactory, with_native_doc
+from plugin.tests.testing_utils import with_native_doc
 from plugin.writer.edit_review import EditReviewSession, _BOOKMARK_PREFIX
 
 _PARA_BREAK = uno.getConstantByName("com.sun.star.text.ControlCharacter.PARAGRAPH_BREAK")

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from plugin.testing_runner import native_test
 from plugin.writer.format import insert_content_at_position
-from plugin.tests.testing_utils import TestingFactory, with_native_doc
+from plugin.tests.testing_utils import with_native_doc
 
 # Frozen post-process fixture (same shape as prepare_html_for_lo_import output).
 _VISION_HTML_FIXTURE = (

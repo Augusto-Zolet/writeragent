@@ -139,8 +139,6 @@ def test_charts_validation_and_writer_arrays(ctx, doc):
         # Query OLE2Shape in Writer document and verify XChartDataArray
         objects = writer_doc.getEmbeddedObjects()
         assert objects.hasByName(chart_name), f"Chart '{chart_name}' not found in embedded objects"
-
-        chart_obj = objects.getByName(chart_name)
         assert res_ok.get("status") == "ok", f"Writer manage_charts create failed: {res_ok}"
 
         # Verify underlying ChartData structure
@@ -178,10 +176,6 @@ def test_charts_validation_and_writer_arrays(ctx, doc):
             title="Edited Writer Chart"
         )
         assert res_edit.get("status") == "ok", f"Writer manage_charts edit failed: {res_edit}"
-
-        row_desc_updated = chart_data.getRowDescriptions()
-        col_desc_updated = chart_data.getColumnDescriptions()
-        data_matrix_updated = chart_data.getData()
 
     finally:
         TestingFactory.close_doc(writer_doc)

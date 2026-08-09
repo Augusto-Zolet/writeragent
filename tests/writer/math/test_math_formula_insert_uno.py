@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from plugin.testing_runner import native_test
-from plugin.tests.testing_utils import TestingFactory, with_native_doc
+from plugin.tests.testing_utils import with_native_doc
 from plugin.writer import format as format_support
 from plugin.writer.math.math_mml_convert import MATH_CLSID, convert_mathml_to_starmath, insert_writer_math_formula
 

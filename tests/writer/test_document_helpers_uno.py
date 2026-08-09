@@ -1,4 +1,3 @@
-from typing import Any
 
 from plugin.doc.document_helpers import (
     build_heading_tree,
@@ -10,7 +9,6 @@ from plugin.doc.document_helpers import (
     get_string_without_tracked_deletions,
     WriterStreamedRewriteSession,
 )
-from plugin.framework.uno_context import get_desktop
 from plugin.testing_runner import native_test
 from plugin.tests.testing_utils import TestingFactory, with_native_doc
 

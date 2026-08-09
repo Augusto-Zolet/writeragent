@@ -1,5 +1,4 @@
 from types import SimpleNamespace
-from typing import Any
 
 from plugin.doc.document_helpers import (
     get_paragraph_ranges,

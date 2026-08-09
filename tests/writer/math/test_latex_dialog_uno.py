@@ -12,12 +12,11 @@ setup_uno_mocks()
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-from plugin.framework.uno_context import get_desktop
 from plugin.writer.math.latex_dialog import insert_latex_math_dialog
 from plugin.framework.config import get_config
 from plugin.writer.math.math_mml_convert import MATH_CLSID
 from plugin.testing_runner import native_test
-from plugin.tests.testing_utils import TestingFactory, with_native_doc
+from plugin.tests.testing_utils import with_native_doc
 
 
 def _embed_count(doc: Any) -> int:

@@ -7,11 +7,8 @@
 # (at your option) any later version.
 """Native UNO tests for RichTextControl sidebar HTML clipboard spike (Phase 0 + 2)."""
 
-from typing import Any
 
 from plugin.framework.logging import log
-from plugin.testing_runner import native_test
-from plugin.tests.testing_utils import TestingFactory
 
 # ``make test`` LO runner: skip this file until clipboard/formatted-copy UNO path is stable.
 SKIP_NATIVE_RUN_ALL = True
@@ -57,9 +54,8 @@ def _format_at(model, needle: str, attr: str):
 # Disabled: hangs/flaky in headless LO (_process_idle / _copy_formatted_from_hidden_doc_to_control).
 # Re-enable by clearing SKIP_NATIVE_RUN_ALL and restoring @native_test below.
 # @native_test
-def _disabled_test_rich_text_control_html_clipboard_paste():
+def _disabled_test_rich_text_control_html_clipboard_paste(ctx):
     """Hidden Writer HTML import -> clipboard -> paste into RichTextControl with formatting."""
-    ctx = _test_ctx
     assert ctx is not None
 
     from plugin.chatbot.rich_text_control import get_control_text_length

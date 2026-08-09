@@ -5,13 +5,9 @@
 import json
 
 from tests.draw.collabora_transform_fixtures import COLLABORA_FIVE_SLIDE_TRANSFORM_JSON
-from plugin.framework.logging import log
-import json
 
-from tests.draw.collabora_transform_fixtures import COLLABORA_FIVE_SLIDE_TRANSFORM_JSON
-from plugin.framework.logging import log
 from plugin.testing_runner import native_test
-from plugin.tests.testing_utils import TestingFactory, with_native_doc
+from plugin.tests.testing_utils import with_native_doc
 
 
 def _exec_transform(doc, ctx, **args):

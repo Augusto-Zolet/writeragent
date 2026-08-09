@@ -22,7 +22,6 @@ from plugin.writer.format import (
     find_text_ranges,
     _normalize,
 )
-from plugin.framework.logging import log
 from plugin.framework.uno_context import get_desktop
 
 def _move_cursor_by_offset(cursor, offset, expand=False):
