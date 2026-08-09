@@ -13,15 +13,16 @@ from __future__ import annotations
 import urllib.parse
 from typing import Any
 
+from plugin.framework.constants import EXTENSION_ID_LIBREPY
 from plugin.framework.deal_shim import deal
 
-LIBREPY_DISPATCH_PROTOCOL = "org.extension.librepy:"
+LIBREPY_DISPATCH_PROTOCOL = EXTENSION_ID_LIBREPY + ":"
 
 
 def matches_librepy_dispatch_url(url: Any) -> bool:
     """Return True when *url* is a LibrePy menu/protocol dispatch URL."""
     proto = str(getattr(url, "Protocol", None) or "")
-    if proto.startswith("org.extension.librepy"):
+    if proto.startswith(EXTENSION_ID_LIBREPY):
         return True
     complete = str(getattr(url, "Complete", None) or "")
     return complete.startswith(LIBREPY_DISPATCH_PROTOCOL)

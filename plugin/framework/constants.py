@@ -24,6 +24,11 @@ APP_REFERER = "https://github.com/KeithCu/writeragent"
 APP_TITLE = "WriterAgent"
 USER_AGENT = f"{APP_TITLE} ({APP_REFERER})"
 
+# OXT package identifiers (description.xml). Single source for product/package identity.
+EXTENSION_ID_LIBREPY = "org.extension.librepy"
+EXTENSION_ID_WRITERAGENT = "org.extension.writeragent"
+EXTENSION_ID_LIBREHARPER = "org.extension.libreharper"
+
 
 def get_plugin_dir():
     """Returns the absolute path to the plugin/ directory."""

@@ -12,8 +12,13 @@ from plugin.chatbot.extension_update_check import (
     schedule_extension_update_check_once,
     version_tuple,
 )
+from plugin.framework.constants import (
+    EXTENSION_ID_LIBREHARPER,
+    EXTENSION_ID_LIBREPY,
+    EXTENSION_ID_WRITERAGENT,
+)
 
-_WRITERAGENT_PROFILE = UPDATE_CHECK_PROFILES["org.extension.writeragent"]
+_WRITERAGENT_PROFILE = UPDATE_CHECK_PROFILES[EXTENSION_ID_WRITERAGENT]
 
 SAMPLE_XML = b"""<?xml version="1.0" encoding="UTF-8"?>
 <description xmlns="http://openoffice.org/extensions/description/2006"
@@ -82,13 +87,13 @@ def test_parse_update_xml_sample():
 
 def test_parse_update_xml_librepy():
     ident, ver = parse_update_xml(LIBREPY_XML)
-    assert ident == "org.extension.librepy"
+    assert ident == EXTENSION_ID_LIBREPY
     assert ver == "0.8.0"
 
 
 def test_parse_update_xml_libreharper():
     ident, ver = parse_update_xml(LIBREHARPER_XML)
-    assert ident == "org.extension.libreharper"
+    assert ident == EXTENSION_ID_LIBREHARPER
     assert ver == "0.8.1"
 
 
@@ -108,13 +113,13 @@ def test_identifier_mismatch_means_ignore_for_update_signal():
 
 def test_update_check_profiles_cover_three_products():
     assert set(UPDATE_CHECK_PROFILES) == {
-        "org.extension.writeragent",
-        "org.extension.librepy",
-        "org.extension.libreharper",
+        EXTENSION_ID_WRITERAGENT,
+        EXTENSION_ID_LIBREPY,
+        EXTENSION_ID_LIBREHARPER,
     }
-    wa = get_update_check_profile("org.extension.writeragent")
-    lp = get_update_check_profile("org.extension.librepy")
-    lh = get_update_check_profile("org.extension.libreharper")
+    wa = get_update_check_profile(EXTENSION_ID_WRITERAGENT)
+    lp = get_update_check_profile(EXTENSION_ID_LIBREPY)
+    lh = get_update_check_profile(EXTENSION_ID_LIBREHARPER)
     assert wa is not None and wa.config_key_epoch == "extension_update_check_epoch"
     assert lp is not None and lp.config_key_epoch == "librepy_update_check_epoch"
     assert lh is not None and lh.config_key_epoch == "libreharper_update_check_epoch"
@@ -127,13 +132,13 @@ def test_schedule_once_allows_two_products_same_process():
     reset_extension_update_check_schedule_for_tests()
     ctx = MagicMock()
     with patch("plugin.framework.worker_pool.run_in_background") as run_bg:
-        schedule_extension_update_check_once(ctx, "org.extension.writeragent")
-        schedule_extension_update_check_once(ctx, "org.extension.libreharper")
+        schedule_extension_update_check_once(ctx, EXTENSION_ID_WRITERAGENT)
+        schedule_extension_update_check_once(ctx, EXTENSION_ID_LIBREHARPER)
         # Second call for same product is a no-op.
-        schedule_extension_update_check_once(ctx, "org.extension.writeragent")
+        schedule_extension_update_check_once(ctx, EXTENSION_ID_WRITERAGENT)
         assert run_bg.call_count == 2
         kw_ids = {c.kwargs["extension_id"] for c in run_bg.call_args_list}
-        assert kw_ids == {"org.extension.writeragent", "org.extension.libreharper"}
+        assert kw_ids == {EXTENSION_ID_WRITERAGENT, EXTENSION_ID_LIBREHARPER}
     reset_extension_update_check_schedule_for_tests()
 
 
@@ -155,7 +160,7 @@ def test_run_extension_update_check_dialog_formatting(monkeypatch):
          patch("plugin.framework.config.get_config_int", return_value=None), \
          patch("plugin.framework.config.set_config"), \
          patch("plugin.version.EXTENSION_VERSION", "0.7.0"):
-        run_extension_update_check(ctx, "org.extension.writeragent")
+        run_extension_update_check(ctx, EXTENSION_ID_WRITERAGENT)
 
         assert mock_msgbox.call_count == 1
         msg_args = mock_msgbox.call_args[0]

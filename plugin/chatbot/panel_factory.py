@@ -87,8 +87,7 @@ from plugin.doc.document_helpers import get_document_property, set_document_prop
 
 log = logging.getLogger(__name__)
 
-# Extension ID from description.xml; XDL path inside the .oxt
-EXTENSION_ID = "org.extension.writeragent"
+# XDL path inside the .oxt
 XDL_PATH = "Dialogs/ChatPanelDialog.xdl"
 _PRE_NEGOTIATION_PANEL_WIDTH = 420
 

@@ -138,11 +138,12 @@ def collect_environment_block(ctx: Any | None = None) -> str:
     """Plain-text environment block for a GitHub issue body."""
     from plugin.framework.config import get_config_str, get_current_endpoint, user_config_dir
     from plugin.framework.i18n import get_lo_locale
+    from plugin.framework.constants import EXTENSION_ID_LIBREPY
     from plugin.framework.uno_context import resolve_package_extension_id
     from plugin.version import EXTENSION_VERSION
 
     ext_id = resolve_package_extension_id(ctx)
-    product_label = "LibrePy" if ext_id == "org.extension.librepy" else "WriterAgent"
+    product_label = "LibrePy" if ext_id == EXTENSION_ID_LIBREPY else "WriterAgent"
 
     lines = [
         "### Environment",
@@ -161,7 +162,7 @@ def collect_environment_block(ctx: Any | None = None) -> str:
 
     lines.append(f"- Python: {sys.version.split()[0]} ({sys.platform})")
 
-    if ext_id == "org.extension.librepy":
+    if ext_id == EXTENSION_ID_LIBREPY:
         venv_path = get_config_str("scripting.python_venv_path") or "(not set)"
         lines.append(f"- Python venv path: {venv_path}")
     else:

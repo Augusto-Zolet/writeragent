@@ -37,11 +37,12 @@ if TYPE_CHECKING:
     from com.sun.star.util import URL as UnoURL
 
 from plugin.framework.logging import init_logging, log as wa_log, log_exception
+from plugin.framework.constants import EXTENSION_ID_LIBREPY
 from plugin.framework.uno_context import get_ctx, set_fallback_ctx, set_package_extension_id
 from plugin.framework.url_utils import dispatch_command_from_url, matches_librepy_dispatch_url
 
-EXTENSION_ID = "org.extension.librepy"
-_DISPATCH_PROTOCOL = "org.extension.librepy:"
+EXTENSION_ID = EXTENSION_ID_LIBREPY
+_DISPATCH_PROTOCOL = EXTENSION_ID + ":"
 
 log = logging.getLogger(__name__)
 _initialized = False
@@ -156,7 +157,7 @@ class MainBootstrapJob(unohelper.Base, XJobExecutor, XJob):
 
 
 class DispatchHandler(unohelper.Base, XDispatch, XDispatchProvider, XInitialization, XServiceInfo):
-    IMPL_NAME = "org.extension.librepy.DispatchHandler"
+    IMPL_NAME = f"{EXTENSION_ID}.DispatchHandler"
     SERVICE_NAMES = ("com.sun.star.frame.ProtocolHandler",)
 
     def __init__(self, ctx) -> None:
@@ -212,7 +213,7 @@ class DispatchHandler(unohelper.Base, XDispatch, XDispatchProvider, XInitializat
 g_ImplementationHelper = unohelper.ImplementationHelper()
 g_ImplementationHelper.addImplementation(
     MainBootstrapJob,
-    "org.extension.librepy.Main",
+    f"{EXTENSION_ID}.Main",
     ("com.sun.star.task.Job",),
 )
 g_ImplementationHelper.addImplementation(DispatchHandler, DispatchHandler.IMPL_NAME, DispatchHandler.SERVICE_NAMES)

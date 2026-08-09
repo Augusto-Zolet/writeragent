@@ -31,10 +31,12 @@ from typing import Any
 
 import unohelper
 
+from plugin.framework.constants import EXTENSION_ID_WRITERAGENT
+
 log = logging.getLogger(__name__)
 
-_ACCEPT_URL = "org.extension.writeragent:writer.accept_change"
-_REJECT_URL = "org.extension.writeragent:writer.reject_change"
+_ACCEPT_URL = f"{EXTENSION_ID_WRITERAGENT}:writer.accept_change"
+_REJECT_URL = f"{EXTENSION_ID_WRITERAGENT}:writer.reject_change"
 
 _lock = threading.RLock()
 # Registered controllers, deduplicated by UNO object identity: PyUNO hands out a NEW proxy

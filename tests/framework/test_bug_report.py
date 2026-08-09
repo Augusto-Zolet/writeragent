@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 
 from plugin.framework import bug_report as br
 from plugin.framework.errors import ConfigError
+from plugin.framework.constants import EXTENSION_ID_LIBREPY, EXTENSION_ID_WRITERAGENT
 
 
 def test_build_github_issue_url_encodes_title_and_body():
@@ -28,7 +29,7 @@ def test_build_github_issue_url_truncates_long_body():
 
 
 def test_collect_environment_block_includes_endpoint_and_model():
-    with patch("plugin.framework.uno_context.resolve_package_extension_id", return_value="org.extension.writeragent"):
+    with patch("plugin.framework.uno_context.resolve_package_extension_id", return_value=EXTENSION_ID_WRITERAGENT):
         with patch("plugin.framework.client.model_fetcher.get_text_model", return_value="test-model"):
             with patch("plugin.framework.config.get_current_endpoint", return_value="https://api.example.com"):
                 with patch("plugin.version.EXTENSION_VERSION", "0.8.33"):
@@ -39,7 +40,7 @@ def test_collect_environment_block_includes_endpoint_and_model():
 
 
 def test_collect_environment_block_librepy_uses_venv_path():
-    with patch("plugin.framework.uno_context.resolve_package_extension_id", return_value="org.extension.librepy"):
+    with patch("plugin.framework.uno_context.resolve_package_extension_id", return_value=EXTENSION_ID_LIBREPY):
         with patch("plugin.framework.config.get_config_str", return_value="/home/user/venv"):
             with patch("plugin.version.EXTENSION_VERSION", "0.8.33"):
                 block = br.collect_environment_block(ctx=MagicMock())

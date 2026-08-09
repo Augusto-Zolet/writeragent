@@ -75,8 +75,12 @@ from com.sun.star.task import XJobExecutor, XJob
 from com.sun.star.frame import DispatchDescriptor, XDispatch, XDispatchProvider
 from com.sun.star.lang import XInitialization, XServiceInfo
 
+from plugin.framework.constants import EXTENSION_ID_WRITERAGENT
 from plugin.framework.uno_context import get_active_document, get_extension_url, get_ctx
 from plugin.framework.thread_guard import background
+
+EXTENSION_ID = EXTENSION_ID_WRITERAGENT
+_DISPATCH_PROTOCOL = EXTENSION_ID + ":"
 
 # ---------------------------------------------------------------------------
 # Bootstrapping (Dynamic discovery from loaded manifest)
@@ -104,7 +108,7 @@ def _schedule_extension_update_check_once(ctx):  # pyright: ignore[reportUnusedF
     """Run weekly update check at most once per process per product, after init_logging."""
     from plugin.chatbot.extension_update_check import schedule_extension_update_check_once
 
-    schedule_extension_update_check_once(ctx, "org.extension.writeragent")
+    schedule_extension_update_check_once(ctx, EXTENSION_ID)
 
 
 def get_services():
@@ -351,12 +355,8 @@ def _register_core_handlers():
 
 # ── Dynamic menu text infrastructure ─────────────────────────────────
 
-_DISPATCH_PROTOCOL = "org.extension.writeragent:"
-
 _status_listeners: list[tuple[Any, Any]] = []  # [(listener, url)]
 _status_lock = threading.Lock()
-
-EXTENSION_ID = "org.extension.writeragent"
 
 _TESTS_AVAILABLE = None
 
@@ -838,13 +838,13 @@ if __name__ == "__main__":
 
 
 class DispatchHandler(unohelper.Base, XDispatch, XDispatchProvider, XInitialization, XServiceInfo):
-    """Protocol handler for org.extension.writeragent: URLs.
+    """Protocol handler for WriterAgent dispatch URLs.
 
     Handles menu dispatch and supports dynamic menu text via
     FeatureStateEvent / addStatusListener.
     """
 
-    IMPL_NAME = "org.extension.writeragent.DispatchHandler"
+    IMPL_NAME = f"{EXTENSION_ID}.DispatchHandler"
     SERVICE_NAMES = ("com.sun.star.frame.ProtocolHandler",)
 
     def __init__(self, ctx):
@@ -870,7 +870,7 @@ class DispatchHandler(unohelper.Base, XDispatch, XDispatchProvider, XInitializat
 
     def queryDispatch(self, URL: UnoURL, TargetFrameName: str, SearchFlags: int) -> XDispatch:  # pyright: ignore[reportIncompatibleMethodOverride]
         url = URL
-        if url.Protocol == "org.extension.writeragent:":
+        if url.Protocol == _DISPATCH_PROTOCOL:
             return cast("XDispatch", self)
         # UNO allows null dispatch; stub types reject None → cast via object.
         return cast("XDispatch", cast("object", None))
@@ -934,7 +934,7 @@ class DispatchHandler(unohelper.Base, XDispatch, XDispatchProvider, XInitializat
 g_ImplementationHelper = unohelper.ImplementationHelper()
 g_ImplementationHelper.addImplementation(
     MainBootstrapJob,  # UNO object class
-    "org.extension.writeragent.Main",  # implementation name
+    f"{EXTENSION_ID}.Main",  # implementation name
     ("com.sun.star.task.Job",),
 )  # implemented services (only 1)
 g_ImplementationHelper.addImplementation(DispatchHandler, DispatchHandler.IMPL_NAME, DispatchHandler.SERVICE_NAMES)

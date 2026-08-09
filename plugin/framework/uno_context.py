@@ -30,6 +30,11 @@ import logging
 from contextlib import contextmanager
 from typing import Any, cast
 
+from plugin.framework.constants import (
+    EXTENSION_ID_LIBREHARPER,
+    EXTENSION_ID_LIBREPY,
+    EXTENSION_ID_WRITERAGENT,
+)
 from plugin.framework.thread_guard import main_thread_only, _wrap_uno
 
 log = logging.getLogger("writeragent.context")
@@ -38,10 +43,11 @@ _fallback_ctx = None
 # Set by main.py / main_core.py bootstrap; auto-detected from installed packages when unset.
 _package_extension_id: str | None = None
 
+# Probe order: LibrePy first when both family OXTs are installed (existing behavior).
 _KNOWN_EXTENSION_IDS = (
-    "org.extension.librepy",
-    "org.extension.writeragent",
-    "org.extension.libreharper",
+    EXTENSION_ID_LIBREPY,
+    EXTENSION_ID_WRITERAGENT,
+    EXTENSION_ID_LIBREHARPER,
 )
 
 _is_libreharper_cache: bool | None = None
@@ -98,7 +104,7 @@ def resolve_package_extension_id(ctx=None) -> str:
             log.debug("getPackageLocation(%s) failed", extension_id, exc_info=True)
 
     # Last resort: preserve WriterAgent default for older call sites.
-    return "org.extension.writeragent"
+    return EXTENSION_ID_WRITERAGENT
 
 
 @main_thread_only

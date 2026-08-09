@@ -22,6 +22,12 @@ import xml.etree.ElementTree as ET  # nosemgrep: use-defused-xml  # trusted smal
 from dataclasses import dataclass
 from typing import Any
 
+from plugin.framework.constants import (
+    EXTENSION_ID_LIBREHARPER,
+    EXTENSION_ID_LIBREPY,
+    EXTENSION_ID_WRITERAGENT,
+)
+
 log = logging.getLogger(__name__)
 
 WEEK_SECONDS = 7 * 24 * 3600
@@ -41,20 +47,20 @@ class UpdateCheckProfile:
 
 
 UPDATE_CHECK_PROFILES: dict[str, UpdateCheckProfile] = {
-    "org.extension.writeragent": UpdateCheckProfile(
-        extension_id="org.extension.writeragent",
+    EXTENSION_ID_WRITERAGENT: UpdateCheckProfile(
+        extension_id=EXTENSION_ID_WRITERAGENT,
         display_name="WriterAgent",
         update_xml_url=f"{_GITHUB_RAW}/update.xml",
         config_key_epoch="extension_update_check_epoch",
     ),
-    "org.extension.librepy": UpdateCheckProfile(
-        extension_id="org.extension.librepy",
+    EXTENSION_ID_LIBREPY: UpdateCheckProfile(
+        extension_id=EXTENSION_ID_LIBREPY,
         display_name="LibrePy",
         update_xml_url=f"{_GITHUB_RAW}/update-librepy.xml",
         config_key_epoch="librepy_update_check_epoch",
     ),
-    "org.extension.libreharper": UpdateCheckProfile(
-        extension_id="org.extension.libreharper",
+    EXTENSION_ID_LIBREHARPER: UpdateCheckProfile(
+        extension_id=EXTENSION_ID_LIBREHARPER,
         display_name="LibreHarper",
         update_xml_url=f"{_GITHUB_RAW}/update-libreharper.xml",
         config_key_epoch="libreharper_update_check_epoch",

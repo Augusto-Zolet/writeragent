@@ -41,7 +41,9 @@ from plugin.writer.locale.grammar_proofread_locale import (
 
 log = logging.getLogger("writeragent.grammar")
 
-IMPLEMENTATION_NAME = "org.extension.libreharper.comp.pyuno.HarperProofreader"
+from plugin.framework.constants import EXTENSION_ID_LIBREHARPER
+
+IMPLEMENTATION_NAME = f"{EXTENSION_ID_LIBREHARPER}.comp.pyuno.HarperProofreader"
 SERVICE_DISPLAY_NAME = "LibreHarper"
 # Must match LinguisticLibreHarperGrammar.xcu Locales (Harper English dialects).
 HARPER_LOCALE_TAGS: tuple[str, ...] = ("en-US", "en-GB", "en-AU", "en-CA", "en-IN")
@@ -99,10 +101,10 @@ class HarperProofreader(WriterAgentAiGrammarProofreader):  # pyright: ignore[rep
         try:
             from plugin.framework.uno_context import set_package_extension_id
 
-            set_package_extension_id("org.extension.libreharper")
+            set_package_extension_id(EXTENSION_ID_LIBREHARPER)
             from plugin.chatbot.extension_update_check import schedule_extension_update_check_once
 
-            schedule_extension_update_check_once(ctx, "org.extension.libreharper")
+            schedule_extension_update_check_once(ctx, EXTENSION_ID_LIBREHARPER)
         except Exception as e:
             log.warning("[grammar] LibreHarper extension update check schedule failed: %s", e)
 

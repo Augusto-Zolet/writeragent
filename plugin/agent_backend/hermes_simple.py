@@ -22,7 +22,7 @@ import shutil
 from typing import Dict
 
 from plugin.agent_backend.acp_backend import ACPBackend
-from plugin.framework.config import get_config, get_api_key_for_endpoint
+from plugin.framework.config import get_api_key_for_endpoint, get_current_endpoint
 
 log = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ class HermesBackend(ACPBackend):
         env = {}
         try:
             # Forward API key to Hermes if available
-            endpoint = str(get_config("ai.endpoint") or "")
+            endpoint = str(get_current_endpoint() or "")
             key = get_api_key_for_endpoint(endpoint)
             if key:
                 env["OPENROUTER_API_KEY"] = key

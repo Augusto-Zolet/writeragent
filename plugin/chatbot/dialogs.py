@@ -61,9 +61,6 @@ from plugin.framework.i18n import _
 log = logging.getLogger("writeragent.dialogs")
 
 
-EXTENSION_ID = "org.extension.writeragent"
-
-
 # ── Simple message box ──────────────────────────────────────────────
 
 

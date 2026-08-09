@@ -12,9 +12,11 @@ from typing import Any, cast
 
 import unohelper
 
+from plugin.framework.constants import EXTENSION_ID_WRITERAGENT
+
 log = logging.getLogger(__name__)
 
-_EDIT_PYTHON_CELL_URL = "org.extension.writeragent:scripting.edit_python_cell"
+_EDIT_PYTHON_CELL_URL = f"{EXTENSION_ID_WRITERAGENT}:scripting.edit_python_cell"
 _CELL_MENU_FIRST_COMMAND = ".uno:Cut"
 
 _lock = threading.RLock()

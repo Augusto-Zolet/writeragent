@@ -131,6 +131,7 @@ def test_process_events_to_idle_suppressed_under_drain_owner():
 
 
 def test_resolve_package_extension_id_prefers_librepy():
+    from plugin.framework.constants import EXTENSION_ID_LIBREPY
     from plugin.framework.uno_context import (
         get_extension_url,
         reset_package_extension_id_for_tests,
@@ -140,15 +141,16 @@ def test_resolve_package_extension_id_prefers_librepy():
     reset_package_extension_id_for_tests()
     pip = MagicMock()
     pip.getPackageLocation.side_effect = lambda eid: (
-        "file:///tmp/LibrePy.oxt" if eid == "org.extension.librepy" else ""
+        "file:///tmp/LibrePy.oxt" if eid == EXTENSION_ID_LIBREPY else ""
     )
     with patch("plugin.framework.uno_context.get_package_info", return_value=pip):
-        assert resolve_package_extension_id() == "org.extension.librepy"
+        assert resolve_package_extension_id() == EXTENSION_ID_LIBREPY
         assert get_extension_url() == "file:///tmp/LibrePy.oxt"
     reset_package_extension_id_for_tests()
 
 
 def test_set_package_extension_id_override():
+    from plugin.framework.constants import EXTENSION_ID_LIBREPY
     from plugin.framework.uno_context import (
         reset_package_extension_id_for_tests,
         resolve_package_extension_id,
@@ -156,6 +158,24 @@ def test_set_package_extension_id_override():
     )
 
     reset_package_extension_id_for_tests()
-    set_package_extension_id("org.extension.librepy")
-    assert resolve_package_extension_id() == "org.extension.librepy"
+    set_package_extension_id(EXTENSION_ID_LIBREPY)
+    assert resolve_package_extension_id() == EXTENSION_ID_LIBREPY
     reset_package_extension_id_for_tests()
+
+
+def test_extension_id_constants_match_package_ids():
+    from plugin.framework.constants import (
+        EXTENSION_ID_LIBREHARPER,
+        EXTENSION_ID_LIBREPY,
+        EXTENSION_ID_WRITERAGENT,
+    )
+    from plugin.framework.uno_context import _KNOWN_EXTENSION_IDS
+
+    assert EXTENSION_ID_LIBREPY == "org.extension.librepy"
+    assert EXTENSION_ID_WRITERAGENT == "org.extension.writeragent"
+    assert EXTENSION_ID_LIBREHARPER == "org.extension.libreharper"
+    assert _KNOWN_EXTENSION_IDS == (
+        EXTENSION_ID_LIBREPY,
+        EXTENSION_ID_WRITERAGENT,
+        EXTENSION_ID_LIBREHARPER,
+    )

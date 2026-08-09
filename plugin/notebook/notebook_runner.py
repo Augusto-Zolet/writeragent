@@ -14,6 +14,7 @@ from plugin.chatbot.dialogs import msgbox
 from plugin.doc.document_helpers import is_writer
 from plugin.framework.async_stream import run_blocking_in_thread
 from plugin.framework.i18n import _
+from plugin.framework.constants import EXTENSION_ID_WRITERAGENT
 from plugin.framework.uno_context import get_active_document
 from plugin.notebook.cell_registry import (
     NotebookCodeCell,
@@ -40,7 +41,7 @@ from plugin.scripting.venv_worker import run_code_in_user_venv
 
 log = logging.getLogger("writeragent.notebook")
 
-NOTEBOOK_RUN_CELL_URL_PREFIX = "org.extension.writeragent:notebook.run_cell."
+NOTEBOOK_RUN_CELL_URL_PREFIX = f"{EXTENSION_ID_WRITERAGENT}:notebook.run_cell."
 
 
 @dataclass
