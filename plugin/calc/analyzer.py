@@ -24,16 +24,6 @@ import logging
 
 from plugin.framework.errors import ToolExecutionError
 
-try:
-    from com.sun.star.table.CellContentType import EMPTY, VALUE, TEXT, FORMULA
-
-    UNO_AVAILABLE = True
-except ImportError:
-    from typing import Any, cast
-
-    EMPTY, VALUE, TEXT, FORMULA = cast("Any", 0), cast("Any", 1), cast("Any", 2), cast("Any", 3)
-    UNO_AVAILABLE = False
-
 logger = logging.getLogger("writeragent.calc")
 
 

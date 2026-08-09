@@ -16,6 +16,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Writer comment / annotation tools."""
 
+from typing import Any, cast
+
 from plugin.framework.constants import now_aware
 import logging
 import uno
@@ -417,21 +419,21 @@ def _set_annotation_date(annotation):
     """Set DateTimeValue (and Date) to now for a new annotation."""
     now = now_aware()
     try:
-        dt = uno.createUnoStruct("com.sun.star.util.DateTime")
-        dt.Year = now.year  # type: ignore
-        dt.Month = now.month  # type: ignore
-        dt.Day = now.day  # type: ignore
-        dt.Hours = now.hour  # type: ignore
-        dt.Minutes = now.minute  # type: ignore
-        dt.Seconds = now.second  # type: ignore
+        dt = cast("Any", uno.createUnoStruct("com.sun.star.util.DateTime"))
+        dt.Year = now.year
+        dt.Month = now.month
+        dt.Day = now.day
+        dt.Hours = now.hour
+        dt.Minutes = now.minute
+        dt.Seconds = now.second
         annotation.setPropertyValue("DateTimeValue", dt)
     except Exception:
         pass
     try:
-        d = uno.createUnoStruct("com.sun.star.util.Date")
-        d.Year = now.year  # type: ignore
-        d.Month = now.month  # type: ignore
-        d.Day = now.day  # type: ignore
+        d = cast("Any", uno.createUnoStruct("com.sun.star.util.Date"))
+        d.Year = now.year
+        d.Month = now.month
+        d.Day = now.day
         annotation.setPropertyValue("Date", d)
     except Exception:
         pass

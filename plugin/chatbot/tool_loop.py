@@ -114,7 +114,8 @@ class ToolLoopHost(Protocol):
     @property
     def _sm_state(self) -> "ToolLoopState": ...
     @_sm_state.setter
-    def _sm_state(self, value: "ToolLoopState | None") -> None: ...
+    def _sm_state(self, value: "ToolLoopState | None") -> None:  # pyright: ignore[reportPropertyTypeMismatch]  # clear session with None
+        ...
 
     # Mixin methods called on self
     def _start_tool_calling_async(self, client: "LlmClient", model: Any, max_tokens: int, tools: list[dict[str, Any]], execute_tool_fn: Callable[..., Any], max_tool_rounds: int | None = None, query_text: str | None = None) -> None: ...
@@ -143,8 +144,22 @@ class ToolCallingMixin:
     second copy of round/pending/stop.
     """
 
-    client: LlmClient | None
-    audio_wav_path: str | None
+    # Defaults satisfy basedpyright reportUninitializedInstanceVariable; panel __init__ overwrites.
+    client: LlmClient | None = None
+    audio_wav_path: str | None = None
+    sidebar_state: Any = None
+    _terminal_status: str = "Ready"
+    _active_tools: list[dict[str, Any]] | None = None
+    _record_assistant_start: bool = False
+    _tool_loop_interpreter: ToolLoopEffectInterpreter | None = None
+    _active_q: queue.Queue[Any] | None = None
+    _active_batched_q: BatchingStreamQueue | None = None
+    _active_client: LlmClient | None = None
+    _active_model: Any = None
+    _active_max_tokens: int = 0
+    _active_execute_tool_fn: Callable[..., Any] | None = None
+    _active_query_text: str | None = None
+    _active_supports_status: bool = False
 
     @property
     def _sm_state(self: ToolLoopHost) -> ToolLoopState:
@@ -156,7 +171,7 @@ class ToolCallingMixin:
         return tl
 
     @_sm_state.setter
-    def _sm_state(self: ToolLoopHost, value: ToolLoopState | None) -> None:
+    def _sm_state(self: ToolLoopHost, value: ToolLoopState | None) -> None:  # pyright: ignore[reportPropertyTypeMismatch]  # clear session with None
         self.sidebar_state = dataclasses.replace(self.sidebar_state, tool_loop=value)
 
     def rerender_rich_text_session(self: ToolLoopHost) -> None:
@@ -351,7 +366,7 @@ class ToolCallingMixin:
         self._set_status("Connecting to AI (tools=%s)..." % use_tools)
         log.debug("_do_send: calling AI, use_tools=%s, messages=%d" % (use_tools, len(self.session.messages)))
 
-        max_tool_rounds = api_config["chat_max_tool_rounds"]
+        max_tool_rounds = cast("int", api_config["chat_max_tool_rounds"])
         self._start_tool_calling_async(client, model, max_tokens, active_tools, execute_fn, max_tool_rounds, query_text=query_text)
 
         log.debug("=== _do_send END (async started, level=logging.INFO) ===")
@@ -602,9 +617,7 @@ class ToolCallingMixin:
         try:
             raw_q: queue.Queue[Any] = queue.Queue()
             self._active_q = raw_q
-            self._active_batched_q: BatchingStreamQueue | None = BatchingStreamQueue(
-                raw_q, batch_interval=CHAT_STREAM_BATCH_INTERVAL
-            )
+            self._active_batched_q = BatchingStreamQueue(raw_q, batch_interval=CHAT_STREAM_BATCH_INTERVAL)
 
             self._active_client = client
             self._active_model = model

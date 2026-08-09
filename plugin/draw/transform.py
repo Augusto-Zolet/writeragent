@@ -12,7 +12,7 @@ from plugin.draw.transform_schema import COLLABORA_TRANSFORM_DSL_URL, TRANSFORM_
 from plugin.framework.tool import ToolBase, ToolBaseDummy
 
 
-class TransformDocumentStructure(ToolBase, ToolBaseDummy):  # type: ignore[misc]
+class TransformDocumentStructure(ToolBase, ToolBaseDummy):  # type: ignore[misc]  # pyright: ignore[reportIncompatibleVariableOverride]
     """Apply a JSON command sequence to transform Draw/Impress document structure.
 
     Disabled for default LLM tool lists (ToolBaseDummy). Re-enable by using ToolBase only.

@@ -22,6 +22,7 @@ import logging
 import os
 from pathlib import Path
 import re
+import sys
 import tempfile
 import time
 from html.parser import HTMLParser
@@ -60,8 +61,15 @@ XHTML_EXTENSION = ".xhtml"
 FLAT_ODF_FILTER = "OpenDocument Text Flat XML"
 FODT_EXTENSION = ".fodt"
 
-# System temp directory (cross-platform).
-TEMP_DIR = tempfile.gettempdir()
+# System temp directory (cross-platform). Under CrossHair, gettempdir() probes /tmp
+# with open() and trips auditwall SideEffectDetected on package import — use env/fallback.
+def _resolve_temp_dir() -> str:
+    if "crosshair" in sys.modules:
+        return os.environ.get("TMPDIR") or os.environ.get("TEMP") or "/tmp"
+    return tempfile.gettempdir()
+
+
+TEMP_DIR = _resolve_temp_dir()
 
 
 def _get_format_props(config_svc=None):

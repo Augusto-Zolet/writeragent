@@ -31,7 +31,7 @@ ExecuteFn = Callable[..., dict[str, Any]]
 def check_dependencies() -> None:
     """Verify required dependencies are importable; exit if missing."""
     try:
-        import sympy  # noqa: F401
+        import sympy  # noqa: F401  # pyright: ignore[reportUnusedImport]
     except ImportError:
         print(
             "Error: sympy is not installed in the current Python environment.\n"

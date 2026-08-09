@@ -130,6 +130,12 @@ class MainBootstrapJob(unohelper.Base, XJobExecutor, XJob):
         try:
             bootstrap(self.ctx)
             init_logging(self.ctx)
+            try:
+                from plugin.chatbot.extension_update_check import schedule_extension_update_check_once
+
+                schedule_extension_update_check_once(self.ctx, EXTENSION_ID)
+            except Exception as e:
+                log.warning("extension update check schedule failed: %s", e)
         except Exception as e:
             log.exception("LibrePy bootstrap failed: %s", e)
         return ()
@@ -137,6 +143,12 @@ class MainBootstrapJob(unohelper.Base, XJobExecutor, XJob):
     def trigger(self, Event) -> None:
         bootstrap(self.ctx)
         init_logging(self.ctx)
+        try:
+            from plugin.chatbot.extension_update_check import schedule_extension_update_check_once
+
+            schedule_extension_update_check_once(self.ctx, EXTENSION_ID)
+        except Exception as e:
+            log.warning("extension update check schedule failed: %s", e)
         args = Event
         if args and isinstance(args, str) and "." in args:
             cmd = args[7:] if args.startswith("plugin.") else args
@@ -165,7 +177,8 @@ class DispatchHandler(unohelper.Base, XDispatch, XDispatchProvider, XInitializat
     def queryDispatch(self, URL: UnoURL, TargetFrameName: str, SearchFlags: int) -> XDispatch:  # pyright: ignore[reportIncompatibleMethodOverride]
         if matches_librepy_dispatch_url(URL):
             return cast("XDispatch", self)
-        return cast("XDispatch", None)
+        # UNO allows null dispatch; stub types reject None → cast via object.
+        return cast("XDispatch", cast("object", None))
 
     def queryDispatches(self, Requests: tuple[DispatchDescriptor, ...]) -> tuple[XDispatch, ...]:  # pyright: ignore[reportIncompatibleMethodOverride]
         return tuple(self.queryDispatch(r.FeatureURL, r.FrameName, r.SearchFlags) for r in Requests)

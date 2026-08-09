@@ -94,6 +94,17 @@ class HarperProofreader(WriterAgentAiGrammarProofreader):  # pyright: ignore[rep
         super().__init__(ctx, *args)
         self._implementation_name = IMPLEMENTATION_NAME
         self._locales = _harper_locale_tuple()
+        # Pin package id before update check: WriterAgent may also be installed, and
+        # resolve_package_extension_id prefers the first known id with a location.
+        try:
+            from plugin.framework.uno_context import set_package_extension_id
+
+            set_package_extension_id("org.extension.libreharper")
+            from plugin.chatbot.extension_update_check import schedule_extension_update_check_once
+
+            schedule_extension_update_check_once(ctx, "org.extension.libreharper")
+        except Exception as e:
+            log.warning("[grammar] LibreHarper extension update check schedule failed: %s", e)
 
     def _normalize_locale(self, a_locale: Any) -> str | None:
         return normalize_harper_locale_to_bcp47(a_locale)

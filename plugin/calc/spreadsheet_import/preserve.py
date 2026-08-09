@@ -18,15 +18,6 @@ from plugin.calc.spreadsheet_import.models import (
 )
 
 
-def _iter_range_addresses(used_range: str) -> list[str]:
-    (start_col, start_row), (end_col, end_row) = parse_range_string(used_range)
-    addresses: list[str] = []
-    for row in range(start_row, end_row + 1):
-        for col in range(start_col, end_col + 1):
-            addresses.append(format_address(col, row))
-    return addresses
-
-
 def _safe_number_format(cell) -> int | None:
     try:
         value = cell.getPropertyValue("NumberFormat")

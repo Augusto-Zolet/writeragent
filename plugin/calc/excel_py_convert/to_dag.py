@@ -75,7 +75,7 @@ class _XlCall:
     start: int
     end: int
     p_num: int | None  # None → dynamic / literal / unsupported
-    header_mode: HeaderMode
+    header_mode: str  # HeaderMode values; str so CrossHair can proxy (not Literal)
     literal: str | None = None
     dynamic: bool = False
     raw: str = ""
@@ -90,7 +90,7 @@ def _placeholder_to_data_index(p_num: int) -> int:
 
 @deal.pre(lambda index, *_, **__: isinstance(index, int) and index >= 0)
 @deal.post(lambda result: isinstance(result, str) and result.startswith("xl(") and result.endswith(")"))
-def _xl_binding_expr(index: int, header_mode: HeaderMode) -> str:
+def _xl_binding_expr(index: int, header_mode: str) -> str:
     """Runnable DAG ``xl("%Pn%", …)`` (quoted token; MS package uses bare ``%Pn%``)."""
     tok = f'"%P{index + 2}%"'
     # Match Microsoft samples: no space after the comma in ``headers=…``.
@@ -276,7 +276,7 @@ def rewrite_excel_code(
     *,
     num_deps: int,
     index_map: dict[int, int] | None = None,
-) -> tuple[str, list[str], list[str], dict[int, HeaderMode]]:
+) -> tuple[str, list[str], list[str], dict[int, str]]:
     """Normalize ``xl(...)`` bindings to runnable ``xl("%Pn%", …)``; leave other code intact.
 
     *index_map* maps original 0-based dep index → normalized binding index after dedup.
@@ -293,7 +293,7 @@ def rewrite_excel_code(
     issues.extend(find_issues)
 
     used: set[int] = set()
-    header_modes: dict[int, HeaderMode] = {}
+    header_modes: dict[int, str] = {}
     imap = index_map or {}
 
     for call in calls:
@@ -367,7 +367,7 @@ def _prefer_excel_dep_token(current: str, candidate: str) -> str:
 
 def _normalize_bindings(
     resolved: list[ResolvedDep],
-    header_modes: dict[int, HeaderMode],
+    header_modes: dict[int, str],
 ) -> tuple[list[BindingInfo], dict[int, int], list[str], list[str], list[str]]:
     """Deduplicate resolved A1s; map original indices → normalized data indices.
 

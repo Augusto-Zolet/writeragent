@@ -56,7 +56,7 @@ def open_init_script_editor(ctx: Any = None) -> bool:
             )
             return False
         if not exe:
-            unused, err = resolve_editor_python(uno_ctx)
+            _unused, err = resolve_editor_python(uno_ctx)
             msgbox(
                 uno_ctx,
                 _("Edit Initialization Script"),
@@ -80,7 +80,7 @@ def open_init_script_editor(ctx: Any = None) -> bool:
             return False
 
     if not exe:
-        unused, err = resolve_editor_python(uno_ctx)
+        _unused, err = resolve_editor_python(uno_ctx)
         msgbox(
             uno_ctx,
             _("Edit Initialization Script"),

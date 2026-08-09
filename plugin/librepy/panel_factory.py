@@ -158,7 +158,8 @@ class PythonPanelElement(unohelper.Base, XUIElement):
                     "Failed to create LibrePy Python sidebar panel",
                     details={"resource": self.ResourceURL},
                 ) from e
-        return cast("XInterface", self.toolpanel)
+        # Panel is a Python UNO component; stubs do not overlap XInterface.
+        return cast("XInterface", cast("object", self.toolpanel))
 
     def _getOrCreatePanelRootWindow(self):
         base_url = get_extension_url()

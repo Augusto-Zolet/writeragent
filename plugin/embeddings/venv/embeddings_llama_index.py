@@ -11,7 +11,7 @@ module only orchestrates retrieve → rerank → tool hits.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional, Sequence
+from typing import Any, Sequence
 
 from plugin.embeddings.venv.embeddings_retrieval_pool import _MIN_FETCH_K, hybrid_retrieval_pool
 from plugin.framework.constants import EMBEDDINGS_SCHEMA_VERSION as SCHEMA_VERSION
@@ -26,7 +26,6 @@ try:
     from llama_index.core import QueryBundle, VectorStoreIndex  # type: ignore
     from llama_index.core.base.base_retriever import BaseRetriever  # type: ignore
     from llama_index.core.embeddings import BaseEmbedding  # type: ignore
-    from llama_index.core.postprocessor import SentenceTransformerRerank  # type: ignore
     from llama_index.core.llms.mock import MockLLM  # type: ignore
     from llama_index.core.retrievers import QueryFusionRetriever  # type: ignore
     from llama_index.core.retrievers.fusion_retriever import FUSION_MODES  # type: ignore
@@ -107,13 +106,6 @@ except ImportError:
 
     class FUSION_MODES:  # type: ignore[no-redef]
         RECIPROCAL_RANK: Any = "reciprocal_rerank"
-
-    class SentenceTransformerRerank:  # type: ignore[no-redef]
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            pass
-
-        def postprocess_nodes(self, nodes: list[Any], query_bundle: Any = None) -> list[Any]:
-            return nodes
 
     class MockLLM:  # type: ignore[no-redef]
         def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -255,7 +247,7 @@ def _apply_llama_index_postprocessors(
 
 if HAS_LLAMA_INDEX:
 
-    class WriterAgentEmbedding(BaseEmbedding):  # type: ignore[valid-type, misc]
+    class WriterAgentEmbedding(BaseEmbedding):  # type: ignore[valid-type, misc]  # pyright: ignore[reportGeneralTypeIssues, reportUntypedBaseClass]
         _model_name: str = PrivateAttr()
 
         def __init__(self, model_name: str, **kwargs: Any) -> None:
@@ -286,7 +278,7 @@ if HAS_LLAMA_INDEX:
         async def _aget_text_embeddings(self, texts: list[str]) -> list[list[float]]:
             return self._get_text_embeddings(texts)
 
-    class WriterAgentVectorStore(BasePydanticVectorStore):  # type: ignore[valid-type, misc]
+    class WriterAgentVectorStore(BasePydanticVectorStore):  # type: ignore[valid-type, misc]  # pyright: ignore[reportGeneralTypeIssues, reportUntypedBaseClass]
         stores_text: bool = True
 
         _db_path: str = PrivateAttr()
@@ -406,7 +398,7 @@ if HAS_LLAMA_INDEX:
             finally:
                 conn.close()
 
-    class WriterAgentFTSRetriever(BaseRetriever):  # type: ignore[valid-type, misc]
+    class WriterAgentFTSRetriever(BaseRetriever):  # type: ignore[valid-type, misc]  # pyright: ignore[reportGeneralTypeIssues, reportUntypedBaseClass]
         _db_path: str = PrivateAttr()
         _near_slop: int = PrivateAttr()
         _similarity_top_k: int = PrivateAttr()

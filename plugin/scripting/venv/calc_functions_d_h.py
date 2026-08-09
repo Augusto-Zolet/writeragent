@@ -10,15 +10,10 @@ Semantics mirror the inline helpers formerly pasted by spreadsheet import transl
 from __future__ import annotations
 
 import datetime as dt
-import builtins
 import math
-import re
-from collections import Counter
-from typing import Any, Callable, cast
+from typing import Any
 
 import numpy as np
-
-from plugin.scripting.calc_functions_common import HELPER_NAMES
 
 
 __all__ = [
@@ -206,7 +201,7 @@ def ddb(cost: Any, salvage: Any, life: Any, period: Any, factor: Any = 2) -> flo
         rate = f / life_val
         val = c
         dep = 0.0
-        for i in range(1, p + 1):
+        for _i in range(1, p + 1):
             dep = min(val * rate, val - s)
             if dep < 0:
                 dep = 0.0

@@ -13,8 +13,6 @@ from unittest.mock import MagicMock, patch
 from plugin.scripting.document_scripts import (
     ANALYSIS_SCRIPT_DISPLAY_PREFIX,
     DOCUMENT_SCRIPTS_UDPROP,
-    SCRIPT_ORIGIN_ANALYSIS,
-    SCRIPT_ORIGIN_VISION,
     VISION_SCRIPT_DISPLAY_PREFIX,
     _MAX_DOCUMENT_SCRIPTS_BYTES,
     attach_document_script,
@@ -31,6 +29,7 @@ from plugin.scripting.document_scripts import (
     resolve_script_picker_entry,
     set_document_scripts,
 )
+from plugin.scripting.domain_registry import SCRIPT_ORIGIN_ANALYSIS, SCRIPT_ORIGIN_VISION
 from plugin.tests.testing_utils import setup_uno_mocks
 from tests.writer.test_document_helpers import _DocWithUserDefinedProperties, _UserDefinedProperties
 

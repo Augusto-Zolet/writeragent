@@ -24,28 +24,6 @@ _SKILL_CACHE: dict[str, str] = {}
 _EXPORTED_FLAG: dict[str, bool] = {}
 
 
-def _tool_schemas(tools: list[Tool]) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
-    for t in tools:
-        props: dict[str, Any] = {}
-        required: list[str] = []
-        for name, spec in t.inputs.items():
-            props[name] = {"type": spec.get("type", "string"), "description": spec.get("description", "")}
-            if not spec.get("nullable", True):
-                required.append(name)
-        out.append(
-            {
-                "type": "function",
-                "function": {
-                    "name": t.name,
-                    "description": t.description,
-                    "parameters": {"type": "object", "properties": props, "required": required},
-                },
-            }
-        )
-    return out
-
-
 class _RpcHostTool(Tool):
     """Base for tools that call WriterAgent on the LO host."""
 

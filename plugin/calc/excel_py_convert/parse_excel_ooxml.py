@@ -240,7 +240,7 @@ def _parse_python_scripts(zf: zipfile.ZipFile) -> list[str]:
 
     indexed: list[tuple[int, str]] = []
     sequential: list[str] = []
-    for order, el in enumerate(script_els):
+    for _order, el in enumerate(script_els):
         code_el = _find_child(el, "code")
         text = "".join(code_el.itertext()) if code_el is not None else "".join(el.itertext())
         idx_s = el.attrib.get("index") or el.attrib.get("scriptIndex") or ""

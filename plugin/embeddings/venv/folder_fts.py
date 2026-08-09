@@ -8,31 +8,8 @@ from __future__ import annotations
 import logging
 import re
 import sqlite3
-import time
 from pathlib import Path
 from typing import Any, Callable, Literal
-
-from plugin.embeddings.embeddings_cache import (
-    corpus_db_path,
-    diff_chunk_rows,
-    file_is_stale,
-    mark_file_indexed,
-    sync_file_paragraph_state,
-)
-from plugin.embeddings.embeddings_fs import (
-    ParagraphChunk,
-    WriterFileEntry,
-    guess_indexable_paths,
-    paragraph_chunks_from_path,
-)
-from plugin.embeddings.folder_fts_cache import (
-    FTS_SCHEMA_VERSION,
-    fts_db_path,
-    fts_meta_path,
-    needs_fts_cold_rebuild,
-    write_fts_meta,
-)
-from plugin.framework.constants import EMBEDDINGS_HEARTBEAT_INTERVAL_S
 
 log = logging.getLogger(__name__)
 
@@ -50,37 +27,6 @@ __all__ = [
 _NEAR_SLASH_RE = re.compile(r"(.+?)\s+NEAR\s*/\s*(\d+)\s+(.+)", re.IGNORECASE)
 _FTS5_NEAR_CALL_RE = re.compile(r"\bNEAR\s*\(", re.IGNORECASE)
 _BOOL_RE = re.compile(r"\b(AND|OR|NOT)\b", re.IGNORECASE)
-
-_CREATE_SQL = """
-CREATE VIRTUAL TABLE IF NOT EXISTS passages USING fts5(
-    body,
-    doc_url UNINDEXED,
-    para_index UNINDEXED,
-    content_hash UNINDEXED,
-    tokenize='porter unicode61'
-);
-"""
-
-
-class _HeartbeatThrottle:
-    def __init__(self, heartbeat_fn: Callable[[dict[str, Any]], None] | None) -> None:
-        self._fn = heartbeat_fn
-        self._last = 0.0
-
-    def ping(self, payload: dict[str, Any]) -> None:
-        if self._fn is None:
-            return
-        now = time.monotonic()
-        if now - self._last < EMBEDDINGS_HEARTBEAT_INTERVAL_S:
-            return
-        self._last = now
-        self._fn(payload)
-
-    def force(self, payload: dict[str, Any]) -> None:
-        if self._fn is None:
-            return
-        self._last = time.monotonic()
-        self._fn(payload)
 
 
 def _escape_fts_token(token: str) -> str:
@@ -127,164 +73,9 @@ def _connect(db_path: Path) -> sqlite3.Connection:
     return conn
 
 
-def _ensure_schema(conn: sqlite3.Connection) -> None:
-    conn.executescript(_CREATE_SQL)
-    conn.commit()
-
-
-def _clear_fts_files(listing_root: str) -> None:
-    from plugin.embeddings.embeddings_cache import clear_folder_cache
-
-    clear_folder_cache(listing_root)
-
-
 def _count_rows(conn: sqlite3.Connection) -> int:
     row = conn.execute("SELECT COUNT(*) AS c FROM passages").fetchone()
     return int(row["c"] if row else 0)
-
-
-def _write_meta(listing_root: str, row_count: int) -> None:
-    write_fts_meta(
-        fts_meta_path(listing_root),
-        schema_version=FTS_SCHEMA_VERSION,
-        row_count=str(row_count),
-        updated_at=str(time.time()),
-    )
-
-
-def _insert_rows(conn: sqlite3.Connection, rows: list[dict[str, Any]]) -> None:
-    if not rows:
-        return
-    conn.executemany(
-        "INSERT INTO passages(body, doc_url, para_index, content_hash) VALUES (?, ?, ?, ?)",
-        [
-            (
-                str(row.get("text") or ""),
-                str(row.get("doc_url") or ""),
-                int(row.get("para_index") or 0),
-                str(row.get("content_hash") or ""),
-            )
-            for row in rows
-        ],
-    )
-    conn.commit()
-
-
-def _delete_keys(conn: sqlite3.Connection, keys: list[dict[str, Any]]) -> None:
-    if not keys:
-        return
-    conn.executemany(
-        "DELETE FROM passages WHERE doc_url = ? AND para_index = ?",
-        [(str(k.get("doc_url") or ""), int(k.get("para_index") or 0)) for k in keys],
-    )
-    conn.commit()
-
-
-def _resolve_mode(listing_root: str, mode: MaintainMode) -> MaintainMode:
-    if mode != "auto":
-        return mode
-    db = fts_db_path(listing_root, create_parent=False)
-    meta = fts_meta_path(listing_root, create_parent=False)
-    if needs_fts_cold_rebuild(meta, db):
-        return "cold"
-    return "incremental"
-
-
-def _cold_build(
-    listing_root: str,
-    files: list[WriterFileEntry],
-    hb: _HeartbeatThrottle,
-) -> dict[str, Any]:
-    _clear_fts_files(listing_root)
-    db = fts_db_path(listing_root)
-    all_rows: list[dict[str, Any]] = []
-    file_chunks: dict[str, list[ParagraphChunk]] = {}
-    total = len(files)
-
-    for index, entry in enumerate(files):
-        hb.force({"phase": "extract", "file": entry.name, "index": index, "total": total, "mode": "cold"})
-        chunks = paragraph_chunks_from_path(entry.path, doc_url=entry.url, file_mtime=entry.modified)
-        file_chunks[entry.url] = chunks
-        for chunk in chunks:
-            all_rows.append(
-                {
-                    "text": chunk.text,
-                    "doc_url": chunk.doc_url,
-                    "para_index": chunk.para_index,
-                    "content_hash": chunk.content_hash,
-                }
-            )
-        hb.ping({"phase": "extract", "file": entry.name, "paragraphs": len(chunks)})
-
-    if not all_rows:
-        _write_meta(listing_root, 0)
-        return {"mode": "cold", "indexed_paragraphs": 0, "files": total}
-
-    hb.force({"phase": "index", "paragraphs": len(all_rows), "mode": "cold"})
-    with _connect(db) as conn:
-        _ensure_schema(conn)
-        _insert_rows(conn, all_rows)
-        row_count = _count_rows(conn)
-
-    db_path = corpus_db_path(listing_root)
-    for entry in files:
-        sync_file_paragraph_state(db_path, entry.url, file_chunks.get(entry.url, []), entry.modified)
-    _write_meta(listing_root, row_count)
-
-    return {
-        "mode": "cold",
-        "indexed_paragraphs": len(all_rows),
-        "files": total,
-        "row_count": row_count,
-    }
-
-
-def _incremental_refresh(
-    listing_root: str,
-    files: list[WriterFileEntry],
-    hb: _HeartbeatThrottle,
-) -> dict[str, Any]:
-    db = fts_db_path(listing_root)
-    db_path = corpus_db_path(listing_root)
-    indexed = 0
-    deleted = 0
-    files_touched = 0
-    total = len(files)
-
-    with _connect(db) as conn:
-        _ensure_schema(conn)
-        for index, entry in enumerate(files):
-            hb.ping({"phase": "scan", "file": entry.name, "index": index, "total": total})
-            if not file_is_stale(db_path, entry.url, entry.modified):
-                continue
-            hb.force({"phase": "extract", "file": entry.name, "index": index, "total": total, "mode": "incremental"})
-            chunks = paragraph_chunks_from_path(entry.path, doc_url=entry.url, file_mtime=entry.modified)
-            to_index, to_delete = diff_chunk_rows(db_path, chunks)
-            if to_delete:
-                hb.force({"phase": "delete", "file": entry.name, "keys": len(to_delete)})
-                _delete_keys(conn, to_delete)
-                deleted += len(to_delete)
-            if to_index:
-                hb.force({"phase": "index", "file": entry.name, "paragraphs": len(to_index)})
-                _insert_rows(conn, to_index)
-                sync_file_paragraph_state(db_path, entry.url, chunks, entry.modified)
-                indexed += len(to_index)
-                files_touched += 1
-            elif not to_delete:
-                mark_file_indexed(db_path, entry.url, entry.modified)
-                files_touched += 1
-
-        row_count = _count_rows(conn)
-
-    _write_meta(listing_root, row_count)
-    return {
-        "mode": "incremental",
-        "indexed_paragraphs": indexed,
-        "deleted_paragraphs": deleted,
-        "files_touched": files_touched,
-        "files": total,
-        "row_count": row_count,
-    }
 
 
 def maintain_folder_fts(

@@ -830,7 +830,7 @@ def _build_probe_display(
         _("Quantitative Finance Libraries"),
         _("Data Engineering Libraries"),
     ]
-    for idx, (title, keys) in enumerate(specs):
+    for _idx, (title, keys) in enumerate(specs):
         if not keys:
             continue
         if title in sandbox_titles:

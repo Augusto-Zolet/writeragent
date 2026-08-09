@@ -124,7 +124,7 @@ def _emit_row_func(node: FunctionNode, state: _CodegenState, cell_addr: str | No
     if not node.args:
         if cell_addr:
             try:
-                _, r = parse_address(cell_addr)
+                _unused, r = parse_address(cell_addr)
                 return f"float({r + 1})"
             except ValueError:
                 pass
@@ -132,7 +132,7 @@ def _emit_row_func(node: FunctionNode, state: _CodegenState, cell_addr: str | No
     arg = node.args[0]
     if isinstance(arg, RangeNode):
         try:
-            (sc, sr), (ec, er) = parse_range_string(arg.address)
+            (_sc, sr), (_ec, er) = parse_range_string(arg.address)
             if sr == er:
                 return f"float({sr + 1})"
             rows = [float(r) for r in range(sr + 1, er + 2)]
@@ -146,7 +146,7 @@ def _emit_col_func(node: FunctionNode, state: _CodegenState, cell_addr: str | No
     if not node.args:
         if cell_addr:
             try:
-                c, _ = parse_address(cell_addr)
+                c, _unused = parse_address(cell_addr)
                 return f"float({c + 1})"
             except ValueError:
                 pass
@@ -154,7 +154,7 @@ def _emit_col_func(node: FunctionNode, state: _CodegenState, cell_addr: str | No
     arg = node.args[0]
     if isinstance(arg, RangeNode):
         try:
-            (sc, sr), (ec, er) = parse_range_string(arg.address)
+            (sc, _sr), (ec, _er) = parse_range_string(arg.address)
             if sc == ec:
                 return f"float({sc + 1})"
             cols = [float(c) for c in range(sc + 1, ec + 2)]
@@ -170,7 +170,7 @@ def _emit_rows_func(node: FunctionNode, state: _CodegenState) -> str:
     arg = node.args[0]
     if isinstance(arg, RangeNode):
         try:
-            (sc, sr), (ec, er) = parse_range_string(arg.address)
+            (_sc, sr), (_ec, er) = parse_range_string(arg.address)
             return f"float({abs(er - sr) + 1})"
         except ValueError:
             pass
@@ -184,7 +184,7 @@ def _emit_columns_func(node: FunctionNode, state: _CodegenState) -> str:
     arg = node.args[0]
     if isinstance(arg, RangeNode):
         try:
-            (sc, sr), (ec, er) = parse_range_string(arg.address)
+            (sc, _sr), (ec, _er) = parse_range_string(arg.address)
             return f"float({abs(ec - sc) + 1})"
         except ValueError:
             pass
@@ -441,16 +441,6 @@ def _emit_function(node: FunctionNode, state: _CodegenState, cell_addr: str | No
     if emitted is None:
         raise ValueError(f"unsupported function {name}")
     return emitted(args)
-
-
-def _scalar(expr: str) -> str:
-    """Coerce to scalar without ``float(`` (Calc formula lexer treats it as #NAME?)."""
-    return f"({expr})+0.0"
-
-
-def _py_index(expr: str) -> str:
-    """Integer index without ``int(`` token."""
-    return f"(({expr})//1)"
 
 
 def _emit_if(args: list[str]) -> str:

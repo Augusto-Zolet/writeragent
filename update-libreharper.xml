@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<description xmlns="http://openoffice.org/extensions/description/2006"
+             xmlns:d="http://openoffice.org/extensions/description/2006"
+             xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!--
+      Maintainer: bump version only AFTER the same release is published on
+      extensions.libreoffice.org (or GitHub release assets). LibreOffice reads
+      this file to report an outdated extension; bumping here first only shows
+      "update available" without a workable upgrade path if the OXT is missing.
+    -->
+    <identifier value="org.extension.libreharper" />
+    <version value="0.8.56" />
+    <update-download>
+        <src xlink:href="https://github.com/KeithCu/writeragent/releases/latest/download/LibreHarper.oxt" />
+    </update-download>
+</description>

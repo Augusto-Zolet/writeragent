@@ -28,8 +28,8 @@ log = logging.getLogger(__name__)
 
 _HAVE_UNO_DOC_EVENTS = False
 try:
-    import unohelper as _unohelper_impl  # noqa: F401
-    from com.sun.star.document import XDocumentEventListener as _XDocumentEventListener_impl  # noqa: F401
+    import unohelper as _unohelper_impl  # noqa: F401  # pyright: ignore[reportUnusedImport]
+    from com.sun.star.document import XDocumentEventListener as _XDocumentEventListener_impl  # noqa: F401  # pyright: ignore[reportUnusedImport]
 
     _HAVE_UNO_DOC_EVENTS = True
 except ImportError:

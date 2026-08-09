@@ -23,6 +23,7 @@ Language detected from UNO CharLocale. Stemming via bundled snowballstemmer.
 import logging
 import re
 import time
+from typing import Any
 import unicodedata
 
 from plugin.framework.errors import ToolExecutionError
@@ -284,7 +285,7 @@ class IndexService(ServiceBase):
         return stems, dropped
 
     def _parse_query(self, query, stemmer, stop_words):
-        result = {"and_stems": [], "or_stems": [], "not_stems": [], "near": [], "dropped_stops": [], "mode": "and", "error": None}
+        result: dict[str, Any] = {"and_stems": [], "or_stems": [], "not_stems": [], "near": [], "dropped_stops": [], "mode": "and", "error": None}
 
         not_split = _NOT_RE.split(query)
         main_part = not_split[0].strip()

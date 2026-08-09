@@ -109,7 +109,7 @@ class ServiceRegistry:
 
         log = logging.getLogger("writeragent.services")
 
-        for name, obj in inspect.getmembers(module, inspect.isclass):
+        for _name, obj in inspect.getmembers(module, inspect.isclass):
             if issubclass(obj, ServiceBase) and obj is not ServiceBase and obj.__module__ == module.__name__ and not inspect.isabstract(obj) and getattr(obj, "name", None):
                 try:
                     # Instantiate by passing the registry itself as 'services'

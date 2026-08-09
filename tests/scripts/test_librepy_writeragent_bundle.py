@@ -38,3 +38,12 @@ def test_librepy_bundle_includes_deal_shim():
     """constants and other framework modules import deal via deal_shim; must ship in LibrePy.oxt."""
     paths = collect_librepy_plugin_paths(str(_REPO_ROOT))
     assert "plugin/framework/deal_shim.py" in paths
+
+
+def test_librepy_bundle_includes_extension_update_check():
+    """Weekly update check + sync_request deps must ship in LibrePy.oxt."""
+    paths = collect_librepy_plugin_paths(str(_REPO_ROOT))
+    assert "plugin/chatbot/extension_update_check.py" in paths
+    assert "plugin/framework/client/requests.py" in paths
+    assert "plugin/framework/client/ssl_helpers.py" in paths
+    assert "plugin/framework/client/provider_detection.py" in paths

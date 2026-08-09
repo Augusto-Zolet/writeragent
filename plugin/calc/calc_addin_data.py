@@ -12,6 +12,8 @@ Wire packing wraps each range in a ``calc_range`` envelope; ``split_grid``
 remains a private storage optimization inside that envelope.
 """
 
+
+# crosshair: off
 from __future__ import annotations
 
 from typing import Any
@@ -30,7 +32,6 @@ from plugin.framework.deal_shim import deal
 
 def _unwrap_cell(value: Any, true_strings: set[str] | None = None, false_strings: set[str] | None = None) -> Any:
     """Normalize a single cell value from UNO / Calc."""
-    # crosshair: off
     if value is None:
         return None
     # PyUNO may wrap values in uno.Any
@@ -53,7 +54,6 @@ def _unwrap_cell(value: Any, true_strings: set[str] | None = None, false_strings
 
 
 def _is_row_sequence(value: Any) -> bool:
-    # crosshair: off
     if isinstance(value, (str, bytes)):
         return False
     try:
@@ -72,7 +72,6 @@ def normalize_python_data_shape(grid: list[list[Any]], *, as_column: bool = Fals
     - Single column → ``[[v1], [v2], …]`` when *as_column* or input was columnar
     - Empty → ``[]``
     """
-    # crosshair: off
     if not grid:
         return []
     return ensure_rectangular_2d(grid)
@@ -81,7 +80,6 @@ def normalize_python_data_shape(grid: list[list[Any]], *, as_column: bool = Fals
 @deal.post(lambda result: result is None or isinstance(result, list))
 def finalize_python_data(raw: Any) -> list[list[Any]] | None:
     """Normalize tool/API ``data`` that may already be a nested list from the LLM."""
-    # crosshair: off
     if raw is None:
         return None
     if isinstance(raw, str):
@@ -102,7 +100,6 @@ def _is_legacy_single_column_range(items: list[Any]) -> bool:
     **scalar**. Two separate single-cell varargs look like ``(((1.0,),), ((2.0,),))``
     and must stay multi-range (inner value is itself a sequence).
     """
-    # crosshair: off
     if len(items) <= 1:
         return False
     for item in items:
@@ -120,7 +117,6 @@ def split_python_addin_data_args(raw: Any) -> list[Any]:
     Calc packs all trailing arguments into ``sequence<any>``. Unit tests may pass a bare range
   or scalar without the outer sequence wrapper.
     """
-    # crosshair: off
     if raw is None:
         return []
     raw = _unwrap_cell(raw)
@@ -142,7 +138,6 @@ def calc_addin_args_from_split(
     false_strings: set[str] | None = None,
 ) -> list[list[Any]] | list[list[list[Any]]] | None:
     """Convert pre-split varargs into sandbox grids: one 2D grid or list of 2D grids."""
-    # crosshair: off
     if not args:
         return None
     if len(args) == 1:
@@ -162,7 +157,6 @@ def calc_addin_args_to_python(
     false_strings: set[str] | None = None,
 ) -> list[list[Any]] | list[list[list[Any]]] | None:
     """Convert varargs ``data`` into sandbox grids: one 2D grid or list of 2D grids."""
-    # crosshair: off
     return calc_addin_args_from_split(split_python_addin_data_args(raw), true_strings, false_strings)
 
 
@@ -180,7 +174,6 @@ def calc_addin_data_to_python(
     - Single column → ``[[v1], [v2], …]``
     - 2D block → ``list[list]`` row-major
     """
-    # crosshair: off
     if value is None:
         return None
 
@@ -212,7 +205,6 @@ def pack_calc_multi_data_for_wire(
     addresses: list[str | None] | None = None,
 ) -> Any:
     """Pack multiple Calc ranges as ``multi_data`` of ``calc_range`` envelopes."""
-    # crosshair: off
     if not py_data:
         return None
     from plugin.scripting.payload_codec import PAYLOAD_MULTI_DATA
@@ -234,7 +226,6 @@ def pack_calc_data_for_wire(
     address: str | None = None,
 ) -> Any:
     """Pack one Calc range as a ``calc_range`` envelope (inner list or split_grid)."""
-    # crosshair: off
     if py_data is None:
         return None
     grid = ensure_rectangular_2d(py_data)
@@ -247,7 +238,6 @@ def pack_calc_data_for_wire(
 
 def count_cells(data: Any) -> int:
     """Return number of scalar cells in *data* for size guarding."""
-    # crosshair: off
     if is_calc_range_payload(data):
         shape = data.get("shape") or [0, 0]
         return int(shape[0]) * int(shape[1]) if len(shape) == 2 else wire_cell_count(data.get("data"))
@@ -273,7 +263,6 @@ def check_python_multi_data_size(
     max_cells: int | None = None,
 ) -> str | None:
     """Return an error message if combined multi-range *data* exceeds *max_cells*."""
-    # crosshair: off
     limit = python_max_data_cells_default() if max_cells is None else max_cells
     n = sum(count_cells(item) for item in data)
     if n > limit:
@@ -291,7 +280,6 @@ def check_python_data_size(
     *max_cells* defaults to schema default for ``scripting.python_max_data_cells``; callers with
     UNO context should pass ``configured_python_max_data_cells(ctx)``.
     """
-    # crosshair: off
     limit = python_max_data_cells_default() if max_cells is None else max_cells
     n = count_cells(data)
     if n > limit:
@@ -301,7 +289,6 @@ def check_python_data_size(
 
 def values_from_inspector_range(range_data: list[list[dict]]) -> list[list[Any]]:
     """Strip ``CellInspector.read_range`` dicts to a rectangular 2D value grid."""
-    # crosshair: off
     grid = [[cell.get("value") for cell in row] for row in range_data]
     return ensure_rectangular_2d(grid)
 
@@ -311,7 +298,6 @@ def _normalize_data_range_addresses(data_range: Any) -> list[str]:
 
     Accepts a single string (optionally comma/semicolon-separated), or a list/tuple of strings.
     """
-    # crosshair: off
     if data_range is None:
         return []
     if isinstance(data_range, (list, tuple)):
@@ -331,7 +317,6 @@ def _resolve_python_data(ctx: Any, *, data_range: Any = None, data: Any = None) 
     ``data_range`` may be one A1 string, a comma/semicolon-separated string, or a list of addresses.
     Multiple ranges pack as ``multi_data`` of ``calc_range`` (same as ``=PY()`` varargs).
     """
-    # crosshair: off
     from plugin.calc.bridge import CalcBridge
     from plugin.calc.inspector import CellInspector
     from plugin.scripting.config_limits import configured_python_max_data_cells
@@ -373,7 +358,6 @@ def _resolve_python_data(ctx: Any, *, data_range: Any = None, data: Any = None) 
 
 def resolve_python_data_on_main_thread(ctx: Any, *, data_range: Any = None, data: Any = None) -> tuple[Any | None, str | None]:
     """Marshal Calc range reads to the LO main thread (``is_async`` tools run on workers)."""
-    # crosshair: off
     from plugin.framework.thread_guard import on_main_thread
     from plugin.framework.queue_executor import execute_on_main_thread
 

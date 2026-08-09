@@ -21,12 +21,16 @@ from plugin.calc.python.formula_edit import (
     _parse_quoted_string,
     _parse_unquoted_code_arg,
     escape_code_for_formula,
+    format_data_binding_display,
+    format_data_binding_text,
     normalize_formula_string,
+    parse_data_binding_text,
     parse_python_formula,
     rebuild_python_formula,
     sanitize_inline_py_code,
 )
 from plugin.calc.spreadsheet_import.preprocess import normalize_lo_formula_for_parse
+from tests.vhs_budget import vhs_max_examples
 
 _CROSSHAIR_ERROR_RE = re.compile(r": error:")
 _CROSSHAIR_TARGETS = (
@@ -54,7 +58,7 @@ def _find_crosshair() -> str | None:
 
 
 @given(code=_CODE_TEXT)
-@settings(max_examples=60)
+@settings(max_examples=vhs_max_examples(60, 600), deadline=None)
 def test_hypothesis_escape_embed_parse_round_trip(code: str) -> None:
     """escape → embed in =PY("…") → parse recovers post-sanitize code."""
     escaped = escape_code_for_formula(code)
@@ -65,8 +69,24 @@ def test_hypothesis_escape_embed_parse_round_trip(code: str) -> None:
     assert parts.data_suffix == ")"
 
 
+@given(code=_CODE_TEXT)
+@settings(max_examples=vhs_max_examples(50, 500), deadline=None)
+def test_hypothesis_rebuild_parse_round_trip(code: str) -> None:
+    """rebuild(parse(=PY(\"…\"))) preserves sanitized code (Phase 8 #1)."""
+    escaped = escape_code_for_formula(code)
+    formula = f'=PY("{escaped}")'
+    parts = parse_python_formula(formula)
+    assert parts is not None
+    rebuilt = rebuild_python_formula(parts, parts.code)
+    again = parse_python_formula(rebuilt)
+    assert again is not None
+    assert again.code == parts.code
+    assert again.data_suffix == parts.data_suffix
+    assert rebuilt.startswith('=PY("')
+
+
 @given(formula=_CODE_TEXT)
-@settings(max_examples=40)
+@settings(max_examples=vhs_max_examples(40, 400), deadline=None)
 def test_hypothesis_normalize_idempotent_after_first(formula: str) -> None:
     once = normalize_formula_string(formula)
     assert normalize_formula_string(once) == once
@@ -74,14 +94,14 @@ def test_hypothesis_normalize_idempotent_after_first(formula: str) -> None:
 
 
 @given(inner=_CODE_TEXT.filter(lambda s: not s.startswith('"')))
-@settings(max_examples=40)
+@settings(max_examples=vhs_max_examples(40, 400), deadline=None)
 def test_hypothesis_unquoted_code_never_starts_with_quote(inner: str) -> None:
     result = _parse_unquoted_code_arg(inner)
     assert result is None or not result.startswith('"')
 
 
 @given(body=_CODE_TEXT)
-@settings(max_examples=40)
+@settings(max_examples=vhs_max_examples(40, 400), deadline=None)
 def test_hypothesis_quoted_string_bounds(body: str) -> None:
     # Wrap as a Calc string; doubled quotes inside body via escape.
     escaped = body.replace('"', '""')
@@ -145,6 +165,23 @@ def test_normalize_lo_curly_and_semicolon() -> None:
     assert "\u201c" not in out and "\u201d" not in out
     assert "; A1)" not in out
     assert ", A1)" in out or ",A1)" in out.replace(" ", "")
+
+
+def test_data_binding_format_and_parse() -> None:
+    assert format_data_binding_display("; A1:B10)") == "A1:B10"
+    assert format_data_binding_display(")") == ""
+    assert parse_data_binding_text("A1, B1:C5") == ["A1", "B1:C5"]
+    assert format_data_binding_text(["A1", "B1:C5"]) == "A1, B1:C5"
+
+
+@given(suffix=st.text(max_size=30))
+@settings(max_examples=vhs_max_examples(50, 500), deadline=None)
+def test_hypothesis_format_data_binding_display_invariants(suffix: str) -> None:
+    res = format_data_binding_display(suffix)
+    assert isinstance(res, str)
+    if res:
+        assert not res.startswith(";") and not res.startswith(",") and not res.endswith(")")
+
 
 
 @pytest.mark.slow

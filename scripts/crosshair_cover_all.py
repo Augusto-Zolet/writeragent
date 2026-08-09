@@ -28,7 +28,9 @@ timings; longest-first among known modules). Paths **not** in that list run
 **first** (stable by path) until they are timed and inserted into the schedule.
 Completion banners still use finish order.
 
-Uses ``CROSSHAIR_CHECK_ALL_SKIP`` plus cover-only ``CROSSHAIR_COVER_ALL_SKIP`` (UNO / drain loops).
+Uses empty module skip lists: hostility is handled per-callable with
+``# crosshair: off`` (cover-all expands each file to FQNs and drops offs).
+A module with every callable marked off is auto-skipped as success.
 
 Usage::
 
@@ -60,7 +62,12 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from scripts.crosshair_check_all import CROSSHAIR_CHECK_ALL_SKIP
-from scripts.crosshair_stream import _TeeTextIO, discover_deal_plugin_files, run_crosshair
+from scripts.crosshair_stream import (
+    _TeeTextIO,
+    cover_fqns_for_module,
+    discover_deal_plugin_files,
+    run_crosshair,
+)
 
 DEFAULT_LOG = Path("build/crosshair-cover-all.log")
 DEFAULT_TIMINGS_JSON = Path("build/crosshair-cover-all-timings.json")
@@ -78,39 +85,10 @@ PAYLOAD_CODEC_REGULAR_PER_CONDITION_TIMEOUT_SEC = 5
 # Placeholder in worker-buffered text; parent replaces with [completed/total] on emit.
 PROGRESS_SENTINEL = "__PROGRESS__"
 
-# Cover walks all top-level callables (not only @deal). These are check-green but
-# cover-hostile (UNO Tool.execute, sheet access, combobox, engine exit 2, drain loops,
-# FSM/Exception/JSON surfaces that still crash-frame under cover after Literal→str).
-CROSSHAIR_COVER_ALL_SKIP: frozenset[str] = frozenset(
-    {
-        "plugin/calc/cells.py",
-        "plugin/calc/formula_dep_chain.py",
-        "plugin/calc/calc_addin_data.py",
-        "plugin/chatbot/chat_sidebar_mode.py",
-        "plugin/chatbot/web_research_cache.py",
-        "plugin/chatbot/state_machine.py",
-        "plugin/chatbot/tool_loop_state.py",
-        "plugin/framework/async_stream.py",
-        # check-green; cover crash-frames / LazyIntSymbolicStr / engine exit 2
-        # (cover ignores # crosshair: off on many of these entry points).
-        "plugin/framework/client/auth.py",
-        "plugin/framework/config.py",
-        "plugin/framework/config_service.py",
-        "plugin/framework/default_models.py",
-        "plugin/framework/event_bus.py",
-        "plugin/framework/i18n.py",
-        "plugin/framework/tool.py",
-        "plugin/framework/url_utils.py",
-        "plugin/mcp/cors.py",
-        # CalcRange materialize/pandas paths + payload_codec under symbolic grids.
-        "plugin/scripting/calc_range.py",
-        # json.dumps on symbolic template params → cover crash frame.
-        "plugin/scripting/duckdb_sql.py",
-        "plugin/scripting/editor_ipc.py",
-        "plugin/scripting/helper_domain.py",  # cover engine exit 2
-        "plugin/scripting/sandbox.py",
-    }
-)
+# Module skip lists stay empty: mark hostile callables with ``# crosshair: off``
+# (cover-all honors that via FQN expansion). Prefer ``if "crosshair" in sys.modules``
+# shims when contracts should still run. Kept as frozensets so tests/docs can import them.
+CROSSHAIR_COVER_ALL_SKIP: frozenset[str] = frozenset()
 
 # Longest → shortest submit order for the process pool (regular cover-all timings).
 # Unknown @deal. modules (not in this list) sort *before* the schedule until timed
@@ -269,25 +247,63 @@ def _cover_one_module(
     # Discovery index stays on CoverModuleResult; printed [n/total] is stamped on emit.
     section = f"######## {PROGRESS_SENTINEL} {rel} ########"
     buf.write(f"\n{section}\n")
-    ch_args = [
-        "-v",
-        f"--max_uninteresting_iterations={max_uninteresting}",
-    ]
-    if per_condition_timeout is not None:
-        ch_args.append(f"--per_condition_timeout={per_condition_timeout}")
-    ch_args.append(rel)
-    # Same path markers at top/bottom; parent renumbers PROGRESS_SENTINEL to completion order.
+    fqns = cover_fqns_for_module(Path(rel))
+    if not fqns:
+        # Every top-level callable has ``# crosshair: off`` — honest auto-skip, not a failure.
+        buf.write(f"[COVER SKIP            ] all callables off: {rel}\n")
+        buf.write(f"[COVER TIMING          ] 0.0s  {rel}\n")
+        buf.write(f"{section}\n")
+        return CoverModuleResult(
+            rel=rel,
+            index=index,
+            total=total,
+            exit_code=0,
+            examples=0,
+            explore=0,
+            error_details=(),
+            formatted=buf.getvalue(),
+            duration_sec=0.0,
+        )
+    # One FQN per CrossHair process: multiple ``Class.method`` targets on one CLI
+    # confuse load_by_qualname (treats the class as a package). Top-level function
+    # batches can work, but per-FQN is reliable for mixed modules.
     started = time.perf_counter()
-    code, stats = run_crosshair(
-        "cover",
-        ch_args,
-        "cover",
-        raw,
-        quiet,
-        out=buf,
-        label=f"{PROGRESS_SENTINEL} {rel}",
-        timeout_sec=wall_timeout_sec,
-    )
+    deadline = (started + wall_timeout_sec) if wall_timeout_sec and wall_timeout_sec > 0 else None
+    code = 0
+    examples = 0
+    explore = 0
+    error_details: list[str] = []
+    for fqn in fqns:
+        remaining = None
+        if deadline is not None:
+            remaining = deadline - time.perf_counter()
+            if remaining <= 0:
+                buf.write(f"[COVER TIMEOUT         ] wall {wall_timeout_sec:g}s exceeded for {PROGRESS_SENTINEL} {rel}\n")
+                break
+        ch_args = [
+            "-v",
+            f"--max_uninteresting_iterations={max_uninteresting}",
+        ]
+        if per_condition_timeout is not None:
+            ch_args.append(f"--per_condition_timeout={per_condition_timeout}")
+        ch_args.append(fqn)
+        fqn_code, stats = run_crosshair(
+            "cover",
+            ch_args,
+            "cover",
+            raw,
+            quiet,
+            out=buf,
+            label=f"{PROGRESS_SENTINEL} {rel} :: {fqn}",
+            timeout_sec=remaining,
+        )
+        examples += stats.examples
+        explore += stats.explore
+        if stats.error_details:
+            error_details.extend(stats.error_details)
+        if fqn_code != 0:
+            code = fqn_code
+            # Keep covering siblings so one bad method does not hide others.
     duration_sec = time.perf_counter() - started
     if code != 0:
         buf.write(f"[COVER FATAL           ] module failed: {rel} (exit {code})\n")
@@ -298,9 +314,9 @@ def _cover_one_module(
         index=index,
         total=total,
         exit_code=code,
-        examples=stats.examples,
-        explore=stats.explore,
-        error_details=tuple(stats.error_details or ()),
+        examples=examples,
+        explore=explore,
+        error_details=tuple(error_details),
         formatted=buf.getvalue(),
         duration_sec=duration_sec,
     )
@@ -369,7 +385,7 @@ def _write_cover_all_summary(
         for r in sorted(results, key=lambda x: x.duration_sec, reverse=True):
             tee.write(f"  {r.duration_sec:8.1f}s  exit={r.exit_code}  {r.rel}\n")
     if skipped:
-        tee.write("\n=== SKIPPED (engine/UNO-hostile) ===\n")
+        tee.write("\n=== SKIPPED (module skip list) ===\n")
         for rel in skipped:
             tee.write(f"  * {rel}\n")
     if failed:
@@ -436,7 +452,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--include-skipped",
         action="store_true",
-        help="Also analyze CHECK_ALL + COVER_ALL skip modules (engine-crash / UNO hosts)",
+        help="Also analyze modules in CHECK_ALL / COVER_ALL skip sets (normally empty)",
     )
     args = parser.parse_args(argv)
 
@@ -479,14 +495,24 @@ def main(argv: list[str] | None = None) -> int:
         f"per_condition_timeout={timeout_desc}, module_wall={wall_desc})",
         flush=True,
     )
+    if args.list:
+        for rel in rels:
+            fqns = cover_fqns_for_module(Path(rel))
+            if not fqns:
+                print(f"  (all callables off) {rel}", flush=True)
+            else:
+                print(f"  ({len(fqns)} cover FQNs) {rel}", flush=True)
+        if skipped:
+            print(f"Skipped (module skip list): {len(skipped)}", flush=True)
+            for rel in skipped:
+                print(f"  SKIP {rel}", flush=True)
+        return 0
     for rel in rels:
         print(f"  {rel}", flush=True)
     if skipped:
-        print(f"Skipped (engine/UNO-hostile; pass path or --include-skipped to force): {len(skipped)}", flush=True)
+        print(f"Skipped (module skip list; pass path or --include-skipped to force): {len(skipped)}", flush=True)
         for rel in skipped:
             print(f"  SKIP {rel}", flush=True)
-    if args.list:
-        return 0
     if not files:
         print("Nothing to analyze after skip filter.", file=sys.stderr)
         return 0

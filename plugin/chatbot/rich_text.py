@@ -212,7 +212,9 @@ def _tighten_list_indent(body_range):
                 if p.Name == "LeftMargin":
                     log.debug("_tighten_list_indent: level=%d orig LeftMargin=%s text=%r", level, p.Value, para.getString()[:40])
                     p.Value = abs(flo) + 115 + level * 225
-            any_props = uno.Any("[]com.sun.star.beans.PropertyValue", cast("Any", tuple(props)))  # type: ignore[attr-defined]
+            # uno.Any is a pyuno helper; stubs/mypy do not export it as a module attribute.
+            uno_any = getattr(uno, "Any")
+            any_props = uno_any("[]com.sun.star.beans.PropertyValue", cast("Any", tuple(props)))
             uno.invoke(rules, "replaceByIndex", (level, any_props))
             para.NumberingRules = rules
             tightened += 1

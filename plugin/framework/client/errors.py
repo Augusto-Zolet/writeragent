@@ -29,7 +29,7 @@ from plugin.framework.errors import format_error_message  # noqa: F401
 _ZAI_CODING_PLAN_ENDPOINT = "https://api.z.ai/api/coding/paas/v4"
 
 
-def _format_http_error_response(status, reason, err_body):
+def _format_http_error_response(status, reason, err_body):  # pyright: ignore[reportUnusedFunction]  # shared by llm client tests and modality helpers
     """Build error message including response body for display in chat/UI.
 
     This remains client-specific because it parses provider error JSON bodies

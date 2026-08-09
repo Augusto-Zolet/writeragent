@@ -25,6 +25,7 @@ from plugin.framework.client.stream_normalizer import (
     accumulate_streaming_thinking,
     new_streaming_thinking_meta,
 )
+from tests.vhs_budget import vhs_max_examples
 
 _CROSSHAIR_ERROR_RE = re.compile(r": error:")
 _CROSSHAIR_TARGETS = (
@@ -45,7 +46,7 @@ def _find_crosshair() -> str | None:
 
 
 @given(parts=st.lists(st.text(min_size=1, max_size=12), min_size=1, max_size=5))
-@settings(max_examples=40)
+@settings(max_examples=vhs_max_examples(40, 400), deadline=None)
 def test_hypothesis_thinking_text_prefers_reasoning_content(parts: list[str]) -> None:
     """reasoning_content wins over other string thinking fields."""
     delta = {
@@ -63,7 +64,7 @@ def test_hypothesis_thinking_text_prefers_reasoning_content(parts: list[str]) ->
         max_size=6,
     )
 )
-@settings(max_examples=50)
+@settings(max_examples=vhs_max_examples(50, 500), deadline=None)
 def test_hypothesis_accumulate_thinking_concat(chunks: list[str]) -> None:
     text_parts: list[str] = []
     meta = new_streaming_thinking_meta()
@@ -78,7 +79,7 @@ def test_hypothesis_accumulate_thinking_concat(chunks: list[str]) -> None:
     b=st.text(max_size=20),
     idx=st.integers(min_value=0, max_value=5),
 )
-@settings(max_examples=40)
+@settings(max_examples=vhs_max_examples(40, 400), deadline=None)
 def test_hypothesis_merge_reasoning_details_chunked_equals_full(a: str, b: str, idx: int) -> None:
     chunked = _merge_reasoning_details(
         [

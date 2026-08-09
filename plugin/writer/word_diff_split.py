@@ -326,7 +326,7 @@ def _build_surgical_edits(old, new, old_words, new_words, opcodes):
     # Pair up matched words: list of (old_word_index, new_word_index) for every equal
     # word, in order. These are the anchors.
     anchors = []
-    for tag, i1, i2, j1, j2 in opcodes:
+    for tag, i1, i2, j1, _j2 in opcodes:
         if tag == "equal":
             for d in range(i2 - i1):
                 anchors.append((i1 + d, j1 + d))

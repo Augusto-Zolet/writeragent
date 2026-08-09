@@ -194,7 +194,7 @@ class NativePythonScriptDialog:
             if not isinstance(saved_scripts, dict):
                 saved_scripts = {}
             doc = self._doc
-            script_names, merged_scripts, origin_map = build_xdl_script_picker_state(ctx, doc, saved_scripts)
+            _script_names, merged_scripts, origin_map = build_xdl_script_picker_state(ctx, doc, saved_scripts)
 
             self._current_scripts = dict(merged_scripts)
             self._script_origin_map = dict(origin_map)

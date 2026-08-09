@@ -26,6 +26,7 @@ from plugin.calc.address_utils import (
     parse_address,
     parse_range_string,
 )
+from tests.vhs_budget import vhs_max_examples
 
 CROSSHAIR_MODULE = "plugin/calc/address_utils.py"
 _CROSSHAIR_ERROR_RE = re.compile(r": error:")
@@ -52,19 +53,19 @@ def test_column_index_round_trip_named() -> None:
 
 
 @given(col=_col_letters)
-@settings(max_examples=100)
+@settings(max_examples=vhs_max_examples(100, 1000), deadline=None)
 def test_hypothesis_column_letter_round_trip(col: str) -> None:
     assert index_to_column(column_to_index(col)) == col.upper()
 
 
 @given(index=_col_index)
-@settings(max_examples=100)
+@settings(max_examples=vhs_max_examples(100, 1000), deadline=None)
 def test_hypothesis_column_index_round_trip(index: int) -> None:
     assert column_to_index(index_to_column(index)) == index
 
 
 @given(col=_col_index, row=_row_index)
-@settings(max_examples=80)
+@settings(max_examples=vhs_max_examples(80, 800), deadline=None)
 def test_hypothesis_format_parse_round_trip(col: int, row: int) -> None:
     addr = format_address(col, row)
     assert parse_address(addr) == (col, row)

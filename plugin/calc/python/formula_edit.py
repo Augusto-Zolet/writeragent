@@ -313,18 +313,20 @@ def rebuild_python_formula(parts: PythonFormulaParts, new_code: str) -> str:
     return f'={CALC_PYTHON_FN}("{escaped}"{parts.data_suffix}'
 
 
+@deal.post(lambda result: isinstance(result, str))
+@deal.ensure(lambda data_suffix, result: not result or (not result.startswith(";") and not result.startswith(",") and not result.endswith(")")))
 def format_data_binding_display(data_suffix: str) -> str:
     """Human-readable range/index args from ``data_suffix`` (e.g. ``;A1:B10)`` → ``A1:B10``)."""
-    s = (data_suffix or "").strip()
-    if s in (")", ""):
-        return ""
-    if s.startswith(";") or s.startswith(","):
-        s = s[1:]
-    if s.endswith(")"):
-        s = s[:-1]
-    return s.strip()
+    s = data_suffix or ""
+    while True:
+        prev = s
+        s = s.strip().lstrip(";,").rstrip(")")
+        if s == prev:
+            break
+    return s
 
 
+@deal.post(lambda result: isinstance(result, list) and all(isinstance(x, str) and '"' not in x for x in result))
 def parse_data_binding_text(text: str) -> list[str]:
     """Parse editor textbox content into formula data arguments."""
     raw = (text or "").strip()
@@ -336,6 +338,8 @@ def parse_data_binding_text(text: str) -> list[str]:
     return [p for p in parts if '"' not in p]
 
 
+@deal.pre(lambda *args, **kwargs: bool(args) and isinstance(args[0], list))
+@deal.post(lambda result: isinstance(result, str))
 def format_data_binding_text(data_args: list[str]) -> str:
     """Format data args for the editor textbox (comma-separated)."""
     cleaned = [a.strip() for a in data_args if a.strip()]

@@ -47,14 +47,21 @@ def index_to_column(index: int) -> str:
     return "".join(reversed(result))
 
 
-@deal.pre(lambda col_str: isinstance(col_str, str) and col_str.isascii() and col_str.isalpha())
+# Cap length at Excel/Calc max column width (XFD); unbounded alpha strings make CrossHair
+# chase the inverse ensure forever under deep check.
+@deal.pre(
+    lambda col_str: isinstance(col_str, str)
+    and col_str.isascii()
+    and col_str.isalpha()
+    and 1 <= len(col_str) <= 3
+)
 @deal.post(lambda result: isinstance(result, int) and result >= 0)
 @deal.ensure(lambda col_str, result: index_to_column(result) == col_str.upper())
 def column_to_index(col_str: str) -> int:
     """Convert column letter to 0-based index.
 
     Args:
-        col_str: Column letter (e.g. "A", "AB").
+        col_str: Column letter (e.g. "A", "AB"); at most 3 letters (Excel/Calc max).
 
     Returns:
         0-based column index.

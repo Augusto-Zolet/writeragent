@@ -152,6 +152,7 @@ def is_extra_allowed_origin(origin: str) -> bool:
 
 def reload_cors_policy_from_config(services) -> None:
     """Refresh CORS caches from mcp config (explicit list + private-origin JSON setting)."""
+    # crosshair: off
     try:
         cfg = services.config.proxy_for("mcp")
         raw = cfg.get("cors_allowed_origins")
@@ -199,6 +200,7 @@ def merge_allow_headers(access_control_request_headers: str | None) -> str:
 
 def send_cors_headers(handler, *, preflight: bool = False) -> None:
     """Apply CORS headers to an HTTP request handler (GenericRequestHandler or MCP raw handler)."""
+    # crosshair: off
     origin = handler.headers.get("Origin")
     if origin and is_safe_origin(origin):
         handler.send_header("Access-Control-Allow-Origin", origin)

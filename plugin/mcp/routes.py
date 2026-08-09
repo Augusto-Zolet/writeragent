@@ -21,11 +21,15 @@ handlers during initialize() and the HTTP server dispatches to them.
 """
 
 import logging
-from collections import namedtuple
+from typing import Any, Callable, NamedTuple
 
 log = logging.getLogger("writeragent.framework.http_routes")
 
-Route = namedtuple("Route", ["handler", "raw", "main_thread"])
+
+class Route(NamedTuple):
+    handler: Callable[..., Any]
+    raw: bool
+    main_thread: bool
 
 
 class HttpRouteRegistry:

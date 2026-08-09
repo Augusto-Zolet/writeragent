@@ -269,7 +269,7 @@ def _thinking_text_from_delta(delta: dict[str, Any]) -> str:
     return ""
 
 
-def _extract_thinking_from_delta(chunk_or_delta):
+def _extract_thinking_from_delta(chunk_or_delta):  # pyright: ignore[reportUnusedFunction]  # used by stream normalizer tests
     """Extract reasoning/thinking text from a stream chunk or bare delta for display in UI."""
     delta = _normalize_stream_delta(chunk_or_delta)
     result = _thinking_text_from_delta(delta)
@@ -282,7 +282,7 @@ def _extract_thinking_from_delta(chunk_or_delta):
     return result
 
 
-def _normalize_message_content(raw):
+def _normalize_message_content(raw):  # pyright: ignore[reportUnusedFunction]  # used by llm_client / response_normalizers
     """Return a single string from API message content (string or list of parts)."""
     if raw is None:
         return None
@@ -319,7 +319,7 @@ def _normalize_delta_tool_calls_ok(delta: dict[str, Any]) -> bool:
 @deal.pre(lambda delta: type(delta) is dict)
 @deal.ensure(lambda delta, result: "role" not in delta or delta.get("role") is not None)
 @deal.ensure(lambda delta, result: _normalize_delta_tool_calls_ok(delta))
-def _normalize_delta(delta: dict[str, Any]) -> None:
+def _normalize_delta(delta: dict[str, Any]) -> None:  # pyright: ignore[reportUnusedFunction]  # used by llm_client / response_normalizers
     """Normalize delta for Mistral/Azure compat before accumulate_delta.
     LiteLLM: streaming_handler.py ~L847 (role), ~L853 (type), ~L820 (arguments).
     """

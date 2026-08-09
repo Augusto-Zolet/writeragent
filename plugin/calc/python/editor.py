@@ -323,7 +323,7 @@ def _open_python_cell_editor_impl(ctx: Any) -> None:
             )
             return
         if not exe:
-            unused, err = resolve_editor_python(ctx)
+            _unused, err = resolve_editor_python(ctx)
             msgbox(ctx, "WriterAgent", err or _("No Python interpreter available for the editor."))
             return
         webview_ok, webview_detail = probe_webview_import(exe)

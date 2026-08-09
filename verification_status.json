@@ -63,26 +63,29 @@
       "ci_integration": true
     },
     "tool.py": {
-      "status": "partial",
+      "status": "verified",
       "priority": "high",
       "tool": "crosshair+deal+hypothesis",
       "functions_contracted": [
         "_collapse_union_type",
         "_make_optional_scalar_nullable",
-        "_normalize_schema_for_strict_providers"
+        "_normalize_schema_for_strict_providers",
+        "to_openai_schema",
+        "to_mcp_schema"
       ],
       "crosshair_target": "plugin.framework.tool._normalize_schema_for_strict_providers",
-      "ci_integration": false
+      "ci_integration": true
     },
     "async_stream.py": {
-      "status": "partial",
+      "status": "verified",
       "priority": "high",
       "tool": "crosshair+deal+hypothesis",
       "functions_contracted": [
-        "accumulate_delta"
+        "accumulate_delta",
+        "_format_agent_tool_stream_line"
       ],
       "crosshair_target": "plugin.framework.async_stream.accumulate_delta",
-      "ci_integration": false
+      "ci_integration": true
     },
     "json_utils.py": {
       "status": "partial",
@@ -351,17 +354,18 @@
         "ci_integration": true
       },
       "sandbox.py": {
-        "status": "partial",
+        "status": "verified",
         "priority": "high",
         "tool": "crosshair+deal+hypothesis",
         "functions_contracted": [
-          "scrub_subprocess_env"
+          "scrub_subprocess_env",
+          "wrap_command_for_sandbox",
+          "is_safe_workspace_path"
         ],
         "crosshair_target": "plugin.scripting.sandbox.scrub_subprocess_env",
-        "crosshair_last_run": "2026-08-05",
+        "crosshair_last_run": "2026-08-09",
         "crosshair_result": "no_counterexamples",
-        "notes": "Security env scrub only; detect_sandbox / path resolvers deferred",
-        "ci_integration": false
+        "ci_integration": true
       }
     },
     "calc": {
@@ -508,15 +512,15 @@
       },
       "mcp_state.py": {
         "status": "partial",
-        "tool": "crosshair+deal+pytest",
+        "tool": "crosshair+deal+pytest+hypothesis",
         "functions_contracted": [
           "next_state"
         ],
         "crosshair_target": "plugin.mcp.mcp_state.next_state",
         "crosshair_last_run": "2026-08-05",
         "crosshair_result": "no_counterexamples",
-        "notes": "Missing tool_name \u2192 SendErrorEffect; TOOL_COMPLETED \u2192 StreamResponseEffect; REQUEST_ERROR sets is_error",
-        "ci_integration": false
+        "notes": "Missing tool_name \u2192 SendErrorEffect; TOOL_COMPLETED \u2192 StreamResponseEffect; REQUEST_ERROR sets is_error; Hypothesis in test_mcp_state_verification (deep via make vhs)",
+        "ci_integration": true
       },
       "wire_types.py": {
         "status": "verified",
@@ -526,7 +530,9 @@
           "parse_jsonrpc_request",
           "is_jsonrpc_notification",
           "initialize_result",
-          "call_tool_result_image"
+          "call_tool_result_image",
+          "jsonrpc_success",
+          "jsonrpc_failure"
         ],
         "crosshair_result": "skipped_engine_limitation",
         "notes": "Engine Traceback only under CrossHair; omitted from crosshair-check-all",
@@ -591,27 +597,29 @@
       },
       "send_state.py": {
         "status": "partial",
-        "tool": "crosshair+deal+pytest",
+        "tool": "crosshair+deal+pytest+hypothesis",
         "functions_contracted": [
           "next_state"
         ],
         "crosshair_last_run": "2026-08-05",
         "crosshair_result": "no_counterexamples",
-        "ci_integration": false
+        "notes": "Hypothesis oracles in test_fsm_verification (deep via make vhs); strategies in fsm_hyp_support.py",
+        "ci_integration": true
       },
       "audio_recorder_state.py": {
         "status": "partial",
-        "tool": "crosshair+deal+pytest",
+        "tool": "crosshair+deal+pytest+hypothesis",
         "functions_contracted": [
           "next_state"
         ],
         "crosshair_last_run": "2026-08-05",
         "crosshair_result": "no_counterexamples",
-        "ci_integration": false
+        "notes": "Hypothesis oracles in test_fsm_verification (deep via make vhs)",
+        "ci_integration": true
       },
       "state_machine.py": {
         "status": "partial",
-        "tool": "crosshair+deal+pytest",
+        "tool": "crosshair+deal+pytest+hypothesis",
         "functions_contracted": [
           "stop_effects_exclude_spawns",
           "ui_lines_for_handler_error",
@@ -619,12 +627,12 @@
           "next_state"
         ],
         "crosshair_result": "helpers_analyzed_next_state_off",
-        "notes": "next_state has # crosshair: off (Exception events / handle_error / format_error_for_display); pure helpers are CrossHair targets; runtime deal on next_state kept",
-        "ci_integration": false
+        "notes": "next_state has # crosshair: off (Exception events / handle_error / format_error_for_display); pure helpers are CrossHair targets; Hypothesis stop/spawn oracles in test_fsm_verification (deep via make vhs)",
+        "ci_integration": true
       },
       "tool_loop_state.py": {
         "status": "partial",
-        "tool": "crosshair+deal+pytest",
+        "tool": "crosshair+deal+pytest+hypothesis",
         "functions_contracted": [
           "object_dict_or_empty",
           "pending_tool_call_fields",
@@ -634,8 +642,8 @@
           "next_state"
         ],
         "crosshair_result": "helpers_analyzed_next_state_off",
-        "notes": "next_state has # crosshair: off (safe_json_loads); pure helpers are CrossHair targets; runtime deal on next_state kept",
-        "ci_integration": false
+        "notes": "next_state has # crosshair: off (safe_json_loads); pure helpers are CrossHair targets; Hypothesis STOP/round oracles in test_fsm_verification (deep via make vhs)",
+        "ci_integration": true
       }
     },
     "writer": {

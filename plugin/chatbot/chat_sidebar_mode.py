@@ -133,6 +133,7 @@ def mode_from_label(label: str, *, include_brainstorming: bool = False, include_
 
 def mode_from_selector(ctrl: Any, *, include_brainstorming: bool = False, include_writing_plan: bool = True, include_ppt_master: bool = False) -> str:
     """Read the selected sidebar mode from a combobox control."""
+    # crosshair: off
     if not ctrl:
         return CHAT_MODE_CHAT
     try:
@@ -159,6 +160,7 @@ def mode_from_selector_with_flags(ctrl: Any, flags: SidebarModeFlags) -> str:
 
 def _set_combobox_items(ctrl: Any, labels: tuple[str, ...]) -> None:
     """Populate a sidebar ComboBox the same way as other working selectors (model StringItemList + addItems)."""
+    # crosshair: off
     model = ctrl.getModel() if hasattr(ctrl, "getModel") else None
     if model is not None and hasattr(model, "StringItemList"):
         try:
@@ -234,6 +236,7 @@ def populate_mode_selector_with_flags(ctrl: Any, flags: SidebarModeFlags) -> Non
 
 def set_selector_mode(ctrl: Any, mode: str, *, include_brainstorming: bool = False, include_writing_plan: bool = True, include_ppt_master: bool = False) -> None:
     """Set combobox selection by mode constant."""
+    # crosshair: off
     if not ctrl or mode not in _VALID_MODES:
         return
     flags = SidebarModeFlags(

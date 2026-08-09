@@ -223,6 +223,7 @@ def detect_sandbox() -> str | None:
 
     The result is cached because sandbox status cannot change at runtime.
     """
+    # crosshair: off
     global _cached_sandbox
     if _cached_sandbox is not _NOT_SET:
         return _cached_sandbox
@@ -243,6 +244,7 @@ def optimize_pipe(pipe_fd: int) -> None:
     F_SETPIPE_SZ requests a larger kernel ring buffer so host and child block less.
     No-op on macOS/Windows (no supported API). Silently no-ops when caps deny resize.
     """
+    # crosshair: off
     if sys.platform != "linux":
         return
     import fcntl
@@ -255,6 +257,7 @@ def optimize_pipe(pipe_fd: int) -> None:
 
 def optimize_popen_pipes(proc: subprocess.Popen[Any]) -> None:
     """Apply :func:`optimize_pipe` to stdin/stdout/stderr of a piped child process."""
+    # crosshair: off
     for stream in (proc.stdin, proc.stdout, proc.stderr):
         if stream is None:
             continue
@@ -264,6 +267,9 @@ def optimize_popen_pipes(proc: subprocess.Popen[Any]) -> None:
             pass
 
 
+@deal.pre(lambda cmd: isinstance(cmd, list) and all(isinstance(x, str) for x in cmd))
+@deal.post(lambda result: isinstance(result, list) and all(isinstance(x, str) for x in result))
+@deal.ensure(lambda cmd, result: len(result) >= len(cmd) and (result[-len(cmd):] == cmd if cmd else True))
 def wrap_command_for_sandbox(cmd: list[str]) -> list[str]:
     """Prepend ``flatpak-spawn --host`` when running inside a Flatpak sandbox.
 
@@ -276,7 +282,7 @@ def wrap_command_for_sandbox(cmd: list[str]) -> list[str]:
     return cmd
 
 
-def _reset_cache() -> None:
+def _reset_cache() -> None:  # pyright: ignore[reportUnusedFunction]  # test helper to clear sandbox path cache
     """Reset the cached detection result (for tests only)."""
     global _cached_sandbox
     _cached_sandbox = _NOT_SET  # type: ignore[assignment]
@@ -291,6 +297,7 @@ def resolve_libreoffice_python() -> Optional[str]:
     Under PyUNO this is normally the office-bundled Python; on broken installs it
     may be wrong or missing — callers surface an error and the user can set a venv.
     """
+    # crosshair: off
     exe = (getattr(sys, "executable", None) or "").strip()
     if not exe or not os.path.isfile(exe):
         return None
@@ -341,6 +348,7 @@ def resolve_venv_python(venv_dir: str) -> Optional[str]:
     Accepts a venv root (``…/myvenv``), ``bin/`` / ``Scripts/`` directory, or a direct
     path to ``python`` / ``python3`` / ``python.exe``.
     """
+    # crosshair: off
     if not venv_dir or not venv_dir.strip():
         return None
     expanded = os.path.expanduser(os.path.expandvars(venv_dir.strip()))
@@ -368,3 +376,27 @@ def resolve_venv_python(venv_dir: str) -> Optional[str]:
         if os.path.isdir(bin_dir):
             candidates.extend(_python_candidates_in_bin_dir(bin_dir))
     return _first_executable_python(candidates)
+
+
+@deal.pre(lambda target_path, root_dir: isinstance(target_path, str) and isinstance(root_dir, str))
+@deal.post(lambda result: isinstance(result, bool))
+@deal.ensure(
+    lambda target_path, root_dir, result: (
+        not result
+        or os.path.commonpath(
+            [os.path.abspath(os.path.join(os.path.abspath(root_dir), target_path)), os.path.abspath(root_dir)]
+        )
+        == os.path.abspath(root_dir)
+    )
+)
+def is_safe_workspace_path(target_path: str, root_dir: str) -> bool:
+    """Return True if *target_path* resolves strictly inside *root_dir* (prevents path traversal)."""
+    if not target_path or not root_dir:
+        return False
+    try:
+        abs_root = os.path.abspath(root_dir)
+        abs_target = os.path.abspath(os.path.join(abs_root, target_path))
+        return os.path.commonpath([abs_target, abs_root]) == abs_root
+    except Exception:
+        return False
+

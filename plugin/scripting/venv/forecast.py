@@ -11,7 +11,6 @@ from typing import Any
 
 from plugin.scripting.calc_functions_common import (
     FORECAST_HELPER_NAMES as HELPER_NAMES,
-    FORECAST_MAX_TABLE_ROWS as MAX_TABLE_ROWS,
 )
 from plugin.scripting.venv.coerce import (
     CoerceResult,
@@ -21,7 +20,6 @@ from plugin.scripting.venv.coerce import (
     missing_package_error as _missing_package_error,
     table_from_df as _table_from_df,
 )
-import logging
 
 log = logging.getLogger(__name__)
 
@@ -204,7 +202,7 @@ def _forecast_arima(series: Any, *, periods: int) -> tuple[Any, str, dict[str, A
             row["upper"] = float(conf.iloc[idx, 1])
         rows.append(row)
     forecast_df = pd.DataFrame(rows)
-    metrics = {"model": "arima", "periods": periods, "n_obs": int(len(series)), "order": "(1,1,1)"}
+    metrics: dict[str, Any] = {"model": "arima", "periods": periods, "n_obs": int(len(series)), "order": "(1,1,1)"}
     if hasattr(fit, "aic"):
         metrics["aic"] = float(fit.aic)
     return forecast_df, "arima", metrics, []

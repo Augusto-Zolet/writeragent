@@ -28,7 +28,7 @@ def reciprocal_rank_fusion(fts_results, vec_results, k=60):
         rank_dict[id] += 1 / (k + rank + 1)
 
     # Process vector results
-    for rank, (rowid, distance) in enumerate(vec_results):
+    for rank, (rowid, _distance) in enumerate(vec_results):
         if rowid not in rank_dict:
             rank_dict[rowid] = 0
         rank_dict[rowid] += 1 / (k + rank + 1)

@@ -60,7 +60,7 @@ def _measure_aux_button_max_width(ctrl, labels):
         return None
 
 
-def _wireControls(self, root_window, has_recording, ensure_extension_on_path):
+def _wireControls(self, root_window, has_recording, ensure_extension_on_path):  # pyright: ignore[reportUnusedFunction]  # imported as wire_chatpanel_controls by panel_factory
     """Main entry point to wire all controls for the panel."""
     log.debug("_wireControls entered")
     if not hasattr(root_window, "getControl"):
@@ -150,19 +150,23 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):
             # Pass the send_listener stored on self from _wire_buttons instead of the send control.
             # _wire_buttons runs before this in _wireControls, so self.send_listener is available.
             if hasattr(self, "send_listener") and self.send_listener:
-                query_text_listener = QueryTextListener(self.send_listener)
-                controls["query"].addTextListener(query_text_listener)
+                query_ctrl = controls["query"]
+                if query_ctrl is None:
+                    log.warning("Query control missing; cannot attach text/key listeners")
+                else:
+                    query_text_listener = QueryTextListener(self.send_listener)
+                    query_ctrl.addTextListener(query_text_listener)
 
-                from plugin.chatbot.panel import QueryKeyListener
+                    from plugin.chatbot.panel import QueryKeyListener
 
-                controls["query"].addKeyListener(QueryKeyListener(self.send_listener))
+                    query_ctrl.addKeyListener(QueryKeyListener(self.send_listener))
 
-                # The label update logic is now handled correctly by the state machine
-                # so we can just trigger a fake text update event to sync the state
-                has_text = bool(get_control_text(controls["query"]).strip())
-                from plugin.chatbot.send_state import SendEvent, SendEventKind
+                    # The label update logic is now handled correctly by the state machine
+                    # so we can just trigger a fake text update event to sync the state
+                    has_text = bool(get_control_text(query_ctrl).strip())
+                    from plugin.chatbot.send_state import SendEvent, SendEventKind
 
-                self.send_listener.dispatch(SendEvent(SendEventKind.TEXT_UPDATED, {"has_text": has_text}))
+                    self.send_listener.dispatch(SendEvent(SendEventKind.TEXT_UPDATED, {"has_text": has_text}))
             else:
                 log.warning("No send_listener available for QueryTextListener setup")
         except Exception as e:

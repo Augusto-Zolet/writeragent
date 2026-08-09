@@ -51,6 +51,7 @@ def get_lo_locale(ctx=None):
     Reads ``/org.openoffice.Setup/L10N`` → ``ooLocale``. On failure or empty
     value, returns ``en_US`` so gettext still loads a predictable catalog.
     """
+    # crosshair: off
     try:
         import uno
 
@@ -78,6 +79,7 @@ def init_i18n(ctx=None) -> None:
     Always sets :data:`_translation` before return (``NullTranslations`` on any
     failure so callers never see ``None`` after a successful call).
     """
+    # crosshair: off
     global _translation, _active_locale
 
     if _translation is not None:

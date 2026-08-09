@@ -99,7 +99,7 @@ class EndpointImageProvider(ImageProvider):
                     logger.error("OpenRouter dedicated image generation error: %s", e)
                     return [], str(e)
 
-            method, path, body, headers = self.client.make_chat_request(messages, max_tokens=1000, model=model)
+            _method, _path, body, _headers = self.client.make_chat_request(messages, max_tokens=1000, model=model)
             body_dict = json.loads(body)
             body_dict["modalities"] = ["image"]
             if steps is not None and steps > 0:

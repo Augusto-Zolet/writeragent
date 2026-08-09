@@ -32,16 +32,16 @@ from plugin.scripting.payload_codec import (
     is_split_grid,
 )
 
-# Set by Makefile (test-serialization-ab, slowtests, vhs) before pytest starts.
-_SERIALIZATION_EXTENSIVE_ENV = "WRITERAGENT_SERIALIZATION_EXTENSIVE"
-
+# Set by Makefile (slowtests, vhs) before pytest starts. See tests/vhs_budget.py.
 _AB_HYPOTHESIS_LIGHT = {"codec": 100, "venv_echo": 100, "venv_sum": 80, "multi_range": 50}
 _AB_HYPOTHESIS_EXTENSIVE = {"codec": 1000, "venv_echo": 1000, "venv_sum": 800, "multi_range": 500}
 
 
 def serialization_extensive() -> bool:
     """True when Make targets request deep Hypothesis fuzzing (not default pytest)."""
-    return os.environ.get(_SERIALIZATION_EXTENSIVE_ENV, "").lower() in ("1", "true", "yes")
+    from tests.vhs_budget import vhs_extensive
+
+    return vhs_extensive()
 
 
 def ab_hypothesis_max_examples() -> dict[str, int]:

@@ -1,9 +1,16 @@
 # WriterAgent tests — extension update.xml parsing and version ordering
 
+from unittest.mock import MagicMock, patch
+
 from plugin.chatbot.extension_update_check import (
     EXPECTED_EXTENSION_ID,
+    UPDATE_CHECK_PROFILES,
+    get_update_check_profile,
     parse_update_xml,
     remote_is_newer,
+    reset_extension_update_check_schedule_for_tests,
+    run_extension_update_check,
+    schedule_extension_update_check_once,
     version_tuple,
 )
 
@@ -15,6 +22,28 @@ SAMPLE_XML = b"""<?xml version="1.0" encoding="UTF-8"?>
     <version value="0.7.1" />
     <update-download>
         <src xlink:href="https://github.com/KeithCu/writeragent/releases/latest/download/writeragent.oxt" />
+    </update-download>
+</description>
+"""
+
+LIBREPY_XML = b"""<?xml version="1.0" encoding="UTF-8"?>
+<description xmlns="http://openoffice.org/extensions/description/2006"
+             xmlns:xlink="http://www.w3.org/1999/xlink">
+    <identifier value="org.extension.librepy" />
+    <version value="0.8.0" />
+    <update-download>
+        <src xlink:href="https://github.com/KeithCu/writeragent/releases/latest/download/LibrePy.oxt" />
+    </update-download>
+</description>
+"""
+
+LIBREHARPER_XML = b"""<?xml version="1.0" encoding="UTF-8"?>
+<description xmlns="http://openoffice.org/extensions/description/2006"
+             xmlns:xlink="http://www.w3.org/1999/xlink">
+    <identifier value="org.extension.libreharper" />
+    <version value="0.8.1" />
+    <update-download>
+        <src xlink:href="https://github.com/KeithCu/writeragent/releases/latest/download/LibreHarper.oxt" />
     </update-download>
 </description>
 """
@@ -50,6 +79,18 @@ def test_parse_update_xml_sample():
     assert ver == "0.7.1"
 
 
+def test_parse_update_xml_librepy():
+    ident, ver = parse_update_xml(LIBREPY_XML)
+    assert ident == "org.extension.librepy"
+    assert ver == "0.8.0"
+
+
+def test_parse_update_xml_libreharper():
+    ident, ver = parse_update_xml(LIBREHARPER_XML)
+    assert ident == "org.extension.libreharper"
+    assert ver == "0.8.1"
+
+
 def test_parse_update_xml_wrong_identifier_still_parses():
     ident, ver = parse_update_xml(WRONG_ID_XML)
     assert ident == "other.extension"
@@ -57,8 +98,66 @@ def test_parse_update_xml_wrong_identifier_still_parses():
 
 
 def test_identifier_mismatch_means_ignore_for_update_signal():
-    """Caller must reject when ident != EXPECTED_EXTENSION_ID."""
+    """Caller must reject when ident != expected profile extension id."""
     ident, ver = parse_update_xml(WRONG_ID_XML)
     assert ident != EXPECTED_EXTENSION_ID
     # would not treat as update even though remote > local
     assert remote_is_newer(ver, "0.0.1") is True
+
+
+def test_update_check_profiles_cover_three_products():
+    assert set(UPDATE_CHECK_PROFILES) == {
+        "org.extension.writeragent",
+        "org.extension.librepy",
+        "org.extension.libreharper",
+    }
+    wa = get_update_check_profile("org.extension.writeragent")
+    lp = get_update_check_profile("org.extension.librepy")
+    lh = get_update_check_profile("org.extension.libreharper")
+    assert wa is not None and wa.config_key_epoch == "extension_update_check_epoch"
+    assert lp is not None and lp.config_key_epoch == "librepy_update_check_epoch"
+    assert lh is not None and lh.config_key_epoch == "libreharper_update_check_epoch"
+    # Dual-install: WriterAgent and LibreHarper must not share a cadence key.
+    assert wa.config_key_epoch != lh.config_key_epoch
+    assert get_update_check_profile("other.extension") is None
+
+
+def test_schedule_once_allows_two_products_same_process():
+    reset_extension_update_check_schedule_for_tests()
+    ctx = MagicMock()
+    with patch("plugin.framework.worker_pool.run_in_background") as run_bg:
+        schedule_extension_update_check_once(ctx, "org.extension.writeragent")
+        schedule_extension_update_check_once(ctx, "org.extension.libreharper")
+        # Second call for same product is a no-op.
+        schedule_extension_update_check_once(ctx, "org.extension.writeragent")
+        assert run_bg.call_count == 2
+        kw_ids = {c.kwargs["extension_id"] for c in run_bg.call_args_list}
+        assert kw_ids == {"org.extension.writeragent", "org.extension.libreharper"}
+    reset_extension_update_check_schedule_for_tests()
+
+
+def test_schedule_once_skips_unknown_product():
+    reset_extension_update_check_schedule_for_tests()
+    with patch("plugin.framework.worker_pool.run_in_background") as run_bg:
+        schedule_extension_update_check_once(MagicMock(), "org.extension.unknown")
+        run_bg.assert_not_called()
+    reset_extension_update_check_schedule_for_tests()
+
+
+def test_run_extension_update_check_dialog_formatting(monkeypatch):
+    # QueueExecutor.post inlines under WRITERAGENT_TESTING; otherwise MagicMock uno
+    # "succeeds" at AsyncCallback and the dialog callback never drains.
+    monkeypatch.setenv("WRITERAGENT_TESTING", "1")
+    ctx = MagicMock()
+    with patch("plugin.framework.client.requests.sync_request", return_value=SAMPLE_XML), \
+         patch("plugin.chatbot.dialogs.msgbox") as mock_msgbox, \
+         patch("plugin.framework.config.get_config_int", return_value=None), \
+         patch("plugin.framework.config.set_config"), \
+         patch("plugin.version.EXTENSION_VERSION", "0.7.0"):
+        run_extension_update_check(ctx, "org.extension.writeragent")
+
+        assert mock_msgbox.call_count == 1
+        msg_args = mock_msgbox.call_args[0]
+        assert msg_args[1] == "Update available"
+        assert "A newer WriterAgent (0.7.1) is available." in msg_args[2]
+

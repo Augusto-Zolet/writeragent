@@ -7,21 +7,18 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, cast
+from typing import Any
 
 from plugin.scripting.calc_functions_common import (
     OPTIMIZE_HELPER_NAMES as HELPER_NAMES,
-    OPTIMIZE_MAX_TABLE_ROWS as MAX_TABLE_ROWS,
 )
 from plugin.scripting.venv.coerce import (
     CoerceResult,
     coerce_to_dataframe,
     ok_result as _ok_result,
     error_result as _error_result,
-    missing_package_error as _missing_package_error,
     table_from_df as _table_from_df,
 )
-import logging
 
 log = logging.getLogger(__name__)
 

@@ -51,7 +51,7 @@ except Exception:
     pass
 
 import unohelper
-from typing import TYPE_CHECKING, Any, Protocol, cast
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -79,23 +79,6 @@ from plugin.framework.uno_context import get_active_document, get_extension_url,
 from plugin.framework.thread_guard import background
 
 # ---------------------------------------------------------------------------
-# HTTP / MCP Server (Module wrapper)
-# ---------------------------------------------------------------------------
-
-
-class McpModuleActions(Protocol):
-    """``plugin.mcp`` entry points used from main for MCP menu commands."""
-
-    name: str | None
-
-    def shutdown(self) -> None: ...
-
-    def _action_toggle_server(self) -> None: ...
-
-    def _action_server_status(self) -> None: ...
-
-
-# ---------------------------------------------------------------------------
 # Bootstrapping (Dynamic discovery from loaded manifest)
 # ---------------------------------------------------------------------------
 
@@ -117,23 +100,11 @@ _modules: list[ModuleBase] = []
 _init_lock = threading.Lock()
 _initialized = False
 
-_extension_update_check_scheduled = False
-_extension_update_check_lock = threading.Lock()
+def _schedule_extension_update_check_once(ctx):  # pyright: ignore[reportUnusedFunction]  # called from panel_wiring after sidebar init
+    """Run weekly update check at most once per process per product, after init_logging."""
+    from plugin.chatbot.extension_update_check import schedule_extension_update_check_once
 
-
-def _schedule_extension_update_check_once(ctx):
-    """Run weekly update check at most once per process, after init_logging."""
-    global _extension_update_check_scheduled
-    with _extension_update_check_lock:
-        if _extension_update_check_scheduled:
-            log.info("extension update check: already queued this process, skipping duplicate schedule")
-            return
-        _extension_update_check_scheduled = True
-    from plugin.framework.worker_pool import run_in_background
-    from plugin.chatbot.extension_update_check import run_extension_update_check
-
-    log.info("extension update check: scheduling background worker")
-    run_in_background(run_extension_update_check, ctx, name="extension_update_check")
+    schedule_extension_update_check_once(ctx, "org.extension.writeragent")
 
 
 def get_services():
@@ -755,41 +726,6 @@ def _update_menu_icons():
     execute_on_main_thread(_update_menu_icons_impl)
 
 
-def _get_http_module(ctx=None) -> McpModuleActions | None:
-    for mod in _modules:
-        if mod.name == "mcp":
-            return cast("McpModuleActions", mod)
-    return None
-
-
-def _start_mcp_server(ctx):
-    """Ensure HTTP/MCP server is loaded. Start happens natively in module lifecycle."""
-    from plugin.framework.config import get_config_bool
-
-    if not get_config_bool("mcp_enabled"):
-        return
-    # Note: _get_http_module relies on bootstrap already having run.
-    _get_http_module(ctx)
-
-
-def _stop_mcp_server():
-    mod = _get_http_module()
-    if mod:
-        mod.shutdown()
-
-
-def _toggle_mcp_server(ctx):
-    mod = _get_http_module(ctx)
-    if mod:
-        mod._action_toggle_server()
-
-
-def _do_mcp_status(ctx):
-    mod = _get_http_module(ctx)
-    if mod:
-        mod._action_server_status()
-
-
 # Bootstrapper replaces the previous monolithic MainJob.
 # It acts as an OnStartApp hook (triggered on office startup) and a proxy for legacy toolbar triggers.
 class MainBootstrapJob(unohelper.Base, XJobExecutor, XJob):
@@ -936,7 +872,8 @@ class DispatchHandler(unohelper.Base, XDispatch, XDispatchProvider, XInitializat
         url = URL
         if url.Protocol == "org.extension.writeragent:":
             return cast("XDispatch", self)
-        return cast("XDispatch", None)
+        # UNO allows null dispatch; stub types reject None → cast via object.
+        return cast("XDispatch", cast("object", None))
 
     def queryDispatches(self, Requests: tuple[DispatchDescriptor, ...]) -> tuple[XDispatch, ...]:  # pyright: ignore[reportIncompatibleMethodOverride]
         return tuple(self.queryDispatch(r.FeatureURL, r.FrameName, r.SearchFlags) for r in Requests)

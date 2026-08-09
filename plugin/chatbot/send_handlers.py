@@ -119,8 +119,16 @@ T = TypeVar("T", bound="SendHandlersMixin")
 
 
 class SendHandlersMixin:
-    client: LlmClient | None
-    audio_wav_path: str | None
+    # Defaults satisfy basedpyright reportUninitializedInstanceVariable; panel __init__ overwrites.
+    client: LlmClient | None = None
+    audio_wav_path: str | None = None
+    _terminal_status: str = "Ready"
+    _current_agent_backend: Any = None
+    _librarian_suggested_user_name: str | None = None
+    _in_librarian_mode: bool = False
+    _in_brainstorming_mode: bool = False
+    _in_writing_plan_mode: bool = False
+    _in_ppt_master_mode: bool = False
 
     def _transcribe_audio(self: SendHandlerHost, wav_path: str, stt_model: str) -> str:
         """Transcribe audio synchronously using event pumping on the main thread."""

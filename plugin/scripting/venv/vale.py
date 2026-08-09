@@ -11,7 +11,6 @@ import subprocess
 import tempfile
 import logging
 from pathlib import Path
-from typing import Dict, Any
 
 from plugin.framework.worker_pool import get_subprocess_creationflags
 from plugin.scripting.sandbox import wrap_command_for_sandbox

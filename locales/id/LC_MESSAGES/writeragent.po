@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-07 22:25-0400\n"
+"POT-Creation-Date: 2026-08-08 20:53-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Indonesian <LL@li.org>\n"
@@ -951,8 +951,7 @@ msgstr "Agen meminta persetujuan"
 msgid "Proceed with this action?"
 msgstr "Lanjutkan tindakan ini?"
 
-#: plugin/chatbot/dialogs.py plugin/chatbot/document_research_chat.py
-#: plugin/chatbot/web_research_chat.py
+#: plugin/chatbot/dialogs.py plugin/chatbot/web_research_chat.py
 #, python-format
 msgid "Tool: %s"
 msgstr "Alat: %s"
@@ -972,11 +971,6 @@ msgstr "Laporkan bug..."
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
 msgstr "Galat: Toolkit tidak tersedia"
-
-#: plugin/chatbot/document_research_chat.py
-#, python-format
-msgid "Opening '%s' for read-only access."
-msgstr "Membuka '%s' untuk akses baca-saja."
 
 #: plugin/chatbot/chat_sidebar_mode.py plugin/xdl_strings.py
 msgid "Chat"
@@ -1116,6 +1110,11 @@ msgstr "Permintaan riset:"
 #: plugin/chatbot/web_research_chat.py
 msgid "Context for the research agent:"
 msgstr "Konteks untuk agen riset:"
+
+#: plugin/chatbot/web_research_chat.py
+#, python-format
+msgid "Opening '%s' for read-only access."
+msgstr "Membuka '%s' untuk akses baca-saja."
 
 #: plugin/chatbot/web_research.py
 msgid "Web research completed."
@@ -1277,10 +1276,10 @@ msgid "Update available"
 msgstr "Pembaruan tersedia"
 
 #: plugin/chatbot/extension_update_check.py
-#, python-format
+#, fuzzy, python-format
 msgid ""
-"A newer WriterAgent (%s) is available. Use Tools → Extension Manager to "
-"check for updates and install the latest extension."
+"A newer %s (%s) is available. Use Tools → Extension Manager to check for "
+"updates and install the latest extension."
 msgstr ""
 "WriterAgent versi lebih baru (%s) tersedia. Gunakan Alat → Manajer Ekstensi "
 "untuk memeriksa pembaruan dan menginstal ekstensi terbaru."
@@ -2234,6 +2233,15 @@ msgid "The image was removed during OCR insert."
 msgstr "Gambar dihapus selama penyisipan OCR."
 
 #: plugin/mcp/__init__.py
+msgid "MCP server failed to start"
+msgstr "Server MCP gagal dijalankan"
+
+#: plugin/mcp/__init__.py
+msgid "Check writeragent_debug.log in your LibreOffice user config folder"
+msgstr ""
+"Periksa writeragent_debug.log di folder konfigurasi pengguna LibreOffice Anda"
+
+#: plugin/mcp/__init__.py
 msgid "Stop MCP Server"
 msgstr "Hentikan Server MCP"
 
@@ -2248,15 +2256,6 @@ msgstr "Server MCP dihentikan"
 #: plugin/mcp/__init__.py
 msgid "MCP server started"
 msgstr "Server MCP dijalankan"
-
-#: plugin/mcp/__init__.py
-msgid "MCP server failed to start"
-msgstr "Server MCP gagal dijalankan"
-
-#: plugin/mcp/__init__.py
-msgid "Check writeragent_debug.log in your LibreOffice user config folder"
-msgstr ""
-"Periksa writeragent_debug.log di folder konfigurasi pengguna LibreOffice Anda"
 
 #: plugin/mcp/__init__.py
 msgid "MCP server is not running"

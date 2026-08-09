@@ -20,6 +20,7 @@ Pipe CrossHair ``-v`` through the filter (full module, no timeout)::
 from __future__ import annotations
 
 import argparse
+import ast
 import os
 import re
 import shutil
@@ -43,6 +44,8 @@ VERBOSE_PREFIX = re.compile(r"^\d+\.\d+\|(?:\s*\|)*\s*")
 VERBOSE_ANALYZE_FN = re.compile(r"analyze_function\(\)\s+Analyzing\s+(\S+)")
 VERBOSE_ANALYZE_COND = re.compile(r"analyze\(\)\s+Analyzing (pre|post)condition:\s*(.+)", re.I)
 VERBOSE_ANALYZE_CLASS = re.compile(r"analyze_class\(\)\s+Analyzing class\s+(\S+)")
+# Match CrossHair's ``# crosshair: off`` directive (check honors natively; cover does not).
+CROSSHAIR_OFF_DIRECTIVE = re.compile(r"#\s*crosshair\s*:\s*off\b")
 
 
 @dataclass
@@ -368,6 +371,72 @@ def discover_deal_plugin_files(plugin_root: Path | None = None) -> list[Path]:
     return files
 
 
+def plugin_path_to_module_fqn(path: Path) -> str:
+    """Map ``plugin/foo/bar.py`` (or abs path under ``.../plugin/``) to ``plugin.foo.bar``."""
+    rel = path.as_posix()
+    marker = "/plugin/"
+    idx = rel.rfind(marker)
+    if idx >= 0:
+        rel = "plugin/" + rel[idx + len(marker) :]
+    if not rel.startswith("plugin/"):
+        rel = path.as_posix()
+    if rel.endswith(".py"):
+        rel = rel[: -len(".py")]
+    return rel.replace("/", ".")
+
+
+def source_has_crosshair_off(source: str) -> bool:
+    """True when *source* contains a ``# crosshair: off`` directive."""
+    return bool(CROSSHAIR_OFF_DIRECTIVE.search(source))
+
+
+# Column-0 module directive (same shape CrossHair uses for module enabled=False).
+_MODULE_CROSSHAIR_OFF = re.compile(r"(?m)^#\s*crosshair\s*:\s*off\b")
+
+
+def module_has_crosshair_off(source: str) -> bool:
+    """True when *source* has a column-0 ``# crosshair: off`` (whole-module disable)."""
+    return bool(_MODULE_CROSSHAIR_OFF.search(source))
+
+
+def cover_fqns_for_module(path: Path) -> list[str]:
+    """Top-level functions/methods in *path* suitable for ``crosshair cover``, excluding offs.
+
+    Upstream ``cover`` walks every top-level callable and ignores ``# crosshair: off``.
+    Cover-all uses this list so hostile hosts marked off are not entry points, while
+    sibling pure helpers in the same file still get covered.
+
+    A column-0 module ``# crosshair: off`` yields an empty list (same as check skipping the file).
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    if module_has_crosshair_off(text):
+        return []
+    try:
+        tree = ast.parse(text, filename=str(path))
+    except SyntaxError:
+        return []
+    module_fqn = plugin_path_to_module_fqn(path)
+    targets: list[str] = []
+
+    def _maybe_add(qual: str, node: ast.AST) -> None:
+        segment = ast.get_source_segment(text, node)
+        if segment is None or source_has_crosshair_off(segment):
+            return
+        targets.append(qual)
+
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            _maybe_add(f"{module_fqn}.{node.name}", node)
+        elif isinstance(node, ast.ClassDef):
+            for item in node.body:
+                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    _maybe_add(f"{module_fqn}.{node.name}.{item.name}", item)
+    return targets
+
+
 class _TeeTextIO:
     """Write formatted CrossHair output to stdout and a log file."""
 
@@ -460,12 +529,11 @@ def run_crosshair(
     finally:
         if timer is not None:
             timer.cancel()
-    # Wall budget exhausted: truncated exploration is success for cover-all.
+    # Wall budget exhausted: truncated exploration is success for cover/check-all regular.
     if timed_out:
         target = label or " ".join(crosshair_args[-1:]) or command
-        dest.write(
-            f"[COVER TIMEOUT         ] wall {timeout_sec:g}s exceeded for {target}\n"
-        )
+        tag = "COVER TIMEOUT" if mode == "cover" else "CHECK TIMEOUT"
+        dest.write(f"[{tag:<22}] wall {timeout_sec:g}s exceeded for {target}\n")
         dest.flush()
         # Prefer stream failure_count if CrossHair already emitted a hard error.
         exit_code = 1 if stats.failure_count > 0 else 0

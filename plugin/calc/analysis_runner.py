@@ -23,10 +23,8 @@ def calc_tool_context(uno_ctx: Any, doc: Any) -> ToolContext:
     """Minimal ToolContext-like object for range reads on the main thread."""
     from types import SimpleNamespace
 
-    return cast(
-        "ToolContext",
-        SimpleNamespace(ctx=uno_ctx, doc=doc, doc_type="calc" if is_calc(doc) else None, active_domain=None),
-    )
+    # SimpleNamespace is intentionally duck-typed as ToolContext for range helpers.
+    return cast("ToolContext", cast("object", SimpleNamespace(ctx=uno_ctx, doc=doc, doc_type="calc" if is_calc(doc) else None, active_domain=None)))
 
 
 def calc_selection_to_a1(doc: Any) -> str | None:

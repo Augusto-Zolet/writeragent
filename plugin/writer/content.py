@@ -1024,7 +1024,7 @@ class ApplyDocumentContent(ToolBase):
             return False
 
     @property
-    def long_running(self) -> bool:  # type: ignore[override]
+    def long_running(self) -> bool:  # type: ignore[override]  # pyright: ignore[reportIncompatibleVariableOverride]
         # With review-wait on, MCP must run this call on its HTTP thread so the wait can
         # block there (one request, one response -- the response just comes back after the
         # user reviews). With it off, stay a normal synchronous main-thread tool.
@@ -1620,7 +1620,7 @@ def _resolve_para_index(ctx, kwargs):
     return para_index
 
 
-def _resolve_style_name(doc, style_name):
+def _resolve_style_name(doc, style_name):  # pyright: ignore[reportUnusedFunction]  # used by writer.format style resolution
     """Resolve a style name case-insensitively against the document styles."""
     try:
         families = doc.getStyleFamilies()

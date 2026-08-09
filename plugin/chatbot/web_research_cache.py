@@ -5,6 +5,8 @@
 # Fuzzy web-research cache matching: locale-aware Snowball stems + Jaccard similarity.
 """Pure helpers for fuzzy web research cache keys (stem + Jaccard lookup)."""
 
+
+# crosshair: off
 from __future__ import annotations
 
 import logging

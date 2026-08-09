@@ -128,7 +128,7 @@ def compute_chat_panel_layout(
     return layouts
 
 
-class _PanelResizeListener(BaseWindowListener):
+class _PanelResizeListener(BaseWindowListener):  # pyright: ignore[reportUnusedClass]  # constructed from panel_wiring; covered by tests
     """Repositions sidebar controls when the panel root is resized.
 
     Layout policy: XDL snapshot defines control sizes and bottom-band spacing;

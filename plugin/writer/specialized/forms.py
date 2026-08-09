@@ -24,6 +24,8 @@ from com.sun.star.awt import Point, Size
 from com.sun.star.text.TextContentAnchorType import AS_CHARACTER
 
 from ..specialized_base import ToolWriterFormBase
+from plugin.doc.document_helpers import is_calc, is_draw
+from plugin.doc.visual_helpers import get_active_draw_page
 from plugin.framework.errors import format_error_payload, ToolExecutionError
 from plugin.framework.queue_executor import execute_on_main_thread
 from plugin.framework.thread_guard import on_main_thread
@@ -56,36 +58,10 @@ def _get_readable_type(model):
     return "unknown"
 
 
-def _is_spreadsheet_doc(doc) -> bool:
-    if doc is None:
-        return False
-    try:
-        return bool(doc.supportsService("com.sun.star.sheet.SpreadsheetDocument"))
-    except Exception:
-        return False
-
-
-def _is_draw_doc(doc) -> bool:
-    if doc is None:
-        return False
-    try:
-        return bool(doc.supportsService("com.sun.star.drawing.DrawingDocument")) or bool(doc.supportsService("com.sun.star.presentation.PresentationDocument"))
-    except Exception:
-        return False
-
-
-def _get_form_draw_page(doc):
-    """Writer: document draw page. Calc: active sheet draw page. Draw/Impress: active slide."""
-    if _is_spreadsheet_doc(doc):
-        from plugin.calc.bridge import CalcBridge
-
-        sheet = CalcBridge(doc).get_active_sheet()
-        return sheet.getDrawPage()
-    if _is_draw_doc(doc):
-        from plugin.draw.bridge import DrawBridge
-
-        return DrawBridge(doc).get_active_page()
-    return doc.getDrawPage()
+# Local aliases keep call sites short.
+_is_spreadsheet_doc = is_calc
+_is_draw_doc = is_draw
+_get_form_draw_page = get_active_draw_page
 
 
 def _no_form_draw_page_payload():

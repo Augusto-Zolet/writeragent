@@ -73,7 +73,7 @@ def resolve_vision_insert_mode(ctx: Any, template_params: dict[str, Any] | None 
     return DEFAULT_VISION_INSERT_MODE
 
 
-def _ok_result(helper: str, **payload: Any) -> dict[str, Any]:
+def _ok_result(helper: str, **payload: Any) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]  # shared by vision venv backends
     return {"status": "ok", "helper": helper, **payload}
 
 
@@ -139,7 +139,7 @@ def _bbox_to_xywh(bbox: Any) -> list[int]:
     return _box_to_xywh(bbox)
 
 
-def _decode_image_bytes(image: Any) -> Any:
+def _decode_image_bytes(image: Any) -> Any:  # pyright: ignore[reportUnusedFunction]  # shared by vision_paddle backend
     """Return a numpy RGB array from raw PNG/JPEG bytes."""
     if image is None:
         raise ValueError("image bytes are required")
@@ -156,7 +156,7 @@ def _decode_image_bytes(image: Any) -> Any:
         return np.array(rgb)
 
 
-def _prov_bbox_to_xywh(prov: Any) -> list[int]:
+def _prov_bbox_to_xywh(prov: Any) -> list[int]:  # pyright: ignore[reportUnusedFunction]  # shared by vision_docling backend
     """Extract [x,y,w,h] from Docling provenance list or dict."""
     if isinstance(prov, list) and prov:
         prov = prov[0]

@@ -23,6 +23,7 @@ from plugin.mcp.cors import (
     set_allow_private_origins,
     set_extra_allowed_origins,
 )
+from tests.vhs_budget import vhs_max_examples
 
 CROSSHAIR_MODULE = "plugin/mcp/cors.py"
 _CROSSHAIR_ERROR_RE = re.compile(r": error:")
@@ -44,6 +45,20 @@ _origin_candidates = st.one_of(
     ),
     st.text(max_size=40),
 )
+
+# Public hosts that must never pass is_safe_origin when private/extra allowlists are off.
+_PUBLIC_HOSTS = st.sampled_from(
+    [
+        "evil.com",
+        "example.org",
+        "attacker.net",
+        "google.com",
+        "cdn.example.com",
+        "api.github.com",
+    ]
+)
+_PUBLIC_SCHEMES = st.sampled_from(("http", "https"))
+_PUBLIC_PORTS = st.one_of(st.just(""), st.sampled_from((":80", ":443", ":8080", ":3000")))
 
 
 def _find_crosshair() -> str | None:
@@ -67,7 +82,7 @@ def teardown_function() -> None:
 
 
 @given(value=_origin_candidates)
-@settings(max_examples=80)
+@settings(max_examples=vhs_max_examples(80, 800), deadline=None)
 def test_hypothesis_normalize_cors_origin_shape(value) -> None:
     result = normalize_cors_origin(value)
     if result is None:
@@ -84,12 +99,23 @@ def test_hypothesis_normalize_cors_origin_shape(value) -> None:
         st.just(123),
     )
 )
-@settings(max_examples=60)
+@settings(max_examples=vhs_max_examples(60, 600), deadline=None)
 def test_hypothesis_normalize_origins_list_idempotent(value) -> None:
     once = normalize_origins_list(value)
     twice = normalize_origins_list(once)
     assert twice == once
     assert len(once) == len(set(once))
+
+
+@given(scheme=_PUBLIC_SCHEMES, host=_PUBLIC_HOSTS, port=_PUBLIC_PORTS)
+@settings(max_examples=vhs_max_examples(40, 400), deadline=None)
+def test_hypothesis_public_origins_unsafe_when_allowlists_off(scheme: str, host: str, port: str) -> None:
+    """Phase 8 #2: arbitrary public web origins must not bypass CORS when private/extra are off."""
+    set_extra_allowed_origins([])
+    set_allow_private_origins(False)
+    origin = f"{scheme}://{host}{port}"
+    assert is_safe_origin(origin) is False
+    assert is_safe_origin(origin + "/") is False
 
 
 def test_localhost_safe_origin() -> None:

@@ -12,13 +12,10 @@ from __future__ import annotations
 import datetime as dt
 import builtins
 import math
-import re
-from collections import Counter
-from typing import Any, Callable, cast
+from typing import Any
 
 import numpy as np
 
-from plugin.scripting.calc_functions_common import HELPER_NAMES
 from .coerce import is_missing_value
 
 
@@ -400,7 +397,7 @@ def amordegrc(cost: Any, date_purchased: Any, first_period: Any, salvage: Any, p
         dep_rate = r * coef
         val = cost_f
         dep = 0.0
-        for i in range(per + 1):
+        for _i in range(per + 1):
             dep = val * dep_rate
             val -= dep
             if val < salvage_f:
@@ -862,7 +859,7 @@ def coupdaybs(settlement: Any, maturity: Any, frequency: Any, basis: Any = 0) ->
     from plugin.scripting.venv.calc_functions_a_c import _get_coupon_dates
 
     try:
-        prev_ord, curr_ord, days_in_period = _get_coupon_dates(settlement, maturity, frequency, basis)
+        prev_ord, _curr_ord, _days_in_period = _get_coupon_dates(settlement, maturity, frequency, basis)
 
         def _to_ordinal(val: Any) -> int:
             if isinstance(val, dt.datetime):
@@ -889,7 +886,7 @@ def coupdaysnc(settlement: Any, maturity: Any, frequency: Any, basis: Any = 0) -
     from plugin.scripting.venv.calc_functions_a_c import _get_coupon_dates
 
     try:
-        prev_ord, curr_ord, days_in_period = _get_coupon_dates(settlement, maturity, frequency, basis)
+        _prev_ord, curr_ord, _days_in_period = _get_coupon_dates(settlement, maturity, frequency, basis)
 
         def _to_ordinal(val: Any) -> int:
             if isinstance(val, dt.datetime):
@@ -907,7 +904,7 @@ def coupncd(settlement: Any, maturity: Any, frequency: Any, basis: Any = 0) -> f
     from plugin.scripting.venv.calc_functions_a_c import _get_coupon_dates
 
     try:
-        prev_ord, curr_ord, days_in_period = _get_coupon_dates(settlement, maturity, frequency, basis)
+        _prev_ord, curr_ord, _days_in_period = _get_coupon_dates(settlement, maturity, frequency, basis)
         # next coupon date
         return float(curr_ord - 693594)
     except Exception:
@@ -929,7 +926,7 @@ def couppcd(settlement: Any, maturity: Any, frequency: Any, basis: Any = 0) -> f
     from plugin.scripting.venv.calc_functions_a_c import _get_coupon_dates
 
     try:
-        prev_ord, curr_ord, days_in_period = _get_coupon_dates(settlement, maturity, frequency, basis)
+        prev_ord, _curr_ord, _days_in_period = _get_coupon_dates(settlement, maturity, frequency, basis)
         # prev coupon date
         return float(prev_ord - 693594)
     except Exception:

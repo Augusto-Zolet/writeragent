@@ -74,10 +74,6 @@ def _mm_to_units(width_mm: int | float, height_mm: int | float) -> tuple[int, in
     return visual_helpers.mm_to_units(width_mm, height_mm)
 
 
-def _mm_to_px(width_mm: int | float, height_mm: int | float) -> tuple[int, int]:
-    return visual_helpers.mm_to_px(width_mm, height_mm)
-
-
 def _safe_try_method(obj: Any, method_name: str, *args: Any) -> bool:
     return visual_helpers.safe_try_method(obj, method_name, *args)
 
@@ -97,10 +93,6 @@ def _apply_graphic_properties(graphic, *, width: int, height: int, title: str, d
         _safe_set_property(graphic, "Title", title)
     if description:
         _safe_set_property(graphic, "Description", description)
-
-
-def _is_graphic_object(obj) -> bool:
-    return visual_helpers.is_graphic_object(obj)
 
 
 def _selection_graphic_object(model):
@@ -445,7 +437,7 @@ def replace_image_in_place(ctx, model, img_path, width_px, height_px, title="", 
     If the current selection is a single graphic, replace it with the new image and return True.
     Otherwise return False (caller should fall back to insert_image).
     """
-    obj, inside = _get_selected_graphic_object(model)
+    obj, _inside = _get_selected_graphic_object(model)
     if obj is None:
         return False
     width_units, height_units = visual_helpers.px_to_units(width_px, height_px)

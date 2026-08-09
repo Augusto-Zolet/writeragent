@@ -8,10 +8,21 @@
 """Unit tests for plugin.writer.format helpers (no UNO)."""
 
 import base64
+import sys
 
 import pytest
 
-from plugin.writer.format import strip_embedded_image_data, _apply_image_export_options
+from plugin.writer.format import _resolve_temp_dir, strip_embedded_image_data, _apply_image_export_options
+
+
+def test_resolve_temp_dir_avoids_gettempdir_under_crosshair(monkeypatch):
+    """CrossHair FQN cover must not call gettempdir (auditwall SideEffectDetected)."""
+    monkeypatch.setitem(sys.modules, "crosshair", object())
+    monkeypatch.delenv("TMPDIR", raising=False)
+    monkeypatch.delenv("TEMP", raising=False)
+    assert _resolve_temp_dir() == "/tmp"
+    monkeypatch.setenv("TMPDIR", "/custom/tmp")
+    assert _resolve_temp_dir() == "/custom/tmp"
 
 
 def test_strip_embedded_image_data_removes_base64_keeps_external_url():

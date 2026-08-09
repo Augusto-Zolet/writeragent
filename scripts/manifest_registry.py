@@ -587,20 +587,22 @@ def patch_description_xml(extension_dir):
 
 
 def generate_update_xml(root_dir):
-    """Generate update.xml from .tpl in the project root with version from plugin/version.py."""
+    """Generate WriterAgent / LibrePy / LibreHarper update.xml feeds from .tpl files."""
     from plugin.version import EXTENSION_VERSION
 
-    tpl_path = os.path.join(root_dir, "plugin", "update.xml.tpl")
-    update_path = os.path.join(root_dir, "update.xml")
-
-    if not os.path.exists(tpl_path):
-        # Optional: update.xml might not be present in every project setup
-        return
-
-    with open(tpl_path) as f:
-        content = f.read()
-
-    content = content.replace("{{VERSION}}", EXTENSION_VERSION)
-
-    _write_if_changed(update_path, content)
-    print("  Generated update.xml with version %s" % EXTENSION_VERSION)
+    feeds = (
+        ("update.xml.tpl", "update.xml"),
+        ("update-librepy.xml.tpl", "update-librepy.xml"),
+        ("update-libreharper.xml.tpl", "update-libreharper.xml"),
+    )
+    for tpl_name, out_name in feeds:
+        tpl_path = os.path.join(root_dir, "plugin", tpl_name)
+        update_path = os.path.join(root_dir, out_name)
+        if not os.path.exists(tpl_path):
+            # Optional: feed might not be present in every project setup
+            continue
+        with open(tpl_path) as f:
+            content = f.read()
+        content = content.replace("{{VERSION}}", EXTENSION_VERSION)
+        _write_if_changed(update_path, content)
+        print("  Generated %s with version %s" % (out_name, EXTENSION_VERSION))

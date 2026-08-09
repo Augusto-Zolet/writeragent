@@ -10,7 +10,7 @@ WriterAgent uses [Astral’s `ty`](https://docs.astral.sh/ty/) on the `plugin/` 
 |--------|--------|
 | Initial | On the order of **1000+** diagnostics before scoping (including vendored `plugin/contrib` and noisy test-only code). |
 | After narrowing | Excluding **`plugin/contrib`**, **`plugin/lib`** (vendored wheels / pip `--target` trees), and **`plugin/tests`** via `pyproject.toml` focused work on application code; one documented pass fixed on the order of **~141** categorized issues in that scope. |
-| Final | **`ty check`** reports **no errors** for the configured include set. **`make check`** runs **`ty`** only; **`make typecheck`** runs **`ty`**, **`mypy`**, and **`pyright`** in sequence; **`make test`** runs those three, then pytest and LO tests (types before tests). **`make release`** calls **`make test`** first, then the release bundle (see **`Makefile`**). |
+| Final | **`ty check`** reports **no errors** for the configured include set. **`make typecheck`** runs **`ruff-for-build`**, **`ty`**, **`mypy`**, and **`basedpyright`** in sequence; **`make test`** runs those four, then pytest and LO tests (types before tests). **`make release`** calls **`make test`** first, then the release bundle (see **`Makefile`**). |
 
 Static checking does **not** prove LibreOffice runtime behavior: UNO remains highly dynamic. The goal is consistent annotations, usable stubs, and fewer accidental mistakes in Python code.
 
@@ -18,7 +18,7 @@ Static checking does **not** prove LibreOffice runtime behavior: UNO remains hig
 
 ## Tooling (short)
 
-- **`pyproject.toml`** — `[tool.ty.src]`: `include = ["plugin", "compute_service"]`, `exclude = ["plugin/contrib", "plugin/lib", "plugin/tests"]`. Mypy / Pyright / Pyrefly use the same include set.
+- **`pyproject.toml`** — `[tool.ty.src]`: `include = ["plugin", "compute_service"]`, `exclude = ["plugin/contrib", "plugin/lib", "plugin/tests"]`. Mypy / Basedpyright / Pyrefly use the same include set.
 - **`Makefile`** — `make ty`: ensures `import uno` (via `make fix-uno` if needed), then `python -m ty check --exclude plugin/contrib/ --exclude plugin/lib/`.
 - **Dev dependency**: **`types-unopy`** (LibreOffice API stubs). **`make fix-uno`** links system UNO into `.venv` so `uno` and `com.sun.star` resolve; without that, the checker cannot see extension types.
 - **Windows / ARM64 note**: **`make fix-uno`** is a static-analysis helper, not proof that external Python can run PyUNO. On Windows, especially ARM64, LibreOffice's `pyuno.pyd` still depends on matching Python ABI and native DLL loading; the extension runtime uses LibreOffice's own Python.
@@ -26,28 +26,32 @@ Static checking does **not** prove LibreOffice runtime behavior: UNO remains hig
 ### mypy (optional)
 
 - **`make mypy`** — same prelude as `ty` (`make manifest`, `import uno` → `make fix-uno`), then **`python -m mypy`** using **`[tool.mypy]`** in `pyproject.toml`.
-- **Not** part of **`make check`** or **`make build`** alone; it **is** part of **`make typecheck`** and **`make test`**. **`make release`** runs **`make test`** first, so mypy runs there too. Use standalone **`make mypy`** to compare against **`ty`**. Mypy often reports issues `ty` does not (and vice versa).
+- **Not** part of **`make build`** alone; it **is** part of **`make typecheck`** and **`make test`**. **`make release`** runs **`make test`** first, so mypy runs there too. Use standalone **`make mypy`** to compare against **`ty`**. Mypy often reports issues `ty` does not (and vice versa).
 - **Scope**: `packages = ["plugin", "compute_service"]` with path **`exclude`** plus **`[[tool.mypy.overrides]]`** `ignore_errors = true` for **`plugin.contrib.*`**, **`plugin.lib.*`**, and **`plugin.tests.*`**. Plain `exclude` alone does not stop mypy from checking vendored trees when resolving the `plugin` package, so the overrides mirror ty’s “no contrib / no lib / no tests” intent.
 - **Stubs**: **`types-requests`**, **`types-unopy`**, and overrides for **`officehelper`** are configured for a usable first run; remaining diagnostics are normal application code until you tighten further. Venv-only packages (e.g. **`sounddevice`** for sidebar recording) are type-checked only when imported inside `plugin/scripting/venv/`.
 
-### Pyright (optional)
+### Basedpyright
 
-- **`make pyright`** — same prelude as **`ty`** / **`mypy`** (`make manifest`, then **`import uno`** → **`make fix-uno`** if needed), then **`python -m pyright`** using **`[tool.pyright]`** in **`pyproject.toml`** (`include` / **`exclude`** mirror **`ty`**).
-- **Not** part of **`make check`** or **`make build`** alone; it **is** part of **`make typecheck`** and **`make test`** (and thus **`make release`**). Diagnostics overlap Pylance in the editor; use standalone **`make pyright`** for a quick CLI pass.
-- **Status (CLI)**: On the same scoped tree as **`ty`**, Pyright can be driven to **zero errors**; remaining noise is usually **`reportMissingModuleSource`** for **`com.sun.star.*`** imports (stubs exist for typing, but Pyright still warns that it cannot resolve “source” for those modules). That is typically safe to ignore if runtime UNO works.
+- **`make basedpyright`** — same prelude as **`ty`** / **`mypy`** (`make manifest`, then **`import uno`** → **`make fix-uno`** if needed), then **`python -m basedpyright`** using **`[tool.basedpyright]`** in **`pyproject.toml`** (`include` / **`exclude`** mirror **`ty`**).
+- **Not** part of **`make build`** alone; it **is** part of **`make typecheck`** and **`make test`** (and thus **`make release`**). Diagnostics overlap Pylance in the editor; use standalone **`make basedpyright`** for a quick CLI pass.
+- **Mode**: `typeCheckingMode = "all"` with unknown-type rules and project-idiom rules turned off so the gate stays useful. Intentionally disabled (see comments in **`pyproject.toml`**):
+  - **Idiom conflicts:** `reportConstantRedefinition` (UNO ImportError fallbacks), `reportImplicitAbstractClass` (tool `*Base` without `execute`), `reportPrivateLocalImportUsage` (facade re-exports), `reportUnnecessaryIsInstance` / `Cast` / `Comparison`, `reportUnreachable`, `reportMissingTypeStubs`, `reportCallInDefaultInitializer`, `reportUnsafeMultipleInheritance`, `reportMissingSuperCall` (UNO listeners / mixins skipping `super().__init__()`).
+  - **Style / noise:** `reportImplicitStringConcatenation` (long prompts), `reportUnnecessaryTypeIgnoreComment` (ty/mypy ignores), plus the existing unused-parameter / deprecated / import-cycle disables.
+  - **`reportMissingModuleSource`** / **`reportMissingImports`** stay off / none for `com.sun.star.*` stub resolution.
+- **Status:** Basedpyright still reports real gaps (argument types, optional access, uninitialized mixin attrs, unused symbols). Drive those down in batches; do not re-enable the idiom rules above without a coordinated code change.
 
 ### Pyrefly (experimental)
 
-- **[Pyrefly](https://pyrefly.org/)** — Meta’s Rust-based type checker and language server; **`make pyrefly`** runs **`python -m pyrefly check`** with the same **`import uno`** / **`make fix-uno`** prelude as **`make pyright`**.
-- **Not** part of **`make check`**, **`make typecheck`**, or **`make test`**. Use as an optional fourth opinion while triaging; **`[tool.pyrefly]`** in **`pyproject.toml`** sets **`project-includes`**, **`project-excludes`**, and **`python-version`** (see [Pyrefly configuration](https://pyrefly.org/en/docs/configuration/)).
+- **[Pyrefly](https://pyrefly.org/)** — Meta’s Rust-based type checker and language server; **`make pyrefly`** runs **`python -m pyrefly check`** with the same **`import uno`** / **`make fix-uno`** prelude as **`make basedpyright`**.
+- **Not** part of **`make typecheck`** or **`make test`**. Use as an optional fourth opinion while triaging; **`[tool.pyrefly]`** in **`pyproject.toml`** sets **`project-includes`**, **`project-excludes`**, and **`python-version`** (see [Pyrefly configuration](https://pyrefly.org/en/docs/configuration/)).
 - Like other static checkers, Pyrefly treats **`typing.TYPE_CHECKING` as true**, so imports and types under **`if TYPE_CHECKING:`** participate in analysis. Config sets **`search-path = ["."]`** so **`from plugin...`** in those blocks resolves from the repo root, and **`check-unannotated-defs`**, **`infer-return-types`**, and **`infer-with-first-use`** match Pyrefly’s defaults for full analysis of checked modules.
-- Until the project drives Pyrefly to **zero errors**, CI should not gate on it; treat output as experimental signal alongside ty/mypy/pyright.
+- Until the project drives Pyrefly to **zero errors**, CI should not gate on it; treat output as experimental signal alongside ty/mypy/basedpyright.
 
 ---
 
-## Pyright vs `ty` and mypy (what differed in practice)
+## Basedpyright vs `ty` and mypy (what differed in practice)
 
-All three tools share **`types-unopy`**, **`make fix-uno`**, and the same **`plugin/`** scope (contrib, lib, and tests excluded). **`make check`** and **`make build`** run **`ty`** only (fast gate). **`make test`** runs **`ty`**, **`mypy`**, and **`pyright`**, then tests. **`make release`** runs **`make test`** (same gate) before building the release **`.oxt`**. A full Pyright pass still found **real issues and strictness gaps** that **`ty`** (and **`mypy`**) often did not report on the same codebase, or reported much less loudly.
+All three tools share **`types-unopy`**, **`make fix-uno`**, and the same **`plugin/`** scope (contrib, lib, and tests excluded). **`make typecheck`** runs **`ruff-for-build`**, **`ty`**, **`mypy`**, and **`basedpyright`**. **`make test`** runs **`typecheck`**, then tests. **`make release`** runs **`make test`** (same gate) before building the release **`.oxt`**. A full Basedpyright pass still finds **real issues and strictness gaps** that **`ty`** (and **`mypy`**) often did not report on the same codebase, or reported much less loudly.
 
 ### Optional and `None` narrowing
 
@@ -90,7 +94,7 @@ All three tools share **`types-unopy`**, **`make fix-uno`**, and the same **`plu
 
 ### Cross-check workflow
 
-After Pyright-driven edits, run **`make ty`** (or **`make test`**) anyway: fixes for Pyright do **not** always change **`ty`**, and occasionally one tool will disagree. **`make build`** enforces **`ty`**; **`make test`** / **`make release`** enforce all three tools.
+After Basedpyright-driven edits, run **`make ty`** (or **`make test`**) anyway: fixes for Basedpyright do **not** always change **`ty`**, and occasionally one tool will disagree. **`make build`** enforces **`ty`**; **`make test`** / **`make release`** enforce all three tools.
 
 ---
 
@@ -229,6 +233,5 @@ def actionPerformed(self, rEvent: ActionEvent) -> None:  # type: ignore[override
 ## What developers should run
 
 1. **`make fix-uno`** when `import uno` fails in the venv.
-2. **`make ty`** or **`make check`** before quick iterations; **`make test`** (or **`make release`** before shipping) for **`ty` + mypy + pyright** plus pytest and LO tests.
-3. When adding features, follow the UNO patterns above, [Other recurring fixes](#other-recurring-fixes-non-uno), and—if you use Pyright—the **Pyright vs `ty` and mypy** section for strictness that may not show up in **`make ty`**.
+2. When adding features, follow the UNO patterns above, [Other recurring fixes](#other-recurring-fixes-non-uno), and—if you use Basedpyright—the **Basedpyright vs `ty` and mypy** section for strictness that may not show up in **`make ty`**.
 

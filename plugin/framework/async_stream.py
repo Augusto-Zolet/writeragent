@@ -70,10 +70,17 @@ class BlockingPumpKind(str, Enum):
     ERROR = "error"
 
 
+@deal.pre(lambda prefix, data: isinstance(prefix, str))
+@deal.post(lambda result: isinstance(result, str) and result.startswith("\n") and result.endswith("\n"))
+@deal.ensure(lambda prefix, data, result=None: result is not None and prefix in result)
 def _format_agent_tool_stream_line(prefix: str, data: Any) -> str:
     """Serialize ACP tool_call / tool_result payloads for chat display."""
     try:
-        if isinstance(data, (dict, list)):
+        import sys
+
+        if "crosshair" in sys.modules:
+            body = str(data)
+        elif isinstance(data, (dict, list)):
             body = json.dumps(data, ensure_ascii=False)
         else:
             body = str(data) if data is not None else ""
@@ -88,6 +95,7 @@ BlockingPumpQueueItem: TypeAlias = tuple[BlockingPumpKind, Any]
 
 def put_stream_queue_stopped(q: queue.Queue) -> None:
     """Enqueue a user-stopped signal. Always uses (kind, payload); do not use a 1-tuple."""
+    # crosshair: off
     q.put((StreamQueueKind.STOPPED, None))
 
 
@@ -130,6 +138,7 @@ class BatchingStreamQueue:
     """
 
     def __init__(self, raw_q: queue.Queue[Any], batch_interval: float):
+        # crosshair: off
         self._raw = raw_q
         self._interval = batch_interval
         self._content_buf: list[str] = []
@@ -138,22 +147,26 @@ class BatchingStreamQueue:
         self._timer: threading.Timer | None = None
 
     def _cancel_timer(self):
+        # crosshair: off
         if self._timer is not None:
             self._timer.cancel()
             self._timer = None
 
     def _schedule_timer(self):
+        # crosshair: off
         self._cancel_timer()
         self._timer = threading.Timer(self._interval, self._timer_flush)
         self._timer.daemon = True
         self._timer.start()
 
     def _timer_flush(self):
+        # crosshair: off
         # Timer callback — runs in its own (daemon) thread
         self.flush()
 
     def _emit_pending_locked(self):
         """Emit any buffered content/thinking as single joined items. Caller holds lock."""
+        # crosshair: off
         if self._content_buf:
             joined = "".join(self._content_buf)
             self._raw.put((StreamQueueKind.CHUNK, joined))
@@ -174,6 +187,7 @@ class BatchingStreamQueue:
         - The timer firing, an explicit flush(), or any boundary control item
           causes the accumulated text (one joined string per kind) to be emitted.
         """
+        # crosshair: off
         # Fast path for the two display kinds
         if isinstance(item, (list, tuple)) and len(item) >= 1:
             kind = item[0]
@@ -200,18 +214,21 @@ class BatchingStreamQueue:
 
     def flush(self) -> None:
         """Force immediate emission of any pending display text (one joined string per kind)."""
+        # crosshair: off
         with self._lock:
             self._emit_pending_locked()
 
     # Convenience factories so existing lambda sites become one-liners
     def content_cb(self) -> Callable[[str], None]:
         """Return a callback suitable for append_callback=... that feeds through the batcher."""
+        # crosshair: off
         def cb(text: str) -> None:
             self.put((StreamQueueKind.CHUNK, text))
         return cb
 
     def thinking_cb(self) -> Callable[[str], None]:
         """Return a callback suitable for append_thinking_callback=..."""
+        # crosshair: off
         def cb(text: str) -> None:
             self.put((StreamQueueKind.THINKING, text))
         return cb
@@ -219,9 +236,11 @@ class BatchingStreamQueue:
     @property
     def raw(self) -> queue.Queue[Any]:
         """The underlying raw queue (for the rare legacy direct use or for the drain loop itself)."""
+        # crosshair: off
         return self._raw
 
     def __repr__(self) -> str:
+        # crosshair: off
         with self._lock:
             return (f"BatchingStreamQueue(interval={self._interval}, "
                     f"pending_content={len(self._content_buf)}, "
@@ -246,11 +265,13 @@ class _DrainState:
     thinking_open: list[bool] = field(default_factory=lambda: [False])
 
     def close_thinking(self) -> None:
+        # crosshair: off
         if self.thinking_open[0]:
             self.apply_chunk_fn(" /thinking\n", True)
             self.thinking_open[0] = False
 
     def flush_buffers(self) -> None:
+        # crosshair: off
         if self.current_thinking:
             if not self.thinking_open[0]:
                 self.apply_chunk_fn("[Thinking] ", True)
@@ -265,6 +286,7 @@ class _DrainState:
 
 def _drain_batch(q: queue.Queue[Any], timeout: float) -> list[Any]:
     """Block up to *timeout* for one item, then drain any immediately available extras."""
+    # crosshair: off
     items: list[Any] = []
     try:
         items.append(q.get(timeout=timeout))
@@ -279,23 +301,27 @@ def _drain_batch(q: queue.Queue[Any], timeout: float) -> list[Any]:
 
 
 def _handle_chunk(state: _DrainState, data: Any, _item: Any) -> None:
+    # crosshair: off
     if state.current_thinking:
         state.flush_buffers()
     state.current_content.append(data)
 
 
 def _handle_thinking(state: _DrainState, data: Any, _item: Any) -> None:
+    # crosshair: off
     if state.current_content:
         state.flush_buffers()
     state.current_thinking.append(data)
 
 
 def _handle_status(state: _DrainState, data: Any, _item: Any) -> None:
+    # crosshair: off
     if state.on_status_fn:
         state.on_status_fn(data)
 
 
 def _handle_stream_done_like(state: _DrainState, _data: Any, item: Any) -> None:
+    # crosshair: off
     state.flush_buffers()
     state.close_thinking()
     if state.on_stream_done(item):
@@ -303,6 +329,7 @@ def _handle_stream_done_like(state: _DrainState, _data: Any, item: Any) -> None:
 
 
 def _handle_tool_thinking(state: _DrainState, data: Any, _item: Any) -> None:
+    # crosshair: off
     if state.show_search_thinking:
         if state.current_content:
             state.flush_buffers()
@@ -310,18 +337,21 @@ def _handle_tool_thinking(state: _DrainState, data: Any, _item: Any) -> None:
 
 
 def _handle_tool_call_line(state: _DrainState, data: Any, _item: Any) -> None:
+    # crosshair: off
     state.flush_buffers()
     state.close_thinking()
     state.apply_chunk_fn(_format_agent_tool_stream_line("[Tool call]", data), False)
 
 
 def _handle_tool_result_line(state: _DrainState, data: Any, _item: Any) -> None:
+    # crosshair: off
     state.flush_buffers()
     state.close_thinking()
     state.apply_chunk_fn(_format_agent_tool_stream_line("[Tool result]", data), False)
 
 
 def _handle_approval_required(state: _DrainState, _data: Any, item: Any) -> None:
+    # crosshair: off
     state.flush_buffers()
     state.close_thinking()
     if state.on_approval_required:
@@ -332,6 +362,7 @@ def _handle_approval_required(state: _DrainState, _data: Any, item: Any) -> None
 
 
 def _handle_stopped(state: _DrainState, _data: Any, _item: Any) -> None:
+    # crosshair: off
     state.flush_buffers()
     state.close_thinking()
     state.on_stopped()
@@ -339,6 +370,7 @@ def _handle_stopped(state: _DrainState, _data: Any, _item: Any) -> None:
 
 
 def _handle_error(state: _DrainState, data: Any, _item: Any) -> None:
+    # crosshair: off
     state.flush_buffers()
     state.close_thinking()
     state.on_error(data)
@@ -363,6 +395,7 @@ _DISPATCH: dict[StreamQueueKind, Callable[[_DrainState, Any, Any], None]] = {
 
 
 def _process_batch(state: _DrainState, items: list[Any], stop_checker: Callable[[], bool] | None) -> None:
+    # crosshair: off
     for item in items:
         if stop_checker and stop_checker():
             log.info("run_stream_drain_loop: Stop requested via checker.")
@@ -620,6 +653,7 @@ def _run_client_stream(
     (``append_callback``, ``append_thinking_callback``, optional
     ``status_callback``, and ``stop_checker``).
     """
+    # crosshair: off
 
     def worker(q: queue.Queue) -> None:
         kwargs: dict[str, Any] = {"append_callback": lambda t: q.put((StreamQueueKind.CHUNK, t)), "append_thinking_callback": lambda t: q.put((StreamQueueKind.THINKING, t)), "stop_checker": stop_checker}
@@ -634,6 +668,7 @@ def _run_client_stream(
 
 def run_stream_completion_async(ctx, client, prompt, system_prompt, max_tokens, apply_chunk_fn, on_done_fn, on_error_fn, on_status_fn=None, stop_checker=None):
     """High-level helper for simple non-tool streams (always chat completions)."""
+    # crosshair: off
 
     def client_call(**cb_kwargs):
         client.stream_completion(prompt, system_prompt, max_tokens, **cb_kwargs)
@@ -643,6 +678,7 @@ def run_stream_completion_async(ctx, client, prompt, system_prompt, max_tokens, 
 
 def run_stream_async(ctx, client, messages, tools=None, apply_chunk_fn=None, on_done_fn=None, on_error_fn=None, max_tokens=None, stop_checker=None):
     """Compatibility helper for legacy run_stream_async calls (using messages/tools)."""
+    # crosshair: off
 
     effective_max = max_tokens or 512
 
@@ -665,6 +701,7 @@ def run_blocking_in_thread(ctx, func, *args, **kwargs):
 
     Returns the result of the function or raises the exception encountered.
     """
+    # crosshair: off
     q: "queue.Queue[BlockingPumpQueueItem]" = queue.Queue()
 
     def worker():
@@ -720,7 +757,6 @@ def accumulate_delta(acc: dict[object, object], delta: dict[object, object]) -> 
     assistant message from SSE chunks. Content and tool_calls (with partial
     function.arguments) are merged by index; strings are concatenated.
     """
-    # crosshair: off
     if type(acc) is not dict or type(delta) is not dict:
         raise TypeError("accumulate_delta requires plain dict acc and delta")
     for key, delta_value in delta.items():

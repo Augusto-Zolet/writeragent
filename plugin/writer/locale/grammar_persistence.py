@@ -31,7 +31,7 @@ from plugin.framework.uno_listeners import BaseDocumentEventListener
 
 _HAVE_UNO_DOC_EVENTS = False
 try:
-    from com.sun.star.document import XDocumentEventListener as _XDocumentEventListener_impl  # noqa: F401
+    from com.sun.star.document import XDocumentEventListener as _XDocumentEventListener_impl  # noqa: F401  # pyright: ignore[reportUnusedImport]
     _HAVE_UNO_DOC_EVENTS = True
 except ImportError:
     pass

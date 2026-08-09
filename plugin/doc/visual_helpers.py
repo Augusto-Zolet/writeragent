@@ -2,11 +2,16 @@
 # Copyright (c) 2026 KeithCu (modifications and relicensing)
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Shared helpers for visual UNO objects across Writer, Calc, Draw, and Impress."""
+"""Shared helpers for visual UNO objects across Writer, Calc, Draw, and Impress.
+
+Also covers color parsing (``parse_color_to_uno_int``) and Char* property batching
+(``apply_character_properties``) used by shapes, charts, cells, and styles.
+"""
 
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 log = logging.getLogger(__name__)
@@ -96,6 +101,142 @@ def safe_set_property(obj: Any, name: str, value: Any) -> bool:
     except Exception as ex:
         log.debug("safe_set_property %s failed: %s", name, ex)
         return False
+
+
+# CSS / X11 names used by chart and cell color args (flexible spacing/hyphens via normalize below).
+_COLOR_NAMES: dict[str, int] = {
+    "black": 0x000000,
+    "silver": 0xC0C0C0,
+    "gray": 0x808080,
+    "white": 0xFFFFFF,
+    "maroon": 0x800000,
+    "red": 0xFF0000,
+    "purple": 0x800080,
+    "fuchsia": 0xFF00FF,
+    "green": 0x008000,
+    "lime": 0x00FF00,
+    "olive": 0x808000,
+    "yellow": 0xFFFF00,
+    "navy": 0x000080,
+    "blue": 0x0000FF,
+    "teal": 0x008080,
+    "aqua": 0x00FFFF,
+    "cyan": 0x00FFFF,
+    "magenta": 0xFF00FF,
+    "orange": 0xFFA500,
+    "pink": 0xFFC0CB,
+    "gold": 0xFFD700,
+    "brown": 0xA52A2A,
+    "violet": 0xEE82EE,
+    "indigo": 0x4B0082,
+    "turquoise": 0x40E0D0,
+    "lavender": 0xE6E6FA,
+    "beige": 0xF5F5DC,
+    "salmon": 0xFA8072,
+    "olivedrab": 0x6B8E23,
+    "darkgreen": 0x006400,
+    "darkred": 0x8B0000,
+    "darkblue": 0x00008B,
+    "lightblue": 0xADD8E6,
+    "lightgreen": 0x90EE90,
+}
+
+_RGB_RE = re.compile(r"^rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*[\d.]+\s*)?\)$")
+
+
+def parse_color_to_uno_int(color_val: Any) -> int | None:
+    """Convert hex, named, rgb()/rgba(), int, or RGB tuple/list to a UNO RGB int.
+
+    Returns ``None`` when *color_val* is falsy or unparseable. Integers are masked
+    to 24-bit RGB. Callers that only accept strings (e.g. Calc ``set_style``) should
+    reject non-strings before calling this.
+    """
+    if color_val is None or color_val is False:
+        return None
+    if isinstance(color_val, bool):
+        # bool is a subclass of int; never treat True/False as colors.
+        return None
+    if isinstance(color_val, int):
+        return color_val & 0xFFFFFF
+    if isinstance(color_val, (tuple, list)) and len(color_val) >= 3:
+        try:
+            r, g, b = int(color_val[0]), int(color_val[1]), int(color_val[2])
+        except (TypeError, ValueError):
+            return None
+        if 0 <= r <= 255 and 0 <= g <= 255 and 0 <= b <= 255:
+            return (r << 16) | (g << 8) | b
+        return None
+    if not isinstance(color_val, str):
+        return None
+    if not color_val.strip():
+        return None
+
+    color_str = color_val.strip().lower()
+    norm_name = color_str.replace(" ", "").replace("_", "").replace("-", "")
+    if norm_name in _COLOR_NAMES:
+        return _COLOR_NAMES[norm_name]
+
+    rgb_match = _RGB_RE.match(color_str)
+    if rgb_match:
+        try:
+            r = int(rgb_match.group(1))
+            g = int(rgb_match.group(2))
+            b = int(rgb_match.group(3))
+        except ValueError:
+            return None
+        if 0 <= r <= 255 and 0 <= g <= 255 and 0 <= b <= 255:
+            return (r << 16) | (g << 8) | b
+        return None
+
+    hex_str = color_str
+    if hex_str.startswith("0x"):
+        hex_str = hex_str[2:]
+    else:
+        hex_str = hex_str.lstrip("#")
+    if len(hex_str) == 3:
+        hex_str = "".join(c * 2 for c in hex_str)
+    if len(hex_str) == 6:
+        try:
+            return int(hex_str, 16)
+        except ValueError:
+            return None
+    return None
+
+
+def apply_character_properties(
+    target: Any,
+    *,
+    font_name: str | None = None,
+    font_size_pt: float | int | None = None,
+    bold: bool | None = None,
+    italic: bool | None = None,
+    color: Any = None,
+    underline: int | None = None,
+) -> dict[str, bool]:
+    """Batch-set common Char* properties via :func:`safe_set_property`.
+
+    Returns a map of UNO property name → whether the set succeeded. Missing keys
+    were not requested. Color values go through :func:`parse_color_to_uno_int`.
+    """
+    results: dict[str, bool] = {}
+    if font_name is not None:
+        results["CharFontName"] = safe_set_property(target, "CharFontName", font_name)
+    if font_size_pt is not None:
+        results["CharHeight"] = safe_set_property(target, "CharHeight", float(font_size_pt))
+    if bold is not None:
+        results["CharWeight"] = safe_set_property(target, "CharWeight", 150.0 if bold else 100.0)
+    if italic is not None:
+        # FontPosture: NONE=0, ITALIC=1 (matches common UNO/tool integer usage).
+        results["CharPosture"] = safe_set_property(target, "CharPosture", 1 if italic else 0)
+    if color is not None:
+        parsed = parse_color_to_uno_int(color)
+        if parsed is not None:
+            results["CharColor"] = safe_set_property(target, "CharColor", parsed)
+        else:
+            results["CharColor"] = False
+    if underline is not None:
+        results["CharUnderline"] = safe_set_property(target, "CharUnderline", underline)
+    return results
 
 
 def safe_try_method(obj: Any, method_name: str, *args: Any) -> bool:
@@ -300,7 +441,11 @@ def graphic_objects_in_selection(doc: Any) -> list[tuple[str, Any]]:
 
 
 def get_active_draw_page(doc: Any, doc_type: str | None = None) -> Any | None:
-    """Return the active draw page for Calc, Draw, or Impress visual objects."""
+    """Return the active draw page for Writer, Calc, Draw, or Impress.
+
+    Calc uses the active sheet draw page; Draw/Impress use the current slide;
+    Writer falls back to ``doc.getDrawPage()`` (document canvas for forms/shapes).
+    """
     inside = doc_type or get_visual_doc_type(doc)
     try:
         controller = doc.CurrentController
@@ -309,7 +454,17 @@ def get_active_draw_page(doc: Any, doc_type: str | None = None) -> Any | None:
             controller = doc.getCurrentController()
         except Exception:
             controller = None
+
+    def _writer_draw_page() -> Any | None:
+        try:
+            return doc.getDrawPage()
+        except Exception:
+            return None
+
     if controller is None:
+        # Writer forms/shapes only need getDrawPage(); no controller required.
+        if inside in ("writer", "web"):
+            return _writer_draw_page()
         return None
 
     if inside == "calc":
@@ -349,7 +504,7 @@ def get_active_draw_page(doc: Any, doc_type: str | None = None) -> Any | None:
             return pages.getByIndex(0)
     except Exception:
         pass
-    return None
+    return _writer_draw_page()
 
 
 def list_graphic_objects(doc: Any, doc_type: str | None = None) -> list[tuple[str, Any]]:

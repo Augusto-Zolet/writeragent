@@ -273,19 +273,6 @@ class BusyError(WriterAgentException):
 _mcp_session_id = None
 
 
-def _resolve_doc_type_for_url(services, document_url):
-    """Run on main thread: resolve document by URL and return doc_type or None."""
-    if not document_url:
-        return None
-    try:
-        doc_svc = services.document
-        _doc, doc_type = doc_svc.resolve_document_by_url(document_url)
-        return doc_type
-    except Exception as e:
-        log.warning("Error resolving doc type: %s", type(e).__name__)
-        return None
-
-
 class MCPProtocolHandler:
     """MCP JSON-RPC protocol — route handlers for the HTTP server."""
 

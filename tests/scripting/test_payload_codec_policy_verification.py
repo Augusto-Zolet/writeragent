@@ -23,6 +23,7 @@ from plugin.scripting.payload_codec import (
     is_numeric_grid,
     wire_cell_count,
 )
+from tests.vhs_budget import vhs_max_examples
 
 _CROSSHAIR_ERROR_RE = re.compile(r": error:")
 _CROSSHAIR_TARGETS = (
@@ -51,26 +52,41 @@ def _find_crosshair() -> str | None:
     return None
 
 
-@given(s=st.text(min_size=1).filter(lambda t: bool(t.strip())))
-@settings(max_examples=80)
+@given(s=st.text(min_size=1, max_size=40).filter(lambda t: bool(t.strip())))
+@settings(max_examples=vhs_max_examples(80, 800), deadline=None)
 def test_hypothesis_nonempty_strings_never_coercible(s: str) -> None:
     assert is_numeric_coercible(s) is False
 
 
+def test_zero_dim_shape_cell_count() -> None:
+    # () represents a 0-dimensional scalar (1 element), matching cell_count @deal.ensure contract: len(shape) != 0 or result == 1
+    assert cell_count(()) == 1
+    assert cell_count((0,)) == 0
+    assert cell_count((0, 5)) == 0
+    assert cell_count((5, 0)) == 0
+
+
+def test_host_pack_split_grid_empty() -> None:
+    packed = host_pack_split_grid([])
+    assert isinstance(packed, dict)
+    assert packed.get("__wa_payload__") == "split_grid"
+    assert packed.get("shape") == [0]
+
+
 @given(ws=st.from_regex(r"[ \t\n\r]*", fullmatch=True))
-@settings(max_examples=40)
+@settings(max_examples=vhs_max_examples(40, 400), deadline=None)
 def test_hypothesis_whitespace_strings_coercible(ws: str) -> None:
     assert is_numeric_coercible(ws) is True
 
 
 @given(cells=st.lists(_CELL, max_size=8))
-@settings(max_examples=50)
+@settings(max_examples=vhs_max_examples(50, 500), deadline=None)
 def test_hypothesis_numeric_grid_matches_cellwise_1d(cells: list) -> None:
     assert is_numeric_grid(cells) is all(is_numeric_coercible(c) for c in cells)
 
 
 @given(rows=st.lists(st.lists(_CELL, max_size=5), min_size=1, max_size=5))
-@settings(max_examples=40)
+@settings(max_examples=vhs_max_examples(40, 400), deadline=None)
 def test_hypothesis_numeric_grid_matches_cellwise_2d(rows: list[list]) -> None:
     assert is_numeric_grid(rows) is all(is_numeric_coercible(c) for row in rows for c in row)
 
@@ -78,7 +94,7 @@ def test_hypothesis_numeric_grid_matches_cellwise_2d(rows: list[list]) -> None:
 @given(
     dims=st.lists(st.integers(min_value=0, max_value=20), min_size=0, max_size=4).map(tuple),
 )
-@settings(max_examples=50)
+@settings(max_examples=vhs_max_examples(50, 500), deadline=None)
 def test_hypothesis_cell_count_product(dims: tuple[int, ...]) -> None:
     n = cell_count(dims)
     assert n >= 0
@@ -94,7 +110,7 @@ def test_hypothesis_cell_count_product(dims: tuple[int, ...]) -> None:
 @given(
     rows=st.lists(st.lists(st.integers(), max_size=6), min_size=1, max_size=6),
 )
-@settings(max_examples=40)
+@settings(max_examples=vhs_max_examples(40, 400), deadline=None)
 def test_hypothesis_wire_cell_count_nested_list(rows: list[list[int]]) -> None:
     assert wire_cell_count(rows) == sum(len(row) for row in rows)
 

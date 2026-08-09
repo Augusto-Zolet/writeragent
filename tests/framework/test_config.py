@@ -248,6 +248,8 @@ class TestConfigSyncFileIO(unittest.TestCase):
         self.assertEqual(get_config('endpoint'), 'http://localhost:11434')
         self.assertEqual(get_config('model_lru@http://localhost:11434'), [])
         self.assertEqual(get_config_int('extension_update_check_epoch'), 0)
+        self.assertEqual(get_config_int('librepy_update_check_epoch'), 0)
+        self.assertEqual(get_config_int('libreharper_update_check_epoch'), 0)
         # Module-yaml keys (no WriterAgentConfig dataclass field; defaults from MODULES schema)
         self.assertEqual(get_config_int('web_cache_max_mb'), 50)
         self.assertEqual(get_config_int('web_cache_validity_days'), 30)
@@ -375,6 +377,15 @@ class TestRobustNumericParsing(unittest.TestCase):
             parse_int_robust("   ")
         with self.assertRaises(ValueError):
             parse_int_robust("invalid")
+        # Non-finite floats must be ValueError (not OverflowError) for @deal.raises
+        with self.assertRaises(ValueError):
+            parse_int_robust(float("inf"))
+        with self.assertRaises(ValueError):
+            parse_int_robust(float("-inf"))
+        with self.assertRaises(ValueError):
+            parse_int_robust(float("nan"))
+        with self.assertRaises(ValueError):
+            parse_int_robust("inf")
 
     def test_parse_float_robust(self):
         from plugin.framework.config import parse_float_robust

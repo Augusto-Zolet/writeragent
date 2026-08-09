@@ -169,7 +169,7 @@ def _reset_ignore_rules_on_main(ctx: Any, doc_id: str | None) -> None:
 # no module-level private aliases or F401 test hacks remain.
 
 
-def _get_testing_api():
+def _get_testing_api():  # pyright: ignore[reportUnusedFunction]  # UNO proofreader test seam
     """Return a dict of objects that unit tests commonly need to patch or call.
 
     This is the supported (internal) testing seam for the grammar proofreader.

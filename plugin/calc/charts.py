@@ -23,6 +23,7 @@ Enhanced to support Writer and Draw documents, 3D, stacking, and rich properties
 
 import logging
 
+from plugin.doc.visual_helpers import parse_color_to_uno_int as _parse_color
 from plugin.framework.errors import ToolExecutionError
 from plugin.calc.base import ToolCalcChartBase
 from plugin.calc.bridge import CalcBridge
@@ -215,63 +216,6 @@ CHART_PROPERTIES = {
     "bg_color": {"type": "string", "description": "Chart area background color (hex: #FF0000 or name: green)."},
     "colors": {"type": "array", "items": {"type": "string"}, "description": "List of hex/named colors to apply to each data series."},
 }
-
-
-def _parse_color(color_str):
-    if not color_str:
-        return None
-
-    # Strip, lowercase, and remove internal spaces/underscores/hyphens for flexible naming
-    color_str = color_str.strip().lower()
-
-    # Standard CSS / X11 color map
-    color_names = {
-        "black": 0x000000, "silver": 0xC0C0C0, "gray": 0x808080, "white": 0xFFFFFF,
-        "maroon": 0x800000, "red": 0xFF0000, "purple": 0x800080, "fuchsia": 0xFF00FF,
-        "green": 0x008000, "lime": 0x00FF00, "olive": 0x808000, "yellow": 0xFFFF00,
-        "navy": 0x000080, "blue": 0x0000FF, "teal": 0x008080, "aqua": 0x00FFFF,
-        "cyan": 0x00FFFF, "magenta": 0xFF00FF, "orange": 0xFFA500, "pink": 0xFFC0CB,
-        "gold": 0xFFD700, "brown": 0xA52A2A, "violet": 0xEE82EE, "indigo": 0x4B0082,
-        "turquoise": 0x40E0D0, "lavender": 0xE6E6FA, "beige": 0xF5F5DC, "salmon": 0xFA8072,
-        "olive drab": 0x6B8E23, "olivedrab": 0x6B8E23, "dark green": 0x006400, "darkgreen": 0x006400,
-        "dark red": 0x8B0000, "darkred": 0x8B0000, "dark blue": 0x00008B, "darkblue": 0x00008B,
-        "light blue": 0xADD8E6, "lightblue": 0xADD8E6, "light green": 0x90EE90, "lightgreen": 0x90EE90,
-    }
-
-    # Check map
-    norm_name = color_str.replace(" ", "").replace("_", "").replace("-", "")
-    for name, val in color_names.items():
-        if name.replace(" ", "") == norm_name:
-            return val
-
-    # Check RGB(a) format
-    import re
-    rgb_match = re.match(r"^rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*[\d\.]+\s*)?\)$", color_str)
-    if rgb_match:
-        try:
-            r = int(rgb_match.group(1))
-            g = int(rgb_match.group(2))
-            b = int(rgb_match.group(3))
-            if 0 <= r <= 255 and 0 <= g <= 255 and 0 <= b <= 255:
-                return (r << 16) | (g << 8) | b
-        except ValueError:
-            pass
-
-    # Check hex format
-    hex_str = color_str.lstrip("#")
-
-    # Handle shorthand hex like "f00" or "#f00"
-    if len(hex_str) == 3:
-        hex_str = "".join(c * 2 for c in hex_str)
-
-    if len(hex_str) == 6:
-        try:
-            return int(hex_str, 16)
-        except ValueError:
-            return None
-
-    return None
-
 
 
 def _apply_chart_styling(chart_doc, **kwargs):

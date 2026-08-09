@@ -57,21 +57,6 @@ def _execute_request(
     )
 
 
-def _unpack_request_data(data: Any | None) -> dict[str, Any]:
-    from plugin.scripting.payload_codec import child_unpack_data, is_multi_data
-
-    if data is None:
-        return {}
-    unpacked = child_unpack_data(data)
-    if is_multi_data(unpacked):
-        if isinstance(unpacked, list) and unpacked and isinstance(unpacked[0], dict):
-            return unpacked[0]
-        return {}
-    if isinstance(unpacked, dict):
-        return unpacked
-    return {}
-
-
 def _handle_trusted_action(
     request: dict[str, Any],
     data: dict[str, Any],
@@ -167,7 +152,7 @@ def _handle_request(request: dict[str, Any], *, stdout: Any | None = None) -> di
 
 
 # Back-compat for tests: from plugin.scripting.venv.worker_harness import _serialize
-def _serialize(obj: Any) -> Any:
+def _serialize(obj: Any) -> Any:  # pyright: ignore[reportUnusedFunction]  # back-compat export for worker tests
     return serialize_result(obj)
 
 

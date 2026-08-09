@@ -15,7 +15,7 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 > **Tests:** New features and bugfixes **must** include tests.
 > - **Unit:** `tests/`, **pytest** when logic can be mocked. Test files should match the source module name (e.g. `foo.py` -> `test_foo.py`). **Always add new test cases to the matching `test_` file to maintain consistent naming and visible coverage.**
 > - **UNO / LibreOffice:** `tests/uno/` or `_uno.py` suffix via **`testing_runner.py`** (no pytest)—use **`@native_test`**, **`@setup`**, **`@teardown`**; test functions take **`ctx`**. **Follow the same module-matching rule (e.g. `foo.py` -> `test_foo_uno.py`).**
-> - Run **`make test`** before you consider the work done.
+> - **Execution Policy:** Run tests for the specific files modified plus **`make typecheck`**. Run full **`make test`** ONLY IF making large refactors or cross-cutting changes.
 
 > [!IMPORTANT]
 > **Comments:** Write why this code is there for the reader who would otherwise be **lost**. **Good comments are the bridge** from opaque to understandable and maintainable code. Some files have no comments: inserting footnotes is standard, little different from other UNO objects. Meanwhile some comments are critical to understanding why the code is there. Write clear, short comments.
@@ -41,7 +41,7 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 | Async UI drain | [`plugin/framework/async_stream.py`](plugin/framework/async_stream.py), [`plugin/framework/uno_context.py`](plugin/framework/uno_context.py) (`get_toolkit`) |
 | Writer HTML / apply content | [`plugin/writer/format_support.py`](plugin/writer/format_support.py) |
 | Errors / `safe_json_loads` | [`plugin/framework/errors.py`](plugin/framework/errors.py) |
-| Weekly extension update check | [`plugin/chatbot/extension_update_check.py`](plugin/chatbot/extension_update_check.py) |
+| Weekly extension update check (WriterAgent / LibrePy / LibreHarper) | [`plugin/chatbot/extension_update_check.py`](plugin/chatbot/extension_update_check.py) |
 | Python venv sandbox / scripting | Public script API: [`plugin/scripting/`](plugin/scripting/) (`analysis`, `viz`, `calc_functions`, … — lazy facades). Venv subprocess implementation: [`plugin/scripting/venv/`](plugin/scripting/venv/) (worker IPC + compute; not for user import paths). Policy: [`import_policy.py`](plugin/scripting/import_policy.py), whitelist + spawn env [`sandbox.py`](plugin/scripting/sandbox.py), worker [`venv_worker.py`](plugin/scripting/venv_worker.py), diagnostics [`venv_diagnostics.py`](plugin/scripting/venv_diagnostics.py) |
 | Embeddings / folder FTS | [`plugin/embeddings/`](plugin/embeddings/) (host cache, indexers, tools); venv worker in [`plugin/embeddings/venv/`](plugin/embeddings/venv/); RPC in [`plugin/framework/client/embeddings_service.py`](plugin/framework/client/embeddings_service.py), [`embedding_client.py`](plugin/framework/client/embedding_client.py), [`folder_fts_service.py`](plugin/framework/client/folder_fts_service.py) — [docs/embeddings.md](docs/embeddings.md) |
 | Vision / OCR | [`plugin/vision/`](plugin/vision/) (host runner, egress, templates, LLM `extract_text_from_image` via `domain=vision`); venv worker in [`plugin/vision/venv/`](plugin/vision/venv/); RPC in [`plugin/scripting/client.py`](plugin/scripting/client.py) `run_vision`; gating in [`vision_availability.py`](plugin/vision/vision_availability.py) — [docs/image-recognition.md](docs/image-recognition.md) |
@@ -73,13 +73,13 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 | Command | Role |
 |---------|------|
 | `make manifest` | Generates [`plugin/_manifest.py`](plugin/_manifest.py) (gitignored). Used by type-check and tests on clean checkouts. Missing manifest → [`load_manifest()`](plugin/framework/module_base.py) raises **`RuntimeError`**. |
-| `make check` | **`ty`** only |
+| `make typecheck` | **`ruff-for-build`** + **`ty`** + **mypy** + **basedpyright** |
 | `make build` | **`ty`** + **`ruff-fix`** then **`ruff`** + bundle (produces `build/WriterAgent.oxt` only) |
 | `make deploy` | **`make build`** + one-time **`unopkg`** register (if needed) + cache hot-sync (restart LO) |
-| `make typecheck` | **`ty`** + **mypy** + **pyright** |
 | `make test` | Full typecheck + **opengrep-lint** + **pyspector** + pytest (includes all formal verification tests) + LO tests + **bandit** |
-| `make verify` | Fast pass over pure formal verification test suites (`pytest tests/ -k verification`) |
-| `make slowtests` | Heavy extensive A/B serialization fixtures + live Hypothesis fuzzing (`make vhs`) |
+| `make verify` | Fast pass over pure formal verification test suites (`pytest tests/ -k verification`; light Hypothesis) |
+| `make vhs` | Deep Hypothesis fuzz (`WRITERAGENT_VHS_EXTENSIVE=1`): serialization, FSMs, Phase 8 (formula/cors/diff/embeddings), stream/sandbox/policy/address |
+| `make slowtests` | Extensive serialization fixtures + `make vhs` |
 | `make opengrep-lint` | Opengrep UNO thread + vendored security rules (ERROR; part of `make test`) |
 | `make opengrep-rules-sync` | Refresh pinned third-party rules under `tests/semgrep/third_party/` |
 | `make release` | **`make test`** then **`release-build`** (includes **`openrouter-catalog`** → [`extension/metadata/openrouter_models.json`](extension/metadata/openrouter_models.json)—not in OXT—plus [`default_models.py`](plugin/framework/default_models.py), translations, OXT) |
@@ -88,7 +88,7 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 | `make pyspector` | PySpector AI/taint SAST on `plugin/` (`--ai`; part of **`make test-run`** / **`make test`**) |
 | `make pyspector-report` | Same scan; writes `build/pyspector-report.json` (optional report) |
 
-**Ruff:** `[tool.ruff]` line length **320** (Ruff’s maximum; fits dense one-line calls without wrapping); `[tool.ruff.format]` **`skip-magic-trailing-comma` true**—see [`pyproject.toml`](pyproject.toml). **`make build`** runs **`ruff-fix`** then **`ruff check`** (`ruff-for-build`) over **`plugin/`**, **`tests/`**, **`scripts/`**, and **`demos/`** (format targets stay **`plugin/`**-scoped). Typecheck remains **`plugin`** + **`compute_service`** only. Standalone **`make ruff`** is check-only. Not part of **`make test`**.
+**Ruff:** `[tool.ruff]` line length **320** (Ruff’s maximum; fits dense one-line calls without wrapping); `[tool.ruff.format]` **`skip-magic-trailing-comma` true**—see [`pyproject.toml`](pyproject.toml). **`make build`** runs **`ruff-fix`** then **`ruff check`** (`ruff-for-build`) over **`plugin/`**, **`tests/`**, and **`scripts/`** (never **`demos/`**; format targets stay **`plugin/`**-scoped). Typecheck remains **`plugin`** + **`compute_service`** only. Standalone **`make ruff`** is check-only. Not part of **`make test`**.
 
 **Optional:** **`make pyrefly`** — not in **`make test`**; see [`docs/type-checking.md`](docs/type-checking.md). **`make pyspector`** — [PySpector](https://github.com/ParzivalHack/PySpector) via [`scripts/run_pyspector.py`](scripts/run_pyspector.py) (`--ai`, [`pyspector.toml`](pyspector.toml)); part of **`make test-run`** / **`make test`** (not **`make build`** / **`make release`** alone). **`make pyspector-report`** writes `build/pyspector-report.json` and remains optional. Wrapper disables reviewed false-positive / accepted-risk rules (e.g. PY101 on `Tool.execute`, ZIPSLIP001 on trusted GitHub audio zip).
 
@@ -176,7 +176,7 @@ Do not shadow **`logging`**, module **`log`**, or gettext **`_`**. UI modules im
 
 ## Static type checking (ty)
 
-See [docs/type-checking.md](docs/type-checking.md) for checker scope, UNO patterns, and annotation fixes. **`make check`** → **`ty`** only; full matrix in [Build](#build-and-quality-commands).
+See [docs/type-checking.md](docs/type-checking.md) for checker scope, UNO patterns, and annotation fixes. Full matrix in [Build](#build-and-quality-commands).
 
 ---
 

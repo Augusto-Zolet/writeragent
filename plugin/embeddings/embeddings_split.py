@@ -85,7 +85,43 @@ def _meta_chunks_from_spans(
     return chunks
 
 
-@deal.pre(lambda passage, sentences, *_, **__: isinstance(sentences, list))
+def _sentences_spans_ok(sentences: object) -> bool:
+    """True when *sentences* is ordered ``(start, end, text)`` with ``0 <= start <= end``.
+
+    Successive starts must be ``>=`` the previous end (production splitters are sequential).
+    """
+    if not isinstance(sentences, list):
+        return False
+    prev_end: int | None = None
+    for item in sentences:
+        if not (isinstance(item, tuple) and len(item) == 3):
+            return False
+        start, end, _sent = item
+        if not (isinstance(start, int) and isinstance(end, int) and 0 <= start <= end):
+            return False
+        if prev_end is not None and start < prev_end:
+            return False
+        prev_end = end
+    return True
+
+
+def _filter_ordered_sentence_spans(
+    sentences: list[tuple[int, int, str]],
+) -> list[tuple[int, int, str]]:
+    """Drop invalid / out-of-order triples (deal_shim is a no-op under LibreOffice)."""
+    ordered: list[tuple[int, int, str]] = []
+    prev_end: int | None = None
+    for start, end, sent in sentences:
+        if not (isinstance(start, int) and isinstance(end, int) and 0 <= start <= end):
+            continue
+        if prev_end is not None and start < prev_end:
+            continue
+        ordered.append((start, end, sent))
+        prev_end = end
+    return ordered
+
+
+@deal.pre(lambda passage, sentences, *_, **__: _sentences_spans_ok(sentences))
 @deal.post(lambda result: isinstance(result, list) and all(isinstance(s, tuple) and len(s) == 2 and 0 <= s[0] <= s[1] for s in result))
 def _merge_small_sentences_to_spans(
     passage: str,
@@ -94,6 +130,7 @@ def _merge_small_sentences_to_spans(
     min_chunk: int = MIN_CHUNK,
 ) -> list[tuple[int, int]]:
     """One chunk per sentence; glue consecutive sub-*min_chunk* sentences within the passage."""
+    sentences = _filter_ordered_sentence_spans(sentences)
     if not sentences:
         return []
 
@@ -110,7 +147,7 @@ def _merge_small_sentences_to_spans(
         nonlocal buffer_start, buffer_end
         if buffer_start is None or buffer_end is None:
             return
-        if fold_remainder and buffer_len() < min_chunk and spans:
+        if fold_remainder and buffer_len() < min_chunk and spans and buffer_end >= spans[-1][0]:
             prev_start, _prev_end = spans[-1]
             spans[-1] = (prev_start, buffer_end)
         else:

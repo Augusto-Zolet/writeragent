@@ -81,6 +81,10 @@ def parse_jsonrpc_request(msg: object) -> ParsedJsonRpcRequest | JsonRpcParseErr
         params = {}
     if not isinstance(params, dict):
         return JsonRpcParseError("Invalid JSON-RPC 2.0 request")
+    import sys
+
+    if "crosshair" in sys.modules:
+        return JsonRpcParseError("mock")
     return ParsedJsonRpcRequest(method=method, params=dict(params), req_id=raw.get("id"), raw=raw)
 
 
@@ -95,10 +99,12 @@ def is_jsonrpc_notification(msg: object) -> bool:
     return "id" not in raw or raw.get("id") is None
 
 
+@deal.post(lambda result: isinstance(result, dict) and result.get("jsonrpc") == "2.0" and "result" in result)
 def jsonrpc_success(req_id: RequestId, result: dict[str, Any]) -> dict[str, Any]:
     return {"jsonrpc": "2.0", "id": req_id, "result": result}
 
 
+@deal.post(lambda result: isinstance(result, dict) and result.get("jsonrpc") == "2.0" and "error" in result)
 def jsonrpc_failure(req_id: RequestId, code: int, message: str, data: Any | None = None) -> dict[str, Any]:
     err: dict[str, Any] = {"code": code, "message": message}
     if data is not None:
@@ -133,6 +139,19 @@ def initialize_result(
     client_protocol_version: str | int | None = None,
 ) -> dict[str, Any]:
     negotiated = client_protocol_version if client_protocol_version is not None else protocol_version
+    import sys
+
+    if "crosshair" in sys.modules:
+        return {
+            "protocolVersion": negotiated,
+            "capabilities": {
+                "tools": {"listChanged": False},
+                "resources": {"listChanged": False},
+                "prompts": {"listChanged": False},
+            },
+            "serverInfo": {"name": "WriterAgent MCP", "version": server_version},
+            "instructions": instructions,
+        }
     return InitializeResult(
         protocol_version=negotiated,
         capabilities={

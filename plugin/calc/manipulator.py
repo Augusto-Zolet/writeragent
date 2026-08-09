@@ -513,7 +513,7 @@ class CellManipulator:
         try:
             cell_range = self.bridge.resolve_range_or_address(range_str)
 
-            import uno  # noqa: F401 – needed in UNO context
+            import uno  # noqa: F401  # pyright: ignore[reportUnusedImport] – needed in UNO context
 
             sort_desc = list(cell_range.createSortDescriptor())
 

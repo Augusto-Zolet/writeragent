@@ -168,7 +168,7 @@ def cache_put_sentence(
 ) -> None:
     """Cache errors for this sentence text (errors must have offsets relative to sentence start)."""
     # Tier 1 (global LRU) + Tier 2 (document persistence): always warm L1; L2 when doc_id is set.
-    fp, canon, is_complete, key, clipped_errors = _populate_memory_cache_only(locale_key, sentence, errors)
+    fp, canon, is_complete, _key, clipped_errors = _populate_memory_cache_only(locale_key, sentence, errors)
 
     if ctx and doc_id:
         p = get_persistence(ctx, doc_id)

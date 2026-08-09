@@ -31,6 +31,8 @@ Schema-backed coercion, option canonicalization, and min/max bounds live here
 so UI controllers can pass raw dialog values to ``set_config`` without copying
 validation rules from ``module.yaml``.
 """
+
+# crosshair: off
 import dataclasses
 import json
 import logging
@@ -95,8 +97,15 @@ AI_SIMPLE_FIELDS = {"endpoint", "text_model", "image_model", "stt_model", "tempe
 @deal.post(lambda result: isinstance(result, bool))
 def as_bool(value):
     """Parse a value as boolean (handles str, int, float)."""
-    # crosshair: off
-    # Plain types only — isinstance(str)/float() on CrossHair symbolic values engine-crash.
+    import sys
+
+    if "crosshair" in sys.modules:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return value != 0
+        return False
+
     if type(value) is bool:
         return value
     if type(value) is str:
@@ -106,31 +115,35 @@ def as_bool(value):
     return False
 
 
-def _safe_float(value, default):
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def _safe_int(value, default):
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
-
-
 @deal.post(lambda result: isinstance(result, int))
 @deal.raises(ValueError)
 def parse_int_robust(val) -> int:
     """Robustly parse an integer value from a string, float, or other type,
     handling locale-specific decimal commas (like "8765,0" in German)."""
+    import math
+    import sys
+
+    if isinstance(val, bool):
+        # bool is a subclass of int; keep explicit for clarity under CrossHair.
+        return int(val)
     if isinstance(val, int):
         return val
     if isinstance(val, float):
+        # int(inf) raises OverflowError; map non-finite to ValueError for @deal.raises.
+        if not math.isfinite(val):
+            raise ValueError(f"Cannot parse non-finite float as int: {val!r}")
         return int(val)
     if val is None:
         raise ValueError("Cannot parse None as int")
+
+    if "crosshair" in sys.modules:
+        if isinstance(val, int):
+            return val
+        if isinstance(val, float):
+            if not math.isfinite(val):
+                raise ValueError(f"Cannot parse non-finite float as int: {val!r}")
+            return int(val)
+        raise ValueError("Cannot parse symbolic type as int under CrossHair")
 
     s = str(val).strip()
     if not s:
@@ -148,14 +161,20 @@ def parse_int_robust(val) -> int:
     if "," in s:
         cleaned = s.replace(",", ".")
         try:
-            return int(float(cleaned))
-        except (ValueError, TypeError):
+            f = float(cleaned)
+            if not math.isfinite(f):
+                raise ValueError(f"Cannot parse non-finite float as int: {val!r}")
+            return int(f)
+        except (ValueError, TypeError, OverflowError):
             pass
 
     # Try float parsing and conversion
     try:
-        return int(float(s))
-    except (ValueError, TypeError) as e:
+        f = float(s)
+        if not math.isfinite(f):
+            raise ValueError(f"Cannot parse non-finite float as int: {val!r}")
+        return int(f)
+    except (ValueError, TypeError, OverflowError) as e:
         raise ValueError(f"Could not robustly parse integer from {val!r}") from e
 
 
@@ -168,6 +187,13 @@ def parse_float_robust(val) -> float:
         return float(val)
     if val is None:
         raise ValueError("Cannot parse None as float")
+
+    import sys
+
+    if "crosshair" in sys.modules:
+        if isinstance(val, (int, float)):
+            return float(val)
+        raise ValueError("Cannot parse symbolic type as float under CrossHair")
 
     s = str(val).strip()
     if not s:
@@ -186,15 +212,6 @@ def parse_float_robust(val) -> float:
             raise ValueError(f"Could not robustly parse float from {val!r}") from e
 
     raise ValueError(f"Could not robustly parse float from {val!r}")
-
-
-def _get_schema_type(key: str) -> str | None:
-    """Return type ('int', 'float', 'boolean', 'string') for key from MODULES."""
-    schema = get_config_schema(key)
-    if schema:
-        t = schema.get("type")
-        return _normalize_schema_type(t) if t is not None else None
-    return None
 
 
 def _is_lru_list_config_key(key: str) -> bool:
@@ -509,8 +526,11 @@ class WriterAgentConfig:
     embedding_provider: str = "local"
     seed: str = ""
     enable_agent_log: bool = False
-    # Last extension update.xml check time (unix seconds); see modules/chatbot/extension_update_check.py
+    # Last extension update.xml check time (unix seconds); see plugin/chatbot/extension_update_check.py
+    # Per-product keys so WriterAgent + LibreHarper dual-install do not suppress each other.
     extension_update_check_epoch: float = 0.0
+    librepy_update_check_epoch: float = 0.0
+    libreharper_update_check_epoch: float = 0.0
     is_openwebui: bool = False
     extend_selection_system_prompt: str = ""
     edit_selection_system_prompt: str = ""

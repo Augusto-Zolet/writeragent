@@ -271,7 +271,7 @@ def _migrate_legacy_bin_install(user_config_dir: str, harper_dir: Path) -> None:
         log.warning("[harper] Legacy bin/ cleanup incomplete: %s", cleanup_err)
 
 
-def _get_harper_binary(user_config_dir: str, *, heartbeat_fn: Callable[[dict[str, str]], None] | None = None) -> str:
+def _get_harper_binary(user_config_dir: str, *, heartbeat_fn: Callable[[dict[str, str]], None] | None = None) -> str:  # pyright: ignore[reportUnusedFunction]  # used by harper.py and harper tests
     """Resolve path to harper-ls binary, auto-downloading if missing or outdated."""
     _emit_progress(heartbeat_fn, "Resolving harper-ls binary…")
     sys_path = shutil.which("harper-ls")

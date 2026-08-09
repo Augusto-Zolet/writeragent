@@ -151,6 +151,7 @@ def resolve_auth_for_config(api_config: Dict[str, Any]) -> Dict[str, Any]:
         "headers": { ... provider-specific static headers ... },
       }
     """
+    # crosshair: off
     endpoint_raw = str(api_config.get("endpoint") or "")
     is_owu = api_config.get("is_openwebui", False)
     endpoint = normalize_endpoint_url(endpoint_raw, is_openwebui=is_owu)

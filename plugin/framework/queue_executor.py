@@ -75,7 +75,7 @@ def reset_suppressed_vcl_pump_count() -> None:
         _suppressed_vcl_pumps = 0
 
 
-def _note_suppressed_vcl_pump(owner: str) -> None:
+def _note_suppressed_vcl_pump(owner: str) -> None:  # pyright: ignore[reportUnusedFunction]  # called from uno_context drain path
     global _suppressed_vcl_pumps
     with _suppressed_vcl_lock:
         _suppressed_vcl_pumps += 1

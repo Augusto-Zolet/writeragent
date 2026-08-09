@@ -60,6 +60,14 @@ def test_parse_int_robust_raises() -> None:
         parse_int_robust("")
     with pytest.raises(ValueError):
         parse_int_robust("not-a-number")
+    with pytest.raises(ValueError):
+        parse_int_robust(float("inf"))
+    with pytest.raises(ValueError):
+        parse_int_robust(float("-inf"))
+    with pytest.raises(ValueError):
+        parse_int_robust(float("nan"))
+    with pytest.raises(ValueError):
+        parse_int_robust("inf")
 
 
 @given(n=st.floats(allow_nan=False, allow_infinity=False, width=32, min_value=-1e6, max_value=1e6))

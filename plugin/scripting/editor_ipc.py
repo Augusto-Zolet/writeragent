@@ -20,6 +20,7 @@ _MAX_PAYLOAD_BYTES = 16 * 1024 * 1024
 
 def read_message(stream: IO[bytes]) -> dict[str, Any] | None:
     """Read one pickle-framed message from *stream*. Returns None on clean EOF."""
+    # crosshair: off
     payload = read_frame_payload(stream, max_payload_bytes=_MAX_PAYLOAD_BYTES, frame_label="editor message")
     if payload is None:
         return None
@@ -34,6 +35,7 @@ def read_message(stream: IO[bytes]) -> dict[str, Any] | None:
 
 def write_message(stream: IO[bytes], message: dict[str, Any]) -> None:
     """Write one dict to *stream* as pickle protocol 5 with a 4-byte big-endian length prefix."""
+    # crosshair: off
     try:
         frame = pack_pickle_frame(message, max_payload_bytes=_MAX_PAYLOAD_BYTES)
     except IpcFrameError as exc:

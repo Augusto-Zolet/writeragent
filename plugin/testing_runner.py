@@ -372,7 +372,7 @@ def run_all_tests(ctx: Any) -> str:
             else:
                 filter_strs.append(arg)
 
-        for root, dirs, files in os.walk(tests_root):
+        for root, _dirs, files in os.walk(tests_root):
             for filename in files:
                 if not filename.endswith(".py"):
                     continue

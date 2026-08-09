@@ -112,6 +112,7 @@ def _normalize_schema_for_strict_providers(params):
 
 def _doc_type_str_from_doc(doc: Any) -> str | None:
     """Map UNO document model to tool context doc_type string."""
+    # crosshair: off
     if doc is None:
         return None
     try:
@@ -129,6 +130,9 @@ def _doc_type_str_from_doc(doc: Any) -> str | None:
     return None
 
 
+@deal.pre(lambda tool, **kwargs: getattr(tool, "name", None) is not None)
+@deal.post(lambda result: isinstance(result, dict) and result.get("type") == "function" and isinstance(result.get("function"), dict))
+@deal.ensure(lambda tool, doc_type=None, result=None, **kwargs: result is not None and isinstance(result, dict) and result.get("function", {}).get("name") == tool.name)
 def to_openai_schema(tool, *, doc_type: str | None = None):
     """Convert a ToolBase instance to an OpenAI function-calling schema.
 
@@ -152,6 +156,9 @@ def to_openai_schema(tool, *, doc_type: str | None = None):
     return {"type": "function", "function": {"name": tool.name, "description": desc, "parameters": params}}
 
 
+@deal.pre(lambda tool, **kwargs: getattr(tool, "name", None) is not None)
+@deal.post(lambda result: isinstance(result, dict) and "inputSchema" in result and result.get("name") is not None)
+@deal.ensure(lambda tool, doc_type=None, result=None, **kwargs: result is not None and isinstance(result, dict) and result.get("name") == tool.name)
 def to_mcp_schema(tool, *, doc_type: str | None = None):
     """Convert a ToolBase instance to an MCP tools/list schema.
 
@@ -264,6 +271,7 @@ class ToolContext:
     __slots__ = ("doc", "ctx", "doc_type", "services", "caller", "active_page_index", "status_callback", "append_thinking_callback", "stop_checker", "approval_callback", "chat_append_callback", "set_active_domain_callback", "active_domain", "python_tool_domain", "read_only_target", "send_cancellation", "uno_services_supported")
 
     def __init__(self, doc, ctx, doc_type, services, caller="", active_page_index=None, status_callback=None, append_thinking_callback=None, stop_checker=None, approval_callback=None, chat_append_callback=None, set_active_domain_callback=None, active_domain=None, python_tool_domain=None, read_only_target=False, send_cancellation=None, uno_services_supported=None):
+        # crosshair: off
         self.doc = doc
         self.ctx = ctx
         self.doc_type = doc_type
@@ -393,6 +401,7 @@ class ToolBase(ABC):
         Returns:
             dict with at least ``{"status": "ok"|"error", ...}``.
         """
+        # crosshair: off
 
     def is_async(self) -> bool:
         """Returns True if this tool should execute asynchronously in the background. Defaults to False."""
@@ -400,6 +409,7 @@ class ToolBase(ABC):
 
     def execute_safe(self, ctx: ToolContext, **kwargs) -> dict[str, Any]:
         """Execute with simple error containment."""
+        # crosshair: off
         try:
             # Defense in depth: ToolRegistry.execute marshals sync tools to the main thread;
             # this assert still catches direct execute_safe calls from background workers.
@@ -575,6 +585,7 @@ class ToolRegistry:
 
     def register(self, tool: ToolBase):
         """Register a single ToolBase instance."""
+        # crosshair: off
         # Validate tool schema
         if not tool.name or not isinstance(tool.name, str):
             log.error("Failed to register tool '%s': missing or invalid name.", type(tool).__name__)
@@ -604,6 +615,7 @@ class ToolRegistry:
 
     def auto_discover_package(self, package_name: str):
         """Automatically discover and register ToolBase subclasses in all submodules of a package."""
+        # crosshair: off
         import importlib
         import pkgutil
 
@@ -611,7 +623,7 @@ class ToolRegistry:
         package = importlib.import_module(package_name)
 
         # Iterate over all submodules in the package directory
-        for _, module_name, is_pkg in pkgutil.iter_modules(package.__path__):
+        for _, module_name, _is_pkg in pkgutil.iter_modules(package.__path__):
             full_module_name = f"{package_name}.{module_name}"
             try:
                 module = importlib.import_module(full_module_name)
@@ -625,9 +637,10 @@ class ToolRegistry:
 
     def auto_discover(self, module):
         """Automatically discover and register ToolBase subclasses in a module."""
+        # crosshair: off
         import inspect
 
-        for name, obj in inspect.getmembers(module, inspect.isclass):
+        for _name, obj in inspect.getmembers(module, inspect.isclass):
             # Must inherit from ToolBase, but not be ToolBase itself or ToolBaseDummy.
             # ToolBaseDummy is our way of easily disabling a tool if we don't think it's
             # worth having exposed to the AI, so we explicitly skip registering them.
@@ -663,6 +676,7 @@ class ToolRegistry:
             active_domain: If provided, dynamically includes specialized tools for this domain
                 and the specialized_workflow_finished tool.
         """
+        # crosshair: off
         tools = self._tools.values()
 
         if doc_type is None and doc is not None and filter_doc_type:
@@ -752,6 +766,7 @@ class ToolRegistry:
             active_domain: Optional active specialized domain.
             **kwargs: Filters passed to get_tools().
         """
+        # crosshair: off
         tools = self.get_tools(active_domain=active_domain, **kwargs)
         doc_type = kwargs.get("doc_type") or _doc_type_str_from_doc(kwargs.get("doc"))
         if protocol == "openai":
@@ -791,6 +806,7 @@ class ToolRegistry:
         If ``run_threaded`` is False, the timeout is ignored and the function runs inline.
         Sync tools are marshaled to the main thread by ``ToolRegistry.execute`` before this runs.
         """
+        # crosshair: off
         if timeout <= 0:
             return func(**kwargs)
 
@@ -832,6 +848,7 @@ class ToolRegistry:
         Returns:
             dict: Result from the tool execution (typically a ToolResult).
         """
+        # crosshair: off
         try:
             tool = self._tools.get(tool_name)
             if tool is None:

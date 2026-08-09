@@ -53,8 +53,8 @@ class ACPBackend(AgentBackend):
         self._conn = None
         self._session_id = None
         self._stop_requested = False
-        self._binary_path = None
-        self._extra_args = []
+        self._binary_path: Optional[str] = None
+        self._extra_args: List[str] = []
         self._prompt_done = threading.Event()
         self._load_config()
 

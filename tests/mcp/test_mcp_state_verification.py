@@ -3,7 +3,10 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""deal / pytest / CrossHair verification for mcp_state.next_state."""
+"""deal / pytest / CrossHair / Hypothesis verification for mcp_state.next_state.
+
+Hypothesis: light under ``make verify``; deep via ``make vhs``.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +16,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from hypothesis import given, settings
 
 from plugin.mcp.mcp_state import (
     EventKind,
@@ -23,6 +27,7 @@ from plugin.mcp.mcp_state import (
     StreamResponseEffect,
     next_state,
 )
+from tests.chatbot.fsm_hyp_support import fsm_hypothesis_max_examples, mcp_events, mcp_states
 
 _CROSSHAIR_ERROR_RE = re.compile(r": error:")
 _CROSSHAIR_TARGET = "plugin.mcp.mcp_state.next_state"
@@ -70,6 +75,20 @@ def test_request_error_sets_is_error() -> None:
     assert transition.state.is_error
     assert transition.state.status == MCPStateStr.ERROR
     assert transition.state.error_code == "X"
+
+
+@given(state=mcp_states(), event=mcp_events())
+@settings(max_examples=fsm_hypothesis_max_examples()["mcp"], deadline=None)
+def test_hypothesis_mcp_state_invariants(state: MCPState, event: MCPEvent) -> None:
+    """Deal ensure: missing tool_name errors; TOOL_COMPLETED streams; REQUEST_ERROR sets is_error."""
+    tr = next_state(state, event)
+    if event.kind == EventKind.REQUEST_RECEIVED and not event.data.get("tool_name"):
+        assert tr.state.is_error
+        assert any(isinstance(e, SendErrorEffect) for e in tr.effects)
+    if event.kind == EventKind.TOOL_COMPLETED:
+        assert any(isinstance(e, StreamResponseEffect) for e in tr.effects)
+    if event.kind == EventKind.REQUEST_ERROR:
+        assert tr.state.is_error
 
 
 @pytest.mark.slow

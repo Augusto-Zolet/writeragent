@@ -22,6 +22,7 @@ from plugin.framework.client.response_normalizers import (
     extract_and_strip_images_from_message,
     strip_leaked_chat_template_control_tokens,
 )
+from tests.vhs_budget import vhs_max_examples
 
 _CROSSHAIR_ERROR_RE = re.compile(r": error:")
 _CROSSHAIR_TARGETS = (
@@ -41,7 +42,7 @@ def _find_crosshair() -> str | None:
 
 
 @given(text=st.text(max_size=80))
-@settings(max_examples=80)
+@settings(max_examples=vhs_max_examples(80, 800), deadline=None)
 def test_hypothesis_strip_control_tokens_removes_all_matches(text: str) -> None:
     out = strip_leaked_chat_template_control_tokens(text)
     assert isinstance(out, str)
@@ -56,7 +57,7 @@ def test_hypothesis_strip_control_tokens_removes_all_matches(text: str) -> None:
     # Suffix must start outside the base64 alphabet so the greedy URI regex stops at b64.
     suffix=st.text(max_size=20).map(lambda s: "!" + s).filter(lambda s: "data:image" not in s),
 )
-@settings(max_examples=40)
+@settings(max_examples=vhs_max_examples(40, 400), deadline=None)
 def test_hypothesis_extract_images_from_string_content(prefix: str, ext: str, b64: str, suffix: str) -> None:
     uri = f"data:image/{ext};base64,{b64}"
     msg = {"role": "user", "content": f"{prefix}{uri}{suffix}"}

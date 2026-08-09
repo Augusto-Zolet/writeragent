@@ -23,6 +23,7 @@ Build / install targets and the prototype tree live under [Prototype extension](
 | **`make deploy-core` / `register-librepy-oxt`** | **Shipped** — installs `org.extension.librepy`; **removes** WriterAgent (`org.extension.writeragent`) so only one OXT is active |
 | **Extension identity** | **Shipped** — [`extension-core/`](../extension-core/) (`description.xml`, `Addons.xcu`, `Jobs.xcu`, `ProtocolHandler.xcu`, CalcAddIns, `XPythonFunction.rdb`) |
 | **Bootstrap** | **Shipped** — [`plugin/main_core.py`](../plugin/main_core.py), Python-only Settings ([`plugin/librepy/settings.py`](../plugin/librepy/settings.py)) |
+| **Weekly update check** | **Shipped** — same helper as WriterAgent ([`extension_update_check.py`](../plugin/chatbot/extension_update_check.py)); feed [`update-librepy.xml`](../update-librepy.xml); scheduled from LibrePy `StartupJob` after `init_logging` |
 | **Layers 0–6 feature set** | **Shipped in LibrePy.oxt** — `=PY()` / `=PYTHON()`, warm venv, Run Python Script, Reset Session, Monaco, domain helpers, Vision/OCR, TeX/Math (see [Feature bundles](#feature-bundles-layers)); user guide: [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md) |
 | **Filtered locales / slim vendor** | **Shipped** — `make compile-translations-core`; vendor limited to `json_repair` + `latex2mathml` |
 | **`xl` Calc-parity helpers** | **Deferred** — excluded from LibrePy ([§ below](#calc-parity-xl-helpers-deferred-from-librepy)) |

@@ -388,43 +388,84 @@ def test_cover_all_reuses_check_all_skip_list() -> None:
     assert cover_imported_check_skip is CROSSHAIR_CHECK_ALL_SKIP
 
 
-def test_filter_cover_all_targets_unions_skips() -> None:
+def test_filter_cover_all_targets_empty_skips_pass_through() -> None:
+    """Module skip lists stay empty; hostility is per-callable ``# crosshair: off``."""
     from scripts.crosshair_check_all import CROSSHAIR_CHECK_ALL_SKIP
     from scripts.crosshair_cover_all import CROSSHAIR_COVER_ALL_SKIP, filter_cover_all_targets
 
-    check_skip = Path(sorted(CROSSHAIR_CHECK_ALL_SKIP)[0])
-    cover_skip = Path(sorted(CROSSHAIR_COVER_ALL_SKIP)[0])
+    assert CROSSHAIR_CHECK_ALL_SKIP == frozenset()
+    assert CROSSHAIR_COVER_ALL_SKIP == frozenset()
     keep = Path("plugin/scripting/payload_codec.py")
-    to_run, skipped = filter_cover_all_targets([check_skip, cover_skip, keep], apply_skip=True)
+    to_run, skipped = filter_cover_all_targets([keep], apply_skip=True)
     assert to_run == [keep]
-    assert set(skipped) == {check_skip.as_posix(), cover_skip.as_posix()}
+    assert skipped == []
 
 
-def test_cover_all_skips_check_green_crash_frame_hosts() -> None:
-    """Modules that pass check but crash-frame under cover stay in COVER_ALL_SKIP."""
-    from scripts.crosshair_cover_all import CROSSHAIR_COVER_ALL_SKIP, filter_cover_all_targets
+def test_cover_fqns_skip_crosshair_off_callables(tmp_path: Path) -> None:
+    from scripts.crosshair_stream import cover_fqns_for_module, plugin_path_to_module_fqn
 
-    crash_hosts = (
-        "plugin/framework/client/auth.py",
-        "plugin/framework/config.py",
-        "plugin/framework/config_service.py",
-        "plugin/framework/default_models.py",
-        "plugin/framework/event_bus.py",
-        "plugin/framework/i18n.py",
-        "plugin/framework/tool.py",
-        "plugin/framework/url_utils.py",
-        "plugin/mcp/cors.py",
-        "plugin/scripting/calc_range.py",
-        "plugin/scripting/duckdb_sql.py",
-        "plugin/scripting/editor_ipc.py",
-        "plugin/scripting/helper_domain.py",
-        "plugin/scripting/sandbox.py",
+    mod = tmp_path / "plugin" / "demo_off.py"
+    mod.parent.mkdir(parents=True)
+    mod.write_text(
+        "def keep_me(x):\n"
+        "    return x\n"
+        "\n"
+        "def hostile(x):\n"
+        "    # crosshair: off\n"
+        "    return x\n"
+        "\n"
+        "class Host:\n"
+        "    def run(self):\n"
+        "        # crosshair: off\n"
+        "        return 1\n"
+        "\n"
+        "    def ok(self):\n"
+        "        return 2\n",
+        encoding="utf-8",
     )
-    assert set(crash_hosts) <= CROSSHAIR_COVER_ALL_SKIP
-    paths = [Path(p) for p in crash_hosts] + [Path("plugin/scripting/payload_codec.py")]
-    to_run, skipped = filter_cover_all_targets(paths, apply_skip=True)
-    assert to_run == [Path("plugin/scripting/payload_codec.py")]
-    assert set(crash_hosts) <= set(skipped)
+    # plugin_path_to_module_fqn needs a plugin/ prefix in the path string.
+    # tmp_path/plugin/demo_off.py → plugin.demo_off when we use as_posix with /plugin/.
+    fqns = cover_fqns_for_module(mod)
+    assert plugin_path_to_module_fqn(mod).endswith("demo_off")
+    assert any(f.endswith(".keep_me") for f in fqns)
+    assert any(f.endswith(".Host.ok") for f in fqns)
+    assert not any(f.endswith(".hostile") for f in fqns)
+    assert not any(f.endswith(".Host.run") for f in fqns)
+
+
+def test_cover_fqns_all_off_returns_empty(tmp_path: Path) -> None:
+    from scripts.crosshair_stream import cover_fqns_for_module
+
+    mod = tmp_path / "plugin" / "all_off.py"
+    mod.parent.mkdir(parents=True)
+    mod.write_text(
+        "def only():\n"
+        "    # crosshair: off\n"
+        "    return 0\n",
+        encoding="utf-8",
+    )
+    assert cover_fqns_for_module(mod) == []
+
+
+def test_cover_fqns_module_level_off_returns_empty(tmp_path: Path) -> None:
+    from scripts.crosshair_stream import cover_fqns_for_module, module_has_crosshair_off
+
+    mod = tmp_path / "plugin" / "mod_off.py"
+    mod.parent.mkdir(parents=True)
+    mod.write_text(
+        '"""Host module."""\n'
+        "# crosshair: off\n"
+        "\n"
+        "def keep_me(x):\n"
+        "    return x\n"
+        "\n"
+        "class Host:\n"
+        "    def ok(self):\n"
+        "        return 1\n",
+        encoding="utf-8",
+    )
+    assert module_has_crosshair_off(mod.read_text(encoding="utf-8"))
+    assert cover_fqns_for_module(mod) == []
 
 
 def test_resolve_cover_budget_regular_and_deep() -> None:
@@ -444,6 +485,81 @@ def test_resolve_cover_budget_regular_and_deep() -> None:
     assert deep.mode == "deep"
     assert deep.max_uninteresting == DEEP_MAX_UNINTERESTING == 200
     assert deep.per_condition_timeout is None
+
+
+def test_resolve_check_budget_regular_and_deep() -> None:
+    from scripts.crosshair_check_all import (
+        DEEP_MAX_UNINTERESTING,
+        REGULAR_MAX_UNINTERESTING,
+        REGULAR_PER_CONDITION_TIMEOUT_SEC,
+        resolve_check_budget,
+    )
+
+    regular = resolve_check_budget(deep=False)
+    assert regular.mode == "regular"
+    assert regular.max_uninteresting == REGULAR_MAX_UNINTERESTING == 25
+    assert regular.per_condition_timeout == REGULAR_PER_CONDITION_TIMEOUT_SEC == 5
+
+    deep = resolve_check_budget(deep=True)
+    assert deep.mode == "deep"
+    assert deep.max_uninteresting == DEEP_MAX_UNINTERESTING == 200
+    assert deep.per_condition_timeout is None
+
+
+def test_module_check_bounds_tightens_payload_codec_regular_only() -> None:
+    from scripts.crosshair_check_all import (
+        PAYLOAD_CODEC_REL,
+        module_check_bounds,
+        resolve_check_budget,
+    )
+
+    regular = resolve_check_budget(deep=False)
+    deep = resolve_check_budget(deep=True)
+    assert module_check_bounds(regular, PAYLOAD_CODEC_REL) == (5, 5)
+    assert module_check_bounds(regular, "plugin/mcp/mcp_state.py") == (25, 5)
+    assert module_check_bounds(deep, PAYLOAD_CODEC_REL) == (200, None)
+
+
+def test_check_all_list_discovers_deal_without_spawning(tmp_path, capsys) -> None:
+    """check-all --list finds @deal. modules and exits 0 without spawning CrossHair."""
+    from scripts.crosshair_check_all import main as check_all_main
+
+    plugin = tmp_path / "plugin"
+    (plugin / "scripting").mkdir(parents=True)
+    target = plugin / "scripting" / "payload_codec.py"
+    target.write_text(
+        "import deal\n@deal.post(lambda result, *_, **__: True)\ndef f():\n    return 1\n",
+        encoding="utf-8",
+    )
+    (plugin / "scripting" / "no_deal.py").write_text("def g():\n    return 2\n", encoding="utf-8")
+
+    code = check_all_main(["--list", "--plugin-root", str(plugin)])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "CrossHair check-all [regular]: 1 module(s)" in out
+    assert "max_uninteresting=25" in out
+    assert "module_wall=120s" in out
+    assert "payload_codec.py" in out
+    assert "no_deal.py" not in out
+
+
+def test_check_all_list_deep_banner(tmp_path, capsys) -> None:
+    from scripts.crosshair_check_all import main as check_all_main
+
+    plugin = tmp_path / "plugin"
+    (plugin / "scripting").mkdir(parents=True)
+    (plugin / "scripting" / "payload_codec.py").write_text(
+        "import deal\n@deal.post(lambda result, *_, **__: True)\ndef f():\n    return 1\n",
+        encoding="utf-8",
+    )
+
+    code = check_all_main(["--deep", "--list", "--plugin-root", str(plugin)])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "CrossHair check-all [deep]: 1 module(s)" in out
+    assert "max_uninteresting=200" in out
+    assert "per_condition_timeout=none" in out
+    assert "module_wall=none" in out
 
 
 def test_build_timings_payload_sorts_longest_first() -> None:
@@ -568,9 +684,14 @@ def test_module_cover_bounds_tightens_payload_codec_regular_only() -> None:
 
 
 def test_regular_module_wall_timeout_constant() -> None:
-    from scripts.crosshair_cover_all import REGULAR_MODULE_WALL_TIMEOUT_SEC
+    from scripts.crosshair_check_all import (
+        REGULAR_MODULE_WALL_TIMEOUT_SEC as CHECK_WALL,
+    )
+    from scripts.crosshair_cover_all import (
+        REGULAR_MODULE_WALL_TIMEOUT_SEC as COVER_WALL,
+    )
 
-    assert REGULAR_MODULE_WALL_TIMEOUT_SEC == 120
+    assert COVER_WALL == CHECK_WALL == 120
 
 
 def test_run_crosshair_timeout_kills_and_exits_zero(monkeypatch) -> None:
@@ -601,4 +722,34 @@ def test_run_crosshair_timeout_kills_and_exits_zero(monkeypatch) -> None:
     assert "[COVER TIMEOUT" in text
     assert "wall 0.4s exceeded for plugin/fake_slow.py" in text
     assert "=== CrossHair COVER DONE (exit 0) ===" in text
+    assert stats.failure_count == 0
+
+
+def test_run_crosshair_timeout_check_mode_tag(monkeypatch) -> None:
+    """Check mode wall timeout uses [CHECK TIMEOUT], not COVER."""
+    import sys
+    import time
+
+    import scripts.crosshair_stream as stream_mod
+
+    monkeypatch.setattr(stream_mod, "find_crosshair", lambda: sys.executable)
+    out = StringIO()
+    started = time.perf_counter()
+    code, stats = stream_mod.run_crosshair(
+        "-c",
+        ["import time; time.sleep(30)"],
+        "check",
+        False,
+        False,
+        out=out,
+        label="plugin/fake_slow.py",
+        timeout_sec=0.4,
+    )
+    elapsed = time.perf_counter() - started
+    assert code == 0
+    assert elapsed < 5.0
+    text = out.getvalue()
+    assert "[CHECK TIMEOUT" in text
+    assert "[COVER TIMEOUT" not in text
+    assert "=== CrossHair CHECK DONE (exit 0) ===" in text
     assert stats.failure_count == 0

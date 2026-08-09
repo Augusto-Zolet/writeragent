@@ -149,7 +149,8 @@ endif
         lo-start lo-start-full lo-kill lo-restart \
         clean-cache nuke-cache nuke-cache-force unbundle \
         log log-tail lo-log test test-run test-durations slowtests vhs test-visible lo-test-threadguard lo-test-threadguard-visible typecheck check-ext check-setup deploy ensure-uno \
-        verify crosshair-check crosshair-cover crosshair-check-all crosshair-cover-all crosshair-cover-all-deep \
+        verify crosshair-check crosshair-cover crosshair-check-all crosshair-check-all-deep \
+        crosshair-cover-all crosshair-cover-all-deep \
         lo-start-log opengrep-lint opengrep-lint-advisory opengrep-rules-sync opengrep-rules-audit uno-thread-lint uno-thread-lint-advisory opengrep-install \
         writer calc draw impress \
         set-config vendor docker-build compile-translations compile-translations-core merge-translations refresh-pot reset-lang preview-translations check ty mypy pyright pyrefly bandit pyspector pyspector-report ty-run mypy-run pyright-run pyrefly-run \
@@ -226,7 +227,8 @@ help:
 	@echo "  make verify                 Pytest formal-verification suite (-k verification)"
 	@echo "  make crosshair-check        CrossHair check on payload_codec.py (long; not in make test)"
 	@echo "  make crosshair-cover        CrossHair cover on payload_codec.py (long; not in make test)"
-	@echo "  make crosshair-check-all    CrossHair check every @deal. plugin module (multi-hour; log: build/crosshair-check-all.log)"
+	@echo "  make crosshair-check-all    CrossHair check every @deal. plugin module (regular: 25 iters / 5s + 120s wall; log: build/crosshair-check-all.log)"
+	@echo "  make crosshair-check-all-deep  Same sweep, deep mode (200 iters, no per-condition timeout / wall)"
 	@echo "  make crosshair-cover-all    CrossHair cover every @deal. plugin module (regular: 25 iters / 5s + 120s wall; process pool; log: build/crosshair-cover-all.log)"
 	@echo "  make crosshair-cover-all-deep  Same sweep, deep mode (200 iters, no per-condition timeout / wall)"
 	@echo "  make test-visible           Run LO chart + grep UNO tests visibly (GUI) for processEventsToIdle / OLE queue"
@@ -237,15 +239,14 @@ help:
 	@echo "  make opengrep-rules-audit   Live registry sweep (p/python; manual triage only)"
 	@echo "  make uno-thread-lint        Alias for make opengrep-lint"
 	@echo "  make opengrep-install       Install Opengrep CLI (~/.local/bin or bin/opengrep)"
-	@echo "  make typecheck              Run ty, then mypy, then pyright (same scope as each single target)"
-	@echo "  make check                  Quick gate: ty only"
+	@echo "  make typecheck              Run ruff-for-build, ty, mypy, basedpyright"
 	@echo "  make ensure-uno             Link system UNO into .venv if import uno fails (auto-run by typecheck/test)"
 	@echo "  make fix-uno                Same as ensure-uno with verbose output"
-	@echo "  make mypy / make pyright / make pyrefly / make bandit   Single-tool runs (bandit: plugin/, excludes contrib + tests)"
+	@echo "  make mypy / make basedpyright / make pyrefly / make bandit   Single-tool runs (bandit: plugin/, excludes contrib + tests)"
 	@echo "  make pyrefly                Experimental Meta Pyrefly checker (same scope as ty; not part of make test)"
 	@echo "  make pyspector              PySpector AI/taint SAST on plugin/ (--ai; part of make test-run / make test)"
 	@echo "  make pyspector-report       Same scan, write build/pyspector-report.json (optional report)"
-	@echo "  make ruff                   Ruff lint (plugin tests scripts demos; excludes contrib/lib; see pyproject.toml)"
+	@echo "  make ruff                   Ruff lint (plugin tests scripts; excludes contrib/lib/demos; see pyproject.toml)"
 	@echo "  make ruff-fix               Ruff with --fix; make ruff-format-check = ruff format --check plugin/"
 	@echo "  make ruff-for-build         Ruff --fix then check (used by make build)"
 	@echo "  make ruff-format-grammar    Ruff format ai_grammar_proofreader.py only (project line-length 320)"
@@ -640,10 +641,10 @@ check-ext:
 # We try to detect one that has the 'uno' module available, falling back to 'python' if none found.
 LO_PYTHON ?= $(shell python3 -c "import uno" 2>/dev/null && echo python3 || (python -c "import uno" 2>/dev/null && echo python || echo python))
 
-typecheck: manifest
+typecheck: manifest ruff-for-build
 	@$(MAKE) ty-run
 	@$(MAKE) mypy-run
-	@$(MAKE) pyright-run
+	@$(MAKE) basedpyright-run
 
 test-run:
 	@$(MAKE) pyspector
@@ -654,19 +655,34 @@ test-run:
 test-durations:
 	$(PYTHON) -m pytest tests -m "not slow and not integration" --durations=40
 
-_SERIALIZATION_EXTENSIVE = WRITERAGENT_SERIALIZATION_EXTENSIVE=1
+# Deep Hypothesis for make vhs / slowtests (serialization env kept as alias).
+_VHS_EXTENSIVE = WRITERAGENT_VHS_EXTENSIVE=1 WRITERAGENT_SERIALIZATION_EXTENSIVE=1
 
 slowtests:
 	@echo "=== [1/2] Serialization contracts + extensive A/B fixtures ==="
-	$(_SERIALIZATION_EXTENSIVE) $(PYTHON) -m pytest \
+	$(_VHS_EXTENSIVE) $(PYTHON) -m pytest \
 		tests/scripting/test_serialization_verification.py \
 		tests/scripting/test_serialization_ab.py -k "not hypothesis" -q
-	@echo "=== [2/2] Hypothesis fuzz (vhs) ==="
+	@echo "=== [2/2] Hypothesis fuzz (vhs: serialization + FSM/MCP) ==="
 	@$(MAKE) vhs
 
 vhs:
-	@echo "Running Hypothesis serialization fuzz tests with visualization..."
-	$(_SERIALIZATION_EXTENSIVE) $(PYTHON) -m pytest tests/scripting/test_serialization_ab.py -k hypothesis -s --hypothesis-verbosity=verbose
+	@echo "Running deep Hypothesis fuzz (serialization + FSM + Phase 8 + security/normalize)..."
+	$(_VHS_EXTENSIVE) $(PYTHON) -m pytest \
+		tests/scripting/test_serialization_ab.py \
+		tests/chatbot/test_fsm_verification.py \
+		tests/mcp/test_mcp_state_verification.py \
+		tests/calc/python/test_formula_edit_verification.py \
+		tests/mcp/test_cors_verification.py \
+		tests/writer/test_writer_diff_and_html_verification.py \
+		tests/embeddings/test_embeddings_split_verification.py \
+		tests/framework/test_stream_normalizer_verification.py \
+		tests/framework/test_response_normalizers_verification.py \
+		tests/scripting/test_sandbox_path_verification.py \
+		tests/scripting/test_scrub_env_verification.py \
+		tests/scripting/test_payload_codec_policy_verification.py \
+		tests/calc/test_address_utils_verification.py \
+		-k hypothesis -s --hypothesis-verbosity=verbose
 
 test-visible:
 	$(LO_PYTHON) -m plugin.testing_runner --visible test_charts_uno test_enhanced_charts_uno test_document_research_grep_uno test_rich_html_uno; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
@@ -735,13 +751,16 @@ crosshair-check:
 crosshair-cover:
 	$(PYTHON) scripts/crosshair_stream.py run cover -- -v $(CROSSHAIR_MODULE)
 
-# Multi-hour: every plugin file with @deal. (deal contracts only). Not part of make test.
+# Every plugin file with @deal. (deal contracts only). Not part of make test.
+# Regular: 25 uninteresting iters + 5s per condition + 120s module wall. Deep: 200 iters, no timeout/wall.
+# Regular payload_codec only: 5 / 5s (module_check_bounds / module_cover_bounds).
 crosshair-check-all:
 	$(PYTHON) scripts/crosshair_check_all.py
 
+crosshair-check-all-deep:
+	$(PYTHON) scripts/crosshair_check_all.py --deep
+
 # Cover (example synthesis) on the same @deal. set / skip list. Not part of make test.
-# Regular: 25 uninteresting iters + 5s per condition + 120s module wall. Deep: 200 iters, no timeout/wall.
-# Regular payload_codec only: 5 / 5s (module_cover_bounds).
 crosshair-cover-all:
 	$(PYTHON) scripts/crosshair_cover_all.py
 
@@ -803,11 +822,9 @@ poc-deploy: poc-install
 	@sleep 10
 	@$(MAKE) poc-log
 
-check: ty
-
 ty: manifest ty-run
 mypy: manifest mypy-run
-pyright: manifest pyright-run
+basedpyright: manifest basedpyright-run
 pyrefly: manifest pyrefly-run
 
 ty-run: ensure-uno
@@ -816,8 +833,9 @@ ty-run: ensure-uno
 mypy-run: ensure-uno
 	$(PYTHON) -m mypy
 
-pyright-run: ensure-uno
-	$(PYTHON) -m pyright
+# Future task: try enabling `reportMissingTypeArgument = true` in pyproject.toml to enforce generic type parameters (dict[str, Any], list[str])
+basedpyright-run: ensure-uno
+	$(PYTHON) -m basedpyright
 
 pyrefly-run: ensure-uno
 	$(PYTHON) -m pyrefly check
@@ -836,11 +854,14 @@ pyspector-report:
 	@$(MKDIR) build
 	$(PYTHON) $(SCRIPTS)/run_pyspector.py scan plugin --ai -c pyspector.toml --msg=False -f json -o build/pyspector-report.json
 
+# demos/ is never in the ruff gate (local packs only).
+RUFF_PATHS := plugin tests scripts
+
 ruff:
-	$(PYTHON) -m ruff check plugin tests scripts demos
+	$(PYTHON) -m ruff check $(RUFF_PATHS)
 
 ruff-fix:
-	$(PYTHON) -m ruff check plugin tests scripts demos --fix
+	$(PYTHON) -m ruff check $(RUFF_PATHS) --fix
 
 # Build gate: auto-fix then verify (standalone `make ruff` remains check-only).
 ruff-for-build: ruff-fix ruff

@@ -81,7 +81,7 @@ def _mono_ms(t0: float) -> int:
     return int((time.monotonic() - t0) * 1000)
 
 
-class _ImportStackCursor:
+class _ImportStackCursor:  # pyright: ignore[reportUnusedClass]  # notebook import stack; used by importer tests
     """O(1) vertical stacking for code-cell form controls on the draw page."""
 
     __slots__ = ("_margin_x", "_gap", "_max_bottom", "shape_count")
@@ -575,16 +575,6 @@ def _format_in_prompt(execution_count: Any | None) -> str:
     if execution_count is None:
         return "[In [ ]]"
     return f"[In [{execution_count}]]"
-
-
-def _append_in_prompt(
-    doc: Any,
-    execution_count: Any | None,
-    *,
-    in_style: str | None,
-    lead_break: bool,
-) -> None:
-    _append_body_paragraph(doc, _format_in_prompt(execution_count), in_style, lead_break=lead_break)
 
 
 def _looks_like_html(text: str) -> bool:

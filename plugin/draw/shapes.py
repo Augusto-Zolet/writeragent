@@ -18,6 +18,7 @@
 
 import logging
 
+from plugin.doc.visual_helpers import apply_character_properties, parse_color_to_uno_int
 from plugin.framework.errors import WriterAgentException
 from plugin.framework.tool import ToolBase
 from .base import ToolDrawShapeBase
@@ -36,18 +37,7 @@ class DrawError(WriterAgentException):
 
 
 def _parse_color(color_str):
-    if not color_str:
-        return None
-    color_str = color_str.strip().lower()
-    names = {"red": 0xFF0000, "green": 0x00FF00, "blue": 0x0000FF, "yellow": 0xFFFF00, "white": 0xFFFFFF, "black": 0x000000, "orange": 0xFF8C00, "purple": 0x800080, "gray": 0x808080}
-    if color_str in names:
-        return names[color_str]
-    if color_str.startswith("#"):
-        try:
-            return int(color_str[1:], 16)
-        except ValueError:
-            return None
-    return None
+    return parse_color_to_uno_int(color_str)
 
 
 def _try_writer_anchor_shape_before_add(doc, shape) -> None:
@@ -349,7 +339,9 @@ def _apply_enhanced_custom_shape_type(shape, custom_shape_type: str) -> tuple[bo
         import typing
 
         shape.setPropertyValue("CustomShapeEngine", _ENHANCED_CUSTOM_SHAPE_ENGINE)
-        prop_seq = uno.Any("[]com.sun.star.beans.PropertyValue", (prop,))  # type: ignore
+        # uno.Any is a pyuno helper; stubs/mypy do not export it as a module attribute.
+        uno_any = getattr(uno, "Any")
+        prop_seq = uno_any("[]com.sun.star.beans.PropertyValue", (prop,))
         uno.invoke(shape, "setPropertyValue", typing.cast("typing.Any", ("CustomShapeGeometry", prop_seq)))
         log.debug("create_shape enhanced_geometry: ok type=%r engine=%r", custom_shape_type, _ENHANCED_CUSTOM_SHAPE_ENGINE)
         return True, None
@@ -563,25 +555,13 @@ def _apply_shape_properties(shape, kwargs):
             pass
 
     # Text Properties (Font Size, Name, Color)
-    if kwargs.get("text_color") and hasattr(shape, "CharColor"):
-        color = _parse_color(kwargs["text_color"])
-        if color is not None:
-            try:
-                shape.setPropertyValue("CharColor", color)
-            except Exception:
-                pass
-
-    if kwargs.get("font_size") and hasattr(shape, "CharHeight"):
-        try:
-            shape.setPropertyValue("CharHeight", float(kwargs["font_size"]))
-        except Exception:
-            pass
-
-    if kwargs.get("font_name") and hasattr(shape, "CharFontName"):
-        try:
-            shape.setPropertyValue("CharFontName", kwargs["font_name"])
-        except Exception:
-            pass
+    if kwargs.get("text_color") or kwargs.get("font_size") or kwargs.get("font_name"):
+        apply_character_properties(
+            shape,
+            font_name=kwargs.get("font_name"),
+            font_size_pt=kwargs.get("font_size"),
+            color=kwargs.get("text_color"),
+        )
 
     # Rotation
     if kwargs.get("rotation_angle") is not None and hasattr(shape, "RotateAngle"):

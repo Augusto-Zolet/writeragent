@@ -99,14 +99,20 @@ class FakeGraphicCollection:
 class FakeWriterDoc:
     CurrentController = None
 
-    def __init__(self, graphics: dict[str, object]):
+    def __init__(self, graphics: dict[str, object], *, draw_page: FakeDrawPage | None = None):
         self._graphics = graphics
+        self._draw_page = draw_page
 
     def supportsService(self, service: str) -> bool:
         return service == visual_helpers.WRITER_DOCUMENT_SERVICE
 
     def getGraphicObjects(self):
         return FakeGraphicCollection(self._graphics)
+
+    def getDrawPage(self):
+        if self._draw_page is None:
+            raise AttributeError("no draw page")
+        return self._draw_page
 
 
 class FakeSheet:
@@ -274,6 +280,13 @@ def test_active_draw_page_resolves_calc_sheet_and_draw_current_page():
     assert visual_helpers.get_active_draw_page(FakeDrawDoc(draw_page), "draw") is draw_page
 
 
+def test_active_draw_page_resolves_writer_get_draw_page():
+    page = FakeDrawPage([])
+    doc = FakeWriterDoc({}, draw_page=page)
+    assert visual_helpers.get_active_draw_page(doc) is page
+    assert visual_helpers.get_active_draw_page(FakeWriterDoc({})) is None
+
+
 def test_list_graphic_objects_reads_writer_graphic_collection():
     graphic = FakePropertyObject({"Graphic": object()}, {visual_helpers.WRITER_GRAPHIC_SERVICE})
     doc = FakeWriterDoc({"Image 1": graphic})
@@ -306,3 +319,73 @@ def test_unit_conversions_match_existing_image_tool_assumptions():
     assert visual_helpers.mm_to_units(12.9, 3.1) == (1200, 300)
     assert visual_helpers.px_to_units(10, 20) == (264, 529)
     assert visual_helpers.units_to_px(2540, 1270) == (96, 48)
+
+
+def test_parse_color_to_uno_int_hex_and_int() -> None:
+    assert visual_helpers.parse_color_to_uno_int("#FF0000") == 0xFF0000
+    assert visual_helpers.parse_color_to_uno_int("00FF00") == 0x00FF00
+    assert visual_helpers.parse_color_to_uno_int("#0f0") == 0x00FF00
+    assert visual_helpers.parse_color_to_uno_int("0x0000FF") == 0x0000FF
+    assert visual_helpers.parse_color_to_uno_int(0x112233) == 0x112233
+    assert visual_helpers.parse_color_to_uno_int(0x1AABBCC) == 0xAABBCC
+
+
+def test_parse_color_to_uno_int_names_rgb_tuple() -> None:
+    assert visual_helpers.parse_color_to_uno_int("red") == 0xFF0000
+    assert visual_helpers.parse_color_to_uno_int("Dark Green") == 0x006400
+    assert visual_helpers.parse_color_to_uno_int("rgb(1, 2, 3)") == 0x010203
+    assert visual_helpers.parse_color_to_uno_int("rgba(10, 20, 30, 0.5)") == 0x0A141E
+    assert visual_helpers.parse_color_to_uno_int((1, 2, 3)) == 0x010203
+    assert visual_helpers.parse_color_to_uno_int([255, 0, 0]) == 0xFF0000
+
+
+def test_parse_color_to_uno_int_invalid() -> None:
+    assert visual_helpers.parse_color_to_uno_int(None) is None
+    assert visual_helpers.parse_color_to_uno_int("") is None
+    assert visual_helpers.parse_color_to_uno_int("not-a-color") is None
+    assert visual_helpers.parse_color_to_uno_int(True) is None
+    assert visual_helpers.parse_color_to_uno_int((1, 2)) is None
+    assert visual_helpers.parse_color_to_uno_int("rgb(300, 0, 0)") is None
+
+
+def test_apply_character_properties() -> None:
+    target = FakePropertyObject(
+        {
+            "CharFontName": "",
+            "CharHeight": 10.0,
+            "CharWeight": 100.0,
+            "CharPosture": 0,
+            "CharColor": 0,
+            "CharUnderline": 0,
+        }
+    )
+    results = visual_helpers.apply_character_properties(
+        target,
+        font_name="Arial",
+        font_size_pt=12,
+        bold=True,
+        italic=False,
+        color="#00FF00",
+        underline=1,
+    )
+    assert results == {
+        "CharFontName": True,
+        "CharHeight": True,
+        "CharWeight": True,
+        "CharPosture": True,
+        "CharColor": True,
+        "CharUnderline": True,
+    }
+    assert target._properties["CharFontName"] == "Arial"
+    assert target._properties["CharHeight"] == 12.0
+    assert target._properties["CharWeight"] == 150.0
+    assert target._properties["CharPosture"] == 0
+    assert target._properties["CharColor"] == 0x00FF00
+    assert target._properties["CharUnderline"] == 1
+
+
+def test_apply_character_properties_invalid_color() -> None:
+    target = FakePropertyObject({"CharColor": 0})
+    results = visual_helpers.apply_character_properties(target, color="nope")
+    assert results == {"CharColor": False}
+    assert target._properties["CharColor"] == 0

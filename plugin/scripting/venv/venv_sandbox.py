@@ -30,7 +30,6 @@ from plugin.scripting.payload_codec import (
     PAYLOAD_DATAFRAME,
     child_pack_result,
     describe_wire_value,
-    is_image_payload,
     is_split_grid,
     find_image_payloads,
 )
@@ -130,44 +129,6 @@ def serialize_result(obj: Any) -> Any:
             describe_wire_value(obj),
         )
         raise
-
-
-def _merge_figures_to_image_payload(figs: list[Any], *, fmt: str = "svg") -> dict[str, Any]:
-    """Combine multiple open figures into one image envelope (vertical stack)."""
-    if not figs:
-        raise ValueError("figs must not be empty")
-    if len(figs) == 1:
-        return _figure_to_image_payload(figs[0], fmt=fmt)
-
-    import io
-
-    pil_mod = optional_module("PIL.Image")
-    if pil_mod is None:
-        return _figure_to_image_payload(figs[-1], fmt=fmt)
-
-    images = []
-    for fig in figs:
-        buf = io.BytesIO()
-        fig.savefig(buf, format="png", bbox_inches="tight", dpi=150)
-        buf.seek(0)
-        images.append(pil_mod.open(buf))
-
-    total_w = max(im.width for im in images)
-    total_h = sum(im.height for im in images)
-    combined = pil_mod.new("RGB", (total_w, total_h), "white")
-    y = 0
-    for im in images:
-        combined.paste(im, (0, y))
-        y += im.height
-        im.close()
-
-    out = io.BytesIO()
-    if fmt == "svg":
-        # LO Calc/Writer handle SVG well; merged stacks use PNG raster for simplicity.
-        combined.save(out, format="PNG")
-        return {"__wa_payload__": "image", "format": "png", "data": out.getvalue()}
-    combined.save(out, format="PNG")
-    return {"__wa_payload__": "image", "format": "png", "data": out.getvalue()}
 
 
 def _capture_open_figures_payload(*, fmt: str = "svg") -> tuple[dict[str, Any] | None, str]:
@@ -370,11 +331,6 @@ def _clear_init_session_unlocked(init_session_id: str) -> None:
     if cell_sid:
         _SESSION_EXECUTORS.pop(cell_sid, None)
         _CELL_SESSION_INIT_DIGEST.pop(cell_sid, None)
-
-
-def _invalidate_init_session(init_session_id: str) -> None:
-    with _SESSION_LOCK:
-        _clear_init_session_unlocked(init_session_id)
 
 
 def reset_sandbox_session(session_id: str) -> dict[str, Any]:

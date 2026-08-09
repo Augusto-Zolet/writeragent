@@ -19,6 +19,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any, Literal
 
+# Cast/docs aliases only — CrossHair cannot proxy Literal in parameters or dataclass
+# fields on the type heap (use str there; same rule as payload_codec ColumnKind).
 HeaderMode = Literal["true", "false", "omit"]
 DepRole = Literal["data", "ordering"]
 
@@ -113,8 +115,8 @@ class BindingInfo:
     """One normalized data binding after dedup."""
 
     a1: str
-    header_mode: HeaderMode = "omit"
-    role: DepRole = "data"
+    header_mode: str = "omit"  # HeaderMode values; str for CrossHair
+    role: str = "data"  # DepRole values; str for CrossHair
     original_indices: list[int] = field(default_factory=list)  # original %P positions (0-based)
 
 

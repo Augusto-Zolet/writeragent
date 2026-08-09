@@ -21,4 +21,8 @@
   <default xlink:href="assets/logo.jpg"/>
   </icon>
 
+  <update-information>
+    <src xlink:href="https://raw.githubusercontent.com/KeithCu/writeragent/refs/heads/master/update-librepy.xml" />
+  </update-information>
+
 </description>

@@ -23,12 +23,21 @@ from plugin.scripting.config_limits import (
     resolve_python_exec_timeout,
 )
 from plugin.scripting.calc_range import (
+    column_vector_as_2d,
     ensure_rectangular_2d,
     is_calc_range_payload,
     pack_calc_range_envelope,
     _dedupe_column_names,
     CalcRange,
 )
+
+
+@given(vals=st.lists(st.integers()))
+def test_column_vector_as_2d_contracts(vals: list[int]) -> None:
+    res = column_vector_as_2d(vals)
+    assert isinstance(res, list)
+    assert len(res) == len(vals)
+    assert all(isinstance(row, list) and len(row) == 1 and row[0] == val for row, val in zip(res, vals))
 
 
 def test_import_policy_contracts() -> None:

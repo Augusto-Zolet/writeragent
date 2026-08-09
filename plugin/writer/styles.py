@@ -44,6 +44,7 @@ else:
                 self.Name = Name
                 self.Value = Value
 
+from plugin.doc.visual_helpers import parse_color_to_uno_int
 from plugin.framework.tool import ToolBase as FrameworkToolBase
 from .format import apply_paragraph_style_preserving_direct_char
 from .specialized_base import ToolWriterStyleBase
@@ -108,21 +109,6 @@ def _get_bool_prop(obj, prop_name, default=False):
         return bool(obj.getPropertyValue(prop_name))
     except Exception:
         return default
-
-
-def _parse_color(val):
-    """Parse a web color string (e.g., #FF0000, FF0000) or integer to a UNO color (integer)."""
-    if isinstance(val, int):
-        return val
-    if isinstance(val, str):
-        val = val.strip()
-        if val.startswith("#"):
-            val = val[1:]
-        try:
-            return int(val, 16)
-        except ValueError:
-            pass
-    return val
 
 
 class ListStyles(ToolWriterStyleBase):
@@ -485,9 +471,13 @@ class UpdateStyle(ToolWriterStyleBase):
 
         if isinstance(property_updates, dict):
             for prop_name, prop_val in property_updates.items():
-                # Handle color conversions
+                # Handle color conversions (None = unparseable; do not pass raw strings to UNO).
                 if prop_name in ("CharColor", "CharBackColor", "CharUnderlineColor"):
-                    prop_val = _parse_color(prop_val)
+                    parsed = parse_color_to_uno_int(prop_val)
+                    if parsed is None:
+                        failed[prop_name] = "Invalid color: %r" % (prop_val,)
+                        continue
+                    prop_val = parsed
 
                 try:
                     style.setPropertyValue(prop_name, prop_val)
@@ -598,7 +588,11 @@ class CreateStyle(ToolWriterStyleBase):
             if isinstance(property_updates, dict):
                 for prop_name, prop_val in property_updates.items():
                     if prop_name in ("CharColor", "CharBackColor", "CharUnderlineColor"):
-                        prop_val = _parse_color(prop_val)
+                        parsed = parse_color_to_uno_int(prop_val)
+                        if parsed is None:
+                            log.warning("Skipping invalid color for %s on new style: %r", prop_name, prop_val)
+                            continue
+                        prop_val = parsed
                     try:
                         new_style.setPropertyValue(prop_name, prop_val)
                     except Exception as e:

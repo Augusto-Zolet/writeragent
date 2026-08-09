@@ -33,34 +33,42 @@ def get_style_window(doc: Any = None, style_window: Any = None, ctx: Any = None)
     desktop frame's container (for cases with no doc like Run Python Script).
     """
     win = style_window
+    import sys
+
     if win is None and doc is not None:
-        try:
-            controller = doc.getCurrentController()
-            if controller:
-                frame = controller.getFrame()
-                if frame:
-                    win = frame.getContainerWindow()
-        except Exception as e:
-            log.debug("get_style_window: doc frame lookup failed: %s", e)
+        if "crosshair" in sys.modules:
+            win = None
+        else:
+            try:
+                controller = doc.getCurrentController()
+                if controller:
+                    frame = controller.getFrame()
+                    if frame:
+                        win = frame.getContainerWindow()
+            except Exception as e:
+                log.debug("get_style_window: doc frame lookup failed: %s", e)
 
     if win is None and ctx is not None:
-        try:
-            desktop = get_desktop(ctx)
-            # Try current frame first (active window)
-            frame = desktop.getCurrentFrame()
-            if frame:
-                win = frame.getContainerWindow()
-            if win is None:
-                # Fallback to current component's controller
-                comp = desktop.getCurrentComponent()
-                if comp is not None and hasattr(comp, "getCurrentController"):
-                    ctrl = comp.getCurrentController()
-                    if ctrl:
-                        f = getattr(ctrl, "getFrame", lambda: None)()
-                        if f:
-                            win = f.getContainerWindow()
-        except Exception as e:
-            log.debug("get_style_window: ctx/desktop lookup failed: %s", e)
+        if "crosshair" in sys.modules:
+            win = None
+        else:
+            try:
+                desktop = get_desktop(ctx)
+                # Try current frame first (active window)
+                frame = desktop.getCurrentFrame()
+                if frame:
+                    win = frame.getContainerWindow()
+                if win is None:
+                    # Fallback to current component's controller
+                    comp = desktop.getCurrentComponent()
+                    if comp is not None and hasattr(comp, "getCurrentController"):
+                        ctrl = comp.getCurrentController()
+                        if ctrl:
+                            f = getattr(ctrl, "getFrame", lambda: None)()
+                            if f:
+                                win = f.getContainerWindow()
+            except Exception as e:
+                log.debug("get_style_window: ctx/desktop lookup failed: %s", e)
 
     return win
 
@@ -87,7 +95,9 @@ def get_theme_colors(doc: Any = None, style_window: Any = None, ctx: Any = None)
     """
     win = get_style_window(doc=doc, style_window=style_window, ctx=ctx)
     try:
-        if win and hasattr(win, "StyleSettings"):
+        import sys
+
+        if win and ("crosshair" not in sys.modules) and hasattr(win, "StyleSettings"):
             style_settings = win.StyleSettings
             if style_settings:
                 field_color = getattr(style_settings, "FieldColor", 0xFFFFFF)
@@ -124,7 +134,9 @@ def get_monaco_theme_info(doc: Any = None, style_window: Any = None, ctx: Any = 
     is_dark = False
     bg = _FALLBACK_BG
     try:
-        if win and hasattr(win, "StyleSettings"):
+        import sys
+
+        if win and ("crosshair" not in sys.modules) and hasattr(win, "StyleSettings"):
             style_settings = win.StyleSettings
             if style_settings:
                 field_color = getattr(style_settings, "FieldColor", 0xFFFFFF)

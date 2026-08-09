@@ -35,9 +35,9 @@ class CalcModule(ModuleBase):
         self.services = services
 
         # Move to late-import to avoid circular dependency (writer.base -> calc.base -> calc.__init__ -> forms -> writer.base)
-        from . import forms  # noqa: F401
-        from . import specialized as specialized  # noqa: F401
-        from . import shapes  # noqa: F401
+        from . import forms  # noqa: F401  # pyright: ignore[reportUnusedImport]
+        from . import specialized as specialized  # noqa: F401  # pyright: ignore[reportUnusedImport]
+        from . import shapes  # noqa: F401  # pyright: ignore[reportUnusedImport]
 
         services.tools.auto_discover_package(__name__)
         services.tools.auto_discover_package(f"{__name__}.python")

@@ -292,6 +292,45 @@ def test_read_cell_range_tool_opts_into_format_info():
     inspector_cls.return_value.read_range.assert_called_once_with("A1", include_format_info=True)
 
 
+def test_set_style_rejects_mistyped_bold():
+    """Sloppy LLM bool strings must error, not silently no-op as success."""
+    from plugin.calc.cells import SetCellStyle
+
+    ctx = SimpleNamespace(doc=MagicMock())
+    with patch("plugin.calc.cells.CellManipulator") as manip_cls:
+        result = SetCellStyle().execute(ctx, range_name=["A1"], bold="true")
+
+    assert result["status"] == "error"
+    assert "bold" in result["message"]
+    manip_cls.return_value.set_cell_style.assert_not_called()
+
+
+def test_set_style_rejects_mistyped_font_size():
+    from plugin.calc.cells import SetCellStyle
+
+    ctx = SimpleNamespace(doc=MagicMock())
+    with patch("plugin.calc.cells.CellManipulator") as manip_cls:
+        result = SetCellStyle().execute(ctx, range_name=["A1"], font_size="12")
+
+    assert result["status"] == "error"
+    assert "font_size" in result["message"]
+    manip_cls.return_value.set_cell_style.assert_not_called()
+
+
+def test_set_style_accepts_typed_bold_and_font_size():
+    from plugin.calc.cells import SetCellStyle
+
+    ctx = SimpleNamespace(doc=MagicMock())
+    with patch("plugin.calc.cells.CellManipulator") as manip_cls:
+        result = SetCellStyle().execute(ctx, range_name=["A1"], bold=True, font_size=12)
+
+    assert result["status"] == "ok"
+    manip_cls.return_value.set_cell_style.assert_called_once()
+    kwargs = manip_cls.return_value.set_cell_style.call_args.kwargs
+    assert kwargs["bold"] is True
+    assert kwargs["font_size"] == 12.0
+
+
 def test_write_formula_range_s30_format_pass_warning():
     """S30: format-pass failure keeps value-commit success and warns in the message."""
     from plugin.calc.manipulator import CellManipulator

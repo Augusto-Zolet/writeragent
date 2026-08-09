@@ -46,6 +46,9 @@ def ensure_rectangular_2d(grid: Any) -> list[list[Any]]:
     return [list(grid)]
 
 
+@deal.pre(lambda values: isinstance(values, list))
+@deal.post(lambda result: isinstance(result, list) and all(isinstance(row, list) and len(row) == 1 for row in result))
+@deal.ensure(lambda values, result: len(result) == len(values))
 def column_vector_as_2d(values: list[Any]) -> list[list[Any]]:
     """Wrap a flat column vector as ``[[v], …]`` (N×1)."""
     return [[v] for v in values]
@@ -205,6 +208,7 @@ class CalcRange:
             parse_strings: When True, apply optional currency/percent/numeric
                 and datetime string parsing. Default False keeps text cells as text.
         """
+        # crosshair: off
         from plugin.scripting.venv.coerce import grid_to_dataframe
 
         return grid_to_dataframe(
@@ -218,6 +222,7 @@ class CalcRange:
 
 def materialize_calc_range(wire: Any) -> CalcRange:
     """Build a :class:`CalcRange` from a ``calc_range`` envelope or raw grid/split_grid."""
+    # crosshair: off
     if isinstance(wire, CalcRange):
         return wire
     if is_calc_range_payload(wire):
@@ -281,6 +286,7 @@ def materialize_inputs(wire: Any) -> tuple[CalcRange, ...]:
     - bare grid / list → single CalcRange
     - ``None`` → empty tuple
     """
+    # crosshair: off
     if wire is None:
         return ()
     from plugin.scripting.payload_codec import is_multi_data

@@ -6,6 +6,8 @@
 """
 URL parsing utilities for WriterAgent.
 """
+
+# crosshair: off
 from __future__ import annotations
 
 import urllib.parse
@@ -76,7 +78,6 @@ def get_api_version_suffix(url, is_openwebui=False):
 @deal.ensure(lambda url, is_openwebui=False, result="": bool(isinstance(url, str) and url.strip()) or result == "")
 def normalize_endpoint_url(url, is_openwebui=False):
     """Clean up endpoint URL: strip whitespace, trailing slashes, and domain-specific version suffixes."""
-    # crosshair: off
     if type(url) is not str or not url.strip():
         return ""
     url = url.strip()
@@ -176,7 +177,6 @@ def get_url_path_and_query(url):
 @deal.post(lambda result: isinstance(result, bool))
 def is_pdf_url(url):
     """Check for .pdf in the URL path safely."""
-    # crosshair: off
     if type(url) is not str:
         return False
     try:

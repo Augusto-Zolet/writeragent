@@ -24,6 +24,7 @@ def _make_send_listener():
         send.queue_executor = MagicMock()
         send._record_assistant_start = False
         send._assistant_stream_start_len = None
+        send._plain_text_stripper = None
         send.session = MagicMock()
         return send
 

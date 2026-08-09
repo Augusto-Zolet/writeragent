@@ -406,7 +406,7 @@ def envelope_uniform_column_kind(envelope: dict[str, Any], *, ncols: int) -> str
     return _uniform_column_kind(envelope_column_kinds(envelope, ncols=ncols))
 
 
-def _host_cell_from_float(val: float, *, kind: str) -> Any:
+def _host_cell_from_float(val: float, *, kind: str) -> Any:  # pyright: ignore[reportUnusedFunction]  # test helper for host cell kind coercion
     if math.isnan(val):
         return None
     return int(val) if kind == "int" else val
@@ -607,15 +607,13 @@ def wire_cell_count(data: Any) -> int:
     return len(data)
 
 
+@deal.pre(lambda grid: isinstance(grid, list))
+@deal.post(lambda result: isinstance(result, list))
 def grid_from_nested_list(grid: list[Any] | list[list[Any]]) -> list[Any] | list[list[Any]]:
-    """Normalize to flat or 2D Python lists for small grids (below BINARY_MIN_CELLS) or non-split_grid results.
-
-    Uses the pickle list path (no envelope). NaN values are preserved; only Python None is normalized here.
-    """
+    """Normalize to flat or 2D Python lists for small grids (below BINARY_MIN_CELLS) or non-split_grid results."""
     if not grid:
         return []
     if type(grid[0]) in (list, tuple) and all(isinstance(r, (list, tuple)) for r in grid):
-        # Only treat as 2D if every element is a row list; otherwise preserve as 1D list containing sublists/scalars (fancier results).
         return [[_cell_for_json(c) for c in row] for row in grid]
     return [_cell_for_json(x) for x in grid]
 

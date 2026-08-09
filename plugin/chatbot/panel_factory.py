@@ -56,7 +56,7 @@ ensure_plugin_on_path(__file__, levels_up=3, also_add_contrib=True)
 
 # Recording shipped unless built with --no-recording (see scripts/build_oxt.py).
 try:
-    from plugin.chatbot.audio_recorder import AudioRecorder  # noqa: F401
+    from plugin.chatbot.audio_recorder import AudioRecorder  # noqa: F401  # pyright: ignore[reportUnusedImport]
 
     HAS_RECORDING = True
 except ImportError:
@@ -299,7 +299,8 @@ class ChatPanelElement(unohelper.Base, XUIElement):
                 log.error("getRealInterface ERROR [resource_url=%s]: %s", self.ResourceURL, e)
                 log.error(traceback.format_exc())
                 raise UnoObjectError("Failed to create ChatPanel UI element", details={"resource": self.ResourceURL}) from e
-        return cast("XInterface", self.toolpanel)
+        # Panel is a Python UNO component; stubs do not overlap XInterface.
+        return cast("XInterface", cast("object", self.toolpanel))
 
     def _getOrCreatePanelRootWindow(self):
         log.debug("[RICH-LIFECYCLE] _getOrCreatePanelRootWindow entered (xParentWindow=%s)",

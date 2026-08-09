@@ -21,8 +21,11 @@ Each tool is a ToolBase subclass that instantiates CalcBridge,
 CellInspector, and CellManipulator per call using ``ctx.doc``.
 """
 
+
+# crosshair: off
 import json
 import logging
+from typing import Any
 
 from plugin.framework.errors import ToolExecutionError
 from plugin.framework.tool import ToolBase
@@ -31,6 +34,7 @@ from plugin.calc.base import ToolCalcRangeBase
 from plugin.calc.inspector import CellInspector
 from plugin.calc.manipulator import CellManipulator
 
+from plugin.doc.visual_helpers import parse_color_to_uno_int
 from plugin.framework.deal_shim import deal
 
 logger = logging.getLogger("writeragent.calc")
@@ -43,25 +47,14 @@ logger = logging.getLogger("writeragent.calc")
 def _parse_color(color_str):
     """Convert a hex colour string or named colour to an RGB integer.
 
-    Returns:
-        int colour value, or *None* if *color_str* is falsy or
-        unparseable.
+    String-only wrapper around :func:`parse_color_to_uno_int` so Calc ``set_style``
+    keeps rejecting non-string LLM args (ints/tuples) instead of accepting them.
     """
     if not color_str:
         return None
-    # LLM/tool args may pass non-strings; only hex/name strings are parseable.
     if not isinstance(color_str, str):
         return None
-    color_str = color_str.strip().lower()
-    color_names = {"red": 0xFF0000, "green": 0x00FF00, "blue": 0x0000FF, "yellow": 0xFFFF00, "white": 0xFFFFFF, "black": 0x000000, "orange": 0xFF8C00, "purple": 0x800080, "gray": 0x808080}
-    if color_str in color_names:
-        return color_names[color_str]
-    if color_str.startswith("#"):
-        try:
-            return int(color_str[1:], 16)
-        except ValueError:
-            return None
-    return None
+    return parse_color_to_uno_int(color_str)
 
 
 # ── Tools ──────────────────────────────────────────────────────────────
@@ -241,22 +234,75 @@ class SetCellStyle(ToolBase):
             return self._tool_error(_bc["__error__"])
         border_color: int | None = _bc
 
-        # number_format: accepted from scripting_only_parameters, not advertised to LLMs.
-        nf = kwargs.get("number_format")
-        if isinstance(nf, str) and not nf.strip():
-            nf = None
+        # Present-but-wrong-type args must error (not silently become None): ToolBase.validate
+        # does not check JSON-schema types, and a successful no-op hides the mistake from the model.
+        def _optional_bool(key: str) -> tuple[bool | None, str | None]:
+            if key not in kwargs:
+                return None, None
+            raw = kwargs[key]
+            if raw is None:
+                return None, None
+            if not isinstance(raw, bool):
+                return None, f"{key} must be a boolean (true or false), got {type(raw).__name__}"
+            return raw, None
 
-        style_kwargs = {
-            "bold": kwargs.get("bold"),
-            "italic": kwargs.get("italic"),
+        def _optional_font_size() -> tuple[float | None, str | None]:
+            if "font_size" not in kwargs:
+                return None, None
+            raw = kwargs["font_size"]
+            if raw is None:
+                return None, None
+            # bool is a subclass of int; reject it so true/false cannot become 1.0/0.0.
+            if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+                return None, f"font_size must be a number, got {type(raw).__name__}"
+            return float(raw), None
+
+        def _optional_str(key: str) -> tuple[str | None, str | None]:
+            if key not in kwargs:
+                return None, None
+            raw = kwargs[key]
+            if raw is None:
+                return None, None
+            if not isinstance(raw, str):
+                return None, f"{key} must be a string, got {type(raw).__name__}"
+            if not raw.strip():
+                return None, None
+            return raw, None
+
+        bold, err = _optional_bool("bold")
+        if err:
+            return self._tool_error(err)
+        italic, err = _optional_bool("italic")
+        if err:
+            return self._tool_error(err)
+        wrap_text, err = _optional_bool("wrap_text")
+        if err:
+            return self._tool_error(err)
+        font_size, err = _optional_font_size()
+        if err:
+            return self._tool_error(err)
+        h_align, err = _optional_str("h_align")
+        if err:
+            return self._tool_error(err)
+        v_align, err = _optional_str("v_align")
+        if err:
+            return self._tool_error(err)
+        # number_format: scripting_only_parameters; omitted from LLM schema.
+        number_format, err = _optional_str("number_format")
+        if err:
+            return self._tool_error(err)
+
+        style_kwargs: dict[str, Any] = {
+            "bold": bold,
+            "italic": italic,
             "bg_color": bg_color,
             "font_color": font_color,
-            "font_size": kwargs.get("font_size"),
-            "h_align": kwargs.get("h_align"),
-            "v_align": kwargs.get("v_align"),
-            "wrap_text": kwargs.get("wrap_text"),
+            "font_size": font_size,
+            "h_align": h_align,
+            "v_align": v_align,
+            "wrap_text": wrap_text,
             "border_color": border_color,
-            "number_format": nf,
+            "number_format": number_format,
         }
 
         if len(rn) == 0:

@@ -114,4 +114,8 @@ def test_collect_libreharper_plugin_paths() -> None:
     assert not any("llm_client" in p for p in paths)
     # constants and other framework modules import deal via deal_shim
     assert "plugin/framework/deal_shim.py" in paths
+    # Weekly update check (msgbox + HTTP); lazy-imported off the grammar hot path.
+    assert "plugin/chatbot/extension_update_check.py" in paths
+    assert "plugin/chatbot/dialogs.py" in paths
+    assert "plugin/framework/client/requests.py" in paths
 

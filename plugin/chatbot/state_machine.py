@@ -153,6 +153,9 @@ class EffectInterpreter:
                 self.handler._execute_web_research_effect(qt, mod, self.current_state, self)
             case ProceedToChatEffect(combined_text=ct, model=mod, doc_type_str=dts):
                 self.handler._do_send_chat_with_tools(ct, mod, dts)
+            case _:
+                # SendHandlerUIEffect kinds beyond append/status (and future effects): no-op.
+                pass
 
 
 # 4. Pure helpers + transition
@@ -301,5 +304,9 @@ def next_state(state: SendHandlerState, event: SendHandlerEvent) -> FsmTransitio
             effects.extend(spawn_effects_for_start(state.handler_type, q_text, mod, doc_type, w_path, stt_mod))
             new_state = SendHandlerState(handler_type=state.handler_type, status="starting", query_text=q_text, model=mod, doc_type_str=doc_type, round_num=state.round_num, pending_tools=state.pending_tools, max_rounds=state.max_rounds, recent_effects=tuple(effects))
             return FsmTransition(new_state, effects)
+
+        case _:
+            # ToolResultEvent belongs to the tool-loop FSM; ignore here.
+            pass
 
     return FsmTransition(state, effects)

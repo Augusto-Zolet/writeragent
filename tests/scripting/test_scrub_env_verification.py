@@ -16,10 +16,12 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from plugin.scripting.sandbox import scrub_subprocess_env
+from plugin.scripting.sandbox import scrub_subprocess_env, wrap_command_for_sandbox
+from tests.vhs_budget import vhs_max_examples
 
 _CROSSHAIR_ERROR_RE = re.compile(r": error:")
 _CROSSHAIR_TARGET = "plugin.scripting.sandbox.scrub_subprocess_env"
+_CROSSHAIR_TARGET_WRAP = "plugin.scripting.sandbox.wrap_command_for_sandbox"
 
 _BLOCKED_SUBSTR = ("KEY", "TOKEN", "SECRET", "PASSWORD", "AUTH", "CREDENTIAL")
 _BLOCKED_EXACT = {"PYTHONHOME", "PYTHONPATH", "LD_LIBRARY_PATH"}
@@ -47,6 +49,23 @@ def _assert_scrubbed(out: dict[str, str]) -> None:
 def test_none_and_empty_return_empty() -> None:
     assert scrub_subprocess_env(None) == {}
     assert scrub_subprocess_env({}) == {}
+
+
+def test_wrap_command_for_sandbox_basic() -> None:
+    cmd = ["python3", "-c", "print(1)"]
+    wrapped = wrap_command_for_sandbox(cmd)
+    assert isinstance(wrapped, list)
+    assert wrapped[-len(cmd):] == cmd
+
+
+@given(cmd=st.lists(st.text(max_size=30), max_size=10))
+@settings(max_examples=vhs_max_examples(60, 600), deadline=None)
+def test_hypothesis_wrap_command_invariants(cmd: list[str]) -> None:
+    wrapped = wrap_command_for_sandbox(cmd)
+    assert isinstance(wrapped, list)
+    assert all(isinstance(x, str) for x in wrapped)
+    if cmd:
+        assert wrapped[-len(cmd):] == cmd
 
 
 def test_drops_secrets_and_lo_overrides() -> None:
@@ -93,7 +112,7 @@ def test_drops_secrets_and_lo_overrides() -> None:
         max_size=8,
     )
 )
-@settings(max_examples=80)
+@settings(max_examples=vhs_max_examples(80, 800), deadline=None)
 def test_hypothesis_scrub_invariants(base: dict[str, str]) -> None:
     out = scrub_subprocess_env(base)
     _assert_scrubbed(out)
@@ -108,15 +127,17 @@ def test_crosshair_scrub_subprocess_env_fqn_if_available() -> None:
     crosshair_path = _find_crosshair()
     if not crosshair_path:
         pytest.skip("CrossHair concolic execution engine is not installed.")
-    result = subprocess.run(
-        [crosshair_path, "check", "-v", "--report_all", _CROSSHAIR_TARGET],
-        capture_output=True,
-        text=True,
-        timeout=300,
-    )
-    combined = f"{result.stdout}\n{result.stderr}".strip()
-    print(f"CrossHair output:\n{combined}")
-    errors = [line for line in combined.splitlines() if _CROSSHAIR_ERROR_RE.search(line)]
-    assert not errors, "CrossHair counterexamples found:\n" + "\n".join(errors)
-    if result.returncode == 2:
-        pytest.fail(f"CrossHair internal error (exit 2):\n{combined}")
+    for target in (_CROSSHAIR_TARGET, _CROSSHAIR_TARGET_WRAP):
+        result = subprocess.run(
+            [crosshair_path, "check", "-v", "--report_all", target],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        combined = f"{result.stdout}\n{result.stderr}".strip()
+        print(f"CrossHair output for {target}:\n{combined}")
+        errors = [line for line in combined.splitlines() if _CROSSHAIR_ERROR_RE.search(line)]
+        assert not errors, f"CrossHair counterexamples found for {target}:\n" + "\n".join(errors)
+        if result.returncode == 2:
+            pytest.fail(f"CrossHair internal error for {target} (exit 2):\n{combined}")
+

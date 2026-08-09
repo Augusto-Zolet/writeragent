@@ -149,8 +149,3 @@ def _update_lru_for_key(ctx, key, val, current_endpoint):
         update_lru_history(str(val), "image_base_size_lru", "")
 
 
-def _call_options_provider(ctx, provider_path):
-    """Import a module and call a function to get options."""
-    from plugin.chatbot.settings_fields import call_options_provider
-
-    return call_options_provider(ctx, provider_path)

@@ -179,12 +179,14 @@ That produces tests of the form `assert foo(args) == <whatever it got>`. **Do no
 
 - **`make crosshair-cover`** runs on the **entire** [`plugin/scripting/payload_codec.py`](../plugin/scripting/payload_codec.py) with **no** `--per_condition_timeout`—correctness over speed; can take a long time.
 - **`make crosshair-check`** is the contract pass on the same file; use both when hardening serialization.
-- **`make crosshair-check-all`** discovers every `plugin/**/*.py` that contains `@deal.` and runs `crosshair check --analysis_kind=deal` **one file at a time** (so an engine crash in one module does not abort the rest) with **no** per-condition timeout (multi-hour OK). Formatted output is teed to [`build/crosshair-check-all.log`](../build/crosshair-check-all.log). Not part of `make test`. Failures are CrossHair **errors** / engine crashes only; `NOT_CONFIRMED` / `UNABLE` are informational. List targets with `python scripts/crosshair_check_all.py --list`; pass explicit paths to check a subset.
-- **`make crosshair-cover-all`** uses the same `@deal.` discovery as check-all, plus a cover-only skip list for UNO/I/O hosts (`CROSSHAIR_COVER_ALL_SKIP` in [`scripts/crosshair_cover_all.py`](../scripts/crosshair_cover_all.py), unioned with `CROSSHAIR_CHECK_ALL_SKIP`). Runs in a **process pool** (default workers `max(2, cpu_count - 2)`; override with `--jobs N`). Submit order: modules **not** in `COVER_ALL_SCHEDULE_ORDER` first (stable by path — new `@deal.` files until timed), then **longest-first** known schedule (measured regular-run timings). Two presets only: **regular** (default) is `--max_uninteresting_iterations=25 --per_condition_timeout=5` (breadth over depth) plus a hard **120s per-module wall** (kill process group; timeout is exit 0 / not a sweep failure); **deep** (`make crosshair-cover-all-deep` / `--deep`) is `--max_uninteresting_iterations=200` with no per-condition timeout and no wall (hour-scale). In **regular** mode only, `payload_codec` uses a tighter **5 / 5s** bound; deep and `make crosshair-cover` stay the long codec dives. Cover/check are always **budgeted partial** exploration—not exhaustive proofs. Each worker still owns one CrossHair process per module; formatted output is buffered and printed as a whole block when that module finishes (completion order—no interleaved lines). Tee: [`build/crosshair-cover-all.log`](../build/crosshair-cover-all.log); per-module durations (longest first) in [`build/crosshair-cover-all-timings.json`](../build/crosshair-cover-all-timings.json). Failures are `CrossHairInternal` / process crashes only—few examples and wall timeouts do not fail the sweep. `cover` walks **top-level callables** in those modules (not only `@deal`); `# crosshair: off` does not skip cover entry points. List targets with `python scripts/crosshair_cover_all.py --list`.
+- **`make crosshair-check-all`** discovers every `plugin/**/*.py` that contains `@deal.` and runs `crosshair check --analysis_kind=deal` **one file at a time** (so an engine crash in one module does not abort the rest; live tee — not a process pool). Two presets only (same numbers as cover-all): **regular** (default) is `--max_uninteresting_iterations=25 --per_condition_timeout=5` plus a hard **120s per-module wall** (kill process group; timeout is exit 0 / not a sweep failure); **deep** (`make crosshair-check-all-deep` / `--deep`) is `--max_uninteresting_iterations=200` with no per-condition timeout and no wall (hour-scale). In **regular** mode only, `payload_codec` uses a tighter **5 / 5s** bound; deep and `make crosshair-check` stay the long codec dives. Formatted output is teed to [`build/crosshair-check-all.log`](../build/crosshair-check-all.log). Not part of `make test`. Failures are CrossHair **errors** / engine crashes only; `NOT_CONFIRMED` / `UNABLE` and wall timeouts are informational. List targets with `python scripts/crosshair_check_all.py --list`; pass explicit paths to check a subset. **`CROSSHAIR_CHECK_ALL_SKIP` is empty** — disable hostility in source (`# crosshair: off` per callable or column-0 module-level, and/or CrossHair shims), not via skip-list entries.
+- **`make crosshair-cover-all`** uses the same `@deal.` discovery. **`CROSSHAIR_COVER_ALL_SKIP` is empty.** Upstream `cover` ignores `# crosshair: off`, so cover-all expands each file to FQNs via [`cover_fqns_for_module`](../scripts/crosshair_stream.py): a **column-0 module** `# crosshair: off` yields no FQNs (auto-skip); otherwise per-callable offs are dropped. Prefer a `if "crosshair" in sys.modules:` shim when contracts should still run (see `duckdb_sql._template_body`, `json_utils.repair_json`); escalate to `# crosshair: off` when the engine still crashes; use **module-level** off when the file is ≥95% hostile; refactor large host+algorithm mixes. Runs in a **process pool** (default workers `max(2, cpu_count - 2)`; override with `--jobs N`). Submit order: modules **not** in `COVER_ALL_SCHEDULE_ORDER` first (stable by path — new `@deal.` files until timed), then **longest-first** known schedule (measured regular-run timings). Two presets only: **regular** (default) is `--max_uninteresting_iterations=25 --per_condition_timeout=5` (breadth over depth) plus a hard **120s per-module wall** (kill process group; timeout is exit 0 / not a sweep failure); **deep** (`make crosshair-cover-all-deep` / `--deep`) is `--max_uninteresting_iterations=200` with no per-condition timeout and no wall (hour-scale). In **regular** mode only, `payload_codec` uses a tighter **5 / 5s** bound; deep and `make crosshair-cover` stay the long codec dives. Cover/check are always **budgeted partial** exploration—not exhaustive proofs. Each worker still owns one CrossHair process per module; formatted output is buffered and printed as a whole block when that module finishes (completion order—no interleaved lines). Tee: [`build/crosshair-cover-all.log`](../build/crosshair-cover-all.log); per-module durations (longest first) in [`build/crosshair-cover-all-timings.json`](../build/crosshair-cover-all-timings.json). Failures are `CrossHairInternal` / process crashes only—few examples and wall timeouts do not fail the sweep. List targets with `python scripts/crosshair_cover_all.py --list`.
 
 **WriterAgent reference module:** [`plugin/scripting/payload_codec.py`](../plugin/scripting/payload_codec.py) — see [`docs/serialization-verification-plan.md`](serialization-verification-plan.md).
 
-**CrossHair + `typing.Literal`:** CrossHair cannot proxy `Literal[...]` (it calls `get_type_hints` on the literal itself). Use `str` in function **parameter** annotations and in **TypedDict fields** that may land on the type heap via imports; keep `Literal` aliases (e.g. `ColumnKind`, `StatusValue`) for casts/comments only. Parameter case fixed in `payload_codec.py`; TypedDict case fixed in [`errors.py`](../plugin/framework/errors.py) (`ToolSuccess`/`ToolError`) after flaky check-all crashes on importers such as `stream_normalizer`.
+**CrossHair + `typing.Literal`:** CrossHair cannot proxy `Literal[...]` (it calls `get_type_hints` on the literal itself). Use `str` in function **parameter** annotations and in **TypedDict fields** that may land on the type heap via imports; keep `Literal` aliases (e.g. `ColumnKind`, `StatusValue`, `HeaderMode`) for casts/comments only. Parameter case fixed in `payload_codec.py`; TypedDict case fixed in [`errors.py`](../plugin/framework/errors.py) (`ToolSuccess`/`ToolError`) after flaky check-all crashes on importers such as `stream_normalizer`; dataclass / param case for excel `HeaderMode` / `DepRole` in [`models.py`](../plugin/calc/excel_py_convert/models.py) + [`to_dag.py`](../plugin/calc/excel_py_convert/to_dag.py).
+
+**FQN cover vs package `__init__`:** Cover-all loads targets by qualname, which runs the parent package `__init__.py`. Eager UNO/tool imports or import-time filesystem probes (e.g. `tempfile.gettempdir()` in [`format.py`](../plugin/writer/format.py)) trip CrossHair's auditwall (`SideEffectDetected`) even when the pure submodule itself is fine under file-path cover. Fix with a `if "crosshair" not in sys.modules:` guard on the heavy package imports (see [`plugin/writer/__init__.py`](../plugin/writer/__init__.py)) and/or a CrossHair-safe temp-dir shim — not a skip-list entry.
 
 #### Live output while CrossHair runs
 
@@ -202,13 +204,28 @@ crosshair cover -v plugin/scripting/payload_codec.py 2>&1 \
 crosshair check -v --report_all plugin/scripting/payload_codec.py 2>&1 \
     | python scripts/crosshair_stream.py check -q
 
-make verify             # pytest formal verification suite
+make verify             # pytest formal verification suite (light Hypothesis)
+make vhs                # deep Hypothesis: serialization A/B + chat/MCP FSMs
+make slowtests          # extensive serialization fixtures + make vhs
 make crosshair-check
 make crosshair-cover
-make crosshair-check-all   # all @deal. modules; multi-hour; log under build/
+make crosshair-check-all        # all @deal. modules; regular budget (25/5s + 120s wall); log under build/
+make crosshair-check-all-deep   # same set; deep budget (200 iters, no timeout/wall)
 make crosshair-cover-all        # same set; regular budget (25/5s + 120s wall); log + timings under build/
 make crosshair-cover-all-deep   # same set; deep budget (200 iters, no timeout/wall)
 ```
+
+##### `make verify` vs `make vhs` vs `make slowtests`
+
+| Target | Hypothesis budget | Scope |
+|--------|-------------------|--------|
+| **`make verify`** | Light defaults in each suite | All `*_verification.py` (deal oracles + light `@given` + optional slow CrossHair) |
+| **`make vhs`** | `WRITERAGENT_VHS_EXTENSIVE=1` (alias: `WRITERAGENT_SERIALIZATION_EXTENSIVE`) | Deep fuzz (`-k hypothesis`): serialization A/B; chat/MCP FSMs; Phase 8 (`formula_edit`, `cors`, `word_diff_split`, `embeddings_split`); stream/response normalizers; sandbox path + scrub env; payload_codec policy; `address_utils` |
+| **`make slowtests`** | Extensive | Serialization fixture pass, then `vhs` |
+
+Shared helpers: [`tests/vhs_budget.py`](../tests/vhs_budget.py) (`vhs_extensive` / `vhs_max_examples`), FSM strategies [`tests/chatbot/fsm_hyp_support.py`](../tests/chatbot/fsm_hyp_support.py).
+
+**Playbook for a new deep VHS domain:** (1) Tier-0 pure entry with `@deal`, (2) strategies with small alphabets, (3) oracles mirroring `@deal.ensure`, (4) `vhs_max_examples(light, extensive)` on `@settings`, (5) name tests so `-k hypothesis` selects them, (6) add the file to the `vhs` Make recipe, (7) register in `verification_status.json`. Do **not** dump every light `@given` into `vhs`—reserve deep budgets for round-trips, FSM legality, and security filters. Cap string alphabets for regex-heavy oracles (see §8.1 C).
 
 Sample filtered **`check`** output:
 
@@ -225,13 +242,18 @@ Sample filtered **`check`** output:
 
 `make crosshair-check` / `make crosshair-check-all` both end with that **ERRORS TO FIX** block (unique contract `: error:` lines, Traceback headers, and CrossHairInternal crashes). `check-all` also groups failures by module. `make crosshair-cover-all` uses the same grouping for cover fatals (not for low example counts). Under the pool, each module’s filtered block appears when that worker completes (not live line-by-line across modules). Each block starts and ends with the same `######## [i/n] path ########` marker, and the COVER DONE banner repeats `[i/n] path` so identity is visible after a long example dump. Here `[i/n]` is **completion progress** (ith module finished of n), not discovery/list order.
 
-**`crosshair-check-all` skip list:** some `@deal.` modules crash the CrossHair engine (`CrossHairInternal` on symbolic `json.loads` / UNO proxies) without a useful contract counterexample. Default discovery omits them (`CROSSHAIR_CHECK_ALL_SKIP` in [`scripts/crosshair_check_all.py`](../scripts/crosshair_check_all.py)); `@deal` still runs at runtime. Pass an explicit path or `--include-skipped` to force analysis. Current skips: `plugin/chatbot/memory.py`, `plugin/framework/appearance.py`, `plugin/framework/json_utils.py`, `plugin/framework/errors.py`, `plugin/mcp/wire_types.py`. (`state_machine.py` / `tool_loop_state.py` stay in the sweep: `next_state` uses `# crosshair: off`; pure helpers are analyzed.)
+**Module skip lists:** `CROSSHAIR_CHECK_ALL_SKIP` and `CROSSHAIR_COVER_ALL_SKIP` are **empty**. Fix engine-hostile surfaces in source, not via skip lists:
 
-**`crosshair-cover-all` extra skips:** cover walks non-`@deal` callables too, so UNO Tool/`execute`, sheet helpers, sidebar combobox, research-cache engine crashes, stream drain loops, FSM modules (`state_machine.py`, `tool_loop_state.py`, `calc_addin_data.py`), and modules that still burn cover time or exit non-zero (`auth.py`, `config.py`, `config_service.py`, `default_models.py`, `event_bus.py`, `i18n.py`, `tool.py`, `url_utils.py`, `cors.py`, `calc_range.py`, `duckdb_sql.py`, `editor_ipc.py`, `helper_domain.py`, `sandbox.py`) are omitted by default (`CROSSHAIR_COVER_ALL_SKIP`). **`payload_codec.py` stays in the cover sweep** (primary codec; `make crosshair-check` / `make crosshair-cover`). Note: `# crosshair: off` is honored by **check**, not by **cover** entry-point selection.
+1. **CrossHair shim** — `if "crosshair" in sys.modules:` replace `json.loads` / `json.dumps` / UNO / `time.perf_counter` with a simple substitute so the function stays a cover/check entry point (`duckdb_sql._template_body`, `json_utils.repair_json`, helper_domain outcome helpers).
+2. **`# crosshair: off`** — when the engine still crashes despite a shim, or the callable is pure host (Tool.execute, drain loops). Check honors this natively; cover-all drops those FQNs via `cover_fqns_for_module`.
+3. **Module-level `# crosshair: off`** — column-0 directive near the top of the file when **every** callable is hostile, or when **≥95%** already need offs (e.g. `config.py`, `web_research_cache.py`, `errors.py`). Prefer one module directive over spraying the body. Cover-all treats that as an empty FQN list (auto-skip success), same as check’s module `enabled=False`.
+4. **Refactor** — large host+algorithm mixes: extract a pure `@deal` core; off/shim the host.
+
+**`@deal` vs `# crosshair: off`:** they are not substitutes. `@deal.pre` / `@deal.post` still run under the **dev/pytest** `deal` package (Hypothesis and unit tests). LibreOffice uses `deal_shim` (no-op). `# crosshair: off` only disables CrossHair analysis for that callable/module — it does **not** remove pytest contract checks. Keep `@deal` when tests exercise the contracts; do not mass-delete them just because CrossHair is off. Skip adding `@deal` “for CrossHair” on an already module-off file unless pytest will use it.
 
 **Cover streamer vs check:** both modes ignore CrossHair `-v` `File "…/plugin/…"` / `TypeError: LazyIntSymbolicStr` stacks from `CrosshairUnsupported` path exploration. Check hard-fails on `Traceback (most recent call last)`, contract `: error:` lines, `CrossHairInternal`, or a non-zero process exit. Cover treats mid-run Tracebacks from app `log.exception` (path exploration) as **COVER EXPLORE**, not fatals; cover still fails on `CrossHairInternal` or a non-zero CrossHair process exit.
 
-**`# crosshair: off`:** put the directive alone on its line (no trailing prose). CrossHair parses the rest of the line as options; characters like `—` raise `InvalidDirective`.
+**`# crosshair: off`:** put the directive alone on its line (no trailing prose). CrossHair parses the rest of the line as options; characters like `—` raise `InvalidDirective`. Prefer the first line of the function body for per-callable offs; for whole-file disable use column-0 after the module docstring. Cover-all honors both via `cover_fqns_for_module` (module off → `[]`; else drop off’d callables).
 
 ```text
 [CHECK PROGRESS        ] analyzing host_pack_split_grid
@@ -282,13 +304,13 @@ Consider `column_to_index` in `address_utils.py`. We know mathematically that:
 ```python
 import deal
 
-@deal.pre(lambda col_str: col_str.isalpha() and col_str.isupper())
+@deal.pre(lambda col_str: col_str.isascii() and col_str.isalpha() and 1 <= len(col_str) <= 3)
 @deal.post(lambda result: result >= 0)
-# The ultimate invariant: f^-1(f(x)) == x
-@deal.ensure(lambda col_str, result: index_to_column(result) == col_str)
+# The ultimate invariant: f^-1(f(x)) == x  (len bound keeps CrossHair tractable)
+@deal.ensure(lambda col_str, result: index_to_column(result) == col_str.upper())
 def column_to_index(col_str: str) -> int:
     result = 0
-    for char in col_str:
+    for char in col_str.upper():
         result = result * 26 + (ord(char) - ord('A') + 1)
     return result - 1
 ```
@@ -400,7 +422,7 @@ def next_state(state: ToolLoopState, event: ToolLoopEvent) -> Tuple[ToolLoopStat
 
 **Reference implementation:** [`plugin/scripting/payload_codec.py`](../plugin/scripting/payload_codec.py) — see [`docs/serialization-verification-plan.md`](serialization-verification-plan.md).
 
-**Status (partial):** `deal` on `send_state.next_state` (send/stop mutual exclusion), `audio_recorder_state.next_state` (valid status + error path), thin ensures on `tool_loop_state.next_state` (STOP→`ExitLoopEffect`, round bound), and `mcp_state.next_state` (missing tool_name → `SendErrorEffect`, `TOOL_COMPLETED` → `StreamResponseEffect`, `REQUEST_ERROR` sets `is_error`). Pytest oracles + slow CrossHair hooks in [`tests/chatbot/test_fsm_verification.py`](../tests/chatbot/test_fsm_verification.py) and [`tests/mcp/test_mcp_state_verification.py`](../tests/mcp/test_mcp_state_verification.py). Tracking: [`verification_status.json`](../verification_status.json).
+**Status (partial):** `deal` on `send_state.next_state` (send/stop mutual exclusion), `audio_recorder_state.next_state` (valid status + error path), thin ensures on `tool_loop_state.next_state` (STOP→`ExitLoopEffect`, round bound), and `mcp_state.next_state` (missing tool_name → `SendErrorEffect`, `TOOL_COMPLETED` → `StreamResponseEffect`, `REQUEST_ERROR` sets `is_error`). Pytest oracles + Hypothesis (light in `make verify`, deep in `make vhs`) + slow CrossHair hooks in [`tests/chatbot/test_fsm_verification.py`](../tests/chatbot/test_fsm_verification.py) and [`tests/mcp/test_mcp_state_verification.py`](../tests/mcp/test_mcp_state_verification.py). Strategies: [`tests/chatbot/fsm_hyp_support.py`](../tests/chatbot/fsm_hyp_support.py). Tracking: [`verification_status.json`](../verification_status.json).
 
 ### Step 1: Add Design by Contract to State Machines
 
@@ -438,12 +460,12 @@ Maintain a `verification_status.json` file tracking which components have been v
 2. **`plugin/calc/address_utils.py`** — inverse column/address contracts + Hypothesis ([`tests/calc/test_address_utils_verification.py`](../tests/calc/test_address_utils_verification.py))
 3. **`plugin/mcp/cors.py`** — origin normalize / safety ([`tests/mcp/test_cors_verification.py`](../tests/mcp/test_cors_verification.py))
 4. **`plugin/framework/config.py`** — `as_bool` / `parse_int_robust` / `parse_float_robust` ([`tests/framework/test_config_coerce_verification.py`](../tests/framework/test_config_coerce_verification.py)); not whole-file CrossHair
-5. **`plugin/framework/tool.py`** — `_normalize_schema_for_strict_providers` FQN ([`tests/framework/test_tool_schema_verification.py`](../tests/framework/test_tool_schema_verification.py))
-6. **`plugin/framework/async_stream.py`** — `accumulate_delta` FQN ([`tests/framework/test_accumulate_delta_verification.py`](../tests/framework/test_accumulate_delta_verification.py))
+5. **`plugin/framework/tool.py`** — `_normalize_schema_for_strict_providers`, `to_openai_schema`, `to_mcp_schema` ([`tests/framework/test_tool_schema_verification.py`](../tests/framework/test_tool_schema_verification.py))
+6. **`plugin/framework/async_stream.py`** — `accumulate_delta`, `_format_agent_tool_stream_line` ([`tests/framework/test_accumulate_delta_verification.py`](../tests/framework/test_accumulate_delta_verification.py))
 7. **FSM catch-up** — CrossHair on `state_machine.py` + `tool_loop_state.py` helpers (`next_state` is `# crosshair: off`) ([`tests/chatbot/test_fsm_verification.py`](../tests/chatbot/test_fsm_verification.py)); `mcp_state.next_state` ([`tests/mcp/test_mcp_state_verification.py`](../tests/mcp/test_mcp_state_verification.py))
 8. **`plugin/framework/json_utils.py`** — `safe_json_loads` FQN ([`tests/framework/test_json_utils_verification.py`](../tests/framework/test_json_utils_verification.py))
 9. **`plugin/framework/errors.py`** — `format_error_payload` and `format_error_message` ([`tests/framework/test_error_payload_verification.py`](../tests/framework/test_error_payload_verification.py))
-10. **`plugin/scripting/sandbox.py`** — `scrub_subprocess_env` FQN ([`tests/scripting/test_scrub_env_verification.py`](../tests/scripting/test_scrub_env_verification.py))
+10. **`plugin/scripting/sandbox.py`** — `scrub_subprocess_env`, `wrap_command_for_sandbox`, `is_safe_workspace_path` ([`tests/scripting/test_sandbox_path_verification.py`](../tests/scripting/test_sandbox_path_verification.py))
 11. **`plugin/framework/i18n.py`** — `_` translation and `get_active_locale` ([`tests/framework/test_i18n_and_memory_verification.py`](../tests/framework/test_i18n_and_memory_verification.py))
 12. **`plugin/chatbot/memory.py`** — `upsert_memory_arguments_dict`, `memory_key_from_tool_arguments`, `format_upsert_memory_chat_line` ([`tests/framework/test_i18n_and_memory_verification.py`](../tests/framework/test_i18n_and_memory_verification.py))
 13. **`plugin/framework/openrouter_model_id.py`** — `_split_suffix`, `resolve_openrouter_catalog_id`, `openrouter_model_ids_equivalent` ([`tests/framework/test_framework_modules_verification.py`](../tests/framework/test_framework_modules_verification.py))
@@ -459,7 +481,7 @@ Maintain a `verification_status.json` file tracking which components have been v
 23. **`plugin/chatbot/web_research_cache.py`** — `snowball_lang_from_locale_tag`, `parse_research_cache_key`, `format_research_cache_key`, `jaccard`, `research_cache_similarity` ([`tests/chatbot/test_chatbot_pure_verification.py`](../tests/chatbot/test_chatbot_pure_verification.py))
 24. **`plugin/scripting/import_policy.py`** — `venv_authorized_top_level_modules`, `venv_blocked_modules`, `inprocess_authorized_modules`, `format_venv_import_policy_for_prompt` ([`tests/scripting/test_scripting_pure_verification.py`](../tests/scripting/test_scripting_pure_verification.py))
 25. **`plugin/scripting/config_limits.py`** — `_clamp_timeout`, `resolve_python_exec_timeout` ([`tests/scripting/test_scripting_pure_verification.py`](../tests/scripting/test_scripting_pure_verification.py))
-26. **`plugin/scripting/calc_range.py`** — `ensure_rectangular_2d`, `is_calc_range_payload`, `pack_calc_range_envelope`, `_dedupe_column_names` ([`tests/scripting/test_scripting_pure_verification.py`](../tests/scripting/test_scripting_pure_verification.py))
+26. **`plugin/scripting/calc_range.py`** — `ensure_rectangular_2d`, `is_calc_range_payload`, `pack_calc_range_envelope`, `_dedupe_column_names`, `column_vector_as_2d` ([`tests/scripting/test_scripting_pure_verification.py`](../tests/scripting/test_scripting_pure_verification.py))
 27. **`plugin/scripting/helper_domain.py`** — `header_prefix`, `parse_helper_script_header`, `parse_run_import_call_spec` ([`tests/scripting/test_scripting_phase2_verification.py`](../tests/scripting/test_scripting_phase2_verification.py))
 28. **`plugin/scripting/trusted_action_registry.py`** — `get_trusted_action_wiring` ([`tests/scripting/test_scripting_phase2_verification.py`](../tests/scripting/test_scripting_phase2_verification.py))
 29. **`plugin/scripting/duckdb_sql.py`** — `get_sql_script_templates`, `parse_sql_script_header` ([`tests/scripting/test_scripting_phase2_verification.py`](../tests/scripting/test_scripting_phase2_verification.py))
@@ -475,14 +497,36 @@ Maintain a `verification_status.json` file tracking which components have been v
 39. **`plugin/writer/xhtml_style_postprocess.py`** — `decode_lo_css_class_suffix`, `compact_lo_style_name`, `extract_autostyle_parents_from_fodt`, `parse_style_block` ([`tests/writer/test_writer_diff_and_html_verification.py`](../tests/writer/test_writer_diff_and_html_verification.py))
 40. **`plugin/calc/calc_addin_data.py`** — `_unwrap_cell`, `normalize_python_data_shape`, `finalize_python_data`, `calc_addin_data_to_python` ([`tests/calc/test_calc_dep_and_filter_verification.py`](../tests/calc/test_calc_dep_and_filter_verification.py))
 41. **`plugin/scripting/audio_silence_detector.py`** — `pcm_energy_int16` ([`tests/scripting/test_scripting_phase2_verification.py`](../tests/scripting/test_scripting_phase2_verification.py))
-42. **`plugin/calc/cells.py`** — `_parse_color` ([`tests/scripting/test_scripting_phase2_verification.py`](../tests/scripting/test_scripting_phase2_verification.py))
+42. **`plugin/calc/cells.py`** — `_parse_color` (string-only wrapper over [`plugin/doc/visual_helpers.py`](../plugin/doc/visual_helpers.py) `parse_color_to_uno_int`) ([`tests/scripting/test_scripting_phase2_verification.py`](../tests/scripting/test_scripting_phase2_verification.py))
 43. **`plugin/framework/client/stream_normalizer.py`** — `accumulate_streaming_thinking`, `_merge_reasoning_details`, `_normalize_stream_delta`, `_thinking_text_from_delta`, `_normalize_delta` ([`tests/framework/test_stream_normalizer_verification.py`](../tests/framework/test_stream_normalizer_verification.py))
 44. **`plugin/framework/client/response_normalizers.py`** — `strip_leaked_chat_template_control_tokens`, `extract_and_strip_images_from_message` ([`tests/framework/test_response_normalizers_verification.py`](../tests/framework/test_response_normalizers_verification.py))
-45. **`plugin/calc/python/formula_edit.py`** — quoted/unquoted `=PY()` parse, sanitize/escape, rebuild, data-range formatters ([`tests/calc/python/test_formula_edit_verification.py`](../tests/calc/python/test_formula_edit_verification.py))
+45. **`plugin/calc/python/formula_edit.py`** — quoted/unquoted `=PY()` parse, sanitize/escape, rebuild, data-range formatters, data-binding display/text helpers ([`tests/calc/python/test_formula_edit_verification.py`](../tests/calc/python/test_formula_edit_verification.py))
 46. **`plugin/calc/spreadsheet_import/preprocess.py`** — `normalize_lo_formula_for_parse` ([`tests/calc/python/test_formula_edit_verification.py`](../tests/calc/python/test_formula_edit_verification.py))
 47. **`plugin/scripting/payload_codec.py`** (policy helpers) — `cell_count`, `is_numeric_coercible`, `is_numeric_grid`, `wire_cell_count` ([`tests/scripting/test_payload_codec_policy_verification.py`](../tests/scripting/test_payload_codec_policy_verification.py)); pack/unpack contracts listed earlier / serialization plan
 
 (`format_support.py` does not exist; Writer HTML paths are UNO-heavy and deferred.)
+
+### Phase 8: Deep Hypothesis targets (in `make vhs`)
+
+These surfaces have light Hyp under `make verify` and **deep** budgets via `vhs_max_examples` / `make vhs`:
+
+1. **Calc `=PY()` Formula Parser & Serializer** ([`plugin/calc/python/formula_edit.py`](../plugin/calc/python/formula_edit.py))
+   - **Target:** `parse_python_formula`, `escape_code_for_formula`, `rebuild_python_formula`, quoted/unquoted helpers.
+   - **Oracle:** escape→embed→parse and rebuild(parse) preserve sanitized code ([`test_formula_edit_verification.py`](../tests/calc/python/test_formula_edit_verification.py)).
+
+2. **Security Boundary: CORS Origin & Host Filtering** ([`plugin/mcp/cors.py`](../plugin/mcp/cors.py))
+   - **Target:** `is_safe_origin`, `normalize_cors_origin`, `normalize_origins_list`.
+   - **Oracle:** public hosts stay unsafe when private/extra allowlists are off ([`test_cors_verification.py`](../tests/mcp/test_cors_verification.py)).
+
+3. **Writer Word Diffing & Redline Splitter** ([`plugin/writer/word_diff_split.py`](../plugin/writer/word_diff_split.py))
+   - **Target:** `tokenize` and `split_change`.
+   - **Oracle:** tokenize/rejoin exact character preservation; capped alphabets for deep VHS ([`test_writer_diff_and_html_verification.py`](../tests/writer/test_writer_diff_and_html_verification.py)).
+
+4. **Embeddings & Document Text Chunking** ([`plugin/embeddings/embeddings_split.py`](../plugin/embeddings/embeddings_split.py))
+   - **Target:** `_merge_small_sentences_to_spans` and `_meta_chunks_from_spans`.
+   - **Oracle:** in-bounds, non-overlapping, monotonic spans; chunk text equals passage slice ([`test_embeddings_split_verification.py`](../tests/embeddings/test_embeddings_split_verification.py)).
+
+Also on deep `vhs` (same budget helper): stream/response normalizers, sandbox path + `scrub_subprocess_env`, payload_codec policy helpers, `address_utils` column/address round-trips.
 
 ---
 
@@ -550,11 +594,20 @@ Same idea for any greedy tokenizer: Hypothesis neighbors must not be absorbable 
 
 #### D. CrossHair annotation / directive traps (already easy to reintroduce)
 
-- Do **not** put `typing.Literal[...]` in **parameter** annotations or **TypedDict fields** CrossHair must proxy — use `str` (or similar); keep `Literal` aliases for casts/comments only ([`payload_codec.py`](../plugin/scripting/payload_codec.py), [`errors.py`](../plugin/framework/errors.py) tool result TypedDicts). Skipping a module in `CROSSHAIR_CHECK_ALL_SKIP` does not protect importers that pull those TypedDicts onto the heap.
+- Do **not** put `typing.Literal[...]` in **parameter** annotations, **TypedDict fields**, or **dataclass fields** CrossHair must proxy — use `str` (or similar); keep `Literal` aliases for casts/comments only ([`payload_codec.py`](../plugin/scripting/payload_codec.py), [`errors.py`](../plugin/framework/errors.py) tool result TypedDicts, excel `HeaderMode` in [`models.py`](../plugin/calc/excel_py_convert/models.py) / [`to_dag.py`](../plugin/calc/excel_py_convert/to_dag.py)). Skipping a module in `CROSSHAIR_CHECK_ALL_SKIP` does not protect importers that pull those TypedDicts onto the heap.
 - `# crosshair: off` must sit alone on its line (no trailing prose). Extra characters can raise `InvalidDirective`.
-- Prefer **FQN** `crosshair check plugin.pkg.mod.fn` in `@pytest.mark.slow` tests for new slices; whole-module `cover` walks every top-level callable once `@deal.` exists in the file (I/O helpers, shims, SSE iterators) and may need `CROSSHAIR_COVER_ALL_SKIP` — do not add skips preemptively; only after a real cover/engine failure.
+- Prefer **FQN** `crosshair check plugin.pkg.mod.fn` in `@pytest.mark.slow` tests for new slices. Do not reintroduce module skip-list entries — mark hostile callables with a shim or `# crosshair: off` (cover-all FQN filter), or extract a pure core.
+- Avoid `time.perf_counter()` (and similar clocks) on cover entry points without a CrossHair shim — causes `NotDeterministic` / exit 2.
 
-#### E. Checklist when finishing a verification slice
+#### F. Single-pass string stripping vs interleaved control whitespace
+
+When sanitizing formulas, range bindings, or prefixes (e.g. `format_data_binding_display`), single-pass checks (`if s.startswith(";"): s = s[1:]`) fail when input strings contain multiple leading delimiters (`;;`) or interleaved Unicode control whitespace (`,\x1c;`). In Python, `str.strip()` strips ASCII 28 (`\x1c`) control whitespace; stripping after a single-pass `lstrip` exposes the second delimiter underneath.
+
+**Wrong:** single-pass `s = s.strip().lstrip(";,").rstrip(")")` (leaves `;` on `,\x1c;`).
+
+**Right:** use a fixed-point loop (`while True: prev = s; s = s.strip().lstrip(";,").rstrip(")"); if s == prev: break`) until the string reaches a clean invariant state.
+
+#### G. Checklist when finishing a verification slice
 
 1. Run existing unit tests for the module **with deal installed** (contracts execute in the dev venv).
 2. Run the new `*_verification.py` file with `-m "not slow"`, then the slow CrossHair FQN tests.

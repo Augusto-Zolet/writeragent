@@ -16,7 +16,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from plugin.framework.tool import _normalize_schema_for_strict_providers
+from plugin.framework.tool import _normalize_schema_for_strict_providers, to_openai_schema, to_mcp_schema, ToolBase
 
 _CROSSHAIR_ERROR_RE = re.compile(r": error:")
 _CROSSHAIR_TARGET = "plugin.framework.tool._normalize_schema_for_strict_providers"
@@ -41,6 +41,34 @@ _schema = st.fixed_dictionaries(
         "required": st.lists(st.sampled_from(["a", "b", "c"]), max_size=3, unique=True),
     }
 )
+
+
+class _DummyTestTool(ToolBase):
+    name = "dummy_test_tool"
+    description = "A dummy tool for schema testing."
+    parameters = {
+        "type": "object",
+        "properties": {"foo": {"type": "string"}},
+        "required": [],
+    }
+
+    def execute(self, ctx, **kwargs):
+        return {"status": "ok"}
+
+
+def test_to_openai_and_mcp_schema_structure() -> None:
+    tool = _DummyTestTool()
+    openai_s = to_openai_schema(tool)
+    assert openai_s["type"] == "function"
+    assert openai_s["function"]["name"] == "dummy_test_tool"
+    assert openai_s["function"]["description"] == "A dummy tool for schema testing."
+    assert "parameters" in openai_s["function"]
+
+    mcp_s = to_mcp_schema(tool)
+    assert mcp_s["name"] == "dummy_test_tool"
+    assert mcp_s["description"] == "A dummy tool for schema testing."
+    assert "inputSchema" in mcp_s
+    assert "document_url" in mcp_s["inputSchema"]["properties"]
 
 
 def test_empty_required_removed() -> None:

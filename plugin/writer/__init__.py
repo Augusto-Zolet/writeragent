@@ -16,16 +16,21 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Writer module — tools for Writer document manipulation."""
 
+import sys
+
 from plugin.framework.module_base import ModuleBase
 
-# Load subpackages for tool registration side effects before auto_discover_package.
-from . import tree, proximity
-from . import styles, tracking, page, search, structural, outline, navigation, target_resolver, get_image  # noqa: F401
-from .specialized import bookmarks
-# mock_domains: disable tools by wrapping class block in ''' in specialized/mock_domains.py
-from .specialized import forms, charts, comments, shapes, indexes, textframes, fields, embedded, mock_domains  # noqa: F401
-from .locale import linguistic_index
-from .locale import ai_grammar_proofreader, grammar_proofread_locale, grammar_work_queue  # noqa: F401
+# UNO / tool-registration imports: skipped under CrossHair so FQN cover of pure
+# submodules (word_diff_split, xhtml_style_postprocess) does not pull format.py's
+# tempfile.gettempdir() probe (auditwall SideEffectDetected). initialize() loads them.
+if "crosshair" not in sys.modules:
+    from . import tree, proximity  # noqa: F401  # pyright: ignore[reportUnusedImport]
+    from . import styles, tracking, page, search, structural, outline, navigation, target_resolver, get_image  # noqa: F401  # pyright: ignore[reportUnusedImport]
+    from .specialized import bookmarks  # noqa: F401  # pyright: ignore[reportUnusedImport]
+    # mock_domains: disable tools by wrapping class block in ''' in specialized/mock_domains.py
+    from .specialized import forms, charts, comments, shapes, indexes, textframes, fields, embedded, mock_domains  # noqa: F401  # pyright: ignore[reportUnusedImport]
+    from .locale import linguistic_index  # noqa: F401  # pyright: ignore[reportUnusedImport]
+    from .locale import ai_grammar_proofreader, grammar_proofread_locale, grammar_work_queue  # noqa: F401  # pyright: ignore[reportUnusedImport]
 
 
 class WriterModule(ModuleBase):
@@ -34,7 +39,13 @@ class WriterModule(ModuleBase):
     def initialize(self, services):
         self.services = services
 
-        # Initialize core Writer services via auto-discovery
+        # Same load order as module import (needed when CrossHair skipped the eager block).
+        from . import tree, proximity
+        from . import styles, tracking, page, search, structural, outline, navigation, target_resolver, get_image  # noqa: F401  # pyright: ignore[reportUnusedImport]
+        from .specialized import bookmarks
+        from .specialized import forms, charts, comments, shapes, indexes, textframes, fields, embedded, mock_domains  # noqa: F401  # pyright: ignore[reportUnusedImport]
+        from .locale import linguistic_index
+        from .locale import ai_grammar_proofreader, grammar_proofread_locale, grammar_work_queue  # noqa: F401  # pyright: ignore[reportUnusedImport]
 
         # Order matters: tree needs bookmarks, proximity/index need tree
         for module in (bookmarks, tree, proximity, linguistic_index):

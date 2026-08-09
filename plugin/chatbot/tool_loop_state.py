@@ -41,6 +41,8 @@ def _describe_empty_response_tool_calls(tool_calls: Any) -> str:
     return "present"
 
 
+@deal.pre(lambda round_num, response: isinstance(round_num, int) and isinstance(response, dict))
+@deal.post(lambda result: isinstance(result, str) and "round=" in result)
 def format_empty_model_response_debug(round_num: int, response: Mapping[str, Any]) -> str:
     """Compact API summary for sidebar when STREAM_DONE has no content and no tools."""
     parts = [
@@ -51,7 +53,10 @@ def format_empty_model_response_debug(round_num: int, response: Mapping[str, Any
     ]
     usage = response.get("usage")
     if isinstance(usage, dict) and usage:
-        parts.append(f"usage={json.dumps(usage, separators=(',', ':'))}")
+        try:
+            parts.append(f"usage={json.dumps(usage, separators=(',', ':'))}")
+        except Exception:
+            parts.append(f"usage={len(usage)} entries")
     images = response.get("images")
     if isinstance(images, list) and images:
         parts.append(f"images={len(images)}")
@@ -80,8 +85,11 @@ def _truncate_delegate_task(task: str, max_len: int = DELEGATE_TASK_CHAT_MAX) ->
     return one_line[: max_len - 3] + "..."
 
 
+@deal.pre(lambda func_args: isinstance(func_args, dict))
+@deal.post(lambda result: isinstance(result, str) and result.startswith("[Running delegate") and result.endswith("\n"))
 def format_delegate_running_chat_line(func_args: Mapping[str, Any]) -> str:
     """One-line chat preview when a delegate gateway tool starts."""
+
     domain = domain_from_delegate_args(func_args)
     raw_task = func_args.get("task")
     if raw_task is None:

@@ -17,40 +17,40 @@ Unlike proprietary office suites that lock you into a single cloud provider and 
 
 ## Features
 
-
-
 ### Writer
 
-- **Sidebar chat with deep tool-calling** — 9 core tools for everyday editing plus dozens of [specialized sub-agents](docs/writer-specialized-toolsets.md) that unlock [page layout](docs/page-api-reference.md), [shapes](docs/shape_support.md), charts, [bookmarks](docs/bookmarks-api-reference.md), [footnotes](docs/footnotes-api-reference.md), [track changes](docs/writer-tracking-api-reference.md), indexes, forms, and more. Try *"Do web research and write a report on the space elevator, suitable for mathematicians (or English teachers)"* — the AI will research, write, and format a complete document (the math version even uses LaTeX).
-- **Format-preserving edits** — Rewrite or tighten a selection and existing bold, italics, highlights, and font sizes survive intact. HTML import handles tables and nested lists. One **Ctrl+Z** reverts a whole AI turn.
-- **Realtime grammar** — Async proofreader with three backends: [Harper](https://github.com/Automattic/harper) (fast local Rust checker, auto-installs), [LanguageTool](https://languagetool.org) (local server), or any LLM. Sentence cache, Unicode-aware splitting, and optional auto language detection so mixed-locale documents get the right checker per sentence. [Details](docs/realtime-grammar-checker-plan.md)
+- **Sidebar chat with deep tool-calling** — 9 core tools for everyday editing plus dozens of [specialized sub-agents](docs/writer-specialized-toolsets.md) for layout, visual elements, references, revisions, forms, and more. Try *"Do web research and write a report on the space elevator, suitable for mathematicians (or English teachers)"* — the AI will research, write, and format a complete document.
+- **Format-preserving edits** — Rewrite or tighten a selection and existing bold, italics, highlights, and font sizes survive intact. HTML import handles tables and nested lists.
+- **Realtime grammar** — Proofread as you write with [Harper](https://github.com/Automattic/harper) (fast, local, and auto-installing), [LanguageTool](https://languagetool.org) (local server), or an LLM endpoint. Optional automatic language detection gives each sentence in mixed-language documents the right checker. [Details](docs/realtime-grammar-checker-plan.md)
 - **Math & analytics** — TeX/MathML delimiters become editable LibreOffice Math objects. SymPy helpers for symbolic math. Readability metrics, NER, and key phrases via spaCy. [Math](docs/math-tex.md)
 
 ### Calc
 
-- **`=PROMPT()` and `=PY()`** — AI prompts and NumPy/pandas code in spreadsheet cells with auto spill, shared kernel, init scripts, and document-attached scripts. [NumPy in LibreOffice](docs/enabling_numpy_in_libreoffice.md) · [Data shapes](docs/calc-py-data-shapes.md)
-- **Trusted helper domains** — Analysis (14 helpers: EDA, outliers, regression, Monte Carlo, …), Viz, Math, Quant, Optimize, and Units — via chat or **Tools → Run Python Script**. [Domain reference](docs/numpy-domains.md) · [Analysis tools](docs/calc-analysis-tools.md)
+- **`=PROMPT()` and `=PY()`** — AI prompts and NumPy/pandas code in spreadsheet cells with auto spill, shared kernel, init scripts, and document-attached scripts. Example: `=PY("np.mean(data)"; A1:A10)` averages a real Calc range. [NumPy in LibreOffice](docs/enabling_numpy_in_libreoffice.md) · [Data shapes](docs/calc-py-data-shapes.md)
+- **Trusted helper domains** — Analysis (EDA, outliers, regression, Monte Carlo, …), Viz, Math, Quant, Optimize, and Units — via chat or **Tools → Run Python Script**. Try **Units Helpers → convert_quantity** with `convert_quantity(60, "mph", "m/s")` → `26.8224 m/s`. [Domain reference](docs/numpy-domains.md) · [Analysis tools](docs/calc-analysis-tools.md)
 - **Sheet → Python converter** — Rewrite 235+ Calc formula functions as `=PY()` while constants, dates, and formats stay unchanged. [Details](docs/calc-spreadsheet-to-python-import.md)
-- **DuckDB SQL** — Query folder files (CSV, Parquet, XLSX, ODS) and live Calc ranges from chat or scripts. Batch edits, [conditional formatting](docs/calc-conditional-formatting.md), and [sheet filters](docs/calc-sheet-filter.md).
+
+### Draw & Impress
+
+- **Diagram and presentation editing** — Build and revise diagrams and slide decks from chat, including shapes, connectors, charts, speaker notes, transitions, and slide masters. [Details](docs/draw-impress-specialized-toolsets.md)
 
 ### Multi-modal & intelligence
 
 - **Private web research** — Local [smolagents](https://github.com/huggingface/smolagents) loop with DuckDuckGo; synthesizes multiple pages and can update the open document with what it finds — e.g. *"find the current price of … and update this memo."* [Agent search](docs/agent-search.md)
-- **Cross-document reads** — Say *"our budget spreadsheet"* in the sidebar to read other files in the same folder; edits stay on the active doc. Optional hybrid search (BM25 + semantic vectors, RRF) via `writeragent_embeddings/`. [Embeddings](docs/embeddings.md)
+- **Images, OCR, voice** — Generate or edit images; offline OCR via Docling; cross-platform voice recording. In Writer, select one image or a range containing several, then **WriterAgent → Run Python Script → Vision Helpers → extract_text** — recognized text is inserted after each selected image. [Images](docs/image-generation.md) · [Vision](docs/image-recognition.md) · [Audio](docs/audio-architecture.md)
 - **LO-DOM** — A recursive structural model so the agent understands headings, sections, and object relationships — not just a wall of text. [Semantic tree](docs/lo-dom-semantic-tree.md)
-- **Images, OCR, voice** — Generate or edit images; offline OCR via Docling; cross-platform voice recording. [Images](docs/image-generation.md) · [Vision](docs/image-recognition.md) · [Audio](docs/audio-architecture.md)
-- **Memory & locales** — Persistent agent memory across sessions; 34 shipped locales with AI-driven translation pipeline. [Memory](docs/hermes-agent-patterns.md) · [Localization](docs/localization.md)
+- **Cross-document reads** — Say *"our budget spreadsheet"* in the sidebar to read other files in the same folder; edits stay on the active doc. Optional hybrid folder search finds relevant passages across larger collections. [Embeddings](docs/embeddings.md)
+- **Memory** — Persistent agent memory carries useful context across sessions. [Details](docs/hermes-agent-patterns.md)
+- **Localization** — Use WriterAgent in 34 shipped locales, maintained through an AI-driven translation pipeline. [Details](docs/localization.md)
 
 ### Integrations
 
-- **MCP server** — Enable in Settings → Http; endpoint `http://localhost:18765/mcp` (default port **18765**) for Cursor, Claude Desktop, LM Studio, or custom agents. Prefer a `document_url` argument on each tool call (or legacy `X-Document-URL` header) so clients do not edit the wrong window when several docs are open; discover targets with `list_open_documents`. [MCP protocol](docs/mcp-protocol.md)
+- **MCP server** — Connect Cursor, Claude Desktop, LM Studio, or custom agents to read and edit open LibreOffice documents through the local endpoint `http://localhost:18765/mcp`. [MCP protocol](docs/mcp-protocol.md)
 - **External agent backends** — Under **Settings → Agent backends**, swap built-in chat for [Hermes](https://github.com/NousResearch/hermes-agent) or [Grok Build](https://zed.dev/acp/agent/grok-build) via ACP, with approve/reject dialogs for tool calls. [Cursor plugin](https://github.com/KeithCu/cursor-libreoffice) · [LO skill](https://github.com/KeithCu/libreoffice-skill)
 
 Full catalog with doc links: **[docs/features.md](docs/features.md)**.
 
 ---
-
-
 
 ## Install
 
@@ -90,6 +90,34 @@ Full catalog with doc links: **[docs/features.md](docs/features.md)**.
 
 ---
 
+## Benchmarks
+
+An in-LibreOffice **LLM Evaluation Suite** benchmarks models on real Writer/Calc/Draw tasks and ranks them by **Value (C²/$)** — average correctness squared ÷ average dollars per run, using live OpenRouter pricing. Snapshot ranking (Apr 2026); see [docs/benchmarks.md](docs/benchmarks.md) for scoring methodology and insights.
+
+
+| Rank | Model                                  | Avg correctness | Avg score | Avg tokens | Avg cost ($) | Value (C²/$) |
+| ---- | -------------------------------------- | --------------- | --------- | ---------- | ------------ | ------------ |
+| 1    | openai/gpt-oss-120b                    | 0.980           | 0.942     | 3767.1     | 0.00025      | 3827.240     |
+| 2    | google/gemini-3-flash-preview          | 0.890           | 0.860     | 2957.2     | 0.00035      | 2234.257     |
+| 3    | qwen/qwen3.5-9b                        | 0.730           | 0.691     | 4645.0     | 0.00050      | 1068.806     |
+| 4    | nvidia/nemotron-3-nano-30b-a3b         | 0.922           | 0.851     | 7195.5     | 0.00082      | 1037.536     |
+| 5    | mistralai/devstral-2512                | 0.980           | 0.950     | 3000.8     | 0.00154      | 623.434      |
+| 6    | inception/mercury-2                    | 0.948           | 0.896     | 5150.9     | 0.00160      | 562.405      |
+| 7    | minimax/minimax-m2.7                   | 0.990           | 0.943     | 4671.9     | 0.00191      | 512.581      |
+| 8    | deepseek/deepseek-v3.2                 | 0.985           | 0.909     | 7575.4     | 0.00206      | 470.222      |
+| 9    | qwen/qwen3.5-35b-a3b                   | 0.990           | 0.933     | 5671.1     | 0.00220      | 445.760      |
+| 10   | x-ai/grok-4.1-fast                     | 0.950           | 0.886     | 6431.9     | 0.00204      | 442.733      |
+| 11   | qwen/qwen3.5-27b                       | 0.993           | 0.942     | 5049.9     | 0.00259      | 380.538      |
+| 12   | qwen/qwen3.5-122b-a10b                 | 0.990           | 0.950     | 3958.8     | 0.00308      | 318.312      |
+| 13   | nvidia/nemotron-3-super-120b-a12b:free | 0.757           | 0.696     | 6388.4     | 0.00181      | 317.859      |
+| 14   | allenai/olmo-3.1-32b-instruct          | 0.323           | 0.306     | 1912.4     | 0.00046      | 226.704      |
+| 15   | z-ai/glm-5.1                           | 0.890           | 0.843     | 4677.8     | 0.00524      | 151.141      |
+
+
+The same eval traces are a natural next step for **fine-tuning** a smaller specialist model on this tool distribution — same correctness with fewer tokens and reasoning steps.
+
+---
+
 ## Docs & integrations
 
 
@@ -110,11 +138,9 @@ Under the hood, all AI interactions are governed by a formally verified state ma
 
 ![State machine architecture](Showcase/full_super_unified_complete.png)
 
-Hit a rough edge? File an [issue](https://github.com/KeithCu/writeragent/issues) with steps to reproduce, or open a PR. A star helps too.
+**Help us improve.** WriterAgent is a small team's project, and the problem space is enormous — LibreOffice's full UNO API surface, dozens of LLM backends and models, multiple operating systems, 34 locales, and a growing feature set across Writer, Calc, and Draw. A large team could work on this for years. If you hit a rough edge — file an [issue](https://github.com/KeithCu/writeragent/issues) with steps to reproduce, or open a PR. Curious Python tinkerers are especially welcome. A star helps too.
 
 ---
-
-
 
 ## The Evolution of WriterAgent
 
@@ -127,14 +153,12 @@ A weekly chronicle of building a professional AI suite inside LibreOffice:
 
 ---
 
-
-
 ## Contributing
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/KeithCu/writeragent)
 [Discussions](https://github.com/KeithCu/writeragent/discussions)
 
-**Prerequisites:** Python 3.11–3.13 for dev (pinned to **3.13** in [`.python-version`](.python-version)), [uv](https://docs.astral.sh/uv/), and LibreOffice with `unopkg`. Run `make check-setup` to verify. On macOS: `make`, `gettext`, and LibreOffice via Homebrew or `/Applications`.
+**Prerequisites:** Python 3.11–3.13 for dev (pinned to **3.13** in `[.python-version](.python-version)`), [uv](https://docs.astral.sh/uv/). Run `make check-setup` to verify. On macOS: install `make`, `gettext`.
 
 ```bash
 git clone https://github.com/KeithCu/writeragent.git
@@ -146,11 +170,9 @@ make test
 make help
 ```
 
-If `uv sync` fails on Python 3.14 / spaCy wheels: `rm -rf .venv && uv sync --python 3.13`. Contributor orientation: [AGENTS.md](AGENTS.md).
+Contributor orientation: [AGENTS.md](AGENTS.md).
 
 ---
-
-
 
 ## Credits
 
@@ -166,11 +188,9 @@ If `uv sync` fails on Python 3.14 / spaCy wheels: `rm -rf .venv && uv sync --pyt
 
 ---
 
-
-
 ## License
 
-**GNU GPL v3 (or later)** — see [`LICENSE`](LICENSE). Originally MPL 2.0; relicensed in 2026 for stronger reciprocity and library compatibility.
+**GNU GPL v3 (or later)** — see `[LICENSE](LICENSE)`. Originally MPL 2.0; relicensed in 2026 for stronger reciprocity and library compatibility.
 
 
 | Year      | Contribution                      | Contributor            |

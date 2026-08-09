@@ -53,7 +53,7 @@ dev = [
     "mypy",
     "types-requests",
     "types-unopy",
-    "pyright>=1.1.408",
+    "basedpyright>=1.39.0",
     "bandit[toml]>=1.8.0",
     "pyspector>=0.2.1",
     "ruff>=0.9.0",
@@ -106,9 +106,8 @@ extend-select = ["TC"]
 extend-ignore = ["E402", "E701"]
 
 [tool.ruff.lint.per-file-ignores]
-# tests/demos are not in ty/mypy/pyright scope; TYPE_CHECKING moves are busywork there.
+# tests/ are not in ty/mypy/basedpyright scope; TYPE_CHECKING moves are busywork there.
 "tests/**" = ["TC001", "TC002", "TC003"]
-"demos/**" = ["TC001", "TC002", "TC003"]
 
 [tool.ruff.lint.flake8-type-checking]
 quote-annotations = true
@@ -181,8 +180,10 @@ check-unannotated-defs = true
 infer-return-types = "checked"
 infer-with-first-use = true
 
-# Pyright (CLI: make pyright) — same scope as ty/mypy; uses .venv for stubs (types-unopy) and UNO via make fix-uno
-[tool.pyright]
+# Basedpyright (CLI: make basedpyright) — same scope as ty/mypy; uses .venv for stubs (types-unopy) and UNO via make fix-uno
+[tool.basedpyright]
+# typeCheckingMode options: "off", "basic", "standard" (default), "strict", "all"
+typeCheckingMode = "all"
 pythonVersion = "3.11"
 venvPath = "."
 venv = ".venv"
@@ -190,6 +191,51 @@ include = ["plugin", "compute_service"]
 exclude = ["plugin/contrib", "plugin/lib", "plugin/tests", "tests", "plugin/scripting/venv/text_analytics.py"]
 reportMissingModuleSource = false
 reportMissingImports = "none"
+
+# Disable rules that conflict with dynamic PyUNO / Python idioms
+reportAny = false
+reportExplicitAny = false
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+reportUnknownParameterType = false
+reportMissingParameterType = false
+reportUnknownArgumentType = false
+# UNO try/except fallback: NAME = cast(Any, n) after ImportError (see docs/type-checking.md)
+reportConstantRedefinition = false
+# Tool *Base classes intentionally omit execute; concrete tools implement it
+reportImplicitAbstractClass = false
+# Public facades re-export helpers (scripting/calc analysis, client packages)
+reportPrivateLocalImportUsage = false
+# Defensive isinstance/cast/comparison on Any/UNO values; often intentional
+reportUnnecessaryIsInstance = false
+reportUnnecessaryCast = false
+reportUnnecessaryComparison = false
+# ImportError / optional-import branches look unreachable under stubs
+reportUnreachable = false
+# Optional scientific / venv packages without stubs
+reportMissingTypeStubs = false
+# ClassVar / default factory calls in tool bases (e.g. frozenset(...))
+reportCallInDefaultInitializer = false
+# Rare mixin patterns (e.g. compute_service TCPServer)
+reportUnsafeMultipleInheritance = false
+# UNO listeners / mixins / lightweight helpers often skip super().__init__()
+reportMissingSuperCall = false
+
+# Disable stylistic / noisy rules
+reportUnannotatedClassAttribute = false
+reportUnknownLambdaType = false
+reportPrivateUsage = false
+reportUnusedParameter = false
+reportDeprecated = false
+reportImplicitOverride = false
+reportUnusedCallResult = false
+reportImportCycles = false
+# Adjacent string literals for long prompts / tool descriptions
+reportImplicitStringConcatenation = false
+# Cross-checker # type: ignore[...] comments for ty/mypy
+reportUnnecessaryTypeIgnoreComment = false
+# TODO: consider enabling reportMissingTypeArgument in the future to enforce generic type parameters (dict[str, Any], list[str])
+reportMissingTypeArgument = false
 
 [tool.coverage.run]
 source = ["plugin/framework"]

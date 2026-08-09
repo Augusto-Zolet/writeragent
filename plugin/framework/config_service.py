@@ -6,6 +6,8 @@
 """
 UNO Service implementation for WriterAgent configuration.
 """
+
+# crosshair: off
 import json
 import os
 import logging

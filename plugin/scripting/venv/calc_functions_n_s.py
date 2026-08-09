@@ -10,15 +10,12 @@ Semantics mirror the inline helpers formerly pasted by spreadsheet import transl
 from __future__ import annotations
 
 import datetime as dt
-import builtins
 import math
 import re
-from collections import Counter
-from typing import Any, Callable, cast
+from typing import Any, cast
 
 import numpy as np
 
-from plugin.scripting.calc_functions_common import HELPER_NAMES
 
 
 __all__ = [
@@ -885,7 +882,7 @@ def textafter(text: Any, delimiter: Any, instance_num: Any = 1, match_mode: Any 
                 return if_not_found
             # Find the actual split point in the original string
             idx = 0
-            for i in range(inst):
+            for _i in range(inst):
                 idx = s_search.find(delim_search, idx) + len(delim_search)
             return s[idx:]
         elif inst < 0:
@@ -895,7 +892,7 @@ def textafter(text: Any, delimiter: Any, instance_num: Any = 1, match_mode: Any 
                     return ""
                 return if_not_found
             idx = len(s)
-            for i in range(abs(inst)):
+            for _i in range(abs(inst)):
                 idx = s_search.rfind(delim_search, 0, idx)
             return s[idx + len(delim_search) :]
         else:

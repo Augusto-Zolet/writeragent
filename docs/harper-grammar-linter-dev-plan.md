@@ -245,6 +245,7 @@ Ship a **small Linguistic2-only** extension for people who want offline Harper g
 | Default config | `doc.grammar_proofreader_enabled` = **`harper`** (install → works) |
 | Config file (v1) | Reuse `writeragent.json` via existing [`config.py`](../plugin/framework/config.py); slim `_manifest` exposes only `off` / `harper` |
 | Settings UI (v1) | **None** — no Jobs.xcu, menus, or dialogs; LO Writing aids lists the GrammarChecker |
+| Weekly update check | Shared [`extension_update_check.py`](../plugin/chatbot/extension_update_check.py); feed [`update-libreharper.xml`](../update-libreharper.xml); scheduled from `HarperProofreader.__init__` (no Jobs.xcu). Cadence key `libreharper_update_check_epoch` is separate from WriterAgent so dual-install works. |
 | Locales in XCU | `en-US`, `en-GB`, `en-AU`, `en-CA`, `en-IN` (Harper dialects) |
 | `harper-ls` | Still auto-downloaded into the user profile `harper/` directory — **not** bundled in the OXT |
 

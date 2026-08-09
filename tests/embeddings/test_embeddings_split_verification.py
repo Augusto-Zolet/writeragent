@@ -2,16 +2,35 @@
 # Copyright (c) 2026 KeithCu
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Formal verification (Hypothesis + Deal) for embeddings text chunking and sentence span merging."""
+"""Formal verification (Hypothesis + Deal) for embeddings text chunking and sentence span merging.
+
+Hypothesis: light under ``make verify``; deep via ``make vhs``.
+"""
 
 from __future__ import annotations
 
-from hypothesis import given, strategies as st
+import deal
+import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from plugin.embeddings.embeddings_split import (
     _merge_small_sentences_to_spans,
     _meta_chunks_from_spans,
 )
+from tests.vhs_budget import vhs_max_examples
+
+
+def test_merge_small_sentences_rejects_negative_start() -> None:
+    """CrossHair counterexample: negative start violated post ``0 <= s[0]``; pre must reject it."""
+    with pytest.raises(deal.PreContractError):
+        _merge_small_sentences_to_spans("", [(-1, 0, "")], min_chunk=1)
+
+
+def test_merge_small_sentences_rejects_out_of_order_spans() -> None:
+    """CrossHair: out-of-order triples folded to ``(1, 0)``; pre requires sequential spans."""
+    with pytest.raises(deal.PreContractError):
+        _merge_small_sentences_to_spans("", [(1, 1, ""), (0, 0, "")], min_chunk=1)
 
 
 @st.composite
@@ -31,25 +50,30 @@ def sentence_spans(draw: st.DrawFn) -> tuple[str, list[tuple[int, int, str]]]:
 
 
 @given(sentence_spans(), st.integers(min_value=10, max_value=200))
-def test_merge_small_sentences_to_spans_invariants(
+@settings(max_examples=vhs_max_examples(50, 500), deadline=None)
+def test_hypothesis_merge_small_sentences_to_spans_invariants(
     data: tuple[str, list[tuple[int, int, str]]], min_chunk: int
 ) -> None:
+    """Phase 8 #4: merged spans stay in-bounds, non-overlapping, monotonic."""
     passage, sentences = data
     spans = _merge_small_sentences_to_spans(passage, sentences, min_chunk=min_chunk)
     assert isinstance(spans, list)
     prev_end = -1
     for start, end in spans:
         assert 0 <= start <= end <= len(passage)
-        # Verify non-overlapping & monotonically increasing spans
         assert start >= prev_end
         prev_end = end
 
 
-@given(st.text(), st.lists(st.tuples(st.integers(min_value=0, max_value=20), st.integers(min_value=0, max_value=20))), st.dictionaries(st.text(), st.text()))
-def test_meta_chunks_from_spans_invariants(
+@given(
+    st.text(max_size=80),
+    st.lists(st.tuples(st.integers(min_value=0, max_value=20), st.integers(min_value=0, max_value=20)), max_size=12),
+    st.dictionaries(st.text(max_size=12), st.text(max_size=12), max_size=4),
+)
+@settings(max_examples=vhs_max_examples(40, 400), deadline=None)
+def test_hypothesis_meta_chunks_from_spans_invariants(
     passage: str, raw_spans: list[tuple[int, int]], base_meta: dict[str, str]
 ) -> None:
-    # Filter valid bounds for passage
     n = len(passage)
     valid_spans: list[tuple[int, int]] = []
     for s, e in raw_spans:

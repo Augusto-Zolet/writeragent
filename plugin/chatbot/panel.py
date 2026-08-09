@@ -39,6 +39,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from plugin.framework.client.llm_client import LlmClient
+    from plugin.framework.html_stripper import StreamingHTMLStripper
 
 _AudioRecorderCls: type[Any] | None
 try:
@@ -339,6 +340,8 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         self._writing_plan_topic = ""
         self._in_ppt_master_mode = False
         self._ppt_master_topic = ""
+        self._plain_text_stripper: StreamingHTMLStripper | None = None
+        self.panel = None
         self.client = None
         self.audio_wav_path = None
         self._current_agent_backend = None  # Set during _do_send_via_agent_backend for Stop button
@@ -731,7 +734,7 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
                             self._assistant_stream_start_len,
                         )
                     
-                    if getattr(self, "_plain_text_stripper", None) is not None:
+                    if self._plain_text_stripper is not None:
                         clean_text = self._plain_text_stripper.feed(text)
                     else:
                         from plugin.framework.html_stripper import strip_html_tags
@@ -760,7 +763,7 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
                 should_scroll = self._should_auto_scroll()
                 current = get_control_text(self.response_control) or ""
                 
-                if role == "assistant" and getattr(self, "_plain_text_stripper", None) is not None:
+                if role == "assistant" and self._plain_text_stripper is not None:
                     clean_text = self._plain_text_stripper.feed(text)
                 else:
                     clean_text = strip_html_tags(text)

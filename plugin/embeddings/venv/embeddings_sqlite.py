@@ -161,7 +161,7 @@ def ensure_schema(
     conn.commit()
 
 
-def _dim_from_meta_path(meta_path: str) -> int | None:
+def _dim_from_meta_path(meta_path: str) -> int | None:  # pyright: ignore[reportUnusedFunction]  # used by ingest_graph / llama_index workers
     path = Path(str(meta_path or ""))
     if not path.is_file():
         return None
@@ -190,10 +190,6 @@ def rebuild_fts_corpus_index(conn: sqlite3.Connection) -> None:
 def corpus_chunk_count(conn: sqlite3.Connection) -> int:
     row = conn.execute("SELECT COUNT(*) AS c FROM chunks").fetchone()
     return int(row["c"] if row else 0)
-
-
-def _fts_delete_row(conn: sqlite3.Connection, chunk_id: int) -> None:
-    conn.execute("INSERT INTO passages(passages, rowid) VALUES ('delete', ?)", (int(chunk_id),))
 
 
 def _fts_index_row(conn: sqlite3.Connection, chunk_id: int) -> None:

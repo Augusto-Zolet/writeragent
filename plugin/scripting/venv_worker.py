@@ -337,7 +337,7 @@ class PythonWorkerManager:
     ) -> dict[str, Any]:
         """Run one PPT-Master sidebar turn in the venv worker (LLM + scripts + host UNO RPC)."""
         try:
-            import plugin.ppt_master  # noqa: F401
+            import plugin.ppt_master  # noqa: F401  # pyright: ignore[reportUnusedImport]
         except ImportError:
             return {
                 "status": "error",

@@ -44,7 +44,12 @@ __getattr__ = make_getattr("duckdb_sql", _SQL_VENV_EXPORTS)
 # --- Templates for Run Python Script (Calc) ---
 
 def _template_body(helper: str, params: dict[str, Any]) -> str:
-    params_json = json.dumps(params, separators=(",", ":"))
+    import sys
+
+    if "crosshair" in sys.modules:
+        params_json = "{}"
+    else:
+        params_json = json.dumps(params, separators=(",", ":"))
     desc = _HELPER_DESCRIPTIONS.get(helper, helper)
     if helper == "query_sheet_sql":
         return (

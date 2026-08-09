@@ -82,6 +82,7 @@ class EventBus:
 
         Exceptions in subscribers are logged and swallowed.
         """
+        # crosshair: off
         subs = self._subscribers.get(event)
         if not subs:
             return

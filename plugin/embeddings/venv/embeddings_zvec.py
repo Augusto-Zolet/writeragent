@@ -22,11 +22,10 @@ Storage layout (per listing folder):
 
 from __future__ import annotations
 
-import json
 import logging
 import time
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 log = logging.getLogger(__name__)
 
@@ -82,24 +81,28 @@ def _get_or_create_collection(coll_path: str, dim: int) -> Any:
     p = Path(coll_path)
     p.parent.mkdir(parents=True, exist_ok=True)
 
-    schema = _zvec.CollectionSchema(  # type: ignore[attr-defined]
+    # Narrow after HAS_ZVEC guard: module-level _zvec is Optional from the ImportError fallback.
+    zv: Any = _zvec
+    assert zv is not None
+
+    schema = zv.CollectionSchema(  # type: ignore[attr-defined]
         name="wa_folder_corpus",
         fields=[
-            _zvec.FieldSchema("doc_url", _zvec.DataType.STRING, nullable=False),  # type: ignore[attr-defined]
-            _zvec.FieldSchema(  # type: ignore[attr-defined]
+            zv.FieldSchema("doc_url", zv.DataType.STRING, nullable=False),  # type: ignore[attr-defined]
+            zv.FieldSchema(  # type: ignore[attr-defined]
                 "body",
-                _zvec.DataType.STRING,  # type: ignore[attr-defined]
+                zv.DataType.STRING,  # type: ignore[attr-defined]
                 nullable=False,
-                index_param=_zvec.FtsIndexParam(tokenizer_name="standard", filters=["lowercase"]),  # type: ignore[attr-defined]
+                index_param=zv.FtsIndexParam(tokenizer_name="standard", filters=["lowercase"]),  # type: ignore[attr-defined]
             ),
-            _zvec.FieldSchema("para_index", _zvec.DataType.INT32, nullable=True),  # type: ignore[attr-defined]
-            _zvec.FieldSchema("content_hash", _zvec.DataType.STRING, nullable=True),  # type: ignore[attr-defined]
-            _zvec.FieldSchema("file_mtime", _zvec.DataType.DOUBLE, nullable=True),  # type: ignore[attr-defined]
+            zv.FieldSchema("para_index", zv.DataType.INT32, nullable=True),  # type: ignore[attr-defined]
+            zv.FieldSchema("content_hash", zv.DataType.STRING, nullable=True),  # type: ignore[attr-defined]
+            zv.FieldSchema("file_mtime", zv.DataType.DOUBLE, nullable=True),  # type: ignore[attr-defined]
         ],
         vectors=[
-            _zvec.VectorSchema(  # type: ignore[attr-defined]
+            zv.VectorSchema(  # type: ignore[attr-defined]
                 "embedding",
-                _zvec.DataType.VECTOR_FP32,  # type: ignore[attr-defined]
+                zv.DataType.VECTOR_FP32,  # type: ignore[attr-defined]
                 dimension=int(dim),
                 # HNSW gives good default recall/latency; users can optimize() later if desired.
                 index_param=None,  # VectorSchema defaults to Flat if None; pass HnswIndexParam() for ANN
@@ -167,7 +170,7 @@ def zvec_ingest_rows(
     for i, row in enumerate(rows):
         body = bodies[i]
         vec: list[float] | None = vectors[i] if i < len(vectors) else None
-        doc = zvec.Doc(  # type: ignore[attr-defined]
+        doc = cast(Any, zvec).Doc(  # type: ignore[attr-defined]
             id=_stable_doc_id(row),
             fields={
                 "doc_url": str(row.get("doc_url") or ""),

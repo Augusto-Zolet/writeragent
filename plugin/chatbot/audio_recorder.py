@@ -150,7 +150,7 @@ class AudioRecorder:
         if isinstance(effect, InitializeDeviceEffect):
             silence_config = load_silence_detector_config()
             self._auto_stopped_path = None
-            exe, err = resolve_recording_python(self.ctx)
+            exe, _err = resolve_recording_python(self.ctx)
             if exe:
                 try:
                     self.temp_filename = make_temp_wav_path()

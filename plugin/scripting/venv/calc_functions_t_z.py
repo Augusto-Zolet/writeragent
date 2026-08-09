@@ -10,15 +10,12 @@ Semantics mirror the inline helpers formerly pasted by spreadsheet import transl
 from __future__ import annotations
 
 import datetime as dt
-import builtins
 import math
 import re
-from collections import Counter
-from typing import Any, Callable, cast
+from typing import Any, cast
 
 import numpy as np
 
-from plugin.scripting.calc_functions_common import HELPER_NAMES
 from .coerce import is_missing_value
 
 

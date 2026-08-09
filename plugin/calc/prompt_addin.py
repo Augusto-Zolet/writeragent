@@ -66,7 +66,7 @@ except ImportError:
     _XPromptFunctionBase = _XPromptFunctionStub
 
 
-class PromptFunction(SingleFunctionAddInBase, _XPromptFunctionBase):  # pyright: ignore[reportGeneralTypeIssues]  # pyrefly: ignore[invalid-inheritance]
+class PromptFunction(SingleFunctionAddInBase, _XPromptFunctionBase):  # pyright: ignore[reportGeneralTypeIssues, reportUntypedBaseClass]  # pyrefly: ignore[invalid-inheritance]
     """Calc add-in: org.extension.writeragent.PromptFunction (=PROMPT)."""
 
     def __init__(self, ctx: Any) -> None:

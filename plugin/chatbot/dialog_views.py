@@ -16,6 +16,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import logging
 import threading
+from typing import Any, cast
+
 import uno
 from com.sun.star.awt import XItemListener, XTextListener
 
@@ -385,7 +387,7 @@ class EditConfigListener(BaseActionListener):
         open_writeragent_json_in_editor(self._ctx)
 
 
-def _dialog_parent_for_child(ctx, parent_dlg):
+def _dialog_parent_for_child(ctx, parent_dlg):  # pyright: ignore[reportUnusedFunction]  # settings peer parent helper; used by tests
     """Resolve a parent window for a child modal opened above an executing dialog."""
     if parent_dlg is not None:
         try:
@@ -471,7 +473,7 @@ class EndpointCombinedListener(BaseListener, XItemListener, XTextListener):
 
     def _apply_dropdowns(self, resolved, models=None, skip_fetch=False):
         api_key_ov = self._live_api_key()
-        populate_kw = {"api_key_override": api_key_ov, "skip_remote_fetch": skip_fetch}
+        skip_remote = bool(skip_fetch)
         resolved_provider = self.get_provider_from_endpoint(resolved)
         saved_provider = self.get_provider_from_endpoint(get_current_endpoint())
         same_provider = bool(resolved_provider and resolved_provider == saved_provider)
@@ -488,7 +490,8 @@ class EndpointCombinedListener(BaseListener, XItemListener, XTextListener):
                 "model_lru",
                 resolved,
                 remote_models=models,
-                **populate_kw,
+                api_key_override=api_key_ov,
+                skip_remote_fetch=skip_remote,
             )
 
         stt_ctrl = get_optional(self._dlg, "stt_model")
@@ -507,7 +510,8 @@ class EndpointCombinedListener(BaseListener, XItemListener, XTextListener):
                 "audio_model_lru",
                 resolved,
                 remote_models=stt_remote,
-                **populate_kw,
+                api_key_override=api_key_ov,
+                skip_remote_fetch=skip_remote,
             )
 
         image_ctrl = get_optional(self._dlg, "image_model")
@@ -527,7 +531,8 @@ class EndpointCombinedListener(BaseListener, XItemListener, XTextListener):
                 "image_model_lru",
                 resolved,
                 remote_models=image_models,
-                **populate_kw,
+                api_key_override=api_key_ov,
+                skip_remote_fetch=skip_remote,
             )
 
     def close(self):
@@ -660,12 +665,12 @@ class EvalRunListener(BaseActionListener):
         process_events_to_idle(self.ctx)
 
         doc = get_active_document(self.ctx)
-        summary = run_benchmark_suite(self.ctx, doc, model_name, categories)
+        summary = cast("dict[str, Any]", run_benchmark_suite(self.ctx, doc, model_name, categories))
 
         log_text = f"Benchmarks Complete for {model_name}!\n"
         log_text += f"Passed: {summary['passed']}, Failed: {summary['failed']}\n"
         log_text += f"Total Est. Cost: ${summary['total_cost']:.4f}\n\n Details:\n"
-        for res in summary["results"]:
+        for res in cast("list[dict[str, Any]]", summary["results"]):
             log_text += f"[{res['status']}] {res['name']} ({res.get('latency', 0):.1f}s)\n"
 
         self.dialog.getControl("log_area").setText(log_text)

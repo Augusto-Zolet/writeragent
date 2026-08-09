@@ -80,17 +80,6 @@ def _is_model_id_associated_with_other_provider(model_id: str, current_provider:
     return is_known_elsewhere and not is_known_here
 
 
-def _model_known_for_provider(model_id: str, provider: str | None) -> bool:
-    if not model_id or not provider:
-        return False
-    for m in DEFAULT_MODELS:
-        ids = m.get("ids", {})
-        mid = ids.get(provider)
-        if mid and _catalog_mid_matches(model_id, str(mid), provider if provider == "openrouter" else None):
-            return True
-    return False
-
-
 def _is_incompatible_model_for_provider(model_id: str, provider: str | None) -> bool:
     """True when model_id should not appear on this provider's combobox."""
     if not model_id or not provider:
@@ -253,7 +242,8 @@ def populate_combobox_with_lru(
     fetch_succeeded = False
     to_show: list[str] = []
     if not auth_blocked:
-        lru_clean = [m for m in lru if not _is_model_combobox_placeholder(str(m))]
+        # get_config LRU values are JSON-shaped; normalize to str ids for the filter.
+        lru_clean = [str(m) for m in lru if not _is_model_combobox_placeholder(str(m))]
         to_show = _filter_models_for_provider(lru_clean, provider)
 
         # We do NOT inline-fetch for known massive providers (openrouter, together).
@@ -348,10 +338,9 @@ def update_lru_history(val, lru_key, endpoint, max_items=None):
         return
 
     scoped_key = f"{lru_key}@{endpoint}" if endpoint else lru_key
-    lru = get_config(scoped_key)
-    if not isinstance(lru, list):
-        lru = []
-    lru = list(lru)
+    lru_raw = get_config(scoped_key)
+    # LRU entries are model id strings; get_config is JSON-shaped so normalize explicitly.
+    lru: list[str] = [str(m) for m in lru_raw] if isinstance(lru_raw, list) else []
     if val_str in lru:
         lru.remove(val_str)
     lru.insert(0, val_str)

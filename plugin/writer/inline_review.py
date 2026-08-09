@@ -310,7 +310,7 @@ def agent_self_resolution_block_reason(model: Any) -> str | None:
     return None
 
 
-def _foreign_redline_ids(model: Any) -> tuple[set, bool]:
+def _foreign_redline_ids(model: Any) -> tuple[set, bool]:  # pyright: ignore[reportUnusedFunction]  # used by inline review UNO/guard tests
     """``(identifiers of non-agent redlines, reliable)``. The identifiers are the user's OWN tracked
     changes (plus any we can't classify, counted as foreign). ``reliable`` is False when the snapshot
     is INCOMPLETE -- the enumeration failed, a foreign redline's identifier couldn't be read, or the
@@ -479,7 +479,7 @@ def goto_adjacent_agent_change(model: Any, forward: bool = True) -> str | None:
         # Next/Previous would step away from a change the user didn't actually select.
         sel_idx = None
         if not cur_collapsed:
-            for i, (tok, left, right) in enumerate(items):
+            for i, (_tok, left, right) in enumerate(items):
                 try:
                     if (text.compareRegionStarts(cur_start, left) == 0
                             and cur_end is not None
@@ -491,7 +491,7 @@ def goto_adjacent_agent_change(model: Any, forward: bool = True) -> str | None:
         if sel_idx is not None:
             chosen_idx = (sel_idx + 1) % n if forward else (sel_idx - 1) % n
         elif forward:
-            for i, (tok, left, right) in enumerate(items):
+            for i, (_tok, left, right) in enumerate(items):
                 try:
                     if text.compareRegionStarts(cur_start, right) == 1:  # caret before this change's end
                         chosen_idx = i

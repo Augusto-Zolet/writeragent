@@ -449,9 +449,9 @@ This section should guide actual work and triage.
 
 Use this checklist for robustness-oriented changes:
 
-- [ ] `make check` passes
+- [ ] `make typecheck` passes
 - [ ] `make typecheck` passes when the change is type-sensitive
-- [ ] `make test` passes when the change affects behavior broadly enough to justify it
+- [ ] Tests for the specific files modified pass (run full `make test` ONLY IF making large refactors or cross-cutting changes)
 - [ ] New fallback behavior has a focused regression test when practical
 - [ ] Retry behavior has clear bounds and does not ignore user stop/cancel
 - [ ] User-visible degraded paths return a clear message

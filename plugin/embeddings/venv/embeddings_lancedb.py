@@ -10,7 +10,6 @@ Requires the user to have `pip install lancedb` in their Python venv.
 
 from __future__ import annotations
 
-import json
 import logging
 import time
 from pathlib import Path

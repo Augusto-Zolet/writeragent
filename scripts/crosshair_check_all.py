@@ -4,15 +4,28 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Discover ``@deal.`` modules under ``plugin/`` and run CrossHair check (multi-hour OK).
+"""Discover ``@deal.`` modules under ``plugin/`` and run CrossHair check (budgeted).
 
 Runs **one file at a time** so a CrossHair engine crash in one module does not abort the rest.
 Errors are printed live and reprinted in a final ``ERRORS TO FIX`` / failed-module summary.
 
+Two presets only (same numbers as cover-all; no per-flag budget overrides):
+
+- **regular** (default): ``--max_uninteresting_iterations=25`` and
+  ``--per_condition_timeout=5`` (breadth over depth), plus a hard **120s**
+  per-module wall kill so no file dominates the sweep.
+- **deep** (``--deep``): ``--max_uninteresting_iterations=200``, no per-condition
+  timeout and no wall — hour-scale exploration (CrossHair's "hundreds" guidance).
+
+Wall timeout is exit 0 / not a sweep failure (budget exhaustion). Contract
+``: error:`` lines and engine crashes still fail the sweep.
+
 Usage::
 
     make crosshair-check-all
+    make crosshair-check-all-deep
     python scripts/crosshair_check_all.py
+    python scripts/crosshair_check_all.py --deep
     python scripts/crosshair_check_all.py --list
     python scripts/crosshair_check_all.py plugin/scripting/payload_codec.py
 """
@@ -21,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -30,23 +44,74 @@ if str(_REPO_ROOT) not in sys.path:
 from scripts.crosshair_stream import _TeeTextIO, discover_deal_plugin_files, run_crosshair
 
 DEFAULT_LOG = Path("build/crosshair-check-all.log")
+# Regular: short per-condition slices so many callables get poked inside the wall.
+REGULAR_MAX_UNINTERESTING = 25
+REGULAR_PER_CONDITION_TIMEOUT_SEC = 5
+# Hard stop per module in regular mode (backstop; soft bounds aim to finish earlier).
+REGULAR_MODULE_WALL_TIMEOUT_SEC = 120
+# Deep: CrossHair "hundreds" for multi-hour runs; iteration budget is the stop (no timeout).
+DEEP_MAX_UNINTERESTING = 200
+# Regular only: payload_codec has many contracts; same 5s slice, fewer iters.
+PAYLOAD_CODEC_REL = "plugin/scripting/payload_codec.py"
+PAYLOAD_CODEC_REGULAR_MAX_UNINTERESTING = 5
+PAYLOAD_CODEC_REGULAR_PER_CONDITION_TIMEOUT_SEC = 5
 
 # Modules where CrossHair crashes (CrossHairInternal / UNO proxies / symbolic json.loads)
-# rather than finding a contract counterexample. @deal remains for runtime; check-all skips
-# them so the full sweep stays useful. Pass an explicit path to force analysis.
-CROSSHAIR_CHECK_ALL_SKIP: frozenset[str] = frozenset(
-    {
-        "plugin/chatbot/memory.py",  # safe_json_loads / symbolic str → CrossHairInternal
-        "plugin/framework/appearance.py",  # UNO StyleSettings / hasattr under symbolic objects
-        "plugin/framework/json_utils.py",  # symbolic json.loads → CrossHairInternal
-        "plugin/framework/errors.py",  # engine Traceback on error/JSON formatting surface
-        "plugin/mcp/wire_types.py",  # engine Traceback only
-    }
-)
+# rather than finding a contract counterexample. Prefer ``# crosshair: off`` on the
+# hostile callable (and/or a ``sys.modules`` CrossHair shim) over module skips.
+# Kept empty: cover-all / check-all re-enable every @deal. module.
+CROSSHAIR_CHECK_ALL_SKIP: frozenset[str] = frozenset()
+
+
+@dataclass(frozen=True)
+class CheckBudget:
+    """Resolved check-all preset (regular or deep)."""
+
+    mode: str  # "regular" | "deep"
+    max_uninteresting: int
+    per_condition_timeout: int | None  # None = omit flag (deep)
+
+
+def resolve_check_budget(*, deep: bool) -> CheckBudget:
+    """Map --deep to CrossHair bound flags (only two presets)."""
+    if deep:
+        return CheckBudget(
+            mode="deep",
+            max_uninteresting=DEEP_MAX_UNINTERESTING,
+            per_condition_timeout=None,
+        )
+    return CheckBudget(
+        mode="regular",
+        max_uninteresting=REGULAR_MAX_UNINTERESTING,
+        per_condition_timeout=REGULAR_PER_CONDITION_TIMEOUT_SEC,
+    )
 
 
 def _posix_rel(path: Path) -> str:
     return path.as_posix()
+
+
+def _schedule_key(path: Path) -> str:
+    """Map a path to ``plugin/...`` form even under abs --plugin-root."""
+    rel = _posix_rel(path)
+    marker = "/plugin/"
+    idx = rel.rfind(marker)
+    if idx >= 0:
+        return "plugin/" + rel[idx + len(marker) :]
+    if rel.startswith("plugin/"):
+        return rel
+    return rel
+
+
+def module_check_bounds(budget: CheckBudget, rel: str) -> tuple[int, int | None]:
+    """Per-module CrossHair bounds; regular mode tightens payload_codec only."""
+    key = rel if rel.startswith("plugin/") else _schedule_key(Path(rel))
+    if budget.mode == "regular" and key == PAYLOAD_CODEC_REL:
+        return (
+            PAYLOAD_CODEC_REGULAR_MAX_UNINTERESTING,
+            PAYLOAD_CODEC_REGULAR_PER_CONDITION_TIMEOUT_SEC,
+        )
+    return budget.max_uninteresting, budget.per_condition_timeout
 
 
 def filter_check_all_targets(files: list[Path], *, apply_skip: bool) -> tuple[list[Path], list[str]]:
@@ -87,6 +152,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("-q", "--quiet", action="store_true", help="Only errors/fatals and final banner")
     parser.add_argument("--raw", action="store_true", help="Also print suppressed CrossHair -v spam")
     parser.add_argument(
+        "--deep",
+        action="store_true",
+        help=(
+            f"Deep mode: max_uninteresting_iterations={DEEP_MAX_UNINTERESTING}, "
+            "no per_condition_timeout (default regular: "
+            f"{REGULAR_MAX_UNINTERESTING} iters / {REGULAR_PER_CONDITION_TIMEOUT_SEC}s)"
+        ),
+    )
+    parser.add_argument(
         "--fail-fast",
         action="store_true",
         help="Stop after the first module that fails (default: continue and summarize)",
@@ -97,6 +171,8 @@ def main(argv: list[str] | None = None) -> int:
         help="Also analyze CROSSHAIR_CHECK_ALL_SKIP modules (engine-crash hosts)",
     )
     args = parser.parse_args(argv)
+
+    budget = resolve_check_budget(deep=args.deep)
 
     explicit = bool(args.targets)
     if args.targets:
@@ -115,7 +191,16 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     rels = [_posix_rel(p) for p in files]
-    print(f"CrossHair check-all: {len(rels)} module(s), one CrossHair process per file", flush=True)
+    timeout_desc = (
+        "none" if budget.per_condition_timeout is None else f"{budget.per_condition_timeout}s"
+    )
+    wall_desc = f"{REGULAR_MODULE_WALL_TIMEOUT_SEC}s" if budget.mode == "regular" else "none"
+    print(
+        f"CrossHair check-all [{budget.mode}]: {len(rels)} module(s), one CrossHair process per file "
+        f"(max_uninteresting={budget.max_uninteresting}, "
+        f"per_condition_timeout={timeout_desc}, module_wall={wall_desc})",
+        flush=True,
+    )
     for rel in rels:
         print(f"  {rel}", flush=True)
     if skipped:
@@ -129,7 +214,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     args.log.parent.mkdir(parents=True, exist_ok=True)
-    print(f"Logging to {args.log} (no per_condition_timeout; may take hours)", flush=True)
+    print(f"Logging to {args.log}", flush=True)
 
     failed: list[tuple[str, list[str]]] = []
     with args.log.open("w", encoding="utf-8") as log_fp:
@@ -138,8 +223,25 @@ def main(argv: list[str] | None = None) -> int:
             rel = str(path)
             tee.write(f"\n######## [{index}/{len(files)}] {rel} ########\n")
             tee.flush()
-            ch_args = ["-v", "--report_all", "--analysis_kind=deal", rel]
-            code, stats = run_crosshair("check", ch_args, "check", args.raw, args.quiet, out=tee)
+            max_uninteresting, per_condition_timeout = module_check_bounds(budget, rel)
+            ch_args = [
+                "-v",
+                f"--max_uninteresting_iterations={max_uninteresting}",
+            ]
+            if per_condition_timeout is not None:
+                ch_args.append(f"--per_condition_timeout={per_condition_timeout}")
+            ch_args.extend(["--report_all", "--analysis_kind=deal", rel])
+            wall = float(REGULAR_MODULE_WALL_TIMEOUT_SEC) if budget.mode == "regular" else None
+            code, stats = run_crosshair(
+                "check",
+                ch_args,
+                "check",
+                args.raw,
+                args.quiet,
+                out=tee,
+                label=rel,
+                timeout_sec=wall,
+            )
             if code != 0:
                 details = list(stats.error_details or [])
                 failed.append((rel, details))

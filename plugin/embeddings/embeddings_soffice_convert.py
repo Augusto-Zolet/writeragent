@@ -65,11 +65,6 @@ def resolve_soffice_executable() -> str | None:
     return None
 
 
-def _profile_url(profile_dir: Path) -> str:
-    profile_dir.mkdir(parents=True, exist_ok=True)
-    return profile_dir.resolve().as_uri()
-
-
 def convert_legacy_to_odf(source_path: str, *, timeout_sec: int = 120) -> Path | None:
     """Convert one legacy Office file to a temp ODF sibling; caller must delete the file."""
     ext = Path(source_path).suffix.lower()
