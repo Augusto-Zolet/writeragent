@@ -32,3 +32,9 @@ def test_librepy_bundle_includes_ast_stmt_edit():
     """excel_py_convert/to_dag imports this; must ship in LibrePy.oxt allowlist."""
     paths = collect_librepy_plugin_paths(str(_REPO_ROOT))
     assert "plugin/framework/ast_stmt_edit.py" in paths
+
+
+def test_librepy_bundle_includes_deal_shim():
+    """constants and other framework modules import deal via deal_shim; must ship in LibrePy.oxt."""
+    paths = collect_librepy_plugin_paths(str(_REPO_ROOT))
+    assert "plugin/framework/deal_shim.py" in paths

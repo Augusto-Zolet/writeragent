@@ -112,3 +112,6 @@ def test_collect_libreharper_plugin_paths() -> None:
     assert "plugin/doc/udprops.py" in paths
     assert not any(p.endswith("grammar_worker_llm.py") for p in paths)
     assert not any("llm_client" in p for p in paths)
+    # constants and other framework modules import deal via deal_shim
+    assert "plugin/framework/deal_shim.py" in paths
+
