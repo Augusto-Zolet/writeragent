@@ -3,7 +3,6 @@
 from unittest.mock import MagicMock, patch
 
 from plugin.chatbot.extension_update_check import (
-    EXPECTED_EXTENSION_ID,
     UPDATE_CHECK_PROFILES,
     get_update_check_profile,
     parse_update_xml,
@@ -13,6 +12,8 @@ from plugin.chatbot.extension_update_check import (
     schedule_extension_update_check_once,
     version_tuple,
 )
+
+_WRITERAGENT_PROFILE = UPDATE_CHECK_PROFILES["org.extension.writeragent"]
 
 SAMPLE_XML = b"""<?xml version="1.0" encoding="UTF-8"?>
 <description xmlns="http://openoffice.org/extensions/description/2006"
@@ -75,7 +76,7 @@ def test_remote_is_newer():
 
 def test_parse_update_xml_sample():
     ident, ver = parse_update_xml(SAMPLE_XML)
-    assert ident == EXPECTED_EXTENSION_ID
+    assert ident == _WRITERAGENT_PROFILE.extension_id
     assert ver == "0.7.1"
 
 
@@ -100,7 +101,7 @@ def test_parse_update_xml_wrong_identifier_still_parses():
 def test_identifier_mismatch_means_ignore_for_update_signal():
     """Caller must reject when ident != expected profile extension id."""
     ident, ver = parse_update_xml(WRONG_ID_XML)
-    assert ident != EXPECTED_EXTENSION_ID
+    assert ident != _WRITERAGENT_PROFILE.extension_id
     # would not treat as update even though remote > local
     assert remote_is_newer(ver, "0.0.1") is True
 

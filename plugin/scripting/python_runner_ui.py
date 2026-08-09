@@ -18,14 +18,13 @@ from plugin.chatbot.dialogs import load_writeragent_dialog_detail, msgbox, set_c
 from plugin.chatbot.dialogs import show_text_input_dialog
 from plugin.framework.worker_pool import run_in_background
 from plugin.scripting.document_scripts import (
-    SCRIPT_ORIGIN_DOCUMENT,
-    SCRIPT_ORIGIN_USER,
     attach_document_script,
     build_xdl_script_picker_state,
     delete_document_script,
     resolve_script_picker_entry,
     save_document_script,
 )
+from plugin.scripting.domain_registry import SCRIPT_ORIGIN_DOCUMENT, SCRIPT_ORIGIN_USER
 from plugin.scripting.venv_worker import warm_venv_worker
 
 log = logging.getLogger("writeragent.scripting")

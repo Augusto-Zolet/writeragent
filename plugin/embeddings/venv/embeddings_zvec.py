@@ -40,7 +40,7 @@ except Exception:
     _zvec = None  # type: ignore[assignment]
     HAS_ZVEC = False
 
-# Re-exports / aliases for code that wants the module object (guarded by HAS_ZVEC).
+# Optional dependency handle (module object when HAS_ZVEC, else None).
 zvec = _zvec  # type: ignore[assignment]
 
 

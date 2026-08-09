@@ -18,7 +18,7 @@
 """Operations for Calc (Extend/Edit Selection)."""
 
 from plugin.framework.config import get_config_int, get_config_str
-from plugin.framework.client.errors import format_error_message
+from plugin.framework.errors import format_error_message
 from plugin.chatbot.dialogs import msgbox
 from plugin.framework.i18n import _
 from plugin.chatbot.selection import StreamCompletionTask, create_validated_client, prompt_for_edit_instructions, stream_completion_tasks

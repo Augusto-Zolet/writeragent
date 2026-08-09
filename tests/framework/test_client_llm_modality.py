@@ -3,10 +3,10 @@ import socket
 from unittest.mock import patch, MagicMock, mock_open
 import ssl
 from plugin.framework.client.llm_client import LlmClient
+from plugin.framework.errors import format_error_message
 from plugin.framework.client.errors import (
     is_audio_unsupported_error,
-    format_error_message,
-    _format_http_error_response
+    _format_http_error_response,
 )
 
 def test_is_audio_unsupported_error():

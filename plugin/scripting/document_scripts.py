@@ -22,17 +22,7 @@ from plugin.framework.errors import UnoObjectError
 from plugin.framework.i18n import _
 from plugin.framework.json_utils import safe_json_loads
 from plugin.framework.uno_context import get_desktop
-from plugin.scripting.session_manager import calc_init_session_id
-
-log = logging.getLogger(__name__)
-
-DOCUMENT_SCRIPTS_UDPROP = "WriterAgentDocumentPythonScripts"
-_MAX_DOCUMENT_SCRIPTS_BYTES = 900_000
-_SOFT_WARN_SCRIPT_BYTES = 200_000
-_ENVELOPE_VERSION = 1
-
-# Origins / display prefixes live in domain_registry; re-export for stable public imports.
-from plugin.scripting.domain_registry import (  # noqa: E402
+from plugin.scripting.domain_registry import (
     ANALYSIS_SCRIPT_DISPLAY_PREFIX,
     DOC_SCRIPT_DISPLAY_PREFIX,
     FORECAST_SCRIPT_DISPLAY_PREFIX,
@@ -49,6 +39,14 @@ from plugin.scripting.domain_registry import (  # noqa: E402
     parse_picker_display_name,
     picker_display_name,
 )
+from plugin.scripting.session_manager import calc_init_session_id
+
+log = logging.getLogger(__name__)
+
+DOCUMENT_SCRIPTS_UDPROP = "WriterAgentDocumentPythonScripts"
+_MAX_DOCUMENT_SCRIPTS_BYTES = 900_000
+_SOFT_WARN_SCRIPT_BYTES = 200_000
+_ENVELOPE_VERSION = 1
 
 
 def _normalize_doc_url(url: Any) -> str:

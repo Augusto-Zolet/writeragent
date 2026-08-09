@@ -12,7 +12,8 @@ from plugin.framework.constants import APP_REFERER, APP_TITLE, USER_AGENT
 from plugin.framework.errors import NetworkError
 from .ssl_helpers import get_verified_ssl_context, get_unverified_ssl_context, _is_certificate_verify_error
 from .provider_detection import is_local_host
-from .errors import _format_http_error_response, format_error_message
+from plugin.framework.errors import format_error_message
+from .errors import _format_http_error_response
 
 log = logging.getLogger(__name__)
 

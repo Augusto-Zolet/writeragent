@@ -454,7 +454,7 @@ class PersistentEditor:
             script_code = _script_code_from_message(msg)
 
             def _handle_save_named() -> None:
-                from plugin.scripting.document_scripts import SCRIPT_ORIGIN_DOCUMENT
+                from plugin.scripting.domain_registry import SCRIPT_ORIGIN_DOCUMENT
 
                 origin = str(msg.get("origin", "") or "").strip()
                 if not name:
@@ -532,7 +532,8 @@ class PersistentEditor:
             origin = str(msg.get("origin", "") or "").strip()
 
             def _handle_delete() -> None:
-                from plugin.scripting.document_scripts import SCRIPT_ORIGIN_DOCUMENT, delete_document_script
+                from plugin.scripting.document_scripts import delete_document_script
+                from plugin.scripting.domain_registry import SCRIPT_ORIGIN_DOCUMENT
 
                 if not name:
                     self._send_scripts_list(status_error_text=_("Script name cannot be empty."))

@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from plugin.scripting.helper_domain import HelperScriptMeta, header_prefix, parse_helper_script_header
-from plugin.vision.venv.vision import HELPER_NAMES
+from plugin.vision.vision_common import HELPER_NAMES
 
 VISION_HEADER_PREFIX = header_prefix("vision")
 

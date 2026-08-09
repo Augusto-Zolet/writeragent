@@ -682,16 +682,6 @@ class WriterStreamedAppendSession:
             self._compound_undo.close()
 
 
-def _user_defined_property_exists(props, name) -> bool:  # pyright: ignore[reportUnusedFunction]  # compat re-export for callers importing from document_helpers
-    """Return True iff ``name`` is already defined on ``UserDefinedProperties``.
-
-    Delegates to :mod:`plugin.doc.udprops` (kept here for callers that imported this name).
-    """
-    from plugin.doc.udprops import _user_defined_property_exists as _exists
-
-    return _exists(props, name)
-
-
 def get_document_property(model, name, default=None):
     """Get a custom document property from the model."""
     from plugin.doc.udprops import get_document_property as _get

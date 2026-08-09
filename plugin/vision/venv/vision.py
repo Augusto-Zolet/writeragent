@@ -22,8 +22,7 @@ from plugin.vision.vision_common import (
 
 log = logging.getLogger(__name__)
 
-# Re-export for templates and tests.
-__all__ = ["HELPER_NAMES", "run_vision"]
+__all__ = ["run_vision"]
 
 
 def _run_paddle_helper(helper: str, image: Any, params: dict[str, Any]) -> dict[str, Any]:

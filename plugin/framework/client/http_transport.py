@@ -14,7 +14,7 @@ from typing import Any, Callable, Literal
 from plugin.framework.errors import NetworkError
 from plugin.framework.url_utils import get_url_hostname
 
-from .errors import format_error_message
+from plugin.framework.errors import format_error_message
 from .request_controls import LocalHttpsCertificateFallback, RequestPacer
 from .ssl_helpers import get_unverified_ssl_context, get_verified_ssl_context
 

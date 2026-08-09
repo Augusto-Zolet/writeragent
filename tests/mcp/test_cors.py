@@ -20,7 +20,7 @@ from plugin.mcp.cors import (
     set_allow_private_origins,
     set_extra_allowed_origins,
 )
-from plugin.mcp.mcp_protocol import MCP_PROTOCOL_VERSION
+from plugin.mcp.wire_types import MCP_PROTOCOL_VERSION
 
 
 def setup_function():

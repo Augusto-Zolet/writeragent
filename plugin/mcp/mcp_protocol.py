@@ -40,7 +40,7 @@ from plugin.mcp import wire_types
 
 log = logging.getLogger("writeragent.mcp.protocol")
 
-# Re-export for callers (e.g. tests) — canonical value lives in wire_types.
+# Local binding for headers/handlers; canonical constant is wire_types.MCP_PROTOCOL_VERSION.
 MCP_PROTOCOL_VERSION = wire_types.MCP_PROTOCOL_VERSION
 _SUPPORTED_HTTP_PROTOCOL_VERSIONS = frozenset({MCP_PROTOCOL_VERSION, "2024-11-05"})
 

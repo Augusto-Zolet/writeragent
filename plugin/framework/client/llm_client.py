@@ -69,7 +69,8 @@ from plugin.framework.client.auth import resolve_auth_for_config, build_auth_hea
 from plugin.framework.errors import NetworkError
 from plugin.framework.url_utils import get_api_version_suffix
 
-from .errors import format_error_message, _format_http_error_response, append_zai_unknown_model_hint
+from plugin.framework.errors import format_error_message
+from .errors import _format_http_error_response, append_zai_unknown_model_hint
 from .http_transport import CONNECTION_ERRORS, LlmHttpTransport
 from .stream_normalizer import (
     iterate_sse,

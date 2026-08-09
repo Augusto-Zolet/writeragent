@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from plugin.scripting.helper_domain import parse_run_import_call_spec
-from plugin.vision.venv.vision import HELPER_NAMES
+from plugin.vision.vision_common import HELPER_NAMES
 from plugin.vision.vision_templates import (
     get_vision_script_templates,
     parse_vision_script_header,

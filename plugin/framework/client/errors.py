@@ -4,27 +4,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Client / LLM-wire specific error helpers.
 
-This module is intentionally a thin adapter + specialized helpers after the
-2026 framework error formatting centralization:
-
-- format_error_message is now re-exported from (and implemented in)
-  plugin.framework.errors as the single i18n mapper for the whole codebase.
-- _format_http_error_response and is_audio_unsupported_error stay here
-  because they are tightly coupled to HTTP response bodies and LLM modality
-  detection (wire concerns that do not belong in the core framework layer).
-- format_error_for_display is a convenience that already delegated to the
-  central payload formatter; it remains here for the public client API surface.
-
-All call sites inside client/ (llm_client, requests) continue to import from
-here so the public names and re-exports in client/__init__.py are unchanged.
+Wire-specific formatting (HTTP response bodies, audio modality heuristics) and
+``format_error_for_display`` live here. The cross-cutting i18n mapper is
+:func:`plugin.framework.errors.format_error_message` — import it from there.
 """
 
 from plugin.framework.i18n import _
-
-# Re-export the single central i18n mapper so existing imports from
-# plugin.framework.client.errors (and the re-exports in client/__init__.py)
-# keep working without any behavior change.
-from plugin.framework.errors import format_error_message  # noqa: F401
+from plugin.framework.errors import format_error_message
 
 _ZAI_CODING_PLAN_ENDPOINT = "https://api.z.ai/api/coding/paas/v4"
 

@@ -7,10 +7,7 @@
 """Shared HTTP client helpers and ``LlmClient``."""
 
 from .errors import (
-    # format_error_message is re-exported from the central implementation in
-    # plugin.framework.errors (see 2026 error formatting centralization).
     format_error_for_display,
-    format_error_message,
     is_audio_unsupported_error,
 )
 
@@ -43,7 +40,6 @@ __all__ = [
     "LlmClient",
     "OPENROUTER_CHAT_EXTRA_BLOCKLIST",
     "format_error_for_display",
-    "format_error_message",
     "get_provider_from_endpoint",
     "is_audio_unsupported_error",
     "is_local_host",

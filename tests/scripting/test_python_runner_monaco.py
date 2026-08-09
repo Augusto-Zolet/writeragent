@@ -435,7 +435,7 @@ def test_show_python_input_dialog_save_button():
 
 def test_persistent_editor_dispatches_script_actions():
     from plugin.scripting.editor_host import PersistentEditor
-    from plugin.scripting.document_scripts import SCRIPT_ORIGIN_DOCUMENT, SCRIPT_ORIGIN_USER
+    from plugin.scripting.domain_registry import SCRIPT_ORIGIN_DOCUMENT, SCRIPT_ORIGIN_USER
 
     pe = PersistentEditor()
     pe.ctx = MagicMock()

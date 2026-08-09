@@ -24,11 +24,6 @@ from typing import Any
 
 log = logging.getLogger(__name__)
 
-# Backward-compatible aliases (WriterAgent profile); tests and callers may import these.
-UPDATE_XML_URL = "https://raw.githubusercontent.com/KeithCu/writeragent/refs/heads/master/update.xml"
-CONFIG_KEY_EXTENSION_UPDATE_CHECK_EPOCH = "extension_update_check_epoch"
-EXPECTED_EXTENSION_ID = "org.extension.writeragent"
-
 WEEK_SECONDS = 7 * 24 * 3600
 _FETCH_TIMEOUT = 15
 _GITHUB_RAW = "https://raw.githubusercontent.com/KeithCu/writeragent/refs/heads/master"

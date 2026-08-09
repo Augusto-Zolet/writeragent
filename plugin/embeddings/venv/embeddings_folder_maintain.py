@@ -451,7 +451,7 @@ def maintain_folder_index(
     heartbeat_fn: Callable[[dict[str, Any]], None] | None = None,
     search_mode: str = "embeddings",
 ) -> dict[str, Any]:
-    """Backward-compatible alias for maintain_folder_corpus."""
+    """Public helper/RPC name; implements via :func:`maintain_folder_corpus`."""
     return maintain_folder_corpus(
         listing_root,
         embedding_model=embedding_model,

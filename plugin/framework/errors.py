@@ -143,8 +143,8 @@ def format_error_payload(e: Exception) -> dict[str, Any]:
 # string used in logs, error messages, and as a fallback in display helpers.
 #
 # Wire-specific formatting (full HTTP response bodies, audio modality heuristics)
-# remains in client/errors.py as a thin adapter + specialized helpers.
-# See client/errors.py for the rationale and the thin re-exports.
+# remains in client/errors.py. Import format_error_message from this module
+# (not from client.errors).
 
 @deal.pre(lambda e: isinstance(e, Exception))
 @deal.post(lambda result: isinstance(result, str))
@@ -364,7 +364,8 @@ def safe_call(fn, context_name, *args, **kwargs):
         raise UnoObjectError(f"{context_name} failed: {e}", context={"operation": context_name, "type": e_name}) from e
 
 
-# Re-export base/json helpers so callers can use `from plugin.framework.errors import ...` (public API).
+# Exception types and error helpers live here. safe_json_loads / safe_python_literal_eval
+# are implemented in json_utils and re-exported as stable public imports (intentional).
 __all__ = [
     "AgentParsingError",
     "ConfigError",

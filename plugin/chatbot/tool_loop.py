@@ -25,7 +25,8 @@ if TYPE_CHECKING:
 
 from plugin.framework.async_stream import run_stream_drain_loop, StreamQueueKind, BatchingStreamQueue
 from plugin.framework.logging import agent_log, update_activity_state
-from plugin.framework.client.errors import format_error_message, is_audio_unsupported_error
+from plugin.framework.errors import format_error_message
+from plugin.framework.client.errors import is_audio_unsupported_error
 from plugin.framework.config import (
     get_api_config,
     get_config,
