@@ -43,7 +43,7 @@ Unlike proprietary office suites that lock you into a single cloud provider and 
 
 ### Integrations
 
-- **MCP server** — Enable in Settings → Http; endpoint `http://localhost:8765/mcp` for Cursor, Claude Desktop, LM Studio, or custom agents. Prefer a `document_url` argument on each tool call (or legacy `X-Document-URL` header) so clients do not edit the wrong window when several docs are open; discover targets with `list_open_documents`. [MCP protocol](docs/mcp-protocol.md)
+- **MCP server** — Enable in Settings → Http; endpoint `http://localhost:18765/mcp` (default port **18765**) for Cursor, Claude Desktop, LM Studio, or custom agents. Prefer a `document_url` argument on each tool call (or legacy `X-Document-URL` header) so clients do not edit the wrong window when several docs are open; discover targets with `list_open_documents`. [MCP protocol](docs/mcp-protocol.md)
 - **External agent backends** — Under **Settings → Agent backends**, swap built-in chat for [Hermes](https://github.com/NousResearch/hermes-agent) or [Grok Build](https://zed.dev/acp/agent/grok-build) via ACP, with approve/reject dialogs for tool calls. [Cursor plugin](https://github.com/KeithCu/cursor-libreoffice) · [LO skill](https://github.com/KeithCu/libreoffice-skill)
 
 Full catalog with doc links: **[docs/features.md](docs/features.md)**.
