@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-07 22:25-0400\n"
+"POT-Creation-Date: 2026-08-10 17:16-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -362,6 +362,11 @@ msgid ""
 "Could not preserve this cell's PY formula arguments (e.g. data ranges). Edit"
 " the formula in Calc, or use a quoted code string like =PY(\"code\"; "
 "A1:B10)."
+msgstr ""
+
+#: plugin/calc/python/editor.py
+#, python-format
+msgid "Could not rewrite xl() range literals into =PY data arguments: %s"
 msgstr ""
 
 #: plugin/calc/python/editor.py plugin/scripting/editor_ui_strings.py
@@ -886,8 +891,7 @@ msgstr ""
 msgid "Proceed with this action?"
 msgstr ""
 
-#: plugin/chatbot/dialogs.py plugin/chatbot/document_research_chat.py
-#: plugin/chatbot/web_research_chat.py
+#: plugin/chatbot/dialogs.py plugin/chatbot/web_research_chat.py
 #, python-format
 msgid "Tool: %s"
 msgstr ""
@@ -906,11 +910,6 @@ msgstr ""
 
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
-msgstr ""
-
-#: plugin/chatbot/document_research_chat.py
-#, python-format
-msgid "Opening '%s' for read-only access."
 msgstr ""
 
 #: plugin/chatbot/chat_sidebar_mode.py plugin/xdl_strings.py
@@ -1032,15 +1031,8 @@ msgid "Research cache saved (key: %s)"
 msgstr ""
 
 #: plugin/chatbot/web_research_chat.py
-msgid "[Web research]"
-msgstr ""
-
-#: plugin/chatbot/web_research_chat.py
-msgid "Research request:"
-msgstr ""
-
-#: plugin/chatbot/web_research_chat.py
-msgid "Context for the research agent:"
+#, python-format
+msgid "Opening '%s' for read-only access."
 msgstr ""
 
 #: plugin/chatbot/web_research.py
@@ -1202,8 +1194,8 @@ msgstr ""
 #: plugin/chatbot/extension_update_check.py
 #, python-format
 msgid ""
-"A newer WriterAgent (%s) is available. Use Tools → Extension Manager to "
-"check for updates and install the latest extension."
+"A newer %(name)s (%(version)s) is available. Use Tools → Extension Manager "
+"to check for updates and install the latest extension."
 msgstr ""
 
 #: plugin/chatbot/librarian.py
@@ -1285,7 +1277,7 @@ msgid "A1:C1  or  A1:C1, C1:C5"
 msgstr ""
 
 #: plugin/scripting/editor_ui_strings.py
-msgid "Calc injects `data` and `data_list` from these range(s) at runtime."
+msgid "Calc injects `data` and `ranges` from these range(s) at runtime."
 msgstr ""
 
 #: plugin/scripting/editor_ui_strings.py
@@ -2079,11 +2071,39 @@ msgid "The image was removed during OCR insert."
 msgstr ""
 
 #: plugin/mcp/__init__.py
+msgid "MCP server failed to start"
+msgstr ""
+
+#: plugin/mcp/__init__.py
+msgid "Check writeragent_debug.log in your LibreOffice user config folder"
+msgstr ""
+
+#: plugin/mcp/__init__.py
 msgid "Stop MCP Server"
 msgstr ""
 
 #: plugin/mcp/__init__.py
 msgid "Start MCP Server"
+msgstr ""
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public tunnel via {0} (no auth)"
+msgstr ""
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public tunnel via {0} failed: {1}"
+msgstr ""
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public tunnel via {0} starting…"
+msgstr ""
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public tunnel via {0} not running (is the provider binary installed?)"
 msgstr ""
 
 #: plugin/mcp/__init__.py
@@ -2095,11 +2115,13 @@ msgid "MCP server started"
 msgstr ""
 
 #: plugin/mcp/__init__.py
-msgid "MCP server failed to start"
+#, python-brace-format
+msgid "Public tunnel via {0}"
 msgstr ""
 
 #: plugin/mcp/__init__.py
-msgid "Check writeragent_debug.log in your LibreOffice user config folder"
+#, python-brace-format
+msgid "Public tunnel via {0} starting… use MCP Server Status when ready."
 msgstr ""
 
 #: plugin/mcp/__init__.py
@@ -2565,6 +2587,12 @@ msgstr ""
 msgid "Grok Build (ACP)"
 msgstr ""
 
+msgid "Gemini CLI (ACP)"
+msgstr ""
+
+msgid "OpenCode (ACP)"
+msgstr ""
+
 msgid "Path / URL"
 msgstr ""
 
@@ -2857,7 +2885,7 @@ msgstr ""
 msgid "MCP Port"
 msgstr ""
 
-msgid "MCP Tool Exposure"
+msgid "Tool Exposure"
 msgstr ""
 
 msgid ""
@@ -2876,6 +2904,46 @@ msgid "Direct — list all tools"
 msgstr ""
 
 msgid "Direct — discovery (find_tools)"
+msgstr ""
+
+msgid "Public tunnel"
+msgstr ""
+
+msgid "Expose via public tunnel"
+msgstr ""
+
+msgid ""
+"Requires the selected provider binary on PATH (cloudflared, bore, ngrok, or "
+"tailscale). MCP has no auth — anyone with the public URL can call tools. See"
+" MCP Server Status for the public /mcp URL when ready."
+msgstr ""
+
+msgid "Provider"
+msgstr ""
+
+msgid ""
+"Cloudflare quick tunnel (default), Bore, Ngrok, or Tailscale Funnel (must "
+"already be logged in)."
+msgstr ""
+
+msgid "Cloudflare"
+msgstr ""
+
+msgid "Bore"
+msgstr ""
+
+msgid "Ngrok"
+msgstr ""
+
+msgid "Tailscale"
+msgstr ""
+
+msgid "Provider config"
+msgstr ""
+
+msgid ""
+"Ngrok authtoken; Cloudflare tunnel token; Bore server or 'server secret'. "
+"Empty = provider default / CLI config. Unused for Tailscale."
 msgstr ""
 
 msgid "Python"
@@ -2930,6 +2998,14 @@ msgstr ""
 msgid ""
 "Automatically spill multi-cell array/DataFrame results from =PYTHON() into "
 "adjacent cells."
+msgstr ""
+
+msgid "Rewrite xl() ranges"
+msgstr ""
+
+msgid ""
+"On Edit Python in Cell save, lift static xl(\"A1:…\") onto =PY data args and"
+" rewrite to data / data[i] / .to_pandas()."
 msgstr ""
 
 msgid "Convert Date/Time and Timedelta Strings"

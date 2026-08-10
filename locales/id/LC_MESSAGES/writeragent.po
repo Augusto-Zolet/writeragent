@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-08 20:53-0400\n"
+"POT-Creation-Date: 2026-08-10 17:16-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Indonesian <LL@li.org>\n"
@@ -31,8 +31,8 @@ msgstr "Menjalankan OCR lokal pada gambar yang dipilih..."
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Document research reads require specialized task delegation (USE_SUB_AGENT). "
-"Enable this in configuration."
+"Document research reads require specialized task delegation (USE_SUB_AGENT)."
+" Enable this in configuration."
 msgstr ""
 "Pembacaan riset dokumen memerlukan pendelegasian tugas khusus "
 "(USE_SUB_AGENT). Aktifkan ini di konfigurasi."
@@ -40,13 +40,13 @@ msgstr ""
 #: plugin/doc/specialized_base.py
 #, python-brace-format
 msgid ""
-"Tool call switched to '{0}'. You are in a specialized toolset mode. You must "
-"call 'specialized_workflow_finished' when done to restore the full set of "
+"Tool call switched to '{0}'. You are in a specialized toolset mode. You must"
+" call 'specialized_workflow_finished' when done to restore the full set of "
 "APIs."
 msgstr ""
 "Panggilan alat beralih ke '{0}'. Anda berada dalam mode perangkat alat "
-"khusus. Anda harus memanggil 'specialized_workflow_finished' setelah selesai "
-"untuk memulihkan rangkaian API lengkap."
+"khusus. Anda harus memanggil 'specialized_workflow_finished' setelah selesai"
+" untuk memulihkan rangkaian API lengkap."
 
 #: plugin/notebook/notebook_runner.py
 msgid "Cell execution failed."
@@ -58,8 +58,8 @@ msgstr "Menjalankan notebook hanya didukung di LibreOffice Writer."
 
 #: plugin/notebook/notebook_runner.py
 msgid ""
-"This document has no imported notebook. Use Tools → Import Jupyter Notebook… "
-"first."
+"This document has no imported notebook. Use Tools → Import Jupyter Notebook…"
+" first."
 msgstr ""
 "Dokumen ini tidak memiliki notebook yang diimpor. Gunakan Alat → Impor "
 "Jupyter Notebook… terlebih dahulu."
@@ -179,8 +179,8 @@ msgid ""
 "Cross-file search is disabled. Enable Embeddings + FTS in Settings → "
 "Embeddings."
 msgstr ""
-"Pencarian lintas file dinonaktifkan. Aktifkan Embeddings + FTS di Pengaturan "
-"→ Embeddings."
+"Pencarian lintas file dinonaktifkan. Aktifkan Embeddings + FTS di Pengaturan"
+" → Embeddings."
 
 #: plugin/embeddings/search_ui.py
 msgid "Error: "
@@ -252,7 +252,8 @@ msgstr ""
 "Pengaturan."
 
 #: plugin/framework/errors.py
-msgid "Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
+msgid ""
+"Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
 msgstr ""
 "Koneksi Ditolak. Apakah server AI lokal Anda (Ollama/LM Studio) sedang "
 "berjalan?"
@@ -287,8 +288,8 @@ msgstr "Kesalahan HTTP {0} dari Penyedia AI: {1}"
 #: plugin/framework/client/errors.py
 #, python-brace-format
 msgid ""
-" If your API key is from a GLM Coding Plan subscription, set endpoint to {0} "
-"(not the general /api/paas URL)."
+" If your API key is from a GLM Coding Plan subscription, set endpoint to {0}"
+" (not the general /api/paas URL)."
 msgstr ""
 " Jika kunci API Anda berasal dari langganan Paket Coding GLM, atur titik "
 "akhir ke {0} (bukan URL /api/paas umum)."
@@ -313,8 +314,8 @@ msgid ""
 "The model is repeating the same chunk (infinite loop). Try again or use a "
 "different model."
 msgstr ""
-"Model mengulang potongan yang sama (perulangan tak terbatas). Coba lagi atau "
-"gunakan model yang berbeda."
+"Model mengulang potongan yang sama (perulangan tak terbatas). Coba lagi atau"
+" gunakan model yang berbeda."
 
 #: plugin/framework/main_shared.py plugin/writer/math/latex_dialog.py
 #: plugin/chatbot/panel.py plugin/chatbot/external_editor.py
@@ -386,12 +387,19 @@ msgstr "Simpan skrip inisialisasi"
 
 #: plugin/calc/python/editor.py
 msgid ""
-"Could not preserve this cell's PY formula arguments (e.g. data ranges). Edit "
-"the formula in Calc, or use a quoted code string like =PY(\"code\"; A1:B10)."
+"Could not preserve this cell's PY formula arguments (e.g. data ranges). Edit"
+" the formula in Calc, or use a quoted code string like =PY(\"code\"; "
+"A1:B10)."
 msgstr ""
-"Tidak dapat mempertahankan argumen rumus PY sel ini (misalnya rentang data). "
-"Edit rumus di Calc, atau gunakan string kode dalam tanda kutip seperti "
+"Tidak dapat mempertahankan argumen rumus PY sel ini (misalnya rentang data)."
+" Edit rumus di Calc, atau gunakan string kode dalam tanda kutip seperti "
 "=PY(\"kode\"; A1:B10)."
+
+#: plugin/calc/python/editor.py
+#, python-format
+msgid "Could not rewrite xl() range literals into =PY data arguments: %s"
+msgstr ""
+"Tidak dapat menulis ulang literal rentang xl() menjadi argumen data =PY: %s"
 
 #: plugin/calc/python/editor.py plugin/scripting/editor_ui_strings.py
 msgid "Saved without =PY()."
@@ -430,17 +438,13 @@ msgstr ""
 
 #: plugin/calc/python/editor.py
 msgid ""
-"Edit Python in Cell requires the Monaco editor, which is disabled by "
-"\"scripting.force_internal_script_editor\" in writeragent.json.\n"
+"Edit Python in Cell requires the Monaco editor, which is disabled by \"scripting.force_internal_script_editor\" in writeragent.json.\n"
 "\n"
-"Set it to false and restart LibreOffice to use this command, or edit PYTHON "
-"formulas in the Calc formula bar."
+"Set it to false and restart LibreOffice to use this command, or edit PYTHON formulas in the Calc formula bar."
 msgstr ""
-"Edit Python di Sel memerlukan editor Monaco, yang dinonaktifkan oleh "
-"\"scripting.force_internal_script_editor\" di writeragent.json.\n"
+"Edit Python di Sel memerlukan editor Monaco, yang dinonaktifkan oleh \"scripting.force_internal_script_editor\" di writeragent.json.\n"
 "\n"
-"Atur ke false dan mulai ulang LibreOffice untuk menggunakan perintah ini, "
-"atau edit rumus PYTHON di bilah rumus Calc."
+"Atur ke false dan mulai ulang LibreOffice untuk menggunakan perintah ini, atau edit rumus PYTHON di bilah rumus Calc."
 
 #: plugin/calc/python/editor.py
 msgid "No Python interpreter available for the editor."
@@ -449,15 +453,13 @@ msgstr "Tidak ada interpreter Python yang tersedia untuk editor."
 #: plugin/calc/python/editor.py
 #, python-format
 msgid ""
-"Cannot import webview (pywebview) or rocher with the Python from Settings → "
-"Python:\n"
+"Cannot import webview (pywebview) or rocher with the Python from Settings → Python:\n"
 "%(exe)s\n"
 "\n"
 "In that venv run: uv pip install pywebview rocher\n"
 "(import name is webview, package name is pywebview)."
 msgstr ""
-"Tidak dapat mengimpor webview (pywebview) atau rocher dengan Python dari "
-"Pengaturan → Python:\n"
+"Tidak dapat mengimpor webview (pywebview) atau rocher dengan Python dari Pengaturan → Python:\n"
 "%(exe)s\n"
 "\n"
 "Di venv tersebut jalankan: uv pip install pywebview rocher\n"
@@ -481,16 +483,14 @@ msgid ""
 "Could not write Microsoft Excel Python package parts for:\n"
 "{0}\n"
 "\n"
-"The file was saved with LibreOffice =PY formulas. Excel will not see "
-"pythonScripts.xml / _xlws.PY until export succeeds.\n"
+"The file was saved with LibreOffice =PY formulas. Excel will not see pythonScripts.xml / _xlws.PY until export succeeds.\n"
 "\n"
 "{1}"
 msgstr ""
 "Tidak dapat menulis bagian paket Python Microsoft Excel untuk:\n"
 "{0}\n"
 "\n"
-"File disimpan dengan rumus =PY LibreOffice. Excel tidak akan melihat "
-"pythonScripts.xml / _xlws.PY sampai ekspor berhasil.\n"
+"File disimpan dengan rumus =PY LibreOffice. Excel tidak akan melihat pythonScripts.xml / _xlws.PY sampai ekspor berhasil.\n"
 "\n"
 "{1}"
 
@@ -1077,8 +1077,8 @@ msgid ""
 "Research cache hit (fuzzy, %(pct)s%% match: %(lang_bit)s%(cache_key)s → "
 "%(matched)s)"
 msgstr ""
-"Cache riset ditemukan (fuzzy, kecocokan %(pct)s%%: %(lang_bit)s%(cache_key)s "
-"→ %(matched)s)"
+"Cache riset ditemukan (fuzzy, kecocokan %(pct)s%%: %(lang_bit)s%(cache_key)s"
+" → %(matched)s)"
 
 #: plugin/chatbot/web_research_chat.py
 #, python-format
@@ -1086,8 +1086,8 @@ msgid ""
 "Research cache hit (embedding, %(pct)s%% match: %(lang_bit)s%(cache_key)s → "
 "%(matched)s)"
 msgstr ""
-"Cache riset ditemukan (embedding, %(pct)s%% cocok: %(lang_bit)s%(cache_key)s "
-"→ %(matched)s)"
+"Cache riset ditemukan (embedding, %(pct)s%% cocok: %(lang_bit)s%(cache_key)s"
+" → %(matched)s)"
 
 #: plugin/chatbot/web_research_chat.py
 #, python-format
@@ -1098,18 +1098,6 @@ msgstr "Cache riset ditemukan (kunci: %s)"
 #, python-format
 msgid "Research cache saved (key: %s)"
 msgstr "Cache riset disimpan (kunci: %s)"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "[Web research]"
-msgstr "[Riset web]"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "Research request:"
-msgstr "Permintaan riset:"
-
-#: plugin/chatbot/web_research_chat.py
-msgid "Context for the research agent:"
-msgstr "Konteks untuk agen riset:"
 
 #: plugin/chatbot/web_research_chat.py
 #, python-format
@@ -1140,7 +1128,8 @@ msgid ""
 "No editor found (install Kate or Gedit, or set EDITOR). Path:\n"
 "{0}"
 msgstr ""
-"Editor tidak ditemukan (instal Kate atau Gedit, atau atur EDITOR). Jalur: {0}"
+"Editor tidak ditemukan (instal Kate atau Gedit, atau atur EDITOR). Jalur: "
+"{0}"
 
 #: plugin/chatbot/external_editor.py
 #, python-brace-format
@@ -1176,7 +1165,8 @@ msgstr "[Backend agen '{0}' tidak ditemukan.]"
 
 #: plugin/chatbot/send_handlers.py
 #, python-brace-format
-msgid "[Agent backend '{0}' is not available. Check Settings (path, install).]"
+msgid ""
+"[Agent backend '{0}' is not available. Check Settings (path, install).]"
 msgstr ""
 "[Backend agen '{0}' tidak tersedia. Periksa Pengaturan (jalur, instalasi).]"
 
@@ -1276,12 +1266,12 @@ msgid "Update available"
 msgstr "Pembaruan tersedia"
 
 #: plugin/chatbot/extension_update_check.py
-#, fuzzy, python-format
+#, python-format
 msgid ""
-"A newer %s (%s) is available. Use Tools → Extension Manager to check for "
-"updates and install the latest extension."
+"A newer %(name)s (%(version)s) is available. Use Tools → Extension Manager "
+"to check for updates and install the latest extension."
 msgstr ""
-"WriterAgent versi lebih baru (%s) tersedia. Gunakan Alat → Manajer Ekstensi "
+"%(name)s versi baru (%(version)s) tersedia. Gunakan Alat → Manajer Ekstensi "
 "untuk memeriksa pembaruan dan menginstal ekstensi terbaru."
 
 #: plugin/chatbot/librarian.py
@@ -1363,9 +1353,8 @@ msgid "A1:C1  or  A1:C1, C1:C5"
 msgstr "A1:C1 atau A1:C1, C1:C5"
 
 #: plugin/scripting/editor_ui_strings.py
-msgid "Calc injects `data` and `data_list` from these range(s) at runtime."
-msgstr ""
-"Calc menyuntikkan `data` dan `data_list` dari rentang ini saat runtime."
+msgid "Calc injects `data` and `ranges` from these range(s) at runtime."
+msgstr "Calc menyuntikkan `data` dan `ranges` dari rentang ini saat runtime."
 
 #: plugin/scripting/editor_ui_strings.py
 msgid "Data ranges apply only when saving as a =PY() formula."
@@ -1518,8 +1507,8 @@ msgid ""
 "Document is read-only or properties cannot be written. Script saved to your "
 "personal library instead."
 msgstr ""
-"Dokumen bersifat baca-saja atau properti tidak dapat ditulis. Skrip disimpan "
-"ke pustaka pribadi Anda sebagai gantinya."
+"Dokumen bersifat baca-saja atau properti tidak dapat ditulis. Skrip disimpan"
+" ke pustaka pribadi Anda sebagai gantinya."
 
 #: plugin/scripting/document_scripts.py plugin/scripting/editor_host.py
 msgid "Script name cannot be empty."
@@ -1727,7 +1716,8 @@ msgid "Text/NLP probe failed (see writeragent_debug.log)."
 msgstr "Probe Teks/NLP gagal (lihat writeragent_debug.log)."
 
 #: plugin/scripting/venv_diagnostics.py
-msgid "Vision probe timed out (Docling import can take 10–30s on first check)."
+msgid ""
+"Vision probe timed out (Docling import can take 10–30s on first check)."
 msgstr ""
 "Probe visi kehabisan waktu (impor Docling bisa memakan waktu 10–30 detik "
 "pada pemeriksaan pertama)."
@@ -1741,8 +1731,8 @@ msgid ""
 "Vector Search probe timed out (sentence-transformers import can take 10–30s "
 "on first check)."
 msgstr ""
-"Probe Pencarian Vektor habis waktu (impor sentence-transformers bisa memakan "
-"waktu 10–30 detik pada pemeriksaan pertama)."
+"Probe Pencarian Vektor habis waktu (impor sentence-transformers bisa memakan"
+" waktu 10–30 detik pada pemeriksaan pertama)."
 
 #: plugin/scripting/venv_diagnostics.py
 msgid "Vector Search probe failed (see writeragent_debug.log)."
@@ -1857,8 +1847,7 @@ msgid ""
 "Error from the Text Analytics worker:\n"
 "{err}\n"
 "\n"
-"The features in this dialog require these packages in the python it is "
-"using:\n"
+"The features in this dialog require these packages in the python it is using:\n"
 "  • spacy + a model          (entities, key phrases, basic stats)\n"
 "  • textdescriptives         (real Readability scores)\n"
 "  • transformers + torch     (Sentiment using the multilingual model)\n"
@@ -1866,14 +1855,12 @@ msgid ""
 "Install them with:\n"
 "  {install}\n"
 "\n"
-"The worker reported the module as missing. Verify the packages are installed "
-"in the exact python executable the worker resolved for your configured venv."
+"The worker reported the module as missing. Verify the packages are installed in the exact python executable the worker resolved for your configured venv."
 msgstr ""
 "Kesalahan dari pekerja Analisis Teks:\n"
 "{err}\n"
 "\n"
-"Fitur-fitur dalam dialog ini memerlukan paket-paket berikut dalam python "
-"yang digunakannya:\n"
+"Fitur-fitur dalam dialog ini memerlukan paket-paket berikut dalam python yang digunakannya:\n"
 "  • spacy + model          (entitas, frasa kunci, statistik dasar)\n"
 "  • textdescriptives         (skor Keterbacaan nyata)\n"
 "  • transformers + torch     (Sentimen menggunakan model multibahasa)\n"
@@ -1881,9 +1868,7 @@ msgstr ""
 "Instal paket tersebut dengan:\n"
 "  {install}\n"
 "\n"
-"Pekerja melaporkan modul tersebut hilang. Pastikan paket terinstal di "
-"eksekusi python yang tepat yang diselesaikan oleh pekerja untuk venv yang "
-"Anda konfigurasi."
+"Pekerja melaporkan modul tersebut hilang. Pastikan paket terinstal di eksekusi python yang tepat yang diselesaikan oleh pekerja untuk venv yang Anda konfigurasi."
 
 #: plugin/scripting/text_analytics_ui.py
 msgid "Open a Writer document to analyze."
@@ -1902,16 +1887,11 @@ msgstr "Menganalisis..."
 msgid ""
 "Error: %s\n"
 "\n"
-"Required packages may be missing in your configured venv (Settings → "
-"Python). Click Check Venv in this dialog or use the full Test in Settings → "
-"Python for details on spacy, textdescriptives, transformers, torch etc."
+"Required packages may be missing in your configured venv (Settings → Python). Click Check Venv in this dialog or use the full Test in Settings → Python for details on spacy, textdescriptives, transformers, torch etc."
 msgstr ""
 "Kesalahan: %s\n"
 "\n"
-"Paket yang diperlukan mungkin hilang dalam venv yang Anda konfigurasi "
-"(Pengaturan → Python). Klik Periksa Venv di dialog ini atau gunakan Tes "
-"lengkap di Pengaturan → Python untuk detail mengenai spacy, "
-"textdescriptives, transformers, torch, dll."
+"Paket yang diperlukan mungkin hilang dalam venv yang Anda konfigurasi (Pengaturan → Python). Klik Periksa Venv di dialog ini atau gunakan Tes lengkap di Pengaturan → Python untuk detail mengenai spacy, textdescriptives, transformers, torch, dll."
 
 #: plugin/scripting/text_analytics_ui.py
 msgid "No Writer document to insert into."
@@ -2026,8 +2006,8 @@ msgid ""
 "Reset Python Session applies to Calc spreadsheets. Open a Calc workbook and "
 "try again."
 msgstr ""
-"Atur Ulang Sesi Python berlaku untuk lembar kerja Calc. Buka buku kerja Calc "
-"dan coba lagi."
+"Atur Ulang Sesi Python berlaku untuk lembar kerja Calc. Buka buku kerja Calc"
+" dan coba lagi."
 
 #: plugin/scripting/session_manager.py
 msgid "Python session reset for this workbook."
@@ -2047,8 +2027,8 @@ msgid ""
 "There is no shared cell session to reset. Add an initialization script if "
 "you need to clear expensive one-time workbook setup."
 msgstr ""
-"Mode sesi Python adalah Terisolasi (setiap sel =PY() menggunakan variabelnya "
-"sendiri). Tidak ada sesi sel bersama untuk diatur ulang. Tambahkan skrip "
+"Mode sesi Python adalah Terisolasi (setiap sel =PY() menggunakan variabelnya"
+" sendiri). Tidak ada sesi sel bersama untuk diatur ulang. Tambahkan skrip "
 "inisialisasi jika Anda perlu menghapus pengaturan buku kerja satu kali yang "
 "memakan sumber daya."
 
@@ -2131,8 +2111,8 @@ msgstr ""
 #: plugin/scripting/python_runner.py
 #, python-brace-format
 msgid ""
-"Script executed successfully, but returned no result and produced no output. "
-"(took {time})"
+"Script executed successfully, but returned no result and produced no output."
+" (took {time})"
 msgstr ""
 "Skrip berhasil dijalankan, tetapi tidak mengembalikan hasil dan tidak "
 "menghasilkan keluaran. (memakan waktu {time})"
@@ -2186,8 +2166,8 @@ msgid ""
 "Image '{name}' not found. Use list_images or leave image_name empty and "
 "select the graphic."
 msgstr ""
-"Gambar '{name}' tidak ditemukan. Gunakan list_images atau biarkan image_name "
-"kosong dan pilih grafisnya."
+"Gambar '{name}' tidak ditemukan. Gunakan list_images atau biarkan image_name"
+" kosong dan pilih grafisnya."
 
 #: plugin/vision/vision_runner.py
 #, python-brace-format
@@ -2239,7 +2219,8 @@ msgstr "Server MCP gagal dijalankan"
 #: plugin/mcp/__init__.py
 msgid "Check writeragent_debug.log in your LibreOffice user config folder"
 msgstr ""
-"Periksa writeragent_debug.log di folder konfigurasi pengguna LibreOffice Anda"
+"Periksa writeragent_debug.log di folder konfigurasi pengguna LibreOffice "
+"Anda"
 
 #: plugin/mcp/__init__.py
 msgid "Stop MCP Server"
@@ -2250,12 +2231,46 @@ msgid "Start MCP Server"
 msgstr "Jalankan Server MCP"
 
 #: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public tunnel via {0} (no auth)"
+msgstr "Terowongan publik melalui {0} (tanpa autentikasi)"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public tunnel via {0} failed: {1}"
+msgstr "Terowongan publik melalui {0} gagal: {1}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public tunnel via {0} starting…"
+msgstr "Terowongan publik melalui {0} sedang dimulai…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public tunnel via {0} not running (is the provider binary installed?)"
+msgstr ""
+"Terowongan publik melalui {0} tidak berjalan (apakah biner penyedia sudah "
+"terinstal?)"
+
+#: plugin/mcp/__init__.py
 msgid "MCP server stopped"
 msgstr "Server MCP dihentikan"
 
 #: plugin/mcp/__init__.py
 msgid "MCP server started"
 msgstr "Server MCP dijalankan"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public tunnel via {0}"
+msgstr "Terowongan publik melalui {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public tunnel via {0} starting… use MCP Server Status when ready."
+msgstr ""
+"Terowongan publik melalui {0} sedang dimulai… gunakan Status Server MCP saat"
+" siap."
 
 #: plugin/mcp/__init__.py
 msgid "MCP server is not running"
@@ -2468,7 +2483,8 @@ msgstr "URL Titik Akhir:"
 #: plugin/xdl_strings.py
 msgid "Enter LaTeX math code to convert and insert as formula:"
 msgstr ""
-"Masukkan kode matematika LaTeX untuk dikonversi dan disisipkan sebagai rumus:"
+"Masukkan kode matematika LaTeX untuk dikonversi dan disisipkan sebagai "
+"rumus:"
 
 #: plugin/xdl_strings.py
 msgid ""
@@ -2724,21 +2740,28 @@ msgstr "Mistral Vibe (ACP)"
 msgid "Grok Build (ACP)"
 msgstr "Grok Build (ACP)"
 
+msgid "Gemini CLI (ACP)"
+msgstr "Gemini CLI (ACP)"
+
+msgid "OpenCode (ACP)"
+msgstr "OpenCode (ACP)"
+
 msgid "Path / URL"
 msgstr "Path / URL"
 
 msgid ""
-"Path to backend CLI (e.g. aider) or ACP server URL (e.g. http://"
-"localhost:8000 for Hermes). Empty = try default."
+"Path to backend CLI (e.g. aider) or ACP server URL (e.g. "
+"http://localhost:8000 for Hermes). Empty = try default."
 msgstr ""
-"Path ke CLI backend (contoh: aider) atau URL server ACP (contoh: http://"
-"localhost:8000 untuk Hermes). Kosong = coba default."
+"Path ke CLI backend (contoh: aider) atau URL server ACP (contoh: "
+"http://localhost:8000 untuk Hermes). Kosong = coba default."
 
 msgid "Extra arguments"
 msgstr "Argumen tambahan"
 
 msgid "Optional arguments for the selected backend (space-separated)."
-msgstr "Argumen opsional untuk backend yang dipilih (dipisahkan dengan spasi)."
+msgstr ""
+"Argumen opsional untuk backend yang dipilih (dipisahkan dengan spasi)."
 
 msgid "ACP agent name"
 msgstr "Nama agen ACP"
@@ -2825,7 +2848,8 @@ msgid "Cache max (MB)"
 msgstr "Cache maksimal (MB)"
 
 msgid "Max disk size for web search cache (0 to disable)"
-msgstr "Ukuran disk maksimum untuk cache pencarian web (0 untuk menonaktifkan)"
+msgstr ""
+"Ukuran disk maksimum untuk cache pencarian web (0 untuk menonaktifkan)"
 
 msgid "Cache validity (days)"
 msgstr "Masa berlaku cache (hari)"
@@ -2845,13 +2869,13 @@ msgstr "Keahlian Humanizer (prosa alami)"
 msgid ""
 "When enabled, injects guidance into the system prompt so the model makes "
 "generated or revised document text sound more natural and human (removes AI "
-"slop patterns). Edit the rules in your LibreOffice profile under writeragent/"
-"skills/humanizer/SKILL.md (the file is auto-created on first use). A "
-"dedicated Skills tab can be added later."
+"slop patterns). Edit the rules in your LibreOffice profile under "
+"writeragent/skills/humanizer/SKILL.md (the file is auto-created on first "
+"use). A dedicated Skills tab can be added later."
 msgstr ""
 "Saat diaktifkan, menyuntikkan panduan ke dalam prompt sistem agar model "
-"membuat teks dokumen yang dihasilkan atau direvisi terdengar lebih alami dan "
-"manusiawi (menghapus pola AI yang kaku). Edit aturan di profil LibreOffice "
+"membuat teks dokumen yang dihasilkan atau direvisi terdengar lebih alami dan"
+" manusiawi (menghapus pola AI yang kaku). Edit aturan di profil LibreOffice "
 "Anda di bawah writeragent/skills/humanizer/SKILL.md (file dibuat otomatis "
 "saat penggunaan pertama). Tab Keahlian khusus dapat ditambahkan nanti."
 
@@ -2862,8 +2886,8 @@ msgid ""
 "Pause after you stop talking, then auto-stop and send (Record). 0 = wait "
 "until you click Stop Rec."
 msgstr ""
-"Jeda setelah Anda berhenti bicara, lalu berhenti otomatis dan kirim (Rekam). "
-"0 = tunggu sampai Anda mengeklik Berhenti Rekam."
+"Jeda setelah Anda berhenti bicara, lalu berhenti otomatis dan kirim (Rekam)."
+" 0 = tunggu sampai Anda mengeklik Berhenti Rekam."
 
 msgid "Doc"
 msgstr "Dok"
@@ -2872,14 +2896,14 @@ msgid "Enable grammar checker (Writer)"
 msgstr "Aktifkan pemeriksa tata bahasa (Writer)"
 
 msgid ""
-"Off = disabled. AI (LLM) = use your configured text model/API. "
-"LanguageTool / Vale = local engines via Settings → Python venv. Harper = "
-"offline Rust binary auto-downloaded to your profile (no venv required)."
+"Off = disabled. AI (LLM) = use your configured text model/API. LanguageTool "
+"/ Vale = local engines via Settings → Python venv. Harper = offline Rust "
+"binary auto-downloaded to your profile (no venv required)."
 msgstr ""
 "Mati = dinonaktifkan. AI (LLM) = gunakan model/API teks yang telah Anda "
 "konfigurasi. LanguageTool / Vale = mesin lokal melalui Pengaturan → Python "
-"venv. Harper = biner Rust luring yang diunduh otomatis ke profil Anda (tidak "
-"memerlukan venv)."
+"venv. Harper = biner Rust luring yang diunduh otomatis ke profil Anda (tidak"
+" memerlukan venv)."
 
 msgid "Off"
 msgstr "Mati"
@@ -2933,8 +2957,8 @@ msgid ""
 "requests; use with care alongside sidebar chat."
 msgstr ""
 "Maksimum panggilan API tata bahasa latar belakang secara simultan (1-8). 1 "
-"sesuai dengan perilaku sebelumnya. Tingkatkan untuk OpenRouter atau penyedia "
-"lain yang mengizinkan permintaan paralel; gunakan dengan hati-hati bersama "
+"sesuai dengan perilaku sebelumnya. Tingkatkan untuk OpenRouter atau penyedia"
+" lain yang mengizinkan permintaan paralel; gunakan dengan hati-hati bersama "
 "obrolan bilah samping."
 
 msgid "Sentence language detection"
@@ -2973,9 +2997,9 @@ msgid ""
 "Wait = apply_document_content blocks (on chat/MCP worker thread) until you "
 "review."
 msgstr ""
-"Mati = suntingan langsung. Rekam = perubahan terlacak yang Anda terima/tolak "
-"sendiri. Tunggu = apply_document_content memblokir (pada utas pekerja chat/"
-"MCP) sampai Anda meninjau."
+"Mati = suntingan langsung. Rekam = perubahan terlacak yang Anda terima/tolak"
+" sendiri. Tunggu = apply_document_content memblokir (pada utas pekerja "
+"chat/MCP) sampai Anda meninjau."
 
 msgid "Record (track changes)"
 msgstr "Rekam (lacak perubahan)"
@@ -3016,7 +3040,8 @@ msgstr "Model Penyematan"
 
 msgid "HuggingFace model ID for local provider, or endpoint-specific model ID"
 msgstr ""
-"ID model HuggingFace untuk penyedia lokal, atau ID model spesifik titik akhir"
+"ID model HuggingFace untuk penyedia lokal, atau ID model spesifik titik "
+"akhir"
 
 msgid "Enable cross-file rerank"
 msgstr "Aktifkan rerank lintas berkas"
@@ -3032,8 +3057,8 @@ msgid "Rerank model"
 msgstr "Model rerank"
 
 msgid ""
-"Used only when rerank is enabled. English MiniLM is fast; bge-reranker-v2-m3 "
-"is multilingual and downloads ~2.3 GB."
+"Used only when rerank is enabled. English MiniLM is fast; bge-reranker-v2-m3"
+" is multilingual and downloads ~2.3 GB."
 msgstr ""
 "Hanya digunakan saat rerank diaktifkan. MiniLM bahasa Inggris cepat; bge-"
 "reranker-v2-m3 bersifat multibahasa dan mengunduh ~2,3 GB."
@@ -3054,17 +3079,17 @@ msgid "Enable MCP Server"
 msgstr "Aktifkan Server MCP"
 
 msgid ""
-"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable "
-"HTTP)."
+"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable"
+" HTTP)."
 msgstr ""
-"Hanya localhost, tanpa autentikasi. Klien menggunakan http://localhost:"
-"<port>/mcp (HTTP yang dapat dialirkan)."
+"Hanya localhost, tanpa autentikasi. Klien menggunakan "
+"http://localhost:<port>/mcp (HTTP yang dapat dialirkan)."
 
 msgid "MCP Port"
 msgstr "Port MCP"
 
-msgid "MCP Tool Exposure"
-msgstr "Eksposur Alat MCP"
+msgid "Tool Exposure"
+msgstr "Paparan Alat"
 
 msgid ""
 "How specialized tools are surfaced to MCP clients. delegate=reached via the "
@@ -3078,8 +3103,8 @@ msgstr ""
 "gateway delegasi (perilaku saat ini); direct_flat=semua alat khusus yang "
 "dapat dijangkau MCP dicantumkan secara langsung, tidak termasuk alur khusus "
 "bilah sisi (terbaik untuk klien dengan pencarian alat sendiri); "
-"direct_discovery=daftar inti kecil ditambah find_tools (katalog domain, lalu "
-"skema alat per domain; terbaik untuk klien mana pun)."
+"direct_discovery=daftar inti kecil ditambah find_tools (katalog domain, lalu"
+" skema alat per domain; terbaik untuk klien mana pun)."
 
 msgid "Delegate (default)"
 msgstr "Delegasi (default)"
@@ -3089,6 +3114,55 @@ msgstr "Langsung — cantumkan semua alat"
 
 msgid "Direct — discovery (find_tools)"
 msgstr "Langsung — penemuan (find_tools)"
+
+msgid "Public tunnel"
+msgstr "Terowong publik"
+
+msgid "Expose via public tunnel"
+msgstr "Paparkan melalui terowong publik"
+
+msgid ""
+"Requires the selected provider binary on PATH (cloudflared, bore, ngrok, or "
+"tailscale). MCP has no auth — anyone with the public URL can call tools. See"
+" MCP Server Status for the public /mcp URL when ready."
+msgstr ""
+"Memerlukan biner penyedia yang dipilih pada PATH (cloudflared, bore, ngrok, "
+"atau tailscale). MCP tidak memiliki autentikasi — siapa pun dengan URL "
+"publik dapat memanggil alat. Lihat Status Server MCP untuk URL /mcp publik "
+"saat siap."
+
+msgid "Provider"
+msgstr "Penyedia"
+
+msgid ""
+"Cloudflare quick tunnel (default), Bore, Ngrok, or Tailscale Funnel (must "
+"already be logged in)."
+msgstr ""
+"Terowong cepat Cloudflare (default), Bore, Ngrok, atau Tailscale Funnel "
+"(harus sudah masuk)."
+
+msgid "Cloudflare"
+msgstr "Cloudflare"
+
+msgid "Bore"
+msgstr "Bore"
+
+msgid "Ngrok"
+msgstr "Ngrok"
+
+msgid "Tailscale"
+msgstr "Tailscale"
+
+msgid "Provider config"
+msgstr "Konfigurasi penyedia"
+
+msgid ""
+"Ngrok authtoken; Cloudflare tunnel token; Bore server or 'server secret'. "
+"Empty = provider default / CLI config. Unused for Tailscale."
+msgstr ""
+"Token authtoken Ngrok; token tunnel Cloudflare; server Bore atau 'rahasia "
+"server'. Kosong = bawaan penyedia / konfigurasi CLI. Tidak digunakan untuk "
+"Tailscale."
 
 msgid "Python"
 msgstr "Python"
@@ -3102,10 +3176,10 @@ msgid ""
 "stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
 "paddlepaddle)."
 msgstr ""
-"Jika diatur, menjalankan alat di venv tersebut (bin/python atau Scripts/"
-"python.exe). Jika kosong, run_venv_python_script menggunakan sys.executable "
-"proses ini (stdlib dasar); gunakan venv untuk numpy/pandas dan Pembantu "
-"Vision (paddleocr, paddlepaddle)."
+"Jika diatur, menjalankan alat di venv tersebut (bin/python atau "
+"Scripts/python.exe). Jika kosong, run_venv_python_script menggunakan "
+"sys.executable proses ini (stdlib dasar); gunakan venv untuk numpy/pandas "
+"dan Pembantu Vision (paddleocr, paddlepaddle)."
 
 msgid "Test"
 msgstr "Uji"
@@ -3120,18 +3194,18 @@ msgid ""
 "Wall-clock limit for Run Python Script, =PYTHON(), and "
 "run_venv_python_script."
 msgstr ""
-"Batas waktu dinding (wall-clock) untuk Jalankan Skrip Python, =PYTHON(), dan "
-"run_venv_python_script."
+"Batas waktu dinding (wall-clock) untuk Jalankan Skrip Python, =PYTHON(), dan"
+" run_venv_python_script."
 
 msgid "Max Calc data cells"
 msgstr "Jumlah sel data Calc maksimum"
 
 msgid ""
-"Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger "
-"values use more RAM and time; UNO range read still dominates."
+"Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger"
+" values use more RAM and time; UNO range read still dominates."
 msgstr ""
-"Jumlah sel maksimum dalam data =PYTHON() atau data/data_range Jalankan Skrip "
-"Python. Nilai yang lebih besar menggunakan lebih banyak RAM dan waktu; "
+"Jumlah sel maksimum dalam data =PYTHON() atau data/data_range Jalankan Skrip"
+" Python. Nilai yang lebih besar menggunakan lebih banyak RAM dan waktu; "
 "pembacaan rentang UNO tetap yang paling dominan."
 
 msgid "Python session mode"
@@ -3157,13 +3231,23 @@ msgstr ""
 "Secara otomatis menumpahkan hasil array/DataFrame multi-sel dari =PYTHON() "
 "ke sel yang berdekatan."
 
+msgid "Rewrite xl() ranges"
+msgstr "Tulis ulang rentang xl()"
+
+msgid ""
+"On Edit Python in Cell save, lift static xl(\"A1:…\") onto =PY data args and"
+" rewrite to data / data[i] / .to_pandas()."
+msgstr ""
+"Saat menyimpan Edit Python di Sel, angkat xl(\"A1:…\") statis ke argumen "
+"data =PY dan tulis ulang menjadi data / data[i] / .to_pandas()."
+
 msgid "Convert Date/Time and Timedelta Strings"
 msgstr "Konversi String Tanggal/Waktu dan Timedelta"
 
 msgid ""
-"Automatically detect and convert date/time and duration strings to datetime/"
-"timedelta objects when sending data to the Python worker. Requires the "
-"'pandas' and 'dateparser' packages in your venv."
+"Automatically detect and convert date/time and duration strings to "
+"datetime/timedelta objects when sending data to the Python worker. Requires "
+"the 'pandas' and 'dateparser' packages in your venv."
 msgstr ""
 "Mendeteksi dan mengonversi string tanggal/waktu dan durasi secara otomatis "
 "menjadi objek datetime/timedelta saat mengirim data ke worker Python. "
@@ -3173,16 +3257,17 @@ msgid "PPT-Master data path"
 msgstr "Jalur data PPT-Master"
 
 msgid ""
-"Path to the ppt-master skill tree (SKILL.md, templates/, scripts/"
-"svg_to_pptx/). Clone hugohe3/ppt-master on GitHub and point here at the "
-"clone root (.../ppt-master) or the inner skill dir (.../ppt-master/skills/"
-"ppt-master). Leave empty to auto-detect (dev clone beside repo, then env)."
+"Path to the ppt-master skill tree (SKILL.md, templates/, "
+"scripts/svg_to_pptx/). Clone hugohe3/ppt-master on GitHub and point here at "
+"the clone root (.../ppt-master) or the inner skill dir (.../ppt-"
+"master/skills/ppt-master). Leave empty to auto-detect (dev clone beside "
+"repo, then env)."
 msgstr ""
-"Jalur ke pohon keterampilan ppt-master (SKILL.md, templates/, scripts/"
-"svg_to_pptx/). Kloning hugohe3/ppt-master di GitHub dan arahkan ke sini di "
-"akar kloning (.../ppt-master) atau direktori keterampilan bagian dalam (.../"
-"ppt-master/skills/ppt-master). Biarkan kosong untuk deteksi otomatis "
-"(kloning dev di samping repo, lalu env)."
+"Jalur ke pohon keterampilan ppt-master (SKILL.md, templates/, "
+"scripts/svg_to_pptx/). Kloning hugohe3/ppt-master di GitHub dan arahkan ke "
+"sini di akar kloning (.../ppt-master) atau direktori keterampilan bagian "
+"dalam (.../ppt-master/skills/ppt-master). Biarkan kosong untuk deteksi "
+"otomatis (kloning dev di samping repo, lalu env)."
 
 msgid "Vision / OCR"
 msgstr "Vision / OCR"
@@ -3199,7 +3284,8 @@ msgid "Worker timeout (seconds)"
 msgstr "Batas waktu pekerja (detik)"
 
 msgid "Host subprocess limit for Vision Helpers (first model download)."
-msgstr "Batas subproses host untuk Vision Helpers (pengunduhan model pertama)."
+msgstr ""
+"Batas subproses host untuk Vision Helpers (pengunduhan model pertama)."
 
 msgid "Docling artifacts path"
 msgstr "Jalur artefak Docling"
@@ -3217,7 +3303,8 @@ msgid "OCR entire image"
 msgstr "OCR seluruh gambar"
 
 msgid "Recommended for embedded graphics exported from LibreOffice."
-msgstr "Direkomendasikan untuk grafik tertanam yang diekspor dari LibreOffice."
+msgstr ""
+"Direkomendasikan untuk grafik tertanam yang diekspor dari LibreOffice."
 
 msgid "Table extraction mode"
 msgstr "Mode ekstraksi tabel"
