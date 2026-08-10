@@ -15,7 +15,7 @@
   var defaultStatusOkText = "Saved.";
   var pendingStatusText = "Saving…";
   var currentMode = "calc_cell";
-  var dataBindingTitle = "Calc injects `data` and `data_list` from these range(s) at runtime.";
+  var dataBindingTitle = "Calc injects `data` and `ranges` from these range(s) at runtime.";
   var dataBindingDisabledTitle = "Data ranges apply only when saving as a =PYTHON() formula.";
 
   function t(key, fallback) {
@@ -120,7 +120,7 @@
 
     dataBindingTitle = t(
       "data_binding_title",
-      "Calc injects `data` and `data_list` from these range(s) at runtime."
+      "Calc injects `data` and `ranges` from these range(s) at runtime."
     );
     dataBindingDisabledTitle = t(
       "data_binding_disabled_title",

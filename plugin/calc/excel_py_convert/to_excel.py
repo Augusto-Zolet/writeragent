@@ -6,9 +6,9 @@ Forward import keeps runnable ``xl("%Pn%", …)`` call sites (sandbox binding-on
 
 * If code already has binding-style ``xl(`` / ``%P``, unquote tokens for the
   Microsoft package (``xl("%P2%")`` → ``xl(%P2%)``) and normalize headers spacing.
-* Legacy DAG workbooks that still use ``data`` / ``data_list[i]`` / ``.to_pandas()``
-  (and the older ``pd.DataFrame(data[1:], columns=data[0])`` form) are reversed
-  to ``xl(...)`` as before.
+* Legacy DAG workbooks that still use ``data`` / ``data[i]`` / ``ranges[i]`` /
+  ``.to_pandas()`` (and the older ``pd.DataFrame(data[1:], columns=data[0])``
+  form) are reversed to ``xl(...)`` as before.
 
 Native OOXML write banks restored scripts into ``pythonScripts.xml`` and cell
 formulas as ``_xlfn._xlws.PY(...)`` (see ``xlws_py_formula`` /
@@ -35,11 +35,11 @@ _DF_DATA_RE = re.compile(
     re.IGNORECASE,
 )
 _TO_PANDAS_TRUE_RE = re.compile(
-    r"(data_list|data)(?:\[\s*(\d+)\s*\])?\.to_pandas\(\s*\)",
+    r"(ranges|data)(?:\[\s*(\d+)\s*\])?\.to_pandas\(\s*\)",
     re.IGNORECASE,
 )
 _TO_PANDAS_FALSE_RE = re.compile(
-    r"(data_list|data)(?:\[\s*(\d+)\s*\])?\.to_pandas\(\s*header_row\s*=\s*None\s*\)",
+    r"(ranges|data)(?:\[\s*(\d+)\s*\])?\.to_pandas\(\s*header_row\s*=\s*None\s*\)",
     re.IGNORECASE,
 )
 _OBJECT_SUPPRESS_RE = re.compile(
@@ -170,13 +170,13 @@ def rewrite_dag_code_to_excel(
     text = _TO_PANDAS_TRUE_RE.sub(to_pandas_true_repl, text)
     text = _DF_DATA_RE.sub(df_repl, text)
 
-    # Token-position rewrite for data / data[i] / data_list[i] via AST when possible.
+    # Token-position rewrite for data / data[i] / ranges[i] via AST when possible.
     rewritten, ast_issues = _rewrite_data_names_ast(text, deps, modes)
     issues.extend(ast_issues)
     if rewritten is not None:
         return rewritten, deps, issues
 
-    # Regex fallback (legacy data[i] plus data_list[i]).
+    # Regex fallback (data[i] / ranges[i]).
     def index_repl(m: re.Match[str]) -> str:
         idx = int(m.group(1))
         if idx >= len(deps):
@@ -185,12 +185,12 @@ def rewrite_dag_code_to_excel(
         hm: HeaderMode = modes[idx] if idx < len(modes) else "omit"
         return _xl_expr(idx, hm)
 
-    text = re.sub(r"\b(?:data_list|data)\[\s*(\d+)\s*\]", index_repl, text)
+    text = re.sub(r"\b(?:ranges|data)\[\s*(\d+)\s*\]", index_repl, text)
 
-    if deps:
+    # Bare ``data`` only when a single dep (multi-arg ``data`` is the ranges list).
+    if len(deps) == 1:
 
         def bare_repl(_m: re.Match[str]) -> str:
-            # Forward path always binds the first range to bare ``data``.
             hm: HeaderMode = modes[0] if modes else "omit"
             return _xl_expr(0, hm)
 
@@ -204,7 +204,7 @@ def _rewrite_data_names_ast(
     deps: list[str],
     modes: list[HeaderMode],
 ) -> tuple[str | None, list[str]]:
-    """Rewrite ``data`` / ``data[i]`` / ``data_list[i]`` Name/Subscript nodes."""
+    """Rewrite ``data`` / ``data[i]`` / ``ranges[i]`` Name/Subscript nodes."""
     issues: list[str] = []
     try:
         tree = ast.parse(code)
@@ -220,9 +220,14 @@ def _rewrite_data_names_ast(
             self.repl = repl
 
     hits: list[_Hit] = []
+    # Names that are already the target of ``data[...]`` / ``ranges[...]`` — skip bare rewrite.
+    subscripted_data_names: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name) and node.value.id == "data":
+            subscripted_data_names.add(id(node.value))
 
     for node in ast.walk(tree):
-        if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name) and node.value.id in ("data", "data_list"):
+        if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name) and node.value.id in ("data", "ranges"):
             sl = node.slice
             idx = None
             if isinstance(sl, ast.Constant) and isinstance(sl.value, int):
@@ -239,8 +244,10 @@ def _rewrite_data_names_ast(
             hm: HeaderMode = modes[idx] if idx < len(modes) else "omit"
             hits.append(_Hit(start, end, _xl_expr(idx, hm)))
         elif isinstance(node, ast.Name) and node.id == "data" and isinstance(node.ctx, ast.Load):
-            # Bare ``data`` is always the first range (forward emit), even with multi deps.
-            if not deps:
+            # Bare ``data`` is a CalcRange only for a single formula arg.
+            if len(deps) != 1:
+                continue
+            if id(node) in subscripted_data_names:
                 continue
             start = ast_source_offset(code, node.lineno, node.col_offset)
             end = ast_source_offset(code, node.end_lineno or node.lineno, node.end_col_offset or node.col_offset)

@@ -137,6 +137,24 @@ def test_json_only_settings_absent_from_settings_xdl(tmp_path: Path) -> None:
 
     assert "mcp__mcp_enabled" in tops
     assert "scripting__python_venv_path" in tops
+    assert "scripting__xl_static_rewrite" in tops
+
+
+def test_xl_static_rewrite_checkbox_beside_auto_spill(tmp_path: Path) -> None:
+    """Rewrite xl() shares a row with auto-spill; second control starts at dialog midpoint."""
+    xdl_path, _xdl = _generate_settings_xdl(tmp_path)
+    tops = _control_tops(xdl_path)
+    assert _same_layout_row(tops, "scripting__python_auto_spill", "scripting__xl_static_rewrite")
+
+    tree = ET.parse(xdl_path)
+    root = tree.getroot()
+    ns = {"dlg": _DLG_NS}
+    lefts = {
+        el.get(f"{{{_DLG_NS}}}id"): el.get(f"{{{_DLG_NS}}}left")
+        for el in root.findall(".//dlg:checkbox", ns)
+    }
+    assert lefts.get("scripting__python_auto_spill") == "8"
+    assert lefts.get("scripting__xl_static_rewrite") == "220"
 
 
 def test_librepy_flavor_omits_ppt_master_from_scripting_page(tmp_path: Path) -> None:

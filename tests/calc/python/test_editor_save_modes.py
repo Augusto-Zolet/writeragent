@@ -43,7 +43,7 @@ def test_build_editor_formula_save_new_cell_with_data_binding():
 def test_build_editor_formula_save_multi_range_from_textbox():
     result = build_editor_formula_save(
         parsed_parts=None,
-        new_code="sum(d) for d in data_list",
+        new_code="sum(d) for d in ranges",
         cell_has_unparsed_python=False,
         data_binding_text="A1:A5, C1:C5",
     )

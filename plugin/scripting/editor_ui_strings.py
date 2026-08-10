@@ -52,7 +52,7 @@ def _calc_cell_ui_strings() -> dict[str, str]:
             "data_label": _("Data:"),
             "data_placeholder": _("A1:C1  or  A1:C1, C1:C5"),
             "data_binding_title": _(
-                "Calc injects `data` and `data_list` from these range(s) at runtime."
+                "Calc injects `data` and `ranges` from these range(s) at runtime."
             ),
             "data_binding_disabled_title": _(
                 "Data ranges apply only when saving as a =PY() formula."

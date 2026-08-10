@@ -86,14 +86,14 @@ class TestOnlinePyJsonContract:
 
     def test_multi_range_data_as_list_of_grids(self) -> None:
         # C++ sends multiple ranges as a JSON array when aData.getLength() > 1.
-        # Injected as data_list: list[CalcRange] with data = data_list[0].
+        # Injected as ranges (always list); multi-arg data is the same list object.
         data = [[[1, 2]], [[3], [4]]]
         out = execute_code(
-            "result = [len(data_list), data_list[0].values[0][0], data_list[1].values[1][0]]",
+            "result = [len(ranges), data is ranges, ranges[0].values[0][0], ranges[1].values[1][0]]",
             data=data,
         )
         assert out["status"] == "ok"
-        assert out["result"] == [2, 1, 4]
+        assert out["result"] == [2, True, 1, 4]
 
     def test_ndarray_egress_is_lists(self) -> None:
         import numpy as np

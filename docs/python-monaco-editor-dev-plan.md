@@ -632,7 +632,7 @@ flowchart TD
 | Empty / non-PYTHON cells | Editor opens; Save (default) writes `=PY("code")` / `=PY("code")`; with **Save without =PY()** checked, writes raw script via `setString` |
 | **Save without =PY()** | Checkbox (`save_as_plain`): checked → `setString` only, **Data:** disabled; unchecked → rebuild `=PY("…")` formula with optional data suffix. User strings in [`editor_ui_strings.py`](../plugin/scripting/editor_ui_strings.py). |
 | Load source | Inline PYTHON → stripped `code`; code-only cell → `getString()`; Monaco never shows `=PY()` |
-| Data ranges | Editable toolbar textbox (`data_binding` on load/save); written into `=PY("code"; …)` suffix via [`python_formula_edit.py`](../plugin/calc/python/formula_edit.py); single range → `data`, multiple comma/semicolon-separated → `data_list` |
+| Data ranges | Editable toolbar textbox (`data_binding` on load/save); written into `=PY("code"; …)` suffix via [`python_formula_edit.py`](../plugin/calc/python/formula_edit.py); single range → `data`, multiple comma/semicolon-separated → `ranges` |
 | Formula strings | Reads `getFormula()`, `FormulaLocal`, `Formula`; normalizes leading `=`, array braces, smart quotes |
 | Unparsed PYTHON (e.g. `=PY(A1; B1)`) | Blocked with msgbox — cannot safely preserve data args |
 | Single session | One **persistent child** process; **multi-cell reload** retargets save callbacks and sends `load` (assumes user saved before switching). WM close hides window and clears session; process stays warm. |

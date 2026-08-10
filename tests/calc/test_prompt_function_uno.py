@@ -64,7 +64,7 @@ def test_python_addin_execution(ctx):
             mock_run.return_value = {"status": "ok", "result": 9.0}
             col_a = ((1.0,), (2.0,), (3.0,))
             col_b = ((4.0,), (5.0,))
-            res = func.python("result = float(np.sum(data)) + float(np.sum(data_list[1]))", (col_a, col_b))
+            res = func.python("result = float(np.sum(data[0])) + float(np.sum(data[1]))", (col_a, col_b))
             assert res == 9.0
             wire = mock_run.call_args.kwargs["data"]
             from plugin.scripting.payload_codec import is_multi_data

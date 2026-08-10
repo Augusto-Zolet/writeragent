@@ -72,21 +72,21 @@ def test_execute_request_injects_data():
     assert r["result"] == 10.0
 
 
-def test_execute_request_injects_data_list_single_range():
+def test_execute_request_injects_ranges_single_range():
     r = _execute_request(
-        "result = (len(data_list), data is data_list[0])",
+        "result = (len(ranges), data is ranges[0], hasattr(data, 'to_pandas'))",
         [[1, 2, 3]],
     )
     assert r["status"] == "ok"
-    assert r["result"] == [1, True]
+    assert r["result"] == [1, True, True]
 
 
-def test_execute_request_injects_data_list_multi_range():
+def test_execute_request_injects_ranges_multi_polymorphic_data():
     from plugin.calc.calc_addin_data import pack_calc_multi_data_for_wire
 
     wire = pack_calc_multi_data_for_wire([[[1.0, 2.0, 3.0]], [[4.0, 5.0]]], force="never")
     r = _execute_request(
-        "result = (len(data_list), data is data_list[0], data_list[1].values[0][0])",
+        "result = (len(ranges), data is ranges, data[1].values[0][0])",
         wire,
     )
     assert r["status"] == "ok"

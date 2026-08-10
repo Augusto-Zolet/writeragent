@@ -2,7 +2,7 @@
 
 **Glossary:** `=PY()` and `=PYTHON()` are the same Calc add-in (`XPythonFunction`). Formulas below use `=PY`; either name works.
 
-This doc is the authoritative **behavior** contract for range arguments: what `data` / `data_list` look like in Python, blank vs NaN, dates, logicals, and multi-range varargs.
+This doc is the authoritative **behavior** contract for range arguments: what `data` / `ranges` look like in Python, blank vs NaN, dates, logicals, and multi-range varargs.
 
 Related:
 
@@ -10,7 +10,7 @@ Related:
 | --- | --- |
 | [Enabling NumPy & Python](enabling_numpy_in_libreoffice.md) | User guide, session modes, spill/matrix UX, architecture overview |
 | [Venv IPC & serialization](numpy-serialization.md) | Pickle5 wire, `split_grid`, benchmarks, codec invariants |
-| [Microsoft `=PY` design stance](ms-py-libreoffice-compatibility.md) | Why Calc keeps explicit `data` args; Excel packages already bind ranges as trailing `_xlws.PY` args that the rewriter maps onto `data` / `data_list` ([§5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import)) |
+| [Microsoft `=PY` design stance](ms-py-libreoffice-compatibility.md) | Why Calc keeps explicit `data` args; Excel packages already bind ranges as trailing `_xlws.PY` args that the rewriter maps onto `data` / `ranges` ([§5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import)) |
 
 Code: [`plugin/scripting/calc_range.py`](../plugin/scripting/calc_range.py), [`plugin/calc/calc_addin_data.py`](../plugin/calc/calc_addin_data.py), [`plugin/calc/python/function.py`](../plugin/calc/python/function.py) (`to_calc_compatible`).
 
@@ -34,8 +34,8 @@ When you write `=PY(code; range)`, the add-in:
 
 1. Resolves the range in Calc and reads cell values as a **rectangular 2D grid** (orientation preserved).
 2. Packs the grid in a `calc_range` wire envelope (`split_grid` is a private transport optimization — see [serialization](numpy-serialization.md#strategy-3-split-grid-serialization-detail)).
-3. Materializes a [`CalcRange`](../plugin/scripting/calc_range.py) in the sandbox as `data`, and sets `data_list = [data, …]`.
-4. Runs your script with `data` / `data_list` already bound.
+3. Materializes [`CalcRange`](../plugin/scripting/calc_range.py) values and injects **`ranges`** (always a `list`) plus polymorphic **`data`** (one arg → that `CalcRange`; two or more → the same list as `ranges`).
+4. Runs your script with `data` / `ranges` already bound.
 
 | Range you pass in Calc | Structure of `data` in Python | Example usage |
 | --- | --- | --- |
@@ -44,7 +44,7 @@ When you write `=PY(code; range)`, the add-in:
 | **Column** (e.g. `B1:B10`) | `CalcRange` shape `(N, 1)` | `np.mean(data)` |
 | **2D rectangle** (e.g. `B1:C5`) | `CalcRange` shape `(rows, cols)` | `data.to_pandas()` or `data.to_numpy()` |
 
-**API (explicit conversions):**
+**API (explicit conversions)** — when `data` is a single `CalcRange`:
 
 ```python
 data.values                          # exact list[list] (None for blanks)
@@ -52,7 +52,7 @@ data.to_numpy()                      # ndarray (None → nan for numeric dtype)
 data.to_pandas()                     # header_row=0 by default
 data.to_pandas(header_row=None)      # all rows are data; columns col_0…
 data.to_pandas(parse_strings=True)   # opt-in currency/percent/date string parsing
-data_list[1]                         # second range (never `data[1]` for another range)
+ranges                               # always list[CalcRange]; len 1 when one formula arg
 ```
 
 Returning a **pandas DataFrame** spills/writes with its **column header row** included. Returning a list/ndarray writes values only.
@@ -65,7 +65,7 @@ Payload size cap: `scripting.python_max_data_cells` ([serialization config](nump
 
 ## Multi-range support (varargs) {#multi-range-support-varargs}
 
-**Status:** Shipped. `data_list` is always a `list[CalcRange]`; `data` is always `data_list[0]` when at least one range was passed. Wire envelope: [Multi-range wire format](numpy-serialization.md#multi-range-wire-format). Chat-tool multi `data_range` remains future work.
+**Status:** Shipped. `ranges` is always a `list[CalcRange]`. `data` is **polymorphic**: one formula arg → that `CalcRange`; two or more → the same list object as `ranges` (`data is ranges`). Wire envelope: [Multi-range wire format](numpy-serialization.md#multi-range-wire-format). Chat-tool multi `data_range` remains future work.
 
 `=PY()` accepts **one or more** optional data arguments after `code`. Calc packs trailing arguments into a single `sequence<any>` (UNO varargs).
 
@@ -81,20 +81,22 @@ interface XPythonFunction : com::sun::star::uno::XInterface
 
 Rebuild after IDL changes: `scripts/rebuild_xprompt_rdb.sh` → [`extension/XPythonFunction.rdb`](../extension/XPythonFunction.rdb).
 
-| Formula | `data` | `data_list` |
+| Formula | `data` | `ranges` |
 | --- | --- | --- |
 | `=PY("…"; A1:A5)` | `CalcRange` for `A1:A5` | `[data]` |
-| `=PY("…"; A1:A5; C1:C5)` | first range | `[range0, range1]` |
+| `=PY("…"; A1:A5; C1:C5)` | same list as `ranges` | `[range0, range1]` |
 
-**Example — weighted average across regions:**
+**Example — weighted average across regions** (multi-arg: index with `data[i]` or loop `ranges`):
 
 ```text
-=PY("result = (np.mean(data) + np.mean(data_list[1])*2 + np.mean(data_list[2])) / 4"; A1:A10; C1:C10; E1:E10)
+=PY("result = (np.mean(data[0]) + np.mean(data[1])*2 + np.mean(data[2])) / 4"; A1:A10; C1:C10; E1:E10)
 ```
 
 ```python
-result = float(np.mean([np.mean(r) for r in data_list]))
+result = float(np.mean([np.mean(r) for r in ranges]))
 ```
+
+Under multi-arg, prefer `data[i]` / `ranges[i]` for a single binding — do **not** use bare `data.to_pandas()` (that is for the one-arg `CalcRange` case). On a single `CalcRange`, `data[i]` means **row** `i`, not another formula argument.
 
 ---
 

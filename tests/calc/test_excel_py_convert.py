@@ -553,9 +553,9 @@ def test_roundtrip_dag_excel_headers():
     assert modes[0] == "true"
 
 
-def test_roundtrip_multi_dep_data_and_data_list():
-    """Legacy ``data`` / ``data_list[i]`` reverse to ``xl(%Pn%)``; re-import keeps ``xl("%Pn%")``."""
-    dag_code = "a = data\nb = data_list[1]\nc = data_list[2].to_pandas()\n"
+def test_roundtrip_multi_dep_data_and_ranges():
+    """``data[i]`` / ``ranges[i]`` reverse to ``xl(%Pn%)``; re-import keeps ``xl("%Pn%")``."""
+    dag_code = "a = data[0]\nb = ranges[1]\nc = data[2].to_pandas()\n"
     deps = ["A1:A2", "B1:B2", "C1:C2"]
     excel_code, out_deps, issues = rewrite_dag_code_to_excel(
         dag_code, deps, header_modes=["omit", "omit", "true"]
@@ -564,7 +564,7 @@ def test_roundtrip_multi_dep_data_and_data_list():
     assert "xl(%P2%)" in excel_code
     assert "xl(%P3%)" in excel_code
     assert "xl(%P4%,headers=True)" in excel_code
-    assert "data_list[" not in excel_code
+    assert "ranges[" not in excel_code
     assert not any("ambiguous" in i for i in issues)
     again, _issues2, used, modes = rewrite_excel_code(excel_code, num_deps=3)
     assert 'xl("%P2%")' in again and 'xl("%P3%")' in again and 'xl("%P4%",headers=True)' in again
@@ -586,13 +586,13 @@ def test_export_passthrough_quoted_xl_bindings():
 
 
 def test_reverse_non_ascii_prefix_offsets():
-    """UTF-8 multi-byte prefix must not shift reverse AST rewrite of ``data`` / ``data_list``."""
-    dag_code = "café = 1\nx = data\ny = data_list[1]\n"
+    """UTF-8 multi-byte prefix must not shift reverse AST rewrite of ``data`` / ``ranges``."""
+    dag_code = "café = 1\nx = data[0]\ny = ranges[1]\n"
     excel_code, deps, issues = rewrite_dag_code_to_excel(dag_code, ["A1", "B1"], header_modes=["omit", "omit"])
     assert "café = 1" in excel_code
     assert "x = xl(%P2%)" in excel_code
     assert "y = xl(%P3%)" in excel_code
-    assert "data_list[" not in excel_code
+    assert "ranges[" not in excel_code
     assert deps == ["A1", "B1"]
     assert not any("ambiguous" in i for i in issues)
 

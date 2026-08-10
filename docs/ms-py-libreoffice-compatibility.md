@@ -50,7 +50,7 @@ Those bullets are the compatibility target. Matching Autocomplete text `=PY` wit
 Shipped in WriterAgent / LibrePy (Python Add-In, not in stock LibreOffice):
 
 - **Signature:** `=PY(code, data…)` / `=PYTHON(...)` — IDL `any python([in] string code, [in] sequence<any> data)`.
-- **Ingress:** Calc resolves ranges **before** the Add-In runs; host packs values; warm **user venv** subprocess executes; injects `data` (and `data_list` for varargs).
+- **Ingress:** Calc resolves ranges **before** the Add-In runs; host packs values; warm **user venv** subprocess executes; injects `data` (and `ranges` for varargs).
 - **Egress:** Prefer `result = …` when set; if `result` is absent from the sandbox namespace, use the **last expression** value automatically (`executor.state.get("result", code_output.output)` in [`venv_sandbox.py`](../plugin/scripting/venv/venv_sandbox.py))—same Jupyter-style fallback Excel uses.
 - **Dependencies:** Normal Calc precedents on the `data` arguments. Shared-kernel mode exists, but **ordering is still declared with `data` refs**—no co-volatility.
 - **Spill:** If auto-spill is on, multi-cell returns are written to adjacent cells via a **deferred timer** and a document property registry (`WriterAgentSpillRegistry`). This is **not** Calc dynamic-array spill; dependents of spilled cells do not automatically see engine-owned spill ranges.
@@ -347,7 +347,7 @@ OOXML (DAG):     =PY("...",A1:C100)          # CLI --to dag --write-xlsx
 OOXML (Excel):   pythonScripts + _xlws.PY(…) # CLI --to excel --write-xlsx / auto-save
 ```
 
-(Bare Excel `%Pn%` is not valid Python — import quotes it as `"%Pn%"`. Export unquotes for the package. Legacy DAG cells that still use `data` / `data_list[i]` / `.to_pandas()` reverse to `xl(%Pn%)` as before. Emit style matches Microsoft samples: no space after the comma in `headers=True` / `headers=False`.)
+(Bare Excel `%Pn%` is not valid Python — import quotes it as `"%Pn%"`. Export unquotes for the package. Legacy DAG cells that still use `data` / `ranges[i]` / `.to_pandas()` reverse to `xl(%Pn%)` as before. Emit style matches Microsoft samples: no space after the comma in `headers=True` / `headers=False`.)
 
 Everything around `xl(...)`—pandas operations, groupby logic, plots, and ordinary Python statements—is preserved. Call sites are found only via AST after equal-length `_Pn_` sentinel normalize; there is no regex `xl(` scanner. Strings and comments stay intact. Statement-form `xl("%Pn%")` (including under `if`) is left in place; leftover `xl("A1")` / dynamic forms fail closed.
 

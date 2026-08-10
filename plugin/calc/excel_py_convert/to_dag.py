@@ -25,7 +25,7 @@ Per cell we do two paired steps:
 
 1. **Code:** keep ``xl(...)`` call sites; emit runnable ``xl("%Pn%", …)`` string
    refs (remap indices after dep dedup). The sandbox injects a binding-only
-   ``xl`` that looks up formula ``data`` / ``data_list`` ranges — see :mod:`plugin.scripting.excel_xl`.
+   ``xl`` that looks up formula ``data`` / ``ranges`` ranges — see :mod:`plugin.scripting.excel_xl`.
 2. **Formula:** emit ``=PY("…"; resolved_ranges)`` with deduplicated data args
    only (every trailing arg is a real binding). The converter does **not**
    append prior PY cells for shared-kernel order — enable shared session and

@@ -40,9 +40,9 @@ log = logging.getLogger(__name__)
 
 _PYTHON_ARGS = (
     "The Python code to execute. Assign output to 'result'.",
-    "Optional one or more ranges injected as data (single range: data; "
-    "multiple ranges: data plus data_list[i]), or a single-cell index for "
-    "matrix formulas (e.g. ROW(A1)-ROW($A$1)).",
+    "Optional one or more ranges injected as data (one range: data is that "
+    "CalcRange; several: data is the ranges list — use data[i] or ranges[i]), "
+    "or a single-cell index for matrix formulas (e.g. ROW(A1)-ROW($A$1)).",
 )
 _PYTHON_SPEC = CalcFunctionSpec(
     display_name="PYTHON",

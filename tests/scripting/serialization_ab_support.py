@@ -102,10 +102,10 @@ VENV_CODE_NANSUM = "result = float(np.nansum(data))"
 VENV_CODE_MIXED_SUM = (
     "result = sum(v for row in data.values for v in row if isinstance(v, (int, float)))"
 )
-VENV_CODE_MULTI_SUM = "result = sum(float(np.sum(d)) for d in data_list)"
+VENV_CODE_MULTI_SUM = "result = sum(float(np.sum(d)) for d in ranges)"
 VENV_CODE_MULTI_MIXED_SUM = (
     "result = float(sum("
-    "v for g in data_list "
+    "v for g in ranges "
     "for row in g.values "
     "for v in row "
     "if isinstance(v, (int, float))"
@@ -620,7 +620,7 @@ def venv_transform_cases() -> list[VenvTransformCase]:
             id="multi_numeric_sum_all",
             grid=multi_numeric[0],
             grid_b=multi_numeric[1],
-            code="result = float(sum(np.sum(d) for d in data_list))",
+            code="result = float(sum(np.sum(d) for d in ranges))",
             expected=36.0,
             tags=frozenset({"multi_range", "split_grid"}),
         )
@@ -630,7 +630,7 @@ def venv_transform_cases() -> list[VenvTransformCase]:
             id="multi_numeric_concatenate",
             grid=multi_numeric[0],
             grid_b=multi_numeric[1],
-            code="result = np.concatenate(data_list).tolist()",
+            code="result = np.concatenate(ranges).tolist()",
             expected=[[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]],
             tags=frozenset({"multi_range", "split_grid"}),
         )
@@ -884,7 +884,7 @@ def run_multi_venv_echo(
     use_subprocess: bool = False,
 ) -> Any:
     """Echo ``data`` through venv when injected as a multi-range list."""
-    code = "result = [r.values for r in data_list]"
+    code = "result = [r.values for r in ranges]"
     wire = host_pack_multi_data(grids, force=pack_force)
     if use_subprocess:
         mgr = PythonWorkerManager.get(sys.executable, _WORKER_ENV)

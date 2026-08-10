@@ -52,7 +52,7 @@ _INIT_STATE_SKIP_KEYS = frozenset(
         "_operations_count",
         "result",
         "data",
-        "data_list",
+        "ranges",  # always-list of CalcRange; re-injected each run
         "xl",  # binding-only Excel data bridge; re-injected each run
     }
 )
@@ -468,7 +468,10 @@ def _inject_excel_xl(executor: LocalPythonExecutor, ranges: tuple[Any, ...] | No
 
 
 def _inject_data(executor: LocalPythonExecutor, data: Any | None, locale: str | None = None, convert_datetime: bool = False) -> tuple[Any, ...]:
-    """Inject ``data`` (first CalcRange) and ``data_list`` (all ranges as a list).
+    """Inject ``ranges`` (always a list) and polymorphic ``data``.
+
+    * One formula arg: ``data`` is that ``CalcRange``; ``ranges == [data]``.
+    * Two or more: ``data`` is the same list object as ``ranges``.
 
     Returns the materialized ranges tuple (empty when *data* is None) so callers
     can bind Excel ``xl()`` to the same ranges.
@@ -490,10 +493,17 @@ def _inject_data(executor: LocalPythonExecutor, data: Any | None, locale: str | 
             converted.append(CalcRange(vals, address=r.address))
         ranges = tuple(converted)
 
-    data_list = list(ranges)
+    ranges_list = list(ranges)
+    if len(ranges_list) == 1:
+        data_var: Any = ranges_list[0]
+    elif len(ranges_list) >= 2:
+        # Same object so ``data is ranges`` under multi-range.
+        data_var = ranges_list
+    else:
+        data_var = None
     variables: dict[str, Any] = {
-        "data": ranges[0] if ranges else None,
-        "data_list": data_list,
+        "data": data_var,
+        "ranges": ranges_list,
     }
     executor.send_variables(variables)
     return ranges

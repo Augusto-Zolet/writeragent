@@ -15,11 +15,13 @@ from plugin.calc.python.formula_edit import (
     build_new_python_formula,
     cell_looks_python_like,
     format_data_binding_display,
+    format_data_binding_text,
     parse_data_binding_text,
     parse_python_formula,
     rebuild_python_formula,
     rebuild_python_formula_with_data,
 )
+from plugin.calc.python.xl_static_rewrite import apply_xl_static_rewrite
 from plugin.chatbot.dialogs import msgbox, msgbox_with_report
 from plugin.framework.i18n import _
 from plugin.framework.uno_context import get_desktop
@@ -160,6 +162,46 @@ def _recalculate_after_save(doc: Any) -> None:
         log.debug("calculateAll after editor save failed", exc_info=True)
 
 
+def _existing_data_args_for_xl_rewrite(
+    data_binding_text: str | None,
+    parsed_parts: PythonFormulaParts | None,
+) -> list[str]:
+    """Resolve current data args from the Monaco Data field or the parsed formula."""
+    if data_binding_text is not None:
+        return parse_data_binding_text(data_binding_text)
+    if parsed_parts is not None:
+        return parse_data_binding_text(format_data_binding_display(parsed_parts.data_suffix))
+    return []
+
+
+def _maybe_apply_xl_static_rewrite(
+    new_code: str,
+    data_binding_text: str | None,
+    *,
+    parsed_parts: PythonFormulaParts | None = None,
+) -> tuple[str, str | None] | dict[str, Any]:
+    """When ``scripting.xl_static_rewrite`` is on, lift ``xl("A1")`` into data args.
+
+    Returns ``(code, data_binding_text)`` or an error dict for the Monaco save path.
+    """
+    if not get_config("scripting.xl_static_rewrite"):
+        return new_code, data_binding_text
+    existing = _existing_data_args_for_xl_rewrite(data_binding_text, parsed_parts)
+    result = apply_xl_static_rewrite(new_code, existing)
+    if result.issues:
+        detail = "; ".join(result.issues[:5])
+        return {
+            "type": "error",
+            "message": _(
+                "Could not rewrite xl() range literals into =PY data arguments: %s"
+            )
+            % detail,
+        }
+    if not result.changed:
+        return new_code, data_binding_text
+    return result.code, format_data_binding_text(result.data_args)
+
+
 def _apply_formula_save(
     doc: Any,
     cell: Any,
@@ -168,6 +210,12 @@ def _apply_formula_save(
     new_code: str,
     data_binding_text: str | None = None,
 ) -> dict[str, Any]:
+    rewritten = _maybe_apply_xl_static_rewrite(
+        new_code, data_binding_text, parsed_parts=parsed_parts
+    )
+    if isinstance(rewritten, dict):
+        return rewritten
+    new_code, data_binding_text = rewritten
     new_formula = build_editor_formula_save(
         parsed_parts=parsed_parts,
         new_code=new_code,

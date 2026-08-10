@@ -77,6 +77,23 @@ config:
     label: Python auto spill in Calc
     helper: Automatically spill multi-cell array/DataFrame results from =PYTHON() into adjacent cells.
     public: true
+    # Same row as xl_static_rewrite (SettingsDialog add_fields: inline skips y advance).
+    inline: true
+    width: 200
+
+  # Experimental: Monaco cell-save lifts xl("A1:…") onto =PY data args and
+  # rewrites call sites to data / data[i] / .to_pandas(). Default off.
+  xl_static_rewrite:
+    type: bool
+    default: false
+    widget: checkbox
+    label: Rewrite xl() ranges
+    helper: >-
+      On Edit Python in Cell save, lift static xl("A1:…") onto =PY data args
+      and rewrite to data / data[i] / .to_pandas().
+    public: true
+    x: 220
+    width: 200
 
   python_convert_datetime:
     type: bool

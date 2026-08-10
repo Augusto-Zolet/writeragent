@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Binding-only Excel ``xl()`` data bridge for ``=PY`` sandboxes.
 
-Looks up ranges already passed as formula ``data`` / ``data_list`` args. No sheet
-RPC, no co-volatility, no dynamic ``xl(variable)`` / f-strings.
+Looks up formula range bindings already injected as ``ranges`` (and polymorphic
+``data``). No sheet RPC, no co-volatility, no dynamic ``xl(variable)`` / f-strings.
 
-Refs are ``%Pn%`` strings (``%P2%`` = first range / ``data``). Header modes match the
+Refs are ``%Pn%`` strings (``%P2%`` = first binding). Header modes match the
 Excel→DAG converter:
 ``True`` → ``to_pandas()``, ``False`` → ``to_pandas(header_row=None)``, omitted → bare ``CalcRange``.
 """
