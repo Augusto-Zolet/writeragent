@@ -132,6 +132,8 @@ class RenameSheet(ToolCalcSheetBase):
             sheets = doc.getSheets()
             if not sheets.hasByName(old_name):
                 raise UnoObjectError(f"No sheet found named '{old_name}'.")
+            if old_name != new_name and sheets.hasByName(new_name):
+                return self._tool_error(f"A sheet named '{new_name}' already exists in the document.")
             sheet = sheets.getByName(old_name)
             sheet.setName(new_name)
             logger.info("Sheet renamed from '%s' to '%s'.", old_name, new_name)

@@ -149,3 +149,70 @@ def test_draw_chart_polymorphic(ctx, doc):
     
     list_res = _execute(doc, ctx, "manage_charts", {"action": "list"}, domain="draw")
     assert len(list_res.get("charts", [])) == 0
+
+
+@native_test
+@with_native_doc("calc", hidden=not show_window)
+def test_calc_multisheet_charts(ctx, doc):
+    # 1. Setup data on active sheet (Sheet1)
+    _execute(doc, ctx, "write_formula_range", {"range_name": "A1:B3", "formula_or_values": [["A", 10], ["B", 20], ["C", 30]]})
+
+    # 2. Insert a second sheet "Dashboard"
+    if not doc.getSheets().hasByName("Dashboard"):
+        doc.getSheets().insertNewByName("Dashboard", 1)
+
+    # 3. Create Chart 0 on active sheet (Sheet1)
+    res1 = _execute(doc, ctx, "manage_charts", {
+        "action": "create",
+        "data_range": "A1:B3",
+        "chart_type": "column",
+        "title": "Sheet1 Chart"
+    })
+    assert res1.get("status") == "ok", f"Create 1 failed: {res1}"
+    c0 = res1.get("chart_name")
+    assert c0 == "Chart_0"
+    assert res1.get("sheet_name") == "Sheet1"
+
+    # 4. Create Chart 1 placed on "Dashboard" with data from Sheet1
+    res2 = _execute(doc, ctx, "manage_charts", {
+        "action": "create",
+        "target_sheet": "Dashboard",
+        "data_range": "'Sheet1'.A1:B3",
+        "chart_type": "line",
+        "title": "Dashboard Chart"
+    })
+    assert res2.get("status") == "ok", f"Create 2 failed: {res2}"
+    c1 = res2.get("chart_name")
+    assert c1 == "Chart_1", f"Expected Chart_1, got {c1!r}"
+    assert res2.get("sheet_name") == "Dashboard"
+
+    # 5. List charts across entire document
+    list_res = _execute(doc, ctx, "manage_charts", {"action": "list"})
+    assert list_res.get("status") == "ok"
+    charts_by_name = {c["name"]: c for c in list_res.get("charts", [])}
+    assert "Chart_0" in charts_by_name
+    assert "Chart_1" in charts_by_name
+    assert charts_by_name["Chart_0"].get("sheet_name") == "Sheet1"
+    assert charts_by_name["Chart_1"].get("sheet_name") == "Dashboard"
+
+    # 6. Edit and Delete chart on non-active sheet (Dashboard)
+    edit_res = _execute(doc, ctx, "manage_charts", {
+        "action": "edit",
+        "chart_name": "Chart_1",
+        "title": "Updated Dashboard Chart"
+    })
+    assert edit_res.get("status") == "ok"
+
+    del_res = _execute(doc, ctx, "manage_charts", {
+        "action": "delete",
+        "chart_name": "Chart_1"
+    })
+    assert del_res.get("status") == "ok"
+    assert del_res.get("sheet_name") == "Dashboard"
+
+    # Verify only Chart_0 remains
+    list_res2 = _execute(doc, ctx, "manage_charts", {"action": "list"})
+    remaining_names = [c["name"] for c in list_res2.get("charts", [])]
+    assert "Chart_0" in remaining_names
+    assert "Chart_1" not in remaining_names
+

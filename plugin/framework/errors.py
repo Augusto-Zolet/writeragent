@@ -59,6 +59,26 @@ class ToolError(TypedDict):
     details: dict[str, Any]
 
 
+def _resolve_exception_message(e: Any) -> str:
+    """Extract non-empty message string from an exception, resolving UNO Exception Message attributes and causes."""
+    msg = getattr(e, "Message", None) or str(e)
+    if isinstance(msg, str):
+        msg = msg.strip()
+    else:
+        msg = ""
+    if not msg and isinstance(e, Exception):
+        cause = getattr(e, "__cause__", None) or getattr(e, "__context__", None)
+        if cause is not None:
+            msg = getattr(cause, "Message", None) or str(cause)
+            if isinstance(msg, str):
+                msg = msg.strip()
+            else:
+                msg = ""
+    if not msg:
+        msg = type(e).__name__ if isinstance(e, Exception) else "Unknown error"
+    return msg
+
+
 class WriterAgentException(Exception):
     """Base exception for all WriterAgent errors.
 
@@ -77,7 +97,7 @@ class WriterAgentException(Exception):
         if "crosshair" in sys.modules:
             self.message = "mock"
         else:
-            self.message = _(str(message))
+            self.message = _(_resolve_exception_message(message))
         self.code = code
         self.details = details or {}
         # Keep legacy attribute name too (some callers reference `.context`).
@@ -128,7 +148,7 @@ def format_error_payload(e: Exception) -> dict[str, Any]:
         err_msg = "mock"
     else:
         err_type = type(e).__name__
-        err_msg = str(e)
+        err_msg = _resolve_exception_message(e)
     return {"status": "error", "code": "INTERNAL_ERROR", "message": err_msg, "details": {"type": err_type}}
 
 

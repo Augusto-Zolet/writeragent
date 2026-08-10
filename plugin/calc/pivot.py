@@ -127,6 +127,20 @@ def _cell_address(sheet_idx: int, cell_str: str) -> Any:
     return a
 
 
+def _find_pivot_table_document_wide(doc, pivot_name: str):
+    """Find a pivot table object and its containing sheet across all sheets in a Calc document."""
+    try:
+        sheets = doc.getSheets()
+        for name in sheets.getElementNames():
+            sheet = sheets.getByName(name)
+            dp_tables = _get_dp_tables(sheet)
+            if dp_tables.hasByName(pivot_name):
+                return dp_tables.getByName(pivot_name), sheet
+    except Exception:
+        pass
+    return None, None
+
+
 class CreatePivotTable(ToolCalcPivotBase):
     """Create a DataPilot (pivot) table from a rectangular source range."""
 
@@ -190,9 +204,6 @@ class CreatePivotTable(ToolCalcPivotBase):
 
         try:
             dp_tables = _get_dp_tables(dest_sheet)
-            if dp_tables.hasByName(pivot_name):
-                return self._tool_error(f"A pivot table named '{pivot_name}' already exists.")
-
             desc = dp_tables.createDataPilotDescriptor()
             desc.setSourceRange(_range_address_for_sheet(src_idx, range_str))
             _set_field_orientations(desc, row_fields, column_fields, data_fields, page_fields)
@@ -234,20 +245,19 @@ class RefreshPivotTable(ToolCalcPivotBase):
                 sh = doc.getSheets()
                 if not sh.hasByName(sheet_name):
                     return self._tool_error(f"No sheet named '{sheet_name}'.")
-                sheets = [sh.getByName(sheet_name)]
-            else:
-                sh = doc.getSheets()
-                sheets = [sh.getByIndex(i) for i in range(sh.getCount())]
-
-            dpt = None
-            for sheet in sheets:
+                sheet = sh.getByName(sheet_name)
                 dp_tables = _get_dp_tables(sheet)
-                if dp_tables.hasByName(name):
-                    tbl_any = dp_tables.getByName(name)
-                    dpt = _query_interface(tbl_any, "com.sun.star.sheet.XDataPilotTable")
-                    break
+                if not dp_tables.hasByName(name):
+                    return self._tool_error(f"Pivot table '{name}' not found on sheet '{sheet_name}'.")
+                tbl_any = dp_tables.getByName(name)
+            else:
+                tbl_any, _ = _find_pivot_table_document_wide(doc, name)
+                if tbl_any is None:
+                    return self._tool_error(f"Pivot table '{name}' not found.")
+
+            dpt = _query_interface(tbl_any, "com.sun.star.sheet.XDataPilotTable")
             if dpt is None:
-                return self._tool_error(f"Pivot table '{name}' not found.")
+                return self._tool_error(f"Cannot access DataPilot interface for '{name}'.")
 
             dpt.refresh()
             return {"status": "ok", "message": f"Refreshed pivot table '{name}'."}
@@ -278,11 +288,12 @@ class ListPivotTables(ToolCalcPivotBase):
             if only_sheet:
                 if not sh.hasByName(only_sheet):
                     return self._tool_error(f"No sheet named '{only_sheet}'.")
-                sheet_iter = [sh.getByName(only_sheet)]
+                sheet_names = [only_sheet]
             else:
-                sheet_iter = [sh.getByIndex(i) for i in range(sh.getCount())]
+                sheet_names = list(sh.getElementNames())
 
-            for sheet in sheet_iter:
+            for sname in sheet_names:
+                sheet = sh.getByName(sname)
                 dp_tables = _get_dp_tables(sheet)
                 for pname in dp_tables.getElementNames():
                     entry: dict[str, Any] = {"name": pname, "sheet": sheet.getName()}

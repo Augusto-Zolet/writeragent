@@ -189,6 +189,10 @@ def _process_events(ctx=None):
 
 # Shared parameters for Create and Edit
 CHART_PROPERTIES = {
+    "target_sheet": {
+        "type": "string",
+        "description": "Sheet name where the chart should be placed (Calc only, defaults to active sheet)."
+    },
     "data_range": {"type": "string", "description": "Cell range for chart data (Calc only, e.g. 'A1:B10')."},
     "headers": {
         "type": "array",
@@ -411,14 +415,50 @@ def _apply_chart_data_arrays(chart_doc, headers, rows):
 
 
 
+def _format_chart_exception_msg(e: Exception) -> str:
+    """Format an exception into a non-empty descriptive string (handles UNO exception Message field)."""
+    detail = getattr(e, "Message", None) or str(e)
+    if isinstance(detail, str):
+        detail = detail.strip()
+    else:
+        detail = ""
+    if detail:
+        return f"{type(e).__name__}: {detail}"
+    return f"{type(e).__name__}"
+
+
+def _get_all_calc_chart_names(doc) -> set[str]:
+    """Return a set of all chart names existing across all sheets in a Calc document."""
+    names: set[str] = set()
+    try:
+        sheets = doc.getSheets()
+        for name in sheets.getElementNames():
+            names.update(sheets.getByName(name).getCharts().getElementNames())
+    except Exception:
+        pass
+    return names
+
+
+
+def _find_calc_chart_and_sheet(doc, chart_name: str):
+    """Find a chart object and its parent sheet across all sheets in a Calc document."""
+    try:
+        sheets = doc.getSheets()
+        for name in sheets.getElementNames():
+            sheet = sheets.getByName(name)
+            charts = sheet.getCharts()
+            if charts.hasByName(chart_name):
+                return charts.getByName(chart_name), sheet
+    except Exception:
+        pass
+    return None, None
+
+
 def _resolve_chart(doc, chart_name):
     """Resolve a chart object by name across Calc, Writer, or Draw."""
     if supportsService(doc, "com.sun.star.sheet.SpreadsheetDocument"):
-        bridge = CalcBridge(doc)
-        sheet = bridge.get_active_sheet()
-        charts = sheet.getCharts()
-        if charts.hasByName(chart_name):
-            return charts.getByName(chart_name)
+        chart_obj, _ = _find_calc_chart_and_sheet(doc, chart_name)
+        return chart_obj
     elif supportsService(doc, "com.sun.star.text.TextDocument"):
         objects = doc.getEmbeddedObjects()
         if objects.hasByName(chart_name):
@@ -458,12 +498,17 @@ class ListCharts(ToolBaseDummy):
         result = []
 
         if supportsService(doc, "com.sun.star.sheet.SpreadsheetDocument"):
-            bridge = CalcBridge(doc)
-            sheet = bridge.get_active_sheet()
-            charts = sheet.getCharts()
-            for name in charts.getElementNames():
-                chart_obj = charts.getByName(name)
-                result.append(self._get_summary(chart_obj, name))
+            try:
+                sheets = doc.getSheets()
+                for i in range(sheets.getCount()):
+                    sheet = sheets.getByIndex(i)
+                    sheet_name = sheet.getName()
+                    charts = sheet.getCharts()
+                    for name in charts.getElementNames():
+                        chart_obj = charts.getByName(name)
+                        result.append(self._get_summary(chart_obj, name, sheet_name=sheet_name))
+            except Exception:
+                pass
 
         elif supportsService(doc, "com.sun.star.text.TextDocument"):
             objects = doc.getEmbeddedObjects()
@@ -493,8 +538,10 @@ class ListCharts(ToolBaseDummy):
 
         return {"status": "ok", "charts": result, "count": len(result)}
 
-    def _get_summary(self, chart_obj, name):
+    def _get_summary(self, chart_obj, name, sheet_name=None):
         entry = {"name": name}
+        if sheet_name:
+            entry["sheet_name"] = sheet_name
         try:
             chart_doc = _chart_document_from_host(chart_obj)
             if chart_doc:
@@ -659,7 +706,7 @@ class UpsertChart(ToolBaseDummy):
                     return self._create_draw_chart(ctx, rect, chart_service, **kwargs)
                 return self._tool_error("Unsupported document type for chart creation.")
             except Exception as e:
-                msg = f"{type(e).__name__}: {str(e)}"
+                msg = _format_chart_exception_msg(e)
                 logger.error("Chart creation error: %s", msg)
                 raise ToolExecutionError(f"Tool execution failed: {msg}") from e
 
@@ -684,7 +731,7 @@ class UpsertChart(ToolBaseDummy):
 
                 _apply_chart_styling(chart_doc, **kwargs)
             except Exception as e:
-                msg = f"{type(e).__name__}: {str(e)}"
+                msg = _format_chart_exception_msg(e)
                 logger.error("Chart edit error: %s", msg)
                 raise ToolExecutionError(f"Tool execution failed: {msg}") from e
 
@@ -698,22 +745,30 @@ class UpsertChart(ToolBaseDummy):
         if not data_range:
             return self._tool_error("data_range is required for Calc charts.")
 
-        sheet = bridge.get_active_sheet()
+        target_sheet_name = kwargs.get("target_sheet") or kwargs.get("sheet_name")
+        if target_sheet_name:
+            try:
+                sheet = bridge.get_sheet(target_sheet_name)
+            except Exception:
+                return self._tool_error(f"Sheet '{target_sheet_name}' not found in document.")
+        else:
+            sheet = bridge.get_active_sheet()
+
         cell_range = bridge.get_cell_range(sheet, data_range)
         addr = cell_range.getRangeAddress()
 
-        logger.debug("Creating Calc chart: name=Chart_N, rect=(%d,%d,%d,%d), range=(%d,%d,%d,%d)", rect.X, rect.Y, rect.Width, rect.Height, addr.StartColumn, addr.StartRow, addr.EndColumn, addr.EndRow)
+        logger.debug("Creating Calc chart: target_sheet=%s, rect=(%d,%d,%d,%d), range=(%d,%d,%d,%d)",
+                     sheet.getName(), rect.X, rect.Y, rect.Width, rect.Height,
+                     addr.StartColumn, addr.StartRow, addr.EndColumn, addr.EndRow)
+
+        existing_names = _get_all_calc_chart_names(ctx.doc)
+        idx = len(existing_names)
+        name = f"Chart_{idx}"
+        while name in existing_names:
+            idx += 1
+            name = f"Chart_{idx}"
 
         charts = sheet.getCharts()
-        name = f"Chart_{len(charts)}"
-
-        # Ensure name is unique
-        try:
-            while charts.hasByName(name):
-                name = f"{name}_new"
-        except Exception:
-            pass
-
         charts.addNewByName(name, rect, (addr,), True, True)
 
         chart_obj = charts.getByName(name)
@@ -724,7 +779,7 @@ class UpsertChart(ToolBaseDummy):
 
         _apply_chart_styling(chart_doc, **kwargs)
         #_process_events() causes a hang in tests
-        return {"status": "ok", "message": f"Chart '{name}' created in Calc.", "chart_name": name}
+        return {"status": "ok", "message": f"Chart '{name}' created on sheet '{sheet.getName()}'.", "chart_name": name, "sheet_name": sheet.getName()}
 
     def _create_writer_chart(self, ctx, rect, service, **kwargs):
         """Insert a chart as inline ``TextEmbeddedObject`` (Writer body text).
@@ -951,12 +1006,11 @@ class DeleteChart(ToolBaseDummy):
         chart_name = kwargs["chart_name"]
 
         if supportsService(doc, "com.sun.star.sheet.SpreadsheetDocument"):
-            bridge = CalcBridge(doc)
-            sheet = bridge.get_active_sheet()
-            charts = sheet.getCharts()
-            if not charts.hasByName(chart_name):
+            chart_obj, sheet = _find_calc_chart_and_sheet(doc, chart_name)
+            if not chart_obj or not sheet:
                 return self._tool_error(f"Chart '{chart_name}' not found.")
-            charts.removeByName(chart_name)
+            sheet.getCharts().removeByName(chart_name)
+            return {"status": "ok", "deleted": chart_name, "sheet_name": sheet.getName()}
         elif supportsService(doc, "com.sun.star.text.TextDocument"):
             objects = doc.getEmbeddedObjects()
             if objects.hasByName(chart_name):
@@ -1017,6 +1071,10 @@ class ManageCharts(ToolCalcChartBase):
             "chart_name": {
                 "type": "string",
                 "description": "The name of the chart (required for get_info, edit, delete)."
+            },
+            "target_sheet": {
+                "type": "string",
+                "description": "Sheet name where the chart should be placed (Calc only, defaults to active sheet)."
             },
             "data_range": {
                 "type": "string",

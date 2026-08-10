@@ -56,3 +56,19 @@ def test_calc_pivot_table(ctx, doc):
         "sheet_name": sn,
     })
     assert res_ref.get("status") == "ok", f"refresh_pivot_table failed: {res_ref}"
+
+    # Insert second sheet and attempt creating duplicate pivot name WA_PivotTest on Sheet2
+    if not doc.getSheets().hasByName("Sheet2"):
+        doc.getSheets().insertNewByName("Sheet2", 1)
+
+    res_dup = _execute_calc_tool(doc, ctx, "create_pivot_table", {
+        "pivot_table_name": "WA_PivotTest",
+        "source_range": "A1:B6",
+        "source_sheet_name": sn,
+        "destination_sheet_name": "Sheet2",
+        "destination_cell": "A1",
+        "data_fields": ["Sales"],
+    })
+    assert res_dup.get("status") == "error"
+    assert len(res_dup.get("message", "")) > 0
+
