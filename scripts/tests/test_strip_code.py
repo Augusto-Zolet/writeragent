@@ -1,4 +1,4 @@
-# WriterAgent tests — AST-based grammar_obs stripping
+# WriterAgent tests — AST-based release stripping
 # Copyright (c) 2026 KeithCu
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -6,8 +6,16 @@
 from __future__ import annotations
 
 import ast
+import os
 
-from scripts.strip_code import should_skip_strip, strip_grammar_obs_calls, strip_production_code
+from scripts.strip_code import (
+    should_skip_print_strip,
+    should_skip_strip,
+    strip_grammar_obs_calls,
+    strip_log_debug_info_calls,
+    strip_print_calls,
+    strip_production_code,
+)
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -20,6 +28,15 @@ def test_should_skip_strip() -> None:
     assert should_skip_strip("tests/test_bar.py") is True
     assert should_skip_strip("plugin/framework/config.py") is False
     assert should_skip_strip("plugin/main.py") is False
+
+
+def test_should_skip_print_strip_keep_list() -> None:
+    assert should_skip_print_strip("plugin/framework/logging.py") is True
+    assert should_skip_print_strip("plugin/scripting/venv_diagnostics.py") is True
+    assert should_skip_print_strip("plugin/contrib/smolagents/monitoring.py") is True
+    assert should_skip_print_strip("plugin/testing_runner.py") is True
+    assert should_skip_print_strip("plugin/main.py") is False
+    assert should_skip_print_strip("plugin/chatbot/panel.py") is False
 
 
 def test_strip_grammar_obs_removes_calls_keeps_imports(tmp_path: Path) -> None:
@@ -121,7 +138,7 @@ def test_strip_multiline_grammar_obs_no_dangling_first_line(tmp_path: Path) -> N
 
 
 def test_strip_grammar_obs_module_unchanged(tmp_path: Path) -> None:
-    """The grammar_obs definition module keeps its log.debug body."""
+    """grammar_obs-only strip leaves log.debug; production strip removes it."""
     test_file = tmp_path / "grammar_obs.py"
     original_code = (
         "import logging\n"
@@ -137,6 +154,132 @@ def test_strip_grammar_obs_module_unchanged(tmp_path: Path) -> None:
     stripped = test_file.read_text(encoding="utf-8")
     assert "def grammar_obs" in stripped
     assert "log.debug" in stripped
+
+
+def test_strip_log_debug_info_removes_levels_keeps_warning_error(tmp_path: Path) -> None:
+    test_file = tmp_path / "mock_file.py"
+    original_code = (
+        "import logging\n"
+        "log = logging.getLogger('t')\n"
+        "logger = log\n"
+        "\n"
+        "def hello(self=None):\n"
+        "    log.debug('d')\n"
+        "    log.info('i')\n"
+        "    logger.debug('ld')\n"
+        "    logger.info('li')\n"
+        "    logging.getLogger('x').debug('gd')\n"
+        "    logging.getLogger('x').info('gi')\n"
+        "    log.warning('w')\n"
+        "    log.error('e')\n"
+        "    log.exception('x')\n"
+        "    print('keep until print strip')\n"
+        "    return 1\n"
+    )
+    test_file.write_text(original_code, encoding="utf-8")
+
+    strip_log_debug_info_calls(str(tmp_path), dry_run=False)
+
+    stripped = test_file.read_text(encoding="utf-8")
+    ast.parse(stripped)
+    assert "log.debug" not in stripped
+    assert "log.info" not in stripped
+    assert "logger.debug" not in stripped
+    assert "logger.info" not in stripped
+    assert ".debug(" not in stripped
+    assert ".info(" not in stripped
+    assert "log.warning('w')" in stripped
+    assert "log.error('e')" in stripped
+    assert "log.exception('x')" in stripped
+    assert "print('keep until print strip')" in stripped
+    assert "return 1" in stripped
+
+
+def test_strip_log_debug_info_sole_except_gets_pass(tmp_path: Path) -> None:
+    test_file = tmp_path / "mock_file.py"
+    original_code = (
+        "try:\n"
+        "    x = 1\n"
+        "except Exception:\n"
+        "    log.debug('only', exc_info=True)\n"
+    )
+    test_file.write_text(original_code, encoding="utf-8")
+
+    strip_log_debug_info_calls(str(tmp_path), dry_run=False)
+
+    stripped = test_file.read_text(encoding="utf-8")
+    ast.parse(stripped)
+    assert "pass" in stripped
+    assert "log.debug" not in stripped
+
+
+def test_strip_print_removes_calls(tmp_path: Path) -> None:
+    test_file = tmp_path / "mock_file.py"
+    original_code = (
+        "def hello():\n"
+        "    print('hello world')\n"
+        "    pprint(obj)\n"
+        "    log.warning('keep')\n"
+        "    return 1\n"
+    )
+    test_file.write_text(original_code, encoding="utf-8")
+
+    strip_print_calls(str(tmp_path), dry_run=False)
+
+    stripped = test_file.read_text(encoding="utf-8")
+    ast.parse(stripped)
+    assert "print(" not in stripped
+    assert "pprint(" not in stripped
+    assert "log.warning('keep')" in stripped
+    assert "return 1" in stripped
+
+
+def test_strip_print_keeps_logging_fallback_path(tmp_path: Path) -> None:
+    """Keep-list: plugin/framework/logging.py prints survive print strip."""
+    os.makedirs(tmp_path / "plugin" / "framework", exist_ok=True)
+    test_file = tmp_path / "plugin" / "framework" / "logging.py"
+    original_code = (
+        "import sys\n"
+        "\n"
+        "def init_logging():\n"
+        "    print('WriterAgent: init_logging failed', file=sys.stderr)\n"
+        "    log.debug('still stripped by log strip')\n"
+    )
+    test_file.write_text(original_code, encoding="utf-8")
+
+    strip_print_calls(str(tmp_path), dry_run=False)
+    after_print = test_file.read_text(encoding="utf-8")
+    assert "print('WriterAgent: init_logging failed'" in after_print
+
+    strip_log_debug_info_calls(str(tmp_path), dry_run=False)
+    after_log = test_file.read_text(encoding="utf-8")
+    assert "print('WriterAgent: init_logging failed'" in after_log
+    assert "log.debug" not in after_log
+
+
+def test_strip_production_code_strips_debug_info_and_print(tmp_path: Path) -> None:
+    test_file = tmp_path / "mock_file.py"
+    original_code = (
+        "def f():\n"
+        "    print('p')\n"
+        "    log.debug('d')\n"
+        "    log.info('i')\n"
+        "    log.warning('w')\n"
+        "    grammar_obs('g')\n"
+        "    return 1\n"
+    )
+    test_file.write_text(original_code, encoding="utf-8")
+
+    strip_production_code(str(tmp_path), dry_run=False)
+
+    stripped = test_file.read_text(encoding="utf-8")
+    ast.parse(stripped)
+    assert "print(" not in stripped
+    assert "log.debug" not in stripped
+    assert "log.info" not in stripped
+    assert "grammar_obs(" not in stripped
+    assert "log.warning('w')" in stripped
+    assert "return 1" in stripped
 
 
 def test_strip_main_thread_only_decorators(tmp_path: Path) -> None:
@@ -169,7 +312,6 @@ def test_strip_main_thread_only_decorators(tmp_path: Path) -> None:
 
 def test_replace_thread_guard_implementation(tmp_path: Path) -> None:
     """thread_guard.py is overwritten with minimal no-op stubs."""
-    import os
     from scripts.strip_code import replace_thread_guard_implementation
     os.makedirs(tmp_path / "plugin" / "framework", exist_ok=True)
     tg_file = tmp_path / "plugin" / "framework" / "thread_guard.py"
@@ -183,4 +325,3 @@ def test_replace_thread_guard_implementation(tmp_path: Path) -> None:
     assert "def guard_uno(obj):" in stubbed
     assert "def background(fn):" in stubbed
     assert "raise RuntimeError" not in stubbed
-

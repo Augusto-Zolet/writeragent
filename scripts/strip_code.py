@@ -1,13 +1,30 @@
 #!/usr/bin/env python3
-# WriterAgent — AST-based grammar_obs stripping tool
+# WriterAgent — AST-based release-bundle stripping tool
 # Copyright (c) 2026 KeithCu
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""AST-based utility to strip ``grammar_obs(...)`` call sites from production bundles.
+"""AST-based utility to strip debug/observability call sites from production bundles.
 
-Only removes standalone expression-statement calls to ``grammar_obs`` or ``_grammar_obs``.
-Imports, re-exports, the ``grammar_obs.py`` module, and ``emit_grammar_status`` are left intact.
+Release / ``--strip`` / ``--no-tests`` OXT assembly removes:
+
+* ``grammar_obs(...)`` / ``_grammar_obs(...)`` expression statements
+* Logger ``.debug(...)`` / ``.info(...)`` expression statements
+* ``print(...)`` / ``pprint(...)`` expression statements (except a keep-list)
+* ``@main_thread_only`` decorators
+* Full ``thread_guard.py`` → no-op stubs
+
+Retail keeps ``warning`` / ``error`` / ``exception`` (and keep-listed prints).
+Checkout / ``make build`` (no strip) is unchanged.
+
+Why bother (measured 2026-08-10 under ``plugin/``, excluding tests):
+
+* ``.debug`` — ~849 call sites, ~76 KB of source text (eager args still run at WARN)
+* ``.info`` — ~292 call sites, ~29 KB
+* ``print`` / ``pprint`` — ~49 call sites, ~3 KB (small now; still strip for quiet retail;
+  keep-list preserves stderr fallbacks, subprocess IPC, and CLI UX)
+
+Imports, logger setup, ``grammar_obs.py``, and ``emit_grammar_status`` stay intact.
 
 Line edits / empty-suite ``pass`` live in
 [`plugin.framework.ast_stmt_edit`](../plugin/framework/ast_stmt_edit.py) (shared with
@@ -20,6 +37,7 @@ import argparse
 import ast
 import os
 import sys
+from typing import TYPE_CHECKING
 
 from plugin.framework.ast_stmt_edit import (
     is_name_call_expr,
@@ -27,12 +45,30 @@ from plugin.framework.ast_stmt_edit import (
     remove_expr_statements,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 GRAMMAR_OBS_CALL_NAMES: frozenset[str] = frozenset({"grammar_obs", "_grammar_obs"})
+PRINT_CALL_NAMES: frozenset[str] = frozenset({"print", "pprint"})
+LOGGER_STRIP_ATTRS: frozenset[str] = frozenset({"debug", "info"})
 
 EXCLUDED_STRIP_PATTERNS: list[str] = [
     "plugin/testing_runner.py",
     "plugin/tests/",
     "tests/",
+]
+
+# Print/pprint keep-list: load-bearing stderr, subprocess stdout IPC, CLI UX.
+# (Logger .debug/.info are still stripped in these files.)
+PRINT_KEEP_PATTERNS: list[str] = [
+    "plugin/framework/logging.py",
+    "plugin/chatbot/audio_recorder.py",
+    "plugin/scripting/venv/audio_recorder.py",
+    "plugin/scripting/venv/editor_main.py",
+    "plugin/scripting/venv_diagnostics.py",
+    "plugin/calc/excel_py_convert/cli.py",
+    "plugin/lib/latex2mathml/converter.py",
+    "plugin/contrib/smolagents/monitoring.py",
 ]
 
 
@@ -47,19 +83,55 @@ def should_skip_strip(rel_path: str) -> bool:
     return False
 
 
+def should_skip_print_strip(rel_path: str) -> bool:
+    """True if *rel_path* is globally excluded or on the print keep-list."""
+    if should_skip_strip(rel_path):
+        return True
+    for pattern in PRINT_KEEP_PATTERNS:
+        if pattern.endswith("/"):
+            if rel_path.startswith(pattern):
+                return True
+        elif rel_path == pattern:
+            return True
+    return False
+
+
 def _is_grammar_obs_call(node: ast.Expr) -> bool:
     """True if ``node`` is an expression-statement call to grammar_obs / _grammar_obs."""
     return is_name_call_expr(node, GRAMMAR_OBS_CALL_NAMES)
 
 
-def strip_grammar_obs_calls(bundle_path: str, dry_run: bool = False) -> None:
-    """Remove ``grammar_obs(...)`` / ``_grammar_obs(...)`` expression statements from Python files.
+def _is_print_call(node: ast.Expr) -> bool:
+    """True if ``node`` is an expression-statement ``print(...)`` / ``pprint(...)``."""
+    return is_name_call_expr(node, PRINT_CALL_NAMES)
 
-    Uses :func:`plugin.framework.ast_stmt_edit.remove_expr_statements` (AST line ranges,
-    including multi-line calls; inserts ``pass`` when stripping would leave an empty block).
+
+def _is_logger_debug_or_info_call(node: ast.Expr) -> bool:
+    """True if ``node`` is an expression-statement logger ``.debug(...)`` / ``.info(...)``.
+
+    Matches ``log.debug``, ``logger.info``, ``self.logger.debug``,
+    ``logging.getLogger(...).info``, and similar Attribute receivers. Does not
+    match bare ``debug(...)`` / ``info(...)`` Name calls.
     """
+    value = getattr(node, "value", None) if isinstance(node, ast.Expr) else None
+    if not isinstance(value, ast.Call):
+        return False
+    func = value.func
+    return isinstance(func, ast.Attribute) and func.attr in LOGGER_STRIP_ATTRS
+
+
+def _walk_and_strip_expr_statements(
+    bundle_path: str,
+    *,
+    label: str,
+    should_remove: Callable[[ast.Expr], bool],
+    pass_comment: str,
+    dry_run: bool,
+    skip_file: Callable[[str], bool] = should_skip_strip,
+) -> None:
+    """Shared walk: dry-run report or ``remove_expr_statements`` rewrite."""
     action = "Dry run: would strip" if dry_run else "Stripping"
-    print(f"  {action} grammar_obs calls from {bundle_path} using AST...")
+    print(f"  {action} {label} from {bundle_path} using AST...")
 
     for root, _, filenames in os.walk(bundle_path):
         for fn in filenames:
@@ -67,14 +139,14 @@ def strip_grammar_obs_calls(bundle_path: str, dry_run: bool = False) -> None:
                 continue
             path = os.path.join(root, fn)
             rel_path = os.path.relpath(path, bundle_path).replace(os.sep, "/")
-            if should_skip_strip(rel_path):
+            if skip_file(rel_path):
                 continue
             try:
                 with open(path, encoding="utf-8") as f:
                     content = f.read()
 
                 if dry_run:
-                    nodes = iter_matching_expr_statements(content, _is_grammar_obs_call)
+                    nodes = iter_matching_expr_statements(content, should_remove)
                     if not nodes:
                         continue
                     lines = content.splitlines(keepends=True)
@@ -90,8 +162,8 @@ def strip_grammar_obs_calls(bundle_path: str, dry_run: bool = False) -> None:
 
                 new_content, removed = remove_expr_statements(
                     content,
-                    _is_grammar_obs_call,
-                    pass_comment="stripped obs call",
+                    should_remove,
+                    pass_comment=pass_comment,
                 )
                 if removed:
                     with open(path, "w", encoding="utf-8") as f:
@@ -101,7 +173,55 @@ def strip_grammar_obs_calls(bundle_path: str, dry_run: bool = False) -> None:
                 if "match" not in str(e):
                     print(f"    SKIPPING {fn}: {e}")
 
-    print("  Done: Stripped grammar_obs calls from bundle.")
+    print(f"  Done: Stripped {label} from bundle.")
+
+
+def strip_grammar_obs_calls(bundle_path: str, dry_run: bool = False) -> None:
+    """Remove ``grammar_obs(...)`` / ``_grammar_obs(...)`` expression statements from Python files.
+
+    Uses :func:`plugin.framework.ast_stmt_edit.remove_expr_statements` (AST line ranges,
+    including multi-line calls; inserts ``pass`` when stripping would leave an empty block).
+    """
+    _walk_and_strip_expr_statements(
+        bundle_path,
+        label="grammar_obs calls",
+        should_remove=_is_grammar_obs_call,
+        pass_comment="stripped obs call",
+        dry_run=dry_run,
+    )
+
+
+def strip_log_debug_info_calls(bundle_path: str, dry_run: bool = False) -> None:
+    """Remove logger ``.debug`` / ``.info`` expression statements from Python files.
+
+    Measured 2026-08-10: ~849 debug + ~292 info sites (~105 KB) under ``plugin/``
+    (excluding tests). Eager argument evaluation still runs when ``log_level`` is WARN,
+    so stripping also avoids wasted JSON/UNO work in retail builds.
+    """
+    _walk_and_strip_expr_statements(
+        bundle_path,
+        label="log.debug/log.info calls (~849+~292 sites / ~105 KB as of 2026-08-10)",
+        should_remove=_is_logger_debug_or_info_call,
+        pass_comment="stripped log",
+        dry_run=dry_run,
+    )
+
+
+def strip_print_calls(bundle_path: str, dry_run: bool = False) -> None:
+    """Remove ``print`` / ``pprint`` expression statements except :data:`PRINT_KEEP_PATTERNS`.
+
+    Measured 2026-08-10: ~49 sites / ~3 KB under ``plugin/`` (excluding tests). Small,
+    but retail builds should not spam stdout; keep-list preserves logging fallbacks,
+    audio/editor stderr, venv diagnostics IPC, and CLI helpers.
+    """
+    _walk_and_strip_expr_statements(
+        bundle_path,
+        label="print/pprint calls (~49 sites / ~3 KB as of 2026-08-10; keep-list excluded)",
+        should_remove=_is_print_call,
+        pass_comment="stripped print",
+        dry_run=dry_run,
+        skip_file=should_skip_print_strip,
+    )
 
 
 def strip_main_thread_only_decorators(bundle_path: str, dry_run: bool = False) -> None:
@@ -234,8 +354,10 @@ def guard_uno(obj):
 
 
 def strip_production_code(bundle_path: str, dry_run: bool = False) -> None:
-    """Release-bundle entry point: strip ``grammar_obs`` call sites, ``main_thread_only`` decorators, and stub ``thread_guard.py``."""
+    """Release-bundle entry point: strip obs/debug/info/print, ``main_thread_only``, stub ``thread_guard``."""
     strip_grammar_obs_calls(bundle_path, dry_run=dry_run)
+    strip_log_debug_info_calls(bundle_path, dry_run=dry_run)
+    strip_print_calls(bundle_path, dry_run=dry_run)
     strip_main_thread_only_decorators(bundle_path, dry_run=dry_run)
     replace_thread_guard_implementation(bundle_path, dry_run=dry_run)
 

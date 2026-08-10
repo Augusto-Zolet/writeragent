@@ -3,8 +3,9 @@
 
 Used by:
 
-* [`scripts/strip_code.py`](../../scripts/strip_code.py) — remove ``grammar_obs(...)``
-  statements from production bundles.
+* [`scripts/strip_code.py`](../../scripts/strip_code.py) — remove ``grammar_obs(...)``,
+  logger ``.debug``/``.info``, and most ``print``/``pprint`` statements from
+  production bundles.
 * [`plugin/calc/excel_py_convert/to_dag.py`](../calc/excel_py_convert/to_dag.py) —
   turn discarded ``xl(...)`` statements (e.g. under ``if``) into ``pass`` /
   delete them so they do not become ``data`` or fail-closed dynamic refs.
