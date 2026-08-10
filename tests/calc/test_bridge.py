@@ -57,3 +57,31 @@ def test_get_cell_range_honours_sheet_prefix():
     bridge.get_cell_range(active, "Data.A1:B2")
     data.getCellRangeByPosition.assert_called_once_with(0, 0, 1, 1)
     active.getCellRangeByPosition.assert_not_called()
+
+
+def test_resolve_disagreeing_prefix_and_sheet_name_raises():
+    doc = MagicMock()
+    bridge = CalcBridge(doc)
+    try:
+        bridge.resolve("Summary.B4:B6", sheet_name="Sources")
+        assert False, "expected ValueError"
+    except ValueError as e:
+        assert "Summary" in str(e)
+        assert "Sources" in str(e)
+
+
+def test_get_sheet_error_lists_available_sheets():
+    doc = MagicMock()
+    sheets = MagicMock()
+    sheets.hasByName.return_value = False
+    sheets.getElementNames.return_value = ("Summary", "Sources", "Data")
+    doc.getSheets.return_value = sheets
+
+    bridge = CalcBridge(doc)
+    try:
+        bridge.get_sheet("NonExistent")
+        assert False, "expected ValueError"
+    except ValueError as e:
+        assert "No sheet named 'NonExistent'" in str(e)
+        assert "Available: Summary, Sources, Data" in str(e)
+

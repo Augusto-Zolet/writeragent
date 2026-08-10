@@ -24,6 +24,7 @@ import datetime
 import logging
 import re
 
+from plugin.calc.address_utils import split_sheet_prefix
 from plugin.calc.datetime_wire import is_elapsed_format_string, iso_duration_from_serial
 from plugin.framework.errors import ToolExecutionError
 
@@ -234,6 +235,7 @@ class CellInspector:
             dict with keys: address, value, formula, type.
         """
         try:
+            _unused, bare_address = split_sheet_prefix(address)
             cell = self.bridge.resolve_range_or_address(address)
             if hasattr(cell, "getRangeAddress"):
                 addr = cell.getRangeAddress()
@@ -256,7 +258,7 @@ class CellInspector:
 
             formula = cell.getFormula() if cell_type == FORMULA else None
 
-            info = {"address": address.upper(), "value": value, "formula": formula, "type": self._cell_type_name(cell_type)}
+            info = {"address": bare_address.upper(), "value": value, "formula": formula, "type": self._cell_type_name(cell_type)}
             if include_format_info:
                 try:
                     self._enrich_cell_format(info, cell)
@@ -280,6 +282,7 @@ class CellInspector:
             italic, h_align, v_align, wrap_text.
         """
         try:
+            _unused, bare_address = split_sheet_prefix(address)
             cell = self.bridge.resolve_range_or_address(address)
             if hasattr(cell, "getRangeAddress"):
                 addr = cell.getRangeAddress()
@@ -301,7 +304,7 @@ class CellInspector:
                 value = cell.getString()
 
             return {
-                "address": address.upper(),
+                "address": bare_address.upper(),
                 "value": value,
                 "formula": cell.getFormula(),
                 "formula_local": self._safe_prop(cell, "FormulaLocal"),

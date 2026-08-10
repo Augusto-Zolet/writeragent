@@ -178,6 +178,19 @@ def test_read_cell_range_date_time_enrichment(ctx, doc):
 
 @native_test
 @with_native_doc("calc")
+def test_read_cell_sheet_qualified_address_format(ctx, doc):
+    """Single-cell read with sheet-qualified address returns clean bare coordinate."""
+    from plugin.calc.bridge import CalcBridge
+    from plugin.calc.inspector import CellInspector
+
+    sheet_name = doc.getSheets().getByIndex(0).getName()
+    inspector = CellInspector(CalcBridge(doc))
+    info = inspector.read_cell(f"'{sheet_name}'.A1")
+    assert info["address"] == "A1", f"Expected address 'A1', got '{info['address']}'"
+
+
+@native_test
+@with_native_doc("calc")
 def test_read_range_format_info_performance(ctx, doc):
     """Opt-in enrichment must stay cheap for plain numbers and scale with format groups."""
     import time
