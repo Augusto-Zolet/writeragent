@@ -195,13 +195,25 @@ def test_calc_multisheet_charts(ctx, doc):
     assert charts_by_name["Chart_0"].get("sheet_name") == "Sheet1"
     assert charts_by_name["Chart_1"].get("sheet_name") == "Dashboard"
 
-    # 6. Edit and Delete chart on non-active sheet (Dashboard)
+    # 6. Edit chart on non-active sheet (Dashboard) WITHOUT passing sheet_name (auto-resolution fallback test)
     edit_res = _execute(doc, ctx, "manage_charts", {
         "action": "edit",
         "chart_name": "Chart_1",
         "title": "Updated Dashboard Chart"
     })
     assert edit_res.get("status") == "ok"
+
+    # 7. Create Chart 2 with has_header=False
+    res3 = _execute(doc, ctx, "manage_charts", {
+        "action": "create",
+        "target_sheet": "Dashboard",
+        "data_range": "'Sheet1'.A1:B3",
+        "chart_type": "pie",
+        "has_header": False,
+        "title": "No Header Chart"
+    })
+    assert res3.get("status") == "ok"
+    assert res3.get("chart_name") == "Chart_2"
 
     del_res = _execute(doc, ctx, "manage_charts", {
         "action": "delete",
@@ -210,9 +222,10 @@ def test_calc_multisheet_charts(ctx, doc):
     assert del_res.get("status") == "ok"
     assert del_res.get("sheet_name") == "Dashboard"
 
-    # Verify only Chart_0 remains
+    # Verify remaining charts
     list_res2 = _execute(doc, ctx, "manage_charts", {"action": "list"})
     remaining_names = [c["name"] for c in list_res2.get("charts", [])]
     assert "Chart_0" in remaining_names
+    assert "Chart_2" in remaining_names
     assert "Chart_1" not in remaining_names
 

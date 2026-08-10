@@ -76,3 +76,43 @@ def test_is_chart_name_used_and_count():
     chart_obj_none, sheet_none = _find_calc_chart_and_sheet(doc, "Chart_999")
     assert chart_obj_none is None
     assert sheet_none is None
+
+
+def test_create_calc_chart_has_header_false():
+    from plugin.calc.charts import UpsertChart
+
+    ctx = MagicMock()
+    doc = MagicMock()
+    ctx.doc = doc
+
+    sheet = MagicMock()
+    sheet.getName.return_value = "Sheet1"
+
+    charts = MagicMock()
+    charts.getElementNames.return_value = []
+    sheet.getCharts.return_value = charts
+
+    cell_range = MagicMock()
+    addr = MagicMock(StartColumn=0, StartRow=0, EndColumn=1, EndRow=5)
+    cell_range.getRangeAddress.return_value = addr
+
+    bridge = MagicMock()
+    bridge.get_active_sheet.return_value = sheet
+    bridge.get_cell_range.return_value = cell_range
+
+    tool = UpsertChart()
+    rect = MagicMock()
+    service = "com.sun.star.chart.BarDiagram"
+
+    with MagicMock() as mock_bridge_cls:
+        mock_bridge_cls.return_value = bridge
+        from unittest.mock import patch
+        with patch("plugin.calc.charts.CalcBridge", return_value=bridge), patch("plugin.calc.charts._chart_document_from_host", return_value=MagicMock()):
+            tool._create_calc_chart(ctx, rect, service, data_range="A1:B6", has_header=False)
+
+    charts.addNewByName.assert_called_once()
+    # Check that False was passed for HasCategories and HasSingleCellHeader
+    args = charts.addNewByName.call_args[0]
+    assert args[3] is False
+    assert args[4] is False
+

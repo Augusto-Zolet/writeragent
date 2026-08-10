@@ -26,6 +26,7 @@ import logging
 from plugin.doc.visual_helpers import parse_color_to_uno_int as _parse_color
 from plugin.framework.errors import ToolExecutionError
 from plugin.framework.tool import ToolBaseDummy
+from plugin.calc.address_utils import split_sheet_prefix
 from plugin.calc.base import ToolCalcChartBase
 from plugin.calc.bridge import CalcBridge
 import uno
@@ -194,6 +195,10 @@ CHART_PROPERTIES = {
         "description": "Sheet name where the chart should be placed (Calc only, defaults to active sheet)."
     },
     "data_range": {"type": "string", "description": "Cell range for chart data (Calc only, e.g. 'A1:B10')."},
+    "has_header": {
+        "type": "boolean",
+        "description": "Whether the first row/column of data_range contains header and category labels (Calc only, defaults to true)."
+    },
     "headers": {
         "type": "array",
         "items": {"type": "string"},
@@ -441,7 +446,12 @@ def _get_all_calc_chart_names(doc) -> set[str]:
 
 
 def _find_calc_chart_and_sheet(doc, chart_name: str):
-    """Find a chart object and its parent sheet across all sheets in a Calc document."""
+    """Find a chart object and its parent sheet across all sheets in a Calc document.
+
+    Note: Chart names in Calc are document-wide objects (e.g. Chart_0, Chart_1).
+    If sheet_name is omitted or mismatched, this function automatically falls back
+    to searching across all sheets in the document to locate and operate on the chart cleanly.
+    """
     try:
         sheets = doc.getSheets()
         for name in sheets.getElementNames():
@@ -757,6 +767,21 @@ class UpsertChart(ToolBaseDummy):
         cell_range = bridge.get_cell_range(sheet, data_range)
         addr = cell_range.getRangeAddress()
 
+        pos_str = kwargs.get("position")
+        if pos_str:
+            try:
+                _unused, bare_pos = split_sheet_prefix(pos_str)
+                cell_obj = sheet.getCellRangeByName(bare_pos)
+                cell_pos = cell_obj.getPosition()
+                cell_size = cell_obj.getSize()
+                rect.X = cell_pos.X
+                rect.Y = cell_pos.Y
+                if cell_size.Width > 0 and cell_size.Height > 0:
+                    rect.Width = cell_size.Width
+                    rect.Height = cell_size.Height
+            except Exception:
+                pass
+
         logger.debug("Creating Calc chart: target_sheet=%s, rect=(%d,%d,%d,%d), range=(%d,%d,%d,%d)",
                      sheet.getName(), rect.X, rect.Y, rect.Width, rect.Height,
                      addr.StartColumn, addr.StartRow, addr.EndColumn, addr.EndRow)
@@ -768,8 +793,9 @@ class UpsertChart(ToolBaseDummy):
             idx += 1
             name = f"Chart_{idx}"
 
+        has_header = bool(kwargs.get("has_header", True))
         charts = sheet.getCharts()
-        charts.addNewByName(name, rect, (addr,), True, True)
+        charts.addNewByName(name, rect, (addr,), has_header, has_header)
 
         chart_obj = charts.getByName(name)
         chart_doc = _chart_document_from_host(chart_obj)
@@ -1079,6 +1105,10 @@ class ManageCharts(ToolCalcChartBase):
             "data_range": {
                 "type": "string",
                 "description": "Cell range for chart data (Calc only, required for create, e.g. 'A1:B10')."
+            },
+            "has_header": {
+                "type": "boolean",
+                "description": "Whether the first row/column of data_range contains header and category labels (Calc only, defaults to true)."
             },
             "headers": {
                 "type": "array",
