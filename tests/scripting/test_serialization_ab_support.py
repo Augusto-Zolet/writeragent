@@ -12,10 +12,10 @@ from __future__ import annotations
 from tests.scripting.serialization_ab_support import (
     _AB_HYPOTHESIS_EXTENSIVE,
     _AB_HYPOTHESIS_LIGHT,
-    _SERIALIZATION_EXTENSIVE_ENV,
     ab_hypothesis_max_examples,
     serialization_extensive,
 )
+from tests.vhs_budget import _SERIALIZATION_EXTENSIVE_ENV
 
 
 def test_serialization_extensive_default_false(monkeypatch) -> None:
