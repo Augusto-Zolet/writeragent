@@ -11,6 +11,7 @@ Release / ``--strip`` / ``--no-tests`` OXT assembly removes:
 * ``grammar_obs(...)`` / ``_grammar_obs(...)`` expression statements
 * Logger ``.debug(...)`` / ``.info(...)`` expression statements
 * ``print(...)`` / ``pprint(...)`` expression statements (except a keep-list)
+* ``@deal.*`` decorators (keep ``deal_shim`` imports)
 * ``@main_thread_only`` decorators
 * Full ``thread_guard.py`` → no-op stubs
 
@@ -23,8 +24,10 @@ Why bother (measured 2026-08-10 under ``plugin/``, excluding tests):
 * ``.info`` — ~292 call sites, ~29 KB
 * ``print`` / ``pprint`` — ~49 call sites, ~3 KB (small now; still strip for quiet retail;
   keep-list preserves stderr fallbacks, subprocess IPC, and CLI UX)
+* ``@deal.*`` — ~364 decorators, ~34 KB (shim already no-ops; strip skips def-time wrappers)
 
-Imports, logger setup, ``grammar_obs.py``, and ``emit_grammar_status`` stay intact.
+Imports, logger setup, ``grammar_obs.py``, ``emit_grammar_status``, and
+``from plugin.framework.deal_shim import deal`` stay intact.
 
 Line edits / empty-suite ``pass`` live in
 [`plugin.framework.ast_stmt_edit`](../plugin/framework/ast_stmt_edit.py) (shared with
@@ -224,10 +227,27 @@ def strip_print_calls(bundle_path: str, dry_run: bool = False) -> None:
     )
 
 
-def strip_main_thread_only_decorators(bundle_path: str, dry_run: bool = False) -> None:
-    """Remove ``@main_thread_only`` decorators from python files."""
+def _is_deal_decorator(node: ast.AST) -> bool:
+    """True if *node* is a decorator under the ``deal`` namespace (e.g. ``@deal.pre``)."""
+    curr: ast.AST = node
+    if isinstance(curr, ast.Call):
+        curr = curr.func
+    while isinstance(curr, ast.Attribute):
+        curr = curr.value
+    return isinstance(curr, ast.Name) and curr.id == "deal"
+
+
+def _strip_matching_decorators(
+    bundle_path: str,
+    *,
+    label: str,
+    needle: str,
+    should_remove: Callable[[ast.AST], bool],
+    dry_run: bool,
+) -> None:
+    """Delete matching decorators from FunctionDef / AsyncFunctionDef / ClassDef lists."""
     action = "Dry run: would strip" if dry_run else "Stripping"
-    print(f"  {action} main_thread_only decorators from {bundle_path} using AST...")
+    print(f"  {action} {label} from {bundle_path} using AST...")
 
     for root, _, filenames in os.walk(bundle_path):
         for fn in filenames:
@@ -242,11 +262,10 @@ def strip_main_thread_only_decorators(bundle_path: str, dry_run: bool = False) -
                     content = f.read()
                     lines = content.splitlines(keepends=True)
 
-                if "main_thread_only" not in content:
+                if needle not in content:
                     continue
 
                 tree = ast.parse(content)
-
                 decorators_to_remove: list[ast.AST] = []
 
                 class FindVisitor(ast.NodeVisitor):
@@ -258,9 +277,15 @@ def strip_main_thread_only_decorators(bundle_path: str, dry_run: bool = False) -
                         self.check_decorators(node)
                         self.generic_visit(node)
 
-                    def check_decorators(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+                    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+                        self.check_decorators(node)
+                        self.generic_visit(node)
+
+                    def check_decorators(
+                        self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
+                    ) -> None:
                         for dec in node.decorator_list:
-                            if isinstance(dec, ast.Name) and dec.id == "main_thread_only":
+                            if should_remove(dec):
                                 decorators_to_remove.append(dec)
 
                 FindVisitor().visit(tree)
@@ -279,6 +304,8 @@ def strip_main_thread_only_decorators(bundle_path: str, dry_run: bool = False) -
                     if dry_run:
                         rel_p = os.path.relpath(path, bundle_path)
                         snippet = original_line.strip()
+                        if end_line > start_line:
+                            snippet += f" ... (spans {end_line - start_line + 1} lines)"
                         print(f"    [DryRun] {rel_p}: L{start_line}-{end_line}: {snippet}")
                         continue
 
@@ -301,7 +328,34 @@ def strip_main_thread_only_decorators(bundle_path: str, dry_run: bool = False) -
                 if "match" not in str(e):
                     print(f"    SKIPPING {fn}: {e}")
 
-    print("  Done: Stripped main_thread_only decorators from bundle.")
+    print(f"  Done: Stripped {label} from bundle.")
+
+
+def strip_main_thread_only_decorators(bundle_path: str, dry_run: bool = False) -> None:
+    """Remove ``@main_thread_only`` decorators from python files."""
+    _strip_matching_decorators(
+        bundle_path,
+        label="main_thread_only decorators",
+        needle="main_thread_only",
+        should_remove=lambda dec: isinstance(dec, ast.Name) and dec.id == "main_thread_only",
+        dry_run=dry_run,
+    )
+
+
+def strip_deal_decorators(bundle_path: str, dry_run: bool = False) -> None:
+    """Remove ``@deal.*`` decorators; keep ``deal_shim`` imports.
+
+    Measured 2026-08-10: ~364 decorators / ~34 KB under ``plugin/`` (excluding tests).
+    Retail already no-ops via ``deal_shim``; stripping skips def-time wrapper application
+    and shrinks the OXT. Does not strip ``deal_shim.py`` or bare ``import deal``.
+    """
+    _strip_matching_decorators(
+        bundle_path,
+        label="@deal.* decorators (~364 sites / ~34 KB as of 2026-08-10)",
+        needle="deal.",
+        should_remove=_is_deal_decorator,
+        dry_run=dry_run,
+    )
 
 
 def replace_thread_guard_implementation(bundle_path: str, dry_run: bool = False) -> None:
@@ -354,11 +408,12 @@ def guard_uno(obj):
 
 
 def strip_production_code(bundle_path: str, dry_run: bool = False) -> None:
-    """Release-bundle entry point: strip obs/debug/info/print, ``main_thread_only``, stub ``thread_guard``."""
+    """Release-bundle entry point: strip obs/debug/info/print/deal, ``main_thread_only``, stub ``thread_guard``."""
     strip_grammar_obs_calls(bundle_path, dry_run=dry_run)
     strip_log_debug_info_calls(bundle_path, dry_run=dry_run)
     strip_print_calls(bundle_path, dry_run=dry_run)
     strip_main_thread_only_decorators(bundle_path, dry_run=dry_run)
+    strip_deal_decorators(bundle_path, dry_run=dry_run)
     replace_thread_guard_implementation(bundle_path, dry_run=dry_run)
 
 

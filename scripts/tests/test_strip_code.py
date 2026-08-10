@@ -11,6 +11,7 @@ import os
 from scripts.strip_code import (
     should_skip_print_strip,
     should_skip_strip,
+    strip_deal_decorators,
     strip_grammar_obs_calls,
     strip_log_debug_info_calls,
     strip_print_calls,
@@ -308,6 +309,75 @@ def test_strip_main_thread_only_decorators(tmp_path: Path) -> None:
     assert "@decorator_to_keep" in stripped
     assert "def get_desktop():" in stripped
     assert "async def get_active_document():" in stripped
+
+
+def test_strip_deal_decorators_multiline_keeps_shim_import(tmp_path: Path) -> None:
+    test_file = tmp_path / "mock_errors.py"
+    original_code = (
+        "from plugin.framework.deal_shim import deal\n"
+        "\n"
+        "@decorator_to_keep\n"
+        "@deal.post(lambda result: isinstance(result, dict) and result.get('status') == 'error')\n"
+        "@deal.ensure(\n"
+        "    lambda e, result: isinstance(e, Exception)\n"
+        "    or result.get('code') == 'INTERNAL_ERROR'\n"
+        ")\n"
+        "@deal.ensure(lambda e, result: result.get('code') == getattr(e, 'code', None))\n"
+        "def format_error_payload(e):\n"
+        "    return {'status': 'error', 'code': 'INTERNAL_ERROR'}\n"
+    )
+    test_file.write_text(original_code, encoding="utf-8")
+
+    strip_deal_decorators(str(tmp_path), dry_run=False)
+
+    stripped = test_file.read_text(encoding="utf-8")
+    ast.parse(stripped)
+    assert "from plugin.framework.deal_shim import deal" in stripped
+    assert "@deal." not in stripped
+    assert "deal.post" not in stripped
+    assert "deal.ensure" not in stripped
+    assert "@decorator_to_keep" in stripped
+    assert "def format_error_payload(e):" in stripped
+    assert "return {'status': 'error', 'code': 'INTERNAL_ERROR'}" in stripped
+
+
+def test_strip_deal_decorators_dry_run(tmp_path: Path) -> None:
+    test_file = tmp_path / "mock_file.py"
+    original_code = (
+        "from plugin.framework.deal_shim import deal\n"
+        "\n"
+        "@deal.post(lambda result: True)\n"
+        "def f():\n"
+        "    return 1\n"
+    )
+    test_file.write_text(original_code, encoding="utf-8")
+
+    strip_deal_decorators(str(tmp_path), dry_run=True)
+
+    assert test_file.read_text(encoding="utf-8") == original_code
+
+
+def test_strip_production_code_strips_deal(tmp_path: Path) -> None:
+    test_file = tmp_path / "mock_file.py"
+    original_code = (
+        "from plugin.framework.deal_shim import deal\n"
+        "\n"
+        "@deal.pre(lambda x: True)\n"
+        "def f(x):\n"
+        "    log.debug('d')\n"
+        "    return x\n"
+    )
+    test_file.write_text(original_code, encoding="utf-8")
+
+    strip_production_code(str(tmp_path), dry_run=False)
+
+    stripped = test_file.read_text(encoding="utf-8")
+    ast.parse(stripped)
+    assert "@deal." not in stripped
+    assert "log.debug" not in stripped
+    assert "from plugin.framework.deal_shim import deal" in stripped
+    assert "def f(x):" in stripped
+    assert "return x" in stripped
 
 
 def test_replace_thread_guard_implementation(tmp_path: Path) -> None:

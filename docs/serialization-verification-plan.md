@@ -12,7 +12,7 @@ This is the reference implementation for Tier-0 (pure Python) contract + CrossHa
 |------|--------|
 | `deal` contracts | Pack/unpack, policy helpers, envelope detectors, `host_pack_multi_data` (see list below) |
 | Dev dependencies | `deal`, `crosshair-tool` in [`pyproject.toml`](../pyproject.toml) |
-| Release strip | [`scripts/strip_code.py`](../scripts/strip_code.py) removes `@deal.*` decorators and import shim |
+| Release strip | [`scripts/strip_code.py`](../scripts/strip_code.py) removes `@deal.*` decorators (keeps `deal_shim` imports) |
 | Pytest hooks | [`tests/scripting/test_serialization_verification.py`](../tests/scripting/test_serialization_verification.py), [`tests/scripting/test_payload_codec_policy_verification.py`](../tests/scripting/test_payload_codec_policy_verification.py) |
 | Makefile targets | `make verify` (`pytest tests/ -k verification`); `make crosshair-check` / `make crosshair-cover` on `payload_codec` |
 | Status tracking | [`verification_status.json`](../verification_status.json) (`modules.scripting.payload_codec.py`, status **partial**) |
@@ -90,7 +90,7 @@ flowchart LR
 **Two-layer safety:**
 
 1. **Guarded import** — production uses [`plugin/framework/deal_shim.py`](../plugin/framework/deal_shim.py) (no-op when `deal` is missing). Source uses `from plugin.framework.deal_shim import deal`.
-2. **Build-time stripping** — [`scripts/strip_code.py`](../scripts/strip_code.py) removes `@deal.*` decorators and the import/shim block from the production bundle. Tests in [`scripts/tests/test_strip_code.py`](../scripts/tests/test_strip_code.py).
+2. **Build-time stripping** — [`scripts/strip_code.py`](../scripts/strip_code.py) removes `@deal.*` decorators from the production bundle (keeps `from plugin.framework.deal_shim import deal`). Tests in [`scripts/tests/test_strip_code.py`](../scripts/tests/test_strip_code.py).
 
 ---
 
