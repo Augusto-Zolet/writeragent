@@ -72,6 +72,42 @@ def column_to_index(col_str: str) -> int:
     return result - 1
 
 
+# A reference may name its sheet: Sheet1.A1, 'Sheet One'.A1:C5, Sheet1!A1.
+# LibreOffice writes the dot form, Excel the bang; both are accepted, and a
+# quoted name may contain spaces and dots.
+_SHEET_PREFIX = re.compile(
+    r"""^\s*
+        (?:'(?P<quoted>[^']+)'      # 'Sheet One'
+          |(?P<bare>[^.!'\s][^.!']*?))   # Sheet1
+        \s*[.!]\s*
+        (?P<rest>.+)$""",
+    re.VERBOSE,
+)
+
+
+def split_sheet_prefix(ref: str) -> tuple[str | None, str]:
+    """Split a reference into ``(sheet_name, address)``.
+
+    Returns ``(None, ref)`` when there is no prefix. The sheet name keeps
+    its original case — only the address part is normalised later, so a
+    sheet called ``Summary`` is not reported back as ``SUMMARY``.
+
+    >>> split_sheet_prefix("Sheet1.A1:C5")
+    ('Sheet1', 'A1:C5')
+    >>> split_sheet_prefix("'Data Sheet'!B2")
+    ('Data Sheet', 'B2')
+    >>> split_sheet_prefix("A1:C5")
+    (None, 'A1:C5')
+    """
+    if not ref:
+        return None, ref
+    match = _SHEET_PREFIX.match(ref)
+    if not match:
+        return None, ref.strip()
+    name = match.group("quoted") or match.group("bare")
+    return name.strip(), match.group("rest").strip()
+
+
 @deal.pre(lambda address: isinstance(address, str))
 @deal.post(lambda result: isinstance(result, tuple) and len(result) == 2 and result[0] >= 0 and result[1] >= 0)
 @deal.raises(ValueError)
@@ -79,14 +115,24 @@ def parse_address(address: str) -> tuple[int, int]:
     """Convert cell address to column and row indices.
 
     Args:
-        address: Cell address (e.g. "A1", "AB10").
+        address: Cell address (e.g. "A1", "AB10"), without a sheet prefix —
+            use :func:`split_sheet_prefix` first when the reference may name one.
 
     Returns:
         (column_index, row_index) tuple (0-based).
 
     Raises:
-        ValueError: Invalid cell address.
+        ValueError: Invalid cell address, or a sheet prefix was left on.
     """
+    # Reject prefixes here so callers that need the sheet go through
+    # split_sheet_prefix / CalcBridge.resolve instead of silently dropping it.
+    sheet, address = split_sheet_prefix(address)
+    if sheet is not None:
+        raise ValueError(
+            f"Cell address '{sheet}.{address}' names a sheet, but this "
+            f"operation resolves the sheet separately. Pass the sheet via "
+            f"sheet_name, or drop the prefix."
+        )
     address = address.strip().upper()
     match = re.match(r"^([A-Z]+)(\d+)$", address)
     if not match:
@@ -112,15 +158,24 @@ def parse_range_string(range_str: str) -> tuple[tuple[int, int], tuple[int, int]
     """Convert cell range string to column/row indices.
 
     Args:
-        range_str: Range string in "A1:D10" or "A1" format.
+        range_str: Range string in "A1:D10" or "A1" format, without a
+            sheet prefix — use :func:`split_sheet_prefix` first when the
+            reference may name one.
 
     Returns:
         ((start_col, start_row), (end_col, end_row)) tuple.
         Both tuples are the same for a single cell.
 
     Raises:
-        ValueError: Invalid range format.
+        ValueError: Invalid range format, or a sheet prefix was left on.
     """
+    sheet, range_str = split_sheet_prefix(range_str)
+    if sheet is not None:
+        raise ValueError(
+            f"Range '{sheet}.{range_str}' names a sheet, but this operation "
+            f"resolves the sheet separately. Pass the sheet via sheet_name, "
+            f"or drop the prefix."
+        )
     range_str = range_str.strip().upper()
 
     pattern = r"^([A-Z]+)(\d+)(?::([A-Z]+)(\d+))?$"

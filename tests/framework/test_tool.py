@@ -363,6 +363,8 @@ class TestExcludeSpecializedTiers:
 class TestManageChartsSpecializedTier:
     """manage_charts is specialized on all apps; use delegate domain=charts."""
 
+    _SKINNY_CHART_TOOLS = frozenset({"list_charts", "get_chart_info", "upsert_chart", "delete_chart"})
+
     @pytest.fixture
     def chart_registry(self):
         from plugin.calc.charts import ManageCharts
@@ -388,6 +390,38 @@ class TestManageChartsSpecializedTier:
         doc = TestingFactory.create_doc(doc_type="calc", content=[])
         tool_names = {s["function"]["name"] for s in chart_registry.get_schemas("openai", doc=doc)}
         assert "manage_charts" not in tool_names
+
+    def test_skinny_chart_tools_not_discovered(self):
+        """list/info/upsert/delete are ToolBaseDummy-only; only manage_charts registers."""
+        import plugin.calc.charts as calc_charts
+        import plugin.draw.charts as draw_charts
+        import plugin.writer.specialized.charts as writer_charts
+
+        reg = _make_registry()
+        reg.auto_discover(calc_charts)
+        reg.auto_discover(writer_charts)
+        reg.auto_discover(draw_charts)
+
+        assert reg.get("manage_charts") is not None
+        for name in self._SKINNY_CHART_TOOLS:
+            assert reg.get(name) is None, f"{name} should not be registered"
+
+        doc = TestingFactory.create_doc(doc_type="calc", content=[])
+        domain_names = {t.name for t in reg.get_tools(doc=doc, active_domain="charts")}
+        assert domain_names == {"manage_charts"}
+
+    def test_manage_charts_still_dispatches_to_dummy_backends(self):
+        from plugin.calc.charts import ManageCharts
+
+        ctx = TestingFactory.create_context(doc_type="calc")
+        tool = ManageCharts()
+        with patch("plugin.calc.charts.ListCharts") as list_cls:
+            list_cls.return_value.execute.return_value = {"status": "ok", "charts": [], "count": 0}
+            res = tool.execute(ctx, action="list")
+        assert res["status"] == "ok"
+        assert res["count"] == 0
+        list_cls.assert_called_once_with()
+        list_cls.return_value.execute.assert_called_once()
 
 
 class TestLibrarianToolVisibility:

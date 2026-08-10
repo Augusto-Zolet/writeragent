@@ -76,7 +76,7 @@ def extract_spreadsheet_rows(path: str) -> list[str]:
 
     rows: list[str] = []
     for sheet_name, frame in sheets.items():
-        for _, row in frame.iterrows():
+        for _unused, row in frame.iterrows():
             cells = [str(value).strip() for value in row if pd.notna(value) and str(value).strip()]
             if cells:
                 rows.append(f"[Sheet: {sheet_name}]\t" + "\t".join(cells))

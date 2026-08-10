@@ -181,7 +181,7 @@ def get_research_fluff_words(*, snowball_lang: str) -> frozenset[str]:
 def parse_research_cache_key(raw_key: str) -> tuple[str, str]:
     """Return (snowball_lang, word_key). Legacy unprefixed keys are english."""
     if "|" in raw_key:
-        lang, _, word_key = raw_key.partition("|")
+        lang, _unused, word_key = raw_key.partition("|")
         if lang in _SNOWBALL_LANGS:
             return lang, word_key
     return "english", raw_key

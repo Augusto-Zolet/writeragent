@@ -1129,10 +1129,10 @@ class ApplyDocumentContent(ToolBase):
 
             try:
                 if on_main:
-                    result, _ = _do_edit()
+                    result, _unused = _do_edit()
                 else:
                     from plugin.framework.queue_executor import execute_on_main_thread
-                    result, _ = execute_on_main_thread(_do_edit, timeout=60.0)
+                    result, _unused = execute_on_main_thread(_do_edit, timeout=60.0)
                 return self._annotate_review_status(ctx.ctx, result)
             finally:
                 if session_box:

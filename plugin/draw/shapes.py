@@ -800,7 +800,7 @@ class ConnectShapes(ToolDrawShapeBase):
         draw_shapes = DrawShapes()
         try:
             # position and size are technically ignored since it's a connector, but safe_create_shape expects them
-            shape, _, _ = draw_shapes.safe_create_shape(ctx.doc, page, "com.sun.star.drawing.ConnectorShape", Point(0, 0), Size(100, 100))
+            shape, _unused, _unused2 = draw_shapes.safe_create_shape(ctx.doc, page, "com.sun.star.drawing.ConnectorShape", Point(0, 0), Size(100, 100))
         except DrawError as e:
             return self._tool_error(e.message)
 

@@ -31,14 +31,13 @@ The **`insert_cell_html`** tool ([`plugin/calc/cells.py`](../plugin/calc/cells.p
 - **Use when**: The model needs **mixed character formatting in one cell**; plain **`write_formula_range` / `set_string`** cannot express that.
 - **Limits**: **One cell** per call; **no** embedded images/OLE; math-in-HTML is not a goal for Calc. Callers must supply a **valid UNO component context** on `ToolContext.ctx` (in-process tests and the sidebar pass this; a `None` context can break `get_desktop` in some embed scenarios).
 
-### Experimental Consolidated Chart Tool (`manage_charts`)
+### Consolidated Chart Tool (`manage_charts`)
 
-To reduce LLM tool-calling context overhead and prevent tool selection dilution, the five individual chart tools (`list_charts`, `get_chart_info`, `create_chart`, `edit_chart`, `delete_chart`) have been consolidated into a single **experimental** unified tool: **`manage_charts`** ([`plugin/calc/charts.py`](../plugin/calc/charts.py)):
+Charts are a single specialized-domain tool: **`manage_charts`** ([`plugin/calc/charts.py`](../plugin/calc/charts.py)). Skinny list/info/upsert/delete classes are Dummy backends for its `action` dispatcher (hidden from LLM/MCP lists and the scripting API).
 
 - **Tiers and Visibility**: **`tier = specialized`**, `domain = charts` on Calc (`ToolCalcChartBase`), Writer (`ToolWriterChartBase`), and Draw (`ToolDrawChartBase`) — same pattern as shapes (`upsert_shape`). One registry slot per name (last module load wins); union `uno_services` on Writer/Draw wrappers. **All apps** use `delegate_to_specialized_{calc|writer|draw}_toolset(domain="charts")`, not the main chat list. Per-app core tier (Calc-only) needs registry multi-bind — see `ManageCharts` docstring in [`charts.py`](../plugin/calc/charts.py).
 - **Style and Color Support**: Supports arbitrary background color (`bg_color`) and data series color styling (`colors` array or single `color` / `series_color` string). Colors are parsed dynamically and can be CSS/X11 names (e.g., `green`, `darkgreen`, `yellow`), hex values with or without the `#` prefix (e.g., `#0f0`, `#00FF00`, `00ff00`), or functional RGB/RGBA syntax (e.g., `rgba(255, 0, 0, 0.5)`).
-- **Mechanism**: The unified tool accepts a mandatory `action` parameter (`"list"`, `"get_info"`, `"create"`, `"edit"`, `"delete"`) and routes execution to the underlying individual chart tool classes.
-- **Developer Ergonomics**: The underlying individual tools still inherit from `ToolBaseDummy`. If a developer wants to switch back to fine-grained independent tools, they simply swap their base class from `ToolBaseDummy` back to `ToolBase` (or `ToolDrawChartBase`), and the registry will auto-discover and expose them immediately.
+- **Mechanism**: Mandatory `action` (`"list"`, `"get_info"`, `"create"`, `"edit"`, `"delete"`) routes to the Dummy backend classes.
 
 ### Formulas & Range Writing API Comparison (`write_formula_range` vs. `set_cell_formula`)
 
@@ -59,7 +58,7 @@ WriterAgent's `write_formula_range` tool takes a different design approach than 
 | **Ranges** | ✅ Implemented | `cells.py`: Get/SetRangeValues, Get/SetRangeFormulas | — |
 | **Sheets** | ✅ Implemented | `sheets.py`, `sheet_filter.py`: ListSheets, CreateSheet, SwitchSheet, GetSheetSummary, `apply_sheet_filter`, `clear_sheet_filter`, `get_sheet_filter` | Basic sheet ops + AutoFilter |
 | **Formulas** | ⚠️ Partial | `cells.py` (`write_formula_range` + compound undo); `list_calc_functions` / `evaluate_formula` implemented; `FormulaDepChain` via [`formula_dep_chain.py`](../plugin/calc/formula_dep_chain.py) | — |
-| **Charts** | ✅ Implemented | `charts.py`: `manage_charts` (unified experimental tool; shared with Writer and Draw) | Consolidated "Fat API" containing `list`, `get_info`, `create`, `edit`, `delete` actions |
+| **Charts** | ✅ Implemented | `charts.py`: `manage_charts` only (shared with Writer and Draw; skinny classes are Dummy backends) | Fat API: `list`, `get_info`, `create`, `edit`, `delete` actions |
 | **Named Ranges** | ✅ Implemented | `named_ranges.py`: ListNamedRanges, Create/Edit/DeleteNamedRange | — |
 | **Data Validation** | ✅ Implemented | `validation.py`: SetDataValidation, GetDataValidationRules | Specialized tier |
 | **Conditional Formatting** | ✅ Implemented | [`conditional.py`](../plugin/calc/conditional.py): `add_conditional_format`, `list_conditional_formats`, `remove_conditional_formats` — [UNO / roadmap](calc-conditional-formatting.md) | Specialized tier |

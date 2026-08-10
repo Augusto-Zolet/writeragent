@@ -351,7 +351,7 @@ def format_py_data_range(range_addr: str) -> str:
     """Format a range for ``=PY()`` data args (quote sheet names with spaces/special chars)."""
     addr = str(range_addr).strip().replace("$", "")
     if "!" in addr:
-        sheet, _, rest = addr.partition("!")
+        sheet, _unused, rest = addr.partition("!")
         sheet = sheet.strip("'\"")
         rest = rest.replace("$", "")
         if re.search(r"\s", sheet) or not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", sheet):
@@ -359,7 +359,7 @@ def format_py_data_range(range_addr: str) -> str:
         return f"{sheet}.{rest}"
     if "." not in addr:
         return addr
-    sheet, _, rest = addr.partition(".")
+    sheet, _unused, rest = addr.partition(".")
     if not sheet or not rest:
         return addr
     if re.match(r"^\$?[A-Z]+\$?\d", sheet, re.IGNORECASE):
@@ -376,11 +376,11 @@ def format_excel_data_range(range_addr: str) -> str:
     addr = str(range_addr).strip().replace("$", "")
     # Calc-style Sheet.A1 → Sheet!A1
     if "!" not in addr and "." in addr:
-        sheet, _, rest = addr.partition(".")
+        sheet, _unused, rest = addr.partition(".")
         if sheet and rest and not re.match(r"^\$?[A-Z]+\$?\d", sheet, re.IGNORECASE):
             addr = f"{sheet}!{rest}"
     if "!" in addr:
-        sheet, _, rest = addr.partition("!")
+        sheet, _unused, rest = addr.partition("!")
         sheet = sheet.strip("'\"")
         rest = rest.replace("$", "")
         if re.search(r"[^\w]", sheet) or (sheet[:1].isdigit() if sheet else False):

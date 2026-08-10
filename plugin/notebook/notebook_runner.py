@@ -184,7 +184,7 @@ def apply_run_result(
     cursor = _cursor_after_bookmark(doc, cell.output_start_bookmark)
     output_style = _resolve_para_style(doc, _STYLE_OUTPUT)
     if out_text.strip():
-        display, _ = _prepare_display_text(out_text)
+        display, _unused = _prepare_display_text(out_text)
         if display.strip():
             if cursor is not None:
                 text = doc.getText()

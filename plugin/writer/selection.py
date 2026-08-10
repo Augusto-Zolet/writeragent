@@ -63,7 +63,7 @@ class SetSelection(ToolBase):
                 sd.SearchRegularExpression = False
                 sd.SearchCaseSensitive = case_sensitive
                 found = doc.findFirst(sd)
-                for _ in range(occurrence):
+                for _unused in range(occurrence):
                     if found is None:
                         break
                     found = doc.findNext(found.getEnd(), sd)

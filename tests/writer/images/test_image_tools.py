@@ -25,6 +25,46 @@ if isinstance(_uno, MagicMock):
 from plugin.writer.images import image_tools  # noqa: E402
 
 
+class TestInsertImageIntoHeaderFooter(unittest.TestCase):
+    def test_enables_region_auto_height_and_embeds(self):
+        model = MagicMock()
+        style = MagicMock()
+        region_text = MagicMock()
+        cursor = MagicMock()
+        graphic = MagicMock()
+        graphic.getName.return_value = "Graphic1"
+
+        style.getPropertyValue.side_effect = lambda name: {
+            "HeaderIsOn": False,
+            "HeaderText": region_text,
+        }.get(name, MagicMock())
+        region_text.createTextCursorByRange.return_value = cursor
+        region_text.getEnd.return_value = MagicMock()
+
+        with (
+            patch("plugin.writer.page.resolve_page_style", return_value=(style, "Standard")),
+            patch("plugin.writer.page.set_header_footer_auto_height") as set_auto,
+            patch.object(image_tools, "_insert_embedded_at_writer_cursor", return_value=graphic) as insert,
+        ):
+            result = image_tools.insert_image_into_header_footer(
+                model,
+                "/tmp/logo.png",
+                "header",
+                width_mm=40,
+                height_mm=20,
+                auto_height=True,
+            )
+
+        style.setPropertyValue.assert_any_call("HeaderIsOn", True)
+        set_auto.assert_called_once_with(style, "header", True)
+        insert.assert_called_once()
+        self.assertEqual(insert.call_args.kwargs.get("text_container"), region_text)
+        self.assertEqual(result["style_name"], "Standard")
+        self.assertEqual(result["region"], "header")
+        self.assertTrue(result["auto_height"])
+        self.assertIs(result["graphic"], graphic)
+
+
 class TestShouldLinkImagePath(unittest.TestCase):
     def test_user_path_is_linked(self):
         # Must be outside tempfile.gettempdir() — default NamedTemporaryFile uses /tmp.

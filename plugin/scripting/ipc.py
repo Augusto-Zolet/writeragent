@@ -162,7 +162,7 @@ def _readline_with_timeout(stream: IO[str], timeout_sec: float | None) -> str:
     except (AttributeError, OSError, ValueError):
         fd = None
     if isinstance(fd, int):
-        ready, _, _ = select.select([stream], [], [], max(0.0, timeout_sec))
+        ready, _unused, _unused2 = select.select([stream], [], [], max(0.0, timeout_sec))
         if not ready:
             raise subprocess.TimeoutExpired(cmd="IPC JSON line", timeout=timeout_sec)
         return stream.readline()

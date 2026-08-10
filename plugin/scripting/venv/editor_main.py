@@ -370,7 +370,7 @@ def main() -> None:
             filepath = ""
 
         if filepath and os.path.exists(filepath) and os.path.isfile(filepath):
-            mime, _ = mimetypes.guess_type(filepath)
+            mime, _unused = mimetypes.guess_type(filepath)
             if not mime:
                 mime = "application/octet-stream"
             try:

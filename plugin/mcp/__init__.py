@@ -23,6 +23,7 @@ from typing import Any
 from plugin.framework.module_base import ModuleBase
 from plugin.mcp.cors import reload_cors_policy_from_config
 from plugin.mcp.server import mcp_endpoint_url, format_mcp_start_failure, is_port_in_use_error
+from plugin.mcp.tunnel import DEFAULT_PROVIDER, TunnelManager, provider_label
 
 log = logging.getLogger("writeragent.http")
 
@@ -32,6 +33,7 @@ log = logging.getLogger("writeragent.http")
 _primary_http_module: "McpModule | None" = None
 _shared_registry: Any = None
 _shared_http_server: Any = None
+_shared_tunnel: TunnelManager | None = None
 _http_peer_lock = threading.Lock()
 
 # Last failed start — module-level so peer McpModule instances (second bootstrap) see the same
@@ -52,7 +54,7 @@ class McpModule(ModuleBase):
     """
 
     def initialize(self, services):
-        global _primary_http_module, _shared_registry, _shared_http_server
+        global _primary_http_module, _shared_registry, _shared_http_server, _shared_tunnel
 
         from plugin.mcp.routes import HttpRouteRegistry
 
@@ -62,6 +64,7 @@ class McpModule(ModuleBase):
                 prim = _primary_http_module
                 self._registry = _shared_registry
                 self._server = _shared_http_server
+                self._tunnel = _shared_tunnel or prim._tunnel
                 self._services = services
                 self._mcp_protocol = prim._mcp_protocol
                 self._mcp_routes_registered = prim._mcp_routes_registered
@@ -74,6 +77,8 @@ class McpModule(ModuleBase):
             _shared_registry = self._registry
             services.register("http_routes", self._registry)
             self._server = None
+            self._tunnel = TunnelManager()
+            _shared_tunnel = self._tunnel
             self._services = services
             self._mcp_protocol = None
             self._mcp_routes_registered = False
@@ -82,8 +87,6 @@ class McpModule(ModuleBase):
             # Built-in endpoints
             self._registry.add("GET", "/health", self._handle_health)
             self._registry.add("GET", "/", self._handle_info)
-            self._registry.add("GET", "/api/config", self._handle_config_get)
-            self._registry.add("POST", "/api/config", self._handle_config_set)
 
             # MCP endpoints
             mcp_enabled = services.config.proxy_for(self.name).get("mcp_enabled")
@@ -117,17 +120,34 @@ class McpModule(ModuleBase):
         if key and not key.startswith(prefix):
             return
         toggle_key = f"{prefix}mcp_enabled"
+        tunnel_key = f"{prefix}tunnel_enabled"
+        tunnel_provider_key = f"{prefix}tunnel_provider"
+        tunnel_provider_token_key = f"{prefix}tunnel_provider_token"
         cors_list_key = f"{prefix}cors_allowed_origins"
         cors_private_key = f"{prefix}cors_allow_private_origins"
-        # MCP lifecycle: toggle, CORS policy keys, or bulk apply (Settings OK).
-        if key and key not in (toggle_key, cors_list_key, cors_private_key, ""):
+        # MCP lifecycle: toggle, tunnel, CORS policy keys, or bulk apply (Settings OK).
+        if key and key not in (
+            toggle_key,
+            tunnel_key,
+            tunnel_provider_key,
+            tunnel_provider_token_key,
+            cors_list_key,
+            cors_private_key,
+            "",
+        ):
             return
 
         reload_cors_policy_from_config(self._services)
 
         cfg = self._services.config.proxy_for(self.name)
         enabled = cfg.get("mcp_enabled")
-        log.info("HTTP/MCP config sync (key=%r): mcp_enabled=%s", key or "(bulk)", enabled)
+        log.info(
+            "HTTP/MCP config sync (key=%r): mcp_enabled=%s tunnel_enabled=%s tunnel_provider=%s",
+            key or "(bulk)",
+            enabled,
+            cfg.get("tunnel_enabled"),
+            cfg.get("tunnel_provider") or DEFAULT_PROVIDER,
+        )
         if enabled and not self._mcp_routes_registered:
             self._register_mcp_routes(self._services)
         elif not enabled and self._mcp_routes_registered:
@@ -143,6 +163,9 @@ class McpModule(ModuleBase):
                 self._show_start_failure_dialog(data.get("ctx"))
         elif not enabled and bound:
             self._stop_server()
+
+        # Tunnel-only toggles (or bulk save) while the server is already up.
+        self._sync_tunnel()
 
     def _clear_start_failure(self) -> None:
         global _last_start_error, _last_start_host, _last_start_port
@@ -200,50 +223,59 @@ class McpModule(ModuleBase):
 
         reload_cors_policy_from_config(services)
 
+        started_ok = False
         with self._srv_lock:
             bound = self._bound_http_server()
             if bound is not None and bound.is_running():
                 self._clear_start_failure()
-                return True
+                started_ok = True
+            else:
+                cfg = services.config.proxy_for(self.name)
+                event_bus = getattr(services, "events", None)
+                host = cfg.get("host") or "localhost"
+                port = cfg.get("mcp_port")
 
-            cfg = services.config.proxy_for(self.name)
-            event_bus = getattr(services, "events", None)
-            host = cfg.get("host") or "localhost"
-            port = cfg.get("mcp_port")
-
-            # Schema default is mcp/module.yaml mcp_port; ConfigService supplies it when unset.
-            srv = HttpServer(
-                route_registry=self._registry,
-                port=port,
-                host=host,
-                use_ssl=cfg.get("use_ssl") or False,
-                ssl_cert=cfg.get("ssl_cert") or "",
-                ssl_key=cfg.get("ssl_key") or "",
-            )
-            try:
-                srv.start()
-                if event_bus:
-                    status = srv.get_status()
-                    event_bus.emit("http:server_started", port=status["port"], host=status["host"], url=status["url"])
-                if event_bus:
-                    event_bus.emit("menu:update")
-                self._server = srv
-                _shared_http_server = srv
-                self._clear_start_failure()
-                return True
-            except Exception as e:
-                # Stash for Toggle/Status/Settings UI — previously only log.exception left a trail
-                # and the dialog said "check the debug log" with no host/port or bind reason (#379).
-                log.exception("Failed to start HTTP server")
-                self._record_start_failure(host, port, e)
+                # Schema default is mcp/module.yaml mcp_port; ConfigService supplies it when unset.
+                srv = HttpServer(
+                    route_registry=self._registry,
+                    port=port,
+                    host=host,
+                    use_ssl=cfg.get("use_ssl") or False,
+                    ssl_cert=cfg.get("ssl_cert") or "",
+                    ssl_key=cfg.get("ssl_key") or "",
+                )
                 try:
-                    srv.stop()
-                except Exception:
-                    log.debug("HttpServer.stop after failed start", exc_info=True)
-                return False
+                    srv.start()
+                    if event_bus:
+                        status = srv.get_status()
+                        event_bus.emit("http:server_started", port=status["port"], host=status["host"], url=status["url"])
+                    if event_bus:
+                        event_bus.emit("menu:update")
+                    self._server = srv
+                    _shared_http_server = srv
+                    self._clear_start_failure()
+                    started_ok = True
+                except Exception as e:
+                    # Stash for Toggle/Status/Settings UI — previously only log.exception left a trail
+                    # and the dialog said "check the debug log" with no host/port or bind reason (#379).
+                    log.exception("Failed to start HTTP server")
+                    self._record_start_failure(host, port, e)
+                    try:
+                        srv.stop()
+                    except Exception:
+                        log.debug("HttpServer.stop after failed start", exc_info=True)
+                    return False
+
+        # Outside _srv_lock — cloudflared spawn must not hold the HTTP start lock.
+        if started_ok:
+            self._sync_tunnel()
+            return True
+        return False
 
     def _stop_server(self):
         global _shared_http_server
+        # Stop tunnel first so we do not keep advertising a dead local port.
+        self._stop_tunnel()
         with self._srv_lock:
             srv = self._bound_http_server()
             if not srv:
@@ -257,6 +289,43 @@ class McpModule(ModuleBase):
         if event_bus:
             event_bus.emit("http:server_stopped", reason="shutdown")
             event_bus.emit("menu:update")
+
+    def _bound_tunnel(self) -> TunnelManager | None:
+        global _shared_tunnel
+        if _shared_tunnel is not None:
+            return _shared_tunnel
+        return getattr(self, "_tunnel", None)
+
+    def _sync_tunnel(self) -> None:
+        """Start or stop the public tunnel to match MCP settings."""
+        tunnel = self._bound_tunnel()
+        if tunnel is None:
+            return
+        cfg = self._services.config.proxy_for(self.name)
+        bound = self._bound_http_server()
+        want = bool(cfg.get("mcp_enabled") and cfg.get("tunnel_enabled") and bound and bound.is_running())
+        if not want:
+            tunnel.stop()
+            return
+        port = cfg.get("mcp_port")
+        if port is None and bound is not None:
+            port = getattr(bound, "port", None)
+        if port is None:
+            log.warning("tunnel_enabled but no MCP port available")
+            return
+        provider = cfg.get("tunnel_provider") or DEFAULT_PROVIDER
+        provider_token = cfg.get("tunnel_provider_token") or ""
+        ok = tunnel.start(int(port), provider, provider_token=str(provider_token))
+        if not ok:
+            log.error(
+                "Failed to start MCP public tunnel via %s (is the provider binary installed?)",
+                provider,
+            )
+
+    def _stop_tunnel(self) -> None:
+        tunnel = self._bound_tunnel()
+        if tunnel is not None:
+            tunnel.stop()
 
     def shutdown(self):
         self._stop_server()
@@ -328,6 +397,21 @@ class McpModule(ModuleBase):
             return "running" if running else "stopped"
         return None
 
+    def _tunnel_status_line(self, pname: str, tunnel, public_url: str | None, tunnel_enabled: bool) -> str | None:
+        """One Status/toast line for public tunnel state, or None if tunnel off."""
+        from plugin.framework.i18n import _
+
+        if not tunnel_enabled:
+            return None
+        if public_url:
+            return _("Public tunnel via {0} (no auth)").format(pname)
+        err = tunnel.last_error if tunnel else None
+        if err:
+            return _("Public tunnel via {0} failed: {1}").format(pname, err)
+        if tunnel and tunnel.is_running:
+            return _("Public tunnel via {0} starting…").format(pname)
+        return _("Public tunnel via {0} not running (is the provider binary installed?)").format(pname)
+
     def _action_toggle_server(self):
         from plugin.chatbot.dialogs import msgbox
         from plugin.framework.uno_context import get_ctx
@@ -353,7 +437,27 @@ class McpModule(ModuleBase):
             if b2 and b2.is_running():
                 status = b2.get_status()
                 mcp_url = status.get("mcp_url", status.get("url", ""))
-                msgbox(ctx, "WriterAgent", _("MCP server started") + "\n{0}".format(mcp_url))
+                msg = _("MCP server started") + "\n{0}".format(mcp_url)
+                cfg = self._services.config.proxy_for(self.name)
+                tunnel = self._bound_tunnel()
+                if cfg.get("tunnel_enabled"):
+                    pname = provider_label(cfg.get("tunnel_provider") or DEFAULT_PROVIDER)
+                    public = tunnel.mcp_public_url() if tunnel else None
+                    if public:
+                        msg = msg + "\n" + _("Public tunnel via {0}").format(pname) + ":\n{0}".format(public)
+                    elif tunnel and tunnel.last_error:
+                        msg = msg + "\n" + _("Public tunnel via {0} failed: {1}").format(pname, tunnel.last_error)
+                    elif tunnel and tunnel.is_running:
+                        msg = (
+                            msg
+                            + "\n"
+                            + _("Public tunnel via {0} starting… use MCP Server Status when ready.").format(pname)
+                        )
+                    else:
+                        line = self._tunnel_status_line(pname, tunnel, public, True)
+                        if line:
+                            msg = msg + "\n" + line
+                msgbox(ctx, "WriterAgent", msg)
             else:
                 self._show_start_failure_dialog(ctx)
 
@@ -387,9 +491,18 @@ class McpModule(ModuleBase):
             msgbox(ctx, "WriterAgent", self._not_running_status_message())
             return
 
-        url = status.get("mcp_url", status.get("url", "?"))
+        local_url = status.get("mcp_url", status.get("url", "?"))
         routes = status.get("routes", 0)
+        tunnel = self._bound_tunnel()
+        public_url = tunnel.mcp_public_url() if tunnel else None
+        cfg = self._services.config.proxy_for(self.name)
+        pname = provider_label(cfg.get("tunnel_provider") or DEFAULT_PROVIDER)
+        # Prefer the public /mcp URL when the tunnel is up — that is what remote clients need.
+        url = public_url or local_url
         msg = _("MCP server running") + "\n" + _("Routes: {0}").format(routes)
+        tunnel_line = self._tunnel_status_line(pname, tunnel, public_url, bool(cfg.get("tunnel_enabled")))
+        if tunnel_line:
+            msg = msg + "\n" + tunnel_line
 
         try:
             assert ctx is not None
@@ -443,57 +556,3 @@ class McpModule(ModuleBase):
         if self._mcp_routes_registered:
             info["mcp_endpoint"] = self._mcp_endpoint_from_config()
         return (200, info)
-
-    def _handle_config_get(self, body, headers, query):
-        """GET /api/config — read config values.
-
-        Query params:
-          ?key=ai_ollama.instances   → single key
-          ?prefix=ai_ollama          → all keys with prefix
-          (none)                     → all config
-        """
-        cfg = self._services.config
-
-        key = (query.get("key") or [None])[0]
-        if key:
-            val = cfg.get(key)
-            return (200, {"key": key, "value": val})
-
-        module = (query.get("module") or [None])[0]
-        prefix = (query.get("prefix") or [None])[0]
-        all_config = cfg.get_dict()
-
-        if module:
-            p = module if module.endswith(".") else module + "."
-            filtered = {k: v for k, v in all_config.items() if k.startswith(p)}
-            return (200, {"config": filtered})
-
-        if prefix:
-            filtered = {k: v for k, v in all_config.items() if k.startswith(prefix)}
-            return (200, {"config": filtered})
-
-        return (200, {"config": all_config})
-
-    def _handle_config_set(self, body, headers, query):
-        """POST /api/config — write config values.
-
-        Body: {"key": "value", ...}
-        """
-        if not body or not isinstance(body, dict):
-            return (400, {"error": "Body must be a JSON object of key-value pairs"})
-
-        cfg = self._services.config
-        errors = []
-        written = []
-        for key, value in body.items():
-            try:
-                cfg.set(key, value)
-                written.append(key)
-            except Exception as e:
-                errors.append({"key": key, "error": str(e)})
-
-        result = {"written": written}
-        if errors:
-            result["errors"] = errors
-            return (207, result)
-        return (200, result)

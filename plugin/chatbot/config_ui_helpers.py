@@ -396,7 +396,7 @@ def populate_endpoint_selector(ctx, ctrl, current_endpoint):
         return
     current_url = normalize_endpoint_url(current_endpoint or "")
 
-    preset_labels = [label for label, _ in ENDPOINT_PRESETS]
+    preset_labels = [label for label, _unused in ENDPOINT_PRESETS]
     lru = get_config("endpoint_lru")
     if not isinstance(lru, list):
         lru = []

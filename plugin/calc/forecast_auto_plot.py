@@ -72,7 +72,7 @@ def merge_forecast_plot_data(
         plot_cols.append("upper")
 
     hist_rows: list[list[Any]] = []
-    for _, row in hist_df[[date_col, value_col]].iterrows():
+    for _unused, row in hist_df[[date_col, value_col]].iterrows():
         entry: list[Any] = [row[date_col], row[value_col], None]
         if has_lower:
             entry.append(None)
@@ -81,7 +81,7 @@ def merge_forecast_plot_data(
         hist_rows.append(entry)
 
     fc_rows: list[list[Any]] = []
-    for _, row in fc_df.iterrows():
+    for _unused, row in fc_df.iterrows():
         entry = [row.get("date"), None, row.get("forecast")]
         if has_lower:
             entry.append(row.get("lower"))

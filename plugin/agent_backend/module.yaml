@@ -22,10 +22,12 @@ config:
         label: Mistral Vibe (ACP)
       - value: grok
         label: Grok Build (ACP)
+      - value: gemini
+        label: Gemini CLI (ACP)
+      - value: opencode
+        label: OpenCode (ACP)
       # - value: openhands
       #   label: OpenHands
-      # - value: opencode
-      #   label: OpenCode
 
   path:
     type: string

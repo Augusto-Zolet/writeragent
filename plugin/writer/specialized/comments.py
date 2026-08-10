@@ -108,7 +108,7 @@ class AddComment(ToolBase):
         sd.SearchString = search_text
         sd.SearchRegularExpression = False
         found = doc.findFirst(sd)
-        for _ in range(occurrence):
+        for _unused in range(occurrence):
             if found is None:
                 break
             found = doc.findNext(found.getEnd(), sd)
@@ -347,7 +347,7 @@ class Workflow(ToolWriterCommentBase):
             workflow = {}
             for line in content.splitlines():
                 if ":" in line:
-                    key, _, value = line.partition(":")
+                    key, _unused, value = line.partition(":")
                     workflow[key.strip()] = value.strip()
             return {"status": "ok", "workflow": workflow}
         return {"status": "ok", "workflow": None}

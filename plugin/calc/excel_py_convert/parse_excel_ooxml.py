@@ -254,7 +254,7 @@ def _parse_python_scripts(zf: zipfile.ZipFile) -> list[str]:
 
     if indexed and not sequential:
         indexed.sort(key=lambda t: t[0])
-        max_i = max(i for i, _ in indexed)
+        max_i = max(i for i, _unused in indexed)
         out = [""] * (max_i + 1)
         for i, body in indexed:
             out[i] = body

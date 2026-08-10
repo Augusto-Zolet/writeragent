@@ -87,15 +87,9 @@ def _get_cell_address(doc, address_str: str) -> CellAddress:
     if not UNO_AVAILABLE:
         raise RuntimeError("UNO not available")
 
-    # Split sheet and cell part
-    if "." in address_str:
-        sheet_part, cell_part = address_str.rsplit(".", 1)
-        # Remove potential surrounding quotes from sheet name
-        sheet_part = sheet_part.strip("'")
-    else:
-        sheet_part = None
-        cell_part = address_str
+    from plugin.calc.address_utils import split_sheet_prefix
 
+    sheet_part, cell_part = split_sheet_prefix(address_str)
     col, row = parse_address(cell_part)
 
     sheets = doc.getSheets()

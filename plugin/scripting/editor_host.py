@@ -252,7 +252,7 @@ class PersistentEditor:
         chunks: list[bytes] = []
         try:
             while len(b"".join(chunks)) < max_bytes:
-                ready, _, _ = select.select([stderr], [], [], 0)
+                ready, _unused_w, _unused_x = select.select([stderr], [], [], 0)
                 if not ready:
                     break
                 piece = stderr.read(512)
@@ -292,7 +292,7 @@ class PersistentEditor:
                         self._append_stderr_line(line)
             else:
                 while proc.poll() is None:
-                    ready, _, _ = select.select([stderr], [], [], 0.5)
+                    ready, _unused_w, _unused_x = select.select([stderr], [], [], 0.5)
                     if not ready:
                         continue
                     raw = stderr.readline()
@@ -361,7 +361,7 @@ class PersistentEditor:
     def _read_loop_select(self, proc: subprocess_types.Popen[bytes], stdout: Any) -> None:
         """POSIX: use select() to poll the pipe with periodic liveness checks."""
         while proc.poll() is None:
-            ready, _, _ = select.select([stdout], [], [], 0.5)
+            ready, _unused_w, _unused_x = select.select([stdout], [], [], 0.5)
             if not ready:
                 continue
             msg = read_message(stdout)

@@ -64,7 +64,7 @@ def _is_settings_tab_module(
     name = m["name"]
     if name in ("ai", "main", "core") or name in inline_set:
         return False
-    if name in ("tunnel", "launcher"):
+    if name == "launcher":
         return False
     if m.get("settings_tab") is False:
         return False

@@ -78,7 +78,7 @@ def _verify_accelerator(fn2d: Any, fn1d: Any) -> bool:
 
         # 2D Test: [[1.0, None], ["text", 2.0]]
         test_2d = [[1.0, None], ["text", 2.0]]
-        buf2, strings2, _, has_none2, non_num2 = fn2d(test_2d, 2)
+        buf2, strings2, _unused, has_none2, non_num2 = fn2d(test_2d, 2)
 
         if not (
             len(buf2) == 4
@@ -95,7 +95,7 @@ def _verify_accelerator(fn2d: Any, fn1d: Any) -> bool:
 
         # 1D Test: [1.0, "a", None]
         test_1d = [1.0, "a", None]
-        buf1, strings1, _, has_none1, non_num1 = fn1d(test_1d)
+        buf1, strings1, _unused, has_none1, non_num1 = fn1d(test_1d)
         if not (
             len(buf1) == 3
             and buf1[0] == 1.0
@@ -244,6 +244,15 @@ def _is_grid_sequence(grid: object) -> bool:
     return True
 
 
+@deal.post(lambda result: isinstance(result, bool))
+@deal.ensure(
+    lambda envelope, result: not result
+    or (
+        isinstance(envelope, dict)
+        and envelope.get("__wa_payload__") == PAYLOAD_MULTI_DATA
+        and isinstance(envelope.get("items"), list)
+    )
+)
 def _is_multi_data_envelope(envelope: object) -> bool:
     if not isinstance(envelope, dict):
         return False
@@ -256,10 +265,29 @@ def _is_multi_data_envelope(envelope: object) -> bool:
     return all(isinstance(item, (list, dict)) for item in items)
 
 
+@deal.post(lambda result: isinstance(result, bool))
+@deal.ensure(
+    lambda obj, result: not result
+    or (
+        isinstance(obj, dict)
+        and obj.get("__wa_payload__") == PAYLOAD_MULTI_DATA
+        and isinstance(obj.get("items"), list)
+    )
+)
 def is_multi_data(obj: Any) -> bool:
     return _is_multi_data_envelope(obj)
 
 
+@deal.post(lambda result: isinstance(result, bool))
+@deal.ensure(
+    lambda envelope, result: not result
+    or (
+        isinstance(envelope, dict)
+        and envelope.get("__wa_payload__") == PAYLOAD_IMAGE
+        and isinstance(envelope.get("data"), bytes)
+        and isinstance(envelope.get("format"), str)
+    )
+)
 def _is_image_payload_envelope(envelope: object) -> bool:
     if not isinstance(envelope, dict):
         return False
@@ -271,6 +299,16 @@ def _is_image_payload_envelope(envelope: object) -> bool:
     )
 
 
+@deal.post(lambda result: isinstance(result, bool))
+@deal.ensure(
+    lambda obj, result: not result
+    or (
+        isinstance(obj, dict)
+        and obj.get("__wa_payload__") == PAYLOAD_IMAGE
+        and isinstance(obj.get("data"), bytes)
+        and isinstance(obj.get("format"), str)
+    )
+)
 def is_image_payload(obj: Any) -> bool:
     return _is_image_payload_envelope(obj)
 
@@ -307,6 +345,16 @@ def write_image_payload_to_temp(payload: dict[str, Any]) -> str:
 
 
 
+@deal.post(lambda result: isinstance(result, bool))
+@deal.ensure(
+    lambda envelope, result: not result
+    or (
+        isinstance(envelope, dict)
+        and envelope.get("__wa_payload__") == PAYLOAD_DATAFRAME
+        and isinstance(envelope.get("columns"), list)
+        and "data" in envelope
+    )
+)
 def _is_dataframe_envelope(envelope: object) -> bool:
     if not isinstance(envelope, dict):
         return False
@@ -322,10 +370,32 @@ def _is_dataframe_envelope(envelope: object) -> bool:
     return isinstance(data, (list, tuple, dict)) or data is None or _is_ndarray(data)
 
 
+@deal.post(lambda result: isinstance(result, bool))
+@deal.ensure(
+    lambda obj, result: not result
+    or (
+        isinstance(obj, dict)
+        and obj.get("__wa_payload__") == PAYLOAD_DATAFRAME
+        and isinstance(obj.get("columns"), list)
+        and "data" in obj
+    )
+)
 def is_dataframe_payload(obj: Any) -> bool:
     return _is_dataframe_envelope(obj)
 
 
+@deal.post(lambda result: isinstance(result, bool))
+@deal.ensure(
+    lambda envelope, result: not result
+    or (
+        isinstance(envelope, dict)
+        and envelope.get("__wa_payload__") == PAYLOAD_CALC_RANGE
+        and isinstance(envelope.get("shape"), list)
+        and len(envelope["shape"]) == 2
+        and all(isinstance(d, int) and d >= 0 for d in envelope["shape"])
+        and "data" in envelope
+    )
+)
 def _is_calc_range_envelope(envelope: object) -> bool:
     if not isinstance(envelope, dict):
         return False
@@ -340,20 +410,38 @@ def _is_calc_range_envelope(envelope: object) -> bool:
     return "data" in env_dict
 
 
+@deal.post(lambda result: isinstance(result, bool))
+@deal.ensure(
+    lambda obj, result: not result
+    or (
+        isinstance(obj, dict)
+        and obj.get("__wa_payload__") == PAYLOAD_CALC_RANGE
+        and isinstance(obj.get("shape"), list)
+        and len(obj["shape"]) == 2
+        and all(isinstance(d, int) and d >= 0 for d in obj["shape"])
+        and "data" in obj
+    )
+)
 def is_calc_range_payload(obj: Any) -> bool:
+    # Codec wire guard (calc_range.py has a parallel detector used by pack helpers).
     return _is_calc_range_envelope(obj)
 
 
-def _is_any_payload_envelope(obj: object) -> bool:
-    return (
-        _is_split_grid_envelope(obj)
-        or _is_multi_data_envelope(obj)
-        or _is_image_payload_envelope(obj)
-        or _is_dataframe_envelope(obj)
-        or _is_calc_range_envelope(obj)
+@deal.post(lambda result: isinstance(result, bool))
+@deal.ensure(
+    lambda envelope, result: not result
+    or (
+        isinstance(envelope, dict)
+        and envelope.get("__wa_payload__") == PAYLOAD_SPLIT_GRID
+        and isinstance(envelope.get("shape"), list)
+        and len(envelope["shape"]) in (1, 2)
+        and all(isinstance(d, int) and d >= 0 for d in envelope["shape"])
+        and (
+            isinstance(envelope.get("buffer"), bytes)
+            or isinstance(envelope.get("b64"), str)
+        )
     )
-
-
+)
 def _is_split_grid_envelope(envelope: object) -> bool:
     if not isinstance(envelope, dict):
         return False
@@ -368,18 +456,40 @@ def _is_split_grid_envelope(envelope: object) -> bool:
     return isinstance(env_dict.get("buffer"), bytes) or isinstance(env_dict.get("b64"), str)
 
 
+@deal.post(lambda result: isinstance(result, bool))
+@deal.ensure(
+    lambda obj, result: not result
+    or (
+        _is_split_grid_envelope(obj)
+        or _is_multi_data_envelope(obj)
+        or _is_image_payload_envelope(obj)
+        or _is_dataframe_envelope(obj)
+        or _is_calc_range_envelope(obj)
+    )
+)
+def _is_any_payload_envelope(obj: object) -> bool:
+    # Defined after family detectors so mypy/deal see all names bound.
+    return (
+        _is_split_grid_envelope(obj)
+        or _is_multi_data_envelope(obj)
+        or _is_image_payload_envelope(obj)
+        or _is_dataframe_envelope(obj)
+        or _is_calc_range_envelope(obj)
+    )
+
+
 def _is_ndarray(obj: object) -> bool:
     return type(obj).__name__ == "ndarray" and type(obj).__module__ == "numpy"
 
 
-@deal.pre(lambda grid, *_, **__: _is_grid_sequence(grid))
+@deal.pre(lambda grid, *_unused, **__: _is_grid_sequence(grid))
 @deal.post(lambda *a, result=_DEAL_RETURN, **k: isinstance(_deal_return(*a, result=result), list))
 @deal.ensure(lambda grid, *a, result=_DEAL_RETURN, **k: all(x in ("int", "float", "bool") for x in _deal_return(*a, result=result)))
 def column_kinds_for_grid(grid: list[Any] | list[list[Any]]) -> list[str]:
     """Policy helper (tests): per-column int/float/bool from source types; mirrors host_pack_split_grid."""
     # crosshair: off
     try:
-        _, _, kinds, _ = _flatten_grid_to_components(grid)
+        _unused, _unused2, kinds, _unused3 = _flatten_grid_to_components(grid)
         return kinds
     except Exception:
         return []
@@ -502,8 +612,8 @@ def cell_count(shape: tuple[int, ...]) -> int:
     return n
 
 
-@deal.pre(lambda shape, *_, **__: isinstance(shape, tuple) and all(isinstance(d, int) and d >= 0 for d in shape))
-@deal.pre(lambda shape, *_, min_cells=BINARY_MIN_CELLS, force="auto", **__: force in ("auto", "always", "never") and isinstance(min_cells, int) and min_cells >= 0)
+@deal.pre(lambda shape, *_unused, **__: isinstance(shape, tuple) and all(isinstance(d, int) and d >= 0 for d in shape))
+@deal.pre(lambda shape, *_unused, min_cells=BINARY_MIN_CELLS, force="auto", **__: force in ("auto", "always", "never") and isinstance(min_cells, int) and min_cells >= 0)
 # CrossHair may pass call args + result=; never bind ``result`` as a positional parameter.
 @deal.post(lambda *a, result=_DEAL_RETURN, **k: isinstance(_deal_return(*a, result=result), bool))
 @deal.ensure(lambda *a, result=_DEAL_RETURN, force="auto", **k: force != "always" or _deal_return(*a, result=result) is True)
@@ -950,9 +1060,9 @@ def host_pack_split_grid(
     return envelope
 
 
-@deal.pre(lambda grid, *_, **__: _is_grid_sequence(grid))
+@deal.pre(lambda grid, *_unused, **__: _is_grid_sequence(grid))
 # Same force/min_cells gate as should_use_binary_envelope so CrossHair cannot call pack with invalid policy kwargs.
-@deal.pre(lambda grid, *_, min_cells=BINARY_MIN_CELLS, force="auto", **__: force in ("auto", "always", "never") and isinstance(min_cells, int) and min_cells >= 0)
+@deal.pre(lambda grid, *_unused, min_cells=BINARY_MIN_CELLS, force="auto", **__: force in ("auto", "always", "never") and isinstance(min_cells, int) and min_cells >= 0)
 @deal.post(lambda *a, result=_DEAL_RETURN, **k: _deal_return(*a, result=result) is not None)
 @deal.raises(ValueError)
 def host_pack_data(
@@ -989,9 +1099,13 @@ def host_pack_data(
         raise
 
 
-@deal.pre(lambda grids, *_, **__: isinstance(grids, list) and all(_is_grid_sequence(g) for g in grids))
-@deal.pre(lambda grids, *_, min_cells=BINARY_MIN_CELLS, force="auto", **__: force in ("auto", "always", "never") and isinstance(min_cells, int) and min_cells >= 0)
+@deal.pre(lambda grids, *_unused, **__: isinstance(grids, list) and all(_is_grid_sequence(g) for g in grids))
+@deal.pre(lambda grids, *_unused, min_cells=BINARY_MIN_CELLS, force="auto", **__: force in ("auto", "always", "never") and isinstance(min_cells, int) and min_cells >= 0)
 @deal.post(lambda *a, result=_DEAL_RETURN, **k: _is_multi_data_envelope(_deal_return(*a, result=result)))
+@deal.ensure(
+    lambda grids, *a, result=_DEAL_RETURN, **k: len(_deal_return(*a, result=result).get("items", []))
+    == len(grids)
+)
 @deal.raises(ValueError)
 def host_pack_multi_data(
     grids: list[list[Any] | list[list[Any]]],
@@ -1014,7 +1128,7 @@ def host_pack_multi_data(
     return envelope
 
 
-@deal.pre(lambda envelope, *_, **__: _is_split_grid_envelope(envelope))
+@deal.pre(lambda envelope, *_unused, **__: _is_split_grid_envelope(envelope))
 @deal.post(lambda *a, result=_DEAL_RETURN, **k: isinstance(_deal_return(*a, result=result), list))
 @deal.raises(ValueError)
 def host_unpack_split_grid(envelope: dict[str, Any], *, as_nested_list: bool = True) -> list[Any] | list[list[Any]]:
@@ -1074,7 +1188,7 @@ def host_unpack_split_grid(envelope: dict[str, Any], *, as_nested_list: bool = T
 
 
 @deal.pre(
-    lambda wire, *_, **__: _is_any_payload_envelope(wire)
+    lambda wire, *_unused, **__: _is_any_payload_envelope(wire)
     or isinstance(wire, (list, tuple, dict, str, int, float, bool))
     or wire is None
     or _is_ndarray(wire)
@@ -1119,6 +1233,18 @@ def host_unpack_data(wire: Any, *, as_nested_list: bool = True) -> Any:
     return wire
 
 
+@deal.post(lambda result: isinstance(result, bool))
+@deal.ensure(
+    lambda obj, result: not result
+    or (
+        isinstance(obj, dict)
+        and obj.get("__wa_payload__") == PAYLOAD_SPLIT_GRID
+        and isinstance(obj.get("shape"), list)
+        and len(obj["shape"]) in (1, 2)
+        and all(isinstance(d, int) and d >= 0 for d in obj["shape"])
+        and (isinstance(obj.get("buffer"), bytes) or isinstance(obj.get("b64"), str))
+    )
+)
 def is_split_grid(obj: Any) -> bool:
     return _is_split_grid_envelope(obj)
 
@@ -1261,7 +1387,7 @@ def _child_unpack_single_data(wire: Any) -> Any:
 
 
 @deal.pre(
-    lambda wire, *_, **__: _is_any_payload_envelope(wire)
+    lambda wire, *_unused, **__: _is_any_payload_envelope(wire)
     or isinstance(wire, (list, tuple, dict, str, int, float, bool))
     or wire is None
     or (hasattr(wire, "__class__") and wire.__class__.__name__ == "ndarray")
@@ -1369,8 +1495,8 @@ def _needs_elementwise_pack(obj: Any) -> bool:
     return False
 
 
-@deal.pre(lambda result, *_, **__: True)
-@deal.post(lambda _: True)
+@deal.pre(lambda result, *_unused, **__: True)
+@deal.post(lambda _unused: True)
 @deal.raises(ValueError, TypeError, AttributeError)
 def child_pack_result(
     result: Any,

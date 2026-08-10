@@ -490,7 +490,7 @@ def irr(values: Any, guess: Any = 0.1) -> float:
     vals = np.asarray(values, dtype=float).ravel()
     # Simple Newton's method for IRR
     x = float(guess)
-    for _ in range(100):
+    for _unused in range(100):
         f = 0.0
         df = 0.0
         for i, v in enumerate(vals):
@@ -646,7 +646,7 @@ def linest(*args: Any) -> Any:
             data_x = np.arange(1, len(data_y) + 1)[:, np.newaxis]
 
         # Simple fallback for 1D or 2D:
-        c, _, _, _ = np.linalg.lstsq(np.c_[data_x, np.ones(data_x.shape[0])], data_y, rcond=None)
+        c, _unused, _unused2, _unused3 = np.linalg.lstsq(np.c_[data_x, np.ones(data_x.shape[0])], data_y, rcond=None)
         return c.tolist()
     except Exception:
         return "#VALUE!"
@@ -665,7 +665,7 @@ def logest(*args: Any) -> Any:
         else:
             data_x = np.arange(1, len(data_y) + 1)[:, np.newaxis]
 
-        c, _, _, _ = np.linalg.lstsq(np.c_[data_x, np.ones(data_x.shape[0])], data_y, rcond=None)
+        c, _unused, _unused2, _unused3 = np.linalg.lstsq(np.c_[data_x, np.ones(data_x.shape[0])], data_y, rcond=None)
         c[:-1] = np.exp(c[:-1])
         c[-1] = np.exp(c[-1])
         return c.tolist()

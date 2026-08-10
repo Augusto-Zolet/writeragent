@@ -52,7 +52,7 @@ def dispatch_units(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str, An
     del heartbeat_fn
     from plugin.scripting.venv.units import run_units
 
-    spec, _, context = _packet_parts(data)
+    spec, _unused, context = _packet_parts(data)
     return run_units(spec, context=context)
 
 
@@ -60,7 +60,7 @@ def dispatch_symbolic(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str,
     del heartbeat_fn
     from plugin.scripting.venv.symbolic import run_symbolic
 
-    spec, _, context = _packet_parts(data)
+    spec, _unused, context = _packet_parts(data)
     return run_symbolic(spec, context=context)
 
 
@@ -112,7 +112,7 @@ def dispatch_vision(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str, A
     del heartbeat_fn
     from plugin.vision.venv.vision import run_vision
 
-    spec, _, context = _packet_parts(data)
+    spec, _unused, context = _packet_parts(data)
     return run_vision(spec, data.get("image"), context)
 
 

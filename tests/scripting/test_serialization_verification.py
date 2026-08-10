@@ -28,6 +28,7 @@ from hypothesis import given, strategies as st
 
 from plugin.scripting.payload_codec import (
     BINARY_MIN_CELLS,
+    PAYLOAD_MULTI_DATA,
     PAYLOAD_SPLIT_GRID,
     SPLIT_GRID_WIRE_DTYPE,
     _flatten_grid_to_components,
@@ -38,6 +39,8 @@ from plugin.scripting.payload_codec import (
     host_pack_split_grid,
     host_unpack_data,
     host_unpack_split_grid,
+    is_multi_data,
+    is_split_grid,
     should_use_binary_envelope,
 )
 from tests.scripting.serialization_ab_support import flatten_semantic_cells
@@ -169,7 +172,61 @@ def test_host_unpack_data_plain_dict_recurses() -> None:
     assert host_unpack_data(nested) is nested
 
 
+def test_host_pack_multi_data_structure_and_roundtrip() -> None:
+    """multi_data envelope: detector, items length, host_unpack_data semantic cells per item."""
+    grids = [
+        [],
+        [1.5, 2.5],
+        [[1.0, "x"], [None, True]],
+    ]
+    envelope = host_pack_multi_data(grids, force="always")
+    assert is_multi_data(envelope) is True
+    assert envelope.get("__wa_payload__") == PAYLOAD_MULTI_DATA
+    items = envelope["items"]
+    assert len(items) == len(grids)
+    assert all(is_split_grid(item) for item in items)
+
+    unpacked = host_unpack_data(envelope)
+    assert isinstance(unpacked, list)
+    assert len(unpacked) == len(grids)
+    for got, src in zip(unpacked, grids, strict=True):
+        assert flatten_semantic_cells(got) == flatten_semantic_cells(src)
+
+
+def test_host_pack_multi_data_empty_list() -> None:
+    envelope = host_pack_multi_data([])
+    assert is_multi_data(envelope) is True
+    assert envelope["items"] == []
+    assert host_unpack_data(envelope) == []
+
+
 _CROSSHAIR_ERROR_RE = re.compile(r": error:")
+
+_CROSSHAIR_FQN_TARGETS = (
+    "plugin.scripting.payload_codec.is_split_grid",
+    "plugin.scripting.payload_codec.is_multi_data",
+    "plugin.scripting.payload_codec.host_pack_multi_data",
+)
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("target", _CROSSHAIR_FQN_TARGETS)
+def test_crosshair_envelope_fqn_if_available(target: str) -> None:
+    crosshair_path = _find_crosshair()
+    if not crosshair_path:
+        pytest.skip("CrossHair concolic execution engine is not installed.")
+    result = subprocess.run(
+        [crosshair_path, "check", "-v", "--report_all", target],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    combined = f"{result.stdout}\n{result.stderr}".strip()
+    print(f"CrossHair output ({target}):\n{combined}")
+    errors = [line for line in combined.splitlines() if _CROSSHAIR_ERROR_RE.search(line)]
+    assert not errors, "CrossHair counterexamples found:\n" + "\n".join(errors)
+    if result.returncode == 2:
+        pytest.fail(f"CrossHair internal error (exit 2):\n{combined}")
 
 
 def test_crosshair_verification_if_available() -> None:

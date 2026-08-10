@@ -65,7 +65,21 @@ class ReadCellRange(ToolBase):
 
     name = "read_cell_range"
     description = "Reads values from the specified cell range(s). Date/time-formatted numeric cells return an ISO 8601 string in `value` with `type` and `format_category` of date, time, or datetime, plus `format_code` (Calc FormatString, observability only). Elapsed/stopwatch formats (`[HH]:MM:SS`, …) return `PTnHnMnS` (e.g. PT30H) with type/format_category duration. Supports lists for non-contiguous areas."
-    parameters = {"type": "object", "properties": {"range_name": {"type": "array", "items": {"type": "string"}, "description": ('Cell range(s) (e.g. ["A1:D10"] or ["A1", "C2:E5"]) for one or more ranges/cells.')}}, "required": ["range_name"]}
+    parameters = {
+        "type": "object",
+        "properties": {
+            "range_name": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": (
+                    'Cell range(s) (e.g. ["A1:D10"], ["Sheet1.A1:C5"], '
+                    '["\'Data Sheet\'!B2"]). Sheet prefixes target that sheet '
+                    "without switching the active sheet."
+                ),
+            }
+        },
+        "required": ["range_name"],
+    }
     uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
     tier = "core"
     is_mutation = False
@@ -93,7 +107,14 @@ class WriteCellRange(ToolBase):
     parameters = {
         "type": "object",
         "properties": {
-            "range_name": {"type": "array", "items": {"type": "string"}, "description": ('Target range(s) (e.g. ["A1:A10"] or ["A1", "B2:D2"]) for one or more ranges.')},
+            "range_name": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": (
+                    'Target range(s) (e.g. ["A1:A10"], ["Sheet1.B2:D2"]). '
+                    "Sheet prefixes target that sheet without switching the active sheet."
+                ),
+            },
             "formula_or_values": {
                 "type": "string",
                 "description": ("Single string: fills the entire range with that value or formula (use '=' prefix for formulas). JSON array: must have exactly as many elements as cells in the range (e.g. '[\"a\", \"b\"]' for 2 cells). Empty string/array clears the range."),

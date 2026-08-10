@@ -163,7 +163,7 @@ class SlideCommandEngine:
         return None
 
     def _insert_master(self, master_index=None, master_name=None) -> None:
-        _, new_idx = self.bridge.insert_slide_from_master(master_index=master_index, master_name=master_name, after_index=self.current_slide, switch=True)
+        _unused, new_idx = self.bridge.insert_slide_from_master(master_index=master_index, master_name=master_name, after_index=self.current_slide, switch=True)
         self.current_slide = new_idx
         self.pages = self.bridge.get_pages()
         self.applied.append("InsertMasterSlide:%d" % new_idx)
@@ -257,7 +257,7 @@ class SlideCommandEngine:
             return cursor
         if isinstance(spec, list) and len(spec) == 1:
             cursor.gotoStartOfParagraph(False)
-            for _ in range(int(spec[0])):
+            for _unused in range(int(spec[0])):
                 if not cursor.gotoNextParagraph(False):
                     break
             cursor.gotoEndOfParagraph(True)
@@ -265,11 +265,11 @@ class SlideCommandEngine:
         if isinstance(spec, list) and len(spec) >= 4:
             para, start, end_para, end_char = int(spec[0]), int(spec[1]), int(spec[2]), int(spec[3])
             cursor.gotoStart(False)
-            for _ in range(para):
+            for _unused in range(para):
                 if not cursor.gotoNextParagraph(False):
                     break
             cursor.goRight(start, False)
-            for _ in range(end_para - para):
+            for _unused in range(end_para - para):
                 if not cursor.gotoNextParagraph(False):
                     break
             cursor.goRight(end_char, True)
@@ -277,7 +277,7 @@ class SlideCommandEngine:
         if isinstance(spec, list) and len(spec) == 2:
             para, char = int(spec[0]), int(spec[1])
             cursor.gotoStart(False)
-            for _ in range(para):
+            for _unused in range(para):
                 if not cursor.gotoNextParagraph(False):
                     break
             cursor.goRight(char, False)

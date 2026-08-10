@@ -8,7 +8,7 @@
 import logging
 
 from plugin.calc.base import ToolCalcCommentBase
-from plugin.calc.address_utils import index_to_column, parse_range_string
+from plugin.calc.address_utils import index_to_column, parse_range_string, split_sheet_prefix
 from plugin.calc.calc_utils import resolve_sheet
 
 log = logging.getLogger("nelson.calc")
@@ -20,8 +20,51 @@ def _cell_label(col, row):
 
 def _parse_cell_ref(cell_ref):
     """Parse 'B3' into (col, row) 0-based tuple."""
-    (col, row), _ = parse_range_string(cell_ref)
+    (col, row), _unused = parse_range_string(cell_ref)
     return col, row
+
+
+def _split_cell_sheet(cell_ref, sheet_name):
+    """Let a sheet-qualified cell reference pick the sheet."""
+    prefix, address = split_sheet_prefix(cell_ref)
+    if prefix is not None and sheet_name and prefix != sheet_name:
+        raise ValueError(
+            "Reference names sheet '%s' but sheet_name says '%s' — "
+            "pass one or the other." % (prefix, sheet_name)
+        )
+    return address, (prefix or sheet_name)
+
+
+def _annotation_text(sheet, col, row):
+    """Read a cell note's text, working around lazy captions on .xlsx.
+
+    A workbook loaded from .xlsx has no caption object for its notes until
+    something asks for one, and until then every XSheetAnnotation read path
+    returns an empty string — while the text is plainly there in
+    xl/comments*.xml.
+
+    ``getAnnotationShape()`` resolves it: LibreOffice implements it as
+    ``GetOrCreateCaption()`` (sc/source/ui/unoobj/notesuno.cxx), so the
+    caption is materialised on demand and the shape's text is readable.
+    Unlike forcing ``setIsVisible(True)``, this does not route through
+    ShowNote, so it neither changes what the user sees nor pushes an undo
+    action.
+    """
+    cell_ann = sheet.getCellByPosition(col, row).getAnnotation()
+    text = ""
+    try:
+        text = cell_ann.getString()
+    except Exception:
+        pass
+    if text:
+        return cell_ann, text
+    try:
+        shape = cell_ann.getAnnotationShape()
+        if shape is not None:
+            text = shape.getString() or ""
+    except Exception:
+        pass  # optional interface — older builds may not offer it
+    return cell_ann, text
 
 
 class ListCellComments(ToolCalcCommentBase):
@@ -30,7 +73,16 @@ class ListCellComments(ToolCalcCommentBase):
     name = "list_cell_comments"
     intent = "review"
     description = "List all cell comments (annotations) in a Calc sheet. Returns cell address, author, date, and comment text."
-    parameters = {"type": "object", "properties": {"sheet_name": {"type": "string", "description": "Sheet name (active sheet if omitted)."}}, "required": []}
+    parameters = {
+        "type": "object",
+        "properties": {
+            "sheet_name": {
+                "type": "string",
+                "description": "Sheet name (active sheet if omitted).",
+            }
+        },
+        "required": [],
+    }
 
     def execute(self, ctx, **kwargs):
         doc = ctx.doc
@@ -40,7 +92,22 @@ class ListCellComments(ToolCalcCommentBase):
         for i in range(annotations.getCount()):
             ann = annotations.getByIndex(i)
             pos = ann.getPosition()
-            comments.append({"cell": _cell_label(pos.Column, pos.Row), "author": ann.getAuthor(), "date": ann.getDate(), "text": ann.getString(), "is_visible": ann.getIsVisible()})
+            # Read text/date through the cell's own CellAnnotation (as the
+            # write path does), not the XSheetAnnotations collection item,
+            # whose getString()/getDate() come back empty in current LO.
+            # Fall back to getAnnotationShape() for lazy .xlsx captions.
+            cell_ann, text = _annotation_text(sheet, pos.Column, pos.Row)
+            comments.append(
+                {
+                    "cell": _cell_label(pos.Column, pos.Row),
+                    "author": ann.getAuthor(),
+                    # .xlsx has no date field on a comment element, so an
+                    # empty date there is the format, not a failure.
+                    "date": cell_ann.getDate(),
+                    "text": text,
+                    "is_visible": ann.getIsVisible(),
+                }
+            )
         return {"status": "ok", "comments": comments, "count": len(comments), "sheet": sheet.getName()}
 
 
@@ -52,7 +119,17 @@ class AddCellComment(ToolCalcCommentBase):
     description = "Add a comment (annotation) to a specific cell in a Calc sheet."
     parameters = {
         "type": "object",
-        "properties": {"cell": {"type": "string", "description": "Cell address (e.g. 'B3')."}, "text": {"type": "string", "description": "Comment text."}, "sheet_name": {"type": "string", "description": "Sheet name (active sheet if omitted)."}},
+        "properties": {
+            "cell": {
+                "type": "string",
+                "description": "Cell address (e.g. 'B3' or 'Sheet1.B3').",
+            },
+            "text": {"type": "string", "description": "Comment text."},
+            "sheet_name": {
+                "type": "string",
+                "description": "Sheet name (active sheet if omitted).",
+            },
+        },
         "required": ["cell", "text"],
     }
     is_mutation = True
@@ -63,8 +140,13 @@ class AddCellComment(ToolCalcCommentBase):
         if not cell_ref or not text:
             return self._tool_error("cell and text are required.")
 
+        try:
+            cell_ref, sheet_name = _split_cell_sheet(cell_ref, kwargs.get("sheet_name"))
+        except ValueError as e:
+            return self._tool_error(str(e))
+
         doc = ctx.doc
-        sheet = resolve_sheet(doc, kwargs.get("sheet_name"))
+        sheet = resolve_sheet(doc, sheet_name)
         col, row = _parse_cell_ref(cell_ref)
         cell = sheet.getCellByPosition(col, row)
 
@@ -93,7 +175,20 @@ class DeleteCellComment(ToolCalcCommentBase):
     name = "delete_cell_comment"
     intent = "review"
     description = "Delete the comment (annotation) from a specific cell."
-    parameters = {"type": "object", "properties": {"cell": {"type": "string", "description": "Cell address (e.g. 'B3')."}, "sheet_name": {"type": "string", "description": "Sheet name (active sheet if omitted)."}}, "required": ["cell"]}
+    parameters = {
+        "type": "object",
+        "properties": {
+            "cell": {
+                "type": "string",
+                "description": "Cell address (e.g. 'B3' or 'Sheet1.B3').",
+            },
+            "sheet_name": {
+                "type": "string",
+                "description": "Sheet name (active sheet if omitted).",
+            },
+        },
+        "required": ["cell"],
+    }
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
@@ -101,8 +196,13 @@ class DeleteCellComment(ToolCalcCommentBase):
         if not cell_ref:
             return self._tool_error("cell is required.")
 
+        try:
+            cell_ref, sheet_name = _split_cell_sheet(cell_ref, kwargs.get("sheet_name"))
+        except ValueError as e:
+            return self._tool_error(str(e))
+
         doc = ctx.doc
-        sheet = resolve_sheet(doc, kwargs.get("sheet_name"))
+        sheet = resolve_sheet(doc, sheet_name)
         col, row = _parse_cell_ref(cell_ref)
 
         annotations = sheet.getAnnotations()

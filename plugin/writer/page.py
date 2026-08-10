@@ -21,6 +21,42 @@ Page styles, margins, headers/footers, columns, and page breaks.
 
 from .specialized_base import ToolWriterPageBase
 
+# region name -> (is_on property, text property)
+_REGION_PROPS = {
+    "header": ("HeaderIsOn", "HeaderText"),
+    "footer": ("FooterIsOn", "FooterText"),
+}
+
+
+def _height_props(region: str) -> tuple[str, str, str]:
+    """Return the (dynamic-height, dynamic-spacing, height) property names."""
+    prefix = "Header" if region == "header" else "Footer"
+    return (prefix + "IsDynamicHeight", prefix + "DynamicSpacing", prefix + "Height")
+
+
+def set_header_footer_auto_height(style, region: str, enabled: bool) -> None:
+    """Let the region grow with its content (or pin it to a fixed height).
+
+    Without this, a header keeps its fixed height and taller content —
+    a letterhead logo, say — overlaps the text and spills into the body.
+    """
+    dyn_prop, spacing_prop, _unused = _height_props(region)
+    style.setPropertyValue(dyn_prop, bool(enabled))
+    try:
+        style.setPropertyValue(spacing_prop, bool(enabled))
+    except Exception:
+        pass  # not offered by every page style
+
+
+def resolve_page_style(doc, style_name: str = "Standard"):
+    """Return ``(style_object, resolved_name)`` for a Writer page style."""
+    styles = doc.getStyleFamilies().getByName("PageStyles")
+    if not styles.hasByName(style_name):
+        available = list(styles.getElementNames())
+        raise ValueError("No page style named '%s'. Available: %s" % (style_name, ", ".join(available)))
+    return styles.getByName(style_name), style_name
+
+
 # ------------------------------------------------------------------
 # GetPageStyleProperties
 # ------------------------------------------------------------------
@@ -227,39 +263,51 @@ class GetHeaderFooterText(ToolWriterPageBase):
     description = "Retrieve the text content of a page style's header or footer."
     parameters = {
         "type": "object",
-        "properties": {"style_name": {"type": "string", "description": "The name of the page style (e.g., 'Standard' or 'Default Style'). Defaults to 'Standard'."}, "region": {"type": "string", "enum": ["header", "footer"], "description": "Whether to get the header or footer text."}},
+        "properties": {
+            "style_name": {
+                "type": "string",
+                "description": "The name of the page style (e.g., 'Standard' or 'Default Style'). Defaults to 'Standard'.",
+            },
+            "region": {
+                "type": "string",
+                "enum": ["header", "footer"],
+                "description": "Whether to get the header or footer text.",
+            },
+        },
         "required": ["region"],
     }
 
     def execute(self, ctx, **kwargs):
         style_name = kwargs.get("style_name", "Standard")
         region = kwargs.get("region")
-        if not region:
+        if region not in _REGION_PROPS:
             return self._tool_error("region is required ('header' or 'footer').")
 
-        doc = ctx.doc
-
         try:
-            style_families = doc.getStyleFamilies()
-            page_styles = style_families.getByName("PageStyles")
-            if not page_styles.hasByName(style_name):
-                return self._tool_error(f"Page style '{style_name}' not found.")
-            style = page_styles.getByName(style_name)
+            style, style_name = resolve_page_style(ctx.doc, style_name)
         except Exception as e:
             return self._tool_error(f"Error accessing page style '{style_name}': {e}")
 
         try:
-            if region == "header":
-                if not style.getPropertyValue("HeaderIsOn"):
-                    return {"status": "ok", "style_name": style_name, "region": region, "content": "", "is_on": False}
-                text_obj = style.getPropertyValue("HeaderText")
-            else:
-                if not style.getPropertyValue("FooterIsOn"):
-                    return {"status": "ok", "style_name": style_name, "region": region, "content": "", "is_on": False}
-                text_obj = style.getPropertyValue("FooterText")
-
+            is_on_prop, text_prop = _REGION_PROPS[region]
+            if not style.getPropertyValue(is_on_prop):
+                return {"status": "ok", "style_name": style_name, "region": region, "content": "", "is_on": False}
+            text_obj = style.getPropertyValue(text_prop)
             content = text_obj.getString() if text_obj else ""
-            return {"status": "ok", "style_name": style_name, "region": region, "content": content, "is_on": True}
+            result = {
+                "status": "ok",
+                "style_name": style_name,
+                "region": region,
+                "content": content,
+                "is_on": True,
+            }
+            dyn_prop, _unused_spacing, height_prop = _height_props(region)
+            try:
+                result["auto_height"] = bool(style.getPropertyValue(dyn_prop))
+                result["height_mm"] = round(style.getPropertyValue(height_prop) / 100.0, 1)
+            except Exception:
+                pass
+            return result
         except Exception as e:
             return self._tool_error(f"Error reading {region} text from page style '{style_name}': {e}")
 
@@ -273,13 +321,32 @@ class SetHeaderFooterText(ToolWriterPageBase):
     """Set the text content of a page style's header or footer."""
 
     name = "set_header_footer_text"
-    description = "Set the text content of a page style's header or footer. Automatically enables the header/footer if not already on."
+    description = (
+        "Set the text content of a page style's header or footer. "
+        "Automatically enables the header/footer if not already on. "
+        "Pass auto_height=true so taller content (e.g. a logo) grows the region "
+        "instead of overlapping the body."
+    )
     parameters = {
         "type": "object",
         "properties": {
-            "style_name": {"type": "string", "description": "The name of the page style (e.g., 'Standard' or 'Default Style'). Defaults to 'Standard'."},
-            "region": {"type": "string", "enum": ["header", "footer"], "description": "Whether to set the header or footer text."},
+            "style_name": {
+                "type": "string",
+                "description": "The name of the page style (e.g., 'Standard' or 'Default Style'). Defaults to 'Standard'.",
+            },
+            "region": {
+                "type": "string",
+                "enum": ["header", "footer"],
+                "description": "Whether to set the header or footer text.",
+            },
             "content": {"type": "string", "description": "The text to insert into the header or footer."},
+            "auto_height": {
+                "type": "boolean",
+                "description": (
+                    "Let the region grow with its content so taller content is not clipped "
+                    "and does not overlap the body. Left unchanged when omitted."
+                ),
+            },
         },
         "required": ["region", "content"],
     }
@@ -290,33 +357,29 @@ class SetHeaderFooterText(ToolWriterPageBase):
         region = kwargs.get("region")
         content = kwargs.get("content", "")
 
-        if not region:
+        if region not in _REGION_PROPS:
             return self._tool_error("region is required ('header' or 'footer').")
 
-        doc = ctx.doc
-
         try:
-            style_families = doc.getStyleFamilies()
-            page_styles = style_families.getByName("PageStyles")
-            if not page_styles.hasByName(style_name):
-                return self._tool_error(f"Page style '{style_name}' not found.")
-            style = page_styles.getByName(style_name)
+            style, style_name = resolve_page_style(ctx.doc, style_name)
         except Exception as e:
             return self._tool_error(f"Error accessing page style '{style_name}': {e}")
 
         try:
-            if region == "header":
-                style.setPropertyValue("HeaderIsOn", True)
-                text_obj = style.getPropertyValue("HeaderText")
-            else:
-                style.setPropertyValue("FooterIsOn", True)
-                text_obj = style.getPropertyValue("FooterText")
+            is_on_prop, text_prop = _REGION_PROPS[region]
+            style.setPropertyValue(is_on_prop, True)
+            auto_height = kwargs.get("auto_height")
+            if auto_height is not None:
+                set_header_footer_auto_height(style, region, auto_height)
 
-            if text_obj:
-                text_obj.setString(content)
-                return {"status": "ok", "style_name": style_name, "region": region, "updated": True}
-            else:
+            text_obj = style.getPropertyValue(text_prop)
+            if not text_obj:
                 return self._tool_error(f"Could not retrieve text object for {region} on style '{style_name}'.")
+            text_obj.setString(content)
+            result = {"status": "ok", "style_name": style_name, "region": region, "updated": True}
+            if auto_height is not None:
+                result["auto_height"] = bool(auto_height)
+            return result
         except Exception as e:
             return self._tool_error(f"Error writing to {region} text on page style '{style_name}': {e}")
 
@@ -472,7 +535,7 @@ class InsertPageBreak(ToolWriterPageBase):
                 sd.SearchRegularExpression = False
                 sd.SearchCaseSensitive = bool(kwargs.get("case_sensitive", True))
                 found = doc.findFirst(sd)
-                for _ in range(occurrence):
+                for _unused in range(occurrence):
                     if found is None:
                         break
                     found = doc.findNext(found.getEnd(), sd)

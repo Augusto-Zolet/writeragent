@@ -107,15 +107,15 @@ def test_writer_chart_polymorphic(ctx, doc):
     if probe.get("status") != "ok":
         raise unittest.SkipTest(
             "Writer chart embed not available in this LibreOffice runtime "
-            f"(get_chart_info: {probe!r}). OLE insert may be disabled in headless/pyuno."
+            f"(manage_charts get_info: {probe!r}). OLE insert may be disabled in headless/pyuno."
         )
 
     # 2. List in Writer
     list_res = _execute(doc, ctx, "manage_charts", {"action": "list"}, domain="writer")
-    assert list_res.get("status") == "ok", f"list_charts failed: {list_res}"
+    assert list_res.get("status") == "ok", f"manage_charts list failed: {list_res}"
     names = [c["name"] for c in list_res.get("charts", [])]
     assert name in names, (
-        f"chart_name {name!r} not in list_charts names {names!r}; full list_res={list_res!r}"
+        f"chart_name {name!r} not in manage_charts list names {names!r}; full list_res={list_res!r}"
     )
     
     # 3. Info

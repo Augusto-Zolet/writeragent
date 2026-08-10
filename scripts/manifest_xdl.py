@@ -392,6 +392,17 @@ def generate_xdl(module_name, config_fields, title=None,
 
         widget = schema.get("widget", "text")
 
+        # Decorative horizontal rule (optional label); not a config control.
+        if widget == "separator":
+            sep_counter[0] += 1
+            y = _add_separator(
+                board,
+                "sep_%d" % sep_counter[0],
+                y,
+                label=schema.get("label"),
+            )
+            continue
+
         # list_detail: embed inline or skip for separate page
         if widget == "list_detail":
             if schema.get("inline"):

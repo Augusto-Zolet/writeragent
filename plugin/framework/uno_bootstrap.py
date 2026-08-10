@@ -172,7 +172,7 @@ def ensure_plugin_on_path(
         The extension root path that is now on sys.path.
     """
     this_file = os.path.abspath(__file__)
-    for _ in range(levels_up):
+    for _unused in range(levels_up):
         this_file = os.path.dirname(this_file)
     ext_root = this_file
 

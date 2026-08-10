@@ -258,7 +258,7 @@ class DualStackThreadingHTTPServer(ThreadingHTTPServer):
             try:
                 infos = socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
                 seen_families = set()
-                for family, _, _, _, sockaddr in infos:
+                for family, _unused, _unused2, _unused3, sockaddr in infos:
                     if family not in seen_families:
                         seen_families.add(family)
                         bind_addresses.append((family, str(sockaddr[0])))
@@ -320,7 +320,7 @@ class DualStackThreadingHTTPServer(ThreadingHTTPServer):
                     if self._dual_shutdown_request:
                         break
                     if ready:
-                        for key, _ in ready:
+                        for key, _unused in ready:
                             ready_sock = key.fileobj
                             if isinstance(ready_sock, socket.socket):
                                 self._handle_request_noblock_for_socket(ready_sock)

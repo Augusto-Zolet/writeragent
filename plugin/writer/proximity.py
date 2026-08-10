@@ -260,7 +260,7 @@ class ProximityService(ServiceBase):
             tree = self._tree_svc.build_heading_tree(doc)
             bookmark_map = self._bm_svc.ensure_heading_bookmarks(doc)
             flat = self._flatten_tree(tree, doc)
-            ctx_idx, _ = self._find_heading_context(flat, center_idx)
+            ctx_idx, _unused = self._find_heading_context(flat, center_idx)
             result["heading_chain"] = self._get_heading_chain(flat, ctx_idx, bookmark_map)
 
         if "paragraphs" in include:

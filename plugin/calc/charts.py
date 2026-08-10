@@ -25,6 +25,7 @@ import logging
 
 from plugin.doc.visual_helpers import parse_color_to_uno_int as _parse_color
 from plugin.framework.errors import ToolExecutionError
+from plugin.framework.tool import ToolBaseDummy
 from plugin.calc.base import ToolCalcChartBase
 from plugin.calc.bridge import CalcBridge
 import uno
@@ -443,8 +444,8 @@ def _resolve_chart(doc, chart_name):
     return None
 
 
-class ListCharts(ToolCalcChartBase):
-    """List all charts on a sheet, document, or slide."""
+class ListCharts(ToolBaseDummy):
+    """List charts; Dummy backend for ``ManageCharts`` action=list."""
 
     name = "list_charts"
     intent = "navigate"
@@ -504,8 +505,8 @@ class ListCharts(ToolCalcChartBase):
         return entry
 
 
-class GetChartInfo(ToolCalcChartBase):
-    """Get detailed info about a chart."""
+class GetChartInfo(ToolBaseDummy):
+    """Chart details; Dummy backend for ``ManageCharts`` action=get_info."""
 
     name = "get_chart_info"
     intent = "navigate"
@@ -566,8 +567,8 @@ class GetChartInfo(ToolCalcChartBase):
         return info
 
 
-class UpsertChart(ToolCalcChartBase):
-    """Create a new chart or modify an existing chart."""
+class UpsertChart(ToolBaseDummy):
+    """Create/edit chart; Dummy backend for ``ManageCharts`` action=create|edit."""
 
     name = "upsert_chart"
     intent = "edit"
@@ -606,9 +607,16 @@ class UpsertChart(ToolCalcChartBase):
         return params
 
     def validate(self, *, doc_type: str | None = None, **kwargs) -> tuple[Literal[False], str] | tuple[Literal[True], None]:
-        ok, err = super().validate(doc_type=doc_type, **kwargs)
-        if not ok:
-            return False, err or "Validation failed"
+        # ToolBaseDummy has no schema validate; mirror ToolBase.validate here.
+        schema = self.get_parameters(doc_type) or {}
+        required = schema.get("required", [])
+        for key in required:
+            if key not in kwargs:
+                return False, f"Missing required parameter: {key}"
+        props = schema.get("properties", {})
+        for key in kwargs:
+            if props and key not in props:
+                return False, f"Unknown parameter: {key}"
         action = kwargs.get("action")
         if action == "create":
             if not kwargs.get("chart_type"):
@@ -928,8 +936,8 @@ class UpsertChart(ToolCalcChartBase):
         return {"status": "ok", "message": f"Chart '{name}' inserted on slide.", "chart_name": name}
 
 
-class DeleteChart(ToolCalcChartBase):
-    """Delete a chart."""
+class DeleteChart(ToolBaseDummy):
+    """Delete chart; Dummy backend for ``ManageCharts`` action=delete."""
 
     name = "delete_chart"
     intent = "edit"
@@ -981,10 +989,11 @@ class DeleteChart(ToolCalcChartBase):
 class ManageCharts(ToolCalcChartBase):
     """Manage charts: list, get_info, create, edit, or delete in the current context.
 
-    Calc/Writer/Draw each register ``ManageCharts`` with their chart specialized base (like ``upsert_shape`` in
-    shapes); ``ToolRegistry`` keeps one instance per name (last module load wins). Writer/Draw set union
-    ``uno_services`` so registration order does not drop other document types. Legacy ``list_charts`` etc. stay
-    ``ToolBaseDummy`` (disabled in favor of this tool).
+    Sole charts-domain tool advertised to LLMs/MCP. Calc/Writer/Draw each register
+    ``ManageCharts`` with their chart specialized base (like ``upsert_shape``);
+    ``ToolRegistry`` keeps one instance per name (last module load wins). Writer/Draw
+    set union ``uno_services`` so registration order does not drop other document types.
+    Skinny list/info/upsert/delete classes are Dummy backends for this dispatcher.
 
     Future (per-app tiers and a growing API, e.g. full 3D):
     - Registry: store ``list[ToolBase]`` per name and resolve via ``supportsService`` instead of last-wins.

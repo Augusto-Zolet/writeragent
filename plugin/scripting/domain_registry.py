@@ -101,7 +101,7 @@ def try_rps_post_venv(
 
         body_params = parse_run_import_call_params(code, run_name="run_units")
         if body_params is not None:
-            _, output_style = split_helper_params(body_params)
+            _unused, output_style = split_helper_params(body_params)
             if output_style is not None:
                 insert_kwargs["output_style"] = output_style
     elif spec.id == "vision" and code:

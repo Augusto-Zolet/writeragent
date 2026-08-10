@@ -32,7 +32,7 @@ def _cursor_after_nth_match(doc: Any, search: str, occurrence: int, case_sensiti
     if found is None:
         raise ToolExecutionError("No match for insert_after_text in the document.")
 
-    for _ in range(occurrence):
+    for _unused in range(occurrence):
         found = doc.findNext(found, sd)
         if found is None:
             raise ToolExecutionError(f"No match for insert_after_text at occurrence {occurrence} (not enough occurrences).")

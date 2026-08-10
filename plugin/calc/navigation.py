@@ -165,18 +165,12 @@ def clear_cell_link_spans(control) -> None:
 
 def resolve_sheet_and_cell(doc, address: str) -> tuple[Any, int, int] | None:
     """Resolve *address* to ``(sheet, col, row)`` for the open Calc document."""
+    from plugin.calc.address_utils import split_sheet_prefix
+
     target = normalize_cell_address(address)
     if not target or doc is None:
         return None
-    sheet_name = None
-    cell_part = target
-    if "." in target:
-        sheet_name, cell_part = target.rsplit(".", 1)
-        try:
-            parse_address(cell_part)
-        except ValueError:
-            sheet_name = None
-            cell_part = target
+    sheet_name, cell_part = split_sheet_prefix(target)
     try:
         col, row = parse_address(cell_part)
     except ValueError:

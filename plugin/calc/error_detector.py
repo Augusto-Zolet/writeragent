@@ -116,13 +116,15 @@ class ErrorDetector:
             List of dicts with keys: address, formula, error.
         """
         try:
-            sheet = self.bridge.get_active_sheet()
-
             if range_str:
-                start, end = self.bridge.parse_range_string(range_str)
+                # Honour sheet-qualified ranges (Sheet1.A1:D10) without switching
+                # the active sheet; parse_range_string alone rejects prefixes.
+                sheet, bare = self.bridge.resolve(range_str)
+                start, end = self.bridge.parse_range_string(bare)
                 start_col, start_row = start
                 end_col, end_row = end
             else:
+                sheet = self.bridge.get_active_sheet()
                 cursor = sheet.createCursor()
                 cursor.gotoStartOfUsedArea(False)
                 cursor.gotoEndOfUsedArea(True)

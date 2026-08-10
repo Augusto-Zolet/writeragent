@@ -161,7 +161,7 @@ def optimize_portfolio(
         })
 
     # Bounds: weights between 0 and 1 (no short selling)
-    bounds = tuple((0.0, 1.0) for _ in range(num_assets))
+    bounds = tuple((0.0, 1.0) for _unused in range(num_assets))
     
     # Initial guess: equal weighting
     init_guess = np.array(num_assets * [1.0 / num_assets])

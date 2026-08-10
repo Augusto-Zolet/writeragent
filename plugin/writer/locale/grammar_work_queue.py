@@ -141,7 +141,7 @@ def _get_cached_document_locales(ctx: Any, doc_id: str) -> list[str]:
                     try:
                         tc = view_cursor.getText().createTextCursorByRange(view_cursor)
                         tc.goLeft(500, False)
-                        for _ in range(1000):
+                        for _unused in range(1000):
                             if not tc.goRight(1, True):
                                 break
                             loc = getattr(tc, "CharLocale", None)

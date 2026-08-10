@@ -109,12 +109,20 @@ def test_set_header_footer_text():
 
     ctx = TestingFactory.create_context(doc=doc, doc_type="writer")
     tool = SetHeaderFooterText()
-    res = tool.execute(ctx, style_name="Standard", region="header", content="My Header Content")
+    res = tool.execute(
+        ctx,
+        style_name="Standard",
+        region="header",
+        content="My Header Content",
+        auto_height=True,
+    )
 
     assert res["status"] == "ok"
     assert res["region"] == "header"
+    assert res["auto_height"] is True
 
-    style.setPropertyValue.assert_called_with("HeaderIsOn", True)
+    style.setPropertyValue.assert_any_call("HeaderIsOn", True)
+    style.setPropertyValue.assert_any_call("HeaderIsDynamicHeight", True)
     header_text_obj.setString.assert_called_with("My Header Content")
 
 

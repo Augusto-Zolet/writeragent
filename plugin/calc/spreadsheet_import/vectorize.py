@@ -116,7 +116,7 @@ def is_cross_sheet_range(range_addr: str) -> bool:
         return True
     if "." not in addr:
         return False
-    sheet, _, rest = addr.partition(".")
+    sheet, _unused, rest = addr.partition(".")
     return bool(sheet and rest and not re.match(r"^\$?[A-Z]+\$?\d", sheet, re.IGNORECASE))
 
 
@@ -146,7 +146,7 @@ def detect_vectorized_columns(model: SheetModel) -> dict[str, list[str]]:
     for col, addrs in col_cells.items():
         # Sort addresses by row
         def get_row(a: str) -> int:
-            _, r = parse_address(a)
+            _unused, r = parse_address(a)
             return r
 
         sorted_addrs = sorted(addrs, key=get_row)
@@ -163,7 +163,7 @@ def detect_vectorized_columns(model: SheetModel) -> dict[str, list[str]]:
             if not record.formula:
                 continue
             r1c1 = to_r1c1(record.formula, addr)
-            _, row = parse_address(addr)
+            _unused, row = parse_address(addr)
 
             if current_r1c1 is None:
                 current_group = [addr]

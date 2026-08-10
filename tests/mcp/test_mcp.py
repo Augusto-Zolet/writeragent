@@ -39,9 +39,13 @@ def test_initialize_instructions_lean_pointer_in_every_mode():
         assert "+00:00" not in text
         assert "-04:00" not in text
         assert "WriterAgent MCP" in text          # base preserved
+        assert "list_open_documents" in text      # targeting when multi-doc
+        assert "document_url" in text
         assert "get_guidance" in text             # the pointer to the on-demand manual
         assert "do not append a timezone offset" in text
         assert "get_document_tree" not in text    # the nav workflow moved to the manual
+        assert "main thread" not in text         # threading internals are not tool-choice
+        assert "UNO operations" not in text
         assert len(text) < 1500
 
 

@@ -175,7 +175,7 @@ def doc_type_of(doc) -> str | None:
 
 def list_topics(doc_type: str | None = "writer") -> list[str]:
     """Canonical topic ids in display order for a document type."""
-    return [t for t, _ in _SUMMARY_BY_APP[_app(doc_type)]]
+    return [t for t, _unused in _SUMMARY_BY_APP[_app(doc_type)]]
 
 
 def normalize_topic(topic: str | None, doc_type: str | None = "writer") -> str | None:
@@ -225,7 +225,7 @@ def full_manual(doc_type: str | None = "writer") -> str:
     sidebar does not use this: its template assembles the shared pieces directly (constants)."""
     app = _app(doc_type)
     sections = _SECTIONS_BY_APP[app]
-    parts = [sections[t] for t, _ in _SUMMARY_BY_APP[app]]
+    parts = [sections[t] for t, _unused in _SUMMARY_BY_APP[app]]
     return "HOW TO WORK WITH THE DOCUMENT:\n\n" + "\n\n".join(parts)
 
 

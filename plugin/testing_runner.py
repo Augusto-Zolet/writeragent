@@ -92,7 +92,7 @@ def run_module_suite(ctx, module, name, doc_model=None):
     test_funcs = []
 
     # Discover decorators, iterating over module dict to preserve insertion (definition) order
-    for _, attr in module.__dict__.items():
+    for _unused, attr in module.__dict__.items():
         if callable(attr):
             # `MagicMock` returns truthy values for any attribute access, so we must
             # check for an explicit boolean marker set by our decorators.

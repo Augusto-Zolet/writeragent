@@ -14,17 +14,14 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""Draw charting tools leveraging shared chart implementation."""
+"""Draw charting tools leveraging shared chart implementation.
+
+Only ``ManageCharts`` is registered; skinny backends live in ``plugin.calc.charts``.
+"""
 
 import logging
 from plugin.draw.base import ToolDrawChartBase
-from plugin.calc.charts import (
-    ListCharts as CalcListCharts,
-    GetChartInfo as CalcGetChartInfo,
-    UpsertChart as CalcUpsertChart,
-    DeleteChart as CalcDeleteChart,
-    ManageCharts as CalcManageCharts,
-)
+from plugin.calc.charts import ManageCharts as CalcManageCharts
 
 log = logging.getLogger("writeragent.draw")
 
@@ -36,22 +33,5 @@ _ALL_CHART_DOCS = [
 ]
 
 
-class ListCharts(CalcListCharts, ToolDrawChartBase):  # type: ignore[misc]
-    uno_services = _ALL_CHART_DOCS
-
-
-class GetChartInfo(CalcGetChartInfo, ToolDrawChartBase):  # type: ignore[misc]
-    uno_services = _ALL_CHART_DOCS
-
-
-class UpsertChart(CalcUpsertChart, ToolDrawChartBase):  # type: ignore[misc]
-    uno_services = _ALL_CHART_DOCS
-
-
-class DeleteChart(CalcDeleteChart, ToolDrawChartBase):  # type: ignore[misc]
-    uno_services = _ALL_CHART_DOCS
-
-
 class ManageCharts(CalcManageCharts, ToolDrawChartBase):  # type: ignore[misc]
     uno_services = _ALL_CHART_DOCS
-

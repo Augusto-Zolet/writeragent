@@ -86,7 +86,7 @@ def compute_chat_panel_layout(
         return {}
 
     bottom_top_initial, cluster_height, response_y = _cluster_metrics(snapshot)
-    response_x, _, response_ow, _ = snapshot["response"]
+    response_x, _unused, response_ow, _unused2 = snapshot["response"]
     bottom_top_new = height - bottom_margin - cluster_height
     cluster_delta = bottom_top_new - bottom_top_initial
     response_h = max(min_response_height, bottom_top_new - response_gap - response_y)

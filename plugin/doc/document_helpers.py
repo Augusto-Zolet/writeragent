@@ -52,7 +52,7 @@ def is_document_disposed(doc: Any) -> bool:
         return True
     if hasattr(doc, "getImplementationName"):
         try:
-            _ = doc.getImplementationName()
+            _unused = doc.getImplementationName()
             return False
         except UNO_DISPOSED_EXCEPTIONS:
             return True
@@ -1549,7 +1549,7 @@ class DocumentService(ServiceBase):
             try:
                 cursor = safe_call(text.createTextCursor, "Create text cursor")
                 safe_call(cursor.gotoStart, "Cursor gotoStart", False)
-                for _ in range(para_index):
+                for _unused in range(para_index):
                     if not safe_call(cursor.gotoNextParagraph, "Cursor gotoNextParagraph", False):
                         break
                 safe_call(vc.gotoRange, "View cursor gotoRange", cursor, False)

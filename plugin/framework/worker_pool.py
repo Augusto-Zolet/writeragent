@@ -248,7 +248,7 @@ class AsyncProcess:
 
     def _drain_stream(self, stream):
         try:
-            for _ in stream:
+            for _unused in stream:
                 pass
         except OSError:
             pass

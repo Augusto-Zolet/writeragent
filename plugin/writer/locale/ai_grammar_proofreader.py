@@ -533,7 +533,7 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
             uncached_active_spans = []
             for s_start, s_end, s_text in active_spans:
                 # If this active span is in the uncached paragraph spans, we need to enqueue it
-                if any(s_start == us_start for us_start, _, _ in uncached_paragraph_spans):
+                if any(s_start == us_start for us_start, _unused_end, _unused_text in uncached_paragraph_spans):
                     uncached_active_spans.append((s_start, s_end, s_text))
 
             if not uncached_active_spans:

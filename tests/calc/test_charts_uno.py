@@ -41,7 +41,7 @@ def test_charts_creation_and_listing(ctx, doc):
 
     # 3. List charts
     res_list = _execute_calc_tool(doc, ctx, "manage_charts", {"action": "list"})
-    assert res_list.get("status") == "ok", f"list_charts failed: {res_list}"
+    assert res_list.get("status") == "ok", f"manage_charts list failed: {res_list}"
     charts = res_list.get("charts", [])
     assert len(charts) == 1, f"Expected 1 chart, found {len(charts)}"
     chart_name = charts[0].get("name")
@@ -59,7 +59,7 @@ def test_charts_creation_and_listing(ctx, doc):
 
     # 5. Get chart info
     res_info = _execute_calc_tool(doc, ctx, "manage_charts", {"action": "get_info", "chart_name": chart_name})
-    assert res_info.get("status") == "ok", f"get_chart_info failed: {res_info}"
+    assert res_info.get("status") == "ok", f"manage_charts get_info failed: {res_info}"
     assert res_info.get("name") == chart_name, "Chart info name mismatch"
 
     # 6. Edit chart
@@ -72,7 +72,7 @@ def test_charts_creation_and_listing(ctx, doc):
 
     # 7. Delete chart
     res_delete = _execute_calc_tool(doc, ctx, "manage_charts", {"action": "delete", "chart_name": chart_name})
-    assert res_delete.get("status") == "ok", f"delete_chart failed: {res_delete}"
+    assert res_delete.get("status") == "ok", f"manage_charts delete failed: {res_delete}"
 
     # Verify deletion
     res_list_after_delete = _execute_calc_tool(doc, ctx, "manage_charts", {"action": "list"})

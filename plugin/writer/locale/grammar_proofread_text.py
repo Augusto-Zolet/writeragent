@@ -123,7 +123,7 @@ def split_into_sentences(ctx: Any, locale_key: str, text: str) -> list[tuple[int
         sentences.append((pos, text[pos:ws_end]))
         pos = ws_end
 
-    log.debug("[grammar] split_into_sentences result count=%d: %r", len(sentences), [s for _, s in sentences])
+    log.debug("[grammar] split_into_sentences result count=%d: %r", len(sentences), [s for _unused_idx, s in sentences])
     return sentences or [(0, text)]
 
 

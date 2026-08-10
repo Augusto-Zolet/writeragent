@@ -398,7 +398,7 @@ def _copy_formatted_from_hidden_doc_to_control(
 
 def _append_hidden_doc_to_control(doc, control, ctx, style_window=None, auto_scroll=True, cell_link_targets=None) -> bool:
     """Copy hidden Writer content into the sidebar control via direct copy."""
-    ok, _ = _copy_formatted_from_hidden_doc_to_control(
+    ok, _unused = _copy_formatted_from_hidden_doc_to_control(
         doc,
         control,
         ctx,
@@ -443,7 +443,7 @@ def append_rich_messages_via_clipboard(
             log.debug(
                 "append_rich_messages_via_clipboard: hidden doc ready messages=%d total_chars=%d",
                 len(batch),
-                sum(len(c or "") for _, c in batch),
+                sum(len(c or "") for _unused, c in batch),
             )
             if _append_hidden_doc_to_control(
                 doc, control, ctx, style_window=style_window, auto_scroll=False, cell_link_targets=batch_links,

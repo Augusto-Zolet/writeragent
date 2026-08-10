@@ -479,7 +479,7 @@ class PythonWorkerManager:
                 if time.time() >= end:
                     raise subprocess.TimeoutExpired(cmd=self.exe, timeout=timeout_sec)
                 remaining = end - time.time()
-                ready, _, _ = select.select([stdout], [], [], min(1.0, remaining))
+                ready, _unused, _unused2 = select.select([stdout], [], [], min(1.0, remaining))
                 if ready:
                     chunk = stdout.read(n - len(buf))
                     if not chunk:
@@ -530,7 +530,7 @@ class PythonWorkerManager:
             if time.time() >= deadline:
                 raise subprocess.TimeoutExpired(cmd=self.exe, timeout=max(1, int(deadline - time.time())))
             remaining = deadline - time.time()
-            ready, _, _ = select.select([stdout], [], [], min(1.0, remaining))
+            ready, _unused, _unused2 = select.select([stdout], [], [], min(1.0, remaining))
             if ready:
                 chunk = stdout.read(nbytes - len(buf))
                 if not chunk:

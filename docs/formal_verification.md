@@ -170,7 +170,7 @@ That produces tests of the form `assert foo(args) == <whatever it got>`. **Do no
 | Prove no `@deal` violation found (in time budget) | `check` |
 | Find inputs that hit rarely used branches | `cover` |
 | Validate round-trip / Calc semantics | pytest oracles ([`VERIFICATION_GRIDS`](../tests/scripting/test_serialization_verification.py)) |
-| CI gate on correctness | `make verify-serialization` (`check` on full module + pytest) |
+| CI gate on correctness | `make verify` (pytest `-k verification`) + optional `make crosshair-check` on `payload_codec` |
 | Brainstorm edge-case inputs after a refactor | `cover` on full module |
 
 **`cover` does not replace `check` or round-trip tests.** It tells you *where the code has been*; `check` tells you whether *contracts broke*; pytest tells you whether *product behavior matches intent*.
@@ -220,7 +220,7 @@ make crosshair-cover-all-deep   # same set; deep budget (200 iters, no timeout/w
 | Target | Hypothesis budget | Scope |
 |--------|-------------------|--------|
 | **`make verify`** | Light defaults in each suite | All `*_verification.py` (deal oracles + light `@given` + optional slow CrossHair) |
-| **`make vhs`** | `WRITERAGENT_VHS_EXTENSIVE=1` (alias: `WRITERAGENT_SERIALIZATION_EXTENSIVE`) | Deep fuzz (`-k hypothesis`): serialization A/B; chat/MCP FSMs; Phase 8 (`formula_edit`, `cors`, `word_diff_split`, `embeddings_split`); stream/response normalizers; sandbox path + scrub env; payload_codec policy; `address_utils` |
+| **`make vhs`** | `WRITERAGENT_VHS_EXTENSIVE=1` (alias: `WRITERAGENT_SERIALIZATION_EXTENSIVE`) | Deep fuzz (`-k hypothesis`): serialization A/B; chat/MCP FSMs; Phase 8 domains (done: `formula_edit`, `cors`, `word_diff_split`, `embeddings_split`); stream/response normalizers; sandbox path + scrub env; payload_codec policy; `address_utils` |
 | **`make slowtests`** | Extensive | Serialization fixture pass, then `vhs` |
 
 Shared helpers: [`tests/vhs_budget.py`](../tests/vhs_budget.py) (`vhs_extensive` / `vhs_max_examples`), FSM strategies [`tests/chatbot/fsm_hyp_support.py`](../tests/chatbot/fsm_hyp_support.py).
@@ -454,7 +454,7 @@ Maintain a `verification_status.json` file tracking which components have been v
 
 ## Phase 7: Expand Verification to Tier 0 Modules
 
-**Status (partial):**
+**Status (partial):** large catalog below is in place; remaining gaps and promotions are tracked under **Phase 9** and [`verification_status.json`](../verification_status.json) (not every listed row is `verified`).
 
 1. **`plugin/framework/url_utils.py`** — `deal` + Hypothesis + CrossHair ([`tests/framework/test_url_utils_verification.py`](../tests/framework/test_url_utils_verification.py))
 2. **`plugin/calc/address_utils.py`** — inverse column/address contracts + Hypothesis ([`tests/calc/test_address_utils_verification.py`](../tests/calc/test_address_utils_verification.py))
@@ -502,31 +502,68 @@ Maintain a `verification_status.json` file tracking which components have been v
 44. **`plugin/framework/client/response_normalizers.py`** — `strip_leaked_chat_template_control_tokens`, `extract_and_strip_images_from_message` ([`tests/framework/test_response_normalizers_verification.py`](../tests/framework/test_response_normalizers_verification.py))
 45. **`plugin/calc/python/formula_edit.py`** — quoted/unquoted `=PY()` parse, sanitize/escape, rebuild, data-range formatters, data-binding display/text helpers ([`tests/calc/python/test_formula_edit_verification.py`](../tests/calc/python/test_formula_edit_verification.py))
 46. **`plugin/calc/spreadsheet_import/preprocess.py`** — `normalize_lo_formula_for_parse` ([`tests/calc/python/test_formula_edit_verification.py`](../tests/calc/python/test_formula_edit_verification.py))
-47. **`plugin/scripting/payload_codec.py`** (policy helpers) — `cell_count`, `is_numeric_coercible`, `is_numeric_grid`, `wire_cell_count` ([`tests/scripting/test_payload_codec_policy_verification.py`](../tests/scripting/test_payload_codec_policy_verification.py)); pack/unpack contracts listed earlier / serialization plan
+47. **`plugin/scripting/payload_codec.py`** — pack/unpack + policy helpers (`cell_count`, `is_numeric_coercible`, `is_numeric_grid`, `wire_cell_count`) + envelope detectors (`is_split_grid`, `is_multi_data`, `is_image_payload`, `is_dataframe_payload`, `is_calc_range_payload`) + `host_pack_multi_data` ([`tests/scripting/test_payload_codec_policy_verification.py`](../tests/scripting/test_payload_codec_policy_verification.py), [`tests/scripting/test_serialization_verification.py`](../tests/scripting/test_serialization_verification.py)); see [`docs/serialization-verification-plan.md`](serialization-verification-plan.md)
 
 (`format_support.py` does not exist; Writer HTML paths are UNO-heavy and deferred.)
 
 ### Phase 8: Deep Hypothesis targets (in `make vhs`)
 
-These surfaces have light Hyp under `make verify` and **deep** budgets via `vhs_max_examples` / `make vhs`:
+**COMPLETED ✅** (wired in `Makefile` `vhs` recipe; light budgets under `make verify`, deep via `vhs_max_examples` / `WRITERAGENT_VHS_EXTENSIVE=1`)
 
-1. **Calc `=PY()` Formula Parser & Serializer** ([`plugin/calc/python/formula_edit.py`](../plugin/calc/python/formula_edit.py))
-   - **Target:** `parse_python_formula`, `escape_code_for_formula`, `rebuild_python_formula`, quoted/unquoted helpers.
-   - **Oracle:** escape→embed→parse and rebuild(parse) preserve sanitized code ([`test_formula_edit_verification.py`](../tests/calc/python/test_formula_edit_verification.py)).
+Named deep domains (oracles + `test_hypothesis_*` so `-k hypothesis` selects them):
 
-2. **Security Boundary: CORS Origin & Host Filtering** ([`plugin/mcp/cors.py`](../plugin/mcp/cors.py))
-   - **Target:** `is_safe_origin`, `normalize_cors_origin`, `normalize_origins_list`.
-   - **Oracle:** public hosts stay unsafe when private/extra allowlists are off ([`test_cors_verification.py`](../tests/mcp/test_cors_verification.py)).
+| Domain | Module | Verification tests |
+|--------|--------|-------------------|
+| Calc `=PY()` parse/serialize | [`formula_edit.py`](../plugin/calc/python/formula_edit.py) | [`test_formula_edit_verification.py`](../tests/calc/python/test_formula_edit_verification.py) |
+| CORS origin/host safety | [`cors.py`](../plugin/mcp/cors.py) | [`test_cors_verification.py`](../tests/mcp/test_cors_verification.py) |
+| Writer word diff / redline split | [`word_diff_split.py`](../plugin/writer/word_diff_split.py) | [`test_writer_diff_and_html_verification.py`](../tests/writer/test_writer_diff_and_html_verification.py) |
+| Embeddings sentence chunking | [`embeddings_split.py`](../plugin/embeddings/embeddings_split.py) | [`test_embeddings_split_verification.py`](../tests/embeddings/test_embeddings_split_verification.py) |
 
-3. **Writer Word Diffing & Redline Splitter** ([`plugin/writer/word_diff_split.py`](../plugin/writer/word_diff_split.py))
-   - **Target:** `tokenize` and `split_change`.
-   - **Oracle:** tokenize/rejoin exact character preservation; capped alphabets for deep VHS ([`test_writer_diff_and_html_verification.py`](../tests/writer/test_writer_diff_and_html_verification.py)).
+Also on the same `make vhs` line (same budget helper): serialization A/B Hypothesis; chat/MCP FSM oracles; stream/response normalizers; sandbox path + `scrub_subprocess_env`; payload_codec policy; `address_utils` column/address round-trips.
 
-4. **Embeddings & Document Text Chunking** ([`plugin/embeddings/embeddings_split.py`](../plugin/embeddings/embeddings_split.py))
-   - **Target:** `_merge_small_sentences_to_spans` and `_meta_chunks_from_spans`.
-   - **Oracle:** in-bounds, non-overlapping, monotonic spans; chunk text equals passage slice ([`test_embeddings_split_verification.py`](../tests/embeddings/test_embeddings_split_verification.py)).
+**Not the same as “verified” in `verification_status.json`:** several of these modules remain **`partial`** because CrossHair is engine-limited or `ci_integration` is still false—Phase 8 only means **deep Hypothesis is in place and selected by `vhs`**. Closing those partials is Phase 9.
 
-Also on deep `vhs` (same budget helper): stream/response normalizers, sandbox path + `scrub_subprocess_env`, payload_codec policy helpers, `address_utils` column/address round-trips.
+Playbook for adding another deep VHS domain: see § “Playbook for a new deep VHS domain” under Live output / `make verify` vs `vhs` above.
+
+### Phase 9: What to work on next (recommended order)
+
+Snapshot after envelope-detector work on `payload_codec` (2026-08): **~41 verified / ~14 partial** in [`verification_status.json`](../verification_status.json). Phases 5 and 8 are done; 6–7 are partial by design.
+
+**Prefer closing high-ROI partials before opening new Tier-0 files.** New pure modules (e.g. `spreadsheet_import/translate.py`) are optional once the list below is thin.
+
+#### 1. Promote “deal+Hyp done, status lagging” partials → `verified` (fastest wins)
+
+These already have contracts, light Hypothesis, and (where useful) slow CrossHair FQNs. Work is mostly: confirm oracles, set `ci_integration: true` when the verification file is in `make verify`, flip `status` to `verified`, refresh notes/dates.
+
+| Module | Why still partial | Action |
+|--------|-------------------|--------|
+| [`address_utils.py`](../plugin/calc/address_utils.py) | Strong inverse contracts + deep VHS; `ci_integration: false` | Promote if CrossHair FQN stays clean |
+| [`cors.py`](../plugin/mcp/cors.py) | Security boundary; deep VHS; `ci_integration: false` | Promote after one clean CrossHair pass |
+| [`formula_edit.py`](../plugin/calc/python/formula_edit.py) + [`preprocess.py`](../plugin/calc/spreadsheet_import/preprocess.py) | Deep VHS; past IndexError fixed | Promote pair together |
+| [`stream_normalizer.py`](../plugin/framework/client/stream_normalizer.py) / [`response_normalizers.py`](../plugin/framework/client/response_normalizers.py) | Deep VHS; some `# crosshair: off` | Promote with notes on offs; keep FQN targets that work |
+
+#### 2. FSM partials (Phase 6 catch-up — do not fight engine)
+
+[`send_state`](../plugin/chatbot/send_state.py), [`audio_recorder_state`](../plugin/chatbot/audio_recorder_state.py), [`mcp_state`](../plugin/mcp/mcp_state.py), [`tool_loop_state`](../plugin/chatbot/tool_loop_state.py) / [`state_machine`](../plugin/chatbot/state_machine.py) helpers: deal + Hypothesis already on `vhs`. **`next_state` stays `# crosshair: off`** where Exception/JSON/host paths poison the engine. Next work = stronger pure ensures / more FSM strategies in [`fsm_hyp_support.py`](../tests/chatbot/fsm_hyp_support.py), not removing offs.
+
+#### 3. Engine-hostile partials (shim or accept partial)
+
+| Module | Reality |
+|--------|---------|
+| [`json_utils.py`](../plugin/framework/json_utils.py) / [`errors.py`](../plugin/framework/errors.py) | Symbolic `json` / Traceback — keep deal+Hypothesis; do not force check-all |
+| [`payload_codec.py`](../plugin/scripting/payload_codec.py) | Reference module; pack/unpack often off; detectors/policy preferred FQNs — stay **partial** until a written bar for offs (see [`serialization-verification-plan.md`](serialization-verification-plan.md)) |
+
+#### 4. Optional new Tier-0 slice (only after 1–2)
+
+Highest unused pure surface: **[`plugin/calc/spreadsheet_import/translate.py`](../plugin/calc/spreadsheet_import/translate.py)** (formula → Python codegen, no UNO). Secondary: pure color/units in [`plugin/doc/visual_helpers.py`](../plugin/doc/visual_helpers.py) (`parse_color_to_uno_int`, mm/px helpers)—extract if mixed with UNO. Skip vendored `plugin/lib/**`.
+
+#### 5. Tooling (low code, high leverage)
+
+- Optional CI job: `make verify` (not full CrossHair-all).
+- Keep `CROSSHAIR_*_SKIP` empty; hostility = shim / `# crosshair: off` / refactor.
+- Stale “Practical Implementation Guide” samples below still mention old paths—treat Phase 9 + this section as source of truth over the illustrative CI YAML.
+
+**Suggested next session (single track):** close the **address_utils + cors + formula_edit/preprocess** partial cluster (status flips + any missing FQN slow tests), then either FSM ensures or `translate.py` contracts.
 
 ---
 

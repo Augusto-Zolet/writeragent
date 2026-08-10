@@ -18,17 +18,13 @@
 
 These operate on the active Writer context but use the same UNO paths as Calc chart
 tools (embedded chart / sheet-style APIs), not a dedicated chart2 Writer-only module.
+
+Only ``ManageCharts`` is registered; skinny backends live in ``plugin.calc.charts``.
 """
 
 import logging
 from ..specialized_base import ToolWriterChartBase
-from plugin.calc.charts import (
-    ListCharts as CalcListCharts,
-    GetChartInfo as CalcGetChartInfo,
-    UpsertChart as CalcUpsertChart,
-    DeleteChart as CalcDeleteChart,
-    ManageCharts as CalcManageCharts,
-)
+from plugin.calc.charts import ManageCharts as CalcManageCharts
 
 log = logging.getLogger("writeragent.writer")
 
@@ -42,22 +38,5 @@ _ALL_CHART_DOCS = [
 ]
 
 
-class ListCharts(CalcListCharts, ToolWriterChartBase):  # type: ignore[misc]
-    uno_services = _ALL_CHART_DOCS
-
-
-class GetChartInfo(CalcGetChartInfo, ToolWriterChartBase):  # type: ignore[misc]
-    uno_services = _ALL_CHART_DOCS
-
-
-class UpsertChart(CalcUpsertChart, ToolWriterChartBase):  # type: ignore[misc]
-    uno_services = _ALL_CHART_DOCS
-
-
-class DeleteChart(CalcDeleteChart, ToolWriterChartBase):  # type: ignore[misc]
-    uno_services = _ALL_CHART_DOCS
-
-
 class ManageCharts(CalcManageCharts, ToolWriterChartBase):  # type: ignore[misc]
     uno_services = _ALL_CHART_DOCS
-

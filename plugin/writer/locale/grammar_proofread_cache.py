@@ -191,7 +191,7 @@ def cache_put_sentence(
                     continue
                 if scan_count >= MAX_RECENT_INCOMPLETE_SCAN:
                     break
-                _other_fp, other_canon, other_complete, _ = v
+                _other_fp, other_canon, other_complete, _unused = v
                 if should_evict_incomplete_prefix_predecessor(other_complete=other_complete, other_canon=other_canon, new_canon=canon):
                     to_remove.append(k)
                 scan_count += 1

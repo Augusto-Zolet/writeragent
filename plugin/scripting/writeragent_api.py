@@ -103,7 +103,7 @@ DOMAIN_TOOLS = {   'analysi': [   'analyze_data',
                 'read_cell_range',
                 'set_style',
                 'write_formula_range'],
-    'chart': ['delete_chart', 'get_chart_info', 'list_charts', 'manage_charts', 'upsert_chart'],
+    'chart': ['manage_charts'],
     'comment': [   'add_cell_comment',
                    'delete_cell_comment',
                    'delete_comment',
@@ -361,25 +361,9 @@ calc = _CalcProxy()
 class _ChartProxy:
     """Proxy for chart tools."""
 
-    def delete_chart(self, chart_name: str) -> dict:
-        """Delete a chart by name.."""
-        return _rpc_call("delete_chart", chart_name=chart_name)
-
-    def get_chart_info(self, chart_name: str) -> dict:
-        """Get detailed info about a chart: type, title, ranges (if Calc), axis titles, and legend properties.."""
-        return _rpc_call("get_chart_info", chart_name=chart_name)
-
-    def list_charts(self) -> dict:
-        """List all charts in the current context (active sheet, document, or slide) with name, title, and type.."""
-        return _rpc_call("list_charts")
-
     def manage_charts(self, action: str, *, chart_name: str = "", data_range: str = "", headers: list = [], rows: list = [], chart_type: str = "", title: str = "", subtitle: str = "", is_3d: bool = True, stacked: bool = True, percent: bool = True, x_axis_title: str = "", y_axis_title: str = "", legend_position: str = "", has_legend: bool = True, position: str = "", bg_color: str = "", colors: list = []) -> dict:
         """Manage charts: list, get_info, create, edit, or delete a chart in the current context (active sheet, document, or slide).."""
         return _rpc_call("manage_charts", action=action, chart_name=chart_name, data_range=data_range, headers=headers, rows=rows, chart_type=chart_type, title=title, subtitle=subtitle, is_3d=is_3d, stacked=stacked, percent=percent, x_axis_title=x_axis_title, y_axis_title=y_axis_title, legend_position=legend_position, has_legend=has_legend, position=position, bg_color=bg_color, colors=colors)
-
-    def upsert_chart(self, action: str, *, chart_name: str = "", data_range: str = "", headers: list = [], rows: list = [], chart_type: str = "", title: str = "", is_3d: bool = True, stacked: bool = True, percent: bool = True, x_axis_title: str = "", y_axis_title: str = "", legend_position: str = "", has_legend: bool = True, subtitle: str = "", position: str = "", bg_color: str = "", colors: list = []) -> dict:
-        """Creates a new chart or modifies an existing chart on a sheet, document, or slide.."""
-        return _rpc_call("upsert_chart", action=action, chart_name=chart_name, data_range=data_range, headers=headers, rows=rows, chart_type=chart_type, title=title, is_3d=is_3d, stacked=stacked, percent=percent, x_axis_title=x_axis_title, y_axis_title=y_axis_title, legend_position=legend_position, has_legend=has_legend, subtitle=subtitle, position=position, bg_color=bg_color, colors=colors)
 
 chart = _ChartProxy()
 
@@ -707,9 +691,9 @@ class _ImagesProxy:
         """Get detailed info about a specific image: URL, dimensions, anchor type, orientation, crop (crop_mm, mm trimmed per edge), and paragraph index.."""
         return _rpc_call("get_image_info", image_name=image_name)
 
-    def insert_image(self, image_path: str, *, locator: str = "", paragraph_index: int = 0, width_mm: int = 0, height_mm: int = 0) -> dict:
+    def insert_image(self, image_path: str, *, locator: str = "", paragraph_index: int = 0, width_mm: int = 0, height_mm: int = 0, target: str = "", style_name: str = "", auto_height: bool = True) -> dict:
         """Insert an image from local path or URL into the document."""
-        return _rpc_call("insert_image", image_path=image_path, locator=locator, paragraph_index=paragraph_index, width_mm=width_mm, height_mm=height_mm)
+        return _rpc_call("insert_image", image_path=image_path, locator=locator, paragraph_index=paragraph_index, width_mm=width_mm, height_mm=height_mm, target=target, style_name=style_name, auto_height=auto_height)
 
     def list_images(self) -> dict:
         """List all images/graphic objects in the document with name, dimensions, title, and description.."""
@@ -785,9 +769,9 @@ class _PageProxy:
         """Start a new page."""
         return _rpc_call("insert_page_break", before_text=before_text, after_text=after_text, occurrence=occurrence, case_sensitive=case_sensitive)
 
-    def set_header_footer_text(self, region: str, content: str, *, style_name: str = "") -> dict:
+    def set_header_footer_text(self, region: str, content: str, *, style_name: str = "", auto_height: bool = True) -> dict:
         """Set the text content of a page style's header or footer."""
-        return _rpc_call("set_header_footer_text", style_name=style_name, region=region, content=content)
+        return _rpc_call("set_header_footer_text", style_name=style_name, region=region, content=content, auto_height=auto_height)
 
     def set_page_columns(self, column_count: int, *, style_name: str = "", spacing_mm: float = 0.0) -> dict:
         """Set the number of columns and spacing for a page style.."""

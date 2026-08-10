@@ -39,7 +39,7 @@ class Undo(ToolBase):
         try:
             um = _get_undo_manager(ctx.doc)
             undone = 0
-            for _ in range(steps):
+            for _unused in range(steps):
                 if not um.isUndoPossible():
                     break
                 um.undo()
@@ -67,7 +67,7 @@ class Redo(ToolBase):
         try:
             um = _get_undo_manager(ctx.doc)
             redone = 0
-            for _ in range(steps):
+            for _unused in range(steps):
                 if not um.isRedoPossible():
                     break
                 um.redo()

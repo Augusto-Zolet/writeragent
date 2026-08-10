@@ -17,10 +17,20 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from plugin.scripting.payload_codec import (
+    PAYLOAD_CALC_RANGE,
+    PAYLOAD_DATAFRAME,
+    PAYLOAD_IMAGE,
+    PAYLOAD_MULTI_DATA,
+    PAYLOAD_SPLIT_GRID,
     cell_count,
     host_pack_split_grid,
+    is_calc_range_payload,
+    is_dataframe_payload,
+    is_image_payload,
+    is_multi_data,
     is_numeric_coercible,
     is_numeric_grid,
+    is_split_grid,
     wire_cell_count,
 )
 from tests.vhs_budget import vhs_max_examples
@@ -30,8 +40,21 @@ _CROSSHAIR_TARGETS = (
     "plugin.scripting.payload_codec.is_numeric_coercible",
     "plugin.scripting.payload_codec.is_numeric_grid",
     "plugin.scripting.payload_codec.cell_count",
+    "plugin.scripting.payload_codec.is_split_grid",
+    "plugin.scripting.payload_codec.is_multi_data",
+    "plugin.scripting.payload_codec.is_image_payload",
+    "plugin.scripting.payload_codec.is_dataframe_payload",
+    "plugin.scripting.payload_codec.is_calc_range_payload",
 )
 # wire_cell_count: deal+Hypothesis only (# crosshair: off — envelope Literal/proxy crashes)
+
+_DETECTORS = (
+    is_split_grid,
+    is_multi_data,
+    is_image_payload,
+    is_dataframe_payload,
+    is_calc_range_payload,
+)
 
 _CELL = st.one_of(
     st.none(),
@@ -131,6 +154,71 @@ def test_wire_cell_count_split_grid_and_none() -> None:
 
 def test_empty_grid_is_numeric() -> None:
     assert is_numeric_grid([]) is True
+
+
+def test_envelope_detectors_minimal_valid() -> None:
+    """Each wire family matches exactly one public detector."""
+    split_env = {
+        "__wa_payload__": PAYLOAD_SPLIT_GRID,
+        "shape": [0],
+        "buffer": b"",
+    }
+    multi_env = {"__wa_payload__": PAYLOAD_MULTI_DATA, "items": []}
+    image_env = {"__wa_payload__": PAYLOAD_IMAGE, "data": b"\x89PNG", "format": "png"}
+    df_env = {"__wa_payload__": PAYLOAD_DATAFRAME, "columns": ["a"], "data": [[1]]}
+    cr_env = {"__wa_payload__": PAYLOAD_CALC_RANGE, "shape": [1, 1], "data": [[1]]}
+
+    cases = (
+        (split_env, is_split_grid),
+        (multi_env, is_multi_data),
+        (image_env, is_image_payload),
+        (df_env, is_dataframe_payload),
+        (cr_env, is_calc_range_payload),
+    )
+    for env, expected in cases:
+        for det in _DETECTORS:
+            assert det(env) is (det is expected)
+
+
+def test_envelope_detectors_reject_malformed() -> None:
+    assert is_split_grid({"__wa_payload__": PAYLOAD_SPLIT_GRID, "shape": [1]}) is False
+    assert is_split_grid({"__wa_payload__": PAYLOAD_SPLIT_GRID, "shape": [1], "buffer": "x"}) is False
+    assert is_multi_data({"__wa_payload__": PAYLOAD_MULTI_DATA}) is False
+    assert is_multi_data({"__wa_payload__": PAYLOAD_MULTI_DATA, "items": "nope"}) is False
+    assert is_image_payload({"__wa_payload__": PAYLOAD_IMAGE, "data": b"x"}) is False
+    assert is_dataframe_payload({"__wa_payload__": PAYLOAD_DATAFRAME, "columns": [1], "data": []}) is False
+    assert is_calc_range_payload({"__wa_payload__": PAYLOAD_CALC_RANGE, "shape": [1], "data": []}) is False
+    assert is_calc_range_payload({"__wa_payload__": PAYLOAD_CALC_RANGE, "shape": [1, 1]}) is False
+
+
+@given(
+    value=st.one_of(
+        st.none(),
+        st.booleans(),
+        st.integers(),
+        st.floats(allow_nan=False, allow_infinity=False),
+        st.text(max_size=20),
+        st.lists(st.integers(), max_size=4),
+        st.dictionaries(st.text(max_size=8), st.integers(), max_size=4),
+        st.fixed_dictionaries({"__wa_payload__": st.sampled_from(["", "nope", "grid", "img"])}),
+        st.fixed_dictionaries(
+            {
+                "__wa_payload__": st.just(PAYLOAD_SPLIT_GRID),
+                "shape": st.lists(st.integers(min_value=-2, max_value=3), max_size=3),
+            }
+        ),
+    )
+)
+@settings(max_examples=vhs_max_examples(60, 400), deadline=None)
+def test_hypothesis_garbage_never_true_detector(value: object) -> None:
+    """Random non-envelopes must not satisfy any payload detector."""
+    assert not any(det(value) for det in _DETECTORS)
+
+
+def test_host_pack_split_grid_is_split_grid() -> None:
+    packed = host_pack_split_grid([[1.0, 2.0], [3.0, 4.0]])
+    assert is_split_grid(packed) is True
+    assert is_multi_data(packed) is False
 
 
 @pytest.mark.slow

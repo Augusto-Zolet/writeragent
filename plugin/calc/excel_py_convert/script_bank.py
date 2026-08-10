@@ -66,7 +66,7 @@ def normalize_bank_a1(cell: str) -> str:
     if "!" in raw:
         raw = raw.split("!", 1)[1]
     if "." in raw and not _RE_A1.match(raw):
-        left, _, right = raw.partition(".")
+        left, _unused, right = raw.partition(".")
         if right and _RE_A1.match(right) and not _RE_A1.match(left):
             raw = right
     m = _RE_A1.match(raw)

@@ -1068,7 +1068,7 @@ def _nudge_rich_view_to_end_inner(control, ctx=None, reason: str = "unspecified"
                 tail.setString("")
         text_len = len(model.Text or "")
         rounds = 2
-        for _ in range(rounds):
+        for _unused in range(rounds):
             process_events_to_idle(ctx)
         sentinel_removed = text_len == len_before
         log.debug("nudge_rich_control_view_to_end: len=%d rounds=%d sentinel_removed=%s", text_len, rounds, sentinel_removed)

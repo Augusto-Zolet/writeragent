@@ -48,11 +48,7 @@ These tools are **always available** to the main agent for Draw/Impress document
 | `list_placeholders` | `placeholders.py` | Presentation | List placeholder shapes (title, subtitle, body) |
 | `get_placeholder_text` | `placeholders.py` | Presentation | Get text from a placeholder |
 | `set_placeholder_text` | `placeholders.py` | Presentation | Set text in a placeholder |
-| `list_charts` | `charts.py` | Drawing+Presentation | List all charts |
-| `get_chart_info` | `charts.py` | Drawing+Presentation | Get chart details |
-| `create_chart` | `charts.py` | Drawing+Presentation | Create a new chart |
-| `edit_chart` | `charts.py` | Drawing+Presentation | Modify a chart |
-| `delete_chart` | `charts.py` | Drawing+Presentation | Remove a chart |
+| `manage_charts` | `charts.py` | Drawing+Presentation | Unified charts API (`action`: list / get_info / create / edit / delete); specialized `domain=charts` |
 | `delegate_to_specialized_draw_toolset` | `specialized.py` | Drawing+Presentation | Gateway for sub-agent delegation |
 | `transform_document_structure` | `transform.py` | Drawing+Presentation | Collabora-compatible JSON `SlideCommands` batch (see below) |
 

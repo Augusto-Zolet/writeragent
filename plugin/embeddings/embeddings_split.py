@@ -67,7 +67,7 @@ def split_passage_to_sentences(text: str, locale: str = DEFAULT_SENTENCE_LOCALE)
     return sentences or [(0, len(passage), passage)]
 
 
-@deal.pre(lambda passage, spans, base_meta, *_, **__: isinstance(spans, list))
+@deal.pre(lambda passage, spans, base_meta, *_unused, **__: isinstance(spans, list))
 @deal.post(lambda result: isinstance(result, list))
 def _meta_chunks_from_spans(
     passage: str,
@@ -121,7 +121,7 @@ def _filter_ordered_sentence_spans(
     return ordered
 
 
-@deal.pre(lambda passage, sentences, *_, **__: _sentences_spans_ok(sentences))
+@deal.pre(lambda passage, sentences, *_unused, **__: _sentences_spans_ok(sentences))
 @deal.post(lambda result: isinstance(result, list) and all(isinstance(s, tuple) and len(s) == 2 and 0 <= s[0] <= s[1] for s in result))
 def _merge_small_sentences_to_spans(
     passage: str,

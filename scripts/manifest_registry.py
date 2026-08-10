@@ -14,6 +14,32 @@ from scripts.manifest_common import (
     write_if_changed as _write_if_changed,
 )
 
+# SettingsDialog page separators (widget:separator and config_inline children).
+_SETTINGS_SEP_LEFT = 8
+_SETTINGS_SEP_WIDTH = 424
+_SETTINGS_SEP_HEIGHT = 8
+_SETTINGS_SEP_GAP_BEFORE = 2
+_SETTINGS_SEP_GAP_AFTER = 10
+
+
+def _settings_add_separator(board, sep_id, y, label=None):
+    """Add a Settings-page fixedline separator. Returns y after the trailing gap.
+
+    Same geometry for labeled (ACP-style) and unlabeled (widget:separator) rules.
+    """
+    y += _SETTINGS_SEP_GAP_BEFORE
+    attrs = {
+        _dlg("id"): sep_id,
+        _dlg("left"): str(_SETTINGS_SEP_LEFT),
+        _dlg("top"): str(y),
+        _dlg("width"): str(_SETTINGS_SEP_WIDTH),
+        _dlg("height"): str(_SETTINGS_SEP_HEIGHT),
+    }
+    if label:
+        attrs[_dlg("value")] = label
+    ET.SubElement(board, _dlg("fixedline"), attrs)
+    return y + _SETTINGS_SEP_GAP_AFTER
+
 
 
 # ── Addons.xcu Generation ────────────────────────────────────────────
@@ -394,12 +420,20 @@ def generate_settings_dialog_tabs(modules, tpl_path, output_path, *, librepy_fla
 
         def add_fields(prefix, cfg, curr_y):
             for field_name, schema in cfg.items():
-                if schema.get("internal") or schema.get("widget") == "list_detail":
+                if schema.get("internal"):
+                    continue
+                widget = schema.get("widget", "text")
+                if widget == "list_detail":
+                    continue
+                if widget == "separator":
+                    sep_id = f"sep_{prefix}_{field_name}" if prefix else f"sep_{field_name}"
+                    curr_y = _settings_add_separator(
+                        board, sep_id, curr_y, label=schema.get("label"),
+                    )
                     continue
                 if librepy_flavor and schema.get("librepy_exclude"):
                     continue
-                
-                widget = schema.get("widget", "text")
+
                 ctrl_id = f"{prefix}__{field_name}" if prefix else field_name
                 label_text = schema.get("label", field_name.replace("_", " ").title() + ":")
                 
@@ -461,18 +495,14 @@ def generate_settings_dialog_tabs(modules, tpl_path, output_path, *, librepy_fla
                 if not visible_child_fields:
                     continue
 
-                # Add gap and separator line with label
-                y += 2
+                # Labeled separator before each config_inline child (e.g. ACP).
                 sep_label = child_m.get("title", _pretty_name(child_m["name"]))
-                ET.SubElement(board, _dlg("fixedline"), {
-                    _dlg("id"): f"sep_{child_m['name'].replace('.', '_')}",
-                    _dlg("left"): "8",
-                    _dlg("top"): str(y),
-                    _dlg("width"): "424",
-                    _dlg("height"): "8",
-                    _dlg("value"): sep_label,
-                })
-                y += 10
+                y = _settings_add_separator(
+                    board,
+                    f"sep_{child_m['name'].replace('.', '_')}",
+                    y,
+                    label=sep_label,
+                )
                 y = add_fields(child_m["name"].replace(".", "_"), child_cfg, y)
         
         # Add dlg:page to all elements in this page

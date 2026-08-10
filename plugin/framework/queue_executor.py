@@ -574,7 +574,7 @@ def pump_main_thread_work_queue(*, max_items: int = 1, executor: QueueExecutor |
     """
     ex = executor or default_executor
     processed = 0
-    for _ in range(max_items):
+    for _unused in range(max_items):
         if ex._work_queue.empty():
             break
         ex.process_queue()

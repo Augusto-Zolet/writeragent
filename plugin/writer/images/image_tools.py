@@ -202,6 +202,63 @@ def insert_image_at_locator(ctx, model, img_path, width_mm: int | float = 80, he
     return _selection_graphic_object(model)
 
 
+def insert_image_into_header_footer(
+    model,
+    img_path: str,
+    region: str,
+    *,
+    width_mm: int | float = 80,
+    height_mm: int | float = 80,
+    style_name: str = "Standard",
+    auto_height: bool = True,
+    title: str = "",
+    description: str = "",
+    ctx: Any | None = None,
+):
+    """Insert an image into a Writer page header or footer.
+
+    Anchors ``AS_CHARACTER`` so the image contributes to line height. A
+    floating ``AT_CHARACTER`` image does not grow the region, so a logo
+    taller than the fixed header height overlaps the body text.
+    """
+    from plugin.writer.page import (
+        _REGION_PROPS,
+        resolve_page_style,
+        set_header_footer_auto_height,
+    )
+
+    if region not in _REGION_PROPS:
+        raise ValueError("region must be 'header' or 'footer'")
+
+    style, resolved = resolve_page_style(model, style_name)
+    is_on_prop, text_prop = _REGION_PROPS[region]
+    if not style.getPropertyValue(is_on_prop):
+        style.setPropertyValue(is_on_prop, True)
+    if auto_height:
+        set_header_footer_auto_height(style, region, True)
+
+    region_text = style.getPropertyValue(text_prop)
+    cursor = region_text.createTextCursorByRange(region_text.getEnd())
+    width_units, height_units = _mm_to_units(width_mm, height_mm)
+    graphic = _insert_embedded_at_writer_cursor(
+        model,
+        img_path,
+        width_units,
+        height_units,
+        title,
+        description,
+        text_cursor=cursor,
+        text_container=region_text,
+        ctx=ctx,
+    )
+    return {
+        "graphic": graphic,
+        "style_name": resolved,
+        "region": region,
+        "auto_height": bool(auto_height),
+    }
+
+
 def _place_view_cursor_at_text_range(model, text_cursor):
     try:
         vc = model.CurrentController.ViewCursor
@@ -210,11 +267,31 @@ def _place_view_cursor_at_text_range(model, text_cursor):
         logger.debug("_place_view_cursor_at_text_range: %s", e)
 
 
-def _insert_embedded_at_writer_cursor(model, img_path, width, height, title, description, text_cursor=None, ctx: Any | None = None):
-    doc_text = model.getText()
+def _insert_embedded_at_writer_cursor(
+    model,
+    img_path,
+    width,
+    height,
+    title,
+    description,
+    text_cursor=None,
+    text_container=None,
+    ctx: Any | None = None,
+):
+    doc_text = text_container if text_container is not None else model.getText()
     file_url = _file_url_for_path(img_path)
     image = _create_embedded_graphic(model, "writer", file_url, ctx=ctx)
-    _apply_graphic_properties(image, width=width, height=height, title=title, description=description, inside="writer")
+    # Headers/footers need AS_CHARACTER so the image contributes to line height
+    # and HeaderIsDynamicHeight can grow the region (AT_CHARACTER floats and spills).
+    _apply_graphic_properties(
+        image,
+        width=width,
+        height=height,
+        title=title,
+        description=description,
+        anchor_type=AS_CHARACTER,
+        inside="writer",
+    )
 
     if text_cursor is not None:
         doc_text.insertTextContent(text_cursor, image, False)
@@ -457,7 +534,7 @@ def get_selected_image_dimensions_px(model):
     Returns (width_px, height_px) of the currently selected graphic, or (None, None) if none.
     Uses 96 DPI: 1/100 mm -> px conversion (size * 96 / 2540).
     """
-    obj, _ = _get_selected_graphic_object(model)
+    obj, _unused = _get_selected_graphic_object(model)
     if obj is None:
         return None, None
     try:

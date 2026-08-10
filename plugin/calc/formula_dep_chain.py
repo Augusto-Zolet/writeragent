@@ -9,27 +9,21 @@
 from __future__ import annotations
 
 import logging
-import re
 from typing import Any
 
-from plugin.calc.address_utils import index_to_column, parse_address
+from plugin.calc.address_utils import index_to_column, parse_address, split_sheet_prefix
 from plugin.framework.deal_shim import deal
 from plugin.framework.errors import safe_json_loads
 
 log = logging.getLogger("writeragent.calc")
 
 _FORMULA_DEP_CHAIN_CMD = ".uno:FormulaDepChain"
-_SHEET_CELL_RE = re.compile(r"^(.+)\.([A-Z]{1,3}\d{1,7})$", re.IGNORECASE)
 
 
 @deal.post(lambda result: result is None or (isinstance(result, tuple) and len(result) == 3))
 def _resolve_sheet_and_cell(doc, address: str) -> tuple[Any, int, int] | None:
     text = (address or "").strip()
-    sheet_name = None
-    cell_part = text
-    match = _SHEET_CELL_RE.match(text)
-    if match:
-        sheet_name, cell_part = match.group(1), match.group(2)
+    sheet_name, cell_part = split_sheet_prefix(text)
     try:
         col, row = parse_address(cell_part)
     except ValueError:

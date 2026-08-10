@@ -50,6 +50,7 @@ from .image_tools import (
     IMAGE_CACHE_DIR_NAME,
     insert_image,
     insert_image_at_locator,
+    insert_image_into_header_footer,
     replace_graphic_source,
     replace_image_in_place,
     get_selected_image_base64,
@@ -625,7 +626,11 @@ class InsertImage(ToolWriterImageBase):
 
     name = "insert_image"
     intent = "media"
-    description = "Insert an image from local path or URL into the document. URLs are auto-downloaded first."
+    description = (
+        "Insert an image from local path or URL into the document. URLs are auto-downloaded first. "
+        "For Writer letterheads, pass target='header' or 'footer' (optionally style_name) to insert "
+        "into the page header/footer with auto-height so the logo does not overlap the body."
+    )
     parameters = {
         "type": "object",
         "properties": {
@@ -634,6 +639,22 @@ class InsertImage(ToolWriterImageBase):
             "paragraph_index": {"type": "integer", "description": "Paragraph index for insertion point."},
             "width_mm": {"type": "integer", "description": "Width in millimetres (default: 80)."},
             "height_mm": {"type": "integer", "description": "Height in millimetres (default: 80)."},
+            "target": {
+                "type": "string",
+                "enum": ["body", "header", "footer"],
+                "description": "Writer insertion target (default: body). header/footer write into the page style region.",
+            },
+            "style_name": {
+                "type": "string",
+                "description": "Page style for header/footer target (default: Standard).",
+            },
+            "auto_height": {
+                "type": "boolean",
+                "description": (
+                    "When target is header/footer, grow the region with the image (default: true). "
+                    "Set false to keep a fixed header/footer height."
+                ),
+            },
         },
         "required": ["image_path"],
     }
@@ -647,6 +668,7 @@ class InsertImage(ToolWriterImageBase):
         height_mm = kwargs.get("height_mm", 80)
         locator = kwargs.get("locator")
         paragraph_index = kwargs.get("paragraph_index")
+        target = kwargs.get("target", "body")
 
         doc = ctx.doc
 
@@ -655,6 +677,40 @@ class InsertImage(ToolWriterImageBase):
         if not os.path.isfile(image_path):
             return self._tool_error(f"File not found: {image_path}", code="FILE_NOT_FOUND", path=image_path)
 
+        if target in ("header", "footer"):
+            if visual_helpers.get_visual_doc_type(doc) not in ("writer", "web"):
+                return self._tool_error(
+                    "target='%s' is only supported for Writer documents." % target,
+                    code="UNSUPPORTED_DOC_TYPE",
+                )
+            try:
+                placed = insert_image_into_header_footer(
+                    doc,
+                    image_path,
+                    target,
+                    width_mm=width_mm,
+                    height_mm=height_mm,
+                    style_name=kwargs.get("style_name", "Standard"),
+                    auto_height=kwargs.get("auto_height", True),
+                    ctx=ctx.ctx,
+                )
+            except Exception as e:
+                return self._tool_error(str(e), code="INSERT_FAILED", path=image_path)
+            graphic = placed["graphic"]
+            if graphic is None:
+                return self._tool_error("Failed to insert image.", code="INSERT_FAILED", path=image_path)
+            get_name = getattr(graphic, "getName", None)
+            image_name = get_name() if callable(get_name) else ""
+            return {
+                "status": "ok",
+                "image_name": image_name,
+                "width_mm": width_mm,
+                "height_mm": height_mm,
+                "target": target,
+                "style_name": placed["style_name"],
+                "auto_height": placed["auto_height"],
+            }
+
         text_cursor = None
         doc_svc = getattr(ctx.services, "document", None)
         if locator is not None and paragraph_index is None and doc_svc:
@@ -662,10 +718,10 @@ class InsertImage(ToolWriterImageBase):
             paragraph_index = resolved.get("para_index")
 
         if paragraph_index is not None and doc_svc:
-            target, _ = doc_svc.find_paragraph_element(doc, paragraph_index)
-            if target is None:
+            target_para, _unused = doc_svc.find_paragraph_element(doc, paragraph_index)
+            if target_para is None:
                 return self._tool_error(f"Paragraph {paragraph_index} not found.", code="PARAGRAPH_NOT_FOUND", paragraph_index=paragraph_index)
-            text_cursor = doc.getText().createTextCursorByRange(target.getEnd())
+            text_cursor = doc.getText().createTextCursorByRange(target_para.getEnd())
 
         graphic = insert_image_at_locator(ctx.ctx, doc, image_path, width_mm=width_mm, height_mm=height_mm, text_cursor=text_cursor)
         if graphic is None:

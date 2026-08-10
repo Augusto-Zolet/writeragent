@@ -20,6 +20,17 @@ what to consider doing next.
 
 **Client URL:** `http://localhost:18765/mcp` (streamable HTTP / JSON-RPC 2.0). External clients must include the `/mcp` path (not the server base URL alone).
 
+**Public tunnel (optional):** Settings → **Expose via public tunnel** (`mcp.tunnel_enabled`, default off), **Provider** (`mcp.tunnel_provider`, default `cloudflare`), and optional **Provider config** (`mcp.tunnel_provider_token`, password). When MCP is running, WriterAgent starts the selected CLI tunnel to the local MCP port and shows the public `/mcp` URL in **MCP Server Status** (and in the Start toast once the URL is known). One shared config string — meaning depends on provider:
+
+| Provider | Empty Provider config | Non-empty Provider config |
+|----------|----------------------|---------------------------|
+| Cloudflare | Quick tunnel (`--url http://localhost:<port>`) | `cloudflared tunnel run --token …` (configure dashboard ingress to the MCP port) |
+| Bore | `--to bore.pub` | `server`, `server secret`, or `server:secret` (bare value with no `.` = secret for `bore.pub`) |
+| Ngrok | CLI / env authtoken | `--authtoken` |
+| Tailscale | Funnel (must already be logged in) | Ignored |
+
+The chosen binary must be on `PATH`. There is **no auth** on the MCP HTTP API itself — anyone who has the public URL can call tools against open documents. Tunnel start/auth failures (missing binary, bad ngrok/Cloudflare token, early process exit) are stored on `TunnelManager.last_error` and shown in **MCP Server Status** (and the Start toast when known immediately). Implementation: [`plugin/mcp/tunnel.py`](../plugin/mcp/tunnel.py), wired from [`plugin/mcp/__init__.py`](../plugin/mcp/__init__.py).
+
 **Start failures:** If the HTTP listener cannot bind (usually port already in use), Toggle / Settings / Status show `host:port`, the exception line, and guidance to free the port or change `mcp.mcp_port` — not only “check the debug log”. Port conflicts do not offer Report bug. Full traceback remains in `writeragent_debug.log`. Formatter: `format_mcp_start_failure` in [`plugin/mcp/server.py`](../plugin/mcp/server.py).
 
 | Method | Path | Purpose |
@@ -29,6 +40,8 @@ what to consider doing next.
 | `POST` | `/sse`, `/messages` | Same JSON-RPC as `/mcp` |
 | `GET` | `/health` | Liveness |
 | `GET` | `/` | Server info; includes `mcp_endpoint` when MCP is enabled |
+
+There is **no** `/api/config` endpoint (removed — config is Settings / `writeragent.json` only).
 
 **Code:** [`plugin/mcp/mcp_protocol.py`](../plugin/mcp/mcp_protocol.py), [`plugin/mcp/wire_types.py`](../plugin/mcp/wire_types.py), [`plugin/mcp/__init__.py`](../plugin/mcp/__init__.py), [`plugin/mcp/server.py`](../plugin/mcp/server.py) (`mcp_endpoint_url`).
 
@@ -251,7 +264,7 @@ Other MCP surfaces (for integrators):
 | Surface | Status | Delegation / routing hints |
 |---------|--------|----------------------------|
 | **`tools/list`** | Implemented | **Primary** — use the delegate gateway tool metadata above |
-| **`initialize` → `instructions`** | Connection-time local date/time + short stub + pointer to the on-demand manual (`get_guidance` topics, per document type) | Does not include the full chat prompt; the behavioral manual is pulled per topic via `get_guidance`. Clock is fixed until the client reconnects; hosts **may** ignore `instructions` (verify Page Assist / Claude Desktop) |
+| **`initialize` → `instructions`** | Connection-time local date/time + tool-choice guidance (multi-doc targeting via `list_open_documents` / `document_url`, `tools/list` type filter) + mode hint + pointer to the on-demand manual (`get_guidance` topics, per document type) | Does not include the full chat prompt or UNO/threading internals; the behavioral manual is pulled per topic via `get_guidance`. Clock is fixed until the client reconnects; hosts **may** ignore `instructions` (verify Page Assist / Claude Desktop) |
 | **`prompts/list` / `prompts/get`** | Empty | Could expose full system prompt later; not implemented |
 | **`resources/list` / `resources/read`** | Empty | Not used for guidance |
 | **`GET /`** | Server name, version, routes | Does **not** return agent instructions (older docs were wrong) |
@@ -470,7 +483,7 @@ is straightforward.
 
 Use **`POST /mcp`** with JSON-RPC 2.0:
 
-- **`initialize`** — protocol handshake; `result.instructions` starts with the host machine's local date/time (zero tool calls), then a short WriterAgent/MCP workflow stub plus a pointer to `get_guidance(topic)`, the on-demand behavioral manual (not the full sidebar system prompt). Sidebar chat date injection is unchanged and separate.
+- **`initialize`** — protocol handshake; `result.instructions` starts with the host machine's local date/time (zero tool calls), then lean tool-choice guidance (multi-doc targeting, document-type filter on `tools/list`), a mode hint, and a pointer to `get_guidance(topic)`, the on-demand behavioral manual (not the full sidebar system prompt). Sidebar chat date injection is unchanged and separate.
 - **`tools/list`** — core-tier tools for the target document (`X-Document-URL` header or active document). Each tool has `name`, `description`, and `inputSchema`. Specialized domains are documented on **`delegate_to_specialized_{writer|calc|draw}_toolset`** (see [Where delegation guidance lives](#where-delegation-guidance-lives-mcp-vs-sidebar-chat)).
 - **`tools/call`** — run a tool on the LibreOffice main thread.
 

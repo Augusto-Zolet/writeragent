@@ -128,3 +128,43 @@ def test_start_server_stashes_last_start_error(monkeypatch):
     assert "localhost:18765" in detail
     assert _PORT_IN_USE_GUIDANCE in detail
     assert mod._start_failure_reportable() is False
+
+
+def test_mcp_module_does_not_register_api_config(monkeypatch):
+    """GET/POST /api/config was removed — must not appear on the shared registry."""
+    from unittest.mock import MagicMock
+
+    import plugin.mcp as mcp_mod
+    from plugin.mcp.routes import HttpRouteRegistry
+
+    with mcp_mod._http_peer_lock:
+        mcp_mod._primary_http_module = None
+        mcp_mod._shared_registry = None
+        mcp_mod._shared_http_server = None
+        mcp_mod._shared_tunnel = None
+
+    services = MagicMock()
+    services.config.proxy_for.return_value = {
+        "mcp_enabled": False,
+        "mcp_port": 18765,
+        "host": "127.0.0.1",
+        "use_ssl": False,
+    }
+    services.events = MagicMock()
+    services.get.side_effect = lambda name: getattr(services, name, None)
+
+    monkeypatch.setattr("plugin.mcp.reload_cors_policy_from_config", lambda *_a, **_k: None)
+
+    mod = mcp_mod.McpModule()
+    mod.name = "mcp"
+    mod.initialize(services)
+
+    assert not hasattr(mod, "_handle_config_get")
+    assert not hasattr(mod, "_handle_config_set")
+    routes = set(mod._registry.list_routes())
+    assert ("GET", "/api/config") not in routes
+    assert ("POST", "/api/config") not in routes
+    assert ("GET", "/health") in routes
+    assert isinstance(mod._registry, HttpRouteRegistry)
+
+    mod.shutdown()

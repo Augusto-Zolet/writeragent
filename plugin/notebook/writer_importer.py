@@ -626,7 +626,7 @@ def _append_body_text_block(
     lead_break: bool = True,
 ) -> None:
     """Append one paragraph; internal newlines stay in the same block."""
-    display, _ = _prepare_display_text(block)
+    display, _unused = _prepare_display_text(block)
     if not display:
         return
     _append_body_paragraph(doc, display, para_style, lead_break=lead_break)
@@ -634,7 +634,7 @@ def _append_body_text_block(
 
 def _append_markdown_cell(doc: Any, source: str, *, lead_break: bool) -> None:
     """Markdown cell: HTML fragments via StarWriter filter; else plain text body."""
-    display, _ = _prepare_display_text(source)
+    display, _unused = _prepare_display_text(source)
     if not display:
         return
     if _looks_like_html(display):

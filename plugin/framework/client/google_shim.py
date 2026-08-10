@@ -31,7 +31,7 @@ class GoogleShim(BaseProviderShim):
     """Shim for Google Gemini native API."""
 
     def parse_sync_response(self, response_data):
-        content, finish_reason, _, delta = self.parse_response_chunk(response_data)
+        content, finish_reason, _unused, delta = self.parse_response_chunk(response_data)
         tool_calls = delta.get("tool_calls")
         usage = response_data.get("usageMetadata") or response_data.get("usage") or {}
         images = delta.get("images") or []

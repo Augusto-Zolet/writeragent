@@ -324,7 +324,7 @@ def maintain_folder_lancedb(
     dim = 0
     for f in files:
         try:
-            _, chunks = indexable_chunks_from_path(f.path, doc_url=f.url, file_mtime=f.modified)
+            _unused, chunks = indexable_chunks_from_path(f.path, doc_url=f.url, file_mtime=f.modified)
             if chunks:
                 sample = str(getattr(chunks[0], "text", "") or "")
                 if sample:

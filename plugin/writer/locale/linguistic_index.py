@@ -392,7 +392,7 @@ class IndexService(ServiceBase):
             all_positive.extend(group)
         all_positive.extend(or_stems)
         if near:
-            for left, right, _ in near:
+            for left, right, _unused in near:
                 all_positive.extend(left + right)
 
         # Execute query

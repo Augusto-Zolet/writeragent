@@ -245,7 +245,7 @@ def trend(*args: Any) -> Any:
         else:
             new_data_x = data_x
 
-        c, _, _, _ = np.linalg.lstsq(np.c_[data_x, np.ones(data_x.shape[0])], data_y, rcond=None)
+        c, _unused, _unused2, _unused3 = np.linalg.lstsq(np.c_[data_x, np.ones(data_x.shape[0])], data_y, rcond=None)
         return (np.c_[new_data_x, np.ones(new_data_x.shape[0])] @ c).tolist()
     except Exception:
         return "#VALUE!"
@@ -498,7 +498,7 @@ def xirr(values: Any, dates: Any, guess: Any = 0.1) -> float:
             return float("nan")
         x = float(guess)
         d0 = float(dts[0])
-        for _ in range(100):
+        for _unused in range(100):
             f = 0.0
             df = 0.0
             for v, d in zip(vals, dts):

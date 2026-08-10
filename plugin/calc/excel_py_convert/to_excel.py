@@ -90,7 +90,7 @@ def _as_dep_role(value: object) -> DepRole:
 
 
 def _omit_modes(n: int) -> list[HeaderMode]:
-    return ["omit" for _ in range(max(n, 0))]
+    return ["omit" for _unused in range(max(n, 0))]
 
 
 def _dag_xl_already_bound(code: str) -> bool:

@@ -623,7 +623,7 @@ class ToolRegistry:
         package = importlib.import_module(package_name)
 
         # Iterate over all submodules in the package directory
-        for _, module_name, _is_pkg in pkgutil.iter_modules(package.__path__):
+        for _unused, module_name, _is_pkg in pkgutil.iter_modules(package.__path__):
             full_module_name = f"{package_name}.{module_name}"
             try:
                 module = importlib.import_module(full_module_name)

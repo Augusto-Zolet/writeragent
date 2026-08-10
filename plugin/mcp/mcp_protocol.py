@@ -115,9 +115,12 @@ def build_initialize_instructions(mode: str, *, now: datetime.datetime | None = 
 
     Pure function (no server/UNO) so the wording is unit-testable. `mode` is one of
     'direct_flat', 'direct_discovery', or anything else (treated as the delegate default)."""
+    # Tool-choice only: targeting + type filter. Edit/nav/bulk stay in get_guidance — not a second manual.
     base = (
-        "WriterAgent MCP — AI document workspace. WORKFLOW: 1) Use tools to interact with LibreOffice documents. "
-        "2) Tools are filtered by document type (writer/calc/draw). 3) All UNO operations run on the main thread for thread safety."
+        "WriterAgent MCP — AI document workspace. WORKFLOW: "
+        "1) With more than one document open, call list_open_documents and pass document_url "
+        "(url or uid) on later tools; do not assume focus is stable. "
+        "2) tools/list is filtered by active document type (writer/calc/draw)."
     )
     if mode == "direct_flat":
         mode_hint = (
@@ -358,7 +361,7 @@ class MCPProtocolHandler:
                 # or the timeout to send the next keepalive.
                 # select.select on the socket returns if it's readable, which
                 # for a client that only receives means EOF (disconnect).
-                r, _, _ = select.select([sock], [], [], interval)
+                r, _unused, _unused2 = select.select([sock], [], [], interval)
                 if r:
                     try:
                         # Peek at the data to see if it's EOF (empty byte)
@@ -554,7 +557,7 @@ class MCPProtocolHandler:
             # UNO thread guard and fails tools/list with a 500.
             doc_svc = self.services.document
             if document_url:
-                doc, _ = doc_svc.resolve_document_by_url(document_url)
+                doc, _unused = doc_svc.resolve_document_by_url(document_url)
             else:
                 doc = _real_active_document(doc_svc)
 

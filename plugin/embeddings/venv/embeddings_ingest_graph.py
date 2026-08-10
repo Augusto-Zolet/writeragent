@@ -210,7 +210,7 @@ def embed_and_upsert_batches(state: IngestState) -> dict[str, Any]:
 
         for batch_index, start in enumerate(range(0, len(all_chunks), batch_size)):
             window = all_chunks[start : start + batch_size]
-            vectors: list[list[float]] = [[] for _ in window]
+            vectors: list[list[float]] = [[] for _unused in window]
 
             if build_vectors:
                 texts = [str(c.get("text") or "") for c in window]
@@ -222,7 +222,7 @@ def embed_and_upsert_batches(state: IngestState) -> dict[str, Any]:
                     schema_dim = dim
                     with_vec = True
 
-            for chunk, vec in zip(window, vectors if build_vectors else [[] for _ in window]):
+            for chunk, vec in zip(window, vectors if build_vectors else [[] for _unused in window]):
                 if build_vectors and not vec:
                     continue
                 upsert_chunk_with_vector(

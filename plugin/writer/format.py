@@ -193,7 +193,7 @@ def _with_temp_buffer(content=None, config_svc=None, ext=None):
     The file is deleted on exit.
     """
     if ext is None:
-        _, ext = _get_format_props(config_svc)
+        _unused, ext = _get_format_props(config_svc)
     fd, path = tempfile.mkstemp(suffix=ext, dir=TEMP_DIR)
     try:
         if content is not None:
@@ -528,7 +528,7 @@ def html_to_plain_text(html_string, ctx, config_svc=None):
         if not temp_doc or not hasattr(temp_doc, "getText"):
             return html_string.strip()
         with _with_temp_buffer(prepared, config_svc) as (_path, file_url):
-            filter_name, _ = _get_format_props(config_svc)
+            filter_name, _unused = _get_format_props(config_svc)
             filter_props = (create_property_value("FilterName", filter_name),)
             text = temp_doc.getText()
             cursor = text.createTextCursor()
@@ -620,7 +620,7 @@ def _range_to_content_via_temp_doc(model, ctx, start, end, max_chars, config_svc
             content = xhtml_post.xhtml_to_semantic_html(xhtml, parents)
         except Exception:
             log.exception("_range_to_content_via_temp_doc (XHTML) failed; falling back to StarWriter")
-            filter_name, _ = _get_format_props(config_svc)
+            filter_name, _unused = _get_format_props(config_svc)
             with _with_temp_buffer(None, config_svc) as (path, file_url):
                 props = (create_property_value("FilterName", filter_name),)
                 temp_doc.storeToURL(file_url, props)
@@ -734,7 +734,7 @@ def document_to_content(
     # Fallback: legacy StarWriter export (so reads never hard-fail).
     try:
         t_phase = time.perf_counter()
-        filter_name, _ = _get_format_props(config_svc)
+        filter_name, _unused = _get_format_props(config_svc)
         with _with_temp_buffer(None, config_svc) as (path, file_url):
             props = (create_property_value("FilterName", filter_name),)
             model.storeToURL(file_url, props)
@@ -785,7 +785,7 @@ def insert_html_fragment_at_cursor(
     """
     prepared = _wrap_html_fragment(html_fragment, extra_css=extra_css) if wrap else html_fragment
     with _with_temp_buffer(prepared, config_svc) as (_path, file_url):
-        filter_name, _ = _get_format_props(config_svc)
+        filter_name, _unused = _get_format_props(config_svc)
         filter_props = (create_property_value("FilterName", filter_name),)
         cursor.insertDocumentFromURL(file_url, filter_props)
     if model is not None:

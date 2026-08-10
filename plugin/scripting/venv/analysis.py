@@ -40,7 +40,7 @@ _NUMERIC_PROFILE_KEYS = (
 
 def _markdown_table(columns: list[str], rows: list[list[Any]]) -> str:
     header = "| " + " | ".join(str(c) for c in columns) + " |"
-    sep = "| " + " | ".join("---" for _ in columns) + " |"
+    sep = "| " + " | ".join("---" for _unused in columns) + " |"
     body = ["| " + " | ".join("" if v is None else str(v) for v in row) + " |" for row in rows]
     return "\n".join([header, sep, *body])
 
