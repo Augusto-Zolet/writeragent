@@ -219,12 +219,12 @@ flowchart LR
   - If `exclude_tiers` is omitted (sentinel), those tiers are **filtered out**.
   - Pass `exclude_tiers=()` (empty) to **include all** tiers (used when building the sub-agent tool list).
 
-`get_schemas` forwards `**kwargs` to `get_tools`, so chat and MCP inherit the same default.
+`get_schemas` forwards `**kwargs` to `get_tools`. Chat uses the default exclusion; MCP passes an explicit set (see below).
 
 **Call sites (default listing):**
 
-- Chat: `[plugin/chatbot/tool_loop.py](../../plugin/chatbot/tool_loop.py)` — `get_schemas("openai", doc=model)` (no `exclude_tiers` → default exclusion).
-- MCP: `[plugin/mcp/mcp_protocol.py](../../plugin/mcp/mcp_protocol.py)` — `get_schemas("mcp", doc=doc)` (same).
+- Chat: [`plugin/chatbot/tool_loop.py`](../../plugin/chatbot/tool_loop.py) — `get_schemas("openai", …)` (no `exclude_tiers` → default exclusion of `specialized`, `specialized_control`, **and** `mcp`).
+- MCP: [`plugin/mcp/mcp_protocol.py`](../../plugin/mcp/mcp_protocol.py) — `get_schemas("mcp", …, exclude_tiers=…)` excludes `specialized` (+ `specialized_control` in `delegate`/`direct_discovery`); **does not** exclude `tier="mcp"` helpers (`list_open_documents`; `find_tools` is name-gated to `direct_discovery`). See [Sidebar chat core vs MCP core](mcp-protocol.md#sidebar-chat-core-vs-mcp-core-writer).
 
 **Execution:** `ToolRegistry.execute` is unchanged; any registered name can still be invoked if the caller passes it.
 

@@ -116,7 +116,6 @@ DOMAIN_TOOLS = {   'analysi': [   'analyze_data',
                 'get_guidance',
                 'list_open_documents',
                 'redo',
-                'report_bug',
                 'specialized_workflow_finished',
                 'undo',
                 'upsert_memory',
@@ -361,9 +360,9 @@ calc = _CalcProxy()
 class _ChartProxy:
     """Proxy for chart tools."""
 
-    def manage_charts(self, action: str, *, chart_name: str = "", data_range: str = "", headers: list = [], rows: list = [], chart_type: str = "", title: str = "", subtitle: str = "", is_3d: bool = True, stacked: bool = True, percent: bool = True, x_axis_title: str = "", y_axis_title: str = "", legend_position: str = "", has_legend: bool = True, position: str = "", bg_color: str = "", colors: list = []) -> dict:
+    def manage_charts(self, action: str, *, chart_name: str = "", target_sheet: str = "", data_range: str = "", has_header: bool = True, headers: list = [], rows: list = [], chart_type: str = "", title: str = "", subtitle: str = "", is_3d: bool = True, stacked: bool = True, percent: bool = True, x_axis_title: str = "", y_axis_title: str = "", legend_position: str = "", has_legend: bool = True, position: str = "", bg_color: str = "", colors: list = []) -> dict:
         """Manage charts: list, get_info, create, edit, or delete a chart in the current context (active sheet, document, or slide).."""
-        return _rpc_call("manage_charts", action=action, chart_name=chart_name, data_range=data_range, headers=headers, rows=rows, chart_type=chart_type, title=title, subtitle=subtitle, is_3d=is_3d, stacked=stacked, percent=percent, x_axis_title=x_axis_title, y_axis_title=y_axis_title, legend_position=legend_position, has_legend=has_legend, position=position, bg_color=bg_color, colors=colors)
+        return _rpc_call("manage_charts", action=action, chart_name=chart_name, target_sheet=target_sheet, data_range=data_range, has_header=has_header, headers=headers, rows=rows, chart_type=chart_type, title=title, subtitle=subtitle, is_3d=is_3d, stacked=stacked, percent=percent, x_axis_title=x_axis_title, y_axis_title=y_axis_title, legend_position=legend_position, has_legend=has_legend, position=position, bg_color=bg_color, colors=colors)
 
 chart = _ChartProxy()
 
@@ -438,10 +437,6 @@ class _CoreProxy:
     def redo(self, *, steps: int = 0) -> dict:
         """Redo the last undone change(s) in the document (all document types)."""
         return _rpc_call("redo", steps=steps)
-
-    def report_bug(self, summary: str, *, details: str = "", category: str = "") -> dict:
-        """Report a WriterAgent bug or bad experience — the agent itself may call this when a tool misbehaves, returns a confusing result, or the workflow felt wrong."""
-        return _rpc_call("report_bug", summary=summary, details=details, category=category)
 
     def specialized_workflow_finished(self, answer: str) -> dict:
         """Provides a final answer to the given task and exits the specialized toolset mode.."""

@@ -237,13 +237,25 @@ This section is the important mental model for integrating Cursor, LM Studio, or
 
 ### What the MCP host actually sees
 
-`tools/list` returns **core-tier** tools only. Tools with `tier="specialized"` or `tier="specialized_control"` are **omitted** from the default registry filter (see [`plugin/framework/tool.py`](../plugin/framework/tool.py) `get_tools` / `get_schemas`). The host typically receives:
+`tools/list` (in default `delegate` mode) returns **core** tools plus a few MCP-only helpers. Tools with `tier="specialized"` or `tier="specialized_control"` are omitted (see [`plugin/framework/tool.py`](../plugin/framework/tool.py) `get_tools` / `get_schemas`). The host typically receives:
 
 - Document I/O: `get_document_content`, `apply_document_content`, `search_in_document`, `get_document_tree`, …
 - Guidance: **`get_guidance(topic)`** — the on-demand how-to manual (topics per document type; single source: the shared prompt pieces in `plugin/framework/prompts.py`, mapped by `plugin/framework/agent_manual.py`)
 - A single gateway: **`delegate_to_specialized_writer_toolset`** ([`plugin/doc/specialized_base.py`](../plugin/doc/specialized_base.py), Writer variant in [`plugin/writer/specialized_base.py`](../plugin/writer/specialized_base.py))
+- MCP helpers: `list_open_documents` (`tier="mcp"`), and `get_image` (always kept on MCP; chat may hide it for text-only models)
 
 It does **not** receive dozens of low-level UNO tools (`list_styles`, page margin APIs, chart editors, etc.) as separate MCP tools.
+
+#### Sidebar chat core vs MCP core (Writer)
+
+Same registry, different filters:
+
+| Surface | Schema protocol | Tier filter | Writer size (today) | Notable deltas |
+|---------|-----------------|-------------|---------------------|----------------|
+| **Sidebar chat** | `openai` | Default excludes `specialized`, `specialized_control`, **and** `mcp` | ~14 tools | No `list_open_documents`; `get_image` only if the selected text model is vision-capable |
+| **MCP `tools/list` (`delegate`)** | `mcp` | Excludes only `specialized` + `specialized_control` | **16** tools | Adds `list_open_documents`, `get_image`; every schema also gets optional `document_url` |
+
+Chat also gets the full specialized-delegation block in the **system prompt**; MCP puts routing hints on the delegate tool’s schema/`initialize.instructions` instead (see below).
 
 ### Where delegation guidance lives (MCP vs sidebar chat)
 
@@ -379,12 +391,12 @@ An outer MCP model that **alternates** between unrelated tool groups in one long
 
 ### Exposing specialized tools directly: `mcp.tool_exposure_mode` (experimental)
 
-An experimental config, `mcp.tool_exposure_mode` (default `delegate`), controls how the ~138 specialized tools are surfaced over MCP. The default is unchanged; the two opt-in modes let clients reach the specialized tools **without** the delegate sub-agent (so no LLM backend is needed for tool access):
+An experimental config, `mcp.tool_exposure_mode` (default `delegate`), controls how the ~150 specialized tools are surfaced over MCP. The default is unchanged; the two opt-in modes let clients reach the specialized tools **without** the delegate sub-agent (so no LLM backend is needed for tool access):
 
 | Mode | `tools/list` | For |
 |------|--------------|-----|
-| `delegate` *(default)* | core only; specialized reached via the `delegate_*` gateway | unchanged behavior |
-| `direct_flat` | core **+ all MCP-reachable specialized** (already doc-type filtered, so ~74 on Calc / ~102 on Writer, not all 138 at once; Writer sidebar-only flows excluded) | clients with native tool-search (Claude API; OpenAI `defer_loading`) |
+| `delegate` *(default)* | core + MCP helpers (~16 Writer / ~15 Calc); specialized reached via the `delegate_*` gateway | unchanged behavior |
+| `direct_flat` | core **+ all MCP-reachable specialized** (already doc-type filtered, so **~79 on Calc / ~107 on Writer**, not the full cross-app catalog at once; Writer sidebar-only flows excluded) | clients with native tool-search (Claude API; OpenAI `defer_loading`) |
 | `direct_discovery` | core **+ a `find_tools` search tool** | any client (engine-agnostic) |
 
 In both direct modes the specialized tools are invoked **by name** — which already works, since `tools/call` routes through the registry, not the advertised list.

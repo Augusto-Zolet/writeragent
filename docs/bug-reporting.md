@@ -14,12 +14,6 @@ Some unexpected-failure message boxes include **Report bug...** and **Copy URL**
 
 Debug builds (UNO thread guard) also offer report on thread-violation popups.
 
-## Agent tool
-
-The agent (chat or MCP) can call **`report_bug`** to capture a bad experience without leaving the conversation. It takes a `summary`, `details`, and a `category` (`bug`, `ux`, or `feature`), records the feedback to a local log (the durable record), and builds the same pre-filled GitHub issue URL as the menu. It **never auto-submits**: the tool returns `github_issue_url` for the agent to show the user, who reviews and files it. No document text, chat history, or API keys are sent.
-
-Implementation: `ReportBug` in [`plugin/doc/document_research_tools.py`](../plugin/doc/document_research_tools.py).
-
 ## What is collected automatically
 
 | Field | Notes |
@@ -30,7 +24,6 @@ Implementation: `ReportBug` in [`plugin/doc/document_research_tools.py`](../plug
 | **Endpoint** | Current chat API endpoint from settings |
 | **Chat model** | Current text/chat model from settings |
 | Debug log | Path plus guidance to skim `writeragent_debug.log` for relevant errors |
-| **Agent feedback log** (`report_bug` tool) | Append-only `agent_feedback.jsonl` beside `writeragent.json` in the LibreOffice user profile (timestamp, category, summary, details only — no document text or API keys) |
 
 **Not included:** API keys, document text, chat history, or full `writeragent.json`.
 
