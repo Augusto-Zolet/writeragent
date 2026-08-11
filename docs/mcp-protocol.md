@@ -391,12 +391,12 @@ An outer MCP model that **alternates** between unrelated tool groups in one long
 
 ### Exposing specialized tools directly: `mcp.tool_exposure_mode` (experimental)
 
-An experimental config, `mcp.tool_exposure_mode` (default `delegate`), controls how the ~150 specialized tools are surfaced over MCP. The default is unchanged; the two opt-in modes let clients reach the specialized tools **without** the delegate sub-agent (so no LLM backend is needed for tool access):
+An experimental config, `mcp.tool_exposure_mode` (default `delegate`), controls how the ~142 specialized tools are surfaced over MCP. The default is unchanged; the two opt-in modes let clients reach the specialized tools **without** the delegate sub-agent (so no LLM backend is needed for tool access):
 
 | Mode | `tools/list` | For |
 |------|--------------|-----|
 | `delegate` *(default)* | core + MCP helpers (~16 Writer / ~15 Calc); specialized reached via the `delegate_*` gateway | unchanged behavior |
-| `direct_flat` | core **+ all MCP-reachable specialized** (already doc-type filtered, so **~79 on Calc / ~107 on Writer**, not the full cross-app catalog at once; Writer sidebar-only flows excluded) | clients with native tool-search (Claude API; OpenAI `defer_loading`) |
+| `direct_flat` | core **+ all MCP-reachable specialized** (already doc-type filtered, so **~76 on Calc / ~99 on Writer**, not the full cross-app catalog at once; Writer sidebar-only flows excluded) | clients with native tool-search (Claude API; OpenAI `defer_loading`) |
 | `direct_discovery` | core **+ a `find_tools` search tool** | any client (engine-agnostic) |
 
 In both direct modes the specialized tools are invoked **by name** — which already works, since `tools/call` routes through the registry, not the advertised list.
@@ -455,8 +455,8 @@ Ported from `libreoffice-mcp-extension/pythonpath/uno_bridge.py` and adapted to 
 |---|---|
 | Styles | `list_styles`, `get_style_info` |
 | Comments | `list_comments`, `add_comment`, `delete_comment` |
-| Track changes | `set_track_changes`, `get_tracked_changes`, `accept_all_changes`, `reject_all_changes` |
-| Tables | `list_tables`, `get_table_cells`, `set_table_cell`, `insert_table_row`/`delete_table_row`, `insert_table_column`/`delete_table_column` |
+| Track changes | `track_changes_start` / `stop` / `list` / `show`, `manage_tracked_changes` |
+| Tables | `list_tables`, `get_table_cells`, `set_table_cell`, `manage_table_structure` |
 
 ### Updated: `core/document_tools.py`
 
@@ -656,8 +656,9 @@ to its own embedded AI:
 
 **Writer**: `get_document_content` (`scope`, `max_chars`, `start`/`end`, `include_images` — default strips inline `data:image` base64), `apply_document_content`, `find_text`,
 `list_styles`, `get_style_info`, `list_comments`, `add_comment`, `delete_comment`,
-`set_track_changes`, `get_tracked_changes`, `accept_all_changes`, `reject_all_changes`,
-`list_tables`, `get_table_cells`, `set_table_cell`, `generate_image` (create or edit with `source_image='selection'`).
+`track_changes_start` / `stop` / `list` / `show`, `manage_tracked_changes`,
+`list_tables`, `get_table_cells`, `set_table_cell`, `manage_table_structure`,
+`generate_image` (create or edit with `source_image='selection'`).
 
 **Calc / Draw**: Core-tier tools registered from `plugin/calc/` and `plugin/draw/` (same registry MCP `tools/list` uses).
 
@@ -956,13 +957,11 @@ Collabora's `search_in_document` had a `context_paragraphs` parameter (default: 
 N paragraphs around each match. WriterAgent's older `find_text` returned only `{start, end, text}`
 per match. The current search tool uses a single enclosing-paragraph `context` string instead.
 
-#### 5. `refresh_indexes` and `update_fields`
+#### 5. Index / field refresh (implemented)
 
-These two maintenance tools (`"Refresh all document indexes (TOC, alphabetical, etc.)"` and
-`"Refresh all text fields (dates, page numbers, cross-refs)"`) are missing from WriterAgent
-entirely. They are a natural follow-up after AI edits that add headings, sections, or dates.
-The implementations in `uno_bridge.py` are ~10 lines each. Worth adding when doing the
-document-tree session.
+Document index and field refresh live as specialized tools `indexes_update_all` and
+`fields_update_all` (no duplicate alias names). Call them after structural AI edits that
+affect TOC, bibliography, dates, or cross-references.
 
 ---
 
@@ -1032,19 +1031,16 @@ apply_document_content markup, or use set_paragraph_style (see uno_bridge) for d
 
 In priority order:
 
-1. **`refresh_indexes` / `update_fields`** — ~10 lines each from `uno_bridge.py`. Add when
-   doing the document-tree session. Very common need after structural AI edits.
-
-2. **`context` in search** — `search_in_document` now returns enclosing-paragraph `context`
+1. **`context` in search** — `search_in_document` now returns enclosing-paragraph `context`
    strings; offset mode remains body-only via `return_offsets`.
 
-3. **`set_paragraph_style` (direct)** — currently in WriterAgent as dead code. The `list_styles`
+2. **`set_paragraph_style` (direct)** — currently in WriterAgent as dead code. The `list_styles`
    tool makes this useful: AI discovers style names, then applies them directly. Consider
    re-exposing it now that `list_styles` exists.
 
-4. **`set_document_protection`** — useful for "lock the document while I review AI edits" workflow.
+3. **`set_document_protection`** — useful for "lock the document while I review AI edits" workflow.
 
-5. **`get_document_properties` / `set_document_properties`** — document metadata (title,
+4. **`get_document_properties` / `set_document_properties`** — document metadata (title,
    author, subject). Occasionally useful; low priority.
 
 ---
@@ -1075,11 +1071,10 @@ current functionality.
   `set_track_changes` and similar.
 - **`find_text` context**: optional parameter to return N characters (or paragraphs) around
   each match so the AI can confirm it’s editing the right place.
-- **`refresh_indexes` / `update_fields`**: short helpers (~10 lines each) to refresh TOC
-  and fields after structural edits. Good follow-up when doing document-tree work.
 - **`set_paragraph_style` (direct)**: re-expose so the AI can apply a style by name after
   `list_styles`. Other items from “What they have that WriterAgent lacks” (e.g. document
-  protection, document properties) as needed.
+  protection, document properties) as needed. Index/field refresh is already
+  `indexes_update_all` / `fields_update_all`.
 
 ### Dynamic Domain Discovery ("Learn-on-the-Fly")
 

@@ -18,8 +18,7 @@
 
 Provides the complete suite of specialized track changes tools:
 track_changes_start, track_changes_stop, track_changes_list,
-track_changes_accept, track_changes_reject, track_changes_accept_all,
-track_changes_reject_all, and track_changes_show.
+manage_tracked_changes (accept/reject one or all), and track_changes_show.
 
 Also includes tools for managing document comments (Annotations) in Writer only.
 """
@@ -224,16 +223,50 @@ class TrackChangesShow(WriterAgentSpecialTracking, ToolCalcSpecialTracking):
         return _calc_track_changes_show_markup(ctx, controller, show_b)
 
 
-class TrackChangesAcceptAll(WriterAgentSpecialTracking, ToolCalcSpecialTracking):
-    """Accept all tracked changes in the document."""
+class ManageTrackedChanges(WriterAgentSpecialTracking, ToolCalcSpecialTracking):
+    """Accept or reject tracked changes: one by index, or all.
+
+    Charts-style fat tool: the four former skinny accept/reject tools shared the same
+    UNO dispatch / redline-select path and only differed by verb + optional index.
+    """
 
     uno_services = _TRACK_CHANGES_UNO_SERVICES
-    name = "track_changes_accept_all"
-    description = "Accept all tracked changes in the document."
-    parameters = {"type": "object", "properties": {}, "required": []}
+    name = "manage_tracked_changes"
+    description = (
+        "Accept or reject tracked changes. action=accept/reject requires index "
+        "(from track_changes_list); action=accept_all/reject_all resolves every change."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["accept", "reject", "accept_all", "reject_all"],
+                "description": "accept/reject one change by index, or accept_all/reject_all.",
+            },
+            "index": {
+                "type": "integer",
+                "description": "Zero-based index from track_changes_list (required for accept/reject).",
+            },
+        },
+        "required": ["action"],
+    }
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
+        action = kwargs.get("action")
+        if action not in ("accept", "reject", "accept_all", "reject_all"):
+            return self._tool_error(
+                "action must be one of: accept, reject, accept_all, reject_all."
+            )
+        if action in ("accept_all", "reject_all"):
+            return self._execute_all(ctx, is_accept=(action == "accept_all"))
+        index = kwargs.get("index")
+        if index is None or not isinstance(index, int) or isinstance(index, bool) or index < 0:
+            return self._tool_error("Valid integer index is required for action='%s'." % action)
+        return self._execute_single(ctx, int(index), is_accept=(action == "accept"))
+
+    def _execute_all(self, ctx, is_accept):
         # Guard: never let the agent bulk-resolve its OWN (wa-review) edits -- those are the human's
         # to review. Allowed when no agent changes are pending (see agent_self_resolution_block_reason).
         from plugin.writer.inline_review import agent_self_resolution_block_reason
@@ -244,45 +277,13 @@ class TrackChangesAcceptAll(WriterAgentSpecialTracking, ToolCalcSpecialTracking)
             smgr = ctx.ctx.ServiceManager
             dispatcher = smgr.createInstanceWithContext("com.sun.star.frame.DispatchHelper", ctx.ctx)
             frame = ctx.doc.getCurrentController().getFrame()
-
-            dispatcher.executeDispatch(frame, ".uno:AcceptAllTrackedChanges", "", 0, ())
-            return {"status": "ok", "message": "All tracked changes accepted."}
+            cmd = ".uno:AcceptAllTrackedChanges" if is_accept else ".uno:RejectAllTrackedChanges"
+            dispatcher.executeDispatch(frame, cmd, "", 0, ())
+            msg = "All tracked changes accepted." if is_accept else "All tracked changes rejected."
+            return {"status": "ok", "message": msg}
         except Exception as e:
-            return self._tool_error(f"Failed to accept all changes: {e}")
-
-
-class TrackChangesRejectAll(WriterAgentSpecialTracking, ToolCalcSpecialTracking):
-    """Reject all tracked changes in the document."""
-
-    uno_services = _TRACK_CHANGES_UNO_SERVICES
-    name = "track_changes_reject_all"
-    description = "Reject all tracked changes in the document."
-    parameters = {"type": "object", "properties": {}, "required": []}
-    is_mutation = True
-
-    def execute(self, ctx, **kwargs):
-        # Guard: never let the agent bulk-resolve its OWN (wa-review) edits -- those are the human's
-        # to review. Allowed when no agent changes are pending (see agent_self_resolution_block_reason).
-        from plugin.writer.inline_review import agent_self_resolution_block_reason
-        blocked = agent_self_resolution_block_reason(ctx.doc)
-        if blocked:
-            return self._tool_error(blocked)
-        try:
-            smgr = ctx.ctx.ServiceManager
-            dispatcher = smgr.createInstanceWithContext("com.sun.star.frame.DispatchHelper", ctx.ctx)
-            frame = ctx.doc.getCurrentController().getFrame()
-
-            dispatcher.executeDispatch(frame, ".uno:RejectAllTrackedChanges", "", 0, ())
-            return {"status": "ok", "message": "All tracked changes rejected."}
-        except Exception as e:
-            return self._tool_error(f"Failed to reject all changes: {e}")
-
-
-class _TrackChangesSingleAction(WriterAgentSpecialTracking, ToolCalcSpecialTracking):
-    """Base logic for accepting or rejecting a single tracked change."""
-
-    uno_services = _TRACK_CHANGES_UNO_SERVICES
-    is_mutation = True
+            verb = "accept" if is_accept else "reject"
+            return self._tool_error(f"Failed to {verb} all changes: {e}")
 
     def _execute_single(self, ctx, index, is_accept):
         if not hasattr(ctx.doc, "getRedlines"):
@@ -351,34 +352,6 @@ class _TrackChangesSingleAction(WriterAgentSpecialTracking, ToolCalcSpecialTrack
 
         except Exception as e:
             return self._tool_error(f"Failed to process change {index}: {e}")
-
-
-class TrackChangesAccept(_TrackChangesSingleAction):
-    """Accept a specific tracked change."""
-
-    name = "track_changes_accept"
-    description = "Accept a specific tracked change by its index (from track_changes_list)."
-    parameters = {"type": "object", "properties": {"index": {"type": "integer", "description": "The zero-based index of the tracked change to accept."}}, "required": ["index"]}
-
-    def execute(self, ctx, **kwargs):
-        index = kwargs.get("index")
-        if index is None or not isinstance(index, int) or index < 0:
-            return self._tool_error("Valid integer index is required.")
-        return self._execute_single(ctx, int(index), is_accept=True)
-
-
-class TrackChangesReject(_TrackChangesSingleAction):
-    """Reject a specific tracked change."""
-
-    name = "track_changes_reject"
-    description = "Reject a specific tracked change by its index (from track_changes_list)."
-    parameters = {"type": "object", "properties": {"index": {"type": "integer", "description": "The zero-based index of the tracked change to reject."}}, "required": ["index"]}
-
-    def execute(self, ctx, **kwargs):
-        index = kwargs.get("index")
-        if index is None or not isinstance(index, int) or index < 0:
-            return self._tool_error("Valid integer index is required.")
-        return self._execute_single(ctx, int(index), is_accept=False)
 
 
 # --- Comments (Annotations) ---

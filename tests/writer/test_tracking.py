@@ -9,10 +9,7 @@ from plugin.writer.tracking import (
     TrackChangesStop,
     TrackChangesList,
     TrackChangesShow,
-    TrackChangesAcceptAll,
-    TrackChangesRejectAll,
-    TrackChangesAccept,
-    TrackChangesReject,
+    ManageTrackedChanges,
     TrackChangesCommentInsert,
     TrackChangesCommentList,
     TrackChangesCommentDelete,
@@ -59,7 +56,7 @@ def _create_mock_ctx():
 
 def test_track_changes_tools_support_calc_document_type():
     assert isinstance(TrackChangesStart(), ToolCalcSpecialBase)
-    assert isinstance(TrackChangesAccept(), ToolCalcSpecialBase)
+    assert isinstance(ManageTrackedChanges(), ToolCalcSpecialBase)
     expected = (
         "com.sun.star.text.TextDocument",
         "com.sun.star.sheet.SpreadsheetDocument",
@@ -174,19 +171,19 @@ def test_track_changes_show_calc_like_controller_returns_stub():
     assert res.get("calc_track_changes_show_unsupported") is True
     assert "not supported" in res["message"].lower()
 
-def test_track_changes_accept_all():
+def test_manage_tracked_changes_accept_all():
     ctx, dispatcher, frame, _ = _create_mock_ctx()
-    tool = TrackChangesAcceptAll()
+    tool = ManageTrackedChanges()
     
-    res = tool.execute(ctx)
+    res = tool.execute(ctx, action="accept_all")
     assert res["status"] == "ok"
     dispatcher.executeDispatch.assert_called_with(frame, ".uno:AcceptAllTrackedChanges", "", 0, ())
 
-def test_track_changes_reject_all():
+def test_manage_tracked_changes_reject_all():
     ctx, dispatcher, frame, _ = _create_mock_ctx()
-    tool = TrackChangesRejectAll()
+    tool = ManageTrackedChanges()
     
-    res = tool.execute(ctx)
+    res = tool.execute(ctx, action="reject_all")
     assert res["status"] == "ok"
     dispatcher.executeDispatch.assert_called_with(frame, ".uno:RejectAllTrackedChanges", "", 0, ())
 
@@ -203,9 +200,9 @@ def _redline_property_set():
     return redline_mock, span_cursor
 
 
-def test_track_changes_accept():
+def test_manage_tracked_changes_accept():
     ctx, dispatcher, frame, _ = _create_mock_ctx()
-    tool = TrackChangesAccept()
+    tool = ManageTrackedChanges()
 
     redline_mock, span_cursor = _redline_property_set()
     enum_mock = MagicMock()
@@ -214,14 +211,14 @@ def test_track_changes_accept():
 
     ctx.doc.getRedlines.return_value.createEnumeration.return_value = enum_mock
 
-    res = tool.execute(ctx, index=0)
+    res = tool.execute(ctx, action="accept", index=0)
     assert res["status"] == "ok"
     ctx.doc.getCurrentController().select.assert_called_with(span_cursor)
     dispatcher.executeDispatch.assert_called_with(frame, ".uno:AcceptTrackedChange", "", 0, ())
 
-def test_track_changes_reject():
+def test_manage_tracked_changes_reject():
     ctx, dispatcher, frame, _ = _create_mock_ctx()
-    tool = TrackChangesReject()
+    tool = ManageTrackedChanges()
 
     redline_mock, span_cursor = _redline_property_set()
     enum_mock = MagicMock()
@@ -230,10 +227,25 @@ def test_track_changes_reject():
 
     ctx.doc.getRedlines.return_value.createEnumeration.return_value = enum_mock
 
-    res = tool.execute(ctx, index=0)
+    res = tool.execute(ctx, action="reject", index=0)
     assert res["status"] == "ok"
     ctx.doc.getCurrentController().select.assert_called_with(span_cursor)
     dispatcher.executeDispatch.assert_called_with(frame, ".uno:RejectTrackedChange", "", 0, ())
+
+
+def test_manage_tracked_changes_accept_requires_index():
+    ctx, dispatcher, _frame, _ = _create_mock_ctx()
+    res = ManageTrackedChanges().execute(ctx, action="accept")
+    assert res["status"] == "error"
+    assert "index" in res["message"].lower()
+    dispatcher.executeDispatch.assert_not_called()
+
+
+def test_manage_tracked_changes_invalid_action():
+    ctx, dispatcher, _frame, _ = _create_mock_ctx()
+    res = ManageTrackedChanges().execute(ctx, action="squash")
+    assert res["status"] == "error"
+    dispatcher.executeDispatch.assert_not_called()
 
 # --- Comment Tests ---
 
@@ -355,7 +367,7 @@ def _install_redlines(ctx, items, count=None):
 def test_accept_all_blocked_when_agent_change_pending():
     ctx, dispatcher, _frame, _ = _create_mock_ctx()
     _install_redlines(ctx, [_fake_redline(_AGENT_COMMENT)])
-    res = TrackChangesAcceptAll().execute(ctx)
+    res = ManageTrackedChanges().execute(ctx, action="accept_all")
     assert res["status"] == "error"
     assert "agent edit" in res["message"].lower()
     dispatcher.executeDispatch.assert_not_called()
@@ -364,7 +376,7 @@ def test_accept_all_blocked_when_agent_change_pending():
 def test_reject_all_blocked_when_agent_change_pending():
     ctx, dispatcher, _frame, _ = _create_mock_ctx()
     _install_redlines(ctx, [_fake_redline(_AGENT_COMMENT)])
-    res = TrackChangesRejectAll().execute(ctx)
+    res = ManageTrackedChanges().execute(ctx, action="reject_all")
     assert res["status"] == "error"
     dispatcher.executeDispatch.assert_not_called()
 
@@ -373,7 +385,7 @@ def test_accept_all_allowed_with_only_user_redlines():
     # The user's OWN tracked changes (no wa-review token) may be bulk-resolved on request.
     ctx, dispatcher, frame, _ = _create_mock_ctx()
     _install_redlines(ctx, [_fake_redline("")])
-    res = TrackChangesAcceptAll().execute(ctx)
+    res = ManageTrackedChanges().execute(ctx, action="accept_all")
     assert res["status"] == "ok"
     dispatcher.executeDispatch.assert_called_with(frame, ".uno:AcceptAllTrackedChanges", "", 0, ())
 
@@ -382,7 +394,7 @@ def test_accept_all_blocked_when_scan_unreliable():
     # Redlines present (count=2) but only 1 enumerates -> can't prove no agent change -> fail closed.
     ctx, dispatcher, _frame, _ = _create_mock_ctx()
     _install_redlines(ctx, [_fake_redline("")], count=2)
-    res = TrackChangesAcceptAll().execute(ctx)
+    res = ManageTrackedChanges().execute(ctx, action="accept_all")
     assert res["status"] == "error"
     dispatcher.executeDispatch.assert_not_called()
 
@@ -390,7 +402,7 @@ def test_accept_all_blocked_when_scan_unreliable():
 def test_single_accept_blocked_on_agent_redline():
     ctx, dispatcher, _frame, _ = _create_mock_ctx()
     _install_redlines(ctx, [_fake_redline(_AGENT_COMMENT)])
-    res = TrackChangesAccept().execute(ctx, index=0)
+    res = ManageTrackedChanges().execute(ctx, action="accept", index=0)
     assert res["status"] == "error"
     assert "agent edit" in res["message"].lower()
     dispatcher.executeDispatch.assert_not_called()
@@ -400,7 +412,7 @@ def test_single_accept_blocked_on_agent_redline():
 def test_single_reject_blocked_on_agent_redline():
     ctx, dispatcher, _frame, _ = _create_mock_ctx()
     _install_redlines(ctx, [_fake_redline(_AGENT_COMMENT)])
-    res = TrackChangesReject().execute(ctx, index=0)
+    res = ManageTrackedChanges().execute(ctx, action="reject", index=0)
     assert res["status"] == "error"
     dispatcher.executeDispatch.assert_not_called()
 
@@ -408,7 +420,7 @@ def test_single_reject_blocked_on_agent_redline():
 def test_single_accept_allowed_on_user_redline():
     ctx, dispatcher, frame, _ = _create_mock_ctx()
     _install_redlines(ctx, [_fake_redline("")])
-    res = TrackChangesAccept().execute(ctx, index=0)
+    res = ManageTrackedChanges().execute(ctx, action="accept", index=0)
     assert res["status"] == "ok"
     dispatcher.executeDispatch.assert_called_with(frame, ".uno:AcceptTrackedChange", "", 0, ())
 
@@ -417,6 +429,6 @@ def test_single_accept_blocked_when_comment_unreadable():
     # Fail closed: if we can't read the change's metadata we can't prove it isn't an agent change.
     ctx, dispatcher, _frame, _ = _create_mock_ctx()
     _install_redlines(ctx, [_fake_redline("", raise_comment=True)])
-    res = TrackChangesAccept().execute(ctx, index=0)
+    res = ManageTrackedChanges().execute(ctx, action="accept", index=0)
     assert res["status"] == "error"
     dispatcher.executeDispatch.assert_not_called()

@@ -2,7 +2,7 @@
 # Copyright (c) 2026 KeithCu
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""The 'tables' specialized domain: list/get/set cells + insert/delete rows and columns.
+"""The 'tables' specialized domain: list/get/set cells + manage_table_structure.
 Fakes implement the minimal XTextTable protocol; no LibreOffice required."""
 from types import SimpleNamespace
 
@@ -10,12 +10,9 @@ from plugin.tests.testing_utils import setup_uno_mocks
 setup_uno_mocks()
 
 from plugin.writer.specialized.tables import (
-    DeleteTableColumn,
-    DeleteTableRow,
     GetTableCells,
-    InsertTableColumn,
-    InsertTableRow,
     ListTables,
+    ManageTableStructure,
     SetTableCell,
     _cell_name,
     _col_letters,
@@ -172,7 +169,9 @@ def test_get_table_cells_covered_cell_blank():
 
 def test_delete_last_column_guard():
     t = FakeTable(2, 1)
-    res = DeleteTableColumn().execute(_ctx({"T": t}), table_name="T", col_index=0)
+    res = ManageTableStructure().execute(
+        _ctx({"T": t}), action="delete", axis="column", table_name="T", index=0
+    )
     assert res["status"] == "error" and "last column" in res["message"]
 
 
@@ -181,50 +180,65 @@ def test_delete_last_column_guard():
 def test_insert_row_appends_and_within_bounds():
     t = FakeTable(2, 2)
     ctx = _ctx({"T": t})
-    res = InsertTableRow().execute(ctx, table_name="T", row_index=2)
+    tool = ManageTableStructure()
+    res = tool.execute(ctx, action="insert", axis="row", table_name="T", index=2)
     assert res["status"] == "ok" and res["rows"] == 3 and res["cols"] == 2
     assert t._rows.inserts[-1] == (2, 1)
-    assert InsertTableRow().execute(ctx, table_name="T", row_index=99)["status"] == "error"  # out of range
+    assert tool.execute(ctx, action="insert", axis="row", table_name="T", index=99)["status"] == "error"
 
 
 def test_delete_row_bounds_and_last_row_guard():
     t = FakeTable(2, 2)
     ctx = _ctx({"T": t})
-    res = DeleteTableRow().execute(ctx, table_name="T", row_index=1)
+    tool = ManageTableStructure()
+    res = tool.execute(ctx, action="delete", axis="row", table_name="T", index=1)
     assert res["status"] == "ok" and res["rows"] == 1 and res["cols"] == 2
     assert t._rows.removes[-1] == (1, 1)
     # now 1 row left -> deleting it is refused
-    res = DeleteTableRow().execute(ctx, table_name="T", row_index=0)
+    res = tool.execute(ctx, action="delete", axis="row", table_name="T", index=0)
     assert res["status"] == "error" and "last row" in res["message"]
 
 
 def test_delete_row_out_of_range():
-    res = DeleteTableRow().execute(_ctx({"T": FakeTable(3, 2)}), table_name="T", row_index=5)
+    res = ManageTableStructure().execute(
+        _ctx({"T": FakeTable(3, 2)}), action="delete", axis="row", table_name="T", index=5
+    )
     assert res["status"] == "error"
 
 
 def test_column_ops():
     t = FakeTable(2, 3)
     ctx = _ctx({"T": t})
-    res = InsertTableColumn().execute(ctx, table_name="T", col_index=1)
+    tool = ManageTableStructure()
+    res = tool.execute(ctx, action="insert", axis="column", table_name="T", index=1)
     assert res["status"] == "ok" and res["rows"] == 2 and res["cols"] == 4
     assert t._cols.inserts[-1] == (1, 1)
-    res = DeleteTableColumn().execute(ctx, table_name="T", col_index=0)
+    res = tool.execute(ctx, action="delete", axis="column", table_name="T", index=0)
     assert res["status"] == "ok" and res["rows"] == 2 and res["cols"] == 3
     assert t._cols.removes[-1] == (0, 1)
 
 
 def test_negative_index_errors():
     ctx = _ctx({"T": FakeTable(2, 2)})
-    res = InsertTableRow().execute(ctx, table_name="T", row_index=-1)
+    tool = ManageTableStructure()
+    res = tool.execute(ctx, action="insert", axis="row", table_name="T", index=-1)
     assert res["status"] == "error" and "non-negative" in res["message"]
-    res = DeleteTableColumn().execute(ctx, table_name="T", col_index=-2)
+    res = tool.execute(ctx, action="delete", axis="column", table_name="T", index=-2)
     assert res["status"] == "error" and "non-negative" in res["message"]
 
 
 def test_non_integer_index_errors():
-    res = InsertTableRow().execute(_ctx({"T": FakeTable(2, 2)}), table_name="T", row_index="two")
+    res = ManageTableStructure().execute(
+        _ctx({"T": FakeTable(2, 2)}), action="insert", axis="row", table_name="T", index="two"
+    )
     assert res["status"] == "error" and "integer" in res["message"]
+
+
+def test_manage_table_structure_bad_action_or_axis():
+    ctx = _ctx({"T": FakeTable(2, 2)})
+    tool = ManageTableStructure()
+    assert tool.execute(ctx, action="merge", axis="row", table_name="T", index=0)["status"] == "error"
+    assert tool.execute(ctx, action="insert", axis="diagonal", table_name="T", index=0)["status"] == "error"
 
 
 # ---- domain registration ----------------------------------------------------
@@ -234,10 +248,7 @@ def test_tables_are_specialized_domain():
         ListTables,
         GetTableCells,
         SetTableCell,
-        InsertTableRow,
-        DeleteTableRow,
-        InsertTableColumn,
-        DeleteTableColumn,
+        ManageTableStructure,
     ):
         assert cls.tier == "specialized"
         assert cls.specialized_domain == "tables"

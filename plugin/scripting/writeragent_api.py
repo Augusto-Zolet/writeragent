@@ -135,7 +135,7 @@ DOMAIN_TOOLS = {   'analysi': [   'analyze_data',
                 'set_placeholder_text'],
     'embedded': ['embedded_edit', 'embedded_insert'],
     'error': ['detect_and_explain_errors', 'evaluate_formula'],
-    'field': ['fields_delete', 'fields_insert', 'fields_list', 'fields_update_all', 'update_fields'],
+    'field': ['fields_delete', 'fields_insert', 'fields_list', 'fields_update_all'],
     'footnote': [   'footnotes_delete',
                     'footnotes_edit',
                     'footnotes_insert',
@@ -158,7 +158,7 @@ DOMAIN_TOOLS = {   'analysi': [   'analyze_data',
                   'list_nearby_image_files',
                   'replace_image',
                   'set_image_properties'],
-    'indexe': ['indexes_add_mark', 'indexes_create', 'indexes_list', 'indexes_update_all', 'refresh_indexes'],
+    'indexe': ['indexes_add_mark', 'indexes_create', 'indexes_list', 'indexes_update_all'],
     'math': ['insert_math'],
     'page': [   'get_header_footer_text',
                 'get_page_columns',
@@ -200,22 +200,13 @@ DOMAIN_TOOLS = {   'analysi': [   'analyze_data',
                       'navigate_heading',
                       'read_section'],
     'styles': ['create_style', 'get_style_info', 'import_styles', 'list_styles', 'update_style'],
-    'table': [   'delete_table_column',
-                 'delete_table_row',
-                 'get_table_cells',
-                 'insert_table_column',
-                 'insert_table_row',
-                 'list_tables',
-                 'set_table_cell'],
+    'table': ['get_table_cells', 'list_tables', 'manage_table_structure', 'set_table_cell'],
     'textframe': ['get_text_frame_info', 'list_text_frames', 'set_text_frame_properties'],
-    'tracking': [   'track_changes_accept',
-                    'track_changes_accept_all',
+    'tracking': [   'manage_tracked_changes',
                     'track_changes_comment_delete',
                     'track_changes_comment_insert',
                     'track_changes_comment_list',
                     'track_changes_list',
-                    'track_changes_reject',
-                    'track_changes_reject_all',
                     'track_changes_show',
                     'track_changes_start',
                     'track_changes_stop'],
@@ -586,10 +577,6 @@ class _FieldProxy:
         """Refresh all text fields (dates, page numbers, cross-references)."""
         return _rpc_call("fields_update_all")
 
-    def update_fields(self) -> dict:
-        """Refresh all text fields."""
-        return _rpc_call("update_fields")
-
 field = _FieldProxy()
 
 
@@ -723,10 +710,6 @@ class _IndexeProxy:
     def list(self) -> dict:
         """List all document indexes (table of contents, alphabetical index, bibliography, etc.).."""
         return _rpc_call("indexes_list")
-
-    def refresh_indexes(self) -> dict:
-        """Refresh all document indexes (TOC, bibliography, etc.)."""
-        return _rpc_call("refresh_indexes")
 
     def update_all(self) -> dict:
         """Refresh/update all document indexes (table of contents, bibliography, etc.).."""
@@ -1054,29 +1037,17 @@ styles = _StylesProxy()
 class _TableProxy:
     """Proxy for table tools."""
 
-    def delete_table_column(self, table_name: str, col_index: int) -> dict:
-        """Delete one column from a table by 0-based col_index."""
-        return _rpc_call("delete_table_column", table_name=table_name, col_index=col_index)
-
-    def delete_table_row(self, table_name: str, row_index: int) -> dict:
-        """Delete one row from a table by 0-based row_index."""
-        return _rpc_call("delete_table_row", table_name=table_name, row_index=row_index)
-
     def get_table_cells(self, table_name: str) -> dict:
         """Return a table's cell text as a row-major matrix (matrix[row][col]) by position — not by cell name."""
         return _rpc_call("get_table_cells", table_name=table_name)
 
-    def insert_table_column(self, table_name: str, col_index: int) -> dict:
-        """Insert one empty column into a table."""
-        return _rpc_call("insert_table_column", table_name=table_name, col_index=col_index)
-
-    def insert_table_row(self, table_name: str, row_index: int) -> dict:
-        """Insert one empty row into a table."""
-        return _rpc_call("insert_table_row", table_name=table_name, row_index=row_index)
-
     def list_tables(self) -> dict:
         """List the text tables in the document with their name and dimensions (rows x columns)."""
         return _rpc_call("list_tables")
+
+    def manage_table_structure(self, action: str, axis: str, table_name: str, index: int) -> dict:
+        """Insert or delete one table row or column."""
+        return _rpc_call("manage_table_structure", action=action, axis=axis, table_name=table_name, index=index)
 
     def set_table_cell(self, table_name: str, cell: str, text: str) -> dict:
         """Set the plain-text content of ONE table cell, addressed A1-style (e.g."""
@@ -1106,13 +1077,9 @@ textframe = _TextframeProxy()
 class _TrackingProxy:
     """Proxy for tracking tools."""
 
-    def track_changes_accept(self, index: int) -> dict:
-        """Accept a specific tracked change by its index (from track_changes_list).."""
-        return _rpc_call("track_changes_accept", index=index)
-
-    def track_changes_accept_all(self) -> dict:
-        """Accept all tracked changes in the document.."""
-        return _rpc_call("track_changes_accept_all")
+    def manage_tracked_changes(self, action: str, *, index: int = 0) -> dict:
+        """Accept or reject tracked changes."""
+        return _rpc_call("manage_tracked_changes", action=action, index=index)
 
     def track_changes_comment_delete(self, index: int) -> dict:
         """Delete a specific comment (annotation) by its index (from track_changes_comment_list).."""
@@ -1129,14 +1096,6 @@ class _TrackingProxy:
     def track_changes_list(self) -> dict:
         """List all tracked changes (redlines) in the document, including type, author, date, text and location."""
         return _rpc_call("track_changes_list")
-
-    def track_changes_reject(self, index: int) -> dict:
-        """Reject a specific tracked change by its index (from track_changes_list).."""
-        return _rpc_call("track_changes_reject", index=index)
-
-    def track_changes_reject_all(self) -> dict:
-        """Reject all tracked changes in the document.."""
-        return _rpc_call("track_changes_reject_all")
 
     def track_changes_show(self, show: bool) -> dict:
         """Show or hide tracked changes markup in the document view (Writer)."""

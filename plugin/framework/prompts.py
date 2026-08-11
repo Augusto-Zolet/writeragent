@@ -183,7 +183,7 @@ WRITER_REVIEW_MODES_RULES = """TRACKED CHANGES / REVIEW MODES:
 - record: your edits ARE applied, but as tracked changes pending the user's accept/reject; you will NOT be told whether they are later accepted or rejected.
 - wait: your edits are applied as tracked changes and the edit tool blocks until the user finishes reviewing (or a configured timeout), then the result reports what was accepted or rejected.
 - apply_document_content's RESULT carries the review state for that call (record: review_mode / pending_review; wait: a review field with the outcome) — trust the latest result over anything earlier, since the user can switch modes mid-session.
-- In record and wait, NEVER accept or reject changes yourself (no track_changes_accept_all / track_changes_reject_all) — resolving redlines is the user's decision.
+- In record and wait, NEVER accept or reject changes yourself (no manage_tracked_changes accept/reject) — resolving redlines is the user's decision.
 - When reading, get_document_content lists pending changes under tracked_changes (insertions/deletions) — they are pending review, not errors to fix."""
 
 WRITER_SEARCH_RULES = """SEARCH:

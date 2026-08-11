@@ -179,107 +179,83 @@ class SetTableCell(ToolWriterTableBase):
             return self._tool_error("Could not set cell '%s' in table '%s': %s" % (cell_name, name, e))
 
 
-def _row_col_edit(self, ctx: Any, kwargs: dict[str, Any], *, axis: str, insert: bool) -> dict[str, Any]:
-    """Shared body for the four row/column insert/delete tools."""
-    name = (kwargs.get("table_name") or "").strip()
-    idx_key = "row_index" if axis == "rows" else "col_index"
-    raw = kwargs.get(idx_key)
-    if isinstance(raw, bool) or not isinstance(raw, (int, str)):
-        return self._tool_error("%s must be an integer." % idx_key)
-    try:
-        idx = int(raw)
-    except ValueError:
-        return self._tool_error("%s must be an integer." % idx_key)
-    if idx < 0:
-        return self._tool_error("%s must be non-negative." % idx_key)
-    try:
-        table = _get_table(ctx.doc, name)
-        band = table.getRows() if axis == "rows" else table.getColumns()
-        count = band.getCount()
-        # insertByIndex(idx, n) inserts BEFORE idx (idx==count appends). removeByIndex needs a real
-        # index, and removing the last row/column of a table is not allowed.
-        if insert:
-            if idx > count:
-                return self._tool_error("%s %d out of range (table has %d %s; use 0..%d)." % (idx_key, idx, count, axis, count))
-            band.insertByIndex(idx, 1)
-        else:
-            if idx >= count:
-                return self._tool_error("%s %d out of range (table has %d %s; use 0..%d)." % (idx_key, idx, count, axis, count - 1))
-            if count <= 1:
-                return self._tool_error("Cannot remove the last %s of a table." % axis[:-1])
-            band.removeByIndex(idx, 1)
-        rows, cols = _dims(table)
-        return {"status": "ok", "table_name": name, "rows": rows, "cols": cols}
-    except ValueError as ve:
-        return self._tool_error(str(ve))
-    except Exception as e:
-        log.exception("Could not edit %s of table '%s'", axis, name)
-        return self._tool_error("Could not edit %s of table '%s': %s" % (axis, name, e))
+class ManageTableStructure(ToolWriterTableBase):
+    """Insert or delete one row/column. The four former skinny tools shared table_name + index."""
 
-
-class InsertTableRow(ToolWriterTableBase):
-    name = "insert_table_row"
-    description = "Insert one empty row into a table. row_index is where the new row goes (0-based; equal to the current row count appends at the end)."
+    name = "manage_table_structure"
+    description = (
+        "Insert or delete one table row or column. "
+        "index is 0-based (for insert, equal to the current count appends at the end). "
+        "Cannot delete the last remaining row or column."
+    )
     is_mutation = True
     parameters = {
         "type": "object",
         "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["insert", "delete"],
+                "description": "insert or delete one band member.",
+            },
+            "axis": {
+                "type": "string",
+                "enum": ["row", "column"],
+                "description": "Whether to edit rows or columns.",
+            },
             "table_name": {"type": "string", "description": "Table name from list_tables."},
-            "row_index": {"type": "integer", "description": "0-based position for the new row (row count = append)."},
+            "index": {
+                "type": "integer",
+                "description": "0-based row or column index (insert at count = append).",
+            },
         },
-        "required": ["table_name", "row_index"],
+        "required": ["action", "axis", "table_name", "index"],
     }
 
     def execute(self, ctx: Any, **kwargs: Any) -> dict[str, Any]:
-        return _row_col_edit(self, ctx, kwargs, axis="rows", insert=True)
-
-
-class DeleteTableRow(ToolWriterTableBase):
-    name = "delete_table_row"
-    description = "Delete one row from a table by 0-based row_index. Cannot delete the last remaining row."
-    is_mutation = True
-    parameters = {
-        "type": "object",
-        "properties": {
-            "table_name": {"type": "string", "description": "Table name from list_tables."},
-            "row_index": {"type": "integer", "description": "0-based row to delete."},
-        },
-        "required": ["table_name", "row_index"],
-    }
-
-    def execute(self, ctx: Any, **kwargs: Any) -> dict[str, Any]:
-        return _row_col_edit(self, ctx, kwargs, axis="rows", insert=False)
-
-
-class InsertTableColumn(ToolWriterTableBase):
-    name = "insert_table_column"
-    description = "Insert one empty column into a table. col_index is where the new column goes (0-based; equal to the current column count appends at the end)."
-    is_mutation = True
-    parameters = {
-        "type": "object",
-        "properties": {
-            "table_name": {"type": "string", "description": "Table name from list_tables."},
-            "col_index": {"type": "integer", "description": "0-based position for the new column (column count = append)."},
-        },
-        "required": ["table_name", "col_index"],
-    }
-
-    def execute(self, ctx: Any, **kwargs: Any) -> dict[str, Any]:
-        return _row_col_edit(self, ctx, kwargs, axis="columns", insert=True)
-
-
-class DeleteTableColumn(ToolWriterTableBase):
-    name = "delete_table_column"
-    description = "Delete one column from a table by 0-based col_index. Cannot delete the last remaining column."
-    is_mutation = True
-    parameters = {
-        "type": "object",
-        "properties": {
-            "table_name": {"type": "string", "description": "Table name from list_tables."},
-            "col_index": {"type": "integer", "description": "0-based column to delete."},
-        },
-        "required": ["table_name", "col_index"],
-    }
-
-    def execute(self, ctx: Any, **kwargs: Any) -> dict[str, Any]:
-        return _row_col_edit(self, ctx, kwargs, axis="columns", insert=False)
+        action = kwargs.get("action")
+        axis_arg = kwargs.get("axis")
+        if action not in ("insert", "delete"):
+            return self._tool_error("action must be 'insert' or 'delete'.")
+        if axis_arg not in ("row", "column"):
+            return self._tool_error("axis must be 'row' or 'column'.")
+        name = (kwargs.get("table_name") or "").strip()
+        raw = kwargs.get("index")
+        if isinstance(raw, bool) or not isinstance(raw, (int, str)):
+            return self._tool_error("index must be an integer.")
+        try:
+            idx = int(raw)
+        except ValueError:
+            return self._tool_error("index must be an integer.")
+        if idx < 0:
+            return self._tool_error("index must be non-negative.")
+        axis = "rows" if axis_arg == "row" else "columns"
+        insert = action == "insert"
+        try:
+            table = _get_table(ctx.doc, name)
+            band = table.getRows() if axis == "rows" else table.getColumns()
+            count = band.getCount()
+            # insertByIndex(idx, n) inserts BEFORE idx (idx==count appends). removeByIndex needs a real
+            # index, and removing the last row/column of a table is not allowed.
+            if insert:
+                if idx > count:
+                    return self._tool_error(
+                        "index %d out of range (table has %d %s; use 0..%d)."
+                        % (idx, count, axis, count)
+                    )
+                band.insertByIndex(idx, 1)
+            else:
+                if idx >= count:
+                    return self._tool_error(
+                        "index %d out of range (table has %d %s; use 0..%d)."
+                        % (idx, count, axis, count - 1)
+                    )
+                if count <= 1:
+                    return self._tool_error("Cannot remove the last %s of a table." % axis[:-1])
+                band.removeByIndex(idx, 1)
+            rows, cols = _dims(table)
+            return {"status": "ok", "table_name": name, "rows": rows, "cols": cols}
+        except ValueError as ve:
+            return self._tool_error(str(ve))
+        except Exception as e:
+            log.exception("Could not edit %s of table '%s'", axis, name)
+            return self._tool_error("Could not edit %s of table '%s': %s" % (axis, name, e))

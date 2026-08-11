@@ -36,29 +36,6 @@ class FieldsUpdateAll(ToolWriterFieldBase):
         return {"status": "ok", "fields_refreshed": count}
 
 
-class UpdateFieldsAlias(ToolWriterFieldBase):
-    """Legacy name for fields_update_all."""
-
-    name = "update_fields"
-    intent = "navigate"
-    description = "Refresh all text fields. Alias of fields_update_all."
-    parameters = {"type": "object", "properties": {}, "required": []}
-    is_mutation = True
-
-    def execute(self, ctx, **kwargs):
-        doc = ctx.doc
-        if not hasattr(doc, "getTextFields"):
-            return self._tool_error("Document does not support text fields.")
-        fields = doc.getTextFields()
-        fields.refresh()
-        enum = fields.createEnumeration()
-        count = 0
-        while enum.hasMoreElements():
-            enum.nextElement()
-            count += 1
-        return {"status": "ok", "fields_refreshed": count}
-
-
 class FieldsList(ToolWriterFieldBase):
     name = "fields_list"
     intent = "examine"

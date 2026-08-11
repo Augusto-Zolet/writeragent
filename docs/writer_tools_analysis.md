@@ -98,13 +98,10 @@ WriterAgent does not ship a separate `annotations.py`. The optional MCP-AI annot
 
 ---
 
-### 7. [AcceptAllChanges](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/tracking.py#101-126) + [RejectAllChanges](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/tracking.py#128-152) → single tool with `action` param
+### 7. ~~Accept/Reject track-change tools → `manage_tracked_changes`~~ (done)
 
-Both tools in [tracking.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/tracking.py) are identical except for the UNO dispatch command. They could be a single `ManageTrackedChanges` tool with an `action` parameter (`accept_all`/`reject_all`).
-
-**Proposal:** Merge into one tool class. Keeps the file but reduces one class.
-
-**Savings:** ~1 tool class eliminated, ~25 lines
+Implemented as `ManageTrackedChanges` in [tracking.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/tracking.py) with
+`action` = `accept` / `reject` / `accept_all` / `reject_all` (optional `index` for single).
 
 ---
 

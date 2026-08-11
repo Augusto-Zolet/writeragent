@@ -35,30 +35,6 @@ class IndexesUpdateAll(ToolWriterIndexBase):
         return {"status": "ok", "refreshed": refreshed, "count": count}
 
 
-class RefreshIndexesAlias(ToolWriterIndexBase):
-    """Same behavior as indexes_update_all (legacy name)."""
-
-    name = "refresh_indexes"
-    intent = "navigate"
-    description = "Refresh all document indexes (TOC, bibliography, etc.). Alias of indexes_update_all."
-    parameters = {"type": "object", "properties": {}, "required": []}
-    is_mutation = True
-
-    def execute(self, ctx, **kwargs):
-        doc = ctx.doc
-        if not hasattr(doc, "getDocumentIndexes"):
-            return self._tool_error("Document does not support indexes")
-        indexes = doc.getDocumentIndexes()
-        count = indexes.getCount()
-        refreshed = []
-        for i in range(count):
-            idx = indexes.getByIndex(i)
-            idx.update()
-            name = idx.getName() if hasattr(idx, "getName") else "index_%d" % i
-            refreshed.append(name)
-        return {"status": "ok", "refreshed": refreshed, "count": count}
-
-
 class IndexesList(ToolWriterIndexBase):
     name = "indexes_list"
     intent = "navigate"
