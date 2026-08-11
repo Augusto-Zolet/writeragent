@@ -46,7 +46,7 @@ Unlike proprietary office suites that lock you into a single cloud provider and 
 ### Integrations
 
 - **MCP server** — Connect Cursor, Claude Desktop, LM Studio, or custom agents to read and edit open LibreOffice documents through the local endpoint `http://localhost:18765/mcp`. [MCP protocol](docs/mcp-protocol.md)
-- **External agent backends** — Under **Settings → MCP** (Agent Communication Protocol), swap built-in chat for [Hermes](https://github.com/NousResearch/hermes-agent) or [Grok Build](https://zed.dev/acp/agent/grok-build) via ACP, with approve/reject dialogs for tool calls. [Gemini CLI](https://geminicli.com/docs/cli/acp-mode/) and [OpenCode](https://opencode.ai/docs/acp/) ACP backends land in **0.8.57** (not released yet). [Cursor plugin](https://github.com/KeithCu/cursor-libreoffice) · [LO skill](https://github.com/KeithCu/libreoffice-skill)
+- **External agent backends** — Under **Settings → MCP** (Agent Communication Protocol), swap built-in chat for [Hermes](https://github.com/NousResearch/hermes-agent), [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Mistral Vibe](https://github.com/mistralai/mistral-vibe), [Grok Build](https://zed.dev/acp/agent/grok-build), or [OpenCode](https://opencode.ai/docs/acp/) via ACP, with approve/reject dialogs for tool calls. [Cursor plugin](https://github.com/KeithCu/cursor-libreoffice) · [LO skill](https://github.com/KeithCu/libreoffice-skill)
 
 Full catalog with doc links: **[docs/features.md](docs/features.md)**.
 

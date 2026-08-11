@@ -201,7 +201,7 @@ class TestI18n(unittest.TestCase):
         self.assertEqual(normalize_backend_id("builtin"), "builtin")
         self.assertEqual(normalize_backend_id("hermes"), "hermes")
         self.assertEqual(normalize_backend_id("claude"), "claude")
-        self.assertEqual(normalize_backend_id("gemini"), "gemini")
+        self.assertEqual(normalize_backend_id("gemini"), "builtin")
         self.assertEqual(normalize_backend_id("opencode"), "opencode")
         self.assertEqual(normalize_backend_id("Built-in"), "builtin")
         self.assertEqual(normalize_backend_id("Eingebaut"), "builtin")

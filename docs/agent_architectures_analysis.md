@@ -24,7 +24,7 @@ The API approach treats the AI as a resident of the application. The plugin mana
 The CLI approach treats the office suite as just another "folder" in a broader filesystem. The agent lives in the terminal and visits the document to perform tasks.
 
 ### **The Strengths**
-*   **Pre-Loaded Agency**: Modern CLI agents (like `claude-code` or `gemini-cli`) come with "batteries included." They already have web search, bash execution, file management, and multi-step reasoning. You get 5 years of agentic R&D for "free."
+*   **Pre-Loaded Agency**: Modern CLI agents (like `claude-code` or OpenCode) come with "batteries included." They already have web search, bash execution, file management, and multi-step reasoning. You get 5 years of agentic R&D for "free."
 *   **Recursive Power**: A CLI agent can run *other* scripts. It can write a Python script to analyze your spreadsheet data, run it, and then paste the results back into your document. It has the "keys to the kingdom" of the OS.
 *   **Provider Agnostic**: If a new, better CLI agent comes out tomorrow, you just point your "Handover" tool at it. You don't have to rewrite your prompting logic.
 
