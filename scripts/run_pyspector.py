@@ -8,6 +8,13 @@ Disables rules reviewed as false positives or accepted known risks for WriterAge
 from __future__ import annotations
 
 import sys
+import tempfile
+from pathlib import Path
+from typing import Optional
+
+# Keep AST disk cache out of plugin/; PySpector hardcodes <scan>/.pyspector_cache.
+# tempfile.gettempdir() is /tmp on Unix and %TEMP% on Windows.
+_AST_CACHE_DIR = Path(tempfile.gettempdir()) / "writeragent-pyspector-cache" / "ast"
 
 # Rule IDs reviewed as false positives or accepted known risks for WriterAgent.
 _DISABLED_RULE_IDS = (
@@ -42,6 +49,7 @@ def _inject_disabled_rules(rules_toml: str) -> str:
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
 
+    from pyspector import ast_cache as pyspector_ast_cache
     from pyspector import cli as pyspector_cli
     from pyspector import config as pyspector_config
     try:
@@ -58,6 +66,20 @@ def main(argv: list[str] | None = None) -> int:
 
     pyspector_config.get_default_rules = patched_get_default_rules
     pyspector_cli.get_default_rules = patched_get_default_rules
+
+    # cli imports get_cache by name; patch both the module and the CLI binding.
+    def redirected_get_cache(
+        scan_path: Optional[Path] = None,
+    ) -> pyspector_ast_cache.IncrementalAstCache:
+        # scan_path ignored: keep AST JSON under system temp, not plugin/.pyspector_cache.
+        if pyspector_ast_cache._instance is None:
+            pyspector_ast_cache._instance = pyspector_ast_cache.IncrementalAstCache(
+                cache_dir=_AST_CACHE_DIR
+            )
+        return pyspector_ast_cache._instance
+
+    pyspector_ast_cache.get_cache = redirected_get_cache
+    pyspector_cli.get_cache = redirected_get_cache
 
     if not argv:
         argv = ["scan", "plugin", "--ai", "-c", "pyspector.toml", "--msg=False"]
