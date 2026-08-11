@@ -184,21 +184,47 @@ def _read_installed_version(harper_dir: Path) -> str | None:
         return None
 
 
+# TEMP(2026-08): Remove after ~2026-11 once old profiles no longer have
+# harper-ls-*.{untar,unzip} trees (new installs extract only in TemporaryDirectory).
+# Also used by TEMP bin/ migration cleanup below — delete helpers when both TEMP paths go.
+def _is_harper_archive_or_extract_leftover(name: str) -> bool:
+    """True for stale download archives or extract trees (not the live binary/sidecars)."""
+    return name.startswith("harper-ls-") and (
+        name.endswith((".tar.gz", ".zip", ".tgz")) or name.endswith((".untar", ".unzip"))
+    )
+
+
+# TEMP(2026-08): Remove with _is_harper_archive_or_extract_leftover / leftover cleanup.
+def _remove_harper_archive_leftovers(directory: Path) -> None:
+    """Best-effort delete leftover archives / .untar / .unzip trees under directory."""
+    if not directory.is_dir():
+        return
+    for entry in directory.iterdir():
+        if not _is_harper_archive_or_extract_leftover(entry.name):
+            continue
+        if entry.is_dir():
+            shutil.rmtree(entry, ignore_errors=True)
+        else:
+            entry.unlink(missing_ok=True)
+
+
 def _download_harper_binary(dest_path: Path, release: HarperReleaseAsset, *, heartbeat_fn: Callable[[dict[str, str]], None] | None = None) -> None:
     """Download harper-ls via vendored Pooch retrieve (hash verify, retry, archive extract)."""
     log.info("[harper] Downloading v%s binary (%s) from %s", release.version, release.asset_name, release.download_url)
     _emit_progress(heartbeat_fn, f"Downloading harper-ls v{release.version}…")
 
     dest_path.parent.mkdir(parents=True, exist_ok=True)
-    extract_suffix = ".untar" if release.asset_name.endswith((".tar.gz", ".tgz")) else ".unzip"
-    extract_root = dest_path.parent / f"{release.asset_name}{extract_suffix}"
-    processor = Untar(extract_dir=str(extract_root)) if release.asset_name.endswith((".tar.gz", ".tgz")) else Unzip(extract_dir=str(extract_root))
+    # Extract under TemporaryDirectory so the ~50MB binary is not left twice under harper/.
+    is_tarball = release.asset_name.endswith((".tar.gz", ".tgz"))
+    extract_suffix = ".untar" if is_tarball else ".unzip"
     downloader = HTTPDownloader(headers={"User-Agent": USER_AGENT}, timeout=_DOWNLOAD_TIMEOUT_SEC, max_bytes=_DOWNLOAD_MAX_BYTES)
     tmp_binary = dest_path.parent / f".harper-ls{'.exe' if os.name == 'nt' else ''}.download"
 
     try:
         with tempfile.TemporaryDirectory(prefix="writeragent-harper-") as tmp_dir:
             archive_path = Path(tmp_dir) / release.asset_name
+            extract_root = Path(tmp_dir) / f"{release.asset_name}{extract_suffix}"
+            processor = Untar(extract_dir=str(extract_root)) if is_tarball else Unzip(extract_dir=str(extract_root))
             retrieve(
                 url=release.download_url,
                 known_hash=f"sha256:{release.sha256}",
@@ -255,13 +281,7 @@ def _migrate_legacy_bin_install(user_config_dir: str, harper_dir: Path) -> None:
             shutil.move(str(legacy_sidecar), str(harper_dir / sidecar_name))
 
     try:
-        for entry in legacy_dir.iterdir():
-            name = entry.name
-            if name.startswith("harper-ls-") and (name.endswith((".tar.gz", ".zip", ".tgz")) or name.endswith((".untar", ".unzip"))):
-                if entry.is_dir():
-                    shutil.rmtree(entry, ignore_errors=True)
-                else:
-                    entry.unlink(missing_ok=True)
+        _remove_harper_archive_leftovers(legacy_dir)
         tmp_download = legacy_dir / f".harper-ls{suffix}.download"
         if tmp_download.is_file():
             tmp_download.unlink()
@@ -269,6 +289,16 @@ def _migrate_legacy_bin_install(user_config_dir: str, harper_dir: Path) -> None:
             legacy_dir.rmdir()
     except Exception as cleanup_err:
         log.warning("[harper] Legacy bin/ cleanup incomplete: %s", cleanup_err)
+
+
+# TEMP(2026-08): Remove after ~2026-11 — one-shot cleanup of extract trees left under
+# harper/ by pre-tempdir installs (second ~50MB binary). New downloads do not create these.
+def _cleanup_harper_install_leftovers(harper_dir: Path) -> None:
+    """Remove stale extract trees left by older installs (second ~50MB binary copy)."""
+    try:
+        _remove_harper_archive_leftovers(harper_dir)
+    except Exception as cleanup_err:
+        log.warning("[harper] Could not remove leftover extract trees under %s: %s", harper_dir, cleanup_err)
 
 
 def _get_harper_binary(user_config_dir: str, *, heartbeat_fn: Callable[[dict[str, str]], None] | None = None) -> str:  # pyright: ignore[reportUnusedFunction]  # used by harper.py and harper tests
@@ -282,6 +312,8 @@ def _get_harper_binary(user_config_dir: str, *, heartbeat_fn: Callable[[dict[str
     harper_dir = _harper_install_dir(user_config_dir)
     # TEMP(2026-07): Remove after ~2026-09 — migrates Harper from profile bin/ to harper/.
     _migrate_legacy_bin_install(user_config_dir, harper_dir)
+    # TEMP(2026-08): Remove after ~2026-11 — stale .untar/.unzip under harper/.
+    _cleanup_harper_install_leftovers(harper_dir)
     suffix = ".exe" if os.name == "nt" else ""
     binary_path = harper_dir / f"harper-ls{suffix}"
 
