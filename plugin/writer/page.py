@@ -58,11 +58,11 @@ def resolve_page_style(doc, style_name: str = "Standard"):
 
 
 # ------------------------------------------------------------------
-# GetPageStyleProperties
+# PageGetStyleProperties
 # ------------------------------------------------------------------
 
 
-class GetPageStyleProperties(ToolWriterPageBase):
+class PageGetStyleProperties(ToolWriterPageBase):
     """Get dimensions, margins, and header/footer states of a page style."""
 
     name = "page_get_style_properties"
@@ -119,11 +119,11 @@ class GetPageStyleProperties(ToolWriterPageBase):
 
 
 # ------------------------------------------------------------------
-# SetPageStyleProperties
+# PageSetStyleProperties
 # ------------------------------------------------------------------
 
 
-class SetPageStyleProperties(ToolWriterPageBase):
+class PageSetStyleProperties(ToolWriterPageBase):
     """Modify dimensions, margins, and header/footer toggles of a page style."""
 
     name = "page_set_style_properties"
@@ -252,11 +252,11 @@ class SetPageStyleProperties(ToolWriterPageBase):
 
 
 # ------------------------------------------------------------------
-# GetHeaderFooterText
+# PageGetHeaderFooterText
 # ------------------------------------------------------------------
 
 
-class GetHeaderFooterText(ToolWriterPageBase):
+class PageGetHeaderFooterText(ToolWriterPageBase):
     """Retrieve the text content of a page style's header or footer."""
 
     name = "page_get_header_footer_text"
@@ -313,11 +313,11 @@ class GetHeaderFooterText(ToolWriterPageBase):
 
 
 # ------------------------------------------------------------------
-# SetHeaderFooterText
+# PageSetHeaderFooterText
 # ------------------------------------------------------------------
 
 
-class SetHeaderFooterText(ToolWriterPageBase):
+class PageSetHeaderFooterText(ToolWriterPageBase):
     """Set the text content of a page style's header or footer."""
 
     name = "page_set_header_footer_text"
@@ -385,11 +385,11 @@ class SetHeaderFooterText(ToolWriterPageBase):
 
 
 # ------------------------------------------------------------------
-# GetPageColumns
+# PageGetColumns
 # ------------------------------------------------------------------
 
 
-class GetPageColumns(ToolWriterPageBase):
+class PageGetColumns(ToolWriterPageBase):
     """Get the column layout for a page style."""
 
     name = "page_get_columns"
@@ -427,11 +427,11 @@ class GetPageColumns(ToolWriterPageBase):
 
 
 # ------------------------------------------------------------------
-# SetPageColumns
+# PageSetColumns
 # ------------------------------------------------------------------
 
 
-class SetPageColumns(ToolWriterPageBase):
+class PageSetColumns(ToolWriterPageBase):
     """Set the number of columns and spacing for a page style."""
 
     name = "page_set_columns"
@@ -493,11 +493,11 @@ class SetPageColumns(ToolWriterPageBase):
 
 
 # ------------------------------------------------------------------
-# InsertPageBreak
+# PageInsertBreak
 # ------------------------------------------------------------------
 
 
-class InsertPageBreak(ToolWriterPageBase):
+class PageInsertBreak(ToolWriterPageBase):
     """Insert a page break at a text anchor (before_text/after_text) or at the view cursor."""
 
     name = "page_insert_break"

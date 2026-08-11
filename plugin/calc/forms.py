@@ -17,14 +17,21 @@
 
 Implementation and registration live in ``plugin.writer.specialized.forms`` (``ToolWriterFormBase``
 subclasses ``ToolWriterSpecialBase`` and ``ToolCalcSpecialBase``; union ``uno_services`` on concrete tools). Re-export
-with Writer-prefixed aliases for clarity (cf. ``DrawCreateShape`` in writer/shapes).
+with Writer-prefixed aliases for clarity (cf. ``DrawUpsertShape`` in writer/shapes).
 """
 
-from plugin.writer.specialized.forms import CreateForm as WriterCreateForm
-from plugin.writer.specialized.forms import CreateFormControl as WriterCreateFormControl
-from plugin.writer.specialized.forms import DeleteFormControl as WriterDeleteFormControl
-from plugin.writer.specialized.forms import EditFormControl as WriterEditFormControl
-from plugin.writer.specialized.forms import GenerateForm as WriterGenerateForm
-from plugin.writer.specialized.forms import ListFormControls as WriterListFormControls
+from plugin.writer.specialized.forms import FormCreate as WriterFormCreate
+from plugin.writer.specialized.forms import FormCreateControl as WriterFormCreateControl
+from plugin.writer.specialized.forms import FormDeleteControl as WriterFormDeleteControl
+from plugin.writer.specialized.forms import FormEditControl as WriterFormEditControl
+from plugin.writer.specialized.forms import FormGenerate as WriterFormGenerate
+from plugin.writer.specialized.forms import FormListControls as WriterFormListControls
 
-__all__ = ["WriterCreateForm", "WriterCreateFormControl", "WriterDeleteFormControl", "WriterEditFormControl", "WriterGenerateForm", "WriterListFormControls"]
+__all__ = [
+    "WriterFormCreate",
+    "WriterFormCreateControl",
+    "WriterFormDeleteControl",
+    "WriterFormEditControl",
+    "WriterFormGenerate",
+    "WriterFormListControls",
+]

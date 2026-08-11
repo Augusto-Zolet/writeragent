@@ -65,7 +65,7 @@ class GetDocumentTree(ToolBase):
         return {**result, "stats": stats}
 
 
-class GetHeadingChildren(ToolWriterStructuralBase):
+class NavHeadingChildren(ToolWriterStructuralBase):
     name = "nav_heading_children"
     intent = "navigate"
     description = "Drill into a heading's children — body paragraphs and sub-headings. Identify the heading by locator (e.g. 'bookmark:_mcp_xxx', 'heading_text:Title'), heading_para_index, or heading_bookmark. para_index values are INTERNAL — never cite paragraph numbers to the user; refer to a place by quoting the first words of its text."

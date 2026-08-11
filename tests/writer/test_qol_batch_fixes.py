@@ -75,13 +75,13 @@ def test_search_return_offsets_rejects_regex():
 # ---- 4) delete_comment miss is an error ---------------------------------------
 
 def test_delete_comment_not_found_is_error():
-    from plugin.writer.specialized.comments import DeleteComment
+    from plugin.writer.specialized.comments import CommentDelete
 
     doc = MagicMock()
     doc.getTextFields.return_value.createEnumeration.return_value.hasMoreElements.return_value = False
     ctx = MagicMock()
     ctx.doc = doc
-    res = DeleteComment().execute(ctx, comment_name="nope")
+    res = CommentDelete().execute(ctx, comment_name="nope")
     assert res["status"] == "error" and res["code"] == "COMMENT_NOT_FOUND"
     assert res["deleted"] == 0
     assert "comment_list" in res["message"]

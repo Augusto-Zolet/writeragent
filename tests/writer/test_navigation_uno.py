@@ -51,7 +51,7 @@ class TestWriterNavigation(unittest.TestCase):
 
 from plugin.testing_runner import native_test
 from plugin.tests.testing_utils import with_native_doc
-from plugin.writer.navigation import NavigateHeading, GetSurroundings
+from plugin.writer.navigation import NavHeading, NavSurroundings
 
 
 def _populate_nav_doc(doc):
@@ -123,7 +123,7 @@ class MockServices:
 def test_navigate_heading(ctx, doc):
     _populate_nav_doc(doc)
     mock_ctx = MockContext(doc, ctx)
-    tool = NavigateHeading()
+    tool = NavHeading()
     res = tool.execute(mock_ctx, locator="paragraph:0", direction="next")
     assert res.get("status") == "ok", res
     assert res.get("heading", {}).get("text") == "Section 1.1"
@@ -134,7 +134,7 @@ def test_navigate_heading(ctx, doc):
 def test_get_surroundings(ctx, doc):
     _populate_nav_doc(doc)
     mock_ctx = MockContext(doc, ctx)
-    tool = GetSurroundings()
+    tool = NavSurroundings()
     res = tool.execute(mock_ctx, locator="paragraph:2", radius=3)
     assert res.get("status") == "ok", res
     assert "paragraphs" in res

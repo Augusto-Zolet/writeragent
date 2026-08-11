@@ -73,7 +73,7 @@ def _resolve_cell_name(table: Any, raw: str) -> str | None:
     return None
 
 
-class ListTables(ToolWriterTableBase):
+class TableList(ToolWriterTableBase):
     name = "table_list"
     description = "List the text tables in the document with their name and dimensions (rows x columns). Use the name to read or edit a table."
     is_mutation = False
@@ -92,7 +92,7 @@ class ListTables(ToolWriterTableBase):
             return self._tool_error("Could not list tables: %s" % e)
 
 
-class GetTableCells(ToolWriterTableBase):
+class TableGetCells(ToolWriterTableBase):
     name = "table_get_cells"
     description = (
         "Return a table's cell text as a row-major matrix (matrix[row][col]) by position — not by "
@@ -136,7 +136,7 @@ class GetTableCells(ToolWriterTableBase):
             return self._tool_error("Could not read table '%s': %s" % (name, e))
 
 
-class SetTableCell(ToolWriterTableBase):
+class TableSetCell(ToolWriterTableBase):
     name = "table_set_cell"
     description = (
         "Set the plain-text content of ONE table cell, addressed A1-style (e.g. 'B2'). Replaces the "

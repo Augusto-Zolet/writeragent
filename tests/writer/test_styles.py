@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import pytest
 from unittest.mock import MagicMock, patch
-from plugin.writer.styles import ListStyles, GetStyleInfo, ApplyStyle, CreateStyle, ImportStyles, UpdateStyle
+from plugin.writer.styles import StyleList, StyleGetInfo, ApplyStyle, StyleCreate, StyleImport, StyleUpdate
 from plugin.tests.testing_utils import TestingFactory, WriterDocStub
 
 
@@ -79,7 +79,7 @@ def test_list_styles_filtering():
         PageStyles=_style_family({}),
     )
 
-    tool = ListStyles()
+    tool = StyleList()
 
     res = tool.execute(mock_ctx, family="")
     assert "ParagraphStyles" in res["families"]
@@ -113,7 +113,7 @@ def test_list_character_styles():
     }
     mock_ctx = _ctx_with_families(CharacterStyles=_style_family(styles_data))
 
-    tool = ListStyles()
+    tool = StyleList()
     res = tool.execute(mock_ctx, family="CharacterStyles")
 
     assert res["status"] == "ok"
@@ -130,7 +130,7 @@ def test_get_style_info():
     family = _style_family({"Emphasis": style})
     mock_ctx = _ctx_with_families(CharacterStyles=family)
 
-    tool = GetStyleInfo()
+    tool = StyleGetInfo()
     res = tool.execute(mock_ctx, style_name="Emphasis", family="CharacterStyles")
 
     assert res["status"] == "ok"
@@ -190,7 +190,7 @@ def test_update_style_with_parent():
     family = _style_family({"MyStyle": style})
     mock_ctx = _ctx_with_families(ParagraphStyles=family)
 
-    tool = UpdateStyle()
+    tool = StyleUpdate()
     res = tool.execute(mock_ctx, style_name="MyStyle", parent_style="Standard", property_updates={"CharWeight": 150})
 
     assert res["status"] == "ok"
@@ -205,7 +205,7 @@ def test_create_style_standard():
     new_style = MagicMock()
     mock_ctx.doc._created["com.sun.star.style.ParagraphStyle"] = new_style
 
-    tool = CreateStyle()
+    tool = StyleCreate()
     res = tool.execute(mock_ctx, style_name="NewStyle", parent_style="Standard", property_updates={"CharColor": "#FF0000"})
 
     assert res["status"] == "ok"
@@ -226,7 +226,7 @@ def test_create_style_conditional(mock_nv):
     nv_instance = MagicMock()
     mock_nv.return_value = nv_instance
 
-    tool = CreateStyle()
+    tool = StyleCreate()
     rules = [{"context": "Table", "target_style": "Heading 1"}]
     res = tool.execute(mock_ctx, style_name="CondStyle", conditional_rules=rules)
 
@@ -249,7 +249,7 @@ def test_import_styles(mock_pv, mock_uno, mock_ctx):
     pv_instance = MagicMock()
     mock_pv.return_value = pv_instance
 
-    tool = ImportStyles()
+    tool = StyleImport()
     res = tool.execute(mock_ctx, file_path="/path/to/doc.ott", overwrite=True)
 
     assert res["status"] == "ok"

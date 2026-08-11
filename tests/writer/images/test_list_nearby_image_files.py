@@ -5,14 +5,14 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 from plugin.framework.tool import ToolContext, ToolRegistry
-from plugin.writer.images.images import ListNearbyImageFiles
+from plugin.writer.images.images import ImageListNearbyFiles
 from plugin.writer.specialized_base import SpecializedWorkflowFinished
 from plugin.doc.document_research_tools import ListNearbyFiles
 from tests.chatbot.test_tool_loop import DummyCalcSpecialTool
 
 
 def test_list_nearby_image_files_calls_backend_with_images_kind():
-    tool = ListNearbyImageFiles()
+    tool = ImageListNearbyFiles()
     ctx = ToolContext(MagicMock(), MagicMock(), "writer", MagicMock())
 
     expected = {"status": "ok", "files": [], "truncated": False}
@@ -27,7 +27,7 @@ def test_list_nearby_image_files_calls_backend_with_images_kind():
 
 def test_images_domain_includes_list_nearby_image_files_not_document_research_list():
     registry = ToolRegistry(services={})
-    registry.register(ListNearbyImageFiles())
+    registry.register(ImageListNearbyFiles())
     registry.register(DummyCalcSpecialTool())
     registry.register(ListNearbyFiles())
     registry.register(SpecializedWorkflowFinished())

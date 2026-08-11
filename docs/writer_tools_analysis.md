@@ -4,22 +4,22 @@
 
 | File | Tools | Lines | Bytes |
 |------|-------|-------|-------|
-| [bookmarks.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/bookmarks.py) | ListBookmarks, CleanupBookmarks | 51 | 1.8K |
-| [comments.py](../../plugin/writer/comments.py) | ListComments, AddComment, DeleteComment, ResolveComment, workflow | 548 | 19.1K |
+| [bookmarks.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/bookmarks.py) | BookmarkList, BookmarkCleanup | 51 | 1.8K |
+| [comments.py](../../plugin/writer/comments.py) | CommentList, AddComment, CommentDelete, CommentResolve, workflow | 548 | 19.1K |
 | [content.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/content.py) | GetDocumentContent, ApplyDocumentContent, FindText, ReadParagraphs, InsertAtParagraph, SetParagraphText, SetParagraphStyle, DeleteParagraph, DuplicateParagraph, CloneHeadingBlock, InsertParagraphsBatch | 1032 | 36.4K |
 | [format.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/format.py) | *(helper module, no tools)* | 580 | 20.2K |
-| [frames.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/frames.py) | ListTextFrames, GetTextFrameInfo, SetTextFrameProperties | 276 | 9.1K |
+| [frames.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/frames.py) | FrameList, FrameGetInfo, FrameSetProperties | 276 | 9.1K |
 | [fulltext.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/fulltext.py) | SearchFulltext, GetIndexStats | 160 | 5.5K |
-| [images.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/images.py) | GenerateImage, EditImage | 123 | 3.6K |
-| [images_doc.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/images_doc.py) | ListImages, GetImageInfo, SetImageProperties, DownloadImage, InsertImage, DeleteImage, ReplaceImage | 729 | 24.1K |
-| [navigation.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/navigation.py) | NavigateHeading, GetSurroundings | 90 | 3.1K |
+| [images.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/images.py) | ImageGenerate, EditImage | 123 | 3.6K |
+| [images_doc.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/images_doc.py) | ImageList, ImageGetInfo, ImageSetProperties, ImageDownload, ImageInsert, ImageDelete, ImageReplace | 729 | 24.1K |
+| [navigation.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/navigation.py) | NavHeading, NavSurroundings | 90 | 3.1K |
 | [ops.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/ops.py) | *(helper module, no tools)* | 125 | 3.8K |
 | [outline.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/outline.py) | GetDocumentOutline, GetHeadingContent | 181 | 5.6K |
 | [search.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/search.py) | SearchInDocument, ReplaceInDocument | 241 | 8.1K |
 | [stats.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/stats.py) | GetDocumentStats | 83 | 2.3K |
-| [structural.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/structural.py) | ListSections, GotoPage, GetPageObjects, RefreshIndexes, ReadSection, ResolveBookmark, UpdateFields | 372 | 13.4K |
-| [styles.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/styles.py) | ListStyles, GetStyleInfo | 151 | 4.3K |
-| [tables.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/tables.py) | ListTables, ReadTable, WriteTableCell, CreateTable | 279 | 8.8K |
+| [structural.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/structural.py) | SectionList, NavGotoPage, GetPageObjects, RefreshIndexes, SectionRead, BookmarkResolve, UpdateFields | 372 | 13.4K |
+| [styles.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/styles.py) | StyleList, StyleGetInfo | 151 | 4.3K |
+| [tables.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/tables.py) | TableList, ReadTable, WriteTableCell, CreateTable | 279 | 8.8K |
 | [tracking.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/tracking.py) | SetTrackChanges, GetTrackedChanges, AcceptAllChanges, RejectAllChanges | 152 | 4.6K |
 | [tree.py](../../plugin/writer/tree.py) | *(service only; tools in outline.py)* | 496 | 19.6K |
 
@@ -71,12 +71,12 @@ Currently split into:
 ### 4. [bookmarks.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/bookmarks.py) → fold into [structural.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/structural.py)
 
 [bookmarks.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/bookmarks.py) has 2 small tools (51 lines):
-- [ListBookmarks](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/bookmarks.py#6-34) — lists bookmarks
-- [CleanupBookmarks](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/bookmarks.py#36-51) — removes `_mcp_*` bookmarks
+- [BookmarkList](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/bookmarks.py#6-34) — lists bookmarks
+- [BookmarkCleanup](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/bookmarks.py#36-51) — removes `_mcp_*` bookmarks
 
-[structural.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/structural.py) already has [ResolveBookmark](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/structural.py#254-336). All three are bookmark operations.
+[structural.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/structural.py) already has [BookmarkResolve](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/structural.py#254-336). All three are bookmark operations.
 
-**Proposal:** Move [ListBookmarks](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/bookmarks.py#6-34) and [CleanupBookmarks](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/bookmarks.py#36-51) into [structural.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/structural.py) (renaming it or keeping the name). Delete [bookmarks.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/bookmarks.py).
+**Proposal:** Move [BookmarkList](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/bookmarks.py#6-34) and [BookmarkCleanup](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/bookmarks.py#36-51) into [structural.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/structural.py) (renaming it or keeping the name). Delete [bookmarks.py](file:///home/keithcu/Desktop/Python/writeragent/plugin/writer/bookmarks.py).
 
 **Savings:** 1 file removed, ~10 lines of boilerplate
 

@@ -135,7 +135,7 @@ class BookmarkService(ServiceBase):
 # ── Bookmark Tools ────────────────────────────────────────────────────
 
 
-class ListBookmarks(ToolWriterBookmarkBase):
+class BookmarkList(ToolWriterBookmarkBase):
     name = "bookmark_list"
     description = "List all bookmarks in the document with their anchor text preview. Includes both user bookmarks and _mcp_ heading bookmarks."
     parameters = {"type": "object", "properties": {}, "required": []}
@@ -157,7 +157,7 @@ class ListBookmarks(ToolWriterBookmarkBase):
             return {"status": "error", "message": str(e)}
 
 
-class CleanupBookmarks(ToolWriterBookmarkBase):
+class BookmarkCleanup(ToolWriterBookmarkBase):
     name = "bookmark_cleanup"
     description = "Remove all _mcp_* bookmarks from the document. Use when bookmarks become stale after major edits."
     parameters = {"type": "object", "properties": {}, "required": []}
@@ -169,7 +169,7 @@ class CleanupBookmarks(ToolWriterBookmarkBase):
         return {"status": "ok", "removed": removed}
 
 
-class CreateBookmark(ToolWriterBookmarkBase):
+class BookmarkCreate(ToolWriterBookmarkBase):
     name = "bookmark_create"
     description = "Create a new bookmark at the current cursor or selection in Writer. If text is selected, the bookmark will span the selection."
     parameters = {"type": "object", "properties": {"name": {"type": "string", "description": "The unique name for the new bookmark."}}, "required": ["name"]}
@@ -214,7 +214,7 @@ class CreateBookmark(ToolWriterBookmarkBase):
             return self._tool_error(f"Failed to create bookmark: {str(e)}")
 
 
-class DeleteBookmark(ToolWriterBookmarkBase):
+class BookmarkDelete(ToolWriterBookmarkBase):
     name = "bookmark_delete"
     description = "Delete an existing bookmark by its name."
     parameters = {"type": "object", "properties": {"name": {"type": "string", "description": "The name of the bookmark to delete."}}, "required": ["name"]}
@@ -245,7 +245,7 @@ class DeleteBookmark(ToolWriterBookmarkBase):
             return self._tool_error(f"Failed to delete bookmark: {str(e)}")
 
 
-class RenameBookmark(ToolWriterBookmarkBase):
+class BookmarkRename(ToolWriterBookmarkBase):
     name = "bookmark_rename"
     description = "Rename an existing bookmark."
     parameters = {"type": "object", "properties": {"old_name": {"type": "string", "description": "The current name of the bookmark."}, "new_name": {"type": "string", "description": "The new name for the bookmark."}}, "required": ["old_name", "new_name"]}
@@ -278,7 +278,7 @@ class RenameBookmark(ToolWriterBookmarkBase):
             return self._tool_error(f"Failed to rename bookmark: {str(e)}")
 
 
-class GetBookmark(ToolWriterBookmarkBase):
+class BookmarkGet(ToolWriterBookmarkBase):
     name = "bookmark_get"
     description = "Get details about a specific bookmark, including the text it spans."
     parameters = {"type": "object", "properties": {"name": {"type": "string", "description": "The name of the bookmark."}}, "required": ["name"]}
@@ -306,7 +306,7 @@ class GetBookmark(ToolWriterBookmarkBase):
             return self._tool_error(f"Failed to get bookmark details: {str(e)}")
 
 
-class ResolveBookmark(ToolWriterBookmarkBase):
+class BookmarkResolve(ToolWriterBookmarkBase):
     """Resolve a bookmark to its paragraph index and heading text."""
 
     name = "bookmark_resolve"

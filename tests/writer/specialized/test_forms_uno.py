@@ -97,8 +97,8 @@ def test_create_form_fat_api(ctx, doc):
 @with_native_doc("writer")
 def test_generate_form_processing_logic(ctx, doc):
     # We test the parser and processor directly to avoid flaky LLM calls in CI
-    from plugin.writer.specialized.forms import GenerateForm
-    tool = GenerateForm()
+    from plugin.writer.specialized.forms import FormGenerate
+    tool = FormGenerate()
     
     mock_ctx = MockCtx(doc)
     
@@ -121,8 +121,8 @@ def test_generate_form_processing_logic(ctx, doc):
 
 @native_test
 def test_parse_field_tag():
-    from plugin.writer.specialized.forms import GenerateForm
-    tool = GenerateForm()
+    from plugin.writer.specialized.forms import FormGenerate
+    tool = FormGenerate()
     
     tag = "{FIELD:type='combobox',name='my_list',items='A,B,C',label='Pick one'}"
     params = tool._parse_field_tag(tag)
@@ -149,8 +149,8 @@ def test_parse_field_tag():
 @with_native_doc("writer")
 def test_insert_text_with_view_cursor(ctx, doc):
     """Verify that _insert_text correctly handles the ViewCursor by converting it."""
-    from plugin.writer.specialized.forms import GenerateForm
-    tool = GenerateForm()
+    from plugin.writer.specialized.forms import FormGenerate
+    tool = FormGenerate()
     
     mock_ctx = MockCtx(doc)
     

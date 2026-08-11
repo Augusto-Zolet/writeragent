@@ -52,7 +52,7 @@ AI Horde was removed; `provider="aihorde"` still maps to `"endpoint"`.
 
 | Layer | Location | Role |
 |-------|----------|------|
-| Tool | [`plugin/writer/images/images.py`](../plugin/writer/images/images.py) `GenerateImage` | Aspect/size rounding, selection → base64 for img2img, calls `ImageService`, inserts via main thread |
+| Tool | [`plugin/writer/images/images.py`](../plugin/writer/images/images.py) `ImageGenerate` | Aspect/size rounding, selection → base64 for img2img, calls `ImageService`, inserts via main thread |
 | Service | [`plugin/writer/images/image_utils.py`](../plugin/writer/images/image_utils.py) `ImageService` | Merges config defaults (`image_base_size`, `image_steps`), resolves provider |
 | Provider | `EndpointImageProvider` | HTTP via `LlmClient` / `sync_request`; returns `(paths: list[str], error: str)` |
 | Config | [`plugin/framework/config.py`](../plugin/framework/config.py) | `image_model`, `image_base_size`, `image_steps`, `seed`, gallery/frame flags |
@@ -232,7 +232,7 @@ Img2img **strength** semantics align with WriterAgent's existing default `0.75`:
 
 ## Design Principles
 
-1. **Extend `ImageProvider`, don't fork the tool.** One `ImageService.get_provider(name)` registry; `GenerateImage` unchanged except provider enum/docs.
+1. **Extend `ImageProvider`, don't fork the tool.** One `ImageService.get_provider(name)` registry; `ImageGenerate` unchanged except provider enum/docs.
 2. **Least new complexity (AGENTS.md).** Prefer **existing `endpoint` + shims** (Ollama) over new backends. Add code only where the API is genuinely different (**ComfyUI**).
 3. **Host process for ComfyUI.** No torch in the LibreOffice Python runtime. GPU work stays in ComfyUI or in user-managed servers (Ollama, etc.).
 4. **Config in `writeragent.json`.** Same hygiene as other integrations — no env API keys in production; redact URLs/tokens in logs.
@@ -245,7 +245,7 @@ Img2img **strength** semantics align with WriterAgent's existing default `0.75`:
 
 ```mermaid
 flowchart LR
-  subgraph tool [GenerateImage tool]
+  subgraph tool [ImageGenerate tool]
     GI[generate_image]
   end
   subgraph svc [ImageService]
@@ -330,7 +330,7 @@ Existing keys (`image_base_size`, `image_default_aspect`, `image_auto_gallery`, 
 | `strength` (img2img) | shim | KSampler.denoise |
 | `source_image` (b64) | multimodal / server-dependent | upload + LoadImage |
 
-Aspect ratio logic in `GenerateImage` (64-pixel rounding) applies to all backends.
+Aspect ratio logic in `ImageGenerate` (64-pixel rounding) applies to all backends.
 
 ---
 

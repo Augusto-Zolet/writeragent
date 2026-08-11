@@ -19,11 +19,11 @@ except ImportError:
 
 from plugin.tests.testing_utils import TestingFactory
 from plugin.writer.specialized.bookmarks import (
-    CreateBookmark,
-    DeleteBookmark,
-    RenameBookmark,
-    GetBookmark,
-    ListBookmarks,
+    BookmarkCreate,
+    BookmarkDelete,
+    BookmarkRename,
+    BookmarkGet,
+    BookmarkList,
 )
 
 
@@ -48,7 +48,7 @@ def test_create_bookmark(mock_ctx):
     mock_bookmark_inst = MagicMock()
     doc.createInstance.return_value = mock_bookmark_inst
 
-    tool = CreateBookmark()
+    tool = BookmarkCreate()
     res = tool.execute(mock_ctx, name="MyNewBookmark")
 
     assert res["status"] == "ok"
@@ -64,7 +64,7 @@ def test_create_bookmark_already_exists(mock_ctx):
     doc.getBookmarks.return_value = mock_bookmarks
     mock_bookmarks.hasByName.return_value = True
 
-    tool = CreateBookmark()
+    tool = BookmarkCreate()
     res = tool.execute(mock_ctx, name="ExistingBookmark")
 
     assert res["status"] == "error"
@@ -84,7 +84,7 @@ def test_delete_bookmark(mock_ctx):
     mock_text = MagicMock()
     mock_anchor.getText.return_value = mock_text
 
-    tool = DeleteBookmark()
+    tool = BookmarkDelete()
     res = tool.execute(mock_ctx, name="ToDelete")
 
     assert res["status"] == "ok"
@@ -105,7 +105,7 @@ def test_rename_bookmark(mock_ctx):
     mock_bm = MagicMock()
     mock_bookmarks.getByName.return_value = mock_bm
 
-    tool = RenameBookmark()
+    tool = BookmarkRename()
     res = tool.execute(mock_ctx, old_name="OldName", new_name="NewName")
 
     assert res["status"] == "ok"
@@ -125,7 +125,7 @@ def test_get_bookmark(mock_ctx):
     mock_bm.getAnchor.return_value = mock_anchor
     mock_anchor.getString.return_value = "Spanned Text Here"
 
-    tool = GetBookmark()
+    tool = BookmarkGet()
     res = tool.execute(mock_ctx, name="InfoBM")
 
     assert res["status"] == "ok"
@@ -151,7 +151,7 @@ def test_list_bookmarks(mock_ctx):
     mock_anchor2.getString.return_value = "" # empty text for point bookmark
     mock_bm2.getAnchor.return_value = mock_anchor2
 
-    tool = ListBookmarks()
+    tool = BookmarkList()
     res = tool.execute(mock_ctx)
 
     assert res["status"] == "ok"

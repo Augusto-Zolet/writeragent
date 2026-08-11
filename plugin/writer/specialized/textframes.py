@@ -27,7 +27,7 @@ from ..specialized_base import ToolWriterTextFramesBase
 log = logging.getLogger("writeragent.writer")
 
 
-class ListTextFrames(ToolWriterTextFramesBase):
+class FrameList(ToolWriterTextFramesBase):
     """List all text frames in the document."""
 
     name = "frame_list"
@@ -69,11 +69,11 @@ class ListTextFrames(ToolWriterTextFramesBase):
 
 
 # ------------------------------------------------------------------
-# GetTextFrameInfo
+# FrameGetInfo
 # ------------------------------------------------------------------
 
 
-class GetTextFrameInfo(ToolWriterTextFramesBase):
+class FrameGetInfo(ToolWriterTextFramesBase):
     """Get detailed info about a text frame."""
 
     name = "frame_get_info"
@@ -151,11 +151,11 @@ class GetTextFrameInfo(ToolWriterTextFramesBase):
 
 
 # ------------------------------------------------------------------
-# SetTextFrameProperties
+# FrameSetProperties
 # ------------------------------------------------------------------
 
 
-class SetTextFrameProperties(ToolWriterTextFramesBase):
+class FrameSetProperties(ToolWriterTextFramesBase):
     """Resize or reposition a text frame."""
 
     name = "frame_set_properties"

@@ -573,13 +573,13 @@ def test_streamed_append_no_output_restores_prior_recording_uno(ctx, doc):
 @with_native_doc("writer")
 def test_update_style_flags_unreviewed_when_review_on_uno(ctx, doc):
     """Like apply_style, update_style is a style mutation -> not reviewable -> must flag the agent."""
-    from plugin.writer.styles import UpdateStyle
+    from plugin.writer.styles import StyleUpdate
 
     _reset(doc, ctx, "Body text for style update.")
     prev = get_config(_FLAG)
     set_config(_FLAG, "record")
     try:
-        res = UpdateStyle().execute(
+        res = StyleUpdate().execute(
             _tool_ctx(doc, ctx), style_name="Standard", family="ParagraphStyles",
             property_updates={"CharWeight": 150.0})  # 150.0 == BOLD
         assert res.get("status") == "ok", res

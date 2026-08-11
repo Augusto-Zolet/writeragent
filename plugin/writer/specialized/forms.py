@@ -105,7 +105,7 @@ def _plain_text_for_calc_html_fragment(html: str) -> str:
     return t
 
 
-class CreateFormControl(ToolWriterFormBase):
+class FormCreateControl(ToolWriterFormBase):
     """Creates a single interactive form control at the current cursor position."""
 
     name = "form_create_control"
@@ -204,7 +204,7 @@ class CreateFormControl(ToolWriterFormBase):
             return format_error_payload(ToolExecutionError(f"Error creating form control: {str(e)}"))
 
 
-class CreateForm(ToolWriterFormBase):
+class FormCreate(ToolWriterFormBase):
     """Fat API: Creates multiple form controls at once."""
 
     name = "form_create"
@@ -238,7 +238,7 @@ class CreateForm(ToolWriterFormBase):
     def execute(self, ctx, **kwargs):
         fields = kwargs.get("fields", [])
         results = []
-        creator = CreateFormControl()
+        creator = FormCreateControl()
         for field in fields:
             res = creator._execute_main(ctx, **field)
             results.append(res)
@@ -258,7 +258,7 @@ class CreateForm(ToolWriterFormBase):
         doc.getText().insertString(vc, " ", False)
 
 
-class GenerateForm(ToolWriterFormBase):
+class FormGenerate(ToolWriterFormBase):
     """Thin API: Generates a form from a description using a specialized internal prompt."""
 
     name = "form_generate"
@@ -307,7 +307,7 @@ Output ONLY the HTML content. No explanations. No Markdown like # Header.
         # We'll split the content by {FIELD:...} tags and insert parts
         parts = re.split(r"(\{FIELD:[^\}]+\})", content)
 
-        creator = CreateFormControl()
+        creator = FormCreateControl()
 
         for part in parts:
             if part.startswith("{FIELD:"):
@@ -360,7 +360,7 @@ Output ONLY the HTML content. No explanations. No Markdown like # Header.
         return params
 
 
-class ListFormControls(ToolWriterFormBase):
+class FormListControls(ToolWriterFormBase):
     """Lists all interactive form controls in the document."""
 
     name = "form_list_controls"
@@ -406,7 +406,7 @@ class ListFormControls(ToolWriterFormBase):
         return out
 
 
-class EditFormControl(ToolWriterFormBase):
+class FormEditControl(ToolWriterFormBase):
     """Modifies properties of an existing form control."""
 
     name = "form_edit_control"
@@ -469,7 +469,7 @@ class EditFormControl(ToolWriterFormBase):
         return {"status": "ok", "message": f"Updated form control at index {idx}", "control_name": model.Name}
 
 
-class DeleteFormControl(ToolWriterFormBase):
+class FormDeleteControl(ToolWriterFormBase):
     """Deletes a form control by its index."""
 
     name = "form_delete_control"

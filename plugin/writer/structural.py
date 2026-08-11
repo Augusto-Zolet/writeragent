@@ -24,7 +24,7 @@ from plugin.framework.tool import ToolBase
 from .specialized_base import ToolWriterStructuralBase
 
 
-class ListSections(ToolWriterStructuralBase):
+class SectionList(ToolWriterStructuralBase):
     name = "section_list"
     intent = "navigate"
     description = "List all named sections in the document."
@@ -44,7 +44,7 @@ class ListSections(ToolWriterStructuralBase):
         return {"status": "ok", "sections": sections, "count": len(sections)}
 
 
-class GotoPage(ToolWriterStructuralBase):
+class NavGotoPage(ToolWriterStructuralBase):
     name = "nav_goto_page"
     intent = "navigate"
     is_mutation = False
@@ -201,7 +201,7 @@ class GetPageObjects(ToolBase):
         return {"images": images, "tables": tables, "frames": frames, "shapes": shapes}
 
 
-class ReadSection(ToolWriterStructuralBase):
+class SectionRead(ToolWriterStructuralBase):
     """Read the content of a named text section."""
 
     name = "section_read"

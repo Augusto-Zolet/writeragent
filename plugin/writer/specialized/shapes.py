@@ -52,7 +52,7 @@ class GetDrawSummary(DrawGetDrawSummary, ToolWriterShapeBase):
     uno_services = _WRITER_DRAW_SHAPE_DOCS
 
 
-class ListWriterImages(ToolWriterShapeBase):
+class ShapeListImages(ToolWriterShapeBase):
     """List graphic objects anchored in the Writer document (text layer)."""
 
     name = "shape_list_images"

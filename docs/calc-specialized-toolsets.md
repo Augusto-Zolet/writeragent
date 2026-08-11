@@ -67,7 +67,7 @@ WriterAgent's `write_formula_range` tool takes a different design approach than 
 | **Tables** | ✅ Implemented | `tables.py`: CreateTable, GetTableInfo, SetTableStyle | — |
 | **Shapes** | ✅ Implemented | `shapes.py`: Create/Edit/DeleteShape (shared with Writer/Draw) | — |
 | **Comments** | ✅ Implemented | `comments.py`: ListCellComments, AddCellComment, DeleteCellComment | Specialized tier |
-| **Forms** | ✅ Implemented | `forms.py`: CreateForm, GenerateForm, ListFormControls, CreateFormControl, EditFormControl, DeleteFormControl (shared with Writer) | Specialized tier |
+| **Forms** | ✅ Implemented | `forms.py`: FormCreate, FormGenerate, FormListControls, FormCreateControl, FormEditControl, FormDeleteControl (shared with Writer) | Specialized tier |
 
 ### 3.2 Future enhancements (roadmap)
 

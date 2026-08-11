@@ -19,7 +19,7 @@
 from .specialized_base import ToolWriterStructuralBase
 
 
-class NavigateHeading(ToolWriterStructuralBase):
+class NavHeading(ToolWriterStructuralBase):
     name = "nav_heading"
     intent = "navigate"
     is_mutation = False
@@ -45,7 +45,7 @@ class NavigateHeading(ToolWriterStructuralBase):
             return self._tool_error(str(e))
 
 
-class GetSurroundings(ToolWriterStructuralBase):
+class NavSurroundings(ToolWriterStructuralBase):
     name = "nav_surroundings"
     intent = "navigate"
     description = "Discover objects within a radius of paragraphs around a locator. Returns nearby paragraphs, heading chain, images, tables, frames, and comments."

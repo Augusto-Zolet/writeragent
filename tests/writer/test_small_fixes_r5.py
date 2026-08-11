@@ -97,30 +97,30 @@ def _pagebreak_doc(found_next=True):
 
 
 def test_page_break_before_text_sets_break_on_match_paragraph():
-    from plugin.writer.page import InsertPageBreak
+    from plugin.writer.page import PageInsertBreak
 
     doc, para = _pagebreak_doc()
-    res = InsertPageBreak().execute(SimpleNamespace(doc=doc), before_text="Assinaturas")
+    res = PageInsertBreak().execute(SimpleNamespace(doc=doc), before_text="Assinaturas")
     assert res["status"] == "ok" and "before" in res["message"]
     para.setPropertyValue.assert_called_once_with("BreakType", "PAGE_BEFORE")
     para.gotoNextParagraph.assert_not_called()
 
 
 def test_page_break_after_text_breaks_on_following_paragraph():
-    from plugin.writer.page import InsertPageBreak
+    from plugin.writer.page import PageInsertBreak
 
     doc, para = _pagebreak_doc(found_next=True)
-    res = InsertPageBreak().execute(SimpleNamespace(doc=doc), after_text="clausula")
+    res = PageInsertBreak().execute(SimpleNamespace(doc=doc), after_text="clausula")
     assert res["status"] == "ok" and "after" in res["message"]
     para.gotoNextParagraph.assert_called_once()
     para.setPropertyValue.assert_called_once_with("BreakType", "PAGE_BEFORE")
 
 
 def test_page_break_after_text_last_paragraph_errors_instead_of_wrong_direction():
-    from plugin.writer.page import InsertPageBreak
+    from plugin.writer.page import PageInsertBreak
 
     doc, para = _pagebreak_doc(found_next=False)
-    res = InsertPageBreak().execute(SimpleNamespace(doc=doc), after_text="assinatura final")
+    res = PageInsertBreak().execute(SimpleNamespace(doc=doc), after_text="assinatura final")
     assert res["status"] == "error" and "last paragraph" in res["message"]
     para.setPropertyValue.assert_not_called()  # never the wrong-direction silent break
 
@@ -193,17 +193,17 @@ def test_add_comment_not_found_at_occurrence():
 # ---- D5: insert_page_break anchored -----------------------------------------
 
 def test_page_break_both_anchors_rejected():
-    from plugin.writer.page import InsertPageBreak
-    res = InsertPageBreak().execute(SimpleNamespace(doc=MagicMock()), before_text="a", after_text="b")
+    from plugin.writer.page import PageInsertBreak
+    res = PageInsertBreak().execute(SimpleNamespace(doc=MagicMock()), before_text="a", after_text="b")
     assert res["status"] == "error" and "only one" in res["message"]
 
 
 def test_page_break_anchor_not_found():
-    from plugin.writer.page import InsertPageBreak
+    from plugin.writer.page import PageInsertBreak
     doc = MagicMock()
     doc.findFirst.return_value = None
     # com.sun.star.style.BreakType is a mocked module; the import inside execute resolves via the uno mock.
-    res = InsertPageBreak().execute(SimpleNamespace(doc=doc), before_text="Signature")
+    res = PageInsertBreak().execute(SimpleNamespace(doc=doc), before_text="Signature")
     assert res["status"] == "error" and "not found" in res["message"]
 
 

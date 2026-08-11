@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from plugin.testing_runner import native_test
-from plugin.writer.styles import CreateStyle, ListStyles, UpdateStyle
+from plugin.writer.styles import StyleCreate, StyleList, StyleUpdate
 from plugin.tests.testing_utils import TestingFactory, with_native_doc
 
 
@@ -24,7 +24,7 @@ def test_create_paragraph_style_uno(ctx, doc):
     tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
     
     style_name = "AgentCustomPara"
-    tool = CreateStyle()
+    tool = StyleCreate()
     res = tool.execute(tool_ctx, style_name=style_name, parent_style="Standard", property_updates={"CharWeight": 150.0, "CharColor": "#FF0000"})
     
     assert res["status"] == "ok", f"Tool failed: {res.get('message') or res}"
@@ -46,7 +46,7 @@ def test_create_conditional_style_uno(ctx, doc):
     
     style_name = "AgentCondPara"
     rules = [{"context": "Table", "target_style": "Heading 1"}]
-    tool = CreateStyle()
+    tool = StyleCreate()
     res = tool.execute(tool_ctx, style_name=style_name, conditional_rules=rules)
     
     assert res["status"] == "ok", f"Tool failed: {res.get('message') or res}"
@@ -73,7 +73,7 @@ def test_update_style_parent_uno(ctx, doc):
         style_name, doc.createInstance("com.sun.star.style.ParagraphStyle")
     )
     
-    tool = UpdateStyle()
+    tool = StyleUpdate()
     res = tool.execute(tool_ctx, style_name=style_name, parent_style="Heading 1")
     
     assert res["status"] == "ok", f"Tool failed: {res.get('message') or res}"
@@ -86,7 +86,7 @@ def test_update_style_parent_uno(ctx, doc):
 def test_list_styles_uno(ctx, doc):
     tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
     
-    tool = ListStyles()
+    tool = StyleList()
     res = tool.execute(tool_ctx, family="ParagraphStyles")
     
     assert res["status"] == "ok", f"Tool failed: {res.get('message') or res}"

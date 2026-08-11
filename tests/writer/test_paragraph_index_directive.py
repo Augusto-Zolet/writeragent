@@ -9,7 +9,7 @@ cite that number to the user (the index is internal and shifts as the document c
 that coverage so a future tool can't quietly start leaking an index without the directive.
 """
 from plugin.framework.prompts import PARAGRAPH_INDEX_DIRECTIVE
-from plugin.writer.outline import GetDocumentTree, GetHeadingChildren
+from plugin.writer.outline import GetDocumentTree, NavHeadingChildren
 from plugin.writer.search import SearchInDocument
 from plugin.writer.structural import GetPageObjects
 
@@ -17,7 +17,7 @@ from plugin.writer.structural import GetPageObjects
 # NOTE: SearchInDocument no longer belongs here — its results carry {text, location, context}
 # (no paragraph_index anymore) and its description instructs quoting the match text + location
 # instead of any internal index. Pinned separately below so the intent can't silently regress.
-_INDEX_TOOLS = (GetPageObjects, GetDocumentTree, GetHeadingChildren)
+_INDEX_TOOLS = (GetPageObjects, GetDocumentTree, NavHeadingChildren)
 
 
 def test_index_tools_warn_against_citing_paragraph_numbers():

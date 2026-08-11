@@ -232,10 +232,10 @@ Provider-specific response parsing lives in `plugin/framework/client/response_no
 **Files**: `plugin/writer/styles.py`
 **Status**: Fully implemented and tested
 
-- ✅ Implement `styles_create_or_update` (via `CreateStyle` and `UpdateStyle`)
+- ✅ Implement `styles_create_or_update` (via `StyleCreate` and `StyleUpdate`)
 - ✅ Add style inheritance system
 - ✅ Support conditional styles
-- ✅ Add style import/export (via `ImportStyles`)
+- ✅ Add style import/export (via `StyleImport`)
 - [ ] Add style preview functionality
 
 **Dependencies**: UNO style family documentation

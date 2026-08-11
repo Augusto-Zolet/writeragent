@@ -204,10 +204,10 @@ def test_to_mcp_schema_delegate_calc_domain_list_omits_python():
 
 
 def test_update_style_schema_emits_no_additional_properties_keyword():
-    """xAI/OpenRouter reject nested additionalProperties; UpdateStyle uses exhaustive properties only."""
-    from plugin.writer.styles import UpdateStyle
+    """xAI/OpenRouter reject nested additionalProperties; StyleUpdate uses exhaustive properties only."""
+    from plugin.writer.styles import StyleUpdate
 
-    schema = to_openai_schema(UpdateStyle())
+    schema = to_openai_schema(StyleUpdate())
     wire = json.dumps(schema["function"]["parameters"])
     assert "additionalProperties" not in wire
     assert "property_updates" in schema["function"]["parameters"]["properties"]

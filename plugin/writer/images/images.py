@@ -17,8 +17,8 @@
 """Writer image generation and editing tools.
 
 Alternative (not implemented): consolidate the document image tools
-(ListImages, GetImageInfo, SetImageProperties, DownloadImage, InsertImage,
-DeleteImage, ReplaceImage) into a single manage_image tool with
+(ImageList, ImageGetInfo, ImageSetProperties, ImageDownload, ImageInsert,
+ImageDelete, ImageReplace) into a single manage_image tool with
 action: list | info | set_properties | download | insert | delete | replace
 and action-specific parameters. Would reduce 7 tools to 1 but yield a
 larger single schema.
@@ -60,7 +60,7 @@ from .image_tools import (
 log = logging.getLogger("writeragent.writer")
 
 
-class GenerateImage(ToolWriterImageBase):
+class ImageGenerate(ToolWriterImageBase):
     """Generate a new image from a prompt, or edit an existing image (Img2Img)."""
 
     name = "image_generate"
@@ -188,11 +188,11 @@ _IMAGE_CACHE_DIR = os.path.join(tempfile.gettempdir(), IMAGE_CACHE_DIR_NAME)
 
 
 # ------------------------------------------------------------------
-# ListNearbyImageFiles
+# ImageListNearbyFiles
 # ------------------------------------------------------------------
 
 
-class ListNearbyImageFiles(ToolWriterImageBase):
+class ImageListNearbyFiles(ToolWriterImageBase):
     """List image files in the active document's directory (images delegate only)."""
 
     name = "image_list_nearby_files"
@@ -225,11 +225,11 @@ class ListNearbyImageFiles(ToolWriterImageBase):
 
 
 # ------------------------------------------------------------------
-# ListImages
+# ImageList
 # ------------------------------------------------------------------
 
 
-class ListImages(ToolWriterImageBase):
+class ImageList(ToolWriterImageBase):
     """List all images/graphic objects in the document."""
 
     name = "image_list"
@@ -299,7 +299,7 @@ class ListImages(ToolWriterImageBase):
 
 
 # ------------------------------------------------------------------
-# GetImageInfo
+# ImageGetInfo
 # ------------------------------------------------------------------
 
 
@@ -307,7 +307,7 @@ def _get_graphic_object(ctx, doc, image_name):
     return visual_helpers.get_graphic_object_by_name(doc, image_name)
 
 
-class GetImageInfo(ToolWriterImageBase):
+class ImageGetInfo(ToolWriterImageBase):
     """Get detailed info about a specific image."""
 
     name = "image_get_info"
@@ -412,7 +412,7 @@ class GetImageInfo(ToolWriterImageBase):
 
 
 # ------------------------------------------------------------------
-# SetImageProperties
+# ImageSetProperties
 # ------------------------------------------------------------------
 
 
@@ -476,7 +476,7 @@ def _resolve_crop_edges(kwargs, current) -> tuple[int, int, int, int]:
     )
 
 
-class SetImageProperties(ToolWriterImageBase):
+class ImageSetProperties(ToolWriterImageBase):
     """Resize, reposition, crop, or update caption/alt-text for an image."""
 
     name = "image_set_properties"
@@ -589,11 +589,11 @@ class SetImageProperties(ToolWriterImageBase):
 
 
 # ------------------------------------------------------------------
-# DownloadImage
+# ImageDownload
 # ------------------------------------------------------------------
 
 
-class DownloadImage(ToolWriterImageBase):
+class ImageDownload(ToolWriterImageBase):
     """Download an image from URL to local cache."""
 
     name = "image_download"
@@ -617,11 +617,11 @@ class DownloadImage(ToolWriterImageBase):
 
 
 # ------------------------------------------------------------------
-# InsertImage
+# ImageInsert
 # ------------------------------------------------------------------
 
 
-class InsertImage(ToolWriterImageBase):
+class ImageInsert(ToolWriterImageBase):
     """Insert an image from local path or URL into the document."""
 
     name = "image_insert"
@@ -732,11 +732,11 @@ class InsertImage(ToolWriterImageBase):
 
 
 # ------------------------------------------------------------------
-# DeleteImage
+# ImageDelete
 # ------------------------------------------------------------------
 
 
-class DeleteImage(ToolWriterImageBase):
+class ImageDelete(ToolWriterImageBase):
     """Delete an image from the document."""
 
     name = "image_delete"
@@ -768,11 +768,11 @@ class DeleteImage(ToolWriterImageBase):
 
 
 # ------------------------------------------------------------------
-# ReplaceImage
+# ImageReplace
 # ------------------------------------------------------------------
 
 
-class ReplaceImage(ToolWriterImageBase):
+class ImageReplace(ToolWriterImageBase):
     """Replace an image's source file keeping position and frame."""
 
     name = "image_replace"

@@ -111,7 +111,7 @@ def _get_bool_prop(obj, prop_name, default=False):
         return default
 
 
-class ListStyles(ToolWriterStyleBase):
+class StyleList(ToolWriterStyleBase):
     """List available styles in a given family."""
 
     name = "style_list"
@@ -220,7 +220,7 @@ class ListStyles(ToolWriterStyleBase):
         return {"status": "ok", "family": family, "styles": styles, "count": len(styles)}
 
 
-class GetStyleInfo(ToolWriterStyleBase):
+class StyleGetInfo(ToolWriterStyleBase):
     """Get detailed properties of a named style."""
 
     name = "style_get_info"
@@ -409,7 +409,7 @@ class ApplyStyle(FrameworkToolBase):
         return result
 
 
-class UpdateStyle(ToolWriterStyleBase):
+class StyleUpdate(ToolWriterStyleBase):
     """Update properties of an existing paragraph or character style."""
 
     name = "style_update"
@@ -503,7 +503,7 @@ class UpdateStyle(ToolWriterStyleBase):
         return result
 
 
-class CreateStyle(ToolWriterStyleBase):
+class StyleCreate(ToolWriterStyleBase):
     """Create a new paragraph or character style."""
 
     name = "style_create"
@@ -631,7 +631,7 @@ class CreateStyle(ToolWriterStyleBase):
         return result
 
 
-class ImportStyles(ToolWriterStyleBase):
+class StyleImport(ToolWriterStyleBase):
     """Import styles from an external document or template."""
 
     name = "style_import"

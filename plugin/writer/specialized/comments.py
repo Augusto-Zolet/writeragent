@@ -28,7 +28,7 @@ from ..specialized_base import ToolWriterCommentBase
 log = logging.getLogger("writeragent.writer")
 
 
-class ListComments(ToolWriterCommentBase):
+class CommentList(ToolWriterCommentBase):
     """List all comments (annotations) in the document."""
 
     name = "comment_list"
@@ -138,7 +138,7 @@ class AddComment(ToolBase):
         return {"status": "ok", "message": "Comment added.", "author": author, "matched": True, "comment_added": True, "anchor_text": anchor_text or search_text}
 
 
-class DeleteComment(ToolWriterCommentBase):
+class CommentDelete(ToolWriterCommentBase):
     """Delete comments by name or author."""
 
     name = "comment_delete"
@@ -191,7 +191,7 @@ class DeleteComment(ToolWriterCommentBase):
         return {"status": "ok", "deleted": len(to_delete)}
 
 
-class ResolveComment(ToolWriterCommentBase):
+class CommentResolve(ToolWriterCommentBase):
     """Resolve a comment with an optional reason."""
 
     name = "comment_resolve"
@@ -255,7 +255,7 @@ class ResolveComment(ToolWriterCommentBase):
 _WORKFLOW_TASK_PREFIXES = ("TODO-AI", "FIX", "QUESTION", "VALIDATION", "NOTE")
 
 
-class Workflow(ToolWriterCommentBase):
+class CommentWorkflow(ToolWriterCommentBase):
     """Single tool for workflow/task operations: scan tasks, get/set status, check stop conditions."""
 
     name = "comment_workflow"

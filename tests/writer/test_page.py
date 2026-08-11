@@ -10,11 +10,11 @@ import sys
 setattr(sys.modules["com.sun.star.style.BreakType"], "PAGE_BEFORE", 4)
 
 from plugin.writer.page import (
-    GetPageStyleProperties,
-    SetPageStyleProperties,
-    SetHeaderFooterText,
-    SetPageColumns,
-    InsertPageBreak,
+    PageGetStyleProperties,
+    PageSetStyleProperties,
+    PageSetHeaderFooterText,
+    PageSetColumns,
+    PageInsertBreak,
 )
 
 
@@ -59,7 +59,7 @@ def test_get_page_style_properties():
     style.getPropertyValue.side_effect = get_prop
 
     ctx = TestingFactory.create_context(doc=doc, doc_type="writer")
-    tool = GetPageStyleProperties()
+    tool = PageGetStyleProperties()
     res = tool.execute(ctx, style_name="Standard")
 
     assert res["status"] == "ok"
@@ -81,7 +81,7 @@ def test_set_page_style_properties():
     page_styles.getByName.return_value = style
 
     ctx = TestingFactory.create_context(doc=doc, doc_type="writer")
-    tool = SetPageStyleProperties()
+    tool = PageSetStyleProperties()
     res = tool.execute(ctx, style_name="Standard", width_mm=300, is_landscape=True, header_is_on=False)
 
     assert res["status"] == "ok"
@@ -108,7 +108,7 @@ def test_set_header_footer_text():
     style.getPropertyValue.return_value = header_text_obj
 
     ctx = TestingFactory.create_context(doc=doc, doc_type="writer")
-    tool = SetHeaderFooterText()
+    tool = PageSetHeaderFooterText()
     res = tool.execute(
         ctx,
         style_name="Standard",
@@ -144,7 +144,7 @@ def test_set_page_columns():
     text_columns.getColumns.return_value = (col1, col2)
 
     ctx = TestingFactory.create_context(doc=doc, doc_type="writer")
-    tool = SetPageColumns()
+    tool = PageSetColumns()
     res = tool.execute(ctx, style_name="Standard", column_count=2, spacing_mm=5)
 
     assert res["status"] == "ok"
@@ -169,7 +169,7 @@ def test_insert_page_break():
     text_obj.createTextCursorByRange.return_value = text_cursor
 
     ctx = TestingFactory.create_context(doc=doc, doc_type="writer")
-    tool = InsertPageBreak()
+    tool = PageInsertBreak()
     res = tool.execute(ctx)
 
     assert res["status"] == "ok"

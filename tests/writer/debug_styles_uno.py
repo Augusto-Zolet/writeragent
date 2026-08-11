@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from plugin.testing_runner import native_test
-from plugin.writer.styles import GetStyleInfo
+from plugin.writer.styles import StyleGetInfo
 from plugin.tests.testing_utils import TestingFactory, with_native_doc
 
 
@@ -23,7 +23,7 @@ from plugin.tests.testing_utils import TestingFactory, with_native_doc
 def test_inspect_heading1_properties(ctx, doc):
     tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
 
-    tool = GetStyleInfo()
+    tool = StyleGetInfo()
     res = tool.execute(tool_ctx, style_name="Heading 1", family="ParagraphStyles")
 
     # Print all keys to find the parent style property

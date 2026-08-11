@@ -118,7 +118,7 @@ Tools define `name`, `description`, JSON Schema `parameters`, sometimes **`examp
 OnlyOffice prompts the model for **HTML** plus **`{FIELD:…}`** hooks. WriterAgent implements the same pattern in [`plugin/writer/forms.py`](plugin/writer/forms.py):
 
 - `form_create_control`, `form_create` (batch `fields`),
-- `form_generate` (`_process_form_content` → `insert_html_at_cursor` + `CreateFormControl`),
+- `form_generate` (`_process_form_content` → `insert_html_at_cursor` + `FormCreateControl`),
 - `form_list_controls`, `form_edit_control`, `form_delete_control`.
 
 **Not portable:** OnlyOffice `generateDocx` (binary OOXML generation) has no LibreOffice twin; export stories stay different.

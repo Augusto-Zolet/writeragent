@@ -10,10 +10,10 @@ from plugin.tests.testing_utils import setup_uno_mocks
 setup_uno_mocks()
 
 from plugin.writer.specialized.tables import (
-    GetTableCells,
-    ListTables,
+    TableGetCells,
+    TableList,
     ManageTableStructure,
-    SetTableCell,
+    TableSetCell,
     _cell_name,
     _col_letters,
 )
@@ -91,7 +91,7 @@ def test_cell_name_math():
 # ---- list / get -------------------------------------------------------------
 
 def test_list_tables():
-    res = ListTables().execute(_ctx({"Table1": FakeTable(2, 3), "Fees": FakeTable(5, 2)}))
+    res = TableList().execute(_ctx({"Table1": FakeTable(2, 3), "Fees": FakeTable(5, 2)}))
     assert res["status"] == "ok" and res["count"] == 2
     by = {t["name"]: (t["rows"], t["cols"]) for t in res["tables"]}
     assert by["Table1"] == (2, 3) and by["Fees"] == (5, 2)
@@ -99,12 +99,12 @@ def test_list_tables():
 
 def test_get_table_cells_matrix():
     t = FakeTable(2, 2, cells={"A1": "x", "B1": "y", "A2": "z", "B2": "w"})
-    res = GetTableCells().execute(_ctx({"T": t}), table_name="T")
+    res = TableGetCells().execute(_ctx({"T": t}), table_name="T")
     assert res["matrix"] == [["x", "y"], ["z", "w"]]
 
 
 def test_get_table_cells_unknown_table_lists_names():
-    res = GetTableCells().execute(_ctx({"Real": FakeTable(1, 1)}), table_name="Ghost")
+    res = TableGetCells().execute(_ctx({"Real": FakeTable(1, 1)}), table_name="Ghost")
     assert res["status"] == "error" and "Real" in res["message"]
 
 
@@ -112,13 +112,13 @@ def test_get_table_cells_unknown_table_lists_names():
 
 def test_set_table_cell_ok():
     t = FakeTable(2, 2, cells={"B2": "old"})
-    res = SetTableCell().execute(_ctx({"T": t}), table_name="T", cell="b2", text="new")
+    res = TableSetCell().execute(_ctx({"T": t}), table_name="T", cell="b2", text="new")
     assert res["status"] == "ok" and res["old_text"] == "old" and res["new_text"] == "new"
     assert t._cells["B2"] == "new"
 
 
 def test_set_table_cell_out_of_bounds_lists_real_names():
-    res = SetTableCell().execute(_ctx({"T": FakeTable(2, 2)}), table_name="T", cell="Z9", text="x")
+    res = TableSetCell().execute(_ctx({"T": FakeTable(2, 2)}), table_name="T", cell="Z9", text="x")
     assert res["status"] == "error" and "Its cells are:" in res["message"] and "A1" in res["message"]
 
 
@@ -128,7 +128,7 @@ def test_set_table_cell_uno_failure_returns_clean_error():
     def boom():
         raise RuntimeError("uno exploded")
     ctx = SimpleNamespace(doc=SimpleNamespace(getTextTables=boom))
-    res = SetTableCell().execute(ctx, table_name="T", cell="A1", text="x")
+    res = TableSetCell().execute(ctx, table_name="T", cell="A1", text="x")
     assert res["status"] == "error" and "A1" in res["message"] and "uno exploded" in res["message"]
 
 
@@ -138,7 +138,7 @@ def test_set_table_cell_never_blind_uppercases_real_lowercase_names():
     t = FakeTable(1, 2, cells={"A1": "first", "a1": "col27"})
     # Simulate the wide-table naming: real names include both 'A1' and 'a1'.
     t.getCellNames = lambda: ["A1", "a1"]
-    res = SetTableCell().execute(_ctx({"T": t}), table_name="T", cell="a1", text="new")
+    res = TableSetCell().execute(_ctx({"T": t}), table_name="T", cell="a1", text="new")
     assert res["status"] == "ok" and res["cell"] == "a1"
     assert t._cells["a1"] == "new" and t._cells["A1"] == "first"  # A1 untouched
 
@@ -148,7 +148,7 @@ def test_get_table_cells_prefers_position_access():
     getCellByPosition is unavailable."""
     t = FakeTable(1, 1, cells={"A1": "by-name"})
     t.getCellByPosition = lambda c, r: SimpleNamespace(getString=lambda: "by-position")
-    res = GetTableCells().execute(_ctx({"T": t}), table_name="T")
+    res = TableGetCells().execute(_ctx({"T": t}), table_name="T")
     assert res["matrix"] == [["by-position"]]
 
 
@@ -163,7 +163,7 @@ def test_get_table_cells_covered_cell_blank():
         return real_get(name)
 
     t.getCellByName = get_by_name
-    res = GetTableCells().execute(_ctx({"T": t}), table_name="T")
+    res = TableGetCells().execute(_ctx({"T": t}), table_name="T")
     assert res["matrix"] == [["x", ""]]
 
 
@@ -245,9 +245,9 @@ def test_manage_table_structure_bad_action_or_axis():
 
 def test_tables_are_specialized_domain():
     for cls in (
-        ListTables,
-        GetTableCells,
-        SetTableCell,
+        TableList,
+        TableGetCells,
+        TableSetCell,
         ManageTableStructure,
     ):
         assert cls.tier == "specialized"
