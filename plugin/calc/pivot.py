@@ -202,6 +202,15 @@ class CreatePivotTable(ToolCalcPivotBase):
         column_fields = list(kwargs.get("column_fields") or [])
         page_fields = list(kwargs.get("page_fields") or [])
 
+        # LO auto-renames on a different sheet instead of failing (#i94570), so reject
+        # before insert or a stray table is left behind under a generated name.
+        existing, existing_sheet = _find_pivot_table_document_wide(doc, pivot_name)
+        if existing is not None:
+            where = existing_sheet.getName() if existing_sheet is not None else "another sheet"
+            return self._tool_error(
+                f"Pivot table '{pivot_name}' already exists on sheet '{where}'."
+            )
+
         try:
             dp_tables = _get_dp_tables(dest_sheet)
             desc = dp_tables.createDataPilotDescriptor()
@@ -209,6 +218,11 @@ class CreatePivotTable(ToolCalcPivotBase):
             _set_field_orientations(desc, row_fields, column_fields, data_fields, page_fields)
 
             dp_tables.insertNewByName(pivot_name, _cell_address(dest_idx, dest_cell), desc)
+            # Safety net if insert still does not yield the requested name.
+            if not dp_tables.hasByName(pivot_name):
+                return self._tool_error(
+                    f"Pivot table '{pivot_name}' was not created; that name may already exist in the document."
+                )
 
             # Refresh so output is materialized (avoids #VALUE! in some layouts).
             tbl_any = dp_tables.getByName(pivot_name)

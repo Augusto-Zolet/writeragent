@@ -70,5 +70,12 @@ def test_calc_pivot_table(ctx, doc):
         "data_fields": ["Sales"],
     })
     assert res_dup.get("status") == "error"
-    assert len(res_dup.get("message", "")) > 0
+    msg = res_dup.get("message", "")
+    assert "already exists" in msg, f"Unexpected duplicate error: {msg}"
+
+    res_sheet2 = _execute_calc_tool(doc, ctx, "list_pivot_tables", {"sheet_name": "Sheet2"})
+    assert res_sheet2.get("status") == "ok", f"list_pivot_tables failed: {res_sheet2}"
+    sheet2_pivots = res_sheet2.get("pivot_tables", [])
+    assert sheet2_pivots == [], f"Expected no pivot on Sheet2 after rejected duplicate, got {sheet2_pivots}"
+    assert "WA_PivotTest" not in [p.get("name") for p in sheet2_pivots]
 
