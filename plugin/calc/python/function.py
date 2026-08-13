@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import datetime
 import logging
 import math
 import threading
@@ -99,9 +100,9 @@ def coerce_index(value: Any) -> int:
 def to_calc_compatible(val: Any) -> float | str | bool | tuple:
     """Recursively convert Python values into LibreOffice Calc supported types.
 
-    Calc cells only support float (UNO double), str (UNO string), and bool (UNO boolean).
-    Crucially, Calc matrix formulas do NOT support integer (UNO long) types and will
-    throw #VALUE! if a sequence contains integers/longs.
+    Calc cells and matrix formulas only support float (UNO double), str (UNO string),
+    and bool (UNO boolean). Crucially, Calc matrix formulas do NOT support integer
+    (UNO long) types and will throw #VALUE! if a sequence contains integers/longs.
     """
     if val is None:
         return ""
@@ -118,10 +119,37 @@ def to_calc_compatible(val: Any) -> float | str | bool | tuple:
         return val
     if isinstance(val, str):
         return val
+    if isinstance(val, (datetime.datetime, datetime.date)):
+        return val.isoformat()
+    if isinstance(val, datetime.time):
+        return val.isoformat()
+    if isinstance(val, datetime.timedelta):
+        # In Calc, time intervals are represented as fractional days (e.g. 1.0 = 24 hours)
+        return val.total_seconds() / 86400.0
+    if hasattr(val, "__float__") and not isinstance(val, (bytes, list, tuple, dict, set)):
+        try:
+            f = float(val)  # type: ignore[arg-type]
+            if math.isnan(f):
+                return f
+            return f
+        except (ValueError, TypeError):
+            pass
     if isinstance(val, (list, tuple)):
-        inner = val[0] if val else None
-        if isinstance(inner, (list, tuple)):
-            return tuple(tuple(to_calc_compatible(cell) for cell in row) for row in val)
+        if not val:
+            return ()
+        # Check if 2D sequence (contains nested rows)
+        if any(isinstance(row, (list, tuple)) for row in val):
+            # Normalize each row to a list of elements
+            rows: list[list[Any]] = [list(row) if isinstance(row, (list, tuple)) else [row] for row in val]
+            max_cols = max(len(row) for row in rows) if rows else 0
+            # Rectangularize by padding shorter rows with "" so Calc matrix receives a valid rectangular grid
+            padded_rows = []
+            for row in rows:
+                padded = [to_calc_compatible(cell) for cell in row]
+                if len(padded) < max_cols:
+                    padded.extend([""] * (max_cols - len(padded)))
+                padded_rows.append(tuple(padded))
+            return tuple(padded_rows)
         return tuple(to_calc_compatible(item) for item in val)
     return str(val)
 
