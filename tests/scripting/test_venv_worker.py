@@ -555,9 +555,11 @@ def test_warm_spawns_and_primes_worker():
 
 def test_cold_execute_warms_with_separate_timeout():
     """First execute primes the worker under WARM_WORKER_TIMEOUT_SEC, then runs user code at configured timeout."""
+    from plugin.scripting.config_limits import HOST_IPC_READ_GRACE_SEC
+
     PythonWorkerManager.shutdown_all()
     mgr = PythonWorkerManager.get(sys.executable, {"PATH": "/usr/bin:/bin"})
-    timeouts: list[int] = []
+    timeouts: list[float | int] = []
     original_read = mgr._read_response_bytes
 
     def record_read(stdout, timeout_sec):
@@ -569,17 +571,19 @@ def test_cold_execute_warms_with_separate_timeout():
         r = mgr.execute("result = 42", timeout_sec=3)
         assert r["status"] == "ok"
         assert r["result"] == 42
-        assert timeouts == [WARM_WORKER_TIMEOUT_SEC, 3]
+        assert timeouts == [WARM_WORKER_TIMEOUT_SEC + HOST_IPC_READ_GRACE_SEC, 3 + HOST_IPC_READ_GRACE_SEC]
     finally:
         PythonWorkerManager.shutdown_all()
 
 
 def test_warm_execute_uses_configured_timeout_only():
     """After priming, execute sends one IPC round at the configured timeout."""
+    from plugin.scripting.config_limits import HOST_IPC_READ_GRACE_SEC
+
     PythonWorkerManager.shutdown_all()
     mgr = PythonWorkerManager.get(sys.executable, {"PATH": "/usr/bin:/bin"})
     mgr.warm()
-    timeouts: list[int] = []
+    timeouts: list[float | int] = []
     original_read = mgr._read_response_bytes
 
     def record_read(stdout, timeout_sec):
@@ -591,18 +595,20 @@ def test_warm_execute_uses_configured_timeout_only():
         r = mgr.execute("result = 7", timeout_sec=3)
         assert r["status"] == "ok"
         assert r["result"] == 7
-        assert timeouts == [3]
+        assert timeouts == [3 + HOST_IPC_READ_GRACE_SEC]
     finally:
         PythonWorkerManager.shutdown_all()
 
 
 def test_terminate_worker_re_primes_on_next_execute():
     """After worker kill, the next execute runs warm again before user code."""
+    from plugin.scripting.config_limits import HOST_IPC_READ_GRACE_SEC
+
     PythonWorkerManager.shutdown_all()
     mgr = PythonWorkerManager.get(sys.executable, {"PATH": "/usr/bin:/bin"})
     mgr.warm()
     mgr._terminate_worker()
-    timeouts: list[int] = []
+    timeouts: list[float | int] = []
     original_read = mgr._read_response_bytes
 
     def record_read(stdout, timeout_sec):
@@ -614,7 +620,7 @@ def test_terminate_worker_re_primes_on_next_execute():
         r = mgr.execute("result = 99", timeout_sec=3)
         assert r["status"] == "ok"
         assert r["result"] == 99
-        assert timeouts == [WARM_WORKER_TIMEOUT_SEC, 3]
+        assert timeouts == [WARM_WORKER_TIMEOUT_SEC + HOST_IPC_READ_GRACE_SEC, 3 + HOST_IPC_READ_GRACE_SEC]
     finally:
         PythonWorkerManager.shutdown_all()
 
@@ -858,4 +864,46 @@ def test_maybe_dispatch_ppt_master_skips_when_module_missing(monkeypatch):
         )
         is False
     )
+
+
+def test_shared_session_persists_after_soft_timeout():
+    """Soft in-process timeout must return an error without terminating the worker or shared session."""
+    mgr = PythonWorkerManager(sys.executable, {"PATH": os.environ.get("PATH", "")})
+    sid = "test-shared-timeout-session"
+    try:
+        r1 = mgr.execute("x = 12345\nresult = x", session_id=sid)
+        assert r1["status"] == "ok"
+        assert r1["result"] == 12345
+
+        # Execute code that exceeds 1s timeout
+        r2 = mgr.execute("while True: pass", session_id=sid, timeout_sec=1)
+        assert r2["status"] == "error"
+        assert "execution time" in r2.get("message", "").lower() or "timed out" in r2.get("message", "").lower()
+
+        # Shared kernel namespace must still retain x from step 1
+        r3 = mgr.execute("result = x + 1", session_id=sid)
+        assert r3["status"] == "ok"
+        assert r3["result"] == 12346
+    finally:
+        mgr._terminate_worker()
+
+
+def test_session_executor_updates_timeout_seconds():
+    """_get_or_create_session_executor updates timeout_seconds on an existing session."""
+    from plugin.scripting.venv.venv_sandbox import (
+        _get_or_create_session_executor,
+        reset_sandbox_session,
+    )
+
+    sid = "test-dynamic-timeout-session"
+    try:
+        exec1 = _get_or_create_session_executor(sid, timeout_sec=10)
+        assert exec1.timeout_seconds == 10
+
+        exec2 = _get_or_create_session_executor(sid, timeout_sec=3)
+        assert exec2 is exec1
+        assert exec2.timeout_seconds == 3
+    finally:
+        reset_sandbox_session(sid)
+
 

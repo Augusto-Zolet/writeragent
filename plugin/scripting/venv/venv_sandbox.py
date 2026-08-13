@@ -308,6 +308,8 @@ def _get_or_create_session_executor(session_id: str, timeout_sec: int) -> LocalP
         if executor is None:
             executor = _new_executor(timeout_sec)
             _SESSION_EXECUTORS[session_id] = executor
+        else:
+            executor.timeout_seconds = timeout_sec
         return executor
 
 

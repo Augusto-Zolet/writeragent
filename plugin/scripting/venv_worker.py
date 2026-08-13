@@ -26,6 +26,7 @@ from plugin.framework.thread_guard import background
 from plugin.framework.constants import WORKER_POOL_DEFAULT, WORKER_POOL_EMBEDDINGS
 from plugin.framework.worker_pool import StderrTail, start_stderr_drain
 from plugin.scripting.config_limits import (
+    HOST_IPC_READ_GRACE_SEC,
     VENV_IPC_WRITE_TIMEOUT_SEC,
     WARM_WORKER_TIMEOUT_SEC,
     configured_python_exec_timeout,
@@ -226,6 +227,11 @@ class PythonWorkerManager:
                 write_timeout_sec = min(float(timeout_sec), float(VENV_IPC_WRITE_TIMEOUT_SEC))
                 self._write_frame_with_timeout(stdin, request, timeout_sec=write_timeout_sec, label="request")
 
+                # The host read timeout includes a grace buffer so the child's in-process
+                # signal/thread timeout fires first and returns a clean error frame without
+                # terminating the warm subprocess (preserving shared workbook sessions).
+                host_read_timeout_sec = float(timeout_sec) + float(HOST_IPC_READ_GRACE_SEC)
+
                 while True:
                     if allow_heartbeat:
                         from plugin.framework.constants import EMBEDDINGS_HEARTBEAT_GRACE_S
@@ -233,12 +239,12 @@ class PythonWorkerManager:
                         grace = int(heartbeat_grace_sec if heartbeat_grace_sec is not None else EMBEDDINGS_HEARTBEAT_GRACE_S)
                         response_bytes = self._read_response_with_heartbeats(
                             stdout,
-                            timeout_sec,
+                            host_read_timeout_sec,
                             grace,
                             on_heartbeat,
                         )
                     else:
-                        response_bytes = self._read_response_bytes(stdout, timeout_sec)
+                        response_bytes = self._read_response_bytes(stdout, host_read_timeout_sec)
                     if not response_bytes:
                         stderr_out = self._drain_stderr()
                         raise RuntimeError(f"Worker closed stdout without a response{stderr_out}")
@@ -460,7 +466,7 @@ class PythonWorkerManager:
         )
         log.debug("Started Python worker pid=%s exe=%s", self._proc.pid, self.exe)
 
-    def _read_response_bytes(self, stdout: IO[bytes], timeout_sec: int) -> bytes:
+    def _read_response_bytes(self, stdout: IO[bytes], timeout_sec: float | int) -> bytes:
         assert self._proc is not None
         # Windows select.select() only supports sockets, not pipes (raises
         # WinError 10038).  Use a thread-based blocking read there instead.
@@ -468,7 +474,7 @@ class PythonWorkerManager:
             return self._read_response_bytes_threaded(stdout, timeout_sec)
         return self._read_response_bytes_select(stdout, timeout_sec)
 
-    def _read_response_bytes_select(self, stdout: IO[bytes], timeout_sec: int) -> bytes:
+    def _read_response_bytes_select(self, stdout: IO[bytes], timeout_sec: float | int) -> bytes:
         """POSIX path: use select() to poll the pipe with a timeout."""
         assert self._proc is not None
         end = time.time() + timeout_sec
@@ -491,7 +497,7 @@ class PythonWorkerManager:
 
         return read_frame_payload(stdout, read_exact=_read_exact) or b""
 
-    def _read_response_bytes_threaded(self, stdout: IO[bytes], timeout_sec: int) -> bytes:
+    def _read_response_bytes_threaded(self, stdout: IO[bytes], timeout_sec: float | int) -> bytes:
         """Windows path: blocking read in a daemon thread with join-timeout."""
         result: list[bytes] = [b""]
         error: list[BaseException | None] = [None]
@@ -543,7 +549,7 @@ class PythonWorkerManager:
     def _read_response_with_heartbeats(
         self,
         stdout: IO[bytes],
-        timeout_sec: int,
+        timeout_sec: float | int,
         grace_sec: int,
         on_heartbeat: Callable[[dict[str, Any]], None] | None,
     ) -> bytes:

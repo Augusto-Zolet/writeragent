@@ -23,6 +23,12 @@ WARM_WORKER_TIMEOUT_SEC = 30
 # bound prevents a child that stopped reading stdin from holding the pool lock forever.
 VENV_IPC_WRITE_TIMEOUT_SEC = 10
 
+# Host-side read grace margin above the child's in-process execution timeout. This ensures the
+# child's in-process signal/thread timeout (signal.alarm / ExecutionTimeoutError) fires first and
+# returns a clean error payload, preventing the host from terminating the warm subprocess (and
+# destroying shared workbook sessions) on soft timeouts.
+HOST_IPC_READ_GRACE_SEC = 2.0
+
 # Single long budget for trusted helpers known to take a long time
 # (OCR/layout via vision resolver, spaCy text analytics, SymPy symbolic,
 # embeddings, and any future additions in the LONG_TRUSTED_PREFIXES list).

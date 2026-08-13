@@ -331,3 +331,53 @@ def test_calc_spill_modify_listener_cleanup(monkeypatch: pytest.MonkeyPatch) -> 
     assert key not in python_function.SPILL_REGISTRY
     cell_B3.clearContents.assert_called_once_with(23)
     assert len(saved) == 1
+
+
+def test_to_calc_compatible_datetime_types() -> None:
+    """Datetime, date, time, and timedelta are converted to ISO strings or fractional day floats."""
+    import datetime
+
+    dt = datetime.datetime(2026, 8, 13, 14, 30, 0)
+    d = datetime.date(2026, 8, 13)
+    t = datetime.time(14, 30, 0)
+    td = datetime.timedelta(days=1, hours=12)
+
+    assert to_calc_compatible(dt) == "2026-08-13T14:30:00"
+    assert to_calc_compatible(d) == "2026-08-13"
+    assert to_calc_compatible(t) == "14:30:00"
+    assert to_calc_compatible(td) == 1.5
+
+
+def test_to_calc_compatible_jagged_2d_rectangularization() -> None:
+    """Jagged 2D lists are padded to a rectangular 2D matrix with empty strings."""
+    jagged = [[1, 2, 3], [4, 5], [6]]
+    out = to_calc_compatible(jagged)
+    assert out == (
+        (1.0, 2.0, 3.0),
+        (4.0, 5.0, ""),
+        (6.0, "", ""),
+    )
+
+
+def test_to_calc_compatible_duck_typed_numeric() -> None:
+    """Custom objects with __float__ are coerced to float."""
+    class CustomNumber:
+        def __init__(self, val: float):
+            self.val = val
+
+        def __float__(self) -> float:
+            return self.val
+
+    assert to_calc_compatible(CustomNumber(42.5)) == 42.5
+
+
+def test_calc_python_function_zero_event_pumping_invariant() -> None:
+    """Static invariant: function.py must not import event loop pumping or UI draining functions."""
+    import inspect
+    import plugin.calc.python.function as fn_mod
+
+    source = inspect.getsource(fn_mod)
+    assert "processEventsToIdle" not in source
+    assert "async_stream" not in source
+    assert "run_async_worker_with_drain" not in source
+
