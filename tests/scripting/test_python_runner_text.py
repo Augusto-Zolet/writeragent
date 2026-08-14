@@ -78,7 +78,7 @@ def test_execute_and_insert_text_uses_body_helper(mock_venv, mock_insert):
     assert outcome["ok"] is True
     injected = mock_venv.call_args.args[1]
     assert '"section text"' in injected or "section text" in injected
-    assert mock_venv.call_args.args[1].startswith("# WriterAgent:")
+    assert injected.startswith("# Document inputs injected below")
     mock_insert.assert_called_once()
 
 

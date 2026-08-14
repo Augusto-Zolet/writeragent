@@ -30,6 +30,7 @@ from plugin.calc.python.formula_edit import (
     sanitize_inline_py_code,
 )
 from plugin.calc.spreadsheet_import.preprocess import normalize_lo_formula_for_parse
+from tests.strip_bundle import expect_pre_or_body
 from tests.vhs_budget import vhs_max_examples
 
 _CROSSHAIR_ERROR_RE = re.compile(r": error:")
@@ -119,10 +120,7 @@ def test_parse_quoted_string_rejects_negative_start() -> None:
     With deal installed (dev venv), pre raises; under LibreOffice deal_shim the body
     returns None. Either way we must not IndexError.
     """
-    import deal
-
-    with pytest.raises(deal.PreContractError):
-        _parse_quoted_string('""', -1)
+    expect_pre_or_body(lambda: _parse_quoted_string('""', -1), body_result=None)
     assert _parse_quoted_string('"x"', 0) == ("x", 3)
 
 
@@ -132,10 +130,7 @@ def test_find_matching_paren_rejects_negative_open_idx() -> None:
     With deal installed (dev venv), pre raises; under LibreOffice deal_shim the body
     returns -1. Either way we must not IndexError.
     """
-    import deal
-
-    with pytest.raises(deal.PreContractError):
-        _find_matching_paren("", -1)
+    expect_pre_or_body(lambda: _find_matching_paren("", -1), body_result=-1)
     assert _find_matching_paren("(a)", 0) == 2
 
 

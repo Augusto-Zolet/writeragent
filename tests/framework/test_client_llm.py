@@ -52,6 +52,11 @@ def test_headers_and_config_injection(client):
 def test_make_chat_request_logs_body_model(caplog, client):
     import logging
 
+    from plugin.framework.client import llm_client as llm_mod
+    from tests.strip_bundle import module_source_contains
+
+    if not module_source_contains(llm_mod, "Chat Request body:"):
+        pytest.skip("log.debug stripped in release bundle")
     caplog.set_level(logging.DEBUG, logger="plugin.framework.client.llm_client")
     client.config["endpoint"] = "https://api.z.ai/api/paas"
     client.config["model"] = "glm-5.2"

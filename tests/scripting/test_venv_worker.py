@@ -868,6 +868,8 @@ def test_maybe_dispatch_ppt_master_skips_when_module_missing(monkeypatch):
 
 def test_shared_session_persists_after_soft_timeout():
     """Soft in-process timeout must return an error without terminating the worker or shared session."""
+    import plugin.scripting.venv_worker as vw
+
     mgr = PythonWorkerManager(sys.executable, {"PATH": os.environ.get("PATH", "")})
     sid = "test-shared-timeout-session"
     try:
@@ -875,8 +877,8 @@ def test_shared_session_persists_after_soft_timeout():
         assert r1["status"] == "ok"
         assert r1["result"] == 12345
 
-        # Execute code that exceeds 1s timeout
-        r2 = mgr.execute("while True: pass", session_id=sid, timeout_sec=1)
+        with patch.object(vw, "HOST_IPC_READ_GRACE_SEC", 8.0):
+            r2 = mgr.execute("while True: pass", session_id=sid, timeout_sec=1)
         assert r2["status"] == "error"
         assert "execution time" in r2.get("message", "").lower() or "timed out" in r2.get("message", "").lower()
 

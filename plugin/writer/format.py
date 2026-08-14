@@ -90,11 +90,18 @@ XHTML_EXTENSION = ".xhtml"
 FLAT_ODF_FILTER = "OpenDocument Text Flat XML"
 FODT_EXTENSION = ".fodt"
 
-# System temp directory (cross-platform). Under CrossHair, gettempdir() probes /tmp
-# with open() and trips auditwall SideEffectDetected on package import — use env/fallback.
+# System temp directory (cross-platform). Under CrossHair, gettempdir() probes
+# candidate dirs with open() and trips auditwall SideEffectDetected on import —
+# honor tempfile's env vars (and a cwd fallback) without that probe.
 def _resolve_temp_dir() -> str:
     if "crosshair" in sys.modules:
-        return os.environ.get("TMPDIR") or os.environ.get("TEMP") or "/tmp"
+        return (
+            os.environ.get("TMPDIR")
+            or os.environ.get("TEMP")
+            or os.environ.get("TMP")
+            or tempfile.tempdir
+            or os.curdir
+        )
     return tempfile.gettempdir()
 
 

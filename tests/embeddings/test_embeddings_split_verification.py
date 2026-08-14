@@ -9,8 +9,6 @@ Hypothesis: light under ``make verify``; deep via ``make vhs``.
 
 from __future__ import annotations
 
-import deal
-import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -18,19 +16,24 @@ from plugin.embeddings.embeddings_split import (
     _merge_small_sentences_to_spans,
     _meta_chunks_from_spans,
 )
+from tests.strip_bundle import expect_pre_or_body
 from tests.vhs_budget import vhs_max_examples
 
 
 def test_merge_small_sentences_rejects_negative_start() -> None:
     """CrossHair counterexample: negative start violated post ``0 <= s[0]``; pre must reject it."""
-    with pytest.raises(deal.PreContractError):
-        _merge_small_sentences_to_spans("", [(-1, 0, "")], min_chunk=1)
+    expect_pre_or_body(
+        lambda: _merge_small_sentences_to_spans("", [(-1, 0, "")], min_chunk=1),
+        body_result=[],
+    )
 
 
 def test_merge_small_sentences_rejects_out_of_order_spans() -> None:
     """CrossHair: out-of-order triples folded to ``(1, 0)``; pre requires sequential spans."""
-    with pytest.raises(deal.PreContractError):
-        _merge_small_sentences_to_spans("", [(1, 1, ""), (0, 0, "")], min_chunk=1)
+    expect_pre_or_body(
+        lambda: _merge_small_sentences_to_spans("", [(1, 1, ""), (0, 0, "")], min_chunk=1),
+        body_result=[(1, 1)],
+    )
 
 
 @st.composite

@@ -292,6 +292,10 @@ class TestLogRichScroll:
             log_rich_scroll("test_phase2", control=control)
 
         assert rtc._RICH_SCROLL_SEQ == start + 2
+        from tests.strip_bundle import module_source_contains
+
+        if not module_source_contains(rtc, "log.debug"):
+            return
         messages = " ".join(r.message for r in caplog.records)
         assert "[RICH-SCROLL]" in messages
         assert "phase=test_phase" in messages
@@ -478,6 +482,11 @@ class TestLogRichControlContext:
              patch.object(rtc.log, "info") as mock_info:
             rtc.log_rich_control_context(MagicMock(), "window_shown", peer=0)
             rtc.log_rich_control_context(MagicMock(), "eager_init", peer=1)
+        assert rtc._ENV_SNAPSHOT_LOGGED is True
+        from tests.strip_bundle import module_source_contains
+
+        if not module_source_contains(rtc, "log.info"):
+            return
         assert mock_info.call_count == 2
         first = mock_info.call_args_list[0][0][0]
         second = mock_info.call_args_list[1][0][0]

@@ -13,6 +13,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import deal
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -107,11 +108,14 @@ def test_accumulate_streaming_thinking_rejects_invalid_source() -> None:
     With deal installed (dev venv), pre raises; under LibreOffice deal_shim the body
     clears source to None. Either way ensure-equivalent invariant holds.
     """
-    import deal
-
     text_parts: list[str] = []
-    with pytest.raises(deal.PreContractError):
-        accumulate_streaming_thinking(text_parts, {"source": ""}, {})
+    meta_bad: dict[str, object] = {"source": ""}
+    try:
+        accumulate_streaming_thinking(text_parts, meta_bad, {})
+    except deal.PreContractError:
+        pass
+    else:
+        assert meta_bad.get("source") is None
     meta = new_streaming_thinking_meta()
     accumulate_streaming_thinking(text_parts, meta, {"reasoning": "hello"})
     assert text_parts == ["hello"]

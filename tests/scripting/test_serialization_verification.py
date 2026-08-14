@@ -151,6 +151,10 @@ def test_should_use_binary_envelope_force_contracts() -> None:
 
 def test_host_pack_data_force_min_cells_preconditions() -> None:
     """Pack entrypoints share should_use_binary_envelope force/min_cells pre so CrossHair cannot invent bad kwargs."""
+    from tests.strip_bundle import deal_pre_present
+
+    if not deal_pre_present(host_pack_data):
+        pytest.skip("@deal.pre stripped in release bundle; body does not re-check force/min_cells")
     with pytest.raises(deal.PreContractError):
         host_pack_data([[1.0]], min_cells=-1)
     with pytest.raises(deal.PreContractError):

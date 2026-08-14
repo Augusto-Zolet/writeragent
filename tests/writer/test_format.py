@@ -8,7 +8,9 @@
 """Unit tests for plugin.writer.format helpers (no UNO)."""
 
 import base64
+import os
 import sys
+import tempfile as tempfile_mod
 
 import pytest
 
@@ -20,7 +22,14 @@ def test_resolve_temp_dir_avoids_gettempdir_under_crosshair(monkeypatch):
     monkeypatch.setitem(sys.modules, "crosshair", object())
     monkeypatch.delenv("TMPDIR", raising=False)
     monkeypatch.delenv("TEMP", raising=False)
-    assert _resolve_temp_dir() == "/tmp"
+    monkeypatch.delenv("TMP", raising=False)
+    monkeypatch.setattr(tempfile_mod, "tempdir", None)
+
+    def boom() -> str:
+        raise AssertionError("gettempdir must not be called under CrossHair")
+
+    monkeypatch.setattr(tempfile_mod, "gettempdir", boom)
+    assert _resolve_temp_dir() == os.curdir
     monkeypatch.setenv("TMPDIR", "/custom/tmp")
     assert _resolve_temp_dir() == "/custom/tmp"
 
