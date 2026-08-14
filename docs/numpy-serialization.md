@@ -77,7 +77,7 @@ To guarantee complete frame assembly over asynchronous UNIX pipe crossings, `Pyt
 - **Write frame:** `pickle.dumps(request, protocol=5)` → 4-byte big-endian length (`struct.pack("!I", N)`) → `N` raw bytes on the pipe.
 - **Read frame:** read exactly 4 bytes → `_read_exact(N)` with `select` + blocking read → `pickle.loads(payload)`.
 
-Env scrub on spawn: strip vars matching `KEY`/`TOKEN`/`SECRET`/`PASSWORD`/`AUTH`; set `PYTHONIOENCODING=utf-8`, `PYTHONUTF8=1`, `PYTHONDONTWRITEBYTECODE=1`; process-group kill on timeout (patterns aligned with robust agent runners such as Hermes).
+Env scrub on spawn: strip vars matching `KEY`/`TOKEN`/`SECRET`/`PASSWORD`/`AUTH`; set `PYTHONIOENCODING=utf-8`, `PYTHONUTF8=1`, `PYTHONDONTWRITEBYTECODE=1`; on timeout/crash, kill the worker **process tree** (POSIX `setsid` + `killpg`; Windows `taskkill /F /T /PID`) so joblib/loky grandchildren do not outlive the worker. Host read timeouts are **not** retried (that would double the wait); a dead worker is recycled once on the next IPC turn.
 
 ### Request / response fields
 
@@ -485,7 +485,7 @@ Checklist (same legs the script runs):
 3. **Mmap** — host writes temp binary file; child `np.memmap`; measure with `N×M` at 10⁴, 10⁵, 10⁶ cells (under cap).
 4. **Egress** — `result = large_ndarray`: compare `.tolist()` + JSON vs compact binary envelope vs scalar-only return.
 5. **Matrix formulas** — count worker invocations per recalc with and without `ROW()-1` index arg.
-6. **Cross-platform** — temp file delete on timeout ([`venv_worker.py`](../plugin/scripting/venv_worker.py) process-group kill), Windows path length, UTF-8 JSON for non-ASCII cells (keep JSON branch for mixed data).
+6. **Cross-platform** — temp file delete on timeout ([`venv_worker.py`](../plugin/scripting/venv_worker.py) process-tree kill: POSIX `killpg`, Windows `taskkill /T`), Windows path length, UTF-8 JSON for non-ASCII cells (keep JSON branch for mixed data).
 
 Record: cells/sec host→child, cells/sec child→host, bytes on wire, and whether timeout (`scripting.python_exec_timeout`) fires due to serialization alone.
 

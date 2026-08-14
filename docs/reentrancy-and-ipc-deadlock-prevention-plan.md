@@ -174,7 +174,7 @@ Classic deadlock: parent blocked on stdin write / stdout read while child’s `s
 1. Every long-lived `stderr=PIPE` child has a **continuous** drain (daemon thread) **or** redirects stderr (`DEVNULL` / file).
 2. Prefer a **bounded diagnostic tail** (as in Monaco editor) over unbounded `queue.Queue` growth.
 3. Preserve existing protocol framing ([`ipc.py`](../plugin/scripting/ipc.py), pickle frames, heartbeats, PPT-Master mid-response stdin). Do not replace framed readers with a generic “read_line from chunk queue.”
-4. Venv stdin writes are bounded; if an initial request write times out, terminate and retry once. If a PPT-Master intermediate write times out, terminate without replaying the turn because host-side UNO mutations may already have occurred.
+4. Venv stdin writes are bounded; if an initial request write times out, terminate and retry once on a fresh worker. Host **read** timeouts (hung user code / C extensions) terminate without replay so Calc does not wait twice. If a PPT-Master intermediate write times out, terminate without replaying the turn because host-side UNO mutations may already have occurred.
 5. One serialized writer per child (venv already uses `_io_lock`).
 
 ```mermaid
@@ -206,9 +206,9 @@ The timeout is local to [`venv_worker.py`](../plugin/scripting/venv_worker.py):
 
 - Serialize with `pack_pickle_frame` before starting the timed write.
 - Write and flush in a daemon writer thread on POSIX and Windows.
-- On timeout, log, terminate the process group, join the writer, and raise a sanitized timeout error.
+- On timeout, log, terminate the process group (POSIX `killpg`; Windows `taskkill /T`), join the writer, and raise a sanitized timeout error.
 - Keep `_io_lock` held through cleanup.
-- Permit the existing one-time retry only for the initial request frame.
+- Permit the existing one-time retry only for the initial request frame and for crash/EOF (`BrokenPipeError` / empty stdout / `OSError`). Do not replay after a host **read** timeout.
 - Treat PPT-Master intermediate writes as non-replayable and return an error after termination.
 
 Do not rewrite pickle framing, heartbeat readers, ACP, or Monaco as part of this step.

@@ -217,6 +217,118 @@ while True:
     assert not drain.is_alive
 
 
+def test_worker_crash_mid_request_retries_and_recovers(tmp_path, monkeypatch):
+    """A child that dies once mid-IPC must be recycled; the retried turn should succeed."""
+    import plugin.scripting.venv_worker as venv_worker_module
+
+    crash_once = tmp_path / "crash_once"
+    crash_once.write_text("1", encoding="utf-8")
+    child = tmp_path / "crash_once_worker.py"
+    child.write_text(
+        f"""
+import os
+import pickle
+import struct
+import sys
+
+flag = {str(crash_once)!r}
+
+while True:
+    header = sys.stdin.buffer.read(4)
+    if len(header) < 4:
+        break
+    size = struct.unpack("!I", header)[0]
+    payload = sys.stdin.buffer.read(size)
+    if len(payload) < size:
+        break
+    if os.path.exists(flag):
+        os.remove(flag)
+        os._exit(1)
+    request = pickle.loads(payload)
+    response = {{"id": request.get("id"), "status": "ok", "result": 42, "stdout": ""}}
+    encoded = pickle.dumps(response, protocol=5)
+    sys.stdout.buffer.write(struct.pack("!I", len(encoded)) + encoded)
+    sys.stdout.buffer.flush()
+""".lstrip(),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(venv_worker_module, "_HARNESS_PATH", str(child))
+    monkeypatch.setattr(venv_worker_module, "wrap_command_for_sandbox", lambda cmd: cmd)
+
+    mgr = PythonWorkerManager(sys.executable, {"PATH": os.environ.get("PATH", "")})
+    try:
+        result = mgr.execute("result = 42", timeout_sec=5)
+        assert result["status"] == "ok"
+        assert result["result"] == 42
+        assert mgr._proc is not None and mgr._proc.poll() is None
+    finally:
+        mgr._terminate_worker()
+
+
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def test_terminate_worker_kills_grandchild(tmp_path, monkeypatch):
+    """Timeout/crash cleanup must kill descendants (joblib/loky, DataLoader), not only the worker."""
+    import plugin.scripting.venv_worker as venv_worker_module
+
+    child = tmp_path / "tree_worker.py"
+    child.write_text(
+        """
+import subprocess
+import sys
+import time
+
+grandchild = subprocess.Popen(
+    [sys.executable, "-c", "import time; time.sleep(120)"],
+    stdout=subprocess.DEVNULL,
+    stderr=subprocess.DEVNULL,
+)
+sys.stderr.write(f"GRANDCHILD {grandchild.pid}\\n")
+sys.stderr.flush()
+time.sleep(120)
+""".lstrip(),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(venv_worker_module, "_HARNESS_PATH", str(child))
+    monkeypatch.setattr(venv_worker_module, "wrap_command_for_sandbox", lambda cmd: cmd)
+
+    mgr = PythonWorkerManager(sys.executable, {"PATH": os.environ.get("PATH", "")})
+    gpid = None
+    try:
+        mgr._ensure_running()
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            drain = mgr._stderr_drain
+            text = drain.text() if drain is not None else ""
+            for line in text.splitlines():
+                if line.startswith("GRANDCHILD "):
+                    gpid = int(line.split()[1])
+                    break
+            if gpid is not None:
+                break
+            time.sleep(0.05)
+        assert gpid is not None, "worker did not report grandchild pid"
+        assert _pid_alive(gpid)
+        mgr._terminate_worker()
+        dead_deadline = time.monotonic() + 5
+        while time.monotonic() < dead_deadline and _pid_alive(gpid):
+            time.sleep(0.05)
+        assert not _pid_alive(gpid), f"grandchild pid {gpid} survived worker termination"
+    finally:
+        mgr._terminate_worker()
+        if gpid is not None and _pid_alive(gpid):
+            try:
+                os.kill(gpid, 9)
+            except OSError:
+                pass
+
+
 def test_blocked_stdin_write_times_out_and_releases_lock(tmp_path, monkeypatch):
     """A child that never reads stdin must not hold the manager's pool lock forever."""
     import plugin.scripting.venv_worker as venv_worker_module
@@ -315,6 +427,46 @@ def test_ppt_master_write_timeout_does_not_replay(monkeypatch):
     assert mgr._write_frame_with_timeout.call_count == 1
     assert mgr._read_response_bytes.call_count == 1
     assert mgr._terminate_worker.call_count == 1
+
+
+def test_host_read_timeout_does_not_retry():
+    """Hung user code must not be replayed; that would double the configured timeout."""
+    mgr = PythonWorkerManager(sys.executable, {})
+    proc = MagicMock()
+    proc.poll.return_value = None
+    proc.stdin = io.BytesIO()
+    proc.stdout = io.BytesIO()
+    mgr._proc = proc
+    mgr._ensure_running = MagicMock()  # type: ignore[method-assign]
+    mgr._write_frame_with_timeout = MagicMock()  # type: ignore[method-assign]
+    mgr._read_response_bytes = MagicMock(  # type: ignore[method-assign]
+        side_effect=subprocess.TimeoutExpired(cmd=sys.executable, timeout=1)
+    )
+    mgr._terminate_worker = MagicMock()  # type: ignore[method-assign]
+
+    result = mgr._execute_ipc_unlocked("result = 1", timeout_sec=1)
+
+    assert result["status"] == "error"
+    assert "timed out after 1 seconds" in result["message"]
+    assert mgr._write_frame_with_timeout.call_count == 1
+    assert mgr._read_response_bytes.call_count == 1
+    assert mgr._terminate_worker.call_count == 1
+
+
+def test_kill_process_tree_win32_uses_taskkill(monkeypatch):
+    """Windows must kill grandchildren; TerminateProcess on the worker PID is not enough."""
+    import plugin.scripting.venv_worker as venv_worker_module
+
+    run = MagicMock()
+    monkeypatch.setattr(venv_worker_module.subprocess, "run", run)
+
+    proc = MagicMock()
+    proc.poll.return_value = 1
+    proc.pid = 4242
+    venv_worker_module._kill_process_tree_win32(proc)
+    run.assert_called_once()
+    assert run.call_args[0][0] == ["taskkill", "/F", "/T", "/PID", "4242"]
+    proc.kill.assert_not_called()
 
 
 def test_manager_separate_pools_same_exe():

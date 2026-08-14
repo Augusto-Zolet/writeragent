@@ -24,7 +24,7 @@ from plugin.framework.config import get_config_str, get_config_bool_safe
 from plugin.framework.i18n import get_active_locale
 from plugin.framework.thread_guard import background
 from plugin.framework.constants import WORKER_POOL_DEFAULT, WORKER_POOL_EMBEDDINGS
-from plugin.framework.worker_pool import StderrTail, start_stderr_drain
+from plugin.framework.worker_pool import StderrTail, get_subprocess_creationflags, start_stderr_drain
 from plugin.scripting.config_limits import (
     HOST_IPC_READ_GRACE_SEC,
     VENV_IPC_WRITE_TIMEOUT_SEC,
@@ -89,6 +89,41 @@ _registry_lock = threading.Lock()
 
 def _worker_registry_key(exe: str, pool: str) -> str:
     return f"{pool}:{exe}"
+
+
+def _kill_process_tree(proc: subprocess.Popen[Any]) -> None:
+    """Kill *proc* and its descendants (POSIX process group, Windows ``taskkill /T``)."""
+    if proc.poll() is not None:
+        return
+    if sys.platform == "win32":
+        _kill_process_tree_win32(proc)
+        return
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except ProcessLookupError:
+        proc.kill()
+
+
+def _kill_process_tree_win32(proc: subprocess.Popen[Any]) -> None:
+    """Terminate the Windows process tree; ``TerminateProcess`` does not kill grandchildren."""
+    pid = proc.pid
+    if not pid:
+        proc.kill()
+        return
+    try:
+        subprocess.run(
+            ["taskkill", "/F", "/T", "/PID", str(pid)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=10,
+            check=False,
+            **get_subprocess_creationflags(),
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        proc.kill()
+        return
+    if proc.poll() is None:
+        proc.kill()
 
 
 class PythonWorkerManager:
@@ -232,55 +267,63 @@ class PythonWorkerManager:
                 # terminating the warm subprocess (preserving shared workbook sessions).
                 host_read_timeout_sec = float(timeout_sec) + float(HOST_IPC_READ_GRACE_SEC)
 
-                while True:
-                    if allow_heartbeat:
-                        from plugin.framework.constants import EMBEDDINGS_HEARTBEAT_GRACE_S
+                try:
+                    while True:
+                        if allow_heartbeat:
+                            from plugin.framework.constants import EMBEDDINGS_HEARTBEAT_GRACE_S
 
-                        grace = int(heartbeat_grace_sec if heartbeat_grace_sec is not None else EMBEDDINGS_HEARTBEAT_GRACE_S)
-                        response_bytes = self._read_response_with_heartbeats(
-                            stdout,
-                            host_read_timeout_sec,
-                            grace,
-                            on_heartbeat,
-                        )
-                    else:
-                        response_bytes = self._read_response_bytes(stdout, host_read_timeout_sec)
-                    if not response_bytes:
-                        stderr_out = self._drain_stderr()
-                        raise RuntimeError(f"Worker closed stdout without a response{stderr_out}")
-                    response = unpack_pickle_frame(response_bytes)
-                    if not isinstance(response, dict):
-                        raise RuntimeError("Worker response must be a dict")
-                    if isinstance(response, dict):
-                        def _stdin_write(blob: bytes) -> None:
-                            try:
-                                self._write_bytes_with_timeout(
-                                    stdin,
-                                    blob,
-                                    timeout_sec=write_timeout_sec,
-                                    label="PPT-Master host response",
-                                )
-                            except subprocess.TimeoutExpired as exc:
-                                # The worker requested host work before this write. Retrying the
-                                # whole turn could duplicate UNO mutations already performed.
-                                raise _NonReplayableIpcWriteTimeout(
-                                    f"PPT-Master host response timed out after {write_timeout_sec:g} seconds"
-                                ) from exc
+                            grace = int(heartbeat_grace_sec if heartbeat_grace_sec is not None else EMBEDDINGS_HEARTBEAT_GRACE_S)
+                            response_bytes = self._read_response_with_heartbeats(
+                                stdout,
+                                host_read_timeout_sec,
+                                grace,
+                                on_heartbeat,
+                            )
+                        else:
+                            response_bytes = self._read_response_bytes(stdout, host_read_timeout_sec)
+                        if not response_bytes:
+                            stderr_out = self._drain_stderr()
+                            raise RuntimeError(f"Worker closed stdout without a response{stderr_out}")
+                        response = unpack_pickle_frame(response_bytes)
+                        if not isinstance(response, dict):
+                            raise RuntimeError("Worker response must be a dict")
+                        if isinstance(response, dict):
+                            def _stdin_write(blob: bytes) -> None:
+                                try:
+                                    self._write_bytes_with_timeout(
+                                        stdin,
+                                        blob,
+                                        timeout_sec=write_timeout_sec,
+                                        label="PPT-Master host response",
+                                    )
+                                except subprocess.TimeoutExpired as exc:
+                                    # The worker requested host work before this write. Retrying the
+                                    # whole turn could duplicate UNO mutations already performed.
+                                    raise _NonReplayableIpcWriteTimeout(
+                                        f"PPT-Master host response timed out after {write_timeout_sec:g} seconds"
+                                    ) from exc
 
-                        if _maybe_dispatch_ppt_master_response(
-                            response,
-                            stdin_write=_stdin_write,
-                            on_worker_event=on_worker_event,
-                            stop_checker=stop_checker,
-                        ):
-                            continue
-                    break
+                            if _maybe_dispatch_ppt_master_response(
+                                response,
+                                stdin_write=_stdin_write,
+                                on_worker_event=on_worker_event,
+                                stop_checker=stop_checker,
+                            ):
+                                continue
+                        break
+                except subprocess.TimeoutExpired as e:
+                    # User code / C-extension hung: killing and replaying would double the wait.
+                    log.warning("Python worker read timed out: %s", e)
+                    self._terminate_worker()
+                    return {"status": "error", "message": _worker_error_message(e)}
                 return self._normalize_response(response)
             except _NonReplayableIpcWriteTimeout as e:
                 log.warning("Python worker failed without replay: %s", e)
                 self._terminate_worker()
                 return {"status": "error", "message": f"Python worker failed: {e}"}
             except (BrokenPipeError, ValueError, RuntimeError, subprocess.TimeoutExpired, OSError) as e:
+                # TimeoutExpired here is an initial stdin write timeout only; retry once on a
+                # fresh worker. Host read timeouts return above without replay.
                 log.warning("Python worker failed (attempt %s): %s", attempt + 1, e)
                 self._terminate_worker()
                 if attempt == 1:
@@ -613,14 +656,7 @@ class PythonWorkerManager:
                 stderr_drain.join(timeout=1)
             return
         try:
-            if proc.poll() is None:
-                if sys.platform == "win32":
-                    proc.kill()
-                else:
-                    try:
-                        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-                    except ProcessLookupError:
-                        proc.kill()
+            _kill_process_tree(proc)
             proc.wait(timeout=5)
         except (subprocess.TimeoutExpired, ProcessLookupError, OSError):
             try:
