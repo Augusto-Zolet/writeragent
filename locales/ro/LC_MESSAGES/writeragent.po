@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-10 17:16-0400\n"
+"POT-Creation-Date: 2026-08-14 12:57-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Romanian <LL@li.org>\n"
@@ -470,6 +470,27 @@ msgstr ""
 msgid "unknown error"
 msgstr "eroare necunoscută"
 
+#: plugin/calc/python/function.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py
+msgid "Unknown error"
+msgstr "Eroare necunoscută"
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python venv not found. Open Settings → Python, set the venv path, "
+"then Test."
+msgstr ""
+"Eroare: venv Python nu a fost găsit. Deschideți Setări → Python, setați "
+"calea venv, apoi Test."
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python timed out. Open Settings → Python to raise the timeout, or "
+"Test the venv."
+msgstr ""
+"Eroare: Python a depășit timpul de așteptare. Deschideți Setări → Python "
+"pentru a mări timpul de așteptare sau testați venv."
+
 #: plugin/calc/python/function.py
 msgid "Image inserted"
 msgstr "Imagine inserată"
@@ -494,10 +515,6 @@ msgstr ""
 "Fișierul a fost salvat cu formule =PY din LibreOffice. Excel nu va vedea pythonScripts.xml / _xlws.PY până când exportul nu reușește.\n"
 "\n"
 "{1}"
-
-#: plugin/calc/excel_py_convert/auto_open.py
-msgid "WriterAgent"
-msgstr "WriterAgent"
 
 #: plugin/calc/editselection.py
 msgid "WriterAgent: Edit Selection (Calc)"
@@ -524,8 +541,16 @@ msgid "Cython Accelerator Download"
 msgstr "Descărcare accelerator Cython"
 
 #: plugin/librepy/settings.py
+msgid "Download Cython serialization binary:"
+msgstr "Descărcați binarul de serializare Cython:"
+
+#: plugin/librepy/settings.py
 msgid "Python Settings"
 msgstr "Setări Python"
+
+#: plugin/librepy/settings.py
+msgid "Could not open Settings."
+msgstr "Nu s-au putut deschide Setările."
 
 #: plugin/librepy/python_sidebar.py plugin/xdl_strings.py
 msgid "All"
@@ -1341,6 +1366,10 @@ msgstr "Se execută…"
 msgid "Monaco loader missing."
 msgstr "Încărcătorul Monaco lipsește."
 
+#: plugin/scripting/editor_ui_strings.py
+msgid "Install jedi in the Python venv for completions."
+msgstr "Instalați jedi în venv-ul Python pentru completări."
+
 #: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner.py
 #: plugin/xdl_strings.py
 msgid "Run"
@@ -1590,10 +1619,6 @@ msgid "Execution Error"
 msgstr "Eroare de execuție"
 
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-msgid "Unknown error"
-msgstr "Eroare necunoscută"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Script executed successfully."
 msgstr "Script executat cu succes."
 
@@ -1630,22 +1655,22 @@ msgstr "Eșuat"
 
 #: plugin/scripting/editor_host.py
 msgid ""
-"Set the Python venv path in WriterAgent Settings → Python (same venv where "
-"you ran 'uv pip install pywebview rocher'). LibreOffice's built-in Python "
-"cannot run the Monaco editor."
+"Set the Python venv path in Settings → Python (same venv where you ran 'uv "
+"pip install pywebview rocher'). LibreOffice's built-in Python cannot run the"
+" Monaco editor."
 msgstr ""
-"Setați calea către venv Python în Setări WriterAgent → Python (același venv "
-"unde ați rulat „uv pip install pywebview rocher”). Python-ul integrat în "
-"LibreOffice nu poate rula editorul Monaco."
+"Setați calea venv Python în Setări → Python (același venv unde ați rulat 'uv"
+" pip install pywebview rocher'). Python-ul integrat în LibreOffice nu poate "
+"rula editorul Monaco."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid ""
 "No python executable found under configured venv: {0} (expected bin/python, "
-"bin/python3, or bin/python3.x)."
+"Scripts/python.exe, or env-root python.exe)."
 msgstr ""
 "Nu a fost găsit niciun executabil python în venv-ul configurat: {0} (se "
-"aștepta bin/python, bin/python3 sau bin/python3.x)."
+"aștepta bin/python, Scripts/python.exe sau python.exe în rădăcina mediului)."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
@@ -2180,10 +2205,10 @@ msgstr ""
 #: plugin/vision/vision_runner.py
 #, python-brace-format
 msgid ""
-"Image '{name}' not found. Use list_images or leave image_name empty and "
+"Image '{name}' not found. Use image_list or leave image_name empty and "
 "select the graphic."
 msgstr ""
-"Imaginea „{name}” nu a fost găsită. Folosiți list_images sau lăsați "
+"Imaginea '{name}' nu a fost găsită. Folosiți image_list sau lăsați "
 "image_name gol și selectați elementul grafic."
 
 #: plugin/vision/vision_runner.py
@@ -2757,9 +2782,6 @@ msgstr "Mistral Vibe (ACP)"
 msgid "Grok Build (ACP)"
 msgstr "Grok Build (ACP)"
 
-msgid "Gemini CLI (ACP)"
-msgstr "Gemini CLI (ACP)"
-
 msgid "OpenCode (ACP)"
 msgstr "OpenCode (ACP)"
 
@@ -3193,15 +3215,17 @@ msgid "Python venv path"
 msgstr "Cale venv Python"
 
 msgid ""
-"If set, runs tools in that venv (bin/python or Scripts/python.exe). If "
-"empty, run_venv_python_script uses this process's sys.executable (basic "
-"stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
+"If set, runs =PY() and Run Python Script in that venv (bin/python, "
+"Scripts/python.exe, or conda/pyenv-win env-root python.exe). Paste the path "
+"without surrounding quotes. If empty, uses this process's sys.executable "
+"(basic stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
 "paddlepaddle)."
 msgstr ""
-"Dacă este setat, rulează instrumentele în acel venv (bin/python sau "
-"Scripts/python.exe). Dacă este gol, run_venv_python_script utilizează "
-"sys.executable al acestui proces (stdlib de bază); utilizați un venv pentru "
-"numpy/pandas și asistenți de viziune (paddleocr, paddlepaddle)."
+"Dacă este setat, rulează =PY() și Run Python Script în acel venv "
+"(bin/python, Scripts/python.exe sau conda/pyenv-win env-root python.exe). "
+"Lipiți calea fără ghilimele. Dacă este gol, utilizează sys.executable al "
+"acestui proces (stdlib de bază); folosiți un venv pentru numpy/pandas și "
+"Vision Helpers (paddleocr, paddlepaddle)."
 
 msgid "Test"
 msgstr "Test"
@@ -3212,12 +3236,8 @@ msgstr "Descărcați binarele audio și de serializare specifice platformei:"
 msgid "Python script timeout (seconds)"
 msgstr "Timp limită script Python (secunde)"
 
-msgid ""
-"Wall-clock limit for Run Python Script, =PYTHON(), and "
-"run_venv_python_script."
-msgstr ""
-"Limită de timp real pentru Run Python Script, =PYTHON() și "
-"run_venv_python_script."
+msgid "Wall-clock limit for Run Python Script and =PYTHON() / =PY()."
+msgstr "Limita de timp pentru Run Python Script și =PYTHON() / =PY()."
 
 msgid "Max Calc data cells"
 msgstr "Număr maxim de celule de date Calc"

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-10 17:16-0400\n"
+"POT-Creation-Date: 2026-08-14 12:57-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Korean <LL@li.org>\n"
@@ -449,6 +449,23 @@ msgstr ""
 msgid "unknown error"
 msgstr "알 수 없는 오류"
 
+#: plugin/calc/python/function.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py
+msgid "Unknown error"
+msgstr "알 수 없는 오류"
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python venv not found. Open Settings → Python, set the venv path, "
+"then Test."
+msgstr "오류: Python venv를 찾을 수 없습니다. 설정 → Python을 열고 venv 경로를 설정한 다음 테스트하십시오."
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python timed out. Open Settings → Python to raise the timeout, or "
+"Test the venv."
+msgstr "오류: Python 시간 초과가 발생했습니다. 설정 → Python을 열어 제한 시간을 늘리거나 venv를 테스트하십시오."
+
 #: plugin/calc/python/function.py
 msgid "Image inserted"
 msgstr "이미지 삽입됨"
@@ -473,10 +490,6 @@ msgstr ""
 "파일이 LibreOffice =PY 수식으로 저장되었습니다. 내보내기가 성공할 때까지 Excel에서 pythonScripts.xml / _xlws.PY를 인식하지 못합니다.\n"
 "\n"
 "{1}"
-
-#: plugin/calc/excel_py_convert/auto_open.py
-msgid "WriterAgent"
-msgstr "WriterAgent"
 
 #: plugin/calc/editselection.py
 msgid "WriterAgent: Edit Selection (Calc)"
@@ -503,8 +516,16 @@ msgid "Cython Accelerator Download"
 msgstr "Cython 가속기 다운로드"
 
 #: plugin/librepy/settings.py
+msgid "Download Cython serialization binary:"
+msgstr "Cython 직렬화 바이너리 다운로드:"
+
+#: plugin/librepy/settings.py
 msgid "Python Settings"
 msgstr "Python 설정"
+
+#: plugin/librepy/settings.py
+msgid "Could not open Settings."
+msgstr "설정을 열 수 없습니다."
 
 #: plugin/librepy/python_sidebar.py plugin/xdl_strings.py
 msgid "All"
@@ -1304,6 +1325,10 @@ msgstr "실행 중…"
 msgid "Monaco loader missing."
 msgstr "Monaco 로더를 찾을 수 없습니다."
 
+#: plugin/scripting/editor_ui_strings.py
+msgid "Install jedi in the Python venv for completions."
+msgstr "자동 완성을 위해 Python venv에 jedi를 설치하십시오."
+
 #: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner.py
 #: plugin/xdl_strings.py
 msgid "Run"
@@ -1541,10 +1566,6 @@ msgid "Execution Error"
 msgstr "실행 오류"
 
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-msgid "Unknown error"
-msgstr "알 수 없는 오류"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Script executed successfully."
 msgstr "스크립트가 성공적으로 실행되었습니다."
 
@@ -1579,22 +1600,21 @@ msgstr "실패"
 
 #: plugin/scripting/editor_host.py
 msgid ""
-"Set the Python venv path in WriterAgent Settings → Python (same venv where "
-"you ran 'uv pip install pywebview rocher'). LibreOffice's built-in Python "
-"cannot run the Monaco editor."
+"Set the Python venv path in Settings → Python (same venv where you ran 'uv "
+"pip install pywebview rocher'). LibreOffice's built-in Python cannot run the"
+" Monaco editor."
 msgstr ""
-"WriterAgent 설정 → Python에서 Python 가상 환경(venv) 경로를 설정하십시오('uv pip install "
-"pywebview rocher'를 실행한 동일한 venv). LibreOffice 내장 Python으로는 Monaco 에디터를 실행할 수"
-" 없습니다."
+"설정 → Python에서 Python venv 경로를 설정하십시오('uv pip install pywebview rocher'를 실행한 "
+"동일한 venv). LibreOffice 내장 Python은 Monaco 편집기를 실행할 수 없습니다."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid ""
 "No python executable found under configured venv: {0} (expected bin/python, "
-"bin/python3, or bin/python3.x)."
+"Scripts/python.exe, or env-root python.exe)."
 msgstr ""
-"구성된 venv에서 Python 실행 파일을 찾을 수 없습니다: {0} (bin/python, bin/python3 또는 "
-"bin/python3.x가 필요합니다)."
+"구성된 venv에서 Python 실행 파일을 찾을 수 없습니다: {0} (bin/python, Scripts/python.exe 또는 "
+"env-root python.exe가 필요합니다)."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
@@ -2100,10 +2120,10 @@ msgstr "포함된 이미지(또는 이미지가 포함된 범위)를 선택한 �
 #: plugin/vision/vision_runner.py
 #, python-brace-format
 msgid ""
-"Image '{name}' not found. Use list_images or leave image_name empty and "
+"Image '{name}' not found. Use image_list or leave image_name empty and "
 "select the graphic."
 msgstr ""
-"이미지 '{name}'을(를) 찾을 수 없습니다. list_images를 사용하거나 image_name을 비워두고 그래픽을 선택하십시오."
+"이미지 '{name}'을(를) 찾을 수 없습니다. image_list를 사용하거나 image_name을 비워두고 그래픽을 선택하십시오."
 
 #: plugin/vision/vision_runner.py
 #, python-brace-format
@@ -2667,9 +2687,6 @@ msgstr "Mistral Vibe (ACP)"
 msgid "Grok Build (ACP)"
 msgstr "Grok 빌드 (ACP)"
 
-msgid "Gemini CLI (ACP)"
-msgstr "Gemini CLI (ACP)"
-
 msgid "OpenCode (ACP)"
 msgstr "OpenCode (ACP)"
 
@@ -3067,14 +3084,16 @@ msgid "Python venv path"
 msgstr "Python 가상 환경(venv) 경로"
 
 msgid ""
-"If set, runs tools in that venv (bin/python or Scripts/python.exe). If "
-"empty, run_venv_python_script uses this process's sys.executable (basic "
-"stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
+"If set, runs =PY() and Run Python Script in that venv (bin/python, "
+"Scripts/python.exe, or conda/pyenv-win env-root python.exe). Paste the path "
+"without surrounding quotes. If empty, uses this process's sys.executable "
+"(basic stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
 "paddlepaddle)."
 msgstr ""
-"설정 시 해당 가상 환경(venv)에서 도구를 실행합니다(bin/python 또는 Scripts/python.exe). 비어 있으면 "
-"run_venv_python_script는 현재 프로세스의 sys.executable(기본 표준 라이브러리)을 사용합니다. "
-"numpy/pandas 및 비전 도우미(paddleocr, paddlepaddle)를 사용하려면 가상 환경을 사용하십시오."
+"설정 시, 해당 venv(bin/python, Scripts/python.exe 또는 conda/pyenv-win env-root "
+"python.exe)에서 =PY() 및 Python 스크립트 실행을 수행합니다. 따옴표 없이 경로를 붙여넣으십시오. 비워두면 이 "
+"프로세스의 sys.executable(기본 표준 라이브러리)을 사용합니다. numpy/pandas 및 Vision "
+"Helpers(paddleocr, paddlepaddle)를 사용하려면 venv를 사용하십시오."
 
 msgid "Test"
 msgstr "테스트"
@@ -3085,10 +3104,8 @@ msgstr "플랫폼별 오디오 및 직렬화 바이너리 다운로드:"
 msgid "Python script timeout (seconds)"
 msgstr "Python 스크립트 제한 시간(초)"
 
-msgid ""
-"Wall-clock limit for Run Python Script, =PYTHON(), and "
-"run_venv_python_script."
-msgstr "Python 스크립트 실행, =PYTHON() 및 run_venv_python_script에 대한 실제 시간 제한입니다."
+msgid "Wall-clock limit for Run Python Script and =PYTHON() / =PY()."
+msgstr "Python 스크립트 실행 및 =PYTHON() / =PY()에 대한 벽시계 시간 제한입니다."
 
 msgid "Max Calc data cells"
 msgstr "최대 Calc 데이터 셀"

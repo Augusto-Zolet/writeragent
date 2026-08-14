@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-10 17:16-0400\n"
+"POT-Creation-Date: 2026-08-14 12:57-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Japanese <LL@li.org>\n"
@@ -449,6 +449,25 @@ msgstr ""
 msgid "unknown error"
 msgstr "不明なエラー"
 
+#: plugin/calc/python/function.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py
+msgid "Unknown error"
+msgstr "不明なエラー"
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python venv not found. Open Settings → Python, set the venv path, "
+"then Test."
+msgstr ""
+"エラー: Python venvが見つかりません。「設定」→「Python」を開き、venvパスを設定してから「テスト」を実行してください。"
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python timed out. Open Settings → Python to raise the timeout, or "
+"Test the venv."
+msgstr ""
+"エラー: Pythonがタイムアウトしました。「設定」→「Python」を開いてタイムアウト時間を増やすか、venvのテストを実行してください。"
+
 #: plugin/calc/python/function.py
 msgid "Image inserted"
 msgstr "画像が挿入されました"
@@ -473,10 +492,6 @@ msgstr ""
 "ファイルはLibreOfficeの=PY数式として保存されました。エクスポートが成功するまで、ExcelはpythonScripts.xml / _xlws.PYを認識しません。\n"
 "\n"
 "{1}"
-
-#: plugin/calc/excel_py_convert/auto_open.py
-msgid "WriterAgent"
-msgstr "WriterAgent"
 
 #: plugin/calc/editselection.py
 msgid "WriterAgent: Edit Selection (Calc)"
@@ -503,8 +518,16 @@ msgid "Cython Accelerator Download"
 msgstr "Cythonアクセラレータのダウンロード"
 
 #: plugin/librepy/settings.py
+msgid "Download Cython serialization binary:"
+msgstr "Cythonシリアライズバイナリのダウンロード:"
+
+#: plugin/librepy/settings.py
 msgid "Python Settings"
 msgstr "Python設定"
+
+#: plugin/librepy/settings.py
+msgid "Could not open Settings."
+msgstr "設定を開けませんでした。"
 
 #: plugin/librepy/python_sidebar.py plugin/xdl_strings.py
 msgid "All"
@@ -1306,6 +1329,10 @@ msgstr "実行中…"
 msgid "Monaco loader missing."
 msgstr "Monacoローダーが見つかりません。"
 
+#: plugin/scripting/editor_ui_strings.py
+msgid "Install jedi in the Python venv for completions."
+msgstr "補完機能を使用するには、Python venvにjediをインストールしてください。"
+
 #: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner.py
 #: plugin/xdl_strings.py
 msgid "Run"
@@ -1543,10 +1570,6 @@ msgid "Execution Error"
 msgstr "実行エラー"
 
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-msgid "Unknown error"
-msgstr "不明なエラー"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Script executed successfully."
 msgstr "スクリプトは正常に実行されました。"
 
@@ -1581,21 +1604,21 @@ msgstr "失敗"
 
 #: plugin/scripting/editor_host.py
 msgid ""
-"Set the Python venv path in WriterAgent Settings → Python (same venv where "
-"you ran 'uv pip install pywebview rocher'). LibreOffice's built-in Python "
-"cannot run the Monaco editor."
+"Set the Python venv path in Settings → Python (same venv where you ran 'uv "
+"pip install pywebview rocher'). LibreOffice's built-in Python cannot run the"
+" Monaco editor."
 msgstr ""
-"WriterAgent 設定 → Python で Python venv パスを設定してください ('uv pip install pywebview"
-" rocher' を実行したのと同じ venv)。LibreOffice 組み込みの Python では Monaco エディターを実行できません。"
+"「設定」→「Python」でPython venvパスを設定してください（'uv pip install pywebview "
+"rocher'を実行したvenvと同じもの）。LibreOffice組み込みのPythonではMonacoエディタを実行できません。"
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid ""
 "No python executable found under configured venv: {0} (expected bin/python, "
-"bin/python3, or bin/python3.x)."
+"Scripts/python.exe, or env-root python.exe)."
 msgstr ""
-"設定された venv 内に Python 実行ファイルが見つかりません: {0} (bin/python、bin/python3、または "
-"bin/python3.x が必要です)。"
+"設定されたvenv内にPython実行ファイルが見つかりません: {0} (bin/python、Scripts/python.exe、またはenv-"
+"rootのpython.exeが必要です)。"
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
@@ -2101,10 +2124,9 @@ msgstr "埋め込み画像（または画像を含む範囲）を選択してか
 #: plugin/vision/vision_runner.py
 #, python-brace-format
 msgid ""
-"Image '{name}' not found. Use list_images or leave image_name empty and "
+"Image '{name}' not found. Use image_list or leave image_name empty and "
 "select the graphic."
-msgstr ""
-"画像 '{name}' が見つかりません。list_images を使用するか、image_name を空にしてグラフィックを選択してください。"
+msgstr "画像 '{name}' が見つかりません。image_listを使用するか、image_nameを空にして画像を選択してください。"
 
 #: plugin/vision/vision_runner.py
 #, python-brace-format
@@ -2668,9 +2690,6 @@ msgstr "ミストラル・バイブ (ACP)"
 msgid "Grok Build (ACP)"
 msgstr "Grok Build (ACP)"
 
-msgid "Gemini CLI (ACP)"
-msgstr "Gemini CLI (ACP)"
-
 msgid "OpenCode (ACP)"
 msgstr "OpenCode (ACP)"
 
@@ -3066,15 +3085,17 @@ msgid "Python venv path"
 msgstr "Python仮想環境(venv)のパス"
 
 msgid ""
-"If set, runs tools in that venv (bin/python or Scripts/python.exe). If "
-"empty, run_venv_python_script uses this process's sys.executable (basic "
-"stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
+"If set, runs =PY() and Run Python Script in that venv (bin/python, "
+"Scripts/python.exe, or conda/pyenv-win env-root python.exe). Paste the path "
+"without surrounding quotes. If empty, uses this process's sys.executable "
+"(basic stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
 "paddlepaddle)."
 msgstr ""
-"設定されている場合、その仮想環境 (bin/python または Scripts/python.exe) "
-"でツールを実行します。空の場合、run_venv_python_script はこのプロセスの sys.executable (基本的な標準ライブラリ)"
-" を使用します。numpy/pandas およびビジョンヘルパー (paddleocr, paddlepaddle) "
-"を使用する場合は仮想環境を指定してください。"
+"設定した場合、=PY()および「Pythonスクリプトの実行」はそのvenv "
+"(bin/python、Scripts/python.exe、またはconda/pyenv-winのenv-root python.exe) "
+"で実行されます。パスは引用符で囲まずに貼り付けてください。空の場合、このプロセスのsys.executable (基本的な標準ライブラリ) "
+"を使用します。numpy/pandasやVision Helpers (paddleocr, paddlepaddle) "
+"を使用する場合はvenvを指定してください。"
 
 msgid "Test"
 msgstr "テスト"
@@ -3085,11 +3106,8 @@ msgstr "プラットフォーム固有のオーディオおよびシリアライ
 msgid "Python script timeout (seconds)"
 msgstr "Python スクリプトのタイムアウト（秒）"
 
-msgid ""
-"Wall-clock limit for Run Python Script, =PYTHON(), and "
-"run_venv_python_script."
-msgstr ""
-"「Python スクリプトの実行」、=PYTHON()、および run_venv_python_script の実行時間制限（ウォールクロック時間）"
+msgid "Wall-clock limit for Run Python Script and =PYTHON() / =PY()."
+msgstr "「Pythonスクリプトの実行」および =PYTHON() / =PY() の実行時間制限（ウォールクロック時間）。"
 
 msgid "Max Calc data cells"
 msgstr "Calcの最大データセル数"

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-10 17:16-0400\n"
+"POT-Creation-Date: 2026-08-14 12:57-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Indonesian <LL@li.org>\n"
@@ -469,6 +469,27 @@ msgstr ""
 msgid "unknown error"
 msgstr "kesalahan tidak dikenal"
 
+#: plugin/calc/python/function.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py
+msgid "Unknown error"
+msgstr "Kesalahan tidak dikenal"
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python venv not found. Open Settings → Python, set the venv path, "
+"then Test."
+msgstr ""
+"Kesalahan: venv Python tidak ditemukan. Buka Pengaturan → Python, atur jalur"
+" venv, lalu Uji."
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python timed out. Open Settings → Python to raise the timeout, or "
+"Test the venv."
+msgstr ""
+"Kesalahan: Python kehabisan waktu. Buka Pengaturan → Python untuk menambah "
+"batas waktu, atau Uji venv tersebut."
+
 #: plugin/calc/python/function.py
 msgid "Image inserted"
 msgstr "Gambar disisipkan"
@@ -493,10 +514,6 @@ msgstr ""
 "File disimpan dengan rumus =PY LibreOffice. Excel tidak akan melihat pythonScripts.xml / _xlws.PY sampai ekspor berhasil.\n"
 "\n"
 "{1}"
-
-#: plugin/calc/excel_py_convert/auto_open.py
-msgid "WriterAgent"
-msgstr "WriterAgent"
 
 #: plugin/calc/editselection.py
 msgid "WriterAgent: Edit Selection (Calc)"
@@ -523,8 +540,16 @@ msgid "Cython Accelerator Download"
 msgstr "Unduh Akselerator Cython"
 
 #: plugin/librepy/settings.py
+msgid "Download Cython serialization binary:"
+msgstr "Unduh biner serialisasi Cython:"
+
+#: plugin/librepy/settings.py
 msgid "Python Settings"
 msgstr "Pengaturan Python"
+
+#: plugin/librepy/settings.py
+msgid "Could not open Settings."
+msgstr "Tidak dapat membuka Pengaturan."
 
 #: plugin/librepy/python_sidebar.py plugin/xdl_strings.py
 msgid "All"
@@ -1335,6 +1360,10 @@ msgstr "Menjalankan…"
 msgid "Monaco loader missing."
 msgstr "Pemuat Monaco hilang."
 
+#: plugin/scripting/editor_ui_strings.py
+msgid "Install jedi in the Python venv for completions."
+msgstr "Instal jedi di dalam venv Python untuk pelengkapan otomatis."
+
 #: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner.py
 #: plugin/xdl_strings.py
 msgid "Run"
@@ -1578,10 +1607,6 @@ msgid "Execution Error"
 msgstr "Kesalahan Eksekusi"
 
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-msgid "Unknown error"
-msgstr "Kesalahan tidak dikenal"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Script executed successfully."
 msgstr "Skrip berhasil dijalankan."
 
@@ -1618,22 +1643,22 @@ msgstr "Gagal"
 
 #: plugin/scripting/editor_host.py
 msgid ""
-"Set the Python venv path in WriterAgent Settings → Python (same venv where "
-"you ran 'uv pip install pywebview rocher'). LibreOffice's built-in Python "
-"cannot run the Monaco editor."
+"Set the Python venv path in Settings → Python (same venv where you ran 'uv "
+"pip install pywebview rocher'). LibreOffice's built-in Python cannot run the"
+" Monaco editor."
 msgstr ""
-"Atur jalur venv Python di Pengaturan WriterAgent → Python (venv yang sama "
-"tempat Anda menjalankan 'uv pip install pywebview rocher'). Python bawaan "
-"LibreOffice tidak dapat menjalankan editor Monaco."
+"Atur jalur venv Python di Pengaturan → Python (venv yang sama tempat Anda "
+"menjalankan 'uv pip install pywebview rocher'). Python bawaan LibreOffice "
+"tidak dapat menjalankan editor Monaco."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid ""
 "No python executable found under configured venv: {0} (expected bin/python, "
-"bin/python3, or bin/python3.x)."
+"Scripts/python.exe, or env-root python.exe)."
 msgstr ""
 "Tidak ada eksekusi python yang ditemukan di bawah venv yang dikonfigurasi: "
-"{0} (diharapkan bin/python, bin/python3, atau bin/python3.x)."
+"{0} (diharapkan bin/python, Scripts/python.exe, atau env-root python.exe)."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
@@ -2163,11 +2188,11 @@ msgstr ""
 #: plugin/vision/vision_runner.py
 #, python-brace-format
 msgid ""
-"Image '{name}' not found. Use list_images or leave image_name empty and "
+"Image '{name}' not found. Use image_list or leave image_name empty and "
 "select the graphic."
 msgstr ""
-"Gambar '{name}' tidak ditemukan. Gunakan list_images atau biarkan image_name"
-" kosong dan pilih grafisnya."
+"Gambar '{name}' tidak ditemukan. Gunakan image_list atau biarkan image_name "
+"kosong dan pilih grafisnya."
 
 #: plugin/vision/vision_runner.py
 #, python-brace-format
@@ -2740,9 +2765,6 @@ msgstr "Mistral Vibe (ACP)"
 msgid "Grok Build (ACP)"
 msgstr "Grok Build (ACP)"
 
-msgid "Gemini CLI (ACP)"
-msgstr "Gemini CLI (ACP)"
-
 msgid "OpenCode (ACP)"
 msgstr "OpenCode (ACP)"
 
@@ -3171,15 +3193,17 @@ msgid "Python venv path"
 msgstr "Jalur venv Python"
 
 msgid ""
-"If set, runs tools in that venv (bin/python or Scripts/python.exe). If "
-"empty, run_venv_python_script uses this process's sys.executable (basic "
-"stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
+"If set, runs =PY() and Run Python Script in that venv (bin/python, "
+"Scripts/python.exe, or conda/pyenv-win env-root python.exe). Paste the path "
+"without surrounding quotes. If empty, uses this process's sys.executable "
+"(basic stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
 "paddlepaddle)."
 msgstr ""
-"Jika diatur, menjalankan alat di venv tersebut (bin/python atau "
-"Scripts/python.exe). Jika kosong, run_venv_python_script menggunakan "
-"sys.executable proses ini (stdlib dasar); gunakan venv untuk numpy/pandas "
-"dan Pembantu Vision (paddleocr, paddlepaddle)."
+"Jika diatur, menjalankan =PY() dan Jalankan Skrip Python di venv tersebut "
+"(bin/python, Scripts/python.exe, atau conda/pyenv-win env-root python.exe). "
+"Tempel jalur tanpa tanda kutip. Jika kosong, menggunakan sys.executable "
+"proses ini (stdlib dasar); gunakan venv untuk numpy/pandas dan Vision "
+"Helpers (paddleocr, paddlepaddle)."
 
 msgid "Test"
 msgstr "Uji"
@@ -3190,12 +3214,9 @@ msgstr "Unduh biner audio dan serialisasi khusus platform:"
 msgid "Python script timeout (seconds)"
 msgstr "Batas waktu skrip Python (detik)"
 
-msgid ""
-"Wall-clock limit for Run Python Script, =PYTHON(), and "
-"run_venv_python_script."
+msgid "Wall-clock limit for Run Python Script and =PYTHON() / =PY()."
 msgstr ""
-"Batas waktu dinding (wall-clock) untuk Jalankan Skrip Python, =PYTHON(), dan"
-" run_venv_python_script."
+"Batas waktu dinding untuk Jalankan Skrip Python dan =PYTHON() / =PY()."
 
 msgid "Max Calc data cells"
 msgstr "Jumlah sel data Calc maksimum"

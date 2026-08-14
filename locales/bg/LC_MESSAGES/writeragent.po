@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-10 17:16-0400\n"
+"POT-Creation-Date: 2026-08-14 12:57-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Bulgarian <LL@li.org>\n"
@@ -478,6 +478,27 @@ msgstr ""
 msgid "unknown error"
 msgstr "неизвестна грешка"
 
+#: plugin/calc/python/function.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py
+msgid "Unknown error"
+msgstr "Неизвестна грешка"
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python venv not found. Open Settings → Python, set the venv path, "
+"then Test."
+msgstr ""
+"Грешка: Python venv не е намерен. Отворете Настройки → Python, задайте пътя "
+"до venv и след това тествайте."
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python timed out. Open Settings → Python to raise the timeout, or "
+"Test the venv."
+msgstr ""
+"Грешка: Времето за изпълнение на Python изтече. Отворете Настройки → Python,"
+" за да увеличите лимита, или тествайте venv."
+
 #: plugin/calc/python/function.py
 msgid "Image inserted"
 msgstr "Изображението е вмъкнато"
@@ -502,10 +523,6 @@ msgstr ""
 "Файлът беше записан с формули =PY на LibreOffice. Excel няма да вижда pythonScripts.xml / _xlws.PY, докато експортирането не успее.\n"
 "\n"
 "{1}"
-
-#: plugin/calc/excel_py_convert/auto_open.py
-msgid "WriterAgent"
-msgstr "WriterAgent"
 
 #: plugin/calc/editselection.py
 msgid "WriterAgent: Edit Selection (Calc)"
@@ -532,8 +549,16 @@ msgid "Cython Accelerator Download"
 msgstr "Изтегляне на ускорител Cython"
 
 #: plugin/librepy/settings.py
+msgid "Download Cython serialization binary:"
+msgstr "Изтегляне на двоичен файл за сериализация на Cython:"
+
+#: plugin/librepy/settings.py
 msgid "Python Settings"
 msgstr "Настройки на Python"
+
+#: plugin/librepy/settings.py
+msgid "Could not open Settings."
+msgstr "Настройките не можаха да бъдат отворени."
 
 #: plugin/librepy/python_sidebar.py plugin/xdl_strings.py
 msgid "All"
@@ -1345,6 +1370,12 @@ msgstr "Изпълнение…"
 msgid "Monaco loader missing."
 msgstr "Липсва зареждач Monaco."
 
+#: plugin/scripting/editor_ui_strings.py
+msgid "Install jedi in the Python venv for completions."
+msgstr ""
+"Инсталирайте jedi във виртуалната среда (venv) на Python за автоматично "
+"довършване."
+
 #: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner.py
 #: plugin/xdl_strings.py
 msgid "Run"
@@ -1594,10 +1625,6 @@ msgid "Execution Error"
 msgstr "Грешка при изпълнение"
 
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-msgid "Unknown error"
-msgstr "Неизвестна грешка"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Script executed successfully."
 msgstr "Скриптът е изпълнен успешно."
 
@@ -1633,23 +1660,22 @@ msgstr "Неуспешно"
 
 #: plugin/scripting/editor_host.py
 msgid ""
-"Set the Python venv path in WriterAgent Settings → Python (same venv where "
-"you ran 'uv pip install pywebview rocher'). LibreOffice's built-in Python "
-"cannot run the Monaco editor."
+"Set the Python venv path in Settings → Python (same venv where you ran 'uv "
+"pip install pywebview rocher'). LibreOffice's built-in Python cannot run the"
+" Monaco editor."
 msgstr ""
-"Задайте пътя до виртуалната среда (venv) на Python в Настройки на "
-"WriterAgent → Python (същата среда, в която изпълнихте „uv pip install "
-"pywebview rocher“). Вграденият в LibreOffice Python не може да стартира "
-"редактора Monaco."
+"Задайте пътя до виртуалната среда (venv) на Python в Настройки → Python "
+"(същата среда, в която изпълнихте 'uv pip install pywebview rocher'). "
+"Вграденият в LibreOffice Python не може да стартира редактора Monaco."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid ""
 "No python executable found under configured venv: {0} (expected bin/python, "
-"bin/python3, or bin/python3.x)."
+"Scripts/python.exe, or env-root python.exe)."
 msgstr ""
-"Не е намерен изпълним файл на Python в конфигурираната виртуална среда: {0} "
-"(очакваше се bin/python, bin/python3 или bin/python3.x)."
+"Не е намерен изпълним файл на Python в конфигурираната venv: {0} (очаква се "
+"bin/python, Scripts/python.exe или env-root python.exe)."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
@@ -2186,11 +2212,11 @@ msgstr ""
 #: plugin/vision/vision_runner.py
 #, python-brace-format
 msgid ""
-"Image '{name}' not found. Use list_images or leave image_name empty and "
+"Image '{name}' not found. Use image_list or leave image_name empty and "
 "select the graphic."
 msgstr ""
-"Изображението „{name}“ не е намерено. Използвайте list_images или оставете "
-"image_name празно и изберете графичния обект."
+"Изображението '{name}' не е намерено. Използвайте image_list или оставете "
+"image_name празно и изберете графиката."
 
 #: plugin/vision/vision_runner.py
 #, python-brace-format
@@ -2763,9 +2789,6 @@ msgstr "Mistral Vibe (ACP)"
 msgid "Grok Build (ACP)"
 msgstr "Grok Build (ACP)"
 
-msgid "Gemini CLI (ACP)"
-msgstr "Gemini CLI (ACP)"
-
 msgid "OpenCode (ACP)"
 msgstr "OpenCode (ACP)"
 
@@ -3197,15 +3220,17 @@ msgid "Python venv path"
 msgstr "Път до виртуална среда (venv) на Python"
 
 msgid ""
-"If set, runs tools in that venv (bin/python or Scripts/python.exe). If "
-"empty, run_venv_python_script uses this process's sys.executable (basic "
-"stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
+"If set, runs =PY() and Run Python Script in that venv (bin/python, "
+"Scripts/python.exe, or conda/pyenv-win env-root python.exe). Paste the path "
+"without surrounding quotes. If empty, uses this process's sys.executable "
+"(basic stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
 "paddlepaddle)."
 msgstr ""
-"Ако е зададено, изпълнява инструменти в тази виртуална среда (venv) "
-"(bin/python или Scripts/python.exe). Ако е празно, run_venv_python_script "
-"използва sys.executable на текущия процес (основна stdlib); използвайте venv"
-" за numpy/pandas и помощници за визия (paddleocr, paddlepaddle)."
+"Ако е зададено, изпълнява =PY() и „Изпълнение на Python скрипт“ в тази venv "
+"(bin/python, Scripts/python.exe или conda/pyenv-win env-root python.exe). "
+"Поставете пътя без кавички. Ако е празно, използва sys.executable на текущия"
+" процес (основна stdlib); използвайте venv за numpy/pandas и помощни "
+"инструменти за зрение (paddleocr, paddlepaddle)."
 
 msgid "Test"
 msgstr "Тест"
@@ -3218,12 +3243,10 @@ msgstr ""
 msgid "Python script timeout (seconds)"
 msgstr "Време за изчакване на Python скрипт (секунди)"
 
-msgid ""
-"Wall-clock limit for Run Python Script, =PYTHON(), and "
-"run_venv_python_script."
+msgid "Wall-clock limit for Run Python Script and =PYTHON() / =PY()."
 msgstr ""
-"Ограничение във времето за изпълнение на Python скрипт, =PYTHON() и "
-"run_venv_python_script."
+"Лимит за времето на изпълнение (wall-clock) за „Изпълнение на Python скрипт“"
+" и =PYTHON() / =PY()."
 
 msgid "Max Calc data cells"
 msgstr "Максимален брой клетки с данни в Calc"

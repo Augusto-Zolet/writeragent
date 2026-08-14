@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-10 17:16-0400\n"
+"POT-Creation-Date: 2026-08-14 12:57-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Czech <LL@li.org>\n"
@@ -472,6 +472,27 @@ msgstr ""
 msgid "unknown error"
 msgstr "neznámá chyba"
 
+#: plugin/calc/python/function.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py
+msgid "Unknown error"
+msgstr "Neznámá chyba"
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python venv not found. Open Settings → Python, set the venv path, "
+"then Test."
+msgstr ""
+"Chyba: Virtuální prostředí Pythonu nebylo nalezeno. Otevřete Nastavení → "
+"Python, nastavte cestu k venv a poté proveďte test."
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python timed out. Open Settings → Python to raise the timeout, or "
+"Test the venv."
+msgstr ""
+"Chyba: Vypršel časový limit Pythonu. Otevřete Nastavení → Python pro zvýšení"
+" časového limitu nebo otestujte venv."
+
 #: plugin/calc/python/function.py
 msgid "Image inserted"
 msgstr "Obrázek vložen"
@@ -496,10 +517,6 @@ msgstr ""
 "Soubor byl uložen s vzorci =PY aplikace LibreOffice. Excel neuvidí soubory pythonScripts.xml / _xlws.PY, dokud export neproběhne úspěšně.\n"
 "\n"
 "{1}"
-
-#: plugin/calc/excel_py_convert/auto_open.py
-msgid "WriterAgent"
-msgstr "WriterAgent"
 
 #: plugin/calc/editselection.py
 msgid "WriterAgent: Edit Selection (Calc)"
@@ -527,8 +544,16 @@ msgid "Cython Accelerator Download"
 msgstr "Stažení akcelerátoru Cython"
 
 #: plugin/librepy/settings.py
+msgid "Download Cython serialization binary:"
+msgstr "Stáhnout binární soubor serializace Cython:"
+
+#: plugin/librepy/settings.py
 msgid "Python Settings"
 msgstr "Nastavení Pythonu"
+
+#: plugin/librepy/settings.py
+msgid "Could not open Settings."
+msgstr "Nastavení nelze otevřít."
 
 #: plugin/librepy/python_sidebar.py plugin/xdl_strings.py
 msgid "All"
@@ -1339,6 +1364,11 @@ msgstr "Spouštění…"
 msgid "Monaco loader missing."
 msgstr "Chybí zavaděč Monaco."
 
+#: plugin/scripting/editor_ui_strings.py
+msgid "Install jedi in the Python venv for completions."
+msgstr ""
+"Pro doplňování kódu nainstalujte jedi do virtuálního prostředí Pythonu."
+
 #: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner.py
 #: plugin/xdl_strings.py
 msgid "Run"
@@ -1584,10 +1614,6 @@ msgid "Execution Error"
 msgstr "Chyba při provádění"
 
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-msgid "Unknown error"
-msgstr "Neznámá chyba"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Script executed successfully."
 msgstr "Skript byl úspěšně spuštěn."
 
@@ -1624,22 +1650,22 @@ msgstr "Selhalo"
 
 #: plugin/scripting/editor_host.py
 msgid ""
-"Set the Python venv path in WriterAgent Settings → Python (same venv where "
-"you ran 'uv pip install pywebview rocher'). LibreOffice's built-in Python "
-"cannot run the Monaco editor."
+"Set the Python venv path in Settings → Python (same venv where you ran 'uv "
+"pip install pywebview rocher'). LibreOffice's built-in Python cannot run the"
+" Monaco editor."
 msgstr ""
-"Nastavte cestu k Python venv v Nastavení WriterAgent → Python (stejné venv, "
-"kde jste spustili „uv pip install pywebview rocher“). Vestavěný Python v "
-"LibreOffice nemůže spustit editor Monaco."
+"Nastavte cestu k virtuálnímu prostředí Pythonu v Nastavení → Python (stejné "
+"venv, kde jste spustili 'uv pip install pywebview rocher'). Vestavěný Python"
+" v LibreOffice nemůže spustit editor Monaco."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid ""
 "No python executable found under configured venv: {0} (expected bin/python, "
-"bin/python3, or bin/python3.x)."
+"Scripts/python.exe, or env-root python.exe)."
 msgstr ""
 "V nakonfigurovaném venv nebyl nalezen žádný spustitelný soubor Pythonu: {0} "
-"(očekáváno bin/python, bin/python3 nebo bin/python3.x)."
+"(očekáváno bin/python, Scripts/python.exe nebo env-root python.exe)."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
@@ -2172,11 +2198,11 @@ msgstr ""
 #: plugin/vision/vision_runner.py
 #, python-brace-format
 msgid ""
-"Image '{name}' not found. Use list_images or leave image_name empty and "
+"Image '{name}' not found. Use image_list or leave image_name empty and "
 "select the graphic."
 msgstr ""
-"Obrázek '{name}' nebyl nalezen. Použijte list_images nebo ponechte "
-"image_name prázdné a vyberte grafiku."
+"Obrázek '{name}' nebyl nalezen. Použijte image_list nebo ponechte image_name"
+" prázdné a vyberte grafiku."
 
 #: plugin/vision/vision_runner.py
 #, python-brace-format
@@ -2748,9 +2774,6 @@ msgstr "Mistral Vibe (ACP)"
 msgid "Grok Build (ACP)"
 msgstr "Grok Build (ACP)"
 
-msgid "Gemini CLI (ACP)"
-msgstr "Gemini CLI (ACP)"
-
 msgid "OpenCode (ACP)"
 msgstr "OpenCode (ACP)"
 
@@ -3182,15 +3205,17 @@ msgid "Python venv path"
 msgstr "Cesta k venv Pythonu"
 
 msgid ""
-"If set, runs tools in that venv (bin/python or Scripts/python.exe). If "
-"empty, run_venv_python_script uses this process's sys.executable (basic "
-"stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
+"If set, runs =PY() and Run Python Script in that venv (bin/python, "
+"Scripts/python.exe, or conda/pyenv-win env-root python.exe). Paste the path "
+"without surrounding quotes. If empty, uses this process's sys.executable "
+"(basic stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
 "paddlepaddle)."
 msgstr ""
-"Pokud je nastaveno, spustí nástroje v daném venv (bin/python nebo "
-"Scripts/python.exe). Pokud je prázdné, run_venv_python_script použije "
-"sys.executable tohoto procesu (základní stdlib); pro numpy/pandas a "
-"pomocníky vize (paddleocr, paddlepaddle) použijte venv."
+"Pokud je nastaveno, spustí =PY() a Spustit skript Pythonu v tomto venv "
+"(bin/python, Scripts/python.exe nebo conda/pyenv-win env-root python.exe). "
+"Vložte cestu bez uvozovek. Pokud je prázdné, použije se sys.executable "
+"tohoto procesu (základní stdlib); pro numpy/pandas a Vision Helpers "
+"(paddleocr, paddlepaddle) použijte venv."
 
 msgid "Test"
 msgstr "Test"
@@ -3203,11 +3228,8 @@ msgstr ""
 msgid "Python script timeout (seconds)"
 msgstr "Časový limit skriptu Python (sekundy)"
 
-msgid ""
-"Wall-clock limit for Run Python Script, =PYTHON(), and "
-"run_venv_python_script."
-msgstr ""
-"Časový limit pro Run Python Script, =PYTHON() a run_venv_python_script."
+msgid "Wall-clock limit for Run Python Script and =PYTHON() / =PY()."
+msgstr "Časový limit pro Spustit skript Pythonu a =PYTHON() / =PY()."
 
 msgid "Max Calc data cells"
 msgstr "Maximální počet datových buněk v Calc"

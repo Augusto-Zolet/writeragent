@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-10 17:16-0400\n"
+"POT-Creation-Date: 2026-08-14 12:57-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Bengali <LL@li.org>\n"
@@ -470,6 +470,27 @@ msgstr ""
 msgid "unknown error"
 msgstr "অজানা ত্রুটি"
 
+#: plugin/calc/python/function.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py
+msgid "Unknown error"
+msgstr "অজানা ত্রুটি"
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python venv not found. Open Settings → Python, set the venv path, "
+"then Test."
+msgstr ""
+"ত্রুটি: Python venv পাওয়া যায়নি। সেটিংস → Python খুলুন, venv পাথ সেট করুন, "
+"তারপর পরীক্ষা করুন।"
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python timed out. Open Settings → Python to raise the timeout, or "
+"Test the venv."
+msgstr ""
+"ত্রুটি: Python-এর সময়সীমা শেষ হয়েছে। সময়সীমা বাড়াতে সেটিংস → Python খুলুন, "
+"অথবা venv পরীক্ষা করুন।"
+
 #: plugin/calc/python/function.py
 msgid "Image inserted"
 msgstr "ছবি সন্নিবেশিত হয়েছে"
@@ -494,10 +515,6 @@ msgstr ""
 "ফাইলটি LibreOffice =PY ফর্মুলা দিয়ে সংরক্ষণ করা হয়েছে। এক্সপোর্ট সফল না হওয়া পর্যন্ত এক্সেল pythonScripts.xml / _xlws.PY দেখতে পাবে না।\n"
 "\n"
 "{1}"
-
-#: plugin/calc/excel_py_convert/auto_open.py
-msgid "WriterAgent"
-msgstr "WriterAgent"
 
 #: plugin/calc/editselection.py
 msgid "WriterAgent: Edit Selection (Calc)"
@@ -525,8 +542,16 @@ msgid "Cython Accelerator Download"
 msgstr "Cython এক্সিলারেটর ডাউনলোড"
 
 #: plugin/librepy/settings.py
+msgid "Download Cython serialization binary:"
+msgstr "Cython সিরিয়ালাইজেশন বাইনারি ডাউনলোড করুন:"
+
+#: plugin/librepy/settings.py
 msgid "Python Settings"
 msgstr "Python সেটিংস"
+
+#: plugin/librepy/settings.py
+msgid "Could not open Settings."
+msgstr "সেটিংস খোলা যায়নি।"
 
 #: plugin/librepy/python_sidebar.py plugin/xdl_strings.py
 msgid "All"
@@ -1339,6 +1364,10 @@ msgstr "চলছে…"
 msgid "Monaco loader missing."
 msgstr "Monaco লোডার অনুপস্থিত।"
 
+#: plugin/scripting/editor_ui_strings.py
+msgid "Install jedi in the Python venv for completions."
+msgstr "সম্পূর্ণতার জন্য Python venv-এ jedi ইনস্টল করুন।"
+
 #: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner.py
 #: plugin/xdl_strings.py
 msgid "Run"
@@ -1587,10 +1616,6 @@ msgid "Execution Error"
 msgstr "এক্সিকিউশন ত্রুটি"
 
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-msgid "Unknown error"
-msgstr "অজানা ত্রুটি"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Script executed successfully."
 msgstr "স্ক্রিপ্ট সফলভাবে কার্যকর হয়েছে।"
 
@@ -1626,22 +1651,22 @@ msgstr "ব্যর্থ"
 
 #: plugin/scripting/editor_host.py
 msgid ""
-"Set the Python venv path in WriterAgent Settings → Python (same venv where "
-"you ran 'uv pip install pywebview rocher'). LibreOffice's built-in Python "
-"cannot run the Monaco editor."
+"Set the Python venv path in Settings → Python (same venv where you ran 'uv "
+"pip install pywebview rocher'). LibreOffice's built-in Python cannot run the"
+" Monaco editor."
 msgstr ""
-"WriterAgent সেটিংস → Python-এ Python venv পাথ সেট করুন (যে venv-এ আপনি 'uv "
-"pip install pywebview rocher' চালিয়েছেন)। LibreOffice-এর বিল্ট-ইন Python "
-"মোনাকো এডিটর চালাতে পারে না।"
+"সেটিংস → Python-এ Python venv পাথ সেট করুন (যে venv-এ আপনি 'uv pip install "
+"pywebview rocher' চালিয়েছেন)। LibreOffice-এর বিল্ট-ইন Python মোনাকো এডিটর "
+"চালাতে পারে না।"
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid ""
 "No python executable found under configured venv: {0} (expected bin/python, "
-"bin/python3, or bin/python3.x)."
+"Scripts/python.exe, or env-root python.exe)."
 msgstr ""
-"কনফিগার করা venv-এর অধীনে কোনো পাইথন এক্সিকিউটেবল পাওয়া যায়নি: {0} "
-"(bin/python, bin/python3, অথবা bin/python3.x প্রত্যাশিত)।"
+"কনফিগার করা venv-এর অধীনে কোনো python এক্সিকিউটেবল পাওয়া যায়নি: {0} "
+"(bin/python, Scripts/python.exe, অথবা env-root python.exe প্রত্যাশিত)।"
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
@@ -2177,10 +2202,10 @@ msgstr ""
 #: plugin/vision/vision_runner.py
 #, python-brace-format
 msgid ""
-"Image '{name}' not found. Use list_images or leave image_name empty and "
+"Image '{name}' not found. Use image_list or leave image_name empty and "
 "select the graphic."
 msgstr ""
-"ইমেজ '{name}' পাওয়া যায়নি। list_images ব্যবহার করুন অথবা image_name খালি "
+"'{name}' ছবিটি পাওয়া যায়নি। image_list ব্যবহার করুন অথবা image_name খালি "
 "রেখে গ্রাফিকটি নির্বাচন করুন।"
 
 #: plugin/vision/vision_runner.py
@@ -2748,9 +2773,6 @@ msgstr "মিস্ট্রাল ভাইব (ACP)"
 msgid "Grok Build (ACP)"
 msgstr "Grok Build (ACP)"
 
-msgid "Gemini CLI (ACP)"
-msgstr "Gemini CLI (ACP)"
-
 msgid "OpenCode (ACP)"
 msgstr "OpenCode (ACP)"
 
@@ -3175,13 +3197,15 @@ msgid "Python venv path"
 msgstr "পাইথন venv পাথ"
 
 msgid ""
-"If set, runs tools in that venv (bin/python or Scripts/python.exe). If "
-"empty, run_venv_python_script uses this process's sys.executable (basic "
-"stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
+"If set, runs =PY() and Run Python Script in that venv (bin/python, "
+"Scripts/python.exe, or conda/pyenv-win env-root python.exe). Paste the path "
+"without surrounding quotes. If empty, uses this process's sys.executable "
+"(basic stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
 "paddlepaddle)."
 msgstr ""
-"যদি সেট করা থাকে, তবে সেই venv-এ টুলগুলো চালায় (bin/python বা "
-"Scripts/python.exe)। যদি খালি থাকে, run_venv_python_script এই প্রসেসের "
+"যদি সেট করা থাকে, তবে সেই venv-এ (bin/python, Scripts/python.exe, অথবা "
+"conda/pyenv-win env-root python.exe) =PY() এবং Run Python Script চালায়। "
+"পাথটি উদ্ধৃতি চিহ্ন ছাড়া পেস্ট করুন। খালি থাকলে, এটি বর্তমান প্রসেসের "
 "sys.executable (মৌলিক stdlib) ব্যবহার করে; numpy/pandas এবং Vision Helpers "
 "(paddleocr, paddlepaddle)-এর জন্য একটি venv ব্যবহার করুন।"
 
@@ -3194,12 +3218,8 @@ msgstr "প্ল্যাটফর্ম-নির্দিষ্ট অডি�
 msgid "Python script timeout (seconds)"
 msgstr "পাইথন স্ক্রিপ্ট টাইমআউট (সেকেন্ড)"
 
-msgid ""
-"Wall-clock limit for Run Python Script, =PYTHON(), and "
-"run_venv_python_script."
-msgstr ""
-"Run Python Script, =PYTHON(), এবং run_venv_python_script-এর জন্য ওয়াল-ক্লক "
-"সীমা।"
+msgid "Wall-clock limit for Run Python Script and =PYTHON() / =PY()."
+msgstr "Run Python Script এবং =PYTHON() / =PY()-এর জন্য ওয়াল-ক্লক সময়সীমা।"
 
 msgid "Max Calc data cells"
 msgstr "সর্বোচ্চ Calc ডেটা সেল"

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-10 17:16-0400\n"
+"POT-Creation-Date: 2026-08-14 12:57-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Chinese (Traditional) <LL@li.org>\n"
@@ -448,6 +448,23 @@ msgstr ""
 msgid "unknown error"
 msgstr "未知的錯誤"
 
+#: plugin/calc/python/function.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py
+msgid "Unknown error"
+msgstr "未知錯誤"
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python venv not found. Open Settings → Python, set the venv path, "
+"then Test."
+msgstr "錯誤：找不到 Python venv。請開啟「設定」→「Python」，設定 venv 路徑，然後進行測試。"
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python timed out. Open Settings → Python to raise the timeout, or "
+"Test the venv."
+msgstr "錯誤：Python 執行逾時。請開啟「設定」→「Python」以增加逾時時間，或測試該 venv。"
+
 #: plugin/calc/python/function.py
 msgid "Image inserted"
 msgstr "已插入影像"
@@ -472,10 +489,6 @@ msgstr ""
 "該檔案已使用 LibreOffice =PY 公式儲存。在匯出成功前，Excel 將無法讀取 pythonScripts.xml / _xlws.PY。\n"
 "\n"
 "{1}"
-
-#: plugin/calc/excel_py_convert/auto_open.py
-msgid "WriterAgent"
-msgstr "WriterAgent"
 
 #: plugin/calc/editselection.py
 msgid "WriterAgent: Edit Selection (Calc)"
@@ -502,8 +515,16 @@ msgid "Cython Accelerator Download"
 msgstr "Cython 加速器下載"
 
 #: plugin/librepy/settings.py
+msgid "Download Cython serialization binary:"
+msgstr "下載 Cython 序列化二進位檔："
+
+#: plugin/librepy/settings.py
 msgid "Python Settings"
 msgstr "Python 設定"
+
+#: plugin/librepy/settings.py
+msgid "Could not open Settings."
+msgstr "無法開啟「設定」。"
 
 #: plugin/librepy/python_sidebar.py plugin/xdl_strings.py
 msgid "All"
@@ -1296,6 +1317,10 @@ msgstr "執行中…"
 msgid "Monaco loader missing."
 msgstr "遺失 Monaco 載入器。"
 
+#: plugin/scripting/editor_ui_strings.py
+msgid "Install jedi in the Python venv for completions."
+msgstr "請在 Python venv 中安裝 jedi 以啟用自動完成功能。"
+
 #: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner.py
 #: plugin/xdl_strings.py
 msgid "Run"
@@ -1533,10 +1558,6 @@ msgid "Execution Error"
 msgstr "執行錯誤"
 
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-msgid "Unknown error"
-msgstr "未知錯誤"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Script executed successfully."
 msgstr "指令碼執行成功。"
 
@@ -1571,20 +1592,21 @@ msgstr "失敗"
 
 #: plugin/scripting/editor_host.py
 msgid ""
-"Set the Python venv path in WriterAgent Settings → Python (same venv where "
-"you ran 'uv pip install pywebview rocher'). LibreOffice's built-in Python "
-"cannot run the Monaco editor."
+"Set the Python venv path in Settings → Python (same venv where you ran 'uv "
+"pip install pywebview rocher'). LibreOffice's built-in Python cannot run the"
+" Monaco editor."
 msgstr ""
-"請在 WriterAgent 設定 → Python 中設定 Python venv 路徑（與您執行「uv pip install pywebview "
-"rocher」時使用的 venv 相同）。LibreOffice 內建的 Python 無法執行 Monaco 編輯器。"
+"請在「設定」→「Python」中設定 Python venv 路徑（即您執行 'uv pip install pywebview rocher' "
+"的同一個 venv）。LibreOffice 內建的 Python 無法執行 Monaco 編輯器。"
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid ""
 "No python executable found under configured venv: {0} (expected bin/python, "
-"bin/python3, or bin/python3.x)."
+"Scripts/python.exe, or env-root python.exe)."
 msgstr ""
-"在設定的 venv 下找不到 Python 可執行檔：{0}（預期為 bin/python、bin/python3 或 bin/python3.x）。"
+"在設定的 venv 下找不到 python 執行檔：{0}（預期為 bin/python、Scripts/python.exe 或 env-root "
+"python.exe）。"
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
@@ -2083,9 +2105,9 @@ msgstr "請選取一張嵌入的影像（或包含影像的範圍），然後再
 #: plugin/vision/vision_runner.py
 #, python-brace-format
 msgid ""
-"Image '{name}' not found. Use list_images or leave image_name empty and "
+"Image '{name}' not found. Use image_list or leave image_name empty and "
 "select the graphic."
-msgstr "找不到影像 '{name}'。請使用 list_images 或將 image_name 留空並選取該圖形。"
+msgstr "找不到影像 '{name}'。請使用 image_list，或將 image_name 留空並選取該圖形。"
 
 #: plugin/vision/vision_runner.py
 #, python-brace-format
@@ -2649,9 +2671,6 @@ msgstr "Mistral Vibe (ACP)"
 msgid "Grok Build (ACP)"
 msgstr "Grok 建置 (ACP)"
 
-msgid "Gemini CLI (ACP)"
-msgstr "Gemini CLI (ACP)"
-
 msgid "OpenCode (ACP)"
 msgstr "OpenCode (ACP)"
 
@@ -3038,14 +3057,16 @@ msgid "Python venv path"
 msgstr "Python venv 路徑"
 
 msgid ""
-"If set, runs tools in that venv (bin/python or Scripts/python.exe). If "
-"empty, run_venv_python_script uses this process's sys.executable (basic "
-"stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
+"If set, runs =PY() and Run Python Script in that venv (bin/python, "
+"Scripts/python.exe, or conda/pyenv-win env-root python.exe). Paste the path "
+"without surrounding quotes. If empty, uses this process's sys.executable "
+"(basic stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
 "paddlepaddle)."
 msgstr ""
-"若已設定，將在該虛擬環境 (venv) 中執行工具 (bin/python 或 "
-"Scripts/python.exe)。若留空，run_venv_python_script 將使用此處理序的 sys.executable "
-"(基礎標準函式庫)；請針對 numpy/pandas 與視覺輔助程式 (paddleocr, paddlepaddle) 使用虛擬環境。"
+"若已設定，則會在該 venv（bin/python、Scripts/python.exe 或 conda/pyenv-win env-root "
+"python.exe）中執行 =PY() 與「執行 Python 指令碼」。請貼上路徑，且不要包含引號。若留空，則使用此處理程序的 "
+"sys.executable（基礎標準函式庫）；若需使用 numpy/pandas 與視覺輔助工具（paddleocr, "
+"paddlepaddle），請務必使用 venv。"
 
 msgid "Test"
 msgstr "測試"
@@ -3056,10 +3077,8 @@ msgstr "下載平台專用的音訊與序列化二進位檔案："
 msgid "Python script timeout (seconds)"
 msgstr "Python 指令碼逾時（秒）"
 
-msgid ""
-"Wall-clock limit for Run Python Script, =PYTHON(), and "
-"run_venv_python_script."
-msgstr "執行 Python 指令碼、=PYTHON() 及 run_venv_python_script 的實際執行時間限制。"
+msgid "Wall-clock limit for Run Python Script and =PYTHON() / =PY()."
+msgstr "「執行 Python 指令碼」與 =PYTHON() / =PY() 的實際執行時間限制。"
 
 msgid "Max Calc data cells"
 msgstr "Calc 資料儲存格上限"

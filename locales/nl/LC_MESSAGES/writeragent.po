@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-10 17:16-0400\n"
+"POT-Creation-Date: 2026-08-14 12:57-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Dutch <LL@li.org>\n"
@@ -468,6 +468,27 @@ msgstr ""
 msgid "unknown error"
 msgstr "onbekende fout"
 
+#: plugin/calc/python/function.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py
+msgid "Unknown error"
+msgstr "Onbekende fout"
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python venv not found. Open Settings → Python, set the venv path, "
+"then Test."
+msgstr ""
+"Fout: Python venv niet gevonden. Open Instellingen → Python, stel het venv-"
+"pad in en kies daarna Test."
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python timed out. Open Settings → Python to raise the timeout, or "
+"Test the venv."
+msgstr ""
+"Fout: Python-time-out. Open Instellingen → Python om de time-out te "
+"verhogen, of test het venv."
+
 #: plugin/calc/python/function.py
 msgid "Image inserted"
 msgstr "Afbeelding ingevoegd"
@@ -492,10 +513,6 @@ msgstr ""
 "Het bestand is opgeslagen met LibreOffice =PY-formules. Excel zal pythonScripts.xml / _xlws.PY niet zien totdat de export is geslaagd.\n"
 "\n"
 "{1}"
-
-#: plugin/calc/excel_py_convert/auto_open.py
-msgid "WriterAgent"
-msgstr "WriterAgent"
 
 #: plugin/calc/editselection.py
 msgid "WriterAgent: Edit Selection (Calc)"
@@ -523,8 +540,16 @@ msgid "Cython Accelerator Download"
 msgstr "Cython-versneller downloaden"
 
 #: plugin/librepy/settings.py
+msgid "Download Cython serialization binary:"
+msgstr "Cython-serialisatie-binary downloaden:"
+
+#: plugin/librepy/settings.py
 msgid "Python Settings"
 msgstr "Python-instellingen"
+
+#: plugin/librepy/settings.py
+msgid "Could not open Settings."
+msgstr "Kon Instellingen niet openen."
 
 #: plugin/librepy/python_sidebar.py plugin/xdl_strings.py
 msgid "All"
@@ -1340,6 +1365,10 @@ msgstr "Bezig met uitvoeren…"
 msgid "Monaco loader missing."
 msgstr "Monaco-lader ontbreekt."
 
+#: plugin/scripting/editor_ui_strings.py
+msgid "Install jedi in the Python venv for completions."
+msgstr "Installeer jedi in het Python venv voor aanvullingen."
+
 #: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner.py
 #: plugin/xdl_strings.py
 msgid "Run"
@@ -1591,10 +1620,6 @@ msgid "Execution Error"
 msgstr "Uitvoeringsfout"
 
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-msgid "Unknown error"
-msgstr "Onbekende fout"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Script executed successfully."
 msgstr "Script succesvol uitgevoerd."
 
@@ -1631,22 +1656,22 @@ msgstr "Mislukt"
 
 #: plugin/scripting/editor_host.py
 msgid ""
-"Set the Python venv path in WriterAgent Settings → Python (same venv where "
-"you ran 'uv pip install pywebview rocher'). LibreOffice's built-in Python "
-"cannot run the Monaco editor."
+"Set the Python venv path in Settings → Python (same venv where you ran 'uv "
+"pip install pywebview rocher'). LibreOffice's built-in Python cannot run the"
+" Monaco editor."
 msgstr ""
-"Stel het Python venv-pad in bij WriterAgent-instellingen → Python (hetzelfde"
-" venv waar u 'uv pip install pywebview rocher' hebt uitgevoerd). De "
-"ingebouwde Python van LibreOffice kan de Monaco-editor niet uitvoeren."
+"Stel het Python venv-pad in bij Instellingen → Python (hetzelfde venv waar u"
+" 'uv pip install pywebview rocher' hebt uitgevoerd). De ingebouwde Python "
+"van LibreOffice kan de Monaco-editor niet uitvoeren."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid ""
 "No python executable found under configured venv: {0} (expected bin/python, "
-"bin/python3, or bin/python3.x)."
+"Scripts/python.exe, or env-root python.exe)."
 msgstr ""
-"Geen Python-uitvoerbaar bestand gevonden in het geconfigureerde venv: {0} "
-"(verwacht bin/python, bin/python3 of bin/python3.x)."
+"Geen python-executable gevonden in het geconfigureerde venv: {0} (verwacht "
+"bin/python, Scripts/python.exe of env-root python.exe)."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
@@ -2181,10 +2206,10 @@ msgstr ""
 #: plugin/vision/vision_runner.py
 #, python-brace-format
 msgid ""
-"Image '{name}' not found. Use list_images or leave image_name empty and "
+"Image '{name}' not found. Use image_list or leave image_name empty and "
 "select the graphic."
 msgstr ""
-"Afbeelding '{name}' niet gevonden. Gebruik list_images of laat image_name "
+"Afbeelding '{name}' niet gevonden. Gebruik image_list of laat image_name "
 "leeg en selecteer de afbeelding."
 
 #: plugin/vision/vision_runner.py
@@ -2757,9 +2782,6 @@ msgstr "Mistral Vibe (ACP)"
 msgid "Grok Build (ACP)"
 msgstr "Grok Build (ACP)"
 
-msgid "Gemini CLI (ACP)"
-msgstr "Gemini CLI (ACP)"
-
 msgid "OpenCode (ACP)"
 msgstr "OpenCode (ACP)"
 
@@ -3190,15 +3212,17 @@ msgid "Python venv path"
 msgstr "Pad naar Python venv"
 
 msgid ""
-"If set, runs tools in that venv (bin/python or Scripts/python.exe). If "
-"empty, run_venv_python_script uses this process's sys.executable (basic "
-"stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
+"If set, runs =PY() and Run Python Script in that venv (bin/python, "
+"Scripts/python.exe, or conda/pyenv-win env-root python.exe). Paste the path "
+"without surrounding quotes. If empty, uses this process's sys.executable "
+"(basic stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
 "paddlepaddle)."
 msgstr ""
-"Indien ingesteld, worden tools uitgevoerd in die venv (bin/python of "
-"Scripts/python.exe). Indien leeg, gebruikt run_venv_python_script de "
-"sys.executable van dit proces (basis stdlib); gebruik een venv voor "
-"numpy/pandas en Vision Helpers (paddleocr, paddlepaddle)."
+"Indien ingesteld, worden =PY() en 'Python-script uitvoeren' uitgevoerd in "
+"dat venv (bin/python, Scripts/python.exe of conda/pyenv-win env-root "
+"python.exe). Plak het pad zonder aanhalingstekens. Indien leeg, wordt de "
+"sys.executable van dit proces gebruikt (basis stdlib); gebruik een venv voor"
+" numpy/pandas en Vision Helpers (paddleocr, paddlepaddle)."
 
 msgid "Test"
 msgstr "Test"
@@ -3209,11 +3233,8 @@ msgstr "Platformspecifieke audio- en serialisatie-binaries downloaden:"
 msgid "Python script timeout (seconds)"
 msgstr "Time-out voor Python-script (seconden)"
 
-msgid ""
-"Wall-clock limit for Run Python Script, =PYTHON(), and "
-"run_venv_python_script."
-msgstr ""
-"Tijdslimiet voor Run Python Script, =PYTHON() en run_venv_python_script."
+msgid "Wall-clock limit for Run Python Script and =PYTHON() / =PY()."
+msgstr "Tijdslimiet voor 'Python-script uitvoeren' en =PYTHON() / =PY()."
 
 msgid "Max Calc data cells"
 msgstr "Max. Calc-datacellen"

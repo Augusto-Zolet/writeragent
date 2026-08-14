@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-10 17:16-0400\n"
+"POT-Creation-Date: 2026-08-14 12:57-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Urdu <LL@li.org>\n"
@@ -468,6 +468,27 @@ msgstr ""
 msgid "unknown error"
 msgstr "نامعلوم خرابی"
 
+#: plugin/calc/python/function.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py
+msgid "Unknown error"
+msgstr "نامعلوم خرابی"
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python venv not found. Open Settings → Python, set the venv path, "
+"then Test."
+msgstr ""
+"خرابی: Python venv نہیں ملا۔ ترتیبات (Settings) → Python کھولیں، venv کا "
+"راستہ سیٹ کریں، پھر ٹیسٹ کریں۔"
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python timed out. Open Settings → Python to raise the timeout, or "
+"Test the venv."
+msgstr ""
+"خرابی: Python کا وقت ختم ہو گیا۔ ٹائم آؤٹ بڑھانے کے لیے ترتیبات (Settings) →"
+" Python کھولیں، یا venv کو ٹیسٹ کریں۔"
+
 #: plugin/calc/python/function.py
 msgid "Image inserted"
 msgstr "تصویر شامل کی گئی"
@@ -492,10 +513,6 @@ msgstr ""
 "فائل کو LibreOffice =PY فارمولوں کے ساتھ محفوظ کیا گیا تھا۔ Excel اس وقت تک pythonScripts.xml / _xlws.PY نہیں دیکھے گا جب تک ایکسپورٹ کامیاب نہ ہو جائے۔\n"
 "\n"
 "{1}"
-
-#: plugin/calc/excel_py_convert/auto_open.py
-msgid "WriterAgent"
-msgstr "WriterAgent"
 
 #: plugin/calc/editselection.py
 msgid "WriterAgent: Edit Selection (Calc)"
@@ -522,8 +539,16 @@ msgid "Cython Accelerator Download"
 msgstr "Cython ایکسیلیریٹر ڈاؤن لوڈ"
 
 #: plugin/librepy/settings.py
+msgid "Download Cython serialization binary:"
+msgstr "Cython سیریلائزیشن بائنری ڈاؤن لوڈ کریں:"
+
+#: plugin/librepy/settings.py
 msgid "Python Settings"
 msgstr "پائتھن (Python) کی ترتیبات"
+
+#: plugin/librepy/settings.py
+msgid "Could not open Settings."
+msgstr "ترتیبات (Settings) نہیں کھولی جا سکیں۔"
 
 #: plugin/librepy/python_sidebar.py plugin/xdl_strings.py
 msgid "All"
@@ -1333,6 +1358,10 @@ msgstr "چل رہا ہے…"
 msgid "Monaco loader missing."
 msgstr "Monaco لوڈر غائب ہے۔"
 
+#: plugin/scripting/editor_ui_strings.py
+msgid "Install jedi in the Python venv for completions."
+msgstr "تکمیل (completions) کے لیے Python venv میں jedi انسٹال کریں۔"
+
 #: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner.py
 #: plugin/xdl_strings.py
 msgid "Run"
@@ -1581,10 +1610,6 @@ msgid "Execution Error"
 msgstr "ایگزیکیوشن کی خرابی"
 
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-msgid "Unknown error"
-msgstr "نامعلوم خرابی"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Script executed successfully."
 msgstr "اسکرپٹ کامیابی کے ساتھ چلایا گیا۔"
 
@@ -1621,22 +1646,22 @@ msgstr "ناکام"
 
 #: plugin/scripting/editor_host.py
 msgid ""
-"Set the Python venv path in WriterAgent Settings → Python (same venv where "
-"you ran 'uv pip install pywebview rocher'). LibreOffice's built-in Python "
-"cannot run the Monaco editor."
+"Set the Python venv path in Settings → Python (same venv where you ran 'uv "
+"pip install pywebview rocher'). LibreOffice's built-in Python cannot run the"
+" Monaco editor."
 msgstr ""
-"WriterAgent کی ترتیبات → Python میں Python venv کا راستہ سیٹ کریں (وہی venv "
-"جہاں آپ نے 'uv pip install pywebview rocher' چلایا تھا)۔ LibreOffice کا بلٹ "
-"ان Python، Monaco ایڈیٹر کو نہیں چلا سکتا۔"
+"ترتیبات (Settings) → Python میں Python venv کا راستہ سیٹ کریں (وہی venv جہاں"
+" آپ نے 'uv pip install pywebview rocher' چلایا تھا)۔ LibreOffice کا بلٹ ان "
+"Python، Monaco ایڈیٹر نہیں چلا سکتا۔"
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid ""
 "No python executable found under configured venv: {0} (expected bin/python, "
-"bin/python3, or bin/python3.x)."
+"Scripts/python.exe, or env-root python.exe)."
 msgstr ""
-"ترتیب شدہ venv کے تحت کوئی پائتھن ایگزیکیوٹیبل نہیں ملا: {0} (bin/python، "
-"bin/python3، یا bin/python3.x متوقع تھا)۔"
+"مقررہ venv کے تحت کوئی python ایگزیکیوٹیبل نہیں ملا: {0} (متوقع bin/python، "
+"Scripts/python.exe، یا env-root python.exe)۔"
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
@@ -2170,11 +2195,11 @@ msgstr ""
 #: plugin/vision/vision_runner.py
 #, python-brace-format
 msgid ""
-"Image '{name}' not found. Use list_images or leave image_name empty and "
+"Image '{name}' not found. Use image_list or leave image_name empty and "
 "select the graphic."
 msgstr ""
-"تصویر '{name}' نہیں ملی۔ list_images استعمال کریں یا image_name کو خالی چھوڑ"
-" کر گرافک منتخب کریں۔"
+"تصویر '{name}' نہیں ملی۔ image_list استعمال کریں یا image_name کو خالی چھوڑ "
+"کر گرافک منتخب کریں۔"
 
 #: plugin/vision/vision_runner.py
 #, python-brace-format
@@ -2742,9 +2767,6 @@ msgstr "Mistral Vibe (ACP)"
 msgid "Grok Build (ACP)"
 msgstr "Grok Build (ACP)"
 
-msgid "Gemini CLI (ACP)"
-msgstr "Gemini CLI (ACP)"
-
 msgid "OpenCode (ACP)"
 msgstr "OpenCode (ACP)"
 
@@ -3171,15 +3193,17 @@ msgid "Python venv path"
 msgstr "Python venv کا راستہ"
 
 msgid ""
-"If set, runs tools in that venv (bin/python or Scripts/python.exe). If "
-"empty, run_venv_python_script uses this process's sys.executable (basic "
-"stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
+"If set, runs =PY() and Run Python Script in that venv (bin/python, "
+"Scripts/python.exe, or conda/pyenv-win env-root python.exe). Paste the path "
+"without surrounding quotes. If empty, uses this process's sys.executable "
+"(basic stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
 "paddlepaddle)."
 msgstr ""
-"اگر سیٹ کیا جائے تو، ٹولز کو اس venv (bin/python یا Scripts/python.exe) میں "
-"چلاتا ہے۔ اگر خالی ہو تو، run_venv_python_script اس عمل کی sys.executable "
-"(بنیادی stdlib) استعمال کرتا ہے؛ numpy/pandas اور ویژن ہیلپرز (paddleocr, "
-"paddlepaddle) کے لیے venv استعمال کریں۔"
+"اگر سیٹ کیا جائے تو، اس venv میں =PY() اور Run Python Script چلاتا ہے "
+"(bin/python، Scripts/python.exe، یا conda/pyenv-win env-root python.exe)۔ "
+"راستہ بغیر کوٹس کے پیسٹ کریں۔ اگر خالی ہو تو، یہ عمل کا sys.executable "
+"(بنیادی stdlib) استعمال کرتا ہے؛ numpy/pandas اور Vision Helpers (paddleocr,"
+" paddlepaddle) کے لیے venv استعمال کریں۔"
 
 msgid "Test"
 msgstr "ٹیسٹ"
@@ -3190,12 +3214,8 @@ msgstr "پلیٹ فارم کے لیے مخصوص آڈیو اور سیریلائ�
 msgid "Python script timeout (seconds)"
 msgstr "Python اسکرپٹ کا ٹائم آؤٹ (سیکنڈز)"
 
-msgid ""
-"Wall-clock limit for Run Python Script, =PYTHON(), and "
-"run_venv_python_script."
-msgstr ""
-"Run Python Script، =PYTHON()، اور run_venv_python_script کے لیے وال کلاک کی "
-"حد۔"
+msgid "Wall-clock limit for Run Python Script and =PYTHON() / =PY()."
+msgstr "Run Python Script اور =PYTHON() / =PY() کے لیے وال کلاک کی حد۔"
 
 msgid "Max Calc data cells"
 msgstr "زیادہ سے زیادہ Calc ڈیٹا سیلز"

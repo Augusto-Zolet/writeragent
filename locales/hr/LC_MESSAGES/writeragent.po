@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-10 17:16-0400\n"
+"POT-Creation-Date: 2026-08-14 12:57-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Croatian <LL@li.org>\n"
@@ -469,6 +469,27 @@ msgstr ""
 msgid "unknown error"
 msgstr "nepoznata pogreška"
 
+#: plugin/calc/python/function.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py
+msgid "Unknown error"
+msgstr "Nepoznata pogreška"
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python venv not found. Open Settings → Python, set the venv path, "
+"then Test."
+msgstr ""
+"Pogreška: Python venv nije pronađen. Otvorite Postavke → Python, postavite "
+"putanju do venv-a, zatim Testirajte."
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python timed out. Open Settings → Python to raise the timeout, or "
+"Test the venv."
+msgstr ""
+"Pogreška: Isteklo vrijeme za Python. Otvorite Postavke → Python kako biste "
+"povećali vremensko ograničenje ili testirajte venv."
+
 #: plugin/calc/python/function.py
 msgid "Image inserted"
 msgstr "Slika umetnuta"
@@ -493,10 +514,6 @@ msgstr ""
 "Datoteka je spremljena s LibreOffice =PY formulama. Excel neće vidjeti pythonScripts.xml / _xlws.PY dok izvoz ne uspije.\n"
 "\n"
 "{1}"
-
-#: plugin/calc/excel_py_convert/auto_open.py
-msgid "WriterAgent"
-msgstr "WriterAgent"
 
 #: plugin/calc/editselection.py
 msgid "WriterAgent: Edit Selection (Calc)"
@@ -523,8 +540,16 @@ msgid "Cython Accelerator Download"
 msgstr "Preuzimanje Cython akceleratora"
 
 #: plugin/librepy/settings.py
+msgid "Download Cython serialization binary:"
+msgstr "Preuzmi Cython binarnu datoteku za serijalizaciju:"
+
+#: plugin/librepy/settings.py
 msgid "Python Settings"
 msgstr "Postavke Pythona"
+
+#: plugin/librepy/settings.py
+msgid "Could not open Settings."
+msgstr "Nije bilo moguće otvoriti Postavke."
 
 #: plugin/librepy/python_sidebar.py plugin/xdl_strings.py
 msgid "All"
@@ -1338,6 +1363,10 @@ msgstr "Izvođenje…"
 msgid "Monaco loader missing."
 msgstr "Nedostaje Monaco učitavač."
 
+#: plugin/scripting/editor_ui_strings.py
+msgid "Install jedi in the Python venv for completions."
+msgstr "Instalirajte jedi u Python venv za dovršavanje koda."
+
 #: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner.py
 #: plugin/xdl_strings.py
 msgid "Run"
@@ -1585,10 +1614,6 @@ msgid "Execution Error"
 msgstr "Pogreška pri izvršavanju"
 
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-msgid "Unknown error"
-msgstr "Nepoznata pogreška"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Script executed successfully."
 msgstr "Skripta uspješno izvršena."
 
@@ -1625,22 +1650,22 @@ msgstr "Neuspjelo"
 
 #: plugin/scripting/editor_host.py
 msgid ""
-"Set the Python venv path in WriterAgent Settings → Python (same venv where "
-"you ran 'uv pip install pywebview rocher'). LibreOffice's built-in Python "
-"cannot run the Monaco editor."
+"Set the Python venv path in Settings → Python (same venv where you ran 'uv "
+"pip install pywebview rocher'). LibreOffice's built-in Python cannot run the"
+" Monaco editor."
 msgstr ""
-"Postavite putanju Python venv-a u WriterAgent Postavke → Python (isti venv "
-"gdje ste pokrenuli 'uv pip install pywebview rocher'). Ugrađeni Python u "
+"Postavite putanju do Python venv-a u Postavke → Python (isti venv u kojem "
+"ste pokrenuli 'uv pip install pywebview rocher'). Ugrađeni Python u "
 "LibreOfficeu ne može pokrenuti Monaco uređivač."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid ""
 "No python executable found under configured venv: {0} (expected bin/python, "
-"bin/python3, or bin/python3.x)."
+"Scripts/python.exe, or env-root python.exe)."
 msgstr ""
-"Nije pronađena Python izvršna datoteka u konfiguriranom venv-u: {0} "
-"(očekivano bin/python, bin/python3 ili bin/python3.x)."
+"Nije pronađena izvršna Python datoteka u konfiguriranom venv-u: {0} "
+"(očekivano bin/python, Scripts/python.exe ili env-root python.exe)."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
@@ -2178,11 +2203,11 @@ msgstr ""
 #: plugin/vision/vision_runner.py
 #, python-brace-format
 msgid ""
-"Image '{name}' not found. Use list_images or leave image_name empty and "
+"Image '{name}' not found. Use image_list or leave image_name empty and "
 "select the graphic."
 msgstr ""
-"Slika '{name}' nije pronađena. Koristite list_images ili ostavite image_name"
-" praznim i odaberite grafiku."
+"Slika '{name}' nije pronađena. Koristite image_list ili ostavite image_name "
+"praznim i odaberite grafiku."
 
 #: plugin/vision/vision_runner.py
 #, python-brace-format
@@ -2753,9 +2778,6 @@ msgstr "Mistral Vibe (ACP)"
 msgid "Grok Build (ACP)"
 msgstr "Grok izgradnja (ACP)"
 
-msgid "Gemini CLI (ACP)"
-msgstr "Gemini CLI (ACP)"
-
 msgid "OpenCode (ACP)"
 msgstr "OpenCode (ACP)"
 
@@ -3185,15 +3207,17 @@ msgid "Python venv path"
 msgstr "Putanja do Python venv-a"
 
 msgid ""
-"If set, runs tools in that venv (bin/python or Scripts/python.exe). If "
-"empty, run_venv_python_script uses this process's sys.executable (basic "
-"stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
+"If set, runs =PY() and Run Python Script in that venv (bin/python, "
+"Scripts/python.exe, or conda/pyenv-win env-root python.exe). Paste the path "
+"without surrounding quotes. If empty, uses this process's sys.executable "
+"(basic stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
 "paddlepaddle)."
 msgstr ""
-"Ako je postavljeno, pokreće alate u tom venv-u (bin/python ili "
-"Scripts/python.exe). Ako je prazno, run_venv_python_script koristi "
-"sys.executable ovog procesa (osnovni stdlib); koristite venv za numpy/pandas"
-" i pomoćnike za viziju (paddleocr, paddlepaddle)."
+"Ako je postavljeno, pokreće =PY() i Pokreni Python skriptu u tom venv-u "
+"(bin/python, Scripts/python.exe ili conda/pyenv-win env-root python.exe). "
+"Zalijepite putanju bez navodnika. Ako je prazno, koristi se sys.executable "
+"ovog procesa (osnovna stdlib); koristite venv za numpy/pandas i Vision "
+"Helpers (paddleocr, paddlepaddle)."
 
 msgid "Test"
 msgstr "Test"
@@ -3205,12 +3229,8 @@ msgstr ""
 msgid "Python script timeout (seconds)"
 msgstr "Vremensko ograničenje Python skripte (sekunde)"
 
-msgid ""
-"Wall-clock limit for Run Python Script, =PYTHON(), and "
-"run_venv_python_script."
-msgstr ""
-"Ograničenje zidnog sata za Run Python Script, =PYTHON() i "
-"run_venv_python_script."
+msgid "Wall-clock limit for Run Python Script and =PYTHON() / =PY()."
+msgstr "Vremensko ograničenje za Pokreni Python skriptu i =PYTHON() / =PY()."
 
 msgid "Max Calc data cells"
 msgstr "Maks. broj ćelija podataka u Calc-u"

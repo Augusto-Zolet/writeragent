@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-10 17:16-0400\n"
+"POT-Creation-Date: 2026-08-14 12:57-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Italian <LL@li.org>\n"
@@ -473,6 +473,27 @@ msgstr ""
 msgid "unknown error"
 msgstr "errore sconosciuto"
 
+#: plugin/calc/python/function.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py
+msgid "Unknown error"
+msgstr "Errore sconosciuto"
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python venv not found. Open Settings → Python, set the venv path, "
+"then Test."
+msgstr ""
+"Errore: venv Python non trovato. Apri Impostazioni → Python, imposta il "
+"percorso del venv, quindi esegui il Test."
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python timed out. Open Settings → Python to raise the timeout, or "
+"Test the venv."
+msgstr ""
+"Errore: timeout di Python. Apri Impostazioni → Python per aumentare il "
+"timeout, o esegui il Test del venv."
+
 #: plugin/calc/python/function.py
 msgid "Image inserted"
 msgstr "Immagine inserita"
@@ -497,10 +518,6 @@ msgstr ""
 "Il file è stato salvato con formule =PY di LibreOffice. Excel non vedrà pythonScripts.xml / _xlws.PY finché l'esportazione non avrà successo.\n"
 "\n"
 "{1}"
-
-#: plugin/calc/excel_py_convert/auto_open.py
-msgid "WriterAgent"
-msgstr "WriterAgent"
 
 #: plugin/calc/editselection.py
 msgid "WriterAgent: Edit Selection (Calc)"
@@ -527,8 +544,16 @@ msgid "Cython Accelerator Download"
 msgstr "Download acceleratore Cython"
 
 #: plugin/librepy/settings.py
+msgid "Download Cython serialization binary:"
+msgstr "Scarica il binario di serializzazione Cython:"
+
+#: plugin/librepy/settings.py
 msgid "Python Settings"
 msgstr "Impostazioni Python"
+
+#: plugin/librepy/settings.py
+msgid "Could not open Settings."
+msgstr "Impossibile aprire le Impostazioni."
 
 #: plugin/librepy/python_sidebar.py plugin/xdl_strings.py
 msgid "All"
@@ -1344,6 +1369,10 @@ msgstr "Esecuzione in corso…"
 msgid "Monaco loader missing."
 msgstr "Caricatore Monaco mancante."
 
+#: plugin/scripting/editor_ui_strings.py
+msgid "Install jedi in the Python venv for completions."
+msgstr "Installa jedi nel venv Python per i completamenti."
+
 #: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner.py
 #: plugin/xdl_strings.py
 msgid "Run"
@@ -1595,10 +1624,6 @@ msgid "Execution Error"
 msgstr "Errore di esecuzione"
 
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-msgid "Unknown error"
-msgstr "Errore sconosciuto"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Script executed successfully."
 msgstr "Script eseguito correttamente."
 
@@ -1635,22 +1660,22 @@ msgstr "Non riuscito"
 
 #: plugin/scripting/editor_host.py
 msgid ""
-"Set the Python venv path in WriterAgent Settings → Python (same venv where "
-"you ran 'uv pip install pywebview rocher'). LibreOffice's built-in Python "
-"cannot run the Monaco editor."
+"Set the Python venv path in Settings → Python (same venv where you ran 'uv "
+"pip install pywebview rocher'). LibreOffice's built-in Python cannot run the"
+" Monaco editor."
 msgstr ""
-"Imposta il percorso del venv Python in Impostazioni di WriterAgent → Python "
-"(lo stesso venv dove hai eseguito 'uv pip install pywebview rocher'). Il "
-"Python integrato di LibreOffice non può eseguire l'editor Monaco."
+"Imposta il percorso del venv Python in Impostazioni → Python (lo stesso venv"
+" dove hai eseguito 'uv pip install pywebview rocher'). Il Python integrato "
+"di LibreOffice non può eseguire l'editor Monaco."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid ""
 "No python executable found under configured venv: {0} (expected bin/python, "
-"bin/python3, or bin/python3.x)."
+"Scripts/python.exe, or env-root python.exe)."
 msgstr ""
 "Nessun eseguibile Python trovato nel venv configurato: {0} (previsti "
-"bin/python, bin/python3 o bin/python3.x)."
+"bin/python, Scripts/python.exe o python.exe nella root dell'ambiente)."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
@@ -2197,11 +2222,11 @@ msgstr ""
 #: plugin/vision/vision_runner.py
 #, python-brace-format
 msgid ""
-"Image '{name}' not found. Use list_images or leave image_name empty and "
+"Image '{name}' not found. Use image_list or leave image_name empty and "
 "select the graphic."
 msgstr ""
-"Immagine '{name}' non trovata. Utilizzare list_images o lasciare vuoto "
-"image_name e selezionare l'elemento grafico."
+"Immagine '{name}' non trovata. Usa image_list o lascia image_name vuoto e "
+"seleziona l'elemento grafico."
 
 #: plugin/vision/vision_runner.py
 #, python-brace-format
@@ -2774,9 +2799,6 @@ msgstr "Mistral Vibe (ACP)"
 msgid "Grok Build (ACP)"
 msgstr "Grok Build (ACP)"
 
-msgid "Gemini CLI (ACP)"
-msgstr "Gemini CLI (ACP)"
-
 msgid "OpenCode (ACP)"
 msgstr "OpenCode (ACP)"
 
@@ -3209,15 +3231,17 @@ msgid "Python venv path"
 msgstr "Percorso venv Python"
 
 msgid ""
-"If set, runs tools in that venv (bin/python or Scripts/python.exe). If "
-"empty, run_venv_python_script uses this process's sys.executable (basic "
-"stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
+"If set, runs =PY() and Run Python Script in that venv (bin/python, "
+"Scripts/python.exe, or conda/pyenv-win env-root python.exe). Paste the path "
+"without surrounding quotes. If empty, uses this process's sys.executable "
+"(basic stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
 "paddlepaddle)."
 msgstr ""
-"Se impostato, esegue gli strumenti in quel venv (bin/python o "
-"Scripts/python.exe). Se vuoto, run_venv_python_script utilizza "
-"sys.executable di questo processo (stdlib di base); utilizzare un venv per "
-"numpy/pandas e gli helper di visione (paddleocr, paddlepaddle)."
+"Se impostato, esegue =PY() e Esegui script Python in quel venv (bin/python, "
+"Scripts/python.exe o python.exe nella root dell'ambiente conda/pyenv-win). "
+"Incolla il percorso senza virgolette. Se vuoto, utilizza sys.executable di "
+"questo processo (stdlib di base); usa un venv per numpy/pandas e Vision "
+"Helpers (paddleocr, paddlepaddle)."
 
 msgid "Test"
 msgstr "Test"
@@ -3230,12 +3254,8 @@ msgstr ""
 msgid "Python script timeout (seconds)"
 msgstr "Timeout script Python (secondi)"
 
-msgid ""
-"Wall-clock limit for Run Python Script, =PYTHON(), and "
-"run_venv_python_script."
-msgstr ""
-"Limite di tempo reale per Esegui script Python, =PYTHON() e "
-"run_venv_python_script."
+msgid "Wall-clock limit for Run Python Script and =PYTHON() / =PY()."
+msgstr "Limite di tempo reale per Esegui script Python e =PYTHON() / =PY()."
 
 msgid "Max Calc data cells"
 msgstr "Numero massimo di celle dati Calc"

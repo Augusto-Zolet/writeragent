@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-10 17:16-0400\n"
+"POT-Creation-Date: 2026-08-14 12:57-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Estonian <LL@li.org>\n"
@@ -467,6 +467,27 @@ msgstr ""
 msgid "unknown error"
 msgstr "tundmatu viga"
 
+#: plugin/calc/python/function.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py
+msgid "Unknown error"
+msgstr "Tundmatu viga"
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python venv not found. Open Settings → Python, set the venv path, "
+"then Test."
+msgstr ""
+"Viga: Python venv ei leitud. Ava Sätted → Python, määra venv rada ja "
+"seejärel testi."
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python timed out. Open Settings → Python to raise the timeout, or "
+"Test the venv."
+msgstr ""
+"Viga: Pythoni ajapiirang ületati. Ava Sätted → Python, et ajapiirangut "
+"suurendada, või testi venv-i."
+
 #: plugin/calc/python/function.py
 msgid "Image inserted"
 msgstr "Pilt sisestatud"
@@ -491,10 +512,6 @@ msgstr ""
 "Fail salvestati LibreOffice'i =PY valemitega. Excel ei näe faile pythonScripts.xml / _xlws.PY enne, kui eksportimine õnnestub.\n"
 "\n"
 "{1}"
-
-#: plugin/calc/excel_py_convert/auto_open.py
-msgid "WriterAgent"
-msgstr "WriterAgent"
 
 #: plugin/calc/editselection.py
 msgid "WriterAgent: Edit Selection (Calc)"
@@ -521,8 +538,16 @@ msgid "Cython Accelerator Download"
 msgstr "Cython-kiirendi allalaadimine"
 
 #: plugin/librepy/settings.py
+msgid "Download Cython serialization binary:"
+msgstr "Laadi alla Cythoni serialiseerimise binaarfail:"
+
+#: plugin/librepy/settings.py
 msgid "Python Settings"
 msgstr "Pythoni sätted"
+
+#: plugin/librepy/settings.py
+msgid "Could not open Settings."
+msgstr "Sätteid ei saanud avada."
 
 #: plugin/librepy/python_sidebar.py plugin/xdl_strings.py
 msgid "All"
@@ -1334,6 +1359,10 @@ msgstr "Töötamine…"
 msgid "Monaco loader missing."
 msgstr "Monaco laadur puudub."
 
+#: plugin/scripting/editor_ui_strings.py
+msgid "Install jedi in the Python venv for completions."
+msgstr "Automaatse täiendamise jaoks installi jedi Pythoni venv-i."
+
 #: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner.py
 #: plugin/xdl_strings.py
 msgid "Run"
@@ -1579,10 +1608,6 @@ msgid "Execution Error"
 msgstr "Täitmisviga"
 
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-msgid "Unknown error"
-msgstr "Tundmatu viga"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Script executed successfully."
 msgstr "Skript käivitati edukalt."
 
@@ -1619,22 +1644,22 @@ msgstr "Nurjus"
 
 #: plugin/scripting/editor_host.py
 msgid ""
-"Set the Python venv path in WriterAgent Settings → Python (same venv where "
-"you ran 'uv pip install pywebview rocher'). LibreOffice's built-in Python "
-"cannot run the Monaco editor."
+"Set the Python venv path in Settings → Python (same venv where you ran 'uv "
+"pip install pywebview rocher'). LibreOffice's built-in Python cannot run the"
+" Monaco editor."
 msgstr ""
-"Määrake Pythoni venv-rada WriterAgenti sätetes → Python (sama venv, kus "
-"käivitasite 'uv pip install pywebview rocher'). LibreOffice'i sisseehitatud "
-"Python ei saa Monaco redaktorit käivitada."
+"Määra Pythoni venv rada jaotises Sätted → Python (sama venv, kus käivitasid "
+"'uv pip install pywebview rocher'). LibreOffice'i sisseehitatud Python ei "
+"saa Monaco redaktorit käivitada."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid ""
 "No python executable found under configured venv: {0} (expected bin/python, "
-"bin/python3, or bin/python3.x)."
+"Scripts/python.exe, or env-root python.exe)."
 msgstr ""
-"Konfigureeritud venv-kaustast ei leitud Pythoni käivitatavat faili: {0} "
-"(oodati bin/python, bin/python3 või bin/python3.x)."
+"Konfigureeritud venv-ist ei leitud ühtegi Pythoni käivitatavat faili: {0} "
+"(oodati bin/python, Scripts/python.exe või env-root python.exe)."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
@@ -2161,11 +2186,11 @@ msgstr ""
 #: plugin/vision/vision_runner.py
 #, python-brace-format
 msgid ""
-"Image '{name}' not found. Use list_images or leave image_name empty and "
+"Image '{name}' not found. Use image_list or leave image_name empty and "
 "select the graphic."
 msgstr ""
-"Pilti '{name}' ei leitud. Kasutage käsku list_images või jätke image_name "
-"tühjaks ja valige graafikaobjekt."
+"Pilti '{name}' ei leitud. Kasuta image_listi või jäta image_name tühjaks ja "
+"vali graafika."
 
 #: plugin/vision/vision_runner.py
 #, python-brace-format
@@ -2734,9 +2759,6 @@ msgstr "Mistral Vibe (ACP)"
 msgid "Grok Build (ACP)"
 msgstr "Grok Build (ACP)"
 
-msgid "Gemini CLI (ACP)"
-msgstr "Gemini CLI (ACP)"
-
 msgid "OpenCode (ACP)"
 msgstr "OpenCode (ACP)"
 
@@ -3166,15 +3188,17 @@ msgid "Python venv path"
 msgstr "Pythoni venv-rada"
 
 msgid ""
-"If set, runs tools in that venv (bin/python or Scripts/python.exe). If "
-"empty, run_venv_python_script uses this process's sys.executable (basic "
-"stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
+"If set, runs =PY() and Run Python Script in that venv (bin/python, "
+"Scripts/python.exe, or conda/pyenv-win env-root python.exe). Paste the path "
+"without surrounding quotes. If empty, uses this process's sys.executable "
+"(basic stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
 "paddlepaddle)."
 msgstr ""
-"Kui on määratud, käivitab tööriistad selles venv-is (bin/python või "
-"Scripts/python.exe). Kui on tühi, kasutab run_venv_python_script selle "
-"protsessi sys.executable'i (põhiline stdlib); kasutage numpy/pandase ja "
-"Vision Helperite (paddleocr, paddlepaddle) jaoks venv-i."
+"Kui on määratud, käivitab =PY() ja käsu Run Python Script selles venv-is "
+"(bin/python, Scripts/python.exe või conda/pyenv-win env-root python.exe). "
+"Kleebi rada ilma jutumärkideta. Kui on tühi, kasutab see protsessi "
+"sys.executable'i (põhiline stdlib); kasuta venv-i numpy/pandas ja Vision "
+"Helpers (paddleocr, paddlepaddle) jaoks."
 
 msgid "Test"
 msgstr "Test"
@@ -3185,12 +3209,9 @@ msgstr "Laadige alla platvormipõhised heli- ja serialiseerimisbinaarid:"
 msgid "Python script timeout (seconds)"
 msgstr "Pythoni skripti ajalõpp (sekundites)"
 
-msgid ""
-"Wall-clock limit for Run Python Script, =PYTHON(), and "
-"run_venv_python_script."
+msgid "Wall-clock limit for Run Python Script and =PYTHON() / =PY()."
 msgstr ""
-"Pythoni skripti käivitamise, =PYTHON() ja run_venv_python_script "
-"funktsioonide ajalimiit."
+"Kellaajaline piirang käskudele Run Python Script ja =PYTHON() / =PY()."
 
 msgid "Max Calc data cells"
 msgstr "Maksimaalne Calc-i andmeelementide arv"

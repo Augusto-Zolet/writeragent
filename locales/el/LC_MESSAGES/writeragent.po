@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-10 17:16-0400\n"
+"POT-Creation-Date: 2026-08-14 12:57-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Greek <LL@li.org>\n"
@@ -480,6 +480,27 @@ msgstr ""
 msgid "unknown error"
 msgstr "άγνωστο σφάλμα"
 
+#: plugin/calc/python/function.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py
+msgid "Unknown error"
+msgstr "Άγνωστο σφάλμα"
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python venv not found. Open Settings → Python, set the venv path, "
+"then Test."
+msgstr ""
+"Σφάλμα: Δεν βρέθηκε το Python venv. Ανοίξτε τις Ρυθμίσεις → Python, ορίστε "
+"τη διαδρομή του venv και μετά κάντε Δοκιμή."
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python timed out. Open Settings → Python to raise the timeout, or "
+"Test the venv."
+msgstr ""
+"Σφάλμα: Λήξη χρονικού ορίου Python. Ανοίξτε τις Ρυθμίσεις → Python για να "
+"αυξήσετε το χρονικό όριο ή κάντε Δοκιμή του venv."
+
 #: plugin/calc/python/function.py
 msgid "Image inserted"
 msgstr "Η εικόνα εισήχθη"
@@ -504,10 +525,6 @@ msgstr ""
 "Το αρχείο αποθηκεύτηκε με τύπους =PY του LibreOffice. Το Excel δεν θα βλέπει τα pythonScripts.xml / _xlws.PY μέχρι να ολοκληρωθεί η εξαγωγή.\n"
 "\n"
 "{1}"
-
-#: plugin/calc/excel_py_convert/auto_open.py
-msgid "WriterAgent"
-msgstr "WriterAgent"
 
 #: plugin/calc/editselection.py
 msgid "WriterAgent: Edit Selection (Calc)"
@@ -536,8 +553,16 @@ msgid "Cython Accelerator Download"
 msgstr "Λήψη επιταχυντή Cython"
 
 #: plugin/librepy/settings.py
+msgid "Download Cython serialization binary:"
+msgstr "Λήψη δυαδικού αρχείου σειριοποίησης Cython:"
+
+#: plugin/librepy/settings.py
 msgid "Python Settings"
 msgstr "Ρυθμίσεις Python"
+
+#: plugin/librepy/settings.py
+msgid "Could not open Settings."
+msgstr "Δεν ήταν δυνατό το άνοιγμα των Ρυθμίσεων."
 
 #: plugin/librepy/python_sidebar.py plugin/xdl_strings.py
 msgid "All"
@@ -1353,6 +1378,10 @@ msgstr "Εκτέλεση…"
 msgid "Monaco loader missing."
 msgstr "Λείπει ο φορτωτής Monaco."
 
+#: plugin/scripting/editor_ui_strings.py
+msgid "Install jedi in the Python venv for completions."
+msgstr "Εγκαταστήστε το jedi στο Python venv για συμπληρώσεις."
+
 #: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner.py
 #: plugin/xdl_strings.py
 msgid "Run"
@@ -1606,10 +1635,6 @@ msgid "Execution Error"
 msgstr "Σφάλμα εκτέλεσης"
 
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-msgid "Unknown error"
-msgstr "Άγνωστο σφάλμα"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Script executed successfully."
 msgstr "Το σενάριο εκτελέστηκε με επιτυχία."
 
@@ -1646,23 +1671,22 @@ msgstr "Απέτυχε"
 
 #: plugin/scripting/editor_host.py
 msgid ""
-"Set the Python venv path in WriterAgent Settings → Python (same venv where "
-"you ran 'uv pip install pywebview rocher'). LibreOffice's built-in Python "
-"cannot run the Monaco editor."
+"Set the Python venv path in Settings → Python (same venv where you ran 'uv "
+"pip install pywebview rocher'). LibreOffice's built-in Python cannot run the"
+" Monaco editor."
 msgstr ""
-"Ορίστε τη διαδρομή του Python venv στις Ρυθμίσεις του WriterAgent → Python "
-"(το ίδιο venv όπου εκτελέσατε την εντολή 'uv pip install pywebview rocher')."
-" Η ενσωματωμένη Python του LibreOffice δεν μπορεί να εκτελέσει τον "
-"επεξεργαστή Monaco."
+"Ορίστε τη διαδρομή του Python venv στις Ρυθμίσεις → Python (το ίδιο venv "
+"όπου εκτελέσατε το 'uv pip install pywebview rocher'). Η ενσωματωμένη Python"
+" του LibreOffice δεν μπορεί να εκτελέσει τον επεξεργαστή Monaco."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid ""
 "No python executable found under configured venv: {0} (expected bin/python, "
-"bin/python3, or bin/python3.x)."
+"Scripts/python.exe, or env-root python.exe)."
 msgstr ""
 "Δεν βρέθηκε εκτελέσιμο αρχείο python στο ρυθμισμένο venv: {0} (αναμενόταν "
-"bin/python, bin/python3, ή bin/python3.x)."
+"bin/python, Scripts/python.exe ή env-root python.exe)."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
@@ -2212,10 +2236,10 @@ msgstr ""
 #: plugin/vision/vision_runner.py
 #, python-brace-format
 msgid ""
-"Image '{name}' not found. Use list_images or leave image_name empty and "
+"Image '{name}' not found. Use image_list or leave image_name empty and "
 "select the graphic."
 msgstr ""
-"Η εικόνα '{name}' δεν βρέθηκε. Χρησιμοποιήστε την list_images ή αφήστε το "
+"Η εικόνα '{name}' δεν βρέθηκε. Χρησιμοποιήστε το image_list ή αφήστε το "
 "image_name κενό και επιλέξτε το γραφικό."
 
 #: plugin/vision/vision_runner.py
@@ -2790,9 +2814,6 @@ msgstr "Mistral Vibe (ACP)"
 msgid "Grok Build (ACP)"
 msgstr "Grok Build (ACP)"
 
-msgid "Gemini CLI (ACP)"
-msgstr "Gemini CLI (ACP)"
-
 msgid "OpenCode (ACP)"
 msgstr "OpenCode (ACP)"
 
@@ -3237,15 +3258,17 @@ msgid "Python venv path"
 msgstr "Διαδρομή venv Python"
 
 msgid ""
-"If set, runs tools in that venv (bin/python or Scripts/python.exe). If "
-"empty, run_venv_python_script uses this process's sys.executable (basic "
-"stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
+"If set, runs =PY() and Run Python Script in that venv (bin/python, "
+"Scripts/python.exe, or conda/pyenv-win env-root python.exe). Paste the path "
+"without surrounding quotes. If empty, uses this process's sys.executable "
+"(basic stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
 "paddlepaddle)."
 msgstr ""
-"Εάν οριστεί, εκτελεί εργαλεία σε αυτό το venv (bin/python ή "
-"Scripts/python.exe). Εάν είναι κενό, το run_venv_python_script χρησιμοποιεί "
-"το sys.executable αυτής της διεργασίας (βασική stdlib)· χρησιμοποιήστε ένα "
-"venv για numpy/pandas και Βοηθούς Όρασης (paddleocr, paddlepaddle)."
+"Εάν οριστεί, εκτελεί το =PY() και το Run Python Script σε αυτό το venv "
+"(bin/python, Scripts/python.exe ή conda/pyenv-win env-root python.exe). "
+"Επικολλήστε τη διαδρομή χωρίς εισαγωγικά. Εάν είναι κενό, χρησιμοποιεί το "
+"sys.executable αυτής της διεργασίας (βασική stdlib)· χρησιμοποιήστε ένα venv"
+" για numpy/pandas και Vision Helpers (paddleocr, paddlepaddle)."
 
 msgid "Test"
 msgstr "Δοκιμή"
@@ -3257,12 +3280,8 @@ msgstr ""
 msgid "Python script timeout (seconds)"
 msgstr "Χρονικό όριο δέσμης ενεργειών Python (δευτερόλεπτα)"
 
-msgid ""
-"Wall-clock limit for Run Python Script, =PYTHON(), and "
-"run_venv_python_script."
-msgstr ""
-"Χρονικό όριο τοίχου για το Run Python Script, =PYTHON() και "
-"run_venv_python_script."
+msgid "Wall-clock limit for Run Python Script and =PYTHON() / =PY()."
+msgstr "Όριο χρόνου τοίχου για το Run Python Script και το =PYTHON() / =PY()."
 
 msgid "Max Calc data cells"
 msgstr "Μέγιστα κελιά δεδομένων Calc"

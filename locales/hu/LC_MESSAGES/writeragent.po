@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-10 17:16-0400\n"
+"POT-Creation-Date: 2026-08-14 12:57-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Hungarian <LL@li.org>\n"
@@ -475,6 +475,27 @@ msgstr ""
 msgid "unknown error"
 msgstr "ismeretlen hiba"
 
+#: plugin/calc/python/function.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py
+msgid "Unknown error"
+msgstr "Ismeretlen hiba"
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python venv not found. Open Settings → Python, set the venv path, "
+"then Test."
+msgstr ""
+"Hiba: A Python venv nem található. Nyissa meg a Beállítások → Python "
+"menüpontot, adja meg a venv útvonalát, majd tesztelje."
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python timed out. Open Settings → Python to raise the timeout, or "
+"Test the venv."
+msgstr ""
+"Hiba: A Python időtúllépést okozott. Nyissa meg a Beállítások → Python "
+"menüpontot az időkorlát növeléséhez, vagy tesztelje a venv-et."
+
 #: plugin/calc/python/function.py
 msgid "Image inserted"
 msgstr "Kép beszúrva"
@@ -499,10 +520,6 @@ msgstr ""
 "A fájl LibreOffice =PY képletekkel lett elmentve. Az Excel nem fogja látni a pythonScripts.xml / _xlws.PY fájlokat, amíg az exportálás sikeres nem lesz.\n"
 "\n"
 "{1}"
-
-#: plugin/calc/excel_py_convert/auto_open.py
-msgid "WriterAgent"
-msgstr "WriterAgent"
 
 #: plugin/calc/editselection.py
 msgid "WriterAgent: Edit Selection (Calc)"
@@ -529,8 +546,16 @@ msgid "Cython Accelerator Download"
 msgstr "Cython-gyorsító letöltése"
 
 #: plugin/librepy/settings.py
+msgid "Download Cython serialization binary:"
+msgstr "Cython szerializációs bináris letöltése:"
+
+#: plugin/librepy/settings.py
 msgid "Python Settings"
 msgstr "Python-beállítások"
+
+#: plugin/librepy/settings.py
+msgid "Could not open Settings."
+msgstr "Nem sikerült megnyitni a Beállításokat."
 
 #: plugin/librepy/python_sidebar.py plugin/xdl_strings.py
 msgid "All"
@@ -1342,6 +1367,10 @@ msgstr "Futtatás…"
 msgid "Monaco loader missing."
 msgstr "A Monaco betöltő hiányzik."
 
+#: plugin/scripting/editor_ui_strings.py
+msgid "Install jedi in the Python venv for completions."
+msgstr "Telepítse a jedi csomagot a Python venv-be a kiegészítésekhez."
+
 #: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner.py
 #: plugin/xdl_strings.py
 msgid "Run"
@@ -1594,10 +1623,6 @@ msgid "Execution Error"
 msgstr "Végrehajtási hiba"
 
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-msgid "Unknown error"
-msgstr "Ismeretlen hiba"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Script executed successfully."
 msgstr "A parancsfájl sikeresen lefutott."
 
@@ -1634,23 +1659,22 @@ msgstr "Sikertelen"
 
 #: plugin/scripting/editor_host.py
 msgid ""
-"Set the Python venv path in WriterAgent Settings → Python (same venv where "
-"you ran 'uv pip install pywebview rocher'). LibreOffice's built-in Python "
-"cannot run the Monaco editor."
+"Set the Python venv path in Settings → Python (same venv where you ran 'uv "
+"pip install pywebview rocher'). LibreOffice's built-in Python cannot run the"
+" Monaco editor."
 msgstr ""
-"Állítsa be a Python venv útvonalát a WriterAgent Beállítások → Python "
-"menüpontban (ugyanaz a venv, ahol az „uv pip install pywebview rocher” "
-"parancsot futtatta). A LibreOffice beépített Pythonja nem tudja futtatni a "
-"Monaco szerkesztőt."
+"Adja meg a Python venv útvonalát a Beállítások → Python menüpontban (ugyanaz"
+" a venv, ahol az 'uv pip install pywebview rocher' parancsot futtatta). A "
+"LibreOffice beépített Pythonja nem tudja futtatni a Monaco szerkesztőt."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid ""
 "No python executable found under configured venv: {0} (expected bin/python, "
-"bin/python3, or bin/python3.x)."
+"Scripts/python.exe, or env-root python.exe)."
 msgstr ""
-"Nem található Python végrehajtható fájl a beállított venv alatt: {0} (a várt"
-" útvonal: bin/python, bin/python3 vagy bin/python3.x)."
+"Nem található Python végrehajtható fájl a beállított venv-ben: {0} (várt: "
+"bin/python, Scripts/python.exe vagy env-root python.exe)."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
@@ -2193,11 +2217,11 @@ msgstr ""
 #: plugin/vision/vision_runner.py
 #, python-brace-format
 msgid ""
-"Image '{name}' not found. Use list_images or leave image_name empty and "
+"Image '{name}' not found. Use image_list or leave image_name empty and "
 "select the graphic."
 msgstr ""
-"A(z) '{name}' kép nem található. Használja a list_images parancsot, vagy "
-"hagyja üresen az image_name mezőt, és jelölje ki a grafikát."
+"A(z) '{name}' kép nem található. Használja az image_list-et, vagy hagyja "
+"üresen az image_name mezőt, és válassza ki a grafikát."
 
 #: plugin/vision/vision_runner.py
 #, python-brace-format
@@ -2769,9 +2793,6 @@ msgstr "Mistral Vibe (ACP)"
 msgid "Grok Build (ACP)"
 msgstr "Grok Build (ACP)"
 
-msgid "Gemini CLI (ACP)"
-msgstr "Gemini CLI (ACP)"
-
 msgid "OpenCode (ACP)"
 msgstr "OpenCode (ACP)"
 
@@ -3208,15 +3229,17 @@ msgid "Python venv path"
 msgstr "Python venv útvonal"
 
 msgid ""
-"If set, runs tools in that venv (bin/python or Scripts/python.exe). If "
-"empty, run_venv_python_script uses this process's sys.executable (basic "
-"stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
+"If set, runs =PY() and Run Python Script in that venv (bin/python, "
+"Scripts/python.exe, or conda/pyenv-win env-root python.exe). Paste the path "
+"without surrounding quotes. If empty, uses this process's sys.executable "
+"(basic stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
 "paddlepaddle)."
 msgstr ""
-"Ha be van állítva, az eszközöket az adott venv-ben futtatja (bin/python vagy"
-" Scripts/python.exe). Ha üres, a run_venv_python_script az aktuális folyamat"
-" sys.executable-jét használja (alapvető stdlib); használjon venv-et a "
-"numpy/pandas és a Vision Helpers (paddleocr, paddlepaddle) számára."
+"Ha be van állítva, a =PY() és a Python-szkript futtatása ebben a venv-ben "
+"történik (bin/python, Scripts/python.exe vagy conda/pyenv-win env-root "
+"python.exe). Illessze be az útvonalat idézőjelek nélkül. Ha üres, a folyamat"
+" saját sys.executable-jét használja (alapvető stdlib); használjon venv-et a "
+"numpy/pandas és a Vision Helpers (paddleocr, paddlepaddle) csomagokhoz."
 
 msgid "Test"
 msgstr "Teszt"
@@ -3227,12 +3250,9 @@ msgstr "Platformspecifikus hang- és szerializációs binárisok letöltése:"
 msgid "Python script timeout (seconds)"
 msgstr "Python-szkript időkorlátja (másodperc)"
 
-msgid ""
-"Wall-clock limit for Run Python Script, =PYTHON(), and "
-"run_venv_python_script."
+msgid "Wall-clock limit for Run Python Script and =PYTHON() / =PY()."
 msgstr ""
-"Falióra-időkorlát a Python-szkript futtatása, a =PYTHON() és a "
-"run_venv_python_script parancsokhoz."
+"A Python-szkript futtatása és a =PYTHON() / =PY() függvények időkorlátja."
 
 msgid "Max Calc data cells"
 msgstr "Maximális Calc-adatcellák"

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-10 17:16-0400\n"
+"POT-Creation-Date: 2026-08-14 12:57-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Norwegian Bokmål <LL@li.org>\n"
@@ -468,6 +468,27 @@ msgstr ""
 msgid "unknown error"
 msgstr "ukjent feil"
 
+#: plugin/calc/python/function.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py
+msgid "Unknown error"
+msgstr "Ukjent feil"
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python venv not found. Open Settings → Python, set the venv path, "
+"then Test."
+msgstr ""
+"Feil: Python venv ble ikke funnet. Åpne Innstillinger → Python, angi venv-"
+"stien, og test deretter."
+
+#: plugin/calc/python/function.py
+msgid ""
+"Error: Python timed out. Open Settings → Python to raise the timeout, or "
+"Test the venv."
+msgstr ""
+"Feil: Python-tidsavbrudd. Åpne Innstillinger → Python for å øke "
+"tidsavbruddet, eller test venv-en."
+
 #: plugin/calc/python/function.py
 msgid "Image inserted"
 msgstr "Bilde satt inn"
@@ -492,10 +513,6 @@ msgstr ""
 "Filen ble lagret med LibreOffice =PY-formler. Excel vil ikke se pythonScripts.xml / _xlws.PY før eksporten er fullført.\n"
 "\n"
 "{1}"
-
-#: plugin/calc/excel_py_convert/auto_open.py
-msgid "WriterAgent"
-msgstr "WriterAgent"
 
 #: plugin/calc/editselection.py
 msgid "WriterAgent: Edit Selection (Calc)"
@@ -522,8 +539,16 @@ msgid "Cython Accelerator Download"
 msgstr "Nedlasting av Cython-akselerator"
 
 #: plugin/librepy/settings.py
+msgid "Download Cython serialization binary:"
+msgstr "Last ned Cython-serialiseringsbinærfil:"
+
+#: plugin/librepy/settings.py
 msgid "Python Settings"
 msgstr "Python-innstillinger"
+
+#: plugin/librepy/settings.py
+msgid "Could not open Settings."
+msgstr "Kunne ikke åpne Innstillinger."
 
 #: plugin/librepy/python_sidebar.py plugin/xdl_strings.py
 msgid "All"
@@ -1339,6 +1364,10 @@ msgstr "Kjører…"
 msgid "Monaco loader missing."
 msgstr "Monaco-laster mangler."
 
+#: plugin/scripting/editor_ui_strings.py
+msgid "Install jedi in the Python venv for completions."
+msgstr "Installer jedi i Python venv for fullføringer."
+
 #: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner.py
 #: plugin/xdl_strings.py
 msgid "Run"
@@ -1587,10 +1616,6 @@ msgid "Execution Error"
 msgstr "Kjøringsfeil"
 
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
-msgid "Unknown error"
-msgstr "Ukjent feil"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Script executed successfully."
 msgstr "Skript utført."
 
@@ -1627,22 +1652,22 @@ msgstr "Mislyktes"
 
 #: plugin/scripting/editor_host.py
 msgid ""
-"Set the Python venv path in WriterAgent Settings → Python (same venv where "
-"you ran 'uv pip install pywebview rocher'). LibreOffice's built-in Python "
-"cannot run the Monaco editor."
+"Set the Python venv path in Settings → Python (same venv where you ran 'uv "
+"pip install pywebview rocher'). LibreOffice's built-in Python cannot run the"
+" Monaco editor."
 msgstr ""
-"Angi Python venv-banen i WriterAgent-innstillinger → Python (samme venv hvor"
-" du kjørte «uv pip install pywebview rocher»). LibreOffices innebygde Python"
-" kan ikke kjøre Monaco-editoren."
+"Angi Python venv-stien i Innstillinger → Python (samme venv der du kjørte "
+"'uv pip install pywebview rocher'). LibreOffices innebygde Python kan ikke "
+"kjøre Monaco-editoren."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
 msgid ""
 "No python executable found under configured venv: {0} (expected bin/python, "
-"bin/python3, or bin/python3.x)."
+"Scripts/python.exe, or env-root python.exe)."
 msgstr ""
 "Ingen Python-kjørbar fil funnet under konfigurert venv: {0} (forventet "
-"bin/python, bin/python3 eller bin/python3.x)."
+"bin/python, Scripts/python.exe eller env-root python.exe)."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
@@ -2173,11 +2198,11 @@ msgstr ""
 #: plugin/vision/vision_runner.py
 #, python-brace-format
 msgid ""
-"Image '{name}' not found. Use list_images or leave image_name empty and "
+"Image '{name}' not found. Use image_list or leave image_name empty and "
 "select the graphic."
 msgstr ""
-"Bilde '{name}' ble ikke funnet. Bruk list_images eller la image_name stå "
-"tomt og velg grafikken."
+"Bilde '{name}' ble ikke funnet. Bruk image_list eller la image_name stå tomt"
+" og velg grafikken."
 
 #: plugin/vision/vision_runner.py
 #, python-brace-format
@@ -2745,9 +2770,6 @@ msgstr "Mistral Vibe (ACP)"
 msgid "Grok Build (ACP)"
 msgstr "Grok-bygg (ACP)"
 
-msgid "Gemini CLI (ACP)"
-msgstr "Gemini CLI (ACP)"
-
 msgid "OpenCode (ACP)"
 msgstr "OpenCode (ACP)"
 
@@ -3174,15 +3196,17 @@ msgid "Python venv path"
 msgstr "Sti til Python venv"
 
 msgid ""
-"If set, runs tools in that venv (bin/python or Scripts/python.exe). If "
-"empty, run_venv_python_script uses this process's sys.executable (basic "
-"stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
+"If set, runs =PY() and Run Python Script in that venv (bin/python, "
+"Scripts/python.exe, or conda/pyenv-win env-root python.exe). Paste the path "
+"without surrounding quotes. If empty, uses this process's sys.executable "
+"(basic stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
 "paddlepaddle)."
 msgstr ""
-"Hvis satt, kjøres verktøy i det venv-et (bin/python eller "
-"Scripts/python.exe). Hvis tomt, bruker run_venv_python_script denne "
-"prosessens sys.executable (grunnleggende stdlib); bruk et venv for "
-"numpy/pandas og visjonshjelpere (paddleocr, paddlepaddle)."
+"Hvis angitt, kjøres =PY() og «Kjør Python-skript» i den venv-en (bin/python,"
+" Scripts/python.exe eller conda/pyenv-win env-root python.exe). Lim inn "
+"stien uten anførselstegn. Hvis tom, brukes denne prosessens sys.executable "
+"(grunnleggende stdlib); bruk en venv for numpy/pandas og Vision Helpers "
+"(paddleocr, paddlepaddle)."
 
 msgid "Test"
 msgstr "Test"
@@ -3193,11 +3217,8 @@ msgstr "Last ned plattformspesifikke binærfiler for lyd og serialisering:"
 msgid "Python script timeout (seconds)"
 msgstr "Tidsavbrudd for Python-skript (sekunder)"
 
-msgid ""
-"Wall-clock limit for Run Python Script, =PYTHON(), and "
-"run_venv_python_script."
-msgstr ""
-"Tidsgrense for Run Python Script, =PYTHON() og run_venv_python_script."
+msgid "Wall-clock limit for Run Python Script and =PYTHON() / =PY()."
+msgstr "Tidsgrense for «Kjør Python-skript» og =PYTHON() / =PY()."
 
 msgid "Max Calc data cells"
 msgstr "Maks antall Calc-dataceller"
