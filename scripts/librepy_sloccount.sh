@@ -6,7 +6,7 @@
 #   - First-party SLOC (excludes plugin/lib and plugin/contrib)
 #
 # External trees:
-#   plugin/lib/     — vendored json_repair, latex2mathml
+#   plugin/lib/     — vendored isodate, json_repair, latex2mathml
 #   plugin/contrib/ — slim smolagents subset for the venv AST sandbox
 #
 # Usage:

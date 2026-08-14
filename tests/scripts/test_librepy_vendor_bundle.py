@@ -43,7 +43,8 @@ def test_librepy_vendor_excludes_writeragent_only_packages(vendor_dir: str) -> N
             assert pkg not in iter_librepy_vendor_packages(vendor_dir)
 
 
-def test_librepy_vendor_includes_json_repair_and_latex2mathml(vendor_dir: str) -> None:
+def test_librepy_vendor_includes_required_packages(vendor_dir: str) -> None:
     names = iter_librepy_vendor_packages(vendor_dir)
+    assert "isodate" in names
     assert "json_repair" in names
     assert "latex2mathml" in names

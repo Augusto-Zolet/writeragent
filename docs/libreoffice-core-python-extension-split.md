@@ -25,7 +25,7 @@ Build / install targets and the prototype tree live under [Prototype extension](
 | **Bootstrap** | **Shipped** — [`plugin/main_core.py`](../plugin/main_core.py), Python-only Settings ([`plugin/librepy/settings.py`](../plugin/librepy/settings.py)) |
 | **Weekly update check** | **Shipped** — same helper as WriterAgent ([`extension_update_check.py`](../plugin/chatbot/extension_update_check.py)); feed [`update-librepy.xml`](../update-librepy.xml); scheduled from LibrePy `StartupJob` after `init_logging` |
 | **Layers 0–6 feature set** | **Shipped in LibrePy.oxt** — `=PY()` / `=PYTHON()`, warm venv, Run Python Script, Reset Session, Monaco, domain helpers, Vision/OCR, TeX/Math (see [Feature bundles](#feature-bundles-layers)); user guide: [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md) |
-| **Filtered locales / slim vendor** | **Shipped** — `make compile-translations-core`; vendor limited to `json_repair` + `latex2mathml` |
+| **Filtered locales / slim vendor** | **Shipped** — `make compile-translations-core`; vendor limited to `isodate` + `json_repair` + `latex2mathml` |
 | **`xl` Calc-parity helpers** | **Deferred** — excluded from LibrePy ([§ below](#calc-parity-xl-helpers-deferred-from-librepy)) |
 | **WriterAgent AI overlay on top of LibrePy** (both OXTs installed, shared `plugin/` via `extend_path`) | **Not shipped** — goal in [Coexistence](#coexistence-options) / prototype §7; **today install only one OXT at a time** |
 | **WriterAgent stripped of duplicate `=PY()` / menus** | **Not shipped** — full WriterAgent OXT still bundles its own Python stack |
@@ -421,7 +421,7 @@ Manifest reference: [`scripts/manifest_registry.py`](../scripts/manifest_registr
 | **User venv `rocher`** | 4 | Monaco UI assets — **not** in OXT |
 | **User venv scientific stack** | 0–5 | numpy, docling, pywebview, etc. — user-maintained |
 
-**LibrePy vendor subset:** [`build_librepy_oxt.py`](../scripts/build_librepy_oxt.py) copies only **`json_repair`** and **`latex2mathml`** from `vendor/` into `plugin/lib/` ([`LIBREPY_VENDOR_PACKAGES`](../scripts/librepy_bundle_paths.py)). WriterAgent-only vendored packages are omitted from the core OXT:
+**LibrePy vendor subset:** [`build_librepy_oxt.py`](../scripts/build_librepy_oxt.py) copies only **`isodate`**, **`json_repair`**, and **`latex2mathml`** from `vendor/` into `plugin/lib/` ([`LIBREPY_VENDOR_PACKAGES`](../scripts/librepy_bundle_paths.py)). WriterAgent-only vendored packages are omitted from the core OXT:
 
 | Package | WriterAgent use | LibrePy |
 |---------|-----------------|---------|
@@ -438,7 +438,7 @@ Full `make vendor` still installs all entries in [`requirements-vendor.txt`](../
 | Step | Detail |
 |------|--------|
 | Manifest | `make manifest` → [`plugin/_manifest.py`](../plugin/_manifest.py) from `module.yaml` files. Core: at least `scripting` + `vision`; **no** `embeddings` |
-| Bundle | Same OXT pipeline as WriterAgent, filtered to layer file lists; vendor copy uses [`LIBREPY_VENDOR_PACKAGES`](../scripts/librepy_bundle_paths.py) (`json_repair`, `latex2mathml` only) |
+| Bundle | Same OXT pipeline as WriterAgent, filtered to layer file lists; vendor copy uses [`LIBREPY_VENDOR_PACKAGES`](../scripts/librepy_bundle_paths.py) (`isodate`, `json_repair`, `latex2mathml` only) |
 | Config path | Linux: `~/.config/libreoffice/{4,24}/user/writeragent.json` (see [`config.py`](../plugin/framework/config.py) docstring) |
 
 ---
@@ -715,7 +715,7 @@ Makefile
 **LibrePy menu Context:** In [`extension-core/Addons.xcu`](../extension-core/Addons.xcu), every submenu item must set an explicit `Context` property. Do not rely on “empty Context = all applications” when the same submenu mixes Writer-only and Calc-only entries — LibreOffice may hide shared items (Settings, Run Python Script, Reset Python Session) in Calc. Shared items use the full menubar context string (Writer, Calc, Draw, Impress, Web, Global); doc-specific items set `TextDocument` or `SpreadsheetDocument` only. Regression test: [`tests/scripts/test_librepy_addons_xcu.py`](../tests/scripts/test_librepy_addons_xcu.py).
 
 - **`make manifest-core`**: include `scripting` + `vision` `module.yaml` only; exclude `embeddings`.
-- **`make build-core`**: copy/filter files from [`scripts/librepy_bundle_paths.py`](../scripts/librepy_bundle_paths.py); vendor copy uses `LIBREPY_VENDOR_PACKAGES` (`json_repair`, `latex2mathml` only).
+- **`make build-core`**: copy/filter files from [`scripts/librepy_bundle_paths.py`](../scripts/librepy_bundle_paths.py); vendor copy uses `LIBREPY_VENDOR_PACKAGES` (`isodate`, `json_repair`, `latex2mathml` only).
 - **`make deploy-core`**: `unopkg` remove WriterAgent, then add `org.extension.librepy`.
 
 ### 7. Implementation order (lowest risk)
