@@ -285,7 +285,14 @@ Blank vs NaN policy (locked): [calc-py-data-shapes.md — Empty cells vs NaN](ca
 
 #### Dates on the wire
 
-Serial floats stay floats; large-grid `datetime` / `Timestamp` values become ISO strings in the `strings` map. Author coercion guide: [Dates and datetimes](calc-py-data-shapes.md#dates-and-datetimes).
+**Locked policy** (authoritative behavior: [Dates and datetimes](calc-py-data-shapes.md#dates-and-datetimes)):
+
+- Ingress serial floats stay floats. The bridge does not sniff NumberFormat.
+- `=PY()` egress converts Python/pandas/numpy temporals to **naive ISO strings** (or timedelta as fractional days) at the venv/`to_calc_compatible` edges. Tz offsets are stripped.
+- datetime64 **columns and arrays** take the object/list path so they never hit `child_pack_split_grid`’s `astype(float64)` (that cast is Unix-epoch units, not Calc serials).
+- Large mixed grids still stringify stdlib `datetime` into the sparse `strings` map.
+
+**Do not add** a datetime mask, column-kind `'date'`, or Calc-serial encoding on the float64 buffer. The split-grid fast path stays uniform numeric (`i`/`u`/`f`/`b`). A first-class temporal lane would lose `frombuffer` or duplicate the strings map for no UNO benefit — Calc still cannot accept datetime objects from the add-in.
 
 **Benchmarked** outside LO ([`scripts/bench_serialization.py`](../scripts/bench_serialization.py)) — [results](#benchmark-results-2026-05). Defer vendored msgpack, mmap, and payload cache unless real Calc profiles disagree.
 
@@ -513,15 +520,9 @@ The standardized Split-Grid format fixed the **child** hot path (`frombuffer` vs
 
 #### Documented challenge: datetime / temporal values (high-speed handling not implemented)
 
-Calc represents dates/times as serial number floats (days since 1899-12-30, with optional time fraction). On ingress they arrive as plain floats (see `_unwrap_cell` in `calc_addin_data.py` and the import doc). On egress, Python `datetime`/`date` objects are stringified (`to_calc_compatible` in `python_function.py`) because the wire and Calc cell model do not carry first-class temporal objects for the main `=PY()` / scripting paths.
+This is **not an open task**. User-facing `=PY()` dates are ISO (or fractional-day timedeltas) via venv conversion + `to_calc_compatible`. The numeric `split_grid` buffer stays float64-only.
 
-The split-grid fast path (float64 buffer + frombuffer) is extremely fast precisely because it stays in a uniform numeric dtype. Any first-class datetime representation would either:
-
-- Force a mixed-type (object) array path (losing the pure frombuffer win for grids that contain dates),
-- Require a parallel "datetime mask" or column-kind extension + custom high-speed pack/unpack (more complex than current strings map, adds per-cell overhead, and still needs to feed into Calc which ultimately stores serials or formatted text),
-- Or keep using float serials on the wire (current behavior) and only convert at the very edges for user code that wants `datetime` objects.
-
-Adding true high-speed (but not as fast as current pure-numeric) datetime support on the split-grid wire is a plausible future optimization, but it is out of scope for the current performance work. This note records the trade-off and why the status quo (floats in, strings out for datetimes) exists.
+Do not schedule a parallel datetime mask or high-speed temporal codec unless profiling shows ISO stringify of date columns dominating a real workbook (unlikely vs UNO range read). Status quo by design: floats in on ingress, strings/fractional-days out on egress. Details: [Dates on the wire](#dates-on-the-wire), [calc-py-data-shapes dates](calc-py-data-shapes.md#dates-and-datetimes).
 
 #### Experimental Cython Accelerator (May 2026)
 
@@ -602,7 +603,7 @@ Larger architectural slice than “faster JSON.”
 | Idea | Notes |
 |------|--------|
 | **`float32` envelope** | Optional `dtype` in wire dict; ~half bytes when precision allows; policy + round-trip tests. |
-| **Pandas egress** | Shipped (rectangular + columns): DataFrames/Series emit `dataframe` envelope (columns + split_grid-able data) instead of records list-of-dicts. See [`venv_sandbox.py`](../plugin/scripting/venv/venv_sandbox.py) and [`payload_codec.py`](../plugin/scripting/payload_codec.py). |
+| **Pandas egress** | Shipped (rectangular + columns): DataFrames/Series emit `dataframe` envelope (columns + split_grid-able **numeric** data). datetime64/timedelta64 skip the numeric path (ISO / fractional days). Empty frames are header-only. MultiIndex columns flatten; row index is not spilled. See [pandas egress](calc-py-data-shapes.md#pandas-egress). |
 
 #### Priority 6 — Worker payload cache (same range, many recalcs)
 

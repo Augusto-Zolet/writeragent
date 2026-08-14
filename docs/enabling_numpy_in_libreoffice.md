@@ -542,10 +542,14 @@ LibreOffice Calc operates strictly on double-precision floats (`double`/`float`)
 - **The consequence:** Calc's formula engine lacks type coercion for integer matrices, immediately throwing a `#VALUE!` error in the sheet.
 - **The resolution:** Every return value from `=PY()` is recursively filtered through a coercion pipeline (`to_calc_compatible`):
   - `int` -> `float` (coerced to UNO `double`)
-  - `None` -> `""` (coerced to empty cell)
+  - `None` / `pd.NaT` / `pd.NA` -> `""` (empty cell)
   - `float('nan')` / `np.nan` -> raw NaN (the Calc add-in bridge renders this as a cascading error, typically `#NUM!` or `#VALUE!`)
+  - `±inf` and `decimal.Decimal` -> `float` (inf may also error in formulas; Decimal precision loss is accepted)
+  - `datetime` / `Timestamp` / `datetime64` -> naive ISO-8601 (tz offset stripped). Timedelta -> fractional days.
   - Other `bool`, `float`, and `str` values are preserved as-is.
   - Lists and tuples are recursively converted to tuples of these Calc-supported types.
+
+These coercions are the **complete** Calc type contract. Do not add wire payload kinds for inf, NaT, Decimal, or datetime — see [data shapes](calc-py-data-shapes.md#dates-and-datetimes).
 
 **Note on transport:** `=PY()` and `run_venv_python_script` cross the host↔venv boundary via length-prefixed **Pickle5** frames carrying either a `split_grid` envelope (dense numeric/mixed 2D grids) or plain nested lists (small grids). There is no JSON on the production wire for these payloads (JSON appears only in benchmarks and a few legacy test paths).
 
@@ -746,7 +750,7 @@ flowchart LR
 
 ### Data shapes (`data` / blanks / varargs)
 
-Trailing formula arguments become `CalcRange` values: `ranges` is always the full list; `data` is that `CalcRange` when there is one arg, or the same list as `ranges` when there are several. Orientation is always 2D (`(1,1)`, `(1,N)`, `(N,1)`, or `(rows, cols)`). Blank vs NaN policy, dates, logicals, and multi-range examples: **[calc-py-data-shapes.md](calc-py-data-shapes.md)**.
+Trailing formula arguments become `CalcRange` values: `ranges` is always the full list; `data` is that `CalcRange` when there is one arg, or the same list as `ranges` when there are several. Orientation is always 2D (`(1,1)`, `(1,N)`, `(N,1)`, or `(rows, cols)`). Blank vs NaN, dates, pandas DataFrame spill, logicals, and multi-range examples: **[calc-py-data-shapes.md](calc-py-data-shapes.md)**.
 
 ### Optional: Python edit dialog (deferred UX)
 
@@ -866,7 +870,7 @@ See [numpy-jailsafe.md](numpy-jailsafe.md) for details on Collabora Online and j
 - Venv ↔ LO **tool RPC** ([§7](#venv--libreoffice-tool-rpc)) — `[writeragent_api.py](../plugin/scripting/writeragent_api.py)` stubs only.
 - **Collabora Online / jail-safe Python compute** — **Steps A–C** landed: `compute_service/`, kit/wsd wire, Core Calc AddIn (`scaddins/pythoncompute`, volatile `#BUSY!`, ScMatrix spill). Rebuild LO+Online to exercise `=PY()` Online; plot insert / Monaco remain ([Collabora Online and jail-safe execution](numpy-jailsafe.md); [online#16010](https://github.com/CollaboraOnline/online/issues/16010)).
 - **Calc landscape / UX backlog** — object cards, named ranges/tables, range alignment, shared-kernel soft timeout, Mito recorder — [§7 Calc UX backlog](#calc-ux-backlog). LibrePy Python sidebar diagnostics are **shipped**.
-- **Blank vs NaN** — shipped egress policy; deferred blank side-channel — [calc-py-data-shapes.md](calc-py-data-shapes.md#empty-cells-vs-nan).
+- **Blank vs NaN / datetime / pandas grids** — shipped egress policy (`to_calc_compatible` + venv `serialize_result`). **Do not** add `split_grid` kinds for inf, NaT, Decimal, datetime64, empty DataFrames, or MultiIndex — [calc-py-data-shapes.md](calc-py-data-shapes.md). Deferred: blank side-channel only.
 - Worker idle shutdown, per-formula `timeout_sec`, Python edit dialog tiers 1–3.
 - **Monaco backlog** — syntax validate (2B), range picker (2C), formula-bar polish — [python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md). Theme sync (2E), Jedi debounce / missing-`jedi` hint (2D), Excel-style Calc accelerators, and LibrePy sidebar cell list / diagnostics are shipped.
 - **Jupyter notebook import** — see [jupyter-notebook-import.md](jupyter-notebook-import.md) (Writer import shipped; execution loop deferred).

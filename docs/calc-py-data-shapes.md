@@ -21,8 +21,9 @@ Code: [`plugin/scripting/calc_range.py`](../plugin/scripting/calc_range.py), [`p
 3. [Empty cells vs NaN](#empty-cells-vs-nan)
 4. [Cell types and logicals](#cell-types-and-logicals)
 5. [Dates and datetimes](#dates-and-datetimes)
-6. [Rectangular shape rules](#rectangular-shape-rules)
-7. [Deferred upgrades](#deferred-upgrades)
+6. [Pandas egress (DataFrame / Series)](#pandas-egress)
+7. [Rectangular shape rules](#rectangular-shape-rules)
+8. [Deferred upgrades](#deferred-upgrades)
 
 ---
 
@@ -125,7 +126,8 @@ Ingress blanks can poison naive `np.sum` / `np.mean` — prefer `nan*` helpers w
 
 - Python `None` → `""` (empty cell).
 - `float('nan')` / `np.nan` → raw NaN → cascading error cell.
-- `±inf` passes through (may also error in formulas).
+- `±inf` passes through (may also error in formulas). **Not a missing-value sentinel.**
+- `decimal.Decimal` → `float` (precision loss is accepted; Calc only has doubles).
 - For a visible non-error marker, return a string:
 
 ```python
@@ -190,7 +192,40 @@ Calc stores dates as float serials (days since `1899-12-30`). Detecting “is th
   - String dates: `pd.to_datetime(df["date_col"])`
 - **Text stays text** by default (`"00123"` remains a string). Opt in with `to_pandas(parse_strings=True)`.
 
-Wire note (large grids): above the `split_grid` threshold, Python `datetime` / `Timestamp` values become ISO strings in the sparse `strings` map — see [Dates on the wire](numpy-serialization.md#dates-on-the-wire).
+### Egress (locked — do not add a datetime wire lane)
+
+`=PY()` never puts first-class datetime objects on the UNO bridge. Conversion happens at the edges:
+
+| Python value | Cell / spill |
+| --- | --- |
+| `datetime` / `date` / `time` | Naive ISO-8601 string (`YYYY-MM-DD` / `THH:MM:SS`) |
+| tz-aware `datetime` / `Timestamp` | **Drop tzinfo**, then naive ISO. Calc does not parse `+HH:MM` or `Z` as dates ([date/time handling](calc-date-time-handling.md)). |
+| `pd.Timestamp` | Same as `datetime` (`Timestamp` subclasses it) |
+| `np.datetime64` / datetime columns | Converted in the **venv** to stdlib `datetime`, then ISO — **not** Unix-epoch floats from `astype(float64)` |
+| `timedelta` / `pd.Timedelta` | Fractional days (`1.5` = 36 hours) |
+| `pd.NaT` / `pd.NA` | Empty cell (`""`), same as `None` |
+
+**Do not implement** a `split_grid` datetime mask, Calc-serial conversion on the float64 buffer, or Unix-epoch day counts as the `=PY()` date representation. The numeric fast path stays `i`/`u`/`f`/`b` only. Rationale: [Dates on the wire](numpy-serialization.md#dates-on-the-wire).
+
+Wire note (large mixed grids): above the `split_grid` threshold, stdlib `datetime` values become ISO strings in the sparse `strings` map.
+
+---
+
+## Pandas egress (DataFrame / Series) {#pandas-egress}
+
+Returning a DataFrame (or named Series) uses the existing `dataframe` envelope (column labels + rectangular body). This is **shipped**. Do not add payload kinds for MultiIndex, Categorical, or empty frames.
+
+| Return | What spills |
+| --- | --- |
+| DataFrame with rows | Header row + body (`dataframe_to_labeled_grid`) |
+| **0-row** DataFrame | **Header only** (column names, no body) |
+| Named empty Series | Header-only one-column grid |
+| Unnamed empty Series | Empty (`""`) |
+| MultiIndex **columns** | Flattened labels `A / x` (not `"('A', 'x')"`) |
+| MultiIndex **rows** / index | **Dropped** (`itertuples(index=False)`). Call `reset_index()` in the script if the index should appear as a column. |
+| Categorical columns | Category **labels** (strings or codes already in the Series), not a special dtype on the wire |
+
+Hierarchical Calc tables, object cards, and “include index by default” are **not** wire-codec work — see [Calc UX backlog](enabling_numpy_in_libreoffice.md#calc-ux-backlog).
 
 ---
 
@@ -204,7 +239,7 @@ Wire note (large grids): above the `split_grid` threshold, Python `datetime` / `
 
 ## Deferred upgrades {#deferred-upgrades}
 
-Not planned unless needed:
+Not planned unless a real product need appears. **Do not treat the list below as open codec work**, and do not propose new `split_grid` payload kinds for inf / NaN / Decimal / datetime64 / empty DataFrames / MultiIndex — those are covered above.
 
 - Blank side-channel on `split_grid` + masked-array ingress so pass-through blanks stay empty and `np.mean` auto-ignores Calc blanks (upgrade can be atomic; wire already carries NaN slots).
 - Formula parameters: 3rd arg `extras` for recalc deps; `collapse` on conversion; host `lp()` bridge; per-formula `timeout_sec`.

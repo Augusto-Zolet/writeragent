@@ -94,14 +94,28 @@ def coerce_index(value: Any) -> int:
     raise ValueError(f"index must be numeric, got {value!r}")
 
 
+def _calc_iso_datetime(dt: datetime.datetime) -> str:
+    """Naive ISO-8601. Calc does not parse offset-bearing stamps as dates."""
+    if dt.tzinfo is not None:
+        dt = dt.replace(tzinfo=None)
+    return dt.isoformat()
+
+
 def to_calc_compatible(val: Any) -> float | str | bool | tuple:
     """Recursively convert Python values into LibreOffice Calc supported types.
 
     Calc cells and matrix formulas only support float (UNO double), str (UNO string),
     and bool (UNO boolean). Crucially, Calc matrix formulas do NOT support integer
     (UNO long) types and will throw #VALUE! if a sequence contains integers/longs.
+
+    Host LibreOffice Python has no pandas/numpy — temporal pandas types are duck-typed
+    (Timestamp subclasses datetime; NaT is NaTType). Do not import pandas here.
     """
     if val is None:
+        return ""
+    # pd.NaT subclasses datetime but isoformat() raises; map missing to empty cell.
+    tname = type(val).__name__
+    if tname in ("NaTType", "NAType"):
         return ""
     if isinstance(val, bool):
         return val
@@ -111,25 +125,60 @@ def to_calc_compatible(val: Any) -> float | str | bool | tuple:
         # Computed NaN (or NaN from a numeric grid that contained blanks) is returned as-is.
         # The Calc add-in bridge renders a raw NaN double as a cascading error (#NUM! or #VALUE!).
         # Python None is mapped to "" (empty cell). We intentionally do NOT collapse NaN here.
+        # ±inf passes through (may also error in formulas). Do not collapse inf to empty.
         if math.isnan(val):
             return val
         return val
     if isinstance(val, str):
         return val
-    if isinstance(val, (datetime.datetime, datetime.date)):
+    if isinstance(val, datetime.datetime):
+        return _calc_iso_datetime(val)
+    if isinstance(val, datetime.date):
         return val.isoformat()
     if isinstance(val, datetime.time):
         return val.isoformat()
     if isinstance(val, datetime.timedelta):
         # In Calc, time intervals are represented as fractional days (e.g. 1.0 = 24 hours)
         return val.total_seconds() / 86400.0
+    # np.datetime64 / timedelta64 (duck-typed; host may see these only if venv conversion was skipped)
+    kind = getattr(getattr(val, "dtype", None), "kind", None)
+    if kind == "M":
+        text = str(val)
+        return "" if text == "NaT" else text
+    if kind == "m":
+        to_pytd = getattr(val, "item", None)
+        if callable(to_pytd):
+            try:
+                item = to_pytd()
+                if isinstance(item, datetime.timedelta):
+                    return item.total_seconds() / 86400.0
+            except (ValueError, TypeError, OverflowError):
+                pass
+        text = str(val)
+        return "" if text in ("NaT", "NaTType") else text
+    to_pydt = getattr(val, "to_pydatetime", None)
+    if callable(to_pydt):
+        try:
+            dt = to_pydt()
+            if isinstance(dt, datetime.datetime):
+                return _calc_iso_datetime(dt)
+        except (ValueError, TypeError):
+            pass
+    to_pytd = getattr(val, "to_pytimedelta", None)
+    if callable(to_pytd):
+        try:
+            td = to_pytd()
+            if isinstance(td, datetime.timedelta):
+                return td.total_seconds() / 86400.0
+        except (ValueError, TypeError):
+            pass
     if hasattr(val, "__float__") and not isinstance(val, (bytes, list, tuple, dict, set)):
         try:
             f = float(val)  # type: ignore[arg-type]
             if math.isnan(f):
                 return f
             return f
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, OverflowError):
             pass
     if isinstance(val, (list, tuple)):
         if not val:

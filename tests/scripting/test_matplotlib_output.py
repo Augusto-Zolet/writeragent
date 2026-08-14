@@ -270,6 +270,75 @@ def test_run_sandboxed_dataframe_produces_envelope():
     assert res["result"]["columns"] == ["x", "y"]
 
 
+def test_serialize_result_empty_dataframe_and_series():
+    """0-row DataFrame / named empty Series → header-only envelope. Not a codec gap."""
+    pd = pytest.importorskip("pandas")
+    from plugin.scripting.venv.venv_sandbox import serialize_result
+    from plugin.calc.python.function import result_to_calc_grid, to_calc_compatible
+    from plugin.scripting.payload_codec import is_dataframe_payload
+
+    df = pd.DataFrame(columns=["A", "B"])
+    res = serialize_result(df)
+    assert is_dataframe_payload(res)
+    assert res["columns"] == ["A", "B"]
+    assert res["data"] == []
+    assert result_to_calc_grid(res) == [["A", "B"]]
+
+    named = pd.Series([], dtype=float, name="x")
+    named_res = serialize_result(named)
+    assert is_dataframe_payload(named_res)
+    assert named_res["columns"] == ["x"]
+    assert result_to_calc_grid(named_res) == [["x"]]
+
+    unnamed = pd.Series([], dtype=float)
+    assert to_calc_compatible(serialize_result(unnamed)) == ()
+
+
+def test_serialize_result_dataframe_datetime_is_iso_not_unix_epoch():
+    """datetime64 columns must not take split_grid astype(float64) (Unix epoch days)."""
+    pd = pytest.importorskip("pandas")
+    from plugin.scripting.venv.venv_sandbox import serialize_result
+    from plugin.scripting.payload_codec import host_unpack_data
+    from plugin.calc.python.function import result_to_calc_grid, to_calc_compatible
+
+    df = pd.DataFrame({"d": pd.to_datetime(["2026-06-25", "2026-06-26"])})
+    unpacked = host_unpack_data(serialize_result(df))
+    coerced = to_calc_compatible(result_to_calc_grid(unpacked))
+    assert coerced[0] == ("d",)
+    assert coerced[1][0] == "2026-06-25T00:00:00"
+    assert coerced[2][0] == "2026-06-26T00:00:00"
+    assert coerced[1][0] != 20629.0
+
+
+def test_serialize_result_datetime64_ndarray_is_iso_not_unix_epoch():
+    np = pytest.importorskip("numpy")
+    pytest.importorskip("pandas")
+    from plugin.scripting.venv.venv_sandbox import serialize_result
+    from plugin.calc.python.function import to_calc_compatible
+
+    arr = np.array([np.datetime64("2026-06-25"), np.datetime64("2026-06-26")])
+    out = to_calc_compatible(serialize_result(arr))
+    assert out[0] == "2026-06-25T00:00:00"
+    assert out[1] == "2026-06-26T00:00:00"
+
+
+def test_serialize_result_multiindex_columns_and_categorical():
+    """MultiIndex columns flatten to 'A / x'; row index is dropped; categoricals are labels."""
+    pd = pytest.importorskip("pandas")
+    from plugin.scripting.venv.venv_sandbox import serialize_result
+    from plugin.scripting.payload_codec import host_unpack_data, is_dataframe_payload
+
+    df = pd.DataFrame([[1, 2]], columns=pd.MultiIndex.from_tuples([("A", "x"), ("A", "y")]))
+    res = serialize_result(df)
+    assert is_dataframe_payload(res)
+    assert res["columns"] == ["A / x", "A / y"]
+
+    cat = pd.DataFrame({"c": pd.Categorical(["red", "blue", "red"])})
+    unpacked = host_unpack_data(serialize_result(cat))
+    assert unpacked["data"][0][0] == "red"
+    assert unpacked["data"][1][0] == "blue"
+
+
 def test_serialize_pil_image():
     """A PIL Image should be serialized to an image payload with format png."""
     Image = pytest.importorskip("PIL.Image")

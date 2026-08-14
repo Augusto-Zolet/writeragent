@@ -1427,7 +1427,11 @@ def child_unpack_data(wire: Any) -> Any:
 @deal.ensure(lambda arr, *a, result=_DEAL_RETURN, **k: _deal_return(*a, result=result).get("strings") == {})
 @deal.raises(ValueError, TypeError, AttributeError)
 def child_pack_split_grid(arr: Any) -> dict[str, Any]:
-    """Pack ndarray as split_grid for JSON wire (venv). Numeric lane is always float64 bytes."""
+    """Pack ndarray as split_grid for JSON wire (venv). Numeric lane is always float64 bytes.
+
+    datetime64/timedelta64 must not be passed here — ``astype(float64)`` is Unix-epoch
+    units, not Calc serials. ``serialize_result`` converts those to ISO / timedelta first.
+    """
     # crosshair: off
     import numpy as np
 

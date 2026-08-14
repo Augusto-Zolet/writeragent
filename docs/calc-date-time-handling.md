@@ -806,7 +806,7 @@ A homogeneous write should cost roughly: one formatter setup, one `getStandardIn
 - Locale-display write parsing (`08/05/2026`, etc.).
 - Unpadded dates (`2026-8-8`), fractional seconds, offsets/timezones as converted values, `24:00`, leap seconds, calendar durations (`P1D` / Y/M/W).
 - Changing NumPy / `include_format_info=False` raw serial behavior (stays out of scope — internal pipelines keep floats).
-- `=PY` spill coercion, NumPy `datetime64` epoch conversion, and spreadsheet-import epoch cleanup.
+- Spreadsheet-import epoch cleanup (separate from `=PY()`). **`=PY()` datetime64 / Timestamp / NaT / tz-aware egress is shipped** as naive ISO — do not reopen a Unix-epoch or `split_grid` datetime lane ([calc-py-data-shapes dates](calc-py-data-shapes.md#dates-and-datetimes)).
 - Destination-format `Locale` (M2 alternate 4) — only if mixed-locale columns justify leaving document `CharLocale`.
 - Strict transactional rollback beyond existing `WriterCompoundUndo`.
 

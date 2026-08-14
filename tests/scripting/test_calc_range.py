@@ -96,6 +96,15 @@ def test_dataframe_egress_includes_header_row():
     assert dataframe_to_labeled_grid(["X"], [[9]], include_header=False) == [[9]]
 
 
+def test_dataframe_to_labeled_grid_zero_row_is_header_only():
+    """0-row DataFrame envelope spills the header row only — not an error and not a new payload kind."""
+    assert dataframe_to_labeled_grid(["A", "B"], []) == [["A", "B"]]
+    assert dataframe_to_labeled_grid(["A", "B"], None) == [["A", "B"]]
+    assert dataframe_to_labeled_grid(["A"], [], include_header=False) == []
+    envelope = {"__wa_payload__": PAYLOAD_DATAFRAME, "columns": ["A", "B"], "data": []}
+    assert result_to_calc_grid(envelope) == [["A", "B"]]
+
+
 def test_grid_to_dataframe_header_row_none():
     result = grid_to_dataframe([[1, 2], [3, 4]], header_row=None)
     assert list(result.df.columns) == ["col_0", "col_1"]

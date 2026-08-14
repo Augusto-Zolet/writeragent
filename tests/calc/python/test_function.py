@@ -382,6 +382,40 @@ def test_to_calc_compatible_datetime_types() -> None:
     assert to_calc_compatible(td) == 1.5
 
 
+def test_to_calc_compatible_inf_and_decimal() -> None:
+    """±inf pass through as floats; Decimal becomes float. Neither is a new wire type."""
+    from decimal import Decimal
+
+    assert to_calc_compatible(float("inf")) == float("inf")
+    assert to_calc_compatible(float("-inf")) == float("-inf")
+    assert to_calc_compatible(Decimal("1.25")) == 1.25
+
+
+def test_to_calc_compatible_tz_aware_datetime_strips_offset() -> None:
+    """Calc cannot parse +HH:MM / Z; wall time is emitted as naive ISO."""
+    import datetime
+
+    dt = datetime.datetime(2026, 8, 13, 14, 30, 0, tzinfo=datetime.timezone.utc)
+    assert to_calc_compatible(dt) == "2026-08-13T14:30:00"
+
+
+def test_to_calc_compatible_pandas_nat_timestamp_datetime64() -> None:
+    """NaT → empty; Timestamp → naive ISO; datetime64 → ISO-like text. No pandas import in function.py."""
+    pd = pytest.importorskip("pandas")
+    np = pytest.importorskip("numpy")
+
+    assert to_calc_compatible(pd.NaT) == ""
+    ts = pd.Timestamp("2026-08-13 14:30:00")
+    assert to_calc_compatible(ts) == "2026-08-13T14:30:00"
+    ts_tz = pd.Timestamp("2026-08-13 14:30:00", tz="UTC")
+    assert to_calc_compatible(ts_tz) == "2026-08-13T14:30:00"
+    assert "+" not in str(to_calc_compatible(ts_tz))
+    dt64 = np.datetime64("2026-06-25")
+    out = to_calc_compatible(dt64)
+    assert out == "2026-06-25"
+    assert out != 20629.0
+
+
 def test_to_calc_compatible_jagged_2d_rectangularization() -> None:
     """Jagged 2D lists are padded to a rectangular 2D matrix with empty strings."""
     jagged = [[1, 2, 3], [4, 5], [6]]

@@ -17,6 +17,7 @@ harness / ``trusted_action_registry`` — not string stubs through this sandbox.
 from __future__ import annotations
 
 import ast
+import datetime
 import importlib
 import logging
 import sys
@@ -207,6 +208,112 @@ def _has_custom_serialize_objects(obj: Any) -> bool:
     return False
 
 
+def _column_label(c: Any) -> str:
+    """Flatten a pandas column label. MultiIndex tuples become ``A / x``, not a tuple repr."""
+    if isinstance(c, tuple):
+        return " / ".join(str(part) for part in c)
+    return str(c)
+
+
+def _dtype_kind(obj: Any) -> str | None:
+    dtype = getattr(obj, "dtype", None)
+    kind = getattr(dtype, "kind", None)
+    return kind if isinstance(kind, str) else None
+
+
+def _is_numeric_wire_kind(kind: str | None) -> bool:
+    """True when ``astype(float64)`` on split_grid is correct.
+
+    datetime64 (``M``) and timedelta64 (``m``) must not take that path — the cast
+    is Unix-epoch units, not Calc serials or ISO text.
+    """
+    return kind in ("i", "u", "f", "b")
+
+
+def _strip_datetime_tz(dt: datetime.datetime) -> datetime.datetime:
+    if dt.tzinfo is not None:
+        return dt.replace(tzinfo=None)
+    return dt
+
+
+def _temporal_cell_to_stdlib(value: Any, pd_mod: Any) -> Any:
+    """Convert pandas/numpy temporal values to stdlib types the host can pickle.
+
+    LibreOffice's embedded Python has no pandas/numpy, so Timestamp/datetime64
+    must not cross the Pickle5 boundary as native objects.
+    """
+    try:
+        if pd_mod is not None and pd_mod.isna(value):
+            return None
+    except Exception:
+        pass
+    if isinstance(value, datetime.datetime):
+        return _strip_datetime_tz(value).isoformat()
+    if isinstance(value, datetime.date):
+        return value.isoformat()
+    if isinstance(value, datetime.timedelta):
+        return value
+    to_pydt = getattr(value, "to_pydatetime", None)
+    if callable(to_pydt):
+        try:
+            dt = to_pydt()
+            if isinstance(dt, datetime.datetime):
+                return _strip_datetime_tz(dt).isoformat()
+            if isinstance(dt, datetime.date):
+                return dt.isoformat()
+            return dt
+        except Exception:
+            pass
+    to_pytd = getattr(value, "to_pytimedelta", None)
+    if callable(to_pytd):
+        try:
+            return to_pytd()
+        except Exception:
+            pass
+    kind = _dtype_kind(value)
+    if kind == "M":
+        try:
+            if pd_mod is not None:
+                ts = pd_mod.Timestamp(value)
+                if pd_mod.isna(ts):
+                    return None
+                return _strip_datetime_tz(ts.to_pydatetime()).isoformat()
+        except Exception:
+            pass
+        text = str(value)
+        return None if text == "NaT" else text
+    if kind == "m":
+        try:
+            if pd_mod is not None:
+                td = pd_mod.Timedelta(value)
+                if pd_mod.isna(td):
+                    return None
+                return td.to_pytimedelta()
+        except Exception:
+            pass
+        item = getattr(value, "item", None)
+        if callable(item):
+            try:
+                py_item = item()
+                if isinstance(py_item, datetime.timedelta):
+                    return py_item
+            except Exception:
+                pass
+    return value
+
+
+def _temporal_ndarray_to_python(arr: Any, pd_mod: Any) -> Any:
+    """datetime64/timedelta64 ndarray → nested Python lists of stdlib values."""
+    if arr.ndim == 0:
+        return _temporal_cell_to_stdlib(arr.item() if hasattr(arr, "item") else arr, pd_mod)
+    # Iterate datetime64 scalars — .tolist() on datetime64[ns] yields Python ints (ns), not datetimes.
+    flat = [_temporal_cell_to_stdlib(v, pd_mod) for v in arr.ravel()]
+    if arr.ndim == 1:
+        return flat
+    nrows, ncols = int(arr.shape[0]), int(arr.shape[1])
+    return [flat[i * ncols : (i + 1) * ncols] for i in range(nrows)]
+
+
 def _serialize_result_impl(obj: Any) -> Any:
     from plugin.scripting.calc_range import CalcRange, is_calc_range_payload
 
@@ -222,31 +329,37 @@ def _serialize_result_impl(obj: Any) -> Any:
     if pil_mod is not None and isinstance(obj, pil_mod.Image):
         return _pil_image_to_payload(obj)
     np_mod = optional_module("numpy")
-    if np_mod is not None:
-        if isinstance(obj, (np_mod.ndarray, np_mod.integer, np_mod.floating, np_mod.bool_)):
-            return child_pack_result(obj)
     pd_mod = optional_module("pandas")
+    if np_mod is not None:
+        if isinstance(obj, np_mod.ndarray):
+            kind = _dtype_kind(obj)
+            if kind in ("M", "m"):
+                return child_pack_result(_temporal_ndarray_to_python(obj, pd_mod))
+            return child_pack_result(obj)
+        if isinstance(obj, (np_mod.integer, np_mod.floating, np_mod.bool_)):
+            return child_pack_result(obj)
+        if isinstance(obj, np_mod.datetime64):
+            return _temporal_cell_to_stdlib(obj, pd_mod)
+        if isinstance(obj, np_mod.timedelta64):
+            return _temporal_cell_to_stdlib(obj, pd_mod)
     if pd_mod is not None:
         if isinstance(obj, pd_mod.DataFrame):
             df: Any = obj
-            columns = [str(c) for c in df.columns]
+            columns = [_column_label(c) for c in df.columns]
             def _dataframe_cell(value: Any) -> Any:
-                try:
-                    if pd_mod.isna(value):
-                        return None
-                except Exception:
-                    pass
-                return value
+                return _temporal_cell_to_stdlib(value, pd_mod)
 
             # Build rectangular data for packing: ndarray fast path for homogeneous numeric;
             # list-of-lists for mixed so strings/None go through the split_grid strings map
             # instead of the old per-row to_dict("records") which defeated binary envelopes.
+            # datetime64/timedelta64 skip the numeric path — astype(float64) is Unix epoch, not ISO.
             if len(df) == 0 or len(df.columns) == 0:
                 data_part: Any = []
             else:
                 try:
                     arr = df.to_numpy(copy=False)
-                    if getattr(arr, "dtype", None) is not None and arr.dtype.kind not in ("O", "U", "S"):
+                    kind = _dtype_kind(arr)
+                    if kind is not None and _is_numeric_wire_kind(kind):
                         data_part = child_pack_result(arr)
                     else:
                         grid = [[_dataframe_cell(cell) for cell in row] for row in df.itertuples(index=False, name=None)]
@@ -262,19 +375,22 @@ def _serialize_result_impl(obj: Any) -> Any:
         if isinstance(obj, pd_mod.Series):
             s: Any = obj
             name = getattr(s, "name", None)
-            try:
-                arr = s.to_numpy(copy=False)
-                if getattr(arr, "dtype", None) is not None and arr.dtype.kind in ("O", "U", "S"):
-                    lst = s.tolist()
-                    packed = child_pack_result(lst)
-                else:
-                    packed = child_pack_result(arr)
-            except Exception:
-                packed = child_pack_result(s.tolist())
+            if len(s) == 0:
+                packed: Any = []
+            else:
+                try:
+                    arr = s.to_numpy(copy=False)
+                    kind = _dtype_kind(arr)
+                    if kind is not None and _is_numeric_wire_kind(kind):
+                        packed = child_pack_result(arr)
+                    else:
+                        packed = child_pack_result([_temporal_cell_to_stdlib(v, pd_mod) for v in s.tolist()])
+                except Exception:
+                    packed = child_pack_result([_temporal_cell_to_stdlib(v, pd_mod) for v in s.tolist()])
             if name is not None:
                 return {
                     "__wa_payload__": PAYLOAD_DATAFRAME,
-                    "columns": [str(name)],
+                    "columns": [_column_label(name)],
                     "data": packed,
                 }
             return packed
