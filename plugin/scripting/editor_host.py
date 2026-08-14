@@ -93,7 +93,7 @@ def resolve_editor_python(uno_ctx: Any) -> tuple[str | None, str]:
             None,
             _(
                 "No python executable found under configured venv: {0} "
-                "(expected bin/python, bin/python3, or bin/python3.x)."
+                "(expected bin/python, Scripts/python.exe, or env-root python.exe)."
             ).format(venv_dir),
         )
     return exe, ""

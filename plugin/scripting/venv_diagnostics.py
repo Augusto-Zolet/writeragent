@@ -1191,8 +1191,9 @@ def probe_venv_path(venv_dir: str, timeout: float | None = None) -> Tuple[bool, 
             return False, f"Not a Python executable: {expanded}"
         if os.path.isdir(expanded):
             return False, (
-                "No python found. Use the venv root (folder containing bin/), "
-                "the bin/ folder, or the full path to bin/python."
+                "No python found. Use the venv root (folder containing bin/ or Scripts/), "
+                "the bin/ or Scripts/ folder, env-root python.exe (conda/pyenv-win), "
+                "or the full path to the interpreter."
             )
         return False, f"Path not found: {expanded}"
     return run_venv_self_check(exe, timeout=timeout)
@@ -1240,8 +1241,9 @@ def probe_venv_path_with_progress(
             msg = f"Not a Python executable: {expanded}"
         elif os.path.isdir(expanded):
             msg = (
-                "No python found. Use the venv root (folder containing bin/), "
-                "the bin/ folder, or the full path to bin/python."
+                "No python found. Use the venv root (folder containing bin/ or Scripts/), "
+                "the bin/ or Scripts/ folder, env-root python.exe (conda/pyenv-win), "
+                "or the full path to the interpreter."
             )
         else:
             msg = f"Path not found: {expanded}"

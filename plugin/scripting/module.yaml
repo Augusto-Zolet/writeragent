@@ -22,7 +22,7 @@ config:
     default: ""
     widget: text
     label: Python venv path
-    helper: If set, runs =PY() and Run Python Script in that venv (bin/python or Scripts/python.exe). If empty, uses this process's sys.executable (basic stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, paddlepaddle).
+    helper: If set, runs =PY() and Run Python Script in that venv (bin/python, Scripts/python.exe, or conda/pyenv-win env-root python.exe). Paste the path without surrounding quotes. If empty, uses this process's sys.executable (basic stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, paddlepaddle).
     width: 200
     inline: true
 

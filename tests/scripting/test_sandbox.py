@@ -78,6 +78,74 @@ def test_resolve_venv_python_accepts_bin_directory(tmp_path):
     assert resolve_venv_python(str(bindir)) == str(py)
 
 
+def _make_posix_venv(root):
+    bindir = root / "bin"
+    bindir.mkdir(parents=True)
+    py = bindir / "python"
+    py.write_text("#!/bin/sh\necho ok\n")
+    py.chmod(py.stat().st_mode | stat.S_IEXEC)
+    return py
+
+
+def test_resolve_venv_python_spaces_parens_non_ascii(tmp_path):
+    venv = tmp_path / "José Doe (work)" / ".venv"
+    py = _make_posix_venv(venv)
+    assert resolve_venv_python(str(venv)) == str(py)
+
+
+def test_resolve_venv_python_strips_surrounding_quotes(tmp_path):
+    venv = tmp_path / "José Doe (work)" / ".venv"
+    py = _make_posix_venv(venv)
+    assert resolve_venv_python(f'"{venv}"') == str(py)
+    assert resolve_venv_python(f"'{venv}'") == str(py)
+
+
+def test_resolve_venv_python_accepts_file_url(tmp_path):
+    venv = tmp_path / "José Doe (work)" / ".venv"
+    py = _make_posix_venv(venv)
+    assert resolve_venv_python(venv.as_uri()) == str(py)
+
+
+def test_resolve_venv_python_windows_scripts_layout(tmp_path, monkeypatch):
+    monkeypatch.setattr("plugin.scripting.sandbox.os.name", "nt")
+    venv = tmp_path / "venv"
+    scripts = venv / "Scripts"
+    scripts.mkdir(parents=True)
+    py = scripts / "python.exe"
+    py.write_text("")
+    assert resolve_venv_python(str(venv)) == str(py)
+
+
+def test_resolve_venv_python_env_root_python_exe(tmp_path, monkeypatch):
+    """conda / pyenv-win: python.exe at env root; Scripts/ may exist without python.exe."""
+    monkeypatch.setattr("plugin.scripting.sandbox.os.name", "nt")
+    venv = tmp_path / "conda-env"
+    (venv / "Scripts").mkdir(parents=True)
+    py = venv / "python.exe"
+    py.write_text("")
+    assert resolve_venv_python(str(venv)) == str(py)
+
+
+def test_resolve_venv_python_direct_python_exe(tmp_path, monkeypatch):
+    monkeypatch.setattr("plugin.scripting.sandbox.os.name", "nt")
+    py = tmp_path / "python.exe"
+    py.write_text("")
+    assert resolve_venv_python(str(py)) == str(py)
+
+
+def test_resolve_venv_python_rejects_pythonw_exe(tmp_path, monkeypatch):
+    monkeypatch.setattr("plugin.scripting.sandbox.os.name", "nt")
+    venv = tmp_path / "venv"
+    venv.mkdir()
+    (venv / "pythonw.exe").write_text("")
+    assert resolve_venv_python(str(venv)) is None
+    assert resolve_venv_python(str(venv / "pythonw.exe")) is None
+
+
+def test_resolve_venv_python_none_for_empty_dir(tmp_path):
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    assert resolve_venv_python(str(empty)) is None
 
 
 def test_resolve_libreoffice_python_returns_executable(tmp_path, monkeypatch):

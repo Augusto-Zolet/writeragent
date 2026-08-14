@@ -64,7 +64,7 @@ def resolve_recording_python(ctx: Any) -> tuple[str | None, str]:
         return (
             None,
             f"No python executable found under configured venv: {venv_dir!r} "
-            "(expected bin/python, bin/python3, or bin/python3.x).",
+            "(expected bin/python, Scripts/python.exe, or env-root python.exe).",
         )
     return exe, ""
 

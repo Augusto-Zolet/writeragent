@@ -291,6 +291,66 @@ def _reset_cache() -> None:  # pyright: ignore[reportUnusedFunction]  # test hel
 # --- Interpreter resolution ---
 
 
+def _strip_surrounding_quotes(path: str) -> str:
+    """Strip one layer of matching quotes (Windows Explorer \"Copy as path\")."""
+    s = path.strip()
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in ('"', "'"):
+        return s[1:-1].strip()
+    return s
+
+
+def _path_from_file_url(raw: str) -> str | None:
+    """Convert a ``file://`` / ``file:/`` URL to a filesystem path (stdlib only)."""
+    from urllib.parse import unquote, urlparse
+    from urllib.request import url2pathname
+
+    text = raw.strip()
+    if text.startswith("file:/") and not text.startswith("file://"):
+        text = "file://" + text[len("file:") :]
+    if not text.startswith("file://"):
+        return None
+    parsed = urlparse(text)
+    if parsed.scheme != "file":
+        return None
+    # url2pathname expects the path component; unquote percent-encoding (e.g. José).
+    path = url2pathname(unquote(parsed.path))
+    # Windows: file:///C:/Users/... → /C:/Users/... before url2pathname; after, C:\Users\...
+    if parsed.netloc and os.name == "nt" and not path.startswith("\\\\"):
+        # UNC: file://server/share → netloc=server, path=/share
+        path = f"\\\\{parsed.netloc}{path}"
+    return path or None
+
+
+def _normalize_venv_path_input(venv_dir: str) -> str:
+    """Strip quotes, convert file URLs, then expand ``~`` and env vars."""
+    cleaned = _strip_surrounding_quotes(venv_dir.strip())
+    if cleaned.lower().startswith("file:"):
+        from_url = _path_from_file_url(cleaned)
+        if from_url:
+            cleaned = from_url
+    return os.path.expanduser(os.path.expandvars(cleaned))
+
+
+def _is_acceptable_python_basename(base: str) -> bool:
+    """True for python / python3 / python.exe; false for pythonw (no console I/O)."""
+    lower = base.lower()
+    if lower in ("pythonw", "pythonw.exe"):
+        return False
+    return lower.startswith("python")
+
+
+def _is_usable_python_file(path: str) -> bool:
+    """True when *path* is a usable console Python interpreter file."""
+    if not os.path.isfile(path):
+        return False
+    if not _is_acceptable_python_basename(os.path.basename(path)):
+        return False
+    # Windows ignores the Unix execute bit; require isfile only there.
+    if os.name == "nt":
+        return True
+    return os.access(path, os.X_OK)
+
+
 def resolve_libreoffice_python() -> Optional[str]:
     """Return ``sys.executable`` if it names a real file (no other heuristics).
 
@@ -331,13 +391,27 @@ def _python_candidates_in_bin_dir(bin_dir: str) -> list[str]:
     return candidates
 
 
+def _python_candidates_at_env_root(env_dir: str) -> list[str]:
+    """Return interpreter candidates at the env root (conda / pyenv-win layout)."""
+    if os.name == "nt":
+        return [
+            os.path.join(env_dir, "python.exe"),
+            os.path.join(env_dir, "python"),
+            os.path.join(env_dir, "python3"),
+        ]
+    return [
+        os.path.join(env_dir, "python"),
+        os.path.join(env_dir, "python3"),
+    ]
+
+
 def _first_executable_python(candidates: list[str]) -> str | None:
     seen: set[str] = set()
     for candidate in candidates:
         if candidate in seen:
             continue
         seen.add(candidate)
-        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+        if _is_usable_python_file(candidate):
             return candidate
     return None
 
@@ -346,18 +420,18 @@ def resolve_venv_python(venv_dir: str) -> Optional[str]:
     """Return the python executable for *venv_dir*.
 
     Accepts a venv root (``…/myvenv``), ``bin/`` / ``Scripts/`` directory, or a direct
-    path to ``python`` / ``python3`` / ``python.exe``.
+    path to ``python`` / ``python3`` / ``python.exe``. Also accepts conda/pyenv-win
+    layouts with ``python.exe`` at the env root. Strips surrounding quotes and
+    converts ``file://`` URLs from pasted paths.
     """
     # crosshair: off
     if not venv_dir or not venv_dir.strip():
         return None
-    expanded = os.path.expanduser(os.path.expandvars(venv_dir.strip()))
+    expanded = _normalize_venv_path_input(venv_dir)
 
     if os.path.isfile(expanded):
-        base = os.path.basename(expanded)
-        if base.startswith("python") or base == "python.exe":
-            if os.access(expanded, os.X_OK):
-                return expanded
+        if _is_usable_python_file(expanded):
+            return expanded
         return None
 
     if not os.path.isdir(expanded):
@@ -375,6 +449,8 @@ def resolve_venv_python(venv_dir: str) -> Optional[str]:
     for bin_dir in bin_candidates:
         if os.path.isdir(bin_dir):
             candidates.extend(_python_candidates_in_bin_dir(bin_dir))
+    # Prefer bin/Scripts; fall back to env-root python.exe (conda / pyenv-win).
+    candidates.extend(_python_candidates_at_env_root(expanded))
     return _first_executable_python(candidates)
 
 
