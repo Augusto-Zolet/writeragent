@@ -162,9 +162,11 @@ class PythonPanelElement(unohelper.Base, XUIElement):
         return cast("XInterface", cast("object", self.toolpanel))
 
     def _getOrCreatePanelRootWindow(self):
-        base_url = get_extension_url()
+        base_url = get_extension_url(self.ctx)
         dialog_url = base_url + "/" + XDL_PATH
-        ctx = get_ctx()
+        ctx = self.ctx
+        if ctx is None:
+            ctx = get_ctx()
         provider = ctx.getServiceManager().createInstanceWithContext(
             "com.sun.star.awt.ContainerWindowProvider", ctx
         )

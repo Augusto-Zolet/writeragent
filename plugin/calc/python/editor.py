@@ -24,7 +24,7 @@ from plugin.calc.python.formula_edit import (
 from plugin.calc.python.xl_static_rewrite import apply_xl_static_rewrite
 from plugin.chatbot.dialogs import msgbox, msgbox_with_report
 from plugin.framework.i18n import _
-from plugin.framework.uno_context import get_desktop
+from plugin.framework.uno_context import get_desktop, product_display_name
 from plugin.scripting.editor_host import (
     get_active_session,
     launch_monaco_editor,
@@ -323,7 +323,7 @@ def open_python_cell_editor(ctx: Any) -> None:
     except Exception as e:
         log.exception("python_editor: unhandled failure")
         msg = failure_message(_("The Python editor failed unexpectedly."), exc=e)
-        msgbox_with_report(ctx, "WriterAgent", msg, box_type=3, reportable=True, report_title="Python cell editor failed", report_extra=msg)
+        msgbox_with_report(ctx, product_display_name(ctx), msg, box_type=3, reportable=True, report_title="Python cell editor failed", report_extra=msg)
 
 
 def _open_python_cell_editor_impl(ctx: Any) -> None:
@@ -333,7 +333,7 @@ def _open_python_cell_editor_impl(ctx: Any) -> None:
 
     resolved = _get_active_calc_cell(ctx)
     if resolved is None:
-        msgbox(ctx, "WriterAgent", _("Select a cell in a Calc spreadsheet to edit Python."))
+        msgbox(ctx, product_display_name(ctx), _("Select a cell in a Calc spreadsheet to edit Python."))
         return
     doc, cell, _formula = resolved
 
@@ -348,7 +348,7 @@ def _open_python_cell_editor_impl(ctx: Any) -> None:
     if parsed_parts is None and _cell_has_unparsed_python(cell):
         msgbox(
             ctx,
-            "WriterAgent",
+            product_display_name(ctx),
             _(
                 "This PY formula uses a form the editor cannot safely rewrite (e.g. code in another cell). "
                 "Edit it in the formula bar, or use =PY(\"code\"; range) with quoted code."
@@ -361,7 +361,7 @@ def _open_python_cell_editor_impl(ctx: Any) -> None:
         if get_config("scripting.force_internal_script_editor"):
             msgbox(
                 ctx,
-                "WriterAgent",
+                product_display_name(ctx),
                 _(
                     "Edit Python in Cell requires the Monaco editor, which is disabled by "
                     "\"scripting.force_internal_script_editor\" in writeragent.json.\n\n"
@@ -372,7 +372,7 @@ def _open_python_cell_editor_impl(ctx: Any) -> None:
             return
         if not exe:
             _unused, err = resolve_editor_python(ctx)
-            msgbox(ctx, "WriterAgent", err or _("No Python interpreter available for the editor."))
+            msgbox(ctx, product_display_name(ctx), err or _("No Python interpreter available for the editor."))
             return
         webview_ok, webview_detail = probe_webview_import(exe)
         log.info("python_editor: webview probe exe=%s ok=%s detail=%r", exe, webview_ok, webview_detail[:200] if webview_detail else "")
@@ -383,7 +383,7 @@ def _open_python_cell_editor_impl(ctx: Any) -> None:
                 "In that venv run: uv pip install pywebview rocher\n"
                 "(import name is webview, package name is pywebview)."
             ) % {"exe": exe}
-            msgbox(ctx, "WriterAgent", failure_message(summary, detail=webview_detail or _("unknown error")))
+            msgbox(ctx, product_display_name(ctx), failure_message(summary, detail=webview_detail or _("unknown error")))
             return
 
     assert exe is not None

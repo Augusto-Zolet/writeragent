@@ -30,7 +30,7 @@ from plugin.framework.errors import ToolExecutionError
 from plugin.framework.service import ServiceBase
 from plugin.writer.locale.stop_words import STOP_WORDS as _STOP_WORDS
 from plugin.writer.locale.stop_words import STOP_WORDS_FALLBACK as _STOP_WORDS_FALLBACK
-from plugin.doc.document_helpers import get_string_without_tracked_deletions
+from plugin.doc.text_helpers import get_string_without_tracked_deletions
 
 log = logging.getLogger("writeragent.writer.index")
 

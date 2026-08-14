@@ -170,6 +170,8 @@ make test
 make help
 ```
 
+LibrePy (Python/NumPy only, no chat): `make deploy-core` / `make build-core`. File list: [scripts/librepy_bundle_paths.py](scripts/librepy_bundle_paths.py). Packaging: [docs/libreoffice-core-python-extension-split.md](docs/libreoffice-core-python-extension-split.md).
+
 Contributor orientation: [AGENTS.md](AGENTS.md).
 
 ---

@@ -15,7 +15,7 @@ from plugin.doc.document_helpers import (
 from plugin.framework.constants import CHAT_DOCUMENT_CONTEXT_MAX_CHARS
 
 
-@patch("plugin.doc.document_helpers.get_string_without_tracked_deletions", return_value="visible text")
+@patch("plugin.doc.text_helpers.get_string_without_tracked_deletions", return_value="visible text")
 @patch("plugin.doc.document_helpers.get_text_cursor_at_range")
 def test_read_writer_text_slice_uses_deletion_filter(mock_get_cursor, mock_without_deletions):
     cursor = MagicMock()
@@ -42,9 +42,9 @@ def test_inject_markers_no_overlap():
 
 @patch("plugin.doc.document_helpers._read_writer_text_slice")
 @patch("plugin.doc.document_helpers._writer_char_count", return_value=20000)
-@patch("plugin.doc.document_helpers.get_document_type")
+@patch("plugin.doc.doc_type.get_document_type")
 def test_get_document_context_reads_slices_not_full_doc(mock_doc_type, mock_char_count, mock_read_slice):
-    from plugin.doc.document_helpers import DocumentType
+    from plugin.doc.doc_type import DocumentType
 
     mock_doc_type.return_value = DocumentType.WRITER
     mock_read_slice.side_effect = lambda _model, start, length: f"slice:{start}:{length}"
@@ -58,9 +58,9 @@ def test_get_document_context_reads_slices_not_full_doc(mock_doc_type, mock_char
 
 @patch("plugin.doc.document_helpers._read_writer_text_slice")
 @patch("plugin.doc.document_helpers._writer_char_count", return_value=100)
-@patch("plugin.doc.document_helpers.get_document_type")
+@patch("plugin.doc.doc_type.get_document_type")
 def test_get_document_context_short_doc_single_slice(mock_doc_type, mock_char_count, mock_read_slice):
-    from plugin.doc.document_helpers import DocumentType
+    from plugin.doc.doc_type import DocumentType
 
     mock_doc_type.return_value = DocumentType.WRITER
     mock_read_slice.return_value = "short doc text"

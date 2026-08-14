@@ -139,11 +139,11 @@ def collect_environment_block(ctx: Any | None = None) -> str:
     from plugin.framework.config import get_config_str, get_current_endpoint, user_config_dir
     from plugin.framework.i18n import get_lo_locale
     from plugin.framework.constants import EXTENSION_ID_LIBREPY
-    from plugin.framework.uno_context import resolve_package_extension_id
+    from plugin.framework.uno_context import product_display_name, resolve_package_extension_id
     from plugin.version import EXTENSION_VERSION
 
     ext_id = resolve_package_extension_id(ctx)
-    product_label = "LibrePy" if ext_id == EXTENSION_ID_LIBREPY else "WriterAgent"
+    product_label = product_display_name(ctx)
 
     lines = [
         "### Environment",
@@ -188,7 +188,7 @@ def collect_environment_block(ctx: Any | None = None) -> str:
             [
                 "",
                 "### Debug log",
-                f"WriterAgent debug log: `{log_path}`",
+                f"{product_label} debug log: `{log_path}`",
                 "If you can, open that file and skim it for errors or stack traces from around the time of the bug; paste anything useful under Additional context below.",
             ]
         )

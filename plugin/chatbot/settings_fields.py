@@ -42,9 +42,14 @@ def call_options_provider(ctx: Any, provider_path: str) -> Any:
         mod = importlib.import_module(module_path)
         func = getattr(mod, func_name)
 
-        from plugin.main import get_services
+        services = None
+        try:
+            from plugin.main import get_services
 
-        services = get_services()
+            services = get_services()
+        except ImportError:
+            # LibrePy does not ship plugin.main; providers that need services skip.
+            pass
         options = func(services)
         log.debug("call_options_provider success: %s options returned", len(options))
         return options

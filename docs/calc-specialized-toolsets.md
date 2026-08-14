@@ -59,7 +59,7 @@ WriterAgent's `write_formula_range` tool takes a different design approach than 
 | **Sheets** | ✅ Implemented | `sheets.py`, `sheet_filter.py`: ListSheets, CreateSheet, SwitchSheet, GetSheetSummary, `apply_sheet_filter`, `clear_sheet_filter`, `get_sheet_filter` | Basic sheet ops + AutoFilter |
 | **Formulas** | ⚠️ Partial | `cells.py` (`write_formula_range` + compound undo); `list_calc_functions` / `evaluate_formula` implemented; `FormulaDepChain` via [`formula_dep_chain.py`](../plugin/calc/formula_dep_chain.py) | — |
 | **Charts** | ✅ Implemented | `charts.py`: `manage_charts` only (shared with Writer and Draw; skinny classes are Dummy backends) | Fat API: `list`, `get_info`, `create`, `edit`, `delete` actions |
-| **Named Ranges** | ✅ Implemented | `named_ranges.py`: ListNamedRanges, Create/Edit/DeleteNamedRange | — |
+| **Named Ranges** | ✅ Implemented | [`named_ranges.py`](../plugin/calc/named_ranges.py): `named_range_list`, `named_range_get_info`, `named_range_add`, `named_range_edit`, `named_range_delete`, `named_range_create_from_titles` | Domain-first naming. Global and sheet-local scopes, `NamedRangeFlag` bitmasks (print area, filter criteria), base position parsing, dynamic formulas, header-based creation (`Border.TOP/BOTTOM/LEFT/RIGHT`), and transparent resolution in `read_cell_range` / `write_formula_range`. |
 | **Data Validation** | ✅ Implemented | `validation.py`: SetDataValidation, GetDataValidationRules | Specialized tier |
 | **Conditional Formatting** | ✅ Implemented | [`conditional.py`](../plugin/calc/conditional.py): `add_conditional_format`, `list_conditional_formats`, `remove_conditional_formats` — [UNO / roadmap](calc-conditional-formatting.md) | Specialized tier |
 | **Analysis** | ✅ Implemented | [`analysis.py`](../plugin/calc/analysis.py): `analyze_data`, `calc_goal_seek`, `calc_solver` | Specialized tier (`domain="analysis"`) — trusted numpy helpers + spreadsheet Goal Seek/Solver |
@@ -82,7 +82,7 @@ WriterAgent's `write_formula_range` tool takes a different design approach than 
 | **Advanced Forms** | ❌ Not implemented | Advanced form features, database integration, complex validation |
 | **Advanced Chart Features** | ✅ Partial | Trend lines, error bars, secondary axes |
 | **Pivot Chart Creation** | ❌ Not implemented | Direct pivot chart creation from data |
-| **Dynamic Named Ranges** | ❌ Not implemented | Formula-based range definitions |
+| **Dynamic Named Ranges** | ✅ Implemented | Formula-based range definitions and sheet-scoped names supported |
 | **Array Formulas** | ✅ Partial | Basic support, matrix operations TBD |
 | **Structured References** | ❌ Not implemented | Table-based formula references |
 | **Table Slicers** | ❌ Not implemented | Interactive filtering controls |

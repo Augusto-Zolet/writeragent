@@ -17,6 +17,8 @@
   var currentMode = "calc_cell";
   var dataBindingTitle = "Calc injects `data` and `ranges` from these range(s) at runtime.";
   var dataBindingDisabledTitle = "Data ranges apply only when saving as a =PYTHON() formula.";
+  var completeTimer = null;
+  var completeSeq = 0;
 
   function t(key, fallback) {
     var value = ui[key];
@@ -131,6 +133,17 @@
     }
   }
 
+  function maybeHintJediMissing() {
+    if (!window.pywebview || !window.pywebview.api || !window.pywebview.api.is_jedi_available) {
+      return;
+    }
+    window.pywebview.api.is_jedi_available().then(function (ok) {
+      if (!ok) {
+        setStatus(t("jedi_missing", "Install jedi in the Python venv for completions."), "");
+      }
+    }).catch(function () {});
+  }
+
   function applyLoadMessage(msg) {
     ui = msg.ui || {};
     if (msg.title) {
@@ -175,6 +188,7 @@
       editor.setValue(pendingCode);
       monaco.editor.setModelLanguage(editor.getModel(), msg.language || "python");
       setStatus(t("ready", "Ready"), "");
+      maybeHintJediMissing();
     }
 
     if (msg.theme) {
@@ -405,37 +419,54 @@
 
       monaco.languages.registerCompletionItemProvider("python", {
         triggerCharacters: ["."],
-        provideCompletionItems: function (model, position) {
+        provideCompletionItems: function (model, position, context, token) {
           if (!window.pywebview || !window.pywebview.api || !window.pywebview.api.get_completions) {
             return { suggestions: [] };
           }
           var code = model.getValue();
           var line = position.lineNumber;
           var column = position.column;
-          return window.pywebview.api.get_completions(code, line, column).then(function (res) {
-            return res && res.items ? {
-              suggestions: res.items.map(function (item) {
-                var kind = monaco.languages.CompletionItemKind.Text;
-                var k = String(item.kind).toLowerCase();
-                if (k === "method") kind = monaco.languages.CompletionItemKind.Method;
-                else if (k === "function") kind = monaco.languages.CompletionItemKind.Function;
-                else if (k === "class") kind = monaco.languages.CompletionItemKind.Class;
-                else if (k === "module") kind = monaco.languages.CompletionItemKind.Module;
-                else if (k === "property") kind = monaco.languages.CompletionItemKind.Property;
-                else if (k === "keyword" || k === "statement") kind = monaco.languages.CompletionItemKind.Keyword;
-                else if (k === "instance" || k === "param" || k === "variable") kind = monaco.languages.CompletionItemKind.Variable;
-                return {
-                  label: item.label,
-                  kind: kind,
-                  insertText: item.insertText,
-                  detail: item.detail || "",
-                  documentation: item.documentation || ""
-                };
-              })
-            } : { suggestions: [] };
-          }).catch(function (err) {
-            console.error("Jedi autocomplete error:", err);
-            return { suggestions: [] };
+          var seq = ++completeSeq;
+          return new Promise(function (resolve) {
+            if (completeTimer) {
+              clearTimeout(completeTimer);
+            }
+            completeTimer = setTimeout(function () {
+              completeTimer = null;
+              if (token && token.isCancellationRequested) {
+                resolve({ suggestions: [] });
+                return;
+              }
+              window.pywebview.api.get_completions(code, line, column).then(function (res) {
+                if (seq !== completeSeq || (token && token.isCancellationRequested)) {
+                  resolve({ suggestions: [] });
+                  return;
+                }
+                resolve(res && res.items ? {
+                  suggestions: res.items.map(function (item) {
+                    var kind = monaco.languages.CompletionItemKind.Text;
+                    var k = String(item.kind).toLowerCase();
+                    if (k === "method") kind = monaco.languages.CompletionItemKind.Method;
+                    else if (k === "function") kind = monaco.languages.CompletionItemKind.Function;
+                    else if (k === "class") kind = monaco.languages.CompletionItemKind.Class;
+                    else if (k === "module") kind = monaco.languages.CompletionItemKind.Module;
+                    else if (k === "property") kind = monaco.languages.CompletionItemKind.Property;
+                    else if (k === "keyword" || k === "statement") kind = monaco.languages.CompletionItemKind.Keyword;
+                    else if (k === "instance" || k === "param" || k === "variable") kind = monaco.languages.CompletionItemKind.Variable;
+                    return {
+                      label: item.label,
+                      kind: kind,
+                      insertText: item.insertText,
+                      detail: item.detail || "",
+                      documentation: item.documentation || ""
+                    };
+                  })
+                } : { suggestions: [] });
+              }).catch(function (err) {
+                console.error("Jedi autocomplete error:", err);
+                resolve({ suggestions: [] });
+              });
+            }, 150);
           });
         }
       });
@@ -452,6 +483,7 @@
 
       setInterval(pollMessages, 80);
       pollMessages();
+      maybeHintJediMissing();
     });
   } else {
     setStatus(t("monaco_loader_missing", "Monaco loader missing."), "error");

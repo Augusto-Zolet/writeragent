@@ -100,7 +100,6 @@ def test_grammar_work_queue_has_no_top_level_framework_client_package_import() -
     assert "plugin.framework.client.request_controls" not in top_level
     assert "plugin.framework.client.llm_client" not in top_level
     assert "plugin.framework.client.model_fetcher" not in top_level
-    assert "plugin.writer.locale.grammar_worker_llm" not in top_level
 
 
 def test_collect_libreharper_plugin_paths() -> None:
@@ -110,7 +109,7 @@ def test_collect_libreharper_plugin_paths() -> None:
     assert "plugin/writer/locale/harper.py" in paths
     assert not any(p.endswith("harper_host.py") for p in paths)
     assert "plugin/doc/udprops.py" in paths
-    assert not any(p.endswith("grammar_worker_llm.py") for p in paths)
+    assert "plugin/writer/locale/grammar_worker.py" in paths
     assert not any("llm_client" in p for p in paths)
     # constants and other framework modules import deal via deal_shim
     assert "plugin/framework/deal_shim.py" in paths

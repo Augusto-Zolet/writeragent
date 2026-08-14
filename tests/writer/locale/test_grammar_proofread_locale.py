@@ -269,3 +269,32 @@ def test_grammar_max_in_flight_llm_clamps_to_hard_cap() -> None:
     ):
         assert gl.grammar_max_in_flight(ctx) == gl.GRAMMAR_MAX_IN_FLIGHT
 
+
+def test_grammar_batch_sentences_defaults_and_clamping() -> None:
+    with patch("plugin.framework.config.get_config_int_safe", return_value=0):
+        assert gl.grammar_batch_sentences() == 1
+
+    with patch("plugin.framework.config.get_config_int_safe", return_value=4):
+        assert gl.grammar_batch_sentences() == 4
+
+    with patch("plugin.framework.config.get_config_int_safe", return_value=99):
+        assert gl.grammar_batch_sentences() == gl.GRAMMAR_BATCH_MAX_SENTENCES
+
+    with patch("plugin.framework.config.get_config_int_safe", return_value=-5):
+        assert gl.grammar_batch_sentences() == 1
+
+
+def test_grammar_max_tokens_and_chars() -> None:
+    with patch("plugin.framework.config.get_config_int_safe", return_value=0):
+        assert gl.grammar_max_tokens() == gl.GRAMMAR_PROOFREAD_MAX_RESPONSE_TOKENS
+        assert gl.grammar_max_chars() == gl.GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS
+
+    with patch("plugin.framework.config.get_config_int_safe", return_value=4096):
+        assert gl.grammar_max_tokens() == 4096
+        assert gl.grammar_max_chars() == 4096
+
+    with patch("plugin.framework.config.get_config_int_safe", return_value=100_000):
+        assert gl.grammar_max_tokens() == 16384
+        assert gl.grammar_max_chars() == 65536
+
+

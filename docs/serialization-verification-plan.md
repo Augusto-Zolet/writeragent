@@ -183,6 +183,7 @@ make crosshair-check
 
 ## Known gaps
 
+- **Envelope detector contracts: shipped.** `@deal` + Hypothesis oracles for `is_split_grid` / `is_multi_data` / image / dataframe / calc_range live in this module and [`tests/scripting/test_payload_codec_policy_verification.py`](../tests/scripting/test_payload_codec_policy_verification.py). Remaining work below is pack/unpack CrossHair / CI only.
 - Most `@deal.ensure` conditions report `Not confirmed` — expected for complex serialization logic; no counterexamples found to date.
 - `child_pack_split_grid` pre may report `Unable to meet precondition` when CrossHair cannot synthesize ndarrays.
 - Pack/unpack entry points often `# crosshair: off`; detectors and policy helpers are the preferred FQN targets.

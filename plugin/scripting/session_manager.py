@@ -13,14 +13,22 @@ import logging
 import uuid
 from typing import Any
 
-from plugin.chatbot.dialogs import msgbox
-from plugin.doc.document_helpers import get_document_property, is_calc, is_writer, set_document_property
+from plugin.doc.doc_type import is_calc, is_writer
+from plugin.doc.udprops import get_document_property, set_document_property
 from plugin.framework.config import get_config_str
 from plugin.framework.i18n import _
 from plugin.framework.uno_context import get_desktop
 from plugin.scripting.venv_worker import reset_python_session
 
 log = logging.getLogger(__name__)
+
+
+def _msgbox(ctx: Any, message: str) -> None:
+    """Lazy so first ``=PY()`` does not load the dialog stack."""
+    from plugin.chatbot.dialogs import msgbox
+    from plugin.framework.uno_context import product_display_name
+
+    msgbox(ctx, product_display_name(ctx), message)
 
 
 def _has_notebook_registry(doc: Any) -> bool:
@@ -123,9 +131,8 @@ def reset_notebook_python_session(ctx: Any) -> None:
     """Menubar path: reset shared Python namespace for the active Writer notebook document."""
     doc = _writer_document(ctx)
     if doc is None:
-        msgbox(
+        _msgbox(
             ctx,
-            "WriterAgent",
             _(
                 "Reset Python Session for notebooks applies to LibreOffice Writer. "
                 "Open a Writer document with an imported Jupyter notebook and try again."
@@ -133,9 +140,8 @@ def reset_notebook_python_session(ctx: Any) -> None:
         )
         return
     if not _has_notebook_registry(doc):
-        msgbox(
+        _msgbox(
             ctx,
-            "WriterAgent",
             _(
                 "This Writer document has no imported notebook registry. "
                 "Use Tools → Import Jupyter Notebook… first."
@@ -145,24 +151,23 @@ def reset_notebook_python_session(ctx: Any) -> None:
 
     session_id = notebook_session_id(ctx, doc)
     if not session_id:
-        msgbox(ctx, "WriterAgent", _("Could not resolve notebook Python session."))
+        _msgbox(ctx, _("Could not resolve notebook Python session."))
         return
 
     res = reset_python_session(ctx, session_id)
     if res.get("status") == "ok":
-        msgbox(ctx, "WriterAgent", _("Notebook Python session reset for this document."))
+        _msgbox(ctx, _("Notebook Python session reset for this document."))
         return
 
     msg = res.get("message") or _("Could not reset Python session.")
-    msgbox(ctx, "WriterAgent", _("Error: {0}").format(msg))
+    _msgbox(ctx, _("Error: {0}").format(msg))
 
 
 def _reset_calc_python_sessions(ctx: Any) -> None:
     doc = _calc_document(ctx)
     if doc is None:
-        msgbox(
+        _msgbox(
             ctx,
-            "WriterAgent",
             _(
                 "Reset Python Session applies to Calc spreadsheets. "
                 "Open a Calc workbook and try again."
@@ -176,25 +181,23 @@ def _reset_calc_python_sessions(ctx: Any) -> None:
     res = reset_python_session(ctx, session_id)
     if res.get("status") != "ok":
         msg = res.get("message") or _("Could not reset Python session.")
-        msgbox(ctx, "WriterAgent", _("Error: {0}").format(msg))
+        _msgbox(ctx, _("Error: {0}").format(msg))
         return
 
     has_init = bool((get_calc_init_script(doc) or "").strip())
     if python_session_mode(ctx) == "shared":
-        msgbox(ctx, "WriterAgent", _("Python session reset for this workbook."))
+        _msgbox(ctx, _("Python session reset for this workbook."))
     elif has_init:
-        msgbox(
+        _msgbox(
             ctx,
-            "WriterAgent",
             _(
                 "Initialization script and any in-memory init state were reset for this workbook. "
                 "Cell variables were already isolated per cell."
             ),
         )
     else:
-        msgbox(
+        _msgbox(
             ctx,
-            "WriterAgent",
             _(
                 "Python session mode is Isolated (each =PY() cell uses its own variables). "
                 "There is no shared cell session to reset. Add an initialization script if you "
@@ -210,9 +213,8 @@ def reset_workbook_python_session(ctx: Any) -> None:
         reset_notebook_python_session(ctx)
         return
     if doc is not None and is_writer(doc):
-        msgbox(
+        _msgbox(
             ctx,
-            "WriterAgent",
             _(
                 "This Writer document has no imported notebook registry. "
                 "Use Tools → Import Jupyter Notebook… to enable notebook Python session reset."

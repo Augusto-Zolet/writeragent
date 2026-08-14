@@ -61,10 +61,10 @@ def test_list_open_documents_execute():
 
     with patch("plugin.framework.uno_context.get_desktop", return_value=mock_desktop), \
          patch("plugin.doc.document_research._system_path_from_url", side_effect=lambda u: u.replace("file://", "") if u else None), \
-         patch("plugin.doc.document_helpers.get_document_type") as mock_get_doc_type:
+         patch("plugin.doc.doc_type.get_document_type") as mock_get_doc_type:
 
         # Let mock_get_doc_type identify mock_doc2 as calc
-        from plugin.doc.document_helpers import DocumentType
+        from plugin.doc.doc_type import DocumentType
         mock_get_doc_type.return_value = DocumentType.CALC
 
         # Execute on main thread bypass patch
@@ -114,7 +114,7 @@ def test_get_open_documents_lists_untitled_even_when_type_lookup_fails():
     desktop.getComponents.return_value.createEnumeration.return_value = enum
 
     with patch("plugin.framework.uno_context.get_desktop", return_value=desktop), \
-         patch("plugin.doc.document_helpers.get_document_type", side_effect=RuntimeError("boom")):
+         patch("plugin.doc.doc_type.get_document_type", side_effect=RuntimeError("boom")):
         docs = get_open_documents(MagicMock(), active_model=None)
 
     assert len(docs) == 1

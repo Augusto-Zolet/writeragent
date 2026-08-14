@@ -83,7 +83,8 @@ from plugin.framework.client.model_fetcher import get_text_model, get_image_mode
 from plugin.framework.i18n import _
 from plugin.framework.errors import UnoObjectError, ConfigError
 from plugin.framework.prompts import get_chat_system_prompt_for_document, get_greeting_for_document, DEFAULT_RESEARCH_GREETING, DEFAULT_DEEP_RESEARCH_GREETING, DEFAULT_BRAINSTORMING_GREETING, DEFAULT_PPT_MASTER_GREETING
-from plugin.doc.document_helpers import get_document_property, set_document_property, get_document_type, DocumentType
+from plugin.doc.doc_type import get_document_type, DocumentType
+from plugin.doc.udprops import get_document_property, set_document_property
 
 log = logging.getLogger(__name__)
 
@@ -471,7 +472,7 @@ class ChatPanelElement(unohelper.Base, XUIElement):
 
                 model = self._get_document_model()
                 cached = getattr(getattr(self, "send_listener", None), "cached_doc_type", None)
-                from plugin.doc.document_helpers import doc_type_label_for_enum, get_document_type
+                from plugin.doc.doc_type import doc_type_label_for_enum, get_document_type
 
                 dt = cached or doc_type_label_for_enum(get_document_type(model))
                 flags = sidebar_mode_flags_for_doc_type(dt)
@@ -593,7 +594,7 @@ class ChatPanelElement(unohelper.Base, XUIElement):
 
     def _sidebar_mode_flags(self, model, *, cached_doc_type: str | None = None):
         from plugin.chatbot.chat_sidebar_mode import sidebar_mode_flags_for_doc_type
-        from plugin.doc.document_helpers import doc_type_label_for_enum
+        from plugin.doc.doc_type import doc_type_label_for_enum
 
         if cached_doc_type is not None:
             return sidebar_mode_flags_for_doc_type(cached_doc_type)
@@ -837,7 +838,7 @@ class ChatPanelElement(unohelper.Base, XUIElement):
 
 
 
-            from plugin.doc.document_helpers import doc_type_label_for_enum, doc_type_title_for_label, get_document_type, get_document_uno_services
+            from plugin.doc.doc_type import doc_type_label_for_enum, doc_type_title_for_label, get_document_type, get_document_uno_services
 
             doc_type = get_document_type(model)
             send_listener.cached_doc_type = doc_type_label_for_enum(doc_type)

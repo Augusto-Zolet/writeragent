@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from plugin.chatbot.config_ui_helpers import update_lru_history
-from plugin.doc.document_helpers import DocumentType, get_document_type
+from plugin.doc.doc_type import DocumentType, get_document_type
 from plugin.framework.async_stream import run_stream_completion_async
 from plugin.framework.errors import format_error_message
 from plugin.framework.client.llm_client import LlmClient

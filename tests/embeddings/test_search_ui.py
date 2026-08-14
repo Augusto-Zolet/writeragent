@@ -148,7 +148,7 @@ class TestSearchDialog:
         dialog = SearchDialog(mock_ctx)
         mock_doc.return_value = MagicMock()
 
-        with patch("plugin.doc.document_helpers.get_document_path", return_value=None):
+        with patch("plugin.doc.text_helpers.get_document_path", return_value=None):
             with patch("plugin.doc.document_research.get_work_directory", return_value=my_docs):
                 dialog._run_rebuild(mock_dlg)
                 import time

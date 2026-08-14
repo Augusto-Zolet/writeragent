@@ -187,7 +187,7 @@ def prepend_run_import_document_bindings(code: str, *, bindings: dict[str, Any])
     """Prepend literal variable assignments for host-injected Writer document inputs."""
     if not bindings:
         return code
-    lines = ["# WriterAgent: document inputs injected below — edit the run_*() call only."]
+    lines = ["# Document inputs injected below — edit the run_*() call only."]
     for name, value in bindings.items():
         lines.append(f"{name} = {json.dumps(value, ensure_ascii=False)}")
     lines.append("")

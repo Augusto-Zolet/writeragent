@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from plugin.chatbot.dialogs import msgbox
-from plugin.doc.document_helpers import is_writer
+from plugin.doc.doc_type import is_writer
 from plugin.framework.async_stream import run_blocking_in_thread
 from plugin.framework.i18n import _
 from plugin.framework.constants import EXTENSION_ID_WRITERAGENT

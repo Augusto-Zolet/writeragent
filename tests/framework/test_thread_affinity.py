@@ -127,7 +127,7 @@ def test_direct_affine_access_from_run_in_background_fails(uno_thread_safety):
 
 
 def test_guarded_getter_from_background_fails_with_marshal_fixture(uno_thread_safety, monkeypatch):
-    """document_helpers entrypoints call assert_main_thread even on mocks."""
+    """doc_type entrypoints call assert_main_thread even on mocks."""
     from plugin.framework.errors import UnoObjectError
 
     monkeypatch.setattr(tg, "GUARD_ON", True)
@@ -136,9 +136,9 @@ def test_guarded_getter_from_background_fails_with_marshal_fixture(uno_thread_sa
     def worker():
         nonlocal err
         try:
-            from plugin.doc import document_helpers
+            from plugin.doc import doc_type
 
-            document_helpers.get_document_type(MagicMock())
+            doc_type.get_document_type(MagicMock())
         except (RuntimeError, UnoObjectError) as e:
             err = e
 

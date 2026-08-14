@@ -221,7 +221,7 @@ def generate_module(tools: list["ToolBase"]) -> str:
         '    if not IS_WORKER:',
         '        try:',
         '            from plugin.framework.uno_context import get_ctx, get_active_document',
-        '            from plugin.doc.document_helpers import is_calc, is_writer, is_draw',
+        '            from plugin.doc.doc_type import is_calc, is_writer, is_draw',
         '            from plugin.main import get_tools',
         '            from plugin.framework.tool import ToolContext',
         '',

@@ -83,7 +83,7 @@ def resolve_editor_python(uno_ctx: Any) -> tuple[str | None, str]:
         return (
             None,
             _(
-                "Set the Python venv path in WriterAgent Settings → Python (same venv where you ran "
+                "Set the Python venv path in Settings → Python (same venv where you ran "
                 "'uv pip install pywebview rocher'). LibreOffice's built-in Python cannot run the Monaco editor."
             ),
         )
@@ -776,8 +776,10 @@ def launch_monaco_editor(
 ) -> bool:
     """Start or reuse the Monaco child process and send *load_message*. Return True on success."""
     from plugin.chatbot.dialogs import msgbox_with_report
-
+    from plugin.framework.uno_context import product_display_name
     from plugin.scripting.editor_ui_strings import enrich_monaco_load_message
+
+    title = product_display_name(ctx)
 
     _PERSISTENT_EDITOR.ctx = ctx
     # Host-only keys (e.g. pyuno document refs) must not cross the pickle IPC boundary.
@@ -818,7 +820,7 @@ def launch_monaco_editor(
         except OSError as e:
             log.exception("Failed to spawn editor")
             msg = failure_message(_("Could not start the Python editor."), exc=e)
-            msgbox_with_report(ctx, "WriterAgent", msg, box_type=3, reportable=True, report_title="Python editor spawn failed", report_extra=msg)
+            msgbox_with_report(ctx, title, msg, box_type=3, reportable=True, report_title="Python editor spawn failed", report_extra=msg)
             return False
 
         session = EditorSession(proc, on_save=on_save, on_closed=closed_handler)
@@ -829,7 +831,7 @@ def launch_monaco_editor(
             detail = session.read_stderr_tail()
             set_active_session(None)
             msg = failure_message(_("The Python editor window did not start."), detail=detail)
-            msgbox_with_report(ctx, "WriterAgent", msg, box_type=3, reportable=True, report_title="Python editor did not start", report_extra=msg)
+            msgbox_with_report(ctx, title, msg, box_type=3, reportable=True, report_title="Python editor did not start", report_extra=msg)
             return False
 
         # Trigger background pre-warming of the venv subprocess now that Monaco is successfully up.
@@ -841,7 +843,7 @@ def launch_monaco_editor(
         msg = failure_message(_("The Python editor exited before it could load your code."), detail=detail)
         msgbox_with_report(
             ctx,
-            "WriterAgent",
+            title,
             msg,
             box_type=3,
             reportable=True,
@@ -858,7 +860,7 @@ def launch_monaco_editor(
         msg = failure_message(_("Could not talk to the Python editor."), detail=session.read_stderr_tail(), exc=e)
         msgbox_with_report(
             ctx,
-            "WriterAgent",
+            title,
             msg,
             box_type=3,
             reportable=True,

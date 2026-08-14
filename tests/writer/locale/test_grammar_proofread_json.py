@@ -109,3 +109,13 @@ def test_compress_and_decompress_error() -> None:
     decompressed = gj.decompress_error(compressed)
     assert decompressed == original
 
+
+def test_coerce_json_object() -> None:
+    assert gj._coerce_json_object("") is None
+    assert gj._coerce_json_object("   ") is None
+    assert gj._coerce_json_object("not json at all") is None
+    assert gj._coerce_json_object('```json\n{"key": "value"}\n```') == {"key": "value"}
+    # Repairable JSON with trailing comma
+    assert gj._coerce_json_object('{"key": "value",}') == {"key": "value"}
+
+

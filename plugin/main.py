@@ -45,7 +45,7 @@ ensure_plugin_on_path(
 
 # Inject downloaded binaries path (audio + serialization)
 try:
-    from plugin.scripting.audio_recorder_service import ensure_downloaded_audio_on_path
+    from plugin.scripting.native_binaries import ensure_downloaded_audio_on_path
     ensure_downloaded_audio_on_path()
 except Exception:
     pass
@@ -224,7 +224,7 @@ def bootstrap(ctx=None):
 def _register_core_handlers():
     """Register core application handlers during bootstrap."""
     from plugin.chatbot.dialog_views import settings_box, show_eval_dashboard
-    from plugin.doc.document_helpers import is_writer, is_calc, is_draw
+    from plugin.doc.doc_type import is_writer, is_calc, is_draw
     import importlib
 
     def _open_settings():
@@ -779,7 +779,7 @@ class MainBootstrapJob(unohelper.Base, XJobExecutor, XJob):
             return
 
         model = get_active_document(self.ctx)
-        from plugin.doc.document_helpers import get_document_type, DocumentType
+        from plugin.doc.doc_type import get_document_type, DocumentType
 
         doc_type = get_document_type(model)
         if doc_type == DocumentType.WRITER:

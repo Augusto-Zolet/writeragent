@@ -31,7 +31,6 @@ from importlib import import_module
 from types import BuiltinFunctionType, FunctionType, ModuleType
 from typing import Any
 
-from .tools import Tool
 from .utils import BASE_BUILTIN_MODULES, truncate_content
 
 
@@ -1716,7 +1715,7 @@ class CodeOutput:
 
 class PythonExecutor(ABC):
     @abstractmethod
-    def send_tools(self, tools: dict[str, Tool]) -> None: ...
+    def send_tools(self, tools: dict[str, Any]) -> None: ...
 
     @abstractmethod
     def send_variables(self, variables: dict[str, Any]) -> None: ...
@@ -1811,7 +1810,7 @@ class LocalPythonExecutor(PythonExecutor):
     def send_variables(self, variables: dict[str, Any]):
         self.state.update(variables)
 
-    def send_tools(self, tools: dict[str, Tool]):
+    def send_tools(self, tools: dict[str, Any]):
         # Combine agent tools, base Python tools, and additional Python functions
         self.static_tools = {**tools, **BASE_PYTHON_TOOLS.copy(), **self.additional_functions}
 

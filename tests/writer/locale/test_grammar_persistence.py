@@ -189,6 +189,47 @@ class TestGrammarPersistence(unittest.TestCase):
         self.assertTrue(hasattr(gp._GrammarDocumentEventListener, "disposing"))
         self.assertFalse(hasattr(gp._GrammarDocumentEventListener, "documentEvent"), "stale typo ``documentEvent`` must not be present")
 
+    def test_document_persistence_entries_independent_of_sentence_cache(self) -> None:
+        """DocumentPersistence._entries stores loaded/persisted data without touching grammar_registry.sentence_cache."""
+        from plugin.writer.locale import grammar_persistence as gp
+
+        ctx = MagicMock()
+        model = MagicMock()
+        cached = {
+            "version": GRAMMAR_CACHE_VERSION,
+            "good": ["fp_clean"],
+            "bad": {
+                "fp_err": [{"s": 0, "l": 4, "g": ["test"], "c": "c", "f": "f", "r": "wa_g_rule||test"}],
+            },
+        }
+        gp.grammar_registry.clear_all(ctx)
+        try:
+            with patch("plugin.doc.udprops.get_document_property", return_value=json.dumps(cached)):
+                dp = gp.DocumentPersistence(ctx, "doc-entries-test", model=model)
+
+            # Check that _entries was populated
+            self.assertEqual(len(dp._entries), 2)
+            self.assertEqual(dp._entries["fp_clean"], [])
+            self.assertEqual(len(dp._entries["fp_err"]), 1)
+
+            # Check that grammar_registry.sentence_cache was NOT populated by _load_from_udprops
+            self.assertEqual(len(gp.grammar_registry.sentence_cache), 0)
+
+            # Check that get() returns from _entries and doesn't pollute sentence_cache
+            hit_clean = dp.get("fp_clean")
+            self.assertEqual(hit_clean, [])
+            hit_err = dp.get("fp_err")
+            self.assertIsNotNone(hit_err)
+            self.assertEqual(len(hit_err), 1)
+            self.assertEqual(len(gp.grammar_registry.sentence_cache), 0)
+
+            # Check put() updates _entries without touching sentence_cache
+            dp.put("fp_new", "en-US", [{"n_error_start": 2, "n_error_length": 3}])
+            self.assertIn("fp_new", dp._entries)
+            self.assertEqual(len(gp.grammar_registry.sentence_cache), 0)
+        finally:
+            gp.clear_all_document_persistence(ctx)
+
 
 if __name__ == "__main__":
     unittest.main()

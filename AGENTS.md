@@ -27,7 +27,7 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 **WriterAgent** is a LibreOffice extension (Python + UNO) for Writer, Calc, and Draw (Impress paths where registered).
 
 - **Chat:** Sidebar + menu chat (Writer/Calc deck; Draw per code paths)—multi-turn, tools, history (SQLite when available, else JSON under `writeragent_history.db.d/`).
-- **Extend / Edit selection:** Writer uses `get_string_without_tracked_deletions()` for prompts; undo/session details in `document_helpers`.
+- **Extend / Edit selection:** Writer uses `get_string_without_tracked_deletions()` in `text_helpers` for prompts; undo/session details in `document_helpers`.
 - **Settings:** `writeragent.json` under the LibreOffice user profile—see `config` module doc.
 - **Memory (experimental):** `memory` + `MEMORY_GUIDANCE` in `prompts` — [docs/hermes-agent-patterns.md](docs/hermes-agent-patterns.md).
 - **Calc:** `=PROMPT()` and `=PYTHON()` add-ins (see Key files).
@@ -44,9 +44,11 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 | Command | When to use |
 |---------|-------------|
 | `make typecheck` | After edits (required with targeted tests). Checker details: [docs/type-checking.md](docs/type-checking.md) |
-| `make deploy` | Build + install/cache sync; **restart LibreOffice** (or `make deploy writer/calc/draw/impress` to launch) |
+| `make deploy` | WriterAgent OXT: build + install/cache sync; **restart LibreOffice** (or `make deploy writer/calc/draw/impress` to launch) |
+| `make deploy-core` | LibrePy OXT only (`build/LibrePy.oxt`); **removes WriterAgent**. Install one OXT at a time. |
 | `make test` | Large or cross-cutting changes only (includes typecheck, SAST, pytest, LO tests) |
 | `make build` | Produce `build/WriterAgent.oxt` only (no install) |
+| `make build-core` | Produce `build/LibrePy.oxt` only (no install) |
 
 Usual targets generate `plugin/_manifest.py` when needed. Other Makefile targets exist for release, fuzz, and niche tooling—see the `Makefile` when you need them.
 
@@ -78,7 +80,13 @@ Rules that apply in many places. Breaking them causes wrong-document bugs, froze
 
 - **Surface errors through the shared helpers.** Prefer `WriterAgentException` and `format_error_payload` (`errors`). Tools should fail via `_tool_error`. There is no active `DocumentCache`—do not assume one.
 
-UNO helpers are intentionally split (`uno_context`, `document_helpers`, `dialogs`)—there is no monolithic `uno_helpers.py`.
+- **Two products, one OXT at a time.** WriterAgent (`make deploy`, `plugin/main.py`) vs LibrePy (`make build-core` / `deploy-core`, `plugin/main_core.py`, `extension-core/`). `deploy-core` removes WriterAgent. Dual-install overlay is **not shipped**. File list: [`scripts/librepy_bundle_paths.py`](scripts/librepy_bundle_paths.py). Packaging: [docs/libreoffice-core-python-extension-split.md](docs/libreoffice-core-python-extension-split.md).
+
+- **LibrePy-safe document helpers.** Linebreaks, tracked-deletion reads, heading trees, and path: `plugin/doc/text_helpers.py`. Type guards: `doc_type.py`. Document properties: `udprops.py`. Do **not** import `document_helpers` from LibrePy paths (it pulls Calc analyzer / chat context). Do **not** re-export the light helpers from `document_helpers`.
+
+- **`plugin.framework.client` package init is lazy.** HTTP / errors / provider detection load immediately; `LlmClient`, embeddings, and analysis load on attribute access. LibrePy may import `requests` / `provider_detection`. Do not import `llm_client` or embeddings from LibrePy paths.
+
+UNO helpers are intentionally split (`uno_context`, `text_helpers` / `doc_type` / `udprops`, `document_helpers` for chat/undo, `dialogs`)—there is no monolithic `uno_helpers.py`.
 
 ---
 
@@ -94,7 +102,7 @@ Area-specific rules live in module docstrings and topic docs—open those when y
 
 - **Config:** Call `init_config(ctx)` once at bootstrap. Later config I/O does not take `ctx`—see the `config` module doc.
 
-- **Logging / MCP:** Logs go to `writeragent_debug.log` next to `writeragent.json`. Shipped LibrePy defaults to **`log_level` WARN**; a checkout that still has `plugin/tests/` defaults to **DEBUG**. Override in `writeragent.json` and restart LibreOffice. `enable_agent_log` is separate (structured agent traces only). In unexpected `except` blocks, use **`log.exception("Context")`**. MCP work drains on the main thread ([docs/mcp-protocol.md](docs/mcp-protocol.md)). Image generation: [docs/image-generation.md](docs/image-generation.md). Do not read API keys from the environment in production; do not use **`tempfile.mktemp()`**. For scratch debug files under `/tmp`, prefer `flush=True`.
+- **Logging / MCP:** Logs go to `writeragent_debug.log` next to `writeragent.json`. Shipped LibrePy (`make deploy-core`) defaults to **`log_level` WARN**; a checkout that still has `plugin/tests/` defaults to **DEBUG**. Override in `writeragent.json` and restart LibreOffice. `enable_agent_log` is separate (structured agent traces only). In unexpected `except` blocks, use **`log.exception("Context")`**. MCP work drains on the main thread ([docs/mcp-protocol.md](docs/mcp-protocol.md)). Image generation: [docs/image-generation.md](docs/image-generation.md). Do not read API keys from the environment in production; do not use **`tempfile.mktemp()`**. For scratch debug files under `/tmp`, prefer `flush=True`.
 
 - **Tests / packaging:** UNO tests go through `testing_runner`; debug-menu suites run on the UI thread ([docs/test_architecture_analysis.md](docs/test_architecture_analysis.md)). New extension components must be registered in `extension/META-INF/manifest.xml`.
 
@@ -102,28 +110,40 @@ Area-specific rules live in module docstrings and topic docs—open those when y
 
 Do not reuse the names **`logging`**, module **`log`**, or gettext **`_`** for unrelated variables. UI code imports **`_`** from `i18n`. Never bind bare `_` as a throwaway (`for _ in …`, `a, _, _ = fn()`, `except Exception as _:`)—use a real name (`unused`, `idx`). Private helpers named `_foo` are fine.
 
+### Do not redo (already shipped)
+
+- Do **not** invent `python_config.py` or rename `writeragent.json` for LibrePy.
+- Do **not** split `payload_codec.py` flatten/unpack without serialization A/B tests ([docs/numpy-serialization.md](docs/numpy-serialization.md)).
+- Envelope-detector `@deal` + Hypothesis oracles on `payload_codec` (`is_split_grid`, `is_multi_data`, image / dataframe / calc_range) are **shipped**. Source of truth: [docs/serialization-verification-plan.md](docs/serialization-verification-plan.md).
+- Scripting domain registries (Phases 1–6) are shipped — do not add a fourth ad-hoc registry ([docs/scripting-domain-debt-dev-plan.md](docs/scripting-domain-debt-dev-plan.md)).
+- `calc_functions_*.py` alphabet splits are intentional; do not merge them.
+- Do **not** drop `plugin/calc/analyzer.py` from the LibrePy bundle (reserved for later use).
+- Do **not** slim `trusted_action_registry.py` / `venv_diagnostics.py` for LibrePy while those modules still work.
+
 ---
 
 ## Key files (entry points)
 
 Start here by task. Topic docs: [Deep dives](#deep-dives-link-index).
 
-**Layout:** `plugin/` (framework, chatbot, writer, calc, draw, scripting, …), `extension/` (OXT resources, Dialogs, idl, metadata), `scripts/`, `Makefile`, `pyproject.toml`.
+**Layout:** `plugin/` (framework, chatbot, writer, calc, draw, scripting, librepy, …), `extension/` (WriterAgent OXT), `extension-core/` (LibrePy OXT), `scripts/`, `Makefile`, `pyproject.toml`.
 
 | Area | Role | Paths |
 |------|------|-------|
-| Bootstrap / MCP | Extension bootstrap, settings apply, MCP startup | [`plugin/main.py`](plugin/main.py) |
+| Bootstrap / MCP | WriterAgent bootstrap, settings apply, MCP startup | [`plugin/main.py`](plugin/main.py) |
+| LibrePy bootstrap | Core OXT: `=PY()`, Python menus, Settings → Python; no chat/MCP | [`plugin/main_core.py`](plugin/main_core.py), [`plugin/librepy/`](plugin/librepy/), [`plugin/calc/python/addin_librepy.py`](plugin/calc/python/addin_librepy.py) |
 | Sidebar / send | Sidebar factory, panel, document resolution | [`plugin/chatbot/panel_factory.py`](plugin/chatbot/panel_factory.py), [`plugin/chatbot/panel.py`](plugin/chatbot/panel.py) |
 | Tool loop / chat FSM | Main chat tool loop and state machine | [`plugin/chatbot/tool_loop.py`](plugin/chatbot/tool_loop.py), [`plugin/chatbot/tool_loop_state.py`](plugin/chatbot/tool_loop_state.py) |
 | Smol / librarian ReAct | Separate ReAct runtime (shares `LlmClient`); do **not** merge with the main chat FSM | [`plugin/chatbot/smol_agent.py`](plugin/chatbot/smol_agent.py) — [docs/smol-main-chat-tool-architecture.md](docs/smol-main-chat-tool-architecture.md) |
 | Agent backends | Optional external backends (`agent_backend.backend_id` when not `builtin`) | [`plugin/agent_backend/`](plugin/agent_backend/) |
 | HTTP / LLM | Chat requests, tools, token stripping, pacing | [`plugin/framework/client/llm_client.py`](plugin/framework/client/llm_client.py) (`make_chat_request`, `request_with_tools`, …), [`plugin/ai/service.py`](plugin/ai/service.py), [`plugin/framework/client/auth.py`](plugin/framework/client/auth.py) |
 | Tools registry | Tool registration and schemas | [`plugin/framework/tool.py`](plugin/framework/tool.py) |
-| UNO document helpers | Document open/resolve, undo, selection helpers | [`plugin/doc/document_helpers.py`](plugin/doc/document_helpers.py) |
+| UNO document helpers | Chat context, undo/stream, URL/frame resolve (WriterAgent) | [`plugin/doc/document_helpers.py`](plugin/doc/document_helpers.py) |
+| Light document helpers | Linebreaks, tracked-deletion reads, heading tree, path; type guards; UD props (LibrePy-safe) | [`plugin/doc/text_helpers.py`](plugin/doc/text_helpers.py), [`plugin/doc/doc_type.py`](plugin/doc/doc_type.py), [`plugin/doc/udprops.py`](plugin/doc/udprops.py) |
 | Config / keys / LRU | `writeragent.json`, keys, LRU | [`plugin/framework/config.py`](plugin/framework/config.py) |
 | Dialogs / XDL | Dialog load helpers and settings UI | [`plugin/chatbot/dialogs.py`](plugin/chatbot/dialogs.py), [`plugin/chatbot/dialog_views.py`](plugin/chatbot/dialog_views.py), [`plugin/chatbot/settings_dialog.py`](plugin/chatbot/settings_dialog.py) |
 | Async UI drain | Stream queue drain on the UI thread (`get_toolkit`, `get_ctx`) | [`plugin/framework/async_stream.py`](plugin/framework/async_stream.py), [`plugin/framework/uno_context.py`](plugin/framework/uno_context.py) |
-| Writer HTML / apply | HTML import and apply-content paths | [`plugin/writer/format_support.py`](plugin/writer/format_support.py) |
+| Writer HTML / apply | HTML import and apply-content paths (callers `import format as format_support`) | [`plugin/writer/format.py`](plugin/writer/format.py) |
 | Writer charts / shapes | Shared tool names with Calc/Draw; declare union of `uno_services` | [`plugin/writer/charts.py`](plugin/writer/charts.py), [`plugin/writer/shapes.py`](plugin/writer/shapes.py) |
 | Errors | `WriterAgentException`, `safe_json_loads`, tool errors | [`plugin/framework/errors.py`](plugin/framework/errors.py) |
 | FSM / service | Pure `next_state` only; no UNO/I/O in transitions | [`plugin/framework/service.py`](plugin/framework/service.py) |
@@ -131,7 +151,7 @@ Start here by task. Topic docs: [Deep dives](#deep-dives-link-index).
 | UNO listeners / i18n | UNO listeners; gettext `_` for UI | [`plugin/framework/uno_listeners.py`](plugin/framework/uno_listeners.py), [`plugin/framework/i18n.py`](plugin/framework/i18n.py) |
 | Memory / prompts | Experimental memory + `MEMORY_GUIDANCE` | [`plugin/chatbot/memory.py`](plugin/chatbot/memory.py), [`plugin/framework/prompts.py`](plugin/framework/prompts.py) |
 | Extension update check | Weekly WriterAgent / LibrePy / LibreHarper update check | [`plugin/chatbot/extension_update_check.py`](plugin/chatbot/extension_update_check.py) |
-| Calc `=PROMPT()` / `=PYTHON()` | Calc spreadsheet function add-ins | [`plugin/calc/prompt_addin.py`](plugin/calc/prompt_addin.py), [`plugin/calc/prompt_function.py`](plugin/calc/prompt_function.py), [`plugin/calc/python/addin.py`](plugin/calc/python/addin.py), [`plugin/calc/python/function.py`](plugin/calc/python/function.py) |
+| Calc `=PROMPT()` / `=PYTHON()` | Calc spreadsheet function add-ins (LibrePy uses `addin_librepy.py` instead of `addin.py`) | [`plugin/calc/prompt_addin.py`](plugin/calc/prompt_addin.py), [`plugin/calc/prompt_function.py`](plugin/calc/prompt_function.py), [`plugin/calc/python/addin.py`](plugin/calc/python/addin.py), [`plugin/calc/python/addin_librepy.py`](plugin/calc/python/addin_librepy.py), [`plugin/calc/python/function.py`](plugin/calc/python/function.py) |
 | Scripting / venv | Public script API, sandbox policy, venv worker (not for user imports) | [`plugin/scripting/`](plugin/scripting/), [`plugin/scripting/venv/`](plugin/scripting/venv/), [`plugin/scripting/import_policy.py`](plugin/scripting/import_policy.py), [`plugin/scripting/sandbox.py`](plugin/scripting/sandbox.py), [`plugin/scripting/venv_worker.py`](plugin/scripting/venv_worker.py), [`plugin/scripting/venv_diagnostics.py`](plugin/scripting/venv_diagnostics.py) |
 | Embeddings / folder FTS | Host indexers + venv worker + RPC | [`plugin/embeddings/`](plugin/embeddings/), [`plugin/embeddings/venv/`](plugin/embeddings/venv/), [`plugin/framework/client/embeddings_service.py`](plugin/framework/client/embeddings_service.py), [`plugin/framework/client/embedding_client.py`](plugin/framework/client/embedding_client.py), [`plugin/framework/client/folder_fts_service.py`](plugin/framework/client/folder_fts_service.py) — [docs/embeddings.md](docs/embeddings.md) |
 | Vision / OCR | Host runner + venv worker + `run_vision` | [`plugin/vision/`](plugin/vision/), [`plugin/vision/venv/`](plugin/vision/venv/), [`plugin/scripting/client.py`](plugin/scripting/client.py), [`plugin/vision/vision_availability.py`](plugin/vision/vision_availability.py) — [docs/image-recognition.md](docs/image-recognition.md) |
@@ -139,7 +159,7 @@ Start here by task. Topic docs: [Deep dives](#deep-dives-link-index).
 | Tests (UNO runner) | Native UNO tests (`@native_test`, `ctx`) | [`plugin/testing_runner.py`](plugin/testing_runner.py) |
 | Eval / benchmarks | CLI eval harness and prompt optimization | [`scripts/benchmark.py`](scripts/benchmark.py), [`scripts/prompt_optimization/`](scripts/prompt_optimization/) |
 | Extension packaging | OXT resources; register new components in manifest | [`extension/`](extension/) (`Dialogs/`, `idl/`, `metadata/`), [`extension/META-INF/manifest.xml`](extension/META-INF/manifest.xml) |
-| Build / tooling | Make targets, package metadata, Python pin | [`Makefile`](Makefile), [`pyproject.toml`](pyproject.toml), [`.python-version`](.python-version) |
+| Build / tooling | Make targets, package metadata, Python pin, LibrePy file list | [`Makefile`](Makefile), [`pyproject.toml`](pyproject.toml), [`.python-version`](.python-version), [`scripts/librepy_bundle_paths.py`](scripts/librepy_bundle_paths.py) |
 
 ---
 
@@ -163,7 +183,9 @@ Start here by task. Topic docs: [Deep dives](#deep-dives-link-index).
 | Calc filters / formatting | [docs/calc-conditional-formatting.md](docs/calc-conditional-formatting.md), [docs/calc-sheet-filter.md](docs/calc-sheet-filter.md) |
 | Calc date / time lifecycle | [docs/calc-date-time-handling.md](docs/calc-date-time-handling.md) |
 | Embeddings / folder FTS | [docs/embeddings.md](docs/embeddings.md) |
+| LibrePy / WriterAgent packaging split | [docs/libreoffice-core-python-extension-split.md](docs/libreoffice-core-python-extension-split.md) |
 | NumPy / Python venv bridge | [docs/enabling_numpy_in_libreoffice.md](docs/enabling_numpy_in_libreoffice.md), [docs/calc-py-data-shapes.md](docs/calc-py-data-shapes.md), [docs/numpy-serialization.md](docs/numpy-serialization.md) |
+| Scripting domain registries (shipped) | [docs/scripting-domain-debt-dev-plan.md](docs/scripting-domain-debt-dev-plan.md) |
 | NumPy domain helpers (Viz, Symbolic, Units, Text, …) | [docs/numpy-domains.md](docs/numpy-domains.md) |
 | Excel / Calc `=PY` design stance | [docs/ms-py-libreoffice-compatibility.md](docs/ms-py-libreoffice-compatibility.md) |
 | Agent Search / Web | [docs/agent-search.md](docs/agent-search.md) |

@@ -37,7 +37,7 @@ SHAPE_TOOL_UNO_SERVICES = [
 def get_visual_doc_type(doc: Any) -> str:
     """Return the visual-tool document label used by image and shape helpers.
 
-    Delegates to :func:`plugin.doc.document_helpers.get_document_type` for the
+    Delegates to :func:`plugin.doc.doc_type.get_document_type` for the
     shared Writer/Calc/Draw/Impress map. Web documents are checked first because
     they also support TextDocument and would otherwise look like Writer.
     Unknown models keep the legacy ``\"writer\"`` default (not ``\"unknown\"``).
@@ -47,7 +47,7 @@ def get_visual_doc_type(doc: Any) -> str:
             return "web"
     except Exception:
         pass
-    from plugin.doc.document_helpers import DocumentType, doc_type_label_for_enum, get_document_type
+    from plugin.doc.doc_type import DocumentType, doc_type_label_for_enum, get_document_type
 
     doc_type = get_document_type(doc)
     if doc_type == DocumentType.UNKNOWN:

@@ -269,3 +269,30 @@ def test_dispatch_incoming_close_does_not_wipe_new_session_callbacks():
 
     assert editor.on_save is new_on_save, "stale _handle_close wrongly cleared new on_save"
     assert editor.on_closed is new_on_closed, "stale _handle_close wrongly cleared new on_closed"
+
+
+def test_resolve_editor_python_missing_venv_mentions_settings():
+    with patch("plugin.framework.config.get_config_str", return_value=""):
+        exe, err = launch_mod.resolve_editor_python(MagicMock())
+    assert exe is None
+    assert "Settings → Python" in err
+    assert "WriterAgent Settings" not in err
+
+
+def test_launch_monaco_spawn_oserror_uses_product_display_name():
+    ctx = MagicMock()
+    with patch.object(launch_mod, "_PERSISTENT_EDITOR") as mock_persistent:
+        mock_persistent.is_running = False
+        with patch.object(launch_mod, "spawn_editor_process", side_effect=OSError("boom")):
+            with patch("plugin.chatbot.dialogs.msgbox_with_report") as box:
+                with patch("plugin.framework.uno_context.product_display_name", return_value="LibrePy"):
+                    ok = launch_mod.launch_monaco_editor(
+                        ctx,
+                        exe="/venv/bin/python",
+                        load_message={"type": "load", "code": "print(1)"},
+                        on_save=MagicMock(),
+                    )
+    assert ok is False
+    box.assert_called_once()
+    assert box.call_args[0][1] == "LibrePy"
+    assert box.call_args.kwargs.get("report_title") == "Python editor spawn failed"

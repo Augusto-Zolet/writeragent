@@ -300,7 +300,7 @@ def test_open_document_for_read_reuses_existing_without_close_flag(mock_isfile, 
 @patch("plugin.doc.document_research.resolve_document_by_url", return_value=(None, None))
 @patch("plugin.doc.document_research.os.path.isfile", return_value=True)
 def test_open_document_for_read_sets_close_flag_on_new_load(mock_isfile, mock_resolve, mock_desktop, mock_dtype):
-    from plugin.doc.document_helpers import DocumentType
+    from plugin.doc.doc_type import DocumentType
 
     opened_model = MagicMock()
     mock_desktop.return_value.loadComponentFromURL.return_value = opened_model

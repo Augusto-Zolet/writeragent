@@ -20,7 +20,7 @@ import logging
 import re as re_mod
 from typing import Any, Literal, overload
 
-from plugin.doc.document_helpers import get_string_without_tracked_deletions
+from plugin.doc.text_helpers import get_string_without_tracked_deletions
 from plugin.framework.tool import ToolBase, ToolBaseDummy
 from . import format as format_support
 

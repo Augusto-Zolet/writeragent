@@ -5,6 +5,16 @@ requires: [config]
 actions:
   reset_python_session:
     title: "Reset Python Session"
+  edit_python_cell:
+    title: "Edit Python in Cell..."
+
+shortcuts:
+  reset_python_session:
+    key: F9_SHIFT_MOD1_MOD2
+    context: [calc]
+  edit_python_cell:
+    key: P_SHIFT_MOD1_MOD2
+    context: [calc]
 
 config:
   python_venv_path:
@@ -12,7 +22,7 @@ config:
     default: ""
     widget: text
     label: Python venv path
-    helper: If set, runs tools in that venv (bin/python or Scripts/python.exe). If empty, run_venv_python_script uses this process's sys.executable (basic stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, paddlepaddle).
+    helper: If set, runs =PY() and Run Python Script in that venv (bin/python or Scripts/python.exe). If empty, uses this process's sys.executable (basic stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, paddlepaddle).
     width: 200
     inline: true
 
@@ -45,7 +55,7 @@ config:
     max: 600
     widget: number
     label: Python script timeout (seconds)
-    helper: Wall-clock limit for Run Python Script, =PYTHON(), and run_venv_python_script.
+    helper: Wall-clock limit for Run Python Script and =PYTHON() / =PY().
 
   python_max_data_cells:
     type: int

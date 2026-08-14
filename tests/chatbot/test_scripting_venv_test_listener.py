@@ -24,7 +24,7 @@ def test_python_test_uses_modal_incremental_probe() -> None:
             probe_fn(probe_displays.append, probe_statuses.append)
             return True
 
-    def fake_probe(_raw, on_display, on_status=None, extra_lines_after_header=None):
+    def fake_probe(_raw, on_display, on_status=None, extra_lines_after_header=None, **_kwargs):
         captured_extra.append(tuple(extra_lines_after_header or ()))
         on_display(
             "Python 3.12 responds OK. Cython Accelerator: Inactive (Pure Python)\n\n"
@@ -44,7 +44,7 @@ def test_python_test_uses_modal_incremental_probe() -> None:
         patch("plugin.scripting.venv_probe_ui.VenvProbeProgressDialog", _FakeProgress),
         patch("plugin.scripting.venv_diagnostics.probe_venv_path_with_progress", side_effect=fake_probe),
         patch("plugin.scripting.payload_codec.host_cython_status_line", side_effect=fake_status),
-        patch("plugin.scripting.audio_recorder_service.ensure_downloaded_audio_on_path"),
+        patch("plugin.scripting.native_binaries.ensure_downloaded_audio_on_path"),
     ):
         listener.on_action_performed(MagicMock())
 

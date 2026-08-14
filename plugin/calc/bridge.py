@@ -125,15 +125,45 @@ class CalcBridge:
         """Resolves a string identifier to a cell or cell range object.
 
         Supports:
-        - Named Ranges (e.g. "MyRange")
+        - Named Ranges (global or sheet-local, e.g. "MyRange", "'Sheet1'!MyRange", "Sheet1.MyRange")
         - Sheet-qualified A1 refs (e.g. "Sheet1.A1:B2", "'Data Sheet'!B2")
         - A1:B2 Range Strings
         - A1 Cell Address Strings
         """
         range_or_address = range_or_address.strip()
+        prefix, bare_name = split_sheet_prefix(range_or_address)
+
+        # 1. If explicitly sheet-qualified (e.g. Sheet1.MyRange), check sheet-local NamedRanges first
+        if prefix and hasattr(self.doc, "getSheets"):
+            sheets = self.doc.getSheets()
+            if sheets.hasByName(prefix):
+                sheet_obj = sheets.getByName(prefix)
+                if hasattr(sheet_obj, "NamedRanges") and sheet_obj.NamedRanges.hasByName(bare_name):
+                    named_range = sheet_obj.NamedRanges.getByName(bare_name)
+                    if hasattr(named_range, "getReferredCells"):
+                        cells = named_range.getReferredCells()
+                        if cells is not None:
+                            return cells
+
+        # 2. Check workbook global NamedRanges
         if hasattr(self.doc, "NamedRanges") and self.doc.NamedRanges.hasByName(range_or_address):
             named_range = self.doc.NamedRanges.getByName(range_or_address)
-            return named_range.getReferredCells()
+            if hasattr(named_range, "getReferredCells"):
+                cells = named_range.getReferredCells()
+                if cells is not None:
+                    return cells
+
+        # 3. Check active sheet's local NamedRanges
+        try:
+            active_sheet = self.get_active_sheet()
+            if hasattr(active_sheet, "NamedRanges") and active_sheet.NamedRanges.hasByName(range_or_address):
+                named_range = active_sheet.NamedRanges.getByName(range_or_address)
+                if hasattr(named_range, "getReferredCells"):
+                    cells = named_range.getReferredCells()
+                    if cells is not None:
+                        return cells
+        except Exception:
+            pass
 
         sheet, address = self.resolve(range_or_address)
 

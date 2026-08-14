@@ -352,7 +352,7 @@ def test_delegate_read_document_skips_close_when_reusing_open_doc(
 
 def test_get_open_documents():
     from plugin.doc.document_research import get_open_documents
-    from plugin.doc.document_helpers import DocumentType
+    from plugin.doc.doc_type import DocumentType
 
     mock_ctx = MagicMock()
     mock_desktop = MagicMock()
@@ -363,7 +363,7 @@ def test_get_open_documents():
     mock_desktop.getComponents.return_value.createEnumeration.return_value.nextElement.return_value = mock_comp
 
     with patch("plugin.framework.uno_context.get_desktop", return_value=mock_desktop), \
-         patch("plugin.doc.document_helpers.get_document_type", return_value=DocumentType.CALC), \
+         patch("plugin.doc.doc_type.get_document_type", return_value=DocumentType.CALC), \
          patch("plugin.doc.document_research._system_path_from_url", return_value="/tmp/Budget.ods"):
         docs = get_open_documents(mock_ctx)
         assert len(docs) == 1

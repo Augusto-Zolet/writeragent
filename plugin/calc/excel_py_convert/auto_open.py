@@ -41,7 +41,7 @@ def maybe_convert_excel_py_document(ctx: Any, doc: Any) -> bool:
     if not _is_calc_doc(doc):
         return False
 
-    from plugin.doc.document_helpers import get_document_path
+    from plugin.doc.text_helpers import get_document_path
     from plugin.doc.udprops import get_document_property, set_document_property
 
     if get_document_property(doc, _CONVERTED_PROP):
@@ -126,7 +126,7 @@ def maybe_export_excel_py_on_save(ctx: Any, doc: Any) -> bool:
     if not _is_calc_doc(doc):
         return False
 
-    from plugin.doc.document_helpers import get_document_path
+    from plugin.doc.text_helpers import get_document_path
 
     path_str = get_document_path(doc)
     if not path_str:
@@ -144,7 +144,7 @@ def maybe_export_excel_py_on_save(ctx: Any, doc: Any) -> bool:
         from plugin.calc.excel_py_convert.convert import convert_uno_doc_to_excel, write_excel_python_xlsx
         from plugin.calc.excel_py_convert.parse_excel_ooxml import has_excel_python_xlsx
         from plugin.chatbot.dialogs import msgbox
-        from plugin.framework.i18n import _
+        from plugin.framework.uno_context import product_display_name
 
         report = convert_uno_doc_to_excel(doc)
         if not any(c.converted for c in report.cells):
@@ -156,13 +156,13 @@ def maybe_export_excel_py_on_save(ctx: Any, doc: Any) -> bool:
         except Exception as exc:
             detail = str(exc)
             log.warning("excel_py auto-save: ZipFile export failed for %s: %s", path, detail, exc_info=True)
-            msgbox(ctx, _("WriterAgent"), _save_fail_message(path, detail), box_type=2)
+            msgbox(ctx, product_display_name(ctx), _save_fail_message(path, detail), box_type=2)
             return False
 
         if not has_excel_python_xlsx(path):
             detail = "pythonScripts.xml / _xlws.PY missing after write"
             log.warning("excel_py auto-save: %s for %s", detail, path)
-            msgbox(ctx, _("WriterAgent"), _save_fail_message(path, detail), box_type=2)
+            msgbox(ctx, product_display_name(ctx), _save_fail_message(path, detail), box_type=2)
             return False
 
         log.info("excel_py auto-save: wrote native Excel PY package for %s", path)
@@ -171,9 +171,9 @@ def maybe_export_excel_py_on_save(ctx: Any, doc: Any) -> bool:
         log.warning("excel_py auto-save: failed for %s", path, exc_info=True)
         try:
             from plugin.chatbot.dialogs import msgbox
-            from plugin.framework.i18n import _
+            from plugin.framework.uno_context import product_display_name
 
-            msgbox(ctx, _("WriterAgent"), _save_fail_message(path, str(exc)), box_type=2)
+            msgbox(ctx, product_display_name(ctx), _save_fail_message(path, str(exc)), box_type=2)
         except Exception:
             pass
         return False

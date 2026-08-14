@@ -37,8 +37,8 @@ from plugin.scripting.config_limits import python_exec_timeout_default
 from plugin.framework.constants import AUTO_IMPORTS
 from plugin.scripting.sandbox import VENV_AUTHORIZED_IMPORTS
 
-# Shared-kernel executors keyed by workbook session_id (calc:…). Cleared on reset_session
-# or worker process exit; not tied to document close in Phase 1.
+# Shared-kernel executors keyed by workbook session_id (calc:…). Cleared on reset_session,
+# document OnUnload (workbook_lifecycle), or worker process exit.
 _SESSION_EXECUTORS: dict[str, LocalPythonExecutor] = {}
 _SESSION_LOCK = threading.Lock()
 

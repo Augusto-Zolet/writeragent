@@ -34,6 +34,18 @@
 						<value xml:lang="en-US">service:org.extension.writeragent.Main?EditSelection</value>
 				</prop>
         </node>
+
+        <node oor:name="F9_SHIFT_MOD1_MOD2" oor:op="replace">
+            <prop oor:name="Command">
+						<value xml:lang="en-US">org.extension.writeragent:scripting.reset_python_session</value>
+				</prop>
+        </node>
+
+        <node oor:name="P_SHIFT_MOD1_MOD2" oor:op="replace">
+            <prop oor:name="Command">
+						<value xml:lang="en-US">org.extension.writeragent:scripting.edit_python_cell</value>
+				</prop>
+        </node>
 		
       </node>
     </node>

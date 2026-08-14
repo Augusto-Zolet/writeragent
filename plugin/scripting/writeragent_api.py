@@ -23,7 +23,7 @@ def _rpc_call(tool_name: str, **kwargs) -> dict:
     if not IS_WORKER:
         try:
             from plugin.framework.uno_context import get_ctx, get_active_document
-            from plugin.doc.document_helpers import is_calc, is_writer, is_draw
+            from plugin.doc.doc_type import is_calc, is_writer, is_draw
             from plugin.main import get_tools
             from plugin.framework.tool import ToolContext
 
@@ -173,7 +173,13 @@ DOMAIN_TOOLS = {   'analysi': [   'analyze_data',
                       'export_presentation_project',
                       'validate_ppt_master_project'],
     'python': ['run_venv_python_script', 'symbolic_math'],
-    'range': ['add_named_range', 'delete_named_range', 'list_named_ranges', 'sort_range'],
+    'range': [   'named_range_add',
+                 'named_range_create_from_titles',
+                 'named_range_delete',
+                 'named_range_edit',
+                 'named_range_get_info',
+                 'named_range_list',
+                 'sort_range'],
     'search': ['replace_in_spreadsheet', 'search_in_spreadsheet'],
     'shape': [   'delete_shape',
                  'get_draw_summary',
@@ -819,17 +825,29 @@ python = _PythonProxy()
 class _RangeProxy:
     """Proxy for range tools."""
 
-    def add_named_range(self, name: str, content: str) -> dict:
-        """Defines a new named range in the workbook.."""
-        return _rpc_call("add_named_range", name=name, content=content)
+    def named_range_add(self, name: str, content: str, *, scope: str = "", base_cell: str = "", flags: Any = None) -> dict:
+        """Defines a new named range or formula expression in the workbook (global) or specific sheet."""
+        return _rpc_call("named_range_add", name=name, content=content, scope=scope, base_cell=base_cell, flags=flags)
 
-    def delete_named_range(self, name: str) -> dict:
-        """Deletes an existing named range by name.."""
-        return _rpc_call("delete_named_range", name=name)
+    def named_range_create_from_titles(self, range_str: str, *, border: str = "", scope: str = "") -> dict:
+        """Automatically creates multiple named ranges based on the content of title cells (headers) in a table range."""
+        return _rpc_call("named_range_create_from_titles", range_str=range_str, border=border, scope=scope)
 
-    def list_named_ranges(self) -> dict:
-        """Lists all named ranges in the workbook and their reference contents.."""
-        return _rpc_call("list_named_ranges")
+    def named_range_delete(self, name: str, *, scope: str = "") -> dict:
+        """Deletes an existing named range from global or sheet-specific scope.."""
+        return _rpc_call("named_range_delete", name=name, scope=scope)
+
+    def named_range_edit(self, name: str, *, new_name: str = "", content: str = "", scope: str = "", base_cell: str = "", flags: Any = None) -> dict:
+        """Modifies an existing named range: rename, update formula/range content, change base reference position, or update flags.."""
+        return _rpc_call("named_range_edit", name=name, new_name=new_name, content=content, scope=scope, base_cell=base_cell, flags=flags)
+
+    def named_range_get_info(self, name: str, *, scope: str = "") -> dict:
+        """Retrieves detailed metadata, reference coordinates, flags, and base address for a specific named range.."""
+        return _rpc_call("named_range_get_info", name=name, scope=scope)
+
+    def named_range_list(self, *, scope: str = "") -> dict:
+        """Lists named ranges and their formulas/reference targets."""
+        return _rpc_call("named_range_list", scope=scope)
 
     def sort_range(self, range_name: list, *, sort_column: int = 0, ascending: bool = True, has_header: bool = True) -> dict:
         """Sorts the specified range(s) by a column."""

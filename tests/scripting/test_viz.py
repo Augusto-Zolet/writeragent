@@ -103,3 +103,21 @@ def test_time_series_plot_with_forecast_bands(mock_plt, _mock_payload):
     assert result["helper"] == "time_series_plot"
     ax.plot.assert_called()
     ax.fill_between.assert_called_once()
+
+
+def test_insert_image_payload_writer_uses_product_display_name():
+    ctx = MagicMock()
+    doc = MagicMock()
+    payload = {"__wa_payload__": "image", "format": "png", "data": b"x"}
+    with (
+        patch("plugin.scripting.viz.is_calc", return_value=False),
+        patch("plugin.scripting.viz.is_writer", return_value=True),
+        patch("plugin.scripting.viz.is_draw", return_value=False),
+        patch("plugin.scripting.viz.write_image_payload_to_temp", return_value="/tmp/p.png"),
+        patch("plugin.writer.images.image_tools.insert_image_at_locator") as ins,
+        patch("plugin.framework.uno_context.product_display_name", return_value="LibrePy"),
+    ):
+        from plugin.scripting.viz import insert_image_payload_for_doc
+
+        insert_image_payload_for_doc(ctx, doc, payload, title="Plot")
+    assert ins.call_args.kwargs["description"] == "LibrePy plot"

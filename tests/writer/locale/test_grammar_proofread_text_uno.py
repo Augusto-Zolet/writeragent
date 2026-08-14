@@ -69,3 +69,14 @@ def test_break_iterator_diagnostic(ctx: Any) -> None:
     smgr = ctx.ServiceManager
     bi = smgr.createInstanceWithContext("com.sun.star.i18n.BreakIterator", ctx)
     assert bi is not None
+
+
+@native_test
+def test_dialogue_fire_merge_native(ctx: Any) -> None:
+    """P25: real BreakIterator splits at '!' inside quotes; merge must rejoin the utterance."""
+    text = '"Fire! Fire!" he yelled. Next sentence.'
+    spans = gt.candidate_sentence_spans_for_proofreading(ctx, "en-US", text, 0, len(text))
+    bodies = [t.strip() for _start, _end, t in spans]
+    assert any("Fire! Fire!" in t for t in bodies)
+    assert any("Next sentence." in t for t in bodies)
+    assert '"Fire!' not in bodies

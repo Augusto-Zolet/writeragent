@@ -15,7 +15,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from plugin.doc.document_helpers import is_calc
+from plugin.doc.doc_type import is_calc
 from plugin.framework.i18n import _
 from plugin.scripting.helper_domain import (
     HelperScriptMeta,

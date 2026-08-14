@@ -26,7 +26,7 @@ from plugin.framework.errors import ToolExecutionError
 from plugin.framework.uno_context import get_desktop
 from plugin.calc.address_utils import parse_address
 from plugin.calc.bridge import CalcBridge
-from plugin.writer import format as format_support
+import plugin.writer.format as format_support
 
 log = logging.getLogger("writeragent.calc")
 

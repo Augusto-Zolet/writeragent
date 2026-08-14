@@ -36,6 +36,7 @@ def _shared_ui_strings() -> dict[str, str]:
         "saving": _("Saving…"),
         "running": _("Running…"),
         "monaco_loader_missing": _("Monaco loader missing."),
+        "jedi_missing": _("Install jedi in the Python venv for completions."),
         "run_label": _("Run"),
         "save_label": _("Save"),
         "close_label": _("Close"),

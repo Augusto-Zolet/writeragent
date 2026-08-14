@@ -248,7 +248,7 @@ def insert_vision_result(
 ) -> None:
     """Insert vision output into Writer or Calc."""
     from plugin.calc.vision_egress import insert_vision_html_into_calc, insert_vision_structure_into_calc
-    from plugin.doc.document_helpers import is_calc, is_writer
+    from plugin.doc.doc_type import is_calc, is_writer
 
     insert_mode = resolve_vision_insert_mode(ctx, params)
     helper = str(result.get("helper") or "")

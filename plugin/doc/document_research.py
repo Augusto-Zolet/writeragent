@@ -16,7 +16,9 @@ from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 import uno
 
-from plugin.doc.document_helpers import DocumentType, doc_type_label_for_enum, get_document_path, get_document_type, resolve_document_by_url
+from plugin.doc.doc_type import DocumentType, doc_type_label_for_enum, get_document_type
+from plugin.doc.text_helpers import get_document_path
+from plugin.doc.document_helpers import resolve_document_by_url
 from plugin.embeddings.embeddings_fs import ALL_INDEXABLE_EXTENSIONS
 
 if TYPE_CHECKING:
@@ -618,7 +620,8 @@ def get_open_documents(uno_ctx: Any, active_model: Any = None) -> list[dict[str,
     """Retrieve all open documents from the desktop context with metadata."""
     from plugin.framework.thread_guard import assert_main_thread
     from plugin.framework.uno_context import get_desktop
-    from plugin.doc.document_helpers import get_document_type, get_runtime_uid
+    from plugin.doc.doc_type import get_document_type
+    from plugin.doc.document_helpers import get_runtime_uid
     import os
 
     assert_main_thread("document_research.get_open_documents")

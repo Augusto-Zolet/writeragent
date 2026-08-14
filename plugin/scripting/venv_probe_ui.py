@@ -106,7 +106,7 @@ class VenvProbeProgressDialog:
         try:
             self._dlg.getModel().Title = _(title)
         except Exception:
-            pass
+            log.debug("venv probe dialog title failed", exc_info=True)
         set_control_text(self._dlg.getControl("StatusLbl"), _("Done") if ok else _("Failed"))
         set_control_enabled(self._dlg.getControl("BtnClose"), True)
         process_events_to_idle(self._ctx)
@@ -138,12 +138,21 @@ class _VenvProbeCloseListener(BaseActionListener):
 class ScriptingVenvTestListener(BaseActionListener):
     """Settings → Python: run a quick subprocess check using the path in the text field (saved or not)."""
 
-    def __init__(self, ctx: Any, dlg: Any) -> None:
+    def __init__(
+        self,
+        ctx: Any,
+        dlg: Any,
+        *,
+        include_vector_search: bool = True,
+        include_audio: bool = True,
+    ) -> None:
         self._ctx = ctx
         self._dlg = dlg
+        self._include_vector_search = include_vector_search
+        self._include_audio = include_audio
 
     def on_action_performed(self, rEvent) -> None:
-        from plugin.scripting.audio_recorder_service import ensure_downloaded_audio_on_path
+        from plugin.scripting.native_binaries import ensure_downloaded_audio_on_path
         from plugin.scripting.payload_codec import host_cython_status_line
         from plugin.scripting.venv_diagnostics import probe_venv_path_with_progress
 
@@ -162,6 +171,8 @@ class ScriptingVenvTestListener(BaseActionListener):
                 on_display,
                 on_status=on_status,
                 extra_lines_after_header=(cython_status,),
+                include_vector_search=self._include_vector_search,
+                include_audio=self._include_audio,
             )
 
         VenvProbeProgressDialog(self._ctx, parent_dlg=self._dlg).run_modal_probe(probe)

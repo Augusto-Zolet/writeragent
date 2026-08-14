@@ -72,8 +72,10 @@ from plugin.writer.locale.grammar_proofread_locale import (
 )
 from plugin.writer.locale.grammar_proofread_text import (
     NormalizedProofError,
+    calculate_covered_span_end,
     candidate_sentence_spans_for_proofreading,
     filter_sentence_spans_for_thresholds,
+    reconcile_active_and_paragraph_spans,
     slice_preview_debug,
 )
 from plugin.writer.locale.grammar_work_queue import (
@@ -181,10 +183,8 @@ def _get_testing_api():  # pyright: ignore[reportUnusedFunction]  # UNO proofrea
     # Lazy imports for symbols that are test-only (never referenced in
     # production paths in this module). This avoids top-level unused imports
     # and the previous `as _Foo` (F401 test-hook) pattern.
-    from plugin.writer.locale.grammar_work_queue import (
-        GrammarWorkQueue,
-        run_llm_and_cache,
-    )
+    from plugin.writer.locale.grammar_work_queue import GrammarWorkQueue
+    from plugin.writer.locale.grammar_worker import run_llm_and_cache
     from plugin.writer.locale.grammar_proofread_locale import (
         GRAMMAR_PARTIAL_MIN_NONSPACE_CHARS,
         GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS,
@@ -481,7 +481,10 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
 
     def doProofreading(self, aDocumentIdentifier: str, aText: str, aLocale: Any, nStartOfSentencePosition: int, nSuggestedBehindEndOfSentencePosition: int, aProperties: Any) -> Any:
         self._last_doc_id = aDocumentIdentifier
-        _run_on_main_thread(_ensure_persistence_bound, self.ctx, aDocumentIdentifier)
+        from plugin.writer.locale.grammar_persistence import get_document_model_for_id
+
+        if get_document_model_for_id(self.ctx, aDocumentIdentifier) is None:
+            _run_on_main_thread(_ensure_persistence_bound, self.ctx, aDocumentIdentifier)
         if uno_mod is None:
             log.warning("[grammar] doProofreading: uno_mod is None (import failed)")
             raise RuntimeError("uno not available")
@@ -504,7 +507,7 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
                 return a_res
 
             # We set the covered end to the end of the active spans we are checking
-            covered_end = max(end for _s, end, _t in active_spans)
+            covered_end = calculate_covered_span_end(active_spans)
             _apply_proofreading_end_positions(a_res, aText, covered_end)
 
             grammar_obs(
@@ -523,18 +526,9 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
 
             if combined_errors:
                 a_res.aErrors = _cached_errors_to_uno_tuple(tuple(combined_errors), self.ctx, aDocumentIdentifier)
-                # try:
-                #     from plugin.writer.locale.grammar_obs import play_diagnostic_beep
-                #     play_diagnostic_beep()
-                # except Exception:
-                #     pass
 
-            # 4. For enqueuing background checks, we only care about the active spans that are uncached
-            uncached_active_spans = []
-            for s_start, s_end, s_text in active_spans:
-                # If this active span is in the uncached paragraph spans, we need to enqueue it
-                if any(s_start == us_start for us_start, _unused_end, _unused_text in uncached_paragraph_spans):
-                    uncached_active_spans.append((s_start, s_end, s_text))
+            # 4. For enqueuing background checks, we only care about active spans that are uncached
+            uncached_active_spans = reconcile_active_and_paragraph_spans(active_spans, uncached_paragraph_spans)
 
             if not uncached_active_spans:
                 grammar_obs("do_proofreading_cache_all_hit", doc_id=aDocumentIdentifier, grammar_bcp47=loc_key, sentence_count=len(active_spans), error_count=len(combined_errors))

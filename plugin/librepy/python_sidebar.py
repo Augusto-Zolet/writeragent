@@ -21,6 +21,7 @@ from plugin.chatbot.dialogs import get_optional as get_optional_control, set_con
 from plugin.framework.config import get_config_str
 from plugin.framework.i18n import _
 from plugin.framework.uno_listeners import BaseActionListener, BaseItemListener
+from plugin.doc.doc_type import is_calc
 from plugin.scripting.document_scripts import get_calc_document_from_ctx
 from plugin.scripting.sandbox import resolve_venv_python
 from plugin.scripting.session_manager import calc_workbook_base_session_id, python_session_mode
@@ -128,13 +129,13 @@ class PythonSidebarController:
         try:
             self._store.add_listener(self._on_diag)
         except Exception:
-            pass
+            log.debug("sidebar diagnostics listener add failed", exc_info=True)
 
     def disposing(self) -> None:
         try:
             self._store.remove_listener(self._on_diag)
         except Exception:
-            pass
+            log.debug("sidebar diagnostics listener remove failed", exc_info=True)
 
     def _ctrl(self, name: str) -> Any:
         return get_optional_control(self.root, name)
@@ -195,8 +196,23 @@ class PythonSidebarController:
             return
         post_to_main_thread(self.refresh)
 
+    def _calc_document(self) -> Any | None:
+        """Prefer the Calc model bound to this sidebar frame, not Desktop current."""
+        frame = self.frame
+        if frame is not None:
+            try:
+                controller = frame.getController()
+                model = controller.getModel() if controller is not None else None
+                if model is not None and is_calc(model):
+                    from plugin.framework.thread_guard import guard_uno
+
+                    return guard_uno(model)
+            except Exception:
+                log.debug("LibrePy sidebar: frame document resolve failed", exc_info=True)
+        return get_calc_document_from_ctx(self.ctx)
+
     def refresh(self) -> None:
-        doc = get_calc_document_from_ctx(self.ctx)
+        doc = self._calc_document()
         set_control_text(self._ctrl("status"), format_runtime_status(self.ctx, doc))
 
         self._cells = list_python_cells_in_doc(doc, active_sheet_only=True) if doc else []
@@ -246,7 +262,7 @@ class PythonSidebarController:
         if idx < 0 or idx >= len(self._cells):
             return
         cell = self._cells[idx]
-        doc = get_calc_document_from_ctx(self.ctx)
+        doc = self._calc_document()
         if doc is None:
             return
         navigate_to_cell(doc, self.ctx, cell.address)
@@ -262,7 +278,7 @@ class PythonSidebarController:
         set_control_text(self._ctrl("diag_detail"), diagnostics_detail_text(entry))
         if not entry.address:
             return
-        doc = get_calc_document_from_ctx(self.ctx)
+        doc = self._calc_document()
         if doc is not None:
             navigate_to_cell(doc, self.ctx, entry.address)
 

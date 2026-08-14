@@ -85,7 +85,7 @@ WriterAgent ships [`plugin/scripting/calc_functions.py`](../plugin/scripting/cal
 | Stability | Suitable to ship with LibreOffice core | Third-party / frequent releases |
 | Scope | `=PY()`, scientific menus, Monaco, OCR, TeX | Chat, `=PROMPT()`, embeddings, duckdb, jupyter, grammar |
 
-WriterAgent registers **`=PYTHON()`** / **`=PY()`** and **`=PROMPT()`** as **separate UNO components** ([`python_addin.py`](../plugin/calc/python/addin.py), [`prompt_addin.py`](../plugin/calc/prompt_addin.py)). A core split should ship only the Python add-in and **not** register a second competing `PYTHON` implementation.
+WriterAgent registers **`=PYTHON()`** / **`=PY()`** and **`=PROMPT()`** as **separate UNO components** ([`addin.py`](../plugin/calc/python/addin.py), [`prompt_addin.py`](../plugin/calc/prompt_addin.py)). LibrePy registers only the Python add-in via [`addin_librepy.py`](../plugin/calc/python/addin_librepy.py) and **must not** register `=PROMPT()`.
 
 ---
 
@@ -178,7 +178,7 @@ Call chain:
 
 `PythonFunction.python()` → `execute_python_addin` → `calc_addin_data` / `payload_codec` → `run_code_in_user_venv` → `PythonWorkerManager` → `venv/worker_harness` → `venv/venv_sandbox` → `LocalPythonExecutor`
 
-Error display: `format_error_for_display` → `framework.errors` / `framework.client.errors` / `i18n`.
+Error display: `function.py` uses `framework.errors.format_error_payload` plus a local `_format_error_for_display` so `=PY()` does **not** import `plugin.framework.client` (package init is now lazy HTTP/errors only, but the add-in still stays off that package).
 
 Config: `get_config_str("scripting.python_venv_path")`, session mode, timeout, auto-spill.
 
@@ -186,8 +186,9 @@ This closure **does not** call the LLM, chat panel, or MCP.
 
 ### 2. As-shipped module closure — WriterAgent (split complete)
 
-- **`=PY()`**: register [`python_addin.py`](../plugin/calc/python/addin.py) only → loads [`function.py`](../plugin/calc/python/function.py) (no `LlmClient`).
-- **`=PROMPT()`**: register [`prompt_addin.py`](../plugin/calc/prompt_addin.py) → loads [`prompt_function.py`](../plugin/calc/prompt_function.py) (LLM stack).
+- **`=PY()` (WriterAgent):** register [`addin.py`](../plugin/calc/python/addin.py) → [`function.py`](../plugin/calc/python/function.py) (no `LlmClient`).
+- **`=PY()` (LibrePy):** register [`addin_librepy.py`](../plugin/calc/python/addin_librepy.py) → same `function.py`.
+- **`=PROMPT()`:** register [`prompt_addin.py`](../plugin/calc/prompt_addin.py) → loads [`prompt_function.py`](../plugin/calc/prompt_function.py) (LLM stack). WriterAgent only.
 
 A core OXT must **not** register `prompt_addin.py` / `prompt_function.py`. See [Recommended refactors](#recommended-refactors-for-libreoffice-maintainers).
 
@@ -208,8 +209,8 @@ A core OXT must **not** register `prompt_addin.py` / `prompt_function.py`. See [
 | [`plugin/framework/service.py`](../plugin/framework/service.py) | `ServiceBase` — imported by `event_bus.py` |
 | [`plugin/framework/url_utils.py`](../plugin/framework/url_utils.py) | Endpoint normalization — imported by `config.py` |
 | [`plugin/framework/thread_guard.py`](../plugin/framework/thread_guard.py) | `background` — imported by `venv_worker.py` |
-| [`plugin/framework/client/errors.py`](../plugin/framework/client/errors.py) | `format_error_for_display` in `python()` handler |
-| [`plugin/framework/client/__init__.py`](../plugin/framework/client/__init__.py) | Package |
+| [`plugin/framework/client/errors.py`](../plugin/framework/client/errors.py) | Bundled for other LibrePy callers (update check / Settings). **Not** used by the `=PY()` add-in. |
+| [`plugin/framework/client/__init__.py`](../plugin/framework/client/__init__.py) | Package — **lazy** LLM/embeddings (PEP 562). LibrePy may import `requests` / `provider_detection` without loading `llm_client`. |
 | [`plugin/framework/__init__.py`](../plugin/framework/__init__.py) | Package |
 | [`plugin/_manifest.py`](../plugin/_manifest.py) | **Generated** (`make manifest`). `config_limits.py` reads `MODULES` for schema defaults |
 
@@ -219,7 +220,9 @@ A core OXT must **not** register `prompt_addin.py` / `prompt_function.py`. See [
 
 | File | Role |
 |------|------|
-| [`plugin/calc/python/addin.py`](../plugin/calc/python/addin.py) | UNO add-in: `python()` |
+| [`plugin/calc/python/addin_librepy.py`](../plugin/calc/python/addin_librepy.py) | LibrePy UNO add-in: `python()` (registers as `org.extension.writeragent.PythonFunction`) |
+| [`plugin/calc/python/addin_impl.py`](../plugin/calc/python/addin_impl.py) | Shared `PythonFunction` class (WriterAgent `addin.py` and LibrePy both register it) |
+| [`plugin/calc/python/addin.py`](../plugin/calc/python/addin.py) | **WriterAgent only** — same add-in for the full OXT |
 | [`plugin/calc/python/function.py`](../plugin/calc/python/function.py) | `execute_python_addin`, matrix session, spill, `finalize_python_return` |
 | [`plugin/calc/addin_common.py`](../plugin/calc/addin_common.py) | Shared add-in helpers |
 | [`plugin/calc/calc_addin_data.py`](../plugin/calc/calc_addin_data.py) | Range → `data`, size limits, wire packing; `_resolve_python_data` for Run Python Script / trusted helpers |
@@ -253,13 +256,11 @@ A core OXT must **not** register `prompt_addin.py` / `prompt_function.py`. See [
 
 | File | Role |
 |------|------|
-| [`plugin/contrib/smolagents/local_python_executor.py`](../plugin/contrib/smolagents/local_python_executor.py) | Restricted executor |
-| [`plugin/contrib/smolagents/tools.py`](../plugin/contrib/smolagents/tools.py) | `Tool` type required by executor |
+| [`plugin/contrib/smolagents/local_python_executor.py`](../plugin/contrib/smolagents/local_python_executor.py) | Restricted executor (`send_tools` takes a dict; no `Tool` import) |
 | [`plugin/contrib/smolagents/utils.py`](../plugin/contrib/smolagents/utils.py) | `BASE_BUILTIN_MODULES`, helpers |
-| [`plugin/contrib/smolagents/agent_types.py`](../plugin/contrib/smolagents/agent_types.py) | Imported by `tools.py` |
-| [`plugin/contrib/smolagents/tool_validation.py`](../plugin/contrib/smolagents/tool_validation.py) | Imported by `tools.py` |
-| [`plugin/contrib/smolagents/_function_type_hints_utils.py`](../plugin/contrib/smolagents/_function_type_hints_utils.py) | Imported by `tools.py` |
 | [`plugin/contrib/smolagents/__init__.py`](../plugin/contrib/smolagents/__init__.py) | Package |
+
+WriterAgent-only (not in LibrePy): `tools.py`, `agent_types.py`, `tool_validation.py`, `_function_type_hints_utils.py`.
 
 **LibrePy bundle:** [`scripts/build_librepy_oxt.py`](../scripts/build_librepy_oxt.py) replaces `smolagents/__init__.py` with a slim stub (no `agents` import) so the venv worker can load `local_python_executor` without shipping chat-only smolagents modules.
 | [`plugin/contrib/__init__.py`](../plugin/contrib/__init__.py) | Package |
@@ -290,7 +291,7 @@ Required for NumPy domain helpers, Vision OCR, and any `run_trusted_worker_actio
 | [`plugin/scripting/import_policy.py`](../plugin/scripting/import_policy.py) | LLM import-policy text generation |
 | [`plugin/scripting/venv_diagnostics.py`](../plugin/scripting/venv_diagnostics.py) | Settings → Python **Test** self-check |
 
-**Core-build note:** Filter [`trusted_action_registry.py`](../plugin/scripting/trusted_action_registry.py) to numpy + vision domains only (`units`, `symbolic`, `math`, `viz`, `analysis`, `forecast`, `optimize`, `quant`, `text`, `vision`). Omit `embeddings_*`, `sql`, `embedding`, `langdetect`, `languagetool`, `vale`, `harper`. The whole [`trusted_dispatch.py`](../plugin/scripting/venv/trusted_dispatch.py) file still ships unless maintainers split it; excluded domains become dead code.
+**Core-build note:** The whole [`trusted_action_registry.py`](../plugin/scripting/trusted_action_registry.py) and [`trusted_dispatch.py`](../plugin/scripting/venv/trusted_dispatch.py) files ship. WriterAgent-only domains (`sql`, embeddings, languagetool, vale) are dead in LibrePy if invoked; that is **accepted** — do not add a core-only filter or second file. SQL picker already skips missing `duckdb_sql`.
 
 **Trusted RPC flow:**
 
@@ -345,24 +346,24 @@ Config keys: `last_python_script_writer`, `last_python_script_calc`, `last_pytho
 | [`plugin/scripting/python_runner.py`](../plugin/scripting/python_runner.py) | Dialog, run, domain fast-paths, Writer/Calc branch |
 | [`plugin/scripting/python_runner_ui.py`](../plugin/scripting/python_runner_ui.py) | Native XDL fallback when Monaco unavailable |
 | [`plugin/scripting/document_scripts.py`](../plugin/scripting/document_scripts.py) | Document-attached scripts, init script storage |
-| [`plugin/chatbot/dialogs.py`](../plugin/chatbot/dialogs.py) | `add_dialog_*`, `msgbox` |
+| [`plugin/chatbot/dialogs.py`](../plugin/chatbot/dialogs.py) | Shared XDL kit (`add_dialog_*`, `msgbox`) — lives under `chatbot/` but is not the chat panel |
 | [`plugin/framework/uno_context.py`](../plugin/framework/uno_context.py) | `get_ctx`, `get_desktop` |
 | [`plugin/framework/worker_pool.py`](../plugin/framework/worker_pool.py) | Via `dialogs.py` |
 | [`plugin/framework/appearance.py`](../plugin/framework/appearance.py) | LO light/dark → Monaco theme |
-| [`plugin/doc/document_helpers.py`](../plugin/doc/document_helpers.py) | `is_writer` / `is_calc` / `is_draw` — **pulls** `calc.bridge` + `calc.analyzer` at import |
+| [`plugin/doc/doc_type.py`](../plugin/doc/doc_type.py) | `is_writer` / `is_calc` / `is_draw` / `DocumentType` (no analyzer) |
+| [`plugin/doc/udprops.py`](../plugin/doc/udprops.py) | Document user-defined properties (session id, spill registry) |
+| [`plugin/doc/text_helpers.py`](../plugin/doc/text_helpers.py) | Linebreaks, tracked-deletion reads, heading tree, document path |
 | [`plugin/doc/visual_helpers.py`](../plugin/doc/visual_helpers.py) | Graphic export for Vision egress |
-| [`plugin/writer/format.py`](../plugin/writer/format.py) | HTML insert, mixed math segments |
-| [`plugin/writer/ops.py`](../plugin/writer/ops.py) | Selection/cursor helpers |
-| [`plugin/writer/review_authors.py`](../plugin/writer/review_authors.py) | Via `format.py` |
+| [`plugin/writer/format.py`](../plugin/writer/format.py) | HTML insert, mixed math segments. `review_authors` / `content` are `ImportError`-guarded (LibrePy applies HTML without split-author coloring or WriterAgent style lookup) |
 | [`plugin/writer/xhtml_style_postprocess.py`](../plugin/writer/xhtml_style_postprocess.py) | HTML post-process |
 | [`plugin/calc/bridge.py`](../plugin/calc/bridge.py) | Active sheet / document access |
 | [`plugin/calc/address_utils.py`](../plugin/calc/address_utils.py) | `index_to_column` for anchor cell |
 | [`plugin/calc/manipulator.py`](../plugin/calc/manipulator.py) | `write_formula_range` |
 | [`plugin/calc/tabular_egress.py`](../plugin/calc/tabular_egress.py) | Tabular helper results → sheet |
 | [`plugin/calc/rich_html.py`](../plugin/calc/rich_html.py) | Rich HTML cell insert (Vision Calc egress) |
-| [`plugin/main.py`](../plugin/main.py) | Action handlers — **or** [`plugin/main_core.py`](../plugin/main_core.py) for core-only bootstrap (see [Prototype extension](#prototype-extension-standalone-core--writeragent-overlay)) |
+| [`plugin/main_core.py`](../plugin/main_core.py) | LibrePy bootstrap — **not** [`plugin/main.py`](../plugin/main.py) |
 
-**Refactor note:** `plugin/doc/doc_type.py` with `is_writer`/`is_calc` only would avoid loading `calc.analyzer` for Writer menus.
+**Refactor note:** [`plugin/doc/doc_type.py`](../plugin/doc/doc_type.py) holds `is_writer` / `is_calc` / `DocumentType` so Layer 0 (`=PY()`) and menu guards do not import `document_helpers` → `calc.analyzer`. Document properties use [`udprops.py`](../plugin/doc/udprops.py). Writer text/path helpers used by RPS and text analytics live in [`text_helpers.py`](../plugin/doc/text_helpers.py). `document_helpers.py` is WriterAgent-only (chat context / streamed edits).
 
 Optional gettext: filtered catalogs via `make compile-translations-core` (part of `make build-core`) — [`scripts/build_librepy_locales.py`](../scripts/build_librepy_locales.py) extracts strings from the LibrePy file closure only and bundles slim `.mo` files from `build/generated/locales/`, not the full WriterAgent `locales/` tree.
 
@@ -438,7 +439,7 @@ Full `make vendor` still installs all entries in [`requirements-vendor.txt`](../
 |------|--------|
 | Manifest | `make manifest` → [`plugin/_manifest.py`](../plugin/_manifest.py) from `module.yaml` files. Core: at least `scripting` + `vision`; **no** `embeddings` |
 | Bundle | Same OXT pipeline as WriterAgent, filtered to layer file lists; vendor copy uses [`LIBREPY_VENDOR_PACKAGES`](../scripts/librepy_bundle_paths.py) (`json_repair`, `latex2mathml` only) |
-| Config path | Linux: `~/.config/libreoffice/{4,24}/user/writeragent.json` (see AGENTS.md Config) |
+| Config path | Linux: `~/.config/libreoffice/{4,24}/user/writeragent.json` (see [`config.py`](../plugin/framework/config.py) docstring) |
 
 ---
 
@@ -508,19 +509,32 @@ flowchart TB
 
 ## Recommended refactors for LibreOffice maintainers
 
-1. **Split the add-in** — `python_addin.py` with zero imports from `llm_client` or `async_stream`.
-2. **Slim configuration** — `python_config.py` with Python keys only instead of full `WriterAgentConfig`.
-3. **Narrow IDL** — [`XPythonFunction.idl`](../extension/idl/XPythonFunction.idl) only in core RDB.
-4. **Separate extension id** — avoid `org.extension.writeragent.*` if WriterAgent remains distinct.
-5. **WriterAgent integration** — remove duplicate `=PY()` registration; declare dependency on core OXT ([Prototype extension](#prototype-extension-standalone-core--writeragent-overlay)).
-6. **Slim `trusted_action_registry.py`** — core flavor: numpy + vision domains only.
-7. **Slim `venv_diagnostics.py`** — drop Embeddings Libraries probe; optional Audio probe (sidebar is WriterAgent).
-8. **Slim `domain_registry.py`** — remove `SCRIPT_ORIGIN_SQL` and embeddings origins.
-9. **`doc_type.py`** — replace heavy `document_helpers.py` imports for menu guards.
-10. **Split `writer/images/images.py`** — Vision graphic export vs LLM image generation.
-11. **Filtered `Addons.xcu` / `main.py`** — core uses `main_core.py`; WriterAgent drops python menu handlers.
-12. **`pkgutil.extend_path` in `plugin/__init__.py`** — required for dual-OXT `plugin/` split.
-13. **Optional sandbox slimming** — minimal `Tool` stub instead of full smolagents `tools.py` chain.
+**Do not re-propose the Done items.** They already landed; inventing a second split wastes review.
+
+### Done — do not re-propose
+
+1. **Split the add-in** — [`addin_librepy.py`](../plugin/calc/python/addin_librepy.py) / [`function.py`](../plugin/calc/python/function.py) have zero `llm_client` imports. `=PY()` uses a local error formatter.
+2. **Narrow IDL** — core RDB is [`extension-core/idl/XPythonFunction.idl`](../extension-core/idl/XPythonFunction.idl) only (no Prompt).
+3. **Separate extension id** — `org.extension.librepy` in [`extension-core/`](../extension-core/). Add-in implementation name stays `org.extension.writeragent.PythonFunction` so `=PY()` formulas stay portable.
+4. **`doc_type.py` / `udprops.py` / `text_helpers.py`** — type detection, document properties, and Writer text/path helpers. `document_helpers.py` is WriterAgent-only and **must not re-export** those names.
+5. **`format.py` local-imports** — `ops` / `review_authors` stay local; optional `edit_review` via `ImportError`. Do not hoist.
+6. **Sandbox slimming** — `local_python_executor.send_tools` takes a dict; LibrePy does not ship `tools.py` / `agent_types.py` / `tool_validation.py` / `_function_type_hints_utils.py`.
+7. **`pkgutil.extend_path`** in [`plugin/__init__.py`](../plugin/__init__.py).
+8. **Slim bootstrap** — [`plugin/main_core.py`](../plugin/main_core.py); `make build-core` / `deploy-core`. `deploy-core` removes WriterAgent (xor install).
+9. **`plugin.framework.client` package init is lazy** — HTTP / errors / provider detection only at import; `LlmClient` / embeddings / analysis load on attribute access. Do not re-eager-import `llm_client` in `__init__.py`.
+10. **LLM image gen stays out of LibrePy** — ship [`image_tools.py`](../plugin/writer/images/image_tools.py) (graphic insert). Do **not** ship [`image_utils.py`](../plugin/writer/images/image_utils.py) or [`images.py`](../plugin/writer/images/images.py).
+11. **`analyzer.py` stays in the LibrePy bundle** — reserved for later use; do not drop as dead weight.
+12. **Whole trusted registry ships** — do not slim [`trusted_action_registry.py`](../plugin/scripting/trusted_action_registry.py), [`venv_diagnostics.py`](../plugin/scripting/venv_diagnostics.py), or SQL picker leftovers for core. Missing modules already skip at runtime.
+13. **Shared config file** — keep **`writeragent.json`**. Do **not** invent `python_config.py` or rename the file unless option B needs a separate config.
+14. **`dialogs.py` stays under `plugin/chatbot/`** — it is a shared XDL kit, not the chat panel. Do not rename/move in a cleanup pass.
+
+### Still open (option B overlay — not this quality pass)
+
+- WriterAgent strip of duplicate `=PY()` / Python menus / bundled `plugin/scripting/` (Prototype §7 steps 4–6).
+- WriterAgent `description.xml` dependency on `org.extension.librepy`.
+- Dual-install: one `=PY()` add-in, chat tools import the core worker.
+
+Allowlist source of truth: [`scripts/librepy_bundle_paths.py`](../scripts/librepy_bundle_paths.py). [`tests/scripts/test_librepy_import_graph.py`](../tests/scripts/test_librepy_import_graph.py) checks that top-level `plugin.*` imports of shipped modules resolve to allowlisted files, and that loading editor / function / sidebar / settings / python_runner does not import WriterAgent-only modules. Skip generated `plugin._manifest`, the build-replaced `contrib/smolagents/__init__.py` stub, and optional `ImportError` imports (Cython `vec_pack.pack`). Do **not** ship [`plugin/writer/__init__.py`](../plugin/writer/__init__.py) (it registers chat tools); [`rich_html.py`](../plugin/calc/rich_html.py) imports `plugin.writer.format` directly.
 
 ---
 
@@ -533,7 +547,7 @@ flowchart TB
 | **C — Duplicate (avoid)** | Both extensions register `=PY()` / `PYTHON` or both ship full `plugin/scripting/` → add-in conflict and/or import shadowing | Avoid |
 | **D — WriterAgent only** | Full WriterAgent OXT with its own Python stack (no LibrePy). | **Supported today** — `make deploy`; do **not** leave LibrePy installed at the same time |
 
-**Today:** install **LibrePy xor WriterAgent**, not both. `register-librepy-oxt` removes WriterAgent first. WriterAgent’s `register-built-oxt` currently only removes its own id — uninstall LibrePy manually before switching back until deploy symmetry is finished.
+**Today:** install **LibrePy xor WriterAgent**, not both. `register-librepy-oxt` removes WriterAgent first. WriterAgent’s `register-built-oxt` only removes its own id. Making WriterAgent register also remove LibrePy is more `unopkg` pain than it is worth — users can install one OXT or the other. Do not chase deploy symmetry unless LibrePy becomes an official extension.
 
 **Target (not yet):** **B** — core is **standalone**; WriterAgent **assumes LibrePy is installed** and does **not** register `=PY()` or duplicate scientific menus.
 
@@ -652,13 +666,16 @@ Optional runtime guard: if core is missing, log a clear error and disable chat P
 
 ### 4. Slim core bootstrap
 
-Core should not load chat, MCP, or grammar. Add **`plugin/main_core.py`** (or filter [`main.py`](../plugin/main.py) in the core build) that:
+**Shipped.** [`plugin/main_core.py`](../plugin/main_core.py) does not load chat, MCP, or grammar. It:
 
 1. Puts `vendor/` on `sys.path` (for `latex2mathml`)
-2. Calls `init_config(ctx)`
-3. Registers only core actions: `run_python_dialog`, `edit_python_cell`, `reset_python_session`, `insert_latex_dialog`, `vision.open_settings`, `textanalytics.open_dialog`, Settings → Python
+2. Calls `init_logging` then `init_config(ctx)`
+3. Adds downloaded Cython pack binaries to `sys.path` ([`native_binaries.py`](../plugin/scripting/native_binaries.py))
+4. Registers only core actions: `run_python_dialog`, `edit_python_cell`, `reset_python_session`, `insert_latex_dialog`, `vision.open_settings`, `textanalytics.open_dialog`, Settings → Python
+5. Installs the Calc cell context menu (CommandURL from `resolve_package_extension_id()` so LibrePy right-click is `org.extension.librepy:scripting.edit_python_cell`; `GlobalEventBroadcaster` so Calc windows opened after `OnStartApp` still get the interceptor) and Excel `=PY` auto-convert-on-open (best-effort)
+6. Schedules the weekly update check
 
-Register as `org.extension.librepy.Main` in a core-only [`Jobs.xcu`](../extension/Jobs.xcu) and [`META-INF/manifest.xml`](../extension/META-INF/manifest.xml).
+Registered as `org.extension.librepy.Main` in [`extension-core/Jobs.xcu`](../extension-core/Jobs.xcu) and [`extension-core/META-INF/manifest.xml`](../extension-core/META-INF/manifest.xml). Do not re-add a filtered `main.py` for core.
 
 ### 5. Config and session (shared)
 
@@ -670,11 +687,11 @@ WriterAgent-only `module.yaml` settings keys can carry **`librepy_exclude: true`
 
 One venv + one shared-kernel session for `=PY()` and chat `run_venv_python_script` — desirable when both are installed.
 
-Alternative for isolation: `librepy.json` + slim `python_config.py` in core only (more work; only if you need separate config files).
+Keep **`writeragent.json`**. Do **not** invent `librepy.json` + `python_config.py` unless option B later needs separate config files. LLM combobox helpers in [`config.py`](../plugin/framework/config.py) (`endpoint_from_selector_text`, model-placeholder checks) are `ImportError`-guarded; LibrePy falls back to [`normalize_endpoint_url`](../plugin/framework/url_utils.py) and skips chat placeholder rejection. Dialog titles in shared Python UI use [`product_display_name`](../plugin/framework/uno_context.py) (`LibrePy` vs `WriterAgent`).
 
 ### 6. Repo layout and build targets
 
-Suggested layout without forking all of `plugin/`:
+Shipped layout (do not re-propose as new work):
 
 ```
 extension-core/                    # parallel to extension/
@@ -684,22 +701,22 @@ extension-core/                    # parallel to extension/
   ProtocolHandler.xcu                # org.extension.librepy:*
   Addons.xcu                         # core menus only
   registry/CalcAddIns.xcu            # PythonFunction only (no PROMPT)
-  idl/XPythonFunction.idl            # librepy namespace
+  idl/XPythonFunction.idl            # same WriterAgent IDL module path (formula portability)
 
 plugin/
-  main_core.py                       # slim bootstrap (new)
+  main_core.py                       # slim bootstrap
   __init__.py                        # pkgutil.extend_path (both OXTs)
 
-Makefile (suggested targets)
+Makefile
   make build-core / deploy-core      # LibrePy.oxt — **shipped** (removes WriterAgent on register)
   make build / deploy                # WriterAgent OXT (keep exclusive of LibrePy until overlay lands)
 ```
 
 **LibrePy menu Context:** In [`extension-core/Addons.xcu`](../extension-core/Addons.xcu), every submenu item must set an explicit `Context` property. Do not rely on “empty Context = all applications” when the same submenu mixes Writer-only and Calc-only entries — LibreOffice may hide shared items (Settings, Run Python Script, Reset Python Session) in Calc. Shared items use the full menubar context string (Writer, Calc, Draw, Impress, Web, Global); doc-specific items set `TextDocument` or `SpreadsheetDocument` only. Regression test: [`tests/scripts/test_librepy_addons_xcu.py`](../tests/scripts/test_librepy_addons_xcu.py).
 
-- **`make manifest`** for core: include `scripting` + `vision` `module.yaml` only; exclude `embeddings`.
-- **`make bundle-core`**: copy/filter files from [Layers 0–6](#feature-bundles-layers); substitute `org.extension.librepy` in XCU/IDL/addin.
-- **`make deploy-core`**: `unopkg remove/add org.extension.librepy` (parallel to existing `org.extension.writeragent` deploy).
+- **`make manifest-core`**: include `scripting` + `vision` `module.yaml` only; exclude `embeddings`.
+- **`make build-core`**: copy/filter files from [`scripts/librepy_bundle_paths.py`](../scripts/librepy_bundle_paths.py); vendor copy uses `LIBREPY_VENDOR_PACKAGES` (`json_repair`, `latex2mathml` only).
+- **`make deploy-core`**: `unopkg` remove WriterAgent, then add `org.extension.librepy`.
 
 ### 7. Implementation order (lowest risk)
 
@@ -751,6 +768,13 @@ Makefile (suggested targets)
 | [`tests/writer/math/test_math_mml_convert.py`](../tests/writer/math/test_math_mml_convert.py) | LaTeX/MathML → StarMath |
 | [`tests/writer/math/test_math_preservation.py`](../tests/writer/math/test_math_preservation.py) | HTML/math integration |
 | [`tests/framework/test_appearance.py`](../tests/framework/test_appearance.py) | Theme sync for Monaco |
+| [`tests/calc/python/test_workbook_lifecycle.py`](../tests/calc/python/test_workbook_lifecycle.py) | Workbook `OnUnload` resets `calc:…` / `:init` sessions |
+| [`tests/librepy/test_main_core.py`](../tests/librepy/test_main_core.py) | LibrePy bootstrap handlers |
+| [`tests/scripts/test_librepy_oxt_surface.py`](../tests/scripts/test_librepy_oxt_surface.py) | Hermetic OXT surface contract (required/forbidden archive entries) |
+
+**Manual QA:** close and reopen a Calc workbook that has an initialization script; the init script must run again on the first `=PY()` after reopen.
+
+**OXT surface:** [`scripts/build_librepy_oxt.py`](../scripts/build_librepy_oxt.py) copies only [`LIBREPY_DIALOG_FILES`](../scripts/build_librepy_oxt.py) plus generated `SettingsDialog.xdl` / `VisionSettingsDialog.xdl`. It does **not** copy the whole `extension/Dialogs/` or `build/generated/Dialogs/` trees (those would pull WriterAgent chat/search/eval XDLs into LibrePy.oxt).
 
 **Manual QA fixture:** [`tests/fixtures/numpy_domains_demo.ods`](../tests/fixtures/numpy_domains_demo.ods) — all domain helpers on one workbook ([`numpy_domains_demo.README.md`](../tests/fixtures/numpy_domains_demo.README.md)).
 
@@ -773,17 +797,21 @@ Deduplicated union of **Layers 0–6**. Counts are approximate (~100 `plugin/` p
 
 ### Layer 0 (~35 paths)
 
-**Framework (13):** `config.py`, `constants.py`, `errors.py`, `json_utils.py`, `i18n.py`, `event_bus.py`, `service.py`, `url_utils.py`, `thread_guard.py`, `client/errors.py`, `client/__init__.py`, `framework/__init__.py`, `_manifest.py`
+Allowlist: [`scripts/librepy_bundle_paths.py`](../scripts/librepy_bundle_paths.py) (`LIBREPY_PLUGIN_FILES` + dirs). Do not treat this summary as the build input.
 
-**Calc (5):** `python/addin.py`, `python/function.py`, `addin_common.py`, `calc_addin_data.py`, `calc/__init__.py`
+**Framework:** `config.py`, `constants.py`, `errors.py`, `json_utils.py`, `i18n.py`, `event_bus.py`, `service.py`, `url_utils.py`, `thread_guard.py`, `client/errors.py`, `client/requests.py`, `client/ssl_helpers.py`, `client/provider_detection.py`, **lazy** `client/__init__.py`, `framework/__init__.py`, `_manifest.py` (LibrePy: `_manifest_librepy.py` at generate time)
 
-**Scripting host (8):** `venv_worker.py`, `ipc.py`, `payload_codec.py`, `sandbox.py`, `config_limits.py`, `session_manager.py`, `module.yaml`, `scripting/__init__.py`
+**Calc:** `python/addin_librepy.py` (not WriterAgent `addin.py`), `python/function.py`, `addin_common.py`, `calc_addin_data.py`, `calc/__init__.py`
 
-**Venv child (4):** `venv/worker_harness.py`, `venv/venv_sandbox.py`, `venv/coerce.py`, `venv/__init__.py`
+**Scripting host:** `venv_worker.py`, `ipc.py`, `payload_codec.py`, `sandbox.py`, `config_limits.py`, `session_manager.py`, `module.yaml`, `scripting/__init__.py`
 
-**Contrib smolagents (8):** `local_python_executor.py`, `tools.py`, `utils.py`, `agent_types.py`, `tool_validation.py`, `_function_type_hints_utils.py`, `smolagents/__init__.py`, `contrib/__init__.py`
+**Doc (Layer 0):** `doc_type.py`, `udprops.py`, `text_helpers.py` — type guards, document properties, and Writer text/path helpers without `document_helpers`
 
-**Root:** `plugin/__init__.py`
+**Venv child:** `venv/worker_harness.py`, `venv/venv_sandbox.py`, `venv/coerce.py`, `venv/__init__.py`
+
+**Contrib smolagents:** `local_python_executor.py`, `utils.py`, slim `smolagents/__init__.py`, `contrib/__init__.py`
+
+**Root:** `plugin/__init__.py`, `plugin/main_core.py`, `plugin/librepy/`
 
 ### Layer 1 adds (~11 paths)
 
@@ -791,7 +819,7 @@ Deduplicated union of **Layers 0–6**. Counts are approximate (~100 `plugin/` p
 
 ### Layer 2 adds (~18 paths)
 
-`python_runner.py`, `python_runner_ui.py`, `document_scripts.py`, `chatbot/dialogs.py`, `uno_context.py`, `worker_pool.py`, `appearance.py`, `doc/document_helpers.py`, `doc/visual_helpers.py`, `writer/format.py`, `writer/ops.py`, `writer/review_authors.py`, `writer/xhtml_style_postprocess.py`, `calc/bridge.py`, `calc/address_utils.py`, `calc/manipulator.py`, `calc/tabular_egress.py`, `calc/rich_html.py`, `main.py`
+`python_runner.py`, `python_runner_ui.py`, `document_scripts.py`, `chatbot/dialogs.py` (shared XDL kit), `uno_context.py`, `worker_pool.py`, `appearance.py`, `doc/visual_helpers.py`, `writer/format.py`, `writer/xhtml_style_postprocess.py`, `calc/bridge.py`, `calc/address_utils.py`, `calc/manipulator.py`, `calc/tabular_egress.py`, `calc/rich_html.py`, `main_core.py`, `scripting/native_binaries.py` (Cython pack download; `audio_recorder_service.py` is WriterAgent-only)
 
 ### Layer 3 adds (~25 paths)
 
@@ -801,11 +829,11 @@ Deduplicated union of **Layers 0–6**. Counts are approximate (~100 `plugin/` p
 
 **Calc runners/egress:** `calc/analysis_runner.py`, `calc/analysis_egress.py`, `calc/viz_auto_plot.py`, `calc/forecast_auto_plot.py`, `calc/quant_egress.py`, `calc/python/image_egress.py`, `calc/inspector.py`
 
-**Writer images:** `writer/images/image_tools.py`, `writer/images/image_utils.py`, `writer/images/__init__.py` — note [`images.py`](../plugin/writer/images/images.py) pulls LLM image gen if imported
+**Writer images:** [`image_tools.py`](../plugin/writer/images/image_tools.py) + [`__init__.py`](../plugin/writer/images/__init__.py) (graphic insert). Do **not** ship [`image_utils.py`](../plugin/writer/images/image_utils.py) or [`images.py`](../plugin/writer/images/images.py) (LLM image gen). [`analyzer.py`](../plugin/calc/analyzer.py) stays in the bundle (later use).
 
 ### Layer 4 adds (~8 paths)
 
-`editor_host.py`, `editor_ipc.py`, `calc/python/editor.py`, `calc/python/formula_edit.py`, `calc/python/editor_context_menu.py`, `calc/python/workbook_lifecycle.py`, `venv/editor_main.py`, `calc/excel_py_convert/` (Excel Python-in-Excel → DAG `=PY` auto-convert on open)
+`editor_host.py`, `editor_ipc.py`, `calc/python/editor.py`, `calc/python/formula_edit.py`, `calc/python/editor_context_menu.py`, `calc/python/workbook_lifecycle.py` (workbook `OnUnload` resets worker sessions), `venv/editor_main.py`, `calc/excel_py_convert/` (Excel Python-in-Excel → DAG `=PY` auto-convert on open)
 
 Dev reference only (not OXT): `contrib/scripting/assets/editor/*`
 
@@ -840,7 +868,7 @@ See [numpy-domains.md](numpy-domains.md) and [image-recognition.md](image-recogn
 
 ### Do not ship in core
 
-`prompt_addin.py`, `prompt_function.py`, `plugin/framework/prompts.py`, `plugin/calc/base.py`, `plugin/embeddings/**`, `plugin/notebook/**`, `plugin/scripting/venv/duckdb_sql.py`, `plugin/calc/spreadsheet_import/**`, `plugin/scripting/calc_functions.py`, `plugin/scripting/venv/calc_functions*.py` ([deferred — see § Scope](#calc-parity-xl-helpers-deferred-from-librepy)), `plugin/calc/python/venv.py`, `plugin/calc/analysis.py` (chat tool), `plugin/vision/vision_tools.py` (if menu-only), `plugin/framework/client/llm_client.py`, `plugin/chatbot/panel.py`, grammar venv modules, full chat stack.
+`prompt_addin.py`, `prompt_function.py`, `plugin/framework/prompts.py`, `plugin/calc/base.py`, `plugin/embeddings/**`, `plugin/notebook/**`, `plugin/scripting/venv/duckdb_sql.py`, `plugin/calc/spreadsheet_import/**`, `plugin/scripting/calc_functions.py`, `plugin/scripting/venv/calc_functions*.py` ([deferred — see § Scope](#calc-parity-xl-helpers-deferred-from-librepy)), `plugin/calc/python/venv.py`, `plugin/calc/analysis.py` (chat tool), `plugin/vision/vision_tools.py` (if menu-only), `plugin/framework/client/llm_client.py`, `plugin/chatbot/panel.py`, `plugin/doc/document_helpers.py`, `plugin/writer/__init__.py` (chat tool registration), `plugin/writer/ops.py`, `plugin/writer/review_authors.py`, `plugin/writer/images/image_utils.py`, `plugin/writer/images/images.py`, `plugin/scripting/audio_recorder_service.py` (LibrePy uses `native_binaries.py` for Cython pack download), `plugin/contrib/smolagents/tools.py` (and its import chain), grammar venv modules, full chat stack. **Keep** `plugin/calc/analyzer.py` in the core bundle (later use).
 
 ---
 
@@ -974,10 +1002,10 @@ Requires [Layer 1](#layer-1--trusted-rpc) + [`domain_registry.py`](../plugin/scr
 | File | Role |
 |------|------|
 | [`writer/images/image_tools.py`](../plugin/writer/images/image_tools.py) | Insert plot images at cursor |
-| [`writer/images/image_utils.py`](../plugin/writer/images/image_utils.py) | Graphic byte export helpers |
+| [`writer/images/image_utils.py`](../plugin/writer/images/image_utils.py) | **WriterAgent only** — `ImageService` / `LlmClient` image generation. Not in LibrePy. |
 | [`writer/math/math_mml_convert.py`](../plugin/writer/math/math_mml_convert.py) | Symbolic math → Writer formula objects |
 
-**Whole-file caveat:** [`writer/images/images.py`](../plugin/writer/images/images.py) imports LLM image-generation code; prefer `image_tools.py` only or split before core bundle.
+**Whole-file caveat:** [`writer/images/images.py`](../plugin/writer/images/images.py) and [`image_utils.py`](../plugin/writer/images/image_utils.py) are LLM image generation — **not in LibrePy**. Core ships `image_tools.py` only.
 
 ### Do not ship for domain helpers alone
 
@@ -1017,9 +1045,9 @@ flowchart LR
 | [`plugin/scripting/editor_host.py`](../plugin/scripting/editor_host.py) | Spawn pywebview child, session, theme |
 | [`plugin/scripting/editor_ipc.py`](../plugin/scripting/editor_ipc.py) | Pipe framing, errors |
 | [`plugin/calc/python/editor.py`](../plugin/calc/python/editor.py) | Edit Python in Cell… |
+| [`plugin/calc/python/xl_static_rewrite.py`](../plugin/calc/python/xl_static_rewrite.py) | Optional save-time `xl("A1")` → `data` args (flag default off) |
 | [`plugin/calc/python/formula_edit.py`](../plugin/calc/python/formula_edit.py) | Parse/rebuild `=PY()` formulas |
 | [`plugin/calc/python/editor_context_menu.py`](../plugin/calc/python/editor_context_menu.py) | Cell context menu |
-| [`plugin/calc/python/workbook_lifecycle.py`](../plugin/calc/python/workbook_lifecycle.py) | Init script session reset |
 | [`plugin/calc/python/cell_discovery.py`](../plugin/calc/python/cell_discovery.py) | Enumerate `=PY()` cells for sidebar |
 | [`plugin/calc/python/diagnostics.py`](../plugin/calc/python/diagnostics.py) | Bounded stdout/error log for sidebar |
 | [`plugin/calc/python/init_script_editor.py`](../plugin/calc/python/init_script_editor.py) | Monaco editor for workbook INIT script |
@@ -1112,7 +1140,7 @@ Registered in [`trusted_action_registry.py`](../plugin/scripting/trusted_action_
 |----------|------|
 | Menu `vision.open_settings` | [`chatbot/module_config_dialog.py`](../plugin/chatbot/module_config_dialog.py) |
 | `VisionSettingsDialog.xdl` | Generated from `vision/module.yaml` |
-| Settings → Python **Test** | Vision Libraries probe in `venv_diagnostics.py` (omit Embeddings group in core build) |
+| Settings → Python **Test** | Vision Libraries probe in `venv_diagnostics.py`. WriterAgent-only groups (Embeddings, Audio) may still appear; do not slim this file for LibrePy. |
 
 ### User venv packages
 

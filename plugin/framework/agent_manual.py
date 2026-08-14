@@ -162,7 +162,7 @@ def doc_type_of(doc) -> str | None:
     if doc is None:
         return None
     try:
-        from plugin.doc.document_helpers import is_calc, is_draw
+        from plugin.doc.doc_type import is_calc, is_draw
 
         if is_calc(doc):
             return "calc"

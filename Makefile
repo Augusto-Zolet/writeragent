@@ -172,7 +172,7 @@ help:
 	@echo "                              test bundle, build final .oxt. (Includes Cython if pre-built via 'make native')"
 	@echo "  make release-no-test        Build release OXT and register it without running tests/verification"
 	@echo "  make build-no-recording     Build .oxt without voice recording (no Record button)"
-	@echo "  make build-core             Build standalone LibrePy.oxt (scientific Python prototype)"
+	@echo "  make build-core             Build standalone LibrePy.oxt (scientific Python)"
 	@echo "  make deploy-core            Build + install LibrePy (removes WriterAgent if present)"
 	@echo "  make build-harper           Build standalone LibreHarper.oxt (Harper grammar only)"
 	@echo "  make deploy-harper          Build + install LibreHarper (does not remove WriterAgent)"
@@ -350,6 +350,8 @@ repack-deploy: repack register-built-oxt
 
 # Stop LibreOffice if running, then unopkg remove + add build/$(EXTENSION_NAME).oxt.
 # Does not start LO (use ``make deploy`` with writer/calc/draw/impress, or ``make lo-start``).
+# Does not remove LibrePy (org.extension.librepy). Dual unopkg xor is a pain;
+# install one OXT or the other. Do not chase symmetry unless LibrePy is official.
 register-built-oxt:
 	@echo "Registering build/$(EXTENSION_NAME).oxt..."
 	$(MAKE) lo-kill
@@ -374,7 +376,7 @@ rdb-core:
 	$(RUN_SH) $(SCRIPTS)/rebuild_librepy_rdb$(EXT)
 
 build-core: vendor manifest-core rdb-core compile-translations-core
-	@echo "Building LibrePy.oxt (prototype core extension)..."
+	@echo "Building LibrePy.oxt (standalone core extension)..."
 	$(PYTHON) $(SCRIPTS)/build_librepy_oxt.py --output $(LIBREPY_OXT)
 	@echo "Done: $(LIBREPY_OXT)  (bundle in build/bundle-librepy/)"
 

@@ -107,7 +107,7 @@ def test_replace_preserving_format_restores_original_on_insert_failure():
     text = _FakeText()
     target = _FakeRange(text)
     with patch("plugin.writer.format._is_recording_changes", return_value=True), \
-         patch("plugin.writer.format.deletion_author", lambda: contextlib.nullcontext()), \
+         patch("plugin.writer.review_authors.deletion_author", lambda: contextlib.nullcontext()), \
          pytest.raises(RuntimeError, match="insert boom"):
         fmt.replace_preserving_format(object(), target, "NEW TEXT", in_undo_context=True)
 
@@ -199,7 +199,7 @@ def test_replace_preserving_format_two_step_when_split_author_true_in_undo_conte
     text = _OkText()
     target = _FakeRange(text)
     with patch("plugin.writer.format._is_recording_changes", return_value=True), \
-         patch("plugin.writer.format.deletion_author", lambda: contextlib.nullcontext()):
+         patch("plugin.writer.review_authors.deletion_author", lambda: contextlib.nullcontext()):
         fmt.replace_preserving_format(object(), target, "NEW TEXT", in_undo_context=True)
 
     assert text.cursor.getString() == ""   # the deletion emptied the range (step 1)
@@ -243,3 +243,56 @@ def test_document_to_content_full_timing_path_with_mocks():
     autostyle.assert_called_once()
     post.assert_called_once_with(xhtml, {})
     assert out == "<p>hello</p>"
+
+
+def test_format_module_avoids_document_helpers_ops_review_authors():
+    """LibrePy RPS insert loads format.py; chat export/replace stay local imports."""
+    import ast
+    from pathlib import Path
+
+    import plugin.writer.format as fmt
+
+    tree = ast.parse(Path(fmt.__file__).read_text(encoding="utf-8"))
+    mods: list[str] = []
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom) and node.module:
+            mods.append(node.module)
+        elif isinstance(node, ast.Import):
+            mods.extend(alias.name for alias in node.names)
+    assert "plugin.doc.document_helpers" not in mods
+    assert "plugin.doc.text_helpers" in mods
+    assert ".ops" not in mods
+    assert "ops" not in mods
+    assert ".review_authors" not in mods
+    assert "review_authors" not in mods
+
+
+def test_deletion_author_noop_when_review_authors_missing(monkeypatch):
+    """LibrePy omits review_authors; tracked-delete helper must not ImportError."""
+    import contextlib
+    import sys
+
+    import plugin.writer.format as fmt
+
+    monkeypatch.setitem(sys.modules, "plugin.writer.review_authors", None)
+    cm = fmt._deletion_author()
+    with cm:
+        pass
+    assert type(cm).__name__ == type(contextlib.nullcontext()).__name__ or hasattr(cm, "__enter__")
+
+
+def test_resolve_style_name_without_content_module(monkeypatch):
+    import sys
+    from unittest.mock import MagicMock
+
+    import plugin.writer.format as fmt
+
+    monkeypatch.setitem(sys.modules, "plugin.writer.content", None)
+    fam = MagicMock()
+    fam.hasByName.side_effect = lambda name: name == "Heading 1"
+    fam.getElementNames.return_value = ("Heading 1", "Standard")
+    families = MagicMock()
+    families.getByName.return_value = fam
+    model = MagicMock()
+    model.getStyleFamilies.return_value = families
+    assert fmt._resolve_style_name(model, "Heading 1") == "Heading 1"

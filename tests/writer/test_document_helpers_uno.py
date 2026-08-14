@@ -1,14 +1,6 @@
 
-from plugin.doc.document_helpers import (
-    build_heading_tree,
-    resolve_locator,
-    get_paragraph_ranges,
-    get_document_length,
-    ensure_heading_bookmarks,
-    get_document_context_for_chat,
-    get_string_without_tracked_deletions,
-    WriterStreamedRewriteSession,
-)
+from plugin.doc.text_helpers import build_heading_tree, get_string_without_tracked_deletions
+from plugin.doc.document_helpers import resolve_locator, get_paragraph_ranges, get_document_length, ensure_heading_bookmarks, get_document_context_for_chat, WriterStreamedRewriteSession
 from plugin.testing_runner import native_test
 from plugin.tests.testing_utils import TestingFactory, with_native_doc
 

@@ -3,10 +3,8 @@ import unittest
 from plugin.tests.testing_utils import setup_uno_mocks, ElementStub, WriterDocStub
 setup_uno_mocks()
 
-from plugin.doc.document_helpers import (
-    build_heading_tree,
-    resolve_locator
-)
+from plugin.doc.text_helpers import build_heading_tree
+from plugin.doc.document_helpers import resolve_locator
 
 class TestWriterNavigation(unittest.TestCase):
     def test_build_heading_tree(self):

@@ -18,7 +18,7 @@ import uno
 
 from plugin.chatbot.dialogs import msgbox
 from plugin.contrib.nbformat import NBFormatError
-from plugin.doc.document_helpers import is_writer
+from plugin.doc.doc_type import is_writer
 from plugin.framework.i18n import _
 from plugin.framework.uno_context import get_active_document, get_ctx
 from plugin.notebook.writer_importer import flush_ui_idle, import_ipynb_to_writer

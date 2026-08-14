@@ -9,9 +9,10 @@ closing and reopening the same file (same URL / session key) would reuse the cac
 ``calc:…:init`` executor. Clearing on unload matches the expectation that init runs
 again when the spreadsheet is opened later.
 
-**Opt-in:** call ``ensure_calc_workbook_unload_resets_python`` from
-``python_function`` and ``init_script_editor`` (currently commented out).
-Init script *edits* still invalidate via hash + ``reset_python_session`` on save.
+Wired from ``get_python_init_kwargs`` on the first ``=PY()`` for a workbook.
+``reset_sandbox_session`` on the ``calc:…`` id also drops the companion ``:init``
+session. Init-script *edits* still invalidate via hash + ``reset_python_session``
+on save.
 """
 
 from __future__ import annotations

@@ -209,8 +209,8 @@ def test_load_and_save_spill_registry(monkeypatch: pytest.MonkeyPatch) -> None:
         if name == "WriterAgentSpillRegistry":
             saved_payload = value
 
-    monkeypatch.setattr("plugin.doc.document_helpers.get_document_property", mock_get_prop)
-    monkeypatch.setattr("plugin.doc.document_helpers.set_document_property", mock_set_prop)
+    monkeypatch.setattr("plugin.doc.udprops.get_document_property", mock_get_prop)
+    monkeypatch.setattr("plugin.doc.udprops.set_document_property", mock_set_prop)
 
     doc = CalcDocStub(url="file:///fake_doc.ods")
 
@@ -241,14 +241,48 @@ def test_session_key_and_init_kwargs_recursion_off_main_thread(monkeypatch: pyte
     sheet._name = "SheetTest"
 
     monkeypatch.setattr("plugin.calc.python.function._get_calc_doc", lambda ctx: doc)
-    monkeypatch.setattr("plugin.calc.python.function.get_calc_document_from_ctx", lambda ctx: doc)
-    monkeypatch.setattr("plugin.calc.python.function.build_python_eval_init_kwargs", lambda doc: {"dummy": True})
+    monkeypatch.setattr("plugin.scripting.document_scripts.get_calc_document_from_ctx", lambda ctx: doc)
+    monkeypatch.setattr("plugin.scripting.document_scripts.build_python_eval_init_kwargs", lambda doc: {"dummy": True})
 
     ctx = MagicMock()
     key = python_function.session_key(ctx, "print('hello')")
     assert key == ("file:///fake_recursion.ods", "SheetTest", "print('hello')")
 
     kwargs = python_function.get_python_init_kwargs(ctx)
+    assert kwargs == {"dummy": True}
+
+
+def test_get_python_init_kwargs_registers_unload_listener(monkeypatch: pytest.MonkeyPatch) -> None:
+    doc = CalcDocStub(url="file:///fake_lifecycle.ods")
+    calls: list[tuple] = []
+
+    monkeypatch.setattr("plugin.scripting.document_scripts.get_calc_document_from_ctx", lambda ctx: doc)
+    monkeypatch.setattr("plugin.scripting.document_scripts.build_python_eval_init_kwargs", lambda _doc: {"dummy": True})
+    monkeypatch.setattr(
+        "plugin.calc.python.workbook_lifecycle.ensure_calc_workbook_unload_resets_python",
+        lambda ctx, workbook: calls.append((ctx, workbook)),
+    )
+
+    ctx = MagicMock()
+    kwargs = python_function.get_python_init_kwargs(ctx)
+    assert kwargs == {"dummy": True}
+    assert calls == [(ctx, doc)]
+
+
+def test_get_python_init_kwargs_survives_listener_install_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    doc = CalcDocStub(url="file:///fake_lifecycle_fail.ods")
+
+    def _boom(_ctx, _doc):
+        raise RuntimeError("listener failed")
+
+    monkeypatch.setattr("plugin.scripting.document_scripts.get_calc_document_from_ctx", lambda ctx: doc)
+    monkeypatch.setattr("plugin.scripting.document_scripts.build_python_eval_init_kwargs", lambda _doc: {"dummy": True})
+    monkeypatch.setattr(
+        "plugin.calc.python.workbook_lifecycle.ensure_calc_workbook_unload_resets_python",
+        _boom,
+    )
+
+    kwargs = python_function.get_python_init_kwargs(MagicMock())
     assert kwargs == {"dummy": True}
 
 
@@ -380,4 +414,60 @@ def test_calc_python_function_zero_event_pumping_invariant() -> None:
     assert "processEventsToIdle" not in source
     assert "async_stream" not in source
     assert "run_async_worker_with_drain" not in source
+
+
+def test_function_module_avoids_document_helpers_import() -> None:
+    """First =PY() must not load document_helpers → SheetAnalyzer or the dialog stack."""
+    import ast
+    from pathlib import Path
+
+    tree = ast.parse(Path(python_function.__file__).read_text(encoding="utf-8"))
+    mods: list[str] = []
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom) and node.module:
+            mods.append(node.module)
+        elif isinstance(node, ast.Import):
+            mods.extend(alias.name for alias in node.names)
+    assert "plugin.doc.document_helpers" not in mods
+    assert "plugin.calc.analyzer" not in mods
+    assert "plugin.scripting.document_scripts" not in mods
+    assert "plugin.chatbot.dialogs" not in mods
+
+
+def test_execute_python_addin_maps_missing_venv_error(monkeypatch) -> None:
+    python_function.MATRIX_SCALAR_SESSIONS.sessions = {}
+    monkeypatch.setattr(
+        python_function,
+        "run_code_in_user_venv",
+        lambda *_a, **_k: {
+            "status": "error",
+            "message": "No python executable found under configured venv: '/missing'",
+        },
+    )
+    monkeypatch.setattr(python_function, "_record_py_diagnostic", lambda *_a, **_k: None)
+    monkeypatch.setattr(python_function, "get_python_init_kwargs", lambda _ctx: {})
+    monkeypatch.setattr(python_function, "workbook_session_id", lambda _ctx: None)
+    out = python_function.execute_python_addin(_ctx_with_doc(CalcDocStub()), "1+1")
+    assert "Settings" in out
+    assert "Test" in out
+    assert "venv" in out.lower()
+
+
+def test_execute_python_addin_maps_timeout_error(monkeypatch) -> None:
+    python_function.MATRIX_SCALAR_SESSIONS.sessions = {}
+    monkeypatch.setattr(
+        python_function,
+        "run_code_in_user_venv",
+        lambda *_a, **_k: {
+            "status": "error",
+            "message": "Python worker failed: timed out after 10 seconds",
+        },
+    )
+    monkeypatch.setattr(python_function, "_record_py_diagnostic", lambda *_a, **_k: None)
+    monkeypatch.setattr(python_function, "get_python_init_kwargs", lambda _ctx: {})
+    monkeypatch.setattr(python_function, "workbook_session_id", lambda _ctx: None)
+    out = python_function.execute_python_addin(_ctx_with_doc(CalcDocStub()), "1+1")
+    assert out.startswith("Error:")
+    assert "timed out" in out.lower()
+    assert "Settings" in out
 

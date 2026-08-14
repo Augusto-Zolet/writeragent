@@ -23,7 +23,7 @@ from plugin.tests.testing_utils import setup_uno_mocks
 
 setup_uno_mocks()
 
-from plugin.doc.document_helpers import get_document_property  # noqa: E402
+from plugin.doc.udprops import get_document_property  # noqa: E402
 from tests.writer.test_document_helpers import (  # noqa: E402
     _DocWithUserDefinedProperties,
     _UserDefinedProperties,
@@ -72,7 +72,7 @@ def test_state_from_json_missing_required_cell_field_returns_none():
 def test_load_save_registry_on_mock_doc(monkeypatch):
     props = _UserDefinedProperties()
     doc = _DocWithUserDefinedProperties(props)
-    monkeypatch.setattr("plugin.doc.document_helpers.uno.getConstantByName", lambda _name: 1)
+    monkeypatch.setattr("plugin.doc.udprops.uno.getConstantByName", lambda _name: 1)
 
     cell = new_code_cell_entry(0, None, "nb_cell_0_code")
     state = NotebookDocState(source_path="/x.ipynb", code_cells=[cell])
@@ -95,7 +95,7 @@ def test_has_notebook_registry_false_when_missing():
 def test_has_notebook_registry_true_with_code_cells(monkeypatch):
     props = _UserDefinedProperties()
     doc = _DocWithUserDefinedProperties(props)
-    monkeypatch.setattr("plugin.doc.document_helpers.uno.getConstantByName", lambda _name: 1)
+    monkeypatch.setattr("plugin.doc.udprops.uno.getConstantByName", lambda _name: 1)
     save_registry(doc, NotebookDocState(code_cells=[new_code_cell_entry(0, None, "nb_cell_0_code")]))
     assert has_notebook_registry(doc) is True
 

@@ -11,7 +11,7 @@ from typing import Any
 
 from plugin.vision.vision_common import merge_vision_params
 
-from plugin.doc.document_helpers import is_calc, is_writer
+from plugin.doc.doc_type import is_calc, is_writer
 from plugin.scripting.client import run_vision
 from plugin.framework.errors import ToolExecutionError
 from plugin.framework.i18n import _

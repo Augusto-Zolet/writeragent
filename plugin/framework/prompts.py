@@ -164,7 +164,7 @@ When asked to make a script or run Python, use delegate_to_specialized_draw_tool
 
 def get_core_directives(model) -> str:
     """Return the application-specific core directives dynamically based on document type."""
-    from plugin.doc.document_helpers import is_calc, is_draw
+    from plugin.doc.doc_type import is_calc, is_draw
     if is_calc(model):
         return CALC_CORE_DIRECTIVES
     elif is_draw(model):
@@ -682,7 +682,7 @@ def _specialized_delegation_template_for_label(agent_label: str) -> str:
 
 def get_specialized_delegation_for_model(model, ctx=None) -> str:
     """Specialized-delegation block for chat system prompt (same text as MCP delegate tool hint)."""
-    from plugin.doc.document_helpers import is_calc, is_draw
+    from plugin.doc.doc_type import is_calc, is_draw
 
     if is_calc(model):
         from plugin.calc.base import ToolCalcSpecialBase
@@ -718,7 +718,7 @@ def get_vision_core_directive(model, ctx) -> str:
     """OCR delegation hint when local vision stack is configured (Writer/Calc only)."""
     if ctx is None:
         return ""
-    from plugin.doc.document_helpers import is_calc, is_writer
+    from plugin.doc.doc_type import is_calc, is_writer
     from plugin.vision.vision_availability import vision_venv_configured
 
     if not vision_venv_configured(ctx):
@@ -746,7 +746,7 @@ DEFAULT_PPT_MASTER_GREETING = "AI: PPT-Master mode — I'll run the ppt-master w
 def get_greeting_for_document(model):
     """Return a greeting relevant to the document type."""
     from plugin.framework.i18n import _
-    from plugin.doc.document_helpers import is_calc, is_draw
+    from plugin.doc.doc_type import is_calc, is_draw
 
     if is_calc(model):
         return _(DEFAULT_CALC_GREETING)
@@ -760,7 +760,7 @@ def get_chat_system_prompt_for_document(model, additional_instructions="", ctx=N
     """Single source of truth for chat system prompt. Use this so Writer vs Calc prompt cannot be mixed.
     model: document model (Writer, Calc, or Draw). additional_instructions: optional extra text appended.
     Callers must pass the document that is being chatted about."""
-    from plugin.doc.document_helpers import is_calc, is_draw
+    from plugin.doc.doc_type import is_calc, is_draw
 
     delegation = get_specialized_delegation_for_model(model, ctx=ctx)
 

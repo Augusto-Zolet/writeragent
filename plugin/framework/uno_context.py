@@ -107,6 +107,13 @@ def resolve_package_extension_id(ctx=None) -> str:
     return EXTENSION_ID_WRITERAGENT
 
 
+def product_display_name(ctx=None) -> str:
+    """User-visible product name for dialog titles (LibrePy vs WriterAgent)."""
+    if resolve_package_extension_id(ctx) == EXTENSION_ID_LIBREPY:
+        return "LibrePy"
+    return "WriterAgent"
+
+
 @main_thread_only
 def get_ctx():
     """Return the current valid UNO component context.

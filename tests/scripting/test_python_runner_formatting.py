@@ -99,5 +99,101 @@ class TestPythonRunnerFormatting(unittest.TestCase):
         self.assertEqual(format_result_for_writer([]), "")
         self.assertEqual(format_result_for_writer(""), "")
 
+
+def _calc_doc_with_selection(start_col: int = 0, start_row: int = 0):
+    from unittest.mock import MagicMock
+
+    addr = MagicMock()
+    addr.StartColumn = start_col
+    addr.StartRow = start_row
+    selection = MagicMock()
+    selection.getRangeAddress.return_value = addr
+    controller = MagicMock()
+    controller.getSelection.return_value = selection
+    doc = MagicMock()
+    doc.getCurrentController.return_value = controller
+    return doc
+
+
+def test_insert_result_into_calc_primitive():
+    from unittest.mock import MagicMock, patch
+
+    from plugin.scripting.python_runner import insert_result_into_calc
+
+    manipulator = MagicMock()
+    doc = _calc_doc_with_selection(0, 0)
+    with (
+        patch("plugin.scripting.python_runner.CalcBridge"),
+        patch("plugin.scripting.python_runner.CellManipulator", return_value=manipulator),
+    ):
+        insert_result_into_calc(doc, MagicMock(), 42)
+    manipulator.write_formula_range.assert_called_once_with("A1", "42")
+
+
+def test_insert_result_into_calc_list_at_selection():
+    from unittest.mock import MagicMock, patch
+
+    from plugin.scripting.python_runner import insert_result_into_calc
+
+    manipulator = MagicMock()
+    doc = _calc_doc_with_selection(1, 2)
+    rows = [["a", "b"], [1, 2]]
+    with (
+        patch("plugin.scripting.python_runner.CalcBridge"),
+        patch("plugin.scripting.python_runner.CellManipulator", return_value=manipulator),
+    ):
+        insert_result_into_calc(doc, MagicMock(), rows)
+    manipulator.write_formula_range.assert_called_once_with("B3", rows)
+
+
+def test_insert_result_into_calc_dict_title_and_table():
+    from unittest.mock import MagicMock, patch
+
+    from plugin.scripting.python_runner import insert_result_into_calc
+
+    manipulator = MagicMock()
+    doc = _calc_doc_with_selection(0, 0)
+    result = {"title": "My Title", "rows": [{"A": 1, "B": 2}]}
+    with (
+        patch("plugin.scripting.python_runner.CalcBridge"),
+        patch("plugin.scripting.python_runner.CellManipulator", return_value=manipulator),
+    ):
+        insert_result_into_calc(doc, MagicMock(), result)
+    assert manipulator.write_formula_range.call_args_list[0].args == ("A1", "My Title")
+    assert manipulator.write_formula_range.call_args_list[1].args == ("A2", [["A", "B"], [1, 2]])
+
+
+def test_insert_result_into_calc_dataframe_envelope():
+    from unittest.mock import MagicMock, patch
+
+    from plugin.scripting.payload_codec import PAYLOAD_DATAFRAME
+    from plugin.scripting.python_runner import insert_result_into_calc
+
+    manipulator = MagicMock()
+    doc = _calc_doc_with_selection(0, 0)
+    envelope = {"__wa_payload__": PAYLOAD_DATAFRAME, "columns": ["a"], "data": [[1]]}
+    with (
+        patch("plugin.scripting.python_runner.CalcBridge"),
+        patch("plugin.scripting.python_runner.CellManipulator", return_value=manipulator),
+    ):
+        insert_result_into_calc(doc, MagicMock(), envelope)
+    manipulator.write_formula_range.assert_called_once_with("A1", [["a"], [1]])
+
+
+def test_insert_result_into_calc_exception_shows_msgbox():
+    from unittest.mock import MagicMock, patch
+
+    from plugin.scripting.python_runner import insert_result_into_calc
+
+    doc = MagicMock()
+    doc.getCurrentController.side_effect = RuntimeError("no controller")
+    with (
+        patch("plugin.scripting.python_runner.CalcBridge"),
+        patch("plugin.scripting.python_runner.msgbox") as box,
+    ):
+        insert_result_into_calc(doc, MagicMock(), 1)
+    box.assert_called_once()
+    assert "Failed to insert result into Calc" in box.call_args[0][2]
+
 if __name__ == "__main__":
     unittest.main()

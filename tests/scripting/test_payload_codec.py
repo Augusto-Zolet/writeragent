@@ -23,6 +23,7 @@ import pytest
 from plugin.scripting import payload_codec
 from plugin.scripting.payload_codec import (
     BINARY_MIN_CELLS,
+    PAYLOAD_CALC_RANGE,
     PAYLOAD_DATAFRAME,
     PAYLOAD_MULTI_DATA,
     PAYLOAD_SPLIT_GRID,
@@ -1061,4 +1062,27 @@ def test_host_cython_status_line_report_only_by_default() -> None:
             mock_reload.assert_called_once()
     finally:
         payload_codec.fast_flatten_grid_2d = prev_2d
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        {"__wa_payload__": PAYLOAD_CALC_RANGE, "shape": [1, 1], "data": [[1]]},
+        {"__wa_payload__": PAYLOAD_CALC_RANGE, "shape": [0, 0], "data": []},
+        {"__wa_payload__": PAYLOAD_CALC_RANGE, "shape": [1], "data": []},
+        {"__wa_payload__": PAYLOAD_CALC_RANGE, "shape": [1, 1]},
+        {"__wa_payload__": PAYLOAD_CALC_RANGE, "shape": [-1, 1], "data": []},
+        {"__wa_payload__": PAYLOAD_SPLIT_GRID, "shape": [1, 1], "buffer": b""},
+        {"foo": "bar"},
+        None,
+        [],
+        42,
+        "calc_range",
+    ],
+)
+def test_is_calc_range_payload_matches_calc_range_module(value: object) -> None:
+    """Codec wire guard and calc_range pack helper must stay identical."""
+    from plugin.scripting.calc_range import is_calc_range_payload as calc_range_is
+
+    assert payload_codec.is_calc_range_payload(value) is calc_range_is(value)
 

@@ -15,7 +15,7 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from typing import Any, Literal
 
-from plugin.doc.document_helpers import get_document_property, set_document_property
+from plugin.doc.udprops import get_document_property, set_document_property
 from plugin.framework.json_utils import safe_json_loads
 
 log = logging.getLogger("writeragent.notebook")

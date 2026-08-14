@@ -24,7 +24,7 @@ import logging
 from plugin.framework.errors import ToolExecutionError
 from plugin.framework.service import ServiceBase
 from typing import Any
-from plugin.doc.document_helpers import get_string_without_tracked_deletions
+from plugin.doc.text_helpers import get_string_without_tracked_deletions
 
 
 log = logging.getLogger("writeragent.writer.nav.tree")

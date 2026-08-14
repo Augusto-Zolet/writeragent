@@ -24,7 +24,8 @@ UNO operations.
 
 ``writeragent.json`` lives under the LibreOffice user profile (Linux:
 ``~/.config/libreoffice/{4,24}/user/``; macOS: ``~/Library/Application Support/LibreOffice/4/user/``;
-Windows: ``%APPDATA%\\LibreOffice\\4\\user\\``). Broken JSON is copied to
+Windows: ``%APPDATA%\\LibreOffice\\4\\user\\``). LibrePy shares this same file on
+purpose (venv path, session mode, timeouts). Broken JSON is copied to
 ``.bak`` when possible; ``json_repair`` fixes small typos on read.
 
 Schema-backed coercion, option canonicalization, and min/max bounds live here
@@ -598,9 +599,10 @@ class WriterAgentConfig:
         endpoint_str = str(self.endpoint or "").strip()
         if endpoint_str:
             try:
+                # WriterAgent Settings combobox may store a preset label; LibrePy omits this module.
                 from plugin.chatbot.config_ui_helpers import endpoint_from_selector_text
                 self.endpoint = endpoint_from_selector_text(endpoint_str)
-            except Exception:
+            except ImportError:
                 self.endpoint = normalize_endpoint_url(endpoint_str, is_openwebui=self.is_openwebui)
         else:
             self.endpoint = ""
@@ -1300,7 +1302,11 @@ def validate_api_config(config):
     model = (config.get("model") or "").strip()
     if not model:
         return (False, _("Please set Model in Settings."))
-    from plugin.chatbot.config_ui_helpers import _is_model_combobox_placeholder
+    try:
+        from plugin.chatbot.config_ui_helpers import _is_model_combobox_placeholder
+    except ImportError:
+        # LibrePy has no chat model combobox; skip placeholder rejection.
+        return (True, "")
 
     if _is_model_combobox_placeholder(model):
         return (False, _("Please select a valid model in Settings (not a placeholder)."))

@@ -15,7 +15,7 @@ from typing import Any
 from plugin.calc.analysis_runner import calc_tool_context
 from plugin.scripting._lazy_venv import make_getattr
 from plugin.calc.calc_addin_data import _resolve_python_data
-from plugin.doc.document_helpers import is_calc, is_draw, is_writer
+from plugin.doc.doc_type import is_calc, is_draw, is_writer
 from plugin.scripting.client import run_viz as client_run_viz
 from plugin.scripting.helper_domain import (
     header_prefix,
@@ -194,13 +194,16 @@ def insert_image_payload_for_doc(
         from plugin.writer.images.image_tools import insert_image_at_locator
 
         path = write_image_payload_to_temp(payload)
-        insert_image_at_locator(ctx, doc, path, title=title, description="WriterAgent plot")
+        from plugin.framework.uno_context import product_display_name
+
+        insert_image_at_locator(ctx, doc, path, title=title, description=f"{product_display_name(ctx)} plot")
         return
     if is_draw(doc):
         from plugin.writer.images.image_tools import insert_image
+        from plugin.framework.uno_context import product_display_name
 
         path = write_image_payload_to_temp(payload)
-        insert_image(ctx, doc, path, 400, 300, title=title, description="WriterAgent plot", add_to_gallery=False)
+        insert_image(ctx, doc, path, 400, 300, title=title, description=f"{product_display_name(ctx)} plot", add_to_gallery=False)
         return
     raise ToolExecutionError(_("Unsupported document type for plot insertion."), code="VIZ_ERROR")
 

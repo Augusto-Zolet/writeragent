@@ -69,7 +69,7 @@ def handle_llm_request(payload: dict[str, Any]) -> dict[str, Any]:
 
 def execute_tool_on_main_thread(tool_name: str, args: dict[str, Any]) -> Any:
     """Dispatch a registered WriterAgent tool on the LO main thread (UNO-safe)."""
-    from plugin.doc.document_helpers import is_calc, is_draw, is_writer
+    from plugin.doc.doc_type import is_calc, is_draw, is_writer
     from plugin.framework.queue_executor import execute_on_main_thread
     from plugin.framework.tool import ToolContext
     from plugin.framework.uno_context import get_active_document, get_ctx

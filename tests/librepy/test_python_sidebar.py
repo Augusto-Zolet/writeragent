@@ -64,3 +64,21 @@ def test_python_sidebar_xdl_uses_menulist_not_listbox():
     assert "dlg:listbox" not in text
     assert 'dlg:id="cells_list"' in text and "dlg:menulist" in text
     assert 'dlg:id="diag_list"' in text
+
+
+def test_sidebar_prefers_frame_document_over_desktop():
+    from plugin.librepy.python_sidebar import PythonSidebarController
+
+    frame = MagicMock()
+    model = MagicMock()
+    frame.getController.return_value.getModel.return_value = model
+    ctrl = PythonSidebarController.__new__(PythonSidebarController)
+    ctrl.ctx = MagicMock()
+    ctrl.frame = frame
+    with (
+        patch("plugin.librepy.python_sidebar.is_calc", return_value=True),
+        patch("plugin.framework.thread_guard.guard_uno", side_effect=lambda m: m),
+        patch("plugin.librepy.python_sidebar.get_calc_document_from_ctx") as fallback,
+    ):
+        assert ctrl._calc_document() is model
+    fallback.assert_not_called()

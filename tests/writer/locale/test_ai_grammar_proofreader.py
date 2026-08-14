@@ -157,7 +157,7 @@ def test_worker_does_not_pause_local_provider_when_agent_active() -> None:
         patch("plugin.framework.config.get_config_int", return_value=0),
         patch("plugin.framework.config.get_config_bool", side_effect=_get_config_bool),
         patch("plugin.framework.queue_executor.is_agent_active", return_value=True),
-        patch("plugin.writer.locale.grammar_work_queue._run_grammar_check") as run_check,
+        patch("plugin.writer.locale.grammar_worker.run_grammar_check") as run_check,
         patch(
             "plugin.writer.locale.grammar_proofread_cache.cache_get_sentence",
             return_value=None,

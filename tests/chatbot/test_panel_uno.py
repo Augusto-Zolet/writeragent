@@ -168,7 +168,7 @@ def test_session_id_isolation_on_url_change(ctx):
     the session ID is regenerated to isolate chat history.
     """
     from plugin.chatbot.panel_factory import ChatPanelElement
-    from plugin.doc.document_helpers import get_document_property
+    from plugin.doc.udprops import get_document_property
     
     # Create a dummy element instance
     element = ChatPanelElement(ctx, None, None, "test_resource_url")

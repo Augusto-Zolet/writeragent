@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import importlib
 import logging
 import os
@@ -131,6 +132,7 @@ class JediSession:
 _ui_queue: queue.Queue[dict[str, Any]] = queue.Queue()
 _stdout_lock = threading.Lock()
 _shutting_down = False
+_jedi_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="jedi")
 
 
 def _write_parent(message: dict[str, Any]) -> None:
@@ -232,7 +234,15 @@ class MonacoEditorApi:
         return batch
 
     def get_completions(self, code: str, line: int, column: int) -> dict[str, Any]:
-        return self._jedi.get_completions(code, line, column)
+        future = _jedi_pool.submit(self._jedi.get_completions, code, line, column)
+        try:
+            return future.result(timeout=5)
+        except Exception:
+            log.exception("Jedi completions timed out or failed")
+            return {"items": []}
+
+    def is_jedi_available(self) -> bool:
+        return self._jedi.is_available()
 
     def notify_save(self, code: str, save_as_plain: bool = False, data_binding: str = "", action: str = "cell_save") -> None:
         if not isinstance(code, str):

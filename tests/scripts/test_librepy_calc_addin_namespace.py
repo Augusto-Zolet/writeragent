@@ -41,6 +41,8 @@ def test_librepy_idl_uses_writeragent_module_path():
 
 def test_addin_librepy_registers_writeragent_implementation():
     text = _ADDIN_PY.read_text(encoding="utf-8")
-    assert f'_IMPL_NAME = "{_WRITERAGENT_ADDIN}"' in text
-    assert "org.extension.writeragent.PythonFunction import" in text
+    impl = (_REPO_ROOT / "plugin" / "calc" / "python" / "addin_impl.py").read_text(encoding="utf-8")
+    assert "from plugin.calc.python.addin_impl import IMPL_NAME, PythonFunction" in text
+    assert f'IMPL_NAME = "{_WRITERAGENT_ADDIN}"' in impl
+    assert "org.extension.writeragent.PythonFunction import" in impl
     assert _LIBREPY_ADDIN not in text

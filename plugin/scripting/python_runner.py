@@ -5,7 +5,12 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-"""Dialog and execution logic for 'Run Python Script...' in Writer."""
+"""Dialog and execution logic for Tools → Run Python Script (Writer, Calc, and Draw/Impress).
+
+LibrePy and WriterAgent both register this menu. Writer inserts HTML at the
+selection; Calc writes values from the active selection; Draw/Impress shows a
+message only.
+"""
 
 import logging
 import time
@@ -20,7 +25,7 @@ from plugin.scripting.editor_host import launch_monaco_editor, monaco_open_expec
 from plugin.scripting.venv_worker import run_code_in_user_venv
 from plugin.scripting.python_runner_ui import show_python_input_dialog
 from plugin.writer.format import insert_content_at_position
-from plugin.doc.document_helpers import is_calc, is_writer, is_draw
+from plugin.doc.doc_type import is_calc, is_writer, is_draw
 from plugin.calc.bridge import CalcBridge
 from plugin.calc.manipulator import CellManipulator
 from plugin.calc.address_utils import index_to_column

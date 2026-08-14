@@ -200,7 +200,7 @@ The native grammar checker pairs **sentence-bound work units** with **sentence-l
 
 #### Language detection (shipped)
 
-Settings key **`doc.grammar_proofreader_detect_language`** (Doc tab: **Off** / **AI (LLM)** / **Local (langdetect)**). When not **Off**, the worker compares each complete sentence’s detected language to the document `CharLocale`; on mismatch it updates paragraph locale and re-queues grammar in the detected language ([`detect_languages_for_chunk`](../plugin/writer/locale/grammar_worker_llm.py), [`grammar_work_queue.py`](../plugin/writer/locale/grammar_work_queue.py)).
+Settings key **`doc.grammar_proofreader_detect_language`** (Doc tab: **Off** / **AI (LLM)** / **Local (langdetect)**). When not **Off**, the worker compares each complete sentence’s detected language to the document `CharLocale`; on mismatch it updates paragraph locale and re-queues grammar in the detected language ([`detect_languages_for_chunk`](../plugin/writer/locale/grammar_worker.py), [`grammar_work_queue.py`](../plugin/writer/locale/grammar_work_queue.py)).
 
 | Mode | Implementation |
 |------|----------------|
@@ -208,7 +208,7 @@ Settings key **`doc.grammar_proofreader_detect_language`** (Doc tab: **Off** / *
 | **AI (LLM)** | Batch or single-sentence API call via `language_detect_llm_sync`; shares `grammar_llm_request_gate` with grammar HTTP. |
 | **Local (langdetect)** | PyPI `langdetect` in the embeddings venv worker (`_detect_languages_via_langdetect` → [`langdetect_service.detect_languages`](../plugin/framework/client/langdetect_service.py)); requires configured venv + `langdetect` in [`EMBEDDINGS_VENV_PIP_INSTALL`](../plugin/embeddings/venv/embeddings_index.py). Missing venv/package fails the detection pass (Harper-style). |
 
-Shared behavior for **LLM** and **langdetect** modes: in-memory language LRU (`get_cached_language` / `put_cached_language`); skip detection for incomplete sentences; optional persisted-grammar heuristic to avoid re-detecting known-good text; `normalize_detected_bcp47` maps detector output to grammar-registry tags. Regression: [`test_grammar_worker_llm.py`](../tests/writer/locale/test_grammar_worker_llm.py), [`test_langdetect_profiles.py`](../tests/writer/locale/test_langdetect_profiles.py).
+Shared behavior for **LLM** and **langdetect** modes: in-memory language LRU (`get_cached_language` / `put_cached_language`); skip detection for incomplete sentences; optional persisted-grammar heuristic to avoid re-detecting known-good text; `normalize_detected_bcp47` maps detector output to grammar-registry tags. Regression: [`test_grammar_worker.py`](../tests/writer/locale/test_grammar_worker.py), [`test_langdetect_profiles.py`](../tests/writer/locale/test_langdetect_profiles.py).
 
 #### Tail enqueue, dedup keys, stale detection, diagnostics
 
@@ -253,6 +253,8 @@ Code pointer: Future work comment block above `_COMMON_ABBREVIATIONS` in [`gramm
 **Example:** `"Fire! Fire!"` — LibreOffice `BreakIterator` typically ends the first “sentence” after the first `!`, so the checker may send **`"Fire!`** (opening quote, no closing quote yet) to the LLM as a standalone unit. The abbreviation extension logic only revises boundaries when the candidate end falls on **`.`** and `word_before_period_is_abbrev` applies; **`!` and `?` inside speech are not extended.** The fragment still ends in `!`, so `looks_complete_sentence` is true and the slice is treated as **complete**, not as a short partial to drop.
 
 **User-visible effect:** The model often reports a **missing closing quotation mark** (or similar dialogue punctuation). That is a sensible reading of the **isolated substring**, not a random hallucination.
+
+**Mitigation (P25, shipped):** After `split_into_sentences`, [`merge_dialogue_sentences`](../plugin/writer/locale/grammar_proofread_text.py) rejoins odd-parity double-quote chunks with hard caps (1000 chars, 4 consecutive merges). Inch marks and mixed quote styles in one paragraph can still false-merge. See [Appendix E](#appendix-e-dialogue-splits).
 
 **Why a naive “merge until quotes balance” is dangerous:** If the implementation simply walks forward and **concatenates every following BreakIterator segment until the closing `"` appears**, a long stretch of dialogue can turn into **one enormous pseudo-sentence** spanning **many** underlying LO sentence boundaries. That undermines **sentence-level caching** (one huge key, any edit inside the quote invalidates it), **batching** (`GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS`, worker latency), and the product goal of **localized squiggles**. A robust design needs **hard caps** (max extra characters and/or max number of merged segments), a defined **fallback** when the cap is hit (e.g. keep the first segment only, or stop merging and accept occasional false positives), and **UNO tests** with real `BreakIterator` plus unit tests for merge logic. Narrower triggers (e.g. only consider extension when the split is on `!`/`?` and quote parity is odd) reduce collateral damage in ordinary prose. See [Appendix E](#appendix-e-dialogue-splits) for a structured write-up.
 
@@ -316,24 +318,24 @@ Two tables: **product / hardening** (user-visible or systemic improvements) and 
 | P11 | Observability | Cache hit rate, supersede counts, p50/p95 schedule→`cache_put` behind a verbose flag. |
 | P13 | LanguageTool-class local checking | Research roadmap: [docs/languagetool-local-parity-phased-plan.md](languagetool-local-parity-phased-plan.md). |
 | P14 | Parallel grammar worker | Shrink extra workers when user lowers `doc.grammar_proofreader_max_in_flight` without restart; optional distinct-document-only scheduling. |
-| P15 | Queue priority / visibility | Prefer currently edited or visible ranges over scroll-induced backlog (see **C5**). |
-| P17 | Configurable LLM max tokens | Expose the hardcoded **3072** max output tokens as `doc.grammar_proofreader_max_tokens` so users can tune for different endpoints or models. |
-| P18 | Configurable max chars | Move `GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS` (8192) to a config key `doc.grammar_proofreader_max_chars`; allows tuning for very long sentences without code changes. |
-| P19 | Batch size validation | Enforce `1 <= doc.grammar_proofreader_batch_sentences <= 8` at config read time; log **WARNING** if out of range and clamp to bounds. |
-| P22 | Embedded cache: full-document retention on save | Today `_persist_to_udprops` only writes sentences in `_session_accessed` (touched this session). Document sections that were never scrolled into view can drop after a save. Either persist `_memory_cache` in full when small enough, or always re-include previously persisted fingerprints we haven't explicitly invalidated. Trade-off vs cap and edit-detection cost. |
+| P15 | Queue priority / visibility | (Low priority) Prefer currently edited or visible ranges over scroll-induced backlog (see **C5**). Fast local engines like Harper make this largely unnecessary. |
+| P17 | Configurable LLM max tokens | **Shipped:** Added `grammar_max_tokens(ctx)` with `doc.grammar_proofreader_max_tokens` (default 3072, bounded [256, 16384]). |
+| P18 | Configurable max chars | **Shipped:** Added `grammar_max_chars(ctx)` with `doc.grammar_proofreader_max_chars` (default 8192, bounded [512, 65536]). |
+| P19 | Batch size validation | **Shipped:** Added `grammar_batch_sentences(ctx)` enforcing `1 <= batch_sentences <= 8` with warning and clamping. |
+| P22 | Embedded cache: full-document retention on save | **Won't Fix / Do Not Implement:** In practice, writing only `_session_accessed` keys on save is the intended mechanism to naturally garbage-collect deleted or modified sentences when LibreOffice runs its proofreading pass on open. Retaining all unaccessed entries causes stale/invalidated sentences to linger indefinitely in document storage. |
 | P24 | Regional locale opt-out | **Partially shipped:** English `en-AU`, `en-CA`, and `en-IN` are registered and preserved for Harper dialect routing. Other regional locales (e.g. `pt-PT`) still normalize to the base registry language. |
-| P25 | Quote-aware sentence merge (optional) | Reduce false "missing quote" on dialogue split at `!`/`?` inside quotes. Requires capped post-`split_into_sentences` merge, i18n-safe quote rules, UNO + unit tests. See [Dialogue / BreakIterator limitation](#dialogue-breakiterator-limitation) and [Appendix E](#appendix-e-dialogue-splits). |
+| P25 | Quote-aware sentence merge | **Shipped:** `merge_dialogue_sentences` in [`grammar_proofread_text.py`](../plugin/writer/locale/grammar_proofread_text.py) rejoins BreakIterator splits with odd double-quote parity, capped at 1000 chars / 4 consecutive merges. Unit tests cover ASCII/curly/German/guillemets/apostrophes; UNO coverage in [`test_grammar_proofread_text_uno.py`](../tests/writer/locale/test_grammar_proofread_text_uno.py). Remaining gaps: inch marks (`6" tall`) and mixed quote styles in one paragraph. See [Appendix E](#appendix-e-dialogue-splits). |
 
 ### Code health and maintainability
 
 | ID | Task | Notes |
 |----|------|--------|
-| C1 | Tiered error handling in `doProofreading` / worker | Reduce nested try/except that only log-and-continue; extract `_safe_*` helpers per [Appendix B](#appendix-b-debt-work-notes). Characterization tests first; no user-visible behavior change. |
-| C2 | Optional `unohelper` consolidation | Top-level import serves `unohelper.Base`; registration block imports again for `ImplementationHelper` — optional single pattern for clarity. |
-| C5 | Queue priority / visibility heuristic | Prefer currently edited or visible ranges over scroll-induced backlog when draining the grammar queue. Product-facing UX in **P15**; no implementation yet. |
-| C6 | Regex audit | Most patterns are compiled; audit [`grammar_proofread_text.py`](../plugin/writer/locale/grammar_proofread_text.py) for any remaining compile-per-call hot paths. |
+| C1 | Tiered error handling & provider dispatch deduplication | **Shipped:** Doc locale UNO mutations in `grammar_persistence.py`, span helpers in `grammar_proofread_text.py`, and unified local-engine execution (`run_single_sentence_provider`) plus provider dispatch in [`grammar_worker.py`](../plugin/writer/locale/grammar_worker.py). Queue is schedule/dedup/chunk only. |
+| C2 | Optional `unohelper` consolidation | **Shipped:** Consolidated `unohelper` imports and registration in [`ai_grammar_proofreader.py`](../plugin/writer/locale/ai_grammar_proofreader.py). |
+| C5 | Queue priority / visibility heuristic | (Low priority) Prefer currently edited or visible ranges over scroll-induced backlog when draining the grammar queue. Product-facing UX in **P15**; no implementation yet, likely deferred indefinitely due to local engine speed (e.g. Harper). |
+| C6 | Regex audit | **Shipped:** Audited hot path in [`grammar_proofread_locale.py`](../plugin/writer/locale/grammar_proofread_locale.py) and [`grammar_proofread_text.py`](../plugin/writer/locale/grammar_proofread_text.py); hoisted `_ABBREV_VOWELS` to module-level `frozenset` and eliminated regex intermediate list allocations in `count_nonspace_chars`. |
 | C7 | Logging discipline | Structured events, avoid duplicate levels, DEBUG vs INFO boundaries. |
-| C8 | ProofreadingResult helpers / hints | Optional `@dataclass`-style helpers or richer type hints for UNO structs where stubs help. |
+| C8 | ProofreadingResult helpers / hints | **Shipped:** Improved type annotations and structure creation in `ai_grammar_proofreader.py`. |
 
 ---
 
@@ -383,7 +385,7 @@ Two tables: **product / hardening** (user-visible or systemic improvements) and 
 
 **Regression surface:** Any change should add coverage in [`tests/writer/locale/test_grammar_proofread_text_uno.py`](../tests/writer/locale/test_grammar_proofread_text_uno.py) (real `BreakIterator`) and focused unit tests for merge helpers without UNO.
 
-**Status:** Documented limitation + backlog **P25**; no code change required for users who hit this rarely.
+**Status:** **P25 shipped** (capped quote-parity merge after `split_into_sentences`). Known remaining false-merge cases: inch marks and mixed quote styles in one paragraph.
 
 ### Appendix F: Language detection — optional enhancements
 
@@ -444,4 +446,4 @@ When the LLM is called for grammar, inject a compact "House style notes for this
 
 ---
 
-**When to pursue these:** After **P25** (quote-aware splitting) and **C1** (error-handling cleanup) are under control.
+**When to pursue these:** After **P25** (quote-aware splitting) and **C1** (error-handling cleanup), both now shipped.

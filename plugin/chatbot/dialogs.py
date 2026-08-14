@@ -19,6 +19,9 @@
 Provides helpers for message boxes, clipboard operations, rich dialogs
 (with buttons, live updates, etc.), and XDL dialog loading.
 
+LibrePy Settings, Run Python Script, and message boxes use this module as a
+shared XDL kit — it is not the chat panel.
+
 XDL loading rules (sidebar / extension dialogs):
 - Use ``DialogProvider`` (``DialogProvider2`` fallback) + extension ``base_url`` from
   ``PackageInformationProvider`` (see ``load_writeragent_dialog`` /

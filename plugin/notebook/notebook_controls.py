@@ -182,7 +182,7 @@ def wire_all_notebook_run_buttons(ctx: Any, doc: Any) -> int:
 def install_notebook_run_button_wiring(ctx: Any) -> None:
     """Bootstrap: wire ▶ buttons on the active Writer document (if any)."""
     try:
-        from plugin.doc.document_helpers import is_writer
+        from plugin.doc.doc_type import is_writer
         from plugin.framework.uno_context import get_active_document
 
         doc = get_active_document(ctx)

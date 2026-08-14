@@ -10,11 +10,8 @@ here; the live UNO path is exercised by the MCP integration run.
 """
 from unittest.mock import MagicMock, patch
 
-from plugin.doc.document_helpers import (
-    DocumentType,
-    get_runtime_uid,
-    resolve_document_by_url,
-)
+from plugin.doc.doc_type import DocumentType
+from plugin.doc.document_helpers import get_runtime_uid, resolve_document_by_url
 
 
 def _model(url, uid):
@@ -38,7 +35,7 @@ def _resolve(models, target, type_map=None):
 
     desktop.getComponents.return_value.createEnumeration.side_effect = make_enum
     with patch("plugin.framework.uno_context.get_desktop", return_value=desktop), \
-         patch("plugin.doc.document_helpers.get_document_type",
+         patch("plugin.doc.doc_type.get_document_type",
                side_effect=lambda m: type_map.get(m, DocumentType.WRITER)):
         return resolve_document_by_url(MagicMock(), target)
 

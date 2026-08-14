@@ -106,3 +106,10 @@ def test_jedi_complete_exception(monkeypatch):
     res = session.get_completions("def ", 1, 5)
 
     assert res == {"items": []}
+
+
+def test_monaco_api_get_completions_when_jedi_missing(monkeypatch):
+    monkeypatch.setattr(ej, "jedi", None)
+    api = ej.MonacoEditorApi()
+    assert api.is_jedi_available() is False
+    assert api.get_completions("def ", 1, 5) == {"items": []}

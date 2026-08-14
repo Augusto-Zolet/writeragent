@@ -2,32 +2,41 @@
 # Copyright (c) 2026 KeithCu
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
+"""Shared HTTP client helpers.
 
-# WriterAgent — outbound HTTP / LLM client stack (see llm_client.py).
-"""Shared HTTP client helpers and ``LlmClient``."""
+Heavy LLM / embeddings symbols are lazy (PEP 562). LibrePy imports
+``plugin.framework.client.requests`` for the weekly update check; loading this
+package must not import ``llm_client`` (not in the core OXT).
+"""
+
+from __future__ import annotations
+
+import importlib
+from typing import TYPE_CHECKING, Any
 
 from .errors import (
     format_error_for_display,
     is_audio_unsupported_error,
 )
-
-# Provider / endpoint detection (centralized in the 2026 janitor effort)
 from .provider_detection import (
     get_provider_from_endpoint,
     is_local_host,
     is_openrouter_endpoint,
 )
-from .llm_client import (
-    LlmClient,
-    OPENROUTER_CHAT_EXTRA_BLOCKLIST,
-    merge_openrouter_chat_extra,
-    strip_leaked_chat_template_control_tokens,
-)
-from plugin.scripting.client import run_analysis as run_trusted_analysis
-from .embedding_client import EmbeddingBatch, embed_texts, get_embedding_model
-from .embeddings_service import delete_paragraphs, index_paragraphs, knn_search
 from .requests import sync_request
-from .stream_normalizer import iterate_sse
+
+if TYPE_CHECKING:
+    from plugin.scripting.client import run_analysis as run_trusted_analysis
+
+    from .embedding_client import EmbeddingBatch, embed_texts, get_embedding_model
+    from .embeddings_service import delete_paragraphs, index_paragraphs, knn_search
+    from .llm_client import (
+        LlmClient,
+        OPENROUTER_CHAT_EXTRA_BLOCKLIST,
+        merge_openrouter_chat_extra,
+        strip_leaked_chat_template_control_tokens,
+    )
+    from .stream_normalizer import iterate_sse
 
 __all__ = [
     "EmbeddingBatch",
@@ -49,3 +58,36 @@ __all__ = [
     "strip_leaked_chat_template_control_tokens",
     "sync_request",
 ]
+
+# name -> (module, attr). Relative names load against this package.
+_LAZY_ATTRS: dict[str, tuple[str, str]] = {
+    "EmbeddingBatch": (".embedding_client", "EmbeddingBatch"),
+    "embed_texts": (".embedding_client", "embed_texts"),
+    "get_embedding_model": (".embedding_client", "get_embedding_model"),
+    "delete_paragraphs": (".embeddings_service", "delete_paragraphs"),
+    "index_paragraphs": (".embeddings_service", "index_paragraphs"),
+    "knn_search": (".embeddings_service", "knn_search"),
+    "LlmClient": (".llm_client", "LlmClient"),
+    "OPENROUTER_CHAT_EXTRA_BLOCKLIST": (".llm_client", "OPENROUTER_CHAT_EXTRA_BLOCKLIST"),
+    "merge_openrouter_chat_extra": (".llm_client", "merge_openrouter_chat_extra"),
+    "strip_leaked_chat_template_control_tokens": (
+        ".llm_client",
+        "strip_leaked_chat_template_control_tokens",
+    ),
+    "iterate_sse": (".stream_normalizer", "iterate_sse"),
+    "run_trusted_analysis": ("plugin.scripting.client", "run_analysis"),
+}
+
+
+def __getattr__(name: str) -> Any:
+    spec = _LAZY_ATTRS.get(name)
+    if spec is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module_name, attr = spec
+    value = getattr(importlib.import_module(module_name, __name__), attr)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted(set(__all__) | set(globals()))

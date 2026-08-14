@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from plugin.calc.address_utils import index_to_column
 from plugin.calc.bridge import CalcBridge
-from plugin.doc.document_helpers import is_calc
+from plugin.doc.doc_type import is_calc
 from plugin.scripting.client import run_analysis
 from plugin.framework.errors import ToolExecutionError
 from plugin.scripting.analysis import HELPER_NAMES

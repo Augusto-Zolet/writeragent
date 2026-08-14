@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 
 class TestGuardUnoBoundaries(unittest.TestCase):
     def test_open_document_for_read_new_load_calls_guard_uno(self) -> None:
-        from plugin.doc.document_helpers import DocumentType
+        from plugin.doc.doc_type import DocumentType
 
         opened_model = MagicMock()
         with (

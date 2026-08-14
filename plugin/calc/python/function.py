@@ -28,9 +28,6 @@ from plugin.framework.i18n import _
 from plugin.scripting.config_limits import configured_python_max_data_cells
 from plugin.scripting.payload_codec import is_dataframe_payload, is_split_grid, find_image_payloads
 from plugin.scripting.calc_range import dataframe_to_labeled_grid
-# Optional: reset worker init/cell sessions on workbook close (see python_workbook_lifecycle.py).
-# from plugin.calc.python.workbook_lifecycle import ensure_calc_workbook_unload_resets_python
-from plugin.scripting.document_scripts import build_python_eval_init_kwargs, get_calc_document_from_ctx
 from plugin.scripting.session_manager import workbook_session_id
 from plugin.scripting.venv_worker import run_code_in_user_venv
 
@@ -291,7 +288,7 @@ class CalcSpillModifyListener(unohelper.Base, XModifyListener):
 def load_spill_registry_for_doc(doc: Any) -> None:
     """Load the document's spill registry from its UserDefinedProperties."""
     try:
-        from plugin.doc.document_helpers import get_document_property
+        from plugin.doc.udprops import get_document_property
         import json
         raw = get_document_property(doc, "WriterAgentSpillRegistry", None)
         if not isinstance(raw, str) or not raw.strip():
@@ -314,7 +311,7 @@ def load_spill_registry_for_doc(doc: Any) -> None:
 def save_spill_registry_for_doc(doc: Any) -> None:
     """Save the document's spill registry to its UserDefinedProperties."""
     try:
-        from plugin.doc.document_helpers import set_document_property
+        from plugin.doc.udprops import set_document_property
         import json
         doc_url = getattr(doc, "getURL", lambda: "")() or ""
         doc_spills = {}
@@ -608,10 +605,27 @@ def finalize_python_return(
 
 
 def _format_error_for_display(exc: BaseException) -> str:
-    """Cell-safe error text without importing ``plugin.framework.client`` (loads LLM stack)."""
+    """Cell-safe error text without importing ``plugin.framework.client.llm_client``."""
     err: Exception = exc if isinstance(exc, Exception) else RuntimeError(str(exc))
     payload = format_error_payload(err)
-    return _("Error: {0}").format(payload.get("message", str(exc)))
+    return _format_python_addin_worker_error(str(payload.get("message", str(exc))))
+
+
+def _format_python_addin_worker_error(message: str) -> str:
+    """Map common worker failures to short Settings → Python / Test guidance."""
+    text = (message or "").strip() or _("Unknown error")
+    lower = text.lower()
+    if "no python executable found under configured venv" in lower:
+        return _(
+            "Error: Python venv not found. Open Settings → Python, set the venv path, then Test."
+        )
+    if "timed out" in lower or "timeout" in lower:
+        return _(
+            "Error: Python timed out. Open Settings → Python to raise the timeout, or Test the venv."
+        )
+    if text.startswith("Error:"):
+        return text
+    return _("Error: {0}").format(text)
 
 
 def _code_uses_indexed_multi_data(code: str) -> bool:
@@ -622,8 +636,21 @@ def _code_uses_indexed_multi_data(code: str) -> bool:
 
 def get_python_init_kwargs(ctx: Any) -> dict[str, Any]:
     try:
+        from plugin.scripting.document_scripts import build_python_eval_init_kwargs, get_calc_document_from_ctx
+
         doc = get_calc_document_from_ctx(ctx)
         if doc is not None:
+            # Close/reopen used to reuse the warm-worker calc:…:init cache because
+            # nothing listened for OnUnload. Register once per workbook so init
+            # runs again on the next open (listener install must not hide init kwargs).
+            try:
+                from plugin.calc.python.workbook_lifecycle import (
+                    ensure_calc_workbook_unload_resets_python,
+                )
+
+                ensure_calc_workbook_unload_resets_python(ctx, doc)
+            except Exception:
+                log.debug("python workbook unload listener install failed", exc_info=True)
             return build_python_eval_init_kwargs(doc)
     except Exception:
         log.debug("get_python_init_kwargs inline lookup exception", exc_info=True)
@@ -711,7 +738,7 @@ def execute_python_addin(
             final_ret = finalize_python_return(ctx, code, result, index_arg=index_arg, worker_data=worker_data)
             log.debug("PYTHON returning scalar: %r (type: %s)", final_ret, type(final_ret).__name__)
             return final_ret
-        err_msg = f"Error: {res.get('message') or res.get('error')}"
+        err_msg = _format_python_addin_worker_error(str(res.get("message") or res.get("error") or ""))
         _record_py_diagnostic(ctx, code, res, status="error", message=err_msg)
         log.debug("PYTHON returning worker error: %r", err_msg)
         return err_msg

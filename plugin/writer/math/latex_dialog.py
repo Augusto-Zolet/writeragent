@@ -16,7 +16,7 @@ from plugin.framework.uno_context import get_desktop
 from plugin.framework.config import get_config, get_config_str, set_config
 from plugin.chatbot.dialogs import load_writeragent_dialog, msgbox, msgbox_with_report
 from plugin.framework.i18n import _
-from plugin.doc.document_helpers import is_writer
+from plugin.doc.doc_type import is_writer
 from plugin.writer.math.math_mml_convert import convert_latex_to_starmath, insert_writer_math_formula
 from plugin.scripting.editor_host import launch_monaco_editor, monaco_editor_available
 

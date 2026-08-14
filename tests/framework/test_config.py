@@ -525,3 +525,24 @@ class TestRobustNumericParsing(unittest.TestCase):
         config = WriterAgentConfig.from_dict({"endpoint": "OpenRouter"})
         config.validate()
         self.assertEqual(config.endpoint, "https://openrouter.ai/api")
+
+    def test_validate_falls_back_when_config_ui_helpers_missing(self):
+        """LibrePy omits config_ui_helpers; endpoint still normalizes."""
+        from plugin.framework.config import WriterAgentConfig
+        from plugin.framework.url_utils import normalize_endpoint_url
+
+        config = WriterAgentConfig.from_dict({"endpoint": "http://localhost:11434/"})
+        with patch.dict(sys.modules, {"plugin.chatbot.config_ui_helpers": None}):
+            config.validate()
+        self.assertEqual(config.endpoint, normalize_endpoint_url("http://localhost:11434/"))
+
+    def test_validate_api_config_without_config_ui_helpers(self):
+        from plugin.framework.config import validate_api_config
+
+        with patch.dict(sys.modules, {"plugin.chatbot.config_ui_helpers": None}):
+            ok, err = validate_api_config({
+                "endpoint": "https://example.invalid",
+                "model": "glm-5.2",
+            })
+        self.assertTrue(ok)
+        self.assertEqual(err, "")

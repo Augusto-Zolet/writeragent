@@ -193,7 +193,7 @@ def test_script_bank_only_long_scripts_and_mirrors_a1():
 def test_maybe_convert_skips_non_candidate(tmp_path: Path):
     doc = CalcDocStub()
     with (
-        patch("plugin.doc.document_helpers.get_document_path", return_value=None),
+        patch("plugin.doc.text_helpers.get_document_path", return_value=None),
         patch("plugin.doc.udprops.get_document_property", return_value=None),
     ):
         assert maybe_convert_excel_py_document(MagicMock(), doc) is False
@@ -201,7 +201,7 @@ def test_maybe_convert_skips_non_candidate(tmp_path: Path):
     plain = tmp_path / "plain.xlsx"
     _minimal_xlsx(plain)
     with (
-        patch("plugin.doc.document_helpers.get_document_path", return_value=str(plain)),
+        patch("plugin.doc.text_helpers.get_document_path", return_value=str(plain)),
         patch("plugin.doc.udprops.get_document_property", return_value=None),
     ):
         assert maybe_convert_excel_py_document(MagicMock(), doc) is False
@@ -235,7 +235,7 @@ def test_maybe_convert_fail_closed_leaves_original(tmp_path: Path):
         ],
     )
     with (
-        patch("plugin.doc.document_helpers.get_document_path", return_value=str(src)),
+        patch("plugin.doc.text_helpers.get_document_path", return_value=str(src)),
         patch("plugin.doc.udprops.get_document_property", return_value=None),
         patch("plugin.calc.excel_py_convert.convert.convert_to_dag", return_value=bad),
         patch("plugin.calc.excel_py_convert.apply_calc.apply_dag_formulas_to_calc_doc") as apply_uno,
@@ -260,7 +260,7 @@ def test_maybe_convert_uno_marks_converted(tmp_path: Path):
     )
     report = ConversionReport(direction="dag", cells=[ok_cell])
     with (
-        patch("plugin.doc.document_helpers.get_document_path", return_value=str(src)),
+        patch("plugin.doc.text_helpers.get_document_path", return_value=str(src)),
         patch("plugin.doc.udprops.get_document_property", return_value=None),
         patch("plugin.doc.udprops.set_document_property") as set_prop,
         patch("plugin.calc.excel_py_convert.convert.convert_to_dag", return_value=report),
@@ -336,7 +336,7 @@ def test_maybe_export_skips_without_py_cells(tmp_path: Path):
     doc = CalcDocStub()
     empty = ConversionReport(direction="excel", cells=[])
     with (
-        patch("plugin.doc.document_helpers.get_document_path", return_value=str(path)),
+        patch("plugin.doc.text_helpers.get_document_path", return_value=str(path)),
         patch("plugin.calc.excel_py_convert.convert.convert_uno_doc_to_excel", return_value=empty),
         patch("plugin.calc.excel_py_convert.convert.write_excel_python_xlsx") as write_xlsx,
     ):
@@ -365,7 +365,7 @@ def test_maybe_export_writes_native_package(tmp_path: Path):
         ],
     )
     with (
-        patch("plugin.doc.document_helpers.get_document_path", return_value=str(path)),
+        patch("plugin.doc.text_helpers.get_document_path", return_value=str(path)),
         patch("plugin.calc.excel_py_convert.convert.convert_uno_doc_to_excel", return_value=report),
         patch("plugin.calc.excel_py_convert.convert.write_excel_python_xlsx") as write_xlsx,
         patch("plugin.calc.excel_py_convert.parse_excel_ooxml.has_excel_python_xlsx", return_value=True),
@@ -394,15 +394,23 @@ def test_maybe_export_msgbox_on_failure(tmp_path: Path):
         ],
     )
     ctx = MagicMock()
-    with (
-        patch("plugin.doc.document_helpers.get_document_path", return_value=str(path)),
-        patch("plugin.calc.excel_py_convert.convert.convert_uno_doc_to_excel", return_value=report),
-        patch(
-            "plugin.calc.excel_py_convert.convert.write_excel_python_xlsx",
-            side_effect=ValueError("boom"),
-        ),
-        patch("plugin.chatbot.dialogs.msgbox") as box,
-    ):
-        assert maybe_export_excel_py_on_save(ctx, doc) is False
-        box.assert_called_once()
-        assert "boom" in box.call_args[0][2]
+    from plugin.framework.constants import EXTENSION_ID_LIBREPY
+    from plugin.framework.uno_context import reset_package_extension_id_for_tests, set_package_extension_id
+
+    set_package_extension_id(EXTENSION_ID_LIBREPY)
+    try:
+        with (
+            patch("plugin.doc.text_helpers.get_document_path", return_value=str(path)),
+            patch("plugin.calc.excel_py_convert.convert.convert_uno_doc_to_excel", return_value=report),
+            patch(
+                "plugin.calc.excel_py_convert.convert.write_excel_python_xlsx",
+                side_effect=ValueError("boom"),
+            ),
+            patch("plugin.chatbot.dialogs.msgbox") as box,
+        ):
+            assert maybe_export_excel_py_on_save(ctx, doc) is False
+            box.assert_called_once()
+            assert box.call_args[0][1] == "LibrePy"
+            assert "boom" in box.call_args[0][2]
+    finally:
+        reset_package_extension_id_for_tests()

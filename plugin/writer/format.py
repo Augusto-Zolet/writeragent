@@ -32,14 +32,43 @@ import uno
 from plugin.framework.errors import ToolExecutionError
 from plugin.framework.service import ServiceBase
 from plugin.framework.uno_context import get_desktop
-from plugin.doc.document_helpers import normalize_linebreaks as _normalize, get_string_without_tracked_deletions
+from plugin.doc.text_helpers import normalize_linebreaks as _normalize, get_string_without_tracked_deletions
 from .math.html_math_segment import html_fragment_contains_mixed_math, segment_html_with_mixed_math
 from .math.math_mml_convert import convert_latex_to_starmath, convert_mathml_to_starmath, insert_writer_math_formula
-from .ops import get_selection_range
-from .review_authors import deletion_author
 from . import xhtml_style_postprocess as xhtml_post
 
 log = logging.getLogger("writeragent.writer")
+
+
+def _deletion_author():
+    """WriterAgent split-author coloring; no-op when ``review_authors`` is omitted (LibrePy)."""
+    try:
+        from .review_authors import deletion_author
+
+        return deletion_author()
+    except ImportError:
+        return contextlib.nullcontext()
+
+
+def _resolve_style_name(model, style_name):
+    """Resolve a style name case-insensitively; LibrePy omits ``writer.content``."""
+    try:
+        from plugin.writer.content import _resolve_style_name as resolve
+
+        return resolve(model, style_name)
+    except ImportError:
+        try:
+            families = model.getStyleFamilies()
+            para_styles = families.getByName("ParagraphStyles")
+            if para_styles.hasByName(style_name):
+                return style_name
+            lower = style_name.lower()
+            for name in para_styles.getElementNames():
+                if name.lower() == lower:
+                    return name
+        except Exception:
+            pass
+        return style_name
 
 
 # ---------------------------------------------------------------------------
@@ -407,8 +436,6 @@ def _resolve_paragraph_style_token(model, fam, token):
     to ``Standard`` instead of silently picking one. No candidate -> case-insensitive resolve,
     then ``Standard``. The ambiguity gate runs BEFORE any exact-name shortcut so a colliding
     token can never silently land on the wrong style (per docs/html_style_model_plan.md)."""
-    from plugin.writer.content import _resolve_style_name
-
     if fam is not None:
         candidates = []
         try:
@@ -684,6 +711,8 @@ def document_to_content(
         return content
 
     if scope == "selection":
+        from .ops import get_selection_range  # local import only
+
         start, end = get_selection_range(model)
         return _done(
             _range_to_content_via_temp_doc(model, ctx, start, end, max_chars, config_svc, include_images=include_images),
@@ -951,7 +980,7 @@ def replace_full_document(model, ctx, content, config_svc=None):
     cursor = text.createTextCursor()
     cursor.gotoStart(False)
     cursor.gotoEnd(True)
-    with deletion_author():  # author the deletion distinctly (split by-author coloring)
+    with _deletion_author():  # author the deletion distinctly (split by-author coloring)
         cursor.setString("")
     cursor.gotoStart(False)
     _insert_mixed_or_plain_html(model, ctx, cursor, content, config_svc=config_svc)
@@ -1007,7 +1036,7 @@ def replace_single_range_with_content(model, text_range, content, ctx, config_sv
             saved_style = None
 
     cursor = text_obj.createTextCursorByRange(text_range)
-    with deletion_author():  # author the deletion distinctly (split by-author coloring)
+    with _deletion_author():  # author the deletion distinctly (split by-author coloring)
         cursor.setString("")
 
     if saved_style is not None:
@@ -1338,7 +1367,7 @@ def replace_preserving_format(model, target_range, new_text, ctx=None,
         # deletion coloring. The restore on insert-failure is a best-effort extra net (the caller's
         # context rollback also cleans up).
         original = cursor.getString()
-        with deletion_author():  # author the deletion distinctly (split by-author coloring)
+        with _deletion_author():  # author the deletion distinctly (split by-author coloring)
             cursor.setString("")
         if new_text:
             try:

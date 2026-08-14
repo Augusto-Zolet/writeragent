@@ -208,7 +208,7 @@ def test_document_mode_populates_memory_cache() -> None:
     with patch("plugin.writer.locale.grammar_proofread_cache.get_persistence", return_value=mock_p) as mock_gp:
         got = gc.cache_get_sentence("en-US", "Hello.", ctx=ctx, doc_id="uid-1")
         assert got is not None
-        assert len(gc._SENTENCE_CACHE) == 1
+        assert len(gc.grammar_registry.sentence_cache) == 1
         mock_gp.assert_called_once_with(ctx, "uid-1")
 
 
@@ -236,3 +236,24 @@ def test_cross_document_l1_cache_hit() -> None:
         assert got is not None
         assert len(got) == 1
         mock_p_b.get.assert_not_called()
+
+
+def test_l1_hit_records_session_accessed_for_doc() -> None:
+    """When a sentence hits L1 memory with a doc_id, it marks the sentence as session accessed for that doc."""
+    from unittest.mock import MagicMock
+    from plugin.writer.locale.grammar_persistence import DocumentPersistence
+
+    ctx = MagicMock()
+    model = MagicMock()
+    with patch("plugin.doc.udprops.get_document_property", return_value=None):
+        dp = DocumentPersistence(ctx, "doc-track", model=model)
+
+    with patch("plugin.writer.locale.grammar_proofread_cache.get_persistence", return_value=dp):
+        gc.cache_put_sentence("en-US", "Track me.", [])
+        assert len(dp._session_accessed) == 0
+
+        got = gc.cache_get_sentence("en-US", "Track me.", ctx=ctx, doc_id="doc-track")
+        assert got == []
+        fp = gc.sentence_identity_fp("Track me.")
+        assert fp in dp._session_accessed
+

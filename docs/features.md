@@ -24,6 +24,7 @@ Product overview lives in the root [README](../README.md). This page maps each a
 | Topic | Docs |
 |-------|------|
 | NumPy / `=PY()` | [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md) |
+| LibrePy (Python-only OXT) | [libreoffice-core-python-extension-split.md](libreoffice-core-python-extension-split.md) · [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md) |
 | Data shapes | [calc-py-data-shapes.md](calc-py-data-shapes.md) |
 | Domain helpers (Viz, Math, Quant, …) | [numpy-domains.md](numpy-domains.md) |
 | Analysis tools | [calc-analysis-tools.md](calc-analysis-tools.md) · [analysis-sub-agent.md](analysis-sub-agent.md) |

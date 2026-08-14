@@ -17,6 +17,7 @@ import collections
 import json
 import logging
 import threading
+import time
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -38,7 +39,7 @@ except ImportError:
 
 class GrammarRegistry:
     def __init__(self) -> None:
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
         self.doc_persistence_instances: dict[str, "DocumentPersistence"] = {}
         self.sentence_cache: collections.OrderedDict[str, tuple[str, str, bool, list[dict[str, Any]]]] = collections.OrderedDict()
         self.ignored_rules: set[str] = set()
@@ -77,7 +78,6 @@ class GrammarRegistry:
                 try:
                     dp._unregister_listeners()
                     with dp._lock:
-                        dp._memory_cache.clear()
                         dp._session_accessed.clear()
                 except Exception as e:
                     log.debug("[grammar] GrammarRegistry.clear_for_doc failure: %s", e)
@@ -97,17 +97,32 @@ class GrammarRegistry:
             try:
                 dp._unregister_listeners()
                 with dp._lock:
-                    dp._memory_cache.clear()
                     dp._session_accessed.clear()
             except Exception as e:
                 log.debug("[grammar] GrammarRegistry.clear_all persistence cleanup failure: %s", e)
             dp._model = None
             dp._teardown_done = True
 
+    def get_cached_language(self, text: str) -> str | None:
+        with self.lock:
+            if text in self.lang_detect_cache:
+                self.lang_detect_cache.move_to_end(text)
+                return self.lang_detect_cache[text]
+        return None
+
+    def put_cached_language(self, text: str, lang: str) -> None:
+        with self.lock:
+            self.lang_detect_cache[text] = lang
+            if len(self.lang_detect_cache) > 1000:
+                self.lang_detect_cache.popitem(last=False)
+
     def shutdown(self) -> None:
         self.clear_all()
 
 grammar_registry = GrammarRegistry()
+
+
+
 
 
 def get_document_model_for_id(ctx: Any, doc_id: str) -> Any | None:
@@ -124,6 +139,7 @@ class GrammarPersistence(ABC):
 
     def __init__(self, ctx: Any) -> None:
         self.ctx = ctx
+        self._session_accessed: set[str] = set()
         self._ignored_rules: set[str] = set()
         self._lock = threading.Lock()
 
@@ -174,13 +190,13 @@ class _GrammarDocumentEventListener(BaseDocumentEventListener):
 
 
 class DocumentPersistence(GrammarPersistence):
-    """In-memory grammar sentence cache with JSON in user-defined document properties on save."""
+    """In-memory grammar sentence persistence backing the unified sentence cache with ODT udprops on save."""
 
     def __init__(self, ctx: Any, doc_id: str, *, model: Any = None) -> None:
         super().__init__(ctx)
         self._doc_id = doc_id
         self._lock = threading.Lock()
-        self._memory_cache: dict[str, list[dict[str, Any]]] = {}
+        self._entries: dict[str, list[dict[str, Any]]] = {}
         self._session_accessed: set[str] = set()
         self._ignored_rules: set[str] = set()
         self._model: Any = model
@@ -202,7 +218,7 @@ class DocumentPersistence(GrammarPersistence):
             self._model = model
         self._load_from_udprops()
         self._register_listeners()
-        log.debug("[grammar] DocumentPersistence: bound model for doc_id=%s (loaded %s cache entries)", self._doc_id[:32] if self._doc_id else "", len(self._memory_cache))
+        log.debug("[grammar] DocumentPersistence: bound model for doc_id=%s", self._doc_id[:32] if self._doc_id else "")
 
     def _register_listeners(self) -> None:
         if not _HAVE_UNO_DOC_EVENTS or self._model is None:
@@ -248,47 +264,60 @@ class DocumentPersistence(GrammarPersistence):
             if version < GRAMMAR_CACHE_VERSION:
                 log.debug("[grammar] DocumentPersistence: ignoring old-version cache (v=%s < %s) on doc_id=%s", version, GRAMMAR_CACHE_VERSION, self._doc_id[:32] if self._doc_id else "")
                 return
- 
+
+            loaded_count = 0
             with self._lock:
-                self._memory_cache = {}
                 # Good sentences (no errors)
                 good = data.get("good")
                 if isinstance(good, list):
                     for fp in good:
-                        self._memory_cache[str(fp)] = []
+                        fp_str = str(fp)
+                        self._entries[fp_str] = []
+                        loaded_count += 1
                 
                 # Bad sentences (with errors)
                 bad = data.get("bad")
                 if isinstance(bad, dict):
                     for fp, compressed_errors in bad.items():
                         if isinstance(compressed_errors, list):
-                             self._memory_cache[str(fp)] = [grammar_proofread_json.decompress_error(e) for e in compressed_errors if isinstance(e, dict)]
+                            fp_str = str(fp)
+                            errs = [grammar_proofread_json.decompress_error(e) for e in compressed_errors if isinstance(e, dict)]
+                            self._entries[fp_str] = errs
+                            loaded_count += 1
                 
                 # Ignored rules
                 self._ignored_rules = set(data.get("ignored_rules", []))
                 
-                loaded_count = len(self._memory_cache)
             log.debug("[grammar] DocumentPersistence: loaded %s sentences from udprop (doc_id=%s, v=%s)", loaded_count, self._doc_id[:32] if self._doc_id else "", version)
         except Exception as e:
             log.warning("[grammar] DocumentPersistence: load user property failed: %s", e)
 
     def _persist_to_udprops(self) -> None:
+        # Note (Backlog P22): _persist_to_udprops only serializes _session_accessed keys.
+        # LibreOffice calls proofreading for the entire document on open, which populates
+        # _session_accessed for active sentences and naturally trims old/deleted sentences
+        # from the persisted user-defined property payload.
         from plugin.doc.udprops import set_document_property
 
         if not self._model:
             return
         try:
             with self._lock:
-                good_fps = []
-                bad_map = {}
-                for fp in self._session_accessed:
-                    if fp in self._memory_cache:
-                        errs = self._memory_cache[fp]
-                        if not errs:
-                            good_fps.append(fp)
-                        else:
-                             bad_map[fp] = [grammar_proofread_json.compress_error(e) for e in errs]
+                accessed_fps = set(self._session_accessed)
                 ignored_rules_list = list(self._ignored_rules)
+
+            good_fps: list[str] = []
+            bad_map: dict[str, list[dict[str, Any]]] = {}
+
+            with self._lock:
+                for fp in accessed_fps:
+                    errs = self._entries.get(fp)
+                    if errs is None:
+                        continue
+                    if not errs:
+                        good_fps.append(fp)
+                    else:
+                        bad_map[fp] = [grammar_proofread_json.compress_error(e) for e in errs]
             
             payload_dict = {
                 "version": GRAMMAR_CACHE_VERSION,
@@ -311,26 +340,33 @@ class DocumentPersistence(GrammarPersistence):
         self._teardown_done = True
         self._unregister_listeners()
         with self._lock:
-            self._memory_cache.clear()
             self._session_accessed.clear()
+            self._entries.clear()
         grammar_registry.remove_persistence(self._doc_id)
         self._model = None
 
     def get(self, fp: str) -> list[dict[str, Any]] | None:
+        if self._teardown_done:
+            return None
         with self._lock:
-            self._session_accessed.add(fp)
-            hit = self._memory_cache.get(fp)
-            return list(hit) if hit is not None else None
+            errs = self._entries.get(fp)
+            if errs is not None:
+                self._session_accessed.add(fp)
+                return [dict(e) for e in errs]
+        return None
 
     def put(self, fp: str, locale: str, errors: list[dict[str, Any]]) -> None:
+        del locale
+        if self._teardown_done:
+            return
         with self._lock:
             self._session_accessed.add(fp)
-            self._memory_cache[fp] = [dict(e) for e in errors]
+            self._entries[fp] = [dict(e) for e in errors]
 
     def clear(self) -> None:
         with self._lock:
-            self._memory_cache.clear()
             self._session_accessed.clear()
+            self._entries.clear()
 
 
 def get_persistence(ctx: Any, doc_id: str | None = None, *, model: Any = None) -> GrammarPersistence | None:
@@ -343,3 +379,123 @@ def clear_all_document_persistence(ctx: Any) -> None:
     grammar_registry.clear_all(ctx)
 
 _doc_persistence_instances = grammar_registry.doc_persistence_instances
+
+
+def get_cached_document_locales(ctx: Any, doc_id: str) -> list[str]:
+    """Return BCP-47 locales used in *doc_id*, cached for 60 seconds.
+
+    Scans ~1,000 characters around the view cursor (500 behind, 500 ahead) to detect
+    locally relevant CharLocale properties without full-document traversal cost.
+    """
+    now = time.time()
+    with grammar_registry.lock:
+        cached = grammar_registry.doc_locales_cache.get(doc_id)
+    if cached is not None and now - cached[0] < 60:
+        return cached[1]
+
+    def _query_locales() -> list[str]:
+        locales = set()
+        try:
+            model = get_document_model_for_id(ctx, doc_id)
+            if model:
+                ctrl = getattr(model, "getCurrentController", lambda: None)()
+                view_cursor = getattr(ctrl, "getViewCursor", lambda: None)() if ctrl else None
+                if view_cursor:
+                    try:
+                        tc = view_cursor.getText().createTextCursorByRange(view_cursor)
+                        tc.goLeft(500, False)
+                        for _unused in range(1000):
+                            if not tc.goRight(1, True):
+                                break
+                            loc = getattr(tc, "CharLocale", None)
+                            from . import grammar_proofread_locale
+
+                            bcp = grammar_proofread_locale.normalize_uno_locale_to_bcp47(loc)
+                            if bcp:
+                                locales.add(bcp)
+                            tc.collapseToEnd()
+                    except Exception as e:
+                        log.debug("[grammar] Failed to scan near cursor for locales: %s", e)
+
+                log.debug("[grammar] Document locale detection finished (cursor scan). Found: %s", locales)
+        except Exception as e:
+            log.warning("Failed to query document for locales: %s", e)
+
+        if not locales:
+            locales.add("en-US")
+        return sorted(list(locales))
+
+    try:
+        from plugin.framework.thread_guard import on_main_thread
+        from plugin.framework import queue_executor
+
+        if on_main_thread():
+            locs = _query_locales()
+        else:
+            locs = queue_executor.execute_on_main_thread(_query_locales)
+        with grammar_registry.lock:
+            grammar_registry.doc_locales_cache[doc_id] = (now, locs)
+        return locs
+    except Exception as e:
+        log.warning("Failed to get cached locales: %s", e)
+        return ["en-US"]
+
+
+def apply_language_change(ctx: Any, doc_id: str, sentence_text: str, detected_bcp47: str) -> None:
+    """Update CharLocale on the sentence text span inside the document when language mismatch occurs."""
+    import uno
+    from . import grammar_proofread_locale
+
+    def _do_update() -> None:
+        model = get_document_model_for_id(ctx, doc_id)
+        if not model:
+            return
+
+        lang, country = grammar_proofread_locale.bcp47_to_uno_lang_country(
+            grammar_proofread_locale.normalize_detected_bcp47(detected_bcp47) or detected_bcp47
+        )
+
+        new_locale = uno.createUnoStruct("com.sun.star.lang.Locale", Language=lang, Country=country)
+
+        ctrl = getattr(model, "getCurrentController", lambda: None)()
+        view_cursor = getattr(ctrl, "getViewCursor", lambda: None)() if ctrl else None
+
+        search_desc = model.createSearchDescriptor()
+        search_desc.setSearchString(sentence_text)
+        try:
+            search_desc.setPropertyValue("SearchCaseSensitive", True)
+        except Exception:
+            search_desc.SearchCaseSensitive = True
+
+        found_range = None
+        if view_cursor:
+            found_range = model.findNext(view_cursor.getStart(), search_desc)
+
+        if not found_range:
+            # Document-wide search from the start — view-cursor-relative findNext can miss
+            # the sentence Writer just proofread when the caret is elsewhere.
+            try:
+                text_obj = model.getText()
+                doc_start = text_obj.getStart()
+                found_range = model.findNext(doc_start, search_desc)
+            except Exception:
+                found_range = model.findFirst(search_desc)
+
+        if not found_range:
+            found_range = model.findFirst(search_desc)
+
+        if found_range:
+            found_range.setPropertyValue("CharLocale", new_locale)
+            log.info("[grammar] Updated CharLocale for sentence to %s", detected_bcp47)
+
+    try:
+        from plugin.framework.thread_guard import on_main_thread
+        from plugin.framework import queue_executor
+
+        if on_main_thread():
+            _do_update()
+        else:
+            queue_executor.execute_on_main_thread(_do_update)
+    except Exception as e:
+        log.warning("Failed to update language property: %s", e)
+

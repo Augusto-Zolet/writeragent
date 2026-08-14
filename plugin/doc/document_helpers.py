@@ -18,24 +18,25 @@
 """Shared UNO document helpers used across Writer, Calc, and Draw/Impress.
 
 Sub-areas in this module (top to bottom):
-- Document type detection and sidebar/tool label maps
-- Writer text / tracked changes (redlines) and linebreak normalization
-- Streamed edit sessions (compound undo, rewrite/append)
-- Document resolution (URL/path, frame, active doc)
+- Tracked-change collection and streamed edit sessions (compound undo, rewrite/append)
+- Document resolution (URL, frame, active doc)
 - Selection and cursor helpers
 - Chat document context builders (Writer / Calc / Draw)
-- Navigation (paragraphs, heading tree, bookmarks, locators)
+- Navigation (paragraphs, bookmarks, locators)
 - DocumentService (paragraph ranges, yield hooks, etc.)
+
+Linebreak / tracked-deletion reads, heading trees, and file paths live in
+``plugin.doc.text_helpers`` (LibrePy). Do not re-export those names here.
 """
 import logging
-import uno
-from typing import TypedDict, Any, cast
-from enum import Enum, auto
+from typing import Any, cast
 from plugin.calc.bridge import CalcBridge
+from plugin.doc import doc_type as _doc_type
+from plugin.doc import text_helpers as _text_helpers
 from plugin.calc.analyzer import SheetAnalyzer
 from plugin.framework.constants import CHAT_DOCUMENT_CONTEXT_MAX_CHARS
 from plugin.framework.uno_context import get_active_document
-from plugin.framework.errors import UnoObjectError, check_disposed, safe_call, safe_uno_call
+from plugin.framework.errors import UnoObjectError, check_disposed, safe_call
 from plugin.framework.thread_guard import main_thread_only, _wrap_uno
 
 try:
@@ -59,210 +60,6 @@ def is_document_disposed(doc: Any) -> bool:
         except Exception:
             return True
     return False
-
-
-
-
-
-def normalize_linebreaks(text: str | None) -> str:
-    """Ensure all linebreaks use \n (LF).
-
-    Some UNO APIs (especially on Windows) or clipboard paths can return \r\n
-    or \r. This ensures consistent offsets and string length for the LLM.
-    """
-    if text is None:
-        return ""
-    # Normalize \r\n -> \n
-    text = text.replace("\r\n", "\n")
-    # Normalize \n\r (rare but possible) -> \n
-    text = text.replace("\n\r", "\n")
-    # Normalize remaining \r -> \n
-    text = text.replace("\r", "\n")
-    return text
-
-
-class HeadingTreeNode(TypedDict):
-    """Shape of nodes returned by :func:`build_heading_tree` (recursive heading tree)."""
-
-    level: int
-    text: str
-    para_index: int
-    children: list["HeadingTreeNode"]
-    body_paragraphs: int
-
-
-class DocumentType(Enum):
-    UNKNOWN = auto()
-    WRITER = auto()
-    CALC = auto()
-    DRAW = auto()
-    IMPRESS = auto()
-
-
-_DOCUMENT_SERVICE_MAP = {DocumentType.WRITER: "com.sun.star.text.TextDocument", DocumentType.CALC: "com.sun.star.sheet.SpreadsheetDocument", DocumentType.DRAW: "com.sun.star.drawing.DrawingDocument", DocumentType.IMPRESS: "com.sun.star.presentation.PresentationDocument"}
-
-# Lowercase doc_type labels (ToolContext / sidebar) -> UNO services for tool compatibility
-# without re-querying the live document. Impress is distinct; sidebar "Draw" covers both draw kinds.
-_DOC_TYPE_LABEL_TO_UNO_SERVICES: dict[str, frozenset[str]] = {
-    "writer": frozenset({"com.sun.star.text.TextDocument"}),
-    "calc": frozenset({"com.sun.star.sheet.SpreadsheetDocument"}),
-    "draw": frozenset({"com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"}),
-    "impress": frozenset({"com.sun.star.presentation.PresentationDocument"}),
-}
-
-
-def uno_services_for_doc_type_label(doc_type: str | None) -> frozenset[str]:
-    """Return UNO services implied by a sidebar/doc_type label (no live document)."""
-    if not doc_type:
-        return frozenset()
-    return _DOC_TYPE_LABEL_TO_UNO_SERVICES.get(str(doc_type).strip().lower(), frozenset())
-
-
-def uno_services_for_document(model, doc_type: str | None) -> frozenset[str]:
-    """Return UNO services for tool filtering: main-thread probe when possible, else doc_type map."""
-    from plugin.framework.thread_guard import on_main_thread
-
-    if model is not None and on_main_thread():
-        try:
-            services = get_document_uno_services(model)
-            if services:
-                return services
-        except Exception:
-            pass
-    return uno_services_for_doc_type_label(doc_type)
-
-
-@safe_uno_call(default=frozenset())
-@main_thread_only
-def get_document_uno_services(model) -> frozenset[str]:
-    """Return UNO service names supported by *model* (main thread only; cache in sidebar/MCP)."""
-    if model is None:
-        return frozenset()
-    found: set[str] = set()
-    for _doc_type, service_name in _DOCUMENT_SERVICE_MAP.items():
-        if safe_call(model.supportsService, f"Check {service_name}", service_name):
-            found.add(service_name)
-    return frozenset(found)
-
-
-def doc_type_label_for_enum(doc_type: DocumentType, *, impress_as_draw: bool = False) -> str:
-    """Lowercase ToolContext / research doc_type label for a DocumentType enum value.
-
-    Sidebar and tool filtering keep Impress distinct (``\"impress\"``) so
-    ``uno_services`` can list PresentationDocument alone. Document research and
-    some visual paths treat Draw+Impress as one family — pass
-    ``impress_as_draw=True`` for that contract (label ``\"draw\"``).
-    """
-    if doc_type == DocumentType.CALC:
-        return "calc"
-    if doc_type == DocumentType.WRITER:
-        return "writer"
-    if doc_type == DocumentType.IMPRESS:
-        return "draw" if impress_as_draw else "impress"
-    if doc_type == DocumentType.DRAW:
-        return "draw"
-    return "unknown"
-
-
-def doc_type_title_for_label(label: str | None) -> str:
-    """Sidebar display title (Writer/Calc/Draw) for a cached lowercase doc_type label."""
-    if not label:
-        return "Unknown"
-    return {
-        "writer": "Writer",
-        "calc": "Calc",
-        "draw": "Draw",
-        "impress": "Draw",
-    }.get(str(label).strip().lower(), "Unknown")
-
-
-@safe_uno_call(default=DocumentType.UNKNOWN)
-@main_thread_only
-def get_document_type(model):
-    """Return the DocumentType for the given model."""
-    if model is None:
-        return DocumentType.UNKNOWN
-
-    # Check services in priority order
-    for doc_type, service_name in _DOCUMENT_SERVICE_MAP.items():
-        if safe_call(model.supportsService, f"Check {service_name}", service_name):
-            return doc_type
-
-    return DocumentType.UNKNOWN
-
-
-def is_writer(model):
-    """Return True if model is a Writer document."""
-    return get_document_type(model) == DocumentType.WRITER
-
-
-def is_calc(model):
-    """Return True if model is a Calc document."""
-    return get_document_type(model) == DocumentType.CALC
-
-
-def is_draw(model):
-    """Return True if model is a Draw/Impress document."""
-    doc_type = get_document_type(model)
-    return doc_type in (DocumentType.DRAW, DocumentType.IMPRESS)
-
-
-def get_string_without_tracked_deletions(text_range) -> str:
-    """Return text_range text while skipping tracked deletions when possible."""
-    if hasattr(text_range, "_mock_return_value") or type(text_range).__name__ in ("Mock", "MagicMock"):
-        return text_range.getString()
-    try:
-        para_enum = text_range.createEnumeration()
-    except Exception:
-        return text_range.getString()
-
-    parts: list[str] = []
-    try:
-        first_para = True
-        while para_enum.hasMoreElements():
-            para = para_enum.nextElement()
-            if not first_para:
-                parts.append("\n")
-            first_para = False
-
-            try:
-                portion_enum = para.createEnumeration()
-            except Exception:
-                parts.append(para.getString())
-                continue
-
-            in_delete = False
-            while portion_enum.hasMoreElements():
-                portion = portion_enum.nextElement()
-                try:
-                    try:
-                        portion_type = portion.getPropertyValue("TextPortionType")
-                    except Exception:
-                        portion_type = portion.TextPortionType
-                except Exception:
-                    continue
-
-                if portion_type == "Redline":
-                    try:
-                        if str(portion.getPropertyValue("RedlineType")) == "Delete":
-                            in_delete = not in_delete
-                    except Exception:
-                        pass
-                    continue
-
-                if in_delete:
-                    continue
-
-                try:
-                    chunk = portion.getString()
-                except Exception:
-                    continue
-                if chunk:
-                    parts.append(chunk)
-    except Exception:
-        return text_range.getString()
-
-    return "".join(parts)
 
 
 def collect_tracked_changes(text_range, max_per_change: int = 300, max_changes: int = 100):
@@ -682,20 +479,6 @@ class WriterStreamedAppendSession:
             self._compound_undo.close()
 
 
-def get_document_property(model, name, default=None):
-    """Get a custom document property from the model."""
-    from plugin.doc.udprops import get_document_property as _get
-
-    return _get(model, name, default)
-
-
-def set_document_property(model, name, value):
-    """Set a custom document property in the model."""
-    from plugin.doc.udprops import set_document_property as _set
-
-    return _set(model, name, value)
-
-
 def _normalize_doc_url(url):
     """Normalize document URL for comparison (strip, optional trailing slash)."""
     if not url:
@@ -771,11 +554,11 @@ def resolve_document_by_url(ctx, url):
                     doc_url = _normalize_doc_url(model.getURL()) if hasattr(model, "getURL") else ""
                     uid = get_runtime_uid(model)
                     if (doc_url and doc_url == target) or (uid and uid == target):
-                        doc_type_enum = get_document_type(model)
+                        doc_type_enum = _doc_type.get_document_type(model)
                         doc_type = "writer"
-                        if doc_type_enum == DocumentType.CALC:
+                        if doc_type_enum == _doc_type.DocumentType.CALC:
                             doc_type = "calc"
-                        elif doc_type_enum in (DocumentType.DRAW, DocumentType.IMPRESS):
+                        elif doc_type_enum in (_doc_type.DocumentType.DRAW, _doc_type.DocumentType.IMPRESS):
                             doc_type = "draw"
                         return (_wrap_uno(model), doc_type)
             except Exception as e:
@@ -823,9 +606,9 @@ def get_selection_text(model):
             return None
         check_disposed(controller, "Controller")
 
-        doc_type = get_document_type(model)
+        doc_type = _doc_type.get_document_type(model)
 
-        if doc_type == DocumentType.WRITER:
+        if doc_type == _doc_type.DocumentType.WRITER:
             sel = safe_call(controller.getSelection, "Get selection")
             sel_count = 0
             if sel and hasattr(sel, "getCount"):
@@ -840,12 +623,12 @@ def get_selection_text(model):
                 if rng:
                     check_disposed(rng, "Selection Range")
                     return safe_call(rng.getString, "Get selection string")
-        elif doc_type == DocumentType.CALC:
+        elif doc_type == _doc_type.DocumentType.CALC:
             selection = safe_call(controller.getSelection, "Get selection")
             if selection:
                 if hasattr(selection, "getString"):
                     return safe_call(selection.getString, "Get selection string")
-        elif doc_type in (DocumentType.DRAW, DocumentType.IMPRESS):
+        elif doc_type in (_doc_type.DocumentType.DRAW, _doc_type.DocumentType.IMPRESS):
             selection = safe_call(controller.getSelection, "Get selection")
             if selection and hasattr(selection, "getCount"):
                 count = safe_call(selection.getCount, "Get selection count")
@@ -861,26 +644,14 @@ def get_selection_text(model):
     return None
 
 
-def get_document_path(model):
-    """Return the local filesystem path for the document, or None if not a file URL (e.g. untitled)."""
-    try:
-        url = model.getURL()
-        if not url or not str(url).startswith("file://"):
-            return None
-        return str(uno.fileUrlToSystemPath(url))
-    except Exception as e:
-        logging.getLogger(__name__).debug("get_document_path exception: %s", type(e).__name__)
-        return None
-
-
 @main_thread_only
 def get_full_document_text(model, max_chars=CHAT_DOCUMENT_CONTEXT_MAX_CHARS):
     """Get full document text for Writer or summary for Calc, truncated to max_chars."""
     try:
         check_disposed(model, "Document Model")
-        doc_type = get_document_type(model)
+        doc_type = _doc_type.get_document_type(model)
 
-        if doc_type == DocumentType.CALC:
+        if doc_type == _doc_type.DocumentType.CALC:
             # Calc document
             bridge = CalcBridge(model)
             analyzer = SheetAnalyzer(bridge)
@@ -890,7 +661,7 @@ def get_full_document_text(model, max_chars=CHAT_DOCUMENT_CONTEXT_MAX_CHARS):
             # Maybe add some preview rows?
             return text
 
-        if doc_type == DocumentType.WRITER:
+        if doc_type == _doc_type.DocumentType.WRITER:
             doc_len = _writer_char_count(model)
             take = min(doc_len, max_chars)
             excerpt = _read_writer_text_slice(model, 0, take)
@@ -898,7 +669,7 @@ def get_full_document_text(model, max_chars=CHAT_DOCUMENT_CONTEXT_MAX_CHARS):
                 excerpt += "\n\n[... document truncated ...]"
             return excerpt
 
-        if doc_type in (DocumentType.DRAW, DocumentType.IMPRESS):
+        if doc_type in (_doc_type.DocumentType.DRAW, _doc_type.DocumentType.IMPRESS):
             return get_draw_context_for_chat(model, max_chars)
 
         return ""
@@ -915,7 +686,7 @@ def get_document_end(model, max_chars=4000):
         cursor = safe_call(text.createTextCursor, "Create text cursor")
         safe_call(cursor.gotoEnd, "Cursor gotoEnd", False)
         safe_call(cursor.gotoStart, "Cursor gotoStart", True)  # expand backward to select from start to end
-        full = get_string_without_tracked_deletions(cursor)
+        full = _text_helpers.get_string_without_tracked_deletions(cursor)
         if len(full) <= max_chars:
             return full
         return full[-max_chars:]
@@ -942,7 +713,7 @@ def _writer_char_count(model) -> int:
         cursor = safe_call(text.createTextCursor, "Create text cursor")
         safe_call(cursor.gotoStart, "Cursor gotoStart", False)
         safe_call(cursor.gotoEnd, "Cursor gotoEnd", True)
-        return len(normalize_linebreaks(safe_call(cursor.getString, "Cursor getString")))
+        return len(_text_helpers.normalize_linebreaks(safe_call(cursor.getString, "Cursor getString")))
     except UnoObjectError:
         logging.getLogger(__name__).exception("_writer_char_count failed")
         return 0
@@ -957,7 +728,7 @@ def _read_writer_text_slice(model, start_offset: int, length: int) -> str:
     if cursor is None:
         return ""
     # cursor.getString() concatenates tracked deletions as plain text; enumerate portions instead.
-    return normalize_linebreaks(get_string_without_tracked_deletions(cursor))
+    return _text_helpers.normalize_linebreaks(_text_helpers.get_string_without_tracked_deletions(cursor))
 
 
 def _char_offset_of_position(model, target_start, doc_len: int) -> int:
@@ -1047,13 +818,13 @@ def get_document_length(model):
     """Return total character length of the document. Returns 0 on error."""
     try:
         check_disposed(model, "Document Model")
-        if get_document_type(model) == DocumentType.WRITER:
+        if _doc_type.get_document_type(model) == _doc_type.DocumentType.WRITER:
             return _writer_char_count(model)
         text = safe_call(model.getText, "Get document text")
         cursor = safe_call(text.createTextCursor, "Create text cursor")
         safe_call(cursor.gotoStart, "Cursor gotoStart", False)
         safe_call(cursor.gotoEnd, "Cursor gotoEnd", True)
-        length = len(normalize_linebreaks(safe_call(cursor.getString, "Cursor getString")))
+        length = len(_text_helpers.normalize_linebreaks(safe_call(cursor.getString, "Cursor getString")))
         return length
     except UnoObjectError:
         logging.getLogger(__name__).exception("get_document_length failed")
@@ -1117,16 +888,16 @@ def get_document_context_for_chat(model, max_context=CHAT_DOCUMENT_CONTEXT_MAX_C
     """Build a single context string for chat. Handles Writer, Calc and Draw.
     ctx: component context (required for Calc and Draw documents)."""
     try:
-        doc_type = get_document_type(model)
+        doc_type = _doc_type.get_document_type(model)
 
-        if doc_type == DocumentType.CALC:
+        if doc_type == _doc_type.DocumentType.CALC:
             return get_calc_context_for_chat(model, max_context, ctx)
 
-        if doc_type in (DocumentType.DRAW, DocumentType.IMPRESS):
+        if doc_type in (_doc_type.DocumentType.DRAW, _doc_type.DocumentType.IMPRESS):
             return get_draw_context_for_chat(model, max_context, ctx)
 
         # Writer: read only the excerpt slice(s), not the full document text.
-        if doc_type == DocumentType.WRITER:
+        if doc_type == _doc_type.DocumentType.WRITER:
             try:
                 check_disposed(model, "Document Model")
                 doc_len = _writer_char_count(model)
@@ -1274,7 +1045,7 @@ def get_draw_context_for_chat(model, max_context=8000, ctx=None):
                 size = safe_call(s.getSize, "Get size")
                 ctx_str += "- [%d] %s: pos(%d, %d) size(%dx%d)" % (i, type_name, pos.X, pos.Y, size.Width, size.Height)
                 if hasattr(s, "getString"):
-                    text = normalize_linebreaks(safe_call(s.getString, "Get string"))
+                    text = _text_helpers.normalize_linebreaks(safe_call(s.getString, "Get string"))
                     if text:
                         ctx_str += ' text: "%s"' % text[:200]
                 ctx_str += "\n"
@@ -1365,43 +1136,6 @@ def find_paragraph_for_range(match_range, para_ranges, text_obj=None):
     return 0
 
 
-@main_thread_only
-def build_heading_tree(model) -> HeadingTreeNode:
-    """Build a hierarchical heading tree. Single pass enumeration."""
-    try:
-        check_disposed(model, "Document Model")
-        text = safe_call(model.getText, "Get document text")
-        enum = safe_call(text.createEnumeration, "Create enumeration")
-        root: HeadingTreeNode = {"level": 0, "text": "root", "para_index": -1, "children": [], "body_paragraphs": 0}
-        stack: list[HeadingTreeNode] = [root]
-        para_index = 0
-
-        while safe_call(enum.hasMoreElements, "Check more elements"):
-            element = safe_call(enum.nextElement, "Get next element")
-            if safe_call(element.supportsService, "Check supportsService Paragraph", "com.sun.star.text.Paragraph"):
-                outline_level = 0
-                try:
-                    outline_level = safe_call(element.getPropertyValue, "Get OutlineLevel", "OutlineLevel")
-                except UnoObjectError as e:
-                    logging.getLogger(__name__).debug("build_heading_tree could not get OutlineLevel: %s", e)
-
-                if isinstance(outline_level, int) and outline_level > 0:
-                    while len(stack) > 1 and int(stack[-1]["level"]) >= outline_level:
-                        stack.pop()
-                    node: HeadingTreeNode = {"level": outline_level, "text": safe_call(element.getString, "Get paragraph string"), "para_index": para_index, "children": [], "body_paragraphs": 0}
-                    stack[-1]["children"].append(node)
-                    stack.append(node)
-                else:
-                    stack[-1]["body_paragraphs"] += 1
-            elif safe_call(element.supportsService, "Check supportsService TextTable", "com.sun.star.text.TextTable"):
-                stack[-1]["body_paragraphs"] += 1
-            para_index += 1
-        return root
-    except UnoObjectError:
-        logging.getLogger(__name__).exception("build_heading_tree error")
-        return {"level": 0, "text": "root", "para_index": -1, "children": [], "body_paragraphs": 0}
-
-
 def ensure_heading_bookmarks(model):
     """Ensure every heading has an _mcp_ bookmark. Returns {para_index: bookmark_name}."""
     try:
@@ -1470,8 +1204,8 @@ def resolve_locator(model, locator: str):
             logging.getLogger(__name__).exception("resolve_locator heading parse error")
             return {"para_index": 0}
 
-        tree = build_heading_tree(model)
-        node: HeadingTreeNode = tree
+        tree = _text_helpers.build_heading_tree(model)
+        node: _text_helpers.HeadingTreeNode = tree
         for part in parts:
             children = node["children"]
             if 1 <= part <= len(children):
@@ -1509,21 +1243,21 @@ class DocumentService(ServiceBase):
         return resolve_document_by_url(get_ctx(), url)
 
     def detect_doc_type(self, doc):
-        doc_type = get_document_type(doc)
-        if doc_type == DocumentType.CALC:
+        doc_type = _doc_type.get_document_type(doc)
+        if doc_type == _doc_type.DocumentType.CALC:
             return "calc"
-        if doc_type in (DocumentType.DRAW, DocumentType.IMPRESS):
+        if doc_type in (_doc_type.DocumentType.DRAW, _doc_type.DocumentType.IMPRESS):
             return "draw"
         return "writer"
 
     def is_writer(self, doc):
-        return is_writer(doc)
+        return _doc_type.is_writer(doc)
 
     def is_calc(self, doc):
-        return is_calc(doc)
+        return _doc_type.is_calc(doc)
 
     def is_draw(self, doc):
-        return is_draw(doc)
+        return _doc_type.is_draw(doc)
 
     def get_full_text(self, doc, max_chars=8000):
         return get_full_document_text(doc, max_chars)

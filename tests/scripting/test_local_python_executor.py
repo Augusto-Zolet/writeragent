@@ -52,3 +52,20 @@ def test_single_generatorexp_still_works():
     executor.send_tools({})
     executor("result = sum(x for x in (1, 2, 3))")
     assert executor.state["result"] == 6
+
+
+def test_local_python_executor_does_not_import_tools():
+    """LibrePy ships LPE without the smolagents Tool chain."""
+    from pathlib import Path
+
+    import plugin.contrib.smolagents.local_python_executor as lpe
+
+    tree = ast.parse(Path(lpe.__file__).read_text(encoding="utf-8"))
+    mods: list[str] = []
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom) and node.module:
+            mods.append(node.module)
+        elif isinstance(node, ast.Import):
+            mods.extend(alias.name for alias in node.names)
+    assert ".tools" not in mods
+    assert "tools" not in mods

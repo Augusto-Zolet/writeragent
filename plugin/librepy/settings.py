@@ -15,7 +15,8 @@ from plugin.chatbot.dialogs import (
     get_control_text,
     get_optional,
     is_checkbox_control,
-    load_writeragent_dialog,
+    load_writeragent_dialog_detail,
+    msgbox,
     set_checkbox_state,
     set_control_text,
     set_control_visible,
@@ -29,7 +30,7 @@ from plugin.scripting.venv_probe_ui import ScriptingVenvTestListener, VenvProbeP
 
 log = logging.getLogger(__name__)
 
-_SCRIPTING_TAB_PAGE = 3
+_SCRIPTING_TAB_PAGE = 3  # SettingsDialog.xdl Python page (page 3 of the multi-page dialog)
 _LIBREPY_HIDDEN_SCRIPTING_CONTROLS = (
     "scripting__ppt_master_data_path",
     "label_scripting__ppt_master_data_path",
@@ -45,7 +46,7 @@ class _DownloadVecPackListener(BaseActionListener):
         self._dlg = dlg
 
     def on_action_performed(self, rEvent) -> None:
-        from plugin.scripting.audio_recorder_service import run_vec_pack_download
+        from plugin.scripting.native_binaries import run_vec_pack_download
 
         def probe(on_display, on_status):
             ok = run_vec_pack_download(on_display, on_status)
@@ -97,6 +98,9 @@ def _configure_librepy_settings_chrome(dlg: Any) -> None:
         scripting_tab.addActionListener(TabListener(dlg, _SCRIPTING_TAB_PAGE))
 
     _hide_settings_controls(dlg, _LIBREPY_HIDDEN_SCRIPTING_CONTROLS)
+    download_label = get_optional(dlg, "label_scripting__download_audio_binaries")
+    if download_label is not None:
+        set_control_text(download_label, _("Download Cython serialization binary:"))
 
 
 def _populate_field(ctrl: Any, field: dict[str, Any]) -> None:
@@ -136,16 +140,23 @@ def open_librepy_settings(ctx: Any) -> None:
     from plugin.chatbot.settings_fields import apply_field_specs_result
 
     init_logging(ctx)
-    log.warning("LibrePy settings: opening dialog")
+    log.debug("LibrePy settings: opening dialog")
 
     try:
-        dlg = load_writeragent_dialog("SettingsDialog", ctx)
+        dlg, load_detail = load_writeragent_dialog_detail("SettingsDialog", ctx)
     except Exception:
         log.exception("LibrePy settings: dialog load failed")
         raise
 
     if dlg is None:
         log.error("LibrePy settings: SettingsDialog failed to load (null dialog)")
+        detail = f"\n\n{load_detail}" if load_detail else ""
+        msgbox(
+            ctx,
+            _("Python Settings"),
+            _("Could not open Settings.") + detail,
+            box_type=3,
+        )
         return
 
     # UNO multi-page dialogs use model.Step (not Page); setPropertyValue("Page") fails on Linux.
@@ -173,7 +184,9 @@ def open_librepy_settings(ctx: Any) -> None:
     test_btn = get_optional(dlg, "scripting__test_venv")
     test_listener = None
     if test_btn is not None:
-        test_listener = ScriptingVenvTestListener(ctx, dlg)
+        test_listener = ScriptingVenvTestListener(
+            ctx, dlg, include_vector_search=False, include_audio=False
+        )
         test_btn.addActionListener(test_listener)
 
     download_btn = get_optional(dlg, "scripting__download_audio_binaries")

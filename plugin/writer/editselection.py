@@ -23,7 +23,8 @@ from plugin.framework.errors import format_error_message
 from plugin.chatbot.dialogs import msgbox
 from plugin.framework.i18n import _
 from plugin.chatbot.selection import create_validated_client, prompt_for_edit_instructions, stream_completion
-from plugin.doc.document_helpers import WriterStreamedAppendSession, WriterStreamedRewriteSession, build_writer_rewrite_prompt, get_string_without_tracked_deletions
+from plugin.doc.text_helpers import get_string_without_tracked_deletions
+from plugin.doc.document_helpers import WriterStreamedAppendSession, WriterStreamedRewriteSession, build_writer_rewrite_prompt
 from plugin.writer.edit_review import review_recording_enabled
 
 

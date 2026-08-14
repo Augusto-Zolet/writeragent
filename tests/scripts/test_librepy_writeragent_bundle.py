@@ -40,6 +40,52 @@ def test_librepy_bundle_includes_deal_shim():
     assert "plugin/framework/deal_shim.py" in paths
 
 
+def test_librepy_bundle_includes_doc_type_and_datetime_wire():
+    paths = collect_librepy_plugin_paths(str(_REPO_ROOT))
+    assert "plugin/doc/doc_type.py" in paths
+    assert "plugin/doc/text_helpers.py" in paths
+    assert "plugin/calc/datetime_wire.py" in paths
+    assert "plugin/calc/analyzer.py" in paths
+
+
+def test_librepy_bundle_excludes_dead_tool_module():
+    paths = collect_librepy_plugin_paths(str(_REPO_ROOT))
+    assert "plugin/framework/tool.py" not in paths
+
+
+def test_librepy_bundle_excludes_chat_document_helpers_and_smolagents_tools():
+    paths = collect_librepy_plugin_paths(str(_REPO_ROOT))
+    assert "plugin/doc/document_helpers.py" not in paths
+    assert "plugin/writer/ops.py" not in paths
+    assert "plugin/writer/review_authors.py" not in paths
+    assert "plugin/draw/bridge.py" not in paths
+    assert "plugin/chatbot/settings_tab_order.py" not in paths
+    assert "plugin/contrib/smolagents/tools.py" not in paths
+    assert "plugin/contrib/smolagents/agent_types.py" not in paths
+    assert "plugin/contrib/smolagents/tool_validation.py" not in paths
+    assert "plugin/contrib/smolagents/_function_type_hints_utils.py" not in paths
+    assert "plugin/contrib/smolagents/local_python_executor.py" in paths
+    assert "plugin/contrib/smolagents/utils.py" in paths
+
+
+def test_librepy_bundle_excludes_llm_image_gen_and_llm_client():
+    """LLM image gen and llm_client must not ship in LibrePy; analyzer stays (later use)."""
+    paths = collect_librepy_plugin_paths(str(_REPO_ROOT))
+    assert "plugin/writer/images/image_utils.py" not in paths
+    assert "plugin/framework/client/llm_client.py" not in paths
+    assert "plugin/writer/images/image_tools.py" in paths
+    assert "plugin/calc/analyzer.py" in paths
+
+
+def test_librepy_bundle_includes_xl_static_rewrite():
+    paths = collect_librepy_plugin_paths(str(_REPO_ROOT))
+    assert "plugin/calc/python/xl_static_rewrite.py" in paths
+    assert "plugin/calc/python/addin_impl.py" in paths
+    assert "plugin/scripting/native_binaries.py" in paths
+    assert "plugin/scripting/audio_recorder_service.py" not in paths
+    assert "plugin/calc/python/workbook_lifecycle.py" in paths
+
+
 def test_librepy_bundle_includes_extension_update_check():
     """Weekly update check + sync_request deps must ship in LibrePy.oxt."""
     paths = collect_librepy_plugin_paths(str(_REPO_ROOT))

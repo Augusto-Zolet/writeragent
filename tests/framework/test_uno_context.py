@@ -163,6 +163,28 @@ def test_set_package_extension_id_override():
     reset_package_extension_id_for_tests()
 
 
+def test_product_display_name_follows_extension_id():
+    from plugin.framework.constants import EXTENSION_ID_LIBREPY, EXTENSION_ID_WRITERAGENT
+    from plugin.framework.uno_context import (
+        product_display_name,
+        reset_package_extension_id_for_tests,
+        set_package_extension_id,
+    )
+
+    reset_package_extension_id_for_tests()
+    set_package_extension_id(EXTENSION_ID_LIBREPY)
+    try:
+        assert product_display_name() == "LibrePy"
+    finally:
+        reset_package_extension_id_for_tests()
+
+    set_package_extension_id(EXTENSION_ID_WRITERAGENT)
+    try:
+        assert product_display_name() == "WriterAgent"
+    finally:
+        reset_package_extension_id_for_tests()
+
+
 def test_extension_id_constants_match_package_ids():
     from plugin.framework.constants import (
         EXTENSION_ID_LIBREHARPER,

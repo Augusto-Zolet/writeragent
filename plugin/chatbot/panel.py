@@ -989,7 +989,7 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
     # _transcribe_audio_async is provided by SendHandlersMixin.
 
     def _get_doc_type_str(self, model):
-        from plugin.doc.document_helpers import doc_type_title_for_label
+        from plugin.doc.doc_type import doc_type_title_for_label
 
         return doc_type_title_for_label(getattr(self, "cached_doc_type", None))
 

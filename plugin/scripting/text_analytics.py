@@ -20,7 +20,7 @@ from plugin.scripting.helper_domain import (
 )
 
 if TYPE_CHECKING:
-    from plugin.doc.document_helpers import HeadingTreeNode
+    from plugin.doc.text_helpers import HeadingTreeNode
 
 _TEXT_VENV_EXPORTS = frozenset({"analyze_text", "check_diagnostics", "run_text_analytics"})
 
@@ -77,7 +77,7 @@ def supports_text_analytics_manual(doc: Any) -> bool:
     if doc is None:
         return False
     try:
-        from plugin.doc.document_helpers import is_writer
+        from plugin.doc.doc_type import is_writer
 
         return is_writer(doc)
     except Exception:
@@ -106,7 +106,7 @@ def run_trusted_text_analytics(
     params: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Run a trusted text analytics helper against the Writer document text."""
-    from plugin.doc.document_helpers import is_writer
+    from plugin.doc.doc_type import is_writer
     from plugin.framework.errors import ToolExecutionError
     from plugin.scripting.client import run_text_analytics as client_run
 
@@ -130,7 +130,8 @@ def run_trusted_text_analytics(
 def _get_writer_text(doc: Any) -> str:
     """Best-effort extraction of document text for analysis (no tracked deletions)."""
     try:
-        from plugin.doc.document_helpers import get_string_without_tracked_deletions, is_writer
+        from plugin.doc.doc_type import is_writer
+        from plugin.doc.text_helpers import get_string_without_tracked_deletions  # local import only
 
         if not is_writer(doc):
             return ""
@@ -150,7 +151,8 @@ def _get_writer_sections(doc: Any) -> list[str]:
     Falls back to single full-text element when headings are absent.
     """
     try:
-        from plugin.doc.document_helpers import build_heading_tree, get_string_without_tracked_deletions, is_writer
+        from plugin.doc.doc_type import is_writer
+        from plugin.doc.text_helpers import build_heading_tree, get_string_without_tracked_deletions  # local import only
         if not is_writer(doc):
             return []
 
@@ -326,7 +328,7 @@ def _result_to_html_table(data: dict[str, Any]) -> str:
 
 def insert_text_analytics_result_into_doc(ctx: Any, doc: Any, result: dict[str, Any]) -> int:
     """Insert a compact HTML report for the text analytics result (Writer)."""
-    from plugin.doc.document_helpers import is_writer
+    from plugin.doc.doc_type import is_writer
     from plugin.framework.errors import ToolExecutionError
     from plugin.writer.format import insert_content_at_position
 

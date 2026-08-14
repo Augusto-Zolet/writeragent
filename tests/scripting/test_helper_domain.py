@@ -12,6 +12,7 @@ from plugin.scripting.helper_domain import (
     parse_helper_script_header,
     parse_run_import_call_params,
     parse_run_import_call_spec,
+    prepend_run_import_document_bindings,
 )
 
 
@@ -117,3 +118,11 @@ def test_format_elapsed_time_buckets():
     assert format_elapsed_time(0.05).endswith("ms")
     assert format_elapsed_time(2.5) == "2.50s"
     assert "m" in format_elapsed_time(65)
+
+
+def test_prepend_run_import_document_bindings_uses_generic_comment():
+    out = prepend_run_import_document_bindings("result = 1\n", bindings={"text": "hi"})
+    assert out.startswith("# Document inputs injected below")
+    assert "WriterAgent" not in out
+    assert 'text = "hi"' in out
+    assert out.endswith("result = 1\n")

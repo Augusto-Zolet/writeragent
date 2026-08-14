@@ -149,7 +149,7 @@ class ModuleConfigDialog:
 
         try:
             smgr = ctx.getServiceManager()
-            base_url = get_extension_url()
+            base_url = get_extension_url(ctx)
             dp = smgr.createInstanceWithContext("com.sun.star.awt.DialogProvider", ctx)
             dlg = dp.createDialog(base_url + "/Dialogs/%s.xdl" % dialog_id)
         except Exception:

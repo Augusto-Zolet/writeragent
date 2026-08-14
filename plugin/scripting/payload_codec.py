@@ -187,7 +187,7 @@ def host_cython_status_line(*, reload: bool = False) -> str:
     """Human-readable host Cython status for Settings → Python Test probe header.
 
     Default is report-only (no import/reload). Pass ``reload=True`` on the main
-    thread after ``ensure_downloaded_audio_on_path`` when a fresh load is wanted.
+    thread after ``native_binaries.ensure_downloaded_audio_on_path`` when a fresh load is wanted.
     """
     if reload:
         reload_host_cython_accelerator()

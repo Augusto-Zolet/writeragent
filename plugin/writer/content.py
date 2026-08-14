@@ -24,7 +24,8 @@ import time
 
 from plugin.framework.tool import ToolBase, ToolBaseDummy
 from plugin.framework.prompts import APPLY_DOCUMENT_CONTENT_TOOL_RESEARCH_HINT
-from plugin.doc.document_helpers import normalize_linebreaks, get_string_without_tracked_deletions, collect_tracked_changes
+from plugin.doc.text_helpers import normalize_linebreaks, get_string_without_tracked_deletions
+from plugin.doc.document_helpers import collect_tracked_changes
 from plugin.writer.edit_review import EditReviewSession, edit_review_wait_seconds, review_recording_enabled, get_agent_edit_review_mode
 from plugin.framework.errors import safe_json_loads, ToolExecutionError
 from plugin.writer import search as search_mod
@@ -1647,7 +1648,7 @@ def _count_headings(nodes):
 
 def collect_document_stats(doc, doc_svc):
     """Character/word/paragraph/page/heading counts for a Writer document."""
-    from plugin.doc.document_helpers import build_heading_tree
+    from plugin.doc.text_helpers import build_heading_tree
 
     try:
         text_obj = doc.getText()

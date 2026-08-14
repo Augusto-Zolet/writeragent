@@ -81,11 +81,11 @@ def bootstrap(ctx=None) -> None:
 
         init_config(ctx)
         try:
-            from plugin.scripting.audio_recorder_service import ensure_downloaded_audio_on_path
+            from plugin.scripting.native_binaries import ensure_downloaded_audio_on_path
 
             ensure_downloaded_audio_on_path()
         except Exception:
-            pass
+            log.debug("Native binary path setup failed", exc_info=True)
         from plugin.framework.i18n import init_i18n
 
         init_i18n(ctx)
@@ -103,6 +103,15 @@ def bootstrap(ctx=None) -> None:
         except Exception:
             log.debug("Excel PY auto-convert on open install failed", exc_info=True)
         _initialized = True
+
+
+def _schedule_update_check(ctx: Any) -> None:
+    try:
+        from plugin.chatbot.extension_update_check import schedule_extension_update_check_once
+
+        schedule_extension_update_check_once(ctx, EXTENSION_ID)
+    except Exception as e:
+        log.warning("extension update check schedule failed: %s", e)
 
 
 def _dispatch_command(command: str, ctx: Any | None = None) -> None:
@@ -123,33 +132,20 @@ class MainBootstrapJob(unohelper.Base, XJobExecutor, XJob):
 
     def execute(self, Arguments) -> tuple[()]:
         try:
-            from plugin.framework.config import init_config
-
-            init_config(self.ctx)
-        except Exception:
-            pass
-        try:
-            bootstrap(self.ctx)
             init_logging(self.ctx)
-            try:
-                from plugin.chatbot.extension_update_check import schedule_extension_update_check_once
-
-                schedule_extension_update_check_once(self.ctx, EXTENSION_ID)
-            except Exception as e:
-                log.warning("extension update check schedule failed: %s", e)
+            bootstrap(self.ctx)
+            _schedule_update_check(self.ctx)
         except Exception as e:
             log.exception("LibrePy bootstrap failed: %s", e)
         return ()
 
     def trigger(self, Event) -> None:
-        bootstrap(self.ctx)
-        init_logging(self.ctx)
         try:
-            from plugin.chatbot.extension_update_check import schedule_extension_update_check_once
-
-            schedule_extension_update_check_once(self.ctx, EXTENSION_ID)
+            init_logging(self.ctx)
+            bootstrap(self.ctx)
+            _schedule_update_check(self.ctx)
         except Exception as e:
-            log.warning("extension update check schedule failed: %s", e)
+            log.exception("LibrePy trigger bootstrap failed: %s", e)
         args = Event
         if args and isinstance(args, str) and "." in args:
             cmd = args[7:] if args.startswith("plugin.") else args
@@ -187,9 +183,9 @@ class DispatchHandler(unohelper.Base, XDispatch, XDispatchProvider, XInitializat
     def dispatch(self, URL, Arguments) -> None:
         command = dispatch_command_from_url(URL)
         try:
-            bootstrap(self.ctx)
             init_logging(self.ctx)
-            wa_log.warning(
+            bootstrap(self.ctx)
+            wa_log.debug(
                 "LibrePy dispatch: command=%r complete=%r path=%r",
                 command,
                 getattr(URL, "Complete", ""),

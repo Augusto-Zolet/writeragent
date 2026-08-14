@@ -4,7 +4,7 @@
 
 Architectural design for the **LibrePythonista-style Monaco editor** in WriterAgent.
 
-**Status (2026-06):** **Phase 2A + Phase 3 + 2E shipped.** Calc **Edit Python in Cell…** (menubar + cell right-click) and **Run Python Script…** Monaco both use a persistent pywebview child in the user venv. Dual save modes, editable **Data:** range textbox, document-attached scripts, init script editor, save feedback, WM-close lifecycle, stderr drain, full-traceback failure dialogs, and **automatic LibreOffice theme sync** (Monaco + toolbar chrome) are implemented. **Open:** Phase 2B syntax validate, 2C range picker, 2D Jedi (stub only today), 2F Flatpak spawn, sheet-level Python cell list. See `plugin/scripting/`, `plugin/calc/python/editor.py`, and `plugin/framework/appearance.py`.
+**Status (2026-08):** **Phase 2A + Phase 3 + 2E shipped; 2D debounce + missing-jedi hint shipped.** Calc **Edit Python in Cell…** (menubar + cell right-click + **Ctrl+Alt+Shift+P**) and **Run Python Script…** Monaco both use a persistent pywebview child in the user venv. Dual save modes, editable **Data:** range textbox, document-attached scripts, init script editor, save feedback, WM-close lifecycle, stderr drain, full-traceback failure dialogs, **automatic LibreOffice theme sync**, and Excel-style **Ctrl+Alt+Shift+F9** reset are implemented. **Open:** Phase 2B syntax validate, 2C range picker, 2F Flatpak spawn, sheet-level Python cell list. See `plugin/scripting/`, `plugin/calc/python/editor.py`, and `plugin/framework/appearance.py`.
 
 **`=PY()` is not localized:** The Calc add-in always registers the English function name `PYTHON` (programmatic `python`). Formulas stored by Calc must use that token in `getFormula()` / `FormulaLocal`. A localized alias (e.g. a translated function name) is a **bug** in add-in registration — do **not** add `FormulaOpCodeMapper` workarounds in the editor or formula parser.
 
@@ -26,12 +26,12 @@ The editor is a **separate native window** in the user's configured Python venv.
 | Editor diagnostics | [`plugin/scripting/editor_ipc.py`](../plugin/scripting/editor_ipc.py) | Msgbox text: stderr + `traceback.format_exception` |
 | Editor bridge | [`plugin/scripting/editor_host.py`](../plugin/scripting/editor_host.py) | Pipe reader thread; UNO on main thread via [`QueueExecutor`](../plugin/framework/queue_executor.py) |
 | Editor process | [`plugin/scripting/editor_main.py`](../plugin/scripting/editor_main.py) | `pywebview` + Monaco (venv only) |
-| Calc integration | [`plugin/calc/python/editor.py`](../plugin/calc/python/editor.py), [`python_formula_edit.py`](../plugin/calc/python/formula_edit.py), [`python_editor_context_menu.py`](../plugin/calc/python/editor_context_menu.py) | Active cell `=PY()` load/save; cell context menu |
+| Calc integration | [`plugin/calc/python/editor.py`](../plugin/calc/python/editor.py), [`python_formula_edit.py`](../plugin/calc/python/formula_edit.py), [`editor_context_menu.py`](../plugin/calc/python/editor_context_menu.py) | Active cell `=PY()` load/save; cell context menu |
 | Protocol | [`plugin/scripting/editor_ipc.py`](../plugin/scripting/editor_ipc.py) | `!I` length + pickle protocol 5 |
 | Frontend (runtime) | `rocher` in configured venv | `index.html`, `editor.js`, `scripts_manager.js`, `style.css`, Monaco `vs/` — served by child WSGI ([`editor_main.py`](../plugin/scripting/venv/editor_main.py)); **not bundled in the OXT** |
 | Frontend (dev source) | [`plugin/contrib/scripting/assets/editor/`](../plugin/contrib/scripting/assets/editor/) | In-repo copies of WriterAgent shell files (edit here; installed/served via venv `rocher`) |
 
-Menu: `org.extension.writeragent:scripting.edit_python_cell` in [`extension/Addons.xcu`](../extension/Addons.xcu) (Calc menubar). Cell right-click uses [`python_editor_context_menu.py`](../plugin/calc/python/editor_context_menu.py) (`XContextMenuInterceptor` — LibreOffice has no static Addons.xcu merge point for Calc cell popups).
+Menu: `org.extension.writeragent:scripting.edit_python_cell` in [`extension/Addons.xcu`](../extension/Addons.xcu) (Calc menubar); LibrePy uses `org.extension.librepy:scripting.edit_python_cell` in [`extension-core/Addons.xcu`](../extension-core/Addons.xcu). Cell right-click uses [`editor_context_menu.py`](../plugin/calc/python/editor_context_menu.py) (`XContextMenuInterceptor` — LibreOffice has no static Addons.xcu merge point for Calc cell popups). The interceptor resolves CommandURL at click time via `resolve_package_extension_id()` and registers on future Calc views through `GlobalEventBroadcaster` (`OnViewCreated`).
 
 ---
 
@@ -102,7 +102,7 @@ The Monaco **shell** (toolbar, status line, script picker, `prompt()`/`confirm()
 | Theme sync | LO VCL → `vs` / `vs-dark` + toolbar chrome (shipped in 2E via appearance.py + editor.js) |
 | Flatpak/Snap spawn | `flatpak-spawn --host` |
 | Formula bar button | Optional |
-| Jedi completions | **Stub shipped** in [`editor_jedi.py`](../plugin/scripting/editor_main.py) + `get_completions` in JS; Phase 2D adds debounce, background thread, Settings hint |
+| Jedi completions | Persistent `jedi.Environment` in [`editor_main.py`](../plugin/scripting/venv/editor_main.py); JS debounce (~150ms); missing-`jedi` status hint |
 
 ### Autocompletion (Jedi)
 
@@ -537,7 +537,7 @@ Port spawn helpers from LibrePythonista (see analysis doc): detect sandbox, wrap
 | **Run Python Script… → Monaco** | Reuse bridge with `load` from `last_python_script_*` config keys; **Run** persists config and executes (not formula save). Falls back to native dialog when pywebview unavailable. Shared launcher: [`editor_host.py`](../plugin/scripting/editor_host.py). Script picker UI: [`scripts_manager.js`](../plugin/contrib/scripting/assets/editor/scripts_manager.js) + [`document_scripts.py`](../plugin/scripting/document_scripts.py). | **Done** |
 | **Sample scratchpad reload** | **Sample** in the picker is the personal scratchpad (`last_python_script_*`), not a saved script. Initial open loads via `load.code`; switching back to Sample after picking **My Scripts** must reload scratchpad text (native XDL dialog already did this; Monaco initially did not). | **Done** |
 | **Formula bar button** | Needs LO UI extension research (Calc input line customization). High effort; do after context menu. Optional: double-click cell → editor when menu path is insufficient. Touch [`python_editor.py`](../plugin/calc/python/editor.py), [`Addons.xcu`](../extension/Addons.xcu). | |
-| **Excel-style accelerators** | Wire **Ctrl+Alt+Shift+F9** → **Reset Python Session**; optional **Ctrl+Alt+Shift+P** → **Edit Python in Cell…** per [enabling_numpy §6 shortcuts](enabling_numpy_in_libreoffice.md#keyboard-shortcuts-and-recalc). Touch [`Accelerators.xcu`](../extension/Accelerators.xcu). | |
+| **Excel-style accelerators** | **Ctrl+Alt+Shift+F9** → **Reset Python Session**; **Ctrl+Alt+Shift+P** → **Edit Python in Cell…** per [enabling_numpy §6 shortcuts](enabling_numpy_in_libreoffice.md#keyboard-shortcuts-and-recalc). WriterAgent [`extension/Accelerators.xcu`](../extension/Accelerators.xcu); LibrePy [`extension-core/Accelerators.xcu`](../extension-core/Accelerators.xcu). | **Done** |
 | **Tier-2 document store** | [`enabling_numpy_in_libreoffice.md`](enabling_numpy_in_libreoffice.md) Tier 2 (formula key + side store) is a **separate** product decision — do not mix with Monaco until formula-in-cell workflow is stable. | |
 | **Core extension split** | Keep all editor code in `plugin/scripting/` + thin `plugin/calc/python/editor.py` per [`ROADMAP.md`](../docs/ROADMAP.md) Phase 3–4 so a future core OXT can ship `=PY()` + editor without the LLM stack. | |
 | **Viz plot polish** | Plot anchor/z-order, replace-existing-chart, UNO e2e for `=PYTHON()` image insert — [Visualization](numpy-domains.md#visualization). | |
@@ -621,7 +621,7 @@ flowchart TD
 - **Session 1 (done):** native LO + configured venv with pywebview: menubar **Edit Python in Cell…**, edit any selected Calc cell, Save updates `=PY()` and recalc; failures show full tracebacks.
 - **Phase 2A (done):** context menu, stderr drain, multi-cell reload, persistent child reuse.
 - **Phase 2E (done):** automatic theme (LO light/dark drives Monaco `vs`/`vs-dark` + full toolbar chrome via shared appearance detector).
-- **Later:** syntax squiggles (2B), range picker button (2C), Jedi finish (2D), Flatpak spawn (2F).
+- **Later:** syntax squiggles (2B), range picker button (2C), Flatpak spawn (2F). **2D Jedi debounce + missing-jedi hint: done.**
 - `make test` green; typecheck clean; no UNO calls off main thread in bridge code paths.
 
 ### Session 1 behavior reference

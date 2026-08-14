@@ -16,7 +16,8 @@ import unohelper
 from com.sun.star.awt import XActionListener, XTopWindowListener
 
 from plugin.chatbot.dialogs import load_writeragent_dialog, msgbox
-from plugin.doc.document_helpers import get_string_without_tracked_deletions, is_writer
+from plugin.doc.doc_type import is_writer
+from plugin.doc.text_helpers import get_string_without_tracked_deletions
 from plugin.framework.i18n import _
 from plugin.framework.uno_context import get_active_document
 from plugin.scripting.client import run_text_analytics

@@ -116,7 +116,7 @@ def _doc_type_str_from_doc(doc: Any) -> str | None:
     if doc is None:
         return None
     try:
-        from plugin.doc.document_helpers import DocumentType, get_document_type
+        from plugin.doc.doc_type import DocumentType, get_document_type
 
         dt = get_document_type(doc)
         if dt == DocumentType.CALC:
@@ -321,7 +321,7 @@ class ToolContext:
         if uno_services_supported is not None:
             self.uno_services_supported = uno_services_supported
         else:
-            from plugin.doc.document_helpers import uno_services_for_doc_type_label
+            from plugin.doc.doc_type import uno_services_for_doc_type_label
 
             self.uno_services_supported = uno_services_for_doc_type_label(doc_type)
         if send_cancellation is not None and stop_checker is None:
@@ -580,7 +580,7 @@ def tool_supports_document(
 
     services = uno_services_supported
     if not services and doc_type:
-        from plugin.doc.document_helpers import uno_services_for_doc_type_label
+        from plugin.doc.doc_type import uno_services_for_doc_type_label
 
         services = uno_services_for_doc_type_label(doc_type)
 
@@ -713,7 +713,7 @@ class ToolRegistry:
             doc_type = _doc_type_str_from_doc(doc)
         if uno_services_supported is None and doc is not None and filter_doc_type:
             from plugin.framework.thread_guard import on_main_thread
-            from plugin.doc.document_helpers import get_document_uno_services
+            from plugin.doc.doc_type import get_document_uno_services
 
             if on_main_thread():
                 uno_services_supported = get_document_uno_services(doc)

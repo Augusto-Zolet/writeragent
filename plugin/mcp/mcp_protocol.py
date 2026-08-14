@@ -572,7 +572,7 @@ class MCPProtocolHandler:
             uno_services = frozenset()
             if doc is not None:
                 doc_type = self.services.document.detect_doc_type(doc)
-                from plugin.doc.document_helpers import uno_services_for_document
+                from plugin.doc.doc_type import uno_services_for_document
 
                 uno_services = uno_services_for_document(doc, doc_type)
             schemas = self.tool_registry.get_schemas(
@@ -794,7 +794,7 @@ class MCPProtocolHandler:
                 doc = _real_active_document(doc_svc)
                 if doc:
                     doc_type = doc_svc.detect_doc_type(doc)
-            from plugin.doc.document_helpers import uno_services_for_document
+            from plugin.doc.doc_type import uno_services_for_document
             from plugin.framework.uno_context import get_ctx
 
             ctx = get_ctx()
@@ -895,7 +895,7 @@ class MCPProtocolHandler:
                     "message": ("No document open in LibreOffice. Ask the user to open or create a document; "
                                 "list_open_documents works in this state to check what is open.")}
 
-        from plugin.doc.document_helpers import uno_services_for_document
+        from plugin.doc.doc_type import uno_services_for_document
         from plugin.framework.uno_context import get_ctx
 
         ctx = get_ctx()

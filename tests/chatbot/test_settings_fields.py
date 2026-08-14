@@ -63,3 +63,23 @@ def test_apply_field_specs_result_uses_config_key():
 
     mock_set.assert_called_once_with("scripting.python_venv_path", "/opt/venv")
     mock_bus.emit.assert_called_once_with("config:changed", ctx=ctx)
+
+
+def test_call_options_provider_skips_plugin_main_when_absent():
+    import sys
+    import types
+
+    from plugin.chatbot.settings_fields import call_options_provider
+
+    seen: list[object] = []
+
+    def provide(services):
+        seen.append(services)
+        return ["ok"]
+
+    fake = types.ModuleType("wa_librepy_opts")
+    fake.provide = provide
+    with patch.dict(sys.modules, {"plugin.main": None, "wa_librepy_opts": fake}):
+        out = call_options_provider(MagicMock(), "wa_librepy_opts:provide")
+    assert out == ["ok"]
+    assert seen == [None]

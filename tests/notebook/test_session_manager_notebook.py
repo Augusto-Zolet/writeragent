@@ -54,7 +54,7 @@ def test_reset_notebook_python_session_calls_worker():
         patch("plugin.scripting.session_manager._has_notebook_registry", return_value=True),
         patch("plugin.scripting.session_manager.notebook_session_id", return_value="notebook:file:///tmp/nb.odt"),
         patch("plugin.scripting.session_manager.reset_python_session", return_value={"status": "ok"}) as mock_reset,
-        patch("plugin.scripting.session_manager.msgbox"),
+        patch("plugin.scripting.session_manager._msgbox"),
     ):
         reset_notebook_python_session(ctx)
     mock_reset.assert_called_once_with(ctx, "notebook:file:///tmp/nb.odt")

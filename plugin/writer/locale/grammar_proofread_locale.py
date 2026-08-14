@@ -69,7 +69,21 @@ GRAMMAR_BATCH_MAX_SENTENCES = 8
 GRAMMAR_MAX_IN_FLIGHT = 8
 
 
-def grammar_max_in_flight(ctx: Any) -> int:
+def _clamped_int_config(key: str, default: int, lo: int, hi: int, *, warn_name: str = "") -> int:
+    """Read an int config key, falling back to default if <= 0 and clamping to [lo, hi]."""
+    from plugin.framework import config
+
+    n = config.get_config_int_safe(key)
+    if n <= 0:
+        return default
+    if n < lo or n > hi:
+        if warn_name:
+            _log.warning("[grammar] %s %d out of range [%d, %d], clamping", warn_name, n, lo, hi)
+        return max(lo, min(hi, n))
+    return n
+
+
+def grammar_max_in_flight(ctx: Any = None) -> int:
     """Clamp ``doc.grammar_proofreader_max_in_flight`` to [1, GRAMMAR_MAX_IN_FLIGHT].
 
     Local providers (Harper, LanguageTool, Vale) always use 1 worker; parallel
@@ -77,11 +91,44 @@ def grammar_max_in_flight(ctx: Any) -> int:
     """
     from plugin.framework import config
 
-    n = config.get_config_int_safe("doc.grammar_proofreader_max_in_flight")
-    n = max(1, min(GRAMMAR_MAX_IN_FLIGHT, n))
+    n = _clamped_int_config("doc.grammar_proofreader_max_in_flight", default=1, lo=1, hi=GRAMMAR_MAX_IN_FLIGHT)
     if config.get_grammar_provider() != "llm":
         return 1
     return n
+
+
+def grammar_batch_sentences(ctx: Any = None) -> int:
+    """Clamp ``doc.grammar_proofreader_batch_sentences`` to [1, GRAMMAR_BATCH_MAX_SENTENCES].
+
+    Logs a warning and clamps if the value is out of bounds or malformed.
+    """
+    return _clamped_int_config(
+        "doc.grammar_proofreader_batch_sentences",
+        default=1,
+        lo=1,
+        hi=GRAMMAR_BATCH_MAX_SENTENCES,
+        warn_name="batch_sentences",
+    )
+
+
+def grammar_max_tokens(ctx: Any = None) -> int:
+    """Return max output tokens for LLM grammar response, clamped to [256, 16384]."""
+    return _clamped_int_config(
+        "doc.grammar_proofreader_max_tokens",
+        default=GRAMMAR_PROOFREAD_MAX_RESPONSE_TOKENS,
+        lo=256,
+        hi=16384,
+    )
+
+
+def grammar_max_chars(ctx: Any = None) -> int:
+    """Return max sentence character limit, clamped to [512, 65536]."""
+    return _clamped_int_config(
+        "doc.grammar_proofreader_max_chars",
+        default=GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS,
+        lo=512,
+        hi=65536,
+    )
 
 
 # Maximum tokens requested for a single-sentence language detection LLM call.
@@ -308,6 +355,38 @@ for _t in GRAMMAR_REGISTRY_LOCALE_TAGS:
         _CANON_BY_LANG_NO_REGION[key] = _t
 
 
+# Special country/dialect overrides for multi-region or alias languages
+_LANGUAGE_DIALECT_OVERRIDES: dict[tuple[str, str], str] = {
+    # English regional variants
+    ("en", "GB"): "en-GB",
+    ("en", "UK"): "en-GB",
+    ("en", "AU"): "en-AU",
+    ("en", "CA"): "en-CA",
+    ("en", "IN"): "en-IN",
+    # Chinese variants
+    ("zh", "TW"): "zh-TW",
+    ("zh", "HK"): "zh-TW",
+    ("zh", "MO"): "zh-TW",
+    ("zh", "CN"): "zh-CN",
+    # Norwegian variants
+    ("no", "NO"): "nb-NO",
+    ("no", ""): "nb-NO",
+    ("nb", "NO"): "nb-NO",
+    ("nb", ""): "nb-NO",
+    ("nn", "NO"): "nn-NO",
+    ("nn", ""): "nn-NO",
+}
+
+_LANGUAGE_DEFAULT_FALLBACKS: dict[str, str] = {
+    "en": "en-US",
+    "zh": "zh-CN",
+    "pt": "pt-BR",
+    "nb": "nb-NO",
+    "no": "nb-NO",
+    "nn": "nn-NO",
+}
+
+
 @dataclass(frozen=True)
 class _LocaleTagShim:
     """Minimal Locale-like object for ``normalize_uno_locale_to_bcp47`` on LLM tags."""
@@ -358,37 +437,27 @@ def normalize_uno_locale_to_bcp47(a_locale: Any) -> str | None:
     lang_l = lang.lower()
     key = (lang_l, country)
 
+    # 1. Exact (lang, country) or (lang, "") matches
     if key in _EXACT_PAIR_TO_TAG:
         return _EXACT_PAIR_TO_TAG[key]
     if (lang_l, "") in _EXACT_PAIR_TO_TAG:
         return _EXACT_PAIR_TO_TAG[(lang_l, "")]
 
-    if lang_l == "en":
-        if country in ("GB", "UK"):
-            return "en-GB"
-        return "en-US"
+    # 2. Dialect / territory overrides
+    if key in _LANGUAGE_DIALECT_OVERRIDES:
+        return _LANGUAGE_DIALECT_OVERRIDES[key]
 
-    if lang_l == "zh":
-        if country in ("TW", "HK", "MO"):
-            return "zh-TW"
-        return "zh-CN"
+    # 3. Base language default fallbacks
+    if lang_l in _LANGUAGE_DEFAULT_FALLBACKS:
+        return _LANGUAGE_DEFAULT_FALLBACKS[lang_l]
 
-    if lang_l in ("nb", "no"):
-        return "nb-NO"
-    if lang_l == "nn":
-        return "nn-NO"
-
-    if lang_l == "pt":
-        return "pt-BR"
-
-    c = _CANON_BY_LANG_NO_REGION.get(lang_l)
-    if c is not None:
-        return c
-    return None
+    # 4. Standard regional fallback (e.g. de-AT -> de-DE, es-MX -> es-ES)
+    return _CANON_BY_LANG_NO_REGION.get(lang_l)
 
 
 def grammar_english_name_for_bcp47(bcp47: str) -> str:
     return GRAMMAR_REGISTRY_LOCALES.get(bcp47, bcp47)
+
 
 
 # ---------------------------------------------------------------------------
@@ -511,6 +580,7 @@ def looks_complete_sentence(text: str) -> bool:
 #   5. Out of scope here: dialogue !/? quote merging; wiring LO BI to @ss=standard.
 #
 _COMMON_ABBREVIATIONS: frozenset[str] = CLDR_ABBREVS
+_ABBREV_VOWELS: frozenset[str] = frozenset("aeiouyаеёиоуыэюяαεηιουω")
 
 
 def word_before_period_is_abbrev(word: str) -> int:
@@ -544,9 +614,8 @@ def word_before_period_is_abbrev(word: str) -> int:
             return len(word)
 
     # 5. Consonant-only check (no vowels in Latin, Cyrillic, or Greek)
-    vowels = set("aeiouyаеёиоуыэюяαεηιουω")
     alpha_chars = [ch for ch in w_norm if ch.isalpha()]
-    if alpha_chars and not any(ch in vowels for ch in alpha_chars):
+    if alpha_chars and not any(ch in _ABBREV_VOWELS for ch in alpha_chars):
         return len(word)
 
     _log.debug("[grammar] obs word_before_period_is_abbrev REJECT word=%r", word)
@@ -600,9 +669,7 @@ GRAMMAR_CACHE_NORMALIZATION_RE = re.compile(rf"^(.*?{_sterm_class})({_sterm_clas
 # Scheduling thresholds (partial sentence gating)
 # ---------------------------------------------------------------------------
 
-GRAMMAR_NONSPACE_SCHEDULE_RE = re.compile(r"\S", re.UNICODE)
-
 
 def count_nonspace_chars(text: str) -> int:
-    return len(GRAMMAR_NONSPACE_SCHEDULE_RE.findall(text or ""))
+    return sum(1 for c in (text or "") if not c.isspace())
 

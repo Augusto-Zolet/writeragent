@@ -6,9 +6,10 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from plugin.chatbot.module_config_dialog import (
+    ModuleConfigDialog,
     _option_labels,
     _set_field_options,
     apply_module_config_result,
@@ -111,3 +112,22 @@ def test_apply_module_config_result_delegates_raw_values_to_config():
 
     mock_set_config.assert_any_call("demo.count", "42")
     mock_set_config.assert_any_call("demo.mode", "Fast Mode")
+
+
+def test_open_passes_ctx_to_get_extension_url():
+    ctx = MagicMock()
+    smgr = MagicMock()
+    ctx.getServiceManager.return_value = smgr
+    smgr.createInstanceWithContext.side_effect = RuntimeError("stop after url")
+    with (
+        patch(
+            "plugin.chatbot.module_config_dialog.get_module_config_dialog_id",
+            return_value="VisionSettingsDialog",
+        ),
+        patch(
+            "plugin.chatbot.module_config_dialog.get_extension_url",
+            return_value="file:///tmp/LibrePy.oxt",
+        ) as geu,
+    ):
+        ModuleConfigDialog(ctx, "vision")._open()
+    geu.assert_called_once_with(ctx)

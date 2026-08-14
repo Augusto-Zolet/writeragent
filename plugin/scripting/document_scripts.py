@@ -11,13 +11,8 @@ import json
 import logging
 from typing import Any
 
-from plugin.doc.document_helpers import (
-    get_document_property,
-    is_calc,
-    is_draw,
-    is_writer,
-    set_document_property,
-)
+from plugin.doc.doc_type import is_calc, is_draw, is_writer
+from plugin.doc.udprops import get_document_property, set_document_property
 from plugin.framework.errors import UnoObjectError
 from plugin.framework.i18n import _
 from plugin.framework.json_utils import safe_json_loads

@@ -283,7 +283,7 @@ flowchart TB
 Critical edges:
 
 1. [`grammar_work_queue.py`](../plugin/writer/locale/grammar_work_queue.py) top-level `from plugin.framework.client import model_fetcher, llm_client` loads entire [`client/__init__.py`](../plugin/framework/client/__init__.py) (LLM + embeddings + `scripting.client`).
-2. Same file top-level import of [`grammar_worker_llm`](../plugin/writer/locale/grammar_worker_llm.py) — LLM-only.
+2. Same file top-level import of [`grammar_worker`](../plugin/writer/locale/grammar_worker.py) — provider dispatch (LLM helpers unused on the Harper path).
 3. ~~Harper branch imported via `plugin.scripting.client`~~ — fixed: queue imports [`run_harper_check`](../plugin/writer/locale/harper.py) directly (no vision / trusted RPC).
 4. [`grammar_persistence.py`](../plugin/writer/locale/grammar_persistence.py) lazy-imports `get`/`set_document_property` from [`document_helpers.py`](../plugin/doc/document_helpers.py), which imports Calc at module load.
 5. Full [`plugin/writer/__init__.py`](../plugin/writer/__init__.py) must not ship as-is (Writer tools + linguistic index).
@@ -295,7 +295,7 @@ Without the refactors below, a “Harper-only” OXT is not small.
 These landed in the main tree so the filtered bundle stays small:
 
 1. **Harper host + LSP** live in [`plugin/writer/locale/harper.py`](../plugin/writer/locale/harper.py) (`run_harper_check` / `run_harper_lint`); grammar queue does not import `scripting.client`.
-2. **Lazy-import** LLM client / `grammar_worker_llm` only when `provider == "llm"`; local providers never construct `LlmClient`.
+2. **Lazy-import** LLM client / `grammar_worker` LLM helpers only when `provider == "llm"`; local providers never construct `LlmClient`.
 3. **Extracted** udprop get/set to [`plugin/doc/udprops.py`](../plugin/doc/udprops.py); `grammar_persistence` uses it.
 4. **Bundle** ships empty/slim `plugin/writer/__init__.py` and `plugin/doc/__init__.py` (assemble-time rewrite).
 5. **LibreHarper proofreader** [`harper_proofreader.py`](../plugin/writer/locale/harper_proofreader.py) with impl name `…HarperProofreader` + English-only locales.
@@ -321,9 +321,9 @@ Whole-file rule (same as the LibrePy split doc): if a module is imported, the en
 
 #### Grammar stack (~11)
 
-Empty `plugin/writer/__init__.py`. Under `plugin/writer/locale/`: proofreader entry (`ai_grammar_proofreader` rewritten or `harper_proofreader`), `grammar_work_queue`, `grammar_proofread_cache`, `grammar_proofread_locale`, `grammar_proofread_text`, `grammar_proofread_json`, `grammar_persistence`, `grammar_ignore_rules`, `grammar_obs`, `grammar_worker_phases`, package `__init__`.
+Empty `plugin/writer/__init__.py`. Under `plugin/writer/locale/`: proofreader entry (`ai_grammar_proofreader` rewritten or `harper_proofreader`), `grammar_work_queue`, `grammar_proofread_cache`, `grammar_proofread_locale`, `grammar_proofread_text`, `grammar_proofread_json`, `grammar_persistence`, `grammar_ignore_rules`, `grammar_obs`, `grammar_worker`, package `__init__`.
 
-**Omit:** `grammar_worker_llm.py`, `linguistic_index.py`, `stop_words.py`.
+**Omit:** `linguistic_index.py`, `stop_words.py`.
 
 #### Harper (~5)
 

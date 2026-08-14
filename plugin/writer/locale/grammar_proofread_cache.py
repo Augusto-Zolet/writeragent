@@ -138,18 +138,29 @@ def _populate_memory_cache_only(locale_key: str, sentence: str, errors: list[dic
 def cache_get_sentence(locale_key: str, sentence: str, ctx: Any | None = None, doc_id: str | None = None) -> list[dict[str, Any]] | None:
     """Return cached errors for this exact sentence (relative to sentence start = 0)."""
     key = make_sentence_key(locale_key, sentence)
+    fp = sentence_identity_fp(sentence)
+    result = None
     with grammar_registry.lock:
         hit = grammar_registry.sentence_cache.get(key)
-        if hit:
-            cached_fp, _canon, _is_complete, errors = hit
-            if cached_fp == sentence_identity_fp(sentence):
-                grammar_registry.sentence_cache.move_to_end(key)
-                return list(errors)
+        if hit and hit[0] == fp:
+            grammar_registry.sentence_cache.move_to_end(key)
+            result = list(hit[3])
+
+    if result is not None:
+        if ctx and doc_id:
+            p = get_persistence(ctx, doc_id)
+            if p and hasattr(p, "_session_accessed"):
+                lock = getattr(p, "_lock", None)
+                if lock is not None:
+                    with lock:
+                        p._session_accessed.add(fp)
+                else:
+                    p._session_accessed.add(fp)
+        return result
 
     if ctx and doc_id:
         p = get_persistence(ctx, doc_id)
         if p:
-            fp = sentence_identity_fp(sentence)
             persisted = p.get(fp)
             if persisted is not None:
                 # Warm memory cache
@@ -203,4 +214,3 @@ def clear_sentence_cache(ctx: Any | None = None) -> None:
     """Clear sentence cache (for tests)."""
     cache_clear(ctx)
 
-_SENTENCE_CACHE = grammar_registry.sentence_cache

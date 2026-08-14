@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""deal / Hypothesis verification for trusted_rpc, editor_ipc, and excel_xl."""
+"""deal / Hypothesis verification for editor_ipc and excel_xl."""
 
 from __future__ import annotations
 
@@ -11,30 +11,8 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from plugin.framework.errors import ToolExecutionError
-from plugin.scripting.trusted_rpc import parse_worker_dict_result
 from plugin.scripting.editor_ipc import failure_message
 from plugin.scripting.excel_xl import make_xl
-
-
-def test_parse_worker_dict_result_ok() -> None:
-    res = parse_worker_dict_result(
-        {"status": "ok", "result": {"output": 42}},
-        error_code="ERR",
-        error_label="Test",
-    )
-    assert res == {"output": 42}
-
-
-def test_parse_worker_dict_result_error_status() -> None:
-    with pytest.raises(ToolExecutionError) as exc_info:
-        parse_worker_dict_result(
-            {"status": "error", "message": "Failed"},
-            error_code="WORKER_FAIL",
-            error_label="Test",
-        )
-    assert exc_info.value.code == "WORKER_FAIL"
-    assert "Failed" in str(exc_info.value)
 
 
 @given(summary=st.text(min_size=1, max_size=40), detail=st.text(max_size=40))

@@ -911,6 +911,9 @@ def run_venv_self_check_with_progress(
     timeout: float | None = None,
     on_status: Callable[[str], None] | None = None,
     extra_lines_after_header: tuple[str, ...] | None = None,
+    *,
+    include_vector_search: bool = True,
+    include_audio: bool = True,
 ) -> Tuple[bool, str]:
     """Like :func:`run_venv_self_check` but refreshes the legacy grouped view through *on_display*."""
     from plugin.scripting.venv_worker import PythonWorkerManager
@@ -986,18 +989,19 @@ def run_venv_self_check_with_progress(
         "nlp": list(_NLP_PACKAGE_KEYS),
     }
 
-    _status(_("Audio Recording: checking sounddevice..."))
-    audio_probes, audio_failure = _probe_audio_packages(
-        python_exe,
-        timeout=float(SELF_CHECK_IMPORT_PROBE_TIMEOUT_SEC),
-    )
-    packages = data.setdefault("p", {})
-    if isinstance(packages, dict) and audio_probes:
-        packages.update(audio_probes)
-    data["audio"] = list(_AUDIO_PACKAGE_KEYS)
-    if audio_failure:
-        data["audio_probe_failure"] = audio_failure
-    _refresh(data, include_audio=True)
+    if include_audio:
+        _status(_("Audio Recording: checking sounddevice..."))
+        audio_probes, audio_failure = _probe_audio_packages(
+            python_exe,
+            timeout=float(SELF_CHECK_IMPORT_PROBE_TIMEOUT_SEC),
+        )
+        packages = data.setdefault("p", {})
+        if isinstance(packages, dict) and audio_probes:
+            packages.update(audio_probes)
+        data["audio"] = list(_AUDIO_PACKAGE_KEYS)
+        if audio_failure:
+            data["audio_probe_failure"] = audio_failure
+        _refresh(data, include_audio=True)
 
     for group_index, (group_title, packages) in enumerate(_SANDBOX_SELF_CHECK_GROUPS):
         checked: list[str] = []
@@ -1018,7 +1022,7 @@ def run_venv_self_check_with_progress(
                     completed_groups=group_index,
                     partial_group_keys=tuple(checked),
                     partial_group_title=group_title,
-                    include_audio=True,
+                    include_audio=include_audio,
                 )
                 continue
             present = pkg_resp.get("result") == "present"
@@ -1029,9 +1033,9 @@ def run_venv_self_check_with_progress(
                 completed_groups=group_index,
                 partial_group_keys=tuple(checked),
                 partial_group_title=group_title,
-                include_audio=True,
+                include_audio=include_audio,
             )
-        _refresh(data, completed_groups=group_index + 1, include_audio=True)
+        _refresh(data, completed_groups=group_index + 1, include_audio=include_audio)
 
     _status(_("Text / NLP Libraries: loading (first run may take a while)..."))
     nlp_probes, nlp_failure = _probe_nlp_packages(
@@ -1043,7 +1047,7 @@ def run_venv_self_check_with_progress(
         packages.update(nlp_probes)
     if nlp_failure:
         data["nlp_probe_failure"] = nlp_failure
-    _refresh(data, completed_groups=_SELF_CHECK_DISPLAY_GROUP_COUNT, include_audio=True)
+    _refresh(data, completed_groups=_SELF_CHECK_DISPLAY_GROUP_COUNT, include_audio=include_audio)
 
     _status(_("Vision Libraries: loading (first run may take a while)..."))
     vision_probes, vision_failure = _probe_vision_packages(
@@ -1060,35 +1064,36 @@ def run_venv_self_check_with_progress(
         data,
         completed_groups=_SELF_CHECK_DISPLAY_GROUP_COUNT,
         include_vision=True,
-        include_audio=True,
+        include_audio=include_audio,
     )
 
-    _status(_("Vector Search Libraries: loading (first run may take a while)..."))
-    vector_search_probes, vector_search_failure = _probe_vector_search_packages(
-        python_exe,
-        timeout=float(VECTOR_SEARCH_PROBE_TIMEOUT_SEC),
-    )
-    packages = data.setdefault("p", {})
-    if isinstance(packages, dict) and vector_search_probes:
-        packages.update(vector_search_probes)
-    data["vector_search"] = list(_VECTOR_SEARCH_PACKAGE_KEYS)
-    if vector_search_failure:
-        data["vector_search_probe_failure"] = vector_search_failure
-    _refresh(
-        data,
-        completed_groups=_SELF_CHECK_DISPLAY_GROUP_COUNT,
-        include_vector_search=True,
-        include_vision=True,
-        include_audio=True,
-    )
+    if include_vector_search:
+        _status(_("Vector Search Libraries: loading (first run may take a while)..."))
+        vector_search_probes, vector_search_failure = _probe_vector_search_packages(
+            python_exe,
+            timeout=float(VECTOR_SEARCH_PROBE_TIMEOUT_SEC),
+        )
+        packages = data.setdefault("p", {})
+        if isinstance(packages, dict) and vector_search_probes:
+            packages.update(vector_search_probes)
+        data["vector_search"] = list(_VECTOR_SEARCH_PACKAGE_KEYS)
+        if vector_search_failure:
+            data["vector_search_probe_failure"] = vector_search_failure
+        _refresh(
+            data,
+            completed_groups=_SELF_CHECK_DISPLAY_GROUP_COUNT,
+            include_vector_search=True,
+            include_vision=True,
+            include_audio=include_audio,
+        )
 
     try:
         final_msg = _build_probe_display(
             data,
             completed_groups=_SELF_CHECK_DISPLAY_GROUP_COUNT,
-            include_vector_search=True,
+            include_vector_search=include_vector_search,
             include_vision=True,
-            include_audio=True,
+            include_audio=include_audio,
             include_install_footer=True,
             extra_lines_after_header=extra_lines_after_header,
         )
@@ -1199,6 +1204,9 @@ def probe_venv_path_with_progress(
     timeout: float | None = None,
     on_status: Callable[[str], None] | None = None,
     extra_lines_after_header: tuple[str, ...] | None = None,
+    *,
+    include_vector_search: bool = True,
+    include_audio: bool = True,
 ) -> Tuple[bool, str]:
     """Resolve *venv_dir* and run a self-check, refreshing the legacy grouped view."""
     def _status(text: str) -> None:
@@ -1218,6 +1226,8 @@ def probe_venv_path_with_progress(
             timeout=timeout,
             on_status=on_status,
             extra_lines_after_header=extra_lines_after_header,
+            include_vector_search=include_vector_search,
+            include_audio=include_audio,
         )
         if ok:
             return True, f"LibreOffice process Python ({exe}) responds OK."
@@ -1244,4 +1254,6 @@ def probe_venv_path_with_progress(
         timeout=timeout,
         on_status=on_status,
         extra_lines_after_header=extra_lines_after_header,
+        include_vector_search=include_vector_search,
+        include_audio=include_audio,
     )

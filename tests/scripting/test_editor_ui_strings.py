@@ -24,6 +24,7 @@ def test_calc_cell_ui_includes_data_binding_and_cancel():
     assert ui["data_label"] == _("Data:")
     assert ui["data_binding_title"]
     assert ui["saved_plain"] == _("Saved without =PY().")
+    assert ui["jedi_missing"]
 
 
 def test_run_script_ui_matches_native_dialog_labels():
@@ -71,7 +72,7 @@ def test_enrich_maps_saved_ok_text_to_saved_default():
 
 
 def test_all_modes_return_non_empty_required_keys():
-    required = ("status_prefix", "ready", "error", "saving", "running", "save_label", "close_label")
+    required = ("status_prefix", "ready", "error", "saving", "running", "save_label", "close_label", "jedi_missing")
     for mode in ("calc_cell", "run_script", "latex"):
         ui = build_monaco_ui_strings(mode=mode)
         for key in required:

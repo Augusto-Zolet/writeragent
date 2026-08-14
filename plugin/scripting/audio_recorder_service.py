@@ -15,6 +15,12 @@ from typing import TYPE_CHECKING, Any
 
 from plugin.framework.config import get_config_str
 from plugin.framework.worker_pool import StderrTail, run_in_background, start_stderr_drain
+from plugin.scripting.native_binaries import (
+    _CONTRIB_BASE_URL,
+    _download_url_to_file,
+    ensure_downloaded_audio_on_path,
+    run_vec_pack_download,
+)
 
 if TYPE_CHECKING:
     import threading
@@ -254,47 +260,6 @@ def make_temp_wav_path() -> str:
     return path
 
 
-def _cleanup_stale_native_backups(bin_dir: str) -> None:
-    """Delete leftover ``*.old`` native backups from Windows rename-aside redownloads.
-
-    On Windows a loaded ``.pyd`` cannot be replaced in place, so redownload renames
-    the loaded image aside (``pack….pyd.old``) and drops the new file in place. Those
-    aside files are only unlocked after the owning process exits, so we sweep them on
-    the next startup once nothing maps them. POSIX never creates ``*.old`` backups
-    (``os.replace`` keeps the old inode alive), so this is a no-op there.
-    """
-    if os.name != "nt":
-        return
-    try:
-        for root, _dirs, files in os.walk(bin_dir):
-            for name in files:
-                if ".old" not in name:
-                    continue
-                stale = os.path.join(root, name)
-                try:
-                    os.remove(stale)
-                except OSError:
-                    # Still mapped by another live process; try again next startup.
-                    pass
-    except OSError as exc:
-        log.debug("Failed to sweep stale native backups in %s: %s", bin_dir, exc)
-
-
-def ensure_downloaded_audio_on_path() -> None:
-    """Ensure downloaded host binaries (audio + writeragent_vec) are on sys.path."""
-    from plugin.framework.config import user_config_dir
-    try:
-        ucd = user_config_dir()
-        if ucd:
-            bin_dir = os.path.join(ucd, "audio_binaries")
-            if os.path.isdir(bin_dir):
-                _cleanup_stale_native_backups(bin_dir)
-                if bin_dir not in sys.path:
-                    sys.path.insert(0, bin_dir)
-    except Exception as exc:
-        log.debug("Failed to add user config audio path to sys.path: %s", exc)
-
-
 def check_host_audio_supported() -> bool:
     """Check if host-side audio recording is supported by trying to import sounddevice."""
     ensure_downloaded_audio_on_path()
@@ -311,138 +276,6 @@ def is_audio_recording_supported(ctx: Any) -> bool:
     if is_audio_recording_configured(ctx):
         return True
     return check_host_audio_supported()
-
-
-_CONTRIB_BASE_URL = "https://raw.githubusercontent.com/KeithCu/writeragent/master/contrib/"
-
-
-def _atomic_replace_native(partial_path: str, dest_path: str) -> None:
-    """Move *partial_path* onto *dest_path* without ever overwriting a live mapping.
-
-    POSIX: a plain ``os.replace`` is atomic and keeps any existing ``mmap`` valid on
-    its old inode. Windows: a currently-loaded ``.pyd``/DLL cannot be deleted or
-    replaced (sharing violation), but it *can* be renamed. So on failure, rename the
-    loaded target aside (unique ``*.old`` name) and drop the new file in place; the
-    running process keeps its old in-memory copy and the fresh binary is used on the
-    next launch. ``_cleanup_stale_native_backups`` sweeps the aside files at startup.
-    """
-    try:
-        os.replace(partial_path, dest_path)
-        return
-    except OSError:
-        if os.name != "nt" or not os.path.exists(dest_path):
-            raise
-        aside = f"{dest_path}.old"
-        counter = 0
-        while os.path.exists(aside):
-            counter += 1
-            aside = f"{dest_path}.old.{counter}"
-        os.replace(dest_path, aside)
-        try:
-            os.replace(partial_path, dest_path)
-        except OSError:
-            # Restore the original so we never leave dest missing.
-            os.replace(aside, dest_path)
-            raise
-
-
-def _download_url_to_file(
-    url: str,
-    dest_path: str,
-    on_status: Callable[[str], None],
-) -> None:
-    """Download *url* to *dest_path* via a sibling ``.partial`` file + ``os.replace``.
-
-    Never truncate an existing destination in place: host natives (``pack*.so``,
-    ``_cffi_backend*.so``) may already be mmap'd after a prior import; in-place
-    ``open(..., "wb")`` rewrite can SIGBUS LibreOffice on the next call into
-    the old mapping (redownload crash).
-    """
-    import urllib.error
-    import urllib.request
-
-    req = urllib.request.Request(
-        url,
-        headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
-    )
-    partial_path = dest_path + ".partial"
-    try:
-        with urllib.request.urlopen(req) as response:
-            total_size = int(response.headers.get("content-length", 0))
-            block_size = 8192
-            downloaded = 0
-            os.makedirs(os.path.dirname(dest_path) or ".", exist_ok=True)
-            with open(partial_path, "wb") as fh:
-                while True:
-                    buffer = response.read(block_size)
-                    if not buffer:
-                        break
-                    downloaded += len(buffer)
-                    fh.write(buffer)
-                    if total_size:
-                        percent = int(downloaded * 100 / total_size)
-                        on_status(f"Downloading {os.path.basename(dest_path)}: {percent}%")
-        _atomic_replace_native(partial_path, dest_path)
-    except urllib.error.HTTPError as err:
-        raise RuntimeError(f"HTTP Error {err.code}: {err.reason} for URL: {url}") from err
-    except Exception as exc:
-        raise RuntimeError(f"Failed to download {url}: {exc}") from exc
-    finally:
-        if os.path.exists(partial_path):
-            try:
-                os.remove(partial_path)
-            except OSError:
-                pass
-
-
-def run_vec_pack_download(
-    on_display: Callable[[str], None],
-    on_status: Callable[[str], None],
-    *,
-    include_header: bool = True,
-) -> bool:
-    """Download the platform-specific Cython pack binary from contrib/vec_pack on GitHub."""
-    import platform
-    import sysconfig
-
-    from plugin.framework.config import user_config_dir
-
-    ucd = user_config_dir()
-    if not ucd:
-        raise RuntimeError("User config directory not resolved.")
-
-    ext_suffix = sysconfig.get_config_var("EXT_SUFFIX")
-    if not ext_suffix:
-        raise RuntimeError("Failed to determine Python EXT_SUFFIX.")
-
-    target_dir = os.path.join(ucd, "audio_binaries")
-    os.makedirs(target_dir, exist_ok=True)
-    base_url = _CONTRIB_BASE_URL
-
-    if include_header:
-        on_display(f"Target directory: {target_dir}\n")
-        on_display(f"Platform: {platform.system()} ({platform.machine()})\n")
-        on_display(f"Python: {platform.python_version()}\n\n")
-
-    vec_init_url = f"{base_url}vec_pack/__init__.py"
-    vec_init_dest = os.path.join(target_dir, "writeragent_vec", "__init__.py")
-    on_display("Downloading writeragent_vec/__init__.py...\n")
-    _download_url_to_file(vec_init_url, vec_init_dest, on_status)
-
-    pack_name = f"pack{ext_suffix}"
-    vec_bin_url = f"{base_url}vec_pack/{pack_name}"
-    vec_bin_dest = os.path.join(target_dir, "writeragent_vec", pack_name)
-    on_display(f"Downloading binary {pack_name}...\n")
-    _download_url_to_file(vec_bin_url, vec_bin_dest, on_status)
-
-    ensure_downloaded_audio_on_path()
-    # Drop stale in-process module after replace so the next load binds the new inode.
-    from plugin.scripting.payload_codec import invalidate_host_cython_accelerator
-
-    invalidate_host_cython_accelerator()
-    if include_header:
-        on_display("\nCython accelerator binary installed successfully.\n")
-    return True
 
 
 def run_audio_download(on_display: Callable[[str], None], on_status: Callable[[str], None]) -> bool:

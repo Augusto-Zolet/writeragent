@@ -284,7 +284,7 @@ def _string_skipping_redline(text_range: Any, skip_type: str) -> str:
 
     ``skip_type="Delete"`` yields the text as it would read if everything were ACCEPTED;
     ``skip_type="Insert"`` yields the text as if everything were REJECTED. Mirrors
-    ``document_helpers.get_string_without_tracked_deletions`` but parameterized.
+    ``text_helpers.get_string_without_tracked_deletions`` but parameterized.
     """
     try:
         para_enum = text_range.createEnumeration()

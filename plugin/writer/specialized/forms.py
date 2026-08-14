@@ -24,7 +24,7 @@ from com.sun.star.awt import Point, Size
 from com.sun.star.text.TextContentAnchorType import AS_CHARACTER
 
 from ..specialized_base import ToolWriterFormBase
-from plugin.doc.document_helpers import is_calc, is_draw
+from plugin.doc.doc_type import is_calc, is_draw
 from plugin.doc.visual_helpers import get_active_draw_page
 from plugin.framework.errors import format_error_payload, ToolExecutionError
 from plugin.framework.queue_executor import execute_on_main_thread
