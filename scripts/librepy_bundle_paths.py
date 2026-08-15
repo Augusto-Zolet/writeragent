@@ -68,6 +68,7 @@ LIBREPY_PLUGIN_FILES: tuple[str, ...] = (
     "plugin/calc/forecast_auto_plot.py",
     "plugin/calc/quant_egress.py",
     "plugin/calc/vision_egress.py",
+    "plugin/calc/python/__init__.py",
     "plugin/calc/python/addin_librepy.py",
     "plugin/calc/python/addin_impl.py",
     "plugin/calc/python/function.py",

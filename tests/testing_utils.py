@@ -24,6 +24,8 @@ _COM_SUN_STAR_MOCK_MODULE_KEYS = [
     "com.sun.star.style.BreakType",
     "com.sun.star.ui",
     "com.sun.star.ui.UIElementType",
+    "com.sun.star.container",
+    "com.sun.star.uno",
     "com.sun.star.datatransfer",
     "com.sun.star.datatransfer.clipboard",
 ]
@@ -191,6 +193,44 @@ def setup_uno_mocks():
                 self.Value = Value
 
         setattr(beans_mod, "PropertyValue", MockPropertyValue)
+
+    class MockNoSuchElementException(Exception):
+        pass
+
+    class MockDisposedException(Exception):
+        pass
+
+    class MockIllegalArgumentException(Exception):
+        pass
+
+    class MockRuntimeException(Exception):
+        pass
+
+    class MockUnoException(Exception):
+        pass
+
+    setattr(sys.modules["com.sun.star.container"], "NoSuchElementException", MockNoSuchElementException)
+    setattr(sys.modules["com.sun.star.lang"], "DisposedException", MockDisposedException)
+    setattr(sys.modules["com.sun.star.lang"], "IllegalArgumentException", MockIllegalArgumentException)
+    setattr(sys.modules["com.sun.star.uno"], "RuntimeException", MockRuntimeException)
+    setattr(sys.modules["com.sun.star.uno"], "Exception", MockUnoException)
+
+    class MockXSidebarPanel:
+        pass
+
+    class MockXToolPanel:
+        pass
+
+    class MockXUIElement:
+        pass
+
+    class MockXUIElementFactory:
+        pass
+
+    setattr(sys.modules["com.sun.star.ui"], "XSidebarPanel", MockXSidebarPanel)
+    setattr(sys.modules["com.sun.star.ui"], "XToolPanel", MockXToolPanel)
+    setattr(sys.modules["com.sun.star.ui"], "XUIElement", MockXUIElement)
+    setattr(sys.modules["com.sun.star.ui"], "XUIElementFactory", MockXUIElementFactory)
 
 class ElementStub:
     def __init__(self, text, outline_level=0, services=None):
