@@ -8,7 +8,7 @@ import logging
 import urllib.error
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
-from plugin.framework.constants import APP_REFERER, APP_TITLE, USER_AGENT
+from plugin.framework.constants import USER_AGENT
 from plugin.framework.errors import NetworkError
 from .ssl_helpers import get_verified_ssl_context, get_unverified_ssl_context, _is_certificate_verify_error
 from .provider_detection import is_local_host
@@ -28,15 +28,10 @@ def sync_request(url, data=None, headers=None, timeout=10, parse_json=True, meth
     if headers is None:
         headers = {}
 
-    # Add default headers to avoid being blocked and provide application identity
+    # Add default User-Agent header to identify WriterAgent
     has_ua = any(k.lower() == "user-agent" for k in headers.keys())
     if not has_ua:
         headers["User-Agent"] = USER_AGENT
-
-    if "HTTP-Referer" not in headers:
-        headers["HTTP-Referer"] = APP_REFERER
-    if "X-Title" not in headers:
-        headers["X-Title"] = APP_TITLE
 
     if isinstance(url, str):
         req = Request(url, data=data, headers=headers, method=method)

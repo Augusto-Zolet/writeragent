@@ -20,7 +20,8 @@
   <dlg:textfield dlg:id="request_timeout" dlg:page="1" dlg:left="390" dlg:top="24" dlg:width="40" dlg:height="14" dlg:tabstop="true" dlg:value="120"/>
 
   <dlg:text dlg:id="label_api_key" dlg:page="1" dlg:left="8" dlg:top="42" dlg:width="150" dlg:height="10" dlg:value="API Key:" dlg:align="left"/>
-  <dlg:textfield dlg:id="api_key" dlg:page="1" dlg:left="165" dlg:top="40" dlg:width="265" dlg:height="14" dlg:tabstop="true" dlg:value=""/>
+  <dlg:textfield dlg:id="api_key" dlg:page="1" dlg:left="165" dlg:top="40" dlg:width="175" dlg:height="14" dlg:tabstop="true" dlg:value=""/>
+  <dlg:button dlg:id="btn_test_conn" dlg:page="1" dlg:left="345" dlg:top="40" dlg:width="85" dlg:height="14" dlg:tabstop="true" dlg:value="Test Connection"/>
 
   <dlg:text dlg:id="label_text_model" dlg:page="1" dlg:left="8" dlg:top="58" dlg:width="150" dlg:height="10" dlg:value="Text/Chat Model:" dlg:align="left"/>
   <dlg:combobox dlg:id="text_model" dlg:page="1" dlg:left="165" dlg:top="56" dlg:width="265" dlg:height="14" dlg:tabstop="true" dlg:spin="true" dlg:dropdown="true" dlg:value="" dlg:border="1"/>
@@ -31,19 +32,25 @@
   <dlg:text dlg:id="label_stt_model" dlg:page="1" dlg:left="8" dlg:top="90" dlg:width="150" dlg:height="10" dlg:value="Audio Model:" dlg:align="left"/>
   <dlg:combobox dlg:id="stt_model" dlg:page="1" dlg:left="165" dlg:top="88" dlg:width="265" dlg:height="14" dlg:tabstop="true" dlg:spin="true" dlg:dropdown="true" dlg:value="" dlg:border="1"/>
 
-  <!-- Row 6: Temperature -->
+  <!-- Row 6: Temperature and Max Tokens on same line -->
   <dlg:text dlg:id="label_temperature" dlg:page="1" dlg:left="8" dlg:top="106" dlg:width="58" dlg:height="10" dlg:value="Temperature:" dlg:align="left"/>
   <dlg:textfield dlg:id="temperature" dlg:page="1" dlg:left="68" dlg:top="104" dlg:width="50" dlg:height="14" dlg:tabstop="true" dlg:value="-1"/>
+  <dlg:text dlg:id="label_chat_max_tokens" dlg:page="1" dlg:left="165" dlg:top="106" dlg:width="60" dlg:height="10" dlg:value="Max Tokens:" dlg:align="left"/>
+  <dlg:textfield dlg:id="chat_max_tokens" dlg:page="1" dlg:left="230" dlg:top="104" dlg:width="60" dlg:height="14" dlg:tabstop="true" dlg:value="16384"/>
 
-  <!-- Row 7: Max Tokens -->
-  <dlg:text dlg:id="label_chat_max_tokens" dlg:page="1" dlg:left="8" dlg:top="122" dlg:width="58" dlg:height="10" dlg:value="Max Tokens:" dlg:align="left"/>
-  <dlg:textfield dlg:id="chat_max_tokens" dlg:page="1" dlg:left="68" dlg:top="120" dlg:width="120" dlg:height="14" dlg:tabstop="true" dlg:value="16384"/>
+  <!-- Row 7: Additional Instructions -->
+  <dlg:text dlg:id="label_additional_instructions" dlg:page="1" dlg:left="8" dlg:top="122" dlg:width="150" dlg:height="10" dlg:value="Additional Instructions:" dlg:align="left"/>
+  <dlg:combobox dlg:id="additional_instructions" dlg:page="1" dlg:left="165" dlg:top="120" dlg:width="265" dlg:height="14" dlg:tabstop="true" dlg:spin="true" dlg:dropdown="true" dlg:value="" dlg:border="1"/>
 
-  <!-- Row 8: Additional Instructions -->
-  <dlg:text dlg:id="label_additional_instructions" dlg:page="1" dlg:left="8" dlg:top="138" dlg:width="150" dlg:height="10" dlg:value="Additional Instructions:" dlg:align="left"/>
-  <dlg:combobox dlg:id="additional_instructions" dlg:page="1" dlg:left="165" dlg:top="136" dlg:width="265" dlg:height="14" dlg:tabstop="true" dlg:spin="true" dlg:dropdown="true" dlg:value="" dlg:border="1"/>
+  <!-- Row 8: Get API Key buttons -->
+  <dlg:text dlg:id="label_get_api_key" dlg:page="1" dlg:left="8" dlg:top="140" dlg:width="150" dlg:height="10" dlg:value="Get API Key (1-click):" dlg:align="left"/>
+  <dlg:button dlg:id="btn_openrouter" dlg:page="1" dlg:left="165" dlg:top="138" dlg:width="85" dlg:height="14" dlg:tabstop="true" dlg:value="OpenRouter ↗"/>
+  <dlg:button dlg:id="btn_together" dlg:page="1" dlg:left="255" dlg:top="138" dlg:width="85" dlg:height="14" dlg:tabstop="true" dlg:value="Together AI ↗"/>
+  <dlg:button dlg:id="btn_hf" dlg:page="1" dlg:left="345" dlg:top="138" dlg:width="85" dlg:height="14" dlg:tabstop="true" dlg:value="Hugging Face ↗"/>
 
-  <dlg:button dlg:id="btn_edit_config_json" dlg:page="1" dlg:left="8" dlg:top="154" dlg:width="240" dlg:height="14" dlg:tabstop="true" dlg:value="Edit config file (JSON)…"/>
+  <!-- Row 9: Edit JSON button & Status Line -->
+  <dlg:button dlg:id="btn_edit_config_json" dlg:page="1" dlg:left="8" dlg:top="156" dlg:width="125" dlg:height="14" dlg:tabstop="true" dlg:value="Edit config (JSON)…"/>
+  <dlg:text dlg:id="lbl_test_status" dlg:page="1" dlg:left="140" dlg:top="157" dlg:width="290" dlg:height="12" dlg:value="" dlg:align="left"/>
 
   <!-- === Page 2: Image Settings === -->
 

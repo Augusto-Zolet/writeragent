@@ -494,3 +494,39 @@ def populate_image_model_selector(
         skip_remote_fetch=skip_remote_fetch,
         api_key_override=api_key_override,
     )
+
+
+PROVIDER_SIGNUP_URLS: dict[str, str] = {
+    "openrouter": "https://openrouter.ai/keys",
+    "together": "https://api.together.ai/settings/api-keys",
+    "huggingface": "https://huggingface.co/settings/tokens",
+    "groq": "https://console.groq.com/keys",
+    "deepseek": "https://platform.deepseek.com/api_keys",
+    "mistral": "https://console.mistral.ai/api-keys/",
+    "google": "https://aistudio.google.com/app/apikey",
+    "gemini": "https://aistudio.google.com/app/apikey",
+    "openai": "https://platform.openai.com/api-keys",
+    "anthropic": "https://console.anthropic.com/settings/keys",
+    "cerebras": "https://cloud.cerebras.ai/",
+    "perplexity": "https://www.perplexity.ai/settings/api",
+    "xai": "https://console.x.ai/",
+    "grok": "https://console.x.ai/",
+    "zai": "https://api.z.ai/",
+}
+
+
+def get_signup_url_for_endpoint(endpoint: str) -> str | None:
+    """Return signup / API key dashboard URL for a given endpoint if known."""
+    if not endpoint or not isinstance(endpoint, str):
+        return None
+    url_lower = endpoint.lower().strip()
+    if "localhost" in url_lower or "127.0.0.1" in url_lower:
+        return None
+    provider = get_provider_from_endpoint(endpoint)
+    if provider and provider in PROVIDER_SIGNUP_URLS:
+        return PROVIDER_SIGNUP_URLS[provider]
+    for key, signup_url in PROVIDER_SIGNUP_URLS.items():
+        if key in url_lower:
+            return signup_url
+    return None
+

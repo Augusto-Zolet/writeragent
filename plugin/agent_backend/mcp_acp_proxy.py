@@ -70,7 +70,8 @@ class MCPACPProxy(AgentBackend):
         """Call MCP JSON-RPC method."""
         payload = {"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}
 
-        headers = {"Content-Type": "application/json"}
+        from plugin.framework.constants import USER_AGENT
+        headers = {"Content-Type": "application/json", "User-Agent": USER_AGENT}
         if document_url:
             headers["X-Document-URL"] = document_url
 

@@ -72,3 +72,26 @@ def test_transport_stop_checker_suppresses_retry():
     )
 
     assert action == "stop"
+
+
+def test_transport_send_injects_user_agent():
+    from plugin.framework.constants import USER_AGENT
+
+    transport = LlmHttpTransport(lambda: "https://api.openai.com", lambda: 60)
+    mock_conn = MagicMock()
+
+    # When sending with no User-Agent
+    transport.send(
+        "POST",
+        "/v1/chat/completions",
+        b"{}",
+        headers={"Content-Type": "application/json"},
+        connection_getter=lambda: mock_conn,
+    )
+
+    mock_conn.request.assert_called_once()
+    called_headers = mock_conn.request.call_args.kwargs["headers"]
+    assert called_headers["User-Agent"] == USER_AGENT
+    assert called_headers["Content-Type"] == "application/json"
+
+

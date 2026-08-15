@@ -21,6 +21,9 @@ class HTTPDownloader:
         self.timeout = timeout
         self.max_bytes = max_bytes
         self.headers = dict(headers or {})
+        if not any(k.lower() == "user-agent" for k in self.headers):
+            from plugin.framework.constants import USER_AGENT
+            self.headers["User-Agent"] = USER_AGENT
 
     def __call__(self, url: str, output_file: str | BinaryIO, pooch=None, check_only: bool = False) -> bool | None:
         del pooch

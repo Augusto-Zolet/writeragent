@@ -58,6 +58,7 @@ def main():
         with open(out_path, 'w', encoding='utf-8') as f:
             f.write("# Auto-generated file for xgettext to extract XDL strings.\n")
             f.write("# Do not modify or commit this file.\n\n")
+            f.write("def _(s: str) -> str:\n    return s\n\n")
             for s in sorted(list(all_strings)):
                 # Escape quotes
                 s_escaped = s.replace('"', '\\"')

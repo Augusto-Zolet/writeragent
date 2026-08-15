@@ -62,7 +62,7 @@ def merge_openrouter_chat_extra(base: dict[str, Any], extra: dict[str, Any] | No
 
 # accumulate_delta is required for tool-calling: it merges streaming deltas into message_snapshot so full tool_calls (with function.arguments) are available.
 from plugin.framework.async_stream import accumulate_delta
-from plugin.framework.constants import APP_REFERER, APP_TITLE
+from plugin.framework.constants import USER_AGENT
 
 from plugin.framework.logging import init_logging, redact_sensitive_payload_for_log
 from plugin.framework.client.auth import resolve_auth_for_config, build_auth_headers, AuthError
@@ -213,7 +213,10 @@ class LlmClient:
         """
         Build HTTP headers for API requests, including provider-aware auth.
         """
-        h = {"Content-Type": "application/json"}
+        h = {
+            "Content-Type": "application/json",
+            "User-Agent": USER_AGENT,
+        }
         auth_info = self._resolve_auth()
         if auth_info:
             auth_headers = build_auth_headers(auth_info)
@@ -225,9 +228,6 @@ class LlmClient:
         if api_key and "Authorization" not in h and "x-api-key" not in h:
             h["Authorization"] = f"Bearer {api_key}"
 
-        # identification
-        h["HTTP-Referer"] = APP_REFERER
-        h["X-Title"] = APP_TITLE
         return h
 
     def _resolve_auth(self):

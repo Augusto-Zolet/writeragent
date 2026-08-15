@@ -43,6 +43,7 @@ def _run_on_main(fn, *args, timeout=60.0, **kwargs):
 from .image_utils import ImageService
 from plugin.framework.config import get_config_int, get_config_bool, get_config_str
 from plugin.framework.client.model_fetcher import get_image_model
+from plugin.framework.constants import USER_AGENT
 from plugin.chatbot.config_ui_helpers import update_lru_history
 from plugin.doc.document_research import list_nearby_files
 from plugin.doc import visual_helpers
@@ -861,7 +862,7 @@ def _download_image_to_cache(url, verify_ssl=False, force=False):
         context.verify_mode = ssl.CERT_NONE
 
     request = urllib.request.Request(url)
-    request.add_header("User-Agent", "WriterAgent/1.0")
+    request.add_header("User-Agent", USER_AGENT)
 
     with urllib.request.urlopen(request, context=context) as response:
         data = response.read()

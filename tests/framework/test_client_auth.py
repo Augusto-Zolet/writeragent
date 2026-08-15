@@ -231,3 +231,19 @@ def test_resolve_auth_for_config_is_openrouter_flag(mock_normalize):
 
     result = resolve_auth_for_config(api_config)
     assert result["provider"] == "openrouter"
+
+
+def test_openrouter_extra_headers_present():
+    """Verify OpenRouter config includes HTTP-Referer and X-Title."""
+    from plugin.framework.constants import APP_REFERER, APP_TITLE
+    from plugin.framework.client.auth import PROVIDERS
+
+    openrouter_cfg = PROVIDERS["openrouter"]
+    assert openrouter_cfg.extra_headers.get("HTTP-Referer") == APP_REFERER
+    assert openrouter_cfg.extra_headers.get("X-Title") == APP_TITLE
+
+    # Other providers like together, openai, deepseek must not have HTTP-Referer or X-Title
+    assert "HTTP-Referer" not in PROVIDERS["together"].extra_headers
+    assert "HTTP-Referer" not in PROVIDERS["openai"].extra_headers
+    assert "HTTP-Referer" not in PROVIDERS["deepseek"].extra_headers
+

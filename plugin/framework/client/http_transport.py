@@ -107,6 +107,10 @@ class LlmHttpTransport:
         """Send one request on the persistent connection and return its response."""
         conn = connection_getter() if connection_getter is not None else self.get_connection()
         self._pacer.wait_before_send()
+        if not any(k.lower() == "user-agent" for k in headers):
+            headers = dict(headers)
+            from plugin.framework.constants import USER_AGENT
+            headers["User-Agent"] = USER_AGENT
         conn.request(method, path, body=body, headers=headers)
         self._pacer.mark_sent()
         return conn.getresponse()

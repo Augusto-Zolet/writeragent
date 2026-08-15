@@ -190,6 +190,20 @@ class SettingsDialog:
         if edit_config_btn:
             edit_config_btn.addActionListener(EditConfigListener(self._ctx))
 
+        starters = [
+            ("btn_openrouter", "https://openrouter.ai/api", "https://openrouter.ai/keys"),
+            ("btn_together", "https://api.together.xyz", "https://api.together.ai/settings/api-keys"),
+            ("btn_hf", "https://api-inference.huggingface.co/v1", "https://huggingface.co/settings/tokens"),
+        ]
+        for btn_id, ep_url, signup_url in starters:
+            btn = get_optional(self._dlg, btn_id)
+            if btn:
+                btn.addActionListener(ProviderStarterListener(self._ctx, self._dlg, ep_url, signup_url))
+
+        test_conn_btn = get_optional(self._dlg, "btn_test_conn")
+        if test_conn_btn:
+            test_conn_btn.addActionListener(TestConnectionListener(self._ctx, self._dlg))
+
         self._setup_module_tabs()
         test_venv_btn = get_optional(self._dlg, "scripting__test_venv")
         if test_venv_btn:
@@ -379,12 +393,102 @@ def settings_box(ctx, **kwargs):
 
 # ── Listeners ────────────────────────────────────────────────────────
 
+def open_system_url(ctx: Any, url_str: str) -> None:
+    """Open URL in default browser via UNO SystemShellExecute."""
+    if not url_str:
+        return
+    try:
+        smgr = ctx.getServiceManager()
+        shell = smgr.createInstanceWithContext("com.sun.star.system.SystemShellExecute", ctx)
+        shell.execute(url_str, "", 0)
+    except Exception as e:
+        log.warning("Failed to open URL %s: %s", url_str, e)
+
+
 class EditConfigListener(BaseActionListener):
     def __init__(self, ctx):
         self._ctx = ctx
     def on_action_performed(self, rEvent):
         from .external_editor import open_writeragent_json_in_editor
         open_writeragent_json_in_editor(self._ctx)
+
+
+class ProviderStarterListener(BaseActionListener):
+    """When a provider starter button is clicked, select its endpoint, sync key, and open signup page."""
+
+    def __init__(self, ctx: Any, dlg: Any, endpoint_url: str, signup_url: str):
+        self._ctx = ctx
+        self._dlg = dlg
+        self._endpoint_url = endpoint_url
+        self._signup_url = signup_url
+
+    def on_action_performed(self, rEvent: Any) -> None:
+        endpoint_ctrl = get_optional(self._dlg, "endpoint")
+        if endpoint_ctrl:
+            set_control_text(endpoint_ctrl, self._endpoint_url)
+            ak_ctrl = get_optional(self._dlg, "api_key")
+            if ak_ctrl:
+                from plugin.framework.config import get_api_key_for_endpoint
+                set_control_text(ak_ctrl, get_api_key_for_endpoint(self._endpoint_url))
+                if hasattr(ak_ctrl, "setFocus"):
+                    ak_ctrl.setFocus()
+        if self._signup_url:
+            open_system_url(self._ctx, self._signup_url)
+
+
+class GetApiKeyListener(BaseActionListener):
+    def __init__(self, ctx, dlg):
+        self._ctx = ctx
+        self._dlg = dlg
+
+    def on_action_performed(self, rEvent):
+        from plugin.chatbot.config_ui_helpers import endpoint_from_selector_text, get_signup_url_for_endpoint
+
+        endpoint_ctrl = get_optional(self._dlg, "endpoint")
+        endpoint_text = str(get_control_text(endpoint_ctrl)) if endpoint_ctrl else ""
+        resolved = endpoint_from_selector_text(endpoint_text)
+        signup_url = get_signup_url_for_endpoint(resolved)
+        if signup_url:
+            open_system_url(self._ctx, signup_url)
+
+
+class TestConnectionListener(BaseActionListener):
+    def __init__(self, ctx, dlg):
+        self._ctx = ctx
+        self._dlg = dlg
+
+    def on_action_performed(self, rEvent):
+        from plugin.chatbot.config_ui_helpers import endpoint_from_selector_text
+        from plugin.chatbot.quick_setup import check_endpoint_connection
+        from plugin.framework.worker_pool import run_in_background
+        from plugin.framework.queue_executor import post_to_main_thread
+
+        btn_test = get_optional(self._dlg, "btn_test_conn")
+        lbl_status = get_optional(self._dlg, "lbl_test_status")
+        if btn_test:
+            set_control_enabled(btn_test, False)
+        if lbl_status:
+            set_control_text(lbl_status, _("Testing connection..."))
+
+        endpoint_ctrl = get_optional(self._dlg, "endpoint")
+        endpoint_text = str(get_control_text(endpoint_ctrl)) if endpoint_ctrl else ""
+        endpoint = endpoint_from_selector_text(endpoint_text)
+
+        api_key_ctrl = get_optional(self._dlg, "api_key")
+        api_key = str(get_control_text(api_key_ctrl)) if api_key_ctrl else ""
+
+        def _worker():
+            msg = check_endpoint_connection(endpoint, api_key)[1]
+
+            def _apply():
+                if btn_test:
+                    set_control_enabled(btn_test, True)
+                if lbl_status:
+                    set_control_text(lbl_status, _(msg))
+
+            post_to_main_thread(_apply)
+
+        run_in_background(_worker, name="settings-test-conn")
 
 
 def _dialog_parent_for_child(ctx, parent_dlg):  # pyright: ignore[reportUnusedFunction]  # settings peer parent helper; used by tests
@@ -467,6 +571,19 @@ class EndpointCombinedListener(BaseListener, XItemListener, XTextListener):
         self.get_provider_from_endpoint = get_provider_from_endpoint
         self.get_image_model = get_image_model
 
+        resolved_init = self.endpoint_from_selector_text(self._ctrl.getText())
+        self._update_key_link_state(resolved_init)
+
+    def _update_key_link_state(self, resolved):
+        from plugin.chatbot.config_ui_helpers import get_signup_url_for_endpoint
+        url = get_signup_url_for_endpoint(resolved)
+        btn_key = get_optional(self._dlg, "btn_get_api_key")
+        if btn_key:
+            set_control_enabled(btn_key, bool(url))
+        lbl_status = get_optional(self._dlg, "lbl_test_status")
+        if lbl_status:
+            set_control_text(lbl_status, "")
+
     def _live_api_key(self):
         ak_ctrl = get_optional(self._dlg, "api_key")
         return str(get_control_text(ak_ctrl)) if ak_ctrl else ""
@@ -543,6 +660,7 @@ class EndpointCombinedListener(BaseListener, XItemListener, XTextListener):
 
     def _sync_api_key(self):
         resolved = self.endpoint_from_selector_text(self._ctrl.getText())
+        self._update_key_link_state(resolved)
         if not resolved: return
         ak_ctrl = get_optional(self._dlg, "api_key")
         if ak_ctrl:

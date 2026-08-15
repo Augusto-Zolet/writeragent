@@ -199,6 +199,7 @@ Start here by task. Topic docs: [Deep dives](#deep-dives-link-index).
 | Grammar pipeline (cache, queue) | [docs/realtime-grammar-checker-plan.md](docs/realtime-grammar-checker-plan.md) |
 | Test Architecture | [docs/test_architecture_analysis.md](docs/test_architecture_analysis.md) |
 | Type checking | [docs/type-checking.md](docs/type-checking.md) |
+| UNO Dialogs & Wizards | [docs/uno-dialog-and-wizard-reference.md](docs/uno-dialog-and-wizard-reference.md) |
 | LLM Hacks & Workarounds | [docs/llm-hacks.md](docs/llm-hacks.md) |
 | Experimental memory / roadmap | [docs/hermes-agent-patterns.md](docs/hermes-agent-patterns.md), [docs/ROADMAP.md](docs/ROADMAP.md), [docs/robustness-roadmap.md](docs/robustness-roadmap.md) |
 | LLM evals / benchmarks | [docs/benchmarks.md](docs/benchmarks.md), [scripts/prompt_optimization/README.md](scripts/prompt_optimization/README.md) |

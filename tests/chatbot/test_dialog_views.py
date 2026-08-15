@@ -301,5 +301,95 @@ class TestEndpointCombinedListener(unittest.TestCase):
         self.assertEqual(text_calls[0]['current'], 'user-typed-model')
 
 
+class TestSettingsEnhancements(unittest.TestCase):
+    def test_get_signup_url_for_endpoint(self):
+        from plugin.chatbot.config_ui_helpers import get_signup_url_for_endpoint
+
+        self.assertEqual(get_signup_url_for_endpoint("https://openrouter.ai/api"), "https://openrouter.ai/keys")
+        self.assertEqual(get_signup_url_for_endpoint("https://api.together.xyz"), "https://api.together.ai/settings/api-keys")
+        self.assertEqual(get_signup_url_for_endpoint("https://api.groq.com/openai"), "https://console.groq.com/keys")
+        self.assertIsNone(get_signup_url_for_endpoint("http://localhost:11434"))
+        self.assertIsNone(get_signup_url_for_endpoint("http://127.0.0.1:1234"))
+
+    @patch("plugin.chatbot.dialog_views.open_system_url")
+    def test_get_api_key_listener_action(self, mock_open_url):
+        from plugin.chatbot.dialog_views import GetApiKeyListener
+
+        ctx = MagicMock()
+        dlg = MagicMock()
+        endpoint_ctrl = MagicMock()
+        endpoint_ctrl.getText.return_value = "https://openrouter.ai/api"
+        dlg.getControl.side_effect = lambda name: endpoint_ctrl if name == "endpoint" else None
+
+        listener = GetApiKeyListener(ctx, dlg)
+        listener.on_action_performed(MagicMock())
+
+        mock_open_url.assert_called_once_with(ctx, "https://openrouter.ai/keys")
+
+    @patch("plugin.chatbot.quick_setup.check_endpoint_connection", return_value=(True, "✓ Connected (25ms)"))
+    def test_test_connection_listener_action(self, mock_check):
+        from plugin.chatbot.dialog_views import TestConnectionListener
+
+        ctx = MagicMock()
+        dlg = MagicMock()
+        btn_ctrl = MagicMock()
+        status_ctrl = MagicMock()
+        endpoint_ctrl = MagicMock()
+        api_key_ctrl = MagicMock()
+
+        endpoint_ctrl.getText.return_value = "https://openrouter.ai/api"
+        api_key_ctrl.getText.return_value = "sk-test-key"
+
+        def get_control_side_effect(name):
+            return {
+                "btn_test_conn": btn_ctrl,
+                "lbl_test_status": status_ctrl,
+                "endpoint": endpoint_ctrl,
+                "api_key": api_key_ctrl,
+            }.get(name)
+
+        dlg.getControl.side_effect = get_control_side_effect
+
+        with patch("plugin.framework.worker_pool.run_in_background", side_effect=lambda fn, **kwargs: fn()), \
+             patch("plugin.framework.queue_executor.post_to_main_thread", side_effect=lambda fn: fn()), \
+             patch("plugin.chatbot.dialog_views.get_control_text", side_effect=lambda c: c.getText.return_value):
+            listener = TestConnectionListener(ctx, dlg)
+            listener.on_action_performed(MagicMock())
+
+        mock_check.assert_called_once_with("https://openrouter.ai/api", "sk-test-key")
+        status_ctrl.setText.assert_called_with("✓ Connected (25ms)")
+
+    @patch("plugin.chatbot.dialog_views.open_system_url")
+    @patch("plugin.framework.config.get_api_key_for_endpoint", return_value="sk-saved-together-key")
+    def test_provider_starter_listener_action(self, mock_get_key, mock_open_url):
+        from plugin.chatbot.dialog_views import ProviderStarterListener
+
+        ctx = MagicMock()
+        dlg = MagicMock()
+        endpoint_ctrl = MagicMock()
+        api_key_ctrl = MagicMock()
+
+        def get_control_side_effect(name):
+            return {
+                "endpoint": endpoint_ctrl,
+                "api_key": api_key_ctrl,
+            }.get(name)
+
+        dlg.getControl.side_effect = get_control_side_effect
+
+        listener = ProviderStarterListener(
+            ctx, dlg, "https://api.together.xyz", "https://api.together.ai/settings/api-keys"
+        )
+        listener.on_action_performed(MagicMock())
+
+        endpoint_ctrl.setText.assert_called_with("https://api.together.xyz")
+        mock_get_key.assert_called_once_with("https://api.together.xyz")
+        api_key_ctrl.setText.assert_called_with("sk-saved-together-key")
+        api_key_ctrl.setFocus.assert_called_once()
+        mock_open_url.assert_called_once_with(ctx, "https://api.together.ai/settings/api-keys")
+
+
 if __name__ == '__main__':
     unittest.main()
+
+

@@ -21,6 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Tuple
 
+from plugin.framework.constants import APP_REFERER, APP_TITLE
 from plugin.framework.url_utils import normalize_endpoint_url
 from plugin.framework.client.provider_detection import (
     get_provider_from_endpoint,
@@ -60,7 +61,14 @@ class ProviderConfig:
 
 
 PROVIDERS: Dict[str, ProviderConfig] = {
-    "openrouter": ProviderConfig(id="openrouter", name="OpenRouter", header_style="bearer", host_matches=("openrouter.ai",), model_id_style="slug"),
+    "openrouter": ProviderConfig(
+        id="openrouter",
+        name="OpenRouter",
+        header_style="bearer",
+        host_matches=("openrouter.ai",),
+        model_id_style="slug",
+        extra_headers={"HTTP-Referer": APP_REFERER, "X-Title": APP_TITLE},
+    ),
     "together": ProviderConfig(id="together", name="Together AI", header_style="bearer", host_matches=("api.together.xyz", "together.xyz"), model_id_style="slug"),
     "mistral": ProviderConfig(id="mistral", name="Mistral", header_style="bearer", host_matches=("api.mistral.ai",)),
     "openai": ProviderConfig(id="openai", name="OpenAI", header_style="bearer", host_matches=("api.openai.com",)),

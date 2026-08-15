@@ -30,12 +30,24 @@ def client(default_config, mock_ctx):
 
 
 def test_headers_and_config_injection(client):
+    from plugin.framework.constants import APP_REFERER, APP_TITLE, USER_AGENT
+
     headers = client._headers()
     assert headers["Authorization"] == "Bearer sk-test-key"
-    assert "HTTP-Referer" in headers
-    assert "X-Title" in headers
+    assert headers["User-Agent"] == USER_AGENT
     assert headers["Content-Type"] == "application/json"
+    # OpenAI provider must not receive OpenRouter specific headers
+    assert "HTTP-Referer" not in headers
+    assert "X-Title" not in headers
 
+    # OpenRouter endpoint must receive OpenRouter identification headers
+    client.config["endpoint"] = "https://openrouter.ai/api"
+    or_headers = client._headers()
+    assert or_headers["User-Agent"] == USER_AGENT
+    assert or_headers["HTTP-Referer"] == APP_REFERER
+    assert or_headers["X-Title"] == APP_TITLE
+
+    client.config["endpoint"] = "https://api.openai.com"
     assert client._endpoint() == "https://api.openai.com"
     assert client._api_path() == "/v1"
 
