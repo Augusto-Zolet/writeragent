@@ -32,7 +32,7 @@ def test_charts_creation_and_listing(ctx, doc):
         "Apr", "250",
         "May", "300"
     ]
-    res_write = _execute_calc_tool(doc, ctx, "write_formula_range", {"range_name": "A1:B6", "formula_or_values": data})
+    res_write = _execute_calc_tool(doc, ctx, "write_formula_range", {"range": "A1:B6", "values": data})
     assert res_write.get("status") == "ok", f"write_formula_range failed: {res_write}"
 
     # 2. Create chart
@@ -58,20 +58,20 @@ def test_charts_creation_and_listing(ctx, doc):
     assert found_chart_shape, "com.sun.star.drawing.OLE2Shape not found on DrawPage"
 
     # 5. Get chart info
-    res_info = _execute_calc_tool(doc, ctx, "manage_charts", {"action": "get_info", "chart_name": chart_name})
+    res_info = _execute_calc_tool(doc, ctx, "manage_charts", {"action": "get_info", "name": chart_name})
     assert res_info.get("status") == "ok", f"manage_charts get_info failed: {res_info}"
     assert res_info.get("name") == chart_name, "Chart info name mismatch"
 
     # 6. Edit chart
-    res_edit = _execute_calc_tool(doc, ctx, "manage_charts", {"action": "edit", "chart_name": chart_name, "title": "Monthly Sales"})
+    res_edit = _execute_calc_tool(doc, ctx, "manage_charts", {"action": "edit", "name": chart_name, "title": "Monthly Sales"})
     assert res_edit.get("status") == "ok", f"edit_chart failed: {res_edit}"
 
     # Verify title change
-    res_info_after_edit = _execute_calc_tool(doc, ctx, "manage_charts", {"action": "get_info", "chart_name": chart_name})
+    res_info_after_edit = _execute_calc_tool(doc, ctx, "manage_charts", {"action": "get_info", "name": chart_name})
     assert res_info_after_edit.get("title") == "Monthly Sales", f"Chart title not updated: {res_info_after_edit}"
 
     # 7. Delete chart
-    res_delete = _execute_calc_tool(doc, ctx, "manage_charts", {"action": "delete", "chart_name": chart_name})
+    res_delete = _execute_calc_tool(doc, ctx, "manage_charts", {"action": "delete", "name": chart_name})
     assert res_delete.get("status") == "ok", f"manage_charts delete failed: {res_delete}"
 
     # Verify deletion
@@ -133,7 +133,7 @@ def test_charts_validation_and_writer_arrays(ctx, doc):
             title="Writer Chart"
         )
         assert res_ok.get("status") == "ok", f"Writer chart creation failed: {res_ok}"
-        chart_name = res_ok.get("chart_name")
+        chart_name = res_ok.get("name")
         assert chart_name is not None
 
         # Query OLE2Shape in Writer document and verify XChartDataArray
@@ -170,7 +170,7 @@ def test_charts_validation_and_writer_arrays(ctx, doc):
         res_edit = get_tools().execute(
             "manage_charts", writer_ctx,
             action="edit",
-            chart_index=0,
+            name=chart_name,
             headers=new_headers,
             rows=new_rows,
             title="Edited Writer Chart"

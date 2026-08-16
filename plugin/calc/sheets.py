@@ -62,12 +62,12 @@ class SwitchSheet(ToolCalcSheetBase):
     name = "switch_sheet"
     intent = "edit"
     description = "Switches to the specified sheet (makes it active)."
-    parameters = {"type": "object", "properties": {"sheet_name": {"type": "string", "description": "Name of the sheet to switch to"}}, "required": ["sheet_name"]}
+    parameters = {"type": "object", "properties": {"sheet": {"type": "string", "description": "Name of the sheet to switch to"}}, "required": ["sheet"]}
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
         bridge = CalcBridge(ctx.doc)
-        sheet_name = kwargs["sheet_name"]
+        sheet_name = kwargs["sheet"]
 
         try:
             doc = bridge.get_active_document()
@@ -91,12 +91,12 @@ class CreateSheet(ToolCalcSheetBase):
     name = "create_sheet"
     intent = "edit"
     description = "Creates a new sheet."
-    parameters = {"type": "object", "properties": {"sheet_name": {"type": "string", "description": "New sheet name"}, "position": {"type": "integer", "description": ("Sheet position (0-based). Appended to end if not specified.")}}, "required": ["sheet_name"]}
+    parameters = {"type": "object", "properties": {"sheet": {"type": "string", "description": "New sheet name"}, "position": {"type": "integer", "description": ("Sheet position (0-based). Appended to end if not specified.")}}, "required": ["sheet"]}
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
         bridge = CalcBridge(ctx.doc)
-        sheet_name = kwargs["sheet_name"]
+        sheet_name = kwargs["sheet"]
         position = kwargs.get("position")
 
         try:
@@ -149,12 +149,12 @@ class DeleteSheet(ToolCalcSheetBase):
     name = "delete_sheet"
     intent = "edit"
     description = "Deletes an existing sheet by name."
-    parameters = {"type": "object", "properties": {"sheet_name": {"type": "string", "description": "Name of the sheet to delete"}}, "required": ["sheet_name"]}
+    parameters = {"type": "object", "properties": {"sheet": {"type": "string", "description": "Name of the sheet to delete"}}, "required": ["sheet"]}
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
         bridge = CalcBridge(ctx.doc)
-        sheet_name = kwargs["sheet_name"]
+        sheet_name = kwargs["sheet"]
 
         try:
             doc = bridge.get_active_document()
@@ -177,12 +177,12 @@ class ProtectSheet(ToolCalcSheetBase):
     name = "protect_sheet"
     intent = "edit"
     description = "Protects or unprotects a sheet. When protected, cells cannot be edited unless they are explicitly unlocked."
-    parameters = {"type": "object", "properties": {"sheet_name": {"type": "string", "description": "Sheet name (active sheet if empty)"}, "protect": {"type": "boolean", "description": "True to protect, False to unprotect (default: True)"}}, "required": []}
+    parameters = {"type": "object", "properties": {"sheet": {"type": "string", "description": "Sheet name (active sheet if empty)"}, "protect": {"type": "boolean", "description": "True to protect, False to unprotect (default: True)"}}, "required": []}
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
         bridge = CalcBridge(ctx.doc)
-        sheet_name = kwargs.get("sheet_name")
+        sheet_name = kwargs.get("sheet")
         should_protect = kwargs.get("protect", True)
 
         try:
@@ -215,14 +215,14 @@ class GetSheetSummary(ToolBase):
     name = "get_sheet_summary"
     tier = "core"
     description = "Returns a comprehensive summary of the active or specified sheet: used area, column headers, charts, merged cells, annotations, and shapes."
-    parameters = {"type": "object", "properties": {"sheet_name": {"type": "string", "description": "Sheet name (active sheet if empty)"}}, "required": []}
+    parameters = {"type": "object", "properties": {"sheet": {"type": "string", "description": "Sheet name (active sheet if empty)"}}, "required": []}
     uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
     is_mutation = False
 
     def execute(self, ctx, **kwargs):
         bridge = CalcBridge(ctx.doc)
         analyzer = SheetAnalyzer(bridge)
-        sheet_name = kwargs.get("sheet_name")
+        sheet_name = kwargs.get("sheet")
 
         result = analyzer.get_sheet_summary(sheet_name=sheet_name)
         return {"status": "ok", "result": result}

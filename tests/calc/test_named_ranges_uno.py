@@ -171,7 +171,7 @@ def test_create_from_titles(ctx, doc):
 
     res = _execute_calc_tool(
         doc, ctx, "named_range_create_from_titles",
-        {"range_str": "A1:B5", "border": "top", "scope": "global"}
+        {"range": "A1:B5", "border": "top", "scope": "global"}
     )
     assert res.get("status") == "ok", f"named_range_create_from_titles failed: {res}"
     assert named_ranges.hasByName("ColAlpha"), "ColAlpha named range was not created"
@@ -190,7 +190,8 @@ def test_delete_named_range(ctx, doc):
     named_ranges = doc.NamedRanges
     if not named_ranges.hasByName("DeleteTestRange"):
         from com.sun.star.table import CellAddress
-        named_ranges.addNewByName("DeleteTestRange", "$Sheet1.$A$1:$B$2", CellAddress(Sheet=0, Column=0, Row=0), 0)
+        addr = CellAddress(Sheet=0, Column=0, Row=0)
+        named_ranges.addNewByName("DeleteTestRange", "$Sheet1.$A$1", addr, 0)
 
     res = _execute_calc_tool(doc, ctx, "named_range_delete", {"name": "DeleteTestRange"})
     assert res.get("status") == "ok", f"named_range_delete failed: {res}"
@@ -199,21 +200,19 @@ def test_delete_named_range(ctx, doc):
 
 @native_test
 @with_native_doc("calc")
-def test_transparent_resolution_read_write(ctx, doc):
+def test_transparent_named_range_read_write(ctx, doc):
     named_ranges = doc.NamedRanges
-    if named_ranges.hasByName("TransparentRange"):
-        named_ranges.removeByName("TransparentRange")
-
-    # Create a named range pointing to a 1x2 area (A10:B10)
-    from com.sun.star.table import CellAddress
-    named_ranges.addNewByName("TransparentRange", "$Sheet1.$A$10:$B$10", CellAddress(Sheet=0, Column=0, Row=0), 0)
+    if not named_ranges.hasByName("TransparentRange"):
+        from com.sun.star.table import CellAddress
+        addr = CellAddress(Sheet=0, Column=0, Row=9)
+        named_ranges.addNewByName("TransparentRange", "$Sheet1.$A$10:$B$10", addr, 0)
 
     sheet = doc.getSheets().getByIndex(0)
     sheet.getCellByPosition(0, 9).setString("Apple")
     sheet.getCellByPosition(1, 9).setString("Banana")
 
     # 1. Read using the named range
-    res_read = _execute_calc_tool(doc, ctx, "read_cell_range", {"range_name": ["TransparentRange"]})
+    res_read = _execute_calc_tool(doc, ctx, "read_cell_range", {"range": ["TransparentRange"]})
     assert res_read.get("status") == "ok", f"read_cell_range failed: {res_read}"
 
     result_data = res_read["result"][0]
@@ -222,8 +221,8 @@ def test_transparent_resolution_read_write(ctx, doc):
 
     # 2. Write using the named range
     res_write = _execute_calc_tool(doc, ctx, "write_formula_range", {
-        "range_name": ["TransparentRange"],
-        "formula_or_values": '["Cherry", "Date"]'
+        "range": ["TransparentRange"],
+        "values": '["Cherry", "Date"]'
     })
     assert res_write.get("status") == "ok", f"write_formula_range failed: {res_write}"
     assert sheet.getCellByPosition(0, 9).getString() == "Cherry"

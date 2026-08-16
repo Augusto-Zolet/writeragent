@@ -24,7 +24,7 @@ For LLM tools (`read_cell_range` with format enrichment; the same strings are th
 - There is no separate `iso8601` field.
 - Internal callers (`CellInspector.read_range(include_format_info=False)`) still receive raw Calc serial floats for NumPy / `=PY` / analysis. Sidebar Calc selection context uses enrichment (`True`) so the model sees ISO/`PT…`, not raw serials.
 
-> **Status:** v1 is **shipped**, including duration wire (`PT30H`). MCP clock context (with Calc offset-omit hint and tool piggyback — [§4.1](#41-connection-time-clock-context)), read enrichment (elapsed → `duration` / `PT…`, plus `format_code`), mixed-formula commit, ISO + PT write ingestion (gate → detect/convert or isodate → S29 restore → M1 preserve / P1 inherit / detect), coercion report, MCP `formula_or_values` array widen, and `number_format` quarantined from LLM `set_style` are in code. See [§2](#2-lifecycle-architecture) and [§5.7](#57-what-to-do-next).
+> **Status:** v1 is **shipped**, including duration wire (`PT30H`). MCP clock context (with Calc offset-omit hint and tool piggyback — [§4.1](#41-connection-time-clock-context)), read enrichment (elapsed → `duration` / `PT…`, plus `format_code`), mixed-formula commit, ISO + PT write ingestion (gate → detect/convert or isodate → S29 restore → M1 preserve / P1 inherit / detect), coercion report, MCP `values` array widen, and `number_format` quarantined from LLM `set_style` are in code. See [§2](#2-lifecycle-architecture) and [§5.7](#57-what-to-do-next).
 
 > **Write design (locked):** After a strict ISO gate, convert date/time with `XNumberFormatter.detectNumberFormat` / `convertStringToNumber`; convert `PT…` durations with vendored `isodate` + day-serial arithmetic. Commit the serial, and unless the destination already has a **category-compatible** temporal format to preserve (S14–S16), **apply** an inherited column template key when found (P1), else the detected (or elapsed) format key. Do not hand-roll date epoch arithmetic or ASCII date format codes; do not rely on `setFormula` alone (it leaves General and breaks read enrichment).
 
@@ -102,8 +102,8 @@ The end-to-end date/time architecture consists of three synchronized phases:
 | Sidebar Calc selection enrichment | Done | [`plugin/doc/document_helpers.py`](../plugin/doc/document_helpers.py) `get_calc_context_for_chat` |
 | C. ISO + PT duration write ingestion | Done | [`plugin/calc/manipulator.py`](../plugin/calc/manipulator.py) `write_formula_range`, [`plugin/calc/datetime_wire.py`](../plugin/calc/datetime_wire.py) |
 | P1 column format inheritance on apply | Done | [`plugin/calc/manipulator.py`](../plugin/calc/manipulator.py) `_find_column_temporal_templates` |
-| MCP `formula_or_values` string\|array widen | Done | [`plugin/framework/tool.py`](../plugin/framework/tool.py) `to_mcp_schema` |
-| MCP `range_name` string\|array widen | Done | [`plugin/framework/tool.py`](../plugin/framework/tool.py) `to_mcp_schema` (array-typed tools only; OpenAI stays array) |
+| MCP `values` string\|array widen | Done | [`plugin/framework/tool.py`](../plugin/framework/tool.py) `to_mcp_schema` |
+| MCP `range` string\|array widen | Done | [`plugin/framework/tool.py`](../plugin/framework/tool.py) `to_mcp_schema` (array-typed tools only; OpenAI stays array) |
 | `number_format` omitted from LLM `set_style` (script-only) | Done | [`plugin/calc/cells.py`](../plugin/calc/cells.py), [`plugin/framework/tool.py`](../plugin/framework/tool.py) |
 | Write-tool ISO guidance | Done | [`plugin/calc/cells.py`](../plugin/calc/cells.py) `WriteCellRange.description` |
 | Unit / UNO tests (core path) | Done | [`tests/calc/test_datetime_serial.py`](../tests/calc/test_datetime_serial.py), [`tests/calc/test_cells_uno.py`](../tests/calc/test_cells_uno.py) |
@@ -178,13 +178,13 @@ The previously "unresolved" alternative — accept offset-bearing input on write
 
 Do not broaden write parsing to locale display forms. §8 shows `08/05/2026` resolves to **2026-08-05** under `en-US` but **2026-05-08** under `fr-FR`.
 
-### 4.3 MCP `formula_or_values` / `range_name` schema (string \| array)
+### 4.3 MCP `values` / `range` schema (string \| array)
 
-**Shipped:** OpenAI/Gemini tool schemas keep `"type": "string"` on `formula_or_values` (Gemini-friendly; fill-all via a single string). MCP `tools/list` → `inputSchema` widens to `["string","array"]` with flat `items: ["string","number"]` in [`to_mcp_schema`](../plugin/framework/tool.py) **after** `_normalize_schema_for_strict_providers`. `execute` already coerces lists via `json.dumps`.
+**Shipped:** OpenAI/Gemini tool schemas keep `"type": "string"` on `values` (Gemini-friendly; fill-all via a single string). MCP `tools/list` → `inputSchema` widens to `["string","array"]` with flat `items: ["string","number"]` in [`to_mcp_schema`](../plugin/framework/tool.py) **after** `_normalize_schema_for_strict_providers`. `execute` already coerces lists via `json.dumps`.
 
-The same post-normalize pass widens array-typed `range_name` to `["string","array"]` (items stay string). OpenAI/Gemini stay `"array"`. Execute already coerces a bare string to `[str]`. Tools whose source schema is a single string (`list_conditional_formats`, sheet filter) are unchanged.
+The same post-normalize pass widens array-typed `range` to `["string","array"]` (items stay string). OpenAI/Gemini stay `"array"`. Execute already coerces a bare string to `[str]`. Tools whose source schema is a single string (`list_conditional_formats`, sheet filter) are unchanged.
 
-**Why:** MCP hosts validate arguments against `inputSchema` before `tools/call`. A native JSON array was rejected at the host even though execute accepted lists; a bare `"A1:D10"` was rejected the same way for `range_name`. Putting `["string","array"]` on the source schema is not enough — normalize collapses that union to `"array"` only, which would break string fill-all on `formula_or_values`. The MCP-only post-normalize override preserves both shapes on MCP while leaving chat/OpenAI on the Gemini-safe single type.
+**Why:** MCP hosts validate arguments against `inputSchema` before `tools/call`. A native JSON array was rejected at the host even though execute accepted lists; a bare `"A1:D10"` was rejected the same way for `range`. Putting `["string","array"]` on the source schema is not enough — normalize collapses that union to `"array"` only, which would break string fill-all on `values`. The MCP-only post-normalize override preserves both shapes on MCP while leaving chat/OpenAI on the Gemini-safe single type.
 
 ---
 
@@ -859,7 +859,7 @@ Dates detect as ISO everywhere, but `en-US` times detect as `HH:MM:SS AM/PM`. Pe
 
 The gate and M1/elapsed helpers are pure pytest. Conversion stays in UNO tests.
 
-**Landed:** gate accept/reject matrix (including unpadded / offsets / slash forms / `2026-13-45` / shape-ok `2026-02-30`), elapsed FormatString detection, duration PT gate/parse/emit, midnight serial helper, M1 preserve matrix (including duration→time), P1 template compatibility helper, S25/horizontal/vertical format-run coalesce helpers. Related non-Calc unit coverage: MCP `formula_or_values` / `range_name` string\|array wire shape, `set_style` omits `number_format` for chat/MCP while scripting keeps it, `format_code` on temporal enrich only, `current_local_datetime` on list/guidance.
+**Landed:** gate accept/reject matrix (including unpadded / offsets / slash forms / `2026-13-45` / shape-ok `2026-02-30`), elapsed FormatString detection, duration PT gate/parse/emit, midnight serial helper, M1 preserve matrix (including duration→time), P1 template compatibility helper, S25/horizontal/vertical format-run coalesce helpers. Related non-Calc unit coverage: MCP `values` / `range` string\|array wire shape, `set_style` omits `number_format` for chat/MCP while scripting keeps it, `format_code` on temporal enrich only, `current_local_datetime` on list/guidance.
 
 **UNO edge cases (landed in §7.2):** post-gate `NotNumericException` for `2026-02-30` with S29 restore; apostrophe end-to-end.
 
@@ -873,12 +873,12 @@ End-to-end write and readback against the LLM wire schema:
 @native_test
 def test_write_and_read_date_time_cells():
     res = _execute_calc_tool("write_formula_range", {
-        "range_name": ["A26:B26"],
-        "formula_or_values": "[\"2026-08-08\", \"08:00\"]",
+        "range": ["A26:B26"],
+        "values": "[\"2026-08-08\", \"08:00\"]",
     })
     assert res.get("status") == "ok"
 
-    read_res = _execute_calc_tool("read_cell_range", {"range_name": ["A26:B26"]})
+    read_res = _execute_calc_tool("read_cell_range", {"range": ["A26:B26"]})
     row = read_res["result"][0][0]
 
     assert row[0]["value"] == "2026-08-08"

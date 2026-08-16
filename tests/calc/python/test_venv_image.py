@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+from plugin.calc.python.image_egress import insert_image_result_on_sheet
 from plugin.calc.python.venv import RunVenvPythonScript
 from plugin.scripting.payload_codec import PAYLOAD_IMAGE
 
@@ -56,3 +57,49 @@ def test_writer_image_result_returns_path_only():
     assert out.get("image_inserted") is None
     assert out["image_path"] == "/tmp/plot.svg"
     insert.assert_not_called()
+
+
+def test_insert_image_result_on_sheet_none_doc_safely_ignored():
+    """insert_image_result_on_sheet handles None doc without AttributeError."""
+    ctx = MagicMock()
+    with patch("plugin.scripting.document_scripts.get_calc_document_from_ctx", return_value=None):
+        # Should not raise
+        insert_image_result_on_sheet(ctx, _IMAGE_PAYLOAD)
+
+
+def test_insert_image_result_on_sheet_active_sheet_fallback():
+    """Fallback to getSheets().getByIndex(0) when getCurrentController is None."""
+    ctx = MagicMock()
+    doc = MagicMock()
+    doc.getCurrentController.return_value = None
+    sheet = MagicMock()
+    draw_page = MagicMock()
+    sheet.DrawPage = draw_page
+    sheets = MagicMock()
+    sheets.getCount.return_value = 1
+    sheets.getByIndex.return_value = sheet
+    doc.getSheets.return_value = sheets
+    shape = MagicMock()
+    doc.createInstance.return_value = shape
+
+    with (
+        patch("plugin.scripting.document_scripts.get_calc_document_from_ctx", return_value=doc),
+        patch("plugin.calc.python.image_egress.write_image_payload_to_temp", return_value="/tmp/chart.svg"),
+        patch("uno.systemPathToFileUrl", return_value="file:///tmp/chart.svg"),
+    ):
+        insert_image_result_on_sheet(ctx, _IMAGE_PAYLOAD)
+
+    assert draw_page.add.call_count == 1
+    shape.setPropertyValue.assert_called_with("GraphicURL", "file:///tmp/chart.svg")
+
+
+def test_insert_image_result_on_sheet_background_thread_marshaling():
+    """When called off main thread, insert_image_result_on_sheet marshals to main thread."""
+    ctx = MagicMock()
+    with (
+        patch("plugin.framework.thread_guard.on_main_thread", return_value=False),
+        patch("plugin.framework.queue_executor.execute_on_main_thread") as exec_main,
+    ):
+        insert_image_result_on_sheet(ctx, _IMAGE_PAYLOAD)
+
+    assert exec_main.call_count == 1

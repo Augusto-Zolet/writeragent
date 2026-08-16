@@ -20,7 +20,7 @@ def _execute_calc_tool(doc, ctx, name, args):
 @with_native_doc("calc")
 def test_calc_search_and_replace(ctx, doc):
     # Write some data
-    _execute_calc_tool(doc, ctx, "write_formula_range", {"range_name": "A20:B21", "formula_or_values": [
+    _execute_calc_tool(doc, ctx, "write_formula_range", {"range": "A20:B21", "values": [
         ["AppleUnique", "BananaUnique"],
         ["CherryUnique", "DateUnique"]
     ]})

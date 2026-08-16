@@ -68,7 +68,7 @@ class ReadCellRange(ToolBase):
     parameters = {
         "type": "object",
         "properties": {
-            "range_name": {
+            "range": {
                 "type": "array",
                 "items": {"type": "string"},
                 "description": (
@@ -78,7 +78,7 @@ class ReadCellRange(ToolBase):
                 ),
             }
         },
-        "required": ["range_name"],
+        "required": ["range"],
     }
     uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
     tier = "core"
@@ -87,11 +87,11 @@ class ReadCellRange(ToolBase):
     def execute(self, ctx, **kwargs):
         bridge = CalcBridge(ctx.doc)
         inspector = CellInspector(bridge)
-        rn = kwargs.get("range_name") or []
+        rn = kwargs.get("range") or []
         rn = [rn] if isinstance(rn, str) else (rn or [])
 
         if len(rn) == 0:
-            return self._tool_error("range_name is required")
+            return self._tool_error("range is required")
         if len(rn) == 1:
             result = inspector.read_range(rn[0], include_format_info=True)
             return {"status": "ok", "result": [result]}
@@ -107,7 +107,7 @@ class WriteCellRange(ToolBase):
     parameters = {
         "type": "object",
         "properties": {
-            "range_name": {
+            "range": {
                 "type": "array",
                 "items": {"type": "string"},
                 "description": (
@@ -115,12 +115,12 @@ class WriteCellRange(ToolBase):
                     "Sheet prefixes target that sheet without switching the active sheet."
                 ),
             },
-            "formula_or_values": {
+            "values": {
                 "type": "string",
                 "description": ("Single string: fills the entire range with that value or formula (use '=' prefix for formulas). JSON array: must have exactly as many elements as cells in the range (e.g. '[\"a\", \"b\"]' for 2 cells). Empty string/array clears the range."),
             },
         },
-        "required": ["range_name", "formula_or_values"],
+        "required": ["range", "values"],
     }
     uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
     tier = "core"
@@ -131,9 +131,9 @@ class WriteCellRange(ToolBase):
 
         bridge = CalcBridge(ctx.doc)
         manipulator = CellManipulator(bridge)
-        rn = kwargs.get("range_name") or []
+        rn = kwargs.get("range") or []
         rn = [rn] if isinstance(rn, str) else (rn or [])
-        fov = kwargs.get("formula_or_values")
+        fov = kwargs.get("values")
         # Normalize: schema is string for Gemini; accept number/list from other providers
         if isinstance(fov, (int, float)):
             fov = str(fov)
@@ -141,7 +141,7 @@ class WriteCellRange(ToolBase):
             fov = json.dumps(fov) if fov else ""
 
         if len(rn) == 0:
-            return self._tool_error("range_name is required")
+            return self._tool_error("range is required")
 
         undo = WriterCompoundUndo(ctx.doc, "WriterAgent: Write formulas")
         try:
@@ -161,7 +161,7 @@ class InsertCellHtml(ToolBase):
     name = "insert_cell_html"
     intent = "edit"
     description = "Parses HTML with the same filter as Writer and pastes rich text into one cell on the active sheet (e.g. <b>, <i>, <a href>, line breaks). Does not support images or embedded objects. Clears existing cell text."
-    parameters = {"type": "object", "properties": {"cell_address": {"type": "string", "description": 'Single cell (e.g. "A1") on the active sheet.'}, "html": {"type": "string", "description": "HTML fragment or small document (UTF-8)."}}, "required": ["cell_address", "html"]}
+    parameters = {"type": "object", "properties": {"cell": {"type": "string", "description": 'Single cell (e.g. "A1") on the active sheet.'}, "html": {"type": "string", "description": "HTML fragment or small document (UTF-8)."}}, "required": ["cell", "html"]}
     uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
     is_mutation = True
 
@@ -169,10 +169,10 @@ class InsertCellHtml(ToolBase):
         from plugin.calc.address_utils import parse_address
         from plugin.calc.rich_html import insert_cell_html_rich
 
-        addr = (kwargs.get("cell_address") or "").strip()
+        addr = (kwargs.get("cell") or "").strip()
         html = kwargs.get("html")
         if not addr:
-            return self._tool_error("cell_address is required")
+            return self._tool_error("cell is required")
         try:
             parse_address(addr)
         except ValueError as e:
@@ -199,7 +199,7 @@ class SetCellStyle(ToolBase):
     parameters = {
         "type": "object",
         "properties": {
-            "range_name": {"type": "array", "items": {"type": "string"}, "description": ('Target cell(s) or range(s) (e.g. ["A1:D10"] or ["A1", "B2"]).')},
+            "range": {"type": "array", "items": {"type": "string"}, "description": ('Target cell(s) or range(s) (e.g. ["A1:D10"] or ["A1", "B2"]).')},
             "bold": {"type": "boolean", "description": "Bold font"},
             "italic": {"type": "boolean", "description": "Italic font"},
             "font_size": {"type": "number", "description": "Font size (points)"},
@@ -210,7 +210,7 @@ class SetCellStyle(ToolBase):
             "wrap_text": {"type": "boolean", "description": "Wrap text"},
             "border_color": {"type": "string", "description": ("Border color (hex or name). Draws a frame around the cell/range.")},
         },
-        "required": ["range_name"],
+        "required": ["range"],
     }
     uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
     is_mutation = True
@@ -221,7 +221,7 @@ class SetCellStyle(ToolBase):
     def execute(self, ctx, **kwargs):
         bridge = CalcBridge(ctx.doc)
         manipulator = CellManipulator(bridge)
-        rn = kwargs.get("range_name") or []
+        rn = kwargs.get("range") or []
         rn = [rn] if isinstance(rn, str) else (rn or [])
 
         # Strict color validation: callers/tests expect invalid color strings
@@ -327,7 +327,7 @@ class SetCellStyle(ToolBase):
         }
 
         if len(rn) == 0:
-            return self._tool_error("range_name is required")
+            return self._tool_error("range is required")
         if len(rn) == 1:
             manipulator.set_cell_style(rn[0], **style_kwargs)
             return {"status": "ok", "message": f"Style applied to {rn[0]}"}
@@ -342,19 +342,19 @@ class MergeCells(ToolBase):
     name = "merge_cells"
     intent = "edit"
     description = "Merges the specified cell range(s). Typically used for main headers. Write text with write_formula_range and style with set_style after merging. Supports lists for non-contiguous areas."
-    parameters = {"type": "object", "properties": {"range_name": {"type": "array", "items": {"type": "string"}, "description": ('Range(s) to merge (e.g. ["A1:D1"] or ["A1:B1", "C1:D1"]).')}, "center": {"type": "boolean", "description": "Center content (default: true)"}}, "required": ["range_name"]}
+    parameters = {"type": "object", "properties": {"range": {"type": "array", "items": {"type": "string"}, "description": ('Range(s) to merge (e.g. ["A1:D1"] or ["A1:B1", "C1:D1"]).')}, "center": {"type": "boolean", "description": "Center content (default: true)"}}, "required": ["range"]}
     uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
         bridge = CalcBridge(ctx.doc)
         manipulator = CellManipulator(bridge)
-        rn = kwargs.get("range_name") or []
+        rn = kwargs.get("range") or []
         rn = [rn] if isinstance(rn, str) else (rn or [])
         center = kwargs.get("center", True)
 
         if len(rn) == 0:
-            return self._tool_error("range_name is required")
+            return self._tool_error("range is required")
         if len(rn) == 1:
             manipulator.merge_cells(rn[0], center=center)
             return {"status": "ok", "message": f"Merged cells {rn[0]}"}
@@ -372,12 +372,12 @@ class SortRange(ToolCalcRangeBase):
     parameters = {
         "type": "object",
         "properties": {
-            "range_name": {"type": "array", "items": {"type": "string"}, "description": ('Range(s) to sort (e.g. ["A1:D10"] or ["A1:B10", "D1:E10"]).')},
+            "range": {"type": "array", "items": {"type": "string"}, "description": ('Range(s) to sort (e.g. ["A1:D10"] or ["A1:B10", "D1:E10"]).')},
             "sort_column": {"type": "integer", "description": ("0-based column index within the range to sort by (default: 0)")},
             "ascending": {"type": "boolean", "description": ("True for ascending, False for descending (default: true)")},
             "has_header": {"type": "boolean", "description": ("Is the first row a header that should not be sorted? (default: true)")},
         },
-        "required": ["range_name"],
+        "required": ["range"],
     }
     uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
     is_mutation = True
@@ -385,14 +385,14 @@ class SortRange(ToolCalcRangeBase):
     def execute(self, ctx, **kwargs):
         bridge = CalcBridge(ctx.doc)
         manipulator = CellManipulator(bridge)
-        rn = kwargs.get("range_name") or []
+        rn = kwargs.get("range") or []
         rn = [rn] if isinstance(rn, str) else (rn or [])
         sort_column = kwargs.get("sort_column", 0)
         ascending = kwargs.get("ascending", True)
         has_header = kwargs.get("has_header", True)
 
         if len(rn) == 0:
-            return self._tool_error("range_name is required")
+            return self._tool_error("range is required")
         if len(rn) == 1:
             result = manipulator.sort_range(rn[0], sort_column=sort_column, ascending=ascending, has_header=has_header)
             return {"status": "ok", "message": result}

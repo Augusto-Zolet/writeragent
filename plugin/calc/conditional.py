@@ -83,7 +83,7 @@ def _entry_to_dict(entry: Any, idx: int) -> dict[str, Any]:
     try:
         sn = entry.getStyleName()
         if sn:
-            result["style_name"] = sn
+            result["style"] = sn
     except Exception:
         pass
 
@@ -111,11 +111,11 @@ class ListConditionalFormats(ToolCalcConditionalBase):
     name = "list_conditional_formats"
     intent = "navigate"
     description = "List conditional formatting rules on a Calc cell range. Returns operator, formulas, and applied cell style for each rule. Extended LibreOffice operators (e.g. DUPLICATE) use operator_code when present."
-    parameters = {"type": "object", "properties": {"range_name": {"type": "string", "description": "Cell range (e.g. 'A1:D10'). If omitted, scans used area."}}, "required": []}
+    parameters = {"type": "object", "properties": {"range": {"type": "string", "description": "Cell range (e.g. 'A1:D10'). If omitted, scans used area."}}, "required": []}
 
     def execute(self, ctx, **kwargs):
         bridge = CalcBridge(ctx.doc)
-        range_str = kwargs.get("range_name")
+        range_str = kwargs.get("range")
 
         try:
             sheet = bridge.get_active_sheet()
@@ -136,7 +136,7 @@ class ListConditionalFormats(ToolCalcConditionalBase):
                     entry = formats.getByIndex(i)
                     rules.append(_entry_to_dict(entry, i))
 
-            return {"status": "ok", "range_name": range_str or "(used area)", "rules": rules, "count": len(rules)}
+            return {"status": "ok", "range": range_str or "(used area)", "rules": rules, "count": len(rules)}
         except Exception as e:
             logger.error("List conditional formats error: %s", str(e))
             raise ToolExecutionError(str(e)) from e
@@ -159,21 +159,21 @@ class AddConditionalFormat(ToolCalcConditionalBase):
     parameters = {
         "type": "object",
         "properties": {
-            "range_name": {"type": "string", "description": "Cell range to apply the rule to (e.g. 'A1:D10')."},
+            "range": {"type": "string", "description": "Cell range to apply the rule to (e.g. 'A1:D10')."},
             "operator": {"type": "string", "enum": ["EQUAL", "NOT_EQUAL", "GREATER", "GREATER_EQUAL", "LESS", "LESS_EQUAL", "BETWEEN", "NOT_BETWEEN", "FORMULA", "DUPLICATE", "NOT_DUPLICATE"], "description": "Condition operator."},
             "formula1": {"type": "string", "description": ("First formula/value. For FORMULA, the condition (e.g. 'A1>100'). For value comparisons, the threshold (e.g. '50'). Omit or leave empty for DUPLICATE / NOT_DUPLICATE.")},
             "formula2": {"type": "string", "description": "Second value (required for BETWEEN and NOT_BETWEEN)."},
-            "style_name": {"type": "string", "description": ("Cell style to apply when condition is true. Use style_list with family='CellStyles' to see available styles.")},
+            "style": {"type": "string", "description": ("Cell style to apply when condition is true. Use style_list with family='CellStyles' to see available styles.")},
         },
-        "required": ["range_name", "operator", "style_name"],
+        "required": ["range", "operator", "style"],
     }
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
         bridge = CalcBridge(ctx.doc)
-        range_str = kwargs["range_name"]
+        range_str = kwargs["range"]
         operator = kwargs["operator"]
-        style_name = kwargs["style_name"]
+        style_name = kwargs["style"]
         formula1 = kwargs.get("formula1") or ""
         formula2 = kwargs.get("formula2") or ""
 
@@ -232,7 +232,7 @@ class AddConditionalFormat(ToolCalcConditionalBase):
             logger.info("Conditional format added to %s.", range_str.upper())
             count = formats.getCount()
 
-            return {"status": "ok", "range_name": range_str, "rule_count": count}
+            return {"status": "ok", "range": range_str, "rule_count": count}
         except Exception as e:
             logger.error("Add conditional format error: %s", str(e))
             raise ToolExecutionError(str(e)) from e
@@ -244,12 +244,12 @@ class RemoveConditionalFormats(ToolCalcConditionalBase):
     name = "remove_conditional_formats"
     intent = "edit"
     description = "Remove a conditional formatting rule from a Calc cell range by index, or clear all rules if no index is provided. Use list_conditional_formats to see current rules and their indices."
-    parameters = {"type": "object", "properties": {"range_name": {"type": "string", "description": "Cell range (e.g. 'A1:D10')."}, "rule_index": {"type": "integer", "description": "0-based index of the rule to remove. If omitted, all rules are cleared."}}, "required": ["range_name"]}
+    parameters = {"type": "object", "properties": {"range": {"type": "string", "description": "Cell range (e.g. 'A1:D10')."}, "rule_index": {"type": "integer", "description": "0-based index of the rule to remove. If omitted, all rules are cleared."}}, "required": ["range"]}
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
         bridge = CalcBridge(ctx.doc)
-        range_str = kwargs["range_name"]
+        range_str = kwargs["range"]
         index = kwargs.get("rule_index")
 
         try:
@@ -262,12 +262,12 @@ class RemoveConditionalFormats(ToolCalcConditionalBase):
                 if 0 <= index < formats.getCount():
                     formats.removeByIndex(index)
                     cell_range.setPropertyValue("ConditionalFormat", formats)
-                    return {"status": "ok", "range_name": range_str, "removed_index": index}
+                    return {"status": "ok", "range": range_str, "removed_index": index}
                 return self._tool_error(f"Rule index {index} not found on {range_str}.")
             if formats is not None:
                 formats.clear()
                 cell_range.setPropertyValue("ConditionalFormat", formats)
-            return {"status": "ok", "range_name": range_str, "cleared": True}
+            return {"status": "ok", "range": range_str, "cleared": True}
 
         except Exception as e:
             logger.error("Remove conditional formats error: %s", str(e))

@@ -21,8 +21,8 @@ def _execute_calc_tool(doc, ctx, name, args):
 def test_calc_pivot_table(ctx, doc):
     sn = doc.getSheets().getByIndex(0).getName()
     res_write = _execute_calc_tool(doc, ctx, "write_formula_range", {
-        "range_name": "A1:B6",
-        "formula_or_values": [
+        "range": "A1:B6",
+        "values": [
             ["Month", "Sales"],
             ["Jan", "100"],
             ["Feb", "150"],
@@ -34,10 +34,10 @@ def test_calc_pivot_table(ctx, doc):
     assert res_write.get("status") == "ok", f"write_formula_range failed: {res_write}"
 
     res = _execute_calc_tool(doc, ctx, "create_pivot_table", {
-        "pivot_table_name": "WA_PivotTest",
+        "name": "WA_PivotTest",
         "source_range": "A1:B6",
-        "source_sheet_name": sn,
-        "destination_sheet_name": sn,
+        "source_sheet": sn,
+        "destination_sheet": sn,
         "destination_cell": "D1",
         "row_fields": ["Month"],
         "column_fields": [],
@@ -46,14 +46,14 @@ def test_calc_pivot_table(ctx, doc):
     })
     assert res.get("status") == "ok", f"create_pivot_table failed: {res}"
 
-    res_list = _execute_calc_tool(doc, ctx, "list_pivot_tables", {"sheet_name": sn})
+    res_list = _execute_calc_tool(doc, ctx, "list_pivot_tables", {"sheet": sn})
     assert res_list.get("status") == "ok", f"list_pivot_tables failed: {res_list}"
     names = [p.get("name") for p in res_list.get("pivot_tables", [])]
     assert "WA_PivotTest" in names, f"Expected WA_PivotTest in {names}"
 
     res_ref = _execute_calc_tool(doc, ctx, "refresh_pivot_table", {
-        "pivot_table_name": "WA_PivotTest",
-        "sheet_name": sn,
+        "name": "WA_PivotTest",
+        "sheet": sn,
     })
     assert res_ref.get("status") == "ok", f"refresh_pivot_table failed: {res_ref}"
 
@@ -62,10 +62,10 @@ def test_calc_pivot_table(ctx, doc):
         doc.getSheets().insertNewByName("Sheet2", 1)
 
     res_dup = _execute_calc_tool(doc, ctx, "create_pivot_table", {
-        "pivot_table_name": "WA_PivotTest",
+        "name": "WA_PivotTest",
         "source_range": "A1:B6",
-        "source_sheet_name": sn,
-        "destination_sheet_name": "Sheet2",
+        "source_sheet": sn,
+        "destination_sheet": "Sheet2",
         "destination_cell": "A1",
         "data_fields": ["Sales"],
     })
@@ -73,7 +73,7 @@ def test_calc_pivot_table(ctx, doc):
     msg = res_dup.get("message", "")
     assert "already exists" in msg, f"Unexpected duplicate error: {msg}"
 
-    res_sheet2 = _execute_calc_tool(doc, ctx, "list_pivot_tables", {"sheet_name": "Sheet2"})
+    res_sheet2 = _execute_calc_tool(doc, ctx, "list_pivot_tables", {"sheet": "Sheet2"})
     assert res_sheet2.get("status") == "ok", f"list_pivot_tables failed: {res_sheet2}"
     sheet2_pivots = res_sheet2.get("pivot_tables", [])
     assert sheet2_pivots == [], f"Expected no pivot on Sheet2 after rejected duplicate, got {sheet2_pivots}"

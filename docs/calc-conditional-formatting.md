@@ -10,7 +10,7 @@ Conditional formatting tools live in the **specialized** tier (`conditional_form
 | Tool | Role |
 |------|------|
 | `add_conditional_format` | Append a **classic** rule: operator + optional formulas + **cell style name** when the rule matches. |
-| `list_conditional_formats` | List rules on a range (or the used area if `range_name` is omitted). |
+| `list_conditional_formats` | List rules on a range (or the used area if `range` is omitted). |
 | `remove_conditional_formats` | Remove one rule by **0-based** index, or **clear all** rules on the range if `rule_index` is omitted. |
 
 Implementation: [`plugin/calc/conditional.py`](../plugin/calc/conditional.py). Base class: `ToolCalcConditionalBase` in [`plugin/calc/base.py`](../plugin/calc/base.py).

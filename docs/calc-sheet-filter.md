@@ -27,9 +27,9 @@ Implementation: [`plugin/calc/sheet_filter.py`](../plugin/calc/sheet_filter.py).
   - **`Operator`**: a **`FilterOperator2` long (see [FilterOperator2](https://api.libreoffice.org/docs/idl/ref/namespacecom_1_1sun_1_1star_1_1sheet_1_1FilterOperator2.html)).
   - **`Connection`**: **`FilterConnection.AND`** or **`OR`** vs the previous condition (the first condition still uses a connection value; use **AND**).
   - **`IsNumeric`**, **`NumericValue`**, **`StringValue`**: value payload as appropriate for the operator.
-- Descriptor **`ContainsHeader`**: when `true`, the **first row** of `range_name` is treated as headers (not filtered as a data row).
+- Descriptor **`ContainsHeader`**: when `true`, the **first row** of `range` is treated as headers (not filtered as a data row).
 
-Wildcards (`*`, `?`) in string conditions follow Calc’s usual rules when **`UseRegularExpressions`** / case options are set on the descriptor; the WriterAgent tools currently expose **`contains_header`** only—extend the implementation if you need those properties explicitly.
+Wildcards (`*`, `?`) in string conditions follow Calc’s usual rules when **`UseRegularExpressions`** / case options are set on the descriptor; the WriterAgent tools currently expose **`has_header`** only—extend the implementation if you need those properties explicitly.
 
 ---
 
@@ -39,7 +39,7 @@ Each element of **`criteria`** is an object:
 
 | Property | Required | Description |
 |----------|----------|-------------|
-| `field` | yes | 0-based column index within `range_name`. |
+| `field` | yes | 0-based column index within `range`. |
 | `operator` | yes | `FilterOperator2` name (e.g. `EQUAL`, `CONTAINS`, `BEGINS_WITH`, `GREATER`, `EMPTY`, `TOP_VALUES`). |
 | `value` | usually | Filter value as string. Omit for `EMPTY` / `NOT_EMPTY`. For `TOP_VALUES` / `TOP_PERCENT` / `BOTTOM_*`, pass a numeric string. |
 | `is_numeric` | no | If `true`, `value` is interpreted as a number (`NumericValue`). |

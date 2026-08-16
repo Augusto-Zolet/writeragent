@@ -149,17 +149,17 @@ class CreatePivotTable(ToolCalcPivotBase):
     parameters = {
         "type": "object",
         "properties": {
-            "pivot_table_name": {"type": "string", "description": "Unique name for this pivot table in the document."},
+            "name": {"type": "string", "description": "Unique name for this pivot table in the document."},
             "source_range": {"type": "string", "description": "Data range including headers, e.g. A1:D20."},
-            "source_sheet_name": {"type": "string", "description": "Sheet containing source_range. Omit to use the active sheet."},
+            "source_sheet": {"type": "string", "description": "Sheet containing source_range. Omit to use the active sheet."},
             "destination_cell": {"type": "string", "description": "Top-left cell for the pivot output, e.g. A1 or F3."},
-            "destination_sheet_name": {"type": "string", "description": "Sheet where the pivot is drawn. Omit to use the active sheet."},
+            "destination_sheet": {"type": "string", "description": "Sheet where the pivot is drawn. Omit to use the active sheet."},
             "row_fields": {"type": "array", "items": {"type": "string"}, "description": "Source column headers to use as row fields."},
             "column_fields": {"type": "array", "items": {"type": "string"}, "description": "Source column headers to use as column fields."},
             "data_fields": {"type": "array", "items": {"type": "string"}, "description": "Source column headers to aggregate in the data area (required)."},
             "page_fields": {"type": "array", "items": {"type": "string"}, "description": "Optional page/filter fields (headers)."},
         },
-        "required": ["pivot_table_name", "source_range", "destination_cell", "data_fields"],
+        "required": ["name", "source_range", "destination_cell", "data_fields"],
     }
     is_mutation = True
 
@@ -167,15 +167,15 @@ class CreatePivotTable(ToolCalcPivotBase):
         bridge = CalcBridge(ctx.doc)
         doc = bridge.get_active_document()
         sheets_coll = doc.getSheets()
-        pivot_name = (kwargs.get("pivot_table_name") or "").strip()
+        pivot_name = (kwargs.get("name") or "").strip()
         if not pivot_name:
-            return self._tool_error("pivot_table_name is required.")
+            return self._tool_error("name is required.")
 
         data_fields = kwargs.get("data_fields") or []
         if not isinstance(data_fields, list) or len(data_fields) < 1:
             return self._tool_error("data_fields must be a non-empty array of header names.")
 
-        src_sheet_name = kwargs.get("source_sheet_name")
+        src_sheet_name = kwargs.get("source_sheet")
         if src_sheet_name:
             if not sheets_coll.hasByName(src_sheet_name):
                 return self._tool_error(f"No sheet named '{src_sheet_name}'.")
@@ -184,7 +184,7 @@ class CreatePivotTable(ToolCalcPivotBase):
             src_sheet = bridge.get_active_sheet()
         src_idx = _sheet_index_by_name(doc, src_sheet.getName())
 
-        dest_sheet_name = kwargs.get("destination_sheet_name")
+        dest_sheet_name = kwargs.get("destination_sheet")
         if dest_sheet_name:
             if not sheets_coll.hasByName(dest_sheet_name):
                 return self._tool_error(f"No sheet named '{dest_sheet_name}'.")
@@ -230,7 +230,7 @@ class CreatePivotTable(ToolCalcPivotBase):
             if dpt is not None:
                 dpt.refresh()
 
-            return {"status": "ok", "message": f"Created pivot table '{pivot_name}' at {dest_sheet.getName()}!{dest_cell}.", "pivot_table_name": pivot_name, "destination_sheet": dest_sheet.getName(), "destination_cell": dest_cell}
+            return {"status": "ok", "message": f"Created pivot table '{pivot_name}' at {dest_sheet.getName()}!{dest_cell}.", "name": pivot_name, "destination_sheet": dest_sheet.getName(), "destination_cell": dest_cell}
         except (ToolExecutionError, UnoObjectError):
             raise
         except Exception as e:
@@ -242,17 +242,17 @@ class RefreshPivotTable(ToolCalcPivotBase):
     """Refresh a DataPilot table from its current source range."""
 
     name = "refresh_pivot_table"
-    description = "Reload pivot table data from the source range. If sheet_name is omitted, searches all sheets for pivot_table_name."
-    parameters = {"type": "object", "properties": {"pivot_table_name": {"type": "string", "description": "Name of the pivot table."}, "sheet_name": {"type": "string", "description": "Sheet containing the pivot. Omit to search the workbook."}}, "required": ["pivot_table_name"]}
+    description = "Reload pivot table data from the source range. If sheet is omitted, searches all sheets for name."
+    parameters = {"type": "object", "properties": {"name": {"type": "string", "description": "Name of the pivot table."}, "sheet": {"type": "string", "description": "Sheet containing the pivot. Omit to search the workbook."}}, "required": ["name"]}
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
         bridge = CalcBridge(ctx.doc)
         doc = bridge.get_active_document()
-        name = (kwargs.get("pivot_table_name") or "").strip()
+        name = (kwargs.get("name") or "").strip()
         if not name:
-            return self._tool_error("pivot_table_name is required.")
-        sheet_name = kwargs.get("sheet_name")
+            return self._tool_error("name is required.")
+        sheet_name = kwargs.get("sheet")
 
         try:
             if sheet_name:
@@ -287,13 +287,13 @@ class ListPivotTables(ToolCalcPivotBase):
 
     name = "list_pivot_tables"
     description = "List pivot tables in the spreadsheet, optionally limited to one sheet."
-    parameters = {"type": "object", "properties": {"sheet_name": {"type": "string", "description": "If set, only list pivot tables on this sheet."}}, "required": []}
+    parameters = {"type": "object", "properties": {"sheet": {"type": "string", "description": "If set, only list pivot tables on this sheet."}}, "required": []}
     is_mutation = False
 
     def execute(self, ctx, **kwargs):
         bridge = CalcBridge(ctx.doc)
         doc = bridge.get_active_document()
-        only_sheet = kwargs.get("sheet_name")
+        only_sheet = kwargs.get("sheet")
 
         try:
             sh = doc.getSheets()

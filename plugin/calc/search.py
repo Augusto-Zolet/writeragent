@@ -26,7 +26,7 @@ class SearchInSpreadsheet(ToolCalcSearchBase):
             "regex": {"type": "boolean", "description": "Use regular expression (default: false)."},
             "case_sensitive": {"type": "boolean", "description": "Case-sensitive search (default: false)."},
             "max_results": {"type": "integer", "description": "Maximum results to return (default: 50)."},
-            "sheet_name": {"type": "string", "description": "Sheet to search (active sheet if omitted)."},
+            "sheet": {"type": "string", "description": "Sheet to search (active sheet if omitted)."},
             "all_sheets": {"type": "boolean", "description": "Search all sheets (default: false)."},
         },
         "required": ["pattern"],
@@ -50,7 +50,7 @@ class SearchInSpreadsheet(ToolCalcSearchBase):
             case_sensitive=case_sensitive,
             max_results=max_results,
             all_sheets=all_sheets,
-            sheet_name=kwargs.get("sheet_name"),
+            sheet_name=kwargs.get("sheet"),
         )
 
         return {"status": "ok", "matches": matches, "count": len(matches)}
@@ -68,7 +68,7 @@ class ReplaceInSpreadsheet(ToolCalcSearchBase):
             "replace": {"type": "string", "description": "Replacement text."},
             "regex": {"type": "boolean", "description": "Use regular expression (default: false)."},
             "case_sensitive": {"type": "boolean", "description": "Case-sensitive matching (default: false)."},
-            "sheet_name": {"type": "string", "description": "Sheet to operate on (active sheet if omitted)."},
+            "sheet": {"type": "string", "description": "Sheet to operate on (active sheet if omitted)."},
             "all_sheets": {"type": "boolean", "description": "Replace across all sheets (default: false)."},
         },
         "required": ["search", "replace"],
@@ -93,7 +93,7 @@ class ReplaceInSpreadsheet(ToolCalcSearchBase):
             sheets_obj = doc.getSheets()
             targets = [sheets_obj.getByName(n) for n in sheets_obj.getElementNames()]
         else:
-            targets = [resolve_sheet(doc, kwargs.get("sheet_name"))]
+            targets = [resolve_sheet(doc, kwargs.get("sheet"))]
 
         for sheet in targets:
             rd = sheet.createReplaceDescriptor()

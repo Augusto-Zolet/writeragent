@@ -22,7 +22,7 @@ def _execute(doc, ctx, name, args, domain="calc"):
 @with_native_doc("calc", hidden=not show_window)
 def test_calc_enhanced_chart(ctx, doc):
     # 1. Setup data
-    _execute(doc, ctx, "write_formula_range", {"range_name": "A1:B3", "formula_or_values": [["A", 1], ["B", 2], ["C", 3]]})
+    _execute(doc, ctx, "write_formula_range", {"range": "A1:B3", "values": [["A", 1], ["B", 2], ["C", 3]]})
     
     # 2. Create 3D Stacked Chart
     res = _execute(doc, ctx, "manage_charts", {
@@ -37,10 +37,10 @@ def test_calc_enhanced_chart(ctx, doc):
         "legend_position": "bottom"
     })
     assert res.get("status") == "ok", f"Create failed: {res}"
-    chart_name = res.get("chart_name")
+    chart_name = res.get("name")
     
     # 3. Verify Info
-    info = _execute(doc, ctx, "manage_charts", {"action": "get_info", "chart_name": chart_name})
+    info = _execute(doc, ctx, "manage_charts", {"action": "get_info", "name": chart_name})
     assert info.get("status") == "ok"
     assert info.get("is_3d") is True
     assert info.get("stacked") is True
@@ -51,14 +51,14 @@ def test_calc_enhanced_chart(ctx, doc):
     # 4. Edit properties
     edit_res = _execute(doc, ctx, "manage_charts", {
         "action": "edit",
-        "chart_name": chart_name,
+        "name": chart_name,
         "is_3d": False,
         "legend_position": "top",
         "y_axis_title": "New Y"
     })
     assert edit_res.get("status") == "ok"
     
-    info2 = _execute(doc, ctx, "manage_charts", {"action": "get_info", "chart_name": chart_name})
+    info2 = _execute(doc, ctx, "manage_charts", {"action": "get_info", "name": chart_name})
     assert info2.get("is_3d") is False
     assert info2.get("y_axis_title") == "New Y"
 
@@ -67,7 +67,7 @@ def test_calc_enhanced_chart(ctx, doc):
 @with_native_doc("calc", hidden=not show_window)
 def test_calc_chart_colors(ctx, doc):
     # 1. Setup data
-    _execute(doc, ctx, "write_formula_range", {"range_name": "A1:B3", "formula_or_values": [["A", 1], ["B", 2], ["C", 3]]})
+    _execute(doc, ctx, "write_formula_range", {"range": "A1:B3", "values": [["A", 1], ["B", 2], ["C", 3]]})
 
     # 2. Create Chart with custom/arbitrary colors (RGB and hex)
     res = _execute(doc, ctx, "manage_charts", {
@@ -78,12 +78,12 @@ def test_calc_chart_colors(ctx, doc):
         "colors": ["#00FF00", "blue"]  # green and blue series
     })
     assert res.get("status") == "ok", f"Create with colors failed: {res}"
-    chart_name = res.get("chart_name")
+    chart_name = res.get("name")
 
     # 3. Edit chart with another color (e.g. shorthand hex and CSS name)
     edit_res = _execute(doc, ctx, "manage_charts", {
         "action": "edit",
-        "chart_name": chart_name,
+        "name": chart_name,
         "bg_color": "yellow",
         "colors": ["#0f0"]
     })
@@ -101,9 +101,9 @@ def test_writer_chart_polymorphic(ctx, doc):
         "title": "Writer Pie"
     }, domain="writer")
     assert res.get("status") == "ok", f"Writer create failed: {res}"
-    name = res.get("chart_name")
+    name = res.get("name")
 
-    probe = _execute(doc, ctx, "manage_charts", {"action": "get_info", "chart_name": name}, domain="writer")
+    probe = _execute(doc, ctx, "manage_charts", {"action": "get_info", "name": name}, domain="writer")
     if probe.get("status") != "ok":
         raise unittest.SkipTest(
             "Writer chart embed not available in this LibreOffice runtime "
@@ -115,11 +115,11 @@ def test_writer_chart_polymorphic(ctx, doc):
     assert list_res.get("status") == "ok", f"manage_charts list failed: {list_res}"
     names = [c["name"] for c in list_res.get("charts", [])]
     assert name in names, (
-        f"chart_name {name!r} not in manage_charts list names {names!r}; full list_res={list_res!r}"
+        f"chart name {name!r} not in manage_charts list names {names!r}; full list_res={list_res!r}"
     )
     
     # 3. Info
-    info = _execute(doc, ctx, "manage_charts", {"action": "get_info", "chart_name": name}, domain="writer")
+    info = _execute(doc, ctx, "manage_charts", {"action": "get_info", "name": name}, domain="writer")
     assert info.get("title") == "Writer Pie"
     assert "PieDiagram" in info.get("diagram_type", "")
 
@@ -136,15 +136,15 @@ def test_draw_chart_polymorphic(ctx, doc):
         "is_3d": True
     }, domain="draw")
     assert res.get("status") == "ok", f"Draw create failed: {res}"
-    name = res.get("chart_name")
+    name = res.get("name")
     
     # 2. Info
-    info = _execute(doc, ctx, "manage_charts", {"action": "get_info", "chart_name": name}, domain="draw")
+    info = _execute(doc, ctx, "manage_charts", {"action": "get_info", "name": name}, domain="draw")
     assert info.get("is_3d") is True
     assert info.get("title") == "Slide Chart"
     
     # 3. Delete
-    del_res = _execute(doc, ctx, "manage_charts", {"action": "delete", "chart_name": name}, domain="draw")
+    del_res = _execute(doc, ctx, "manage_charts", {"action": "delete", "name": name}, domain="draw")
     assert del_res.get("status") == "ok"
     
     list_res = _execute(doc, ctx, "manage_charts", {"action": "list"}, domain="draw")
@@ -155,7 +155,7 @@ def test_draw_chart_polymorphic(ctx, doc):
 @with_native_doc("calc", hidden=not show_window)
 def test_calc_multisheet_charts(ctx, doc):
     # 1. Setup data on active sheet (Sheet1)
-    _execute(doc, ctx, "write_formula_range", {"range_name": "A1:B3", "formula_or_values": [["A", 10], ["B", 20], ["C", 30]]})
+    _execute(doc, ctx, "write_formula_range", {"range": "A1:B3", "values": [["A", 10], ["B", 20], ["C", 30]]})
 
     # 2. Insert a second sheet "Dashboard"
     if not doc.getSheets().hasByName("Dashboard"):
@@ -169,22 +169,22 @@ def test_calc_multisheet_charts(ctx, doc):
         "title": "Sheet1 Chart"
     })
     assert res1.get("status") == "ok", f"Create 1 failed: {res1}"
-    c0 = res1.get("chart_name")
+    c0 = res1.get("name")
     assert c0 == "Chart_0"
-    assert res1.get("sheet_name") == "Sheet1"
+    assert res1.get("sheet") == "Sheet1"
 
     # 4. Create Chart 1 placed on "Dashboard" with data from Sheet1
     res2 = _execute(doc, ctx, "manage_charts", {
         "action": "create",
-        "target_sheet": "Dashboard",
+        "sheet": "Dashboard",
         "data_range": "'Sheet1'.A1:B3",
         "chart_type": "line",
         "title": "Dashboard Chart"
     })
     assert res2.get("status") == "ok", f"Create 2 failed: {res2}"
-    c1 = res2.get("chart_name")
+    c1 = res2.get("name")
     assert c1 == "Chart_1", f"Expected Chart_1, got {c1!r}"
-    assert res2.get("sheet_name") == "Dashboard"
+    assert res2.get("sheet") == "Dashboard"
 
     # 5. List charts across entire document
     list_res = _execute(doc, ctx, "manage_charts", {"action": "list"})
@@ -198,7 +198,7 @@ def test_calc_multisheet_charts(ctx, doc):
     # 6. Edit chart on non-active sheet (Dashboard) WITHOUT passing sheet_name (auto-resolution fallback test)
     edit_res = _execute(doc, ctx, "manage_charts", {
         "action": "edit",
-        "chart_name": "Chart_1",
+        "name": "Chart_1",
         "title": "Updated Dashboard Chart"
     })
     assert edit_res.get("status") == "ok"
@@ -206,21 +206,21 @@ def test_calc_multisheet_charts(ctx, doc):
     # 7. Create Chart 2 with has_header=False
     res3 = _execute(doc, ctx, "manage_charts", {
         "action": "create",
-        "target_sheet": "Dashboard",
+        "sheet": "Dashboard",
         "data_range": "'Sheet1'.A1:B3",
         "chart_type": "pie",
         "has_header": False,
         "title": "No Header Chart"
     })
     assert res3.get("status") == "ok"
-    assert res3.get("chart_name") == "Chart_2"
+    assert res3.get("name") == "Chart_2"
 
     del_res = _execute(doc, ctx, "manage_charts", {
         "action": "delete",
-        "chart_name": "Chart_1"
+        "name": "Chart_1"
     })
     assert del_res.get("status") == "ok"
-    assert del_res.get("sheet_name") == "Dashboard"
+    assert del_res.get("sheet") == "Dashboard"
 
     # Verify remaining charts
     list_res2 = _execute(doc, ctx, "manage_charts", {"action": "list"})

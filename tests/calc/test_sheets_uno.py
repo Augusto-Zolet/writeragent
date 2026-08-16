@@ -19,7 +19,7 @@ def _execute_calc_tool(doc, ctx, name, args):
 @native_test
 @with_native_doc("calc")
 def test_create_sheet(ctx, doc):
-    res = _execute_calc_tool(doc, ctx, "create_sheet", {"sheet_name": "NewSheet"})
+    res = _execute_calc_tool(doc, ctx, "create_sheet", {"sheet": "NewSheet"})
     assert res.get("status") == "ok", f"create_sheet failed: {res}"
     assert doc.getSheets().hasByName("NewSheet"), "Sheet not created"
 
@@ -27,8 +27,8 @@ def test_create_sheet(ctx, doc):
 @native_test
 @with_native_doc("calc")
 def test_rename_duplicate_sheet(ctx, doc):
-    _execute_calc_tool(doc, ctx, "create_sheet", {"sheet_name": "SheetA"})
-    _execute_calc_tool(doc, ctx, "create_sheet", {"sheet_name": "SheetB"})
+    _execute_calc_tool(doc, ctx, "create_sheet", {"sheet": "SheetA"})
+    _execute_calc_tool(doc, ctx, "create_sheet", {"sheet": "SheetB"})
 
     # Attempt to rename SheetB to SheetA
     res_dup = _execute_calc_tool(doc, ctx, "rename_sheet", {"old_name": "SheetB", "new_name": "SheetA"})

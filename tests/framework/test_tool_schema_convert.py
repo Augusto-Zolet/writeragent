@@ -213,37 +213,37 @@ def test_update_style_schema_emits_no_additional_properties_keyword():
     assert "property_updates" in schema["function"]["parameters"]["properties"]
 
 
-def test_write_formula_range_mcp_widens_formula_or_values_to_string_or_array():
+def test_write_formula_range_mcp_widens_values_to_string_or_array():
     """#374 Bug 2: MCP hosts reject native arrays when schema is string-only."""
     from plugin.calc.cells import WriteCellRange
 
     tool = WriteCellRange()
-    openai = to_openai_schema(tool)["function"]["parameters"]["properties"]["formula_or_values"]
-    mcp = to_mcp_schema(tool)["inputSchema"]["properties"]["formula_or_values"]
+    openai = to_openai_schema(tool)["function"]["parameters"]["properties"]["values"]
+    mcp = to_mcp_schema(tool)["inputSchema"]["properties"]["values"]
     assert openai["type"] == "string"
     assert mcp["type"] == ["string", "array"]
     assert mcp["items"]["type"] == ["string", "number"]
 
 
-def test_mcp_widens_array_range_name_to_string_or_array():
+def test_mcp_widens_array_range_to_string_or_array():
     """MCP hosts reject a bare range string when schema is array-only; execute already coerces."""
     from plugin.calc.cells import ReadCellRange, WriteCellRange
 
     for tool in (WriteCellRange(), ReadCellRange()):
-        openai = to_openai_schema(tool)["function"]["parameters"]["properties"]["range_name"]
-        mcp = to_mcp_schema(tool)["inputSchema"]["properties"]["range_name"]
+        openai = to_openai_schema(tool)["function"]["parameters"]["properties"]["range"]
+        mcp = to_mcp_schema(tool)["inputSchema"]["properties"]["range"]
         assert openai["type"] == "array"
         assert mcp["type"] == ["string", "array"]
         assert mcp["items"]["type"] == "string"
 
 
-def test_mcp_string_range_name_stays_string():
+def test_mcp_string_range_stays_string():
     """Tools whose source schema is a single string must not gain an array union."""
     from plugin.calc.conditional import ListConditionalFormats
 
     tool = ListConditionalFormats()
-    openai = to_openai_schema(tool)["function"]["parameters"]["properties"]["range_name"]
-    mcp = to_mcp_schema(tool)["inputSchema"]["properties"]["range_name"]
+    openai = to_openai_schema(tool)["function"]["parameters"]["properties"]["range"]
+    mcp = to_mcp_schema(tool)["inputSchema"]["properties"]["range"]
     openai_types = openai["type"] if isinstance(openai["type"], list) else [openai["type"]]
     mcp_types = mcp["type"] if isinstance(mcp["type"], list) else [mcp["type"]]
     assert "string" in openai_types
@@ -276,7 +276,7 @@ def test_set_style_schema_omits_number_format_but_scripting_may_pass_it():
         registry.execute(
             "set_style",
             ctx,
-            range_name=["A1"],
+            range=["A1"],
             bold=True,
             number_format="0.00",
             bogus_llm_key=1,
@@ -308,7 +308,7 @@ def test_set_style_strips_number_format_for_non_script_callers(caller):
         registry.execute(
             "set_style",
             ctx,
-            range_name=["A1"],
+            range=["A1"],
             bold=True,
             number_format="0.00",
         )

@@ -205,8 +205,8 @@ def to_mcp_schema(tool, *, doc_type: str | None = None):
     # via to_openai_schema collapse — see docs/calc-date-time-handling.md §4.3).
     props = input_schema.get("properties")
     if isinstance(props, dict):
-        if tool.name == "write_formula_range" and "formula_or_values" in props:
-            fov = props["formula_or_values"]
+        if tool.name == "write_formula_range" and "values" in props:
+            fov = props["values"]
             if isinstance(fov, dict):
                 fov = dict(fov)
                 fov["type"] = ["string", "array"]
@@ -218,14 +218,14 @@ def to_mcp_schema(tool, *, doc_type: str | None = None):
                         + "Native JSON array of strings/numbers is accepted (same length as the range); "
                         "a single string still fills the entire range."
                     ).strip()
-                props["formula_or_values"] = fov
+                props["values"] = fov
         # Execute already coerces a bare range string to [str]. Source schemas stay
         # array-only so Gemini/Groq do not see a string|array union (collapse prefers array).
-        rn = props.get("range_name")
+        rn = props.get("range")
         if isinstance(rn, dict) and rn.get("type") == "array":
             rn = dict(rn)
             rn["type"] = ["string", "array"]
-            props["range_name"] = rn
+            props["range"] = rn
     return {"name": tool.name, "description": desc, "inputSchema": input_schema}
 
 

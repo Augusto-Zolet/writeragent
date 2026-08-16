@@ -90,7 +90,7 @@ def test_insert_cell_html(ctx, doc):
         ctx,
         "insert_cell_html",
         {
-            "cell_address": "Z99",
+            "cell": "Z99",
             "html": "Plain <b>BoldBit</b> tail",
         },
     )

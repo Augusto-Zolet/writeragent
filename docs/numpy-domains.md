@@ -51,11 +51,8 @@ Helpers that need a missing package return `MISSING_PACKAGE` with the install li
 
 ### Demo workbook (all NumPy domains)
 
-Manual QA fixture covering Analysis, Forecast, Viz, Math, Quant, Optimize, Units, and Goal Seek/Solver: [`tests/fixtures/numpy_domains_demo.ods`](../tests/fixtures/numpy_domains_demo.ods) ([`numpy_domains_demo.README.md`](../tests/fixtures/numpy_domains_demo.README.md)). Native ODS preserves uppercase `=PYTHON()` (LibreOffice lowercases custom add-ins when importing XLSX). One sheet per domain with sample data, `=PYTHON()` scalar checks where applicable, Run Python Script picker hints, and chat prompts for tools that expose a Calc chat surface. Regenerate from repo root:
-
-```bash
-python scripts/generate_numpy_domains_demo_spreadsheet.py
-```
+- **Showcase Demo (Pretty Dashboard & Executive Layout):** [`tests/fixtures/python_showcase_demo.ods`](../tests/fixtures/python_showcase_demo.ods) / [`python_showcase_demo.xlsx`](../tests/fixtures/python_showcase_demo.xlsx) ([`docs/python-in-calc-showcase.md`](python-in-calc-showcase.md)). Modern styled executive dashboard with KPI cards, formatted tables, live `=PY()` / `=PYTHON()` formulas across 7 showcase domains (Sales, Marketing ML, Time Series Forecasting, Portfolio Optimization, Engineering Units, and Plot Gallery). Regenerate via `python scripts/generate_pretty_demo_spreadsheet.py --format all`.
+- **Manual QA Test Fixture:** [`tests/fixtures/numpy_domains_demo.ods`](../tests/fixtures/numpy_domains_demo.ods) ([`numpy_domains_demo.README.md`](../tests/fixtures/numpy_domains_demo.README.md)). Native ODS preserving uppercase `=PYTHON()` add-in tokens for automated test validation. Regenerate via `python scripts/generate_numpy_domains_demo_spreadsheet.py`.
 
 Case definitions: [`tests/calc/numpy_domains_demo_cases.py`](../tests/calc/numpy_domains_demo_cases.py).
 

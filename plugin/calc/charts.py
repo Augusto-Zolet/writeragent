@@ -190,7 +190,7 @@ def _process_events(ctx=None):
 
 # Shared parameters for Create and Edit
 CHART_PROPERTIES = {
-    "target_sheet": {
+    "sheet": {
         "type": "string",
         "description": "Sheet name where the chart should be placed (Calc only, defaults to active sheet)."
     },
@@ -568,12 +568,12 @@ class GetChartInfo(ToolBaseDummy):
     name = "get_chart_info"
     intent = "navigate"
     description = "Get detailed info about a chart: type, title, ranges (if Calc), axis titles, and legend properties."
-    parameters = {"type": "object", "properties": {"chart_name": {"type": "string", "description": "Chart name (from list_charts)."}}, "required": ["chart_name"]}
+    parameters = {"type": "object", "properties": {"name": {"type": "string", "description": "Chart name (from list_charts)."}}, "required": ["name"]}
     uno_services = ListCharts.uno_services
 
     def execute(self, ctx, **kwargs):
         doc = ctx.doc
-        chart_name = kwargs["chart_name"]
+        chart_name = kwargs["name"]
         chart_obj = _resolve_chart(doc, chart_name)
 
         if not chart_obj:
@@ -638,7 +638,7 @@ class UpsertChart(ToolBaseDummy):
                 "enum": ["create", "edit"],
                 "description": "Action to perform: 'create' a new chart, or 'edit' an existing one."
             },
-            "chart_name": {
+            "name": {
                 "type": "string",
                 "description": "Name of the chart to edit (required for action='edit', optional for action='create')."
             },
@@ -685,8 +685,8 @@ class UpsertChart(ToolBaseDummy):
                 if not kwargs.get("headers") or not kwargs.get("rows"):
                     return False, "Both 'headers' and 'rows' are required to create a chart in Writer or Draw/Impress"
         elif action == "edit":
-            if "chart_name" not in kwargs:
-                return False, "Parameter 'chart_name' is required when action is 'edit'"
+            if "name" not in kwargs:
+                return False, "Parameter 'name' is required when action is 'edit'"
         return True, None
 
     def execute(self, ctx, **kwargs) -> dict[str, Any]:
@@ -721,7 +721,7 @@ class UpsertChart(ToolBaseDummy):
                 raise ToolExecutionError(f"Tool execution failed: {msg}") from e
 
         elif action == "edit":
-            chart_name = kwargs["chart_name"]
+            chart_name = kwargs["name"]
             chart_obj = _resolve_chart(doc, chart_name)
 
             if not chart_obj:
@@ -745,7 +745,7 @@ class UpsertChart(ToolBaseDummy):
                 logger.error("Chart edit error: %s", msg)
                 raise ToolExecutionError(f"Tool execution failed: {msg}") from e
 
-            return {"status": "ok", "chart_name": chart_name, "message": "Chart updated."}
+            return {"status": "ok", "name": chart_name, "message": "Chart updated."}
 
         return self._tool_error(f"Unsupported action: '{action}'")
 
@@ -755,7 +755,7 @@ class UpsertChart(ToolBaseDummy):
         if not data_range:
             return self._tool_error("data_range is required for Calc charts.")
 
-        target_sheet_name = kwargs.get("target_sheet") or kwargs.get("sheet_name")
+        target_sheet_name = kwargs.get("sheet")
         if target_sheet_name:
             try:
                 sheet = bridge.get_sheet(target_sheet_name)
@@ -782,7 +782,7 @@ class UpsertChart(ToolBaseDummy):
             except Exception:
                 pass
 
-        logger.debug("Creating Calc chart: target_sheet=%s, rect=(%d,%d,%d,%d), range=(%d,%d,%d,%d)",
+        logger.debug("Creating Calc chart: sheet=%s, rect=(%d,%d,%d,%d), range=(%d,%d,%d,%d)",
                      sheet.getName(), rect.X, rect.Y, rect.Width, rect.Height,
                      addr.StartColumn, addr.StartRow, addr.EndColumn, addr.EndRow)
 
@@ -805,7 +805,7 @@ class UpsertChart(ToolBaseDummy):
 
         _apply_chart_styling(chart_doc, **kwargs)
         #_process_events() causes a hang in tests
-        return {"status": "ok", "message": f"Chart '{name}' created on sheet '{sheet.getName()}'.", "chart_name": name, "sheet_name": sheet.getName()}
+        return {"status": "ok", "message": f"Chart '{name}' created on sheet '{sheet.getName()}'.", "name": name, "sheet": sheet.getName()}
 
     def _create_writer_chart(self, ctx, rect, service, **kwargs):
         """Insert a chart as inline ``TextEmbeddedObject`` (Writer body text).
@@ -979,7 +979,7 @@ class UpsertChart(ToolBaseDummy):
                 logger.debug("Failed direct chart_doc model update: %s", e)
 
         _process_events()
-        return {"status": "ok", "message": f"Chart '{name}' inserted in Writer.", "chart_name": name}
+        return {"status": "ok", "message": f"Chart '{name}' inserted in Writer.", "name": name}
 
     def _create_draw_chart(self, ctx, rect, service, **kwargs):
         doc = ctx.doc
@@ -1014,7 +1014,7 @@ class UpsertChart(ToolBaseDummy):
             _apply_chart_styling(chart_doc, **kwargs)
 
         _process_events()
-        return {"status": "ok", "message": f"Chart '{name}' inserted on slide.", "chart_name": name}
+        return {"status": "ok", "message": f"Chart '{name}' inserted on slide.", "name": name}
 
 
 class DeleteChart(ToolBaseDummy):
@@ -1023,20 +1023,20 @@ class DeleteChart(ToolBaseDummy):
     name = "delete_chart"
     intent = "edit"
     description = "Delete a chart by name."
-    parameters = {"type": "object", "properties": {"chart_name": {"type": "string", "description": "Chart name to delete."}}, "required": ["chart_name"]}
+    parameters = {"type": "object", "properties": {"name": {"type": "string", "description": "Chart name to delete."}}, "required": ["name"]}
     uno_services = ListCharts.uno_services
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
         doc = ctx.doc
-        chart_name = kwargs["chart_name"]
+        chart_name = kwargs["name"]
 
         if supportsService(doc, "com.sun.star.sheet.SpreadsheetDocument"):
             chart_obj, sheet = _find_calc_chart_and_sheet(doc, chart_name)
             if not chart_obj or not sheet:
                 return self._tool_error(f"Chart '{chart_name}' not found.")
             sheet.getCharts().removeByName(chart_name)
-            return {"status": "ok", "deleted": chart_name, "sheet_name": sheet.getName()}
+            return {"status": "ok", "deleted": chart_name, "sheet": sheet.getName()}
         elif supportsService(doc, "com.sun.star.text.TextDocument"):
             objects = doc.getEmbeddedObjects()
             if objects.hasByName(chart_name):
@@ -1094,11 +1094,11 @@ class ManageCharts(ToolCalcChartBase):
                 "enum": ["list", "get_info", "create", "edit", "delete"],
                 "description": "The action to perform on the charts."
             },
-            "chart_name": {
+            "name": {
                 "type": "string",
                 "description": "The name of the chart (required for get_info, edit, delete)."
             },
-            "target_sheet": {
+            "sheet": {
                 "type": "string",
                 "description": "Sheet name where the chart should be placed (Calc only, defaults to active sheet)."
             },
@@ -1211,21 +1211,20 @@ class ManageCharts(ToolCalcChartBase):
         if action == "list":
             return ListCharts().execute(ctx, **kwargs)
         elif action == "get_info":
-            if "chart_name" not in kwargs:
-                return self._tool_error("chart_name parameter is required for action='get_info'.")
+            if "name" not in kwargs:
+                return self._tool_error("name parameter is required for action='get_info'.")
             return GetChartInfo().execute(ctx, **kwargs)
         elif action == "create":
             if "chart_type" not in kwargs:
                 return self._tool_error("chart_type parameter is required for action='create'.")
             return UpsertChart().execute(ctx, **kwargs)
         elif action == "edit":
-            if "chart_name" not in kwargs:
-                return self._tool_error("chart_name parameter is required for action='edit'.")
+            if "name" not in kwargs:
+                return self._tool_error("name parameter is required for action='edit'.")
             return UpsertChart().execute(ctx, **kwargs)
         elif action == "delete":
-            if "chart_name" not in kwargs:
-                return self._tool_error("chart_name parameter is required for action='delete'.")
+            if "name" not in kwargs:
+                return self._tool_error("name parameter is required for action='delete'.")
             return DeleteChart().execute(ctx, **kwargs)
         else:
             return self._tool_error(f"Unsupported action: '{action}'")
-

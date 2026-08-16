@@ -120,7 +120,7 @@ _CRITERIA_ARRAY_DESCRIPTION = (
 _CRITERION_ITEM_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
-        "field": {"type": "integer", "description": "0-based column index within range_name (leftmost column = 0)."},
+        "field": {"type": "integer", "description": "0-based column index within range (leftmost column = 0)."},
         "operator": {"type": "string", "enum": list(FILTER_OPERATOR2_LABELS), "description": "LibreOffice FilterOperator2 (see enum)."},
         "value": {"type": "string", "description": ("Omit for EMPTY/NOT_EMPTY. Numeric string for TOP_*/BOTTOM_* operators. Otherwise set is_numeric when comparing numbers.")},
         "is_numeric": {"type": "boolean", "description": "If true, value is NumericValue; else StringValue."},
@@ -140,29 +140,29 @@ class ApplySheetFilter(ToolCalcSheetBase):
         "type": "object",
         "description": "See criteria for AND/OR chaining.",
         "properties": {
-            "range_name": {"type": "string", "description": "Range to filter (e.g. 'A1:D20')."},
-            "contains_header": {"type": "boolean", "description": "First row is headers only (default true)."},
+            "range": {"type": "string", "description": "Range to filter (e.g. 'A1:D20')."},
+            "has_header": {"type": "boolean", "description": "First row is headers only (default true)."},
             "criteria": {"type": "array", "items": _CRITERION_ITEM_SCHEMA, "description": _CRITERIA_ARRAY_DESCRIPTION, "minItems": 1},
         },
-        "required": ["range_name", "criteria"],
+        "required": ["range", "criteria"],
     }
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
 
-        range_name = kwargs["range_name"]
+        range_name = kwargs["range"]
         criteria = kwargs["criteria"]
         if not isinstance(criteria, list) or not criteria:
             raise UnoObjectError("criteria must be a non-empty list of filter conditions.")
 
-        contains_header = bool(kwargs.get("contains_header", True))
+        has_header = bool(kwargs.get("has_header", True))
 
         try:
             xf, _cell_range = _get_filterable_for_range(ctx, range_name)
             fd = xf.createFilterDescriptor(True)
             ps = _query_interface(fd, "com.sun.star.beans.XPropertySet")
             if ps is not None:
-                ps.setPropertyValue("ContainsHeader", contains_header)
+                ps.setPropertyValue("ContainsHeader", has_header)
 
             fd2 = _query_interface(fd, "com.sun.star.sheet.XSheetFilterDescriptor2")
             if fd2 is None:
@@ -172,7 +172,7 @@ class ApplySheetFilter(ToolCalcSheetBase):
             xf.filter(fd)
 
             logger.info("Sheet filter applied on %s (%d conditions).", range_name.upper(), len(fields))
-            return {"status": "ok", "range_name": range_name, "criteria_count": len(fields)}
+            return {"status": "ok", "range": range_name, "criteria_count": len(fields)}
         except UnoObjectError:
             raise
         except Exception as e:
@@ -185,24 +185,24 @@ class ClearSheetFilter(ToolCalcSheetBase):
 
     name = "clear_sheet_filter"
     intent = "edit"
-    description = "Remove the active standard sheet filter on a range so all rows show again. Use the same range_name (and contains_header) as apply_sheet_filter. delegate_to_specialized_calc_toolset(domain='sheets')."
+    description = "Remove the active standard sheet filter on a range so all rows show again. Use the same range (and has_header) as apply_sheet_filter. delegate_to_specialized_calc_toolset(domain='sheets')."
     parameters = {
         "type": "object",
-        "properties": {"range_name": {"type": "string", "description": "Same data range string used when applying the filter (e.g. 'A1:D20')."}, "contains_header": {"type": "boolean", "description": "Should match apply_sheet_filter (default true)."}},
-        "required": ["range_name"],
+        "properties": {"range": {"type": "string", "description": "Same data range string used when applying the filter (e.g. 'A1:D20')."}, "has_header": {"type": "boolean", "description": "Should match apply_sheet_filter (default true)."}},
+        "required": ["range"],
     }
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        range_name = kwargs["range_name"]
-        contains_header = bool(kwargs.get("contains_header", True))
+        range_name = kwargs["range"]
+        has_header = bool(kwargs.get("has_header", True))
 
         try:
             xf, _cell_range = _get_filterable_for_range(ctx, range_name)
             fd = xf.createFilterDescriptor(True)
             ps = _query_interface(fd, "com.sun.star.beans.XPropertySet")
             if ps is not None:
-                ps.setPropertyValue("ContainsHeader", contains_header)
+                ps.setPropertyValue("ContainsHeader", has_header)
 
             fd2 = _query_interface(fd, "com.sun.star.sheet.XSheetFilterDescriptor2")
             if fd2 is None:
@@ -211,7 +211,7 @@ class ClearSheetFilter(ToolCalcSheetBase):
             xf.filter(fd)
 
             logger.info("Sheet filter cleared on %s.", range_name.upper())
-            return {"status": "ok", "range_name": range_name, "cleared": True}
+            return {"status": "ok", "range": range_name, "cleared": True}
         except UnoObjectError:
             raise
         except Exception as e:
@@ -224,11 +224,11 @@ class GetSheetFilter(ToolCalcSheetBase):
 
     name = "get_sheet_filter"
     intent = "navigate"
-    description = "Return active filter criteria and contains_header for a range, or empty if none. delegate_to_specialized_calc_toolset(domain='sheets')."
-    parameters = {"type": "object", "properties": {"range_name": {"type": "string", "description": "Same range as apply_sheet_filter."}}, "required": ["range_name"]}
+    description = "Return active filter criteria and has_header for a range, or empty if none. delegate_to_specialized_calc_toolset(domain='sheets')."
+    parameters = {"type": "object", "properties": {"range": {"type": "string", "description": "Same range as apply_sheet_filter."}}, "required": ["range"]}
 
     def execute(self, ctx, **kwargs):
-        range_name = kwargs["range_name"]
+        range_name = kwargs["range"]
 
         try:
             xf, _cell_range = _get_filterable_for_range(ctx, range_name)
@@ -252,7 +252,7 @@ class GetSheetFilter(ToolCalcSheetBase):
                 except Exception:
                     pass
 
-            return {"status": "ok", "range_name": range_name, "contains_header": ch, "criteria": crit, "count": len(crit)}
+            return {"status": "ok", "range": range_name, "has_header": ch, "criteria": crit, "count": len(crit)}
         except UnoObjectError:
             raise
         except Exception as e:

@@ -20,28 +20,28 @@ def _execute_calc_tool(doc, ctx, name, args):
 @with_native_doc("calc")
 def test_write_formula_range(ctx, doc):
     active_sheet = doc.getCurrentController().getActiveSheet()
-    res = _execute_calc_tool(doc, ctx, "write_formula_range", {"range_name": "A1", "formula_or_values": "Hello"})
+    res = _execute_calc_tool(doc, ctx, "write_formula_range", {"range": "A1", "values": "Hello"})
     assert res.get("status") == "ok", f"write_formula_range failed: {res}"
     assert active_sheet.getCellByPosition(0, 0).getString() == "Hello", "Value mismatch"
 
     # Batch write
-    _execute_calc_tool(doc, ctx, "write_formula_range", {"range_name": ["B1", "B2"], "formula_or_values": "Batch"})
+    _execute_calc_tool(doc, ctx, "write_formula_range", {"range": ["B1", "B2"], "values": "Batch"})
     assert active_sheet.getCellByPosition(1, 0).getString() == "Batch", "Batch write cell 1 failed"
     assert active_sheet.getCellByPosition(1, 1).getString() == "Batch", "Batch write cell 2 failed"
 
     # Single cell: commas in comments / prose must not split into multiple "cells"
     comment = "Note: see section 3, paragraph 2."
-    res_comment = _execute_calc_tool(doc, ctx, "write_formula_range", {"range_name": "C1", "formula_or_values": comment})
+    res_comment = _execute_calc_tool(doc, ctx, "write_formula_range", {"range": "C1", "values": comment})
     assert res_comment.get("status") == "ok", f"write_formula_range comment failed: {res_comment}"
     assert active_sheet.getCellByPosition(2, 0).getString() == comment, "Comma in single-cell comment mangled"
 
     jp_sentence = "Hello ケイス, this is a test."
-    res_jp = _execute_calc_tool(doc, ctx, "write_formula_range", {"range_name": ["D1"], "formula_or_values": jp_sentence})
+    res_jp = _execute_calc_tool(doc, ctx, "write_formula_range", {"range": ["D1"], "values": jp_sentence})
     assert res_jp.get("status") == "ok", f"write_formula_range JP sentence failed: {res_jp}"
     assert active_sheet.getCellByPosition(3, 0).getString() == jp_sentence, "Comma in single-cell prose mangled"
 
     # Two cells in one contiguous range: comma-separated row still maps one field per cell
-    res_two = _execute_calc_tool(doc, ctx, "write_formula_range", {"range_name": "E1:F1", "formula_or_values": "Left,Right"})
+    res_two = _execute_calc_tool(doc, ctx, "write_formula_range", {"range": "E1:F1", "values": "Left,Right"})
     assert res_two.get("status") == "ok", f"write_formula_range two-cell CSV failed: {res_two}"
     assert active_sheet.getCellByPosition(4, 0).getString() == "Left", "E1 should be first CSV field"
     assert active_sheet.getCellByPosition(5, 0).getString() == "Right", "F1 should be second CSV field"
@@ -58,7 +58,7 @@ def test_detect_and_explain_errors(ctx, doc):
     # Test #DIV/0!
     active_sheet.getCellByPosition(8, 0).setFormula("=1/0")
     tctx = ToolContext(doc, ctx, "calc", {}, "test")
-    res = DetectErrors().execute(tctx, range_name="I1")
+    res = DetectErrors().execute(tctx, range="I1")
 
     assert res.get("status") == "ok", f"detect_and_explain_errors failed: {res}"
     assert res.get("result", {}).get("error_count", 0) > 0, "No errors detected"
@@ -68,7 +68,7 @@ def test_detect_and_explain_errors(ctx, doc):
 
     # Test #NAME?
     active_sheet.getCellByPosition(9, 0).setFormula("=UNKNOWN_NAME()")
-    res2 = DetectErrors().execute(tctx, range_name="J1")
+    res2 = DetectErrors().execute(tctx, range="J1")
     assert res2.get("status") == "ok", f"detect_and_explain_errors #NAME? failed: {res2}"
     assert res2.get("result", {}).get("error_count", 0) > 0, "No errors detected"
     errors = res2.get("result", {}).get("errors", [])
@@ -77,7 +77,7 @@ def test_detect_and_explain_errors(ctx, doc):
 
     # Test #REF!
     active_sheet.getCellByPosition(10, 0).setFormula("=#REF!")
-    res3 = DetectErrors().execute(tctx, range_name="K1")
+    res3 = DetectErrors().execute(tctx, range="K1")
     assert res3.get("status") == "ok", f"detect_and_explain_errors #REF! failed: {res3}"
     assert res3.get("result", {}).get("error_count", 0) > 0, "No #REF! errors detected"
     errors = res3.get("result", {}).get("errors", [])
@@ -107,7 +107,7 @@ def test_navigate_to_cell(ctx, doc):
 def test_write_formula_range_compound_undo(ctx, doc):
     """Bulk write_formula_range should group undo (one step reverts all ranges)."""
     active_sheet = doc.getCurrentController().getActiveSheet()
-    _execute_calc_tool(doc, ctx, "write_formula_range", {"range_name": ["G1", "G2"], "formula_or_values": "undo-test"})
+    _execute_calc_tool(doc, ctx, "write_formula_range", {"range": ["G1", "G2"], "values": "undo-test"})
     assert active_sheet.getCellByPosition(6, 0).getString() == "undo-test"
     assert active_sheet.getCellByPosition(6, 1).getString() == "undo-test"
 
@@ -148,8 +148,8 @@ def test_cross_sheet_formula(ctx, doc):
     active_sheet = doc.getCurrentController().getActiveSheet()
 
     res = _execute_calc_tool(doc, ctx, "write_formula_range", {
-        "range_name": ["D1"],
-        "formula_or_values": "=Sheet2.A1 * 2"
+        "range": ["D1"],
+        "values": "=Sheet2.A1 * 2"
     })
 
     assert res.get("status") == "ok", f"write_formula_range failed: {res}"

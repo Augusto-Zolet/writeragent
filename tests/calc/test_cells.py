@@ -286,7 +286,7 @@ def test_read_cell_range_tool_opts_into_format_info():
     ctx = SimpleNamespace(doc=MagicMock())
     with patch("plugin.calc.cells.CellInspector") as inspector_cls:
         inspector_cls.return_value.read_range.return_value = [[{"value": 1.0}]]
-        result = ReadCellRange().execute(ctx, range_name=["A1"])
+        result = ReadCellRange().execute(ctx, range=["A1"])
 
     assert result["status"] == "ok"
     inspector_cls.return_value.read_range.assert_called_once_with("A1", include_format_info=True)
@@ -298,7 +298,7 @@ def test_set_style_rejects_mistyped_bold():
 
     ctx = SimpleNamespace(doc=MagicMock())
     with patch("plugin.calc.cells.CellManipulator") as manip_cls:
-        result = SetCellStyle().execute(ctx, range_name=["A1"], bold="true")
+        result = SetCellStyle().execute(ctx, range=["A1"], bold="true")
 
     assert result["status"] == "error"
     assert "bold" in result["message"]
@@ -310,7 +310,7 @@ def test_set_style_rejects_mistyped_font_size():
 
     ctx = SimpleNamespace(doc=MagicMock())
     with patch("plugin.calc.cells.CellManipulator") as manip_cls:
-        result = SetCellStyle().execute(ctx, range_name=["A1"], font_size="12")
+        result = SetCellStyle().execute(ctx, range=["A1"], font_size="12")
 
     assert result["status"] == "error"
     assert "font_size" in result["message"]
@@ -322,7 +322,7 @@ def test_set_style_accepts_typed_bold_and_font_size():
 
     ctx = SimpleNamespace(doc=MagicMock())
     with patch("plugin.calc.cells.CellManipulator") as manip_cls:
-        result = SetCellStyle().execute(ctx, range_name=["A1"], bold=True, font_size=12)
+        result = SetCellStyle().execute(ctx, range=["A1"], bold=True, font_size=12)
 
     assert result["status"] == "ok"
     manip_cls.return_value.set_cell_style.assert_called_once()

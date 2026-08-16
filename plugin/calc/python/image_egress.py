@@ -25,51 +25,96 @@ DEFAULT_CHART_SIZE_HEIGHT = 6000
 
 
 def insert_image_result_on_sheet(ctx: Any, payload: dict[str, Any]) -> None:
-    """Write image payload bytes to a temp file and insert as a cell-anchored shape on the active sheet."""
+    """Write image payload bytes to a temp file and insert as a cell-anchored shape on the active sheet.
+
+    Marshals execution to the main VCL UI thread if invoked from a background worker thread.
+    """
+    from plugin.framework.queue_executor import execute_on_main_thread
+    from plugin.framework.thread_guard import on_main_thread
+
+    # Thread safety invariant: Drawing layer manipulation (DrawPage, GraphicObjectShape, cell geometry)
+    # must run on LibreOffice's main VCL thread to prevent internal C++ state corruption and deadlocks.
+    # If called from a background recalculation or script worker thread, marshal via execute_on_main_thread.
+    if not on_main_thread():
+        execute_on_main_thread(_insert_image_result_on_sheet_impl, ctx, payload)
+        return
+
+    _insert_image_result_on_sheet_impl(ctx, payload)
+
+
+def _insert_image_result_on_sheet_impl(ctx: Any, payload: dict[str, Any]) -> None:
+    """Main-thread implementation of graphic shape creation and anchoring."""
     import uno
     from com.sun.star.awt import Size
 
-    tmp_path = write_image_payload_to_temp(payload)
-    file_url = uno.systemPathToFileUrl(os.path.abspath(tmp_path))
-    smgr = ctx.ServiceManager
-    desktop = smgr.createInstanceWithContext("com.sun.star.frame.Desktop", ctx)
-    doc = desktop.getCurrentComponent()
-    ctrl = doc.getCurrentController()
-    sheet = ctrl.getActiveSheet()
-    draw_page = sheet.DrawPage
-
-    shape = doc.createInstance("com.sun.star.drawing.GraphicObjectShape")
-    default_size = Size(DEFAULT_CHART_SIZE_WIDTH, DEFAULT_CHART_SIZE_HEIGHT)
-    shape.setSize(default_size)
-    draw_page.add(shape)
-    shape.setPropertyValue("GraphicURL", file_url)
-
-    # Anchor the image to the active cell so it moves with the grid.
+    # Bugfix: Previously, insert_image_result_on_sheet did `desktop.getCurrentComponent().getCurrentController()`
+    # directly. During document load or background recalc, getCurrentComponent() or getCurrentController() can
+    # return None, causing `AttributeError: 'NoneType' object has no attribute 'getCurrentController'`.
+    # Fix: Resolve the document model via `get_calc_document_from_ctx(ctx)` with null checks on doc,
+    # controller, and active sheet before attempting shape creation.
     try:
-        from plugin.calc.calc_utils import get_cell_geometry
+        from plugin.scripting.document_scripts import get_calc_document_from_ctx
 
-        selection = ctrl.getSelection()
-        if selection is not None:
-            addr = selection.getRangeAddress()
-            cell = sheet.getCellByPosition(addr.StartColumn, addr.StartRow)
-            # Bugfix: Previously shape.setSize(cell_size) was called unconditionally, which
-            # crushed charts down to the ~22mm x 4.5mm size of a single cell.
-            # Now: Only size to cell_size if the cell is merged (or selection is a multi-cell range).
-            cell_pos, cell_size = get_cell_geometry(sheet, cell)
-            is_merged = bool(getattr(cell, "IsMerged", False))
-            is_multi_cell = bool(addr.EndColumn > addr.StartColumn or addr.EndRow > addr.StartRow)
+        doc = get_calc_document_from_ctx(ctx)
+        if doc is None:
+            log.debug("insert_image_result_on_sheet: no active Calc document resolved from context")
+            return
 
-            shape.setPropertyValue("Anchor", cell)
-            if hasattr(shape, "setPosition"):
-                shape.setPosition(cell_pos)
+        ctrl = doc.getCurrentController() if hasattr(doc, "getCurrentController") else None
+        if ctrl is not None and hasattr(ctrl, "getActiveSheet") and ctrl.getActiveSheet():
+            sheet = ctrl.getActiveSheet()
+        elif hasattr(doc, "getSheets") and doc.getSheets().getCount() > 0:
+            sheet = doc.getSheets().getByIndex(0)
+        else:
+            log.debug("insert_image_result_on_sheet: could not resolve active sheet")
+            return
 
-            if is_merged or is_multi_cell:
-                shape.setPropertyValue("ResizeWithCell", True)
-                if hasattr(shape, "setSize"):
-                    shape.setSize(cell_size)
-            else:
-                shape.setPropertyValue("ResizeWithCell", False)
-                if hasattr(shape, "setSize"):
-                    shape.setSize(default_size)
+        draw_page = getattr(sheet, "DrawPage", None)
+        if draw_page is None:
+            log.debug("insert_image_result_on_sheet: active sheet has no DrawPage")
+            return
+
+        tmp_path = write_image_payload_to_temp(payload)
+        file_url = uno.systemPathToFileUrl(os.path.abspath(tmp_path))
+
+        shape = doc.createInstance("com.sun.star.drawing.GraphicObjectShape")
+        default_size = Size(DEFAULT_CHART_SIZE_WIDTH, DEFAULT_CHART_SIZE_HEIGHT)
+        shape.setSize(default_size)
+        draw_page.add(shape)
+        shape.setPropertyValue("GraphicURL", file_url)
+
+        # Anchor the image to the active cell so it moves with the grid.
+        if ctrl is not None and hasattr(ctrl, "getSelection"):
+            try:
+                from plugin.calc.calc_utils import get_cell_geometry
+
+                selection = ctrl.getSelection()
+                if selection is not None and hasattr(selection, "getRangeAddress"):
+                    addr = selection.getRangeAddress()
+                    cell = sheet.getCellByPosition(addr.StartColumn, addr.StartRow)
+                    cell_pos, cell_size = get_cell_geometry(sheet, cell)
+                    is_merged = bool(getattr(cell, "IsMerged", False))
+                    is_multi_cell = bool(addr.EndColumn > addr.StartColumn or addr.EndRow > addr.StartRow)
+
+                    shape.setPropertyValue("Anchor", cell)
+                    if hasattr(shape, "setPosition"):
+                        shape.setPosition(cell_pos)
+
+                    if is_merged or is_multi_cell:
+                        shape.setPropertyValue("ResizeWithCell", True)
+                        if hasattr(shape, "setSize"):
+                            # Note for future enhancement: If a merged block has very thin row heights
+                            # (e.g. < 40mm / 4000 1/100mm), a minimum dimension clamp could be applied here:
+                            #   effective_height = max(cell_size.Height, MIN_CHART_SIZE_HEIGHT)
+                            #   effective_width = max(cell_size.Width, MIN_CHART_SIZE_WIDTH)
+                            #   shape.setSize(Size(effective_width, effective_height))
+                            # For now, we scale directly to the full merged area defined on the sheet.
+                            shape.setSize(cell_size)
+                    else:
+                        shape.setPropertyValue("ResizeWithCell", False)
+                        if hasattr(shape, "setSize"):
+                            shape.setSize(default_size)
+            except Exception:
+                log.debug("insert_image_result_on_sheet: could not anchor to cell", exc_info=True)
     except Exception:
-        log.debug("insert_image_result_on_sheet: could not anchor to cell", exc_info=True)
+        log.exception("insert_image_result_on_sheet failed to insert graphic shape")

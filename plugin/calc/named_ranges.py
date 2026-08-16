@@ -531,7 +531,7 @@ class NamedRangeCreateFromTitles(ToolCalcRangeBase):
     parameters = {
         "type": "object",
         "properties": {
-            "range_str": {
+            "range": {
                 "type": "string",
                 "description": "The table cell range containing both headers and data (e.g. 'A1:D20' or 'Sheet1.A1:D20').",
             },
@@ -545,14 +545,14 @@ class NamedRangeCreateFromTitles(ToolCalcRangeBase):
                 "description": "Container scope for creating the names: 'global' (default) or specific sheet name.",
             },
         },
-        "required": ["range_str"],
+        "required": ["range"],
     }
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
         import uno
         bridge = CalcBridge(ctx.doc)
-        range_str = kwargs["range_str"].strip()
+        range_str = kwargs["range"].strip()
         border_str = kwargs.get("border", "top")
         if border_str is None or str(border_str).strip() == "":
             border_str = "top"

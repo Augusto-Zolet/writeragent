@@ -76,7 +76,7 @@ class ListCellComments(ToolCalcCommentBase):
     parameters = {
         "type": "object",
         "properties": {
-            "sheet_name": {
+            "sheet": {
                 "type": "string",
                 "description": "Sheet name (active sheet if omitted).",
             }
@@ -86,7 +86,7 @@ class ListCellComments(ToolCalcCommentBase):
 
     def execute(self, ctx, **kwargs):
         doc = ctx.doc
-        sheet = resolve_sheet(doc, kwargs.get("sheet_name"))
+        sheet = resolve_sheet(doc, kwargs.get("sheet"))
         annotations = sheet.getAnnotations()
         comments = []
         for i in range(annotations.getCount()):
@@ -125,7 +125,7 @@ class AddCellComment(ToolCalcCommentBase):
                 "description": "Cell address (e.g. 'B3' or 'Sheet1.B3').",
             },
             "text": {"type": "string", "description": "Comment text."},
-            "sheet_name": {
+            "sheet": {
                 "type": "string",
                 "description": "Sheet name (active sheet if omitted).",
             },
@@ -141,7 +141,7 @@ class AddCellComment(ToolCalcCommentBase):
             return self._tool_error("cell and text are required.")
 
         try:
-            cell_ref, sheet_name = _split_cell_sheet(cell_ref, kwargs.get("sheet_name"))
+            cell_ref, sheet_name = _split_cell_sheet(cell_ref, kwargs.get("sheet"))
         except ValueError as e:
             return self._tool_error(str(e))
 
@@ -182,7 +182,7 @@ class DeleteCellComment(ToolCalcCommentBase):
                 "type": "string",
                 "description": "Cell address (e.g. 'B3' or 'Sheet1.B3').",
             },
-            "sheet_name": {
+            "sheet": {
                 "type": "string",
                 "description": "Sheet name (active sheet if omitted).",
             },
@@ -197,7 +197,7 @@ class DeleteCellComment(ToolCalcCommentBase):
             return self._tool_error("cell is required.")
 
         try:
-            cell_ref, sheet_name = _split_cell_sheet(cell_ref, kwargs.get("sheet_name"))
+            cell_ref, sheet_name = _split_cell_sheet(cell_ref, kwargs.get("sheet"))
         except ValueError as e:
             return self._tool_error(str(e))
 
