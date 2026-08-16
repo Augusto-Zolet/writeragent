@@ -225,6 +225,33 @@ def test_write_formula_range_mcp_widens_formula_or_values_to_string_or_array():
     assert mcp["items"]["type"] == ["string", "number"]
 
 
+def test_mcp_widens_array_range_name_to_string_or_array():
+    """MCP hosts reject a bare range string when schema is array-only; execute already coerces."""
+    from plugin.calc.cells import ReadCellRange, WriteCellRange
+
+    for tool in (WriteCellRange(), ReadCellRange()):
+        openai = to_openai_schema(tool)["function"]["parameters"]["properties"]["range_name"]
+        mcp = to_mcp_schema(tool)["inputSchema"]["properties"]["range_name"]
+        assert openai["type"] == "array"
+        assert mcp["type"] == ["string", "array"]
+        assert mcp["items"]["type"] == "string"
+
+
+def test_mcp_string_range_name_stays_string():
+    """Tools whose source schema is a single string must not gain an array union."""
+    from plugin.calc.conditional import ListConditionalFormats
+
+    tool = ListConditionalFormats()
+    openai = to_openai_schema(tool)["function"]["parameters"]["properties"]["range_name"]
+    mcp = to_mcp_schema(tool)["inputSchema"]["properties"]["range_name"]
+    openai_types = openai["type"] if isinstance(openai["type"], list) else [openai["type"]]
+    mcp_types = mcp["type"] if isinstance(mcp["type"], list) else [mcp["type"]]
+    assert "string" in openai_types
+    assert "array" not in openai_types
+    assert "string" in mcp_types
+    assert "array" not in mcp_types
+
+
 def test_set_style_schema_omits_number_format_but_scripting_may_pass_it():
     """#374 P3: number_format must not appear on LLM/MCP schemas."""
     from plugin.calc.cells import SetCellStyle
