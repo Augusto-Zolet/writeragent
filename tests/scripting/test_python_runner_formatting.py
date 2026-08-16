@@ -120,14 +120,11 @@ def test_insert_result_into_calc_primitive():
 
     from plugin.scripting.python_runner import insert_result_into_calc
 
-    manipulator = MagicMock()
     doc = _calc_doc_with_selection(0, 0)
-    with (
-        patch("plugin.scripting.python_runner.CalcBridge"),
-        patch("plugin.scripting.python_runner.CellManipulator", return_value=manipulator),
-    ):
-        insert_result_into_calc(doc, MagicMock(), 42)
-    manipulator.write_formula_range.assert_called_once_with("A1", "42")
+    ctx = MagicMock()
+    with patch("plugin.calc.rich_html.insert_cell_html_rich") as mock_rich:
+        insert_result_into_calc(doc, ctx, 42)
+    mock_rich.assert_called_once_with(doc, ctx, "A1", "42")
 
 
 def test_insert_result_into_calc_list_at_selection():
@@ -135,15 +132,14 @@ def test_insert_result_into_calc_list_at_selection():
 
     from plugin.scripting.python_runner import insert_result_into_calc
 
-    manipulator = MagicMock()
     doc = _calc_doc_with_selection(1, 2)
+    ctx = MagicMock()
     rows = [["a", "b"], [1, 2]]
-    with (
-        patch("plugin.scripting.python_runner.CalcBridge"),
-        patch("plugin.scripting.python_runner.CellManipulator", return_value=manipulator),
-    ):
-        insert_result_into_calc(doc, MagicMock(), rows)
-    manipulator.write_formula_range.assert_called_once_with("B3", rows)
+    with patch("plugin.calc.rich_html.insert_cell_html_rich") as mock_rich:
+        insert_result_into_calc(doc, ctx, rows)
+    mock_rich.assert_called_once()
+    assert mock_rich.call_args[0][2] == "B3"
+    assert '<table border="1">' in mock_rich.call_args[0][3]
 
 
 def test_insert_result_into_calc_dict_title_and_table():
@@ -151,16 +147,16 @@ def test_insert_result_into_calc_dict_title_and_table():
 
     from plugin.scripting.python_runner import insert_result_into_calc
 
-    manipulator = MagicMock()
     doc = _calc_doc_with_selection(0, 0)
+    ctx = MagicMock()
     result = {"title": "My Title", "rows": [{"A": 1, "B": 2}]}
-    with (
-        patch("plugin.scripting.python_runner.CalcBridge"),
-        patch("plugin.scripting.python_runner.CellManipulator", return_value=manipulator),
-    ):
-        insert_result_into_calc(doc, MagicMock(), result)
-    assert manipulator.write_formula_range.call_args_list[0].args == ("A1", "My Title")
-    assert manipulator.write_formula_range.call_args_list[1].args == ("A2", [["A", "B"], [1, 2]])
+    with patch("plugin.calc.rich_html.insert_cell_html_rich") as mock_rich:
+        insert_result_into_calc(doc, ctx, result)
+    mock_rich.assert_called_once()
+    assert mock_rich.call_args[0][2] == "A1"
+    html_arg = mock_rich.call_args[0][3]
+    assert "My Title" in html_arg
+    assert '<table border="1">' in html_arg
 
 
 def test_insert_result_into_calc_dataframe_envelope():
@@ -169,15 +165,16 @@ def test_insert_result_into_calc_dataframe_envelope():
     from plugin.scripting.payload_codec import PAYLOAD_DATAFRAME
     from plugin.scripting.python_runner import insert_result_into_calc
 
-    manipulator = MagicMock()
     doc = _calc_doc_with_selection(0, 0)
+    ctx = MagicMock()
     envelope = {"__wa_payload__": PAYLOAD_DATAFRAME, "columns": ["a"], "data": [[1]]}
-    with (
-        patch("plugin.scripting.python_runner.CalcBridge"),
-        patch("plugin.scripting.python_runner.CellManipulator", return_value=manipulator),
-    ):
-        insert_result_into_calc(doc, MagicMock(), envelope)
-    manipulator.write_formula_range.assert_called_once_with("A1", [["a"], [1]])
+    with patch("plugin.calc.rich_html.insert_cell_html_rich") as mock_rich:
+        insert_result_into_calc(doc, ctx, envelope)
+    mock_rich.assert_called_once()
+    assert mock_rich.call_args[0][2] == "A1"
+    html_arg = mock_rich.call_args[0][3]
+    assert "<th>a</th>" in html_arg
+    assert "<td>1</td>" in html_arg
 
 
 def test_insert_result_into_calc_exception_shows_msgbox():
@@ -187,10 +184,7 @@ def test_insert_result_into_calc_exception_shows_msgbox():
 
     doc = MagicMock()
     doc.getCurrentController.side_effect = RuntimeError("no controller")
-    with (
-        patch("plugin.scripting.python_runner.CalcBridge"),
-        patch("plugin.scripting.python_runner.msgbox") as box,
-    ):
+    with patch("plugin.scripting.python_runner.msgbox") as box:
         insert_result_into_calc(doc, MagicMock(), 1)
     box.assert_called_once()
     assert "Failed to insert result into Calc" in box.call_args[0][2]

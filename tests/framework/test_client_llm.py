@@ -169,6 +169,35 @@ def test_stream_request_with_tools_text_and_tool(client):
         assert result["finish_reason"] == "tool_calls"
 
 
+def test_stream_request_with_tools_logs_raw_indexes_before_accumulation(client, caplog):
+    mock_responses = [
+        b'data: {"id":"chunk-1","model":"gpt-oss","provider":"Cerebras","choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"lookup","arguments":"{\\"query\\":\\"part"}}]}}]}\n\n',
+        b'data: {"id":"chunk-2","model":"gpt-oss","provider":"Cerebras","choices":[{"delta":{"tool_calls":[{"index":1,"id":"","type":"function","function":{"name":"","arguments":" two\\"}"}}]},"finish_reason":"tool_calls"}]}\n\n',
+        b"data: [DONE]\n\n",
+    ]
+
+    with patch("http.client.HTTPSConnection") as mock_https:
+        mock_conn = MagicMock()
+        mock_https.return_value = mock_conn
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.__iter__.return_value = iter(mock_responses)
+        mock_conn.getresponse.return_value = mock_response
+
+        with caplog.at_level("DEBUG", logger="plugin.framework.client.llm_client"):
+            result = client.stream_request_with_tools(
+                messages=[{"role": "user", "content": "Look it up"}],
+                max_tokens=100,
+                tools=[{"type": "function", "function": {"name": "lookup"}}],
+            )
+
+    assert len(result["tool_calls"]) == 2
+    assert "raw tool_call delta" in caplog.text
+    assert 'chunk_provider=\'Cerebras\'' in caplog.text
+    assert '"index": 1' in caplog.text
+    assert "accumulated tool_calls" in caplog.text
+
+
 def test_stream_request_with_tools_preserves_reasoning_replay(client):
     mock_responses = [
         b'data: {"choices": [{"delta": {"reasoning_content": "Let me check "}}]}\n\n',

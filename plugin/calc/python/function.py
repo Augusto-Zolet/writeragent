@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 import datetime
 import logging
 import math
@@ -295,6 +296,60 @@ from com.sun.star.util import XModifyListener
 
 SHEET_MODIFY_LISTENERS: dict[tuple[str, str], CalcSpillModifyListener] = {}
 
+
+@contextmanager
+def _undo_lock(doc: Any):
+    """Temporarily hide or lock undo recording during background spill operations.
+
+    If an undo action exists (e.g. user just typed =PY()), enterHiddenUndoContext()
+    hides the spill mutations under the formula's undo action so the spill does not
+    create a separate undo step. If the undo stack is empty, um.lock() is used.
+    """
+    um = None
+    hidden = False
+    locked = False
+    try:
+        raw_doc = doc
+        try:
+            from plugin.framework.thread_guard import _unwrap_uno
+            raw_doc = _unwrap_uno(doc)
+        except Exception:
+            pass
+        if hasattr(raw_doc, "getUndoManager"):
+            um = raw_doc.getUndoManager()
+            if um is not None:
+                try:
+                    if um.isUndoPossible():
+                        um.enterHiddenUndoContext()
+                        hidden = True
+                    elif hasattr(um, "lock"):
+                        um.lock()
+                        locked = True
+                except Exception:
+                    try:
+                        if hasattr(um, "lock"):
+                            um.lock()
+                            locked = True
+                    except Exception:
+                        pass
+    except Exception:
+        um = None
+    try:
+        yield um
+    finally:
+        if um is not None:
+            if hidden:
+                try:
+                    um.leaveUndoContext()
+                except Exception:
+                    log.debug("leaveUndoContext failed", exc_info=True)
+            elif locked:
+                try:
+                    um.unlock()
+                except Exception:
+                    log.debug("UndoManager.unlock failed", exc_info=True)
+
+
 class CalcSpillModifyListener(unohelper.Base, XModifyListener):
     """Listens to sheet changes to automatically clean up orphaned spilled cells."""
     def __init__(self, ctx: Any, doc_url: str, sheet_name: str) -> None:
@@ -308,32 +363,33 @@ class CalcSpillModifyListener(unohelper.Base, XModifyListener):
             if sheet is None:
                 return
 
-            to_remove = []
-            for key, value in list(SPILL_REGISTRY.items()):
-                doc_url, sheet_name, frow, fcol = key
-                if doc_url == self.doc_url and sheet_name == self.sheet_name:
-                    try:
-                        cell = sheet.getCellByPosition(fcol, frow)
-                        formula = cell.getFormula()
-                        if not formula or not (("PYTHON" in formula or "PY" in formula)):
-                            # Clear previously spilled cells
-                            for r, c in value:
-                                if (r, c) != (frow, fcol):
-                                    try:
-                                        spill_cell = sheet.getCellByPosition(c, r)
-                                        spill_cell.clearContents(23)
-                                    except Exception:
-                                        pass
-                            to_remove.append(key)
-                    except Exception:
-                        log.debug("Failed to inspect formula cell %r", key, exc_info=True)
+            doc = _get_calc_doc(self.ctx)
+            with _undo_lock(doc):
+                to_remove = []
+                for key, value in list(SPILL_REGISTRY.items()):
+                    doc_url, sheet_name, frow, fcol = key
+                    if doc_url == self.doc_url and sheet_name == self.sheet_name:
+                        try:
+                            cell = sheet.getCellByPosition(fcol, frow)
+                            formula = cell.getFormula()
+                            if not formula or not (("PYTHON" in formula or "PY" in formula)):
+                                # Clear previously spilled cells
+                                for r, c in value:
+                                    if (r, c) != (frow, fcol):
+                                        try:
+                                            spill_cell = sheet.getCellByPosition(c, r)
+                                            spill_cell.clearContents(23)
+                                        except Exception:
+                                            pass
+                                to_remove.append(key)
+                        except Exception:
+                            log.debug("Failed to inspect formula cell %r", key, exc_info=True)
 
-            if to_remove:
-                for key in to_remove:
-                    SPILL_REGISTRY.pop(key, None)
-                doc = _get_calc_doc(self.ctx)
-                if doc is not None:
-                    save_spill_registry_for_doc(doc)
+                if to_remove:
+                    for key in to_remove:
+                        SPILL_REGISTRY.pop(key, None)
+                    if doc is not None:
+                        save_spill_registry_for_doc(doc)
         except Exception:
             log.exception("Error in CalcSpillModifyListener.modified")
 
@@ -532,169 +588,172 @@ def perform_deferred_spill(
     sheet_name: str,
     formula_row: int,
     formula_col: int,
-    grid: list[list[Any]]
+    grid: list[list[Any]],
+    doc: Any | None = None,
 ) -> None:
     """Clear old spilled cells and write new values deferred (collision check is done synchronously)."""
     try:
-        if not (hasattr(ctx, "ServiceManager") or hasattr(ctx, "getServiceManager")):
-            return
-        doc = _get_calc_doc(ctx)
+        if doc is None:
+            if not (hasattr(ctx, "ServiceManager") or hasattr(ctx, "getServiceManager")):
+                return
+            doc = _get_calc_doc(ctx)
         if doc is None:
             return
+
+        with _undo_lock(doc):
+            current_url = getattr(doc, "getURL", lambda: "")() or ""
+            if current_url != doc_url:
+                return
+
+            sheet = doc.getSheets().getByName(sheet_name)
+            if sheet is None:
+                return
+
+            reg_key = (doc_url, sheet_name, formula_row, formula_col)
         
-        current_url = getattr(doc, "getURL", lambda: "")() or ""
-        if current_url != doc_url:
-            return
-        
-        sheet = doc.getSheets().getByName(sheet_name)
-        if sheet is None:
-            return
+            # 1. Clear previously spilled cells
+            previous_spills = SPILL_REGISTRY.get(reg_key, [])
+            for r, c in previous_spills:
+                if (r, c) != (formula_row, formula_col):
+                    try:
+                        cell = sheet.getCellByPosition(c, r)
+                        # Clear contents: VALUE, DATETIME, STRING, FORMULA (23)
+                        cell.clearContents(23)
+                    except Exception:
+                        pass
 
-        reg_key = (doc_url, sheet_name, formula_row, formula_col)
-        
-        # 1. Clear previously spilled cells
-        previous_spills = SPILL_REGISTRY.get(reg_key, [])
-        for r, c in previous_spills:
-            if (r, c) != (formula_row, formula_col):
-                try:
-                    cell = sheet.getCellByPosition(c, r)
-                    # Clear contents: VALUE, DATETIME, STRING, FORMULA (23)
-                    cell.clearContents(23)
-                except Exception:
-                    pass
+            # 2. Determine bounds
+            num_rows = len(grid)
+            num_cols = max(len(row) for row in grid) if num_rows > 0 else 0
+            if num_rows == 0 or num_cols == 0:
+                SPILL_REGISTRY[reg_key] = []
+                save_spill_registry_for_doc(doc)
+                return
 
-        # 2. Determine bounds
-        num_rows = len(grid)
-        num_cols = max(len(row) for row in grid) if num_rows > 0 else 0
-        if num_rows == 0 or num_cols == 0:
-            SPILL_REGISTRY[reg_key] = []
-            save_spill_registry_for_doc(doc)
-            return
-
-        # Extract NullDate for temporal day serial conversion
-        null_dt = datetime.date(1899, 12, 30)
-        try:
-            settings = doc.getNumberFormatSettings()
-            if settings is not None:
-                nd = settings.getPropertyValue("NullDate")
-                if nd is not None:
-                    null_dt = datetime.date(getattr(nd, "Year", 1899), getattr(nd, "Month", 12), getattr(nd, "Day", 30))
-        except Exception:
-            pass
-
-        # 3. Coerce and pad grid values for rectangular setDataArray block write
-        coerced_grid: list[list[Any]] = []
-        cell_metas: list[list[dict[str, Any]]] = []
-        has_any_temporal = False
-
-        for row in grid:
-            coerced_row: list[Any] = []
-            meta_row: list[dict[str, Any]] = []
-            for col_idx in range(num_cols):
-                val = row[col_idx] if col_idx < len(row) else None
-                calc_val, meta = _coerce_spill_value(val, null_dt)
-                if meta.get("is_temporal"):
-                    has_any_temporal = True
-                coerced_row.append(calc_val)
-                meta_row.append(meta)
-            coerced_grid.append(coerced_row)
-            cell_metas.append(meta_row)
-
-        # 4. Spill new values using setDataArray to avoid O(N) individual cell writes
-        if num_cols > 1:
-            first_row_range = sheet.getCellRangeByPosition(
-                formula_col + 1, formula_row, formula_col + num_cols - 1, formula_row
-            )
-            first_row_range.setDataArray((tuple(coerced_grid[0][1:]),))
-
-        if num_rows > 1:
-            remaining_range = sheet.getCellRangeByPosition(
-                formula_col, formula_row + 1, formula_col + num_cols - 1, formula_row + num_rows - 1
-            )
-            remaining_range.setDataArray(tuple(tuple(row) for row in coerced_grid[1:]))
-
-        new_spills = []
-        for r_offset in range(num_rows):
-            for c_offset in range(num_cols):
-                if (r_offset, c_offset) == (0, 0):
-                    continue
-                new_spills.append((formula_row + r_offset, formula_col + c_offset))
-
-        SPILL_REGISTRY[reg_key] = new_spills
-        save_spill_registry_for_doc(doc)
-
-        # 5. Apply NumberFormats for any temporal cells (dates, datetimes, times, durations)
-        if has_any_temporal:
+            # Extract NullDate for temporal day serial conversion
+            null_dt = datetime.date(1899, 12, 30)
             try:
-                formats = doc.getNumberFormats()
+                settings = doc.getNumberFormatSettings()
+                if settings is not None:
+                    nd = settings.getPropertyValue("NullDate")
+                    if nd is not None:
+                        null_dt = datetime.date(getattr(nd, "Year", 1899), getattr(nd, "Month", 12), getattr(nd, "Day", 30))
+            except Exception:
+                pass
+
+            # 3. Coerce and pad grid values for rectangular setDataArray block write
+            coerced_grid: list[list[Any]] = []
+            cell_metas: list[list[dict[str, Any]]] = []
+            has_any_temporal = False
+
+            for row in grid:
+                coerced_row: list[Any] = []
+                meta_row: list[dict[str, Any]] = []
+                for col_idx in range(num_cols):
+                    val = row[col_idx] if col_idx < len(row) else None
+                    calc_val, meta = _coerce_spill_value(val, null_dt)
+                    if meta.get("is_temporal"):
+                        has_any_temporal = True
+                    coerced_row.append(calc_val)
+                    meta_row.append(meta)
+                coerced_grid.append(coerced_row)
+                cell_metas.append(meta_row)
+
+            # 4. Spill new values using setDataArray to avoid O(N) individual cell writes
+            if num_cols > 1:
+                first_row_range = sheet.getCellRangeByPosition(
+                    formula_col + 1, formula_row, formula_col + num_cols - 1, formula_row
+                )
+                first_row_range.setDataArray((tuple(coerced_grid[0][1:]),))
+
+            if num_rows > 1:
+                remaining_range = sheet.getCellRangeByPosition(
+                    formula_col, formula_row + 1, formula_col + num_cols - 1, formula_row + num_rows - 1
+                )
+                remaining_range.setDataArray(tuple(tuple(row) for row in coerced_grid[1:]))
+
+            new_spills = []
+            for r_offset in range(num_rows):
+                for c_offset in range(num_cols):
+                    if (r_offset, c_offset) == (0, 0):
+                        continue
+                    new_spills.append((formula_row + r_offset, formula_col + c_offset))
+
+            SPILL_REGISTRY[reg_key] = new_spills
+            save_spill_registry_for_doc(doc)
+
+            # 5. Apply NumberFormats for any temporal cells (dates, datetimes, times, durations)
+            if has_any_temporal:
                 try:
-                    locale = doc.getPropertyValue("CharLocale")
-                    if not getattr(locale, "Language", None):
+                    formats = doc.getNumberFormats()
+                    try:
+                        locale = doc.getPropertyValue("CharLocale")
+                        if not getattr(locale, "Language", None):
+                            import uno
+                            locale = uno.createUnoStruct("com.sun.star.lang.Locale", Language="en", Country="US", Variant="")
+                    except Exception:
                         import uno
                         locale = uno.createUnoStruct("com.sun.star.lang.Locale", Language="en", Country="US", Variant="")
-                except Exception:
-                    import uno
-                    locale = uno.createUnoStruct("com.sun.star.lang.Locale", Language="en", Country="US", Variant="")
 
-                # Standard format keys (2=DATE, 4=TIME, 6=DATETIME, 43=DURATION)
-                standard_keys: dict[str, int] = {}
-                try:
-                    standard_keys["date"] = int(formats.getStandardFormat(2, locale))
-                except Exception:
-                    standard_keys["date"] = 36
-                try:
-                    standard_keys["time"] = int(formats.getStandardFormat(4, locale))
-                except Exception:
-                    standard_keys["time"] = 40
-                try:
-                    standard_keys["datetime"] = int(formats.getStandardFormat(6, locale))
-                except Exception:
-                    standard_keys["datetime"] = 50
-                try:
-                    dur_key = formats.getFormatIndex(43, locale)
-                    standard_keys["duration"] = int(dur_key) if dur_key != -1 else 43
-                except Exception:
-                    standard_keys["duration"] = 43
+                    # Standard format keys (2=DATE, 4=TIME, 6=DATETIME, 43=DURATION)
+                    standard_keys: dict[str, int] = {}
+                    try:
+                        standard_keys["date"] = int(formats.getStandardFormat(2, locale))
+                    except Exception:
+                        standard_keys["date"] = 36
+                    try:
+                        standard_keys["time"] = int(formats.getStandardFormat(4, locale))
+                    except Exception:
+                        standard_keys["time"] = 40
+                    try:
+                        standard_keys["datetime"] = int(formats.getStandardFormat(6, locale))
+                    except Exception:
+                        standard_keys["datetime"] = 50
+                    try:
+                        dur_key = formats.getFormatIndex(43, locale)
+                        standard_keys["duration"] = int(dur_key) if dur_key != -1 else 43
+                    except Exception:
+                        standard_keys["duration"] = 43
 
-                category_cache: dict[int, str | None] = {}
-                decisions: list[list[Any]] = []
+                    category_cache: dict[int, str | None] = {}
+                    decisions: list[list[Any]] = []
 
-                for r_idx in range(num_rows):
-                    row_dec: list[Any] = []
-                    for c_idx in range(num_cols):
-                        meta = cell_metas[r_idx][c_idx]
-                        if meta.get("is_temporal"):
-                            in_cat = meta["input_category"]
-                            serial_val = meta["serial"]
-                            target_c = formula_col + c_idx
-                            target_r = formula_row + r_idx
-                            dest_cat = None
-                            try:
-                                cell = sheet.getCellByPosition(target_c, target_r)
-                                k = int(cell.getPropertyValue("NumberFormat"))
-                                if k not in category_cache:
-                                    props = formats.getByKey(k)
-                                    category_cache[k] = _format_category_from_type(props.getPropertyValue("Type"))
-                                dest_cat = category_cache[k]
-                            except Exception:
-                                pass
-                            if should_preserve_temporal_format(in_cat, float(serial_val), dest_cat):
-                                row_dec.append(("preserve", None))
+                    for r_idx in range(num_rows):
+                        row_dec: list[Any] = []
+                        for c_idx in range(num_cols):
+                            meta = cell_metas[r_idx][c_idx]
+                            if meta.get("is_temporal"):
+                                in_cat = meta["input_category"]
+                                serial_val = meta["serial"]
+                                target_c = formula_col + c_idx
+                                target_r = formula_row + r_idx
+                                dest_cat = None
+                                try:
+                                    cell = sheet.getCellByPosition(target_c, target_r)
+                                    k = int(cell.getPropertyValue("NumberFormat"))
+                                    if k not in category_cache:
+                                        props = formats.getByKey(k)
+                                        category_cache[k] = _format_category_from_type(props.getPropertyValue("Type"))
+                                    dest_cat = category_cache[k]
+                                except Exception:
+                                    pass
+                                if should_preserve_temporal_format(in_cat, float(serial_val), dest_cat):
+                                    row_dec.append(("preserve", None))
+                                else:
+                                    apply_k = standard_keys.get(in_cat, standard_keys["date"])
+                                    row_dec.append(("apply", int(apply_k)))
+                            elif meta.get("is_empty"):
+                                row_dec.append("empty")
                             else:
-                                apply_k = standard_keys.get(in_cat, standard_keys["date"])
-                                row_dec.append(("apply", int(apply_k)))
-                        elif meta.get("is_empty"):
-                            row_dec.append("empty")
-                        else:
-                            row_dec.append(None)
-                    decisions.append(row_dec)
+                                row_dec.append(None)
+                        decisions.append(row_dec)
 
-                rects = coalesce_temporal_apply_rects(decisions)
-                for r0, r1, c0, c1, k in rects:
-                    trange = sheet.getCellRangeByPosition(formula_col + c0, formula_row + r0, formula_col + c1, formula_row + r1)
-                    trange.setPropertyValue("NumberFormat", int(k))
-            except Exception:
-                log.exception("Error applying temporal number formats during deferred spill")
+                    rects = coalesce_temporal_apply_rects(decisions)
+                    for r0, r1, c0, c1, k in rects:
+                        trange = sheet.getCellRangeByPosition(formula_col + c0, formula_row + r0, formula_col + c1, formula_row + r1)
+                        trange.setPropertyValue("NumberFormat", int(k))
+                except Exception:
+                    log.exception("Error applying temporal number formats during deferred spill")
 
     except Exception:
         log.exception("Error in perform_deferred_spill")

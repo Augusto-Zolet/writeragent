@@ -104,6 +104,7 @@ def test_insert_image_result_uses_merged_safe_geometry(monkeypatch: pytest.Monke
     doc._created["com.sun.star.drawing.GraphicObjectShape"] = shape
     sheet = doc.getSheets().getByName("Sheet1")
     cell = sheet.getCellByPosition(2, 3)
+    cell.IsMerged = True
     ctx = _ctx_with_doc(doc)
 
     pos = SimpleNamespace(X=111, Y=222)
@@ -118,6 +119,57 @@ def test_insert_image_result_uses_merged_safe_geometry(monkeypatch: pytest.Monke
     shape.setSize.assert_any_call(size)
     shape.setPropertyValue.assert_any_call("Anchor", cell)
     shape.setPropertyValue.assert_any_call("ResizeWithCell", True)
+
+
+def test_insert_image_result_unmerged_single_cell_default_size(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _TmpFile:
+        name = "/tmp/fake.png"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return None
+
+        def write(self, _data):
+            return None
+
+    import plugin.scripting.payload_codec as payload_codec
+
+    monkeypatch.setattr(payload_codec.tempfile, "NamedTemporaryFile", lambda **kwargs: _TmpFile())
+
+    class _UnoModule:
+        @staticmethod
+        def systemPathToFileUrl(path: str) -> str:
+            return f"file://{path}"
+
+    import sys
+
+    monkeypatch.setitem(sys.modules, "uno", _UnoModule())
+    awt_mod = SimpleNamespace(Size=lambda w, h: ("Size", w, h))
+    monkeypatch.setitem(sys.modules, "com.sun.star.awt", awt_mod)
+
+    doc = CalcDocStub(selection="C4")
+    shape = MagicMock()
+    doc._created["com.sun.star.drawing.GraphicObjectShape"] = shape
+    sheet = doc.getSheets().getByName("Sheet1")
+    cell = sheet.getCellByPosition(2, 3)
+    cell.IsMerged = False
+    ctx = _ctx_with_doc(doc)
+
+    pos = SimpleNamespace(X=111, Y=222)
+    size = SimpleNamespace(Width=333, Height=444)
+    import plugin.calc.calc_utils as calc_utils
+
+    monkeypatch.setattr(calc_utils, "get_cell_geometry", lambda _sheet, _cell: (pos, size))
+
+    python_function.insert_image_result_on_sheet(ctx, {"data": b"abc", "format": "png"})
+
+    shape.setPosition.assert_called_once_with(pos)
+    # For single unmerged cells, default size (10000, 6000) should be applied and not overwritten by cell size
+    shape.setSize.assert_any_call(("Size", 10000, 6000))
+    shape.setPropertyValue.assert_any_call("Anchor", cell)
+    shape.setPropertyValue.assert_any_call("ResizeWithCell", False)
 
 
 def test_finalize_python_return_triggers_spill(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -223,3 +223,61 @@ def test_evaluate_formula(ctx, doc):
     assert res_err.get("status") == "error", f"Expected error status, got {res_err}"
     assert "error_code" in res_err, f"Expected error_code in response: {res_err}"
     assert "#DIV/0!" in res_err.get("message", ""), f"Expected division by zero message, got {res_err.get('message')}"
+
+
+@native_test
+@with_native_doc("calc")
+def test_insert_result_into_calc_undo(ctx, doc):
+    """Running a script that inserts structured content into Calc can be reverted with Ctrl+Z."""
+    from plugin.scripting.python_runner import insert_result_into_calc
+
+    active_sheet = doc.getCurrentController().getActiveSheet()
+    primes_result = {
+        "title": "Prime Numbers in Range",
+        "primes": [
+            {"position": 1000, "prime": 7919},
+            {"position": 1001, "prime": 7927},
+        ],
+    }
+
+    insert_result_into_calc(doc, ctx, primes_result)
+    assert active_sheet.getCellByPosition(0, 0).getString() == "Prime Numbers in Range"
+    assert active_sheet.getCellByPosition(0, 2).getString() == "position"
+    assert active_sheet.getCellByPosition(1, 2).getString() == "prime"
+
+    um = doc.getUndoManager()
+    assert um is not None
+    assert um.isUndoPossible() is True
+
+    um.undo()
+    assert active_sheet.getCellByPosition(0, 0).getString() == "", "A1 title should revert after single undo"
+    assert active_sheet.getCellByPosition(0, 2).getString() == "", "A3 position header should revert after single undo"
+    assert active_sheet.getCellByPosition(1, 2).getString() == "", "B3 prime header should revert after single undo"
+
+
+@native_test
+@with_native_doc("calc")
+def test_calc_spill_undo_lock(ctx, doc):
+    """Deferred spill writes must not create extra undo actions on top of the formula."""
+    from plugin.calc.python.function import perform_deferred_spill
+
+    active_sheet = doc.getCurrentController().getActiveSheet()
+    doc_url = getattr(doc, "getURL", lambda: "")() or ""
+
+    # Simulate user typing a formula into A1
+    active_sheet.getCellByPosition(0, 0).setFormula('=PY("result = [1, 2, 3]")')
+    um = doc.getUndoManager()
+    if um is not None:
+        um.enterUndoContext("Input")
+        um.leaveUndoContext()
+
+    titles_before = list(um.getAllUndoActionTitles()) if um else []
+
+    perform_deferred_spill(ctx, doc_url, active_sheet.Name, 0, 0, [[1, 2], [3, 4]], doc=doc)
+
+    assert active_sheet.getCellByPosition(1, 0).getValue() == 2.0
+    assert active_sheet.getCellByPosition(0, 1).getValue() == 3.0
+
+    titles_after = list(um.getAllUndoActionTitles()) if um else []
+    assert titles_after == titles_before, f"Deferred spill added extra undo actions: {titles_after} vs {titles_before}"
+

@@ -149,7 +149,7 @@ The extension ships a **Monaco-based code editor** (pywebview child in the confi
 | Feature                                                     | Status      | Notes                                                                                            |
 | ----------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------ |
 | **Edit Python in Cell…** (Calc menubar + cell context menu) | **Shipped** | Dual save (`=PY("…")` or plain text for `=PY($A$1; …)`); editable **Data:** range. Experimental: **Settings → Python → Rewrite xl() ranges** (default off; beside auto-spill) lifts static `xl("A1:…")` onto formula data args on Monaco save and rewrites call sites to polymorphic `data` / `data[i]` / `.to_pandas()` ([`xl_static_rewrite.py`](../plugin/calc/python/xl_static_rewrite.py)). |
-| **Run Python Script…** (Writer/Calc/Draw)                   | **Shipped** | **Run** / **Save** / script picker                                                               |
+| **Run Python Script…** (Writer/Calc/Draw)                   | **Shipped** | **Run** / **Save** / script picker. In Calc, structured results (dicts, tables, DataFrames) format as rich HTML tables and insert via controller transferable paste, registering a native `ScUndo` action for single-step **Ctrl+Z** undo. |
 | **Document-attached scripts**                               | **Shipped** | **This Document** vs **My Scripts** in the picker — scripts can travel with `.odt`/`.ods`/`.odg` |
 | **Edit Initialization Script…** (Calc)                      | **Shipped** | Workbook startup script in document properties; LibrePy sidebar button + Monaco                  |
 | **LibrePy Python sidebar** (Calc deck)                      | **Shipped** | Cell list, filtered diagnostics, session/actions — not an embedded Monaco editor                 |
@@ -159,6 +159,8 @@ The extension ships a **Monaco-based code editor** (pywebview child in the confi
 **Requirements:** Settings → Python → venv path with `pywebview` installed (Linux also needs `PyQt6 PyQt6-WebEngine qtpy`). **Edit Python in Cell…** does not fall back to embedded LO Python — fix the venv if the editor fails to open. **Run Python Script…** falls back to the native multiline dialog when pywebview is unavailable.
 
 **Document-attached scripts:** Named scripts live in document properties so they travel with the file. Monaco supports **Attach** / **Copy to My Scripts**; read-only documents fall back to the personal library (**My Scripts** in `writeragent.json`) with a clear message.
+
+**Undo behavior:** In Calc, running a Python script that inserts tabular or structured results registers a native undo action in LibreOffice Calc's internal undo manager. Pressing **Ctrl+Z** (`Edit → Undo`) immediately removes all inserted titles, headers, and rows in a single step.
 
 
 ### Assign `result` {#assign-result}
@@ -570,9 +572,11 @@ Microsoft Excel can **auto-spill** multi-cell results (DataFrames, 2D arrays) in
 - **Grid egress over a data range** — use **two arguments only**: `=PY("np.sum(data)"; B1:B10)` or `=PY("(np.array(data) * 2).tolist()"; D6:G9)` as a matrix formula (**Ctrl+Shift+Enter**). The add-in IDL accepts only `(code, data)`; a third argument such as `ROW()-1` causes **Err:504** (error in parameter list). When the 2nd argument is the full range, `data` in Python is that grid; use `ROW()-n` as the 2nd argument only when it is the per-cell index, not together with a range.
 - **Single cell, full list as text** — `=PY("result = str([1, 2, 3])")` + Enter.
 
-##### Auto-spill cleanup and remaining work {#auto-spill-optimizations}
+##### Auto-spill cleanup and undo isolation {#auto-spill-optimizations}
 
 An `XModifyListener` (`CalcSpillModifyListener`) is registered on sheets that contain auto-spill cells. If the originating `=PY()` formula cell is cleared, overwritten, or deleted, the listener clears associated spilled cells, updates `WriterAgentSpillRegistry`, and saves document properties.
+
+**Undo isolation:** Background spill population and orphaned spill cleanup execute inside an undo-isolated context (`_undo_lock` via `enterHiddenUndoContext()` or `lock()`). This ensures background cell writes do not fragment Calc's undo stack or push stray undo actions on top of the formula. When a user undoes with **Ctrl+Z**, the formula in the originating cell is undone immediately in a single step, and the modify listener automatically cleans up the spilled values.
 
 Still open:
 

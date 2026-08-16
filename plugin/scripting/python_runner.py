@@ -26,8 +26,6 @@ from plugin.scripting.venv_worker import run_code_in_user_venv
 from plugin.scripting.python_runner_ui import show_python_input_dialog
 from plugin.writer.format import insert_content_at_position
 from plugin.doc.doc_type import is_calc, is_writer, is_draw
-from plugin.calc.bridge import CalcBridge
-from plugin.calc.manipulator import CellManipulator
 from plugin.calc.address_utils import index_to_column
 from plugin.scripting.payload_codec import is_dataframe_payload
 
@@ -147,74 +145,33 @@ def format_result_for_writer(result: Any) -> str:
 
 
 def insert_result_into_calc(doc: Any, uno_ctx: Any, result: Any) -> None:
-    """Insert the result of a Python script into a Calc document."""
-    try:
-        from plugin.calc.python.function import result_to_calc_grid
-        from plugin.scripting.payload_codec import is_dataframe_payload
+    """Insert the result of a Python script into a Calc document.
 
-        bridge = CalcBridge(doc)
-        manipulator = CellManipulator(bridge)
-        
+    Formats structured and tabular data via HTML and inserts via controller
+    transferable paste (insert_cell_html_rich). This registers a native C++
+    ScUndo action in LibreOffice Calc, allowing single-step Ctrl+Z undo.
+    """
+    try:
+        if result is None:
+            return
+
         # Determine anchor cell from selection
-        controller = doc.getCurrentController()
-        selection = controller.getSelection()
-        
+        controller = doc.getCurrentController() if doc else None
+        selection = controller.getSelection() if controller else None
+
         start_col = 0
         start_row = 0
         if selection and hasattr(selection, "getRangeAddress"):
             addr = selection.getRangeAddress()
             start_col = addr.StartColumn
             start_row = addr.StartRow
-        
-        def write_at(col_offset, row_offset, val):
-            addr = f"{index_to_column(start_col + col_offset)}{start_row + row_offset + 1}"
-            manipulator.write_formula_range(addr, val)
 
-        # DataFrame envelope → labeled grid (header + body) via the shared renderer.
-        if is_dataframe_payload(result):
-            write_at(0, 0, result_to_calc_grid(result))
-            return
+        anchor_addr = f"{index_to_column(start_col)}{start_row + 1}"
+        formatted = format_result_for_writer(result)
+        if formatted:
+            from plugin.calc.rich_html import insert_cell_html_rich
 
-        # Handle different result types
-        current_row = 0
-        
-        # 1. Handle specialized dictionary results
-        if isinstance(result, dict):
-            # Prioritize title/summary
-            title = result.get("title") or result.get("summary_text") or result.get("message")
-            if title:
-                write_at(0, current_row, str(title))
-                current_row += 1 # Immediately below
-
-            # Look for lists to insert as tables
-            for k, v in result.items():
-                if k in ("title", "summary_text", "message", "status", "result"):
-                    continue
-                if isinstance(v, list) and v:
-                    # Convert list of dicts to list of lists if needed
-                    table_data = v
-                    if isinstance(v[0], dict):
-                        headers = list(v[0].keys())
-                        rows = [[row.get(h, "") for h in headers] for row in v]
-                        table_data = [headers] + rows
-                    
-                    write_at(0, current_row, table_data)
-                    current_row += len(table_data) # Immediately below
-
-            # If result["result"] exists and hasn't been handled
-            res_val = result.get("result")
-            if res_val is not None:
-                write_at(0, current_row, res_val)
-        
-        # 2. Handle simple lists (1D or 2D)
-        elif isinstance(result, list) and result:
-            table_data = result
-            # write_formula_range handles 1D and 2D lists
-            write_at(0, 0, table_data)
-            
-        # 3. Handle primitives
-        else:
-            write_at(0, 0, str(result))
+            insert_cell_html_rich(doc, uno_ctx, anchor_addr, formatted)
 
     except Exception as e:
         log.exception("Failed to insert result into Calc")

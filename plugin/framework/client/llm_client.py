@@ -568,6 +568,22 @@ class LlmClient:
 
                         content, finish_reason, thinking, delta = self.extract_content_from_response(chunk)
 
+                        # Keep the provider's parsed SSE shape before normalization. Some
+                        # OpenAI-compatible routes have appeared to continue one function's
+                        # arguments under a new tool-call index; the completed snapshot alone
+                        # cannot tell whether that index came from the wire or our accumulator.
+                        raw_tool_calls = delta.get("tool_calls") if isinstance(delta, dict) else None
+                        if raw_tool_calls is not None:
+                            log.debug(
+                                "streaming_loop: raw tool_call delta route_provider=%s "
+                                "chunk_provider=%r chunk_model=%r chunk_id=%r tool_calls=%s",
+                                self._get_provider(),
+                                chunk.get("provider"),
+                                chunk.get("model"),
+                                chunk.get("id"),
+                                json.dumps(raw_tool_calls, ensure_ascii=False),
+                            )
+
                         # LiteLLM: streaming_handler.py ~L736 "finish_reason: error, no content string given"
                         if finish_reason == "error":
                             from plugin.framework.i18n import _
@@ -685,6 +701,12 @@ class LlmClient:
             raw_content = message_snapshot.get("content")
             content = _normalize_message_content(raw_content)
             tool_calls = message_snapshot.get("tool_calls")
+            if tool_calls is not None:
+                log.debug(
+                    "streaming_loop: accumulated tool_calls model=%r tool_calls=%s",
+                    eff_model,
+                    json.dumps(tool_calls, ensure_ascii=False),
+                )
             usage = cast("dict[str, Any]", message_snapshot.get("usage", {}))
             reasoning_replay = extract_reasoning_replay_from_response(
                 streaming_text="".join(thinking_parts),
