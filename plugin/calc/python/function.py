@@ -22,6 +22,14 @@ from plugin.calc.calc_addin_data import (
     pack_calc_multi_data_for_wire,
     split_python_addin_data_args,
 )
+from plugin.calc.datetime_wire import (
+    coalesce_temporal_apply_rects,
+    duration_serial_from_iso,
+    match_iso_duration,
+    match_iso_temporal,
+    should_preserve_temporal_format,
+)
+from plugin.calc.inspector import _format_category_from_type
 from plugin.calc.python.image_egress import insert_image_result_on_sheet
 from plugin.framework.errors import format_error_payload
 from plugin.framework.i18n import _
@@ -420,6 +428,104 @@ def locate_formula_cell(ctx: Any, sheet: Any, code_str: str) -> tuple[int, int] 
     return None
 
 
+def _coerce_spill_value(
+    val: Any,
+    null_dt: datetime.date,
+) -> tuple[Any, dict[str, Any]]:
+    """Convert raw grid cell value to Calc-compatible primitive plus temporal metadata.
+
+    Returns (calc_val, meta) where meta has 'is_temporal', 'input_category', 'serial'.
+    """
+    if val is None:
+        return "", {"is_temporal": False, "is_empty": True}
+    if isinstance(val, bool):
+        return (1.0 if val else 0.0), {"is_temporal": False, "is_empty": False}
+
+    tname = type(val).__name__
+    if tname in ("NaTType", "NAType"):
+        return "", {"is_temporal": False, "is_empty": True}
+
+    if isinstance(val, (int, float)) and not isinstance(val, bool):
+        return float(val), {"is_temporal": False, "is_empty": False}
+
+    if isinstance(val, datetime.datetime):
+        dt = val.replace(tzinfo=None) if val.tzinfo is not None else val
+        days = (dt.date() - null_dt).days
+        fraction = (dt.hour * 3600 + dt.minute * 60 + dt.second + dt.microsecond / 1_000_000.0) / 86400.0
+        serial = float(days) + fraction
+        return serial, {"is_temporal": True, "input_category": "datetime", "serial": serial, "is_empty": False}
+
+    if isinstance(val, datetime.date):
+        serial = float((val - null_dt).days)
+        return serial, {"is_temporal": True, "input_category": "date", "serial": serial, "is_empty": False}
+
+    if isinstance(val, datetime.time):
+        serial = (val.hour * 3600 + val.minute * 60 + val.second + val.microsecond / 1_000_000.0) / 86400.0
+        return serial, {"is_temporal": True, "input_category": "time", "serial": serial, "is_empty": False}
+
+    if isinstance(val, datetime.timedelta):
+        serial = val.total_seconds() / 86400.0
+        return serial, {"is_temporal": True, "input_category": "duration", "serial": serial, "is_empty": False}
+
+    # Duck-typed NumPy / Pandas types (np.datetime64, np.timedelta64)
+    kind = getattr(getattr(val, "dtype", None), "kind", None)
+    if kind == "M":
+        to_pydt = getattr(val, "item", None)
+        if callable(to_pydt):
+            try:
+                item = to_pydt()
+                if isinstance(item, (datetime.datetime, datetime.date)):
+                    return _coerce_spill_value(item, null_dt)
+            except Exception:
+                pass
+        text = str(val)
+        if text in ("NaT", "NaTType"):
+            return "", {"is_temporal": False, "is_empty": True}
+
+    if kind == "m":
+        to_pytd = getattr(val, "item", None)
+        if callable(to_pytd):
+            try:
+                item = to_pytd()
+                if isinstance(item, datetime.timedelta):
+                    return _coerce_spill_value(item, null_dt)
+            except Exception:
+                pass
+
+    if isinstance(val, str):
+        stripped = val.strip()
+        if not stripped:
+            return "", {"is_temporal": False, "is_empty": True}
+        if match_iso_duration(stripped):
+            try:
+                serial = duration_serial_from_iso(stripped)
+                return serial, {"is_temporal": True, "input_category": "duration", "serial": serial, "is_empty": False}
+            except Exception:
+                pass
+        cat = match_iso_temporal(stripped)
+        if cat is not None:
+            try:
+                if cat == "date":
+                    d = datetime.date.fromisoformat(stripped)
+                    serial = float((d - null_dt).days)
+                    return serial, {"is_temporal": True, "input_category": "date", "serial": serial, "is_empty": False}
+                elif cat == "datetime":
+                    dt = datetime.datetime.fromisoformat(stripped.replace(" ", "T"))
+                    days = (dt.date() - null_dt).days
+                    fraction = (dt.hour * 3600 + dt.minute * 60 + dt.second + dt.microsecond / 1_000_000.0) / 86400.0
+                    serial = float(days) + fraction
+                    return serial, {"is_temporal": True, "input_category": "datetime", "serial": serial, "is_empty": False}
+                elif cat == "time":
+                    t = datetime.time.fromisoformat(stripped)
+                    serial = (t.hour * 3600 + t.minute * 60 + t.second + t.microsecond / 1_000_000.0) / 86400.0
+                    return serial, {"is_temporal": True, "input_category": "time", "serial": serial, "is_empty": False}
+            except Exception:
+                pass
+        return val, {"is_temporal": False, "is_empty": False}
+
+    return to_calc_compatible(val), {"is_temporal": False, "is_empty": False}
+
+
 def perform_deferred_spill(
     ctx: Any,
     doc_url: str,
@@ -465,19 +571,34 @@ def perform_deferred_spill(
             save_spill_registry_for_doc(doc)
             return
 
+        # Extract NullDate for temporal day serial conversion
+        null_dt = datetime.date(1899, 12, 30)
+        try:
+            settings = doc.getNumberFormatSettings()
+            if settings is not None:
+                nd = settings.getPropertyValue("NullDate")
+                if nd is not None:
+                    null_dt = datetime.date(getattr(nd, "Year", 1899), getattr(nd, "Month", 12), getattr(nd, "Day", 30))
+        except Exception:
+            pass
+
         # 3. Coerce and pad grid values for rectangular setDataArray block write
-        coerced_grid = []
+        coerced_grid: list[list[Any]] = []
+        cell_metas: list[list[dict[str, Any]]] = []
+        has_any_temporal = False
+
         for row in grid:
-            coerced_row = []
+            coerced_row: list[Any] = []
+            meta_row: list[dict[str, Any]] = []
             for col_idx in range(num_cols):
                 val = row[col_idx] if col_idx < len(row) else None
-                calc_val = to_calc_compatible(val)
-                if isinstance(calc_val, bool):
-                    calc_val = 1.0 if calc_val else 0.0
-                elif calc_val is None:
-                    calc_val = ""
+                calc_val, meta = _coerce_spill_value(val, null_dt)
+                if meta.get("is_temporal"):
+                    has_any_temporal = True
                 coerced_row.append(calc_val)
+                meta_row.append(meta)
             coerced_grid.append(coerced_row)
+            cell_metas.append(meta_row)
 
         # 4. Spill new values using setDataArray to avoid O(N) individual cell writes
         if num_cols > 1:
@@ -501,6 +622,79 @@ def perform_deferred_spill(
 
         SPILL_REGISTRY[reg_key] = new_spills
         save_spill_registry_for_doc(doc)
+
+        # 5. Apply NumberFormats for any temporal cells (dates, datetimes, times, durations)
+        if has_any_temporal:
+            try:
+                formats = doc.getNumberFormats()
+                try:
+                    locale = doc.getPropertyValue("CharLocale")
+                    if not getattr(locale, "Language", None):
+                        import uno
+                        locale = uno.createUnoStruct("com.sun.star.lang.Locale", Language="en", Country="US", Variant="")
+                except Exception:
+                    import uno
+                    locale = uno.createUnoStruct("com.sun.star.lang.Locale", Language="en", Country="US", Variant="")
+
+                # Standard format keys (2=DATE, 4=TIME, 6=DATETIME, 43=DURATION)
+                standard_keys: dict[str, int] = {}
+                try:
+                    standard_keys["date"] = int(formats.getStandardFormat(2, locale))
+                except Exception:
+                    standard_keys["date"] = 36
+                try:
+                    standard_keys["time"] = int(formats.getStandardFormat(4, locale))
+                except Exception:
+                    standard_keys["time"] = 40
+                try:
+                    standard_keys["datetime"] = int(formats.getStandardFormat(6, locale))
+                except Exception:
+                    standard_keys["datetime"] = 50
+                try:
+                    dur_key = formats.getFormatIndex(43, locale)
+                    standard_keys["duration"] = int(dur_key) if dur_key != -1 else 43
+                except Exception:
+                    standard_keys["duration"] = 43
+
+                category_cache: dict[int, str | None] = {}
+                decisions: list[list[Any]] = []
+
+                for r_idx in range(num_rows):
+                    row_dec: list[Any] = []
+                    for c_idx in range(num_cols):
+                        meta = cell_metas[r_idx][c_idx]
+                        if meta.get("is_temporal"):
+                            in_cat = meta["input_category"]
+                            serial_val = meta["serial"]
+                            target_c = formula_col + c_idx
+                            target_r = formula_row + r_idx
+                            dest_cat = None
+                            try:
+                                cell = sheet.getCellByPosition(target_c, target_r)
+                                k = int(cell.getPropertyValue("NumberFormat"))
+                                if k not in category_cache:
+                                    props = formats.getByKey(k)
+                                    category_cache[k] = _format_category_from_type(props.getPropertyValue("Type"))
+                                dest_cat = category_cache[k]
+                            except Exception:
+                                pass
+                            if should_preserve_temporal_format(in_cat, float(serial_val), dest_cat):
+                                row_dec.append(("preserve", None))
+                            else:
+                                apply_k = standard_keys.get(in_cat, standard_keys["date"])
+                                row_dec.append(("apply", int(apply_k)))
+                        elif meta.get("is_empty"):
+                            row_dec.append("empty")
+                        else:
+                            row_dec.append(None)
+                    decisions.append(row_dec)
+
+                rects = coalesce_temporal_apply_rects(decisions)
+                for r0, r1, c0, c1, k in rects:
+                    trange = sheet.getCellRangeByPosition(formula_col + c0, formula_row + r0, formula_col + c1, formula_row + r1)
+                    trange.setPropertyValue("NumberFormat", int(k))
+            except Exception:
+                log.exception("Error applying temporal number formats during deferred spill")
 
     except Exception:
         log.exception("Error in perform_deferred_spill")

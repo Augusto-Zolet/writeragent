@@ -187,9 +187,11 @@ What Python sees after UNO unwrap / pack ([`calc_addin_data.py`](../plugin/calc/
 Calc stores dates as float serials (days since `1899-12-30`). Detecting “is this a date?” requires per-cell `NumberFormat` on the main thread — too slow for range reads — so the bridge **does not** auto-coerce on ingress.
 
 - **Ingress:** serials arrive as floats (or strings if stored as text).
-- **User coercion:**
-  - Float serials: `pd.to_datetime(df["date_col"], unit="D", origin="1899-12-30")`
-  - String dates: `pd.to_datetime(df["date_col"])`
+- **Convenience coercion in `to_pandas()`:**
+  - `data.to_pandas(date_cols=True)` — automatically detects date-like columns (by name or serial value range) and parses them to `datetime64[ns]`.
+  - `data.to_pandas(date_cols=["OrderDate", 1])` — parses specific columns by name or index.
+  - `data.to_pandas(date_cols=True, date_origin="1904-01-01")` — for workbooks using a custom `NullDate`.
+  - Manual coercion: `pd.to_datetime(df["date_col"], unit="D", origin="1899-12-30")` or `pd.to_datetime(df["date_col"])` for text.
 - **Text stays text** by default (`"00123"` remains a string). Opt in with `to_pandas(parse_strings=True)`.
 
 ### Egress (locked — do not add a datetime wire lane)
@@ -198,12 +200,14 @@ Calc stores dates as float serials (days since `1899-12-30`). Detecting “is th
 
 | Python value | Cell / spill |
 | --- | --- |
-| `datetime` / `date` / `time` | Naive ISO-8601 string (`YYYY-MM-DD` / `THH:MM:SS`) |
-| tz-aware `datetime` / `Timestamp` | **Drop tzinfo**, then naive ISO. Calc does not parse `+HH:MM` or `Z` as dates ([date/time handling](calc-date-time-handling.md)). |
+| `datetime` / `date` / `time` | Naive ISO-8601 string (`YYYY-MM-DD` / `THH:MM:SS`) for formula returns; converted to serial float + `NumberFormat` during deferred spill |
+| tz-aware `datetime` / `Timestamp` | **Drop tzinfo**, then naive ISO / serial. Calc does not parse `+HH:MM` or `Z` as dates ([date/time handling](calc-date-time-handling.md)). |
 | `pd.Timestamp` | Same as `datetime` (`Timestamp` subclasses it) |
-| `np.datetime64` / datetime columns | Converted in the **venv** to stdlib `datetime`, then ISO — **not** Unix-epoch floats from `astype(float64)` |
-| `timedelta` / `pd.Timedelta` | Fractional days (`1.5` = 36 hours) |
+| `np.datetime64` / datetime columns | Converted in the **venv** to stdlib `datetime`, then ISO / serial — **not** Unix-epoch floats from `astype(float64)` |
+| `timedelta` / `pd.Timedelta` | Fractional days (`1.5` = 36 hours) with `[HH]:MM:SS` duration formatting during spill |
 | `pd.NaT` / `pd.NA` | Empty cell (`""`), same as `None` |
+
+**Deferred spill formatting:** When `=PY()` returns a DataFrame or grid with temporal values that spills via `perform_deferred_spill`, the spilled cells are written as numeric day-serial floats and formatted with date/time `NumberFormat` keys across coalesced rectangular blocks, enabling native Calc sorting, filtering, and date math.
 
 **Do not implement** a `split_grid` datetime mask, Calc-serial conversion on the float64 buffer, or Unix-epoch day counts as the `=PY()` date representation. The numeric fast path stays `i`/`u`/`f`/`b` only. Rationale: [Dates on the wire](numpy-serialization.md#dates-on-the-wire).
 

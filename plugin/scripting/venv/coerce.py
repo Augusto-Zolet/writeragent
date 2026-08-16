@@ -158,28 +158,83 @@ def _normalize_input_grid(data: Any) -> list[list[Any]]:
     return [[data]]
 
 
-def _coerce_column_types(df: Any, *, parse_strings: bool) -> Any:
-    """Optional string→numeric/datetime inference (opt-in)."""
-    if not parse_strings:
+def _is_date_like_column_name(name: str) -> bool:
+    """Check if column name contains common temporal indicator words."""
+    cleaned = str(name).strip().lower()
+    return bool(re.search(r"(?:^|[_\s-]|\b)(?:date|time|timestamp|day|month|year|created|updated|expires|dob|start|end)(?:[_\s-]|\b|$)", cleaned) or "date" in cleaned or "time" in cleaned or "timestamp" in cleaned)
+
+
+def _coerce_column_types(
+    df: Any,
+    *,
+    parse_strings: bool,
+    date_cols: list[str | int] | bool = False,
+    date_origin: str = "1899-12-30",
+) -> Any:
+    """Optional string→numeric/datetime inference and explicit date_cols conversion."""
+    if not parse_strings and not date_cols:
         return df
     import pandas as pd
     out = df.copy()
-    for col in out.columns:
+
+    # 1. Explicit date_cols handling
+    target_date_cols: set[Any] = set()
+    if date_cols is True:
+        for col in out.columns:
+            if _is_date_like_column_name(str(col)):
+                target_date_cols.add(col)
+            elif str(out[col].dtype).startswith(("float", "int", "uint")):
+                # Check if non-null values look like plausible Calc serials (e.g. between 1 and 100,000)
+                non_null = out[col].dropna()
+                if len(non_null) > 0 and (non_null > 0).all() and (non_null < 150000).all():
+                    # If column name matches or parse_strings is on, target it
+                    if _is_date_like_column_name(str(col)):
+                        target_date_cols.add(col)
+    else:
+        raw_items = [date_cols] if isinstance(date_cols, (int, str)) and not isinstance(date_cols, bool) else (list(date_cols) if isinstance(date_cols, (list, tuple, set)) else [])
+        for item in raw_items:
+            if isinstance(item, int) and 0 <= item < len(out.columns):
+                target_date_cols.add(out.columns[item])
+            elif item in out.columns:
+                target_date_cols.add(item)
+            elif str(item) in [str(c) for c in out.columns]:
+                for c in out.columns:
+                    if str(c) == str(item):
+                        target_date_cols.add(c)
+
+    for col in target_date_cols:
         series = out[col]
-        if series.dtype == object or str(series.dtype) == "string":
-            coerced = series.map(_coerce_cell_parse_strings)
-            numeric: Any = pd.to_numeric(coerced, errors="coerce")
-            non_null = coerced.notna().sum()
-            numeric_non_null = numeric.notna().sum()
-            if non_null > 0 and numeric_non_null >= max(1, int(non_null * 0.8)):
-                out[col] = numeric
-            else:
-                dt: Any = pd.to_datetime(coerced, errors="coerce", utc=False, format="mixed")
-                dt_non_null = dt.notna().sum()
-                if non_null > 0 and dt_non_null >= max(1, int(non_null * 0.8)):
-                    out[col] = dt
+        if str(series.dtype).startswith(("float", "int", "uint", "Int")):
+            try:
+                out[col] = pd.to_datetime(series, unit="D", origin=date_origin, errors="coerce")
+            except Exception:
+                pass
+        else:
+            try:
+                out[col] = pd.to_datetime(series, errors="coerce", format="mixed")
+            except Exception:
+                pass
+
+    # 2. General string inference if requested
+    if parse_strings:
+        for col in out.columns:
+            if col in target_date_cols:
+                continue
+            series = out[col]
+            if series.dtype == object or str(series.dtype) == "string":
+                coerced = series.map(_coerce_cell_parse_strings)
+                numeric: Any = pd.to_numeric(coerced, errors="coerce")
+                non_null = coerced.notna().sum()
+                numeric_non_null = numeric.notna().sum()
+                if non_null > 0 and numeric_non_null >= max(1, int(non_null * 0.8)):
+                    out[col] = numeric
                 else:
-                    out[col] = coerced
+                    dt: Any = pd.to_datetime(coerced, errors="coerce", utc=False, format="mixed")
+                    dt_non_null = dt.notna().sum()
+                    if non_null > 0 and dt_non_null >= max(1, int(non_null * 0.8)):
+                        out[col] = dt
+                    else:
+                        out[col] = coerced
     return out
 
 
@@ -206,6 +261,8 @@ def grid_to_dataframe(
     header_row: int | None = 0,
     index_col: int | None = None,
     parse_strings: bool = False,
+    date_cols: list[str | int] | bool = False,
+    date_origin: str = "1899-12-30",
     sheet_hint: str | None = None,
 ) -> CoerceResult:
     """Convert a rectangular grid / CalcRange into a typed DataFrame.
@@ -214,6 +271,9 @@ def grid_to_dataframe(
         header_row: Row used as column names, or ``None`` for ``col_0..``.
         index_col: Optional body column to become the index.
         parse_strings: Opt-in currency/percent/numeric/datetime string parsing.
+        date_cols: Specific column names/indices or True to coerce numeric
+            serials/date strings to datetime64.
+        date_origin: Base epoch for serial numbers (default '1899-12-30').
         sheet_hint: Optional metadata tag.
     """
     import pandas as pd
@@ -245,7 +305,7 @@ def grid_to_dataframe(
         rows.append(coerced_row)
 
     df = pd.DataFrame(rows, columns=cast("Any", col_names))
-    df = _coerce_column_types(df, parse_strings=parse_strings)
+    df = _coerce_column_types(df, parse_strings=parse_strings, date_cols=date_cols, date_origin=date_origin)
 
     if index_col is not None and 0 <= int(index_col) < len(df.columns):
         col_name = df.columns[int(index_col)]
@@ -260,6 +320,8 @@ def coerce_to_dataframe(
     headers: bool = True,
     header_row: int = 0,
     parse_strings: bool = True,
+    date_cols: list[str | int] | bool = False,
+    date_origin: str = "1899-12-30",
     sheet_hint: str | None = None,
     index_col: int | None = None,
 ) -> CoerceResult:
@@ -275,6 +337,8 @@ def coerce_to_dataframe(
         header_row=resolved_header,
         index_col=index_col,
         parse_strings=parse_strings,
+        date_cols=date_cols,
+        date_origin=date_origin,
         sheet_hint=sheet_hint,
     )
 

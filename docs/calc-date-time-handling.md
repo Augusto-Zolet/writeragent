@@ -203,7 +203,7 @@ Policy from the probes is closed under **Settled**. The M1–M3 mechanisms below
 | S7 | Never pass ASCII format codes such as `"YYYY-MM-DD"` to `queryKey` for defaults (§6). |
 | S8 | Batch the value commit; apply formats as coalesced rectangles: horizontal same-decision row runs after S25, then vertically merge identical `(c0, c1, key)` spans on consecutive rows (prefer range sets over a per-cell loop; checkerboard may still need multiple runs — see S25 / §5.6). |
 | S9 | The mixed-formula commit fix (§5.5 step 2) merges independently of the feature. |
-| S10 | Scope is `write_formula_range` only. `=PY` spill, `spreadsheet_import/preserve.py`, `insert_cell_html`, and `editselection` keep current semantics, because they carry real Python types or source-file formats. |
+| S10 | Scope is `write_formula_range` and `=PY()` deferred spill (`perform_deferred_spill`). `spreadsheet_import/preserve.py`, `insert_cell_html`, and `editselection` keep current semantics, because they carry real Python types or source-file formats. `CalcRange.to_pandas()` provides `date_cols` convenience. |
 | S11 | Tests split unit and UNO per [AGENTS.md](../AGENTS.md). |
 | S12 | Fractional seconds, leap seconds, `24:00`, calendar durations (`PnD` / Y/M/W), and locale display forms stay out of scope. Strict `PTnHnMnS` duration input is in scope. |
 | S13 | Inspect destination formats only when at least one value passed the gate. |

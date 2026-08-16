@@ -198,6 +198,8 @@ class CalcRange:
         header_row: int | None = 0,
         index_col: int | None = None,
         parse_strings: bool = False,
+        date_cols: list[str | int] | bool = False,
+        date_origin: str = "1899-12-30",
     ) -> Any:
         """Convert to a pandas DataFrame with an explicit header policy.
 
@@ -207,6 +209,9 @@ class CalcRange:
             index_col: Optional column to use as the DataFrame index.
             parse_strings: When True, apply optional currency/percent/numeric
                 and datetime string parsing. Default False keeps text cells as text.
+            date_cols: Specific column names/indices or True to coerce numeric
+                serials/date strings to datetime64.
+            date_origin: Base epoch for serial numbers (default '1899-12-30').
         """
         # crosshair: off
         from plugin.scripting.venv.coerce import grid_to_dataframe
@@ -216,6 +221,8 @@ class CalcRange:
             header_row=header_row,
             index_col=index_col,
             parse_strings=parse_strings,
+            date_cols=date_cols,
+            date_origin=date_origin,
             sheet_hint=self._address,
         ).df
 

@@ -109,3 +109,38 @@ def test_grid_to_dataframe_header_row_none():
     result = grid_to_dataframe([[1, 2], [3, 4]], header_row=None)
     assert list(result.df.columns) == ["col_0", "col_1"]
     assert len(result.df) == 2
+
+
+def test_to_pandas_date_cols_explicit_and_detected():
+    import pandas as pd
+
+    # 46242.0 is 2026-08-08 under 1899-12-30 NullDate
+    grid = [["Date", "Amount", "OrderDate"], [46242.0, 100.0, "2026-08-08"], [46243.0, 200.0, "2026-08-09"]]
+    rng = CalcRange(grid)
+
+    # 1. date_cols=True auto-detects date-like column names
+    df = rng.to_pandas(date_cols=True)
+    assert pd.api.types.is_datetime64_any_dtype(df["Date"])
+    assert df.loc[0, "Date"] == pd.Timestamp("2026-08-08")
+    assert pd.api.types.is_datetime64_any_dtype(df["OrderDate"])
+    assert df.loc[0, "OrderDate"] == pd.Timestamp("2026-08-08")
+    assert df.loc[0, "Amount"] == 100.0
+
+    # 2. Specific column list or scalar by name or index
+    df2 = rng.to_pandas(date_cols="Date")
+    assert pd.api.types.is_datetime64_any_dtype(df2["Date"])
+    assert df2.loc[0, "Date"] == pd.Timestamp("2026-08-08")
+    assert df2.loc[0, "OrderDate"] == "2026-08-08"
+
+    # Index 2 (OrderDate) as scalar integer
+    df3 = rng.to_pandas(date_cols=2)
+    assert pd.api.types.is_datetime64_any_dtype(df3["OrderDate"])
+    assert df3.loc[0, "OrderDate"] == pd.Timestamp("2026-08-08")
+    # Date was not specified -> stays float
+    assert df3.loc[0, "Date"] == 46242.0
+
+    # 3. Custom date_origin (e.g. 1904-01-01)
+    # Under 1904-01-01, day 0 is 1904-01-01, day 1 is 1904-01-02
+    grid_1904 = [["Date"], [1.0]]
+    df_1904 = CalcRange(grid_1904).to_pandas(date_cols=True, date_origin="1904-01-01")
+    assert df_1904.loc[0, "Date"] == pd.Timestamp("1904-01-02")
