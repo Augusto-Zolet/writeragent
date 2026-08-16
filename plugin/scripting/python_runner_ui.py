@@ -27,7 +27,7 @@ from com.sun.star.awt import XActionListener, XItemListener, XTopWindowListener
 from plugin.framework.config import get_config, get_config_str, set_config
 from plugin.framework.i18n import _
 from plugin.chatbot.dialogs import load_writeragent_dialog_detail, msgbox, set_control_text, show_approval_dialog
-from plugin.chatbot.dialogs import show_new_script_dialog, show_text_input_dialog
+from plugin.chatbot.dialogs import show_new_script_dialog
 from plugin.framework.worker_pool import run_in_background
 from plugin.scripting.document_scripts import (
     attach_document_script,
@@ -349,46 +349,6 @@ class NativePythonScriptDialog:
             def disposing(self, Source):
                 pass
 
-        # WARNING: If you change Attach logic, also update onAttach in:
-        # plugin/contrib/scripting/assets/editor/scripts_manager.js
-        class _AttachListener(unohelper.Base, XActionListener):
-            def actionPerformed(self, rEvent):
-                try:
-                    lbl = dlg.getControl("InstructionLbl")
-                    if doc is None:
-                        set_control_text(lbl, _("No document is open to attach scripts."))
-                        return
-                    ec = dlg.getControl("CodeEdit")
-                    t = (ec.getModel().Text or "").strip()
-                    curr = _picker_selected_name(select_ctrl)
-                    real_curr, _curr_origin = resolve_script_picker_entry(curr, owner._script_origin_map) if curr else ("", SCRIPT_ORIGIN_USER)
-                    name = show_text_input_dialog(ctx, _("Enter script name:"), _("Attach to Document"), real_curr)
-                    if not name:
-                        return
-                    name = name.strip()
-                    if not name:
-                        return
-                    from plugin.scripting.document_scripts import document_script_display_name, get_document_scripts
-
-                    overwrite = name in get_document_scripts(doc)
-                    if overwrite and not show_approval_dialog(
-                        ctx,
-                        _("A script named '{0}' already exists in this document. Overwrite?").format(name),
-                        _("Attach Script"),
-                    ):
-                        return
-                    err = attach_document_script(doc, name, t, overwrite=True)
-                    if err:
-                        set_control_text(lbl, err)
-                        return
-                    owner._refresh_script_dropdown(document_script_display_name(name))
-                    set_control_text(lbl, _("Script '%s' attached to this document.") % name)
-                except Exception:
-                    log.exception("Attach failed in dialog")
-
-            def disposing(self, Source):
-                pass
-
         # WARNING: If you change Save As logic, also update onSaveAs in:
         # plugin/contrib/scripting/assets/editor/scripts_manager.js
         class _SaveAsListener(unohelper.Base, XActionListener):
@@ -404,44 +364,51 @@ class NativePythonScriptDialog:
                         else ("", SCRIPT_ORIGIN_USER)
                     )
 
-                    name = show_text_input_dialog(ctx, _("Enter script name:"), _("Save Script"), real_curr)
-                    if not name:
+                    res = show_new_script_dialog(
+                        ctx,
+                        doc=doc,
+                        default_name=real_curr,
+                        title=_("Save Script As"),
+                        default_attach=(curr_origin == SCRIPT_ORIGIN_DOCUMENT),
+                    )
+                    if not res:
                         return
+                    name, attach_to_document = res
                     name = name.strip()
                     if not name:
                         return
 
                     lbl = dlg.getControl("InstructionLbl")
-                    save_to_document = curr_origin == SCRIPT_ORIGIN_DOCUMENT
-                    if doc is not None and not save_to_document:
-                        save_to_document = show_approval_dialog(
+                    if attach_to_document and doc is not None:
+                        from plugin.scripting.document_scripts import document_script_display_name, get_document_scripts
+
+                        overwrite = name in get_document_scripts(doc)
+                        if overwrite and not show_approval_dialog(
                             ctx,
-                            _("Save script '{0}' to this document?").format(name),
-                            _("Save Script"),
-                        )
-                    if doc is not None and save_to_document:
-                        from plugin.scripting.document_scripts import document_script_display_name
-
-                        err = save_document_script(doc, name, t)
+                            _("A script named '{0}' already exists in this document. Overwrite?").format(name),
+                            _("Save Script As"),
+                        ):
+                            return
+                        err = attach_document_script(doc, name, t, overwrite=True)
                         if err:
-                            user_scripts = get_config("saved_python_scripts")
-                            if not isinstance(user_scripts, dict):
-                                user_scripts = {}
-                            user_scripts[name] = t
-                            set_config("saved_python_scripts", user_scripts)
-                            set_control_text(lbl, _("%s Saved to My Scripts instead.") % err)
-                        else:
-                            set_control_text(lbl, _("Script '%s' saved to this document.") % name)
+                            set_control_text(lbl, err)
+                            return
                         owner._refresh_script_dropdown(document_script_display_name(name))
-                        return
-
-                    user_scripts = get_config("saved_python_scripts")
-                    if not isinstance(user_scripts, dict):
-                        user_scripts = {}
-                    user_scripts[name] = t
-                    set_config("saved_python_scripts", user_scripts)
-                    owner._refresh_script_dropdown(name)
-                    set_control_text(lbl, _("Script '%s' saved successfully.") % name)
+                        set_control_text(lbl, _("Script '%s' saved to this document.") % name)
+                    else:
+                        user_scripts = get_config("saved_python_scripts")
+                        if not isinstance(user_scripts, dict):
+                            user_scripts = {}
+                        if name in user_scripts and not show_approval_dialog(
+                            ctx,
+                            _("A script named '{0}' already exists in My Scripts. Overwrite?").format(name),
+                            _("Save Script As"),
+                        ):
+                            return
+                        user_scripts[name] = t
+                        set_config("saved_python_scripts", user_scripts)
+                        owner._refresh_script_dropdown(name)
+                        set_control_text(lbl, _("Script '%s' saved to My Scripts.") % name)
                 except Exception:
                     log.exception("Save As failed in dialog")
 
@@ -558,7 +525,6 @@ class NativePythonScriptDialog:
         btn_new = dlg.getControl("BtnNew")
         if btn_new is not None:
             btn_new.addActionListener(_NewListener())
-        dlg.getControl("BtnAttach").addActionListener(_AttachListener())
         dlg.getControl("BtnSaveAs").addActionListener(_SaveAsListener())
         dlg.getControl("BtnDelete").addActionListener(_DeleteListener())
         dlg.getControl("BtnCancel").addActionListener(_CancelListener())

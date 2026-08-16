@@ -32,10 +32,9 @@ def test_run_script_ui_matches_native_dialog_labels():
     assert ui["new_label"] == _("New")
     assert ui["new_script_title"] == _("New Python Script")
     assert ui["script_label"] == _("Script:")
-    assert ui["attach_label"] == _("Attach")
     assert ui["save_as_label"] == _("Save As...")
+    assert ui["save_as_title"] == _("Save Script As")
     assert ui["delete_label"] == _("Delete")
-    assert ui["attach_prompt"] == _("Enter script name:")
 
 
 def test_latex_ui_uses_insert_label():

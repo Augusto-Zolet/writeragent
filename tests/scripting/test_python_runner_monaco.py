@@ -526,7 +526,7 @@ def test_show_python_input_dialog_save_as_button():
             with patch.object(ui, "get_config", return_value={}):
                 with patch.object(ui, "get_config_str", return_value=""):
                     with patch.object(ui, "set_config") as mock_set:
-                        with patch.object(ui, "show_text_input_dialog", return_value="scriptk") as mock_input:
+                        with patch.object(ui, "show_new_script_dialog", return_value=("scriptk", False)) as mock_input:
                             def fake_execute():
                                 for listener in listeners:
                                     if "SaveAsListener" in type(listener).__name__:

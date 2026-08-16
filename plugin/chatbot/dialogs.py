@@ -277,8 +277,10 @@ def show_new_script_dialog(
     ctx: Any,
     doc: Any | None = None,
     default_name: str = "",
+    title: str = "",
+    default_attach: bool | None = None,
 ) -> tuple[str, bool] | None:
-    """Modal dialog for creating a new Python script with name and attach checkbox.
+    """Modal dialog for creating or saving a Python script with name and attach checkbox.
 
     Returns ``(script_name, attach_to_document)`` on OK, or ``None`` on Cancel.
     """
@@ -289,15 +291,16 @@ def show_new_script_dialog(
         from plugin.scripting.document_scripts import is_document_readonly_for_scripts
 
         can_attach = doc is not None and not is_document_readonly_for_scripts(doc)
+        dialog_title = title or _("New Python Script")
 
         dlg = load_writeragent_dialog("NewScriptDialog", ctx)
         if dlg is None:
-            name = show_text_input_dialog(ctx, _("Script name:"), _("New Python Script"), default_name)
+            name = show_text_input_dialog(ctx, _("Script name:"), dialog_title, default_name)
             if not name:
                 return None
             return (name, False)
 
-        dlg.getModel().Title = _("New Python Script")
+        dlg.getModel().Title = dialog_title
 
         lbl = dlg.getControl("PromptLbl")
         if lbl is not None:
@@ -310,7 +313,8 @@ def show_new_script_dialog(
         chk = dlg.getControl("ChkAttach")
         if chk is not None:
             chk.getModel().Label = _("Attach to this document")
-            chk.getModel().State = 1 if can_attach else 0
+            initial_attach = can_attach if default_attach is None else (default_attach and can_attach)
+            chk.getModel().State = 1 if initial_attach else 0
             chk.getModel().Enabled = bool(can_attach)
 
         _outcome: list[tuple[str, bool] | None] | None = None

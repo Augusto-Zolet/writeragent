@@ -471,6 +471,24 @@ def test_show_new_script_dialog_cancel_returns_none(mock_get_desktop):
     assert result is None
 
 
+@patch("plugin.chatbot.dialogs.get_desktop")
+def test_show_new_script_dialog_custom_title_and_default_attach(mock_get_desktop):
+    ctx, desktop, dlg, ok_listeners, _cancel_listeners = _mock_new_script_dialog_uno("SavedCopy", attach_state=0)
+    mock_get_desktop.return_value = desktop
+
+    def fake_execute():
+        for listener in ok_listeners:
+            listener.actionPerformed(MagicMock())
+
+    dlg.execute.side_effect = fake_execute
+
+    doc = MagicMock()
+    doc.isReadonly.return_value = False
+    result = show_new_script_dialog(ctx, doc=doc, default_name="OldScript", title="Save Script As", default_attach=False)
+    assert result == ("SavedCopy", False)
+    assert dlg.getModel().Title == "Save Script As"
+
+
 def test_format_exception_detail_includes_message_and_nested_context():
     class InnerError(RuntimeError):
         Message = "inner message"

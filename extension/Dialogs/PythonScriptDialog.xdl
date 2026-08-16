@@ -15,11 +15,10 @@
   <dlg:button dlg:id="BtnSave" dlg:left="52" dlg:top="8" dlg:width="42" dlg:height="14" dlg:value="Save" dlg:tabstop="true"/>
   <dlg:button dlg:id="BtnNew" dlg:left="96" dlg:top="8" dlg:width="38" dlg:height="14" dlg:value="New" dlg:tabstop="true"/>
   <dlg:button dlg:id="BtnCancel" dlg:left="136" dlg:top="8" dlg:width="42" dlg:height="14" dlg:value="Close" dlg:tabstop="true"/>
-  <dlg:text dlg:id="ScriptLbl" dlg:left="182" dlg:top="10" dlg:width="22" dlg:height="10" dlg:value="Script:" dlg:align="left" dlg:multiline="false"/>
-  <dlg:combobox dlg:id="ScriptSelect" dlg:left="206" dlg:top="8" dlg:width="64" dlg:height="14" dlg:tabstop="true" dlg:spin="true" dlg:dropdown="true" dlg:value="" dlg:border="1"/>
-  <dlg:button dlg:id="BtnAttach" dlg:left="274" dlg:top="8" dlg:width="38" dlg:height="14" dlg:value="Attach" dlg:tabstop="true"/>
-  <dlg:button dlg:id="BtnSaveAs" dlg:left="316" dlg:top="8" dlg:width="44" dlg:height="14" dlg:value="Save As..." dlg:tabstop="true"/>
-  <dlg:button dlg:id="BtnDelete" dlg:left="364" dlg:top="8" dlg:width="30" dlg:height="14" dlg:value="Delete" dlg:tabstop="true"/>
+  <dlg:text dlg:id="ScriptLbl" dlg:left="184" dlg:top="10" dlg:width="22" dlg:height="10" dlg:value="Script:" dlg:align="left" dlg:multiline="false"/>
+  <dlg:combobox dlg:id="ScriptSelect" dlg:left="208" dlg:top="8" dlg:width="86" dlg:height="14" dlg:tabstop="true" dlg:spin="true" dlg:dropdown="true" dlg:value="" dlg:border="1"/>
+  <dlg:button dlg:id="BtnSaveAs" dlg:left="298" dlg:top="8" dlg:width="54" dlg:height="14" dlg:value="Save As..." dlg:tabstop="true"/>
+  <dlg:button dlg:id="BtnDelete" dlg:left="356" dlg:top="8" dlg:width="38" dlg:height="14" dlg:value="Delete" dlg:tabstop="true"/>
   <dlg:textfield dlg:id="InstructionLbl" dlg:left="8" dlg:top="26" dlg:width="386" dlg:height="20" dlg:value="Enter Python code to execute in the user virtual environment.\nAssign the result to the 'result' variable." dlg:tabstop="true" dlg:readonly="true" dlg:multiline="true" dlg:vscroll="true"/>
   <dlg:textfield dlg:id="CodeEdit" dlg:left="8" dlg:top="48" dlg:width="386" dlg:height="164" dlg:tabstop="true" dlg:multiline="true" dlg:vscroll="true"/>
  </dlg:bulletinboard>
