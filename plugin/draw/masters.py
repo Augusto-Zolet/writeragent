@@ -53,13 +53,14 @@ class GetSlideMaster(ToolDrawSlideMastersBase):
     name = "get_slide_master"
     intent = "navigate"
     description = "Get the master slide assigned to a specific slide. Returns the master slide name."
-    parameters = {"type": "object", "properties": {"page_index": {"type": "integer", "description": "0-based slide index (active slide if omitted)."}}, "required": []}
+    parameters = {"type": "object", "properties": {"page": {"type": "integer", "description": "0-based slide index (active slide if omitted)."}}, "required": []}
     uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
 
     def execute(self, ctx, **kwargs):
-        page = _get_slide(ctx.doc, kwargs.get("page_index"))
+        page_idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        page = _get_slide(ctx.doc, page_idx)
         master = page.MasterPage
-        return {"status": "ok", "page_index": kwargs.get("page_index"), "master_name": master.Name if hasattr(master, "Name") else ""}
+        return {"status": "ok", "page": page_idx, "page_index": page_idx, "master": master.Name if hasattr(master, "Name") else "", "master_name": master.Name if hasattr(master, "Name") else ""}
 
 
 class SetSlideMaster(ToolDrawSlideMastersBase):
@@ -68,14 +69,17 @@ class SetSlideMaster(ToolDrawSlideMastersBase):
     name = "set_slide_master"
     intent = "edit"
     description = "Assign a master slide to a specific slide by master name. Use list_master_slides to see available masters."
-    parameters = {"type": "object", "properties": {"page_index": {"type": "integer", "description": "0-based slide index (active slide if omitted)."}, "master_name": {"type": "string", "description": "Name of the master slide to assign."}}, "required": ["master_name"]}
+    parameters = {"type": "object", "properties": {"page": {"type": "integer", "description": "0-based slide index (active slide if omitted)."}, "master": {"type": "string", "description": "Name of the master slide to assign."}}, "required": ["master"]}
     uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
         doc = ctx.doc
-        page = _get_slide(doc, kwargs.get("page_index"))
-        master_name = kwargs["master_name"]
+        page_idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        page = _get_slide(doc, page_idx)
+        master_name = kwargs.get("master") if "master" in kwargs else kwargs.get("master_name")
+        if not master_name:
+            return self._tool_error("master is required.")
 
         masters = doc.getMasterPages()
         target = None
@@ -93,4 +97,4 @@ class SetSlideMaster(ToolDrawSlideMastersBase):
             return self._tool_error("Master '%s' not found." % master_name, available=available)
 
         page.MasterPage = target
-        return {"status": "ok", "page_index": kwargs.get("page_index"), "master_name": master_name}
+        return {"status": "ok", "page": page_idx, "page_index": page_idx, "master": master_name, "master_name": master_name}

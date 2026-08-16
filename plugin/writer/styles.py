@@ -225,10 +225,10 @@ class StyleGetInfo(ToolWriterStyleBase):
 
     name = "style_get_info"
     description = "Get detailed properties of a specific style (font, size, margins, etc.)."
-    parameters = {"type": "object", "properties": {"style_name": {"type": "string", "description": "Name of the style to inspect."}, "family": {"type": "string", "description": "Style family. Default: ParagraphStyles."}}, "required": ["style_name"]}
+    parameters = {"type": "object", "properties": {"style": {"type": "string", "description": "Name of the style to inspect."}, "family": {"type": "string", "description": "Style family. Default: ParagraphStyles."}}, "required": ["style"]}
 
     def execute(self, ctx, **kwargs):
-        style_name = kwargs.get("style_name", "")
+        style_name = kwargs.get("style") or kwargs.get("style_name", "")
         family = kwargs.get("family", "ParagraphStyles")
 
         doc = ctx.doc
@@ -273,14 +273,14 @@ class ApplyStyle(FrameworkToolBase):
     parameters = {
         "type": "object",
         "properties": {
-            "style_name": {"type": "string", "description": "Style name (e.g. Heading 1, Source Text)."},
+            "style": {"type": "string", "description": "Style name (e.g. Heading 1, Source Text)."},
             "family": {"type": "string", "enum": ["ParagraphStyles", "CharacterStyles"], "description": ("Style family. Default: ParagraphStyles.")},
             "target": {"type": "string", "enum": ["beginning", "end", "selection", "full_document", "search"], "description": "Where to apply the style."},
             "old_content": {"type": "string", "description": "Text to find and apply style to if target = 'search'."},
             "all_matches": {"type": "boolean", "description": "For target='search': apply to EVERY occurrence of old_content (default false = first only)."},
             "occurrence": {"type": "integer", "description": "For target='search': apply to this single 0-based occurrence instead of the first."},
         },
-        "required": ["style_name"],
+        "required": ["style"],
     }
     uno_services = ["com.sun.star.text.TextDocument"]
     is_mutation = True
@@ -295,9 +295,9 @@ class ApplyStyle(FrameworkToolBase):
             cursor.setPropertyValue(uno_prop, uno_value)
 
     def execute(self, ctx, **kwargs):
-        style_name = (kwargs.get("style_name") or "").strip()
+        style_name = (kwargs.get("style") or kwargs.get("style_name") or "").strip()
         if not style_name:
-            return self._tool_error("style_name is required.")
+            return self._tool_error("style is required.")
 
         family = kwargs.get("family", "ParagraphStyles")
         uno_prop = self._PROPERTY_MAP.get(family)
@@ -425,7 +425,7 @@ class StyleUpdate(ToolWriterStyleBase):
     parameters = {
         "type": "object",
         "properties": {
-            "style_name": {"type": "string", "description": "Name of the style to modify (e.g., 'Heading 1', 'Source Text')."},
+            "style": {"type": "string", "description": "Name of the style to modify (e.g., 'Heading 1', 'Source Text')."},
             "family": {"type": "string", "enum": ["ParagraphStyles", "CharacterStyles"], "description": "Style family. Default: ParagraphStyles."},
             "parent_style": {"type": "string", "description": "Name of the style to inherit from."},
             "property_updates": {
@@ -434,15 +434,15 @@ class StyleUpdate(ToolWriterStyleBase):
                 "properties": _ALL_KNOWN_PROPERTIES,
             },
         },
-        "required": ["style_name"],
+        "required": ["style"],
     }
     uno_services = ["com.sun.star.text.TextDocument"]
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        style_name = kwargs.get("style_name", "").strip()
+        style_name = (kwargs.get("style") or kwargs.get("style_name") or "").strip()
         if not style_name:
-            return self._tool_error("style_name is required.")
+            return self._tool_error("style is required.")
 
         family = kwargs.get("family", "ParagraphStyles")
         parent_style = kwargs.get("parent_style")
@@ -516,7 +516,7 @@ class StyleCreate(ToolWriterStyleBase):
     parameters = {
         "type": "object",
         "properties": {
-            "style_name": {"type": "string", "description": "Name of the new style."},
+            "style": {"type": "string", "description": "Name of the new style."},
             "family": {"type": "string", "enum": ["ParagraphStyles", "CharacterStyles"], "description": "Style family. Default: ParagraphStyles."},
             "parent_style": {"type": "string", "description": "Name of the style to inherit from (e.g. 'Standard', 'Default Paragraph Style')."},
             "property_updates": {
@@ -537,15 +537,15 @@ class StyleCreate(ToolWriterStyleBase):
                 },
             },
         },
-        "required": ["style_name"],
+        "required": ["style"],
     }
     uno_services = ["com.sun.star.text.TextDocument"]
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        style_name = (kwargs.get("style_name") or "").strip()
+        style_name = (kwargs.get("style") or kwargs.get("style_name") or "").strip()
         if not style_name:
-            return self._tool_error("style_name is required.")
+            return self._tool_error("style is required.")
 
         family = kwargs.get("family", "ParagraphStyles")
         parent_style = kwargs.get("parent_style")
@@ -644,22 +644,22 @@ class StyleImport(ToolWriterStyleBase):
     parameters = {
         "type": "object",
         "properties": {
-            "file_path": {"type": "string", "description": "Absolute path to the source document."},
+            "path": {"type": "string", "description": "Absolute path to the source document."},
             "overwrite": {"type": "boolean", "default": True, "description": "Overwrite existing styles with same name."},
             "load_paragraph_styles": {"type": "boolean", "default": True, "description": "Import paragraph and character styles."},
             "load_page_styles": {"type": "boolean", "default": False, "description": "Import page styles."},
             "load_frame_styles": {"type": "boolean", "default": False, "description": "Import frame styles."},
             "load_numbering_styles": {"type": "boolean", "default": False, "description": "Import numbering/list styles."},
         },
-        "required": ["file_path"],
+        "required": ["path"],
     }
     uno_services = ["com.sun.star.text.TextDocument"]
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        file_path = kwargs.get("file_path")
+        file_path = kwargs.get("path") or kwargs.get("file_path")
         if not file_path:
-            return self._tool_error("file_path is required.")
+            return self._tool_error("path is required.")
 
         overwrite = kwargs.get("overwrite", True)
         load_text = kwargs.get("load_paragraph_styles", True)

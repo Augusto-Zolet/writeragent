@@ -42,7 +42,7 @@ class GetDocumentTree(ToolBase):
     description = (
         "Get the document heading tree with bookmarks and content previews, plus document statistics. "
         "The stats object includes character_count, word_count, paragraph_count, page_count, and heading_count. "
-        'Use content_strategy="heading_only" for a simple outline (headings hierarchy). '
+        'Use strategy="heading_only" for a simple outline (headings hierarchy). '
         "Creates _mcp_ bookmarks on headings for stable addressing. "
         "Strategies: heading_only, first_lines (default), full. "
         "depth=0 for unlimited, depth=1 (default) for top-level only. "
@@ -53,14 +53,15 @@ class GetDocumentTree(ToolBase):
     )
     parameters = {
         "type": "object",
-        "properties": {"content_strategy": {"type": "string", "enum": ["heading_only", "first_lines", "full"], "description": "Content to include with headings (default: first_lines)"}, "depth": {"type": "integer", "description": "Max tree depth (0=unlimited, default: 1)"}},
+        "properties": {"strategy": {"type": "string", "enum": ["heading_only", "first_lines", "full"], "description": "Content to include with headings (default: first_lines)"}, "depth": {"type": "integer", "description": "Max tree depth (0=unlimited, default: 1)"}},
         "required": [],
     }
     uno_services = ["com.sun.star.text.TextDocument"]
 
     def execute(self, ctx, **kwargs):
         tree_svc = ctx.services.writer_tree
-        result = tree_svc.get_document_tree(ctx.doc, content_strategy=kwargs.get("content_strategy", "first_lines"), depth=kwargs.get("depth", 1))
+        strategy = kwargs.get("strategy") or kwargs.get("content_strategy", "first_lines")
+        result = tree_svc.get_document_tree(ctx.doc, content_strategy=strategy, depth=kwargs.get("depth", 1))
         stats = collect_document_stats(ctx.doc, ctx.services.document)
         return {**result, "stats": stats}
 
@@ -68,14 +69,14 @@ class GetDocumentTree(ToolBase):
 class NavHeadingChildren(ToolWriterStructuralBase):
     name = "nav_heading_children"
     intent = "navigate"
-    description = "Drill into a heading's children — body paragraphs and sub-headings. Identify the heading by locator (e.g. 'bookmark:_mcp_xxx', 'heading_text:Title'), heading_para_index, or heading_bookmark. para_index values are INTERNAL — never cite paragraph numbers to the user; refer to a place by quoting the first words of its text."
+    description = "Drill into a heading's children — body paragraphs and sub-headings. Identify the heading by locator (e.g. 'bookmark:_mcp_xxx', 'heading:1.2'), para_index, or bookmark. para_index values are INTERNAL — never cite paragraph numbers to the user; refer to a place by quoting the first words of its text."
     parameters = {
         "type": "object",
         "properties": {
             "locator": {"type": "string", "description": "Locator string (e.g. 'bookmark:_mcp_xxx', 'heading:1.2')"},
-            "heading_para_index": {"type": "integer", "description": "Paragraph index of the heading"},
-            "heading_bookmark": {"type": "string", "description": "Bookmark name of the heading"},
-            "content_strategy": {"type": "string", "enum": ["heading_only", "first_lines", "full"], "description": "Content strategy (default: first_lines)"},
+            "para_index": {"type": "integer", "description": "Paragraph index of the heading"},
+            "bookmark": {"type": "string", "description": "Bookmark name of the heading"},
+            "strategy": {"type": "string", "enum": ["heading_only", "first_lines", "full"], "description": "Content strategy (default: first_lines)"},
             "depth": {"type": "integer", "description": "Max sub-heading depth (default: 1)"},
         },
         "required": [],
@@ -84,8 +85,11 @@ class NavHeadingChildren(ToolWriterStructuralBase):
 
     def execute(self, ctx, **kwargs):
         tree_svc = ctx.services.writer_tree
+        para_index = kwargs.get("para_index") if "para_index" in kwargs else kwargs.get("heading_para_index")
+        bookmark = kwargs.get("bookmark") or kwargs.get("heading_bookmark")
+        strategy = kwargs.get("strategy") or kwargs.get("content_strategy", "first_lines")
         try:
-            result = tree_svc.get_heading_children(ctx.doc, heading_para_index=kwargs.get("heading_para_index"), heading_bookmark=kwargs.get("heading_bookmark"), locator=kwargs.get("locator"), content_strategy=kwargs.get("content_strategy", "first_lines"), depth=kwargs.get("depth", 1))
+            result = tree_svc.get_heading_children(ctx.doc, heading_para_index=para_index, heading_bookmark=bookmark, locator=kwargs.get("locator"), content_strategy=strategy, depth=kwargs.get("depth", 1))
             return {"status": "ok", **result}
         except ValueError as e:
             return self._tool_error(str(e))

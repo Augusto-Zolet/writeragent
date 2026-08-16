@@ -99,6 +99,16 @@ def test_fields_insert(mock_ctx):
     used_cursor.getText().insertTextContent.assert_called_with(used_cursor, mock_field, False)
 
 
+def test_fields_insert_shortened_type(mock_ctx):
+    doc = mock_ctx.doc
+    mock_field = MagicMock()
+    doc.createInstance.return_value = mock_field
+    tool = FieldsInsert()
+    res = tool.execute(mock_ctx, type="PageNumber", target="selection")
+    assert res["status"] == "ok"
+    doc.createInstance.assert_called_with("com.sun.star.text.textfield.PageNumber")
+
+
 def test_fields_delete(mock_ctx):
     doc = mock_ctx.doc
     mock_fields = MagicMock()

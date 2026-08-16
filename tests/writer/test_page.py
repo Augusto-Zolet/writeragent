@@ -175,3 +175,22 @@ def test_insert_page_break():
     assert res["status"] == "ok"
     text_cursor.setPropertyValue.assert_called_with("BreakType", 4)  # PAGE_BEFORE
     text_obj.insertControlCharacter.assert_called_with(text_cursor, 0, False)
+
+
+def test_page_tools_shortened_style_param():
+    doc = MagicMock()
+    families = MagicMock()
+    page_styles = MagicMock()
+    style = MagicMock()
+    doc.getStyleFamilies.return_value = families
+    families.getByName.return_value = page_styles
+    page_styles.hasByName.return_value = True
+    page_styles.getByName.return_value = style
+
+    ctx = TestingFactory.create_context(doc=doc, doc_type="writer")
+    res = PageGetStyleProperties().execute(ctx, style="Standard")
+    assert res["status"] == "ok"
+    assert "properties" in res
+
+    res_set = PageSetStyleProperties().execute(ctx, style="Standard", width_mm=210)
+    assert res_set["status"] == "ok"

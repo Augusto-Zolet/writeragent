@@ -157,17 +157,17 @@ class FieldsInsert(ToolWriterFieldBase):
     parameters = {
         "type": "object",
         "properties": {
-            "field_type": {"type": "string", "description": ("The exact name of the text field service to create, excluding the 'com.sun.star.text.textfield.' prefix. Examples: 'PageNumber', 'PageCount', 'DateTime', 'Author', 'FileName', 'WordCount'.")},
+            "type": {"type": "string", "description": ("The exact name of the text field service to create, excluding the 'com.sun.star.text.textfield.' prefix. Examples: 'PageNumber', 'PageCount', 'DateTime', 'Author', 'FileName', 'WordCount'.")},
             "properties": {"type": "object", "description": ("Optional dictionary of UNO properties to apply to the field. Example: {'NumberingType': 4} for Arabic numbering, or {'IsDate': true} to force a date display on a DateTime field."), "default": {}},
             "target": {"type": "string", "enum": ["beginning", "end", "selection", "full_document", "search"], "description": "Where to insert the field."},
             "old_content": {"type": "string", "description": "Text to find and replace if target = 'search'."},
         },
-        "required": ["field_type"],
+        "required": ["type"],
     }
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        field_type = kwargs.get("field_type")
+        field_type = kwargs.get("type") or kwargs.get("field_type")
         properties = kwargs.get("properties")
         doc = ctx.doc
         if not hasattr(doc, "createInstance"):

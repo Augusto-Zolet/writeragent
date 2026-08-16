@@ -99,17 +99,17 @@ def _heuristic_size_hmm(formula: str) -> tuple[int, int]:
 class InsertMathDraw(ToolDrawSpecialBase):
     name = "insert_math"
     intent = "insert"
-    description = "Inserts an editable LibreOffice Math formula on a Draw or Impress page. Use formula_type 'latex' or 'mathml' with the corresponding formula string; position with page_index, x, y (100ths of mm). Size is derived from the formula when possible."
+    description = "Inserts an editable LibreOffice Math formula on a Draw or Impress page. Use type 'latex' or 'mathml' with the corresponding formula string; position with page, x, y (100ths of mm). Size is derived from the formula when possible."
     parameters = {
         "type": "object",
         "properties": {
-            "formula_type": {"type": "string", "enum": ["latex", "mathml"], "description": "Whether formula is LaTeX (converted via LO) or MathML."},
-            "formula": {"type": "string", "description": "LaTeX or MathML formula text, per formula_type."},
-            "page_index": {"type": "integer", "description": "Zero-based index of the draw page or slide."},
+            "type": {"type": "string", "enum": ["latex", "mathml"], "description": "Whether formula is LaTeX (converted via LO) or MathML."},
+            "formula": {"type": "string", "description": "LaTeX or MathML formula text, per type."},
+            "page": {"type": "integer", "description": "Zero-based index of the draw page or slide."},
             "x": {"type": "integer", "description": "X position of the shape (100ths of mm)."},
             "y": {"type": "integer", "description": "Y position of the shape (100ths of mm)."},
         },
-        "required": ["formula_type", "formula", "page_index", "x", "y"],
+        "required": ["type", "formula", "page", "x", "y"],
     }
     uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
     is_mutation = True
@@ -120,7 +120,7 @@ class InsertMathDraw(ToolDrawSpecialBase):
         from plugin.draw.bridge import DrawBridge
         from com.sun.star.awt import Size, Point
 
-        formula_type = kwargs.get("formula_type")
+        formula_type = kwargs.get("type") or kwargs.get("formula_type")
         formula = kwargs.get("formula")
         if not isinstance(formula, str) or not formula.strip():
             return self._tool_error("formula must be a non-empty string.")
@@ -134,23 +134,26 @@ class InsertMathDraw(ToolDrawSpecialBase):
         elif formula_type == "mathml":
             res = convert_mathml_to_starmath(uno_ctx, formula.strip())
         else:
-            return self._tool_error("formula_type must be 'latex' or 'mathml'.")
+            return self._tool_error("type must be 'latex' or 'mathml'.")
 
         if not res.ok:
             detail = (res.error_message or "").strip() or "unknown_error"
             return self._tool_error(f"Failed to convert math expression: {detail}", conversion_detail=detail)
 
         try:
-            page_index = int(kwargs["page_index"])
+            page_val = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+            if page_val is None:
+                return self._tool_error("page, x, and y must be integers.")
+            page_index = int(page_val)
             x = int(kwargs["x"])
             y = int(kwargs["y"])
         except (KeyError, TypeError, ValueError):
-            return self._tool_error("page_index, x, and y must be integers.")
+            return self._tool_error("page, x, and y must be integers.")
 
         bridge = DrawBridge(ctx.doc)
         pages = bridge.get_pages()
         if page_index < 0 or page_index >= pages.getCount():
-            return self._tool_error("Invalid page_index.")
+            return self._tool_error("Invalid page.")
         page = pages.getByIndex(page_index)
 
         try:
@@ -177,4 +180,4 @@ class InsertMathDraw(ToolDrawSpecialBase):
         except Exception as e:
             return self._tool_error(f"Failed to insert math shape: {e}")
 
-        return {"status": "ok", "message": "Math formula inserted successfully", "shape_index": page.getCount() - 1, "page_index": page_index}
+        return {"status": "ok", "message": "Math formula inserted successfully", "shape_index": page.getCount() - 1, "page": page_index, "page_index": page_index}

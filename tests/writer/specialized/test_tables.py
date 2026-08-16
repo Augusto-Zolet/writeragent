@@ -252,3 +252,16 @@ def test_tables_are_specialized_domain():
     ):
         assert cls.tier == "specialized"
         assert cls.specialized_domain == "tables"
+
+
+def test_table_tools_shortened_name_param():
+    t = FakeTable(2, 2, cells={"A1": "val"})
+    res_get = TableGetCells().execute(_ctx({"T": t}), name="T")
+    assert res_get["status"] == "ok"
+    assert res_get["matrix"][0][0] == "val"
+
+    res_set = TableSetCell().execute(_ctx({"T": t}), name="T", cell="A1", text="new_val")
+    assert res_set["status"] == "ok"
+
+    res_struct = ManageTableStructure().execute(_ctx({"T": t}), action="insert", axis="row", name="T", index=0)
+    assert res_struct["status"] == "ok"

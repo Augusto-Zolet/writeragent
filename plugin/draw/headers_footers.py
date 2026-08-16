@@ -254,19 +254,22 @@ class GetHeadersFooters(ToolDrawHeaderFooterBase):
     parameters = {
         "type": "object",
         "properties": {
-            "page_index": {"type": "integer", "description": ("0-based slide index. When is_master_page is false, reads that slide. When true, reads the master page assigned to that slide (not the master list index).")},
-            "is_master_page": {"type": "boolean", "description": "If True, read the master page linked to the slide at page_index. Defaults to False."},
+            "page": {"type": "integer", "description": ("0-based slide index. When is_master_page is false, reads that slide. When true, reads the master page assigned to that slide (not the master list index).")},
+            "is_master_page": {"type": "boolean", "description": "If True, read the master page linked to the slide at page. Defaults to False."},
         },
-        "required": ["page_index"],
+        "required": ["page"],
     }
 
     def execute(self, ctx: ToolContext, **kwargs: Any) -> Dict[str, Any]:
-        page_index = int(kwargs["page_index"])
-        is_master_page = _coerce_bool_arg(kwargs, "is_master_page", False)
+        page_val = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        if page_val is None:
+            return self._tool_error("page is required.")
+        page_index = int(page_val)
+        is_master_page = _coerce_bool_arg(kwargs, "is_master_page", False) or _coerce_bool_arg(kwargs, "master_page", False)
 
         page = _get_page(ctx, page_index, is_master_page)
 
-        result: Dict[str, Any] = {"status": "ok", "page_index": page_index, "is_master_page": is_master_page, "properties": {}}
+        result: Dict[str, Any] = {"status": "ok", "page": page_index, "page_index": page_index, "is_master_page": is_master_page, "properties": {}}
 
         props_to_fetch = ["HeaderText", "FooterText", "DateTimeText", "IsHeaderVisible", "IsFooterVisible", "IsPageNumberVisible", "IsDateTimeVisible", "IsDateTimeFixed", "DateTimeFormat"]
 
@@ -291,25 +294,47 @@ class SetHeadersFooters(ToolDrawHeaderFooterBase):
     parameters = {
         "type": "object",
         "properties": {
-            "page_index": {"type": "integer", "description": ("0-based slide index. When is_master_page is false, updates that slide. When true, updates the master page assigned to that slide.")},
-            "is_master_page": {"type": "boolean", "description": "If True, update the master page linked to the slide at page_index. Defaults to False."},
-            "header_text": {"type": "string", "description": "The text for the header."},
-            "footer_text": {"type": "string", "description": "The text for the footer."},
-            "date_time_text": {"type": "string", "description": "The fixed date/time text."},
-            "is_header_visible": {"type": "boolean", "description": "Whether the header is visible."},
-            "is_footer_visible": {"type": "boolean", "description": "Whether the footer is visible."},
-            "is_page_number_visible": {"type": "boolean", "description": "Whether the slide number is visible."},
-            "is_date_time_visible": {"type": "boolean", "description": "Whether the date/time is visible."},
-            "is_date_time_fixed": {"type": "boolean", "description": "If True, uses 'date_time_text'. If False, LibreOffice automatically updates it."},
+            "page": {"type": "integer", "description": ("0-based slide index. When is_master_page is false, updates that slide. When true, updates the master page assigned to that slide.")},
+            "is_master_page": {"type": "boolean", "description": "If True, update the master page linked to the slide at page. Defaults to False."},
+            "header": {"type": "string", "description": "The text for the header."},
+            "footer": {"type": "string", "description": "The text for the footer."},
+            "date_time": {"type": "string", "description": "The fixed date/time text."},
+            "header_visible": {"type": "boolean", "description": "Whether the header is visible."},
+            "footer_visible": {"type": "boolean", "description": "Whether the footer is visible."},
+            "page_number_visible": {"type": "boolean", "description": "Whether the slide number is visible."},
+            "date_time_visible": {"type": "boolean", "description": "Whether the date/time is visible."},
+            "date_time_fixed": {"type": "boolean", "description": "If True, uses 'date_time'. If False, LibreOffice automatically updates it."},
         },
-        "required": ["page_index"],
+        "required": ["page"],
     }
 
     def execute(self, ctx: ToolContext, **kwargs: Any) -> Dict[str, Any]:
-        page_index = int(kwargs["page_index"])
-        is_master_page = _coerce_bool_arg(kwargs, "is_master_page", False)
+        page_val = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        if page_val is None:
+            return self._tool_error("page is required.")
+        page_index = int(page_val)
+        is_master_page = _coerce_bool_arg(kwargs, "is_master_page", False) or _coerce_bool_arg(kwargs, "master_page", False)
 
         page = _get_page(ctx, page_index, is_master_page)
+
+        # Normalize incoming kwargs for both short and long keys
+        norm_kwargs = dict(kwargs)
+        if "header" in kwargs and "header_text" not in kwargs:
+            norm_kwargs["header_text"] = kwargs["header"]
+        if "footer" in kwargs and "footer_text" not in kwargs:
+            norm_kwargs["footer_text"] = kwargs["footer"]
+        if "date_time" in kwargs and "date_time_text" not in kwargs:
+            norm_kwargs["date_time_text"] = kwargs["date_time"]
+        if "header_visible" in kwargs and "is_header_visible" not in kwargs:
+            norm_kwargs["is_header_visible"] = kwargs["header_visible"]
+        if "footer_visible" in kwargs and "is_footer_visible" not in kwargs:
+            norm_kwargs["is_footer_visible"] = kwargs["footer_visible"]
+        if "page_number_visible" in kwargs and "is_page_number_visible" not in kwargs:
+            norm_kwargs["is_page_number_visible"] = kwargs["page_number_visible"]
+        if "date_time_visible" in kwargs and "is_date_time_visible" not in kwargs:
+            norm_kwargs["is_date_time_visible"] = kwargs["date_time_visible"]
+        if "date_time_fixed" in kwargs and "is_date_time_fixed" not in kwargs:
+            norm_kwargs["is_date_time_fixed"] = kwargs["date_time_fixed"]
 
         prop_map = {
             "header_text": "HeaderText",
@@ -323,16 +348,16 @@ class SetHeadersFooters(ToolDrawHeaderFooterBase):
         }
 
         if _impress_master_hf_use_shapes(ctx.doc, is_master_page):
-            updated_count = _write_impress_master_hf_shapes(page, kwargs)
+            updated_count = _write_impress_master_hf_shapes(page, norm_kwargs)
         else:
             # Draw / non-Impress masters: UNO exposes HeaderText/FooterText on the page.
             if is_master_page:
-                if "footer_text" in kwargs and "is_footer_visible" not in kwargs:
+                if "footer_text" in norm_kwargs and "is_footer_visible" not in norm_kwargs:
                     try:
                         page.setPropertyValue("IsFooterVisible", True)
                     except Exception as e:
                         log.debug("Could not enable IsFooterVisible on master: %s", e)
-                if "header_text" in kwargs and "is_header_visible" not in kwargs:
+                if "header_text" in norm_kwargs and "is_header_visible" not in norm_kwargs:
                     try:
                         page.setPropertyValue("IsHeaderVisible", True)
                     except Exception as e:
@@ -340,8 +365,8 @@ class SetHeadersFooters(ToolDrawHeaderFooterBase):
 
             updated_count = 0
             for kwarg_key, prop_name in prop_map.items():
-                if kwarg_key in kwargs:
-                    val = kwargs[kwarg_key]
+                if kwarg_key in norm_kwargs:
+                    val = norm_kwargs[kwarg_key]
                     try:
                         page.setPropertyValue(prop_name, val)
                         updated_count += 1

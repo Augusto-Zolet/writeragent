@@ -197,6 +197,6 @@ def test_named_range_tools_execution_with_mock():
     doc.getCurrentController.return_value.getActiveSheet.return_value = sheet_mock
 
     tool_titles = NamedRangeCreateFromTitles()
-    res_titles = tool_titles.execute(ctx, range_str="A1:B5", border="top")
+    res_titles = tool_titles.execute(ctx, range="A1:B5", border="top")
     assert res_titles["status"] == "ok"
     named_ranges.addNewFromTitles.assert_called_once()

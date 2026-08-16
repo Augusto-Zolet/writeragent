@@ -99,11 +99,12 @@ class GetSlideTransition(ToolDrawSlideTransitionsBase):
     name = "get_slide_transition"
     intent = "navigate"
     description = "Get the transition effect, speed, duration, and advance mode for an Impress slide."
-    parameters = {"type": "object", "properties": {"page_index": {"type": "integer", "description": "0-based slide index (active slide if omitted)."}}, "required": []}
+    parameters = {"type": "object", "properties": {"page": {"type": "integer", "description": "0-based slide index (active slide if omitted)."}}, "required": []}
     uno_services = ["com.sun.star.presentation.PresentationDocument"]
 
     def execute(self, ctx, **kwargs):
-        page = _get_slide(ctx.doc, kwargs.get("page_index"))
+        page_idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        page = _get_slide(ctx.doc, page_idx)
 
         # FadeEffect
         effect = "none"
@@ -142,7 +143,7 @@ class GetSlideTransition(ToolDrawSlideTransitionsBase):
         except Exception:
             pass
 
-        return {"status": "ok", "page_index": kwargs.get("page_index"), "effect": effect, "speed": speed, "duration": duration, "transition_duration": transition_duration, "advance": {0: "on_click", 1: "auto", 2: "semi_auto"}.get(change, "on_click")}
+        return {"status": "ok", "page": page_idx, "page_index": page_idx, "effect": effect, "speed": speed, "duration": duration, "transition_duration": transition_duration, "advance": {0: "on_click", 1: "auto", 2: "semi_auto"}.get(change, "on_click")}
 
 
 class SetSlideTransition(ToolDrawSlideTransitionsBase):
@@ -163,7 +164,7 @@ class SetSlideTransition(ToolDrawSlideTransitionsBase):
     parameters = {
         "type": "object",
         "properties": {
-            "page_index": {"type": "integer", "description": "0-based slide index (active slide if omitted)."},
+            "page": {"type": "integer", "description": "0-based slide index (active slide if omitted)."},
             "effect": {"type": "string", "description": ("Transition effect name (e.g. 'dissolve', 'fade_from_left', 'random', 'none'). Case-insensitive.")},
             "speed": {"type": "string", "enum": ["slow", "medium", "fast"], "description": "Transition speed (default: medium)."},
             "duration": {"type": "integer", "description": "Auto-advance duration in seconds (0 = manual advance)."},
@@ -176,7 +177,8 @@ class SetSlideTransition(ToolDrawSlideTransitionsBase):
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        page = _get_slide(ctx.doc, kwargs.get("page_index"))
+        page_idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        page = _get_slide(ctx.doc, page_idx)
         updated = []
 
         # Effect
@@ -280,7 +282,7 @@ class SetSlideTransition(ToolDrawSlideTransitionsBase):
             page.setPropertyValue("Change", change)
             updated.append("advance")
 
-        return {"status": "ok", "page_index": kwargs.get("page_index"), "updated": updated}
+        return {"status": "ok", "page": page_idx, "page_index": page_idx, "updated": updated}
 
 
 class GetSlideLayout(ToolDrawSlideTransitionsBase):
@@ -289,14 +291,15 @@ class GetSlideLayout(ToolDrawSlideTransitionsBase):
     name = "get_slide_layout"
     intent = "navigate"
     description = "Get the layout type of an Impress slide. Returns the layout ID and a human-readable name."
-    parameters = {"type": "object", "properties": {"page_index": {"type": "integer", "description": "0-based slide index (active slide if omitted)."}}, "required": []}
+    parameters = {"type": "object", "properties": {"page": {"type": "integer", "description": "0-based slide index (active slide if omitted)."}}, "required": []}
     uno_services = ["com.sun.star.presentation.PresentationDocument"]
 
     def execute(self, ctx, **kwargs):
-        page = _get_slide(ctx.doc, kwargs.get("page_index"))
+        page_idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        page = _get_slide(ctx.doc, page_idx)
         layout_id = page.Layout
         layout_name = _LAYOUT_NAMES.get(layout_id, "unknown_%d" % layout_id)
-        return {"status": "ok", "page_index": kwargs.get("page_index"), "layout_id": layout_id, "layout_name": layout_name, "available_layouts": sorted(_LAYOUTS.keys())}
+        return {"status": "ok", "page": page_idx, "page_index": page_idx, "layout_id": layout_id, "layout_name": layout_name, "available_layouts": sorted(_LAYOUTS.keys())}
 
 
 class SetSlideLayout(ToolDrawSlideTransitionsBase):
@@ -307,7 +310,7 @@ class SetSlideLayout(ToolDrawSlideTransitionsBase):
     description = (
         "Set the layout of an Impress slide. Layouts: blank, title, text, title_only, two_column_text, text_and_chart, chart, text_and_object, object, text_and_clipart, large_object, four_objects, vertical_text, two_objects, and more. Use get_slide_layout to see all available layout names."
     )
-    parameters = {"type": "object", "properties": {"page_index": {"type": "integer", "description": "0-based slide index (active slide if omitted)."}, "layout": {"type": "string", "description": "Layout name (e.g. 'blank', 'title', 'text_and_object')."}}, "required": ["layout"]}
+    parameters = {"type": "object", "properties": {"page": {"type": "integer", "description": "0-based slide index (active slide if omitted)."}, "layout": {"type": "string", "description": "Layout name (e.g. 'blank', 'title', 'text_and_object')."}}, "required": ["layout"]}
     uno_services = ["com.sun.star.presentation.PresentationDocument"]
     is_mutation = True
 
@@ -315,6 +318,7 @@ class SetSlideLayout(ToolDrawSlideTransitionsBase):
         layout_name = kwargs.get("layout", "").strip().lower()
         if layout_name not in _LAYOUTS:
             return self._tool_error("Unknown layout: %s" % layout_name, available=sorted(_LAYOUTS.keys()))
-        page = _get_slide(ctx.doc, kwargs.get("page_index"))
+        page_idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        page = _get_slide(ctx.doc, page_idx)
         page.Layout = _LAYOUTS[layout_name]
-        return {"status": "ok", "page_index": kwargs.get("page_index"), "layout": layout_name}
+        return {"status": "ok", "page": page_idx, "page_index": page_idx, "layout": layout_name}

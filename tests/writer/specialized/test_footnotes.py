@@ -258,3 +258,12 @@ def test_footnotes_settings_update():
     assert "Suffix" in res["updated_properties"]
     settings.setPropertyValue.assert_any_call("Prefix", "[")
     settings.setPropertyValue.assert_any_call("Suffix", "]")
+
+
+def test_footnotes_shortened_type_param():
+    doc = MagicMock()
+    doc.supportsService.return_value = True
+    settings = MagicMock()
+    doc.getFootnoteSettings.return_value = settings
+    res = FootnotesSettingsGet().execute(FakeCtx(doc), type="footnote")
+    assert res["status"] == "ok"

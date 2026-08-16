@@ -102,12 +102,12 @@ class TableGetCells(ToolWriterTableBase):
     is_mutation = False
     parameters = {
         "type": "object",
-        "properties": {"table_name": {"type": "string", "description": "Table name from table_list."}},
-        "required": ["table_name"],
+        "properties": {"name": {"type": "string", "description": "Table name from table_list."}},
+        "required": ["name"],
     }
 
     def execute(self, ctx: Any, **kwargs: Any) -> dict[str, Any]:
-        name = (kwargs.get("table_name") or "").strip()
+        name = (kwargs.get("name") or kwargs.get("table_name") or kwargs.get("table") or "").strip()
         try:
             table = _get_table(ctx.doc, name)
             rows, cols = _dims(table)
@@ -146,15 +146,15 @@ class TableSetCell(ToolWriterTableBase):
     parameters = {
         "type": "object",
         "properties": {
-            "table_name": {"type": "string", "description": "Table name from table_list."},
+            "name": {"type": "string", "description": "Table name from table_list."},
             "cell": {"type": "string", "description": "A1-style cell address, e.g. 'B2'."},
             "text": {"type": "string", "description": "New plain text for the cell."},
         },
-        "required": ["table_name", "cell", "text"],
+        "required": ["name", "cell", "text"],
     }
 
     def execute(self, ctx: Any, **kwargs: Any) -> dict[str, Any]:
-        name = (kwargs.get("table_name") or "").strip()
+        name = (kwargs.get("name") or kwargs.get("table_name") or kwargs.get("table") or "").strip()
         cell_raw = (kwargs.get("cell") or "").strip()
         text = kwargs.get("text")
         if text is None:
@@ -202,13 +202,13 @@ class ManageTableStructure(ToolWriterTableBase):
                 "enum": ["row", "column"],
                 "description": "Whether to edit rows or columns.",
             },
-            "table_name": {"type": "string", "description": "Table name from table_list."},
+            "name": {"type": "string", "description": "Table name from table_list."},
             "index": {
                 "type": "integer",
                 "description": "0-based row or column index (insert at count = append).",
             },
         },
-        "required": ["action", "axis", "table_name", "index"],
+        "required": ["action", "axis", "name", "index"],
     }
 
     def execute(self, ctx: Any, **kwargs: Any) -> dict[str, Any]:
@@ -218,7 +218,7 @@ class ManageTableStructure(ToolWriterTableBase):
             return self._tool_error("action must be 'insert' or 'delete'.")
         if axis_arg not in ("row", "column"):
             return self._tool_error("axis must be 'row' or 'column'.")
-        name = (kwargs.get("table_name") or "").strip()
+        name = (kwargs.get("name") or kwargs.get("table_name") or kwargs.get("table") or "").strip()
         raw = kwargs.get("index")
         if isinstance(raw, bool) or not isinstance(raw, (int, str)):
             return self._tool_error("index must be an integer.")

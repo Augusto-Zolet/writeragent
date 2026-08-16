@@ -314,11 +314,11 @@ class ImageGetInfo(ToolWriterImageBase):
     name = "image_get_info"
     intent = "media"
     description = "Get detailed info about a specific image: URL, dimensions, anchor type, orientation, crop (crop_mm, mm trimmed per edge), and paragraph index."
-    parameters = {"type": "object", "properties": {"image_name": {"type": "string", "description": "Name of the image (from image_list)."}}, "required": ["image_name"]}
+    parameters = {"type": "object", "properties": {"name": {"type": "string", "description": "Name of the image (from image_list)."}}, "required": ["name"]}
     uno_services = ["com.sun.star.text.TextDocument", "com.sun.star.sheet.SpreadsheetDocument"]
 
     def execute(self, ctx, **kwargs):
-        image_name = kwargs.get("image_name", "")
+        image_name = kwargs.get("name") or kwargs.get("image_name", "")
 
         graphic = _get_graphic_object(ctx, ctx.doc, image_name)
         if not graphic:
@@ -486,7 +486,7 @@ class ImageSetProperties(ToolWriterImageBase):
     parameters = {
         "type": "object",
         "properties": {
-            "image_name": {"type": "string", "description": "Name of the image (from image_list)."},
+            "name": {"type": "string", "description": "Name of the image (from image_list)."},
             "width_mm": {"type": "number", "description": "New width in millimetres."},
             "height_mm": {"type": "number", "description": "New height in millimetres."},
             "title": {"type": "string", "description": "Image title (tooltip text)."},
@@ -499,13 +499,13 @@ class ImageSetProperties(ToolWriterImageBase):
             "crop_left_mm": {"type": "number", "description": "Millimetres to crop off the LEFT edge."},
             "crop_right_mm": {"type": "number", "description": "Millimetres to crop off the RIGHT edge."},
         },
-        "required": ["image_name"],
+        "required": ["name"],
     }
     uno_services = ["com.sun.star.text.TextDocument", "com.sun.star.sheet.SpreadsheetDocument"]
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        image_name = kwargs.get("image_name", "")
+        image_name = kwargs.get("name") or kwargs.get("image_name", "")
         if not image_name:
             return self._tool_error("image_name is required.", code="MISSING_PARAMETER", parameter="image_name")
 
@@ -629,15 +629,15 @@ class ImageInsert(ToolWriterImageBase):
     intent = "media"
     description = (
         "Insert an image from local path or URL into the document. URLs are auto-downloaded first. "
-        "For Writer letterheads, pass target='header' or 'footer' (optionally style_name) to insert "
+        "For Writer letterheads, pass target='header' or 'footer' (optionally style) to insert "
         "into the page header/footer with auto-height so the logo does not overlap the body."
     )
     parameters = {
         "type": "object",
         "properties": {
-            "image_path": {"type": "string", "description": ("Local file path or URL of the image to insert.")},
+            "path": {"type": "string", "description": ("Local file path or URL of the image to insert.")},
             "locator": {"type": "string", "description": ("Unified locator for insertion point (e.g. 'bookmark:NAME', 'heading_text:Title').")},
-            "paragraph_index": {"type": "integer", "description": "Paragraph index for insertion point."},
+            "paragraph": {"type": "integer", "description": "Paragraph index for insertion point."},
             "width_mm": {"type": "integer", "description": "Width in millimetres (default: 80)."},
             "height_mm": {"type": "integer", "description": "Height in millimetres (default: 80)."},
             "target": {
@@ -645,7 +645,7 @@ class ImageInsert(ToolWriterImageBase):
                 "enum": ["body", "header", "footer"],
                 "description": "Writer insertion target (default: body). header/footer write into the page style region.",
             },
-            "style_name": {
+            "style": {
                 "type": "string",
                 "description": "Page style for header/footer target (default: Standard).",
             },
@@ -657,19 +657,20 @@ class ImageInsert(ToolWriterImageBase):
                 ),
             },
         },
-        "required": ["image_path"],
+        "required": ["path"],
     }
     uno_services = ["com.sun.star.text.TextDocument", "com.sun.star.sheet.SpreadsheetDocument"]
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        image_path = kwargs.get("image_path", "")
+        image_path = kwargs.get("path") or kwargs.get("image_path", "")
 
         width_mm = kwargs.get("width_mm", 80)
         height_mm = kwargs.get("height_mm", 80)
         locator = kwargs.get("locator")
-        paragraph_index = kwargs.get("paragraph_index")
+        paragraph_index = kwargs.get("paragraph") if "paragraph" in kwargs else kwargs.get("paragraph_index")
         target = kwargs.get("target", "body")
+        style_name = kwargs.get("style") or kwargs.get("style_name", "Standard")
 
         doc = ctx.doc
 
@@ -691,7 +692,7 @@ class ImageInsert(ToolWriterImageBase):
                     target,
                     width_mm=width_mm,
                     height_mm=height_mm,
-                    style_name=kwargs.get("style_name", "Standard"),
+                    style_name=style_name,
                     auto_height=kwargs.get("auto_height", True),
                     ctx=ctx.ctx,
                 )
@@ -743,12 +744,12 @@ class ImageDelete(ToolWriterImageBase):
     name = "image_delete"
     intent = "media"
     description = "Delete an image from the document."
-    parameters = {"type": "object", "properties": {"image_name": {"type": "string", "description": "Name of the image to delete (from image_list)."}, "remove_frame": {"type": "boolean", "description": "Also remove the containing frame (default: true)."}}, "required": ["image_name"]}
+    parameters = {"type": "object", "properties": {"name": {"type": "string", "description": "Name of the image to delete (from image_list)."}, "remove_frame": {"type": "boolean", "description": "Also remove the containing frame (default: true)."}}, "required": ["name"]}
     uno_services = ["com.sun.star.text.TextDocument", "com.sun.star.sheet.SpreadsheetDocument"]
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        image_name = kwargs.get("image_name", "")
+        image_name = kwargs.get("name") or kwargs.get("image_name", "")
 
         graphic = _get_graphic_object(ctx, ctx.doc, image_name)
         if not graphic:
@@ -782,19 +783,19 @@ class ImageReplace(ToolWriterImageBase):
     parameters = {
         "type": "object",
         "properties": {
-            "image_name": {"type": "string", "description": "Name of the image to replace (from image_list)."},
-            "new_image_path": {"type": "string", "description": "Local file path or URL of the replacement image."},
+            "name": {"type": "string", "description": "Name of the image to replace (from image_list)."},
+            "path": {"type": "string", "description": "Local file path or URL of the replacement image."},
             "width_mm": {"type": "number", "description": "Optionally update width in millimetres."},
             "height_mm": {"type": "number", "description": "Optionally update height in millimetres."},
         },
-        "required": ["image_name", "new_image_path"],
+        "required": ["name", "path"],
     }
     uno_services = ["com.sun.star.text.TextDocument", "com.sun.star.sheet.SpreadsheetDocument"]
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        image_name = kwargs.get("image_name", "")
-        new_image_path = kwargs.get("new_image_path", "")
+        image_name = kwargs.get("name") or kwargs.get("image_name", "")
+        new_image_path = kwargs.get("path") or kwargs.get("new_image_path", "")
 
         graphic = _get_graphic_object(ctx, ctx.doc, image_name)
         if not graphic:

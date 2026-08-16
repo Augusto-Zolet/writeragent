@@ -64,11 +64,11 @@ class GetPageObjects(ToolBase):
     intent = "read"
     description = (
         "Get images, tables, frames, and Draw shapes visible on a specific physical page. Provide "
-        "page number, locator, or paragraph_index. " + PARAGRAPH_INDEX_DIRECTIVE
+        "page number, locator, or paragraph. " + PARAGRAPH_INDEX_DIRECTIVE
     )
     parameters = {
         "type": "object",
-        "properties": {"page": {"type": "integer", "description": "1-based page number to analyze"}, "locator": {"type": "string", "description": "Locator to determine page"}, "paragraph_index": {"type": "integer", "description": "Paragraph index to determine page"}},
+        "properties": {"page": {"type": "integer", "description": "1-based page number to analyze"}, "locator": {"type": "string", "description": "Locator to determine page"}, "paragraph": {"type": "integer", "description": "Paragraph index to determine page"}},
         "required": [],
     }
     uno_services = ["com.sun.star.text.TextDocument"]
@@ -81,7 +81,7 @@ class GetPageObjects(ToolBase):
 
         if page is None:
             locator = kwargs.get("locator")
-            para_idx = kwargs.get("paragraph_index")
+            para_idx = kwargs.get("paragraph") if "paragraph" in kwargs else kwargs.get("paragraph_index")
             if locator:
                 try:
                     resolved = doc_svc.resolve_locator(doc, locator)
@@ -207,13 +207,13 @@ class SectionRead(ToolWriterStructuralBase):
     name = "section_read"
     intent = "navigate"
     description = "Read the text content of a named section. Returns the full text within the section boundaries."
-    parameters = {"type": "object", "properties": {"section_name": {"type": "string", "description": "Name of the section to read."}}, "required": ["section_name"]}
+    parameters = {"type": "object", "properties": {"section": {"type": "string", "description": "Name of the section to read."}}, "required": ["section"]}
     uno_services = ["com.sun.star.text.TextDocument"]
 
     def execute(self, ctx, **kwargs):
-        section_name = kwargs.get("section_name", "")
+        section_name = kwargs.get("section") or kwargs.get("section_name", "")
         if not section_name:
-            return self._tool_error("section_name is required.")
+            return self._tool_error("section is required.")
 
         doc = ctx.doc
         if not hasattr(doc, "getTextSections"):
@@ -238,4 +238,4 @@ class SectionRead(ToolWriterStructuralBase):
                 paragraphs.append("[Table]")
 
         content = "\n".join(paragraphs)
-        return {"status": "ok", "section_name": section_name, "paragraphs": paragraphs, "content": content, "length": len(content)}
+        return {"status": "ok", "section": section_name, "section_name": section_name, "paragraphs": paragraphs, "content": content, "length": len(content)}

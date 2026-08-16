@@ -27,7 +27,7 @@ class GetDrawTree(ToolBase):
     name = "get_draw_tree"
     intent = "read"
     description = "Returns a semantic tree (DOM) of the shapes on the active or specified draw page. Use this instead of requesting a screenshot to understand the layout, text, connections, and hierarchy of objects (like flowcharts or diagrams)."
-    parameters = {"type": "object", "properties": {"page_index": {"type": "integer", "description": "0-based page index (active page if omitted)"}}, "required": []}
+    parameters = {"type": "object", "properties": {"page": {"type": "integer", "description": "0-based page index (active page if omitted)"}}, "required": []}
     uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
     doc_types = ["draw", "impress"]
     tier = "core"
@@ -36,7 +36,7 @@ class GetDrawTree(ToolBase):
         from plugin.draw.bridge import DrawBridge
 
         bridge = DrawBridge(ctx.doc)
-        idx = kwargs.get("page_index")
+        idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
         
         # Use provided index or resolved active index from context
         actual_idx = idx if idx is not None else ctx.active_page_index
@@ -51,7 +51,7 @@ class GetDrawTree(ToolBase):
         if page is None:
             return self._tool_error("No draw page available.")
 
-        return {"status": "ok", "page_index": actual_idx, "tree": self._build_shape_tree(page)}
+        return {"status": "ok", "page": actual_idx, "page_index": actual_idx, "tree": self._build_shape_tree(page)}
 
     def _build_shape_tree(self, xshapes, base_index=None):
         """Recursively build a semantic tree from an XShapes collection (DrawPage or GroupShape)."""

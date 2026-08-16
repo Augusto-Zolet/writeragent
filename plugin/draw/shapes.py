@@ -370,7 +370,7 @@ class GetDrawSummary(ToolDrawShapeBase):
     name = "get_draw_summary"
     intent = "edit"
     description = "Returns a summary of shapes on the active or specified page."
-    parameters = {"type": "object", "properties": {"page_index": {"type": "integer", "description": "0-based page index (active page if omitted)"}}, "required": []}
+    parameters = {"type": "object", "properties": {"page": {"type": "integer", "description": "0-based page index (active page if omitted)"}}, "required": []}
     uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
     doc_types = ["draw", "impress"]
 
@@ -378,7 +378,7 @@ class GetDrawSummary(ToolDrawShapeBase):
         from plugin.draw.bridge import DrawBridge
 
         bridge = DrawBridge(ctx.doc)
-        idx = kwargs.get("page_index")
+        idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
         
         # Use provided index or resolved active index from context
         actual_idx = idx if idx is not None else ctx.active_page_index
@@ -602,7 +602,7 @@ class UpsertShape(ToolDrawShapeBase):
         "properties": {
             "action": {"type": "string", "enum": ["create", "edit"], "description": "Action to perform: 'create' a new shape, or 'edit' an existing one."},
             "shape_index": {"type": "integer", "description": "0-based index of the shape on the page (required only for action='edit')"},
-            "page_index": {"type": "integer", "description": "0-based page index (active page if omitted)"},
+            "page": {"type": "integer", "description": "0-based page index (active page if omitted)"},
             "shape_type": {"type": "string", "description": _CREATE_SHAPE_SHAPE_TYPE_DESC + " (required only for action='create')"},
             "x": {"type": "integer", "description": "X position (100ths of mm) (required only for action='create')"},
             "y": {"type": "integer", "description": "Y position (100ths of mm) (required only for action='create')"},
@@ -636,7 +636,7 @@ class UpsertShape(ToolDrawShapeBase):
                 if r not in kwargs:
                     return False, f"Parameter '{r}' is required when action is 'create'"
         elif action == "edit":
-            if "shape_index" not in kwargs:
+            if "shape_index" not in kwargs and "shape" not in kwargs and "index" not in kwargs:
                 return False, "Parameter 'shape_index' is required when action is 'edit'"
         else:
             return False, f"Unknown action: '{action}'. Must be 'create' or 'edit'"
@@ -651,7 +651,7 @@ class UpsertShape(ToolDrawShapeBase):
         bridge = DrawBridge(ctx.doc)
         
         # Resolve page
-        idx = kwargs.get("page_index")
+        idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
         actual_idx = idx if idx is not None else ctx.active_page_index
         if actual_idx is None:
             actual_idx = bridge.get_active_page_index()
@@ -766,13 +766,13 @@ class ConnectShapes(ToolDrawShapeBase):
     parameters = {
         "type": "object",
         "properties": {
-            "start_shape_index": {"type": "integer", "description": "Index of the starting shape."},
-            "end_shape_index": {"type": "integer", "description": "Index of the ending shape."},
-            "page_index": {"type": "integer", "description": "Page index containing the shapes"},
+            "start_shape": {"type": "integer", "description": "Index of the starting shape."},
+            "end_shape": {"type": "integer", "description": "Index of the ending shape."},
+            "page": {"type": "integer", "description": "Page index containing the shapes"},
             "line_color": {"type": "string", "description": "Color of the connector line"},
             "line_width": {"type": "integer", "description": "Line width (100ths of mm)"},
         },
-        "required": ["start_shape_index", "end_shape_index"],
+        "required": ["start_shape", "end_shape"],
     }
     uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
     doc_types = ["draw", "impress"]
@@ -783,13 +783,15 @@ class ConnectShapes(ToolDrawShapeBase):
         from com.sun.star.awt import Point, Size
 
         bridge = DrawBridge(ctx.doc)
-        idx = kwargs.get("page_index")
+        idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
         page = bridge.get_pages().getByIndex(idx) if idx is not None else bridge.get_active_page()
         if page is None:
             return self._tool_error("No draw page available or invalid page index.")
 
-        start_idx = kwargs["start_shape_index"]
-        end_idx = kwargs["end_shape_index"]
+        start_idx = kwargs.get("start_shape") if "start_shape" in kwargs else kwargs.get("start_shape_index")
+        end_idx = kwargs.get("end_shape") if "end_shape" in kwargs else kwargs.get("end_shape_index")
+        if start_idx is None or end_idx is None:
+            return self._tool_error("start_shape and end_shape are required.")
 
         try:
             start_shape = page.getByIndex(start_idx)
@@ -824,7 +826,7 @@ class GroupShapes(ToolDrawShapeBase):
     name = "shapes_group"
     intent = "edit"
     description = "Groups multiple shapes together on the same page."
-    parameters = {"type": "object", "properties": {"shape_indices": {"type": "array", "items": {"type": "integer"}, "description": "List of shape indices to group."}, "page_index": {"type": "integer", "description": "Page index containing the shapes"}}, "required": ["shape_indices"]}
+    parameters = {"type": "object", "properties": {"shapes": {"type": "array", "items": {"type": "integer"}, "description": "List of shape indices to group."}, "page": {"type": "integer", "description": "Page index containing the shapes"}}, "required": ["shapes"]}
     uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
     doc_types = ["draw", "impress"]
     is_mutation = True
@@ -833,12 +835,12 @@ class GroupShapes(ToolDrawShapeBase):
         from plugin.draw.bridge import DrawBridge
 
         bridge = DrawBridge(ctx.doc)
-        idx = kwargs.get("page_index")
+        idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
         page = bridge.get_pages().getByIndex(idx) if idx is not None else bridge.get_active_page()
         if page is None:
             return self._tool_error("No draw page available or invalid page index.")
 
-        indices = kwargs["shape_indices"]
+        indices = kwargs.get("shapes") if "shapes" in kwargs else kwargs.get("shape_indices")
         if not indices or len(indices) < 2:
             return self._tool_error("At least two shape indices are required to group.")
 
@@ -865,7 +867,7 @@ class DeleteShape(ToolDrawShapeBase):
     name = "delete_shape"
     intent = "edit"
     description = "Deletes a shape by index."
-    parameters = {"type": "object", "properties": {"shape_index": {"type": "integer"}, "page_index": {"type": "integer"}}, "required": ["shape_index"]}
+    parameters = {"type": "object", "properties": {"shape": {"type": "integer", "description": "0-based shape index"}, "page": {"type": "integer", "description": "0-based page index (active page if omitted)"}}, "required": ["shape"]}
     uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
     is_mutation = True
 
@@ -873,10 +875,13 @@ class DeleteShape(ToolDrawShapeBase):
         from plugin.draw.bridge import DrawBridge
 
         bridge = DrawBridge(ctx.doc)
-        idx = kwargs.get("page_index")
+        idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
         page = bridge.get_pages().getByIndex(idx) if idx is not None else bridge.get_active_page()
         if page is None:
             return self._tool_error("No draw page available or invalid page index.")
-        shape = page.getByIndex(kwargs["shape_index"])
+        shape_idx = kwargs.get("shape") if "shape" in kwargs else (kwargs.get("shape_index") if "shape_index" in kwargs else kwargs.get("index"))
+        if shape_idx is None:
+            return self._tool_error("shape is required.")
+        shape = page.getByIndex(shape_idx)
         page.remove(shape)
         return {"status": "ok", "message": "Shape deleted"}

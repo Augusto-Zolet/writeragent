@@ -67,10 +67,10 @@ class PageGetStyleProperties(ToolWriterPageBase):
 
     name = "page_get_style_properties"
     description = "Get dimensions, margins, and header/footer states of a page style."
-    parameters = {"type": "object", "properties": {"style_name": {"type": "string", "description": "The name of the page style (e.g., 'Standard' or 'Default Style'). Defaults to 'Standard'."}}, "required": []}
+    parameters = {"type": "object", "properties": {"style": {"type": "string", "description": "The name of the page style (e.g., 'Standard' or 'Default Style'). Defaults to 'Standard'."}}, "required": []}
 
     def execute(self, ctx, **kwargs):
-        style_name = kwargs.get("style_name", "Standard")
+        style_name = kwargs.get("style") or kwargs.get("style_name", "Standard")
         doc = ctx.doc
 
         try:
@@ -131,7 +131,7 @@ class PageSetStyleProperties(ToolWriterPageBase):
     parameters = {
         "type": "object",
         "properties": {
-            "style_name": {"type": "string", "description": "The name of the page style (e.g., 'Standard' or 'Default Style'). Defaults to 'Standard'."},
+            "style": {"type": "string", "description": "The name of the page style (e.g., 'Standard' or 'Default Style'). Defaults to 'Standard'."},
             "width_mm": {"type": "number", "description": "New width in mm."},
             "height_mm": {"type": "number", "description": "New height in mm."},
             "is_landscape": {"type": "boolean", "description": "Set orientation to landscape."},
@@ -160,7 +160,7 @@ class PageSetStyleProperties(ToolWriterPageBase):
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        style_name = kwargs.get("style_name", "Standard")
+        style_name = kwargs.get("style") or kwargs.get("style_name", "Standard")
         doc = ctx.doc
 
         try:
@@ -264,7 +264,7 @@ class PageGetHeaderFooterText(ToolWriterPageBase):
     parameters = {
         "type": "object",
         "properties": {
-            "style_name": {
+            "style": {
                 "type": "string",
                 "description": "The name of the page style (e.g., 'Standard' or 'Default Style'). Defaults to 'Standard'.",
             },
@@ -278,7 +278,7 @@ class PageGetHeaderFooterText(ToolWriterPageBase):
     }
 
     def execute(self, ctx, **kwargs):
-        style_name = kwargs.get("style_name", "Standard")
+        style_name = kwargs.get("style") or kwargs.get("style_name", "Standard")
         region = kwargs.get("region")
         if region not in _REGION_PROPS:
             return self._tool_error("region is required ('header' or 'footer').")
@@ -330,7 +330,7 @@ class PageSetHeaderFooterText(ToolWriterPageBase):
     parameters = {
         "type": "object",
         "properties": {
-            "style_name": {
+            "style": {
                 "type": "string",
                 "description": "The name of the page style (e.g., 'Standard' or 'Default Style'). Defaults to 'Standard'.",
             },
@@ -353,7 +353,7 @@ class PageSetHeaderFooterText(ToolWriterPageBase):
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        style_name = kwargs.get("style_name", "Standard")
+        style_name = kwargs.get("style") or kwargs.get("style_name", "Standard")
         region = kwargs.get("region")
         content = kwargs.get("content", "")
 
@@ -394,10 +394,10 @@ class PageGetColumns(ToolWriterPageBase):
 
     name = "page_get_columns"
     description = "Get the column layout for a page style."
-    parameters = {"type": "object", "properties": {"style_name": {"type": "string", "description": "The name of the page style. Defaults to 'Standard'."}}, "required": []}
+    parameters = {"type": "object", "properties": {"style": {"type": "string", "description": "The name of the page style. Defaults to 'Standard'."}}, "required": []}
 
     def execute(self, ctx, **kwargs):
-        style_name = kwargs.get("style_name", "Standard")
+        style_name = kwargs.get("style") or kwargs.get("style_name", "Standard")
         doc = ctx.doc
 
         try:
@@ -421,7 +421,7 @@ class PageGetColumns(ToolWriterPageBase):
             for col in cols:
                 columns_data.append({"width": col.Width, "left_margin_mm": col.LeftMargin / 100.0, "right_margin_mm": col.RightMargin / 100.0})
 
-            return {"status": "ok", "style_name": style_name, "column_count": column_count, "columns": columns_data}
+            return {"status": "ok", "style": style_name, "style_name": style_name, "column_count": column_count, "columns": columns_data}
         except Exception as e:
             return self._tool_error(f"Error reading columns from page style '{style_name}': {e}")
 
@@ -439,7 +439,7 @@ class PageSetColumns(ToolWriterPageBase):
     parameters = {
         "type": "object",
         "properties": {
-            "style_name": {"type": "string", "description": "The name of the page style. Defaults to 'Standard'."},
+            "style": {"type": "string", "description": "The name of the page style. Defaults to 'Standard'."},
             "column_count": {"type": "integer", "description": "Number of columns (e.g., 2)."},
             "spacing_mm": {"type": "number", "description": "Spacing between columns in mm. Defaults to 0."},
         },
@@ -448,7 +448,7 @@ class PageSetColumns(ToolWriterPageBase):
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        style_name = kwargs.get("style_name", "Standard")
+        style_name = kwargs.get("style") or kwargs.get("style_name", "Standard")
         column_count = kwargs.get("column_count")
         spacing_mm = kwargs.get("spacing_mm", 0)
 

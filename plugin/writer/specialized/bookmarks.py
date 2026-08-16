@@ -313,13 +313,13 @@ class BookmarkResolve(ToolWriterBookmarkBase):
     intent = "navigate"
     is_mutation = False
     description = "Resolve a bookmark to its current paragraph index and text. Most tools accept 'bookmark:NAME' as locator directly -- use resolve_bookmark only when you need the raw paragraph index."
-    parameters = {"type": "object", "properties": {"bookmark_name": {"type": "string", "description": "Bookmark name (e.g. _mcp_a1b2c3d4)."}}, "required": ["bookmark_name"]}
+    parameters = {"type": "object", "properties": {"name": {"type": "string", "description": "Bookmark name (e.g. _mcp_a1b2c3d4)."}}, "required": ["name"]}
     uno_services = ["com.sun.star.text.TextDocument"]
 
     def execute(self, ctx, **kwargs):
-        bookmark_name = kwargs.get("bookmark_name", "")
+        bookmark_name = kwargs.get("name") or kwargs.get("bookmark_name") or kwargs.get("bookmark", "")
         if not bookmark_name:
-            return self._tool_error("bookmark_name is required.")
+            return self._tool_error("name is required.")
 
         doc = ctx.doc
         if not hasattr(doc, "getBookmarks"):

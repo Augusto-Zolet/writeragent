@@ -78,12 +78,12 @@ class FrameGetInfo(ToolWriterTextFramesBase):
 
     name = "frame_get_info"
     description = "Get detailed info about a text frame."
-    parameters = {"type": "object", "properties": {"frame_name": {"type": "string", "description": "Name of the text frame (from frame_list)."}}, "required": ["frame_name"]}
+    parameters = {"type": "object", "properties": {"name": {"type": "string", "description": "Name of the text frame (from frame_list)."}}, "required": ["name"]}
 
     def execute(self, ctx, **kwargs):
-        frame_name = kwargs.get("frame_name", "")
+        frame_name = kwargs.get("name") or kwargs.get("frame_name") or kwargs.get("frame", "")
         if not frame_name:
-            return self._tool_error("frame_name is required.")
+            return self._tool_error("name is required.")
 
         frame = self.get_item(ctx.doc, "getTextFrames", frame_name, missing_msg="Document does not support text frames.", not_found_msg="Text frame '%s' not found." % frame_name)
         if isinstance(frame, dict):
@@ -163,21 +163,21 @@ class FrameSetProperties(ToolWriterTextFramesBase):
     parameters = {
         "type": "object",
         "properties": {
-            "frame_name": {"type": "string", "description": "Name of the text frame (from frame_list)."},
+            "name": {"type": "string", "description": "Name of the text frame (from frame_list)."},
             "width_mm": {"type": "number", "description": "New width in millimetres."},
             "height_mm": {"type": "number", "description": "New height in millimetres."},
             "anchor_type": {"type": "integer", "description": ("Anchor type: 0=AT_PARAGRAPH, 1=AS_CHARACTER, 2=AT_PAGE, 3=AT_FRAME, 4=AT_CHARACTER.")},
             "hori_orient": {"type": "integer", "description": "Horizontal orientation constant."},
             "vert_orient": {"type": "integer", "description": "Vertical orientation constant."},
         },
-        "required": ["frame_name"],
+        "required": ["name"],
     }
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        frame_name = kwargs.get("frame_name", "")
+        frame_name = kwargs.get("name") or kwargs.get("frame_name") or kwargs.get("frame", "")
         if not frame_name:
-            return self._tool_error("frame_name is required.")
+            return self._tool_error("name is required.")
 
         frame = self.get_item(ctx.doc, "getTextFrames", frame_name, missing_msg="Document does not support text frames.", not_found_msg="Text frame '%s' not found." % frame_name)
         if isinstance(frame, dict):

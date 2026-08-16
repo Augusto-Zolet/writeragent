@@ -74,26 +74,26 @@ class AddComment(ToolBase):
     name = "add_comment"
     intent = "review"
     description = (
-        "Add a comment/annotation anchored to text matching search_text. The comment SPANS the "
+        "Add a comment/annotation anchored to text matching search. The comment SPANS the "
         "matched passage (the user sees which text it covers). Use occurrence to target a later "
         "match and author to sign it."
     )
     parameters = {"type": "object", "properties": {
         "content": {"type": "string", "description": "The comment text."},
-        "search_text": {"type": "string", "description": "Anchor the comment to text matching this string."},
-        "occurrence": {"type": "integer", "description": "0-based match to comment on when search_text repeats (default 0)."},
+        "search": {"type": "string", "description": "Anchor the comment to text matching this string."},
+        "occurrence": {"type": "integer", "description": "0-based match to comment on when search repeats (default 0)."},
         "author": {"type": "string", "description": "Comment author (default 'WriterAgent')."},
-    }, "required": ["content", "search_text"]}
+    }, "required": ["content", "search"]}
     uno_services = ["com.sun.star.text.TextDocument"]
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
         content = kwargs.get("content", "")
-        search_text = kwargs.get("search_text")
+        search_text = kwargs.get("search") or kwargs.get("search_text")
         author = (kwargs.get("author") or "WriterAgent").strip() or "WriterAgent"
 
         if not search_text:
-            return self._tool_error("Provide search_text.")
+            return self._tool_error("Provide search.")
         try:
             occurrence = int(kwargs.get("occurrence", 0) or 0)
         except (TypeError, ValueError):
@@ -143,17 +143,17 @@ class CommentDelete(ToolWriterCommentBase):
 
     name = "comment_delete"
     intent = "review"
-    description = "Delete comments by name or author. Use comment_name to delete a specific comment and its replies. Use author to delete ALL comments by that author (e.g. 'MCP-BATCH', 'MCP-WORKFLOW')."
-    parameters = {"type": "object", "properties": {"comment_name": {"type": "string", "description": "The 'name' field returned by comment_list."}, "author": {"type": "string", "description": ("Delete ALL comments by this author (e.g. 'MCP-BATCH', 'MCP-WORKFLOW').")}}, "required": []}
+    description = "Delete comments by name or author. Use name to delete a specific comment and its replies. Use author to delete ALL comments by that author (e.g. 'MCP-BATCH', 'MCP-WORKFLOW')."
+    parameters = {"type": "object", "properties": {"name": {"type": "string", "description": "The 'name' field returned by comment_list."}, "author": {"type": "string", "description": ("Delete ALL comments by this author (e.g. 'MCP-BATCH', 'MCP-WORKFLOW').")}}, "required": []}
     uno_services = ["com.sun.star.text.TextDocument"]
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        comment_name = kwargs.get("comment_name")
+        comment_name = kwargs.get("name") or kwargs.get("comment_name")
         author = kwargs.get("author")
 
         if not comment_name and not author:
-            return self._tool_error("Provide comment_name or author.")
+            return self._tool_error("Provide name or author.")
 
         doc = ctx.doc
         text_obj = doc.getText()
@@ -200,17 +200,17 @@ class CommentResolve(ToolWriterCommentBase):
     parameters = {
         "type": "object",
         "properties": {
-            "comment_name": {"type": "string", "description": "The 'name' field returned by comment_list."},
+            "name": {"type": "string", "description": "The 'name' field returned by comment_list."},
             "resolution": {"type": "string", "description": "Optional resolution text added as a reply."},
             "author": {"type": "string", "description": "Author name for the resolution reply. Default: AI."},
         },
-        "required": ["comment_name"],
+        "required": ["name"],
     }
     uno_services = ["com.sun.star.text.TextDocument"]
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        comment_name = kwargs.get("comment_name", "")
+        comment_name = kwargs.get("name") or kwargs.get("comment_name", "")
         resolution = kwargs.get("resolution", "")
         author = kwargs.get("author", "AI")
 

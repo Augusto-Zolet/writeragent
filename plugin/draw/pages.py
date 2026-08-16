@@ -26,8 +26,8 @@ class AddSlide(ToolBase):
     parameters = {
         "type": "object",
         "properties": {
-            "page_index": {"type": "integer", "description": "0-based index where to insert the new slide (defaults to appending at the end if omitted)"},
-            "switch_to_new_slide": {"type": "boolean", "description": "Whether to switch the view to the new slide (default: true)"},
+            "page": {"type": "integer", "description": "0-based index where to insert the new slide (defaults to appending at the end if omitted)"},
+            "switch": {"type": "boolean", "description": "Whether to switch the view to the new slide (default: true)"},
         },
         "required": [],
     }
@@ -38,7 +38,10 @@ class AddSlide(ToolBase):
         from plugin.draw.bridge import DrawBridge
 
         bridge = DrawBridge(ctx.doc)
-        bridge.create_slide(kwargs.get("page_index"), switch=kwargs.get("switch_to_new_slide", True))
+        page_idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        switch_val = kwargs.get("switch") if "switch" in kwargs else kwargs.get("switch_to_new_slide", True)
+        switch_view = bool(switch_val if switch_val is not None else True)
+        bridge.create_slide(page_idx, switch=switch_view)
         
         # Resolve active index
         active_idx = bridge.get_active_page_index()
@@ -50,7 +53,7 @@ class DeleteSlide(ToolBase):
     name = "delete_slide"
     intent = "edit"
     description = "Deletes the slide (page) at the specified index."
-    parameters = {"type": "object", "properties": {"page_index": {"type": "integer", "description": "0-based index of slide to delete"}}, "required": ["page_index"]}
+    parameters = {"type": "object", "properties": {"page": {"type": "integer", "description": "0-based index of slide to delete"}}, "required": ["page"]}
     uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
     is_mutation = True
 
@@ -58,7 +61,10 @@ class DeleteSlide(ToolBase):
         from plugin.draw.bridge import DrawBridge
 
         bridge = DrawBridge(ctx.doc)
-        bridge.delete_slide(kwargs["page_index"])
+        page_idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        if page_idx is None:
+            return self._tool_error("page is required.")
+        bridge.delete_slide(page_idx)
         
         # Resolve active index
         active_idx = bridge.get_active_page_index()
@@ -71,7 +77,7 @@ class ReadSlideText(ToolBase):
 
     name = "read_slide_text"
     description = "Read all text content from a slide (shapes text) and speaker notes. Returns structured text per shape."
-    parameters = {"type": "object", "properties": {"page_index": {"type": "integer", "description": "0-based slide index (default: active slide)."}}, "required": []}
+    parameters = {"type": "object", "properties": {"page": {"type": "integer", "description": "0-based slide index (default: active slide)."}}, "required": []}
     uno_services = ["com.sun.star.drawing.DrawingDocument"]
     tier = "core"
 
@@ -80,7 +86,7 @@ class ReadSlideText(ToolBase):
 
         bridge = DrawBridge(ctx.doc)
         # Resolve page
-        idx = kwargs.get("page_index")
+        idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
         actual_idx = idx if idx is not None else ctx.active_page_index
         if actual_idx is None:
             actual_idx = bridge.get_active_page_index()
@@ -118,7 +124,7 @@ class ReadSlideText(ToolBase):
         except Exception:
             pass
 
-        return {"status": "ok", "page_index": actual_idx, "texts": texts, "notes": notes_text}
+        return {"status": "ok", "page": actual_idx, "page_index": actual_idx, "texts": texts, "notes": notes_text}
 
 
 class GetPresentationInfo(ToolBase):
@@ -169,7 +175,7 @@ class SetActivePage(ToolBase):
     name = "set_active_page"
     intent = "navigate"
     description = "Changes the currently active slide (page) in Draw/Impress."
-    parameters = {"type": "object", "properties": {"page_index": {"type": "integer", "description": "0-based index of page to activate"}}, "required": ["page_index"]}
+    parameters = {"type": "object", "properties": {"page": {"type": "integer", "description": "0-based index of page to activate"}}, "required": ["page"]}
     uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
     is_mutation = True
 
@@ -178,7 +184,9 @@ class SetActivePage(ToolBase):
 
         bridge = DrawBridge(ctx.doc)
         pages = bridge.get_pages()
-        idx = kwargs["page_index"]
+        idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        if idx is None:
+            return self._tool_error("page is required.")
         if idx < 0 or idx >= pages.getCount():
             return self._tool_error("Page index %d out of range." % idx)
 

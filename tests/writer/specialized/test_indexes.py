@@ -78,3 +78,22 @@ def test_indexes_add_mark():
 
     text_mock = cursor_mock.getText()
     text_mock.insertTextContent.assert_called_with(cursor_mock, mark_mock, False)
+
+
+def test_indexes_create_and_mark_shortened_params():
+    tool_create = IndexesCreate()
+    ctx = MagicMock()
+    doc = ctx.doc
+    cursor_mock = MagicMock()
+    doc.getText().createTextCursor.return_value = cursor_mock
+    index_mock = MagicMock()
+    doc.createInstance.return_value = index_mock
+
+    res_create = tool_create.execute(ctx, kind="toc", title="My TOC", target="beginning")
+    assert res_create["status"] == "ok"
+
+    tool_mark = IndexesAddMark()
+    mark_mock = MagicMock()
+    doc.createInstance.return_value = mark_mock
+    res_mark = tool_mark.execute(ctx, text="Important Term", kind="alphabetical", target="beginning")
+    assert res_mark["status"] == "ok"
