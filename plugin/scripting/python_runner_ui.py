@@ -345,7 +345,6 @@ class NativePythonScriptDialog:
                     ec = dlg.getControl("CodeEdit")
                     t = (ec.getModel().Text or "").strip()
                     curr = _picker_selected_name(select_ctrl)
-                    curr = curr if curr != "Sample" else ""
                     real_curr, _curr_origin = resolve_script_picker_entry(curr, owner._script_origin_map) if curr else ("", SCRIPT_ORIGIN_USER)
                     name = show_text_input_dialog(ctx, _("Enter script name:"), _("Attach to Document"), real_curr)
                     if not name:
@@ -381,7 +380,6 @@ class NativePythonScriptDialog:
                     t = (ec.getModel().Text or "").strip()
 
                     curr_display = _picker_selected_name(select_ctrl)
-                    curr_display = curr_display if curr_display != "Sample" else ""
                     real_curr, curr_origin = (
                         resolve_script_picker_entry(curr_display, owner._script_origin_map)
                         if curr_display

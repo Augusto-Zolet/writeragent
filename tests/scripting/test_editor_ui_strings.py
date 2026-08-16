@@ -33,7 +33,6 @@ def test_run_script_ui_matches_native_dialog_labels():
     assert ui["attach_label"] == _("Attach")
     assert ui["save_as_label"] == _("Save As...")
     assert ui["delete_label"] == _("Delete")
-    assert ui["sample_label"] == _("Sample")
     assert ui["attach_prompt"] == _("Enter script name:")
 
 

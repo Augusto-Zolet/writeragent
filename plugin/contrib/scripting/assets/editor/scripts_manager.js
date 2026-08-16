@@ -4,8 +4,7 @@
   var scriptSections = [];
   var scriptIndex = {};
   var currentSelectedName = "";
-  var currentOrigin = "sample";
-  var sampleCode = "";
+  var currentOrigin = "user";
   var selectedScriptName = "";
   var syncDropdownOnly = false;
   var documentAvailable = false;
@@ -126,9 +125,6 @@
     } else if (msg.scripts) {
       rebuildScriptIndex(legacyScriptsToSections(msg.scripts));
     }
-    if (typeof msg.sample_code === "string") {
-      sampleCode = msg.sample_code;
-    }
     if (typeof msg.selected_script_name === "string") {
       selectedScriptName = msg.selected_script_name;
     }
@@ -207,9 +203,6 @@
         container.classList.toggle("toolbar-hidden", !isRunScript);
       }
       if (isRunScript) {
-        if (typeof msg.code === "string") {
-          sampleCode = msg.code;
-        }
         if (typeof msg.selected_script_name === "string") {
           selectedScriptName = msg.selected_script_name;
         }
@@ -220,8 +213,6 @@
       }
     } else if (msg.type === "scripts_list") {
       applyScriptsList(msg);
-    } else if (msg.type === "saved" && currentOrigin === "sample" && window.editor) {
-      sampleCode = window.editor.getValue();
     }
   }
 
@@ -245,11 +236,6 @@
     }
 
     select.innerHTML = "";
-
-    var sampleOpt = document.createElement("option");
-    sampleOpt.value = "";
-    sampleOpt.textContent = t("sample_label", "Sample");
-    select.appendChild(sampleOpt);
 
     for (var s = 0; s < scriptSections.length; s++) {
       var section = scriptSections[s];
@@ -282,8 +268,14 @@
         select.value = selectedScriptName;
         currentOrigin = scriptIndex[selectedScriptName].origin;
       } else {
-        select.value = "";
-        currentOrigin = "sample";
+        var firstOption = select.querySelector("option");
+        if (firstOption && firstOption.value && scriptIndex[firstOption.value]) {
+          select.value = firstOption.value;
+          currentOrigin = scriptIndex[firstOption.value].origin;
+        } else {
+          select.value = "";
+          currentOrigin = "user";
+        }
       }
     }
     currentSelectedName = select.value;
@@ -308,9 +300,7 @@
     var name = select.value;
     currentSelectedName = name;
     var selectedOpt = select.options[select.selectedIndex];
-    if (!name) {
-      currentOrigin = "sample";
-    } else if (scriptIndex[name]) {
+    if (name && scriptIndex[name]) {
       currentOrigin = scriptIndex[name].origin;
     } else if (selectedOpt && selectedOpt.dataset && selectedOpt.dataset.origin) {
       currentOrigin = selectedOpt.dataset.origin;
@@ -325,12 +315,6 @@
         setStatus(fmt("loaded_script", name), "ok");
       }
       setDataBindingVisible(currentOrigin === "analysis");
-    } else if (!name) {
-      if (window.editor) {
-        window.editor.setValue(sampleCode || "");
-        setStatus(t("loaded_sample", "Loaded Sample scratchpad."), "ok");
-      }
-      setDataBindingVisible(false);
     } else {
       setDataBindingVisible(false);
     }
@@ -424,16 +408,6 @@
 
     var name = select.value;
     if (!name) {
-      if (confirm(t("clear_sample_confirm", "Are you sure you want to clear the Sample scratchpad?"))) {
-        if (window.editor) {
-          window.editor.setValue("");
-        }
-        sampleCode = "";
-        if (window.pywebview && window.pywebview.api && window.pywebview.api.notify_save_script) {
-          window.pywebview.api.notify_save_script("");
-        }
-        setStatus(t("cleared_sample", "Cleared Sample scratchpad."), "ok");
-      }
       return;
     }
 
@@ -445,7 +419,7 @@
       if (window.pywebview && window.pywebview.api && window.pywebview.api.delete_script) {
         var origin = scriptIndex[name] ? scriptIndex[name].origin : currentOrigin;
         currentSelectedName = "";
-        currentOrigin = "sample";
+        currentOrigin = "user";
         window.pywebview.api.delete_script(name, origin);
         setStatus(fmt("deleting_script", name), "ok");
       }

@@ -329,7 +329,7 @@ def test_show_python_input_dialog_run_button_keeps_dialog_open():
 
     script_select = MagicMock()
     script_select.getSelectedItemPos.return_value = 0
-    script_select.getItems.return_value = ["Sample"]
+    script_select.getItems.return_value = ["Universal Sample"]
 
     btn_run = MagicMock()
     listeners = []
@@ -349,7 +349,7 @@ def test_show_python_input_dialog_run_button_keeps_dialog_open():
     with patch("plugin.framework.uno_context.get_desktop", return_value=desktop):
         with _patch_modal_native():
             with patch.object(ui, "set_config") as mock_set:
-                with patch.object(ui, "get_config", return_value={"Sample": "result = 42"}):
+                with patch.object(ui, "get_config", return_value={"Universal Sample": "result = 42"}):
                     with patch.object(ui, "get_config_str", return_value=""):
                         with patch("plugin.scripting.python_runner.execute_and_insert_result", return_value={"ok": True, "status_ok_text": "done"}) as mock_execute:
                             def fake_execute_dialog():
@@ -363,8 +363,8 @@ def test_show_python_input_dialog_run_button_keeps_dialog_open():
 
                             dlg.endDialog.assert_not_called()
                             dlg.setVisible.assert_not_called()
-                            mock_set.assert_any_call("last_python_script_name_writer", "Sample")
-                            mock_set.assert_any_call("saved_python_scripts", {"Sample": "result = 42"})
+                            mock_set.assert_any_call("last_python_script_name_writer", "Universal Sample")
+                            mock_set.assert_any_call("saved_python_scripts", {"Universal Sample": "result = 42"})
                             mock_execute.assert_called_once_with(ctx, None, "result = 42")
 
 
@@ -403,7 +403,7 @@ def test_show_python_input_dialog_save_button():
 
     script_select = MagicMock()
     script_select.getSelectedItemPos.return_value = 0
-    script_select.getItems.return_value = ["Sample"]
+    script_select.getItems.return_value = ["Universal Sample"]
 
     btn_save = MagicMock()
     listeners = []
@@ -420,7 +420,7 @@ def test_show_python_input_dialog_save_button():
     with patch("plugin.framework.uno_context.get_desktop", return_value=desktop):
         with _patch_modal_native():
             with patch.object(ui, "set_config") as mock_set:
-                with patch.object(ui, "get_config", return_value={"Sample": "print('hello')"}):
+                with patch.object(ui, "get_config", return_value={"Universal Sample": "print('hello')"}):
                     with patch.object(ui, "get_config_str", return_value=""):
                         def fake_execute():
                             for listener in listeners:
@@ -430,7 +430,7 @@ def test_show_python_input_dialog_save_button():
 
                         ui.show_python_input_dialog(ctx, "print('hello')", "last_python_script_writer")
 
-                        mock_set.assert_any_call("saved_python_scripts", {"Sample": "print('hello world')"})
+                        mock_set.assert_any_call("saved_python_scripts", {"Universal Sample": "print('hello world')"})
 
 
 def test_persistent_editor_dispatches_script_actions():
@@ -451,7 +451,6 @@ def test_persistent_editor_dispatches_script_actions():
                     sent = pe.send.call_args[0][0]
                     assert sent["type"] == "scripts_list"
                     assert sent["sections"][0]["scripts"] == {"MyScript": "print(123)"}
-                    assert sent["sample_code"] == "print(123)"
                     assert sent["selected_script_name"] == "MyScript"
 
                 pe._dispatch_incoming({"type": "select_script", "name": "MyScript"})
@@ -508,7 +507,7 @@ def test_show_python_input_dialog_save_as_button():
     
     script_select = MagicMock()
     script_select.getSelectedItemPos.return_value = 0
-    script_select.getItems.return_value = ["Sample"]
+    script_select.getItems.return_value = ["Universal Sample"]
 
     btn_save_as = MagicMock()
     listeners = []
@@ -583,7 +582,7 @@ def test_show_python_input_dialog_modeless_uses_set_visible():
 def test_picker_select_name_combobox_uses_set_text():
     ctrl = MagicMock(spec=[])
     ctrl.setText = MagicMock()
-    ui._picker_select_name(ctrl, "MyScript", ["Sample", "MyScript"])
+    ui._picker_select_name(ctrl, "MyScript", ["ScriptA", "MyScript"])
     ctrl.setText.assert_called_once_with("MyScript")
 
 

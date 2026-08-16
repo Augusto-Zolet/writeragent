@@ -70,7 +70,6 @@ def _run_script_ui_strings() -> dict[str, str]:
     ui.update(
         {
             "script_label": _("Script:"),
-            "sample_label": _("Sample"),
             "attach_label": _("Attach"),
             "attach_title": _("Attach to Document"),
             "save_as_label": _("Save As..."),
@@ -86,14 +85,12 @@ def _run_script_ui_strings() -> dict[str, str]:
                 "Document changed — close and reopen Run Python Script to edit document scripts."
             ),
             "loaded_script": _("Loaded script '{0}'."),
-            "loaded_sample": _("Loaded Sample scratchpad."),
             "cannot_attach": _("No document is open to attach scripts."),
             "attaching_script": _("Attaching script '{0}'..."),
             "copying_script": _("Copying script '{0}' to My Scripts..."),
             "saving_script": _("Saving script '{0}'..."),
             "deleting_script": _("Deleting script '{0}'..."),
             "builtin_cannot_delete": _("Built-in helpers cannot be deleted."),
-            "cleared_sample": _("Cleared Sample scratchpad."),
             "attach_prompt": _("Enter script name:"),
             "attach_overwrite_confirm": _(
                 "A script named '{0}' already exists in this document. Overwrite?"
@@ -102,7 +99,6 @@ def _run_script_ui_strings() -> dict[str, str]:
             "copy_overwrite_confirm": _("A script named '{0}' already exists in My Scripts. Overwrite?"),
             "save_as_prompt": _("Enter script name:"),
             "save_to_document_confirm": _("Save script '{0}' to this document?"),
-            "clear_sample_confirm": _("Are you sure you want to clear the Sample scratchpad?"),
             "delete_confirm": _("Are you sure you want to delete script '{0}'?"),
             "data_binding_title": _("Select data range or enter A1 address (injected as data)."),
             "data_label": _("Data:"),

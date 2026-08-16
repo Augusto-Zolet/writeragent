@@ -188,10 +188,10 @@ def test_build_scripts_list_message_sections():
     assert sections["document"] == {"Regional": "result = 3"}
 
 
-def test_build_scripts_list_message_includes_sample_code():
+def test_build_scripts_list_message_includes_selected_script():
     ctx = MagicMock()
     doc = MagicMock()
-    with patch("plugin.framework.config.get_config", return_value={"Prime": "print('scratchpad')"}), patch(
+    with patch("plugin.framework.config.get_config", return_value={"Prime": "print('primes')"}), patch(
         "plugin.framework.config.get_config_str", return_value="Prime"
     ) as mock_get_str, patch(
         "plugin.scripting.python_runner.resolve_run_script_name_config_key", return_value="last_python_script_name_writer"
@@ -199,7 +199,6 @@ def test_build_scripts_list_message_includes_sample_code():
         msg = build_scripts_list_message(ctx, session_doc=doc, session_doc_url=None)
     mock_key.assert_called_once_with(doc)
     mock_get_str.assert_called_once_with("last_python_script_name_writer")
-    assert msg["sample_code"] == "print('scratchpad')"
     assert msg["selected_script_name"] == "Prime"
 
 
@@ -214,7 +213,6 @@ def test_build_scripts_list_message_includes_selected_script_name_when_empty():
     ):
         msg = build_scripts_list_message(ctx, session_doc=doc, session_doc_url=None)
     assert msg["selected_script_name"] == "Alpha"
-    assert msg["sample_code"] == "a = 1"
 
 
 def test_build_scripts_list_message_stale_when_url_changes():

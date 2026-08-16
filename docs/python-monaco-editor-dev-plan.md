@@ -645,14 +645,12 @@ flowchart TD
 
 | Topic | Behavior |
 |-------|----------|
-| Scratchpad (**Sample**) | Personal-only; stored in `last_python_script_writer` / `_calc` / `_draw` via `resolve_run_script_config_key`. Dropdown value is `""`; label is **Sample**. |
+| Script Categories | Named scripts only: **My Scripts** (JSON `saved_python_scripts`), **This Document** (document UserDefinedProperties), and Built-in Helpers (Vision/Viz/Text/Symbolic). No unnamed scratchpad. |
 | Initial load | `load.code` and `load.selected_script_name` from [`resolve_run_script_selection()`](../plugin/scripting/document_scripts.py) (`last_python_script_name_*` → script body). `scripts_list` repeats `selected_script_name`; JS syncs the dropdown without overwriting editor text on first populate. |
 | Picker selection persist | User changes dropdown → `select_script` IPC → `set_config(last_python_script_name_*)` (same as native XDL `_ScriptSelectListener`). |
-| Switch to named script | `onDropdownChange` loads from `scriptIndex[name].code` (from `scripts_list.sections`). |
-| Switch back to Sample | Reload `sampleCode` from latest `scripts_list.sample_code` (or last Save while Sample selected). |
-| Save while Sample | **Save** → `notify_save_script` → `set_config(config_key, code)`; JS updates `sampleCode` on `saved`. |
-| Delete while Sample | Confirms clear; `notify_save_script("")`; clears editor and `sampleCode`. |
-| Named script Save | Intercepted in `scripts_manager.js` → `save_script` IPC (user or document origin). |
+| Switch script | `onDropdownChange` loads from `scriptIndex[name].code` (from `scripts_list.sections`). |
+| Save | Intercepted in `scripts_manager.js` → `save_script` IPC (user or document origin). |
+| Delete | Intercepted in `scripts_manager.js` → `delete_script` IPC (user or document origin) after confirmation. |
 
 ---
 

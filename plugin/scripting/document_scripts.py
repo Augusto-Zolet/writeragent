@@ -461,7 +461,7 @@ def build_scripts_list_message(
         sections.append({"id": domain.origin, "title": domain.title_fn(), "scripts": display_scripts})
     sections.append({"id": SCRIPT_ORIGIN_DOCUMENT, "title": _("This Document"), "scripts": doc_scripts})
 
-    selected_name, sample_code, _merged_scripts = resolve_run_script_selection(ctx, doc, user_scripts)
+    selected_name, _selected_code, _merged_scripts = resolve_run_script_selection(ctx, doc, user_scripts)
 
     msg: dict[str, Any] = {
         "type": "scripts_list",
@@ -469,7 +469,6 @@ def build_scripts_list_message(
         "document_available": document_available,
         "document_readonly": document_readonly,
         "document_stale": document_stale,
-        "sample_code": sample_code,
         "selected_script_name": selected_name,
     }
     if status_ok_text:
