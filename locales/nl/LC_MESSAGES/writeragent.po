@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-14 12:57-0400\n"
+"POT-Creation-Date: 2026-08-16 17:05-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Dutch <LL@li.org>\n"
@@ -1322,8 +1322,16 @@ msgid "Failed to open Settings: {0}"
 msgstr "Kon Instellingen niet openen: {0}"
 
 #: plugin/chatbot/dialog_views.py
+msgid "Testing connection..."
+msgstr "Verbinding testen..."
+
+#: plugin/chatbot/dialog_views.py
 msgid "Audio Library Download"
 msgstr "Audiobibliotheek downloaden"
+
+#: plugin/chatbot/dialog_views.py
+msgid "✓ Copied!"
+msgstr "✓ Gekopieerd!"
 
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
@@ -2503,8 +2511,8 @@ msgid "Edit Init Script"
 msgstr "Init-script bewerken"
 
 #: plugin/xdl_strings.py
-msgid "Edit config file (JSON)…"
-msgstr "Configuratiebestand bewerken (JSON)…"
+msgid "Edit config (JSON)…"
+msgstr "Configuratie bewerken (JSON)…"
 
 #: plugin/xdl_strings.py
 msgid "Edit extra tokens:"
@@ -2556,6 +2564,14 @@ msgstr "Filter:"
 #: plugin/xdl_strings.py
 msgid "General"
 msgstr "Algemeen"
+
+#: plugin/xdl_strings.py
+msgid "Get API Key (1-click):"
+msgstr "API-sleutel ophalen (1-klik):"
+
+#: plugin/xdl_strings.py
+msgid "Hugging Face ↗"
+msgstr "Hugging Face ↗"
 
 #: plugin/xdl_strings.py
 msgid "Image Model:"
@@ -2616,6 +2632,10 @@ msgstr "Aantal antwoorden:"
 #: plugin/xdl_strings.py
 msgid "OK"
 msgstr "OK"
+
+#: plugin/xdl_strings.py
+msgid "OpenRouter ↗"
+msgstr "OpenRouter ↗"
 
 #: plugin/xdl_strings.py
 msgid "Options"
@@ -2730,12 +2750,20 @@ msgid "Temperature:"
 msgstr "Temperatuur:"
 
 #: plugin/xdl_strings.py
+msgid "Test Connection"
+msgstr "Verbinding testen"
+
+#: plugin/xdl_strings.py
 msgid "Text/Chat Model:"
 msgstr "Tekst/Chat-model:"
 
 #: plugin/xdl_strings.py
 msgid "Timeout (s):"
 msgstr "Time-out (s):"
+
+#: plugin/xdl_strings.py
+msgid "Together AI ↗"
+msgstr "Together AI ↗"
 
 #: plugin/xdl_strings.py
 msgid "Topics"
@@ -2784,34 +2812,6 @@ msgstr "Grok Build (ACP)"
 
 msgid "OpenCode (ACP)"
 msgstr "OpenCode (ACP)"
-
-msgid "Path / URL"
-msgstr "Pad / URL"
-
-msgid ""
-"Path to backend CLI (e.g. aider) or ACP server URL (e.g. "
-"http://localhost:8000 for Hermes). Empty = try default."
-msgstr ""
-"Pad naar backend CLI (bijv. aider) of ACP-server-URL (bijv. "
-"http://localhost:8000 voor Hermes). Leeg = probeer standaard."
-
-msgid "Extra arguments"
-msgstr "Extra argumenten"
-
-msgid "Optional arguments for the selected backend (space-separated)."
-msgstr ""
-"Optionele argumenten voor de geselecteerde backend (gescheiden door "
-"spaties)."
-
-msgid "ACP agent name"
-msgstr "ACP-agentnaam"
-
-msgid ""
-"Agent name on the ACP server (e.g. hermes). Empty = auto-discover first "
-"agent."
-msgstr ""
-"Agentnaam op de ACP-server (bijv. hermes). Leeg = ontdek eerste agent "
-"automatisch."
 
 msgid "Calc spreadsheet tools"
 msgstr "Calc-spreadsheettools"
@@ -3204,6 +3204,10 @@ msgid ""
 msgstr ""
 "Ngrok authtoken; Cloudflare tunnel-token; Bore-server of 'server secret'. "
 "Leeg = standaard provider / CLI-configuratie. Niet gebruikt voor Tailscale."
+
+msgid "Suggested client config (copy into Claude Desktop / Cursor):"
+msgstr ""
+"Voorgestelde clientconfiguratie (kopiëren naar Claude Desktop / Cursor):"
 
 msgid "Python"
 msgstr "Python"

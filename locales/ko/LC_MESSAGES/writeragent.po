@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-14 12:57-0400\n"
+"POT-Creation-Date: 2026-08-16 17:05-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Korean <LL@li.org>\n"
@@ -1282,8 +1282,16 @@ msgid "Failed to open Settings: {0}"
 msgstr "설정을 여는 데 실패했습니다: {0}"
 
 #: plugin/chatbot/dialog_views.py
+msgid "Testing connection..."
+msgstr "연결 테스트 중..."
+
+#: plugin/chatbot/dialog_views.py
 msgid "Audio Library Download"
 msgstr "오디오 라이브러리 다운로드"
+
+#: plugin/chatbot/dialog_views.py
+msgid "✓ Copied!"
+msgstr "✓ 복사됨!"
 
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
@@ -2411,8 +2419,8 @@ msgid "Edit Init Script"
 msgstr "초기화 스크립트 편집"
 
 #: plugin/xdl_strings.py
-msgid "Edit config file (JSON)…"
-msgstr "설정 파일 편집 (JSON)…"
+msgid "Edit config (JSON)…"
+msgstr "구성 편집 (JSON)…"
 
 #: plugin/xdl_strings.py
 msgid "Edit extra tokens:"
@@ -2461,6 +2469,14 @@ msgstr "필터:"
 #: plugin/xdl_strings.py
 msgid "General"
 msgstr "일반"
+
+#: plugin/xdl_strings.py
+msgid "Get API Key (1-click):"
+msgstr "API 키 가져오기 (1-클릭):"
+
+#: plugin/xdl_strings.py
+msgid "Hugging Face ↗"
+msgstr "Hugging Face ↗"
 
 #: plugin/xdl_strings.py
 msgid "Image Model:"
@@ -2521,6 +2537,10 @@ msgstr "응답 수:"
 #: plugin/xdl_strings.py
 msgid "OK"
 msgstr "확인"
+
+#: plugin/xdl_strings.py
+msgid "OpenRouter ↗"
+msgstr "OpenRouter ↗"
 
 #: plugin/xdl_strings.py
 msgid "Options"
@@ -2635,12 +2655,20 @@ msgid "Temperature:"
 msgstr "온도:"
 
 #: plugin/xdl_strings.py
+msgid "Test Connection"
+msgstr "연결 테스트"
+
+#: plugin/xdl_strings.py
 msgid "Text/Chat Model:"
 msgstr "텍스트/채팅 모델:"
 
 #: plugin/xdl_strings.py
 msgid "Timeout (s):"
 msgstr "시간 제한 (초):"
+
+#: plugin/xdl_strings.py
+msgid "Together AI ↗"
+msgstr "Together AI ↗"
 
 #: plugin/xdl_strings.py
 msgid "Topics"
@@ -2689,30 +2717,6 @@ msgstr "Grok 빌드 (ACP)"
 
 msgid "OpenCode (ACP)"
 msgstr "OpenCode (ACP)"
-
-msgid "Path / URL"
-msgstr "경로 / URL"
-
-msgid ""
-"Path to backend CLI (e.g. aider) or ACP server URL (e.g. "
-"http://localhost:8000 for Hermes). Empty = try default."
-msgstr ""
-"백엔드 CLI(예: aider) 경로 또는 ACP 서버 URL(예: Hermes의 경우 http://localhost:8000). "
-"비워두면 기본값을 시도합니다."
-
-msgid "Extra arguments"
-msgstr "추가 인수"
-
-msgid "Optional arguments for the selected backend (space-separated)."
-msgstr "선택한 백엔드에 대한 선택적 인수(공백으로 구분)."
-
-msgid "ACP agent name"
-msgstr "ACP 에이전트 이름"
-
-msgid ""
-"Agent name on the ACP server (e.g. hermes). Empty = auto-discover first "
-"agent."
-msgstr "ACP 서버의 에이전트 이름(예: hermes). 비워두면 첫 번째 에이전트를 자동 검색합니다."
 
 msgid "Calc spreadsheet tools"
 msgstr "Calc 스프레드시트 도구"
@@ -3076,6 +3080,9 @@ msgid ""
 msgstr ""
 "Ngrok 인증 토큰, Cloudflare 터널 토큰, Bore 서버 또는 '서버 비밀값'. 비워두면 공급자 기본값 또는 CLI 설정을 "
 "사용합니다. Tailscale에서는 사용되지 않습니다."
+
+msgid "Suggested client config (copy into Claude Desktop / Cursor):"
+msgstr "제안된 클라이언트 구성 (Claude Desktop / Cursor에 복사):"
 
 msgid "Python"
 msgstr "Python"

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-14 12:57-0400\n"
+"POT-Creation-Date: 2026-08-16 17:05-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Indonesian <LL@li.org>\n"
@@ -1317,8 +1317,16 @@ msgid "Failed to open Settings: {0}"
 msgstr "Gagal membuka Pengaturan: {0}"
 
 #: plugin/chatbot/dialog_views.py
+msgid "Testing connection..."
+msgstr "Menguji koneksi..."
+
+#: plugin/chatbot/dialog_views.py
 msgid "Audio Library Download"
 msgstr "Unduh Pustaka Audio"
+
+#: plugin/chatbot/dialog_views.py
+msgid "✓ Copied!"
+msgstr "✓ Disalin!"
 
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
@@ -2486,8 +2494,8 @@ msgid "Edit Init Script"
 msgstr "Sunting Skrip Inisialisasi"
 
 #: plugin/xdl_strings.py
-msgid "Edit config file (JSON)…"
-msgstr "Edit file konfigurasi (JSON)…"
+msgid "Edit config (JSON)…"
+msgstr "Edit konfigurasi (JSON)…"
 
 #: plugin/xdl_strings.py
 msgid "Edit extra tokens:"
@@ -2539,6 +2547,14 @@ msgstr "Filter:"
 #: plugin/xdl_strings.py
 msgid "General"
 msgstr "Umum"
+
+#: plugin/xdl_strings.py
+msgid "Get API Key (1-click):"
+msgstr "Dapatkan Kunci API (1-klik):"
+
+#: plugin/xdl_strings.py
+msgid "Hugging Face ↗"
+msgstr "Hugging Face ↗"
 
 #: plugin/xdl_strings.py
 msgid "Image Model:"
@@ -2599,6 +2615,10 @@ msgstr "Jumlah Respons:"
 #: plugin/xdl_strings.py
 msgid "OK"
 msgstr "OK"
+
+#: plugin/xdl_strings.py
+msgid "OpenRouter ↗"
+msgstr "OpenRouter ↗"
 
 #: plugin/xdl_strings.py
 msgid "Options"
@@ -2713,12 +2733,20 @@ msgid "Temperature:"
 msgstr "Temperatur:"
 
 #: plugin/xdl_strings.py
+msgid "Test Connection"
+msgstr "Uji Koneksi"
+
+#: plugin/xdl_strings.py
 msgid "Text/Chat Model:"
 msgstr "Model Teks/Obrolan:"
 
 #: plugin/xdl_strings.py
 msgid "Timeout (s):"
 msgstr "Batas Waktu (dtk):"
+
+#: plugin/xdl_strings.py
+msgid "Together AI ↗"
+msgstr "Together AI ↗"
 
 #: plugin/xdl_strings.py
 msgid "Topics"
@@ -2767,33 +2795,6 @@ msgstr "Grok Build (ACP)"
 
 msgid "OpenCode (ACP)"
 msgstr "OpenCode (ACP)"
-
-msgid "Path / URL"
-msgstr "Path / URL"
-
-msgid ""
-"Path to backend CLI (e.g. aider) or ACP server URL (e.g. "
-"http://localhost:8000 for Hermes). Empty = try default."
-msgstr ""
-"Path ke CLI backend (contoh: aider) atau URL server ACP (contoh: "
-"http://localhost:8000 untuk Hermes). Kosong = coba default."
-
-msgid "Extra arguments"
-msgstr "Argumen tambahan"
-
-msgid "Optional arguments for the selected backend (space-separated)."
-msgstr ""
-"Argumen opsional untuk backend yang dipilih (dipisahkan dengan spasi)."
-
-msgid "ACP agent name"
-msgstr "Nama agen ACP"
-
-msgid ""
-"Agent name on the ACP server (e.g. hermes). Empty = auto-discover first "
-"agent."
-msgstr ""
-"Nama agen di server ACP (contoh: hermes). Kosong = temukan agen pertama "
-"secara otomatis."
 
 msgid "Calc spreadsheet tools"
 msgstr "Alat lembar kerja Calc"
@@ -3185,6 +3186,9 @@ msgstr ""
 "Token authtoken Ngrok; token tunnel Cloudflare; server Bore atau 'rahasia "
 "server'. Kosong = bawaan penyedia / konfigurasi CLI. Tidak digunakan untuk "
 "Tailscale."
+
+msgid "Suggested client config (copy into Claude Desktop / Cursor):"
+msgstr "Konfigurasi klien yang disarankan (salin ke Claude Desktop / Cursor):"
 
 msgid "Python"
 msgstr "Python"

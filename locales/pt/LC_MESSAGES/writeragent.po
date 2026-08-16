@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-14 12:57-0400\n"
+"POT-Creation-Date: 2026-08-16 17:05-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Portuguese <LL@li.org>\n"
@@ -1326,8 +1326,16 @@ msgid "Failed to open Settings: {0}"
 msgstr "Falha ao abrir as Configurações: {0}"
 
 #: plugin/chatbot/dialog_views.py
+msgid "Testing connection..."
+msgstr "A testar a ligação..."
+
+#: plugin/chatbot/dialog_views.py
 msgid "Audio Library Download"
 msgstr "Transferir biblioteca de áudio"
+
+#: plugin/chatbot/dialog_views.py
+msgid "✓ Copied!"
+msgstr "✓ Copiado!"
 
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
@@ -2514,8 +2522,8 @@ msgid "Edit Init Script"
 msgstr "Editar script de inicialização"
 
 #: plugin/xdl_strings.py
-msgid "Edit config file (JSON)…"
-msgstr "Editar ficheiro de configuração (JSON)…"
+msgid "Edit config (JSON)…"
+msgstr "Editar configuração (JSON)…"
 
 #: plugin/xdl_strings.py
 msgid "Edit extra tokens:"
@@ -2566,6 +2574,14 @@ msgstr "Filtro:"
 #: plugin/xdl_strings.py
 msgid "General"
 msgstr "Geral"
+
+#: plugin/xdl_strings.py
+msgid "Get API Key (1-click):"
+msgstr "Obter chave API (1 clique):"
+
+#: plugin/xdl_strings.py
+msgid "Hugging Face ↗"
+msgstr "Hugging Face ↗"
 
 #: plugin/xdl_strings.py
 msgid "Image Model:"
@@ -2626,6 +2642,10 @@ msgstr "Número de respostas:"
 #: plugin/xdl_strings.py
 msgid "OK"
 msgstr "OK"
+
+#: plugin/xdl_strings.py
+msgid "OpenRouter ↗"
+msgstr "OpenRouter ↗"
 
 #: plugin/xdl_strings.py
 msgid "Options"
@@ -2740,12 +2760,20 @@ msgid "Temperature:"
 msgstr "Temperatura:"
 
 #: plugin/xdl_strings.py
+msgid "Test Connection"
+msgstr "Testar ligação"
+
+#: plugin/xdl_strings.py
 msgid "Text/Chat Model:"
 msgstr "Modelo de texto/chat:"
 
 #: plugin/xdl_strings.py
 msgid "Timeout (s):"
 msgstr "Tempo limite (s):"
+
+#: plugin/xdl_strings.py
+msgid "Together AI ↗"
+msgstr "Together AI ↗"
 
 #: plugin/xdl_strings.py
 msgid "Topics"
@@ -2794,33 +2822,6 @@ msgstr "Grok Build (ACP)"
 
 msgid "OpenCode (ACP)"
 msgstr "OpenCode (ACP)"
-
-msgid "Path / URL"
-msgstr "Caminho / URL"
-
-msgid ""
-"Path to backend CLI (e.g. aider) or ACP server URL (e.g. "
-"http://localhost:8000 for Hermes). Empty = try default."
-msgstr ""
-"Caminho para a CLI do backend (ex: aider) ou URL do servidor ACP (ex: "
-"http://localhost:8000 para o Hermes). Vazio = tentar o padrão."
-
-msgid "Extra arguments"
-msgstr "Argumentos extras"
-
-msgid "Optional arguments for the selected backend (space-separated)."
-msgstr ""
-"Argumentos opcionais para o backend selecionado (separados por espaço)."
-
-msgid "ACP agent name"
-msgstr "Nome do agente ACP"
-
-msgid ""
-"Agent name on the ACP server (e.g. hermes). Empty = auto-discover first "
-"agent."
-msgstr ""
-"Nome do agente no servidor ACP (ex: hermes). Vazio = autodescobrir o "
-"primeiro agente."
 
 msgid "Calc spreadsheet tools"
 msgstr "Ferramentas de planilha do Calc"
@@ -3215,6 +3216,10 @@ msgstr ""
 "Token de autenticação do Ngrok; token de túnel do Cloudflare; servidor Bore "
 "ou 'segredo do servidor'. Vazio = padrão do provedor / configuração da CLI. "
 "Não utilizado para Tailscale."
+
+msgid "Suggested client config (copy into Claude Desktop / Cursor):"
+msgstr ""
+"Configuração de cliente sugerida (copiar para Claude Desktop / Cursor):"
 
 msgid "Python"
 msgstr "Python"

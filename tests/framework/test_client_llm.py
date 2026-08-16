@@ -192,6 +192,13 @@ def test_stream_request_with_tools_logs_raw_indexes_before_accumulation(client, 
             )
 
     assert len(result["tool_calls"]) == 2
+
+    from plugin.framework.client import llm_client as llm_mod
+    from tests.strip_bundle import module_source_contains
+
+    if not module_source_contains(llm_mod, "raw tool_call delta"):
+        pytest.skip("log.debug stripped in release bundle")
+
     assert "raw tool_call delta" in caplog.text
     assert 'chunk_provider=\'Cerebras\'' in caplog.text
     assert '"index": 1' in caplog.text

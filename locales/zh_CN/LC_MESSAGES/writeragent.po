@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-14 12:57-0400\n"
+"POT-Creation-Date: 2026-08-16 17:05-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Chinese (Simplified) <LL@li.org>\n"
@@ -1273,8 +1273,16 @@ msgid "Failed to open Settings: {0}"
 msgstr "打开设置失败：{0}"
 
 #: plugin/chatbot/dialog_views.py
+msgid "Testing connection..."
+msgstr "正在测试连接…"
+
+#: plugin/chatbot/dialog_views.py
 msgid "Audio Library Download"
 msgstr "音频库下载"
+
+#: plugin/chatbot/dialog_views.py
+msgid "✓ Copied!"
+msgstr "✓ 已复制！"
 
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
@@ -2392,8 +2400,8 @@ msgid "Edit Init Script"
 msgstr "编辑初始化脚本"
 
 #: plugin/xdl_strings.py
-msgid "Edit config file (JSON)…"
-msgstr "编辑配置文件 (JSON)…"
+msgid "Edit config (JSON)…"
+msgstr "编辑配置 (JSON)…"
 
 #: plugin/xdl_strings.py
 msgid "Edit extra tokens:"
@@ -2442,6 +2450,14 @@ msgstr "筛选："
 #: plugin/xdl_strings.py
 msgid "General"
 msgstr "通用"
+
+#: plugin/xdl_strings.py
+msgid "Get API Key (1-click):"
+msgstr "获取 API Key (一键式)："
+
+#: plugin/xdl_strings.py
+msgid "Hugging Face ↗"
+msgstr "Hugging Face ↗"
 
 #: plugin/xdl_strings.py
 msgid "Image Model:"
@@ -2502,6 +2518,10 @@ msgstr "响应数量："
 #: plugin/xdl_strings.py
 msgid "OK"
 msgstr "确定"
+
+#: plugin/xdl_strings.py
+msgid "OpenRouter ↗"
+msgstr "OpenRouter ↗"
 
 #: plugin/xdl_strings.py
 msgid "Options"
@@ -2616,12 +2636,20 @@ msgid "Temperature:"
 msgstr "温度："
 
 #: plugin/xdl_strings.py
+msgid "Test Connection"
+msgstr "测试连接"
+
+#: plugin/xdl_strings.py
 msgid "Text/Chat Model:"
 msgstr "文本/聊天模型："
 
 #: plugin/xdl_strings.py
 msgid "Timeout (s):"
 msgstr "超时 (秒)："
+
+#: plugin/xdl_strings.py
+msgid "Together AI ↗"
+msgstr "Together AI ↗"
 
 #: plugin/xdl_strings.py
 msgid "Topics"
@@ -2670,30 +2698,6 @@ msgstr "Grok 构建 (ACP)"
 
 msgid "OpenCode (ACP)"
 msgstr "OpenCode (ACP)"
-
-msgid "Path / URL"
-msgstr "路径 / URL"
-
-msgid ""
-"Path to backend CLI (e.g. aider) or ACP server URL (e.g. "
-"http://localhost:8000 for Hermes). Empty = try default."
-msgstr ""
-"后端 CLI 路径（例如 aider）或 ACP 服务器 URL（例如 Hermes 的 http://localhost:8000）。空 = "
-"尝试默认。"
-
-msgid "Extra arguments"
-msgstr "额外参数"
-
-msgid "Optional arguments for the selected backend (space-separated)."
-msgstr "选定后端的可选参数（用空格分隔）。"
-
-msgid "ACP agent name"
-msgstr "ACP 代理名称"
-
-msgid ""
-"Agent name on the ACP server (e.g. hermes). Empty = auto-discover first "
-"agent."
-msgstr "ACP 服务器上的代理名称（例如 hermes）。空 = 自动发现第一个代理。"
 
 msgid "Calc spreadsheet tools"
 msgstr "Calc 电子表格工具"
@@ -3045,6 +3049,9 @@ msgid ""
 msgstr ""
 "Ngrok 身份验证令牌；Cloudflare 隧道令牌；Bore 服务器或“服务器密钥”。留空则使用提供商默认值或 CLI 配置。Tailscale "
 "不使用此项。"
+
+msgid "Suggested client config (copy into Claude Desktop / Cursor):"
+msgstr "建议的客户端配置（复制到 Claude Desktop / Cursor）："
 
 msgid "Python"
 msgstr "Python"

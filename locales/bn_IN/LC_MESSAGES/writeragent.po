@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-14 12:57-0400\n"
+"POT-Creation-Date: 2026-08-16 17:05-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Bengali <LL@li.org>\n"
@@ -1321,8 +1321,16 @@ msgid "Failed to open Settings: {0}"
 msgstr "সেটিংস খুলতে ব্যর্থ: {0}"
 
 #: plugin/chatbot/dialog_views.py
+msgid "Testing connection..."
+msgstr "সংযোগ পরীক্ষা করা হচ্ছে..."
+
+#: plugin/chatbot/dialog_views.py
 msgid "Audio Library Download"
 msgstr "অডিও লাইব্রেরি ডাউনলোড"
+
+#: plugin/chatbot/dialog_views.py
+msgid "✓ Copied!"
+msgstr "✓ অনুলিপি করা হয়েছে!"
 
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
@@ -2497,8 +2505,8 @@ msgid "Edit Init Script"
 msgstr "ইনিট স্ক্রিপ্ট সম্পাদনা করুন"
 
 #: plugin/xdl_strings.py
-msgid "Edit config file (JSON)…"
-msgstr "কনফিগার ফাইল সম্পাদনা করুন (JSON)…"
+msgid "Edit config (JSON)…"
+msgstr "কনফিগারেশন সম্পাদনা (JSON)…"
 
 #: plugin/xdl_strings.py
 msgid "Edit extra tokens:"
@@ -2547,6 +2555,14 @@ msgstr "ফিল্টার:"
 #: plugin/xdl_strings.py
 msgid "General"
 msgstr "সাধারণ"
+
+#: plugin/xdl_strings.py
+msgid "Get API Key (1-click):"
+msgstr "API কী পান (১-ক্লিক):"
+
+#: plugin/xdl_strings.py
+msgid "Hugging Face ↗"
+msgstr "Hugging Face ↗"
 
 #: plugin/xdl_strings.py
 msgid "Image Model:"
@@ -2607,6 +2623,10 @@ msgstr "প্রতিক্রিয়ার সংখ্যা:"
 #: plugin/xdl_strings.py
 msgid "OK"
 msgstr "ঠিক আছে"
+
+#: plugin/xdl_strings.py
+msgid "OpenRouter ↗"
+msgstr "OpenRouter ↗"
 
 #: plugin/xdl_strings.py
 msgid "Options"
@@ -2721,12 +2741,20 @@ msgid "Temperature:"
 msgstr "তাপমাত্রা:"
 
 #: plugin/xdl_strings.py
+msgid "Test Connection"
+msgstr "সংযোগ পরীক্ষা করুন"
+
+#: plugin/xdl_strings.py
 msgid "Text/Chat Model:"
 msgstr "টেক্সট/চ্যাট মডেল:"
 
 #: plugin/xdl_strings.py
 msgid "Timeout (s):"
 msgstr "সময়সীমা (সেকেন্ড):"
+
+#: plugin/xdl_strings.py
+msgid "Together AI ↗"
+msgstr "Together AI ↗"
 
 #: plugin/xdl_strings.py
 msgid "Topics"
@@ -2775,32 +2803,6 @@ msgstr "Grok Build (ACP)"
 
 msgid "OpenCode (ACP)"
 msgstr "OpenCode (ACP)"
-
-msgid "Path / URL"
-msgstr "পাথ / URL"
-
-msgid ""
-"Path to backend CLI (e.g. aider) or ACP server URL (e.g. "
-"http://localhost:8000 for Hermes). Empty = try default."
-msgstr ""
-"ব্যাকএন্ড CLI (যেমন aider) বা ACP সার্ভার URL-এর পাথ (যেমন হার্মিসের জন্য "
-"http://localhost:8000)। খালি = ডিফল্ট ব্যবহার করার চেষ্টা করুন।"
-
-msgid "Extra arguments"
-msgstr "অতিরিক্ত আর্গুমেন্ট"
-
-msgid "Optional arguments for the selected backend (space-separated)."
-msgstr "নির্বাচিত ব্যাকএন্ডের জন্য ঐচ্ছিক আর্গুমেন্ট (স্পেস দ্বারা পৃথক)।"
-
-msgid "ACP agent name"
-msgstr "ACP এজেন্টের নাম"
-
-msgid ""
-"Agent name on the ACP server (e.g. hermes). Empty = auto-discover first "
-"agent."
-msgstr ""
-"ACP সার্ভারে এজেন্টের নাম (যেমন হার্মিস)। খালি = প্রথম এজেন্ট "
-"স্বয়ংক্রিয়ভাবে খুঁজে বের করুন।"
 
 msgid "Calc spreadsheet tools"
 msgstr "Calc স্প্রেডশিট টুলস"
@@ -3189,6 +3191,10 @@ msgid ""
 msgstr ""
 "Ngrok authtoken; Cloudflare tunnel token; Bore সার্ভার বা 'server secret'। "
 "খালি = প্রোভাইডার ডিফল্ট / CLI কনফিগারেশন। Tailscale-এর জন্য ব্যবহৃত হয় না।"
+
+msgid "Suggested client config (copy into Claude Desktop / Cursor):"
+msgstr ""
+"প্রস্তাবিত ক্লায়েন্ট কনফিগারেশন (Claude Desktop / Cursor-এ অনুলিপি করুন):"
 
 msgid "Python"
 msgstr "পাইথন"

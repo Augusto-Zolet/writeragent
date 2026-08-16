@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-14 12:57-0400\n"
+"POT-Creation-Date: 2026-08-16 17:05-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1237,7 +1237,15 @@ msgid "Failed to open Settings: {0}"
 msgstr ""
 
 #: plugin/chatbot/dialog_views.py
+msgid "Testing connection..."
+msgstr ""
+
+#: plugin/chatbot/dialog_views.py
 msgid "Audio Library Download"
+msgstr ""
+
+#: plugin/chatbot/dialog_views.py
+msgid "✓ Copied!"
 msgstr ""
 
 #: plugin/chatbot/config_ui_helpers.py
@@ -2334,7 +2342,7 @@ msgid "Edit Init Script"
 msgstr ""
 
 #: plugin/xdl_strings.py
-msgid "Edit config file (JSON)…"
+msgid "Edit config (JSON)…"
 msgstr ""
 
 #: plugin/xdl_strings.py
@@ -2381,6 +2389,14 @@ msgstr ""
 
 #: plugin/xdl_strings.py
 msgid "General"
+msgstr ""
+
+#: plugin/xdl_strings.py
+msgid "Get API Key (1-click):"
+msgstr ""
+
+#: plugin/xdl_strings.py
+msgid "Hugging Face ↗"
 msgstr ""
 
 #: plugin/xdl_strings.py
@@ -2441,6 +2457,10 @@ msgstr ""
 
 #: plugin/xdl_strings.py
 msgid "OK"
+msgstr ""
+
+#: plugin/xdl_strings.py
+msgid "OpenRouter ↗"
 msgstr ""
 
 #: plugin/xdl_strings.py
@@ -2556,11 +2576,19 @@ msgid "Temperature:"
 msgstr ""
 
 #: plugin/xdl_strings.py
+msgid "Test Connection"
+msgstr ""
+
+#: plugin/xdl_strings.py
 msgid "Text/Chat Model:"
 msgstr ""
 
 #: plugin/xdl_strings.py
 msgid "Timeout (s):"
+msgstr ""
+
+#: plugin/xdl_strings.py
+msgid "Together AI ↗"
 msgstr ""
 
 #: plugin/xdl_strings.py
@@ -2609,28 +2637,6 @@ msgid "Grok Build (ACP)"
 msgstr ""
 
 msgid "OpenCode (ACP)"
-msgstr ""
-
-msgid "Path / URL"
-msgstr ""
-
-msgid ""
-"Path to backend CLI (e.g. aider) or ACP server URL (e.g. "
-"http://localhost:8000 for Hermes). Empty = try default."
-msgstr ""
-
-msgid "Extra arguments"
-msgstr ""
-
-msgid "Optional arguments for the selected backend (space-separated)."
-msgstr ""
-
-msgid "ACP agent name"
-msgstr ""
-
-msgid ""
-"Agent name on the ACP server (e.g. hermes). Empty = auto-discover first "
-"agent."
 msgstr ""
 
 msgid "Calc spreadsheet tools"
@@ -2962,6 +2968,9 @@ msgstr ""
 msgid ""
 "Ngrok authtoken; Cloudflare tunnel token; Bore server or 'server secret'. "
 "Empty = provider default / CLI config. Unused for Tailscale."
+msgstr ""
+
+msgid "Suggested client config (copy into Claude Desktop / Cursor):"
 msgstr ""
 
 msgid "Python"
