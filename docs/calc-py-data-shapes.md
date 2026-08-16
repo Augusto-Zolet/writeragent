@@ -2,7 +2,7 @@
 
 **Glossary:** `=PY()` and `=PYTHON()` are the same Calc add-in (`XPythonFunction`). Formulas below use `=PY`; either name works.
 
-This doc is the authoritative **behavior** contract for range arguments: what `data` / `ranges` look like in Python, blank vs NaN, dates, logicals, and multi-range varargs.
+This doc is the authoritative **behavior** contract for range arguments: what `data` / `ranges` look like in Python, blank vs NaN, dates, logicals, and multi-range varargs. The author intro (how to write `=PY()`, session modes, spill/matrix) is [hub §6](enabling_numpy_in_libreoffice.md#6-the-py-calc-function); use this file for the complete range/`data` tables.
 
 Related:
 
@@ -48,12 +48,14 @@ When you write `=PY(code; range)`, the add-in:
 **API (explicit conversions)** — when `data` is a single `CalcRange`:
 
 ```python
-data.values                          # exact list[list] (None for blanks)
-data.to_numpy()                      # ndarray (None → nan for numeric dtype)
-data.to_pandas()                     # header_row=0 by default
-data.to_pandas(header_row=None)      # all rows are data; columns col_0…
-data.to_pandas(parse_strings=True)   # opt-in currency/percent/date string parsing
-ranges                               # always list[CalcRange]; len 1 when one formula arg
+data.values                                      # exact list[list] (None for blanks)
+data.to_numpy()                                  # ndarray (None → nan for numeric dtype)
+data.to_pandas()                                 # header_row=0 by default
+data.to_pandas(header_row=None)                  # all rows are data; columns col_0…
+data.to_pandas(parse_strings=True)               # opt-in currency/percent/date string parsing
+data.to_pandas(date_cols=['Date of Birth'])      # parse specific date column(s)
+data.to_pandas(date_cols=True)                   # auto-detect and parse all date columns
+ranges                                           # always list[CalcRange]; len 1 when one formula arg
 ```
 
 Returning a **pandas DataFrame** spills/writes with its **column header row** included. Returning a list/ndarray writes values only.

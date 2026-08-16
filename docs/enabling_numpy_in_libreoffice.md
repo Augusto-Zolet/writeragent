@@ -2,7 +2,7 @@
 
 WriterAgent can run scientific Python — **NumPy**, **pandas**, **scipy**, and similar C-extension stacks — **without** loading those packages into LibreOffice’s embedded interpreter. Point **Settings → Python** at a **user-provided virtual environment**, then use **Run Python Script…**, Calc `=PY()` / **Edit Python in Cell…**. Code runs in a sandboxed child process and returns serializable results to your sheet or script UI.
 
-**Glossary:** `=PY()` and `=PYTHON()` are the same Calc add-in (`XPythonFunction`). Docs and examples use either name interchangeably.
+**Glossary:** `=PY()` and `=PYTHON()` are the same Calc add-in (`XPythonFunction`). **User-facing examples in this file use `=PY()`.** The registered alias `PYTHON` works the same (some ODS fixtures use `=PYTHON()` because XLSX import lowercases custom add-in names).
 
 These Python / NumPy features also now ship in **LibrePy.oxt**. The WriterAgent extension covers the same Python surfaces plus a prototype Calc to =PY() spreadsheet conversion, chat and related tools — install **one** OXT at a time (see [extension packaging](libreoffice-core-python-extension-split.md)).
 
@@ -163,7 +163,7 @@ The extension ships a **Monaco-based code editor** (pywebview child in the confi
 
 ### Assign `result` {#assign-result}
 
-Both **Run Python Script** and `=PY()` expect JSON-serializable output assigned to `result`. NumPy arrays and pandas objects are serialized in the worker. Prefer `result = …` over relying on `print()` for values that should appear in the sheet or script result.
+Prefer `result = …` for the value that should appear in the sheet or script UI. If you never assign `result`, `=PY()` uses the **last expression** value (same Jupyter-style fallback as Excel). NumPy arrays and pandas objects are serialized in the worker. `print()` is diagnostics only (LibrePy Python sidebar) — it does not become the cell value.
 
 ### Using the chat assistant (optional) {#using-the-chat-assistant-optional}
 
@@ -248,7 +248,7 @@ Host↔venv plumbing (module map, worker protocol, `python_max_data_cells`, benc
 | **Timeout**               | Standard: user `scripting.python_exec_timeout` for scripts + quick helpers. Long trusted ops (OCR, spaCy text analytics, SymPy, embeddings, ...) use one internal `LONG_TRUSTED...` budget. Warm uses ~30s. | Runaway computation                                       |
 
 
-The extension removed upstream’s `find_spec` import pre-check at executor init (see comment in vendored `local_python_executor.py`); missing packages fail when code imports them.
+Missing packages fail when code imports them (no import pre-check at executor init).
 
 > The AST sandbox is not a perfect security boundary; **subprocess isolation** is the real guarantee. Untrusted script strings (including LLM-generated code) are the threat model, not arbitrary hostile users with shell access.
 
@@ -279,45 +279,26 @@ The **AST sandbox** (`LocalPythonExecutor` + `VENV_AUTHORIZED_IMPORTS`) applies 
 
 | Layer                    | Interpreter                | Sandbox?                                  | Typical use                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | ------------------------ | -------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **LibreOffice host**     | Embedded Python in-process | No NumPy; stdlib + UNO                    | UNO, config, resolve folder path, enqueue **maintain** RPC + heartbeat timeout                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **User venv worker**     | User’s venv subprocess     | **Yes** for user `code` strings           | `=PY()`, Run Python Script, chat tool                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| **Trusted venv modules** | Same subprocess            | **No** (normal CPython inside the module) | `[embeddings_index.py](../plugin/embeddings/venv/embeddings_index.py)`, `[embeddings_sqlite.py](../plugin/embeddings/venv/embeddings_sqlite.py)`, `[embeddings_hybrid_search.py](../plugin/embeddings/venv/embeddings_hybrid_search.py)`, `[embeddings_ingest_graph.py](../plugin/embeddings/venv/embeddings_ingest_graph.py)`, `[embeddings_search_graph.py](../plugin/embeddings/venv/embeddings_search_graph.py)`, `[langdetect_rpc.py](../plugin/embeddings/venv/langdetect_rpc.py)`, `[payload_codec.py](../plugin/scripting/payload_codec.py)`, `[calc_functions.py](../plugin/scripting/calc_functions.py)` |
-
-
+| **LibreOffice host**     | Embedded Python in-process | No NumPy; stdlib + UNO                    | UNO, config, enqueue **maintain** RPC                                                                                                                                                                                                 |
+| **User venv worker**     | User’s venv subprocess     | **Yes** for user `code` strings           | `=PY()`, Run Python Script, chat tool                                                                                                                                                                                                 |
+| **Trusted venv modules** | Same subprocess            | **No** (normal CPython inside the module) | Reviewed modules such as `[payload_codec.py](../plugin/scripting/payload_codec.py)`, `[calc_functions.py](../plugin/scripting/calc_functions.py)`, embeddings index/search, langdetect RPC |
 
 
 #### How trusted venv code runs
 
-1. **Ship a normal module** under `plugin/scripting/venv/` (implementation) with a public facade at `plugin/scripting/*.py` for script authors, or under `plugin/embeddings/venv/` (e.g. `[payload_codec.py](../plugin/scripting/payload_codec.py)`, `[embeddings_index.py](../plugin/embeddings/venv/embeddings_index.py)` for [embeddings](embeddings.md) Phase A encode).
-2. **Host calls** `[run_trusted_worker_action](../plugin/scripting/trusted_rpc.py)` with `action: "run_trusted_action"` and a `domain` + `helper` packet — not LLM output. Example host path:
-  ```python
-   run_trusted_worker_action(
-       ctx,
-       domain="embeddings_index",
-       helper="knn_search",
-       params={"db_path": db_path, "query": query, "k": k, "model": model_name},
-       session_id=session_id,
-       timeout_sec=timeout_sec,
-       worker_pool=WORKER_POOL_EMBEDDINGS,
-   )
-  ```
-3. `[worker_harness.py](../plugin/scripting/venv/worker_harness.py)` looks up the domain in `[trusted_action_registry.py](../plugin/scripting/trusted_action_registry.py)` and calls the registered venv dispatcher **directly** — zero AST overhead, same trust model as reviewed modules.
-4. **Run Python Script templates** execute visible domain helper function calls (e.g. `convert_quantity(10, "m/s", "km/h")`) in the user venv. The host injects document inputs (`data` on Calc, `text`/`document_context` on Writer text analytics, `image` for Vision OCR) before execution; results route through post-venv insert handlers in `[domain_registry.py](../plugin/scripting/domain_registry.py)`.
-5. **IPC for bulk data** — pass paragraph lists, query text, and `k` via the action `data` dict (Pickle5 over the worker pipe); trusted code opens the per-folder `corpus.db` path by reference from the host.
+1. **Ship a normal module** under `plugin/scripting/venv/` (implementation) with a public facade at `plugin/scripting/*.py`, or under `plugin/embeddings/venv/`.
+2. **Host calls** `[run_trusted_worker_action](../plugin/scripting/trusted_rpc.py)` with `action: "run_trusted_action"` and a `domain` + `helper` packet — not LLM output.
+3. `[worker_harness.py](../plugin/scripting/venv/worker_harness.py)` looks up the domain in `[trusted_action_registry.py](../plugin/scripting/trusted_action_registry.py)` and calls the dispatcher **directly** (zero AST). Long-running maintain jobs can stream heartbeats (`allow_heartbeat`).
+4. **Run Python Script templates** execute visible helper calls (e.g. `convert_quantity(10, "m/s", "km/h")`). The host injects `data` / `text` / `image` before execution; results use insert handlers in `[domain_registry.py](../plugin/scripting/domain_registry.py)`.
+5. **Bulk data** travels in the action `data` dict (Pickle5). Trusted code opens host-supplied paths (for example the per-folder `corpus.db`).
 
-**Embeddings worker pool:** Folder maintain, hybrid search, and grammar **Local (langdetect)** language detection use `WORKER_POOL_EMBEDDINGS` — a second warm venv child isolated from Calc `=PY()` and chat scripts ([embeddings.md § Dedicated embeddings subprocess](embeddings.md#dedicated-embeddings-subprocess)). Grammar langdetect RPC: `[langdetect_service.py](../plugin/framework/client/langdetect_service.py)` → `[langdetect_rpc.py](../plugin/embeddings/venv/langdetect_rpc.py)` (requires `langdetect` in the venv; see `[EMBEDDINGS_VENV_PIP_INSTALL](../plugin/embeddings/venv/embeddings_index.py)`).
+**Embeddings worker pool:** Folder maintain, hybrid search, and grammar **Local (langdetect)** use `WORKER_POOL_EMBEDDINGS` — a second warm venv child isolated from Calc `=PY()` ([embeddings.md](embeddings.md#dedicated-embeddings-subprocess)). Registry / dispatch detail: [scripting-domain-debt-dev-plan.md](scripting-domain-debt-dev-plan.md).
 
 #### What not to do
 
 - **Do not** tell sandboxed scripts (or the chat model) to `open()` index paths or import `sqlite3` — blocked by design ([import policy](#import-policy-sandboxed-scripts)).
 - **Do not** widen the script whitelist to “fix” embeddings; add a trusted module instead.
 - **Do not** run sqlite-vec or NumPy encode in LibreOffice’s embedded interpreter — stay on the venv side ([embeddings](embeddings.md#why-numpy-stays-in-the-venv)).
-
-
-
-#### Harness `action` dispatch
-
-`[worker_harness.py](../plugin/scripting/venv/worker_harness.py)` handles trusted action requests via `action: "run_trusted_action"`. Domains are registered in `[trusted_action_registry.py](../plugin/scripting/trusted_action_registry.py)`; dispatch modules call trusted helper functions directly **without** user code strings. Long-running maintain jobs stream heartbeats when `allow_heartbeat` is set (see [scripting-domain-debt-dev-plan.md](scripting-domain-debt-dev-plan.md) Phase 5).
 
 ### Specialized domain
 
@@ -468,7 +449,7 @@ Deliberate accumulation (running totals, etc.) is fine — treat it as a choice,
 
 |                        | Microsoft Python in Excel                 | Calc `=PY()`                                                                                                                               |
 | ---------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Cell value**         | Last evaluated expression (Jupyter-style) | Explicit `result = …` assignment                                                                                                           |
+| **Cell value**         | Last evaluated expression (Jupyter-style) | Prefer `result = …`; if unset, last expression (same fallback)                                                                             |
 | `print()` **/ stdout** | Diagnostics pane only; cell gets `None`   | Captured in worker response; shown in **LibrePy Python sidebar** diagnostics (shipped); not written into the cell |
 | **Top-level** `return` | Syntax error in Excel                     | Use `result = …` instead                                                                                                                   |
 
@@ -497,7 +478,7 @@ These are **Calc** shortcuts. They recalculate formulas; they do **not** clear t
 
 #### Microsoft Python in Excel shortcuts (reference)
 
-Parity targets for Calc `=PY()` UX. Source: Microsoft Python in Excel product docs (summarized in our former ideas spec).
+Parity targets for Calc `=PY()` UX (Microsoft Python in Excel product docs).
 
 
 | Excel shortcut                 | Excel action                    | Today                                                                                                        | Target / notes                                                                                                                                              |
@@ -589,17 +570,15 @@ Microsoft Excel can **auto-spill** multi-cell results (DataFrames, 2D arrays) in
 - **Grid egress over a data range** — use **two arguments only**: `=PY("np.sum(data)"; B1:B10)` or `=PY("(np.array(data) * 2).tolist()"; D6:G9)` as a matrix formula (**Ctrl+Shift+Enter**). The add-in IDL accepts only `(code, data)`; a third argument such as `ROW()-1` causes **Err:504** (error in parameter list). When the 2nd argument is the full range, `data` in Python is that grid; use `ROW()-n` as the 2nd argument only when it is the per-cell index, not together with a range.
 - **Single cell, full list as text** — `=PY("result = str([1, 2, 3])")` + Enter.
 
-##### Auto-Spill Optimization & Future Enhancements {#auto-spill-optimizations}
+##### Auto-spill cleanup and remaining work {#auto-spill-optimizations}
 
-The auto-spill implementation includes the following components:
+An `XModifyListener` (`CalcSpillModifyListener`) is registered on sheets that contain auto-spill cells. If the originating `=PY()` formula cell is cleared, overwritten, or deleted, the listener clears associated spilled cells, updates `WriterAgentSpillRegistry`, and saves document properties.
 
-- **What's Done:**
-  - **Auto-Cleanup of Orphaned Spills:** An `XModifyListener` (`CalcSpillModifyListener`) is registered on sheets containing auto-spill cells. If the originating `=PYTHON()` formula cell is cleared, overwritten, or deleted, the listener automatically runs, clears all associated spilled cells, updates `WriterAgentSpillRegistry`, and saves the document properties.
+Still open:
 
-- **What's Left (Future Work):**
-  - **Dynamic Spill References:** Implementing support for a spill reference helper function (e.g., `=PY_REF("A1")`) to dynamically resolve and reference the bounding range of a spilled cell since Calc does not support the Excel `#` suffix (e.g., `=A1#`).
-  - **Thread-safe Event Loop Integration:** Replacing the background `threading.Timer` with Calc's native event-loop queue / async task drain on the main UI thread to minimize potential calculation lifecycle hazards.
-  - **LibreOffice C++ Core Integration:** Exposing a recalculation/resizing hook to UNO to avoid background timer delays entirely, or supporting multi-dimensional `XVolatileResult` arrays natively in the core Calc calculation engine (`sc`) to bypass simulated dynamic arrays entirely.
+- **Dynamic spill references** — a helper such as `=PY_REF("A1")` for the spill bounding range (Calc has no Excel `#` suffix, e.g. `=A1#`).
+- **UI-thread drain** — replace the background `threading.Timer` with Calc’s event-loop / async drain to reduce recalc lifecycle hazards.
+- **Core spill** — a UNO recalc/resize hook, or native multi-dimensional `XVolatileResult` in Calc (`sc`), would replace simulated dynamic arrays.
 
 
 
@@ -620,7 +599,7 @@ The auto-spill implementation includes the following components:
 
 Instead of typing Python code directly as a string literal inside the `=PY()` formula, **you can pass a cell reference containing the code** (e.g., `=PY(A1; B1:B10)`).
 
-Because the first parameter of `=PY()` is defined in the IDL (`XPromptFunction.idl`) as `string code`, **the LibreOffice Calc formula engine automatically handles evaluation and type coercion of cell references out-of-the-box.** 
+Because the first parameter of `=PY()` is defined in the IDL (`XPythonFunction.idl`) as `string code`, **the LibreOffice Calc formula engine automatically handles evaluation and type coercion of cell references out-of-the-box.** 
 
 No code changes or new APIs (such as `PythonCell()`) are required.
 
@@ -642,9 +621,9 @@ No code changes or new APIs (such as `PythonCell()`) are required.
 
 ### Calc formula lexer quirks (inline code) {#calc-formula-lexer-quirks-inline-code}
 
-**Status (corrected 2026-07):** Calc’s formula compiler parses the cell **before** the `=PY()` add-in runs. Failures here are **not** venv/NumPy/sandbox errors — Python never executes.
+Calc’s formula compiler parses the cell **before** the `=PY()` add-in runs. Failures here are **not** venv/NumPy/sandbox errors — Python never executes.
 
-**Important correction:** ASCII `"…"` string literals are already **opaque**. Identifiers like `float` and nested `()` *inside* a proper ASCII-quoted string do **not** become spreadsheet function tokens. Live checks: `=PY("float(1)")` and `=LEN("float(1)")` succeed when `PY` is registered.
+ASCII `"…"` string literals are **opaque**. Identifiers like `float` and nested `()` *inside* a proper ASCII-quoted string do **not** become spreadsheet function tokens: `=PY("float(1)")` and `=LEN("float(1)")` succeed when `PY` is registered.
 
 | Symptom | Typical cause | What users see |
 | -------- | ------------- | -------------- |
@@ -652,13 +631,9 @@ No code changes or new APIs (such as `PythonCell()`) are required.
 | **Err:513** | One formula **symbol** exceeds Calc `MAXSTRLEN` (**1024**) | Long inline Python in `=PY("…")` fails before the add-in |
 | **Err:508** | Wrong **argument separator** (`;` vs `,`), or **curly quotes** `“…”` used instead of ASCII `"` | XLSX/locale mismatch; pasted smart quotes |
 | **Err:510** | Cell text starts with `=` (e.g. section label `=== normal ===`) | Use plain labels like `[normal]`, not leading `=` |
-| **#NAME?** | XLSX import lowercases the add-in name; lookup failed on display-only name | Prefer `=PY(...)` (uppercase). Add-in accepts `python` / `PYTHON` after 2026-05 |
+| **#NAME?** | XLSX import lowercases the add-in name; lookup failed on display-only name | Prefer `=PY(...)` (uppercase). The add-in also accepts `python` / `PYTHON`. |
 
-#### Why fixtures stopped wrapping in `float(...)`
-
-Early test fixtures used `float(np.sum(data))` so compare formulas could use `ABS(oracle - python)`. That cast is **redundant**: [`to_calc_compatible`](../plugin/calc/python/function.py) already coerces NumPy scalars and Python `int` to Calc `double`. Prefer bare `np.sum(data)` etc.
-
-`#NAME?` on `float` appears when the call is **outside** quotes (or quotes were lost / became curly). WriterAgent’s [`sanitize_inline_py_code`](../plugin/calc/python/formula_edit.py) still rewrites `float(`/`int(`/`str(` when *emitting* Calc formulas as a defensive measure; do not treat that as proof the lexer scans inside ASCII strings.
+Do not wrap returns in `float()` / `int()` / `str()` for Calc’s sake — [`to_calc_compatible`](../plugin/calc/python/function.py) already coerces NumPy scalars and Python `int` to Calc `double`. `#NAME?` on `float` means the call is **outside** quotes (or quotes were lost / became curly). WriterAgent’s [`sanitize_inline_py_code`](../plugin/calc/python/formula_edit.py) still rewrites `float(`/`int(`/`str(` when *emitting* Calc formulas as a defensive measure; that is not proof the lexer scans inside ASCII strings.
 
 ```text
 =PY(float(1))                 → #NAME?   (unquoted float = unknown function)
@@ -687,8 +662,7 @@ These are **not** implemented; kept so design discussions do not rediscover the 
 
 1. **Cell-reference-first UX** — Settings or formula wizard default: “put script in one cell, reference it from `=PY`” (already supported by IDL; needs prompts/UI). Best mitigation for huge scripts until LO raises `MAXSTRLEN`.
 2. **LLM / `=PROMPT()` guardrails** — Prefer cell refs for long code; emit ASCII `"` only; avoid unquoted Python in the formula.
-3. **Native ODS fixtures** — Shipped: [`tests/fixtures/numpy_domains_demo.ods`](../tests/fixtures/numpy_domains_demo.ods). Use ODS for manual `=PY()` QA (preserves uppercase add-in name; semicolon args).
-4. **Documentation parity** — Serialization fixtures intentionally use `np.sum` / `np.max` without unnecessary `float()`.
+3. **Native ODS fixtures** — Shipped: [`tests/fixtures/numpy_domains_demo.ods`](../tests/fixtures/numpy_domains_demo.ods). Use ODS for manual `=PY()` QA (preserves uppercase add-in name; semicolon args). Serialization fixtures use bare `np.sum` / `np.max` (no `float()` wrapper).
 
 ### Future LibreOffice formula-string work {#future-libreoffice-formula-string-work}
 
@@ -780,7 +754,7 @@ Microsoft runs Python in **cloud containers**. Authors type `xl("…")` literals
 | Feature dimension | Microsoft Excel (`=PY`) | Calc `=PY()` |
 | --- | --- | --- |
 | **Data ingress** | UI `xl("A1:B10")` → package `%Pn%` + trailing `_xlws.PY` deps | Range as formula arg → `data` / `ranges` |
-| **Output egress** | Last expression | Explicit `result = …` (last-expr also accepted) |
+| **Output egress** | Last expression | Prefer `result = …`; last expression if unset |
 | **Dependency tracking** | **Excel→PY:** trailing formula deps (literals rewritten at edit/save; no Python parse at recalc). **PY↔PY:** co-volatility ([ms-py §5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import), [jailsafe](numpy-jailsafe.md)) | Native Calc DAG on `data` args |
 | **Multi-range** | Multiple `%Pn%` / trailing deps | Varargs → `ranges` ([data shapes](calc-py-data-shapes.md#multi-range-support-varargs)) |
 | **Shared state** | Globals + row-major co-volatility | Opt-in shared kernel + `data` refs ([§6](#session-modes-and-recalc-semantics)) |
@@ -833,8 +807,9 @@ Complex returns (DataFrame, dict, class) should show a compact cell label (e.g. 
 | **Formula-bar Jedi** | [Monaco 2D](python-monaco-editor-dev-plan.md#phase-2d--jedi-autocompletion-child-only-performance-sensitive) |
 | **Named ranges / structured tables / `headers` in `data`** | [`calc_addin_data.py`](../plugin/calc/calc_addin_data.py) |
 | **Label preservation** | First row/column as pandas Index when requested |
-| **Keyboard shortcuts (Excel parity)** | **Shipped:** **Ctrl+Alt+Shift+F9** Reset Python Session; **Ctrl+Alt+Shift+P** Edit Python in Cell — [§6 shortcuts](#keyboard-shortcuts-and-recalc) |
 | **Spreadsheet → Python import** | [calc-spreadsheet-to-python-import.md](calc-spreadsheet-to-python-import.md) |
+| **Worker idle shutdown / per-formula `timeout_sec`** | Global timeout is Settings → Python; per-cell timeout and idle worker teardown are not shipped |
+| **Python edit dialog tiers 1–3** | [§6 deferred UX](#optional-python-edit-dialog-deferred-ux) |
 | **Range alignment for multi-range NumPy** | Mismatched shapes before `np.corrcoef` — [data shapes deferred](calc-py-data-shapes.md#deferred-upgrades) |
 | **Shared-kernel soft timeout / invalidation** | Prefer `SIGINT` then `SIGKILL`; user **Ctrl+Shift+F9** rebuilds DAG after worker wipe — [`session_manager.py`](../plugin/scripting/session_manager.py), [`venv_worker.py`](../plugin/scripting/venv_worker.py) |
 | **Blank side-channel** | Pass-through blanks stay empty — [data shapes deferred](calc-py-data-shapes.md#deferred-upgrades) |
@@ -862,18 +837,15 @@ See [numpy-jailsafe.md](numpy-jailsafe.md) for details on Collabora Online and j
 
 ## 9. Implementation status
 
+Remaining work lives in the child doc (or [§7 backlog](#calc-ux-backlog)). Do **not** add `split_grid` kinds for inf, NaT, Decimal, datetime64, empty DataFrames, or MultiIndex — [calc-py-data-shapes.md](calc-py-data-shapes.md).
 
-
-### Not shipped / deferred
-
-- **Scientific domain roadmaps (remaining)** — [Geospatial](numpy-domains.md#geospatial), [Audio/Signal](numpy-domains.md#audio-signal). **Shipped:** [Analysis](numpy-domains.md#scientific-domain-roadmap-trusted-helpers), [Vision](image-recognition.md), [Visualization (Phase A–C)](numpy-domains.md#visualization), [Symbolic Math (SymPy)](numpy-domains.md#symbolic-math), [Units (Pint)](numpy-domains.md#data-engineering-units), [Forecasting (Phase 0)](numpy-domains.md#forecasting), [Text Analytics](numpy-domains.md#text-analytics) (Writer dialog + Run Python Script; no LLM tool yet), [Optimization](numpy-domains.md#optimization) (partial — `optimize_data` + scipy helpers; pulp/ortools deferred), [Quant](numpy-domains.md) (Run Python Script only).
-- **SageMath integration** — optional future CAS backend; SymPy ships today — [sagemath-integration-dev-plan.md](sagemath-integration-dev-plan.md).
-- **Serialization next steps** — [Future work](numpy-serialization.md#future-work--serialization-performance): LO profile first, Tier 0, opaque blob, float32 (pandas rectangular+columns egress shipped), worker cache; Tier 2b codecs. Cython `vec_pack` **download is shipped** (Settings → Python → Download); remaining native-build notes in [numpy-serialization.md](numpy-serialization.md#building-host-native-extensions-cython).
-- Venv ↔ LO **tool RPC** ([§7](#venv--libreoffice-tool-rpc)) — `[writeragent_api.py](../plugin/scripting/writeragent_api.py)` stubs only.
-- **Collabora Online / jail-safe Python compute** — **Steps A–C** landed: `compute_service/`, kit/wsd wire, Core Calc AddIn (`scaddins/pythoncompute`, volatile `#BUSY!`, ScMatrix spill). Rebuild LO+Online to exercise `=PY()` Online; plot insert / Monaco remain ([Collabora Online and jail-safe execution](numpy-jailsafe.md); [online#16010](https://github.com/CollaboraOnline/online/issues/16010)).
-- **Calc landscape / UX backlog** — object cards, named ranges/tables, range alignment, shared-kernel soft timeout, Mito recorder — [§7 Calc UX backlog](#calc-ux-backlog). LibrePy Python sidebar diagnostics are **shipped**.
-- **Blank vs NaN / datetime / pandas grids** — shipped egress policy (`to_calc_compatible` + venv `serialize_result`). **Do not** add `split_grid` kinds for inf, NaT, Decimal, datetime64, empty DataFrames, or MultiIndex — [calc-py-data-shapes.md](calc-py-data-shapes.md). Deferred: blank side-channel only.
-- Worker idle shutdown, per-formula `timeout_sec`, Python edit dialog tiers 1–3.
-- **Monaco backlog** — syntax validate (2B), range picker (2C), formula-bar polish — [python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md). Theme sync (2E), Jedi debounce / missing-`jedi` hint (2D), Excel-style Calc accelerators, and LibrePy sidebar cell list / diagnostics are shipped.
-- **Jupyter notebook import** — see [jupyter-notebook-import.md](jupyter-notebook-import.md) (Writer import shipped; execution loop deferred).
+| Area | Where to look |
+| --- | --- |
+| Calc UX (object cards, named ranges, soft timeout, edit-dialog tiers, …) | [§7 backlog](#calc-ux-backlog) |
+| Domain helpers (Geospatial / Audio remaining; Analysis, Viz, SymPy, Units, Forecast, Text, Optimize, Quant shipped or partial) | [numpy-domains.md](numpy-domains.md); SageMath: [sagemath-integration-dev-plan.md](sagemath-integration-dev-plan.md) |
+| Serialization / Cython `vec_pack` download | [numpy-serialization.md](numpy-serialization.md#future-work--serialization-performance) |
+| Venv ↔ LO tool RPC | [§7](#venv--libreoffice-tool-rpc) |
+| Collabora Online (Steps A–C landed; plot / Monaco remain) | [numpy-jailsafe.md](numpy-jailsafe.md), [online#16010](https://github.com/CollaboraOnline/online/issues/16010) |
+| Monaco editor remaining phases | [python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md) |
+| Jupyter Writer import (execution loop deferred) | [jupyter-notebook-import.md](jupyter-notebook-import.md) |
 

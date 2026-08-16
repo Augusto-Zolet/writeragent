@@ -26,7 +26,10 @@ Unlike proprietary office suites that lock you into a single cloud provider and 
 
 ### Calc
 
-- **`=PROMPT()` and `=PY()`** — AI prompts and NumPy/pandas code in spreadsheet cells with auto spill, shared kernel, init scripts, and document-attached scripts. Example: `=PY("np.mean(data)"; A1:A10)` averages a real Calc range. [NumPy in LibreOffice](docs/enabling_numpy_in_libreoffice.md) · [Data shapes](docs/calc-py-data-shapes.md)
+- **`=PROMPT()` and `=PY()`** — AI prompts and NumPy/pandas code in spreadsheet cells with auto spill, shared kernel, init scripts, and document-attached scripts. Examples:
+  - `=PY("np.mean(data)"; A1:A10)` — Average a real Calc range with NumPy.
+  - `=PY("data.to_pandas(date_cols=True)"; A1:C10)` — Load a table into pandas with automatic date parsing.
+  [NumPy in LibreOffice](docs/enabling_numpy_in_libreoffice.md) · [Data shapes](docs/calc-py-data-shapes.md)
 - **Trusted helper domains** — Analysis (EDA, outliers, regression, Monte Carlo, …), Viz, Math, Quant, Optimize, and Units — via chat or **Tools → Run Python Script**. Try **Units Helpers → convert_quantity** with `convert_quantity(60, "mph", "m/s")` → `26.8224 m/s`. [Domain reference](docs/numpy-domains.md) · [Analysis tools](docs/calc-analysis-tools.md)
 - **Sheet → Python converter** — Rewrite 235+ Calc formula functions as `=PY()` while constants, dates, and formats stay unchanged. [Details](docs/calc-spreadsheet-to-python-import.md)
 
