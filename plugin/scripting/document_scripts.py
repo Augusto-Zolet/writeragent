@@ -4,6 +4,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Document-attached named Python scripts and Calc workbook init scripts (UserDefinedProperties)."""
 
+# =========================================================================================
+# WARNING: PARITY INVARIANT WITH MONACO JAVASCRIPT FRONTEND
+# If you modify script sections, envelope structures, or script list IPC payloads here,
+# you MUST also update the corresponding JavaScript / Python consumers:
+#   - JS Script Manager:        plugin/contrib/scripting/assets/editor/scripts_manager.js
+#   - Python UI Dialog:         plugin/scripting/python_runner_ui.py
+#   - IPC Host Bridge:          plugin/scripting/editor_host.py
+# =========================================================================================
+
 from __future__ import annotations
 
 import hashlib

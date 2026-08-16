@@ -4,6 +4,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Monaco editor IPC protocol (pickle protocol 5) and failure formatting for user-visible dialogs."""
 
+# =========================================================================================
+# WARNING: PARITY INVARIANT WITH MONACO JAVASCRIPT FRONTEND
+# If you modify IPC frame structures or protocol message envelopes here,
+# you MUST also update the corresponding JavaScript / Python files:
+#   - Monaco Editor Script:     plugin/contrib/scripting/assets/editor/editor.js
+#   - JS Script Manager:        plugin/contrib/scripting/assets/editor/scripts_manager.js
+#   - Host Bridge:              plugin/scripting/editor_host.py
+# =========================================================================================
+
 from __future__ import annotations
 
 import traceback

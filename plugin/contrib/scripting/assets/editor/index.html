@@ -8,9 +8,18 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <!-- =========================================================================================
+       WARNING: PARITY INVARIANT WITH NATIVE LIBREOFFICE DIALOG LAYOUTS
+       If you modify toolbar buttons, controls, or modals in this file, update:
+         - Native Python Script Dialog:  extension/Dialogs/PythonScriptDialog.xdl
+         - Native New Script Dialog:      extension/Dialogs/NewScriptDialog.xdl
+         - Python Controller & Listeners: plugin/scripting/python_runner_ui.py
+         - Script Manager Controller:    plugin/contrib/scripting/assets/editor/scripts_manager.js
+       ========================================================================================= -->
   <header id="toolbar">
     <button type="button" id="btn-run" class="toolbar-hidden">Run</button>
     <button type="button" id="btn-save">Save</button>
+    <button type="button" id="btn-new-script" class="toolbar-hidden">New</button>
     <button type="button" id="btn-cancel">Cancel</button>
     
     <!-- Premium Script Selector & Actions (only visible in run_script mode) -->
@@ -33,6 +42,26 @@
     <input type="text" id="status" readonly value="Status: Ready" spellcheck="false" aria-live="polite" />
   </header>
   <div id="editor"></div>
+
+  <!-- New Script Modal Dialog -->
+  <div id="new-script-modal" class="modal-backdrop toolbar-hidden">
+    <div class="modal-card">
+      <div class="modal-header" id="new-script-modal-title">New Python Script</div>
+      <div class="modal-body">
+        <label for="new-script-name-input" id="new-script-name-label">Script name:</label>
+        <input type="text" id="new-script-name-input" autocomplete="off" spellcheck="false" />
+        <label class="modal-check-label" id="new-script-attach-container">
+          <input type="checkbox" id="new-script-attach-check" />
+          <span id="new-script-attach-label">Attach to this document</span>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-new-script-create">Create</button>
+        <button type="button" id="btn-new-script-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <script src="vs/loader.js"></script>
   <script src="editor.js"></script>
   <script src="scripts_manager.js"></script>

@@ -7,6 +7,18 @@
 # (at your option) any later version.
 """UI Dialog logic for 'Run Python Script...' in Writer."""
 
+# =========================================================================================
+# WARNING: PARITY INVARIANT WITH MONACO JAVASCRIPT FRONTEND
+# If you modify script actions, dropdown listeners, dialog layouts, or templates here,
+# you MUST also update the corresponding JavaScript / HTML implementations:
+#   - JS Script Manager:        plugin/contrib/scripting/assets/editor/scripts_manager.js
+#   - Monaco HTML / Toolbar:    plugin/contrib/scripting/assets/editor/index.html
+#   - UI Strings Catalog:       plugin/scripting/editor_ui_strings.py
+#   - Document Scripts Data:    plugin/scripting/document_scripts.py
+#   - Native Dialog Layout:     extension/Dialogs/PythonScriptDialog.xdl
+#   - Native New Script Dialog: extension/Dialogs/NewScriptDialog.xdl
+# =========================================================================================
+
 import logging
 from typing import Any
 import unohelper
@@ -15,7 +27,7 @@ from com.sun.star.awt import XActionListener, XItemListener, XTopWindowListener
 from plugin.framework.config import get_config, get_config_str, set_config
 from plugin.framework.i18n import _
 from plugin.chatbot.dialogs import load_writeragent_dialog_detail, msgbox, set_control_text, show_approval_dialog
-from plugin.chatbot.dialogs import show_text_input_dialog
+from plugin.chatbot.dialogs import show_new_script_dialog, show_text_input_dialog
 from plugin.framework.worker_pool import run_in_background
 from plugin.scripting.document_scripts import (
     attach_document_script,
@@ -320,6 +332,8 @@ class NativePythonScriptDialog:
             def disposing(self, Source):
                 pass
 
+        # WARNING: If you change Save logic, also update btn-save listener in:
+        # plugin/contrib/scripting/assets/editor/scripts_manager.js
         class _SaveListener(unohelper.Base, XActionListener):
             def actionPerformed(self, rEvent):
                 try:
@@ -335,6 +349,8 @@ class NativePythonScriptDialog:
             def disposing(self, Source):
                 pass
 
+        # WARNING: If you change Attach logic, also update onAttach in:
+        # plugin/contrib/scripting/assets/editor/scripts_manager.js
         class _AttachListener(unohelper.Base, XActionListener):
             def actionPerformed(self, rEvent):
                 try:
@@ -373,6 +389,8 @@ class NativePythonScriptDialog:
             def disposing(self, Source):
                 pass
 
+        # WARNING: If you change Save As logic, also update onSaveAs in:
+        # plugin/contrib/scripting/assets/editor/scripts_manager.js
         class _SaveAsListener(unohelper.Base, XActionListener):
             def actionPerformed(self, rEvent):
                 try:
@@ -430,6 +448,8 @@ class NativePythonScriptDialog:
             def disposing(self, Source):
                 pass
 
+        # WARNING: If you change Delete logic, also update onDeleteScript in:
+        # plugin/contrib/scripting/assets/editor/scripts_manager.js
         class _DeleteListener(unohelper.Base, XActionListener):
             def actionPerformed(self, rEvent):
                 try:
@@ -464,6 +484,64 @@ class NativePythonScriptDialog:
             def disposing(self, Source):
                 pass
 
+        # WARNING: If you change New script creation logic, also update onCreateNewScript in:
+        # plugin/contrib/scripting/assets/editor/scripts_manager.js
+        # and dialog layout in extension/Dialogs/NewScriptDialog.xdl
+        class _NewListener(unohelper.Base, XActionListener):
+            def actionPerformed(self, rEvent):
+                try:
+                    res = show_new_script_dialog(ctx, doc=doc)
+                    if not res:
+                        return
+                    name, attach_to_document = res
+                    name = name.strip()
+                    if not name:
+                        return
+
+                    lbl = dlg.getControl("InstructionLbl")
+                    ec = dlg.getControl("CodeEdit")
+                    starter_code = '# A simple script\nresult = "Hello from Python!"\n'
+
+                    if attach_to_document and doc is not None:
+                        from plugin.scripting.document_scripts import document_script_display_name, get_document_scripts
+
+                        overwrite = name in get_document_scripts(doc)
+                        if overwrite and not show_approval_dialog(
+                            ctx,
+                            _("A script named '{0}' already exists in this document. Overwrite?").format(name),
+                            _("New Script"),
+                        ):
+                            return
+                        err = attach_document_script(doc, name, starter_code, overwrite=True)
+                        if err:
+                            set_control_text(lbl, err)
+                            return
+                        if ec is not None:
+                            set_control_text(ec, starter_code)
+                        owner._refresh_script_dropdown(document_script_display_name(name))
+                        set_control_text(lbl, _("Script '%s' created in this document.") % name)
+                    else:
+                        user_scripts = get_config("saved_python_scripts")
+                        if not isinstance(user_scripts, dict):
+                            user_scripts = {}
+                        if name in user_scripts and not show_approval_dialog(
+                            ctx,
+                            _("A script named '{0}' already exists in My Scripts. Overwrite?").format(name),
+                            _("New Script"),
+                        ):
+                            return
+                        user_scripts[name] = starter_code
+                        set_config("saved_python_scripts", user_scripts)
+                        if ec is not None:
+                            set_control_text(ec, starter_code)
+                        owner._refresh_script_dropdown(name)
+                        set_control_text(lbl, _("Script '%s' created in My Scripts.") % name)
+                except Exception:
+                    log.exception("New script failed in dialog")
+
+            def disposing(self, Source):
+                pass
+
         class _CancelListener(unohelper.Base, XActionListener):
             def actionPerformed(self, rEvent):
                 if owner._modeless:
@@ -477,6 +555,9 @@ class NativePythonScriptDialog:
         select_ctrl.addItemListener(_ScriptSelectListener())
         dlg.getControl("BtnRun").addActionListener(_RunListener())
         dlg.getControl("BtnSave").addActionListener(_SaveListener())
+        btn_new = dlg.getControl("BtnNew")
+        if btn_new is not None:
+            btn_new.addActionListener(_NewListener())
         dlg.getControl("BtnAttach").addActionListener(_AttachListener())
         dlg.getControl("BtnSaveAs").addActionListener(_SaveAsListener())
         dlg.getControl("BtnDelete").addActionListener(_DeleteListener())

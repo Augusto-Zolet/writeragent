@@ -29,6 +29,8 @@ def test_calc_cell_ui_includes_data_binding_and_cancel():
 
 def test_run_script_ui_matches_native_dialog_labels():
     ui = build_monaco_ui_strings(mode="run_script")
+    assert ui["new_label"] == _("New")
+    assert ui["new_script_title"] == _("New Python Script")
     assert ui["script_label"] == _("Script:")
     assert ui["attach_label"] == _("Attach")
     assert ui["save_as_label"] == _("Save As...")

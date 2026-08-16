@@ -4,6 +4,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Monaco editor host: spawn child process, pipe bridge, and session launch."""
 
+# =========================================================================================
+# WARNING: PARITY INVARIANT WITH MONACO JAVASCRIPT FRONTEND
+# If you modify IPC message handlers, dispatching, or session launch here,
+# you MUST also update the corresponding JavaScript / Protocol files:
+#   - Monaco Editor Script:     plugin/contrib/scripting/assets/editor/editor.js
+#   - JS Script Manager:        plugin/contrib/scripting/assets/editor/scripts_manager.js
+#   - IPC Message Protocol:     plugin/scripting/editor_protocol.py
+# =========================================================================================
+
 from __future__ import annotations
 
 import logging

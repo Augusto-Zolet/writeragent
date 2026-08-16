@@ -923,6 +923,7 @@ def update_dialog_xlb(library_dir, dialog_names, tpl_path=None):
         "MsgBoxWithCopyDialog",
         "StatusUpdateDialog",
         "PythonTestProgressDialog",
+        "NewScriptDialog",
     ]
     if os.path.isfile(tpl_path):
         with open(tpl_path, encoding="utf-8") as f:

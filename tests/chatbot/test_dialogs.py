@@ -35,6 +35,7 @@ from plugin.chatbot.dialogs import (
     add_dialog_label,
     add_dialog_edit,
     add_dialog_hyperlink,
+    show_new_script_dialog,
     show_text_input_dialog,
     translate_dialog,
     format_exception_detail,
@@ -381,6 +382,92 @@ def test_show_text_input_dialog_cancel_returns_none(mock_get_desktop):
     dlg.execute.side_effect = fake_execute
 
     result = show_text_input_dialog(ctx, "Enter name:", "Title", "")
+    assert result is None
+
+
+def _mock_new_script_dialog_uno(name_on_ok: str, attach_state: int = 1):
+    """Build ctx/desktop/smgr/dlg mocks for show_new_script_dialog tests."""
+    ctx = MagicMock()
+    desktop = MagicMock()
+    frame = MagicMock()
+    desktop.getCurrentFrame.return_value = frame
+    frame.getContainerWindow.return_value = MagicMock()
+
+    smgr = MagicMock()
+    dlg_model = MagicMock()
+    dlg = MagicMock()
+    ctx.getServiceManager.return_value = smgr
+
+    def fake_create(service, _ctx):
+        if "UnoControlDialogModel" in service:
+            return dlg_model
+        if "UnoControlDialog" in service:
+            return dlg
+        return MagicMock()
+
+    smgr.createInstanceWithContext.side_effect = fake_create
+
+    name_edit_model = MagicMock()
+    name_edit_model.Text = name_on_ok
+    name_edit = MagicMock()
+    name_edit.getModel.return_value = name_edit_model
+
+    chk_model = MagicMock()
+    chk_model.State = attach_state
+    chk = MagicMock()
+    chk.getModel.return_value = chk_model
+
+    ok_listeners = []
+    cancel_listeners = []
+
+    def fake_get_control(name):
+        if name == "NameEdit":
+            return name_edit
+        if name == "ChkAttach":
+            return chk
+        if name == "BtnOK":
+            btn = MagicMock()
+            btn.addActionListener.side_effect = lambda listener: ok_listeners.append(listener)
+            return btn
+        if name == "BtnCancel":
+            btn = MagicMock()
+            btn.addActionListener.side_effect = lambda listener: cancel_listeners.append(listener)
+            return btn
+        return MagicMock()
+
+    dlg.getControl.side_effect = fake_get_control
+    return ctx, desktop, dlg, ok_listeners, cancel_listeners
+
+
+@patch("plugin.chatbot.dialogs.get_desktop")
+def test_show_new_script_dialog_ok_returns_name_and_attach(mock_get_desktop):
+    ctx, desktop, dlg, ok_listeners, _cancel_listeners = _mock_new_script_dialog_uno("  MyNewScript  ", attach_state=1)
+    mock_get_desktop.return_value = desktop
+
+    def fake_execute():
+        for listener in ok_listeners:
+            listener.actionPerformed(MagicMock())
+
+    dlg.execute.side_effect = fake_execute
+
+    doc = MagicMock()
+    doc.isReadonly.return_value = False
+    result = show_new_script_dialog(ctx, doc=doc, default_name="NewScript")
+    assert result == ("MyNewScript", True)
+
+
+@patch("plugin.chatbot.dialogs.get_desktop")
+def test_show_new_script_dialog_cancel_returns_none(mock_get_desktop):
+    ctx, desktop, dlg, _ok_listeners, cancel_listeners = _mock_new_script_dialog_uno("MyScript", attach_state=0)
+    mock_get_desktop.return_value = desktop
+
+    def fake_execute():
+        for listener in cancel_listeners:
+            listener.actionPerformed(MagicMock())
+
+    dlg.execute.side_effect = fake_execute
+
+    result = show_new_script_dialog(ctx, doc=None, default_name="")
     assert result is None
 
 

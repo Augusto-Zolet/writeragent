@@ -1,3 +1,14 @@
+// =========================================================================================
+// WARNING: PARITY INVARIANT WITH NATIVE PYTHON IMPLEMENTATION
+// If you modify script actions, dropdown logic, templates, or origin handling in this file,
+// you MUST also update the corresponding Python / XDL native implementations:
+//   - Python Controller & Listeners: plugin/scripting/python_runner_ui.py
+//   - Document Scripts & Data:      plugin/scripting/document_scripts.py
+//   - Localized Strings Catalog:    plugin/scripting/editor_ui_strings.py
+//   - Native Dialog Layout:         extension/Dialogs/PythonScriptDialog.xdl
+//   - Native New Script Dialog:     extension/Dialogs/NewScriptDialog.xdl
+// =========================================================================================
+
 (function() {
   "use strict";
 
@@ -45,14 +56,24 @@
     }
     var el = document.getElementById("status");
     if (el) {
-      el.value = text || t("ready", "Ready");
-      el.className = "";
+      el.value = "Status: " + text;
+      el.classList.remove("status-ok", "status-error");
       if (kind === "ok") el.classList.add("status-ok");
       if (kind === "error") el.classList.add("status-error");
     }
   }
 
+  // WARNING: If you change this starter template, also update starter_code in:
+  // plugin/scripting/python_runner_ui.py (_NewListener)
+  var NEW_SCRIPT_TEMPLATE = '# A simple script\nresult = "Hello from Python!"\n';
+
   function applyScriptManagerChrome() {
+    var btnNew = document.getElementById("btn-new-script");
+    if (btnNew) {
+      btnNew.textContent = t("new_label", "New");
+      btnNew.title = t("new_script_title", "New Python Script");
+    }
+
     var scriptLabel = document.querySelector('label[for="script-select"]');
     if (scriptLabel) {
       scriptLabel.textContent = t("script_label", "Script:");
@@ -78,6 +99,27 @@
     var deleteBtn = getDeleteBtn();
     if (deleteBtn) {
       deleteBtn.textContent = t("delete_label", "Delete");
+    }
+
+    var modalTitle = document.getElementById("new-script-modal-title");
+    if (modalTitle) {
+      modalTitle.textContent = t("new_script_title", "New Python Script");
+    }
+    var nameLabel = document.getElementById("new-script-name-label");
+    if (nameLabel) {
+      nameLabel.textContent = t("script_name_label", "Script name:");
+    }
+    var attachLabel = document.getElementById("new-script-attach-label");
+    if (attachLabel) {
+      attachLabel.textContent = t("attach_to_document_label", "Attach to this document");
+    }
+    var btnCreate = document.getElementById("btn-new-script-create");
+    if (btnCreate) {
+      btnCreate.textContent = t("create_label", "Create");
+    }
+    var btnCancelModal = document.getElementById("btn-new-script-cancel");
+    if (btnCancelModal) {
+      btnCancelModal.textContent = t("cancel_label", "Cancel");
     }
   }
 
@@ -202,6 +244,10 @@
       if (container) {
         container.classList.toggle("toolbar-hidden", !isRunScript);
       }
+      var btnNew = document.getElementById("btn-new-script");
+      if (btnNew) {
+        btnNew.classList.toggle("toolbar-hidden", !isRunScript);
+      }
       if (isRunScript) {
         if (typeof msg.selected_script_name === "string") {
           selectedScriptName = msg.selected_script_name;
@@ -291,8 +337,8 @@
     if (deleteBtn) {
       deleteBtn.classList.toggle("toolbar-hidden", false);
     }
-  }
-
+  }  // WARNING: If you change dropdown selection logic, also update _ScriptSelectListener in:
+  // plugin/scripting/python_runner_ui.py
   function onDropdownChange() {
     var select = getSelectEl();
     if (!select) return;
@@ -333,6 +379,8 @@
     return false;
   }
 
+  // WARNING: If you change Attach logic, also update _AttachListener in:
+  // plugin/scripting/python_runner_ui.py
   function onAttach() {
     if (!documentAvailable || documentReadonly || documentStale) {
       setStatus(t("cannot_attach", "No document is open to attach scripts."), "error");
@@ -356,6 +404,8 @@
     }
   }
 
+  // WARNING: If you change Copy to My Scripts logic, also update:
+  // plugin/scripting/python_runner_ui.py
   function onCopyToUser() {
     if (!currentSelectedName || (currentOrigin !== "document" && !isBuiltInHelperOrigin(currentOrigin))) {
       return;
@@ -370,43 +420,54 @@
     }
     if (window.editor && window.pywebview && window.pywebview.api && window.pywebview.api.copy_script_to_user) {
       var code = window.editor.getValue();
+      currentSelectedName = name;
+      currentOrigin = "user";
       window.pywebview.api.copy_script_to_user(name, code, overwrite);
       setStatus(fmt("copying_script", name), "ok");
     }
   }
 
+  // WARNING: If you change Save As logic, also update _SaveAsListener in:
+  // plugin/scripting/python_runner_ui.py
   function onSaveAs() {
-    if (isBuiltInHelperOrigin(currentOrigin)) {
-      setStatus(builtInHelperReadOnlyMessage(), "error");
-      return;
-    }
     var defaultName = currentSelectedName || "";
     var name = prompt(t("save_as_prompt", "Enter script name:"), defaultName);
     if (!name) return;
     name = name.trim();
     if (!name) return;
 
-    var origin = currentOrigin === "document" ? "document" : "user";
-    if (documentAvailable && !documentReadonly && !documentStale && currentOrigin !== "document") {
+    var targetOrigin = currentOrigin;
+    if (targetOrigin !== "document") {
+      targetOrigin = "user";
+    }
+
+    if (documentAvailable && !documentReadonly && !documentStale && targetOrigin !== "document") {
       if (confirm(fmt("save_to_document_confirm", name))) {
-        origin = "document";
+        targetOrigin = "document";
+      }
+    }
+
+    var overwrite = scriptExistsInSection(targetOrigin, name);
+    if (overwrite) {
+      var msgKey = targetOrigin === "document" ? "attach_overwrite_confirm" : "copy_overwrite_confirm";
+      if (!confirm(fmt(msgKey, name))) {
+        return;
       }
     }
 
     if (window.editor && window.pywebview && window.pywebview.api && window.pywebview.api.save_script) {
       var code = window.editor.getValue();
       currentSelectedName = name;
-      currentOrigin = origin;
-      window.pywebview.api.save_script(name, code, origin);
+      currentOrigin = targetOrigin;
+      window.pywebview.api.save_script(name, code, targetOrigin);
       setStatus(fmt("saving_script", name), "ok");
     }
   }
 
+  // WARNING: If you change Delete logic, also update _DeleteListener in:
+  // plugin/scripting/python_runner_ui.py
   function onDeleteScript() {
-    var select = getSelectEl();
-    if (!select) return;
-
-    var name = select.value;
+    var name = currentSelectedName;
     if (!name) {
       return;
     }
@@ -424,6 +485,74 @@
         setStatus(fmt("deleting_script", name), "ok");
       }
     }
+  }
+
+  function getNewScriptModal() {
+    return document.getElementById("new-script-modal");
+  }
+
+  function openNewScriptModal() {
+    var modal = getNewScriptModal();
+    if (!modal) return;
+    var nameInput = document.getElementById("new-script-name-input");
+    var attachCheck = document.getElementById("new-script-attach-check");
+    var canWriteDocument = documentAvailable && !documentReadonly && !documentStale;
+    if (nameInput) {
+      nameInput.value = "";
+    }
+    if (attachCheck) {
+      attachCheck.checked = canWriteDocument;
+      attachCheck.disabled = !canWriteDocument;
+    }
+    modal.classList.remove("toolbar-hidden");
+    if (nameInput) {
+      setTimeout(function() { nameInput.focus(); }, 50);
+    }
+  }
+
+  function closeNewScriptModal() {
+    var modal = getNewScriptModal();
+    if (modal) {
+      modal.classList.add("toolbar-hidden");
+    }
+    if (window.editor) {
+      window.editor.focus();
+    }
+  }
+
+  // WARNING: If you change New script creation logic, also update _NewListener in:
+  // plugin/scripting/python_runner_ui.py
+  // and dialog layout in extension/Dialogs/NewScriptDialog.xdl
+  function onCreateNewScript() {
+    var nameInput = document.getElementById("new-script-name-input");
+    var name = nameInput ? nameInput.value.trim() : "";
+    if (!name) {
+      setStatus(t("script_name_required", "Script name cannot be empty."), "error");
+      if (nameInput) nameInput.focus();
+      return;
+    }
+    var attachCheck = document.getElementById("new-script-attach-check");
+    var origin = (attachCheck && attachCheck.checked && documentAvailable && !documentReadonly && !documentStale)
+      ? "document"
+      : "user";
+
+    var overwrite = scriptExistsInSection(origin, name);
+    if (overwrite && !confirm(fmt(origin === "document" ? "attach_overwrite_confirm" : "copy_overwrite_confirm", name))) {
+      return;
+    }
+
+    var code = NEW_SCRIPT_TEMPLATE;
+    if (window.editor) {
+      window.editor.setValue(code);
+    }
+    currentSelectedName = name;
+    currentOrigin = origin;
+
+    if (window.pywebview && window.pywebview.api && window.pywebview.api.save_script) {
+      window.pywebview.api.save_script(name, code, origin);
+      setStatus(fmt("saving_script", name), "ok");
+    }
+    closeNewScriptModal();
   }
 
   function setupInterception() {
@@ -452,6 +581,8 @@
       if (isRunScript) {
         var container = getManagerContainer();
         if (container) container.classList.remove("toolbar-hidden");
+        var btnNew = document.getElementById("btn-new-script");
+        if (btnNew) btnNew.classList.remove("toolbar-hidden");
         window.pywebview.api.request_scripts();
         initialRequested = true;
       }
@@ -468,6 +599,34 @@
 
   document.addEventListener("DOMContentLoaded", function() {
     applyScriptManagerChrome();
+
+    var btnNew = document.getElementById("btn-new-script");
+    if (btnNew) {
+      btnNew.addEventListener("click", openNewScriptModal);
+    }
+
+    var btnCreate = document.getElementById("btn-new-script-create");
+    if (btnCreate) {
+      btnCreate.addEventListener("click", onCreateNewScript);
+    }
+
+    var btnCancelModal = document.getElementById("btn-new-script-cancel");
+    if (btnCancelModal) {
+      btnCancelModal.addEventListener("click", closeNewScriptModal);
+    }
+
+    var nameInput = document.getElementById("new-script-name-input");
+    if (nameInput) {
+      nameInput.addEventListener("keydown", function(e) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          onCreateNewScript();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          closeNewScriptModal();
+        }
+      });
+    }
 
     var select = getSelectEl();
     if (select) {

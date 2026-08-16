@@ -6,6 +6,16 @@
  * - Path: https://unpkg.com/monaco-latex/dist/src/tokenizer.js
  */
 
+// =========================================================================================
+// WARNING: PARITY INVARIANT WITH PYTHON HOST & IPC PROTOCOL
+// If you modify message parsing, shortcuts, save/run dispatch, or UI strings handling,
+// you MUST also update the corresponding Python modules:
+//   - Python Host Bridge:        plugin/scripting/editor_host.py
+//   - IPC Message Protocol:      plugin/scripting/editor_protocol.py
+//   - UI Strings Catalog:        plugin/scripting/editor_ui_strings.py
+//   - Script Manager Frontend:   plugin/contrib/scripting/assets/editor/scripts_manager.js
+// =========================================================================================
+
 (function () {
   "use strict";
 

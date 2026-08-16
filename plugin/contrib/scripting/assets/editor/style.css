@@ -295,3 +295,131 @@ body.dark .toolbar-check {
 body.dark #editor {
   background: #1e1e1e;
 }
+
+/* Modal Dialog */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-card {
+  background: #ffffff;
+  color: #333333;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  width: 340px;
+  max-width: 90vw;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.modal-header {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.modal-body label {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+#new-script-name-input {
+  padding: 6px 8px;
+  font-size: 13px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+#new-script-name-input:focus {
+  outline: none;
+  border-color: #0969da;
+  box-shadow: 0 0 0 2px rgba(9, 105, 218, 0.2);
+}
+
+.modal-check-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  margin-top: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.modal-footer button {
+  padding: 5px 14px;
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid #ccc;
+  background: #f6f8fa;
+}
+
+#btn-new-script-create {
+  background: #0969da;
+  color: #ffffff;
+  border-color: #0969da;
+}
+
+#btn-new-script-create:hover {
+  background: #0858b8;
+}
+
+body.dark .modal-card {
+  background: #252526;
+  color: #cccccc;
+  border: 1px solid #3c3c3c;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+body.dark #new-script-name-input {
+  background: #3c3c3c;
+  color: #ffffff;
+  border-color: #555555;
+}
+
+body.dark #new-script-name-input:focus {
+  border-color: #4a9eff;
+  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+}
+
+body.dark .modal-footer button {
+  background: #2d2d2d;
+  color: #cccccc;
+  border-color: #3c3c3c;
+}
+
+body.dark #btn-new-script-create {
+  background: #0078d4;
+  color: #ffffff;
+  border-color: #0078d4;
+}
+
+body.dark #btn-new-script-create:hover {
+  background: #006cc1;
+}
+

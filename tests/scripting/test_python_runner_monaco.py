@@ -539,6 +539,72 @@ def test_show_python_input_dialog_save_as_button():
                             mock_set.assert_any_call("saved_python_scripts", {"scriptk": "print('hello world')"})
 
 
+def test_native_dialog_btn_new_action_creates_script():
+    ctx = MagicMock()
+    desktop = MagicMock()
+    frame = MagicMock()
+    parent_window = MagicMock()
+    desktop.getCurrentFrame.return_value = frame
+    frame.getContainerWindow.return_value = parent_window
+
+    smgr = MagicMock()
+    dlg_model = MagicMock()
+    dlg = MagicMock()
+    toolkit = MagicMock()
+    ctx.getServiceManager.return_value = smgr
+
+    def fake_create(service, _ctx):
+        if "UnoControlDialogModel" in service:
+            return dlg_model
+        if "UnoControlDialog" in service:
+            return dlg
+        if "Toolkit" in service:
+            return toolkit
+        return MagicMock()
+
+    smgr.createInstanceWithContext.side_effect = fake_create
+
+    code_edit_model = MagicMock()
+    code_edit_model.Text = ""
+    code_edit = MagicMock()
+    code_edit.getModel.return_value = code_edit_model
+
+    script_select = MagicMock()
+    script_select.getSelectedItemPos.return_value = 0
+    script_select.getItems.return_value = ["Universal Sample"]
+
+    btn_new = MagicMock()
+    listeners = []
+    btn_new.addActionListener.side_effect = lambda listener: listeners.append(listener)
+
+    def fake_get_control(name):
+        if name == "ScriptSelect":
+            return script_select
+        if name == "BtnNew":
+            return btn_new
+        return code_edit
+
+    dlg.getControl.side_effect = fake_get_control
+
+    with patch("plugin.framework.uno_context.get_desktop", return_value=desktop):
+        with _patch_modal_native():
+            with patch.object(ui, "get_config", return_value={}):
+                with patch.object(ui, "get_config_str", return_value=""):
+                    with patch.object(ui, "set_config") as mock_set:
+                        with patch.object(ui, "show_new_script_dialog", return_value=("BrandNewScript", False)) as mock_new_dlg:
+                            def fake_execute():
+                                for listener in listeners:
+                                    if "NewListener" in type(listener).__name__:
+                                        listener.actionPerformed(MagicMock())
+
+                            dlg.execute.side_effect = fake_execute
+
+                            ui.show_python_input_dialog(ctx, "print('hello')", "last_python_script_writer")
+
+                            mock_new_dlg.assert_called_once()
+                            mock_set.assert_any_call("saved_python_scripts", {"BrandNewScript": '# A simple script\nresult = "Hello from Python!"\n'})
+
+
 def test_show_python_input_dialog_modeless_uses_set_visible():
     ctx = MagicMock()
     desktop = MagicMock()

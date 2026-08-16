@@ -3,16 +3,24 @@
 <dlg:window xmlns:dlg="http://openoffice.org/2000/dialog" xmlns:script="http://openoffice.org/2000/script"
   dlg:id="PythonScriptDialog" dlg:left="100" dlg:top="50" dlg:width="400" dlg:height="220"
   dlg:closeable="true" dlg:moveable="true" dlg:title="Run Python Script">
+ <!-- =========================================================================================
+      WARNING: PARITY INVARIANT WITH MONACO HTML / JS FRONTEND
+      If you modify buttons, control IDs, or layout coordinates here, you MUST update:
+        - Monaco HTML / Toolbar:    plugin/contrib/scripting/assets/editor/index.html
+        - JS Script Manager:        plugin/contrib/scripting/assets/editor/scripts_manager.js
+        - Python UI Controller:     plugin/scripting/python_runner_ui.py
+      ========================================================================================= -->
  <dlg:bulletinboard>
-  <dlg:button dlg:id="BtnRun" dlg:left="8" dlg:top="8" dlg:width="50" dlg:height="14" dlg:value="Run" dlg:tabstop="true"/>
-  <dlg:button dlg:id="BtnSave" dlg:left="62" dlg:top="8" dlg:width="50" dlg:height="14" dlg:value="Save" dlg:tabstop="true"/>
-  <dlg:button dlg:id="BtnCancel" dlg:left="116" dlg:top="8" dlg:width="50" dlg:height="14" dlg:value="Close" dlg:tabstop="true"/>
-  <dlg:text dlg:id="ScriptLbl" dlg:left="172" dlg:top="10" dlg:width="22" dlg:height="10" dlg:value="Script:" dlg:align="left" dlg:multiline="false"/>
-  <dlg:combobox dlg:id="ScriptSelect" dlg:left="196" dlg:top="8" dlg:width="60" dlg:height="14" dlg:tabstop="true" dlg:spin="true" dlg:dropdown="true" dlg:value="" dlg:border="1"/>
-  <dlg:button dlg:id="BtnAttach" dlg:left="260" dlg:top="8" dlg:width="44" dlg:height="14" dlg:value="Attach" dlg:tabstop="true"/>
-  <dlg:button dlg:id="BtnSaveAs" dlg:left="308" dlg:top="8" dlg:width="44" dlg:height="14" dlg:value="Save As..." dlg:tabstop="true"/>
-  <dlg:button dlg:id="BtnDelete" dlg:left="356" dlg:top="8" dlg:width="34" dlg:height="14" dlg:value="Delete" dlg:tabstop="true"/>
-  <dlg:textfield dlg:id="InstructionLbl" dlg:left="8" dlg:top="26" dlg:width="334" dlg:height="20" dlg:value="Enter Python code to execute in the user virtual environment.\nAssign the result to the 'result' variable." dlg:tabstop="true" dlg:readonly="true" dlg:multiline="true" dlg:vscroll="true"/>
-  <dlg:textfield dlg:id="CodeEdit" dlg:left="8" dlg:top="48" dlg:width="334" dlg:height="164" dlg:tabstop="true" dlg:multiline="true" dlg:vscroll="true"/>
+  <dlg:button dlg:id="BtnRun" dlg:left="8" dlg:top="8" dlg:width="42" dlg:height="14" dlg:value="Run" dlg:tabstop="true"/>
+  <dlg:button dlg:id="BtnSave" dlg:left="52" dlg:top="8" dlg:width="42" dlg:height="14" dlg:value="Save" dlg:tabstop="true"/>
+  <dlg:button dlg:id="BtnNew" dlg:left="96" dlg:top="8" dlg:width="38" dlg:height="14" dlg:value="New" dlg:tabstop="true"/>
+  <dlg:button dlg:id="BtnCancel" dlg:left="136" dlg:top="8" dlg:width="42" dlg:height="14" dlg:value="Close" dlg:tabstop="true"/>
+  <dlg:text dlg:id="ScriptLbl" dlg:left="182" dlg:top="10" dlg:width="22" dlg:height="10" dlg:value="Script:" dlg:align="left" dlg:multiline="false"/>
+  <dlg:combobox dlg:id="ScriptSelect" dlg:left="206" dlg:top="8" dlg:width="64" dlg:height="14" dlg:tabstop="true" dlg:spin="true" dlg:dropdown="true" dlg:value="" dlg:border="1"/>
+  <dlg:button dlg:id="BtnAttach" dlg:left="274" dlg:top="8" dlg:width="38" dlg:height="14" dlg:value="Attach" dlg:tabstop="true"/>
+  <dlg:button dlg:id="BtnSaveAs" dlg:left="316" dlg:top="8" dlg:width="44" dlg:height="14" dlg:value="Save As..." dlg:tabstop="true"/>
+  <dlg:button dlg:id="BtnDelete" dlg:left="364" dlg:top="8" dlg:width="30" dlg:height="14" dlg:value="Delete" dlg:tabstop="true"/>
+  <dlg:textfield dlg:id="InstructionLbl" dlg:left="8" dlg:top="26" dlg:width="386" dlg:height="20" dlg:value="Enter Python code to execute in the user virtual environment.\nAssign the result to the 'result' variable." dlg:tabstop="true" dlg:readonly="true" dlg:multiline="true" dlg:vscroll="true"/>
+  <dlg:textfield dlg:id="CodeEdit" dlg:left="8" dlg:top="48" dlg:width="386" dlg:height="164" dlg:tabstop="true" dlg:multiline="true" dlg:vscroll="true"/>
  </dlg:bulletinboard>
 </dlg:window>

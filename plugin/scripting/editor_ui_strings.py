@@ -4,6 +4,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Localized Monaco editor shell strings (Python gettext → IPC ``load.ui``)."""
 
+# =========================================================================================
+# WARNING: PARITY INVARIANT WITH MONACO JAVASCRIPT FRONTEND
+# If you add, rename, or change string keys in this file, you MUST also update:
+#   - JS Script Manager:        plugin/contrib/scripting/assets/editor/scripts_manager.js
+#   - Monaco Editor Script:     plugin/contrib/scripting/assets/editor/editor.js
+#   - Monaco HTML / Toolbar:    plugin/contrib/scripting/assets/editor/index.html
+# =========================================================================================
+
 from __future__ import annotations
 
 from typing import Any
@@ -69,6 +77,13 @@ def _run_script_ui_strings() -> dict[str, str]:
     ui = _shared_ui_strings()
     ui.update(
         {
+            "new_label": _("New"),
+            "new_script_title": _("New Python Script"),
+            "script_name_label": _("Script name:"),
+            "attach_to_document_label": _("Attach to this document"),
+            "create_label": _("Create"),
+            "cancel_label": _("Cancel"),
+            "script_name_required": _("Script name cannot be empty."),
             "script_label": _("Script:"),
             "attach_label": _("Attach"),
             "attach_title": _("Attach to Document"),
