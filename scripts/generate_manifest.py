@@ -178,7 +178,7 @@ def generate_manifest_py(modules, output_path, *, librepy_flavor=False):
         if m.get("config_dialog"):
             entry["config_dialog"] = m["config_dialog"]
         # json.dumps then convert true/false/null to Python True/False/None
-        json_text = json.dumps(entry, indent=8)
+        json_text = json.dumps(entry, indent=8, ensure_ascii=False)
         lines.append("    %s," % _json_to_python(json_text))
     lines.append("]")
     lines.append("")

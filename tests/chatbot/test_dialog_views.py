@@ -388,8 +388,53 @@ class TestSettingsEnhancements(unittest.TestCase):
         api_key_ctrl.setFocus.assert_called_once()
         mock_open_url.assert_called_once_with(ctx, "https://api.together.ai/settings/api-keys")
 
+    @patch("plugin.chatbot.dialog_views.get_config_int", return_value=18765)
+    def test_build_mcp_config_snippet_default(self, mock_port):
+        import json
+        from plugin.chatbot.dialog_views import build_mcp_config_snippet
+
+        snippet = build_mcp_config_snippet()
+        parsed = json.loads(snippet)
+        self.assertEqual(parsed["mcpServers"]["libreoffice"]["url"], "http://localhost:18765/mcp")
+
+    def test_build_mcp_config_snippet_custom_port(self):
+        import json
+        from plugin.chatbot.dialog_views import build_mcp_config_snippet
+
+        snippet = build_mcp_config_snippet(9000)
+        parsed = json.loads(snippet)
+        self.assertEqual(parsed["mcpServers"]["libreoffice"]["url"], "http://localhost:9000/mcp")
+
+    @patch("plugin.chatbot.dialog_views.copy_to_clipboard", return_value=True)
+    def test_copy_mcp_config_listener_action(self, mock_copy):
+        from plugin.chatbot.dialog_views import CopyMcpConfigListener
+
+        ctx = MagicMock()
+        dlg = MagicMock()
+        snippet_ctrl = MagicMock()
+        snippet_ctrl.getText.return_value = '{"mcpServers": {}}'
+        btn_ctrl = MagicMock()
+        btn_model = MagicMock()
+        btn_ctrl.getModel.return_value = btn_model
+
+        def optional_side_effect(d, name):
+            if name == "mcp__client_config_snippet":
+                return snippet_ctrl
+            if name == "mcp__copy_config":
+                return btn_ctrl
+            return None
+
+        with patch("plugin.chatbot.dialog_views.get_optional", side_effect=optional_side_effect), \
+             patch("plugin.chatbot.dialog_views.get_control_text", return_value='{"mcpServers": {}}'):
+            listener = CopyMcpConfigListener(ctx, dlg)
+            listener.on_action_performed(MagicMock())
+
+        mock_copy.assert_called_once_with(ctx, '{"mcpServers": {}}')
+        self.assertEqual(btn_model.Label, "✓ Copied!")
+
 
 if __name__ == '__main__':
     unittest.main()
+
 
 

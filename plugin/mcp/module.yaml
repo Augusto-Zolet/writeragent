@@ -83,6 +83,30 @@ config:
     label_width: 85
     x: 302
     width: 128
+  client_config_snippet:
+    type: string
+    default: ""
+    widget: textarea
+    label: "Suggested client config (copy into Claude Desktop / Cursor):"
+    label_above: true
+    label_x: 8
+    label_width: 340
+    readonly: true
+    settings_persist: false
+    inline: true
+    x: 8
+    width: 340
+    height: 36
+  copy_config:
+    type: string
+    default: ""
+    widget: button
+    button_text: "Copy Config"
+    settings_persist: false
+    inline_no_label: true
+    x: 355
+    width: 75
+    height: 16
   cors_allow_private_origins:
     type: boolean
     default: true

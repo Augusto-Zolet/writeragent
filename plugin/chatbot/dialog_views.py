@@ -35,7 +35,7 @@ from plugin.framework.uno_listeners import BaseActionListener, BaseListener
 from .dialogs import (
     TabListener, is_checkbox_control, get_checkbox_state, set_checkbox_state,
     get_optional, set_control_enabled, set_control_text, get_control_text, translate_dialog,
-    msgbox,
+    msgbox, copy_to_clipboard,
 )
 
 log = logging.getLogger(__name__)
@@ -128,6 +128,7 @@ class SettingsDialog:
         self._scripting_venv_test_listener = None
         self._ppt_master_data_test_listener = None
         self._download_audio_listener = None
+        self._copy_mcp_listener = None
 
     def show(self):
         """Execute the settings dialog and apply results."""
@@ -220,6 +221,11 @@ class SettingsDialog:
             self._download_audio_listener = DownloadAudioListener(self._ctx, self._dlg)
             download_audio_btn.addActionListener(self._download_audio_listener)
 
+        copy_mcp_btn = get_optional(self._dlg, "mcp__copy_config")
+        if copy_mcp_btn:
+            self._copy_mcp_listener = CopyMcpConfigListener(self._ctx, self._dlg)
+            copy_mcp_btn.addActionListener(self._copy_mcp_listener)
+
     def _setup_module_tabs(self):
         try:
             # Register module tabs in the Settings dialog
@@ -268,6 +274,8 @@ class SettingsDialog:
                 self._setup_endpoint_listener(ctrl)
             elif name == "image_base_size":
                 populate_combobox_with_lru(self._ctx, ctrl, val, "image_base_size_lru", "")
+            elif name == "mcp__client_config_snippet":
+                set_control_text(ctrl, build_mcp_config_snippet())
             else:
                 self._populate_generic_field(ctrl, field)
 
@@ -382,6 +390,14 @@ class SettingsDialog:
                 except Exception:
                     pass
             self._download_audio_listener = None
+        if self._copy_mcp_listener and self._dlg is not None:
+            copy_mcp_btn = get_optional(self._dlg, "mcp__copy_config")
+            if copy_mcp_btn and hasattr(copy_mcp_btn, "removeActionListener"):
+                try:
+                    copy_mcp_btn.removeActionListener(self._copy_mcp_listener)
+                except Exception:
+                    pass
+            self._copy_mcp_listener = None
         if self._dlg:
             self._dlg.dispose()
 
@@ -848,3 +864,42 @@ class DownloadAudioListener(BaseActionListener):
         VenvProbeProgressDialog(self._ctx, parent_dlg=self._dlg).run_modal_probe(
             probe, title=_("Audio Library Download")
         )
+
+
+def build_mcp_config_snippet(port: int | None = None) -> str:
+    """Return suggested MCP client JSON configuration for Claude Desktop / Cursor."""
+    import json
+
+    if port is None:
+        try:
+            port = get_config_int("mcp.mcp_port")
+        except Exception:
+            port = 18765
+    return json.dumps({
+        "mcpServers": {
+            "libreoffice": {
+                "url": f"http://localhost:{port}/mcp"
+            }
+        }
+    }, indent=2)
+
+
+class CopyMcpConfigListener(BaseActionListener):
+    """Settings → MCP: copy client JSON configuration snippet to clipboard."""
+
+    def __init__(self, ctx, dlg):
+        self._ctx = ctx
+        self._dlg = dlg
+
+    def on_action_performed(self, rEvent):
+        snippet_ctrl = get_optional(self._dlg, "mcp__client_config_snippet")
+        text = get_control_text(snippet_ctrl) if snippet_ctrl else ""
+        if not text:
+            text = build_mcp_config_snippet()
+        if copy_to_clipboard(self._ctx, text):
+            copy_btn = get_optional(self._dlg, "mcp__copy_config")
+            if copy_btn:
+                try:
+                    copy_btn.getModel().Label = _("✓ Copied!")
+                except Exception:
+                    pass

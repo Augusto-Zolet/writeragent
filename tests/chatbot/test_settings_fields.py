@@ -83,3 +83,33 @@ def test_call_options_provider_skips_plugin_main_when_absent():
         out = call_options_provider(MagicMock(), "wa_librepy_opts:provide")
     assert out == ["ok"]
     assert seen == [None]
+
+
+def test_build_module_field_specs_omits_internal_and_non_persisting():
+    manifest_agent = {
+        "name": "agent_backend",
+        "config": {
+            "backend_id": {"type": "string", "widget": "select"},
+            "path": {"type": "string", "internal": True},
+            "args": {"type": "string", "internal": True},
+            "acp_agent_name": {"type": "string", "internal": True},
+        },
+    }
+    manifest_mcp = {
+        "name": "mcp",
+        "config": {
+            "mcp_enabled": {"type": "boolean", "widget": "checkbox"},
+            "client_config_snippet": {"type": "string", "widget": "textarea", "settings_persist": False},
+            "copy_config": {"type": "string", "widget": "button", "settings_persist": False},
+        },
+    }
+    with (
+        patch("plugin._manifest.MODULES", [manifest_agent, manifest_mcp]),
+        patch("plugin.chatbot.settings_fields.get_config", return_value=""),
+    ):
+        agent_specs = build_module_field_specs("agent_backend", control_ids="prefixed")
+        mcp_specs = build_module_field_specs("mcp", control_ids="prefixed")
+
+    assert {s["name"] for s in agent_specs} == {"agent_backend__backend_id"}
+    assert {s["name"] for s in mcp_specs} == {"mcp__mcp_enabled"}
+

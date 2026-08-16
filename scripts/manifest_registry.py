@@ -419,6 +419,7 @@ def generate_settings_dialog_tabs(modules, tpl_path, output_path, *, librepy_fla
         y = 26
 
         def add_fields(prefix, cfg, curr_y):
+            row_height = 0
             for field_name, schema in cfg.items():
                 if schema.get("internal"):
                     continue
@@ -426,6 +427,7 @@ def generate_settings_dialog_tabs(modules, tpl_path, output_path, *, librepy_fla
                 if widget == "list_detail":
                     continue
                 if widget == "separator":
+                    row_height = 0
                     sep_id = f"sep_{prefix}_{field_name}" if prefix else f"sep_{field_name}"
                     curr_y = _settings_add_separator(
                         board, sep_id, curr_y, label=schema.get("label"),
@@ -441,12 +443,21 @@ def generate_settings_dialog_tabs(modules, tpl_path, output_path, *, librepy_fla
                 field_x = str(schema.get("x", 110))
                 field_w = str(schema.get("width", 144))
                 
+                # Track max control height in current row
+                ctrl_h = int(schema.get("height", 14))
+                if ctrl_h > row_height:
+                    row_height = ctrl_h
+
                 # We render our own UI to avoid the standard XDL layout gap padding,
                 # because SettingsDialog uses slightly tighter spacing
                 label_x = str(schema.get("label_x", 8))
                 label_w = str(schema.get("label_width", 100))
                 if not schema.get("inline_no_label"):
-                    _common_add_label(board, f"label_{ctrl_id}", label_text, label_x, curr_y + 2, label_w, 10, align="left")
+                    if schema.get("label_above"):
+                        _common_add_label(board, f"label_{ctrl_id}", label_text, label_x, curr_y, label_w, 10, align="left")
+                        curr_y += 12
+                    else:
+                        _common_add_label(board, f"label_{ctrl_id}", label_text, label_x, curr_y + 2, label_w, 10, align="left")
                 
                 if widget == "checkbox":
                     # Remove the duplicate label for checkbox
@@ -457,6 +468,11 @@ def generate_settings_dialog_tabs(modules, tpl_path, output_path, *, librepy_fla
                     _common_add_checkbox(board, ctrl_id, label_text, cb_left, curr_y + 2, cb_width, 10)
                 elif widget == "password":
                     _common_add_textfield(board, ctrl_id, field_x, curr_y, field_w, 14, echo_char=42)
+                elif widget == "textarea":
+                    field_h = str(schema.get("height", 36))
+                    el = _common_add_textfield(board, ctrl_id, field_x, curr_y, field_w, field_h, multiline=True)
+                    if schema.get("readonly"):
+                        el.set(_dlg("readonly"), "true")
                 elif widget in ("number", "slider"):
                     num_w = field_w if "width" in schema else "60"
                     _common_add_numericfield(board, ctrl_id, field_x, curr_y, num_w, 14, spin="true")
@@ -474,13 +490,15 @@ def generate_settings_dialog_tabs(modules, tpl_path, output_path, *, librepy_fla
                         board.remove(board[-1])
                     btn_left = field_x if "x" in schema else "8"
                     btn_width = field_w if "width" in schema else "100"
+                    btn_height = str(schema.get("height", 14))
                     btn_label = schema.get("button_text") or schema.get("label", "Click")
-                    _common_add_button(board, ctrl_id, btn_label, btn_left, curr_y, btn_width, 14)
+                    _common_add_button(board, ctrl_id, btn_label, btn_left, curr_y, btn_width, btn_height)
                 else:
                     _common_add_textfield(board, ctrl_id, field_x, curr_y, field_w, 14)
                 
                 if not schema.get("inline"):
-                    curr_y += 16
+                    curr_y += (row_height + 2) if row_height > 14 else 16
+                    row_height = 0
             return curr_y
             
         y = add_fields(name.replace(".", "_"), config, y)
