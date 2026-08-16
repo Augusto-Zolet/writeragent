@@ -129,6 +129,7 @@ class SettingsDialog:
         self._ppt_master_data_test_listener = None
         self._download_audio_listener = None
         self._copy_mcp_listener = None
+        self._mcp_port_listener = None
 
     def show(self):
         """Execute the settings dialog and apply results."""
@@ -226,6 +227,11 @@ class SettingsDialog:
             self._copy_mcp_listener = CopyMcpConfigListener(self._ctx, self._dlg)
             copy_mcp_btn.addActionListener(self._copy_mcp_listener)
 
+        port_ctrl = get_optional(self._dlg, "mcp__mcp_port")
+        if port_ctrl and hasattr(port_ctrl, "addTextListener"):
+            self._mcp_port_listener = McpPortTextListener(self._dlg)
+            port_ctrl.addTextListener(self._mcp_port_listener)
+
     def _setup_module_tabs(self):
         try:
             # Register module tabs in the Settings dialog
@@ -274,10 +280,20 @@ class SettingsDialog:
                 self._setup_endpoint_listener(ctrl)
             elif name == "image_base_size":
                 populate_combobox_with_lru(self._ctx, ctrl, val, "image_base_size_lru", "")
-            elif name == "mcp__client_config_snippet":
-                set_control_text(ctrl, build_mcp_config_snippet())
             else:
                 self._populate_generic_field(ctrl, field)
+
+        # Populate non-persisted client config snippet
+        snippet_ctrl = get_optional(self._dlg, "mcp__client_config_snippet")
+        if snippet_ctrl:
+            port_ctrl = get_optional(self._dlg, "mcp__mcp_port")
+            port_val = None
+            if port_ctrl and hasattr(port_ctrl, "getValue"):
+                try:
+                    port_val = int(port_ctrl.getValue())
+                except Exception:
+                    pass
+            set_control_text(snippet_ctrl, build_mcp_config_snippet(port=port_val))
 
     def _schedule_initial_models_fetch(self, endpoint):
         """OpenRouter/Together skip inline fetch; load full catalog when a saved key exists."""
@@ -398,6 +414,14 @@ class SettingsDialog:
                 except Exception:
                     pass
             self._copy_mcp_listener = None
+        if self._mcp_port_listener and self._dlg is not None:
+            port_ctrl = get_optional(self._dlg, "mcp__mcp_port")
+            if port_ctrl and hasattr(port_ctrl, "removeTextListener"):
+                try:
+                    port_ctrl.removeTextListener(self._mcp_port_listener)
+                except Exception:
+                    pass
+            self._mcp_port_listener = None
         if self._dlg:
             self._dlg.dispose()
 
@@ -895,7 +919,14 @@ class CopyMcpConfigListener(BaseActionListener):
         snippet_ctrl = get_optional(self._dlg, "mcp__client_config_snippet")
         text = get_control_text(snippet_ctrl) if snippet_ctrl else ""
         if not text:
-            text = build_mcp_config_snippet()
+            port_ctrl = get_optional(self._dlg, "mcp__mcp_port")
+            port_val = None
+            if port_ctrl and hasattr(port_ctrl, "getValue"):
+                try:
+                    port_val = int(port_ctrl.getValue())
+                except Exception:
+                    pass
+            text = build_mcp_config_snippet(port=port_val)
         if copy_to_clipboard(self._ctx, text):
             copy_btn = get_optional(self._dlg, "mcp__copy_config")
             if copy_btn:
@@ -903,3 +934,29 @@ class CopyMcpConfigListener(BaseActionListener):
                     copy_btn.getModel().Label = _("✓ Copied!")
                 except Exception:
                     pass
+
+
+class McpPortTextListener(BaseListener, XTextListener):
+    """Update MCP client config snippet when MCP port is edited."""
+
+    def __init__(self, dlg):
+        self._dlg = dlg
+
+    def textChanged(self, rEvent):
+        snippet_ctrl = get_optional(self._dlg, "mcp__client_config_snippet")
+        if not snippet_ctrl:
+            return
+        port_ctrl = get_optional(self._dlg, "mcp__mcp_port")
+        port_val = None
+        if port_ctrl:
+            if hasattr(port_ctrl, "getValue"):
+                try:
+                    port_val = int(port_ctrl.getValue())
+                except Exception:
+                    pass
+            if not port_val and hasattr(port_ctrl, "getText"):
+                try:
+                    port_val = int(str(port_ctrl.getText() or "").strip())
+                except Exception:
+                    pass
+        set_control_text(snippet_ctrl, build_mcp_config_snippet(port=port_val))

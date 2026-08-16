@@ -432,6 +432,31 @@ class TestSettingsEnhancements(unittest.TestCase):
         mock_copy.assert_called_once_with(ctx, '{"mcpServers": {}}')
         self.assertEqual(btn_model.Label, "✓ Copied!")
 
+    def test_mcp_port_text_listener_updates_snippet(self):
+        from plugin.chatbot.dialog_views import McpPortTextListener
+
+        dlg = MagicMock()
+        snippet_ctrl = MagicMock()
+        port_ctrl = MagicMock()
+        port_ctrl.getValue.return_value = 19999
+
+        def optional_side_effect(d, name):
+            if name == "mcp__client_config_snippet":
+                return snippet_ctrl
+            if name == "mcp__mcp_port":
+                return port_ctrl
+            return None
+
+        with patch("plugin.chatbot.dialog_views.get_optional", side_effect=optional_side_effect), \
+             patch("plugin.chatbot.dialog_views.set_control_text") as mock_set_text:
+            listener = McpPortTextListener(dlg)
+            listener.textChanged(MagicMock())
+
+        mock_set_text.assert_called_once()
+        args = mock_set_text.call_args[0]
+        self.assertEqual(args[0], snippet_ctrl)
+        self.assertIn("19999", args[1])
+
 
 if __name__ == '__main__':
     unittest.main()
