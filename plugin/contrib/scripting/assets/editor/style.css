@@ -23,6 +23,10 @@ body {
   border-bottom: 1px solid #e0e0e0;
 }
 
+#toolbar.toolbar-loading {
+  visibility: hidden;
+}
+
 #toolbar button {
   padding: 4px 12px;
   cursor: pointer;

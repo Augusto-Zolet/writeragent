@@ -55,3 +55,19 @@ def test_handle_window_closing_intercepts_and_hides(monkeypatch):
     assert res is False  # Aborts standard window close
     assert messages == [{"type": "closed"}]
     mock_window.hide.assert_called_once()
+
+
+def test_poll_messages_load_shows_window_and_updates_title():
+    _reset_closed_state()
+    api = em.MonacoEditorApi()
+    mock_window = MagicMock()
+    api._window = mock_window
+
+    em._ui_queue.put({"type": "load", "title": "My Custom Title", "code": "x = 1"})
+    msgs = api.poll_messages()
+
+    assert len(msgs) == 1
+    assert msgs[0]["title"] == "My Custom Title"
+    assert mock_window.title == "My Custom Title"
+    mock_window.show.assert_called_once()
+    assert em._closed_sent is False

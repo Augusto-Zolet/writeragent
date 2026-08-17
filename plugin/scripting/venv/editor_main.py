@@ -184,6 +184,10 @@ def _pipe_reader_loop() -> None:
                 pass
 
             if kind in ("saved", "error", "load"):
+                if kind == "load":
+                    global _closed_sent
+                    with _closed_lock:
+                        _closed_sent = False
                 _ui_queue.put(msg)
             elif kind == "closed":
                 break
@@ -408,7 +412,7 @@ def main() -> None:
     print(f"editor_main: serving {index_html} via WSGI WSGI app", file=sys.stderr, flush=True)
     global _window
     try:
-        window = webview.create_window(EDITOR_DEFAULT_TITLE, url=wsgi_app, width=900, height=640, js_api=api)
+        window = webview.create_window(EDITOR_DEFAULT_TITLE, url=wsgi_app, width=900, height=640, js_api=api, hidden=True)
         _window = window
     except Exception as e:
         _fatal(f"webview.create_window failed: {e}", exc=e)

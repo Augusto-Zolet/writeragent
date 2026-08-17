@@ -21,7 +21,7 @@ from plugin.framework.config import get_config, get_config_str, set_config
 from plugin.framework.i18n import _
 from plugin.chatbot.dialogs import msgbox
 from plugin.scripting.editor_ipc import exception_traceback
-from plugin.scripting.editor_host import launch_monaco_editor, monaco_open_expected, terminate_persistent_editor
+from plugin.scripting.editor_host import launch_monaco_editor, monaco_open_expected
 from plugin.scripting.venv_worker import run_code_in_user_venv
 from plugin.scripting.python_runner_ui import show_python_input_dialog
 from plugin.writer.format import insert_content_at_position
@@ -566,8 +566,6 @@ def _run_python_monaco(
         "saved_ok_text": save_ok_text,
         "run_script_doc": doc,
     }
-    # Ensure a fresh Monaco editor UI for each run to avoid stale button state.
-    terminate_persistent_editor()
     return launch_monaco_editor(ctx, exe=exe, load_message=load_msg, on_save=on_save)
 
 

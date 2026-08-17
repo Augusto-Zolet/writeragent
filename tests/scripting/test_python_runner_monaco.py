@@ -225,14 +225,13 @@ def test_run_python_monaco_writer_skips_calc_selection_import():
     with patch.object(pr, "is_calc", return_value=False):
         with patch("plugin.calc.analysis_runner.calc_selection_to_a1") as mock_sel:
             with patch.object(pr, "launch_monaco_editor", return_value=True):
-                with patch.object(pr, "terminate_persistent_editor"):
-                    ok = pr._run_python_monaco(
-                        ctx,
-                        doc,
-                        initial_code="# wa_vision extract_text",
-                        selected_script_name="[Vision] extract_text",
-                        exe="/venv/bin/python",
-                    )
+                ok = pr._run_python_monaco(
+                    ctx,
+                    doc,
+                    initial_code="# wa_vision extract_text",
+                    selected_script_name="[Vision] extract_text",
+                    exe="/venv/bin/python",
+                )
 
     assert ok is True
     mock_sel.assert_not_called()

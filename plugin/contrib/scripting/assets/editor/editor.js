@@ -154,6 +154,13 @@
     }).catch(function () {});
   }
 
+  function revealToolbar() {
+    var tb = document.getElementById("toolbar");
+    if (tb) {
+      tb.classList.remove("toolbar-loading");
+    }
+  }
+
   function applyLoadMessage(msg) {
     ui = msg.ui || {};
     if (msg.title) {
@@ -210,7 +217,11 @@
       }
       applyTheme(msg.theme);
     }
+
+    revealToolbar();
   }
+
+  setTimeout(revealToolbar, 500);
 
   function updateDataBindingEnabled() {
     var plainEl = getPlainTextCheckbox();
@@ -301,7 +312,6 @@
     if (window.pywebview && window.pywebview.api && window.pywebview.api.notify_cancel) {
       window.pywebview.api.notify_cancel();
     }
-    window.close();
   });
 
   var plainCheckbox = getPlainTextCheckbox();
