@@ -116,8 +116,12 @@ def test_parse_cloudflare_url():
     line = "2026-03-25T12:00:00Z INF |  https://abc-123.trycloudflare.com"
     assert parse_cloudflare_url(line) == "https://abc-123.trycloudflare.com"
     assert parse_cloudflare_url("INF Starting tunnel") is None
+    # Generic marketing/doc URLs logged by cloudflared banner must be ignored
+    assert parse_cloudflare_url("INF Visit https://www.cloudflare.com to manage tunnels") is None
+    assert parse_cloudflare_url("INF Docs at https://developers.cloudflare.com/pages") is None
     # Token tunnels may log a custom hostname.
     assert parse_cloudflare_url("INF | https://mcp.example.com") == "https://mcp.example.com"
+
 
 
 def test_parse_bore_url_adds_http_scheme():
@@ -372,3 +376,172 @@ def test_successful_url_clears_last_error_exit_without_prior_sets_code(monkeypat
         assert mgr.start(18765, "bore") is True
         exit_cb["fn"](2)
         assert mgr.last_error == "tunnel process exited (code 2)"
+
+
+def test_test_tunnel_connectivity_binary_missing():
+    from plugin.mcp.tunnel import test_tunnel_connectivity
+
+    with (
+        patch.dict("os.environ", {}, clear=True),
+        patch("subprocess.run", side_effect=FileNotFoundError("not found")),
+    ):
+        ok, msg, pub_url = test_tunnel_connectivity("cloudflare")
+        assert ok is False
+        assert "not found on PATH" in msg
+        assert pub_url is None
+
+
+def test_test_tunnel_connectivity_server_not_running():
+    from plugin.mcp.tunnel import test_tunnel_connectivity
+    from unittest.mock import MagicMock
+
+    mock_res = MagicMock()
+    mock_res.stdout = "cloudflared version 2026.1.0\n"
+    mock_res.stderr = ""
+
+    with (
+        patch.dict("os.environ", {}, clear=True),
+        patch("subprocess.run", return_value=mock_res),
+        patch("urllib.request.urlopen", side_effect=Exception("Connection refused")),
+    ):
+        ok, msg, pub_url = test_tunnel_connectivity("cloudflare", port=18765)
+        assert ok is True
+        assert "is installed and verified" in msg
+        assert "MCP server is not currently running" in msg
+        assert pub_url is None
+
+
+def test_test_tunnel_connectivity_live_probe_success():
+    from plugin.mcp.tunnel import test_tunnel_connectivity
+    from unittest.mock import MagicMock
+
+    mock_res = MagicMock()
+    mock_res.stdout = "cloudflared version 2026.1.0\n"
+
+    mock_probe = MagicMock()
+    mock_probe.getcode.return_value = 200
+    mock_probe.__enter__ = MagicMock(return_value=mock_probe)
+    mock_probe.__exit__ = MagicMock(return_value=None)
+
+    mock_tunnel = MagicMock()
+    mock_tunnel.is_running = True
+    mock_tunnel._provider = "cloudflare"
+    mock_tunnel._public_url = "https://test-live.trycloudflare.com"
+    mock_tunnel.mcp_public_url.return_value = "https://test-live.trycloudflare.com/mcp"
+
+    with (
+        patch.dict("os.environ", {}, clear=True),
+        patch("subprocess.run", return_value=mock_res),
+        patch("urllib.request.urlopen", return_value=mock_probe),
+        patch("plugin.mcp._shared_tunnel", mock_tunnel),
+    ):
+        ok, msg, pub_url = test_tunnel_connectivity("cloudflare", port=18765)
+        assert ok is True
+        assert "tunnel is running" in msg or "tunnel is active" in msg
+        assert pub_url == "https://test-live.trycloudflare.com/mcp"
+
+
+
+def test_build_mcp_config_snippet_with_custom_and_local_url():
+    import json
+    from plugin.chatbot.dialog_views import build_mcp_config_snippet
+
+    local_snippet = build_mcp_config_snippet(port=18765)
+    local_data = json.loads(local_snippet)
+    assert local_data["mcpServers"]["libreoffice"]["url"] == "http://localhost:18765/mcp"
+
+    tunnel_url = "https://abc.trycloudflare.com/mcp"
+    tunnel_snippet = build_mcp_config_snippet(url=tunnel_url)
+    tunnel_data = json.loads(tunnel_snippet)
+    assert tunnel_data["mcpServers"]["libreoffice"]["url"] == "https://abc.trycloudflare.com/mcp"
+
+
+def test_sync_mcp_config_snippet_reacts_to_checkbox_and_custom_url():
+    import json
+    from unittest.mock import MagicMock
+    from plugin.chatbot.dialog_views import (
+        sync_mcp_config_snippet,
+        McpTunnelEnabledListener,
+        McpPortTextListener,
+        _tested_provider_tunnel_urls,
+    )
+
+    _tested_provider_tunnel_urls.clear()
+
+    mock_dlg = MagicMock()
+    mock_snippet = MagicMock()
+    mock_port = MagicMock()
+    mock_port.getValue.return_value = 19000
+    mock_port.getText.return_value = "19000"
+
+    mock_checkbox = MagicMock()
+    mock_checkbox.getState.return_value = 0  # Unchecked
+
+    mock_provider = MagicMock()
+    mock_provider.getText.return_value = "cloudflare"
+
+    controls = {
+        "mcp__client_config_snippet": mock_snippet,
+        "mcp__mcp_port": mock_port,
+        "mcp__tunnel_enabled": mock_checkbox,
+        "mcp__tunnel_provider": mock_provider,
+    }
+    mock_dlg.getControl.side_effect = lambda k: controls.get(k)
+
+    # 1. Unchecked checkbox -> local URL
+    sync_mcp_config_snippet(mock_dlg)
+    args, _ = mock_snippet.setText.call_args
+    data = json.loads(args[0])
+    assert data["mcpServers"]["libreoffice"]["url"] == "http://localhost:19000/mcp"
+
+    # 2. Checkbox toggled to checked with custom URL for cloudflare -> tunnel URL
+    mock_checkbox.getState.return_value = 1
+    mock_checkbox.State = 1
+    sync_mcp_config_snippet(mock_dlg, custom_tunnel_url="https://abc.trycloudflare.com/mcp", custom_provider="cloudflare")
+    args, _ = mock_snippet.setText.call_args
+    data = json.loads(args[0])
+    assert data["mcpServers"]["libreoffice"]["url"] == "https://abc.trycloudflare.com/mcp"
+
+    # 3. Switching provider to bore (untested) -> shows bore default template, NOT cloudflare URL!
+    mock_provider.getText.return_value = "bore"
+    from plugin.chatbot.dialog_views import McpTunnelProviderListener
+    provider_listener = McpTunnelProviderListener(mock_dlg)
+    provider_listener.itemStateChanged(MagicMock())
+    args, _ = mock_snippet.setText.call_args
+    data = json.loads(args[0])
+    assert data["mcpServers"]["libreoffice"]["url"] == "http://bore.pub:<remote-port>/mcp"
+
+    # 4. Switching provider to ngrok (untested) -> shows ngrok default template
+    mock_provider.getText.return_value = "ngrok"
+    provider_listener.itemStateChanged(MagicMock())
+    args, _ = mock_snippet.setText.call_args
+    data = json.loads(args[0])
+    assert data["mcpServers"]["libreoffice"]["url"] == "https://<domain>.ngrok-free.app/mcp"
+
+    # 5. Switching back to cloudflare -> shows tested cloudflare URL again
+    mock_provider.getText.return_value = "cloudflare"
+    provider_listener.itemStateChanged(MagicMock())
+    args, _ = mock_snippet.setText.call_args
+    data = json.loads(args[0])
+    assert data["mcpServers"]["libreoffice"]["url"] == "https://abc.trycloudflare.com/mcp"
+
+    # 6. Checkbox toggled back to unchecked -> immediately reverts to local URL
+    mock_checkbox.getState.return_value = 0
+    mock_checkbox.State = 0
+    listener = McpTunnelEnabledListener(mock_dlg)
+    listener.itemStateChanged(MagicMock())
+    args, _ = mock_snippet.setText.call_args
+    data = json.loads(args[0])
+    assert data["mcpServers"]["libreoffice"]["url"] == "http://localhost:19000/mcp"
+
+    # 7. Port changed while unchecked -> updates local URL
+    mock_port.getValue.return_value = 20000
+    port_listener = McpPortTextListener(mock_dlg)
+    port_listener.textChanged(MagicMock())
+    args, _ = mock_snippet.setText.call_args
+    data = json.loads(args[0])
+    assert data["mcpServers"]["libreoffice"]["url"] == "http://localhost:20000/mcp"
+
+
+
+

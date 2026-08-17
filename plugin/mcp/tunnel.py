@@ -81,14 +81,31 @@ def build_cloudflare_command(port: int, provider_token: str = "") -> list[str]:
     ]
 
 
+_CLOUDFLARE_IGNORED_HOSTS = frozenset({
+    "cloudflare.com",
+    "www.cloudflare.com",
+    "developers.cloudflare.com",
+    "blog.cloudflare.com",
+    "pkg.cloudflare.com",
+    "github.com",
+})
+
+
 def parse_cloudflare_url(line: str) -> Optional[str]:
+    """Parse quick tunnel URL or custom hostname from cloudflared logs."""
     if not line:
         return None
     m = _CLOUDFLARE_QUICK_URL_RE.search(line)
     if m:
         return m.group(1)
-    m = _CLOUDFLARE_ANY_URL_RE.search(line)
-    return m.group(1) if m else None
+    # Token / named tunnels may log a custom hostname; ignore docs/marketing links.
+    for match in _CLOUDFLARE_ANY_URL_RE.finditer(line):
+        url = match.group(1)
+        host = url.split("://", 1)[-1].split("/")[0].split(":")[0].lower()
+        if host in _CLOUDFLARE_IGNORED_HOSTS or host.endswith(".cloudflare.com"):
+            continue
+        return url
+    return None
 
 
 def parse_bore_provider_config(value: str) -> tuple[str, str]:
@@ -452,6 +469,13 @@ class TunnelManager:
                     self._public_url = url
                     self._last_error = None
                     log.info("MCP tunnel URL (%s): %s", provider, url)
+                    try:
+                        from plugin.chatbot.dialog_views import notify_tunnel_url_acquired
+                        mcp_url = self.mcp_public_url()
+                        if mcp_url:
+                            notify_tunnel_url_acquired(provider, mcp_url)
+                    except Exception:
+                        pass
 
             def _on_exit(rc: int) -> None:
                 log.info("MCP tunnel process (%s) exited with code %s", provider, rc)
@@ -546,3 +570,97 @@ def _redact_cmd_for_log(cmd: list[str]) -> str:
             continue
         out.append(part)
     return " ".join(out)
+
+
+def test_tunnel_connectivity(
+    provider: str = DEFAULT_PROVIDER,
+    provider_token: str = "",
+    port: int = 18765,
+    timeout: float = 6.0,
+) -> tuple[bool, str, Optional[str]]:
+    """Test tunnel provider availability and optionally probe connectivity to port.
+
+    Returns (ok, user_facing_message, public_url).
+    """
+    import os
+    import urllib.request
+    from plugin.framework.i18n import _
+
+    if os.environ.get("WRITERAGENT_TESTING"):
+        sim_url = f"https://simulated-{provider}.example.com/mcp"
+        return True, _("Tunnel test mode: {0} provider simulated successfully.").format(provider), sim_url
+
+    provider = (provider or DEFAULT_PROVIDER).strip().lower()
+    info = PROVIDERS.get(provider)
+    if not info:
+        return False, _("Unknown tunnel provider: {0}").format(provider), None
+
+    pname = provider_label(provider)
+    binary = info["version_args"][0]
+
+    # 1. Check binary availability and version
+    try:
+        res = subprocess.run(
+            info["version_args"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            creationflags=_CREATION_FLAGS,
+        )
+        version_str = (res.stdout or res.stderr or "").strip().splitlines()[0] if (res.stdout or res.stderr) else ""
+    except FileNotFoundError:
+        return False, _("Binary '{0}' for {1} not found on PATH.\n\nInstall from: {2}").format(
+            binary, pname, info["install_url"]
+        ), None
+    except Exception as exc:
+        return False, _("Failed to execute {0} binary ({1}): {2}").format(pname, binary, exc), None
+
+    # 2. Check if local MCP server is running on port
+    local_url = f"http://localhost:{port}/health"
+    local_running = False
+    try:
+        req = urllib.request.Request(local_url, headers={"User-Agent": "WriterAgent-Probe"})
+        with urllib.request.urlopen(req, timeout=1.5) as resp:
+            if resp.getcode() == 200:
+                local_running = True
+    except Exception:
+        local_running = False
+
+    # 3. Check if an active tunnel is already running in LibreOffice
+    from plugin.mcp import _shared_tunnel
+    if _shared_tunnel and _shared_tunnel.is_running:
+        active_p = getattr(_shared_tunnel, "_provider", None) or DEFAULT_PROVIDER
+        active_url = _shared_tunnel.mcp_public_url()
+        if active_url:
+            base_url = normalize_public_base(_shared_tunnel._public_url or "")
+            health_url = f"{base_url}/health"
+            probe_ok = False
+            try:
+                probe_req = urllib.request.Request(health_url, headers={"User-Agent": "WriterAgent-Probe"})
+                with urllib.request.urlopen(probe_req, timeout=2.0) as probe_resp:
+                    if probe_resp.getcode() == 200:
+                        probe_ok = True
+            except Exception:
+                pass
+
+            if active_p == provider:
+                if probe_ok:
+                    return True, _(
+                        "{0} tunnel is running and responsive!\n\nPublic endpoint:\n{1}\n\nHealth check: OK (200)"
+                    ).format(pname, active_url), active_url
+                return True, _(
+                    "{0} tunnel is active!\n\nPublic endpoint:\n{1}\n\n(Public URL acquired from active tunnel session.)"
+                ).format(pname, active_url), active_url
+            else:
+                return True, _(
+                    "{0} binary '{1}' is verified ({2}).\n\n(Note: An active {3} tunnel is currently running at {4}.)"
+                ).format(pname, binary, version_str or "OK", provider_label(active_p), active_url), None
+
+    if local_running:
+        return True, _(
+            "{0} binary '{1}' is installed and verified ({2}).\n\nMCP server is running locally on port {3}.\nCheck 'Expose via public tunnel' and click OK to activate public routing."
+        ).format(pname, binary, version_str or "OK", port), None
+
+    return True, _(
+        "{0} binary '{1}' is installed and verified ({2}).\n\nNote: MCP server is not currently running on port {3}."
+    ).format(pname, binary, version_str or "OK", port), None

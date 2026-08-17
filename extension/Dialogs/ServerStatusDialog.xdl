@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE dlg:window PUBLIC "-//OpenOffice.org//DTD OfficeDocument 1.0//EN" "dialog.dtd">
 <dlg:window xmlns:dlg="http://openoffice.org/2000/dialog" xmlns:script="http://openoffice.org/2000/script"
-  dlg:id="ServerStatusDialog" dlg:left="100" dlg:top="50" dlg:width="280" dlg:height="96"
-  dlg:closeable="true" dlg:moveable="true" dlg:title="Server Status">
+  dlg:id="ServerStatusDialog" dlg:left="100" dlg:top="50" dlg:width="280" dlg:height="136"
+  dlg:closeable="true" dlg:moveable="true" dlg:title="MCP Server Status">
  <dlg:bulletinboard>
-  <dlg:text dlg:id="Msg" dlg:left="10" dlg:top="6" dlg:width="260" dlg:height="36" dlg:value="MCP server running" dlg:align="left" dlg:multiline="true"/>
-  <dlg:textfield dlg:id="UrlField" dlg:left="10" dlg:top="46" dlg:width="260" dlg:height="14" dlg:tabstop="true" dlg:readonly="true"/>
-  <dlg:button dlg:id="OKBtn" dlg:left="220" dlg:top="74" dlg:width="50" dlg:height="14" dlg:value="OK" dlg:tabstop="true"/>
+  <dlg:text dlg:id="Msg" dlg:left="10" dlg:top="6" dlg:width="260" dlg:height="20" dlg:value="MCP server running" dlg:align="left" dlg:multiline="true"/>
+  <dlg:text dlg:id="LocalUrlLabel" dlg:left="10" dlg:top="28" dlg:width="260" dlg:height="10" dlg:value="Local Endpoint:" dlg:align="left" dlg:multiline="false"/>
+  <dlg:textfield dlg:id="UrlField" dlg:left="10" dlg:top="40" dlg:width="260" dlg:height="14" dlg:tabstop="true" dlg:readonly="true"/>
+  <dlg:text dlg:id="TunnelLabel" dlg:left="10" dlg:top="58" dlg:width="260" dlg:height="10" dlg:value="Public Tunnel:" dlg:align="left" dlg:multiline="false"/>
+  <dlg:textfield dlg:id="TunnelUrlField" dlg:left="10" dlg:top="70" dlg:width="260" dlg:height="14" dlg:tabstop="true" dlg:readonly="true"/>
+  <dlg:text dlg:id="TunnelStatusMsg" dlg:left="10" dlg:top="88" dlg:width="260" dlg:height="18" dlg:value="" dlg:align="left" dlg:multiline="true"/>
+  <dlg:button dlg:id="CopyBtn" dlg:left="10" dlg:top="112" dlg:width="65" dlg:height="14" dlg:value="Copy URL" dlg:tabstop="true"/>
+  <dlg:button dlg:id="OKBtn" dlg:left="220" dlg:top="112" dlg:width="50" dlg:height="14" dlg:value="OK" dlg:tabstop="true"/>
  </dlg:bulletinboard>
 </dlg:window>

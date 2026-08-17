@@ -178,3 +178,51 @@ def test_mcp_initialize_instructions_are_lean_and_point_to_the_manual(mcp_server
     assert "structured fields" in instr                   # invariant: confirm edits structurally
     assert "accept/reject" in instr                       # invariant: tracked changes are the user's
     assert len(instr) < 1500                              # lean — the manual itself moved out
+
+
+def test_mcp_action_server_status_dialog_controls():
+    from unittest.mock import MagicMock, patch
+    from plugin.mcp import McpModule
+
+    mod = McpModule()
+    mock_server = MagicMock()
+    mock_server.is_running.return_value = True
+    mock_server.get_status.return_value = {"running": True, "mcp_url": "http://localhost:18765/mcp", "routes": 5}
+
+    mock_cfg = MagicMock()
+    mock_cfg.get.side_effect = lambda k, default=None: {
+        "tunnel_enabled": True,
+        "tunnel_provider": "cloudflare",
+    }.get(k, default)
+
+    mock_services = MagicMock()
+    mock_services.config.proxy_for.return_value = mock_cfg
+    mod._services = mock_services
+
+    mock_tunnel = MagicMock()
+    mock_tunnel.mcp_public_url.return_value = "https://test.trycloudflare.com/mcp"
+
+    mock_dlg = MagicMock()
+    mock_controls = {}
+    for name in ("Msg", "LocalUrlLabel", "UrlField", "TunnelLabel", "TunnelUrlField", "TunnelStatusMsg", "CopyBtn", "OKBtn"):
+        ctrl = MagicMock()
+        ctrl.getModel.return_value = MagicMock()
+        mock_controls[name] = ctrl
+
+    mock_dlg.getControl.side_effect = lambda name: mock_controls.get(name)
+
+    with (
+        patch.object(mod, "_bound_http_server", return_value=mock_server),
+        patch.object(mod, "_bound_tunnel", return_value=mock_tunnel),
+        patch("plugin.framework.uno_context.get_ctx", return_value=MagicMock()),
+        patch("plugin.chatbot.dialogs.load_writeragent_dialog", return_value=mock_dlg),
+    ):
+        mod._action_server_status()
+
+    # Local URL field has local url
+    mock_controls["UrlField"].setText.assert_called_with("http://localhost:18765/mcp")
+    # Tunnel URL field has public url
+    mock_controls["TunnelUrlField"].setText.assert_called_with("https://test.trycloudflare.com/mcp")
+    assert mock_controls["TunnelUrlField"].getModel().Visible is True
+
+

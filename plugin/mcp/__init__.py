@@ -476,9 +476,10 @@ class McpModule(ModuleBase):
     def _action_server_status(self):
         import unohelper
         from com.sun.star.awt import XActionListener
-        from plugin.chatbot.dialogs import msgbox, load_writeragent_dialog
+        from plugin.chatbot.dialogs import msgbox, load_writeragent_dialog, copy_to_clipboard
         from plugin.framework.uno_context import get_ctx
         from plugin.framework.i18n import _
+        from plugin.framework.uno_listeners import BaseActionListener
 
         ctx = get_ctx()
         b = self._bound_http_server()
@@ -497,28 +498,87 @@ class McpModule(ModuleBase):
         tunnel = self._bound_tunnel()
         public_url = tunnel.mcp_public_url() if tunnel else None
         cfg = self._services.config.proxy_for(self.name)
-        pname = provider_label(cfg.get("tunnel_provider") or DEFAULT_PROVIDER)
-        # Prefer the public /mcp URL when the tunnel is up — that is what remote clients need.
-        url = public_url or local_url
+        provider = cfg.get("tunnel_provider") or DEFAULT_PROVIDER
+        pname = provider_label(provider)
+        tunnel_enabled = bool(cfg.get("tunnel_enabled"))
+
+        # Primary copy URL is the public tunnel URL when active, else local URL
+        active_url = public_url or local_url
         msg = _("MCP server running") + "\n" + _("Routes: {0}").format(routes)
-        tunnel_line = self._tunnel_status_line(pname, tunnel, public_url, bool(cfg.get("tunnel_enabled")))
+        tunnel_line = self._tunnel_status_line(pname, tunnel, public_url, tunnel_enabled)
+        fallback_msg = msg + "\n" + _("Local URL: {0}").format(local_url)
         if tunnel_line:
-            msg = msg + "\n" + tunnel_line
+            fallback_msg = fallback_msg + "\n" + tunnel_line
+        if public_url:
+            fallback_msg = fallback_msg + "\n" + _("Public URL: {0}").format(public_url)
 
         try:
             assert ctx is not None
             dlg = load_writeragent_dialog("ServerStatusDialog", ctx)
             if dlg is None:
-                msgbox(ctx, "WriterAgent", msg + "\n" + _("URL: {0}").format(url))
+                msgbox(ctx, "WriterAgent", fallback_msg)
                 return
 
             msg_ctrl = dlg.getControl("Msg")
             if msg_ctrl is not None:
                 msg_ctrl.getModel().Label = msg
 
+            local_lbl = dlg.getControl("LocalUrlLabel")
+            if local_lbl is not None:
+                local_lbl.getModel().Label = _("Local Endpoint:")
+
             url_ctrl = dlg.getControl("UrlField")
             if url_ctrl is not None:
-                url_ctrl.setText(url)
+                url_ctrl.setText(local_url)
+
+            tunnel_lbl = dlg.getControl("TunnelLabel")
+            tunnel_url_ctrl = dlg.getControl("TunnelUrlField")
+            tunnel_status_ctrl = dlg.getControl("TunnelStatusMsg")
+
+            if tunnel_enabled:
+                if tunnel_lbl is not None:
+                    tunnel_lbl.getModel().Label = _("Public Tunnel ({0}):").format(pname)
+                    tunnel_lbl.getModel().Visible = True
+
+                if tunnel_url_ctrl is not None:
+                    tunnel_url_ctrl.setText(public_url or "")
+                    tunnel_url_ctrl.getModel().Visible = True
+
+                if tunnel_status_ctrl is not None:
+                    if public_url:
+                        tstatus = _("Status: Active (connected)")
+                    elif tunnel and tunnel.is_running:
+                        tstatus = _("Status: Starting tunnel…")
+                    elif tunnel and tunnel.last_error:
+                        tstatus = _("Status: Failed — {0}").format(tunnel.last_error)
+                    else:
+                        tstatus = _("Status: Not running (is {0} binary installed?)").format(pname)
+                    tunnel_status_ctrl.getModel().Label = tstatus
+                    tunnel_status_ctrl.getModel().Visible = True
+            else:
+                for ctrl in (tunnel_lbl, tunnel_url_ctrl, tunnel_status_ctrl):
+                    if ctrl is not None:
+                        try:
+                            ctrl.getModel().Visible = False
+                        except Exception:
+                            pass
+
+            copy_btn = dlg.getControl("CopyBtn")
+            if copy_btn is not None:
+                class _CopyListener(BaseActionListener):
+                    def __init__(self, dialog, context, text):
+                        self._dlg = dialog
+                        self._ctx = context
+                        self._text = text
+
+                    def on_action_performed(self, rEvent):
+                        if copy_to_clipboard(self._ctx, self._text):
+                            try:
+                                self._dlg.getModel().getByName("CopyBtn").Label = _("Copied!")
+                            except Exception:
+                                pass
+
+                copy_btn.addActionListener(_CopyListener(dlg, ctx, active_url))
 
             class _OkListener(unohelper.Base, XActionListener):
                 def actionPerformed(self, rEvent):
@@ -535,7 +595,7 @@ class McpModule(ModuleBase):
             dlg.dispose()
         except Exception:
             log.exception("Status dialog error")
-            msgbox(ctx, "WriterAgent", msg + "\n" + _("URL: {0}").format(url))
+            msgbox(ctx, "WriterAgent", fallback_msg)
 
     # ---- Built-in route handlers ----
 

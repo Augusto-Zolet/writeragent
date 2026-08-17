@@ -129,6 +129,9 @@ class SettingsDialog:
         self._ppt_master_data_test_listener = None
         self._download_audio_listener = None
         self._copy_mcp_listener = None
+        self._test_tunnel_listener = None
+        self._mcp_tunnel_enabled_listener = None
+        self._mcp_tunnel_provider_listener = None
         self._mcp_port_listener = None
 
     def show(self):
@@ -142,7 +145,10 @@ class SettingsDialog:
             self._create_dialog()
             if self._dlg is None:
                 return {}
-                
+
+            global _active_settings_dialog_ref
+            _active_settings_dialog_ref = self._dlg
+
             field_specs = get_settings_field_specs(self._ctx)
             current_endpoint = get_current_endpoint()
 
@@ -227,10 +233,28 @@ class SettingsDialog:
             self._copy_mcp_listener = CopyMcpConfigListener(self._ctx, self._dlg)
             copy_mcp_btn.addActionListener(self._copy_mcp_listener)
 
+        test_tunnel_btn = get_optional(self._dlg, "mcp__test_tunnel")
+        if test_tunnel_btn:
+            self._test_tunnel_listener = TestTunnelListener(self._ctx, self._dlg)
+            test_tunnel_btn.addActionListener(self._test_tunnel_listener)
+
         port_ctrl = get_optional(self._dlg, "mcp__mcp_port")
         if port_ctrl and hasattr(port_ctrl, "addTextListener"):
             self._mcp_port_listener = McpPortTextListener(self._dlg)
             port_ctrl.addTextListener(self._mcp_port_listener)
+
+        tunnel_enabled_ctrl = get_optional(self._dlg, "mcp__tunnel_enabled")
+        if tunnel_enabled_ctrl and hasattr(tunnel_enabled_ctrl, "addItemListener"):
+            self._mcp_tunnel_enabled_listener = McpTunnelEnabledListener(self._dlg)
+            tunnel_enabled_ctrl.addItemListener(self._mcp_tunnel_enabled_listener)
+
+        provider_ctrl = get_optional(self._dlg, "mcp__tunnel_provider")
+        if provider_ctrl:
+            self._mcp_tunnel_provider_listener = McpTunnelProviderListener(self._dlg)
+            if hasattr(provider_ctrl, "addItemListener"):
+                provider_ctrl.addItemListener(self._mcp_tunnel_provider_listener)
+            if hasattr(provider_ctrl, "addTextListener"):
+                provider_ctrl.addTextListener(self._mcp_tunnel_provider_listener)
 
     def _setup_module_tabs(self):
         try:
@@ -284,16 +308,7 @@ class SettingsDialog:
                 self._populate_generic_field(ctrl, field)
 
         # Populate non-persisted client config snippet
-        snippet_ctrl = get_optional(self._dlg, "mcp__client_config_snippet")
-        if snippet_ctrl:
-            port_ctrl = get_optional(self._dlg, "mcp__mcp_port")
-            port_val = None
-            if port_ctrl and hasattr(port_ctrl, "getValue"):
-                try:
-                    port_val = int(port_ctrl.getValue())
-                except Exception:
-                    pass
-            set_control_text(snippet_ctrl, build_mcp_config_snippet(port=port_val))
+        sync_mcp_config_snippet(self._dlg)
 
     def _schedule_initial_models_fetch(self, endpoint):
         """OpenRouter/Together skip inline fetch; load full catalog when a saved key exists."""
@@ -414,6 +429,36 @@ class SettingsDialog:
                 except Exception:
                     pass
             self._copy_mcp_listener = None
+        if self._test_tunnel_listener and self._dlg is not None:
+            test_tunnel_btn = get_optional(self._dlg, "mcp__test_tunnel")
+            if test_tunnel_btn and hasattr(test_tunnel_btn, "removeActionListener"):
+                try:
+                    test_tunnel_btn.removeActionListener(self._test_tunnel_listener)
+                except Exception:
+                    pass
+            self._test_tunnel_listener = None
+        if self._mcp_tunnel_enabled_listener and self._dlg is not None:
+            tunnel_enabled_ctrl = get_optional(self._dlg, "mcp__tunnel_enabled")
+            if tunnel_enabled_ctrl and hasattr(tunnel_enabled_ctrl, "removeItemListener"):
+                try:
+                    tunnel_enabled_ctrl.removeItemListener(self._mcp_tunnel_enabled_listener)
+                except Exception:
+                    pass
+            self._mcp_tunnel_enabled_listener = None
+        if self._mcp_tunnel_provider_listener and self._dlg is not None:
+            provider_ctrl = get_optional(self._dlg, "mcp__tunnel_provider")
+            if provider_ctrl:
+                if hasattr(provider_ctrl, "removeItemListener"):
+                    try:
+                        provider_ctrl.removeItemListener(self._mcp_tunnel_provider_listener)
+                    except Exception:
+                        pass
+                if hasattr(provider_ctrl, "removeTextListener"):
+                    try:
+                        provider_ctrl.removeTextListener(self._mcp_tunnel_provider_listener)
+                    except Exception:
+                        pass
+            self._mcp_tunnel_provider_listener = None
         if self._mcp_port_listener and self._dlg is not None:
             port_ctrl = get_optional(self._dlg, "mcp__mcp_port")
             if port_ctrl and hasattr(port_ctrl, "removeTextListener"):
@@ -422,6 +467,9 @@ class SettingsDialog:
                 except Exception:
                     pass
             self._mcp_port_listener = None
+        global _active_settings_dialog_ref
+        if _active_settings_dialog_ref is self._dlg:
+            _active_settings_dialog_ref = None
         if self._dlg:
             self._dlg.dispose()
 
@@ -890,19 +938,22 @@ class DownloadAudioListener(BaseActionListener):
         )
 
 
-def build_mcp_config_snippet(port: int | None = None) -> str:
+def build_mcp_config_snippet(port: int | None = None, url: str | None = None) -> str:
     """Return suggested MCP client JSON configuration for Claude Desktop / Cursor."""
     import json
 
-    if port is None:
-        try:
-            port = get_config_int("mcp.mcp_port")
-        except Exception:
-            port = 18765
+    if not url:
+        if port is None:
+            try:
+                port = get_config_int("mcp.mcp_port")
+            except Exception:
+                port = 18765
+        url = f"http://localhost:{port}/mcp"
+
     return json.dumps({
         "mcpServers": {
             "libreoffice": {
-                "url": f"http://localhost:{port}/mcp"
+                "url": url
             }
         }
     }, indent=2)
@@ -936,6 +987,124 @@ class CopyMcpConfigListener(BaseActionListener):
                     pass
 
 
+_active_settings_dialog_ref: Any = None
+_tested_provider_tunnel_urls: dict[str, str] = {}
+
+_PROVIDER_DEFAULT_URLS = {
+    "cloudflare": "https://<subdomain>.trycloudflare.com/mcp",
+    "bore": "http://bore.pub:<remote-port>/mcp",
+    "ngrok": "https://<domain>.ngrok-free.app/mcp",
+    "tailscale": "https://<machine-name>.tailscale.net/mcp",
+}
+
+
+def notify_tunnel_url_acquired(provider: str, url: str) -> None:
+    """Record acquired tunnel URL and update active Settings dialog if open."""
+    p = provider.strip().lower()
+    _tested_provider_tunnel_urls[p] = url
+    dlg = _active_settings_dialog_ref
+    if dlg is not None:
+        from plugin.framework.queue_executor import post_to_main_thread
+        post_to_main_thread(lambda: sync_mcp_config_snippet(dlg))
+
+
+def sync_mcp_config_snippet(
+    dlg: Any,
+    custom_tunnel_url: str | None = None,
+    custom_provider: str | None = None,
+) -> None:
+    """Synchronize MCP client config snippet according to port, tunnel_enabled, and provider."""
+    if not dlg:
+        return
+    snippet_ctrl = get_optional(dlg, "mcp__client_config_snippet")
+    if not snippet_ctrl:
+        return
+
+    port_ctrl = get_optional(dlg, "mcp__mcp_port")
+    port_val = None
+    if port_ctrl:
+        if hasattr(port_ctrl, "getValue"):
+            try:
+                port_val = int(port_ctrl.getValue())
+            except Exception:
+                pass
+        if port_val is None and hasattr(port_ctrl, "getText"):
+            try:
+                port_val = int(str(port_ctrl.getText() or "").strip())
+            except Exception:
+                pass
+
+    tunnel_enabled_ctrl = get_optional(dlg, "mcp__tunnel_enabled")
+    is_tunnel_enabled = get_checkbox_state(tunnel_enabled_ctrl) if tunnel_enabled_ctrl else False
+
+    if not is_tunnel_enabled:
+        # Default local case: always revert to http://localhost:<port>/mcp
+        set_control_text(snippet_ctrl, build_mcp_config_snippet(port=port_val))
+        return
+
+    provider_ctrl = get_optional(dlg, "mcp__tunnel_provider")
+    selected_provider = str(get_control_text(provider_ctrl) or "").strip().lower() if provider_ctrl else "cloudflare"
+    if not selected_provider:
+        selected_provider = "cloudflare"
+
+    if custom_tunnel_url and custom_provider:
+        _tested_provider_tunnel_urls[custom_provider.strip().lower()] = custom_tunnel_url
+    elif custom_tunnel_url:
+        _tested_provider_tunnel_urls[selected_provider] = custom_tunnel_url
+
+    # Check if we have a tested URL for this specific selected provider
+    active_url = _tested_provider_tunnel_urls.get(selected_provider)
+    if not active_url:
+        from plugin.mcp import _shared_tunnel
+        if (
+            _shared_tunnel
+            and _shared_tunnel.is_running
+            and getattr(_shared_tunnel, "_provider", None) == selected_provider
+        ):
+            active_url = _shared_tunnel.mcp_public_url()
+            if not active_url:
+                import time
+                deadline = time.time() + 1.2
+                while time.time() < deadline and not _shared_tunnel._public_url and _shared_tunnel.is_running:
+                    time.sleep(0.1)
+                active_url = _shared_tunnel.mcp_public_url()
+
+            if active_url:
+                _tested_provider_tunnel_urls[selected_provider] = active_url
+
+    if not active_url:
+        # Fall back to provider default template
+        active_url = _PROVIDER_DEFAULT_URLS.get(
+            selected_provider,
+            f"http://localhost:{port_val or 18765}/mcp",
+        )
+
+    set_control_text(snippet_ctrl, build_mcp_config_snippet(port=port_val, url=active_url))
+
+
+class McpTunnelEnabledListener(BaseListener, XItemListener):
+    """Update MCP client config snippet when tunnel_enabled checkbox is toggled."""
+
+    def __init__(self, dlg):
+        self._dlg = dlg
+
+    def itemStateChanged(self, rEvent):
+        sync_mcp_config_snippet(self._dlg)
+
+
+class McpTunnelProviderListener(BaseListener, XItemListener, XTextListener):
+    """Update MCP client config snippet when tunnel provider dropdown is changed."""
+
+    def __init__(self, dlg):
+        self._dlg = dlg
+
+    def itemStateChanged(self, rEvent):
+        sync_mcp_config_snippet(self._dlg)
+
+    def textChanged(self, rEvent):
+        sync_mcp_config_snippet(self._dlg)
+
+
 class McpPortTextListener(BaseListener, XTextListener):
     """Update MCP client config snippet when MCP port is edited."""
 
@@ -943,20 +1112,70 @@ class McpPortTextListener(BaseListener, XTextListener):
         self._dlg = dlg
 
     def textChanged(self, rEvent):
-        snippet_ctrl = get_optional(self._dlg, "mcp__client_config_snippet")
-        if not snippet_ctrl:
-            return
+        sync_mcp_config_snippet(self._dlg)
+
+
+class TestTunnelListener(BaseActionListener):
+    """Settings → MCP: test public tunnel connectivity / provider availability."""
+
+    def __init__(self, ctx, dlg):
+        self._ctx = ctx
+        self._dlg = dlg
+
+    def on_action_performed(self, rEvent):
+        from plugin.chatbot.dialogs import msgbox
+        from plugin.framework.worker_pool import run_in_background
+        from plugin.framework.queue_executor import post_to_main_thread
+        from plugin.mcp.tunnel import test_tunnel_connectivity, DEFAULT_PROVIDER
+
+        provider_ctrl = get_optional(self._dlg, "mcp__tunnel_provider")
+        provider = str(get_control_text(provider_ctrl) or "").strip().lower() if provider_ctrl else DEFAULT_PROVIDER
+        if not provider:
+            provider = DEFAULT_PROVIDER
+
+        token_ctrl = get_optional(self._dlg, "mcp__tunnel_provider_token")
+        token = str(get_control_text(token_ctrl) or "").strip() if token_ctrl else ""
+
         port_ctrl = get_optional(self._dlg, "mcp__mcp_port")
-        port_val = None
+        port = 18765
         if port_ctrl:
             if hasattr(port_ctrl, "getValue"):
                 try:
-                    port_val = int(port_ctrl.getValue())
+                    port = int(port_ctrl.getValue())
                 except Exception:
                     pass
-            if not port_val and hasattr(port_ctrl, "getText"):
+            elif hasattr(port_ctrl, "getText"):
                 try:
-                    port_val = int(str(port_ctrl.getText() or "").strip())
+                    port = int(str(port_ctrl.getText() or "").strip())
                 except Exception:
                     pass
-        set_control_text(snippet_ctrl, build_mcp_config_snippet(port=port_val))
+
+        btn = get_optional(self._dlg, "mcp__test_tunnel")
+        if btn:
+            try:
+                btn.getModel().Label = _("Testing…")
+                btn.getModel().Enabled = False
+            except Exception:
+                pass
+
+        def _worker():
+            _ok, msg, pub_url = test_tunnel_connectivity(provider=provider, provider_token=token, port=port)
+
+            def _apply():
+                if btn:
+                    try:
+                        btn.getModel().Label = _("Test Tunnel")
+                        btn.getModel().Enabled = True
+                    except Exception:
+                        pass
+                if pub_url:
+                    tunnel_enabled_ctrl = get_optional(self._dlg, "mcp__tunnel_enabled")
+                    if tunnel_enabled_ctrl:
+                        set_checkbox_state(tunnel_enabled_ctrl, True)
+                    sync_mcp_config_snippet(self._dlg, custom_tunnel_url=pub_url, custom_provider=provider)
+                msgbox(self._ctx, _("MCP Tunnel Test"), msg)
+
+            post_to_main_thread(_apply)
+
+        run_in_background(_worker)
+
