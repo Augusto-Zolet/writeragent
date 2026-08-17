@@ -247,7 +247,10 @@ def find_chained_range(doc, search_string, all_matches=False):
 
             if chain_ok:
                 start_range = first_start_cursor.getStart() if first_start_cursor else found.getStart()
-                end_range = last_end_cursor.getStart() if last_end_cursor else found.getEnd()
+                # Use getEnd(): last_end_cursor is collapsed (goRight with expand=False), so
+                # getStart()==getEnd() here and the old code was harmless in practice, but getEnd()
+                # is semantically correct for a range endpoint and safe if it were ever non-collapsed.
+                end_range = last_end_cursor.getEnd() if last_end_cursor else found.getEnd()
 
                 try:
                     result_range = text.createTextCursorByRange(start_range)

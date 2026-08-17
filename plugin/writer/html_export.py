@@ -123,6 +123,11 @@ def _range_to_content_via_temp_doc(model, ctx, start, end, max_chars, config_svc
             else:
                 temp_cursor.gotoEnd(False)
                 temp_text.insertControlCharacter(temp_cursor, _PARAGRAPH_BREAK, False)
+                # After insertControlCharacter the cursor is still before the break, not in the
+                # new paragraph. Move into it before setting style/content, otherwise setString
+                # clobbers the previous paragraph instead of filling the new one.
+                temp_cursor.gotoNextParagraph(False)
+                temp_cursor.gotoEndOfParagraph(True)
                 temp_cursor.setPropertyValue("ParaStyleName", style)
                 temp_cursor.setString(para_text)
             added_any = True
