@@ -184,9 +184,9 @@ DOMAIN_TOOLS = {   'analysi': [   'analyze_data',
     'shape': [   'delete_shape',
                  'get_draw_summary',
                  'shape_list_images',
+                 'shape_upsert',
                  'shapes_connect',
-                 'shapes_group',
-                 'upsert_shape'],
+                 'shapes_group'],
     'sheet': [   'apply_sheet_filter',
                  'clear_sheet_filter',
                  'create_sheet',
@@ -401,15 +401,15 @@ comment = _CommentProxy()
 class _ConditionalFormattingProxy:
     """Proxy for conditional_formatting tools."""
 
-    def add_conditional_format(self, range_name: str, operator: str, style: str, *, formula1: str = "", formula2: str = "") -> dict:
+    def add_conditional_format(self, range_name: list, operator: str, style: str, *, formula1: str = "", formula2: str = "") -> dict:
         """Add a conditional formatting rule to a Calc cell range."""
         return _rpc_call("add_conditional_format", range=range_name, operator=operator, formula1=formula1, formula2=formula2, style=style)
 
-    def list_conditional_formats(self, *, range_name: str = "") -> dict:
+    def list_conditional_formats(self, *, range_name: list = []) -> dict:
         """List conditional formatting rules on a Calc cell range."""
         return _rpc_call("list_conditional_formats", range=range_name)
 
-    def remove_conditional_formats(self, range_name: str, *, rule_index: int = 0) -> dict:
+    def remove_conditional_formats(self, range_name: list, *, rule_index: int = 0) -> dict:
         """Remove a conditional formatting rule from a Calc cell range by index, or clear all rules if no index is provided."""
         return _rpc_call("remove_conditional_formats", range=range_name, rule_index=rule_index)
 
@@ -505,9 +505,9 @@ class _DrawProxy:
         """Returns a semantic tree (DOM) of the shapes on the active or specified draw page."""
         return _rpc_call("get_draw_tree", page=page)
 
-    def get_placeholder_text(self, *, role: str = "", shape: int = 0, page: int = 0) -> dict:
+    def get_placeholder_text(self, *, role: str = "", index: int = 0, page: int = 0) -> dict:
         """Get text from a slide placeholder."""
-        return _rpc_call("get_placeholder_text", role=role, shape=shape, page=page)
+        return _rpc_call("get_placeholder_text", role=role, index=index, page=page)
 
     def get_presentation_info(self) -> dict:
         """Get presentation metadata: slide count, dimensions, master slide names, and whether it is an Impress document."""
@@ -518,7 +518,7 @@ class _DrawProxy:
         return _rpc_call("list_pages")
 
     def list_placeholders(self, *, page: int = 0) -> dict:
-        """List all text placeholders on a slide with their role (title, subtitle, body), text content, and shape index."""
+        """List all text placeholders on a slide with their role (title, subtitle, body), text content, and index."""
         return _rpc_call("list_placeholders", page=page)
 
     def read_slide_text(self, *, page: int = 0) -> dict:
@@ -529,9 +529,9 @@ class _DrawProxy:
         """Changes the currently active slide (page) in Draw/Impress."""
         return _rpc_call("set_active_page", page=page)
 
-    def set_placeholder_text(self, text: str, *, role: str = "", shape: int = 0, page: int = 0) -> dict:
+    def set_placeholder_text(self, text: str, *, role: str = "", index: int = 0, page: int = 0) -> dict:
         """Set text on a slide placeholder."""
-        return _rpc_call("set_placeholder_text", text=text, role=role, shape=shape, page=page)
+        return _rpc_call("set_placeholder_text", text=text, role=role, index=index, page=page)
 
 draw = _DrawProxy()
 
@@ -627,13 +627,13 @@ class _FormsProxy:
         """Creates a single interactive form control (checkbox, text field, radio button, date field, combobox, or button)."""
         return _rpc_call("form_create_control", control=control, label=label, name=name, group_name=group_name, items=items, placeholder=placeholder, default_value=default_value, width=width, height=height)
 
-    def delete_control(self, shape_index: int) -> dict:
-        """Deletes a form control by shape index (Calc: active sheet draw page)."""
-        return _rpc_call("form_delete_control", shape_index=shape_index)
+    def delete_control(self, index: int) -> dict:
+        """Deletes a form control by index (Calc: active sheet draw page)."""
+        return _rpc_call("form_delete_control", index=index)
 
-    def edit_control(self, shape_index: int, *, name: str = "", label: str = "", text: str = "", items: list = [], x: int = 0, y: int = 0, width: int = 0, height: int = 0) -> dict:
+    def edit_control(self, index: int, *, name: str = "", label: str = "", text: str = "", items: list = [], x: int = 0, y: int = 0, width: int = 0, height: int = 0) -> dict:
         """Modifies an existing form control by index (from form_list_controls)."""
-        return _rpc_call("form_edit_control", shape_index=shape_index, name=name, label=label, text=text, items=items, x=x, y=y, width=width, height=height)
+        return _rpc_call("form_edit_control", index=index, name=name, label=label, text=text, items=items, x=x, y=y, width=width, height=height)
 
     def generate(self, description: str) -> dict:
         """Generates a document or sheet layout with interactive form fields from a description."""
@@ -829,7 +829,7 @@ class _RangeProxy:
         """Defines a new named range or formula expression in the workbook (global) or specific sheet."""
         return _rpc_call("named_range_add", name=name, content=content, scope=scope, base_cell=base_cell, flags=flags)
 
-    def named_range_create_from_titles(self, range_name: str, *, border: str = "", scope: str = "") -> dict:
+    def named_range_create_from_titles(self, range_name: list, *, border: str = "", scope: str = "") -> dict:
         """Automatically creates multiple named ranges based on the content of title cells (headers) in a table range."""
         return _rpc_call("named_range_create_from_titles", range=range_name, border=border, scope=scope)
 
@@ -873,29 +873,29 @@ search = _SearchProxy()
 class _ShapeProxy:
     """Proxy for shape tools."""
 
-    def connect(self, start_shape: int, end_shape: int, *, page: int = 0, line_color: str = "", line_width: int = 0) -> dict:
+    def connect(self, start: int, end: int, *, page: int = 0, line_color: str = "", line_width: int = 0) -> dict:
         """Connect two shapes on the same page with a connector."""
-        return _rpc_call("shapes_connect", start_shape=start_shape, end_shape=end_shape, page=page, line_color=line_color, line_width=line_width)
+        return _rpc_call("shapes_connect", start=start, end=end, page=page, line_color=line_color, line_width=line_width)
 
-    def delete_shape(self, shape: int, *, page: int = 0) -> dict:
+    def delete_shape(self, index: int, *, page: int = 0) -> dict:
         """Deletes a shape by index."""
-        return _rpc_call("delete_shape", shape=shape, page=page)
+        return _rpc_call("delete_shape", index=index, page=page)
 
     def get_draw_summary(self, *, page: int = 0) -> dict:
         """Returns a summary of shapes on the active or specified page."""
         return _rpc_call("get_draw_summary", page=page)
 
-    def group(self, shapes: list, *, page: int = 0) -> dict:
+    def group(self, indices: list, *, page: int = 0) -> dict:
         """Groups multiple shapes together on the same page."""
-        return _rpc_call("shapes_group", shapes=shapes, page=page)
+        return _rpc_call("shapes_group", indices=indices, page=page)
 
     def list_images(self) -> dict:
         """List images and graphic objects in the Writer document (names, sizes, titles)."""
         return _rpc_call("shape_list_images")
 
-    def upsert_shape(self, action: str, *, shape_index: int = 0, page: int = 0, shape_type: str = "", x: int = 0, y: int = 0, width: int = 0, height: int = 0, text: str = "", bg_color: str = "", fill_color: str = "", fill_style: str = "", line_color: str = "", line_width: int = 0, text_color: str = "", font_size: float = 0.0, font_name: str = "", rotation_angle: float = 0.0) -> dict:
+    def upsert(self, action: str, *, index: int = 0, page: int = 0, shape_type: str = "", x: int = 0, y: int = 0, width: int = 0, height: int = 0, text: str = "", fill_color: str = "", fill_style: str = "", line_color: str = "", line_width: int = 0, text_color: str = "", font_size: float = 0.0, font_name: str = "", rotation_angle: float = 0.0) -> dict:
         """Creates a new shape or modifies an existing shape on a page."""
-        return _rpc_call("upsert_shape", action=action, shape_index=shape_index, page=page, shape_type=shape_type, x=x, y=y, width=width, height=height, text=text, bg_color=bg_color, fill_color=fill_color, fill_style=fill_style, line_color=line_color, line_width=line_width, text_color=text_color, font_size=font_size, font_name=font_name, rotation_angle=rotation_angle)
+        return _rpc_call("shape_upsert", action=action, index=index, page=page, shape_type=shape_type, x=x, y=y, width=width, height=height, text=text, fill_color=fill_color, fill_style=fill_style, line_color=line_color, line_width=line_width, text_color=text_color, font_size=font_size, font_name=font_name, rotation_angle=rotation_angle)
 
 shape = _ShapeProxy()
 
@@ -903,11 +903,11 @@ shape = _ShapeProxy()
 class _SheetProxy:
     """Proxy for sheet tools."""
 
-    def apply_sheet_filter(self, range_name: str, criteria: list, *, has_header: bool = True) -> dict:
+    def apply_sheet_filter(self, range_name: list, criteria: list, *, has_header: bool = True) -> dict:
         """Hide rows that do not match a standard Calc filter (not conditional formatting)."""
         return _rpc_call("apply_sheet_filter", range=range_name, has_header=has_header, criteria=criteria)
 
-    def clear_sheet_filter(self, range_name: str, *, has_header: bool = True) -> dict:
+    def clear_sheet_filter(self, range_name: list, *, has_header: bool = True) -> dict:
         """Remove the active standard sheet filter on a range so all rows show again."""
         return _rpc_call("clear_sheet_filter", range=range_name, has_header=has_header)
 
@@ -919,7 +919,7 @@ class _SheetProxy:
         """Deletes an existing sheet by name."""
         return _rpc_call("delete_sheet", sheet=sheet)
 
-    def get_sheet_filter(self, range_name: str) -> dict:
+    def get_sheet_filter(self, range_name: list) -> dict:
         """Return active filter criteria and has_header for a range, or empty if none."""
         return _rpc_call("get_sheet_filter", range=range_name)
 

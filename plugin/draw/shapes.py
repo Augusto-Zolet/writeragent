@@ -401,7 +401,7 @@ class GetDrawSummary(ToolDrawShapeBase):
                 info["text"] = s.getString()
             shapes.append(info)
 
-        return {"status": "ok", "page_index": actual_idx, "shapes": shapes}
+        return {"status": "ok", "page": actual_idx, "shapes": shapes}
 
 
 class DrawShapes:
@@ -488,8 +488,8 @@ def _apply_shape_properties(shape, kwargs):
         shape.setString(kwargs["text"])
 
     # Background/Fill Color
-    if kwargs.get("bg_color") or kwargs.get("fill_color"):
-        color_str = kwargs.get("fill_color") or kwargs.get("bg_color")
+    if kwargs.get("fill_color"):
+        color_str = kwargs.get("fill_color")
         color_str_l = (color_str or "").strip().lower()
         if color_str_l in ("none", "transparent") and hasattr(shape, "FillStyle"):
             try:
@@ -595,13 +595,13 @@ _CREATE_SHAPE_SHAPE_TYPE_DESC = (
 
 
 class UpsertShape(ToolDrawShapeBase):
-    name = "upsert_shape"
+    name = "shape_upsert"
     description = "Creates a new shape or modifies an existing shape on a page."
     parameters = {
         "type": "object",
         "properties": {
             "action": {"type": "string", "enum": ["create", "edit"], "description": "Action to perform: 'create' a new shape, or 'edit' an existing one."},
-            "shape_index": {"type": "integer", "description": "0-based index of the shape on the page (required only for action='edit')"},
+            "index": {"type": "integer", "description": "0-based index of the shape on the page (required only for action='edit')"},
             "page": {"type": "integer", "description": "0-based page index (active page if omitted)"},
             "shape_type": {"type": "string", "description": _CREATE_SHAPE_SHAPE_TYPE_DESC + " (required only for action='create')"},
             "x": {"type": "integer", "description": "X position (100ths of mm) (required only for action='create')"},
@@ -609,7 +609,6 @@ class UpsertShape(ToolDrawShapeBase):
             "width": {"type": "integer", "description": "Width (100ths of mm) (required only for action='create')"},
             "height": {"type": "integer", "description": "Height (100ths of mm) (required only for action='create')"},
             "text": {"type": "string", "description": "Text content"},
-            "bg_color": {"type": "string", "description": "Alias for fill_color. Hex (#FF0000) or name (red)"},
             "fill_color": {"type": "string", "description": "Fill color. Hex (#FF0000) or name (red)"},
             "fill_style": {"type": "string", "enum": ["solid", "transparent", "none"], "description": "Fill style"},
             "line_color": {"type": "string", "description": "Line border color"},
@@ -636,8 +635,8 @@ class UpsertShape(ToolDrawShapeBase):
                 if r not in kwargs:
                     return False, f"Parameter '{r}' is required when action is 'create'"
         elif action == "edit":
-            if "shape_index" not in kwargs:
-                return False, "Parameter 'shape_index' is required when action is 'edit'"
+            if "index" not in kwargs:
+                return False, "Parameter 'index' is required when action is 'edit'"
         else:
             return False, f"Unknown action: '{action}'. Must be 'create' or 'edit'"
             
@@ -688,7 +687,7 @@ class UpsertShape(ToolDrawShapeBase):
                 is_custom_shape = True
                 custom_shape_type = shape_type_raw
 
-            log.debug("upsert_shape (create) branch: raw=%r resolved_uno=%r is_custom_catalog=%s catalog_name=%r", shape_type_raw, uno_type, is_custom_shape, custom_shape_type if is_custom_shape else None)
+            log.debug("shape_upsert (create) branch: raw=%r resolved_uno=%r is_custom_catalog=%s catalog_name=%r", shape_type_raw, uno_type, is_custom_shape, custom_shape_type if is_custom_shape else None)
 
             draw_shapes = DrawShapes()
 
@@ -713,7 +712,7 @@ class UpsertShape(ToolDrawShapeBase):
             if is_custom_shape and custom_shape_type:
                 geometry_applied, geometry_error = _apply_enhanced_custom_shape_type(shape, custom_shape_type)
                 if not geometry_applied:
-                    log.warning("upsert_shape (create): Failed to apply EnhancedCustomShapeGeometry post-anchor")
+                    log.warning("shape_upsert (create): Failed to apply EnhancedCustomShapeGeometry post-anchor")
 
             _apply_shape_properties(shape, kwargs)
             _try_writer_invalidate_and_pump(ctx.doc)
@@ -727,9 +726,9 @@ class UpsertShape(ToolDrawShapeBase):
             shape_count_after = page.getCount()
             shape_index = shape_count_after - 1
 
-            log.debug("upsert_shape (create): page_index=%s shape_index=%s shape_type=%s is_custom=%s geometry_applied=%s", page_index, shape_index, shape_type_raw, is_custom_shape, geometry_applied)
+            log.debug("shape_upsert (create): page=%s shape=%s shape_type=%s is_custom=%s geometry_applied=%s", page_index, shape_index, shape_type_raw, is_custom_shape, geometry_applied)
 
-            result: dict = {"status": "ok", "message": f"Created {shape_type_raw}", "shape_index": shape_index, "page_index": page_index, "shape_count_after": shape_count_after}
+            result: dict = {"status": "ok", "message": f"Created {shape_type_raw}", "index": shape_index, "page": page_index, "shape_count_after": shape_count_after}
             if is_custom_shape:
                 result["custom_shape_engine"] = _ENHANCED_CUSTOM_SHAPE_ENGINE
                 result["geometry_applied"] = bool(geometry_applied)
@@ -741,9 +740,9 @@ class UpsertShape(ToolDrawShapeBase):
 
         elif action == "edit":
             try:
-                shape = page.getByIndex(kwargs["shape_index"])
+                shape = page.getByIndex(kwargs["index"])
             except Exception as e:
-                return self._tool_error(f"Failed to find shape at index {kwargs['shape_index']}: {str(e)}")
+                return self._tool_error(f"Failed to find shape at index {kwargs['index']}: {str(e)}")
 
             if "x" in kwargs or "y" in kwargs:
                 pos = shape.getPosition()
@@ -754,7 +753,7 @@ class UpsertShape(ToolDrawShapeBase):
 
             _apply_shape_properties(shape, kwargs)
 
-            return {"status": "ok", "message": "Shape updated", "page_index": actual_idx}
+            return {"status": "ok", "message": "Shape updated", "page": actual_idx}
 
 
 class ConnectShapes(ToolDrawShapeBase):
@@ -766,13 +765,13 @@ class ConnectShapes(ToolDrawShapeBase):
     parameters = {
         "type": "object",
         "properties": {
-            "start_shape": {"type": "integer", "description": "Index of the starting shape."},
-            "end_shape": {"type": "integer", "description": "Index of the ending shape."},
+            "start": {"type": "integer", "description": "Index of the starting shape."},
+            "end": {"type": "integer", "description": "Index of the ending shape."},
             "page": {"type": "integer", "description": "Page index containing the shapes"},
             "line_color": {"type": "string", "description": "Color of the connector line"},
             "line_width": {"type": "integer", "description": "Line width (100ths of mm)"},
         },
-        "required": ["start_shape", "end_shape"],
+        "required": ["start", "end"],
     }
     uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
     doc_types = ["draw", "impress"]
@@ -788,10 +787,10 @@ class ConnectShapes(ToolDrawShapeBase):
         if page is None:
             return self._tool_error("No draw page available or invalid page index.")
 
-        start_idx = kwargs.get("start_shape")
-        end_idx = kwargs.get("end_shape")
+        start_idx = kwargs.get("start")
+        end_idx = kwargs.get("end")
         if start_idx is None or end_idx is None:
-            return self._tool_error("start_shape and end_shape are required.")
+            return self._tool_error("start and end are required.")
 
         try:
             start_shape = page.getByIndex(start_idx)
@@ -817,7 +816,7 @@ class ConnectShapes(ToolDrawShapeBase):
         except Exception as e:
             return self._tool_error(f"Failed to set connector properties: {str(e)}")
 
-        return {"status": "ok", "message": f"Connected shape {start_idx} to {end_idx}", "shape_index": page.getCount() - 1}
+        return {"status": "ok", "message": f"Connected shape {start_idx} to {end_idx}", "index": page.getCount() - 1}
 
 
 class GroupShapes(ToolDrawShapeBase):
@@ -826,7 +825,7 @@ class GroupShapes(ToolDrawShapeBase):
     name = "shapes_group"
     intent = "edit"
     description = "Groups multiple shapes together on the same page."
-    parameters = {"type": "object", "properties": {"shapes": {"type": "array", "items": {"type": "integer"}, "description": "List of shape indices to group."}, "page": {"type": "integer", "description": "Page index containing the shapes"}}, "required": ["shapes"]}
+    parameters = {"type": "object", "properties": {"indices": {"type": "array", "items": {"type": "integer"}, "description": "List of shape indices to group."}, "page": {"type": "integer", "description": "Page index containing the shapes"}}, "required": ["indices"]}
     uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
     doc_types = ["draw", "impress"]
     is_mutation = True
@@ -840,7 +839,7 @@ class GroupShapes(ToolDrawShapeBase):
         if page is None:
             return self._tool_error("No draw page available or invalid page index.")
 
-        indices = kwargs.get("shapes")
+        indices = kwargs.get("indices")
         if not indices or len(indices) < 2:
             return self._tool_error("At least two shape indices are required to group.")
 
@@ -859,7 +858,7 @@ class GroupShapes(ToolDrawShapeBase):
         return {
             "status": "ok",
             "message": f"Grouped {len(indices)} shapes.",
-            "group_shape_index": page.getCount() - 1,  # Note: Grouping usually replaces the individual shapes with the group shape
+            "index": page.getCount() - 1,  # Grouping replaces the individuals with this group shape
         }
 
 
@@ -867,7 +866,7 @@ class DeleteShape(ToolDrawShapeBase):
     name = "delete_shape"
     intent = "edit"
     description = "Deletes a shape by index."
-    parameters = {"type": "object", "properties": {"shape": {"type": "integer", "description": "0-based shape index"}, "page": {"type": "integer", "description": "0-based page index (active page if omitted)"}}, "required": ["shape"]}
+    parameters = {"type": "object", "properties": {"index": {"type": "integer", "description": "0-based shape index"}, "page": {"type": "integer", "description": "0-based page index (active page if omitted)"}}, "required": ["index"]}
     uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
     is_mutation = True
 
@@ -879,9 +878,9 @@ class DeleteShape(ToolDrawShapeBase):
         page = bridge.get_pages().getByIndex(idx) if idx is not None else bridge.get_active_page()
         if page is None:
             return self._tool_error("No draw page available or invalid page index.")
-        shape_idx = kwargs.get("shape")
+        shape_idx = kwargs.get("index")
         if shape_idx is None:
-            return self._tool_error("shape is required.")
+            return self._tool_error("index is required.")
         shape = page.getByIndex(shape_idx)
         page.remove(shape)
         return {"status": "ok", "message": "Shape deleted"}

@@ -1070,7 +1070,7 @@ class ManageCharts(ToolCalcChartBase):
     """Manage charts: list, get_info, create, edit, or delete in the current context.
 
     Sole charts-domain tool advertised to LLMs/MCP. Calc/Writer/Draw each register
-    ``ManageCharts`` with their chart specialized base (like ``upsert_shape``);
+    ``ManageCharts`` with their chart specialized base (like ``shape_upsert``);
     ``ToolRegistry`` keeps one instance per name (last module load wins). Writer/Draw
     set union ``uno_services`` so registration order does not drop other document types.
     Skinny list/info/upsert/delete classes are Dummy backends for this dispatcher.

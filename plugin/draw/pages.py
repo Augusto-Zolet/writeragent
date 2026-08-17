@@ -105,7 +105,7 @@ class ReadSlideText(ToolBase):
             try:
                 txt = shape.getString()
                 if txt and txt.strip():
-                    entry = {"shape_index": i, "text": txt}
+                    entry = {"index": i, "text": txt}
                     try:
                         entry["shape_name"] = shape.Name
                     except Exception:
@@ -124,7 +124,7 @@ class ReadSlideText(ToolBase):
         except Exception:
             pass
 
-        return {"status": "ok", "page": actual_idx, "page_index": actual_idx, "texts": texts, "notes": notes_text}
+        return {"status": "ok", "page": actual_idx, "texts": texts, "notes": notes_text}
 
 
 class GetPresentationInfo(ToolBase):

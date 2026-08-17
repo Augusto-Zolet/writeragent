@@ -36,7 +36,7 @@ _WRITER_DRAW_SHAPE_DOCS = list(SHAPE_TOOL_UNO_SERVICES)
 
 
 class UpsertShape(DrawUpsertShape, ToolWriterShapeBase):
-    name = "upsert_shape"
+    name = "shape_upsert"
     uno_services = _WRITER_DRAW_SHAPE_DOCS
     # Specialized for all document types (use delegate_to_specialized_*_toolset(domain=shapes)).
     tier = "specialized"

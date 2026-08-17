@@ -42,7 +42,7 @@ def test_get_active_document_type_unknown():
 def test_universal_sample_writer():
     with patch("writeragent.get_active_document_type") as mock_get_type, \
          patch.object(wa.writer, "apply_document_content") as mock_apply, \
-         patch.object(wa.shape, "upsert_shape") as mock_upsert:
+         patch.object(wa.shape, "upsert") as mock_upsert:
         
         mock_get_type.return_value = "writer"
         mock_apply.return_value = {}
@@ -67,7 +67,7 @@ def test_universal_sample_writer():
 def test_universal_sample_calc():
     with patch("writeragent.get_active_document_type") as mock_get_type, \
          patch.object(wa.calc, "insert_cell_html") as mock_insert, \
-         patch.object(wa.shape, "upsert_shape") as mock_upsert:
+         patch.object(wa.shape, "upsert") as mock_upsert:
         
         mock_get_type.return_value = "calc"
         mock_insert.return_value = {}

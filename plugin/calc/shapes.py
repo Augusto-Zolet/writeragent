@@ -18,7 +18,7 @@ log = logging.getLogger("writeragent.calc")
 _CALC_DRAW_SHAPE_DOCS = list(SHAPE_TOOL_UNO_SERVICES)
 
 class UpsertShape(DrawUpsertShape, ToolCalcShapeBase):
-    name = "upsert_shape"
+    name = "shape_upsert"
     uno_services = _CALC_DRAW_SHAPE_DOCS
     tier = "specialized"
 

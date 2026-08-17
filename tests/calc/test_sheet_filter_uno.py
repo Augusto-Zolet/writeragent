@@ -34,7 +34,7 @@ def test_calc_sheet_filter_apply_get_clear(ctx, doc):
     data_i0, data_i1 = 40, 42
 
     res_write = _execute_calc_tool(doc, ctx, "write_formula_range", {
-        "range": "G40:I43",
+        "range": ["G40:I43"],
         "values": [
             ["Name", "Region", "Score"],
             ["Alice", "East", "10"],
@@ -45,7 +45,7 @@ def test_calc_sheet_filter_apply_get_clear(ctx, doc):
     assert res_write.get("status") == "ok", f"write_formula_range failed: {res_write}"
 
     res_apply = _execute_calc_tool(doc, ctx, "apply_sheet_filter", {
-        "range": "G40:I43",
+        "range": ["G40:I43"],
         "has_header": True,
         "criteria": [
             {"field": 1, "operator": "CONTAINS", "value": "East"},
@@ -53,7 +53,7 @@ def test_calc_sheet_filter_apply_get_clear(ctx, doc):
     })
     assert res_apply.get("status") == "ok", f"apply_sheet_filter failed: {res_apply}"
 
-    res_get = _execute_calc_tool(doc, ctx, "get_sheet_filter", {"range": "G40:I43"})
+    res_get = _execute_calc_tool(doc, ctx, "get_sheet_filter", {"range": ["G40:I43"]})
     assert res_get.get("status") == "ok", f"get_sheet_filter failed: {res_get}"
     crit = res_get.get("criteria", [])
     assert len(crit) >= 1, crit
@@ -61,7 +61,7 @@ def test_calc_sheet_filter_apply_get_clear(ctx, doc):
     assert crit[0].get("field") == 1, crit[0]
 
     res_apply_or = _execute_calc_tool(doc, ctx, "apply_sheet_filter", {
-        "range": "G40:I43",
+        "range": ["G40:I43"],
         "has_header": True,
         "criteria": [
             {"field": 1, "operator": "CONTAINS", "value": "East"},
@@ -78,7 +78,7 @@ def test_calc_sheet_filter_apply_get_clear(ctx, doc):
 
     assert _visible_row_count(data_i0, data_i1) == 3, "OR: East or Score>15 should show all three data rows"
 
-    res_get_or = _execute_calc_tool(doc, ctx, "get_sheet_filter", {"range": "G40:I43"})
+    res_get_or = _execute_calc_tool(doc, ctx, "get_sheet_filter", {"range": ["G40:I43"]})
     assert res_get_or.get("status") == "ok", f"get_sheet_filter after OR apply failed: {res_get_or}"
     crit_or = res_get_or.get("criteria", [])
     assert len(crit_or) == 2, crit_or
@@ -87,7 +87,7 @@ def test_calc_sheet_filter_apply_get_clear(ctx, doc):
     # getFilterFields2 readback even when the active filter is OR (validated above).
 
     res_apply_and = _execute_calc_tool(doc, ctx, "apply_sheet_filter", {
-        "range": "G40:I43",
+        "range": ["G40:I43"],
         "has_header": True,
         "criteria": [
             {"field": 1, "operator": "CONTAINS", "value": "East"},
@@ -102,9 +102,9 @@ def test_calc_sheet_filter_apply_get_clear(ctx, doc):
     assert res_apply_and.get("status") == "ok", f"apply_sheet_filter AND chain failed: {res_apply_and}"
     assert _visible_row_count(data_i0, data_i1) == 1, "AND: only Carol matches East and Score>15"
 
-    res_clear = _execute_calc_tool(doc, ctx, "clear_sheet_filter", {"range": "G40:I43", "has_header": True})
+    res_clear = _execute_calc_tool(doc, ctx, "clear_sheet_filter", {"range": ["G40:I43"], "has_header": True})
     assert res_clear.get("status") == "ok", f"clear_sheet_filter failed: {res_clear}"
 
-    res_get2 = _execute_calc_tool(doc, ctx, "get_sheet_filter", {"range": "G40:I43"})
+    res_get2 = _execute_calc_tool(doc, ctx, "get_sheet_filter", {"range": ["G40:I43"]})
     assert res_get2.get("status") == "ok", f"get_sheet_filter after clear failed: {res_get2}"
     assert res_get2.get("count", -1) == 0, res_get2

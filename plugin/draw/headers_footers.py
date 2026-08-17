@@ -269,7 +269,7 @@ class GetHeadersFooters(ToolDrawHeaderFooterBase):
 
         page = _get_page(ctx, page_index, is_master_page)
 
-        result: Dict[str, Any] = {"status": "ok", "page": page_index, "page_index": page_index, "is_master_page": is_master_page, "properties": {}}
+        result: Dict[str, Any] = {"status": "ok", "page": page_index, "is_master_page": is_master_page, "properties": {}}
 
         props_to_fetch = ["HeaderText", "FooterText", "DateTimeText", "IsHeaderVisible", "IsFooterVisible", "IsPageNumberVisible", "IsDateTimeVisible", "IsDateTimeFixed", "DateTimeFormat"]
 

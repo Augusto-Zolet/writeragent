@@ -41,7 +41,7 @@ class _DummyFootnotesList(FootnotesList):
         return {"status": "ok", "footnotes": [], "endnotes": []}
 
 class _DummyShapeTool(ToolBase):
-    name = "upsert_shape"
+    name = "shape_upsert"
     description = "test"
     parameters = {"type": "object", "properties": {}, "required": []}
     tier = "specialized"
@@ -474,7 +474,7 @@ def test_calc_shapes_domain_tools():
     
     tools = reg.get_tools(doc=doc, active_domain="shapes", exclude_tiers=())
     names = {t.name for t in tools}
-    assert "upsert_shape" in names
+    assert "shape_upsert" in names
     assert "delete_shape" in names
     assert "shapes_connect" in names
     assert "shapes_group" in names

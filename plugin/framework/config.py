@@ -484,7 +484,7 @@ _DEFAULT_PYTHON_SCRIPTS = {
         "        print(\"Unsupported document type for rich text insertion.\")\n\n"
         "    # 2. Insert a 24-sided Star Shape\n"
         "    # Width/height are in 100ths of a mm (e.g., 4000 = 4cm)\n"
-        "    wa.shape.upsert_shape(\n"
+        "    wa.shape.upsert(\n"
         "        action=\"create\",\n"
         "        shape_type=\"star24\",\n"
         "        x=2000,\n"

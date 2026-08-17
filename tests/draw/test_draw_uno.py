@@ -77,18 +77,18 @@ def test_upsert_and_verify_shape(ctx, doc):
         active_page = doc.getDrawPages().getByIndex(0)
     initial_shape_count = active_page.getCount()
 
-    result = _exec_tool(doc, ctx, "upsert_shape", {
+    result = _exec_tool(doc, ctx, "shape_upsert", {
         "action": "create",
         "shape_type": "rectangle",
         "x": 1000, "y": 1000, "width": 5000, "height": 3000,
         "text": "Hello Draw",
-        "bg_color": "#FF0000"
+        "fill_color": "#FF0000"
     })
     data = json.loads(result)
-    assert data.get("status") == "ok", f"upsert_shape create failed: {result}"
+    assert data.get("status") == "ok", f"shape_upsert create failed: {result}"
 
     new_shape_count = active_page.getCount()
-    assert new_shape_count == initial_shape_count + 1, "Shape count did not increase after upsert_shape"
+    assert new_shape_count == initial_shape_count + 1, "Shape count did not increase after shape_upsert"
 
     # Query the created shape's Position and Size properties via UNO
     created_shape = active_page.getByIndex(new_shape_count - 1)
@@ -112,17 +112,17 @@ def test_upsert_and_verify_shape(ctx, doc):
     assert shape_id is not None, "Summary missing the created rectangle"
 
     # 3. Edit shape
-    result = _exec_tool(doc, ctx, "upsert_shape", {
+    result = _exec_tool(doc, ctx, "shape_upsert", {
         "action": "edit",
-        "shape_index": shape_id,
+        "index": shape_id,
         "x": 3000, "y": 3000,
-        "bg_color": "#00FF00"
+        "fill_color": "#00FF00"
     })
     data = json.loads(result)
-    assert data.get("status") == "ok", f"upsert_shape edit failed: {result}"
+    assert data.get("status") == "ok", f"shape_upsert edit failed: {result}"
 
     # 4. Delete shape
-    result = _exec_tool(doc, ctx, "delete_shape", {"shape": shape_id})
+    result = _exec_tool(doc, ctx, "delete_shape", {"index": shape_id})
     data = json.loads(result)
     assert data.get("status") == "ok", f"delete_shape failed: {result}"
 
@@ -136,7 +136,7 @@ def test_create_custom_shape_octagon(ctx, doc):
         active_page = doc.getDrawPages().getByIndex(0)
     initial_shape_count = active_page.getCount()
 
-    result = _exec_tool(doc, ctx, "upsert_shape", {
+    result = _exec_tool(doc, ctx, "shape_upsert", {
         "action": "create",
         "shape_type": "octagon",
         "x": 1000,
@@ -148,7 +148,7 @@ def test_create_custom_shape_octagon(ctx, doc):
         "line_width": 100,
     })
     data = json.loads(result)
-    assert data.get("status") == "ok", f"upsert_shape octagon failed: {result}"
+    assert data.get("status") == "ok", f"shape_upsert octagon failed: {result}"
     assert data.get("geometry_applied") is True, data
     assert "warning" not in data, data
 
@@ -206,12 +206,12 @@ def test_master_slides(ctx, doc):
 @with_native_doc("draw")
 def test_get_draw_tree(ctx, doc):
     # Ensure there is at least one shape to build a tree with
-    _exec_tool(doc, ctx, "upsert_shape", {
+    _exec_tool(doc, ctx, "shape_upsert", {
         "action": "create",
         "shape_type": "rectangle",
         "x": 1000, "y": 1000, "width": 5000, "height": 3000,
         "text": "Tree Shape",
-        "bg_color": "#FF0000"
+        "fill_color": "#FF0000"
     })
 
     result = _exec_tool(doc, ctx, "get_draw_tree", {"page": _active_draw_page_index(doc)})
@@ -246,7 +246,7 @@ def test_insert_math_draw(ctx, doc):
 
     # insert_math used page_index 0 — read shape from that page (current slide may differ after prior tests).
     target_page = doc.getDrawPages().getByIndex(0)
-    shape = target_page.getByIndex(data.get("shape_index"))
+    shape = target_page.getByIndex(data.get("index"))
 
     assert shape.CLSID == "078B7ABA-54FC-457F-8551-6147e776a997"
     sz = shape.getSize()
@@ -254,28 +254,28 @@ def test_insert_math_draw(ctx, doc):
 
 
 @native_test
-def test_upsert_shape_validation():
+def test_shape_upsert_validation():
     from plugin.main import get_tools
-    upsert_shape_tool = get_tools().get("upsert_shape")
-    assert upsert_shape_tool is not None
+    shape_upsert_tool = get_tools().get("shape_upsert")
+    assert shape_upsert_tool is not None
 
     # Test validation when action is missing
-    ok, err = upsert_shape_tool.validate()
+    ok, err = shape_upsert_tool.validate()
     assert not ok
     assert "Missing required parameter" in err
 
     # Test validation when action='create' but missing required parameters
-    ok, err = upsert_shape_tool.validate(action="create")
+    ok, err = shape_upsert_tool.validate(action="create")
     assert not ok
     assert "required when action is 'create'" in err
 
-    # Test validation when action='edit' but missing shape_index
-    ok, err = upsert_shape_tool.validate(action="edit")
+    # Test validation when action='edit' but missing index
+    ok, err = shape_upsert_tool.validate(action="edit")
     assert not ok
-    assert "Parameter 'shape_index' is required" in err
+    assert "Parameter 'index' is required" in err
 
     # Test validation when action='create' and all required parameters are present
-    ok, err = upsert_shape_tool.validate(action="create", shape_type="rectangle", x=1000, y=1000, width=5000, height=3000)
+    ok, err = shape_upsert_tool.validate(action="create", shape_type="rectangle", x=1000, y=1000, width=5000, height=3000)
     assert ok
     assert err is None
 

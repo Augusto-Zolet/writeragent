@@ -39,7 +39,7 @@ class GetSpeakerNotes(ToolDrawSpeakerNotesBase):
         if notes_page and notes_page.getCount() > 1:
             notes_shape = notes_page.getByIndex(1)
             notes_text = notes_shape.getString()
-        return {"status": "ok", "page": page_idx, "page_index": page_idx, "notes": notes_text}
+        return {"status": "ok", "page": page_idx, "notes": notes_text}
 
 
 class SetSpeakerNotes(ToolDrawSpeakerNotesBase):
@@ -77,4 +77,4 @@ class SetSpeakerNotes(ToolDrawSpeakerNotesBase):
                 text = existing + "\n" + text
         notes_shape.setString(text)
 
-        return {"status": "ok", "page": page_idx, "page_index": page_idx, "message": "Speaker notes updated."}
+        return {"status": "ok", "page": page_idx, "message": "Speaker notes updated."}

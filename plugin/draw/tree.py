@@ -51,7 +51,7 @@ class GetDrawTree(ToolBase):
         if page is None:
             return self._tool_error("No draw page available.")
 
-        return {"status": "ok", "page": actual_idx, "page_index": actual_idx, "tree": self._build_shape_tree(page)}
+        return {"status": "ok", "page": actual_idx, "tree": self._build_shape_tree(page)}
 
     def _build_shape_tree(self, xshapes, base_index=None):
         """Recursively build a semantic tree from an XShapes collection (DrawPage or GroupShape)."""
@@ -77,7 +77,7 @@ class GetDrawTree(ToolBase):
             node = {"type": shape_type.replace("com.sun.star.drawing.", "")}
 
             if base_index is None:
-                node["shape_index"] = i
+                node["index"] = i
             else:
                 node["path_index"] = current_index
 

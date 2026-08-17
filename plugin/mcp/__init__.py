@@ -234,6 +234,10 @@ class McpModule(ModuleBase):
                 event_bus = getattr(services, "events", None)
                 host = cfg.get("host") or "localhost"
                 port = cfg.get("mcp_port")
+                # Mock UNO/config (e.g. generate_tool_proxies) yields MagicMock host/port.
+                if not isinstance(host, str) or not isinstance(port, int):
+                    log.debug("MCP start skipped: host/port not usable (%r, %r)", host, port)
+                    return False
 
                 # Schema default is mcp/module.yaml mcp_port; ConfigService supplies it when unset.
                 srv = HttpServer(

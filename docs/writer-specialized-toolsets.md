@@ -142,7 +142,7 @@ LibreOffice provides numerous drawing shapes through the generic UNO `com.sun.st
   "name": "manage_shapes",
   "parameters": {
     "action": {"type": "string", "enum": ["create", "edit", "delete"]},
-    "shape_index": {"type": "integer", "description": "Target shape (for edit/delete)"},
+    "index": {"type": "integer", "description": "Target shape (for edit/delete)"},
     "shape_type": {"type": "string", "enum": ["rectangle", "ellipse", "text", "line"], "description": "Required for create"},
     "geometry": {
       "type": "object", 

@@ -27,14 +27,14 @@ def test_draw_form_lifecycle(ctx, doc):
     shape_index = res["controls"][0]["index"]
     
     # 3. Edit control
-    res = _exec_tool(doc, ctx, "form_edit_control", {"shape_index": shape_index, "name": "UpdatedCheck", "label": "Confirmed"})
+    res = _exec_tool(doc, ctx, "form_edit_control", {"index": shape_index, "name": "UpdatedCheck", "label": "Confirmed"})
     assert res["status"] == "ok", f"edit_form_control failed: {res}"
     
     res = _exec_tool(doc, ctx, "form_list_controls", {})
     assert res["controls"][0]["name"] == "UpdatedCheck"
     
     # 4. Delete control
-    res = _exec_tool(doc, ctx, "form_delete_control", {"shape_index": shape_index})
+    res = _exec_tool(doc, ctx, "form_delete_control", {"index": shape_index})
     assert res["status"] == "ok", f"delete_form_control failed: {res}"
     
     res = _exec_tool(doc, ctx, "form_list_controls", {})

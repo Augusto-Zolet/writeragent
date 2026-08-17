@@ -16,7 +16,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
-import unittest
 from plugin.testing_runner import native_test
 from plugin.tests.testing_utils import TestingFactory, with_native_doc
 
@@ -26,8 +25,6 @@ def _exec_tool(doc, ctx, name, args):
     return json.dumps(res) if isinstance(res, dict) else res
 
 
-#FIXME: bugs to fix
-@unittest.skip("Disabled as per user request: internal test causing problems")
 @native_test
 @with_native_doc("impress")
 def test_headers_footers(ctx, doc):

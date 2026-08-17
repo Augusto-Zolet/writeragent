@@ -111,11 +111,12 @@ class ListConditionalFormats(ToolCalcConditionalBase):
     name = "list_conditional_formats"
     intent = "navigate"
     description = "List conditional formatting rules on a Calc cell range. Returns operator, formulas, and applied cell style for each rule. Extended LibreOffice operators (e.g. DUPLICATE) use operator_code when present."
-    parameters = {"type": "object", "properties": {"range": {"type": "string", "description": "Cell range (e.g. 'A1:D10'). If omitted, scans used area."}}, "required": []}
+    parameters = {"type": "object", "properties": {"range": {"type": "array", "items": {"type": "string"}, "description": "Cell range (e.g. [\"A1:D10\"]). If omitted, scans used area."}}, "required": []}
 
     def execute(self, ctx, **kwargs):
         bridge = CalcBridge(ctx.doc)
-        range_str = kwargs.get("range")
+        range_arg = kwargs.get("range") or []
+        range_str = range_arg[0] if range_arg else None
 
         try:
             sheet = bridge.get_active_sheet()
@@ -159,7 +160,7 @@ class AddConditionalFormat(ToolCalcConditionalBase):
     parameters = {
         "type": "object",
         "properties": {
-            "range": {"type": "string", "description": "Cell range to apply the rule to (e.g. 'A1:D10')."},
+            "range": {"type": "array", "items": {"type": "string"}, "description": "Cell range to apply the rule to (e.g. [\"A1:D10\"])."},
             "operator": {"type": "string", "enum": ["EQUAL", "NOT_EQUAL", "GREATER", "GREATER_EQUAL", "LESS", "LESS_EQUAL", "BETWEEN", "NOT_BETWEEN", "FORMULA", "DUPLICATE", "NOT_DUPLICATE"], "description": "Condition operator."},
             "formula1": {"type": "string", "description": ("First formula/value. For FORMULA, the condition (e.g. 'A1>100'). For value comparisons, the threshold (e.g. '50'). Omit or leave empty for DUPLICATE / NOT_DUPLICATE.")},
             "formula2": {"type": "string", "description": "Second value (required for BETWEEN and NOT_BETWEEN)."},
@@ -171,7 +172,7 @@ class AddConditionalFormat(ToolCalcConditionalBase):
 
     def execute(self, ctx, **kwargs):
         bridge = CalcBridge(ctx.doc)
-        range_str = kwargs["range"]
+        range_str = kwargs["range"][0]
         operator = kwargs["operator"]
         style_name = kwargs["style"]
         formula1 = kwargs.get("formula1") or ""
@@ -244,12 +245,12 @@ class RemoveConditionalFormats(ToolCalcConditionalBase):
     name = "remove_conditional_formats"
     intent = "edit"
     description = "Remove a conditional formatting rule from a Calc cell range by index, or clear all rules if no index is provided. Use list_conditional_formats to see current rules and their indices."
-    parameters = {"type": "object", "properties": {"range": {"type": "string", "description": "Cell range (e.g. 'A1:D10')."}, "rule_index": {"type": "integer", "description": "0-based index of the rule to remove. If omitted, all rules are cleared."}}, "required": ["range"]}
+    parameters = {"type": "object", "properties": {"range": {"type": "array", "items": {"type": "string"}, "description": "Cell range (e.g. [\"A1:D10\"])."}, "rule_index": {"type": "integer", "description": "0-based index of the rule to remove. If omitted, all rules are cleared."}}, "required": ["range"]}
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
         bridge = CalcBridge(ctx.doc)
-        range_str = kwargs["range"]
+        range_str = kwargs["range"][0]
         index = kwargs.get("rule_index")
 
         try:

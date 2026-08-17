@@ -104,7 +104,7 @@ def _list_placeholders(page):
         shape = page.getByIndex(i)
         if not hasattr(shape, "getString"):
             continue
-        entry = {"shape_index": i, "text": shape.getString()}
+        entry = {"index": i, "text": shape.getString()}
         try:
             if hasattr(shape, "Name") and shape.Name:
                 entry["name"] = shape.Name
@@ -138,7 +138,7 @@ class ListPlaceholders(ToolBase):
 
     name = "list_placeholders"
     intent = "navigate"
-    description = "List all text placeholders on a slide with their role (title, subtitle, body), text content, and shape index."
+    description = "List all text placeholders on a slide with their role (title, subtitle, body), text content, and index."
     parameters = {"type": "object", "properties": {"page": {"type": "integer", "description": "0-based slide index (active slide if omitted)."}}, "required": []}
     uno_services = ["com.sun.star.presentation.PresentationDocument"]
 
@@ -146,7 +146,7 @@ class ListPlaceholders(ToolBase):
         page_idx = kwargs.get("page")
         page = _get_slide(ctx.doc, page_idx)
         placeholders = _list_placeholders(page)
-        return {"status": "ok", "page": page_idx, "page_index": page_idx, "placeholders": placeholders, "count": len(placeholders)}
+        return {"status": "ok", "page": page_idx, "placeholders": placeholders, "count": len(placeholders)}
 
 
 class GetPlaceholderText(ToolBase):
@@ -154,12 +154,12 @@ class GetPlaceholderText(ToolBase):
 
     name = "get_placeholder_text"
     intent = "navigate"
-    description = "Get text from a slide placeholder. Specify role ('title', 'subtitle', 'body') or shape (index). Use list_placeholders to see available placeholders."
+    description = "Get text from a slide placeholder. Specify role ('title', 'subtitle', 'body') or index. Use list_placeholders to see available placeholders."
     parameters = {
         "type": "object",
         "properties": {
             "role": {"type": "string", "description": "Placeholder role: 'title', 'subtitle', or 'body'."},
-            "shape": {"type": "integer", "description": "Shape index (from list_placeholders)."},
+            "index": {"type": "integer", "description": "Shape index (from list_placeholders)."},
             "page": {"type": "integer", "description": "0-based slide index (active slide if omitted)."},
         },
         "required": [],
@@ -170,7 +170,7 @@ class GetPlaceholderText(ToolBase):
         page_idx = kwargs.get("page")
         page = _get_slide(ctx.doc, page_idx)
         role = kwargs.get("role")
-        shape_index = kwargs.get("shape")
+        shape_index = kwargs.get("index")
 
         if shape_index is not None:
             if shape_index < 0 or shape_index >= page.getCount():
@@ -181,12 +181,12 @@ class GetPlaceholderText(ToolBase):
             if shape is None:
                 return self._tool_error("Placeholder '%s' not found." % role, available=_list_placeholders(page))
         else:
-            return self._tool_error("Specify role or shape.")
+            return self._tool_error("Specify role or index.")
 
         if not hasattr(shape, "getString"):
             return self._tool_error("Shape has no text.")
 
-        return {"status": "ok", "text": shape.getString(), "role": role, "shape": shape_index, "shape_index": shape_index}
+        return {"status": "ok", "text": shape.getString(), "role": role, "index": shape_index}
 
 
 class SetPlaceholderText(ToolBase):
@@ -194,13 +194,13 @@ class SetPlaceholderText(ToolBase):
 
     name = "set_placeholder_text"
     intent = "edit"
-    description = "Set text on a slide placeholder. Specify role ('title', 'subtitle', 'body') or shape (index). Use list_placeholders to see available placeholders."
+    description = "Set text on a slide placeholder. Specify role ('title', 'subtitle', 'body') or index. Use list_placeholders to see available placeholders."
     parameters = {
         "type": "object",
         "properties": {
             "text": {"type": "string", "description": "Text to set on the placeholder."},
             "role": {"type": "string", "description": "Placeholder role: 'title', 'subtitle', or 'body'."},
-            "shape": {"type": "integer", "description": "Shape index (from list_placeholders)."},
+            "index": {"type": "integer", "description": "Shape index (from list_placeholders)."},
             "page": {"type": "integer", "description": "0-based slide index (active slide if omitted)."},
         },
         "required": ["text"],
@@ -213,7 +213,7 @@ class SetPlaceholderText(ToolBase):
         page = _get_slide(ctx.doc, page_idx)
         text = kwargs["text"]
         role = kwargs.get("role")
-        shape_index = kwargs.get("shape")
+        shape_index = kwargs.get("index")
 
         if shape_index is not None:
             if shape_index < 0 or shape_index >= page.getCount():
@@ -224,10 +224,10 @@ class SetPlaceholderText(ToolBase):
             if shape is None:
                 return self._tool_error("Placeholder '%s' not found." % role, available=_list_placeholders(page))
         else:
-            return self._tool_error("Specify role or shape.")
+            return self._tool_error("Specify role or index.")
 
         if not hasattr(shape, "setString"):
             return self._tool_error("Shape does not support text.")
 
         shape.setString(text)
-        return {"status": "ok", "text": text, "role": role, "shape": shape_index, "shape_index": shape_index}
+        return {"status": "ok", "text": text, "role": role, "index": shape_index}

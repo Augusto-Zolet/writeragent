@@ -105,8 +105,8 @@ def test_generate_form_processing_logic(ctx, doc):
     # Test markdown snippet with multiple field types
     content = (
         "# Title\n"
-        "Name: {FIELD:type='text',name='nm',placeholder='Name'}\n"
-        "Agree: {FIELD:type='checkbox',name='cb',label='Yes'}"
+        "Name: {FIELD:control='text',name='nm',placeholder='Name'}\n"
+        "Agree: {FIELD:control='checkbox',name='cb',label='Yes'}"
     )
     
     res = tool._process_form_content(mock_ctx, content)
@@ -124,24 +124,24 @@ def test_parse_field_tag():
     from plugin.writer.specialized.forms import FormGenerate
     tool = FormGenerate()
     
-    tag = "{FIELD:type='combobox',name='my_list',items='A,B,C',label='Pick one'}"
+    tag = "{FIELD:control='combobox',name='my_list',items='A,B,C',label='Pick one'}"
     params = tool._parse_field_tag(tag)
     
-    assert params["type"] == "combobox"
+    assert params["control"] == "combobox"
     assert params["name"] == "my_list"
     assert params["items"] == ["A", "B", "C"]
     assert params["label"] == "Pick one"
     
     # Test single quotes vs double quotes
-    tag2 = '{FIELD:type="text",name="foo"}'
+    tag2 = '{FIELD:control="text",name="foo"}'
     params2 = tool._parse_field_tag(tag2)
-    assert params2["type"] == "text"
+    assert params2["control"] == "text"
     assert params2["name"] == "foo"
 
     # Test button
-    tag3 = "{FIELD:type='button',name='btn',label='Click'}"
+    tag3 = "{FIELD:control='button',name='btn',label='Click'}"
     params3 = tool._parse_field_tag(tag3)
-    assert params3["type"] == "button"
+    assert params3["control"] == "button"
     assert params3["label"] == "Click"
 
 
@@ -209,7 +209,7 @@ def test_edit_form_control(ctx, doc):
     
     # 3. Edit it
     edit_tool = registry.get("form_edit_control")
-    edit_res = edit_tool.execute(mock_ctx, shape_index=idx, name="new_name", label="New Label")
+    edit_res = edit_tool.execute(mock_ctx, index=idx, name="new_name", label="New Label")
     
     assert edit_res["status"] == "ok"
     
@@ -226,7 +226,7 @@ def test_edit_form_control(ctx, doc):
     list_res3 = list_tool.execute(mock_ctx)
     idx2 = list_res3["controls"][0]["index"]
     
-    edit_tool.execute(mock_ctx, shape_index=idx2, text="New Text")
+    edit_tool.execute(mock_ctx, index=idx2, text="New Text")
     list_res4 = list_tool.execute(mock_ctx)
     ctrl2 = list_res4["controls"][0]
     assert ctrl2["text"] == "New Text"
@@ -252,7 +252,7 @@ def test_delete_form_control(ctx, doc):
     
     # 3. Delete it
     delete_tool = registry.get("form_delete_control")
-    del_res = delete_tool.execute(mock_ctx, shape_index=idx)
+    del_res = delete_tool.execute(mock_ctx, index=idx)
     
     assert del_res["status"] == "ok"
     

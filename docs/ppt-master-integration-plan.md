@@ -73,7 +73,7 @@ WriterAgent’s **standard smol sub-agent pattern** (Brainstorming, Writing Plan
 | Long-running local servers (confirm UI, SVG live editor) | Not possible from LO thread agent |
 | `python-pptx` stack during build | **Forbidden** on LO host ([`upstream.py`](../plugin/contrib/ppt_master/upstream.py) policy) |
 
-Injecting full `SKILL.md` into an LO smol agent would teach a workflow it **cannot execute** — the model would hallucinate script runs, fail on missing tools, or frustrate users. Merging ~20 Draw/Impress core tools (`add_slide`, `upsert_shape`, …) did not fix this: upstream does not build decks by hand-editing UNO shapes; it runs a **script pipeline** and exports PPTX.
+Injecting full `SKILL.md` into an LO smol agent would teach a workflow it **cannot execute** — the model would hallucinate script runs, fail on missing tools, or frustrate users. Merging ~20 Draw/Impress core tools (`add_slide`, `shape_upsert`, …) did not fix this: upstream does not build decks by hand-editing UNO shapes; it runs a **script pipeline** and exports PPTX.
 
 **What LO smol *can* do for ppt-master (export-only path):**
 

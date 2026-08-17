@@ -277,15 +277,15 @@ class FormGenerate(ToolWriterFormBase):
         # System instructions inspired by OnlyOfficeAI
         instructions = """Generate a document template in HTML format.
 Use simple HTML tags like <h1>, <p>, <b>, <ul>, <li> for text and structure. For interactive input fields, use the special syntax:
-{FIELD:type='type',name='uniqueName',label='Label',items='opt1,opt2',placeholder='hint'}
+{FIELD:control='type',name='uniqueName',label='Label',items='opt1,opt2',placeholder='hint'}
 
 Available Field Types:
-- checkbox: {FIELD:type='checkbox',name='key',label='Description'}
-- text: {FIELD:type='text',name='key',placeholder='Hint'}
-- radio: {FIELD:type='radio',name='optionKey',group_name='groupKey',label='Option'}
-- date: {FIELD:type='date',name='key',default_value='DD.MM.YYYY'}
-- combobox: {FIELD:type='combobox',name='key',items='opt1,opt2',label='Choose'}
-- button: {FIELD:type='button',name='key',label='Submit'}
+- checkbox: {FIELD:control='checkbox',name='key',label='Description'}
+- text: {FIELD:control='text',name='key',placeholder='Hint'}
+- radio: {FIELD:control='radio',name='optionKey',group_name='groupKey',label='Option'}
+- date: {FIELD:control='date',name='key',default_value='DD.MM.YYYY'}
+- combobox: {FIELD:control='combobox',name='key',items='opt1,opt2',label='Choose'}
+- button: {FIELD:control='button',name='key',label='Submit'}
 
 Output ONLY the HTML content. No explanations. No Markdown like # Header.
 """
@@ -351,8 +351,7 @@ Output ONLY the HTML content. No explanations. No Markdown like # Header.
         insert_html_at_cursor(cursor, text)
 
     def _parse_field_tag(self, tag):
-        # Extremely naive parser for {FIELD:type='...', ...}
-        # Matches type='value' or type="value"
+        # Naive parser for {FIELD:control='...', ...}
         pairs = re.findall(r"(\w+)[:=]['\"]([^'\"]*)['\"]", tag)
         params = dict(pairs)
         if "items" in params:
@@ -415,7 +414,7 @@ class FormEditControl(ToolWriterFormBase):
     parameters = {
         "type": "object",
         "properties": {
-            "shape_index": {"type": "integer", "description": "The index of the control shape (from form_list_controls)."},
+            "index": {"type": "integer", "description": "The index of the control (from form_list_controls)."},
             "name": {"type": "string", "description": "New internal name."},
             "label": {"type": "string", "description": "New label text."},
             "text": {"type": "string", "description": "New text value (for text fields)."},
@@ -425,7 +424,7 @@ class FormEditControl(ToolWriterFormBase):
             "width": {"type": "integer"},
             "height": {"type": "integer"},
         },
-        "required": ["shape_index"],
+        "required": ["index"],
     }
 
     def execute(self, ctx, **kwargs):
@@ -436,7 +435,7 @@ class FormEditControl(ToolWriterFormBase):
         dp = _get_form_draw_page(doc)
         if dp is None:
             return _no_form_draw_page_payload()
-        idx = kwargs["shape_index"]
+        idx = kwargs["index"]
 
         if idx < 0 or idx >= dp.getCount():
             return format_error_payload(ToolExecutionError(f"Invalid shape index: {idx}"))
@@ -474,8 +473,8 @@ class FormDeleteControl(ToolWriterFormBase):
 
     name = "form_delete_control"
     uno_services = _FORM_DOC_SERVICES
-    description = "Deletes a form control by shape index (Calc: active sheet draw page)."
-    parameters = {"type": "object", "properties": {"shape_index": {"type": "integer", "description": "The index of the control shape to delete."}}, "required": ["shape_index"]}
+    description = "Deletes a form control by index (Calc: active sheet draw page)."
+    parameters = {"type": "object", "properties": {"index": {"type": "integer", "description": "The index of the control to delete."}}, "required": ["index"]}
 
     def execute(self, ctx, **kwargs):
         return _run_on_main(self._execute_main, ctx, **kwargs)
@@ -485,7 +484,7 @@ class FormDeleteControl(ToolWriterFormBase):
         dp = _get_form_draw_page(doc)
         if dp is None:
             return _no_form_draw_page_payload()
-        idx = kwargs["shape_index"]
+        idx = kwargs["index"]
 
         if idx < 0 or idx >= dp.getCount():
             return format_error_payload(ToolExecutionError(f"Invalid shape index: {idx}"))

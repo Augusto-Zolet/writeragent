@@ -140,7 +140,7 @@ class ApplySheetFilter(ToolCalcSheetBase):
         "type": "object",
         "description": "See criteria for AND/OR chaining.",
         "properties": {
-            "range": {"type": "string", "description": "Range to filter (e.g. 'A1:D20')."},
+            "range": {"type": "array", "items": {"type": "string"}, "description": "Range to filter (e.g. [\"A1:D20\"])."},
             "has_header": {"type": "boolean", "description": "First row is headers only (default true)."},
             "criteria": {"type": "array", "items": _CRITERION_ITEM_SCHEMA, "description": _CRITERIA_ARRAY_DESCRIPTION, "minItems": 1},
         },
@@ -150,7 +150,7 @@ class ApplySheetFilter(ToolCalcSheetBase):
 
     def execute(self, ctx, **kwargs):
 
-        range_name = kwargs["range"]
+        range_name = kwargs["range"][0]
         criteria = kwargs["criteria"]
         if not isinstance(criteria, list) or not criteria:
             raise UnoObjectError("criteria must be a non-empty list of filter conditions.")
@@ -188,13 +188,13 @@ class ClearSheetFilter(ToolCalcSheetBase):
     description = "Remove the active standard sheet filter on a range so all rows show again. Use the same range (and has_header) as apply_sheet_filter. delegate_to_specialized_calc_toolset(domain='sheets')."
     parameters = {
         "type": "object",
-        "properties": {"range": {"type": "string", "description": "Same data range string used when applying the filter (e.g. 'A1:D20')."}, "has_header": {"type": "boolean", "description": "Should match apply_sheet_filter (default true)."}},
+        "properties": {"range": {"type": "array", "items": {"type": "string"}, "description": "Same data range used when applying the filter (e.g. [\"A1:D20\"])."}, "has_header": {"type": "boolean", "description": "Should match apply_sheet_filter (default true)."}},
         "required": ["range"],
     }
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        range_name = kwargs["range"]
+        range_name = kwargs["range"][0]
         has_header = bool(kwargs.get("has_header", True))
 
         try:
@@ -225,10 +225,10 @@ class GetSheetFilter(ToolCalcSheetBase):
     name = "get_sheet_filter"
     intent = "navigate"
     description = "Return active filter criteria and has_header for a range, or empty if none. delegate_to_specialized_calc_toolset(domain='sheets')."
-    parameters = {"type": "object", "properties": {"range": {"type": "string", "description": "Same range as apply_sheet_filter."}}, "required": ["range"]}
+    parameters = {"type": "object", "properties": {"range": {"type": "array", "items": {"type": "string"}, "description": "Same range as apply_sheet_filter."}}, "required": ["range"]}
 
     def execute(self, ctx, **kwargs):
-        range_name = kwargs["range"]
+        range_name = kwargs["range"][0]
 
         try:
             xf, _cell_range = _get_filterable_for_range(ctx, range_name)

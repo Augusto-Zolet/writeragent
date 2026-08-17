@@ -532,8 +532,9 @@ class NamedRangeCreateFromTitles(ToolCalcRangeBase):
         "type": "object",
         "properties": {
             "range": {
-                "type": "string",
-                "description": "The table cell range containing both headers and data (e.g. 'A1:D20' or 'Sheet1.A1:D20').",
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "The table cell range containing both headers and data (e.g. [\"A1:D20\"] or [\"Sheet1.A1:D20\"]).",
             },
             "border": {
                 "type": "string",
@@ -552,7 +553,7 @@ class NamedRangeCreateFromTitles(ToolCalcRangeBase):
     def execute(self, ctx, **kwargs):
         import uno
         bridge = CalcBridge(ctx.doc)
-        range_str = kwargs["range"].strip()
+        range_str = kwargs["range"][0].strip()
         border_str = kwargs.get("border", "top")
         if border_str is None or str(border_str).strip() == "":
             border_str = "top"

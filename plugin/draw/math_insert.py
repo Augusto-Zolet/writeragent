@@ -180,4 +180,4 @@ class InsertMathDraw(ToolDrawSpecialBase):
         except Exception as e:
             return self._tool_error(f"Failed to insert math shape: {e}")
 
-        return {"status": "ok", "message": "Math formula inserted successfully", "shape_index": page.getCount() - 1, "page": page_index, "page_index": page_index}
+        return {"status": "ok", "message": "Math formula inserted successfully", "index": page.getCount() - 1, "page": page_index}

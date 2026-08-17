@@ -171,7 +171,7 @@ def test_create_from_titles(ctx, doc):
 
     res = _execute_calc_tool(
         doc, ctx, "named_range_create_from_titles",
-        {"range": "A1:B5", "border": "top", "scope": "global"}
+        {"range": ["A1:B5"], "border": "top", "scope": "global"}
     )
     assert res.get("status") == "ok", f"named_range_create_from_titles failed: {res}"
     assert named_ranges.hasByName("ColAlpha"), "ColAlpha named range was not created"
