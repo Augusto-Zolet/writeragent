@@ -95,7 +95,7 @@ def test_inner_read_cell_range_on_opened_sibling(ctx, doc):
         assert err is None and doc_type == "calc"
         try:
             tctx = ToolContext(model, ctx, "calc", get_services(), "test", read_only_target=True)
-            result = get_tools().execute("read_cell_range", tctx, range_name=["B2"])
+            result = get_tools().execute("read_cell_range", tctx, range=["B2"])
             assert result.get("status") == "ok", result
             cell_data = result.get("result")
             assert cell_data is not None

@@ -174,7 +174,7 @@ def test_add_comment_occurrence_author_and_span():
     doc.findNext.return_value = second
     ctx = SimpleNamespace(doc=doc)
     with patch("plugin.writer.specialized.comments._set_annotation_date"):
-        res = AddComment().execute(ctx, content="note", search_text="hit", occurrence=1, author="Rev")
+        res = AddComment().execute(ctx, content="note", search="hit", occurrence=1, author="Rev")
     assert res["status"] == "ok" and res["author"] == "Rev" and res["anchor_text"] == "second hit"
     # Spans the match: insertTextContent called with absorb=True.
     assert mtext.insertTextContent.call_args[0][2] is True
@@ -186,7 +186,7 @@ def test_add_comment_not_found_at_occurrence():
     doc = MagicMock()
     doc.findFirst.return_value = MagicMock()
     doc.findNext.return_value = None
-    res = AddComment().execute(SimpleNamespace(doc=doc), content="n", search_text="x", occurrence=3)
+    res = AddComment().execute(SimpleNamespace(doc=doc), content="n", search="x", occurrence=3)
     assert res["status"] == "error" and res["comment_added"] is False
 
 

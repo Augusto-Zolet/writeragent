@@ -238,18 +238,28 @@ def test_mcp_widens_array_range_to_string_or_array():
 
 
 def test_mcp_string_range_stays_string():
-    """Tools whose source schema is a single string must not gain an array union."""
+    """Nested / non-top-level string range must not gain an array union."""
+    from plugin.calc.duckdb_tools import QueryFolderSqlTool
+
+    tool = QueryFolderSqlTool()
+    tables = to_mcp_schema(tool)["inputSchema"]["properties"]["tables"]
+    nested = tables["additionalProperties"]["properties"]["range"]
+    openai_tables = to_openai_schema(tool)["function"]["parameters"]["properties"]["tables"]
+    openai_nested = openai_tables["additionalProperties"]["properties"]["range"]
+    assert openai_nested["type"] == "string"
+    assert nested["type"] == "string"
+
+
+def test_list_conditional_formats_range_is_array_mcp_widens():
+    """list_conditional_formats uses the same array range schema as other Calc tools."""
     from plugin.calc.conditional import ListConditionalFormats
 
     tool = ListConditionalFormats()
     openai = to_openai_schema(tool)["function"]["parameters"]["properties"]["range"]
     mcp = to_mcp_schema(tool)["inputSchema"]["properties"]["range"]
-    openai_types = openai["type"] if isinstance(openai["type"], list) else [openai["type"]]
-    mcp_types = mcp["type"] if isinstance(mcp["type"], list) else [mcp["type"]]
-    assert "string" in openai_types
-    assert "array" not in openai_types
-    assert "string" in mcp_types
-    assert "array" not in mcp_types
+    assert openai["type"] == "array"
+    assert mcp["type"] == ["string", "array"]
+    assert mcp["items"]["type"] == "string"
 
 
 def test_set_style_schema_omits_number_format_but_scripting_may_pass_it():

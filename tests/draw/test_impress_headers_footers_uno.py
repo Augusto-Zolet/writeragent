@@ -38,12 +38,12 @@ def test_headers_footers(ctx, doc):
     # 2. Set headers/footers
     set_result_str = _exec_tool(doc, ctx, "set_headers_footers", {
         "page": 0,
-        "footer_text": "This is a test footer",
-        "is_footer_visible": True,
-        "is_page_number_visible": True,
-        "date_time_text": "2024-01-01",
-        "is_date_time_visible": True,
-        "is_date_time_fixed": True
+        "footer": "This is a test footer",
+        "footer_visible": True,
+        "page_number_visible": True,
+        "date_time": "2024-01-01",
+        "date_time_visible": True,
+        "date_time_fixed": True
     })
     set_result = json.loads(set_result_str)
 
@@ -66,7 +66,7 @@ def test_headers_footers(ctx, doc):
     set_result_str = _exec_tool(doc, ctx, "set_headers_footers", {
         "page": 0,
         "is_master_page": True,
-        "footer_text": "Master Footer"
+        "footer": "Master Footer"
     })
     set_result = json.loads(set_result_str)
     assert set_result.get("status") == "ok"

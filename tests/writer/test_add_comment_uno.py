@@ -31,7 +31,7 @@ def _set_body(doc, text_value):
 def test_add_comment_reports_anchor_found_uno(ctx, doc):
     _set_body(doc, "Anchor here please")
     tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
-    res = AddComment().execute(tool_ctx, content="a note", search_text="Anchor")
+    res = AddComment().execute(tool_ctx, content="a note", search="Anchor")
     assert res.get("status") == "ok", res
     assert res.get("matched") is True, res
     assert res.get("comment_added") is True, res
@@ -43,7 +43,7 @@ def test_add_comment_reports_anchor_found_uno(ctx, doc):
 def test_add_comment_reports_anchor_not_found_uno(ctx, doc):
     _set_body(doc, "nothing relevant here")
     tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
-    res = AddComment().execute(tool_ctx, content="a note", search_text="DOES_NOT_EXIST_XYZ")
+    res = AddComment().execute(tool_ctx, content="a note", search="DOES_NOT_EXIST_XYZ")
     # An anchor miss is a failure (status="error"), not a silent "not_found" the MCP host /
     # chat FSM would treat as success. anchor_text is returned on success only.
     assert res.get("status") == "error", res
