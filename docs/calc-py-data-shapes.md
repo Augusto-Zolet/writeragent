@@ -188,6 +188,10 @@ What Python sees after UNO unwrap / pack ([`calc_addin_data.py`](../plugin/calc/
 
 Calc stores dates as float serials (days since `1899-12-30`). Detecting “is this a date?” requires per-cell `NumberFormat` on the main thread — too slow for range reads — so the bridge **does not** auto-coerce on ingress.
 
+There is **no Settings checkbox** and no worker-side string guesser (`dateparser` / `pd.to_timedelta` on every cell). A former `scripting.python_convert_datetime` option did that; it is removed. Typed dates in `=PY()` / `run_venv_python_script` are opt-in via `to_pandas` below.
+
+LLM/MCP sheet reads are a **different, always-on** path: `read_cell_range` enriches formatted serials to ISO / `PT…` — [calc-date-time-handling.md](calc-date-time-handling.md). That does not mutate `data` in the Python worker.
+
 - **Ingress:** serials arrive as floats (or strings if stored as text).
 - **Convenience coercion in `to_pandas()`:**
   - `data.to_pandas(date_cols=True)` — automatically detects date-like columns (by name or serial value range) and parses them to `datetime64[ns]`.

@@ -105,14 +105,6 @@ config:
     x: 220
     width: 200
 
-  python_convert_datetime:
-    type: bool
-    default: false
-    widget: checkbox
-    label: Convert Date/Time and Timedelta Strings
-    helper: Automatically detect and convert date/time and duration strings to datetime/timedelta objects when sending data to the Python worker. Requires the 'pandas' and 'dateparser' packages in your venv.
-    public: true
-
   ppt_master_data_path:
     type: string
     default: ""

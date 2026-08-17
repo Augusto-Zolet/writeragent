@@ -6,6 +6,8 @@ This document covers PyUNO cell values, read-path format enrichment, MCP clock c
 
 **Not the `=PY()` egress contract.** Chat `write_formula_range` uses Calc serial days. `=PY()` returns naive ISO-8601 strings (or timedelta as fractional days) — see [calc-py-data-shapes dates](calc-py-data-shapes.md#dates-and-datetimes) and hub [coercion](enabling_numpy_in_libreoffice.md#1-the-libreoffice-type-coercion-quirk-the-value-trap).
 
+**Not `=PY()` ingress either.** Formula `data` / `ranges` stay raw serials or text. There is no Settings toggle that parses date strings in the worker; use `data.to_pandas(date_cols=…)` / `parse_strings=True`.
+
 ### LLM wire schema
 
 For LLM tools (`read_cell_range` with format enrichment; the same strings are the write target), a date/time-formatted numeric cell looks like:

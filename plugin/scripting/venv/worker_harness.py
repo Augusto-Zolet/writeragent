@@ -40,8 +40,6 @@ def _execute_request(
     init_session_id: str | None = None,
     init_script_hash: str | None = None,
     timeout_sec: int | None = None,
-    locale: str | None = None,
-    convert_datetime: bool = False,
 ) -> dict[str, Any]:
     return run_sandboxed_code(
         code,
@@ -52,8 +50,6 @@ def _execute_request(
         init_session_id=init_session_id,
         init_script_hash=init_script_hash,
         timeout_sec=timeout_sec,
-        locale=locale,
-        convert_datetime=convert_datetime,
     )
 
 
@@ -146,8 +142,6 @@ def _handle_request(request: dict[str, Any], *, stdout: Any | None = None) -> di
         init_session_id=init_session_id if isinstance(init_session_id, str) else None,
         init_script_hash=init_hash if isinstance(init_hash, str) else None,
         timeout_sec=request.get("timeout_sec"),
-        locale=request.get("locale"),
-        convert_datetime=bool(request.get("convert_datetime")),
     )
 
 

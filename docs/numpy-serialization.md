@@ -287,7 +287,7 @@ Blank vs NaN policy (locked): [calc-py-data-shapes.md — Empty cells vs NaN](ca
 
 **Locked policy** (authoritative behavior: [Dates and datetimes](calc-py-data-shapes.md#dates-and-datetimes)):
 
-- Ingress serial floats stay floats. The bridge does not sniff NumberFormat.
+- Ingress serial floats stay floats. The bridge does not sniff NumberFormat, and the worker does not guess datetime/timedelta from strings (no Settings checkbox; use `to_pandas(date_cols=…)`).
 - `=PY()` egress converts Python/pandas/numpy temporals to **naive ISO strings** (or timedelta as fractional days) at the venv/`to_calc_compatible` edges. Tz offsets are stripped.
 - datetime64 **columns and arrays** take the object/list path so they never hit `child_pack_split_grid`’s `astype(float64)` (that cast is Unix-epoch units, not Calc serials).
 - Large mixed grids still stringify stdlib `datetime` into the sparse `strings` map.

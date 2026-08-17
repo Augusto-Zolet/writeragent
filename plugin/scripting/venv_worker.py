@@ -20,8 +20,7 @@ import time
 import uuid
 from typing import Any, Callable, Dict, IO
 
-from plugin.framework.config import get_config_str, get_config_bool_safe
-from plugin.framework.i18n import get_active_locale
+from plugin.framework.config import get_config_str
 from plugin.framework.thread_guard import background
 from plugin.framework.constants import WORKER_POOL_DEFAULT, WORKER_POOL_EMBEDDINGS
 from plugin.framework.worker_pool import StderrTail, get_subprocess_creationflags, start_stderr_drain
@@ -194,8 +193,6 @@ class PythonWorkerManager:
     ) -> dict[str, Any]:
         request: dict[str, Any] = {
             "id": str(uuid.uuid4()),
-            "locale": get_active_locale(),
-            "convert_datetime": get_config_bool_safe("scripting.python_convert_datetime"),
         }
         if timeout_sec is not None:
             request["timeout_sec"] = timeout_sec

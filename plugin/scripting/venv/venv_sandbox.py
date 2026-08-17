@@ -531,53 +531,6 @@ def _ensure_init_executed(
     return None
 
 
-def convert_datetimes_and_deltas(data: Any, locale: str | None, convert_datetime: bool) -> Any:
-    if not convert_datetime:
-        return data
-    try:
-        import pandas as pd
-        import dateparser  # type: ignore[import-untyped]
-    except ImportError as e:
-        raise ImportError(
-            "Date-time and Timedelta conversion requires both 'pandas' and 'dateparser' packages to be installed in the virtual environment. "
-            "Please run: uv pip install pandas dateparser"
-        ) from e
-
-    import re
-    import numpy as np
-    lang = locale.split("_")[0] if locale else "en"
-
-    def _rec(val: Any) -> Any:
-        if isinstance(val, str):
-            if re.search(r'[^\W\d_]|:', val):
-                try:
-                    td = pd.to_timedelta(val)
-                    if not pd.isna(td):
-                        return td.to_pytimedelta()
-                except Exception:
-                    pass
-            try:
-                parsed = dateparser.parse(val, languages=[lang])
-                if parsed is not None:
-                    return parsed
-            except Exception:
-                pass
-            return val
-        elif isinstance(val, list):
-            return [_rec(item) for item in val]
-        elif isinstance(val, tuple):
-            return tuple(_rec(item) for item in val)
-        elif isinstance(val, np.ndarray):
-            if val.dtype == object or np.issubdtype(val.dtype, np.character):
-                flat_list = val.ravel().tolist()
-                converted_flat = [_rec(item) for item in flat_list]
-                return np.array(converted_flat, dtype=object).reshape(val.shape)
-            return val
-        return val
-
-    return _rec(data)
-
-
 def _inject_excel_xl(executor: LocalPythonExecutor, ranges: tuple[Any, ...] | None = None) -> None:
     """Inject binding-only Excel ``xl()`` closed over *ranges* (may be empty)."""
     from plugin.scripting.excel_xl import make_xl
@@ -585,7 +538,7 @@ def _inject_excel_xl(executor: LocalPythonExecutor, ranges: tuple[Any, ...] | No
     executor.send_variables({"xl": make_xl(ranges)})
 
 
-def _inject_data(executor: LocalPythonExecutor, data: Any | None, locale: str | None = None, convert_datetime: bool = False) -> tuple[Any, ...]:
+def _inject_data(executor: LocalPythonExecutor, data: Any | None) -> tuple[Any, ...]:
     """Inject ``ranges`` (always a list) and polymorphic ``data``.
 
     * One formula arg: ``data`` is that ``CalcRange``; ``ranges == [data]``.
@@ -596,20 +549,13 @@ def _inject_data(executor: LocalPythonExecutor, data: Any | None, locale: str | 
     """
     if data is None:
         return ()
-    from plugin.scripting.calc_range import CalcRange, materialize_inputs
+    from plugin.scripting.calc_range import materialize_inputs
     from plugin.scripting.payload_codec import describe_wire_value, is_calc_range_payload, is_multi_data, is_split_grid
 
     if is_split_grid(data) or is_calc_range_payload(data) or is_multi_data(data):
         log.debug("venv_sandbox injecting data %s", describe_wire_value(data))
 
     ranges = materialize_inputs(data)
-    # Optional datetime conversion walks nested values inside each range.
-    if convert_datetime or locale:
-        converted: list[CalcRange] = []
-        for r in ranges:
-            vals = convert_datetimes_and_deltas(r.values, locale, convert_datetime)
-            converted.append(CalcRange(vals, address=r.address))
-        ranges = tuple(converted)
 
     ranges_list = list(ranges)
     if len(ranges_list) == 1:
@@ -686,8 +632,6 @@ def run_sandboxed_code(
     init_script: str | None = None,
     init_session_id: str | None = None,
     init_script_hash: str | None = None,
-    locale: str | None = None,
-    convert_datetime: bool = False,
 ) -> dict[str, Any]:
     """Run *code* in LocalPythonExecutor.
 
@@ -733,7 +677,7 @@ def run_sandboxed_code(
             _seed_executor_from_init(executor, init_sid)
 
     inject_auto_imports(executor, code)
-    ranges = _inject_data(executor, data, locale=locale, convert_datetime=convert_datetime)
+    ranges = _inject_data(executor, data)
     _inject_excel_xl(executor, ranges)
     _inject_bindings(executor, bindings)
     return _run_on_executor(executor, code)
