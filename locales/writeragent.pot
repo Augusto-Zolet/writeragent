@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-16 17:40-0400\n"
+"POT-Creation-Date: 2026-08-17 16:44-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -292,10 +292,10 @@ msgid ""
 msgstr ""
 
 #: plugin/framework/main_shared.py plugin/writer/math/latex_dialog.py
-#: plugin/chatbot/panel.py plugin/chatbot/external_editor.py
-#: plugin/chatbot/send_handlers.py plugin/chatbot/dialog_views.py
-#: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner_ui.py
-#: plugin/scripting/python_runner.py
+#: plugin/chatbot/dialogs.py plugin/chatbot/panel.py
+#: plugin/chatbot/external_editor.py plugin/chatbot/send_handlers.py
+#: plugin/chatbot/dialog_views.py plugin/scripting/editor_ui_strings.py
+#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Error"
 msgstr ""
 
@@ -917,6 +917,26 @@ msgstr ""
 msgid "Tool: %s"
 msgstr ""
 
+#: plugin/chatbot/dialogs.py plugin/scripting/editor_ui_strings.py
+#: plugin/xdl_strings.py
+msgid "New Python Script"
+msgstr ""
+
+#: plugin/chatbot/dialogs.py plugin/scripting/editor_ui_strings.py
+#: plugin/xdl_strings.py
+msgid "Script name:"
+msgstr ""
+
+#: plugin/chatbot/dialogs.py plugin/scripting/editor_ui_strings.py
+#: plugin/xdl_strings.py
+msgid "Attach to this document"
+msgstr ""
+
+#: plugin/chatbot/dialogs.py plugin/scripting/editor_ui_strings.py
+#: plugin/scripting/document_scripts.py plugin/scripting/editor_host.py
+msgid "Script name cannot be empty."
+msgstr ""
+
 #: plugin/chatbot/dialogs.py
 msgid "Copied!"
 msgstr ""
@@ -1322,18 +1342,22 @@ msgid "Saved."
 msgstr ""
 
 #: plugin/scripting/editor_ui_strings.py plugin/xdl_strings.py
+msgid "New"
+msgstr ""
+
+#: plugin/scripting/editor_ui_strings.py
+msgid "Create"
+msgstr ""
+
+#: plugin/scripting/editor_ui_strings.py plugin/xdl_strings.py
 msgid "Script:"
 msgstr ""
 
 #: plugin/scripting/editor_ui_strings.py
-msgid "Sample"
-msgstr ""
-
-#: plugin/scripting/editor_ui_strings.py plugin/xdl_strings.py
 msgid "Attach"
 msgstr ""
 
-#: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/editor_ui_strings.py
 msgid "Attach to Document"
 msgstr ""
 
@@ -1341,8 +1365,8 @@ msgstr ""
 msgid "Save As..."
 msgstr ""
 
-#: plugin/scripting/editor_ui_strings.py
-msgid "Copy to My Scripts"
+#: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner_ui.py
+msgid "Save Script As"
 msgstr ""
 
 #: plugin/scripting/editor_ui_strings.py plugin/xdl_strings.py
@@ -1372,12 +1396,7 @@ msgstr ""
 msgid "Loaded script '{0}'."
 msgstr ""
 
-#: plugin/scripting/editor_ui_strings.py
-msgid "Loaded Sample scratchpad."
-msgstr ""
-
-#: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner_ui.py
-#: plugin/scripting/editor_host.py
+#: plugin/scripting/editor_ui_strings.py plugin/scripting/editor_host.py
 msgid "No document is open to attach scripts."
 msgstr ""
 
@@ -1406,10 +1425,6 @@ msgid "Built-in helpers cannot be deleted."
 msgstr ""
 
 #: plugin/scripting/editor_ui_strings.py
-msgid "Cleared Sample scratchpad."
-msgstr ""
-
-#: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner_ui.py
 msgid "Enter script name:"
 msgstr ""
 
@@ -1422,18 +1437,14 @@ msgstr ""
 msgid "Copy to My Scripts as:"
 msgstr ""
 
-#: plugin/scripting/editor_ui_strings.py
+#: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner_ui.py
 #, python-brace-format
 msgid "A script named '{0}' already exists in My Scripts. Overwrite?"
 msgstr ""
 
-#: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/editor_ui_strings.py
 #, python-brace-format
 msgid "Save script '{0}' to this document?"
-msgstr ""
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Are you sure you want to clear the Sample scratchpad?"
 msgstr ""
 
 #: plugin/scripting/editor_ui_strings.py
@@ -1459,10 +1470,6 @@ msgstr ""
 msgid ""
 "Document is read-only or properties cannot be written. Script saved to your "
 "personal library instead."
-msgstr ""
-
-#: plugin/scripting/document_scripts.py plugin/scripting/editor_host.py
-msgid "Script name cannot be empty."
 msgstr ""
 
 #: plugin/scripting/document_scripts.py
@@ -1494,16 +1501,8 @@ msgid "Script '%s' saved successfully."
 msgstr ""
 
 #: plugin/scripting/python_runner_ui.py
-msgid "Attach Script"
-msgstr ""
-
-#: plugin/scripting/python_runner_ui.py
 #, python-format
-msgid "Script '%s' attached to this document."
-msgstr ""
-
-#: plugin/scripting/python_runner_ui.py
-msgid "Save Script"
+msgid "Script '%s' saved to My Scripts."
 msgstr ""
 
 #: plugin/scripting/python_runner_ui.py
@@ -1522,6 +1521,20 @@ msgstr ""
 #: plugin/scripting/python_runner_ui.py
 #, python-format
 msgid "Script '%s' deleted."
+msgstr ""
+
+#: plugin/scripting/python_runner_ui.py
+msgid "New Script"
+msgstr ""
+
+#: plugin/scripting/python_runner_ui.py
+#, python-format
+msgid "Script '%s' created in this document."
+msgstr ""
+
+#: plugin/scripting/python_runner_ui.py
+#, python-format
+msgid "Script '%s' created in My Scripts."
 msgstr ""
 
 #: plugin/scripting/python_runner_ui.py
