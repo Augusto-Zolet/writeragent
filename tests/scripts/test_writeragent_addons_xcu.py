@@ -179,3 +179,40 @@ def test_writeragent_report_bug_is_last():
     root = ET.parse(_ADDONS_XCU).getroot()
     urls = _ordered_urls(_find_menubar(root))
     assert urls[-1] == _PROTOCOL + "main.report_bug"
+
+
+def _has_image_identifier(node: ET.Element) -> bool:
+    return any(prop.get(_OOR_NAME) == "ImageIdentifier" for prop in node.findall("prop"))
+
+
+def test_writeragent_mcp_items_reserve_icon_slot():
+    root = ET.parse(_ADDONS_XCU).getroot()
+    items = _submenu_items(_find_menubar(root))
+    assert _has_image_identifier(items[_PROTOCOL + "mcp.server_status"])
+    assert not _has_image_identifier(items[_PROTOCOL + "mcp.toggle_server"])
+
+
+def test_writeragent_mcp_images_section_points_at_assets():
+    root = ET.parse(_ADDONS_XCU).getroot()
+    images = None
+    for node in root.iter("node"):
+        if node.get(_OOR_NAME) == "Images":
+            images = node
+            break
+    assert images is not None
+    by_url: dict[str, str] = {}
+    for item in images.findall("node"):
+        url = _prop_text(item, "URL")
+        small = None
+        for child in item.iter("prop"):
+            if child.get(_OOR_NAME) == "ImageSmallURL":
+                value = child.find("value")
+                if value is not None and value.text:
+                    small = value.text.strip()
+        if url and small:
+            by_url[url] = small
+    status = _PROTOCOL + "mcp.server_status"
+    assert status in by_url
+    assert by_url[status].endswith("assets/stopped_16.png")
+    assert by_url[status].startswith("%origin%/")
+    assert _PROTOCOL + "mcp.toggle_server" not in by_url

@@ -392,14 +392,11 @@ class McpModule(ModuleBase):
         return None
 
     def get_menu_icon(self, action):
+        if action != "server_status":
+            return None
         b = self._bound_http_server()
         running = b and b.is_running()
-        if action == "toggle_server":
-            # Show target state: "start" icon when stopped, "stop" icon when running
-            return "stopped" if running else "running"
-        if action == "server_status":
-            return "running" if running else "stopped"
-        return None
+        return "running" if running else "stopped"
 
     def _tunnel_status_line(self, pname: str, tunnel, public_url: str | None, tunnel_enabled: bool) -> str | None:
         """One Status/toast line for public tunnel state, or None if tunnel off."""

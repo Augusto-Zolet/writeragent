@@ -201,6 +201,11 @@ def get_extension_url(ctx=None, extension_id=None):
     return "vnd.sun.star.extension://" + extension_id
 
 
+def menu_icon_asset_url(ext_url, icon_filename):
+    """Return GraphicProvider URL for a menu icon shipped in OXT assets/."""
+    return "%s/assets/%s" % (ext_url.rstrip("/"), icon_filename)
+
+
 def get_extension_path(ctx=None, extension_id=None):
     """Return the local filesystem path of the extension package."""
     url = get_extension_url(ctx, extension_id)

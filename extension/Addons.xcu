@@ -194,6 +194,9 @@
             <prop oor:name="Target" oor:type="xs:string">
               <value>_self</value>
             </prop>
+            <prop oor:name="ImageIdentifier" oor:type="xs:string">
+              <value />
+            </prop>
           </node>
           <node oor:name="M15" oor:op="replace">
             <prop oor:name="Title">
@@ -399,6 +402,18 @@
           </prop>
           <prop oor:name="ImageIdentifier" oor:type="xs:string">
             <value />
+          </prop>
+        </node>
+      </node>
+    </node>
+    <node oor:name="Images">
+      <node oor:name="org.extension.writeragent.mcp.server_status.img" oor:op="replace">
+        <prop oor:name="URL">
+          <value>org.extension.writeragent:mcp.server_status</value>
+        </prop>
+        <node oor:name="UserDefinedImages">
+          <prop oor:name="ImageSmallURL">
+            <value>%origin%/assets/stopped_16.png</value>
           </prop>
         </node>
       </node>

@@ -3,6 +3,13 @@ title: MCP
 provides_services: [http_routes]
 requires: [config, events]
 
+actions:
+  toggle_server:
+    title: "Toggle MCP Server"
+  server_status:
+    title: "MCP Server Status"
+    icon: stopped
+
 config:
   mcp_enabled:
     type: boolean

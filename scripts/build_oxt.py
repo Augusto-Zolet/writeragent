@@ -114,6 +114,9 @@ GENERATED_INCLUDES = [
 
 BUNDLE_DIR = "build/bundle"
 
+# Parent Debug submenu in extension/Addons.xcu (M16a–M16f are children).
+DEBUG_MENU_NODE_MARKER = 'oor:name="M16"'
+
 
 def resolve_bundle_path(base_dir, bundle_dir):
     """Return an absolute bundle directory. Absolute *bundle_dir* is used as-is."""
@@ -298,8 +301,7 @@ def assemble_bundle(base_dir, modules, no_recording=False, with_tests=False, dry
         if os.path.isfile(src_addons):
             with open(src_addons, "r", encoding="utf-8") as f:
                 content = f.read()
-            marker = 'oor:name="M_Debug"'
-            start = content.find(marker)
+            start = content.find(DEBUG_MENU_NODE_MARKER)
             if start != -1:
                 tag_start = content.rfind("<node ", 0, start)
                 if tag_start != -1:

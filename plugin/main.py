@@ -76,7 +76,7 @@ from com.sun.star.frame import DispatchDescriptor, XDispatch, XDispatchProvider
 from com.sun.star.lang import XInitialization, XServiceInfo
 
 from plugin.framework.constants import EXTENSION_ID_WRITERAGENT
-from plugin.framework.uno_context import get_active_document, get_extension_url, get_ctx
+from plugin.framework.uno_context import get_active_document, get_extension_url, get_ctx, menu_icon_asset_url
 from plugin.framework.thread_guard import background
 
 EXTENSION_ID = EXTENSION_ID_WRITERAGENT
@@ -637,7 +637,7 @@ def _collect_icon_commands():
 
 
 def _load_icon_graphic(module_name, icon_filename, ctx=None):
-    """Load a PNG icon from a module's icons/ directory as XGraphic."""
+    """Load a PNG icon from OXT assets/ as XGraphic."""
     try:
         from com.sun.star.beans import PropertyValue
         import uno
@@ -653,10 +653,12 @@ def _load_icon_graphic(module_name, icon_filename, ctx=None):
         if not ext_url:
             return None
         pv = PropertyValue()
-        # Support nested module directories
-        mod_dir = module_name.replace(".", "/")
-        pv.Value = "%s/plugin/%s/icons/%s" % (ext_url, mod_dir, icon_filename)
-        return gp.queryGraphic((pv,))
+        pv.Name = "URL"
+        pv.Value = menu_icon_asset_url(ext_url, icon_filename)
+        graphic = gp.queryGraphic((pv,))
+        if graphic is None:
+            log.warning("_load_icon_graphic: GraphicProvider returned None for %s (%s)", pv.Value, module_name)
+        return graphic
     except Exception as e:
         log.warning("_load_icon_graphic failed for %s/%s: %s", module_name, icon_filename, e)
         return None
@@ -688,6 +690,8 @@ def _update_menu_icons_impl():
             graphic = _load_icon_graphic(mod_name, filename, ctx)
             if graphic:
                 key_graphics[key] = graphic
+            else:
+                log.warning("Icon graphic is None for assets/%s (module %s)", filename, mod_name)
 
         if not key_graphics:
             return

@@ -805,19 +805,7 @@ and does not conflict.
 
 #### 5. Icons — copy directly
 
-The six icon files in `libreoffice-mcp-extension/icons/` can be copied into WriterAgent's
-`assets/` folder:
-
-- `running_16.png` / `running_26.png`
-- `starting_16.png` / `starting_26.png`
-- `stopped_16.png` / `stopped_26.png`
-
-Reference them in `Addons.xcu` for the MCP menu item the same way the standalone extension
-does. The `_load_icon_graphic()` / `_update_menu_icons()` functions in `registration.py`
-show how to inject them into the module `ImageManager` for dynamic icon switching — though
-note that `_update_menu_icons` is currently disabled in the standalone extension (see the
-`return` at line 325) due to a suspected black-menu rendering bug on some platforms.
-Start with static icons in `Addons.xcu` and add dynamic switching later.
+The six icon files live in WriterAgent [`extension/assets/`](../extension/assets/) (`running_16.png` / `stopped_16.png` / `starting_16.png` and 26px variants). **MCP Server Status** declares `icon: stopped` in [`plugin/mcp/module.yaml`](../plugin/mcp/module.yaml); Toggle MCP Server is text-only. Hand-maintained [`extension/Addons.xcu`](../extension/Addons.xcu) reserves the Status menu slot (`ImageIdentifier`) and ships a default `Images` node (`%origin%/assets/stopped_16.png`). At runtime `_update_menu_icons` loads `assets/{prefix}_16.png` via GraphicProvider (`PropertyValue.Name = "URL"`) and inserts/replaces the command image in each document module's ImageManager — the same pattern as nelson-mcp.
 
 ---
 
@@ -1057,9 +1045,6 @@ current functionality.
   change to WriterAgent; lets Claude Desktop use WriterAgent as an MCP server.
 - **JSON-RPC in the server** (Path B): optional `POST /` with `method=tools/list` etc. for
   clients that expect strict MCP JSON-RPC instead of REST. Only if a client needs it.
-- **Dynamic menu state**: menu item label “Start MCP Server” / “Stop MCP Server” and icon
-  (running/stopped/starting) via status listeners. Icons are in `assets/`; switching is
-  disabled in the standalone extension due to rendering issues — re-enable with care.
 - **Optional `file_path` (or URL) on tool calls**: if clients need to target by path in the
   request body as well as (or instead of) the `X-Document-URL` header, extend the handler
   to accept it.

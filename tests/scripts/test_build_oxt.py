@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 
 from scripts.build_oxt import (
+    DEBUG_MENU_NODE_MARKER,
     GENERATED_INCLUDES,
     assemble_bundle,
     main,
@@ -120,3 +121,15 @@ def test_skip_zip_does_not_call_zip_bundle(monkeypatch, tmp_path):
     assert main() == 0
     assert assembled["bundle_dir"] == str(tmp_path)
     assert zipped == []
+
+
+def test_debug_menu_strip_marker_matches_addons_xcu():
+    """Release OXT strip must find the Debug parent node (not M16a children)."""
+    addons = os.path.join(PROJECT_ROOT, "extension", "Addons.xcu")
+    with open(addons, encoding="utf-8") as handle:
+        text = handle.read()
+    assert DEBUG_MENU_NODE_MARKER in text
+    marker_at = text.find(DEBUG_MENU_NODE_MARKER)
+    window = text[marker_at : marker_at + 400]
+    assert "Debug" in window
+    assert "M16a" not in DEBUG_MENU_NODE_MARKER
