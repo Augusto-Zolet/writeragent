@@ -312,20 +312,37 @@ class PythonWorkerManager:
                     # User code / C-extension hung: killing and replaying would double the wait.
                     log.warning("Python worker read timed out: %s", e)
                     self._terminate_worker()
-                    return {"status": "error", "message": _worker_error_message(e)}
+                    return {
+                        "status": "error",
+                        "code": "VENV_TIMEOUT",
+                        "message": _worker_error_message(e),
+                        "details": {"timeout_sec": timeout_sec, "exe": self.exe},
+                    }
                 return self._normalize_response(response)
             except _NonReplayableIpcWriteTimeout as e:
                 log.warning("Python worker failed without replay: %s", e)
                 self._terminate_worker()
-                return {"status": "error", "message": f"Python worker failed: {e}"}
+                return {
+                    "status": "error",
+                    "code": "WORKER_IPC_ERROR",
+                    "message": f"Python worker failed: {e}",
+                    "details": {"exe": self.exe},
+                }
             except (BrokenPipeError, ValueError, RuntimeError, subprocess.TimeoutExpired, OSError) as e:
                 # TimeoutExpired here is an initial stdin write timeout only; retry once on a
                 # fresh worker. Host read timeouts return above without replay.
                 log.warning("Python worker failed (attempt %s): %s", attempt + 1, e)
                 self._terminate_worker()
                 if attempt == 1:
-                    return {"status": "error", "message": _worker_error_message(e)}
-        return {"status": "error", "message": "Python worker failed"}
+                    code_val = "VENV_TIMEOUT" if isinstance(e, subprocess.TimeoutExpired) else "WORKER_IPC_ERROR"
+                    return {
+                        "status": "error",
+                        "code": code_val,
+                        "message": _worker_error_message(e),
+                        "details": {"exe": self.exe, "attempt": attempt + 1},
+                    }
+        return {"status": "error", "code": "WORKER_IPC_ERROR", "message": "Python worker failed", "details": {"exe": self.exe}}
+
 
     def execute(
         self,
@@ -476,10 +493,14 @@ class PythonWorkerManager:
             msg = f"{msg}\n{tb.strip()}"
         out: dict[str, Any] = {
             "status": "error",
+            "code": response.get("code") or "VENV_EXEC_ERROR",
             "message": str(msg),
             "stdout": (response.get("stdout") or "").strip(),
+            "traceback": str(tb or ""),
+            "details": response.get("details") or {},
         }
         return out
+
 
     def _ensure_running(self) -> None:
         if self._proc is not None and self._proc.poll() is None:
@@ -683,6 +704,7 @@ def _resolve_worker_python(
         if not venv_dir:
             return None, {
                 "status": "error",
+                "code": "VENV_NOT_FOUND",
                 "message": (
                     "Embeddings require a configured Python venv (Settings → Python). "
                     "LibreOffice embedded Python cannot run sentence-transformers or langgraph."
@@ -692,6 +714,7 @@ def _resolve_worker_python(
         if not exe:
             return None, {
                 "status": "error",
+                "code": "VENV_NOT_FOUND",
                 "message": f"Embeddings venv not configured or invalid: {venv_dir!r}",
             }
         log.debug("run_venv_code: using embeddings venv interpreter under %s", venv_dir)
@@ -702,6 +725,7 @@ def _resolve_worker_python(
         if not exe:
             return None, {
                 "status": "error",
+                "code": "VENV_NOT_FOUND",
                 "message": f"No python executable found under configured venv: {venv_dir!r}",
             }
         log.debug("run_venv_code: using venv interpreter under %s", venv_dir)
@@ -710,11 +734,13 @@ def _resolve_worker_python(
     if not exe:
         return None, {
             "status": "error",
+            "code": "VENV_NOT_FOUND",
             "message": (
                 "Could not resolve a Python interpreter (sys.executable missing, not a file, or not executable). "
                 "Set scripting.python_venv_path in Settings → Python for a dedicated venv, or fix the LibreOffice install."
             ),
         }
+
     log.debug("run_venv_code: using process interpreter %s (no venv path set)", exe)
     return exe, None
 

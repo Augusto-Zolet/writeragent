@@ -1,7 +1,8 @@
 # WriterAgent Roadmap
 
-**Last Updated**: 2026-08-08  
+**Last Updated**: 2026-08-17  
 **Status**: Active Development
+
 
 Planned features, technical debt, and product gaps. For day-to-day orientation use [`AGENTS.md`](../AGENTS.md); this file is the longer backlog.
 
@@ -265,16 +266,17 @@ Provider-specific response parsing lives in `plugin/framework/client/response_no
 
 ### 6. **Error Handling Standardization** ⚠️
 **Files**: `plugin/framework/errors.py`, `plugin/framework/logging.py`
-**Status**: In Progress
+**Status**: In Progress (LibrePy subset completed)
 
-- [ ] Audit all error codes for consistency
+- [x] Audit all error codes for consistency (LibrePy subset audited)
 - [✅] **Standardize on `log.exception("Context")`** inside `except` blocks to ensure stacktraces are captured for debugging.
 - [✅] Enhance `SafeLogger` in `logging.py` to support `exception()` method.
 - [✅] Port key modules (`tool_loop.py`, `document_helpers.py`, `service.py`, `format.py`) to the new logging pattern.
 - [✅] Standardize error message formats
-- [ ] Add missing error codes for new features
-- [ ] Improve error context reporting
-- [ ] Add error recovery patterns
+- [x] Add missing error codes for new features (`ScriptingError`, `VenvError`, `VenvNotFoundError`, `VenvTimeoutError`, `VenvExecutionError`, `WorkerIPCError`, `CalcError`, `FormulaError`, `FormulaSyntaxError`, `SpillCollisionError`, `ExcelConversionError`, `SandboxSecurityError`, `PayloadCodecError`, `DataShapeError`)
+- [x] Improve error context reporting (venv worker IPC, diagnostics recording, AST syntax errors with line:offset, Excel conversion issues)
+- [x] Add error recovery patterns (worker crash/timeout process tree termination and retry, soft timeout state preservation)
+
 
 ### 8. **Chatbot Import Architecture & Exception Standardization** 🧹 ✅ **COMPLETED**
 **Files**: `plugin/chatbot/*.py` (specifically `send_handlers.py`, `selection.py`, `tool_loop.py`)

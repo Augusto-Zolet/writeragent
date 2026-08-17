@@ -206,8 +206,12 @@ def _find_xl_calls(code: str) -> tuple[list[_XlCall], list[str]]:
         tree = ast.parse(normalized)
     except SyntaxError as exc:
         # Fail closed — do not guess call sites with a hand-rolled scanner.
-        issues.append(f"Python syntax error in script: {exc.msg}")
+        loc = f"line {exc.lineno}" if exc.lineno is not None else "unknown line"
+        if exc.offset is not None:
+            loc = f"{loc}:{exc.offset}"
+        issues.append(f"Python syntax error at {loc}: {exc.msg}")
         return [], issues
+
 
     calls: list[_XlCall] = []
     for node in ast.walk(tree):

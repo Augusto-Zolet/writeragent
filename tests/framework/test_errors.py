@@ -57,6 +57,72 @@ class TestErrorHandling(unittest.TestCase):
         display_str_generic = format_error_for_display(exc_generic)
         self.assertEqual(display_str_generic, 'Error: System error')
 
+    def test_librepy_exceptions_hierarchy_and_codes(self):
+        from plugin.framework.errors import (
+            CalcError,
+            DataShapeError,
+            ExcelConversionError,
+            FormulaError,
+            FormulaSyntaxError,
+            PayloadCodecError,
+            SandboxSecurityError,
+            ScriptingError,
+            SpillCollisionError,
+            VenvError,
+            VenvExecutionError,
+            VenvNotFoundError,
+            VenvTimeoutError,
+            WorkerIPCError,
+        )
+
+        # Test base hierarchy and default error codes
+        cases = [
+            (ScriptingError("script fail"), "SCRIPTING_ERROR", ScriptingError),
+            (VenvError("venv fail"), "VENV_ERROR", ScriptingError),
+            (VenvNotFoundError("venv missing"), "VENV_NOT_FOUND", VenvError),
+            (VenvTimeoutError("timed out"), "VENV_TIMEOUT", ScriptingError),
+            (VenvExecutionError("crash"), "VENV_EXEC_ERROR", ScriptingError),
+            (WorkerIPCError("pipe broken"), "WORKER_IPC_ERROR", ScriptingError),
+            (CalcError("calc error"), "CALC_ERROR", WriterAgentException),
+            (FormulaError("bad formula"), "FORMULA_ERROR", CalcError),
+            (FormulaSyntaxError("syntax"), "FORMULA_SYNTAX_ERROR", FormulaError),
+            (SpillCollisionError("blocked"), "SPILL_COLLISION", FormulaError),
+            (ExcelConversionError("conversion fail"), "EXCEL_CONVERSION_ERROR", CalcError),
+            (SandboxSecurityError("blocked import"), "SANDBOX_SECURITY_ERROR", ScriptingError),
+            (PayloadCodecError("codec fail"), "PAYLOAD_CODEC_ERROR", ScriptingError),
+            (DataShapeError("too large"), "DATA_SHAPE_ERROR", PayloadCodecError),
+        ]
+
+        for exc, expected_code, parent_cls in cases:
+            self.assertIsInstance(exc, WriterAgentException)
+            self.assertIsInstance(exc, parent_cls)
+            self.assertEqual(exc.code, expected_code)
+            payload = format_error_payload(exc)
+            self.assertEqual(payload["status"], "error")
+            self.assertEqual(payload["code"], expected_code)
+
+    def test_librepy_format_error_message_advice(self):
+        from plugin.framework.errors import (
+            SandboxSecurityError,
+            SpillCollisionError,
+            VenvNotFoundError,
+            VenvTimeoutError,
+            format_error_message,
+        )
+
+        msg_venv = format_error_message(VenvNotFoundError("No python executable found"))
+        self.assertIn("Python venv not found", msg_venv)
+
+        msg_timeout = format_error_message(VenvTimeoutError("Python timed out after 30 seconds"))
+        self.assertIn("Python execution timed out", msg_timeout)
+
+        msg_spill = format_error_message(SpillCollisionError("#SPILL!"))
+        self.assertIn("Formula spill collision", msg_spill)
+
+        msg_sandbox = format_error_message(SandboxSecurityError("Import os forbidden"))
+        self.assertIn("Script execution blocked by sandbox policy", msg_sandbox)
+
+
 class TestSafeJsonLoads(unittest.TestCase):
 
     def test_safe_json_loads_valid(self):

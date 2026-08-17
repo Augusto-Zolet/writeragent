@@ -32,8 +32,9 @@ from plugin.calc.datetime_wire import (
 )
 from plugin.calc.inspector import _format_category_from_type
 from plugin.calc.python.image_egress import insert_image_result_on_sheet
-from plugin.framework.errors import format_error_payload
+from plugin.framework.errors import format_error_message
 from plugin.framework.i18n import _
+
 from plugin.scripting.config_limits import configured_python_max_data_cells
 from plugin.scripting.payload_codec import is_dataframe_payload, is_split_grid, find_image_payloads
 from plugin.scripting.calc_range import dataframe_to_labeled_grid
@@ -909,15 +910,17 @@ def finalize_python_return(
 def _format_error_for_display(exc: BaseException) -> str:
     """Cell-safe error text without importing ``plugin.framework.client.llm_client``."""
     err: Exception = exc if isinstance(exc, Exception) else RuntimeError(str(exc))
-    payload = format_error_payload(err)
-    return _format_python_addin_worker_error(str(payload.get("message", str(exc))))
+    msg = format_error_message(err)
+    if msg.startswith("Error:") or msg.startswith("#"):
+        return msg
+    return _format_python_addin_worker_error(msg)
 
 
 def _format_python_addin_worker_error(message: str) -> str:
     """Map common worker failures to short Settings → Python / Test guidance."""
     text = (message or "").strip() or _("Unknown error")
     lower = text.lower()
-    if "no python executable found under configured venv" in lower:
+    if "no python executable found under configured venv" in lower or "venv not found" in lower:
         return _(
             "Error: Python venv not found. Open Settings → Python, set the venv path, then Test."
         )
@@ -925,9 +928,10 @@ def _format_python_addin_worker_error(message: str) -> str:
         return _(
             "Error: Python timed out. Open Settings → Python to raise the timeout, or Test the venv."
         )
-    if text.startswith("Error:"):
+    if text.startswith("Error:") or text.startswith("#"):
         return text
     return _("Error: {0}").format(text)
+
 
 
 def _code_uses_indexed_multi_data(code: str) -> bool:

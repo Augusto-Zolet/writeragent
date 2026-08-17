@@ -17,15 +17,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Calc module — tools for Calc spreadsheet manipulation."""
 
-from plugin.framework.errors import WriterAgentException
+from plugin.framework.errors import CalcError
 from plugin.framework.module_base import ModuleBase
 
+__all__ = ["CalcError", "CalcModule"]
 
-class CalcError(WriterAgentException):
-    """Calc-specific errors."""
 
-    def __init__(self, message, code="CALC_ERROR", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
 
 
 class CalcModule(ModuleBase):

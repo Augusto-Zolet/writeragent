@@ -126,6 +126,105 @@ class NetworkError(WriterAgentException):
         super().__init__(message, code=code, context=context, details=details)
 
 
+class ScriptingError(WriterAgentException):
+    """Base exception for user scripting and external Python execution."""
+
+    def __init__(self, message, code="SCRIPTING_ERROR", context=None, details=None):
+        super().__init__(message, code=code, context=context, details=details)
+
+
+class VenvError(ScriptingError):
+    """Virtualenv configuration, resolution, or environment issues."""
+
+    def __init__(self, message, code="VENV_ERROR", context=None, details=None):
+        super().__init__(message, code=code, context=context, details=details)
+
+
+class VenvNotFoundError(VenvError):
+    """Configured Python virtual environment or interpreter executable not found."""
+
+    def __init__(self, message, code="VENV_NOT_FOUND", context=None, details=None):
+        super().__init__(message, code=code, context=context, details=details)
+
+
+class VenvTimeoutError(ScriptingError):
+    """Execution inside virtual environment exceeded configured timeout."""
+
+    def __init__(self, message, code="VENV_TIMEOUT", context=None, details=None):
+        super().__init__(message, code=code, context=context, details=details)
+
+
+class VenvExecutionError(ScriptingError):
+    """Python code execution in venv raised an unhandled exception or returned non-zero."""
+
+    def __init__(self, message, code="VENV_EXEC_ERROR", context=None, details=None):
+        super().__init__(message, code=code, context=context, details=details)
+
+
+class WorkerIPCError(ScriptingError):
+    """Host ↔ venv worker IPC frame encoding, decoding, or pipe communication failure."""
+
+    def __init__(self, message, code="WORKER_IPC_ERROR", context=None, details=None):
+        super().__init__(message, code=code, context=context, details=details)
+
+
+class CalcError(WriterAgentException):
+    """Calc spreadsheet manipulation and calculation failures."""
+
+    def __init__(self, message, code="CALC_ERROR", context=None, details=None):
+        super().__init__(message, code=code, context=context, details=details)
+
+
+class FormulaError(CalcError):
+    """Calc formula parsing, rebuilding, or evaluation failures."""
+
+    def __init__(self, message, code="FORMULA_ERROR", context=None, details=None):
+        super().__init__(message, code=code, context=context, details=details)
+
+
+class FormulaSyntaxError(FormulaError):
+    """Formula contains invalid Python or Calc syntax."""
+
+    def __init__(self, message, code="FORMULA_SYNTAX_ERROR", context=None, details=None):
+        super().__init__(message, code=code, context=context, details=details)
+
+
+class SpillCollisionError(FormulaError):
+    """Dynamic array formula cannot spill because destination cells are not empty."""
+
+    def __init__(self, message, code="SPILL_COLLISION", context=None, details=None):
+        super().__init__(message, code=code, context=context, details=details)
+
+
+class ExcelConversionError(CalcError):
+    """Failures during Excel ↔ DAG-style =PY conversion."""
+
+    def __init__(self, message, code="EXCEL_CONVERSION_ERROR", context=None, details=None):
+        super().__init__(message, code=code, context=context, details=details)
+
+
+class SandboxSecurityError(ScriptingError):
+    """Script attempted an operation or import forbidden by the sandbox policy."""
+
+    def __init__(self, message, code="SANDBOX_SECURITY_ERROR", context=None, details=None):
+        super().__init__(message, code=code, context=context, details=details)
+
+
+class PayloadCodecError(ScriptingError):
+    """Data encoding, decoding, or pickle serialization failure."""
+
+    def __init__(self, message, code="PAYLOAD_CODEC_ERROR", context=None, details=None):
+        super().__init__(message, code=code, context=context, details=details)
+
+
+class DataShapeError(PayloadCodecError):
+    """Data dimensions, row/column bounds, or cell count limits exceeded."""
+
+    def __init__(self, message, code="DATA_SHAPE_ERROR", context=None, details=None):
+        super().__init__(message, code=code, context=context, details=details)
+
+
+
 @deal.post(lambda result: isinstance(result, dict) and result.get("status") == "error" and "code" in result and "message" in result)
 @deal.ensure(
     lambda e, result: isinstance(e, WriterAgentException)
@@ -209,6 +308,18 @@ def format_error_message(e: Exception) -> str:
             return _("Server error ({0}). The AI provider is having issues.").format(code)
         return _("HTTP Error {0}: {1}").format(code, reason)
 
+    if isinstance(e, VenvNotFoundError) or "venv not found" in msg.lower() or "no python executable found" in msg.lower():
+        return _("Python venv not found. Open Settings → Python, set the venv path, then Test.")
+
+    if isinstance(e, VenvTimeoutError) or "python timed out" in msg.lower() or "worker failed: timed out" in msg.lower():
+        return _("Python execution timed out. Open Settings → Python to raise the timeout.")
+
+    if isinstance(e, SpillCollisionError) or msg.strip() == "#SPILL!":
+        return _("Formula spill collision: destination range contains non-empty cells.")
+
+    if isinstance(e, SandboxSecurityError):
+        return _("Script execution blocked by sandbox policy: {0}").format(getattr(e, "message", str(e)))
+
     if isinstance(e, socket.timeout) or "timed out" in msg.lower():
         return _("Request Timed Out. Try increasing 'Request Timeout' in Settings.")
 
@@ -229,6 +340,8 @@ def format_error_message(e: Exception) -> str:
         return _("The AI provider reported an error. Try again.")
 
     return msg
+
+
 
 
 @deal.pre(lambda message, code="TOOL_EXECUTION_ERROR", **details: isinstance(message, str) and isinstance(code, str))
@@ -388,14 +501,29 @@ def safe_call(fn, context_name, *args, **kwargs):
 # are implemented in json_utils and re-exported as stable public imports (intentional).
 __all__ = [
     "AgentParsingError",
+    "CalcError",
     "ConfigError",
+    "ConfigValidationError",
+    "DataShapeError",
     "DocumentDisposedError",
+    "ExcelConversionError",
+    "FormulaError",
+    "FormulaSyntaxError",
     "NetworkError",
+    "PayloadCodecError",
     "ResourceNotFoundError",
+    "SandboxSecurityError",
+    "ScriptingError",
+    "SpillCollisionError",
     "ToolContextError",
     "ToolExecutionError",
     "ToolPermissionError",
     "UnoObjectError",
+    "VenvError",
+    "VenvExecutionError",
+    "VenvNotFoundError",
+    "VenvTimeoutError",
+    "WorkerIPCError",
     "WorkerPoolError",
     "WriterAgentException",
     "WriterError",
@@ -409,3 +537,4 @@ __all__ = [
     "safe_python_literal_eval",
     "safe_uno_call",
 ]
+

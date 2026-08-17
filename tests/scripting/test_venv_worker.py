@@ -1061,3 +1061,23 @@ def test_session_executor_updates_timeout_seconds():
         reset_sandbox_session(sid)
 
 
+def test_venv_worker_error_codes_and_context():
+    """Verify venv worker returns structured error codes and context on failure."""
+    mgr = PythonWorkerManager(sys.executable, {"PATH": os.environ.get("PATH", "")})
+    try:
+        # 1. Syntax/Execution error returns VENV_EXEC_ERROR code and traceback
+        res = mgr.execute("1 / 0")
+        assert res["status"] == "error"
+        assert res.get("code") == "VENV_EXEC_ERROR"
+        assert "ZeroDivisionError" in res.get("message", "")
+        assert "traceback" in res
+
+        # 2. Timeout error code
+        res_to = mgr.execute("import time\ntime.sleep(5)", timeout_sec=1)
+        assert res_to["status"] == "error"
+        assert res_to.get("code") in ("VENV_TIMEOUT", "VENV_EXEC_ERROR")
+    finally:
+        mgr._terminate_worker()
+
+
+

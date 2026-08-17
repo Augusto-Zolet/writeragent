@@ -146,8 +146,12 @@ def _find_static_xl_literals(code: str) -> tuple[list[_XlLiteralCall], list[str]
     try:
         tree = ast.parse(src)
     except SyntaxError as exc:
-        issues.append(f"Python syntax error in script: {exc.msg}")
+        loc = f"line {exc.lineno}" if exc.lineno is not None else "unknown line"
+        if exc.offset is not None:
+            loc = f"{loc}:{exc.offset}"
+        issues.append(f"Python syntax error at {loc}: {exc.msg}")
         return [], issues
+
 
     calls: list[_XlLiteralCall] = []
     for node in ast.walk(tree):
