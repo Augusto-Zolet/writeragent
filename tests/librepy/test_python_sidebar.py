@@ -66,6 +66,22 @@ def test_python_sidebar_xdl_uses_menulist_not_listbox():
     assert 'dlg:id="diag_list"' in text
 
 
+def test_activation_listener_schedules_refresh():
+    """Switching sheets fires _schedule_refresh via the activation listener."""
+    from plugin.librepy.python_sidebar import PythonSidebarController
+
+    ctrl = PythonSidebarController.__new__(PythonSidebarController)
+    refresh_calls = []
+    ctrl._schedule_refresh = lambda *_: refresh_calls.append(1)
+
+    # _Activation is a private class; import and instantiate it directly.
+    from plugin.librepy.python_sidebar import _Activation  # type: ignore[attr-defined]
+
+    listener = _Activation(ctrl._schedule_refresh)
+    listener.activeSpreadsheetChanged(object())
+    assert refresh_calls, "_schedule_refresh should be called when active sheet changes via activeSpreadsheetChanged"
+
+
 def test_sidebar_prefers_frame_document_over_desktop():
     from plugin.librepy.python_sidebar import PythonSidebarController
 

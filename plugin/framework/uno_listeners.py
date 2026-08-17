@@ -39,6 +39,7 @@ _XWindowListener: Any = None
 _XDocumentEventListener: Any = None
 _XCloseListener: Any = None
 _XTerminateListener: Any = None
+_XActivationEventListener: Any = None
 _HAVE_UNO = False
 
 try:
@@ -54,6 +55,7 @@ try:
     from com.sun.star.document import XDocumentEventListener as _XDocumentEventListener_impl
     from com.sun.star.util import XCloseListener as _XCloseListener_impl
     from com.sun.star.frame import XTerminateListener as _XTerminateListener_impl
+    from com.sun.star.sheet import XActivationEventListener as _XActivationEventListener_impl
 
     _unohelper = _unohelper_impl
     _XEventListener = _XEventListener_impl
@@ -65,6 +67,7 @@ try:
     _XDocumentEventListener = _XDocumentEventListener_impl
     _XCloseListener = _XCloseListener_impl
     _XTerminateListener = _XTerminateListener_impl
+    _XActivationEventListener = _XActivationEventListener_impl
     _HAVE_UNO = True
 except ImportError:
     pass
@@ -81,6 +84,7 @@ if TYPE_CHECKING:
     class _XDocumentEventListenerParent: pass
     class _XCloseListenerParent: pass
     class _XTerminateListenerParent: pass
+    class _XActivationEventListenerParent: pass
 else:
     class _DummyBase: pass
     class _DummyEventListener: pass
@@ -92,6 +96,7 @@ else:
     class _DummyDocumentEventListener: pass
     class _DummyCloseListener: pass
     class _DummyTerminateListener: pass
+    class _DummyActivationListener: pass
 
     _BaseParent = _unohelper.Base if _HAVE_UNO else _DummyBase
     _XEventListenerParent = _XEventListener if _HAVE_UNO else _DummyEventListener
@@ -103,6 +108,7 @@ else:
     _XDocumentEventListenerParent = _XDocumentEventListener if _HAVE_UNO else _DummyDocumentEventListener
     _XCloseListenerParent = _XCloseListener if _HAVE_UNO else _DummyCloseListener
     _XTerminateListenerParent = _XTerminateListener if _HAVE_UNO else _DummyTerminateListener
+    _XActivationEventListenerParent = _XActivationEventListener if _HAVE_UNO else _DummyActivationListener
 
 
 def _catch_and_log(func):
@@ -246,4 +252,20 @@ class BaseTerminateListener(BaseListener, _XTerminateListenerParent):
         pass
 
     def on_notify_termination(self, Event: Any) -> None:
+        pass
+
+
+class BaseActivationEventListener(BaseListener, _XActivationEventListenerParent):
+    """Base listener for Calc sheet activation events (XActivationEventListener).
+
+    Override on_active_spreadsheet_changed to react when the user switches sheets.
+    The frame controller's addActivationEventListener / removeActivationEventListener
+    methods accept instances of this class.
+    """
+
+    @_catch_and_log
+    def activeSpreadsheetChanged(self, aEvent: Any) -> None:  # noqa: N802, N803 -- UNO signature
+        self.on_active_spreadsheet_changed(aEvent)
+
+    def on_active_spreadsheet_changed(self, aEvent: Any) -> None:
         pass

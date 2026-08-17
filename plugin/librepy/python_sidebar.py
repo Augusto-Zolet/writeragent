@@ -20,7 +20,7 @@ from plugin.calc.python.diagnostics import (
 from plugin.chatbot.dialogs import get_optional as get_optional_control, set_control_text, translate_dialog
 from plugin.framework.config import get_config_str
 from plugin.framework.i18n import _
-from plugin.framework.uno_listeners import BaseActionListener, BaseItemListener
+from plugin.framework.uno_listeners import BaseActionListener, BaseActivationEventListener, BaseItemListener
 from plugin.doc.doc_type import is_calc
 from plugin.scripting.document_scripts import get_calc_document_from_ctx
 from plugin.scripting.sandbox import resolve_venv_python
@@ -33,6 +33,17 @@ _FILTER_LABELS: tuple[tuple[str, DiagnosticFilter], ...] = (
     (_("Errors"), "errors"),
     (_("Output"), "output"),
 )
+
+
+class _Activation(BaseActivationEventListener):
+    """Sheet-activation listener that calls handler() whenever the active sheet changes."""
+
+    def __init__(self, handler):
+        super().__init__()
+        self._handler = handler
+
+    def on_active_spreadsheet_changed(self, aEvent: object) -> None:
+        self._handler()
 
 
 def workbook_key_for_doc(doc: Any) -> str:
@@ -125,6 +136,16 @@ class PythonSidebarController:
         except Exception:
             log.debug("translate_dialog failed for Python sidebar", exc_info=True)
         self._wire()
+        # Set up activation listener to refresh on sheet changes
+        self._activation_listener = None
+        if self.frame is not None:
+            try:
+                controller = self.frame.getController()
+                if controller is not None:
+                    self._activation_listener = _Activation(self._schedule_refresh)
+                    controller.addActivationEventListener(self._activation_listener)
+            except Exception:
+                log.debug("sidebar activation listener add failed", exc_info=True)
         self.refresh()
         try:
             self._store.add_listener(self._on_diag)
@@ -136,6 +157,14 @@ class PythonSidebarController:
             self._store.remove_listener(self._on_diag)
         except Exception:
             log.debug("sidebar diagnostics listener remove failed", exc_info=True)
+        # Remove activation listener if it was added
+        if getattr(self, "_activation_listener", None) is not None and self.frame is not None:
+            try:
+                controller = self.frame.getController()
+                if controller is not None:
+                    controller.removeActivationEventListener(self._activation_listener)
+            except Exception:
+                log.debug("sidebar activation listener remove failed", exc_info=True)
 
     def _ctrl(self, name: str) -> Any:
         return get_optional_control(self.root, name)
