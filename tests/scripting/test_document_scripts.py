@@ -119,11 +119,12 @@ def test_build_xdl_script_picker_state():
     props = _UserDefinedProperties()
     doc = _DocWithUserDefinedProperties(props)
     attach_document_script(doc, "DocScript", "result = 2")
-    items, merged, origin_map = build_xdl_script_picker_state(
-        ctx,
-        doc,
-        {"UserScript": "result = 1"},
-    )
+    with patch("plugin.vision.vision_runner.supports_vision_manual", return_value=True):
+        items, merged, origin_map = build_xdl_script_picker_state(
+            ctx,
+            doc,
+            {"UserScript": "result = 1"},
+        )
     assert "Sample" not in items
     assert "UserScript" in items
     assert "[Doc] DocScript" in items
@@ -131,6 +132,13 @@ def test_build_xdl_script_picker_state():
     assert merged["[Doc] DocScript"] == "result = 2"
     assert origin_map["UserScript"] == "user"
     assert origin_map["[Doc] DocScript"] == "document"
+    # Local (user) first, then document-scoped, then helper domain items
+    user_idx = items.index("UserScript")
+    doc_idx = items.index("[Doc] DocScript")
+    assert user_idx < doc_idx
+    vision_items = [item for item in items if item.startswith("[Vision] ")]
+    if vision_items:
+        assert doc_idx < items.index(vision_items[0])
 
 
 def test_resolve_run_script_selection_uses_config_default():
@@ -186,6 +194,9 @@ def test_build_scripts_list_message_sections():
     sections = {s["id"]: s["scripts"] for s in msg["sections"]}
     assert sections["user"] == {"Prime": "result = 2"}
     assert sections["document"] == {"Regional": "result = 3"}
+    section_ids = [s["id"] for s in msg["sections"]]
+    assert section_ids[0] == "user"
+    assert section_ids[1] == "document"
 
 
 def test_build_scripts_list_message_includes_selected_script():

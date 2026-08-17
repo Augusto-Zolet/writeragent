@@ -391,8 +391,8 @@ def build_xdl_script_picker_state(
 
     items = (
         sorted(user_scripts.keys())
-        + domain_items
         + [document_script_display_name(n) for n in sorted(doc_scripts.keys())]
+        + domain_items
     )
     return items, merged, origin_map
 
@@ -452,6 +452,7 @@ def build_scripts_list_message(
 
     sections: list[dict[str, Any]] = [
         {"id": SCRIPT_ORIGIN_USER, "title": _("My Scripts"), "scripts": user_scripts},
+        {"id": SCRIPT_ORIGIN_DOCUMENT, "title": _("This Document"), "scripts": doc_scripts},
     ]
     for domain in get_picker_domains():
         try:
@@ -468,7 +469,6 @@ def build_scripts_list_message(
             picker_display_name(domain.display_prefix, name): code for name, code in templates.items()
         }
         sections.append({"id": domain.origin, "title": domain.title_fn(), "scripts": display_scripts})
-    sections.append({"id": SCRIPT_ORIGIN_DOCUMENT, "title": _("This Document"), "scripts": doc_scripts})
 
     selected_name, _selected_code, _merged_scripts = resolve_run_script_selection(ctx, doc, user_scripts)
 
