@@ -168,8 +168,8 @@ help:
 	@echo "  make build                  Build .oxt with tests (regular build, no Cython)"
 	@echo "  make build-native           Build .oxt with Cython accelerator"
 	@echo "  make openrouter-catalog     Fetch Orca slim OpenRouter catalog + refresh default_models.py (network)"
-	@echo "  make release                Regular build with full verification: test source, build stripped bundle,"
-	@echo "                              test bundle, build final .oxt. (Includes Cython if pre-built via 'make native')"
+	@echo "  make release                Typecheck + bandit, then stripped-bundle tests in /tmp,"
+	@echo "                              then build/register the release .oxt. (Cython if 'make native')"
 	@echo "  make release-no-test        Build release OXT and register it without running tests/verification"
 	@echo "  make build-no-recording     Build .oxt without voice recording (no Record button)"
 	@echo "  make build-core             Build standalone LibrePy.oxt (scientific Python)"
@@ -310,20 +310,26 @@ build-no-recording: ty ruff-for-build preview-translations vendor manifest compi
 	$(PYTHON) $(SCRIPTS)/build_oxt.py --no-recording --output build/$(EXTENSION_NAME).oxt
 	@echo "Done: build/$(EXTENSION_NAME).oxt  (bundle in build/bundle/)"
 
-# Sub-make so ordering holds even with make -j: full test (typecheck + pytest + LO) then release bundle.
-# Full verification: typecheck, bandit, then build a stripped bundle with tests
-# to verify stripping doesn't break logic, then finally build the clean release oxt.
+# Full verification: typecheck, bandit, then a stripped-with-tests tree in /tmp
+# (tmpfs: faster compileall / pytest bytecode) so stripping doesn't break logic,
+# then build the clean release oxt in build/.
 release: clean
 	@$(MAKE) typecheck
 	@$(MAKE) bandit
-	@echo "Building stripped bundle for verification..."
-	$(PYTHON) $(SCRIPTS)/build_oxt.py --strip --output build/test-stripped.oxt
-	@echo "Running tests against stripped bundle..."
-	@echo "  (grammar_obs call-site tests self-skip via _grammar_obs_call_sites_present; whole modules ignored below)"
-	cd build/bundle && PYTHONPATH=. $(abspath $(PYTHON)) -m pytest --ignore=tests/scripts --ignore=tests/compute_service --ignore=tests/test_fix_uno_import.py --ignore=tests/test_merge_module_yaml_into_pot.py --ignore=tests/framework/test_logging.py --ignore=tests/writer/locale/test_grammar_linguistic_xcu.py --ignore=tests/scripting/test_generate_tool_proxies.py --ignore=tests/framework/test_thread_guard.py --ignore=tests/framework/test_thread_affinity.py --ignore=tests/doc/test_specialized_delegation_threading.py --ignore=tests/writer/locale/test_grammar_obs.py --ignore=tests/writer/locale/test_libreharper_oxt.py -k "not test_sync_tool_marshaled_from_background and not test_execute_on_main_thread_timeout" tests
-	cd build/bundle && PYTHONPATH=. $(LO_PYTHON) -m plugin.testing_runner; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
-	@$(MAKE) release-build
-	@$(MAKE) register-built-oxt
+	@echo "Building stripped bundle for verification in a temp dir..."
+	@set -e; \
+	RELEASE_TMP=$$($(PYTHON) -c "import tempfile; print(tempfile.mkdtemp(prefix='writeragent-release-'))"); \
+	trap '$(MAKE) lo-kill || true; rm -rf "$$RELEASE_TMP"' EXIT; \
+	echo "Stripped verification tree: $$RELEASE_TMP"; \
+	$(PYTHON) $(SCRIPTS)/build_oxt.py --strip --bundle-dir "$$RELEASE_TMP" --skip-zip; \
+	$(PYTHON) -m compileall -j 0 -q "$$RELEASE_TMP/plugin" "$$RELEASE_TMP/tests"; \
+	cp pyproject.toml "$$RELEASE_TMP/pyproject.toml"; \
+	echo "Running tests against stripped bundle..."; \
+	echo "  (grammar_obs call-site tests self-skip via _grammar_obs_call_sites_present; whole modules ignored below)"; \
+	cd "$$RELEASE_TMP" && PYTHONPATH=. $(abspath $(PYTHON)) -m pytest --ignore=tests/scripts --ignore=tests/compute_service --ignore=tests/test_fix_uno_import.py --ignore=tests/test_merge_module_yaml_into_pot.py --ignore=tests/framework/test_logging.py --ignore=tests/writer/locale/test_grammar_linguistic_xcu.py --ignore=tests/scripting/test_generate_tool_proxies.py --ignore=tests/framework/test_thread_guard.py --ignore=tests/framework/test_thread_affinity.py --ignore=tests/doc/test_specialized_delegation_threading.py --ignore=tests/writer/locale/test_grammar_obs.py --ignore=tests/writer/locale/test_libreharper_oxt.py -k "not test_sync_tool_marshaled_from_background and not test_execute_on_main_thread_timeout" tests; \
+	cd "$$RELEASE_TMP" && PYTHONPATH=. $(LO_PYTHON) -m plugin.testing_runner; \
+	$(MAKE) -C "$(PROJECT_ROOT)" release-build; \
+	$(MAKE) -C "$(PROJECT_ROOT)" register-built-oxt
 
 release-no-test:
 	@$(MAKE) release-build

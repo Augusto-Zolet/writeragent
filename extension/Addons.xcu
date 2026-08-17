@@ -9,121 +9,59 @@
         <prop oor:name="Context" oor:type="xs:string">
           <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
         </prop>
+        <!-- Node names M01… control on-screen order (LibreOffice sorts by oor:name). -->
         <node oor:name="Submenu">
-          <node oor:name="M1" oor:op="replace">
+          <node oor:name="M01" oor:op="replace">
             <prop oor:name="Title">
               <value xml:lang="en-US">Extend Selection</value>
             </prop>
             <prop oor:name="URL">
               <value>org.extension.writeragent:chatbot.extend_selection</value>
             </prop>
+            <prop oor:name="Context" oor:type="xs:string">
+              <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
+            </prop>
             <prop oor:name="Target" oor:type="xs:string">
               <value>_self</value>
             </prop>
           </node>
-           <node oor:name="M2" oor:op="replace">
+          <node oor:name="M02" oor:op="replace">
             <prop oor:name="Title">
               <value xml:lang="en-US">Edit Selection</value>
             </prop>
             <prop oor:name="URL">
               <value>org.extension.writeragent:chatbot.edit_selection</value>
             </prop>
+            <prop oor:name="Context" oor:type="xs:string">
+              <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
+            </prop>
             <prop oor:name="Target" oor:type="xs:string">
               <value>_self</value>
             </prop>
           </node>
-             <node oor:name="M3" oor:op="replace">
-            <prop oor:name="Title">
-              <value xml:lang="en-US">Settings</value>
-            </prop>
+          <node oor:name="M03" oor:op="replace">
             <prop oor:name="URL">
-              <value>org.extension.writeragent:main.settings</value>
+              <value>private:separator</value>
             </prop>
-            <prop oor:name="Target" oor:type="xs:string">
-              <value>_self</value>
-            </prop>
-          </node>
-          <node oor:name="M3a" oor:op="replace">
-            <prop oor:name="Title">
-              <value xml:lang="en-US">Report bug...</value>
-            </prop>
-            <prop oor:name="URL">
-              <value>org.extension.writeragent:main.report_bug</value>
-            </prop>
-            <prop oor:name="Target" oor:type="xs:string">
-              <value>_self</value>
+            <prop oor:name="Context" oor:type="xs:string">
+              <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
             </prop>
           </node>
-          <node oor:name="M3b" oor:op="replace">
-            <prop oor:name="Title">
-              <value xml:lang="en-US">Toggle MCP Server</value>
-            </prop>
-            <prop oor:name="URL">
-              <value>org.extension.writeragent:mcp.toggle_server</value>
-            </prop>
-            <prop oor:name="Target" oor:type="xs:string">
-              <value>_self</value>
-            </prop>
-          </node>
-          <node oor:name="M3c" oor:op="replace">
-            <prop oor:name="Title">
-              <value xml:lang="en-US">MCP Server Status</value>
-            </prop>
-            <prop oor:name="URL">
-              <value>org.extension.writeragent:mcp.server_status</value>
-            </prop>
-            <prop oor:name="Target" oor:type="xs:string">
-              <value>_self</value>
-            </prop>
-          </node>
-          <node oor:name="M3d" oor:op="replace">
+          <node oor:name="M04" oor:op="replace">
             <prop oor:name="Title">
               <value xml:lang="en-US">Run Python Script...</value>
             </prop>
             <prop oor:name="URL">
               <value>org.extension.writeragent:scripting.run_python_dialog</value>
             </prop>
-            <prop oor:name="Target" oor:type="xs:string">
-              <value>_self</value>
-            </prop>
-          </node>
-          <node oor:name="M3d_vision" oor:op="replace">
-            <prop oor:name="Title">
-              <value xml:lang="en-US">Vision OCR Settings...</value>
-            </prop>
-            <prop oor:name="URL">
-              <value>org.extension.writeragent:vision.open_settings</value>
-            </prop>
-            <prop oor:name="Target" oor:type="xs:string">
-              <value>_self</value>
-            </prop>
-          </node>
-          <node oor:name="M3d_search" oor:op="replace">
-            <prop oor:name="Title">
-              <value xml:lang="en-US">Search Nearby Files...</value>
-            </prop>
-            <prop oor:name="URL">
-              <value>org.extension.writeragent:embeddings.search_dialog</value>
-            </prop>
-            <prop oor:name="Target" oor:type="xs:string">
-              <value>_self</value>
-            </prop>
-          </node>
-          <node oor:name="M3d_text" oor:op="replace">
-            <prop oor:name="Title">
-              <value xml:lang="en-US">Text Analytics...</value>
-            </prop>
-            <prop oor:name="URL">
-              <value>org.extension.writeragent:textanalytics.open_dialog</value>
-            </prop>
             <prop oor:name="Context" oor:type="xs:string">
-              <value>com.sun.star.text.TextDocument</value>
+              <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
             </prop>
             <prop oor:name="Target" oor:type="xs:string">
               <value>_self</value>
             </prop>
           </node>
-          <node oor:name="M3d_py_cell" oor:op="replace">
+          <node oor:name="M05" oor:op="replace">
             <prop oor:name="Title">
               <value xml:lang="en-US">Edit Python in Cell...</value>
             </prop>
@@ -137,19 +75,7 @@
               <value>_self</value>
             </prop>
           </node>
-
-          <node oor:name="M3d_py_reset" oor:op="replace">
-            <prop oor:name="Title">
-              <value xml:lang="en-US">Reset Python Session</value>
-            </prop>
-            <prop oor:name="URL">
-              <value>org.extension.writeragent:scripting.reset_python_session</value>
-            </prop>
-            <prop oor:name="Target" oor:type="xs:string">
-              <value>_self</value>
-            </prop>
-          </node>
-          <node oor:name="M3d_convert_sheet" oor:op="replace">
+          <node oor:name="M06" oor:op="replace">
             <prop oor:name="Title">
               <value xml:lang="en-US">Convert Sheet to Python...</value>
             </prop>
@@ -163,21 +89,21 @@
               <value>_self</value>
             </prop>
           </node>
-          <node oor:name="M3d_nb" oor:op="replace">
+          <node oor:name="M07" oor:op="replace">
             <prop oor:name="Title">
-              <value xml:lang="en-US">Import Jupyter Notebook...</value>
+              <value xml:lang="en-US">Search Nearby Files...</value>
             </prop>
             <prop oor:name="URL">
-              <value>org.extension.writeragent:scripting.import_ipynb</value>
+              <value>org.extension.writeragent:embeddings.search_dialog</value>
             </prop>
             <prop oor:name="Context" oor:type="xs:string">
-              <value>com.sun.star.text.TextDocument</value>
+              <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
             </prop>
             <prop oor:name="Target" oor:type="xs:string">
               <value>_self</value>
             </prop>
           </node>
-          <node oor:name="M3e" oor:op="replace">
+          <node oor:name="M08" oor:op="replace">
             <prop oor:name="Title">
               <value xml:lang="en-US">Insert LaTeX Math...</value>
             </prop>
@@ -191,73 +117,211 @@
               <value>_self</value>
             </prop>
           </node>
-          <node oor:name="M_Debug" oor:op="replace">
+          <node oor:name="M09" oor:op="replace">
+            <prop oor:name="Title">
+              <value xml:lang="en-US">Text Analytics...</value>
+            </prop>
+            <prop oor:name="URL">
+              <value>org.extension.writeragent:textanalytics.open_dialog</value>
+            </prop>
+            <prop oor:name="Context" oor:type="xs:string">
+              <value>com.sun.star.text.TextDocument</value>
+            </prop>
+            <prop oor:name="Target" oor:type="xs:string">
+              <value>_self</value>
+            </prop>
+          </node>
+          <node oor:name="M10" oor:op="replace">
+            <prop oor:name="URL">
+              <value>private:separator</value>
+            </prop>
+            <prop oor:name="Context" oor:type="xs:string">
+              <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
+            </prop>
+          </node>
+          <node oor:name="M11" oor:op="replace">
+            <prop oor:name="Title">
+              <value xml:lang="en-US">Settings</value>
+            </prop>
+            <prop oor:name="URL">
+              <value>org.extension.writeragent:main.settings</value>
+            </prop>
+            <prop oor:name="Context" oor:type="xs:string">
+              <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
+            </prop>
+            <prop oor:name="Target" oor:type="xs:string">
+              <value>_self</value>
+            </prop>
+          </node>
+          <node oor:name="M12" oor:op="replace">
+            <prop oor:name="Title">
+              <value xml:lang="en-US">Vision OCR Settings...</value>
+            </prop>
+            <prop oor:name="URL">
+              <value>org.extension.writeragent:vision.open_settings</value>
+            </prop>
+            <prop oor:name="Context" oor:type="xs:string">
+              <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
+            </prop>
+            <prop oor:name="Target" oor:type="xs:string">
+              <value>_self</value>
+            </prop>
+          </node>
+          <node oor:name="M13" oor:op="replace">
+            <prop oor:name="Title">
+              <value xml:lang="en-US">Toggle MCP Server</value>
+            </prop>
+            <prop oor:name="URL">
+              <value>org.extension.writeragent:mcp.toggle_server</value>
+            </prop>
+            <prop oor:name="Context" oor:type="xs:string">
+              <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
+            </prop>
+            <prop oor:name="Target" oor:type="xs:string">
+              <value>_self</value>
+            </prop>
+          </node>
+          <node oor:name="M14" oor:op="replace">
+            <prop oor:name="Title">
+              <value xml:lang="en-US">MCP Server Status</value>
+            </prop>
+            <prop oor:name="URL">
+              <value>org.extension.writeragent:mcp.server_status</value>
+            </prop>
+            <prop oor:name="Context" oor:type="xs:string">
+              <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
+            </prop>
+            <prop oor:name="Target" oor:type="xs:string">
+              <value>_self</value>
+            </prop>
+          </node>
+          <node oor:name="M15" oor:op="replace">
+            <prop oor:name="Title">
+              <value xml:lang="en-US">Reset Python Session</value>
+            </prop>
+            <prop oor:name="URL">
+              <value>org.extension.writeragent:scripting.reset_python_session</value>
+            </prop>
+            <prop oor:name="Context" oor:type="xs:string">
+              <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
+            </prop>
+            <prop oor:name="Target" oor:type="xs:string">
+              <value>_self</value>
+            </prop>
+          </node>
+          <node oor:name="M16" oor:op="replace">
             <prop oor:name="Title">
               <value xml:lang="en-US">Debug</value>
             </prop>
             <prop oor:name="URL">
               <value>org.extension.writeragent:main.NoOp</value>
             </prop>
+            <prop oor:name="Context" oor:type="xs:string">
+              <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
+            </prop>
             <prop oor:name="Target" oor:type="xs:string">
               <value>_self</value>
             </prop>
             <node oor:name="Submenu">
-              <node oor:name="M4" oor:op="replace">
+              <node oor:name="M16a" oor:op="replace">
                 <prop oor:name="Title">
                   <value xml:lang="en-US">Run format tests</value>
                 </prop>
                 <prop oor:name="URL">
                   <value>org.extension.writeragent:main.RunFormatTests</value>
                 </prop>
+                <prop oor:name="Context" oor:type="xs:string">
+                  <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
+                </prop>
                 <prop oor:name="Target" oor:type="xs:string">
                   <value>_self</value>
                 </prop>
               </node>
-              <node oor:name="M5" oor:op="replace">
+              <node oor:name="M16b" oor:op="replace">
                 <prop oor:name="Title">
                   <value xml:lang="en-US">Run calc tests</value>
                 </prop>
                 <prop oor:name="URL">
                   <value>org.extension.writeragent:main.RunCalcTests</value>
                 </prop>
+                <prop oor:name="Context" oor:type="xs:string">
+                  <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
+                </prop>
                 <prop oor:name="Target" oor:type="xs:string">
                   <value>_self</value>
                 </prop>
               </node>
-              <node oor:name="M6" oor:op="replace">
+              <node oor:name="M16c" oor:op="replace">
                 <prop oor:name="Title">
                   <value xml:lang="en-US">Run Calc API integration tests</value>
                 </prop>
                 <prop oor:name="URL">
                   <value>org.extension.writeragent:main.RunCalcIntegrationTests</value>
                 </prop>
+                <prop oor:name="Context" oor:type="xs:string">
+                  <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
+                </prop>
                 <prop oor:name="Target" oor:type="xs:string">
                   <value>_self</value>
                 </prop>
               </node>
-              <node oor:name="M7" oor:op="replace">
+              <node oor:name="M16d" oor:op="replace">
                 <prop oor:name="Title">
                   <value xml:lang="en-US">Run draw tests</value>
                 </prop>
                 <prop oor:name="URL">
                   <value>org.extension.writeragent:main.RunDrawTests</value>
                 </prop>
+                <prop oor:name="Context" oor:type="xs:string">
+                  <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
+                </prop>
                 <prop oor:name="Target" oor:type="xs:string">
                   <value>_self</value>
                 </prop>
               </node>
-              <node oor:name="M8" oor:op="replace">
+              <node oor:name="M16e" oor:op="replace">
                 <prop oor:name="Title">
                   <value xml:lang="en-US">Evaluation Dashboard</value>
                 </prop>
                 <prop oor:name="URL">
                   <value>org.extension.writeragent:main.EvaluationDashboard</value>
                 </prop>
+                <prop oor:name="Context" oor:type="xs:string">
+                  <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
+                </prop>
+                <prop oor:name="Target" oor:type="xs:string">
+                  <value>_self</value>
+                </prop>
+              </node>
+              <node oor:name="M16f" oor:op="replace">
+                <prop oor:name="Title">
+                  <value xml:lang="en-US">Import Jupyter Notebook...</value>
+                </prop>
+                <prop oor:name="URL">
+                  <value>org.extension.writeragent:scripting.import_ipynb</value>
+                </prop>
+                <prop oor:name="Context" oor:type="xs:string">
+                  <value>com.sun.star.text.TextDocument</value>
+                </prop>
                 <prop oor:name="Target" oor:type="xs:string">
                   <value>_self</value>
                 </prop>
               </node>
             </node>
+          </node>
+          <node oor:name="M17" oor:op="replace">
+            <prop oor:name="Title">
+              <value xml:lang="en-US">Report bug...</value>
+            </prop>
+            <prop oor:name="URL">
+              <value>org.extension.writeragent:main.report_bug</value>
+            </prop>
+            <prop oor:name="Context" oor:type="xs:string">
+              <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
+            </prop>
+            <prop oor:name="Target" oor:type="xs:string">
+              <value>_self</value>
+            </prop>
           </node>
         </node>
       </node>

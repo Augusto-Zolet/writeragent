@@ -2,15 +2,17 @@
 """Build an .oxt LibreOffice extension from the plugin/ directory.
 
 Two-step process:
-  1. Assemble all files into build/bundle/ with final archive paths
-  2. Zip build/bundle/ into the .oxt
+  1. Assemble all files into the bundle dir with final archive paths
+  2. Zip that tree into the .oxt
 
-This lets you tweak files in build/bundle/ and re-zip with --repack.
+Default bundle is build/bundle/ (tweak files there and re-zip with --repack).
+``make release`` verification uses ``--bundle-dir`` on a temp tree plus ``--skip-zip``.
 
 Usage:
     python3 scripts/build_oxt.py                    # full build
     python3 scripts/build_oxt.py --repack           # re-zip bundle only
     python3 scripts/build_oxt.py --modules core mcp
+    python3 scripts/build_oxt.py --strip --bundle-dir /tmp/wa --skip-zip
 """
 
 import argparse
@@ -111,6 +113,20 @@ GENERATED_INCLUDES = [
 ]
 
 BUNDLE_DIR = "build/bundle"
+
+
+def resolve_bundle_path(base_dir, bundle_dir):
+    """Return an absolute bundle directory. Absolute *bundle_dir* is used as-is."""
+    if os.path.isabs(bundle_dir):
+        return bundle_dir
+    return os.path.join(base_dir, bundle_dir)
+
+
+def resolve_output_path(base_dir, output):
+    """Return an absolute .oxt path. Absolute *output* is used as-is."""
+    if os.path.isabs(output):
+        return output
+    return os.path.join(base_dir, output)
 
 
 def _vendor_copy_ignore(_dir: str, names: list[str]) -> list[str]:
@@ -214,9 +230,9 @@ def remap_path(f):
     return f
 
 
-def assemble_bundle(base_dir, modules, no_recording=False, with_tests=False, dry_run_strip=False, strip=False):
-    """Copy all files into build/bundle/ with final archive paths."""
-    bundle_path = os.path.join(base_dir, BUNDLE_DIR)
+def assemble_bundle(base_dir, modules, no_recording=False, with_tests=False, dry_run_strip=False, strip=False, bundle_dir=BUNDLE_DIR):
+    """Copy all files into the bundle dir with final archive paths."""
+    bundle_path = resolve_bundle_path(base_dir, bundle_dir)
 
     # Clean previous bundle
     if os.path.exists(bundle_path):
@@ -314,23 +330,25 @@ def assemble_bundle(base_dir, modules, no_recording=False, with_tests=False, dry
     if strip or not with_tests or dry_run_strip:
         strip_production_code(bundle_path, dry_run=dry_run_strip)
 
-    print("Assembled %d files in %s" % (count, BUNDLE_DIR))
+    print("Assembled %d files in %s" % (count, bundle_path))
     return count
 
 
 # strip_production_code moved to scripts/strip_code.py
 
 
-def zip_bundle(base_dir, output):
-    """Zip build/bundle/ into the .oxt."""
-    bundle_path = os.path.join(base_dir, BUNDLE_DIR)
+def zip_bundle(base_dir, output, bundle_dir=BUNDLE_DIR):
+    """Zip the bundle directory into the .oxt."""
+    bundle_path = resolve_bundle_path(base_dir, bundle_dir)
     if not os.path.isdir(bundle_path):
-        print("ERROR: %s not found. Run without --repack first." % BUNDLE_DIR,
+        print("ERROR: %s not found. Run without --repack first." % bundle_path,
               file=sys.stderr)
         return 1
 
-    output_path = os.path.join(base_dir, output)
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    output_path = resolve_output_path(base_dir, output)
+    out_dir = os.path.dirname(output_path)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
     if os.path.exists(output_path):
         os.remove(output_path)
 
@@ -359,7 +377,7 @@ def main():
         help="Output file (default: build/writeragent.oxt)")
     parser.add_argument(
         "--repack", action="store_true",
-        help="Only re-zip build/bundle/ (skip assembly)")
+        help="Only re-zip the bundle dir (skip assembly; see --bundle-dir)")
     parser.add_argument(
         "--no-recording", action="store_true",
         help="Exclude voice recording: sidebar Record button and venv capture modules")
@@ -372,6 +390,12 @@ def main():
     parser.add_argument(
         "--strip", action="store_true",
         help="Force stripping debug/obs code even if tests are included")
+    parser.add_argument(
+        "--bundle-dir", default=BUNDLE_DIR,
+        help="Bundle directory (default: build/bundle). Absolute path is used as-is.")
+    parser.add_argument(
+        "--skip-zip", action="store_true",
+        help="Assemble the bundle only; do not write an .oxt")
     args = parser.parse_args()
 
     if not args.repack:
@@ -381,10 +405,13 @@ def main():
             no_recording=args.no_recording,
             with_tests=not args.no_tests,
             dry_run_strip=args.dry_run_strip,
-            strip=args.strip
+            strip=args.strip,
+            bundle_dir=args.bundle_dir,
         )
 
-    return zip_bundle(PROJECT_ROOT, args.output)
+    if args.skip_zip:
+        return 0
+    return zip_bundle(PROJECT_ROOT, args.output, bundle_dir=args.bundle_dir)
 
 
 if __name__ == "__main__":

@@ -4,9 +4,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Helpers for tests that run against both checkout source and stripped release bundles.
 
-``make release`` runs pytest on ``build/bundle`` after ``scripts/strip_code.py`` removes
-``@deal.*`` and logger ``.debug`` / ``.info`` call sites. ``make test-run`` uses unstripped
-source with deal installed. Assertions must accept both.
+``make release`` runs pytest on a stripped temp tree (typically under ``/tmp``) after
+``scripts/strip_code.py`` removes ``@deal.*`` and logger ``.debug`` / ``.info`` call sites.
+``make test-run`` uses unstripped source with deal installed. Assertions must accept both.
 """
 
 from __future__ import annotations

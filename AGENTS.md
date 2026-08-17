@@ -49,8 +49,9 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 | `make test` | Large or cross-cutting changes only (includes typecheck, SAST, pytest, LO tests) |
 | `make build` | Produce `build/WriterAgent.oxt` only (no install) |
 | `make build-core` | Produce `build/LibrePy.oxt` only (no install) |
+| `make release` | Typecheck + bandit, verify a stripped tree in `/tmp` (`compileall` + pytest + LO tests), then build/register `build/WriterAgent.oxt` |
 
-Usual targets generate `plugin/_manifest.py` when needed. Other Makefile targets exist for release, fuzz, and niche tooling—see the `Makefile` when you need them.
+Usual targets generate `plugin/_manifest.py` when needed. Other Makefile targets exist for fuzz and niche tooling—see the `Makefile` when you need them.
 
 ---
 

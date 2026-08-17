@@ -21,7 +21,7 @@ Checkout / ``make build`` (no strip) is unchanged.
 Tests that assert ``deal.PreContractError`` or ``log.debug``/``log.info`` output must
 accept the stripped tree: see ``tests/strip_bundle.py`` (dual-path body guards;
 skip log-line asserts when call sites are gone). ``make release`` pytest runs
-against ``build/bundle`` after this stripper.
+against a stripped temp tree (``tempfile.mkdtemp``, typically under ``/tmp``) after this stripper.
 
 Why bother (measured 2026-08-10 under ``plugin/``, excluding tests):
 

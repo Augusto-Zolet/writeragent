@@ -8,7 +8,16 @@ from __future__ import annotations
 
 import os
 
-from scripts.build_oxt import GENERATED_INCLUDES, remap_path, should_exclude, sync_vendor_into_lib
+from scripts.build_oxt import (
+    GENERATED_INCLUDES,
+    assemble_bundle,
+    main,
+    remap_path,
+    resolve_bundle_path,
+    resolve_output_path,
+    should_exclude,
+    sync_vendor_into_lib,
+)
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -63,3 +72,51 @@ def test_sync_vendor_into_lib_copies_isodate(tmp_path):
     (lib / "isodate" / "stale.py").write_text("stale\n", encoding="utf-8")
     sync_vendor_into_lib(str(vendor), str(lib), prune_websockets=False)
     assert not (lib / "isodate" / "stale.py").exists()
+
+
+def test_resolve_bundle_path_absolute_and_relative():
+    assert resolve_bundle_path("/proj", "build/bundle") == os.path.join("/proj", "build/bundle")
+    assert resolve_bundle_path("/proj", "/tmp/writeragent-release-abc") == "/tmp/writeragent-release-abc"
+
+
+def test_resolve_output_path_absolute_and_relative():
+    assert resolve_output_path("/proj", "build/WriterAgent.oxt") == os.path.join("/proj", "build/WriterAgent.oxt")
+    assert resolve_output_path("/proj", "/tmp/out.oxt") == "/tmp/out.oxt"
+
+
+def test_assemble_bundle_writes_to_absolute_bundle_dir(tmp_path):
+    """``--bundle-dir`` / assemble_bundle must land files in an absolute dest, not build/bundle."""
+    src = tmp_path / "proj"
+    plugin = src / "plugin"
+    plugin.mkdir(parents=True)
+    (plugin / "__init__.py").write_text("#\n", encoding="utf-8")
+    (plugin / "main.py").write_text("x = 1\n", encoding="utf-8")
+    dest = tmp_path / "bundle_out"
+    dest.mkdir()
+    assemble_bundle(str(src), modules=[], with_tests=True, strip=False, bundle_dir=str(dest))
+    assert (dest / "plugin" / "main.py").is_file()
+    assert (dest / "plugin" / "main.py").read_text(encoding="utf-8") == "x = 1\n"
+
+
+def test_skip_zip_does_not_call_zip_bundle(monkeypatch, tmp_path):
+    assembled: dict[str, object] = {}
+
+    def fake_assemble(base_dir, modules, **kwargs):
+        assembled["bundle_dir"] = kwargs.get("bundle_dir")
+        return 1
+
+    zipped: list[str] = []
+
+    def fake_zip(base_dir, output, bundle_dir=None):
+        zipped.append(output)
+        return 0
+
+    monkeypatch.setattr("scripts.build_oxt.assemble_bundle", fake_assemble)
+    monkeypatch.setattr("scripts.build_oxt.zip_bundle", fake_zip)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["build_oxt.py", "--strip", "--bundle-dir", str(tmp_path), "--skip-zip"],
+    )
+    assert main() == 0
+    assert assembled["bundle_dir"] == str(tmp_path)
+    assert zipped == []

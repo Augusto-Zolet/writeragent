@@ -9,36 +9,9 @@
         <prop oor:name="Context" oor:type="xs:string">
           <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
         </prop>
+        <!-- Node names M01… control on-screen order (LibreOffice sorts by oor:name). -->
         <node oor:name="Submenu">
-          <node oor:name="M_settings" oor:op="replace">
-            <prop oor:name="Title">
-              <value xml:lang="en-US">Settings</value>
-            </prop>
-            <prop oor:name="URL">
-              <value>org.extension.librepy:main.settings</value>
-            </prop>
-            <prop oor:name="Context" oor:type="xs:string">
-              <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
-            </prop>
-            <prop oor:name="Target" oor:type="xs:string">
-              <value>_self</value>
-            </prop>
-          </node>
-          <node oor:name="M_report_bug" oor:op="replace">
-            <prop oor:name="Title">
-              <value xml:lang="en-US">Report bug...</value>
-            </prop>
-            <prop oor:name="URL">
-              <value>org.extension.librepy:main.report_bug</value>
-            </prop>
-            <prop oor:name="Context" oor:type="xs:string">
-              <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
-            </prop>
-            <prop oor:name="Target" oor:type="xs:string">
-              <value>_self</value>
-            </prop>
-          </node>
-          <node oor:name="M_run_python" oor:op="replace">
+          <node oor:name="M01" oor:op="replace">
             <prop oor:name="Title">
               <value xml:lang="en-US">Run Python Script...</value>
             </prop>
@@ -52,35 +25,7 @@
               <value>_self</value>
             </prop>
           </node>
-          <node oor:name="M_vision" oor:op="replace">
-            <prop oor:name="Title">
-              <value xml:lang="en-US">Vision OCR Settings...</value>
-            </prop>
-            <prop oor:name="URL">
-              <value>org.extension.librepy:vision.open_settings</value>
-            </prop>
-            <prop oor:name="Context" oor:type="xs:string">
-              <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
-            </prop>
-            <prop oor:name="Target" oor:type="xs:string">
-              <value>_self</value>
-            </prop>
-          </node>
-          <node oor:name="M_text" oor:op="replace">
-            <prop oor:name="Title">
-              <value xml:lang="en-US">Text Analytics...</value>
-            </prop>
-            <prop oor:name="URL">
-              <value>org.extension.librepy:textanalytics.open_dialog</value>
-            </prop>
-            <prop oor:name="Context" oor:type="xs:string">
-              <value>com.sun.star.text.TextDocument</value>
-            </prop>
-            <prop oor:name="Target" oor:type="xs:string">
-              <value>_self</value>
-            </prop>
-          </node>
-          <node oor:name="M_edit_cell" oor:op="replace">
+          <node oor:name="M02" oor:op="replace">
             <prop oor:name="Title">
               <value xml:lang="en-US">Edit Python in Cell...</value>
             </prop>
@@ -94,7 +39,71 @@
               <value>_self</value>
             </prop>
           </node>
-          <node oor:name="M_reset" oor:op="replace">
+          <node oor:name="M03" oor:op="replace">
+            <prop oor:name="Title">
+              <value xml:lang="en-US">Insert LaTeX Math...</value>
+            </prop>
+            <prop oor:name="URL">
+              <value>org.extension.librepy:writer.insert_latex_dialog</value>
+            </prop>
+            <prop oor:name="Context" oor:type="xs:string">
+              <value>com.sun.star.text.TextDocument</value>
+            </prop>
+            <prop oor:name="Target" oor:type="xs:string">
+              <value>_self</value>
+            </prop>
+          </node>
+          <node oor:name="M04" oor:op="replace">
+            <prop oor:name="Title">
+              <value xml:lang="en-US">Text Analytics...</value>
+            </prop>
+            <prop oor:name="URL">
+              <value>org.extension.librepy:textanalytics.open_dialog</value>
+            </prop>
+            <prop oor:name="Context" oor:type="xs:string">
+              <value>com.sun.star.text.TextDocument</value>
+            </prop>
+            <prop oor:name="Target" oor:type="xs:string">
+              <value>_self</value>
+            </prop>
+          </node>
+          <node oor:name="M05" oor:op="replace">
+            <prop oor:name="URL">
+              <value>private:separator</value>
+            </prop>
+            <prop oor:name="Context" oor:type="xs:string">
+              <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
+            </prop>
+          </node>
+          <node oor:name="M06" oor:op="replace">
+            <prop oor:name="Title">
+              <value xml:lang="en-US">Settings</value>
+            </prop>
+            <prop oor:name="URL">
+              <value>org.extension.librepy:main.settings</value>
+            </prop>
+            <prop oor:name="Context" oor:type="xs:string">
+              <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
+            </prop>
+            <prop oor:name="Target" oor:type="xs:string">
+              <value>_self</value>
+            </prop>
+          </node>
+          <node oor:name="M07" oor:op="replace">
+            <prop oor:name="Title">
+              <value xml:lang="en-US">Vision OCR Settings...</value>
+            </prop>
+            <prop oor:name="URL">
+              <value>org.extension.librepy:vision.open_settings</value>
+            </prop>
+            <prop oor:name="Context" oor:type="xs:string">
+              <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
+            </prop>
+            <prop oor:name="Target" oor:type="xs:string">
+              <value>_self</value>
+            </prop>
+          </node>
+          <node oor:name="M08" oor:op="replace">
             <prop oor:name="Title">
               <value xml:lang="en-US">Reset Python Session</value>
             </prop>
@@ -108,15 +117,15 @@
               <value>_self</value>
             </prop>
           </node>
-          <node oor:name="M_latex" oor:op="replace">
+          <node oor:name="M09" oor:op="replace">
             <prop oor:name="Title">
-              <value xml:lang="en-US">Insert LaTeX Math...</value>
+              <value xml:lang="en-US">Report bug...</value>
             </prop>
             <prop oor:name="URL">
-              <value>org.extension.librepy:writer.insert_latex_dialog</value>
+              <value>org.extension.librepy:main.report_bug</value>
             </prop>
             <prop oor:name="Context" oor:type="xs:string">
-              <value>com.sun.star.text.TextDocument</value>
+              <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
             </prop>
             <prop oor:name="Target" oor:type="xs:string">
               <value>_self</value>

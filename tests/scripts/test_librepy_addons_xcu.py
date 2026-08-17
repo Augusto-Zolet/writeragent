@@ -120,19 +120,76 @@ def test_librepy_writer_only_items():
         assert _CALC_SVC not in (ctx or "")
 
 
-def test_librepy_menu_order_matches_writeragent_python_cluster():
+def _submenu_node(menubar: ET.Element) -> ET.Element:
+    return next(n for n in menubar.findall("node") if n.get(_OOR_NAME) == "Submenu")
+
+
+def _ordered_urls(menubar: ET.Element) -> list[str]:
+    urls = [_prop_text(item, "URL") for item in _submenu_node(menubar).findall("node")]
+    return [u for u in urls if u]
+
+
+def _ordered_names(menubar: ET.Element) -> list[str]:
+    return [item.get(_OOR_NAME) or "" for item in _submenu_node(menubar).findall("node")]
+
+
+def test_librepy_every_item_has_context():
     root = ET.parse(_ADDONS_XCU).getroot()
-    menubar = _find_menubar(root)
-    submenu = next(n for n in menubar.findall("node") if n.get(_OOR_NAME) == "Submenu")
-    urls = [_prop_text(item, "URL") for item in submenu.findall("node")]
-    urls = [u for u in urls if u]
-    assert urls == [
-        "org.extension.librepy:main.settings",
-        "org.extension.librepy:main.report_bug",
+    for item in _submenu_node(_find_menubar(root)).findall("node"):
+        name = item.get(_OOR_NAME)
+        assert _prop_text(item, "Context"), f"{name} missing Context"
+
+
+def test_librepy_node_names_are_sort_stable():
+    root = ET.parse(_ADDONS_XCU).getroot()
+    names = _ordered_names(_find_menubar(root))
+    assert names == sorted(names)
+    assert names[0].startswith("M0")
+
+
+def test_librepy_menu_order():
+    root = ET.parse(_ADDONS_XCU).getroot()
+    assert _ordered_urls(_find_menubar(root)) == [
         "org.extension.librepy:scripting.run_python_dialog",
-        "org.extension.librepy:vision.open_settings",
-        "org.extension.librepy:textanalytics.open_dialog",
         "org.extension.librepy:scripting.edit_python_cell",
-        "org.extension.librepy:scripting.reset_python_session",
         "org.extension.librepy:writer.insert_latex_dialog",
+        "org.extension.librepy:textanalytics.open_dialog",
+        "private:separator",
+        "org.extension.librepy:main.settings",
+        "org.extension.librepy:vision.open_settings",
+        "org.extension.librepy:scripting.reset_python_session",
+        "org.extension.librepy:main.report_bug",
     ]
+
+
+def test_librepy_report_bug_is_last():
+    root = ET.parse(_ADDONS_XCU).getroot()
+    urls = _ordered_urls(_find_menubar(root))
+    assert urls[-1] == "org.extension.librepy:main.report_bug"
+
+
+def test_librepy_menu_order_matches_writeragent_python_cluster():
+    wa_path = _REPO_ROOT / "extension" / "Addons.xcu"
+    wa_root = ET.parse(wa_path).getroot()
+    wa_menubar = None
+    for node in wa_root.iter("node"):
+        if node.get(_OOR_NAME) == "org.extension.writeragent.menubar":
+            wa_menubar = node
+            break
+    assert wa_menubar is not None
+
+    def _action(url: str) -> str:
+        if url == "private:separator":
+            return url
+        return url.split(":", 1)[1]
+
+    lp_actions = [
+        _action(u) for u in _ordered_urls(_find_menubar(ET.parse(_ADDONS_XCU).getroot()))
+        if u != "private:separator"
+    ]
+    wa_actions = [
+        _action(u) for u in _ordered_urls(wa_menubar)
+        if u != "private:separator"
+    ]
+    wa_shared = [a for a in wa_actions if a in set(lp_actions)]
+    assert lp_actions == wa_shared

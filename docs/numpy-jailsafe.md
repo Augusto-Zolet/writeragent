@@ -161,7 +161,7 @@ Live in the Collabora Online / LibreOffice trees (`collabofficefull`), not write
 1. **Config:** `security.python_compute.enable` (default `false`), `url`, optional `api_key` (Bearer), `timeout_secs` in `coolwsd.xml.in` / `ConfigUtil.cpp`. No HTTP retries (formula POST is not idempotent).
 2. **coolwsd:** `ClientSession::handlePythonComputeFromKit` — kit `pythoncompute:` → `http::Session` POST → `pythoncomputeresult:`.
 3. **kit:** `PythonComputeEmitter` — spreadsheet-only install; one stable egress owner among live views (no last-wins steal); MOBILEAPP no-op; `handlePythonComputeResult` → `pythoncompute_complete_json` (no product browser echo). Retries `dlsym` until AddIn symbols resolve. Debug kick: `pythonexecute` (`ENABLE_DEBUG` only; rejects `py-*` ids).
-4. **Core AddIn (Step C):** [`engine/scaddins/source/pythoncompute/`](file:///home/keithcu/Desktop/collabofficefull/engine/scaddins/source/pythoncompute/) — UNO `org.collaboraoffice.sheet.addin.PythonComputeFunctions`, C++ ns `collaboraoffice::pythoncompute`, `getPy` / `getPython`, `XVolatileResult` interim `"#BUSY!"`, param→volatile weak-ref identity map, `finish` under `SolarMutexGuard`, Any↔dumb JSON (see [JSON note](#anyjson-dumb-json-note)), pending map + timer. List/grid results → `sequence<sequence<…>>` → Core `ScMatrix` (see [matrix / spill](#matrix-list-results--auto-spill-not-yet)). No `FormulaError::Busy`.
+4. **Core AddIn (Step C):** [`engine/scaddins/source/pythoncompute/`](file:///home/keithcu/Desktop/collabofficefull/engine/scaddins/source/pythoncompute/) (`addin` / `anyjson` / `bridge` / `volatile`; no `pythoncompute_` filename prefix) — UNO `org.collaboraoffice.sheet.addin.PythonComputeFunctions`, C++ ns `collaboraoffice::pythoncompute`, `getPy` / `getPython`, `XVolatileResult` interim `"#BUSY!"`, param→volatile weak-ref identity map, **SolarMutex-only** (no extra `std::mutex`; `finish` under `SolarMutexGuard`), Any↔dumb JSON (see [JSON note](#anyjson-dumb-json-note)), pending map + timer. List/grid results → `sequence<sequence<…>>` → Core `ScMatrix` (see [matrix / spill](#matrix-list-results--auto-spill-not-yet)). No `FormulaError::Busy`.
 5. **Future work:** see [below](#future-work-prototype--hardened-online). Monaco / browser cell editor remains a separate Online UI track (LibrePy uses pywebview; do not port that into the kit).
 
 #### Cell markers / diagnosis (`#BUSY!`, `#DISABLED`, `#VALUE!`)
@@ -544,9 +544,9 @@ Pre-submit review (2026-07) against commits that land Steps B/C. Architecture (o
 
 ### Any↔JSON (dumb JSON note)
 
-**Landed in tree** as the Core ↔ service dialect (keep for contracts / F3 plots / shared kernel).
+**Landed in tree** as the Core ↔ service dialect (keep for contracts / F3 plots / shared kernel). **Do not merge** this into jsuno: typed `appendUnoAsJson` / `parseJsonToAny` (optional QuickJS) is a different contract. Keep Poco in coolwsd. `tools::JsonWriter` is already the shared encoder. See [Do not regress](#do-not-regress-meeks-2026-08).
 
-- **Emit:** `tools::JsonWriter` in `pythoncompute_anyjson.cxx` — Calc ranges as `Sequence<Sequence<…>>` first, then flatten 1×N / N×1 when useful (Any **and** typed double grids).
+- **Emit:** `tools::JsonWriter` in `anyjson.cxx` — Calc ranges as `Sequence<Sequence<…>>` first, then flatten 1×N / N×1 when useful (Any **and** typed double grids).
 - **Parse:** local hand parser in the same file (not `boost::property_tree`, not Boost.JSON, not Poco in Core). It combines UTF-16 surrogate pairs, rejects unpaired surrogates/trailing junk, and rejects ragged nested arrays. Online coolwsd stays on Poco/`JsonUtil`.
 - **Scalars:** JSON `"42"` / `"true"` / `"null"` stay strings; bare `42` / `true` / `null` → double / bool / empty string (Classic `None` parity).
 - **Grids:** nested lists; rectangular numerics → `sequence<sequence<double>>`; mixed → `sequence<sequence<Any>>`; one-element lists of every scalar type stay 1×1 matrices. Single-cell formulas keep **top-left only** until [F7](#f7--single-cell-auto-spill).
@@ -599,6 +599,18 @@ the zero-POST disabled invariant. Remaining coverage gaps:
 
 ### G9 — Commit series, naming, and hygiene
 
+#### Do not regress (Meeks 2026-08)
+
+From [forum #15](https://forum.collaboraonline.com/t/py-numpy-inside-collabora/4844/15) / [Gerrit 8122](https://gerrit.collaboraoffice.com/c/online/+/8122). **1+ε** means “basically one thread + a little extra concurrency through SolarMutex,” not “one lock plus epsilon other locks.”
+
+| Rule | Do not | Do |
+|------|--------|----|
+| **SolarMutex 1+ε** | Re-add `std::mutex` on pending / param cache / volatile | Shared AddIn state is Solar-only. Kit Unipoll may arrive with Solar released; `complete_json` / `finish()` re-acquire. Keep snapshot-then-finish. |
+| **Filenames** | `pythoncompute_` prefix on sources | `addin` / `anyjson` / `bridge` / `volatile` under `pythoncompute/`. C ABI symbols (`pythoncompute_set_emitter`, …) keep the prefix. |
+| **Configure vs runtime** | Drop `--disable-python-compute`, or default the runtime flag on | AddIn on by default; omit with `--disable-python-compute`. `security.python_compute.enable` stays default **false**. Run CppUnit + `unit-python-compute` with the AddIn enabled. |
+| **UNO ↔ JSON** | Merge `anyjson` into jsuno, or pull Poco into the AddIn | Typed jsuno (`appendUnoAsJson` / `parseJsonToAny`, optional QuickJS) is a different contract from untyped compute-wire JSON. `tools::JsonWriter` is the shared encoder. Later share, if any: string escape/parse (maybe a tiny scalar/array helper) in `tools`/`comphelper`; Calc matrix / envelope / errors stay in the AddIn. Pieces found so far; Core is large, we may have missed others. |
+| **Scope** | Excel Table / live ANCHORARRAY / co-volatility / torture-sheet engines in the AddIn | Piece-wise C++ tip only. Torture samples stay WriterAgent (`PythonExcelSamples/` + roundtrip script) until Collabora asks for gold. |
+
 #### Cursor `Co-authored-by` on Gerrit commits
 
 Cursor’s git wrapper appends `Co-authored-by: Cursor <cursoragent@cursor.com>` to **`git commit` and `git commit --amend`**, even with a HEREDOC that only has `Signed-off-by` + `Change-Id`. The Collabora `.git-hooks/commit-msg` / `prepare-commit-msg` hooks are **not** the source. Several AIs worked on this series; do not upload that trailer.
@@ -641,7 +653,7 @@ Suggested series:
 | Item | Recommendation |
 |------|----------------|
 | `EmitFn` ABI type | Done — Core C ABI and kit use fixed-width `int32_t` / `std::int32_t` |
-| Duplicated anyjson writers | Factor when touching that file again |
+| Duplicated anyjson writers | Done — emit TypeClass ladders factored through `writeAnyValue` (same wire) |
 | IWYU filter | Update `IwyuFilter_scaddins.yaml` if CI enables it |
 | en-US-only help | Accept for v0.1 with PR note; follow with `.hrc` |
 | Engine subtree README | Updated for the hand parser, matrix behavior, and actual dependencies |
@@ -651,7 +663,7 @@ Suggested series:
 - Out-of-kit compute; C++ tip free of NumPy / `split_grid` / Pickle5.
 - `security.python_compute.enable` default `false`; optional `api_key` / `timeout_secs`; `HostUtil::isForbiddenKitHost` when allowlist set.
 - UNO package `org.collaboraoffice.sheet.addin.*` (not `com.sun.star.sheet.addin` for this AddIn).
-- Typed dumb-JSON round-trip; Calc range grids emit; Solar on finish/listener; unlock-before-finish; early spreadsheet emitter; stable multi-view owner; MOBILEAPP compile-out.
+- Typed dumb-JSON round-trip; Calc range grids emit; **SolarMutex-only** (no extra `std::mutex`); snapshot-then-finish; early spreadsheet emitter; stable multi-view owner; MOBILEAPP compile-out.
 - gbuild / `.component` / IDL for the Collabora Office AddIn.
 
 ---
