@@ -34,12 +34,11 @@ These tools are **always available** to the main agent for Draw/Impress document
 | Tool | Module | Services | Description |
 |------|--------|----------|-------------|
 | `list_pages` | `pages.py` | Drawing+Presentation | Lists all pages/slides |
-| `get_draw_summary` | `shapes.py` | Drawing+Presentation | Shape summary for a page |
-| `create_shape` | `shapes.py` | Drawing+Presentation | Create rectangle, ellipse, text, line, connector, custom |
-| `edit_shape` | `shapes.py` | Drawing+Presentation | Modify shape properties (color, size, text, rotation) |
-| `delete_shape` | `shapes.py` | Drawing+Presentation | Remove a shape |
-| `connect_shapes` | `shapes.py` | Drawing+Presentation | Connect two shapes with a line |
-| `group_shapes` | `shapes.py` | Drawing+Presentation | Group multiple shapes |
+| `shape_summary` | `shapes.py` | Drawing+Presentation | Shape summary for a page |
+| `shape_upsert` | `shapes.py` | Drawing+Presentation | Create or edit rectangle, ellipse, text, line, connector, custom |
+| `shape_delete` | `shapes.py` | Drawing+Presentation | Remove a shape |
+| `shape_connect` | `shapes.py` | Drawing+Presentation | Connect two shapes with a line |
+| `shape_group` | `shapes.py` | Drawing+Presentation | Group multiple shapes |
 | `get_draw_tree` | `tree.py` | Drawing+Presentation | JSON DOM of shapes (for flowcharts) |
 | `add_slide` | `pages.py` | Drawing+Presentation | Add a new page/slide |
 | `delete_slide` | `pages.py` | Drawing+Presentation | Delete a page/slide |

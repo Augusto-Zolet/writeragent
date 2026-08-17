@@ -454,7 +454,7 @@ Ported from `libreoffice-mcp-extension/pythonpath/uno_bridge.py` and adapted to 
 | Group | Tools |
 |---|---|
 | Styles | `style_list`, `style_get_info` |
-| Comments | `comment_list`, `add_comment`, `comment_delete` |
+| Comments | `comment_list`, `add_comment`, `comment_delete`; specialized: `comment_scan_tasks`, `comment_workflow_get`, `comment_workflow_set`, `comment_check_stop` |
 | Track changes | `track_changes_start` / `stop` / `list` / `show`, `manage_tracked_changes` |
 | Tables | `table_list`, `table_get_cells`, `table_set_cell`, `manage_table_structure` |
 

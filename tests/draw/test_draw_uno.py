@@ -100,9 +100,9 @@ def test_upsert_and_verify_shape(ctx, doc):
     assert size.Height == 3000, f"Expected Height=3000, got {size.Height}"
 
     # 2. Get draw summary to find shape_id
-    result = _exec_tool(doc, ctx, "get_draw_summary", {"page": new_page_count - 1})
+    result = _exec_tool(doc, ctx, "shape_summary", {"page": new_page_count - 1})
     data = json.loads(result)
-    assert data.get("status") == "ok", f"get_draw_summary failed: {result}"
+    assert data.get("status") == "ok", f"shape_summary failed: {result}"
     shapes = data.get("shapes", [])
 
     shape_id = None
@@ -122,9 +122,9 @@ def test_upsert_and_verify_shape(ctx, doc):
     assert data.get("status") == "ok", f"shape_upsert edit failed: {result}"
 
     # 4. Delete shape
-    result = _exec_tool(doc, ctx, "delete_shape", {"index": shape_id})
+    result = _exec_tool(doc, ctx, "shape_delete", {"index": shape_id})
     data = json.loads(result)
-    assert data.get("status") == "ok", f"delete_shape failed: {result}"
+    assert data.get("status") == "ok", f"shape_delete failed: {result}"
 
 
 @native_test

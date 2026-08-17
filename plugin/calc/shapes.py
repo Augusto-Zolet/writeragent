@@ -23,17 +23,17 @@ class UpsertShape(DrawUpsertShape, ToolCalcShapeBase):
     tier = "specialized"
 
 class DeleteShape(DrawDeleteShape, ToolCalcShapeBase):
-    name = "delete_shape"
+    name = "shape_delete"
     uno_services = _CALC_DRAW_SHAPE_DOCS
 
 class GetDrawSummary(DrawGetDrawSummary, ToolCalcShapeBase):
-    name = "get_draw_summary"
+    name = "shape_summary"
     uno_services = _CALC_DRAW_SHAPE_DOCS
 
 class ConnectShapes(DrawConnectShapes, ToolCalcShapeBase):
-    name = "shapes_connect"
+    name = "shape_connect"
     uno_services = _CALC_DRAW_SHAPE_DOCS
 
 class GroupShapes(DrawGroupShapes, ToolCalcShapeBase):
-    name = "shapes_group"
+    name = "shape_group"
     uno_services = _CALC_DRAW_SHAPE_DOCS

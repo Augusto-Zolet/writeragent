@@ -117,12 +117,12 @@ LibreOffice provides numerous drawing shapes through the generic UNO `com.sun.st
 ```
 
 **Fat API (Polymorphic Approach):**
-*(Note: This is similar to how WriterAgent currently implements shapes via `CreateShape`)*
+*(Note: Production shapes use medium-fat `shape_upsert` with `action` create/edit, not a separate `create_shape`.)*
 
 ```json
-// Single Tool: create_shape
+// Single Tool: shape_upsert (create branch; edit uses index + properties)
 {
-  "name": "create_shape",
+  "name": "shape_upsert",
   "parameters": {
     "shape_type": {"type": "string", "enum": ["rectangle", "ellipse", "text", "line"]},
     "x": {"type": "integer"},
@@ -153,7 +153,7 @@ LibreOffice provides numerous drawing shapes through the generic UNO `com.sun.st
 }
 ```
 
-While the "Fat API" approach drastically reduces tool count and could potentially eliminate the need for nested sub-agents, we currently use the "Fine-Grained + Nested Delegation" approach for most domains because LibreOffice UNO bindings map better to explicit discrete steps, and many LLMs perform better with simpler parameter shapes than with highly polymorphic schemas. However, domains like `shapes` do employ a "medium-fat" API (`create_shape` vs `create_rectangle`, `create_ellipse`) to balance practical usability with LLM schema robustness.
+While the "Fat API" approach drastically reduces tool count and could potentially eliminate the need for nested sub-agents, we currently use the "Fine-Grained + Nested Delegation" approach for most domains because LibreOffice UNO bindings map better to explicit discrete steps, and many LLMs perform better with simpler parameter shapes than with highly polymorphic schemas. However, domains like `shapes` do employ a "medium-fat" API (`shape_upsert` vs `create_rectangle`, `create_ellipse`) to balance practical usability with LLM schema robustness. Specialized shape names are `domain_verb`: `shape_upsert`, `shape_delete`, `shape_summary`, `shape_connect`, `shape_group`. Core tools keep `verb_noun` (`add_comment`, `get_image`). No tool-name aliases.
 
 ### 1.3 What "success" looks like under the Delegation model
 
@@ -256,7 +256,7 @@ Some Writer tools intentionally use the default main-chat tier (**`tier = "core"
 
 **Style discovery** (`style_list`, `style_get_info`) remains under `ToolWriterStyleBase` (specialized) so the main list does not duplicate large style catalog traffic; the prompt steers toward delegation or other discovery when needed.
 
-**Naming:** Specialized Writer tools use `domain_verb` names (`image_list`, `bookmark_create`, `nav_goto_page`, …), matching `fields_*` / `footnotes_*` / `indexes_*`. Core tools keep stable `verb_noun` names (`get_document_content`, `apply_style`, `add_comment`, …). No tool-name aliases.
+**Naming:** Specialized Writer tools use `domain_verb` names (`image_list`, `bookmark_create`, `nav_goto_page`, `shape_delete`, …), matching `fields_*` / `footnotes_*` / `indexes_*`. Core tools keep stable `verb_noun` names (`get_document_content`, `apply_style`, `add_comment`, `get_image`, …). Shared Draw/Calc/Writer tools use one name (Writer does not invent a second). No tool-name aliases. Graphic listing is `image_list` (`domain=images`); there is no `shape_list_images`. Comment workflow is four skinny tools (`comment_scan_tasks`, `comment_workflow_get`, `comment_workflow_set`, `comment_check_stop`), not a fat `comment_workflow`.
 
 ## 4. Testing and operations
 
@@ -284,7 +284,7 @@ Some Writer tools intentionally use the default main-chat tier (**`tier = "core"
 | **Text frames**             | ✅ Implemented           | `textframes.py`: FrameList, FrameGetInfo, FrameSetProperties                                                                                                                                                                          | —                                                                                                      |
 | **Embedded OLE**            | ✅ Implemented           | `embedded.py`: EmbeddedInsert, EmbeddedEdit                                                                                                                                                                                                        | —                                                                                                      |
 | **Images**                  | ✅ Implemented           | `images.py`: ImageGenerate (async), ImageList/ImageGetInfo/ImageSetProperties, ImageDownload, ImageInsert/ImageDelete/ImageReplace                                                                                                                                                  | Advanced image editing                                                                                 |
-| **Shapes**                  | ✅ Implemented           | `shapes.py`: Create/Edit/DeleteShape, GetDrawSummary, ShapeListImages, ConnectShapes, GroupShapes (Draw lineage)                                                                                                                                  | —                                                                                                      |
+| **Shapes**                  | ✅ Implemented           | `specialized/shapes.py`: `shape_upsert`, `shape_delete`, `shape_summary`, `shape_connect`, `shape_group` (Draw lineage). List graphics via `image_list` (`domain=images`).                                                                                                                                  | —                                                                                                      |
 | **Charts**                  | ✅ Specialized           | `manage_charts` only via `domain=charts` ([`plugin/calc/charts.py`](../plugin/calc/charts.py); Writer/Draw wrappers). Skinny list/info/upsert/delete are Dummy backends. | Full 3D / per-app schema split — see `ManageCharts` docstring.                                      |
 | **Indexes**                 | ✅ Implemented           | `indexes.py`: IndexesUpdateAll, IndexesList, IndexesCreate, IndexesAddMark                                                                                                                                                                         | —                                                                                                      |
 | **Fields**                  | ✅ Implemented           | `fields.py`: FieldsUpdateAll, FieldsList, FieldsDelete, FieldsInsert                                                                                                                                                                               | User-defined variables, conditional text, DB fields overlap LO; distinct from **Forms** (business) row |

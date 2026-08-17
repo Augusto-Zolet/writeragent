@@ -16,7 +16,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Writer shape drawing tools, bridging Draw's implementations."""
 
-import logging
 from ..specialized_base import ToolWriterShapeBase
 from plugin.doc.visual_helpers import SHAPE_TOOL_UNO_SERVICES
 from plugin.draw.shapes import UpsertShape as DrawUpsertShape
@@ -24,8 +23,6 @@ from plugin.draw.shapes import DeleteShape as DrawDeleteShape
 from plugin.draw.shapes import GetDrawSummary as DrawGetDrawSummary
 from plugin.draw.shapes import ConnectShapes as DrawConnectShapes
 from plugin.draw.shapes import GroupShapes as DrawGroupShapes
-
-log = logging.getLogger("writeragent.writer")
 
 
 # 1. Inherit from the Draw tool implementation.
@@ -43,50 +40,20 @@ class UpsertShape(DrawUpsertShape, ToolWriterShapeBase):
 
 
 class DeleteShape(DrawDeleteShape, ToolWriterShapeBase):
-    name = "delete_shape"
+    name = "shape_delete"
     uno_services = _WRITER_DRAW_SHAPE_DOCS
 
 
 class GetDrawSummary(DrawGetDrawSummary, ToolWriterShapeBase):
-    name = "get_draw_summary"
+    name = "shape_summary"
     uno_services = _WRITER_DRAW_SHAPE_DOCS
 
 
-class ShapeListImages(ToolWriterShapeBase):
-    """List graphic objects anchored in the Writer document (text layer)."""
-
-    name = "shape_list_images"
-    intent = "media"
-    description = "List images and graphic objects in the Writer document (names, sizes, titles). Uses the document graphic-object collection (not the full Draw page API)."
-    parameters = {"type": "object", "properties": {}, "required": []}
-    uno_services = ["com.sun.star.text.TextDocument"]
-
-    def execute(self, ctx, **kwargs):
-        doc = ctx.doc
-        if not hasattr(doc, "getGraphicObjects"):
-            return {"status": "ok", "images": [], "count": 0}
-        images = []
-        gos = doc.getGraphicObjects()
-        for name in gos.getElementNames():
-            try:
-                g = gos.getByName(name)
-                size = g.getPropertyValue("Size")
-                title = ""
-                try:
-                    title = g.getPropertyValue("Title")
-                except Exception:
-                    pass
-                images.append({"name": name, "width_mm": size.Width / 100.0, "height_mm": size.Height / 100.0, "title": title})
-            except Exception as e:
-                log.debug("list_writer_images skip %s: %s", name, e)
-        return {"status": "ok", "images": images, "count": len(images)}
-
-
 class ConnectShapes(DrawConnectShapes, ToolWriterShapeBase):
-    name = "shapes_connect"
+    name = "shape_connect"
     uno_services = _WRITER_DRAW_SHAPE_DOCS
 
 
 class GroupShapes(DrawGroupShapes, ToolWriterShapeBase):
-    name = "shapes_group"
+    name = "shape_group"
     uno_services = _WRITER_DRAW_SHAPE_DOCS

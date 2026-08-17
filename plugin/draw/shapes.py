@@ -367,7 +367,7 @@ class ListPages(ToolBase):
 
 
 class GetDrawSummary(ToolDrawShapeBase):
-    name = "get_draw_summary"
+    name = "shape_summary"
     intent = "edit"
     description = "Returns a summary of shapes on the active or specified page."
     parameters = {"type": "object", "properties": {"page": {"type": "integer", "description": "0-based page index (active page if omitted)"}}, "required": []}
@@ -759,7 +759,7 @@ class UpsertShape(ToolDrawShapeBase):
 class ConnectShapes(ToolDrawShapeBase):
     """Connect two shapes with a connector."""
 
-    name = "shapes_connect"
+    name = "shape_connect"
     intent = "edit"
     description = "Connect two shapes on the same page with a connector."
     parameters = {
@@ -822,7 +822,7 @@ class ConnectShapes(ToolDrawShapeBase):
 class GroupShapes(ToolDrawShapeBase):
     """Group multiple shapes together."""
 
-    name = "shapes_group"
+    name = "shape_group"
     intent = "edit"
     description = "Groups multiple shapes together on the same page."
     parameters = {"type": "object", "properties": {"indices": {"type": "array", "items": {"type": "integer"}, "description": "List of shape indices to group."}, "page": {"type": "integer", "description": "Page index containing the shapes"}}, "required": ["indices"]}
@@ -863,7 +863,7 @@ class GroupShapes(ToolDrawShapeBase):
 
 
 class DeleteShape(ToolDrawShapeBase):
-    name = "delete_shape"
+    name = "shape_delete"
     intent = "edit"
     description = "Deletes a shape by index."
     parameters = {"type": "object", "properties": {"index": {"type": "integer", "description": "0-based shape index"}, "page": {"type": "integer", "description": "0-based page index (active page if omitted)"}}, "required": ["index"]}

@@ -475,9 +475,9 @@ def test_calc_shapes_domain_tools():
     tools = reg.get_tools(doc=doc, active_domain="shapes", exclude_tiers=())
     names = {t.name for t in tools}
     assert "shape_upsert" in names
-    assert "delete_shape" in names
-    assert "shapes_connect" in names
-    assert "shapes_group" in names
-    assert "get_draw_summary" in names
+    assert "shape_delete" in names
+    assert "shape_connect" in names
+    assert "shape_group" in names
+    assert "shape_summary" in names
 
 

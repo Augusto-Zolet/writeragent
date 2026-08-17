@@ -105,10 +105,13 @@ DOMAIN_TOOLS = {   'analysi': [   'analyze_data',
                 'write_formula_range'],
     'chart': ['manage_charts'],
     'comment': [   'add_cell_comment',
+                   'comment_check_stop',
                    'comment_delete',
                    'comment_list',
                    'comment_resolve',
-                   'comment_workflow',
+                   'comment_scan_tasks',
+                   'comment_workflow_get',
+                   'comment_workflow_set',
                    'delete_cell_comment',
                    'list_cell_comments'],
     'conditional_formatting': ['add_conditional_format', 'list_conditional_formats', 'remove_conditional_formats'],
@@ -181,12 +184,7 @@ DOMAIN_TOOLS = {   'analysi': [   'analyze_data',
                  'named_range_list',
                  'sort_range'],
     'search': ['replace_in_spreadsheet', 'search_in_spreadsheet'],
-    'shape': [   'delete_shape',
-                 'get_draw_summary',
-                 'shape_list_images',
-                 'shape_upsert',
-                 'shapes_connect',
-                 'shapes_group'],
+    'shape': ['shape_connect', 'shape_delete', 'shape_group', 'shape_summary', 'shape_upsert'],
     'sheet': [   'apply_sheet_filter',
                  'clear_sheet_filter',
                  'create_sheet',
@@ -371,6 +369,10 @@ class _CommentProxy:
         """Add a comment (annotation) to a specific cell in a Calc sheet."""
         return _rpc_call("add_cell_comment", cell=cell, text=text, sheet=sheet)
 
+    def check_stop(self) -> dict:
+        """Detect STOP/CANCEL comments or workflow stop/pause in the MCP-WORKFLOW dashboard."""
+        return _rpc_call("comment_check_stop")
+
     def delete(self, *, name: str = "", author: str = "") -> dict:
         """Delete comments by name or author."""
         return _rpc_call("comment_delete", name=name, author=author)
@@ -391,9 +393,17 @@ class _CommentProxy:
         """Resolve a comment with an optional reason."""
         return _rpc_call("comment_resolve", name=name, resolution=resolution, author=author)
 
-    def workflow(self, action: str, *, unresolved_only: bool = True, prefix_filter: str = "", content: str = "") -> dict:
-        """Workflow and task operations."""
-        return _rpc_call("comment_workflow", action=action, unresolved_only=unresolved_only, prefix_filter=prefix_filter, content=content)
+    def scan_tasks(self, *, unresolved_only: bool = True, prefix_filter: str = "") -> dict:
+        """Find workflow tasks in comments (TODO-AI, FIX, QUESTION, VALIDATION, NOTE prefixes)."""
+        return _rpc_call("comment_scan_tasks", unresolved_only=unresolved_only, prefix_filter=prefix_filter)
+
+    def workflow_get(self) -> dict:
+        """Read the MCP-WORKFLOW dashboard comment (key: value lines)."""
+        return _rpc_call("comment_workflow_get")
+
+    def workflow_set(self, content: str) -> dict:
+        """Write the MCP-WORKFLOW dashboard comment (key: value lines)."""
+        return _rpc_call("comment_workflow_set", content=content)
 
 comment = _CommentProxy()
 
@@ -875,23 +885,19 @@ class _ShapeProxy:
 
     def connect(self, start: int, end: int, *, page: int = 0, line_color: str = "", line_width: int = 0) -> dict:
         """Connect two shapes on the same page with a connector."""
-        return _rpc_call("shapes_connect", start=start, end=end, page=page, line_color=line_color, line_width=line_width)
+        return _rpc_call("shape_connect", start=start, end=end, page=page, line_color=line_color, line_width=line_width)
 
-    def delete_shape(self, index: int, *, page: int = 0) -> dict:
+    def delete(self, index: int, *, page: int = 0) -> dict:
         """Deletes a shape by index."""
-        return _rpc_call("delete_shape", index=index, page=page)
-
-    def get_draw_summary(self, *, page: int = 0) -> dict:
-        """Returns a summary of shapes on the active or specified page."""
-        return _rpc_call("get_draw_summary", page=page)
+        return _rpc_call("shape_delete", index=index, page=page)
 
     def group(self, indices: list, *, page: int = 0) -> dict:
         """Groups multiple shapes together on the same page."""
-        return _rpc_call("shapes_group", indices=indices, page=page)
+        return _rpc_call("shape_group", indices=indices, page=page)
 
-    def list_images(self) -> dict:
-        """List images and graphic objects in the Writer document (names, sizes, titles)."""
-        return _rpc_call("shape_list_images")
+    def summary(self, *, page: int = 0) -> dict:
+        """Returns a summary of shapes on the active or specified page."""
+        return _rpc_call("shape_summary", page=page)
 
     def upsert(self, action: str, *, index: int = 0, page: int = 0, shape_type: str = "", x: int = 0, y: int = 0, width: int = 0, height: int = 0, text: str = "", fill_color: str = "", fill_style: str = "", line_color: str = "", line_width: int = 0, text_color: str = "", font_size: float = 0.0, font_name: str = "", rotation_angle: float = 0.0) -> dict:
         """Creates a new shape or modifies an existing shape on a page."""

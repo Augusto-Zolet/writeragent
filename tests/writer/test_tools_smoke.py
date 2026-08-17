@@ -48,6 +48,35 @@ class TestWriterToolsSmoke(unittest.TestCase):
         self.assertNotIn("check_stop_conditions", writer_tools)
         # Specialized tools are not in the default chat tool list
         self.assertNotIn("nav_heading", writer_tools)
+        self.assertNotIn("comment_workflow", writer_tools)
+        self.assertNotIn("shape_list_images", writer_tools)
+        self.assertNotIn("delete_shape", writer_tools)
+
+    def test_comments_domain_skinny_workflow_tools(self):
+        registry = get_tools()
+        doc = WriterDocStub()
+        names = {t.name for t in registry.get_tools(doc=doc, active_domain="comments", exclude_tiers=())}
+        for name in (
+            "comment_scan_tasks",
+            "comment_workflow_get",
+            "comment_workflow_set",
+            "comment_check_stop",
+            "comment_list",
+        ):
+            self.assertIn(name, names, f"expected comments tool {name!r}")
+        self.assertNotIn("comment_workflow", names)
+
+    def test_shapes_domain_domain_verb_names(self):
+        registry = get_tools()
+        doc = WriterDocStub()
+        names = {t.name for t in registry.get_tools(doc=doc, active_domain="shapes", exclude_tiers=())}
+        for name in ("shape_upsert", "shape_delete", "shape_summary", "shape_connect", "shape_group"):
+            self.assertIn(name, names, f"expected shapes tool {name!r}")
+        self.assertNotIn("shape_list_images", names)
+        self.assertNotIn("delete_shape", names)
+        self.assertNotIn("get_draw_summary", names)
+        self.assertNotIn("shapes_connect", names)
+        self.assertNotIn("shapes_group", names)
 
     def test_structural_domain_includes_navigation_tools(self):
         registry = get_tools()

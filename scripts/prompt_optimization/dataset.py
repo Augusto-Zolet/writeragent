@@ -309,7 +309,7 @@ FLOWCHART_GEN = {
     "expected_contains": ["Start", "Process", "Decision", "End", "login", "credentials"],
     "is_non_trivial": True,
     "category": "structural",
-    "rubric": "Uses create_shape for flowchart-* types (oval, rectangle, diamond). Connections via shapes_connect or tree. Final get_draw_tree shows proper hierarchy and connected_start/connected_end. Matches production Draw tree structure.",
+    "rubric": "Uses shape_upsert for flowchart-* types (oval, rectangle, diamond). Connections via shape_connect or tree. Final get_draw_tree shows proper hierarchy and connected_start/connected_end. Matches production Draw tree structure.",
 }
 
 # Data Sorting (eval-ideas.md Calc #6) - non-LO test using CalcStringState.sort_range

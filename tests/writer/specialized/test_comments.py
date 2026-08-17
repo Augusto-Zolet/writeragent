@@ -23,3 +23,15 @@ def test_read_annotation_falls_back_to_paragraph_context():
         entry = _read_annotation(field, [], MagicMock(), doc_svc)
     assert entry["anchor_preview"] == "the clause the comment covers"
     assert entry["anchor_is_paragraph_context"] is True
+
+
+def test_comment_workflow_split_tool_names():
+    from plugin.writer.specialized import comments
+
+    assert comments.CommentScanTasks.name == "comment_scan_tasks"
+    assert comments.CommentWorkflowGet.name == "comment_workflow_get"
+    assert comments.CommentWorkflowSet.name == "comment_workflow_set"
+    assert comments.CommentCheckStop.name == "comment_check_stop"
+    assert comments.CommentWorkflowSet.is_mutation is True
+    assert not getattr(comments.CommentScanTasks, "is_mutation", False)
+    assert not hasattr(comments, "CommentWorkflow")

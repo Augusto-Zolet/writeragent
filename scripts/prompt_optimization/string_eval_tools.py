@@ -379,7 +379,7 @@ def dispatch_string_tool(state: StringDocState | DrawDocState | CalcStringState,
         elif isinstance(state, DrawDocState):
             if name == "shape_upsert":
                 res = state.shape_upsert(**args)
-            elif name in ("get_draw_tree", "get_draw_summary"):
+            elif name in ("get_draw_tree", "shape_summary"):
                 if name == "get_draw_tree":
                     res = state.get_draw_tree(**args)
                 else:
@@ -400,7 +400,7 @@ def dispatch_string_tool(state: StringDocState | DrawDocState | CalcStringState,
                 )
             else:
                 # Forward unknown to Draw or Calc if it looks like one (for mixed evals)
-                if name in ("shape_upsert", "get_draw_tree", "get_draw_summary"):
+                if name in ("shape_upsert", "get_draw_tree", "shape_summary"):
                     draw_state = DrawDocState()
                     if name == "shape_upsert":
                         res = draw_state.shape_upsert(**args)
