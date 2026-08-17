@@ -138,7 +138,7 @@ def _redlines_doc(items, count=None, raise_enum=False, raise_count=False, raise_
 
 
 def test_snapshot_redline_ids_reliable_when_complete():
-    from plugin.writer.edit_review import snapshot_redline_ids
+    from plugin.writer.review_scan import snapshot_redline_ids
     ids, ok = snapshot_redline_ids(_redlines_doc(["a", "b"]))
     assert ok is True and ids == {"a", "b"}
 
@@ -146,32 +146,32 @@ def test_snapshot_redline_ids_reliable_when_complete():
 def test_snapshot_redline_ids_unreliable_on_silent_truncation():
     # 1 redline enumerated but getCount() reports 2 -> a pre-existing redline may be unseen -> a later
     # edit's new-redline diff could misclassify it -> unreliable.
-    from plugin.writer.edit_review import snapshot_redline_ids
+    from plugin.writer.review_scan import snapshot_redline_ids
     _, ok = snapshot_redline_ids(_redlines_doc(["a"], count=2))
     assert ok is False
 
 
 def test_snapshot_redline_ids_unreliable_on_unreadable_identifier():
-    from plugin.writer.edit_review import snapshot_redline_ids
+    from plugin.writer.review_scan import snapshot_redline_ids
     _, ok = snapshot_redline_ids(_redlines_doc(["a", _RAISE]))
     assert ok is False
 
 
 def test_snapshot_redline_ids_unreliable_on_enum_error():
-    from plugin.writer.edit_review import snapshot_redline_ids
+    from plugin.writer.review_scan import snapshot_redline_ids
     _, ok = snapshot_redline_ids(_redlines_doc(["a"], raise_enum=True))
     assert ok is False
 
 
 def test_snapshot_redline_ids_unreliable_on_count_error():
-    from plugin.writer.edit_review import snapshot_redline_ids
+    from plugin.writer.review_scan import snapshot_redline_ids
     _, ok = snapshot_redline_ids(_redlines_doc(["a"], raise_count=True))
     assert ok is False
 
 
 def test_snapshot_redline_ids_unreliable_on_hasmore_error():
     # hasMoreElements() throwing must honor the (ids, False) contract, not propagate.
-    from plugin.writer.edit_review import snapshot_redline_ids
+    from plugin.writer.review_scan import snapshot_redline_ids
     _, ok = snapshot_redline_ids(_redlines_doc(["a"], raise_hasmore=True))
     assert ok is False
 
@@ -179,25 +179,25 @@ def test_snapshot_redline_ids_unreliable_on_hasmore_error():
 # ----------------------------------------------- _new_redlines_complete + _tag_new_redlines
 
 def test_new_redlines_complete_finds_new_when_complete():
-    from plugin.writer.edit_review import _new_redlines_complete
+    from plugin.writer.review_scan import new_redlines_since as _new_redlines_complete
     new, ok = _new_redlines_complete(_redlines_doc(["old", "new1", "new2"]), {"old"})
     assert ok is True and len(new) == 2
 
 
 def test_new_redlines_complete_unreliable_on_silent_truncation():
-    from plugin.writer.edit_review import _new_redlines_complete
+    from plugin.writer.review_scan import new_redlines_since as _new_redlines_complete
     _, ok = _new_redlines_complete(_redlines_doc(["old", "new1"], count=3), {"old"})
     assert ok is False
 
 
 def test_new_redlines_complete_unreliable_on_unreadable_id():
-    from plugin.writer.edit_review import _new_redlines_complete
+    from plugin.writer.review_scan import new_redlines_since as _new_redlines_complete
     _, ok = _new_redlines_complete(_redlines_doc(["old", _RAISE]), {"old"})
     assert ok is False
 
 
 def test_new_redlines_complete_unreliable_on_hasmore_error():
-    from plugin.writer.edit_review import _new_redlines_complete
+    from plugin.writer.review_scan import new_redlines_since as _new_redlines_complete
     _, ok = _new_redlines_complete(_redlines_doc(["old"], raise_hasmore=True), {"old"})
     assert ok is False
 
@@ -266,7 +266,7 @@ def test_record_mutation_single_orphan_not_registered():
     session._active = True
     rl = _MutateThenThrow("a")
     with _patch.object(session, "_redline_idents", return_value=(set(), True)), \
-         _patch("plugin.writer.edit_review._new_redlines_complete", return_value=([rl], True)):
+         _patch("plugin.writer.review_scan.new_redlines_since", return_value=([rl], True)):
         result = session.record_mutation(lambda: "r")
 
     assert result == "r"
@@ -283,7 +283,7 @@ def test_record_mutation_does_not_register_when_revert_leaves_orphan():
     session._active = True
     rl1, rl2 = _FakeRl("a", raise_revert=True), _FakeRl("b", raise_set=True)
     with _patch.object(session, "_redline_idents", return_value=(set(), True)), \
-         _patch("plugin.writer.edit_review._new_redlines_complete", return_value=([rl1, rl2], True)):
+         _patch("plugin.writer.review_scan.new_redlines_since", return_value=([rl1, rl2], True)):
         result = session.record_mutation(lambda: "r")
 
     assert result == "r"
@@ -357,7 +357,7 @@ def test_record_mutation_does_not_tag_when_after_scan_incomplete():
         return "r"
 
     with _patch.object(session, "_redline_idents", return_value=({"x"}, True)), \
-         _patch("plugin.writer.edit_review._new_redlines_complete", return_value=([], False)):
+         _patch("plugin.writer.review_scan.new_redlines_since", return_value=([], False)):
         result = session.record_mutation(apply_fn)
 
     assert result == "r" and applied["n"] == 1 and session.changes == []

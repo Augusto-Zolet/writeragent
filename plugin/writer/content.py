@@ -14,7 +14,10 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""Writer content tools — read, apply, find, and paragraph operations."""
+"""Writer content tools — read, apply, and paragraph operations.
+
+LO findFirst / chained-regex helpers live in ``plugin.writer.search``.
+"""
 
 import itertools
 import logging
@@ -24,46 +27,16 @@ import time
 
 from plugin.framework.tool import ToolBase, ToolBaseDummy
 from plugin.framework.prompts import APPLY_DOCUMENT_CONTENT_TOOL_RESEARCH_HINT
-from plugin.doc.text_helpers import normalize_linebreaks, get_string_without_tracked_deletions
+from plugin.doc.text_helpers import get_string_without_tracked_deletions
 from plugin.doc.document_helpers import collect_tracked_changes
 from plugin.writer.edit_review import EditReviewSession, edit_review_wait_seconds, review_recording_enabled, get_agent_edit_review_mode
 from plugin.framework.errors import safe_json_loads, ToolExecutionError
 from plugin.writer import search as search_mod
-import re as re_mod
 
 
 log = logging.getLogger("writeragent.writer")
 
-# Cap for replace-all search (_find_all_ranges).
-_MAX_SEARCH_REPLACEMENTS = 200
-
-# Non-breaking / exotic spaces -> ASCII space. Length-preserving (each maps to a
-# single BMP char) so character offsets into the document text stay valid. NBSP
-# (U+00A0) in particular is a common artifact of prior edits and breaks literal
-# search when old_content uses a normal space.
-#
-# Regenerate the inventory table: python3 -c "..."  (see git history / plan doc) or
-# run the snippet in the finish-NBSP plan; paste rows here when expanding the map.
-#
-# | Code   | Name                         | In _SPACE_NORMALIZE_MAP | Follow-up note |
-# |--------|------------------------------|-------------------------|----------------|
-# | U+0020 | SPACE                        | no                      | target; not mapped |
-# | U+00A0 | NO-BREAK SPACE               | yes                     | mapped today |
-# | U+1680 | OGHAM SPACE MARK             | no                      | OGHAM SPACE MARK; rare in Writer |
-# | U+2000 | EN QUAD                      | yes                     | mapped today |
-# | U+2001 | EM QUAD                      | yes                     | mapped today |
-# | U+2002 | EN SPACE                     | yes                     | mapped today |
-# | U+2003 | EM SPACE                     | yes                     | mapped today |
-# | U+2004 | THREE-PER-EM SPACE           | yes                     | mapped today |
-# | U+2005 | FOUR-PER-EM SPACE            | yes                     | mapped today |
-# | U+2006 | SIX-PER-EM SPACE             | yes                     | mapped today |
-# | U+2007 | FIGURE SPACE                 | yes                     | mapped today |
-# | U+2008 | PUNCTUATION SPACE            | yes                     | mapped today |
-# | U+2009 | THIN SPACE                   | yes                     | mapped today |
-# | U+200A | HAIR SPACE                   | yes                     | mapped today |
-# | U+202F | NARROW NO-BREAK SPACE        | yes                     | mapped today |
-# | U+205F | MEDIUM MATHEMATICAL SPACE    | yes                     | mapped today |
-# | U+3000 | IDEOGRAPHIC SPACE            | yes                     | mapped today |
+# Search/find lives in plugin.writer.search (find_first_range / find_all_ranges / find_chained_range).
 #
 # DEVELOPER DISCUSSION / FUTURE WORK (Intentionally deferred to avoid complexity):
 #
@@ -72,9 +45,8 @@ _MAX_SEARCH_REPLACEMENTS = 200
 #   target='full_document' — no old_content, no search. If we ever revisit, git history has
 #   _find_range_by_offset / phase-3 offset scan removed after the LO-regex unification commit.
 #
-# - Format.py search-replace helpers:
-#   Functions like format.find_text_ranges are still LO-literal only. apply_document_content search
-#   uses _find_chained_range (LO regex + paragraph chaining) with exotic-space flex matching.
+# - format.find_text_ranges is still LO-literal only. apply_document_content search uses
+#   search.find_chained_range (LO regex + paragraph chaining) with exotic-space flex matching.
 #   Unifying format.find_text_ranges with that stack is deferred — callers are internal/benchmark-only.
 #
 # - Casefolding & Unicode length changes:
@@ -91,230 +63,6 @@ _MAX_SEARCH_REPLACEMENTS = 200
 #   can sometimes jump the cursor to the end of the document body rather than the cell's end. This is a potential
 #   real-world bug if the AI attempts to write rich formatting/math inside cells, but we defer it until we
 #   receive actual user bug reports due to the complexity of relative cursor mapping in nested XText.
-_SPACE_CODEPOINTS = (
-    0x00A0,  # NO-BREAK SPACE
-    0x202F,  # NARROW NO-BREAK SPACE
-    0x2007,  # FIGURE SPACE
-    0x2009,  # THIN SPACE
-    # Typographic spaces
-    0x2000,  # EN QUAD
-    0x2001,  # EM QUAD
-    0x2002,  # EN SPACE
-    0x2003,  # EM SPACE
-    0x2004,  # THREE-PER-EM SPACE
-    0x2005,  # FOUR-PER-EM SPACE
-    0x2006,  # SIX-PER-EM SPACE
-    0x2008,  # PUNCTUATION SPACE
-    0x200A,  # HAIR SPACE
-    0x205F,  # MEDIUM MATHEMATICAL SPACE
-    # CJK space
-    0x3000,  # IDEOGRAPHIC SPACE
-)
-_SPACE_NORMALIZE_MAP = {cp: " " for cp in _SPACE_CODEPOINTS}
-# Shared horizontal-space class — must stay aligned with _SPACE_CODEPOINTS.
-_HORIZONTAL_SPACE_CLASS = r"[ \t" + "".join("\\u%04x" % cp for cp in _SPACE_CODEPOINTS) + "]"
-_HORIZONTAL_SPACE_RE = _HORIZONTAL_SPACE_CLASS + "+"
-
-
-def _search_try_strings(search_string):
-    """Literal search string, then newline-collapsed variant (HTML wrap artifact)."""
-    s = search_string or ""
-    collapsed = re_mod.sub(r" +", " ", s.replace("\n", " ")).strip()
-    for candidate in (s, collapsed):
-        if candidate:
-            yield candidate
-
-
-def _escape_for_lo_regex(s):
-    """Escape regular expression characters and match any horizontal space sequence."""
-    s = (s or "").translate(_SPACE_NORMALIZE_MAP)
-    escaped = re_mod.sub(r'([\\^$.|?*+()\[\]{}])', r'\\\1', s)
-    return re_mod.sub(r' +', lambda m: _HORIZONTAL_SPACE_CLASS + '+', escaped)
-
-
-def _compare_normalize(s):
-    return normalize_linebreaks(s).translate(_SPACE_NORMALIZE_MAP).strip().lower()
-
-
-def _paragraph_matches_part(para_text, part, *, head=False, tail=False):
-    """Compare a paragraph to a search part; return (ok, offset_len).
-
-    *head*: part must match the start of the paragraph; offset_len is goRight length.
-    *tail*: part must match the end; offset_len is goRight start offset from para start.
-    Neither flag: full paragraph must equal part (after normalize).
-    """
-    expected_norm = _compare_normalize(part)
-    actual_norm = _compare_normalize(para_text)
-    if head:
-        if not actual_norm.startswith(expected_norm):
-            return False, None
-        skipped_leading = len(para_text) - len(para_text.lstrip())
-        return True, skipped_leading + len(part.strip())
-    if tail:
-        if not actual_norm.endswith(expected_norm):
-            return False, None
-        trimmed_trailing = para_text.rstrip()
-        return True, max(0, len(trimmed_trailing) - len(part.strip()))
-    return actual_norm == expected_norm, None
-
-
-def _find_lo_regex_ranges(doc, candidate, all_matches=False):
-    """LO regex findFirst/findNext for one candidate string."""
-    sd = doc.createSearchDescriptor()
-    sd.SearchRegularExpression = True
-    sd.SearchString = _escape_for_lo_regex(candidate)
-
-    if not all_matches:
-        for case_sens in (True, False):
-            sd.SearchCaseSensitive = case_sens
-            found = doc.findFirst(sd)
-            if found is not None:
-                return found
-        return None
-
-    ranges = []
-    for case_sens in (True, False):
-        sd.SearchCaseSensitive = case_sens
-        found = doc.findFirst(sd)
-        while found is not None:
-            if len(ranges) >= _MAX_SEARCH_REPLACEMENTS:
-                return ranges
-            ranges.append(found)
-            found = search_mod.find_next_after_match(doc, found, sd)
-        if ranges:
-            return ranges
-    return ranges
-
-
-def _find_chained_range(doc, search_string, all_matches=False):
-    """Find search_string via LO regex (literal + newline-collapsed retry) then paragraph chaining.
-
-    doc.findFirst covers body, table cells, and text frames. Chaining handles real paragraph
-    breaks that LO regex cannot cross.
-
-    Not for whole-document replace: use apply_document_content(target='full_document') instead
-    of passing the entire body as old_content (see ApplyDocumentContent docstring).
-    """
-    if not search_string:
-        return [] if all_matches else None
-
-    # Phase 1: whole-string LO regex — literal first, then newline-collapsed (HTML wrap artifact).
-    for candidate in _search_try_strings(search_string):
-        result = _find_lo_regex_ranges(doc, candidate, all_matches=all_matches)
-        if all_matches:
-            if result:
-                return result
-        elif result is not None:
-            return result
-
-    # Phase 2: paragraph chaining on the original string (real cross-paragraph intent).
-    parts = search_string.split('\n')
-    if len(parts) <= 1:
-        return [] if all_matches else None
-
-    anchor_idx = -1
-    for idx, part in enumerate(parts):
-        if part.strip():
-            anchor_idx = idx
-            break
-    if anchor_idx == -1:
-        return [] if all_matches else None
-
-    sd = doc.createSearchDescriptor()
-    sd.SearchRegularExpression = True
-    sd.SearchString = _escape_for_lo_regex(parts[anchor_idx])
-
-    matched_ranges = []
-
-    for case_sens in (True, False):
-        sd.SearchCaseSensitive = case_sens
-        found = doc.findFirst(sd)
-        while found is not None:
-            text = found.getText()
-            chain_ok = True
-
-            forward_cursor = text.createTextCursorByRange(found)
-            forward_cursor.gotoRange(found.getEnd(), False)
-            last_end_cursor = None
-
-            for i in range(anchor_idx + 1, len(parts)):
-                if not forward_cursor.gotoNextParagraph(False):
-                    chain_ok = False
-                    break
-
-                check_cursor = text.createTextCursorByRange(forward_cursor)
-                check_cursor.gotoEndOfParagraph(True)
-                para_text = get_string_without_tracked_deletions(check_cursor)
-
-                is_last = i == len(parts) - 1
-                ok, offset_len = _paragraph_matches_part(para_text, parts[i], head=is_last)
-                if not ok:
-                    chain_ok = False
-                    break
-                if is_last:
-                    last_end_cursor = text.createTextCursorByRange(forward_cursor)
-                    last_end_cursor.goRight(offset_len, False)
-
-            if not chain_ok:
-                found = search_mod.find_next_after_match(doc, found, sd)
-                continue
-
-            backward_cursor = text.createTextCursorByRange(found)
-            backward_cursor.gotoRange(found.getStart(), False)
-            first_start_cursor = None
-
-            for i in range(anchor_idx - 1, -1, -1):
-                if not backward_cursor.gotoPreviousParagraph(False):
-                    chain_ok = False
-                    break
-
-                check_cursor = text.createTextCursorByRange(backward_cursor)
-                check_cursor.gotoEndOfParagraph(True)
-                para_text = get_string_without_tracked_deletions(check_cursor)
-
-                is_first = i == 0
-                ok, offset_len = _paragraph_matches_part(para_text, parts[i], tail=is_first)
-                if not ok:
-                    chain_ok = False
-                    break
-                if is_first:
-                    first_start_cursor = text.createTextCursorByRange(backward_cursor)
-                    first_start_cursor.goRight(offset_len, False)
-
-            if chain_ok:
-                start_range = first_start_cursor.getStart() if first_start_cursor else found.getStart()
-                end_range = last_end_cursor.getStart() if last_end_cursor else found.getEnd()
-
-                try:
-                    result_range = text.createTextCursorByRange(start_range)
-                    result_range.gotoRange(end_range, True)
-                    if not all_matches:
-                        return result_range
-                    matched_ranges.append(result_range)
-                    if len(matched_ranges) >= _MAX_SEARCH_REPLACEMENTS:
-                        return matched_ranges
-                except Exception:
-                    log.debug("Failed creating combined XTextRange", exc_info=True)
-
-            found = search_mod.find_next_after_match(doc, found, sd)
-
-        if matched_ranges:
-            return matched_ranges
-
-    return matched_ranges if all_matches else None
-
-
-def _find_first_range(doc, search_string):
-    """First match: LO native search with chaining fallback."""
-    return _find_chained_range(doc, search_string, all_matches=False)
-
-
-# Local names for search helpers used in this module (tests import public APIs from search.py).
-_normalize_search_string_for_find = search_mod.normalize_search_string_for_find
-_find_ranges_regex_case = search_mod.find_ranges_regex_case
-_drawing_shape_object_containing = search_mod.drawing_shape_object_containing
-
-
 def _replace_text_in_shape(shape, old, new):
     """Replace the first occurrence of *old* with *new* inside a drawing shape's own text,
     preserving the formatting of the surrounding text via a text cursor. Returns True on success.
@@ -344,11 +92,6 @@ def _replace_text_in_shape(shape, old, new):
         return True
     except Exception:
         return False
-
-
-def _find_all_ranges(doc, search_string):
-    """All occurrences as TextRanges in document order (NBSP-aware native search with chaining)."""
-    return _find_chained_range(doc, search_string, all_matches=True)
 
 
 # Agent-edit tuning knobs. These have sensible fixed defaults and are NOT settings-UI options (no
@@ -950,7 +693,7 @@ class ApplyDocumentContent(ToolBase):
     - **Search** (``target='search'`` only): ``old_content`` must be a **substring** to find —
       a phrase, sentence, or multi-paragraph **block**, not the entire document. To replace
       **all** document content, you **must** use ``target='full_document'`` with ``content`` only;
-      **never** pass the full body as ``old_content``. Search uses ``_find_chained_range`` (LO
+      **never** pass the full body as ``old_content``. Search uses ``search.find_chained_range`` (LO
       regex + paragraph chaining). See ``tests/writer/test_content_search_uno.py``.
     """
 
@@ -1060,7 +803,7 @@ class ApplyDocumentContent(ToolBase):
         s = old_stripped
         if format_support.content_has_markup(s):
             s = format_support.html_to_plain_text(s, ctx.ctx, ctx.services.get("config"))
-        s = _normalize_search_string_for_find(s)
+        s = search_mod.normalize_search_string_for_find(s)
         if not s:
             return self._tool_error("old_content is empty after normalization.")
         use_regex = bool(kwargs.get("regex"))
@@ -1071,11 +814,11 @@ class ApplyDocumentContent(ToolBase):
                 return self._tool_error(search_mod.invalid_regex_tool_message(rex_err), code="INVALID_REGEX", count=0)
         try:
             if use_regex or case_opt is not None:
-                ranges = _find_ranges_regex_case(
+                ranges = search_mod.find_ranges_regex_case(
                     ctx.doc, old_stripped if use_regex else s, use_regex,
                     bool(case_opt) if case_opt is not None else False, all_matches=True)
             else:
-                ranges = _find_all_ranges(ctx.doc, s)
+                ranges = search_mod.find_all_ranges(ctx.doc, s)
         except ValueError as e:
             return self._tool_error(str(e), code="INVALID_REGEX")
         except Exception as e:
@@ -1340,7 +1083,7 @@ class ApplyDocumentContent(ToolBase):
         if format_support.content_has_markup(search_string):
             search_string = format_support.html_to_plain_text(search_string, ctx.ctx, config_svc)
         # Collapse exotic horizontal whitespace; preserve newlines for paragraph-aware search.
-        search_string = _normalize_search_string_for_find(search_string)
+        search_string = search_mod.normalize_search_string_for_find(search_string)
         if not search_string:
             # Parameter error (like old_content=None), not a search no-op: the search never ran,
             # so there's no replaced_count to report — use the standard tool error shape.
@@ -1360,8 +1103,8 @@ class ApplyDocumentContent(ToolBase):
 
         all_matches = kwargs.get("all_matches", False)
         if all_matches:
-            ranges = (_find_ranges_regex_case(doc, _opts_pattern, _regex_opt, _opts_cs, all_matches=True)
-                      if _use_opts else _find_all_ranges(doc, search_string))
+            ranges = (search_mod.find_ranges_regex_case(doc, _opts_pattern, _regex_opt, _opts_cs, all_matches=True)
+                      if _use_opts else search_mod.find_all_ranges(doc, search_string))
             if not ranges:
                 return {"status": "error",
                         "message": "Replaced 0 occurrence(s). No matches found. Try a shorter substring.",
@@ -1411,14 +1154,14 @@ class ApplyDocumentContent(ToolBase):
                 msg += " edited_context shows the first occurrence's neighborhood."
             return _attach_edited_context(
                 {"status": "ok", "message": msg, "replaced_count": count}, anchor), session
-        found = (_find_ranges_regex_case(doc, _opts_pattern, _regex_opt, _opts_cs, all_matches=False)
-                 if _use_opts else _find_first_range(doc, search_string))
+        found = (search_mod.find_ranges_regex_case(doc, _opts_pattern, _regex_opt, _opts_cs, all_matches=False)
+                 if _use_opts else search_mod.find_first_range(doc, search_string))
         if found is None:
             # Search covers body/table cells/text frames but not drawing-layer shapes. If the text
             # lives only inside such a floating box, say so (actionable) instead of a bare not-found
             # -- otherwise the agent retries blindly or assumes failure where a shapes-toolset edit
             # is needed (note 7).
-            shape = _drawing_shape_object_containing(
+            shape = search_mod.drawing_shape_object_containing(
                 doc, _opts_pattern if _regex_opt else search_string,
                 use_regex=_regex_opt, case_sensitive=_opts_cs if _use_opts else False)
             if shape is not None:

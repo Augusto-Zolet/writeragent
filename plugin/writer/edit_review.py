@@ -41,11 +41,10 @@ import time
 import uuid
 from typing import Any, Callable
 
+from plugin.writer import review_scan as _review_scan
+
 log = logging.getLogger(__name__)
 
-# Public: every redline recorded by an EditReviewSession carries a RedlineComment starting
-# with this prefix (full form: "wa-review:<session>:<n>"). The review UIs key off it.
-TOKEN_PREFIX = "wa-review:"
 _BOOKMARK_PREFIX = "wa_review_"
 _PREVIEW_MAX_CHARS = 300
 
@@ -89,103 +88,6 @@ def edit_review_wait_seconds(ctx: Any) -> int:
     if get_agent_edit_review_mode(ctx) != "wait":
         return 0
     return max(0, get_config_int_safe("doc.edit_review_timeout"))
-
-
-class _RedlineScanAbort(Exception):
-    """Stop ``_scan_redlines`` immediately (enumeration can't continue safely)."""
-
-
-def _scan_redlines(doc: Any, on_item: Callable[[Any], bool]) -> tuple[bool, int, int]:
-    """Fail-closed redline enumeration shell shared by ``edit_review`` and ``inline_review``.
-
-    Calls ``on_item(rl)`` for each redline. Return True when the item was classified; False when it
-    could not be (marks the scan unreliable but continues). Raise ``_RedlineScanAbort`` to abort
-    immediately (returns ``reliable=False``).
-
-    Also marks unreliable when ``seen != total`` (defensive invariant -- see ``snapshot_redline_ids``
-    docstring; the mismatch has not been observed in real LibreOffice but fail-closed insurance is
-    cheap).
-
-    Returns ``(reliable, seen, total)``.
-    """
-    try:
-        redlines = doc.getRedlines()
-        total = int(redlines.getCount())
-        enum = redlines.createEnumeration()
-    except Exception:
-        return False, 0, 0
-    if total < 0:
-        return False, 0, total
-    reliable = True
-    seen = 0
-    # Cap iterations at getCount(), not hasMoreElements() alone: auto-mocked UNO enumerations
-    # (pytest MagicMock) return a truthy hasMoreElements forever and would hang otherwise.
-    while seen < total:
-        try:
-            if not enum.hasMoreElements():
-                break
-            rl = enum.nextElement()
-        except Exception:
-            return False, seen, total
-        seen += 1
-        try:
-            if not on_item(rl):
-                reliable = False
-        except _RedlineScanAbort:
-            return False, seen, total
-    if seen != total:
-        reliable = False
-    return reliable, seen, total
-
-
-def snapshot_redline_ids(doc: Any) -> tuple[set, bool]:
-    """``(set of current RedlineIdentifiers, reliable)`` -- snapshot BEFORE an edit so the edit's NEW
-    redlines can be found by difference (ids not in this set).
-
-    ``reliable`` is False when the snapshot is INCOMPLETE: the enumeration can't start/finish, stops
-    short of getCount() (yields fewer items than getCount() reports), or a redline's identifier can't
-    be read. A partial BEFORE snapshot is a data-loss hazard -- a pre-existing USER redline missing
-    from it would look "new" after the edit and be stamped with an agent token, after which
-    Accept/Reject All would resolve the user's own change. So callers MUST refuse to tag on an
-    unreliable snapshot.
-
-    On the count/enumeration mismatch (seen < getCount()): this is a DEFENSIVE INVARIANT, not an
-    observed bug. getRedlines() is one flat table and the mismatch has NOT been seen in real
-    LibreOffice (a native test confirms count == enumeration length, even across body and
-    table-cell containers). It is kept as cheap fail-closed insurance only because IF it ever
-    happened the cost would be the silent loss of a user's own redline. The same neutral
-    "fewer items than getCount() reports" framing is shared via ``_scan_redlines`` below."""
-    ids: set = set()
-
-    def on_item(rl: Any) -> bool:
-        try:
-            ids.add(rl.getPropertyValue("RedlineIdentifier"))
-        except Exception:
-            return False  # can't identify -> can't exclude from "new"
-        return True
-
-    reliable = _scan_redlines(doc, on_item)[0]
-    return ids, reliable
-
-
-def _new_redlines_complete(doc: Any, before_ids: set) -> tuple[list, bool]:
-    """``([redlines whose RedlineIdentifier is NOT in before_ids], reliable)`` -- the redlines an edit
-    just added. ``reliable`` is False when the post-edit scan is INCOMPLETE (enum/count error, a
-    count/enumeration mismatch, or an unreadable identifier), so a caller can refuse to tag a
-    HALF-found change rather than tag only part of a Delete/Insert pair."""
-    out: list = []
-
-    def on_item(rl: Any) -> bool:
-        try:
-            rid = rl.getPropertyValue("RedlineIdentifier")
-        except Exception:
-            return False
-        if rid not in before_ids:
-            out.append(rl)
-        return True
-
-    reliable = _scan_redlines(doc, on_item)[0]
-    return out, reliable
 
 
 def _tag_new_redlines(redlines: list, token: str) -> tuple[bool, int]:
@@ -251,14 +153,14 @@ def tag_agent_redlines(doc: Any, before_ids: set, change_index: int = 0,
         return None
     # Find the new redlines with a COMPLETE post-edit scan; if it's incomplete we can't be sure we
     # found the whole change, so refuse rather than tag a fragment.
-    new_redlines, after_ok = _new_redlines_complete(doc, before_ids)
+    new_redlines, after_ok = _review_scan.new_redlines_since(doc, before_ids)
     if not after_ok:
         log.warning("tag_agent_redlines: post-edit redline scan incomplete; not tagging (avoids a "
                     "half-tagged change)")
         return None
     if not new_redlines:
         return None
-    token = "%s%s:%d" % (TOKEN_PREFIX, uuid.uuid4().hex[:8], change_index)
+    token = _review_scan.make_agent_token(uuid.uuid4().hex[:8], change_index)
     success, orphans = _tag_new_redlines(new_redlines, token)  # all-or-nothing (reverts on failure)
     if not success:
         # Not a success path -- do NOT register. orphans == 0 -> clean revert; orphans > 0 -> the
@@ -361,10 +263,10 @@ class EditReviewSession:
     # -- session token helpers -------------------------------------------------------------
 
     def _token(self, n: int) -> str:
-        return "%s%s:%d" % (TOKEN_PREFIX, self.session_id, n)
+        return _review_scan.make_agent_token(self.session_id, n)
 
     def _session_token_prefix(self) -> str:
-        return "%s%s:" % (TOKEN_PREFIX, self.session_id)
+        return _review_scan.session_token_prefix(self.session_id)
 
     # -- author scoping --------------------------------------------------------------------
     #
@@ -427,7 +329,7 @@ class EditReviewSession:
     def _redline_idents(self) -> tuple[set, bool]:
         """``(current RedlineIdentifiers, reliable)`` -- see ``snapshot_redline_ids``. reliable=False
         means the snapshot is incomplete and must NOT back a new-vs-pre-existing tagging decision."""
-        return snapshot_redline_ids(self.doc)
+        return _review_scan.snapshot_redline_ids(self.doc)
 
     def record_mutation(self, apply_fn: Callable[[], Any],
                         original_preview: str = "", proposed_preview: str = "") -> Any:
@@ -454,7 +356,7 @@ class EditReviewSession:
         # Find the new redlines with a COMPLETE post-edit scan. If incomplete we can't be sure we
         # found the whole change (e.g. only one mark of a Delete/Insert pair), so fail closed: leave
         # the edit untagged rather than register a fragment.
-        new_redlines, after_ok = _new_redlines_complete(self.doc, before)
+        new_redlines, after_ok = _review_scan.new_redlines_since(self.doc, before)
         if not after_ok:
             log.warning("EditReviewSession: post-edit redline scan incomplete; leaving this edit "
                         "untagged to avoid registering a half-tagged change")
@@ -548,7 +450,7 @@ class EditReviewSession:
                 pending.add(comment)
             return True
 
-        reliable = _scan_redlines(self.doc, on_item)[0]
+        reliable = _review_scan.scan_redlines(self.doc, on_item)[0]
         if not reliable:
             log.debug("EditReviewSession: pending check enumeration incomplete", exc_info=False)
         return pending, reliable

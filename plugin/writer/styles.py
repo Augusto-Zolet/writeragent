@@ -339,7 +339,7 @@ class ApplyStyle(FrameworkToolBase):
         all_matches = bool(kwargs.get("all_matches"))
         occ_raw = kwargs.get("occurrence")
         if target == "search" and (all_matches or occ_raw is not None):
-            from plugin.writer.content import _find_all_ranges, _normalize_search_string_for_find
+            from plugin.writer.search import find_all_ranges, normalize_search_string_for_find
             from plugin.writer.format import content_has_markup, html_to_plain_text
 
             s = str(old_content).strip() if old_content is not None else ""
@@ -347,8 +347,8 @@ class ApplyStyle(FrameworkToolBase):
                 return {"status": "error", "message": "target='search' requires old_content.", "applied": False, "matched": False}
             if content_has_markup(s):
                 s = html_to_plain_text(s, ctx.ctx, ctx.services.get("config"))
-            s = _normalize_search_string_for_find(s)
-            ranges = _find_all_ranges(ctx.doc, s) if s else []
+            s = normalize_search_string_for_find(s)
+            ranges = find_all_ranges(ctx.doc, s) if s else []
             if not ranges:
                 return {"status": "error", "message": "old_content not found in document.", "target": "search", "applied": False, "matched": False}
             if occ_raw is not None:

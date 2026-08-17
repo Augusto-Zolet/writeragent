@@ -115,7 +115,7 @@ def test_replace_preserving_format_restores_original_on_insert_failure():
 
     text = _FakeText()
     target = _FakeRange(text)
-    with patch("plugin.writer.format._is_recording_changes", return_value=True), \
+    with patch("plugin.writer.html_import._is_recording_changes", return_value=True), \
          patch("plugin.writer.review_authors.deletion_author", lambda: contextlib.nullcontext()), \
          pytest.raises(RuntimeError, match="insert boom"):
         fmt.replace_preserving_format(object(), target, "NEW TEXT", in_undo_context=True)
@@ -137,7 +137,7 @@ def test_replace_preserving_format_atomic_setstring_when_not_in_undo_context():
 
     text = _FakeText()
     target = _FakeRange(text)
-    with patch("plugin.writer.format._is_recording_changes", return_value=True):
+    with patch("plugin.writer.html_import._is_recording_changes", return_value=True):
         fmt.replace_preserving_format(object(), target, "NEW TEXT")  # in_undo_context defaults to False
 
     assert text.cursor.getString() == "NEW TEXT"  # single atomic replace
@@ -165,7 +165,7 @@ def test_insert_content_at_position_text_selection_clears_range():
     model.getText.return_value.createTextCursor.return_value = MagicMock()
 
     with patch.object(visual_helpers, "is_graphic_object", return_value=False), patch(
-        "plugin.writer.format._insert_mixed_or_plain_html"
+        "plugin.writer.html_import._insert_mixed_or_plain_html"
     ):
         insert_content_at_position(model, MagicMock(), "<p>hi</p>", "selection")
 
@@ -184,7 +184,7 @@ def test_replace_preserving_format_atomic_when_split_author_false_even_in_undo_c
 
     text = _FakeText()
     target = _FakeRange(text)
-    with patch("plugin.writer.format._is_recording_changes", return_value=True):
+    with patch("plugin.writer.html_import._is_recording_changes", return_value=True):
         fmt.replace_preserving_format(object(), target, "NEW TEXT",
                                       in_undo_context=True, split_author=False)
 
@@ -207,7 +207,7 @@ def test_replace_preserving_format_two_step_when_split_author_true_in_undo_conte
 
     text = _OkText()
     target = _FakeRange(text)
-    with patch("plugin.writer.format._is_recording_changes", return_value=True), \
+    with patch("plugin.writer.html_import._is_recording_changes", return_value=True), \
          patch("plugin.writer.review_authors.deletion_author", lambda: contextlib.nullcontext()):
         fmt.replace_preserving_format(object(), target, "NEW TEXT", in_undo_context=True)
 
@@ -239,11 +239,12 @@ def test_document_to_content_full_timing_path_with_mocks():
     from unittest.mock import patch
 
     import plugin.writer.format as fmt
+    import plugin.writer.html_export as html_export
 
     xhtml = '<html><body><p class="paragraph-Text_20_body">hello</p></body></html>'
     with (
-        patch.object(fmt, "_export_xhtml", return_value=xhtml) as export_xhtml,
-        patch.object(fmt, "_autostyle_parents", return_value={}) as autostyle,
+        patch.object(html_export, "_export_xhtml", return_value=xhtml) as export_xhtml,
+        patch.object(html_export, "_autostyle_parents", return_value={}) as autostyle,
         patch.object(fmt.xhtml_post, "xhtml_to_semantic_html", return_value="<p>hello</p>") as post,
     ):
         out = fmt.document_to_content(object(), object(), None, scope="full")

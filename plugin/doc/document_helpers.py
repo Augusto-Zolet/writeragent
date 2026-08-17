@@ -256,7 +256,7 @@ class WriterStreamedRewriteSession:
                     try:
                         from plugin.framework.uno_context import get_ctx
                         from plugin.writer import review_authors
-                        from plugin.writer.edit_review import snapshot_redline_ids
+                        from plugin.writer.review_scan import snapshot_redline_ids
 
                         before_ids, before_ids_ok = snapshot_redline_ids(self.doc)
                         prior_author = review_authors.begin(get_ctx())
@@ -405,7 +405,7 @@ class WriterStreamedAppendSession:
                 try:
                     from plugin.framework.uno_context import get_ctx
                     from plugin.writer import review_authors
-                    from plugin.writer.edit_review import snapshot_redline_ids
+                    from plugin.writer.review_scan import snapshot_redline_ids
 
                     before_ids, before_ids_ok = snapshot_redline_ids(self.doc)
                     prior_author = review_authors.begin(get_ctx())

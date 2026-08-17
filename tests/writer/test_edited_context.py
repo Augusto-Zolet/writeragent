@@ -152,7 +152,7 @@ def test_apply_document_content_edited_context_on_success():
     ctx.doc.getUndoManager.return_value.isLocked.return_value = False
     ctx.services.get.return_value = MagicMock()
     anchor = MagicMock()
-    with patch("plugin.writer.content._find_first_range", return_value=found), \
+    with patch("plugin.writer.search.find_first_range", return_value=found), \
          patch("plugin.writer.content._collapsed_anchor", return_value=anchor), \
          patch("plugin.writer.content._attach_edited_context", side_effect=lambda r, a: {**r, "edited_context": "echo"}), \
          patch.object(format_support, "content_has_markup", return_value=False), \

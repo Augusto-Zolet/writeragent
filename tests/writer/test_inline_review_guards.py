@@ -27,10 +27,9 @@ from plugin.writer.inline_review import (
     _other_agent_redline_in_span,
     _span_contains_point,
     agent_self_resolution_block_reason,
-    redline_is_agent_change,
     resolve_agent_change,
 )
-from plugin.writer.edit_review import TOKEN_PREFIX
+from plugin.writer.review_scan import TOKEN_PREFIX, redline_is_agent_change
 
 
 def _sign(n):

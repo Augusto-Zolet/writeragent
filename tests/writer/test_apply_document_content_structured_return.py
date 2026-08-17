@@ -14,8 +14,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import plugin.writer.content as content_mod
 import plugin.writer.format as format_mod
+import plugin.writer.search as search_mod
 from plugin.writer.content import ApplyDocumentContent
 
 
@@ -34,10 +34,10 @@ def _ctx():
 def _no_libreoffice(monkeypatch):
     # Keep everything in-memory: plain-text content (use_preserve path) and no real replace.
     monkeypatch.setattr(format_mod, "content_has_markup", lambda *a, **k: False)
-    monkeypatch.setattr(content_mod, "_normalize_search_string_for_find", lambda s: s)
+    monkeypatch.setattr(search_mod, "normalize_search_string_for_find", lambda s: s)
     monkeypatch.setattr(format_mod, "replace_preserving_format", lambda *a, **k: None)
     monkeypatch.setattr(format_mod, "replace_single_range_with_content", lambda *a, **k: None)
-    monkeypatch.setattr(content_mod, "_drawing_shape_object_containing", lambda *a, **k: None)
+    monkeypatch.setattr(search_mod, "drawing_shape_object_containing", lambda *a, **k: None)
 
 
 class MockRange:
@@ -46,21 +46,21 @@ class MockRange:
 
 
 def test_search_no_match_returns_error_zero(monkeypatch):
-    monkeypatch.setattr(content_mod, "_find_first_range", lambda doc, s: None)
+    monkeypatch.setattr(search_mod, "find_first_range", lambda doc, s: None)
     res = ApplyDocumentContent().execute(_ctx(), target="search", old_content="zzz", content="BAR")
     assert res["status"] == "error", res
     assert res["replaced_count"] == 0, res
 
 
 def test_search_single_success(monkeypatch):
-    monkeypatch.setattr(content_mod, "_find_first_range", lambda doc, s: MockRange())
+    monkeypatch.setattr(search_mod, "find_first_range", lambda doc, s: MockRange())
     res = ApplyDocumentContent().execute(_ctx(), target="search", old_content="foo", content="BAR")
     assert res["status"] == "ok", res
     assert res["replaced_count"] == 1, res
 
 
 def test_search_all_matches_reports_count(monkeypatch):
-    monkeypatch.setattr(content_mod, "_find_all_ranges", lambda doc, s: [MockRange(), MockRange(), MockRange()])
+    monkeypatch.setattr(search_mod, "find_all_ranges", lambda doc, s: [MockRange(), MockRange(), MockRange()])
     res = ApplyDocumentContent().execute(
         _ctx(), target="search", old_content="foo", content="BAR", all_matches=True)
     assert res["status"] == "ok", res
@@ -68,7 +68,7 @@ def test_search_all_matches_reports_count(monkeypatch):
 
 
 def test_search_all_matches_no_match_errors(monkeypatch):
-    monkeypatch.setattr(content_mod, "_find_all_ranges", lambda doc, s: [])
+    monkeypatch.setattr(search_mod, "find_all_ranges", lambda doc, s: [])
     res = ApplyDocumentContent().execute(
         _ctx(), target="search", old_content="zzz", content="BAR", all_matches=True)
     assert res["status"] == "error", res

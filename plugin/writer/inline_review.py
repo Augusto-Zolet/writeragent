@@ -27,6 +27,8 @@ from __future__ import annotations
 import logging
 from typing import Any, NamedTuple
 
+from plugin.writer import review_scan as _review_scan
+
 log = logging.getLogger(__name__)
 
 
@@ -122,7 +124,7 @@ def show_review_message(ctx: Any, message: str) -> None:
 # --- agent-change helpers (used by the click popup and the context menu) -------------------
 #
 # Every redline an EditReviewSession records carries a RedlineComment "wa-review:<session>:<n>"
-# (see edit_review.TOKEN_PREFIX); one token = one logical change (a replace's Delete+Insert
+# (see review_scan.TOKEN_PREFIX); one token = one logical change (a replace's Delete+Insert)
 # pair shares it). These helpers see the document purely through those tokens, so the user's
 # own tracked changes are never listed or resolved.
 
@@ -135,8 +137,6 @@ def _agent_redlines(model: Any) -> list:
     short list, but it must NOT back a success/safety decision. The data-safety paths use the
     reliability-aware ``_agent_change_tokens`` (post-resolve verification) and
     ``_all_redlines_are_agent`` (global-dispatch guard), which fail CLOSED on an incomplete scan."""
-    from plugin.writer.edit_review import TOKEN_PREFIX, _scan_redlines
-
     out: list = []
 
     def on_item(rl: Any) -> bool:
@@ -144,11 +144,11 @@ def _agent_redlines(model: Any) -> list:
             comment = str(rl.getPropertyValue("RedlineComment"))
         except Exception:
             return True  # unreadable -> skip (best-effort display scan)
-        if comment.startswith(TOKEN_PREFIX):
+        if _review_scan.is_agent_token(comment):
             out.append((comment, rl))
         return True
 
-    _scan_redlines(model, on_item)  # reliable flag ignored -- display-only helper
+    _review_scan.scan_redlines(model, on_item)  # reliable flag ignored -- display-only helper
     return out
 
 
@@ -160,8 +160,6 @@ def _agent_and_foreign_redline_snapshot(model: Any) -> _RedlineSnapshot:
 
     This replaces what used to be multiple separate full-table enumerations.
     """
-    from plugin.writer.edit_review import TOKEN_PREFIX, _scan_redlines
-
     agents: set = set()
     foreign: set = set()
     t_rel = True
@@ -171,7 +169,7 @@ def _agent_and_foreign_redline_snapshot(model: Any) -> _RedlineSnapshot:
         nonlocal t_rel, f_rel
         try:
             comment = str(rl.getPropertyValue("RedlineComment"))
-            is_agent = comment.startswith(TOKEN_PREFIX)
+            is_agent = _review_scan.is_agent_token(comment)
         except Exception:
             # Unreadable comment on *any* redline makes both views incomplete.
             t_rel = f_rel = False
@@ -187,7 +185,7 @@ def _agent_and_foreign_redline_snapshot(model: Any) -> _RedlineSnapshot:
             return False
         return True
 
-    scan_rel = _scan_redlines(model, on_item)[0]
+    scan_rel = _review_scan.scan_redlines(model, on_item)[0]
     return _RedlineSnapshot(
         agents, foreign, (t_rel and scan_rel), (f_rel and scan_rel)
     )
@@ -270,20 +268,6 @@ _BULK_AGENT_PRESENT_MSG = (
 )
 
 
-def redline_is_agent_change(redline: Any) -> tuple[bool, bool]:
-    """``(is a wa-review agent change, comment_readable)`` for ONE redline.
-
-    Used by the single-index accept/reject tools. A redline whose RedlineComment can't be read
-    returns ``(False, False)`` so the caller fails CLOSED (refuse rather than risk resolving an
-    agent change we couldn't classify)."""
-    from plugin.writer.edit_review import TOKEN_PREFIX
-    try:
-        comment = str(redline.getPropertyValue("RedlineComment"))
-    except Exception:
-        return False, False
-    return comment.startswith(TOKEN_PREFIX), True
-
-
 def agent_self_resolution_block_reason(model: Any) -> str | None:
     """Refusal message if a BULK accept/reject must NOT run, else ``None``.
 
@@ -360,28 +344,26 @@ def _change_bounds(model: Any, token: str):
     conflict the document is left partially resolved. So any enumeration/count error, count/enumeration
     mismatch (enumeration yields fewer items than getCount() reports), unreadable comment, or a target
     mark with unreadable / None bounds -> (None, None)."""
-    from plugin.writer.edit_review import _RedlineScanAbort, _scan_redlines
-
     ranges: list = []
 
     def on_item(rl: Any) -> bool:
         try:
             comment = str(rl.getPropertyValue("RedlineComment"))
         except Exception:
-            raise _RedlineScanAbort()
+            raise _review_scan.RedlineScanAbort()
         if comment != token:
             return True
         try:
             s = rl.getPropertyValue("RedlineStart")
             e = rl.getPropertyValue("RedlineEnd")
         except Exception:
-            raise _RedlineScanAbort()
+            raise _review_scan.RedlineScanAbort()
         if s is None or e is None:
-            raise _RedlineScanAbort()
+            raise _review_scan.RedlineScanAbort()
         ranges.append((s, e))
         return True
 
-    reliable = _scan_redlines(model, on_item)[0]
+    reliable = _review_scan.scan_redlines(model, on_item)[0]
     if not reliable or not ranges:
         return None, None
     try:
@@ -572,8 +554,7 @@ def _span_has_redline(model: Any, text: Any, span: Any, consider) -> bool:
     The scan is also cross-checked against the collection's ``getCount()``: a count/enumeration
     mismatch (the enumeration yielding fewer items than getCount() reports) could hide an overlapping
     user/sibling redline in the unscanned tail, so a short scan returns True (unsafe) instead of a
-    false "no overlap". Same ``seen != total`` invariant as ``edit_review._scan_redlines``."""
-    from plugin.writer.edit_review import _RedlineScanAbort, _scan_redlines
+    false "no overlap". Same ``seen != total`` invariant as ``review_scan.scan_redlines``."""
 
     # We drive the *central* enumerator so the boilerplate (getCount, cap at total, hasMore/next
     # handling, seen!=total, Abort) is not duplicated. Because the moment we discover a protector
@@ -597,12 +578,12 @@ def _span_has_redline(model: Any, text: Any, span: Any, consider) -> bool:
             # Can't read this protected redline's bounds -> can't prove it is outside span.
             log.debug("inline_review: protected redline bounds unreadable; treating as unsafe", exc_info=True)
             unsafe[0] = True
-            raise _RedlineScanAbort()
+            raise _review_scan.RedlineScanAbort()
         if s is None or e is None:
             # Protected redline whose bounds are unreadable -> cannot prove it is outside span.
             log.debug("inline_review: protected redline has no start/end; treating as unsafe")
             unsafe[0] = True
-            raise _RedlineScanAbort()
+            raise _review_scan.RedlineScanAbort()
 
         # Map the redline into THIS text. A redline anchored in a DIFFERENT text object (text
         # frame/box, header, footer, footnote) than ``text`` is not addressable here --
@@ -623,7 +604,7 @@ def _span_has_redline(model: Any, text: Any, span: Any, consider) -> bool:
                 return True  # different text object -> cannot overlap this span -> keep scanning
             log.debug("inline_review: redline overlap check failed; treating as unsafe", exc_info=True)
             unsafe[0] = True
-            raise _RedlineScanAbort()
+            raise _review_scan.RedlineScanAbort()
 
         try:
             overlaps = (_span_contains_point(text, span, rl_span.getStart())
@@ -632,14 +613,14 @@ def _span_has_redline(model: Any, text: Any, span: Any, consider) -> bool:
         except Exception:
             log.debug("inline_review: redline overlap check failed; treating as unsafe", exc_info=True)
             unsafe[0] = True
-            raise _RedlineScanAbort()
+            raise _review_scan.RedlineScanAbort()
 
         if overlaps:
             unsafe[0] = True
-            raise _RedlineScanAbort()
+            raise _review_scan.RedlineScanAbort()
         return True
 
-    reliable = _scan_redlines(model, on_item)[0]
+    reliable = _review_scan.scan_redlines(model, on_item)[0]
     # If we aborted because we found a protector, unsafe[0] is set (treat as unsafe even though
     # reliable came back False). Any other unreliable scan (enum error, truncation) also unsafe.
     if unsafe[0]:
@@ -654,20 +635,18 @@ def _foreign_redline_in_span(model: Any, text: Any, span: Any) -> bool:
     """True if any redline NOT tagged by an EditReviewSession (i.e. one of the USER's own) overlaps
     ``span``, or if that can't be ruled out. An accept/reject dispatch over ``span`` resolves every
     redline it covers, so it must never touch the user's own change. Fails closed (see _span_has_redline)."""
-    from plugin.writer.edit_review import TOKEN_PREFIX
     # Protect every redline not confirmed to be one of ours (unreadable comment -> protect).
     return _span_has_redline(model, text, span,
-                             lambda c: c is None or not c.startswith(TOKEN_PREFIX))
+                             lambda c: c is None or not _review_scan.is_agent_token(c))
 
 
 def _other_agent_redline_in_span(model: Any, text: Any, span: Any, token: str) -> bool:
     """True if a DIFFERENT agent change token (not ``token``) overlaps ``span``, or if that can't be
     ruled out. The inline "this change" command is only truthful when the dispatch resolves exactly
     one logical change; a sibling sharing the span would be resolved too. Fails closed."""
-    from plugin.writer.edit_review import TOKEN_PREFIX
     # Protect every redline that is (or might be) one of ours but a DIFFERENT token.
     return _span_has_redline(model, text, span,
-                             lambda c: c is None or (c.startswith(TOKEN_PREFIX) and c != token))
+                             lambda c: c is None or (_review_scan.is_agent_token(c) and c != token))
 
 
 def _dispatch_resolve(ctx: Any, controller: Any, accept: bool) -> None:

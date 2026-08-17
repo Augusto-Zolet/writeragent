@@ -309,7 +309,7 @@ class ManageTrackedChanges(WriterAgentSpecialTracking, ToolCalcSpecialTracking):
             # Guard: refuse to resolve the agent's OWN edit (a wa-review change). Those are recorded
             # for the human to accept/reject in the review UI; the agent must not do it itself.
             # Fail closed when the change's metadata can't be read.
-            from plugin.writer.inline_review import redline_is_agent_change
+            from plugin.writer.review_scan import redline_is_agent_change
             is_agent, readable = redline_is_agent_change(target_redline)
             if not readable:
                 return self._tool_error(

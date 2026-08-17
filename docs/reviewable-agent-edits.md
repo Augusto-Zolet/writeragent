@@ -42,7 +42,7 @@ chat worker or MCP HTTP thread). The main thread never block-waits so the user c
 
 ## How a change is tracked
 
-`plugin/writer/edit_review.py` owns the whole story via `EditReviewSession`:
+`plugin/writer/review_scan.py` owns fail-closed `getRedlines()` enumeration and `wa-review:` token helpers. `plugin/writer/edit_review.py` owns the session via `EditReviewSession`:
 
 * `record_mutation()` snapshots the document's redline identifiers, runs the edit, and tags every
   **new** redline's `RedlineComment` with a per-change token `wa-review:<session>:<n>`.

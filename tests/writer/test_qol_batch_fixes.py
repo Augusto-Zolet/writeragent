@@ -122,7 +122,7 @@ def test_position_after_inserts_at_match_edge_without_replacing():
     ctx = MagicMock()
     ctx.doc.getUndoManager.return_value.isLocked.return_value = False
 
-    with patch("plugin.writer.content._find_first_range", return_value=found), \
+    with patch("plugin.writer.search.find_first_range", return_value=found), \
          patch("plugin.writer.content._collapsed_anchor", return_value=None), \
          patch.object(format_support, "html_fragment_contains_mixed_math", return_value=False), \
          patch.object(format_support, "insert_html_at_cursor") as ins:
@@ -148,7 +148,7 @@ def test_position_before_inserts_at_match_start():
     found.getText.return_value.createTextCursorByRange.return_value.getPropertyValue.return_value = None
     ctx = MagicMock()
     ctx.doc.getUndoManager.return_value.isLocked.return_value = False
-    with patch("plugin.writer.content._find_first_range", return_value=found), \
+    with patch("plugin.writer.search.find_first_range", return_value=found), \
          patch("plugin.writer.content._collapsed_anchor", return_value=None), \
          patch.object(format_support, "html_fragment_contains_mixed_math", return_value=False), \
          patch.object(format_support, "insert_html_at_cursor") as ins:
@@ -169,7 +169,7 @@ def test_position_after_rejects_math_and_table_cells():
     ctx.doc.getUndoManager.return_value.isLocked.return_value = False
 
     found = MagicMock()
-    with patch("plugin.writer.content._find_first_range", return_value=found), \
+    with patch("plugin.writer.search.find_first_range", return_value=found), \
          patch.object(format_support, "html_fragment_contains_mixed_math", return_value=True):
         res = ApplyDocumentContent().execute(
             ctx, content=["<p>\\(x^2\\)</p>"], target="search", old_content="c", position="after")
@@ -178,7 +178,7 @@ def test_position_after_rejects_math_and_table_cells():
     cell_cursor = MagicMock()
     cell_cursor.getPropertyValue.return_value = MagicMock()  # TextTable set -> inside a cell
     found.getText.return_value.createTextCursorByRange.return_value = cell_cursor
-    with patch("plugin.writer.content._find_first_range", return_value=found), \
+    with patch("plugin.writer.search.find_first_range", return_value=found), \
          patch.object(format_support, "html_fragment_contains_mixed_math", return_value=False):
         res = ApplyDocumentContent().execute(
             ctx, content=["<p>x</p>"], target="search", old_content="c", position="after")

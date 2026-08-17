@@ -10,7 +10,7 @@
 import uno  # noqa: F401
 
 from plugin.testing_runner import native_test
-from plugin.writer.content import _find_first_range, _find_all_ranges
+from plugin.writer.search import find_first_range, find_all_ranges
 from plugin.tests.testing_utils import with_native_doc
 
 
@@ -23,7 +23,7 @@ def test_search_multi_paragraph_body_uno(ctx, doc):
 
     text.insertString(cursor, "First paragraph of the test.\nSecond paragraph of the test.", False)
 
-    found = _find_first_range(doc, "First paragraph of the test.\nSecond paragraph of the test.")
+    found = find_first_range(doc, "First paragraph of the test.\nSecond paragraph of the test.")
     assert found is not None
     assert "First paragraph" in found.getString()
     assert "Second paragraph" in found.getString()
@@ -41,7 +41,7 @@ def test_search_exotic_space_in_cell_uno(ctx, doc):
     cell = tbl.getCellByName("A1")
     cell.setString("Hello\u00a0World")
 
-    found = _find_first_range(doc, "Hello World")
+    found = find_first_range(doc, "Hello World")
     assert found is not None
     assert found.getString() == "Hello\u00a0World"
 
@@ -58,7 +58,7 @@ def test_search_multi_paragraph_in_frame_uno(ctx, doc):
     fc = frame_text.createTextCursor()
     frame_text.insertString(fc, "Inside Frame Para 1.\nInside Frame Para 2.", False)
 
-    found = _find_first_range(doc, "Inside Frame Para 1.\nInside Frame Para 2.")
+    found = find_first_range(doc, "Inside Frame Para 1.\nInside Frame Para 2.")
     assert found is not None
     assert "Para 1" in found.getString()
     assert "Para 2" in found.getString()
@@ -76,7 +76,7 @@ def test_search_real_paragraph_break_body_uno(ctx, doc):
     text.insertControlCharacter(cursor, 0, False)  # PARAGRAPH_BREAK
     text.insertString(cursor, "Second Paragraph (Real).", False)
 
-    found = _find_first_range(doc, "First Paragraph (Real).\nSecond Paragraph (Real).")
+    found = find_first_range(doc, "First Paragraph (Real).\nSecond Paragraph (Real).")
     assert found is not None
     assert "First Paragraph (Real)" in found.getString()
     assert "Second Paragraph (Real)" in found.getString()
@@ -91,7 +91,7 @@ def test_search_newline_collapsed_artifact_uno(ctx, doc):
     cursor.gotoEnd(False)
     text.insertString(cursor, "foo bar", False)
 
-    found = _find_first_range(doc, "foo\nbar")
+    found = find_first_range(doc, "foo\nbar")
     assert found is not None
     assert found.getString() == "foo bar"
 
@@ -106,7 +106,7 @@ def test_search_case_insensitive_uno(ctx, doc):
     needle = "UNIQUE_CI_HELLO world"
     text.insertString(cursor, needle, False)
 
-    found = _find_first_range(doc, "unique_ci_hello world")
+    found = find_first_range(doc, "unique_ci_hello world")
     assert found is not None, "case-insensitive search should find mixed-case text"
     assert found.getString().lower() == needle.lower(), (
         "expected %r, got %r" % (needle, found.getString())
@@ -127,7 +127,7 @@ def test_search_middle_anchor_chaining_uno(ctx, doc):
     text.insertControlCharacter(cursor, 0, False)  # PARAGRAPH_BREAK
     text.insertString(cursor, "Omega line.", False)
 
-    found = _find_first_range(doc, "Alpha line.\nMiddle anchor text.\nOmega line.")
+    found = find_first_range(doc, "Alpha line.\nMiddle anchor text.\nOmega line.")
     assert found is not None
     assert "Alpha line" in found.getString()
     assert "Middle anchor" in found.getString()
@@ -143,7 +143,7 @@ def test_search_all_matches_uno(ctx, doc):
     cursor.gotoEnd(False)
     text.insertString(cursor, "needle here. Another needle there.", False)
 
-    ranges = _find_all_ranges(doc, "needle")
+    ranges = find_all_ranges(doc, "needle")
     assert len(ranges) == 2
     texts = [r.getString() for r in ranges]
     assert texts == ["needle", "needle"]
@@ -163,7 +163,7 @@ def test_search_all_matches_multi_paragraph_chaining_uno(ctx, doc):
         text.insertString(cursor, "Block end.", False)
         text.insertControlCharacter(cursor, 0, False)  # PARAGRAPH_BREAK
 
-    ranges = _find_all_ranges(doc, "Block start.\nBlock end.")
+    ranges = find_all_ranges(doc, "Block start.\nBlock end.")
     assert len(ranges) == 2
     for r in ranges:
         assert "Block start" in r.getString()

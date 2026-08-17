@@ -23,16 +23,15 @@ def _edit_ctx():
 # ---- D1: dry_run ------------------------------------------------------------
 
 def test_dry_run_reports_matches_without_mutating():
-    from plugin.writer import content as content_mod
     from plugin.writer.content import ApplyDocumentContent
 
     r1, r2 = MagicMock(), MagicMock()
     r1.getString.return_value = "clause 3.2 text"
     r2.getString.return_value = "clause 3.2 again"
     ctx = _edit_ctx()
-    with patch.object(content_mod, "_find_all_ranges", return_value=[r1, r2]), \
+    with patch("plugin.writer.search.find_all_ranges", return_value=[r1, r2]), \
          patch("plugin.writer.search.describe_match_location", return_value="body"), \
-         patch.object(content_mod, "_normalize_search_string_for_find", side_effect=lambda s: s), \
+         patch("plugin.writer.search.normalize_search_string_for_find", side_effect=lambda s: s), \
          patch("plugin.writer.format.content_has_markup", return_value=False):
         res = ApplyDocumentContent().execute(ctx, content=["x"], target="search", old_content="clause 3.2", dry_run=True)
     assert res["status"] == "ok" and res["dry_run"] is True and res["count"] == 2
@@ -49,15 +48,14 @@ def test_dry_run_requires_search_target():
 
 def test_dry_run_honors_regex_via_the_same_matcher_as_the_edit():
     """A preview that uses a different matcher than the commit is worse than none: with
-    regex=true, dry_run must route through _find_ranges_regex_case with the RAW pattern."""
-    from plugin.writer import content as content_mod
+    regex=true, dry_run must route through find_ranges_regex_case with the RAW pattern."""
     from plugin.writer.content import ApplyDocumentContent
 
     r = MagicMock()
     r.getString.return_value = "bravo charlie"
     ctx = _edit_ctx()
-    with patch.object(content_mod, "_find_ranges_regex_case", return_value=[r]) as frc, \
-         patch.object(content_mod, "_find_all_ranges") as far, \
+    with patch("plugin.writer.search.find_ranges_regex_case", return_value=[r]) as frc, \
+         patch("plugin.writer.search.find_all_ranges") as far, \
          patch("plugin.writer.search.describe_match_location", return_value="body"), \
          patch("plugin.writer.format.content_has_markup", return_value=False):
         res = ApplyDocumentContent().execute(
@@ -139,8 +137,8 @@ def test_apply_style_all_matches_applies_to_each():
     from plugin.writer.styles import ApplyStyle
 
     ranges = [MagicMock(), MagicMock(), MagicMock()]
-    with patch("plugin.writer.content._find_all_ranges", return_value=ranges), \
-         patch("plugin.writer.content._normalize_search_string_for_find", side_effect=lambda s: s), \
+    with patch("plugin.writer.search.find_all_ranges", return_value=ranges), \
+         patch("plugin.writer.search.normalize_search_string_for_find", side_effect=lambda s: s), \
          patch("plugin.writer.format.content_has_markup", return_value=False), \
          patch("plugin.writer.styles.apply_paragraph_style_preserving_direct_char") as ap, \
          patch("plugin.writer.edit_review.review_recording_enabled", return_value=False):
@@ -153,8 +151,8 @@ def test_apply_style_all_matches_applies_to_each():
 def test_apply_style_occurrence_out_of_range():
     from plugin.writer.styles import ApplyStyle
 
-    with patch("plugin.writer.content._find_all_ranges", return_value=[MagicMock()]), \
-         patch("plugin.writer.content._normalize_search_string_for_find", side_effect=lambda s: s), \
+    with patch("plugin.writer.search.find_all_ranges", return_value=[MagicMock()]), \
+         patch("plugin.writer.search.normalize_search_string_for_find", side_effect=lambda s: s), \
          patch("plugin.writer.format.content_has_markup", return_value=False):
         res = ApplyStyle().execute(_style_ctx(), style="Heading 1", target="search",
                                    old_content="Title", occurrence=5)
@@ -210,24 +208,24 @@ def test_page_break_anchor_not_found():
 # ---- D6: regex / case in the edit path --------------------------------------
 
 def test_find_ranges_regex_case_builds_descriptor():
-    from plugin.writer.content import _find_ranges_regex_case
+    from plugin.writer.search import find_ranges_regex_case
 
     doc = MagicMock()
     sd = MagicMock()
     doc.createSearchDescriptor.return_value = sd
     doc.findFirst.return_value = None
-    _find_ranges_regex_case(doc, r"cl\w+", True, False, all_matches=False)
+    find_ranges_regex_case(doc, r"cl\w+", True, False, all_matches=False)
     assert sd.SearchString == r"cl\w+"
     assert sd.SearchRegularExpression is True and sd.SearchCaseSensitive is False
 
 
 def test_find_ranges_regex_case_all_matches_walks_next():
-    from plugin.writer.content import _find_ranges_regex_case
+    from plugin.writer.search import find_ranges_regex_case
 
     doc = MagicMock()
     doc.createSearchDescriptor.return_value = MagicMock()
     a, b = MagicMock(), MagicMock()
     doc.findFirst.return_value = a
     doc.findNext.side_effect = [b, None]
-    out = _find_ranges_regex_case(doc, "x", False, True, all_matches=True)
+    out = find_ranges_regex_case(doc, "x", False, True, all_matches=True)
     assert out == [a, b]

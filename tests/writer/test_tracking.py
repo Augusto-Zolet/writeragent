@@ -328,7 +328,7 @@ def test_comment_delete():
 
 # --- Agent-self-resolution guard (B3): the agent must never accept/reject its OWN edits --------
 
-from plugin.writer.edit_review import TOKEN_PREFIX
+from plugin.writer.review_scan import TOKEN_PREFIX
 
 _AGENT_COMMENT = TOKEN_PREFIX + "sess123:0"
 

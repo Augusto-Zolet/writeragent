@@ -20,7 +20,7 @@ import logging
 import re as re_mod
 from typing import Any, Literal, overload
 
-from plugin.doc.text_helpers import get_string_without_tracked_deletions
+from plugin.doc.text_helpers import get_string_without_tracked_deletions, normalize_linebreaks
 from plugin.framework.tool import ToolBase, ToolBaseDummy
 from . import format as format_support
 
@@ -29,13 +29,30 @@ log = logging.getLogger("writeragent.writer")
 
 _MAX_SEARCH_REPLACEMENTS = 200
 
-# Horizontal-space class aligned with content.py exotic-space map.
+# Non-breaking / exotic spaces -> ASCII space. Length-preserving (each maps to a
+# single BMP char) so character offsets into the document text stay valid. NBSP
+# (U+00A0) in particular is a common artifact of prior edits and breaks literal
+# search when old_content uses a normal space.
 _SPACE_CODEPOINTS = (
-    0x00A0, 0x202F, 0x2007, 0x2009, 0x2000, 0x2001, 0x2002, 0x2003, 0x2004,
-    0x2005, 0x2006, 0x2008, 0x200A, 0x205F, 0x3000,
+    0x00A0,  # NO-BREAK SPACE
+    0x202F,  # NARROW NO-BREAK SPACE
+    0x2007,  # FIGURE SPACE
+    0x2009,  # THIN SPACE
+    0x2000,  # EN QUAD
+    0x2001,  # EM QUAD
+    0x2002,  # EN SPACE
+    0x2003,  # EM SPACE
+    0x2004,  # THREE-PER-EM SPACE
+    0x2005,  # FOUR-PER-EM SPACE
+    0x2006,  # SIX-PER-EM SPACE
+    0x2008,  # PUNCTUATION SPACE
+    0x200A,  # HAIR SPACE
+    0x205F,  # MEDIUM MATHEMATICAL SPACE
+    0x3000,  # IDEOGRAPHIC SPACE
 )
-_HORIZONTAL_SPACE_CLASS = r"[ \t" + "".join("\\u%04x" % cp for cp in _SPACE_CODEPOINTS) + "]"
-_HORIZONTAL_SPACE_RE = _HORIZONTAL_SPACE_CLASS + "+"
+SPACE_NORMALIZE_MAP = {cp: " " for cp in _SPACE_CODEPOINTS}
+HORIZONTAL_SPACE_CLASS = r"[ \t" + "".join("\\u%04x" % cp for cp in _SPACE_CODEPOINTS) + "]"
+_HORIZONTAL_SPACE_RE = HORIZONTAL_SPACE_CLASS + "+"
 
 
 def find_next_after_match(doc, found, sd):
@@ -63,6 +80,202 @@ def invalid_regex_tool_message(rex_msg):
 def normalize_search_string_for_find(s):
     """Collapse horizontal whitespace (incl. NBSP); preserve newlines for literal find."""
     return re_mod.sub(_HORIZONTAL_SPACE_RE, " ", s).strip()
+
+
+def _search_try_strings(search_string):
+    """Literal search string, then newline-collapsed variant (HTML wrap artifact)."""
+    s = search_string or ""
+    collapsed = re_mod.sub(r" +", " ", s.replace("\n", " ")).strip()
+    for candidate in (s, collapsed):
+        if candidate:
+            yield candidate
+
+
+def escape_for_lo_regex(s):
+    """Escape regular expression characters and match any horizontal space sequence."""
+    s = (s or "").translate(SPACE_NORMALIZE_MAP)
+    escaped = re_mod.sub(r'([\\^$.|?*+()\[\]{}])', r'\\\1', s)
+    return re_mod.sub(r' +', lambda m: HORIZONTAL_SPACE_CLASS + '+', escaped)
+
+
+def _compare_normalize(s):
+    return normalize_linebreaks(s).translate(SPACE_NORMALIZE_MAP).strip().lower()
+
+
+def _paragraph_matches_part(para_text, part, *, head=False, tail=False):
+    """Compare a paragraph to a search part; return (ok, offset_len).
+
+    *head*: part must match the start of the paragraph; offset_len is goRight length.
+    *tail*: part must match the end; offset_len is goRight start offset from para start.
+    Neither flag: full paragraph must equal part (after normalize).
+    """
+    expected_norm = _compare_normalize(part)
+    actual_norm = _compare_normalize(para_text)
+    if head:
+        if not actual_norm.startswith(expected_norm):
+            return False, None
+        skipped_leading = len(para_text) - len(para_text.lstrip())
+        return True, skipped_leading + len(part.strip())
+    if tail:
+        if not actual_norm.endswith(expected_norm):
+            return False, None
+        trimmed_trailing = para_text.rstrip()
+        return True, max(0, len(trimmed_trailing) - len(part.strip()))
+    return actual_norm == expected_norm, None
+
+
+def find_lo_regex_ranges(doc, candidate, all_matches=False):
+    """LO regex findFirst/findNext for one candidate string."""
+    sd = doc.createSearchDescriptor()
+    sd.SearchRegularExpression = True
+    sd.SearchString = escape_for_lo_regex(candidate)
+
+    if not all_matches:
+        for case_sens in (True, False):
+            sd.SearchCaseSensitive = case_sens
+            found = doc.findFirst(sd)
+            if found is not None:
+                return found
+        return None
+
+    ranges = []
+    for case_sens in (True, False):
+        sd.SearchCaseSensitive = case_sens
+        found = doc.findFirst(sd)
+        while found is not None:
+            if len(ranges) >= _MAX_SEARCH_REPLACEMENTS:
+                return ranges
+            ranges.append(found)
+            found = find_next_after_match(doc, found, sd)
+        if ranges:
+            return ranges
+    return ranges
+
+
+def find_chained_range(doc, search_string, all_matches=False):
+    """Find search_string via LO regex (literal + newline-collapsed retry) then paragraph chaining.
+
+    doc.findFirst covers body, table cells, and text frames. Chaining handles real paragraph
+    breaks that LO regex cannot cross.
+
+    Not for whole-document replace: use apply_document_content(target='full_document') instead
+    of passing the entire body as old_content.
+    """
+    if not search_string:
+        return [] if all_matches else None
+
+    for candidate in _search_try_strings(search_string):
+        result = find_lo_regex_ranges(doc, candidate, all_matches=all_matches)
+        if all_matches:
+            if result:
+                return result
+        elif result is not None:
+            return result
+
+    parts = search_string.split('\n')
+    if len(parts) <= 1:
+        return [] if all_matches else None
+
+    anchor_idx = -1
+    for idx, part in enumerate(parts):
+        if part.strip():
+            anchor_idx = idx
+            break
+    if anchor_idx == -1:
+        return [] if all_matches else None
+
+    sd = doc.createSearchDescriptor()
+    sd.SearchRegularExpression = True
+    sd.SearchString = escape_for_lo_regex(parts[anchor_idx])
+
+    matched_ranges = []
+
+    for case_sens in (True, False):
+        sd.SearchCaseSensitive = case_sens
+        found = doc.findFirst(sd)
+        while found is not None:
+            text = found.getText()
+            chain_ok = True
+
+            forward_cursor = text.createTextCursorByRange(found)
+            forward_cursor.gotoRange(found.getEnd(), False)
+            last_end_cursor = None
+
+            for i in range(anchor_idx + 1, len(parts)):
+                if not forward_cursor.gotoNextParagraph(False):
+                    chain_ok = False
+                    break
+
+                check_cursor = text.createTextCursorByRange(forward_cursor)
+                check_cursor.gotoEndOfParagraph(True)
+                para_text = get_string_without_tracked_deletions(check_cursor)
+
+                is_last = i == len(parts) - 1
+                ok, offset_len = _paragraph_matches_part(para_text, parts[i], head=is_last)
+                if not ok:
+                    chain_ok = False
+                    break
+                if is_last:
+                    last_end_cursor = text.createTextCursorByRange(forward_cursor)
+                    last_end_cursor.goRight(offset_len, False)
+
+            if not chain_ok:
+                found = find_next_after_match(doc, found, sd)
+                continue
+
+            backward_cursor = text.createTextCursorByRange(found)
+            backward_cursor.gotoRange(found.getStart(), False)
+            first_start_cursor = None
+
+            for i in range(anchor_idx - 1, -1, -1):
+                if not backward_cursor.gotoPreviousParagraph(False):
+                    chain_ok = False
+                    break
+
+                check_cursor = text.createTextCursorByRange(backward_cursor)
+                check_cursor.gotoEndOfParagraph(True)
+                para_text = get_string_without_tracked_deletions(check_cursor)
+
+                is_first = i == 0
+                ok, offset_len = _paragraph_matches_part(para_text, parts[i], tail=is_first)
+                if not ok:
+                    chain_ok = False
+                    break
+                if is_first:
+                    first_start_cursor = text.createTextCursorByRange(backward_cursor)
+                    first_start_cursor.goRight(offset_len, False)
+
+            if chain_ok:
+                start_range = first_start_cursor.getStart() if first_start_cursor else found.getStart()
+                end_range = last_end_cursor.getStart() if last_end_cursor else found.getEnd()
+
+                try:
+                    result_range = text.createTextCursorByRange(start_range)
+                    result_range.gotoRange(end_range, True)
+                    if not all_matches:
+                        return result_range
+                    matched_ranges.append(result_range)
+                    if len(matched_ranges) >= _MAX_SEARCH_REPLACEMENTS:
+                        return matched_ranges
+                except Exception:
+                    log.debug("Failed creating combined XTextRange", exc_info=True)
+
+            found = find_next_after_match(doc, found, sd)
+
+        if matched_ranges:
+            return matched_ranges
+
+    return matched_ranges if all_matches else None
+
+
+def find_first_range(doc, search_string):
+    """First match: LO native search with chaining fallback."""
+    return find_chained_range(doc, search_string, all_matches=False)
+
+
+def find_all_ranges(doc, search_string):
+    """All occurrences as TextRanges in document order (NBSP-aware native search with chaining)."""
+    return find_chained_range(doc, search_string, all_matches=True)
 
 
 def _safe_name(obj):

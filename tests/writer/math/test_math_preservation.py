@@ -30,8 +30,8 @@ class TestWriterMathPreservation(unittest.TestCase):
         # r"\nabla" has 1 backslash, r"\n" has 1 backslash.
         test_content = r"<p>Equation: \[\nabla \cdot \mathbf{E}\]</p> and a newline: \nHello."
         
-        with patch('plugin.writer.format._insert_starwriter_html_at_cursor') as mock_insert_html:
-            with patch('plugin.writer.format.convert_latex_to_starmath') as mock_convert_tex:
+        with patch('plugin.writer.html_import._insert_starwriter_html_at_cursor') as mock_insert_html:
+            with patch('plugin.writer.html_import.convert_latex_to_starmath') as mock_convert_tex:
                 mock_convert_tex.return_value = MagicMock(ok=True, starmath="mocked")
                 
                 _insert_mixed_html_and_math_at_cursor(model, ctx, cursor, test_content)
@@ -54,7 +54,7 @@ class TestWriterMathPreservation(unittest.TestCase):
         
         test_content = "Line 1\\nLine 2"
         
-        with patch('plugin.writer.format._insert_starwriter_html_at_cursor') as mock_insert_html:
+        with patch('plugin.writer.html_import._insert_starwriter_html_at_cursor') as mock_insert_html:
             _insert_mixed_or_plain_html(model, ctx, cursor, test_content)
             
             inserted_html = mock_insert_html.call_args[0][2]

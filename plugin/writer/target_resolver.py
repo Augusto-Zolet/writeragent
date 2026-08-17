@@ -1,7 +1,6 @@
 import logging
 
 from plugin.writer import search as search_mod
-from .content import _find_first_range
 from .format import content_has_markup, html_to_plain_text
 
 log = logging.getLogger("writeragent.writer")
@@ -84,7 +83,7 @@ def resolve_target_cursor(ctx, target, old_content):
     if not search_string:
         raise ValueError("old_content is empty after normalization.")
 
-    found = _find_first_range(doc, search_string)
+    found = search_mod.find_first_range(doc, search_string)
 
     if found is None:
         shape_name = search_mod.drawing_shape_containing(doc, search_string)
