@@ -599,6 +599,31 @@ the zero-POST disabled invariant. Remaining coverage gaps:
 
 ### G9 — Commit series, naming, and hygiene
 
+#### Cursor `Co-authored-by` on Gerrit commits
+
+Cursor’s git wrapper appends `Co-authored-by: Cursor <cursoragent@cursor.com>` to **`git commit` and `git commit --amend`**, even with a HEREDOC that only has `Signed-off-by` + `Change-Id`. The Collabora `.git-hooks/commit-msg` / `prepare-commit-msg` hooks are **not** the source. Several AIs worked on this series; do not upload that trailer.
+
+**Do not use `git commit` from Cursor.** Create the commit with `git write-tree` + `git commit-tree` (Cursor does not inject a trailer there), verify, then push. Same recipe for a new patchset of an existing Change-Id: put the intended message (including the old `Change-Id`) in `$MSG_FILE` and use `-p HEAD` for a new commit or `-p HEAD^` to replace HEAD.
+
+```bash
+# index already has what you want (git add / git add -u)
+MSG_FILE=$(mktemp)
+# paste the intended commit message into $MSG_FILE — Signed-off-by + Change-Id, no Co-authored-by
+export GIT_AUTHOR_NAME='Keith Curtis' GIT_AUTHOR_EMAIL='keithcu@gmail.com'
+export GIT_AUTHOR_DATE="$(date -R)"          # or keep: git log -1 --format=%aD  when replacing HEAD
+export GIT_COMMITTER_NAME='Keith Curtis' GIT_COMMITTER_EMAIL='keithcu@gmail.com'
+TREE=$(git write-tree)
+PARENT=$(git rev-parse HEAD)                 # new commit on top of HEAD
+# PARENT=$(git rev-parse HEAD^)              # instead: replace HEAD (Gerrit amend / new patchset)
+NEW=$(git commit-tree "$TREE" -p "$PARENT" -F "$MSG_FILE")
+git reset --soft "$NEW"
+rm -f "$MSG_FILE"
+git log -1 --format='%B' | grep -iE 'Co-authored-by|Cursor' || echo clean
+git push cogerrit HEAD:refs/for/main
+```
+
+`git cherry-pick` of an already-clean commit kept the original message (no trailer). If you already ran `git commit` / `--amend` and the trailer is on HEAD, the `-p HEAD^` variant above rewrites that commit without going through `git commit` again. Re-check `git log` before every Gerrit push.
+
 - Prepare **Core AddIn** vs **Online kit/wsd** review boundaries when requested; no split or commits have been made during the current cleanup.
 - Explicit PR/IDL note on display name `PY` vs Excel semantics.
 - en-US-only strings / `SAL_DLLPUBLIC_EXPORT` test helpers remain nits. The IDL volatile-runtime comment is corrected.

@@ -103,13 +103,21 @@ def _iter_shapes_on_page(page: Any):
 
 
 def _find_shape_on_page(page: Any, service_name: str) -> Any:
+    # Impress presentation placeholders (HeaderShape, FooterShape, DateTimeShape,
+    # SlideNumberShape) often report generic drawing services via getSupportedServiceNames,
+    # but identify their specific role via the ShapeType property or getShapeType().
+    base = service_name.rsplit(".", 1)[-1]
     for shape in _iter_shapes_on_page(page):
         try:
+            st = getattr(shape, "ShapeType", None)
+            if st is None and hasattr(shape, "getShapeType"):
+                st = shape.getShapeType()
+            if st and (st == service_name or str(st).endswith("." + base)):
+                return shape
             if hasattr(shape, "supportsService") and shape.supportsService(service_name):
                 return shape
         except Exception:
             continue
-    base = service_name.rsplit(".", 1)[-1]
     for shape in _iter_shapes_on_page(page):
         try:
             if not hasattr(shape, "getSupportedServiceNames"):

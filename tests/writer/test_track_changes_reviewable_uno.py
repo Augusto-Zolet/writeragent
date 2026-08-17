@@ -23,6 +23,7 @@ import plugin.writer.content as _content
 from plugin.writer.edit_review import EditReviewSession, get_agent_edit_review_mode
 from plugin.framework.config import set_config, get_config
 import plugin.writer.format as fmt
+import plugin.writer.html_import as html_import
 
 _FLAG = "doc.agent_edit_review_mode"
 
@@ -320,11 +321,13 @@ def test_html_import_failure_rolls_back_in_review_mode_uno(ctx, doc):
     _reset(doc, ctx, "Original body text to keep.")
     prev = get_config(_FLAG)
     set_config(_FLAG, "record")
-    real = fmt._insert_mixed_or_plain_html
+    real = html_import._insert_mixed_or_plain_html
+    real_fmt = fmt._insert_mixed_or_plain_html
 
     def _boom(*a, **k):
         raise RuntimeError("simulated HTML import failure")
 
+    html_import._insert_mixed_or_plain_html = _boom
     fmt._insert_mixed_or_plain_html = _boom
     try:
         res = None
@@ -338,7 +341,8 @@ def test_html_import_failure_rolls_back_in_review_mode_uno(ctx, doc):
         assert _redline_types(doc) == [], \
             "no tracked change may survive the rolled-back edit, got %r" % _redline_types(doc)
     finally:
-        fmt._insert_mixed_or_plain_html = real
+        html_import._insert_mixed_or_plain_html = real
+        fmt._insert_mixed_or_plain_html = real_fmt
         set_config(_FLAG, prev)
         if len(doc.getRedlines()):
             _reject_all(doc, ctx)

@@ -14,13 +14,13 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+from plugin.doc.text_helpers import normalize_linebreaks as _normalize
 from plugin.writer.format import (
     document_to_content,
     insert_content_at_position as _insert_content_at_position,
     content_has_markup as _content_has_markup,
     replace_preserving_format as _replace_text_preserving_format,
     find_text_ranges,
-    _normalize,
 )
 from plugin.framework.uno_context import get_desktop
 
