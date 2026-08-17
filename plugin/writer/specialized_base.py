@@ -61,7 +61,7 @@ class DelegateToSpecializedWriter(DelegateToSpecializedBase):
         "Delegates a specialized task with a focused toolset. "
         f"document_research {DELEGATION_USER_FILE_DATA_HINT}; web_research {DELEGATION_PUBLIC_WEB_HINT}. "
         "Also: charts, fields, styles, page, textframes, embedded (active doc OLE only), shapes, indexes, "
-        "bookmarks, tracking, footnotes, tables, forms, images, vision (local OCR when venv configured)."
+        "bookmarks, tracking, footnotes, tables, forms, images, mail_merge, vision (local OCR when venv configured)."
     )
 
     uno_services = ["com.sun.star.text.TextDocument"]
@@ -203,17 +203,18 @@ class ToolWriterDocumentResearchBase(ToolWriterSpecialBase):
     specialized_domain_description: ClassVar[str | None] = f"{DELEGATION_USER_FILE_DATA_HINT}; one delegation for file(s), matching descriptions"
 
 
+class ToolWriterMailMergeBase(ToolWriterSpecialBase):
+    specialized_domain: ClassVar[str | None] = "mail_merge"
+    specialized_domain_description: ClassVar[str | None] = "Configure data sources, insert database merge fields, and execute mail merge jobs."
+    required_core_tools: ClassVar[frozenset[str] | None] = (ToolWriterSpecialBase.required_core_tools or frozenset()) | frozenset(["search_in_document"])
+    intent = "edit"
+
+
 '''
 # Mock domain base classes: uncomment when implementations are ready.
 class ToolWriterSectionBase(ToolWriterSpecialBase):
     specialized_domain: ClassVar[str | None] = "sections"
     specialized_domain_description: ClassVar[str | None] = "Manage document sections, protection, columns, and properties."
-    intent = "edit"
-
-
-class ToolWriterMailMergeBase(ToolWriterSpecialBase):
-    specialized_domain: ClassVar[str | None] = "mail_merge"
-    specialized_domain_description: ClassVar[str | None] = "Configure and execute mail merge workflows with data sources."
     intent = "edit"
 
 

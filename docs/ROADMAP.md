@@ -542,6 +542,7 @@ Provider-specific response parsing lives in `plugin/framework/client/response_no
 ## Current status
 
 **Recently completed:**
+- ✅ Mail Merge specialized domain ([`plugin/writer/specialized/mail_merge.py`](../plugin/writer/specialized/mail_merge.py))
 - ✅ Shape / Fields / Indexes Writer domains
 - ✅ Librarian agentic onboarding ([`plugin/chatbot/librarian.py`](../plugin/chatbot/librarian.py))
 - ✅ Track Changes ([`plugin/writer/tracking.py`](../plugin/writer/tracking.py))

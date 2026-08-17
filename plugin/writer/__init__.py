@@ -28,7 +28,7 @@ if "crosshair" not in sys.modules:
     from . import styles, tracking, page, search, structural, outline, navigation, target_resolver, get_image  # noqa: F401  # pyright: ignore[reportUnusedImport]
     from .specialized import bookmarks  # noqa: F401  # pyright: ignore[reportUnusedImport]
     # mock_domains: disable tools by wrapping class block in ''' in specialized/mock_domains.py
-    from .specialized import forms, charts, comments, shapes, indexes, textframes, fields, embedded, mock_domains  # noqa: F401  # pyright: ignore[reportUnusedImport]
+    from .specialized import forms, charts, comments, shapes, indexes, textframes, fields, embedded, mail_merge, mock_domains  # noqa: F401  # pyright: ignore[reportUnusedImport]
     from .locale import linguistic_index  # noqa: F401  # pyright: ignore[reportUnusedImport]
     from .locale import ai_grammar_proofreader, grammar_proofread_locale, grammar_work_queue  # noqa: F401  # pyright: ignore[reportUnusedImport]
 
@@ -43,7 +43,7 @@ class WriterModule(ModuleBase):
         from . import tree, proximity
         from . import styles, tracking, page, search, structural, outline, navigation, target_resolver, get_image  # noqa: F401  # pyright: ignore[reportUnusedImport]
         from .specialized import bookmarks
-        from .specialized import forms, charts, comments, shapes, indexes, textframes, fields, embedded, mock_domains  # noqa: F401  # pyright: ignore[reportUnusedImport]
+        from .specialized import forms, charts, comments, shapes, indexes, textframes, fields, embedded, mail_merge, mock_domains  # noqa: F401  # pyright: ignore[reportUnusedImport]
         from .locale import linguistic_index
         from .locale import ai_grammar_proofreader, grammar_proofread_locale, grammar_work_queue  # noqa: F401  # pyright: ignore[reportUnusedImport]
 

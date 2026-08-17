@@ -92,6 +92,19 @@ class TestWriterToolsSmoke(unittest.TestCase):
         ):
             self.assertIn(name, names, f"expected structural tool {name!r}")
 
+    def test_mail_merge_domain_tools(self):
+        registry = get_tools()
+        doc = WriterDocStub()
+        names = {t.name for t in registry.get_tools(doc=doc, active_domain="mail_merge", exclude_tiers=())}
+        for name in (
+            "mail_merge_list_sources",
+            "mail_merge_register_source",
+            "mail_merge_insert_field",
+            "mail_merge_list_fields",
+            "mail_merge_run",
+        ):
+            self.assertIn(name, names, f"expected mail_merge tool {name!r}")
+
     def test_schemas(self):
         registry = get_tools()
         doc = WriterDocStub()
