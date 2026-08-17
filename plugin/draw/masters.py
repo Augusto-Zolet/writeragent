@@ -57,10 +57,11 @@ class GetSlideMaster(ToolDrawSlideMastersBase):
     uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
 
     def execute(self, ctx, **kwargs):
-        page_idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        page_idx = kwargs.get("page")
         page = _get_slide(ctx.doc, page_idx)
         master = page.MasterPage
-        return {"status": "ok", "page": page_idx, "page_index": page_idx, "master": master.Name if hasattr(master, "Name") else "", "master_name": master.Name if hasattr(master, "Name") else ""}
+        name = master.Name if hasattr(master, "Name") else ""
+        return {"status": "ok", "page": page_idx, "master": name}
 
 
 class SetSlideMaster(ToolDrawSlideMastersBase):
@@ -75,9 +76,9 @@ class SetSlideMaster(ToolDrawSlideMastersBase):
 
     def execute(self, ctx, **kwargs):
         doc = ctx.doc
-        page_idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        page_idx = kwargs.get("page")
         page = _get_slide(doc, page_idx)
-        master_name = kwargs.get("master") if "master" in kwargs else kwargs.get("master_name")
+        master_name = kwargs.get("master")
         if not master_name:
             return self._tool_error("master is required.")
 
@@ -97,4 +98,4 @@ class SetSlideMaster(ToolDrawSlideMastersBase):
             return self._tool_error("Master '%s' not found." % master_name, available=available)
 
         page.MasterPage = target
-        return {"status": "ok", "page": page_idx, "page_index": page_idx, "master": master_name, "master_name": master_name}
+        return {"status": "ok", "page": page_idx, "master": master_name}

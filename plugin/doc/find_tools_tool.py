@@ -59,7 +59,7 @@ def get_domain_guidance(domain: str, *, agent_label: str | None = "Writer", ctx:
     """
     if domain == "footnotes":
         return ("For footnotes_insert: if the task quotes or names the document anchor "
-                "(e.g. a sentence), pass that exact string as insert_after_text so the "
+                "(e.g. a sentence), pass that exact string as insert_after so the "
                 "note is placed after that text.")
     if domain == "charts":
         if agent_label == "Calc":

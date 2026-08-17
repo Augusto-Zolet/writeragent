@@ -32,7 +32,7 @@ def _exec_tool(doc, ctx, name, args):
 @with_native_doc("impress")
 def test_headers_footers(ctx, doc):
     # 1. Get initial headers/footers
-    result_str = _exec_tool(doc, ctx, "get_headers_footers", {"page_index": 0})
+    result_str = _exec_tool(doc, ctx, "get_headers_footers", {"page": 0})
     result = json.loads(result_str)
 
     assert result.get("status") == "ok"
@@ -40,7 +40,7 @@ def test_headers_footers(ctx, doc):
 
     # 2. Set headers/footers
     set_result_str = _exec_tool(doc, ctx, "set_headers_footers", {
-        "page_index": 0,
+        "page": 0,
         "footer_text": "This is a test footer",
         "is_footer_visible": True,
         "is_page_number_visible": True,
@@ -54,7 +54,7 @@ def test_headers_footers(ctx, doc):
     assert set_result.get("updated_properties") > 0
 
     # 3. Verify changes
-    result_str = _exec_tool(doc, ctx, "get_headers_footers", {"page_index": 0})
+    result_str = _exec_tool(doc, ctx, "get_headers_footers", {"page": 0})
     result = json.loads(result_str)
 
     props = result.get("properties", {})
@@ -67,14 +67,14 @@ def test_headers_footers(ctx, doc):
 
     # 4. Test master page
     set_result_str = _exec_tool(doc, ctx, "set_headers_footers", {
-        "page_index": 0,
+        "page": 0,
         "is_master_page": True,
         "footer_text": "Master Footer"
     })
     set_result = json.loads(set_result_str)
     assert set_result.get("status") == "ok"
 
-    result_str = _exec_tool(doc, ctx, "get_headers_footers", {"page_index": 0, "is_master_page": True})
+    result_str = _exec_tool(doc, ctx, "get_headers_footers", {"page": 0, "is_master_page": True})
     result = json.loads(result_str)
     props = result.get("properties", {})
     assert props.get("FooterText") == "Master Footer"

@@ -91,7 +91,7 @@ class IndexesCreate(ToolWriterIndexBase):
 
     def execute(self, ctx, **kwargs):
         doc = ctx.doc
-        index_kind = kwargs.get("kind") or kwargs.get("index_kind") or kwargs.get("type", "toc")
+        index_kind = kwargs.get("kind", "toc")
         title = kwargs.get("title")
         create_from_outline = kwargs.get("create_from_outline", True)
         target = kwargs.get("target", "selection")
@@ -157,8 +157,8 @@ class IndexesAddMark(ToolWriterIndexBase):
 
     def execute(self, ctx, **kwargs):
         doc = ctx.doc
-        mark_text = kwargs.get("text") or kwargs.get("mark_text")
-        index_kind = kwargs.get("kind") or kwargs.get("index_kind") or kwargs.get("type", "alphabetical")
+        mark_text = kwargs.get("text")
+        index_kind = kwargs.get("kind", "alphabetical")
         primary_key = kwargs.get("primary_key")
         secondary_key = kwargs.get("secondary_key")
         target = kwargs.get("target", "selection")

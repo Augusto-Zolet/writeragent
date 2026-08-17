@@ -60,7 +60,7 @@ class GetDocumentTree(ToolBase):
 
     def execute(self, ctx, **kwargs):
         tree_svc = ctx.services.writer_tree
-        strategy = kwargs.get("strategy") or kwargs.get("content_strategy", "first_lines")
+        strategy = kwargs.get("strategy", "first_lines")
         result = tree_svc.get_document_tree(ctx.doc, content_strategy=strategy, depth=kwargs.get("depth", 1))
         stats = collect_document_stats(ctx.doc, ctx.services.document)
         return {**result, "stats": stats}
@@ -85,9 +85,9 @@ class NavHeadingChildren(ToolWriterStructuralBase):
 
     def execute(self, ctx, **kwargs):
         tree_svc = ctx.services.writer_tree
-        para_index = kwargs.get("para_index") if "para_index" in kwargs else kwargs.get("heading_para_index")
-        bookmark = kwargs.get("bookmark") or kwargs.get("heading_bookmark")
-        strategy = kwargs.get("strategy") or kwargs.get("content_strategy", "first_lines")
+        para_index = kwargs.get("para_index")
+        bookmark = kwargs.get("bookmark")
+        strategy = kwargs.get("strategy", "first_lines")
         try:
             result = tree_svc.get_heading_children(ctx.doc, heading_para_index=para_index, heading_bookmark=bookmark, locator=kwargs.get("locator"), content_strategy=strategy, depth=kwargs.get("depth", 1))
             return {"status": "ok", **result}

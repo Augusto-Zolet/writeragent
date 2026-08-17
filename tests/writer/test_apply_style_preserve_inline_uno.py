@@ -41,7 +41,7 @@ def test_apply_paragraph_style_preserves_direct_char_format_uno(ctx, doc):
     # 3) apply a PARAGRAPH style via the tool (target = whole document)
     tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
     res = ApplyStyle().execute(
-        tool_ctx, style_name="Standard", family="ParagraphStyles", target="full_document"
+        tool_ctx, style="Standard", family="ParagraphStyles", target="full_document"
     )
     assert res.get("status") == "ok", f"apply_style failed: {res}"
 
@@ -76,7 +76,7 @@ def test_apply_paragraph_style_via_search_preserves_whole_paragraph_uno(ctx, doc
     tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
     # search matches ONLY a substring in the middle of the paragraph
     res = ApplyStyle().execute(
-        tool_ctx, style_name="Quotations", family="ParagraphStyles",
+        tool_ctx, style="Quotations", family="ParagraphStyles",
         target="search", old_content="by a judge",
     )
     assert res.get("status") == "ok", f"apply_style failed: {res}"
@@ -114,7 +114,7 @@ def test_apply_style_known_limitation_direct_equals_old_default_uno(ctx, doc):
 
     tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
     res = ApplyStyle().execute(
-        tool_ctx, style_name="Heading 1", family="ParagraphStyles", target="full_document"
+        tool_ctx, style="Heading 1", family="ParagraphStyles", target="full_document"
     )
     assert res.get("status") == "ok", f"apply_style failed: {res}"
 
@@ -140,7 +140,7 @@ def test_apply_paragraph_style_preserves_char_back_color_uno(ctx, doc):
 
     tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
     res = ApplyStyle().execute(
-        tool_ctx, style_name="Quotations", family="ParagraphStyles", target="full_document"
+        tool_ctx, style="Quotations", family="ParagraphStyles", target="full_document"
     )
     assert res.get("status") == "ok", f"apply_style failed: {res}"
 
@@ -165,7 +165,7 @@ def test_apply_paragraph_style_preserves_applied_character_style_uno(ctx, doc):
 
     tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
     res = ApplyStyle().execute(
-        tool_ctx, style_name="Heading 2", family="ParagraphStyles", target="full_document"
+        tool_ctx, style="Heading 2", family="ParagraphStyles", target="full_document"
     )
     assert res.get("status") == "ok", f"apply_style failed: {res}"
 
@@ -201,7 +201,7 @@ def test_apply_paragraph_style_multi_paragraph_selection_uno(ctx, doc):
     tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
     # Simulate selection spanning both paragraphs via full_document (same capture path).
     res = ApplyStyle().execute(
-        tool_ctx, style_name="Text body", family="ParagraphStyles", target="full_document"
+        tool_ctx, style="Text body", family="ParagraphStyles", target="full_document"
     )
     assert res.get("status") == "ok", f"apply_style failed: {res}"
 
@@ -228,13 +228,13 @@ def test_apply_style_returns_structured_fields_uno(ctx, doc):
     text.insertString(cur, "Mark this clause.", False)
     tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
 
-    res = ApplyStyle().execute(tool_ctx, style_name="Standard", family="ParagraphStyles", target="full_document")
+    res = ApplyStyle().execute(tool_ctx, style="Standard", family="ParagraphStyles", target="full_document")
     assert res.get("status") == "ok", res
     assert res.get("applied") is True, res
     assert res.get("target") == "full_document", res
     assert "matched" not in res, res  # full_document is not a search
 
-    res2 = ApplyStyle().execute(tool_ctx, style_name="Standard", family="ParagraphStyles", target="search", old_content="Mark this clause.")
+    res2 = ApplyStyle().execute(tool_ctx, style="Standard", family="ParagraphStyles", target="search", old_content="Mark this clause.")
     assert res2.get("status") == "ok", res2
     assert res2.get("target") == "search", res2
     assert res2.get("matched") is True, res2
@@ -251,7 +251,7 @@ def test_apply_style_search_miss_reports_not_matched_uno(ctx, doc):
     text.insertString(cur, "Some clause text.", False)
     tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
     res = ApplyStyle().execute(
-        tool_ctx, style_name="Standard", family="ParagraphStyles",
+        tool_ctx, style="Standard", family="ParagraphStyles",
         target="search", old_content="NOT-PRESENT-XYZ",
     )
     assert res.get("status") == "error", res

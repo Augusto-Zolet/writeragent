@@ -29,13 +29,13 @@ def _exec_tool(doc, ctx, name, args):
 @with_native_doc("impress")
 def test_slide_transitions(ctx, doc):
     # Initial transition state
-    result = _exec_tool(doc, ctx, "get_slide_transition", {"page_index": 0})
+    result = _exec_tool(doc, ctx, "get_slide_transition", {"page": 0})
     data = json.loads(result)
     assert data.get("status") == "ok", f"get_slide_transition failed: {result}"
 
     # Set a transition
     result = _exec_tool(doc, ctx, "set_slide_transition", {
-        "page_index": 0,
+        "page": 0,
         "effect": "fade_from_left",
         "speed": "fast",
         "duration": 5,
@@ -46,7 +46,7 @@ def test_slide_transitions(ctx, doc):
     assert data.get("status") == "ok", f"set_slide_transition failed: {result}"
 
     # Verify the transition is set correctly
-    result = _exec_tool(doc, ctx, "get_slide_transition", {"page_index": 0})
+    result = _exec_tool(doc, ctx, "get_slide_transition", {"page": 0})
     data = json.loads(result)
     assert data.get("status") == "ok", f"get_slide_transition failed: {result}"
     assert data.get("effect") == "fade_from_left", f"Effect mismatch: {data.get('effect')}"
@@ -60,7 +60,7 @@ def test_slide_transitions(ctx, doc):
 def test_speaker_notes(ctx, doc):
     # Set new notes
     result = _exec_tool(doc, ctx, "set_speaker_notes", {
-        "page_index": 0,
+        "page": 0,
         "text": "These are my speaker notes for the first slide."
     })
     data = json.loads(result)
@@ -68,7 +68,7 @@ def test_speaker_notes(ctx, doc):
 
     # Append to notes
     result = _exec_tool(doc, ctx, "set_speaker_notes", {
-        "page_index": 0,
+        "page": 0,
         "text": "And some more notes.",
         "append": True
     })
@@ -76,7 +76,7 @@ def test_speaker_notes(ctx, doc):
     assert data.get("status") == "ok", f"set_speaker_notes append failed: {result}"
 
     # Get notes and verify
-    result = _exec_tool(doc, ctx, "get_speaker_notes", {"page_index": 0})
+    result = _exec_tool(doc, ctx, "get_speaker_notes", {"page": 0})
     data = json.loads(result)
     assert data.get("status") == "ok", f"get_speaker_notes failed: {result}"
     notes = data.get("notes")

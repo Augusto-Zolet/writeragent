@@ -205,7 +205,7 @@ class DelegateToSpecializedBase(ToolBase):
 
         footnotes_hint = ""
         if domain == "footnotes":
-            footnotes_hint = " For footnotes_insert: if the task quotes or names the document anchor (e.g. a sentence), pass that exact string as insert_after_text so the note is placed after that text; the task executor cannot move the view cursor."
+            footnotes_hint = " For footnotes_insert: if the task quotes or names the document anchor (e.g. a sentence), pass that exact string as insert_after so the note is placed after that text; the task executor cannot move the view cursor."
         shapes_canvas = ""
         if domain == "shapes":
             try:

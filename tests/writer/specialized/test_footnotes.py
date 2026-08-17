@@ -49,7 +49,7 @@ def test_footnotes_insert():
     tool = FootnotesInsert()
     ctx = FakeCtx(doc)
 
-    res = tool.execute(ctx, note_type="footnote", text="My footnote text", label="*")
+    res = tool.execute(ctx, note="footnote", text="My footnote text", label="*")
 
     assert res["status"] == "ok"
     doc.createInstance.assert_called_with("com.sun.star.text.Footnote")
@@ -84,9 +84,9 @@ def test_footnotes_insert_with_insert_after_text():
 
     res = tool.execute(
         ctx,
-        note_type="footnote",
+        note="footnote",
         text="This sentence is only a test.",
-        insert_after_text="This is a test.",
+        insert_after="This is a test.",
     )
 
     assert res["status"] == "ok"
@@ -109,9 +109,9 @@ def test_footnotes_insert_anchor_no_match():
 
     res = FootnotesInsert().execute(
         FakeCtx(doc),
-        note_type="footnote",
+        note="footnote",
         text="x",
-        insert_after_text="not in document",
+        insert_after="not in document",
     )
     assert res["status"] == "error"
     assert "No match" in res["message"]
@@ -127,9 +127,9 @@ def test_footnotes_insert_anchor_occurrence_too_high():
 
     res = FootnotesInsert().execute(
         FakeCtx(doc),
-        note_type="footnote",
+        note="footnote",
         text="x",
-        insert_after_text="foo",
+        insert_after="foo",
         occurrence=1,
     )
     assert res["status"] == "error"
@@ -161,7 +161,7 @@ def test_footnotes_list():
     tool = FootnotesList()
     ctx = FakeCtx(doc)
 
-    res = tool.execute(ctx, note_type="footnote")
+    res = tool.execute(ctx, note="footnote")
 
     assert res["status"] == "ok"
     assert res["count"] == 2
@@ -183,7 +183,7 @@ def test_footnotes_edit():
     tool = FootnotesEdit()
     ctx = FakeCtx(doc)
 
-    res = tool.execute(ctx, note_type="footnote", index=0, text="New text", label="")
+    res = tool.execute(ctx, note="footnote", index=0, text="New text", label="")
 
     assert res["status"] == "ok"
     note.setString.assert_called_with("New text")
@@ -206,7 +206,7 @@ def test_footnotes_delete():
     tool = FootnotesDelete()
     ctx = FakeCtx(doc)
 
-    res = tool.execute(ctx, note_type="footnote", index=0)
+    res = tool.execute(ctx, note="footnote", index=0)
 
     assert res["status"] == "ok"
     anchor.setString.assert_called_with("")
@@ -216,7 +216,7 @@ def test_invalid_note_type():
     tool = FootnotesList()
     ctx = FakeCtx(doc)
 
-    res = tool.execute(ctx, note_type="invalid_type")
+    res = tool.execute(ctx, note="invalid_type")
     assert res["status"] == "error"
     assert "Invalid note_type" in res["message"]
 
@@ -235,7 +235,7 @@ def test_footnotes_settings_get():
     tool = FootnotesSettingsGet()
     ctx = FakeCtx(doc)
 
-    res = tool.execute(ctx, note_type="footnote")
+    res = tool.execute(ctx, note="footnote")
 
     assert res["status"] == "ok"
     assert res["settings"]["Prefix"] == "value_for_Prefix"
@@ -251,7 +251,7 @@ def test_footnotes_settings_update():
     tool = FootnotesSettingsUpdate()
     ctx = FakeCtx(doc)
 
-    res = tool.execute(ctx, note_type="footnote", properties={"Prefix": "[", "Suffix": "]"})
+    res = tool.execute(ctx, note="footnote", properties={"Prefix": "[", "Suffix": "]"})
 
     assert res["status"] == "ok"
     assert "Prefix" in res["updated_properties"]
@@ -265,5 +265,5 @@ def test_footnotes_shortened_type_param():
     doc.supportsService.return_value = True
     settings = MagicMock()
     doc.getFootnoteSettings.return_value = settings
-    res = FootnotesSettingsGet().execute(FakeCtx(doc), type="footnote")
+    res = FootnotesSettingsGet().execute(FakeCtx(doc), note="footnote")
     assert res["status"] == "ok"

@@ -70,7 +70,7 @@ class PageGetStyleProperties(ToolWriterPageBase):
     parameters = {"type": "object", "properties": {"style": {"type": "string", "description": "The name of the page style (e.g., 'Standard' or 'Default Style'). Defaults to 'Standard'."}}, "required": []}
 
     def execute(self, ctx, **kwargs):
-        style_name = kwargs.get("style") or kwargs.get("style_name", "Standard")
+        style_name = kwargs.get("style", "Standard")
         doc = ctx.doc
 
         try:
@@ -160,7 +160,7 @@ class PageSetStyleProperties(ToolWriterPageBase):
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        style_name = kwargs.get("style") or kwargs.get("style_name", "Standard")
+        style_name = kwargs.get("style", "Standard")
         doc = ctx.doc
 
         try:
@@ -278,7 +278,7 @@ class PageGetHeaderFooterText(ToolWriterPageBase):
     }
 
     def execute(self, ctx, **kwargs):
-        style_name = kwargs.get("style") or kwargs.get("style_name", "Standard")
+        style_name = kwargs.get("style", "Standard")
         region = kwargs.get("region")
         if region not in _REGION_PROPS:
             return self._tool_error("region is required ('header' or 'footer').")
@@ -353,7 +353,7 @@ class PageSetHeaderFooterText(ToolWriterPageBase):
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        style_name = kwargs.get("style") or kwargs.get("style_name", "Standard")
+        style_name = kwargs.get("style", "Standard")
         region = kwargs.get("region")
         content = kwargs.get("content", "")
 
@@ -397,7 +397,7 @@ class PageGetColumns(ToolWriterPageBase):
     parameters = {"type": "object", "properties": {"style": {"type": "string", "description": "The name of the page style. Defaults to 'Standard'."}}, "required": []}
 
     def execute(self, ctx, **kwargs):
-        style_name = kwargs.get("style") or kwargs.get("style_name", "Standard")
+        style_name = kwargs.get("style", "Standard")
         doc = ctx.doc
 
         try:
@@ -448,7 +448,7 @@ class PageSetColumns(ToolWriterPageBase):
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        style_name = kwargs.get("style") or kwargs.get("style_name", "Standard")
+        style_name = kwargs.get("style", "Standard")
         column_count = kwargs.get("column_count")
         spacing_mm = kwargs.get("spacing_mm", 0)
 

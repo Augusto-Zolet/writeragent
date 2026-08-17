@@ -261,7 +261,7 @@ class GetHeadersFooters(ToolDrawHeaderFooterBase):
     }
 
     def execute(self, ctx: ToolContext, **kwargs: Any) -> Dict[str, Any]:
-        page_val = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        page_val = kwargs.get("page")
         if page_val is None:
             return self._tool_error("page is required.")
         page_index = int(page_val)
@@ -309,7 +309,7 @@ class SetHeadersFooters(ToolDrawHeaderFooterBase):
     }
 
     def execute(self, ctx: ToolContext, **kwargs: Any) -> Dict[str, Any]:
-        page_val = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        page_val = kwargs.get("page")
         if page_val is None:
             return self._tool_error("page is required.")
         page_index = int(page_val)

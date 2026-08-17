@@ -144,7 +144,7 @@ def test_apply_style_all_matches_applies_to_each():
          patch("plugin.writer.format.content_has_markup", return_value=False), \
          patch("plugin.writer.styles.apply_paragraph_style_preserving_direct_char") as ap, \
          patch("plugin.writer.edit_review.review_recording_enabled", return_value=False):
-        res = ApplyStyle().execute(_style_ctx(), style_name="Heading 1", target="search",
+        res = ApplyStyle().execute(_style_ctx(), style="Heading 1", target="search",
                                    old_content="Title", all_matches=True)
     assert res["status"] == "ok" and res["applied_count"] == 3
     assert ap.call_count == 3
@@ -156,7 +156,7 @@ def test_apply_style_occurrence_out_of_range():
     with patch("plugin.writer.content._find_all_ranges", return_value=[MagicMock()]), \
          patch("plugin.writer.content._normalize_search_string_for_find", side_effect=lambda s: s), \
          patch("plugin.writer.format.content_has_markup", return_value=False):
-        res = ApplyStyle().execute(_style_ctx(), style_name="Heading 1", target="search",
+        res = ApplyStyle().execute(_style_ctx(), style="Heading 1", target="search",
                                    old_content="Title", occurrence=5)
     assert res["status"] == "error" and "out of range" in res["message"]
 

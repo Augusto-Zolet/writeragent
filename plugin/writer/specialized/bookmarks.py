@@ -317,7 +317,7 @@ class BookmarkResolve(ToolWriterBookmarkBase):
     uno_services = ["com.sun.star.text.TextDocument"]
 
     def execute(self, ctx, **kwargs):
-        bookmark_name = kwargs.get("name") or kwargs.get("bookmark_name") or kwargs.get("bookmark", "")
+        bookmark_name = kwargs.get("name", "")
         if not bookmark_name:
             return self._tool_error("name is required.")
 

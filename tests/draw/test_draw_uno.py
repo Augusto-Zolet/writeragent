@@ -100,7 +100,7 @@ def test_upsert_and_verify_shape(ctx, doc):
     assert size.Height == 3000, f"Expected Height=3000, got {size.Height}"
 
     # 2. Get draw summary to find shape_id
-    result = _exec_tool(doc, ctx, "get_draw_summary", {"page_index": new_page_count - 1})
+    result = _exec_tool(doc, ctx, "get_draw_summary", {"page": new_page_count - 1})
     data = json.loads(result)
     assert data.get("status") == "ok", f"get_draw_summary failed: {result}"
     shapes = data.get("shapes", [])
@@ -122,7 +122,7 @@ def test_upsert_and_verify_shape(ctx, doc):
     assert data.get("status") == "ok", f"upsert_shape edit failed: {result}"
 
     # 4. Delete shape
-    result = _exec_tool(doc, ctx, "delete_shape", {"shape_index": shape_id})
+    result = _exec_tool(doc, ctx, "delete_shape", {"shape": shape_id})
     data = json.loads(result)
     assert data.get("status") == "ok", f"delete_shape failed: {result}"
 
@@ -186,20 +186,20 @@ def test_master_slides(ctx, doc):
     assert first_master_name is not None, "Master slide name is missing"
 
     # 2. Get slide master for page 0
-    result = _exec_tool(doc, ctx, "get_slide_master", {"page_index": 0})
+    result = _exec_tool(doc, ctx, "get_slide_master", {"page": 0})
     data = json.loads(result)
     assert data.get("status") == "ok", f"get_slide_master failed: {result}"
 
     # 3. Set slide master for page 0 to the first master we found
-    result = _exec_tool(doc, ctx, "set_slide_master", {"page_index": 0, "master_name": first_master_name})
+    result = _exec_tool(doc, ctx, "set_slide_master", {"page": 0, "master": first_master_name})
     data = json.loads(result)
     assert data.get("status") == "ok", f"set_slide_master failed: {result}"
 
     # 4. Verify it was set
-    result = _exec_tool(doc, ctx, "get_slide_master", {"page_index": 0})
+    result = _exec_tool(doc, ctx, "get_slide_master", {"page": 0})
     data = json.loads(result)
     assert data.get("status") == "ok", f"get_slide_master verify failed: {result}"
-    assert data.get("master_name") == first_master_name, f"Master name mismatch: {data.get('master_name')}"
+    assert data.get("master") == first_master_name, f"Master name mismatch: {data.get('master')}"
 
 
 @native_test
@@ -214,7 +214,7 @@ def test_get_draw_tree(ctx, doc):
         "bg_color": "#FF0000"
     })
 
-    result = _exec_tool(doc, ctx, "get_draw_tree", {"page_index": _active_draw_page_index(doc)})
+    result = _exec_tool(doc, ctx, "get_draw_tree", {"page": _active_draw_page_index(doc)})
     data = json.loads(result)
     assert data.get("status") == "ok", f"get_draw_tree failed: {result}"
     tree = data.get("tree", [])
@@ -232,11 +232,11 @@ def test_get_draw_tree(ctx, doc):
 @native_test
 @with_native_doc("draw")
 def test_insert_math_draw(ctx, doc):
-    # Insert math (formula_type + formula + page_index + x + y; size from UNO/heuristic)
+    # Insert math (formula_type + formula + page + x + y; size from UNO/heuristic)
     result = _exec_tool(doc, ctx, "insert_math", {
         "formula_type": "latex",
         "formula": "E = mc^2",
-        "page_index": 0,
+        "page": 0,
         "x": 2000,
         "y": 2000,
     })

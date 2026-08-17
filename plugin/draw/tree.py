@@ -36,7 +36,7 @@ class GetDrawTree(ToolBase):
         from plugin.draw.bridge import DrawBridge
 
         bridge = DrawBridge(ctx.doc)
-        idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        idx = kwargs.get("page")
         
         # Use provided index or resolved active index from context
         actual_idx = idx if idx is not None else ctx.active_page_index

@@ -81,7 +81,7 @@ class FrameGetInfo(ToolWriterTextFramesBase):
     parameters = {"type": "object", "properties": {"name": {"type": "string", "description": "Name of the text frame (from frame_list)."}}, "required": ["name"]}
 
     def execute(self, ctx, **kwargs):
-        frame_name = kwargs.get("name") or kwargs.get("frame_name") or kwargs.get("frame", "")
+        frame_name = kwargs.get("name", "")
         if not frame_name:
             return self._tool_error("name is required.")
 
@@ -175,7 +175,7 @@ class FrameSetProperties(ToolWriterTextFramesBase):
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        frame_name = kwargs.get("name") or kwargs.get("frame_name") or kwargs.get("frame", "")
+        frame_name = kwargs.get("name", "")
         if not frame_name:
             return self._tool_error("name is required.")
 

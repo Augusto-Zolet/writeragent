@@ -31,7 +31,7 @@ def test_find_tools_properties():
 def test_get_domain_guidance():
     assert "data range" in get_domain_guidance("charts", agent_label="Calc").lower()
     assert "headers" in get_domain_guidance("charts", agent_label="Writer").lower()
-    assert "insert_after_text" in get_domain_guidance("footnotes")
+    assert "insert_after" in get_domain_guidance("footnotes")
     assert get_domain_guidance("totally_unknown_domain") == ""
 
 
@@ -97,7 +97,7 @@ def test_execute_domain_returns_domain_schemas_without_finish_tool():
         assert "inputSchema" in t
     registry.get_schemas.assert_called_once_with("mcp", doc=ctx.doc, active_domain="footnotes")
     assert "footnotes" in _domain_ids(result["available_domains"])
-    assert "insert_after_text" in result["domain_guidance"]["footnotes"]
+    assert "insert_after" in result["domain_guidance"]["footnotes"]
 
 
 def test_execute_no_args_returns_catalog_only():

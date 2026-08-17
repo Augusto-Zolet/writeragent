@@ -89,7 +89,7 @@ class AddComment(ToolBase):
 
     def execute(self, ctx, **kwargs):
         content = kwargs.get("content", "")
-        search_text = kwargs.get("search") or kwargs.get("search_text")
+        search_text = kwargs.get("search")
         author = (kwargs.get("author") or "WriterAgent").strip() or "WriterAgent"
 
         if not search_text:
@@ -149,7 +149,7 @@ class CommentDelete(ToolWriterCommentBase):
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        comment_name = kwargs.get("name") or kwargs.get("comment_name")
+        comment_name = kwargs.get("name")
         author = kwargs.get("author")
 
         if not comment_name and not author:
@@ -210,7 +210,7 @@ class CommentResolve(ToolWriterCommentBase):
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        comment_name = kwargs.get("name") or kwargs.get("comment_name", "")
+        comment_name = kwargs.get("name", "")
         resolution = kwargs.get("resolution", "")
         author = kwargs.get("author", "AI")
 

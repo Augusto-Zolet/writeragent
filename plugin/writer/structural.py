@@ -81,7 +81,7 @@ class GetPageObjects(ToolBase):
 
         if page is None:
             locator = kwargs.get("locator")
-            para_idx = kwargs.get("paragraph") if "paragraph" in kwargs else kwargs.get("paragraph_index")
+            para_idx = kwargs.get("paragraph")
             if locator:
                 try:
                     resolved = doc_svc.resolve_locator(doc, locator)
@@ -211,7 +211,7 @@ class SectionRead(ToolWriterStructuralBase):
     uno_services = ["com.sun.star.text.TextDocument"]
 
     def execute(self, ctx, **kwargs):
-        section_name = kwargs.get("section") or kwargs.get("section_name", "")
+        section_name = kwargs.get("section", "")
         if not section_name:
             return self._tool_error("section is required.")
 

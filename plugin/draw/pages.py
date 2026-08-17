@@ -27,7 +27,7 @@ class AddSlide(ToolBase):
         "type": "object",
         "properties": {
             "page": {"type": "integer", "description": "0-based index where to insert the new slide (defaults to appending at the end if omitted)"},
-            "switch": {"type": "boolean", "description": "Whether to switch the view to the new slide (default: true)"},
+            "activate": {"type": "boolean", "description": "Whether to switch the view to the new slide (default: true)"},
         },
         "required": [],
     }
@@ -38,9 +38,9 @@ class AddSlide(ToolBase):
         from plugin.draw.bridge import DrawBridge
 
         bridge = DrawBridge(ctx.doc)
-        page_idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
-        switch_val = kwargs.get("switch") if "switch" in kwargs else kwargs.get("switch_to_new_slide", True)
-        switch_view = bool(switch_val if switch_val is not None else True)
+        page_idx = kwargs.get("page")
+        activate = kwargs.get("activate", True)
+        switch_view = bool(activate if activate is not None else True)
         bridge.create_slide(page_idx, switch=switch_view)
         
         # Resolve active index
@@ -61,7 +61,7 @@ class DeleteSlide(ToolBase):
         from plugin.draw.bridge import DrawBridge
 
         bridge = DrawBridge(ctx.doc)
-        page_idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        page_idx = kwargs.get("page")
         if page_idx is None:
             return self._tool_error("page is required.")
         bridge.delete_slide(page_idx)
@@ -86,7 +86,7 @@ class ReadSlideText(ToolBase):
 
         bridge = DrawBridge(ctx.doc)
         # Resolve page
-        idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        idx = kwargs.get("page")
         actual_idx = idx if idx is not None else ctx.active_page_index
         if actual_idx is None:
             actual_idx = bridge.get_active_page_index()
@@ -184,7 +184,7 @@ class SetActivePage(ToolBase):
 
         bridge = DrawBridge(ctx.doc)
         pages = bridge.get_pages()
-        idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        idx = kwargs.get("page")
         if idx is None:
             return self._tool_error("page is required.")
         if idx < 0 or idx >= pages.getCount():

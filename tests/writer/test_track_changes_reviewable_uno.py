@@ -462,7 +462,7 @@ def test_apply_style_flags_unreviewed_when_review_on_uno(ctx, doc):
     prev = get_config(_FLAG)
     set_config(_FLAG, "record")
     try:
-        res = ApplyStyle().execute(_tool_ctx(doc, ctx), style_name="Heading 2", family="ParagraphStyles", target="full_document")
+        res = ApplyStyle().execute(_tool_ctx(doc, ctx), style="Heading 2", family="ParagraphStyles", target="full_document")
         assert res.get("status") == "ok", res
         assert res.get("style_unreviewed") is True, "style edit must flag unreviewed under review mode: %r" % res
         assert _redline_types(doc) == [], "a paragraph-style change creates no redline"
@@ -479,7 +479,7 @@ def test_apply_style_no_unreviewed_flag_when_review_off_uno(ctx, doc):
     prev = get_config(_FLAG)
     set_config(_FLAG, "off")
     try:
-        res = ApplyStyle().execute(_tool_ctx(doc, ctx), style_name="Heading 2", family="ParagraphStyles", target="full_document")
+        res = ApplyStyle().execute(_tool_ctx(doc, ctx), style="Heading 2", family="ParagraphStyles", target="full_document")
         assert res.get("status") == "ok", res
         assert "style_unreviewed" not in res, "no unreviewed flag when review mode off: %r" % res
     finally:
@@ -580,7 +580,7 @@ def test_update_style_flags_unreviewed_when_review_on_uno(ctx, doc):
     set_config(_FLAG, "record")
     try:
         res = StyleUpdate().execute(
-            _tool_ctx(doc, ctx), style_name="Standard", family="ParagraphStyles",
+            _tool_ctx(doc, ctx), style="Standard", family="ParagraphStyles",
             property_updates={"CharWeight": 150.0})  # 150.0 == BOLD
         assert res.get("status") == "ok", res
         assert res.get("style_unreviewed") is True, "update_style must flag unreviewed under review mode: %r" % res

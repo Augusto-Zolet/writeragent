@@ -228,7 +228,7 @@ class StyleGetInfo(ToolWriterStyleBase):
     parameters = {"type": "object", "properties": {"style": {"type": "string", "description": "Name of the style to inspect."}, "family": {"type": "string", "description": "Style family. Default: ParagraphStyles."}}, "required": ["style"]}
 
     def execute(self, ctx, **kwargs):
-        style_name = kwargs.get("style") or kwargs.get("style_name", "")
+        style_name = kwargs.get("style", "")
         family = kwargs.get("family", "ParagraphStyles")
 
         doc = ctx.doc
@@ -295,7 +295,7 @@ class ApplyStyle(FrameworkToolBase):
             cursor.setPropertyValue(uno_prop, uno_value)
 
     def execute(self, ctx, **kwargs):
-        style_name = (kwargs.get("style") or kwargs.get("style_name") or "").strip()
+        style_name = str(kwargs.get("style") or "").strip()
         if not style_name:
             return self._tool_error("style is required.")
 
@@ -440,7 +440,7 @@ class StyleUpdate(ToolWriterStyleBase):
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        style_name = (kwargs.get("style") or kwargs.get("style_name") or "").strip()
+        style_name = str(kwargs.get("style") or "").strip()
         if not style_name:
             return self._tool_error("style is required.")
 
@@ -543,7 +543,7 @@ class StyleCreate(ToolWriterStyleBase):
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        style_name = (kwargs.get("style") or kwargs.get("style_name") or "").strip()
+        style_name = str(kwargs.get("style") or "").strip()
         if not style_name:
             return self._tool_error("style is required.")
 
@@ -657,7 +657,7 @@ class StyleImport(ToolWriterStyleBase):
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        file_path = kwargs.get("path") or kwargs.get("file_path")
+        file_path = kwargs.get("path")
         if not file_path:
             return self._tool_error("path is required.")
 

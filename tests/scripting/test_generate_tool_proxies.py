@@ -113,6 +113,33 @@ def test_method_names_strip_prefix_plural():
     method_names = [name for name, _ in groups["footnote"]]
     assert "insert" in method_names
 
+def test_first_sentence_strips_trailing_period():
+    from scripts.generate_tool_proxies import _first_sentence
+
+    assert _first_sentence("Deletes a shape by index.") == "Deletes a shape by index."
+    assert _first_sentence("One. Two.") == "One."
+    assert _first_sentence("") == ""
+
+
+def test_range_schema_becomes_range_name_python_param():
+    tool = MockTool(
+        "read_cell_range",
+        "Read cells.",
+        {
+            "type": "object",
+            "properties": {"range": {"type": "array", "items": {"type": "string"}}},
+            "required": ["range"],
+        },
+    )
+    pos, kw = schema_to_signature(_as_tool(tool))
+    assert pos == ["range_name: list"]
+    assert kw == []
+    code = generate_module([_as_tool(tool)])
+    compile(code, "<generated>", "exec")
+    assert "def read_cell_range(self, range_name: list) -> dict:" in code
+    assert 'return _rpc_call("read_cell_range", range=range_name)' in code
+
+
 def test_rpc_call_logic_in_generated_code():
     tools = [_as_tool(MockTool("t", "d", {}))]
     code = generate_module(tools)

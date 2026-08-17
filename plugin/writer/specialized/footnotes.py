@@ -81,7 +81,7 @@ class FootnotesInsert(ToolWriterFootnoteBase):
     parameters = {
         "type": "object",
         "properties": {
-            "type": {"type": "string", "enum": ["footnote", "endnote"], "description": "Whether to insert a footnote or an endnote."},
+            "note": {"type": "string", "enum": ["footnote", "endnote"], "description": "Whether to insert a footnote or an endnote."},
             "text": {"type": "string", "description": "The content of the footnote or endnote."},
             "label": {"type": "string", "description": "Optional custom mark (e.g., '*'). If omitted or empty, it uses auto-numbering."},
             "insert_after": {
@@ -96,16 +96,16 @@ class FootnotesInsert(ToolWriterFootnoteBase):
             "occurrence": {"type": "integer", "description": ("0-based index when insert_after matches multiple times (default 0 = first match).")},
             "case_sensitive": {"type": "boolean", "description": "Search matching for insert_after (default true)."},
         },
-        "required": ["type", "text"],
+        "required": ["note", "text"],
     }
     is_mutation = True
 
     def execute(self, ctx: Any, **kwargs: Any) -> dict[str, Any]:
-        note_type = str(kwargs.get("type") or kwargs.get("note_type"))
+        note_type = str(kwargs.get("note"))
         text = str(kwargs.get("text"))
         label = kwargs.get("label", "")
 
-        raw_anchor = kwargs.get("insert_after") if "insert_after" in kwargs else kwargs.get("insert_after_text")
+        raw_anchor = kwargs.get("insert_after")
         if raw_anchor is None:
             insert_after = ""
             use_anchor = False
@@ -166,11 +166,11 @@ class FootnotesInsert(ToolWriterFootnoteBase):
 class FootnotesList(ToolWriterFootnoteBase):
     name = "footnotes_list"
     description = "Lists all existing footnotes or endnotes in the document, including their indices, labels (if custom), and text content. Use this index for editing or deleting."
-    parameters = {"type": "object", "properties": {"type": {"type": "string", "enum": ["footnote", "endnote"], "description": "Whether to list footnotes or endnotes."}}, "required": ["type"]}
+    parameters = {"type": "object", "properties": {"note": {"type": "string", "enum": ["footnote", "endnote"], "description": "Whether to list footnotes or endnotes."}}, "required": ["note"]}
     is_mutation = False
 
     def execute(self, ctx: Any, **kwargs: Any) -> dict[str, Any]:
-        note_type = str(kwargs.get("type") or kwargs.get("note_type"))
+        note_type = str(kwargs.get("note"))
         doc = ctx.doc
 
         try:
@@ -195,17 +195,17 @@ class FootnotesEdit(ToolWriterFootnoteBase):
     parameters = {
         "type": "object",
         "properties": {
-            "type": {"type": "string", "enum": ["footnote", "endnote"], "description": "Whether to edit a footnote or an endnote."},
+            "note": {"type": "string", "enum": ["footnote", "endnote"], "description": "Whether to edit a footnote or an endnote."},
             "index": {"type": "integer", "description": "The 0-based index of the note to edit (from footnotes_list)."},
             "text": {"type": "string", "description": "The new text content for the note."},
             "label": {"type": "string", "description": "Optional custom mark (e.g., '*'). Leave empty to revert to auto-numbering."},
         },
-        "required": ["type", "index"],
+        "required": ["note", "index"],
     }
     is_mutation = True
 
     def execute(self, ctx: Any, **kwargs: Any) -> dict[str, Any]:
-        note_type = str(kwargs.get("type") or kwargs.get("note_type"))
+        note_type = str(kwargs.get("note"))
         index_val = kwargs.get("index")
         index = int(index_val) if index_val is not None else -1
 
@@ -237,13 +237,13 @@ class FootnotesDelete(ToolWriterFootnoteBase):
     description = "Deletes an existing footnote or endnote based on its index (from footnotes_list)."
     parameters = {
         "type": "object",
-        "properties": {"type": {"type": "string", "enum": ["footnote", "endnote"], "description": "Whether to delete a footnote or an endnote."}, "index": {"type": "integer", "description": "The 0-based index of the note to delete (from footnotes_list)."}},
-        "required": ["type", "index"],
+        "properties": {"note": {"type": "string", "enum": ["footnote", "endnote"], "description": "Whether to delete a footnote or an endnote."}, "index": {"type": "integer", "description": "The 0-based index of the note to delete (from footnotes_list)."}},
+        "required": ["note", "index"],
     }
     is_mutation = True
 
     def execute(self, ctx: Any, **kwargs: Any) -> dict[str, Any]:
-        note_type = str(kwargs.get("type") or kwargs.get("note_type"))
+        note_type = str(kwargs.get("note"))
         index_val = kwargs.get("index")
         index = int(index_val) if index_val is not None else -1
 
@@ -273,11 +273,11 @@ class FootnotesDelete(ToolWriterFootnoteBase):
 class FootnotesSettingsGet(ToolWriterFootnoteBase):
     name = "footnotes_settings_get"
     description = "Gets the current formatting and numbering settings for footnotes or endnotes. These include prefix, suffix, starting number, and styles."
-    parameters = {"type": "object", "properties": {"type": {"type": "string", "enum": ["footnote", "endnote"], "description": "Whether to get settings for footnotes or endnotes."}}, "required": ["type"]}
+    parameters = {"type": "object", "properties": {"note": {"type": "string", "enum": ["footnote", "endnote"], "description": "Whether to get settings for footnotes or endnotes."}}, "required": ["note"]}
     is_mutation = False
 
     def execute(self, ctx: Any, **kwargs: Any) -> dict[str, Any]:
-        note_type = str(kwargs.get("type") or kwargs.get("note_type"))
+        note_type = str(kwargs.get("note"))
         doc = ctx.doc
 
         try:
@@ -312,13 +312,13 @@ class FootnotesSettingsUpdate(ToolWriterFootnoteBase):
     description = "Updates the formatting and numbering settings for footnotes or endnotes. You can specify which properties to change (e.g., Prefix, Suffix, StartAt, NumberingType)."
     parameters = {
         "type": "object",
-        "properties": {"type": {"type": "string", "enum": ["footnote", "endnote"], "description": "Whether to update settings for footnotes or endnotes."}, "properties": {"type": "object", "description": "A dictionary of properties to update (e.g., {'Prefix': '[', 'Suffix': ']'})"}},
-        "required": ["type", "properties"],
+        "properties": {"note": {"type": "string", "enum": ["footnote", "endnote"], "description": "Whether to update settings for footnotes or endnotes."}, "properties": {"type": "object", "description": "A dictionary of properties to update (e.g., {'Prefix': '[', 'Suffix': ']'})"}},
+        "required": ["note", "properties"],
     }
     is_mutation = True
 
     def execute(self, ctx: Any, **kwargs: Any) -> dict[str, Any]:
-        note_type = str(kwargs.get("type") or kwargs.get("note_type"))
+        note_type = str(kwargs.get("note"))
         props_to_update = kwargs.get("properties", {})
         doc = ctx.doc
 

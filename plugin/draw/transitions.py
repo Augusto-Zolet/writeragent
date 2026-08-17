@@ -103,7 +103,7 @@ class GetSlideTransition(ToolDrawSlideTransitionsBase):
     uno_services = ["com.sun.star.presentation.PresentationDocument"]
 
     def execute(self, ctx, **kwargs):
-        page_idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        page_idx = kwargs.get("page")
         page = _get_slide(ctx.doc, page_idx)
 
         # FadeEffect
@@ -177,7 +177,7 @@ class SetSlideTransition(ToolDrawSlideTransitionsBase):
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        page_idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        page_idx = kwargs.get("page")
         page = _get_slide(ctx.doc, page_idx)
         updated = []
 
@@ -295,7 +295,7 @@ class GetSlideLayout(ToolDrawSlideTransitionsBase):
     uno_services = ["com.sun.star.presentation.PresentationDocument"]
 
     def execute(self, ctx, **kwargs):
-        page_idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        page_idx = kwargs.get("page")
         page = _get_slide(ctx.doc, page_idx)
         layout_id = page.Layout
         layout_name = _LAYOUT_NAMES.get(layout_id, "unknown_%d" % layout_id)
@@ -318,7 +318,7 @@ class SetSlideLayout(ToolDrawSlideTransitionsBase):
         layout_name = kwargs.get("layout", "").strip().lower()
         if layout_name not in _LAYOUTS:
             return self._tool_error("Unknown layout: %s" % layout_name, available=sorted(_LAYOUTS.keys()))
-        page_idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        page_idx = kwargs.get("page")
         page = _get_slide(ctx.doc, page_idx)
         page.Layout = _LAYOUTS[layout_name]
         return {"status": "ok", "page": page_idx, "page_index": page_idx, "layout": layout_name}

@@ -46,7 +46,7 @@ def test_indexes_create():
     index_mock = MagicMock()
     doc.createInstance.return_value = index_mock
 
-    res = tool.execute(ctx, index_kind="toc", title="My TOC", create_from_outline=True, target="beginning")
+    res = tool.execute(ctx, kind="toc", title="My TOC", create_from_outline=True, target="beginning")
     assert res["status"] == "ok"
     assert res["title"] == "My TOC"
 
@@ -68,7 +68,7 @@ def test_indexes_add_mark():
     mark_mock = MagicMock()
     doc.createInstance.return_value = mark_mock
 
-    res = tool.execute(ctx, mark_text="Important Term", index_kind="alphabetical", primary_key="Terms", target="beginning")
+    res = tool.execute(ctx, text="Important Term", kind="alphabetical", primary_key="Terms", target="beginning")
     assert res["status"] == "ok"
     assert res["message"] == "Added 'alphabetical' index mark for 'Important Term'"
 

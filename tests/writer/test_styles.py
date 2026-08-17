@@ -131,7 +131,7 @@ def test_get_style_info():
     mock_ctx = _ctx_with_families(CharacterStyles=family)
 
     tool = StyleGetInfo()
-    res = tool.execute(mock_ctx, style_name="Emphasis", family="CharacterStyles")
+    res = tool.execute(mock_ctx, style="Emphasis", family="CharacterStyles")
 
     assert res["status"] == "ok"
     assert res["name"] == "Emphasis"
@@ -145,7 +145,7 @@ def test_apply_style_paragraph(mock_resolve, mock_preserve, mock_ctx):
     mock_resolve.return_value = cursor
 
     tool = ApplyStyle()
-    res = tool.execute(mock_ctx, style_name="Heading 1", target="selection")
+    res = tool.execute(mock_ctx, style="Heading 1", target="selection")
 
     assert res["status"] == "ok"
     assert res["family"] == "ParagraphStyles"
@@ -160,7 +160,7 @@ def test_apply_style_character(mock_resolve, mock_preserve, mock_ctx):
     mock_resolve.return_value = cursor
 
     tool = ApplyStyle()
-    res = tool.execute(mock_ctx, style_name="Source Text", family="CharacterStyles", target="search", old_content="code")
+    res = tool.execute(mock_ctx, style="Source Text", family="CharacterStyles", target="search", old_content="code")
 
     assert res["status"] == "ok"
     assert res["family"] == "CharacterStyles"
@@ -176,7 +176,7 @@ def test_apply_default_character_style(mock_resolve, mock_preserve, mock_ctx):
     mock_resolve.return_value = cursor
 
     tool = ApplyStyle()
-    res = tool.execute(mock_ctx, style_name="No Character Style", family="CharacterStyles", target="selection")
+    res = tool.execute(mock_ctx, style="No Character Style", family="CharacterStyles", target="selection")
 
     assert res["status"] == "ok"
     assert res["style_name"] == "No Character Style"
@@ -191,7 +191,7 @@ def test_update_style_with_parent():
     mock_ctx = _ctx_with_families(ParagraphStyles=family)
 
     tool = StyleUpdate()
-    res = tool.execute(mock_ctx, style_name="MyStyle", parent_style="Standard", property_updates={"CharWeight": 150})
+    res = tool.execute(mock_ctx, style="MyStyle", parent_style="Standard", property_updates={"CharWeight": 150})
 
     assert res["status"] == "ok"
     style.setParentStyle.assert_called_once_with("Standard")
@@ -206,7 +206,7 @@ def test_create_style_standard():
     mock_ctx.doc._created["com.sun.star.style.ParagraphStyle"] = new_style
 
     tool = StyleCreate()
-    res = tool.execute(mock_ctx, style_name="NewStyle", parent_style="Standard", property_updates={"CharColor": "#FF0000"})
+    res = tool.execute(mock_ctx, style="NewStyle", parent_style="Standard", property_updates={"CharColor": "#FF0000"})
 
     assert res["status"] == "ok"
     assert res["service"] == "com.sun.star.style.ParagraphStyle"
@@ -228,7 +228,7 @@ def test_create_style_conditional(mock_nv):
 
     tool = StyleCreate()
     rules = [{"context": "Table", "target_style": "Heading 1"}]
-    res = tool.execute(mock_ctx, style_name="CondStyle", conditional_rules=rules)
+    res = tool.execute(mock_ctx, style="CondStyle", conditional_rules=rules)
 
     assert res["status"] == "ok"
     assert res["service"] == "com.sun.star.style.ConditionalParagraphStyle"
@@ -250,7 +250,7 @@ def test_import_styles(mock_pv, mock_uno, mock_ctx):
     mock_pv.return_value = pv_instance
 
     tool = StyleImport()
-    res = tool.execute(mock_ctx, file_path="/path/to/doc.ott", overwrite=True)
+    res = tool.execute(mock_ctx, path="/path/to/doc.ott", overwrite=True)
 
     assert res["status"] == "ok"
     assert len(mock_ctx.doc._load_styles_calls) == 1
@@ -262,6 +262,6 @@ def test_import_styles(mock_pv, mock_uno, mock_ctx):
 def test_apply_style_selection_failure_at_tool_layer(mock_ctx):
     with patch("plugin.writer.styles.resolve_target_cursor",
                side_effect=ValueError("Could not resolve the current selection")):
-        res = ApplyStyle().execute(mock_ctx, style_name="Heading 1", target="selection")
+        res = ApplyStyle().execute(mock_ctx, style="Heading 1", target="selection")
     assert res["status"] == "error"
     assert "selection" in res["message"].lower()

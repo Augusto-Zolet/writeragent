@@ -85,7 +85,7 @@ def test_fields_insert(mock_ctx):
 
     tool = FieldsInsert()
     props = {"NumberingType": 4, "IsDate": True}
-    res = tool.execute(mock_ctx, field_type="PageNumber", properties=props, target="selection")
+    res = tool.execute(mock_ctx, field="PageNumber", properties=props, target="selection")
 
     assert res["status"] == "ok"
     doc.createInstance.assert_called_with("com.sun.star.text.textfield.PageNumber")
@@ -97,16 +97,6 @@ def test_fields_insert(mock_ctx):
     rng = mock_controller.getSelection().getByIndex()
     used_cursor = rng.getText().createTextCursorByRange()
     used_cursor.getText().insertTextContent.assert_called_with(used_cursor, mock_field, False)
-
-
-def test_fields_insert_shortened_type(mock_ctx):
-    doc = mock_ctx.doc
-    mock_field = MagicMock()
-    doc.createInstance.return_value = mock_field
-    tool = FieldsInsert()
-    res = tool.execute(mock_ctx, type="PageNumber", target="selection")
-    assert res["status"] == "ok"
-    doc.createInstance.assert_called_with("com.sun.star.text.textfield.PageNumber")
 
 
 def test_fields_delete(mock_ctx):

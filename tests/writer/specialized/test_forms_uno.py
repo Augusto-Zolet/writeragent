@@ -46,7 +46,7 @@ def test_create_form_control_checkbox(ctx, doc):
     mock_ctx = MockCtx(doc)
     
     # Test creating a checkbox
-    res = tool.execute(mock_ctx, type="checkbox", name="test_check", label="Test Label")
+    res = tool.execute(mock_ctx, control="checkbox", name="test_check", label="Test Label")
     assert res["status"] == "ok", f"Tool execution failed: {res}"
     
     # Verify shape exists on draw page
@@ -73,8 +73,8 @@ def test_create_form_fat_api(ctx, doc):
     mock_ctx = MockCtx(doc)
     
     fields = [
-        {"type": "text", "name": "f1", "label": "Field 1", "placeholder": "Hint"},
-        {"type": "combobox", "name": "f2", "items": ["Option A", "Option B"]}
+        {"control": "text", "name": "f1", "label": "Field 1", "placeholder": "Hint"},
+        {"control": "combobox", "name": "f2", "items": ["Option A", "Option B"]}
     ]
     
     res = tool.execute(mock_ctx, fields=fields)
@@ -171,8 +171,8 @@ def test_list_form_controls(ctx, doc):
     # 1. Create a few controls
     create_tool = registry.get("form_create_control")
     mock_ctx = MockCtx(doc)
-    create_tool.execute(mock_ctx, type="text", name="txt1", label="Label 1")
-    create_tool.execute(mock_ctx, type="checkbox", name="chk1", label="Label 2")
+    create_tool.execute(mock_ctx, control="text", name="txt1", label="Label 1")
+    create_tool.execute(mock_ctx, control="checkbox", name="chk1", label="Label 2")
     
     # 2. List them
     list_tool = registry.get("form_list_controls")
@@ -200,7 +200,7 @@ def test_edit_form_control(ctx, doc):
     
     # 1. Create a control (use checkbox which has Label)
     create_tool = registry.get("form_create_control")
-    create_tool.execute(mock_ctx, type="checkbox", name="original_name", label="Original Label")
+    create_tool.execute(mock_ctx, control="checkbox", name="original_name", label="Original Label")
     
     # 2. Get its index
     list_tool = registry.get("form_list_controls")
@@ -222,7 +222,7 @@ def test_edit_form_control(ctx, doc):
 
     # 5. Test text field editing
     _clear_doc(doc)
-    create_tool.execute(mock_ctx, type="text", name="txt_orig", default_value="Original Text")
+    create_tool.execute(mock_ctx, control="text", name="txt_orig", default_value="Original Text")
     list_res3 = list_tool.execute(mock_ctx)
     idx2 = list_res3["controls"][0]["index"]
     
@@ -243,7 +243,7 @@ def test_delete_form_control(ctx, doc):
     
     # 1. Create a control
     create_tool = registry.get("form_create_control")
-    create_tool.execute(mock_ctx, type="checkbox", name="to_delete")
+    create_tool.execute(mock_ctx, control="checkbox", name="to_delete")
     
     # 2. Get index
     list_tool = registry.get("form_list_controls")

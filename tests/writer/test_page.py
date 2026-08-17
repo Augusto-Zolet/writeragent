@@ -60,7 +60,7 @@ def test_get_page_style_properties():
 
     ctx = TestingFactory.create_context(doc=doc, doc_type="writer")
     tool = PageGetStyleProperties()
-    res = tool.execute(ctx, style_name="Standard")
+    res = tool.execute(ctx, style="Standard")
 
     assert res["status"] == "ok"
     assert res["properties"]["width_mm"] == 210.0
@@ -82,7 +82,7 @@ def test_set_page_style_properties():
 
     ctx = TestingFactory.create_context(doc=doc, doc_type="writer")
     tool = PageSetStyleProperties()
-    res = tool.execute(ctx, style_name="Standard", width_mm=300, is_landscape=True, header_is_on=False)
+    res = tool.execute(ctx, style="Standard", width_mm=300, is_landscape=True, header_is_on=False)
 
     assert res["status"] == "ok"
     assert "width" in res["updated"]
@@ -111,7 +111,7 @@ def test_set_header_footer_text():
     tool = PageSetHeaderFooterText()
     res = tool.execute(
         ctx,
-        style_name="Standard",
+        style="Standard",
         region="header",
         content="My Header Content",
         auto_height=True,
@@ -145,7 +145,7 @@ def test_set_page_columns():
 
     ctx = TestingFactory.create_context(doc=doc, doc_type="writer")
     tool = PageSetColumns()
-    res = tool.execute(ctx, style_name="Standard", column_count=2, spacing_mm=5)
+    res = tool.execute(ctx, style="Standard", column_count=2, spacing_mm=5)
 
     assert res["status"] == "ok"
     text_columns.setColumnCount.assert_called_with(2)

@@ -48,7 +48,7 @@ def test_insert_math_smolagents_validate_latex_payload() -> None:
     validate_tool_arguments(
         _stub(),
         {
-            "type": "latex",
+            "formula_type": "latex",
             "formula": "E = mc^2",
             "page": 0,
             "x": 2000,
@@ -62,7 +62,7 @@ def test_insert_math_smolagents_validate_mathml_payload() -> None:
     validate_tool_arguments(
         _stub(),
         {
-            "type": "mathml",
+            "formula_type": "mathml",
             "formula": mml,
             "page": 0,
             "x": 100,
@@ -76,7 +76,7 @@ def test_insert_math_smolagents_missing_page_index_raises() -> None:
         validate_tool_arguments(
             _stub(),
             {
-                "type": "latex",
+                "formula_type": "latex",
                 "formula": "a",
                 "x": 0,
                 "y": 0,

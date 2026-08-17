@@ -25,7 +25,7 @@ def test_create_paragraph_style_uno(ctx, doc):
     
     style_name = "AgentCustomPara"
     tool = StyleCreate()
-    res = tool.execute(tool_ctx, style_name=style_name, parent_style="Standard", property_updates={"CharWeight": 150.0, "CharColor": "#FF0000"})
+    res = tool.execute(tool_ctx, style=style_name, parent_style="Standard", property_updates={"CharWeight": 150.0, "CharColor": "#FF0000"})
     
     assert res["status"] == "ok", f"Tool failed: {res.get('message') or res}"
     
@@ -47,7 +47,7 @@ def test_create_conditional_style_uno(ctx, doc):
     style_name = "AgentCondPara"
     rules = [{"context": "Table", "target_style": "Heading 1"}]
     tool = StyleCreate()
-    res = tool.execute(tool_ctx, style_name=style_name, conditional_rules=rules)
+    res = tool.execute(tool_ctx, style=style_name, conditional_rules=rules)
     
     assert res["status"] == "ok", f"Tool failed: {res.get('message') or res}"
     assert res["service"] == "com.sun.star.style.ConditionalParagraphStyle"
@@ -74,7 +74,7 @@ def test_update_style_parent_uno(ctx, doc):
     )
     
     tool = StyleUpdate()
-    res = tool.execute(tool_ctx, style_name=style_name, parent_style="Heading 1")
+    res = tool.execute(tool_ctx, style=style_name, parent_style="Heading 1")
     
     assert res["status"] == "ok", f"Tool failed: {res.get('message') or res}"
     style = doc.getStyleFamilies().getByName("ParagraphStyles").getByName(style_name)

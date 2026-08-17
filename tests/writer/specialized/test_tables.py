@@ -99,12 +99,12 @@ def test_list_tables():
 
 def test_get_table_cells_matrix():
     t = FakeTable(2, 2, cells={"A1": "x", "B1": "y", "A2": "z", "B2": "w"})
-    res = TableGetCells().execute(_ctx({"T": t}), table_name="T")
+    res = TableGetCells().execute(_ctx({"T": t}), name="T")
     assert res["matrix"] == [["x", "y"], ["z", "w"]]
 
 
 def test_get_table_cells_unknown_table_lists_names():
-    res = TableGetCells().execute(_ctx({"Real": FakeTable(1, 1)}), table_name="Ghost")
+    res = TableGetCells().execute(_ctx({"Real": FakeTable(1, 1)}), name="Ghost")
     assert res["status"] == "error" and "Real" in res["message"]
 
 
@@ -112,13 +112,13 @@ def test_get_table_cells_unknown_table_lists_names():
 
 def test_set_table_cell_ok():
     t = FakeTable(2, 2, cells={"B2": "old"})
-    res = TableSetCell().execute(_ctx({"T": t}), table_name="T", cell="b2", text="new")
+    res = TableSetCell().execute(_ctx({"T": t}), name="T", cell="b2", text="new")
     assert res["status"] == "ok" and res["old_text"] == "old" and res["new_text"] == "new"
     assert t._cells["B2"] == "new"
 
 
 def test_set_table_cell_out_of_bounds_lists_real_names():
-    res = TableSetCell().execute(_ctx({"T": FakeTable(2, 2)}), table_name="T", cell="Z9", text="x")
+    res = TableSetCell().execute(_ctx({"T": FakeTable(2, 2)}), name="T", cell="Z9", text="x")
     assert res["status"] == "error" and "Its cells are:" in res["message"] and "A1" in res["message"]
 
 
@@ -128,7 +128,7 @@ def test_set_table_cell_uno_failure_returns_clean_error():
     def boom():
         raise RuntimeError("uno exploded")
     ctx = SimpleNamespace(doc=SimpleNamespace(getTextTables=boom))
-    res = TableSetCell().execute(ctx, table_name="T", cell="A1", text="x")
+    res = TableSetCell().execute(ctx, name="T", cell="A1", text="x")
     assert res["status"] == "error" and "A1" in res["message"] and "uno exploded" in res["message"]
 
 
@@ -138,7 +138,7 @@ def test_set_table_cell_never_blind_uppercases_real_lowercase_names():
     t = FakeTable(1, 2, cells={"A1": "first", "a1": "col27"})
     # Simulate the wide-table naming: real names include both 'A1' and 'a1'.
     t.getCellNames = lambda: ["A1", "a1"]
-    res = TableSetCell().execute(_ctx({"T": t}), table_name="T", cell="a1", text="new")
+    res = TableSetCell().execute(_ctx({"T": t}), name="T", cell="a1", text="new")
     assert res["status"] == "ok" and res["cell"] == "a1"
     assert t._cells["a1"] == "new" and t._cells["A1"] == "first"  # A1 untouched
 
@@ -148,7 +148,7 @@ def test_get_table_cells_prefers_position_access():
     getCellByPosition is unavailable."""
     t = FakeTable(1, 1, cells={"A1": "by-name"})
     t.getCellByPosition = lambda c, r: SimpleNamespace(getString=lambda: "by-position")
-    res = TableGetCells().execute(_ctx({"T": t}), table_name="T")
+    res = TableGetCells().execute(_ctx({"T": t}), name="T")
     assert res["matrix"] == [["by-position"]]
 
 
@@ -163,14 +163,14 @@ def test_get_table_cells_covered_cell_blank():
         return real_get(name)
 
     t.getCellByName = get_by_name
-    res = TableGetCells().execute(_ctx({"T": t}), table_name="T")
+    res = TableGetCells().execute(_ctx({"T": t}), name="T")
     assert res["matrix"] == [["x", ""]]
 
 
 def test_delete_last_column_guard():
     t = FakeTable(2, 1)
     res = ManageTableStructure().execute(
-        _ctx({"T": t}), action="delete", axis="column", table_name="T", index=0
+        _ctx({"T": t}), action="delete", axis="column", name="T", index=0
     )
     assert res["status"] == "error" and "last column" in res["message"]
 
@@ -181,27 +181,27 @@ def test_insert_row_appends_and_within_bounds():
     t = FakeTable(2, 2)
     ctx = _ctx({"T": t})
     tool = ManageTableStructure()
-    res = tool.execute(ctx, action="insert", axis="row", table_name="T", index=2)
+    res = tool.execute(ctx, action="insert", axis="row", name="T", index=2)
     assert res["status"] == "ok" and res["rows"] == 3 and res["cols"] == 2
     assert t._rows.inserts[-1] == (2, 1)
-    assert tool.execute(ctx, action="insert", axis="row", table_name="T", index=99)["status"] == "error"
+    assert tool.execute(ctx, action="insert", axis="row", name="T", index=99)["status"] == "error"
 
 
 def test_delete_row_bounds_and_last_row_guard():
     t = FakeTable(2, 2)
     ctx = _ctx({"T": t})
     tool = ManageTableStructure()
-    res = tool.execute(ctx, action="delete", axis="row", table_name="T", index=1)
+    res = tool.execute(ctx, action="delete", axis="row", name="T", index=1)
     assert res["status"] == "ok" and res["rows"] == 1 and res["cols"] == 2
     assert t._rows.removes[-1] == (1, 1)
     # now 1 row left -> deleting it is refused
-    res = tool.execute(ctx, action="delete", axis="row", table_name="T", index=0)
+    res = tool.execute(ctx, action="delete", axis="row", name="T", index=0)
     assert res["status"] == "error" and "last row" in res["message"]
 
 
 def test_delete_row_out_of_range():
     res = ManageTableStructure().execute(
-        _ctx({"T": FakeTable(3, 2)}), action="delete", axis="row", table_name="T", index=5
+        _ctx({"T": FakeTable(3, 2)}), action="delete", axis="row", name="T", index=5
     )
     assert res["status"] == "error"
 
@@ -210,10 +210,10 @@ def test_column_ops():
     t = FakeTable(2, 3)
     ctx = _ctx({"T": t})
     tool = ManageTableStructure()
-    res = tool.execute(ctx, action="insert", axis="column", table_name="T", index=1)
+    res = tool.execute(ctx, action="insert", axis="column", name="T", index=1)
     assert res["status"] == "ok" and res["rows"] == 2 and res["cols"] == 4
     assert t._cols.inserts[-1] == (1, 1)
-    res = tool.execute(ctx, action="delete", axis="column", table_name="T", index=0)
+    res = tool.execute(ctx, action="delete", axis="column", name="T", index=0)
     assert res["status"] == "ok" and res["rows"] == 2 and res["cols"] == 3
     assert t._cols.removes[-1] == (0, 1)
 
@@ -221,15 +221,15 @@ def test_column_ops():
 def test_negative_index_errors():
     ctx = _ctx({"T": FakeTable(2, 2)})
     tool = ManageTableStructure()
-    res = tool.execute(ctx, action="insert", axis="row", table_name="T", index=-1)
+    res = tool.execute(ctx, action="insert", axis="row", name="T", index=-1)
     assert res["status"] == "error" and "non-negative" in res["message"]
-    res = tool.execute(ctx, action="delete", axis="column", table_name="T", index=-2)
+    res = tool.execute(ctx, action="delete", axis="column", name="T", index=-2)
     assert res["status"] == "error" and "non-negative" in res["message"]
 
 
 def test_non_integer_index_errors():
     res = ManageTableStructure().execute(
-        _ctx({"T": FakeTable(2, 2)}), action="insert", axis="row", table_name="T", index="two"
+        _ctx({"T": FakeTable(2, 2)}), action="insert", axis="row", name="T", index="two"
     )
     assert res["status"] == "error" and "integer" in res["message"]
 
@@ -237,8 +237,8 @@ def test_non_integer_index_errors():
 def test_manage_table_structure_bad_action_or_axis():
     ctx = _ctx({"T": FakeTable(2, 2)})
     tool = ManageTableStructure()
-    assert tool.execute(ctx, action="merge", axis="row", table_name="T", index=0)["status"] == "error"
-    assert tool.execute(ctx, action="insert", axis="diagonal", table_name="T", index=0)["status"] == "error"
+    assert tool.execute(ctx, action="merge", axis="row", name="T", index=0)["status"] == "error"
+    assert tool.execute(ctx, action="insert", axis="diagonal", name="T", index=0)["status"] == "error"
 
 
 # ---- domain registration ----------------------------------------------------

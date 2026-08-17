@@ -32,7 +32,7 @@ class GetSpeakerNotes(ToolDrawSpeakerNotesBase):
     uno_services = ["com.sun.star.presentation.PresentationDocument"]
 
     def execute(self, ctx, **kwargs):
-        page_idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        page_idx = kwargs.get("page")
         page = _get_slide(ctx.doc, page_idx)
         notes_page = page.getNotesPage()
         notes_text = ""
@@ -64,7 +64,7 @@ class SetSpeakerNotes(ToolDrawSpeakerNotesBase):
         text = kwargs.get("text", "")
         append = kwargs.get("append", False)
 
-        page_idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        page_idx = kwargs.get("page")
         page = _get_slide(ctx.doc, page_idx)
         notes_page = page.getNotesPage()
         if notes_page is None or notes_page.getCount() < 2:

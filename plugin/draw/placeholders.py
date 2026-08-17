@@ -143,7 +143,7 @@ class ListPlaceholders(ToolBase):
     uno_services = ["com.sun.star.presentation.PresentationDocument"]
 
     def execute(self, ctx, **kwargs):
-        page_idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        page_idx = kwargs.get("page")
         page = _get_slide(ctx.doc, page_idx)
         placeholders = _list_placeholders(page)
         return {"status": "ok", "page": page_idx, "page_index": page_idx, "placeholders": placeholders, "count": len(placeholders)}
@@ -167,10 +167,10 @@ class GetPlaceholderText(ToolBase):
     uno_services = ["com.sun.star.presentation.PresentationDocument"]
 
     def execute(self, ctx, **kwargs):
-        page_idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        page_idx = kwargs.get("page")
         page = _get_slide(ctx.doc, page_idx)
         role = kwargs.get("role")
-        shape_index = kwargs.get("shape") if "shape" in kwargs else (kwargs.get("shape_index") if "shape_index" in kwargs else kwargs.get("index"))
+        shape_index = kwargs.get("shape")
 
         if shape_index is not None:
             if shape_index < 0 or shape_index >= page.getCount():
@@ -209,11 +209,11 @@ class SetPlaceholderText(ToolBase):
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        page_idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        page_idx = kwargs.get("page")
         page = _get_slide(ctx.doc, page_idx)
         text = kwargs["text"]
         role = kwargs.get("role")
-        shape_index = kwargs.get("shape") if "shape" in kwargs else (kwargs.get("shape_index") if "shape_index" in kwargs else kwargs.get("index"))
+        shape_index = kwargs.get("shape")
 
         if shape_index is not None:
             if shape_index < 0 or shape_index >= page.getCount():

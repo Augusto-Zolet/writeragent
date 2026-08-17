@@ -114,7 +114,7 @@ class FormCreateControl(ToolWriterFormBase):
     parameters = {
         "type": "object",
         "properties": {
-            "type": {"type": "string", "enum": ["checkbox", "text", "radio", "date", "combobox"], "description": "The type of form control to create."},
+            "control": {"type": "string", "enum": ["checkbox", "text", "radio", "date", "combobox"], "description": "The type of form control to create."},
             "label": {"type": "string", "description": "Label text for the control (e.g. 'I agree')."},
             "name": {"type": "string", "description": "Internal name/key for the control."},
             "group_name": {"type": "string", "description": "Group name for radio buttons (mutually exclusive in the same group)."},
@@ -124,7 +124,7 @@ class FormCreateControl(ToolWriterFormBase):
             "width": {"type": "integer", "description": "Width in 100ths of mm (default varies by type)."},
             "height": {"type": "integer", "description": "Height in 100ths of mm (default varies by type)."},
         },
-        "required": ["type", "name"],
+        "required": ["control", "name"],
     }
 
     def execute(self, ctx, **kwargs):
@@ -132,7 +132,7 @@ class FormCreateControl(ToolWriterFormBase):
 
     def _execute_main(self, ctx, **kwargs):
         doc = ctx.doc
-        control_type = str(kwargs.get("type", "text"))
+        control_type = str(kwargs.get("control", "text"))
         name = kwargs.get("name", "Field")
         label = kwargs.get("label", "")
 
@@ -218,7 +218,7 @@ class FormCreate(ToolWriterFormBase):
                 "items": {
                     "type": "object",
                     "properties": {
-                        "type": {"type": "string", "enum": ["checkbox", "text", "radio", "date", "combobox"]},
+                        "control": {"type": "string", "enum": ["checkbox", "text", "radio", "date", "combobox"]},
                         "label": {"type": "string"},
                         "name": {"type": "string"},
                         "group_name": {"type": "string"},
@@ -228,7 +228,7 @@ class FormCreate(ToolWriterFormBase):
                         "width": {"type": "integer"},
                         "height": {"type": "integer"},
                     },
-                    "required": ["type", "name"],
+                    "required": ["control", "name"],
                 },
             }
         },

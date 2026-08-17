@@ -81,7 +81,7 @@ def test_delete_comment_not_found_is_error():
     doc.getTextFields.return_value.createEnumeration.return_value.hasMoreElements.return_value = False
     ctx = MagicMock()
     ctx.doc = doc
-    res = CommentDelete().execute(ctx, comment_name="nope")
+    res = CommentDelete().execute(ctx, name="nope")
     assert res["status"] == "error" and res["code"] == "COMMENT_NOT_FOUND"
     assert res["deleted"] == 0
     assert "comment_list" in res["message"]
@@ -239,7 +239,7 @@ def test_apply_style_unknown_style_lists_names_and_suggests():
     fam.getElementNames.return_value = ["Heading 1", "Heading 2", "Text body", "Quotations"]
     ctx = MagicMock()
     ctx.doc.getStyleFamilies.return_value.getByName.return_value = fam
-    res = ApplyStyle().execute(ctx, style_name="heading 1", family="ParagraphStyles")
+    res = ApplyStyle().execute(ctx, style="heading 1", family="ParagraphStyles")
     assert res["status"] == "error"
     assert "Did you mean 'Heading 1'" in res["message"]
     assert "Text body" in res["message"]

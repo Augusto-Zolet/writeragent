@@ -15,7 +15,7 @@ def _exec_tool(doc, ctx, name, args):
 @with_native_doc("draw")
 def test_draw_form_lifecycle(ctx, doc):
     # 1. Create a control
-    res = _exec_tool(doc, ctx, "form_create_control", {"type": "checkbox", "name": "MyCheck", "label": "Agree"})
+    res = _exec_tool(doc, ctx, "form_create_control", {"control": "checkbox", "name": "MyCheck", "label": "Agree"})
     assert res["status"] == "ok", f"create_form_control failed: {res}"
     
     # 2. List controls

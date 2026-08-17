@@ -378,7 +378,7 @@ class GetDrawSummary(ToolDrawShapeBase):
         from plugin.draw.bridge import DrawBridge
 
         bridge = DrawBridge(ctx.doc)
-        idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        idx = kwargs.get("page")
         
         # Use provided index or resolved active index from context
         actual_idx = idx if idx is not None else ctx.active_page_index
@@ -636,7 +636,7 @@ class UpsertShape(ToolDrawShapeBase):
                 if r not in kwargs:
                     return False, f"Parameter '{r}' is required when action is 'create'"
         elif action == "edit":
-            if "shape_index" not in kwargs and "shape" not in kwargs and "index" not in kwargs:
+            if "shape_index" not in kwargs:
                 return False, "Parameter 'shape_index' is required when action is 'edit'"
         else:
             return False, f"Unknown action: '{action}'. Must be 'create' or 'edit'"
@@ -651,7 +651,7 @@ class UpsertShape(ToolDrawShapeBase):
         bridge = DrawBridge(ctx.doc)
         
         # Resolve page
-        idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        idx = kwargs.get("page")
         actual_idx = idx if idx is not None else ctx.active_page_index
         if actual_idx is None:
             actual_idx = bridge.get_active_page_index()
@@ -783,13 +783,13 @@ class ConnectShapes(ToolDrawShapeBase):
         from com.sun.star.awt import Point, Size
 
         bridge = DrawBridge(ctx.doc)
-        idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        idx = kwargs.get("page")
         page = bridge.get_pages().getByIndex(idx) if idx is not None else bridge.get_active_page()
         if page is None:
             return self._tool_error("No draw page available or invalid page index.")
 
-        start_idx = kwargs.get("start_shape") if "start_shape" in kwargs else kwargs.get("start_shape_index")
-        end_idx = kwargs.get("end_shape") if "end_shape" in kwargs else kwargs.get("end_shape_index")
+        start_idx = kwargs.get("start_shape")
+        end_idx = kwargs.get("end_shape")
         if start_idx is None or end_idx is None:
             return self._tool_error("start_shape and end_shape are required.")
 
@@ -835,12 +835,12 @@ class GroupShapes(ToolDrawShapeBase):
         from plugin.draw.bridge import DrawBridge
 
         bridge = DrawBridge(ctx.doc)
-        idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        idx = kwargs.get("page")
         page = bridge.get_pages().getByIndex(idx) if idx is not None else bridge.get_active_page()
         if page is None:
             return self._tool_error("No draw page available or invalid page index.")
 
-        indices = kwargs.get("shapes") if "shapes" in kwargs else kwargs.get("shape_indices")
+        indices = kwargs.get("shapes")
         if not indices or len(indices) < 2:
             return self._tool_error("At least two shape indices are required to group.")
 
@@ -875,11 +875,11 @@ class DeleteShape(ToolDrawShapeBase):
         from plugin.draw.bridge import DrawBridge
 
         bridge = DrawBridge(ctx.doc)
-        idx = kwargs.get("page") if "page" in kwargs else kwargs.get("page_index")
+        idx = kwargs.get("page")
         page = bridge.get_pages().getByIndex(idx) if idx is not None else bridge.get_active_page()
         if page is None:
             return self._tool_error("No draw page available or invalid page index.")
-        shape_idx = kwargs.get("shape") if "shape" in kwargs else (kwargs.get("shape_index") if "shape_index" in kwargs else kwargs.get("index"))
+        shape_idx = kwargs.get("shape")
         if shape_idx is None:
             return self._tool_error("shape is required.")
         shape = page.getByIndex(shape_idx)

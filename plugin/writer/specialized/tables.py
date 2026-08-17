@@ -107,7 +107,7 @@ class TableGetCells(ToolWriterTableBase):
     }
 
     def execute(self, ctx: Any, **kwargs: Any) -> dict[str, Any]:
-        name = (kwargs.get("name") or kwargs.get("table_name") or kwargs.get("table") or "").strip()
+        name = str(kwargs.get("name") or "").strip()
         try:
             table = _get_table(ctx.doc, name)
             rows, cols = _dims(table)
@@ -154,7 +154,7 @@ class TableSetCell(ToolWriterTableBase):
     }
 
     def execute(self, ctx: Any, **kwargs: Any) -> dict[str, Any]:
-        name = (kwargs.get("name") or kwargs.get("table_name") or kwargs.get("table") or "").strip()
+        name = str(kwargs.get("name") or "").strip()
         cell_raw = (kwargs.get("cell") or "").strip()
         text = kwargs.get("text")
         if text is None:
@@ -218,7 +218,7 @@ class ManageTableStructure(ToolWriterTableBase):
             return self._tool_error("action must be 'insert' or 'delete'.")
         if axis_arg not in ("row", "column"):
             return self._tool_error("axis must be 'row' or 'column'.")
-        name = (kwargs.get("name") or kwargs.get("table_name") or kwargs.get("table") or "").strip()
+        name = str(kwargs.get("name") or "").strip()
         raw = kwargs.get("index")
         if isinstance(raw, bool) or not isinstance(raw, (int, str)):
             return self._tool_error("index must be an integer.")

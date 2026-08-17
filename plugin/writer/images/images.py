@@ -318,7 +318,7 @@ class ImageGetInfo(ToolWriterImageBase):
     uno_services = ["com.sun.star.text.TextDocument", "com.sun.star.sheet.SpreadsheetDocument"]
 
     def execute(self, ctx, **kwargs):
-        image_name = kwargs.get("name") or kwargs.get("image_name", "")
+        image_name = kwargs.get("name", "")
 
         graphic = _get_graphic_object(ctx, ctx.doc, image_name)
         if not graphic:
@@ -505,7 +505,7 @@ class ImageSetProperties(ToolWriterImageBase):
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        image_name = kwargs.get("name") or kwargs.get("image_name", "")
+        image_name = kwargs.get("name", "")
         if not image_name:
             return self._tool_error("image_name is required.", code="MISSING_PARAMETER", parameter="image_name")
 
@@ -663,14 +663,14 @@ class ImageInsert(ToolWriterImageBase):
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        image_path = kwargs.get("path") or kwargs.get("image_path", "")
+        image_path = kwargs.get("path", "")
 
         width_mm = kwargs.get("width_mm", 80)
         height_mm = kwargs.get("height_mm", 80)
         locator = kwargs.get("locator")
-        paragraph_index = kwargs.get("paragraph") if "paragraph" in kwargs else kwargs.get("paragraph_index")
+        paragraph_index = kwargs.get("paragraph")
         target = kwargs.get("target", "body")
-        style_name = kwargs.get("style") or kwargs.get("style_name", "Standard")
+        style_name = kwargs.get("style", "Standard")
 
         doc = ctx.doc
 
@@ -749,7 +749,7 @@ class ImageDelete(ToolWriterImageBase):
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        image_name = kwargs.get("name") or kwargs.get("image_name", "")
+        image_name = kwargs.get("name", "")
 
         graphic = _get_graphic_object(ctx, ctx.doc, image_name)
         if not graphic:
@@ -794,8 +794,8 @@ class ImageReplace(ToolWriterImageBase):
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
-        image_name = kwargs.get("name") or kwargs.get("image_name", "")
-        new_image_path = kwargs.get("path") or kwargs.get("new_image_path", "")
+        image_name = kwargs.get("name", "")
+        new_image_path = kwargs.get("path", "")
 
         graphic = _get_graphic_object(ctx, ctx.doc, image_name)
         if not graphic:

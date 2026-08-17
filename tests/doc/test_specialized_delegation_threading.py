@@ -374,7 +374,7 @@ def test_writer_footnotes_list_runs_uno_only_on_main_thread():
         def worker():
             nonlocal err, result
             try:
-                result = adapter.forward(note_type="footnote")
+                result = adapter.forward(note="footnote")
             except AssertionError as e:
                 err = e
 

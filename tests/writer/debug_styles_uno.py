@@ -24,7 +24,7 @@ def test_inspect_heading1_properties(ctx, doc):
     tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
 
     tool = StyleGetInfo()
-    res = tool.execute(tool_ctx, style_name="Heading 1", family="ParagraphStyles")
+    res = tool.execute(tool_ctx, style="Heading 1", family="ParagraphStyles")
 
     # Print all keys to find the parent style property
     print("STYLE PROPERTIES:", list(res.get("properties", {}).keys()))

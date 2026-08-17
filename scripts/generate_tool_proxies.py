@@ -114,20 +114,39 @@ def _param_default(schema: dict) -> str:
     return DEFAULTS_BY_TYPE.get(_get_schema_type(schema), "None")
 
 
+def _python_param_name(schema_key: str) -> str:
+    """Python identifier for a schema key. Only ``range`` is remapped (builtin clash)."""
+    if schema_key == "range":
+        return "range_name"
+    if keyword.iskeyword(schema_key):
+        return schema_key + "_"
+    return schema_key
+
+
+def _first_sentence(description: str) -> str:
+    first = (description or "").split(". ")[0].rstrip(".")
+    return f"{first}." if first else ""
+
+
+def _iter_params(tool: "ToolBase") -> list[tuple[str, str, dict]]:
+    """Yield (python_name, schema_key, property_schema) in schema order."""
+    props = (tool.parameters or {}).get("properties", {})
+    return [(_python_param_name(key), key, schema) for key, schema in props.items()]
+
+
 def schema_to_signature(tool: "ToolBase") -> tuple[list[str], list[str]]:
     """Convert a tool's JSON Schema parameters to Python positional and keyword args."""
-    props = (tool.parameters or {}).get("properties", {})
     required = set((tool.parameters or {}).get("required", []))
 
     positional, keyword = [], []
-    for param_name, schema in props.items():
+    for py_name, schema_key, schema in _iter_params(tool):
         type_str = _get_schema_type(schema)
         py_type = JSON_TO_PYTHON.get(type_str, "Any")
-        if param_name in required:
-            positional.append(f"{param_name}: {py_type}")
+        if schema_key in required:
+            positional.append(f"{py_name}: {py_type}")
         else:
             default = _param_default(schema)
-            keyword.append(f"{param_name}: {py_type} = {default}")
+            keyword.append(f"{py_name}: {py_type} = {default}")
     return positional, keyword
 
 
@@ -312,25 +331,24 @@ def generate_module(tools: list["ToolBase"]) -> str:
             
             all_params = ", ".join(all_params_list)
 
-            all_param_names = list((tool.parameters or {}).get("properties", {}).keys())
+            rpc_pairs = [(schema_key, py_name) for py_name, schema_key, _schema in _iter_params(tool)]
             # Scripting-only kwargs (e.g. set_style number_format) stay on the Python proxy
             # even though they are omitted from the LLM/MCP schema (#374 P3).
             scripting_only = sorted(getattr(tool, "scripting_only_parameters", None) or ())
+            seen_schema = {schema_key for schema_key, _py in rpc_pairs}
             for extra in scripting_only:
-                if extra not in all_param_names:
-                    all_param_names.append(extra)
+                if extra not in seen_schema:
+                    rpc_pairs.append((extra, extra))
                     if "*" not in all_params_list:
                         all_params_list.append("*")
                     all_params_list.append(f'{extra}: str = ""')
                     all_params = ", ".join(all_params_list)
-            if all_param_names:
-                kwargs_body = ", " + ", ".join(f"{p}={p}" for p in all_param_names)
+            if rpc_pairs:
+                kwargs_body = ", " + ", ".join(f"{schema_key}={py_name}" for schema_key, py_name in rpc_pairs)
             else:
                 kwargs_body = ""
 
-            desc = (tool.description or "").split(". ")[0] + "."
-            # Escape double quotes in description
-            desc = desc.replace('"', '\\"')
+            desc = _first_sentence(tool.description or "").replace('"', '\\"')
 
             lines.append(f"    def {short_name}({all_params}) -> dict:")
             lines.append(f'        """{desc}"""')
