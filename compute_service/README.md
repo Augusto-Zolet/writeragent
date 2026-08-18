@@ -12,8 +12,80 @@ returns JSON results. **It does not read `writeragent.json`.**
 python compute_service/server.py --host 127.0.0.1 --port 8000
 ```
 
-- `GET /health` → `{"status":"healthy"}` (no auth)
-- `POST /v1/execute` → `{ "code", "data?", "mode?", "session_id?", "timeout_ms?" }`
+- `GET /health` → `{"status":"healthy","service":"python-compute","version":"<version>"}` (no auth required)
+- `POST /v1/execute` → `{ "id?", "code", "data?", "mode?", "session_id?", "timeout_ms?", "init_script?" }`
+
+---
+
+## API & Wire Protocol
+
+### 1. Health Endpoint (`GET /health`)
+
+Unauthenticated health probe suitable for Kubernetes/Docker liveness and readiness checks.
+Always unauthenticated even when Bearer authentication is configured for execution.
+
+- **Request**: `GET /health`
+- **Response**: `200 OK`
+  ```json
+  {
+    "status": "healthy",
+    "service": "python-compute",
+    "version": "0.8.59"
+  }
+  ```
+
+### 2. Execution Endpoint (`POST /v1/execute`)
+
+Evaluates sandboxed Python code and emits kit-safe dumb JSON (`allow_nan=False`, `NaN`/`Inf` → `null`).
+
+- **Request Schema**:
+  ```json
+  {
+    "id": "req-123",
+    "code": "result = float(np.sum(data))",
+    "data": [10, 20, 30],
+    "mode": "isolated",
+    "session_id": "optional-session-id",
+    "timeout_ms": 5000,
+    "init_script": "optional-init-code"
+  }
+  ```
+
+- **Success Response (`200 OK`)**:
+  ```json
+  {
+    "id": "req-123",
+    "status": "ok",
+    "result": 60.0,
+    "stdout": ""
+  }
+  ```
+  *(If Matplotlib plots are generated, they are returned in `images: [{"format": "png", "data_b64": "..."}]`)*
+
+- **Evaluation Error Response (`200 OK`)**:
+  Evaluation errors (e.g. `SyntaxError`, `ZeroDivisionError`, unauthorized imports) return `200 OK` with `status: "error"` so HTTP transport is distinguished from evaluated code errors:
+  ```json
+  {
+    "id": "req-123",
+    "status": "error",
+    "error": "SyntaxError: invalid syntax (<string>, line 1)",
+    "stdout": "",
+    "message": "SyntaxError: invalid syntax (<string>, line 1)"
+  }
+  ```
+
+### 3. HTTP Status Codes & Error Semantics
+
+| HTTP Status | Condition | Response Payload Shape |
+| :--- | :--- | :--- |
+| **`200 OK`** | Evaluation completed (success or runtime evaluation error) | `{"id"?: "...", "status": "ok"\|"error", "result"\|"error": ...}` |
+| **`400 Bad Request`** | Malformed JSON, non-object body, or missing `code` | `{"id"?: "...", "status": "error", "error": "Bad Request: ..."}` |
+| **`401 Unauthorized`** | Missing or incorrect `Authorization: Bearer <secret>` | `{"status": "error", "error": "Unauthorized"}` + `WWW-Authenticate: Bearer` |
+| **`404 Not Found`** | Unknown path or unsupported HTTP method | Plaintext `Not Found` |
+| **`413 Payload Too Large`**| Request body exceeds `max_body_bytes` | `{"status": "error", "error": "Request body too large"}` |
+| **`500 Internal Server Error`**| Unhandled server exception or JSON encoding failure | `{"id"?: "...", "status": "error", "error": "..."}` |
+
+---
 
 ## Authentication (shared Bearer secret)
 
@@ -34,7 +106,7 @@ Rules:
 - **Key configured** → `/v1/execute` requires an exact `Bearer <token>` match
   (`hmac.compare_digest`). Failures return HTTP 401 + `WWW-Authenticate: Bearer`.
 
-Match coolwsd:
+Match coolwsd (`coolwsd.xml`):
 
 ```xml
 <python_compute>
@@ -45,7 +117,9 @@ Match coolwsd:
 </python_compute>
 ```
 
-## Configuration (no writeragent.json)
+---
+
+## Configuration & Ops (no writeragent.json)
 
 Precedence (later wins): defaults → `--config` / `PYTHON_COMPUTE_CONFIG` JSON →
 `PYTHON_COMPUTE_*` env (plus legacy `HOST`/`PORT`) → `--host` / `--port` /
@@ -53,35 +127,60 @@ Precedence (later wins): defaults → `--config` / `PYTHON_COMPUTE_CONFIG` JSON 
 
 Example JSON: [`python-compute.example.json`](python-compute.example.json).
 
-| Variable | Meaning |
-|----------|---------|
-| `HOST` / `PYTHON_COMPUTE_HOST` | Bind address (default `127.0.0.1`) |
-| `PORT` / `PYTHON_COMPUTE_PORT` | Port (default `8000`) |
-| `PYTHON_COMPUTE_API_KEY` | Shared Bearer secret |
-| `PYTHON_COMPUTE_API_KEY_FILE` | Path to secret file (strip one trailing newline) |
-| `PYTHON_COMPUTE_CONFIG` | Path to JSON config |
-| `PYTHON_COMPUTE_MAX_BODY_BYTES` | Request body cap (default 32 MiB) |
-| `PYTHON_COMPUTE_DEFAULT_TIMEOUT_SEC` | Default exec timeout (30) |
-| `PYTHON_COMPUTE_MAX_TIMEOUT_SEC` | Clamp for request `timeout_ms` (600) |
+| Variable | Meaning | Default |
+|----------|---------|---------|
+| `HOST` / `PYTHON_COMPUTE_HOST` | Bind address (loopback default) | `127.0.0.1` |
+| `PORT` / `PYTHON_COMPUTE_PORT` | Listening port | `8000` |
+| `PYTHON_COMPUTE_API_KEY` | Shared Bearer secret | `""` |
+| `PYTHON_COMPUTE_API_KEY_FILE` | Path to secret file (strip one trailing newline) | `""` |
+| `PYTHON_COMPUTE_CONFIG` | Path to JSON config | `""` |
+| `PYTHON_COMPUTE_LOG_LEVEL` | Log verbosity (`DEBUG`, `INFO`, `WARN`, `ERROR`) | `INFO` |
+| `PYTHON_COMPUTE_MAX_BODY_BYTES` | Request body cap | `33554432` (32 MiB) |
+| `PYTHON_COMPUTE_DEFAULT_TIMEOUT_SEC` | Default execution timeout in seconds | `30` |
+| `PYTHON_COMPUTE_MAX_TIMEOUT_SEC` | Upper bound clamp for `timeout_ms` | `600` |
 
 Key file permissions: readable only by the service user (e.g. mode `0400`).
 
-## Docker
+---
+
+## Lifecycle & Signal Handling
+
+- **Graceful Shutdown**: The service traps `SIGTERM` and `SIGINT`.
+- When `SIGTERM` is received (from Kubernetes pod termination or `docker stop`), the server initiates `server.shutdown()` on a background thread, stops accepting new connections, drains in-flight evaluations, and closes listening sockets cleanly.
+
+---
+
+## Logging & Observability
+
+The service uses standard Python `logging` under the logger name `compute_service`.
+Log format includes timestamps, log level, request IDs, modes, code size, execution durations, and status:
+
+```text
+2026-08-17 20:00:00,123 [INFO] compute_service: Starting Python Compute Service on 127.0.0.1:8000 (auth=yes)...
+2026-08-17 20:00:01,456 [INFO] compute_service: exec /v1/execute id='req-123' mode=isolated session=None code_len=32 timeout=30s
+2026-08-17 20:00:01,489 [INFO] compute_service: done /v1/execute id='req-123' status='ok' duration=32.40ms
+```
+
+---
+
+## Docker & Container Hardening
 
 ```bash
 docker build -f compute_service/Dockerfile -t python-compute .
 docker run --rm -p 127.0.0.1:8000:8000 \
+  --read-only --tmpfs /tmp:rw,size=64m,mode=1777 \
+  --memory=1g --cpus=1 --pids-limit=256 \
+  --security-opt no-new-privileges \
+  --cap-drop ALL \
   -e PYTHON_COMPUTE_API_KEY_FILE=/run/secrets/key \
   -v /secure/key:/run/secrets/key:ro \
   python-compute
 ```
 
-For cross-container networking set `HOST=0.0.0.0`. Add an API key when you want
-Bearer auth (recommended outside pure local/dev).
+- For cross-container networking within a private bridge network, set `HOST=0.0.0.0`.
+- The multi-stage Dockerfile copies only pre-compiled packages into the runner image, drops root privileges (`USER appuser`), and excludes compiler build tools (`build-essential`).
 
-The image copies only the sandbox import closure (`compute_service`,
-`plugin/scripting`, `plugin/framework/constants.py`, `plugin/contrib/smolagents`) —
-not WriterAgent Settings / `config.py`.
+---
 
 ## CLI
 

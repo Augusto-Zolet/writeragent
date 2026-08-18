@@ -28,7 +28,18 @@ _DEFAULT_MAX_BODY_BYTES = 32 * 1024 * 1024
 _DEFAULT_TIMEOUT_SEC = 30
 _MAX_TIMEOUT_SEC = 600
 
+_DEFAULT_LOG_LEVEL = "INFO"
+_VALID_LOG_LEVELS = frozenset({"DEBUG", "INFO", "WARNING", "WARN", "ERROR", "CRITICAL"})
+
 _LOOPBACK_HOSTS = frozenset({"", "127.0.0.1", "::1", "localhost"})
+
+
+def normalize_log_level(level: str) -> str:
+    """Normalize log level strings (e.g. WARN -> WARNING)."""
+    norm = (level or "").strip().upper()
+    if norm == "WARN":
+        return "WARNING"
+    return norm
 
 
 class ConfigError(ValueError):
@@ -45,6 +56,7 @@ class ComputeSettings:
     max_body_bytes: int = _DEFAULT_MAX_BODY_BYTES
     default_timeout_sec: int = _DEFAULT_TIMEOUT_SEC
     max_timeout_sec: int = _MAX_TIMEOUT_SEC
+    log_level: str = _DEFAULT_LOG_LEVEL
     # Future: map authenticated principals to named profiles. Today always "default".
     default_principal: str = "default"
 
@@ -65,6 +77,8 @@ class ComputeSettings:
             raise ConfigError("timeout bounds must be >= 1")
         if self.default_timeout_sec > self.max_timeout_sec:
             raise ConfigError("default_timeout_sec cannot exceed max_timeout_sec")
+        if self.log_level.upper() not in _VALID_LOG_LEVELS:
+            raise ConfigError(f"Invalid log_level: {self.log_level!r} (must be one of {sorted(_VALID_LOG_LEVELS)})")
         # No API key ⇒ no auth (dev/test). Verification runs only when a key is set.
 
 
@@ -129,6 +143,12 @@ def _flatten_config_json(raw: Mapping[str, Any]) -> dict[str, Any]:
             out["default_timeout_sec"] = limits["default_timeout_sec"]
         if "max_timeout_sec" in limits:
             out["max_timeout_sec"] = limits["max_timeout_sec"]
+    logging_cfg = raw.get("logging")
+    if isinstance(logging_cfg, Mapping):
+        if "log_level" in logging_cfg:
+            out["log_level"] = logging_cfg["log_level"]
+        elif "level" in logging_cfg:
+            out["log_level"] = logging_cfg["level"]
 
     for key in (
         "host",
@@ -137,6 +157,7 @@ def _flatten_config_json(raw: Mapping[str, Any]) -> dict[str, Any]:
         "max_body_bytes",
         "default_timeout_sec",
         "max_timeout_sec",
+        "log_level",
     ):
         if key in raw and key not in out:
             out[key] = raw[key]
@@ -161,6 +182,7 @@ def load_settings(
         "max_body_bytes": _DEFAULT_MAX_BODY_BYTES,
         "default_timeout_sec": _DEFAULT_TIMEOUT_SEC,
         "max_timeout_sec": _MAX_TIMEOUT_SEC,
+        "log_level": _DEFAULT_LOG_LEVEL,
     }
 
     resolved_config = config_path or env.get("PYTHON_COMPUTE_CONFIG") or ""
@@ -184,6 +206,8 @@ def load_settings(
         values["default_timeout_sec"] = env["PYTHON_COMPUTE_DEFAULT_TIMEOUT_SEC"]
     if env.get("PYTHON_COMPUTE_MAX_TIMEOUT_SEC"):
         values["max_timeout_sec"] = env["PYTHON_COMPUTE_MAX_TIMEOUT_SEC"]
+    if env.get("PYTHON_COMPUTE_LOG_LEVEL"):
+        values["log_level"] = env["PYTHON_COMPUTE_LOG_LEVEL"]
 
     env_key = (env.get("PYTHON_COMPUTE_API_KEY") or "").strip()
     env_key_file = (env.get("PYTHON_COMPUTE_API_KEY_FILE") or "").strip()
@@ -220,6 +244,7 @@ def load_settings(
         max_timeout_sec=_as_int(
             values["max_timeout_sec"], field="max_timeout_sec", default=_MAX_TIMEOUT_SEC
         ),
+        log_level=normalize_log_level(str(values["log_level"] or _DEFAULT_LOG_LEVEL)),
     )
     settings.validate()
     return settings

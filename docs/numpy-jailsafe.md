@@ -146,11 +146,13 @@ flowchart LR
 
 ### Python compute service
 
-- Live tree: [`compute_service/`](../compute_service/) (`server.py`, `executor.py`, [`json_egress.py`](../compute_service/json_egress.py)); tests under `tests/compute_service/`.
+- Live tree: [`compute_service/`](../compute_service/) (`server.py`, `config.py`, `executor.py`, [`json_egress.py`](../compute_service/json_egress.py)); tests under `tests/compute_service/`.
 - Listen with **stdlib** `http.server` / `ThreadingHTTPServer` (no FastAPI).
-- `POST /v1/execute` body: `{ "code", "data", "session_id?", "timeout_ms?", "mode?" }` → `{ "status", "result"|"error", "stdout?", "images?" }`.
+- `GET /health` → `{"status":"healthy","service":"python-compute","version":"1.0.0"}` (unauthenticated for orchestrator liveness/readiness probes).
+- `POST /v1/execute` body: `{ "id?", "code", "data", "session_id?", "timeout_ms?", "mode?", "init_script?" }` → `{ "id?", "status", "result"|"error", "stdout?", "images?" }`.
 - **Dumb JSON egress only** toward kit/coolwsd: ndarrays and `split_grid` become nested lists; NaN/Inf → `null`; `json.dumps(..., allow_nan=False)`. Plots go in top-level `images[]` (`format` + `data_b64`), not desktop Pickle envelopes.
 - `mode`: `isolated` (default) ignores `session_id`; `shared` needs a session id and serializes executes per session with a lock.
+- **Ops sidecar conventions**: Traps `SIGTERM`/`SIGINT` for clean socket draining; structured logging with request durations (`PYTHON_COMPUTE_LOG_LEVEL`); request `id` correlation echo.
 - Reuse desktop sandbox: [`venv_sandbox`](../plugin/scripting/venv/venv_sandbox.py), import whitelist, curated Docker image (pinned numpy/pandas/**Pillow**/…).
 - Prefer an **in-process executor in the service** first (fewer hops). Add Pickle5 warm workers later only if the service host needs ABI isolation.
 
@@ -429,7 +431,8 @@ Prefer **kit-side binary insert via existing LOK document APIs**, not reimplemen
 6. **No docker.sock, no privileged, no host FS mounts** of tenant data. Scratch only under `/tmp`. If models/weights are needed later, bake into the image (admin curates) — never bind-mount `~/.writeragent_venv`.
 7. **Auth between coolwsd and service:** coolwsd sends optional `security.python_compute.api_key` as `Authorization: Bearer …`. The compute service verifies that Bearer only when a key is configured (`PYTHON_COMPUTE_API_KEY` / key file / `python-compute.json`); empty key = no auth (dev/test). Remaining ops: cgroup/network isolation ([F4](#f4--compute-service-container-hardening) / G5).
 8. **Resource quotas already partially exist:** `timeout_ms` / `clamp_timeout_sec` in [`executor.py`](../compute_service/executor.py); add RSS watch or rely on cgroup `--memory`. Document that wall-clock alone does not stop a malloc bomb — cgroup does.
-9. **Health / readiness:** keep `/health`; orchestrators use it. Do not expose `/v1/execute` without the allowlist auth once enabled.
+9. **Health / readiness:** keep `/health` (`status`, `service`, `version`); orchestrators use it. Do not expose `/v1/execute` without the allowlist auth once enabled.
+10. **Signal handling & structured logging:** `SIGTERM`/`SIGINT` graceful shutdown for orchestrators; structured logging with request durations and configurable verbosity (`PYTHON_COMPUTE_LOG_LEVEL`). Request `id` is echoed on success and error payloads for async tracing.
 
 
 ---

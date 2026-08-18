@@ -19,6 +19,7 @@ from compute_service.executor import clamp_timeout_sec, execute_code, timeout_ms
 from compute_service.json_egress import sanitize_for_strict_json, to_dumb_json_value
 from compute_service.server import create_wsgi_app
 from compute_service.config import ComputeSettings, load_settings
+from plugin.version import EXTENSION_VERSION
 
 
 def get_free_port() -> int:
@@ -139,12 +140,40 @@ class TestComputeHttp:
     def test_health(self, compute_url: str) -> None:
         with urllib.request.urlopen(f"{compute_url}/health") as resp:
             assert resp.status == 200
-            assert json.loads(resp.read().decode())["status"] == "healthy"
+            data = json.loads(resp.read().decode())
+            assert data["status"] == "healthy"
+            assert data["service"] == "python-compute"
+            assert data["version"] == EXTENSION_VERSION
 
     def test_simple_execution(self, compute_url: str) -> None:
         body = _post_execute(compute_url, {"code": "result = 3 ** 4"})
         assert body["status"] == "ok"
         assert body["result"] == 81
+
+    def test_id_echo_on_success(self, compute_url: str) -> None:
+        body = _post_execute(compute_url, {"id": "test-req-1", "code": "result = 42"})
+        assert body["status"] == "ok"
+        assert body["result"] == 42
+        assert body.get("id") == "test-req-1"
+
+    def test_id_echo_on_execution_error(self, compute_url: str) -> None:
+        body = _post_execute(compute_url, {"id": "test-req-err", "code": "import os\nresult = os.name"})
+        assert body["status"] == "error"
+        assert body.get("id") == "test-req-err"
+
+    def test_id_echo_on_bad_request(self, compute_url: str) -> None:
+        req = urllib.request.Request(
+            f"{compute_url}/v1/execute",
+            data=json.dumps({"id": "test-bad-req", "code": 12345}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with pytest.raises(urllib.error.HTTPError) as exc_info:
+            urllib.request.urlopen(req)
+        assert exc_info.value.code == 400
+        body = json.loads(exc_info.value.read().decode("utf-8"))
+        assert body.get("id") == "test-bad-req"
+        assert body.get("status") == "error"
 
     def test_numpy_mean(self, compute_url: str) -> None:
         body = _post_execute(
@@ -210,6 +239,22 @@ class TestComputeHttp:
 
 
 class TestComputeSettings:
+    def test_log_level_default_and_custom(self) -> None:
+        s1 = load_settings(environ={})
+        assert s1.log_level == "INFO"
+
+        s2 = load_settings(environ={"PYTHON_COMPUTE_LOG_LEVEL": "debug"})
+        assert s2.log_level == "DEBUG"
+
+        s3 = load_settings(environ={"PYTHON_COMPUTE_LOG_LEVEL": "warn"})
+        assert s3.log_level == "WARNING"
+
+        s4 = load_settings(environ={"PYTHON_COMPUTE_LOG_LEVEL": "WARNING"})
+        assert s4.log_level == "WARNING"
+
+        with pytest.raises(Exception) as exc_info:
+            load_settings(environ={"PYTHON_COMPUTE_LOG_LEVEL": "INVALID_LEVEL"})
+        assert "Invalid log_level" in str(exc_info.value)
     def test_keyless_ok(self) -> None:
         s = load_settings(environ={"HOST": "127.0.0.1", "PORT": "8000"})
         assert s.host == "127.0.0.1"
@@ -335,6 +380,10 @@ class TestBearerAuthHttp:
         url, executed = auth_server
         with urllib.request.urlopen(f"{url}/health") as resp:
             assert resp.status == 200
+            data = json.loads(resp.read().decode("utf-8"))
+            assert data["status"] == "healthy"
+            assert data["service"] == "python-compute"
+            assert data["version"] == EXTENSION_VERSION
         assert executed == []
 
     def test_correct_bearer(self, auth_server) -> None:

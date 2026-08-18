@@ -9,11 +9,14 @@ from __future__ import annotations
 import argparse
 import hmac
 import json
+import logging
 import os
 import selectors
+import signal
 import socket
 import sys
 import threading
+import time
 from http.server import ThreadingHTTPServer
 from typing import Any, Callable
 
@@ -23,9 +26,23 @@ _PROJECT_ROOT = os.path.abspath(os.path.join(_SCRIPT_DIR, ".."))
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
+from compute_service import __version__
 from compute_service.config import ComputeSettings, ConfigError, load_settings
 
+log = logging.getLogger("compute_service")
+
 ExecuteFn = Callable[..., dict[str, Any]]
+
+
+def setup_logging(level_name: str = "INFO") -> None:
+    """Configure standard logging format and level for the compute service."""
+    level = getattr(logging, level_name.upper(), logging.INFO)
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        force=True,
+    )
+    log.setLevel(level)
 
 
 def check_dependencies() -> None:
@@ -109,7 +126,11 @@ def create_wsgi_app(
         method = environ.get("REQUEST_METHOD", "GET")
 
         if path == "/health" and method == "GET":
-            return _start_json(start_response, "200 OK", {"status": "healthy"})
+            return _start_json(
+                start_response,
+                "200 OK",
+                {"status": "healthy", "service": "python-compute", "version": __version__},
+            )
 
         if path == "/v1/execute" and method == "POST":
             _principal, auth_err = authenticate_request(environ, settings)
@@ -151,12 +172,17 @@ def create_wsgi_app(
                     {"status": "error", "error": "JSON body must be an object"},
                 )
 
+            req_id = req_data.get("id")
+
             code = req_data.get("code")
             if not code or not isinstance(code, str):
+                err_body: dict[str, Any] = {"status": "error", "error": "Missing 'code' string parameter."}
+                if req_id is not None:
+                    err_body["id"] = req_id
                 return _start_json(
                     start_response,
                     "400 Bad Request",
-                    {"status": "error", "error": "Missing 'code' string parameter."},
+                    err_body,
                 )
 
             data = req_data.get("data")
@@ -180,11 +206,16 @@ def create_wsgi_app(
                 max_timeout_sec=settings.max_timeout_sec,
             )
             sid = session_id if isinstance(session_id, str) else None
-            print(
-                f"exec /v1/execute mode={mode} session={sid!r} "
-                f"code_len={len(code)} timeout={timeout_sec}s"
+            log.info(
+                "exec /v1/execute id=%r mode=%s session=%r code_len=%d timeout=%ds",
+                req_id,
+                mode,
+                sid,
+                len(code),
+                timeout_sec,
             )
 
+            start_t = time.perf_counter()
             try:
                 result_payload = run_execute(
                     code=code,
@@ -194,23 +225,39 @@ def create_wsgi_app(
                     mode=mode,
                     init_script=init_script,
                 )
+                duration_ms = (time.perf_counter() - start_t) * 1000.0
                 status = result_payload.get("status") if isinstance(result_payload, dict) else None
-                print(f"done /v1/execute status={status!r}")
+                log.info(
+                    "done /v1/execute id=%r status=%r duration=%.2fms",
+                    req_id,
+                    status,
+                    duration_ms,
+                )
+
+                if req_id is not None and isinstance(result_payload, dict):
+                    result_payload["id"] = req_id
 
                 try:
                     return _start_json(start_response, "200 OK", result_payload)
                 except (TypeError, ValueError) as e:
+                    err_body = {"status": "error", "error": f"JSON encode failed: {e}"}
+                    if req_id is not None:
+                        err_body["id"] = req_id
                     return _start_json(
                         start_response,
                         "500 Internal Server Error",
-                        {"status": "error", "error": f"JSON encode failed: {e}"},
+                        err_body,
                     )
             except Exception as e:
-                print(f"fail /v1/execute: {e}")
+                duration_ms = (time.perf_counter() - start_t) * 1000.0
+                log.exception("fail /v1/execute id=%r duration=%.2fms: %s", req_id, duration_ms, e)
+                err_body = {"status": "error", "error": f"Server execution failure: {e}"}
+                if req_id is not None:
+                    err_body["id"] = req_id
                 return _start_json(
                     start_response,
                     "500 Internal Server Error",
-                    {"status": "error", "error": f"Server execution failure: {e}"},
+                    err_body,
                 )
 
         start_response("404 Not Found", [("Content-Type", "text/plain")])
@@ -389,14 +436,31 @@ class WSGIDualStackServer:
 
 def run_server(settings: ComputeSettings) -> None:
     check_dependencies()
+    setup_logging(settings.log_level)
     auth_note = "auth=yes" if settings.auth_required else "auth=no (insecure)"
-    print(f"Starting Python Compute Service on {settings.host}:{settings.port} ({auth_note})...")
+    log.info("Starting Python Compute Service on %s:%d (%s)...", settings.host, settings.port, auth_note)
     server = WSGIDualStackServer(settings.host, settings.port)
     server.set_app(create_wsgi_app(settings))
+
+    def _handle_shutdown(signum: int, _frame: Any) -> None:
+        try:
+            sig_name = signal.Signals(signum).name
+        except Exception:
+            sig_name = str(signum)
+        log.info("Received signal %s, initiating graceful shutdown...", sig_name)
+        threading.Thread(target=server.shutdown, daemon=True).start()
+
+    try:
+        signal.signal(signal.SIGTERM, _handle_shutdown)
+        signal.signal(signal.SIGINT, _handle_shutdown)
+    except (ValueError, AttributeError):
+        # Non-main thread execution or platforms where signal handlers cannot be registered.
+        pass
+
     try:
         server.serve_forever()
-    except KeyboardInterrupt:
-        print("\nStopping Python Compute Service...")
+    finally:
+        log.info("Stopping Python Compute Service...")
         server.server_close()
 
 

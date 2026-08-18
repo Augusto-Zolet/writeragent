@@ -35,6 +35,7 @@ COPY --from=builder /app/pkgs /app/pkgs
 # Runtime import closure only — not the WriterAgent Settings / writeragent.json stack.
 COPY compute_service /app/compute_service
 COPY plugin/__init__.py /app/plugin/__init__.py
+COPY plugin/version.py /app/plugin/version.py
 COPY plugin/scripting /app/plugin/scripting
 COPY plugin/framework/__init__.py /app/plugin/framework/__init__.py
 COPY plugin/framework/constants.py /app/plugin/framework/constants.py
