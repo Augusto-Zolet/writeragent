@@ -41,9 +41,11 @@ _FILTER_LABELS: tuple[tuple[str, DiagnosticFilter], ...] = (
 
 # PythonSidebarDialog.xdl: window 360, last button bottom 340.
 _BOTTOM_MARGIN = 20
-_RIGHT_MARGIN = 4
+_RIGHT_MARGIN = 8
 _MIN_FLEX_HEIGHT = 16
 _MIN_CONTROL_WIDTH = 20
+# Same threshold as panel_factory: frame-sized roots must not drive child layout.
+_MAX_COLUMN_WIDTH = 500
 _FLEX_CONTROLS = ("status", "cells_list", "diag_list", "diag_detail")
 _CONTROL_IDS = (
     "status_label",
@@ -74,10 +76,9 @@ def compute_python_sidebar_layout(
 ) -> dict[str, tuple[int, int, int, int]]:
     """Share leftover height among flex fields in proportion to their XDL heights.
 
-    Full-span controls (those that already reach the XDL content right edge)
-    grow or shrink to ``width - left - 4``. Left-side chrome keeps snapshot
-    width unless it would overflow. Changing an XDL flex-field height later
-    changes the vertical ratio.
+    Horizontally, every control is scaled so snapshot geometry fits
+    ``width - 8``. Changing an XDL flex-field height later changes the
+    vertical ratio; changing an XDL width later changes the scale base.
     """
     if width <= 0 or height <= 0 or not snapshot:
         return {}
@@ -109,14 +110,15 @@ def compute_python_sidebar_layout(
         for fname in flex_names:
             if snapshot[fname][1] < oy:
                 shift += new_heights[fname] - snapshot[fname][3]
-        snap_right = ox + ow
-        if snap_right >= content_right_snap - 2:
-            new_w = max(_MIN_CONTROL_WIDTH, panel_right - ox)
-        elif ox + ow > panel_right:
-            new_w = max(_MIN_CONTROL_WIDTH, panel_right - ox)
+        if content_right_snap > 0:
+            new_x = ox * panel_right // content_right_snap
+            new_w = max(_MIN_CONTROL_WIDTH, ow * panel_right // content_right_snap)
         else:
+            new_x = ox
             new_w = ow
-        layouts[name] = (ox, oy + shift, new_w, new_heights.get(name, oh))
+        if new_x + new_w > panel_right:
+            new_w = max(_MIN_CONTROL_WIDTH, panel_right - new_x)
+        layouts[name] = (new_x, oy + shift, new_w, new_heights.get(name, oh))
     return layouts
 
 
@@ -168,7 +170,7 @@ class _PanelResizeListener(BaseWindowListener):
     def _relayout(self, win: Any) -> None:
         r = win.getPosSize()
         w, h = int(r.Width), int(r.Height)
-        if w <= 0 or h <= 0:
+        if w <= 0 or h <= 0 or w >= _MAX_COLUMN_WIDTH:
             return
         if self._snapshot is None:
             self._capture_snapshot(win)

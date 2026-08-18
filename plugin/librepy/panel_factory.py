@@ -53,7 +53,8 @@ log = logging.getLogger(__name__)
 UNO_DISPOSED_EXCEPTIONS = (DisposedException, RuntimeException, UnoException)
 XDL_PATH = "Dialogs/PythonSidebarDialog.xdl"
 # DeckLayouter often passes the main frame width (~1175). Treat only values
-# below this as a real docked-column hint; larger values seed the H-scrollbar.
+# below this as a real docked-column hint; ignore larger values (do not smash
+# to 220 — that was the skinny flash).
 _MAX_REAL_COLUMN_WIDTH = 500
 _IMPL_NAME = "org.extension.librepy.PythonPanelFactory"
 
@@ -111,28 +112,30 @@ class PythonToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
         if current_h <= 0:
             current_h = parent_h if parent_h > 0 else 400
         deck_w = width
-        # Ignore frame-sized nWidth/parent; those are not the docked column.
-        if 0 < deck_w < _MAX_REAL_COLUMN_WIDTH:
-            eff_w = deck_w
-        elif current_w > 0:
-            eff_w = current_w
-        else:
-            eff_w = 220
+        apply_w = 0 < deck_w < _MAX_REAL_COLUMN_WIDTH
         log.debug(
-            "getHeightForWidth deck_hint=%s parent=%sx%s current=%sx%s eff_w=%s",
+            "getHeightForWidth deck_hint=%s parent=%sx%s current=%sx%s apply_w=%s",
             deck_w,
             parent_w,
             parent_h,
             current_w,
             current_h,
-            eff_w,
+            apply_w,
         )
+        if not apply_w:
+            # Frame-sized hint: do not setPosSize or relayout (avoids 220 skinny flash).
+            return uno.createUnoStruct("com.sun.star.ui.LayoutSize", 100, -1, 400)
+        rl = getattr(self, "resize_listener", None)
         try:
-            self.PanelWindow.setPosSize(0, 0, eff_w, current_h, 15)
+            if rl is not None:
+                rl._in_relayout = True
+            self.PanelWindow.setPosSize(0, 0, deck_w, current_h, 15)
         except Exception as e:
             if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
                 log.debug("getHeightForWidth setPosSize failed: %s", e)
-        rl = getattr(self, "resize_listener", None)
+        finally:
+            if rl is not None:
+                rl._in_relayout = False
         if rl is not None:
             try:
                 rl.relayout_now(self.PanelWindow)
@@ -200,14 +203,15 @@ class PythonPanelElement(unohelper.Base, XUIElement):
         try:
             parent_rect = self.xParentWindow.getPosSize()
             current_rect = self.m_panelRootWindow.getPosSize()
-            # Keep the XDL natural width. Parent is often the main frame (~1175)
-            # and expanding to it (or 420) is what seeds the H-scrollbar.
-            target_w = current_rect.Width if current_rect.Width > 0 else 180
+            # createContainerWindow often inherits the frame width (~1262).
+            # Do not smash that to 220; skip width and let windowResized layout.
             target_h = current_rect.Height if current_rect.Height > 0 else (
                 parent_rect.Height if parent_rect.Height > 0 else 400
             )
-            if target_w > 0 and target_h > 0:
-                self.m_panelRootWindow.setPosSize(0, 0, target_w, target_h, 15)
+            if 0 < current_rect.Width < _MAX_REAL_COLUMN_WIDTH and target_h > 0:
+                self.m_panelRootWindow.setPosSize(0, 0, current_rect.Width, target_h, 15)
+            elif target_h > 0:
+                self.m_panelRootWindow.setPosSize(0, 0, 0, target_h, 8)
         except Exception as e:
             if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
                 log.debug("constrain panel failed: %s", e)
