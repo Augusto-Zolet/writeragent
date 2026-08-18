@@ -383,6 +383,11 @@ The following summarizes the implemented modules and the simplified patterns we 
    - Minimal state and effect types
    - Test coverage in `tests/chatbot/test_audio_recorder_state.py`
 
+6. **MCP Tunnel Reconnection State Machine** (`plugin/mcp/tunnel_state.py`)
+   - Lifecycle and exponential backoff retry management for public tunnels (`cloudflared`, `ngrok`, `bore`, `tailscale`)
+   - Explicit typed effects (`StartProcessEffect`, `TerminateProcessEffect`, `ScheduleRetryTimerEffect`, `CancelRetryTimerEffect`, `NotifyUrlAcquiredEffect`)
+   - Formal invariants and contracts (`@deal.ensure`) with Hypothesis test coverage in `tests/mcp/test_tunnel_state.py`
+
 ### What We Avoided (Over-Engineering Traps)
 
 ❌ **Complex Effect Hierarchies**: Did NOT create deep inheritance trees of effect types

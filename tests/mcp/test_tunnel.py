@@ -375,7 +375,92 @@ def test_successful_url_clears_last_error_exit_without_prior_sets_code(monkeypat
     ):
         assert mgr.start(18765, "bore") is True
         exit_cb["fn"](2)
-        assert mgr.last_error == "tunnel process exited (code 2)"
+        assert "tunnel process exited (code 2)" in (mgr.last_error or "")
+        mgr.stop()
+
+
+def test_tunnel_manager_reconnect_and_url_recovery(monkeypatch):
+    monkeypatch.delenv("WRITERAGENT_TESTING", raising=False)
+    mgr = TunnelManager()
+    exit_cb = {"fn": None}
+    stdout_cb_ref = {"fn": None}
+
+    def _fake_async_process(cmd, stdout_cb=None, stderr_cb=None, on_exit_cb=None, **kwargs):
+        proc = MagicMock()
+        proc.is_running = True
+        exit_cb["fn"] = on_exit_cb
+        stdout_cb_ref["fn"] = stdout_cb
+
+        def start():
+            if stdout_cb:
+                stdout_cb("listening at bore.pub:1111")
+
+        proc.start = start
+        proc.terminate = MagicMock()
+        return proc
+
+    with (
+        patch("plugin.mcp.tunnel.binary_available", return_value=True),
+        patch("plugin.framework.worker_pool.AsyncProcess", side_effect=_fake_async_process),
+    ):
+        # 1. Initial successful start
+        assert mgr.start(18765, "bore") is True
+        assert mgr.public_url == "http://bore.pub:1111"
+        assert mgr.retry_count == 0
+        assert mgr.is_reconnecting is False
+
+        # 2. Process drops unexpectedly -> enters reconnecting state
+        exit_cb["fn"](1)
+        assert mgr.is_reconnecting is True
+        assert mgr.retry_count == 1
+        assert mgr.public_url is None
+        assert "reconnecting (attempt 1/5" in (mgr.last_error or "")
+
+        # 3. Simulate timer firing / reconnect attempt -> recovers URL
+        mgr._on_retry_timer_expired()
+        assert mgr.public_url == "http://bore.pub:1111"
+        assert mgr.is_reconnecting is False
+        assert mgr.retry_count == 0
+        assert mgr.last_error is None
+
+        mgr.stop()
+        assert mgr.is_reconnecting is False
+
+
+def test_tunnel_manager_max_retries_failure(monkeypatch):
+    monkeypatch.delenv("WRITERAGENT_TESTING", raising=False)
+    mgr = TunnelManager()
+    exit_cb = {"fn": None}
+
+    def _fake_die_process(cmd, stdout_cb=None, stderr_cb=None, on_exit_cb=None, **kwargs):
+        proc = MagicMock()
+        proc.is_running = True
+        exit_cb["fn"] = on_exit_cb
+        proc.start = MagicMock()
+        proc.terminate = MagicMock()
+        return proc
+
+    with (
+        patch("plugin.mcp.tunnel.binary_available", return_value=True),
+        patch("plugin.framework.worker_pool.AsyncProcess", side_effect=_fake_die_process),
+    ):
+        assert mgr.start(18765, "bore", max_retries=2) is True
+        # Attempt 1 drop
+        exit_cb["fn"](1)
+        assert mgr.is_reconnecting is True
+        assert mgr.retry_count == 1
+
+        # Attempt 2 drop
+        exit_cb["fn"](1)
+        assert mgr.is_reconnecting is True
+        assert mgr.retry_count == 2
+
+        # Attempt 3 drop -> max retries (2) exceeded -> FAILED
+        exit_cb["fn"](1)
+        assert mgr.is_reconnecting is False
+        assert "failed to reconnect after 2 attempts" in (mgr.last_error or "")
+
+        mgr.stop()
 
 
 def test_test_tunnel_connectivity_binary_missing():

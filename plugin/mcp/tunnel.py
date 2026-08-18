@@ -28,7 +28,7 @@ import logging
 import re
 import subprocess
 import threading
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from plugin.framework.worker_pool import AsyncProcess
@@ -364,47 +364,285 @@ def _build_provider_command(provider: str, port: int, provider_token: str) -> li
     return info["build_command"](port)
 
 
+import dataclasses
+from plugin.mcp.tunnel_state import (
+    DEFAULT_MAX_RETRIES,
+    CancelRetryTimerEffect,
+    NotifyUrlAcquiredEffect,
+    ScheduleRetryTimerEffect,
+    StartProcessEffect,
+    TerminateProcessEffect,
+    TunnelEvent,
+    TunnelEventKind,
+    TunnelState,
+    TunnelStatus,
+    next_state,
+)
+
+
 class TunnelManager:
-    """Owns a single tunnel subprocess for the selected provider."""
+    """Owns a single tunnel subprocess for the selected provider with pure FSM state."""
 
     def __init__(self) -> None:
+        self._state: TunnelState = TunnelState()
         self._process: Optional[AsyncProcess] = None
-        self._public_url: Optional[str] = None
-        self._lock = threading.Lock()
-        self._port: Optional[int] = None
-        self._provider: Optional[str] = None
-        self._provider_token: str = ""
-        self._last_error: Optional[str] = None
+        self._reconnect_timer: Optional[threading.Timer] = None
+        self._lock = threading.RLock()
 
     @property
     def public_url(self) -> Optional[str]:
-        return self._public_url
+        return self._state.public_url
+
+    @property
+    def _public_url(self) -> Optional[str]:
+        return self._state.public_url
+
+    @_public_url.setter
+    def _public_url(self, val: Optional[str]) -> None:
+        self._state = dataclasses.replace(self._state, public_url=val)
 
     @property
     def provider(self) -> Optional[str]:
-        return self._provider
+        return self._state.provider if self._state.desired_running else None
+
+    @property
+    def _provider(self) -> Optional[str]:
+        return self._state.provider if self._state.desired_running else None
+
+    @_provider.setter
+    def _provider(self, val: Optional[str]) -> None:
+        self._state = dataclasses.replace(self._state, provider=val or DEFAULT_PROVIDER)
+
+    @property
+    def _port(self) -> Optional[int]:
+        return self._state.port if self._state.desired_running else None
+
+    @_port.setter
+    def _port(self, val: Optional[int]) -> None:
+        if val is not None:
+            self._state = dataclasses.replace(self._state, port=val)
+
+    @property
+    def _provider_token(self) -> str:
+        return self._state.provider_token
+
+    @_provider_token.setter
+    def _provider_token(self, val: str) -> None:
+        self._state = dataclasses.replace(self._state, provider_token=val or "")
 
     @property
     def is_running(self) -> bool:
         return self._process is not None and self._process.is_running
 
     @property
+    def is_reconnecting(self) -> bool:
+        return self._state.status == TunnelStatus.RECONNECTING
+
+    @property
+    def state(self) -> TunnelState:
+        return self._state
+
+    @property
+    def status(self) -> TunnelStatus:
+        return self._state.status
+
+    @property
+    def retry_count(self) -> int:
+        return self._state.retry_count
+
+    @property
+    def max_retries(self) -> int:
+        return self._state.max_retries
+
+    @property
     def last_error(self) -> Optional[str]:
         """Short reason for the last failed start / auth / early exit, if any."""
-        return self._last_error
+        return self._state.last_error
+
+    @property
+    def _last_error(self) -> Optional[str]:
+        return self._state.last_error
+
+    @_last_error.setter
+    def _last_error(self, val: Optional[str]) -> None:
+        self._state = dataclasses.replace(self._state, last_error=val)
 
     def mcp_public_url(self) -> Optional[str]:
         """Streamable-HTTP MCP endpoint on the public tunnel, if known."""
-        base = self._public_url
+        base = self._state.public_url
         if not base:
             return None
         return "%s/mcp" % normalize_public_base(base)
+
+    def _dispatch_unlocked(self, event: TunnelEvent) -> None:
+        transition = next_state(self._state, event)
+        self._state = transition.state
+        self._apply_effects_unlocked(transition.effects)
+
+    def _apply_effects_unlocked(self, effects: list[Any]) -> None:
+        for effect in effects:
+            if isinstance(effect, CancelRetryTimerEffect):
+                if self._reconnect_timer is not None:
+                    try:
+                        self._reconnect_timer.cancel()
+                    except Exception:
+                        pass
+                    self._reconnect_timer = None
+
+            elif isinstance(effect, TerminateProcessEffect):
+                proc = self._process
+                if proc is not None:
+                    self._process = None
+                    try:
+                        proc.terminate()
+                    except Exception:
+                        log.exception("Error terminating tunnel process")
+                    provider = self._state.provider
+                    info = PROVIDERS.get(provider)
+                    post_stop = info.get("post_stop") if info else None
+                    if post_stop:
+                        try:
+                            post_stop()
+                        except Exception:
+                            log.exception("Tunnel post_stop failed for %s", provider)
+
+            elif isinstance(effect, StartProcessEffect):
+                provider = effect.provider
+                info = PROVIDERS.get(provider)
+                if not info:
+                    self._state = dataclasses.replace(
+                        self._state,
+                        status=TunnelStatus.FAILED,
+                        last_error="unknown tunnel provider: %s" % provider,
+                        desired_running=False,
+                    )
+                    continue
+
+                pre_start: Optional[Callable[[], None]] = info.get("pre_start")
+                if pre_start:
+                    try:
+                        pre_start()
+                    except Exception:
+                        log.exception("Tunnel pre_start failed for %s", provider)
+                        self._state = dataclasses.replace(
+                            self._state,
+                            status=TunnelStatus.FAILED,
+                            last_error="%s pre_start failed" % provider,
+                            desired_running=False,
+                        )
+                        continue
+
+                parse_line: Callable[[str], Optional[str]] = info["parse_line"]
+                cmd = _build_provider_command(provider, effect.port, effect.provider_token)
+                log.info("Starting MCP tunnel (%s): %s", provider, _redact_cmd_for_log(cmd))
+
+                def _on_line(line: str) -> None:
+                    with self._lock:
+                        if self._state.public_url:
+                            return
+                        auth_err = detect_tunnel_auth_error(provider, line)
+                        if auth_err:
+                            log.error("MCP tunnel auth error (%s): %s", provider, auth_err)
+                            self._dispatch_unlocked(
+                                TunnelEvent(
+                                    TunnelEventKind.PROCESS_EXITED,
+                                    {"rc": 1, "auth_error": auth_err},
+                                )
+                            )
+                            return
+                        url = parse_line(line)
+                        if url:
+                            log.info("MCP tunnel URL (%s): %s", provider, url)
+                            self._dispatch_unlocked(
+                                TunnelEvent(
+                                    TunnelEventKind.URL_ACQUIRED,
+                                    {"url": url},
+                                )
+                            )
+
+                def _on_exit(rc: int) -> None:
+                    log.info("MCP tunnel process (%s) exited with code %s", provider, rc)
+                    with self._lock:
+                        self._process = None
+                        self._dispatch_unlocked(
+                            TunnelEvent(
+                                TunnelEventKind.PROCESS_EXITED,
+                                {"rc": rc},
+                            )
+                        )
+
+                try:
+                    from plugin.framework.worker_pool import AsyncProcess
+
+                    # Some CLIs (cloudflared) print the URL on stderr more often than stdout.
+                    self._process = AsyncProcess(
+                        cmd,
+                        stdout_cb=_on_line,
+                        stderr_cb=_on_line,
+                        on_exit_cb=_on_exit,
+                        creationflags=_CREATION_FLAGS,
+                    )
+                    self._process.start()
+                except FileNotFoundError:
+                    log.error("%s binary not found", info["version_args"][0])
+                    self._process = None
+                    self._dispatch_unlocked(
+                        TunnelEvent(
+                            TunnelEventKind.PROCESS_EXITED,
+                            {
+                                "rc": 1,
+                                "auth_error": "%s binary not found on PATH" % info["version_args"][0],
+                            },
+                        )
+                    )
+                except Exception:
+                    log.exception("Failed to start MCP tunnel (%s)", provider)
+                    self._process = None
+                    self._dispatch_unlocked(
+                        TunnelEvent(
+                            TunnelEventKind.PROCESS_EXITED,
+                            {"rc": 1, "auth_error": "failed to start %s tunnel" % provider},
+                        )
+                    )
+
+            elif isinstance(effect, ScheduleRetryTimerEffect):
+                if self._reconnect_timer is not None:
+                    try:
+                        self._reconnect_timer.cancel()
+                    except Exception:
+                        pass
+                log.info(
+                    "Scheduling MCP tunnel reconnect in %.1fs (attempt %s/%s)",
+                    effect.delay_seconds,
+                    effect.attempt,
+                    effect.max_retries,
+                )
+                timer = threading.Timer(effect.delay_seconds, self._on_retry_timer_expired)
+                timer.daemon = True
+                self._reconnect_timer = timer
+                timer.start()
+
+            elif isinstance(effect, NotifyUrlAcquiredEffect):
+                try:
+                    from plugin.chatbot.dialog_views import notify_tunnel_url_acquired
+
+                    mcp_url = self.mcp_public_url()
+                    if mcp_url:
+                        notify_tunnel_url_acquired(effect.provider, mcp_url)
+                except Exception:
+                    pass
+
+    def _on_retry_timer_expired(self) -> None:
+        with self._lock:
+            self._reconnect_timer = None
+            self._dispatch_unlocked(TunnelEvent(TunnelEventKind.RETRY_TIMER_EXPIRED))
 
     def start(
         self,
         port: int,
         provider: str = DEFAULT_PROVIDER,
         provider_token: str = "",
+        max_retries: int = DEFAULT_MAX_RETRIES,
     ) -> bool:
         """Start (or keep) a tunnel to *port*. Returns False if start failed."""
         import os
@@ -417,142 +655,59 @@ class TunnelManager:
         info = PROVIDERS.get(provider)
         if info is None:
             log.error("Unknown tunnel provider: %s", provider)
-            self._last_error = "unknown tunnel provider: %s" % provider
+            with self._lock:
+                self._state = dataclasses.replace(
+                    self._state,
+                    status=TunnelStatus.FAILED,
+                    last_error="unknown tunnel provider: %s" % provider,
+                    desired_running=False,
+                )
             return False
 
         with self._lock:
             if (
                 self.is_running
-                and self._port == int(port)
-                and self._provider == provider
-                and self._provider_token == token
+                and self._state.port == int(port)
+                and self._state.provider == provider
+                and self._state.provider_token == token
             ):
-                log.info("Tunnel already running (%s) at %s", provider, self._public_url)
-                if self._public_url:
-                    self._last_error = None
+                log.info("Tunnel already running (%s) at %s", provider, self.public_url)
+                if self.public_url:
+                    self._state = dataclasses.replace(self._state, last_error=None)
                 return True
-            if self.is_running:
-                self._stop_unlocked()
 
             if not binary_available(provider):
                 binary = info["version_args"][0]
-                self._last_error = "%s binary not found on PATH" % binary
-                return False
-
-            pre_start: Optional[Callable[[], None]] = info.get("pre_start")
-            if pre_start:
-                try:
-                    pre_start()
-                except Exception:
-                    log.exception("Tunnel pre_start failed for %s", provider)
-                    self._last_error = "%s pre_start failed" % provider
-                    return False
-
-            parse_line: Callable[[str], Optional[str]] = info["parse_line"]
-            cmd = _build_provider_command(provider, int(port), token)
-            log.info("Starting MCP tunnel (%s): %s", provider, _redact_cmd_for_log(cmd))
-            self._public_url = None
-            self._port = int(port)
-            self._provider = provider
-            self._provider_token = token
-            self._last_error = None
-
-            def _on_line(line: str) -> None:
-                if self._public_url:
-                    return
-                auth_err = detect_tunnel_auth_error(provider, line)
-                if auth_err:
-                    self._last_error = auth_err
-                    log.error("MCP tunnel auth error (%s): %s", provider, auth_err)
-                url = parse_line(line)
-                if url:
-                    self._public_url = url
-                    self._last_error = None
-                    log.info("MCP tunnel URL (%s): %s", provider, url)
-                    try:
-                        from plugin.chatbot.dialog_views import notify_tunnel_url_acquired
-                        mcp_url = self.mcp_public_url()
-                        if mcp_url:
-                            notify_tunnel_url_acquired(provider, mcp_url)
-                    except Exception:
-                        pass
-
-            def _on_exit(rc: int) -> None:
-                log.info("MCP tunnel process (%s) exited with code %s", provider, rc)
-                with self._lock:
-                    had_url = self._public_url is not None
-                    self._process = None
-                    self._public_url = None
-                    self._port = None
-                    self._provider = None
-                    self._provider_token = ""
-                    if had_url:
-                        self._last_error = None
-                    elif not self._last_error:
-                        self._last_error = "tunnel process exited (code %s)" % rc
-
-            try:
-                from plugin.framework.worker_pool import AsyncProcess
-
-                # Some CLIs (cloudflared) print the URL on stderr more often than stdout.
-                self._process = AsyncProcess(
-                    cmd,
-                    stdout_cb=_on_line,
-                    stderr_cb=_on_line,
-                    on_exit_cb=_on_exit,
-                    creationflags=_CREATION_FLAGS,
+                self._state = dataclasses.replace(
+                    self._state,
+                    status=TunnelStatus.FAILED,
+                    last_error="%s binary not found on PATH" % binary,
+                    desired_running=False,
                 )
-                self._process.start()
-                return True
-            except FileNotFoundError:
-                log.error("%s binary not found", info["version_args"][0])
-                self._process = None
-                self._port = None
-                self._provider = None
-                self._provider_token = ""
-                self._last_error = "%s binary not found on PATH" % info["version_args"][0]
                 return False
-            except Exception:
-                log.exception("Failed to start MCP tunnel (%s)", provider)
-                self._process = None
-                self._port = None
-                self._provider = None
-                self._provider_token = ""
-                self._last_error = "failed to start %s tunnel" % provider
+
+            self._dispatch_unlocked(
+                TunnelEvent(
+                    TunnelEventKind.START_REQUESTED,
+                    {
+                        "port": int(port),
+                        "provider": provider,
+                        "provider_token": token,
+                        "max_retries": max_retries,
+                    },
+                )
+            )
+            if self._state.last_error and (
+                "not found on PATH" in self._state.last_error
+                or "failed to start" in self._state.last_error
+                or "pre_start failed" in self._state.last_error
+            ):
                 return False
+            return True
 
     def stop(self) -> None:
         with self._lock:
-            self._stop_unlocked()
-
-    def _stop_unlocked(self) -> None:
-        provider = self._provider
-        proc = self._process
-        if proc is None:
-            self._public_url = None
-            self._port = None
-            self._provider = None
-            self._provider_token = ""
-            self._last_error = None
-            return
-        try:
-            proc.terminate()
-        except Exception:
-            log.exception("Error stopping MCP tunnel")
-        finally:
-            self._process = None
-            self._public_url = None
-            self._port = None
-            self._provider = None
-            self._provider_token = ""
-            self._last_error = None
-            info = PROVIDERS.get(provider or "")
-            post_stop = info.get("post_stop") if info else None
-            if post_stop:
-                try:
-                    post_stop()
-                except Exception:
-                    log.exception("Tunnel post_stop failed for %s", provider)
+            self._dispatch_unlocked(TunnelEvent(TunnelEventKind.STOP_REQUESTED))
 
 
 def _redact_cmd_for_log(cmd: list[str]) -> str:

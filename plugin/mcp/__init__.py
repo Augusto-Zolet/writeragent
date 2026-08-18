@@ -406,6 +406,8 @@ class McpModule(ModuleBase):
             return None
         if public_url:
             return _("Public tunnel via {0} (no auth)").format(pname)
+        if tunnel and getattr(tunnel, "is_reconnecting", False):
+            return _("Public tunnel via {0}: {1}").format(pname, tunnel.last_error or _("reconnecting…"))
         err = tunnel.last_error if tunnel else None
         if err:
             return _("Public tunnel via {0} failed: {1}").format(pname, err)
@@ -547,6 +549,8 @@ class McpModule(ModuleBase):
                 if tunnel_status_ctrl is not None:
                     if public_url:
                         tstatus = _("Status: Active (connected)")
+                    elif tunnel and getattr(tunnel, "is_reconnecting", False):
+                        tstatus = _("Status: Reconnecting — {0}").format(tunnel.last_error or _("retrying…"))
                     elif tunnel and tunnel.is_running:
                         tstatus = _("Status: Starting tunnel…")
                     elif tunnel and tunnel.last_error:
