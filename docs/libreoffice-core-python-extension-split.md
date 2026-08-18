@@ -1064,7 +1064,7 @@ flowchart LR
 
 Requires Layer 2 (`appearance.py`, `document_scripts.py`, `python_runner.py`) and Layer 0 worker for **Run** from Monaco.
 
-**LibrePy Python sidebar:** Calc-only native deck (not chat). Lists active-sheet `=PY()` cells, shows filtered diagnostics, and dispatches existing menu actions. Monaco remains a separate pywebview window. Content fields (`status`, `cells_list`, `diag_list`, `diag_detail`) share leftover deck height in proportion to their XDL heights; buttons and labels stay fixed height. Full-span controls follow the panel width (XDL right margin of 4) so the deck does not keep a horizontal scrollbar.
+**LibrePy Python sidebar:** Calc-only native deck (not chat). Lists active-sheet `=PY()` cells, shows filtered diagnostics, and dispatches existing menu actions. Monaco remains a separate pywebview window. Content fields (`status`, `cells_list`, `diag_list`, `diag_detail`) share leftover deck height in proportion to their XDL heights; all controls scale horizontally to the panel width (8px right margin). Frame-sized width hints are ignored so the deck does not flash skinny or keep a horizontal scrollbar.
 
 ### Not in OXT
 

@@ -238,20 +238,40 @@ def get_toolkit(ctx=None):
         return None
 
 
-@contextmanager
-def focus_preserved(ctx):
-    """Capture the current focus window, yield, then restore it.
+# Sidebar query field: restore here after RichTextControl setFocus, not
+# getFocusWindow() (often the Send button after a click, or the transcript).
+_default_focus_restore = None
 
-    RichTextControl append/paste/nudge must not steal focus from the chat query field;
-    callers wrap UNO mutations that might move focus to the transcript control.
+
+def set_default_focus_restore(control) -> None:
+    """Pin focus restore to the chat query field (or None on panel dispose)."""
+    global _default_focus_restore
+    _default_focus_restore = control
+
+
+def _focus_restore_target(explicit=None):
+    if explicit is not None:
+        return explicit
+    return _default_focus_restore
+
+
+@contextmanager
+def focus_preserved(ctx, restore=None):
+    """Restore focus after a block that may steal it (RichTextControl reveal).
+
+    If *restore* or :func:`set_default_focus_restore` is set, that control is
+    focused on exit (the query field). Otherwise the toolkit focus window at
+    entry is restored — which is wrong after Send-button clicks.
     """
-    saved = None
-    try:
-        tk = get_toolkit(ctx)
-        if tk is not None and hasattr(tk, "getFocusWindow"):
-            saved = tk.getFocusWindow()
-    except Exception as e:
-        log.debug("focus_preserved capture: %s", e)
+    pinned = _focus_restore_target(restore)
+    saved = pinned
+    if saved is None:
+        try:
+            tk = get_toolkit(ctx)
+            if tk is not None and hasattr(tk, "getFocusWindow"):
+                saved = tk.getFocusWindow()
+        except Exception as e:
+            log.debug("focus_preserved capture: %s", e)
     try:
         yield
     finally:
@@ -264,20 +284,23 @@ def focus_preserved(ctx):
 
 
 @main_thread_only
-def process_events_to_idle(ctx, rounds: int = 1) -> bool:
+def process_events_to_idle(ctx, rounds: int = 1, force: bool = False) -> bool:
     """Drain the UI event queue *rounds* times via the approved VCL pump chokepoint.
 
     When a chat/MCP :func:`~plugin.framework.queue_executor.drain_owner_scope` is
     active, skips VCL pumping so secondary progress helpers (grep, Harper status,
     notebook import) cannot nest ``processEventsToIdle`` inside the drain loop.
+    Pass force=True (e.g. for RichTextControl caret reveal) to pump VCL even when
+    under a drain owner.
     Returns True if at least one VCL pump ran.
     """
     from plugin.framework.queue_executor import _note_suppressed_vcl_pump, _pump_vcl_events, get_drain_owner
 
-    owner = get_drain_owner()
-    if owner is not None:
-        _note_suppressed_vcl_pump(owner)
-        return False
+    if not force:
+        owner = get_drain_owner()
+        if owner is not None:
+            _note_suppressed_vcl_pump(owner)
+            return False
 
     pumped = False
     for _idx in range(max(1, rounds)):

@@ -46,7 +46,7 @@ An earlier approach hosted a **visible** embedded Writer document (`private:fact
 | Embedded Writer in panel | RichTextControl (shipped) |
 |--------------------------|---------------------------|
 | Nested `swriter` frame and layout manager in the sidebar | Form `TextField` peer over the existing XDL dialog |
-| Auto-scroll broken in Browse/Online layout (`MakeVisible` ineffective; `screenDown` workarounds fragile) | Scroll via EditEngine tail nudge (`nudge_rich_control_view_to_end`) |
+| Auto-scroll broken in Browse/Online layout (`MakeVisible` ineffective; `screenDown` workarounds fragile) | Follow EditView caret: insert at end + `reveal_rich_control_caret` |
 | Exit-time VCL parent/child teardown crashes (Signal 11) accepted as trade-off | No nested Writer frame in the panel; hidden docs are short-lived |
 | Large implementation surface (lazy peer, lifecycle hooks, theme on virtual page) | Smaller footprint; HTML via off-screen Writer + paste |
 
@@ -67,7 +67,7 @@ Writer is still used **off-screen**: a **hidden** document imports HTML, then a 
 | Streaming plain append | `RichTextChatWidget.append_assistant_stream_chunk` via `panel.py` `_append_response` |
 | Post-stream HTML rerender | `SendButtonListener.rerender_rich_text_session` → `RichTextChatWidget.rerender_last_assistant_if_html` |
 | Truncate stream tail without flattening earlier formatting | `truncate_control_from` (cursor delete, not `model.Text = ""`) |
-| Scroll-to-end without stealing query focus | `nudge_rich_control_view_to_end`; focus preserved via `focus_preserved` in [`uno_context.py`](../plugin/framework/uno_context.py) |
+| Reveal caret without stealing query focus | `reveal_rich_control_caret`; focus restored via `focus_preserved` in [`uno_context.py`](../plugin/framework/uno_context.py) |
 | History reload in ~16 KB batches | `HISTORY_RENDER_BATCH_CHARS`, `RichTextChatWidget.render_session_history` |
 | Resize / width sync with Send–Clear row | [`panel_resize.py`](../plugin/chatbot/panel_resize.py) stretches the hidden `response` placeholder to the panel margin; [`sync_rich_control_bounds`](../plugin/chatbot/rich_text_control.py) insets `response_rich` to the live Clear button right edge (same as query), not the full placeholder width |
 | LLM HTML format instructions gated on config | `get_chat_response_format_instructions` → `RICH_CHAT_SIDEBAR_INSTRUCTIONS` |
@@ -136,7 +136,7 @@ flowchart LR
     HW --> CB --> RTC
 ```
 
-**Streaming path:** `append_text_chunk` → `TextRange` insert at end with assistant color and optional `nudge_rich_control_view_to_end`.
+**Streaming path:** `append_text_chunk` → `TextRange` insert at end with assistant color and optional `reveal_rich_control_caret`.
 
 **Formatted path:** `create_hidden_html_writer` → `append_rich_text` (HTML filter + list tightening) → transferable or clipboard → `insertTransferable` / paste into control → close hidden doc. User and history batches use `append_rich_messages_via_clipboard` with batching for large sessions.
 
@@ -206,7 +206,7 @@ flowchart LR
 | `RichTextChatWidget` | **Primary panel facade** — user/assistant append, stream chunks, rerender, clear, history |
 | `append_text_chunk` | Streaming plain append (widget delegates here) |
 | `truncate_control_from` | Remove stream tail before HTML rerender |
-| `nudge_rich_control_view_to_end` | Scroll transcript without focus steal |
+| `reveal_rich_control_caret` | Focus the control so EditView `ShowCursor` follows the view caret |
 | `clear_control` | Clear transcript |
 | `sync_rich_control_bounds` | Apply inset bounds from `placeholder_rect` (panel listener) or live placeholder size |
 
@@ -215,7 +215,7 @@ flowchart LR
 | Function | Role |
 |----------|------|
 | `focus_preserved(ctx)` | Context manager: capture focus window, yield, restore (query field stays focused during RichTextControl mutations) |
-| `process_events_to_idle(ctx, rounds=1)` | Drain UI events between append/nudge steps |
+| `process_events_to_idle(ctx, rounds=1)` | Drain UI events between append / caret-reveal steps |
 
 ### Key APIs (`rich_text_paste.py`)
 
@@ -229,11 +229,17 @@ flowchart LR
 
 Shared HTML import and theme: [`format.py`](../plugin/writer/format.py) (`insert_html_fragment_at_cursor`), [`rich_text.py`](../plugin/chatbot/rich_text.py) (`append_rich_text`, `get_theme_colors`, `_HTML_TAG_RE`, sidebar list CSS via `_SIDEBAR_LIST_CSS`).
 
-### Scroll behavior (why nudge exists)
+### Scroll behavior (follow the caret)
 
-After bulk copy or history reload, `gotoEnd` on the model cursor alone does not move the RichTextControl viewport; VCL scrollbars are not exposed on this control, and `setSelection` does not reliably scroll it on current Linux/KDE LibreOffice. The implementation briefly focuses the RichTextControl, inserts a zero-width tail marker under `focus_preserved` ([`uno_context.py`](../plugin/framework/uno_context.py)), drains idle events so the view follows the insert, then removes the marker. Relayout always applies bounds via peer `setPosSize` (including when the transcript is non-empty); LibreOffice may reset the viewport to the top when a non-empty RichTextControl is resized — a follow-up nudge may be needed if that proves annoying during live resize. Width at creation/sync uses `last_response_rect` for height and horizontal position but caps width to the live Clear button row (replacing a hard-coded XDL right edge). See `nudge_rich_control_view_to_end` comments in source.
+Python cannot scroll this control to “end of document.” UNO `insertString` / `gotoEnd` move the **model** cursor. `ShowCursor(AUTOSCROLL)` follows the **EditView caret**. `RichTextEditSource` has no view forwarder; `setSelection` never reaches EditView (`ORichTextPeer` is `VCLXWindow`, not `XTextComponent`). A ZWSP tail insert is the same UNO path and does not move a caret that sits at the start — that hack is **removed**.
 
-`_assistant_stream_start_len` is set when the **user** message insert completes (main chat). When `_record_assistant_start` marks the **final answer** (web research / librarian), it is re-set to the current control length so rerender replaces only that report tail and preserves internal search-step lines above it. Rich appends from the main-thread drain loop run **inline** (`_run_rich_ui`) so scroll nudges apply before the next queue item.
+**Contract:** insert at the end, then `reveal_rich_control_caret` (brief ReadOnly lift + focus + idle). Do **not** insert dummy tail text — that is the same UNO path as the real append and does not move the EditView caret. Query focus is restored via `set_default_focus_restore`. Reliable pin-to-end still needs an LO peer API (`setSelection` / `ShowCursor`).
+
+Resize still jumps VisArea to the origin (`layoutWindow()` always `SetVisArea(Point())`). The caret is unchanged; reveal after a real `setPosSize` is the restore. A user who clicked mid-transcript has the caret there — inserts at end will not yank them.
+
+Width at creation/sync uses `last_response_rect` for height and horizontal position but caps width to the live Clear button row.
+
+`_assistant_stream_start_len` is set when the **user** message insert completes (main chat). When `_record_assistant_start` marks the **final answer** (web research / librarian), it is re-set to the current control length so rerender replaces only that report tail and preserves internal search-step lines above it. Rich appends from the main-thread drain loop run **inline** (`_run_rich_ui`) so caret reveal runs before the next queue item.
 
 ### Manual QA checklist
 
@@ -284,11 +290,11 @@ When the transcript viewport jumps (especially after sending a message), tempora
 grep '\[RICH-SCROLL\]' ~/.config/libreoffice/4/user/config/writeragent_debug.log
 ```
 
-DEBUG-level `[RICH-SCROLL]` lines record scroll nudges, formatted inserts, layout sync, and `on_rich_control_ready` steps. They are gated off by default, even when `log_level=DEBUG`, because resize and streaming generate many entries. Each line includes a monotonic `seq`, `phase`, optional `reason`, `text_len`, and `main=` (1 when on the UI thread). `phase=nudge_done method=tail_sentinel sentinel_removed=1` means the EditEngine tail-follow scroll path ran and removed its marker.
+DEBUG-level `[RICH-SCROLL]` lines record caret reveal, formatted inserts, layout sync, and `on_rich_control_ready` steps. They are gated off by default, even when `log_level=DEBUG`, because resize and streaming generate many entries. Each line includes a monotonic `seq`, `phase`, optional `reason`, `text_len`, and `main=` (1 when on the UI thread). `phase=reveal_caret` means `setFocus` + idle ran (no document mutation).
 
-**User-send pattern (healthy):** after `phase=copy_done` and `reason=copy` nudge, expect `phase=trailing_break` then `reason=user_trailing_break` nudge before `phase=user_append_done`.
+**User-send pattern (healthy):** after `phase=copy_done` / `reason=copy`, expect `phase=trailing_break` then `reason=user_trailing_break` before `phase=user_append_done`.
 
-**If scroll jumps after open/resize:** look for `phase=sync_bounds` on relayout; LibreOffice may reset the viewport when a non-empty control is resized.
+**If scroll jumps after open/resize:** look for `phase=sync_bounds` then `reason=resize`. LibreOffice `layoutWindow()` always resets VisArea to the origin; we reveal the view caret after a real bounds change. A mid-transcript click cannot be restored as “end of document.”
 
 ### Formatted insert used a fallback path (diagnostics)
 

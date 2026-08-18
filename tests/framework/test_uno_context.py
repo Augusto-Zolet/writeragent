@@ -87,8 +87,9 @@ def test_get_ctx_fallback_uno_returns_none():
 
 def test_focus_preserved_restores_focus_window():
 
-    from plugin.framework.uno_context import focus_preserved
+    from plugin.framework.uno_context import focus_preserved, set_default_focus_restore
 
+    set_default_focus_restore(None)
     focus_window = MagicMock()
     toolkit = MagicMock()
     toolkit.getFocusWindow.return_value = focus_window
@@ -98,6 +99,25 @@ def test_focus_preserved_restores_focus_window():
             pass
 
     focus_window.setFocus.assert_called_once()
+
+
+def test_focus_preserved_prefers_pinned_query_over_toolkit():
+    from plugin.framework.uno_context import focus_preserved, set_default_focus_restore
+
+    query = MagicMock()
+    send_btn = MagicMock()
+    toolkit = MagicMock()
+    toolkit.getFocusWindow.return_value = send_btn
+    set_default_focus_restore(query)
+    try:
+        with patch("plugin.framework.uno_context.get_toolkit", return_value=toolkit):
+            with focus_preserved(MagicMock()):
+                pass
+    finally:
+        set_default_focus_restore(None)
+
+    query.setFocus.assert_called_once()
+    send_btn.setFocus.assert_not_called()
 
 
 def test_process_events_to_idle_calls_toolkit():
@@ -128,6 +148,19 @@ def test_process_events_to_idle_suppressed_under_drain_owner():
 
     assert toolkit.processEventsToIdle.call_count == 0
     assert get_suppressed_vcl_pump_count() >= 1
+
+
+def test_process_events_to_idle_force_under_drain_owner():
+    from plugin.framework.queue_executor import drain_owner_scope, reset_suppressed_vcl_pump_count
+    from plugin.framework.uno_context import process_events_to_idle
+
+    reset_suppressed_vcl_pump_count()
+    toolkit = MagicMock()
+    with patch("plugin.framework.uno_context.get_toolkit", return_value=toolkit):
+        with drain_owner_scope("stream"):
+            assert process_events_to_idle(MagicMock(), rounds=2, force=True) is True
+
+    assert toolkit.processEventsToIdle.call_count == 2
 
 
 def test_resolve_package_extension_id_prefers_librepy():

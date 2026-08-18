@@ -281,6 +281,12 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):  
                 log.info("[RICH-CONTROL] on_rich_control_ready control=%s", bool(rich_control))
                 widget = RichTextChatWidget(self.ctx, rich_control, style_window=root_window)
                 self.rich_text_widget = widget
+                try:
+                    from plugin.framework.uno_context import set_default_focus_restore
+
+                    set_default_focus_restore(controls.get("query"))
+                except Exception as e:
+                    log.debug("set_default_focus_restore: %s", e)
                 controls["response_rich"] = rich_control
                 if hasattr(self, "_panel_resize_listener") and self._panel_resize_listener:
                     self._panel_resize_listener._c["response_rich"] = rich_control
@@ -342,10 +348,10 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):  
                     except Exception as e:
                         log.debug("on_rich_control_ready sync bounds: %s", e)
                 try:
-                    log_rich_scroll("on_ready_step", control=rich_control, step="nudge")
-                    widget.nudge_view_to_end(reason="on_ready")
+                    log_rich_scroll("on_ready_step", control=rich_control, step="reveal_caret")
+                    widget.reveal_caret(reason="on_ready")
                 except Exception as e:
-                    log.debug("on_rich_control_ready nudge scroll: %s", e)
+                    log.debug("on_rich_control_ready reveal caret: %s", e)
 
             rich_control_listener = RichTextControlListener(
                 self.ctx,

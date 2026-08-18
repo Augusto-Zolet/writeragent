@@ -369,7 +369,7 @@ Each such item:
 1. Crosses the queue boundary.
 2. Wakes the main-thread drain loop (`run_stream_drain_loop` in `async_stream.py`).
 3. Triggers `apply_chunk_fn` (ultimately `append_text_chunk` or `append_rich_text`).
-4. May cause `toolkit.processEventsToIdle()` and RichTextControl scroll nudges (`nudge_rich_control_view_to_end`) on the formatted sidebar path.
+4. May cause `toolkit.processEventsToIdle()` and RichTextControl caret reveal (`reveal_rich_control_caret`) on the formatted sidebar path.
 
 The net visual effect for the user was **micro-stutter** during long assistant answers: the sidebar would repaint/relayout far more often than necessary.
 
@@ -378,7 +378,7 @@ The net visual effect for the user was **micro-stutter** during long assistant a
 - Do **not** touch the consumer-side drain loop timeout (still `0.1 s`).
 - Move batching to the **producer** (network reader thread) with a *hard 250 ms deadline from the first fragment of each burst* (i.e. "send data every 250 ms max, or when done").
   Downstream code receives one larger joined string no later than 250 ms after the first tiny delta of a burst, while still coalescing rapid fragments. A boundary item (STREAM_DONE etc.) forces immediate emission even if the 250 ms window has not yet elapsed.
-- This is a pure smoothing / UX win orthogonal to scroll behavior on the RichTextControl transcript (`nudge_rich_control_view_to_end`); see [rich-text-control-sidebar.md](rich-text-control-sidebar.md).
+- This is a pure smoothing / UX win orthogonal to caret-follow on the RichTextControl transcript (`reveal_rich_control_caret`); see [rich-text-control-sidebar.md](rich-text-control-sidebar.md).
 
 ### The `BatchingStreamQueue` contract (the single source of truth)
 
@@ -477,7 +477,7 @@ Per the implementation plan and the final status after the May 2025-25 change, t
 - Implementation: `plugin/framework/async_stream.py` (`BatchingStreamQueue`, the defensive bits in `run_async_worker_with_drain`)
 - Primary wiring: `plugin/chatbot/tool_loop.py` (`_active_batched_q`, `_spawn_llm_worker`, `_spawn_final_stream`)
 - Tests: `tests/framework/test_async_stream.py` (the four new batcher tests)
-- UX context & scroll work: [rich-text-control-sidebar.md](rich-text-control-sidebar.md) (`nudge_rich_control_view_to_end`)
+- UX context & scroll work: [rich-text-control-sidebar.md](rich-text-control-sidebar.md) (`reveal_rich_control_caret`)
 - Original plan / todo items: the conversation transcript and the todo list that existed at the moment the change landed (items such as `boundary-flush-audit`, `wire-acp-and-other-backends`, `flush-for-rerender-clear`, etc. were deliberately cancelled / marked "deferred to global audit" rather than completed).
 
 ### Status summary (as of the change that added this section)

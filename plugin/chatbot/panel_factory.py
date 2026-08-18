@@ -382,6 +382,12 @@ class ChatPanelElement(unohelper.Base, XUIElement):
                 self.send_listener.disposing(None)
         except Exception as e:
             log.info("[RICH-SHUTDOWN]   send_listener.disposing raised from element: %s", e)
+        try:
+            from plugin.framework.uno_context import set_default_focus_restore
+
+            set_default_focus_restore(None)
+        except Exception:
+            pass
 
         # Clean up the always-present resize listener.
         # This listener is attached unconditionally in panel_wiring. Failing to

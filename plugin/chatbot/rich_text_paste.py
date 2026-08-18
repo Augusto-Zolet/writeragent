@@ -45,7 +45,7 @@ from plugin.chatbot.rich_text_control import (
     _is_automatic_char_color,
     get_control_text_length,
     log_rich_scroll,
-    nudge_rich_control_view_to_end,
+    reveal_rich_control_caret,
 )
 from plugin.calc.navigation import (
     extract_cell_links_from_html,
@@ -372,7 +372,7 @@ def _copy_formatted_from_hidden_doc_to_control(
 
             if inserted:
                 if auto_scroll:
-                    nudge_rich_control_view_to_end(control, ctx=ctx, style_window=style_window, reason="copy")
+                    reveal_rich_control_caret(control, ctx=ctx, reason="copy", _already_focus_preserved=True)
                 log_rich_scroll("copy_done", control=control, role=role, auto_scroll=int(auto_scroll))
                 log.info(
                     "_copy_formatted_from_hidden_doc_to_control: ok control_len=%d role=%s",
@@ -449,7 +449,7 @@ def append_rich_messages_via_clipboard(
                 doc, control, ctx, style_window=style_window, auto_scroll=False, cell_link_targets=batch_links,
             ):
                 any_inserted = True
-                nudge_rich_control_view_to_end(control, ctx=ctx, style_window=style_window, reason="history_batch")
+                reveal_rich_control_caret(control, ctx=ctx, reason="history_batch")
             else:
                 log.warning(
                     "append_rich_messages_via_clipboard: batch insert into control failed messages=%d",
@@ -559,13 +559,10 @@ def append_rich_text_via_clipboard(
                 role,
             )
         if inserted and role == "user":
-            # Trailing line break runs after copy+nudge; re-nudge so viewport stays at tail.
             with focus_preserved(ctx):
                 _ensure_trailing_line_break(control)
             if auto_scroll:
-                nudge_rich_control_view_to_end(
-                    control, ctx=ctx, style_window=style_window, reason="user_trailing_break",
-                )
+                reveal_rich_control_caret(control, ctx=ctx, reason="user_trailing_break")
             if callable(on_after_insert):
                 try:
                     on_after_insert(get_control_text_length(control))

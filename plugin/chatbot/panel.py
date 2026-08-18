@@ -1042,6 +1042,13 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
             from plugin.chatbot.dialogs import set_control_text
 
             set_control_text(self.query_control, "")
+            # Send button click leaves focus on Send; keep the query field
+            # ready for the next question (reveal/scroll must not win later).
+            try:
+                if hasattr(self.query_control, "setFocus"):
+                    self.query_control.setFocus()
+            except Exception as e:
+                log.debug("query setFocus after send: %s", e)
 
         from plugin.chatbot.config_ui_helpers import sync_sidebar_text_model
 
