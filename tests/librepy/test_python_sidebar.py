@@ -210,7 +210,6 @@ def test_resize_listener_applies_layout():
     root = MagicMock()
     root.getPosSize.return_value = SimpleNamespace(Width=180, Height=500)
     listener = _PanelResizeListener(controls)
-    listener.note_width_negotiated()
     listener.relayout_now(root)
     expected = compute_python_sidebar_layout(180, 500, snapshot)
     for name, (ex, ey, ew, eh) in expected.items():
@@ -224,24 +223,10 @@ def test_resize_listener_applies_wide_layout():
     root = MagicMock()
     root.getPosSize.return_value = SimpleNamespace(Width=600, Height=360)
     listener = _PanelResizeListener(controls)
-    listener.note_width_negotiated()
     listener.relayout_now(root)
     ps = controls["btn_settings"].getPosSize()
-    assert ps.X + ps.Width <= 596
+    assert ps.X + ps.Width <= 588
     assert controls["btn_refresh"].getPosSize().Width > 54
-
-
-def test_resize_listener_defers_before_negotiated():
-    snapshot = _xdl_snapshot()
-    controls = {name: _mock_control(x, y, w, h) for name, (x, y, w, h) in snapshot.items()}
-    root = MagicMock()
-    root.getPosSize.return_value = SimpleNamespace(Width=1175, Height=360)
-    listener = _PanelResizeListener(controls)
-    listener.relayout_now(root)
-    for name, (x, y, w, h) in snapshot.items():
-        ps = controls[name].getPosSize()
-        assert (ps.X, ps.Y, ps.Width, ps.Height) == (x, y, w, h)
-        controls[name].setPosSize.assert_not_called()
 
 
 def test_resize_listener_applies_narrow_layout():
@@ -250,11 +235,10 @@ def test_resize_listener_applies_narrow_layout():
     root = MagicMock()
     root.getPosSize.return_value = SimpleNamespace(Width=150, Height=360)
     listener = _PanelResizeListener(controls)
-    listener.note_width_negotiated()
     listener.relayout_now(root)
     for ctrl in controls.values():
         ps = ctrl.getPosSize()
-        assert ps.X + ps.Width <= 130
+        assert ps.X + ps.Width <= 138
     assert controls["btn_refresh"].getPosSize().Width < 54
 
 
@@ -262,10 +246,10 @@ def test_layout_button_rows_and_gaps_at_arbitrary_widths():
     snapshot = _xdl_snapshot()
     for w in (200, 350, 500, 750, 1000):
         layouts = compute_python_sidebar_layout(w, 400, snapshot)
-        # All controls stay within bounds (width - 20)
+        # All controls stay within bounds (width - 12)
         for name, rect in layouts.items():
             assert rect[0] >= 4, f"{name} left edge {rect[0]} < 4 at width {w}"
-            assert rect[0] + rect[2] <= w - 20, f"{name} right edge {rect[0] + rect[2]} > {w - 20} at width {w}"
+            assert rect[0] + rect[2] <= w - 12, f"{name} right edge {rect[0] + rect[2]} > {w - 12} at width {w}"
 
         # 3-button row: refresh, edit_cell, run_script
         r_ref = layouts["btn_refresh"]
@@ -274,21 +258,21 @@ def test_layout_button_rows_and_gaps_at_arbitrary_widths():
         assert r_ref[0] == 4
         assert r_edit[0] == r_ref[0] + r_ref[2] + 4
         assert r_run[0] == r_edit[0] + r_edit[2] + 4
-        assert r_run[0] + r_run[2] == w - 20
+        assert r_run[0] + r_run[2] == w - 12
 
         # 2-button row: edit_init, reset
         r_init = layouts["btn_edit_init"]
         r_rst = layouts["btn_reset"]
         assert r_init[0] == 4
         assert r_rst[0] == r_init[0] + r_init[2] + 4
-        assert r_rst[0] + r_rst[2] == w - 20
+        assert r_rst[0] + r_rst[2] == w - 12
 
         # Filter combo stretches to the right edge
         r_flab = layouts["filter_label"]
         r_fcom = layouts["filter_combo"]
         assert r_flab[0] == 4
         assert r_fcom[0] == r_flab[0] + r_flab[2] + 4
-        assert r_fcom[0] + r_fcom[2] == w - 20
+        assert r_fcom[0] + r_fcom[2] == w - 12
 
 
 def test_python_tool_panel_get_height_for_width_handles_all_sizes():
@@ -307,7 +291,6 @@ def test_python_tool_panel_get_height_for_width_handles_all_sizes():
     # Normal column width
     panel.getHeightForWidth(350)
     panel_win.setPosSize.assert_called_with(0, 0, 350, 400, 15)
-    listener.note_width_negotiated.assert_called_once()
     listener.relayout_now.assert_called_with(panel_win)
 
     # Wide column width (> 500)
@@ -318,12 +301,12 @@ def test_python_tool_panel_get_height_for_width_handles_all_sizes():
     panel_win.setPosSize.assert_called_with(0, 0, 750, 400, 15)
     listener.relayout_now.assert_called_with(panel_win)
 
-    # Startup frame-sized query when current width is narrow (<450) and parent is narrow (<=500)
+    # Frame-sized query
     panel_win.reset_mock()
     listener.reset_mock()
     panel_win.getPosSize.return_value = SimpleNamespace(Width=300, Height=400)
     parent_win.getPosSize.return_value = SimpleNamespace(Width=300, Height=400)
     panel.getHeightForWidth(1262)
-    panel_win.setPosSize.assert_called_with(0, 0, 260, 400, 15)
+    panel_win.setPosSize.assert_called_with(0, 0, 1262, 400, 15)
     listener.relayout_now.assert_called_with(panel_win)
 

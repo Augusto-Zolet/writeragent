@@ -41,8 +41,7 @@ _FILTER_LABELS: tuple[tuple[str, DiagnosticFilter], ...] = (
 
 # PythonSidebarDialog.xdl: window 360, last button bottom 340.
 _BOTTOM_MARGIN = 20
-# Reserve space on the right for the Deck ScrolledWindow vertical scrollbar (16-20px) + padding.
-_RIGHT_MARGIN = 20
+_RIGHT_MARGIN = 12
 _MIN_FLEX_HEIGHT = 16
 _MIN_CONTROL_WIDTH = 20
 _FLEX_CONTROLS = ("status", "cells_list", "diag_list", "diag_detail")
@@ -102,17 +101,17 @@ def compute_python_sidebar_layout(
                 remaining -= new_h
             new_heights[name] = max(min_flex_height, new_h)
 
-    left_margin = min(rect[0] for rect in snapshot.values())
-    content_right = max(_MIN_CONTROL_WIDTH, width - right_margin)
-    content_width = max(_MIN_CONTROL_WIDTH, content_right - left_margin)
+    left_margin = 4
+    content_right = max(20, width - right_margin)
+    content_width = max(20, content_right - left_margin)
     gap = 4
 
-    # Calculate 3-button row width
-    bw3 = max(_MIN_CONTROL_WIDTH, (content_width - 2 * gap) // 3)
-    # Calculate 2-button row width
-    bw2 = max(_MIN_CONTROL_WIDTH, (content_width - gap) // 2)
-
-    filter_label_w = snapshot.get("filter_label", (0, 0, 40, 10))[2]
+    # 3-button row width
+    bw3 = max(10, (content_width - 2 * gap) // 3)
+    # 2-button row width
+    bw2 = max(10, (content_width - gap) // 2)
+    # Filter label width
+    filter_label_w = min(40, max(10, content_width // 4))
 
     layouts: dict[str, tuple[int, int, int, int]] = {}
     for name, (ox, oy, ow, oh) in snapshot.items():
@@ -129,19 +128,19 @@ def compute_python_sidebar_layout(
             nw = bw3
         elif name == "btn_run_script":
             nx = left_margin + 2 * (bw3 + gap)
-            nw = max(_MIN_CONTROL_WIDTH, content_right - nx)
+            nw = max(10, content_right - nx)
         elif name == "btn_edit_init":
             nx = left_margin
             nw = bw2
         elif name == "btn_reset":
             nx = left_margin + bw2 + gap
-            nw = max(_MIN_CONTROL_WIDTH, content_right - nx)
+            nw = max(10, content_right - nx)
         elif name == "filter_label":
             nx = left_margin
             nw = filter_label_w
         elif name == "filter_combo":
             nx = left_margin + filter_label_w + gap
-            nw = max(_MIN_CONTROL_WIDTH, content_right - nx)
+            nw = max(10, content_right - nx)
         elif name in (
             "status_label",
             "status",
@@ -155,11 +154,14 @@ def compute_python_sidebar_layout(
             nx = left_margin
             nw = content_width
         else:
-            nx = ox
-            nw = max(_MIN_CONTROL_WIDTH, min(ow, content_right - nx))
+            nx = left_margin
+            nw = content_width
 
-        if nx + nw > content_right:
-            nw = max(_MIN_CONTROL_WIDTH, content_right - nx)
+        if nx >= content_right:
+            nx = max(0, content_right - 10)
+            nw = 10
+        elif nx + nw > content_right:
+            nw = max(10, content_right - nx)
 
         layouts[name] = (nx, oy + shift, nw, new_heights.get(name, oh))
     return layouts
@@ -173,7 +175,6 @@ class _PanelResizeListener(BaseWindowListener):
         self._snapshot: dict[str, tuple[int, int, int, int]] | None = None
         self._in_relayout = False
         self._root_window = None
-        self._width_negotiated = False
 
     def disposing(self, Source):  # noqa: N803 -- UNO signature
         if self._root_window and hasattr(self._root_window, "removeWindowListener"):
@@ -183,13 +184,8 @@ class _PanelResizeListener(BaseWindowListener):
                 pass
         self._root_window = None
 
-    def note_width_negotiated(self) -> None:
-        self._width_negotiated = True
-
     def relayout_now(self, win: Any) -> None:
         if not win or self._in_relayout:
-            return
-        if not self._width_negotiated and self._snapshot is None:
             return
         try:
             self._in_relayout = True

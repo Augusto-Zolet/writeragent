@@ -102,52 +102,29 @@ class PythonToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
         parent_h = parent_rect.Height
         try:
             before = self.PanelWindow.getPosSize()
-            current_w = before.Width if before else 0
             current_h = before.Height if before else 0
         except Exception as e:
             if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
                 log.debug("getHeightForWidth: PanelWindow disposed: %s", e)
-            current_w = 0
             current_h = 0
         if current_h <= 0:
             current_h = parent_h if parent_h > 0 else 400
-        deck_w = width
 
-        # Simple policy:
-        # - Prefer the deck hint when it looks like a real column width.
-        # - If deck hint is huge (>500, typical of startup "frame width" queries) while
-        #   both current width and parent window are narrow (<=500), clamp to parent_w.
-        if deck_w > 0:
-            if deck_w > 500 and 0 < current_w < 450 and (parent_w <= 500):
-                eff_w = min(deck_w, parent_w if parent_w > 0 else 220, 260)
-            else:
-                eff_w = deck_w
-        elif parent_w > 0:
-            eff_w = parent_w
-        else:
-            eff_w = 220
+        eff_w = width if width > 0 else (parent_w if parent_w > 0 else 200)
 
         log.info(
-            "[LIBREPY LAYOUT] getHeightForWidth deck_hint=%s parent=%sx%s current=%sx%s eff_w=%s",
-            deck_w,
+            "[LIBREPY LAYOUT] getHeightForWidth deck_hint=%s parent=%sx%s eff_w=%s",
+            width,
             parent_w,
             parent_h,
-            current_w,
-            current_h,
             eff_w,
         )
-        rl = getattr(self, "resize_listener", None)
-        if rl is not None and hasattr(rl, "note_width_negotiated"):
-            try:
-                rl.note_width_negotiated()
-            except Exception as e:
-                if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-                    log.debug("getHeightForWidth: resize listener disposed: %s", e)
         try:
             self.PanelWindow.setPosSize(0, 0, eff_w, current_h, 15)
         except Exception as e:
             if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
                 log.debug("getHeightForWidth setPosSize failed: %s", e)
+        rl = getattr(self, "resize_listener", None)
         if rl is not None:
             try:
                 rl.relayout_now(self.PanelWindow)
@@ -159,7 +136,7 @@ class PythonToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
         return uno.createUnoStruct("com.sun.star.ui.LayoutSize", 100, -1, 400)
 
     def getMinimalWidth(self):
-        return 180
+        return 220
 
 
 class PythonPanelElement(unohelper.Base, XUIElement):
@@ -187,7 +164,7 @@ class PythonPanelElement(unohelper.Base, XUIElement):
                 self.controller = PythonSidebarController(self.ctx, root_window, self.xFrame)
                 self.toolpanel.resize_listener = getattr(self.controller, "resize_listener", None)
                 log.info(
-                    "[LIBREPY FIRST LAYOUT] root_w=%d (initial pre-negotiation size on app start / sidebar show)",
+                    "[LIBREPY FIRST LAYOUT] root_w=%d (initial size on app start / sidebar show)",
                     root_window.getPosSize().Width,
                 )
             except Exception as e:
@@ -218,17 +195,8 @@ class PythonPanelElement(unohelper.Base, XUIElement):
                     log.debug("setVisible failed: %s", e)
         try:
             parent_rect = self.xParentWindow.getPosSize()
-            current_rect = self.m_panelRootWindow.getPosSize()
-            source_w = parent_rect.Width if parent_rect.Width > 0 else current_rect.Width
-            target_w = min(
-                source_w if (0 < source_w < 450) else (self.toolpanel.getMinimalWidth() if self.toolpanel else 180),
-                _PRE_NEGOTIATION_PANEL_WIDTH,
-            )
-            target_h = current_rect.Height if current_rect.Height > 0 else (
-                parent_rect.Height if parent_rect.Height > 0 else 400
-            )
-            if target_w > 0 and target_h > 0:
-                self.m_panelRootWindow.setPosSize(0, 0, target_w, target_h, 15)
+            target_h = parent_rect.Height if parent_rect.Height > 0 else 400
+            self.m_panelRootWindow.setPosSize(0, 0, 220, target_h, 15)
         except Exception as e:
             if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
                 log.debug("constrain panel failed: %s", e)
