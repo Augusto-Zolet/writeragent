@@ -160,6 +160,26 @@ def test_layout_widths_unchanged_when_taller():
             assert nh == oh
 
 
+def test_layout_wide_panel_stretches_full_span():
+    snapshot = _xdl_snapshot()
+    layouts = compute_python_sidebar_layout(500, 360, snapshot)
+    assert layouts["status"][2] == 492
+    assert layouts["btn_settings"][0] + layouts["btn_settings"][2] == 496
+    assert layouts["btn_run_script"][0] + layouts["btn_run_script"][2] == 496
+    assert layouts["filter_combo"][0] + layouts["filter_combo"][2] == 496
+    assert layouts["btn_refresh"][2] == 54
+    assert layouts["btn_edit_cell"][2] == 54
+    assert layouts["btn_edit_init"][2] == 84
+
+
+def test_layout_narrow_panel_does_not_overflow():
+    snapshot = _xdl_snapshot()
+    layouts = compute_python_sidebar_layout(150, 360, snapshot)
+    for rect in layouts.values():
+        assert rect[0] + rect[2] <= 146
+    assert layouts["btn_refresh"][2] == 54
+
+
 def test_layout_preserves_xdl_gaps_and_grows_flex_by_snapshot_ratio():
     snapshot = _xdl_snapshot()
     layouts = compute_python_sidebar_layout(180, 500, snapshot)
@@ -195,3 +215,15 @@ def test_resize_listener_applies_layout():
     for name, (ex, ey, ew, eh) in expected.items():
         ps = controls[name].getPosSize()
         assert (ps.X, ps.Y, ps.Width, ps.Height) == (ex, ey, ew, eh)
+
+
+def test_resize_listener_applies_wide_layout():
+    snapshot = _xdl_snapshot()
+    controls = {name: _mock_control(x, y, w, h) for name, (x, y, w, h) in snapshot.items()}
+    root = MagicMock()
+    root.getPosSize.return_value = SimpleNamespace(Width=500, Height=360)
+    listener = _PanelResizeListener(controls)
+    listener.relayout_now(root)
+    ps = controls["btn_settings"].getPosSize()
+    assert ps.X + ps.Width == 496
+    assert controls["btn_refresh"].getPosSize().Width == 54

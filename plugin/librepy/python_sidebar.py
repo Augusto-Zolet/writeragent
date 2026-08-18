@@ -41,7 +41,9 @@ _FILTER_LABELS: tuple[tuple[str, DiagnosticFilter], ...] = (
 
 # PythonSidebarDialog.xdl: window 360, last button bottom 340.
 _BOTTOM_MARGIN = 20
+_RIGHT_MARGIN = 4
 _MIN_FLEX_HEIGHT = 16
+_MIN_CONTROL_WIDTH = 20
 _FLEX_CONTROLS = ("status", "cells_list", "diag_list", "diag_detail")
 _CONTROL_IDS = (
     "status_label",
@@ -72,8 +74,10 @@ def compute_python_sidebar_layout(
 ) -> dict[str, tuple[int, int, int, int]]:
     """Share leftover height among flex fields in proportion to their XDL heights.
 
-    Buttons, labels, and the filter combo keep snapshot size and spacing. Widths
-    are not stretched. Changing an XDL flex-field height later changes the ratio.
+    Full-span controls (those that already reach the XDL content right edge)
+    grow or shrink to ``width - left - 4``. Left-side chrome keeps snapshot
+    width unless it would overflow. Changing an XDL flex-field height later
+    changes the vertical ratio.
     """
     if width <= 0 or height <= 0 or not snapshot:
         return {}
@@ -81,6 +85,8 @@ def compute_python_sidebar_layout(
     if not flex_names:
         return {}
     content_bottom = max(rect[1] + rect[3] for rect in snapshot.values())
+    content_right_snap = max(rect[0] + rect[2] for rect in snapshot.values())
+    panel_right = width - _RIGHT_MARGIN
     flex_sum = sum(snapshot[name][3] for name in flex_names)
     leftover = height - bottom_margin - (content_bottom - flex_sum)
     new_heights: dict[str, int]
@@ -103,7 +109,14 @@ def compute_python_sidebar_layout(
         for fname in flex_names:
             if snapshot[fname][1] < oy:
                 shift += new_heights[fname] - snapshot[fname][3]
-        layouts[name] = (ox, oy + shift, ow, new_heights.get(name, oh))
+        snap_right = ox + ow
+        if snap_right >= content_right_snap - 2:
+            new_w = max(_MIN_CONTROL_WIDTH, panel_right - ox)
+        elif ox + ow > panel_right:
+            new_w = max(_MIN_CONTROL_WIDTH, panel_right - ox)
+        else:
+            new_w = ow
+        layouts[name] = (ox, oy + shift, new_w, new_heights.get(name, oh))
     return layouts
 
 

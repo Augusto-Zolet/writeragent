@@ -52,7 +52,9 @@ log = logging.getLogger(__name__)
 
 UNO_DISPOSED_EXCEPTIONS = (DisposedException, RuntimeException, UnoException)
 XDL_PATH = "Dialogs/PythonSidebarDialog.xdl"
-_PRE_NEGOTIATION_PANEL_WIDTH = 420
+# DeckLayouter often passes the main frame width (~1175). Treat only values
+# below this as a real docked-column hint; larger values seed the H-scrollbar.
+_MAX_REAL_COLUMN_WIDTH = 500
 _IMPL_NAME = "org.extension.librepy.PythonPanelFactory"
 
 
@@ -109,15 +111,22 @@ class PythonToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
         if current_h <= 0:
             current_h = parent_h if parent_h > 0 else 400
         deck_w = width
-        if deck_w > 0:
-            if deck_w > 500 and 0 < current_w < 450:
-                eff_w = min(deck_w, parent_w if parent_w > 0 else 380, 420)
-            else:
-                eff_w = deck_w
-        elif parent_w > 0:
-            eff_w = parent_w
+        # Ignore frame-sized nWidth/parent; those are not the docked column.
+        if 0 < deck_w < _MAX_REAL_COLUMN_WIDTH:
+            eff_w = deck_w
+        elif current_w > 0:
+            eff_w = current_w
         else:
             eff_w = 220
+        log.debug(
+            "getHeightForWidth deck_hint=%s parent=%sx%s current=%sx%s eff_w=%s",
+            deck_w,
+            parent_w,
+            parent_h,
+            current_w,
+            current_h,
+            eff_w,
+        )
         try:
             self.PanelWindow.setPosSize(0, 0, eff_w, current_h, 15)
         except Exception as e:
@@ -191,11 +200,9 @@ class PythonPanelElement(unohelper.Base, XUIElement):
         try:
             parent_rect = self.xParentWindow.getPosSize()
             current_rect = self.m_panelRootWindow.getPosSize()
-            source_w = parent_rect.Width if parent_rect.Width > 0 else current_rect.Width
-            target_w = min(
-                source_w if source_w > 0 else 180,
-                _PRE_NEGOTIATION_PANEL_WIDTH,
-            )
+            # Keep the XDL natural width. Parent is often the main frame (~1175)
+            # and expanding to it (or 420) is what seeds the H-scrollbar.
+            target_w = current_rect.Width if current_rect.Width > 0 else 180
             target_h = current_rect.Height if current_rect.Height > 0 else (
                 parent_rect.Height if parent_rect.Height > 0 else 400
             )
