@@ -41,7 +41,8 @@ _FILTER_LABELS: tuple[tuple[str, DiagnosticFilter], ...] = (
 
 # PythonSidebarDialog.xdl: window 360, last button bottom 340.
 _BOTTOM_MARGIN = 20
-_RIGHT_MARGIN = 4
+# Reserve space on the right for the Deck ScrolledWindow vertical scrollbar (16-20px) + padding.
+_RIGHT_MARGIN = 20
 _MIN_FLEX_HEIGHT = 16
 _MIN_CONTROL_WIDTH = 20
 _FLEX_CONTROLS = ("status", "cells_list", "diag_list", "diag_detail")
@@ -237,6 +238,15 @@ class _PanelResizeListener(BaseWindowListener):
             if cur.X != nx or cur.Y != ny or cur.Width != nw or cur.Height != nh:
                 ctrl.setPosSize(nx, ny, nw, nh, 15)
 
+        max_right = max((nx + nw for nx, ny, nw, nh in layouts.values()), default=0)
+        log.info(
+            "[LIBREPY LAYOUT] relayout w=%d h=%d max_child_right=%d overflow=%s",
+            w,
+            h,
+            max_right,
+            "YES" if max_right > w - 2 else "no",
+        )
+
 
 class _Activation(BaseActivationEventListener):
     """Sheet-activation listener that calls handler() whenever the active sheet changes."""
@@ -390,6 +400,7 @@ class PythonSidebarController:
             if self.root is not None and hasattr(self.root, "addWindowListener"):
                 self.root.addWindowListener(listener)
             self.resize_listener = listener
+            listener._capture_snapshot(self.root)
             listener.relayout_now(self.root)
         except Exception:
             log.debug("sidebar resize listener attach failed", exc_info=True)

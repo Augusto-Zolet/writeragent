@@ -52,7 +52,7 @@ log = logging.getLogger(__name__)
 
 UNO_DISPOSED_EXCEPTIONS = (DisposedException, RuntimeException, UnoException)
 XDL_PATH = "Dialogs/PythonSidebarDialog.xdl"
-_PRE_NEGOTIATION_PANEL_WIDTH = 420
+_PRE_NEGOTIATION_PANEL_WIDTH = 220
 _IMPL_NAME = "org.extension.librepy.PythonPanelFactory"
 
 
@@ -70,6 +70,9 @@ def _ensure_paths(ctx) -> None:
         ext_path = get_extension_path(ctx)
         if ext_path and ext_path not in sys.path:
             sys.path.insert(0, ext_path)
+        from plugin.framework.logging import init_logging
+
+        init_logging(ctx)
     except Exception:
         log.debug("LibrePy sidebar path init failed", exc_info=True)
 
@@ -116,7 +119,7 @@ class PythonToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
         #   both current width and parent window are narrow (<=500), clamp to parent_w.
         if deck_w > 0:
             if deck_w > 500 and 0 < current_w < 450 and (parent_w <= 500):
-                eff_w = min(deck_w, parent_w if parent_w > 0 else 380, 420)
+                eff_w = min(deck_w, parent_w if parent_w > 0 else 220, 260)
             else:
                 eff_w = deck_w
         elif parent_w > 0:
@@ -124,6 +127,15 @@ class PythonToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
         else:
             eff_w = 220
 
+        log.info(
+            "[LIBREPY LAYOUT] getHeightForWidth deck_hint=%s parent=%sx%s current=%sx%s eff_w=%s",
+            deck_w,
+            parent_w,
+            parent_h,
+            current_w,
+            current_h,
+            eff_w,
+        )
         rl = getattr(self, "resize_listener", None)
         if rl is not None and hasattr(rl, "note_width_negotiated"):
             try:
@@ -174,6 +186,10 @@ class PythonPanelElement(unohelper.Base, XUIElement):
 
                 self.controller = PythonSidebarController(self.ctx, root_window, self.xFrame)
                 self.toolpanel.resize_listener = getattr(self.controller, "resize_listener", None)
+                log.info(
+                    "[LIBREPY FIRST LAYOUT] root_w=%d (initial pre-negotiation size on app start / sidebar show)",
+                    root_window.getPosSize().Width,
+                )
             except Exception as e:
                 log.error("PythonPanel getRealInterface ERROR: %s", e)
                 log.error(traceback.format_exc())
@@ -205,7 +221,7 @@ class PythonPanelElement(unohelper.Base, XUIElement):
             current_rect = self.m_panelRootWindow.getPosSize()
             source_w = parent_rect.Width if parent_rect.Width > 0 else current_rect.Width
             target_w = min(
-                source_w if source_w > 0 else (self.toolpanel.getMinimalWidth() if self.toolpanel else 180),
+                source_w if (0 < source_w < 450) else (self.toolpanel.getMinimalWidth() if self.toolpanel else 180),
                 _PRE_NEGOTIATION_PANEL_WIDTH,
             )
             target_h = current_rect.Height if current_rect.Height > 0 else (

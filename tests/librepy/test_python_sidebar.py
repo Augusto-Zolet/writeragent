@@ -254,7 +254,7 @@ def test_resize_listener_applies_narrow_layout():
     listener.relayout_now(root)
     for ctrl in controls.values():
         ps = ctrl.getPosSize()
-        assert ps.X + ps.Width <= 146
+        assert ps.X + ps.Width <= 130
     assert controls["btn_refresh"].getPosSize().Width < 54
 
 
@@ -262,10 +262,10 @@ def test_layout_button_rows_and_gaps_at_arbitrary_widths():
     snapshot = _xdl_snapshot()
     for w in (200, 350, 500, 750, 1000):
         layouts = compute_python_sidebar_layout(w, 400, snapshot)
-        # All controls stay within bounds
+        # All controls stay within bounds (width - 20)
         for name, rect in layouts.items():
             assert rect[0] >= 4, f"{name} left edge {rect[0]} < 4 at width {w}"
-            assert rect[0] + rect[2] <= w - 4, f"{name} right edge {rect[0] + rect[2]} > {w - 4} at width {w}"
+            assert rect[0] + rect[2] <= w - 20, f"{name} right edge {rect[0] + rect[2]} > {w - 20} at width {w}"
 
         # 3-button row: refresh, edit_cell, run_script
         r_ref = layouts["btn_refresh"]
@@ -274,21 +274,21 @@ def test_layout_button_rows_and_gaps_at_arbitrary_widths():
         assert r_ref[0] == 4
         assert r_edit[0] == r_ref[0] + r_ref[2] + 4
         assert r_run[0] == r_edit[0] + r_edit[2] + 4
-        assert r_run[0] + r_run[2] == w - 4
+        assert r_run[0] + r_run[2] == w - 20
 
         # 2-button row: edit_init, reset
         r_init = layouts["btn_edit_init"]
         r_rst = layouts["btn_reset"]
         assert r_init[0] == 4
         assert r_rst[0] == r_init[0] + r_init[2] + 4
-        assert r_rst[0] + r_rst[2] == w - 4
+        assert r_rst[0] + r_rst[2] == w - 20
 
         # Filter combo stretches to the right edge
         r_flab = layouts["filter_label"]
         r_fcom = layouts["filter_combo"]
         assert r_flab[0] == 4
         assert r_fcom[0] == r_flab[0] + r_flab[2] + 4
-        assert r_fcom[0] + r_fcom[2] == w - 4
+        assert r_fcom[0] + r_fcom[2] == w - 20
 
 
 def test_python_tool_panel_get_height_for_width_handles_all_sizes():
@@ -324,6 +324,6 @@ def test_python_tool_panel_get_height_for_width_handles_all_sizes():
     panel_win.getPosSize.return_value = SimpleNamespace(Width=300, Height=400)
     parent_win.getPosSize.return_value = SimpleNamespace(Width=300, Height=400)
     panel.getHeightForWidth(1262)
-    panel_win.setPosSize.assert_called_with(0, 0, 300, 400, 15)
+    panel_win.setPosSize.assert_called_with(0, 0, 260, 400, 15)
     listener.relayout_now.assert_called_with(panel_win)
 
