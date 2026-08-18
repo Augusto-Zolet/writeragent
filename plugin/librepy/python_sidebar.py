@@ -41,11 +41,9 @@ _FILTER_LABELS: tuple[tuple[str, DiagnosticFilter], ...] = (
 
 # PythonSidebarDialog.xdl: window 360, last button bottom 340.
 _BOTTOM_MARGIN = 20
-_RIGHT_MARGIN = 8
+_RIGHT_MARGIN = 4
 _MIN_FLEX_HEIGHT = 16
 _MIN_CONTROL_WIDTH = 20
-# Same threshold as panel_factory: frame-sized roots must not drive child layout.
-_MAX_COLUMN_WIDTH = 500
 _FLEX_CONTROLS = ("status", "cells_list", "diag_list", "diag_detail")
 _CONTROL_IDS = (
     "status_label",
@@ -65,6 +63,9 @@ _CONTROL_IDS = (
     "btn_settings",
 )
 
+_ROW3_BUTTONS = ("btn_refresh", "btn_edit_cell", "btn_run_script")
+_ROW2_BUTTONS = ("btn_edit_init", "btn_reset")
+
 
 def compute_python_sidebar_layout(
     width: int,
@@ -73,21 +74,16 @@ def compute_python_sidebar_layout(
     *,
     bottom_margin: int = _BOTTOM_MARGIN,
     min_flex_height: int = _MIN_FLEX_HEIGHT,
+    right_margin: int = _RIGHT_MARGIN,
 ) -> dict[str, tuple[int, int, int, int]]:
-    """Share leftover height among flex fields in proportion to their XDL heights.
-
-    Horizontally, every control is scaled so snapshot geometry fits
-    ``width - 8``. Changing an XDL flex-field height later changes the
-    vertical ratio; changing an XDL width later changes the scale base.
-    """
+    """Distribute height among flex fields and stretch/tile controls across the width."""
     if width <= 0 or height <= 0 or not snapshot:
         return {}
     flex_names = [name for name in _FLEX_CONTROLS if name in snapshot]
     if not flex_names:
         return {}
+
     content_bottom = max(rect[1] + rect[3] for rect in snapshot.values())
-    content_right_snap = max(rect[0] + rect[2] for rect in snapshot.values())
-    panel_right = width - _RIGHT_MARGIN
     flex_sum = sum(snapshot[name][3] for name in flex_names)
     leftover = height - bottom_margin - (content_bottom - flex_sum)
     new_heights: dict[str, int]
@@ -104,21 +100,67 @@ def compute_python_sidebar_layout(
                 new_h = leftover * snapshot[name][3] // flex_sum
                 remaining -= new_h
             new_heights[name] = max(min_flex_height, new_h)
+
+    left_margin = min(rect[0] for rect in snapshot.values())
+    content_right = max(_MIN_CONTROL_WIDTH, width - right_margin)
+    content_width = max(_MIN_CONTROL_WIDTH, content_right - left_margin)
+    gap = 4
+
+    # Calculate 3-button row width
+    bw3 = max(_MIN_CONTROL_WIDTH, (content_width - 2 * gap) // 3)
+    # Calculate 2-button row width
+    bw2 = max(_MIN_CONTROL_WIDTH, (content_width - gap) // 2)
+
+    filter_label_w = snapshot.get("filter_label", (0, 0, 40, 10))[2]
+
     layouts: dict[str, tuple[int, int, int, int]] = {}
     for name, (ox, oy, ow, oh) in snapshot.items():
         shift = 0
         for fname in flex_names:
             if snapshot[fname][1] < oy:
                 shift += new_heights[fname] - snapshot[fname][3]
-        if content_right_snap > 0:
-            new_x = ox * panel_right // content_right_snap
-            new_w = max(_MIN_CONTROL_WIDTH, ow * panel_right // content_right_snap)
+
+        if name == "btn_refresh":
+            nx = left_margin
+            nw = bw3
+        elif name == "btn_edit_cell":
+            nx = left_margin + bw3 + gap
+            nw = bw3
+        elif name == "btn_run_script":
+            nx = left_margin + 2 * (bw3 + gap)
+            nw = max(_MIN_CONTROL_WIDTH, content_right - nx)
+        elif name == "btn_edit_init":
+            nx = left_margin
+            nw = bw2
+        elif name == "btn_reset":
+            nx = left_margin + bw2 + gap
+            nw = max(_MIN_CONTROL_WIDTH, content_right - nx)
+        elif name == "filter_label":
+            nx = left_margin
+            nw = filter_label_w
+        elif name == "filter_combo":
+            nx = left_margin + filter_label_w + gap
+            nw = max(_MIN_CONTROL_WIDTH, content_right - nx)
+        elif name in (
+            "status_label",
+            "status",
+            "cells_label",
+            "cells_list",
+            "diag_label",
+            "diag_list",
+            "diag_detail",
+            "btn_settings",
+        ):
+            nx = left_margin
+            nw = content_width
         else:
-            new_x = ox
-            new_w = ow
-        if new_x + new_w > panel_right:
-            new_w = max(_MIN_CONTROL_WIDTH, panel_right - new_x)
-        layouts[name] = (new_x, oy + shift, new_w, new_heights.get(name, oh))
+            nx = ox
+            nw = max(_MIN_CONTROL_WIDTH, min(ow, content_right - nx))
+
+        if nx + nw > content_right:
+            nw = max(_MIN_CONTROL_WIDTH, content_right - nx)
+
+        layouts[name] = (nx, oy + shift, nw, new_heights.get(name, oh))
     return layouts
 
 
@@ -130,6 +172,7 @@ class _PanelResizeListener(BaseWindowListener):
         self._snapshot: dict[str, tuple[int, int, int, int]] | None = None
         self._in_relayout = False
         self._root_window = None
+        self._width_negotiated = False
 
     def disposing(self, Source):  # noqa: N803 -- UNO signature
         if self._root_window and hasattr(self._root_window, "removeWindowListener"):
@@ -139,8 +182,13 @@ class _PanelResizeListener(BaseWindowListener):
                 pass
         self._root_window = None
 
+    def note_width_negotiated(self) -> None:
+        self._width_negotiated = True
+
     def relayout_now(self, win: Any) -> None:
         if not win or self._in_relayout:
+            return
+        if not self._width_negotiated and self._snapshot is None:
             return
         try:
             self._in_relayout = True
@@ -170,7 +218,7 @@ class _PanelResizeListener(BaseWindowListener):
     def _relayout(self, win: Any) -> None:
         r = win.getPosSize()
         w, h = int(r.Width), int(r.Height)
-        if w <= 0 or h <= 0 or w >= _MAX_COLUMN_WIDTH:
+        if w <= 0 or h <= 0:
             return
         if self._snapshot is None:
             self._capture_snapshot(win)

@@ -41,6 +41,7 @@ class MockUnohelperBase:
 
 _uh = types.ModuleType("unohelper")
 _uh.Base = MockUnohelperBase
+_uh.ImplementationHelper = MagicMock
 sys.modules["unohelper"] = _uh
 
 def _create_mock_module(name):
@@ -135,6 +136,26 @@ setattr(lang, "XEventListener", MockXEventListener)
 setattr(lang, "XServiceDisplayName", MockXServiceDisplayName)
 setattr(lang, "XServiceInfo", MockXServiceInfo)
 setattr(lang, "XServiceName", MockXServiceName)
+setattr(lang, "DisposedException", Exception)
+setattr(lang, "IllegalArgumentException", Exception)
+
+uno_mod = _create_mock_module("com.sun.star.uno")
+setattr(uno_mod, "Exception", Exception)
+setattr(uno_mod, "RuntimeException", Exception)
+
+container = _create_mock_module("com.sun.star.container")
+setattr(container, "NoSuchElementException", Exception)
+
+class MockXSidebarPanel: pass
+class MockXToolPanel: pass
+class MockXUIElement: pass
+class MockXUIElementFactory: pass
+
+ui_mod = _create_mock_module("com.sun.star.ui")
+setattr(ui_mod, "XSidebarPanel", MockXSidebarPanel)
+setattr(ui_mod, "XToolPanel", MockXToolPanel)
+setattr(ui_mod, "XUIElement", MockXUIElement)
+setattr(ui_mod, "XUIElementFactory", MockXUIElementFactory)
 
 
 class MockXActionListener:

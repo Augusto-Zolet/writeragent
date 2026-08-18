@@ -144,7 +144,7 @@ def test_layout_identity_at_xdl_height():
     snapshot = _xdl_snapshot()
     layouts = compute_python_sidebar_layout(180, 360, snapshot)
     for rect in layouts.values():
-        assert rect[0] + rect[2] <= 172
+        assert rect[0] + rect[2] <= 176
 
 
 def test_layout_taller_grows_flex_and_stays_in_width():
@@ -153,7 +153,7 @@ def test_layout_taller_grows_flex_and_stays_in_width():
     flex = {"status", "cells_list", "diag_list", "diag_detail"}
     for name, (ox, oy, ow, oh) in snapshot.items():
         nx, ny, nw, nh = layouts[name]
-        assert nx + nw <= 172
+        assert nx + nw <= 176
         if name in flex:
             assert nh > oh
             assert ny >= oy
@@ -165,7 +165,7 @@ def test_layout_wide_panel_scales_all_controls():
     snapshot = _xdl_snapshot()
     layouts = compute_python_sidebar_layout(500, 360, snapshot)
     for rect in layouts.values():
-        assert rect[0] + rect[2] <= 492
+        assert rect[0] + rect[2] <= 496
     assert layouts["btn_refresh"][2] > 54
     assert layouts["btn_edit_init"][2] > 84
     assert layouts["btn_settings"][2] > 172
@@ -175,7 +175,7 @@ def test_layout_narrow_panel_does_not_overflow():
     snapshot = _xdl_snapshot()
     layouts = compute_python_sidebar_layout(150, 360, snapshot)
     for rect in layouts.values():
-        assert rect[0] + rect[2] <= 142
+        assert rect[0] + rect[2] <= 146
     assert layouts["btn_refresh"][2] < 54
     assert layouts["btn_refresh"][2] >= 20
 
@@ -210,6 +210,7 @@ def test_resize_listener_applies_layout():
     root = MagicMock()
     root.getPosSize.return_value = SimpleNamespace(Width=180, Height=500)
     listener = _PanelResizeListener(controls)
+    listener.note_width_negotiated()
     listener.relayout_now(root)
     expected = compute_python_sidebar_layout(180, 500, snapshot)
     for name, (ex, ey, ew, eh) in expected.items():
@@ -221,15 +222,16 @@ def test_resize_listener_applies_wide_layout():
     snapshot = _xdl_snapshot()
     controls = {name: _mock_control(x, y, w, h) for name, (x, y, w, h) in snapshot.items()}
     root = MagicMock()
-    root.getPosSize.return_value = SimpleNamespace(Width=499, Height=360)
+    root.getPosSize.return_value = SimpleNamespace(Width=600, Height=360)
     listener = _PanelResizeListener(controls)
+    listener.note_width_negotiated()
     listener.relayout_now(root)
     ps = controls["btn_settings"].getPosSize()
-    assert ps.X + ps.Width <= 491
+    assert ps.X + ps.Width <= 596
     assert controls["btn_refresh"].getPosSize().Width > 54
 
 
-def test_resize_listener_skips_huge_window():
+def test_resize_listener_defers_before_negotiated():
     snapshot = _xdl_snapshot()
     controls = {name: _mock_control(x, y, w, h) for name, (x, y, w, h) in snapshot.items()}
     root = MagicMock()
@@ -248,8 +250,80 @@ def test_resize_listener_applies_narrow_layout():
     root = MagicMock()
     root.getPosSize.return_value = SimpleNamespace(Width=150, Height=360)
     listener = _PanelResizeListener(controls)
+    listener.note_width_negotiated()
     listener.relayout_now(root)
     for ctrl in controls.values():
         ps = ctrl.getPosSize()
-        assert ps.X + ps.Width <= 142
+        assert ps.X + ps.Width <= 146
     assert controls["btn_refresh"].getPosSize().Width < 54
+
+
+def test_layout_button_rows_and_gaps_at_arbitrary_widths():
+    snapshot = _xdl_snapshot()
+    for w in (200, 350, 500, 750, 1000):
+        layouts = compute_python_sidebar_layout(w, 400, snapshot)
+        # All controls stay within bounds
+        for name, rect in layouts.items():
+            assert rect[0] >= 4, f"{name} left edge {rect[0]} < 4 at width {w}"
+            assert rect[0] + rect[2] <= w - 4, f"{name} right edge {rect[0] + rect[2]} > {w - 4} at width {w}"
+
+        # 3-button row: refresh, edit_cell, run_script
+        r_ref = layouts["btn_refresh"]
+        r_edit = layouts["btn_edit_cell"]
+        r_run = layouts["btn_run_script"]
+        assert r_ref[0] == 4
+        assert r_edit[0] == r_ref[0] + r_ref[2] + 4
+        assert r_run[0] == r_edit[0] + r_edit[2] + 4
+        assert r_run[0] + r_run[2] == w - 4
+
+        # 2-button row: edit_init, reset
+        r_init = layouts["btn_edit_init"]
+        r_rst = layouts["btn_reset"]
+        assert r_init[0] == 4
+        assert r_rst[0] == r_init[0] + r_init[2] + 4
+        assert r_rst[0] + r_rst[2] == w - 4
+
+        # Filter combo stretches to the right edge
+        r_flab = layouts["filter_label"]
+        r_fcom = layouts["filter_combo"]
+        assert r_flab[0] == 4
+        assert r_fcom[0] == r_flab[0] + r_flab[2] + 4
+        assert r_fcom[0] + r_fcom[2] == w - 4
+
+
+def test_python_tool_panel_get_height_for_width_handles_all_sizes():
+    from plugin.librepy.panel_factory import PythonToolPanel
+
+    panel_win = MagicMock()
+    panel_win.getPosSize.return_value = SimpleNamespace(Width=300, Height=400)
+    parent_win = MagicMock()
+    parent_win.getPosSize.return_value = SimpleNamespace(Width=300, Height=400)
+    ctx = MagicMock()
+
+    panel = PythonToolPanel(panel_win, parent_win, ctx)
+    listener = MagicMock()
+    panel.resize_listener = listener
+
+    # Normal column width
+    panel.getHeightForWidth(350)
+    panel_win.setPosSize.assert_called_with(0, 0, 350, 400, 15)
+    listener.note_width_negotiated.assert_called_once()
+    listener.relayout_now.assert_called_with(panel_win)
+
+    # Wide column width (> 500)
+    panel_win.reset_mock()
+    listener.reset_mock()
+    parent_win.getPosSize.return_value = SimpleNamespace(Width=750, Height=400)
+    panel.getHeightForWidth(750)
+    panel_win.setPosSize.assert_called_with(0, 0, 750, 400, 15)
+    listener.relayout_now.assert_called_with(panel_win)
+
+    # Startup frame-sized query when current width is narrow (<450) and parent is narrow (<=500)
+    panel_win.reset_mock()
+    listener.reset_mock()
+    panel_win.getPosSize.return_value = SimpleNamespace(Width=300, Height=400)
+    parent_win.getPosSize.return_value = SimpleNamespace(Width=300, Height=400)
+    panel.getHeightForWidth(1262)
+    panel_win.setPosSize.assert_called_with(0, 0, 300, 400, 15)
+    listener.relayout_now.assert_called_with(panel_win)
+
