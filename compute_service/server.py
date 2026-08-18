@@ -17,7 +17,8 @@ import socket
 import sys
 import threading
 import time
-from http.server import ThreadingHTTPServer
+from concurrent.futures import ThreadPoolExecutor
+from http.server import HTTPServer
 from typing import Any, Callable
 
 # Ensure repo root is on sys.path to resolve plugin.* / compute_service imports
@@ -270,20 +271,22 @@ def create_wsgi_app(
 wsgi_app = create_wsgi_app(ComputeSettings())
 
 
-class DualStackThreadingHTTPServer(ThreadingHTTPServer):
-    """ThreadingHTTPServer that listens on both IPv4 and IPv6 loopback (or a single requested host/IP)."""
+class DualStackThreadPoolHTTPServer(HTTPServer):
+    """HTTPServer that listens on both IPv4 and IPv6 loopback (or a single host) using a ThreadPoolExecutor."""
 
     def __init__(
         self,
         server_address: tuple[str, int],
         RequestHandlerClass: Any,
         bind_and_activate: bool = True,
+        max_threads: int | None = None,
     ) -> None:
         self.sockets: list[socket.socket] = []
         # Own shutdown state: BaseServer uses name-mangled ``__is_shut_down`` / ``__shutdown_request``
         # that type checkers cannot see; our multi-socket ``serve_forever`` must pair with ``shutdown``.
         self._dual_is_shut_down = threading.Event()
         self._dual_shutdown_request = False
+        self.executor = ThreadPoolExecutor(max_workers=max_threads, thread_name_prefix="compute-worker")
         super().__init__(server_address, RequestHandlerClass, bind_and_activate=False)
 
         host, port = server_address
@@ -351,6 +354,7 @@ class DualStackThreadingHTTPServer(ThreadingHTTPServer):
                 sock.close()
             except Exception:
                 pass
+        self.executor.shutdown(wait=False, cancel_futures=True)
 
     def fileno(self) -> int:
         return self.socket.fileno()
@@ -381,6 +385,19 @@ class DualStackThreadingHTTPServer(ThreadingHTTPServer):
         self._dual_shutdown_request = True
         self._dual_is_shut_down.wait()
 
+    def process_request(self, request: Any, client_address: Any) -> None:
+        """Submit incoming request to the thread pool executor."""
+        self.executor.submit(self.process_request_thread, request, client_address)
+
+    def process_request_thread(self, request: Any, client_address: Any) -> None:
+        """Process incoming request inside a pooled worker thread."""
+        try:
+            self.finish_request(request, client_address)
+        except Exception:
+            self.handle_error(request, client_address)
+        finally:
+            self.shutdown_request(request)
+
     def _handle_request_noblock_for_socket(self, sock: socket.socket) -> None:
         try:
             request, client_address = sock.accept()
@@ -399,21 +416,29 @@ class DualStackThreadingHTTPServer(ThreadingHTTPServer):
             self.shutdown_request(request)
 
 
-class WSGIDualStackServer:
-    """Wrapper that mixes DualStackThreadingHTTPServer with wsgiref.simple_server.WSGIServer."""
+# Backwards-compatibility alias
+DualStackThreadingHTTPServer = DualStackThreadPoolHTTPServer
 
-    def __init__(self, host: str, port: int) -> None:
+
+class WSGIDualStackServer:
+    """Wrapper that mixes DualStackThreadPoolHTTPServer with wsgiref.simple_server.WSGIServer."""
+
+    def __init__(self, host: str, port: int, max_threads: int | None = None) -> None:
         from wsgiref.simple_server import WSGIRequestHandler, WSGIServer
 
-        class _WSGIDualStackServer(DualStackThreadingHTTPServer, WSGIServer):
+        class _WSGIDualStackServer(DualStackThreadPoolHTTPServer, WSGIServer):
             def __init__(
                 self,
                 server_address: tuple[str, int],
                 RequestHandlerClass: Any,
                 bind_and_activate: bool = True,
             ) -> None:
-                DualStackThreadingHTTPServer.__init__(
-                    self, server_address, RequestHandlerClass, bind_and_activate
+                DualStackThreadPoolHTTPServer.__init__(
+                    self,
+                    server_address,
+                    RequestHandlerClass,
+                    bind_and_activate,
+                    max_threads=max_threads,
                 )
                 self.server_name = socket.getfqdn(str(self.server_address[0]))
                 self.server_port = self.server_address[1]
@@ -438,8 +463,14 @@ def run_server(settings: ComputeSettings) -> None:
     check_dependencies()
     setup_logging(settings.log_level)
     auth_note = "auth=yes" if settings.auth_required else "auth=no (insecure)"
-    log.info("Starting Python Compute Service on %s:%d (%s)...", settings.host, settings.port, auth_note)
-    server = WSGIDualStackServer(settings.host, settings.port)
+    log.info(
+        "Starting Python Compute Service on %s:%d (%s, threads=%d)...",
+        settings.host,
+        settings.port,
+        auth_note,
+        settings.max_threads,
+    )
+    server = WSGIDualStackServer(settings.host, settings.port, max_threads=settings.max_threads)
     server.set_app(create_wsgi_app(settings))
 
     def _handle_shutdown(signum: int, _frame: Any) -> None:
@@ -477,6 +508,13 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--host", default=None, help="Bind host (overrides config/env)")
     parser.add_argument("--port", type=int, default=None, help="Bind port (overrides config/env)")
     parser.add_argument(
+        "--max-threads",
+        dest="max_threads",
+        type=int,
+        default=None,
+        help="Thread pool worker capacity (overrides config/env)",
+    )
+    parser.add_argument(
         "--api-key-file",
         dest="api_key_file",
         default=None,
@@ -493,6 +531,7 @@ def main(argv: list[str] | None = None) -> int:
             config_path=args.config_path,
             host=args.host,
             port=args.port,
+            max_threads=args.max_threads,
             api_key_file=args.api_key_file,
         )
     except ConfigError as exc:

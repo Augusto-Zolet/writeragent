@@ -114,7 +114,7 @@ def compute_python_sidebar_layout(
     filter_label_w = min(40, max(10, content_width // 4))
 
     layouts: dict[str, tuple[int, int, int, int]] = {}
-    for name, (ox, oy, ow, oh) in snapshot.items():
+    for name, (_ox, oy, _ow, oh) in snapshot.items():
         shift = 0
         for fname in flex_names:
             if snapshot[fname][1] < oy:
@@ -234,7 +234,7 @@ class _PanelResizeListener(BaseWindowListener):
             if cur.X != nx or cur.Y != ny or cur.Width != nw or cur.Height != nh:
                 ctrl.setPosSize(nx, ny, nw, nh, 15)
 
-        max_right = max((nx + nw for nx, ny, nw, nh in layouts.values()), default=0)
+        max_right = max((entry[0] + entry[2] for entry in layouts.values()), default=0)
         log.info(
             "[LIBREPY LAYOUT] relayout w=%d h=%d max_child_right=%d overflow=%s",
             w,

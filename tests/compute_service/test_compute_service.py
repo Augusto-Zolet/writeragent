@@ -330,6 +330,24 @@ class TestComputeSettings:
         assert s.host == "127.0.0.1"
         assert not s.auth_required
 
+    def test_max_threads_env_and_cli(self) -> None:
+        s = load_settings(environ={"PYTHON_COMPUTE_MAX_THREADS": "8", "HOST": "127.0.0.1"})
+        assert s.max_threads == 8
+        s2 = load_settings(max_threads=4, environ={"PYTHON_COMPUTE_MAX_THREADS": "8", "HOST": "127.0.0.1"})
+        assert s2.max_threads == 4
+
+    def test_max_threads_json(self, tmp_path) -> None:
+        cfg = tmp_path / "cfg.json"
+        cfg.write_text(json.dumps({"limits": {"max_threads": 12}}), encoding="utf-8")
+        s = load_settings(config_path=cfg, environ={"HOST": "127.0.0.1"})
+        assert s.max_threads == 12
+
+    def test_max_threads_invalid(self) -> None:
+        from compute_service.config import ConfigError
+
+        with pytest.raises(ConfigError):
+            load_settings(max_threads=0, environ={"HOST": "127.0.0.1"})
+
 
 class TestBearerAuthHttp:
     @pytest.fixture(scope="class")

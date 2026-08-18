@@ -27,6 +27,7 @@ _DEFAULT_PORT = 8000
 _DEFAULT_MAX_BODY_BYTES = 32 * 1024 * 1024
 _DEFAULT_TIMEOUT_SEC = 30
 _MAX_TIMEOUT_SEC = 600
+_DEFAULT_MAX_THREADS = min(32, (os.cpu_count() or 1) + 4)
 
 _DEFAULT_LOG_LEVEL = "INFO"
 _VALID_LOG_LEVELS = frozenset({"DEBUG", "INFO", "WARNING", "WARN", "ERROR", "CRITICAL"})
@@ -56,6 +57,7 @@ class ComputeSettings:
     max_body_bytes: int = _DEFAULT_MAX_BODY_BYTES
     default_timeout_sec: int = _DEFAULT_TIMEOUT_SEC
     max_timeout_sec: int = _MAX_TIMEOUT_SEC
+    max_threads: int = _DEFAULT_MAX_THREADS
     log_level: str = _DEFAULT_LOG_LEVEL
     # Future: map authenticated principals to named profiles. Today always "default".
     default_principal: str = "default"
@@ -77,6 +79,8 @@ class ComputeSettings:
             raise ConfigError("timeout bounds must be >= 1")
         if self.default_timeout_sec > self.max_timeout_sec:
             raise ConfigError("default_timeout_sec cannot exceed max_timeout_sec")
+        if self.max_threads < 1:
+            raise ConfigError("max_threads must be >= 1")
         if self.log_level.upper() not in _VALID_LOG_LEVELS:
             raise ConfigError(f"Invalid log_level: {self.log_level!r} (must be one of {sorted(_VALID_LOG_LEVELS)})")
         # No API key ⇒ no auth (dev/test). Verification runs only when a key is set.
@@ -143,6 +147,10 @@ def _flatten_config_json(raw: Mapping[str, Any]) -> dict[str, Any]:
             out["default_timeout_sec"] = limits["default_timeout_sec"]
         if "max_timeout_sec" in limits:
             out["max_timeout_sec"] = limits["max_timeout_sec"]
+        if "max_threads" in limits:
+            out["max_threads"] = limits["max_threads"]
+        elif "max_workers" in limits:
+            out["max_threads"] = limits["max_workers"]
     logging_cfg = raw.get("logging")
     if isinstance(logging_cfg, Mapping):
         if "log_level" in logging_cfg:
@@ -157,10 +165,13 @@ def _flatten_config_json(raw: Mapping[str, Any]) -> dict[str, Any]:
         "max_body_bytes",
         "default_timeout_sec",
         "max_timeout_sec",
+        "max_threads",
         "log_level",
     ):
         if key in raw and key not in out:
             out[key] = raw[key]
+    if "max_workers" in raw and "max_threads" not in out:
+        out["max_threads"] = raw["max_workers"]
     return out
 
 
@@ -169,6 +180,7 @@ def load_settings(
     config_path: str | Path | None = None,
     host: str | None = None,
     port: int | None = None,
+    max_threads: int | None = None,
     api_key_file: str | Path | None = None,
     environ: Mapping[str, str] | None = None,
 ) -> ComputeSettings:
@@ -182,6 +194,7 @@ def load_settings(
         "max_body_bytes": _DEFAULT_MAX_BODY_BYTES,
         "default_timeout_sec": _DEFAULT_TIMEOUT_SEC,
         "max_timeout_sec": _MAX_TIMEOUT_SEC,
+        "max_threads": _DEFAULT_MAX_THREADS,
         "log_level": _DEFAULT_LOG_LEVEL,
     }
 
@@ -206,6 +219,10 @@ def load_settings(
         values["default_timeout_sec"] = env["PYTHON_COMPUTE_DEFAULT_TIMEOUT_SEC"]
     if env.get("PYTHON_COMPUTE_MAX_TIMEOUT_SEC"):
         values["max_timeout_sec"] = env["PYTHON_COMPUTE_MAX_TIMEOUT_SEC"]
+    if env.get("PYTHON_COMPUTE_MAX_THREADS"):
+        values["max_threads"] = env["PYTHON_COMPUTE_MAX_THREADS"]
+    elif env.get("PYTHON_COMPUTE_MAX_WORKERS"):
+        values["max_threads"] = env["PYTHON_COMPUTE_MAX_WORKERS"]
     if env.get("PYTHON_COMPUTE_LOG_LEVEL"):
         values["log_level"] = env["PYTHON_COMPUTE_LOG_LEVEL"]
 
@@ -218,6 +235,8 @@ def load_settings(
         values["host"] = host
     if port is not None:
         values["port"] = port
+    if max_threads is not None:
+        values["max_threads"] = max_threads
 
     # Secret resolution: CLI key-file > env key > env key-file > JSON key-file.
     api_key = ""
@@ -243,6 +262,9 @@ def load_settings(
         ),
         max_timeout_sec=_as_int(
             values["max_timeout_sec"], field="max_timeout_sec", default=_MAX_TIMEOUT_SEC
+        ),
+        max_threads=_as_int(
+            values["max_threads"], field="max_threads", default=_DEFAULT_MAX_THREADS
         ),
         log_level=normalize_log_level(str(values["log_level"] or _DEFAULT_LOG_LEVEL)),
     )

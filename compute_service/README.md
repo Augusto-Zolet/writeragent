@@ -138,6 +138,7 @@ Example JSON: [`python-compute.example.json`](python-compute.example.json).
 | `PYTHON_COMPUTE_MAX_BODY_BYTES` | Request body cap | `33554432` (32 MiB) |
 | `PYTHON_COMPUTE_DEFAULT_TIMEOUT_SEC` | Default execution timeout in seconds | `30` |
 | `PYTHON_COMPUTE_MAX_TIMEOUT_SEC` | Upper bound clamp for `timeout_ms` | `600` |
+| `PYTHON_COMPUTE_MAX_THREADS` | Worker thread pool capacity | `min(32, cpu_count + 4)` |
 
 Key file permissions: readable only by the service user (e.g. mode `0400`).
 
@@ -147,6 +148,36 @@ Key file permissions: readable only by the service user (e.g. mode `0400`).
 
 - **Graceful Shutdown**: The service traps `SIGTERM` and `SIGINT`.
 - When `SIGTERM` is received (from Kubernetes pod termination or `docker stop`), the server initiates `server.shutdown()` on a background thread, stops accepting new connections, drains in-flight evaluations, and closes listening sockets cleanly.
+
+---
+
+## Threading, Concurrency & Scaling Architecture
+
+### 1. Thread Pool Concurrency Model
+The Python Compute Service uses a bounded `concurrent.futures.ThreadPoolExecutor` worker pool integrated into `DualStackThreadPoolHTTPServer`.
+
+- **Bounded Worker Pool**: Instead of unbounded thread spawning, incoming connections are queued and executed by a fixed-capacity thread pool (`max_threads`, default `min(32, os.cpu_count() + 4)`). This protects the host from thread exhaustion and excessive context-switching overhead during high-concurrency spikes.
+- **Isolated vs. Shared State**:
+  - `mode="isolated"`: Each request executes in a fresh, independent AST-sandboxed execution namespace. Evaluations run concurrently across worker threads with zero lock contention.
+  - `mode="shared"`: Stateful session requests referencing the same `session_id` are synchronized using a per-session lock (`_session_lock(session_id)`). This prevents race conditions and data corruption within a single session's namespace while allowing requests for different sessions to execute concurrently across separate threads.
+
+### 2. Python GIL & NumPy Multi-Core Performance
+In standard CPython, the Global Interpreter Lock (GIL) serializes execution of pure Python bytecode so that only one thread executes Python bytecodes at a time within a single process.
+
+However, for numerical and scientific computing workloads:
+- **GIL Release in C/Fortran Extensions**: High-performance compute libraries such as **NumPy**, **SciPy**, **OpenBLAS**, **MKL**, **SymPy** C-routines, and **Polars** explicitly release the GIL during heavy numerical operations (e.g. matrix multiplications, array vectorization, aggregations, FFTs, and linear algebra routines).
+- **True Multi-Core Concurrency**: While a NumPy operation is computing in native C/Fortran code with the GIL released, other worker threads in the pool can simultaneously acquire the GIL or run their own numeric compute routines on separate CPU cores.
+- **I/O Parallelism**: Network I/O (receiving HTTP payloads, streaming output, socket communications) also releases the GIL, ensuring that socket operations and JSON serialization/deserialization do not stall compute threads.
+
+Because typical Collabora Online `=PY()` spreadsheet workloads consist primarily of NumPy/SciPy vector operations and array manipulations, thread pool request handling achieves high CPU utilization across multiple cores with minimal memory overhead and zero inter-process communication (IPC) serialization penalty.
+
+### 3. Scaling Up & Scaling Out
+
+| Scaling Dimension | Strategy | Characteristics & Recommendations |
+| :--- | :--- | :--- |
+| **Vertical Scale (Threads)** | Thread pool (`max_threads`) (Current default) | Excellent for NumPy/SciPy-dominated workloads where GIL is frequently released. Minimal memory footprint, shared module caches, zero IPC latency. Bounded to prevent thread exhaustion. |
+| **Vertical Scale (Processes)** | Multi-worker WSGI processes (e.g., Gunicorn / uWSGI / multi-instance ports) | Recommended if workloads involve extensive pure-Python CPU loops that hold the GIL. Multiple OS processes bypass the single-interpreter GIL entirely and saturate all CPU cores. |
+| **Horizontal Scale (Containers/K8s)** | Multiple container replicas behind a load balancer | The compute service is lightweight and stateless (for isolated evaluations). Multiple instances can be deployed across Kubernetes pods or Docker hosts behind coolwsd or a reverse proxy (e.g. Nginx, Envoy, HAProxy) with round-robin load balancing. For `mode="shared"`, configure session-affinity (sticky routing) by session ID if persistent state is retained across calls. |
 
 ---
 
