@@ -82,6 +82,7 @@ class PythonToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
         self.PanelWindow = panel_window
         self.Window = panel_window
         self.parent_window = parent_window
+        self.resize_listener = None
 
     def getWindow(self):
         return self.Window
@@ -122,6 +123,15 @@ class PythonToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
         except Exception as e:
             if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
                 log.debug("getHeightForWidth setPosSize failed: %s", e)
+        rl = getattr(self, "resize_listener", None)
+        if rl is not None:
+            try:
+                rl.relayout_now(self.PanelWindow)
+            except Exception as e:
+                if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
+                    log.debug("getHeightForWidth relayout_now failed: %s", e)
+                else:
+                    log.debug("getHeightForWidth relayout_now: %s", e)
         return uno.createUnoStruct("com.sun.star.ui.LayoutSize", 100, -1, 400)
 
     def getMinimalWidth(self):
@@ -151,6 +161,7 @@ class PythonPanelElement(unohelper.Base, XUIElement):
                 from plugin.librepy.python_sidebar import PythonSidebarController
 
                 self.controller = PythonSidebarController(self.ctx, root_window, self.xFrame)
+                self.toolpanel.resize_listener = getattr(self.controller, "resize_listener", None)
             except Exception as e:
                 log.error("PythonPanel getRealInterface ERROR: %s", e)
                 log.error(traceback.format_exc())

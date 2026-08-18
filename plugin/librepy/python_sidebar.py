@@ -20,7 +20,12 @@ from plugin.calc.python.diagnostics import (
 from plugin.chatbot.dialogs import get_optional as get_optional_control, set_control_text, translate_dialog
 from plugin.framework.config import get_config_str
 from plugin.framework.i18n import _
-from plugin.framework.uno_listeners import BaseActionListener, BaseActivationEventListener, BaseItemListener
+from plugin.framework.uno_listeners import (
+    BaseActionListener,
+    BaseActivationEventListener,
+    BaseItemListener,
+    BaseWindowListener,
+)
 from plugin.doc.doc_type import is_calc
 from plugin.scripting.document_scripts import get_calc_document_from_ctx
 from plugin.scripting.sandbox import resolve_venv_python
@@ -33,6 +38,141 @@ _FILTER_LABELS: tuple[tuple[str, DiagnosticFilter], ...] = (
     (_("Errors"), "errors"),
     (_("Output"), "output"),
 )
+
+# PythonSidebarDialog.xdl: window 360, last button bottom 340.
+_BOTTOM_MARGIN = 20
+_MIN_FLEX_HEIGHT = 16
+_FLEX_CONTROLS = ("status", "cells_list", "diag_list", "diag_detail")
+_CONTROL_IDS = (
+    "status_label",
+    "status",
+    "btn_refresh",
+    "btn_edit_cell",
+    "btn_run_script",
+    "cells_label",
+    "cells_list",
+    "filter_label",
+    "filter_combo",
+    "diag_label",
+    "diag_list",
+    "diag_detail",
+    "btn_edit_init",
+    "btn_reset",
+    "btn_settings",
+)
+
+
+def compute_python_sidebar_layout(
+    width: int,
+    height: int,
+    snapshot: dict[str, tuple[int, int, int, int]],
+    *,
+    bottom_margin: int = _BOTTOM_MARGIN,
+    min_flex_height: int = _MIN_FLEX_HEIGHT,
+) -> dict[str, tuple[int, int, int, int]]:
+    """Share leftover height among flex fields in proportion to their XDL heights.
+
+    Buttons, labels, and the filter combo keep snapshot size and spacing. Widths
+    are not stretched. Changing an XDL flex-field height later changes the ratio.
+    """
+    if width <= 0 or height <= 0 or not snapshot:
+        return {}
+    flex_names = [name for name in _FLEX_CONTROLS if name in snapshot]
+    if not flex_names:
+        return {}
+    content_bottom = max(rect[1] + rect[3] for rect in snapshot.values())
+    flex_sum = sum(snapshot[name][3] for name in flex_names)
+    leftover = height - bottom_margin - (content_bottom - flex_sum)
+    new_heights: dict[str, int]
+    if flex_sum <= 0:
+        new_heights = {name: max(min_flex_height, snapshot[name][3]) for name in flex_names}
+    else:
+        new_heights = {}
+        remaining = leftover
+        last = len(flex_names) - 1
+        for i, name in enumerate(flex_names):
+            if i == last:
+                new_h = remaining
+            else:
+                new_h = leftover * snapshot[name][3] // flex_sum
+                remaining -= new_h
+            new_heights[name] = max(min_flex_height, new_h)
+    layouts: dict[str, tuple[int, int, int, int]] = {}
+    for name, (ox, oy, ow, oh) in snapshot.items():
+        shift = 0
+        for fname in flex_names:
+            if snapshot[fname][1] < oy:
+                shift += new_heights[fname] - snapshot[fname][3]
+        layouts[name] = (ox, oy + shift, ow, new_heights.get(name, oh))
+    return layouts
+
+
+class _PanelResizeListener(BaseWindowListener):
+    """Repositions Python sidebar controls when the panel root is resized."""
+
+    def __init__(self, controls: dict[str, Any]) -> None:
+        self._c = controls
+        self._snapshot: dict[str, tuple[int, int, int, int]] | None = None
+        self._in_relayout = False
+        self._root_window = None
+
+    def disposing(self, Source):  # noqa: N803 -- UNO signature
+        if self._root_window and hasattr(self._root_window, "removeWindowListener"):
+            try:
+                self._root_window.removeWindowListener(self)
+            except Exception:
+                pass
+        self._root_window = None
+
+    def relayout_now(self, win: Any) -> None:
+        if not win or self._in_relayout:
+            return
+        try:
+            self._in_relayout = True
+            self._relayout(win)
+        except Exception as e:
+            log.error("python sidebar relayout_now error: %s", e)
+        finally:
+            self._in_relayout = False
+
+    def on_window_resized(self, rEvent: Any) -> None:
+        self.relayout_now(rEvent.Source)
+
+    def _capture_snapshot(self, win: Any) -> None:
+        r = win.getPosSize()
+        if r.Width <= 0 or r.Height <= 0:
+            return
+        snapshot: dict[str, tuple[int, int, int, int]] = {}
+        for name, ctrl in self._c.items():
+            if not ctrl:
+                continue
+            cr = ctrl.getPosSize()
+            snapshot[name] = (int(cr.X), int(cr.Y), int(cr.Width), int(cr.Height))
+        if not any(name in snapshot for name in _FLEX_CONTROLS):
+            return
+        self._snapshot = snapshot
+
+    def _relayout(self, win: Any) -> None:
+        r = win.getPosSize()
+        w, h = int(r.Width), int(r.Height)
+        if w <= 0 or h <= 0:
+            return
+        if self._snapshot is None:
+            self._capture_snapshot(win)
+        snapshot = self._snapshot
+        if not snapshot:
+            log.warning("python sidebar _relayout: no snapshot, skip")
+            return
+        layouts = compute_python_sidebar_layout(w, h, snapshot)
+        if not layouts:
+            return
+        for name, (nx, ny, nw, nh) in layouts.items():
+            ctrl = self._c.get(name)
+            if ctrl is None:
+                continue
+            cur = ctrl.getPosSize()
+            if cur.X != nx or cur.Y != ny or cur.Width != nw or cur.Height != nh:
+                ctrl.setPosSize(nx, ny, nw, nh, 15)
 
 
 class _Activation(BaseActivationEventListener):
@@ -136,6 +276,8 @@ class PythonSidebarController:
         except Exception:
             log.debug("translate_dialog failed for Python sidebar", exc_info=True)
         self._wire()
+        self.resize_listener: _PanelResizeListener | None = None
+        self._attach_resize_listener()
         # Set up activation listener to refresh on sheet changes
         self._activation_listener = None
         if self.frame is not None:
@@ -153,6 +295,13 @@ class PythonSidebarController:
             log.debug("sidebar diagnostics listener add failed", exc_info=True)
 
     def disposing(self) -> None:
+        rl = getattr(self, "resize_listener", None)
+        if rl is not None:
+            try:
+                rl.disposing(None)
+            except Exception:
+                log.debug("sidebar resize listener remove failed", exc_info=True)
+            self.resize_listener = None
         try:
             self._store.remove_listener(self._on_diag)
         except Exception:
@@ -168,6 +317,19 @@ class PythonSidebarController:
 
     def _ctrl(self, name: str) -> Any:
         return get_optional_control(self.root, name)
+
+    def _attach_resize_listener(self) -> None:
+        """Snapshot XDL geometry and stretch content fields when the deck height changes."""
+        try:
+            controls = {cid: self._ctrl(cid) for cid in _CONTROL_IDS}
+            listener = _PanelResizeListener(controls)
+            listener._root_window = self.root
+            if self.root is not None and hasattr(self.root, "addWindowListener"):
+                self.root.addWindowListener(listener)
+            self.resize_listener = listener
+            listener.relayout_now(self.root)
+        except Exception:
+            log.debug("sidebar resize listener attach failed", exc_info=True)
 
     def _wire(self) -> None:
         filter_combo = self._ctrl("filter_combo")
