@@ -194,6 +194,15 @@ class TestFormulaPoolSupervisor:
         finally:
             pool.shutdown()
 
+    def test_recycle_after_shutdown_does_not_orphan_process(self) -> None:
+        """If shutdown() wins the race, recycle must not leave a newly spawned child running."""
+        pool = FormulaProcessPool(num_workers=1, default_timeout_sec=15, max_tasks=1)
+        worker = pool.workers[0]
+        worker.tasks_executed = 1
+        pool.shutdown()
+        pool.release_worker(worker)
+        assert not worker.is_alive(), "Recycle spawn after shutdown must be killed"
+
     def test_sticky_routing_no_index_error_on_concurrent_shutdown(self) -> None:
         """Sticky routing must not raise IndexError if shutdown() clears workers concurrently (Bug 4 fix)."""
         pool = FormulaProcessPool(num_workers=4, default_timeout_sec=5)

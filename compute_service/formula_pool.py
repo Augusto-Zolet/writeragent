@@ -112,7 +112,6 @@ class FormulaProcessPool(BaseProcessPool):
             busy_code = "WORKER_POOL_BUSY"
             busy_err = "All formula workers are currently busy and request timed out waiting for worker lease."
 
-
         if leased is None:
             return {
                 "id": req_id,

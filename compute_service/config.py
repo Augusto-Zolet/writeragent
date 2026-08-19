@@ -132,7 +132,6 @@ def _read_key_file(path: str | Path) -> str:
     return text
 
 
-
 def _load_json_file(path: str | Path) -> dict[str, Any]:
     cfg_path = Path(path).expanduser()
     try:
