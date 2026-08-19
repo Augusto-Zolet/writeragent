@@ -306,10 +306,16 @@ class BaseProcessPool:
                 worker.tasks_executed,
             )
             worker.kill()
+            # Re-spawn immediately so the idle set never holds a dead process.
+            # Without this, the next caller would waste a lease cycle triggering
+            # an inline _spawn() inside execute(), and len(self.workers) would
+            # count dead entries, corrupting session-affinity hashing.
+            worker._spawn()
         with self._cond:
             if not self._is_shutdown:
                 self._idle.add(worker)
             self._cond.notify_all()
+
 
     def shutdown(self) -> None:
         """Terminate all worker processes."""

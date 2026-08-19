@@ -117,6 +117,20 @@ def _read_request_json(
 
     try:
         body = environ["wsgi.input"].read(content_length)
+    except Exception:
+        return None, _start_json(
+            start_response,
+            "400 Bad Request",
+            {"status": "error", "error": "Failed to read request body"},
+        )
+    # Guard against partial reads (non-wsgiref WSGI servers may return fewer bytes).
+    if len(body) != content_length:
+        return None, _start_json(
+            start_response,
+            "400 Bad Request",
+            {"status": "error", "error": "Request body truncated"},
+        )
+    try:
         req_data = json.loads(body.decode("utf-8"))
     except Exception:
         return None, _start_json(
@@ -157,7 +171,9 @@ def authenticate_request(
 
     provided = raw[len(prefix) :]
     expected = settings.api_key
-    if len(provided) != len(expected) or not hmac.compare_digest(provided, expected):
+    # Use compare_digest alone — the len() pre-check would short-circuit before
+    # compare_digest runs, leaking expected key length via timing side-channel.
+    if not hmac.compare_digest(provided, expected):
         return None, "invalid"
     return settings.default_principal, None
 
@@ -374,7 +390,8 @@ def create_wsgi_app(
     return wsgi_app
 
 
-# Back-compat module-level app for older imports/tests — keyless loopback defaults.
+# TEST-ONLY back-compat alias — no auth configured, keyless loopback defaults.
+# Do NOT use this in production; call create_wsgi_app(settings) with real settings instead.
 wsgi_app = create_wsgi_app(ComputeSettings())
 
 

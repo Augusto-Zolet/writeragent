@@ -95,9 +95,15 @@ class FormulaProcessPool(BaseProcessPool):
         }
 
         leased: BaseProcessWorker | None
-        if mode == "shared" and session_id and self.workers:
-            worker_idx = abs(hash(session_id)) % len(self.workers)
-            target_worker = self.workers[worker_idx]
+        # Snapshot workers under the pool lock to avoid a TOCTOU race with
+        # concurrent shutdown() which calls self.workers.clear() under the same lock.
+        # Without the snapshot, the IndexError window between len() and [] access
+        # is real even on CPython when shutdown races execute on another thread.
+        with self._lock:
+            workers_snapshot = list(self.workers)
+        if mode == "shared" and session_id and workers_snapshot:
+            worker_idx = abs(hash(session_id)) % len(workers_snapshot)
+            target_worker = workers_snapshot[worker_idx]
             leased = self.lease_specific(target_worker, timeout_sec=_remaining_sec(deadline))
             busy_code = "WORKER_POOL_BUSY"
             busy_err = "Sticky session worker is busy and request timed out waiting for worker lease."
@@ -105,6 +111,7 @@ class FormulaProcessPool(BaseProcessPool):
             leased = self.lease_any(timeout_sec=_remaining_sec(deadline))
             busy_code = "WORKER_POOL_BUSY"
             busy_err = "All formula workers are currently busy and request timed out waiting for worker lease."
+
 
         if leased is None:
             return {

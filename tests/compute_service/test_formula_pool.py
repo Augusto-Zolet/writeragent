@@ -177,6 +177,51 @@ class TestFormulaPoolSupervisor:
         finally:
             pool.shutdown()
 
+    def test_recycled_worker_is_alive_after_release(self) -> None:
+        """After max_tasks is reached, release_worker must re-spawn the worker so the
+        idle set never contains a dead process (Bug 3 fix)."""
+        pool = FormulaProcessPool(num_workers=1, default_timeout_sec=15, max_tasks=1)
+        try:
+            # Execute exactly max_tasks=1 task to trigger recycling on the next release
+            res = pool.execute(code="result = 'first'", req_id="recycle-1")
+            assert res.get("status") == "ok"
+
+            # After release_worker ran, the worker in idle must be alive (re-spawned)
+            with pool._cond:
+                idle_workers = list(pool._idle)
+            assert len(idle_workers) == 1, "Expected exactly one worker back in idle"
+            assert idle_workers[0].is_alive(), "Recycled worker must be alive after re-spawn in release_worker"
+        finally:
+            pool.shutdown()
+
+    def test_sticky_routing_no_index_error_on_concurrent_shutdown(self) -> None:
+        """Sticky routing must not raise IndexError if shutdown() clears workers concurrently (Bug 4 fix)."""
+        pool = FormulaProcessPool(num_workers=4, default_timeout_sec=5)
+        errors: list[Exception] = []
+
+        def _shutdown_soon() -> None:
+            time.sleep(0.02)
+            pool.shutdown()
+
+        shutdown_thread = threading.Thread(target=_shutdown_soon)
+        shutdown_thread.start()
+        # Repeatedly attempt sticky-mode execution while shutdown races; must not raise IndexError
+        for i in range(20):
+            try:
+                pool.execute(
+                    code="result = 1",
+                    session_id=f"race-session-{i % 4}",
+                    mode="shared",
+                    timeout_sec=2,
+                    req_id=f"race-{i}",
+                )
+            except IndexError as exc:
+                errors.append(exc)
+            except Exception:
+                pass  # timeout / pool-busy during shutdown is fine
+        shutdown_thread.join(timeout=5)
+        assert not errors, f"IndexError raised during concurrent shutdown+sticky routing: {errors}"
+
 
 class TestFormulaHttpEndpoint:
     @pytest.fixture

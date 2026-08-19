@@ -126,10 +126,11 @@ def _read_key_file(path: str | Path) -> str:
         text = text[:-2]
     elif text.endswith("\n") or text.endswith("\r"):
         text = text[:-1]
-    key = text.strip()
-    if not key:
+    # Do NOT call text.strip() — that would silently mangle keys with leading/trailing spaces.
+    if not text:
         raise ConfigError(f"api_key_file {key_path} is empty")
-    return key
+    return text
+
 
 
 def _load_json_file(path: str | Path) -> dict[str, Any]:

@@ -404,6 +404,22 @@ class TestComputeSettings:
         with pytest.raises(ConfigError):
             load_settings(max_threads=0, environ={"HOST": "127.0.0.1"})
 
+    def test_key_file_preserves_leading_and_trailing_spaces(self, tmp_path) -> None:
+        """_read_key_file must NOT strip() the key; only the one trailing newline is removed.
+        API keys with leading/trailing spaces (unusual but valid) must round-trip intact."""
+        key_path = tmp_path / "key_spaces"
+        # Leading space, no trailing newline
+        key_path.write_bytes(b" abc123 ")
+        s = load_settings(api_key_file=key_path, environ={"HOST": "127.0.0.1"})
+        assert s.api_key == " abc123 "
+
+    def test_key_file_strips_only_one_trailing_newline(self, tmp_path) -> None:
+        """Verify that only the single trailing newline is removed, not all whitespace."""
+        key_path = tmp_path / "key_nl"
+        key_path.write_bytes(b"mykey\n")
+        s = load_settings(api_key_file=key_path, environ={"HOST": "127.0.0.1"})
+        assert s.api_key == "mykey"
+
 
 class TestBearerAuthHttp:
     @pytest.fixture(scope="class")
@@ -498,6 +514,17 @@ class TestBearerAuthHttp:
             urllib.request.urlopen(req)
         assert ei.value.headers.get("WWW-Authenticate") == "Bearer"
 
+    def test_hmac_rejects_tokens_of_different_length(self, auth_server) -> None:
+        """Removing the len() pre-check means compare_digest is always called.
+        Tokens of any length that don't match must still be rejected with 401."""
+        url, executed = auth_server
+        # shorter, longer, empty — all must be rejected
+        for bad_token in ["x", "correct-secret-plus-extra", ""]:
+            status, body = self._post(url, {"Authorization": f"Bearer {bad_token}"})
+            assert status == 401, f"Expected 401 for token {bad_token!r}, got {status}"
+            assert body.get("status") == "error"
+        assert executed == []
+
 
 class TestRequestBodyLimits:
     def test_negative_content_length_is_400(self) -> None:
@@ -519,6 +546,33 @@ class TestRequestBodyLimits:
         body = b"".join(app(environ, start_response))
         assert status_holder[0].startswith("400")
         assert json.loads(body)["status"] == "error"
+
+    def test_truncated_body_returns_400(self) -> None:
+        """wsgi.input.read() returning fewer bytes than CONTENT_LENGTH must yield 400, not a
+        misleading 'Invalid JSON' error."""
+        app = create_wsgi_app(
+            ComputeSettings(),
+            execute_fn=lambda **_kw: {"status": "ok", "result": 1, "stdout": ""},
+        )
+        status_holder: list[str] = []
+
+        def start_response(status: str, _headers: list) -> None:
+            status_holder.append(status)
+
+        real_body = json.dumps({"code": "result = 1"}).encode("utf-8")
+        # Report more bytes than we actually provide
+        truncated = real_body[: len(real_body) // 2]
+        environ = {
+            "PATH_INFO": "/v1/execute",
+            "REQUEST_METHOD": "POST",
+            "CONTENT_LENGTH": str(len(real_body)),
+            "wsgi.input": io.BytesIO(truncated),
+        }
+        body = b"".join(app(environ, start_response))
+        assert status_holder[0].startswith("400")
+        parsed = json.loads(body)
+        assert parsed["status"] == "error"
+        assert "truncated" in parsed["error"]
 
     def test_vision_unhandled_exception_is_json_500(self) -> None:
         fake_pool = MagicMock()
