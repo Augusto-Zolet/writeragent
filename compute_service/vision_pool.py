@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import os
 import threading
+import time
 from typing import Any
 
 from compute_service.config import ComputeSettings
@@ -83,7 +84,8 @@ class VisionProcessPool(BaseProcessPool):
             "params": params or {},
         }
 
-        worker = self.lease_worker(timeout_sec=eff_timeout)
+        deadline = time.monotonic() + eff_timeout
+        worker = self.lease_any(timeout_sec=max(0.01, deadline - time.monotonic()))
         if worker is None:
             return {
                 "id": req_id,
@@ -93,7 +95,7 @@ class VisionProcessPool(BaseProcessPool):
             }
 
         try:
-            res = worker.execute(payload, timeout_sec=eff_timeout)
+            res = worker.execute(payload, timeout_sec=max(0.01, deadline - time.monotonic()))
             if req_id is not None and isinstance(res, dict):
                 res["id"] = req_id
             return res

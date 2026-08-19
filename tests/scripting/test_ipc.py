@@ -19,6 +19,7 @@ from plugin.scripting.ipc import (
     read_frame_payload,
     read_json_line,
     read_pickle_frame,
+    read_pickle_frame_with_timeout,
     unpack_pickle_frame,
     write_json_line,
     write_pickle_frame,
@@ -71,6 +72,16 @@ def test_invalid_json_line_raises():
 def test_json_line_non_object_raises():
     with pytest.raises(ValueError, match="must contain an object"):
         read_json_line(io.StringIO("[1, 2]\n"))
+
+
+def test_pickle_frame_timeout_on_pipe():
+    read_fd, write_fd = os.pipe()
+    try:
+        with os.fdopen(read_fd, "rb", buffering=0) as reader:
+            with pytest.raises(subprocess.TimeoutExpired):
+                read_pickle_frame_with_timeout(reader, 0.05)
+    finally:
+        os.close(write_fd)
 
 
 def test_json_line_timeout_on_pipe():

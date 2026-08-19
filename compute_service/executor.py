@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import sys
 import threading
@@ -96,13 +97,27 @@ def execute_code(
     if mode == "shared" and isinstance(session_id, str) and session_id.strip():
         use_session = session_id.strip()
 
+    # Stable init_session_id so run_sandboxed_code runs init once per worker and
+    # seeds later cells from that namespace (hash change replaces the snapshot).
+    init_sid: str | None = None
+    init_code = init_script if isinstance(init_script, str) and init_script.strip() else None
+    init_hash: str | None = None
+    if init_code is not None:
+        init_hash = hashlib.sha256(init_code.encode("utf-8")).hexdigest()
+        if use_session is not None:
+            init_sid = f"{use_session}:init"
+        else:
+            init_sid = f"isolated:{init_hash}:init"
+
     def _run() -> dict[str, Any]:
         return run_sandboxed_code(
             code=code,
             data=data,
             session_id=use_session,
             timeout_sec=timeout_sec,
-            init_script=init_script,
+            init_script=init_code,
+            init_session_id=init_sid,
+            init_script_hash=init_hash,
         )
 
     if use_session is not None:

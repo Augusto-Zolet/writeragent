@@ -168,6 +168,7 @@ Classic deadlock: parent blocked on stdin write / stdout read while child’s `s
 | [`audio_recorder_service.py`](../plugin/scripting/audio_recorder_service.py) | Monitor thread | Live bounded drain | Done |
 | [`harper.py`](../plugin/writer/locale/harper.py) | Reader thread | `DEVNULL` | Done — leave alone |
 | [`editor_host.py`](../plugin/scripting/editor_host.py) | Reader | Continuous + bounded tail | Done |
+| [`compute_service/worker_base.py`](../compute_service/worker_base.py) | Deadline pickle read | `start_stderr_drain` | Done |
 
 ### 4.2 Architectural Invariants
 

@@ -9,6 +9,7 @@ Maintains a bounded pool of warm subprocesses. Provides:
 - Hard SIGKILL termination for hangs/timeouts
 - Multi-core linear CPU scaling (bypasses single-interpreter GIL)
 - Sticky session affinity for stateful sessions (mode="shared")
+- Exclusive occupancy so sticky and isolated jobs never share a worker concurrently
 - Periodic worker memory recycling (after max_tasks)
 """
 
@@ -17,15 +18,20 @@ from __future__ import annotations
 import logging
 import os
 import threading
+import time
 from typing import Any
 
 from compute_service.config import ComputeSettings
-from compute_service.worker_base import BaseProcessPool
+from compute_service.worker_base import BaseProcessPool, BaseProcessWorker
 
 log = logging.getLogger("compute_service.formula")
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _WORKER_SCRIPT = os.path.join(_SCRIPT_DIR, "formula_worker.py")
+
+
+def _remaining_sec(deadline: float, *, floor: float = 0.01) -> float:
+    return max(floor, deadline - time.monotonic())
 
 
 class FormulaProcessPool(BaseProcessPool):
@@ -66,6 +72,7 @@ class FormulaProcessPool(BaseProcessPool):
             }
 
         eff_timeout = float(timeout_sec or self.default_timeout_sec)
+        deadline = time.monotonic() + eff_timeout
 
         # Optimize large matrix data using zero-copy split_grid binary envelope
         wire_data = data
@@ -87,39 +94,33 @@ class FormulaProcessPool(BaseProcessPool):
             "init_script": init_script,
         }
 
-        # Case 1: Stateful shared session (mode="shared") -> Sticky worker affinity
+        leased: BaseProcessWorker | None
         if mode == "shared" and session_id and self.workers:
             worker_idx = abs(hash(session_id)) % len(self.workers)
             target_worker = self.workers[worker_idx]
-            res = target_worker.execute(payload, timeout_sec=eff_timeout)
-            if target_worker.tasks_executed >= self.max_tasks:
-                log.info(
-                    "Recycling formula worker #%d after %d tasks to refresh memory",
-                    target_worker.worker_id,
-                    target_worker.tasks_executed,
-                )
-                target_worker.kill()
-            if req_id is not None and isinstance(res, dict):
-                res["id"] = req_id
-            return res
+            leased = self.lease_specific(target_worker, timeout_sec=_remaining_sec(deadline))
+            busy_code = "WORKER_POOL_BUSY"
+            busy_err = "Sticky session worker is busy and request timed out waiting for worker lease."
+        else:
+            leased = self.lease_any(timeout_sec=_remaining_sec(deadline))
+            busy_code = "WORKER_POOL_BUSY"
+            busy_err = "All formula workers are currently busy and request timed out waiting for worker lease."
 
-        # Case 2: Stateless isolated execution (mode="isolated") -> Lease from idle queue
-        leased_worker = self.lease_worker(timeout_sec=eff_timeout)
-        if leased_worker is None:
+        if leased is None:
             return {
                 "id": req_id,
                 "status": "error",
-                "code": "WORKER_POOL_BUSY",
-                "error": "All formula workers are currently busy and request timed out waiting for worker lease.",
+                "code": busy_code,
+                "error": busy_err,
             }
 
         try:
-            res = leased_worker.execute(payload, timeout_sec=eff_timeout)
+            res = leased.execute(payload, timeout_sec=_remaining_sec(deadline))
             if req_id is not None and isinstance(res, dict):
                 res["id"] = req_id
             return res
         finally:
-            self.release_worker(leased_worker)
+            self.release_worker(leased)
 
 
 # Global singleton per server process

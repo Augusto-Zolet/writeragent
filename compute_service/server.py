@@ -81,6 +81,59 @@ def _start_json(
     return [body]
 
 
+def _read_request_json(
+    environ: dict[str, Any],
+    settings: ComputeSettings,
+    start_response: Any,
+) -> tuple[dict[str, Any] | None, list[bytes] | None]:
+    """Parse a POST JSON object. Returns ``(payload, None)`` or ``(None, error_body)``."""
+    raw_len = environ.get("CONTENT_LENGTH")
+    if raw_len is None or raw_len == "":
+        return None, _start_json(
+            start_response,
+            "400 Bad Request",
+            {"status": "error", "error": "Missing Content-Length"},
+        )
+    try:
+        content_length = int(raw_len)
+    except (TypeError, ValueError):
+        return None, _start_json(
+            start_response,
+            "400 Bad Request",
+            {"status": "error", "error": "Invalid Content-Length"},
+        )
+    if content_length <= 0:
+        return None, _start_json(
+            start_response,
+            "400 Bad Request",
+            {"status": "error", "error": "Invalid Content-Length"},
+        )
+    if content_length > settings.max_body_bytes:
+        return None, _start_json(
+            start_response,
+            "413 Payload Too Large",
+            {"status": "error", "error": "Request body too large"},
+        )
+
+    try:
+        body = environ["wsgi.input"].read(content_length)
+        req_data = json.loads(body.decode("utf-8"))
+    except Exception:
+        return None, _start_json(
+            start_response,
+            "400 Bad Request",
+            {"status": "error", "error": "Invalid JSON"},
+        )
+
+    if not isinstance(req_data, dict):
+        return None, _start_json(
+            start_response,
+            "400 Bad Request",
+            {"status": "error", "error": "JSON body must be an object"},
+        )
+    return req_data, None
+
+
 def authenticate_request(
     environ: dict[str, Any],
     settings: ComputeSettings,
@@ -144,34 +197,10 @@ def create_wsgi_app(
                     extra_headers=[("WWW-Authenticate", "Bearer")],
                 )
 
-            try:
-                content_length = int(environ.get("CONTENT_LENGTH", 0))
-            except ValueError:
-                content_length = 0
-
-            if content_length > settings.max_body_bytes:
-                return _start_json(
-                    start_response,
-                    "413 Payload Too Large",
-                    {"status": "error", "error": "Request body too large"},
-                )
-
-            try:
-                body = environ["wsgi.input"].read(content_length)
-                req_data = json.loads(body.decode("utf-8"))
-            except Exception:
-                return _start_json(
-                    start_response,
-                    "400 Bad Request",
-                    {"status": "error", "error": "Invalid JSON"},
-                )
-
-            if not isinstance(req_data, dict):
-                return _start_json(
-                    start_response,
-                    "400 Bad Request",
-                    {"status": "error", "error": "JSON body must be an object"},
-                )
+            req_data, err_resp = _read_request_json(environ, settings, start_response)
+            if err_resp is not None:
+                return err_resp
+            assert req_data is not None
 
             req_id = req_data.get("id")
 
@@ -275,34 +304,10 @@ def create_wsgi_app(
                     extra_headers=[("WWW-Authenticate", "Bearer")],
                 )
 
-            try:
-                content_length = int(environ.get("CONTENT_LENGTH", 0))
-            except ValueError:
-                content_length = 0
-
-            if content_length > settings.max_body_bytes:
-                return _start_json(
-                    start_response,
-                    "413 Payload Too Large",
-                    {"status": "error", "error": "Request body too large"},
-                )
-
-            try:
-                body = environ["wsgi.input"].read(content_length)
-                req_data = json.loads(body.decode("utf-8"))
-            except Exception:
-                return _start_json(
-                    start_response,
-                    "400 Bad Request",
-                    {"status": "error", "error": "Invalid JSON"},
-                )
-
-            if not isinstance(req_data, dict):
-                return _start_json(
-                    start_response,
-                    "400 Bad Request",
-                    {"status": "error", "error": "JSON body must be an object"},
-                )
+            req_data, err_resp = _read_request_json(environ, settings, start_response)
+            if err_resp is not None:
+                return err_resp
+            assert req_data is not None
 
             req_id = req_data.get("id")
             helper = str(req_data.get("helper") or "extract_text").strip()
@@ -330,15 +335,38 @@ def create_wsgi_app(
             from compute_service.vision_pool import get_vision_pool
 
             vision_pool = get_vision_pool(settings)
-            result_payload = vision_pool.execute(
-                helper=helper,
-                image_b64=b64_str,
-                file_path=path_str,
-                params=params if isinstance(params, dict) else {},
-                timeout_sec=timeout_sec_opt,
-                req_id=req_id,
-            )
-            return _start_json(start_response, "200 OK", result_payload)
+            try:
+                result_payload = vision_pool.execute(
+                    helper=helper,
+                    image_b64=b64_str,
+                    file_path=path_str,
+                    params=params if isinstance(params, dict) else {},
+                    timeout_sec=timeout_sec_opt,
+                    req_id=req_id,
+                )
+                if req_id is not None and isinstance(result_payload, dict):
+                    result_payload["id"] = req_id
+                try:
+                    return _start_json(start_response, "200 OK", result_payload)
+                except (TypeError, ValueError) as e:
+                    err_body = {"status": "error", "error": f"JSON encode failed: {e}"}
+                    if req_id is not None:
+                        err_body["id"] = req_id
+                    return _start_json(
+                        start_response,
+                        "500 Internal Server Error",
+                        err_body,
+                    )
+            except Exception as e:
+                log.exception("fail /v1/vision id=%r: %s", req_id, e)
+                err_body = {"status": "error", "error": f"Server execution failure: {e}"}
+                if req_id is not None:
+                    err_body["id"] = req_id
+                return _start_json(
+                    start_response,
+                    "500 Internal Server Error",
+                    err_body,
+                )
 
         start_response("404 Not Found", [("Content-Type", "text/plain")])
         return [b"Not Found"]

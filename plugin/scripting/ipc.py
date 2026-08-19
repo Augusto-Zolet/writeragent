@@ -16,6 +16,7 @@ import select
 import struct
 import subprocess
 import sys
+import threading
 import time
 from typing import Any, Callable, IO
 
@@ -74,6 +75,20 @@ def unpack_pickle_frame(payload: bytes) -> Any:
         raise ValueError(str(exc)) from exc
 
 
+def _decode_pickle_payload(
+    payload: bytes | None,
+    *,
+    frame_label: str,
+    require_dict: bool,
+) -> Any | None:
+    if payload is None:
+        return None
+    decoded = unpack_pickle_frame(payload)
+    if require_dict and not isinstance(decoded, dict):
+        raise ValueError(f"{frame_label} must contain a dict")
+    return decoded
+
+
 def read_pickle_frame(
     stream: IO[bytes],
     *,
@@ -83,12 +98,75 @@ def read_pickle_frame(
 ) -> Any | None:
     """Read and unpickle one length-prefixed message. Return None on EOF/truncation."""
     payload = read_frame_payload(stream, max_payload_bytes=max_payload_bytes, frame_label=frame_label)
-    if payload is None:
-        return None
-    decoded = unpack_pickle_frame(payload)
-    if require_dict and not isinstance(decoded, dict):
-        raise ValueError(f"{frame_label} must contain a dict")
-    return decoded
+    return _decode_pickle_payload(payload, frame_label=frame_label, require_dict=require_dict)
+
+
+def read_pickle_frame_with_timeout(
+    stream: IO[bytes],
+    timeout_sec: float,
+    *,
+    max_payload_bytes: int | None = None,
+    frame_label: str = "IPC frame",
+    require_dict: bool = False,
+    is_alive: Callable[[], bool] | None = None,
+) -> Any | None:
+    """Read one pickle frame, bounding the whole header+payload with *timeout_sec*.
+
+    POSIX uses ``select`` in a deadline loop so a partial frame cannot hang the
+    parent after the first byte. Windows uses a daemon reader thread (pipes are
+    not selectable). Raises ``subprocess.TimeoutExpired`` on deadline.
+    Returns None on clean EOF or truncation.
+    """
+    timeout_sec = max(0.0, float(timeout_sec))
+    if sys.platform == "win32":
+        result: list[Any | None] = [None]
+        error: list[BaseException | None] = [None]
+
+        def _reader() -> None:
+            try:
+                result[0] = read_pickle_frame(
+                    stream,
+                    max_payload_bytes=max_payload_bytes,
+                    frame_label=frame_label,
+                    require_dict=require_dict,
+                )
+            except Exception as exc:
+                error[0] = exc
+
+        thread = threading.Thread(target=_reader, name="ipc-pickle-timeout", daemon=True)
+        thread.start()
+        thread.join(timeout=timeout_sec)
+        if thread.is_alive():
+            raise subprocess.TimeoutExpired(cmd=frame_label, timeout=timeout_sec)
+        if error[0] is not None:
+            raise error[0]
+        return result[0]
+
+    deadline = time.monotonic() + timeout_sec
+
+    def _read_exact(n: int) -> bytes:
+        buf = bytearray()
+        while len(buf) < n:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired(cmd=frame_label, timeout=timeout_sec)
+            ready, _unused, _unused2 = select.select([stream], [], [], min(1.0, remaining))
+            if ready:
+                chunk = stream.read(n - len(buf))
+                if not chunk:
+                    return bytes(buf)
+                buf.extend(chunk)
+            elif is_alive is not None and not is_alive():
+                break
+        return bytes(buf)
+
+    payload = read_frame_payload(
+        stream,
+        max_payload_bytes=max_payload_bytes,
+        frame_label=frame_label,
+        read_exact=_read_exact,
+    )
+    return _decode_pickle_payload(payload, frame_label=frame_label, require_dict=require_dict)
 
 
 def write_json_line(stream: IO[str], payload: dict[str, Any]) -> None:

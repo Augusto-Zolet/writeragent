@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import os
 import socket
 import threading
 import time
@@ -86,6 +87,78 @@ class TestFormulaPoolSupervisor:
             assert res.get("status") == "ok"
             assert res.get("result") == "recovered"
             assert worker.is_alive()
+        finally:
+            pool.shutdown()
+
+    def test_stderr_flood_does_not_deadlock(self, tmp_path) -> None:
+        """Child OS-stderr flood must not deadlock the parent pickle reader."""
+        from compute_service.worker_base import BaseProcessWorker
+
+        script = tmp_path / "flood_worker.py"
+        script.write_text(
+            "\n".join(
+                [
+                    "import os, sys",
+                    f"sys.path.insert(0, {os.path.abspath('.')!r})",
+                    "from compute_service.worker_base import run_worker_stdio_loop",
+                    "def handle(req):",
+                    "    sys.stderr.write('x' * 200000)",
+                    "    sys.stderr.flush()",
+                    "    return {'status': 'ok', 'result': 1}",
+                    "if __name__ == '__main__':",
+                    "    raise SystemExit(run_worker_stdio_loop(handle))",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        worker = BaseProcessWorker(1, str(script), worker_name="Flood worker")
+        try:
+            res = worker.execute({"ping": True}, timeout_sec=10)
+            assert res.get("status") == "ok"
+            assert res.get("result") == 1
+        finally:
+            worker.kill()
+
+    def test_shared_and_isolated_exclusive_occupancy(self) -> None:
+        pool = FormulaProcessPool(num_workers=1, default_timeout_sec=15)
+        try:
+            sid = "occupancy-session"
+            first = pool.execute(
+                code="x = 5\nresult = x",
+                session_id=sid,
+                mode="shared",
+                req_id="occ-1",
+            )
+            assert first.get("status") == "ok"
+
+            isolated_holder: list[dict] = []
+
+            def _isolated() -> None:
+                isolated_holder.append(
+                    pool.execute(
+                        code="import time\ntime.sleep(0.2)\nresult = 99",
+                        mode="isolated",
+                        timeout_sec=10,
+                        req_id="occ-iso",
+                    )
+                )
+
+            thread = threading.Thread(target=_isolated)
+            thread.start()
+            time.sleep(0.05)
+            shared = pool.execute(
+                code="result = x",
+                session_id=sid,
+                mode="shared",
+                timeout_sec=10,
+                req_id="occ-2",
+            )
+            thread.join(timeout=10)
+            assert isolated_holder and isolated_holder[0].get("status") == "ok"
+            assert isolated_holder[0].get("result") == 99
+            assert shared.get("status") == "ok"
+            assert shared.get("result") == 5
         finally:
             pool.shutdown()
 

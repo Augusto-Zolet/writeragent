@@ -14,6 +14,7 @@ python compute_service/server.py --host 127.0.0.1 --port 8000
 
 - `GET /health` → `{"status":"healthy","service":"python-compute","version":"<version>"}` (no auth required)
 - `POST /v1/execute` → `{ "id?", "code", "data?", "mode?", "session_id?", "timeout_ms?", "init_script?" }`
+  (`init_script` runs **once** per worker: shared uses `{session_id}:init`, isolated uses a hash of the script. Later cells are seeded from that namespace; a changed script replaces the snapshot.)
 
 ---
 
@@ -92,7 +93,7 @@ Evaluates heavy document/image OCR and layout structure extraction in a dedicate
   }
   ```
 
-- **Request Schema (Option B: Server Filesystem Path)**:
+- **Request Schema (Option B: Server Filesystem Path)** — the worker reads this path as the service user; any authenticated client can open any readable file:
   ```json
   {
     "id": "ocr-124",
@@ -212,7 +213,8 @@ The Python Compute Service is structured as a resilient master HTTP server front
 ### 2. Tier 1: Formula Compute Pool (`FormulaProcessPool`)
 - Manages $N$ persistent worker subprocesses (`workers`, default `os.cpu_count() + 4`).
 - **GIL Elimination**: Each worker is an independent OS process with its own Python interpreter, achieving true parallel multi-core scaling for pure-Python and NumPy workloads.
-- **Sticky Session Affinity**: For stateful calculations (`mode="shared"`), requests with the same `session_id` are consistently routed to the specific worker holding that workbook's state in memory.
+- **Sticky Session Affinity**: For stateful calculations (`mode="shared"`), requests with the same `session_id` are consistently routed to the specific worker holding that workbook's state in memory. Isolated and sticky jobs **exclusively occupy** a worker (idle set + condition); they never run concurrently on the same process.
+- **Stderr drain**: Each worker pipes stderr into `start_stderr_drain` (same helper as the desktop venv worker) so a noisy child cannot fill the OS pipe and deadlock the parent.
 - **Hard `SIGKILL` Watchdogs**: If a user formula triggers an uncatchable loop or timeout, the pool terminates the hanging process via `SIGKILL`, returns a clean timeout error, and automatically spawns a fresh worker.
 - **Task Recycling**: Recycles worker processes after `worker_max_tasks` (default: 500) to keep memory fragmentation low.
 

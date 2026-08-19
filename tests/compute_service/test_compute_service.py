@@ -6,12 +6,14 @@
 from __future__ import annotations
 
 import base64
+import io
 import json
 import socket
 import threading
 import time
 import urllib.error
 import urllib.request
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -134,6 +136,60 @@ class TestExecuteLocal:
         assert r["status"] == "ok"
         assert r["result"] is None
         json.dumps(r, allow_nan=False)
+
+    def test_init_script_shared_seeds_session(self) -> None:
+        sid = "shared-init-session"
+        r1 = execute_code(
+            "result = HELPER + 1",
+            session_id=sid,
+            mode="shared",
+            init_script="HELPER = 41",
+        )
+        assert r1["status"] == "ok", r1
+        assert r1["result"] == 42
+        r2 = execute_code("result = HELPER + 2", session_id=sid, mode="shared")
+        assert r2["status"] == "ok"
+        assert r2["result"] == 43
+
+    def test_init_script_isolated_seeds_request(self) -> None:
+        r = execute_code("result = HELPER", mode="isolated", init_script="HELPER = 7")
+        assert r["status"] == "ok", r
+        assert r["result"] == 7
+
+    def test_init_script_runs_once_isolated(self) -> None:
+        from unittest.mock import patch
+
+        from plugin.scripting.venv import venv_sandbox as vs
+
+        vs.clear_all_sandbox_sessions()
+        init = "ONCE_ISO = 7"
+        with patch.object(vs, "_run_on_executor", wraps=vs._run_on_executor) as mock_run:
+            r1 = execute_code("result = ONCE_ISO", mode="isolated", init_script=init)
+            r2 = execute_code("result = ONCE_ISO + 1", mode="isolated", init_script=init)
+        assert r1["status"] == "ok" and r1["result"] == 7, r1
+        assert r2["status"] == "ok" and r2["result"] == 8, r2
+        # One init execution + two isolated cell executions (not init twice).
+        assert mock_run.call_count == 3
+
+    def test_init_script_runs_once_shared(self) -> None:
+        from unittest.mock import patch
+
+        from plugin.scripting.venv import venv_sandbox as vs
+
+        vs.clear_all_sandbox_sessions()
+        sid = "shared-init-once"
+        init = "ONCE_SHARED = 10"
+        with patch.object(vs, "_run_on_executor", wraps=vs._run_on_executor) as mock_run:
+            r1 = execute_code("result = ONCE_SHARED", session_id=sid, mode="shared", init_script=init)
+            r2 = execute_code(
+                "result = ONCE_SHARED + 1",
+                session_id=sid,
+                mode="shared",
+                init_script=init,
+            )
+        assert r1["status"] == "ok" and r1["result"] == 10, r1
+        assert r2["status"] == "ok" and r2["result"] == 11, r2
+        assert mock_run.call_count == 3
 
 
 class TestComputeHttp:
@@ -441,6 +497,52 @@ class TestBearerAuthHttp:
         with pytest.raises(urllib.error.HTTPError) as ei:
             urllib.request.urlopen(req)
         assert ei.value.headers.get("WWW-Authenticate") == "Bearer"
+
+
+class TestRequestBodyLimits:
+    def test_negative_content_length_is_400(self) -> None:
+        app = create_wsgi_app(
+            ComputeSettings(),
+            execute_fn=lambda **_kw: {"status": "ok", "result": 1, "stdout": ""},
+        )
+        status_holder: list[str] = []
+
+        def start_response(status: str, _headers: list) -> None:
+            status_holder.append(status)
+
+        environ = {
+            "PATH_INFO": "/v1/execute",
+            "REQUEST_METHOD": "POST",
+            "CONTENT_LENGTH": "-1",
+            "wsgi.input": io.BytesIO(b'{"code":"result=1"}' * 5000),
+        }
+        body = b"".join(app(environ, start_response))
+        assert status_holder[0].startswith("400")
+        assert json.loads(body)["status"] == "error"
+
+    def test_vision_unhandled_exception_is_json_500(self) -> None:
+        fake_pool = MagicMock()
+        fake_pool.execute.side_effect = RuntimeError("vision boom")
+        app = create_wsgi_app(ComputeSettings())
+        status_holder: list[str] = []
+
+        def start_response(status: str, _headers: list) -> None:
+            status_holder.append(status)
+
+        payload = json.dumps({"id": "v-x", "image_b64": "YQ=="}).encode("utf-8")
+        environ = {
+            "PATH_INFO": "/v1/vision",
+            "REQUEST_METHOD": "POST",
+            "CONTENT_LENGTH": str(len(payload)),
+            "wsgi.input": io.BytesIO(payload),
+        }
+        with patch("compute_service.vision_pool.get_vision_pool", return_value=fake_pool):
+            body = b"".join(app(environ, start_response))
+        assert status_holder[0].startswith("500")
+        parsed = json.loads(body)
+        assert parsed["status"] == "error"
+        assert parsed.get("id") == "v-x"
+        assert "vision boom" in parsed["error"]
 
 
 class TestImportBoundary:
