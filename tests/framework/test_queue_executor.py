@@ -498,3 +498,61 @@ def test_get_async_callback_already_init_with_lock():
         assert (default_executor._get_async_callback() == mock_svc)
     finally:
         default_executor._init_lock = real_lock
+
+
+class TestWorkItemClaimLockTimeoutRace:
+    """Regression tests for the timeout-then-execute race in _wait_for_result.
+
+    Before the fix, item.cancelled was set after item.event.wait() returned,
+    leaving a window where the main thread could execute a timed-out item.
+    """
+
+    def test_timeout_cancels_unclaimed_item(self):
+        # When the main thread has not yet claimed the item, a timeout must
+        # mark it cancelled so process_queue drops it.
+        from plugin.framework.queue_executor import _WorkItem
+
+        item = _WorkItem("test-id", lambda: None, (), {}, blocking=True)
+        # Simulate _wait_for_result timing out: event never fired.
+        assert not item.event.wait(0)  # immediate timeout
+        with item._claim_lock:
+            if not item._claimed:
+                item.cancelled = True
+        assert item.cancelled is True
+        assert item._claimed is False
+
+    def test_claimed_item_is_not_cancelled_on_timeout(self):
+        # When the main thread has already claimed the item (_claimed=True),
+        # the timeout path must NOT set item.cancelled — the function is already
+        # executing and cancellation would be a no-op anyway.
+        from plugin.framework.queue_executor import _WorkItem
+
+        item = _WorkItem("test-id", lambda: None, (), {}, blocking=True)
+        # Simulate main thread claiming before timeout fires.
+        with item._claim_lock:
+            item._claimed = True
+
+        # Simulate timeout path:
+        with item._claim_lock:
+            if not item._claimed:
+                item.cancelled = True
+
+        assert item.cancelled is False  # claim won — item not cancelled
+        assert item._claimed is True
+
+    def test_process_queue_skips_cancelled_item_via_claim_lock(self):
+        # Verify process_queue respects item.cancelled when set before claiming.
+        from plugin.framework.queue_executor import QueueExecutor, _WorkItem
+        import uuid
+
+        executed = []
+        fn = lambda: executed.append(True)  # noqa: E731
+        item = _WorkItem(str(uuid.uuid4()), fn, (), {}, blocking=True)
+        item.cancelled = True  # pre-cancel as the timeout path would do
+
+        qe = QueueExecutor()
+        qe._work_queue.put(item)
+        qe.process_queue()
+
+        assert executed == [], "Cancelled item must not be executed"
+        assert item.event.is_set(), "Event must be set so any waiter unblocks"

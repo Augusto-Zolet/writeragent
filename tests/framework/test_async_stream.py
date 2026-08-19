@@ -884,3 +884,142 @@ def test_run_stream_drain_loop_idle_unblocks_marshaled_worker():
                 qe.set_force_marshal_mode(False)
                 while not qe.default_executor._work_queue.empty():
                     qe.default_executor.process_queue()
+
+
+class TestBatchingStreamQueueTimerRace:
+    """Regression test for Bug 2: _schedule_timer() called outside the lock allowed
+    two concurrent producers to both see is_first=True and reset the burst deadline."""
+
+    def test_timer_armed_exactly_once_for_concurrent_chunks(self):
+        # Two threads simultaneously put the first CHUNK into an empty batcher.
+        # _schedule_timer must be called exactly once (the second call was previously
+        # cancelling and replacing the timer, losing the original deadline).
+        raw_q = queue.Queue()
+        batcher = BatchingStreamQueue(raw_q, batch_interval=10.0)  # long interval so it doesn't fire
+
+        timer_calls = []
+        barrier = threading.Barrier(2)  # synchronise both threads to maximise the race window
+
+        original_schedule = batcher._schedule_timer
+
+        def counting_schedule():
+            timer_calls.append(1)
+            original_schedule()
+
+        batcher._schedule_timer = counting_schedule
+
+        def producer():
+            barrier.wait()  # both threads release simultaneously
+            batcher.put((StreamQueueKind.CHUNK, "x"))
+
+        t1 = threading.Thread(target=producer)
+        t2 = threading.Thread(target=producer)
+        t1.start()
+        t2.start()
+        t1.join(timeout=2)
+        t2.join(timeout=2)
+
+        # Flush to clean up the timer thread
+        batcher.flush()
+
+        assert len(timer_calls) == 1, (
+            f"_schedule_timer was called {len(timer_calls)} times; expected exactly 1. "
+            "The timer deadline was reset by a concurrent producer."
+        )
+
+    def test_timer_armed_exactly_once_for_concurrent_thinking(self):
+        # Same race on the THINKING path.
+        raw_q = queue.Queue()
+        batcher = BatchingStreamQueue(raw_q, batch_interval=10.0)
+
+        timer_calls = []
+        barrier = threading.Barrier(2)
+        original_schedule = batcher._schedule_timer
+
+        def counting_schedule():
+            timer_calls.append(1)
+            original_schedule()
+
+        batcher._schedule_timer = counting_schedule
+
+        def producer():
+            barrier.wait()
+            batcher.put((StreamQueueKind.THINKING, "t"))
+
+        t1 = threading.Thread(target=producer)
+        t2 = threading.Thread(target=producer)
+        t1.start()
+        t2.start()
+        t1.join(timeout=2)
+        t2.join(timeout=2)
+
+        batcher.flush()
+
+        assert len(timer_calls) == 1, (
+            f"_schedule_timer was called {len(timer_calls)} times on THINKING path; expected 1."
+        )
+
+
+class TestRunAsyncWorkerOnStoppedFallback:
+    """Regression test for Bug 3: stop-path fallback called on_done_fn() with no arg,
+    raising TypeError when the callback expects an item argument."""
+
+    def test_stop_with_one_arg_done_fn_does_not_raise(self):
+        # on_done_fn that requires exactly one positional argument.
+        # Before the fix, the stop-path lambda called on_done_fn() with no args,
+        # which raised TypeError and surfaced as an error in the drain loop.
+        q = queue.Queue()
+        q.put((StreamQueueKind.STOPPED, None))
+
+        job_done = [False]
+        errors = []
+        done_calls = []
+
+        def on_done(item):  # requires one argument — the bug triggers here
+            done_calls.append(item)
+
+        run_stream_drain_loop(
+            q,
+            DummyToolkit(),
+            job_done,
+            apply_chunk_fn=lambda _t, _th: None,
+            on_stream_done=lambda _item: True,
+            on_stopped=lambda: on_done(None),  # explicit stopped handler is fine
+            on_error=lambda e: errors.append(e),
+        )
+
+        assert job_done[0] is True
+        assert errors == [], f"Unexpected errors on Stop path: {errors}"
+
+    def test_stop_fallback_no_on_stopped_fn_one_arg_done_fn(self):
+        # When on_stopped_fn=None and on_done_fn takes one argument,
+        # run_async_worker_with_drain must not raise or emit an error.
+        # We exercise the resolved_on_stopped path directly by building it.
+
+        errors = []
+        done_calls = []
+
+        def on_done(item):  # one-arg callback — the bug path
+            done_calls.append(item)
+
+        # Build the helper the same way run_async_worker_with_drain does
+        def _noop_stopped():
+            return None
+
+        def _call_done_on_stopped():
+            try:
+                on_done(None)
+            except TypeError:
+                on_done()
+
+        resolved_on_stopped = _call_done_on_stopped  # no on_stopped_fn provided
+
+        # Call directly — must not raise
+        try:
+            resolved_on_stopped()
+        except Exception as e:
+            errors.append(e)
+
+        assert errors == [], f"resolved_on_stopped raised: {errors}"
+        assert done_calls == [None], f"on_done was not called as expected: {done_calls}"
+

@@ -235,7 +235,7 @@ class AsyncProcess:
         try:
             for line in stream:
                 if line is not None:
-                    callback(line.rstrip("\\n\\r"))
+                    callback(line.rstrip("\n\r"))
         except ValueError:
             pass  # ValueError: I/O operation on closed file
         except OSError as e:

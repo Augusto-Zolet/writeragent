@@ -196,16 +196,16 @@ class BatchingStreamQueue:
                 with self._lock:
                     is_first = len(self._content_buf) == 0
                     self._content_buf.append(data or "")
-                if is_first:
-                    self._schedule_timer()  # deadline from the very first fragment of this burst
+                    if is_first:
+                        self._schedule_timer()  # deadline from the very first fragment of this burst
                 return
             if kind == StreamQueueKind.THINKING:
                 data = item[1] if len(item) > 1 else ""
                 with self._lock:
                     is_first = len(self._thinking_buf) == 0
                     self._thinking_buf.append(data or "")
-                if is_first:
-                    self._schedule_timer()  # deadline from the very first fragment of this burst
+                    if is_first:
+                        self._schedule_timer()  # deadline from the very first fragment of this burst
                 return
 
         # Any other kind (including bare kinds or control tuples) is a boundary
@@ -618,7 +618,20 @@ def run_async_worker_with_drain(
         return None
 
     resolved_on_error = on_error_fn or _noop_error
-    resolved_on_stopped = on_stopped_fn or ((lambda: on_done_fn()) if on_done_fn else _noop_stopped)
+    def _call_done_on_stopped() -> None:
+        # Mirror on_stream_done_wrapper: try with a sentinel item first, then
+        # fall back to zero-arg for callbacks that don't accept arguments.
+        # Without this, a TypeError from on_done_fn() propagates out of on_stopped()
+        # uncaught, turning a clean Stop into a spurious error in the drain loop.
+        # _done_fn is narrowed to non-None by the guard below (if on_done_fn).
+        _done_fn = on_done_fn
+        assert _done_fn is not None
+        try:
+            _done_fn(None)
+        except TypeError:
+            _done_fn()
+
+    resolved_on_stopped = on_stopped_fn or (_call_done_on_stopped if on_done_fn else _noop_stopped)
 
     run_stream_drain_loop(
         q,

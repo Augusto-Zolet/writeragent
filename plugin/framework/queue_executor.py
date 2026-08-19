@@ -143,14 +143,20 @@ class SendCancellation:
             self._clients.append(client)
 
     def register_on_cancel(self, hook: Callable[[], None]) -> None:
-        self._on_cancel_hooks.append(hook)
+        # Guard with the same lock as _clients so concurrent register_on_cancel
+        # and cancel() calls cannot race on the hooks list.
+        with self._clients_lock:
+            self._on_cancel_hooks.append(hook)
 
     def cancel(self) -> None:
         if self._cancelled.is_set():
             return
         self._cancelled.set()
+        # Snapshot both lists under the lock so concurrent register_* calls
+        # during cancellation don't produce a torn iteration.
         with self._clients_lock:
             clients = list(self._clients)
+            hooks = list(self._on_cancel_hooks)
         for client in clients:
             stop = getattr(client, "stop", None)
             if callable(stop):
@@ -158,7 +164,7 @@ class SendCancellation:
                     stop()
                 except Exception:
                     log.exception("SendCancellation: error stopping registered LlmClient")
-        for hook in self._on_cancel_hooks:
+        for hook in hooks:
             try:
                 hook()
             except Exception:
@@ -267,7 +273,7 @@ def grammar_llm_request_gate(ctx: Any, timeout: float = 60.0) -> Generator[None,
 
 
 class _WorkItem:
-    __slots__ = ("id", "fn", "args", "kwargs", "blocking", "event", "result", "exception", "cancelled")
+    __slots__ = ("id", "fn", "args", "kwargs", "blocking", "event", "result", "exception", "cancelled", "_claim_lock", "_claimed")
 
     def __init__(self, item_id, fn, args, kwargs, blocking=True):
         self.id = item_id
@@ -279,6 +285,12 @@ class _WorkItem:
         self.result: Any = None
         self.exception: BaseException | None = None
         self.cancelled = False
+        # _claim_lock serialises the timeout-vs-execute race: whoever acquires it first
+        # either claims the item for execution (_claimed=True) or cancels it. This
+        # prevents the main thread from executing a function after the caller has
+        # already given up and raised TimeoutError.
+        self._claim_lock = threading.Lock()
+        self._claimed = False
 
 
 class QueueExecutor:
@@ -301,6 +313,12 @@ class QueueExecutor:
             try:
                 import uno
 
+                # TODO: AGENTS.md requires using the extension's self.ctx, not
+                # uno.getComponentContext(), which can return a different context
+                # and cause AsyncCallback to be created in the wrong context —
+                # silently making all execute() pokes no-ops (hangs until timeout).
+                # Fix: accept an optional ctx= at QueueExecutor.__init__ and wire
+                # it from init_config(ctx) in main.py; fall back here only when None.
                 ctx = uno.getComponentContext()
                 assert ctx is not None
                 ctx_any = cast("Any", ctx)
@@ -347,20 +365,26 @@ class QueueExecutor:
         fn_label = _fn_label(item.fn)
         log.debug("process_queue start fn=%s %s", fn_label, _marshal_thread_tag(self))
 
-        if item.cancelled:
-            log.debug("QueueExecutor: skipping cancelled item %s (%s)", item.id, getattr(item.fn, "__name__", "<fn>"))
-            if item.blocking and item.event and not item.event.is_set():
-                item.exception = SendCancelled()
-                item.event.set()
-        else:
-            try:
-                item.result = item.fn(*item.args, **item.kwargs)
-            except Exception as exc:
-                item.exception = exc
-            finally:
-                if item.blocking and item.event:
+        # Atomically claim or cancel: whoever holds _claim_lock first wins.
+        # This closes the race where _wait_for_result times out and sets
+        # item.cancelled=True just after this thread has already read it as False.
+        with item._claim_lock:
+            if item.cancelled:
+                log.debug("QueueExecutor: skipping cancelled item %s (%s)", item.id, getattr(item.fn, "__name__", "<fn>"))
+                if item.blocking and item.event and not item.event.is_set():
+                    item.exception = SendCancelled()
                     item.event.set()
-                log.debug("process_queue done fn=%s %s", fn_label, _marshal_thread_tag(self))
+                return
+            item._claimed = True  # caller's timeout can no longer cancel this execution
+
+        try:
+            item.result = item.fn(*item.args, **item.kwargs)
+        except Exception as exc:
+            item.exception = exc
+        finally:
+            if item.blocking and item.event:
+                item.event.set()
+            log.debug("process_queue done fn=%s %s", fn_label, _marshal_thread_tag(self))
 
         # Re-poke if more items waiting
         if not self._work_queue.empty():
@@ -405,15 +429,17 @@ class QueueExecutor:
     def _wait_for_result(self, item, timeout):
         """Wait for and return result from main thread."""
         if not item.event.wait(timeout):
-            # Main thread hasn't picked this up in time. Mark it cancelled
-            # so process_queue drops it instead of running the fn against an
-            # abandoned caller.
-            item.cancelled = True
+            # Atomically cancel only if process_queue hasn't already claimed
+            # this item for execution. Without _claim_lock there was a window
+            # where the main thread could start executing fn() after this thread
+            # gave up, causing UNO calls to run against an abandoned caller.
+            with item._claim_lock:
+                if not item._claimed:
+                    item.cancelled = True
             raise TimeoutError("Main-thread execution of %s timed out after %ss" % (getattr(item.fn, "__name__", str(item.fn)), timeout))
 
-        if item.cancelled and item.exception is not None:
-            raise item.exception
-
+        # The redundant `if item.cancelled and item.exception` branch has been
+        # removed: the unconditional check below covers it entirely.
         if item.exception is not None:
             raise item.exception
 

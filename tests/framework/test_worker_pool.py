@@ -255,3 +255,41 @@ class TestWorkerPoolErrorHandling():
         assert ("Task 'mock_task' failed" in wrapped_error.message)
         assert (wrapped_error.code == 'WORKER_TASK_FAILED')
         assert (wrapped_error.details['error_type'] == 'ValueError')
+
+
+class TestReadStreamStripsNewlines:
+    """Regression test for Bug 1: rstrip("\\n\\r") used literal chars, not newlines."""
+
+    def _make_stream(self, lines):
+        """Return a closeable text stream that yields the given strings."""
+        import io
+        return io.StringIO("".join(lines))
+
+    def test_strips_lf(self):
+        # Lines from a subprocess on Unix end with \n; the callback must not see it.
+        ap = AsyncProcess(["dummy"])
+        received = []
+        stream = self._make_stream(["hello\n", "world\n"])
+        ap._read_stream(stream, received.append)
+        assert received == ["hello", "world"], (
+            f"Expected no trailing newlines but got: {received!r}"
+        )
+
+    def test_strips_crlf(self):
+        # Lines from a subprocess on Windows (or text=True on Windows) end with \r\n.
+        ap = AsyncProcess(["dummy"])
+        received = []
+        stream = self._make_stream(["hello\r\n", "world\r\n"])
+        ap._read_stream(stream, received.append)
+        assert received == ["hello", "world"], (
+            f"Expected no trailing CRLF but got: {received!r}"
+        )
+
+    def test_empty_line_not_dropped(self):
+        # An empty line (just "\n") should yield an empty string, not be skipped.
+        ap = AsyncProcess(["dummy"])
+        received = []
+        stream = self._make_stream(["\n"])
+        ap._read_stream(stream, received.append)
+        assert received == [""], f"Expected [\"\"] but got: {received!r}"
+

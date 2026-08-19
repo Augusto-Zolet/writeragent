@@ -143,3 +143,60 @@ def test_stop_checker_stays_true_after_panel_clears_scope_reference():
     stop_checker = bind_send_stop_checker(scope, lambda: False)
     scope.cancel()
     assert stop_checker() is True
+
+
+class TestSendCancellationHooksLocking:
+    """Regression tests for _on_cancel_hooks not being lock-protected.
+
+    Before the fix, register_on_cancel appended without a lock and cancel()
+    iterated the live list — a concurrent append during iteration was safe only
+    under CPython's GIL but incorrect in general and inconsistent with _clients.
+    """
+
+    def test_registered_hook_is_called_on_cancel(self):
+        # Basic sanity: a registered hook must fire when cancel() is called.
+        scope = SendCancellation()
+        called = []
+        scope.register_on_cancel(lambda: called.append(1))
+        scope.cancel()
+        assert called == [1], f"Expected hook to be called once, got: {called}"
+
+    def test_multiple_hooks_all_called(self):
+        scope = SendCancellation()
+        called = []
+        scope.register_on_cancel(lambda: called.append("a"))
+        scope.register_on_cancel(lambda: called.append("b"))
+        scope.cancel()
+        assert set(called) == {"a", "b"}, f"Not all hooks were called: {called}"
+
+    def test_concurrent_register_and_cancel_no_lost_hooks(self):
+        # Registers hooks from a background thread while cancel() is called
+        # concurrently. All hooks registered before cancel() must fire.
+        import threading as _threading
+
+        scope = SendCancellation()
+        called = []
+        barrier = _threading.Barrier(2)
+        N = 50
+
+        # Pre-register half the hooks so cancel() definitely sees some.
+        for idx in range(N // 2):
+            scope.register_on_cancel(lambda i=idx: called.append(i))
+
+        def register_rest():
+            barrier.wait()  # synchronise with cancel() caller
+            for idx in range(N // 2, N):
+                scope.register_on_cancel(lambda i=idx: called.append(i))
+
+        t = _threading.Thread(target=register_rest)
+        t.start()
+        barrier.wait()  # release both threads simultaneously
+        scope.cancel()
+        t.join(timeout=2)
+
+        # At minimum the pre-registered hooks must all have been called.
+        pre_registered = set(range(N // 2))
+        assert pre_registered.issubset(set(called)), (
+            f"Some pre-registered hooks were lost: missing {pre_registered - set(called)}"
+        )
+
