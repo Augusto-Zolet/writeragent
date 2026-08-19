@@ -74,12 +74,58 @@ Evaluates sandboxed Python code and emits kit-safe dumb JSON (`allow_nan=False`,
   }
   ```
 
-### 3. HTTP Status Codes & Error Semantics
+### 3. Vision & OCR Endpoint (`POST /v1/vision`)
+
+Evaluates heavy document/image OCR and layout structure extraction in a dedicated, isolated worker subprocess pool. Supports both in-memory image buffers (`image_b64`) and server-local/mounted filesystem paths (`file_path`).
+
+- **Request Schema (Option A: In-Memory Base64 Buffer)**:
+  ```json
+  {
+    "id": "ocr-123",
+    "helper": "extract_text",
+    "image_b64": "<base64-encoded-image>",
+    "params": {
+      "engine": "docling",
+      "fallback": true
+    },
+    "timeout_ms": 60000
+  }
+  ```
+
+- **Request Schema (Option B: Server Filesystem Path)**:
+  ```json
+  {
+    "id": "ocr-124",
+    "helper": "extract_structure",
+    "file_path": "/shared/scans/invoice_2026.png",
+    "params": {
+      "table_mode": "accurate"
+    },
+    "timeout_ms": 60000
+  }
+  ```
+
+- **Supported Helpers**:
+  - `extract_text`: Extracts clean plaintext or Markdown from the image using Docling (or PaddleOCR fallback).
+  - `extract_structure`: Extracts structured document hierarchy, table grids, and formatted sections.
+
+- **Success Response (`200 OK`)**:
+  ```json
+  {
+    "id": "ocr-123",
+    "status": "ok",
+    "text": "Extracted text content...",
+    "format": "markdown",
+    "metrics": { "duration_ms": 450.2 }
+  }
+  ```
+
+### 4. HTTP Status Codes & Error Semantics
 
 | HTTP Status | Condition | Response Payload Shape |
 | :--- | :--- | :--- |
 | **`200 OK`** | Evaluation completed (success or runtime evaluation error) | `{"id"?: "...", "status": "ok"\|"error", "result"\|"error": ...}` |
-| **`400 Bad Request`** | Malformed JSON, non-object body, or missing `code` | `{"id"?: "...", "status": "error", "error": "Bad Request: ..."}` |
+| **`400 Bad Request`** | Malformed JSON, non-object body, missing `code`, or missing `image_b64` | `{"id"?: "...", "status": "error", "error": "Bad Request: ..."}` |
 | **`401 Unauthorized`** | Missing or incorrect `Authorization: Bearer <secret>` | `{"status": "error", "error": "Unauthorized"}` + `WWW-Authenticate: Bearer` |
 | **`404 Not Found`** | Unknown path or unsupported HTTP method | Plaintext `Not Found` |
 | **`413 Payload Too Large`**| Request body exceeds `max_body_bytes` | `{"status": "error", "error": "Request body too large"}` |
@@ -139,6 +185,9 @@ Example JSON: [`python-compute.example.json`](python-compute.example.json).
 | `PYTHON_COMPUTE_DEFAULT_TIMEOUT_SEC` | Default execution timeout in seconds | `30` |
 | `PYTHON_COMPUTE_MAX_TIMEOUT_SEC` | Upper bound clamp for `timeout_ms` | `600` |
 | `PYTHON_COMPUTE_MAX_THREADS` | Worker thread pool capacity | `min(32, cpu_count + 4)` |
+| `PYTHON_COMPUTE_OCR_WORKERS` | Dedicated OCR/Vision worker subprocesses | `1` |
+| `PYTHON_COMPUTE_OCR_TIMEOUT_SEC` | OCR/Vision execution timeout in seconds | `60` |
+| `PYTHON_COMPUTE_OCR_MAX_TASKS` | Tasks before recycling OCR worker process | `100` |
 
 Key file permissions: readable only by the service user (e.g. mode `0400`).
 
@@ -171,7 +220,12 @@ However, for numerical and scientific computing workloads:
 
 Because typical Collabora Online `=PY()` spreadsheet workloads consist primarily of NumPy/SciPy vector operations and array manipulations, thread pool request handling achieves high CPU utilization across multiple cores with minimal memory overhead and zero inter-process communication (IPC) serialization penalty.
 
-### 3. Scaling Up & Scaling Out
+### 3. Isolated Heavy Compute Process Pool (OCR / Vision)
+To protect spreadsheet responsiveness and memory footprint, heavy Machine Learning tasks (such as Docling and PaddleOCR) run in a dedicated, isolated subprocess pool (`VisionProcessPool`):
+- **Zero Formula Stutter**: Multi-second OCR jobs run in background worker processes and never block fast spreadsheet formula evaluations in the main thread pool.
+- **Memory & Crash Isolation**: Native ML libraries and image buffers are confined to the disposable subprocess. If an OCR job experiences a crash or memory leak, the worker is automatically recycled without affecting the main service or erasing active spreadsheet sessions.
+
+### 4. Scaling Up & Scaling Out
 
 | Scaling Dimension | Strategy | Characteristics & Recommendations |
 | :--- | :--- | :--- |

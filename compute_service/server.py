@@ -261,6 +261,81 @@ def create_wsgi_app(
                     err_body,
                 )
 
+        if path == "/v1/vision" and method == "POST":
+            _principal, auth_err = authenticate_request(environ, settings)
+            if auth_err is not None:
+                return _start_json(
+                    start_response,
+                    "401 Unauthorized",
+                    {"status": "error", "error": "Unauthorized"},
+                    extra_headers=[("WWW-Authenticate", "Bearer")],
+                )
+
+            try:
+                content_length = int(environ.get("CONTENT_LENGTH", 0))
+            except ValueError:
+                content_length = 0
+
+            if content_length > settings.max_body_bytes:
+                return _start_json(
+                    start_response,
+                    "413 Payload Too Large",
+                    {"status": "error", "error": "Request body too large"},
+                )
+
+            try:
+                body = environ["wsgi.input"].read(content_length)
+                req_data = json.loads(body.decode("utf-8"))
+            except Exception:
+                return _start_json(
+                    start_response,
+                    "400 Bad Request",
+                    {"status": "error", "error": "Invalid JSON"},
+                )
+
+            if not isinstance(req_data, dict):
+                return _start_json(
+                    start_response,
+                    "400 Bad Request",
+                    {"status": "error", "error": "JSON body must be an object"},
+                )
+
+            req_id = req_data.get("id")
+            helper = str(req_data.get("helper") or "extract_text").strip()
+            image_b64 = req_data.get("image_b64") or req_data.get("image")
+            file_path = req_data.get("file_path")
+
+            b64_str = image_b64 if isinstance(image_b64, str) and image_b64.strip() else None
+            path_str = file_path if isinstance(file_path, str) and file_path.strip() else None
+
+            if not b64_str and not path_str:
+                vision_err_body: dict[str, Any] = {
+                    "status": "error",
+                    "error": "Missing image input: either 'image_b64' (base64 string buffer) or 'file_path' (server path) is required.",
+                }
+                if req_id is not None:
+                    vision_err_body["id"] = req_id
+                return _start_json(start_response, "400 Bad Request", vision_err_body)
+
+            params = req_data.get("params") or {}
+            timeout_ms = req_data.get("timeout_ms")
+            timeout_sec_opt: int | None = None
+            if isinstance(timeout_ms, (int, float)) and timeout_ms > 0:
+                timeout_sec_opt = max(1, min(settings.max_timeout_sec, (int(timeout_ms) + 999) // 1000))
+
+            from compute_service.vision_pool import get_vision_pool
+
+            vision_pool = get_vision_pool(settings)
+            result_payload = vision_pool.execute(
+                helper=helper,
+                image_b64=b64_str,
+                file_path=path_str,
+                params=params if isinstance(params, dict) else {},
+                timeout_sec=timeout_sec_opt,
+                req_id=req_id,
+            )
+            return _start_json(start_response, "200 OK", result_payload)
+
         start_response("404 Not Found", [("Content-Type", "text/plain")])
         return [b"Not Found"]
 
@@ -466,12 +541,18 @@ def run_server(settings: ComputeSettings) -> None:
     setup_logging(settings.log_level)
     auth_note = "auth=yes" if settings.auth_required else "auth=no (insecure)"
     log.info(
-        "Starting Python Compute Service on %s:%d (%s, threads=%d)...",
+        "Starting Python Compute Service on %s:%d (%s, threads=%d, ocr_workers=%d)...",
         settings.host,
         settings.port,
         auth_note,
         settings.max_threads,
+        settings.ocr_workers,
     )
+    if settings.ocr_workers > 0:
+        from compute_service.vision_pool import get_vision_pool
+
+        get_vision_pool(settings)
+
     server = WSGIDualStackServer(settings.host, settings.port, max_threads=settings.max_threads)
     server.set_app(create_wsgi_app(settings))
 
@@ -494,6 +575,9 @@ def run_server(settings: ComputeSettings) -> None:
         server.serve_forever()
     finally:
         log.info("Stopping Python Compute Service...")
+        from compute_service.vision_pool import shutdown_vision_pool
+
+        shutdown_vision_pool()
         server.server_close()
 
 
@@ -517,6 +601,27 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="Thread pool worker capacity (overrides config/env)",
     )
     parser.add_argument(
+        "--ocr-workers",
+        dest="ocr_workers",
+        type=int,
+        default=None,
+        help="Dedicated OCR/Vision worker subprocesses (default: 1, 0 to disable)",
+    )
+    parser.add_argument(
+        "--ocr-timeout",
+        dest="ocr_timeout_sec",
+        type=int,
+        default=None,
+        help="Execution timeout for vision tasks in seconds (default: 60)",
+    )
+    parser.add_argument(
+        "--ocr-max-tasks",
+        dest="ocr_max_tasks",
+        type=int,
+        default=None,
+        help="Recycle OCR worker process after N tasks (default: 100)",
+    )
+    parser.add_argument(
         "--api-key-file",
         dest="api_key_file",
         default=None,
@@ -534,6 +639,9 @@ def main(argv: list[str] | None = None) -> int:
             host=args.host,
             port=args.port,
             max_threads=args.max_threads,
+            ocr_workers=args.ocr_workers,
+            ocr_timeout_sec=args.ocr_timeout_sec,
+            ocr_max_tasks=args.ocr_max_tasks,
             api_key_file=args.api_key_file,
         )
     except ConfigError as exc:

@@ -28,6 +28,9 @@ _DEFAULT_MAX_BODY_BYTES = 32 * 1024 * 1024
 _DEFAULT_TIMEOUT_SEC = 30
 _MAX_TIMEOUT_SEC = 600
 _DEFAULT_MAX_THREADS = min(32, (os.cpu_count() or 1) + 4)
+_DEFAULT_OCR_WORKERS = 1
+_DEFAULT_OCR_TIMEOUT_SEC = 60
+_DEFAULT_OCR_MAX_TASKS = 100
 
 _DEFAULT_LOG_LEVEL = "INFO"
 _VALID_LOG_LEVELS = frozenset({"DEBUG", "INFO", "WARNING", "WARN", "ERROR", "CRITICAL"})
@@ -58,6 +61,9 @@ class ComputeSettings:
     default_timeout_sec: int = _DEFAULT_TIMEOUT_SEC
     max_timeout_sec: int = _MAX_TIMEOUT_SEC
     max_threads: int = _DEFAULT_MAX_THREADS
+    ocr_workers: int = _DEFAULT_OCR_WORKERS
+    ocr_timeout_sec: int = _DEFAULT_OCR_TIMEOUT_SEC
+    ocr_max_tasks: int = _DEFAULT_OCR_MAX_TASKS
     log_level: str = _DEFAULT_LOG_LEVEL
     # Future: map authenticated principals to named profiles. Today always "default".
     default_principal: str = "default"
@@ -81,6 +87,12 @@ class ComputeSettings:
             raise ConfigError("default_timeout_sec cannot exceed max_timeout_sec")
         if self.max_threads < 1:
             raise ConfigError("max_threads must be >= 1")
+        if self.ocr_workers < 0:
+            raise ConfigError("ocr_workers must be >= 0")
+        if self.ocr_timeout_sec < 1:
+            raise ConfigError("ocr_timeout_sec must be >= 1")
+        if self.ocr_max_tasks < 1:
+            raise ConfigError("ocr_max_tasks must be >= 1")
         if self.log_level.upper() not in _VALID_LOG_LEVELS:
             raise ConfigError(f"Invalid log_level: {self.log_level!r} (must be one of {sorted(_VALID_LOG_LEVELS)})")
         # No API key ⇒ no auth (dev/test). Verification runs only when a key is set.
@@ -126,7 +138,7 @@ def _load_json_file(path: str | Path) -> dict[str, Any]:
 
 
 def _flatten_config_json(raw: Mapping[str, Any]) -> dict[str, Any]:
-    """Accept flat keys or nested ``listen`` / ``auth`` / ``limits`` sections."""
+    """Accept flat keys or nested ``listen`` / ``auth`` / ``limits`` / ``ocr`` sections."""
     out: dict[str, Any] = {}
     listen = raw.get("listen")
     if isinstance(listen, Mapping):
@@ -151,6 +163,14 @@ def _flatten_config_json(raw: Mapping[str, Any]) -> dict[str, Any]:
             out["max_threads"] = limits["max_threads"]
         elif "max_workers" in limits:
             out["max_threads"] = limits["max_workers"]
+    ocr_cfg = raw.get("ocr")
+    if isinstance(ocr_cfg, Mapping):
+        if "workers" in ocr_cfg:
+            out["ocr_workers"] = ocr_cfg["workers"]
+        if "timeout_sec" in ocr_cfg:
+            out["ocr_timeout_sec"] = ocr_cfg["timeout_sec"]
+        if "max_tasks" in ocr_cfg:
+            out["ocr_max_tasks"] = ocr_cfg["max_tasks"]
     logging_cfg = raw.get("logging")
     if isinstance(logging_cfg, Mapping):
         if "log_level" in logging_cfg:
@@ -166,6 +186,9 @@ def _flatten_config_json(raw: Mapping[str, Any]) -> dict[str, Any]:
         "default_timeout_sec",
         "max_timeout_sec",
         "max_threads",
+        "ocr_workers",
+        "ocr_timeout_sec",
+        "ocr_max_tasks",
         "log_level",
     ):
         if key in raw and key not in out:
@@ -181,6 +204,9 @@ def load_settings(
     host: str | None = None,
     port: int | None = None,
     max_threads: int | None = None,
+    ocr_workers: int | None = None,
+    ocr_timeout_sec: int | None = None,
+    ocr_max_tasks: int | None = None,
     api_key_file: str | Path | None = None,
     environ: Mapping[str, str] | None = None,
 ) -> ComputeSettings:
@@ -195,6 +221,9 @@ def load_settings(
         "default_timeout_sec": _DEFAULT_TIMEOUT_SEC,
         "max_timeout_sec": _MAX_TIMEOUT_SEC,
         "max_threads": _DEFAULT_MAX_THREADS,
+        "ocr_workers": _DEFAULT_OCR_WORKERS,
+        "ocr_timeout_sec": _DEFAULT_OCR_TIMEOUT_SEC,
+        "ocr_max_tasks": _DEFAULT_OCR_MAX_TASKS,
         "log_level": _DEFAULT_LOG_LEVEL,
     }
 
@@ -223,6 +252,12 @@ def load_settings(
         values["max_threads"] = env["PYTHON_COMPUTE_MAX_THREADS"]
     elif env.get("PYTHON_COMPUTE_MAX_WORKERS"):
         values["max_threads"] = env["PYTHON_COMPUTE_MAX_WORKERS"]
+    if env.get("PYTHON_COMPUTE_OCR_WORKERS"):
+        values["ocr_workers"] = env["PYTHON_COMPUTE_OCR_WORKERS"]
+    if env.get("PYTHON_COMPUTE_OCR_TIMEOUT_SEC"):
+        values["ocr_timeout_sec"] = env["PYTHON_COMPUTE_OCR_TIMEOUT_SEC"]
+    if env.get("PYTHON_COMPUTE_OCR_MAX_TASKS"):
+        values["ocr_max_tasks"] = env["PYTHON_COMPUTE_OCR_MAX_TASKS"]
     if env.get("PYTHON_COMPUTE_LOG_LEVEL"):
         values["log_level"] = env["PYTHON_COMPUTE_LOG_LEVEL"]
 
@@ -237,6 +272,12 @@ def load_settings(
         values["port"] = port
     if max_threads is not None:
         values["max_threads"] = max_threads
+    if ocr_workers is not None:
+        values["ocr_workers"] = ocr_workers
+    if ocr_timeout_sec is not None:
+        values["ocr_timeout_sec"] = ocr_timeout_sec
+    if ocr_max_tasks is not None:
+        values["ocr_max_tasks"] = ocr_max_tasks
 
     # Secret resolution: CLI key-file > env key > env key-file > JSON key-file.
     api_key = ""
@@ -265,6 +306,15 @@ def load_settings(
         ),
         max_threads=_as_int(
             values["max_threads"], field="max_threads", default=_DEFAULT_MAX_THREADS
+        ),
+        ocr_workers=_as_int(
+            values["ocr_workers"], field="ocr_workers", default=_DEFAULT_OCR_WORKERS
+        ),
+        ocr_timeout_sec=_as_int(
+            values["ocr_timeout_sec"], field="ocr_timeout_sec", default=_DEFAULT_OCR_TIMEOUT_SEC
+        ),
+        ocr_max_tasks=_as_int(
+            values["ocr_max_tasks"], field="ocr_max_tasks", default=_DEFAULT_OCR_MAX_TASKS
         ),
         log_level=normalize_log_level(str(values["log_level"] or _DEFAULT_LOG_LEVEL)),
     )
