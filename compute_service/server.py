@@ -196,10 +196,13 @@ def create_wsgi_app(
                 init_script = None
 
             # Lazy: auth/config layer stays free of plugin.framework.config.
-            from compute_service.executor import execute_code, timeout_ms_to_sec
+            from compute_service.executor import timeout_ms_to_sec
 
             if run_execute is None:
-                run_execute = execute_code
+                from compute_service.formula_pool import get_formula_pool
+
+                formula_pool = get_formula_pool(settings)
+                run_execute = lambda **kw: formula_pool.execute(**kw)
 
             timeout_sec = timeout_ms_to_sec(
                 req_data.get("timeout_ms"),
@@ -225,6 +228,7 @@ def create_wsgi_app(
                     timeout_sec=timeout_sec,
                     mode=mode,
                     init_script=init_script,
+                    req_id=req_id,
                 )
                 duration_ms = (time.perf_counter() - start_t) * 1000.0
                 status = result_payload.get("status") if isinstance(result_payload, dict) else None
@@ -541,13 +545,18 @@ def run_server(settings: ComputeSettings) -> None:
     setup_logging(settings.log_level)
     auth_note = "auth=yes" if settings.auth_required else "auth=no (insecure)"
     log.info(
-        "Starting Python Compute Service on %s:%d (%s, threads=%d, ocr_workers=%d)...",
+        "Starting Python Compute Service on %s:%d (%s, workers=%d, ocr_workers=%d)...",
         settings.host,
         settings.port,
         auth_note,
-        settings.max_threads,
+        settings.workers,
         settings.ocr_workers,
     )
+    # Warm up formula and vision worker pools
+    from compute_service.formula_pool import get_formula_pool
+
+    get_formula_pool(settings)
+
     if settings.ocr_workers > 0:
         from compute_service.vision_pool import get_vision_pool
 
@@ -575,8 +584,10 @@ def run_server(settings: ComputeSettings) -> None:
         server.serve_forever()
     finally:
         log.info("Stopping Python Compute Service...")
+        from compute_service.formula_pool import shutdown_formula_pool
         from compute_service.vision_pool import shutdown_vision_pool
 
+        shutdown_formula_pool()
         shutdown_vision_pool()
         server.server_close()
 
@@ -594,11 +605,19 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--host", default=None, help="Bind host (overrides config/env)")
     parser.add_argument("--port", type=int, default=None, help="Bind port (overrides config/env)")
     parser.add_argument(
+        "--workers",
         "--max-threads",
-        dest="max_threads",
+        dest="workers",
         type=int,
         default=None,
-        help="Thread pool worker capacity (overrides config/env)",
+        help="Number of formula worker subprocesses (default: CPU count)",
+    )
+    parser.add_argument(
+        "--worker-max-tasks",
+        dest="worker_max_tasks",
+        type=int,
+        default=None,
+        help="Recycle formula worker process after N tasks (default: 500)",
     )
     parser.add_argument(
         "--ocr-workers",
@@ -638,7 +657,8 @@ def main(argv: list[str] | None = None) -> int:
             config_path=args.config_path,
             host=args.host,
             port=args.port,
-            max_threads=args.max_threads,
+            workers=args.workers,
+            worker_max_tasks=args.worker_max_tasks,
             ocr_workers=args.ocr_workers,
             ocr_timeout_sec=args.ocr_timeout_sec,
             ocr_max_tasks=args.ocr_max_tasks,

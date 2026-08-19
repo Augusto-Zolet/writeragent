@@ -16,7 +16,6 @@ Wire Protocol (JSON over stdio):
 from __future__ import annotations
 
 import base64
-import json
 import os
 import sys
 import traceback
@@ -70,6 +69,8 @@ def _handle_request(req: dict[str, Any]) -> dict[str, Any]:
                 "code": "FILE_READ_ERROR",
                 "error": f"Failed to read image file {file_path}: {exc}",
             }
+    elif req.get("image_bytes") and isinstance(req["image_bytes"], (bytes, bytearray)):
+        image_bytes = bytes(req["image_bytes"])
     elif image_b64:
         try:
             if isinstance(image_b64, str):
@@ -95,7 +96,7 @@ def _handle_request(req: dict[str, Any]) -> dict[str, Any]:
             "id": req_id,
             "status": "error",
             "code": "MISSING_IMAGE_SOURCE",
-            "error": "Either 'image_b64' (base64 string buffer) or 'file_path' (server filesystem path) must be provided.",
+            "error": "Either 'image_b64' (base64 string buffer), 'image_bytes', or 'file_path' (server filesystem path) must be provided.",
         }
 
     from plugin.vision.venv.vision import run_vision
@@ -117,31 +118,28 @@ def _handle_request(req: dict[str, Any]) -> dict[str, Any]:
 
 
 def main() -> int:
-    # Ensure stdout is unbuffered for clean line-by-line streaming
-    if hasattr(sys.stdout, "reconfigure"):
-        getattr(sys.stdout, "reconfigure")(line_buffering=True)
+    from plugin.scripting.ipc import read_pickle_frame, write_pickle_frame
 
-    # Signal readiness to supervisor
-    ready_msg = json.dumps({"status": "ready", "pid": os.getpid()})
-    sys.stdout.write(ready_msg + "\n")
-    sys.stdout.flush()
+    stdin_bin = sys.stdin.buffer
+    stdout_bin = sys.stdout.buffer
 
-    for line in sys.stdin:
-        line = line.strip()
-        if not line:
-            continue
+    # Signal readiness to supervisor via binary Pickle frame
+    write_pickle_frame(stdout_bin, {"status": "ready", "pid": os.getpid()})
+
+    while True:
         try:
-            req = json.loads(line)
+            req = read_pickle_frame(stdin_bin)
+            if req is None:
+                break
             if not isinstance(req, dict):
-                res = {"status": "error", "error": "Request must be a JSON object"}
+                res = {"status": "error", "error": "Request must be a dict"}
             else:
                 res = _handle_request(req)
         except Exception as exc:
-            res = {"status": "error", "error": f"Invalid JSON or unhandled error: {exc}"}
+            res = {"status": "error", "error": f"Invalid IPC frame or unhandled error: {exc}"}
 
         try:
-            sys.stdout.write(json.dumps(res) + "\n")
-            sys.stdout.flush()
+            write_pickle_frame(stdout_bin, res)
         except Exception:
             break
 

@@ -11,7 +11,6 @@ Docling / PaddleOCR tasks run safely in isolated worker processes.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import queue
@@ -34,13 +33,15 @@ class VisionProcessWorker:
 
     def __init__(self, worker_id: int) -> None:
         self.worker_id = worker_id
-        self.process: subprocess.Popen[str] | None = None
+        self.process: subprocess.Popen[bytes] | None = None
         self.lock = threading.Lock()
         self.tasks_executed = 0
         self._spawn()
 
     def _spawn(self) -> None:
         """Spawn the worker subprocess and wait for readiness handshake."""
+        from plugin.scripting.ipc import read_pickle_frame
+
         cmd = [sys.executable, _WORKER_SCRIPT]
         try:
             self.process = subprocess.Popen(
@@ -48,23 +49,17 @@ class VisionProcessWorker:
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1,
             )
-            # Read ready line
+            # Read ready message
             if self.process.stdout is not None:
-                ready_line = self.process.stdout.readline()
-                if ready_line:
-                    try:
-                        data = json.loads(ready_line.strip())
-                        log.info(
-                            "Vision worker #%d spawned (pid=%s, status=%s)",
-                            self.worker_id,
-                            data.get("pid", self.process.pid),
-                            data.get("status"),
-                        )
-                    except Exception:
-                        pass
+                ready_data = read_pickle_frame(self.process.stdout)
+                if isinstance(ready_data, dict):
+                    log.info(
+                        "Vision worker #%d spawned (pid=%s, status=%s)",
+                        self.worker_id,
+                        ready_data.get("pid", self.process.pid),
+                        ready_data.get("status"),
+                    )
             self.tasks_executed = 0
         except Exception as exc:
             log.error("Failed to spawn vision worker #%d: %s", self.worker_id, exc)
@@ -86,6 +81,8 @@ class VisionProcessWorker:
 
     def execute(self, payload: dict[str, Any], timeout_sec: float) -> dict[str, Any]:
         """Send request to worker process and await response line with timeout."""
+        from plugin.scripting.ipc import read_pickle_frame, write_pickle_frame
+
         with self.lock:
             if not self.is_alive():
                 self._spawn()
@@ -100,10 +97,8 @@ class VisionProcessWorker:
             assert self.process.stdin is not None
             assert self.process.stdout is not None
 
-            line_out = json.dumps(payload) + "\n"
             try:
-                self.process.stdin.write(line_out)
-                self.process.stdin.flush()
+                write_pickle_frame(self.process.stdin, payload)
             except (BrokenPipeError, OSError) as exc:
                 self.kill()
                 return {
@@ -119,9 +114,9 @@ class VisionProcessWorker:
             def _reader() -> None:
                 try:
                     if self.process is not None and self.process.stdout is not None:
-                        resp_line = self.process.stdout.readline()
-                        if resp_line:
-                            result_holder.append(json.loads(resp_line.strip()))
+                        resp = read_pickle_frame(self.process.stdout)
+                        if resp is not None and isinstance(resp, dict):
+                            result_holder.append(resp)
                         else:
                             err_holder.append("EOF from worker process (process likely crashed or exited)")
                 except Exception as e:
@@ -212,12 +207,21 @@ class VisionProcessPool:
 
         eff_timeout = float(timeout_sec or self.default_timeout_sec)
         b64_val = None
+        image_bytes = None
         if image_b64 is not None:
-            b64_val = image_b64 if isinstance(image_b64, str) else image_b64.decode("ascii", errors="ignore")
+            if isinstance(image_b64, (bytes, bytearray)):
+                image_bytes = bytes(image_b64)
+            elif isinstance(image_b64, str):
+                import base64
+                try:
+                    image_bytes = base64.b64decode(image_b64)
+                except Exception:
+                    b64_val = image_b64
 
         payload = {
             "id": req_id,
             "helper": helper,
+            "image_bytes": image_bytes,
             "image_b64": b64_val,
             "file_path": file_path,
             "params": params or {},

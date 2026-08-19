@@ -1,0 +1,101 @@
+#!/usr/bin/env python3
+# WriterAgent - Python Compute Service Formula Worker
+# Copyright (c) 2026 KeithCu
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""
+Standalone worker subprocess for formula and general sandboxed Python execution.
+
+Runs in an isolated process to isolate memory, GIL, and allow hard SIGKILL
+termination on hangs/timeouts without affecting the master HTTP server.
+
+Wire Protocol (line-delimited JSON over stdio):
+- In:  {"id": "...", "code": "...", "data": ..., "session_id": "...", "mode": "isolated"|"shared", "timeout_sec": ..., "init_script": ...}
+- Out: {"id": "...", "status": "ok"|"error", ...}
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+import traceback
+from typing import Any
+
+# Ensure repo root is on sys.path
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.abspath(os.path.join(_SCRIPT_DIR, ".."))
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
+from compute_service.executor import execute_code
+
+
+def _handle_request(req: dict[str, Any]) -> dict[str, Any]:
+    req_id = req.get("id")
+    code = req.get("code")
+    if not code or not isinstance(code, str):
+        return {
+            "id": req_id,
+            "status": "error",
+            "code": "MISSING_CODE",
+            "error": "Missing or invalid 'code' parameter",
+        }
+
+    data = req.get("data")
+    session_id = req.get("session_id")
+    mode = req.get("mode") or "isolated"
+    timeout_sec = req.get("timeout_sec")
+    init_script = req.get("init_script")
+
+    try:
+        res = execute_code(
+            code=code,
+            data=data,
+            session_id=session_id,
+            timeout_sec=timeout_sec,
+            mode=mode,
+            init_script=init_script,
+        )
+        if req_id is not None and isinstance(res, dict):
+            res["id"] = req_id
+        return res
+    except Exception as exc:
+        return {
+            "id": req_id,
+            "status": "error",
+            "code": "WORKER_EXECUTION_ERROR",
+            "error": str(exc),
+            "traceback": traceback.format_exc(),
+        }
+
+
+def main() -> int:
+    from plugin.scripting.ipc import read_pickle_frame, write_pickle_frame
+
+    stdin_bin = sys.stdin.buffer
+    stdout_bin = sys.stdout.buffer
+
+    # Signal readiness to supervisor via binary Pickle frame
+    write_pickle_frame(stdout_bin, {"status": "ready", "pid": os.getpid()})
+
+    while True:
+        try:
+            req = read_pickle_frame(stdin_bin)
+            if req is None:
+                break
+            if not isinstance(req, dict):
+                res = {"status": "error", "error": "Request must be a dict"}
+            else:
+                res = _handle_request(req)
+        except Exception as exc:
+            res = {"status": "error", "error": f"Invalid IPC frame or unhandled error: {exc}"}
+
+        try:
+            write_pickle_frame(stdout_bin, res)
+        except Exception:
+            break
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
