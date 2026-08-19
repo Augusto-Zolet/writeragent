@@ -363,7 +363,7 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         self._approval_query_for_engine = None
         self.rich_text_widget = None
         self._rich_plain_fallback_warned = False
-        self.queue_executor = QueueExecutor()
+        self.queue_executor = QueueExecutor(ctx=ctx)
         if HAS_RECORDING:
             assert _AudioRecorderCls is not None
             self.audio_recorder = _AudioRecorderCls(ctx)

@@ -9,6 +9,8 @@ It answers two questions:
 
 For user-facing behavior (`=PYTHON()` / `=PY()`, Run Python Script, domain helpers, Monaco, OCR, TeX), see [Enabling NumPy & Python in LibreOffice](enabling_numpy_in_libreoffice.md). This doc is about **packaging and dependencies**, not tutorials.
 
+**Live QA (LibrePy *functionality*, either OXT):** [librepy-manual-qa-plan.md](librepy-manual-qa-plan.md). Same `=PY()` / venv / RPS code in WriterAgent; the plan does not require installing LibrePy.oxt.
+
 Build / install targets and the prototype tree live under [Prototype extension](#prototype-extension-standalone-core--writeragent-overlay).
 
 ---

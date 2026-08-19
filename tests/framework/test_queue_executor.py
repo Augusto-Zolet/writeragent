@@ -192,6 +192,7 @@ def test_post_to_main_thread_fire_and_forget(mock_poke, mock_get_async):
 
 @pytest.fixture(autouse=True)
 def reset_mt_globals():
+    default_executor._ctx = None
     default_executor._initialized = False
     default_executor._async_callback_service = None
     default_executor._callback_instance = None
@@ -203,6 +204,7 @@ def reset_mt_globals():
         except queue.Empty:
             break
     (yield)
+    default_executor._ctx = None
     default_executor._initialized = False
     default_executor._async_callback_service = None
     default_executor._callback_instance = None
@@ -225,6 +227,74 @@ def test_get_async_callback_success(monkeypatch):
     assert (default_executor._initialized)
     assert (default_executor._async_callback_service == mock_service)
     assert (default_executor._callback_instance == mock_instance)
+
+def test_get_async_callback_with_explicit_ctx():
+    mock_ctx = MagicMock()
+    mock_smgr = MagicMock()
+    mock_ctx.ServiceManager = mock_smgr
+    mock_service = MagicMock()
+    mock_smgr.createInstanceWithContext.return_value = mock_service
+
+    qe = lc.QueueExecutor(ctx=mock_ctx)
+    with patch.object(qe, '_make_callback_instance') as mock_make:
+        mock_instance = MagicMock()
+        mock_make.return_value = mock_instance
+        res = qe._get_async_callback()
+
+    assert res == mock_service
+    assert qe._initialized
+    assert qe._async_callback_service == mock_service
+    mock_smgr.createInstanceWithContext.assert_called_once_with("com.sun.star.awt.AsyncCallback", mock_ctx)
+
+def test_get_async_callback_explicit_ctx_does_not_call_uno_getComponentContext(monkeypatch):
+    import sys
+    mock_uno = MagicMock()
+    mock_uno.getComponentContext.side_effect = AssertionError("uno.getComponentContext should not be called when ctx is provided")
+    monkeypatch.setitem(sys.modules, 'uno', mock_uno)
+
+    mock_ctx = MagicMock()
+    mock_smgr = MagicMock()
+    mock_ctx.ServiceManager = mock_smgr
+    mock_service = MagicMock()
+    mock_smgr.createInstanceWithContext.return_value = mock_service
+
+    qe = lc.QueueExecutor(ctx=mock_ctx)
+    with patch.object(qe, '_make_callback_instance') as mock_make:
+        mock_instance = MagicMock()
+        mock_make.return_value = mock_instance
+        res = qe._get_async_callback()
+
+    assert res == mock_service
+    assert mock_uno.getComponentContext.call_count == 0
+
+def test_queue_executor_set_context_invalidates():
+    mock_ctx1 = MagicMock()
+    mock_ctx2 = MagicMock()
+    qe = lc.QueueExecutor(ctx=mock_ctx1)
+    qe._initialized = True
+    qe._async_callback_service = MagicMock()
+    qe._callback_instance = MagicMock()
+
+    # Same context is a no-op
+    qe.set_context(mock_ctx1)
+    assert qe._initialized is True
+
+    # New context resets state
+    qe.set_context(mock_ctx2)
+    assert qe._ctx is mock_ctx2
+    assert qe._initialized is False
+    assert qe._async_callback_service is None
+    assert qe._callback_instance is None
+
+def test_init_config_sets_default_executor_context(monkeypatch):
+    from plugin.framework.config import init_config, reset_config_for_tests
+    reset_config_for_tests()
+    mock_ctx = MagicMock()
+    monkeypatch.setattr("plugin.framework.config._resolve_config_path_from_ctx", lambda _c: "/tmp/mock_config.json")
+
+    init_config(mock_ctx)
+    assert default_executor._ctx is mock_ctx
+    reset_config_for_tests()
 
 def test_get_async_callback_already_init():
     default_executor._initialized = True

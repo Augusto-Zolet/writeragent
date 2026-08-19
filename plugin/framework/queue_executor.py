@@ -244,12 +244,23 @@ class _WorkItem:
 class QueueExecutor:
     """Execute functions on main thread using queue system."""
 
-    def __init__(self):
+    def __init__(self, ctx: Any | None = None) -> None:
+        self._ctx = ctx
         self._work_queue = queue.Queue()
         self._async_callback_service = None
         self._callback_instance = None
         self._init_lock = threading.Lock()
         self._initialized = False
+
+    def set_context(self, ctx: Any) -> None:
+        """Update or set the UNO component context (e.g. at bootstrap)."""
+        with self._init_lock:
+            if self._ctx is not ctx:
+                self._ctx = ctx
+                # Reset initialization so AsyncCallback is re-created with the updated context if needed
+                self._initialized = False
+                self._async_callback_service = None
+                self._callback_instance = None
 
     def _get_async_callback(self):
         """Lazily create the AsyncCallback UNO service and XCallback instance."""
@@ -259,22 +270,33 @@ class QueueExecutor:
             if self._initialized:
                 return self._async_callback_service
             try:
-                import uno
+                # Use the extension's self.ctx first (AGENTS.md invariant).
+                # uno.getComponentContext() can return a different context and
+                # cause AsyncCallback to be created in the wrong context — silently
+                # making execute() pokes no-ops. We fall back only if ctx is missing.
+                ctx = self._ctx
+                if ctx is None:
+                    try:
+                        from plugin.framework.uno_context import get_ctx
 
-                # TODO: AGENTS.md requires using the extension's self.ctx, not
-                # uno.getComponentContext(), which can return a different context
-                # and cause AsyncCallback to be created in the wrong context —
-                # silently making all execute() pokes no-ops (hangs until timeout).
-                # Fix: accept an optional ctx= at QueueExecutor.__init__ and wire
-                # it from init_config(ctx) in main.py; fall back here only when None.
-                ctx = uno.getComponentContext()
-                assert ctx is not None
+                        ctx = get_ctx()
+                    except Exception:
+                        ctx = None
+                if ctx is None:
+                    import uno
+
+                    if hasattr(uno, "getComponentContext"):
+                        ctx = uno.getComponentContext()
+
+                assert ctx is not None, "UNO component context is required for AsyncCallback"
                 ctx_any = cast("Any", ctx)
                 smgr = getattr(ctx_any, "ServiceManager", getattr(ctx_any, "getServiceManager", lambda: None)())
-                assert smgr is not None
-                self._async_callback_service = cast("Any", smgr).createInstanceWithContext("com.sun.star.awt.AsyncCallback", ctx_any)
+                assert smgr is not None, "ServiceManager unavailable on UNO context"
+                self._async_callback_service = cast("Any", smgr).createInstanceWithContext(
+                    "com.sun.star.awt.AsyncCallback", ctx_any
+                )
                 if self._async_callback_service is None:
-                    raise RuntimeError("createInstance returned None")
+                    raise RuntimeError("createInstance com.sun.star.awt.AsyncCallback returned None")
                 self._callback_instance = self._make_callback_instance()
                 log.info("QueueExecutor initialized (AsyncCallback ready)")
             except Exception as exc:

@@ -47,8 +47,7 @@ log = logging.getLogger(__name__)
 class ConfigAccessError(ConfigError):
     """Raised when a module tries to access a private config key."""
 
-    def __init__(self, message, code="CONFIG_ACCESS_ERROR", context=None):
-        super().__init__(message, code=code, context=context)
+    code: str = "CONFIG_ACCESS_ERROR"
 
 def _dummy_impl(name, services=()):
     def decorator(cls):

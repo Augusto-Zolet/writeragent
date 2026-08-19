@@ -280,7 +280,7 @@ class MCPProtocolHandler:
 
     def __init__(self, services):
         self.services = services
-        self.queue_executor = services.get("main_thread") or QueueExecutor()
+        self.queue_executor = services.get("main_thread") or QueueExecutor(ctx=services.get("uno") if services else None)
         self.tool_registry = services.tools
         self.event_bus = getattr(services, "events", None)
         self.version = "unknown"

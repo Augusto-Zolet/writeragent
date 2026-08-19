@@ -243,6 +243,13 @@ def _resolve_config_path_from_ctx(ctx) -> str:
 def init_config(ctx=None):
     """Resolve and cache writeragent.json path. Idempotent; call once at bootstrap."""
     global _resolved_config_path
+    if ctx is not None:
+        try:
+            from plugin.framework.queue_executor import default_executor
+
+            default_executor.set_context(ctx)
+        except Exception:
+            pass
     if _resolved_config_path is not None:
         return _resolved_config_path
     if ctx is None:

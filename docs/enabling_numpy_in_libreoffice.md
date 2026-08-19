@@ -32,6 +32,7 @@ These Python / NumPy features also now ship in **LibrePy.oxt**. The WriterAgent 
 | [Why not copy Microsoft’s `=PY()`](ms-py-libreoffice-compatibility.md) | `xl()` + co-volatility costs vs native `=PY(code, data?)` |
 | [NumPy domain helpers](numpy-domains.md) | Analysis, Viz, Symbolic, Units, Text, Forecasting |
 | [Extension packaging](libreoffice-core-python-extension-split.md) | LibrePy vs WriterAgent packaging |
+| [LibrePy-surface live QA plan](librepy-manual-qa-plan.md) | Real-scenario Calc/RPS/domain checks (`=PY("1 + 1")` upward). Either OXT; do not test chat/`=PROMPT()`. |
 | [Monaco editor dev plan](python-monaco-editor-dev-plan.md) | IPC, phases 2B–2F |
 | [Collabora Online / jail-safe](numpy-jailsafe.md) | Thin C++ Add-In + compute service |
 | [Calc spreadsheet → Python import](calc-spreadsheet-to-python-import.md) | Convert formulas to `=PY()` |

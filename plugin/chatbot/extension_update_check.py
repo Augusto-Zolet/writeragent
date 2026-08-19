@@ -234,7 +234,7 @@ def run_extension_update_check(ctx: Any, extension_id: str | None = None) -> Non
             remote_ver,
             EXTENSION_VERSION,
         )
-        QueueExecutor().post(_show)
+        QueueExecutor(ctx=ctx).post(_show)
     except Exception as e:
         log.warning("extension update check failed (%s): %s", profile.display_name, e, exc_info=True)
     finally:

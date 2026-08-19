@@ -148,6 +148,11 @@ def bootstrap(ctx=None):
 
             ctx = get_ctx()
 
+        if ctx is not None:
+            from plugin.framework.queue_executor import default_executor
+
+            default_executor.set_context(ctx)
+
         from plugin.framework.config import init_config
 
         init_config(ctx)

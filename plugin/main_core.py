@@ -77,6 +77,10 @@ def bootstrap(ctx=None) -> None:
             ctx = get_ctx()
         set_fallback_ctx(ctx)
         set_package_extension_id(EXTENSION_ID)
+        if ctx is not None:
+            from plugin.framework.queue_executor import default_executor
+
+            default_executor.set_context(ctx)
         from plugin.framework.config import init_config
 
         init_config(ctx)
