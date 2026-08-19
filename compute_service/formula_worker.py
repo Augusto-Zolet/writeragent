@@ -7,10 +7,6 @@ Standalone worker subprocess for formula and general sandboxed Python execution.
 
 Runs in an isolated process to isolate memory, GIL, and allow hard SIGKILL
 termination on hangs/timeouts without affecting the master HTTP server.
-
-Wire Protocol (line-delimited JSON over stdio):
-- In:  {"id": "...", "code": "...", "data": ..., "session_id": "...", "mode": "isolated"|"shared", "timeout_sec": ..., "init_script": ...}
-- Out: {"id": "...", "status": "ok"|"error", ...}
 """
 
 from __future__ import annotations
@@ -27,6 +23,7 @@ if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
 from compute_service.executor import execute_code
+from compute_service.worker_base import run_worker_stdio_loop
 
 
 def _handle_request(req: dict[str, Any]) -> dict[str, Any]:
@@ -69,32 +66,7 @@ def _handle_request(req: dict[str, Any]) -> dict[str, Any]:
 
 
 def main() -> int:
-    from plugin.scripting.ipc import read_pickle_frame, write_pickle_frame
-
-    stdin_bin = sys.stdin.buffer
-    stdout_bin = sys.stdout.buffer
-
-    # Signal readiness to supervisor via binary Pickle frame
-    write_pickle_frame(stdout_bin, {"status": "ready", "pid": os.getpid()})
-
-    while True:
-        try:
-            req = read_pickle_frame(stdin_bin)
-            if req is None:
-                break
-            if not isinstance(req, dict):
-                res = {"status": "error", "error": "Request must be a dict"}
-            else:
-                res = _handle_request(req)
-        except Exception as exc:
-            res = {"status": "error", "error": f"Invalid IPC frame or unhandled error: {exc}"}
-
-        try:
-            write_pickle_frame(stdout_bin, res)
-        except Exception:
-            break
-
-    return 0
+    return run_worker_stdio_loop(_handle_request)
 
 
 if __name__ == "__main__":

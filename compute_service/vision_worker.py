@@ -7,10 +7,6 @@ Standalone worker subprocess for heavy OCR and Vision tasks.
 
 Runs in an isolated process to isolate ML dependencies (Docling, PaddleOCR, PyTorch,
 ONNX) and large memory buffers from the main compute service thread pool.
-
-Wire Protocol (JSON over stdio):
-- In:  {"id": "...", "helper": "extract_text"|"extract_structure", "image_b64": "...", "params": {...}}
-- Out: {"id": "...", "status": "ok"|"error", ...}
 """
 
 from __future__ import annotations
@@ -26,6 +22,8 @@ _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.abspath(os.path.join(_SCRIPT_DIR, ".."))
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
+
+from compute_service.worker_base import run_worker_stdio_loop
 
 
 def _handle_request(req: dict[str, Any]) -> dict[str, Any]:
@@ -118,32 +116,7 @@ def _handle_request(req: dict[str, Any]) -> dict[str, Any]:
 
 
 def main() -> int:
-    from plugin.scripting.ipc import read_pickle_frame, write_pickle_frame
-
-    stdin_bin = sys.stdin.buffer
-    stdout_bin = sys.stdout.buffer
-
-    # Signal readiness to supervisor via binary Pickle frame
-    write_pickle_frame(stdout_bin, {"status": "ready", "pid": os.getpid()})
-
-    while True:
-        try:
-            req = read_pickle_frame(stdin_bin)
-            if req is None:
-                break
-            if not isinstance(req, dict):
-                res = {"status": "error", "error": "Request must be a dict"}
-            else:
-                res = _handle_request(req)
-        except Exception as exc:
-            res = {"status": "error", "error": f"Invalid IPC frame or unhandled error: {exc}"}
-
-        try:
-            write_pickle_frame(stdout_bin, res)
-        except Exception:
-            break
-
-    return 0
+    return run_worker_stdio_loop(_handle_request)
 
 
 if __name__ == "__main__":

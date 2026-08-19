@@ -6,7 +6,7 @@
 Performance comparison benchmark:
 Measures the real-world latency and throughput difference between:
 1. In-Process Threaded Execution (direct Python function calls)
-2. Subprocess Pipe IPC Execution (warm child process via line-delimited JSON-RPC over stdin/stdout)
+2. Subprocess Pipe IPC Execution (warm child process via Pickle5 frames over stdin/stdout)
 """
 
 from __future__ import annotations
