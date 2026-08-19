@@ -65,7 +65,7 @@ uv pip install numpy pandas scipy scikit-learn statsmodels matplotlib seaborn sy
 | File | Use |
 |------|-----|
 | New blank Calc | Packets A–C (formula authoring) |
-| [`tests/fixtures/python_showcase_demo.ods`](../tests/fixtures/python_showcase_demo.ods) | Packet D (business dashboard) |
+| [`tests/fixtures/python_showcase_demo.xlsx`](../tests/fixtures/python_showcase_demo.xlsx) | Packet D (business dashboard). **Do not use** `python_showcase_demo.ods` — ODS generator is currently wrong |
 | [`tests/fixtures/numpy_domains_demo.ods`](../tests/fixtures/numpy_domains_demo.ods) | Packet E (trusted helpers via `=PYTHON()`) |
 | [numpy_domains_demo.README.md](../tests/fixtures/numpy_domains_demo.README.md) | How to recalc that ODS |
 
@@ -138,7 +138,9 @@ Settings → Python → session mode **shared**. New workbook.
 
 ## Packet D — Showcase workbook (real dashboard)
 
-Open [`python_showcase_demo.ods`](../tests/fixtures/python_showcase_demo.ods). **Ctrl+Shift+F9**. Check live KPI / metric cells, not the static labels.
+Open [`python_showcase_demo.xlsx`](../tests/fixtures/python_showcase_demo.xlsx). **Ctrl+Shift+F9**. Check live KPI / metric cells, not the static labels.
+
+**Use the `.xlsx` only.** The matching `.ods` from `generate_pretty_demo_spreadsheet.py` is currently buggy; do not report ODS mismatches as product failures. (XLSX import may show `=PYTHON()` / `=py()` casing — that is expected; recalc should still hit the add-in.)
 
 Source of formulas: [python-in-calc-showcase.md](python-in-calc-showcase.md) and `scripts/generate_pretty_demo_spreadsheet.py`.
 
