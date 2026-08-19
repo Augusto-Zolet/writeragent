@@ -122,6 +122,78 @@ class TestErrorHandling(unittest.TestCase):
         msg_sandbox = format_error_message(SandboxSecurityError("Import os forbidden"))
         self.assertIn("Script execution blocked by sandbox policy", msg_sandbox)
 
+    def test_writeragent_exception_subclasses_and_details_unification(self):
+        from plugin.framework.errors import (
+            AgentParsingError,
+            ConfigError,
+            ConfigValidationError,
+            DocumentDisposedError,
+            NetworkError,
+            ResourceNotFoundError,
+            ToolContextError,
+            ToolExecutionError,
+            ToolPermissionError,
+            UnoObjectError,
+            WorkerPoolError,
+            WriterError,
+        )
+        from plugin.draw.shapes import DrawError
+        from plugin.mcp.mcp_protocol import BusyError
+
+        subclasses = [
+            (ConfigError("cfg err"), "CONFIG_ERROR"),
+            (ConfigValidationError("val err"), "CONFIG_VALIDATION_ERROR"),
+            (NetworkError("net err"), "NETWORK_ERROR"),
+            (UnoObjectError("uno err"), "UNO_OBJECT_ERROR"),
+            (WorkerPoolError("worker err"), "WORKER_ERROR"),
+            (ToolExecutionError("tool err"), "TOOL_EXECUTION_ERROR"),
+            (ToolPermissionError("perm err"), "PERMISSION_DENIED"),
+            (ToolContextError("ctx err"), "CONTEXT_ERROR"),
+            (WriterError("writer err"), "WRITER_ERROR"),
+            (AgentParsingError("parse err"), "PARSE_ERROR"),
+            (DrawError("draw err"), "DRAW_ERROR"),
+            (BusyError("busy err"), "SERVER_BUSY"),
+        ]
+
+        for exc, expected_code in subclasses:
+            self.assertEqual(exc.code, expected_code)
+            self.assertEqual(exc.details, {})
+            self.assertEqual(exc.context, {})
+            payload = format_error_payload(exc)
+            self.assertEqual(payload["code"], expected_code)
+            self.assertNotIn("details", payload)
+
+        # Test overriding code and passing details
+        custom_exc = ConfigError("bad config", code="CUSTOM_CFG", details={"key": "api_key"})
+        self.assertEqual(custom_exc.code, "CUSTOM_CFG")
+        self.assertEqual(custom_exc.details, {"key": "api_key"})
+        self.assertEqual(custom_exc.context, {"key": "api_key"})
+        payload = format_error_payload(custom_exc)
+        self.assertEqual(payload["code"], "CUSTOM_CFG")
+        self.assertEqual(payload["details"], {"key": "api_key"})
+
+        # Test legacy context= parameter backward compatibility
+        legacy_exc = NetworkError("timeout", context={"url": "http://localhost"})
+        self.assertEqual(legacy_exc.code, "NETWORK_ERROR")
+        self.assertEqual(legacy_exc.details, {"url": "http://localhost"})
+        self.assertEqual(legacy_exc.context, {"url": "http://localhost"})
+        payload = format_error_payload(legacy_exc)
+        self.assertEqual(payload["details"], {"url": "http://localhost"})
+
+        # Test DocumentDisposedError with custom field object_type
+        disp_exc = DocumentDisposedError("Object disposed", object_type="TextRange", details={"line": 42})
+        self.assertEqual(disp_exc.code, "DISPOSED_OBJECT")
+        self.assertEqual(disp_exc.object_type, "TextRange")
+        self.assertEqual(disp_exc.details, {"line": 42})
+
+        # Test ResourceNotFoundError with custom fields resource_type and identifier
+        res_exc = ResourceNotFoundError("Template", "default.ott", details={"path": "/tmp"})
+        self.assertEqual(res_exc.code, "RESOURCE_NOT_FOUND")
+        self.assertEqual(res_exc.resource_type, "Template")
+        self.assertEqual(res_exc.identifier, "default.ott")
+        self.assertEqual(res_exc.details, {"path": "/tmp"})
+        self.assertIn("Template not found: default.ott", str(res_exc))
+
 
 class TestSafeJsonLoads(unittest.TestCase):
 

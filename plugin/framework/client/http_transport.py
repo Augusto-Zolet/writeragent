@@ -144,4 +144,4 @@ class LlmHttpTransport:
             log.warning(retry_log_message)
             return "retry"
         log.error("Connection retry failed: %s" % err_msg)
-        raise NetworkError(err_msg, code="CONNECTION_ERROR", context={"url": path}) from err
+        raise NetworkError(err_msg, code="CONNECTION_ERROR", details={"url": path}) from err

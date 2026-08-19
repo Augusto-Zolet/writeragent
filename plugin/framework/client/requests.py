@@ -76,7 +76,7 @@ def sync_request(url, data=None, headers=None, timeout=10, parse_json=True, meth
 
         msg = _format_http_error_response(status, reason, err_body)
         log.error(f"HTTP Error: {msg}")
-        raise NetworkError(msg, code="HTTP_ERROR", context={"url": url, "status": status}) from e
+        raise NetworkError(msg, code="HTTP_ERROR", details={"url": url, "status": status}) from e
     except NetworkError:
         raise
     except Exception as e:
@@ -93,9 +93,9 @@ def sync_request(url, data=None, headers=None, timeout=10, parse_json=True, meth
                     err_body = ""
                 msg = _format_http_error_response(status, reason, err_body)
                 log.error(f"HTTP Error: {msg}")
-                raise NetworkError(msg, code="HTTP_ERROR", context={"url": url, "status": status}) from retry_http_e
+                raise NetworkError(msg, code="HTTP_ERROR", details={"url": url, "status": status}) from retry_http_e
             except Exception as retry_e:
                 log.error(f"Request failed: {format_error_message(retry_e)}")
-                raise NetworkError(format_error_message(retry_e), context={"url": url}) from retry_e
+                raise NetworkError(format_error_message(retry_e), details={"url": url}) from retry_e
         log.error(f"Request failed: {format_error_message(e)}")
-        raise NetworkError(format_error_message(e), context={"url": url}) from e
+        raise NetworkError(format_error_message(e), details={"url": url}) from e

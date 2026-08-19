@@ -37,7 +37,7 @@ class AuthError(ConfigError):
     def __init__(self, message: str, *, provider: str = "", code: Optional[str] = None) -> None:
         if code is None:
             code = "AUTH_ERROR"
-        super().__init__(message, code=code, context={"provider": provider})
+        super().__init__(message, code=code, details={"provider": provider})
         self.provider = provider
 
 

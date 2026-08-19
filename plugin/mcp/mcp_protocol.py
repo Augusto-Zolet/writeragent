@@ -268,8 +268,7 @@ def _document_mutation_gate(doc_key, *, enabled, timeout: float = 30.0):
 class BusyError(WriterAgentException):
     """The VCL main thread is already processing another tool call."""
 
-    def __init__(self, message, context=None):
-        super().__init__(message, code="SERVER_BUSY", context=context)
+    code: str = "SERVER_BUSY"
 
 
 # Session management

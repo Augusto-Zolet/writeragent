@@ -32,8 +32,7 @@ _ENHANCED_CUSTOM_SHAPE_ENGINE = "com.sun.star.drawing.EnhancedCustomShapeEngine"
 class DrawError(WriterAgentException):
     """Draw-specific errors."""
 
-    def __init__(self, message, code="DRAW_ERROR", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
+    code: str = "DRAW_ERROR"
 
 
 def _parse_color(color_str):

@@ -86,8 +86,16 @@ class WriterAgentException(Exception):
     newer code uses `details=` for the JSON error payload.
     """
 
-    def __init__(self, message, code="INTERNAL_ERROR", context=None, details=None):
-        # Accept both `context` and `details` (alias).
+    code: str = "INTERNAL_ERROR"
+
+    def __init__(
+        self,
+        message: Any,
+        code: str | None = None,
+        details: dict[str, Any] | None = None,
+        context: dict[str, Any] | None = None,
+    ):
+        # Accept both `details` and legacy `context` (alias).
         if details is None and context is not None:
             details = context
 
@@ -98,7 +106,8 @@ class WriterAgentException(Exception):
             self.message = "mock"
         else:
             self.message = _(_resolve_exception_message(message))
-        self.code = code
+        if code is not None:
+            self.code = code
         self.details = details or {}
         # Keep legacy attribute name too (some callers reference `.context`).
         self.context = self.details
@@ -107,121 +116,103 @@ class WriterAgentException(Exception):
 class ConfigError(WriterAgentException):
     """Configuration, Auth, or Settings issues."""
 
-    def __init__(self, message, code="CONFIG_ERROR", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
+    code: str = "CONFIG_ERROR"
 
 
 class ConfigValidationError(ConfigError):
     """Validation issues with configuration keys/values."""
 
-    def __init__(self, message, code="CONFIG_VALIDATION_ERROR", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
-
+    code: str = "CONFIG_VALIDATION_ERROR"
 
 
 class NetworkError(WriterAgentException):
     """HTTP/Network related failures."""
 
-    def __init__(self, message, code="NETWORK_ERROR", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
+    code: str = "NETWORK_ERROR"
 
 
 class ScriptingError(WriterAgentException):
     """Base exception for user scripting and external Python execution."""
 
-    def __init__(self, message, code="SCRIPTING_ERROR", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
+    code: str = "SCRIPTING_ERROR"
 
 
 class VenvError(ScriptingError):
     """Virtualenv configuration, resolution, or environment issues."""
 
-    def __init__(self, message, code="VENV_ERROR", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
+    code: str = "VENV_ERROR"
 
 
 class VenvNotFoundError(VenvError):
     """Configured Python virtual environment or interpreter executable not found."""
 
-    def __init__(self, message, code="VENV_NOT_FOUND", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
+    code: str = "VENV_NOT_FOUND"
 
 
 class VenvTimeoutError(ScriptingError):
     """Execution inside virtual environment exceeded configured timeout."""
 
-    def __init__(self, message, code="VENV_TIMEOUT", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
+    code: str = "VENV_TIMEOUT"
 
 
 class VenvExecutionError(ScriptingError):
     """Python code execution in venv raised an unhandled exception or returned non-zero."""
 
-    def __init__(self, message, code="VENV_EXEC_ERROR", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
+    code: str = "VENV_EXEC_ERROR"
 
 
 class WorkerIPCError(ScriptingError):
     """Host ↔ venv worker IPC frame encoding, decoding, or pipe communication failure."""
 
-    def __init__(self, message, code="WORKER_IPC_ERROR", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
+    code: str = "WORKER_IPC_ERROR"
 
 
 class CalcError(WriterAgentException):
     """Calc spreadsheet manipulation and calculation failures."""
 
-    def __init__(self, message, code="CALC_ERROR", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
+    code: str = "CALC_ERROR"
 
 
 class FormulaError(CalcError):
     """Calc formula parsing, rebuilding, or evaluation failures."""
 
-    def __init__(self, message, code="FORMULA_ERROR", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
+    code: str = "FORMULA_ERROR"
 
 
 class FormulaSyntaxError(FormulaError):
     """Formula contains invalid Python or Calc syntax."""
 
-    def __init__(self, message, code="FORMULA_SYNTAX_ERROR", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
+    code: str = "FORMULA_SYNTAX_ERROR"
 
 
 class SpillCollisionError(FormulaError):
     """Dynamic array formula cannot spill because destination cells are not empty."""
 
-    def __init__(self, message, code="SPILL_COLLISION", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
+    code: str = "SPILL_COLLISION"
 
 
 class ExcelConversionError(CalcError):
     """Failures during Excel ↔ DAG-style =PY conversion."""
 
-    def __init__(self, message, code="EXCEL_CONVERSION_ERROR", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
+    code: str = "EXCEL_CONVERSION_ERROR"
 
 
 class SandboxSecurityError(ScriptingError):
     """Script attempted an operation or import forbidden by the sandbox policy."""
 
-    def __init__(self, message, code="SANDBOX_SECURITY_ERROR", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
+    code: str = "SANDBOX_SECURITY_ERROR"
 
 
 class PayloadCodecError(ScriptingError):
     """Data encoding, decoding, or pickle serialization failure."""
 
-    def __init__(self, message, code="PAYLOAD_CODEC_ERROR", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
+    code: str = "PAYLOAD_CODEC_ERROR"
 
 
 class DataShapeError(PayloadCodecError):
     """Data dimensions, row/column bounds, or cell count limits exceeded."""
 
-    def __init__(self, message, code="DATA_SHAPE_ERROR", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
+    code: str = "DATA_SHAPE_ERROR"
 
 
 
@@ -354,24 +345,41 @@ def make_tool_error(message: str, code: str = "TOOL_EXECUTION_ERROR", **details:
 class UnoObjectError(WriterAgentException):
     """LibreOffice UNO interface failures (stale docs, missing properties)."""
 
-    def __init__(self, message, code="UNO_OBJECT_ERROR", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
+    code: str = "UNO_OBJECT_ERROR"
 
 
 class DocumentDisposedError(UnoObjectError):
     """Document or UNO object was disposed during operation."""
 
-    def __init__(self, message, object_type="Object", context=None, details=None):
-        super().__init__(message, code="DISPOSED_OBJECT", context=context, details=details)
+    code: str = "DISPOSED_OBJECT"
+
+    def __init__(
+        self,
+        message: Any,
+        object_type: str = "Object",
+        code: str | None = None,
+        details: dict[str, Any] | None = None,
+        context: dict[str, Any] | None = None,
+    ):
+        super().__init__(message, code=code or self.code, details=details, context=context)
         self.object_type = object_type
 
 
 class ResourceNotFoundError(WriterAgentException):
     """Configuration files, documents, or resources not found."""
 
-    def __init__(self, resource_type, identifier, context=None, details=None):
+    code: str = "RESOURCE_NOT_FOUND"
+
+    def __init__(
+        self,
+        resource_type: str,
+        identifier: str,
+        code: str | None = None,
+        details: dict[str, Any] | None = None,
+        context: dict[str, Any] | None = None,
+    ):
         message = _("{resource_type} not found: {identifier}").format(resource_type=resource_type, identifier=identifier)
-        super().__init__(message, code="RESOURCE_NOT_FOUND", context=context, details=details)
+        super().__init__(message, code=code or self.code, details=details, context=context)
         self.resource_type = resource_type
         self.identifier = identifier
 
@@ -379,44 +387,37 @@ class ResourceNotFoundError(WriterAgentException):
 class WorkerPoolError(WriterAgentException):
     """Worker pool specific errors."""
 
-    def __init__(self, message, code="WORKER_ERROR", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
-        self.task_context = context
+    code: str = "WORKER_ERROR"
 
 
 class ToolExecutionError(WriterAgentException):
     """Tool invocation and execution failures."""
 
-    def __init__(self, message, code="TOOL_EXECUTION_ERROR", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
+    code: str = "TOOL_EXECUTION_ERROR"
 
 
 class ToolPermissionError(WriterAgentException):
     """User rejected tool execution or permission denied."""
 
-    def __init__(self, message, code="PERMISSION_DENIED", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
+    code: str = "PERMISSION_DENIED"
 
 
 class ToolContextError(WriterAgentException):
     """Tool Context lifecycle or service availability errors."""
 
-    def __init__(self, message, code="CONTEXT_ERROR", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
+    code: str = "CONTEXT_ERROR"
 
 
 class WriterError(WriterAgentException):
     """Writer-specific errors."""
 
-    def __init__(self, message, code="WRITER_ERROR", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
+    code: str = "WRITER_ERROR"
 
 
 class AgentParsingError(WriterAgentException):
     """LLM output / JSON parsing failures."""
 
-    def __init__(self, message, code="PARSE_ERROR", context=None, details=None):
-        super().__init__(message, code=code, context=context, details=details)
+    code: str = "PARSE_ERROR"
 
 
 def check_disposed(model, context_name="Object"):
@@ -494,7 +495,7 @@ def safe_call(fn, context_name, *args, **kwargs):
 
         # We catch Exception here because pyuno bridge exceptions don't always inherit from Python's standard Exception cleanly in all builds,
         # but catching Exception is the standard way to grab them. We immediately wrap it.
-        raise UnoObjectError(f"{context_name} failed: {e}", context={"operation": context_name, "type": e_name}) from e
+        raise UnoObjectError(f"{context_name} failed: {e}", details={"operation": context_name, "type": e_name}) from e
 
 
 # Exception types and error helpers live here. safe_json_loads / safe_python_literal_eval

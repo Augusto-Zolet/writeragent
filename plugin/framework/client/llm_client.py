@@ -518,7 +518,7 @@ class LlmClient:
                     self._close_connection()
                     err_msg = _format_http_error_response(response.status, response.reason, err_body)
                     err_msg = append_zai_unknown_model_hint(err_msg, err_body, path, self._get_provider(), request_model)
-                    raise NetworkError(err_msg, code="HTTP_ERROR", context={"url": path, "status": response.status})
+                    raise NetworkError(err_msg, code="HTTP_ERROR", details={"url": path, "status": response.status})
 
                 try:
                     # Use a flag to stop logical processing but keep reading to exhaust the stream
@@ -639,7 +639,7 @@ class LlmClient:
                 self._close_connection()  # Reset on any other error too
                 err_msg = format_error_message(e)
                 log.error("ERROR in _run_streaming_loop: %s -> %s" % (type(e).__name__, err_msg))
-                raise NetworkError(err_msg, context={"url": path}) from e
+                raise NetworkError(err_msg, details={"url": path}) from e
 
             return last_finish_reason
 
@@ -696,7 +696,7 @@ class LlmClient:
             except Exception as e:
                 err_msg = format_error_message(e)
                 log.error("stream_request_with_tools ERROR: %s -> %s" % (type(e).__name__, err_msg))
-                raise NetworkError(err_msg, context={"url": path}) from e
+                raise NetworkError(err_msg, details={"url": path}) from e
 
             raw_content = message_snapshot.get("content")
             content = _normalize_message_content(raw_content)
@@ -738,7 +738,7 @@ class LlmClient:
                         self._close_connection()
                         err_msg = _format_http_error_response(response.status, response.reason, err_body)
                         err_msg = append_zai_unknown_model_hint(err_msg, err_body, path, self._get_provider(), request_model)
-                        raise NetworkError(err_msg, code="HTTP_ERROR", context={"url": path, "status": response.status})
+                        raise NetworkError(err_msg, code="HTTP_ERROR", details={"url": path, "status": response.status})
                     from plugin.framework.errors import safe_json_loads
 
                     result = safe_json_loads(response.read().decode("utf-8"))
@@ -757,7 +757,7 @@ class LlmClient:
                 except Exception as e:
                     err_msg = format_error_message(e)
                     log.error("request_with_tools ERROR: %s -> %s" % (type(e).__name__, err_msg))
-                    raise NetworkError(err_msg, context={"url": path}) from e
+                    raise NetworkError(err_msg, details={"url": path}) from e
 
             log.debug("=== Sync response: %s" % json.dumps(result, indent=2))
 
