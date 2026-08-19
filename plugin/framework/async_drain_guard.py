@@ -32,8 +32,13 @@ class NestedDrainOwnerError(RuntimeError):
 
 
 @contextmanager
-def drain_owner_sentry(owner_name: str) -> Generator[None, None, None]:
-    """Sentry context manager ensuring single-ownership of main-thread UI event pumping."""
+def drain_owner_scope(owner_name: str) -> Generator[None, None, None]:
+    """Sentry context manager ensuring single-ownership of main-thread UI event pumping.
+
+    Nested owners raise :class:`NestedDrainOwnerError` — a second Send/drain must not
+    start while one is already pumping. The owner may call :func:`pump_ui_idle`; other
+    code must use :func:`process_events_to_idle`, which no-ops VCL while owned.
+    """
     global _active_owner_name, _drain_depth
     with _drain_lock:
         if _active_owner_name is not None and _active_owner_name != owner_name:
@@ -55,10 +60,18 @@ def drain_owner_sentry(owner_name: str) -> Generator[None, None, None]:
                 _active_owner_name = previous_owner
 
 
-def get_active_drain_owner() -> str | None:
+# Sentry alias for backward compatibility
+drain_owner_sentry = drain_owner_scope
+
+
+def get_drain_owner() -> str | None:
     """Return the active drain owner name, or None if idle."""
     with _drain_lock:
         return _active_owner_name
+
+
+# Alias for backward compatibility
+get_active_drain_owner = get_drain_owner
 
 
 def get_drain_depth() -> int:
@@ -73,21 +86,34 @@ def is_vcl_pump_allowed() -> bool:
         return _drain_depth <= 1
 
 
-def note_suppressed_vcl_pump() -> None:
-    """Increment suppressed VCL pump diagnostic counter."""
+def note_suppressed_vcl_pump(owner: str | None = None) -> None:
+    """Increment suppressed VCL pump diagnostic counter and log debug note."""
     global _suppressed_vcl_count
     with _drain_lock:
         _suppressed_vcl_count += 1
+    if owner is not None:
+        log.debug("process_events_to_idle suppressed (drain owner=%s)", owner)
 
 
-def get_suppressed_vcl_count() -> int:
+def get_suppressed_vcl_pump_count() -> int:
     """Diagnostic helper: return total suppressed secondary VCL pumps."""
     with _drain_lock:
         return _suppressed_vcl_count
 
 
+# Alias for backward compatibility
+get_suppressed_vcl_count = get_suppressed_vcl_pump_count
+
+
+def reset_suppressed_vcl_pump_count() -> None:
+    """Test hook: reset the suppressed VCL pump counter."""
+    global _suppressed_vcl_count
+    with _drain_lock:
+        _suppressed_vcl_count = 0
+
+
 def reset_sentry_state() -> None:
-    """Test hook: reset sentry state completely."""
+    """Test hook: reset sentry state and counters completely."""
     global _active_owner_name, _drain_depth, _suppressed_vcl_count
     with _drain_lock:
         _active_owner_name = None

@@ -45,62 +45,17 @@ _GRAMMAR_INFLIGHT_CV = threading.Condition(_GRAMMAR_INFLIGHT_LOCK)
 _GRAMMAR_INFLIGHT_COUNT = 0
 _current_send_cancellation: ContextVar["SendCancellation | None"] = ContextVar("current_send_cancellation", default=None)
 
-# Drain ownership: one active VCL pump owner per thread (chat/MCP drain loop).
-# Secondary process_events_to_idle callers no-op while an owner is active; pump_ui_idle
-# (the owner path) keeps pumping so Send stays responsive and Stop works.
-_drain_tls = threading.local()
-_suppressed_vcl_pumps = 0
-_suppressed_vcl_lock = threading.Lock()
+# Drain ownership: re-export from async_drain_guard (single-owner VCL pump sentry).
+from plugin.framework.async_drain_guard import (
+    NestedDrainOwnerError as NestedDrainOwnerError,
+    drain_owner_scope as drain_owner_scope,
+    get_drain_owner as get_drain_owner,
+    get_suppressed_vcl_pump_count as get_suppressed_vcl_pump_count,
+    note_suppressed_vcl_pump as note_suppressed_vcl_pump,
+    reset_suppressed_vcl_pump_count as reset_suppressed_vcl_pump_count,
+)
 
-
-class NestedDrainOwnerError(RuntimeError):
-    """Raised when a second drain_owner_scope nests inside an active owner."""
-
-
-def get_drain_owner() -> str | None:
-    """Return the active drain owner name on this thread, or None."""
-    return getattr(_drain_tls, "owner", None)
-
-
-def get_suppressed_vcl_pump_count() -> int:
-    """Test/diagnostics: how many secondary VCL pumps were skipped under an owner."""
-    with _suppressed_vcl_lock:
-        return _suppressed_vcl_pumps
-
-
-def reset_suppressed_vcl_pump_count() -> None:
-    """Test hook: clear the suppressed-pump counter."""
-    global _suppressed_vcl_pumps
-    with _suppressed_vcl_lock:
-        _suppressed_vcl_pumps = 0
-
-
-def _note_suppressed_vcl_pump(owner: str) -> None:  # pyright: ignore[reportUnusedFunction]  # called from uno_context drain path
-    global _suppressed_vcl_pumps
-    with _suppressed_vcl_lock:
-        _suppressed_vcl_pumps += 1
-    log.debug("process_events_to_idle suppressed (drain owner=%s)", owner)
-
-
-@contextmanager
-def drain_owner_scope(name: str) -> "Generator[None, None, None]":
-    """Mark this stack as the sole VCL pump owner (e.g. chat ``run_stream_drain_loop``).
-
-    Nested owners raise :class:`NestedDrainOwnerError` — a second Send/drain must not
-    start while one is already pumping. The owner may call :func:`pump_ui_idle`; other
-    code must use :func:`process_events_to_idle`, which no-ops VCL while owned.
-    """
-    from plugin.framework.async_drain_guard import drain_owner_sentry, NestedDrainOwnerError as SentryNestedError
-
-    _drain_tls.owner = name
-    try:
-        with drain_owner_sentry(name):
-            yield
-    except SentryNestedError as e:
-        raise NestedDrainOwnerError(str(e)) from e
-    finally:
-        from plugin.framework.async_drain_guard import get_active_drain_owner
-        _drain_tls.owner = get_active_drain_owner()
+_note_suppressed_vcl_pump = note_suppressed_vcl_pump
 
 
 
@@ -127,48 +82,41 @@ class SendCancelled(Exception):
 class SendCancellation:
     """Per-send cancellation: flag, registered HTTP clients, and optional hooks."""
 
-    __slots__ = ("_cancelled", "_clients_lock", "_clients", "_on_cancel_hooks")
+    __slots__ = ("_cancelled", "_lock", "_hooks")
 
     def __init__(self) -> None:
         self._cancelled = threading.Event()
-        self._clients_lock = threading.Lock()
-        self._clients: list[Any] = []
-        self._on_cancel_hooks: list[Callable[[], None]] = []
+        self._lock = threading.Lock()
+        self._hooks: list[Callable[[], None]] = []
 
     def is_cancelled(self) -> bool:
         return self._cancelled.is_set()
 
     def register_client(self, client: Any) -> None:
-        with self._clients_lock:
-            self._clients.append(client)
+        # Resolve .stop() at registration time so cancel() only needs one list of
+        # plain callables — no duck-type dispatch needed there.
+        stop = getattr(client, "stop", None)
+        if callable(stop):
+            with self._lock:
+                self._hooks.append(cast("Callable[[], None]", stop))
 
     def register_on_cancel(self, hook: Callable[[], None]) -> None:
-        # Guard with the same lock as _clients so concurrent register_on_cancel
-        # and cancel() calls cannot race on the hooks list.
-        with self._clients_lock:
-            self._on_cancel_hooks.append(hook)
+        with self._lock:
+            self._hooks.append(hook)
 
     def cancel(self) -> None:
         if self._cancelled.is_set():
             return
         self._cancelled.set()
-        # Snapshot both lists under the lock so concurrent register_* calls
-        # during cancellation don't produce a torn iteration.
-        with self._clients_lock:
-            clients = list(self._clients)
-            hooks = list(self._on_cancel_hooks)
-        for client in clients:
-            stop = getattr(client, "stop", None)
-            if callable(stop):
-                try:
-                    stop()
-                except Exception:
-                    log.exception("SendCancellation: error stopping registered LlmClient")
+        # Snapshot under the lock so concurrent register_* calls during
+        # cancellation don't produce a torn iteration.
+        with self._lock:
+            hooks = list(self._hooks)
         for hook in hooks:
             try:
                 hook()
             except Exception:
-                log.exception("SendCancellation: error in on_cancel hook")
+                log.exception("SendCancellation: error in cancel hook")
         default_executor.cancel_pending_work()
 
 
