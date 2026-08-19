@@ -274,6 +274,8 @@ wsgi_app = create_wsgi_app(ComputeSettings())
 class DualStackThreadPoolHTTPServer(HTTPServer):
     """HTTPServer that listens on both IPv4 and IPv6 loopback (or a single host) using a ThreadPoolExecutor."""
 
+    request_queue_size = 128
+
     def __init__(
         self,
         server_address: tuple[str, int],

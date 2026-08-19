@@ -78,13 +78,23 @@ def is_module_imported(code_str: str, module_name: str) -> bool:
     return False
 
 
+_OPTIONAL_MODULE_LOCK = threading.Lock()
+
+
 def optional_module(name: str) -> Any | None:
-    if name in sys.modules:
-        return sys.modules[name]
-    try:
-        return importlib.import_module(name)
-    except Exception:
-        return None
+    with _OPTIONAL_MODULE_LOCK:
+        if name in sys.modules:
+            mod = sys.modules[name]
+            # Ensure module is fully initialized
+            spec = getattr(mod, "__spec__", None)
+            if spec is not None and getattr(spec, "_initializing", False):
+                pass
+            else:
+                return mod
+        try:
+            return importlib.import_module(name)
+        except Exception:
+            return None
 
 
 def apply_auto_imports(code: str) -> tuple[str, int]:
@@ -647,8 +657,11 @@ def run_sandboxed_code(
 
     # Force non-interactive backend so plt.show() doesn't block in the subprocess.
     mpl = optional_module("matplotlib")
-    if mpl is not None:
-        mpl.use("Agg")
+    if mpl is not None and hasattr(mpl, "use"):
+        try:
+            mpl.use("Agg")
+        except Exception:
+            pass
 
     init_sid = init_session_id if isinstance(init_session_id, str) and init_session_id.strip() else None
     if init_sid and (init_script or "").strip():
