@@ -5,14 +5,14 @@
 
 from unittest.mock import MagicMock
 
-from plugin.framework.client.response_normalizers import (
-    strip_leaked_chat_template_control_tokens,
-    extract_and_strip_images_from_message,
-    normalize_multimodal_messages,
-    OpenAIShim,
-)
 from plugin.framework.client.anthropic_shim import AnthropicShim
 from plugin.framework.client.google_shim import GoogleShim
+from plugin.framework.client.openai_shim import OpenAIShim
+from plugin.framework.client.response_normalizers import (
+    extract_and_strip_images_from_message,
+    normalize_multimodal_messages,
+    strip_leaked_chat_template_control_tokens,
+)
 
 
 def test_strip_leaked_chat_template_control_tokens():

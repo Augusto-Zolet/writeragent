@@ -1,28 +1,17 @@
 # WriterAgent - AI Writing Assistant for LibreOffice
 # Copyright (c) 2026 KeithCu
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""
-Google Gemini provider shim.
-"""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Google Gemini provider shim."""
+
+from __future__ import annotations
 
 import json
 import logging
 from typing import Any
 
 from plugin.framework.url_utils import get_url_path_and_query
-from .response_normalizers import BaseProviderShim
+from .base_provider_shim import BaseProviderShim
 
 log = logging.getLogger(__name__)
 
@@ -30,30 +19,31 @@ log = logging.getLogger(__name__)
 class GoogleShim(BaseProviderShim):
     """Shim for Google Gemini native API."""
 
-    def parse_sync_response(self, response_data):
-        content, finish_reason, _unused, delta = self.parse_response_chunk(response_data)
-        tool_calls = delta.get("tool_calls")
-        usage = response_data.get("usageMetadata") or response_data.get("usage") or {}
-        images = delta.get("images") or []
-        return content, finish_reason, tool_calls, usage, images, delta
-
-
-    def build_chat_request(self, messages, max_tokens, temperature, tools, stream, model_name, response_format, chat_extra=None):
+    def build_chat_request(
+        self,
+        messages: list[dict[str, Any]],
+        max_tokens: int,
+        temperature: float,
+        tools: list[dict[str, Any]] | None,
+        stream: bool,
+        model_name: str | None,
+        response_format: dict[str, Any] | None,
+        chat_extra: dict[str, Any] | None = None,
+    ) -> tuple[str, str, bytes, dict[str, str]]:
         endpoint = self.client._endpoint()
         auth_info = self.client._resolve_auth()
         key = auth_info.get("api_key", "")
-        m_id = model_name
-        if not m_id:
-            m_id = "gemini-1.5-flash"
+        m_id = model_name or "gemini-1.5-flash"
         if not m_id.startswith("models/"):
             m_id = f"models/{m_id}"
         action = ":streamGenerateContent" if stream else ":generateContent"
         url = f"{endpoint}/v1beta/{m_id}{action}?key={key}"
 
         contents: list[dict[str, Any]] = []
-        system_instruction = None
+        system_instruction: dict[str, Any] | None = None
+
         for m in messages:
-            role = m["role"]
+            role = m.get("role", "user")
             parts: list[dict[str, Any]] = []
 
             content = m.get("content")
@@ -73,7 +63,7 @@ class GoogleShim(BaseProviderShim):
                                     parts.append({
                                         "inlineData": {
                                             "mimeType": mime_type,
-                                            "data": "".join(b64_data.split())
+                                            "data": "".join(b64_data.split()),
                                         }
                                     })
                                 except Exception as e:
@@ -99,37 +89,51 @@ class GoogleShim(BaseProviderShim):
                     resp_obj = {"result": content}
                 if not isinstance(resp_obj, dict):
                     resp_obj = {"result": resp_obj}
-                contents.append({"role": "function", "parts": [{"functionResponse": {"name": m.get("name") or m.get("tool_call_id"), "response": resp_obj}}]})
+                contents.append({
+                    "role": "function",
+                    "parts": [{"functionResponse": {"name": m.get("name") or m.get("tool_call_id"), "response": resp_obj}}],
+                })
             else:
                 if role == "assistant":
                     role = "model"
                 contents.append({"role": role, "parts": parts})
 
-        google_data: dict[str, Any] = {"contents": contents, "generationConfig": {"maxOutputTokens": max_tokens, "temperature": temperature}}
+        google_data: dict[str, Any] = {
+            "contents": contents,
+            "generationConfig": {"maxOutputTokens": max_tokens, "temperature": temperature},
+        }
         if system_instruction:
             google_data["system_instruction"] = system_instruction
         if tools:
-            decls = []
-            for t in tools:
-                fn = t.get("function", {})
-                decls.append({"name": fn.get("name"), "description": fn.get("description", ""), "parameters": fn.get("parameters", {"type": "object", "properties": {}})})
+            decls = [
+                {
+                    "name": t.get("function", {}).get("name"),
+                    "description": t.get("function", {}).get("description", ""),
+                    "parameters": t.get("function", {}).get("parameters", {"type": "object", "properties": {}}),
+                }
+                for t in tools
+            ]
             google_data["tools"] = [{"function_declarations": decls}]
 
         path = get_url_path_and_query(url)
         return "POST", path, json.dumps(google_data).encode("utf-8"), self.client._headers()
 
-    def parse_response_chunk(self, chunk):
+    def parse_response_chunk(self, chunk: dict[str, Any]) -> tuple[str, str | None, str | None, dict[str, Any]]:
         candidates = chunk.get("candidates", [])
         choice = candidates[0] if candidates else {}
         content = ""
-        tool_calls = []
+        tool_calls: list[dict[str, Any]] = []
         parts = choice.get("content", {}).get("parts", [])
         for p in parts:
             if "text" in p:
                 content += p.get("text") or ""
             if "functionCall" in p:
                 fc = p["functionCall"]
-                tool_calls.append({"id": fc.get("id", "call_" + str(len(tool_calls))), "type": "function", "function": {"name": fc.get("name"), "arguments": json.dumps(fc.get("args", {}))}})
+                tool_calls.append({
+                    "id": fc.get("id", "call_" + str(len(tool_calls))),
+                    "type": "function",
+                    "function": {"name": fc.get("name"), "arguments": json.dumps(fc.get("args", {}))},
+                })
         finish_reason = choice.get("finishReason")
         if finish_reason == "STOP":
             finish_reason = "stop"
@@ -140,13 +144,21 @@ class GoogleShim(BaseProviderShim):
             delta["tool_calls"] = tool_calls
         return content, finish_reason, None, delta
 
-    def build_image_request(self, prompt, model, width, height, steps=None, source_image=None, image_url=None):
+    def build_image_request(
+        self,
+        prompt: str,
+        model: str | None,
+        width: int,
+        height: int,
+        steps: int | None = None,
+        source_image: str | None = None,
+        image_url: str | None = None,
+    ) -> tuple[str, str, bytes, dict[str, str]]:
         endpoint = self.client._endpoint()
         key = self.client._resolve_auth().get("api_key", "")
         model_name = model or "imagen-3.0-generate-002"
 
         if model_name.startswith("imagen"):
-            # Imagen models use :predict
             url = f"{endpoint}/v1beta/models/{model_name}:predict?key={key}"
             aspect = "1:1"
             if width > height * 1.5:
@@ -154,30 +166,27 @@ class GoogleShim(BaseProviderShim):
             elif height > width * 1.5:
                 aspect = "9:16"
 
-            data = {"instances": [{"prompt": prompt}], "parameters": {"sampleCount": 1, "aspectRatio": aspect}}
+            data: dict[str, Any] = {"instances": [{"prompt": prompt}], "parameters": {"sampleCount": 1, "aspectRatio": aspect}}
         else:
-            # Gemini multimodal use :generateContent
             url = f"{endpoint}/v1beta/models/{model_name}:generateContent?key={key}"
             data = {"contents": [{"role": "user", "parts": [{"text": prompt}]}], "generationConfig": {"responseModalities": ["IMAGE", "TEXT"]}}
 
         path = get_url_path_and_query(url)
         return "POST", path, json.dumps(data).encode("utf-8"), self.client._headers()
 
-    def parse_image_responses(self, response_data):
-        out = []
+    def parse_image_responses(self, response_data: dict[str, Any]) -> list[str]:
+        out: list[str] = []
         if "error" in response_data:
             msg = response_data["error"].get("message", "Unknown Google API error")
-            log.error(f"Google image generation error: {msg}")
+            log.error("Google image generation error: %s", msg)
             return []
 
         if "predictions" in response_data:
-            # Imagen response
             preds = response_data.get("predictions", [])
             for pr in preds:
                 if b64 := pr.get("bytesBase64Encoded"):
                     out.append(b64)
 
-        # Gemini multimodal response
         candidates = response_data.get("candidates", [])
         if candidates:
             parts = candidates[0].get("content", {}).get("parts", [])

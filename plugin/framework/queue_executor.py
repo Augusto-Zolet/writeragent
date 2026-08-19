@@ -246,7 +246,7 @@ class QueueExecutor:
 
     def __init__(self, ctx: Any | None = None) -> None:
         self._ctx = ctx
-        self._work_queue = queue.Queue()
+        self._work_queue: queue.Queue[Any] = queue.Queue()
         self._async_callback_service = None
         self._callback_instance = None
         self._init_lock = threading.Lock()

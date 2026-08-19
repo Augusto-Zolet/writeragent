@@ -262,3 +262,70 @@ def test_reasoning_replay_from_assistant_response():
         "tool_calls": [{"id": "1"}],
     }
     assert sn.reasoning_replay_from_assistant_response(response) == {"reasoning": "think"}
+
+
+def test_think_tag_stream_splitter_simple():
+    splitter = sn.ThinkTagStreamSplitter()
+    out = splitter.feed("Hello <think>analyzing formula</think> world")
+    assert out == [
+        (False, "Hello "),
+        (True, "analyzing formula"),
+        (False, " world"),
+    ]
+    assert splitter.flush() == []
+
+
+def test_think_tag_stream_splitter_chunk_boundaries():
+    splitter = sn.ThinkTagStreamSplitter()
+    # Tag split across multiple chunk feeds
+    out1 = splitter.feed("Result: <th")
+    assert out1 == [(False, "Result: ")]
+    out2 = splitter.feed("ink>internal reasoning")
+    assert out2 == [(True, "internal reasoning")]
+    out3 = splitter.feed("</th")
+    assert out3 == []
+    out4 = splitter.feed("ink>42")
+    assert out4 == [(False, "42")]
+    assert splitter.flush() == []
+
+
+def test_think_tag_stream_splitter_no_tags():
+    splitter = sn.ThinkTagStreamSplitter()
+    assert splitter.feed("Normal plain text stream.") == [(False, "Normal plain text stream.")]
+    assert splitter.flush() == []
+
+
+def test_think_tag_stream_splitter_unclosed_tag():
+    splitter = sn.ThinkTagStreamSplitter()
+    out1 = splitter.feed("<think>started thinking but never finished")
+    assert out1 == [(True, "started thinking but never finished")]
+    out2 = splitter.flush()
+    assert out2 == []
+
+
+def test_think_tag_stream_splitter_trailing_buffer_flush():
+    splitter = sn.ThinkTagStreamSplitter()
+    out1 = splitter.feed("Value is <")
+    assert out1 == [(False, "Value is ")]
+    out2 = splitter.flush()
+    assert out2 == [(False, "<")]
+
+
+def test_strip_think_tags():
+    clean, thinking = sn.strip_think_tags("<think>step 1\nstep 2</think>The final answer is 42.")
+    assert clean == "The final answer is 42."
+    assert thinking == "step 1\nstep 2"
+
+
+def test_strip_think_tags_no_tags():
+    clean, thinking = sn.strip_think_tags("Direct output without tags.")
+    assert clean == "Direct output without tags."
+    assert thinking is None
+
+
+def test_strip_think_tags_unclosed():
+    clean, thinking = sn.strip_think_tags("<think>only thinking here")
+    assert clean == ""
+    assert thinking == "only thinking here"
+
+

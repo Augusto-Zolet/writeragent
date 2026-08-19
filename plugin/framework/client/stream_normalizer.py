@@ -3,8 +3,11 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+from __future__ import annotations
+
 import copy
 import logging
+import re
 from typing import Any, Mapping, cast
 
 from plugin.framework.deal_shim import deal
@@ -344,3 +347,104 @@ def _normalize_delta(delta: dict[str, Any]) -> None:  # pyright: ignore[reportUn
         # LiteLLM: streaming_handler.py ~L820 "## AZURE - check if arguments is not None"
         if type(fn) is dict and fn.get("arguments") is None:
             fn["arguments"] = ""
+
+
+class ThinkTagStreamSplitter:
+    """Stateful stream splitter for inline <think>...</think> tags in content stream."""
+
+    def __init__(self) -> None:
+        self.in_thinking = False
+        self._buf = ""
+
+    def feed(self, chunk: str) -> list[tuple[bool, str]]:
+        """Process incoming text chunk and return list of (is_thinking, text_segment)."""
+        if not chunk:
+            return []
+
+        text = self._buf + chunk
+        self._buf = ""
+        results: list[tuple[bool, str]] = []
+
+        while text:
+            if not self.in_thinking:
+                idx = text.find("<think>")
+                if idx != -1:
+                    if idx > 0:
+                        results.append((False, text[:idx]))
+                    self.in_thinking = True
+                    text = text[idx + 7:]
+                    continue
+                # Check for possible partial prefix of '<think>' at the end of text
+                partial_match = False
+                for p_len in range(min(6, len(text)), 0, -1):
+                    suffix = text[-p_len:]
+                    if "<think>".startswith(suffix):
+                        if len(text) > p_len:
+                            results.append((False, text[:-p_len]))
+                        self._buf = suffix
+                        partial_match = True
+                        break
+                if partial_match:
+                    break
+                results.append((False, text))
+                break
+            else:
+                idx = text.find("</think>")
+                if idx != -1:
+                    if idx > 0:
+                        results.append((True, text[:idx]))
+                    self.in_thinking = False
+                    text = text[idx + 8:]
+                    continue
+                # Check for possible partial prefix of '</think>' at the end of text
+                partial_match = False
+                for p_len in range(min(7, len(text)), 0, -1):
+                    suffix = text[-p_len:]
+                    if "</think>".startswith(suffix):
+                        if len(text) > p_len:
+                            results.append((True, text[:-p_len]))
+                        self._buf = suffix
+                        partial_match = True
+                        break
+                if partial_match:
+                    break
+                results.append((True, text))
+                break
+
+        return [(is_t, s) for is_t, s in results if s]
+
+    def flush(self) -> list[tuple[bool, str]]:
+        """Flush any remaining buffered text."""
+        if not self._buf:
+            return []
+        res = [(self.in_thinking, self._buf)]
+        self._buf = ""
+        return res
+
+
+_THINK_TAG_BLOCK_RE = re.compile(r"<think>(.*?)</think>", re.DOTALL)
+_THINK_UNCLOSED_RE = re.compile(r"<think>(.*)", re.DOTALL)
+
+
+def strip_think_tags(text: str | None) -> tuple[str, str | None]:
+    """Strip <think>...</think> tags from text, returning (clean_content, extracted_thinking)."""
+    if not text:
+        return "", None
+    thoughts: list[str] = []
+
+    def repl(m: re.Match[str]) -> str:
+        thoughts.append(m.group(1))
+        return ""
+
+    clean = _THINK_TAG_BLOCK_RE.sub(repl, text)
+    if "<think>" in clean:
+        m = _THINK_UNCLOSED_RE.search(clean)
+        if m:
+            thoughts.append(m.group(1))
+            clean = clean[: m.start()]
+
+    clean = clean.strip()
+    thinking = "\n\n".join(t.strip() for t in thoughts if t.strip()) if thoughts else None
+    return clean, thinking
+
+

@@ -1,45 +1,37 @@
 # WriterAgent - AI Writing Assistant for LibreOffice
 # Copyright (c) 2026 KeithCu
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""
-Anthropic provider shim.
-"""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Anthropic native API provider shim."""
+
+from __future__ import annotations
 
 import json
 from typing import Any
 
 from plugin.framework.url_utils import get_url_path_and_query
-from .response_normalizers import BaseProviderShim
+from .base_provider_shim import BaseProviderShim
 
 
 class AnthropicShim(BaseProviderShim):
-    """Shim for Anthropic native API."""
+    """Shim for Anthropic native Messages API."""
 
-    def parse_sync_response(self, response_data):
-        content, finish_reason, _unused, delta = self.parse_response_chunk(response_data)
-        tool_calls = delta.get("tool_calls")
-        usage = response_data.get("usage") or {}
-        images = delta.get("images") or []
-        return content, finish_reason, tool_calls, usage, images, delta
-
-
-    def build_chat_request(self, messages, max_tokens, temperature, tools, stream, model_name, response_format, chat_extra=None):
+    def build_chat_request(
+        self,
+        messages: list[dict[str, Any]],
+        max_tokens: int,
+        temperature: float,
+        tools: list[dict[str, Any]] | None,
+        stream: bool,
+        model_name: str | None,
+        response_format: dict[str, Any] | None,
+        chat_extra: dict[str, Any] | None = None,
+    ) -> tuple[str, str, bytes, dict[str, str]]:
         endpoint = self.client._endpoint()
         url = f"{endpoint}/v1/messages"
         system_msg = ""
-        converted = []
+        converted: list[dict[str, Any]] = []
+
         for m in messages:
             role = m.get("role")
             content = m.get("content")
@@ -51,12 +43,12 @@ class AnthropicShim(BaseProviderShim):
                     system_msg = str(content or "")
                 continue
 
-            anth_content = []
+            anth_content: list[dict[str, Any]] = []
 
             # 1. Handle tool response messages (role == "tool")
             if role == "tool":
                 tool_use_id = m.get("tool_call_id") or m.get("name")
-                result_blocks = []
+                result_blocks: list[dict[str, Any]] = []
                 if isinstance(content, list):
                     for part in content:
                         if part.get("type") == "text":
@@ -71,8 +63,8 @@ class AnthropicShim(BaseProviderShim):
                                     "source": {
                                         "type": "base64",
                                         "media_type": mime_type,
-                                        "data": b64_data
-                                    }
+                                        "data": b64_data,
+                                    },
                                 })
                 else:
                     result_blocks.append({"type": "text", "text": str(content or "")})
@@ -82,8 +74,8 @@ class AnthropicShim(BaseProviderShim):
                     "content": [{
                         "type": "tool_result",
                         "tool_use_id": tool_use_id,
-                        "content": result_blocks
-                    }]
+                        "content": result_blocks,
+                    }],
                 })
                 continue
 
@@ -108,7 +100,7 @@ class AnthropicShim(BaseProviderShim):
                         "type": "tool_use",
                         "id": tc.get("id"),
                         "name": fn.get("name"),
-                        "input": args_obj
+                        "input": args_obj,
                     })
                 converted.append({"role": "assistant", "content": anth_content})
                 continue
@@ -128,24 +120,32 @@ class AnthropicShim(BaseProviderShim):
                                 "source": {
                                     "type": "base64",
                                     "media_type": mime_type,
-                                    "data": b64_data
-                                }
+                                    "data": b64_data,
+                                },
                             })
+                converted.append({"role": role or "user", "content": anth_content})
             else:
-                anth_content = str(content or "")
+                converted.append({"role": role or "user", "content": str(content or "")})
 
-            converted.append({"role": role, "content": anth_content})
-
-        data: dict[str, Any] = {"model": model_name or "claude-3-5-sonnet-20241022", "messages": converted, "max_tokens": max_tokens, "temperature": temperature, "stream": stream}
+        data: dict[str, Any] = {
+            "model": model_name or "claude-3-5-sonnet-20241022",
+            "messages": converted,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "stream": stream,
+        }
         if system_msg:
             data["system"] = system_msg
         if tools:
-            data["tools"] = [{"name": t["name"], "description": t["description"], "input_schema": t["parameters"]} for t in tools]
+            data["tools"] = [
+                {"name": t["name"], "description": t["description"], "input_schema": t["parameters"]}
+                for t in tools
+            ]
 
         path = get_url_path_and_query(url)
         return "POST", path, json.dumps(data).encode("utf-8"), self.client._headers()
 
-    def parse_response_chunk(self, chunk):
+    def parse_response_chunk(self, chunk: dict[str, Any]) -> tuple[str, str | None, str | None, dict[str, Any]]:
         msg_type = chunk.get("type", "")
         content = ""
         finish_reason = None
@@ -165,7 +165,11 @@ class AnthropicShim(BaseProviderShim):
             tool_calls = []
             for p in content_parts:
                 if p.get("type") == "tool_use":
-                    tool_calls.append({"id": p["id"], "type": "function", "function": {"name": p["name"], "arguments": json.dumps(p["input"])}})
+                    tool_calls.append({
+                        "id": p["id"],
+                        "type": "function",
+                        "function": {"name": p["name"], "arguments": json.dumps(p["input"])},
+                    })
             delta = {"role": "assistant", "content": content}
             if tool_calls:
                 delta["tool_calls"] = tool_calls
@@ -174,11 +178,3 @@ class AnthropicShim(BaseProviderShim):
         elif msg_type == "message_stop":
             finish_reason = "stop"
         return content, finish_reason, thinking, delta
-
-    def build_image_request(self, prompt, model, width, height, steps=None, source_image=None, image_url=None):
-        # Anthropic doesn't have a native image generation API (yet)
-        # Fallback to OpenAI-compatible if they ever add one or for local shims
-        return super().build_image_request(prompt, model, width, height, steps=steps, source_image=source_image, image_url=image_url)
-
-    def parse_image_responses(self, response_data):
-        return super().parse_image_responses(response_data)

@@ -23,13 +23,18 @@ Anthropic/Gemini shims, OpenRouter merge (``merge_openrouter_chat_extra``), and
 logging redaction. Takes a config dict from ``get_api_config`` and UNO ``ctx``.
 """
 
-import logging
+from __future__ import annotations
+
 import collections
 import copy
-import json
-import urllib.parse
 import datetime
-from typing import Any, cast
+import json
+import logging
+import urllib.parse
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from .base_provider_shim import BaseProviderShim
 
 # LiteLLM: streaming_handler.py ~L198 safety_checker(), issue #5158
 REPEATED_STREAMING_CHUNK_LIMIT = 20
@@ -134,11 +139,10 @@ def _log_chat_request_body_diag(client, path, body, headers, tools):
     )
 
 
-from .response_normalizers import (
-    BaseProviderShim,
-    OpenAIShim,
-    OllamaShim,
-    OpenRouterShim,
+from .openai_shim import get_provider_shim_class
+from .stream_normalizer import (
+    ThinkTagStreamSplitter,
+    strip_think_tags,
 )
 
 
@@ -166,21 +170,8 @@ class LlmClient:
         """Get the provider shim for this client."""
         provider = self._get_provider()
         if provider not in self._shims:
-            if provider == "anthropic":
-                from .anthropic_shim import AnthropicShim
-                self._shims[provider] = AnthropicShim(self)
-            elif provider == "google":
-                from .google_shim import GoogleShim
-                self._shims[provider] = GoogleShim(self)
-            elif provider == "xai":
-                from .grok_shim import GrokShim
-                self._shims[provider] = GrokShim(self)
-            elif provider == "ollama":
-                self._shims[provider] = OllamaShim(self)
-            elif provider == "openrouter":
-                self._shims[provider] = OpenRouterShim(self)
-            else:
-                self._shims[provider] = OpenAIShim(self)
+            shim_cls = get_provider_shim_class(provider)
+            self._shims[provider] = shim_cls(self)
         return self._shims[provider]
 
     @property
@@ -525,6 +516,7 @@ class LlmClient:
                     content_finished = False
                     # LiteLLM: streaming_handler.py ~L198 safety_checker(), issue #5158
                     last_contents = collections.deque(maxlen=REPEATED_STREAMING_CHUNK_LIMIT)
+                    think_tag_splitter = ThinkTagStreamSplitter()
 
                     self._get_provider()
                     # Google Gemini stream is a JSON array of objects, not SSE.
@@ -592,14 +584,28 @@ class LlmClient:
 
                         if thinking and on_thinking:
                             on_thinking(thinking)
-                        if content and on_content:
-                            on_content(content)
-                            # LiteLLM: streaming_handler.py ~L198 safety_checker(), issue #5158
-                            last_contents.append(content)
-                            if len(last_contents) == REPEATED_STREAMING_CHUNK_LIMIT and len(content) > 2 and all(c == last_contents[0] for c in last_contents):
-                                from plugin.framework.i18n import _
+                        if content:
+                            pieces = think_tag_splitter.feed(content)
+                            for is_think, text_piece in pieces:
+                                if is_think:
+                                    if on_thinking:
+                                        on_thinking(text_piece)
+                                else:
+                                    if on_content:
+                                        on_content(text_piece)
+                                    # LiteLLM: streaming_handler.py ~L198 safety_checker(), issue #5158
+                                    last_contents.append(text_piece)
+                                    if (
+                                        len(last_contents) == REPEATED_STREAMING_CHUNK_LIMIT
+                                        and len(text_piece) > 2
+                                        and all(c == last_contents[0] for c in last_contents)
+                                    ):
+                                        from plugin.framework.i18n import _
 
-                                raise NetworkError(_("The model is repeating the same chunk (infinite loop). Try again or use a different model."), code="INFINITE_LOOP")
+                                        raise NetworkError(
+                                            _("The model is repeating the same chunk (infinite loop). Try again or use a different model."),
+                                            code="INFINITE_LOOP",
+                                        )
                         if delta and on_delta:
                             _normalize_delta(delta)
                             on_delta(delta)
@@ -607,6 +613,14 @@ class LlmClient:
                         if finish_reason:
                             log.debug("streaming_loop: logical finish_reason=%s" % finish_reason)
                             last_finish_reason = finish_reason
+
+                    # Flush any trailing buffered text from the think tag splitter
+                    # (trailing buffer contains small tag prefix remnants like '<' at EOF)
+                    for is_think, text_piece in think_tag_splitter.flush():
+                        if is_think and on_thinking:
+                            on_thinking(text_piece)
+                        elif not is_think and on_content:
+                            on_content(text_piece)
                 finally:
                     # Ensure the entire response body is read so the connection is reusable.
                     try:
@@ -633,26 +647,55 @@ class LlmClient:
                 retry_available = False
                 continue
             except NetworkError:
-                self._close_connection()
                 raise
             except Exception as e:
-                self._close_connection()  # Reset on any other error too
                 err_msg = format_error_message(e)
-                log.error("ERROR in _run_streaming_loop: %s -> %s" % (type(e).__name__, err_msg))
+                log.error("streaming_loop: Unexpected error: %s -> %s" % (type(e).__name__, err_msg))
                 raise NetworkError(err_msg, details={"url": path}) from e
 
+            # If we completed successfully without retry, return
             return last_finish_reason
 
     def stream_request(self, method, path, body, headers, append_callback, append_thinking_callback=None, stop_checker=None):
-        """Stream a chat response and append chunks via callbacks."""
+        """Streaming request for chat completions, using persistent connection."""
+        init_logging(self.ctx)
         self._run_streaming_loop(method, path, body, headers, on_content=append_callback, on_thinking=append_thinking_callback, stop_checker=stop_checker)
 
-    def stream_chat_response(self, messages, max_tokens, append_callback, append_thinking_callback=None, stop_checker=None, *, prepend_dev_build_system_prefix: bool = True):
+    def stream_chat_response(
+        self,
+        messages,
+        max_tokens,
+        append_callback,
+        append_thinking_callback=None,
+        stop_checker=None,
+        *,
+        prepend_dev_build_system_prefix: bool = True,
+    ):
         """Stream a final chat response (no tools) using the messages array."""
-        method, path, body, headers = self.make_chat_request(messages, max_tokens, tools=None, stream=True, prepend_dev_build_system_prefix=prepend_dev_build_system_prefix)
+        method, path, body, headers = self.make_chat_request(
+            messages,
+            max_tokens,
+            tools=None,
+            stream=True,
+            prepend_dev_build_system_prefix=prepend_dev_build_system_prefix,
+        )
         self.stream_request(method, path, body, headers, append_callback, append_thinking_callback, stop_checker=stop_checker)
 
-    def request_with_tools(self, messages, max_tokens=512, tools=None, append_callback=None, append_thinking_callback=None, stop_checker=None, body_override=None, model=None, stream=False, response_format=None, chat_extra=None, prepend_dev_build_system_prefix: bool = True):
+    def request_with_tools(
+        self,
+        messages,
+        max_tokens=512,
+        tools=None,
+        append_callback=None,
+        append_thinking_callback=None,
+        stop_checker=None,
+        body_override=None,
+        model=None,
+        stream=False,
+        response_format=None,
+        chat_extra=None,
+        prepend_dev_build_system_prefix: bool = True,
+    ):
         """Chat request with support for tools and streaming.
 
         If stream=True, uses callbacks to stream deltas & accumulates tool_calls.
@@ -664,19 +707,27 @@ class LlmClient:
         eff_model = model or self.config.get("model", "")
         n_tool_defs = len(tools) if isinstance(tools, list) else 0
         log.debug("request_with_tools: model=%s stream=%s n_messages=%s n_tool_defs=%s", eff_model, stream, len(messages), n_tool_defs)
-        method, path, body, headers = self.make_chat_request(messages, max_tokens, tools=tools, stream=stream, model=model, response_format=response_format, chat_extra=chat_extra, prepend_dev_build_system_prefix=prepend_dev_build_system_prefix)
+        method, path, body, headers = self.make_chat_request(
+            messages,
+            max_tokens,
+            tools=tools,
+            stream=stream,
+            model=model,
+            response_format=response_format,
+            chat_extra=chat_extra,
+            prepend_dev_build_system_prefix=prepend_dev_build_system_prefix,
+        )
         if body_override is not None:
             body = body_override.encode("utf-8") if isinstance(body_override, str) else body_override
 
-        message_snapshot: dict[object, object] = {}
+        eff_model = model or self.config.get("model") or "default"
         thinking_parts: list[str] = []
-        thinking_meta: dict[str, Any] = new_streaming_thinking_meta()
-        reasoning_replay: dict[str, Any] = {}
-        last_finish_reason = None
-        images: list[Any] = []
-        usage: dict[str, Any] = {}
+        thinking_meta = new_streaming_thinking_meta()
+        message_snapshot: dict[str, Any] = {}
         content = ""
         tool_calls = None
+        images: list[Any] = []
+        usage: dict[str, Any] = {}
 
         if stream:
             append_callback = append_callback or (lambda t: None)
@@ -699,7 +750,11 @@ class LlmClient:
                 raise NetworkError(err_msg, details={"url": path}) from e
 
             raw_content = message_snapshot.get("content")
-            content = _normalize_message_content(raw_content)
+            normalized_content = _normalize_message_content(raw_content)
+            content, extracted_thinking = strip_think_tags(normalized_content)
+            if extracted_thinking and not thinking_parts:
+                thinking_parts.append(extracted_thinking)
+            message_snapshot["content"] = content
             tool_calls = message_snapshot.get("tool_calls")
             if tool_calls is not None:
                 log.debug(
@@ -765,7 +820,11 @@ class LlmClient:
                 result = {}
 
             # Use unified extraction for shims/native providers
-            content, last_finish_reason, tool_calls, usage, images, message = self._get_shim().parse_sync_response(result)
+            raw_parsed_content, last_finish_reason, tool_calls, usage, images, message = self._get_shim().parse_sync_response(result)
+            content, extracted_thinking = strip_think_tags(raw_parsed_content)
+            if extracted_thinking and "reasoning" not in message:
+                message["reasoning"] = extracted_thinking
+            message["content"] = content
             reasoning_replay = extract_reasoning_replay_from_response(sync_message=message)
 
         # Shared post-processing
