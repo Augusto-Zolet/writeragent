@@ -187,7 +187,7 @@
       "ci_integration": true
     },
     "client/stream_normalizer.py": {
-      "status": "partial",
+      "status": "verified",
       "priority": "high",
       "tool": "crosshair+deal+hypothesis",
       "functions_contracted": [
@@ -195,15 +195,18 @@
         "_merge_reasoning_details",
         "_normalize_stream_delta",
         "_thinking_text_from_delta",
-        "_normalize_delta"
+        "_normalize_delta",
+        "_streaming_replay",
+        "strip_think_tags"
       ],
       "crosshair_target": "plugin.framework.client.stream_normalizer._merge_reasoning_details",
       "crosshair_last_run": "2026-08-06",
       "crosshair_result": "no_counterexamples",
-      "ci_integration": false
+      "ci_integration": true,
+      "notes": "Hypothesis: thinking concat, merge chunked==full, think-tag chunk round-trip, streaming replay keys. CrossHair FQN: _merge_reasoning_details, _thinking_text_from_delta. ThinkTagStreamSplitter.feed and _normalize_stream_delta are not CrossHair. make verify picks up test_stream_normalizer_verification.py."
     },
     "client/response_normalizers.py": {
-      "status": "partial",
+      "status": "verified",
       "priority": "high",
       "tool": "crosshair+deal+hypothesis",
       "functions_contracted": [
@@ -213,7 +216,8 @@
       "crosshair_target": "plugin.framework.client.response_normalizers.strip_leaked_chat_template_control_tokens",
       "crosshair_last_run": "2026-08-06",
       "crosshair_result": "no_counterexamples",
-      "ci_integration": false
+      "ci_integration": true,
+      "notes": "Hypothesis: control-token strip, URI extract, multimodal reattach preserve. CrossHair FQN: strip_leaked_*, extract_and_strip_*. normalize_multimodal_messages is Hypothesis-only (in-place mutation)."
     }
   },
   "modules": {

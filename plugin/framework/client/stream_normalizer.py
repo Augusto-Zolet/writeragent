@@ -147,6 +147,10 @@ def _merge_reasoning_details(entries: list[Any]) -> list[Any]:
     return [merged[k] for k in order] + extra
 
 
+@deal.post(
+    lambda result: isinstance(result, dict)
+    and set(result.keys()) <= {"reasoning", "reasoning_content", "reasoning_details"}
+)
 def _streaming_replay(text: str, meta: Mapping[str, Any]) -> dict[str, Any]:
     text = _truncate_reasoning_string(text)
     encrypted_raw = meta.get("encrypted_fragments")
@@ -426,6 +430,13 @@ _THINK_TAG_BLOCK_RE = re.compile(r"<think>(.*?)</think>", re.DOTALL)
 _THINK_UNCLOSED_RE = re.compile(r"<think>(.*)", re.DOTALL)
 
 
+@deal.post(
+    lambda result: isinstance(result, tuple)
+    and len(result) == 2
+    and isinstance(result[0], str)
+    and (result[1] is None or isinstance(result[1], str))
+)
+@deal.ensure(lambda text, result: _THINK_TAG_BLOCK_RE.search(result[0]) is None)
 def strip_think_tags(text: str | None) -> tuple[str, str | None]:
     """Strip <think>...</think> tags from text, returning (clean_content, extracted_thinking)."""
     if not text:
