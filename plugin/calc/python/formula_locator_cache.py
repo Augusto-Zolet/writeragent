@@ -352,7 +352,9 @@ def locate_formula_cell(
 ) -> tuple[int, int] | None:
     """Find (row, col) containing the Python formula on sheet."""
     try:
-        if not (hasattr(ctx, "ServiceManager") or hasattr(ctx, "getServiceManager")):
+        from plugin.framework.thread_guard import on_main_thread
+
+        if not on_main_thread() or not (hasattr(ctx, "ServiceManager") or hasattr(ctx, "getServiceManager")):
             return None
         from plugin.calc.python.function import _get_calc_doc
 

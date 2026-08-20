@@ -57,16 +57,16 @@ def _shape_anchor_matches_cell(shape: Any, target_cell: Any) -> bool:
 def insert_image_result_on_sheet(ctx: Any, payload: dict[str, Any], *, code: str | None = None) -> None:
     """Write image payload bytes to a temp file and insert as a cell-anchored shape on the target sheet.
 
-    Marshals execution to the main VCL UI thread if invoked from a background worker thread.
+    Posts execution asynchronously to the main VCL UI thread if invoked from a background worker thread.
     """
-    from plugin.framework.queue_executor import execute_on_main_thread
+    from plugin.framework.queue_executor import post_to_main_thread
     from plugin.framework.thread_guard import on_main_thread
 
     # Thread safety invariant: Drawing layer manipulation (DrawPage, GraphicObjectShape, cell geometry)
     # must run on LibreOffice's main VCL thread to prevent internal C++ state corruption and deadlocks.
-    # If called from a background recalculation or script worker thread, marshal via execute_on_main_thread.
+    # If called from a background recalculation or script worker thread, post asynchronously to the main thread.
     if not on_main_thread():
-        execute_on_main_thread(_insert_image_result_on_sheet_impl, ctx, payload, code)
+        post_to_main_thread(_insert_image_result_on_sheet_impl, ctx, payload, code)
         return
 
     _insert_image_result_on_sheet_impl(ctx, payload, code)
@@ -84,6 +84,12 @@ def _insert_image_result_on_sheet_impl(ctx: Any, payload: dict[str, Any], code: 
     # Fix: Resolve the target sheet and cell by locating the formula cell via code if available;
     # otherwise fallback gracefully to active sheet/selection, and enforce minimum dimensions for merged sizing.
     try:
+        from plugin.framework.thread_guard import on_main_thread
+
+        if not on_main_thread():
+            log.debug("insert_image_result_on_sheet: skipping off-main image insertion")
+            return
+
         from plugin.calc.calc_utils import get_cell_geometry
         from plugin.scripting.document_scripts import get_calc_document_from_ctx
 

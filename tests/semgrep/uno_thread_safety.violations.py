@@ -42,3 +42,14 @@ def spawn_raw_thread():
 def raw_vcl_pump(toolkit):
     # ruleid: raw-process-events-to-idle
     toolkit.processEventsToIdle()
+
+
+def execute_python_addin(ctx, code):
+    from plugin.framework.queue_executor import execute_on_main_thread
+
+    # ruleid: blocking-marshal-in-sync-dispatch
+    execute_on_main_thread(lambda: 123)
+    # ruleid: uno-off-main-thread
+    get_desktop()
+
+

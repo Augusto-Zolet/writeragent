@@ -415,6 +415,7 @@ def test_calc_list_sheets_runs_uno_only_on_main_thread():
         raw_sheets = MagicMock()
         raw_sheets.getCount.return_value = 1
         raw_sheets.getByIndex.return_value = raw_sheet
+        raw_sheets.getElementNames.return_value = ("Sheet1",)
         raw_doc = MagicMock()
         raw_doc.supportsService.return_value = True
         raw_doc.getSheets.return_value = raw_sheets

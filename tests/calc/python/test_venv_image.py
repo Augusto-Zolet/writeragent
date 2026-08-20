@@ -97,15 +97,15 @@ def test_insert_image_result_on_sheet_active_sheet_fallback():
 
 
 def test_insert_image_result_on_sheet_background_thread_marshaling():
-    """When called off main thread, insert_image_result_on_sheet marshals to main thread."""
+    """When called off main thread, insert_image_result_on_sheet posts asynchronously to main thread."""
     ctx = MagicMock()
     with (
         patch("plugin.framework.thread_guard.on_main_thread", return_value=False),
-        patch("plugin.framework.queue_executor.execute_on_main_thread") as exec_main,
+        patch("plugin.framework.queue_executor.post_to_main_thread") as post_main,
     ):
         insert_image_result_on_sheet(ctx, _IMAGE_PAYLOAD)
 
-    assert exec_main.call_count == 1
+    assert post_main.call_count == 1
 
 
 def test_insert_image_result_on_sheet_aborts_when_formula_location_fails_for_code():

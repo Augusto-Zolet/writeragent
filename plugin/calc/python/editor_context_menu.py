@@ -189,6 +189,10 @@ def _install_doc_event_listener(ctx: Any) -> None:
         log.warning("python_editor_context_menu: doc-event listener install failed", exc_info=True)
 
 
+from plugin.framework.thread_guard import main_thread_only
+
+
+@main_thread_only
 def install_calc_cell_context_menu(ctx: Any) -> None:
     """Register the cell context menu interceptor on open Calc frames and future views."""
     try:

@@ -29,6 +29,10 @@ from plugin.scripting.session_manager import reset_workbook_python_session
 log = logging.getLogger(__name__)
 
 
+from plugin.framework.thread_guard import main_thread_only
+
+
+@main_thread_only
 def open_init_script_editor(ctx: Any = None) -> bool:
     """Open Monaco for the active Calc workbook's initialization script.
 

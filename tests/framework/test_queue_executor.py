@@ -52,6 +52,25 @@ def _reset_grammar_inflight_count() -> None:
         lc._GRAMMAR_INFLIGHT_COUNT = 0
 
 
+@pytest.fixture(autouse=True)
+def _reset_default_executor_state() -> None:
+    orig_ctx = default_executor._ctx
+    orig_init = default_executor._initialized
+    orig_service = default_executor._async_callback_service
+    orig_cb = default_executor._callback_instance
+    try:
+        default_executor._ctx = None
+        default_executor._initialized = False
+        default_executor._async_callback_service = None
+        default_executor._callback_instance = None
+        yield
+    finally:
+        default_executor._ctx = orig_ctx
+        default_executor._initialized = orig_init
+        default_executor._async_callback_service = orig_service
+        default_executor._callback_instance = orig_cb
+
+
 def test_grammar_llm_request_gate_limit_1_uses_global_lane() -> None:
     ctx = MagicMock()
     with patch("plugin.writer.locale.grammar_proofread_locale.grammar_max_in_flight", return_value=1), \

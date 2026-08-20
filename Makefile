@@ -706,7 +706,11 @@ opengrep-lint:
 	@test -f $(OPENGREP_DIR)/third_party/SOURCES.json || (echo "vendored Opengrep rules missing — run: make opengrep-rules-sync" && exit 1)
 	$(OPENGREP_ENV) "$(OPENGREP)" scan $(OPENGREP_SCAN_FLAGS) $(foreach c,$(OPENGREP_CONFIGS),-c $(c)) plugin
 
-uno-thread-lint: opengrep-lint
+thread-safety-lint:
+	$(PYTHON) scripts/lint_thread_safety.py plugin/calc/python plugin/scripting
+	$(PYTHON) scripts/analyze_thread_deadlocks.py plugin
+
+uno-thread-lint: opengrep-lint thread-safety-lint
 
 opengrep-lint-advisory:
 	@test -x "$(OPENGREP)" || (echo "opengrep not found — run: make opengrep-install" && exit 1)
@@ -740,6 +744,7 @@ excel-py-roundtrip:
 
 test:
 	@$(MAKE) typecheck
+	@$(MAKE) thread-safety-lint
 	@$(MAKE) opengrep-lint
 	@$(MAKE) test-run
 	@$(MAKE) excel-py-roundtrip

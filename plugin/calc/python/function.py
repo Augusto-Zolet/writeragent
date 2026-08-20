@@ -224,6 +224,10 @@ def to_calc_compatible(val: Any) -> float | str | bool | tuple:
 
 def _get_calc_doc(ctx: Any) -> Any | None:
     try:
+        from plugin.framework.thread_guard import on_main_thread
+
+        if not on_main_thread():
+            return None
         from plugin.framework.uno_context import get_desktop
         desktop = get_desktop(ctx)
         doc = desktop.getCurrentComponent()
@@ -378,6 +382,10 @@ class CalcSpillModifyListener(unohelper.Base, XModifyListener):
 
     def modified(self, aEvent: Any) -> None:
         try:
+            from plugin.framework.thread_guard import on_main_thread
+
+            if not on_main_thread():
+                return
             sheet = aEvent.Source
             if sheet is None:
                 return
@@ -568,6 +576,10 @@ def perform_deferred_spill(
 ) -> None:
     """Clear old spilled cells and write new values deferred (collision check is done synchronously)."""
     try:
+        from plugin.framework.thread_guard import on_main_thread
+
+        if not on_main_thread():
+            return
         if doc is None:
             if not (hasattr(ctx, "ServiceManager") or hasattr(ctx, "getServiceManager")):
                 return
@@ -755,7 +767,9 @@ def finalize_python_return(
         if get_config_bool("scripting.python_auto_spill"):
             try:
                 doc = None
-                if not (hasattr(ctx, "ServiceManager") or hasattr(ctx, "getServiceManager")):
+                from plugin.framework.thread_guard import on_main_thread
+
+                if not on_main_thread() or not (hasattr(ctx, "ServiceManager") or hasattr(ctx, "getServiceManager")):
                     is_matrix = True
                 else:
                     doc = _get_calc_doc(ctx)
@@ -781,7 +795,9 @@ def finalize_python_return(
 
             # Get document and sheet to locate formula cell
             try:
-                if not (hasattr(ctx, "ServiceManager") or hasattr(ctx, "getServiceManager")):
+                from plugin.framework.thread_guard import on_main_thread
+
+                if not on_main_thread() or not (hasattr(ctx, "ServiceManager") or hasattr(ctx, "getServiceManager")):
                     return to_calc_compatible(grid_to_spill[0][0])
                 doc = _get_calc_doc(ctx)
                 if doc is not None:

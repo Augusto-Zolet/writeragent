@@ -91,6 +91,7 @@ def test_opengrep_uno_fixture_violations():
     rules = {item["check_id"].split(".")[-1] for item in findings}
     assert "uno-off-main-thread" in rules
     assert "raw-uno-thread-ban" in rules
+    assert "blocking-marshal-in-sync-dispatch" in rules
     cross_fn = [f for f in findings if f["check_id"].endswith("uno-off-main-thread") and f["start"]["line"] == 32]
     assert cross_fn, "expected nested cross-function @background worker finding (Opengrep --taint-intrafile)"
 

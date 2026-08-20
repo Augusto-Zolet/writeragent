@@ -380,9 +380,59 @@ trace," which is the bulk of the user's pain.
   must marshal UNO inside their own `execute()`. Tests:
   [`tests/doc/test_specialized_delegation_threading.py`](../tests/doc/test_specialized_delegation_threading.py).
 
+## Case Study: Synchronous UNO Bridge & Add-in Deadlock (#402)
+
+In GitHub issue [#402](https://github.com/KeithCu/writeragent/issues/402), assigning `=PY(...)` via remote PyUNO (`sheet.getCellByPosition(...).FormulaLocal = '=PY("1+1")'`) deadlocked against `MainThread`:
+1. The remote UNO dispatch executed Calc formula recalculation synchronously on a UNO bridge worker thread (`Dummy-2`).
+2. `workbook_session_id()` called `execute_on_main_thread(_workbook_session_id_impl)` (waiting up to 30s) even in `isolated` mode.
+3. LibreOffice's main thread was synchronously waiting for the UNO RPC dispatch to finish, so it could not drain the `QueueExecutor` work queue.
+4. `session_key()`, `get_python_init_kwargs()`, and `_diagnostics_workbook_key()` called `get_desktop` without checking `on_main_thread()`, tripping the Layer A runtime guard.
+5. The runtime guard's `_notify_thread_violation()` attempted to show a modal error dialog via a blocking `execute_on_main_thread(_show_popup, timeout=5.0)`, freezing the thread for 5s.
+6. When the 30s timeout elapsed, `_format_error_for_display()` mapped the timeout string to a misleading `"Error: Python timed out. Open Settings → Python..."` message.
+
+### Fix applied:
+- **Config-first mode check**: `workbook_session_id()` checks `python_session_mode(ctx)` before touching threads or marshalling.
+- **Off-main guard on all add-in UNO lookups**: `session_key()`, `get_python_init_kwargs()`, and `_diagnostics_workbook_key()` check `on_main_thread()` and return safe no-UNO defaults off-main.
+- **Non-blocking guard notifications**: `_notify_thread_violation()` uses non-blocking `post_to_main_thread()` only when `AsyncCallback` is ready, and never blocks the worker thread.
+- **Distinct timeout classification**: `TimeoutError` from host execution formats distinctly from venv worker execution timeouts.
+
+---
+
+## Build-Time Tools & Static Analysis for Deadlock Prevention (Shipped)
+
+While Layer A (runtime proxy/asserts) and Layer B (thread-affine test mocks) catch violations during execution, concurrency and thread-affinity hazards are prevented at **build time** through a multi-tiered verification suite:
+
+### 1. Enhanced Static Taint Analysis (Opengrep / Semgrep)
+**Status:** Shipped in [`tests/semgrep/uno_thread_safety.yml`](../tests/semgrep/uno_thread_safety.yml).
+- **Expanded Blue Roots**: In addition to `@background` and `run_in_background`, add-in entry points (`execute_python_addin`, `execute_prompt_addin`, `_notify_thread_violation`) are recognized as taint sources.
+- **`blocking-marshal-in-sync-dispatch` Rule**: Enforces that synchronous host add-ins and notification callbacks cannot call blocking `execute_on_main_thread(...)` (deadlock hazard [#402](https://github.com/KeithCu/writeragent/issues/402)).
+- **Intra-file Sanitization**: Enclosing `if on_main_thread():` branches sanitize data flows.
+- **Execution**: Run via `make opengrep-lint` (or `make uno-thread-lint`).
+
+### 2. Compile-Time Type Coloring via `MainThreadToken`
+**Status:** Shipped in [`plugin/framework/thread_token.py`](../plugin/framework/thread_token.py).
+- Nominal token type `MainThreadToken = NewType("MainThreadToken", object)` minted via `require_main_thread()`.
+- Red functions declare `token: MainThreadToken | None = None` in their signatures to allow type-level verification in Mypy, Basedpyright, and Ty during `make typecheck`.
+- Tests in [`tests/framework/test_thread_token.py`](../tests/framework/test_thread_token.py).
+
+### 3. Custom AST Linter (`scripts/lint_thread_safety.py`)
+**Status:** Shipped in [`scripts/lint_thread_safety.py`](../scripts/lint_thread_safety.py).
+- **AST Visitor**: Parses AST across `plugin/calc/python/` and `plugin/scripting/`.
+- **Guard Detection (`unguarded-uno-access`)**: Verifies that any invocation of `get_desktop`, `get_ctx`, `_get_calc_doc`, or document getters is structurally enclosed within an `if on_main_thread():` check or decorated with `@main_thread_only`.
+- **Blocking Call Detection (`blocking-marshal-in-sync-dispatch`)**: Rejects `execute_on_main_thread` inside add-in evaluation and synchronous notification paths.
+- **Execution**: Run via `make thread-safety-lint`. Tests in [`tests/scripts/test_lint_thread_safety.py`](../tests/scripts/test_lint_thread_safety.py).
+
+### 4. Static Lock Hierarchy & Transition Call Graph Analyzer (`scripts/analyze_thread_deadlocks.py`)
+**Status:** Shipped in [`scripts/analyze_thread_deadlocks.py`](../scripts/analyze_thread_deadlocks.py).
+- Analyzes function call graphs across `plugin/` to detect synchronous cross-thread wait cycles where a synchronous host dispatch entrypoint (`execute_python_addin`, `py`, `session_key`, `_notify_thread_violation`) reaches a blocking operation (`execute_on_main_thread`).
+- **Execution**: Run via `make thread-safety-lint`. Tests in [`tests/scripts/test_analyze_thread_deadlocks.py`](../tests/scripts/test_analyze_thread_deadlocks.py).
+
+---
+
 ## Cross-references
 
 - [`docs/threading_architecture.md`](threading_architecture.md) — the model being enforced, drain ownership, and subprocess IPC pipe safety.
 - [`docs/streaming-and-threading.md`](streaming-and-threading.md) — drain loop, Stop/cancellation, the `execute_on_main_thread` checklist.
 - [`docs/formal_verification.md`](formal_verification.md) — why FV is the wrong tool for this class of bug.
-- Reference fix this doc generalizes: commit `0cfc6891b679f3fcc2ad4a47107763a1b5bd93d7` (charts hang).
+- Reference fixes: commit `0cfc6891b679f3fcc2ad4a47107763a1b5bd93d7` (charts hang) and Issue #402 (`=PY()` UNO bridge deadlock).
+

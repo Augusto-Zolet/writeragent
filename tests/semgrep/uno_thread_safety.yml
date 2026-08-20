@@ -35,6 +35,22 @@ rules:
               def $OUTER(...):
                 ...
                 run_in_background($F, ...)
+      # Add-in evaluation entrypoints (can be invoked off-main by remote PyUNO or Calc calculation).
+      - patterns:
+          - pattern-inside: |
+              def execute_python_addin(...):
+                ...
+          - pattern: $X
+      - patterns:
+          - pattern-inside: |
+              def execute_prompt_addin(...):
+                ...
+          - pattern: $X
+      - patterns:
+          - pattern-inside: |
+              def _notify_thread_violation(...):
+                ...
+          - pattern: $X
     pattern-sinks:
       - pattern-either:
           - pattern: get_ctx(...)
@@ -75,6 +91,17 @@ rules:
     pattern-sanitizers:
       - pattern: execute_on_main_thread(...)
       - pattern: post_to_main_thread(...)
+      - patterns:
+          - pattern-inside: |
+              if on_main_thread():
+                ...
+          - pattern: $X
+      - patterns:
+          - pattern-inside: |
+              if not on_main_thread():
+                ...
+              ...
+          - pattern: $X
 
   - id: raw-uno-thread-ban
     languages: [python]
@@ -217,4 +244,30 @@ rules:
       exclude:
         - "**/tests/**"
         - "**/plugin/tests/**"
+
+  - id: blocking-marshal-in-sync-dispatch
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Do not call blocking execute_on_main_thread inside synchronous add-in evaluation
+      or notification callbacks (deadlock hazard #402). Use non-blocking post_to_main_thread
+      or compute without UI marshalling.
+    patterns:
+      - pattern: execute_on_main_thread(...)
+      - pattern-inside: |
+          def $FN(...):
+            ...
+      - metavariable-regex:
+          metavariable: $FN
+          regex: ^(execute_python_addin|execute_prompt_addin|_notify_thread_violation|session_key)$
+    paths:
+      exclude:
+        - "**/plugin/contrib/**"
+        - "**/plugin/lib/**"
+        - "**/plugin/tests/**"
+        - "**/tests/calc/**"
+        - "**/tests/doc/**"
+        - "**/tests/framework/**"
+
+
 

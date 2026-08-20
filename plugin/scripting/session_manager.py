@@ -113,20 +113,17 @@ def workbook_session_id(ctx: Any) -> str | None:
         return None
 
     from plugin.framework.thread_guard import on_main_thread
-    from plugin.framework.queue_executor import execute_on_main_thread
+
+    # Off-main threads (e.g. remote PyUNO RPC bridge or calculation threads) cannot safely query
+    # the desktop model and must not block on execute_on_main_thread (deadlock hazard #402).
+    if not on_main_thread():
+        return None
 
     def _workbook_session_id_impl() -> str | None:
         doc = _calc_document(ctx)
         if doc is None:
             return None
         return calc_workbook_base_session_id(doc)
-
-    if not on_main_thread():
-        try:
-            return execute_on_main_thread(_workbook_session_id_impl)
-        except Exception:
-            log.debug("workbook_session_id: main-thread marshal failed or timed out", exc_info=True)
-            return None
 
     return _workbook_session_id_impl()
 

@@ -17,14 +17,11 @@ from plugin.tests.testing_utils import CalcDocStub
 
 
 def _ctx_with_doc(doc: CalcDocStub):
-    from plugin.framework.uno_context import set_fallback_ctx
     desktop = MagicMock()
     desktop.getCurrentComponent.return_value = doc
     smgr = MagicMock()
     smgr.createInstanceWithContext.return_value = desktop
-    ctx = SimpleNamespace(ServiceManager=smgr, getServiceManager=lambda: smgr)
-    set_fallback_ctx(ctx)
-    return ctx
+    return SimpleNamespace(ServiceManager=smgr, getServiceManager=lambda: smgr)
 
 
 def test_to_calc_compatible_none_becomes_empty_nan_becomes_error() -> None:

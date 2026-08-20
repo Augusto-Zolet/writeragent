@@ -188,23 +188,16 @@ def test_run_code_forwards_init_kwargs():
 
 def test_workbook_session_id_recursion_off_main_thread(monkeypatch: pytest.MonkeyPatch) -> None:
     from plugin.scripting.session_manager import workbook_session_id
-    
-    # Set WRITERAGENT_TESTING to 1 to force inline execution in queue_executor
-    monkeypatch.setenv("WRITERAGENT_TESTING", "1")
-    
-    # Mock on_main_thread to return False
+
+    # Off-main threads must return None without blocking or deadlocking (#402)
     monkeypatch.setattr("plugin.framework.thread_guard.on_main_thread", lambda: False)
-    
-    # Mock session mode to shared
     monkeypatch.setattr("plugin.scripting.session_manager.python_session_mode", lambda ctx: "shared")
-    
-    # Mock doc fetching
+
     doc = MagicMock()
     monkeypatch.setattr("plugin.scripting.session_manager._calc_document", lambda ctx: doc)
     monkeypatch.setattr("plugin.scripting.session_manager.calc_workbook_base_session_id", lambda d: "test-wb-1")
 
     ctx = MagicMock()
-    # Ensure it doesn't cause recursion error
     res = workbook_session_id(ctx)
-    assert res == "test-wb-1"
+    assert res is None
 

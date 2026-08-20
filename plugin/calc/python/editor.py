@@ -115,6 +115,10 @@ def _cell_has_unparsed_python(cell: Any) -> bool:
     return False
 
 
+from plugin.framework.thread_guard import main_thread_only
+
+
+@main_thread_only
 def _get_active_calc_cell(ctx: Any) -> tuple[Any, Any, str] | None:
     """Return (doc, cell, primary formula string) for the current selection, or None."""
     desktop = get_desktop(ctx)
