@@ -283,6 +283,26 @@ def resolve_listing_directory(ctx: Any, active_model: Any) -> str | None:
     return get_work_directory(ctx)
 
 
+def _office_model_from_desktop_element(elem: Any) -> Any | None:
+    """Document model for a desktop component, wrapped at this boundary.
+
+    Same policy as the old inline walks: if the element has a controller, use
+    ``controller.getModel()``; otherwise treat the element as the model.
+    ``guard_uno`` here is the chokepoint (viral wrap from ``get_desktop()`` is
+    not enough for MagicMock tests, and matches panel / open_document_for_read).
+    """
+    if elem is None:
+        return None
+    model = elem
+    if hasattr(elem, "getController") and elem.getController():
+        model = elem.getController().getModel()
+    if model is None:
+        return None
+    from plugin.framework.thread_guard import guard_uno
+
+    return guard_uno(model)
+
+
 def _collect_open_file_urls(
     ctx: Any,
     *,
@@ -302,9 +322,7 @@ def _collect_open_file_urls(
         enum = comps.createEnumeration()
         while enum and enum.hasMoreElements():
             elem = enum.nextElement()
-            model = elem
-            if hasattr(elem, "getController") and elem.getController():
-                model = elem.getController().getModel()
+            model = _office_model_from_desktop_element(elem)
             if model is None or not hasattr(model, "getURL"):
                 continue
             url = model.getURL()
@@ -642,9 +660,7 @@ def get_open_documents(uno_ctx: Any, active_model: Any = None) -> list[dict[str,
     docs = []
     while enum and enum.hasMoreElements():
         elem = enum.nextElement()
-        model = elem
-        if hasattr(elem, "getController") and elem.getController():
-            model = elem.getController().getModel()
+        model = _office_model_from_desktop_element(elem)
         if model is None or not hasattr(model, "getURL"):
             continue
         # Same filter as MCP's _real_active_document: the Start Center is a live component but

@@ -555,7 +555,11 @@ def _graphic_from_object(obj: Any) -> Any | None:
 def export_graphic_to_bytes(ctx: Any, graphic: Any) -> bytes:
     """Export a UNO Graphic to raw PNG bytes via GraphicProvider."""
     if ctx is None:
-        ctx = uno.getComponentContext()
+        # New infection start if we call uno.getComponentContext() here.
+        # get_ctx() wraps the component context (Layer A) and is main-thread-only.
+        from plugin.framework.uno_context import get_ctx
+
+        ctx = get_ctx()
     assert ctx is not None
     ctx_any = cast("Any", ctx)
     sm = getattr(ctx_any, "ServiceManager", getattr(ctx_any, "getServiceManager", lambda: None)())
@@ -585,7 +589,7 @@ def get_selected_image_base64(model, ctx=None):
     """
     Returns the base64 encoded data of the currently selected image.
     Works for GraphicObject (Writer) or GraphicObjectShape (Calc/Draw).
-    ctx: optional component context (e.g. from chat panel or MainJob). If None, uses uno.getComponentContext().
+    ctx: optional component context (e.g. from chat panel or MainJob). If None, uses get_ctx().
     Use the panel/MainJob ctx for Calc so context-dependent logic works correctly.
     """
     try:

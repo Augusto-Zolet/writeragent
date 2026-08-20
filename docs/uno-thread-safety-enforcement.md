@@ -429,6 +429,30 @@ While Layer A (runtime proxy/asserts) and Layer B (thread-affine test mocks) cat
 
 ---
 
+## Current infection-start chokepoints (Layer A)
+
+Wrap **at resolver return** (`guard_uno`) or use **`get_ctx()`** (already wrapped). Do not call `uno.getComponentContext()` to obtain a ctx for document/graphic/locale work.
+
+| Location | What |
+|----------|------|
+| `uno_context.get_ctx` / `get_desktop` / `get_active_document` / `get_toolkit` / `get_package_info` | Sources |
+| `document_helpers.resolve_document_by_url` | Model |
+| `panel._get_document_model` / `panel_factory._get_document_model` | Frame → model |
+| `document_research.open_document_for_read` | Hidden load |
+| `document_research._office_model_from_desktop_element` | Desktop enum → model (`list_nearby_files` / `get_open_documents`) |
+| `document_scripts.get_calc_document_from_ctx` | Calc active + enum |
+| `calc.python.function._get_calc_doc` | Calc add-in doc lookup (None off-main, #402) |
+| `calc.python.editor._get_active_calc_cell` | Editor selection |
+| `image_tools.export_graphic_to_bytes` | `ctx is None` → `get_ctx()` |
+| `i18n.get_lo_locale` | `ctx is None` on-main → `get_ctx()`; off-main → `en_US` |
+| MCP `_get_context` / send_handlers | `get_ctx()` not bootstrap ctx |
+
+**Still not wrapped (by design):** `queue_executor._get_async_callback` unwraps before `AsyncCallback` create; `main.py` menu-icon GraphicProvider (UI thread, no model leak).
+
+Regression tests: [`tests/framework/test_guard_uno_boundaries.py`](../tests/framework/test_guard_uno_boundaries.py).
+
+---
+
 ## Cross-references
 
 - [`docs/threading_architecture.md`](threading_architecture.md) — the model being enforced, drain ownership, and subprocess IPC pipe safety.

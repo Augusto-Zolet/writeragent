@@ -56,7 +56,15 @@ def get_lo_locale(ctx=None):
         import uno
 
         if ctx is None:
-            ctx = uno.getComponentContext()
+            from plugin.framework.thread_guard import on_main_thread
+
+            # Off-main (e.g. ``_()`` before init_i18n): do not start a new UNO
+            # infection via uno.getComponentContext(); English catalog is fine.
+            if not on_main_thread():
+                return _DEFAULT_LOCALE
+            from plugin.framework.uno_context import get_ctx
+
+            ctx = get_ctx()
         smgr = cast("Any", ctx).getServiceManager()
         config_provider = smgr.createInstanceWithContext("com.sun.star.configuration.ConfigurationProvider", ctx)
         ca = config_provider.createInstanceWithArguments("com.sun.star.configuration.ConfigurationAccess", (uno.createUnoStruct("com.sun.star.beans.PropertyValue", Name="nodepath", Value="/org.openoffice.Setup/L10N"),))

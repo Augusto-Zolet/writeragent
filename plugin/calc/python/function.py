@@ -224,7 +224,7 @@ def to_calc_compatible(val: Any) -> float | str | bool | tuple:
 
 def _get_calc_doc(ctx: Any) -> Any | None:
     try:
-        from plugin.framework.thread_guard import on_main_thread
+        from plugin.framework.thread_guard import guard_uno, on_main_thread
 
         if not on_main_thread():
             return None
@@ -232,7 +232,7 @@ def _get_calc_doc(ctx: Any) -> Any | None:
         desktop = get_desktop(ctx)
         doc = desktop.getCurrentComponent()
         if doc is not None and hasattr(doc, "getSheets"):
-            return doc
+            return guard_uno(doc)
         comps = desktop.getComponents()
         if comps is not None and hasattr(comps, "createEnumeration"):
             enum = comps.createEnumeration()
@@ -245,7 +245,7 @@ def _get_calc_doc(ctx: Any) -> Any | None:
                     ctrl = elem.getController()
                     model = ctrl.getModel() if hasattr(ctrl, "getModel") else None
                 if model and hasattr(model, "getSheets"):
-                    return model
+                    return guard_uno(model)
     except Exception:
         pass
     return None

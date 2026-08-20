@@ -134,6 +134,9 @@ def _get_active_calc_cell(ctx: Any) -> tuple[Any, Any, str] | None:
         log.warning("python_editor: no controller")
         return None
     model = controller.getModel()
+    from plugin.framework.thread_guard import guard_uno
+
+    model = guard_uno(model)
     if model is None or not hasattr(model, "getSheets"):
         log.warning("python_editor: not a spreadsheet document")
         return None
