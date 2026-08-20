@@ -146,19 +146,19 @@ Source of formulas: [python-in-calc-showcase.md](python-in-calc-showcase.md) and
 
 | id | Sheet | What to check | Expected (from docs / generator) |
 |----|-------|---------------|----------------------------------|
-| D1 | Overview | Total Revenue KPI | `$134,884.50` (or numeric equivalent) |
+| D1 | Overview | Total Revenue KPI | `$119,142.00` (or `119142`) |
 | D2 | Overview | Avg Profit Margin | `28.4%` |
-| D3 | Overview | Anomalies Flagged | `3 Detected` |
-| D4 | Sales_Analytics | Enterprise revenue `=PY` | Matches filter on `Customer Type == Enterprise` |
-| D5 | Sales_Analytics | Top SKU by revenue | Non-empty SKU code |
-| D6 | Statistics_ML | Pearson r Ad Spend vs Revenue | ~`0.9842` |
-| D7 | Statistics_ML | OLS slope | ~`6.85` |
-| D8 | Statistics_ML | Top ROI channel | one of Search Ads / Social Media / Email Marketing |
-| D9 | Forecasting | CAGR string | percentage like `x.x%` |
-| D10 | Forecasting | Peak historical sales | max of volume column |
-| D11 | Optimization | Lowest-vol asset | one of the four names |
-| D12 | Engineering_Math | kW→hp, PSI→bar, °C→°F, km/h→m/s | sensible converted numbers (docs have expected rounds) |
-| D13 | Engineering_Math | derivative / erf cells | finite numbers, not errors |
+| D3 | Overview | Anomalies Flagged | `5 Detected` (or `5`) |
+| D4 | Sales_Analytics | Enterprise revenue `=PY` | `81497.5` (matches filter on `Customer Type == Enterprise`) |
+| D5 | Sales_Analytics | Top SKU by revenue | `FURN-3388` (non-empty SKU code) |
+| D6 | Statistics_ML | Pearson r Ad Spend vs Revenue | ~`0.7978` |
+| D7 | Statistics_ML | OLS slope | ~`5.07` |
+| D8 | Statistics_ML | Top ROI channel | `Email Marketing` (one of Search Ads / Social Media / Email Marketing) |
+| D9 | Forecasting | CAGR string | `46.3%` (percentage like `x.x%`) |
+| D10 | Forecasting | Peak historical sales | `303.5` (max of volume column) |
+| D11 | Optimization | Lowest-vol asset | `Treasury_Bonds` (one of the four names) |
+| D12 | Engineering_Math | kW→hp, PSI→bar, °C→°F, km/h→m/s | `201.15`, `151.68`, `185.0`, `33.33` (sensible converted numbers) |
+| D13 | Engineering_Math | derivative / erf cells | `7.5824`, `0.7468` (finite numbers, not errors) |
 | D14 | Viz_Gallery | Four `=PY(plt…)` cells | Four GraphicObjectShape plots anchored near those cells |
 
 If KPIs are `#VALUE!` but Packet A passed, suspect locale separators or add-in namespace; LibrePy must still resolve `ORG.EXTENSION.WRITERAGENT.PYTHONFUNCTION` ([`tests/scripts/test_librepy_calc_addin_namespace.py`](../tests/scripts/test_librepy_calc_addin_namespace.py)).

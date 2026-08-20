@@ -166,7 +166,7 @@ The extension ships a **Monaco-based code editor** (pywebview child in the confi
 
 ### Assign `result` {#assign-result}
 
-Prefer `result = …` for the value that should appear in the sheet or script UI. If you never assign `result`, `=PY()` uses the **last expression** value (same Jupyter-style fallback as Excel). NumPy arrays and pandas objects are serialized in the worker. `print()` is diagnostics only (LibrePy Python sidebar) — it does not become the cell value.
+Prefer `result = …` for the value that should appear in the sheet or script UI. If you never assign `result`, `=PY()` uses the **last expression** value (same Jupyter-style fallback as Excel). In shared-kernel mode, `result` is popped before and after each cell evaluation so assigning `result` in one cell never hijacks subsequent cells that rely on last-expression egress. NumPy arrays and pandas objects are serialized in the worker. `print()` is diagnostics only (LibrePy Python sidebar) — it does not become the cell value.
 
 ### Using the chat assistant (optional) {#using-the-chat-assistant-optional}
 

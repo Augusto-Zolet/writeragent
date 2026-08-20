@@ -558,6 +558,7 @@ def _inject_data(executor: LocalPythonExecutor, data: Any | None) -> tuple[Any, 
     can bind Excel ``xl()`` to the same ranges.
     """
     if data is None:
+        executor.send_variables({"data": None, "ranges": []})
         return ()
     from plugin.scripting.calc_range import materialize_inputs
     from plugin.scripting.payload_codec import describe_wire_value, is_calc_range_payload, is_multi_data, is_split_grid
@@ -591,9 +592,18 @@ def _inject_bindings(executor: LocalPythonExecutor, bindings: dict[str, Any] | N
 
 
 def _run_on_executor(executor: LocalPythonExecutor, code: str) -> dict[str, Any]:
+    # Ensure no leftover result from prior runs or failed state
+    executor.state.pop("result", None)
     try:
-        code_output = executor(code)
-        result = executor.state.get("result", code_output.output)
+        try:
+            code_output = executor(code)
+            if "result" in executor.state:
+                result = executor.state.pop("result")
+            else:
+                result = code_output.output
+        finally:
+            executor.state.pop("result", None)
+
         serialized = serialize_result(result)
 
         extra_stdout = ""

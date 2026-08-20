@@ -96,3 +96,75 @@ def test_run_code_in_user_venv_forwards_session_id():
         run_code_in_user_venv(ctx, "result = 1", session_id="calc:wb1")
         manager.execute.assert_called_once()
         assert manager.execute.call_args.kwargs.get("session_id") == "calc:wb1"
+
+
+def test_shared_session_result_does_not_hijack_subsequent_last_expression_cells():
+    """Issue #388: result = ... in one cell must not hijack later cells relying on last-expression."""
+    sid = "calc:test-issue-388"
+    # Cell 1: B1
+    r1 = _execute_request("x = 10", None, session_id=sid)
+    assert r1["status"] == "ok"
+    assert r1["result"] == 10
+
+    # Cell 2: D1
+    r2 = _execute_request("x + 1", None, session_id=sid)
+    assert r2["status"] == "ok"
+    assert r2["result"] == 11
+
+    # Cell 3: D8 (KPI cell assigning explicit result)
+    r3 = _execute_request("result = 3900.5", None, session_id=sid)
+    assert r3["status"] == "ok"
+    assert r3["result"] == 3900.5
+
+    # Re-evaluate Cell 1 (B1): must still return 10, not 3900.5
+    r4 = _execute_request("x = 10", None, session_id=sid)
+    assert r4["status"] == "ok"
+    assert r4["result"] == 10
+
+    # Re-evaluate Cell 2 (D1): must still return 11, not 3900.5
+    r5 = _execute_request("x + 1", None, session_id=sid)
+    assert r5["status"] == "ok"
+    assert r5["result"] == 11
+
+
+def test_shared_session_failed_cell_does_not_poison_result():
+    """A cell failing execution must not leave leftover result in state for next cell."""
+    sid = "calc:test-error-path"
+    # Cell assigning result
+    r1 = _execute_request("result = 500", None, session_id=sid)
+    assert r1["result"] == 500
+
+    # Failed cell
+    r2 = _execute_request("1 / 0", None, session_id=sid)
+    assert r2["status"] == "error"
+
+    # Next cell relying on last-expression: must not see 500
+    r3 = _execute_request("y = 77", None, session_id=sid)
+    assert r3["status"] == "ok"
+    assert r3["result"] == 77
+
+
+def test_shared_session_data_and_ranges_isolation():
+    """data and ranges must be reset when a cell does not pass data arguments."""
+    sid = "calc:test-data-isolation"
+    # Cell 1 passes data
+    r1 = _execute_request("result = len(ranges)", [[1.0, 2.0], [3.0, 4.0]], session_id=sid)
+    assert r1["status"] == "ok"
+    assert r1["result"] == 1
+
+    # Cell 2 passes no data: data must be None and ranges must be empty list
+    r2 = _execute_request("data is None and ranges == []", None, session_id=sid)
+    assert r2["status"] == "ok"
+    assert r2["result"] is True
+
+
+def test_shared_session_multiple_explicit_result_assignments():
+    """Explicit result assignments in sequence each return their own value."""
+    sid = "calc:test-multi-result"
+    r1 = _execute_request("result = 42", None, session_id=sid)
+    assert r1["result"] == 42
+    r2 = _execute_request("result = 99", None, session_id=sid)
+    assert r2["result"] == 99
+    r3 = _execute_request("z = 123", None, session_id=sid)
+    assert r3["result"] == 123
+

@@ -339,10 +339,10 @@ def build_ods_showcase(out_path: Path) -> None:
     tab1.addElement(rk_labels)
 
     rk_vals = TableRow()
-    rk_vals.addElement(make_cell("$134,884.50", "KPICardVal", span_cols=2, formula='=PY("sum(r[7] for r in data[1:])"; Sales_Analytics.A5:I40)'))
-    rk_vals.addElement(make_cell("28.4%", "KPICardVal", span_cols=2, formula='=PY("f\'{sum(r[7] for r in data[1:]) / sum(r[5] for r in data[1:]) * 0.08:.1%}\'"; Sales_Analytics.A5:I40)'))
-    rk_vals.addElement(make_cell("3 Detected", "KPICardVal", span_cols=2, formula='=PY("sum(1 for r in data[1:] if r[7] > 8000)"; Sales_Analytics.A5:I40)'))
-    rk_vals.addElement(make_cell("$182,450.00", "KPICardVal", span_cols=2, formula='=PY("f\'${data[-1][4] * 1.15:,.2f}\'"; Forecasting.A5:E41)'))
+    rk_vals.addElement(make_cell("$119,142.00", "KPICardVal", span_cols=2, formula='=PY("f\'${sum(r[7] for r in data[1:]):,.2f}\'"; Sales_Analytics.A5:I40)'))
+    rk_vals.addElement(make_cell("28.4%", "KPICardVal", span_cols=2, formula='=PY("f\'{sum(r[7] * (0.28 if r[3]==\'Electronics\' else 0.30 if r[3]==\'Furniture\' else 0.22) for r in data[1:]) / sum(r[7] for r in data[1:]):.1%}\'"; Sales_Analytics.A5:I40)'))
+    rk_vals.addElement(make_cell("5 Detected", "KPICardVal", span_cols=2, formula='=PY("f\'{sum(1 for r in data[1:] if r[7] > 8000)} Detected\'"; Sales_Analytics.A5:I40)'))
+    rk_vals.addElement(make_cell("$349.02", "KPICardVal", span_cols=2, formula='=PY("f\'${data[-1][4] * 1.15:,.2f}\'"; Forecasting.A5:E41)'))
     tab1.addElement(rk_vals)
 
     tab1.addElement(TableRow())
@@ -449,8 +449,8 @@ def build_ods_showcase(out_path: Path) -> None:
     tab3.addElement(t3_an_title)
 
     stat_cards = [
-        ("1. Ad Spend to Revenue Correlation", "Measures linear relationship between Ad Spend and Revenue (r > 0.95)", '=PY("round(st.pearsonr([r[2] for r in data[1:]], [r[6] for r in data[1:]])[0], 4)"; A5:G25)'),
-        ("2. OLS Regression Slope (ROAS)", "Calculates marginal revenue dollar gained per dollar spent on advertising (~$6.80)", '=PY("round(st.linregress([r[2] for r in data[1:]], [r[6] for r in data[1:]]).slope, 2)"; A5:G25)'),
+        ("1. Ad Spend to Revenue Correlation", "Measures linear relationship between Ad Spend and Revenue (r ~ 0.80)", '=PY("round(st.pearsonr([r[2] for r in data[1:]], [r[6] for r in data[1:]])[0], 4)"; A5:G25)'),
+        ("2. OLS Regression Slope (ROAS)", "Calculates marginal revenue dollar gained per dollar spent on advertising (~$5.07)", '=PY("round(st.linregress([r[2] for r in data[1:]], [r[6] for r in data[1:]]).slope, 2)"; A5:G25)'),
         ("3. Highest ROI Marketing Channel", "Identifies best performing marketing channel by conversion ROI", '=PY("max([\'Search Ads\', \'Social Media\', \'Email Marketing\'], key=lambda ch: sum(r[6] for r in data[1:] if r[1]==ch)/max(1, sum(r[2] for r in data[1:] if r[1]==ch)))"; A5:G25)'),
         ("4. Total Marketing Return on Ad Spend", "Overall portfolio return multiplier across all channels", '=PY("round(sum(r[6] for r in data[1:]) / sum(r[2] for r in data[1:]), 2)"; A5:G25)'),
     ]
@@ -754,9 +754,9 @@ def build_xlsx_showcase(out_path: Path) -> None:
     ws1.row_dimensions[4].height = 24
 
     kpi_spans = [
-        ("A5:B5", "A6:B6", "TOTAL REVENUE (YTD)", f'={CALC_PYTHON_ADDIN_FN}("sum(r[7] for r in data[1:])", Sales_Analytics!A4:I39)'),
-        ("C5:D5", "C6:D6", "AVG PROFIT MARGIN", f'={CALC_PYTHON_ADDIN_FN}("f\'{{sum(r[7] for r in data[1:]) / sum(r[5] for r in data[1:]) * 0.08:.1%}}\'", Sales_Analytics!A4:I39)'),
-        ("E5:F5", "E6:F6", "ANOMALIES FLAGGED", f'={CALC_PYTHON_ADDIN_FN}("sum(1 for r in data[1:] if r[7] > 8000)", Sales_Analytics!A4:I39)'),
+        ("A5:B5", "A6:B6", "TOTAL REVENUE (YTD)", f'={CALC_PYTHON_ADDIN_FN}("f\'${{sum(r[7] for r in data[1:]):,.2f}}\'", Sales_Analytics!A4:I39)'),
+        ("C5:D5", "C6:D6", "AVG PROFIT MARGIN", f'={CALC_PYTHON_ADDIN_FN}("f\'{{sum(r[7] * (0.28 if r[3]==\'Electronics\' else 0.30 if r[3]==\'Furniture\' else 0.22) for r in data[1:]) / sum(r[7] for r in data[1:]):.1%}}\'", Sales_Analytics!A4:I39)'),
+        ("E5:F5", "E6:F6", "ANOMALIES FLAGGED", f'={CALC_PYTHON_ADDIN_FN}("f\'{{sum(1 for r in data[1:] if r[7] > 8000)}} Detected\'", Sales_Analytics!A4:I39)'),
         ("G5:H5", "G6:H6", "FORECAST TARGET (Q3)", f'={CALC_PYTHON_ADDIN_FN}("f\'${{data[-1][4] * 1.15:,.2f}}\'", Forecasting!A4:E40)'),
     ]
 
@@ -924,8 +924,8 @@ def build_xlsx_showcase(out_path: Path) -> None:
         "MARKETING CAMPAIGN DATASET (20 CAMPAIGNS)",
         get_marketing_dataset(),
         [
-            ("1. Ad Spend to Revenue Correlation", "Measures linear relationship between Ad Spend and Revenue (r > 0.95)", f'={CALC_PYTHON_ADDIN_FN}("round(st.pearsonr([r[2] for r in data[1:]], [r[6] for r in data[1:]])[0], 4)", A4:G24)'),
-            ("2. OLS Regression Slope (ROAS)", "Calculates marginal revenue dollar gained per dollar spent on advertising (~$6.80)", f'={CALC_PYTHON_ADDIN_FN}("round(st.linregress([r[2] for r in data[1:]], [r[6] for r in data[1:]]).slope, 2)", A4:G24)'),
+            ("1. Ad Spend to Revenue Correlation", "Measures linear relationship between Ad Spend and Revenue (r ~ 0.80)", f'={CALC_PYTHON_ADDIN_FN}("round(st.pearsonr([r[2] for r in data[1:]], [r[6] for r in data[1:]])[0], 4)", A4:G24)'),
+            ("2. OLS Regression Slope (ROAS)", "Calculates marginal revenue dollar gained per dollar spent on advertising (~$5.07)", f'={CALC_PYTHON_ADDIN_FN}("round(st.linregress([r[2] for r in data[1:]], [r[6] for r in data[1:]]).slope, 2)", A4:G24)'),
             ("3. Highest ROI Marketing Channel", "Identifies best performing marketing channel by conversion ROI", f'={CALC_PYTHON_ADDIN_FN}("max([\'Search Ads\', \'Social Media\', \'Email Marketing\'], key=lambda ch: sum(r[6] for r in data[1:] if r[1]==ch)/max(1, sum(r[2] for r in data[1:] if r[1]==ch)))", A4:G24)'),
             ("4. Total Marketing ROAS", "Overall portfolio return multiplier across all channels", f'={CALC_PYTHON_ADDIN_FN}("round(sum(r[6] for r in data[1:]) / sum(r[2] for r in data[1:]), 2)", A4:G24)'),
         ]
