@@ -279,12 +279,13 @@ def test_notify_dedupes_per_thread(monkeypatch):
     monkeypatch.delenv("WRITERAGENT_TESTING", raising=False)
     tg._violation_ui_threads.clear()
     default_executor._initialized = True
+    default_executor._async_callback_service = MagicMock()
     posts = []
 
     def fake_post(fn, *args, **kwargs):
         posts.append(fn)
 
-    with patch("plugin.framework.queue_executor.execute_on_main_thread", fake_post):
+    with patch("plugin.framework.queue_executor.post_to_main_thread", fake_post):
         tg._notify_thread_violation("first")
         tg._notify_thread_violation("second")
     assert len(posts) == 1
@@ -303,13 +304,14 @@ def test_assert_logs_and_notifies_when_guard_on(monkeypatch):
     from plugin.framework.queue_executor import default_executor
 
     default_executor._initialized = True
+    default_executor._async_callback_service = MagicMock()
     posts = []
 
     def fake_post(fn, *args, **kwargs):
         posts.append(fn)
 
     try:
-        with patch("plugin.framework.queue_executor.execute_on_main_thread", fake_post):
+        with patch("plugin.framework.queue_executor.post_to_main_thread", fake_post):
             with patch.object(tg.log, "error") as mock_error:
                 with pytest.raises(RuntimeError):
                     tg.assert_main_thread("test.site")

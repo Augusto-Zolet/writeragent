@@ -99,11 +99,13 @@ def _notify_thread_violation(msg: str) -> None:
     if os.environ.get("WRITERAGENT_TESTING") == "1":
         return
     # Marshal bootstrap (_get_async_callback) holds QueueExecutor._init_lock.
-    # A blocking execute() from here deadlocks the UI thread in set_context().
+    # A blocking execute() from here deadlocks if the UI thread is waiting or if
+    # the calling thread was dispatched synchronously from an external UNO call (#402).
+    # Only post asynchronously when AsyncCallback is available; never block the worker.
     try:
         from plugin.framework.queue_executor import default_executor
 
-        if not default_executor._initialized:
+        if not default_executor._initialized or default_executor._async_callback_service is None:
             return
     except Exception:
         return
@@ -124,13 +126,12 @@ def _notify_thread_violation(msg: str) -> None:
             log.exception("Failed to show thread violation message box")
 
     try:
-        from plugin.framework.queue_executor import execute_on_main_thread
+        from plugin.framework.queue_executor import post_to_main_thread
 
-        # Blocking marshal: post_to_main_thread can inline on the worker when
-        # AsyncCallback is missing, which re-triggers the guard inside msgbox.
-        execute_on_main_thread(_show_popup, timeout=5.0)
+        # Non-blocking post: enqueues into VCL loop without waiting.
+        post_to_main_thread(_show_popup)
     except Exception:
-        log.exception("Failed to show thread violation message box on main thread")
+        log.exception("Failed to post thread violation message box on main thread")
 
 
 def assert_main_thread(what: str) -> None:

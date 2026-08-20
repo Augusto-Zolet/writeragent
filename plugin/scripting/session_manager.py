@@ -102,19 +102,31 @@ def calc_init_session_id(doc: Any) -> str:
 
 def workbook_session_id(ctx: Any) -> str | None:
     """Return ``calc:…`` session id when shared mode and active doc is Calc, else ``None``."""
+    # Bugfix (#402): Previously, workbook_session_id unconditionally marshaled to the main thread
+    # via execute_on_main_thread whenever off-main, even in isolated mode (the default).
+    # When =PY() is evaluated from a remote PyUNO bridge thread (e.g. Dummy-2 during setFormula),
+    # the main thread is blocked in the UNO RPC dispatch, causing a 30s deadlock/timeout.
+    # Check python_session_mode first (config read only, no UNO); if not shared, return None immediately.
+    # When shared mode is used off-main, guard execute_on_main_thread against TimeoutError/exceptions
+    # and gracefully fall back to None (isolated).
+    if python_session_mode(ctx) != "shared":
+        return None
+
     from plugin.framework.thread_guard import on_main_thread
     from plugin.framework.queue_executor import execute_on_main_thread
 
     def _workbook_session_id_impl() -> str | None:
-        if python_session_mode(ctx) != "shared":
-            return None
         doc = _calc_document(ctx)
         if doc is None:
             return None
         return calc_workbook_base_session_id(doc)
 
     if not on_main_thread():
-        return execute_on_main_thread(_workbook_session_id_impl)
+        try:
+            return execute_on_main_thread(_workbook_session_id_impl)
+        except Exception:
+            log.debug("workbook_session_id: main-thread marshal failed or timed out", exc_info=True)
+            return None
 
     return _workbook_session_id_impl()
 

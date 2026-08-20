@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import logging
 import math
+import threading
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -473,22 +475,16 @@ def test_session_key_and_init_kwargs_recursion_off_main_thread(monkeypatch: pyte
     # Set WRITERAGENT_TESTING to 1 to force inline execution in queue_executor
     monkeypatch.setenv("WRITERAGENT_TESTING", "1")
 
+    # When off main thread, session_key and get_python_init_kwargs must not touch UNO
+    # or cause thread safety violations / recursion (Issue #402).
     monkeypatch.setattr("plugin.framework.thread_guard.on_main_thread", lambda: False)
-
-    doc = CalcDocStub(url="file:///fake_recursion.ods")
-    sheet = doc.getSheets().getByName("Sheet1")
-    sheet._name = "SheetTest"
-
-    monkeypatch.setattr("plugin.calc.python.function._get_calc_doc", lambda ctx: doc)
-    monkeypatch.setattr("plugin.scripting.document_scripts.get_calc_document_from_ctx", lambda ctx: doc)
-    monkeypatch.setattr("plugin.scripting.document_scripts.build_python_eval_init_kwargs", lambda doc: {"dummy": True})
 
     ctx = MagicMock()
     key = python_function.session_key(ctx, "print('hello')")
-    assert key == ("file:///fake_recursion.ods", "SheetTest", "print('hello')")
+    assert key == ("", "", "print('hello')")
 
     kwargs = python_function.get_python_init_kwargs(ctx)
-    assert kwargs == {"dummy": True}
+    assert kwargs == {}
 
 
 def test_get_python_init_kwargs_registers_unload_listener(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -828,4 +824,90 @@ def test_py_timing_cached_matrix_skips_ipc(monkeypatch: pytest.MonkeyPatch, capl
     assert lines
     assert "cached=1" in lines[-1]
     assert "ipc_ms=0" in lines[-1]
+
+
+def test_format_error_for_display_distinguishes_timeout_error() -> None:
+    """Issue #402: host marshal TimeoutError must not format as user venv settings guidance."""
+    exc = TimeoutError("Main-thread execution of _workbook_session_id_impl timed out after 30.0s")
+    formatted = python_function._format_error_for_display(exc)
+    assert "Main-thread execution timed out" in formatted
+    assert "Settings" not in formatted
+    assert "Test the venv" not in formatted
+
+
+def test_execute_python_addin_from_background_thread_isolated(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Issue #402: external PyUNO setFormula runs on a bridge thread (Dummy-N).
+
+    Must run without triggering Layer A UNO thread violations or deadlocking against main thread.
+    """
+    from plugin.framework import thread_guard as tg
+
+    monkeypatch.setattr(tg, "GUARD_ON", True)
+    monkeypatch.setattr("plugin.scripting.session_manager.python_session_mode", lambda _ctx: "isolated")
+
+    ctx = SimpleNamespace(ServiceManager=MagicMock(), getServiceManager=lambda: MagicMock())
+
+    def fake_run(ctx, code, **kwargs):
+        return {"status": "ok", "result": 2.0}
+
+    monkeypatch.setattr(python_function, "run_code_in_user_venv", fake_run)
+    monkeypatch.setattr(python_function, "_record_py_diagnostic", lambda *_a, **_k: None)
+
+    result_holder: list[Any] = []
+    exc_holder: list[BaseException] = []
+
+    def worker():
+        try:
+            res = python_function.execute_python_addin(ctx, "1+1")
+            result_holder.append(res)
+        except BaseException as e:
+            exc_holder.append(e)
+
+    t = threading.Thread(target=worker, name="Dummy-2")
+    t.start()
+    t.join(timeout=3.0)
+
+    assert not exc_holder
+    assert result_holder == [2.0]
+
+
+def test_execute_python_addin_from_background_thread_shared_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Issue #402: shared mode off-main falls back safely if main-thread marshal fails."""
+    from plugin.framework import thread_guard as tg
+
+    monkeypatch.setattr(tg, "GUARD_ON", True)
+    monkeypatch.setattr("plugin.scripting.session_manager.python_session_mode", lambda _ctx: "shared")
+
+    # Simulate execute_on_main_thread timing out because main thread is blocked in UNO dispatch
+    def fake_execute_on_main(fn, *args, **kwargs):
+        raise TimeoutError("Main-thread execution timed out")
+
+    monkeypatch.setattr("plugin.framework.queue_executor.execute_on_main_thread", fake_execute_on_main)
+
+    ctx = SimpleNamespace(ServiceManager=MagicMock(), getServiceManager=lambda: MagicMock())
+
+    def fake_run(ctx, code, session_id=None, **kwargs):
+        # Even with timeout in shared mode, it falls back to isolated (session_id=None) and returns result
+        return {"status": "ok", "result": 42.0}
+
+    monkeypatch.setattr(python_function, "run_code_in_user_venv", fake_run)
+    monkeypatch.setattr(python_function, "_record_py_diagnostic", lambda *_a, **_k: None)
+
+    result_holder: list[Any] = []
+    exc_holder: list[BaseException] = []
+
+    def worker():
+        try:
+            res = python_function.execute_python_addin(ctx, "6*7")
+            result_holder.append(res)
+        except BaseException as e:
+            exc_holder.append(e)
+
+    t = threading.Thread(target=worker, name="Dummy-3")
+    t.start()
+    t.join(timeout=3.0)
+
+    assert not exc_holder
+    assert result_holder == [42.0]
+
 

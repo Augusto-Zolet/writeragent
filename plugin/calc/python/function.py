@@ -247,10 +247,16 @@ def _get_calc_doc(ctx: Any) -> Any | None:
 
 
 def session_key(ctx: Any, code: str) -> tuple:
+    # Bugfix (#402): When Calc evaluates formulas during remote PyUNO calls (e.g. setFormula),
+    # =PY() runs on a UNO bridge thread (Dummy-N). Calling _get_calc_doc touches get_desktop,
+    # which violates thread-safety and triggers the Layer A thread guard.
+    # MATRIX_SCALAR_SESSIONS is threading.local(), so returning a simple key off-main is safe.
     doc_url = ""
     sheet_name = ""
     try:
-        if hasattr(ctx, "ServiceManager") or hasattr(ctx, "getServiceManager"):
+        from plugin.framework.thread_guard import on_main_thread
+
+        if on_main_thread() and (hasattr(ctx, "ServiceManager") or hasattr(ctx, "getServiceManager")):
             doc = _get_calc_doc(ctx)
             if doc is not None:
                 doc_url = getattr(doc, "getURL", lambda: "")() or ""
@@ -880,6 +886,10 @@ def finalize_python_return(
 def _format_error_for_display(exc: BaseException) -> str:
     """Cell-safe error text without importing ``plugin.framework.client.llm_client``."""
     err: Exception = exc if isinstance(exc, Exception) else RuntimeError(str(exc))
+    # Bugfix (#402): A TimeoutError during add-in execution is an internal host marshal or
+    # synchronization timeout, NOT a user venv execution timeout or HTTP request timeout.
+    if isinstance(exc, TimeoutError):
+        return _("Error: Main-thread execution timed out ({0})").format(str(exc))
     msg = format_error_message(err)
     if msg.startswith("Error:") or msg.startswith("#"):
         return msg
@@ -912,6 +922,13 @@ def _code_uses_indexed_multi_data(code: str) -> bool:
 
 def get_python_init_kwargs(ctx: Any) -> dict[str, Any]:
     try:
+        from plugin.framework.thread_guard import on_main_thread
+
+        # Off-main callers (e.g. external UNO setFormula bridge threads) cannot safely resolve
+        # desktop documents without marshalling or violating UNO thread safety.
+        if not on_main_thread():
+            return {}
+
         from plugin.scripting.document_scripts import build_python_eval_init_kwargs, get_calc_document_from_ctx
 
         doc = get_calc_document_from_ctx(ctx)
@@ -929,7 +946,7 @@ def get_python_init_kwargs(ctx: Any) -> dict[str, Any]:
                 log.debug("python workbook unload listener install failed", exc_info=True)
             return build_python_eval_init_kwargs(doc)
     except Exception:
-        log.debug("get_python_init_kwargs inline lookup exception", exc_info=True)
+        log.debug("get_python_init_kwargs failed", exc_info=True)
     return {}
 
 
@@ -1110,6 +1127,10 @@ def execute_python_addin(
 def _diagnostics_workbook_key(ctx: Any) -> str:
     """Stable workbook key for the diagnostics store (UNO-light best effort)."""
     try:
+        from plugin.framework.thread_guard import on_main_thread
+
+        if not on_main_thread():
+            return "unknown"
         from plugin.scripting.document_scripts import get_calc_document_from_ctx
         from plugin.scripting.session_manager import calc_workbook_base_session_id
 
