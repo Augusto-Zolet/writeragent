@@ -53,12 +53,11 @@ def _lifecycle_key(doc: Any) -> str:
 
 
 class _CalcPythonUnloadListener(BaseDocumentEventListener):
-    def __init__(self, ctx: Any, workbook_session_id: str, lifecycle_key: str, doc_url: str = "") -> None:
+    def __init__(self, ctx: Any, workbook_session_id: str, lifecycle_key: str) -> None:
         super().__init__()
         self._ctx = ctx
         self._workbook_session_id = workbook_session_id
         self._lifecycle_key = lifecycle_key
-        self._doc_url = doc_url
         self._teardown_done = False
 
     def on_document_event(self, Event: Any) -> None:
@@ -82,10 +81,9 @@ class _CalcPythonUnloadListener(BaseDocumentEventListener):
         try:
             from plugin.calc.python.formula_locator_cache import FORMULA_LOCATION_CACHE
 
-            if self._doc_url:
-                FORMULA_LOCATION_CACHE.clear_document(self._doc_url)
+            FORMULA_LOCATION_CACHE.clear_document(self._lifecycle_key)
         except Exception:
-            pass
+            log.debug("python_workbook_lifecycle: formula cache clear failed", exc_info=True)
         try:
             res = reset_python_session(self._ctx, self._workbook_session_id)
             if res.get("status") != "ok":
@@ -104,12 +102,11 @@ def ensure_calc_workbook_unload_resets_python(ctx: Any, doc: Any) -> None:
         return
     key = _lifecycle_key(doc)
     session_id = calc_workbook_base_session_id(doc)
-    doc_url = getattr(doc, "getURL", lambda: "")() or ""
     with _LOCK:
         if key in _REGISTERED_KEYS:
             return
         _REGISTERED_KEYS.add(key)
-    listener = _CalcPythonUnloadListener(ctx, session_id, key, doc_url=doc_url)
+    listener = _CalcPythonUnloadListener(ctx, session_id, key)
     with _LOCK:
         _LISTENERS[key] = listener
     try:

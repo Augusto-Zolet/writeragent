@@ -51,7 +51,7 @@ Shipped in WriterAgent / LibrePy (Python Add-In, not in stock LibreOffice):
 
 - **Signature:** `=PY(code, data…)` / `=PYTHON(...)` — IDL `any python([in] string code, [in] sequence<any> data)`.
 - **Ingress:** Calc resolves ranges **before** the Add-In runs; host packs values; warm **user venv** subprocess executes; injects `data` (and `ranges` for varargs).
-- **Egress:** Prefer `result = …` when set; if `result` is absent from the sandbox namespace, use the **last expression** value automatically (`executor.state.get("result", code_output.output)` in [`venv_sandbox.py`](../plugin/scripting/venv/venv_sandbox.py))—same Jupyter-style fallback Excel uses.
+- **Egress:** Prefer `result = …` when set; if `result` is absent from the sandbox namespace during that run, use the **last expression** value automatically (in [`venv_sandbox.py`](../plugin/scripting/venv/venv_sandbox.py), `result` is popped before/after each cell execution so shared-kernel state does not leak `result` to subsequent cells)—same Jupyter-style fallback Excel uses.
 - **Dependencies:** Normal Calc precedents on the `data` arguments. Shared-kernel mode exists, but **ordering is still declared with `data` refs**—no co-volatility.
 - **Spill:** If auto-spill is on, multi-cell returns are written to adjacent cells via a **deferred timer** and a document property registry (`WriterAgentSpillRegistry`). This is **not** Calc dynamic-array spill; dependents of spilled cells do not automatically see engine-owned spill ranges.
 - **Sync on formula thread:** Recalc must not pump the UI event loop (re-entrancy → `#VALUE!`). Long work blocks the formula interpretation of that cell.
@@ -285,7 +285,7 @@ Excel shows busy/connect errors while the cloud kernel runs. LibreOffice already
 
 Excel: last expression wins (notebook style). WriterAgent / LibrePy already do the same when `result` is not assigned:
 
-1. If the sandbox namespace has `result`, that value is the cell egress.
+1. If the sandbox namespace was assigned `result` during that run, that value is the cell egress (and `result` is popped so it does not linger in shared-kernel state).
 2. Otherwise, the **last expression** from the executed code (`code_output.output` from `LocalPythonExecutor`) is used.
 
 So `=PY("np.sum(data)"; A1:A10)` works without `result =`. Explicit `result = …` remains useful for multi-statement scripts where the useful value is not the final expression. `print()` still does not become the cell value (stdout is separate; diagnostics pane is backlog).

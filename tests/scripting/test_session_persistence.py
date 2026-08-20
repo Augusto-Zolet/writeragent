@@ -126,6 +126,11 @@ def test_shared_session_result_does_not_hijack_subsequent_last_expression_cells(
     assert r5["status"] == "ok"
     assert r5["result"] == 11
 
+    # Later cell may still *use* result as a shared-kernel variable.
+    r6 = _execute_request("result * 2", None, session_id=sid)
+    assert r6["status"] == "ok"
+    assert r6["result"] == 7801.0
+
 
 def test_shared_session_failed_cell_does_not_poison_result():
     """A cell failing execution must not leave leftover result in state for next cell."""
@@ -142,6 +147,13 @@ def test_shared_session_failed_cell_does_not_poison_result():
     r3 = _execute_request("y = 77", None, session_id=sid)
     assert r3["status"] == "ok"
     assert r3["result"] == 77
+
+    # Failed assignment in this cell must not stick; last successful result remains usable.
+    r4 = _execute_request("result = 1 / 0", None, session_id=sid)
+    assert r4["status"] == "error"
+    r5 = _execute_request("result * 2", None, session_id=sid)
+    assert r5["status"] == "ok"
+    assert r5["result"] == 1000
 
 
 def test_shared_session_data_and_ranges_isolation():

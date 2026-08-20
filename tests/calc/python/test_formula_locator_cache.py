@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 
 from plugin.calc.python.formula_locator_cache import (
     FormulaLocationCache,
+    document_cache_key,
     is_matching_py_formula,
     locate_formula_cell,
     locate_formula_cell_in_doc,
@@ -136,6 +137,12 @@ def test_is_matching_py_formula_variants():
     assert is_matching_py_formula('=ORG.EXTENSION.WRITERAGENT.PYTHONFUNCTION.PY("plt.figure(); plt.show()")', "plt.figure(); plt.show()")
     assert not is_matching_py_formula('=SUM(A1:A10)', "plt.plot()")
     assert not is_matching_py_formula('', "plt.plot()")
+    assert not is_matching_py_formula('=PY("plt.plot([1, 2])")', "")
+    # Shared 30-char prefix must not match a different script.
+    code_a = "plt.figure(); plt.plot([1, 2, 3]); plt.title('Sales')"
+    code_b = "plt.figure(); plt.plot([1, 2, 3]); plt.title('Costs')"
+    assert code_a[:30] == code_b[:30]
+    assert not is_matching_py_formula(f'=PY("{code_a}")', code_b)
 
 
 def test_locate_formula_cell_in_doc_populates_cache_and_hits_on_second_call():
@@ -154,7 +161,7 @@ def test_locate_formula_cell_in_doc_populates_cache_and_hits_on_second_call():
     assert located1 is not None
     assert located1[0].getName() == "Viz_Gallery"
     assert located1[2] == (6, 3)
-    assert cache.get("file:///test.ods", code) == [("Viz_Gallery", 6, 3)]
+    assert cache.get(document_cache_key(doc), code) == [("Viz_Gallery", 6, 3)]
 
     # Mock sheet2.queryContentCells to ensure second call uses cache instead of scanning
     sheet2.queryContentCells = MagicMock(side_effect=AssertionError("Should not query content cells on cache hit"))
@@ -174,7 +181,7 @@ def test_locate_formula_cell_in_doc_stale_cache_recovery():
 
     code = "plt.hist([1, 2])"
     # Seed cache with stale coordinate (row 0, col 0)
-    cache.put("file:///test.ods", code, "Sheet1", 0, 0)
+    cache.put(document_cache_key(doc), code, "Sheet1", 0, 0)
 
     # Actual formula is at row 5, col 2
     cell = sheet.getCellByPosition(2, 5)
@@ -184,7 +191,7 @@ def test_locate_formula_cell_in_doc_stale_cache_recovery():
     assert located is not None
     assert located[2] == (5, 2)
     # Cache should now have the updated location (stale (0, 0) pruned)
-    assert cache.get("file:///test.ods", code) == [("Sheet1", 5, 2)]
+    assert cache.get(document_cache_key(doc), code) == [("Sheet1", 5, 2)]
 
 
 def test_locate_formula_cell_convenience_helper():
@@ -235,8 +242,8 @@ def test_opportunistic_batch_caching_warms_all_sheet_formulas():
     assert located_1[2] == (0, 0)
 
     # Verify that code_2 and code_3 are already populated in the cache!
-    assert cache.get("file:///batch.ods", code_2) == [("Analytics", 5, 2)]
-    assert cache.get("file:///batch.ods", code_3) == [("Analytics", 10, 4)]
+    assert cache.get(document_cache_key(doc), code_2) == [("Analytics", 5, 2)]
+    assert cache.get(document_cache_key(doc), code_3) == [("Analytics", 10, 4)]
 
     # Now verify looking up code_2 and code_3 hits cache without querying content cells
     sheet.queryContentCells = MagicMock(side_effect=AssertionError("Should not query content cells; cache is warm!"))
@@ -248,3 +255,32 @@ def test_opportunistic_batch_caching_warms_all_sheet_formulas():
     located_3 = locate_formula_cell_in_doc(ctx, doc, code_3, cache=cache)
     assert located_3 is not None
     assert located_3[2] == (10, 4)
+
+
+def test_untitled_docs_do_not_share_formula_cache():
+    """Empty getURL() must not collide; RuntimeUID (lifecycle key) isolates unsaved books."""
+    cache = FormulaLocationCache(max_formulas_per_doc=10)
+    code = "plt.plot([1])"
+    doc1 = CalcDocStub(url="", props={"RuntimeUID": "uid-untitled-1"})
+    doc2 = CalcDocStub(url="", props={"RuntimeUID": "uid-untitled-2"})
+    ctx1 = _ctx_with_doc(doc1)
+    ctx2 = _ctx_with_doc(doc2)
+
+    doc1.getSheets().getByIndex(0).getCellByPosition(0, 0).setFormula(f'=PY("{code}")')
+    doc2.getSheets().getByIndex(0).getCellByPosition(5, 5).setFormula(f'=PY("{code}")')
+
+    located1 = locate_formula_cell_in_doc(ctx1, doc1, code, cache=cache)
+    located2 = locate_formula_cell_in_doc(ctx2, doc2, code, cache=cache)
+    assert located1 is not None and located1[2] == (0, 0)
+    assert located2 is not None and located2[2] == (5, 5)
+
+    key1 = document_cache_key(doc1)
+    key2 = document_cache_key(doc2)
+    assert key1 == "uid-untitled-1"
+    assert key2 == "uid-untitled-2"
+    assert cache.get(key1, code) == [("Sheet1", 0, 0)]
+    assert cache.get(key2, code) == [("Sheet1", 5, 5)]
+
+    cache.clear_document(key1)
+    assert cache.get(key1, code) == []
+    assert cache.get(key2, code) == [("Sheet1", 5, 5)]

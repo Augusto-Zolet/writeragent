@@ -26,6 +26,34 @@ MIN_CHART_PLACEHOLDER_WIDTH = 4000
 MIN_CHART_PLACEHOLDER_HEIGHT = 3000
 
 
+def _cell_address_key(cell: Any) -> tuple[Any, int, int] | None:
+    """Sheet + column + row for a cell-like UNO object, or None."""
+    try:
+        if hasattr(cell, "getRangeAddress"):
+            addr = cell.getRangeAddress()
+            sheet_idx = getattr(addr, "Sheet", None)
+            return (sheet_idx, int(addr.StartColumn), int(addr.StartRow))
+        if hasattr(cell, "getCellAddress"):
+            addr = cell.getCellAddress()
+            return (getattr(addr, "Sheet", None), int(addr.Column), int(addr.Row))
+    except Exception:
+        return None
+    return None
+
+
+def _shape_anchor_matches_cell(shape: Any, target_cell: Any) -> bool:
+    """True when the shape is already anchored to the same grid cell (not UNO identity)."""
+    try:
+        if not hasattr(shape, "getPropertyValue"):
+            return False
+        anchor = shape.getPropertyValue("Anchor")
+        left = _cell_address_key(anchor)
+        right = _cell_address_key(target_cell)
+        return left is not None and left == right
+    except Exception:
+        return False
+
+
 def insert_image_result_on_sheet(ctx: Any, payload: dict[str, Any], *, code: str | None = None) -> None:
     """Write image payload bytes to a temp file and insert as a cell-anchored shape on the target sheet.
 
@@ -100,7 +128,7 @@ def _insert_image_result_on_sheet_impl(ctx: Any, payload: dict[str, Any], code: 
                     addr = selection.getRangeAddress()
                     target_cell = sheet.getCellByPosition(addr.StartColumn, addr.StartRow)
             except Exception:
-                pass
+                log.debug("insert_image_result_on_sheet: selection fallback failed", exc_info=True)
 
         tmp_path = write_image_payload_to_temp(payload)
         file_url = uno.systemPathToFileUrl(os.path.abspath(tmp_path))
@@ -112,7 +140,7 @@ def _insert_image_result_on_sheet_impl(ctx: Any, payload: dict[str, Any], code: 
                 if isinstance(raw_count, int) and raw_count > 0:
                     for i in range(raw_count):
                         s = draw_page.getByIndex(i)
-                        if hasattr(s, "getPropertyValue") and s.getPropertyValue("Anchor") == target_cell:
+                        if _shape_anchor_matches_cell(s, target_cell):
                             shape = s
                             break
             except Exception:

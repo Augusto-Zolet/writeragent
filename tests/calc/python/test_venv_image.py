@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from plugin.calc.python.image_egress import insert_image_result_on_sheet
+from plugin.calc.python.image_egress import _shape_anchor_matches_cell, insert_image_result_on_sheet
+from tests.testing_utils import CalcCellStub
 from plugin.calc.python.venv import RunVenvPythonScript
 from plugin.scripting.payload_codec import PAYLOAD_IMAGE
 
@@ -103,3 +104,14 @@ def test_insert_image_result_on_sheet_background_thread_marshaling():
         insert_image_result_on_sheet(ctx, _IMAGE_PAYLOAD)
 
     assert exec_main.call_count == 1
+
+
+def test_shape_anchor_matches_by_address_not_identity():
+    """Reuse must key off sheet/col/row, not UNO object identity."""
+    cell_a = CalcCellStub(col=3, row=6)
+    cell_same = CalcCellStub(col=3, row=6)
+    cell_other = CalcCellStub(col=0, row=0)
+    shape = MagicMock()
+    shape.getPropertyValue.return_value = cell_a
+    assert _shape_anchor_matches_cell(shape, cell_same)
+    assert not _shape_anchor_matches_cell(shape, cell_other)

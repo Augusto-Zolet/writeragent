@@ -165,6 +165,18 @@ class FormulaLocationCache:
 FORMULA_LOCATION_CACHE = FormulaLocationCache()
 
 
+def document_cache_key(doc: Any) -> str:
+    """Stable cache key for a Calc document. Never empty-string URL.
+
+    Unsaved books share ``getURL() == ""``; keying on that collides. Prefer
+    ``RuntimeUID`` (same as workbook lifecycle), else the workbook session id
+    which assigns a UUID for untitled docs.
+    """
+    from plugin.calc.python.workbook_lifecycle import _lifecycle_key
+
+    return _lifecycle_key(doc)
+
+
 def extract_code_from_py_formula(formula: str) -> str | None:
     """Extract and unescape the Python code string argument from a =PY() / =PYTHON() formula."""
     if not formula:
@@ -177,30 +189,13 @@ def extract_code_from_py_formula(formula: str) -> str | None:
 
 
 def is_matching_py_formula(formula: str, code_str: str) -> bool:
-    """True if formula looks like a =PY() / =PYTHON() call matching code_str."""
-    if not formula:
+    """True if formula is a =PY() / =PYTHON() call whose code argument equals code_str."""
+    if not formula or not code_str:
         return False
     upper = formula.upper()
     if "PYTHON" not in upper and "PY" not in upper:
         return False
-    if not code_str:
-        return True
-    # Exact substring check
-    if code_str in formula:
-        return True
-    # Calc escapes double quotes inside string literals as ""
-    if code_str.replace('"', '""') in formula:
-        return True
-    # Check stripped/normalized representation
-    stripped = code_str.strip()
-    if stripped and (stripped in formula or stripped.replace('"', '""') in formula):
-        return True
-    # Check distinctive prefix (first 30 chars) for large multi-line scripts
-    if len(stripped) > 30:
-        first_part = stripped[:30]
-        if first_part in formula or first_part.replace('"', '""') in formula:
-            return True
-    return False
+    return extract_code_from_py_formula(formula) == code_str
 
 
 def search_sheet_for_formula(
@@ -258,7 +253,7 @@ def locate_formula_cell_in_doc(
         return None
 
     active_cache = cache if cache is not None else FORMULA_LOCATION_CACHE
-    doc_url = getattr(doc, "getURL", lambda: "")() or ""
+    doc_url = document_cache_key(doc)
 
     # 1. Fast-path on active sheet / selection
     active_sheet = None
@@ -284,7 +279,7 @@ def locate_formula_cell_in_doc(
                             active_cache.put(doc_url, code_str, sheet_name, r, c)
                             return (active_sheet, cell, (r, c))
     except Exception:
-        pass
+        log.debug("locate_formula_cell_in_doc: selection fast path failed", exc_info=True)
 
     # 2. Check cached coordinates for (doc_url, code_str)
     cached_coords = active_cache.get(doc_url, code_str)
@@ -312,8 +307,6 @@ def locate_formula_cell_in_doc(
         res = search_sheet_for_formula(active_sheet, code_str, doc_url=doc_url, cache=active_cache)
         if res is not None:
             cell, r, c = res
-            sheet_name = active_sheet.getName() if hasattr(active_sheet, "getName") else "Sheet1"
-            active_cache.put(doc_url, code_str, sheet_name, r, c)
             return (active_sheet, cell, (r, c))
 
     # 4. Fallback: Search all other sheets in the workbook
@@ -328,8 +321,6 @@ def locate_formula_cell_in_doc(
                 res = search_sheet_for_formula(sheet, code_str, doc_url=doc_url, cache=active_cache)
                 if res is not None:
                     cell, r, c = res
-                    sheet_name = sheet.getName() if hasattr(sheet, "getName") else f"Sheet{i+1}"
-                    active_cache.put(doc_url, code_str, sheet_name, r, c)
                     return (sheet, cell, (r, c))
     except Exception:
         log.debug("locate_formula_cell_in_doc failed across sheets", exc_info=True)

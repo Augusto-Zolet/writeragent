@@ -591,18 +591,23 @@ def _inject_bindings(executor: LocalPythonExecutor, bindings: dict[str, Any] | N
     executor.send_variables(dict(bindings))
 
 
+_RESULT_MISSING = object()
+
+
 def _run_on_executor(executor: LocalPythonExecutor, code: str) -> dict[str, Any]:
-    # Ensure no leftover result from prior runs or failed state
-    executor.state.pop("result", None)
+    # Bugfix (#388): shared-kernel leftover ``result`` was used as egress for later
+    # last-expression cells. Popping ``result`` after every cell (or before the next)
+    # stopped the hijack but also made ``result * 2`` in a later cell NameError.
+    # Fix: keep ``result`` in the namespace; use it for egress only when this cell
+    # rebound it (identity change). On failure, restore the pre-cell value.
+    prior_result = executor.state.get("result", _RESULT_MISSING)
     try:
-        try:
-            code_output = executor(code)
-            if "result" in executor.state:
-                result = executor.state.pop("result")
-            else:
-                result = code_output.output
-        finally:
-            executor.state.pop("result", None)
+        code_output = executor(code)
+        current = executor.state.get("result", _RESULT_MISSING)
+        if current is not _RESULT_MISSING and current is not prior_result:
+            result = current
+        else:
+            result = code_output.output
 
         serialized = serialize_result(result)
 
@@ -626,6 +631,7 @@ def _run_on_executor(executor: LocalPythonExecutor, code: str) -> dict[str, Any]
             "stdout": stdout,
         }
     except InterpreterError as e:
+        _restore_prior_result(executor, prior_result)
         return {
             "status": "error",
             "message": str(e),
@@ -634,12 +640,21 @@ def _run_on_executor(executor: LocalPythonExecutor, code: str) -> dict[str, Any]
     except Exception as e:
         import traceback
 
+        _restore_prior_result(executor, prior_result)
         return {
             "status": "error",
             "message": str(e),
             "traceback": traceback.format_exc(),
             "stdout": "",
         }
+
+
+def _restore_prior_result(executor: LocalPythonExecutor, prior_result: Any) -> None:
+    """Drop a failed cell's partial ``result``; keep the last successful assignment."""
+    if prior_result is _RESULT_MISSING:
+        executor.state.pop("result", None)
+    else:
+        executor.state["result"] = prior_result
 
 
 def run_sandboxed_code(
