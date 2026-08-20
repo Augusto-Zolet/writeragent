@@ -947,7 +947,6 @@ def _emit_py_timing(
     code: str,
     total_ms: int,
     pack_ms: int,
-    warm_ms: int,
     ipc_ms: int,
     image_ms: int,
     cached: bool,
@@ -960,13 +959,12 @@ def _emit_py_timing(
     pass_wall_ms = int(round((last_end - pass_start) * 1000))
     pass_outside_ms = max(0, pass_wall_ms - pass_sum_ms)
     log.debug(
-        "py_timing code=%s n=%s total_ms=%s pack_ms=%s warm_ms=%s ipc_ms=%s image_ms=%s cached=%s | "
+        "py_timing code=%s n=%s total_ms=%s pack_ms=%s ipc_ms=%s image_ms=%s cached=%s | "
         "pass_wall_ms=%s pass_sum_ms=%s pass_outside_ms=%s",
         _py_timing_code_label(code),
         n,
         total_ms,
         pack_ms,
-        warm_ms,
         ipc_ms,
         image_ms,
         1 if cached else 0,
@@ -994,7 +992,6 @@ def execute_python_addin(
             _PY_PASS_STATS.n = 0
             _PY_PASS_STATS.sum_ms = 0
     pack_ms = 0
-    warm_ms = 0
     ipc_ms = 0
     image_ms = 0
     used_cache = False
@@ -1064,10 +1061,6 @@ def execute_python_addin(
             )
             if timings:
                 ipc_ms = int(round((time.perf_counter() - t_ipc) * 1000))
-                try:
-                    warm_ms = int(res.get("warm_ms") or 0)
-                except Exception:
-                    warm_ms = 0
         log.debug("PYTHON res from worker: %r", res)
         if res.get("status") == "ok":
             _record_py_diagnostic(ctx, code, res, status="ok")
@@ -1104,7 +1097,6 @@ def execute_python_addin(
                 code=code,
                 total_ms=total_ms,
                 pack_ms=pack_ms,
-                warm_ms=warm_ms,
                 ipc_ms=ipc_ms,
                 image_ms=image_ms,
                 cached=used_cache,

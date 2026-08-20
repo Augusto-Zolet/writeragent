@@ -770,7 +770,7 @@ def test_py_timing_logs_ipc_ms_and_pass_totals(monkeypatch: pytest.MonkeyPatch, 
     monkeypatch.setattr(
         python_function,
         "run_code_in_user_venv",
-        lambda *_a, **_k: {"status": "ok", "result": 2.0, "warm_ms": 7},
+        lambda *_a, **_k: {"status": "ok", "result": 2.0},
     )
     monkeypatch.setattr(python_function, "_record_py_diagnostic", lambda *_a, **_k: None)
     monkeypatch.setattr(python_function, "get_python_init_kwargs", lambda _ctx: {})
@@ -787,7 +787,6 @@ def test_py_timing_logs_ipc_ms_and_pass_totals(monkeypatch: pytest.MonkeyPatch, 
     assert "code=describe_data" in lines[0]
     assert "ipc_ms=" in lines[0]
     assert "total_ms=" in lines[0]
-    assert "warm_ms=7" in lines[0]
     assert "pass_outside_ms=" in lines[0]
     assert "n=1" in lines[0]
     assert "n=2" in lines[1]
