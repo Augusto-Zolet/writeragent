@@ -72,31 +72,48 @@ class DeleteSlide(ToolBase):
         return {"status": "ok", "message": "Slide deleted", "active_page_index": active_idx}
 
 
-class ReadSlideText(ToolBase):
-    """Read all text content from a slide plus speaker notes."""
-
-    name = "read_slide_text"
-    description = "Read all text content from a slide (shapes text) and speaker notes. Returns structured text per shape."
-    parameters = {"type": "object", "properties": {"page": {"type": "integer", "description": "0-based slide index (default: active slide)."}}, "required": []}
-    uno_services = ["com.sun.star.drawing.DrawingDocument"]
+class ListPages(ToolBase):
+    name = "list_pages"
+    description = "Lists all pages (slides) in the document."
+    parameters = {"type": "object", "properties": {}, "required": []}
+    uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
+    doc_types = ["draw", "impress"]
     tier = "core"
 
     def execute(self, ctx, **kwargs):
         from plugin.draw.bridge import DrawBridge
 
         bridge = DrawBridge(ctx.doc)
-        # Resolve page
+        pages = bridge.get_pages()
+        active_idx = ctx.active_page_index
+        if active_idx is None:
+            active_idx = bridge.get_active_page_index()
+        return {"status": "ok", "pages": [f"Page {i}" for i in range(pages.getCount())], "count": pages.getCount(), "active_page_index": active_idx}
+
+
+class ReadSlideText(ToolBase):
+    """Read all text content from a slide plus speaker notes."""
+
+    name = "read_slide_text"
+    description = "Read all text content from a slide (shapes text) and speaker notes. Returns structured text per shape."
+    parameters = {"type": "object", "properties": {"page": {"type": "integer", "description": "0-based slide index (default: active slide)."}}, "required": []}
+    uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
+    tier = "core"
+
+    def execute(self, ctx, **kwargs):
+        from plugin.draw.bridge import DrawBridge
+
+        bridge = DrawBridge(ctx.doc)
         idx = kwargs.get("page")
         actual_idx = idx if idx is not None else ctx.active_page_index
         if actual_idx is None:
             actual_idx = bridge.get_active_page_index()
 
         try:
-            page = bridge.get_pages().getByIndex(actual_idx)
-        except Exception:
+            page = DrawBridge.resolve_slide(ctx.doc, actual_idx)
+        except IndexError:
             return self._tool_error("Invalid page index: %s" % actual_idx)
-
-        if page is None:
+        except Exception:
             return self._tool_error("No draw page available.")
 
         texts = []
@@ -133,7 +150,7 @@ class GetPresentationInfo(ToolBase):
     name = "get_presentation_info"
     description = "Get presentation metadata: slide count, dimensions, master slide names, and whether it is an Impress document."
     parameters = {"type": "object", "properties": {}, "required": []}
-    uno_services = ["com.sun.star.drawing.DrawingDocument"]
+    uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
     tier = "core"
 
     def execute(self, ctx, **kwargs):

@@ -23,20 +23,19 @@ log = logging.getLogger("nelson.draw")
 # In practice, the simplest approach is to iterate shapes and check
 # their "PresObj" or "ClassName" property.
 
+from plugin.draw.bridge import DrawBridge
+
 _PLACEHOLDER_ROLES = {"title": ["Title", "TitleText"], "subtitle": ["SubTitle", "Subtitle"], "body": ["Outline", "Text", "Body"], "notes": ["Notes"]}
 
 
 def _get_slide(doc, page_index=None):
     """Resolve a slide by index or active."""
-    pages = doc.getDrawPages()
-    if page_index is not None:
-        if page_index < 0 or page_index >= pages.getCount():
-            raise ToolExecutionError("Page index %d out of range." % page_index)
-        return pages.getByIndex(page_index)
-    controller = doc.getCurrentController()
-    if hasattr(controller, "getCurrentPage"):
-        return controller.getCurrentPage()
-    return pages.getByIndex(0)
+    try:
+        return DrawBridge.resolve_slide(doc, page_index)
+    except IndexError:
+        raise ToolExecutionError("Page index %d out of range." % page_index)
+    except Exception as e:
+        raise ToolExecutionError(str(e))
 
 
 def _find_placeholder(page, role):

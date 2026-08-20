@@ -34,34 +34,16 @@ These tools are **always available** to the main agent for Draw/Impress document
 | Tool | Module | Services | Description |
 |------|--------|----------|-------------|
 | `list_pages` | `pages.py` | Drawing+Presentation | Lists all pages/slides |
-| `shape_summary` | `shapes.py` | Drawing+Presentation | Shape summary for a page |
-| `shape_upsert` | `shapes.py` | Drawing+Presentation | Create or edit rectangle, ellipse, text, line, connector, custom |
-| `shape_delete` | `shapes.py` | Drawing+Presentation | Remove a shape |
-| `shape_connect` | `shapes.py` | Drawing+Presentation | Connect two shapes with a line |
-| `shape_group` | `shapes.py` | Drawing+Presentation | Group multiple shapes |
-| `get_draw_tree` | `tree.py` | Drawing+Presentation | JSON DOM of shapes (for flowcharts) |
 | `add_slide` | `pages.py` | Drawing+Presentation | Add a new page/slide |
 | `delete_slide` | `pages.py` | Drawing+Presentation | Delete a page/slide |
+| `set_active_page` | `pages.py` | Drawing+Presentation | Switch current view to slide |
 | `read_slide_text` | `pages.py` | Drawing+Presentation | Extract text from all shapes on a page |
 | `get_presentation_info` | `pages.py` | Drawing+Presentation | Metadata: slide count, dimensions, masters |
+| `get_draw_tree` | `tree.py` | Drawing+Presentation | JSON DOM of shapes and layout hierarchy |
 | `list_placeholders` | `placeholders.py` | Presentation | List placeholder shapes (title, subtitle, body) |
 | `get_placeholder_text` | `placeholders.py` | Presentation | Get text from a placeholder |
 | `set_placeholder_text` | `placeholders.py` | Presentation | Set text in a placeholder |
-| `manage_charts` | `charts.py` | Drawing+Presentation | Unified charts API (`action`: list / get_info / create / edit / delete); specialized `domain=charts` |
 | `delegate_to_specialized_draw_toolset` | `specialized.py` | Drawing+Presentation | Gateway for sub-agent delegation |
-| `transform_document_structure` | `transform.py` | Drawing+Presentation | Collabora-compatible JSON `SlideCommands` batch (see below) |
-
-> ✅ **Fixed**: All applicable tools now correctly include both `DrawingDocument` and `PresentationDocument` in their `uno_services` declarations where appropriate. Tools marked "Impress only" correctly use `PresentationDocument` only.
-
-#### `transform_document_structure` (Collabora DSL)
-
-Batch Impress edits via one JSON payload: `{"Transforms": {"SlideCommands": [...]}}`. Canonical command reference: [Collabora `DocumentToolDescriptions.hpp`](https://github.com/CollaboraOnline/online/blob/master/wsd/DocumentToolDescriptions.hpp) (`TRANSFORM_PARAM_DESCRIPTION`). WriterAgent maps the same names in [`plugin/draw/transform_schema.py`](../plugin/draw/transform_schema.py) and applies them in-process via [`transform_engine.py`](../plugin/draw/transform_engine.py) (desktop LibreOffice has no `.uno:TransformDocumentStructure`).
-
-**Supported in V1:** navigation, slide insert/delete/duplicate/move/rename, `ChangeLayoutByName` / `ChangeLayout`, `SetText.N`, `EditTextObject.N` (with nested `UnoCommand`), top-level document `UnoCommand`.
-
-**Not yet:** `GenerateImage.N`, `MarkObject`, Writer/Calc `ContentControls`, user approval (`summary` parameter is accepted but ignored).
-
-**`add_slide` and the active slide:** After inserting a page, [`DrawBridge.create_slide`](plugin/draw/bridge.py) calls the document controller’s `setCurrentPage` on the new slide when the UNO interface supports it. LibreOffice’s `insertNewByIndex` alone does not reliably move the current page; activating the new slide keeps `create_shape` and other tools that default to `getCurrentPage()` aligned with what the user (and agent) expect.
 
 ### 2.2 Specialized Tools (tier = "specialized")
 
@@ -69,29 +51,33 @@ These are available only via `delegate_to_specialized_draw_toolset`:
 
 | Tool | Domain | Module | Purpose | Services |
 |------|--------|--------|---------|---------|
-| `WebResearchTool` | `web_research` | `web_research.py` | Web search for context | All |
-| `form_create_control` | `forms` | `writer/forms.py` | Create a single form control | Drawing+Presentation+Spreadsheet+Text |
-| `form_create` | `forms` | `writer/forms.py` | Create multiple form controls | Drawing+Presentation+Spreadsheet+Text |
-| `form_generate` | `forms` | `writer/forms.py` | Generate form from description | All |
-| `form_list_controls` | `forms` | `writer/forms.py` | List form controls | Drawing+Presentation+Spreadsheet+Text |
-| `form_edit_control` | `forms` | `writer/forms.py` | Modify a form control | Drawing+Presentation+Spreadsheet+Text |
-| `form_delete_control` | `forms` | `writer/forms.py` | Remove a form control | Drawing+Presentation+Spreadsheet+Text |
-| `get_headers_footers` | `headers_footers` | `draw/headers_footers.py` | Read slide/master header and footer settings (Impress) | Presentation |
-| `set_headers_footers` | `headers_footers` | `draw/headers_footers.py` | Update slide/master header and footer settings (Impress) | Presentation |
-| `get_speaker_notes` | `speaker_notes` | `draw/notes.py` | Read speaker notes (Impress) | Presentation |
-| `set_speaker_notes` | `speaker_notes` | `draw/notes.py` | Set speaker notes (Impress) | Presentation |
+| `shape_summary` | `shapes` | `draw/shapes.py` | Summary of shapes on page | Drawing+Presentation |
+| `shape_upsert` | `shapes` | `draw/shapes.py` | Create or edit shapes (1/100mm coordinates) | Drawing+Presentation |
+| `shape_delete` | `shapes` | `draw/shapes.py` | Delete a shape by index | Drawing+Presentation |
+| `shape_connect` | `shapes` | `draw/shapes.py` | Connect two shapes with a connector line | Drawing+Presentation |
+| `shape_group` | `shapes` | `draw/shapes.py` | Group multiple shapes | Drawing+Presentation |
 | `get_slide_transition` | `slide_transitions` | `draw/transitions.py` | Get transition effect/speed/duration | Presentation |
 | `set_slide_transition` | `slide_transitions` | `draw/transitions.py` | Set transition effect/speed/duration | Presentation |
-| `get_slide_layout` | `slide_transitions` | `draw/transitions.py` | Get current slide layout | Presentation |
-| `set_slide_layout` | `slide_transitions` | `draw/transitions.py` | Set slide layout by name | Presentation |
+| `get_slide_layout` | `slide_layouts` | `draw/transitions.py` | Get current slide layout | Presentation |
+| `set_slide_layout` | `slide_layouts` | `draw/transitions.py` | Set slide layout by name | Presentation |
 | `list_master_slides` | `slide_masters` | `draw/masters.py` | List all master slides | Drawing+Presentation |
 | `get_slide_master` | `slide_masters` | `draw/masters.py` | Get master for a slide | Drawing+Presentation |
 | `set_slide_master` | `slide_masters` | `draw/masters.py` | Assign a master to a slide | Drawing+Presentation |
+| `get_speaker_notes` | `speaker_notes` | `draw/notes.py` | Read speaker notes (Impress) | Presentation |
+| `set_speaker_notes` | `speaker_notes` | `draw/notes.py` | Set speaker notes (Impress) | Presentation |
+| `get_headers_footers` | `headers_footers` | `draw/headers_footers.py` | Read slide/master header and footer settings (Impress) | Presentation |
+| `set_headers_footers` | `headers_footers` | `draw/headers_footers.py` | Update slide/master header and footer settings (Impress) | Presentation |
+| `manage_charts` | `charts` | `draw/charts.py` | Unified charts CRUD | Drawing+Presentation |
+| `form_*` (6 tools) | `forms` | `writer/forms.py` | Form controls | Drawing+Presentation+Spreadsheet+Text |
 | `insert_math` | `math` | `math_insert.py` | Insert LibreOffice Math (OLE) from LaTeX or MathML | Drawing+Presentation |
+| `WebResearchTool` | `web_research` | `web_research.py` | Web search for context | All |
 
-> **Note**: Form tools are implemented in `writer/forms.py` but inherit from `ToolDrawFormBase`, making them available across document types. This document focuses on Draw/Impress usage.
+### 2.3 Unit & Coordinate System
 
-### 2.3 insert_math (math domain)
+- **Slide Dimensions**: `get_presentation_info` reports slide width and height in **millimeters** (e.g. $280\text{mm} \times 157\text{mm}$ for 16:9).
+- **Shape Coordinates & Sizes**: Shape tools (`shape_upsert`, `shape_connect`) operate in **$1/100\text{ths}$ of a millimeter** ($1\text{mm} = 100\text{ units}$, $10\text{mm} = 1000\text{ units}$, $100\text{mm} = 10000\text{ units}$).
+
+### 2.4 insert_math (math domain)
 
 > **Follow-up — shape size / bounding box:** `insert_math` does not take width/height from the model. It attempts content-based sizing via the embedded object’s `XVisualObject.getVisualAreaSize` (after the formula is set), then falls back to a simple heuristic from formula length. **In practice this often still looks wrong** (too small or large, wrong aspect, or inconsistent across LibreOffice versions and headless vs GUI). This area **needs more engineering**: validate UNO sizing across builds, consider map-unit edge cases, optional post-insert resize once the OLE is realized, or expose optional max dimensions while keeping defaults automatic.
 
@@ -220,66 +206,178 @@ Some tools are implemented in shared modules but work with Draw/Impress:
 | Improve `insert_math` OLE shape sizing (`math_insert.py`) | Medium | Correct default box for formulas without model-supplied width/height | Open — see [§2.3](#23-insert_math-math-domain) |
 
 
-### 5.2 Priority 2: High-Value Features
+### 5.2 Priority 2: High-Value Features & Technical Designs
 
 | Feature | UNO Area | User Value | Effort |
 |---------|----------|-------------|--------|
-| **Advanced Impress Layouts** | `com.sun.star.drawing` | Intelligent image/shape placement on slides | Low |
-| **Slide Animations** | `com.sun.star.presentation.Animation*` | Professional presentations | Medium |
-| **Slide Show Controls** | `com.sun.star.presentation.Presentation` | Start/stop presentations | Low |
+| **Batch Diagrams & Flowcharts** | `com.sun.star.drawing` | Single-turn diagram & flowchart creation | Low |
+| **Shape Alignment & Distribution** | `com.sun.star.drawing` | Clean, aligned, professional diagram layouts | Low |
+| **Native Slide Tables** | `com.sun.star.drawing.TableShape` | Comparison tables, feature grids, data tables | Medium |
+| **Slide Duplicate & Move** | `com.sun.star.drawing.DrawPages` | Reorder, copy, and organize slides | Low |
+| **Media & Graphic Placement** | `com.sun.star.drawing.GraphicObjectShape` | Explicit logo, diagram, and asset insertion | Low |
+| **Slide Animations** | `com.sun.star.presentation.Animation*` | Professional presentation builds & entrances | Medium |
+| **Slide Show Controls** | `com.sun.star.presentation.Presentation` | Start/stop presentation mode | Low |
 | **Layers** | `com.sun.star.drawing.Layer*` | Advanced Draw organization | Medium |
-| **Media Insertion** | `com.sun.star.presentation.Media*` | Audio/video in slides | Medium |
-| **Tables in Draw** | `com.sun.star.drawing.TableShape` | Tabular data | Medium |
 
-#### Implementation Detail: Advanced Impress Layouts
-WriterAgent leverages the native Draw/Impress toolset to manage presentation layouts, including centering generated images on slides using explicit shape manipulation. **This layout strategy is derived directly from the explicit shape-handling implementation in LibreAI's `UnoHelper.cpp`.**
+---
 
-**The Concept:**
-When an AI generates an image for a slide, standard insertion logic often defaults to anchoring it to a generic position. The LibreAI approach, which we have adopted, uses explicit coordinate and dimension management to ensure images are correctly placed and sized within the `DrawingDocumentDrawView`.
+#### 5.2.1 Batch Diagrams & Flowcharts (`batch_upsert_shapes` / `create_diagram`)
 
-**Implementation:**
-We adapt LibreAI's `insertImage` strategy from `UnoHelper.cpp` to create and position a `GraphicObjectShape` explicitly.
+**Problem:** Generating a 4-step flowchart currently requires 8 sequential tool turns (`shape_upsert` $\times 4$, `shape_connect` $\times 4$).
 
+**Design:** Add a batch creation tool to `domain="shapes"`:
 ```python
-def insert_image_into_impress(ctx, doc_model, image_path: str):
-    # 1. Get the current Draw Page (Slide)
+class CreateDiagram(ToolDrawShapeBase):
+    name = "create_diagram"
+    description = "Create a complete diagram/flowchart with multiple nodes and connectors in a single turn."
+    parameters = {
+        "type": "object",
+        "properties": {
+            "page": {"type": "integer", "description": "0-based page index (active page if omitted)"},
+            "layout": {"type": "string", "enum": ["horizontal_flow", "vertical_flow", "grid", "custom"], "default": "horizontal_flow"},
+            "nodes": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string", "description": "Node identifier for connecting"},
+                        "text": {"type": "string", "description": "Text content"},
+                        "shape_type": {"type": "string", "default": "rectangle"},
+                        "x": {"type": "integer", "description": "X position (1/100mm, optional in auto layouts)"},
+                        "y": {"type": "integer", "description": "Y position (1/100mm, optional in auto layouts)"},
+                        "width": {"type": "integer", "default": 4000},
+                        "height": {"type": "integer", "default": 2000},
+                        "fill_color": {"type": "string", "default": "#E8F0FE"},
+                    },
+                    "required": ["id", "text"]
+                }
+            },
+            "connections": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "from": {"type": "string", "description": "Source node ID"},
+                        "to": {"type": "string", "description": "Target node ID"},
+                        "line_color": {"type": "string", "default": "#1A73E8"}
+                    },
+                    "required": ["from", "to"]
+                }
+            }
+        },
+        "required": ["nodes"]
+    }
+```
+
+---
+
+#### 5.2.2 Shape Alignment & Distribution (`align_shapes`, `distribute_shapes`)
+
+**Problem:** LLM-placed shapes are often slightly misaligned, creating amateurish diagrams.
+
+**Design:** Add alignment tools to `domain="shapes"`:
+```python
+class AlignShapes(ToolDrawShapeBase):
+    name = "align_shapes"
+    description = "Align multiple shapes to an edge or center axis."
+    parameters = {
+        "type": "object",
+        "properties": {
+            "page": {"type": "integer", "description": "0-based page index"},
+            "indices": {"type": "array", "items": {"type": "integer"}, "description": "Shape indices to align"},
+            "alignment": {
+                "type": "string",
+                "enum": ["left", "center_horizontal", "right", "top", "center_vertical", "bottom"],
+                "description": "Alignment reference axis"
+            }
+        },
+        "required": ["indices", "alignment"]
+    }
+```
+**Implementation:**
+- Reads bounding boxes of all target shapes via `getPosition()` / `getSize()`.
+- Calculates reference anchor (e.g., minimum $X$ for `left`, average center $X$ for `center_horizontal`).
+- Adjusts each shape's position using `setPosition(Point(new_x, new_y))`.
+
+---
+
+#### 5.2.3 Native TableShape Support (`domain="tables"`)
+
+**Problem:** Impress slides heavily rely on comparison tables and feature grids. Draw/Impress currently has no table tools.
+
+**Design:** Create a specialized domain `domain="tables"` (`plugin/draw/tables.py`):
+```python
+class InsertTable(ToolDrawSpecialBase):
+    name = "insert_table"
+    specialized_domain = "tables"
+    description = "Insert a native table shape onto the slide with specified rows and columns."
+    parameters = {
+        "type": "object",
+        "properties": {
+            "page": {"type": "integer", "description": "0-based slide index"},
+            "rows": {"type": "integer", "description": "Number of rows"},
+            "columns": {"type": "integer", "description": "Number of columns"},
+            "x": {"type": "integer", "description": "X position in 1/100mm (default: 3000)"},
+            "y": {"type": "integer", "description": "Y position in 1/100mm (default: 4000)"},
+            "width": {"type": "integer", "description": "Table width in 1/100mm (default: 20000)"},
+            "height": {"type": "integer", "description": "Table height in 1/100mm (default: 10000)"},
+            "data": {
+                "type": "array",
+                "items": {"type": "array", "items": {"type": "string"}},
+                "description": "2D array of cell strings: [[row0_col0, row0_col1], [row1_col0, ...]]"
+            }
+        },
+        "required": ["rows", "columns"]
+    }
+```
+**Implementation:**
+- Create instance of `com.sun.star.drawing.TableShape`.
+- Access model via `table_shape.getModel()`, set row/column counts, and populate cells via `table.getCellByPosition(col, row).setString(val)`.
+
+---
+
+#### 5.2.4 Slide Lifecycle Operations (`duplicate_slide`, `move_slide`)
+
+**Design:** Expose `DrawBridge.duplicate_slide` and `DrawBridge.move_slide` as first-class core tools in [`plugin/draw/pages.py`](plugin/draw/pages.py):
+- `duplicate_slide(page: int, activate: bool = True)`
+- `move_slide(from_page: int, to_page: int)`
+- `rename_slide(page: int, name: str)`
+
+---
+
+#### 5.2.5 Media & Graphic Placement (`insert_graphic_shape`)
+
+**Design:** Adapt explicit shape-handling for local images and assets onto slides:
+```python
+def insert_image_into_impress(ctx, doc_model, image_path: str, x=3000, y=4000, width=14000, height=10500):
     controller = doc_model.getCurrentController()
     current_page = controller.getCurrentPage()
-    
-    # 2. Create the GraphicObjectShape
-    factory = doc_model
-    shape = factory.createInstance("com.sun.star.drawing.GraphicObjectShape")
-    
-    # 3. Add to slide
+    shape = doc_model.createInstance("com.sun.star.drawing.GraphicObjectShape")
     current_page.add(shape)
-    
-    # 4. Set Image URL (needs file:/// conversion)
-    from com.sun.star.beans import PropertyValue
     file_url = uno.systemPathToFileUrl(image_path)
     shape.setPropertyValue("GraphicURL", file_url)
-    
-    # 5. Set Layout (LibreAI magic numbers: X:3000, Y:5000, W:14000, H:10500 in 1/100mm)
-    from com.sun.star.awt import Point, Size
-    shape.setPosition(Point(3000, 5000))
-    shape.setSize(Size(14000, 10500))
-    
+    shape.setPosition(Point(x, y))
+    shape.setSize(Size(width, height))
     return True
 ```
 
-**FSM Integration & UI:**
-We update the "Generate Image" tool registry (`plugin/framework/tool.py`) to detect the document type and delegate to this logic for Impress/Draw, while keeping existing text-anchoring for Writer. The UI remains unchanged as this is an intelligent backend-delegation.
+---
 
 ### 5.3 Priority 3: Specialized Domains
 
-Create new specialized domains for sub-agent delegation:
-
 | Domain | Tools | Use Case |
 |--------|-------|---------|
-| `animations` | `get_animations`, `set_animations`, `add_animation` | Complex animation workflows |
+| `shapes` | `shape_upsert`, `create_diagram`, `align_shapes`, `shape_connect`, `shape_group` | Vector graphics & flowcharts |
+| `tables` | `insert_table`, `edit_table`, `format_table` | Tabular comparison content |
+| `animations` | `get_animations`, `set_animations`, `add_animation` | Element entrance/motion builds |
+| `slide_transitions` | `get_slide_transition`, `set_slide_transition` | Slide-to-slide advance effects |
+| `slide_layouts` | `get_slide_layout`, `set_slide_layout` | Impress slide layouts |
+| `slide_masters` | `list_master_slides`, `get_slide_master`, `set_slide_master` | Presentation templates |
+| `speaker_notes` | `get_speaker_notes`, `set_speaker_notes` | Presenter talking points |
+| `headers_footers` | `get_headers_footers`, `set_headers_footers` | Page numbers, dates, footers |
+| `charts` | `manage_charts` | Data visualizations |
 | `media` | `insert_audio`, `insert_video`, `control_media` | Multimedia presentations |
 | `export` | `export_pdf`, `export_image`, `export_video` | Document output |
-| `layers` | `list_layers`, `create_layer`, `set_layer_visibility` | Draw organization |
-| `tables` | `insert_table`, `edit_table`, `format_table` | Tabular content in Draw |
 
 ### 5.4 Priority 4: Evaluation System Integration
 

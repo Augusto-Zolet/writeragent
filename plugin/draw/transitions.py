@@ -5,25 +5,23 @@
 
 """Impress slide transition and layout tools."""
 
-from plugin.framework.errors import ToolExecutionError
 import logging
 
-from plugin.draw.base import ToolDrawSlideTransitionsBase
+from plugin.draw.base import ToolDrawSlideLayoutBase, ToolDrawSlideTransitionsBase
+from plugin.draw.bridge import DrawBridge
+from plugin.framework.errors import ToolExecutionError
 
 log = logging.getLogger("nelson.draw")
 
 
 def _get_slide(doc, page_index=None):
     """Resolve a slide by index or active."""
-    pages = doc.getDrawPages()
-    if page_index is not None:
-        if page_index < 0 or page_index >= pages.getCount():
-            raise ToolExecutionError("Page index %d out of range." % page_index)
-        return pages.getByIndex(page_index)
-    controller = doc.getCurrentController()
-    if hasattr(controller, "getCurrentPage"):
-        return controller.getCurrentPage()
-    return pages.getByIndex(0)
+    try:
+        return DrawBridge.resolve_slide(doc, page_index)
+    except IndexError:
+        raise ToolExecutionError("Page index %d out of range." % page_index)
+    except Exception as e:
+        raise ToolExecutionError(str(e))
 
 
 # Named FadeEffect values for agent convenience.
@@ -285,7 +283,7 @@ class SetSlideTransition(ToolDrawSlideTransitionsBase):
         return {"status": "ok", "page": page_idx, "updated": updated}
 
 
-class GetSlideLayout(ToolDrawSlideTransitionsBase):
+class GetSlideLayout(ToolDrawSlideLayoutBase):
     """Get the layout of an Impress slide."""
 
     name = "get_slide_layout"
@@ -302,7 +300,7 @@ class GetSlideLayout(ToolDrawSlideTransitionsBase):
         return {"status": "ok", "page": page_idx, "layout_id": layout_id, "layout_name": layout_name, "available_layouts": sorted(_LAYOUTS.keys())}
 
 
-class SetSlideLayout(ToolDrawSlideTransitionsBase):
+class SetSlideLayout(ToolDrawSlideLayoutBase):
     """Set the layout of an Impress slide."""
 
     name = "set_slide_layout"

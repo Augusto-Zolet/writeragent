@@ -136,6 +136,7 @@ setattr(lang, "XEventListener", MockXEventListener)
 setattr(lang, "XServiceDisplayName", MockXServiceDisplayName)
 setattr(lang, "XServiceInfo", MockXServiceInfo)
 setattr(lang, "XServiceName", MockXServiceName)
+setattr(lang, "XInitialization", MockBase)
 setattr(lang, "DisposedException", Exception)
 setattr(lang, "IllegalArgumentException", Exception)
 
@@ -194,9 +195,19 @@ awt_window_class = _create_mock_module("com.sun.star.awt.WindowClass")
 setattr(awt_window_class, "CONTAINER", 0)
 setattr(awt_window_class, "TOP", 1)
 
+class MockXJobExecutor: pass
+class MockXJob: pass
+class MockXDispatch: pass
+class MockXDispatchProvider: pass
+
 task = _create_mock_module("com.sun.star.task")
-setattr(task, "XJobExecutor", MockBase)
-setattr(task, "XJob", MockBase)
+setattr(task, "XJobExecutor", MockXJobExecutor)
+setattr(task, "XJob", MockXJob)
+
+frame = _create_mock_module("com.sun.star.frame")
+setattr(frame, "DispatchDescriptor", MockBase)
+setattr(frame, "XDispatch", MockXDispatch)
+setattr(frame, "XDispatchProvider", MockXDispatchProvider)
 
 
 @pytest.fixture(autouse=True)

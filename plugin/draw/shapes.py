@@ -20,7 +20,6 @@ import logging
 
 from plugin.doc.visual_helpers import apply_character_properties, parse_color_to_uno_int
 from plugin.framework.errors import WriterAgentException
-from plugin.framework.tool import ToolBase
 from .base import ToolDrawShapeBase
 
 log = logging.getLogger(__name__)
@@ -349,20 +348,6 @@ def _apply_enhanced_custom_shape_type(shape, custom_shape_type: str) -> tuple[bo
         return False, f"{type(ex).__name__}: {ex}"
 
 
-class ListPages(ToolBase):
-    name = "list_pages"
-    description = "Lists all pages (slides) in the document."
-    parameters = {"type": "object", "properties": {}, "required": []}
-    uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
-    doc_types = ["draw", "impress"]
-    tier = "core"
-
-    def execute(self, ctx, **kwargs):
-        from plugin.draw.bridge import DrawBridge
-
-        bridge = DrawBridge(ctx.doc)
-        pages = bridge.get_pages()
-        return {"status": "ok", "pages": [f"Page {i}" for i in range(pages.getCount())], "count": pages.getCount(), "active_page_index": ctx.active_page_index}
 
 
 class GetDrawSummary(ToolDrawShapeBase):
@@ -385,11 +370,10 @@ class GetDrawSummary(ToolDrawShapeBase):
              actual_idx = bridge.get_active_page_index()
 
         try:
-            page = bridge.get_pages().getByIndex(actual_idx)
-        except Exception:
+            page = DrawBridge.resolve_slide(ctx.doc, actual_idx)
+        except IndexError:
             return self._tool_error("Invalid page index: %s" % actual_idx)
-
-        if page is None:
+        except Exception:
             return self._tool_error("No draw page available.")
 
         shapes = []

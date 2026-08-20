@@ -5,21 +5,19 @@
 
 """Impress/Draw master slide tools."""
 
-from plugin.framework.errors import ToolExecutionError
 from plugin.draw.base import ToolDrawSlideMastersBase
+from plugin.draw.bridge import DrawBridge
+from plugin.framework.errors import ToolExecutionError
 
 
 def _get_slide(doc, page_index=None):
     """Resolve a slide by index or active."""
-    pages = doc.getDrawPages()
-    if page_index is not None:
-        if page_index < 0 or page_index >= pages.getCount():
-            raise ToolExecutionError("Page index %d out of range." % page_index)
-        return pages.getByIndex(page_index)
-    controller = doc.getCurrentController()
-    if hasattr(controller, "getCurrentPage"):
-        return controller.getCurrentPage()
-    return pages.getByIndex(0)
+    try:
+        return DrawBridge.resolve_slide(doc, page_index)
+    except IndexError:
+        raise ToolExecutionError("Page index %d out of range." % page_index)
+    except Exception as e:
+        raise ToolExecutionError(str(e))
 
 
 class ListMasterSlides(ToolDrawSlideMastersBase):

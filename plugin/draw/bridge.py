@@ -42,6 +42,20 @@ class DrawBridge:
             return pages.getByIndex(0)
         return None
 
+    @classmethod
+    def resolve_slide(cls, doc, page_index=None):
+        """Resolve a slide (XDrawPage) by index or active slide."""
+        bridge = cls(doc)
+        if page_index is not None:
+            pages = bridge.get_pages()
+            if page_index < 0 or page_index >= pages.getCount():
+                raise IndexError(f"Page index {page_index} out of range.")
+            return pages.getByIndex(page_index)
+        page = bridge.get_active_page()
+        if page is None:
+            raise RuntimeError("No draw page available.")
+        return page
+
     def create_shape(self, shape_type, x, y, width, height, page=None):
         """
         Creates a shape of specified type and adds it to the page.

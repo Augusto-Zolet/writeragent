@@ -78,16 +78,25 @@ class ToolDrawHeaderFooterBase(ToolDrawSpecialBase):
 class ToolDrawSpeakerNotesBase(ToolDrawSpecialBase):
     specialized_domain: ClassVar[str | None] = "speaker_notes"
     specialized_domain_description: ClassVar[str | None] = "Read and edit Impress speaker notes per slide."
+    uno_services = ["com.sun.star.presentation.PresentationDocument"]
 
 
 class ToolDrawSlideTransitionsBase(ToolDrawSpecialBase):
     specialized_domain: ClassVar[str | None] = "slide_transitions"
     specialized_domain_description: ClassVar[str | None] = "Slide transition effects, timing, and Impress slide layouts."
+    uno_services = ["com.sun.star.presentation.PresentationDocument"]
+
+
+class ToolDrawSlideLayoutBase(ToolDrawSpecialBase):
+    specialized_domain: ClassVar[str | None] = "slide_layouts"
+    specialized_domain_description: ClassVar[str | None] = "Get and set Impress slide layouts by layout name or type."
+    uno_services = ["com.sun.star.presentation.PresentationDocument"]
 
 
 class ToolDrawSlideMastersBase(ToolDrawSpecialBase):
     specialized_domain: ClassVar[str | None] = "slide_masters"
     specialized_domain_description: ClassVar[str | None] = "List master slides and assign masters to slides."
+    uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
 
 
 class ToolDrawPythonBase(ToolDrawSpecialBase):

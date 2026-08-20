@@ -53,6 +53,11 @@ def test_impress_default_tool_schemas_exclude_slide_specialized_apis() -> None:
             {
                 "get_slide_transition",
                 "set_slide_transition",
+            },
+        ),
+        (
+            "slide_layouts",
+            {
                 "get_slide_layout",
                 "set_slide_layout",
             },

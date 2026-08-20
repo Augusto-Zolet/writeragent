@@ -568,21 +568,25 @@ Do not explain - do the operation directly using tools. Perform as many steps as
 
 WORKFLOW:
 1. Understand the user's request.
-2. If needed, use list_pages to understand the current layout.
-3. Use the specialized delegation tool to perform shape operations (create, edit, group, etc.).
+2. If needed, use list_pages, read_slide_text, or get_presentation_info to understand current slides and layout.
+3. Use the specialized delegation tool to perform shape operations (create, edit, group, etc.), transitions, masters, notes, or charts.
 4. Give a short confirmation; when you changed pages/shapes, mention them.
-
-CSV DATA: Use comma (,) for write_formula_range.
 
 TOOLS (grouped by use):
 
 READ:
-- list_pages: List pages in the document.
-- get_page_summary: Summary of shapes on the active/specified page (types, names, layout).
-- get_document_tree: Outline tree of pages, slides, and shapes.
+- list_pages: List pages/slides in the document.
+- read_slide_text: Extract text content and speaker notes from a slide.
+- get_presentation_info: Slide count, dimensions, master slide names, and Impress status.
+- get_draw_tree: Semantic tree (DOM) of shapes, layout, and hierarchy on a page.
+- list_placeholders: List text placeholders (title, subtitle, body) on a slide (Impress).
+- get_placeholder_text: Get text from a slide placeholder by role or index.
 
 WRITE:
-- delete_structure: Remove pages or shapes by index or ID.
+- add_slide: Insert a new slide (page) at specified index.
+- delete_slide: Remove a slide (page) by index.
+- set_active_page: Switch active slide/page.
+- set_placeholder_text: Set text on a slide placeholder by role or index (Impress).
 
 {specialized_delegation}
 
