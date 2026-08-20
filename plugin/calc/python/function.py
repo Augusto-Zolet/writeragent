@@ -11,7 +11,9 @@ from contextlib import contextmanager
 import datetime
 import logging
 import math
+import re
 import threading
+import time
 from typing import Any, cast
 
 from plugin.calc.calc_addin_data import (
@@ -49,6 +51,13 @@ log = logging.getLogger(__name__)
 # Calc legacy add-in bridge accepts scalar double/string returns only. List results are
 # emitted one scalar per formula evaluation (matrix block or repeated recalc).
 MATRIX_SCALAR_SESSIONS = threading.local()
+
+# Recalc-clump timings for DEBUG ``py_timing`` lines (not asctime deltas).
+# Flip to True in this file when measuring workbook-open / recalc cost; leave False in commits.
+PYTHON_TIMINGS_LOG = False
+_PY_PASS_STATS = threading.local()
+_PY_PASS_GAP_SEC = 2.0
+_PY_HELPER_IN_SPEC_RE = re.compile(r"""["']helper["']\s*:\s*["'](\w+)["']""")
 
 
 def flatten_result_values(result: Any) -> list:
@@ -924,6 +933,49 @@ def get_python_init_kwargs(ctx: Any) -> dict[str, Any]:
     return {}
 
 
+def _py_timing_code_label(code: str) -> str:
+    """Short greppable id: JSON helper name, else a compact code prefix."""
+    src = code or ""
+    matched = _PY_HELPER_IN_SPEC_RE.search(src)
+    if matched:
+        return matched.group(1)
+    return " ".join(src.split())[:48]
+
+
+def _emit_py_timing(
+    *,
+    code: str,
+    total_ms: int,
+    pack_ms: int,
+    warm_ms: int,
+    ipc_ms: int,
+    image_ms: int,
+    cached: bool,
+    pass_start: float,
+    n: int,
+    pass_sum_ms: int,
+    last_end: float,
+) -> None:
+    """Log absolute per-call ms plus recalc-clump totals (DEBUG)."""
+    pass_wall_ms = int(round((last_end - pass_start) * 1000))
+    pass_outside_ms = max(0, pass_wall_ms - pass_sum_ms)
+    log.debug(
+        "py_timing code=%s n=%s total_ms=%s pack_ms=%s warm_ms=%s ipc_ms=%s image_ms=%s cached=%s | "
+        "pass_wall_ms=%s pass_sum_ms=%s pass_outside_ms=%s",
+        _py_timing_code_label(code),
+        n,
+        total_ms,
+        pack_ms,
+        warm_ms,
+        ipc_ms,
+        image_ms,
+        1 if cached else 0,
+        pass_wall_ms,
+        pass_sum_ms,
+        pass_outside_ms,
+    )
+
+
 def execute_python_addin(
     ctx: Any,
     code: str,
@@ -933,7 +985,21 @@ def execute_python_addin(
 ) -> Any:
     """Run *code* in the user venv and return a Calc-compatible scalar (or error string)."""
     log.debug("=== PYTHON(%r, data=%r) ===", code, data)
+    timings = PYTHON_TIMINGS_LOG
+    t_enter = time.perf_counter() if timings else 0.0
+    if timings:
+        last_end = getattr(_PY_PASS_STATS, "last_end", None)
+        if last_end is None or (t_enter - last_end) > _PY_PASS_GAP_SEC:
+            _PY_PASS_STATS.pass_start = t_enter
+            _PY_PASS_STATS.n = 0
+            _PY_PASS_STATS.sum_ms = 0
+    pack_ms = 0
+    warm_ms = 0
+    ipc_ms = 0
+    image_ms = 0
+    used_cache = False
     try:
+        t_pack = time.perf_counter() if timings else 0.0
         args = split_python_addin_data_args(data)
         py_data = calc_addin_args_from_split(args, true_strings, false_strings)
         log.debug("PYTHON parsed py_data: %r", py_data)
@@ -972,6 +1038,8 @@ def execute_python_addin(
             worker_data = pack_calc_multi_data_for_wire(py_data) if is_multi else pack_calc_data_for_wire(py_data)
         else:
             worker_data = None
+        if timings:
+            pack_ms = int(round((time.perf_counter() - t_pack) * 1000))
         # Synchronous: =PY() runs during Calc recalc; UI event pumping from
         # run_blocking_in_thread can re-enter the formula engine and yield #VALUE!.
         sessions = getattr(MATRIX_SCALAR_SESSIONS, "sessions", None)
@@ -981,10 +1049,12 @@ def execute_python_addin(
         cache_key = (session_key(ctx, code), repr(worker_data))
         cached = sessions.get(cache_key)
         if isinstance(cached, WorkerResultSession) and cached.next_index < len(cached.flat):
+            used_cache = True
             res = {"status": "ok", "result": cached.raw}
         else:
             session_id = workbook_session_id(ctx)
             init_kwargs = get_python_init_kwargs(ctx)
+            t_ipc = time.perf_counter() if timings else 0.0
             res = run_code_in_user_venv(
                 ctx,
                 code,
@@ -992,6 +1062,12 @@ def execute_python_addin(
                 session_id=session_id,
                 **init_kwargs,
             )
+            if timings:
+                ipc_ms = int(round((time.perf_counter() - t_ipc) * 1000))
+                try:
+                    warm_ms = int(res.get("warm_ms") or 0)
+                except Exception:
+                    warm_ms = 0
         log.debug("PYTHON res from worker: %r", res)
         if res.get("status") == "ok":
             _record_py_diagnostic(ctx, code, res, status="ok")
@@ -999,8 +1075,11 @@ def execute_python_addin(
             log.debug("PYTHON raw result: %r (type: %s)", result, type(result).__name__)
             images = find_image_payloads(result)
             if images:
+                t_img = time.perf_counter() if timings else 0.0
                 for img in images:
                     insert_image_result_on_sheet(ctx, img, code=code)
+                if timings:
+                    image_ms = int(round((time.perf_counter() - t_img) * 1000))
                 return _("Image inserted") if len(images) == 1 else _("Images inserted")
             final_ret = finalize_python_return(ctx, code, result, index_arg=index_arg, worker_data=worker_data)
             log.debug("PYTHON returning scalar: %r (type: %s)", final_ret, type(final_ret).__name__)
@@ -1015,6 +1094,25 @@ def execute_python_addin(
         _record_py_diagnostic(ctx, code, None, status="error", message=err_msg, traceback=str(e))
         log.debug("PYTHON returning exception wrapper: %r", err_msg)
         return err_msg
+    finally:
+        if timings:
+            total_ms = int(round((time.perf_counter() - t_enter) * 1000))
+            _PY_PASS_STATS.n = getattr(_PY_PASS_STATS, "n", 0) + 1
+            _PY_PASS_STATS.sum_ms = getattr(_PY_PASS_STATS, "sum_ms", 0) + total_ms
+            _PY_PASS_STATS.last_end = time.perf_counter()
+            _emit_py_timing(
+                code=code,
+                total_ms=total_ms,
+                pack_ms=pack_ms,
+                warm_ms=warm_ms,
+                ipc_ms=ipc_ms,
+                image_ms=image_ms,
+                cached=used_cache,
+                pass_start=getattr(_PY_PASS_STATS, "pass_start", t_enter),
+                n=_PY_PASS_STATS.n,
+                pass_sum_ms=int(_PY_PASS_STATS.sum_ms),
+                last_end=_PY_PASS_STATS.last_end,
+            )
 
 
 def _diagnostics_workbook_key(ctx: Any) -> str:

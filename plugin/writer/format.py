@@ -38,8 +38,9 @@ log = logging.getLogger("writeragent.writer")
 
 
 def _selection_range_for_export(model):  # pyright: ignore[reportUnusedFunction]
-    """Lazy ops import so html_export (LibrePy-shipped) never names plugin.writer.ops."""
-    from .ops import get_selection_range
+    """Resolve selection range for export (lazy import so html_export never names document_helpers)."""
+    from plugin.doc.document_helpers import get_selection_range
+
     return get_selection_range(model)
 
 
@@ -54,24 +55,19 @@ def _deletion_author():  # pyright: ignore[reportUnusedFunction]
 
 
 def _resolve_style_name(model, style_name):  # pyright: ignore[reportUnusedFunction]
-    """Resolve a style name case-insensitively; LibrePy omits ``writer.content``."""
+    """Resolve a style name case-insensitively against document ParagraphStyles."""
     try:
-        from plugin.writer.content import _resolve_style_name as resolve
-
-        return resolve(model, style_name)
-    except ImportError:
-        try:
-            families = model.getStyleFamilies()
-            para_styles = families.getByName("ParagraphStyles")
-            if para_styles.hasByName(style_name):
-                return style_name
-            lower = style_name.lower()
-            for name in para_styles.getElementNames():
-                if name.lower() == lower:
-                    return name
-        except Exception:
-            pass
-        return style_name
+        families = model.getStyleFamilies()
+        para_styles = families.getByName("ParagraphStyles")
+        if para_styles.hasByName(style_name):
+            return style_name
+        lower = style_name.lower()
+        for name in para_styles.getElementNames():
+            if name.lower() == lower:
+                return name
+    except Exception:
+        pass
+    return style_name
 
 
 # ---------------------------------------------------------------------------

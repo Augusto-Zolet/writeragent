@@ -4,6 +4,7 @@ from plugin.doc.document_helpers import (
     get_paragraph_ranges,
     get_document_length,
     resolve_locator,
+    find_paragraph_for_range,
 )
 from plugin.testing_runner import native_test
 from plugin.tests.testing_utils import with_native_doc
@@ -16,7 +17,6 @@ def test_proximity_service(ctx, doc):
     from plugin.writer.specialized.bookmarks import BookmarkService
     from plugin.writer.tree import TreeService
     from plugin.framework.event_bus import EventBus
-    from plugin.writer.ops import find_paragraph_for_range as ops_find_paragraph_for_range
 
     # Setup minimal doc content
     text = doc.getText()
@@ -37,7 +37,7 @@ def test_proximity_service(ctx, doc):
         def get_paragraph_ranges(self, doc):
             return get_paragraph_ranges(doc)
         def find_paragraph_for_range(self, anchor, para_ranges, text_obj):
-            return ops_find_paragraph_for_range(anchor, para_ranges, text_obj)
+            return find_paragraph_for_range(anchor, para_ranges, text_obj)
         def yield_to_gui(self):
             pass
 

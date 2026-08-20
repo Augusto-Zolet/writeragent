@@ -1,7 +1,11 @@
 
 from plugin.doc.document_helpers import (
     get_paragraph_ranges,
+    get_text_cursor_at_range,
+    find_paragraph_for_range,
+    get_selection_range,
 )
+from plugin.writer.format import insert_html_fragment_at_cursor
 from plugin.testing_runner import native_test
 from plugin.tests.testing_utils import with_native_doc
 
@@ -17,8 +21,6 @@ def _populate_ops_doc(doc):
 @native_test
 @with_native_doc("writer")
 def test_get_text_cursor_at_range(ctx, doc):
-    from plugin.writer.ops import get_text_cursor_at_range
-
     _populate_ops_doc(doc)
     text = doc.getText()
     full_text_str = text.getString()
@@ -39,8 +41,6 @@ def test_get_text_cursor_at_range(ctx, doc):
 @native_test
 @with_native_doc("writer")
 def test_find_paragraph_for_range(ctx, doc):
-    from plugin.writer.ops import find_paragraph_for_range
-
     _populate_ops_doc(doc)
     para_ranges = get_paragraph_ranges(doc)
     text = doc.getText()
@@ -60,8 +60,6 @@ def test_find_paragraph_for_range(ctx, doc):
 @native_test
 @with_native_doc("writer")
 def test_get_selection_range(ctx, doc):
-    from plugin.writer.ops import get_selection_range
-
     _populate_ops_doc(doc)
     controller = doc.getCurrentController()
     view_cursor = controller.getViewCursor()
@@ -77,9 +75,7 @@ def test_get_selection_range(ctx, doc):
 
 @native_test
 @with_native_doc("writer")
-def test_insert_html_at_cursor(ctx, doc):
-    from plugin.writer.ops import insert_html_at_cursor
-
+def test_insert_html_fragment_at_cursor(ctx, doc):
     _populate_ops_doc(doc)
     text = doc.getText()
     cursor = text.createTextCursor()
@@ -87,8 +83,7 @@ def test_insert_html_at_cursor(ctx, doc):
 
     html_content = "<b>Test HTML Insert</b>"
 
-    success = insert_html_at_cursor(cursor, html_content)
-    assert success is True, "insert_html_at_cursor failed to return True"
+    insert_html_fragment_at_cursor(cursor, html_content, wrap=True)
 
     # Verify content was inserted. HTML tags shouldn't appear but the text should.
     doc_text = text.getString()

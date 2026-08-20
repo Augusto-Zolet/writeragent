@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -734,4 +735,90 @@ def test_execute_python_addin_maps_timeout_error(monkeypatch) -> None:
     assert out.startswith("Error:")
     assert "timed out" in out.lower()
     assert "Settings" in out
+
+
+def _reset_py_pass_stats() -> None:
+    python_function._PY_PASS_STATS.last_end = None
+    python_function._PY_PASS_STATS.n = 0
+    python_function._PY_PASS_STATS.sum_ms = 0
+    python_function._PY_PASS_STATS.pass_start = None
+
+
+def test_py_timing_off_by_default(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    python_function.MATRIX_SCALAR_SESSIONS.sessions = {}
+    monkeypatch.setattr(python_function, "PYTHON_TIMINGS_LOG", False)
+    _reset_py_pass_stats()
+    caplog.set_level(logging.DEBUG, logger="plugin.calc.python.function")
+    monkeypatch.setattr(
+        python_function,
+        "run_code_in_user_venv",
+        lambda *_a, **_k: {"status": "ok", "result": 2.0},
+    )
+    monkeypatch.setattr(python_function, "_record_py_diagnostic", lambda *_a, **_k: None)
+    monkeypatch.setattr(python_function, "get_python_init_kwargs", lambda _ctx: {})
+    monkeypatch.setattr(python_function, "workbook_session_id", lambda _ctx: None)
+    python_function.execute_python_addin(_ctx_with_doc(CalcDocStub()), "1+1")
+    assert not any(r.message.startswith("py_timing ") for r in caplog.records)
+
+
+def test_py_timing_logs_ipc_ms_and_pass_totals(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    """Each =PY() logs its own calculation time; pass_* is wall vs sum, not asctime deltas."""
+    python_function.MATRIX_SCALAR_SESSIONS.sessions = {}
+    monkeypatch.setattr(python_function, "PYTHON_TIMINGS_LOG", True)
+    _reset_py_pass_stats()
+    caplog.set_level(logging.DEBUG, logger="plugin.calc.python.function")
+    monkeypatch.setattr(
+        python_function,
+        "run_code_in_user_venv",
+        lambda *_a, **_k: {"status": "ok", "result": 2.0, "warm_ms": 7},
+    )
+    monkeypatch.setattr(python_function, "_record_py_diagnostic", lambda *_a, **_k: None)
+    monkeypatch.setattr(python_function, "get_python_init_kwargs", lambda _ctx: {})
+    monkeypatch.setattr(python_function, "workbook_session_id", lambda _ctx: None)
+    ctx = _ctx_with_doc(CalcDocStub())
+    code = (
+        'from writeragent.scripting.analysis import run_analysis; '
+        'run_analysis({"helper":"describe_data","params":{}}, data, {})["status"]'
+    )
+    assert python_function.execute_python_addin(ctx, code) == 2.0
+    assert python_function.execute_python_addin(ctx, code) == 2.0
+    lines = [r.message for r in caplog.records if r.message.startswith("py_timing ")]
+    assert len(lines) >= 2
+    assert "code=describe_data" in lines[0]
+    assert "ipc_ms=" in lines[0]
+    assert "total_ms=" in lines[0]
+    assert "warm_ms=7" in lines[0]
+    assert "pass_outside_ms=" in lines[0]
+    assert "n=1" in lines[0]
+    assert "n=2" in lines[1]
+    assert "pass_sum_ms=" in lines[1]
+
+
+def test_py_timing_cached_matrix_skips_ipc(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    python_function.MATRIX_SCALAR_SESSIONS.sessions = {}
+    monkeypatch.setattr(python_function, "PYTHON_TIMINGS_LOG", True)
+    _reset_py_pass_stats()
+    caplog.set_level(logging.DEBUG, logger="plugin.calc.python.function")
+    ctx = _ctx_with_doc(CalcDocStub())
+    code = "result = [1, 2, 3]"
+    worker_data = None
+    key = (python_function.session_key(ctx, code), repr(worker_data))
+    python_function.MATRIX_SCALAR_SESSIONS.sessions = {
+        key: python_function.WorkerResultSession([1.0, 2.0, 3.0], [1.0, 2.0, 3.0]),
+    }
+    called: list[int] = []
+
+    def _should_not_run(*_a, **_k):
+        called.append(1)
+        return {"status": "ok", "result": 99}
+
+    monkeypatch.setattr(python_function, "run_code_in_user_venv", _should_not_run)
+    monkeypatch.setattr(python_function, "_record_py_diagnostic", lambda *_a, **_k: None)
+    out = python_function.execute_python_addin(ctx, code)
+    assert called == []
+    assert out == 1.0
+    lines = [r.message for r in caplog.records if r.message.startswith("py_timing ")]
+    assert lines
+    assert "cached=1" in lines[-1]
+    assert "ipc_ms=0" in lines[-1]
 

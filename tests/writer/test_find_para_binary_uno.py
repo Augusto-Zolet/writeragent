@@ -1,7 +1,6 @@
 from plugin.testing_runner import native_test
 from plugin.tests.testing_utils import with_native_doc
 from plugin.doc.document_helpers import get_paragraph_ranges, find_paragraph_for_range as doc_find_para
-from plugin.writer.ops import find_paragraph_for_range as ops_find_para
 
 
 def _setup_paragraphs(doc, count):
@@ -97,22 +96,3 @@ def test_find_para_large_document(ctx, doc):
         cursor = text.createTextCursorByRange(p.getStart())
         idx = doc_find_para(cursor, para_ranges, text)
         assert idx == i, f"Large doc: expected index {i}, got {idx}"
-
-
-@native_test
-@with_native_doc("writer")
-def test_find_para_ops_equivalence(ctx, doc):
-    # Ensure ops.py version behaves the same way
-    _setup_paragraphs(doc, 5)
-    para_ranges = get_paragraph_ranges(doc)
-    text = doc.getText()
-    
-    p2 = para_ranges[2]
-    cursor = text.createTextCursorByRange(p2.getStart())
-    
-    idx_doc = doc_find_para(cursor, para_ranges, text)
-    idx_ops = ops_find_para(cursor, para_ranges, text)
-    
-    assert idx_doc == 2
-    assert idx_ops == 2
-    assert idx_doc == idx_ops

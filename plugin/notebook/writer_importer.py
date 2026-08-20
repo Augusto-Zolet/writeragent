@@ -644,10 +644,10 @@ def _append_markdown_cell(doc: Any, source: str, *, lead_break: bool) -> None:
         if lead_break and _doc_body_nonempty(doc):
             text.insertControlCharacter(cursor, _PARAGRAPH_BREAK, False)
             cursor.gotoEnd(False)
-        from plugin.writer.ops import insert_html_at_cursor
+        from plugin.writer.format import insert_html_fragment_at_cursor
 
         try:
-            insert_html_at_cursor(cursor, _wrap_html_fragment(display))
+            insert_html_fragment_at_cursor(cursor, _wrap_html_fragment(display), wrap=False)
         except Exception:
             log.exception("notebook import HTML insert failed; falling back to plain text")
             _append_body_paragraph(doc, display, _STYLE_BODY, lead_break=False)

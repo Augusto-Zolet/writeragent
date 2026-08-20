@@ -375,11 +375,11 @@ def test_import_ipynb_markdown_html_uses_insert_html(tmp_path, monkeypatch):
     doc.createInstance.side_effect = lambda service: MagicMock()
     monkeypatch.setattr("plugin.notebook.writer_importer.Size", FakeSize)
 
-    def fake_insert_html(cursor, html):
+    def fake_insert_html(cursor, html, **kwargs):
         html_calls.append(html)
         return True
 
-    monkeypatch.setattr("plugin.writer.ops.insert_html_at_cursor", fake_insert_html)
+    monkeypatch.setattr("plugin.writer.format.insert_html_fragment_at_cursor", fake_insert_html)
 
     stats = import_ipynb_to_writer(doc, str(ipynb))
 

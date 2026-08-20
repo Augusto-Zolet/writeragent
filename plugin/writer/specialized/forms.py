@@ -344,11 +344,11 @@ Output ONLY the HTML content. No explanations. No Markdown like # Header.
             shape.setString(plain)
             return
 
-        from ..ops import insert_html_at_cursor
+        from ..format import insert_html_fragment_at_cursor
 
         vc = doc.getCurrentController().getViewCursor()
         cursor = doc.getText().createTextCursorByRange(vc)
-        insert_html_at_cursor(cursor, text)
+        insert_html_fragment_at_cursor(cursor, text, wrap=False)
 
     def _parse_field_tag(self, tag):
         # Naive parser for {FIELD:control='...', ...}

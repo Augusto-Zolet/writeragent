@@ -82,6 +82,61 @@ def normalize_search_string_for_find(s):
     return re_mod.sub(_HORIZONTAL_SPACE_RE, " ", s).strip()
 
 
+def build_search_replace_response(
+    replaced_count: int,
+    message: str | None = None,
+    *,
+    use_preserve: bool = False,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Standardized search-replace response dictionary shared across production and eval harnesses."""
+    if replaced_count <= 0:
+        msg = message or "Replaced 0 occurrence(s). No matches found. Try a shorter substring."
+        res: dict[str, Any] = {"status": "error", "message": msg, "replaced_count": 0}
+    else:
+        if message:
+            msg = message
+        elif replaced_count == 1:
+            msg = "Replaced 1 occurrence (by old_content)."
+            if use_preserve:
+                msg += " (formatting preserved)"
+        else:
+            msg = f"Replaced {replaced_count} occurrence(s)."
+            if use_preserve:
+                msg += " (formatting preserved)"
+        res = {"status": "ok", "message": msg, "replaced_count": replaced_count}
+    if extra:
+        res.update(extra)
+    return res
+
+
+def build_search_not_found_response(
+    all_matches: bool = False,
+    shape_name: str | None = None,
+) -> dict[str, Any]:
+    """Standardized search not-found response dictionary."""
+    if shape_name:
+        return {
+            "status": "error",
+            "message": (
+                f"old_content is only inside a drawing shape / floating text box ('{shape_name}'). "
+                "Edit it via the shapes toolset (delegate_to_specialized_writer_toolset domain='shapes')."
+            ),
+            "replaced_count": 0,
+        }
+    if all_matches:
+        return {
+            "status": "error",
+            "message": "Replaced 0 occurrence(s). No matches found. Try a shorter substring.",
+            "replaced_count": 0,
+        }
+    return {
+        "status": "error",
+        "message": "old_content not found in document. Try a shorter, unique substring.",
+        "replaced_count": 0,
+    }
+
+
 def _search_try_strings(search_string):
     """Literal search string, then newline-collapsed variant (HTML wrap artifact)."""
     s = search_string or ""

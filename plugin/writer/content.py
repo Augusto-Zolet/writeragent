@@ -1106,9 +1106,7 @@ class ApplyDocumentContent(ToolBase):
             ranges = (search_mod.find_ranges_regex_case(doc, _opts_pattern, _regex_opt, _opts_cs, all_matches=True)
                       if _use_opts else search_mod.find_all_ranges(doc, search_string))
             if not ranges:
-                return {"status": "error",
-                        "message": "Replaced 0 occurrence(s). No matches found. Try a shorter substring.",
-                        "replaced_count": 0}, session
+                return search_mod.build_search_not_found_response(all_matches=True), session
             anchor = _collapsed_anchor(ranges[0])
             undo_title = _next_agent_edit_undo_title()
             try:
@@ -1147,13 +1145,10 @@ class ApplyDocumentContent(ToolBase):
             finally:
                 if applied_ok:
                     _close_surgical_context(mgr, session, changes_before, True, undo_title)
-            msg = "Replaced %d occurrence(s)." % count
-            if use_preserve:
-                msg += " (formatting preserved)"
+            resp = search_mod.build_search_replace_response(count, use_preserve=use_preserve)
             if count > 1:
-                msg += " edited_context shows the first occurrence's neighborhood."
-            return _attach_edited_context(
-                {"status": "ok", "message": msg, "replaced_count": count}, anchor), session
+                resp["message"] += " edited_context shows the first occurrence's neighborhood."
+            return _attach_edited_context(resp, anchor), session
         found = (search_mod.find_ranges_regex_case(doc, _opts_pattern, _regex_opt, _opts_cs, all_matches=False)
                  if _use_opts else search_mod.find_first_range(doc, search_string))
         if found is None:
@@ -1204,15 +1199,8 @@ class ApplyDocumentContent(ToolBase):
                          "replaced_count": 1, "review_bypassed": True},
                         None)
                     return self._annotate_review_status(ctx.ctx, result), session
-                # Couldn't edit in place -> fall back to the actionable routing message.
-                return {"status": "error",
-                        "message": ("old_content was found only inside a drawing shape / floating text box "
-                                    f"('{shape_name}'), which normal search/replace cannot edit and the direct "
-                                    "shape edit did not apply. Edit it via the shapes toolset "
-                                    "(delegate_to_specialized_writer_toolset domain='shapes')."),
-                        "replaced_count": 0}, session
-            return {"status": "error", "message": "old_content not found in document. Try a shorter, unique substring.",
-                    "replaced_count": 0}, session
+                return search_mod.build_search_not_found_response(shape_name=shape_name), session
+            return search_mod.build_search_not_found_response(all_matches=False), session
         if position in ("before", "after"):
             # INSERT next to the match instead of replacing it: the single most common petition
             # edit ("add a paragraph after clause X") previously forced resending the clause
@@ -1267,11 +1255,8 @@ class ApplyDocumentContent(ToolBase):
                     session, doc,
                     lambda: format_support.replace_single_range_with_content(doc, found, content, ctx.ctx, config_svc),
                     track_reviewable, original_preview=original, proposed_preview=_plain_preview(content))
-        msg = "Replaced 1 occurrence (by old_content)."
-        if use_preserve:
-            msg += " (formatting preserved)"
-        return _attach_edited_context(
-            {"status": "ok", "message": msg, "replaced_count": 1}, anchor), session
+        resp = search_mod.build_search_replace_response(1, use_preserve=use_preserve)
+        return _attach_edited_context(resp, anchor), session
 
 
 # ------------------------------------------------------------------
@@ -1362,22 +1347,6 @@ def _resolve_para_index(ctx, kwargs):
         para_index = resolved.get("para_index")
 
     return para_index
-
-
-def _resolve_style_name(doc, style_name):  # pyright: ignore[reportUnusedFunction]  # used by writer.format style resolution
-    """Resolve a style name case-insensitively against the document styles."""
-    try:
-        families = doc.getStyleFamilies()
-        para_styles = families.getByName("ParagraphStyles")
-        if para_styles.hasByName(style_name):
-            return style_name
-        lower = style_name.lower()
-        for name in para_styles.getElementNames():
-            if name.lower() == lower:
-                return name
-    except Exception:
-        pass
-    return style_name
 
 
 def _count_headings(nodes):

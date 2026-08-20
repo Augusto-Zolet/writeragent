@@ -56,7 +56,6 @@ def test_librepy_bundle_excludes_dead_tool_module():
 def test_librepy_bundle_excludes_chat_document_helpers_and_smolagents_tools():
     paths = collect_librepy_plugin_paths(str(_REPO_ROOT))
     assert "plugin/doc/document_helpers.py" not in paths
-    assert "plugin/writer/ops.py" not in paths
     assert "plugin/writer/review_authors.py" not in paths
     assert "plugin/draw/bridge.py" not in paths
     assert "plugin/chatbot/settings_tab_order.py" not in paths

@@ -291,13 +291,10 @@ def test_deletion_author_noop_when_review_authors_missing(monkeypatch):
     assert type(cm).__name__ == type(contextlib.nullcontext()).__name__ or hasattr(cm, "__enter__")
 
 
-def test_resolve_style_name_without_content_module(monkeypatch):
-    import sys
+def test_resolve_style_name():
     from unittest.mock import MagicMock
-
     import plugin.writer.format as fmt
 
-    monkeypatch.setitem(sys.modules, "plugin.writer.content", None)
     fam = MagicMock()
     fam.hasByName.side_effect = lambda name: name == "Heading 1"
     fam.getElementNames.return_value = ("Heading 1", "Standard")
@@ -305,4 +302,10 @@ def test_resolve_style_name_without_content_module(monkeypatch):
     families.getByName.return_value = fam
     model = MagicMock()
     model.getStyleFamilies.return_value = families
+
+    # Exact match
     assert fmt._resolve_style_name(model, "Heading 1") == "Heading 1"
+    # Case-insensitive match
+    assert fmt._resolve_style_name(model, "heading 1") == "Heading 1"
+    # Fallback to input string on unknown style
+    assert fmt._resolve_style_name(model, "UnknownStyle") == "UnknownStyle"
