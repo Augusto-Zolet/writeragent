@@ -46,7 +46,7 @@ Optional automation for translators:
 - Compares each locale’s `writeragent.po` to `writeragent.pot` and finds missing, empty, or **fuzzy** entries.
 - **`--preview`** prints the **completion table** (POT totals, pending, done, percentage) and exits; used by `make preview-translations` / `make build`.
 - With **`--execute`**, prints that same table at start unless `--skip-initial-status`, then fills gaps via the API.
-- Sends strings to an OpenAI-compatible chat API (default model `x-ai/grok-4.1-fast`, default endpoint OpenRouter) in batches; uses project auth helpers / `writeragent.json` keys / `OPENROUTER_API_KEY` when available.
+- Sends strings to an OpenAI-compatible chat API (default model `google/gemini-3.1-flash-lite-preview`, default endpoint OpenRouter) in batches; uses project auth helpers / `writeragent.json` keys / `OPENROUTER_API_KEY` when available.
 - Preserves leading/trailing whitespace on strings by peeling it before the API call and re-applying it to results.
 - Parses model JSON with [`safe_json_loads`](../plugin/framework/json_utils.py) (`strict=False` and repair fallbacks) so multiline UI strings (e.g. Calc Python editor errors with embedded newlines) do not fail batch fill with “invalid control character” from strict `json.loads`.
 
@@ -55,7 +55,7 @@ Optional automation for translators:
 Same script as gap fill; **does not modify** any `.po` or `.mo` file.
 
 - **`--review`**: sends every **non-empty** translation (including **fuzzy**) to the model for critique. You must pass **`--model <name>`** (no default on this path—use a different model than gap-fill if you want independent suggestions).
-- **`--execute`** still defaults to `x-ai/grok-4.1-fast` when `--model` is omitted.
+- **`--execute`** still defaults to `google/gemini-3.1-flash-lite-preview` when `--model` is omitted.
 - **`--output PATH`**: optional; default file name is `translation_review_<locale>.json` or `translation_review_<l1>_<l2>_….json` with **sorted** locale directory names when multiple locales are reviewed.
 - While running, each finished batch prints **one line per string** to **stdout** (dense: batch size in = lines out). Acceptable rows show the fixed phrase **`No Errors`**; only `suggest` rows include current text, suggestion, and English reasoning.
 - The model returns a JSON array of exactly that many objects (`action`: `ok` or `suggest`). For `ok`, `reasoning_en` must be exactly `No Errors` (the script also normalizes verbose “keep” replies to that literal).

@@ -7,7 +7,7 @@ Script to automatically translate missing strings using AI.
 Adds a completeness report at start and processes strings in batches.
 Leading/trailing whitespace is stripped before the API call and restored on the result.
 
-``--execute`` uses default model ``x-ai/grok-4.1-fast`` when ``--model`` is omitted.
+``--execute`` uses default model ``google/gemini-3.1-flash-lite-preview`` when ``--model`` is omitted.
 ``--review`` requires ``--model`` (use another model than gap-fill for useful critiques)
 and writes a JSON report (never modifies ``.po`` files): stdout lists every string including
 ``No Errors`` rows; the file's ``suggestions`` array lists only ``suggest`` / ``error`` rows.
@@ -194,28 +194,29 @@ def load_pot_file(pot_path: str = "locales/writeragent.pot") -> polib.POFile:
 
 def find_missing_translations(po_file: str, pot_file: polib.POFile) -> List[Dict[str, str]]:
     po = polib.pofile(po_file)
+    # One scan of the PO: msgid -> entries (duplicates are rare but must match old any() semantics).
+    po_by_msgid: Dict[str, List[polib.POEntry]] = defaultdict(list)
+    for po_entry in po:
+        if po_entry.msgid == "":
+            continue
+        po_by_msgid[po_entry.msgid].append(po_entry)
+
     missing = []
-    po_msgids = {entry.msgid for entry in po}
-    
-    # Also capture fuzzy strings to re-translate them
-    fuzzy_msgids = {entry.msgid for entry in po if 'fuzzy' in entry.flags}
-    
     for entry in pot_file:
-        # Skip header
         if entry.msgid == "":
             continue
-            
-        # If missing entirely, completely empty translation, or fuzzy
-        is_missing = (
-            entry.msgid not in po_msgids or 
-            entry.msgid in fuzzy_msgids or
-            not any(e.msgid == entry.msgid and e.msgstr for e in po)
-        )
-        
+        matches = po_by_msgid.get(entry.msgid)
+        if matches is None:
+            is_missing = True
+        else:
+            # Re-translate fuzzy rows; treat empty msgstr as untranslated.
+            is_missing = any("fuzzy" in e.flags for e in matches) or not any(
+                e.msgstr for e in matches
+            )
         if is_missing:
             missing.append({
                 "msgid": entry.msgid,
-                "context": entry.comment if entry.comment else ""
+                "context": entry.comment if entry.comment else "",
             })
     return missing
 
@@ -291,7 +292,7 @@ def _resolve_openrouter_api_key(endpoint: str, api_key: Optional[str]) -> Option
     return os.environ.get("OPENROUTER_API_KEY")
 
 
-def call_translate_batch(texts: List[str], target_lang: str, model: str = "x-ai/grok-4.1-fast", 
+def call_translate_batch(texts: List[str], target_lang: str, model: str = DEFAULT_TRANSLATE_MODEL, 
                          endpoint: str = "https://openrouter.ai/api/v1", api_key: Optional[str] = None) -> List[Optional[str]]:
     """Call AI with a list of strings and get corresponding translations back."""
     import urllib.request

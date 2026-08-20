@@ -380,3 +380,41 @@ def test_apply_review_skips_non_suggest_and_empty_suggestion(tmp_path: Path) -> 
     assert applied == 0
     assert skipped == 2
     assert not warns
+
+
+def _write_po(path: Path, entries: list[polib.POEntry]) -> None:
+    po = polib.POFile(wrapwidth=0)
+    po.metadata = {"Content-Type": "text/plain; charset=utf-8\n"}
+    for entry in entries:
+        po.append(entry)
+    po.save(str(path))
+
+
+def test_find_missing_translations_empty_fuzzy_and_absent(tmp_path: Path) -> None:
+    pot = polib.POFile(wrapwidth=0)
+    pot.append(polib.POEntry(msgid="Done", comment="status"))
+    pot.append(polib.POEntry(msgid="Empty"))
+    pot.append(polib.POEntry(msgid="Fuzzy"))
+    pot.append(polib.POEntry(msgid="Absent"))
+
+    po_path = tmp_path / "writeragent.po"
+    fuzzy = polib.POEntry(msgid="Fuzzy", msgstr="alt")
+    fuzzy.flags.append("fuzzy")
+    _write_po(
+        po_path,
+        [
+            polib.POEntry(msgid="Done", msgstr="Fertig"),
+            polib.POEntry(msgid="Empty", msgstr=""),
+            fuzzy,
+        ],
+    )
+
+    missing = tm.find_missing_translations(str(po_path), pot)
+    by_id = {row["msgid"]: row for row in missing}
+    assert "Done" not in by_id
+    assert set(by_id) == {"Empty", "Fuzzy", "Absent"}
+    assert by_id["Empty"]["context"] == ""
+
+
+def test_default_translate_model_is_gemini_flash_lite() -> None:
+    assert tm.DEFAULT_TRANSLATE_MODEL == "google/gemini-3.1-flash-lite-preview"
