@@ -756,6 +756,21 @@ verify:
 	@echo "=== Running All Formal Verification Unit Tests ==="
 	$(PYTHON) -m pytest tests/ -k "verification" -q
 
+install-fizzbee:
+	$(PYTHON) scripts/install_fizzbee.py --install
+
+check-fizzbee:
+	@if command -v fizzbee >/dev/null 2>&1 || [ -x .venv/bin/fizzbee ]; then \
+		echo "=== Checking FizzBee Formal Models ==="; \
+		FB=$$(command -v fizzbee || echo ".venv/bin/fizzbee"); \
+		$$FB tests/mcp/fizzbee/writer_mcp_protocol.fizz; \
+		$$FB tests/mcp/fizzbee/writer_tools_model.fizz; \
+		$$FB tests/mcp/fizzbee/calc_tools_model.fizz; \
+	else \
+		echo "FizzBee is not installed. Run 'make install-fizzbee' or check docs/fizzbee-mcp-testing.md."; \
+		$(PYTHON) scripts/install_fizzbee.py --check; \
+	fi
+
 # CrossHair on entire module files (correctness over speed; see docs/formal_verification.md)
 # Use stream.py `run` (not a shell pipe) so engine crashes and exit codes are classified + summarized.
 crosshair-check:

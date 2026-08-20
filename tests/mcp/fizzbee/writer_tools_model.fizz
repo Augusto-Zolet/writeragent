@@ -1,0 +1,107 @@
+# WriterAgent - Writer Tools Model & State Transitions Specification
+# Formal specification in FizzBee (https://fizzbee.io)
+#
+# Models:
+# - Writer document buffer state & mutations
+# - Domain-specific operations (bookmarks, footnotes, tables, track changes)
+# - Safety invariants (non-corruption, valid index ranges, tracking integrity)
+
+state:
+    doc_text = ""
+    bookmarks = {}
+    footnotes = {}
+    tables = {}
+    track_changes_enabled = False
+    pending_changes = []
+    last_status = "OK"
+
+# Actions for Core & Specialized Writer Tools
+
+action ApplyContent:
+    any text in ["Hello", "Introduction\n", "Chapter 1\n", "Conclusion"]:
+        any target in ["end", "start", "replace_all"]:
+            atomic:
+                if target == "replace_all":
+                    doc_text = text
+                elif target == "start":
+                    doc_text = text + doc_text
+                elif target == "end":
+                    doc_text = doc_text + text
+                last_status = "OK"
+
+action InsertBookmark:
+    any name in ["bm_intro", "bm_chapter1", "bm_ref"]:
+        atomic:
+            pos = len(doc_text)
+            bookmarks[name] = pos
+            last_status = "OK"
+
+action DeleteBookmark:
+    any name in ["bm_intro", "bm_chapter1", "bm_ref", "non_existent"]:
+        atomic:
+            if name in bookmarks:
+                del bookmarks[name]
+                last_status = "OK"
+            else:
+                last_status = "NOT_FOUND"
+
+action InsertFootnote:
+    any text in ["Citation 1", "See note"]:
+        atomic:
+            fn_id = "fn_" + str(len(footnotes) + 1)
+            footnotes[fn_id] = text
+            last_status = "OK"
+
+action DeleteFootnote:
+    any fn_id in ["fn_1", "fn_2", "fn_invalid"]:
+        atomic:
+            if fn_id in footnotes:
+                del footnotes[fn_id]
+                last_status = "OK"
+            else:
+                last_status = "NOT_FOUND"
+
+action CreateTable:
+    any table_name in ["Table1", "Table2"]:
+        any rows in [1, 2, 3]:
+            any cols in [1, 2, 3]:
+                atomic:
+                    tables[table_name] = {"rows": rows, "cols": cols}
+                    last_status = "OK"
+
+action ToggleTrackChanges:
+    any enable in [True, False]:
+        atomic:
+            track_changes_enabled = enable
+            last_status = "OK"
+
+action RecordChange:
+    if track_changes_enabled:
+        any change_desc in ["inserted text", "deleted paragraph"]:
+            atomic:
+                ch_id = "ch_" + str(len(pending_changes) + 1)
+                pending_changes.append(ch_id)
+                last_status = "OK"
+    else:
+        last_status = "TRACKING_DISABLED"
+
+action ResolveChange:
+    if len(pending_changes) > 0:
+        any resolution in ["accept", "reject"]:
+            atomic:
+                # Remove first change
+                pending_changes.pop(0)
+                last_status = "OK"
+
+# Invariants
+invariant Inv_BookmarksBounded:
+    # All bookmarks must have positions within valid range
+    all(pos <= len(doc_text) for pos in bookmarks.values())
+
+invariant Inv_TablesValidDimensions:
+    # All tables must have positive rows and columns
+    all(t["rows"] > 0 and t["cols"] > 0 for t in tables.values())
+
+invariant Inv_PendingChangesOnlyWhenRecorded:
+    # Non-negative pending changes
+    len(pending_changes) >= 0

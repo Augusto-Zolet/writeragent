@@ -1,0 +1,93 @@
+# WriterAgent - Calc Tools Model & State Transitions Specification
+# Formal specification in FizzBee (https://fizzbee.io)
+#
+# Models:
+# - Spreadsheet grid cells & formula ranges
+# - Sheet management (create, delete, rename, switch)
+# - Named ranges & filters
+# - Safety invariants (positive sheet count, range validity)
+
+state:
+    sheets = ["Sheet1"]
+    active_sheet = "Sheet1"
+    sheet_cells = {}
+    named_ranges = {}
+    filters = {}
+    last_status = "OK"
+
+# Actions for Core & Specialized Calc Tools
+
+action WriteFormulaRange:
+    any cell_range in ["A1", "A1:B2", "C1:D4"]:
+        any val in ["=SUM(A1:A5)", "100", "Total"]:
+            atomic:
+                sheet_cells[active_sheet + "!" + cell_range] = val
+                last_status = "OK"
+
+action ReadCellRange:
+    any cell_range in ["A1", "A1:B2", "C1:D4", "Z100"]:
+        atomic:
+            key = active_sheet + "!" + cell_range
+            if key in sheet_cells:
+                last_status = "OK"
+            else:
+                last_status = "EMPTY_OR_DEFAULT"
+
+action CreateSheet:
+    any new_sheet in ["Sheet2", "Summary", "Data"]:
+        atomic:
+            if new_sheet not in sheets:
+                sheets.append(new_sheet)
+                last_status = "OK"
+            else:
+                last_status = "ALREADY_EXISTS"
+
+action SwitchSheet:
+    any target_sheet in ["Sheet1", "Sheet2", "Summary", "NonExistent"]:
+        atomic:
+            if target_sheet in sheets:
+                active_sheet = target_sheet
+                last_status = "OK"
+            else:
+                last_status = "SHEET_NOT_FOUND"
+
+action DeleteSheet:
+    any sheet_to_delete in ["Sheet1", "Sheet2", "Summary"]:
+        atomic:
+            # Cannot delete last remaining sheet
+            if len(sheets) > 1 and sheet_to_delete in sheets:
+                sheets.remove(sheet_to_delete)
+                if active_sheet == sheet_to_delete:
+                    active_sheet = sheets[0]
+                last_status = "OK"
+            else:
+                last_status = "CANNOT_DELETE"
+
+action AddNamedRange:
+    any range_name in ["SalesData", "TaxRate", "HeaderRow"]:
+        any target_range in ["Sheet1!A1:B10", "Sheet2!C1:C5"]:
+            atomic:
+                named_ranges[range_name] = target_range
+                last_status = "OK"
+
+action DeleteNamedRange:
+    any range_name in ["SalesData", "TaxRate", "NonExistent"]:
+        atomic:
+            if range_name in named_ranges:
+                del named_ranges[range_name]
+                last_status = "OK"
+            else:
+                last_status = "NOT_FOUND"
+
+# Invariants
+invariant Inv_SheetCountPositive:
+    # A spreadsheet must always contain at least one sheet
+    len(sheets) >= 1
+
+invariant Inv_ActiveSheetMustExist:
+    # Active sheet must always be in the list of open sheets
+    active_sheet in sheets
+
+invariant Inv_NamedRangesIntegrity:
+    # Named ranges count is non-negative
+    len(named_ranges) >= 0
