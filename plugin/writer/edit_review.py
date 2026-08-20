@@ -36,11 +36,14 @@ returns an empty complete result), and degrades to inert if tracking cannot be e
 from __future__ import annotations
 
 import contextlib
+import itertools
 import logging
+import os
 import time
 import uuid
 from typing import Any, Callable
 
+from plugin.framework.errors import ToolExecutionError
 from plugin.writer import review_scan as _review_scan
 
 log = logging.getLogger(__name__)
@@ -632,3 +635,367 @@ class EditReviewSession:
             return run(lambda: self._review_payload(complete=not timed_out, timed_out=timed_out))
         finally:
             run(self.cleanup)
+
+
+# ---------------------------------------------------------------------------
+# Surgical Diff, Atomic Redline Undo Sessions, & Post-Edit Context Echo
+# ---------------------------------------------------------------------------
+
+
+def _env_num(name, default, cast, ok):
+    """Read tuning knob *name* from the environment, *cast* it, and return it only if *ok(v)*;
+    otherwise the fixed *default*. Never raises -- a bad env value must never break an edit."""
+    try:
+        v = cast(os.environ[name])
+        return v if ok(v) else default
+    except (KeyError, ValueError, TypeError):
+        return default
+
+
+_WORD_DIFF_THRESHOLD = _env_num(
+    "WRITERAGENT_AGENT_EDIT_DIFF_THRESHOLD", 0.6, float, lambda v: 0.0 <= v <= 1.0)
+
+_MAX_SURGICAL_RUNS = _env_num(
+    "WRITERAGENT_AGENT_EDIT_MAX_SURGICAL_RUNS", 40, int, lambda v: v >= 1)
+
+_SPLIT_AUTHOR_COLORS = os.environ.get(
+    "WRITERAGENT_AGENT_EDIT_SPLIT_AUTHOR_COLORS", "1").strip().lower() not in ("0", "false", "no", "off", "")
+
+_GO_RIGHT_CHUNK = 8192
+
+
+def _go_right(cursor, n, expand):
+    """Move (expand=False) or extend (expand=True) the cursor right by *n* chars, in chunks of
+    _GO_RIGHT_CHUNK (UNO caps the count at a C++ short). Returns True only if the FULL *n* was
+    consumed; False if goRight stopped early (end of text / an unexpected stop), so the caller can
+    refuse to edit at a wrong offset instead of silently landing short."""
+    while n > 0:
+        step = n if n < _GO_RIGHT_CHUNK else _GO_RIGHT_CHUNK
+        if not cursor.goRight(step, expand):
+            return False
+        n -= step
+    return True
+
+
+_OFFSET_SAFE_PORTION_TYPES = frozenset({"Text", "SoftPageBreak"})
+
+
+def _block_safe_for_surgical(found):
+    """True only when *found* is a SINGLE paragraph whose portions are all offset-safe (plain text
+    or an automatic page break) and which has no tracked changes -- the case where getString() char
+    offsets line up with the live cursor's goRight stops. A multi-paragraph block, a struck
+    (tracked-deletion) run, or a real content portion (field/footnote/etc.) makes them diverge, so
+    the surgical sub-edits would land in the wrong place. Best-effort: any doubt -> False, and the
+    caller falls back to the whole-block replace (which handles every case).
+    """
+    try:
+        if found.getString() != _string_skipping_redline(found, "Delete"):
+            return False
+        paras = found.createEnumeration()
+        seen = 0
+        while paras.hasMoreElements():
+            para = paras.nextElement()
+            seen += 1
+            if seen > 1 or not para.supportsService("com.sun.star.text.Paragraph"):
+                return False  # multi-paragraph or a table/other node
+            portions = para.createEnumeration()
+            while portions.hasMoreElements():
+                if str(portions.nextElement().TextPortionType) not in _OFFSET_SAFE_PORTION_TYPES:
+                    return False  # field / footnote / ruby / redline mark -> offsets diverge
+        return seen == 1
+    except Exception:
+        log.debug("edit_review: _block_safe_for_surgical check failed; treating as unsafe", exc_info=True)
+        return False
+
+
+_SURGICAL_UNDO_TITLE = "WriterAgent surgical edit"
+_surgical_batch_counter = itertools.count(1)
+
+
+def next_surgical_undo_title() -> str:
+    """A process-unique grouped-undo title for one surgical batch (base + a monotonic counter)."""
+    return "%s#%d" % (_SURGICAL_UNDO_TITLE, next(_surgical_batch_counter))
+
+
+_next_surgical_undo_title = next_surgical_undo_title
+
+_AGENT_EDIT_UNDO_TITLE = "WriterAgent edit"
+
+
+def next_agent_edit_undo_title() -> str:
+    """A process-unique grouped-undo title for one HTML/import edit (shares the monotonic counter)."""
+    return "%s#%d" % (_AGENT_EDIT_UNDO_TITLE, next(_surgical_batch_counter))
+
+
+_next_agent_edit_undo_title = next_agent_edit_undo_title
+
+
+def close_surgical_context(undo_mgr, session, changes_before, applied_ok, undo_title):
+    """Close the surgical undo context -- pairing the earlier enterUndoContext exactly once -- and,
+    on failure, roll the partial batch back."""
+    left = False
+    try:
+        undo_mgr.leaveUndoContext()
+        left = True
+    except Exception:
+        log.warning("edit_review: leaveUndoContext failed; the undo stack may be inconsistent", exc_info=True)
+
+    if applied_ok:
+        return  # success: edits stand; a failed leave was already surfaced above
+
+    undone = False
+    if left:
+        try:
+            titles = undo_mgr.getAllUndoActionTitles()  # newest-first per XUndoManager
+            if titles and titles[0] == undo_title:
+                undo_mgr.undo()
+                undone = True
+        except Exception:
+            log.warning("edit_review: undo of partial surgical batch failed; document may be partially "
+                        "edited", exc_info=True)
+    # Trim records when the document mutations were reverted, or when nothing was applied at all
+    # (empty context -> changes unchanged). Keep them when undo() demonstrably failed (or couldn't
+    # run because the context wouldn't close) so a live partial edit keeps a reviewable record.
+    kept = len(session.changes) - changes_before
+    if undone or kept == 0:
+        try:
+            session.discard_changes_since(changes_before)
+        except Exception:
+            log.debug("edit_review: discarding partial surgical change records failed", exc_info=True)
+    else:
+        log.warning("edit_review: surgical rollback could not undo a partial batch; keeping %d change "
+                    "record(s) so the partial edit stays reviewable", kept)
+
+
+_close_surgical_context = close_surgical_context
+
+
+
+def _apply_in_undo_context(doc, session, run):
+    """Run *run(in_undo_context)* -- which must perform exactly ONE session.record_mutation -- inside a
+    fresh grouped-undo context when one can be opened, so a split-author delete+insert stays atomic."""
+    undo_mgr = None
+    undo_title = _next_surgical_undo_title()
+    try:
+        mgr = doc.getUndoManager()
+        if mgr.isLocked():
+            raise RuntimeError("undo manager is locked; enterUndoContext would be a no-op")
+        mgr.enterUndoContext(undo_title)
+        undo_mgr = mgr
+    except Exception:
+        undo_mgr = None
+    if undo_mgr is None:
+        log.debug("edit_review: no usable/unlocked undo manager; split-author whole-block edit falls back "
+                  "to the single atomic op (one color)")
+        run(False)
+        return
+
+    changes_before = len(session.changes)
+    applied_ok = False
+    try:
+        run(True)
+        applied_ok = True
+    finally:
+        _close_surgical_context(undo_mgr, session, changes_before, applied_ok, undo_title)
+
+
+def record_html_atomically(session, doc, mutate, track_reviewable, **record_kwargs):
+    """Record an HTML/import mutation that DELETES before it inserts."""
+    undo_title = _next_agent_edit_undo_title()
+    try:
+        mgr = doc.getUndoManager()
+        if mgr.isLocked():
+            raise RuntimeError("undo manager is locked; enterUndoContext would be a no-op")
+        mgr.enterUndoContext(undo_title)
+    except Exception:
+        raise ToolExecutionError(
+            "Cannot apply this content edit atomically (no usable undo context); "
+            "refusing rather than risk a half-applied edit.")
+
+    changes_before = len(session.changes)
+    applied_ok = False
+    try:
+        result = session.record_mutation(mutate, **record_kwargs)
+        applied_ok = True
+        return result
+    finally:
+        _close_surgical_context(mgr, session, changes_before, applied_ok, undo_title)
+
+
+_record_html_atomically = record_html_atomically
+
+
+# --- post-edit echo (edited_context) ---------------------------------------
+_EDITED_CONTEXT_MAX_CHARS = 700
+
+
+def collapsed_anchor(text_range):
+    """A collapsed model cursor at *text_range*'s start."""
+    try:
+        return text_range.getText().createTextCursorByRange(text_range.getStart())
+    except Exception:
+        return None
+
+
+_collapsed_anchor = collapsed_anchor
+
+
+def selection_anchor(doc):
+    """Collapsed anchor at the view cursor's start (the selection insert site)."""
+    try:
+        vc = doc.getCurrentController().getViewCursor()
+        return vc.getText().createTextCursorByRange(vc.getStart())
+    except Exception:
+        return None
+
+
+_selection_anchor = selection_anchor
+
+
+def paragraph_window_text(anchor, max_chars=_EDITED_CONTEXT_MAX_CHARS):
+    """Plain text of the paragraph around *anchor* plus one neighbor each side, read AFTER the edit."""
+    if anchor is None:
+        return None
+    try:
+        text = anchor.getText()
+        start = text.createTextCursorByRange(anchor.getStart())
+        start.gotoStartOfParagraph(False)
+        start.gotoPreviousParagraph(False)   # False at the first paragraph -> stays put
+        start.gotoStartOfParagraph(False)
+        end = text.createTextCursorByRange(anchor.getEnd())
+        end.gotoEndOfParagraph(False)
+        end.gotoNextParagraph(False)         # False at the last paragraph -> stays put
+        end.gotoEndOfParagraph(False)
+        span = text.createTextCursorByRange(start.getStart())
+        span.gotoRange(end.getEnd(), True)
+        s = span.getString()
+    except Exception:
+        return None
+    if not s or not s.strip():
+        return None
+    if len(s) > max_chars:
+        head = int(max_chars * 0.6)
+        tail = max_chars - head - 7
+        s = s[:head] + " [...] " + s[-tail:]
+    return s
+
+
+_paragraph_window_text = paragraph_window_text
+
+
+def attach_edited_context(result, anchor):
+    """Add edited_context (the touched paragraph(s) as they now read) to a successful result."""
+    snippet = paragraph_window_text(anchor)
+    if snippet:
+        result["edited_context"] = snippet
+    return result
+
+
+_attach_edited_context = attach_edited_context
+
+
+def record_preserve_replace(session, doc, found, new_text, uno_ctx, split):
+    """Record a format-preserving replace as ONE reviewable change, or -- when *split* (review
+    recording is on) and only PART of the block changed -- as several SURGICAL sub-changes,
+    each its own tracked Delete+Insert with its own accept/reject outcome.
+    """
+    from . import format as format_support
+
+    split_author = split and _SPLIT_AUTHOR_COLORS
+
+    def _bound(s):
+        s = s or ""
+        return s if len(s) <= 300 else s[:299] + "…"
+
+    def _whole():
+        original = found.getString()
+
+        def _run(in_undo_context):
+            session.record_mutation(
+                lambda: format_support.replace_preserving_format(
+                    doc, found, new_text, uno_ctx,
+                    in_undo_context=in_undo_context, split_author=split_author),
+                original_preview=_bound(original), proposed_preview=_bound(new_text))
+
+        if split_author:
+            _apply_in_undo_context(doc, session, _run)
+        else:
+            _run(False)
+
+    if not split:
+        _whole()
+        return
+
+    from plugin.writer.word_diff_split import split_change
+
+    result = split_change(found.getString(), new_text, _WORD_DIFF_THRESHOLD)
+    if not result.is_surgical:
+        _whole()
+        return
+    if not result.sub_edits:
+        return
+    if len(result.sub_edits) > _MAX_SURGICAL_RUNS:
+        _whole()
+        return
+    if not _block_safe_for_surgical(found):
+        _whole()
+        return
+
+    text = found.getText()
+    anchor = found.getStart()
+
+    def _select(se):
+        sub = text.createTextCursorByRange(anchor)
+        if se.old_start and not _go_right(sub, se.old_start, False):
+            return None
+        if se.old_end > se.old_start and not _go_right(sub, se.old_end - se.old_start, True):
+            return None
+        return sub
+
+    for se in result.sub_edits:
+        sub = _select(se)
+        if sub is None or sub.getString() != se.old_text:
+            log.debug("edit_review: surgical pre-flight offset mismatch; falling back to whole-block")
+            _whole()
+            return
+
+    undo_mgr = None
+    undo_title = _next_surgical_undo_title()
+    try:
+        mgr = doc.getUndoManager()
+        if mgr.isLocked():
+            raise RuntimeError("undo manager is locked; enterUndoContext would be a no-op")
+        mgr.enterUndoContext(undo_title)
+        undo_mgr = mgr
+    except Exception:
+        undo_mgr = None
+    if undo_mgr is None:
+        log.debug("edit_review: no usable/unlocked undo manager; surgical edit falls back to whole-block "
+                  "for atomicity")
+        _whole()
+        return
+
+    changes_before = len(session.changes)
+    applied_ok = False
+    try:
+        for se in sorted(result.sub_edits, key=lambda e: e.old_start, reverse=True):
+            def apply_se(se=se):
+                sub = _select(se)
+                if sub is None or sub.getString() != se.old_text:
+                    raise RuntimeError(
+                        "surgical sub-edit offset drifted at apply time; aborting to avoid corruption")
+                format_support.replace_preserving_format(doc, sub, se.new_text, uno_ctx,
+                                                         in_undo_context=True,
+                                                         split_author=split_author)
+
+            session.record_mutation(
+                apply_se,
+                original_preview=_bound(se.old_text),
+                proposed_preview=_bound(se.new_text))
+        applied_ok = True
+    finally:
+        _close_surgical_context(undo_mgr, session, changes_before, applied_ok, undo_title)
+
+
+_record_preserve_replace = record_preserve_replace
+

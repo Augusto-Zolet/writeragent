@@ -57,3 +57,36 @@ class ConnectShapes(DrawConnectShapes, ToolWriterShapeBase):
 class GroupShapes(DrawGroupShapes, ToolWriterShapeBase):
     name = "shape_group"
     uno_services = _WRITER_DRAW_SHAPE_DOCS
+
+
+def replace_text_in_shape(shape, old, new):
+    """Replace the first occurrence of *old* with *new* inside a drawing shape's own text,
+    preserving the formatting of the surrounding text via a text cursor. Returns True on success.
+
+    Uses character-offset navigation (goRight) which aligns with getString() for single-paragraph
+    shape text (the common case for callouts / text boxes); fully defensive on any UNO failure."""
+    try:
+        xtext = shape.getText()
+        s = xtext.getString()
+    except Exception:
+        return False
+    idx = s.find(old)
+    if idx < 0:
+        return False
+    # goRight counts UTF-16 code units, while str offsets count code points. Convert so astral
+    # characters (emoji, rare CJK) in the shape text don't misalign the selection / corrupt text.
+    left_units = len(s[:idx].encode("utf-16-le")) // 2
+    old_units = len(old.encode("utf-16-le")) // 2
+    if old_units <= 0:
+        return False
+    try:
+        cursor = xtext.createTextCursorByRange(xtext.getStart())
+        if left_units:
+            cursor.goRight(left_units, False)
+        cursor.goRight(old_units, True)
+        cursor.setString(new)
+        return True
+    except Exception:
+        return False
+
+

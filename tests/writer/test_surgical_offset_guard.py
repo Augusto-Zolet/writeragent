@@ -21,7 +21,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from plugin.writer.content import (
+from plugin.writer.edit_review import (
     _AGENT_EDIT_UNDO_TITLE,
     _GO_RIGHT_CHUNK,
     _SURGICAL_UNDO_TITLE,
@@ -194,10 +194,10 @@ def _run(found, old, new, max_runs=10_000, threshold=_THRESHOLD, doc=None, repla
     # The tuning knobs are plain module constants now (env-overridable, not config keys); pin them so
     # each test is deterministic. _SPLIT_AUTHOR_COLORS default True == today's two-step behaviour; set
     # False to exercise the one-color path.
-    with patch("plugin.writer.content._block_safe_for_surgical", return_value=True), \
-         patch("plugin.writer.content._WORD_DIFF_THRESHOLD", threshold), \
-         patch("plugin.writer.content._MAX_SURGICAL_RUNS", max_runs), \
-         patch("plugin.writer.content._SPLIT_AUTHOR_COLORS", split_author), \
+    with patch("plugin.writer.edit_review._block_safe_for_surgical", return_value=True), \
+         patch("plugin.writer.edit_review._WORD_DIFF_THRESHOLD", threshold), \
+         patch("plugin.writer.edit_review._MAX_SURGICAL_RUNS", max_runs), \
+         patch("plugin.writer.edit_review._SPLIT_AUTHOR_COLORS", split_author), \
          patch("plugin.writer.format.replace_preserving_format",
                side_effect=_wire_replace(um, replace_side_effect)) as mock_replace:
         _record_preserve_replace(session, doc, found, new, MagicMock(), split=True)

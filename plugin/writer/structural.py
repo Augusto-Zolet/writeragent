@@ -19,7 +19,7 @@
 (Index refresh, field refresh, and bookmark list/cleanup live in specialized domains.)"""
 
 from plugin.framework.prompts import PARAGRAPH_INDEX_DIRECTIVE
-from plugin.framework.tool import ToolBase
+from plugin.framework.tool import ToolBase, ToolBaseDummy
 
 from .specialized_base import ToolWriterStructuralBase
 
@@ -239,3 +239,84 @@ class SectionRead(ToolWriterStructuralBase):
 
         content = "\n".join(paragraphs)
         return {"status": "ok", "section": section_name, "section_name": section_name, "paragraphs": paragraphs, "content": content, "length": len(content)}
+
+
+def _resolve_para_index(ctx, kwargs):
+    """Resolve locator or paragraph_index from tool kwargs.
+
+    Returns an integer paragraph index, or None if neither is provided.
+    """
+    locator = kwargs.get("locator")
+    para_index = kwargs.get("paragraph_index")
+
+    if locator is not None and para_index is None:
+        doc_svc = ctx.services.document
+        resolved = doc_svc.resolve_locator(ctx.doc, locator)
+        para_index = resolved.get("para_index")
+
+    return para_index
+
+
+class CloneHeadingBlock(ToolBaseDummy):
+    """Clone an entire heading block (heading + all sub-headings + body)."""
+
+    name = "clone_heading_block"
+    intent = "edit"
+    description = "Clone an entire heading block (heading + all sub-headings + body). The clone is inserted right after the original block."
+    parameters = {"type": "object", "properties": {"locator": {"type": "string", "description": ("Locator of the heading to clone (e.g. 'bookmark:_mcp_abc123', 'heading_text:Introduction').")}, "paragraph_index": {"type": "integer", "description": "Paragraph index of the heading (0-based)."}}}
+    uno_services = ["com.sun.star.text.TextDocument"]
+    is_mutation = True
+
+    def execute(self, ctx, **kwargs):
+        from com.sun.star.text.ControlCharacter import PARAGRAPH_BREAK  # type: ignore
+
+        para_index = _resolve_para_index(ctx, kwargs)
+        if para_index is None:
+            return self._tool_error("Provide locator or paragraph_index.")
+
+        # Use writer_tree service to find the heading node and block size
+        tree_svc = ctx.services.get("writer_tree")
+        if tree_svc is None:
+            return self._tool_error("writer_nav module not loaded; cannot resolve heading block.")
+
+        tree = tree_svc.build_heading_tree(ctx.doc)
+        node = tree_svc._find_node_by_para_index(tree, para_index)
+        if node is None:
+            return self._tool_error("No heading found at paragraph %d." % para_index)
+
+        # Total paragraphs in the block: heading + body + all children
+        total = 1 + tree_svc._count_all_children(node)
+
+        # Collect elements for the block
+        doc_text = ctx.doc.getText()
+        enum = doc_text.createEnumeration()
+        elements = []
+        idx = 0
+        while enum.hasMoreElements():
+            el = enum.nextElement()
+            if para_index <= idx < para_index + total:
+                elements.append(el)
+            if idx >= para_index + total - 1:
+                break
+            idx += 1
+
+        if not elements:
+            return self._tool_error("Could not collect heading block paragraphs.")
+
+        # Insert duplicates after the last element of the block
+        last = elements[-1]
+        cursor = doc_text.createTextCursorByRange(last)
+        cursor.gotoEndOfParagraph(False)
+
+        for el in elements:
+            txt = el.getString()
+            sty = el.getPropertyValue("ParaStyleName")
+            doc_text.insertControlCharacter(cursor, PARAGRAPH_BREAK, False)
+            doc_text.insertString(cursor, txt, False)
+            cursor.gotoStartOfParagraph(False)
+            cursor.gotoEndOfParagraph(True)
+            cursor.setPropertyValue("ParaStyleName", sty)
+            cursor.gotoEndOfParagraph(False)
+
+        return {"status": "ok", "message": "Cloned heading block '%s' (%d paragraphs)." % (node.get("text", ""), total), "heading_text": node.get("text", ""), "block_size": total}
+

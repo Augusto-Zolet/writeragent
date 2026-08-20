@@ -83,7 +83,7 @@ For each cell in order, the importer appends to the **document body**:
 |-----------|-------------------|
 | **All cells** | **Heading 2** — `Cell N: Markdown` / `Cell N: Code` / `Cell N: Raw` |
 | **code (gutter)** | **`WriterAgent Notebook In`** — `[In [k]]` or `[In [ ]]` (updates after ▶ run) |
-| **markdown** | HTML-tagged source → [`insert_html_at_cursor`](../plugin/writer/ops.py); else **Text Body** plain text |
+| **markdown** | HTML-tagged source → [`insert_html_fragment_at_cursor`](../plugin/writer/format.py); else **Text Body** plain text |
 | **code (body)** | Gutter line + title → in-flow **▶** (`nb_run_{cell_id hex}`) → **TextField** (`nb_cell_{index}_code`) → **Heading 4** “Output” (bookmark `nb_out_{hex}`) → **Preformatted Text** / images |
 | **raw** | **Text Body** — raw cell source |
 

@@ -19,7 +19,7 @@ from plugin.testing_runner import native_test
 from plugin.tests.testing_utils import TestingFactory, with_native_doc
 from plugin.doc.document_helpers import WriterStreamedRewriteSession, WriterStreamedAppendSession
 from plugin.writer.content import ApplyDocumentContent
-import plugin.writer.content as _content
+import plugin.writer.edit_review as _content
 from plugin.writer.edit_review import EditReviewSession, get_agent_edit_review_mode
 from plugin.framework.config import set_config, get_config
 import plugin.writer.format as fmt

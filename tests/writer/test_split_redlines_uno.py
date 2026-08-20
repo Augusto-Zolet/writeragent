@@ -11,7 +11,7 @@ import uno  # noqa: F401
 
 from plugin.testing_runner import native_test
 from plugin.tests.testing_utils import with_native_doc
-from plugin.writer.content import _record_preserve_replace
+from plugin.writer.edit_review import _record_preserve_replace
 from plugin.writer.edit_review import EditReviewSession
 from plugin.writer.inline_review import agent_changes, resolve_agent_change
 
@@ -155,7 +155,7 @@ def test_split_off_when_not_recording_single_change_uno(ctx, doc):
 def test_diff_threshold_default_constant_uno():
     """The surgical-vs-block threshold is a named module constant (env-overridable via
     WRITERAGENT_AGENT_EDIT_DIFF_THRESHOLD, NOT a settings-UI config key), defaulting to 0.6."""
-    from plugin.writer.content import _WORD_DIFF_THRESHOLD
+    from plugin.writer.edit_review import _WORD_DIFF_THRESHOLD
     assert _WORD_DIFF_THRESHOLD == 0.6, "_WORD_DIFF_THRESHOLD should default to 0.6"
 
 
@@ -295,7 +295,7 @@ def test_final_text_not_truncated_for_deep_change_uno(ctx, doc):
 def test_block_safe_for_surgical_guard_uno(ctx, doc):
     """The surgical path only runs on a clean SINGLE-paragraph plain-text block; otherwise
     char offsets diverge from cursor stops, so it must fall back to the whole-block replace."""
-    from plugin.writer.content import _block_safe_for_surgical
+    from plugin.writer.edit_review import _block_safe_for_surgical
     _body(doc, ctx, "Just some plain words here.")
     assert _block_safe_for_surgical(_find(doc, "Just some plain words here.")) is True, "clean block is safe"
     # a range spanning TWO paragraphs -> unsafe
@@ -327,7 +327,7 @@ def test_go_right_chunks_past_short_cap_uno(ctx, doc):
     the offset helper the surgical path uses; before the fix a raw goRight(>32767) overflowed.
     Tested directly because the surgical path needs a search range (which we can't build for a
     35000-char block via findFirst)."""
-    from plugin.writer.content import _go_right
+    from plugin.writer.edit_review import _go_right
     _body(doc, ctx, ("word " * 7000) + "TARGET tail.")    # ~35000 chars, one paragraph, past the short cap
     cur = doc.getText().createTextCursor()
     cur.gotoStart(False)
@@ -481,7 +481,7 @@ def test_softpagebreak_offset_safe_whitelist_uno():
     right) must NOT force whole-block, so a paragraph that merely straddles a page boundary keeps
     its surgical sub-edits. Real content portions DO shift offsets and must keep forcing block.
     Pins the offset-safe whitelist (a layout-dependent behavioural test would be flaky headless)."""
-    from plugin.writer.content import _OFFSET_SAFE_PORTION_TYPES
+    from plugin.writer.edit_review import _OFFSET_SAFE_PORTION_TYPES
     assert "Text" in _OFFSET_SAFE_PORTION_TYPES
     assert "SoftPageBreak" in _OFFSET_SAFE_PORTION_TYPES, \
         "SoftPageBreak is offset-safe and must be allowed (else page-straddling paragraphs lose surgical)"

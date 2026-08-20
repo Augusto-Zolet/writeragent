@@ -25,7 +25,7 @@ import logging
 
 from plugin.framework.tool import ToolBase
 
-from .content import collect_document_stats
+from plugin.doc.text_helpers import get_string_without_tracked_deletions
 from .specialized_base import ToolWriterStructuralBase
 
 log = logging.getLogger("writeragent.writer")
@@ -93,3 +93,60 @@ class NavHeadingChildren(ToolWriterStructuralBase):
             return {"status": "ok", **result}
         except ValueError as e:
             return self._tool_error(str(e))
+
+
+def _count_headings(nodes):
+    """Recursively count heading nodes in a nested list."""
+    count = 0
+    for node in nodes:
+        count += 1
+        count += _count_headings(node.get("children", []))
+    return count
+
+
+def collect_document_stats(doc, doc_svc):
+    """Character/word/paragraph/page/heading counts for a Writer document."""
+    from plugin.doc.text_helpers import build_heading_tree
+
+    try:
+        text_obj = doc.getText()
+        cursor = text_obj.createTextCursor()
+        cursor.gotoStart(False)
+        cursor.gotoEnd(True)
+        full_text = get_string_without_tracked_deletions(cursor)
+        char_count = len(full_text)
+        word_count = len(full_text.split())
+    except Exception:
+        char_count = doc_svc.get_document_length(doc)
+        word_count = 0
+
+    try:
+        para_ranges = doc_svc.get_paragraph_ranges(doc)
+        para_count = len(para_ranges)
+    except Exception:
+        para_count = 0
+
+    try:
+        tree = build_heading_tree(doc)
+        heading_count = _count_headings(tree.get("children", []))
+    except Exception:
+        heading_count = 0
+
+    page_count = 0
+    try:
+        page_count = doc_svc.get_page_count(doc)
+    except Exception:
+        try:
+            vc = doc.getCurrentController().getViewCursor()
+            vc.jumpToLastPage()
+            page_count = vc.getPage()
+        except Exception:
+            pass
+
+    return {
+        "character_count": char_count,
+        "word_count": word_count,
+        "paragraph_count": para_count,
+        "page_count": page_count,
+        "heading_count": heading_count,
+    }

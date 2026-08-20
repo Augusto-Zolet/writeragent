@@ -299,7 +299,7 @@ def _strip_html_boilerplate(html_string):  # pyright: ignore[reportUnusedFunctio
 
 # Other code paths that set ParaStyleName and may need apply_paragraph_style_preserving_direct_char
 # (audit each call site before adopting — semantics differ):
-#   plugin/writer/content.py  — CloneHeadingBlock style re-apply (~475)
+#   plugin/writer/structural.py — CloneHeadingBlock style re-apply
 #   plugin/writer/format.py   — replace_single_range_with_content style restore (~595)
 #   plugin/notebook/writer_importer.py — resolved paragraph style on import (~621)
 #   plugin/notebook/notebook_runner.py — output cell paragraph style (~177)
