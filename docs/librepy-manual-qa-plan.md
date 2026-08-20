@@ -123,6 +123,86 @@ A5: East      B5: 400      C5: 5
 
 ---
 
+## Packet B Phase 2 — Ranges, pandas, spill (deepen)
+
+**Prerequisite:** Phase 1 (B1–B10) already green. Do not re-run those rows.  
+**Out of scope:** `xl()` / in-code range helpers (separate packet later).  
+**Goal:** Spill geometry, dependents, multi-range shape, dates, blocked spill, recalc — still formula-only.  
+**Setup:** New Calc book unless noted. Auto-spill on. Isolated mode. Locale argument separator as needed (`;` vs `,`).
+
+Sample grid on **Sheet1** (same spirit as Phase 1):
+
+```
+A1: Region    B1: Sales    C1: Units
+A2: North     B2: 1200.5   C2: 10
+A3: South     B3: 800      C3: 8
+A4: North     B4: 1500     C4: 12
+A5: East      B5: 400      C5: 5
+```
+
+### B2.0 — Multi-range & shape
+
+| id | Scenario | Formula / action | Expected |
+|----|----------|------------------|----------|
+| B2.0.1 | Two ranges order | `=PY("result = float(np.mean(data[0]) + np.mean(data[1]))"; B2:B5; C2:C5)` | ~`983.875` (sales mean + units mean) |
+| B2.0.2 | Swapped args | Same code but ranges `C2:C5; B2:B5` | ~`983.875` still if code uses `data[0]`/`data[1]` correctly — or document that order follows formula args |
+| B2.0.3 | Single column as 1D | `=PY("result = len(data)"; B2:B5)` | `4` (not nested length surprise) |
+| B2.0.4 | Block stays 2D | `=PY("result = (len(data), len(data[0]))"; A2:C5)` | `(4, 3)` or equivalent row/col counts |
+
+### B2.1 — pandas
+
+| id | Scenario | Formula / action | Expected |
+|----|----------|------------------|----------|
+| B2.1.1 | Header table | `=PY("df=data.to_pandas(); float(df['Sales'].sum())"; A1:C5)` | `3900.5` |
+| B2.1.2 | Filter | `=PY("df=data.to_pandas(); float(df.loc[df['Region']=='North','Sales'].sum())"; A1:C5)` | `2700.5` |
+| B2.1.3 | Groupby | `=PY("df=data.to_pandas(); float(df.groupby('Region')['Sales'].sum().loc['North'])"; A1:C5)` | `2700.5` |
+| B2.1.4 | date_cols | Sheet with ISO date strings in col A + values in B; `=PY("df=data.to_pandas(date_cols=True); str(df.dtypes.iloc[0])"; A1:B4)` | datetime-like dtype, not crash |
+
+### B2.2 — Spill geometry
+
+| id | Scenario | Action | Expected |
+|----|----------|--------|----------|
+| B2.2.1 | List vertical | Free cell: `=PY("result = [10, 20, 30]")` | Origin + two below: `10, 20, 30` |
+| B2.2.2 | 2D list | `=PY("result = [[1,2],[3,4]]")` | 2×2 block from origin |
+| B2.2.3 | DataFrame spill | Free cell E1: `=PY("data.to_pandas()"; A1:C5)` | Header + 4 data rows spill |
+| B2.2.4 | Spill blocked | Put text in a spill target of B2.2.1; re-enter formula | Origin `#SPILL!` (or documented blocked marker) |
+| B2.2.5 | Clear blocker | Clear the blocking cell; recalc | Spill fills again |
+| B2.2.6 | Scalar no spill | `=PY("result = 42")` | Single cell only; neighbors untouched |
+
+### B2.3 — Dependents & recalc
+
+| id | Scenario | Action | Expected |
+|----|----------|--------|----------|
+| B2.3.1 | Input edit | `=PY("float(np.mean(data))"; B2:B5)` then change B2 | Mean updates on recalc |
+| B2.3.2 | Downstream of PY | A10: PY mean of `B2:B5`; A11: `=A10*2` | A11 tracks A10 |
+| B2.3.3 | F9 ×3 | Pure mean formula | Same value each time (idempotent) |
+| B2.3.4 | Hard recalc | **Ctrl+Shift+F9** | Values stable; no hang |
+
+### B2.4 — Return types (single cell / spill)
+
+| id | Scenario | Formula | Expected |
+|----|----------|---------|----------|
+| B2.4.1 | String | `=PY("result = 'hello'")` | `hello` |
+| B2.4.2 | Bool | `=PY("result = True")` | `TRUE` / equivalent |
+| B2.4.3 | Empty-ish | `=PY("result = None")` | Blank or documented empty — no crash |
+| B2.4.4 | List as text | `=PY("str([1,2,3])")` | `[1, 2, 3]` in one cell |
+
+### B2.5 — Soft failures
+
+| id | Scenario | Action | Expected |
+|----|----------|--------|----------|
+| B2.5.1 | Bad column name | `=PY("data.to_pandas()['Nope'].sum()"; A1:C5)` | Error in cell; UI alive |
+| B2.5.2 | Empty range | `=PY("float(np.mean(data))"; Z1:Z3)` on empty cells | Error or NaN policy — no LO crash |
+| B2.5.3 | Huge spill request | `=PY("result = list(range(5000))")` | Completes, truncates, or clear limit error — no freeze forever |
+
+### Pass rules
+
+- **Pass:** Numbers within 1e-4 rel; spill occupies expected block; `#SPILL!` when blocked; dependents update; no crash/hang.
+- **Fail:** Wrong aggregate; spill onto wrong area without blocker logic; LO crash; permanent UI freeze.
+- **Note:** Exact `#SPILL!` string vs other blocked marker; `None` display; multi-range `data[i]` order.
+
+---
+
 ## Packet C — Shared kernel, init script, Reset (Layer 0 session)
 
 Settings → Python → session mode **shared**. New workbook.
@@ -135,6 +215,86 @@ Settings → Python → session mode **shared**. New workbook.
 | C4 | DAG order | Put C3’s consumer **above** the producer on the sheet; still pass producer as `data` | Still `11` (order via `data`, not row-major) |
 | C5 | Reset | **Reset Python Session** (or **Ctrl+Alt+Shift+F9**). Recalc B1 without re-running A1 first | `NameError` / error text for `x`, not stale `11` |
 | C6 | Idempotent KPI | `=PY("result = float(np.sum(data))"; B2:B5)` press F9 three times | Same number each time (no growth) |
+
+---
+
+## Packet C Phase 2 — Shared kernel, init, reset (deepen)
+
+**Prerequisite:** Phase 1 (C1–C6) already green. Do not re-run those rows.  
+**Goal:** Lifecycle and state bugs Phase 1 did not stress — leftover names, reset boundaries, init changes, multi-cell DAGs, isolated vs shared side-by-side.  
+**Settings:** Start each scenario from a new workbook unless noted. Auto-spill on.
+
+### C2.0 — Baseline hygiene
+
+| id | Scenario | Action | Expected |
+|----|----------|--------|----------|
+| C2.0.1 | Fresh shared book | Shared mode; no init; `=PY("result = 1")` | `1` |
+| C2.0.2 | No cross-book leak | Book A shared: `=PY("x = 99")`. Book B shared: `=PY("x")` | Book B errors / undefined — not `99` |
+
+### C2.1 — Leftover result / name hygiene (regression class of #388)
+
+| id | Scenario | Action | Expected |
+|----|----------|--------|----------|
+| C2.1.1 | Stale result | Shared. A1: `=PY("result = 10")`. B1: `=PY("result = 20")`. C1: `=PY("result")` with no data dep on A/B | C1 is `20` or clear error — not silently `10` if B ran last; record actual contract |
+| C2.1.2 | Consumer ignores prior result | A1: `=PY("result = 5")`. B1: `=PY("result = result + 1"; A1)` (A1 as data) | `6` (or documented: data inject vs name) |
+| C2.1.3 | Name without data edge | A1: `=PY("k = 7")`. B1: `=PY("k + 1")` without passing A1 | Fail or stale — must not pretend DAG safety; prefer error or documented shared-read |
+| C2.1.4 | After successful cell, unrelated formula | A1 sets `x = 1`. B1: `=PY("result = 100")` (no use of x). Recalc B only | `100`; A1 still ok |
+
+### C2.2 — Reset boundaries
+
+| id | Scenario | Action | Expected |
+|----|----------|--------|----------|
+| C2.2.1 | Reset clears names | Shared; A1: `=PY("x = 42")`; Reset Python Session; B1: `=PY("x")` | Error / undefined, not `42` |
+| C2.2.2 | Reset clears result | After C2.1.1 pattern; Reset; recalc a cell that only reads `result` | Not previous result |
+| C2.2.3 | Reset does not break init re-seed | Init defines `def double(x): return x*2`; Reset; `=PY("double(3)")` | `6` (init reapplied) |
+| C2.2.4 | Ctrl+Alt+Shift+F9 | Same as Reset for shared state | Same as Reset |
+
+### C2.3 — Init script evolution
+
+| id | Scenario | Action | Expected |
+|----|----------|--------|----------|
+| C2.3.1 | Init then cell | Init: `FACTOR = 10`; cell `=PY("result = 3 * FACTOR")` | `30` |
+| C2.3.2 | Change init | Change init to `FACTOR = 2`; Reset (or documented re-seed); same formula | `6` |
+| C2.3.3 | Init error | Init: `raise RuntimeError("init fail")`; cell `=PY("1+1")` | Clear error path; no LO crash |
+| C2.3.4 | Init only helpers | Init defines `double` only; cell does not call it: `=PY("result = 1")` | `1` |
+
+### C2.4 — Multi-cell DAG (explicit data only)
+
+| id | Scenario | Action | Expected |
+|----|----------|--------|----------|
+| C2.4.1 | Chain of three | A1: `=PY("result = 2")`. B1: `=PY("result = data + 3"; A1)`. C1: `=PY("result = data * 4"; B1)` | C1 → `20` |
+| C2.4.2 | Consumer above producer | Put consumer row above producer; still pass producer as data | Still correct value (order via `data`, not sheet order) |
+| C2.4.3 | Fan-out | A1 producer; B1 and C1 both depend on A1 via data | Both see same A1 value |
+| C2.4.4 | Change input | After C2.4.1, change A1 code to `result = 5`; recalc chain | Downstream updates |
+
+### C2.5 — Isolated vs shared side-by-side
+
+| id | Scenario | Action | Expected |
+|----|----------|--------|----------|
+| C2.5.1 | Isolated no leak | Isolated; A1: `=PY("x = 1")`; B1: `=PY("x")` without data | B1 does not see `x` |
+| C2.5.2 | Switch mode | Shared book with `x` set; switch to Isolated; new cell reads `x` without data | No shared `x` (or after Reset — record required step) |
+| C2.5.3 | Init in both modes | Same init `double`; Isolated cell `=PY("double(4)")` | `8` (init seeds isolated too) |
+
+### C2.6 — Idempotence & recalc storms
+
+| id | Scenario | Action | Expected |
+|----|----------|--------|----------|
+| C2.6.1 | Pure function stable | `=PY("result = float(np.sum(data))"; B2:B5)`; F9 ×5 | Same number every time |
+| C2.6.2 | Shared append hazard | Shared; `=PY("result = globals().setdefault('n', 0) or 0; n += 1; result = n")` or equivalent counter | Document behavior; prefer note if F9 grows (known footgun) — fail only if crash |
+| C2.6.3 | Hard recalc | Ctrl+Shift+F9 on chain from C2.4.1 | Final values correct; no hang |
+
+### C2.7 — Soft failures (no LO death)
+
+| id | Scenario | Action | Expected |
+|----|----------|--------|----------|
+| C2.7.1 | NameError in shared | `=PY("not_defined + 1")` | Error text in cell / diagnostics; UI alive |
+| C2.7.2 | Timeout under shared | Timeout 2s; `=PY("import time; time.sleep(10)")` | Timeout message; session still usable after for a simple `=PY("1+1")` |
+
+### Pass rules
+
+- **Pass:** Values match; Reset clears shared names; init re-seeds after Reset; explicit data chains work regardless of sheet order.
+- **Fail:** Cross-book leak; Reset leaves `x`/`result`; LO crash; hang past timeout; isolated sees shared names.
+- **Note (not auto-fail):** Whether bare `=PY("x")` reads shared names without a data edge — record the product rule; prefer explicit data in docs either way.
 
 ---
 
