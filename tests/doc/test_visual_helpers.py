@@ -296,6 +296,26 @@ def test_list_graphic_objects_reads_writer_graphic_collection():
     assert visual_helpers.get_graphic_object_by_name(doc, "Image 1") is graphic
 
 
+def test_list_graphic_objects_reads_all_draw_pages():
+    a = FakeGraphicShape("A")
+    b = FakeGraphicShape("B")
+
+    class Pages:
+        def __init__(self, pages):
+            self._pages = pages
+
+        def getCount(self):
+            return len(self._pages)
+
+        def getByIndex(self, i):
+            return self._pages[i]
+
+    doc = FakeDrawDoc(FakeDrawPage([a]))
+    doc.getDrawPages = lambda: Pages([FakeDrawPage([a]), FakeDrawPage([b])])  # type: ignore[method-assign]
+    names = [n for n, _g in visual_helpers.list_graphic_objects(doc)]
+    assert names == ["A", "B"]
+
+
 def test_list_graphic_objects_reads_calc_draw_page_graphic_shapes():
     graphic = FakeGraphicShape("Calc Image")
     other = FakePropertyObject({}, set())

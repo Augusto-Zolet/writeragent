@@ -526,14 +526,27 @@ def list_graphic_objects(doc: Any, doc_type: str | None = None) -> list[tuple[st
         return graphics
 
     if inside in ("draw", "impress"):
-        draw_page = get_active_draw_page(doc, inside)
-        if draw_page is None:
-            return graphics
+        pages = None
         try:
-            for i in range(draw_page.getCount()):
-                shape = draw_page.getByIndex(i)
-                if is_graphic_object(shape):
-                    graphics.append((shape.getName(), shape))
+            pages = doc.getDrawPages()
+        except Exception:
+            pages = None
+        page_list = []
+        if pages is not None:
+            try:
+                page_list = [pages.getByIndex(i) for i in range(pages.getCount())]
+            except Exception as ex:
+                log.debug("list_graphic_objects draw/impress pages failed: %s", ex)
+        if not page_list:
+            draw_page = get_active_draw_page(doc, inside)
+            if draw_page is not None:
+                page_list = [draw_page]
+        try:
+            for draw_page in page_list:
+                for i in range(draw_page.getCount()):
+                    shape = draw_page.getByIndex(i)
+                    if is_graphic_object(shape):
+                        graphics.append((shape.getName(), shape))
         except Exception as ex:
             log.debug("list_graphic_objects draw/impress failed: %s", ex)
         return graphics
@@ -548,6 +561,40 @@ def list_graphic_objects(doc: Any, doc_type: str | None = None) -> list[tuple[st
     except Exception as ex:
         log.debug("list_graphic_objects writer failed: %s", ex)
     return graphics
+
+
+def remove_graphic_from_draw_pages(doc: Any, graphic: Any) -> bool:
+    """Remove a GraphicObjectShape from Calc/Draw/Impress pages. Returns True if removed."""
+    if graphic is None or doc is None:
+        return False
+    try:
+        pages = doc.getDrawPages()
+    except Exception:
+        page = get_active_draw_page(doc)
+        if page is None:
+            return False
+        try:
+            page.remove(graphic)
+            return True
+        except Exception:
+            return False
+    try:
+        for i in range(pages.getCount()):
+            page = pages.getByIndex(i)
+            for j in range(page.getCount()):
+                shape = page.getByIndex(j)
+                if shape is graphic or shape == graphic:
+                    page.remove(graphic)
+                    return True
+                try:
+                    if shape.getName() and graphic.getName() and shape.getName() == graphic.getName():
+                        page.remove(shape)
+                        return True
+                except Exception:
+                    pass
+    except Exception as ex:
+        log.debug("remove_graphic_from_draw_pages failed: %s", ex)
+    return False
 
 
 def get_graphic_object_by_name(doc: Any, image_name: str, doc_type: str | None = None) -> Any | None:

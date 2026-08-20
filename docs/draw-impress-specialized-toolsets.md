@@ -36,6 +36,9 @@ These tools are **always available** to the main agent for Draw/Impress document
 | `list_pages` | `pages.py` | Drawing+Presentation | Lists all pages/slides |
 | `add_slide` | `pages.py` | Drawing+Presentation | Add a new page/slide |
 | `delete_slide` | `pages.py` | Drawing+Presentation | Delete a page/slide |
+| `duplicate_slide` | `pages.py` | Drawing+Presentation | Duplicate a page/slide after the source |
+| `move_slide` | `pages.py` | Drawing+Presentation | Reorder slides by 0-based index |
+| `rename_slide` | `pages.py` | Drawing+Presentation | Set the slide Name |
 | `set_active_page` | `pages.py` | Drawing+Presentation | Switch current view to slide |
 | `read_slide_text` | `pages.py` | Drawing+Presentation | Extract text from all shapes on a page |
 | `get_presentation_info` | `pages.py` | Drawing+Presentation | Metadata: slide count, dimensions, masters |
@@ -56,6 +59,11 @@ These are available only via `delegate_to_specialized_draw_toolset`:
 | `shape_delete` | `shapes` | `draw/shapes.py` | Delete a shape by index | Drawing+Presentation |
 | `shape_connect` | `shapes` | `draw/shapes.py` | Connect two shapes with a connector line | Drawing+Presentation |
 | `shape_group` | `shapes` | `draw/shapes.py` | Group multiple shapes | Drawing+Presentation |
+| `align_shapes` | `shapes` | `draw/shapes.py` | Align shapes to an edge or center | Drawing+Presentation |
+| `distribute_shapes` | `shapes` | `draw/shapes.py` | Evenly space shapes along an axis | Drawing+Presentation |
+| `create_diagram` | `shapes` | `draw/shapes.py` | Batch nodes + connectors (flowchart) | Drawing+Presentation |
+| `image_insert` / `image_list` / `image_delete` / `image_generate` | `images` | `writer/images/images.py` | Same image tools as Writer/Calc; Draw/Impress uses millimetres (`page`, `x_mm`, `y_mm`) | Drawing+Presentation |
+| `insert_table` | `tables` | `draw/tables.py` | Insert a table; optional cell data | Drawing+Presentation |
 | `get_slide_transition` | `slide_transitions` | `draw/transitions.py` | Get transition effect/speed/duration | Presentation |
 | `set_slide_transition` | `slide_transitions` | `draw/transitions.py` | Set transition effect/speed/duration | Presentation |
 | `get_slide_layout` | `slide_layouts` | `draw/transitions.py` | Get current slide layout | Presentation |
@@ -134,8 +142,8 @@ The existing sidebar doesn't need new UI elements; the "Insert Image" action dyn
 
 | Domain | Status | Tools | Notes |
 |--------|--------|-------|-------|
-| **Shapes (core)** | ✅ Complete | 7 tools | Create, edit, delete, connect, group, summary, tree |
-| **Pages/Slides (core)** | ✅ Complete | 4 tools | List, add, delete, read text |
+| **Shapes (core)** | ✅ Complete | 11 tools | Create, edit, delete, connect, group, summary, tree, align, distribute, graphic, diagram |
+| **Pages/Slides (core)** | ✅ Complete | 7 tools | List, add, delete, duplicate, move, rename, read text |
 | **Master Slides (specialized)** | ✅ Complete | 3 tools | `slide_masters`: list, get, set |
 | **Speaker Notes (specialized)** | ✅ Complete | 2 tools | `speaker_notes`: get, set (Impress only — Draw has no speaker notes) |
 | **Placeholders (core)** | ✅ Complete | 3 tools | List, get text, set text (Impress only) |
@@ -154,7 +162,7 @@ The existing sidebar doesn't need new UI elements; the "Insert Image" action dyn
 | **Themes** | ❌ Missing | — | Color/font schemes |
 | **Templates** | ❌ Missing | — | Document templates |
 | **Headers/Footers (specialized)** | ✅ Complete | 2 tools | `get_headers_footers`, `set_headers_footers` (Impress only) |
-| **Tables** | ❌ Missing | — | Insert/edit tables in Draw |
+| **Tables** | ✅ Insert | 1 tool | `insert_table`; not Writer’s table_list / table_set_cell / manage_table_structure |
 | **3D Shapes** | ❌ Missing | — | 3D objects and scenes |
 | **Guides/Grid** | ❌ Missing | — | Snap settings, custom guides |
 | **OCR** | ❌ Missing | — | Text from images |
@@ -210,11 +218,11 @@ Some tools are implemented in shared modules but work with Draw/Impress:
 
 | Feature | UNO Area | User Value | Effort |
 |---------|----------|-------------|--------|
-| **Batch Diagrams & Flowcharts** | `com.sun.star.drawing` | Single-turn diagram & flowchart creation | Low |
-| **Shape Alignment & Distribution** | `com.sun.star.drawing` | Clean, aligned, professional diagram layouts | Low |
-| **Native Slide Tables** | `com.sun.star.drawing.TableShape` | Comparison tables, feature grids, data tables | Medium |
-| **Slide Duplicate & Move** | `com.sun.star.drawing.DrawPages` | Reorder, copy, and organize slides | Low |
-| **Media & Graphic Placement** | `com.sun.star.drawing.GraphicObjectShape` | Explicit logo, diagram, and asset insertion | Low |
+| **Batch Diagrams & Flowcharts** | `com.sun.star.drawing` | Single-turn diagram & flowchart creation | ✅ `create_diagram` |
+| **Shape Alignment & Distribution** | `com.sun.star.drawing` | Clean, aligned, professional diagram layouts | ✅ `align_shapes` / `distribute_shapes` |
+| **Tables** | Slide table object | Put a table on a page | ✅ `insert_table` (no Writer-style edit tools yet) |
+| **Slide Duplicate & Move** | `com.sun.star.drawing.DrawPages` | Reorder, copy, and organize slides | ✅ `duplicate_slide` / `move_slide` / `rename_slide` |
+| **Images on slides** | Existing `image_*` tools | Logos and generated images | ✅ `image_insert` (`page`, `x_mm`, `y_mm` in millimetres) |
 | **Slide Animations** | `com.sun.star.presentation.Animation*` | Professional presentation builds & entrances | Medium |
 | **Slide Show Controls** | `com.sun.star.presentation.Presentation` | Start/stop presentation mode | Low |
 | **Layers** | `com.sun.star.drawing.Layer*` | Advanced Draw organization | Medium |
@@ -301,16 +309,16 @@ class AlignShapes(ToolDrawShapeBase):
 
 ---
 
-#### 5.2.3 Native TableShape Support (`domain="tables"`)
+#### 5.2.3 Tables (`domain="tables"`)
 
-**Problem:** Impress slides heavily rely on comparison tables and feature grids. Draw/Impress currently has no table tools.
+**Problem:** Draw/Impress had no table tools. This is a slide table, not a Writer text table (`table_list` / `table_set_cell` / `manage_table_structure`). Those Writer tools are not reused here.
 
 **Design:** Create a specialized domain `domain="tables"` (`plugin/draw/tables.py`):
 ```python
 class InsertTable(ToolDrawSpecialBase):
     name = "insert_table"
     specialized_domain = "tables"
-    description = "Insert a native table shape onto the slide with specified rows and columns."
+    description = "Insert a table onto the slide with specified rows and columns."
     parameters = {
         "type": "object",
         "properties": {
@@ -345,21 +353,9 @@ class InsertTable(ToolDrawSpecialBase):
 
 ---
 
-#### 5.2.5 Media & Graphic Placement (`insert_graphic_shape`)
+#### 5.2.5 Images on slides (`image_insert`)
 
-**Design:** Adapt explicit shape-handling for local images and assets onto slides:
-```python
-def insert_image_into_impress(ctx, doc_model, image_path: str, x=3000, y=4000, width=14000, height=10500):
-    controller = doc_model.getCurrentController()
-    current_page = controller.getCurrentPage()
-    shape = doc_model.createInstance("com.sun.star.drawing.GraphicObjectShape")
-    current_page.add(shape)
-    file_url = uno.systemPathToFileUrl(image_path)
-    shape.setPropertyValue("GraphicURL", file_url)
-    shape.setPosition(Point(x, y))
-    shape.setSize(Size(width, height))
-    return True
-```
+Use the existing Writer/Calc `image_*` tools (`domain="images"`). On Draw/Impress, `image_insert` places a graphic on a page via `_insert_image_to_drawpage`. Position and size are **millimetres** (`page`, `x_mm`, `y_mm`, `width_mm`, `height_mm`). Omitted `x_mm`/`y_mm` centers the image. Do not add a second Draw-only insert tool.
 
 ---
 
@@ -367,8 +363,9 @@ def insert_image_into_impress(ctx, doc_model, image_path: str, x=3000, y=4000, w
 
 | Domain | Tools | Use Case |
 |--------|-------|---------|
-| `shapes` | `shape_upsert`, `create_diagram`, `align_shapes`, `shape_connect`, `shape_group` | Vector graphics & flowcharts |
-| `tables` | `insert_table`, `edit_table`, `format_table` | Tabular comparison content |
+| `shapes` | `shape_upsert`, `create_diagram`, `align_shapes`, `distribute_shapes`, `shape_connect`, `shape_group` | Vector graphics & flowcharts |
+| `images` | `image_insert`, `image_list`, `image_delete`, `image_generate` | Images on slides (millimetres) |
+| `tables` | `insert_table` | Insert a table on a page |
 | `animations` | `get_animations`, `set_animations`, `add_animation` | Element entrance/motion builds |
 | `slide_transitions` | `get_slide_transition`, `set_slide_transition` | Slide-to-slide advance effects |
 | `slide_layouts` | `get_slide_layout`, `set_slide_layout` | Impress slide layouts |

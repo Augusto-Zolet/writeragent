@@ -108,6 +108,22 @@ class ToolDrawPythonBase(ToolDrawSpecialBase):
     )
 
 
+class ToolDrawImageBase(ToolDrawSpecialBase):
+    specialized_domain: ClassVar[str | None] = "images"
+    specialized_domain_description: ClassVar[str | None] = (
+        "Insert, list, generate, and replace images on Draw/Impress pages (same image_* tools as Writer/Calc)."
+    )
+    uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
+
+
+class ToolDrawTableBase(ToolDrawSpecialBase):
+    specialized_domain: ClassVar[str | None] = "tables"
+    specialized_domain_description: ClassVar[str | None] = (
+        "Insert and fill tables on Draw/Impress pages."
+    )
+    uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
+
+
 class ToolDrawPptMasterBase(ToolDrawSpecialBase):
     """PPT-Master sidebar mode — not exposed via delegate_to_specialized_draw_toolset."""
 

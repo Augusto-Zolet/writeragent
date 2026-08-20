@@ -216,3 +216,129 @@ class SetActivePage(ToolBase):
             except Exception as e:
                 return self._tool_error("Failed to set active page: %s" % e)
         return self._tool_error("Document controller does not support switching pages.")
+
+
+_DRAW_UNO = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
+
+
+class DuplicateSlide(ToolBase):
+    name = "duplicate_slide"
+    intent = "edit"
+    description = (
+        "Duplicates the slide at the given 0-based index. The copy is inserted immediately after "
+        "the source slide."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "page": {"type": "integer", "description": "0-based index of the slide to duplicate"},
+            "activate": {
+                "type": "boolean",
+                "description": "Whether to switch the view to the new slide (default: true)",
+            },
+        },
+        "required": ["page"],
+    }
+    uno_services = _DRAW_UNO
+    is_mutation = True
+    tier = "core"
+
+    def execute(self, ctx, **kwargs):
+        from plugin.draw.bridge import DrawBridge
+
+        page_idx = kwargs.get("page")
+        if page_idx is None:
+            return self._tool_error("page is required.")
+        bridge = DrawBridge(ctx.doc)
+        pages = bridge.get_pages()
+        if page_idx < 0 or page_idx >= pages.getCount():
+            return self._tool_error("Page index %s out of range." % page_idx)
+        activate = kwargs.get("activate", True)
+        switch_view = bool(activate if activate is not None else True)
+        bridge.duplicate_slide(page_idx, switch=switch_view)
+        return {
+            "status": "ok",
+            "message": "Slide duplicated",
+            "source_page": page_idx,
+            "active_page_index": bridge.get_active_page_index(),
+        }
+
+
+class MoveSlide(ToolBase):
+    name = "move_slide"
+    intent = "edit"
+    description = (
+        "Moves a slide from from_page to to_page (both 0-based). to_page is the destination index "
+        "after removal of the source (insert-at that index)."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "from_page": {"type": "integer", "description": "0-based source slide index"},
+            "to_page": {"type": "integer", "description": "0-based destination slide index"},
+        },
+        "required": ["from_page", "to_page"],
+    }
+    uno_services = _DRAW_UNO
+    is_mutation = True
+    tier = "core"
+
+    def execute(self, ctx, **kwargs):
+        from plugin.draw.bridge import DrawBridge
+
+        from_page = kwargs.get("from_page")
+        to_page = kwargs.get("to_page")
+        if from_page is None or to_page is None:
+            return self._tool_error("from_page and to_page are required.")
+        bridge = DrawBridge(ctx.doc)
+        ok = bridge.move_slide(from_page, to_page)
+        if not ok:
+            return self._tool_error("Could not move slide from %s to %s." % (from_page, to_page))
+        return {
+            "status": "ok",
+            "message": "Slide moved",
+            "from_page": from_page,
+            "to_page": to_page,
+            "active_page_index": bridge.get_active_page_index(),
+        }
+
+
+class RenameSlide(ToolBase):
+    name = "rename_slide"
+    intent = "edit"
+    description = "Sets the Name property of a slide (0-based page index)."
+    parameters = {
+        "type": "object",
+        "properties": {
+            "page": {"type": "integer", "description": "0-based slide index"},
+            "name": {"type": "string", "description": "New slide name"},
+        },
+        "required": ["page", "name"],
+    }
+    uno_services = _DRAW_UNO
+    is_mutation = True
+    tier = "core"
+
+    def execute(self, ctx, **kwargs):
+        from plugin.draw.bridge import DrawBridge
+
+        page_idx = kwargs.get("page")
+        name = kwargs.get("name")
+        if page_idx is None:
+            return self._tool_error("page is required.")
+        if not name:
+            return self._tool_error("name is required.")
+        bridge = DrawBridge(ctx.doc)
+        pages = bridge.get_pages()
+        if page_idx < 0 or page_idx >= pages.getCount():
+            return self._tool_error("Page index %s out of range." % page_idx)
+        ok = bridge.rename_slide(page_idx, str(name))
+        if not ok:
+            return self._tool_error("Slide does not support renaming.")
+        return {
+            "status": "ok",
+            "message": "Slide renamed",
+            "page": page_idx,
+            "name": str(name),
+            "active_page_index": bridge.get_active_page_index(),
+        }

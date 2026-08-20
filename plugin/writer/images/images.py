@@ -82,7 +82,6 @@ class ImageGenerate(ToolWriterImageBase):
         },
         "required": ["prompt"],
     }
-    uno_services = ["com.sun.star.text.TextDocument", "com.sun.star.sheet.SpreadsheetDocument", "com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
     is_mutation = True
     long_running = True
 
@@ -210,7 +209,7 @@ class ImageListNearbyFiles(ToolWriterImageBase):
         },
         "required": [],
     }
-    uno_services = ["com.sun.star.text.TextDocument", "com.sun.star.sheet.SpreadsheetDocument"]
+
     is_mutation = False
 
     def is_async(self) -> bool:
@@ -237,20 +236,21 @@ class ImageList(ToolWriterImageBase):
     intent = "media"
     description = "List all images/graphic objects in the document with name, dimensions, title, and description."
     parameters = {"type": "object", "properties": {}, "required": []}
-    uno_services = ["com.sun.star.text.TextDocument", "com.sun.star.sheet.SpreadsheetDocument"]
+
 
     def execute(self, ctx, **kwargs):
         doc = ctx.doc
         doc_type = visual_helpers.get_visual_doc_type(doc)
         is_calc = doc_type == "calc"
-        if not is_calc and not hasattr(doc, "getGraphicObjects"):
+        is_draw = doc_type in ("draw", "impress")
+        if not is_calc and not is_draw and not hasattr(doc, "getGraphicObjects"):
             return self._tool_error("Document does not support graphic objects.")
         graphics_names = visual_helpers.list_graphic_objects(doc, doc_type=doc_type)
 
         doc_svc = getattr(ctx.services, "document", None)
         para_ranges = None
         text_obj = None
-        if not is_calc and doc_svc:
+        if not is_calc and not is_draw and doc_svc:
             para_ranges = doc_svc.get_paragraph_ranges(doc)
             text_obj = doc.getText()
 
@@ -271,7 +271,7 @@ class ImageList(ToolWriterImageBase):
 
                 # Paragraph index via anchor
                 paragraph_index = -1
-                if not is_calc and doc_svc:
+                if not is_calc and not is_draw and doc_svc:
                     try:
                         anchor = graphic.getAnchor()
                         paragraph_index = doc_svc.find_paragraph_for_range(anchor, para_ranges, text_obj)
@@ -280,7 +280,14 @@ class ImageList(ToolWriterImageBase):
 
                 # Page number via view cursor
                 page = None
-                if not is_calc:
+                entry_pos: dict = {}
+                if is_draw:
+                    try:
+                        pos = graphic.getPosition()
+                        entry_pos = {"x_mm": pos.X / 100.0, "y_mm": pos.Y / 100.0}
+                    except Exception:
+                        entry_pos = {}
+                elif not is_calc:
                     try:
                         anchor = graphic.getAnchor()
                         vc = doc.getCurrentController().getViewCursor()
@@ -288,10 +295,14 @@ class ImageList(ToolWriterImageBase):
                         page = vc.getPage()
                     except Exception:
                         pass
+                else:
+                    entry_pos = {}
 
                 entry = {"name": name, "width_mm": size.Width / 100.0, "height_mm": size.Height / 100.0, "width_100mm": size.Width, "height_100mm": size.Height, "title": title, "description": description, "paragraph_index": paragraph_index}
                 if page is not None:
                     entry["page"] = page
+                if is_draw:
+                    entry.update(entry_pos)
                 images.append(entry)
             except Exception as e:
                 log.debug("image_list: skip '%s': %s", name, e)
@@ -315,7 +326,7 @@ class ImageGetInfo(ToolWriterImageBase):
     intent = "media"
     description = "Get detailed info about a specific image: URL, dimensions, anchor type, orientation, crop (crop_mm, mm trimmed per edge), and paragraph index."
     parameters = {"type": "object", "properties": {"name": {"type": "string", "description": "Name of the image (from image_list)."}}, "required": ["name"]}
-    uno_services = ["com.sun.star.text.TextDocument", "com.sun.star.sheet.SpreadsheetDocument"]
+
 
     def execute(self, ctx, **kwargs):
         image_name = kwargs.get("name", "")
@@ -501,7 +512,7 @@ class ImageSetProperties(ToolWriterImageBase):
         },
         "required": ["name"],
     }
-    uno_services = ["com.sun.star.text.TextDocument", "com.sun.star.sheet.SpreadsheetDocument"]
+
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
@@ -605,7 +616,7 @@ class ImageDownload(ToolWriterImageBase):
         "properties": {"url": {"type": "string", "description": "URL of the image to download."}, "verify_ssl": {"type": "boolean", "description": "Verify SSL certificates (default: false)."}, "force": {"type": "boolean", "description": "Force re-download even if cached (default: false)."}},
         "required": ["url"],
     }
-    uno_services = ["com.sun.star.text.TextDocument", "com.sun.star.sheet.SpreadsheetDocument"]
+
 
     def execute(self, ctx, **kwargs):
         url = kwargs.get("url", "")
@@ -630,7 +641,9 @@ class ImageInsert(ToolWriterImageBase):
     description = (
         "Insert an image from local path or URL into the document. URLs are auto-downloaded first. "
         "For Writer letterheads, pass target='header' or 'footer' (optionally style) to insert "
-        "into the page header/footer with auto-height so the logo does not overlap the body."
+        "into the page header/footer with auto-height so the logo does not overlap the body. "
+        "On Draw/Impress, optional page (0-based) and x_mm/y_mm place the image; omitted x/y centers it. "
+        "Sizes and positions are millimetres (not 1/100 mm)."
     )
     parameters = {
         "type": "object",
@@ -638,6 +651,9 @@ class ImageInsert(ToolWriterImageBase):
             "path": {"type": "string", "description": ("Local file path or URL of the image to insert.")},
             "locator": {"type": "string", "description": ("Unified locator for insertion point (e.g. 'bookmark:NAME', 'heading_text:Title').")},
             "paragraph": {"type": "integer", "description": "Paragraph index for insertion point."},
+            "page": {"type": "integer", "description": "Draw/Impress: 0-based page index (active page if omitted)."},
+            "x_mm": {"type": "number", "description": "Draw/Impress: X position in millimetres (default: centered)."},
+            "y_mm": {"type": "number", "description": "Draw/Impress: Y position in millimetres (default: centered)."},
             "width_mm": {"type": "integer", "description": "Width in millimetres (default: 80)."},
             "height_mm": {"type": "integer", "description": "Height in millimetres (default: 80)."},
             "target": {
@@ -659,7 +675,7 @@ class ImageInsert(ToolWriterImageBase):
         },
         "required": ["path"],
     }
-    uno_services = ["com.sun.star.text.TextDocument", "com.sun.star.sheet.SpreadsheetDocument"]
+
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
@@ -725,7 +741,17 @@ class ImageInsert(ToolWriterImageBase):
                 return self._tool_error(f"Paragraph {paragraph_index} not found.", code="PARAGRAPH_NOT_FOUND", paragraph_index=paragraph_index)
             text_cursor = doc.getText().createTextCursorByRange(target_para.getEnd())
 
-        graphic = insert_image_at_locator(ctx.ctx, doc, image_path, width_mm=width_mm, height_mm=height_mm, text_cursor=text_cursor)
+        graphic = insert_image_at_locator(
+            ctx.ctx,
+            doc,
+            image_path,
+            width_mm=width_mm,
+            height_mm=height_mm,
+            text_cursor=text_cursor,
+            page_index=kwargs.get("page"),
+            x_mm=kwargs.get("x_mm"),
+            y_mm=kwargs.get("y_mm"),
+        )
         if graphic is None:
             return self._tool_error("Failed to insert image.", code="INSERT_FAILED", path=image_path)
 
@@ -745,7 +771,7 @@ class ImageDelete(ToolWriterImageBase):
     intent = "media"
     description = "Delete an image from the document."
     parameters = {"type": "object", "properties": {"name": {"type": "string", "description": "Name of the image to delete (from image_list)."}, "remove_frame": {"type": "boolean", "description": "Also remove the containing frame (default: true)."}}, "required": ["name"]}
-    uno_services = ["com.sun.star.text.TextDocument", "com.sun.star.sheet.SpreadsheetDocument"]
+
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
@@ -755,12 +781,10 @@ class ImageDelete(ToolWriterImageBase):
         if not graphic:
             return self._tool_error("Image '%s' not found or document does not support graphic objects." % image_name, code="IMAGE_NOT_FOUND", image_name=image_name)
 
-        is_calc = visual_helpers.get_visual_doc_type(ctx.doc) == "calc"
-        if is_calc:
-            dp = visual_helpers.get_active_draw_page(ctx.doc, "calc")
-            if dp is None:
+        doc_type = visual_helpers.get_visual_doc_type(ctx.doc)
+        if doc_type in ("calc", "draw", "impress"):
+            if not visual_helpers.remove_graphic_from_draw_pages(ctx.doc, graphic):
                 return self._tool_error("Image '%s' not found or document does not support graphic objects." % image_name, code="IMAGE_NOT_FOUND", image_name=image_name)
-            dp.remove(graphic)
         else:
             anchor = graphic.getAnchor()
             text = anchor.getText()
@@ -790,7 +814,7 @@ class ImageReplace(ToolWriterImageBase):
         },
         "required": ["name", "path"],
     }
-    uno_services = ["com.sun.star.text.TextDocument", "com.sun.star.sheet.SpreadsheetDocument"]
+
     is_mutation = True
 
     def execute(self, ctx, **kwargs):

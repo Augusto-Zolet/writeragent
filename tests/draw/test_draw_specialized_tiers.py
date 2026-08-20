@@ -63,6 +63,12 @@ def test_impress_default_tool_schemas_exclude_slide_specialized_apis() -> None:
             },
         ),
         ("slide_masters", {"list_master_slides", "get_slide_master", "set_slide_master"}),
+        ("tables", {"insert_table"}),
+        ("images", {"image_insert", "image_list", "image_delete", "image_generate"}),
+        (
+            "shapes",
+            {"align_shapes", "distribute_shapes", "create_diagram"},
+        ),
     ],
 )
 def test_impress_active_domain_includes_slide_specialized_tools(domain: str, expected_subset: set[str]) -> None:

@@ -174,6 +174,58 @@ def test_get_draw_context_for_chat(ctx, doc):
 
 @native_test
 @with_native_doc("draw")
+def test_duplicate_rename_move_slide(ctx, doc):
+    initial = doc.getDrawPages().getCount()
+    result = _exec_tool(doc, ctx, "duplicate_slide", {"page": 0})
+    data = json.loads(result)
+    assert data.get("status") == "ok", result
+    assert doc.getDrawPages().getCount() == initial + 1
+
+    result = _exec_tool(doc, ctx, "rename_slide", {"page": 1, "name": "Copy"})
+    data = json.loads(result)
+    assert data.get("status") == "ok", result
+    page = doc.getDrawPages().getByIndex(1)
+    if hasattr(page, "Name"):
+        assert page.Name == "Copy"
+
+    result = _exec_tool(doc, ctx, "move_slide", {"from_page": 1, "to_page": 0})
+    data = json.loads(result)
+    assert data.get("status") == "ok", result
+
+
+@native_test
+@with_native_doc("draw")
+def test_align_and_insert_table(ctx, doc):
+    page = doc.getCurrentController().getCurrentPage()
+    if page is None:
+        page = doc.getDrawPages().getByIndex(0)
+    _exec_tool(doc, ctx, "shape_upsert", {
+        "action": "create", "shape_type": "rectangle",
+        "x": 1000, "y": 2000, "width": 2000, "height": 1000, "text": "L",
+    })
+    _exec_tool(doc, ctx, "shape_upsert", {
+        "action": "create", "shape_type": "rectangle",
+        "x": 5000, "y": 4000, "width": 2000, "height": 1000, "text": "R",
+    })
+    n = page.getCount()
+    result = _exec_tool(doc, ctx, "align_shapes", {
+        "indices": [n - 2, n - 1], "alignment": "top",
+    })
+    data = json.loads(result)
+    assert data.get("status") == "ok", result
+    a = page.getByIndex(n - 2).getPosition()
+    b = page.getByIndex(n - 1).getPosition()
+    assert a.Y == b.Y == 2000
+
+    result = _exec_tool(doc, ctx, "insert_table", {
+        "rows": 2, "columns": 2, "data": [["A", "B"], ["C", "D"]],
+    })
+    data = json.loads(result)
+    assert data.get("status") == "ok", result
+
+
+@native_test
+@with_native_doc("draw")
 def test_master_slides(ctx, doc):
     # 1. List master slides
     result = _exec_tool(doc, ctx, "list_master_slides", {})

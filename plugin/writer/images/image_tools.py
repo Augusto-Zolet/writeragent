@@ -157,10 +157,11 @@ def _create_embedded_graphic(model, inside: str, file_url: str, ctx: Any | None 
     raise RuntimeError("Could not assign GraphicURL or Graphic to embedded graphic")
 
 
-def insert_image(ctx, model, img_path, width_px, height_px, title="", description="", add_to_gallery=True, add_frame=False):
+def insert_image(ctx, model, img_path, width_px, height_px, title="", description="", add_to_gallery=True, add_frame=False, page_index=None, x_mm=None, y_mm=None):
     """
     Inserts an image into the document.
     width_px, height_px: Size in pixels.
+    page_index / x_mm / y_mm apply to Draw/Impress (and Calc draw page); omitted x/y centers on the page.
     """
     inside = get_type_doc(model)
 
@@ -169,16 +170,20 @@ def insert_image(ctx, model, img_path, width_px, height_px, title="", descriptio
     if inside in ["writer", "web"]:
         _insert_image_to_writer(ctx, model, img_path, width_units, height_units, title, description, add_frame)
     else:
-        _insert_image_to_drawpage(ctx, model, inside, img_path, width_units, height_units, title, description)
+        _insert_image_to_drawpage(
+            ctx, model, inside, img_path, width_units, height_units, title, description,
+            page_index=page_index, x_mm=x_mm, y_mm=y_mm,
+        )
 
     if add_to_gallery:
         add_image_to_gallery(ctx, img_path, f"{title}\n\n{description}")
 
 
-def insert_image_at_locator(ctx, model, img_path, width_mm: int | float = 80, height_mm: int | float = 80, title="", description="", text_cursor=None):
+def insert_image_at_locator(ctx, model, img_path, width_mm: int | float = 80, height_mm: int | float = 80, title="", description="", text_cursor=None, page_index=None, x_mm=None, y_mm=None):
     """
     Insert at an optional Writer text cursor, or current view cursor / draw page.
     width_mm, height_mm: display size in millimetres.
+    For Draw/Impress, optional page_index (0-based) and x_mm/y_mm; omitted x/y centers on the page.
     Returns the inserted graphic object, or None on failure.
     """
     inside = get_type_doc(model)
@@ -198,7 +203,10 @@ def insert_image_at_locator(ctx, model, img_path, width_mm: int | float = 80, he
             graphic = _insert_embedded_at_writer_cursor(model, img_path, width_units, height_units, title, description, text_cursor, ctx=ctx)
         return graphic
 
-    _insert_image_to_drawpage(ctx, model, inside, img_path, width_units, height_units, title, description)
+    _insert_image_to_drawpage(
+        ctx, model, inside, img_path, width_units, height_units, title, description,
+        page_index=page_index, x_mm=x_mm, y_mm=y_mm,
+    )
     return _selection_graphic_object(model)
 
 
@@ -370,10 +378,29 @@ def _insert_frame(ctx, model, img_path, width, height, title, description):
         frame_text.insertString(frame_cursor, "\n" + title, False)
 
 
-def _insert_image_to_drawpage(ctx, model, inside, img_path, width, height, title, description):
+def _draw_page_for_insert(model, inside, page_index=None):
+    if inside in ("draw", "impress") and page_index is not None:
+        pages = model.getDrawPages()
+        count = pages.getCount()
+        if page_index < 0 or page_index >= count:
+            raise IndexError("Page index %s out of range (0..%s)." % (page_index, count - 1))
+        return pages.getByIndex(page_index)
     draw_page = visual_helpers.get_active_draw_page(model, inside)
     if draw_page is None:
         raise RuntimeError(f"Could not resolve draw page for {inside}")
+    return draw_page
+
+
+def _position_on_draw_page(draw_page, width, height, x_mm, y_mm):
+    if x_mm is not None or y_mm is not None:
+        x = int(x_mm * 100) if x_mm is not None else 0
+        y = int(y_mm * 100) if y_mm is not None else 0
+        return Point(x, y)
+    return Point((draw_page.Width - width) // 2, (draw_page.Height - height) // 2)
+
+
+def _insert_image_to_drawpage(ctx, model, inside, img_path, width, height, title, description, page_index=None, x_mm=None, y_mm=None):
+    draw_page = _draw_page_for_insert(model, inside, page_index)
 
     if _should_link_image_path(img_path):
         file_url = _file_url_for_path(img_path)
@@ -381,9 +408,8 @@ def _insert_image_to_drawpage(ctx, model, inside, img_path, width, height, title
         if graphic is not None:
             _apply_graphic_properties(graphic, width=width, height=height, title=title, description=description, inside=inside)
             if inside != "calc":
-                pos = Point((draw_page.Width - width) // 2, (draw_page.Height - height) // 2)
                 if hasattr(graphic, "setPosition"):
-                    graphic.setPosition(pos)
+                    graphic.setPosition(_position_on_draw_page(draw_page, width, height, x_mm, y_mm))
             return
         logger.debug("_insert_image_to_drawpage: linked dispatch failed, embedding fallback")
 
@@ -391,8 +417,7 @@ def _insert_image_to_drawpage(ctx, model, inside, img_path, width, height, title
     _apply_graphic_properties(image, width=width, height=height, title=title, description=description, inside=inside)
     draw_page.add(image)
     if inside != "calc":
-        pos = Point((draw_page.Width - width) // 2, (draw_page.Height - height) // 2)
-        image.setPosition(pos)
+        image.setPosition(_position_on_draw_page(draw_page, width, height, x_mm, y_mm))
 
 
 def replace_graphic_source(ctx, model, graphic, img_path, width_units=None, height_units=None, title=None, description=None):

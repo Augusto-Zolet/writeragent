@@ -28,6 +28,13 @@ from plugin.writer.format import insert_content_at_position
 from plugin.doc.doc_type import is_calc, is_writer, is_draw
 from plugin.calc.address_utils import index_to_column
 from plugin.scripting.payload_codec import is_dataframe_payload
+from plugin.scripting.helper_domain import (
+    format_elapsed_time,
+    plot_insert_ok_outcome,
+    rps_error_outcome,
+    rps_insert_failed_outcome,
+    rps_ok_outcome,
+)
 
 log = logging.getLogger("writeragent.scripting")
 
@@ -300,15 +307,6 @@ def resolve_run_script_name_config_key(doc: Any) -> str:
         if is_draw(doc):
             return "last_python_script_name_draw"
     return "last_python_script_name_writer"
-
-
-from plugin.scripting.helper_domain import (
-    format_elapsed_time,
-    plot_insert_ok_outcome,
-    rps_error_outcome,
-    rps_insert_failed_outcome,
-    rps_ok_outcome,
-)
 
 
 def execute_and_insert_result(

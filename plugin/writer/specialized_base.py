@@ -21,7 +21,8 @@ from typing import ClassVar
 
 from plugin.framework.tool import ToolBase
 from plugin.calc.base import ToolCalcSpecialBase
-from plugin.draw.base import ToolDrawFormBase
+from plugin.draw.base import ToolDrawFormBase, ToolDrawImageBase
+from plugin.doc.visual_helpers import SHAPE_TOOL_UNO_SERVICES
 from plugin.framework.constants import USE_SUB_AGENT
 from plugin.framework.prompts import DELEGATION_PUBLIC_WEB_HINT, DELEGATION_USER_FILE_DATA_HINT
 from plugin.doc.specialized_base import DelegateToSpecializedBase
@@ -97,12 +98,13 @@ class ToolWriterEmbeddedBase(ToolWriterSpecialBase):
     intent = "edit"
 
 
-class ToolWriterImageBase(ToolWriterSpecialBase):
+class ToolWriterImageBase(ToolWriterSpecialBase, ToolDrawImageBase):
     specialized_domain: ClassVar[str | None] = "images"
     specialized_domain_description: ClassVar[str | None] = (
         "In-document image operations (image_list) and nearby folder images (image_list_nearby_files); generate, insert, and replace."
     )
     intent = "media"
+    uno_services = SHAPE_TOOL_UNO_SERVICES
 
 
 class ToolWriterVisionBase(ToolWriterSpecialBase):

@@ -845,6 +845,266 @@ class GroupShapes(ToolDrawShapeBase):
         }
 
 
+def _shape_box(shape) -> tuple[int, int, int, int]:
+    pos = shape.getPosition()
+    size = shape.getSize()
+    return (int(pos.X), int(pos.Y), int(size.Width), int(size.Height))
+
+
+def _apply_box(shape, box: tuple[int, int, int, int]) -> None:
+    from com.sun.star.awt import Point
+
+    x, y, _w, _h = box
+    pos = shape.getPosition()
+    if pos.X != x or pos.Y != y:
+        shape.setPosition(Point(x, y))
+
+
+def _resolve_shape_page(ctx, kwargs):
+    from plugin.draw.bridge import DrawBridge
+
+    bridge = DrawBridge(ctx.doc)
+    idx = kwargs.get("page")
+    actual_idx = idx if idx is not None else ctx.active_page_index
+    if actual_idx is None:
+        actual_idx = bridge.get_active_page_index()
+    try:
+        page = bridge.get_pages().getByIndex(actual_idx)
+    except Exception:
+        return None, actual_idx, "Invalid page index: %s" % actual_idx
+    if page is None:
+        return None, actual_idx, "No draw page available."
+    return page, actual_idx, None
+
+
+class AlignShapes(ToolDrawShapeBase):
+    name = "align_shapes"
+    intent = "edit"
+    description = (
+        "Align multiple shapes on a page to a shared edge or center axis. "
+        "Coordinates are 1/100 mm. Needs at least two indices."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "page": {"type": "integer", "description": "0-based page index (active page if omitted)"},
+            "indices": {
+                "type": "array",
+                "items": {"type": "integer"},
+                "description": "Shape indices to align",
+            },
+            "alignment": {
+                "type": "string",
+                "enum": ["left", "center_horizontal", "right", "top", "center_vertical", "bottom"],
+                "description": "Alignment axis",
+            },
+        },
+        "required": ["indices", "alignment"],
+    }
+    uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
+    is_mutation = True
+
+    def execute(self, ctx, **kwargs):
+        from plugin.draw.layout import align_boxes
+
+        indices = kwargs.get("indices") or []
+        alignment = str(kwargs.get("alignment") or "")
+        if not alignment:
+            return self._tool_error("alignment is required.")
+        if len(indices) < 2:
+            return self._tool_error("At least two shape indices are required to align.")
+        page, actual_idx, err = _resolve_shape_page(ctx, kwargs)
+        if err or page is None:
+            return self._tool_error(err or "No draw page available.")
+        try:
+            shapes = [page.getByIndex(i) for i in indices]
+            boxes = [_shape_box(s) for s in shapes]
+            new_boxes = align_boxes(boxes, alignment)
+        except Exception as exc:
+            return self._tool_error(str(exc))
+        for shape, box in zip(shapes, new_boxes):
+            _apply_box(shape, box)
+        return {"status": "ok", "message": "Shapes aligned", "page": actual_idx, "indices": list(indices)}
+
+
+class DistributeShapes(ToolDrawShapeBase):
+    name = "distribute_shapes"
+    intent = "edit"
+    description = (
+        "Evenly distribute three or more shapes between the first and last along an axis. "
+        "Coordinates are 1/100 mm."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "page": {"type": "integer", "description": "0-based page index (active page if omitted)"},
+            "indices": {
+                "type": "array",
+                "items": {"type": "integer"},
+                "description": "Shape indices to distribute",
+            },
+            "axis": {
+                "type": "string",
+                "enum": ["horizontal", "vertical"],
+                "description": "Distribution axis",
+            },
+        },
+        "required": ["indices", "axis"],
+    }
+    uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
+    is_mutation = True
+
+    def execute(self, ctx, **kwargs):
+        from plugin.draw.layout import distribute_boxes
+
+        indices = kwargs.get("indices") or []
+        axis = str(kwargs.get("axis") or "")
+        if not axis:
+            return self._tool_error("axis is required.")
+        if len(indices) < 3:
+            return self._tool_error("At least three shape indices are required to distribute.")
+        page, actual_idx, err = _resolve_shape_page(ctx, kwargs)
+        if err or page is None:
+            return self._tool_error(err or "No draw page available.")
+        try:
+            shapes = [page.getByIndex(i) for i in indices]
+            boxes = [_shape_box(s) for s in shapes]
+            new_boxes = distribute_boxes(boxes, axis)
+        except Exception as exc:
+            return self._tool_error(str(exc))
+        for shape, box in zip(shapes, new_boxes):
+            _apply_box(shape, box)
+        return {"status": "ok", "message": "Shapes distributed", "page": actual_idx, "indices": list(indices)}
+
+
+class CreateDiagram(ToolDrawShapeBase):
+    name = "create_diagram"
+    intent = "edit"
+    description = (
+        "Create a flowchart/diagram of multiple nodes and connectors in one turn. "
+        "Node positions are 1/100 mm. Auto layouts: horizontal_flow, vertical_flow, grid; "
+        "custom requires x/y on each node."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "page": {"type": "integer", "description": "0-based page index (active page if omitted)"},
+            "layout": {
+                "type": "string",
+                "enum": ["horizontal_flow", "vertical_flow", "grid", "custom"],
+                "description": "How to place nodes (default: horizontal_flow)",
+            },
+            "nodes": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string", "description": "Node id used in connections"},
+                        "text": {"type": "string"},
+                        "shape_type": {"type": "string"},
+                        "x": {"type": "integer"},
+                        "y": {"type": "integer"},
+                        "width": {"type": "integer"},
+                        "height": {"type": "integer"},
+                        "fill_color": {"type": "string"},
+                    },
+                    "required": ["id", "text"],
+                },
+            },
+            "connections": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "from": {"type": "string"},
+                        "to": {"type": "string"},
+                        "line_color": {"type": "string"},
+                    },
+                    "required": ["from", "to"],
+                },
+            },
+        },
+        "required": ["nodes"],
+    }
+    uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
+    is_mutation = True
+
+    def execute(self, ctx, **kwargs):
+        from plugin.draw.layout import diagram_node_boxes
+
+        nodes = kwargs.get("nodes") or []
+        if not nodes:
+            return self._tool_error("nodes is required and must be non-empty.")
+        ids = [n.get("id") for n in nodes]
+        if len(ids) != len(set(ids)):
+            return self._tool_error("Node ids must be unique.")
+        if any(not nid for nid in ids):
+            return self._tool_error("Each node needs an id.")
+
+        page, actual_idx, err = _resolve_shape_page(ctx, kwargs)
+        if err or page is None:
+            return self._tool_error(err or "No draw page available.")
+        layout = kwargs.get("layout") or "horizontal_flow"
+        page_w = int(getattr(page, "Width", 28000) or 28000)
+        page_h = int(getattr(page, "Height", 15750) or 15750)
+        try:
+            boxes = diagram_node_boxes(nodes, layout, page_width=page_w, page_height=page_h)
+        except ValueError as exc:
+            return self._tool_error(str(exc))
+
+        upsert = UpsertShape()
+        id_to_index: dict[str, int] = {}
+        created = []
+        for node, box in zip(nodes, boxes):
+            x, y, w, h = box
+            create_kwargs = {
+                "action": "create",
+                "page": actual_idx,
+                "shape_type": node.get("shape_type") or "rectangle",
+                "x": x,
+                "y": y,
+                "width": w,
+                "height": h,
+                "text": node.get("text") or "",
+            }
+            if node.get("fill_color"):
+                create_kwargs["fill_color"] = node["fill_color"]
+            result = upsert.execute(ctx, **create_kwargs)
+            if isinstance(result, dict) and result.get("status") != "ok":
+                return result
+            idx = result.get("index")
+            if not isinstance(idx, int):
+                return self._tool_error("shape_upsert did not return a shape index.")
+            id_to_index[str(node["id"])] = idx
+            created.append({"id": node["id"], "index": idx, "x": x, "y": y, "width": w, "height": h})
+
+        connections = kwargs.get("connections") or []
+        connect = ConnectShapes()
+        connected = []
+        for conn in connections:
+            src = id_to_index.get(str(conn.get("from")))
+            dst = id_to_index.get(str(conn.get("to")))
+            if src is None or dst is None:
+                return self._tool_error("Unknown connection endpoint: %s -> %s" % (conn.get("from"), conn.get("to")))
+            conn_kwargs = {"start": src, "end": dst, "page": actual_idx}
+            if conn.get("line_color"):
+                conn_kwargs["line_color"] = conn["line_color"]
+            result = connect.execute(ctx, **conn_kwargs)
+            if isinstance(result, dict) and result.get("status") != "ok":
+                return result
+            connected.append({"from": conn.get("from"), "to": conn.get("to"), "index": result.get("index")})
+
+        return {
+            "status": "ok",
+            "message": "Diagram created",
+            "page": actual_idx,
+            "layout": layout,
+            "nodes": created,
+            "id_to_index": id_to_index,
+            "connections": connected,
+        }
+
+
 class DeleteShape(ToolDrawShapeBase):
     name = "shape_delete"
     intent = "edit"

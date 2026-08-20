@@ -305,5 +305,23 @@ class TestReplaceGraphicSource(unittest.TestCase):
         model.getText.return_value.removeTextContent.assert_called_once_with(graphic)
 
 
+class TestDrawPageInsertPosition(unittest.TestCase):
+    def test_centers_when_xy_omitted(self):
+        page = MagicMock()
+        page.Width = 28000
+        page.Height = 15750
+        pos = image_tools._position_on_draw_page(page, 8000, 4000, None, None)
+        self.assertEqual(pos.X, (28000 - 8000) // 2)
+        self.assertEqual(pos.Y, (15750 - 4000) // 2)
+
+    def test_explicit_mm(self):
+        page = MagicMock()
+        page.Width = 28000
+        page.Height = 15750
+        pos = image_tools._position_on_draw_page(page, 8000, 4000, 30, 40)
+        self.assertEqual(pos.X, 3000)
+        self.assertEqual(pos.Y, 4000)
+
+
 if __name__ == "__main__":
     unittest.main()
