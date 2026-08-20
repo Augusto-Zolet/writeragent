@@ -19,12 +19,15 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from plugin.framework.client.stream_normalizer import (
+    ThinkTagStreamSplitter,
     _merge_reasoning_details,
     _normalize_delta,
     _normalize_stream_delta,
     _thinking_text_from_delta,
     accumulate_streaming_thinking,
+    extract_reasoning_replay_from_response,
     new_streaming_thinking_meta,
+    strip_think_tags,
 )
 from tests.vhs_budget import vhs_max_examples
 
@@ -167,6 +170,75 @@ def test_merge_does_not_mutate_input_entries() -> None:
     snapshot = copy.deepcopy(original)
     _merge_reasoning_details(original + [{"type": "reasoning.text", "text": "b", "index": 0}])
     assert original == snapshot
+
+
+def _joined_splitter(chunks: list[str]) -> tuple[str, str | None]:
+    """Feed chunks through ThinkTagStreamSplitter.
+
+    Thinking fragments of one ``<think>`` block are concatenated (not joined with
+    newlines — that join is only for *separate* blocks in strip_think_tags).
+    """
+    splitter = ThinkTagStreamSplitter()
+    content: list[str] = []
+    thinking: list[str] = []
+    for ch in chunks:
+        for is_t, piece in splitter.feed(ch):
+            (thinking if is_t else content).append(piece)
+    for is_t, piece in splitter.flush():
+        (thinking if is_t else content).append(piece)
+    extracted = "".join(thinking).strip() or None
+    return "".join(content).strip(), extracted
+
+
+@given(
+    body=st.text(max_size=40).filter(lambda t: "<think>" not in t and "</think>" not in t),
+    thought=st.text(max_size=40).filter(lambda t: "<think>" not in t and "</think>" not in t),
+    cuts=st.lists(st.integers(min_value=0, max_value=80), min_size=0, max_size=6),
+)
+@settings(max_examples=vhs_max_examples(40, 400), deadline=None)
+def test_hypothesis_think_tag_chunks_match_strip(body: str, thought: str, cuts: list[int]) -> None:
+    full = f"{body}<think>{thought}</think>{body}"
+    pts = sorted({0, len(full), *(min(max(0, c), len(full)) for c in cuts)})
+    chunks = [full[a:b] for a, b in zip(pts, pts[1:]) if a < b]
+    content, thinking = _joined_splitter(chunks)
+    clean, extracted = strip_think_tags(full)
+    assert content == clean
+    # strip_think_tags yields "" when the only blocks were empty; splitter yields None.
+    assert (thinking or None) == (extracted or None)
+
+
+def test_strip_think_tags_removes_complete_blocks() -> None:
+    clean, thinking = strip_think_tags("a<think>x</think>b<think>y</think>c")
+    assert "<think>" not in clean
+    assert thinking == "x\n\ny"
+
+
+_REPLAY_KEYS = frozenset({"reasoning", "reasoning_content", "reasoning_details"})
+
+
+@given(text=st.text(max_size=30), snap_reason=st.text(max_size=20))
+@settings(max_examples=vhs_max_examples(30, 300), deadline=None)
+def test_hypothesis_streaming_text_ignores_snapshot(text: str, snap_reason: str) -> None:
+    meta = new_streaming_thinking_meta()
+    meta["source"] = "reasoning"
+    replay = extract_reasoning_replay_from_response(
+        message_snapshot={"reasoning": snap_reason},
+        streaming_text=text,
+        streaming_meta=meta,
+    )
+    assert set(replay.keys()) <= _REPLAY_KEYS
+    if text:
+        assert replay == {"reasoning": text}
+    else:
+        assert replay == {}
+
+
+def test_replay_keys_subset_on_details_path() -> None:
+    replay = extract_reasoning_replay_from_response(
+        sync_message={"reasoning_details": [{"type": "reasoning.text", "text": "a", "index": 0}]}
+    )
+    assert set(replay.keys()) <= _REPLAY_KEYS
+    assert isinstance(replay["reasoning_details"], list)
 
 
 @pytest.mark.slow

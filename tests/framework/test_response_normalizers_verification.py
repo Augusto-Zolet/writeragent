@@ -20,6 +20,7 @@ from plugin.framework.client.response_normalizers import (
     _CHAT_TEMPLATE_CONTROL_TOKEN_RE,
     _DATA_URI_IMAGE_RE,
     extract_and_strip_images_from_message,
+    normalize_multimodal_messages,
     strip_leaked_chat_template_control_tokens,
 )
 from tests.vhs_budget import vhs_max_examples
@@ -99,6 +100,36 @@ def test_extract_keeps_structured_block_when_not_stripping() -> None:
     extracted = extract_and_strip_images_from_message(msg, strip_structured_image_blocks=False)
     assert extracted == []
     assert msg["content"] == [block]
+
+
+def _image_url_count(messages: list) -> int:
+    n = 0
+    for m in messages:
+        c = m.get("content")
+        if isinstance(c, list):
+            n += sum(1 for p in c if isinstance(p, dict) and p.get("type") == "image_url")
+    return n
+
+
+@given(
+    ext=st.sampled_from(["png", "jpeg"]),
+    b64=st.text(alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/", min_size=4, max_size=24),
+    provider=st.sampled_from(["openai", "anthropic", "google"]),
+)
+@settings(max_examples=vhs_max_examples(30, 300), deadline=None)
+def test_hypothesis_normalize_multimodal_preserves_images(ext: str, b64: str, provider: str) -> None:
+    # Trailing "!" is outside the URI alphabet so the greedy base64 group stops (same as extract oracle).
+    uri = f"data:image/{ext};base64,{b64}"
+    messages = [
+        {"role": "user", "content": "look"},
+        {"role": "assistant", "content": f"here {uri}!"},
+    ]
+    normalize_multimodal_messages(messages, provider)
+    assert _image_url_count(messages) >= 1
+    for m in messages:
+        c = m.get("content")
+        if isinstance(c, str):
+            assert _DATA_URI_IMAGE_RE.search(c) is None
 
 
 @pytest.mark.slow

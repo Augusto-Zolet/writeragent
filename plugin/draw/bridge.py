@@ -109,26 +109,11 @@ class DrawBridge:
         pages.remove(page)
 
     def duplicate_slide(self, index, switch=True):
-        """Duplicate the slide at index (new page after source with copied text geometry)."""
-        return self._duplicate_slide_fallback(index, switch)
-
-    def _duplicate_slide_fallback(self, index, switch=True):
-        """Fallback duplicate: new page + copy shape strings (does not move originals)."""
-        old_page = self.get_pages().getByIndex(index)
-        new_page = self.create_slide(index + 1, switch=False)
-        for i in range(old_page.getCount()):
-            old_shape = old_page.getByIndex(i)
-            try:
-                new_shape = self.doc.createInstance(old_shape.getShapeType())
-                new_page.add(new_shape)
-                if hasattr(old_shape, "getSize") and hasattr(new_shape, "setSize"):
-                    new_shape.setSize(old_shape.getSize())
-                if hasattr(old_shape, "getPosition") and hasattr(new_shape, "setPosition"):
-                    new_shape.setPosition(old_shape.getPosition())
-                if hasattr(old_shape, "getString") and hasattr(new_shape, "setString"):
-                    new_shape.setString(old_shape.getString())
-            except Exception as exc:
-                logger.debug("duplicate_slide fallback shape %s: %s", i, exc)
+        """Duplicate the slide via UNO ``XDrawPageDuplicator.duplicate`` (full shape copy)."""
+        pages = self.get_pages()
+        source = pages.getByIndex(index)
+        # DrawingDocument / PresentationDocument implement XDrawPageDuplicator.
+        new_page = self.doc.duplicate(source)
         if switch:
             self.set_current_page_index(index + 1)
         return new_page

@@ -3,11 +3,28 @@
 
 from unittest.mock import MagicMock, patch
 
+from plugin.draw.bridge import DrawBridge
 from plugin.draw.pages import DuplicateSlide, MoveSlide, RenameSlide
 
 
 def _ctx():
     return MagicMock()
+
+
+def test_bridge_duplicate_calls_doc_duplicate():
+    source = object()
+    copy = object()
+    pages = MagicMock()
+    pages.getCount.return_value = 2
+    pages.getByIndex.return_value = source
+    doc = MagicMock()
+    doc.getDrawPages.return_value = pages
+    doc.duplicate.return_value = copy
+    doc.getCurrentController.return_value = None
+    bridge = DrawBridge(doc)
+    out = bridge.duplicate_slide(0, switch=True)
+    doc.duplicate.assert_called_once_with(source)
+    assert out is copy
 
 
 def test_duplicate_slide_ok():
