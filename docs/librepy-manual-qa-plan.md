@@ -233,15 +233,79 @@ Quant RPS (optional, same as E-quant).
 
 ---
 
-## Packet G — Matplotlib from `=PY()` (Viz Phase A)
+## Packet G — Matplotlib from `=PY()` (expanded)
 
-New sheet. Auto-import `plt`.
+**Goal:** Prove plots from formula cells land correctly, stay stable on recalc, and respect sheet affinity.  
+**Needs:** `matplotlib` in venv (`seaborn` optional).  
+**Setup:** New Calc workbook unless noted. Auto-spill on. Session Isolated unless a row says Shared.
 
-| id | Scenario | Formula | Expected |
-|----|----------|---------|----------|
-| G1 | Minimal plot | `=PY("plt.plot([1,2,3])")` | Image anchored on/near cell |
-| G2 | Plot from range | Packet B sales: `=PY("plt.plot([r[1] for r in data[1:]]); plt.title('Sales')"; A1:C5)` | Line chart |
-| G3 | Recalc does not crash | F9 twice | Still one sensible graphic (dupes acceptable to note, crash is fail) |
+### G0 — Smoke
+
+| id | Scenario | Action | Expected |
+|----|----------|--------|----------|
+| G0.1 | Minimal | `=PY("plt.plot([1,2,3])")` | Graphic on/near formula cell; cell not `#VALUE!` |
+| G0.2 | Explicit result still works | `=PY("plt.plot([1,2,3]); result = 1")` | Plot and cell value `1` (or document current contract if plot-only wins) |
+| G0.3 | Auto-import | No `import matplotlib.pyplot as plt` in code | Still plots (policy: `plt` preloaded) |
+
+### G1 — Sheet affinity (regression for #385)
+
+| id | Scenario | Action | Expected |
+|----|----------|--------|----------|
+| G1.1 | Formula not on active sheet | Create Sheet2; put `=PY("plt.plot([1,2,3])")` on Sheet2; leave Sheet1 active; recalc | Plot appears on Sheet2, not Sheet1 |
+| G1.2 | Two sheets, two plots | Sheet1 `=PY("plt.plot([1,2])")`; Sheet2 `=PY("plt.plot([3,4,5])")`; hard recalc | One plot per sheet, correct sheet each |
+| G1.3 | After sheet rename | Plot on “Data”; rename sheet to “Sales”; F9 | Plot still on that sheet (no orphan / wrong sheet) |
+
+### G2 — Data + chart content
+
+| id | Scenario | Action | Expected |
+|----|----------|--------|----------|
+| G2.1 | From range | Packet B–style sales A1:C5; `=PY("plt.plot([r[1] for r in data[1:]]); plt.title('Sales')"; A1:C5)` | Line chart; title visible or in image |
+| G2.2 | pandas path | `=PY("df=data.to_pandas(); plt.plot(df['Sales']); plt.title('Sales')"; A1:C5)` | Chart from column |
+| G2.3 | Bar chart | `=PY("plt.bar(['A','B','C'],[1,3,2]); plt.title('Bars')")` | Bar image, not empty axes only |
+| G2.4 | Labels | `=PY("plt.plot([1,2,3]); plt.xlabel('x'); plt.ylabel('y'); plt.title('T')")` | Labeled chart image |
+
+### G3 — Lifecycle / recalc
+
+| id | Scenario | Action | Expected |
+|----|----------|--------|----------|
+| G3.1 | Double F9 | G0.1, F9, F9 | No crash; still a sensible graphic (note if duplicates accumulate) |
+| G3.2 | Ctrl+Shift+F9 | Hard recalc whole book | Plots still present / refreshed; no hang |
+| G3.3 | Edit code | Change `[1,2,3]` → `[1,2,3,4]`, confirm | Chart updates (or old replaced — note behavior) |
+| G3.4 | Undo | After insert, **Ctrl+Z** | Graphic removed or formula undo consistent (document actual) |
+
+### G4 — Multi-figure & size
+
+| id | Scenario | Action | Expected |
+|----|----------|--------|----------|
+| G4.1 | Two figures one cell | `=PY("plt.figure(); plt.plot([1,2]); plt.figure(); plt.plot([3,4])")` | One stacked/merged image or documented multi-image behavior; no crash |
+| G4.2 | Larger series | `=PY("plt.plot(list(range(200)))")` | Image appears in reasonable time; UI not frozen forever |
+
+### G5 — Errors that must stay soft
+
+| id | Scenario | Action | Expected |
+|----|----------|--------|----------|
+| G5.1 | Bad plot call | `=PY("plt.plot(None)")` | Readable error in cell or diagnostics; no LO crash |
+| G5.2 | No display backend issues | Headless-style Agg path (default) | Still produces image bytes; no GUI backend popup |
+
+### G6 — Optional (seaborn / shared)
+
+| id | Scenario | Action | Expected |
+|----|----------|--------|----------|
+| G6.1 | seaborn | If present: `=PY("import seaborn as sns; sns.heatmap([[1,2],[3,4]])")` | Heatmap image; else blocked |
+| G6.2 | Shared kernel | Shared mode; A1 sets data in Python; B1 plots using name and passes needed data if required by contract | Plot works or clear error — no silent wrong sheet |
+
+### Pass / fail rules (same as plan)
+
+- **Pass:** GraphicObject (or equivalent) on the formula’s sheet, near the cell; no crash/hang.
+- **Fail:** Plot on wrong sheet, LO crash, permanent UI freeze, `#VALUE!` with no image when plot was expected.
+- **Note (not fail):** Duplicate images on repeated F9 — record actual behavior for a later polish issue.
+
+### Suggested agent instructions
+
+- Prefer new blank Calc + small constructed ranges over the full showcase workbook.
+- For G1, explicitly switch active sheet away from the formula sheet before recalc.
+- Screenshot or note sheet name of the graphic’s anchor if the tool can see it.
+- Do not open chat / `=PROMPT()` / converter menus.
 
 ---
 
