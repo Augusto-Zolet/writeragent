@@ -195,3 +195,12 @@ class GoogleShim(BaseProviderShim):
                 if inline and inline.get("data"):
                     out.append(inline["data"])
         return out
+
+    def parse_sync_response(
+        self, response_data: dict[str, Any]
+    ) -> tuple[str, str | None, list[dict[str, Any]] | None, dict[str, Any], list[str], dict[str, Any]]:
+        content, finish_reason, _unused, delta = self.parse_response_chunk(response_data)
+        tool_calls = delta.get("tool_calls")
+        usage = response_data.get("usage") or response_data.get("usageMetadata") or {}
+        images = delta.get("images") or []
+        return content, finish_reason, tool_calls, usage, images, delta

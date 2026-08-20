@@ -238,14 +238,25 @@ def safe_json_loads(text: Any, default: Any = None, strict: bool = False) -> Any
 
     # Ensure we are working with a string for repair logic
     raw_text = text.decode("utf-8", errors="replace") if isinstance(text, (bytes, bytearray)) else text
-    stripped = raw_text.strip()
-    if not stripped:
+    if not isinstance(raw_text, str) or not raw_text.strip():
         return default
+
+    # In strict mode, only RFC 8259 standard JSON parsing is allowed.
+    # What was wrong: raw_text.strip() strips Unicode whitespace characters (e.g. \x1f)
+    # that are not valid JSON whitespace, allowing unescaped control characters ('0\x1f' -> 0)
+    # to parse instead of returning default. Passing raw_text directly to json.loads preserves strict JSON rules.
+    if strict:
+        try:
+            parsed = json.loads(raw_text)
+            return parsed if parsed is not None else default
+        except (json.JSONDecodeError, TypeError, ValueError, RecursionError):
+            return default
+
+    stripped = raw_text.strip()
 
     # Pre-process string to fix unescaped LaTeX commands that coincide with valid JSON escapes
     # e.g., "\times" is natively treated as <tab>imes. We replace it with "\\times".
-    if not strict:
-        stripped = _repair_latex_clashes(stripped)
+    stripped = _repair_latex_clashes(stripped)
 
     # 1. Standard attempt
     import sys
@@ -260,16 +271,12 @@ def safe_json_loads(text: Any, default: Any = None, strict: bool = False) -> Any
     except (json.JSONDecodeError, TypeError, ValueError, RecursionError):
         pass
 
-    # 2. strict=False attempt (handles bare control characters)
+    # 2. strict=False attempt (handles bare control characters in non-strict LLM mode)
     try:
         parsed = json.loads(stripped, strict=False)
         return parsed if parsed is not None else default
     except (json.JSONDecodeError, TypeError, ValueError, RecursionError):
         pass
-
-    # In strict mode, we stop here.
-    if strict:
-        return default
 
     # 3. ast.literal_eval fallback (handles single quotes and Python-isms)
     # Inspired by hermes-agent/environments/tool_call_parsers/qwen3_coder_parser.py

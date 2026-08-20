@@ -94,11 +94,13 @@ rules:
         - "**/plugin/framework/async_stream.py"
         - "**/plugin/contrib/cdp/browser_supervisor.py"
         - "**/plugin/scripting/venv_worker.py"
+        - "**/plugin/scripting/ipc.py"
         - "**/plugin/scripting/venv/editor_main.py"
         - "**/plugin/scripting/venv/audio_record_main.py"
         - "**/plugin/writer/locale/grammar_work_queue.py"
         - "**/plugin/chatbot/dialog_views.py"
         - "**/plugin/calc/python/function.py"
+        - "**/plugin/mcp/tunnel.py"
 
   - id: background-worker-missing-decorator
     languages: [python]
@@ -152,7 +154,7 @@ rules:
     severity: ERROR
     message: >-
       Call process_events_to_idle()/pump_ui_idle() instead of raw
-      toolkit.processEventsToIdle(). See docs/reentrancy-and-ipc-deadlock-prevention-plan.md.
+      toolkit.processEventsToIdle(). See docs/threading_architecture.md.
     patterns:
       - pattern-either:
           - pattern: $TK.processEventsToIdle()
@@ -177,7 +179,7 @@ rules:
     severity: WARNING
     message: >-
       Long-lived Popen with stderr=PIPE needs start_stderr_drain() (or DEVNULL).
-      See docs/reentrancy-and-ipc-deadlock-prevention-plan.md Feature #4.
+      See docs/threading_architecture.md.
     patterns:
       - pattern: subprocess.Popen(..., stderr=subprocess.PIPE, ...)
       - pattern-not-inside: |
@@ -202,7 +204,7 @@ rules:
     severity: WARNING
     message: >-
       UNO document model access should check disposal status via check_disposed or is_document_disposed.
-      See docs/reentrancy-and-ipc-deadlock-prevention-plan.md Feature #5.
+      See docs/uno-thread-safety-enforcement.md.
     patterns:
       - pattern: $DOC.getImplementationName()
       - pattern-not-inside: |

@@ -272,7 +272,7 @@ LibreOffice’s UI (VCL) is single-threaded. To keep the UI responsive during lo
 This flat architecture avoids nested callbacks and makes state transitions explicit.
 
 > [!NOTE]
-> **Drain ownership vs listener no-ops:** Chat Send starts the drain from a UNO action listener and **must** keep calling `pump_ui_idle` so the UI repaints and Stop stays actionable. Harmful reentry is a *second* nested drain / raw secondary pump — not “any pump while a listener is on the stack.” Planned ownership guards and IPC stderr drains are specified in [reentrancy-and-ipc-deadlock-prevention-plan.md](reentrancy-and-ipc-deadlock-prevention-plan.md). Off-main-thread UNO is covered separately by [uno-thread-safety-enforcement.md](uno-thread-safety-enforcement.md).
+> **Drain ownership vs listener no-ops:** Chat Send starts the drain from a UNO action listener and **must** keep calling `pump_ui_idle` so the UI repaints and Stop stays actionable. Harmful reentry is a *second* nested drain / raw secondary pump — not “any pump while a listener is on the stack.” Ownership guards and IPC stderr drains are detailed in [threading_architecture.md](threading_architecture.md). Off-main-thread UNO is covered separately by [uno-thread-safety-enforcement.md](uno-thread-safety-enforcement.md).
 
 ### Tool-loop command boundary
 

@@ -72,7 +72,7 @@ class BaseProviderShim:
 
         finish_reason = choice.get("finish_reason") if choice else None
         if not finish_reason:
-            finish_reason = chunk.get("finish_reason")
+            finish_reason = chunk.get("finish_reason") or chunk.get("done_reason")
         if not finish_reason and choices:
             for c in choices:
                 if isinstance(c, dict) and c.get("finish_reason"):
@@ -88,26 +88,25 @@ class BaseProviderShim:
     ) -> tuple[str, str | None, list[dict[str, Any]] | None, dict[str, Any], list[str], dict[str, Any]]:
         from .stream_normalizer import _normalize_delta, _normalize_message_content
 
-        if "choices" in response_data and response_data["choices"]:
-            choice = response_data["choices"][0] if isinstance(response_data["choices"][0], dict) else {}
-            message = choice.get("message") or response_data.get("message") or {}
-            _normalize_delta(message)
-            finish_reason = choice.get("finish_reason") or response_data.get("done_reason")
+        # OpenAI-compatible / local models response parsing
+        # What was wrong: Local models (e.g. Ollama) returning {"done_reason": "stop", "message": ...}
+        # without a top-level "choices" list fell through to chunk parsing and lost done_reason and content.
+        # This change handles choices[0] if present while falling back to top-level message/done_reason.
+        choices = response_data.get("choices")
+        choice = choices[0] if (isinstance(choices, list) and choices and isinstance(choices[0], dict)) else {}
+        message = choice.get("message") or response_data.get("message") or {}
+        if not isinstance(message, dict):
+            message = {}
+        _normalize_delta(message)
+        finish_reason = choice.get("finish_reason") or response_data.get("finish_reason") or response_data.get("done_reason")
 
-            raw_content = message.get("content")
-            content = _normalize_message_content(raw_content) or ""
-            images = message.get("images") or []
-            tool_calls = message.get("tool_calls")
-            usage = response_data.get("usage", {})
+        raw_content = message.get("content")
+        content = _normalize_message_content(raw_content) or ""
+        images = message.get("images") or []
+        tool_calls = message.get("tool_calls")
+        usage = response_data.get("usage", {})
 
-            return content, finish_reason, tool_calls, usage, images, message
-
-        # Delegated chunk/response extraction for provider-specific response payloads (Anthropic, Google, etc.)
-        content, finish_reason, _unused, delta = self.parse_response_chunk(response_data)
-        tool_calls = delta.get("tool_calls")
-        usage = response_data.get("usage") or response_data.get("usageMetadata") or {}
-        images = delta.get("images") or []
-        return content, finish_reason, tool_calls, usage, images, delta
+        return content, finish_reason, tool_calls, usage, images, message
 
     def build_image_request(
         self,

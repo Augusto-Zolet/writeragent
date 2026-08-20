@@ -327,6 +327,11 @@ vetted allowlist (venv worker/editor/audio recorder, grammar queue, CDP supervis
 `async_stream` batch timer, settings debounce timer, calc deferred spill).
 `plugin/contrib/` is excluded via Makefile `--exclude` flags (documented in [`tests/semgrep/semgrepignore`](../tests/semgrep/semgrepignore)).
 
+Related reliability rules in [`tests/semgrep/uno_thread_safety.yml`](../tests/semgrep/uno_thread_safety.yml) include:
+- `raw-process-events-to-idle` (ERROR): rejects direct VCL pumps outside approved queue/UNO chokepoints (`pump_ui_idle` / `process_events_to_idle`).
+- `piped-stderr-needs-drain` (WARNING): flags long-lived `stderr=PIPE` subprocesses without continuous drains.
+- `uno-disposed-check-required` (WARNING): flags selected document-model access without disposal-check boundaries.
+
 ---
 
 ## Recommended rollout (least code first)
@@ -377,8 +382,7 @@ trace," which is the bulk of the user's pain.
 
 ## Cross-references
 
-- [`docs/threading_architecture.md`](threading_architecture.md) — the model being enforced.
+- [`docs/threading_architecture.md`](threading_architecture.md) — the model being enforced, drain ownership, and subprocess IPC pipe safety.
 - [`docs/streaming-and-threading.md`](streaming-and-threading.md) — drain loop, Stop/cancellation, the `execute_on_main_thread` checklist.
-- [`docs/reentrancy-and-ipc-deadlock-prevention-plan.md`](reentrancy-and-ipc-deadlock-prevention-plan.md) — same-thread nested drain / VCL reentry and piped-subprocess stderr safety (orthogonal to off-main-thread Layer A–C).
 - [`docs/formal_verification.md`](formal_verification.md) — why FV is the wrong tool for this class of bug.
 - Reference fix this doc generalizes: commit `0cfc6891b679f3fcc2ad4a47107763a1b5bd93d7` (charts hang).

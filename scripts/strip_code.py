@@ -370,39 +370,66 @@ def replace_thread_guard_implementation(bundle_path: str, dry_run: bool = False)
         return
 
     stubs = '''# Minimal stubs for production/release bundles to remove runtime check overhead.
+import threading
+from typing import Any
+
 GUARD_ON = False
+
+_bg = threading.local()
 
 def assert_main_thread(what: str) -> None:
     pass
 
-def main_thread_only(fn):
+def main_thread_only(fn: Any) -> Any:
     return fn
 
-def background(fn):
+def background(fn: Any) -> Any:
     return fn
 
 def set_background_task(name: str | None) -> None:
-    pass
+    try:
+        _bg.task_name = name
+    except Exception:
+        pass
 
 def get_background_task_name() -> str | None:
-    return None
+    return getattr(_bg, "task_name", None)
 
-def set_designated_main_thread(thread) -> None:
+def set_designated_main_thread(thread: Any) -> None:
     pass
 
-def get_designated_main_thread():
+def get_designated_main_thread() -> Any:
     return None
 
 def on_main_thread() -> bool:
     return True
 
-def _wrap_uno(obj):
+def _wrap_uno(obj: Any) -> Any:
     return obj
 
-def _unwrap_uno(obj):
+class _UnoThreadGuardProxy:
+    """Stub proxy for release bundles."""
+    def __init__(self, target: Any) -> None:
+        object.__setattr__(self, "_target", target)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._target, name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name.startswith("_"):
+            object.__setattr__(self, name, value)
+        else:
+            setattr(self._target, name, value)
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        return self._target(*args, **kwargs)
+
+def _unwrap_uno(obj: Any) -> Any:
+    if isinstance(obj, _UnoThreadGuardProxy):
+        return obj._target
     return obj
 
-def guard_uno(obj):
+def guard_uno(obj: Any) -> Any:
     return obj
 '''
     action = "Dry run: would replace" if dry_run else "Replacing"

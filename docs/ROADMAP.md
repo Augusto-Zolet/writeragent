@@ -1,6 +1,6 @@
 # WriterAgent Roadmap
 
-**Last Updated**: 2026-08-17  
+**Last Updated**: 2026-08-19  
 **Status**: Active Development
 
 
@@ -12,6 +12,25 @@ Planned features, technical debt, and product gaps. For day-to-day orientation u
 - Optional: section markers in megamodules (`content.py`, `document_helpers.py`, `format.py`, `panel.py`, …) before any large splits.
 
 `TestingFactory` / `with_native_doc` / `execute_tool` are the standard test path (see §5). Do not reintroduce per-file `@setup` / `@teardown` lifecycle.
+
+---
+
+## Docs: fewer files, still visible
+
+Backlog for a later pass. Goal: **great living docs**, not a dump directory and not an exploding count of one-shot checklists.
+
+**Living feature docs stay in `docs/`.** Files like [python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md) are the right shape: architecture people can read to understand the feature, plus an **Open** / next-phase list so you can pick the work up later. Implemented does **not** mean archive. Keep those visible; update “what shipped” and “what’s next” in place.
+
+**Policy (agreed):**
+- **Stay visible:** do **not** mass-move feature plans, comparison writeups, or idea notes into `archive/` just to shrink `ls docs/`.
+- Fold only when two files are the **same topic** and one is leftover after the content already lives in a hub (example: background-thread-pool plan → [threading_architecture.md](threading_architecture.md)). Then delete the leftover so links do not 404.
+- Keep **large feature hubs** large when the code is large (NumPy: `enabling_numpy_in_libreoffice.md`, `numpy-serialization.md`, `numpy-domains.md`). Do not smash everything into one mega-file.
+- **Archive only a few** files that are truly dead: “we looked at X and said no” with no remaining pointer value (`archive/litellm-integration-notworthit.md` is the model). Do not archive a doc that still has an Open/next list.
+- [`AGENTS.md`](../AGENTS.md) Deep dives is the catalog of **hubs**, not every markdown file. Living feature plans can sit beside hubs without being in that table.
+
+**Optional later folds (only if they actually duplicate a hub):**
+- Threading: remaining reentrancy-plan invariants into `threading_architecture.md` / `uno-thread-safety-enforcement.md` (keep streaming, architecture, and UNO guard as distinct living docs).
+- Grammar / eval / calc: merge only where two files tell the same story; keep CF, sheet-filter, date-time, Monaco, embeddings, etc. as living docs with next-work lists.
 
 ---
 
