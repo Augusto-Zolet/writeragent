@@ -4,8 +4,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """edited_context: successful apply_document_content edits echo the touched paragraph(s).
 
-The echo must be right or absent, never wrong: _paragraph_window_text returns None whenever the
-paragraph walk fails, and _attach_edited_context only adds the field when a snippet came back.
+The echo must be right or absent, never wrong: paragraph_window_text returns None whenever the
+paragraph walk fails, and attach_edited_context only adds the field when a snippet came back.
 No LibreOffice required — fakes implement the minimal XText/XParagraphCursor protocol."""
 from unittest.mock import MagicMock, patch
 
@@ -14,9 +14,9 @@ setup_uno_mocks()
 
 from plugin.writer.edit_review import (
     _EDITED_CONTEXT_MAX_CHARS,
-    _attach_edited_context,
-    _collapsed_anchor,
-    _paragraph_window_text,
+    attach_edited_context,
+    collapsed_anchor,
+    paragraph_window_text,
 )
 
 
@@ -86,44 +86,44 @@ def _anchor_at(text, para):
 
 def test_window_is_paragraph_plus_neighbors():
     text = FakeText(["P0", "P1-EDITED", "P2", "P3"])
-    s = _paragraph_window_text(_anchor_at(text, 1))
+    s = paragraph_window_text(_anchor_at(text, 1))
     assert s == "P0\nP1-EDITED\nP2"
 
 
 def test_window_clamps_at_document_edges():
     text = FakeText(["FIRST", "SECOND"])
-    assert _paragraph_window_text(_anchor_at(text, 0)) == "FIRST\nSECOND"
-    assert _paragraph_window_text(_anchor_at(text, 1)) == "FIRST\nSECOND"
+    assert paragraph_window_text(_anchor_at(text, 0)) == "FIRST\nSECOND"
+    assert paragraph_window_text(_anchor_at(text, 1)) == "FIRST\nSECOND"
 
 
 def test_window_truncates_around_the_middle():
     text = FakeText(["A" * 600, "B" * 600, "C" * 600])
-    s = _paragraph_window_text(_anchor_at(text, 1))
+    s = paragraph_window_text(_anchor_at(text, 1))
     assert len(s) <= _EDITED_CONTEXT_MAX_CHARS
     assert " [...] " in s
     assert s.startswith("A") and s.endswith("C")
 
 
 def test_failure_yields_none_not_garbage():
-    assert _paragraph_window_text(None) is None
+    assert paragraph_window_text(None) is None
 
     class Broken:
         def getText(self):
             raise RuntimeError("nested exotic text")
 
-    assert _paragraph_window_text(Broken()) is None
+    assert paragraph_window_text(Broken()) is None
 
 
 def test_blank_window_yields_none():
     text = FakeText(["", "", ""])
-    assert _paragraph_window_text(_anchor_at(text, 1)) is None
+    assert paragraph_window_text(_anchor_at(text, 1)) is None
 
 
 def test_attach_only_when_snippet_exists():
     text = FakeText(["P0", "P1", "P2"])
-    ok = _attach_edited_context({"status": "ok"}, _anchor_at(text, 1))
+    ok = attach_edited_context({"status": "ok"}, _anchor_at(text, 1))
     assert ok["edited_context"] == "P0\nP1\nP2"
-    no = _attach_edited_context({"status": "ok"}, None)
+    no = attach_edited_context({"status": "ok"}, None)
     assert "edited_context" not in no
 
 
@@ -139,7 +139,7 @@ def test_collapsed_anchor_is_best_effort():
         def getStart(self):
             return self
 
-    assert _collapsed_anchor(Range()) is None
+    assert collapsed_anchor(Range()) is None
 
 
 def test_apply_document_content_edited_context_on_success():

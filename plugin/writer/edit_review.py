@@ -822,9 +822,6 @@ def record_html_atomically(session, doc, mutate, track_reviewable, **record_kwar
         _close_surgical_context(mgr, session, changes_before, applied_ok, undo_title)
 
 
-_record_html_atomically = record_html_atomically
-
-
 # --- post-edit echo (edited_context) ---------------------------------------
 _EDITED_CONTEXT_MAX_CHARS = 700
 
@@ -837,9 +834,6 @@ def collapsed_anchor(text_range):
         return None
 
 
-_collapsed_anchor = collapsed_anchor
-
-
 def selection_anchor(doc):
     """Collapsed anchor at the view cursor's start (the selection insert site)."""
     try:
@@ -847,9 +841,6 @@ def selection_anchor(doc):
         return vc.getText().createTextCursorByRange(vc.getStart())
     except Exception:
         return None
-
-
-_selection_anchor = selection_anchor
 
 
 def paragraph_window_text(anchor, max_chars=_EDITED_CONTEXT_MAX_CHARS):
@@ -880,18 +871,12 @@ def paragraph_window_text(anchor, max_chars=_EDITED_CONTEXT_MAX_CHARS):
     return s
 
 
-_paragraph_window_text = paragraph_window_text
-
-
 def attach_edited_context(result, anchor):
     """Add edited_context (the touched paragraph(s) as they now read) to a successful result."""
     snippet = paragraph_window_text(anchor)
     if snippet:
         result["edited_context"] = snippet
     return result
-
-
-_attach_edited_context = attach_edited_context
 
 
 def record_preserve_replace(session, doc, found, new_text, uno_ctx, split):
@@ -995,7 +980,4 @@ def record_preserve_replace(session, doc, found, new_text, uno_ctx, split):
         applied_ok = True
     finally:
         _close_surgical_context(undo_mgr, session, changes_before, applied_ok, undo_title)
-
-
-_record_preserve_replace = record_preserve_replace
 

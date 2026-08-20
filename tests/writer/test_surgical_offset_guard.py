@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Headless tests for the surgical tracked-change offset safety net.
 
-The surgical path in ``_record_preserve_replace`` places each sub-edit by counting characters
+The surgical path in ``record_preserve_replace`` places each sub-edit by counting characters
 (``_go_right``) from the block start, then replaces. If the cursor ever lands short (goRight stops
 early), the edit would hit the WRONG characters and silently corrupt the document. These tests pin,
 WITHOUT a live LibreOffice (a fake UNO text/cursor), that:
@@ -26,8 +26,8 @@ from plugin.writer.edit_review import (
     _GO_RIGHT_CHUNK,
     _SURGICAL_UNDO_TITLE,
     _go_right,
-    _record_html_atomically,
-    _record_preserve_replace,
+    record_html_atomically,
+    record_preserve_replace,
 )
 from plugin.framework.errors import ToolExecutionError
 from plugin.writer.word_diff_split import split_change
@@ -200,7 +200,7 @@ def _run(found, old, new, max_runs=10_000, threshold=_THRESHOLD, doc=None, repla
          patch("plugin.writer.edit_review._SPLIT_AUTHOR_COLORS", split_author), \
          patch("plugin.writer.format.replace_preserving_format",
                side_effect=_wire_replace(um, replace_side_effect)) as mock_replace:
-        _record_preserve_replace(session, doc, found, new, MagicMock(), split=True)
+        record_preserve_replace(session, doc, found, new, MagicMock(), split=True)
     return session, mock_replace
 
 
@@ -295,7 +295,7 @@ def test_surgical_runs_at_cap_stay_surgical():
 
 def test_threshold_flows_into_block_vs_surgical_decision():
     # the CONFIGURED threshold must actually change the block-vs-surgical OUTCOME end-to-end
-    # through _record_preserve_replace, not just be readable. Same edit (~0.36 changed fraction):
+    # through record_preserve_replace, not just be readable. Same edit (~0.36 changed fraction):
     old = "the quick brown fox jumps over the lazy dog"
     new = "the fast brown fox jumps over the sleepy dog"
     # threshold BELOW the change fraction -> one whole block.
@@ -480,7 +480,7 @@ def test_leave_context_failure_on_success_does_not_roll_back():
 # ------------------------------------------------- configurable split-author coloring (consistency)
 
 # A whole-block change (no shared words -> 100% changed -> above threshold) so split_change never
-# goes surgical and _record_preserve_replace takes the _whole() path.
+# goes surgical and record_preserve_replace takes the _whole() path.
 _WB_OLD = "the quick brown fox"
 _WB_NEW = "a completely different unrelated statement here now"
 
@@ -556,7 +556,7 @@ def test_surgical_split_author_on_threads_two_color_inside_context():
         assert kwargs["split_author"] is True
 
 
-# ------------------------------------------- _record_html_atomically (HTML/import delete-then-insert)
+# ------------------------------------------- record_html_atomically (HTML/import delete-then-insert)
 # These paths (replace_full_document, replace_single_range_with_content, selection insert) setString("")
 # then run a separate HTML import that can throw. record_mutation opens no context, so the wrapper must
 # group the whole edit in one undo context and roll back a failed import (no stranded deletion), or
@@ -571,7 +571,7 @@ def test_html_atomic_rolls_back_partial_edit_on_import_failure():
         raise RuntimeError("import boom")        # then the HTML import fails after the delete
 
     with pytest.raises(RuntimeError, match="import boom"):
-        _record_html_atomically(session, FakeDoc(um), mutate, True, proposed_preview="x")
+        record_html_atomically(session, FakeDoc(um), mutate, True, proposed_preview="x")
 
     assert len(um.entered) == 1 and um.entered[0].startswith(_AGENT_EDIT_UNDO_TITLE)
     assert um.leaves == 1
@@ -582,7 +582,7 @@ def test_html_atomic_rolls_back_partial_edit_on_import_failure():
 def test_html_atomic_success_opens_and_closes_context():
     um = FakeUndoManager()
     session = FakeSession()
-    _record_html_atomically(session, FakeDoc(um), lambda: um.record_action(), True, proposed_preview="x")
+    record_html_atomically(session, FakeDoc(um), lambda: um.record_action(), True, proposed_preview="x")
 
     assert len(um.entered) == 1 and um.entered[0].startswith(_AGENT_EDIT_UNDO_TITLE)
     assert um.leaves == 1 and um.undos == 0   # closed cleanly; no rollback on success
@@ -599,7 +599,7 @@ def test_html_atomic_refuses_when_no_undo_manager():
     session = FakeSession()
     calls = {"n": 0}
     with pytest.raises(ToolExecutionError):
-        _record_html_atomically(session, NoUndoDoc(), lambda: calls.__setitem__("n", calls["n"] + 1),
+        record_html_atomically(session, NoUndoDoc(), lambda: calls.__setitem__("n", calls["n"] + 1),
                                 True, proposed_preview="x")
     assert calls["n"] == 0          # refused before running the mutation
     assert session.changes == []
@@ -610,7 +610,7 @@ def test_html_atomic_refuses_when_undo_manager_locked():
     session = FakeSession()
     calls = {"n": 0}
     with pytest.raises(ToolExecutionError):
-        _record_html_atomically(session, FakeDoc(um), lambda: calls.__setitem__("n", calls["n"] + 1),
+        record_html_atomically(session, FakeDoc(um), lambda: calls.__setitem__("n", calls["n"] + 1),
                                 True, proposed_preview="x")
     assert um.entered == []         # never opened (a locked context is a no-op)
     assert calls["n"] == 0          # never mutated
@@ -629,7 +629,7 @@ def test_html_not_recording_is_still_atomic_on_success():
         calls["n"] += 1
         um.record_action()
 
-    _record_html_atomically(session, FakeDoc(um), ok_mutate, False, proposed_preview="x")
+    record_html_atomically(session, FakeDoc(um), ok_mutate, False, proposed_preview="x")
     assert calls["n"] == 1
     assert len(um.entered) == 1 and um.leaves == 1 and um.undos == 0
     assert len(session.changes) == 1
@@ -646,6 +646,6 @@ def test_html_not_recording_rolls_back_partial_on_failure():
         raise RuntimeError("import blew up")      # ...then the HTML import throws
 
     with pytest.raises(RuntimeError):
-        _record_html_atomically(session, FakeDoc(um), failing_mutate, False, proposed_preview="x")
+        record_html_atomically(session, FakeDoc(um), failing_mutate, False, proposed_preview="x")
     assert um.undos == 1                          # the stranded deletion was rolled back
     assert session.changes == []
