@@ -32,13 +32,13 @@ def resolve_sheet(doc: Any, sheet_name: str | None = None) -> Any:
         sheets = doc.getSheets()
         if not sheets.hasByName(sheet_name):
             raise UnoObjectError("Sheet not found: %s" % sheet_name)
-        return cast(Any, sheets.getByName(sheet_name))
+        return cast("Any", sheets.getByName(sheet_name))
     controller = doc.getCurrentController()
     if hasattr(controller, "getActiveSheet"):
         active = controller.getActiveSheet()
         if active is not None:
-            return cast(Any, active)
-    return cast(Any, doc.getSheets().getByIndex(0))
+            return cast("Any", active)
+    return cast("Any", doc.getSheets().getByIndex(0))
 
 
 
