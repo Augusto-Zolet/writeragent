@@ -12,19 +12,13 @@ from dataclasses import dataclass, field
 from html import unescape
 from typing import Any, Callable
 
-import uno
 
-from plugin.calc.address_utils import parse_address
+from plugin.calc.calc_utils import query_interface as _query_interface, resolve_sheet_and_cell as _canonical_resolve_sheet_and_cell
 
 log = logging.getLogger("writeragent.calc")
 
 _XACCESSIBLE_TEXT = "com.sun.star.accessibility.XAccessibleText"
 
-
-def _query_interface(obj: Any, typename: str) -> Any:
-    """PyUNO requires ``uno.getTypeByName`` for ``queryInterface``; imported IDL classes fail."""
-
-    return obj.queryInterface(uno.getTypeByName(typename))
 
 # HTML: <a href="cell://B2">B2</a> (Calc chat uses HTML, not markdown)
 _CELL_LINK_HTML_RE = re.compile(
@@ -165,31 +159,11 @@ def clear_cell_link_spans(control) -> None:
 
 def resolve_sheet_and_cell(doc, address: str) -> tuple[Any, int, int] | None:
     """Resolve *address* to ``(sheet, col, row)`` for the open Calc document."""
-    from plugin.calc.address_utils import split_sheet_prefix
-
     target = normalize_cell_address(address)
     if not target or doc is None:
         return None
-    sheet_name, cell_part = split_sheet_prefix(target)
-    try:
-        col, row = parse_address(cell_part)
-    except ValueError:
-        return None
+    return _canonical_resolve_sheet_and_cell(doc, target)
 
-    controller = doc.getCurrentController()
-    if sheet_name:
-        sheets = doc.getSheets()
-        if not sheets.hasByName(sheet_name):
-            return None
-        sheet = sheets.getByName(sheet_name)
-    elif controller is not None:
-        sheet = controller.getActiveSheet()
-    else:
-        sheets = doc.getSheets()
-        sheet = sheets.getByIndex(0) if sheets.getCount() else None
-    if sheet is None:
-        return None
-    return sheet, col, row
 
 
 def navigate_to_cell(doc, _ctx, address: str) -> bool:

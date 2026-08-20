@@ -67,9 +67,10 @@ def test_accessible_text_query_interface_uses_uno_type():
     axtext = MagicMock()
     control.getAccessibleContext.return_value = ctx
     type_mock = MagicMock()
-    with patch("plugin.calc.navigation.uno") as mock_uno:
+    with patch("plugin.calc.calc_utils.uno") as mock_uno:
         mock_uno.getTypeByName.return_value = type_mock
         ctx.queryInterface.return_value = axtext
         assert _accessible_text(control) is axtext
         mock_uno.getTypeByName.assert_called_with("com.sun.star.accessibility.XAccessibleText")
         ctx.queryInterface.assert_called_once_with(type_mock)
+

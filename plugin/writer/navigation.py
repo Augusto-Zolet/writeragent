@@ -67,3 +67,32 @@ class NavSurroundings(ToolWriterStructuralBase):
             return {"status": "ok", **result}
         except ValueError as e:
             return self._tool_error(str(e))
+
+
+class NavHeadingChildren(ToolWriterStructuralBase):
+    name = "nav_heading_children"
+    intent = "navigate"
+    description = "Drill into a heading's children — body paragraphs and sub-headings. Identify the heading by locator (e.g. 'bookmark:_mcp_xxx', 'heading:1.2'), para_index, or bookmark. para_index values are INTERNAL — never cite paragraph numbers to the user; refer to a place by quoting the first words of its text."
+    parameters = {
+        "type": "object",
+        "properties": {
+            "locator": {"type": "string", "description": "Locator string (e.g. 'bookmark:_mcp_xxx', 'heading:1.2')"},
+            "para_index": {"type": "integer", "description": "Paragraph index of the heading"},
+            "bookmark": {"type": "string", "description": "Bookmark name of the heading"},
+            "strategy": {"type": "string", "enum": ["heading_only", "first_lines", "full"], "description": "Content strategy (default: first_lines)"},
+            "depth": {"type": "integer", "description": "Max sub-heading depth (default: 1)"},
+        },
+        "required": [],
+    }
+    uno_services = ["com.sun.star.text.TextDocument"]
+
+    def execute(self, ctx, **kwargs):
+        tree_svc = ctx.services.writer_tree
+        para_index = kwargs.get("para_index")
+        bookmark = kwargs.get("bookmark")
+        strategy = kwargs.get("strategy", "first_lines")
+        try:
+            result = tree_svc.get_heading_children(ctx.doc, heading_para_index=para_index, heading_bookmark=bookmark, locator=kwargs.get("locator"), content_strategy=strategy, depth=kwargs.get("depth", 1))
+            return {"status": "ok", **result}
+        except ValueError as e:
+            return self._tool_error(str(e))

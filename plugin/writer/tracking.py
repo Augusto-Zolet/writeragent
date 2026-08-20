@@ -19,8 +19,6 @@
 Provides the complete suite of specialized track changes tools:
 track_changes_start, track_changes_stop, track_changes_list,
 manage_tracked_changes (accept/reject one or all), and track_changes_show.
-
-Also includes tools for managing document comments (Annotations) in Writer only.
 """
 
 import logging

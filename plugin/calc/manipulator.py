@@ -54,9 +54,11 @@ from plugin.calc.datetime_wire import (
     match_iso_temporal,
     should_preserve_temporal_format,
 )
+from plugin.calc.error_detector import get_calc_error_name
 from plugin.calc.inspector import _format_category_from_type
 from plugin.framework.errors import ToolExecutionError, UnoObjectError, safe_json_loads
 from plugin.framework.uno_context import get_ctx
+
 
 logger = logging.getLogger("writeragent.calc")
 
@@ -198,65 +200,8 @@ class CellManipulator:
 
     def _get_error_name(self, error_code: int) -> str:
         """Get a human-readable name for a Calc error code."""
-        # Common LibreOffice Calc error codes
-        # 501: Invalid character
-        # 502: Invalid argument
-        # 503: #NUM!
-        # 504: Error in parameter list
-        # 508: Error: Pair missing
-        # 509: Missing operator
-        # 510: Missing variable
-        # 511: Missing variable
-        # 512: Formula overflow
-        # 513: String overflow
-        # 514: Internal overflow
-        # 516: Internal syntax error
-        # 517: Internal syntax error
-        # 518: Internal syntax error
-        # 519: #VALUE!
-        # 520: Internal syntax error
-        # 521: #NULL!
-        # 522: Circular reference
-        # 523: The calculation process does not converge
-        # 524: #REF!
-        # 525: #NAME?
-        # 526: Internal syntax error
-        # 527: Internal overflow
-        # 532: #DIV/0!
-        # 533: Nested arrays are not supported
-        # 538: Error: Array or matrix size
-        # 539: Unsupported inline array content
+        return get_calc_error_name(error_code)
 
-        errors = {
-            501: "Invalid character",
-            502: "Invalid argument",
-            503: "#NUM!",
-            504: "Error in parameter list",
-            508: "Error: Pair missing",
-            509: "Missing operator",
-            510: "Missing variable",
-            511: "Missing variable",
-            512: "Formula overflow",
-            513: "String overflow",
-            514: "Internal overflow",
-            516: "Internal syntax error",
-            517: "Internal syntax error",
-            518: "Internal syntax error",
-            519: "#VALUE!",
-            520: "Internal syntax error",
-            521: "#NULL!",
-            522: "Circular reference",
-            523: "The calculation process does not converge",
-            524: "#REF!",
-            525: "#NAME?",
-            526: "Internal syntax error",
-            527: "Internal overflow",
-            532: "#DIV/0!",
-            533: "Nested arrays are not supported",
-            538: "Error: Array or matrix size",
-            539: "Unsupported inline array content",
-        }
-        return errors.get(error_code, f"Unknown error ({error_code})")
 
     def _apply_style_properties(self, obj, bold, italic, bg_color, font_color, font_size, h_align, v_align, wrap_text, border_color):
         """Apply common style properties to a cell or range object."""

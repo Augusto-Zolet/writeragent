@@ -45,22 +45,44 @@ logger = logging.getLogger("writeragent.calc")
 ERROR_TYPES = {
     501: {"code": "#NULL!", "name": "Invalid character", "description": "An invalid character was found in the formula."},
     502: {"code": "#NULL!", "name": "Invalid argument", "description": "The function argument is invalid."},
-    504: {"code": "#NAME?", "name": "Name error", "description": ("An unrecognised function or area name was used. Make sure the function name is spelled correctly.")},
+    503: {"code": "#NUM!", "name": "#NUM!", "description": "A calculation resulted in a number overflow or invalid float."},
+    504: {"code": "#NAME?", "name": "Error in parameter list", "description": "An unrecognised function or area name was used. Make sure the function name is spelled correctly."},
     507: {"code": "#NULL!", "name": "Missing parenthesis", "description": "There is an unclosed parenthesis in the formula."},
-    508: {"code": "#NULL!", "name": "Parenthesis error", "description": "An extra or missing parenthesis was found in the formula."},
-    510: {"code": "#NULL!", "name": "Missing operator", "description": "A required operator is missing in the formula."},
+    508: {"code": "#NULL!", "name": "Error: Pair missing", "description": "An extra or missing parenthesis was found in the formula."},
+    509: {"code": "#NULL!", "name": "Missing operator", "description": "A required operator is missing in the formula."},
+    510: {"code": "#NULL!", "name": "Missing variable", "description": "A required variable is missing in the formula."},
     511: {"code": "#NULL!", "name": "Missing variable", "description": "A required variable is missing in the formula."},
-    519: {"code": "#VALUE!", "name": "Value error", "description": ("A value in the formula is not of the expected type. Text may have been used instead of a number or vice versa.")},
+    512: {"code": "#NULL!", "name": "Formula overflow", "description": "Formula or internal token count exceeds the maximum limit."},
+    513: {"code": "#NULL!", "name": "String overflow", "description": "A string identifier or token in the formula exceeds size limit."},
+    514: {"code": "#NULL!", "name": "Internal overflow", "description": "An internal interpreter overflow occurred."},
+    516: {"code": "#NULL!", "name": "Internal syntax error", "description": "A syntax error was detected in the calculation engine."},
+    517: {"code": "#NULL!", "name": "Internal syntax error", "description": "A syntax error was detected in the calculation engine."},
+    518: {"code": "#NULL!", "name": "Internal syntax error", "description": "A syntax error was detected in the calculation engine."},
+    519: {"code": "#VALUE!", "name": "#VALUE!", "description": "A value in the formula is not of the expected type. Text may have been used instead of a number or vice versa."},
+    520: {"code": "#NULL!", "name": "Internal syntax error", "description": "A syntax error was detected in the calculation engine."},
     521: {"code": "#NULL!", "name": "Internal error", "description": "An internal calculation error occurred."},
     522: {"code": "#REF!", "name": "Circular reference", "description": "The formula refers to itself directly or indirectly."},
-    524: {"code": "#REF!", "name": "Reference error", "description": ("A cell reference in the formula is invalid. It may be a deleted cell or sheet reference.")},
-    525: {"code": "#NAME?", "name": "Name error", "description": "An invalid name or undefined identifier was used."},
-    532: {"code": "#DIV/0!", "name": "Division by zero", "description": ("An attempt was made to divide a number by zero. Check the value of the divisor cell.")},
-    533: {"code": "#NULL!", "name": "Intersection error", "description": "The intersection of two ranges is empty."},
+    523: {"code": "#NUM!", "name": "The calculation process does not converge", "description": "The calculation process does not converge."},
+    524: {"code": "#REF!", "name": "#REF!", "description": "A cell reference in the formula is invalid. It may be a deleted cell or sheet reference."},
+    525: {"code": "#NAME?", "name": "#NAME?", "description": "An invalid name or undefined identifier was used."},
+    526: {"code": "#NULL!", "name": "Internal syntax error", "description": "A syntax error was detected in the calculation engine."},
+    527: {"code": "#NULL!", "name": "Internal overflow", "description": "An internal interpreter overflow occurred."},
+    532: {"code": "#DIV/0!", "name": "#DIV/0!", "description": "An attempt was made to divide a number by zero. Check the value of the divisor cell."},
+    533: {"code": "#NULL!", "name": "Nested arrays are not supported", "description": "The intersection of two ranges is empty or nested arrays are unsupported."},
+    538: {"code": "#VALUE!", "name": "Error: Array or matrix size", "description": "Array or matrix dimensions do not match."},
+    539: {"code": "#VALUE!", "name": "Unsupported inline array content", "description": "Unsupported inline array content in formula."},
 }
 
 # Cell error text patterns
 ERROR_PATTERNS = ["#REF!", "#NAME?", "#VALUE!", "#DIV/0!", "#NULL!", "#N/A", "#NUM!", "Err:502", "Err:504", "Err:519", "Err:522", "Err:524", "Err:525", "Err:532"]
+
+
+def get_calc_error_name(error_code: int) -> str:
+    """Return a human-readable name for a Calc error code."""
+    if error_code in ERROR_TYPES:
+        return ERROR_TYPES[error_code]["name"]
+    return f"Unknown error ({error_code})"
+
 
 
 class ErrorDetector:

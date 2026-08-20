@@ -188,7 +188,7 @@ def test_apply_document_content_selection_failure_not_silent():
     ctx = MagicMock()
     ctx.doc.getUndoManager.return_value.isLocked.return_value = False
     ctx.services.get.return_value = MagicMock()
-    with patch("plugin.writer.content._selection_anchor", return_value=MagicMock()), \
+    with patch("plugin.writer.content.selection_anchor", return_value=MagicMock()), \
          patch.object(format_support, "insert_content_at_position",
                       side_effect=ToolExecutionError("Could not resolve the current selection")):
         with pytest.raises(ToolExecutionError, match="selection"):

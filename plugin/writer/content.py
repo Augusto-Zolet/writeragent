@@ -35,7 +35,6 @@ from plugin.writer.edit_review import (
     record_html_atomically,
     collapsed_anchor,
     selection_anchor,
-    paragraph_window_text,
     attach_edited_context,
     next_agent_edit_undo_title,
     close_surgical_context,
@@ -46,15 +45,6 @@ from plugin.writer import search as search_mod
 
 
 log = logging.getLogger("writeragent.writer")
-
-# Compatibility aliases for internal helpers relocated to edit_review and specialized.shapes
-_record_preserve_replace = record_preserve_replace
-_record_html_atomically = record_html_atomically
-_collapsed_anchor = collapsed_anchor
-_selection_anchor = selection_anchor
-_paragraph_window_text = paragraph_window_text
-_attach_edited_context = attach_edited_context
-_replace_text_in_shape = replace_text_in_shape
 
 
 
@@ -541,7 +531,7 @@ class ApplyDocumentContent(ToolBase):
         if target == "full_document":
             with session:
                 # Delete-then-import: make it atomic so a failed import can't strand a cleared document.
-                _record_html_atomically(
+                record_html_atomically(
                     session, ctx.doc,
                     lambda: format_support.replace_full_document(ctx.doc, ctx.ctx, content, config_svc=config_svc),
                     track_reviewable, proposed_preview=_plain_preview(content))
@@ -551,29 +541,29 @@ class ApplyDocumentContent(ToolBase):
                 session.record_mutation(
                     lambda: format_support.insert_content_at_position(ctx.doc, ctx.ctx, content, "end", config_svc=config_svc),
                     proposed_preview=_plain_preview(content))
-            return _attach_edited_context(
+            return attach_edited_context(
                 {"status": "ok", "message": "Inserted content at end."},
-                _collapsed_anchor(ctx.doc.getText().getEnd())), session
+                collapsed_anchor(ctx.doc.getText().getEnd())), session
         if target == "selection":
             # Anchor BEFORE the edit: the selection insert clears the selection first, so only a
             # collapsed position (not the selection range itself) survives the replace.
-            anchor = _selection_anchor(ctx.doc)
+            anchor = selection_anchor(ctx.doc)
             with session:
                 # Selection insert clears the selection first, then imports -> atomic (full_document above).
-                _record_html_atomically(
+                record_html_atomically(
                     session, ctx.doc,
                     lambda: format_support.insert_content_at_position(ctx.doc, ctx.ctx, content, "selection", config_svc=config_svc),
                     track_reviewable, proposed_preview=_plain_preview(content))
-            return _attach_edited_context(
+            return attach_edited_context(
                 {"status": "ok", "message": "Inserted content at selection."}, anchor), session
         if target == "beginning":
             with session:
                 session.record_mutation(
                     lambda: format_support.insert_content_at_position(ctx.doc, ctx.ctx, content, "beginning", config_svc=config_svc),
                     proposed_preview=_plain_preview(content))
-            return _attach_edited_context(
+            return attach_edited_context(
                 {"status": "ok", "message": "Inserted content at beginning."},
-                _collapsed_anchor(ctx.doc.getText().getStart())), session
+                collapsed_anchor(ctx.doc.getText().getStart())), session
 
         # target == "search" from here on — old_content must be a findable substring, not the full body.
         # Whole-document replace: target='full_document' (no search, no old_content).
@@ -607,7 +597,7 @@ class ApplyDocumentContent(ToolBase):
                       if _use_opts else search_mod.find_all_ranges(doc, search_string))
             if not ranges:
                 return search_mod.build_search_not_found_response(all_matches=True), session
-            anchor = _collapsed_anchor(ranges[0])
+            anchor = collapsed_anchor(ranges[0])
             undo_title = next_agent_edit_undo_title()
             try:
                 mgr = doc.getUndoManager()
@@ -627,7 +617,7 @@ class ApplyDocumentContent(ToolBase):
                     for found in reversed(ranges):
                         original = found.getString()
                         if use_preserve:
-                            _record_preserve_replace(session, doc, found, raw_content, ctx.ctx, track_reviewable)
+                            record_preserve_replace(session, doc, found, raw_content, ctx.ctx, track_reviewable)
                         else:
                             session.record_mutation(
                                 lambda f=found: format_support.replace_single_range_with_content(
@@ -648,7 +638,7 @@ class ApplyDocumentContent(ToolBase):
             resp = search_mod.build_search_replace_response(count, use_preserve=use_preserve)
             if count > 1:
                 resp["message"] += " edited_context shows the first occurrence's neighborhood."
-            return _attach_edited_context(resp, anchor), session
+            return attach_edited_context(resp, anchor), session
         found = (search_mod.find_ranges_regex_case(doc, _opts_pattern, _regex_opt, _opts_cs, all_matches=False)
                  if _use_opts else search_mod.find_first_range(doc, search_string))
         if found is None:
@@ -683,7 +673,7 @@ class ApplyDocumentContent(ToolBase):
                 except Exception:
                     undo = None
                 try:
-                    edited = _replace_text_in_shape(shape, search_string, new_text)
+                    edited = replace_text_in_shape(shape, search_string, new_text)
                 finally:
                     if undo is not None:
                         try:
@@ -691,7 +681,7 @@ class ApplyDocumentContent(ToolBase):
                         except Exception:
                             pass
                 if edited:
-                    result = _attach_edited_context(
+                    result = attach_edited_context(
                         {"status": "ok",
                           "message": ("Replaced 1 occurrence inside drawing shape '%s' (edited the "
                                       "shape's own text directly — NOT a tracked change; surrounding "
@@ -732,13 +722,13 @@ class ApplyDocumentContent(ToolBase):
                 insert_cursor = found.getText().createTextCursorByRange(edge)
             except Exception as e:
                 return self._tool_error("Could not anchor the %s-match insert: %s" % (position, e)), session
-            anchor = _collapsed_anchor(found)
+            anchor = collapsed_anchor(found)
             with session:
-                _record_html_atomically(
+                record_html_atomically(
                     session, doc,
                     lambda: format_support.insert_html_at_cursor(doc, ctx.ctx, insert_cursor, content, config_svc=config_svc, apply_styles=False),
                     track_reviewable, proposed_preview=_plain_preview(content))
-            return _attach_edited_context(
+            return attach_edited_context(
                 {"status": "ok",
                  "message": "Inserted content %s the old_content match (matched text left untouched)." % position,
                  "inserted": True, "position": position}, anchor), session
@@ -746,16 +736,16 @@ class ApplyDocumentContent(ToolBase):
         original = found.getString()
         # Anchor BEFORE the mutation: the found range's content is replaced (HTML path even
         # deletes-then-imports), but a collapsed position at its start survives.
-        anchor = _collapsed_anchor(found)
+        anchor = collapsed_anchor(found)
         with session:
             if use_preserve:
-                _record_preserve_replace(session, doc, found, raw_content, ctx.ctx, track_reviewable)
+                record_preserve_replace(session, doc, found, raw_content, ctx.ctx, track_reviewable)
             else:
-                _record_html_atomically(
+                record_html_atomically(
                     session, doc,
                     lambda: format_support.replace_single_range_with_content(doc, found, content, ctx.ctx, config_svc),
                     track_reviewable, original_preview=original, proposed_preview=_plain_preview(content))
         resp = search_mod.build_search_replace_response(1, use_preserve=use_preserve)
-        return _attach_edited_context(resp, anchor), session
+        return attach_edited_context(resp, anchor), session
 
 

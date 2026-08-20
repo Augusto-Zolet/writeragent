@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""FormatService — document format conversions (markdown/HTML <-> UNO)."""
+"""Format helpers — document format conversions (markdown/HTML <-> UNO)."""
 
 import contextlib
 import logging
@@ -26,8 +26,7 @@ import tempfile
 from typing import Any, cast
 
 import uno
-from plugin.framework.service import ServiceBase
-from plugin.doc.text_helpers import get_string_without_tracked_deletions
+from plugin.doc.text_helpers import get_string_without_tracked_deletions as _get_str  # noqa: F401  # pyright: ignore[reportUnusedImport]
 from .math.html_math_segment import html_fragment_contains_mixed_math  # noqa: F401  # pyright: ignore[reportUnusedImport]
 from .math.math_mml_convert import convert_latex_to_starmath as convert_latex_to_starmath  # noqa: F401  # pyright: ignore[reportUnusedImport]
 from .math.math_mml_convert import convert_mathml_to_starmath as convert_mathml_to_starmath  # noqa: F401  # pyright: ignore[reportUnusedImport]
@@ -110,94 +109,6 @@ TEMP_DIR = _resolve_temp_dir()
 def _get_format_props(config_svc=None):
     """Return ``(filter_name, file_extension)`` for HTML format."""
     return HTML_FILTER, HTML_EXTENSION
-
-
-class FormatService(ServiceBase):
-    """Handles exporting and importing documents in various formats.
-
-    Writer documents can be exported to Markdown/HTML, modified by the
-    LLM, then imported back. This service wraps the temp-file dance.
-    """
-
-    name = "format"
-
-    def export_as_text(self, model, max_chars=None):
-        """Export document content as plain text."""
-        from plugin.framework.errors import UnoObjectError, safe_call
-
-        try:
-            text = safe_call(model.getText, "Get document text")
-            cursor = safe_call(text.createTextCursor, "Create text cursor")
-            safe_call(cursor.gotoStart, "Cursor gotoStart", False)
-            safe_call(cursor.gotoEnd, "Cursor gotoEnd", True)
-            content = get_string_without_tracked_deletions(cursor)
-            if max_chars and len(content) > max_chars:
-                content = content[:max_chars] + "\n\n[... truncated ...]"
-            return content
-        except UnoObjectError:
-            log.exception("export_as_text failed")
-            return ""
-
-    def export_as_html(self, model):
-        """Export the document as HTML via UNO filter.
-
-        Returns:
-            HTML string, or empty string on error.
-        """
-        from plugin.framework.errors import UnoObjectError, safe_call
-
-        tmp_path = None
-        try:
-            import uno
-            from com.sun.star.beans import PropertyValue
-
-            with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as tmp:
-                tmp_path = tmp.name
-
-            url = uno.systemPathToFileUrl(tmp_path)
-            props = (PropertyValue("FilterName", 0, "HTML (StarWriter)", 0), PropertyValue("Overwrite", 0, True, 0))
-            safe_call(model.storeToURL, "Store document to HTML", url, props)
-
-            with open(tmp_path, "r", encoding="utf-8") as f:
-                html = f.read()
-            os.unlink(tmp_path)
-            return html
-        except (UnoObjectError, Exception):
-            log.exception("export_as_html failed")
-            if tmp_path and os.path.exists(tmp_path):
-                os.unlink(tmp_path)
-            return ""
-
-    def import_from_html(self, model, html):
-        """Replace document content with HTML by importing from a temp file.
-
-        Returns:
-            True on success, False on error.
-        """
-        from plugin.framework.errors import safe_call
-
-        tmp_path = None
-        try:
-            import uno
-            from com.sun.star.beans import PropertyValue
-
-            with tempfile.NamedTemporaryFile(suffix=".html", delete=False, mode="w", encoding="utf-8") as tmp:
-                tmp.write(html)
-                tmp_path = tmp.name
-
-            url = uno.systemPathToFileUrl(tmp_path)
-            text = safe_call(model.getText, "Get document text")
-            cursor = safe_call(text.createTextCursor, "Create text cursor")
-            safe_call(cursor.gotoStart, "Cursor gotoStart", False)
-            safe_call(cursor.gotoEnd, "Cursor gotoEnd", True)
-            safe_call(cursor.insertDocumentFromURL, "Insert document from HTML", url, (PropertyValue("FilterName", 0, "HTML (StarWriter)", 0),))
-            os.unlink(tmp_path)
-            return True
-        except Exception:
-            log.exception("import_from_html failed")
-            if tmp_path and os.path.exists(tmp_path):
-                os.unlink(tmp_path)
-            return False
 
 
 # ---------------------------------------------------------------------------
@@ -411,52 +322,13 @@ def apply_paragraph_style_preserving_direct_char(doc, cursor, style_name):
 
 
 # ---------------------------------------------------------------------------
-# Text search
+# Text search (forwarded to plugin.writer.search)
 # ---------------------------------------------------------------------------
 
 
 def find_text_ranges(model, ctx, search, start=0, limit=None, case_sensitive=True):
-    """Find occurrences of *search*, returning a list of
-    ``{"start": int, "end": int, "text": str}`` dicts.
-
-    FOLLOW-UP: seeds ``findNext`` from body text but measures each hit with
-    ``found.getText()``; ``start``/``end`` are offsets within that nested text
-    object, not guaranteed global document indices (tables, frames, etc.).
-    """
-    try:
-        sd = model.createSearchDescriptor()
-        sd.SearchString = search
-        sd.SearchRegularExpression = False
-        sd.SearchCaseSensitive = case_sensitive
-
-        text = model.getText()
-        cursor = text.createTextCursor()
-        cursor.gotoStart(False)
-        if start > 0:
-            _GO_RIGHT_CHUNK = 8192
-            remaining = start
-            while remaining > 0:
-                n = min(remaining, _GO_RIGHT_CHUNK)
-                cursor.goRight(n, False)
-                remaining -= n
-
-        matches = []
-        found = model.findNext(cursor, sd)
-        while found:
-            measure = found.getText().createTextCursor()
-            measure.gotoStart(False)
-            measure.gotoRange(found.getStart(), True)
-            m_start = len(measure.getString())
-            matched_text = found.getString()
-            m_end = m_start + len(matched_text)
-            matches.append({"start": m_start, "end": m_end, "text": matched_text})
-            if limit and len(matches) >= limit:
-                break
-            found = model.findNext(found.getEnd(), sd)
-        return matches
-    except Exception:
-        log.exception("find_text_ranges failed")
-        return []
+    from .search import find_text_ranges as impl
+    return impl(model, ctx, search, start=start, limit=limit, case_sensitive=case_sensitive)
 
 
 # ---------------------------------------------------------------------------
@@ -504,29 +376,9 @@ def _apply_image_export_options(content: str, *, include_images: bool) -> str:  
     return impl(content, include_images=include_images)
 
 
-def _export_xhtml(doc, config_svc):  # pyright: ignore[reportUnusedFunction]
-    from .html_export import _export_xhtml as impl
-    return impl(doc, config_svc)
-
-
-def _autostyle_parents(doc, config_svc):  # pyright: ignore[reportUnusedFunction]
-    from .html_export import _autostyle_parents as impl
-    return impl(doc, config_svc)
-
-
-def _range_to_content_via_temp_doc(model, ctx, start, end, max_chars, config_svc, *, include_images=False):  # pyright: ignore[reportUnusedFunction]
-    from .html_export import _range_to_content_via_temp_doc as impl
-    return impl(model, ctx, start, end, max_chars, config_svc, include_images=include_images)
-
-
 def document_to_content(model, ctx, services, max_chars=None, scope="full", range_start=None, range_end=None, *, include_images=False):
     from .html_export import document_to_content as impl
     return impl(model, ctx, services, max_chars, scope, range_start, range_end, include_images=include_images)
-
-
-def _wrap_html_fragment(html_content, extra_css=None):  # pyright: ignore[reportUnusedFunction]
-    from .html_import import _wrap_html_fragment as impl
-    return impl(html_content, extra_css=extra_css)
 
 
 def _ensure_html_linebreaks(content):  # pyright: ignore[reportUnusedFunction]
@@ -574,11 +426,6 @@ def replace_full_document(model, ctx, content, config_svc=None):
     return impl(model, ctx, content, config_svc)
 
 
-def _is_recording_changes(model):  # pyright: ignore[reportUnusedFunction]
-    from .html_import import _is_recording_changes as impl
-    return impl(model)
-
-
 def replace_single_range_with_content(model, text_range, content, ctx, config_svc=None):
     from .html_import import replace_single_range_with_content as impl
     return impl(model, text_range, content, ctx, config_svc)
@@ -597,9 +444,4 @@ def _content_has_block_markup(content):  # pyright: ignore[reportUnusedFunction]
 def replace_preserving_format(model, target_range, new_text, ctx=None, in_undo_context=False, split_author=True):
     from .html_import import replace_preserving_format as impl
     return impl(model, target_range, new_text, ctx, in_undo_context, split_author)
-
-
-def _extract_block_lo_styles(html):  # pyright: ignore[reportUnusedFunction]
-    from .html_import import _extract_block_lo_styles as impl
-    return impl(html)
 

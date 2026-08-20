@@ -24,7 +24,7 @@ from plugin.doc.document_research import (
     open_document_for_read,
 )
 from plugin.calc.spreadsheet_search import search_spreadsheet_cells
-from plugin.writer.paragraph_search import search_paragraph_texts
+from plugin.doc.paragraph_search import search_paragraph_texts
 
 log = logging.getLogger(__name__)
 

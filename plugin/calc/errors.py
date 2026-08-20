@@ -22,9 +22,9 @@ CellInspector, and ErrorDetector per call using ``ctx.doc``.
 """
 
 import logging
-from typing import cast
 
 from plugin.calc.base import ToolCalcErrorBase
+
 from plugin.calc.bridge import CalcBridge
 from plugin.calc.inspector import CellInspector
 from plugin.calc.error_detector import ErrorDetector
@@ -47,15 +47,18 @@ class DetectErrors(ToolCalcErrorBase):
         inspector = CellInspector(bridge)
         error_detector = ErrorDetector(bridge, inspector, ctx=ctx.ctx)
         rn = kwargs.get("range")
-        if rn is not None and isinstance(rn, str):
-            rn = [rn] if rn else []
+        if isinstance(rn, str):
+            rn = [rn] if rn.strip() else []
+        elif not isinstance(rn, list):
+            rn = []
 
-        if rn and isinstance(rn, list) and len(rn) > 0:
-            results = [error_detector.detect_and_explain(range_str=r) for r in rn]
+        if rn:
+            results = [error_detector.detect_and_explain(range_str=r) for r in rn if r]
             combined_errors = []
             for res in results:
                 combined_errors.extend(res.get("errors", []))
             return {"status": "ok", "result": {"error_count": len(combined_errors), "errors": combined_errors}}
         else:
-            result = error_detector.detect_and_explain(range_str=cast("str", rn))
+            result = error_detector.detect_and_explain(range_str=None)
             return {"status": "ok", "result": result}
+

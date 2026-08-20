@@ -20,11 +20,12 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from plugin.framework.errors import ToolExecutionError, UnoObjectError
+from plugin.framework.errors import ToolExecutionError
 from plugin.calc.base import ToolCalcAnalysisBase
 from plugin.calc.bridge import CalcBridge
-from plugin.calc.address_utils import parse_address
+from plugin.calc.calc_utils import resolve_cell_address
 from plugin.scripting.analysis import HELPER_NAMES
+
 
 if TYPE_CHECKING:
     from plugin.framework.tool import ToolContext
@@ -75,41 +76,12 @@ def _should_reject_solver_for_headless(engine_name: str | None, solver: Any) -> 
 
 
 def _get_cell_address(doc, address_str: str) -> CellAddress:
-    """Convert a cell address string (e.g. 'A1' or 'Sheet1.A1') to a CellAddress struct.
-
-    Args:
-        doc: The Calc document model.
-        address_str: The address string.
-
-    Returns:
-        com.sun.star.table.CellAddress struct.
-    """
+    """Convert a cell address string (e.g. 'A1' or 'Sheet1.A1') to a CellAddress struct."""
     if not UNO_AVAILABLE:
         raise RuntimeError("UNO not available")
+    return resolve_cell_address(doc, address_str)
 
-    from plugin.calc.address_utils import split_sheet_prefix
 
-    sheet_part, cell_part = split_sheet_prefix(address_str)
-    col, row = parse_address(cell_part)
-
-    sheets = doc.getSheets()
-    if sheet_part:
-        if not sheets.hasByName(sheet_part):
-            raise UnoObjectError(f"No sheet found named '{sheet_part}'.")
-        sheet = sheets.getByName(sheet_part)
-    else:
-        # Fallback to active sheet
-        controller = doc.getCurrentController()
-        if hasattr(controller, "getActiveSheet"):
-            sheet = controller.getActiveSheet()
-        else:
-            sheet = sheets.getByIndex(0)
-
-    # Get sheet index. Sheet objects have a RangeAddress property which includes the sheet index.
-    # Or we can get it via the index in the sheets collection if we search for it.
-    # Actually, XCell has getCellAddress() if we fetch the cell first.
-    cell = sheet.getCellByPosition(col, row)
-    return cell.getCellAddress()
 
 
 class GoalSeekTool(ToolCalcAnalysisBase):

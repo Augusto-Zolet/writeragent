@@ -17,3 +17,12 @@ def test_error_detector_data():
     for code, info in ERROR_TYPES.items():
         assert "name" in info
         assert "description" in info
+
+
+def test_get_calc_error_name():
+    from plugin.calc.error_detector import get_calc_error_name
+
+    assert get_calc_error_name(501) == "Invalid character"
+    assert get_calc_error_name(532) == "#DIV/0!"
+    assert get_calc_error_name(9999) == "Unknown error (9999)"
+

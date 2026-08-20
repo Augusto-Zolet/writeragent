@@ -25,20 +25,26 @@
 from __future__ import annotations
 
 import logging
-import uno
 from typing import Any
+import uno
 
-from plugin.calc.sheet_filter_criteria import FILTER_OPERATOR2_LABELS, filter_operator2_code_to_name, parse_sheet_filter_criterion
-from plugin.framework.errors import ToolExecutionError, UnoObjectError
 from plugin.calc.base import ToolCalcSheetBase
 from plugin.calc.bridge import CalcBridge
+from plugin.calc.calc_utils import query_interface as _query_interface
+from plugin.calc.sheet_filter_criteria import (
+    FILTER_OPERATOR2_LABELS,
+    filter_operator2_code_to_name,
+    parse_sheet_filter_criterion,
+)
+from plugin.framework.errors import ToolExecutionError, UnoObjectError
 
-logger = logging.getLogger("writeragent.calc")
+log = logging.getLogger("writeragent.calc")
 
 
-def _query_interface(obj: Any, typename: str) -> Any:
 
-    return obj.queryInterface(uno.getTypeByName(typename))
+
+
+
 
 
 def _field_to_dict(ff: Any, idx: int, uno_mod: Any) -> dict[str, Any]:
@@ -171,12 +177,12 @@ class ApplySheetFilter(ToolCalcSheetBase):
             fd2.setFilterFields2(fields)
             xf.filter(fd)
 
-            logger.info("Sheet filter applied on %s (%d conditions).", range_name.upper(), len(fields))
+            log.info("Sheet filter applied on %s (%d conditions).", range_name.upper(), len(fields))
             return {"status": "ok", "range": range_name, "criteria_count": len(fields)}
         except UnoObjectError:
             raise
         except Exception as e:
-            logger.error("apply_sheet_filter: %s", e)
+            log.error("apply_sheet_filter: %s", e)
             raise ToolExecutionError(str(e)) from e
 
 
@@ -210,12 +216,12 @@ class ClearSheetFilter(ToolCalcSheetBase):
             fd2.setFilterFields2(())
             xf.filter(fd)
 
-            logger.info("Sheet filter cleared on %s.", range_name.upper())
+            log.info("Sheet filter cleared on %s.", range_name.upper())
             return {"status": "ok", "range": range_name, "cleared": True}
         except UnoObjectError:
             raise
         except Exception as e:
-            logger.error("clear_sheet_filter: %s", e)
+            log.error("clear_sheet_filter: %s", e)
             raise ToolExecutionError(str(e)) from e
 
 
@@ -256,5 +262,5 @@ class GetSheetFilter(ToolCalcSheetBase):
         except UnoObjectError:
             raise
         except Exception as e:
-            logger.error("get_sheet_filter: %s", e)
+            log.error("get_sheet_filter: %s", e)
             raise ToolExecutionError(str(e)) from e

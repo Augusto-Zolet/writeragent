@@ -11,7 +11,8 @@ from plugin.calc.base import ToolCalcSearchBase
 from plugin.calc.calc_utils import resolve_sheet
 from plugin.calc.spreadsheet_search import search_spreadsheet_cells
 
-log = logging.getLogger("nelson.calc")
+log = logging.getLogger("writeragent.calc")
+
 
 
 class SearchInSpreadsheet(ToolCalcSearchBase):

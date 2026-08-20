@@ -75,3 +75,108 @@ class TestGetCellGeometry:
         target = get_cell_geometry_target(sheet, cell)
 
         assert target is cell
+
+
+class TestSheetAndCellResolution:
+    """Tests for resolve_sheet, query_interface, resolve_sheet_and_cell, and resolve_cell_address."""
+
+    def test_query_interface_none_object(self):
+        from plugin.calc.calc_utils import query_interface
+
+        assert query_interface(None, "com.sun.star.sheet.XSheetCondition") is None
+
+    def test_query_interface_object_without_method(self):
+        from plugin.calc.calc_utils import query_interface
+
+        obj = object()
+        assert query_interface(obj, "com.sun.star.sheet.XSheetCondition") is None
+
+    def test_resolve_sheet_by_name_success(self):
+        from plugin.calc.calc_utils import resolve_sheet
+
+        mock_sheet = MagicMock()
+        mock_sheets = MagicMock()
+        mock_sheets.hasByName.return_value = True
+        mock_sheets.getByName.return_value = mock_sheet
+
+        doc = MagicMock()
+        doc.getSheets.return_value = mock_sheets
+
+        assert resolve_sheet(doc, "Sheet2") is mock_sheet
+        mock_sheets.getByName.assert_called_once_with("Sheet2")
+
+    def test_resolve_sheet_by_name_not_found(self):
+        import pytest
+        from plugin.calc.calc_utils import resolve_sheet
+        from plugin.framework.errors import UnoObjectError
+
+        mock_sheets = MagicMock()
+        mock_sheets.hasByName.return_value = False
+
+        doc = MagicMock()
+        doc.getSheets.return_value = mock_sheets
+
+        with pytest.raises(UnoObjectError, match="Sheet not found"):
+            resolve_sheet(doc, "NonExistent")
+
+    def test_resolve_sheet_and_cell_valid(self):
+        from plugin.calc.calc_utils import resolve_sheet_and_cell
+
+        mock_sheet = MagicMock()
+        doc = MagicMock()
+        controller = MagicMock()
+        controller.getActiveSheet.return_value = mock_sheet
+        doc.getCurrentController.return_value = controller
+
+        resolved = resolve_sheet_and_cell(doc, "B5")
+        assert resolved == (mock_sheet, 1, 4)
+
+    def test_resolve_sheet_and_cell_with_prefix(self):
+        from plugin.calc.calc_utils import resolve_sheet_and_cell
+
+        mock_sheet = MagicMock()
+        mock_sheets = MagicMock()
+        mock_sheets.hasByName.return_value = True
+        mock_sheets.getByName.return_value = mock_sheet
+
+        doc = MagicMock()
+        doc.getSheets.return_value = mock_sheets
+
+        resolved = resolve_sheet_and_cell(doc, "Data.C10")
+        assert resolved == (mock_sheet, 2, 9)
+
+    def test_resolve_sheet_and_cell_invalid_address(self):
+        from plugin.calc.calc_utils import resolve_sheet_and_cell
+
+        doc = MagicMock()
+        assert resolve_sheet_and_cell(doc, "") is None
+        assert resolve_sheet_and_cell(doc, "InvalidAddress") is None
+        assert resolve_sheet_and_cell(None, "A1") is None
+
+    def test_resolve_cell_address_valid(self):
+        from plugin.calc.calc_utils import resolve_cell_address
+
+        mock_cell = MagicMock()
+        mock_cell_addr = MagicMock()
+        mock_cell.getCellAddress.return_value = mock_cell_addr
+
+        mock_sheet = MagicMock()
+        mock_sheet.getCellByPosition.return_value = mock_cell
+
+        doc = MagicMock()
+        controller = MagicMock()
+        controller.getActiveSheet.return_value = mock_sheet
+        doc.getCurrentController.return_value = controller
+
+        assert resolve_cell_address(doc, "A1") is mock_cell_addr
+        mock_sheet.getCellByPosition.assert_called_once_with(0, 0)
+
+    def test_resolve_cell_address_invalid_raises(self):
+        import pytest
+        from plugin.calc.calc_utils import resolve_cell_address
+        from plugin.framework.errors import UnoObjectError
+
+        doc = MagicMock()
+        with pytest.raises(UnoObjectError, match="Cannot resolve cell address"):
+            resolve_cell_address(doc, "BadRef")
+

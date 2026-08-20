@@ -153,10 +153,10 @@ def test_apply_document_content_edited_context_on_success():
     ctx.services.get.return_value = MagicMock()
     anchor = MagicMock()
     with patch("plugin.writer.search.find_first_range", return_value=found), \
-         patch("plugin.writer.content._collapsed_anchor", return_value=anchor), \
-         patch("plugin.writer.content._attach_edited_context", side_effect=lambda r, a: {**r, "edited_context": "echo"}), \
+         patch("plugin.writer.content.collapsed_anchor", return_value=anchor), \
+         patch("plugin.writer.content.attach_edited_context", side_effect=lambda r, a: {**r, "edited_context": "echo"}), \
          patch.object(format_support, "content_has_markup", return_value=False), \
-         patch("plugin.writer.content._record_preserve_replace"):
+         patch("plugin.writer.content.record_preserve_replace"):
         res = ApplyDocumentContent().execute(
             ctx, content="new", target="search", old_content="old")
     assert res["status"] == "ok" and res.get("edited_context") == "echo"

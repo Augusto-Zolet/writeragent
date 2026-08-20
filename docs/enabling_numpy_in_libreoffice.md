@@ -244,9 +244,8 @@ Off by default. In [`plugin/calc/python/function.py`](../plugin/calc/python/func
 
 | Field | Meaning |
 |-------|---------|
-| `ipc_ms` | Time waiting on the venv worker (the calculation + pickle) |
+| `ipc_ms` | Time waiting on the venv worker (calculation + pickle). First cell after LO start includes spawn + prime. |
 | `total_ms` | This add-in call, host entry through return |
-| `warm_ms` | Spawn + prime on **this** call (`0` if the worker was already warm) |
 | `pack_ms` / `image_ms` | Range pack; plot insert + formula locator |
 | `cached` | `1` if the matrix result session skipped a worker round-trip |
 | `pass_wall_ms` | Wall from the first add-in in this recalc clump through this call |

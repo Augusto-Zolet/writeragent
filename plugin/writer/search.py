@@ -22,7 +22,6 @@ from typing import Any, Literal, overload
 
 from plugin.doc.text_helpers import get_string_without_tracked_deletions, normalize_linebreaks
 from plugin.framework.tool import ToolBase, ToolBaseDummy
-from . import format as format_support
 
 
 log = logging.getLogger("writeragent.writer")
@@ -135,6 +134,50 @@ def build_search_not_found_response(
         "message": "old_content not found in document. Try a shorter, unique substring.",
         "replaced_count": 0,
     }
+
+
+def find_text_ranges(model, ctx, search, start=0, limit=None, case_sensitive=True):
+    """Find occurrences of *search*, returning a list of
+    ``{"start": int, "end": int, "text": str}`` dicts.
+
+    FOLLOW-UP: seeds ``findNext`` from body text but measures each hit with
+    ``found.getText()``; ``start``/``end`` are offsets within that nested text
+    object, not guaranteed global document indices (tables, frames, etc.).
+    """
+    try:
+        sd = model.createSearchDescriptor()
+        sd.SearchString = search
+        sd.SearchRegularExpression = False
+        sd.SearchCaseSensitive = case_sensitive
+
+        text = model.getText()
+        cursor = text.createTextCursor()
+        cursor.gotoStart(False)
+        if start > 0:
+            _GO_RIGHT_CHUNK = 8192
+            remaining = start
+            while remaining > 0:
+                n = min(remaining, _GO_RIGHT_CHUNK)
+                cursor.goRight(n, False)
+                remaining -= n
+
+        matches = []
+        found = model.findNext(cursor, sd)
+        while found:
+            measure = found.getText().createTextCursor()
+            measure.gotoStart(False)
+            measure.gotoRange(found.getStart(), True)
+            m_start = len(measure.getString())
+            matched_text = found.getString()
+            m_end = m_start + len(matched_text)
+            matches.append({"start": m_start, "end": m_end, "text": matched_text})
+            if limit and len(matches) >= limit:
+                break
+            found = model.findNext(found.getEnd(), sd)
+        return matches
+    except Exception:
+        log.exception("find_text_ranges failed")
+        return []
 
 
 def _search_try_strings(search_string):
@@ -696,7 +739,7 @@ class SearchInDocument(ToolBase):
                 "return_offsets does not support regex=true; use regex=false or omit return_offsets.",
                 code="INVALID_PARAM")
         if return_offsets:
-            ranges = format_support.find_text_ranges(
+            ranges = find_text_ranges(
                 ctx.doc, ctx.ctx, pattern, start=0, limit=max_results, case_sensitive=case_sensitive)
             return {"status": "ok", "ranges": ranges}
 

@@ -123,7 +123,7 @@ def test_position_after_inserts_at_match_edge_without_replacing():
     ctx.doc.getUndoManager.return_value.isLocked.return_value = False
 
     with patch("plugin.writer.search.find_first_range", return_value=found), \
-         patch("plugin.writer.content._collapsed_anchor", return_value=None), \
+         patch("plugin.writer.content.collapsed_anchor", return_value=None), \
          patch.object(format_support, "html_fragment_contains_mixed_math", return_value=False), \
          patch.object(format_support, "insert_html_at_cursor") as ins:
         res = ApplyDocumentContent().execute(
@@ -149,7 +149,7 @@ def test_position_before_inserts_at_match_start():
     ctx = MagicMock()
     ctx.doc.getUndoManager.return_value.isLocked.return_value = False
     with patch("plugin.writer.search.find_first_range", return_value=found), \
-         patch("plugin.writer.content._collapsed_anchor", return_value=None), \
+         patch("plugin.writer.content.collapsed_anchor", return_value=None), \
          patch.object(format_support, "html_fragment_contains_mixed_math", return_value=False), \
          patch.object(format_support, "insert_html_at_cursor") as ins:
         res = ApplyDocumentContent().execute(

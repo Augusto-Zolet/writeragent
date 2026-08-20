@@ -28,21 +28,16 @@
 from __future__ import annotations
 
 import logging
-import uno
 from typing import Any
 
 from plugin.framework.errors import ToolExecutionError, UnoObjectError
 from plugin.calc.address_utils import parse_address, parse_range_string
 from plugin.calc.base import ToolCalcPivotBase
 from plugin.calc.bridge import CalcBridge
+from plugin.calc.calc_utils import query_interface as _query_interface
 
-logger = logging.getLogger("writeragent.calc")
+log = logging.getLogger("writeragent.calc")
 
-
-def _query_interface(obj: Any, typename: str) -> Any:
-    """PyUNO requires ``uno.getTypeByName`` for ``queryInterface``; imported IDL classes fail."""
-
-    return obj.queryInterface(uno.getTypeByName(typename))
 
 
 def _sheet_index_by_name(doc, name: str) -> int:
@@ -234,7 +229,7 @@ class CreatePivotTable(ToolCalcPivotBase):
         except (ToolExecutionError, UnoObjectError):
             raise
         except Exception as e:
-            logger.exception("create_pivot_table")
+            log.exception("create_pivot_table")
             raise ToolExecutionError(str(e)) from e
 
 
@@ -278,7 +273,7 @@ class RefreshPivotTable(ToolCalcPivotBase):
         except (ToolExecutionError, UnoObjectError):
             raise
         except Exception as e:
-            logger.exception("refresh_pivot_table")
+            log.exception("refresh_pivot_table")
             raise ToolExecutionError(str(e)) from e
 
 
@@ -319,12 +314,12 @@ class ListPivotTables(ToolCalcPivotBase):
                             entry["output_sheet_index"] = ora.Sheet
                             entry["output_range"] = CalcBridge._range_to_str(ora)
                     except Exception as e:
-                        logger.debug("list_pivot_tables extra info: %s", e)
+                        log.debug("list_pivot_tables extra info: %s", e)
                     out.append(entry)
 
             return {"status": "ok", "pivot_tables": out, "count": len(out)}
         except (ToolExecutionError, UnoObjectError):
             raise
         except Exception as e:
-            logger.exception("list_pivot_tables")
+            log.exception("list_pivot_tables")
             raise ToolExecutionError(str(e)) from e

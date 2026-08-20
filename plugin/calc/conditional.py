@@ -25,6 +25,7 @@ from typing import Any
 from plugin.framework.errors import ToolExecutionError, UnoObjectError
 from plugin.calc.base import ToolCalcConditionalBase
 from plugin.calc.bridge import CalcBridge
+from plugin.calc.calc_utils import query_interface as _query_interface
 
 logger = logging.getLogger("writeragent.calc")
 
@@ -39,11 +40,6 @@ def condition_operator_code_to_name(code: int) -> str:
     return str(int(code))
 
 
-def _query_interface(obj: Any, typename: str) -> Any:
-    """PyUNO requires ``uno.getTypeByName`` for ``queryInterface``; imported IDL classes fail."""
-    import uno
-
-    return obj.queryInterface(uno.getTypeByName(typename))
 
 
 def _entry_to_dict(entry: Any, idx: int) -> dict[str, Any]:

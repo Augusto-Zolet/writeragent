@@ -11,8 +11,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from plugin.calc.address_utils import index_to_column, parse_address, split_sheet_prefix
-from plugin.framework.deal_shim import deal
+from plugin.calc.address_utils import format_address
+from plugin.calc.calc_utils import resolve_sheet_and_cell as _resolve_sheet_and_cell
+from plugin.calc.inspector import CellInspector
 from plugin.framework.errors import safe_json_loads
 
 log = logging.getLogger("writeragent.calc")
@@ -20,46 +21,15 @@ log = logging.getLogger("writeragent.calc")
 _FORMULA_DEP_CHAIN_CMD = ".uno:FormulaDepChain"
 
 
-@deal.post(lambda result: result is None or (isinstance(result, tuple) and len(result) == 3))
-def _resolve_sheet_and_cell(doc, address: str) -> tuple[Any, int, int] | None:
-    text = (address or "").strip()
-    sheet_name, cell_part = split_sheet_prefix(text)
-    try:
-        col, row = parse_address(cell_part)
-    except ValueError:
-        return None
-    if doc is None:
-        return None
-
-    controller = doc.getCurrentController()
-    if sheet_name:
-        sheets = doc.getSheets()
-        if not sheets.hasByName(sheet_name):
-            return None
-        sheet = sheets.getByName(sheet_name)
-    elif controller is not None:
-        sheet = controller.getActiveSheet()
-    else:
-        sheets = doc.getSheets()
-        sheet = sheets.getByIndex(0) if sheets.getCount() else None
-    if sheet is None:
-        return None
-    return sheet, col, row
-
-
 def _cell_snapshot(sheet, col: int, row: int) -> dict[str, Any]:
     cell = sheet.getCellByPosition(col, row)
     from com.sun.star.table import CellContentType
 
     ctype = cell.getType()
-    type_name = {
-        CellContentType.EMPTY: "empty",
-        CellContentType.VALUE: "value",
-        CellContentType.TEXT: "text",
-        CellContentType.FORMULA: "formula",
-    }.get(ctype, "unknown")
-    addr = f"{index_to_column(col)}{row + 1}"
+    type_name = CellInspector._cell_type_name(ctype)
+    addr = format_address(col, row)
     snapshot: dict[str, Any] = {"address": addr, "type": type_name}
+
     try:
         err = cell.getError()
         if err:

@@ -8,20 +8,20 @@
 import logging
 
 from plugin.calc.base import ToolCalcCommentBase
-from plugin.calc.address_utils import index_to_column, parse_range_string, split_sheet_prefix
+from plugin.calc.address_utils import format_address, parse_address, split_sheet_prefix
 from plugin.calc.calc_utils import resolve_sheet
 
-log = logging.getLogger("nelson.calc")
+log = logging.getLogger("writeragent.calc")
 
 
-def _cell_label(col, row):
-    return "%s%d" % (index_to_column(col), row + 1)
+def _cell_label(col: int, row: int) -> str:
+    return format_address(col, row)
 
 
-def _parse_cell_ref(cell_ref):
+def _parse_cell_ref(cell_ref: str) -> tuple[int, int]:
     """Parse 'B3' into (col, row) 0-based tuple."""
-    (col, row), _unused = parse_range_string(cell_ref)
-    return col, row
+    return parse_address(cell_ref)
+
 
 
 def _split_cell_sheet(cell_ref, sheet_name):

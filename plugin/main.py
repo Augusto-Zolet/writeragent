@@ -166,12 +166,10 @@ def bootstrap(ctx=None):
         # 3. Core Services (Framework)
         from plugin.framework.config_service import ConfigService
         from plugin.doc.document_helpers import DocumentService
-        from plugin.writer.format import FormatService
         from plugin.framework.event_bus import get_event_bus
 
         _services.register("config", ConfigService())
         _services.register("document", DocumentService())
-        _services.register("format", FormatService())
         _services.register("events", get_event_bus())
 
         # 4. Tool Registry

@@ -44,16 +44,13 @@ class ListSheets(ToolCalcSheetBase):
         bridge = CalcBridge(ctx.doc)
         try:
             doc = bridge.get_active_document()
-            sheets = doc.getSheets()
-            sheet_names = []
-            for i in range(sheets.getCount()):
-                sheet = sheets.getByIndex(i)
-                sheet_names.append(sheet.getName())
+            sheet_names = list(doc.getSheets().getElementNames())
             logger.info("Sheets listed: %s", sheet_names)
             return {"status": "ok", "result": sheet_names}
         except Exception as e:
             logger.error("Sheet listing error: %s", str(e))
             raise ToolExecutionError(str(e)) from e
+
 
 
 class SwitchSheet(ToolCalcSheetBase):

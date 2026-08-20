@@ -13,11 +13,11 @@ from typing import Any
 
 
 def _cell_address_str(cell: Any) -> str:
-    from plugin.calc.address_utils import index_to_column
+    from plugin.calc.address_utils import format_address
 
-    col = cell.getCellAddress().Column
-    row = cell.getCellAddress().Row
-    return "%s%d" % (index_to_column(col), row + 1)
+    addr = cell.getCellAddress()
+    return format_address(addr.Column, addr.Row)
+
 
 
 def search_spreadsheet_cells(
