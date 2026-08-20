@@ -93,6 +93,7 @@ def test_helper_names_cover_templates():
 
 
 def test_portfolio_tearsheet_portfolio_returns_grid():
+    pytest.importorskip("quantstats")
     grid = [
         ["AAPL", "MSFT", "GOOG"],
         [0.01, 0.008, 0.012],
@@ -115,6 +116,7 @@ def test_portfolio_tearsheet_portfolio_returns_grid():
 
 
 def test_portfolio_tearsheet_with_date_column_and_single_column_param():
+    pytest.importorskip("quantstats")
     grid = [
         ["Date", "AAPL", "MSFT"],
         ["2024-01-01", 0.01, 0.02],
@@ -127,6 +129,7 @@ def test_portfolio_tearsheet_with_date_column_and_single_column_param():
 
 
 def test_portfolio_tearsheet_invalid_data():
+    pytest.importorskip("quantstats")
     grid = [
         ["HeaderA", "HeaderB"],
         ["text1", "text2"],
