@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-17 16:44-0400\n"
+"POT-Creation-Date: 2026-08-19 22:46-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Urdu <LL@li.org>\n"
@@ -244,6 +244,29 @@ msgstr "سرور کی خرابی ({0})۔ AI فراہم کنندہ کو مسائ�
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "HTTP خرابی {0}: {1}"
+
+#: plugin/framework/errors.py
+msgid ""
+"Python venv not found. Open Settings → Python, set the venv path, then Test."
+msgstr ""
+"Python venv نہیں ملا۔ ترتیبات (Settings) → Python کھولیں، venv کا راستہ سیٹ "
+"کریں، پھر ٹیسٹ کریں۔"
+
+#: plugin/framework/errors.py
+msgid ""
+"Python execution timed out. Open Settings → Python to raise the timeout."
+msgstr ""
+"Python کے عمل کا وقت ختم ہو گیا۔ ٹائم آؤٹ بڑھانے کے لیے ترتیبات (Settings) →"
+" Python کھولیں۔"
+
+#: plugin/framework/errors.py
+msgid "Formula spill collision: destination range contains non-empty cells."
+msgstr "فارمولا اسپل تصادم: منزل کی حد میں غیر خالی خلیات موجود ہیں۔"
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "Script execution blocked by sandbox policy: {0}"
+msgstr "اسکرپٹ کا عمل سینڈ باکس پالیسی کی وجہ سے مسدود ہے: {0}"
 
 #: plugin/framework/errors.py
 msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
@@ -998,7 +1021,7 @@ msgstr "اس دستاویز کے ساتھ منسلک کریں"
 msgid "Script name cannot be empty."
 msgstr "اسکرپٹ کا نام خالی نہیں ہو سکتا۔"
 
-#: plugin/chatbot/dialogs.py
+#: plugin/chatbot/dialogs.py plugin/mcp/__init__.py
 msgid "Copied!"
 msgstr "کاپی ہو گیا!"
 
@@ -1345,6 +1368,18 @@ msgstr "آڈیو لائبریری ڈاؤن لوڈ"
 #: plugin/chatbot/dialog_views.py
 msgid "✓ Copied!"
 msgstr "✓ کاپی ہو گیا!"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing…"
+msgstr "ٹیسٹ کیا جا رہا ہے…"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Test Tunnel"
+msgstr "ٹیسٹ ٹنل"
+
+#: plugin/chatbot/dialog_views.py
+msgid "MCP Tunnel Test"
+msgstr "MCP ٹنل ٹیسٹ"
 
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
@@ -2289,6 +2324,15 @@ msgstr "{0} کے ذریعے عوامی ٹنل (کوئی تصدیق نہیں)"
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
+msgid "Public tunnel via {0}: {1}"
+msgstr "{0} کے ذریعے عوامی ٹنل: {1}"
+
+#: plugin/mcp/__init__.py
+msgid "reconnecting…"
+msgstr "دوبارہ منسلک ہو رہا ہے…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
 msgid "Public tunnel via {0} failed: {1}"
 msgstr "{0} کے ذریعے عوامی ٹنل ناکام ہو گئی: {1}"
 
@@ -2337,8 +2381,145 @@ msgstr "روٹس: {0}"
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
-msgid "URL: {0}"
-msgstr "URL: {0}"
+msgid "Local URL: {0}"
+msgstr "مقامی URL: {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public URL: {0}"
+msgstr "عوامی یو آر ایل: {0}"
+
+#: plugin/mcp/__init__.py plugin/xdl_strings.py
+msgid "Local Endpoint:"
+msgstr "مقامی اینڈ پوائنٹ:"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public Tunnel ({0}):"
+msgstr "عوامی ٹنل ({0}):"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Active (connected)"
+msgstr "حیثیت: فعال (مربوط)"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Reconnecting — {0}"
+msgstr "حیثیت: دوبارہ مربوط ہو رہا ہے — {0}"
+
+#: plugin/mcp/__init__.py
+msgid "retrying…"
+msgstr "دوبارہ کوشش کی جا رہی ہے..."
+
+#: plugin/mcp/__init__.py
+msgid "Status: Starting tunnel…"
+msgstr "حیثیت: ٹنل شروع ہو رہی ہے..."
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Failed — {0}"
+msgstr "حیثیت: ناکام — {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Not running (is {0} binary installed?)"
+msgstr "حیثیت: نہیں چل رہا (کیا {0} بائنری انسٹال ہے؟)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Tunnel test mode: {0} provider simulated successfully."
+msgstr ""
+"ٹنل ٹیسٹ موڈ: {0} فراہم کنندہ کامیابی کے ساتھ نقلی (simulated) کیا گیا۔"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Unknown tunnel provider: {0}"
+msgstr "نامعلوم ٹنل فراہم کنندہ: {0}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"Binary '{0}' for {1} not found on PATH.\n"
+"\n"
+"Install from: {2}"
+msgstr ""
+"PATH پر {1} کے لیے بائنری '{0}' نہیں ملی۔\n"
+"\n"
+"یہاں سے انسٹال کریں: {2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Failed to execute {0} binary ({1}): {2}"
+msgstr "{0} بائنری ({1}) کو چلانے میں ناکامی: {2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is running and responsive!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"Health check: OK (200)"
+msgstr ""
+"{0} ٹنل چل رہی ہے اور جواب دے رہی ہے!\n"
+"\n"
+"عوامی اینڈ پوائنٹ:\n"
+"{1}\n"
+"\n"
+"ہیلتھ چیک: ٹھیک ہے (200)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is active!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"(Public URL acquired from active tunnel session.)"
+msgstr ""
+"{0} ٹنل فعال ہے!\n"
+"\n"
+"عوامی اینڈ پوائنٹ:\n"
+"{1}\n"
+"\n"
+"(عوامی URL فعال ٹنل سیشن سے حاصل کیا گیا ہے۔)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is verified ({2}).\n"
+"\n"
+"(Note: An active {3} tunnel is currently running at {4}.)"
+msgstr ""
+"{0} بائنری '{1}' کی تصدیق ہو گئی ہے ({2})۔\n"
+"\n"
+"(نوٹ: ایک فعال {3} ٹنل فی الحال {4} پر چل رہی ہے۔)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"MCP server is running locally on port {3}.\n"
+"Check 'Expose via public tunnel' and click OK to activate public routing."
+msgstr ""
+"{0} بائنری '{1}' انسٹال اور تصدیق شدہ ہے ({2})۔\n"
+"\n"
+"MCP سرور مقامی طور پر پورٹ {3} پر چل رہا ہے۔\n"
+"'عوامی ٹنل کے ذریعے ظاہر کریں' کو چیک کریں اور فعال کرنے کے لیے OK پر کلک کریں۔"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"Note: MCP server is not currently running on port {3}."
+msgstr ""
+"{0} بائنری '{1}' انسٹال اور تصدیق شدہ ہے ({2})۔\n"
+"\n"
+"نوٹ: MCP سرور فی الحال پورٹ {3} پر نہیں چل رہا ہے۔"
 
 #: plugin/main.py
 #, python-brace-format
@@ -2362,7 +2543,7 @@ msgstr "انتخاب میں ترمیم کریں"
 msgid "Toggle MCP Server"
 msgstr "MCP سرور کو ٹوگل کریں"
 
-#: plugin/main.py
+#: plugin/main.py plugin/xdl_strings.py
 msgid "MCP Server Status"
 msgstr "MCP سرور کی حیثیت"
 
@@ -2652,6 +2833,10 @@ msgid "Preserve number formats"
 msgstr "نمبر فارمیٹس کو برقرار رکھیں"
 
 #: plugin/xdl_strings.py
+msgid "Public Tunnel:"
+msgstr "عوامی ٹنل:"
+
+#: plugin/xdl_strings.py
 msgid "Python Settings…"
 msgstr "Python ترتیبات…"
 
@@ -2722,10 +2907,6 @@ msgstr "انتخاب"
 #: plugin/xdl_strings.py
 msgid "Sentiment"
 msgstr "جذبات"
-
-#: plugin/xdl_strings.py
-msgid "Server Status"
-msgstr "سرور کی حیثیت"
 
 #: plugin/xdl_strings.py
 msgid "Square"
@@ -3203,8 +3384,8 @@ msgstr ""
 "Ngrok authtoken؛ Cloudflare ٹنل ٹوکن؛ Bore سرور یا 'سرور سیکرٹ'۔ خالی = "
 "فراہم کنندہ کی ڈیفالٹ / CLI ترتیب۔ Tailscale کے لیے غیر استعمال شدہ۔"
 
-msgid "Suggested client config (copy into Claude Desktop / Cursor):"
-msgstr "تجویز کردہ کلائنٹ کنفیگریشن (Claude Desktop / Cursor میں کاپی کریں):"
+msgid "Client config (copy into Claude / Hermes-Agent):"
+msgstr "کلائنٹ کنفیگریشن (Claude / Hermes-Agent میں کاپی کریں):"
 
 msgid "Python"
 msgstr "Python"
@@ -3279,33 +3460,6 @@ msgid ""
 msgstr ""
 "سیل میں Python ترمیم محفوظ کرنے پر، جامد xl(\"A1:…\") کو =PY ڈیٹا آرگومنٹس "
 "پر لائیں اور اسے data / data[i] / .to_pandas() میں دوبارہ لکھیں۔"
-
-msgid "Convert Date/Time and Timedelta Strings"
-msgstr "تاریخ/وقت اور ٹائم ڈیلٹا سٹرنگز کو تبدیل کریں"
-
-msgid ""
-"Automatically detect and convert date/time and duration strings to "
-"datetime/timedelta objects when sending data to the Python worker. Requires "
-"the 'pandas' and 'dateparser' packages in your venv."
-msgstr ""
-"Python ورکر کو ڈیٹا بھیجتے وقت تاریخ/وقت اور دورانیے کی سٹرنگز کو خود بخود "
-"شناخت کر کے datetime/timedelta آبجیکٹس میں تبدیل کریں۔ آپ کے venv میں "
-"'pandas' اور 'dateparser' پیکجز درکار ہیں۔"
-
-msgid "PPT-Master data path"
-msgstr "PPT-Master ڈیٹا کا راستہ"
-
-msgid ""
-"Path to the ppt-master skill tree (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Clone hugohe3/ppt-master on GitHub and point here at "
-"the clone root (.../ppt-master) or the inner skill dir (.../ppt-"
-"master/skills/ppt-master). Leave empty to auto-detect (dev clone beside "
-"repo, then env)."
-msgstr ""
-"ppt-master اسکل ٹری کا راستہ (SKILL.md, templates/, scripts/svg_to_pptx/)۔ "
-"GitHub پر hugohe3/ppt-master کو کلون کریں اور یہاں کلون روٹ (.../ppt-master)"
-" یا اندرونی اسکل ڈائریکٹری (.../ppt-master/skills/ppt-master) کی نشاندہی "
-"کریں۔ خودکار شناخت کے لیے خالی چھوڑ دیں (ریپو کے ساتھ dev کلون، پھر env)۔"
 
 msgid "Vision / OCR"
 msgstr "ویژن / OCR"

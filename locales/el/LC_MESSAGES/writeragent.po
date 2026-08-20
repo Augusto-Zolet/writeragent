@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-17 16:44-0400\n"
+"POT-Creation-Date: 2026-08-19 22:46-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Greek <LL@li.org>\n"
@@ -248,6 +248,31 @@ msgstr "Σφάλμα διακομιστή ({0}). Ο πάροχος AI αντιμ
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "Σφάλμα HTTP {0}: {1}"
+
+#: plugin/framework/errors.py
+msgid ""
+"Python venv not found. Open Settings → Python, set the venv path, then Test."
+msgstr ""
+"Το Python venv δεν βρέθηκε. Ανοίξτε τις Ρυθμίσεις → Python, ορίστε τη "
+"διαδρομή venv και μετά κάντε Δοκιμή."
+
+#: plugin/framework/errors.py
+msgid ""
+"Python execution timed out. Open Settings → Python to raise the timeout."
+msgstr ""
+"Η εκτέλεση της Python έληξε χρονικά. Ανοίξτε τις Ρυθμίσεις → Python για να "
+"αυξήσετε το χρονικό όριο."
+
+#: plugin/framework/errors.py
+msgid "Formula spill collision: destination range contains non-empty cells."
+msgstr ""
+"Σύγκρουση υπερχείλισης τύπου: η περιοχή προορισμού περιέχει μη κενά κελιά."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "Script execution blocked by sandbox policy: {0}"
+msgstr ""
+"Η εκτέλεση δέσμης ενεργειών αποκλείστηκε από την πολιτική sandbox: {0}"
 
 #: plugin/framework/errors.py
 msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
@@ -1016,7 +1041,7 @@ msgstr "Επισύναψη σε αυτό το έγγραφο"
 msgid "Script name cannot be empty."
 msgstr "Το όνομα του σεναρίου δεν μπορεί να είναι κενό."
 
-#: plugin/chatbot/dialogs.py
+#: plugin/chatbot/dialogs.py plugin/mcp/__init__.py
 msgid "Copied!"
 msgstr "Αντιγράφηκε!"
 
@@ -1365,6 +1390,18 @@ msgstr "Λήψη βιβλιοθήκης ήχου"
 #: plugin/chatbot/dialog_views.py
 msgid "✓ Copied!"
 msgstr "✓ Αντιγράφηκε!"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing…"
+msgstr "Δοκιμή…"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Test Tunnel"
+msgstr "Δοκιμή σήραγγας"
+
+#: plugin/chatbot/dialog_views.py
+msgid "MCP Tunnel Test"
+msgstr "Δοκιμή σήραγγας MCP"
 
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
@@ -2331,6 +2368,15 @@ msgstr "Δημόσιο τούνελ μέσω {0} (χωρίς πιστοποίη�
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
+msgid "Public tunnel via {0}: {1}"
+msgstr "Δημόσια σήραγγα μέσω {0}: {1}"
+
+#: plugin/mcp/__init__.py
+msgid "reconnecting…"
+msgstr "επανασύνδεση…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
 msgid "Public tunnel via {0} failed: {1}"
 msgstr "Το δημόσιο τούνελ μέσω {0} απέτυχε: {1}"
 
@@ -2381,8 +2427,144 @@ msgstr "Διαδρομές: {0}"
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
-msgid "URL: {0}"
-msgstr "URL: {0}"
+msgid "Local URL: {0}"
+msgstr "Τοπική διεύθυνση URL: {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public URL: {0}"
+msgstr "Δημόσιο URL: {0}"
+
+#: plugin/mcp/__init__.py plugin/xdl_strings.py
+msgid "Local Endpoint:"
+msgstr "Τοπικό σημείο τερματισμού:"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public Tunnel ({0}):"
+msgstr "Δημόσιο τούνελ ({0}):"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Active (connected)"
+msgstr "Κατάσταση: Ενεργή (συνδεδεμένο)"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Reconnecting — {0}"
+msgstr "Κατάσταση: Επανασύνδεση — {0}"
+
+#: plugin/mcp/__init__.py
+msgid "retrying…"
+msgstr "γίνεται προσπάθεια…"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Starting tunnel…"
+msgstr "Κατάσταση: Εκκίνηση τούνελ…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Failed — {0}"
+msgstr "Κατάσταση: Αποτυχία — {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Not running (is {0} binary installed?)"
+msgstr "Κατάσταση: Δεν εκτελείται (έχει εγκατασταθεί το δυαδικό αρχείο {0};)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Tunnel test mode: {0} provider simulated successfully."
+msgstr "Λειτουργία δοκιμής τούνελ: Ο πάροχος {0} προσομοιώθηκε επιτυχώς."
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Unknown tunnel provider: {0}"
+msgstr "Άγνωστος πάροχος σήραγγας (tunnel): {0}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"Binary '{0}' for {1} not found on PATH.\n"
+"\n"
+"Install from: {2}"
+msgstr ""
+"Το δυαδικό αρχείο '{0}' για το {1} δεν βρέθηκε στη διαδρομή (PATH).\n"
+"\n"
+"Εγκαταστήστε το από: {2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Failed to execute {0} binary ({1}): {2}"
+msgstr "Αποτυχία εκτέλεσης του δυαδικού αρχείου {0} ({1}): {2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is running and responsive!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"Health check: OK (200)"
+msgstr ""
+"Η σήραγγα {0} εκτελείται και αποκρίνεται!\n"
+"\n"
+"Δημόσιο τελικό σημείο:\n"
+"{1}\n"
+"\n"
+"Έλεγχος υγείας: OK (200)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is active!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"(Public URL acquired from active tunnel session.)"
+msgstr ""
+"Η σήραγγα {0} είναι ενεργή!\n"
+"\n"
+"Δημόσιο τελικό σημείο:\n"
+"{1}\n"
+"\n"
+"(Η δημόσια διεύθυνση URL αποκτήθηκε από την ενεργή συνεδρία σήραγγας.)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is verified ({2}).\n"
+"\n"
+"(Note: An active {3} tunnel is currently running at {4}.)"
+msgstr ""
+"Το δυαδικό αρχείο {0} '{1}' επαληθεύτηκε ({2}).\n"
+"\n"
+"(Σημείωση: Μια ενεργή σήραγγα {3} εκτελείται αυτήν τη στιγμή στη διεύθυνση {4}.)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"MCP server is running locally on port {3}.\n"
+"Check 'Expose via public tunnel' and click OK to activate public routing."
+msgstr ""
+"Το δυαδικό αρχείο {0} '{1}' είναι εγκατεστημένο και επαληθευμένο ({2}).\n"
+"\n"
+"Ο διακομιστής MCP εκτελείται τοπικά στη θύρα {3}.\n"
+"Επιλέξτε 'Έκθεση μέσω δημόσιας σήραγγας' και κάντε κλικ στο OK για να ενεργοποιήσετε τη δημόσια δρομολόγηση."
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"Note: MCP server is not currently running on port {3}."
+msgstr ""
+"Το δυαδικό αρχείο {0} '{1}' είναι εγκατεστημένο και επαληθευμένο ({2}).\n"
+"\n"
+"Σημείωση: Ο διακομιστής MCP δεν εκτελείται αυτήν τη στιγμή στη θύρα {3}."
 
 #: plugin/main.py
 #, python-brace-format
@@ -2406,7 +2588,7 @@ msgstr "Επεξεργασία επιλογής"
 msgid "Toggle MCP Server"
 msgstr "Εναλλαγή διακομιστή MCP"
 
-#: plugin/main.py
+#: plugin/main.py plugin/xdl_strings.py
 msgid "MCP Server Status"
 msgstr "Κατάσταση διακομιστή MCP"
 
@@ -2699,6 +2881,10 @@ msgid "Preserve number formats"
 msgstr "Διατήρηση μορφών αριθμών"
 
 #: plugin/xdl_strings.py
+msgid "Public Tunnel:"
+msgstr "Δημόσια σήραγγα:"
+
+#: plugin/xdl_strings.py
 msgid "Python Settings…"
 msgstr "Ρυθμίσεις Python…"
 
@@ -2769,10 +2955,6 @@ msgstr "Επιλογή"
 #: plugin/xdl_strings.py
 msgid "Sentiment"
 msgstr "Συναίσθημα"
-
-#: plugin/xdl_strings.py
-msgid "Server Status"
-msgstr "Κατάσταση διακομιστή"
 
 #: plugin/xdl_strings.py
 msgid "Square"
@@ -3264,9 +3446,8 @@ msgstr ""
 "secret'. Κενό = προεπιλογή παρόχου / ρύθμιση CLI. Δεν χρησιμοποιείται για το"
 " Tailscale."
 
-msgid "Suggested client config (copy into Claude Desktop / Cursor):"
-msgstr ""
-"Προτεινόμενες ρυθμίσεις πελάτη (αντιγραφή στο Claude Desktop / Cursor):"
+msgid "Client config (copy into Claude / Hermes-Agent):"
+msgstr "Ρύθμιση πελάτη (αντιγραφή στο Claude / Hermes-Agent):"
 
 msgid "Python"
 msgstr "Python"
@@ -3344,34 +3525,6 @@ msgid ""
 msgstr ""
 "Κατά την αποθήκευση του Python in Cell, μεταφορά των στατικών xl(\"A1:…\") "
 "στα ορίσματα δεδομένων =PY και αναγραφή σε data / data[i] / .to_pandas()."
-
-msgid "Convert Date/Time and Timedelta Strings"
-msgstr "Μετατροπή συμβολοσειρών ημερομηνίας/ώρας και χρονικού διαστήματος"
-
-msgid ""
-"Automatically detect and convert date/time and duration strings to "
-"datetime/timedelta objects when sending data to the Python worker. Requires "
-"the 'pandas' and 'dateparser' packages in your venv."
-msgstr ""
-"Αυτόματος εντοπισμός και μετατροπή συμβολοσειρών ημερομηνίας/ώρας και "
-"διάρκειας σε αντικείμενα datetime/timedelta κατά την αποστολή δεδομένων στον"
-" εργάτη Python. Απαιτεί τα πακέτα 'pandas' και 'dateparser' στο venv σας."
-
-msgid "PPT-Master data path"
-msgstr "Διαδρομή δεδομένων PPT-Master"
-
-msgid ""
-"Path to the ppt-master skill tree (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Clone hugohe3/ppt-master on GitHub and point here at "
-"the clone root (.../ppt-master) or the inner skill dir (.../ppt-"
-"master/skills/ppt-master). Leave empty to auto-detect (dev clone beside "
-"repo, then env)."
-msgstr ""
-"Διαδρομή προς το δέντρο δεξιοτήτων ppt-master (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Κλωνοποιήστε το hugohe3/ppt-master στο GitHub και "
-"υποδείξτε εδώ τη ρίζα του κλώνου (.../ppt-master) ή τον εσωτερικό κατάλογο "
-"δεξιοτήτων (.../ppt-master/skills/ppt-master). Αφήστε το κενό για αυτόματη "
-"ανίχνευση (κλώνος ανάπτυξης δίπλα στο αποθετήριο, μετά env)."
 
 msgid "Vision / OCR"
 msgstr "Όραση / OCR"

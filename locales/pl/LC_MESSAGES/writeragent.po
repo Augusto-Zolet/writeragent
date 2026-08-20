@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-17 16:44-0400\n"
+"POT-Creation-Date: 2026-08-19 22:46-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Polish <LL@li.org>\n"
@@ -247,6 +247,29 @@ msgstr "Błąd serwera ({0}). Dostawca AI ma problemy."
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "Błąd HTTP {0}: {1}"
+
+#: plugin/framework/errors.py
+msgid ""
+"Python venv not found. Open Settings → Python, set the venv path, then Test."
+msgstr ""
+"Nie znaleziono venv Pythona. Otwórz Ustawienia → Python, ustaw ścieżkę venv,"
+" a następnie przetestuj."
+
+#: plugin/framework/errors.py
+msgid ""
+"Python execution timed out. Open Settings → Python to raise the timeout."
+msgstr ""
+"Przekroczono limit czasu wykonywania skryptu Python. Otwórz Ustawienia → "
+"Python, aby zwiększyć limit czasu."
+
+#: plugin/framework/errors.py
+msgid "Formula spill collision: destination range contains non-empty cells."
+msgstr "Kolizja rozlania formuły: zakres docelowy zawiera niepuste komórki."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "Script execution blocked by sandbox policy: {0}"
+msgstr "Wykonywanie skryptu zablokowane przez zasady piaskownicy: {0}"
 
 #: plugin/framework/errors.py
 msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
@@ -1006,7 +1029,7 @@ msgstr "Dołącz do tego dokumentu"
 msgid "Script name cannot be empty."
 msgstr "Nazwa skryptu nie może być pusta."
 
-#: plugin/chatbot/dialogs.py
+#: plugin/chatbot/dialogs.py plugin/mcp/__init__.py
 msgid "Copied!"
 msgstr "Skopiowano!"
 
@@ -1355,6 +1378,18 @@ msgstr "Pobieranie biblioteki audio"
 #: plugin/chatbot/dialog_views.py
 msgid "✓ Copied!"
 msgstr "✓ Skopiowano!"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing…"
+msgstr "Testowanie…"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Test Tunnel"
+msgstr "Test tunelu"
+
+#: plugin/chatbot/dialog_views.py
+msgid "MCP Tunnel Test"
+msgstr "Test tunelu MCP"
 
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
@@ -2312,6 +2347,15 @@ msgstr "Publiczny tunel przez {0} (brak autoryzacji)"
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
+msgid "Public tunnel via {0}: {1}"
+msgstr "Publiczny tunel przez {0}: {1}"
+
+#: plugin/mcp/__init__.py
+msgid "reconnecting…"
+msgstr "ponowne łączenie…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
 msgid "Public tunnel via {0} failed: {1}"
 msgstr "Publiczny tunel przez {0} nie powiódł się: {1}"
 
@@ -2362,8 +2406,144 @@ msgstr "Trasy: {0}"
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
-msgid "URL: {0}"
-msgstr "URL: {0}"
+msgid "Local URL: {0}"
+msgstr "Lokalny adres URL: {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public URL: {0}"
+msgstr "Publiczny adres URL: {0}"
+
+#: plugin/mcp/__init__.py plugin/xdl_strings.py
+msgid "Local Endpoint:"
+msgstr "Lokalny punkt końcowy:"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public Tunnel ({0}):"
+msgstr "Tunel publiczny ({0}):"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Active (connected)"
+msgstr "Status: Aktywny (połączono)"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Reconnecting — {0}"
+msgstr "Status: Ponowne łączenie — {0}"
+
+#: plugin/mcp/__init__.py
+msgid "retrying…"
+msgstr "ponawianie próby…"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Starting tunnel…"
+msgstr "Status: Uruchamianie tunelu…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Failed — {0}"
+msgstr "Status: Niepowodzenie — {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Not running (is {0} binary installed?)"
+msgstr "Status: Nie uruchomiono (czy plik binarny {0} jest zainstalowany?)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Tunnel test mode: {0} provider simulated successfully."
+msgstr "Tryb testowy tunelu: dostawca {0} został pomyślnie zasymulowany."
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Unknown tunnel provider: {0}"
+msgstr "Nieznany dostawca tunelu: {0}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"Binary '{0}' for {1} not found on PATH.\n"
+"\n"
+"Install from: {2}"
+msgstr ""
+"Nie znaleziono pliku binarnego „{0}” dla {1} w ścieżce PATH.\n"
+"\n"
+"Zainstaluj z: {2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Failed to execute {0} binary ({1}): {2}"
+msgstr "Nie udało się wykonać pliku binarnego {0} ({1}): {2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is running and responsive!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"Health check: OK (200)"
+msgstr ""
+"Tunel {0} działa i odpowiada!\n"
+"\n"
+"Publiczny punkt końcowy:\n"
+"{1}\n"
+"\n"
+"Kontrola stanu: OK (200)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is active!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"(Public URL acquired from active tunnel session.)"
+msgstr ""
+"Tunel {0} jest aktywny!\n"
+"\n"
+"Publiczny punkt końcowy:\n"
+"{1}\n"
+"\n"
+"(Publiczny adres URL uzyskany z aktywnej sesji tunelu.)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is verified ({2}).\n"
+"\n"
+"(Note: An active {3} tunnel is currently running at {4}.)"
+msgstr ""
+"Plik binarny {0} „{1}” został zweryfikowany ({2}).\n"
+"\n"
+"(Uwaga: aktywny tunel {3} jest obecnie uruchomiony pod adresem {4}.)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"MCP server is running locally on port {3}.\n"
+"Check 'Expose via public tunnel' and click OK to activate public routing."
+msgstr ""
+"Plik binarny {0} „{1}” jest zainstalowany i zweryfikowany ({2}).\n"
+"\n"
+"Serwer MCP działa lokalnie na porcie {3}.\n"
+"Zaznacz „Udostępnij przez publiczny tunel” i kliknij OK, aby aktywować routing publiczny."
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"Note: MCP server is not currently running on port {3}."
+msgstr ""
+"Plik binarny {0} „{1}” jest zainstalowany i zweryfikowany ({2}).\n"
+"\n"
+"Uwaga: serwer MCP nie działa obecnie na porcie {3}."
 
 #: plugin/main.py
 #, python-brace-format
@@ -2387,7 +2567,7 @@ msgstr "Edytuj zaznaczenie"
 msgid "Toggle MCP Server"
 msgstr "Przełącz serwer MCP"
 
-#: plugin/main.py
+#: plugin/main.py plugin/xdl_strings.py
 msgid "MCP Server Status"
 msgstr "Stan serwera MCP"
 
@@ -2679,6 +2859,10 @@ msgid "Preserve number formats"
 msgstr "Zachowaj formaty liczb"
 
 #: plugin/xdl_strings.py
+msgid "Public Tunnel:"
+msgstr "Publiczny tunel:"
+
+#: plugin/xdl_strings.py
 msgid "Python Settings…"
 msgstr "Ustawienia Pythona…"
 
@@ -2749,10 +2933,6 @@ msgstr "Zaznaczenie"
 #: plugin/xdl_strings.py
 msgid "Sentiment"
 msgstr "Sentyment"
-
-#: plugin/xdl_strings.py
-msgid "Server Status"
-msgstr "Stan serwera"
 
 #: plugin/xdl_strings.py
 msgid "Square"
@@ -3235,8 +3415,8 @@ msgstr ""
 "serwera”. Puste = domyślny dostawca / konfiguracja CLI. Nieużywane dla "
 "Tailscale."
 
-msgid "Suggested client config (copy into Claude Desktop / Cursor):"
-msgstr "Sugerowana konfiguracja klienta (skopiuj do Claude Desktop / Cursor):"
+msgid "Client config (copy into Claude / Hermes-Agent):"
+msgstr "Konfiguracja klienta (skopiuj do Claude / Hermes-Agent):"
 
 msgid "Python"
 msgstr "Python"
@@ -3314,34 +3494,6 @@ msgid ""
 msgstr ""
 "Przy zapisie edycji Python w komórce, przenieś statyczne xl(\"A1:…\") do "
 "argumentów danych =PY i przepisz na data / data[i] / .to_pandas()."
-
-msgid "Convert Date/Time and Timedelta Strings"
-msgstr "Konwertuj ciągi daty/czasu i przedziałów czasowych"
-
-msgid ""
-"Automatically detect and convert date/time and duration strings to "
-"datetime/timedelta objects when sending data to the Python worker. Requires "
-"the 'pandas' and 'dateparser' packages in your venv."
-msgstr ""
-"Automatycznie wykrywaj i konwertuj ciągi daty/czasu oraz czasu trwania na "
-"obiekty datetime/timedelta podczas wysyłania danych do procesu roboczego "
-"Python. Wymaga pakietów „pandas” i „dateparser” w środowisku venv."
-
-msgid "PPT-Master data path"
-msgstr "Ścieżka danych PPT-Master"
-
-msgid ""
-"Path to the ppt-master skill tree (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Clone hugohe3/ppt-master on GitHub and point here at "
-"the clone root (.../ppt-master) or the inner skill dir (.../ppt-"
-"master/skills/ppt-master). Leave empty to auto-detect (dev clone beside "
-"repo, then env)."
-msgstr ""
-"Ścieżka do drzewa umiejętności ppt-master (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Sklonuj hugohe3/ppt-master z serwisu GitHub i wskaż "
-"tutaj katalog główny klona (.../ppt-master) lub wewnętrzny katalog "
-"umiejętności (.../ppt-master/skills/ppt-master). Pozostaw puste, aby wykryć "
-"automatycznie (klon deweloperski obok repozytorium, następnie env)."
 
 msgid "Vision / OCR"
 msgstr "Wizja / OCR"

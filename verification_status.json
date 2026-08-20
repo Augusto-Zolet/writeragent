@@ -535,6 +535,17 @@
         "notes": "Missing tool_name \u2192 SendErrorEffect; TOOL_COMPLETED \u2192 StreamResponseEffect; REQUEST_ERROR sets is_error; Hypothesis in test_mcp_state_verification (deep via make vhs)",
         "ci_integration": true
       },
+      "tunnel_state.py": {
+        "status": "verified",
+        "priority": "high",
+        "tool": "crosshair+deal+pytest+hypothesis",
+        "functions_contracted": [
+          "compute_backoff_delay",
+          "next_state"
+        ],
+        "notes": "Exponential backoff progression, stop invariant, and reconnect state machine verified with Hypothesis and deal contracts",
+        "ci_integration": true
+      },
       "wire_types.py": {
         "status": "verified",
         "priority": "high",

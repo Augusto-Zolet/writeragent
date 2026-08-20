@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-17 16:44-0400\n"
+"POT-Creation-Date: 2026-08-19 22:46-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -225,6 +225,25 @@ msgstr ""
 #: plugin/framework/errors.py
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
+msgstr ""
+
+#: plugin/framework/errors.py
+msgid ""
+"Python venv not found. Open Settings → Python, set the venv path, then Test."
+msgstr ""
+
+#: plugin/framework/errors.py
+msgid ""
+"Python execution timed out. Open Settings → Python to raise the timeout."
+msgstr ""
+
+#: plugin/framework/errors.py
+msgid "Formula spill collision: destination range contains non-empty cells."
+msgstr ""
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "Script execution blocked by sandbox policy: {0}"
 msgstr ""
 
 #: plugin/framework/errors.py
@@ -937,7 +956,7 @@ msgstr ""
 msgid "Script name cannot be empty."
 msgstr ""
 
-#: plugin/chatbot/dialogs.py
+#: plugin/chatbot/dialogs.py plugin/mcp/__init__.py
 msgid "Copied!"
 msgstr ""
 
@@ -1266,6 +1285,18 @@ msgstr ""
 
 #: plugin/chatbot/dialog_views.py
 msgid "✓ Copied!"
+msgstr ""
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing…"
+msgstr ""
+
+#: plugin/chatbot/dialog_views.py
+msgid "Test Tunnel"
+msgstr ""
+
+#: plugin/chatbot/dialog_views.py
+msgid "MCP Tunnel Test"
 msgstr ""
 
 #: plugin/chatbot/config_ui_helpers.py
@@ -2135,6 +2166,15 @@ msgstr ""
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
+msgid "Public tunnel via {0}: {1}"
+msgstr ""
+
+#: plugin/mcp/__init__.py
+msgid "reconnecting…"
+msgstr ""
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
 msgid "Public tunnel via {0} failed: {1}"
 msgstr ""
 
@@ -2181,7 +2221,118 @@ msgstr ""
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
-msgid "URL: {0}"
+msgid "Local URL: {0}"
+msgstr ""
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public URL: {0}"
+msgstr ""
+
+#: plugin/mcp/__init__.py plugin/xdl_strings.py
+msgid "Local Endpoint:"
+msgstr ""
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public Tunnel ({0}):"
+msgstr ""
+
+#: plugin/mcp/__init__.py
+msgid "Status: Active (connected)"
+msgstr ""
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Reconnecting — {0}"
+msgstr ""
+
+#: plugin/mcp/__init__.py
+msgid "retrying…"
+msgstr ""
+
+#: plugin/mcp/__init__.py
+msgid "Status: Starting tunnel…"
+msgstr ""
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Failed — {0}"
+msgstr ""
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Not running (is {0} binary installed?)"
+msgstr ""
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Tunnel test mode: {0} provider simulated successfully."
+msgstr ""
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Unknown tunnel provider: {0}"
+msgstr ""
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"Binary '{0}' for {1} not found on PATH.\n"
+"\n"
+"Install from: {2}"
+msgstr ""
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Failed to execute {0} binary ({1}): {2}"
+msgstr ""
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is running and responsive!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"Health check: OK (200)"
+msgstr ""
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is active!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"(Public URL acquired from active tunnel session.)"
+msgstr ""
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is verified ({2}).\n"
+"\n"
+"(Note: An active {3} tunnel is currently running at {4}.)"
+msgstr ""
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"MCP server is running locally on port {3}.\n"
+"Check 'Expose via public tunnel' and click OK to activate public routing."
+msgstr ""
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"Note: MCP server is not currently running on port {3}."
 msgstr ""
 
 #: plugin/main.py
@@ -2206,7 +2357,7 @@ msgstr ""
 msgid "Toggle MCP Server"
 msgstr ""
 
-#: plugin/main.py
+#: plugin/main.py plugin/xdl_strings.py
 msgid "MCP Server Status"
 msgstr ""
 
@@ -2493,6 +2644,10 @@ msgid "Preserve number formats"
 msgstr ""
 
 #: plugin/xdl_strings.py
+msgid "Public Tunnel:"
+msgstr ""
+
+#: plugin/xdl_strings.py
 msgid "Python Settings…"
 msgstr ""
 
@@ -2562,10 +2717,6 @@ msgstr ""
 
 #: plugin/xdl_strings.py
 msgid "Sentiment"
-msgstr ""
-
-#: plugin/xdl_strings.py
-msgid "Server Status"
 msgstr ""
 
 #: plugin/xdl_strings.py
@@ -2983,7 +3134,7 @@ msgid ""
 "Empty = provider default / CLI config. Unused for Tailscale."
 msgstr ""
 
-msgid "Suggested client config (copy into Claude Desktop / Cursor):"
+msgid "Client config (copy into Claude / Hermes-Agent):"
 msgstr ""
 
 msgid "Python"
@@ -3045,26 +3196,6 @@ msgstr ""
 msgid ""
 "On Edit Python in Cell save, lift static xl(\"A1:…\") onto =PY data args and"
 " rewrite to data / data[i] / .to_pandas()."
-msgstr ""
-
-msgid "Convert Date/Time and Timedelta Strings"
-msgstr ""
-
-msgid ""
-"Automatically detect and convert date/time and duration strings to "
-"datetime/timedelta objects when sending data to the Python worker. Requires "
-"the 'pandas' and 'dateparser' packages in your venv."
-msgstr ""
-
-msgid "PPT-Master data path"
-msgstr ""
-
-msgid ""
-"Path to the ppt-master skill tree (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Clone hugohe3/ppt-master on GitHub and point here at "
-"the clone root (.../ppt-master) or the inner skill dir (.../ppt-"
-"master/skills/ppt-master). Leave empty to auto-detect (dev clone beside "
-"repo, then env)."
 msgstr ""
 
 msgid "Vision / OCR"

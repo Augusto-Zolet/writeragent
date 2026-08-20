@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-17 16:44-0400\n"
+"POT-Creation-Date: 2026-08-19 22:46-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Chinese (Simplified) <LL@li.org>\n"
@@ -233,6 +233,25 @@ msgstr "服务器错误 ({0})。AI 提供商出现问题。"
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "HTTP 错误 {0}: {1}"
+
+#: plugin/framework/errors.py
+msgid ""
+"Python venv not found. Open Settings → Python, set the venv path, then Test."
+msgstr "未找到 Python venv。请打开“设置”→“Python”，设置 venv 路径，然后进行测试。"
+
+#: plugin/framework/errors.py
+msgid ""
+"Python execution timed out. Open Settings → Python to raise the timeout."
+msgstr "Python 执行超时。请打开“设置”→“Python”以增加超时时间。"
+
+#: plugin/framework/errors.py
+msgid "Formula spill collision: destination range contains non-empty cells."
+msgstr "公式溢出冲突：目标区域包含非空单元格。"
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "Script execution blocked by sandbox policy: {0}"
+msgstr "脚本执行被沙盒策略阻止：{0}"
 
 #: plugin/framework/errors.py
 msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
@@ -973,7 +992,7 @@ msgstr "附加到本文档"
 msgid "Script name cannot be empty."
 msgstr "脚本名称不能为空。"
 
-#: plugin/chatbot/dialogs.py
+#: plugin/chatbot/dialogs.py plugin/mcp/__init__.py
 msgid "Copied!"
 msgstr "已复制！"
 
@@ -1303,6 +1322,18 @@ msgstr "音频库下载"
 #: plugin/chatbot/dialog_views.py
 msgid "✓ Copied!"
 msgstr "✓ 已复制！"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing…"
+msgstr "正在测试…"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Test Tunnel"
+msgstr "测试隧道"
+
+#: plugin/chatbot/dialog_views.py
+msgid "MCP Tunnel Test"
+msgstr "MCP 隧道测试"
 
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
@@ -2193,6 +2224,15 @@ msgstr "通过 {0} 的公共隧道（无身份验证）"
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
+msgid "Public tunnel via {0}: {1}"
+msgstr "通过 {0} 的公共隧道：{1}"
+
+#: plugin/mcp/__init__.py
+msgid "reconnecting…"
+msgstr "正在重新连接…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
 msgid "Public tunnel via {0} failed: {1}"
 msgstr "通过 {0} 的公共隧道失败：%1"
 
@@ -2239,8 +2279,144 @@ msgstr "路由: {0}"
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
-msgid "URL: {0}"
-msgstr "URL: {0}"
+msgid "Local URL: {0}"
+msgstr "本地 URL：{0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public URL: {0}"
+msgstr "公共 URL: {0}"
+
+#: plugin/mcp/__init__.py plugin/xdl_strings.py
+msgid "Local Endpoint:"
+msgstr "本地端点:"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public Tunnel ({0}):"
+msgstr "公共隧道 ({0}):"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Active (connected)"
+msgstr "状态: 活动 (已连接)"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Reconnecting — {0}"
+msgstr "状态: 正在重新连接 — {0}"
+
+#: plugin/mcp/__init__.py
+msgid "retrying…"
+msgstr "正在重试…"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Starting tunnel…"
+msgstr "状态: 正在启动隧道…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Failed — {0}"
+msgstr "状态: 失败 — {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Not running (is {0} binary installed?)"
+msgstr "状态: 未运行 (是否已安装 {0} 二进制文件?)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Tunnel test mode: {0} provider simulated successfully."
+msgstr "隧道测试模式: {0} 提供程序模拟成功。"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Unknown tunnel provider: {0}"
+msgstr "未知的隧道提供商：{0}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"Binary '{0}' for {1} not found on PATH.\n"
+"\n"
+"Install from: {2}"
+msgstr ""
+"在 PATH 中未找到用于 {1} 的二进制文件“{0}”。\n"
+"\n"
+"请从此处安装：{2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Failed to execute {0} binary ({1}): {2}"
+msgstr "执行 {0} 二进制文件 ({1}) 失败：{2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is running and responsive!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"Health check: OK (200)"
+msgstr ""
+"{0} 隧道正在运行且响应正常！\n"
+"\n"
+"公共端点：\n"
+"{1}\n"
+"\n"
+"健康检查：正常 (200)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is active!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"(Public URL acquired from active tunnel session.)"
+msgstr ""
+"{0} 隧道已激活！\n"
+"\n"
+"公共端点：\n"
+"{1}\n"
+"\n"
+"（公共 URL 从活动的隧道会话中获取。）"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is verified ({2}).\n"
+"\n"
+"(Note: An active {3} tunnel is currently running at {4}.)"
+msgstr ""
+"{0} 二进制文件“{1}”已验证 ({2})。\n"
+"\n"
+"（注意：当前有一个活动的 {3} 隧道正在 {4} 运行。）"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"MCP server is running locally on port {3}.\n"
+"Check 'Expose via public tunnel' and click OK to activate public routing."
+msgstr ""
+"{0} 二进制文件“{1}”已安装并验证 ({2})。\n"
+"\n"
+"MCP 服务器正在本地端口 {3} 上运行。\n"
+"勾选“通过公共隧道暴露”并点击“确定”以激活公共路由。"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"Note: MCP server is not currently running on port {3}."
+msgstr ""
+"{0} 二进制文件“{1}”已安装并验证 ({2})。\n"
+"\n"
+"注意：MCP 服务器当前未在端口 {3} 上运行。"
 
 #: plugin/main.py
 #, python-brace-format
@@ -2264,7 +2440,7 @@ msgstr "编辑选择"
 msgid "Toggle MCP Server"
 msgstr "切换 MCP 服务器"
 
-#: plugin/main.py
+#: plugin/main.py plugin/xdl_strings.py
 msgid "MCP Server Status"
 msgstr "MCP 服务器状态"
 
@@ -2553,6 +2729,10 @@ msgid "Preserve number formats"
 msgstr "保留数字格式"
 
 #: plugin/xdl_strings.py
+msgid "Public Tunnel:"
+msgstr "公共隧道："
+
+#: plugin/xdl_strings.py
 msgid "Python Settings…"
 msgstr "Python 设置…"
 
@@ -2623,10 +2803,6 @@ msgstr "所选内容"
 #: plugin/xdl_strings.py
 msgid "Sentiment"
 msgstr "情感分析"
-
-#: plugin/xdl_strings.py
-msgid "Server Status"
-msgstr "服务器状态"
 
 #: plugin/xdl_strings.py
 msgid "Square"
@@ -3063,8 +3239,8 @@ msgstr ""
 "Ngrok 身份验证令牌；Cloudflare 隧道令牌；Bore 服务器或“服务器密钥”。留空则使用提供商默认值或 CLI 配置。Tailscale "
 "不使用此项。"
 
-msgid "Suggested client config (copy into Claude Desktop / Cursor):"
-msgstr "建议的客户端配置（复制到 Claude Desktop / Cursor）："
+msgid "Client config (copy into Claude / Hermes-Agent):"
+msgstr "客户端配置（复制到 Claude / Hermes-Agent）："
 
 msgid "Python"
 msgstr "Python"
@@ -3133,31 +3309,6 @@ msgid ""
 msgstr ""
 "在保存“单元格内编辑 Python”时，将静态 xl(\"A1:…\") 提升至 =PY 数据参数，并重写为 data / data[i] / "
 ".to_pandas()。"
-
-msgid "Convert Date/Time and Timedelta Strings"
-msgstr "转换日期/时间及时间差字符串"
-
-msgid ""
-"Automatically detect and convert date/time and duration strings to "
-"datetime/timedelta objects when sending data to the Python worker. Requires "
-"the 'pandas' and 'dateparser' packages in your venv."
-msgstr ""
-"向 Python 工作进程发送数据时，自动检测并将日期/时间及持续时间字符串转换为 datetime/timedelta 对象。需要在您的虚拟环境中安装"
-" 'pandas' 和 'dateparser' 软件包。"
-
-msgid "PPT-Master data path"
-msgstr "PPT-Master 数据路径"
-
-msgid ""
-"Path to the ppt-master skill tree (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Clone hugohe3/ppt-master on GitHub and point here at "
-"the clone root (.../ppt-master) or the inner skill dir (.../ppt-"
-"master/skills/ppt-master). Leave empty to auto-detect (dev clone beside "
-"repo, then env)."
-msgstr ""
-"ppt-master 技能树路径（SKILL.md, templates/, scripts/svg_to_pptx/）。请在 GitHub 上克隆 "
-"hugohe3/ppt-master，并指向克隆根目录 (.../ppt-master) 或内部技能目录 (.../ppt-"
-"master/skills/ppt-master)。留空则自动检测（开发克隆位于仓库旁，或通过环境变量）。"
 
 msgid "Vision / OCR"
 msgstr "视觉 / OCR"

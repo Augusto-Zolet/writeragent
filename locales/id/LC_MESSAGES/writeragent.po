@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-17 16:44-0400\n"
+"POT-Creation-Date: 2026-08-19 22:46-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Indonesian <LL@li.org>\n"
@@ -244,6 +244,29 @@ msgstr "Kesalahan server ({0}). Penyedia AI sedang mengalami masalah."
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "Kesalahan HTTP {0}: {1}"
+
+#: plugin/framework/errors.py
+msgid ""
+"Python venv not found. Open Settings → Python, set the venv path, then Test."
+msgstr ""
+"Python venv tidak ditemukan. Buka Pengaturan → Python, atur jalur venv, lalu"
+" Uji."
+
+#: plugin/framework/errors.py
+msgid ""
+"Python execution timed out. Open Settings → Python to raise the timeout."
+msgstr ""
+"Eksekusi Python kehabisan waktu. Buka Pengaturan → Python untuk menambah "
+"batas waktu."
+
+#: plugin/framework/errors.py
+msgid "Formula spill collision: destination range contains non-empty cells."
+msgstr "Tabrakan formula spill: rentang tujuan berisi sel yang tidak kosong."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "Script execution blocked by sandbox policy: {0}"
+msgstr "Eksekusi skrip diblokir oleh kebijakan sandbox: {0}"
 
 #: plugin/framework/errors.py
 msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
@@ -1001,7 +1024,7 @@ msgstr "Lampirkan ke dokumen ini"
 msgid "Script name cannot be empty."
 msgstr "Nama skrip tidak boleh kosong."
 
-#: plugin/chatbot/dialogs.py
+#: plugin/chatbot/dialogs.py plugin/mcp/__init__.py
 msgid "Copied!"
 msgstr "Tersalin!"
 
@@ -1347,6 +1370,18 @@ msgstr "Unduh Pustaka Audio"
 #: plugin/chatbot/dialog_views.py
 msgid "✓ Copied!"
 msgstr "✓ Disalin!"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing…"
+msgstr "Menguji…"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Test Tunnel"
+msgstr "Uji Terowongan"
+
+#: plugin/chatbot/dialog_views.py
+msgid "MCP Tunnel Test"
+msgstr "Uji Terowongan MCP"
 
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
@@ -2283,6 +2318,15 @@ msgstr "Terowongan publik melalui {0} (tanpa autentikasi)"
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
+msgid "Public tunnel via {0}: {1}"
+msgstr "Terowongan publik melalui {0}: {1}"
+
+#: plugin/mcp/__init__.py
+msgid "reconnecting…"
+msgstr "menghubungkan kembali…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
 msgid "Public tunnel via {0} failed: {1}"
 msgstr "Terowongan publik melalui {0} gagal: {1}"
 
@@ -2333,8 +2377,144 @@ msgstr "Rute: {0}"
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
-msgid "URL: {0}"
-msgstr "URL: {0}"
+msgid "Local URL: {0}"
+msgstr "URL Lokal: {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public URL: {0}"
+msgstr "URL Publik: {0}"
+
+#: plugin/mcp/__init__.py plugin/xdl_strings.py
+msgid "Local Endpoint:"
+msgstr "Titik Akhir Lokal:"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public Tunnel ({0}):"
+msgstr "Terowongan Publik ({0}):"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Active (connected)"
+msgstr "Status: Aktif (terhubung)"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Reconnecting — {0}"
+msgstr "Status: Menyambungkan kembali — {0}"
+
+#: plugin/mcp/__init__.py
+msgid "retrying…"
+msgstr "mencoba lagi…"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Starting tunnel…"
+msgstr "Status: Memulai terowongan…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Failed — {0}"
+msgstr "Status: Gagal — {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Not running (is {0} binary installed?)"
+msgstr "Status: Tidak berjalan (apakah biner {0} terinstal?)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Tunnel test mode: {0} provider simulated successfully."
+msgstr "Mode uji terowongan: penyedia {0} berhasil disimulasikan."
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Unknown tunnel provider: {0}"
+msgstr "Penyedia tunnel tidak dikenal: {0}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"Binary '{0}' for {1} not found on PATH.\n"
+"\n"
+"Install from: {2}"
+msgstr ""
+"Binary '{0}' untuk {1} tidak ditemukan pada PATH.\n"
+"\n"
+"Instal dari: {2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Failed to execute {0} binary ({1}): {2}"
+msgstr "Gagal mengeksekusi binary {0} ({1}): {2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is running and responsive!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"Health check: OK (200)"
+msgstr ""
+"Tunnel {0} sedang berjalan dan responsif!\n"
+"\n"
+"Endpoint publik:\n"
+"{1}\n"
+"\n"
+"Cek kesehatan: OK (200)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is active!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"(Public URL acquired from active tunnel session.)"
+msgstr ""
+"Tunnel {0} aktif!\n"
+"\n"
+"Endpoint publik:\n"
+"{1}\n"
+"\n"
+"(URL publik diperoleh dari sesi tunnel yang aktif.)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is verified ({2}).\n"
+"\n"
+"(Note: An active {3} tunnel is currently running at {4}.)"
+msgstr ""
+"Binary {0} '{1}' telah diverifikasi ({2}).\n"
+"\n"
+"(Catatan: Tunnel {3} yang aktif saat ini sedang berjalan di {4}.)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"MCP server is running locally on port {3}.\n"
+"Check 'Expose via public tunnel' and click OK to activate public routing."
+msgstr ""
+"Binary {0} '{1}' telah diinstal dan diverifikasi ({2}).\n"
+"\n"
+"Server MCP sedang berjalan secara lokal pada port {3}.\n"
+"Centang 'Expose via public tunnel' dan klik OK untuk mengaktifkan perutean publik."
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"Note: MCP server is not currently running on port {3}."
+msgstr ""
+"Binary {0} '{1}' telah diinstal dan diverifikasi ({2}).\n"
+"\n"
+"Catatan: Server MCP saat ini tidak berjalan pada port {3}."
 
 #: plugin/main.py
 #, python-brace-format
@@ -2358,7 +2538,7 @@ msgstr "Edit Pilihan"
 msgid "Toggle MCP Server"
 msgstr "Alihkan Server MCP"
 
-#: plugin/main.py
+#: plugin/main.py plugin/xdl_strings.py
 msgid "MCP Server Status"
 msgstr "Status Server MCP"
 
@@ -2650,6 +2830,10 @@ msgid "Preserve number formats"
 msgstr "Pertahankan format angka"
 
 #: plugin/xdl_strings.py
+msgid "Public Tunnel:"
+msgstr "Tunnel Publik:"
+
+#: plugin/xdl_strings.py
 msgid "Python Settings…"
 msgstr "Pengaturan Python…"
 
@@ -2720,10 +2904,6 @@ msgstr "Pilihan"
 #: plugin/xdl_strings.py
 msgid "Sentiment"
 msgstr "Sentimen"
-
-#: plugin/xdl_strings.py
-msgid "Server Status"
-msgstr "Status Server"
 
 #: plugin/xdl_strings.py
 msgid "Square"
@@ -3200,8 +3380,8 @@ msgstr ""
 "server'. Kosong = bawaan penyedia / konfigurasi CLI. Tidak digunakan untuk "
 "Tailscale."
 
-msgid "Suggested client config (copy into Claude Desktop / Cursor):"
-msgstr "Konfigurasi klien yang disarankan (salin ke Claude Desktop / Cursor):"
+msgid "Client config (copy into Claude / Hermes-Agent):"
+msgstr "Konfigurasi klien (salin ke Claude / Hermes-Agent):"
 
 msgid "Python"
 msgstr "Python"
@@ -3278,34 +3458,6 @@ msgid ""
 msgstr ""
 "Saat menyimpan Edit Python di Sel, angkat xl(\"A1:…\") statis ke argumen "
 "data =PY dan tulis ulang menjadi data / data[i] / .to_pandas()."
-
-msgid "Convert Date/Time and Timedelta Strings"
-msgstr "Konversi String Tanggal/Waktu dan Timedelta"
-
-msgid ""
-"Automatically detect and convert date/time and duration strings to "
-"datetime/timedelta objects when sending data to the Python worker. Requires "
-"the 'pandas' and 'dateparser' packages in your venv."
-msgstr ""
-"Mendeteksi dan mengonversi string tanggal/waktu dan durasi secara otomatis "
-"menjadi objek datetime/timedelta saat mengirim data ke worker Python. "
-"Memerlukan paket 'pandas' dan 'dateparser' di venv Anda."
-
-msgid "PPT-Master data path"
-msgstr "Jalur data PPT-Master"
-
-msgid ""
-"Path to the ppt-master skill tree (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Clone hugohe3/ppt-master on GitHub and point here at "
-"the clone root (.../ppt-master) or the inner skill dir (.../ppt-"
-"master/skills/ppt-master). Leave empty to auto-detect (dev clone beside "
-"repo, then env)."
-msgstr ""
-"Jalur ke pohon keterampilan ppt-master (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Kloning hugohe3/ppt-master di GitHub dan arahkan ke "
-"sini di akar kloning (.../ppt-master) atau direktori keterampilan bagian "
-"dalam (.../ppt-master/skills/ppt-master). Biarkan kosong untuk deteksi "
-"otomatis (kloning dev di samping repo, lalu env)."
 
 msgid "Vision / OCR"
 msgstr "Vision / OCR"

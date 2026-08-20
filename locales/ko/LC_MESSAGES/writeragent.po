@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-17 16:44-0400\n"
+"POT-Creation-Date: 2026-08-19 22:46-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Korean <LL@li.org>\n"
@@ -234,6 +234,25 @@ msgstr "서버 오류({0}). AI 제공업체에 문제가 발생했습니다."
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "HTTP 오류 {0}: {1}"
+
+#: plugin/framework/errors.py
+msgid ""
+"Python venv not found. Open Settings → Python, set the venv path, then Test."
+msgstr "Python venv를 찾을 수 없습니다. 설정 → Python을 열고 venv 경로를 설정한 다음 테스트하십시오."
+
+#: plugin/framework/errors.py
+msgid ""
+"Python execution timed out. Open Settings → Python to raise the timeout."
+msgstr "Python 실행 시간이 초과되었습니다. 설정 → Python을 열어 제한 시간을 늘리십시오."
+
+#: plugin/framework/errors.py
+msgid "Formula spill collision: destination range contains non-empty cells."
+msgstr "수식 넘침 충돌: 대상 범위에 비어 있지 않은 셀이 포함되어 있습니다."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "Script execution blocked by sandbox policy: {0}"
+msgstr "샌드박스 정책에 의해 스크립트 실행이 차단됨: {0}"
 
 #: plugin/framework/errors.py
 msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
@@ -975,7 +994,7 @@ msgstr "이 문서에 첨부"
 msgid "Script name cannot be empty."
 msgstr "스크립트 이름은 비워둘 수 없습니다."
 
-#: plugin/chatbot/dialogs.py
+#: plugin/chatbot/dialogs.py plugin/mcp/__init__.py
 msgid "Copied!"
 msgstr "복사됨!"
 
@@ -1312,6 +1331,18 @@ msgstr "오디오 라이브러리 다운로드"
 #: plugin/chatbot/dialog_views.py
 msgid "✓ Copied!"
 msgstr "✓ 복사됨!"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing…"
+msgstr "테스트 중…"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Test Tunnel"
+msgstr "터널 테스트"
+
+#: plugin/chatbot/dialog_views.py
+msgid "MCP Tunnel Test"
+msgstr "MCP 터널 테스트"
 
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
@@ -2212,6 +2243,15 @@ msgstr "{0}을(를) 통한 공용 터널 (인증 없음)"
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
+msgid "Public tunnel via {0}: {1}"
+msgstr "{0}을(를) 통한 공용 터널: {1}"
+
+#: plugin/mcp/__init__.py
+msgid "reconnecting…"
+msgstr "재연결 중…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
 msgid "Public tunnel via {0} failed: {1}"
 msgstr "{0}을(를) 통한 공용 터널 실패: {1}"
 
@@ -2258,8 +2298,144 @@ msgstr "경로: {0}"
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
-msgid "URL: {0}"
-msgstr "URL: {0}"
+msgid "Local URL: {0}"
+msgstr "로컬 URL: {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public URL: {0}"
+msgstr "공용 URL: {0}"
+
+#: plugin/mcp/__init__.py plugin/xdl_strings.py
+msgid "Local Endpoint:"
+msgstr "로컬 엔드포인트:"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public Tunnel ({0}):"
+msgstr "공용 터널 ({0}):"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Active (connected)"
+msgstr "상태: 활성 (연결됨)"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Reconnecting — {0}"
+msgstr "상태: 재연결 중 — {0}"
+
+#: plugin/mcp/__init__.py
+msgid "retrying…"
+msgstr "재시도 중…"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Starting tunnel…"
+msgstr "상태: 터널 시작 중…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Failed — {0}"
+msgstr "상태: 실패 — {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Not running (is {0} binary installed?)"
+msgstr "상태: 실행 중 아님 ({0} 바이너리가 설치되어 있습니까?)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Tunnel test mode: {0} provider simulated successfully."
+msgstr "터널 테스트 모드: {0} 공급자가 성공적으로 시뮬레이션되었습니다."
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Unknown tunnel provider: {0}"
+msgstr "알 수 없는 터널 제공자: {0}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"Binary '{0}' for {1} not found on PATH.\n"
+"\n"
+"Install from: {2}"
+msgstr ""
+"PATH에서 {1}용 바이너리 '{0}'을(를) 찾을 수 없습니다.\n"
+"\n"
+"다음에서 설치하세요: {2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Failed to execute {0} binary ({1}): {2}"
+msgstr "{0} 바이너리 실행 실패 ({1}): {2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is running and responsive!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"Health check: OK (200)"
+msgstr ""
+"{0} 터널이 실행 중이며 응답하고 있습니다!\n"
+"\n"
+"공용 엔드포인트:\n"
+"{1}\n"
+"\n"
+"상태 확인: 정상 (200)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is active!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"(Public URL acquired from active tunnel session.)"
+msgstr ""
+"{0} 터널이 활성화되었습니다!\n"
+"\n"
+"공용 엔드포인트:\n"
+"{1}\n"
+"\n"
+"(활성 터널 세션에서 획득한 공용 URL입니다.)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is verified ({2}).\n"
+"\n"
+"(Note: An active {3} tunnel is currently running at {4}.)"
+msgstr ""
+"{0} 바이너리 '{1}'이(가) 확인되었습니다 ({2}).\n"
+"\n"
+"(참고: 현재 {4}에서 활성 {3} 터널이 실행 중입니다.)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"MCP server is running locally on port {3}.\n"
+"Check 'Expose via public tunnel' and click OK to activate public routing."
+msgstr ""
+"{0} 바이너리 '{1}'이(가) 설치 및 확인되었습니다 ({2}).\n"
+"\n"
+"MCP 서버가 로컬 포트 {3}에서 실행 중입니다.\n"
+"'공용 터널을 통해 노출'을 체크하고 확인을 클릭하여 공용 라우팅을 활성화하세요."
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"Note: MCP server is not currently running on port {3}."
+msgstr ""
+"{0} 바이너리 '{1}'이(가) 설치 및 확인되었습니다 ({2}).\n"
+"\n"
+"참고: MCP 서버가 현재 포트 {3}에서 실행 중이지 않습니다."
 
 #: plugin/main.py
 #, python-brace-format
@@ -2283,7 +2459,7 @@ msgstr "선택 영역 편집"
 msgid "Toggle MCP Server"
 msgstr "MCP 서버 전환"
 
-#: plugin/main.py
+#: plugin/main.py plugin/xdl_strings.py
 msgid "MCP Server Status"
 msgstr "MCP 서버 상태"
 
@@ -2572,6 +2748,10 @@ msgid "Preserve number formats"
 msgstr "숫자 형식 유지"
 
 #: plugin/xdl_strings.py
+msgid "Public Tunnel:"
+msgstr "공용 터널:"
+
+#: plugin/xdl_strings.py
 msgid "Python Settings…"
 msgstr "Python 설정…"
 
@@ -2642,10 +2822,6 @@ msgstr "선택 영역"
 #: plugin/xdl_strings.py
 msgid "Sentiment"
 msgstr "감성"
-
-#: plugin/xdl_strings.py
-msgid "Server Status"
-msgstr "서버 상태"
 
 #: plugin/xdl_strings.py
 msgid "Square"
@@ -3094,8 +3270,8 @@ msgstr ""
 "Ngrok 인증 토큰, Cloudflare 터널 토큰, Bore 서버 또는 '서버 비밀값'. 비워두면 공급자 기본값 또는 CLI 설정을 "
 "사용합니다. Tailscale에서는 사용되지 않습니다."
 
-msgid "Suggested client config (copy into Claude Desktop / Cursor):"
-msgstr "제안된 클라이언트 구성 (Claude Desktop / Cursor에 복사):"
+msgid "Client config (copy into Claude / Hermes-Agent):"
+msgstr "클라이언트 구성 (Claude / Hermes-Agent에 복사):"
 
 msgid "Python"
 msgstr "Python"
@@ -3167,32 +3343,6 @@ msgid ""
 msgstr ""
 "셀 내 Python 편집 저장 시, 정적 xl(\"A1:…\")을 =PY 데이터 인수로 올리고 data / data[i] / "
 ".to_pandas()로 다시 씁니다."
-
-msgid "Convert Date/Time and Timedelta Strings"
-msgstr "날짜/시간 및 Timedelta 문자열 변환"
-
-msgid ""
-"Automatically detect and convert date/time and duration strings to "
-"datetime/timedelta objects when sending data to the Python worker. Requires "
-"the 'pandas' and 'dateparser' packages in your venv."
-msgstr ""
-"Python 워커로 데이터를 보낼 때 날짜/시간 및 기간 문자열을 자동으로 감지하여 datetime/timedelta 객체로 변환합니다."
-" venv에 'pandas' 및 'dateparser' 패키지가 필요합니다."
-
-msgid "PPT-Master data path"
-msgstr "PPT-Master 데이터 경로"
-
-msgid ""
-"Path to the ppt-master skill tree (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Clone hugohe3/ppt-master on GitHub and point here at "
-"the clone root (.../ppt-master) or the inner skill dir (.../ppt-"
-"master/skills/ppt-master). Leave empty to auto-detect (dev clone beside "
-"repo, then env)."
-msgstr ""
-"ppt-master 스킬 트리 경로(SKILL.md, templates/, scripts/svg_to_pptx/). GitHub에서 "
-"hugohe3/ppt-master를 복제한 후 해당 복제본 루트(.../ppt-master) 또는 내부 스킬 디렉터리(.../ppt-"
-"master/skills/ppt-master)를 지정하십시오. 자동 감지를 사용하려면 비워 두십시오(저장소 옆의 개발용 복제본, 그 다음"
-" 환경 변수)."
 
 msgid "Vision / OCR"
 msgstr "비전 / OCR"

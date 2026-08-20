@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-17 16:44-0400\n"
+"POT-Creation-Date: 2026-08-19 22:46-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Hungarian <LL@li.org>\n"
@@ -247,6 +247,31 @@ msgstr "Kiszolgálóhiba ({0}). Az MI-szolgáltatónál problémák léptek fel.
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "HTTP-hiba {0}: {1}"
+
+#: plugin/framework/errors.py
+msgid ""
+"Python venv not found. Open Settings → Python, set the venv path, then Test."
+msgstr ""
+"A Python venv nem található. Nyissa meg a Beállítások → Python menüpontot, "
+"adja meg a venv útvonalát, majd tesztelje."
+
+#: plugin/framework/errors.py
+msgid ""
+"Python execution timed out. Open Settings → Python to raise the timeout."
+msgstr ""
+"A Python végrehajtása időtúllépés miatt megszakadt. A Beállítások → Python "
+"menüpontban növelheti az időtúllépési értéket."
+
+#: plugin/framework/errors.py
+msgid "Formula spill collision: destination range contains non-empty cells."
+msgstr ""
+"Képlet-túlcsordulási ütközés: a célterület nem üres cellákat tartalmaz."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "Script execution blocked by sandbox policy: {0}"
+msgstr ""
+"A parancsfájl végrehajtását a homokozó (sandbox) házirendje blokkolta: {0}"
 
 #: plugin/framework/errors.py
 msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
@@ -1005,7 +1030,7 @@ msgstr "Csatolás ehhez a dokumentumhoz"
 msgid "Script name cannot be empty."
 msgstr "A szkript neve nem lehet üres."
 
-#: plugin/chatbot/dialogs.py
+#: plugin/chatbot/dialogs.py plugin/mcp/__init__.py
 msgid "Copied!"
 msgstr "Másolva!"
 
@@ -1354,6 +1379,18 @@ msgstr "Hangtár letöltése"
 #: plugin/chatbot/dialog_views.py
 msgid "✓ Copied!"
 msgstr "✓ Másolva!"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing…"
+msgstr "Tesztelés…"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Test Tunnel"
+msgstr "Alagút tesztelése"
+
+#: plugin/chatbot/dialog_views.py
+msgid "MCP Tunnel Test"
+msgstr "MCP-alagút tesztje"
 
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
@@ -2312,6 +2349,15 @@ msgstr "Nyilvános alagút a következőn keresztül: {0} (nincs hitelesítés)"
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
+msgid "Public tunnel via {0}: {1}"
+msgstr "Nyilvános alagút ezen keresztül: {0}: {1}"
+
+#: plugin/mcp/__init__.py
+msgid "reconnecting…"
+msgstr "újracsatlakozás…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
 msgid "Public tunnel via {0} failed: {1}"
 msgstr "A nyilvános alagút a következőn keresztül: {0} sikertelen: {1}"
 
@@ -2362,8 +2408,144 @@ msgstr "Útvonalak: {0}"
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
-msgid "URL: {0}"
-msgstr "URL: {0}"
+msgid "Local URL: {0}"
+msgstr "Helyi URL: {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public URL: {0}"
+msgstr "Nyilvános URL: {0}"
+
+#: plugin/mcp/__init__.py plugin/xdl_strings.py
+msgid "Local Endpoint:"
+msgstr "Helyi végpont:"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public Tunnel ({0}):"
+msgstr "Nyilvános alagút ({0}):"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Active (connected)"
+msgstr "Állapot: Aktív (csatlakoztatva)"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Reconnecting — {0}"
+msgstr "Állapot: Újracsatlakozás – {0}"
+
+#: plugin/mcp/__init__.py
+msgid "retrying…"
+msgstr "újrapróbálkozás…"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Starting tunnel…"
+msgstr "Állapot: Alagút indítása…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Failed — {0}"
+msgstr "Állapot: Sikertelen – {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Not running (is {0} binary installed?)"
+msgstr "Állapot: Nem fut (telepítve van a(z) {0} bináris fájl?)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Tunnel test mode: {0} provider simulated successfully."
+msgstr "Alagút tesztmód: {0} szolgáltató sikeresen szimulálva."
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Unknown tunnel provider: {0}"
+msgstr "Ismeretlen alagút-szolgáltató: {0}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"Binary '{0}' for {1} not found on PATH.\n"
+"\n"
+"Install from: {2}"
+msgstr ""
+"A(z) '{0}' bináris fájl a(z) {1} számára nem található a PATH útvonalon.\n"
+"\n"
+"Telepítse innen: {2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Failed to execute {0} binary ({1}): {2}"
+msgstr "Nem sikerült végrehajtani a(z) {0} bináris fájlt ({1}): {2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is running and responsive!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"Health check: OK (200)"
+msgstr ""
+"A(z) {0} alagút fut és válaszol!\n"
+"\n"
+"Nyilvános végpont:\n"
+"{1}\n"
+"\n"
+"Állapotellenőrzés: OK (200)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is active!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"(Public URL acquired from active tunnel session.)"
+msgstr ""
+"A(z) {0} alagút aktív!\n"
+"\n"
+"Nyilvános végpont:\n"
+"{1}\n"
+"\n"
+"(A nyilvános URL az aktív alagút-munkamenetből származik.)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is verified ({2}).\n"
+"\n"
+"(Note: An active {3} tunnel is currently running at {4}.)"
+msgstr ""
+"A(z) {0} bináris fájl ('{1}') ellenőrizve ({2}).\n"
+"\n"
+"(Megjegyzés: Egy aktív {3} alagút jelenleg fut ezen a címen: {4}.)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"MCP server is running locally on port {3}.\n"
+"Check 'Expose via public tunnel' and click OK to activate public routing."
+msgstr ""
+"A(z) {0} bináris fájl ('{1}') telepítve és ellenőrizve ({2}).\n"
+"\n"
+"Az MCP-kiszolgáló helyileg fut a(z) {3} porton.\n"
+"Jelölje be a „Közzététel nyilvános alagúton keresztül” lehetőséget, majd kattintson az OK gombra a nyilvános útválasztás aktiválásához."
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"Note: MCP server is not currently running on port {3}."
+msgstr ""
+"A(z) {0} bináris fájl ('{1}') telepítve és ellenőrizve ({2}).\n"
+"\n"
+"Megjegyzés: Az MCP-kiszolgáló jelenleg nem fut a(z) {3} porton."
 
 #: plugin/main.py
 #, python-brace-format
@@ -2387,7 +2569,7 @@ msgstr "Kijelölés szerkesztése"
 msgid "Toggle MCP Server"
 msgstr "MCP-kiszolgáló váltása"
 
-#: plugin/main.py
+#: plugin/main.py plugin/xdl_strings.py
 msgid "MCP Server Status"
 msgstr "MCP-kiszolgáló állapota"
 
@@ -2678,6 +2860,10 @@ msgid "Preserve number formats"
 msgstr "Számformátumok megőrzése"
 
 #: plugin/xdl_strings.py
+msgid "Public Tunnel:"
+msgstr "Nyilvános alagút:"
+
+#: plugin/xdl_strings.py
 msgid "Python Settings…"
 msgstr "Python-beállítások…"
 
@@ -2748,10 +2934,6 @@ msgstr "Kijelölés"
 #: plugin/xdl_strings.py
 msgid "Sentiment"
 msgstr "Hangulatelemzés"
-
-#: plugin/xdl_strings.py
-msgid "Server Status"
-msgstr "Kiszolgáló állapota"
 
 #: plugin/xdl_strings.py
 msgid "Square"
@@ -3235,10 +3417,8 @@ msgstr ""
 " Üres = szolgáltató alapértelmezett / CLI konfiguráció. A Tailscale esetén "
 "nem használt."
 
-msgid "Suggested client config (copy into Claude Desktop / Cursor):"
-msgstr ""
-"Javasolt klienskonfiguráció (másolja be a Claude Desktop / Cursor "
-"alkalmazásba):"
+msgid "Client config (copy into Claude / Hermes-Agent):"
+msgstr "Ügyfélkonfiguráció (másolja be a Claude / Hermes-Agent alkalmazásba):"
 
 msgid "Python"
 msgstr "Python"
@@ -3316,36 +3496,6 @@ msgstr ""
 "Python cellában történő szerkesztésekor a statikus xl(\"A1:…\") hivatkozások"
 " =PY adatargumentumokká emelése, valamint átírása data / data[i] / "
 ".to_pandas() formátumra."
-
-msgid "Convert Date/Time and Timedelta Strings"
-msgstr "Dátum/idő és időtartam karakterláncok konvertálása"
-
-msgid ""
-"Automatically detect and convert date/time and duration strings to "
-"datetime/timedelta objects when sending data to the Python worker. Requires "
-"the 'pandas' and 'dateparser' packages in your venv."
-msgstr ""
-"Dátum/idő és időtartam karakterláncok automatikus észlelése és konvertálása "
-"datetime/timedelta objektumokká az adatok Python-feldolgozónak való "
-"küldésekor. A 'pandas' és 'dateparser' csomagok szükségesek a venv "
-"környezetben."
-
-msgid "PPT-Master data path"
-msgstr "PPT-Master adatútvonal"
-
-msgid ""
-"Path to the ppt-master skill tree (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Clone hugohe3/ppt-master on GitHub and point here at "
-"the clone root (.../ppt-master) or the inner skill dir (.../ppt-"
-"master/skills/ppt-master). Leave empty to auto-detect (dev clone beside "
-"repo, then env)."
-msgstr ""
-"A ppt-master készségfa elérési útja (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Klónozza a hugohe3/ppt-mastert a GitHubon, és "
-"mutasson itt a klón gyökerére (.../ppt-master) vagy a belső "
-"készségkönyvtárra (.../ppt-master/skills/ppt-master). Hagyja üresen az "
-"automatikus észleléshez (fejlesztői klón a tárhely mellett, majd környezeti "
-"változó)."
 
 msgid "Vision / OCR"
 msgstr "Látásmód / OCR"

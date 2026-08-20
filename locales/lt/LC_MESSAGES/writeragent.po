@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-17 16:44-0400\n"
+"POT-Creation-Date: 2026-08-19 22:46-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Lithuanian <LL@li.org>\n"
@@ -243,6 +243,30 @@ msgstr "Serverio klaida ({0}). AI teikėjas turi problemų."
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "HTTP klaida {0}: {1}"
+
+#: plugin/framework/errors.py
+msgid ""
+"Python venv not found. Open Settings → Python, set the venv path, then Test."
+msgstr ""
+"Nerastas Python venv. Atverkite Nustatymai → Python, nustatykite venv kelią,"
+" tada atlikite testą."
+
+#: plugin/framework/errors.py
+msgid ""
+"Python execution timed out. Open Settings → Python to raise the timeout."
+msgstr ""
+"Baigėsi Python vykdymo laikas. Atverkite Nustatymai → Python, kad "
+"padidintumėte skirtą laiką."
+
+#: plugin/framework/errors.py
+msgid "Formula spill collision: destination range contains non-empty cells."
+msgstr ""
+"Formulės išsiliejimo konfliktas: paskirties srityje yra netuščių langelių."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "Script execution blocked by sandbox policy: {0}"
+msgstr "Scenarijaus vykdymas užblokuotas smėlio dėžės politikos: {0}"
 
 #: plugin/framework/errors.py
 msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
@@ -1003,7 +1027,7 @@ msgstr "Prisegti prie šio dokumento"
 msgid "Script name cannot be empty."
 msgstr "Scenarijaus pavadinimas negali būti tuščias."
 
-#: plugin/chatbot/dialogs.py
+#: plugin/chatbot/dialogs.py plugin/mcp/__init__.py
 msgid "Copied!"
 msgstr "Nukopijuota!"
 
@@ -1350,6 +1374,18 @@ msgstr "Garso bibliotekos atsisiuntimas"
 #: plugin/chatbot/dialog_views.py
 msgid "✓ Copied!"
 msgstr "✓ Nukopijuota!"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing…"
+msgstr "Tikrinama…"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Test Tunnel"
+msgstr "Tunelio testas"
+
+#: plugin/chatbot/dialog_views.py
+msgid "MCP Tunnel Test"
+msgstr "MCP tunelio testas"
 
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
@@ -2294,6 +2330,15 @@ msgstr "Viešas tunelis per {0} (be autentifikavimo)"
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
+msgid "Public tunnel via {0}: {1}"
+msgstr "Viešas tunelis per {0}: {1}"
+
+#: plugin/mcp/__init__.py
+msgid "reconnecting…"
+msgstr "jungiamasi iš naujo…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
 msgid "Public tunnel via {0} failed: {1}"
 msgstr "Viešas tunelis per {0} nepavyko: {1}"
 
@@ -2343,8 +2388,144 @@ msgstr "Maršrutai: {0}"
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
-msgid "URL: {0}"
-msgstr "URL: {0}"
+msgid "Local URL: {0}"
+msgstr "Vietinis URL: {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public URL: {0}"
+msgstr "Viešas URL: {0}"
+
+#: plugin/mcp/__init__.py plugin/xdl_strings.py
+msgid "Local Endpoint:"
+msgstr "Vietinis galinis punktas:"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public Tunnel ({0}):"
+msgstr "Viešas tunelis ({0}):"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Active (connected)"
+msgstr "Būsena: Aktyvi (prisijungta)"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Reconnecting — {0}"
+msgstr "Būsena: Jungiamasi iš naujo — {0}"
+
+#: plugin/mcp/__init__.py
+msgid "retrying…"
+msgstr "bandoma dar kartą…"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Starting tunnel…"
+msgstr "Būsena: Paleidžiamas tunelis…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Failed — {0}"
+msgstr "Būsena: Nepavyko — {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Not running (is {0} binary installed?)"
+msgstr "Būsena: Neveikia (ar įdiegtas {0} dvejetainis failas?)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Tunnel test mode: {0} provider simulated successfully."
+msgstr "Tunelio tikrinimo režimas: {0} teikėjas imituotas sėkmingai."
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Unknown tunnel provider: {0}"
+msgstr "Nežinomas tunelio teikėjas: {0}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"Binary '{0}' for {1} not found on PATH.\n"
+"\n"
+"Install from: {2}"
+msgstr ""
+"Dvejetainis failas „{0}“, skirtas {1}, nerastas PATH aplinkoje.\n"
+"\n"
+"Įdiekite iš: {2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Failed to execute {0} binary ({1}): {2}"
+msgstr "Nepavyko vykdyti {0} dvejetainio failo ({1}): {2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is running and responsive!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"Health check: OK (200)"
+msgstr ""
+"{0} tunelis veikia ir atsako!\n"
+"\n"
+"Viešasis galinis punktas:\n"
+"{1}\n"
+"\n"
+"Sveikatos patikra: OK (200)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is active!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"(Public URL acquired from active tunnel session.)"
+msgstr ""
+"{0} tunelis aktyvus!\n"
+"\n"
+"Viešasis galinis punktas:\n"
+"{1}\n"
+"\n"
+"(Viešasis URL gautas iš aktyvios tunelio sesijos.)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is verified ({2}).\n"
+"\n"
+"(Note: An active {3} tunnel is currently running at {4}.)"
+msgstr ""
+"{0} dvejetainis failas „{1}“ patvirtintas ({2}).\n"
+"\n"
+"(Pastaba: aktyvus {3} tunelis šiuo metu veikia adresu {4}.)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"MCP server is running locally on port {3}.\n"
+"Check 'Expose via public tunnel' and click OK to activate public routing."
+msgstr ""
+"{0} dvejetainis failas „{1}“ įdiegtas ir patvirtintas ({2}).\n"
+"\n"
+"MCP serveris veikia vietoje, prievade {3}.\n"
+"Pažymėkite „Viešinti per viešą tunelį“ ir spustelėkite OK, kad suaktyvintumėte viešąjį maršrutizavimą."
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"Note: MCP server is not currently running on port {3}."
+msgstr ""
+"{0} dvejetainis failas „{1}“ įdiegtas ir patvirtintas ({2}).\n"
+"\n"
+"Pastaba: MCP serveris šiuo metu neveikia prievade {3}."
 
 #: plugin/main.py
 #, python-brace-format
@@ -2368,7 +2549,7 @@ msgstr "Redaguoti pasirinkimą"
 msgid "Toggle MCP Server"
 msgstr "Perjungti MCP serverį"
 
-#: plugin/main.py
+#: plugin/main.py plugin/xdl_strings.py
 msgid "MCP Server Status"
 msgstr "MCP serverio būsena"
 
@@ -2659,6 +2840,10 @@ msgid "Preserve number formats"
 msgstr "Išlaikyti skaičių formatus"
 
 #: plugin/xdl_strings.py
+msgid "Public Tunnel:"
+msgstr "Viešas tunelis:"
+
+#: plugin/xdl_strings.py
 msgid "Python Settings…"
 msgstr "Python nuostatos…"
 
@@ -2729,10 +2914,6 @@ msgstr "Atranka"
 #: plugin/xdl_strings.py
 msgid "Sentiment"
 msgstr "Nuotaika"
-
-#: plugin/xdl_strings.py
-msgid "Server Status"
-msgstr "Serverio būsena"
 
 #: plugin/xdl_strings.py
 msgid "Square"
@@ -3215,9 +3396,8 @@ msgstr ""
 "secret“. Tuščia = teikėjo numatytoji reikšmė / CLI konfigūracija. "
 "Nenaudojama „Tailscale“."
 
-msgid "Suggested client config (copy into Claude Desktop / Cursor):"
-msgstr ""
-"Siūloma kliento konfigūracija (nukopijuokite į „Claude Desktop“ / „Cursor“):"
+msgid "Client config (copy into Claude / Hermes-Agent):"
+msgstr "Kliento konfigūracija (nukopijuokite į „Claude“ / „Hermes-Agent“):"
 
 msgid "Python"
 msgstr "„Python“"
@@ -3296,34 +3476,6 @@ msgid ""
 msgstr ""
 "Įrašant „Python in Cell“, perkelti statinius xl(\"A1:…\") į =PY duomenų "
 "argumentus ir perrašyti į data / data[i] / .to_pandas()."
-
-msgid "Convert Date/Time and Timedelta Strings"
-msgstr "Konvertuoti datos/laiko ir trukmės eilutes"
-
-msgid ""
-"Automatically detect and convert date/time and duration strings to "
-"datetime/timedelta objects when sending data to the Python worker. Requires "
-"the 'pandas' and 'dateparser' packages in your venv."
-msgstr ""
-"Automatiškai aptikti ir konvertuoti datos/laiko bei trukmės eilutes į "
-"datetime/timedelta objektus siunčiant duomenis į Python darbinę programą. "
-"Reikalingi „pandas“ ir „dateparser“ paketai jūsų venv aplinkoje."
-
-msgid "PPT-Master data path"
-msgstr "PPT-Master duomenų kelias"
-
-msgid ""
-"Path to the ppt-master skill tree (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Clone hugohe3/ppt-master on GitHub and point here at "
-"the clone root (.../ppt-master) or the inner skill dir (.../ppt-"
-"master/skills/ppt-master). Leave empty to auto-detect (dev clone beside "
-"repo, then env)."
-msgstr ""
-"Kelias iki „ppt-master“ įgūdžių medžio (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Klonuokite „hugohe3/ppt-master“ „GitHub“ svetainėje "
-"ir nurodykite čia klono šaknį (.../ppt-master) arba vidinį įgūdžių aplanką "
-"(.../ppt-master/skills/ppt-master). Palikite tuščią, kad būtų aptikta "
-"automatiškai (kūrimo klonas šalia saugyklos, tada aplinka)."
 
 msgid "Vision / OCR"
 msgstr "Vizija / OCR"

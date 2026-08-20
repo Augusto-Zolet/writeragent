@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-17 16:44-0400\n"
+"POT-Creation-Date: 2026-08-19 22:46-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Romanian <LL@li.org>\n"
@@ -245,6 +245,31 @@ msgstr "Eroare de server ({0}). Furnizorul AI întâmpină probleme."
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "Eroare HTTP {0}: {1}"
+
+#: plugin/framework/errors.py
+msgid ""
+"Python venv not found. Open Settings → Python, set the venv path, then Test."
+msgstr ""
+"venv Python nu a fost găsit. Deschideți Setări → Python, setați calea către "
+"venv, apoi Test."
+
+#: plugin/framework/errors.py
+msgid ""
+"Python execution timed out. Open Settings → Python to raise the timeout."
+msgstr ""
+"Execuția Python a expirat. Deschideți Setări → Python pentru a mări timpul "
+"de așteptare."
+
+#: plugin/framework/errors.py
+msgid "Formula spill collision: destination range contains non-empty cells."
+msgstr ""
+"Coliziune la propagarea formulei: intervalul de destinație conține celule "
+"care nu sunt goale."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "Script execution blocked by sandbox policy: {0}"
+msgstr "Execuția scriptului blocată de politica sandbox: {0}"
 
 #: plugin/framework/errors.py
 msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
@@ -1003,7 +1028,7 @@ msgstr "Atașează la acest document"
 msgid "Script name cannot be empty."
 msgstr "Numele scriptului nu poate fi gol."
 
-#: plugin/chatbot/dialogs.py
+#: plugin/chatbot/dialogs.py plugin/mcp/__init__.py
 msgid "Copied!"
 msgstr "Copiat!"
 
@@ -1353,6 +1378,18 @@ msgstr "Descărcare bibliotecă audio"
 #: plugin/chatbot/dialog_views.py
 msgid "✓ Copied!"
 msgstr "✓ Copiat!"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing…"
+msgstr "Se testează…"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Test Tunnel"
+msgstr "Testare tunel"
+
+#: plugin/chatbot/dialog_views.py
+msgid "MCP Tunnel Test"
+msgstr "Testare tunel MCP"
 
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
@@ -2300,6 +2337,15 @@ msgstr "Tunel public prin {0} (fără autentificare)"
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
+msgid "Public tunnel via {0}: {1}"
+msgstr "Tunel public prin {0}: {1}"
+
+#: plugin/mcp/__init__.py
+msgid "reconnecting…"
+msgstr "se reconectează…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
 msgid "Public tunnel via {0} failed: {1}"
 msgstr "Tunelul public prin {0} a eșuat: {1}"
 
@@ -2349,8 +2395,144 @@ msgstr "Rute: {0}"
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
-msgid "URL: {0}"
-msgstr "URL: {0}"
+msgid "Local URL: {0}"
+msgstr "URL local: {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public URL: {0}"
+msgstr "URL public: {0}"
+
+#: plugin/mcp/__init__.py plugin/xdl_strings.py
+msgid "Local Endpoint:"
+msgstr "Endpoint local:"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public Tunnel ({0}):"
+msgstr "Tunel public ({0}):"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Active (connected)"
+msgstr "Stare: Activ (conectat)"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Reconnecting — {0}"
+msgstr "Stare: Reconectare — {0}"
+
+#: plugin/mcp/__init__.py
+msgid "retrying…"
+msgstr "se reîncearcă…"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Starting tunnel…"
+msgstr "Stare: Se pornește tunelul…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Failed — {0}"
+msgstr "Stare: Eșuat — {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Not running (is {0} binary installed?)"
+msgstr "Stare: Nu rulează (este instalat binarul {0}?)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Tunnel test mode: {0} provider simulated successfully."
+msgstr "Mod test tunel: furnizorul {0} a fost simulat cu succes."
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Unknown tunnel provider: {0}"
+msgstr "Furnizor de tunel necunoscut: {0}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"Binary '{0}' for {1} not found on PATH.\n"
+"\n"
+"Install from: {2}"
+msgstr ""
+"Binarul „{0}” pentru {1} nu a fost găsit în PATH.\n"
+"\n"
+"Instalați de la: {2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Failed to execute {0} binary ({1}): {2}"
+msgstr "Executarea binarului {0} a eșuat ({1}): {2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is running and responsive!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"Health check: OK (200)"
+msgstr ""
+"Tunelul {0} rulează și răspunde!\n"
+"\n"
+"Endpoint public:\n"
+"{1}\n"
+"\n"
+"Verificare stare: OK (200)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is active!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"(Public URL acquired from active tunnel session.)"
+msgstr ""
+"Tunelul {0} este activ!\n"
+"\n"
+"Endpoint public:\n"
+"{1}\n"
+"\n"
+"(URL public obținut dintr-o sesiune de tunel activă.)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is verified ({2}).\n"
+"\n"
+"(Note: An active {3} tunnel is currently running at {4}.)"
+msgstr ""
+"Binarul {0} „{1}” este verificat ({2}).\n"
+"\n"
+"(Notă: Un tunel {3} activ rulează în prezent la {4}.)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"MCP server is running locally on port {3}.\n"
+"Check 'Expose via public tunnel' and click OK to activate public routing."
+msgstr ""
+"Binarul {0} „{1}” este instalat și verificat ({2}).\n"
+"\n"
+"Serverul MCP rulează local pe portul {3}.\n"
+"Bifați „Expuneți prin tunel public” și faceți clic pe OK pentru a activa rutarea publică."
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"Note: MCP server is not currently running on port {3}."
+msgstr ""
+"Binarul {0} „{1}” este instalat și verificat ({2}).\n"
+"\n"
+"Notă: Serverul MCP nu rulează în prezent pe portul {3}."
 
 #: plugin/main.py
 #, python-brace-format
@@ -2374,7 +2556,7 @@ msgstr "Editare selecție"
 msgid "Toggle MCP Server"
 msgstr "Comutare server MCP"
 
-#: plugin/main.py
+#: plugin/main.py plugin/xdl_strings.py
 msgid "MCP Server Status"
 msgstr "Stare server MCP"
 
@@ -2667,6 +2849,10 @@ msgid "Preserve number formats"
 msgstr "Păstrare formate numerice"
 
 #: plugin/xdl_strings.py
+msgid "Public Tunnel:"
+msgstr "Tunel public:"
+
+#: plugin/xdl_strings.py
 msgid "Python Settings…"
 msgstr "Setări Python…"
 
@@ -2737,10 +2923,6 @@ msgstr "Selecție"
 #: plugin/xdl_strings.py
 msgid "Sentiment"
 msgstr "Sentiment"
-
-#: plugin/xdl_strings.py
-msgid "Server Status"
-msgstr "Stare server"
 
 #: plugin/xdl_strings.py
 msgid "Square"
@@ -3222,8 +3404,8 @@ msgstr ""
 "„secret de server”. Gol = implicit furnizor / configurație CLI. Neutilizat "
 "pentru Tailscale."
 
-msgid "Suggested client config (copy into Claude Desktop / Cursor):"
-msgstr "Configurație client sugerată (copiați în Claude Desktop / Cursor):"
+msgid "Client config (copy into Claude / Hermes-Agent):"
+msgstr "Configurație client (copiați în Claude / Hermes-Agent):"
 
 msgid "Python"
 msgstr "Python"
@@ -3300,34 +3482,6 @@ msgid ""
 msgstr ""
 "La salvarea Edit Python in Cell, ridică xl(\"A1:…\") static în argumentele "
 "de date =PY și rescrie în data / data[i] / .to_pandas()."
-
-msgid "Convert Date/Time and Timedelta Strings"
-msgstr "Conversie șiruri Dată/Oră și Timedelta"
-
-msgid ""
-"Automatically detect and convert date/time and duration strings to "
-"datetime/timedelta objects when sending data to the Python worker. Requires "
-"the 'pandas' and 'dateparser' packages in your venv."
-msgstr ""
-"Detectează și convertește automat șirurile de dată/oră și durată în obiecte "
-"datetime/timedelta la trimiterea datelor către worker-ul Python. Necesită "
-"pachetele „pandas” și „dateparser” în mediul virtual (venv)."
-
-msgid "PPT-Master data path"
-msgstr "Calea datelor PPT-Master"
-
-msgid ""
-"Path to the ppt-master skill tree (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Clone hugohe3/ppt-master on GitHub and point here at "
-"the clone root (.../ppt-master) or the inner skill dir (.../ppt-"
-"master/skills/ppt-master). Leave empty to auto-detect (dev clone beside "
-"repo, then env)."
-msgstr ""
-"Calea către arborele de competențe ppt-master (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Clonați hugohe3/ppt-master de pe GitHub și indicați "
-"aici rădăcina clonei (.../ppt-master) sau directorul intern de competențe "
-"(.../ppt-master/skills/ppt-master). Lăsați gol pentru detectare automată "
-"(clonă de dezvoltare lângă depozit, apoi env)."
 
 msgid "Vision / OCR"
 msgstr "Viziune / OCR"

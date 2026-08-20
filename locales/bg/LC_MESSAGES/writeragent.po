@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-17 16:44-0400\n"
+"POT-Creation-Date: 2026-08-19 22:46-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Bulgarian <LL@li.org>\n"
@@ -248,6 +248,31 @@ msgstr "Сървърна грешка ({0}). Доставчикът на AI им
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "HTTP грешка {0}: {1}"
+
+#: plugin/framework/errors.py
+msgid ""
+"Python venv not found. Open Settings → Python, set the venv path, then Test."
+msgstr ""
+"Python venv не е намерена. Отворете Настройки → Python, задайте пътя до venv"
+" и след това тествайте."
+
+#: plugin/framework/errors.py
+msgid ""
+"Python execution timed out. Open Settings → Python to raise the timeout."
+msgstr ""
+"Времето за изпълнение на Python изтече. Отворете Настройки → Python, за да "
+"увеличите лимита за време."
+
+#: plugin/framework/errors.py
+msgid "Formula spill collision: destination range contains non-empty cells."
+msgstr ""
+"Конфликт при разлив на формула: целевият диапазон съдържа непразни клетки."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "Script execution blocked by sandbox policy: {0}"
+msgstr ""
+"Изпълнението на скрипта е блокирано от политиката за пясъчник (sandbox): {0}"
 
 #: plugin/framework/errors.py
 msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
@@ -1010,7 +1035,7 @@ msgstr "Прикачване към този документ"
 msgid "Script name cannot be empty."
 msgstr "Името на скрипта не може да бъде празно."
 
-#: plugin/chatbot/dialogs.py
+#: plugin/chatbot/dialogs.py plugin/mcp/__init__.py
 msgid "Copied!"
 msgstr "Копирано!"
 
@@ -1357,6 +1382,18 @@ msgstr "Изтегляне на аудио библиотека"
 #: plugin/chatbot/dialog_views.py
 msgid "✓ Copied!"
 msgstr "✓ Копирано!"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing…"
+msgstr "Тестване…"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Test Tunnel"
+msgstr "Тест на тунел"
+
+#: plugin/chatbot/dialog_views.py
+msgid "MCP Tunnel Test"
+msgstr "Тест на MCP тунел"
 
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
@@ -2308,6 +2345,15 @@ msgstr "Публичен тунел чрез {0} (без удостоверяв�
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
+msgid "Public tunnel via {0}: {1}"
+msgstr "Публичен тунел чрез {0}: {1}"
+
+#: plugin/mcp/__init__.py
+msgid "reconnecting…"
+msgstr "свързване отново…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
 msgid "Public tunnel via {0} failed: {1}"
 msgstr "Публичният тунел чрез {0} е неуспешен: {1}"
 
@@ -2358,8 +2404,144 @@ msgstr "Маршрути: {0}"
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
-msgid "URL: {0}"
-msgstr "URL: {0}"
+msgid "Local URL: {0}"
+msgstr "Локален URL адрес: {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public URL: {0}"
+msgstr "Публичен URL адрес: {0}"
+
+#: plugin/mcp/__init__.py plugin/xdl_strings.py
+msgid "Local Endpoint:"
+msgstr "Локална крайна точка:"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public Tunnel ({0}):"
+msgstr "Публичен тунел ({0}):"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Active (connected)"
+msgstr "Състояние: Активно (свързано)"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Reconnecting — {0}"
+msgstr "Състояние: Повторно свързване — {0}"
+
+#: plugin/mcp/__init__.py
+msgid "retrying…"
+msgstr "опит за повторно свързване…"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Starting tunnel…"
+msgstr "Състояние: Стартиране на тунел…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Failed — {0}"
+msgstr "Състояние: Неуспешно — {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Not running (is {0} binary installed?)"
+msgstr "Състояние: Не работи (инсталиран ли е двоичният файл {0}?)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Tunnel test mode: {0} provider simulated successfully."
+msgstr "Режим на тестване на тунел: доставчикът {0} е симулиран успешно."
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Unknown tunnel provider: {0}"
+msgstr "Непознат доставчик на тунели: {0}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"Binary '{0}' for {1} not found on PATH.\n"
+"\n"
+"Install from: {2}"
+msgstr ""
+"Двоичният файл „{0}“ за {1} не е намерен в PATH.\n"
+"\n"
+"Инсталирайте от: {2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Failed to execute {0} binary ({1}): {2}"
+msgstr "Неуспешно изпълнение на двоичния файл {0} ({1}): {2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is running and responsive!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"Health check: OK (200)"
+msgstr ""
+"Тунелът {0} работи и отговаря!\n"
+"\n"
+"Публична крайна точка:\n"
+"{1}\n"
+"\n"
+"Проверка на състоянието: OK (200)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is active!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"(Public URL acquired from active tunnel session.)"
+msgstr ""
+"Тунелът {0} е активен!\n"
+"\n"
+"Публична крайна точка:\n"
+"{1}\n"
+"\n"
+"(Публичният URL адрес е получен от активна сесия на тунела.)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is verified ({2}).\n"
+"\n"
+"(Note: An active {3} tunnel is currently running at {4}.)"
+msgstr ""
+"Двоичният файл {0} „{1}“ е потвърден ({2}).\n"
+"\n"
+"(Забележка: Активен тунел {3} в момента работи на {4}.)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"MCP server is running locally on port {3}.\n"
+"Check 'Expose via public tunnel' and click OK to activate public routing."
+msgstr ""
+"Двоичният файл {0} „{1}“ е инсталиран и потвърден ({2}).\n"
+"\n"
+"MCP сървърът работи локално на порт {3}.\n"
+"Маркирайте „Expose via public tunnel“ и щракнете върху OK, за да активирате публичното маршрутизиране."
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"Note: MCP server is not currently running on port {3}."
+msgstr ""
+"Двоичният файл {0} „{1}“ е инсталиран и потвърден ({2}).\n"
+"\n"
+"Забележка: MCP сървърът в момента не работи на порт {3}."
 
 #: plugin/main.py
 #, python-brace-format
@@ -2383,7 +2565,7 @@ msgstr "Редактиране на селекцията"
 msgid "Toggle MCP Server"
 msgstr "Превключване на MCP сървър"
 
-#: plugin/main.py
+#: plugin/main.py plugin/xdl_strings.py
 msgid "MCP Server Status"
 msgstr "Състояние на MCP сървър"
 
@@ -2674,6 +2856,10 @@ msgid "Preserve number formats"
 msgstr "Запазване на числовите формати"
 
 #: plugin/xdl_strings.py
+msgid "Public Tunnel:"
+msgstr "Публичен тунел:"
+
+#: plugin/xdl_strings.py
 msgid "Python Settings…"
 msgstr "Настройки на Python…"
 
@@ -2744,10 +2930,6 @@ msgstr "Селекция"
 #: plugin/xdl_strings.py
 msgid "Sentiment"
 msgstr "Настроение"
-
-#: plugin/xdl_strings.py
-msgid "Server Status"
-msgstr "Състояние на сървъра"
 
 #: plugin/xdl_strings.py
 msgid "Square"
@@ -3228,9 +3410,8 @@ msgstr ""
 "Празно = по подразбиране за доставчика / CLI конфигурация. Не се използва за"
 " Tailscale."
 
-msgid "Suggested client config (copy into Claude Desktop / Cursor):"
-msgstr ""
-"Предложена клиентска конфигурация (копирайте в Claude Desktop / Cursor):"
+msgid "Client config (copy into Claude / Hermes-Agent):"
+msgstr "Конфигурация на клиента (копирайте в Claude / Hermes-Agent):"
 
 msgid "Python"
 msgstr "Python"
@@ -3311,35 +3492,6 @@ msgid ""
 msgstr ""
 "При запис на Python в клетка, извеждане на статични xl(\"A1:…\") към =PY "
 "аргументи за данни и пренаписване към data / data[i] / .to_pandas()."
-
-msgid "Convert Date/Time and Timedelta Strings"
-msgstr "Преобразуване на низове за дата/час и времеви интервал"
-
-msgid ""
-"Automatically detect and convert date/time and duration strings to "
-"datetime/timedelta objects when sending data to the Python worker. Requires "
-"the 'pandas' and 'dateparser' packages in your venv."
-msgstr ""
-"Автоматично откриване и преобразуване на низове за дата/час и "
-"продължителност в обекти datetime/timedelta при изпращане на данни към "
-"Python работния процес. Изисква пакетите 'pandas' и 'dateparser' във вашата "
-"venv."
-
-msgid "PPT-Master data path"
-msgstr "Път до данните на PPT-Master"
-
-msgid ""
-"Path to the ppt-master skill tree (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Clone hugohe3/ppt-master on GitHub and point here at "
-"the clone root (.../ppt-master) or the inner skill dir (.../ppt-"
-"master/skills/ppt-master). Leave empty to auto-detect (dev clone beside "
-"repo, then env)."
-msgstr ""
-"Път към дървото на уменията ppt-master (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Клонирайте hugohe3/ppt-master в GitHub и посочете тук"
-" корена на клонирането (.../ppt-master) или вътрешната директория с умения "
-"(.../ppt-master/skills/ppt-master). Оставете празно за автоматично откриване"
-" (dev клонинг до хранилището, след това env)."
 
 msgid "Vision / OCR"
 msgstr "Визия / OCR"

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-17 16:44-0400\n"
+"POT-Creation-Date: 2026-08-19 22:46-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Catalan <LL@li.org>\n"
@@ -246,6 +246,33 @@ msgstr "Error del servidor ({0}). El proveïdor d'IA té problemes."
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "Error HTTP {0}: {1}"
+
+#: plugin/framework/errors.py
+msgid ""
+"Python venv not found. Open Settings → Python, set the venv path, then Test."
+msgstr ""
+"No s'ha trobat el venv de Python. Obriu Paràmetres → Python, definiu el camí"
+" del venv i, tot seguit, feu la prova."
+
+#: plugin/framework/errors.py
+msgid ""
+"Python execution timed out. Open Settings → Python to raise the timeout."
+msgstr ""
+"S'ha esgotat el temps d'espera de l'execució de Python. Obriu Paràmetres → "
+"Python per augmentar el temps d'espera."
+
+#: plugin/framework/errors.py
+msgid "Formula spill collision: destination range contains non-empty cells."
+msgstr ""
+"Col·lisió de desbordament de fórmula: l'interval de destinació conté cel·les"
+" no buides."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "Script execution blocked by sandbox policy: {0}"
+msgstr ""
+"L'execució de l'script està bloquejada per la política de seguretat "
+"(sandbox): {0}"
 
 #: plugin/framework/errors.py
 msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
@@ -1009,7 +1036,7 @@ msgstr "Adjunta a aquest document"
 msgid "Script name cannot be empty."
 msgstr "El nom de l'script no pot estar buit."
 
-#: plugin/chatbot/dialogs.py
+#: plugin/chatbot/dialogs.py plugin/mcp/__init__.py
 msgid "Copied!"
 msgstr "Copiat!"
 
@@ -1358,6 +1385,18 @@ msgstr "Baixa de la biblioteca d'àudio"
 #: plugin/chatbot/dialog_views.py
 msgid "✓ Copied!"
 msgstr "✓ Copiat!"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing…"
+msgstr "S'està provant…"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Test Tunnel"
+msgstr "Prova del túnel"
+
+#: plugin/chatbot/dialog_views.py
+msgid "MCP Tunnel Test"
+msgstr "Prova del túnel MCP"
 
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
@@ -2320,6 +2359,15 @@ msgstr "Túnel públic mitjançant {0} (sense autenticació)"
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
+msgid "Public tunnel via {0}: {1}"
+msgstr "Túnel públic mitjançant {0}: {1}"
+
+#: plugin/mcp/__init__.py
+msgid "reconnecting…"
+msgstr "s'està reconnectant…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
 msgid "Public tunnel via {0} failed: {1}"
 msgstr "El túnel públic mitjançant {0} ha fallat: {1}"
 
@@ -2370,8 +2418,144 @@ msgstr "Rutes: {0}"
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
-msgid "URL: {0}"
-msgstr "URL: {0}"
+msgid "Local URL: {0}"
+msgstr "URL local: {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public URL: {0}"
+msgstr "URL pública: {0}"
+
+#: plugin/mcp/__init__.py plugin/xdl_strings.py
+msgid "Local Endpoint:"
+msgstr "Punt final local:"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public Tunnel ({0}):"
+msgstr "Túnel públic ({0}):"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Active (connected)"
+msgstr "Estat: Actiu (connectat)"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Reconnecting — {0}"
+msgstr "Estat: Reconnectant — {0}"
+
+#: plugin/mcp/__init__.py
+msgid "retrying…"
+msgstr "reintentant…"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Starting tunnel…"
+msgstr "Estat: Iniciant el túnel…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Failed — {0}"
+msgstr "Estat: Ha fallat — {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Not running (is {0} binary installed?)"
+msgstr "Estat: No s'està executant (el binari {0} està instal·lat?)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Tunnel test mode: {0} provider simulated successfully."
+msgstr "Mode de prova del túnel: proveïdor {0} simulat correctament."
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Unknown tunnel provider: {0}"
+msgstr "Proveïdor de túnel desconegut: {0}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"Binary '{0}' for {1} not found on PATH.\n"
+"\n"
+"Install from: {2}"
+msgstr ""
+"No s'ha trobat el binari «{0}» per a {1} al PATH.\n"
+"\n"
+"Instal·leu-lo des de: {2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Failed to execute {0} binary ({1}): {2}"
+msgstr "No s'ha pogut executar el binari {0} ({1}): {2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is running and responsive!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"Health check: OK (200)"
+msgstr ""
+"El túnel {0} s'està executant i respon correctament!\n"
+"\n"
+"Endpoint públic:\n"
+"{1}\n"
+"\n"
+"Comprovació d'estat: OK (200)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is active!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"(Public URL acquired from active tunnel session.)"
+msgstr ""
+"El túnel {0} està actiu!\n"
+"\n"
+"Endpoint públic:\n"
+"{1}\n"
+"\n"
+"(URL pública obtinguda de la sessió de túnel activa.)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is verified ({2}).\n"
+"\n"
+"(Note: An active {3} tunnel is currently running at {4}.)"
+msgstr ""
+"El binari {0} «{1}» està verificat ({2}).\n"
+"\n"
+"(Nota: Actualment hi ha un túnel {3} actiu executant-se a {4}.)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"MCP server is running locally on port {3}.\n"
+"Check 'Expose via public tunnel' and click OK to activate public routing."
+msgstr ""
+"El binari {0} «{1}» està instal·lat i verificat ({2}).\n"
+"\n"
+"El servidor MCP s'està executant localment al port {3}.\n"
+"Marqueu «Exposa mitjançant túnel públic» i feu clic a D'acord per activar l'encaminament públic."
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"Note: MCP server is not currently running on port {3}."
+msgstr ""
+"El binari {0} «{1}» està instal·lat i verificat ({2}).\n"
+"\n"
+"Nota: El servidor MCP no s'està executant actualment al port {3}."
 
 #: plugin/main.py
 #, python-brace-format
@@ -2395,7 +2579,7 @@ msgstr "Edita la selecció"
 msgid "Toggle MCP Server"
 msgstr "Commuta el servidor MCP"
 
-#: plugin/main.py
+#: plugin/main.py plugin/xdl_strings.py
 msgid "MCP Server Status"
 msgstr "Estat del servidor MCP"
 
@@ -2688,6 +2872,10 @@ msgid "Preserve number formats"
 msgstr "Conserva els formats de nombre"
 
 #: plugin/xdl_strings.py
+msgid "Public Tunnel:"
+msgstr "Túnel públic:"
+
+#: plugin/xdl_strings.py
 msgid "Python Settings…"
 msgstr "Configuració del Python…"
 
@@ -2758,10 +2946,6 @@ msgstr "Selecció"
 #: plugin/xdl_strings.py
 msgid "Sentiment"
 msgstr "Sentiment"
-
-#: plugin/xdl_strings.py
-msgid "Server Status"
-msgstr "Estat del servidor"
 
 #: plugin/xdl_strings.py
 msgid "Square"
@@ -3247,9 +3431,8 @@ msgstr ""
 " «secret del servidor». Buit = per defecte del proveïdor / configuració de "
 "la CLI. No s'utilitza per a Tailscale."
 
-msgid "Suggested client config (copy into Claude Desktop / Cursor):"
-msgstr ""
-"Configuració del client suggerida (copieu-la a Claude Desktop / Cursor):"
+msgid "Client config (copy into Claude / Hermes-Agent):"
+msgstr "Configuració del client (copieu-la al Claude / Hermes-Agent):"
 
 msgid "Python"
 msgstr "Python"
@@ -3327,34 +3510,6 @@ msgid ""
 msgstr ""
 "En desar l'edició de Python a la cel·la, eleva els xl(\"A1:…\") estàtics als"
 " arguments de dades =PY i reescriu-los a data / data[i] / .to_pandas()."
-
-msgid "Convert Date/Time and Timedelta Strings"
-msgstr "Converteix cadenes de data/hora i interval de temps"
-
-msgid ""
-"Automatically detect and convert date/time and duration strings to "
-"datetime/timedelta objects when sending data to the Python worker. Requires "
-"the 'pandas' and 'dateparser' packages in your venv."
-msgstr ""
-"Detecta i converteix automàticament cadenes de data/hora i durada a objectes"
-" datetime/timedelta en enviar dades al treballador de Python. Requereix els "
-"paquets «pandas» i «dateparser» al vostre entorn virtual."
-
-msgid "PPT-Master data path"
-msgstr "Camí de les dades del PPT-Master"
-
-msgid ""
-"Path to the ppt-master skill tree (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Clone hugohe3/ppt-master on GitHub and point here at "
-"the clone root (.../ppt-master) or the inner skill dir (.../ppt-"
-"master/skills/ppt-master). Leave empty to auto-detect (dev clone beside "
-"repo, then env)."
-msgstr ""
-"Camí a l'arbre d'habilitats ppt-master (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Cloneu hugohe3/ppt-master a GitHub i apunteu aquí a "
-"l'arrel del clon (.../ppt-master) o al directori d'habilitats intern "
-"(.../ppt-master/skills/ppt-master). Deixeu-ho buit per a l'autodetecció "
-"(clon de desenvolupament al costat del dipòsit, després entorn)."
 
 msgid "Vision / OCR"
 msgstr "Visió / OCR"

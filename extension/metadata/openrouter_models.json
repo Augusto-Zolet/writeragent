@@ -1,6 +1,1639 @@
 {
-  "updated_at": "2026-07-16T01:10:20.002Z",
+  "updated_at": "2026-08-20T02:30:12.494Z",
   "models": [
+    {
+      "id": "z-ai/glm-5.3",
+      "name": "GLM 5.3",
+      "author_name": "Z.ai",
+      "input_modalities": [
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "z-ai/glm-5.3-20260816",
+      "created_at": "2026-08-18T20:57:35.738Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 2.6e-07,
+        "text_cache_write": null,
+        "text_input": 1.4e-06,
+        "text_output": 4.4e-06
+      }
+    },
+    {
+      "id": "qwen/qwen3.8-27b",
+      "name": "Qwen3.8 27B",
+      "author_name": "Qwen",
+      "input_modalities": [
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "qwen/qwen3.8-27b-20260814",
+      "created_at": "2026-08-14T15:55:10.434Z",
+      "context_length": 1000000,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "logit_bias",
+        "logprobs",
+        "max_tokens",
+        "presence_penalty",
+        "reasoning",
+        "repetition_penalty",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_logprobs",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1.125e-07,
+        "text_cache_write": 6.875e-07,
+        "text_input": 4.61429e-07,
+        "text_output": 3.214286e-06
+      }
+    },
+    {
+      "id": "dots-studio/dots-3-note-preview:free",
+      "name": "Dots3-Note Preview (free)",
+      "author_name": "Dots Studio",
+      "input_modalities": [
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "free",
+      "version_id": "dots-studio/dots-3-note-preview-20260813",
+      "created_at": "2026-08-14T04:06:01.117Z",
+      "context_length": 512000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": null
+    },
+    {
+      "id": "google/gemini-3.7-flash",
+      "name": "Gemini 3.7 Flash",
+      "author_name": "Google",
+      "input_modalities": [
+        "audio",
+        "file",
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "google/gemini-3.7-flash-20260813",
+      "created_at": "2026-08-13T17:03:01.688Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": 5.625e-08,
+        "audio_input": 5.625e-07,
+        "image_input": 5.625e-07,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": 2.8125e-06,
+        "text_cache_read": 5.625e-08,
+        "text_cache_write": 3.125e-08,
+        "text_input": 5.625e-07,
+        "text_output": 2.8125e-06
+      }
+    },
+    {
+      "id": "google/gemini-3.7-flash:batch",
+      "name": "Gemini 3.7 Flash (batch)",
+      "author_name": "Google",
+      "input_modalities": [
+        "audio",
+        "file",
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "google/gemini-3.7-flash-20260813",
+      "created_at": "2026-08-13T17:03:01.688Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": 1.875e-08,
+        "audio_input": 1.875e-07,
+        "image_input": 1.875e-07,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": 9.375e-07,
+        "text_cache_read": 1.875e-08,
+        "text_cache_write": 2.0833e-08,
+        "text_input": 1.875e-07,
+        "text_output": 9.375e-07
+      }
+    },
+    {
+      "id": "bytedance-seed/seed-2-1-turbo",
+      "name": "Seed 2.1 Turbo",
+      "author_name": "ByteDance Seed",
+      "input_modalities": [
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "bytedance-seed/seed-2-1-turbo-20260810",
+      "created_at": "2026-08-12T16:29:36.465Z",
+      "context_length": 262144,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": null,
+        "text_cache_write": null,
+        "text_input": 5e-07,
+        "text_output": 2.5e-06
+      }
+    },
+    {
+      "id": "qwen/qwen3.8-2.4t-a95b",
+      "name": "Qwen3.8 2.4T A95B",
+      "author_name": "Qwen",
+      "input_modalities": [
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "qwen/qwen3.8-2.4t-a95b-20260812",
+      "created_at": "2026-08-12T16:21:42.451Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "logit_bias",
+        "logprobs",
+        "max_tokens",
+        "min_p",
+        "presence_penalty",
+        "reasoning",
+        "repetition_penalty",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_logprobs",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 2.80357e-07,
+        "text_cache_write": 2.5e-06,
+        "text_input": 2.142857e-06,
+        "text_output": 6.25e-06
+      }
+    },
+    {
+      "id": "bytedance-seed/seed-2.0-code",
+      "name": "Seed-2.0-Code",
+      "author_name": "ByteDance Seed",
+      "input_modalities": [
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "bytedance-seed/seed-2.0-code-20260730",
+      "created_at": "2026-08-12T16:05:01.201Z",
+      "context_length": 262144,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": null,
+        "text_cache_write": null,
+        "text_input": 5e-07,
+        "text_output": 3e-06
+      }
+    },
+    {
+      "id": "deepseek/deepseek-v4-pro-0813",
+      "name": "DeepSeek V4 Pro 0813",
+      "author_name": "DeepSeek",
+      "input_modalities": [
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "deepseek/deepseek-v4-pro-20260813",
+      "created_at": "2026-08-12T15:42:44.768Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "logit_bias",
+        "logprobs",
+        "max_tokens",
+        "min_p",
+        "presence_penalty",
+        "reasoning",
+        "repetition_penalty",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_logprobs",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1.058e-07,
+        "text_cache_write": null,
+        "text_input": 1.309e-06,
+        "text_output": 3.927e-06
+      }
+    },
+    {
+      "id": "x-ai/grok-4.6",
+      "name": "Grok 4.6",
+      "author_name": "SpaceXAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "x-ai/grok-4.6-20260810",
+      "created_at": "2026-08-12T15:35:57.755Z",
+      "context_length": 500000,
+      "supported_parameters": [
+        "include_reasoning",
+        "logprobs",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_logprobs",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 5e-07,
+        "text_cache_write": null,
+        "text_input": 2e-06,
+        "text_output": 6e-06
+      }
+    },
+    {
+      "id": "liquid/lfm-2.5-2.6b:free",
+      "name": "LFM2.5-2.6B (free)",
+      "author_name": "LiquidAI",
+      "input_modalities": [
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "free",
+      "version_id": "liquid/lfm-2.5-2.6b-20260811",
+      "created_at": "2026-08-11T17:48:39.909Z",
+      "context_length": 128000,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "logprobs",
+        "max_completion_tokens",
+        "max_tokens",
+        "min_p",
+        "presence_penalty",
+        "reasoning",
+        "repetition_penalty",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_logprobs",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": null
+    },
+    {
+      "id": "nvidia/nemotron-3.5-lightning:free",
+      "name": "Nemotron 3.5 Lightning (free)",
+      "author_name": "NVIDIA",
+      "input_modalities": [
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "free",
+      "version_id": "nvidia/nemotron-3.5-lightning-20260807",
+      "created_at": "2026-08-11T12:52:31.833Z",
+      "context_length": 1000000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "seed",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": null
+    },
+    {
+      "id": "nvidia/nemotron-3.5-lightning",
+      "name": "Nemotron 3.5 Lightning",
+      "author_name": "NVIDIA",
+      "input_modalities": [
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "nvidia/nemotron-3.5-lightning-20260807",
+      "created_at": "2026-08-11T12:52:31.833Z",
+      "context_length": 1000000,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "logit_bias",
+        "logprobs",
+        "max_tokens",
+        "min_p",
+        "presence_penalty",
+        "reasoning",
+        "repetition_penalty",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_logprobs",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 4.5e-08,
+        "text_cache_write": null,
+        "text_input": 9.3333e-08,
+        "text_output": 2.33333e-07
+      }
+    },
+    {
+      "id": "sakana/sakana-namazu",
+      "name": "Sakana Namazu",
+      "author_name": "Sakana",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "sakana/namazu-20260811",
+      "created_at": "2026-08-11T01:02:09.982Z",
+      "context_length": 262144,
+      "supported_parameters": [
+        "include_reasoning",
+        "reasoning",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "web_search_options"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1.5e-07,
+        "text_cache_write": null,
+        "text_input": 9.5e-07,
+        "text_output": 4e-06
+      }
+    },
+    {
+      "id": "upstage/solar-pro4",
+      "name": "Solar Pro 4",
+      "author_name": "Upstage",
+      "input_modalities": [
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "upstage/solar-pro4-20260810",
+      "created_at": "2026-08-10T14:20:36.388Z",
+      "context_length": 524288,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "max_tokens",
+        "presence_penalty",
+        "reasoning",
+        "response_format",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 6e-09,
+        "text_cache_write": null,
+        "text_input": 3e-08,
+        "text_output": 1.2e-07
+      }
+    },
+    {
+      "id": "meta/muse-glimmer-30b",
+      "name": "Muse Glimmer 30B",
+      "author_name": "Meta",
+      "input_modalities": [
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "meta/muse-glimmer-30b-20260810",
+      "created_at": "2026-08-09T19:06:34.984Z",
+      "context_length": 131072,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "logit_bias",
+        "logprobs",
+        "max_tokens",
+        "min_p",
+        "presence_penalty",
+        "reasoning",
+        "repetition_penalty",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_logprobs",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 4e-08,
+        "text_cache_write": null,
+        "text_input": 3.2e-07,
+        "text_output": 1.28e-06
+      }
+    },
+    {
+      "id": "meta/muse-spark-1.2",
+      "name": "Muse Spark 1.2",
+      "author_name": "Meta",
+      "input_modalities": [
+        "audio",
+        "file",
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "meta/muse-spark-1.2-20260805",
+      "created_at": "2026-08-05T19:48:07.643Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "repetition_penalty",
+        "response_format",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1.5e-07,
+        "text_cache_write": null,
+        "text_input": 1.25e-06,
+        "text_output": 4.25e-06
+      }
+    },
+    {
+      "id": "qwen/qwen3.8-max",
+      "name": "Qwen3.8 Max",
+      "author_name": "Qwen",
+      "input_modalities": [
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "qwen/qwen3.8-max-20260803",
+      "created_at": "2026-08-03T04:33:32.259Z",
+      "context_length": 1000000,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "logprobs",
+        "max_tokens",
+        "presence_penalty",
+        "reasoning",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_logprobs",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 2.5e-07,
+        "text_cache_write": 2.5e-06,
+        "text_input": 2e-06,
+        "text_output": 6e-06
+      }
+    },
+    {
+      "id": "deepseek/deepseek-v4-flash-0731",
+      "name": "DeepSeek V4 Flash 0731",
+      "author_name": "DeepSeek",
+      "input_modalities": [
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "deepseek/deepseek-v4-flash-20260731",
+      "created_at": "2026-07-31T06:21:48.816Z",
+      "context_length": 1310720,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "logit_bias",
+        "logprobs",
+        "max_tokens",
+        "min_p",
+        "parallel_tool_calls",
+        "presence_penalty",
+        "reasoning",
+        "reasoning_effort",
+        "repetition_penalty",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_a",
+        "top_k",
+        "top_logprobs",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 3.3653e-08,
+        "text_cache_write": null,
+        "text_input": 1.38753e-07,
+        "text_output": 3.08007e-07
+      }
+    },
+    {
+      "id": "thinkingmachines/inkling-small",
+      "name": "Inkling Small",
+      "author_name": "Thinking Machines",
+      "input_modalities": [
+        "audio",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "thinkingmachines/inkling-small-20260730",
+      "created_at": "2026-07-30T20:25:17.934Z",
+      "context_length": 524288,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "logit_bias",
+        "logprobs",
+        "max_tokens",
+        "min_p",
+        "presence_penalty",
+        "reasoning",
+        "repetition_penalty",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_logprobs",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1e-07,
+        "text_cache_write": null,
+        "text_input": 4.75e-07,
+        "text_output": 1.2e-06
+      }
+    },
+    {
+      "id": "qwen/qwen3.7-flash",
+      "name": "Qwen3.7 Flash",
+      "author_name": "Qwen",
+      "input_modalities": [
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "qwen/qwen3.7-flash-20260727",
+      "created_at": "2026-07-27T22:16:01.027Z",
+      "context_length": 1000000,
+      "supported_parameters": [
+        "include_reasoning",
+        "logprobs",
+        "max_tokens",
+        "presence_penalty",
+        "reasoning",
+        "response_format",
+        "seed",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_logprobs",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 6e-09,
+        "text_cache_write": 3.8e-08,
+        "text_input": 3e-08,
+        "text_output": 1.3e-07
+      }
+    },
+    {
+      "id": "anthropic/claude-opus-5-fast",
+      "name": "Claude Opus 5 (Fast)",
+      "author_name": "anthropic",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "anthropic/claude-opus-5-fast-20260723",
+      "created_at": "2026-07-24T17:02:26.533Z",
+      "context_length": 1000000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1e-06,
+        "text_cache_write": 1.25e-05,
+        "text_input": 1e-05,
+        "text_output": 5e-05
+      }
+    },
+    {
+      "id": "anthropic/claude-opus-5",
+      "name": "Claude Opus 5",
+      "author_name": "anthropic",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "anthropic/claude-opus-5-20260723",
+      "created_at": "2026-07-24T17:02:24.129Z",
+      "context_length": 1000000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_completion_tokens",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 5.16667e-07,
+        "text_cache_write": 6.458333e-06,
+        "text_input": 5.166667e-06,
+        "text_output": 2.5833333e-05
+      }
+    },
+    {
+      "id": "anthropic/claude-opus-5:batch",
+      "name": "Claude Opus 5 (batch)",
+      "author_name": "anthropic",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "anthropic/claude-opus-5-20260723",
+      "created_at": "2026-07-24T17:02:24.129Z",
+      "context_length": 1000000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 2.5e-07,
+        "text_cache_write": 3.125e-06,
+        "text_input": 2.5e-06,
+        "text_output": 1.25e-05
+      }
+    },
+    {
+      "id": "inclusionai/ling-3.0-flash",
+      "name": "Ling-3.0-flash",
+      "author_name": "inclusionai",
+      "input_modalities": [
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "inclusionai/ling-3.0-flash-20260723",
+      "created_at": "2026-07-23T14:56:20.920Z",
+      "context_length": 262144,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "logit_bias",
+        "logprobs",
+        "max_tokens",
+        "min_p",
+        "presence_penalty",
+        "reasoning",
+        "repetition_penalty",
+        "response_format",
+        "seed",
+        "stop",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_logprobs",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 8.2e-09,
+        "text_cache_write": null,
+        "text_input": 4.1e-08,
+        "text_output": 1.23e-07
+      }
+    },
+    {
+      "id": "poolside/laguna-s-2.1:free",
+      "name": "Laguna S 2.1 (free)",
+      "author_name": "Poolside",
+      "input_modalities": [
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "free",
+      "version_id": "poolside/laguna-s-2.1-20260720",
+      "created_at": "2026-07-21T16:51:23.607Z",
+      "context_length": 262144,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "temperature",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": null
+    },
+    {
+      "id": "poolside/laguna-s-2.1",
+      "name": "Laguna S 2.1",
+      "author_name": "Poolside",
+      "input_modalities": [
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "poolside/laguna-s-2.1-20260720",
+      "created_at": "2026-07-21T16:51:23.607Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "temperature",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 9e-09,
+        "text_cache_write": null,
+        "text_input": 9e-08,
+        "text_output": 1.8e-07
+      }
+    },
+    {
+      "id": "google/gemini-3.6-flash",
+      "name": "Gemini 3.6 Flash",
+      "author_name": "Google",
+      "input_modalities": [
+        "audio",
+        "file",
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "google/gemini-3.6-flash-20260721",
+      "created_at": "2026-07-21T15:12:13.976Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": 7.75e-08,
+        "audio_input": 7.75e-07,
+        "image_input": 7.75e-07,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": 3.875e-06,
+        "text_cache_read": 7.75e-08,
+        "text_cache_write": 4.1667e-08,
+        "text_input": 7.75e-07,
+        "text_output": 3.875e-06
+      }
+    },
+    {
+      "id": "google/gemini-3.6-flash:batch",
+      "name": "Gemini 3.6 Flash (batch)",
+      "author_name": "Google",
+      "input_modalities": [
+        "audio",
+        "file",
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "google/gemini-3.6-flash-20260721",
+      "created_at": "2026-07-21T15:12:13.976Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": 3.75e-08,
+        "audio_input": 3.75e-07,
+        "image_input": 3.75e-07,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": 1.875e-06,
+        "text_cache_read": 3.75e-08,
+        "text_cache_write": 4.1667e-08,
+        "text_input": 3.75e-07,
+        "text_output": 1.875e-06
+      }
+    },
+    {
+      "id": "google/gemini-3.5-flash-lite",
+      "name": "Gemini 3.5 Flash Lite",
+      "author_name": "Google",
+      "input_modalities": [
+        "audio",
+        "file",
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "google/gemini-3.5-flash-lite-20260721",
+      "created_at": "2026-07-21T15:12:06.691Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": 3.1e-08,
+        "audio_input": 3.1e-07,
+        "image_input": 3.1e-07,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": 2.583333e-06,
+        "text_cache_read": 3.1e-08,
+        "text_cache_write": 8.3333e-08,
+        "text_input": 3.1e-07,
+        "text_output": 2.583333e-06
+      }
+    },
+    {
+      "id": "google/gemini-3.5-flash-lite:batch",
+      "name": "Gemini 3.5 Flash Lite (batch)",
+      "author_name": "Google",
+      "input_modalities": [
+        "audio",
+        "file",
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "google/gemini-3.5-flash-lite-20260721",
+      "created_at": "2026-07-21T15:12:06.691Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": 1.5e-08,
+        "audio_input": 1.5e-07,
+        "image_input": 1.5e-07,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": 1.25e-06,
+        "text_cache_read": 1.5e-08,
+        "text_cache_write": null,
+        "text_input": 1.5e-07,
+        "text_output": 1.25e-06
+      }
+    },
+    {
+      "id": "meituan/longcat-2.0",
+      "name": "LongCat 2.0",
+      "author_name": "Meituan",
+      "input_modalities": [
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "meituan/longcat-2.0-20260720",
+      "created_at": "2026-07-20T13:37:38.452Z",
+      "context_length": 1048756,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "logit_bias",
+        "max_tokens",
+        "min_p",
+        "presence_penalty",
+        "reasoning",
+        "repetition_penalty",
+        "seed",
+        "stop",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 6e-09,
+        "text_cache_write": null,
+        "text_input": 3e-07,
+        "text_output": 1.2e-06
+      }
+    },
+    {
+      "id": "thinkingmachines/inkling",
+      "name": "Inkling",
+      "author_name": "Thinking Machines",
+      "input_modalities": [
+        "audio",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "thinkingmachines/inkling-20260715",
+      "created_at": "2026-07-17T22:05:56.456Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "logit_bias",
+        "max_tokens",
+        "min_p",
+        "presence_penalty",
+        "reasoning",
+        "repetition_penalty",
+        "response_format",
+        "seed",
+        "stop",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1.66667e-07,
+        "text_cache_write": null,
+        "text_input": 9.83333e-07,
+        "text_output": 4.05e-06
+      }
+    },
+    {
+      "id": "thinkingmachines/inkling:batch",
+      "name": "Inkling (batch)",
+      "author_name": "Thinking Machines",
+      "input_modalities": [
+        "audio",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "thinkingmachines/inkling-20260715",
+      "created_at": "2026-07-17T22:05:56.456Z",
+      "context_length": 524288,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "logit_bias",
+        "max_tokens",
+        "min_p",
+        "presence_penalty",
+        "reasoning",
+        "repetition_penalty",
+        "stop",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1.7e-07,
+        "text_cache_write": null,
+        "text_input": 1e-06,
+        "text_output": 4.05e-06
+      }
+    },
+    {
+      "id": "moonshotai/kimi-k3",
+      "name": "Kimi K3",
+      "author_name": "MoonshotAI",
+      "input_modalities": [
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "moonshotai/kimi-k3-20260715",
+      "created_at": "2026-07-16T15:30:58.110Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "logit_bias",
+        "logprobs",
+        "max_tokens",
+        "min_p",
+        "presence_penalty",
+        "reasoning",
+        "repetition_penalty",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_logprobs",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 4.11538e-07,
+        "text_cache_write": null,
+        "text_input": 3.161538e-06,
+        "text_output": 1.5230769e-05
+      }
+    },
+    {
+      "id": "meta/muse-spark-1.1",
+      "name": "Muse Spark 1.1",
+      "author_name": "Meta",
+      "input_modalities": [
+        "audio",
+        "file",
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "meta/muse-spark-1.1-20260709",
+      "created_at": "2026-07-16T15:29:01.377Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "repetition_penalty",
+        "response_format",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1.5e-07,
+        "text_cache_write": null,
+        "text_input": 1.25e-06,
+        "text_output": 4.25e-06
+      }
+    },
     {
       "id": "kwaipilot/kat-coder-air-v2.5",
       "name": "KAT-Coder-Air V2.5",
@@ -17,7 +1650,6 @@
       "created_at": "2026-07-10T20:16:30.659Z",
       "context_length": 256000,
       "supported_parameters": [
-        "frequency_penalty",
         "logprobs",
         "max_tokens",
         "presence_penalty",
@@ -61,7 +1693,6 @@
       "created_at": "2026-07-10T20:16:29.989Z",
       "context_length": 256000,
       "supported_parameters": [
-        "frequency_penalty",
         "logprobs",
         "max_tokens",
         "presence_penalty",
@@ -126,10 +1757,52 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.03333e-07,
-        "text_cache_write": 1.291667e-06,
-        "text_input": 1.033333e-06,
-        "text_output": 6.2e-06
+        "text_cache_read": 2.0667e-08,
+        "text_cache_write": 2.58333e-07,
+        "text_input": 2.06667e-07,
+        "text_output": 1.24e-06
+      }
+    },
+    {
+      "id": "openai/gpt-5.6-luna-pro:batch",
+      "name": "GPT-5.6 Luna Pro (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/gpt-5.6-luna-pro-20260709",
+      "created_at": "2026-07-09T09:54:27.822Z",
+      "context_length": 1050000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1e-08,
+        "text_cache_write": null,
+        "text_input": 1e-07,
+        "text_output": 6e-07
       }
     },
     {
@@ -169,10 +1842,52 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.03333e-07,
-        "text_cache_write": 1.291667e-06,
-        "text_input": 1.033333e-06,
-        "text_output": 6.2e-06
+        "text_cache_read": 2.12e-08,
+        "text_cache_write": 2.65e-07,
+        "text_input": 2.12e-07,
+        "text_output": 1.272e-06
+      }
+    },
+    {
+      "id": "openai/gpt-5.6-luna:batch",
+      "name": "GPT-5.6 Luna (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/gpt-5.6-luna-20260709",
+      "created_at": "2026-07-09T09:54:24.706Z",
+      "context_length": 1050000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1e-08,
+        "text_cache_write": null,
+        "text_input": 1e-07,
+        "text_output": 6e-07
       }
     },
     {
@@ -212,10 +1927,52 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2.58333e-07,
-        "text_cache_write": 3.229167e-06,
-        "text_input": 2.583333e-06,
-        "text_output": 1.55e-05
+        "text_cache_read": 2.06667e-07,
+        "text_cache_write": 2.583333e-06,
+        "text_input": 2.066667e-06,
+        "text_output": 1.24e-05
+      }
+    },
+    {
+      "id": "openai/gpt-5.6-terra-pro:batch",
+      "name": "GPT-5.6 Terra Pro (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/gpt-5.6-terra-pro-20260709",
+      "created_at": "2026-07-09T09:54:21.715Z",
+      "context_length": 1050000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1e-07,
+        "text_cache_write": null,
+        "text_input": 1e-06,
+        "text_output": 6e-06
       }
     },
     {
@@ -255,10 +2012,52 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2.58333e-07,
-        "text_cache_write": 3.229167e-06,
-        "text_input": 2.583333e-06,
-        "text_output": 1.55e-05
+        "text_cache_read": 2.12e-07,
+        "text_cache_write": 2.65e-06,
+        "text_input": 2.12e-06,
+        "text_output": 1.272e-05
+      }
+    },
+    {
+      "id": "openai/gpt-5.6-terra:batch",
+      "name": "GPT-5.6 Terra (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/gpt-5.6-terra-20260709",
+      "created_at": "2026-07-09T09:54:17.907Z",
+      "context_length": 1050000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1e-07,
+        "text_cache_write": null,
+        "text_input": 1e-06,
+        "text_output": 6e-06
       }
     },
     {
@@ -298,10 +2097,52 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 5.16667e-07,
-        "text_cache_write": 6.458333e-06,
-        "text_input": 5.166667e-06,
-        "text_output": 3.1e-05
+        "text_cache_read": 4.33333e-07,
+        "text_cache_write": 5.416667e-06,
+        "text_input": 4.333333e-06,
+        "text_output": 2.6e-05
+      }
+    },
+    {
+      "id": "openai/gpt-5.6-sol-pro:batch",
+      "name": "GPT-5.6 Sol Pro (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/gpt-5.6-sol-pro-20260709",
+      "created_at": "2026-07-09T09:54:14.664Z",
+      "context_length": 1050000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1.25e-07,
+        "text_cache_write": null,
+        "text_input": 1.25e-06,
+        "text_output": 7.5e-06
       }
     },
     {
@@ -341,16 +2182,58 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 5.16667e-07,
-        "text_cache_write": 6.458333e-06,
-        "text_input": 5.166667e-06,
-        "text_output": 3.1e-05
+        "text_cache_read": 4.8e-07,
+        "text_cache_write": 6e-06,
+        "text_input": 4.8e-06,
+        "text_output": 2.88e-05
+      }
+    },
+    {
+      "id": "openai/gpt-5.6-sol:batch",
+      "name": "GPT-5.6 Sol (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/gpt-5.6-sol-20260709",
+      "created_at": "2026-07-09T09:54:10.415Z",
+      "context_length": 1050000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1.25e-07,
+        "text_cache_write": null,
+        "text_input": 1.25e-06,
+        "text_output": 7.5e-06
       }
     },
     {
       "id": "x-ai/grok-4.5",
       "name": "Grok 4.5",
-      "author_name": "xAI",
+      "author_name": "SpaceXAI",
       "input_modalities": [
         "file",
         "image",
@@ -365,15 +2248,12 @@
       "created_at": "2026-07-08T15:05:54.846Z",
       "context_length": 500000,
       "supported_parameters": [
-        "frequency_penalty",
         "include_reasoning",
         "logprobs",
         "max_tokens",
-        "presence_penalty",
         "reasoning",
         "response_format",
         "seed",
-        "stop",
         "structured_outputs",
         "temperature",
         "tool_choice",
@@ -390,7 +2270,7 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 5e-07,
+        "text_cache_read": 3e-07,
         "text_cache_write": null,
         "text_input": 2e-06,
         "text_output": 6e-06
@@ -477,41 +2357,6 @@
       }
     },
     {
-      "id": "tencent/hy3:free",
-      "name": "Hy3 (free)",
-      "author_name": "Tencent",
-      "input_modalities": [
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": true,
-      "variant": "free",
-      "version_id": "tencent/hy3-20260706",
-      "created_at": "2026-07-06T13:20:48.963Z",
-      "context_length": 262144,
-      "supported_parameters": [
-        "frequency_penalty",
-        "include_reasoning",
-        "max_tokens",
-        "presence_penalty",
-        "reasoning",
-        "repetition_penalty",
-        "seed",
-        "stop",
-        "structured_outputs",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_k",
-        "top_p"
-      ],
-      "chat_completions": true,
-      "native_web_search": false,
-      "pricing": null
-    },
-    {
       "id": "tencent/hy3",
       "name": "Hy3",
       "author_name": "Tencent",
@@ -530,10 +2375,12 @@
         "frequency_penalty",
         "include_reasoning",
         "logit_bias",
+        "max_completion_tokens",
         "max_tokens",
         "min_p",
         "presence_penalty",
         "reasoning",
+        "reasoning_effort",
         "repetition_penalty",
         "response_format",
         "seed",
@@ -554,10 +2401,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 4e-08,
+        "text_cache_read": 3.625e-08,
         "text_cache_write": null,
-        "text_input": 1.6e-07,
-        "text_output": 6.53333e-07
+        "text_input": 1.45e-07,
+        "text_output": 5.89667e-07
       }
     },
     {
@@ -663,10 +2510,53 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2.05714e-07,
-        "text_cache_write": 2.571429e-06,
-        "text_input": 2.057143e-06,
-        "text_output": 1.0285714e-05
+        "text_cache_read": 2.06667e-07,
+        "text_cache_write": 2.583333e-06,
+        "text_input": 2.066667e-06,
+        "text_output": 1.0333333e-05
+      }
+    },
+    {
+      "id": "anthropic/claude-sonnet-5:batch",
+      "name": "Claude Sonnet 5 (batch)",
+      "author_name": "Anthropic",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "anthropic/claude-sonnet-5-20260630",
+      "created_at": "2026-06-30T18:11:23.921Z",
+      "context_length": 1000000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1e-07,
+        "text_cache_write": 1.25e-06,
+        "text_input": 1e-06,
+        "text_output": 5e-06
       }
     },
     {
@@ -878,11 +2768,96 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2.74373e-07,
+        "text_cache_read": 2.03733e-07,
         "text_cache_write": null,
-        "text_input": 1.332275e-06,
-        "text_output": 4.298936e-06
+        "text_input": 1.218807e-06,
+        "text_output": 3.901307e-06
       }
+    },
+    {
+      "id": "z-ai/glm-5.2:batch",
+      "name": "GLM 5.2 (batch)",
+      "author_name": "Z.ai",
+      "input_modalities": [
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "z-ai/glm-5.2-20260616",
+      "created_at": "2026-06-16T17:45:30.803Z",
+      "context_length": 512000,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "logit_bias",
+        "max_tokens",
+        "min_p",
+        "presence_penalty",
+        "reasoning",
+        "repetition_penalty",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 2.6e-07,
+        "text_cache_write": null,
+        "text_input": 1.4e-06,
+        "text_output": 4.4e-06
+      }
+    },
+    {
+      "id": "z-ai/glm-5.2:free",
+      "name": "GLM 5.2 (free)",
+      "author_name": "Z.ai",
+      "input_modalities": [
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "free",
+      "version_id": "z-ai/glm-5.2-20260616",
+      "created_at": "2026-06-16T17:45:30.803Z",
+      "context_length": 256000,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "max_tokens",
+        "min_p",
+        "presence_penalty",
+        "reasoning",
+        "repetition_penalty",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": null
     },
     {
       "id": "moonshotai/kimi-k2.7-code",
@@ -910,7 +2885,6 @@
         "parallel_tool_calls",
         "presence_penalty",
         "reasoning",
-        "reasoning_effort",
         "repetition_penalty",
         "response_format",
         "seed",
@@ -932,10 +2906,59 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.85422e-07,
+        "text_cache_read": 1.83021e-07,
         "text_cache_write": null,
-        "text_input": 9.26677e-07,
-        "text_output": 4.058667e-06
+        "text_input": 9.05073e-07,
+        "text_output": 4.01125e-06
+      }
+    },
+    {
+      "id": "moonshotai/kimi-k2.7-code:batch",
+      "name": "Kimi K2.7 Code (batch)",
+      "author_name": "MoonshotAI",
+      "input_modalities": [
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "moonshotai/kimi-k2.7-code-20260612",
+      "created_at": "2026-06-12T12:12:41.358Z",
+      "context_length": 262144,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "logit_bias",
+        "max_tokens",
+        "min_p",
+        "presence_penalty",
+        "reasoning",
+        "repetition_penalty",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1.9e-07,
+        "text_cache_write": null,
+        "text_input": 9.5e-07,
+        "text_output": 4e-06
       }
     },
     {
@@ -980,6 +3003,49 @@
         "text_cache_write": 1.2708333e-05,
         "text_input": 1.0166667e-05,
         "text_output": 5.0833333e-05
+      }
+    },
+    {
+      "id": "anthropic/claude-fable-5:batch",
+      "name": "Claude Fable 5 (batch)",
+      "author_name": "Anthropic",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "anthropic/claude-5-fable-20260609",
+      "created_at": "2026-06-09T12:18:35.266Z",
+      "context_length": 1000000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 5e-07,
+        "text_cache_write": 6.25e-06,
+        "text_input": 5e-06,
+        "text_output": 2.5e-05
       }
     },
     {
@@ -1098,10 +3164,58 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.625e-07,
+        "text_cache_read": 1.51875e-07,
         "text_cache_write": null,
-        "text_input": 5.75e-07,
-        "text_output": 2.975e-06
+        "text_input": 5.8125e-07,
+        "text_output": 2.83125e-06
+      }
+    },
+    {
+      "id": "nvidia/nemotron-3-ultra-550b-a55b:batch",
+      "name": "Nemotron 3 Ultra (batch)",
+      "author_name": "NVIDIA",
+      "input_modalities": [
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "nvidia/nemotron-3-ultra-550b-a55b-20260604",
+      "created_at": "2026-06-04T05:33:28.534Z",
+      "context_length": 512288,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "logit_bias",
+        "max_tokens",
+        "min_p",
+        "presence_penalty",
+        "reasoning",
+        "repetition_penalty",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 2e-07,
+        "text_cache_write": null,
+        "text_input": 6e-07,
+        "text_output": 3.6e-06
       }
     },
     {
@@ -1121,6 +3235,7 @@
       "created_at": "2026-06-03T13:03:03.046Z",
       "context_length": 1000000,
       "supported_parameters": [
+        "frequency_penalty",
         "include_reasoning",
         "logprobs",
         "max_tokens",
@@ -1128,10 +3243,12 @@
         "reasoning",
         "response_format",
         "seed",
+        "stop",
         "structured_outputs",
         "temperature",
         "tool_choice",
         "tools",
+        "top_k",
         "top_logprobs",
         "top_p"
       ],
@@ -1197,10 +3314,60 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
+        "text_cache_read": 6.5818e-08,
+        "text_cache_write": null,
+        "text_input": 3.25e-07,
+        "text_output": 1.301667e-06
+      }
+    },
+    {
+      "id": "minimax/minimax-m3:batch",
+      "name": "MiniMax M3 (batch)",
+      "author_name": "MiniMax",
+      "input_modalities": [
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "minimax/minimax-m3-20260531",
+      "created_at": "2026-05-31T16:36:14.509Z",
+      "context_length": 524288,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "logit_bias",
+        "max_tokens",
+        "min_p",
+        "presence_penalty",
+        "reasoning",
+        "repetition_penalty",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
         "text_cache_read": 6e-08,
         "text_cache_write": null,
-        "text_input": 3.33333e-07,
-        "text_output": 1.333333e-06
+        "text_input": 3e-07,
+        "text_output": 1.2e-06
       }
     },
     {
@@ -1250,10 +3417,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 3.75e-08,
+        "text_cache_read": 4e-08,
         "text_cache_write": null,
-        "text_input": 1.975e-07,
-        "text_output": 1.1475e-06
+        "text_input": 2e-07,
+        "text_output": 1.15e-06
       }
     },
     {
@@ -1338,10 +3505,53 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 5.14286e-07,
-        "text_cache_write": 6.428571e-06,
-        "text_input": 5.142857e-06,
-        "text_output": 2.5714286e-05
+        "text_cache_read": 5.2e-07,
+        "text_cache_write": 6.5e-06,
+        "text_input": 5.2e-06,
+        "text_output": 2.6e-05
+      }
+    },
+    {
+      "id": "anthropic/claude-opus-4.8:batch",
+      "name": "Claude Opus 4.8 (batch)",
+      "author_name": "Anthropic",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "anthropic/claude-4.8-opus-20260528",
+      "created_at": "2026-05-27T18:04:51.937Z",
+      "context_length": 1000000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 2.5e-07,
+        "text_cache_write": 3.125e-06,
+        "text_input": 2.5e-06,
+        "text_output": 1.25e-05
       }
     },
     {
@@ -1360,6 +3570,7 @@
       "created_at": "2026-05-21T15:21:01.891Z",
       "context_length": 1000000,
       "supported_parameters": [
+        "frequency_penalty",
         "include_reasoning",
         "logprobs",
         "max_tokens",
@@ -1367,10 +3578,12 @@
         "reasoning",
         "response_format",
         "seed",
+        "stop",
         "structured_outputs",
         "temperature",
         "tool_choice",
         "tools",
+        "top_k",
         "top_logprobs",
         "top_p"
       ],
@@ -1392,7 +3605,7 @@
     {
       "id": "x-ai/grok-build-0.1",
       "name": "Grok Build 0.1",
-      "author_name": "xAI",
+      "author_name": "SpaceXAI",
       "input_modalities": [
         "file",
         "image",
@@ -1407,15 +3620,12 @@
       "created_at": "2026-05-20T17:28:43.274Z",
       "context_length": 256000,
       "supported_parameters": [
-        "frequency_penalty",
         "include_reasoning",
         "logprobs",
         "max_tokens",
-        "presence_penalty",
         "reasoning",
         "response_format",
         "seed",
-        "stop",
         "structured_outputs",
         "temperature",
         "tool_choice",
@@ -1473,16 +3683,63 @@
       "chat_completions": true,
       "native_web_search": true,
       "pricing": {
-        "audio_cache_write": 3e-07,
-        "audio_input": 3e-06,
-        "image_input": 1.5e-06,
+        "audio_cache_write": 3.1e-07,
+        "audio_input": 3.1e-06,
+        "image_input": 1.55e-06,
         "image_output": null,
         "per_request": null,
-        "reasoning_output": 9e-06,
-        "text_cache_read": 1.5e-07,
+        "reasoning_output": 9.3e-06,
+        "text_cache_read": 1.55e-07,
         "text_cache_write": 8.3333e-08,
-        "text_input": 1.5e-06,
-        "text_output": 9e-06
+        "text_input": 1.55e-06,
+        "text_output": 9.3e-06
+      }
+    },
+    {
+      "id": "google/gemini-3.5-flash:batch",
+      "name": "Gemini 3.5 Flash (batch)",
+      "author_name": "Google",
+      "input_modalities": [
+        "audio",
+        "file",
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "google/gemini-3.5-flash-20260519",
+      "created_at": "2026-05-19T12:30:00.426Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": 1.5e-07,
+        "audio_input": 1.5e-06,
+        "image_input": 7.5e-07,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": 4.5e-06,
+        "text_cache_read": 7.5e-08,
+        "text_cache_write": null,
+        "text_input": 7.5e-07,
+        "text_output": 4.5e-06
       }
     },
     {
@@ -1609,16 +3866,63 @@
       "chat_completions": true,
       "native_web_search": true,
       "pricing": {
-        "audio_cache_write": 5e-08,
-        "audio_input": 5e-07,
-        "image_input": 2.5e-07,
+        "audio_cache_write": 5.1667e-08,
+        "audio_input": 5.16667e-07,
+        "image_input": 2.58333e-07,
         "image_output": null,
         "per_request": null,
-        "reasoning_output": 1.5e-06,
-        "text_cache_read": 2.5e-08,
+        "reasoning_output": 1.55e-06,
+        "text_cache_read": 2.5833e-08,
         "text_cache_write": 8.3333e-08,
-        "text_input": 2.5e-07,
-        "text_output": 1.5e-06
+        "text_input": 2.58333e-07,
+        "text_output": 1.55e-06
+      }
+    },
+    {
+      "id": "google/gemini-3.1-flash-lite:batch",
+      "name": "Gemini 3.1 Flash Lite (batch)",
+      "author_name": "Google",
+      "input_modalities": [
+        "audio",
+        "file",
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "google/gemini-3.1-flash-lite-20260507",
+      "created_at": "2026-05-07T15:47:08.228Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": 2.5e-08,
+        "audio_input": 2.5e-07,
+        "image_input": 1.25e-07,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": 7.5e-07,
+        "text_cache_read": 1.25e-08,
+        "text_cache_write": null,
+        "text_input": 1.25e-07,
+        "text_output": 7.5e-07
       }
     },
     {
@@ -1664,7 +3968,7 @@
     {
       "id": "x-ai/grok-4.3",
       "name": "Grok 4.3",
-      "author_name": "xAI",
+      "author_name": "SpaceXAI",
       "input_modalities": [
         "file",
         "image",
@@ -1679,15 +3983,12 @@
       "created_at": "2026-04-30T23:30:21.141Z",
       "context_length": 1000000,
       "supported_parameters": [
-        "frequency_penalty",
         "include_reasoning",
         "logprobs",
         "max_tokens",
-        "presence_penalty",
         "reasoning",
         "response_format",
         "seed",
-        "stop",
         "structured_outputs",
         "temperature",
         "tool_choice",
@@ -1837,71 +4138,6 @@
       "pricing": null
     },
     {
-      "id": "poolside/laguna-m.1:free",
-      "name": "Laguna M.1 (free)",
-      "author_name": "Poolside",
-      "input_modalities": [
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": true,
-      "variant": "free",
-      "version_id": "poolside/laguna-m.1-20260312",
-      "created_at": "2026-04-28T15:01:44.070Z",
-      "context_length": 262144,
-      "supported_parameters": [
-        "include_reasoning",
-        "max_tokens",
-        "reasoning",
-        "temperature",
-        "tool_choice",
-        "tools"
-      ],
-      "chat_completions": true,
-      "native_web_search": false,
-      "pricing": null
-    },
-    {
-      "id": "poolside/laguna-m.1",
-      "name": "Laguna M.1",
-      "author_name": "Poolside",
-      "input_modalities": [
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": true,
-      "variant": "standard",
-      "version_id": "poolside/laguna-m.1-20260312",
-      "created_at": "2026-04-28T15:01:44.070Z",
-      "context_length": 262144,
-      "supported_parameters": [
-        "include_reasoning",
-        "max_tokens",
-        "reasoning",
-        "temperature",
-        "tool_choice",
-        "tools"
-      ],
-      "chat_completions": true,
-      "native_web_search": false,
-      "pricing": {
-        "audio_cache_write": null,
-        "audio_input": null,
-        "image_input": null,
-        "image_output": null,
-        "per_request": null,
-        "reasoning_output": null,
-        "text_cache_read": 1e-07,
-        "text_cache_write": null,
-        "text_input": 2e-07,
-        "text_output": 4e-07
-      }
-    },
-    {
       "id": "qwen/qwen3.5-plus-20260420",
       "name": "Qwen3.5 Plus 2026-04-20",
       "author_name": "Qwen",
@@ -1919,6 +4155,7 @@
       "created_at": "2026-04-27T03:42:48.608Z",
       "context_length": 1000000,
       "supported_parameters": [
+        "frequency_penalty",
         "include_reasoning",
         "logprobs",
         "max_tokens",
@@ -1926,10 +4163,12 @@
         "reasoning",
         "response_format",
         "seed",
+        "stop",
         "structured_outputs",
         "temperature",
         "tool_choice",
         "tools",
+        "top_k",
         "top_logprobs",
         "top_p"
       ],
@@ -1966,6 +4205,7 @@
       "created_at": "2026-04-27T03:42:42.075Z",
       "context_length": 1000000,
       "supported_parameters": [
+        "frequency_penalty",
         "include_reasoning",
         "logprobs",
         "max_tokens",
@@ -1973,10 +4213,12 @@
         "reasoning",
         "response_format",
         "seed",
+        "stop",
         "structured_outputs",
         "temperature",
         "tool_choice",
         "tools",
+        "top_k",
         "top_logprobs",
         "top_p"
       ],
@@ -2042,10 +4284,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.62e-07,
+        "text_cache_read": 1.252e-07,
         "text_cache_write": null,
-        "text_input": 1.76e-07,
-        "text_output": 1.160625e-06
+        "text_input": 1.68222e-07,
+        "text_output": 1.147083e-06
       }
     },
     {
@@ -2064,6 +4306,7 @@
       "created_at": "2026-04-27T03:24:02.092Z",
       "context_length": 262144,
       "supported_parameters": [
+        "frequency_penalty",
         "include_reasoning",
         "logprobs",
         "max_tokens",
@@ -2071,10 +4314,12 @@
         "reasoning",
         "response_format",
         "seed",
+        "stop",
         "structured_outputs",
         "temperature",
         "tool_choice",
         "tools",
+        "top_k",
         "top_logprobs",
         "top_p"
       ],
@@ -2088,9 +4333,9 @@
         "per_request": null,
         "reasoning_output": null,
         "text_cache_read": null,
-        "text_cache_write": 1.3e-06,
-        "text_input": 1.04e-06,
-        "text_output": 6.24e-06
+        "text_cache_write": 1.28375e-06,
+        "text_input": 1.027e-06,
+        "text_output": 6.162e-06
       }
     },
     {
@@ -2140,10 +4385,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.40269e-07,
+        "text_cache_read": 1e-07,
         "text_cache_write": null,
-        "text_input": 3.54017e-07,
-        "text_output": 2.825111e-06
+        "text_input": 3.73571e-07,
+        "text_output": 2.95e-06
       }
     },
     {
@@ -2189,6 +4434,48 @@
       }
     },
     {
+      "id": "openai/gpt-5.5-pro:batch",
+      "name": "GPT-5.5 Pro (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/gpt-5.5-pro-20260423",
+      "created_at": "2026-04-24T17:31:36.719Z",
+      "context_length": 1050000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": null,
+        "text_cache_write": null,
+        "text_input": 1.5e-05,
+        "text_output": 9e-05
+      }
+    },
+    {
       "id": "openai/gpt-5.5",
       "name": "GPT-5.5",
       "author_name": "OpenAI",
@@ -2225,15 +4512,57 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 5.16667e-07,
+        "text_cache_read": 5.3e-07,
         "text_cache_write": null,
-        "text_input": 5.166667e-06,
-        "text_output": 3.1e-05
+        "text_input": 5.3e-06,
+        "text_output": 3.18e-05
+      }
+    },
+    {
+      "id": "openai/gpt-5.5:batch",
+      "name": "GPT-5.5 (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/gpt-5.5-20260423",
+      "created_at": "2026-04-24T17:31:33.253Z",
+      "context_length": 1050000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 2.5e-07,
+        "text_cache_write": null,
+        "text_input": 2.5e-06,
+        "text_output": 1.5e-05
       }
     },
     {
       "id": "deepseek/deepseek-v4-pro",
-      "name": "DeepSeek V4 Pro",
+      "name": "DeepSeek V4 Pro 0423",
       "author_name": "DeepSeek",
       "input_modalities": [
         "text"
@@ -2251,6 +4580,7 @@
         "include_reasoning",
         "logit_bias",
         "logprobs",
+        "max_completion_tokens",
         "max_tokens",
         "min_p",
         "presence_penalty",
@@ -2276,15 +4606,15 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.38023e-07,
+        "text_cache_read": 1.34667e-07,
         "text_cache_write": null,
-        "text_input": 1.364519e-06,
-        "text_output": 2.738586e-06
+        "text_input": 1.436701e-06,
+        "text_output": 3.043e-06
       }
     },
     {
       "id": "deepseek/deepseek-v4-flash",
-      "name": "DeepSeek V4 Flash",
+      "name": "DeepSeek V4 Flash 0423",
       "author_name": "DeepSeek",
       "input_modalities": [
         "text"
@@ -2302,6 +4632,7 @@
         "include_reasoning",
         "logit_bias",
         "logprobs",
+        "max_completion_tokens",
         "max_tokens",
         "min_p",
         "presence_penalty",
@@ -2314,6 +4645,7 @@
         "temperature",
         "tool_choice",
         "tools",
+        "top_a",
         "top_k",
         "top_logprobs",
         "top_p"
@@ -2327,10 +4659,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 3.4289e-08,
+        "text_cache_read": 3.1148e-08,
         "text_cache_write": null,
-        "text_input": 1.35883e-07,
-        "text_output": 2.66656e-07
+        "text_input": 1.65528e-07,
+        "text_output": 3.99456e-07
       }
     },
     {
@@ -2396,17 +4728,13 @@
       "created_at": "2026-04-22T17:15:50.112Z",
       "context_length": 262144,
       "supported_parameters": [
-        "frequency_penalty",
         "include_reasoning",
         "max_tokens",
-        "presence_penalty",
         "reasoning",
         "seed",
-        "stop",
         "temperature",
         "tool_choice",
         "tools",
-        "top_k",
         "top_p"
       ],
       "chat_completions": true,
@@ -2418,10 +4746,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2.5e-08,
+        "text_cache_read": 6e-08,
         "text_cache_write": null,
-        "text_input": 6.45e-08,
-        "text_output": 2.35e-07
+        "text_input": 1.8e-07,
+        "text_output": 6e-07
       }
     },
     {
@@ -2469,10 +4797,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 6.2359e-08,
+        "text_cache_read": 4.2611e-08,
         "text_cache_write": null,
-        "text_input": 5.49707e-07,
-        "text_output": 1.56608e-06
+        "text_input": 5.10963e-07,
+        "text_output": 1.264783e-06
       }
     },
     {
@@ -2523,10 +4851,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 3.0886e-08,
+        "text_cache_read": 2.775e-08,
         "text_cache_write": null,
-        "text_input": 1.72143e-07,
-        "text_output": 5.25714e-07
+        "text_input": 1.934e-07,
+        "text_output": 6.268e-07
       }
     },
     {
@@ -2623,10 +4951,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.776e-07,
+        "text_cache_read": 1.7238e-07,
         "text_cache_write": null,
-        "text_input": 8.3945e-07,
-        "text_output": 3.717e-06
+        "text_input": 8.0425e-07,
+        "text_output": 3.59048e-06
       }
     },
     {
@@ -2667,10 +4995,53 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 5.14286e-07,
-        "text_cache_write": 6.428571e-06,
-        "text_input": 5.142857e-06,
-        "text_output": 2.5714286e-05
+        "text_cache_read": 5.1875e-07,
+        "text_cache_write": 6.484375e-06,
+        "text_input": 5.1875e-06,
+        "text_output": 2.59375e-05
+      }
+    },
+    {
+      "id": "anthropic/claude-opus-4.7:batch",
+      "name": "Claude Opus 4.7 (batch)",
+      "author_name": "Anthropic",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "anthropic/claude-4.7-opus-20260416",
+      "created_at": "2026-04-16T14:51:40.905Z",
+      "context_length": 1000000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 2.5e-07,
+        "text_cache_write": 3.125e-06,
+        "text_input": 2.5e-06,
+        "text_output": 1.25e-05
       }
     },
     {
@@ -2718,10 +5089,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2.86965e-07,
+        "text_cache_read": 2.76775e-07,
         "text_cache_write": null,
-        "text_input": 1.211722e-06,
-        "text_output": 3.928667e-06
+        "text_input": 1.234765e-06,
+        "text_output": 4.029176e-06
       }
     },
     {
@@ -2773,8 +5144,8 @@
         "reasoning_output": null,
         "text_cache_read": 5e-08,
         "text_cache_write": null,
-        "text_input": 1.14e-07,
-        "text_output": 3.92e-07
+        "text_input": 1.1625e-07,
+        "text_output": 4.05e-07
       }
     },
     {
@@ -2864,10 +5235,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2.12143e-07,
+        "text_cache_read": 2.277e-07,
         "text_cache_write": null,
-        "text_input": 2.45714e-07,
-        "text_output": 6.07857e-07
+        "text_input": 2.52778e-07,
+        "text_output": 6.01667e-07
       }
     },
     {
@@ -2920,6 +5291,7 @@
       "created_at": "2026-04-02T12:39:17.573Z",
       "context_length": 1000000,
       "supported_parameters": [
+        "frequency_penalty",
         "include_reasoning",
         "logprobs",
         "max_tokens",
@@ -2927,10 +5299,12 @@
         "reasoning",
         "response_format",
         "seed",
+        "stop",
         "structured_outputs",
         "temperature",
         "tool_choice",
         "tools",
+        "top_k",
         "top_logprobs",
         "top_p"
       ],
@@ -3008,13 +5382,23 @@
       "created_at": "2026-04-01T15:45:18.036Z",
       "context_length": 262144,
       "supported_parameters": [
+        "frequency_penalty",
         "include_reasoning",
+        "logit_bias",
+        "logprobs",
         "max_tokens",
+        "presence_penalty",
         "reasoning",
+        "repetition_penalty",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
         "temperature",
         "tool_choice",
         "tools",
         "top_k",
+        "top_logprobs",
         "top_p"
       ],
       "chat_completions": true,
@@ -3028,14 +5412,14 @@
         "reasoning_output": null,
         "text_cache_read": 6e-08,
         "text_cache_write": null,
-        "text_input": 2.5e-07,
-        "text_output": 8e-07
+        "text_input": 2.35e-07,
+        "text_output": 8.25e-07
       }
     },
     {
       "id": "x-ai/grok-4.20",
       "name": "Grok 4.20",
-      "author_name": "xAI",
+      "author_name": "SpaceXAI",
       "input_modalities": [
         "file",
         "image",
@@ -3219,10 +5603,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 6.73e-08,
+        "text_cache_read": 5.7889e-08,
         "text_cache_write": null,
-        "text_input": 3.585e-07,
-        "text_output": 1.431429e-06
+        "text_input": 3.70909e-07,
+        "text_output": 1.445455e-06
       }
     },
     {
@@ -3262,10 +5646,52 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2e-08,
+        "text_cache_read": 2.0667e-08,
         "text_cache_write": null,
-        "text_input": 2e-07,
-        "text_output": 1.25e-06
+        "text_input": 2.06667e-07,
+        "text_output": 1.291667e-06
+      }
+    },
+    {
+      "id": "openai/gpt-5.4-nano:batch",
+      "name": "GPT-5.4 Nano (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/gpt-5.4-nano-20260317",
+      "created_at": "2026-03-17T11:49:47.000Z",
+      "context_length": 400000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1e-08,
+        "text_cache_write": null,
+        "text_input": 1e-07,
+        "text_output": 6.25e-07
       }
     },
     {
@@ -3305,10 +5731,52 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 7.5e-08,
+        "text_cache_read": 7.75e-08,
         "text_cache_write": null,
-        "text_input": 7.5e-07,
-        "text_output": 4.5e-06
+        "text_input": 7.75e-07,
+        "text_output": 4.65e-06
+      }
+    },
+    {
+      "id": "openai/gpt-5.4-mini:batch",
+      "name": "GPT-5.4 Mini (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/gpt-5.4-mini-20260317",
+      "created_at": "2026-03-17T11:49:38.000Z",
+      "context_length": 400000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 3.75e-08,
+        "text_cache_write": null,
+        "text_input": 3.75e-07,
+        "text_output": 2.25e-06
       }
     },
     {
@@ -3352,10 +5820,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.5e-08,
+        "text_cache_read": 1.575e-08,
         "text_cache_write": null,
-        "text_input": 1.6875e-07,
-        "text_output": 6.75e-07
+        "text_input": 1.675e-07,
+        "text_output": 6.7e-07
       }
     },
     {
@@ -3477,8 +5945,8 @@
         "reasoning_output": null,
         "text_cache_read": 6e-08,
         "text_cache_write": null,
-        "text_input": 1.6875e-07,
-        "text_output": 5.5125e-07
+        "text_input": 1.25e-07,
+        "text_output": 3.7875e-07
       }
     },
     {
@@ -3623,6 +6091,48 @@
       }
     },
     {
+      "id": "openai/gpt-5.4-pro:batch",
+      "name": "GPT-5.4 Pro (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/gpt-5.4-pro-20260305",
+      "created_at": "2026-03-05T18:12:46.000Z",
+      "context_length": 1050000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": null,
+        "text_cache_write": null,
+        "text_input": 1.5e-05,
+        "text_output": 9e-05
+      }
+    },
+    {
       "id": "openai/gpt-5.4",
       "name": "GPT-5.4",
       "author_name": "OpenAI",
@@ -3659,10 +6169,52 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2.58333e-07,
+        "text_cache_read": 2.65e-07,
         "text_cache_write": null,
-        "text_input": 2.583333e-06,
-        "text_output": 1.55e-05
+        "text_input": 2.65e-06,
+        "text_output": 1.59e-05
+      }
+    },
+    {
+      "id": "openai/gpt-5.4:batch",
+      "name": "GPT-5.4 (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/gpt-5.4-20260305",
+      "created_at": "2026-03-05T18:12:32.000Z",
+      "context_length": 1050000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1.25e-07,
+        "text_cache_write": null,
+        "text_input": 1.25e-06,
+        "text_output": 7.5e-06
       }
     },
     {
@@ -3704,47 +6256,6 @@
         "text_cache_write": null,
         "text_input": 2.5e-07,
         "text_output": 7.5e-07
-      }
-    },
-    {
-      "id": "openai/gpt-5.3-chat",
-      "name": "GPT-5.3 Chat",
-      "author_name": "OpenAI",
-      "input_modalities": [
-        "file",
-        "image",
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": false,
-      "variant": "standard",
-      "version_id": "openai/gpt-5.3-chat-20260303",
-      "created_at": "2026-03-03T18:54:21.454Z",
-      "context_length": 128000,
-      "supported_parameters": [
-        "max_completion_tokens",
-        "max_tokens",
-        "response_format",
-        "seed",
-        "structured_outputs",
-        "tool_choice",
-        "tools"
-      ],
-      "chat_completions": true,
-      "native_web_search": true,
-      "pricing": {
-        "audio_cache_write": null,
-        "audio_input": null,
-        "image_input": null,
-        "image_output": null,
-        "per_request": null,
-        "reasoning_output": null,
-        "text_cache_read": 1.75e-07,
-        "text_cache_write": null,
-        "text_input": 1.75e-06,
-        "text_output": 1.4e-05
       }
     },
     {
@@ -3887,8 +6398,8 @@
         "reasoning_output": null,
         "text_cache_read": 1.4625e-07,
         "text_cache_write": null,
-        "text_input": 2.05556e-07,
-        "text_output": 1.333333e-06
+        "text_input": 2.11429e-07,
+        "text_output": 1.342857e-06
       }
     },
     {
@@ -4015,16 +6526,19 @@
       "created_at": "2026-02-25T21:09:36.000Z",
       "context_length": 1000000,
       "supported_parameters": [
+        "frequency_penalty",
         "include_reasoning",
         "max_tokens",
         "presence_penalty",
         "reasoning",
         "response_format",
         "seed",
+        "stop",
         "structured_outputs",
         "temperature",
         "tool_choice",
         "tools",
+        "top_k",
         "top_p"
       ],
       "chat_completions": true,
@@ -4219,6 +6733,53 @@
       }
     },
     {
+      "id": "google/gemini-3.1-pro-preview:batch",
+      "name": "Gemini 3.1 Pro Preview (batch)",
+      "author_name": "Google",
+      "input_modalities": [
+        "audio",
+        "file",
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "google/gemini-3.1-pro-preview-20260219",
+      "created_at": "2026-02-19T14:00:27.000Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": 1e-06,
+        "image_input": 1e-06,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": 6e-06,
+        "text_cache_read": null,
+        "text_cache_write": null,
+        "text_input": 1e-06,
+        "text_output": 6e-06
+      }
+    },
+    {
       "id": "anthropic/claude-sonnet-4.6",
       "name": "Claude Sonnet 4.6",
       "author_name": "Anthropic",
@@ -4259,10 +6820,55 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 3.1125e-07,
-        "text_cache_write": 3.890625e-06,
-        "text_input": 3.1125e-06,
-        "text_output": 1.55625e-05
+        "text_cache_read": 3.13333e-07,
+        "text_cache_write": 3.916667e-06,
+        "text_input": 3.133333e-06,
+        "text_output": 1.5666667e-05
+      }
+    },
+    {
+      "id": "anthropic/claude-sonnet-4.6:batch",
+      "name": "Claude Sonnet 4.6 (batch)",
+      "author_name": "Anthropic",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "anthropic/claude-4.6-sonnet-20260217",
+      "created_at": "2026-02-17T15:43:10.807Z",
+      "context_length": 1000000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p",
+        "verbosity"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1.5e-07,
+        "text_cache_write": 1.875e-06,
+        "text_input": 1.5e-06,
+        "text_output": 7.5e-06
       }
     },
     {
@@ -4283,6 +6889,7 @@
       "created_at": "2026-02-16T08:10:16.477Z",
       "context_length": 1000000,
       "supported_parameters": [
+        "frequency_penalty",
         "include_reasoning",
         "logprobs",
         "max_tokens",
@@ -4290,10 +6897,12 @@
         "reasoning",
         "response_format",
         "seed",
+        "stop",
         "structured_outputs",
         "temperature",
         "tool_choice",
         "tools",
+        "top_k",
         "top_logprobs",
         "top_p"
       ],
@@ -4359,10 +6968,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2.50143e-07,
+        "text_cache_read": 2.54333e-07,
         "text_cache_write": null,
-        "text_input": 5.29545e-07,
-        "text_output": 3.335455e-06
+        "text_input": 5.2925e-07,
+        "text_output": 3.3165e-06
       }
     },
     {
@@ -4387,10 +6996,8 @@
         "logprobs",
         "max_tokens",
         "min_p",
-        "parallel_tool_calls",
         "presence_penalty",
         "reasoning",
-        "reasoning_effort",
         "repetition_penalty",
         "response_format",
         "seed",
@@ -4412,10 +7019,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 6.3133e-08,
+        "text_cache_read": 4.3e-08,
         "text_cache_write": null,
-        "text_input": 2.71875e-07,
-        "text_output": 1.2075e-06
+        "text_input": 3.17778e-07,
+        "text_output": 1.258889e-06
       }
     },
     {
@@ -4463,10 +7070,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2.18462e-07,
+        "text_cache_read": 1.69e-07,
         "text_cache_write": null,
-        "text_input": 8.78571e-07,
-        "text_output": 2.736429e-06
+        "text_input": 8.31818e-07,
+        "text_output": 2.641818e-06
       }
     },
     {
@@ -4485,6 +7092,7 @@
       "created_at": "2026-02-09T21:18:21.683Z",
       "context_length": 262144,
       "supported_parameters": [
+        "frequency_penalty",
         "include_reasoning",
         "logprobs",
         "max_tokens",
@@ -4492,10 +7100,12 @@
         "reasoning",
         "response_format",
         "seed",
+        "stop",
         "structured_outputs",
         "temperature",
         "tool_choice",
         "tools",
+        "top_k",
         "top_logprobs",
         "top_p"
       ],
@@ -4562,6 +7172,51 @@
       }
     },
     {
+      "id": "anthropic/claude-opus-4.6:batch",
+      "name": "Claude Opus 4.6 (batch)",
+      "author_name": "Anthropic",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "anthropic/claude-4.6-opus-20260205",
+      "created_at": "2026-02-04T15:30:50.029Z",
+      "context_length": 1000000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p",
+        "verbosity"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 2.5e-07,
+        "text_cache_write": 3.125e-06,
+        "text_input": 2.5e-06,
+        "text_output": 1.25e-05
+      }
+    },
+    {
       "id": "qwen/qwen3-coder-next",
       "name": "Qwen3 Coder Next",
       "author_name": "Qwen",
@@ -4603,10 +7258,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 5.8667e-08,
+        "text_cache_read": 5.3e-08,
         "text_cache_write": null,
-        "text_input": 1.82e-07,
-        "text_output": 1.1e-06
+        "text_input": 2e-07,
+        "text_output": 1.175e-06
       }
     },
     {
@@ -4696,10 +7351,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.43455e-07,
+        "text_cache_read": 1.39667e-07,
         "text_cache_write": null,
-        "text_input": 4.97727e-07,
-        "text_output": 2.543182e-06
+        "text_input": 5.207e-07,
+        "text_output": 2.69e-06
       }
     },
     {
@@ -4716,16 +7371,19 @@
       "variant": "standard",
       "version_id": "upstage/solar-pro-3",
       "created_at": "2026-01-27T02:33:20.601Z",
-      "context_length": 128000,
+      "context_length": 131072,
       "supported_parameters": [
+        "frequency_penalty",
         "include_reasoning",
         "max_tokens",
+        "presence_penalty",
         "reasoning",
         "response_format",
         "structured_outputs",
         "temperature",
         "tool_choice",
-        "tools"
+        "tools",
+        "top_p"
       ],
       "chat_completions": true,
       "native_web_search": false,
@@ -4885,8 +7543,8 @@
         "reasoning_output": null,
         "text_cache_read": 1e-08,
         "text_cache_write": null,
-        "text_input": 7.8875e-08,
-        "text_output": 4.25e-07
+        "text_input": 6.2625e-08,
+        "text_output": 4e-07
       }
     },
     {
@@ -4908,7 +7566,6 @@
       "supported_parameters": [
         "include_reasoning",
         "max_completion_tokens",
-        "max_tokens",
         "reasoning",
         "response_format",
         "seed",
@@ -4917,7 +7574,7 @@
         "tools"
       ],
       "chat_completions": true,
-      "native_web_search": true,
+      "native_web_search": false,
       "pricing": {
         "audio_cache_write": null,
         "audio_input": null,
@@ -5099,6 +7756,7 @@
         "temperature",
         "tool_choice",
         "tools",
+        "top_a",
         "top_k",
         "top_logprobs",
         "top_p"
@@ -5112,10 +7770,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 4.615e-07,
+        "text_cache_read": 1.038e-07,
         "text_cache_write": null,
-        "text_input": 7.54444e-07,
-        "text_output": 2.271111e-06
+        "text_input": 5.3625e-07,
+        "text_output": 2.11125e-06
       }
     },
     {
@@ -5163,6 +7821,53 @@
         "text_cache_write": 8.3333e-08,
         "text_input": 5e-07,
         "text_output": 3e-06
+      }
+    },
+    {
+      "id": "google/gemini-3-flash-preview:batch",
+      "name": "Gemini 3 Flash Preview (batch)",
+      "author_name": "Google",
+      "input_modalities": [
+        "audio",
+        "file",
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "google/gemini-3-flash-preview-20251217",
+      "created_at": "2025-12-17T15:57:58.000Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": 5e-07,
+        "image_input": 2.5e-07,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": 1.5e-06,
+        "text_cache_read": null,
+        "text_cache_write": null,
+        "text_input": 2.5e-07,
+        "text_output": 1.5e-06
       }
     },
     {
@@ -5239,10 +7944,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": null,
+        "text_cache_read": 2.75e-08,
         "text_cache_write": null,
-        "text_input": 5.3333e-08,
-        "text_output": 2.13333e-07
+        "text_input": 5e-08,
+        "text_output": 2e-07
       }
     },
     {
@@ -5264,7 +7969,6 @@
       "context_length": 128000,
       "supported_parameters": [
         "max_completion_tokens",
-        "max_tokens",
         "response_format",
         "seed",
         "structured_outputs",
@@ -5272,7 +7976,7 @@
         "tools"
       ],
       "chat_completions": true,
-      "native_web_search": true,
+      "native_web_search": false,
       "pricing": {
         "audio_cache_write": null,
         "audio_input": null,
@@ -5329,6 +8033,48 @@
       }
     },
     {
+      "id": "openai/gpt-5.2-pro:batch",
+      "name": "GPT-5.2 Pro (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/gpt-5.2-pro-20251211",
+      "created_at": "2025-12-10T18:03:00.055Z",
+      "context_length": 400000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": null,
+        "text_cache_write": null,
+        "text_input": 1.05e-05,
+        "text_output": 8.4e-05
+      }
+    },
+    {
       "id": "openai/gpt-5.2",
       "name": "GPT-5.2",
       "author_name": "OpenAI",
@@ -5372,36 +8118,34 @@
       }
     },
     {
-      "id": "mistralai/devstral-2512",
-      "name": "Devstral 2 2512",
-      "author_name": "Mistral",
+      "id": "openai/gpt-5.2:batch",
+      "name": "GPT-5.2 (batch)",
+      "author_name": "OpenAI",
       "input_modalities": [
         "file",
+        "image",
         "text"
       ],
       "output_modalities": [
         "text"
       ],
-      "reasoning": false,
-      "variant": "standard",
-      "version_id": "mistralai/devstral-2512",
-      "created_at": "2025-12-09T13:03:39.000Z",
-      "context_length": 262144,
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/gpt-5.2-20251211",
+      "created_at": "2025-12-10T18:02:55.765Z",
+      "context_length": 400000,
       "supported_parameters": [
-        "frequency_penalty",
+        "include_reasoning",
         "max_tokens",
-        "presence_penalty",
+        "reasoning",
         "response_format",
         "seed",
-        "stop",
         "structured_outputs",
-        "temperature",
         "tool_choice",
-        "tools",
-        "top_p"
+        "tools"
       ],
       "chat_completions": true,
-      "native_web_search": false,
+      "native_web_search": true,
       "pricing": {
         "audio_cache_write": null,
         "audio_input": null,
@@ -5409,10 +8153,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 4e-08,
+        "text_cache_read": 8.75e-08,
         "text_cache_write": null,
-        "text_input": 4e-07,
-        "text_output": 2e-06
+        "text_input": 8.75e-07,
+        "text_output": 7e-06
       }
     },
     {
@@ -5522,7 +8266,6 @@
       "supported_parameters": [
         "include_reasoning",
         "max_completion_tokens",
-        "max_tokens",
         "reasoning",
         "response_format",
         "seed",
@@ -5531,7 +8274,7 @@
         "tools"
       ],
       "chat_completions": true,
-      "native_web_search": true,
+      "native_web_search": false,
       "pricing": {
         "audio_cache_write": null,
         "audio_input": null,
@@ -5607,10 +8350,8 @@
       "context_length": 262144,
       "supported_parameters": [
         "frequency_penalty",
-        "logprobs",
         "max_tokens",
         "presence_penalty",
-        "repetition_penalty",
         "response_format",
         "seed",
         "stop",
@@ -5618,7 +8359,6 @@
         "temperature",
         "tool_choice",
         "tools",
-        "top_logprobs",
         "top_p"
       ],
       "chat_completions": true,
@@ -5632,8 +8372,8 @@
         "reasoning_output": null,
         "text_cache_read": 2e-08,
         "text_cache_write": null,
-        "text_input": 2.75e-07,
-        "text_output": 2.75e-07
+        "text_input": 2e-07,
+        "text_output": 2e-07
       }
     },
     {
@@ -5654,10 +8394,8 @@
       "context_length": 262144,
       "supported_parameters": [
         "frequency_penalty",
-        "logprobs",
         "max_tokens",
         "presence_penalty",
-        "repetition_penalty",
         "response_format",
         "seed",
         "stop",
@@ -5665,7 +8403,6 @@
         "temperature",
         "tool_choice",
         "tools",
-        "top_logprobs",
         "top_p"
       ],
       "chat_completions": true,
@@ -5679,8 +8416,8 @@
         "reasoning_output": null,
         "text_cache_read": 1.5e-08,
         "text_cache_write": null,
-        "text_input": 2.25e-07,
-        "text_output": 2.25e-07
+        "text_input": 1.5e-07,
+        "text_output": 1.5e-07
       }
     },
     {
@@ -5701,10 +8438,8 @@
       "context_length": 131072,
       "supported_parameters": [
         "frequency_penalty",
-        "logprobs",
         "max_tokens",
         "presence_penalty",
-        "repetition_penalty",
         "response_format",
         "seed",
         "stop",
@@ -5712,7 +8447,6 @@
         "temperature",
         "tool_choice",
         "tools",
-        "top_logprobs",
         "top_p"
       ],
       "chat_completions": true,
@@ -5726,8 +8460,8 @@
         "reasoning_output": null,
         "text_cache_read": 1e-08,
         "text_cache_write": null,
-        "text_input": 1.25e-07,
-        "text_output": 1.25e-07
+        "text_input": 1e-07,
+        "text_output": 1e-07
       }
     },
     {
@@ -5820,10 +8554,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.45021e-07,
-        "text_cache_write": 4.63125e-07,
-        "text_input": 5.70714e-07,
-        "text_output": 1.024375e-06
+        "text_cache_read": 1.38304e-07,
+        "text_cache_write": 4.6345e-07,
+        "text_input": 5.54414e-07,
+        "text_output": 9.78775e-07
       }
     },
     {
@@ -5873,6 +8607,50 @@
       }
     },
     {
+      "id": "anthropic/claude-opus-4.5:batch",
+      "name": "Claude Opus 4.5 (batch)",
+      "author_name": "Anthropic",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "anthropic/claude-4.5-opus-20251124",
+      "created_at": "2025-11-24T18:56:20.000Z",
+      "context_length": 200000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 2.5e-07,
+        "text_cache_write": 3.125e-06,
+        "text_input": 2.5e-06,
+        "text_output": 1.25e-05
+      }
+    },
+    {
       "id": "openai/gpt-5.1",
       "name": "GPT-5.1",
       "author_name": "OpenAI",
@@ -5916,8 +8694,8 @@
       }
     },
     {
-      "id": "openai/gpt-5.1-chat",
-      "name": "GPT-5.1 Chat",
+      "id": "openai/gpt-5.1:batch",
+      "name": "GPT-5.1 (batch)",
       "author_name": "OpenAI",
       "input_modalities": [
         "file",
@@ -5927,14 +8705,15 @@
       "output_modalities": [
         "text"
       ],
-      "reasoning": false,
-      "variant": "standard",
-      "version_id": "openai/gpt-5.1-chat-20251113",
-      "created_at": "2025-11-13T18:58:22.000Z",
-      "context_length": 128000,
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/gpt-5.1-20251113",
+      "created_at": "2025-11-13T18:58:25.000Z",
+      "context_length": 400000,
       "supported_parameters": [
-        "max_completion_tokens",
+        "include_reasoning",
         "max_tokens",
+        "reasoning",
         "response_format",
         "seed",
         "structured_outputs",
@@ -5950,10 +8729,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.275e-07,
+        "text_cache_read": 6.25e-08,
         "text_cache_write": null,
-        "text_input": 1.25e-06,
-        "text_output": 1e-05
+        "text_input": 6.25e-07,
+        "text_output": 5e-06
       }
     },
     {
@@ -5975,7 +8754,6 @@
       "supported_parameters": [
         "include_reasoning",
         "max_completion_tokens",
-        "max_tokens",
         "reasoning",
         "response_format",
         "seed",
@@ -5992,7 +8770,7 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.275e-07,
+        "text_cache_read": 1.3e-07,
         "text_cache_write": null,
         "text_input": 1.25e-06,
         "text_output": 1e-05
@@ -6017,7 +8795,6 @@
       "supported_parameters": [
         "include_reasoning",
         "max_completion_tokens",
-        "max_tokens",
         "reasoning",
         "response_format",
         "seed",
@@ -6034,7 +8811,7 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2.75e-08,
+        "text_cache_read": 3e-08,
         "text_cache_write": null,
         "text_input": 2.5e-07,
         "text_output": 2e-06
@@ -6313,15 +9090,18 @@
       "created_at": "2025-10-23T14:55:32.539Z",
       "context_length": 131072,
       "supported_parameters": [
+        "frequency_penalty",
         "logprobs",
         "max_tokens",
         "presence_penalty",
         "response_format",
         "seed",
+        "stop",
         "structured_outputs",
         "temperature",
         "tool_choice",
         "tools",
+        "top_k",
         "top_logprobs",
         "top_p"
       ],
@@ -6380,10 +9160,55 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.03333e-07,
-        "text_cache_write": 1.291667e-06,
-        "text_input": 1.033333e-06,
-        "text_output": 5.166667e-06
+        "text_cache_read": 1.05e-07,
+        "text_cache_write": 1.3125e-06,
+        "text_input": 1.05e-06,
+        "text_output": 5.25e-06
+      }
+    },
+    {
+      "id": "anthropic/claude-haiku-4.5:batch",
+      "name": "Claude Haiku 4.5 (batch)",
+      "author_name": "Anthropic",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "anthropic/claude-4.5-haiku-20251001",
+      "created_at": "2025-10-15T17:00:38.000Z",
+      "context_length": 200000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 5e-08,
+        "text_cache_write": 6.25e-07,
+        "text_input": 5e-07,
+        "text_output": 2.5e-06
       }
     },
     {
@@ -6403,6 +9228,7 @@
       "created_at": "2025-10-14T17:42:26.552Z",
       "context_length": 131072,
       "supported_parameters": [
+        "frequency_penalty",
         "include_reasoning",
         "logprobs",
         "max_tokens",
@@ -6410,10 +9236,12 @@
         "reasoning",
         "response_format",
         "seed",
+        "stop",
         "structured_outputs",
         "temperature",
         "tool_choice",
         "tools",
+        "top_k",
         "top_logprobs",
         "top_p"
       ],
@@ -6428,8 +9256,8 @@
         "reasoning_output": null,
         "text_cache_read": null,
         "text_cache_write": null,
-        "text_input": 1.17e-07,
-        "text_output": 1.365e-06
+        "text_input": 1.8e-07,
+        "text_output": 2.1e-06
       }
     },
     {
@@ -6482,154 +9310,6 @@
       }
     },
     {
-      "id": "openai/o3-deep-research",
-      "name": "o3 Deep Research",
-      "author_name": "OpenAI",
-      "input_modalities": [
-        "file",
-        "image",
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": true,
-      "variant": "standard",
-      "version_id": "openai/o3-deep-research-2025-06-26",
-      "created_at": "2025-10-10T20:54:21.971Z",
-      "context_length": 200000,
-      "supported_parameters": [
-        "frequency_penalty",
-        "include_reasoning",
-        "logit_bias",
-        "logprobs",
-        "max_tokens",
-        "presence_penalty",
-        "reasoning",
-        "response_format",
-        "seed",
-        "stop",
-        "structured_outputs",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_logprobs",
-        "top_p"
-      ],
-      "chat_completions": true,
-      "native_web_search": true,
-      "pricing": {
-        "audio_cache_write": null,
-        "audio_input": null,
-        "image_input": null,
-        "image_output": null,
-        "per_request": null,
-        "reasoning_output": null,
-        "text_cache_read": 2.5e-06,
-        "text_cache_write": null,
-        "text_input": 1e-05,
-        "text_output": 4e-05
-      }
-    },
-    {
-      "id": "openai/o4-mini-deep-research",
-      "name": "o4 Mini Deep Research",
-      "author_name": "OpenAI",
-      "input_modalities": [
-        "file",
-        "image",
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": true,
-      "variant": "standard",
-      "version_id": "openai/o4-mini-deep-research-2025-06-26",
-      "created_at": "2025-10-10T20:54:02.725Z",
-      "context_length": 200000,
-      "supported_parameters": [
-        "frequency_penalty",
-        "include_reasoning",
-        "logit_bias",
-        "logprobs",
-        "max_tokens",
-        "presence_penalty",
-        "reasoning",
-        "response_format",
-        "seed",
-        "stop",
-        "structured_outputs",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_logprobs",
-        "top_p"
-      ],
-      "chat_completions": true,
-      "native_web_search": true,
-      "pricing": {
-        "audio_cache_write": null,
-        "audio_input": null,
-        "image_input": null,
-        "image_output": null,
-        "per_request": null,
-        "reasoning_output": null,
-        "text_cache_read": 5e-07,
-        "text_cache_write": null,
-        "text_input": 2e-06,
-        "text_output": 8e-06
-      }
-    },
-    {
-      "id": "nvidia/llama-3.3-nemotron-super-49b-v1.5",
-      "name": "Llama 3.3 Nemotron Super 49B V1.5",
-      "author_name": "NVIDIA",
-      "input_modalities": [
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": true,
-      "variant": "standard",
-      "version_id": "nvidia/llama-3.3-nemotron-super-49b-v1.5",
-      "created_at": "2025-10-10T13:03:15.135Z",
-      "context_length": 131072,
-      "supported_parameters": [
-        "frequency_penalty",
-        "include_reasoning",
-        "logit_bias",
-        "max_tokens",
-        "min_p",
-        "presence_penalty",
-        "reasoning",
-        "repetition_penalty",
-        "response_format",
-        "seed",
-        "stop",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_k",
-        "top_p"
-      ],
-      "chat_completions": true,
-      "native_web_search": false,
-      "pricing": {
-        "audio_cache_write": null,
-        "audio_input": null,
-        "image_input": null,
-        "image_output": null,
-        "per_request": null,
-        "reasoning_output": null,
-        "text_cache_read": null,
-        "text_cache_write": null,
-        "text_input": 4e-07,
-        "text_output": 4e-07
-      }
-    },
-    {
       "id": "qwen/qwen3-vl-30b-a3b-thinking",
       "name": "Qwen3 VL 30B A3B Thinking",
       "author_name": "Qwen",
@@ -6654,6 +9334,7 @@
         "reasoning",
         "response_format",
         "seed",
+        "stop",
         "structured_outputs",
         "temperature",
         "tool_choice",
@@ -6673,8 +9354,8 @@
         "reasoning_output": null,
         "text_cache_read": null,
         "text_cache_write": null,
-        "text_input": 2.1e-07,
-        "text_output": 1.28e-06
+        "text_input": 2.45e-07,
+        "text_output": 1.7e-06
       }
     },
     {
@@ -6723,8 +9404,8 @@
         "reasoning_output": null,
         "text_cache_read": null,
         "text_cache_write": null,
-        "text_input": 1.94e-07,
-        "text_output": 7.04e-07
+        "text_input": 1.925e-07,
+        "text_output": 7.05e-07
       }
     },
     {
@@ -6767,6 +9448,48 @@
         "text_cache_write": null,
         "text_input": 1.5e-05,
         "text_output": 0.00012
+      }
+    },
+    {
+      "id": "openai/gpt-5-pro:batch",
+      "name": "GPT-5 Pro (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/gpt-5-pro-2025-10-06",
+      "created_at": "2025-10-06T18:51:03.215Z",
+      "context_length": 400000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": null,
+        "text_cache_write": null,
+        "text_input": 7.5e-06,
+        "text_output": 6e-05
       }
     },
     {
@@ -6858,10 +9581,55 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 3.075e-07,
-        "text_cache_write": 3.84375e-06,
-        "text_input": 3.075e-06,
-        "text_output": 1.5375e-05
+        "text_cache_read": 3.08571e-07,
+        "text_cache_write": 3.857143e-06,
+        "text_input": 3.085714e-06,
+        "text_output": 1.5428571e-05
+      }
+    },
+    {
+      "id": "anthropic/claude-sonnet-4.5:batch",
+      "name": "Claude Sonnet 4.5 (batch)",
+      "author_name": "Anthropic",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "anthropic/claude-4.5-sonnet-20250929",
+      "created_at": "2025-09-29T16:01:16.552Z",
+      "context_length": 1000000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1.5e-07,
+        "text_cache_write": 1.875e-06,
+        "text_input": 1.5e-06,
+        "text_output": 7.5e-06
       }
     },
     {
@@ -6961,8 +9729,8 @@
         "reasoning_output": null,
         "text_cache_read": null,
         "text_cache_write": null,
-        "text_input": 6.2e-07,
-        "text_output": 3.275e-06
+        "text_input": 6.9e-07,
+        "text_output": 3.975e-06
       }
     },
     {
@@ -7031,15 +9799,18 @@
       "created_at": "2025-09-23T21:26:48.000Z",
       "context_length": 262144,
       "supported_parameters": [
+        "frequency_penalty",
         "logprobs",
         "max_tokens",
         "presence_penalty",
         "response_format",
         "seed",
+        "stop",
         "structured_outputs",
         "temperature",
         "tool_choice",
         "tools",
+        "top_k",
         "top_logprobs",
         "top_p"
       ],
@@ -7074,15 +9845,18 @@
       "created_at": "2025-09-23T21:25:07.000Z",
       "context_length": 1000000,
       "supported_parameters": [
+        "frequency_penalty",
         "logprobs",
         "max_tokens",
         "presence_penalty",
         "response_format",
         "seed",
+        "stop",
         "structured_outputs",
         "temperature",
         "tool_choice",
         "tools",
+        "top_k",
         "top_logprobs",
         "top_p"
       ],
@@ -7102,8 +9876,8 @@
       }
     },
     {
-      "id": "openai/gpt-5-codex",
-      "name": "GPT-5 Codex",
+      "id": "openai/gpt-5-codex:batch",
+      "name": "GPT-5 Codex (batch)",
       "author_name": "OpenAI",
       "input_modalities": [
         "image",
@@ -7113,7 +9887,7 @@
         "text"
       ],
       "reasoning": true,
-      "variant": "standard",
+      "variant": "batch",
       "version_id": "openai/gpt-5-codex",
       "created_at": "2025-09-23T16:03:23.098Z",
       "context_length": 400000,
@@ -7136,10 +9910,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.25e-07,
+        "text_cache_read": 6.25e-08,
         "text_cache_write": null,
-        "text_input": 1.25e-06,
-        "text_output": 1e-05
+        "text_input": 6.25e-07,
+        "text_output": 5e-06
       }
     },
     {
@@ -7185,10 +9959,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.31667e-07,
+        "text_cache_read": 1.325e-07,
         "text_cache_write": null,
-        "text_input": 2.9052e-07,
-        "text_output": 9.8568e-07
+        "text_input": 2.9565e-07,
+        "text_output": 9.946e-07
       }
     },
     {
@@ -7207,14 +9981,17 @@
       "created_at": "2025-09-17T13:25:36.216Z",
       "context_length": 1000000,
       "supported_parameters": [
+        "frequency_penalty",
         "logprobs",
         "max_tokens",
         "presence_penalty",
         "response_format",
         "seed",
+        "stop",
         "temperature",
         "tool_choice",
         "tools",
+        "top_k",
         "top_logprobs",
         "top_p"
       ],
@@ -7251,6 +10028,7 @@
       "supported_parameters": [
         "frequency_penalty",
         "include_reasoning",
+        "logit_bias",
         "logprobs",
         "max_tokens",
         "presence_penalty",
@@ -7278,8 +10056,8 @@
         "reasoning_output": null,
         "text_cache_read": null,
         "text_cache_write": null,
-        "text_input": 1.2375e-07,
-        "text_output": 9.9e-07
+        "text_input": 1.5e-07,
+        "text_output": 1.2e-06
       }
     },
     {
@@ -7332,38 +10110,6 @@
       }
     },
     {
-      "id": "qwen/qwen3-next-80b-a3b-instruct:free",
-      "name": "Qwen3 Next 80B A3B Instruct (free)",
-      "author_name": "Qwen",
-      "input_modalities": [
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": false,
-      "variant": "free",
-      "version_id": "qwen/qwen3-next-80b-a3b-instruct-2509",
-      "created_at": "2025-09-11T17:36:53.637Z",
-      "context_length": 262144,
-      "supported_parameters": [
-        "frequency_penalty",
-        "max_tokens",
-        "presence_penalty",
-        "response_format",
-        "stop",
-        "structured_outputs",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_k",
-        "top_p"
-      ],
-      "chat_completions": true,
-      "native_web_search": false,
-      "pricing": null
-    },
-    {
       "id": "qwen/qwen-plus-2025-07-28",
       "name": "Qwen Plus 0728",
       "author_name": "Qwen",
@@ -7379,15 +10125,18 @@
       "created_at": "2025-09-08T16:06:39.935Z",
       "context_length": 1000000,
       "supported_parameters": [
+        "frequency_penalty",
         "logprobs",
         "max_tokens",
         "presence_penalty",
         "response_format",
         "seed",
+        "stop",
         "structured_outputs",
         "temperature",
         "tool_choice",
         "tools",
+        "top_k",
         "top_logprobs",
         "top_p"
       ],
@@ -7422,16 +10171,21 @@
       "created_at": "2025-09-08T16:06:39.935Z",
       "context_length": 1000000,
       "supported_parameters": [
+        "frequency_penalty",
         "include_reasoning",
+        "logprobs",
         "max_tokens",
         "presence_penalty",
         "reasoning",
         "response_format",
         "seed",
+        "stop",
         "structured_outputs",
         "temperature",
         "tool_choice",
         "tools",
+        "top_k",
+        "top_logprobs",
         "top_p"
       ],
       "chat_completions": true,
@@ -7444,7 +10198,7 @@
         "per_request": null,
         "reasoning_output": null,
         "text_cache_read": null,
-        "text_cache_write": 3.25e-07,
+        "text_cache_write": null,
         "text_input": 2.6e-07,
         "text_output": 7.8e-07
       }
@@ -7519,10 +10273,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 5e-07,
+        "text_cache_read": null,
         "text_cache_write": null,
-        "text_input": 8e-07,
-        "text_output": 2.75e-06
+        "text_input": 6e-07,
+        "text_output": 2.5e-06
       }
     },
     {
@@ -7541,15 +10295,18 @@
       "created_at": "2025-08-28T16:39:52.539Z",
       "context_length": 81920,
       "supported_parameters": [
+        "frequency_penalty",
         "include_reasoning",
         "max_tokens",
         "presence_penalty",
         "reasoning",
         "response_format",
         "seed",
+        "stop",
         "temperature",
         "tool_choice",
         "tools",
+        "top_k",
         "top_p"
       ],
       "chat_completions": true,
@@ -7563,8 +10320,8 @@
         "reasoning_output": null,
         "text_cache_read": null,
         "text_cache_write": null,
-        "text_input": 1.3e-07,
-        "text_output": 1.56e-06
+        "text_input": 2e-07,
+        "text_output": 2.4e-06
       }
     },
     {
@@ -7711,45 +10468,6 @@
       }
     },
     {
-      "id": "ai21/jamba-large-1.7",
-      "name": "Jamba Large 1.7",
-      "author_name": "AI21",
-      "input_modalities": [
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": false,
-      "variant": "standard",
-      "version_id": "ai21/jamba-large-1.7",
-      "created_at": "2025-08-08T16:03:40.335Z",
-      "context_length": 256000,
-      "supported_parameters": [
-        "max_tokens",
-        "response_format",
-        "stop",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_p"
-      ],
-      "chat_completions": true,
-      "native_web_search": false,
-      "pricing": {
-        "audio_cache_write": null,
-        "audio_input": null,
-        "image_input": null,
-        "image_output": null,
-        "per_request": null,
-        "reasoning_output": null,
-        "text_cache_read": null,
-        "text_cache_write": null,
-        "text_input": 2e-06,
-        "text_output": 8e-06
-      }
-    },
-    {
       "id": "openai/gpt-5",
       "name": "GPT-5",
       "author_name": "OpenAI",
@@ -7790,6 +10508,48 @@
         "text_cache_write": null,
         "text_input": 1.291667e-06,
         "text_output": 1.0333333e-05
+      }
+    },
+    {
+      "id": "openai/gpt-5:batch",
+      "name": "GPT-5 (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/gpt-5-2025-08-07",
+      "created_at": "2025-08-07T17:23:33.000Z",
+      "context_length": 400000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 6.25e-08,
+        "text_cache_write": null,
+        "text_input": 6.25e-07,
+        "text_output": 5e-06
       }
     },
     {
@@ -7836,6 +10596,48 @@
       }
     },
     {
+      "id": "openai/gpt-5-mini:batch",
+      "name": "GPT-5 Mini (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/gpt-5-mini-2025-08-07",
+      "created_at": "2025-08-07T17:23:27.000Z",
+      "context_length": 400000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1.25e-08,
+        "text_cache_write": null,
+        "text_input": 1.25e-07,
+        "text_output": 1e-06
+      }
+    },
+    {
       "id": "openai/gpt-5-nano",
       "name": "GPT-5 Nano",
       "author_name": "OpenAI",
@@ -7876,6 +10678,48 @@
         "text_cache_write": null,
         "text_input": 5.1667e-08,
         "text_output": 4.13333e-07
+      }
+    },
+    {
+      "id": "openai/gpt-5-nano:batch",
+      "name": "GPT-5 Nano (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/gpt-5-nano-2025-08-07",
+      "created_at": "2025-08-07T17:23:22.000Z",
+      "context_length": 400000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 2.5e-09,
+        "text_cache_write": null,
+        "text_input": 2.5e-08,
+        "text_output": 2e-07
       }
     },
     {
@@ -7924,10 +10768,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.06667e-07,
+        "text_cache_read": 1.05e-07,
         "text_cache_write": null,
-        "text_input": 1.11048e-07,
-        "text_output": 4.98333e-07
+        "text_input": 1.1595e-07,
+        "text_output": 5.3375e-07
       }
     },
     {
@@ -7977,8 +10821,8 @@
         "reasoning_output": null,
         "text_cache_read": 3.0625e-08,
         "text_cache_write": null,
-        "text_input": 5.0308e-08,
-        "text_output": 1.87692e-07
+        "text_input": 5.125e-08,
+        "text_output": 1.875e-07
       }
     },
     {
@@ -8038,12 +10882,9 @@
       "context_length": 200000,
       "supported_parameters": [
         "include_reasoning",
-        "max_completion_tokens",
         "max_tokens",
         "reasoning",
-        "response_format",
         "stop",
-        "structured_outputs",
         "temperature",
         "tool_choice",
         "tools",
@@ -8051,7 +10892,7 @@
         "top_p"
       ],
       "chat_completions": true,
-      "native_web_search": true,
+      "native_web_search": false,
       "pricing": {
         "audio_cache_write": null,
         "audio_input": null,
@@ -8063,6 +10904,49 @@
         "text_cache_write": 1.875e-05,
         "text_input": 1.5e-05,
         "text_output": 7.5e-05
+      }
+    },
+    {
+      "id": "anthropic/claude-opus-4.1:batch",
+      "name": "Claude Opus 4.1 (batch)",
+      "author_name": "Anthropic",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "anthropic/claude-4.1-opus-20250805",
+      "created_at": "2025-08-05T16:33:11.634Z",
+      "context_length": 200000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 7.5e-07,
+        "text_cache_write": 9.375e-06,
+        "text_input": 7.5e-06,
+        "text_output": 3.75e-05
       }
     },
     {
@@ -8151,10 +11035,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 9e-08,
+        "text_cache_read": null,
         "text_cache_write": null,
-        "text_input": 2.065e-07,
-        "text_output": 8.625e-07
+        "text_input": 1.45625e-07,
+        "text_output": 6.53125e-07
       }
     },
     {
@@ -8177,7 +11061,6 @@
         "logit_bias",
         "logprobs",
         "max_tokens",
-        "min_p",
         "presence_penalty",
         "repetition_penalty",
         "response_format",
@@ -8202,8 +11085,8 @@
         "reasoning_output": null,
         "text_cache_read": 1e-07,
         "text_cache_write": null,
-        "text_input": 1.01164e-07,
-        "text_output": 3.51864e-07
+        "text_input": 9.363e-08,
+        "text_output": 3.2261e-07
       }
     },
     {
@@ -8338,39 +11221,9 @@
         "reasoning_output": null,
         "text_cache_read": 2e-07,
         "text_cache_write": null,
-        "text_input": 2.82375e-07,
-        "text_output": 2.57375e-06
+        "text_input": 3.025e-07,
+        "text_output": 2.775e-06
       }
-    },
-    {
-      "id": "qwen/qwen3-coder:free",
-      "name": "Qwen3 Coder 480B A35B (free)",
-      "author_name": "Qwen",
-      "input_modalities": [
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": false,
-      "variant": "free",
-      "version_id": "qwen/qwen3-coder-480b-a35b-07-25",
-      "created_at": "2025-07-23T00:29:06.000Z",
-      "context_length": 262000,
-      "supported_parameters": [
-        "frequency_penalty",
-        "max_tokens",
-        "presence_penalty",
-        "stop",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_k",
-        "top_p"
-      ],
-      "chat_completions": true,
-      "native_web_search": false,
-      "pricing": null
     },
     {
       "id": "qwen/qwen3-coder",
@@ -8415,10 +11268,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 3.8e-07,
+        "text_cache_read": 7e-08,
         "text_cache_write": null,
-        "text_input": 5.375e-07,
-        "text_output": 2.0375e-06
+        "text_input": 4.45e-07,
+        "text_output": 2.145e-06
       }
     },
     {
@@ -8469,6 +11322,53 @@
       }
     },
     {
+      "id": "google/gemini-2.5-flash-lite:batch",
+      "name": "Gemini 2.5 Flash Lite (batch)",
+      "author_name": "Google",
+      "input_modalities": [
+        "audio",
+        "file",
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "google/gemini-2.5-flash-lite",
+      "created_at": "2025-07-22T16:04:36.283Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": 3e-08,
+        "audio_input": 1.5e-07,
+        "image_input": 5e-08,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": 2e-07,
+        "text_cache_read": 1e-08,
+        "text_cache_write": null,
+        "text_input": 5e-08,
+        "text_output": 2e-07
+      }
+    },
+    {
       "id": "qwen/qwen3-235b-a22b-2507",
       "name": "Qwen3 235B A22B Instruct 2507",
       "author_name": "Qwen",
@@ -8513,8 +11413,8 @@
         "reasoning_output": null,
         "text_cache_read": 1.06667e-07,
         "text_cache_write": null,
-        "text_input": 1.87458e-07,
-        "text_output": 8.065e-07
+        "text_input": 1.86318e-07,
+        "text_output": 8.07091e-07
       }
     },
     {
@@ -8604,10 +11504,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 3e-08,
+        "text_cache_read": 5e-08,
         "text_cache_write": null,
-        "text_input": 8.9688e-08,
-        "text_output": 2.625e-07
+        "text_input": 8.625e-08,
+        "text_output": 2.5e-07
       }
     },
     {
@@ -8703,6 +11603,53 @@
       }
     },
     {
+      "id": "google/gemini-2.5-flash:batch",
+      "name": "Gemini 2.5 Flash (batch)",
+      "author_name": "Google",
+      "input_modalities": [
+        "audio",
+        "file",
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "google/gemini-2.5-flash",
+      "created_at": "2025-06-17T15:01:28.103Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": 1e-07,
+        "audio_input": 5e-07,
+        "image_input": 1.5e-07,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": 1.25e-06,
+        "text_cache_read": 3e-08,
+        "text_cache_write": null,
+        "text_input": 1.5e-07,
+        "text_output": 1.25e-06
+      }
+    },
+    {
       "id": "google/gemini-2.5-pro",
       "name": "Gemini 2.5 Pro",
       "author_name": "Google",
@@ -8750,6 +11697,53 @@
       }
     },
     {
+      "id": "google/gemini-2.5-pro:batch",
+      "name": "Gemini 2.5 Pro (batch)",
+      "author_name": "Google",
+      "input_modalities": [
+        "audio",
+        "file",
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "google/gemini-2.5-pro",
+      "created_at": "2025-06-17T14:12:24.000Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": 1.25e-07,
+        "audio_input": 6.25e-07,
+        "image_input": 6.25e-07,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": 5e-06,
+        "text_cache_read": 1.25e-07,
+        "text_cache_write": null,
+        "text_input": 6.25e-07,
+        "text_output": 5e-06
+      }
+    },
+    {
       "id": "openai/o3-pro",
       "name": "o3 Pro",
       "author_name": "OpenAI",
@@ -8789,6 +11783,48 @@
         "text_cache_write": null,
         "text_input": 2e-05,
         "text_output": 8e-05
+      }
+    },
+    {
+      "id": "openai/o3-pro:batch",
+      "name": "o3 Pro (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/o3-pro-2025-06-10",
+      "created_at": "2025-06-10T23:32:32.266Z",
+      "context_length": 200000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": null,
+        "text_cache_write": null,
+        "text_input": 1e-05,
+        "text_output": 4e-05
       }
     },
     {
@@ -9128,7 +12164,6 @@
         "frequency_penalty",
         "include_reasoning",
         "logit_bias",
-        "logprobs",
         "max_tokens",
         "min_p",
         "presence_penalty",
@@ -9137,12 +12172,10 @@
         "response_format",
         "seed",
         "stop",
-        "structured_outputs",
         "temperature",
         "tool_choice",
         "tools",
         "top_k",
-        "top_logprobs",
         "top_p"
       ],
       "chat_completions": true,
@@ -9156,8 +12189,8 @@
         "reasoning_output": null,
         "text_cache_read": null,
         "text_cache_write": null,
-        "text_input": 1.3e-07,
-        "text_output": 5.23333e-07
+        "text_input": 1.25e-07,
+        "text_output": 5.1e-07
       }
     },
     {
@@ -9176,15 +12209,18 @@
       "created_at": "2025-04-28T21:43:52.421Z",
       "context_length": 131072,
       "supported_parameters": [
+        "frequency_penalty",
         "include_reasoning",
         "max_tokens",
         "presence_penalty",
         "reasoning",
         "response_format",
         "seed",
+        "stop",
         "temperature",
         "tool_choice",
         "tools",
+        "top_k",
         "top_p"
       ],
       "chat_completions": true,
@@ -9250,7 +12286,7 @@
         "text_cache_read": null,
         "text_cache_write": null,
         "text_input": 1.49167e-07,
-        "text_output": 4.63333e-07
+        "text_output": 4.56667e-07
       }
     },
     {
@@ -9300,8 +12336,8 @@
         "reasoning_output": null,
         "text_cache_read": 1.45e-07,
         "text_cache_write": null,
-        "text_input": 1.428e-07,
-        "text_output": 4.312e-07
+        "text_input": 1.525e-07,
+        "text_output": 4.35e-07
       }
     },
     {
@@ -9320,15 +12356,18 @@
       "created_at": "2025-04-28T21:29:17.256Z",
       "context_length": 131072,
       "supported_parameters": [
+        "frequency_penalty",
         "include_reasoning",
         "max_tokens",
         "presence_penalty",
         "reasoning",
         "response_format",
         "seed",
+        "stop",
         "temperature",
         "tool_choice",
         "tools",
+        "top_k",
         "top_p"
       ],
       "chat_completions": true,
@@ -9389,6 +12428,48 @@
       }
     },
     {
+      "id": "openai/o4-mini-high:batch",
+      "name": "o4 Mini High (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/o4-mini-high-2025-04-16",
+      "created_at": "2025-04-16T17:23:32.042Z",
+      "context_length": 200000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1.375e-07,
+        "text_cache_write": null,
+        "text_input": 5.5e-07,
+        "text_output": 2.2e-06
+      }
+    },
+    {
       "id": "openai/o3",
       "name": "o3",
       "author_name": "OpenAI",
@@ -9431,6 +12512,48 @@
       }
     },
     {
+      "id": "openai/o3:batch",
+      "name": "o3 (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/o3-2025-04-16",
+      "created_at": "2025-04-16T17:10:57.049Z",
+      "context_length": 200000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 2.5e-07,
+        "text_cache_write": null,
+        "text_input": 1e-06,
+        "text_output": 4e-06
+      }
+    },
+    {
       "id": "openai/o4-mini",
       "name": "o4 Mini",
       "author_name": "OpenAI",
@@ -9470,6 +12593,48 @@
         "text_cache_write": null,
         "text_input": 1.1e-06,
         "text_output": 4.4e-06
+      }
+    },
+    {
+      "id": "openai/o4-mini:batch",
+      "name": "o4 Mini (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/o4-mini-2025-04-16",
+      "created_at": "2025-04-16T16:29:02.980Z",
+      "context_length": 200000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1.375e-07,
+        "text_cache_write": null,
+        "text_input": 5.5e-07,
+        "text_output": 2.2e-06
       }
     },
     {
@@ -9516,6 +12681,48 @@
       }
     },
     {
+      "id": "openai/gpt-4.1:batch",
+      "name": "GPT-4.1 (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": false,
+      "variant": "batch",
+      "version_id": "openai/gpt-4.1-2025-04-14",
+      "created_at": "2025-04-14T17:23:05.000Z",
+      "context_length": 1047576,
+      "supported_parameters": [
+        "max_tokens",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 2.5e-07,
+        "text_cache_write": null,
+        "text_input": 1e-06,
+        "text_output": 4e-06
+      }
+    },
+    {
       "id": "openai/gpt-4.1-mini",
       "name": "GPT-4.1 Mini",
       "author_name": "OpenAI",
@@ -9559,6 +12766,48 @@
       }
     },
     {
+      "id": "openai/gpt-4.1-mini:batch",
+      "name": "GPT-4.1 Mini (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": false,
+      "variant": "batch",
+      "version_id": "openai/gpt-4.1-mini-2025-04-14",
+      "created_at": "2025-04-14T17:23:01.000Z",
+      "context_length": 1047576,
+      "supported_parameters": [
+        "max_tokens",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 5e-08,
+        "text_cache_write": null,
+        "text_input": 2e-07,
+        "text_output": 8e-07
+      }
+    },
+    {
       "id": "openai/gpt-4.1-nano",
       "name": "GPT-4.1 Nano",
       "author_name": "OpenAI",
@@ -9599,6 +12848,48 @@
         "text_cache_write": null,
         "text_input": 1.03333e-07,
         "text_output": 4.13333e-07
+      }
+    },
+    {
+      "id": "openai/gpt-4.1-nano:batch",
+      "name": "GPT-4.1 Nano (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": false,
+      "variant": "batch",
+      "version_id": "openai/gpt-4.1-nano-2025-04-14",
+      "created_at": "2025-04-14T17:22:49.000Z",
+      "context_length": 1047576,
+      "supported_parameters": [
+        "max_tokens",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1.25e-08,
+        "text_cache_write": null,
+        "text_input": 5e-08,
+        "text_output": 2e-07
       }
     },
     {
@@ -9647,8 +12938,8 @@
         "reasoning_output": null,
         "text_cache_read": 1.7e-07,
         "text_cache_write": null,
-        "text_input": 2.84e-07,
-        "text_output": 9.34e-07
+        "text_input": 2.74e-07,
+        "text_output": 8.992e-07
       }
     },
     {
@@ -9717,6 +13008,7 @@
       "supported_parameters": [
         "frequency_penalty",
         "logit_bias",
+        "logprobs",
         "max_tokens",
         "min_p",
         "presence_penalty",
@@ -9729,6 +13021,7 @@
         "tool_choice",
         "tools",
         "top_k",
+        "top_logprobs",
         "top_p"
       ],
       "chat_completions": true,
@@ -9740,10 +13033,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.26667e-07,
+        "text_cache_read": 1.575e-07,
         "text_cache_write": null,
-        "text_input": 2.625e-07,
-        "text_output": 1.04e-06
+        "text_input": 3.1e-07,
+        "text_output": 1.132e-06
       }
     },
     {
@@ -9930,6 +13223,47 @@
       }
     },
     {
+      "id": "openai/o3-mini-high:batch",
+      "name": "o3 Mini High (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/o3-mini-high-2025-01-31",
+      "created_at": "2025-02-12T15:03:31.504Z",
+      "context_length": 200000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 2.75e-07,
+        "text_cache_write": null,
+        "text_input": 5.5e-07,
+        "text_output": 2.2e-06
+      }
+    },
+    {
       "id": "qwen/qwen-plus",
       "name": "Qwen-Plus",
       "author_name": "Qwen",
@@ -9945,15 +13279,18 @@
       "created_at": "2025-02-01T11:37:20.886Z",
       "context_length": 1000000,
       "supported_parameters": [
+        "frequency_penalty",
         "logprobs",
         "max_tokens",
         "presence_penalty",
         "response_format",
         "seed",
+        "stop",
         "structured_outputs",
         "temperature",
         "tool_choice",
         "tools",
+        "top_k",
         "top_logprobs",
         "top_p"
       ],
@@ -10014,6 +13351,47 @@
       }
     },
     {
+      "id": "openai/o3-mini:batch",
+      "name": "o3 Mini (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/o3-mini-2025-01-31",
+      "created_at": "2025-01-31T19:28:41.132Z",
+      "context_length": 200000,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 2.75e-07,
+        "text_cache_write": null,
+        "text_input": 5.5e-07,
+        "text_output": 2.2e-06
+      }
+    },
+    {
       "id": "deepseek/deepseek-r1",
       "name": "R1",
       "author_name": "DeepSeek",
@@ -10027,11 +13405,10 @@
       "variant": "standard",
       "version_id": "deepseek/deepseek-r1",
       "created_at": "2025-01-20T13:51:35.969Z",
-      "context_length": 163840,
+      "context_length": 64000,
       "supported_parameters": [
         "frequency_penalty",
         "include_reasoning",
-        "max_completion_tokens",
         "max_tokens",
         "presence_penalty",
         "reasoning",
@@ -10057,8 +13434,8 @@
         "reasoning_output": null,
         "text_cache_read": null,
         "text_cache_write": null,
-        "text_input": 1.0925e-06,
-        "text_output": 4.22e-06
+        "text_input": 7e-07,
+        "text_output": 2.5e-06
       }
     },
     {
@@ -10104,8 +13481,8 @@
         "reasoning_output": null,
         "text_cache_read": null,
         "text_cache_write": null,
-        "text_input": 3.06733e-07,
-        "text_output": 9.967e-07
+        "text_input": 3.258e-07,
+        "text_output": 1.0729e-06
       }
     },
     {
@@ -10151,34 +13528,46 @@
       }
     },
     {
-      "id": "meta-llama/llama-3.3-70b-instruct:free",
-      "name": "Llama 3.3 70B Instruct (free)",
-      "author_name": "Meta",
+      "id": "openai/o1:batch",
+      "name": "o1 (batch)",
+      "author_name": "OpenAI",
       "input_modalities": [
+        "file",
+        "image",
         "text"
       ],
       "output_modalities": [
         "text"
       ],
-      "reasoning": false,
-      "variant": "free",
-      "version_id": "meta-llama/llama-3.3-70b-instruct",
-      "created_at": "2024-12-06T17:28:57.828Z",
-      "context_length": 65536,
+      "reasoning": true,
+      "variant": "batch",
+      "version_id": "openai/o1-2024-12-17",
+      "created_at": "2024-12-17T18:26:39.576Z",
+      "context_length": 200000,
       "supported_parameters": [
-        "frequency_penalty",
+        "include_reasoning",
         "max_tokens",
-        "presence_penalty",
-        "stop",
-        "temperature",
+        "reasoning",
+        "response_format",
+        "seed",
+        "structured_outputs",
         "tool_choice",
-        "tools",
-        "top_k",
-        "top_p"
+        "tools"
       ],
       "chat_completions": true,
       "native_web_search": false,
-      "pricing": null
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 3.75e-06,
+        "text_cache_write": null,
+        "text_input": 7.5e-06,
+        "text_output": 3e-05
+      }
     },
     {
       "id": "meta-llama/llama-3.3-70b-instruct",
@@ -10223,10 +13612,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 3.71667e-07,
+        "text_cache_read": 2.69e-07,
         "text_cache_write": null,
-        "text_input": 4.365e-07,
-        "text_output": 7.6275e-07
+        "text_input": 4.27538e-07,
+        "text_output": 7.71e-07
       }
     },
     {
@@ -10453,9 +13842,10 @@
       "variant": "standard",
       "version_id": "thedrummer/unslopnemo-12b",
       "created_at": "2024-11-08T22:04:08.359Z",
-      "context_length": 32768,
+      "context_length": 1024000,
       "supported_parameters": [
         "frequency_penalty",
+        "logit_bias",
         "logprobs",
         "max_tokens",
         "presence_penalty",
@@ -10467,6 +13857,7 @@
         "temperature",
         "tool_choice",
         "tools",
+        "top_k",
         "top_logprobs",
         "top_p"
       ],
@@ -10503,7 +13894,6 @@
       "supported_parameters": [
         "frequency_penalty",
         "logit_bias",
-        "logprobs",
         "max_tokens",
         "min_p",
         "presence_penalty",
@@ -10516,7 +13906,6 @@
         "tool_choice",
         "tools",
         "top_k",
-        "top_logprobs",
         "top_p"
       ],
       "chat_completions": true,
@@ -10530,8 +13919,8 @@
         "reasoning_output": null,
         "text_cache_read": null,
         "text_cache_write": null,
-        "text_input": 1.7e-07,
-        "text_output": 2e-07
+        "text_input": 2e-07,
+        "text_output": 2.5e-07
       }
     },
     {
@@ -10812,8 +14201,8 @@
         "reasoning_output": null,
         "text_cache_read": 1.225e-07,
         "text_cache_write": null,
-        "text_input": 8.0333e-08,
-        "text_output": 1.195e-07
+        "text_input": 9.24e-08,
+        "text_output": 1.354e-07
       }
     },
     {
@@ -10908,9 +14297,9 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.5e-08,
+        "text_cache_read": 2.2e-08,
         "text_cache_write": null,
-        "text_input": 5.75e-08,
+        "text_input": 3.275e-08,
         "text_output": 9.75e-08
       }
     },
@@ -11016,6 +14405,56 @@
       }
     },
     {
+      "id": "openai/gpt-4o-mini:batch",
+      "name": "GPT-4o-mini (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": false,
+      "variant": "batch",
+      "version_id": "openai/gpt-4o-mini",
+      "created_at": "2024-07-18T00:00:00.000Z",
+      "context_length": 128000,
+      "supported_parameters": [
+        "frequency_penalty",
+        "logit_bias",
+        "logprobs",
+        "max_tokens",
+        "prediction",
+        "presence_penalty",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_logprobs",
+        "top_p",
+        "web_search_options"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 3.75e-08,
+        "text_cache_write": null,
+        "text_input": 7.5e-08,
+        "text_output": 3e-07
+      }
+    },
+    {
       "id": "openai/gpt-4o-2024-05-13",
       "name": "GPT-4o (2024-05-13)",
       "author_name": "OpenAI",
@@ -11118,6 +14557,56 @@
       }
     },
     {
+      "id": "openai/gpt-4o:batch",
+      "name": "GPT-4o (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": false,
+      "variant": "batch",
+      "version_id": "openai/gpt-4o",
+      "created_at": "2024-05-13T00:00:00.000Z",
+      "context_length": 128000,
+      "supported_parameters": [
+        "frequency_penalty",
+        "logit_bias",
+        "logprobs",
+        "max_tokens",
+        "prediction",
+        "presence_penalty",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_logprobs",
+        "top_p",
+        "web_search_options"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 6.25e-07,
+        "text_cache_write": null,
+        "text_input": 1.25e-06,
+        "text_output": 5e-06
+      }
+    },
+    {
       "id": "mistralai/mixtral-8x22b-instruct",
       "name": "Mixtral 8x22B Instruct",
       "author_name": "Mistral",
@@ -11206,6 +14695,53 @@
         "text_cache_write": null,
         "text_input": 1e-05,
         "text_output": 3e-05
+      }
+    },
+    {
+      "id": "openai/gpt-4-turbo:batch",
+      "name": "GPT-4 Turbo (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": false,
+      "variant": "batch",
+      "version_id": "openai/gpt-4-turbo",
+      "created_at": "2024-04-09T00:00:00.000Z",
+      "context_length": 128000,
+      "supported_parameters": [
+        "frequency_penalty",
+        "logit_bias",
+        "logprobs",
+        "max_tokens",
+        "presence_penalty",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_logprobs",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": null,
+        "text_cache_write": null,
+        "text_input": 5e-06,
+        "text_output": 1.5e-05
       }
     },
     {
@@ -11522,6 +15058,52 @@
         "text_cache_write": null,
         "text_input": 5e-07,
         "text_output": 1.5e-06
+      }
+    },
+    {
+      "id": "openai/gpt-3.5-turbo:batch",
+      "name": "GPT-3.5 Turbo (batch)",
+      "author_name": "OpenAI",
+      "input_modalities": [
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": false,
+      "variant": "batch",
+      "version_id": "openai/gpt-3.5-turbo",
+      "created_at": "2023-05-28T00:00:00.000Z",
+      "context_length": 16385,
+      "supported_parameters": [
+        "frequency_penalty",
+        "logit_bias",
+        "logprobs",
+        "max_tokens",
+        "presence_penalty",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_logprobs",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": null,
+        "text_cache_write": null,
+        "text_input": 2.5e-07,
+        "text_output": 7.5e-07
       }
     }
   ],

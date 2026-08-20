@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-17 16:44-0400\n"
+"POT-Creation-Date: 2026-08-19 22:46-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Finnish <LL@li.org>\n"
@@ -246,6 +246,29 @@ msgstr "Palvelinvirhe ({0}). AI-palveluntarjoajalla on ongelmia."
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "HTTP-virhe {0}: {1}"
+
+#: plugin/framework/errors.py
+msgid ""
+"Python venv not found. Open Settings → Python, set the venv path, then Test."
+msgstr ""
+"Python-virtuaaliympäristöä ei löytynyt. Avaa Asetukset → Python, määritä "
+"virtuaaliympäristön polku ja testaa uudelleen."
+
+#: plugin/framework/errors.py
+msgid ""
+"Python execution timed out. Open Settings → Python to raise the timeout."
+msgstr ""
+"Python-suoritus aikakatkaistiin. Avaa Asetukset → Python ja pidennä "
+"aikakatkaisua."
+
+#: plugin/framework/errors.py
+msgid "Formula spill collision: destination range contains non-empty cells."
+msgstr "Kaavan ylivuotovirhe: kohdealue sisältää tyhjiä soluja."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "Script execution blocked by sandbox policy: {0}"
+msgstr "Skriptin suoritus estetty hiekkalaatikkokäytännön vuoksi: {0}"
 
 #: plugin/framework/errors.py
 msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
@@ -1006,7 +1029,7 @@ msgstr "Liitä tähän asiakirjaan"
 msgid "Script name cannot be empty."
 msgstr "Skriptin nimi ei voi olla tyhjä."
 
-#: plugin/chatbot/dialogs.py
+#: plugin/chatbot/dialogs.py plugin/mcp/__init__.py
 msgid "Copied!"
 msgstr "Kopioitu!"
 
@@ -1352,6 +1375,18 @@ msgstr "Äänikirjaston lataus"
 #: plugin/chatbot/dialog_views.py
 msgid "✓ Copied!"
 msgstr "✓ Kopioitu!"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing…"
+msgstr "Testataan…"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Test Tunnel"
+msgstr "Testitunneli"
+
+#: plugin/chatbot/dialog_views.py
+msgid "MCP Tunnel Test"
+msgstr "MCP-tunnelitesti"
 
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
@@ -2289,6 +2324,15 @@ msgstr "Julkinen tunneli {0}:n kautta (ei todennusta)"
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
+msgid "Public tunnel via {0}: {1}"
+msgstr "Julkinen tunneli palvelun {0} kautta: {1}"
+
+#: plugin/mcp/__init__.py
+msgid "reconnecting…"
+msgstr "yhdistetään uudelleen…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
 msgid "Public tunnel via {0} failed: {1}"
 msgstr "Julkinen tunneli {0}:n kautta epäonnistui: {1}"
 
@@ -2339,8 +2383,144 @@ msgstr "Reitit: {0}"
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
-msgid "URL: {0}"
-msgstr "URL: {0}"
+msgid "Local URL: {0}"
+msgstr "Paikallinen URL: {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public URL: {0}"
+msgstr "Julkinen URL: {0}"
+
+#: plugin/mcp/__init__.py plugin/xdl_strings.py
+msgid "Local Endpoint:"
+msgstr "Paikallinen päätepiste:"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public Tunnel ({0}):"
+msgstr "Julkinen tunneli ({0}):"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Active (connected)"
+msgstr "Tila: Aktiivinen (yhdistetty)"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Reconnecting — {0}"
+msgstr "Tila: Yhdistetään uudelleen — {0}"
+
+#: plugin/mcp/__init__.py
+msgid "retrying…"
+msgstr "yritetään uudelleen…"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Starting tunnel…"
+msgstr "Tila: Käynnistetään tunnelia…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Failed — {0}"
+msgstr "Tila: Epäonnistui — {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Not running (is {0} binary installed?)"
+msgstr "Tila: Ei käynnissä (onko {0}-binääri asennettu?)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Tunnel test mode: {0} provider simulated successfully."
+msgstr "Tunnelin testitila: {0}-palveluntarjoaja simuloitu onnistuneesti."
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Unknown tunnel provider: {0}"
+msgstr "Tuntematon tunnelin tarjoaja: {0}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"Binary '{0}' for {1} not found on PATH.\n"
+"\n"
+"Install from: {2}"
+msgstr ""
+"Binääriä '{0}' kohteelle {1} ei löytynyt PATH-ympäristömuuttujasta.\n"
+"\n"
+"Asenna osoitteesta: {2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Failed to execute {0} binary ({1}): {2}"
+msgstr "Binäärin {0} suorittaminen epäonnistui ({1}): {2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is running and responsive!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"Health check: OK (200)"
+msgstr ""
+"{0}-tunneli on käynnissä ja vastaa!\n"
+"\n"
+"Julkinen päätepiste:\n"
+"{1}\n"
+"\n"
+"Terveystarkistus: OK (200)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is active!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"(Public URL acquired from active tunnel session.)"
+msgstr ""
+"{0}-tunneli on aktiivinen!\n"
+"\n"
+"Julkinen päätepiste:\n"
+"{1}\n"
+"\n"
+"(Julkinen URL saatu aktiivisesta tunneliyhteydestä.)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is verified ({2}).\n"
+"\n"
+"(Note: An active {3} tunnel is currently running at {4}.)"
+msgstr ""
+"{0}-binääri '{1}' on vahvistettu ({2}).\n"
+"\n"
+"(Huomautus: Aktiivinen {3}-tunneli on parhaillaan käynnissä osoitteessa {4}.)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"MCP server is running locally on port {3}.\n"
+"Check 'Expose via public tunnel' and click OK to activate public routing."
+msgstr ""
+"{0}-binääri '{1}' on asennettu ja vahvistettu ({2}).\n"
+"\n"
+"MCP-palvelin on käynnissä paikallisesti portissa {3}.\n"
+"Valitse 'Expose via public tunnel' ja napsauta OK aktivoidaksesi julkisen reitityksen."
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"Note: MCP server is not currently running on port {3}."
+msgstr ""
+"{0}-binääri '{1}' on asennettu ja vahvistettu ({2}).\n"
+"\n"
+"Huomautus: MCP-palvelin ei ole tällä hetkellä käynnissä portissa {3}."
 
 #: plugin/main.py
 #, python-brace-format
@@ -2364,7 +2544,7 @@ msgstr "Muokkaa valintaa"
 msgid "Toggle MCP Server"
 msgstr "Vaihda MCP-palvelimen tila"
 
-#: plugin/main.py
+#: plugin/main.py plugin/xdl_strings.py
 msgid "MCP Server Status"
 msgstr "MCP-palvelimen tila"
 
@@ -2655,6 +2835,10 @@ msgid "Preserve number formats"
 msgstr "Säilytä numeromuotoilut"
 
 #: plugin/xdl_strings.py
+msgid "Public Tunnel:"
+msgstr "Julkinen tunneli:"
+
+#: plugin/xdl_strings.py
 msgid "Python Settings…"
 msgstr "Python-asetukset…"
 
@@ -2725,10 +2909,6 @@ msgstr "Valinta"
 #: plugin/xdl_strings.py
 msgid "Sentiment"
 msgstr "Mieliala"
-
-#: plugin/xdl_strings.py
-msgid "Server Status"
-msgstr "Palvelimen tila"
 
 #: plugin/xdl_strings.py
 msgid "Square"
@@ -3209,8 +3389,8 @@ msgstr ""
 "\"palvelinsalaisuus\". Tyhjä = palveluntarjoajan oletus / CLI-asetukset. Ei "
 "käytössä Tailscalelle."
 
-msgid "Suggested client config (copy into Claude Desktop / Cursor):"
-msgstr "Ehdotettu asiakasasetus (kopioi Claude Desktopiin / Cursoriin):"
+msgid "Client config (copy into Claude / Hermes-Agent):"
+msgstr "Asiakaskonfiguraatio (kopioi Claude / Hermes-Agentiin):"
 
 msgid "Python"
 msgstr "Python"
@@ -3288,34 +3468,6 @@ msgstr ""
 "Kun Python-solua muokataan ja tallennetaan, nosta staattinen xl(\"A1:…\") "
 "=PY-data-argumenteiksi ja kirjoita uudelleen muotoon data / data[i] / "
 ".to_pandas()."
-
-msgid "Convert Date/Time and Timedelta Strings"
-msgstr "Muunna päivämäärä-/aika- ja aikavälimerkkijonot"
-
-msgid ""
-"Automatically detect and convert date/time and duration strings to "
-"datetime/timedelta objects when sending data to the Python worker. Requires "
-"the 'pandas' and 'dateparser' packages in your venv."
-msgstr ""
-"Tunnista ja muunna päivämäärä-, aika- ja kesto-merkkijonot automaattisesti "
-"datetime/timedelta-objekteiksi lähetettäessä tietoja Python-työntekijälle. "
-"Vaatii 'pandas'- ja 'dateparser'-paketit virtuaaliympäristössäsi."
-
-msgid "PPT-Master data path"
-msgstr "PPT-Master-datapolku"
-
-msgid ""
-"Path to the ppt-master skill tree (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Clone hugohe3/ppt-master on GitHub and point here at "
-"the clone root (.../ppt-master) or the inner skill dir (.../ppt-"
-"master/skills/ppt-master). Leave empty to auto-detect (dev clone beside "
-"repo, then env)."
-msgstr ""
-"Polku ppt-master-taitopuuhun (SKILL.md, templates/, scripts/svg_to_pptx/). "
-"Kloonaa hugohe3/ppt-master GitHubista ja osoita tähän kloonin juureen "
-"(.../ppt-master) tai sisempään taitohakemistoon (.../ppt-master/skills/ppt-"
-"master). Jätä tyhjäksi automaattista tunnistusta varten (kehitysklooni "
-"arkiston vieressä, sitten ympäristö)."
 
 msgid "Vision / OCR"
 msgstr "Vision / OCR"

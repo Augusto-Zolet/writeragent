@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-17 16:44-0400\n"
+"POT-Creation-Date: 2026-08-19 22:46-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Dutch <LL@li.org>\n"
@@ -245,6 +245,29 @@ msgstr "Serverfout ({0}). De AI-provider ondervindt problemen."
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "HTTP-fout {0}: {1}"
+
+#: plugin/framework/errors.py
+msgid ""
+"Python venv not found. Open Settings → Python, set the venv path, then Test."
+msgstr ""
+"Python venv niet gevonden. Open Instellingen → Python, stel het venv-pad in "
+"en kies daarna Testen."
+
+#: plugin/framework/errors.py
+msgid ""
+"Python execution timed out. Open Settings → Python to raise the timeout."
+msgstr ""
+"Python-uitvoering is verlopen. Open Instellingen → Python om de time-out te "
+"verhogen."
+
+#: plugin/framework/errors.py
+msgid "Formula spill collision: destination range contains non-empty cells."
+msgstr "Formule-spill-conflict: doelbereik bevat niet-lege cellen."
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "Script execution blocked by sandbox policy: {0}"
+msgstr "Scriptuitvoering geblokkeerd door sandbox-beleid: {0}"
 
 #: plugin/framework/errors.py
 msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
@@ -1003,7 +1026,7 @@ msgstr "Aan dit document koppelen"
 msgid "Script name cannot be empty."
 msgstr "Scriptnaam mag niet leeg zijn."
 
-#: plugin/chatbot/dialogs.py
+#: plugin/chatbot/dialogs.py plugin/mcp/__init__.py
 msgid "Copied!"
 msgstr "Gekopieerd!"
 
@@ -1352,6 +1375,18 @@ msgstr "Audiobibliotheek downloaden"
 #: plugin/chatbot/dialog_views.py
 msgid "✓ Copied!"
 msgstr "✓ Gekopieerd!"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Testing…"
+msgstr "Bezig met testen…"
+
+#: plugin/chatbot/dialog_views.py
+msgid "Test Tunnel"
+msgstr "Testtunnel"
+
+#: plugin/chatbot/dialog_views.py
+msgid "MCP Tunnel Test"
+msgstr "MCP-tunneltest"
 
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
@@ -2301,6 +2336,15 @@ msgstr "Publieke tunnel via {0} (geen authenticatie)"
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
+msgid "Public tunnel via {0}: {1}"
+msgstr "Publieke tunnel via {0}: {1}"
+
+#: plugin/mcp/__init__.py
+msgid "reconnecting…"
+msgstr "opnieuw verbinden…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
 msgid "Public tunnel via {0} failed: {1}"
 msgstr "Publieke tunnel via {0} mislukt: {1}"
 
@@ -2350,8 +2394,144 @@ msgstr "Routes: {0}"
 
 #: plugin/mcp/__init__.py
 #, python-brace-format
-msgid "URL: {0}"
-msgstr "URL: {0}"
+msgid "Local URL: {0}"
+msgstr "Lokale URL: {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public URL: {0}"
+msgstr "Publieke URL: {0}"
+
+#: plugin/mcp/__init__.py plugin/xdl_strings.py
+msgid "Local Endpoint:"
+msgstr "Lokaal eindpunt:"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Public Tunnel ({0}):"
+msgstr "Publieke tunnel ({0}):"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Active (connected)"
+msgstr "Status: Actief (verbonden)"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Reconnecting — {0}"
+msgstr "Status: Opnieuw verbinden — {0}"
+
+#: plugin/mcp/__init__.py
+msgid "retrying…"
+msgstr "opnieuw proberen…"
+
+#: plugin/mcp/__init__.py
+msgid "Status: Starting tunnel…"
+msgstr "Status: Tunnel starten…"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Failed — {0}"
+msgstr "Status: Mislukt — {0}"
+
+#: plugin/mcp/__init__.py
+#, python-brace-format
+msgid "Status: Not running (is {0} binary installed?)"
+msgstr "Status: Niet actief (is het binaire bestand {0} geïnstalleerd?)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Tunnel test mode: {0} provider simulated successfully."
+msgstr "Tunneltestmodus: {0}-provider succesvol gesimuleerd."
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Unknown tunnel provider: {0}"
+msgstr "Onbekende tunnelprovider: {0}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"Binary '{0}' for {1} not found on PATH.\n"
+"\n"
+"Install from: {2}"
+msgstr ""
+"Binary '{0}' voor {1} niet gevonden op PATH.\n"
+"\n"
+"Installeer vanaf: {2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid "Failed to execute {0} binary ({1}): {2}"
+msgstr "Uitvoeren van {0} binary ({1}) mislukt: {2}"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is running and responsive!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"Health check: OK (200)"
+msgstr ""
+"{0} tunnel is actief en reageert!\n"
+"\n"
+"Publiek eindpunt:\n"
+"{1}\n"
+"\n"
+"Statuscontrole: OK (200)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} tunnel is active!\n"
+"\n"
+"Public endpoint:\n"
+"{1}\n"
+"\n"
+"(Public URL acquired from active tunnel session.)"
+msgstr ""
+"{0} tunnel is actief!\n"
+"\n"
+"Publiek eindpunt:\n"
+"{1}\n"
+"\n"
+"(Publieke URL verkregen uit actieve tunnelsessie.)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is verified ({2}).\n"
+"\n"
+"(Note: An active {3} tunnel is currently running at {4}.)"
+msgstr ""
+"{0} binary '{1}' is geverifieerd ({2}).\n"
+"\n"
+"(Let op: Er draait momenteel een actieve {3} tunnel op {4}.)"
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"MCP server is running locally on port {3}.\n"
+"Check 'Expose via public tunnel' and click OK to activate public routing."
+msgstr ""
+"{0} binary '{1}' is geïnstalleerd en geverifieerd ({2}).\n"
+"\n"
+"MCP-server draait lokaal op poort {3}.\n"
+"Schakel 'Expose via public tunnel' in en klik op OK om publieke routering te activeren."
+
+#: plugin/mcp/tunnel.py
+#, python-brace-format
+msgid ""
+"{0} binary '{1}' is installed and verified ({2}).\n"
+"\n"
+"Note: MCP server is not currently running on port {3}."
+msgstr ""
+"{0} binary '{1}' is geïnstalleerd en geverifieerd ({2}).\n"
+"\n"
+"Let op: MCP-server draait momenteel niet op poort {3}."
 
 #: plugin/main.py
 #, python-brace-format
@@ -2375,7 +2555,7 @@ msgstr "Selectie bewerken"
 msgid "Toggle MCP Server"
 msgstr "MCP-server in-/uitschakelen"
 
-#: plugin/main.py
+#: plugin/main.py plugin/xdl_strings.py
 msgid "MCP Server Status"
 msgstr "Status MCP-server"
 
@@ -2667,6 +2847,10 @@ msgid "Preserve number formats"
 msgstr "Getalnotaties behouden"
 
 #: plugin/xdl_strings.py
+msgid "Public Tunnel:"
+msgstr "Publieke tunnel:"
+
+#: plugin/xdl_strings.py
 msgid "Python Settings…"
 msgstr "Python-instellingen…"
 
@@ -2737,10 +2921,6 @@ msgstr "Selectie"
 #: plugin/xdl_strings.py
 msgid "Sentiment"
 msgstr "Sentiment"
-
-#: plugin/xdl_strings.py
-msgid "Server Status"
-msgstr "Serverstatus"
 
 #: plugin/xdl_strings.py
 msgid "Square"
@@ -3218,9 +3398,8 @@ msgstr ""
 "Ngrok authtoken; Cloudflare tunnel-token; Bore-server of 'server secret'. "
 "Leeg = standaard provider / CLI-configuratie. Niet gebruikt voor Tailscale."
 
-msgid "Suggested client config (copy into Claude Desktop / Cursor):"
-msgstr ""
-"Voorgestelde clientconfiguratie (kopiëren naar Claude Desktop / Cursor):"
+msgid "Client config (copy into Claude / Hermes-Agent):"
+msgstr "Clientconfiguratie (kopiëren naar Claude / Hermes-Agent):"
 
 msgid "Python"
 msgstr "Python"
@@ -3296,34 +3475,6 @@ msgid ""
 msgstr ""
 "Bij opslaan van Python in cel: verplaats statische xl(\"A1:…\") naar =PY "
 "data-argumenten en herschrijf naar data / data[i] / .to_pandas()."
-
-msgid "Convert Date/Time and Timedelta Strings"
-msgstr "Datum/tijd- en Timedelta-tekenreeksen converteren"
-
-msgid ""
-"Automatically detect and convert date/time and duration strings to "
-"datetime/timedelta objects when sending data to the Python worker. Requires "
-"the 'pandas' and 'dateparser' packages in your venv."
-msgstr ""
-"Datum/tijd- en duur-tekenreeksen automatisch detecteren en converteren naar "
-"datetime/timedelta-objecten bij het verzenden van gegevens naar de Python-"
-"worker. Vereist de 'pandas'- en 'dateparser'-pakketten in uw venv."
-
-msgid "PPT-Master data path"
-msgstr "Pad naar PPT-Master-gegevens"
-
-msgid ""
-"Path to the ppt-master skill tree (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Clone hugohe3/ppt-master on GitHub and point here at "
-"the clone root (.../ppt-master) or the inner skill dir (.../ppt-"
-"master/skills/ppt-master). Leave empty to auto-detect (dev clone beside "
-"repo, then env)."
-msgstr ""
-"Pad naar de ppt-master skill tree (SKILL.md, templates/, "
-"scripts/svg_to_pptx/). Kloon hugohe3/ppt-master op GitHub en verwijs hier "
-"naar de kloon-root (.../ppt-master) of de interne skill-map (.../ppt-"
-"master/skills/ppt-master). Laat leeg voor automatische detectie (dev-kloon "
-"naast repo, daarna env)."
 
 msgid "Vision / OCR"
 msgstr "Visie / OCR"
