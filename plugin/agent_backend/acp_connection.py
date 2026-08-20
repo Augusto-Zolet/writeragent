@@ -83,7 +83,7 @@ class ACPConnection:
             name=f"acp-stderr-{self._proc.pid}",
         )
         self._running = True
-        self._reader_thread = run_in_background(self._reader_loop, daemon=True, name="acp-reader")
+        self._reader_thread = run_in_background(self._reader_loop, daemon=True, name="acp-reader", dedicated=True)
 
     def stop(self):
         """Terminate the subprocess."""

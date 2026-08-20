@@ -32,7 +32,7 @@ def schedule_periodic_embeddings_indexer_once(ctx: Any) -> None:
             return
         _scheduled = True
     log.info("embeddings periodic indexer: scheduling background worker")
-    run_in_background(run_periodic_embeddings_indexer, ctx, name="embeddings_periodic_indexer")
+    run_in_background(run_periodic_embeddings_indexer, ctx, name="embeddings_periodic_indexer", dedicated=True)
 
 
 def _embeddings_periodic_tick(ctx: Any) -> None:

@@ -597,7 +597,7 @@ def run_async_worker_with_drain(
             on_error_fn(err)
         return
 
-    run_in_background(worker_wrapper, daemon=True, name=name)
+    run_in_background(worker_wrapper, daemon=True, name=name, dedicated=True)
 
     def on_stream_done_wrapper(item):
         if on_done_fn:
@@ -731,7 +731,7 @@ def run_blocking_in_thread(ctx, func, *args, **kwargs):
         # Fallback if toolkit isn't available (unlikely in UI context)
         return func(*args, **kwargs)
 
-    run_in_background(worker, daemon=True, name="blocking-thread")
+    run_in_background(worker, daemon=True, name="blocking-thread", dedicated=True)
 
     # Do not take drain_owner_scope here: this helper may run under an active stream
     # drain. pump_ui_idle remains the owner-safe VCL pump path.

@@ -110,5 +110,7 @@ Both `mcp_protocol.py` and `main_thread.py` previously contained duplicate logic
 ### 3. Asynchronous Worker Spawning (`run_in_background`)
 Raw `threading.Thread(target=..., daemon=True).start()` calls scattered throughout the codebase for "fire-and-forget" tasks lacked standardized exception handling or logging. This pattern has been replaced by `plugin/framework/worker_pool.py` and the `run_in_background` utility. This component standardizes thread execution, cleanly logging raised exceptions directly rather than failing silently.
 
+Short fire-and-forget work is queued on a bounded daemon pool (`wa-bg-*`). Servers, pipe drains, LLM stream workers, and any job that another thread `join()`s pass `dedicated=True`. See [background-thread-pool-dev-plan.md](background-thread-pool-dev-plan.md).
+
 ### 4. Streaming Execution Wrappers
 Streaming wrappers such as `_start_tool_calling_async` in tool loop handlers, process reading threads, and asynchronous pipeline streams in `async_stream` have been updated to utilize `run_in_background` to improve event reliability and debug logging.

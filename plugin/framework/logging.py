@@ -531,7 +531,7 @@ def start_watchdog_thread(ctx, status_control=None):
         if _watchdog_started:
             return
         _watchdog_started = True
-    run_in_background(_watchdog_loop, status_control, name="watchdog", daemon=True)
+    run_in_background(_watchdog_loop, status_control, name="watchdog", daemon=True, dedicated=True)
 
 
 # Custom LogRecord Factory for PyUNO safety in Python 3.12+

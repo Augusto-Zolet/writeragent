@@ -146,11 +146,12 @@ headless.
 
 ### A2. Tag background threads at their one birthplace (≈1 hour)
 
-In `run_in_background`, set a thread-local marker (and a clear thread name). The
-guard message can then say *which* background task is at fault
-("inside background task `run_search`"), which makes triage trivial. Also lets the
-guard distinguish "legitimately on a non-main thread that never touches UNO" from
-"a worker that reached a red function."
+In `run_in_background`, set a thread-local marker at **job** start (and a clear
+thread name for dedicated threads). Pooled workers reuse `wa-bg-*` threads, so
+the task name is set per submit and cleared in `finally`. The guard message can
+then say *which* background task is at fault ("inside background task `run_search`"),
+which makes triage trivial. Also lets the guard distinguish "legitimately on a
+non-main thread that never touches UNO" from "a worker that reached a red function."
 
 ### A3. Viral guarding proxy on the UNO sources (half day; strongest runtime option)
 

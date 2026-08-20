@@ -314,7 +314,7 @@ class ToolLoopEffectInterpreter:
                 except Exception as e:
                     host._active_q.put((StreamQueueKind.TOOL_DONE, call_id, func_name, func_args_str, json.dumps(format_error_payload(e))))
 
-            run_in_background(run_async, name=f"tool-async-{func_name}")
+            run_in_background(run_async, name=f"tool-async-{func_name}", dedicated=True)
         else:
             # Sync tools run inline on the drain thread — if Stop appears broken, check these
             # enter/exit timings against document_to_content phase logs for the stuck step.

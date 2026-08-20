@@ -859,7 +859,7 @@ class ToolRegistry:
             except Exception as e:
                 result_queue.put(("error", e))
 
-        worker_thread = run_in_background(worker, name=f"tool-timeout-{tool_name}")
+        worker_thread = run_in_background(worker, name=f"tool-timeout-{tool_name}", dedicated=True)
         worker_thread.join(timeout=timeout)
 
         if worker_thread.is_alive():

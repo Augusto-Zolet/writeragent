@@ -381,7 +381,7 @@ def main_thread_only(fn):
 def background(fn):
     return fn
 
-def set_background_task(name: str) -> None:
+def set_background_task(name: str | None) -> None:
     pass
 
 def get_background_task_name() -> str | None:

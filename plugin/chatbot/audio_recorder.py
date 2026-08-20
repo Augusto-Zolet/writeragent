@@ -62,7 +62,7 @@ class AudioRecorder:
         self.ctx = ctx
         self.temp_filename: str | None = None
         self._proc: subprocess.Popen[str] | None = None
-        self._stdout_monitor: threading.Thread | None = None
+        self._stdout_monitor: threading.Thread | Any = None
         self._auto_stopped_path: str | None = None
         self._auto_stop_lock = threading.Lock()
         self.stream: Any = None

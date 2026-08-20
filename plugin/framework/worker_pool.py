@@ -23,14 +23,18 @@ UNO main-thread runtime guard (Layer A) can name the offending task on violation
 from __future__ import annotations
 
 import logging
+import os
+import queue
 import subprocess
 import sys
 import threading
 import traceback
 import uuid
 from collections import deque
+from concurrent.futures import Future, TimeoutError as FuturesTimeoutError
 from typing import Optional, Callable, Any, IO
 
+from plugin.framework.constants import BACKGROUND_POOL_MAX_WORKERS
 from plugin.framework.errors import WorkerPoolError
 
 log = logging.getLogger("writeragent.framework.worker_pool")
@@ -41,19 +45,145 @@ _DEFAULT_STDERR_TAIL_CHARS = 8192
 # can name the offending background task in diagnostics.
 from plugin.framework import thread_guard
 
+_pool_lock = threading.Lock()
+_pool: "_DaemonWorkPool | None" = None
+_pool_size_override: int | None = None
 
-def run_in_background(func, *args, name=None, error_callback=None, daemon=True, **kwargs):
+
+def background_pool_max_workers() -> int:
+    """Resolved pool size: test override, then env, then ``BACKGROUND_POOL_MAX_WORKERS``."""
+    if _pool_size_override is not None:
+        return _pool_size_override
+    raw = os.environ.get("WRITERAGENT_BG_POOL_WORKERS")
+    if raw:
+        try:
+            n = int(raw)
+            if n >= 1:
+                return n
+        except ValueError:
+            pass
+    return BACKGROUND_POOL_MAX_WORKERS
+
+
+class BackgroundHandle:
+    """Joinable handle for pooled or dedicated ``run_in_background`` work.
+
+    Matches the ``Thread.join`` / ``Thread.is_alive`` surface callers already use.
+    ``join`` never re-raises worker exceptions (those are logged / ``error_callback``).
     """
-    Spawns a background thread to execute a function, catching any exceptions
-    and wrapping them in WorkerPoolError for consistent error handling and task isolation.
 
-    :param func: The callable to execute.
-    :param args: Positional arguments for func.
-    :param name: Optional thread name.
-    :param error_callback: Optional callable(Exception) to run if func raises.
-    :param daemon: Whether the thread should be a daemon (default True).
-    :param kwargs: Keyword arguments for func.
-    :return: The spawned threading.Thread instance.
+    __slots__ = ("_future", "_thread")
+
+    def __init__(self, *, future: Future[Any] | None = None, thread: threading.Thread | None = None) -> None:
+        self._future = future
+        self._thread = thread
+
+    def join(self, timeout: float | None = None) -> None:
+        thread = self._thread
+        if thread is not None:
+            thread.join(timeout)
+            return
+        fut = self._future
+        if fut is None:
+            return
+        try:
+            fut.result(timeout=timeout)
+        except FuturesTimeoutError:
+            return
+        except Exception:
+            return
+
+    def is_alive(self) -> bool:
+        thread = self._thread
+        if thread is not None:
+            return thread.is_alive()
+        fut = self._future
+        return fut is not None and not fut.done()
+
+
+class _DaemonWorkPool:
+    """Fixed daemon workers + unbounded queue. ThreadPoolExecutor is non-daemon on 3.9+."""
+
+    def __init__(self, max_workers: int) -> None:
+        self._max_workers = max(1, max_workers)
+        self._queue: queue.SimpleQueue[tuple[Callable[[], None], Future[Any]] | None] = queue.SimpleQueue()
+        self._threads: list[threading.Thread] = []
+        self._shutdown = False
+        for i in range(self._max_workers):
+            t = threading.Thread(target=self._run, name=f"wa-bg-{i}", daemon=True)
+            t.start()
+            self._threads.append(t)
+
+    def submit(self, fn: Callable[[], None]) -> Future[Any]:
+        if self._shutdown:
+            raise RuntimeError("background pool is shut down")
+        fut: Future[Any] = Future()
+        self._queue.put((fn, fut))
+        return fut
+
+    def _run(self) -> None:
+        while True:
+            item = self._queue.get()
+            if item is None:
+                return
+            fn, fut = item
+            if not fut.set_running_or_notify_cancel():
+                continue
+            try:
+                fn()
+            except BaseException as exc:
+                fut.set_exception(exc)
+            else:
+                fut.set_result(None)
+
+    def shutdown(self, *, wait: bool = True, cancel_futures: bool = True) -> None:
+        self._shutdown = True
+        if cancel_futures:
+            pending: list[tuple[Callable[[], None], Future[Any]]] = []
+            while True:
+                try:
+                    item = self._queue.get_nowait()
+                except queue.Empty:
+                    break
+                if item is None:
+                    continue
+                pending.append(item)
+            for pending_item in pending:
+                pending_item[1].cancel()
+        for unused_slot in range(len(self._threads)):
+            self._queue.put(None)
+        if wait:
+            for t in self._threads:
+                t.join(timeout=5.0)
+
+
+def _get_pool() -> _DaemonWorkPool:
+    global _pool
+    with _pool_lock:
+        if _pool is None:
+            _pool = _DaemonWorkPool(background_pool_max_workers())
+        return _pool
+
+
+def reset_background_pool_for_tests(max_workers: int | None = None) -> None:
+    """Tear down the process pool so tests can bound size or avoid leaked work."""
+    global _pool, _pool_size_override
+    with _pool_lock:
+        if _pool is not None:
+            _pool.shutdown(wait=True, cancel_futures=True)
+            _pool = None
+        _pool_size_override = max_workers
+
+
+def run_in_background(func, *args, name=None, error_callback=None, daemon=True, dedicated=False, **kwargs):
+    """Run *func* off the caller thread with WorkerPoolError isolation and Layer A tagging.
+
+    Short fire-and-forget work is queued on a bounded daemon pool. Pass
+    ``dedicated=True`` (or ``daemon=False``) for servers, pipe drains, infinite
+    loops, and any job another thread will ``join()`` — those must not occupy
+    a pool slot.
+
+    :return: A :class:`BackgroundHandle` with ``join`` / ``is_alive``.
     """
 
     def _worker():
@@ -80,11 +210,18 @@ def run_in_background(func, *args, name=None, error_callback=None, daemon=True, 
                     error_callback(wrapped_error)
                 except Exception as ec:
                     log.error("Error in error_callback for '%s': %s", task_name, ec)
+        finally:
+            thread_guard.set_background_task(None)
 
-    thread_name = name or f"worker-{getattr(func, '__name__', 'anon')}"
-    t = threading.Thread(target=_worker, name=thread_name, daemon=daemon)
-    t.start()
-    return t
+    use_dedicated = dedicated or (daemon is False)
+    if use_dedicated:
+        thread_name = name or f"worker-{getattr(func, '__name__', 'anon')}"
+        t = threading.Thread(target=_worker, name=thread_name, daemon=daemon)
+        t.start()
+        return BackgroundHandle(thread=t)
+
+    fut = _get_pool().submit(_worker)
+    return BackgroundHandle(future=fut)
 
 
 def get_subprocess_creationflags() -> dict[str, Any]:
@@ -108,7 +245,7 @@ class StderrTail:
         self._chunks: deque[str] = deque()
         self._chars = 0
         self._max_chars = max(256, max_chars)
-        self._thread: threading.Thread | None = None
+        self._thread: BackgroundHandle | threading.Thread | None = None
 
     def _append(self, text: str) -> None:
         if not text:
@@ -124,7 +261,7 @@ class StderrTail:
         with self._lock:
             return "".join(self._chunks)
 
-    def attach_thread(self, thread: threading.Thread) -> None:
+    def attach_thread(self, thread: BackgroundHandle | threading.Thread) -> None:
         self._thread = thread
 
     def join(self, timeout: float | None = None) -> None:
@@ -174,7 +311,7 @@ def start_stderr_drain(
             except Exception:
                 pass
 
-    thread = run_in_background(_loop, name=name)
+    thread = run_in_background(_loop, name=name, dedicated=True)
     tail.attach_thread(thread)
     return tail
 
@@ -219,17 +356,17 @@ class AsyncProcess:
             raise ToolExecutionError(f"Failed to start process: {self.args}", details={"error": str(e)}) from e
 
         if self.process.stdout and self.stdout_cb:
-            self._stdout_thread = run_in_background(self._read_stream, self.process.stdout, self.stdout_cb, name=f"asyncproc-out-{self.process.pid}")
+            self._stdout_thread = run_in_background(self._read_stream, self.process.stdout, self.stdout_cb, name=f"asyncproc-out-{self.process.pid}", dedicated=True)
         elif self.process.stdout:
             # Drain it silently to avoid deadlocks
-            run_in_background(self._drain_stream, self.process.stdout, name=f"asyncproc-outdrain-{self.process.pid}")
+            run_in_background(self._drain_stream, self.process.stdout, name=f"asyncproc-outdrain-{self.process.pid}", dedicated=True)
 
         if self.process.stderr and self.stderr_cb:
-            self._stderr_thread = run_in_background(self._read_stream, self.process.stderr, self.stderr_cb, name=f"asyncproc-err-{self.process.pid}")
+            self._stderr_thread = run_in_background(self._read_stream, self.process.stderr, self.stderr_cb, name=f"asyncproc-err-{self.process.pid}", dedicated=True)
         elif self.process.stderr:
-            run_in_background(self._drain_stream, self.process.stderr, name=f"asyncproc-errdrain-{self.process.pid}")
+            run_in_background(self._drain_stream, self.process.stderr, name=f"asyncproc-errdrain-{self.process.pid}", dedicated=True)
 
-        self._wait_thread = run_in_background(self._wait_for_exit, name=f"asyncproc-wait-{self.process.pid}")
+        self._wait_thread = run_in_background(self._wait_for_exit, name=f"asyncproc-wait-{self.process.pid}", dedicated=True)
 
     def _read_stream(self, stream, callback):
         try:

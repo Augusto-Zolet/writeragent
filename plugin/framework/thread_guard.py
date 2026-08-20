@@ -68,8 +68,12 @@ def on_main_thread() -> bool:
     return current is threading.main_thread()
 
 
-def set_background_task(name: str) -> None:
-    """Tag the current thread as a background worker task (for better diagnostics)."""
+def set_background_task(name: str | None) -> None:
+    """Tag the current thread as a background worker task (for better diagnostics).
+
+    Pass None to clear the name when a pooled worker finishes so the next job
+    is not blamed under a stale task id.
+    """
     try:
         _bg.task_name = name
     except Exception:

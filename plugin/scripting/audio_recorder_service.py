@@ -14,7 +14,7 @@ import tempfile
 from typing import TYPE_CHECKING, Any
 
 from plugin.framework.config import get_config_str
-from plugin.framework.worker_pool import StderrTail, run_in_background, start_stderr_drain
+from plugin.framework.worker_pool import BackgroundHandle, StderrTail, run_in_background, start_stderr_drain
 from plugin.scripting.native_binaries import (
     _CONTRIB_BASE_URL,
     _download_url_to_file,
@@ -23,7 +23,6 @@ from plugin.scripting.native_binaries import (
 )
 
 if TYPE_CHECKING:
-    import threading
     from collections.abc import Callable
 
     from plugin.scripting.audio_silence_detector import SilenceDetectorConfig
@@ -200,7 +199,7 @@ def monitor_recording_stdout(
     on_auto_stopped: Callable[[str], None],
     on_silence_progress: Callable[[int], None] | None = None,
     on_error: Callable[[str], None] | None = None,
-) -> threading.Thread:
+) -> BackgroundHandle:
     """Background reader for venv recorder IPC (auto-stop and silence progress)."""
 
     def _reader() -> None:
@@ -230,7 +229,7 @@ def monitor_recording_stdout(
                 if isinstance(message, str):
                     on_error(message)
 
-    return run_in_background(_reader, name="audio-rec-stdout-monitor", daemon=True)
+    return run_in_background(_reader, name="audio-rec-stdout-monitor", daemon=True, dedicated=True)
 
 
 def terminate_recording_process(proc: subprocess.Popen[str] | None) -> None:

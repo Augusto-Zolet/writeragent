@@ -427,7 +427,7 @@ class ToolCallingMixin:
                 if batched: batched.flush()
                 real_q.put((StreamQueueKind.ERROR, format_error_payload(e)))
 
-        run_in_background(run, name=f"llm-worker-{round_num}")
+        run_in_background(run, name=f"llm-worker-{round_num}", dedicated=True)
 
     def _spawn_final_stream(self: ToolLoopHost, q: "queue.Queue[Any] | BatchingStreamQueue", client: "LlmClient", max_tokens: int) -> None:
         """Spawn a background thread for a final no-tools stream into q (or the batcher's raw queue)."""
@@ -465,7 +465,7 @@ class ToolCallingMixin:
                 if batched: batched.flush()
                 real_q.put((StreamQueueKind.ERROR, format_error_payload(e)))
 
-        run_in_background(run_final, name="llm-worker-final")
+        run_in_background(run_final, name="llm-worker-final", dedicated=True)
 
     def _create_event_from_stream_item(self: ToolLoopHost, item: Any) -> ToolLoopEvent | None:
         """Factory method to convert a raw stream item tuple into a ToolLoopEvent."""

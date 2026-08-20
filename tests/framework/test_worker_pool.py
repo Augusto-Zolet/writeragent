@@ -5,7 +5,16 @@ import time
 import subprocess
 import sys
 
-from plugin.framework.worker_pool import run_in_background, AsyncProcess, start_stderr_drain
+import threading
+
+from plugin.framework.thread_guard import get_background_task_name
+from plugin.framework.worker_pool import (
+    BackgroundHandle,
+    reset_background_pool_for_tests,
+    run_in_background,
+    AsyncProcess,
+    start_stderr_drain,
+)
 from plugin.framework.errors import ToolExecutionError
 
 def test_run_in_background_success():
@@ -230,6 +239,117 @@ def test_async_process_terminate_not_running():
     ap.start()
     ap._wait_thread.join(timeout=2)
     ap.terminate()
+
+
+def test_pooled_handle_is_alive_and_join():
+    started = threading.Event()
+    release = threading.Event()
+
+    def blocker():
+        started.set()
+        release.wait(2)
+
+    handle = run_in_background(blocker, name="pool-alive")
+    assert isinstance(handle, BackgroundHandle)
+    assert started.wait(2)
+    assert handle.is_alive()
+    release.set()
+    handle.join(timeout=2)
+    assert not handle.is_alive()
+
+
+def test_join_does_not_reraise_worker_exception():
+    def boom():
+        raise RuntimeError("pool boom")
+
+    handle = run_in_background(boom, name="pool-boom")
+    handle.join(timeout=2)
+    assert not handle.is_alive()
+
+
+def test_pooled_worker_tags_then_clears_task_name():
+    seen = []
+
+    def task():
+        seen.append(get_background_task_name())
+
+    handle = run_in_background(task, name="tagged-job")
+    handle.join(timeout=2)
+    assert seen == ["tagged-job"]
+    assert get_background_task_name() is None
+
+
+def test_timeout_join_dedicated_still_alive():
+    release = threading.Event()
+
+    def sleeper():
+        release.wait(5)
+
+    handle = run_in_background(sleeper, name="timeout-join", dedicated=True)
+    handle.join(timeout=0.05)
+    assert handle.is_alive()
+    release.set()
+    handle.join(timeout=2)
+    assert not handle.is_alive()
+
+
+def test_daemon_false_uses_dedicated_thread():
+    handle = run_in_background(lambda: None, name="non-daemon", daemon=False)
+    handle.join(timeout=2)
+    assert handle._thread is not None
+    assert handle._future is None
+
+
+def test_pool_bounds_native_thread_count():
+    reset_background_pool_for_tests(max_workers=2)
+    try:
+        two_running = threading.Event()
+        release = threading.Event()
+        n_started = 0
+        start_lock = threading.Lock()
+        handles = []
+
+        def job():
+            nonlocal n_started
+            with start_lock:
+                n_started += 1
+                if n_started >= 2:
+                    two_running.set()
+            release.wait(5)
+
+        for i in range(8):
+            handles.append(run_in_background(job, name=f"bound-{i}"))
+
+        assert two_running.wait(2)
+        wa_bg = [t for t in threading.enumerate() if t.name.startswith("wa-bg-")]
+        assert len(wa_bg) == 2
+        release.set()
+        for h in handles:
+            h.join(timeout=3)
+    finally:
+        reset_background_pool_for_tests()
+
+
+def test_reset_background_pool_creates_new_executor():
+    reset_background_pool_for_tests(max_workers=1)
+    first = []
+
+    def mark():
+        first.append(threading.current_thread().name)
+
+    run_in_background(mark, name="before-reset").join(timeout=2)
+    reset_background_pool_for_tests(max_workers=1)
+    second = []
+
+    def mark2():
+        second.append(threading.current_thread().name)
+
+    run_in_background(mark2, name="after-reset").join(timeout=2)
+    assert first and second
+    # After shutdown the old wa-bg-0 is dead; a new pool thread may reuse the name.
+    assert first[0].startswith("wa-bg-")
+    assert second[0].startswith("wa-bg-")
+    reset_background_pool_for_tests()
 
 
 class TestWorkerPoolErrorHandling():

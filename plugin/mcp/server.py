@@ -223,7 +223,7 @@ class HttpServer:
                 self.use_ssl = False
 
         self._running = True
-        self._thread = run_in_background(self._run, daemon=True, name="http-server")
+        self._thread = run_in_background(self._run, daemon=True, name="http-server", dedicated=True)
 
         scheme = "https" if self.use_ssl else "http"
         url = "%s://%s:%s" % (scheme, self.host, self.port)

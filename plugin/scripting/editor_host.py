@@ -34,7 +34,7 @@ from plugin.framework.thread_guard import background
 from plugin.framework.event_bus import global_event_bus
 from plugin.framework.i18n import _
 from plugin.framework.queue_executor import QueueExecutor, default_executor
-from plugin.framework.worker_pool import run_in_background
+from plugin.framework.worker_pool import BackgroundHandle, run_in_background
 from plugin.scripting.editor_ipc import (
     exception_traceback,
     failure_detail,
@@ -174,8 +174,8 @@ class PersistentEditor:
     def __init__(self) -> None:
         self._proc: subprocess_types.Popen[bytes] | None = None
         self._stdin_lock = threading.Lock()
-        self._reader_thread: threading.Thread | None = None
-        self._stderr_thread: threading.Thread | None = None
+        self._reader_thread: BackgroundHandle | None = None
+        self._stderr_thread: BackgroundHandle | None = None
         self._stderr_tail_lock = threading.Lock()
         self._stderr_tail = deque[str]()
         self._stderr_tail_max_chars = 65536
@@ -207,9 +207,9 @@ class PersistentEditor:
         self._closed_event.clear()
         with self._stderr_tail_lock:
             self._stderr_tail.clear()
-        self._reader_thread = run_in_background(self._read_loop, name="editor-pipe-reader", daemon=True)
+        self._reader_thread = run_in_background(self._read_loop, name="editor-pipe-reader", daemon=True, dedicated=True)
         if proc.stderr is not None:
-            self._stderr_thread = run_in_background(self._stderr_drain_loop, name="editor-stderr-drain", daemon=True)
+            self._stderr_thread = run_in_background(self._stderr_drain_loop, name="editor-stderr-drain", daemon=True, dedicated=True)
 
     def terminate(self) -> None:
         """Force terminate the subprocess."""
