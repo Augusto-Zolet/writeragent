@@ -729,10 +729,15 @@ def _update_menu_icons_impl():
 
 @background
 def _update_menu_icons():
-    """Background entrypoint: marshal UNO icon updates onto the main thread."""
-    from plugin.framework.queue_executor import execute_on_main_thread
+    """Background entrypoint: marshal UNO icon updates onto the main thread.
 
-    execute_on_main_thread(_update_menu_icons_impl)
+    Use post (not blocking execute): at startup the UI thread may be inside
+    ``set_context`` / ``init_config``, and a blocking marshal can deadlock
+    with AsyncCallback lazy-init.
+    """
+    from plugin.framework.queue_executor import post_to_main_thread
+
+    post_to_main_thread(_update_menu_icons_impl)
 
 
 # Bootstrapper replaces the previous monolithic MainJob.

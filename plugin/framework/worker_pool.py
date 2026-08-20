@@ -150,8 +150,10 @@ class _DaemonWorkPool:
                 pending.append(item)
             for pending_item in pending:
                 pending_item[1].cancel()
-        for unused_slot in range(len(self._threads)):
+        remaining = len(self._threads)
+        while remaining:
             self._queue.put(None)
+            remaining -= 1
         if wait:
             for t in self._threads:
                 t.join(timeout=5.0)

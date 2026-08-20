@@ -142,7 +142,10 @@ message box** on the LibreOffice main thread (via blocking `execute_on_main_thre
 is missing),
 deduped to once per background thread so the viral proxy cannot spam dialogs. UI is
 skipped under `WRITERAGENT_TESTING=1` so pytest and the native test runner stay
-headless.
+headless. The popup is also skipped while `QueueExecutor` has not finished
+lazy-init (`_initialized` is false): `_get_async_callback` holds `_init_lock`
+and must getattr the **unwrapped** context, or the guard + `set_context` on the
+UI thread deadlock at startup.
 
 ### A2. Tag background threads at their one birthplace (≈1 hour)
 

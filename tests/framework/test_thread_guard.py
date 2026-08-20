@@ -250,9 +250,35 @@ def test_notify_skipped_under_writeragent_testing(monkeypatch):
     tg._violation_ui_threads.clear()
 
 
-def test_notify_dedupes_per_thread(monkeypatch):
+def test_notify_skips_when_async_callback_not_ready(monkeypatch):
+    """Do not marshal a violation dialog during QueueExecutor lazy-init (startup deadlock)."""
+    from plugin.framework.queue_executor import default_executor
+
     monkeypatch.delenv("WRITERAGENT_TESTING", raising=False)
     tg._violation_ui_threads.clear()
+    was_init = default_executor._initialized
+    default_executor._initialized = False
+    posts = []
+
+    def fake_execute(fn, *args, **kwargs):
+        posts.append(fn)
+
+    try:
+        with patch("plugin.framework.queue_executor.execute_on_main_thread", fake_execute):
+            tg._notify_thread_violation("during async callback init")
+        assert posts == []
+        assert threading.get_ident() not in tg._violation_ui_threads
+    finally:
+        default_executor._initialized = was_init
+        tg._violation_ui_threads.clear()
+
+
+def test_notify_dedupes_per_thread(monkeypatch):
+    from plugin.framework.queue_executor import default_executor
+
+    monkeypatch.delenv("WRITERAGENT_TESTING", raising=False)
+    tg._violation_ui_threads.clear()
+    default_executor._initialized = True
     posts = []
 
     def fake_post(fn, *args, **kwargs):
@@ -274,6 +300,9 @@ def test_assert_logs_and_notifies_when_guard_on(monkeypatch):
     was = tg.GUARD_ON
     tg.GUARD_ON = True
     tg._violation_ui_threads.clear()
+    from plugin.framework.queue_executor import default_executor
+
+    default_executor._initialized = True
     posts = []
 
     def fake_post(fn, *args, **kwargs):

@@ -245,7 +245,9 @@ class QueueExecutor:
     """Execute functions on main thread using queue system."""
 
     def __init__(self, ctx: Any | None = None) -> None:
-        self._ctx = ctx
+        from plugin.framework.thread_guard import _unwrap_uno
+
+        self._ctx = _unwrap_uno(ctx) if ctx is not None else None
         self._work_queue: queue.Queue[Any] = queue.Queue()
         self._async_callback_service = None
         self._callback_instance = None
@@ -254,9 +256,14 @@ class QueueExecutor:
 
     def set_context(self, ctx: Any) -> None:
         """Update or set the UNO component context (e.g. at bootstrap)."""
+        from plugin.framework.thread_guard import _unwrap_uno
+
+        # Store the raw context: Layer A wraps get_ctx() results, and comparing
+        # proxy vs target would reset initialization on every panel wire.
+        raw = _unwrap_uno(ctx) if ctx is not None else None
         with self._init_lock:
-            if self._ctx is not ctx:
-                self._ctx = ctx
+            if self._ctx is not raw:
+                self._ctx = raw
                 # Reset initialization so AsyncCallback is re-created with the updated context if needed
                 self._initialized = False
                 self._async_callback_service = None
@@ -274,23 +281,30 @@ class QueueExecutor:
                 # uno.getComponentContext() can return a different context and
                 # cause AsyncCallback to be created in the wrong context — silently
                 # making execute() pokes no-ops. We fall back only if ctx is missing.
-                ctx = self._ctx
+                #
+                # Unwrap Layer A proxies before any UNO getattr. Creating
+                # AsyncCallback from a worker is the marshal bootstrap: if the
+                # guard fires here it calls execute_on_main_thread while this
+                # lock is held, and the UI thread deadlocks in set_context().
+                from plugin.framework.thread_guard import _unwrap_uno
+
+                ctx = _unwrap_uno(self._ctx)
                 if ctx is None:
                     try:
                         from plugin.framework.uno_context import get_ctx
 
-                        ctx = get_ctx()
+                        ctx = _unwrap_uno(get_ctx())
                     except Exception:
                         ctx = None
                 if ctx is None:
                     import uno
 
                     if hasattr(uno, "getComponentContext"):
-                        ctx = uno.getComponentContext()
+                        ctx = _unwrap_uno(uno.getComponentContext())
 
                 assert ctx is not None, "UNO component context is required for AsyncCallback"
                 ctx_any = cast("Any", ctx)
-                smgr = getattr(ctx_any, "ServiceManager", getattr(ctx_any, "getServiceManager", lambda: None)())
+                smgr = _unwrap_uno(getattr(ctx_any, "ServiceManager", getattr(ctx_any, "getServiceManager", lambda: None)()))
                 assert smgr is not None, "ServiceManager unavailable on UNO context"
                 self._async_callback_service = cast("Any", smgr).createInstanceWithContext(
                     "com.sun.star.awt.AsyncCallback", ctx_any

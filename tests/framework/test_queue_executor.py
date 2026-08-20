@@ -267,6 +267,37 @@ def test_get_async_callback_explicit_ctx_does_not_call_uno_getComponentContext(m
     assert res == mock_service
     assert mock_uno.getComponentContext.call_count == 0
 
+def test_get_async_callback_unwraps_layer_a_proxy():
+    """Creating AsyncCallback from a worker must not getattr() a guard proxy.
+
+    That used to fire Layer A while _init_lock was held and deadlock startup
+    (set_context on the UI thread vs nested execute_on_main_thread).
+    """
+    import plugin.framework.thread_guard as tg
+
+    raw_ctx = MagicMock()
+    raw_smgr = MagicMock()
+    raw_ctx.ServiceManager = raw_smgr
+    raw_svc = MagicMock()
+    raw_smgr.createInstanceWithContext.return_value = raw_svc
+    qe = lc.QueueExecutor(ctx=tg._UnoThreadGuardProxy(raw_ctx))
+    assert qe._ctx is raw_ctx
+    with patch.object(qe, "_make_callback_instance", return_value=MagicMock()):
+        res = qe._get_async_callback()
+    assert res is raw_svc
+    raw_smgr.createInstanceWithContext.assert_called_once_with("com.sun.star.awt.AsyncCallback", raw_ctx)
+
+
+def test_set_context_unwraps_and_dedupes_proxies():
+    import plugin.framework.thread_guard as tg
+
+    raw = MagicMock()
+    qe = lc.QueueExecutor(ctx=raw)
+    qe._initialized = True
+    qe.set_context(tg._UnoThreadGuardProxy(raw))
+    assert qe._ctx is raw
+    assert qe._initialized is True
+
 def test_queue_executor_set_context_invalidates():
     mock_ctx1 = MagicMock()
     mock_ctx2 = MagicMock()

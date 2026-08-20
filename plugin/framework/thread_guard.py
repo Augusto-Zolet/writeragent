@@ -98,6 +98,15 @@ def _notify_thread_violation(msg: str) -> None:
     full_msg = f"{msg}\n\nStack trace:\n{stack_trace}"
     if os.environ.get("WRITERAGENT_TESTING") == "1":
         return
+    # Marshal bootstrap (_get_async_callback) holds QueueExecutor._init_lock.
+    # A blocking execute() from here deadlocks the UI thread in set_context().
+    try:
+        from plugin.framework.queue_executor import default_executor
+
+        if not default_executor._initialized:
+            return
+    except Exception:
+        return
     tid = threading.get_ident()
     with _violation_ui_lock:
         if tid in _violation_ui_threads:
