@@ -42,6 +42,7 @@ ENDPOINT_PRESETS = [
     ("X.ai (Grok)", "https://api.x.ai/v1"),
     ("Anthropic", "https://api.anthropic.com/v1"),
     ("Google Gemini", "https://generativelanguage.googleapis.com/v1beta/openai"),
+    ("NVIDIA NIM", "https://integrate.api.nvidia.com/v1"),
     ("Z.ai", "https://api.z.ai/api/paas/v4"),
 ]
 

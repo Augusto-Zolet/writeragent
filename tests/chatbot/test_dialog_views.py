@@ -308,6 +308,7 @@ class TestSettingsEnhancements(unittest.TestCase):
         self.assertEqual(get_signup_url_for_endpoint("https://openrouter.ai/api"), "https://openrouter.ai/keys")
         self.assertEqual(get_signup_url_for_endpoint("https://api.together.xyz"), "https://api.together.ai/settings/api-keys")
         self.assertEqual(get_signup_url_for_endpoint("https://api.groq.com/openai"), "https://console.groq.com/keys")
+        self.assertEqual(get_signup_url_for_endpoint("https://integrate.api.nvidia.com/v1"), "https://build.nvidia.com/settings/api-keys")
         self.assertIsNone(get_signup_url_for_endpoint("http://localhost:11434"))
         self.assertIsNone(get_signup_url_for_endpoint("http://127.0.0.1:1234"))
 

@@ -201,6 +201,7 @@ class SettingsDialog:
             ("btn_openrouter", "https://openrouter.ai/api", "https://openrouter.ai/keys"),
             ("btn_together", "https://api.together.xyz", "https://api.together.ai/settings/api-keys"),
             ("btn_hf", "https://api-inference.huggingface.co/v1", "https://huggingface.co/settings/tokens"),
+            ("btn_nvidia", "https://integrate.api.nvidia.com/v1", "https://build.nvidia.com/settings/api-keys"),
         ]
         for btn_id, ep_url, signup_url in starters:
             btn = get_optional(self._dlg, btn_id)

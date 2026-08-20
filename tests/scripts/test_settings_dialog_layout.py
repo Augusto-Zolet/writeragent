@@ -187,3 +187,14 @@ def test_librepy_flavor_omits_ppt_master_from_scripting_page(tmp_path: Path) -> 
     assert "scripting__python_venv_path" in tops
     assert "scripting__ppt_master_data_path" not in tops
     assert "scripting__test_ppt_master_data" not in tops
+
+
+def test_starter_buttons_share_row_and_include_nvidia(tmp_path: Path) -> None:
+    xdl_path, _xdl = _generate_settings_xdl(tmp_path)
+    tops = _control_tops(xdl_path)
+
+    for btn_id in ("btn_openrouter", "btn_together", "btn_hf", "btn_nvidia"):
+        assert btn_id in tops, f"{btn_id} missing from SettingsDialog.xdl"
+
+    assert tops["btn_openrouter"] == tops["btn_together"] == tops["btn_hf"] == tops["btn_nvidia"]
+

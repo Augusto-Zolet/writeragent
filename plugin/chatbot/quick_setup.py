@@ -111,6 +111,14 @@ PROVIDER_STARTERS: list[dict[str, Any]] = [
         "signup_url": "https://console.anthropic.com/settings/keys",
     },
     {
+        "id": "nvidia",
+        "name": "NVIDIA NIM",
+        "display_name": "NVIDIA NIM (Hosted)",
+        "url": "https://integrate.api.nvidia.com/v1",
+        "models": ["meta/llama-3.3-70b-instruct", "mistralai/mistral-large-2-instruct"],
+        "signup_url": "https://build.nvidia.com/settings/api-keys",
+    },
+    {
         "id": "custom",
         "name": "Custom / Other Endpoint",
         "display_name": "Custom / Other OpenAI-Compatible Endpoint",

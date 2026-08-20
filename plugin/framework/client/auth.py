@@ -88,6 +88,7 @@ PROVIDERS: Dict[str, ProviderConfig] = {
     ),
     "ollama": ProviderConfig(id="ollama", name="Ollama", header_style="none", host_matches=("localhost:11434", "127.0.0.1:11434", "ollama")),
     "zai": ProviderConfig(id="zai", name="Z.ai", header_style="bearer", host_matches=("api.z.ai", "z.ai")),
+    "nvidia": ProviderConfig(id="nvidia", name="NVIDIA NIM", header_style="bearer", host_matches=("integrate.api.nvidia.com", "api.nvidia.com")),
     # Fallback for endpoints we don't recognize explicitly.
     "custom": ProviderConfig(id="custom", name="Custom", header_style="bearer", host_matches=()),
 }

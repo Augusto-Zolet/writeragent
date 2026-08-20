@@ -512,6 +512,8 @@ PROVIDER_SIGNUP_URLS: dict[str, str] = {
     "xai": "https://console.x.ai/",
     "grok": "https://console.x.ai/",
     "zai": "https://api.z.ai/",
+    "nvidia": "https://build.nvidia.com/settings/api-keys",
+    "nim": "https://build.nvidia.com/settings/api-keys",
 }
 
 

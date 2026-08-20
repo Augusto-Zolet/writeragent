@@ -94,6 +94,8 @@ def get_provider_from_endpoint(endpoint: str) -> Optional[str]:
         return "lmstudio"
     if "api.z.ai" in url or "z.ai" in url:
         return "zai"
+    if "integrate.api.nvidia.com" in url or "api.nvidia.com" in url:
+        return "nvidia"
 
     return None
 
