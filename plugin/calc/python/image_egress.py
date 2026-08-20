@@ -17,15 +17,17 @@ log = logging.getLogger(__name__)
 
 # Default chart overlay size for unmerged single cells: 10 cm x 6 cm (10000 x 6000 in 1/100 mm).
 # Design decision: When a user merges a block of cells (e.g. B2:H18) as a chart placeholder,
-# we fit the shape to that merged area (ResizeWithCell=True). For an ordinary 1x1 cell,
-# setting shape size to cell_size would crush the chart to a tiny ~22mm x 4.5mm sliver;
-# instead we use DEFAULT_CHART_SIZE and keep ResizeWithCell=False.
+# we fit the shape to that merged area (ResizeWithCell=True). For an ordinary 1x1 cell or a
+# thin 1-row merged strip (e.g. A1:H1 banner), setting shape size to cell_size would crush
+# the chart to a tiny sliver; instead we use DEFAULT_CHART_SIZE and keep ResizeWithCell=False.
 DEFAULT_CHART_SIZE_WIDTH = 10000
 DEFAULT_CHART_SIZE_HEIGHT = 6000
+MIN_CHART_PLACEHOLDER_WIDTH = 4000
+MIN_CHART_PLACEHOLDER_HEIGHT = 3000
 
 
-def insert_image_result_on_sheet(ctx: Any, payload: dict[str, Any]) -> None:
-    """Write image payload bytes to a temp file and insert as a cell-anchored shape on the active sheet.
+def insert_image_result_on_sheet(ctx: Any, payload: dict[str, Any], *, code: str | None = None) -> None:
+    """Write image payload bytes to a temp file and insert as a cell-anchored shape on the target sheet.
 
     Marshals execution to the main VCL UI thread if invoked from a background worker thread.
     """
@@ -36,23 +38,25 @@ def insert_image_result_on_sheet(ctx: Any, payload: dict[str, Any]) -> None:
     # must run on LibreOffice's main VCL thread to prevent internal C++ state corruption and deadlocks.
     # If called from a background recalculation or script worker thread, marshal via execute_on_main_thread.
     if not on_main_thread():
-        execute_on_main_thread(_insert_image_result_on_sheet_impl, ctx, payload)
+        execute_on_main_thread(_insert_image_result_on_sheet_impl, ctx, payload, code)
         return
 
-    _insert_image_result_on_sheet_impl(ctx, payload)
+    _insert_image_result_on_sheet_impl(ctx, payload, code)
 
 
-def _insert_image_result_on_sheet_impl(ctx: Any, payload: dict[str, Any]) -> None:
+def _insert_image_result_on_sheet_impl(ctx: Any, payload: dict[str, Any], code: str | None = None) -> None:
     """Main-thread implementation of graphic shape creation and anchoring."""
     import uno
     from com.sun.star.awt import Size
 
-    # Bugfix: Previously, insert_image_result_on_sheet did `desktop.getCurrentComponent().getCurrentController()`
-    # directly. During document load or background recalc, getCurrentComponent() or getCurrentController() can
-    # return None, causing `AttributeError: 'NoneType' object has no attribute 'getCurrentController'`.
-    # Fix: Resolve the document model via `get_calc_document_from_ctx(ctx)` with null checks on doc,
-    # controller, and active sheet before attempting shape creation.
+    # Bugfix (#385): Previously, insert_image_result_on_sheet always used the active sheet and active
+    # selection from the controller. During workbook recalc (Ctrl+Shift+F9 or file open), the active sheet
+    # may be Sheet 0 (e.g. Overview) while formula cells are on another sheet (e.g. Viz_Gallery).
+    # Furthermore, if Sheet 0 had a 1-row merged hero banner selected, charts were crushed to ~12.7mm height.
+    # Fix: Resolve the target sheet and cell by locating the formula cell via code if available;
+    # otherwise fallback gracefully to active sheet/selection, and enforce minimum dimensions for merged sizing.
     try:
+        from plugin.calc.calc_utils import get_cell_geometry
         from plugin.scripting.document_scripts import get_calc_document_from_ctx
 
         doc = get_calc_document_from_ctx(ctx)
@@ -60,60 +64,88 @@ def _insert_image_result_on_sheet_impl(ctx: Any, payload: dict[str, Any]) -> Non
             log.debug("insert_image_result_on_sheet: no active Calc document resolved from context")
             return
 
+        sheet = None
+        target_cell = None
+
+        if code:
+            try:
+                from plugin.calc.python.formula_locator_cache import locate_formula_cell_in_doc
+
+                located = locate_formula_cell_in_doc(ctx, doc, code)
+                if located is not None:
+                    sheet, target_cell, _ = located
+            except Exception:
+                log.debug("insert_image_result_on_sheet: locate_formula_cell_in_doc failed", exc_info=True)
+
         ctrl = doc.getCurrentController() if hasattr(doc, "getCurrentController") else None
-        if ctrl is not None and hasattr(ctrl, "getActiveSheet") and ctrl.getActiveSheet():
-            sheet = ctrl.getActiveSheet()
-        elif hasattr(doc, "getSheets") and doc.getSheets().getCount() > 0:
-            sheet = doc.getSheets().getByIndex(0)
-        else:
-            log.debug("insert_image_result_on_sheet: could not resolve active sheet")
-            return
+
+        if sheet is None:
+            if ctrl is not None and hasattr(ctrl, "getActiveSheet") and ctrl.getActiveSheet():
+                sheet = ctrl.getActiveSheet()
+            elif hasattr(doc, "getSheets") and doc.getSheets().getCount() > 0:
+                sheet = doc.getSheets().getByIndex(0)
+            else:
+                log.debug("insert_image_result_on_sheet: could not resolve sheet")
+                return
 
         draw_page = getattr(sheet, "DrawPage", None)
         if draw_page is None:
-            log.debug("insert_image_result_on_sheet: active sheet has no DrawPage")
+            log.debug("insert_image_result_on_sheet: target sheet has no DrawPage")
             return
+
+        if target_cell is None and ctrl is not None and hasattr(ctrl, "getSelection"):
+            try:
+                selection = ctrl.getSelection()
+                if selection is not None and hasattr(selection, "getRangeAddress"):
+                    addr = selection.getRangeAddress()
+                    target_cell = sheet.getCellByPosition(addr.StartColumn, addr.StartRow)
+            except Exception:
+                pass
 
         tmp_path = write_image_payload_to_temp(payload)
         file_url = uno.systemPathToFileUrl(os.path.abspath(tmp_path))
 
-        shape = doc.createInstance("com.sun.star.drawing.GraphicObjectShape")
+        shape = None
+        if target_cell is not None:
+            try:
+                raw_count = getattr(draw_page, "getCount", lambda: 0)()
+                if isinstance(raw_count, int) and raw_count > 0:
+                    for i in range(raw_count):
+                        s = draw_page.getByIndex(i)
+                        if hasattr(s, "getPropertyValue") and s.getPropertyValue("Anchor") == target_cell:
+                            shape = s
+                            break
+            except Exception:
+                shape = None
+
         default_size = Size(DEFAULT_CHART_SIZE_WIDTH, DEFAULT_CHART_SIZE_HEIGHT)
-        shape.setSize(default_size)
-        draw_page.add(shape)
+        if shape is None:
+            shape = doc.createInstance("com.sun.star.drawing.GraphicObjectShape")
+            shape.setSize(default_size)
+            draw_page.add(shape)
+
         shape.setPropertyValue("GraphicURL", file_url)
 
-        # Anchor the image to the active cell so it moves with the grid.
-        if ctrl is not None and hasattr(ctrl, "getSelection"):
+        if target_cell is not None:
             try:
-                from plugin.calc.calc_utils import get_cell_geometry
+                cell_pos, cell_size = get_cell_geometry(sheet, target_cell)
+                is_merged = bool(getattr(target_cell, "IsMerged", False))
+                w = getattr(cell_size, "Width", 0)
+                h = getattr(cell_size, "Height", 0)
+                is_large_placeholder = is_merged and w >= MIN_CHART_PLACEHOLDER_WIDTH and h >= MIN_CHART_PLACEHOLDER_HEIGHT
 
-                selection = ctrl.getSelection()
-                if selection is not None and hasattr(selection, "getRangeAddress"):
-                    addr = selection.getRangeAddress()
-                    cell = sheet.getCellByPosition(addr.StartColumn, addr.StartRow)
-                    cell_pos, cell_size = get_cell_geometry(sheet, cell)
-                    is_merged = bool(getattr(cell, "IsMerged", False))
-                    is_multi_cell = bool(addr.EndColumn > addr.StartColumn or addr.EndRow > addr.StartRow)
+                shape.setPropertyValue("Anchor", target_cell)
+                if hasattr(shape, "setPosition"):
+                    shape.setPosition(cell_pos)
 
-                    shape.setPropertyValue("Anchor", cell)
-                    if hasattr(shape, "setPosition"):
-                        shape.setPosition(cell_pos)
-
-                    if is_merged or is_multi_cell:
-                        shape.setPropertyValue("ResizeWithCell", True)
-                        if hasattr(shape, "setSize"):
-                            # Note for future enhancement: If a merged block has very thin row heights
-                            # (e.g. < 40mm / 4000 1/100mm), a minimum dimension clamp could be applied here:
-                            #   effective_height = max(cell_size.Height, MIN_CHART_SIZE_HEIGHT)
-                            #   effective_width = max(cell_size.Width, MIN_CHART_SIZE_WIDTH)
-                            #   shape.setSize(Size(effective_width, effective_height))
-                            # For now, we scale directly to the full merged area defined on the sheet.
-                            shape.setSize(cell_size)
-                    else:
-                        shape.setPropertyValue("ResizeWithCell", False)
-                        if hasattr(shape, "setSize"):
-                            shape.setSize(default_size)
+                if is_large_placeholder:
+                    shape.setPropertyValue("ResizeWithCell", True)
+                    if hasattr(shape, "setSize"):
+                        shape.setSize(cell_size)
+                else:
+                    shape.setPropertyValue("ResizeWithCell", False)
+                    if hasattr(shape, "setSize"):
+                        shape.setSize(default_size)
             except Exception:
                 log.debug("insert_image_result_on_sheet: could not anchor to cell", exc_info=True)
     except Exception:

@@ -31,6 +31,9 @@ from plugin.calc.datetime_wire import (
     should_preserve_temporal_format,
 )
 from plugin.calc.inspector import _format_category_from_type
+from plugin.calc.python.formula_locator_cache import (
+    locate_formula_cell_in_doc,
+)
 from plugin.calc.python.image_egress import insert_image_result_on_sheet
 from plugin.framework.errors import format_error_message
 from plugin.framework.i18n import _
@@ -438,51 +441,7 @@ def save_spill_registry_for_doc(doc: Any) -> None:
         log.exception("Failed to save spill registry to document property")
 
 
-def locate_formula_cell(ctx: Any, sheet: Any, code_str: str) -> tuple[int, int] | None:
-    """Find the row and column coordinates of the cell containing the Python formula."""
-    # 1. Fast-path: check active selection and adjacent cells (above, left)
-    try:
-        if not (hasattr(ctx, "ServiceManager") or hasattr(ctx, "getServiceManager")):
-            return None
-        doc = _get_calc_doc(ctx)
-        if doc is not None:
-            ctrl = doc.getCurrentController()
-            if ctrl is not None:
-                selection = ctrl.getSelection()
-                if selection is not None and hasattr(selection, "getRangeAddress"):
-                    addr = selection.getRangeAddress()
-                    candidates = [
-                        (addr.StartRow, addr.StartColumn),
-                        (addr.StartRow - 1, addr.StartColumn),
-                        (addr.StartRow, addr.StartColumn - 1),
-                    ]
-                    for r, c in candidates:
-                        if r >= 0 and c >= 0:
-                            cell = sheet.getCellByPosition(c, r)
-                            formula = cell.getFormula()
-                            if ("PYTHON" in formula or "PY" in formula) and code_str in formula:
-                                return (r, c)
-    except Exception:
-        pass
 
-    # 2. Fallback: query the sheet for formula cells
-    try:
-        # com.sun.star.sheet.CellFlags.FORMULA = 16
-        formula_cells = sheet.queryContentCells(16)
-        if formula_cells is not None:
-            for i in range(formula_cells.getCount()):
-                cell_range = formula_cells.getByIndex(i)
-                addr = cell_range.getRangeAddress()
-                for r in range(addr.StartRow, addr.EndRow + 1):
-                    for c in range(addr.StartColumn, addr.EndColumn + 1):
-                        cell = sheet.getCellByPosition(c, r)
-                        formula = cell.getFormula()
-                        if ("PYTHON" in formula or "PY" in formula) and code_str in formula:
-                            return (r, c)
-    except Exception:
-        pass
-
-    return None
 
 
 def _coerce_spill_value(
@@ -812,84 +771,86 @@ def finalize_python_return(
                 doc = _get_calc_doc(ctx)
                 if doc is not None:
                     doc_url = getattr(doc, "getURL", lambda: "")() or ""
-                    ctrl = doc.getCurrentController()
-                    if ctrl is not None:
-                        sheet = ctrl.getActiveSheet()
-                        if sheet is not None:
-                            sheet_name = sheet.getName()
-                            formula_coord = locate_formula_cell(ctx, sheet, code)
-                            log.debug("Spill: located formula cell at %r for code %r", formula_coord, code)
-                            if formula_coord is not None:
-                                formula_row, formula_col = formula_coord
+                    located = locate_formula_cell_in_doc(ctx, doc, code)
+                    if located is not None:
+                        sheet, _, formula_coord = located
+                        sheet_name = sheet.getName() if hasattr(sheet, "getName") else "Sheet1"
+                        log.debug("Spill: located formula cell at %r on sheet %r for code %r", formula_coord, sheet_name, code)
+                        formula_row, formula_col = formula_coord
                                 
-                                # Check for collisions synchronously
-                                if doc_url not in LOADED_DOCUMENTS:
-                                    load_spill_registry_for_doc(doc)
-                                    LOADED_DOCUMENTS.add(doc_url)
+                        # Check for collisions synchronously
+                        if doc_url not in LOADED_DOCUMENTS:
+                            load_spill_registry_for_doc(doc)
+                            LOADED_DOCUMENTS.add(doc_url)
 
-                                # Register sheet modify listener for auto-cleanup of spills
-                                sheet_key = (doc_url, sheet_name)
-                                if sheet_key not in SHEET_MODIFY_LISTENERS:
-                                    try:
-                                        listener = CalcSpillModifyListener(ctx, doc_url, sheet_name)
-                                        sheet.addModifyListener(listener)
-                                        SHEET_MODIFY_LISTENERS[sheet_key] = listener
-                                    except Exception:
-                                        log.exception("Failed to register modify listener on sheet")
-                                
-                                num_rows = len(grid_to_spill)
-                                num_cols = max(len(row) for row in grid_to_spill) if num_rows > 0 else 0
-                                reg_key = (doc_url, sheet_name, formula_row, formula_col)
-                                previous_spills = SPILL_REGISTRY.get(reg_key, [])
-                                prev_spill_set = set(previous_spills)
-                                
-                                log.debug("Spill: previous spills for cell %r: %r", reg_key, previous_spills)
-                                
-                                try:
-                                    from com.sun.star.table.CellContentType import EMPTY
-                                except ImportError:
-                                    EMPTY = cast("Any", 0)
+                        # Register sheet modify listener for auto-cleanup of spills
+                        sheet_key = (doc_url, sheet_name)
+                        if sheet_key not in SHEET_MODIFY_LISTENERS:
+                            try:
+                                listener = CalcSpillModifyListener(ctx, doc_url, sheet_name)
+                                sheet.addModifyListener(listener)
+                                SHEET_MODIFY_LISTENERS[sheet_key] = listener
+                            except Exception:
+                                log.exception("Failed to register modify listener on sheet")
 
-                                collides = False
-                                for r_offset in range(num_rows):
-                                    for c_offset in range(num_cols):
-                                        target_r = formula_row + r_offset
-                                        target_c = formula_col + c_offset
-                                        
-                                        if target_r >= 1048576 or target_c >= 16384:
-                                            log.debug("Spill: collision: target coordinate %r is out of bounds", (target_r, target_c))
-                                            collides = True
-                                            break
-                                        if (target_r, target_c) == (formula_row, formula_col):
-                                            continue
-                                        if (target_r, target_c) in prev_spill_set:
-                                            continue
-                                        cell = sheet.getCellByPosition(target_c, target_r)
-                                        cell_type = cell.getType()
-                                        if cell_type != EMPTY:
-                                            log.debug("Spill: collision: cell at %r (type=%s, val=%r, formula=%r) is not empty", 
-                                                      (target_r, target_c), cell_type, cell.getValue() or cell.getString(), cell.getFormula())
-                                            collides = True
-                                            break
-                                    if collides:
-                                        break
-                                
-                                if collides:
-                                    return "#SPILL!"
-                                
-                                from plugin.framework.queue_executor import post_to_main_thread
+                        num_rows = len(grid_to_spill)
+                        num_cols = max(len(row) for row in grid_to_spill) if num_rows > 0 else 0
+                        reg_key = (doc_url, sheet_name, formula_row, formula_col)
+                        previous_spills = SPILL_REGISTRY.get(reg_key, [])
+                        prev_spill_set = set(previous_spills)
 
-                                def _deferred_spill_on_main() -> None:
-                                    post_to_main_thread(
-                                        lambda: perform_deferred_spill(
-                                            ctx, doc_url, sheet_name, formula_row, formula_col, grid_to_spill
-                                        )
+                        log.debug("Spill: previous spills for cell %r: %r", reg_key, previous_spills)
+
+                        try:
+                            from com.sun.star.table.CellContentType import EMPTY
+                        except ImportError:
+                            EMPTY = cast("Any", 0)
+
+                        collides = False
+                        for r_offset in range(num_rows):
+                            for c_offset in range(num_cols):
+                                target_r = formula_row + r_offset
+                                target_c = formula_col + c_offset
+
+                                if target_r >= 1048576 or target_c >= 16384:
+                                    log.debug("Spill: collision: target coordinate %r is out of bounds", (target_r, target_c))
+                                    collides = True
+                                    break
+                                if (target_r, target_c) == (formula_row, formula_col):
+                                    continue
+                                if (target_r, target_c) in prev_spill_set:
+                                    continue
+                                cell = sheet.getCellByPosition(target_c, target_r)
+                                cell_type = cell.getType()
+                                if cell_type != EMPTY:
+                                    log.debug(
+                                        "Spill: collision: cell at %r (type=%s, val=%r, formula=%r) is not empty",
+                                        (target_r, target_c),
+                                        cell_type,
+                                        cell.getValue() or cell.getString(),
+                                        cell.getFormula(),
                                     )
+                                    collides = True
+                                    break
+                            if collides:
+                                break
 
-                                t = threading.Timer(0.1, _deferred_spill_on_main)
-                                t.start()
+                        if collides:
+                            return "#SPILL!"
 
-                                return to_calc_compatible(grid_to_spill[0][0])
+                        from plugin.framework.queue_executor import post_to_main_thread
+
+                        def _deferred_spill_on_main() -> None:
+                            post_to_main_thread(
+                                lambda: perform_deferred_spill(
+                                    ctx, doc_url, sheet_name, formula_row, formula_col, grid_to_spill
+                                )
+                            )
+
+                        t = threading.Timer(0.1, _deferred_spill_on_main)
+                        t.start()
+
+                        return to_calc_compatible(grid_to_spill[0][0])
             except Exception:
                 log.exception("Error checking spill collision or locating formula cell")
 
@@ -1039,7 +1000,7 @@ def execute_python_addin(
             images = find_image_payloads(result)
             if images:
                 for img in images:
-                    insert_image_result_on_sheet(ctx, img)
+                    insert_image_result_on_sheet(ctx, img, code=code)
                 return _("Image inserted") if len(images) == 1 else _("Images inserted")
             final_ret = finalize_python_return(ctx, code, result, index_arg=index_arg, worker_data=worker_data)
             log.debug("PYTHON returning scalar: %r (type: %s)", final_ret, type(final_ret).__name__)

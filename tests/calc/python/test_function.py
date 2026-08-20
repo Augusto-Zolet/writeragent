@@ -108,7 +108,7 @@ def test_insert_image_result_uses_merged_safe_geometry(monkeypatch: pytest.Monke
     ctx = _ctx_with_doc(doc)
 
     pos = SimpleNamespace(X=111, Y=222)
-    size = SimpleNamespace(Width=333, Height=444)
+    size = SimpleNamespace(Width=8000, Height=5000)
     import plugin.calc.calc_utils as calc_utils
 
     monkeypatch.setattr(calc_utils, "get_cell_geometry", lambda _sheet, _cell: (pos, size))
@@ -119,6 +119,147 @@ def test_insert_image_result_uses_merged_safe_geometry(monkeypatch: pytest.Monke
     shape.setSize.assert_any_call(size)
     shape.setPropertyValue.assert_any_call("Anchor", cell)
     shape.setPropertyValue.assert_any_call("ResizeWithCell", True)
+
+
+def test_insert_image_result_thin_merged_cell_preserves_default_size(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A 1-row thin merged block (e.g. A1:H1 banner) uses DEFAULT_CHART_SIZE and ResizeWithCell=False."""
+    class _TmpFile:
+        name = "/tmp/fake.png"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return None
+
+        def write(self, _data):
+            return None
+
+    import plugin.scripting.payload_codec as payload_codec
+
+    monkeypatch.setattr(payload_codec.tempfile, "NamedTemporaryFile", lambda **kwargs: _TmpFile())
+
+    class _UnoModule:
+        @staticmethod
+        def systemPathToFileUrl(path: str) -> str:
+            return f"file://{path}"
+
+    import sys
+
+    monkeypatch.setitem(sys.modules, "uno", _UnoModule())
+    awt_mod = SimpleNamespace(Size=lambda w, h: ("Size", w, h))
+    monkeypatch.setitem(sys.modules, "com.sun.star.awt", awt_mod)
+
+    doc = CalcDocStub(selection="A1")
+    shape = MagicMock()
+    doc._created["com.sun.star.drawing.GraphicObjectShape"] = shape
+    sheet = doc.getSheets().getByName("Sheet1")
+    cell = sheet.getCellByPosition(0, 0)
+    cell.IsMerged = True
+    ctx = _ctx_with_doc(doc)
+
+    pos = SimpleNamespace(X=0, Y=0)
+    # Thin 1-row banner: wide (20000) but short (1270 HMM / ~12.7 mm)
+    size = SimpleNamespace(Width=20000, Height=1270)
+    import plugin.calc.calc_utils as calc_utils
+
+    monkeypatch.setattr(calc_utils, "get_cell_geometry", lambda _sheet, _cell: (pos, size))
+
+    python_function.insert_image_result_on_sheet(ctx, {"data": b"abc", "format": "png"})
+
+    shape.setPosition.assert_called_once_with(pos)
+    shape.setSize.assert_any_call(("Size", 10000, 6000))
+    shape.setPropertyValue.assert_any_call("Anchor", cell)
+    shape.setPropertyValue.assert_any_call("ResizeWithCell", False)
+
+
+def test_insert_image_result_targets_formula_cell_sheet_when_another_sheet_active(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Issue #385: When Overview is active, plots for formulas on Viz_Gallery land on Viz_Gallery."""
+    from tests.testing_utils import CalcSheetStub
+
+    class _TmpFile:
+        name = "/tmp/fake.png"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return None
+
+        def write(self, _data):
+            return None
+
+    import plugin.scripting.payload_codec as payload_codec
+
+    monkeypatch.setattr(payload_codec.tempfile, "NamedTemporaryFile", lambda **kwargs: _TmpFile())
+
+    class _UnoModule:
+        @staticmethod
+        def systemPathToFileUrl(path: str) -> str:
+            return f"file://{path}"
+
+    import sys
+
+    monkeypatch.setitem(sys.modules, "uno", _UnoModule())
+    awt_mod = SimpleNamespace(Size=lambda w, h: ("Size", w, h))
+    monkeypatch.setitem(sys.modules, "com.sun.star.awt", awt_mod)
+
+    sheet_overview = CalcSheetStub("Overview")
+    sheet_viz = CalcSheetStub("Viz_Gallery")
+
+    doc = CalcDocStub(
+        sheets=[sheet_overview, sheet_viz],
+        active_sheet="Overview",
+        selection="A1:H1",
+    )
+    shape = MagicMock()
+    doc._created["com.sun.star.drawing.GraphicObjectShape"] = shape
+
+    # Formula cell is on Viz_Gallery!D7 (col 3, row 6)
+    viz_cell = sheet_viz.getCellByPosition(3, 6)
+    code_str = "plt.figure(); plt.plot([1, 2, 3]); plt.title('Sales Trend')"
+    viz_cell.setFormula(f'=ORG.EXTENSION.WRITERAGENT.PYTHONFUNCTION.PY("{code_str}")')
+    viz_cell.IsMerged = True
+
+    ctx = _ctx_with_doc(doc)
+
+    pos = SimpleNamespace(X=5000, Y=3000)
+    size = SimpleNamespace(Width=9000, Height=6000)
+    import plugin.calc.calc_utils as calc_utils
+
+    monkeypatch.setattr(calc_utils, "get_cell_geometry", lambda _sheet, _cell: (pos, size))
+
+    python_function.insert_image_result_on_sheet(ctx, {"data": b"abc", "format": "png"}, code=code_str)
+
+    # Must be added to Viz_Gallery's DrawPage, NOT Overview's DrawPage
+    sheet_viz.DrawPage.add.assert_called_once_with(shape)
+    sheet_overview.DrawPage.add.assert_not_called()
+    shape.setPropertyValue.assert_any_call("Anchor", viz_cell)
+    shape.setPropertyValue.assert_any_call("ResizeWithCell", True)
+    shape.setSize.assert_any_call(size)
+
+
+def test_locate_formula_cell_in_doc_finds_on_secondary_sheet() -> None:
+    """locate_formula_cell_in_doc locates formula cell on non-active sheet."""
+    from tests.testing_utils import CalcSheetStub
+
+    sheet1 = CalcSheetStub("Overview")
+    sheet2 = CalcSheetStub("Viz_Gallery")
+    doc = CalcDocStub(sheets=[sheet1, sheet2], active_sheet="Overview")
+    ctx = _ctx_with_doc(doc)
+
+    code = "plt.plot([10, 20])"
+    formula_cell = sheet2.getCellByPosition(3, 6)
+    formula_cell.setFormula(f'=PY("{code}")')
+
+    located = python_function.locate_formula_cell_in_doc(ctx, doc, code)
+    assert located is not None
+    found_sheet, found_cell, coords = located
+    assert found_sheet.getName() == "Viz_Gallery"
+    assert found_cell == formula_cell
+    assert coords == (6, 3)
 
 
 def test_insert_image_result_unmerged_single_cell_default_size(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -205,6 +346,43 @@ def test_finalize_python_return_triggers_spill(monkeypatch: pytest.MonkeyPatch) 
     assert sheet.getCellByPosition(1, 2).getValue() == 20.0
 
     key = ("file:///fake.ods", sheet.getName(), 1, 1)
+    assert key in python_function.SPILL_REGISTRY
+    assert python_function.SPILL_REGISTRY[key] == [(2, 1)]
+
+
+def test_finalize_python_return_spills_on_secondary_sheet(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Auto-spill locates the formula cell and spills correctly even when a different sheet is active."""
+    from tests.testing_utils import CalcSheetStub
+
+    sheet1 = CalcSheetStub("Overview")
+    sheet2 = CalcSheetStub("Viz_Gallery")
+    doc = CalcDocStub(sheets=[sheet1, sheet2], url="file:///multi.ods", active_sheet="Overview", selection="A1")
+    sheet2.getCellByPosition(1, 1).setFormula('=PYTHON("secondary_code")')
+    ctx = _ctx_with_doc(doc)
+
+    python_function.SPILL_REGISTRY.clear()
+
+    class DummyTimer:
+        def __init__(self, interval, function, args=(), kwargs={}):
+            self.function = function
+            self.args = args
+            self.kwargs = kwargs
+        def start(self):
+            self.function(*self.args, **self.kwargs)
+
+    monkeypatch.setattr(python_function.threading, "Timer", DummyTimer)
+    monkeypatch.setattr(
+        "plugin.framework.queue_executor.post_to_main_thread",
+        lambda fn, *a, **k: fn(*a, **k),
+    )
+    python_function.LOADED_DOCUMENTS.clear()
+
+    result = [100.0, 200.0]
+    val = finalize_python_return(ctx, "secondary_code", result)
+
+    assert val == 100.0
+    assert sheet2.getCellByPosition(1, 2).getValue() == 200.0
+    key = ("file:///multi.ods", "Viz_Gallery", 1, 1)
     assert key in python_function.SPILL_REGISTRY
     assert python_function.SPILL_REGISTRY[key] == [(2, 1)]
 
