@@ -208,9 +208,35 @@ Key file permissions: readable only by the service user (e.g. mode `0400`).
 The Python Compute Service is structured as a resilient master HTTP server fronting two specialized subprocess worker pools:
 
 ### 1. Master HTTP Router (~20MB RAM)
-- Ultra-thin network process that accepts HTTP connections, verifies Bearer authentication tokens, and streams JSON-RPC requests over high-speed local pipes to the worker pools.
+- Ultra-thin network process that accepts HTTP connections, verifies Bearer authentication tokens, and forwards each job as a **length-prefixed Pickle 5 frame** on the worker's stdin pipe.
 - **Multi-Threaded HTTP Listener (`threads`, default `2`)**: Uses a `ThreadPoolExecutor` to handle concurrent HTTP connections, Kubernetes `/health` probes, and requests waiting on worker leases without socket stalls.
 - **Unbreakable Design**: The master process never executes user code directly, ensuring that user errors, native crashes, or memory spikes cannot destabilize the HTTP service.
+
+### Internal wire: HTTP JSON vs Pickle + split_grid
+
+Two stacked protocols:
+
+| Hop | Format | What travels |
+|-----|--------|--------------|
+| coolwsd → HTTP server | Dumb JSON (`POST /v1/execute`, `POST /v1/vision`) | `code`, `data` as nested lists, `mode`, `session_id`, … / vision `image_b64` or `file_path` |
+| HTTP server → formula/vision workers | Length-prefixed **Pickle 5** on stdio | Request/response **dicts**; large formula `data` may be a `split_grid` envelope |
+
+**Pickle framing** ([`plugin/scripting/ipc.py`](../plugin/scripting/ipc.py), [`worker_base.py`](worker_base.py)):
+
+- Write: `pickle.dumps(dict, protocol=5)` prefixed with a 4-byte big-endian length.
+- Read: 4-byte size, then exactly *N* bytes, `pickle.loads`.
+- Spawn handshake: the child writes `{status: "ready", pid: ...}` before the request loop.
+
+**split_grid** ([`plugin/scripting/payload_codec.py`](../plugin/scripting/payload_codec.py)):
+
+- [`FormulaProcessPool.execute`](formula_pool.py) calls `host_pack_data(data, min_cells=1000)` when `data` is a non-empty list (desktop `=PY()` uses `BINARY_MIN_CELLS = 100`; this service uses a higher bar so small HTTP grids stay nested lists).
+- ≥ 1000 cells → `{__wa_payload__: "split_grid", dtype, column_kinds, shape, buffer: <float64 bytes>, strings: {flat_index: str}}` inside the pickled request dict.
+- Below threshold → nested Python lists in that same dict.
+- The worker unpacks with `child_unpack_data` (numeric-only grids materialize via `np.frombuffer`). Large ndarray results may pack as `split_grid` on the way back; [`json_egress`](json_egress.py) unpacks them to nested lists / scalars before the HTTP JSON response so the kit never sees the envelope.
+
+Vision workers share the pickle framing. HTTP `image_b64` is decoded to raw `bytes` (`image_bytes`) on the pipe so the child does not re-decode Base64.
+
+Wire-format detail for `split_grid` and Pickle5: [`docs/numpy-serialization.md`](../docs/numpy-serialization.md). Kit-side dumb JSON contract: [`docs/numpy-jailsafe.md`](../docs/numpy-jailsafe.md).
 
 ### 2. Tier 1: Formula Compute Pool (`FormulaProcessPool`)
 - Manages persistent worker subprocesses (`workers`, default `1`).
@@ -327,4 +353,4 @@ python scripts/benchmark_compute_service.py --concurrency 1,2,4,8,16,32 --reques
 - **`stateful_session` (`mode="shared"`)**: Fast in-memory stateful recalculations (400–430 RPS) with median latency under 10ms for multi-tenant sessions.
 - **`pure_python` (GIL Held)**: Constant CPU throughput (~30 RPS) bounded by single-interpreter bytecode execution.
 
-See also [`docs/numpy-jailsafe.md`](../docs/numpy-jailsafe.md).
+See also [`docs/numpy-jailsafe.md`](../docs/numpy-jailsafe.md) (kit JSON contract) and [`docs/numpy-serialization.md`](../docs/numpy-serialization.md) (Pickle5 + `split_grid`).
