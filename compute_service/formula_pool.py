@@ -39,7 +39,7 @@ class FormulaProcessPool(BaseProcessPool):
 
     def __init__(
         self,
-        num_workers: int = 4,
+        num_workers: int = 1,
         default_timeout_sec: int = 30,
         max_tasks: int = 500,
     ) -> None:
@@ -140,14 +140,14 @@ def get_formula_pool(settings: ComputeSettings | None = None) -> FormulaProcessP
     with _GLOBAL_FORMULA_POOL_LOCK:
         if _GLOBAL_FORMULA_POOL is None:
             if settings is not None:
-                num_w = getattr(settings, "workers", None) or settings.max_threads
+                num_w = getattr(settings, "workers", None) or getattr(settings, "max_workers", None) or 2
                 _GLOBAL_FORMULA_POOL = FormulaProcessPool(
                     num_workers=num_w,
                     default_timeout_sec=settings.default_timeout_sec,
                     max_tasks=getattr(settings, "worker_max_tasks", 500),
                 )
             else:
-                _GLOBAL_FORMULA_POOL = FormulaProcessPool(num_workers=min(16, (os.cpu_count() or 1) + 2))
+                _GLOBAL_FORMULA_POOL = FormulaProcessPool(num_workers=1)
         return _GLOBAL_FORMULA_POOL
 
 

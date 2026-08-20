@@ -607,7 +607,7 @@ def run_server(settings: ComputeSettings) -> None:
 
         get_vision_pool(settings)
 
-    server = WSGIDualStackServer(settings.host, settings.port, max_threads=settings.max_threads)
+    server = WSGIDualStackServer(settings.host, settings.port, max_threads=settings.threads)
     server.set_app(create_wsgi_app(settings))
 
     def _handle_shutdown(signum: int, _frame: Any) -> None:
@@ -650,12 +650,20 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--host", default=None, help="Bind host (overrides config/env)")
     parser.add_argument("--port", type=int, default=None, help="Bind port (overrides config/env)")
     parser.add_argument(
-        "--workers",
+        "--threads",
         "--max-threads",
+        dest="threads",
+        type=int,
+        default=None,
+        help="Number of HTTP server listener threads (default: 2)",
+    )
+    parser.add_argument(
+        "--workers",
+        "--max-workers",
         dest="workers",
         type=int,
         default=None,
-        help="Number of formula worker subprocesses (default: CPU count)",
+        help="Number of formula worker subprocesses (default: 1)",
     )
     parser.add_argument(
         "--worker-max-tasks",
@@ -702,6 +710,7 @@ def main(argv: list[str] | None = None) -> int:
             config_path=args.config_path,
             host=args.host,
             port=args.port,
+            threads=args.threads,
             workers=args.workers,
             worker_max_tasks=args.worker_max_tasks,
             ocr_workers=args.ocr_workers,

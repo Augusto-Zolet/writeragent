@@ -185,7 +185,8 @@ Example JSON: [`python-compute.example.json`](python-compute.example.json).
 | `PYTHON_COMPUTE_MAX_BODY_BYTES` | Request body cap | `33554432` (32 MiB) |
 | `PYTHON_COMPUTE_DEFAULT_TIMEOUT_SEC` | Default execution timeout in seconds | `30` |
 | `PYTHON_COMPUTE_MAX_TIMEOUT_SEC` | Upper bound clamp for `timeout_ms` | `600` |
-| `PYTHON_COMPUTE_WORKERS` / `MAX_THREADS` | Number of formula worker subprocesses | `min(32, cpu_count + 4)` |
+| `PYTHON_COMPUTE_THREADS` / `PYTHON_COMPUTE_MAX_THREADS` | Number of HTTP server listener threads | `2` |
+| `PYTHON_COMPUTE_WORKERS` / `PYTHON_COMPUTE_MAX_WORKERS` | Number of formula worker subprocesses | `1` |
 | `PYTHON_COMPUTE_WORKER_MAX_TASKS` | Tasks before recycling formula worker | `500` |
 | `PYTHON_COMPUTE_OCR_WORKERS` | Dedicated OCR/Vision worker subprocesses | `1` |
 | `PYTHON_COMPUTE_OCR_TIMEOUT_SEC` | OCR/Vision execution timeout in seconds | `60` |
@@ -208,18 +209,20 @@ The Python Compute Service is structured as a resilient master HTTP server front
 
 ### 1. Master HTTP Router (~20MB RAM)
 - Ultra-thin network process that accepts HTTP connections, verifies Bearer authentication tokens, and streams JSON-RPC requests over high-speed local pipes to the worker pools.
+- **Multi-Threaded HTTP Listener (`threads`, default `2`)**: Uses a `ThreadPoolExecutor` to handle concurrent HTTP connections, Kubernetes `/health` probes, and requests waiting on worker leases without socket stalls.
 - **Unbreakable Design**: The master process never executes user code directly, ensuring that user errors, native crashes, or memory spikes cannot destabilize the HTTP service.
 
 ### 2. Tier 1: Formula Compute Pool (`FormulaProcessPool`)
-- Manages $N$ persistent worker subprocesses (`workers`, default `os.cpu_count() + 4`).
-- **GIL Elimination**: Each worker is an independent OS process with its own Python interpreter, achieving true parallel multi-core scaling for pure-Python and NumPy workloads.
+- Manages persistent worker subprocesses (`workers`, default `1`).
+- **Single-Threaded Child Subprocesses**: Each worker is a dedicated, single-threaded OS process running a synchronous IPC loop with exclusive lease occupancy (0 worker threads inside the child), ensuring determinism and zero race conditions.
+- **GIL Elimination**: Each worker runs its own Python interpreter, achieving true parallel multi-core scaling for pure-Python and NumPy workloads.
 - **Sticky Session Affinity**: For stateful calculations (`mode="shared"`), requests with the same `session_id` are consistently routed to the specific worker holding that workbook's state in memory. Isolated and sticky jobs **exclusively occupy** a worker (idle set + condition); they never run concurrently on the same process.
 - **Stderr drain**: Each worker pipes stderr into `start_stderr_drain` (same helper as the desktop venv worker) so a noisy child cannot fill the OS pipe and deadlock the parent.
 - **Hard `SIGKILL` Watchdogs**: If a user formula triggers an uncatchable loop or timeout, the pool terminates the hanging process via `SIGKILL`, returns a clean timeout error, and automatically spawns a fresh worker.
 - **Task Recycling**: Recycles worker processes after `worker_max_tasks` (default: 500) to keep memory fragmentation low.
 
 ### 3. Tier 2: Isolated Vision & OCR Pool (`VisionProcessPool`)
-- Dedicated worker subprocesses for heavy Docling and PaddleOCR tasks.
+- Dedicated worker subprocesses (`ocr_workers`, default `1`) for heavy Docling and PaddleOCR tasks.
 - Confines heavy Machine Learning models, C++ image decoders, and image buffers to a disposable child process so formula calculations are never blocked.
 
 ### 4. Performance Benchmarks: Why Process Pools?

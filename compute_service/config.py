@@ -27,7 +27,8 @@ _DEFAULT_PORT = 8000
 _DEFAULT_MAX_BODY_BYTES = 32 * 1024 * 1024
 _DEFAULT_TIMEOUT_SEC = 30
 _MAX_TIMEOUT_SEC = 600
-_DEFAULT_MAX_THREADS = min(32, (os.cpu_count() or 1) + 4)
+_DEFAULT_THREADS = 2
+_DEFAULT_WORKERS = 1
 _DEFAULT_WORKER_MAX_TASKS = 500
 _DEFAULT_OCR_WORKERS = 1
 _DEFAULT_OCR_TIMEOUT_SEC = 60
@@ -61,7 +62,8 @@ class ComputeSettings:
     max_body_bytes: int = _DEFAULT_MAX_BODY_BYTES
     default_timeout_sec: int = _DEFAULT_TIMEOUT_SEC
     max_timeout_sec: int = _MAX_TIMEOUT_SEC
-    max_threads: int = _DEFAULT_MAX_THREADS
+    threads: int = _DEFAULT_THREADS
+    workers: int = _DEFAULT_WORKERS
     worker_max_tasks: int = _DEFAULT_WORKER_MAX_TASKS
     ocr_workers: int = _DEFAULT_OCR_WORKERS
     ocr_timeout_sec: int = _DEFAULT_OCR_TIMEOUT_SEC
@@ -70,9 +72,51 @@ class ComputeSettings:
     # Future: map authenticated principals to named profiles. Today always "default".
     default_principal: str = "default"
 
+    def __init__(
+        self,
+        host: str = _DEFAULT_HOST,
+        port: int = _DEFAULT_PORT,
+        api_key: str = "",
+        max_body_bytes: int = _DEFAULT_MAX_BODY_BYTES,
+        default_timeout_sec: int = _DEFAULT_TIMEOUT_SEC,
+        max_timeout_sec: int = _MAX_TIMEOUT_SEC,
+        threads: int | None = None,
+        max_threads: int | None = None,
+        workers: int | None = None,
+        max_workers: int | None = None,
+        worker_max_tasks: int = _DEFAULT_WORKER_MAX_TASKS,
+        ocr_workers: int = _DEFAULT_OCR_WORKERS,
+        ocr_timeout_sec: int = _DEFAULT_OCR_TIMEOUT_SEC,
+        ocr_max_tasks: int = _DEFAULT_OCR_MAX_TASKS,
+        log_level: str = _DEFAULT_LOG_LEVEL,
+        default_principal: str = "default",
+    ) -> None:
+        eff_threads = _DEFAULT_THREADS if threads is None and max_threads is None else (threads if max_threads is None else max_threads)
+        eff_workers = _DEFAULT_WORKERS if workers is None and max_workers is None else (workers if max_workers is None else max_workers)
+        object.__setattr__(self, "host", host)
+        object.__setattr__(self, "port", port)
+        object.__setattr__(self, "api_key", api_key)
+        object.__setattr__(self, "max_body_bytes", max_body_bytes)
+        object.__setattr__(self, "default_timeout_sec", default_timeout_sec)
+        object.__setattr__(self, "max_timeout_sec", max_timeout_sec)
+        object.__setattr__(self, "threads", eff_threads)
+        object.__setattr__(self, "workers", eff_workers)
+        object.__setattr__(self, "worker_max_tasks", worker_max_tasks)
+        object.__setattr__(self, "ocr_workers", ocr_workers)
+        object.__setattr__(self, "ocr_timeout_sec", ocr_timeout_sec)
+        object.__setattr__(self, "ocr_max_tasks", ocr_max_tasks)
+        object.__setattr__(self, "log_level", log_level)
+        object.__setattr__(self, "default_principal", default_principal)
+
     @property
-    def workers(self) -> int:
-        return self.max_threads
+    def max_threads(self) -> int:
+        """Alias for threads (HTTP listener capacity)."""
+        return self.threads
+
+    @property
+    def max_workers(self) -> int:
+        """Alias for workers (formula subprocess pool)."""
+        return self.workers
 
     @property
     def auth_required(self) -> bool:
@@ -91,8 +135,10 @@ class ComputeSettings:
             raise ConfigError("timeout bounds must be >= 1")
         if self.default_timeout_sec > self.max_timeout_sec:
             raise ConfigError("default_timeout_sec cannot exceed max_timeout_sec")
-        if self.max_threads < 1:
-            raise ConfigError("max_threads must be >= 1")
+        if self.threads < 1:
+            raise ConfigError("threads must be >= 1")
+        if self.workers < 1:
+            raise ConfigError("workers must be >= 1")
         if self.worker_max_tasks < 1:
             raise ConfigError("worker_max_tasks must be >= 1")
         if self.ocr_workers < 0:
@@ -167,12 +213,14 @@ def _flatten_config_json(raw: Mapping[str, Any]) -> dict[str, Any]:
             out["default_timeout_sec"] = limits["default_timeout_sec"]
         if "max_timeout_sec" in limits:
             out["max_timeout_sec"] = limits["max_timeout_sec"]
-        if "max_threads" in limits:
-            out["max_threads"] = limits["max_threads"]
+        if "threads" in limits:
+            out["threads"] = limits["threads"]
+        elif "max_threads" in limits:
+            out["threads"] = limits["max_threads"]
+        if "workers" in limits:
+            out["workers"] = limits["workers"]
         elif "max_workers" in limits:
-            out["max_threads"] = limits["max_workers"]
-        elif "workers" in limits:
-            out["max_threads"] = limits["workers"]
+            out["workers"] = limits["max_workers"]
         if "worker_max_tasks" in limits:
             out["worker_max_tasks"] = limits["worker_max_tasks"]
     ocr_cfg = raw.get("ocr")
@@ -197,7 +245,10 @@ def _flatten_config_json(raw: Mapping[str, Any]) -> dict[str, Any]:
         "max_body_bytes",
         "default_timeout_sec",
         "max_timeout_sec",
+        "threads",
         "max_threads",
+        "workers",
+        "max_workers",
         "worker_max_tasks",
         "ocr_workers",
         "ocr_timeout_sec",
@@ -206,10 +257,10 @@ def _flatten_config_json(raw: Mapping[str, Any]) -> dict[str, Any]:
     ):
         if key in raw and key not in out:
             out[key] = raw[key]
-    if "max_workers" in raw and "max_threads" not in out:
-        out["max_threads"] = raw["max_workers"]
-    elif "workers" in raw and "max_threads" not in out:
-        out["max_threads"] = raw["workers"]
+    if "max_threads" in out and "threads" not in out:
+        out["threads"] = out["max_threads"]
+    if "max_workers" in out and "workers" not in out:
+        out["workers"] = out["max_workers"]
     return out
 
 
@@ -218,8 +269,10 @@ def load_settings(
     config_path: str | Path | None = None,
     host: str | None = None,
     port: int | None = None,
+    threads: int | None = None,
     max_threads: int | None = None,
     workers: int | None = None,
+    max_workers: int | None = None,
     worker_max_tasks: int | None = None,
     ocr_workers: int | None = None,
     ocr_timeout_sec: int | None = None,
@@ -237,7 +290,8 @@ def load_settings(
         "max_body_bytes": _DEFAULT_MAX_BODY_BYTES,
         "default_timeout_sec": _DEFAULT_TIMEOUT_SEC,
         "max_timeout_sec": _MAX_TIMEOUT_SEC,
-        "max_threads": _DEFAULT_MAX_THREADS,
+        "threads": _DEFAULT_THREADS,
+        "workers": _DEFAULT_WORKERS,
         "worker_max_tasks": _DEFAULT_WORKER_MAX_TASKS,
         "ocr_workers": _DEFAULT_OCR_WORKERS,
         "ocr_timeout_sec": _DEFAULT_OCR_TIMEOUT_SEC,
@@ -266,12 +320,16 @@ def load_settings(
         values["default_timeout_sec"] = env["PYTHON_COMPUTE_DEFAULT_TIMEOUT_SEC"]
     if env.get("PYTHON_COMPUTE_MAX_TIMEOUT_SEC"):
         values["max_timeout_sec"] = env["PYTHON_COMPUTE_MAX_TIMEOUT_SEC"]
-    if env.get("PYTHON_COMPUTE_WORKERS"):
-        values["max_threads"] = env["PYTHON_COMPUTE_WORKERS"]
+    if env.get("PYTHON_COMPUTE_THREADS"):
+        values["threads"] = env["PYTHON_COMPUTE_THREADS"]
     elif env.get("PYTHON_COMPUTE_MAX_THREADS"):
-        values["max_threads"] = env["PYTHON_COMPUTE_MAX_THREADS"]
+        values["threads"] = env["PYTHON_COMPUTE_MAX_THREADS"]
+
+    if env.get("PYTHON_COMPUTE_WORKERS"):
+        values["workers"] = env["PYTHON_COMPUTE_WORKERS"]
     elif env.get("PYTHON_COMPUTE_MAX_WORKERS"):
-        values["max_threads"] = env["PYTHON_COMPUTE_MAX_WORKERS"]
+        values["workers"] = env["PYTHON_COMPUTE_MAX_WORKERS"]
+
     if env.get("PYTHON_COMPUTE_WORKER_MAX_TASKS"):
         values["worker_max_tasks"] = env["PYTHON_COMPUTE_WORKER_MAX_TASKS"]
     if env.get("PYTHON_COMPUTE_OCR_WORKERS"):
@@ -292,10 +350,16 @@ def load_settings(
         values["host"] = host
     if port is not None:
         values["port"] = port
-    if workers is not None:
-        values["max_threads"] = workers
+    if threads is not None:
+        values["threads"] = threads
     elif max_threads is not None:
-        values["max_threads"] = max_threads
+        values["threads"] = max_threads
+
+    if workers is not None:
+        values["workers"] = workers
+    elif max_workers is not None:
+        values["workers"] = max_workers
+
     if worker_max_tasks is not None:
         values["worker_max_tasks"] = worker_max_tasks
     if ocr_workers is not None:
@@ -330,8 +394,11 @@ def load_settings(
         max_timeout_sec=_as_int(
             values["max_timeout_sec"], field="max_timeout_sec", default=_MAX_TIMEOUT_SEC
         ),
-        max_threads=_as_int(
-            values["max_threads"], field="max_threads", default=_DEFAULT_MAX_THREADS
+        threads=_as_int(
+            values["threads"], field="threads", default=_DEFAULT_THREADS
+        ),
+        workers=_as_int(
+            values["workers"], field="workers", default=_DEFAULT_WORKERS
         ),
         worker_max_tasks=_as_int(
             values["worker_max_tasks"], field="worker_max_tasks", default=_DEFAULT_WORKER_MAX_TASKS

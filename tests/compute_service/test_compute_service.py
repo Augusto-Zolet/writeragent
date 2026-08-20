@@ -388,21 +388,40 @@ class TestComputeSettings:
 
     def test_max_threads_env_and_cli(self) -> None:
         s = load_settings(environ={"PYTHON_COMPUTE_MAX_THREADS": "8", "HOST": "127.0.0.1"})
+        assert s.threads == 8
         assert s.max_threads == 8
-        s2 = load_settings(max_threads=4, environ={"PYTHON_COMPUTE_MAX_THREADS": "8", "HOST": "127.0.0.1"})
-        assert s2.max_threads == 4
+        assert s.workers == 1  # default
+        s2 = load_settings(threads=4, workers=3, environ={"PYTHON_COMPUTE_MAX_THREADS": "8", "HOST": "127.0.0.1"})
+        assert s2.threads == 4
+        assert s2.workers == 3
+
+    def test_workers_env_and_cli(self) -> None:
+        s = load_settings(environ={"PYTHON_COMPUTE_WORKERS": "5", "HOST": "127.0.0.1"})
+        assert s.workers == 5
+        assert s.threads == 2  # default
+        s2 = load_settings(workers=1, environ={"PYTHON_COMPUTE_WORKERS": "5", "HOST": "127.0.0.1"})
+        assert s2.workers == 1
+
+    def test_threads_and_workers_json(self, tmp_path) -> None:
+        cfg = tmp_path / "cfg.json"
+        cfg.write_text(json.dumps({"limits": {"threads": 24, "workers": 4}}), encoding="utf-8")
+        s = load_settings(config_path=cfg, environ={"HOST": "127.0.0.1"})
+        assert s.threads == 24
+        assert s.workers == 4
 
     def test_max_threads_json(self, tmp_path) -> None:
         cfg = tmp_path / "cfg.json"
         cfg.write_text(json.dumps({"limits": {"max_threads": 12}}), encoding="utf-8")
         s = load_settings(config_path=cfg, environ={"HOST": "127.0.0.1"})
-        assert s.max_threads == 12
+        assert s.threads == 12
 
-    def test_max_threads_invalid(self) -> None:
+    def test_threads_and_workers_invalid(self) -> None:
         from compute_service.config import ConfigError
 
         with pytest.raises(ConfigError):
-            load_settings(max_threads=0, environ={"HOST": "127.0.0.1"})
+            load_settings(threads=0, environ={"HOST": "127.0.0.1"})
+        with pytest.raises(ConfigError):
+            load_settings(workers=0, environ={"HOST": "127.0.0.1"})
 
     def test_key_file_preserves_leading_and_trailing_spaces(self, tmp_path) -> None:
         """_read_key_file must NOT strip() the key; only the one trailing newline is removed.
