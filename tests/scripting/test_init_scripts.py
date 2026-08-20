@@ -201,3 +201,106 @@ def test_workbook_session_id_recursion_off_main_thread(monkeypatch: pytest.Monke
     res = workbook_session_id(ctx)
     assert res is None
 
+
+def test_init_helper_function_in_shared_kernel():
+    """Functions defined via `def` in INIT scripts must be callable in shared kernel cells."""
+    init_sid = "calc:wb-func-shared:init"
+    cell_sid = "calc:wb-func-shared"
+    init_code = "def double(x):\n    return x * 2\nFACTOR = 10"
+    h = init_script_hash(init_code)
+
+    r1 = run_sandboxed_code(
+        "result = double(21)",
+        session_id=cell_sid,
+        init_script=init_code,
+        init_session_id=init_sid,
+        init_script_hash=h,
+    )
+    assert r1["status"] == "ok", r1.get("message")
+    assert r1["result"] == 42
+
+    r2 = run_sandboxed_code(
+        "result = 3 * FACTOR",
+        session_id=cell_sid,
+        init_script=init_code,
+        init_session_id=init_sid,
+        init_script_hash=h,
+    )
+    assert r2["status"] == "ok", r2.get("message")
+    assert r2["result"] == 30
+
+
+def test_init_helper_function_in_isolated_mode():
+    """Functions defined via `def` in INIT scripts must be callable in isolated cells."""
+    init_sid = "calc:wb-func-iso:init"
+    init_code = "def double(x):\n    return x * 2\nFACTOR = 10"
+    h = init_script_hash(init_code)
+
+    r1 = run_sandboxed_code(
+        "result = double(21)",
+        session_id=None,
+        init_script=init_code,
+        init_session_id=init_sid,
+        init_script_hash=h,
+    )
+    assert r1["status"] == "ok", r1.get("message")
+    assert r1["result"] == 42
+
+
+def test_reset_re_seeds_init_helper_function():
+    """Resetting the session drops cell overrides but re-seeds init helper functions."""
+    init_sid = "calc:wb-func-reset:init"
+    cell_sid = "calc:wb-func-reset"
+    init_code = "def double(x):\n    return x * 2\nFACTOR = 10"
+    h = init_script_hash(init_code)
+
+    r1 = run_sandboxed_code(
+        "result = double(21)",
+        session_id=cell_sid,
+        init_script=init_code,
+        init_session_id=init_sid,
+        init_script_hash=h,
+    )
+    assert r1["status"] == "ok", r1.get("message")
+    assert r1["result"] == 42
+
+    reset_sandbox_session(cell_sid)
+
+    r2 = run_sandboxed_code(
+        "result = double(3)",
+        session_id=cell_sid,
+        init_script=init_code,
+        init_session_id=init_sid,
+        init_script_hash=h,
+    )
+    assert r2["status"] == "ok", r2.get("message")
+    assert r2["result"] == 6
+
+
+def test_init_helper_chained_and_imports():
+    """Init helpers calling other helpers and utilizing imports work properly."""
+    init_sid = "calc:wb-func-chain:init"
+    cell_sid = "calc:wb-func-chain"
+    init_code = "import math\n\ndef add(a, b):\n    return a + b\n\ndef circle_area(r):\n    return math.pi * r * r\n\ndef double_add(x):\n    return add(x, x)"
+    h = init_script_hash(init_code)
+
+    r1 = run_sandboxed_code(
+        "result = double_add(7)",
+        session_id=cell_sid,
+        init_script=init_code,
+        init_session_id=init_sid,
+        init_script_hash=h,
+    )
+    assert r1["status"] == "ok", r1.get("message")
+    assert r1["result"] == 14
+
+    r2 = run_sandboxed_code(
+        "result = round(circle_area(2), 2)",
+        session_id=cell_sid,
+        init_script=init_code,
+        init_session_id=init_sid,
+        init_script_hash=h,
+    )
+    assert r2["status"] == "ok", r2.get("message")
+    assert r2["result"] == 12.57
+

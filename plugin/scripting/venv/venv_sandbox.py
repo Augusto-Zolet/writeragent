@@ -501,10 +501,28 @@ def _snapshot_init_bindings(init_session_id: str) -> dict[str, Any]:
     }
 
 
+def _snapshot_init_custom_tools(init_session_id: str) -> dict[str, Any]:
+    """Copy user-defined helper functions (custom tools) from the init executor."""
+    with _SESSION_LOCK:
+        executor = _SESSION_EXECUTORS.get(init_session_id)
+    if executor is None:
+        return {}
+    return dict(executor.custom_tools)
+
+
 def _seed_executor_from_init(executor: LocalPythonExecutor, init_session_id: str) -> None:
+    # Bugfix: LocalPythonExecutor records `def` functions in executor.custom_tools rather
+    # than executor.state. Previously, _seed_executor_from_init only copied executor.state
+    # via send_variables, leaving custom_tools empty in cell executors and causing calls
+    # to INIT-defined helper functions (e.g. double(x)) to fail with 'Forbidden function evaluation'.
+    # Copying custom_tools from the init executor makes workbook helper functions accessible
+    # to both shared-kernel and isolated cell executors.
     bindings = _snapshot_init_bindings(init_session_id)
     if bindings:
         executor.send_variables(bindings)
+    custom_tools = _snapshot_init_custom_tools(init_session_id)
+    if custom_tools:
+        executor.custom_tools.update(custom_tools)
 
 
 def _ensure_init_executed(
