@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 import traceback
-from typing import Any, ClassVar, Iterable, cast
+from typing import Any, ClassVar
 
 from plugin.framework.tool import ToolBase, ToolContext
 
@@ -68,15 +68,11 @@ class DeepResearchWebTool(ToolBase):
 
 def _run_deep_research_agent(ctx: ToolContext, *, query: str, history_text: str | None) -> dict[str, Any]:
     """Run one turn of the Deep Research smol sub-agent."""
-    from plugin.framework.errors import format_error_payload, ToolExecutionError
-    from plugin.chatbot.smol_agent import SmolToolAdapter, build_toolcalling_agent
-    from plugin.contrib.smolagents.memory import ActionStep, FinalAnswerStep, ToolCall
+    from plugin.chatbot.smol_agent import SmolAgentExecutor, SmolToolAdapter, build_toolcalling_agent
     from plugin.chatbot.smol_examples import get_examples_block
     from plugin.framework.prompts import get_deep_research_sub_agent_instructions
 
     status_callback = getattr(ctx, "status_callback", None)
-    append_thinking_callback = getattr(ctx, "append_thinking_callback", None)
-    stop_checker = getattr(ctx, "stop_checker", None)
 
     if history_text and len(history_text) > 4000:
         history_text = "..." + history_text[-4000:]
@@ -98,30 +94,11 @@ def _run_deep_research_agent(ctx: ToolContext, *, query: str, history_text: str 
     )
 
     task = f"### CONVERSATION HISTORY:\n{history_text or 'None'}\n\n### CURRENT QUERY:\n{query}"
-    final_ans = None
-
-    run_stream = cast("Iterable", agent.run(task, stream=True))
-    for step in run_stream:
-        if stop_checker and stop_checker():
-            return format_error_payload(ToolExecutionError("Deep research stopped by user.", code="USER_STOPPED"))
-        if isinstance(step, ToolCall):
-            if append_thinking_callback:
-                append_thinking_callback(f"Running tool: {step.name} with {step.arguments}\n")
-            if status_callback:
-                status_callback(f"{step.name}...")
-        elif isinstance(step, ActionStep):
-            if append_thinking_callback:
-                msg = f"Step {step.step_number}:\n"
-                if step.model_output:
-                    mo = step.model_output
-                    msg += f"{(mo.strip() if isinstance(mo, str) else str(mo).strip())}\n"
-                if step.observations:
-                    msg += f"Observation: {str(step.observations).strip()}\n"
-                append_thinking_callback(msg + "\n")
-        elif isinstance(step, FinalAnswerStep):
-            final_ans = step.output
-
-    return {"status": "ok", "result": str(final_ans)}
+    executor = SmolAgentExecutor(ctx)
+    res = executor.execute_safe(agent, task, stop_message="Deep research stopped by user.", error_prefix="Deep research failed")
+    if isinstance(res, dict) and res.get("status") == "error":
+        return res
+    return {"status": "ok", "result": str(res)}
 
 
 class DeepResearchSessionTool(ToolBase):

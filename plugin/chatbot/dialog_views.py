@@ -16,13 +16,13 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import logging
 import threading
-from typing import Any, cast
+from typing import Any
 
 import uno
 from com.sun.star.awt import XItemListener, XTextListener
 
 from plugin.framework.errors import format_error_payload, UnoObjectError, ConfigValidationError
-from plugin.framework.uno_context import get_active_document, get_desktop, get_extension_url
+from plugin.framework.uno_context import get_desktop, get_extension_url
 from plugin.framework.i18n import _
 from plugin.framework.config import get_config, get_current_endpoint, set_config, get_config_str, get_config_int, as_bool
 from plugin.framework.client.model_fetcher import get_text_model, get_stt_model, set_text_model
@@ -35,7 +35,7 @@ from plugin.framework.uno_listeners import BaseActionListener, BaseListener
 from .dialogs import (
     TabListener, is_checkbox_control, get_checkbox_state, set_checkbox_state,
     get_optional, set_control_enabled, set_control_text, get_control_text, translate_dialog,
-    msgbox, copy_to_clipboard,
+    msgbox,
 )
 
 log = logging.getLogger(__name__)
@@ -146,8 +146,7 @@ class SettingsDialog:
             if self._dlg is None:
                 return {}
 
-            global _active_settings_dialog_ref
-            _active_settings_dialog_ref = self._dlg
+            set_active_settings_dialog(self._dlg)
 
             field_specs = get_settings_field_specs(self._ctx)
             current_endpoint = get_current_endpoint()
@@ -467,9 +466,7 @@ class SettingsDialog:
                 except Exception:
                     pass
             self._mcp_port_listener = None
-        global _active_settings_dialog_ref
-        if _active_settings_dialog_ref is self._dlg:
-            _active_settings_dialog_ref = None
+        clear_active_settings_dialog(self._dlg)
         if self._dlg:
             self._dlg.dispose()
 
@@ -810,88 +807,6 @@ class EndpointCombinedListener(BaseListener, XItemListener, XTextListener):
 
 # ── Evaluation Dashboard ─────────────────────────────────────────────
 
-class EvalDashboard:
-    def __init__(self, ctx):
-        self._ctx = ctx
-        self._dlg = None
-
-    def show(self):
-        smgr = self._ctx.getServiceManager()
-        base_url = get_extension_url()
-        dp = smgr.createInstanceWithContext("com.sun.star.awt.DialogProvider", self._ctx)
-        self._dlg = dp.createDialog(base_url + "/Dialogs/EvalDialog.xdl")
-
-        try:
-            self._populate()
-            if self._dlg:
-                self._dlg.execute()
-        finally:
-            self._dlg.dispose()
-
-    def _populate(self):
-        assert self._dlg is not None
-        endpoint_ctrl = self._dlg.getControl("endpoint")
-        set_control_text(endpoint_ctrl, get_config_str("endpoint"))
-
-        model_ctrl = self._dlg.getControl("models")
-        current_model = str(get_text_model())
-        current_endpoint = get_config_str("endpoint").strip()
-        populate_combobox_with_lru(self._ctx, model_ctrl, current_model, "model_lru", current_endpoint)
-
-        self._dlg.getControl("btn_run").addActionListener(EvalRunListener(self._ctx, self._dlg))
-        self._dlg.getControl("btn_close").addActionListener(SimpleCloseListener(self._dlg))
-
-
-class EvalRunListener(BaseActionListener):
-    def __init__(self, ctx, dialog):
-        self.ctx = ctx
-        self.dialog = dialog
-        self.is_running = False
-
-    def on_action_performed(self, rEvent):
-        if self.is_running: return
-        self.is_running = True
-        try:
-            self.run_suite()
-        finally:
-            self.is_running = False
-
-    def run_suite(self):
-        from tests.eval_runner import run_benchmark_suite
-        from plugin.framework.uno_context import process_events_to_idle
-
-        model_name = self.dialog.getControl("models").getText()
-        categories = []
-        for cat in ("writer", "calc", "draw", "multimodal"):
-            if self.dialog.getControl(f"cat_{cat}").getState():
-                categories.append(cat.capitalize())
-
-        self.dialog.getControl("log_area").setText(f"Starting benchmark for {model_name}...\n")
-        self.dialog.getControl("status").setText("Running...")
-        process_events_to_idle(self.ctx)
-
-        doc = get_active_document(self.ctx)
-        summary = cast("dict[str, Any]", run_benchmark_suite(self.ctx, doc, model_name, categories))
-
-        log_text = f"Benchmarks Complete for {model_name}!\n"
-        log_text += f"Passed: {summary['passed']}, Failed: {summary['failed']}\n"
-        log_text += f"Total Est. Cost: ${summary['total_cost']:.4f}\n\n Details:\n"
-        for res in cast("list[dict[str, Any]]", summary["results"]):
-            log_text += f"[{res['status']}] {res['name']} ({res.get('latency', 0):.1f}s)\n"
-
-        self.dialog.getControl("log_area").setText(log_text)
-        self.dialog.getControl("status").setText("Finished")
-
-
-class SimpleCloseListener(BaseActionListener):
-    def __init__(self, dialog):
-        self.dialog = dialog
-    def on_action_performed(self, rEvent):
-        self.dialog.endDialog(0)
-
-
-def show_eval_dashboard(ctx):
-    EvalDashboard(ctx).show()
 
 
 # ── Helper for module tabs ───────────────────────────────────────────
@@ -938,244 +853,61 @@ class DownloadAudioListener(BaseActionListener):
         )
 
 
-def build_mcp_config_snippet(port: int | None = None, url: str | None = None) -> str:
-    """Return suggested MCP client JSON configuration for Claude Desktop / Cursor."""
-    import json
+# ── Evaluation Dashboard ─────────────────────────────────────────────
 
-    if not url:
-        if port is None:
-            try:
-                port = get_config_int("mcp.mcp_port")
-            except Exception:
-                port = 18765
-        url = f"http://localhost:{port}/mcp"
-
-    return json.dumps({
-        "mcpServers": {
-            "libreoffice": {
-                "url": url
-            }
-        }
-    }, indent=2)
+from plugin.framework.eval_dashboard_ui import (
+    EvalDashboard,
+    EvalRunListener,
+    SimpleCloseListener,
+    show_eval_dashboard,
+)
 
 
-class CopyMcpConfigListener(BaseActionListener):
-    """Settings → MCP: copy client JSON configuration snippet to clipboard."""
+# ── MCP UI Integration ───────────────────────────────────────────────
 
-    def __init__(self, ctx, dlg):
-        self._ctx = ctx
-        self._dlg = dlg
+from plugin.mcp.mcp_ui import (
+    CopyMcpConfigListener,
+    McpPortTextListener,
+    McpTunnelEnabledListener,
+    McpTunnelProviderListener,
+    TestTunnelListener,
+    _PROVIDER_DEFAULT_URLS,
+    _tested_provider_tunnel_urls,
+    build_mcp_config_snippet,
+    clear_active_settings_dialog,
+    notify_tunnel_url_acquired,
+    set_active_settings_dialog,
+    sync_mcp_config_snippet,
+)
 
-    def on_action_performed(self, rEvent):
-        snippet_ctrl = get_optional(self._dlg, "mcp__client_config_snippet")
-        text = get_control_text(snippet_ctrl) if snippet_ctrl else ""
-        if not text:
-            port_ctrl = get_optional(self._dlg, "mcp__mcp_port")
-            port_val = None
-            if port_ctrl and hasattr(port_ctrl, "getValue"):
-                try:
-                    port_val = int(port_ctrl.getValue())
-                except Exception:
-                    pass
-            text = build_mcp_config_snippet(port=port_val)
-        if copy_to_clipboard(self._ctx, text):
-            copy_btn = get_optional(self._dlg, "mcp__copy_config")
-            if copy_btn:
-                try:
-                    copy_btn.getModel().Label = _("✓ Copied!")
-                except Exception:
-                    pass
-
-
-_active_settings_dialog_ref: Any = None
-_tested_provider_tunnel_urls: dict[str, str] = {}
-
-_PROVIDER_DEFAULT_URLS = {
-    "cloudflare": "https://<subdomain>.trycloudflare.com/mcp",
-    "bore": "http://bore.pub:<remote-port>/mcp",
-    "ngrok": "https://<domain>.ngrok-free.app/mcp",
-    "tailscale": "https://<machine-name>.tailscale.net/mcp",
-}
-
-
-def notify_tunnel_url_acquired(provider: str, url: str) -> None:
-    """Record acquired tunnel URL and update active Settings dialog if open."""
-    p = provider.strip().lower()
-    _tested_provider_tunnel_urls[p] = url
-    dlg = _active_settings_dialog_ref
-    if dlg is not None:
-        from plugin.framework.queue_executor import post_to_main_thread
-        post_to_main_thread(lambda: sync_mcp_config_snippet(dlg))
+__all__ = [
+    "CopyMcpConfigListener",
+    "DownloadAudioListener",
+    "EndpointCombinedListener",
+    "EvalDashboard",
+    "EvalRunListener",
+    "GetApiKeyListener",
+    "McpPortTextListener",
+    "McpTunnelEnabledListener",
+    "McpTunnelProviderListener",
+    "ProviderStarterListener",
+    "SettingsDialog",
+    "SimpleCloseListener",
+    "TestConnectionListener",
+    "TestTunnelListener",
+    "_PROVIDER_DEFAULT_URLS",
+    "_tested_provider_tunnel_urls",
+    "build_mcp_config_snippet",
+    "clear_active_settings_dialog",
+    "input_box",
+    "notify_tunnel_url_acquired",
+    "open_system_url",
+    "set_active_settings_dialog",
+    "settings_box",
+    "setup_module_tabs",
+    "show_eval_dashboard",
+    "sync_mcp_config_snippet",
+]
 
 
-def sync_mcp_config_snippet(
-    dlg: Any,
-    custom_tunnel_url: str | None = None,
-    custom_provider: str | None = None,
-) -> None:
-    """Synchronize MCP client config snippet according to port, tunnel_enabled, and provider."""
-    if not dlg:
-        return
-    snippet_ctrl = get_optional(dlg, "mcp__client_config_snippet")
-    if not snippet_ctrl:
-        return
-
-    port_ctrl = get_optional(dlg, "mcp__mcp_port")
-    port_val = None
-    if port_ctrl:
-        if hasattr(port_ctrl, "getValue"):
-            try:
-                port_val = int(port_ctrl.getValue())
-            except Exception:
-                pass
-        if port_val is None and hasattr(port_ctrl, "getText"):
-            try:
-                port_val = int(str(port_ctrl.getText() or "").strip())
-            except Exception:
-                pass
-
-    tunnel_enabled_ctrl = get_optional(dlg, "mcp__tunnel_enabled")
-    is_tunnel_enabled = get_checkbox_state(tunnel_enabled_ctrl) if tunnel_enabled_ctrl else False
-
-    if not is_tunnel_enabled:
-        # Default local case: always revert to http://localhost:<port>/mcp
-        set_control_text(snippet_ctrl, build_mcp_config_snippet(port=port_val))
-        return
-
-    provider_ctrl = get_optional(dlg, "mcp__tunnel_provider")
-    selected_provider = str(get_control_text(provider_ctrl) or "").strip().lower() if provider_ctrl else "cloudflare"
-    if not selected_provider:
-        selected_provider = "cloudflare"
-
-    if custom_tunnel_url and custom_provider:
-        _tested_provider_tunnel_urls[custom_provider.strip().lower()] = custom_tunnel_url
-    elif custom_tunnel_url:
-        _tested_provider_tunnel_urls[selected_provider] = custom_tunnel_url
-
-    # Check if we have a tested URL for this specific selected provider
-    active_url = _tested_provider_tunnel_urls.get(selected_provider)
-    if not active_url:
-        from plugin.mcp import _shared_tunnel
-        if (
-            _shared_tunnel
-            and _shared_tunnel.is_running
-            and getattr(_shared_tunnel, "_provider", None) == selected_provider
-        ):
-            active_url = _shared_tunnel.mcp_public_url()
-            if not active_url:
-                import time
-                deadline = time.time() + 1.2
-                while time.time() < deadline and not _shared_tunnel._public_url and _shared_tunnel.is_running:
-                    time.sleep(0.1)
-                active_url = _shared_tunnel.mcp_public_url()
-
-            if active_url:
-                _tested_provider_tunnel_urls[selected_provider] = active_url
-
-    if not active_url:
-        # Fall back to provider default template
-        active_url = _PROVIDER_DEFAULT_URLS.get(
-            selected_provider,
-            f"http://localhost:{port_val or 18765}/mcp",
-        )
-
-    set_control_text(snippet_ctrl, build_mcp_config_snippet(port=port_val, url=active_url))
-
-
-class McpTunnelEnabledListener(BaseListener, XItemListener):
-    """Update MCP client config snippet when tunnel_enabled checkbox is toggled."""
-
-    def __init__(self, dlg):
-        self._dlg = dlg
-
-    def itemStateChanged(self, rEvent):
-        sync_mcp_config_snippet(self._dlg)
-
-
-class McpTunnelProviderListener(BaseListener, XItemListener, XTextListener):
-    """Update MCP client config snippet when tunnel provider dropdown is changed."""
-
-    def __init__(self, dlg):
-        self._dlg = dlg
-
-    def itemStateChanged(self, rEvent):
-        sync_mcp_config_snippet(self._dlg)
-
-    def textChanged(self, rEvent):
-        sync_mcp_config_snippet(self._dlg)
-
-
-class McpPortTextListener(BaseListener, XTextListener):
-    """Update MCP client config snippet when MCP port is edited."""
-
-    def __init__(self, dlg):
-        self._dlg = dlg
-
-    def textChanged(self, rEvent):
-        sync_mcp_config_snippet(self._dlg)
-
-
-class TestTunnelListener(BaseActionListener):
-    """Settings → MCP: test public tunnel connectivity / provider availability."""
-
-    def __init__(self, ctx, dlg):
-        self._ctx = ctx
-        self._dlg = dlg
-
-    def on_action_performed(self, rEvent):
-        from plugin.chatbot.dialogs import msgbox
-        from plugin.framework.worker_pool import run_in_background
-        from plugin.framework.queue_executor import post_to_main_thread
-        from plugin.mcp.tunnel import test_tunnel_connectivity, DEFAULT_PROVIDER
-
-        provider_ctrl = get_optional(self._dlg, "mcp__tunnel_provider")
-        provider = str(get_control_text(provider_ctrl) or "").strip().lower() if provider_ctrl else DEFAULT_PROVIDER
-        if not provider:
-            provider = DEFAULT_PROVIDER
-
-        token_ctrl = get_optional(self._dlg, "mcp__tunnel_provider_token")
-        token = str(get_control_text(token_ctrl) or "").strip() if token_ctrl else ""
-
-        port_ctrl = get_optional(self._dlg, "mcp__mcp_port")
-        port = 18765
-        if port_ctrl:
-            if hasattr(port_ctrl, "getValue"):
-                try:
-                    port = int(port_ctrl.getValue())
-                except Exception:
-                    pass
-            elif hasattr(port_ctrl, "getText"):
-                try:
-                    port = int(str(port_ctrl.getText() or "").strip())
-                except Exception:
-                    pass
-
-        btn = get_optional(self._dlg, "mcp__test_tunnel")
-        if btn:
-            try:
-                btn.getModel().Label = _("Testing…")
-                btn.getModel().Enabled = False
-            except Exception:
-                pass
-
-        def _worker():
-            _ok, msg, pub_url = test_tunnel_connectivity(provider=provider, provider_token=token, port=port)
-
-            def _apply():
-                if btn:
-                    try:
-                        btn.getModel().Label = _("Test Tunnel")
-                        btn.getModel().Enabled = True
-                    except Exception:
-                        pass
-                if pub_url:
-                    tunnel_enabled_ctrl = get_optional(self._dlg, "mcp__tunnel_enabled")
-                    if tunnel_enabled_ctrl:
-                        set_checkbox_state(tunnel_enabled_ctrl, True)
-                    sync_mcp_config_snippet(self._dlg, custom_tunnel_url=pub_url, custom_provider=provider)
-                msgbox(self._ctx, _("MCP Tunnel Test"), msg)
-
-            post_to_main_thread(_apply)
-
-        run_in_background(_worker)
 

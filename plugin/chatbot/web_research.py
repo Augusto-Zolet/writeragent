@@ -58,22 +58,8 @@ class WebAgentRunParams:
     deep_sub_agent: bool = False
 
 
-class ToolWriterWebResearchBase(ToolBase):
-    name = "web_research"
-    description = "Perform deep web research to answer complex questions. Bypasses document context to search the live web."
-    doc_types = ["writer"]
-    parameters = {"type": "object", "properties": {"query": {"type": "string", "description": "The research query or question."}, "history_text": {"type": "string", "description": "Recent conversation history for context."}}, "required": ["query"]}
-
-    def is_async(self):
-        return True
 
 
-class ToolCalcWebResearchBase(ToolWriterWebResearchBase):
-    doc_types = ["calc"]
-
-
-class ToolDrawWebResearchBase(ToolWriterWebResearchBase):
-    doc_types = ["draw", "impress"]
 
 
 class WebResearchToolCallingAgent(ToolCallingAgent):
@@ -501,8 +487,21 @@ def _run_deep_web_research(
     )
 
 
-class WebResearchTool(ToolCalcWebResearchBase, ToolDrawWebResearchBase):
+class WebResearchTool(ToolBase):
+    name = "web_research"
+    description = "Perform deep web research to answer complex questions. Bypasses document context to search the live web."
     doc_types = ["writer", "calc", "draw", "impress"]
+    parameters = {
+        "type": "object",
+        "properties": {
+            "query": {"type": "string", "description": "The research query or question."},
+            "history_text": {"type": "string", "description": "Recent conversation history for context."},
+        },
+        "required": ["query"],
+    }
+
+    def is_async(self):
+        return True
 
     def execute(self, ctx, **kwargs):
         query = kwargs.get("query")
@@ -717,3 +716,10 @@ def _apply_web_search_query_override(step: Any, query_override: str) -> bool:
 
 def _norm_research_query(q: str) -> str:
     return " ".join(q.lower().split()).rstrip("?").rstrip(".")
+
+
+# Backwards compatibility aliases for specialized base tools
+ToolWriterWebResearchBase = WebResearchTool
+ToolCalcWebResearchBase = WebResearchTool
+ToolDrawWebResearchBase = WebResearchTool
+

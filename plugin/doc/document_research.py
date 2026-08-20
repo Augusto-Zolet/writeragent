@@ -28,6 +28,15 @@ log = logging.getLogger(__name__)
 
 NEARBY_FILE_EXTENSIONS = ALL_INDEXABLE_EXTENSIONS
 
+DOC_RESEARCH_DISCOVERY_TOOL_NAMES = frozenset(
+    {
+        "list_nearby_files",
+        "grep_nearby_files",
+        "delegate_read_document",
+        "search_nearby_files",
+    }
+)
+
 NEARBY_IMAGE_EXTENSIONS = frozenset(
     {
         ".png",

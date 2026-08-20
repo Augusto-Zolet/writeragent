@@ -529,7 +529,7 @@ def test_test_tunnel_connectivity_live_probe_success():
 
 def test_build_mcp_config_snippet_with_custom_and_local_url():
     import json
-    from plugin.chatbot.dialog_views import build_mcp_config_snippet
+    from plugin.mcp.mcp_ui import build_mcp_config_snippet
 
     local_snippet = build_mcp_config_snippet(port=18765)
     local_data = json.loads(local_snippet)
@@ -544,7 +544,7 @@ def test_build_mcp_config_snippet_with_custom_and_local_url():
 def test_sync_mcp_config_snippet_reacts_to_checkbox_and_custom_url():
     import json
     from unittest.mock import MagicMock
-    from plugin.chatbot.dialog_views import (
+    from plugin.mcp.mcp_ui import (
         sync_mcp_config_snippet,
         McpTunnelEnabledListener,
         McpPortTextListener,

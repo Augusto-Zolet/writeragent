@@ -13,69 +13,29 @@ from __future__ import annotations
 import logging
 import re
 import traceback
-from typing import Any, Iterable, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar
 
+if TYPE_CHECKING:
+    from plugin.contrib.smolagents.memory import ActionStep, ToolCall
+
+from plugin.doc.document_research import DOC_RESEARCH_DISCOVERY_TOOL_NAMES, filter_document_research_discovery_tools
+from plugin.doc.specialized_base import _field_from_tool_arguments
+from plugin.chatbot.smol_examples import normalize_html_content_array
 from plugin.framework.tool import ToolBase, ToolContext
 from plugin.writer.specialized_base import ToolWriterSpecialBase
 
 log = logging.getLogger(__name__)
 
-# document_research tools merged into brainstorming sessions (read-only discovery).
-_BRAINSTORMING_DOC_RESEARCH_TOOL_NAMES = frozenset(
-    {
-        "list_nearby_files",
-        "grep_nearby_files",
-        "delegate_read_document",
-        "search_nearby_files",
-    }
-)
-
-
-def _field_from_tool_arguments(arguments: Any, field: str) -> Any:
-    if arguments is None:
-        return None
-    if isinstance(arguments, dict):
-        return arguments.get(field)
-    if isinstance(arguments, str):
-        try:
-            from plugin.framework.errors import safe_json_loads
-
-            data = safe_json_loads(arguments)
-            if isinstance(data, dict):
-                return data.get(field)
-        except Exception:
-            pass
-    return None
-
-
-def _normalize_html_content_array(content: Any) -> list[str] | None:
-    """Accept list of HTML strings or a single string (coerce to one-element list)."""
-    if content is None:
-        return None
-    if isinstance(content, str):
-        text = content.strip()
-        return [text] if text else None
-    if isinstance(content, list):
-        out: list[str] = []
-        for item in content:
-            if item is None:
-                continue
-            s = str(item).strip()
-            if s:
-                out.append(s)
-        return out if out else None
-    return None
+_normalize_html_content_array = normalize_html_content_array
 
 
 def collect_brainstorming_tools(ctx: ToolContext) -> list[ToolBase]:
     """Tools for the brainstorming smol sub-agent (brainstorming domain + doc research reads)."""
-    from plugin.doc.document_research import filter_document_research_discovery_tools
-
     registry = ctx.services.get("tools")
     primary = registry.get_tools(doc_type=ctx.doc_type, uno_services_supported=ctx.uno_services_supported, active_domain="brainstorming", exclude_tiers=())
     doc_res = registry.get_tools(doc_type=ctx.doc_type, uno_services_supported=ctx.uno_services_supported, active_domain="document_research", exclude_tiers=())
     doc_res = filter_document_research_discovery_tools(doc_res, ctx.ctx)
-    allow = set(_BRAINSTORMING_DOC_RESEARCH_TOOL_NAMES)
+    allow = set(DOC_RESEARCH_DISCOVERY_TOOL_NAMES)
     by_name = {t.name: t for t in primary if t.name}
     for t in doc_res:
         if t.name in allow and t.name not in by_name:
@@ -144,7 +104,7 @@ class SaveDesignSpec(ToolWriterSpecialBase):
     }
 
     def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
-        content = _normalize_html_content_array(kwargs.get("content"))
+        content = normalize_html_content_array(kwargs.get("content"))
         if not content:
             return self._tool_error("content must be a non-empty array of HTML strings.", code="INVALID_CONTENT")
 
@@ -187,16 +147,13 @@ class BrainstormingFinishedTool(ToolBase):
 
 def _run_brainstorming_agent(ctx: ToolContext, *, query: str, history_text: str | None, topic: str | None) -> dict[str, Any]:
     """Run one turn of the brainstorming smol sub-agent."""
-    from plugin.framework.errors import format_error_payload, ToolExecutionError
-    from plugin.chatbot.smol_agent import SmolToolAdapter, build_toolcalling_agent
-    from plugin.contrib.smolagents.memory import ActionStep, FinalAnswerStep, ToolCall
+    from plugin.chatbot.smol_agent import SmolAgentExecutor, SmolToolAdapter, build_toolcalling_agent
     from plugin.chatbot.smol_examples import get_examples_block
     from plugin.framework.prompts import get_brainstorming_sub_agent_instructions
 
     status_callback = getattr(ctx, "status_callback", None)
     append_thinking_callback = getattr(ctx, "append_thinking_callback", None)
     chat_append_callback = getattr(ctx, "chat_append_callback", None)
-    stop_checker = getattr(ctx, "stop_checker", None)
 
     if history_text and len(history_text) > 4000:
         history_text = "..." + history_text[-4000:]
@@ -223,53 +180,52 @@ def _run_brainstorming_agent(ctx: ToolContext, *, query: str, history_text: str 
     )
 
     task = f"### CONVERSATION HISTORY:\n{history_text or 'None'}\n\n### CURRENT QUERY:\n{query}"
-    final_ans = None
     document_open_step_index = 0
 
-    run_stream = cast("Iterable", agent.run(task, stream=True))
-    for step in run_stream:
-        if stop_checker and stop_checker():
-            return format_error_payload(ToolExecutionError("Brainstorming stopped by user.", code="USER_STOPPED"))
-        if isinstance(step, ToolCall):
-            if step.name == "delegate_read_document" and chat_append_callback:
-                from plugin.chatbot.web_research_chat import document_open_step_chat_text
+    def tool_call_handler(step: ToolCall) -> Any:
+        nonlocal document_open_step_index
+        if step.name == "delegate_read_document" and chat_append_callback:
+            from plugin.chatbot.web_research_chat import document_open_step_chat_text
 
-                path_or_name = _field_from_tool_arguments(step.arguments, "path_or_name")
-                chat_append_callback(document_open_step_chat_text(path_or_name, document_open_step_index))
-                document_open_step_index += 1
-            if append_thinking_callback:
-                append_thinking_callback(f"Running tool: {step.name} with {step.arguments}\n")
-            if status_callback:
-                status_callback(f"{step.name}...")
-        elif isinstance(step, ActionStep):
-            if append_thinking_callback:
-                msg_parts = [f"Step {step.step_number}:\n"]
-                if step.model_output:
-                    mo = step.model_output
-                    msg_parts.append(f"{(mo.strip() if isinstance(mo, str) else str(mo).strip())}\n")
-                if step.observations:
-                    msg_parts.append(f"Observation: {str(step.observations).strip()}\n")
-                    obs_str = str(step.observations)
-                    if "'status': 'finished'" in obs_str or '"status": "finished"' in obs_str:
-                        match = re.search(r"'result': '([^']*)'", obs_str) or re.search(r'"result": "([^"]*)"', obs_str)
-                        handoff = match.group(1) if match else None
-                        spec_match = re.search(r"'spec_saved': (True|False)", obs_str) or re.search(r'"spec_saved": (true|false)', obs_str, re.I)
-                        spec_saved = spec_match.group(1).lower() == "true" if spec_match else False
-                        msg_parts.append("\n")
-                        append_thinking_callback("".join(msg_parts))
-                        return {"status": "finished", "result": handoff or "Brainstorming complete.", "spec_saved": spec_saved}
-                msg_parts.append("\n")
-                append_thinking_callback("".join(msg_parts))
-            elif step.observations:
-                obs_str = str(step.observations)
-                if "'status': 'finished'" in obs_str or '"status": "finished"' in obs_str:
-                    match = re.search(r"'result': '([^']*)'", obs_str) or re.search(r'"result": "([^"]*)"', obs_str)
-                    handoff = match.group(1) if match else None
-                    return {"status": "finished", "result": handoff or "Brainstorming complete.", "spec_saved": False}
-        elif isinstance(step, FinalAnswerStep):
-            final_ans = step.output
+            path_or_name = _field_from_tool_arguments(step.arguments, "path_or_name")
+            chat_append_callback(document_open_step_chat_text(path_or_name, document_open_step_index))
+            document_open_step_index += 1
+        if append_thinking_callback:
+            append_thinking_callback(f"Running tool: {step.name} with {step.arguments}\n")
+        if status_callback:
+            status_callback(f"{step.name}...")
+        return None
 
-    return {"status": "ok", "result": str(final_ans)}
+    def action_step_handler(step: ActionStep) -> Any:
+        if step.observations:
+            obs_str = str(step.observations)
+            if "'status': 'finished'" in obs_str or '"status": "finished"' in obs_str:
+                match = re.search(r"'result': '([^']*)'", obs_str) or re.search(r'"result": "([^"]*)"', obs_str)
+                handoff = match.group(1) if match else None
+                spec_match = re.search(r"'spec_saved': (True|False)", obs_str) or re.search(r'"spec_saved": (true|false)', obs_str, re.I)
+                spec_saved = spec_match.group(1).lower() == "true" if spec_match else False
+                if append_thinking_callback:
+                    msg = f"Step {step.step_number}:\n"
+                    if step.model_output:
+                        mo = step.model_output
+                        msg += f"{(mo.strip() if isinstance(mo, str) else str(mo).strip())}\n"
+                    msg += f"Observation: {obs_str.strip()}\n\n"
+                    append_thinking_callback(msg)
+                return {"status": "finished", "result": handoff or "Brainstorming complete.", "spec_saved": spec_saved}
+        return None
+
+    executor = SmolAgentExecutor(ctx)
+    res = executor.execute_safe(
+        agent,
+        task,
+        tool_call_handler=tool_call_handler,
+        action_step_handler=action_step_handler,
+        stop_message="Brainstorming stopped by user.",
+        error_prefix="Brainstorming failed",
+    )
+    if isinstance(res, dict):
+        return res
+    return {"status": "ok", "result": str(res)}
 
 
 class BrainstormingSessionTool(ToolBase):

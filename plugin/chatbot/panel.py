@@ -35,7 +35,7 @@ from plugin.framework.queue_executor import QueueExecutor
 from plugin.chatbot.history_db import get_chat_history
 
 # Recording shipped unless built with --no-recording (see scripts/build_oxt.py).
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from plugin.framework.client.llm_client import LlmClient
@@ -52,68 +52,9 @@ HAS_RECORDING = _AudioRecorderCls is not None
 from plugin.scripting.audio_recorder_service import is_audio_recording_supported
 
 
-_GRAMMAR_STATUS_PREVIEW_CHARS = 10
-
-
-def _clip_grammar_status_preview(s: str, max_len: int = _GRAMMAR_STATUS_PREVIEW_CHARS) -> str:
-    """One-line snippet for the sidebar status field (short to save space)."""
-    compact = " ".join(s.strip().split())
-    if not compact:
-        return "(empty)"
-    if len(compact) <= max_len:
-        return compact
-    return f"{compact[:max_len]}…"
-
-
-def _grammar_status_area(phase: str, result: str, preview: str) -> Literal["language", "grammar"]:
-    """Sidebar label bucket: language-detection LLM / failures vs grammar pipeline."""
-    if phase == "request" and result == "Detecting language":
-        return "language"
-    if phase == "failed" and preview.strip().lower() == "language detection":
-        return "language"
-    return "grammar"
-
-
-def format_grammar_status(data: dict[str, Any]) -> str:
-    """Format native grammar proofreader progress for the sidebar status field."""
-    phase = str(data.get("phase") or "")
-    preview_raw = str(data.get("preview") or "")
-    result = str(data.get("result") or "")
-    try:
-        length = int(data.get("length") or 0)
-    except Exception:
-        length = 0
-    elapsed = data.get("elapsed_ms")
-    area = _grammar_status_area(phase, result, preview_raw)
-    preview = _clip_grammar_status_preview(preview_raw)
-    prefix = "Language:" if area == "language" else "Grammar:"
-    if phase == "start":
-        return f"{prefix} queued '{preview}' len {length}"
-    if phase == "join":
-        return f"{prefix} waiting '{preview}' len {length}"
-    if phase == "request":
-        verb = "detecting" if area == "language" else "checking"
-        base = f"{prefix} {verb} '{preview}' len {length}"
-        if result and result not in ("LLM request", "LLM batch request", "Detecting language"):
-            return f"{prefix} {result}"
-        return base
-    if phase == "complete":
-        suffix = result or "done"
-        if elapsed is not None:
-            suffix = f"{suffix}, {elapsed}ms"
-        return f"{prefix} done '{preview}' len {length}: {suffix}"
-    if phase == "done":
-        suffix = result or "done"
-        if elapsed is not None:
-            suffix = f"{suffix}, {elapsed}ms"
-        return f"{prefix} done '{preview}' len {length}: {suffix}"
-    if phase == "timeout":
-        return f"{prefix} still running '{preview}' len {length}: {result}"
-    if phase == "skipped":
-        return f"{prefix} skipped '{preview}' len {length}: {result}"
-    if phase == "failed":
-        return f"{prefix} failed '{preview}' len {length}: {result}"
-    return f"{prefix} {phase or 'update'} '{preview}' len {length}"
+from plugin.chatbot.grammar_status import (
+    format_grammar_status,
+)
 
 
 # ---------------------------------------------------------------------------

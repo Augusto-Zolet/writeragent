@@ -388,7 +388,7 @@ class TestSettingsEnhancements(unittest.TestCase):
         api_key_ctrl.setFocus.assert_called_once()
         mock_open_url.assert_called_once_with(ctx, "https://api.together.ai/settings/api-keys")
 
-    @patch("plugin.chatbot.dialog_views.get_config_int", return_value=18765)
+    @patch("plugin.mcp.mcp_ui.get_config_int", return_value=18765)
     def test_build_mcp_config_snippet_default(self, mock_port):
         import json
         from plugin.chatbot.dialog_views import build_mcp_config_snippet
@@ -405,7 +405,7 @@ class TestSettingsEnhancements(unittest.TestCase):
         parsed = json.loads(snippet)
         self.assertEqual(parsed["mcpServers"]["libreoffice"]["url"], "http://localhost:9000/mcp")
 
-    @patch("plugin.chatbot.dialog_views.copy_to_clipboard", return_value=True)
+    @patch("plugin.mcp.mcp_ui.copy_to_clipboard", return_value=True)
     def test_copy_mcp_config_listener_action(self, mock_copy):
         from plugin.chatbot.dialog_views import CopyMcpConfigListener
 
@@ -424,8 +424,8 @@ class TestSettingsEnhancements(unittest.TestCase):
                 return btn_ctrl
             return None
 
-        with patch("plugin.chatbot.dialog_views.get_optional", side_effect=optional_side_effect), \
-             patch("plugin.chatbot.dialog_views.get_control_text", return_value='{"mcpServers": {}}'):
+        with patch("plugin.mcp.mcp_ui.get_optional", side_effect=optional_side_effect), \
+             patch("plugin.mcp.mcp_ui.get_control_text", return_value='{"mcpServers": {}}'):
             listener = CopyMcpConfigListener(ctx, dlg)
             listener.on_action_performed(MagicMock())
 
@@ -447,8 +447,8 @@ class TestSettingsEnhancements(unittest.TestCase):
                 return port_ctrl
             return None
 
-        with patch("plugin.chatbot.dialog_views.get_optional", side_effect=optional_side_effect), \
-             patch("plugin.chatbot.dialog_views.set_control_text") as mock_set_text:
+        with patch("plugin.mcp.mcp_ui.get_optional", side_effect=optional_side_effect), \
+             patch("plugin.mcp.mcp_ui.set_control_text") as mock_set_text:
             listener = McpPortTextListener(dlg)
             listener.textChanged(MagicMock())
 

@@ -624,7 +624,7 @@ class TunnelManager:
 
             elif isinstance(effect, NotifyUrlAcquiredEffect):
                 try:
-                    from plugin.chatbot.dialog_views import notify_tunnel_url_acquired
+                    from plugin.mcp.mcp_ui import notify_tunnel_url_acquired
 
                     mcp_url = self.mcp_public_url()
                     if mcp_url:

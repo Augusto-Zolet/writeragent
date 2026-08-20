@@ -198,7 +198,7 @@ class SmolAgentExecutor:
                 interrupt()
             raise ToolExecutionError("Task stopped by user.", code="USER_STOPPED")
 
-    def run(self, agent, task: str, tool_call_handler: Callable[[ToolCall], Any] | None = None) -> Any:
+    def run(self, agent, task: str, tool_call_handler: Callable[[ToolCall], Any] | None = None, action_step_handler: Callable[[ActionStep], Any] | None = None) -> Any:
         """Run the agent and stream its steps.
 
         Args:
@@ -208,6 +208,8 @@ class SmolAgentExecutor:
                               If provided, it should handle UI reporting for tools.
                               If it returns a value that is not None, the loop exits
                               and returns that value (useful for error payloads).
+            action_step_handler: Optional callback to handle ActionStep steps.
+                                If it returns a non-None value, the loop exits and returns that value.
 
         Returns:
             The final answer from the agent.
@@ -239,6 +241,11 @@ class SmolAgentExecutor:
                         self.status_callback(f"Tool: {step.name}...")
 
             elif isinstance(step, ActionStep):
+                if action_step_handler:
+                    res = action_step_handler(step)
+                    if res is not None:
+                        return res
+
                 if self.append_thinking_callback:
                     msg = f"Step {step.step_number}:\n"
                     if step.model_output:
@@ -260,13 +267,14 @@ class SmolAgentExecutor:
 
         return final_ans
 
-    def execute_safe(self, agent, task: str, tool_call_handler: Callable[[ToolCall], Any] | None = None, stop_message: str = "Stopped by user.", error_prefix: str = "Task failed") -> Any:
+    def execute_safe(self, agent, task: str, tool_call_handler: Callable[[ToolCall], Any] | None = None, action_step_handler: Callable[[ActionStep], Any] | None = None, stop_message: str = "Stopped by user.", error_prefix: str = "Task failed") -> Any:
         """Execute the agent safely, catching errors and formatting them for the UI.
 
         Args:
             agent: The smolagents Agent instance to run.
             task: The task string for the agent.
             tool_call_handler: Optional callback to handle ToolCall steps.
+            action_step_handler: Optional callback to handle ActionStep steps.
             stop_message: Message to show if the user stops the task.
             error_prefix: Prefix for general error messages.
 
@@ -277,7 +285,7 @@ class SmolAgentExecutor:
         from plugin.framework.i18n import _
 
         try:
-            return self.run(agent, task, tool_call_handler=tool_call_handler)
+            return self.run(agent, task, tool_call_handler=tool_call_handler, action_step_handler=action_step_handler)
         except ToolExecutionError as e:
             if e.code == "USER_STOPPED":
                 err = ToolExecutionError(_(stop_message), code="USER_STOPPED")

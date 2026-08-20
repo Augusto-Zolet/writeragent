@@ -20,6 +20,7 @@ Refresh librarian text with: ``python scripts/generate_smol_examples.py``
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from plugin.contrib.smolagents.toolcalling_agent_prompts import DELEGATE_GENERIC_EXAMPLES_BLOCK, WEB_RESEARCH_EXAMPLES_BLOCK
 from plugin.scripting.import_policy import format_venv_import_policy_for_prompt
@@ -261,3 +262,23 @@ def get_examples_block(key: str) -> str:
     if key.endswith(":python"):
         return PYTHON_SPECIALIZED_EXAMPLES
     return DELEGATE_GENERIC_EXAMPLES_BLOCK
+
+
+def normalize_html_content_array(content: Any) -> list[str] | None:
+    """Accept list of HTML strings or a single string (coerce to one-element list)."""
+    if content is None:
+        return None
+    if isinstance(content, str):
+        text = content.strip()
+        return [text] if text else None
+    if isinstance(content, list):
+        out: list[str] = []
+        for item in content:
+            if item is None:
+                continue
+            s = str(item).strip()
+            if s:
+                out.append(s)
+        return out if out else None
+    return None
+
