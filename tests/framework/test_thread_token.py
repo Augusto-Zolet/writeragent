@@ -19,6 +19,10 @@ def test_require_main_thread_on_main():
 
 
 def test_require_main_thread_raises_off_main(monkeypatch):
+    from tests.strip_bundle import module_source_contains
+
+    if not module_source_contains(tg, "UNO thread violation"):
+        pytest.skip("thread_guard is stubbed in release bundle")
     fake_bg = MagicMock()
     fake_bg.name = "worker-token"
     monkeypatch.setattr(threading, "current_thread", lambda: fake_bg)

@@ -234,15 +234,16 @@ def _get_calc_doc(ctx: Any) -> Any | None:
         if doc is not None and hasattr(doc, "getSheets"):
             return doc
         comps = desktop.getComponents()
-        if comps:
+        if comps is not None and hasattr(comps, "createEnumeration"):
             enum = comps.createEnumeration()
             while enum and enum.hasMoreElements():
                 elem = enum.nextElement()
                 model = None
                 if hasattr(elem, "getURL") and callable(getattr(elem, "getURL")):
                     model = elem
-                elif hasattr(elem, "getController") and elem.getController():
-                    model = elem.getController().getModel()
+                elif hasattr(elem, "getController") and getattr(elem, "getController", lambda: None)():
+                    ctrl = elem.getController()
+                    model = ctrl.getModel() if hasattr(ctrl, "getModel") else None
                 if model and hasattr(model, "getSheets"):
                     return model
     except Exception:
@@ -263,12 +264,14 @@ def session_key(ctx: Any, code: str) -> tuple:
         if on_main_thread() and (hasattr(ctx, "ServiceManager") or hasattr(ctx, "getServiceManager")):
             doc = _get_calc_doc(ctx)
             if doc is not None:
-                doc_url = getattr(doc, "getURL", lambda: "")() or ""
+                url_val = getattr(doc, "getURL", lambda: "")()
+                doc_url = url_val if isinstance(url_val, str) else ""
                 ctrl = getattr(doc, "getCurrentController", lambda: None)()
                 if ctrl is not None:
                     sheet = getattr(ctrl, "getActiveSheet", lambda: None)()
                     if sheet is not None:
-                        sheet_name = getattr(sheet, "getName", lambda: "")() or ""
+                        name_val = getattr(sheet, "getName", lambda: "")()
+                        sheet_name = name_val if isinstance(name_val, str) else ""
     except Exception:
         log.debug("session_key inline metadata lookup exception", exc_info=True)
     return (doc_url, sheet_name, code)

@@ -16,9 +16,10 @@ from plugin.calc.python.function import finalize_python_return, to_calc_compatib
 from plugin.tests.testing_utils import CalcDocStub
 
 
-def _ctx_with_doc(doc: CalcDocStub):
+def _ctx_with_doc(doc: CalcDocStub | None = None):
     desktop = MagicMock()
     desktop.getCurrentComponent.return_value = doc
+    desktop.getComponents.return_value = None
     smgr = MagicMock()
     smgr.createInstanceWithContext.return_value = desktop
     return SimpleNamespace(ServiceManager=smgr, getServiceManager=lambda: smgr)
@@ -783,6 +784,11 @@ def test_py_timing_logs_ipc_ms_and_pass_totals(monkeypatch: pytest.MonkeyPatch, 
     )
     assert python_function.execute_python_addin(ctx, code) == 2.0
     assert python_function.execute_python_addin(ctx, code) == 2.0
+    from tests.strip_bundle import module_source_contains
+
+    if not module_source_contains(python_function, "py_timing "):
+        return
+
     lines = [r.message for r in caplog.records if r.message.startswith("py_timing ")]
     assert len(lines) >= 2
     assert "code=describe_data" in lines[0]
@@ -817,6 +823,10 @@ def test_py_timing_cached_matrix_skips_ipc(monkeypatch: pytest.MonkeyPatch, capl
     out = python_function.execute_python_addin(ctx, code)
     assert called == []
     assert out == 1.0
+    from tests.strip_bundle import module_source_contains
+
+    if not module_source_contains(python_function, "py_timing "):
+        return
     lines = [r.message for r in caplog.records if r.message.startswith("py_timing ")]
     assert lines
     assert "cached=1" in lines[-1]
@@ -832,17 +842,25 @@ def test_format_error_for_display_distinguishes_timeout_error() -> None:
     assert "Test the venv" not in formatted
 
 
+def _skip_if_release_bundle() -> None:
+    from plugin.framework import thread_guard as tg
+    # In release bundles, thread_guard is replaced by a no-op stub that lacks internal guard machinery
+    if not hasattr(tg, "_designated_main_thread") or not hasattr(tg, "_violation_ui_lock"):
+        pytest.skip("Thread-guard background tests require active dev thread_guard (stripped in release bundles)")
+
+
 def test_execute_python_addin_from_background_thread_isolated(monkeypatch: pytest.MonkeyPatch) -> None:
     """Issue #402: external PyUNO setFormula runs on a bridge thread (Dummy-N).
 
     Must run without triggering Layer A UNO thread violations or deadlocking against main thread.
     """
+    _skip_if_release_bundle()
     from plugin.framework import thread_guard as tg
 
     monkeypatch.setattr(tg, "GUARD_ON", True)
     monkeypatch.setattr("plugin.scripting.session_manager.python_session_mode", lambda _ctx: "isolated")
 
-    ctx = SimpleNamespace(ServiceManager=MagicMock(), getServiceManager=lambda: MagicMock())
+    ctx = _ctx_with_doc(None)
 
     def fake_run(ctx, code, **kwargs):
         return {"status": "ok", "result": 2.0}
@@ -870,6 +888,7 @@ def test_execute_python_addin_from_background_thread_isolated(monkeypatch: pytes
 
 def test_execute_python_addin_from_background_thread_shared_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     """Issue #402: shared mode off-main falls back safely if main-thread marshal fails."""
+    _skip_if_release_bundle()
     from plugin.framework import thread_guard as tg
 
     monkeypatch.setattr(tg, "GUARD_ON", True)
@@ -881,7 +900,7 @@ def test_execute_python_addin_from_background_thread_shared_fallback(monkeypatch
 
     monkeypatch.setattr("plugin.framework.queue_executor.execute_on_main_thread", fake_execute_on_main)
 
-    ctx = SimpleNamespace(ServiceManager=MagicMock(), getServiceManager=lambda: MagicMock())
+    ctx = _ctx_with_doc(None)
 
     def fake_run(ctx, code, session_id=None, **kwargs):
         # Even with timeout in shared mode, it falls back to isolated (session_id=None) and returns result

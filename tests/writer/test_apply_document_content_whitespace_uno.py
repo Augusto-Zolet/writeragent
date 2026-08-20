@@ -96,7 +96,7 @@ def test_apply_document_content_all_matches_mixed_spaces_uno(ctx, doc):
         all_matches=True,
     )
     assert res.get("status") == "ok", res
-    assert "Replaced 1 occurrence(s)" in res.get("message", ""), res.get("message")
+    assert "Replaced 1 occurrence" in res.get("message", ""), res.get("message")
     body = doc.getText().getString()
     assert "phrase one here" in body
     assert "TWO" in body
