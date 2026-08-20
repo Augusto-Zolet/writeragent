@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-19 22:46-0400\n"
+"POT-Creation-Date: 2026-08-20 14:31-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Japanese <LL@li.org>\n"
@@ -321,9 +321,9 @@ msgid ""
 msgstr "モデルが同じチャンクを繰り返しています（無限ループ）。もう一度お試しいただくか、別のモデルをご使用ください。"
 
 #: plugin/framework/main_shared.py plugin/writer/math/latex_dialog.py
-#: plugin/chatbot/dialogs.py plugin/chatbot/panel.py
-#: plugin/chatbot/external_editor.py plugin/chatbot/send_handlers.py
-#: plugin/chatbot/dialog_views.py plugin/scripting/editor_ui_strings.py
+#: plugin/chatbot/panel.py plugin/chatbot/external_editor.py
+#: plugin/chatbot/send_handlers.py plugin/chatbot/dialog_views.py
+#: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Error"
 msgstr "エラー"
@@ -467,6 +467,11 @@ msgstr ""
 #: plugin/calc/python/editor.py
 msgid "unknown error"
 msgstr "不明なエラー"
+
+#: plugin/calc/python/function.py
+#, python-brace-format
+msgid "Error: Main-thread execution timed out ({0})"
+msgstr "エラー: メインスレッドの実行がタイムアウトしました ({0})"
 
 #: plugin/calc/python/function.py plugin/scripting/python_runner_ui.py
 #: plugin/scripting/python_runner.py
@@ -976,26 +981,6 @@ msgstr "このアクションを続行しますか?"
 msgid "Tool: %s"
 msgstr "ツール: %s"
 
-#: plugin/chatbot/dialogs.py plugin/scripting/editor_ui_strings.py
-#: plugin/xdl_strings.py
-msgid "New Python Script"
-msgstr "新しいPythonスクリプト"
-
-#: plugin/chatbot/dialogs.py plugin/scripting/editor_ui_strings.py
-#: plugin/xdl_strings.py
-msgid "Script name:"
-msgstr "スクリプト名:"
-
-#: plugin/chatbot/dialogs.py plugin/scripting/editor_ui_strings.py
-#: plugin/xdl_strings.py
-msgid "Attach to this document"
-msgstr "このドキュメントに添付"
-
-#: plugin/chatbot/dialogs.py plugin/scripting/editor_ui_strings.py
-#: plugin/scripting/document_scripts.py plugin/scripting/editor_host.py
-msgid "Script name cannot be empty."
-msgstr "スクリプト名を空にすることはできません。"
-
 #: plugin/chatbot/dialogs.py plugin/mcp/__init__.py
 msgid "Copied!"
 msgstr "コピーしました！"
@@ -1332,22 +1317,6 @@ msgstr "接続をテスト中..."
 msgid "Audio Library Download"
 msgstr "オーディオライブラリのダウンロード"
 
-#: plugin/chatbot/dialog_views.py
-msgid "✓ Copied!"
-msgstr "✓ コピーしました！"
-
-#: plugin/chatbot/dialog_views.py
-msgid "Testing…"
-msgstr "テスト中…"
-
-#: plugin/chatbot/dialog_views.py
-msgid "Test Tunnel"
-msgstr "トンネルのテスト"
-
-#: plugin/chatbot/dialog_views.py
-msgid "MCP Tunnel Test"
-msgstr "MCP トンネルのテスト"
-
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
 msgstr "(APIキーを入力してモデルを読み込む)"
@@ -1371,6 +1340,26 @@ msgstr "高さ:"
 #: plugin/chatbot/panel_factory.py
 msgid "Width:"
 msgstr "幅:"
+
+#: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
+#: plugin/xdl_strings.py
+msgid "New Python Script"
+msgstr "新しいPythonスクリプト"
+
+#: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
+#: plugin/xdl_strings.py
+msgid "Script name:"
+msgstr "スクリプト名:"
+
+#: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
+#: plugin/xdl_strings.py
+msgid "Attach to this document"
+msgstr "このドキュメントに添付"
+
+#: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
+#: plugin/scripting/document_scripts.py plugin/scripting/editor_host.py
+msgid "Script name cannot be empty."
+msgstr "スクリプト名を空にすることはできません。"
 
 #: plugin/scripting/editor_ui_strings.py
 msgid "Status:"
@@ -2344,6 +2333,22 @@ msgstr "ステータス: 失敗 — {0}"
 #, python-brace-format
 msgid "Status: Not running (is {0} binary installed?)"
 msgstr "ステータス: 実行されていません ({0} バイナリはインストールされていますか?)"
+
+#: plugin/mcp/mcp_ui.py
+msgid "✓ Copied!"
+msgstr "✓ コピーしました！"
+
+#: plugin/mcp/mcp_ui.py
+msgid "Testing…"
+msgstr "テスト中…"
+
+#: plugin/mcp/mcp_ui.py
+msgid "Test Tunnel"
+msgstr "トンネルのテスト"
+
+#: plugin/mcp/mcp_ui.py
+msgid "MCP Tunnel Test"
+msgstr "MCP トンネルのテスト"
 
 #: plugin/mcp/tunnel.py
 #, python-brace-format

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-19 22:46-0400\n"
+"POT-Creation-Date: 2026-08-20 14:31-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Danish <LL@li.org>\n"
@@ -338,9 +338,9 @@ msgstr ""
 "anden model."
 
 #: plugin/framework/main_shared.py plugin/writer/math/latex_dialog.py
-#: plugin/chatbot/dialogs.py plugin/chatbot/panel.py
-#: plugin/chatbot/external_editor.py plugin/chatbot/send_handlers.py
-#: plugin/chatbot/dialog_views.py plugin/scripting/editor_ui_strings.py
+#: plugin/chatbot/panel.py plugin/chatbot/external_editor.py
+#: plugin/chatbot/send_handlers.py plugin/chatbot/dialog_views.py
+#: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
 #: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
 msgid "Error"
 msgstr "Fejl"
@@ -487,6 +487,11 @@ msgstr ""
 #: plugin/calc/python/editor.py
 msgid "unknown error"
 msgstr "ukendt fejl"
+
+#: plugin/calc/python/function.py
+#, python-brace-format
+msgid "Error: Main-thread execution timed out ({0})"
+msgstr "Fejl: Udførelse i hovedtråden fik timeout ({0})"
 
 #: plugin/calc/python/function.py plugin/scripting/python_runner_ui.py
 #: plugin/scripting/python_runner.py
@@ -1001,26 +1006,6 @@ msgstr "Fortsæt med denne handling?"
 msgid "Tool: %s"
 msgstr "Værktøj: %s"
 
-#: plugin/chatbot/dialogs.py plugin/scripting/editor_ui_strings.py
-#: plugin/xdl_strings.py
-msgid "New Python Script"
-msgstr "Nyt Python-script"
-
-#: plugin/chatbot/dialogs.py plugin/scripting/editor_ui_strings.py
-#: plugin/xdl_strings.py
-msgid "Script name:"
-msgstr "Scriptnavn:"
-
-#: plugin/chatbot/dialogs.py plugin/scripting/editor_ui_strings.py
-#: plugin/xdl_strings.py
-msgid "Attach to this document"
-msgstr "Vedhæft til dette dokument"
-
-#: plugin/chatbot/dialogs.py plugin/scripting/editor_ui_strings.py
-#: plugin/scripting/document_scripts.py plugin/scripting/editor_host.py
-msgid "Script name cannot be empty."
-msgstr "Scriptnavn må ikke være tomt."
-
 #: plugin/chatbot/dialogs.py plugin/mcp/__init__.py
 msgid "Copied!"
 msgstr "Kopieret!"
@@ -1367,22 +1352,6 @@ msgstr "Tester forbindelse..."
 msgid "Audio Library Download"
 msgstr "Download af lydbibliotek"
 
-#: plugin/chatbot/dialog_views.py
-msgid "✓ Copied!"
-msgstr "✓ Kopieret!"
-
-#: plugin/chatbot/dialog_views.py
-msgid "Testing…"
-msgstr "Tester…"
-
-#: plugin/chatbot/dialog_views.py
-msgid "Test Tunnel"
-msgstr "Test tunnel"
-
-#: plugin/chatbot/dialog_views.py
-msgid "MCP Tunnel Test"
-msgstr "MCP-tunneltest"
-
 #: plugin/chatbot/config_ui_helpers.py
 msgid "(Enter API Key to load models)"
 msgstr "(Indtast API-nøgle for at indlæse modeller)"
@@ -1406,6 +1375,26 @@ msgstr "Højde:"
 #: plugin/chatbot/panel_factory.py
 msgid "Width:"
 msgstr "Bredde:"
+
+#: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
+#: plugin/xdl_strings.py
+msgid "New Python Script"
+msgstr "Nyt Python-script"
+
+#: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
+#: plugin/xdl_strings.py
+msgid "Script name:"
+msgstr "Scriptnavn:"
+
+#: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
+#: plugin/xdl_strings.py
+msgid "Attach to this document"
+msgstr "Vedhæft til dette dokument"
+
+#: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
+#: plugin/scripting/document_scripts.py plugin/scripting/editor_host.py
+msgid "Script name cannot be empty."
+msgstr "Scriptnavn må ikke være tomt."
 
 #: plugin/scripting/editor_ui_strings.py
 msgid "Status:"
@@ -2421,6 +2410,22 @@ msgstr "Status: Mislykkedes — {0}"
 #, python-brace-format
 msgid "Status: Not running (is {0} binary installed?)"
 msgstr "Status: Kører ikke (er {0}-binærfilen installeret?)"
+
+#: plugin/mcp/mcp_ui.py
+msgid "✓ Copied!"
+msgstr "✓ Kopieret!"
+
+#: plugin/mcp/mcp_ui.py
+msgid "Testing…"
+msgstr "Tester…"
+
+#: plugin/mcp/mcp_ui.py
+msgid "Test Tunnel"
+msgstr "Test tunnel"
+
+#: plugin/mcp/mcp_ui.py
+msgid "MCP Tunnel Test"
+msgstr "MCP-tunneltest"
 
 #: plugin/mcp/tunnel.py
 #, python-brace-format
