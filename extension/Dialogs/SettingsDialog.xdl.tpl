@@ -43,7 +43,7 @@
   <dlg:combobox dlg:id="additional_instructions" dlg:page="1" dlg:left="165" dlg:top="120" dlg:width="325" dlg:height="14" dlg:tabstop="true" dlg:spin="true" dlg:dropdown="true" dlg:value="" dlg:border="1"/>
 
   <!-- Row 8: Get API Key buttons -->
-  <dlg:text dlg:id="label_get_api_key" dlg:page="1" dlg:left="8" dlg:top="140" dlg:width="150" dlg:height="10" dlg:value="Get API Key (1-click):" dlg:align="left"/>
+  <dlg:text dlg:id="label_get_api_key" dlg:page="1" dlg:left="8" dlg:top="140" dlg:width="150" dlg:height="10" dlg:value="Get API Key:" dlg:align="left"/>
   <dlg:img dlg:id="img_openrouter" dlg:page="1" dlg:left="165" dlg:top="138" dlg:width="14" dlg:height="14" dlg:scale-mode="isotropic" dlg:tabstop="false"/>
   <dlg:button dlg:id="btn_openrouter" dlg:page="1" dlg:left="180" dlg:top="138" dlg:width="64" dlg:height="14" dlg:tabstop="true" dlg:value="OpenRouter"/>
   <dlg:img dlg:id="img_together" dlg:page="1" dlg:left="247" dlg:top="138" dlg:width="14" dlg:height="14" dlg:scale-mode="isotropic" dlg:tabstop="false"/>

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from plugin.calc.base import ToolCalcAnalysisBase
+from plugin.framework.tool import ToolBaseDummy
 from plugin.framework.errors import ToolExecutionError
 from plugin.framework.queue_executor import execute_on_main_thread
 from plugin.scripting.viz import HELPER_NAMES, insert_viz_result_into_doc
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 _VIZ_HELPERS = ", ".join(sorted(HELPER_NAMES))
 
 
-class PlotDataTool(ToolCalcAnalysisBase):
+class PlotDataTool(ToolBaseDummy):
     """Run trusted matplotlib/seaborn plot helpers on spreadsheet data."""
 
     name = "plot_data"

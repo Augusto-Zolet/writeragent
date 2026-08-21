@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from plugin.calc.base import ToolCalcAnalysisBase
+from plugin.framework.tool import ToolBaseDummy
 from plugin.framework.errors import ToolExecutionError
 from plugin.scripting.optimize import HELPER_NAMES
 
@@ -21,7 +21,7 @@ logger = logging.getLogger("writeragent.calc")
 _OPTIMIZE_DATA_HELPERS = ", ".join(sorted(HELPER_NAMES))
 
 
-class OptimizeDataTool(ToolCalcAnalysisBase):
+class OptimizeDataTool(ToolBaseDummy):
     """Run trusted optimization helpers on sheet data via the venv worker."""
 
     name = "optimize_data"

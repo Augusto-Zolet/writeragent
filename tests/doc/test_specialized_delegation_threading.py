@@ -26,6 +26,7 @@ setup_uno_mocks()
 
 
 class _DummyAnalysisTool(ToolCalcAnalysisBase):
+    specialized_domain = "analysis"
     name = "dummy_analysis_tool"
     description = "test"
     parameters = {"type": "object", "properties": {}, "required": []}

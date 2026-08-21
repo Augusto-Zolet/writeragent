@@ -2,7 +2,9 @@
 
 This document describes the specialized tools for performing analysis in LibreOffice Calc.
 
-All tools below live under the **`analysis`** specialized domain. The main chat agent delegates with `delegate_to_specialized_calc_toolset(domain="analysis", task=…)`; the analysis sub-agent chooses the right tool:
+**Chat (2026):** Calc hides `analysis` and `python` (`CALC_HIDDEN_SPECIALIZED_DOMAINS`). Main chat runs Python only as **`=PY()`** via `write_formula_range` into an empty cell outside the data range (no in-place overwrite). Classes below remain for tests and Run Python Script helpers.
+
+Previously, tools lived under the **`analysis`** specialized domain (`delegate_to_specialized_calc_toolset(domain="analysis", task=…)`):
 
 | Task type | Tool |
 |-----------|------|

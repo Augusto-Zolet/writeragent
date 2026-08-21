@@ -151,7 +151,7 @@ CALC_CORE_DIRECTIVES = f"""When the user wants {DELEGATION_USER_FILE_DATA_HINT} 
 - You MUST NOT ask the user where the file is stored, how to find it, or to upload, paste, or share its contents.
 - You MUST call delegate_to_specialized_calc_toolset(domain="document_research") once with their described file(s) and task in task; the specialized task lists nearby files to match (paths not required).
 When the user wants {DELEGATION_PUBLIC_WEB_HINT}, delegate_to_specialized_calc_toolset(domain="web_research").
-When the user wants data analysis, statistics, regression, clustering, forecasting or time series, charts or plots, Goal Seek, or Solver on spreadsheet data, delegate_to_specialized_calc_toolset(domain="analysis")."""
+To run Python on sheet data, write =PY("result = …"; DataRange) with write_formula_range into an empty cell outside DataRange. A list or table result fills cells down and right from that formula cell (spill) and stays live — the spill area must be empty (e.g. unique rows from A1:H500 go in J1, not A1 or H1; leave columns free right of H). Overwriting the input range in place is circular. If the user asks to write back onto that range, put =PY beside it or on a new sheet and say where the output is."""
 
 DRAW_CORE_DIRECTIVES = f"""When the user wants {DELEGATION_USER_FILE_DATA_HINT} (including when the user refers to any other file, document, spreadsheet, or sheet by name or path, e.g. "my spreadsheet", "read cell a9 from PythonInCalc", "summary.odt", etc., or asks to pull, read, search, or reference data from them):
 - You MUST NOT ask the user where the file is stored, how to find it, or to upload, paste, or share its contents.
@@ -268,6 +268,9 @@ WRITER_SIDEBAR_ONLY_DOMAINS = frozenset({"brainstorming", "writing_plan", "deep_
 
 # Impress/Draw sidebar modes — PPT-Master combo box; hidden from main chat and draw delegate.
 IMPRESS_DRAW_SIDEBAR_ONLY_DOMAINS = frozenset({"ppt-master"})
+
+# Parked from Calc chat/MCP domain lists. Compute in Calc chat is =PY() on write_formula_range.
+CALC_HIDDEN_SPECIALIZED_DOMAINS = frozenset({"analysis", "python"})
 
 # Single-line blocks: MCP tool descriptions and many clients do not render newlines inside JSON strings.
 WRITER_SPECIALIZED_DELEGATION_TEMPLATE = (
@@ -554,6 +557,7 @@ CALC_FORMULA_SYNTAX = """FORMULA SYNTAX: LibreOffice uses semicolon (;) as the f
 - Correct: =SUM(A1:A10), =IF(A1>0;B1;C1)
 - Wrong: =SUM(A1,A10), =IF(A1>0,"Yes","No") (no commas in formulas)
 - Write `=PY("result = ..."; A1:A10)` in cells to calculate/run Python (omit the second argument if no data is needed, e.g. `=PY("result = 2**10")`).
+- A list/table `result` spills from that cell down and right into empty cells.
 - Example: `=PY("result = np.sum(data)"; A1:A10)`."""
 
 # DEFAULT_CALC_CHAT_SYSTEM_PROMPT_TEMPLATE is built in _init_venv_import_policy_strings() (needs import policy).
@@ -610,7 +614,7 @@ def _catalog_entries_from_base(base_cls, *, agent_label: str | None = None, ctx=
         desc = getattr(cls, "specialized_domain_description", None)
         if not domain:
             continue
-        if agent_label == "Calc" and domain == "python":
+        if agent_label == "Calc" and domain in CALC_HIDDEN_SPECIALIZED_DOMAINS:
             continue
         if agent_label == "Writer" and domain in WRITER_SIDEBAR_ONLY_DOMAINS:
             continue
@@ -891,6 +895,7 @@ def _init_venv_import_policy_strings() -> None:
 - Correct: =SUM(A1:A10), =IF(A1>0;B1;C1)
 - Wrong: =SUM(A1,A10), =IF(A1>0,"Yes","No") (no commas in formulas)
 - Write `=PY("result = ..."; A1:A10)` in cells to calculate/run Python (omit the second argument if no data is needed, e.g. `=PY("result = 2**10")`).
+- A list/table `result` spills from that cell down and right into empty cells.
 {compact}
 - Example: `=PY("result = np.sum(data)"; A1:A10)`."""
     DEFAULT_CALC_CHAT_SYSTEM_PROMPT_TEMPLATE = f"""You are a LibreOffice Calc spreadsheet assistant who creates polished, professional, and colorful spreadsheets.

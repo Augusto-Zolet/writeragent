@@ -121,11 +121,10 @@ class ToolCalcSearchBase(ToolCalcSpecialBase):
 
 
 class ToolCalcAnalysisBase(ToolCalcSpecialBase):
-    specialized_domain = "analysis"
-    specialized_domain_description: ClassVar[str | None] = (
-        "Data analysis, forecasting, and spreadsheet optimization: trusted numpy/pandas helpers "
-        "(analyze_data, forecast_data, plot_data), Goal Seek (calc_goal_seek), and Solver (calc_solver)."
-    )
+    # Not a chat/MCP domain (tools are ToolBaseDummy). Keep the class for tests that
+    # register a local tool with specialized_domain = "analysis".
+    specialized_domain = None
+    specialized_domain_description: ClassVar[str | None] = None
     intent = "analyze"
     # Deliberately do NOT include "read_cell_range" here (unlike the general Calc special base).
     # Analysis sub-agents must use data_range (A1 address strings) with analyze_data / run_venv_python_script.

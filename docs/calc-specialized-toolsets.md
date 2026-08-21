@@ -62,7 +62,7 @@ WriterAgent's `write_formula_range` tool takes a different design approach than 
 | **Named Ranges** | ✅ Implemented | [`named_ranges.py`](../plugin/calc/named_ranges.py): `named_range_list`, `named_range_get_info`, `named_range_add`, `named_range_edit`, `named_range_delete`, `named_range_create_from_titles` | Domain-first naming. Global and sheet-local scopes, `NamedRangeFlag` bitmasks (print area, filter criteria), base position parsing, dynamic formulas, header-based creation (`Border.TOP/BOTTOM/LEFT/RIGHT`), and transparent resolution in `read_cell_range` / `write_formula_range`. |
 | **Data Validation** | ✅ Implemented | `validation.py`: SetDataValidation, GetDataValidationRules | Specialized tier |
 | **Conditional Formatting** | ✅ Implemented | [`conditional.py`](../plugin/calc/conditional.py): `add_conditional_format`, `list_conditional_formats`, `remove_conditional_formats` — [UNO / roadmap](calc-conditional-formatting.md) | Specialized tier |
-| **Analysis** | ✅ Implemented | [`analysis.py`](../plugin/calc/analysis.py): `analyze_data`, `calc_goal_seek`, `calc_solver` | Specialized tier (`domain="analysis"`) — trusted numpy helpers + spreadsheet Goal Seek/Solver |
+| **Analysis** | Hidden from chat | [`analysis.py`](../plugin/calc/analysis.py) etc. | LLM tools are `ToolBaseDummy`. Calc chat compute is `=PY()` (live formula into empty cells). Helpers remain for Run Python Script / tests. |
 | **Pivot Tables** | ✅ Implemented | `pivot.py`: CreatePivotTable, RefreshPivotTable, GetPivotTableData, ListPivotTables | Specialized tier |
 | **Tables** | ✅ Implemented | `tables.py`: CreateTable, GetTableInfo, SetTableStyle | — |
 | **Shapes** | ✅ Implemented | `shapes.py`: Create/Edit/DeleteShape (shared with Writer/Draw) | — |

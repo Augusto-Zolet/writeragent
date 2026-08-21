@@ -50,7 +50,7 @@ def test_plot_data_requires_helper(calc_ctx):
     assert result["status"] == "error"
 
 
-def test_plot_data_in_analysis_domain():
+def test_plot_data_not_registered():
     from plugin.main import get_tools
 
     from plugin.tests.testing_utils import CalcDocStub
@@ -58,4 +58,4 @@ def test_plot_data_in_analysis_domain():
     registry = get_tools()
     doc = CalcDocStub()
     names = {t.name for t in registry.get_tools(doc=doc, active_domain="analysis", exclude_tiers=())}
-    assert "plot_data" in names
+    assert "plot_data" not in names

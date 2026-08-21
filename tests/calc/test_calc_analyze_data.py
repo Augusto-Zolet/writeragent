@@ -102,7 +102,7 @@ def test_analyze_data_worker_error(mock_run_trusted, mock_main_thread, calc_ctx)
     assert "worker failed" in result["message"]
 
 
-def test_analysis_domain_includes_all_tools():
+def test_analysis_domain_tools_not_registered():
     from plugin.main import get_tools
 
     from plugin.tests.testing_utils import CalcDocStub
@@ -110,15 +110,10 @@ def test_analysis_domain_includes_all_tools():
     registry = get_tools()
     doc = CalcDocStub()
     names = {t.name for t in registry.get_tools(doc=doc, active_domain="analysis", exclude_tiers=())}
-    assert "analyze_data" in names
-    assert "plot_data" in names
-    assert "calc_goal_seek" in names
-    assert "calc_solver" in names
-    # Data handoff discipline: analysis sub-agents must not receive read_cell_range.
-    # They discover structure via get_sheet_summary and pass addresses (data_range) for bulk data.
-    # read_cell_range would cause full cell values to be stringified into sub-agent observations.
-    assert "read_cell_range" not in names
-    assert "get_sheet_summary" in names
+    assert "analyze_data" not in names
+    assert "plot_data" not in names
+    assert "calc_goal_seek" not in names
+    assert "calc_solver" not in names
 
 
 def test_analyze_data_not_in_default_core_list():
@@ -133,12 +128,13 @@ def test_analyze_data_not_in_default_core_list():
     assert "calc_goal_seek" not in names
 
 
-def test_delegate_calc_gateway_includes_analysis_not_solvers():
+def test_delegate_calc_gateway_omits_python_and_analysis():
     from plugin.calc.specialized import DelegateToSpecializedCalc
 
     gateway = DelegateToSpecializedCalc()
     domains = gateway.parameters["properties"]["domain"]["enum"]
-    assert "analysis" in domains
+    assert "python" not in domains
+    assert "analysis" not in domains
     assert "solvers" not in domains
 
 

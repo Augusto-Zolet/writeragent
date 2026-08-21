@@ -190,7 +190,7 @@ def test_to_mcp_schema_delegate_writer_includes_specialized_delegation_hint():
     assert "writing_plan:" not in domain_desc
 
 
-def test_to_mcp_schema_delegate_calc_domain_list_omits_python():
+def test_to_mcp_schema_delegate_calc_domain_list_omits_analysis_and_python():
     from plugin.calc.specialized import DelegateToSpecializedCalc
 
     mcp_schema = to_mcp_schema(DelegateToSpecializedCalc())
@@ -198,8 +198,9 @@ def test_to_mcp_schema_delegate_calc_domain_list_omits_python():
     domain_enum = mcp_schema["inputSchema"]["properties"]["domain"]["enum"]
     assert "specialized Calc task" in mcp_schema["description"]
     assert "python" not in domain_enum
-    assert "analysis" in domain_enum
+    assert "analysis" not in domain_enum
     assert "solvers" not in domain_enum
+    assert "analysis:" not in domain_desc
     assert "python:" not in domain_desc
 
 

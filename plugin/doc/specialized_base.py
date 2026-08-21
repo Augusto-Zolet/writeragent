@@ -21,7 +21,11 @@ from typing import Any, cast, Type, ClassVar
 
 from plugin.framework.tool import ToolBase
 from plugin.framework.constants import USE_SUB_AGENT
-from plugin.framework.prompts import WRITER_SIDEBAR_ONLY_DOMAINS, IMPRESS_DRAW_SIDEBAR_ONLY_DOMAINS
+from plugin.framework.prompts import (
+    CALC_HIDDEN_SPECIALIZED_DOMAINS,
+    WRITER_SIDEBAR_ONLY_DOMAINS,
+    IMPRESS_DRAW_SIDEBAR_ONLY_DOMAINS,
+)
 from plugin.framework.prompts import DELEGATE_SPECIALIZED_TASK_PARAM_HINT, python_specialized_sub_agent_hint
 from plugin.framework.i18n import _
 from plugin.chatbot.smol_agent import build_toolcalling_agent, SmolAgentExecutor, SmolToolAdapter
@@ -74,7 +78,7 @@ class DelegateToSpecializedBase(ToolBase):
         for cls in self._special_base_class.__subclasses__():
             domain = getattr(cls, "specialized_domain", None)
             if domain:
-                if self._agent_label == "Calc" and domain == "python":
+                if self._agent_label == "Calc" and domain in CALC_HIDDEN_SPECIALIZED_DOMAINS:
                     continue
                 if self._agent_label == "Writer" and domain in WRITER_SIDEBAR_ONLY_DOMAINS:
                     continue
@@ -266,20 +270,11 @@ class DelegateToSpecializedBase(ToolBase):
             if domain == "images"
             else ""
         )
-        analysis_hint = (
-            " For stats, cleaning, regression, clustering, or simulation on tabular data, use analyze_data with the appropriate helper. "
-            "For charts and plots, use plot_data (or set auto_plot=true on analyze_data when the user wants a chart). "
-            "For live formula what-if (single target cell), use calc_goal_seek. "
-            "For constrained optimization on formula cells, use calc_solver. Prefer these over inventing raw pandas code. "
-            "For bulk data always pass a data_range (A1 address); the host performs the extraction."
-            if domain == "analysis"
-            else ""
-        )
         python_hint = python_specialized_sub_agent_hint(self._agent_label) if domain == "python" else ""
         instructions = (
             f"You are a specialized {self._agent_label} task executor focused on the '{domain}' domain. "
             f"You have a focused set of tools to accomplish your task. Use them to fulfill the user's request."
-            f"{footnotes_hint}{shapes_canvas}{charts_hint}{calc_ctx}{document_research_hint}{open_docs_context}{images_hint}{analysis_hint}{python_hint}"
+            f"{footnotes_hint}{shapes_canvas}{charts_hint}{calc_ctx}{document_research_hint}{open_docs_context}{images_hint}{python_hint}"
         )
 
 

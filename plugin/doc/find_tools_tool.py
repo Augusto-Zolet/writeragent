@@ -73,11 +73,6 @@ def get_domain_guidance(domain: str, *, agent_label: str | None = "Writer", ctx:
     if domain == "images":
         return ("Discover local image files with image_list_nearby_files before image_insert "
                 "when the user refers to a photo in the folder.")
-    if domain == "analysis":
-        return ("For stats, cleaning, regression, clustering, or simulation on tabular data "
-                "use analyze_data; for charts use plot_data (or auto_plot=true); for live "
-                "single-cell what-if use calc_goal_seek; for constrained optimization use "
-                "calc_solver. Always pass a data_range (A1 address) for bulk data.")
     if domain == "python":
         if agent_label is None:
             return ("run_venv_python_script: in Calc, pass `data_range` (an A1 address) to inject "

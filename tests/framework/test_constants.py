@@ -200,6 +200,9 @@ def test_get_chat_system_prompt_for_document_calc():
     assert CHAT_RESPONSE_FORMAT not in prompt
     assert "plain text only" in prompt
     assert "Calc" in prompt
+    assert 'domain="python"' not in prompt
+    assert 'domain="analysis"' not in prompt
+    assert "=PY" in prompt
 
 def test_get_chat_system_prompt_for_document_draw():
     model = MagicMock()
@@ -306,8 +309,13 @@ def test_calc_core_directives_no_math_python_delegation_line():
     assert "do not answer from memory" not in CALC_CORE_DIRECTIVES
 
 
-def test_calc_core_directives_analysis_delegation():
-    assert 'delegate_to_specialized_calc_toolset(domain="analysis")' in CALC_CORE_DIRECTIVES
+def test_calc_core_directives_py_formula_not_domains():
+    assert 'domain="python"' not in CALC_CORE_DIRECTIVES
+    assert 'domain="analysis"' not in CALC_CORE_DIRECTIVES
+    assert "write =PY" in CALC_CORE_DIRECTIVES
+    assert "fills cells down and right" in CALC_CORE_DIRECTIVES
+    assert "J1, not A1 or H1" in CALC_CORE_DIRECTIVES
+    assert "circular" in CALC_CORE_DIRECTIVES
 
 
 def test_core_directives_prohibit_asking_user_to_paste():

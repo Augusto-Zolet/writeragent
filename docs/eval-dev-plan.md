@@ -66,5 +66,19 @@ See previous analysis for architecture diagram (StringBackend → DrawJSONBacken
 - LO for validation of specialized tools (`ToolWriterSpecialBase`, `ToolDrawSpecialBase`, `get_draw_tree`).
 - Update `AGENTS.md` prompt optimization section with hybrid guidance.
 
+### F. Calc `=PY()` placement (future — do not implement in the same change as hiding Calc `python`)
+
+**Hypothesis:** a few limitation words on main chat beat a second specialized domain. MIPROv2 can later rewrite only the Calc `=PY` sentences in `CALC_CORE_DIRECTIVES` / `CALC_FORMULA_SYNTAX` (`plugin/framework/prompts.py`).
+
+Calc chat no longer delegates `domain="python"`; models must `write_formula_range` of `=PY("result = …"; DataRange)` into an **empty cell outside DataRange**. Future eval rows (not in `dataset.py` yet):
+
+| id | Ask | Pass | Fail |
+|----|-----|------|------|
+| unique beside | drop dupes on A1:H500 onto the sheet | `=PY` dest **J1** (or first empty col / other sheet) | dest inside A1:H500; `domain=python`; chat-only |
+| refuse overlap | put the formula in **H1**, data A1:H500 | dest J1/I1 and says H1 is inside the range | writes H1 |
+| in-place reframe | write unique rows **back onto** A1:H500 | same as unique beside + short circular explanation | `=PY` in A1 |
+
+Scoring: dest vs parsed data range; optional judge. Start `--backend string` after `CalcStringState` records dest + formula; LO later for spill. Optimize output: `optimized_calc_py_prompt.json`. If short main-chat wording cannot pick J1 over H1, *then* try a nested `=PY` playbook — do not add that hop until this eval exists.
+
 ---
-*Updated Dev Plan v2.0 — Hybrid Non-LO + DrawJSON + LO Fidelity (Apr 2026)*
+*Updated Dev Plan v2.1 — Calc `=PY` eval notes (Aug 2026)*

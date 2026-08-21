@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from plugin.calc.base import ToolCalcAnalysisBase
+from plugin.framework.tool import ToolBaseDummy
 from plugin.framework.errors import ToolExecutionError
 from plugin.scripting.forecast import HELPER_NAMES
 
@@ -21,7 +21,7 @@ logger = logging.getLogger("writeragent.calc")
 _FORECAST_DATA_HELPERS = ", ".join(sorted(HELPER_NAMES))
 
 
-class ForecastDataTool(ToolCalcAnalysisBase):
+class ForecastDataTool(ToolBaseDummy):
     """Run trusted forecasting helpers on sheet data via the venv worker."""
 
     name = "forecast_data"

@@ -1,5 +1,7 @@
 # Calc Analysis Sub-Agent — Development Plan (MVP: Calc-focused)
 
+**Status (chat, 2026):** Calc hides `analysis` and `python` (`CALC_HIDDEN_SPECIALIZED_DOMAINS`; analysis tools `ToolBaseDummy`). Calc chat Python is **`=PY()`** only. Trusted helpers remain for Run Python Script and tests.
+
 **Goal (for now):** A **Calc-only** specialized sub-agent (domain `"analysis"` or `"data"`) that can **discover relevant numeric/semi-structured data** primarily in Calc documents (active sheet or siblings in the folder), **prepare it** (ranges, tables, pivot data, named ranges, etc.) for scientific Python, **execute reliable analysis** using the full numpy/pandas/scipy/sklearn/etc. stack in the user's venv (via trusted code, avoiding sandbox limitations), and return compact, actionable results that the main agent can synthesize, explain, or apply back — primarily into the Calc document (new tables, charts, fitted values, cleaned data, etc.).
 
 **Dual access model (clarified):** We provide **both**:

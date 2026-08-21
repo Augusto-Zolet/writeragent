@@ -14,20 +14,24 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from plugin.testing_runner import native_test
-from plugin.tests.testing_utils import TestingFactory, with_native_doc
+from plugin.tests.testing_utils import with_native_doc
 
 
 def _execute_calc_tool(doc, ctx, name, args):
-    # Callbacks emulate specialized-delegation ToolContext fields.
-    return TestingFactory.execute_tool(
-        doc,
-        ctx,
-        name,
-        args,
+    # Chat registry no longer lists analysis tools (ToolBaseDummy). Call execute directly.
+    from plugin.calc.analysis import GoalSeekTool, SolverTool
+    from plugin.tests.testing_utils import TestingFactory as _TF
+
+    tctx = _TF.create_context(
+        doc=doc,
+        ctx=ctx,
+        env="native",
         doc_type="calc",
         status_callback=lambda m: None,
         append_thinking_callback=lambda m: None,
     )
+    tool = GoalSeekTool() if name == "calc_goal_seek" else SolverTool()
+    return tool.execute(tctx, **(args or {}))
 
 
 @native_test

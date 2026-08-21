@@ -85,9 +85,9 @@ def test_extract_full_calc_layout_count():
     """Verify that full layout extraction returns all 61 Calc tools across tiers."""
     layout = extract_full_calc_layout()
 
-    assert layout["total_count"] >= 60, f"Expected at least 60 tools, found {layout['total_count']}"
+    assert layout["total_count"] >= 54, f"Expected at least 54 tools, found {layout['total_count']}"
     assert len(layout["core_tools"]) >= 10
-    assert len(layout["specialized_tools"]) >= 45
+    assert len(layout["specialized_tools"]) >= 39
 
     # Check key core tools
     core_names = {t.name for t in layout["core_tools"]}
@@ -101,7 +101,8 @@ def test_extract_full_calc_layout_count():
     domains = layout["domain_map"].keys()
     assert "sheets" in domains
     assert "ranges" in domains
-    assert "analysis" in domains
+    assert "python" in domains
+    assert "analysis" not in domains
     assert "shapes" in domains
     assert "charts" in domains
     assert "comments" in domains
@@ -115,7 +116,7 @@ def test_full_calc_layout_mcp_schemas_validity():
     layout = extract_full_calc_layout()
     schemas = layout["mcp_schemas"]
 
-    assert len(schemas) >= 60
+    assert len(schemas) >= 54
 
     all_schema_errors = []
     for tool_name, schema in schemas.items():
@@ -148,12 +149,13 @@ def test_mcp_calc_tools_list_direct_flat(calc_mcp_setup):
     tools_list = result["result"]["tools"]
     tool_names = {t["name"] for t in tools_list}
 
-    assert len(tools_list) >= 55
+    assert len(tools_list) >= 50
     assert "read_cell_range" in tool_names
     assert "write_formula_range" in tool_names
     assert "create_sheet" in tool_names
     assert "named_range_add" in tool_names
-    assert "analyze_data" in tool_names
+    assert "run_venv_python_script" in tool_names
+    assert "analyze_data" not in tool_names
 
 
 def test_mcp_calc_tools_list_delegate_mode(calc_mcp_setup):

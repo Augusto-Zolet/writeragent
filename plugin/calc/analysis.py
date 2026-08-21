@@ -13,7 +13,10 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""Calc analysis tools: trusted numpy helpers, Goal Seek, and Solver."""
+"""Calc analysis tools: trusted numpy helpers, Goal Seek, and Solver.
+
+Chat/MCP: these classes are ToolBaseDummy (not registered). Use =PY() or domain=python.
+"""
 
 from __future__ import annotations
 
@@ -21,7 +24,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from plugin.framework.errors import ToolExecutionError
-from plugin.calc.base import ToolCalcAnalysisBase
+from plugin.framework.tool import ToolBaseDummy
 from plugin.calc.bridge import CalcBridge
 from plugin.calc.calc_utils import resolve_cell_address
 from plugin.scripting.analysis import HELPER_NAMES
@@ -84,7 +87,7 @@ def _get_cell_address(doc, address_str: str) -> CellAddress:
 
 
 
-class GoalSeekTool(ToolCalcAnalysisBase):
+class GoalSeekTool(ToolBaseDummy):
     """Find the value of a variable cell that results in a target formula value."""
 
     name = "calc_goal_seek"
@@ -142,7 +145,7 @@ class GoalSeekTool(ToolCalcAnalysisBase):
             raise ToolExecutionError(str(e)) from e
 
 
-class SolverTool(ToolCalcAnalysisBase):
+class SolverTool(ToolBaseDummy):
     """Solve an optimization problem with multiple variables and constraints."""
 
     name = "calc_solver"
@@ -321,7 +324,7 @@ class SolverTool(ToolCalcAnalysisBase):
 _ANALYZE_DATA_HELPERS = ", ".join(sorted(HELPER_NAMES))
 
 
-class AnalyzeDataTool(ToolCalcAnalysisBase):
+class AnalyzeDataTool(ToolBaseDummy):
     """Run trusted numpy/pandas analysis helpers on sheet data via the venv worker."""
 
     name = "analyze_data"
