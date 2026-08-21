@@ -312,9 +312,8 @@ def test_calc_core_directives_no_math_python_delegation_line():
 def test_calc_core_directives_py_formula_not_domains():
     assert 'domain="python"' not in CALC_CORE_DIRECTIVES
     assert 'domain="analysis"' not in CALC_CORE_DIRECTIVES
-    assert "write =PY" in CALC_CORE_DIRECTIVES
-    assert "fills cells down and right" in CALC_CORE_DIRECTIVES
-    assert "J1" in CALC_CORE_DIRECTIVES
+    assert "write_formula_range" in CALC_CORE_DIRECTIVES
+    assert "=PY" in CALC_CORE_DIRECTIVES
     assert "new sheet" in CALC_CORE_DIRECTIVES
     assert "circular" in CALC_CORE_DIRECTIVES
     assert "do not read_cell_range the input or the spill" in CALC_CORE_DIRECTIVES
@@ -324,7 +323,7 @@ def test_calc_core_directives_py_formula_not_domains():
 def test_calc_formula_syntax_sheet_dot_not_excel_bang():
     from plugin.framework.prompts import CALC_FORMULA_SYNTAX
 
-    assert "Never use Excel Sheet!A1" in CALC_FORMULA_SYNTAX
+    assert "never Excel bang" in CALC_FORMULA_SYNTAX
     assert "Orders.A1:H500" in CALC_FORMULA_SYNTAX
     assert "#NAME?" in CALC_FORMULA_SYNTAX
     assert "=PY(\"result = …\"; Orders.A1:H500)" in CALC_FORMULA_SYNTAX
