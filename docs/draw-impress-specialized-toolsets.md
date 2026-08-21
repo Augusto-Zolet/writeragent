@@ -63,7 +63,7 @@ These are available only via `delegate_to_specialized_draw_toolset`:
 | `distribute_shapes` | `shapes` | `draw/shapes.py` | Evenly space shapes along an axis | Drawing+Presentation |
 | `create_diagram` | `shapes` | `draw/shapes.py` | Batch nodes + connectors (flowchart) | Drawing+Presentation |
 | `image_insert` / `image_list` / `image_delete` / `image_generate` | `images` | `writer/images/images.py` | Same image tools as Writer/Calc; Draw/Impress uses millimetres (`page`, `x_mm`, `y_mm`) | Drawing+Presentation |
-| `insert_table` | `tables` | `draw/tables.py` | Insert a table; optional cell data | Drawing+Presentation |
+| `table_insert` / `table_list` / `table_get_cells` / `table_set_cell` / `manage_table_structure` | `tables` | `writer/specialized/tables.py` + `draw/tables.py` | Same names as Writer; Draw uses TableShape | Drawing+Presentation |
 | `get_slide_transition` | `slide_transitions` | `draw/transitions.py` | Get transition effect/speed/duration | Presentation |
 | `set_slide_transition` | `slide_transitions` | `draw/transitions.py` | Set transition effect/speed/duration | Presentation |
 | `get_slide_layout` | `slide_layouts` | `draw/transitions.py` | Get current slide layout | Presentation |
@@ -162,7 +162,7 @@ The existing sidebar doesn't need new UI elements; the "Insert Image" action dyn
 | **Themes** | ❌ Missing | — | Color/font schemes |
 | **Templates** | ❌ Missing | — | Document templates |
 | **Headers/Footers (specialized)** | ✅ Complete | 2 tools | `get_headers_footers`, `set_headers_footers` (Impress only) |
-| **Tables** | ✅ Insert | 1 tool | `insert_table`; not Writer’s table_list / table_set_cell / manage_table_structure |
+| **Tables** | ✅ | same names as Writer | `table_insert`, list/get/set, `manage_table_structure` on TableShape |
 | **3D Shapes** | ❌ Missing | — | 3D objects and scenes |
 | **Guides/Grid** | ❌ Missing | — | Snap settings, custom guides |
 | **OCR** | ❌ Missing | — | Text from images |
@@ -220,7 +220,7 @@ Some tools are implemented in shared modules but work with Draw/Impress:
 |---------|----------|-------------|--------|
 | **Batch Diagrams & Flowcharts** | `com.sun.star.drawing` | Single-turn diagram & flowchart creation | ✅ `create_diagram` |
 | **Shape Alignment & Distribution** | `com.sun.star.drawing` | Clean, aligned, professional diagram layouts | ✅ `align_shapes` / `distribute_shapes` |
-| **Tables** | Slide table object | Put a table on a page | ✅ `insert_table` (no Writer-style edit tools yet) |
+| **Tables** | TableShape + Model | Insert and edit tables | ✅ `table_insert` + Writer table_* names |
 | **Slide Duplicate & Move** | `com.sun.star.drawing.DrawPages` | Reorder, copy, and organize slides | ✅ `duplicate_slide` / `move_slide` / `rename_slide` |
 | **Images on slides** | Existing `image_*` tools | Logos and generated images | ✅ `image_insert` (`page`, `x_mm`, `y_mm` in millimetres) |
 | **Slide Animations** | `com.sun.star.presentation.Animation*` | Professional presentation builds & entrances | Medium |
@@ -316,7 +316,7 @@ class AlignShapes(ToolDrawShapeBase):
 **Design:** Create a specialized domain `domain="tables"` (`plugin/draw/tables.py`):
 ```python
 class InsertTable(ToolDrawSpecialBase):
-    name = "insert_table"
+    name = "table_insert"
     specialized_domain = "tables"
     description = "Insert a table onto the slide with specified rows and columns."
     parameters = {
@@ -365,7 +365,7 @@ Use the existing Writer/Calc `image_*` tools (`domain="images"`). On Draw/Impres
 |--------|-------|---------|
 | `shapes` | `shape_upsert`, `create_diagram`, `align_shapes`, `distribute_shapes`, `shape_connect`, `shape_group` | Vector graphics & flowcharts |
 | `images` | `image_insert`, `image_list`, `image_delete`, `image_generate` | Images on slides (millimetres) |
-| `tables` | `insert_table` | Insert a table on a page |
+| `tables` | `table_insert`, `table_list`, `table_get_cells`, `table_set_cell`, `manage_table_structure` | Slide tables |
 | `animations` | `get_animations`, `set_animations`, `add_animation` | Element entrance/motion builds |
 | `slide_transitions` | `get_slide_transition`, `set_slide_transition` | Slide-to-slide advance effects |
 | `slide_layouts` | `get_slide_layout`, `set_slide_layout` | Impress slide layouts |

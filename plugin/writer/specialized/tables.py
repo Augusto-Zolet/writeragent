@@ -2,18 +2,30 @@
 # Copyright (c) 2026 KeithCu
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Specialized tools for reading and editing text tables in Writer (XTextTable).
+"""Table tools: Writer XTextTable and Draw/Impress TableShape (same names, different UNO).
 
-Structural table editing that the surface lacked entirely: petitions carry fee/valuation tables and
-the only prior path was rewriting the whole document. Cell text edits are PLAIN (not tracked
-changes) in this first version — table-cell redlines are a separate, harder problem. Tables are
-addressed by name (table_list shows them); cells by A1-style name (getCellByName)."""
+Writer: named text tables (table_list / getCellByName). Draw: TableShape on a page
+(page + shape index, or shape.Name). Cell text is PLAIN (not tracked changes).
+"""
 import logging
 from typing import Any
 
 from ..specialized_base import ToolWriterTableBase
 
 log = logging.getLogger("writeragent.writer.specialized.tables")
+
+
+def _is_draw_doc(doc: Any) -> bool:
+    """True for Draw/Impress. Mocks without supportsService are treated as Writer."""
+    try:
+        ss = getattr(doc, "supportsService", None)
+        if not callable(ss):
+            return False
+        return bool(
+            ss("com.sun.star.drawing.DrawingDocument") or ss("com.sun.star.presentation.PresentationDocument")
+        )
+    except Exception:
+        return False
 
 
 def _tables(doc: Any) -> Any:
@@ -75,12 +87,20 @@ def _resolve_cell_name(table: Any, raw: str) -> str | None:
 
 class TableList(ToolWriterTableBase):
     name = "table_list"
-    description = "List the text tables in the document with their name and dimensions (rows x columns). Use the name to read or edit a table."
+    description = (
+        "List tables with name and dimensions (rows x columns). Writer: text-table names. "
+        "Draw/Impress: also page and shape index."
+    )
     is_mutation = False
     parameters = {"type": "object", "properties": {}, "required": []}
 
     def execute(self, ctx: Any, **kwargs: Any) -> dict[str, Any]:
         try:
+            if _is_draw_doc(ctx.doc):
+                from plugin.draw.tables import list_draw_tables
+
+                out = list_draw_tables(ctx.doc)
+                return {"status": "ok", "count": len(out), "tables": out}
             tables = _tables(ctx.doc)
             out = []
             for name in tables.getElementNames():
@@ -102,13 +122,33 @@ class TableGetCells(ToolWriterTableBase):
     is_mutation = False
     parameters = {
         "type": "object",
-        "properties": {"name": {"type": "string", "description": "Table name from table_list."}},
-        "required": ["name"],
+        "properties": {
+            "name": {"type": "string", "description": "Table name from table_list."},
+            "page": {"type": "integer", "description": "Draw/Impress: 0-based page index."},
+            "index": {"type": "integer", "description": "Draw/Impress: shape index on the page."},
+        },
+        "required": [],
     }
 
     def execute(self, ctx: Any, **kwargs: Any) -> dict[str, Any]:
         name = str(kwargs.get("name") or "").strip()
         try:
+            if _is_draw_doc(ctx.doc):
+                from plugin.draw.tables import get_draw_cells, resolve_draw_table
+
+                entry = resolve_draw_table(ctx.doc, name=name, page=kwargs.get("page"), index=kwargs.get("index"))
+                matrix = get_draw_cells(entry)
+                return {
+                    "status": "ok",
+                    "table_name": entry.get("name") or name,
+                    "page": entry.get("page"),
+                    "index": entry.get("index"),
+                    "rows": entry.get("rows"),
+                    "cols": entry.get("cols"),
+                    "matrix": matrix,
+                }
+            if not name:
+                return self._tool_error("name is required.")
             table = _get_table(ctx.doc, name)
             rows, cols = _dims(table)
             matrix = []
@@ -149,8 +189,10 @@ class TableSetCell(ToolWriterTableBase):
             "name": {"type": "string", "description": "Table name from table_list."},
             "cell": {"type": "string", "description": "A1-style cell address, e.g. 'B2'."},
             "text": {"type": "string", "description": "New plain text for the cell."},
+            "page": {"type": "integer", "description": "Draw/Impress: 0-based page index."},
+            "index": {"type": "integer", "description": "Draw/Impress: shape index on the page."},
         },
-        "required": ["name", "cell", "text"],
+        "required": ["cell", "text"],
     }
 
     def execute(self, ctx: Any, **kwargs: Any) -> dict[str, Any]:
@@ -161,6 +203,22 @@ class TableSetCell(ToolWriterTableBase):
             return self._tool_error("text is required.")
         cell_name = cell_raw  # bound for the except below even if _get_table raises before resolution
         try:
+            if _is_draw_doc(ctx.doc):
+                from plugin.draw.tables import resolve_draw_table, set_draw_cell
+
+                entry = resolve_draw_table(ctx.doc, name=name, page=kwargs.get("page"), index=kwargs.get("index"))
+                old, new = set_draw_cell(entry, cell_raw, str(text))
+                return {
+                    "status": "ok",
+                    "table_name": entry.get("name") or name,
+                    "page": entry.get("page"),
+                    "index": entry.get("index"),
+                    "cell": cell_raw,
+                    "old_text": old,
+                    "new_text": new,
+                }
+            if not name:
+                return self._tool_error("name is required.")
             table = _get_table(ctx.doc, name)
             cell_name = _resolve_cell_name(table, cell_raw)
             if cell_name is None:
@@ -207,8 +265,13 @@ class ManageTableStructure(ToolWriterTableBase):
                 "type": "integer",
                 "description": "0-based row or column index (insert at count = append).",
             },
+            "page": {"type": "integer", "description": "Draw/Impress: 0-based page index."},
+            "shape_index": {
+                "type": "integer",
+                "description": "Draw/Impress: table shape index (not the row/column index).",
+            },
         },
-        "required": ["action", "axis", "name", "index"],
+        "required": ["action", "axis", "index"],
     }
 
     def execute(self, ctx: Any, **kwargs: Any) -> dict[str, Any]:
@@ -231,6 +294,26 @@ class ManageTableStructure(ToolWriterTableBase):
         axis = "rows" if axis_arg == "row" else "columns"
         insert = action == "insert"
         try:
+            if _is_draw_doc(ctx.doc):
+                from plugin.draw.tables import manage_draw_structure, resolve_draw_table
+
+                entry = resolve_draw_table(
+                    ctx.doc,
+                    name=name,
+                    page=kwargs.get("page"),
+                    index=kwargs.get("shape_index"),
+                )
+                rows, cols = manage_draw_structure(entry, str(action), str(axis_arg), idx)
+                return {
+                    "status": "ok",
+                    "table_name": entry.get("name") or name,
+                    "page": entry.get("page"),
+                    "index": entry.get("index"),
+                    "rows": rows,
+                    "cols": cols,
+                }
+            if not name:
+                return self._tool_error("name is required.")
             table = _get_table(ctx.doc, name)
             band = table.getRows() if axis == "rows" else table.getColumns()
             count = band.getCount()
@@ -259,3 +342,85 @@ class ManageTableStructure(ToolWriterTableBase):
         except Exception as e:
             log.exception("Could not edit %s of table '%s'", axis, name)
             return self._tool_error("Could not edit %s of table '%s': %s" % (axis, name, e))
+
+
+class TableInsert(ToolWriterTableBase):
+    name = "table_insert"
+    intent = "edit"
+    description = (
+        "Insert a table. Writer: text table at the view cursor (or document end). "
+        "Draw/Impress: TableShape; position/size in 1/100 mm. Optional data is a 2D array of cell strings."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "rows": {"type": "integer", "description": "Number of rows"},
+            "columns": {"type": "integer", "description": "Number of columns"},
+            "data": {
+                "type": "array",
+                "items": {"type": "array", "items": {"type": "string"}},
+                "description": "2D cell strings",
+            },
+            "page": {"type": "integer", "description": "Draw/Impress: 0-based page index (active if omitted)"},
+            "x": {"type": "integer", "description": "Draw/Impress: X in 1/100 mm (default: 3000)"},
+            "y": {"type": "integer", "description": "Draw/Impress: Y in 1/100 mm (default: 4000)"},
+            "width": {"type": "integer", "description": "Draw/Impress: width in 1/100 mm (default: 20000)"},
+            "height": {"type": "integer", "description": "Draw/Impress: height in 1/100 mm (default: 10000)"},
+        },
+        "required": ["rows", "columns"],
+    }
+    is_mutation = True
+
+    def execute(self, ctx: Any, **kwargs: Any) -> dict[str, Any]:
+        if _is_draw_doc(ctx.doc):
+            from plugin.draw.tables import insert_draw_table
+            from plugin.framework.errors import make_tool_error
+
+            result = insert_draw_table(ctx, **kwargs)
+            if result.get("status") != "ok":
+                return make_tool_error(str(result.get("message") or "Insert failed"), code=str(result.get("code") or "TOOL_EXECUTION_ERROR"))
+            return result
+
+        rows = kwargs.get("rows")
+        columns = kwargs.get("columns")
+        if rows is None or columns is None:
+            return self._tool_error("rows and columns are required.")
+        rows = int(rows)
+        columns = int(columns)
+        if rows < 1 or columns < 1:
+            return self._tool_error("rows and columns must be at least 1.")
+        try:
+            doc = ctx.doc
+            table = doc.createInstance("com.sun.star.text.TextTable")
+            table.initialize(rows, columns)
+            text = doc.getText()
+            cursor = None
+            try:
+                cursor = doc.getCurrentController().getViewCursor()
+            except Exception:
+                cursor = None
+            if cursor is None:
+                cursor = text.getEnd()
+            text.insertTextContent(cursor, table, False)
+            written = 0
+            data = kwargs.get("data")
+            if data:
+                from plugin.draw.tables import fill_table_cells
+
+                written = fill_table_cells(table, data)
+            name = ""
+            try:
+                name = str(table.getName() if hasattr(table, "getName") else getattr(table, "Name", "") or "")
+            except Exception:
+                pass
+            return {
+                "status": "ok",
+                "message": "Table inserted",
+                "table_name": name,
+                "rows": rows,
+                "columns": columns,
+                "cells_written": written,
+            }
+        except Exception as e:
+            log.exception("Could not insert Writer table")
+            return self._tool_error("Could not insert table: %s" % e)

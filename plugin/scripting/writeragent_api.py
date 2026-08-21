@@ -204,7 +204,7 @@ DOMAIN_TOOLS = {   'analysi': [   'analyze_data',
                       'section_list',
                       'section_read'],
     'styles': ['style_create', 'style_get_info', 'style_import', 'style_list', 'style_update'],
-    'table': ['manage_table_structure', 'table_get_cells', 'table_list', 'table_set_cell'],
+    'table': ['manage_table_structure', 'table_get_cells', 'table_insert', 'table_list', 'table_set_cell'],
     'textframe': ['frame_get_info', 'frame_list', 'frame_set_properties'],
     'tracking': [   'manage_tracked_changes',
                     'track_changes_comment_delete',
@@ -1064,6 +1064,10 @@ class _TableProxy:
     def get_cells(self, name: str) -> dict:
         """Return a table's cell text as a row-major matrix (matrix[row][col]) by position — not by cell name."""
         return _rpc_call("table_get_cells", name=name)
+
+    def insert(self, rows: int, columns: int, **kwargs) -> dict:
+        """Insert a table (Writer text table or Draw/Impress TableShape)."""
+        return _rpc_call("table_insert", rows=rows, columns=columns, **kwargs)
 
     def list(self) -> dict:
         """List the text tables in the document with their name and dimensions (rows x columns)."""

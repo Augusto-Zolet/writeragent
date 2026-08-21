@@ -250,7 +250,7 @@ def test_align_and_insert_table(ctx, doc):
     b = page.getByIndex(n - 1).getPosition()
     assert a.Y == b.Y == 2000
 
-    result = _exec_tool(doc, ctx, "insert_table", {
+    result = _exec_tool(doc, ctx, "table_insert", {
         "rows": 2, "columns": 2, "data": [["A", "B"], ["C", "D"]],
     })
     data = json.loads(result)

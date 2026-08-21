@@ -1,9 +1,10 @@
-# WriterAgent — unit tests for Draw TableShape fill helper and insert_table
+# WriterAgent — unit tests for Draw TableShape fill helper and table_insert
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 from unittest.mock import MagicMock, patch
 
-from plugin.draw.tables import InsertTable, fill_table_cells
+from plugin.draw.tables import fill_table_cells, insert_draw_table, parse_a1
+from plugin.writer.specialized.tables import TableInsert
 
 
 class _Cell:
@@ -36,6 +37,12 @@ def test_fill_table_cells():
     assert table.cells[(1, 1)]._s == "d"
 
 
+def test_parse_a1():
+    assert parse_a1("B2") == (1, 1)
+    assert parse_a1("A1") == (0, 0)
+    assert parse_a1("not") is None
+
+
 def test_insert_table_ok():
     ctx = MagicMock()
     shape = MagicMock()
@@ -50,12 +57,21 @@ def test_insert_table_ok():
             with patch("com.sun.star.awt.Point", MagicMock(), create=True), patch(
                 "com.sun.star.awt.Size", MagicMock(), create=True
             ):
-                out = InsertTable().execute(ctx, rows=2, columns=2, data=[["h1", "h2"], ["v1", "v2"]])
+                out = insert_draw_table(ctx, rows=2, columns=2, data=[["h1", "h2"], ["v1", "v2"]])
     assert out["status"] == "ok"
     assert out["cells_written"] == 4
     page.add.assert_called_once_with(shape)
 
 
 def test_insert_table_rejects_zero_rows():
-    out = InsertTable().execute(MagicMock(), rows=0, columns=2)
+    out = insert_draw_table(MagicMock(), rows=0, columns=2)
     assert out["status"] == "error"
+
+
+def test_table_insert_tool_dispatches_draw():
+    ctx = MagicMock()
+    with patch("plugin.writer.specialized.tables._is_draw_doc", return_value=True):
+        with patch("plugin.draw.tables.insert_draw_table", return_value={"status": "ok", "rows": 2}) as ins:
+            out = TableInsert().execute(ctx, rows=2, columns=2)
+    assert out["status"] == "ok"
+    ins.assert_called_once()

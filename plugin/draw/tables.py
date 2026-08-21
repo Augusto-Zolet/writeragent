@@ -2,9 +2,14 @@
 # Copyright (c) 2026 KeithCu
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Table tools for Draw/Impress slides (drawing table shapes, not Writer text tables)."""
+"""Draw/Impress TableShape helpers (not Writer XTextTable)."""
 
-from plugin.draw.base import ToolDrawTableBase
+from __future__ import annotations
+
+import re
+from typing import Any
+
+_A1 = re.compile(r"^([A-Za-z]+)(\d+)$")
 
 
 def _table_model(shape):
@@ -29,109 +34,255 @@ def fill_table_cells(table, data) -> int:
         for c_idx, val in enumerate(row):
             cell = table.getCellByPosition(c_idx, r_idx)
             text = "" if val is None else str(val)
-            if hasattr(cell, "getText"):
-                cell.getText().setString(text)
-            elif hasattr(cell, "setString"):
-                cell.setString(text)
+            _set_cell_string(cell, text)
             written += 1
     return written
 
 
-class InsertTable(ToolDrawTableBase):
-    name = "insert_table"
-    intent = "edit"
-    description = (
-        "Insert a table on a Draw/Impress page. Position/size are 1/100 mm. "
-        "Optional data is a 2D array of cell strings [[row0col0, row0col1], ...]."
-    )
-    parameters = {
-        "type": "object",
-        "properties": {
-            "page": {"type": "integer", "description": "0-based page index (active page if omitted)"},
-            "rows": {"type": "integer", "description": "Number of rows"},
-            "columns": {"type": "integer", "description": "Number of columns"},
-            "x": {"type": "integer", "description": "X position in 1/100 mm (default: 3000)"},
-            "y": {"type": "integer", "description": "Y position in 1/100 mm (default: 4000)"},
-            "width": {"type": "integer", "description": "Table width in 1/100 mm (default: 20000)"},
-            "height": {"type": "integer", "description": "Table height in 1/100 mm (default: 10000)"},
-            "data": {
-                "type": "array",
-                "items": {"type": "array", "items": {"type": "string"}},
-                "description": "2D cell strings",
-            },
-        },
-        "required": ["rows", "columns"],
-    }
-    is_mutation = True
-
-    def execute(self, ctx, **kwargs):
-        from com.sun.star.awt import Point, Size
-        from plugin.draw.bridge import DrawBridge
-
-        rows = kwargs.get("rows")
-        columns = kwargs.get("columns")
-        if rows is None or columns is None:
-            return self._tool_error("rows and columns are required.")
-        rows = int(rows)
-        columns = int(columns)
-        if rows < 1 or columns < 1:
-            return self._tool_error("rows and columns must be at least 1.")
-
-        bridge = DrawBridge(ctx.doc)
-        idx = kwargs.get("page")
-        actual_idx = idx if idx is not None else ctx.active_page_index
-        if actual_idx is None:
-            actual_idx = bridge.get_active_page_index()
+def _set_cell_string(cell, text: str) -> None:
+    if hasattr(cell, "getText"):
         try:
-            page = bridge.get_pages().getByIndex(actual_idx)
+            cell.getText().setString(text)
+            return
         except Exception:
-            return self._tool_error("Invalid page index: %s" % actual_idx)
-        if page is None:
-            return self._tool_error("No draw page available.")
+            pass
+    if hasattr(cell, "setString"):
+        cell.setString(text)
 
-        from plugin.draw.layout import coerce_int
 
-        x = coerce_int(kwargs.get("x"), 3000)
-        y = coerce_int(kwargs.get("y"), 4000)
-        width = coerce_int(kwargs.get("width"), 20000)
-        height = coerce_int(kwargs.get("height"), 10000)
+def _cell_string(cell) -> str:
+    try:
+        val = cell.getString()
+        if val is not None:
+            return str(val)
+    except Exception:
+        pass
+    try:
+        return str(cell.getText().getString() or "")
+    except Exception:
+        return ""
 
-        try:
-            shape = ctx.doc.createInstance("com.sun.star.drawing.TableShape")
-            for name, val in (("Rows", rows), ("Columns", columns)):
+
+def _is_table_shape(shape) -> bool:
+    try:
+        st = shape.getShapeType()
+        if st and "TableShape" in str(st):
+            return True
+    except Exception:
+        pass
+    try:
+        return bool(shape.supportsService("com.sun.star.drawing.TableShape"))
+    except Exception:
+        return False
+
+
+def _model_dims(model) -> tuple[int, int]:
+    rows = model.getRows().getCount()
+    cols = model.getColumns().getCount()
+    return int(rows), int(cols)
+
+
+def iter_table_shapes(doc) -> list[dict[str, Any]]:
+    """List TableShapes as dicts: page, index, name, rows, cols, shape, model."""
+    out: list[dict[str, Any]] = []
+    pages = doc.getDrawPages()
+    for page_i in range(pages.getCount()):
+        page = pages.getByIndex(page_i)
+        for shape_i in range(page.getCount()):
+            shape = page.getByIndex(shape_i)
+            if not _is_table_shape(shape):
+                continue
+            model = _table_model(shape)
+            rows = cols = 0
+            if model is not None:
                 try:
-                    shape.setPropertyValue(name, val)
+                    rows, cols = _model_dims(model)
                 except Exception:
                     pass
-            page.add(shape)
-            shape.setSize(Size(width, height))
-            shape.setPosition(Point(x, y))
-        except Exception as exc:
-            return self._tool_error("Failed to create table: %s" % exc)
-
-        written = 0
-        data = kwargs.get("data")
-        if data:
-            table = _table_model(shape)
-            if table is None:
-                return {
-                    "status": "ok",
-                    "message": "Table inserted but cell model was unavailable; data not filled",
-                    "page": actual_idx,
-                    "index": page.getCount() - 1,
-                    "warning": "table_model_unavailable",
-                }
+            name = ""
             try:
-                written = fill_table_cells(table, data)
-            except Exception as exc:
-                return self._tool_error("Failed to fill table cells: %s" % exc)
+                name = str(shape.Name or "")
+            except Exception:
+                pass
+            out.append(
+                {
+                    "page": page_i,
+                    "index": shape_i,
+                    "name": name,
+                    "rows": rows,
+                    "cols": cols,
+                    "shape": shape,
+                    "model": model,
+                }
+            )
+    return out
 
-        return {
-            "status": "ok",
-            "message": "Table inserted",
-            "page": actual_idx,
-            "index": page.getCount() - 1,
-            "rows": rows,
-            "columns": columns,
-            "cells_written": written,
-        }
+
+def parse_a1(raw: str) -> tuple[int, int] | None:
+    """Spreadsheet A1 → (col, row) 0-based. None if invalid."""
+    m = _A1.match((raw or "").strip())
+    if not m:
+        return None
+    letters, num = m.group(1).upper(), int(m.group(2))
+    if num < 1:
+        return None
+    col = 0
+    for ch in letters:
+        col = col * 26 + (ord(ch) - ord("A") + 1)
+    return col - 1, num - 1
+
+
+def resolve_draw_table(doc, *, name: str = "", page=None, index=None) -> dict[str, Any]:
+    tables = iter_table_shapes(doc)
+    if not tables:
+        raise ValueError("No tables on this Draw/Impress document.")
+    name = (name or "").strip()
+    if name:
+        matches = [t for t in tables if t["name"] == name]
+        if page is not None:
+            matches = [t for t in matches if t["page"] == int(page)]
+        if len(matches) == 1:
+            return matches[0]
+        if not matches:
+            listing = ", ".join("%s(page %s idx %s)" % (t["name"] or "?", t["page"], t["index"]) for t in tables)
+            raise ValueError("No table named '%s'. Open tables (call table_list): %s." % (name, listing))
+        raise ValueError("Several tables named '%s'; pass page as well." % name)
+    if page is not None and index is not None:
+        for t in tables:
+            if t["page"] == int(page) and t["index"] == int(index):
+                return t
+        raise ValueError("No table at page %s index %s." % (page, index))
+    if len(tables) == 1:
+        return tables[0]
+    raise ValueError("Pass name or page+index (call table_list).")
+
+
+def list_draw_tables(doc) -> list[dict[str, Any]]:
+    return [{k: t[k] for k in ("name", "rows", "cols", "page", "index")} for t in iter_table_shapes(doc)]
+
+
+def get_draw_cells(entry: dict[str, Any]) -> list[list[str]]:
+    model = entry.get("model")
+    if model is None:
+        raise ValueError("Table cell model is unavailable.")
+    rows, cols = _model_dims(model)
+    matrix = []
+    for r in range(rows):
+        row = []
+        for c in range(cols):
+            try:
+                row.append(_cell_string(model.getCellByPosition(c, r)))
+            except Exception:
+                row.append("")
+        matrix.append(row)
+    return matrix
+
+
+def set_draw_cell(entry: dict[str, Any], cell_raw: str, text: str) -> tuple[str, str]:
+    model = entry.get("model")
+    if model is None:
+        raise ValueError("Table cell model is unavailable.")
+    parsed = parse_a1(cell_raw)
+    if parsed is None:
+        raise ValueError("Cell '%s' is not A1-style (e.g. B2)." % cell_raw)
+    col, row = parsed
+    nrows, ncols = _model_dims(model)
+    if col < 0 or row < 0 or col >= ncols or row >= nrows:
+        raise ValueError("Cell '%s' out of range (%s rows x %s cols)." % (cell_raw, nrows, ncols))
+    cell = model.getCellByPosition(col, row)
+    old = _cell_string(cell)
+    _set_cell_string(cell, text)
+    return old, text
+
+
+def manage_draw_structure(entry: dict[str, Any], action: str, axis_arg: str, idx: int) -> tuple[int, int]:
+    model = entry.get("model")
+    if model is None:
+        raise ValueError("Table cell model is unavailable.")
+    axis = "rows" if axis_arg == "row" else "columns"
+    band = model.getRows() if axis == "rows" else model.getColumns()
+    count = band.getCount()
+    if action == "insert":
+        if idx > count:
+            raise ValueError("index %d out of range (table has %d %s; use 0..%d)." % (idx, count, axis, count))
+        band.insertByIndex(idx, 1)
+    else:
+        if idx >= count:
+            raise ValueError("index %d out of range (table has %d %s; use 0..%d)." % (idx, count, axis, count - 1))
+        if count <= 1:
+            raise ValueError("Cannot remove the last %s of a table." % axis[:-1])
+        band.removeByIndex(idx, 1)
+    return _model_dims(model)
+
+
+def insert_draw_table(ctx, **kwargs) -> dict[str, Any]:
+    """Create a TableShape on a Draw/Impress page. Returns a tool-result dict."""
+    from com.sun.star.awt import Point, Size
+    from plugin.draw.bridge import DrawBridge
+    from plugin.draw.layout import coerce_int
+
+    rows = kwargs.get("rows")
+    columns = kwargs.get("columns")
+    if rows is None or columns is None:
+        return {"status": "error", "message": "rows and columns are required.", "code": "TOOL_EXECUTION_ERROR"}
+    rows = int(rows)
+    columns = int(columns)
+    if rows < 1 or columns < 1:
+        return {"status": "error", "message": "rows and columns must be at least 1.", "code": "TOOL_EXECUTION_ERROR"}
+
+    bridge = DrawBridge(ctx.doc)
+    idx = kwargs.get("page")
+    actual_idx = idx if idx is not None else ctx.active_page_index
+    if actual_idx is None:
+        actual_idx = bridge.get_active_page_index()
+    try:
+        page = bridge.get_pages().getByIndex(actual_idx)
+    except Exception:
+        return {"status": "error", "message": "Invalid page index: %s" % actual_idx, "code": "TOOL_EXECUTION_ERROR"}
+    if page is None:
+        return {"status": "error", "message": "No draw page available.", "code": "TOOL_EXECUTION_ERROR"}
+
+    x = coerce_int(kwargs.get("x"), 3000)
+    y = coerce_int(kwargs.get("y"), 4000)
+    width = coerce_int(kwargs.get("width"), 20000)
+    height = coerce_int(kwargs.get("height"), 10000)
+
+    try:
+        shape = ctx.doc.createInstance("com.sun.star.drawing.TableShape")
+        for prop, val in (("Rows", rows), ("Columns", columns)):
+            try:
+                shape.setPropertyValue(prop, val)
+            except Exception:
+                pass
+        page.add(shape)
+        shape.setSize(Size(width, height))
+        shape.setPosition(Point(x, y))
+    except Exception as exc:
+        return {"status": "error", "message": "Failed to create table: %s" % exc, "code": "TOOL_EXECUTION_ERROR"}
+
+    written = 0
+    data = kwargs.get("data")
+    if data:
+        table = _table_model(shape)
+        if table is None:
+            return {
+                "status": "ok",
+                "message": "Table inserted but cell model was unavailable; data not filled",
+                "page": actual_idx,
+                "index": page.getCount() - 1,
+                "warning": "table_model_unavailable",
+            }
+        try:
+            written = fill_table_cells(table, data)
+        except Exception as exc:
+            return {"status": "error", "message": "Failed to fill table cells: %s" % exc, "code": "TOOL_EXECUTION_ERROR"}
+
+    return {
+        "status": "ok",
+        "message": "Table inserted",
+        "page": actual_idx,
+        "index": page.getCount() - 1,
+        "rows": rows,
+        "columns": columns,
+        "cells_written": written,
+    }

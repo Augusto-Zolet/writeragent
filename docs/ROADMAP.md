@@ -1,6 +1,6 @@
 # WriterAgent Roadmap
 
-**Last Updated**: 2026-08-19  
+**Last Updated**: 2026-08-20  
 **Status**: Active Development
 
 
@@ -261,6 +261,32 @@ Provider-specific response parsing lives in `plugin/framework/client/response_no
 **Dependencies**: UNO style family documentation
 **Blockers**: Style inheritance complexity
 **Testing**: Need style-heavy test documents
+
+### Settings dialog: larger provider buttons with logos
+
+**Status**: Researched, not implemented. Pickup later.
+
+The General page “Get API Key (1-click)” row (`btn_openrouter`, `btn_together`, `btn_hf`, `btn_nvidia` in `extension/Dialogs/SettingsDialog.xdl.tpl`) is four 64×14 text-only command buttons. There is **no existing project code** that puts graphics on XDL buttons.
+
+**What UNO already supports**
+
+- **Bigger buttons:** `dlg:width` / `dlg:height` (or runtime `Width` / `Height` on `UnoControlButtonModel`). Height ~22–28 is the usual chunky range (OK is already 18). Grow the 440×218 dialog and shift the JSON / status / OK row. Font size is **not** an XDL attribute — set `FontDescriptor` / `FontHeight` after load. `dlg:multiline="true"` if the label wraps under an icon.
+- **Logos:** first-class on `UnoControlButtonModel` ([API](https://api.libreoffice.org/docs/idl/ref/servicecom_1_1sun_1_1star_1_1awt_1_1UnoControlButtonModel.html)): `ImageURL`, `Graphic` (`XGraphic`; setting it clears `ImageURL` and vice versa), `ImagePosition`, `ImageAlign`.
+- **XDL** (`dialog.dtd`): `dlg:image-src`, `dlg:image-position` (`left-center`, …), `dlg:image-align`.
+
+**Packaging (OXT)**
+
+1. Ship small PNGs under `extension/` (e.g. `images/providers/`).
+2. Register them in `extension/META-INF/manifest.xml`.
+3. Prefer runtime `model.ImageURL` from the extension `base_url` already used with `DialogProvider`, or `GraphicProvider` + `InputStream`. Design-time `image-src` in Basic dialogs is historically flaky.
+
+**Limits**
+
+- Button graphics **do not scale-to-fit** (unlike dialog background). Use **16×16 or 24×24** PNGs; a large image overflows/clips. LO will not auto-HiDPI these the way toolbar icons do.
+- Four ~90×24 buttons will not fit the current row — two rows, shorter labels, or a wider dialog.
+- Trademark: official Hugging Face / Together / NVIDIA marks often have usage rules; simple wordmarks or unofficial glyphs can be safer.
+
+**Smallest implementation:** bump XDL size + four packaged PNGs + `ImageURL` / `ImagePosition=left-center` after dialog load.
 
 ---
 

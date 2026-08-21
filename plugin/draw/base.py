@@ -119,7 +119,7 @@ class ToolDrawImageBase(ToolDrawSpecialBase):
 class ToolDrawTableBase(ToolDrawSpecialBase):
     specialized_domain: ClassVar[str | None] = "tables"
     specialized_domain_description: ClassVar[str | None] = (
-        "Insert and fill tables on Draw/Impress pages."
+        "Insert and edit tables on Draw/Impress pages (same table_* tools as Writer)."
     )
     uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
 

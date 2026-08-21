@@ -21,7 +21,7 @@ from typing import ClassVar
 
 from plugin.framework.tool import ToolBase
 from plugin.calc.base import ToolCalcSpecialBase
-from plugin.draw.base import ToolDrawFormBase, ToolDrawImageBase
+from plugin.draw.base import ToolDrawFormBase, ToolDrawImageBase, ToolDrawTableBase
 from plugin.doc.visual_helpers import SHAPE_TOOL_UNO_SERVICES
 from plugin.framework.constants import USE_SUB_AGENT
 from plugin.framework.prompts import DELEGATION_PUBLIC_WEB_HINT, DELEGATION_USER_FILE_DATA_HINT
@@ -172,10 +172,15 @@ class ToolWriterStructuralBase(ToolWriterSpecialBase):
     intent = "navigate"
 
 
-class ToolWriterTableBase(ToolWriterSpecialBase):
+class ToolWriterTableBase(ToolWriterSpecialBase, ToolDrawTableBase):
     specialized_domain: ClassVar[str | None] = "tables"
     specialized_domain_description: ClassVar[str | None] = "Read and edit table structure and cell contents (rows, columns, cells)."
     intent = "edit"
+    uno_services = [
+        "com.sun.star.text.TextDocument",
+        "com.sun.star.drawing.DrawingDocument",
+        "com.sun.star.presentation.PresentationDocument",
+    ]
 
 
 class ToolWriterFootnoteBase(ToolWriterSpecialBase):
