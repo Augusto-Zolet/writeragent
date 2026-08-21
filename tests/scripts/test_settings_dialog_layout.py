@@ -16,16 +16,26 @@ from manifest_registry import generate_settings_dialog_tabs  # noqa: E402
 _DLG_NS = "http://openoffice.org/2000/dialog"
 
 
-def _control_tops(xdl_path: Path) -> dict[str, str]:
-    """Map control dlg:id -> dlg:top from generated SettingsDialog XDL."""
+def _control_attrs(xdl_path: Path) -> dict[str, dict[str, str]]:
+    """Map control dlg:id -> {top,left,width,height} from generated SettingsDialog XDL."""
     root = ET.parse(xdl_path).getroot()
-    tops: dict[str, str] = {}
+    attrs: dict[str, dict[str, str]] = {}
     for el in root.iter():
         ctrl_id = el.get(f"{{{_DLG_NS}}}id")
-        top = el.get(f"{{{_DLG_NS}}}top")
-        if ctrl_id and top and ctrl_id not in tops:
-            tops[ctrl_id] = top
-    return tops
+        if not ctrl_id or ctrl_id in attrs:
+            continue
+        attrs[ctrl_id] = {
+            "top": el.get(f"{{{_DLG_NS}}}top") or "",
+            "left": el.get(f"{{{_DLG_NS}}}left") or "",
+            "width": el.get(f"{{{_DLG_NS}}}width") or "",
+            "height": el.get(f"{{{_DLG_NS}}}height") or "",
+        }
+    return attrs
+
+
+def _control_tops(xdl_path: Path) -> dict[str, str]:
+    """Map control dlg:id -> dlg:top from generated SettingsDialog XDL."""
+    return {cid: vals["top"] for cid, vals in _control_attrs(xdl_path).items() if vals["top"]}
 
 
 def _same_layout_row(tops: dict[str, str], left_id: str, right_id: str) -> bool:
@@ -190,11 +200,32 @@ def test_librepy_flavor_omits_ppt_master_from_scripting_page(tmp_path: Path) -> 
 
 
 def test_starter_buttons_share_row_and_include_nvidia(tmp_path: Path) -> None:
-    xdl_path, _xdl = _generate_settings_xdl(tmp_path)
-    tops = _control_tops(xdl_path)
+    xdl_path, xdl = _generate_settings_xdl(tmp_path)
+    attrs = _control_attrs(xdl_path)
+    tops = {cid: vals["top"] for cid, vals in attrs.items() if vals["top"]}
 
     for btn_id in ("btn_openrouter", "btn_together", "btn_hf", "btn_nvidia"):
         assert btn_id in tops, f"{btn_id} missing from SettingsDialog.xdl"
 
     assert tops["btn_openrouter"] == tops["btn_together"] == tops["btn_hf"] == tops["btn_nvidia"]
+
+    window = ET.parse(xdl_path).getroot()
+    dlg_width = int(window.get(f"{{{_DLG_NS}}}width") or 0)
+    label_right = int(attrs["label_get_api_key"]["left"]) + int(attrs["label_get_api_key"]["width"])
+    for btn_id, img_id in (
+        ("btn_openrouter", "img_openrouter"),
+        ("btn_together", "img_together"),
+        ("btn_hf", "img_huggingface"),
+        ("btn_nvidia", "img_nvidia"),
+    ):
+        assert img_id in attrs
+        assert int(attrs[btn_id]["height"]) == 14
+        assert int(attrs[btn_id]["width"]) == 64
+        assert int(attrs[img_id]["height"]) == 14
+        assert int(attrs[img_id]["width"]) == 14
+        assert int(attrs[img_id]["left"]) >= label_right
+        assert int(attrs[btn_id]["left"]) + 64 <= dlg_width
+        assert attrs[btn_id]["top"] == attrs[img_id]["top"]
+    assert 'dlg:scale-mode="isotropic"' in xdl
+    assert "dlg:image-src=" not in xdl
 

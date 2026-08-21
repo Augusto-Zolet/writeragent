@@ -19,10 +19,11 @@ import threading
 from typing import Any
 
 import uno
+import unohelper
 from com.sun.star.awt import XItemListener, XTextListener
 
 from plugin.framework.errors import format_error_payload, UnoObjectError, ConfigValidationError
-from plugin.framework.uno_context import get_desktop, get_extension_url
+from plugin.framework.uno_context import get_desktop, get_extension_url, menu_icon_asset_url
 from plugin.framework.i18n import _
 from plugin.framework.config import get_config, get_current_endpoint, set_config, get_config_str, get_config_int, as_bool
 from plugin.framework.client.model_fetcher import get_text_model, get_stt_model, set_text_model
@@ -39,6 +40,81 @@ from .dialogs import (
 )
 
 log = logging.getLogger(__name__)
+
+# PushButton ImageURL is drawn at the bitmap's native pixels (vcl button.cxx
+# ImplDrawAlignedImage / GetSizePixel) — it does not grow with the button.
+# ImageControl ScaleMode ISOTROPIC does scale to the control (vcl imgctrl.cxx).
+_PROVIDER_STARTER_ICONS = {
+    "btn_openrouter": "openrouter",
+    "btn_together": "together",
+    "btn_hf": "huggingface",
+    "btn_nvidia": "nvidia",
+}
+# com.sun.star.awt.ImageScaleMode.ISOTROPIC
+_IMAGE_SCALE_ISOTROPIC = 1
+
+
+def provider_icon_filename(stem):
+    """Asset basename under extension/assets/ (openrouter_48.png)."""
+    return "%s_48.png" % stem
+
+
+def apply_provider_button_icon(ctrl, ctx, stem):
+    """Load the 48 px mark onto an ImageControl and scale it to the control."""
+    filename = provider_icon_filename(stem)
+    try:
+        ext_url = get_extension_url(ctx)
+        if not ext_url:
+            return
+        model = ctrl.getModel()
+        model.ImageURL = menu_icon_asset_url(ext_url, filename)
+        try:
+            model.ScaleMode = _IMAGE_SCALE_ISOTROPIC
+        except Exception:
+            pass
+        try:
+            model.ScaleImage = True
+        except Exception:
+            pass
+        try:
+            model.Border = 0
+        except Exception:
+            pass
+    except Exception:
+        log.debug("Provider button icon %s failed", filename, exc_info=True)
+
+
+def _attach_provider_icon_click(img, action_listener):
+    """ImageControl has no XActionListener; forward left-click to the starter."""
+    try:
+        from com.sun.star.awt import XMouseListener
+    except ImportError:
+        return None
+
+    class _IconClick(unohelper.Base, XMouseListener):
+        def disposing(self, Source) -> None:
+            pass
+
+        def mousePressed(self, e) -> None:
+            pass
+
+        def mouseReleased(self, e) -> None:
+            if getattr(e, "Buttons", 1) == 1:
+                action_listener.on_action_performed(e)
+
+        def mouseEntered(self, e) -> None:
+            pass
+
+        def mouseExited(self, e) -> None:
+            pass
+
+    listener = _IconClick()
+    try:
+        img.addMouseListener(listener)
+    except Exception:
+        log.debug("Provider icon mouse listener failed", exc_info=True)
+        return None
+    return listener
 
 
 def _load_selection_token_controls(extend_ctrl, edit_extra_ctrl) -> None:
@@ -133,6 +209,7 @@ class SettingsDialog:
         self._mcp_tunnel_enabled_listener = None
         self._mcp_tunnel_provider_listener = None
         self._mcp_port_listener = None
+        self._provider_icon_listeners = []
 
     def show(self):
         """Execute the settings dialog and apply results."""
@@ -205,8 +282,18 @@ class SettingsDialog:
         ]
         for btn_id, ep_url, signup_url in starters:
             btn = get_optional(self._dlg, btn_id)
+            starter = ProviderStarterListener(self._ctx, self._dlg, ep_url, signup_url)
             if btn:
-                btn.addActionListener(ProviderStarterListener(self._ctx, self._dlg, ep_url, signup_url))
+                btn.addActionListener(starter)
+            stem = _PROVIDER_STARTER_ICONS.get(btn_id)
+            if not stem:
+                continue
+            img = get_optional(self._dlg, "img_%s" % stem)
+            if img:
+                apply_provider_button_icon(img, self._ctx, stem)
+                kept = _attach_provider_icon_click(img, starter)
+                if kept is not None:
+                    self._provider_icon_listeners.append(kept)
 
         test_conn_btn = get_optional(self._dlg, "btn_test_conn")
         if test_conn_btn:

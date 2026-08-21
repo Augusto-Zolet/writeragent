@@ -459,6 +459,42 @@ class TestSettingsEnhancements(unittest.TestCase):
         self.assertIn("19999", args[1])
 
 
+class TestProviderButtonIcons(unittest.TestCase):
+    def test_provider_icon_filename_is_always_48(self):
+        from plugin.chatbot.dialog_views import provider_icon_filename
+
+        self.assertEqual(provider_icon_filename("openrouter"), "openrouter_48.png")
+        self.assertEqual(provider_icon_filename("huggingface"), "huggingface_48.png")
+
+    def test_apply_sets_image_url_from_extension_assets(self):
+        from plugin.chatbot.dialog_views import apply_provider_button_icon
+
+        ctx = MagicMock()
+        ctrl = MagicMock()
+        model = MagicMock()
+        ctrl.getModel.return_value = model
+
+        with patch("plugin.chatbot.dialog_views.get_extension_url", return_value="file:///tmp/oxt"):
+            apply_provider_button_icon(ctrl, ctx, "openrouter")
+
+        self.assertEqual(model.ImageURL, "file:///tmp/oxt/assets/openrouter_48.png")
+        self.assertEqual(model.ScaleMode, 1)
+        self.assertTrue(model.ScaleImage)
+
+    def test_apply_uses_48px_asset(self):
+        from plugin.chatbot.dialog_views import apply_provider_button_icon
+
+        ctx = MagicMock()
+        ctrl = MagicMock()
+        model = MagicMock()
+        ctrl.getModel.return_value = model
+
+        with patch("plugin.chatbot.dialog_views.get_extension_url", return_value="file:///tmp/oxt"):
+            apply_provider_button_icon(ctrl, ctx, "nvidia")
+
+        self.assertEqual(model.ImageURL, "file:///tmp/oxt/assets/nvidia_48.png")
+
+
 if __name__ == '__main__':
     unittest.main()
 

@@ -191,6 +191,9 @@ def should_exclude(path, with_tests=False):
     # Dev-only Python logo sources; ship only python_32.png in the OXT.
     if path_norm.endswith("assets/python_logo.svg") or path_norm.endswith("assets/python_logo.NOTICE"):
         return True
+    # Attribution only; 48 px PNGs ship. Buttons do not scale graphics (see dialog_views).
+    if path_norm.endswith("assets/provider_logos.NOTICE"):
+        return True
     for pat in EXCLUDE_PATTERNS:
         if pat in path:
             return True

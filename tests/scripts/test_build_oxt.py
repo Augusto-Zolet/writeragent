@@ -29,6 +29,13 @@ def test_python_logo_dev_sources_excluded_from_oxt():
     assert should_exclude("extension/assets/python_32.png") is False
 
 
+def test_provider_logo_pngs_ship_notice_excluded():
+    assert should_exclude("extension/assets/provider_logos.NOTICE") is True
+    for stem in ("openrouter", "together", "huggingface", "nvidia"):
+        assert should_exclude("extension/assets/%s_48.png" % stem) is False
+    assert remap_path("extension/assets/openrouter_48.png") == "assets/openrouter_48.png"
+
+
 def test_pyspector_cache_excluded_from_oxt():
     """Hot-deploy and OXT must not ship make pyspector AST cache under plugin/."""
     assert should_exclude("plugin/.pyspector_cache") is True

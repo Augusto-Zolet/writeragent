@@ -262,9 +262,9 @@ Provider-specific response parsing lives in `plugin/framework/client/response_no
 **Blockers**: Style inheritance complexity
 **Testing**: Need style-heavy test documents
 
-### Settings dialog: larger provider buttons with logos
+### Settings dialog: larger provider buttons with logos ✅
 
-**Status**: Researched, not implemented. Pickup later.
+**Status**: Implemented — 48 px marks in `extension/assets/` on `dlg:img` (ISOTROPIC scale); starter **buttons stay 64×14**. PushButton `ImageURL` does not scale (VCL).
 
 The General page “Get API Key (1-click)” row (`btn_openrouter`, `btn_together`, `btn_hf`, `btn_nvidia` in `extension/Dialogs/SettingsDialog.xdl.tpl`) is four 64×14 text-only command buttons. There is **no existing project code** that puts graphics on XDL buttons.
 
