@@ -33,7 +33,7 @@ _DIAGNOSTIC_SCRIPT = """
 import platform
 res = {'v': platform.python_version(), 'arch': platform.machine(), 'p': {}}
 sci = ['numpy', 'pandas', 'scipy', 'sklearn', 'matplotlib', 'sympy']
-eda = ['ydata_profiling', 'statsmodels', 'pandas_montecarlo']
+eda = ['data_profiling', 'statsmodels', 'pandas_montecarlo']
 cas = ['sympy']
 viz = ['matplotlib', 'seaborn']
 ui = ['webview', 'rocher', 'jedi', 'PyQt6', 'PyQt6.QtWebEngineWidgets', 'qtpy']
@@ -128,10 +128,10 @@ except ImportError:
     res['p']['qtpy'] = None
 
 try:
-    import ydata_profiling
-    res['p']['ydata_profiling'] = 'present'
+    import data_profiling
+    res['p']['data_profiling'] = 'present'
 except ImportError:
-    res['p']['ydata_profiling'] = None
+    res['p']['data_profiling'] = None
 
 try:
     import statsmodels
@@ -199,7 +199,7 @@ _QUANT_INSTALL_CMD = "uv pip install yfinance pandas-ta quantstats pyportfolioop
 # Primary OCR: docling + rapidocr-paddle. Fallback: paddleocr + paddle.
 # Optional: ultralytics (detection helpers), skimage (trusted helper preprocessing).
 _ANALYSIS_INSTALL_CMD = (
-    "uv pip install numpy pandas scipy scikit-learn statsmodels ydata-profiling pandas-montecarlo"
+    "uv pip install numpy pandas scipy scikit-learn statsmodels fg-data-profiling pandas-montecarlo"
 )
 _VISION_PACKAGE_KEYS = ("docling", "rapidocr", "css_inline", "paddleocr", "paddle", "ultralytics", "skimage")
 # Primary Docling OCR keys shown under Missing (OCR) when the stack is not ready.
@@ -218,7 +218,7 @@ _NON_PIP_PROBE_KEYS = frozenset({"input_device"})
 # Probe import/key name → PyPI package name for the global install footer.
 _PROBE_KEY_TO_PIP: dict[str, str] = {
     "sklearn": "scikit-learn",
-    "ydata_profiling": "ydata-profiling",
+    "data_profiling": "fg-data-profiling",
     "pandas_montecarlo": "pandas-montecarlo",
     "pandas_ta": "pandas-ta",
     "pypfopt": "pyportfolioopt",
@@ -566,7 +566,7 @@ def _probe_audio_packages(
 
 _SANDBOX_SELF_CHECK_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Scientific Libraries", ("numpy", "pandas", "scipy", "sklearn", "matplotlib", "sympy")),
-    ("Data Analysis / EDA Libraries", ("ydata_profiling", "statsmodels", "pandas_montecarlo")),
+    ("Data Analysis / EDA Libraries", ("data_profiling", "statsmodels", "pandas_montecarlo")),
     ("UI / Monaco Libraries", ("webview", "rocher", "jedi", "PyQt6", "PyQt6.QtWebEngineWidgets", "qtpy")),
     ("Visualization Libraries", ("matplotlib", "seaborn")),
     ("Computer Algebra", ("sympy",)),

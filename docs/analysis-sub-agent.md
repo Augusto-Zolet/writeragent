@@ -269,7 +269,7 @@ Planned replacements for custom EDA / card layout code.
 
 | Source | Notes |
 |--------|-------|
-| [YData Profiling](https://ydata-profiling.ydata.ai/) (formerly Pandas-Profiling) | **Implemented** — required for `describe_data` (`ProfileReport`; returns `MISSING_PACKAGE` if absent) |
+| [fg-data-profiling](https://github.com/Data-Centric-AI-Community/fg-data-profiling) (formerly YData Profiling / Pandas-Profiling) | **Implemented** — required for `describe_data` (`data_profiling.ProfileReport`; returns `MISSING_PACKAGE` if absent) |
 | Sweetviz, AutoViz, summarytools | Lighter quick-summary alternatives |
 | [DataPrep `compute_*`](https://docs.dataprep.ai/user_guide/eda/introduction.html) | JSON-serializable EDA stats pattern (no `dataprep` dependency) |
 | Microsoft Python-in-Excel init helpers | [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md) — init script pattern; example helpers `kpi_summary`, `format_currency` in dev plan Phase 4 |
@@ -367,7 +367,7 @@ result = run_analysis(spec, data, context)
 **Required venv packages** (install into `scripting.python_venv_path`; no in-code fallbacks):
 
 ```bash
-uv pip install numpy pandas scipy scikit-learn statsmodels ydata-profiling pandas-montecarlo
+uv pip install numpy pandas scipy scikit-learn statsmodels fg-data-profiling pandas-montecarlo
 ```
 
 Settings → Python **Test** reports **Data Analysis / EDA Libraries** and suggests this line when packages are missing. See [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md).
@@ -376,7 +376,7 @@ Settings → Python **Test** reports **Data Analysis / EDA Libraries** and sugge
 
 | Helper | Purpose |
 |--------|---------|
-| `describe_data` | Extended EDA + column quality via **ydata-profiling** + optional IQR outlier counts |
+| `describe_data` | Extended EDA + column quality via **fg-data-profiling** + optional IQR outlier counts |
 | `kpi_summary` | Aggregate mean/min/max/sum for selected metrics |
 | `detect_outliers` | IQR (default), z-score, or `isolation_forest` (pandas/scipy/sklearn) |
 | `quick_stats` | `QuickStats(...).tooltip()` compact metric card |

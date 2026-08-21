@@ -627,9 +627,9 @@ def test_format_self_check_success_analysis_install_hint():
 
     data = {
         "v": "3.12.0",
-        "p": {"ydata_profiling": None, "statsmodels": "present", "pandas_montecarlo": None},
+        "p": {"data_profiling": None, "statsmodels": "present", "pandas_montecarlo": None},
         "sci": [],
-        "eda": ["ydata_profiling", "statsmodels", "pandas_montecarlo"],
+        "eda": ["data_profiling", "statsmodels", "pandas_montecarlo"],
         "ui": [],
         "nlp": [],
         "audio": [],
@@ -640,8 +640,8 @@ def test_format_self_check_success_analysis_install_hint():
     msg = _format_self_check_success(data)
     assert "To install remaining packages:" in msg
     footer = msg[msg.index("To install remaining packages:") :]
-    assert "uv pip install ydata-profiling pandas-montecarlo" in footer
-    assert "pip install ydata-profiling pandas-montecarlo" in footer
+    assert "uv pip install fg-data-profiling pandas-montecarlo" in footer
+    assert "pip install fg-data-profiling pandas-montecarlo" in footer
     assert footer.index("uv pip install") < footer.index("\npip install")
     assert "Helpers" not in msg
 
@@ -651,12 +651,12 @@ def test_format_self_check_success_no_analysis_hint_when_complete():
     data = {
         "v": "3.12.0",
         "p": {
-            "ydata_profiling": "present",
+            "data_profiling": "present",
             "statsmodels": "present",
             "pandas_montecarlo": "present",
         },
         "sci": [],
-        "eda": ["ydata_profiling", "statsmodels", "pandas_montecarlo"],
+        "eda": ["data_profiling", "statsmodels", "pandas_montecarlo"],
         "ui": [],
         "nlp": [],
         "audio": [],

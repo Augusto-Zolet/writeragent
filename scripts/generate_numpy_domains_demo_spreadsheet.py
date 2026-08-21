@@ -312,7 +312,7 @@ def _readme_lines() -> list[str]:
         "SETUP",
         "1. Settings → Python — set scripting.python_venv_path to your venv.",
         "2. Install packages (Settings → Python Test shows groups):",
-        "   Analysis: uv pip install numpy pandas scipy scikit-learn statsmodels ydata-profiling pandas-montecarlo",
+        "   Analysis: uv pip install numpy pandas scipy scikit-learn statsmodels fg-data-profiling pandas-montecarlo",
         "   Viz: uv pip install matplotlib seaborn",
         "   Math: uv pip install sympy",
         "   Quant: uv pip install yfinance pandas-ta quantstats pyportfolioopt",

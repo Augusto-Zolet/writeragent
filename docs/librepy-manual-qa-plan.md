@@ -54,7 +54,7 @@ Suggested venv (from the user guide):
 
 ```bash
 uv pip install numpy pandas scipy scikit-learn statsmodels matplotlib seaborn sympy pint
-# optional per packet: yfinance pandas_ta quantstats pyportfolioopt ydata-profiling pandas-montecarlo
+# optional per packet: yfinance pandas_ta quantstats pyportfolioopt fg-data-profiling pandas-montecarlo
 # optional Vision: docling rapidocr css_inline
 # optional Text: spacy textdescriptives; python -m spacy download xx_sent_ud_sm
 # optional Monaco: pywebview  (+ PyQt6 PyQt6-WebEngine qtpy on Linux)
@@ -339,7 +339,7 @@ Cases are defined in [`tests/calc/numpy_domains_demo_cases.py`](../tests/calc/nu
 
 `describe_data`, `kpi_summary`, `detect_outliers`, `quick_stats`, `format_currency`, `format_percent`, `clean_and_prepare`, `pivot_aggregate`, `group_summary`, `compare_periods`, `correlation_matrix`, `run_regression`, `cluster_numeric`, `monte_carlo`
 
-Needs: numpy pandas scipy sklearn statsmodels; `describe_data` also ydata-profiling; `monte_carlo` also pandas-montecarlo. If a helper returns `MISSING_PACKAGE`, record that as **blocked**, not fail.
+Needs: numpy pandas scipy sklearn statsmodels; `describe_data` also fg-data-profiling; `monte_carlo` also pandas-montecarlo. If a helper returns `MISSING_PACKAGE`, record that as **blocked**, not fail.
 
 ### E-forecast (3)
 

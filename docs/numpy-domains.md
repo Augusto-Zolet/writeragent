@@ -35,7 +35,7 @@ Trusted helpers require packages in the user venv (`scripting.python_venv_path`)
 The 14 Calc **Analysis Helpers** in [`plugin/scripting/analysis.py`](../plugin/scripting/analysis.py) require a fixed scientific stack in the user venv. Settings → Python **Test** reports these under **Data Analysis / EDA Libraries** and includes them in the bottom uv/pip install footer when any are missing.
 
 ```bash
-uv pip install numpy pandas scipy scikit-learn statsmodels ydata-profiling pandas-montecarlo
+uv pip install numpy pandas scipy scikit-learn statsmodels fg-data-profiling pandas-montecarlo
 ```
 
 | Package | Used by |
@@ -43,7 +43,7 @@ uv pip install numpy pandas scipy scikit-learn statsmodels ydata-profiling panda
 | `numpy`, `pandas` | All helpers (coercion, tables, aggregates) |
 | `scipy` | `detect_outliers` (IQR, z-score) |
 | `scikit-learn` | `detect_outliers` (`isolation_forest`), `cluster_numeric` |
-| [ydata-profiling](https://github.com/ydataai/ydata-profiling) (`ydata_profiling`) | `describe_data` |
+| [fg-data-profiling](https://github.com/Data-Centric-AI-Community/fg-data-profiling) (`data_profiling`) | `describe_data` |
 | `statsmodels` | `run_regression`, [`forecast_time_series` / `decompose_time_series`](../plugin/scripting/forecast.py) |
 | [pandas-montecarlo](https://github.com/ranaroussi/pandas-montecarlo) | `monte_carlo` |
 

@@ -859,7 +859,7 @@ Omit `vision_tools.py` for menu-only core (chat `extract_text_from_image`).
 
 | Group | Packages |
 |-------|----------|
-| Scientific / EDA | numpy, pandas, scipy, scikit-learn, statsmodels, ydata-profiling, pandas-montecarlo |
+| Scientific / EDA | numpy, pandas, scipy, scikit-learn, statsmodels, fg-data-profiling, pandas-montecarlo |
 | Viz | matplotlib, seaborn |
 | Symbolic | sympy |
 | Units | pint |

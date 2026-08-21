@@ -134,7 +134,7 @@ The Solver is used for more complex optimization problems involving multiple var
 Install into the venv pointed at by `scripting.python_venv_path`:
 
 ```bash
-uv pip install numpy pandas scipy scikit-learn statsmodels ydata-profiling pandas-montecarlo
+uv pip install numpy pandas scipy scikit-learn statsmodels fg-data-profiling pandas-montecarlo
 ```
 
 Settings → Python **Test** lists **Data Analysis / EDA Libraries** and suggests this command when any package is missing. Helpers return `MISSING_PACKAGE` (not a degraded fallback) if a required library is absent.

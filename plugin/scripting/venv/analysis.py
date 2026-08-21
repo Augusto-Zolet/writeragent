@@ -176,9 +176,9 @@ def describe_data(
     profile_messages: list[Any] = []
 
     try:
-        from ydata_profiling import ProfileReport  # type: ignore[import-not-found, ty:unresolved-import]  # pyright: ignore[reportMissingImports]
+        from data_profiling import ProfileReport  # type: ignore[import-not-found, ty:unresolved-import]  # pyright: ignore[reportMissingImports]
     except ImportError:
-        return _missing_package_error("describe_data", "ydata-profiling")
+        return _missing_package_error("describe_data", "fg-data-profiling")
 
     profile = ProfileReport(limited, minimal=True, progress_bar=False)
     report_json = json.loads(profile.to_json())

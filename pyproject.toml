@@ -69,7 +69,7 @@ dev = [
     "spacy",
     "textdescriptives",
     "statsmodels",
-    "ydata-profiling",
+    "fg-data-profiling",
     "pandas-montecarlo",
     "sympy",
     "pint",

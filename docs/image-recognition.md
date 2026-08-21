@@ -456,7 +456,7 @@ OpenCV remains on the LLM sandbox whitelist for ad hoc scripts; **new trusted co
 |----------|--------|
 | One of the supported pair? | **No** — processing, not recognition |
 | Use inside trusted helpers? | **Yes**, optionally — morphology, watershed, `regionprops` |
-| Self-check? | Optional; graceful skip if absent (like `ydata-profiling` for analysis) |
+| Self-check? | Optional; graceful skip if absent (like `fg-data-profiling` for analysis) |
 | Sandbox whitelist? | Not required for trusted modules |
 
 ### 7.4 Alternative: Surya (single library)

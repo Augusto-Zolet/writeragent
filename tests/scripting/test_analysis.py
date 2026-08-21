@@ -100,8 +100,8 @@ def test_coerce_dedupes_header_names():
 def test_describe_data_basic():
     import importlib.util
 
-    if importlib.util.find_spec("ydata_profiling") is None:
-        pytest.skip("ydata-profiling not installed")
+    if importlib.util.find_spec("data_profiling") is None:
+        pytest.skip("fg-data-profiling not installed")
     result = analysis.describe_data(SALES_GRID)
     assert result["status"] == "ok"
     assert result["helper"] == "describe_data"
@@ -116,7 +116,7 @@ def test_describe_data_without_profiling():
     real_import = builtins.__import__
 
     def blocked_import(name, *args, **kwargs):
-        if name == "ydata_profiling":
+        if name == "data_profiling":
             raise ImportError("no profiling")
         return real_import(name, *args, **kwargs)
 
@@ -126,14 +126,14 @@ def test_describe_data_without_profiling():
     # Now returns error since fallback removed
     assert result["status"] == "error"
     assert result["code"] == "MISSING_PACKAGE"
-    assert "ydata-profiling" in result["message"]
+    assert "fg-data-profiling" in result["message"]
 
 
 def test_describe_data_with_profiling():
     import importlib.util
 
-    if importlib.util.find_spec("ydata_profiling") is None:
-        pytest.skip("ydata-profiling not installed")
+    if importlib.util.find_spec("data_profiling") is None:
+        pytest.skip("fg-data-profiling not installed")
     result = analysis.describe_data(SALES_GRID)
     assert result["status"] == "ok"
     sales_col = next(col for col in result["columns"] if col["name"] == "Sales")
@@ -323,8 +323,8 @@ def test_run_analysis_monte_carlo_dispatch():
 def test_run_analysis_dispatches_helper():
     import importlib.util
 
-    if importlib.util.find_spec("ydata_profiling") is None:
-        pytest.skip("ydata-profiling not installed")
+    if importlib.util.find_spec("data_profiling") is None:
+        pytest.skip("fg-data-profiling not installed")
     result = analysis.run_analysis("describe_data", SALES_GRID)
     assert result["status"] == "ok"
     assert result["helper"] == "describe_data"
@@ -360,7 +360,7 @@ def test_table_row_cap():
             "describe_data",
             lambda: analysis.describe_data(SALES_GRID),
             ("row_count", "col_count"),
-            "ydata_profiling",
+            "data_profiling",
         ),
         (
             "detect_outliers",
