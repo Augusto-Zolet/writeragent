@@ -37,17 +37,36 @@ Menu: `org.extension.writeragent:scripting.edit_python_cell` in [`extension/Addo
 
 ## 2. IPC protocol (pipe)
 
-Same framing as [`worker_harness.py`](../plugin/scripting/worker_harness.py) (`struct.pack("!I", …)` + **pickle protocol 5**).
+Same framing as [`worker_harness.py`](../plugin/scripting/worker_harness.py) (`struct.pack("!I", …)` + **pickle protocol 5**). Helpers live in [`editor_ipc.py`](../plugin/scripting/editor_ipc.py) (`stamp_session`, `target_from_load`, `read_message` / `write_message`). Host dispatch is [`editor_host.py`](../plugin/scripting/editor_host.py); the child echoes in [`editor_main.py`](../plugin/scripting/venv/editor_main.py) and [`editor.js`](../plugin/contrib/scripting/assets/editor/editor.js).
+
+### Message types
 
 | `type` | Direction | Purpose |
 |--------|-----------|---------|
-| `ready` | child → LO | GUI up (`window.events.loaded` or `shown`); safe to send `load`. **Process-level** (no `session_id`). |
-| `load` | LO → child | Initial `code` (stripped Python only—never `=PY()`), optional `title`, `data_binding`, `plain_text_label` (checkbox label; Calc default **Save without =PY()**), optional `save_as_plain` (checkbox state: off for inline `=PY()`, on for code-only cells, off when empty), **`ui`** (localized toolbar/status — see [Localization](#localization)), plus **`session_id`**, **`mode`**, **`target`** |
-| `save` | child → LO | User saved; includes `code`, optional `save_as_plain` (default false), optional `data_binding` (range text for formula suffix; ignored when `save_as_plain`); echoes **`session_id` / `mode` / `target`** |
-| `saved` / `error` | LO → child | Apply result in UI; `saved` may include `save_as_plain` and `status_ok_text` (e.g. **Saved without =PY().**); same session envelope |
-| `closed` / `cancel` | either | Tear down **that** `session_id` (simple UI: one focused view) |
+| `ready` | child → LO | GUI up (`window.events.loaded` or `shown`); safe to send `load`. **Process-level only** — no session envelope. |
+| `load` | LO → child | Buffer contents: stripped Python (never `=PY()`), optional `title`, `data_binding`, `plain_text_label`, `save_as_plain`, **`ui`** (see [Localization](#localization)), plus the session envelope below. |
+| `save` | child → LO | User saved/ran: `code`, optional `save_as_plain`, optional `data_binding`, optional `action`. Echoes the envelope. |
+| `saved` / `error` | LO → child | Apply result in UI; `saved` may include `status_ok_text` (e.g. **Saved without =PY().**). Same envelope as the `save` they answer. |
+| `request_save` | LO → child | Ask the focused buffer to click Save (dirty cell → another cell). Addressed to that `session_id`. |
+| `dirty` | child → LO | Unsaved-edit flag for that session. |
+| `closed` / `cancel` | either | Tear down **that** `session_id`. Window hide vs process exit is still the persistent-child lifecycle. |
+| `scripts_list` / `request_scripts` / `save_script` / … | either | Run Python Script picker; stamp the envelope like any other session message. |
 
-**Session envelope** (every message except `ready`): `session_id` (host-minted uuid hex), `mode` (`calc_cell` \| `run_script` \| `init_script` \| `latex`), `target` (JSON-safe: `cell_address`, `script_name`, `script_origin`, `doc_url`, `resource`). Helpers: `stamp_session` / `target_from_load` in [`editor_ipc.py`](../plugin/scripting/editor_ipc.py). Host routes `on_save` via `PersistentEditor.sessions`, not a single callback. One child process; one focused view until tabs/windows exist. Same `mode`+`target` reuses `session_id`.
+### Session envelope
+
+Every message **except** `ready` includes:
+
+| Field | Set by | Meaning |
+|--------|--------|---------|
+| `session_id` | Host on `load` (uuid hex); child **echoes** afterward | Routing key. Not reused after `closed`. Same `mode`+`target` on relaunch **reuses** the id. |
+| `mode` | Host | `calc_cell` \| `run_script` \| `init_script` \| `latex` |
+| `target` | Host; child echoes | JSON-safe identity only (no UNO objects): `cell_address`, `script_name`, `script_origin`, `doc_url`, `resource`. Empty keys omitted. |
+
+Callers put identity on `load` (cell A1, script name, init `resource`, LaTeX object name). `run_script_doc` is **popped** before pickle.
+
+**Flow:** `launch_monaco_editor` mints or reuses a session, registers `on_save` / `on_closed` in `PersistentEditor.sessions[session_id]`, sends stamped `load`. Child remembers the last `load`’s envelope and stamps `_write_parent`. JS stores `session_id` and ignores `saved`/`error` for a different id. Host `_dispatch_incoming` looks up the id; unknown ids are ignored (not applied to “the” editor).
+
+**One child process, N host sessions.** UI queues in the child are keyed by `session_id`. **Simple UI (current):** one focused view — opening a *different* target `end_session`s the previous one and sends `load`. Dirty calc cells still confirm, then `request_save` on the old id, then `load` the new. That replace-on-switch policy is UI, not the protocol. Extra windows later keep unfocused sessions in the map (see [Multiple editor views](#multiple-editor-views-windows-vs-tabs)).
 
 ---
 
@@ -62,7 +81,7 @@ Same framing as [`worker_harness.py`](../plugin/scripting/worker_harness.py) (`s
 ### Child (`pywebview`)
 
 - **GUI thread:** `js_api` (`notify_save`, `notify_cancel`, `poll_messages`).
-- **Pipe thread:** read stdin only; push `load` / `saved` / `error` to `_ui_queue`.
+- **Pipe thread:** read stdin only; push `load` / `saved` / `error` / `request_save` onto per-`session_id` UI queues (JS `poll_messages`).
 - **Never call `evaluate_js()` from the pipe thread** (GTK/WebView2 deadlock). JS polls `poll_messages()` ~80ms and updates Monaco.
 
 ---
@@ -612,9 +631,26 @@ flowchart TD
 ### Open questions (decide before large work)
 
 1. **Auto-close on Save?** LP keeps editor open; WriterAgent today shows “Saved.” — default stay open; optional setting later.
-2. **Multiple editor windows / tabs?** IPC and host now route by `session_id`. Simple UI still one focused view (new target replaces the previous session). Tabs or extra pywebview windows can keep extra sessions later.
+2. **Multiple views** — plumbing is done; remaining work is UI. Prefer **windows** over tabs (see below).
 3. **Monaco / editor assets:** all static UI files (`index.html`, JS, CSS, and Monaco `vs/`) come from **`rocher`** in the configured venv (`uv pip install rocher`). The OXT ships none of them. Refresh by upgrading `rocher` in the venv. In-repo dev copies live under `plugin/contrib/scripting/assets/editor/`.
 4. **Validate in child with `ast.parse` instead of LO?** Faster but diverges from worker `compile` mode — prefer LO for consistency unless latency forces child-side AST-only pass first.
+
+### Multiple editor views (windows vs tabs)
+
+**Shipped:** session routing. Not shipped: more than one visible buffer.
+
+The architecture challenge (unaddressed pipe, one `on_save`, process-global dirty/pending load) is done. Extra views are a **localized UI + edge-case** job: stop calling `end_session` on the previous target when opening a new one; give each `session_id` a Monaco model or a pywebview window; cap how many stay alive; dirty on an unfocused buffer; which toolbar/status is current.
+
+**Prefer extra windows (same child process).** `webview.start()` is one GUI loop; more windows after start are the documented pywebview pattern. Each window already has the right chrome (`applyLoadMessage` already swaps Run / picker vs **Data:** / **Save without =PY()** vs LaTeX). The point of a second view is to **see two cells or two scripts at the same time** (compare, copy with both on screen). That is the more valuable workflow.
+
+**Tabs are a weaker substitute.** A tab strip in the existing window would let you keep several buffers, switch without losing unsaved work, and copy/paste between them easily — useful. It does **not** let you look at two chunks of code **at once**. Toolbar mixing (cell vs Run Script vs LaTeX) is also clumsier in one strip (`scripts_manager.js` is still a singleton). Do not build tabs as the main multi-buffer UI; if they ever appear, they are optional convenience on top of windows, not instead of them.
+
+**Implementation sketch (when we do it):**
+
+- Host: keep unfocused sessions in `PersistentEditor.sessions`; do not `end_session` + `on_closed` merely because another cell opened.
+- Child: `create_window` per `session_id` (or reuse hidden windows); `poll_messages` already drains per-id queues.
+- JS: almost unchanged per window (one model each). Cap 2–3. Same child, not N processes (Chromium cost).
+- Do not spawn a second editor process for this.
 
 ---
 
@@ -623,7 +659,7 @@ flowchart TD
 - **Session 1 (done):** native LO + configured venv with pywebview: menubar **Edit Python in Cell…**, edit any selected Calc cell, Save updates `=PY()` and recalc; failures show full tracebacks.
 - **Phase 2A (done):** context menu, stderr drain, multi-cell reload, persistent child reuse.
 - **Phase 2E (done):** automatic theme (LO light/dark drives Monaco `vs`/`vs-dark` + full toolbar chrome via shared appearance detector).
-- **Later:** syntax squiggles (2B), range picker button (2C), Flatpak spawn (2F). **2D Jedi debounce + missing-jedi hint: done.**
+- **Later:** syntax squiggles (2B), range picker button (2C), Flatpak spawn (2F). **2D Jedi debounce + missing-jedi hint: done.** Extra windows when we want two buffers on screen ([§2](#2-ipc-protocol-pipe), [multiple views](#multiple-editor-views-windows-vs-tabs)).
 - `make test` green; typecheck clean; no UNO calls off main thread in bridge code paths.
 
 ### Session 1 behavior reference
