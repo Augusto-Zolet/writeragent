@@ -43,6 +43,7 @@ build-backend = "setuptools.build_meta"
 [dependency-groups]
 dev = [
     "latex2mathml",
+    "mathml-to-latex==1.0.0",
     "isodate",
     "json-repair",
     "snowballstemmer",

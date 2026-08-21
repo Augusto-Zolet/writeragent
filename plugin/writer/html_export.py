@@ -42,6 +42,22 @@ def _apply_image_export_options(content: str, *, include_images: bool) -> str:
     return strip_embedded_image_data(content)
 
 
+def _inject_exported_math_tex(model, ctx, content: str) -> str:
+    """Replace formula OLE holes with delimited TeX for the model/chat.
+
+    Failures stay in the HTML as a visible fallback; never drop formulas.
+    """
+    if not content or model is None or ctx is None:
+        return content
+    try:
+        from plugin.writer.math.math_mml_export import inject_math_tex_into_html
+
+        return inject_math_tex_into_html(model, ctx, content)
+    except Exception:
+        log.debug("_inject_exported_math_tex failed", exc_info=True)
+        return content
+
+
 
 def _export_xhtml(doc, config_svc):
     """Export *doc* via the XHTML Writer File filter; return the raw XHTML string."""
@@ -149,6 +165,7 @@ def _range_to_content_via_temp_doc(model, ctx, start, end, max_chars, config_svc
                     content = f.read()
             content = format_mod._strip_html_boilerplate(content)
         content = _apply_image_export_options(content, include_images=include_images)
+        content = _inject_exported_math_tex(model, ctx, content)
         if max_chars and len(content) > max_chars:
             content = content[:max_chars] + "\n\n[... truncated ...]"
         return content
@@ -244,6 +261,7 @@ def document_to_content(
         t_phase = time.perf_counter()
         content = xhtml_post.xhtml_to_semantic_html(xhtml, parents)
         content = _apply_image_export_options(content, include_images=include_images)
+        content = _inject_exported_math_tex(model, ctx, content)
         if max_chars and len(content) > max_chars:
             content = content[:max_chars] + "\n\n[... truncated ...]"
         log.debug(
@@ -266,6 +284,7 @@ def document_to_content(
                 content = f.read()
             content = format_mod._strip_html_boilerplate(content)
             content = _apply_image_export_options(content, include_images=include_images)
+            content = _inject_exported_math_tex(model, ctx, content)
             if max_chars and len(content) > max_chars:
                 content = content[:max_chars] + "\n\n[... truncated ...]"
             log.debug(

@@ -72,6 +72,20 @@ def test_get_document_context_short_doc_single_slice(mock_doc_type, mock_char_co
     mock_read_slice.assert_called_once_with(model, 0, 100)
 
 
+@patch("plugin.doc.document_helpers._writer_has_math_ole", return_value=True)
+@patch("plugin.doc.document_helpers._read_writer_text_slice", return_value="short doc text")
+@patch("plugin.doc.text_helpers._writer_char_count", return_value=100)
+@patch("plugin.doc.doc_type.get_document_type")
+def test_get_document_context_hints_math_ole(mock_doc_type, mock_char_count, mock_read_slice, mock_math):
+    from plugin.doc.doc_type import DocumentType
+
+    mock_doc_type.return_value = DocumentType.WRITER
+    out = get_document_context_for_chat(MagicMock(), max_context=8000, include_selection=False)
+    assert "short doc text" in out
+    assert "get_document_content" in out
+    assert "OLE" in out
+
+
 def test_chat_document_context_max_chars_default():
     assert CHAT_DOCUMENT_CONTEXT_MAX_CHARS == 8000
 

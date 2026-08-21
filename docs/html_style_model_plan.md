@@ -288,7 +288,7 @@ If `apply_document_content` cannot resolve a compact `data-lo-style` token to a 
 
 **v1:** Two `storeToURL` exports on full read (XHTML + Flat ODF sidecar) + in-memory string/CSS/XML parsing; UNO `setPropertyValue` / `apply_paragraph_style_preserving_direct_char` on the write path.
 
-**Long-term:** One XHTML export per read **slice** + cached UNO style index (one enumeration per doc revision). Prefer `scope=range` and navigation tools over `scope=full` on large documents. Chat sidebar already uses plain-text excerpts ([`get_document_context_for_chat`](../plugin/doc/document_helpers.py)), not styled HTML export.
+**Long-term:** One XHTML export per read **slice** + cached UNO style index (one enumeration per doc revision). Prefer `scope=range` and navigation tools over `scope=full` on large documents. Chat sidebar uses plain-text excerpts ([`get_document_context_for_chat`](../plugin/doc/document_helpers.py)), not styled HTML export. Why we did **not** put `document_to_content` in every send (start/end 4k, tracked deletions, cost), and how to revisit it: [math-tex.md — Chat DOCUMENT CONTENT](math-tex.md#chat-document-content-does-not-inline-math-ole-on-purpose).
 
 | Source | Paragraph styles | Char overrides | Body HTML | Scales with doc size |
 |--------|------------------|----------------|-------------|----------------------|

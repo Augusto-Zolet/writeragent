@@ -149,6 +149,21 @@ def test_writer_streamed_rewrite_session_collapses_chunked_edit(ctx):
 
 
 @native_test
+def test_get_document_context_for_chat_hints_math_ole(ctx):
+    from plugin.writer.math.math_mml_convert import convert_latex_to_starmath, insert_writer_math_formula
+
+    with TestingFactory.native_doc(ctx, "writer") as doc:
+        text = doc.getText()
+        cursor = text.createTextCursor()
+        conv = convert_latex_to_starmath(ctx, r"\frac{1}{2}")
+        assert conv.ok and conv.starmath, conv.error_message
+        insert_writer_math_formula(doc, cursor, conv.starmath, display_block=False)
+        ctx_str = get_document_context_for_chat(doc, include_selection=False, ctx=ctx)
+        assert "get_document_content" in ctx_str
+        assert "OLE" in ctx_str
+
+
+@native_test
 @with_native_doc("writer")
 def test_build_heading_tree(ctx, doc):
     _populate_doc_helpers(doc)

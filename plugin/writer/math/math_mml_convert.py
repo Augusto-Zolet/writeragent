@@ -184,3 +184,17 @@ def insert_writer_math_formula(model: Any, cursor: Any, starmath: str, *, displa
         cursor.goRight(1, False)
         cursor.setPropertyValue("ParaAdjust", 0)  # 0 = Left / Standard alignment
 
+
+def replace_writer_math_formula(embed: Any, starmath: str) -> None:
+    """Set StarMath on an existing Writer formula object.
+
+    Must not insert a second embed or paragraph breaks: doing that while the
+    OLE is selected is a native LibreOffice crash (no Python traceback).
+    """
+    if not starmath or not isinstance(starmath, str) or not starmath.strip():
+        raise ValueError("empty_starmath")
+    inner = embed.getEmbeddedObject() if hasattr(embed, "getEmbeddedObject") else embed
+    if inner is None or not hasattr(inner, "Formula"):
+        raise ValueError("not_a_formula_object")
+    inner.Formula = starmath.strip()
+

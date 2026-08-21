@@ -188,6 +188,7 @@ Contributor orientation: [AGENTS.md](AGENTS.md).
 | [LibreOffice MCP Extension](https://github.com/quazardous/mcp-libre)                  | MCP server patterns, Makefile, tool registry    |
 | [Hermes Agent](https://github.com/NousResearch/hermes-agent)                          | Tool-call parsers, JSON repair, memory patterns |
 | [latex2mathml](https://github.com/roniemartinez/latex2mathml)                         | LaTeX → MathML                                  |
+| [mathml-to-latex](https://github.com/asnunes/py-mathml-to-latex)                      | MathML → LaTeX (Writer formula export)          |
 | [isodate](https://github.com/gweis/isodate)                                           | ISO 8601 duration parse/format (Calc wire)      |
 
 

@@ -141,3 +141,67 @@ def test_insert_latex_math_dialog_monaco_success(ctx: Any, doc: Any) -> None:
         mock_set_config.assert_any_call("last_latex_input", latex_input)
         mock_set_config.assert_any_call("last_latex_display_block", True)
 
+
+@native_test
+@with_native_doc("writer")
+def test_insert_latex_math_dialog_multi_select_refuses(ctx: Any, doc: Any) -> None:
+    mock_desktop = MagicMock()
+    mock_desktop.getCurrentComponent.return_value = doc
+    initial_count = _embed_count(doc)
+    with patch("plugin.writer.math.latex_dialog.get_desktop", return_value=mock_desktop), \
+         patch("plugin.writer.math.math_mml_export.selected_math_embeds", return_value=[object(), object()]), \
+         patch("plugin.writer.math.latex_dialog.msgbox") as mock_msgbox, \
+         patch("plugin.writer.math.latex_dialog.show_latex_input_dialog") as mock_dlg, \
+         patch("plugin.writer.math.latex_dialog.monaco_editor_available", return_value=(None, False)):
+        insert_latex_math_dialog(ctx)
+        mock_dlg.assert_not_called()
+        mock_msgbox.assert_called_once()
+        assert _embed_count(doc) == initial_count
+
+
+@native_test
+@with_native_doc("writer")
+def test_replace_selected_formula_keeps_embed_count(ctx: Any, doc: Any) -> None:
+    from plugin.writer.math.math_mml_convert import insert_writer_math_formula, replace_writer_math_formula
+    from plugin.writer.math.math_mml_export import math_embed_name
+
+    text = doc.getText()
+    cur = text.createTextCursor()
+    cur.gotoEnd(False)
+    insert_writer_math_formula(doc, cur, "a + b", display_block=False)
+    assert _embed_count(doc) == 1
+    eo = doc.getEmbeddedObjects()
+    name = eo.getElementNames()[0]
+    embed = eo.getByName(name)
+    replace_writer_math_formula(embed, "x + y")
+    assert _embed_count(doc) == 1
+    assert "x" in _first_math_formula(doc)
+    assert math_embed_name(embed) in (name, str(name))
+
+
+@native_test
+@with_native_doc("writer")
+def test_insert_latex_dialog_update_path_does_not_add_embed(ctx: Any, doc: Any) -> None:
+    from plugin.writer.math.math_mml_convert import insert_writer_math_formula
+
+    text = doc.getText()
+    cur = text.createTextCursor()
+    cur.gotoEnd(False)
+    insert_writer_math_formula(doc, cur, "a + b", display_block=False)
+    eo = doc.getEmbeddedObjects()
+    name = str(eo.getElementNames()[0])
+    embed = eo.getByName(name)
+
+    mock_desktop = MagicMock()
+    mock_desktop.getCurrentComponent.return_value = doc
+    latex_input = r"x + y"
+    with patch("plugin.writer.math.latex_dialog.get_desktop", return_value=mock_desktop), \
+         patch("plugin.writer.math.latex_dialog.monaco_editor_available", return_value=(None, False)), \
+         patch("plugin.writer.math.math_mml_export.selected_math_embeds", return_value=[embed]), \
+         patch("plugin.writer.math.latex_dialog.show_latex_input_dialog", return_value=(latex_input, False)):
+        insert_latex_math_dialog(ctx)
+
+    assert _embed_count(doc) == 1
+    formula = _first_math_formula(doc)
+    assert "x" in formula and "y" in formula
+

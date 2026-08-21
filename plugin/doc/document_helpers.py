@@ -783,6 +783,38 @@ def get_text_cursor_at_range(model, start_offset, end_offset):
         return None
 
 
+def _writer_has_math_ole(model) -> bool:
+    """True when the Writer doc has at least one LibreOffice Math embedded object."""
+    try:
+        from plugin.writer.math.math_mml_convert import MATH_CLSID
+
+        container = model.getEmbeddedObjects()
+        names = container.getElementNames()
+        # Index by length — iterating a MagicMock in unit tests would never end.
+        if names is None:
+            return False
+        n = len(names)
+        for i in range(n):
+            obj = container.getByName(names[i])
+            if str(getattr(obj, "CLSID", "") or "").lower() == MATH_CLSID.lower():
+                return True
+    except Exception:
+        return False
+    return False
+
+
+def _with_math_ole_chat_hint(model, body: str) -> str:
+    """Plain-text excerpts skip Math OLE; point the model at get_document_content."""
+    if not _writer_has_math_ole(model):
+        return body
+    return (
+        body
+        + "\n\nMath formulas are LibreOffice Math objects (OLE), not characters in the "
+        "excerpt above, so Document length may omit them. Call get_document_content to "
+        "read them as TeX."
+    )
+
+
 @main_thread_only
 def get_document_context_for_chat(model, max_context=CHAT_DOCUMENT_CONTEXT_MAX_CHARS, include_end=True, include_selection=True, ctx=None):
     """Build a single context string for chat. Handles Writer, Calc and Draw.
@@ -796,7 +828,8 @@ def get_document_context_for_chat(model, max_context=CHAT_DOCUMENT_CONTEXT_MAX_C
         if doc_type in (_doc_type.DocumentType.DRAW, _doc_type.DocumentType.IMPRESS):
             return get_draw_context_for_chat(model, max_context, ctx)
 
-        # Writer: read only the excerpt slice(s), not the full document text.
+        # Writer: plain-text start/end slices (hides tracked deletions). Math OLE is not
+        # in getString(); we only hint to call get_document_content.
         if doc_type == _doc_type.DocumentType.WRITER:
             try:
                 check_disposed(model, "Document Model")
@@ -837,14 +870,20 @@ def get_document_context_for_chat(model, max_context=CHAT_DOCUMENT_CONTEXT_MAX_C
                 start_excerpt = _inject_markers_into_excerpt(start_excerpt, 0, start_chars, start_offset, end_offset, "[DOCUMENT START]\n", "\n[DOCUMENT END]")
                 end_excerpt = _inject_markers_into_excerpt(end_excerpt, doc_len - end_chars, doc_len, start_offset, end_offset, "[DOCUMENT END]\n", "\n[END DOCUMENT]")
                 middle_note = "\n\n[... middle of document omitted ...]\n\n" if doc_len > max_context else ""
-                return "Document length: %d characters.\n\n%s%s%s" % (doc_len, start_excerpt, middle_note, end_excerpt)
+                return _with_math_ole_chat_hint(
+                    model,
+                    "Document length: %d characters.\n\n%s%s%s" % (doc_len, start_excerpt, middle_note, end_excerpt),
+                )
 
             take = min(doc_len, max_context)
             excerpt = _read_writer_text_slice(model, 0, take)
             if doc_len > max_context:
                 excerpt += "\n\n[... document truncated ...]"
             excerpt = _inject_markers_into_excerpt(excerpt, 0, take, start_offset, end_offset, "[DOCUMENT START]\n", "\n[END DOCUMENT]")
-            return "Document length: %d characters.\n\n%s" % (doc_len, excerpt)
+            return _with_math_ole_chat_hint(
+                model,
+                "Document length: %d characters.\n\n%s" % (doc_len, excerpt),
+            )
 
         return ""
     except Exception:

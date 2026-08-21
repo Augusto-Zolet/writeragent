@@ -95,6 +95,7 @@ LIBREPY_PLUGIN_FILES: tuple[str, ...] = (
     "plugin/writer/math/__init__.py",
     "plugin/writer/math/latex_dialog.py",
     "plugin/writer/math/math_mml_convert.py",
+    "plugin/writer/math/math_mml_export.py",
     "plugin/writer/math/html_math_segment.py",
     "plugin/writer/images/__init__.py",
     "plugin/writer/images/image_tools.py",  # graphic insert; image_utils.py is LLM gen (WriterAgent only)

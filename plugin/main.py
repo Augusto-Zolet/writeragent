@@ -527,7 +527,7 @@ def get_menu_text(command):
         "scripting.edit_python_cell": _("Edit Python in Cell..."),
         "scripting.reset_python_session": _("Reset Python Session"),
         "scripting.import_ipynb": _("Import Jupyter Notebook..."),
-        "writer.insert_latex_dialog": _("Insert LaTeX Math..."),
+        "writer.insert_latex_dialog": _("Edit LaTeX Math..."),
         "embeddings.search_dialog": _("Search Nearby Files..."),
         "textanalytics.open_dialog": _("Text Analytics..."),
         "calc.convert_spreadsheet_to_python": _("Convert Sheet to Python..."),

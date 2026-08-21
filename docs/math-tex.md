@@ -12,10 +12,11 @@ Canonical design and execution reference for **editable math** in WriterAgent: H
 | **Phase 1** (MathML MVP) | **Done** (core) | Segmentation, mixed HTML import, inline/display, tests, StarMath `newline` collapse for Writer embeds. Gaps called out in [Phase 1](#phase-1-mathml-mvp) below. |
 | **Phase 2** (TeX fallback) | **Done** (core) | Delimiters `$…$`, `$$…$$`, `\(...\)`, `\[...\]`; `latex2mathml` → same LO MathML path; mixed scan + precedence in `html_math_segment.py`; `convert_latex_to_starmath` in `math_mml_convert.py`; prompts in `prompts.py` / `apply_document_content` schema. Optional: KaTeX `<annotation encoding="application/x-tex">` retry on MathML failure (not implemented). |
 | **Phase 3** (robustness) | **Not started** | See [Phase 3](#phase-3-robustness-and-quality). |
+| **MathML → LaTeX export** | **Done** (core) | StarMath → LO filter ``MathML XML (Math)`` → vendored **`mathml-to-latex`**; enumerator + splice into `document_to_content` / chat. Not a bit-identical TeX round-trip. Edit-in-place tool still backlog. |
 
-**Shipped modules (WriterAgent):** `html_math_segment.py` (MathML + TeX segmentation), `math_mml_convert.py` (MathML + LaTeX→MathML→StarMath), orchestration in `format.py` (`html_fragment_contains_mixed_math`, `content_has_markup` TeX patterns); trusted SymPy helpers (`symbolic_math` tool, Run Python Script **[Math]**) insert via `symbolic_egress.py` → `convert_latex_to_starmath` → `insert_writer_math_formula`; vendored **`latex2mathml`** via `requirements-vendor.txt` (see `pyproject.toml` dev group for typecheck); tests under `tests/` and `tests/uno/`; agent context in `AGENTS.md`; model hints in `plugin/framework/prompts.py` (`WRITER_APPLY_DOCUMENT_HTML_RULES`) and `plugin/writer/content.py` (`ApplyDocumentContent`).
+**Shipped modules (WriterAgent):** `html_math_segment.py` (MathML + TeX segmentation), `math_mml_convert.py` (MathML + LaTeX→MathML→StarMath), `math_mml_export.py` (StarMath→MathML→LaTeX); orchestration in `format.py` / `html_export.py` (`html_fragment_contains_mixed_math`, `content_has_markup` TeX patterns, `_inject_exported_math_tex`); trusted SymPy helpers (`symbolic_math` tool, Run Python Script **[Math]**) insert via `symbolic_egress.py` → `convert_latex_to_starmath` → `insert_writer_math_formula`; vendored **`latex2mathml`** and **`mathml-to-latex`** via `requirements-vendor.txt` (see `pyproject.toml` dev group for typecheck); tests under `tests/` and `tests/uno/`; agent context in `AGENTS.md`; model hints in `plugin/framework/prompts.py` (`WRITER_APPLY_DOCUMENT_HTML_RULES`) and `plugin/writer/content.py` (`ApplyDocumentContent`).
 
-**Next priorities (pick from):** Phase 3 quality; Phase 1 backlog (test matrix, optional `warnings` in tool return); optional `"".join` for `apply_document_content` list `content`; policy for true multi-line / `mtable` vs global `newline` stripping; trim DEBUG logging; upstream LO Writer OLE + `newline` rendering; optional KaTeX annotation fallback; TexMaths-inspired UX/interop ([TexMaths feature review](#texmaths-feature-review-porting-candidates)).
+**Next priorities (pick from):** Phase 3 quality; Phase 1 backlog (test matrix, optional `warnings` in tool return); optional `"".join` for `apply_document_content` list `content`; policy for true multi-line / `mtable` vs global `newline` stripping; trim DEBUG logging; upstream LO Writer OLE + `newline` rendering; optional KaTeX annotation fallback; TexMaths-inspired UX/interop ([TexMaths feature review](#texmaths-feature-review-porting-candidates)); dedicated `get_math_in_range` / replace-in-place edit loop.
 
 ## Problem statement
 
@@ -590,7 +591,7 @@ Work **after** Phase 2 (core) should assume:
 
 ## Math extraction and edit loops (roadmap)
 
-**Status:** Not implemented end-to-end. **Import** (TeX/MathML → editable LO Math) is shipped; see phases above.
+**Status:** **Export core shipped.** Import (TeX/MathML → editable LO Math) was already shipped. **Serialize for prompt:** StarMath → LO MathML (filter ``MathML XML (Math)``) → ``mathml-to-latex`` → `$…$` / `$$…$$` in `document_to_content`. **Not shipped:** dedicated math tool, replace-in-place edit loop, original-TeX provenance.
 
 ## Extraction problem
 
@@ -601,17 +602,39 @@ Models interact with Writer through tools (notably `apply_document_content`) usi
 
 The extension **normalizes** both into **LibreOffice Math** embedded objects (`TextEmbeddedObject` with the Math CLSID) by way of **StarMath** command text (`Formula` on the embedded model). See:
 
-- Segmentation: [`plugin/writer/html_math_segment.py`](../plugin/writer/html_math_segment.py)
-- Conversion: [`plugin/writer/math_mml_convert.py`](../plugin/writer/math_mml_convert.py) (`convert_latex_to_starmath`, `convert_mathml_to_starmath`)
-- Insertion: [`plugin/writer/math_formula_insert.py`](../plugin/writer/math_formula_insert.py)
-- Orchestration: [`plugin/writer/format.py`](../plugin/writer/format.py) (`_insert_mixed_html_and_math_at_cursor`)
+- Segmentation: [`plugin/writer/math/html_math_segment.py`](../plugin/writer/math/html_math_segment.py)
+- Conversion (import): [`plugin/writer/math/math_mml_convert.py`](../plugin/writer/math/math_mml_convert.py) (`convert_latex_to_starmath`, `convert_mathml_to_starmath`)
+- Conversion (export): [`plugin/writer/math/math_mml_export.py`](../plugin/writer/math/math_mml_export.py) (`convert_starmath_to_mathml`, `convert_mathml_to_latex`, `iter_writer_math_objects`)
+- Insertion: [`plugin/writer/math/math_mml_convert.py`](../plugin/writer/math/math_mml_convert.py) (`insert_writer_math_formula`)
+- Orchestration: [`plugin/writer/html_import.py`](../plugin/writer/html_import.py) / [`plugin/writer/html_export.py`](../plugin/writer/html_export.py)
 
-For a **second turn** (“edit this equation”), the model needs a **stable, prompt-friendly** representation of what is in the document. Today:
+For a **second turn** (“edit this equation”), the model needs a **stable, prompt-friendly** representation of what is in the document:
 
 - **Input** path (TeX / MathML → object) is implemented.
-- **Output** path (object → TeX or MathML for the model) is **not** a single supported product feature; document context and HTML export paths generally do not round-trip formulas as structured TeX/MathML the model originally sent.
+- **Output** path (object → TeX): **core shipped** via `document_to_content` (`inject_math_tex_into_html` replaces XHTML Writer File ``<math>`` with `$…$` / `$$…$$`; it does not append a second copy). Round-trip is **lossy**. Replace-in-place targeting by index is still backlog.
 
-This gap blocks reliable **math-aware edit**, **refactor**, and **verbatim reuse** of equations in multi-turn agent flows.
+### Chat `[DOCUMENT CONTENT]` does not inline Math OLE (on purpose)
+
+We considered feeding the same HTML as `get_document_content` (`document_to_content`) into every chat send so the model would see `$…$` without a tool call. **Not done.** Chat still uses cheap plain-text start/end slices in [`get_document_context_for_chat`](../plugin/doc/document_helpers.py) (`getString` / tracked-deletion-aware portions). Math OLE is **not** characters, so a formula-only paragraph has `Document length` **0** and an empty excerpt. If the document has a Math embed, the excerpt adds a short note: call **`get_document_content`** to read formulas as TeX.
+
+**Why we tried HTML-in-chat:** one representation with `apply_document_content` / `get_document_content`; math and styles would “just appear.”
+
+**Why we dropped it for now:**
+
+| Issue | Detail |
+|--------|--------|
+| **Start + end 4k** | Chat sends the first and last ~4k **plain** characters (`CHAT_DOCUMENT_CONTEXT_MAX_CHARS` / 2). Full `document_to_content` exports the **whole** document then truncates from the **front**, so the end of a long file disappears. |
+| **Tracked deletions** | Slices use `get_string_without_tracked_deletions`. LibreOffice **XHTML Writer File** can still emit deleted text. Putting that in the system prompt would undo that work. |
+| **Cost** | XHTML + flat-ODF `storeToURL` on **every send** (same as a full tool read). Slices are two range `getString`s. |
+| **Length vs OLE** | `CharacterCount` / `getString()` ignore Math objects. HTML length ≠ that count; we do not invent a fake “1 character per formula.” |
+
+**If we bring HTML-in-chat back**, fix those before swapping the Writer branch:
+
+1. **Windowed HTML:** copy only the start/end (or selection) character ranges into a **hidden temp Writer doc**, then `document_to_content` on **that** — not a full-doc export truncated from byte 0. Preserve OLE in the copy so Math survives.
+2. **Deletions:** either the temp-doc copy must omit tracked deletions the same way as slices, or post-filter XHTML. Do not ship until a UNO test like `test_get_document_context_for_chat_hides_tracked_deletions` still passes with `ctx` on the HTML path.
+3. Keep the 8k cap on the **serialized** HTML, not only on UNO `CharacterCount`.
+
+Until then, telling the model to use `get_document_content` is enough.
 
 ---
 
@@ -678,7 +701,7 @@ flowchart TB
 **Phase 2 — Prompt-facing TeX or MathML**
 
 - **Option A — StarMath → TeX:** LibreOffice / ODF may expose export filters (MathML, LaTeX) from formula documents — **spike in headless LO** before committing. If only StarMath is available, maintain a **small** translator for common constructs or accept StarMath-in-prompt with a system note (last resort for models).
-- **Option B — MathML intermediate:** Export formula to MathML (if UNO/filter supports it), then optional **MathML → TeX** via a **lightweight** dependency (see **§5** — favor **small wheels**, avoid Saxon in-extension unless justified).
+- **Option B — MathML intermediate:** **Chosen and shipped.** Filter ``MathML XML (Math)`` then vendored **`mathml-to-latex`** (MIT, no extra deps). Not `mml2tex`/Saxon.
 - **Option C — Dual payload in prompts:** `starmath` + `suggested_tex` when converter confident.
 
 Acceptance: golden UNO tests on documents created via existing HTML math import (reuse patterns from [`tests/writer/math/test_math_formula_insert_uno.py`](../tests/writer/math/test_math_formula_insert_uno.py)).
@@ -743,10 +766,11 @@ When future HTML import accepts MathML with `<annotation encoding="application/x
 
 ## Extraction deliverables checklist
 
-- [ ] UNO enumerator for Math embedded objects + `Formula` read-back + unit/UNO tests.
-- [ ] Serialization strategy chosen (A/B/C) with written rationale and dependency list.
-- [ ] Prompt/tool contract: JSON shape, max length, error when conversion fails.
-- [ ] Integration point documented in `AGENTS.md` and this document once shipped.
+- [x] UNO enumerator for Math embedded objects + `Formula` read-back + unit/UNO tests.
+- [x] Serialization strategy chosen: **Option B** (LO MathML + `mathml-to-latex`).
+- [x] Prompt path: delimited TeX in `get_document_content` / chat HTML; conversion failure → visible StarMath / `[Math export fallback]`.
+- [x] Documented in this file; no new `AGENTS.md` global rule.
+- [ ] Dedicated JSON `get_math_in_range` tool + replace-in-place (backlog).
 - [ ] No regression to HTML import path (existing tests green).
 
 ---
@@ -804,7 +828,7 @@ flowchart TB
 | TexMaths feature | Where in TexMaths | WriterAgent gap | Suggested port |
 |------------------|-------------------|-----------------|--------------|
 | **Persist LaTeX source on insert** | `SetAttributes` stores `sEqCode` in shape metadata | TeX lost after insert ([Optional: preserving original model TeX](#optional-preserving-original-model-tex)) | On `insert_writer_math_formula`, write optional `UserDefinedAttributes` / doc property: original TeX + `display_block`. Enables edit rounds without StarMath→TeX guesswork. |
-| **Edit selected equation** | Select image → Equations macro loads LaTeX | `insert_latex_math_dialog` only inserts; no selection prefill | Menu/tool: if cursor on Math CLSID object, read stored TeX (or StarMath fallback) → [`latex_dialog.py`](../plugin/writer/math/latex_dialog.py) → replace object. |
+| **Edit selected equation** | Select image → Equations macro loads LaTeX | Menu **Edit LaTeX Math...**; one selected formula prefills TeX and **Update** sets `Formula` in place (no second OLE — that crashed LO). Multi-select is refused. | Done for single selection. |
 | **Selection → equation** (“Text to LaTeX”) | Help §11: select plain LaTeX in Writer → one-click convert | Same conversion path, no selection shortcut | Writer menu/MCP: `getSelection()` string → `convert_latex_to_starmath` → insert/replace. Small UX win for power users. |
 | **Read legacy TexMaths / OOoLatex** | `ReadAttributes` supports `TexMathsArgs`, `OOoLatexArgs`, `Title=TexMaths` | No interop with existing academic `.odt` | UNO helper + optional tool: detect graphic with TexMaths metadata, return LaTeX to model, offer “convert to native math” (one-shot or batch). Critical for documents that already use TexMaths. |
 
