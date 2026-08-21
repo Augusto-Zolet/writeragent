@@ -60,12 +60,16 @@ class _FakeControl:
     def addItemListener(self, listener: object) -> None:
         self.item_listeners.append(listener)
 
+    def addTextListener(self, listener: object) -> None:
+        self.action_listeners.append(listener)
+
 
 class _FakeDialog:
     def __init__(self) -> None:
         self.controls = {
             "BtnSave": _FakeControl(),
             "BtnCancel": _FakeControl(),
+            "CellAddr": _FakeControl(""),
             "ChkPlainText": _FakeControl(state=0),
             "DataLbl": _FakeControl("Data:"),
             "DataEdit": _FakeControl(""),
@@ -196,6 +200,15 @@ def test_native_cancel_disposes():
     assert ui._active is None
 
 
+def test_native_window_closing_does_not_dispose():
+    dlg, inst = _open_native(initial_code="x", parsed_parts=None)
+    assert dlg.top_listeners
+    dlg.top_listeners[0].windowClosing(None)
+    assert dlg.disposed is False
+    assert inst.is_open is False
+    assert ui._active is None
+
+
 def test_native_second_open_retargets_same_dialog():
     dlg1, inst1 = _open_native(initial_code="first", parsed_parts=None)
     with patch.object(ui, "load_writeragent_dialog_detail") as mock_load:
@@ -210,3 +223,119 @@ def test_native_second_open_retargets_same_dialog():
     mock_load.assert_not_called()
     assert ui._active is inst1
     assert dlg1.controls["CodeEdit"].getText() == "second"
+
+
+def test_native_dirty_retarget_cancel_keeps_code():
+    dlg, inst = _open_native(initial_code="first", parsed_parts=None)
+    inst._dirty = True
+    with patch("plugin.calc.python.editor.confirm_unsaved_cell_edit", return_value="cancel"):
+        opened, unused = ui.show_native_python_cell_editor(
+            MagicMock(),
+            doc=MagicMock(),
+            cell=MagicMock(),
+            initial_code="second",
+            parsed_parts=None,
+        )
+    assert opened is True
+    assert dlg.controls["CodeEdit"].getText() == "first"
+
+
+def test_native_dirty_retarget_save_then_loads_new_cell():
+    dlg, inst = _open_native(initial_code="first", parsed_parts=None)
+    inst._dirty = True
+    with patch("plugin.calc.python.editor.confirm_unsaved_cell_edit", return_value="save"), patch.object(
+        inst, "_save", side_effect=lambda: setattr(inst, "_dirty", False)
+    ):
+        ui.show_native_python_cell_editor(
+            MagicMock(),
+            doc=MagicMock(),
+            cell=MagicMock(),
+            initial_code="second",
+            parsed_parts=None,
+        )
+    assert dlg.controls["CodeEdit"].getText() == "second"
+
+
+def test_native_dirty_retarget_save_error_keeps_cell():
+    dlg, inst = _open_native(initial_code="first", parsed_parts=None)
+    inst._dirty = True
+    with patch("plugin.calc.python.editor.confirm_unsaved_cell_edit", return_value="save"), patch.object(
+        inst, "_save"
+    ):
+        ui.show_native_python_cell_editor(
+            MagicMock(),
+            doc=MagicMock(),
+            cell=MagicMock(),
+            initial_code="second",
+            parsed_parts=None,
+        )
+    assert dlg.controls["CodeEdit"].getText() == "first"
+    assert inst._dirty is True
+
+
+def test_confirm_unsaved_cell_edit_maps_yes_no_cancel():
+    from plugin.calc.python.editor import confirm_unsaved_cell_edit
+
+    box = MagicMock()
+    toolkit = MagicMock()
+    toolkit.createMessageBox.return_value = box
+    smgr = MagicMock()
+    smgr.createInstanceWithContext.return_value = toolkit
+    ctx = MagicMock()
+    ctx.getServiceManager.return_value = smgr
+    desktop = MagicMock()
+    desktop.getCurrentFrame.return_value.getContainerWindow.return_value = MagicMock()
+    with patch("plugin.framework.uno_context.get_desktop", return_value=desktop):
+        box.execute.return_value = 2
+        assert confirm_unsaved_cell_edit(ctx, "A1") == "save"
+        box.execute.return_value = 3
+        assert confirm_unsaved_cell_edit(ctx, "A1") == "discard"
+        box.execute.return_value = 0
+        assert confirm_unsaved_cell_edit(ctx, "A1") == "cancel"
+
+
+def test_native_dirty_retarget_discard_loads_new_cell():
+    dlg, inst = _open_native(initial_code="first", parsed_parts=None)
+    inst._dirty = True
+    with patch("plugin.calc.python.editor.confirm_unsaved_cell_edit", return_value="discard"):
+        ui.show_native_python_cell_editor(
+            MagicMock(),
+            doc=MagicMock(),
+            cell=MagicMock(),
+            initial_code="second",
+            parsed_parts=None,
+        )
+    assert dlg.controls["CodeEdit"].getText() == "second"
+    assert inst._dirty is False
+
+
+def test_monaco_launch_cancel_skips_load():
+    from plugin.calc.python import editor as ed
+
+    cell = MagicMock()
+    cell.getCellAddress.return_value = SimpleNamespace(Column=0, Row=0)
+    with patch.object(ed, "calc_cell_session_needs_flush", return_value=True), patch.object(
+        ed, "confirm_unsaved_cell_edit", return_value="cancel"
+    ), patch.object(ed, "launch_monaco_editor") as launch, patch.object(
+        ed, "queue_save_then_load"
+    ) as queued:
+        ed._launch_editor_with_code(
+            MagicMock(),
+            MagicMock(),
+            cell,
+            initial_code="x",
+            parsed_parts=None,
+            exe="/bin/python",
+        )
+    launch.assert_not_called()
+    queued.assert_not_called()
+
+
+def test_format_cell_a1():
+    from plugin.calc.python.editor import format_cell_a1
+
+    cell = MagicMock()
+    cell.getCellAddress.return_value = SimpleNamespace(Column=0, Row=0)
+    assert format_cell_a1(cell) == "A1"
+    cell.getCellAddress.return_value = SimpleNamespace(Column=26, Row=9)
+    assert format_cell_a1(cell) == "AA10"

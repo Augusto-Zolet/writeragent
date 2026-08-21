@@ -562,7 +562,16 @@ def _run_python_monaco(
         "status_ok_text": run_ok_text,
         "saved_ok_text": save_ok_text,
         "run_script_doc": doc,
+        "script_name": selected_script_name,
+        "doc_url": "",
+        "resource": "run_script",
     }
+    try:
+        from plugin.scripting.document_scripts import document_scripts_identity
+
+        load_msg["doc_url"] = document_scripts_identity(doc)
+    except Exception:
+        log.debug("python_runner: doc_url for session target failed", exc_info=True)
     return launch_monaco_editor(ctx, exe=exe, load_message=load_msg, on_save=on_save)
 
 

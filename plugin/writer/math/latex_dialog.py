@@ -245,6 +245,7 @@ def insert_latex_math_dialog(ctx: Any) -> None:
                 "close_label": _("Close"),
                 "show_plain_text": True,
                 "show_data_binding": False,
+                "resource": target_name or "insert",
             }
             launch_monaco_editor(
                 ctx,

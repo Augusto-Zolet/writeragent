@@ -18,13 +18,16 @@ def test_launch_monaco_editor_reuses_running_process():
     ctx = MagicMock()
     sent_messages: list[dict] = []
     mock_proc = MagicMock()
+    mock_proc.poll.return_value = None
+    pe = launch_mod._PERSISTENT_EDITOR
+    pe.sessions.clear()
+    pe.focused_id = None
 
     def fake_send(msg: dict) -> None:
         sent_messages.append(msg)
 
-    with patch.object(launch_mod, "_PERSISTENT_EDITOR") as mock_persistent:
-        mock_persistent.is_running = True
-        mock_persistent.proc = mock_proc
+    with patch.object(type(pe), "is_running", new=property(lambda self: True)):
+        pe._proc = mock_proc
         with patch.object(launch_mod, "EditorSession") as mock_session_cls:
             session = MagicMock()
             session.is_running = True
@@ -34,28 +37,35 @@ def test_launch_monaco_editor_reuses_running_process():
             ok = launch_mod.launch_monaco_editor(
                 ctx,
                 exe="/venv/bin/python",
-                load_message={"type": "load", "code": "print(1)"},
+                load_message={"type": "load", "code": "print(1)", "mode": "calc_cell", "cell_address": "A1"},
                 on_save=MagicMock(),
             )
 
     assert ok is True
-    # Theme and localized UI strings are always injected by launch.
     assert sent_messages[0]["type"] == "load"
     assert sent_messages[0]["code"] == "print(1)"
+    assert sent_messages[0]["session_id"]
+    assert sent_messages[0]["mode"] == "calc_cell"
+    assert sent_messages[0]["target"]["cell_address"] == "A1"
     assert "theme" in sent_messages[0]
     assert "ui" in sent_messages[0]
     assert sent_messages[0]["ui"]["ready"]
     assert sent_messages[0]["theme"]["monaco"] in ("vs", "vs-dark")
     mock_session_cls.assert_called_once()
+    pe.sessions.clear()
+    pe.focused_id = None
+    pe._proc = None
 
 
 def test_launch_monaco_editor_spawns_when_not_running():
     ctx = MagicMock()
     mock_proc = MagicMock()
     mock_doc = MagicMock()
+    pe = launch_mod._PERSISTENT_EDITOR
+    pe.sessions.clear()
+    pe.focused_id = None
 
-    with patch.object(launch_mod, "_PERSISTENT_EDITOR") as mock_persistent:
-        mock_persistent.is_running = False
+    with patch.object(type(pe), "is_running", new=property(lambda self: False)):
         with patch.object(launch_mod, "spawn_editor_process", return_value=mock_proc):
             with patch.object(launch_mod, "EditorSession") as mock_session_cls:
                 session = MagicMock()
@@ -63,7 +73,7 @@ def test_launch_monaco_editor_spawns_when_not_running():
                 session.wait_for_ready.return_value = True
                 mock_session_cls.return_value = session
 
-                load_message = {"type": "load", "mode": "run_script", "run_script_doc": mock_doc}
+                load_message = {"type": "load", "mode": "run_script", "run_script_doc": mock_doc, "script_name": "demo"}
                 ok = launch_mod.launch_monaco_editor(
                     ctx,
                     exe="/venv/bin/python",
@@ -72,16 +82,21 @@ def test_launch_monaco_editor_spawns_when_not_running():
                 )
 
     assert ok is True
-    mock_persistent.set_run_script_document.assert_called_once_with(mock_doc)
+    assert pe.run_script_doc is mock_doc
     session.start_reader.assert_called_once()
-    # Theme injection happens (for automatic follow); the exact theme value depends on mock ctx
     sent = session.send.call_args[0][0]
     assert sent["type"] == "load"
     assert sent["mode"] == "run_script"
+    assert sent["session_id"]
+    assert sent["target"]["script_name"] == "demo"
+    assert "run_script_doc" not in sent
     assert "theme" in sent
     assert "ui" in sent
     assert sent["ui"]["script_label"]
     assert load_message["run_script_doc"] is mock_doc
+    pe.sessions.clear()
+    pe.focused_id = None
+    pe.run_script_doc = None
 
 
 def test_monaco_editor_available_false_without_venv():
@@ -170,105 +185,87 @@ def test_monaco_index_html_lives_under_assets_not_scripting_dir():
     assert os.path.isfile(right)
 
 
-# ---------------------------------------------------------------------------
-# Regression tests for the "stale close clears new session's on_save" bug.
-# When the user closes Monaco and immediately reopens it, three async paths
-# (_handle_close in _dispatch_incoming, EditorSession._finish, and
-# _handle_disconnect) could race and wipe the new session's callbacks.
-# ---------------------------------------------------------------------------
+def test_save_routes_to_matching_session_only():
+    from plugin.scripting.editor_host import EditorSessionState
 
-
-
-def _make_editor_with_callbacks(on_save=None, on_closed=None):
-    """Helper: return a fresh PersistentEditor with callbacks set."""
     editor = PersistentEditor()
-    editor.on_save = on_save or (lambda *a, **kw: {"type": "saved", "ok": True})
-    editor.on_closed = on_closed or (lambda: None)
-    return editor
+    seen: list[str] = []
 
-
-def test_handle_disconnect_does_not_wipe_new_session_callbacks():
-    """_handle_disconnect must not clear on_save if a new session has superseded it."""
-    editor = _make_editor_with_callbacks()
-    old_on_save = editor.on_save
-    old_on_closed = editor.on_closed
-
-    # Simulate new session installing its own callback before disconnect fires.
-    def new_on_save(*a, **kw):
+    def save_a(*_a, **_k):
+        seen.append("a")
         return {"type": "saved", "ok": True}
-    def new_on_closed():
-        return None
-    editor.on_save = new_on_save
-    editor.on_closed = new_on_closed
 
-    # _handle_disconnect captures old callbacks at schedule time.
-    captured_on_save = old_on_save
-    captured_on_closed = old_on_closed
-
-    # Reproduce what _handle_disconnect._handle_close does.
-    if editor.on_save is captured_on_save:
-        editor.on_save = None
-    if editor.on_closed is captured_on_closed:
-        editor.on_closed = None
-
-    # New session's callbacks must survive.
-    assert editor.on_save is new_on_save, "on_save was wrongly cleared by stale disconnect"
-    assert editor.on_closed is new_on_closed, "on_closed was wrongly cleared by stale disconnect"
-
-
-def test_finish_does_not_wipe_new_session_callbacks():
-    """EditorSession._finish must not clear on_save if a new session has set a different one."""
-    # Simulate the state just after a new session's __init__ ran but _finish from
-    # the old session fires (via set_active_session(new_session)).
-    def old_on_save(*a, **kw):
+    def save_b(*_a, **_k):
+        seen.append("b")
         return {"type": "saved", "ok": True}
-    def old_on_closed():
-        return None
-    def new_on_save(*a, **kw):
-        return {"type": "saved", "ok": True}
-    def new_on_closed():
-        return None
 
-    with patch.object(launch_mod, "_PERSISTENT_EDITOR") as mock_pe:
-        mock_pe.on_save = new_on_save   # new session already installed
-        mock_pe.on_closed = new_on_closed
+    editor.register_session(EditorSessionState("sid-a", "calc_cell", {"cell_address": "A1"}, on_save=save_a))
+    editor.register_session(EditorSessionState("sid-b", "calc_cell", {"cell_address": "B1"}, on_save=save_b))
+    editor.executor = MagicMock()
+    editor.executor.execute.side_effect = lambda fn, timeout=None: fn()
+    sent: list[tuple] = []
 
-        # Old session's _finish checks identity before clearing.
-        if mock_pe.on_save is old_on_save:   # False — new session replaced it
-            mock_pe.on_save = None
-        if mock_pe.on_closed is old_on_closed:
-            mock_pe.on_closed = None
+    def fake_send(msg, session=None):
+        sent.append((msg, session))
 
-        assert mock_pe.on_save is new_on_save, "_finish wrongly cleared new on_save"
-        assert mock_pe.on_closed is new_on_closed, "_finish wrongly cleared new on_closed"
+    editor.send = fake_send  # type: ignore[method-assign]
+
+    editor._dispatch_incoming({"type": "save", "session_id": "sid-b", "code": "x", "save_as_plain": False})
+    assert seen == ["b"]
+    assert sent[0][0]["type"] == "saved"
+    assert sent[0][1] is not None
+    assert sent[0][1].session_id == "sid-b"
 
 
-def test_dispatch_incoming_close_does_not_wipe_new_session_callbacks():
-    """_dispatch_incoming 'closed' must not clear on_save if superseded by a new session."""
-    editor = _make_editor_with_callbacks()
-    old_on_save = editor.on_save
-    old_on_closed = editor.on_closed
+def test_unknown_session_save_is_ignored():
+    from plugin.scripting.editor_host import EditorSessionState
 
-    # Capture happens at dispatch time (old values).
-    captured_on_save = old_on_save
-    captured_on_closed = old_on_closed
+    editor = PersistentEditor()
+    called = []
+    editor.register_session(
+        EditorSessionState("sid-a", "calc_cell", {"cell_address": "A1"}, on_save=lambda *_a, **_k: called.append("a") or {"type": "saved", "ok": True})
+    )
+    editor.executor = MagicMock()
+    editor.executor.execute.side_effect = lambda fn, timeout=None: fn()
+    editor._dispatch_incoming({"type": "save", "session_id": "nope", "code": "x"})
+    assert called == []
 
-    # New session installs its callbacks before _handle_close runs on the executor.
-    def new_on_save(*a, **kw):
-        return {"type": "saved", "ok": True}
-    def new_on_closed():
-        return None
-    editor.on_save = new_on_save
-    editor.on_closed = new_on_closed
 
-    # Reproduce what _handle_close does.
-    if editor.on_save is captured_on_save:
-        editor.on_save = None
-    if editor.on_closed is captured_on_closed:
-        editor.on_closed = None
+def test_same_target_reuses_session_id():
+    pe = launch_mod._PERSISTENT_EDITOR
+    pe.sessions.clear()
+    pe.focused_id = None
+    on_save = MagicMock(return_value={"type": "saved", "ok": True})
+    load = {"type": "load", "mode": "calc_cell", "cell_address": "A1", "code": "1"}
+    a, stamped_a = launch_mod._register_load_session(load, on_save, lambda: None)
+    b, stamped_b = launch_mod._register_load_session({"type": "load", "mode": "calc_cell", "cell_address": "A1", "code": "2"}, on_save, lambda: None)
+    assert a.session_id == b.session_id
+    assert stamped_a["session_id"] == stamped_b["session_id"]
+    assert len(pe.sessions) == 1
+    pe.sessions.clear()
+    pe.focused_id = None
 
-    assert editor.on_save is new_on_save, "stale _handle_close wrongly cleared new on_save"
-    assert editor.on_closed is new_on_closed, "stale _handle_close wrongly cleared new on_closed"
+
+def test_different_target_replaces_focused_session():
+    pe = launch_mod._PERSISTENT_EDITOR
+    pe.sessions.clear()
+    pe.focused_id = None
+    closed: list[str] = []
+    launch_mod._register_load_session(
+        {"type": "load", "mode": "calc_cell", "cell_address": "A1"},
+        MagicMock(),
+        lambda: closed.append("a"),
+    )
+    launch_mod._register_load_session(
+        {"type": "load", "mode": "calc_cell", "cell_address": "B1"},
+        MagicMock(),
+        lambda: None,
+    )
+    assert closed == ["a"]
+    assert len(pe.sessions) == 1
+    assert pe.focused().target["cell_address"] == "B1"  # type: ignore[union-attr]
+    pe.sessions.clear()
+    pe.focused_id = None
 
 
 def test_resolve_editor_python_missing_venv_mentions_settings():

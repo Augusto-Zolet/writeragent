@@ -32,6 +32,19 @@ body {
   cursor: pointer;
 }
 
+.cell-addr {
+  display: inline-block;
+  box-sizing: border-box;
+  width: 6ch;
+  min-width: 6ch;
+  text-align: center;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  white-space: nowrap;
+  user-select: none;
+}
+
 .toolbar-check {
   display: inline-flex;
   align-items: center;

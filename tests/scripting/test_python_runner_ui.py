@@ -22,6 +22,30 @@ def test_report_run_outcome_sets_status_via_set_control_text():
     mock_set_text.assert_called_once_with(lbl, "Script executed successfully. (took 0.1s)")
 
 
+def test_native_dialog_window_closing_does_not_dispose():
+    inst = ui.NativePythonScriptDialog.__new__(ui.NativePythonScriptDialog)
+    inst._closed = False
+    dlg = MagicMock()
+    inst._dlg = dlg
+    inst.close(toolkit_teardown=True)
+    dlg.dispose.assert_not_called()
+    assert inst._closed is True
+    assert inst._dlg is None
+    inst.close(toolkit_teardown=True)
+    dlg.dispose.assert_not_called()
+
+
+def test_native_dialog_close_button_disposes_once():
+    inst = ui.NativePythonScriptDialog.__new__(ui.NativePythonScriptDialog)
+    inst._closed = False
+    dlg = MagicMock()
+    inst._dlg = dlg
+    inst.close()
+    dlg.dispose.assert_called_once()
+    inst.close()
+    dlg.dispose.assert_called_once()
+
+
 def test_report_run_outcome_error_skips_status_label():
     ctx = MagicMock()
     lbl = MagicMock()

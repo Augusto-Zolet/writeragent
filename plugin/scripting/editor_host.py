@@ -23,6 +23,7 @@ import sys
 import threading
 import time
 from collections import deque
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, cast
 
 from plugin.framework.worker_pool import get_subprocess_creationflags
@@ -40,7 +41,12 @@ from plugin.scripting.editor_ipc import (
     failure_detail,
     failure_message,
     message_type,
+    new_session_id,
     read_message,
+    session_id_of,
+    stamp_session,
+    target_from_load,
+    target_identity_key,
     write_message,
 )
 from plugin.scripting.venv_worker import resolve_venv_python, warm_venv_worker, scrub_subprocess_env, wrap_command_for_sandbox
@@ -168,6 +174,22 @@ _SESSION_LOCK = threading.RLock()
 _ACTIVE_SESSION: EditorSession | None = None
 
 
+@dataclass
+class EditorSessionState:
+    """One logical buffer: save callbacks + identity. Process is shared."""
+
+    session_id: str
+    mode: str
+    target: dict[str, str]
+    on_save: Callable[..., dict[str, Any]] | None = None
+    on_closed: Callable[[], None] | None = None
+    dirty: bool = False
+    pending_load: dict[str, Any] | None = None
+    pending_on_save: Callable[..., dict[str, Any]] | None = None
+    pending_on_closed: Callable[[], None] | None = None
+    extra: dict[str, Any] = field(default_factory=dict)
+
+
 class PersistentEditor:
     """Manages a single Monaco editor subprocess and keeps it alive in the background."""
 
@@ -182,13 +204,56 @@ class PersistentEditor:
         self._ready_event = threading.Event()
         self._closed_event = threading.Event()
 
-        # Transient session callbacks for the active cell edit
-        self.on_save: Callable[..., dict[str, Any]] | None = None
-        self.on_closed: Callable[[], None] | None = None
+        self.sessions: dict[str, EditorSessionState] = {}
+        self.focused_id: str | None = None
         self.executor: QueueExecutor = default_executor
         self.ctx: Any = None
         self.run_script_doc: Any = None
         self.run_script_doc_url: str | None = None
+
+    def focused(self) -> EditorSessionState | None:
+        if not self.focused_id:
+            return None
+        return self.sessions.get(self.focused_id)
+
+    def lookup(self, session_id: str) -> EditorSessionState | None:
+        sid = (session_id or "").strip()
+        if not sid:
+            return None
+        return self.sessions.get(sid)
+
+    def find_by_target(self, mode: str, target: dict[str, str]) -> EditorSessionState | None:
+        key = target_identity_key(mode, target)
+        for state in self.sessions.values():
+            if target_identity_key(state.mode, state.target) == key:
+                return state
+        return None
+
+    def register_session(self, state: EditorSessionState) -> EditorSessionState:
+        self.sessions[state.session_id] = state
+        self.focused_id = state.session_id
+        return state
+
+    def end_session(self, session_id: str, *, call_closed: bool) -> None:
+        state = self.sessions.pop(session_id, None)
+        if state is None:
+            return
+        if self.focused_id == session_id:
+            self.focused_id = next(iter(self.sessions), None)
+        if call_closed and state.on_closed is not None:
+            try:
+                state.on_closed()
+            except Exception:
+                log.exception("Editor on_closed failed while ending session %s", session_id)
+
+    def resolve_incoming(self, msg: dict[str, Any]) -> EditorSessionState | None:
+        sid = session_id_of(msg)
+        if sid:
+            state = self.lookup(sid)
+            if state is None:
+                log.warning("editor_host: ignored message type=%s for unknown session_id=%s", message_type(msg), sid)
+            return state
+        return self.focused()
 
     @property
     def is_running(self) -> bool:
@@ -228,8 +293,17 @@ class PersistentEditor:
             except Exception:
                 pass
 
-    def send(self, message: dict[str, Any]) -> None:
-        """Thread-safe write to child stdin."""
+    def send(self, message: dict[str, Any], *, session: EditorSessionState | None = None) -> None:
+        """Thread-safe write to child stdin. Session messages get ``session_id`` + ``target``."""
+        kind = message_type(message)
+        state = session or (self.lookup(session_id_of(message)) if session_id_of(message) else self.focused())
+        if kind and kind != "ready" and state is not None:
+            message = stamp_session(
+                message,
+                session_id=state.session_id,
+                mode=state.mode or str(message.get("mode") or ""),
+                target=state.target,
+            )
         with self._stdin_lock:
             if self._proc is None:
                 raise RuntimeError("No editor process is running")
@@ -570,7 +644,16 @@ class PersistentEditor:
             self.executor.execute(_handle_delete)
             return
 
+        if kind == "dirty":
+            state = self.resolve_incoming(msg)
+            if state is not None:
+                state.dirty = bool(msg.get("dirty"))
+            return
+
         if kind == "save":
+            state = self.resolve_incoming(msg)
+            if state is None:
+                return
             code = msg.get("code")
             if not isinstance(code, str):
                 code = ""
@@ -582,30 +665,46 @@ class PersistentEditor:
             action = msg.get("action", "cell_save")
             if not isinstance(action, str):
                 action = "cell_save"
+            captured = state
 
             def _handle_save() -> None:
                 try:
-                    on_save = self.on_save
+                    on_save = captured.on_save
                     if on_save is not None:
                         result = on_save(code, save_as_plain, data_binding, action)
                     else:
                         result = {"type": "saved", "ok": True}
                     if not isinstance(result, dict):
                         result = {"type": "saved", "ok": True}
-                    self.send(result)
+                    if result.get("type") == "saved" or result.get("ok"):
+                        captured.dirty = False
+                    self.send(result, session=captured)
+                    pending = captured.pending_load
+                    if pending is not None and (result.get("type") == "saved" or result.get("ok")):
+                        next_on_save = captured.pending_on_save
+                        next_on_closed = captured.pending_on_closed
+                        captured.pending_load = None
+                        captured.pending_on_save = None
+                        captured.pending_on_closed = None
+                        self.end_session(captured.session_id, call_closed=True)
+                        if next_on_save is not None:
+                            _activate_load(pending, next_on_save, next_on_closed or (lambda: None))
                 except Exception as e:
                     log.exception("Editor save handler failed")
-                    self.send({"type": "error", "message": str(e), "traceback": exception_traceback(e)})
+                    self.send(
+                        {"type": "error", "message": str(e), "traceback": exception_traceback(e)},
+                        session=captured,
+                    )
 
             self.executor.execute(_handle_save, timeout=60.0)
             return
 
         if kind in ("closed", "cancel"):
             log.info("editor_host _dispatch_incoming: received close/cancel kind=%r", kind)
-            # Capture callbacks at dispatch time so the handler can detect if a new
-            # session has superseded this one before the executor processes the event.
-            captured_on_save = self.on_save
-            captured_on_closed = self.on_closed
+            state = self.resolve_incoming(msg)
+            captured_id = state.session_id if state is not None else ""
+            captured_on_closed = state.on_closed if state is not None else None
+
             def _handle_close() -> None:
                 try:
                     if captured_on_closed is not None:
@@ -614,13 +713,13 @@ class PersistentEditor:
                     log.exception("Editor on_closed failed")
                 finally:
                     self._closed_event.set()
-                    # Only clear and tear down if callbacks have not been replaced by
-                    # a new session that was opened while this close event was queued.
-                    if self.on_save is captured_on_save:
-                        self.on_save = None
-                    if self.on_closed is captured_on_closed:
-                        self.on_closed = None
-                        set_active_session(None)
+                    live = self.lookup(captured_id) if captured_id else None
+                    if live is not None and live.on_closed is captured_on_closed:
+                        self.sessions.pop(captured_id, None)
+                        if self.focused_id == captured_id:
+                            self.focused_id = next(iter(self.sessions), None)
+                        if not self.sessions:
+                            set_active_session(None)
 
             self.executor.execute(_handle_close)
             return
@@ -632,24 +731,24 @@ class PersistentEditor:
 
     def _handle_disconnect(self) -> None:
         """Handle case where the subprocess exits or disconnects unexpectedly."""
-        # Capture at schedule time; the reader loop finishes after terminate_persistent_editor()
-        # which may race with a new session already installing its callbacks.
-        captured_on_save = self.on_save
-        captured_on_closed = self.on_closed
+        snapshot = list(self.sessions.values())
+
         def _handle_close() -> None:
             try:
-                if captured_on_closed is not None:
-                    captured_on_closed()
-            except Exception:
-                log.exception("Editor on_closed failed during disconnect")
+                for state in snapshot:
+                    if state.on_closed is not None:
+                        try:
+                            state.on_closed()
+                        except Exception:
+                            log.exception("Editor on_closed failed during disconnect")
             finally:
                 self._closed_event.set()
-                # Only clear if not superseded by a new session.
-                if self.on_save is captured_on_save:
-                    self.on_save = None
-                if self.on_closed is captured_on_closed:
-                    self.on_closed = None
+                for state in snapshot:
+                    self.sessions.pop(state.session_id, None)
+                if not self.sessions:
+                    self.focused_id = None
                     set_active_session(None)
+
         self.executor.execute(_handle_close)
 
 
@@ -666,14 +765,14 @@ class EditorSession:
         on_save: Callable[..., dict[str, Any]],
         on_closed: Callable[[], None],
         executor: QueueExecutor | None = None,
+        session_id: str = "",
     ) -> None:
         self._proc = proc
         self._on_save = on_save
         self._on_closed = on_closed
         self._executor = executor or default_executor
+        self.session_id = session_id
 
-        _PERSISTENT_EDITOR.on_save = on_save
-        _PERSISTENT_EDITOR.on_closed = on_closed
         _PERSISTENT_EDITOR.executor = self._executor
 
     @property
@@ -694,14 +793,10 @@ class EditorSession:
         return _PERSISTENT_EDITOR.wait_for_ready(ctx, timeout_sec)
 
     def _finish(self) -> None:
-        # Only clear the shared callbacks if they still belong to this session.
-        # A new session may have already set its own callbacks on _PERSISTENT_EDITOR
-        # (via EditorSession.__init__) before _finish() is called, so we must not
-        # blindly wipe them.
-        if _PERSISTENT_EDITOR.on_save is self._on_save:
-            _PERSISTENT_EDITOR.on_save = None
-        if _PERSISTENT_EDITOR.on_closed is self._on_closed:
-            _PERSISTENT_EDITOR.on_closed = None
+        if self.session_id:
+            live = _PERSISTENT_EDITOR.lookup(self.session_id)
+            if live is not None and live.on_save is self._on_save:
+                _PERSISTENT_EDITOR.end_session(self.session_id, call_closed=False)
 
         global _ACTIVE_SESSION
         with _SESSION_LOCK:
@@ -726,6 +821,8 @@ def set_active_session(session: EditorSession | None) -> None:
 
 def terminate_persistent_editor() -> None:
     """Force terminate the background Monaco editor process."""
+    _PERSISTENT_EDITOR.sessions.clear()
+    _PERSISTENT_EDITOR.focused_id = None
     _PERSISTENT_EDITOR.terminate()
 
 
@@ -773,6 +870,92 @@ def monaco_open_expected(ctx: Any) -> tuple[str | None, bool]:
     """Return (venv python exe, True) when Run Python Script should use Monaco."""
     exe, ok = monaco_editor_available(ctx)
     return exe, ok and bool(exe)
+
+
+def calc_cell_session_needs_flush() -> bool:
+    """True when a running Monaco calc_cell session has unsaved edits."""
+    focused = _PERSISTENT_EDITOR.focused()
+    return (
+        _PERSISTENT_EDITOR.is_running
+        and focused is not None
+        and focused.mode == "calc_cell"
+        and focused.dirty
+    )
+
+
+def last_calc_cell_address() -> str:
+    focused = _PERSISTENT_EDITOR.focused()
+    if focused is None:
+        return ""
+    return focused.target.get("cell_address", "")
+
+
+def _register_load_session(
+    ipc_message: dict[str, Any],
+    on_save: Callable[..., dict[str, Any]],
+    on_closed: Callable[[], None],
+) -> tuple[EditorSessionState, dict[str, Any]]:
+    """Bind *ipc_message* to a session (reuse same target; replace focused if different)."""
+    mode = str(ipc_message.get("mode") or "calc_cell")
+    target = target_from_load(ipc_message)
+    ipc_message["mode"] = mode
+    ipc_message["target"] = target
+    ipc_message.pop("run_script_doc", None)
+    ipc_message.pop("doc", None)
+
+    existing = _PERSISTENT_EDITOR.find_by_target(mode, target)
+    if existing is not None:
+        existing.on_save = on_save
+        existing.on_closed = on_closed
+        existing.target = target
+        existing.mode = mode
+        existing.dirty = False
+        state = existing
+    else:
+        focused = _PERSISTENT_EDITOR.focused()
+        if focused is not None:
+            # One visible buffer: switching targets ends the previous session.
+            _PERSISTENT_EDITOR.end_session(focused.session_id, call_closed=True)
+        state = EditorSessionState(
+            session_id=new_session_id(),
+            mode=mode,
+            target=target,
+            on_save=on_save,
+            on_closed=on_closed,
+        )
+        _PERSISTENT_EDITOR.register_session(state)
+
+    _PERSISTENT_EDITOR.focused_id = state.session_id
+    stamped = stamp_session(ipc_message, session_id=state.session_id, mode=mode, target=target)
+    return state, stamped
+
+
+def _activate_load(
+    ipc_message: dict[str, Any],
+    on_save: Callable[..., dict[str, Any]],
+    on_closed: Callable[[], None],
+) -> EditorSessionState:
+    """Register or reuse a session and send ``load`` (process already up)."""
+    state, stamped = _register_load_session(ipc_message, on_save, on_closed)
+    _PERSISTENT_EDITOR.send(stamped, session=state)
+    return state
+
+
+def queue_save_then_load(
+    load_message: dict[str, Any],
+    on_save: Callable[..., dict[str, Any]],
+    on_closed: Callable[[], None],
+) -> None:
+    """Ask Monaco to save the current cell, then load *load_message*."""
+    from plugin.scripting.editor_ui_strings import enrich_monaco_load_message
+
+    focused = _PERSISTENT_EDITOR.focused()
+    if focused is None:
+        return
+    focused.pending_load = enrich_monaco_load_message(dict(load_message))
+    focused.pending_on_save = on_save
+    focused.pending_on_closed = on_closed
+    _PERSISTENT_EDITOR.send({"type": "request_save"}, session=focused)
 
 
 def launch_monaco_editor(
@@ -862,7 +1045,9 @@ def launch_monaco_editor(
         return False
 
     try:
-        session.send(ipc_message)
+        state, stamped = _register_load_session(ipc_message, on_save, closed_handler)
+        session.session_id = state.session_id
+        session.send(stamped)
     except Exception as e:
         log.exception("Failed to send load to editor")
         set_active_session(None)

@@ -37,9 +37,12 @@ from plugin.chatbot.dialogs import msgbox, msgbox_with_report
 from plugin.framework.i18n import _
 from plugin.framework.uno_context import get_desktop, product_display_name
 from plugin.scripting.editor_host import (
+    calc_cell_session_needs_flush,
     get_active_session,
+    last_calc_cell_address,
     launch_monaco_editor,
     monaco_editor_available,
+    queue_save_then_load,
     set_active_session,
 )
 from plugin.framework.config import get_config
@@ -125,6 +128,49 @@ def _cell_has_unparsed_python(cell: Any) -> bool:
 
 
 from plugin.framework.thread_guard import main_thread_only
+
+
+def format_cell_a1(cell: Any) -> str:
+    """Active-sheet A1 label (``A1``, ``AA100``). Empty on failure."""
+    try:
+        addr = cell.getCellAddress()
+        from plugin.calc.address_utils import index_to_column
+
+        return f"{index_to_column(int(addr.Column))}{int(addr.Row) + 1}"
+    except Exception:
+        log.debug("format_cell_a1 failed", exc_info=True)
+        return ""
+
+
+def confirm_unsaved_cell_edit(ctx: Any, cell_addr: str) -> str:
+    """Ask Save / Don't save / Cancel. Returns ``save``, ``discard``, or ``cancel``."""
+    from plugin.framework.uno_context import get_desktop
+
+    title = product_display_name(ctx)
+    where = cell_addr or _("this cell")
+    message = _(
+        "Save changes to {0}?\n\n"
+        "Yes saves. No discards and opens the new cell. Cancel keeps editing {0}."
+    ).format(where)
+    try:
+        desktop = get_desktop(ctx)
+        frame = desktop.getCurrentFrame() if desktop is not None else None
+        window = frame.getContainerWindow() if frame is not None else None
+        if window is None:
+            return "cancel"
+        smgr = ctx.getServiceManager()
+        toolkit = smgr.createInstanceWithContext("com.sun.star.awt.Toolkit", ctx)
+        # QUERYBOX=4, BUTTONS_YES_NO_CANCEL=4. Results: YES=2, NO=3, CANCEL=0.
+        box = toolkit.createMessageBox(window, 4, 4, title, message)
+        result = int(box.execute())
+        if result == 2:
+            return "save"
+        if result == 3:
+            return "discard"
+        return "cancel"
+    except Exception:
+        log.exception("confirm_unsaved_cell_edit failed")
+        return "cancel"
 
 
 @main_thread_only
@@ -318,7 +364,23 @@ def _launch_editor_with_code(
         "show_plain_text": True,
         "show_data_binding": True,
         "data_binding": data_binding,
+        "cell_address": format_cell_a1(cell),
+        "doc_url": "",
+        "resource": format_cell_a1(cell),
     }
+    try:
+        from plugin.scripting.document_scripts import document_scripts_identity
+
+        load_msg["doc_url"] = document_scripts_identity(doc)
+    except Exception:
+        log.debug("python_editor: doc_url for session target failed", exc_info=True)
+    if calc_cell_session_needs_flush():
+        choice = confirm_unsaved_cell_edit(ctx, last_calc_cell_address())
+        if choice == "cancel":
+            return
+        if choice == "save":
+            queue_save_then_load(load_msg, on_save, on_closed)
+            return
     launch_monaco_editor(
         ctx,
         exe=exe,

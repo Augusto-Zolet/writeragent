@@ -15,11 +15,12 @@
       Do not mix Run / Script / Save As / Delete here — those live on PythonScriptDialog.
       ========================================================================================= -->
  <dlg:bulletinboard>
-  <dlg:button dlg:id="BtnSave" dlg:left="8" dlg:top="8" dlg:width="42" dlg:height="14" dlg:value="Save" dlg:tabstop="true"/>
-  <dlg:button dlg:id="BtnCancel" dlg:left="52" dlg:top="8" dlg:width="42" dlg:height="14" dlg:value="Cancel" dlg:tabstop="true"/>
-  <dlg:checkbox dlg:id="ChkPlainText" dlg:left="98" dlg:top="8" dlg:width="118" dlg:height="14" dlg:value="Save without =PY()" dlg:tabstop="true"/>
-  <dlg:text dlg:id="DataLbl" dlg:left="220" dlg:top="10" dlg:width="28" dlg:height="10" dlg:value="Data:" dlg:align="left" dlg:multiline="false"/>
-  <dlg:textfield dlg:id="DataEdit" dlg:left="248" dlg:top="8" dlg:width="144" dlg:height="14" dlg:tabstop="true" dlg:value="" dlg:border="1"/>
+  <dlg:text dlg:id="CellAddr" dlg:left="8" dlg:top="10" dlg:width="40" dlg:height="10" dlg:value="" dlg:align="center" dlg:multiline="false"/>
+  <dlg:button dlg:id="BtnSave" dlg:left="50" dlg:top="8" dlg:width="42" dlg:height="14" dlg:value="Save" dlg:tabstop="true"/>
+  <dlg:button dlg:id="BtnCancel" dlg:left="94" dlg:top="8" dlg:width="42" dlg:height="14" dlg:value="Cancel" dlg:tabstop="true" dlg:button-type="cancel"/>
+  <dlg:checkbox dlg:id="ChkPlainText" dlg:left="138" dlg:top="8" dlg:width="100" dlg:height="14" dlg:value="Save without =PY()" dlg:tabstop="true"/>
+  <dlg:text dlg:id="DataLbl" dlg:left="240" dlg:top="10" dlg:width="28" dlg:height="10" dlg:value="Data:" dlg:align="left" dlg:multiline="false"/>
+  <dlg:textfield dlg:id="DataEdit" dlg:left="268" dlg:top="8" dlg:width="124" dlg:height="14" dlg:tabstop="true" dlg:value="" dlg:border="1"/>
   <dlg:textfield dlg:id="StatusEdit" dlg:left="8" dlg:top="26" dlg:width="384" dlg:height="20" dlg:value="Status: Ready" dlg:tabstop="true" dlg:readonly="true" dlg:multiline="true" dlg:vscroll="true"/>
   <dlg:textfield dlg:id="CodeEdit" dlg:left="8" dlg:top="48" dlg:width="384" dlg:height="164" dlg:tabstop="true" dlg:multiline="true" dlg:vscroll="true"/>
  </dlg:bulletinboard>

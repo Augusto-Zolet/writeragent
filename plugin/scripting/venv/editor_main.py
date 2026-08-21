@@ -65,7 +65,15 @@ _ASSETS_DIR = os.path.normpath(
     os.path.join(_SCRIPT_DIR, "..", "..", "contrib", "scripting", "assets", "editor")
 )
 try:
-    from plugin.scripting.editor_ipc import EDITOR_DEFAULT_TITLE, message_type, read_message, write_message
+    from plugin.scripting.editor_ipc import (
+    EDITOR_DEFAULT_TITLE,
+    message_type,
+    normalize_target,
+    read_message,
+    session_id_of,
+    stamp_session,
+    write_message,
+)
 except ImportError as e:
     _fatal(f"editor_main: cannot import plugin.scripting dependencies ({e}). sys.path={sys.path!r}", exc=e)
 
@@ -130,12 +138,43 @@ class JediSession:
 
 
 _ui_queue: queue.Queue[dict[str, Any]] = queue.Queue()
+_ui_queues: dict[str, queue.Queue[dict[str, Any]]] = {"": _ui_queue}
 _stdout_lock = threading.Lock()
 _shutting_down = False
 _jedi_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="jedi")
+_current_session_id = ""
+_current_mode = ""
+_current_target: dict[str, str] = {}
+
+
+def _remember_session(msg: dict[str, Any]) -> None:
+    global _current_session_id, _current_mode, _current_target
+    sid = session_id_of(msg)
+    if sid:
+        _current_session_id = sid
+    mode = str(msg.get("mode") or "")
+    if mode:
+        _current_mode = mode
+    raw_target = msg.get("target")
+    if isinstance(raw_target, dict):
+        _current_target = normalize_target(raw_target)
+
+
+def _put_ui(msg: dict[str, Any]) -> None:
+    sid = session_id_of(msg)
+    q = _ui_queues.setdefault(sid, queue.Queue())
+    q.put(msg)
 
 
 def _write_parent(message: dict[str, Any]) -> None:
+    kind = message_type(message)
+    if kind and kind != "ready":
+        message = stamp_session(
+            message,
+            session_id=_current_session_id,
+            mode=_current_mode,
+            target=_current_target,
+        )
     with _stdout_lock:
         write_message(sys.stdout.buffer, message)
 
@@ -183,12 +222,13 @@ def _pipe_reader_loop() -> None:
             except Exception:
                 pass
 
-            if kind in ("saved", "error", "load"):
+            if kind in ("saved", "error", "load", "request_save", "theme"):
                 if kind == "load":
+                    _remember_session(msg)
                     global _closed_sent
                     with _closed_lock:
                         _closed_sent = False
-                _ui_queue.put(msg)
+                _put_ui(msg)
             elif kind == "closed":
                 break
     except Exception:
@@ -216,25 +256,27 @@ class MonacoEditorApi:
 
     def poll_messages(self) -> list[dict[str, Any]]:
         batch: list[dict[str, Any]] = []
-        while True:
-            try:
-                msg = _ui_queue.get_nowait()
-                batch.append(msg)
-                if msg.get("type") == "load":
-                    log.info("editor_main: poll_messages received load; showing window")
-                    global _closed_sent
-                    with _closed_lock:
-                        _closed_sent = False
-                    try:
-                        if self._window is not None:
-                            title = msg.get("title")
-                            if title:
-                                self._window.title = title
-                            self._window.show()
-                    except Exception:
-                        log.exception("editor_main: failed to show window on load")
-            except queue.Empty:
-                break
+        for q in list(_ui_queues.values()):
+            while True:
+                try:
+                    msg = q.get_nowait()
+                    batch.append(msg)
+                    if msg.get("type") == "load":
+                        log.info("editor_main: poll_messages received load; showing window")
+                        _remember_session(msg)
+                        global _closed_sent
+                        with _closed_lock:
+                            _closed_sent = False
+                        try:
+                            if self._window is not None:
+                                title = msg.get("title")
+                                if title:
+                                    self._window.title = title
+                                self._window.show()
+                        except Exception:
+                            log.exception("editor_main: failed to show window on load")
+                except queue.Empty:
+                    break
         return batch
 
     def get_completions(self, code: str, line: int, column: int) -> dict[str, Any]:
@@ -248,7 +290,21 @@ class MonacoEditorApi:
     def is_jedi_available(self) -> bool:
         return self._jedi.is_available()
 
-    def notify_save(self, code: str, save_as_plain: bool = False, data_binding: str = "", action: str = "cell_save") -> None:
+    def notify_dirty(self, dirty: bool = True, session_id: str = "", mode: str = "", target: Any = None) -> None:
+        if session_id:
+            _remember_session({"session_id": session_id, "mode": mode, "target": target or {}})
+        _write_parent({"type": "dirty", "dirty": bool(dirty)})
+
+    def notify_save(
+        self,
+        code: str,
+        save_as_plain: bool = False,
+        data_binding: str = "",
+        action: str = "cell_save",
+        session_id: str = "",
+        mode: str = "",
+        target: Any = None,
+    ) -> None:
         if not isinstance(code, str):
             code = str(code) if code is not None else ""
         if not isinstance(data_binding, str):
@@ -261,13 +317,15 @@ class MonacoEditorApi:
         }
         if action and action != "cell_save":
             payload["action"] = action
+        if session_id:
+            _remember_session({"session_id": session_id, "mode": mode, "target": target or {}})
         _write_parent(payload)
 
-    def notify_run(self, code: str) -> None:
-        self.notify_save(code, action="run")
+    def notify_run(self, code: str, session_id: str = "", mode: str = "", target: Any = None) -> None:
+        self.notify_save(code, action="run", session_id=session_id, mode=mode, target=target)
 
-    def notify_save_script(self, code: str) -> None:
-        self.notify_save(code, action="save")
+    def notify_save_script(self, code: str, session_id: str = "", mode: str = "", target: Any = None) -> None:
+        self.notify_save(code, action="save", session_id=session_id, mode=mode, target=target)
 
     def request_scripts(self) -> None:
         _write_parent({"type": "request_scripts"})

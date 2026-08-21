@@ -114,5 +114,13 @@ def open_init_script_editor(ctx: Any = None) -> bool:
         "title": _("Edit Initialization Script"),
         "save_as_plain": True,
         "plain_text_label": _("Save initialization script"),
+        "resource": "init",
+        "doc_url": "",
     }
+    try:
+        from plugin.scripting.document_scripts import document_scripts_identity
+
+        load_msg["doc_url"] = document_scripts_identity(doc)
+    except Exception:
+        log.debug("init_script_editor: doc_url for session target failed", exc_info=True)
     return bool(launch_monaco_editor(uno_ctx, exe=exe, load_message=load_msg, on_save=on_save))

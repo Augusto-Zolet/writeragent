@@ -41,11 +41,13 @@ Same framing as [`worker_harness.py`](../plugin/scripting/worker_harness.py) (`s
 
 | `type` | Direction | Purpose |
 |--------|-----------|---------|
-| `ready` | child → LO | GUI up (`window.events.loaded` or `shown`); safe to send `load` |
-| `load` | LO → child | Initial `code` (stripped Python only—never `=PY()`), optional `title`, `data_binding`, `plain_text_label` (checkbox label; Calc default **Save without =PY()**), optional `save_as_plain` (checkbox state: off for inline `=PY()`, on for code-only cells, off when empty), **`ui`** (localized toolbar/status — see [Localization](#localization)) |
-| `save` | child → LO | User saved; includes `code`, optional `save_as_plain` (default false), optional `data_binding` (range text for formula suffix; ignored when `save_as_plain`) |
-| `saved` / `error` | LO → child | Apply result in UI; `saved` may include `save_as_plain` and `status_ok_text` (e.g. **Saved without =PY().**) |
-| `closed` / `cancel` | either | Tear down session |
+| `ready` | child → LO | GUI up (`window.events.loaded` or `shown`); safe to send `load`. **Process-level** (no `session_id`). |
+| `load` | LO → child | Initial `code` (stripped Python only—never `=PY()`), optional `title`, `data_binding`, `plain_text_label` (checkbox label; Calc default **Save without =PY()**), optional `save_as_plain` (checkbox state: off for inline `=PY()`, on for code-only cells, off when empty), **`ui`** (localized toolbar/status — see [Localization](#localization)), plus **`session_id`**, **`mode`**, **`target`** |
+| `save` | child → LO | User saved; includes `code`, optional `save_as_plain` (default false), optional `data_binding` (range text for formula suffix; ignored when `save_as_plain`); echoes **`session_id` / `mode` / `target`** |
+| `saved` / `error` | LO → child | Apply result in UI; `saved` may include `save_as_plain` and `status_ok_text` (e.g. **Saved without =PY().**); same session envelope |
+| `closed` / `cancel` | either | Tear down **that** `session_id` (simple UI: one focused view) |
+
+**Session envelope** (every message except `ready`): `session_id` (host-minted uuid hex), `mode` (`calc_cell` \| `run_script` \| `init_script` \| `latex`), `target` (JSON-safe: `cell_address`, `script_name`, `script_origin`, `doc_url`, `resource`). Helpers: `stamp_session` / `target_from_load` in [`editor_ipc.py`](../plugin/scripting/editor_ipc.py). Host routes `on_save` via `PersistentEditor.sessions`, not a single callback. One child process; one focused view until tabs/windows exist. Same `mode`+`target` reuses `session_id`.
 
 ---
 
@@ -610,7 +612,7 @@ flowchart TD
 ### Open questions (decide before large work)
 
 1. **Auto-close on Save?** LP keeps editor open; WriterAgent today shows “Saved.” — default stay open; optional setting later.
-2. **Multiple editor windows?** Session singleton forbids two — enough for now; multi-cell edit is rare.
+2. **Multiple editor windows / tabs?** IPC and host now route by `session_id`. Simple UI still one focused view (new target replaces the previous session). Tabs or extra pywebview windows can keep extra sessions later.
 3. **Monaco / editor assets:** all static UI files (`index.html`, JS, CSS, and Monaco `vs/`) come from **`rocher`** in the configured venv (`uv pip install rocher`). The OXT ships none of them. Refresh by upgrading `rocher` in the venv. In-repo dev copies live under `plugin/contrib/scripting/assets/editor/`.
 4. **Validate in child with `ast.parse` instead of LO?** Faster but diverges from worker `compile` mode — prefer LO for consistency unless latency forces child-side AST-only pass first.
 
@@ -635,7 +637,7 @@ flowchart TD
 | Data ranges | Editable toolbar textbox (`data_binding` on load/save); written into `=PY("code"; …)` suffix via [`python_formula_edit.py`](../plugin/calc/python/formula_edit.py); single range → `data`, multiple comma/semicolon-separated → `ranges` |
 | Formula strings | Reads `getFormula()`, `FormulaLocal`, `Formula`; normalizes leading `=`, array braces, smart quotes |
 | Unparsed PYTHON (e.g. `=PY(A1; B1)`) | Blocked with msgbox — cannot safely preserve data args |
-| Single session | One **persistent child** process; **multi-cell reload** retargets save callbacks and sends `load` (assumes user saved before switching). WM close hides window and clears session; process stays warm. |
+| Sessions | One **persistent child** process; **N host sessions** keyed by `session_id`. Simple UI: one **focused** view — switching cells sends `load` and ends the previous session (dirty path still `request_save` then load). Same cell/script target reuses `session_id`. WM close hides the window, drops that session, process stays warm. |
 | Child stderr | `editor-stderr-drain` thread logs lines at debug; `read_stderr_tail()` uses ring buffer for failure dialogs. |
 | Child `sys.path` | [`editor_main.py`](../plugin/scripting/editor_main.py) bootstraps repo root so `plugin.scripting.editor_protocol` imports |
 | Save errors to UI | Bridge sends `error` + `traceback` to child; red toolbar status (Phase 2A) |

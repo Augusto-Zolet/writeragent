@@ -27,6 +27,10 @@
   var defaultStatusOkText = "Saved.";
   var pendingStatusText = "Saving…";
   var currentMode = "calc_cell";
+  var sessionId = "";
+  var sessionTarget = {};
+  var isDirty = false;
+  var suppressDirty = false;
   var dataBindingTitle = "Calc injects `data` and `ranges` from these range(s) at runtime.";
   var dataBindingDisabledTitle = "Data ranges apply only when saving as a =PYTHON() formula.";
   var completeTimer = null;
@@ -171,9 +175,17 @@
     var showPlainText = msg.show_plain_text !== false;
     var showDataBinding = msg.show_data_binding !== false;
     currentMode = msg.mode || "calc_cell";
+    sessionId = msg.session_id || "";
+    sessionTarget = msg.target && typeof msg.target === "object" ? msg.target : {};
     var isRunScript = currentMode === "run_script";
+    var isCalcCell = currentMode === "calc_cell";
 
     setToolbarVisible("btn-run", isRunScript);
+    setToolbarVisible("cell-addr", isCalcCell);
+    var addrEl = document.getElementById("cell-addr");
+    if (addrEl) {
+      addrEl.textContent = isCalcCell ? (msg.cell_address || "") : "";
+    }
     setToolbarVisible("plain-text-save-label", showPlainText);
     setToolbarVisible("data-binding-label", showDataBinding);
     setToolbarVisible("data-binding-input", showDataBinding);
@@ -204,10 +216,15 @@
     var code = msg.code || "";
     pendingCode = code || "";
     if (editor) {
+      suppressDirty = true;
       editor.setValue(pendingCode);
       monaco.editor.setModelLanguage(editor.getModel(), msg.language || "python");
+      suppressDirty = false;
+      markDirty(false);
       setStatus(t("ready", "Ready"), "");
       maybeHintJediMissing();
+    } else {
+      markDirty(false);
     }
 
     if (msg.theme) {
@@ -224,6 +241,19 @@
   }
 
   setTimeout(revealToolbar, 500);
+
+  function markDirty(dirty) {
+    var next = !!dirty;
+    if (isDirty === next) {
+      return;
+    }
+    isDirty = next;
+    if (window.pywebview && window.pywebview.api && window.pywebview.api.notify_dirty) {
+      try {
+        window.pywebview.api.notify_dirty(isDirty, sessionId, currentMode, sessionTarget);
+      } catch (e) {}
+    }
+  }
 
   function updateDataBindingEnabled() {
     var plainEl = getPlainTextCheckbox();
@@ -246,9 +276,18 @@
           for (var i = 0; i < messages.length; i++) {
             var msg = messages[i];
             if (msg && msg.type) {
+              if (msg.session_id && sessionId && msg.session_id !== sessionId && msg.type !== "load") {
+                continue;
+              }
               if (msg.type === "load") {
                 applyLoadMessage(msg);
+              } else if (msg.type === "request_save") {
+                var saveBtn = document.getElementById("btn-save");
+                if (saveBtn) {
+                  saveBtn.click();
+                }
               } else if (msg.type === "saved") {
+                markDirty(false);
                 var okText = msg.status_ok_text || defaultStatusOkText;
                 setStatus(okText, "ok");
               } else if (msg.type === "error") {
@@ -285,7 +324,7 @@
   document.getElementById("btn-run").addEventListener("click", function () {
     var code = getEditorCode();
     if (window.pywebview && window.pywebview.api && window.pywebview.api.notify_run) {
-      window.pywebview.api.notify_run(code);
+      window.pywebview.api.notify_run(code, sessionId, currentMode, sessionTarget);
       setStatus(t("running", "Running…"), "");
     }
   });
@@ -294,7 +333,7 @@
     var code = getEditorCode();
     if (window.pywebview && window.pywebview.api) {
       if (currentMode === "run_script" && window.pywebview.api.notify_save_script) {
-        window.pywebview.api.notify_save_script(code);
+        window.pywebview.api.notify_save_script(code, sessionId, currentMode, sessionTarget);
         setStatus(t("saving", "Saving…"), "");
         return;
       }
@@ -302,7 +341,7 @@
       var saveAsPlain = !!plainEl && plainEl.checked;
       var input = getDataBindingInput();
       var dataBinding = saveAsPlain ? "" : (input ? input.value.trim() : "");
-      window.pywebview.api.notify_save(code, saveAsPlain, dataBinding);
+      window.pywebview.api.notify_save(code, saveAsPlain, dataBinding, "cell_save", sessionId, currentMode, sessionTarget);
       setStatus(pendingStatusText, "");
     }
   });
@@ -318,7 +357,16 @@
 
   var plainCheckbox = getPlainTextCheckbox();
   if (plainCheckbox) {
-    plainCheckbox.addEventListener("change", updateDataBindingEnabled);
+    plainCheckbox.addEventListener("change", function () {
+      updateDataBindingEnabled();
+      markDirty(true);
+    });
+  }
+  var dataInputEl = getDataBindingInput();
+  if (dataInputEl) {
+    dataInputEl.addEventListener("input", function () {
+      markDirty(true);
+    });
   }
 
   updateDataBindingEnabled();
@@ -501,6 +549,11 @@
         minimap: { enabled: false },
         fontSize: 13,
         scrollBeyondLastLine: false
+      });
+      editor.onDidChangeModelContent(function () {
+        if (!suppressDirty) {
+          markDirty(true);
+        }
       });
 
       setInterval(pollMessages, 80);

@@ -125,7 +125,14 @@ class NativePythonScriptDialog:
             return True, None
         return False, inst._open_failure_detail
 
-    def close(self) -> None:
+    def close(self, *, toolkit_teardown: bool = False) -> None:
+        """Hide/dispose the dialog.
+
+        Esc / title-bar X on a closeable modeless XDL already tears the window
+        down in LibreOffice. ``windowClosing`` must not ``dispose()`` again
+        (native crash, no Python traceback). Close-button uses the default
+        path and disposes once.
+        """
         if self._closed:
             return
         self._closed = True
@@ -133,6 +140,14 @@ class NativePythonScriptDialog:
         self._dlg = None
         if dlg is None:
             return
+        if toolkit_teardown:
+            log.debug("native script dialog: windowClosing (no dispose)")
+            try:
+                dlg.setVisible(False)
+            except Exception:
+                log.debug("native script dialog: hide after windowClosing failed", exc_info=True)
+            return
+        log.debug("native script dialog: close dispose")
         try:
             dlg.setVisible(False)
         except Exception:
@@ -223,7 +238,7 @@ class NativePythonScriptDialog:
 
                 class _TopWindowListener(unohelper.Base, XTopWindowListener):
                     def windowClosing(self, e):
-                        owner.close()
+                        owner.close(toolkit_teardown=True)
 
                     def windowClosed(self, e):
                         pass
@@ -251,8 +266,12 @@ class NativePythonScriptDialog:
                 dlg.setVisible(True)
                 return True
             dlg.execute()
-            dlg.dispose()
+            self._closed = True
             self._dlg = None
+            try:
+                dlg.dispose()
+            except Exception:
+                log.debug("native script dialog: modal dispose after execute", exc_info=True)
             return True
         except Exception as exc:
             from plugin.scripting.editor_ipc import exception_traceback
@@ -511,6 +530,7 @@ class NativePythonScriptDialog:
 
         class _CancelListener(unohelper.Base, XActionListener):
             def actionPerformed(self, rEvent):
+                log.debug("native script dialog: BtnCancel")
                 if owner._modeless:
                     owner.close()
                 else:

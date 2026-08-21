@@ -22,7 +22,7 @@ import logging
 from typing import Any
 
 import unohelper
-from com.sun.star.awt import XActionListener, XItemListener, XTopWindowListener
+from com.sun.star.awt import XActionListener, XItemListener, XTextListener, XTopWindowListener
 
 from plugin.chatbot.dialogs import (
     get_checkbox_state,
@@ -63,6 +63,8 @@ class NativePythonCellEditorDialog:
         self._parsed_parts = parsed_parts
         self._dlg: Any | None = None
         self._closed = False
+        self._dirty = False
+        self._loading = False
         self._top_listener: Any | None = None
         self._open_failure_detail: str | None = None
         self._opened = self._open(initial_code)
@@ -83,8 +85,10 @@ class NativePythonCellEditorDialog:
         self._cell = cell
         self._parsed_parts = parsed_parts
         self._apply_load(initial_code)
+        self._dirty = False
 
-    def close(self) -> None:
+    def close(self, *, toolkit_teardown: bool = False) -> None:
+        """Hide/dispose. Esc/title-bar X already tears the peer down — do not dispose again."""
         global _active
         if self._closed:
             return
@@ -95,6 +99,14 @@ class NativePythonCellEditorDialog:
             _active = None
         if dlg is None:
             return
+        if toolkit_teardown:
+            log.debug("native cell editor: windowClosing (no dispose)")
+            try:
+                dlg.setVisible(False)
+            except Exception:
+                log.debug("native cell editor: hide after windowClosing failed", exc_info=True)
+            return
+        log.debug("native cell editor: close dispose")
         try:
             dlg.setVisible(False)
         except Exception:
@@ -110,10 +122,32 @@ class NativePythonCellEditorDialog:
             return None
         return dlg.getControl(name)
 
+    def _mark_dirty(self) -> None:
+        if not self._loading:
+            self._dirty = True
+
+    def _set_cell_addr(self) -> None:
+        from plugin.calc.python.editor import format_cell_a1
+
+        ctrl = self._ctrl("CellAddr")
+        if ctrl is None:
+            return
+        addr = format_cell_a1(self._cell)
+        try:
+            if hasattr(ctrl, "setText"):
+                ctrl.setText(addr)
+            model = ctrl.getModel() if hasattr(ctrl, "getModel") else None
+            if model is not None and hasattr(model, "Label"):
+                model.Label = addr
+        except Exception:
+            log.debug("native cell editor: CellAddr failed", exc_info=True)
+
     def _apply_load(self, initial_code: str) -> None:
         from plugin.calc.python.editor import editor_load_save_as_plain
         from plugin.calc.python.formula_edit import format_data_binding_display
 
+        self._loading = True
+        self._set_cell_addr()
         code_ctrl = self._ctrl("CodeEdit")
         if code_ctrl is not None:
             set_control_text(code_ctrl, initial_code or "")
@@ -135,6 +169,8 @@ class NativePythonCellEditorDialog:
         set_checkbox_state(self._ctrl("ChkPlainText"), 1 if plain else 0)
         self._sync_data_enabled()
         self._set_status(_("Ready"))
+        self._loading = False
+        self._dirty = False
         if code_ctrl is not None:
             try:
                 code_ctrl.setFocus()
@@ -215,6 +251,7 @@ class NativePythonCellEditorDialog:
         if outcome.get("type") == "error":
             self._set_status(str(outcome.get("message") or _("Error")))
             return
+        self._dirty = False
         ok_text = outcome.get("status_ok_text")
         if not ok_text:
             if outcome.get("save_as_plain"):
@@ -243,7 +280,7 @@ class NativePythonCellEditorDialog:
 
             class _TopWindowListener(unohelper.Base, XTopWindowListener):
                 def windowClosing(self, e):
-                    owner.close()
+                    owner.close(toolkit_teardown=True)
 
                 def windowClosed(self, e):
                     pass
@@ -294,6 +331,7 @@ class NativePythonCellEditorDialog:
 
         class _CancelListener(unohelper.Base, XActionListener):
             def actionPerformed(self, rEvent):
+                log.debug("native cell editor: BtnCancel")
                 owner.close()
 
             def disposing(self, Source):
@@ -302,6 +340,14 @@ class NativePythonCellEditorDialog:
         class _PlainListener(unohelper.Base, XItemListener):
             def itemStateChanged(self, rEvent):
                 owner._sync_data_enabled()
+                owner._mark_dirty()
+
+            def disposing(self, Source):
+                pass
+
+        class _DirtyTextListener(unohelper.Base, XTextListener):
+            def textChanged(self, rEvent):
+                owner._mark_dirty()
 
             def disposing(self, Source):
                 pass
@@ -311,6 +357,14 @@ class NativePythonCellEditorDialog:
         chk = dlg.getControl("ChkPlainText")
         if chk is not None:
             chk.addItemListener(_PlainListener())
+        dirty_listener = _DirtyTextListener()
+        for name in ("CodeEdit", "DataEdit"):
+            ctrl = dlg.getControl(name)
+            if ctrl is not None and hasattr(ctrl, "addTextListener"):
+                try:
+                    ctrl.addTextListener(dirty_listener)
+                except Exception:
+                    log.debug("native cell editor: addTextListener %s failed", name, exc_info=True)
 
 
 def show_native_python_cell_editor(
@@ -324,6 +378,16 @@ def show_native_python_cell_editor(
     """Open or retarget the native cell editor. Returns (opened, failure_detail)."""
     global _active
     if _active is not None and _active.is_open:
+        if _active._dirty:
+            from plugin.calc.python.editor import confirm_unsaved_cell_edit, format_cell_a1
+
+            choice = confirm_unsaved_cell_edit(ctx, format_cell_a1(_active._cell))
+            if choice == "cancel":
+                return True, None
+            if choice == "save":
+                _active._save()
+                if _active._dirty:
+                    return True, None
         _active.retarget(
             doc=doc,
             cell=cell,

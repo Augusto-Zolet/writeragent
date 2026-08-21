@@ -16,12 +16,16 @@
 from __future__ import annotations
 
 import traceback
-from typing import Any, IO
+import uuid
+from typing import Any, IO, Mapping
 
 from plugin.framework.deal_shim import deal
 from plugin.scripting.ipc import IpcFrameError, pack_pickle_frame, read_frame_payload, unpack_pickle_frame
 
 EDITOR_DEFAULT_TITLE = " "
+
+# JSON-safe identity keys on every session message (omit empties).
+_TARGET_KEYS = ("cell_address", "script_name", "script_origin", "doc_url", "resource")
 
 # Cap payloads to avoid accidental OOM from a corrupted length header.
 _MAX_PAYLOAD_BYTES = 16 * 1024 * 1024
@@ -57,6 +61,87 @@ def message_type(message: dict[str, Any]) -> str:
     """Return the ``type`` field or empty string."""
     raw = message.get("type")
     return str(raw) if raw is not None else ""
+
+
+def new_session_id() -> str:
+    """Opaque routing id for one editor buffer (host-minted)."""
+    return uuid.uuid4().hex
+
+
+def normalize_target(target: Mapping[str, Any] | None) -> dict[str, str]:
+    """Keep only string identity fields; drop empty values and UNO objects."""
+    if not target:
+        return {}
+    out: dict[str, str] = {}
+    for key in _TARGET_KEYS:
+        raw = target.get(key)
+        if raw is None:
+            continue
+        text = str(raw).strip()
+        if text:
+            out[key] = text
+    return out
+
+
+def target_from_load(msg: Mapping[str, Any]) -> dict[str, str]:
+    """Build ``target`` from an explicit dict plus top-level load aliases."""
+    raw = msg.get("target")
+    target = normalize_target(raw if isinstance(raw, Mapping) else None)
+    aliases = (
+        ("cell_address", "cell_address"),
+        ("selected_script_name", "script_name"),
+        ("script_name", "script_name"),
+        ("script_origin", "script_origin"),
+        ("doc_url", "doc_url"),
+        ("resource", "resource"),
+    )
+    for src, dest in aliases:
+        if dest in target:
+            continue
+        value = msg.get(src)
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            target[dest] = text
+    return target
+
+
+def target_identity_key(mode: str, target: Mapping[str, str] | None) -> tuple[str, str, str, str, str]:
+    """Stable key so reopening the same cell/script reuses ``session_id``."""
+    t = normalize_target(target)
+    return (
+        str(mode or ""),
+        t.get("cell_address", ""),
+        t.get("script_name", ""),
+        t.get("doc_url", ""),
+        t.get("resource", ""),
+    )
+
+
+def session_id_of(message: Mapping[str, Any]) -> str:
+    raw = message.get("session_id")
+    return str(raw).strip() if raw is not None else ""
+
+
+def stamp_session(
+    msg: Mapping[str, Any],
+    *,
+    session_id: str,
+    mode: str = "",
+    target: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Copy *msg* and attach ``session_id``, ``mode``, and ``target`` (always)."""
+    out = dict(msg)
+    out["session_id"] = str(session_id or "")
+    use_mode = str(mode or out.get("mode") or "")
+    if use_mode:
+        out["mode"] = use_mode
+    merged = dict(out.get("target") or {}) if isinstance(out.get("target"), dict) else {}
+    if target:
+        merged.update(dict(target))
+    out["target"] = normalize_target(merged)
+    return out
 
 
 def exception_traceback(exc: BaseException) -> str:

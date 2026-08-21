@@ -12,7 +12,15 @@ import struct
 
 import pytest
 
-from plugin.scripting.editor_ipc import exception_traceback, failure_message, read_message, write_message
+from plugin.scripting.editor_ipc import (
+    exception_traceback,
+    failure_message,
+    read_message,
+    stamp_session,
+    target_from_load,
+    target_identity_key,
+    write_message,
+)
 
 
 def test_roundtrip_simple():
@@ -107,3 +115,29 @@ def test_failure_message_none_detail_with_exc():
         msg = failure_message("Summary", detail=None, exc=e)
     assert msg.startswith("Summary\n\n")
     assert "ValueError: probe failure" in msg
+
+
+def test_stamp_session_always_sends_id_mode_and_target():
+    msg = stamp_session({"type": "save", "code": "x"}, session_id="abc", mode="calc_cell", target={"cell_address": "A1"})
+    assert msg["session_id"] == "abc"
+    assert msg["mode"] == "calc_cell"
+    assert msg["target"] == {"cell_address": "A1"}
+
+
+def test_stamp_session_drops_empty_target_keys():
+    msg = stamp_session({"type": "dirty"}, session_id="x", mode="run_script", target={"script_name": "foo", "doc_url": ""})
+    assert msg["target"] == {"script_name": "foo"}
+
+
+def test_target_from_load_aliases_cell_and_script():
+    t = target_from_load({"cell_address": "Sheet1.A1", "selected_script_name": "demo", "mode": "calc_cell"})
+    assert t["cell_address"] == "Sheet1.A1"
+    assert t["script_name"] == "demo"
+
+
+def test_target_identity_key_same_cell_matches():
+    a = target_from_load({"mode": "calc_cell", "cell_address": "A1", "doc_url": "file:///x"})
+    b = target_from_load({"mode": "calc_cell", "cell_address": "A1", "doc_url": "file:///x"})
+    assert target_identity_key("calc_cell", a) == target_identity_key("calc_cell", b)
+    c = target_from_load({"mode": "calc_cell", "cell_address": "B1", "doc_url": "file:///x"})
+    assert target_identity_key("calc_cell", a) != target_identity_key("calc_cell", c)
