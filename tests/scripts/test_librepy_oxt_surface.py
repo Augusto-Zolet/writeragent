@@ -34,6 +34,7 @@ _REQUIRED_RUNTIME = (
 
 _REQUIRED_UI = (
     "Dialogs/PythonScriptDialog.xdl",
+    "Dialogs/PythonCellEditorDialog.xdl",
     "Dialogs/PythonTestProgressDialog.xdl",
     "Dialogs/PythonSidebarDialog.xdl",
     "Dialogs/TextAnalyticsDialog.xdl",

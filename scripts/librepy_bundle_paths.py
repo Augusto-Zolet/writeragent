@@ -74,6 +74,7 @@ LIBREPY_PLUGIN_FILES: tuple[str, ...] = (
     "plugin/calc/python/addin_impl.py",
     "plugin/calc/python/function.py",
     "plugin/calc/python/editor.py",
+    "plugin/calc/python/cell_editor_ui.py",
     "plugin/calc/python/xl_static_rewrite.py",
     "plugin/calc/python/formula_edit.py",
     "plugin/calc/python/editor_context_menu.py",

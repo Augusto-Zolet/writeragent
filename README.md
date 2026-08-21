@@ -184,6 +184,7 @@ Contributor orientation: [AGENTS.md](AGENTS.md).
 
 | Project                                                                               | Contribution                                    |
 | ------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| [localwriter](https://github.com/balisujohn/localwriter)                              | Original Writer LLM extension (John Balis)      |
 | [LibreCalc AI Assistant](https://extensions.libreoffice.org/en/extensions/show/99509) | Calc AI foundation and inspiration              |
 | [LibreOffice MCP Extension](https://github.com/quazardous/mcp-libre)                  | MCP server patterns, Makefile, tool registry    |
 | [Hermes Agent](https://github.com/NousResearch/hermes-agent)                          | Tool-call parsers, JSON repair, memory patterns |

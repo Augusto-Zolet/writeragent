@@ -133,7 +133,7 @@ For Monaco (recommended editor UI), also install `pywebview` (on Linux: `PyQt6 P
 | --------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------- |
 | **LibrePy Python sidebar** (Calc)             | LibrePy **and** WriterAgent | Cell list, diagnostics (stdout/errors), Reset / Edit Init / Run Script / Settings — Monaco stays separate; Calc-only **Python** deck |
 | **Run Python Script…**                        | Writer / Calc / Draw menu | Monaco editor (**Run** / **Save** / script picker), or a plain multiline dialog if pywebview is missing |
-| **Edit Python in Cell…** / `=PY(code, data?)` | Calc                      | Same warm venv runner; dual save as `=PY("…")` or plain text for `=PY($A$1; …)`                         |
+| **Edit Python in Cell…** / `=PY(code, data?)` | Calc                      | Monaco when pywebview is available; otherwise a native dialog with the same Save / Data / **Save without =PY()** chrome. Dual save as `=PY("…")` or plain text for `=PY($A$1; …)` |
 | **Edit Initialization Script…**               | Calc (sidebar or Monaco)  | Workbook startup script; seeds helpers for every `=PY()` cell                                           |
 | Shared warm worker                            | All of the above          | One subprocess per venv path (`[venv_worker.py](plugin/scripting/venv_worker.py)`)                      |
 
@@ -157,7 +157,7 @@ The extension ships a **Monaco-based code editor** (pywebview child in the confi
 | Syntax squiggles, range picker, full Jedi                   | **Backlog** | [Monaco dev plan §8](python-monaco-editor-dev-plan.md#8-next-development-plan-detailed)          |
 
 
-**Requirements:** Settings → Python → venv path with `pywebview` installed (Linux also needs `PyQt6 PyQt6-WebEngine qtpy`). **Edit Python in Cell…** does not fall back to embedded LO Python — fix the venv if the editor fails to open. **Run Python Script…** falls back to the native multiline dialog when pywebview is unavailable.
+**Requirements:** Settings → Python → venv path with `pywebview` installed (Linux also needs `PyQt6 PyQt6-WebEngine qtpy`) for the Monaco UI. **Edit Python in Cell…** and **Run Python Script…** both fall back to native LibreOffice dialogs when pywebview is missing or `scripting.force_internal_script_editor` is true. Native cell edit does not need a venv.
 
 **Document-attached scripts:** Named scripts live in document properties so they travel with the file. Monaco supports **Attach** / **Copy to My Scripts**; read-only documents fall back to the personal library (**My Scripts** in `writeragent.json`) with a clear message.
 

@@ -12,9 +12,13 @@
        WARNING: PARITY INVARIANT WITH NATIVE LIBREOFFICE DIALOG LAYOUTS
        If you modify toolbar buttons, controls, or modals in this file, update:
          - Native Python Script Dialog:  extension/Dialogs/PythonScriptDialog.xdl
+         - Native Python Cell Editor:    extension/Dialogs/PythonCellEditorDialog.xdl
          - Native New Script Dialog:      extension/Dialogs/NewScriptDialog.xdl
          - Python Controller & Listeners: plugin/scripting/python_runner_ui.py
+         - Native Cell Editor Controller: plugin/calc/python/cell_editor_ui.py
          - Script Manager Controller:    plugin/contrib/scripting/assets/editor/scripts_manager.js
+       calc_cell toolbar (Save / Cancel / Save without =PY() / Data: / status) twins
+       PythonCellEditorDialog; run_script extras twin PythonScriptDialog.
        ========================================================================================= -->
   <header id="toolbar" class="toolbar-loading">
     <button type="button" id="btn-run" class="toolbar-hidden">Run</button>

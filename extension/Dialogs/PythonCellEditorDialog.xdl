@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE dlg:window PUBLIC "-//OpenOffice.org//DTD OfficeDocument 1.0//EN" "dialog.dtd">
+<dlg:window xmlns:dlg="http://openoffice.org/2000/dialog" xmlns:script="http://openoffice.org/2000/script"
+  dlg:id="PythonCellEditorDialog" dlg:left="100" dlg:top="50" dlg:width="400" dlg:height="220"
+  dlg:closeable="true" dlg:moveable="true" dlg:title="Python cell editor">
+ <!-- =========================================================================================
+      WARNING: PARITY INVARIANT WITH MONACO calc_cell TOOLBAR
+      This dialog is the native twin of Monaco *calc_cell* mode (not Run Python Script).
+      If you add, rename, or reorder toolbar controls here, update:
+        - Monaco HTML / Toolbar:    plugin/contrib/scripting/assets/editor/index.html
+        - Monaco Editor Script:     plugin/contrib/scripting/assets/editor/editor.js
+        - UI Strings Catalog:       plugin/scripting/editor_ui_strings.py (_calc_cell_ui_strings)
+        - Native Controller:        plugin/calc/python/cell_editor_ui.py
+        - Calc Editor Host:         plugin/calc/python/editor.py
+      Do not mix Run / Script / Save As / Delete here — those live on PythonScriptDialog.
+      ========================================================================================= -->
+ <dlg:bulletinboard>
+  <dlg:button dlg:id="BtnSave" dlg:left="8" dlg:top="8" dlg:width="42" dlg:height="14" dlg:value="Save" dlg:tabstop="true"/>
+  <dlg:button dlg:id="BtnCancel" dlg:left="52" dlg:top="8" dlg:width="42" dlg:height="14" dlg:value="Cancel" dlg:tabstop="true"/>
+  <dlg:checkbox dlg:id="ChkPlainText" dlg:left="98" dlg:top="8" dlg:width="118" dlg:height="14" dlg:value="Save without =PY()" dlg:tabstop="true"/>
+  <dlg:text dlg:id="DataLbl" dlg:left="220" dlg:top="10" dlg:width="28" dlg:height="10" dlg:value="Data:" dlg:align="left" dlg:multiline="false"/>
+  <dlg:textfield dlg:id="DataEdit" dlg:left="248" dlg:top="8" dlg:width="144" dlg:height="14" dlg:tabstop="true" dlg:value="" dlg:border="1"/>
+  <dlg:textfield dlg:id="StatusEdit" dlg:left="8" dlg:top="26" dlg:width="384" dlg:height="20" dlg:value="Status: Ready" dlg:tabstop="true" dlg:readonly="true" dlg:multiline="true" dlg:vscroll="true"/>
+  <dlg:textfield dlg:id="CodeEdit" dlg:left="8" dlg:top="48" dlg:width="384" dlg:height="164" dlg:tabstop="true" dlg:multiline="true" dlg:vscroll="true"/>
+ </dlg:bulletinboard>
+</dlg:window>

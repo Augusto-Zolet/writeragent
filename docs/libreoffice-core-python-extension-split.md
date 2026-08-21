@@ -1083,7 +1083,7 @@ uv pip install pywebview rocher PyQt6 PyQt6-WebEngine qtpy
 
 Optional: `jedi` (completion stub in `editor_main.py`).
 
-**Edit Python in Cell…** does not fall back to embedded LO Python — fix the venv if Monaco fails to open.
+**Edit Python in Cell…** falls back to a native LibreOffice dialog (same Save / Data / **Save without =PY()** chrome) when Monaco is unavailable. Running `=PY()` still uses the configured venv.
 
 ---
 

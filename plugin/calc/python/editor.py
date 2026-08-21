@@ -2,7 +2,18 @@
 # Copyright (c) 2026 KeithCu (modifications and relicensing)
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Open the Monaco editor for the active Calc cell's ``=PY()`` formula."""
+"""Open the Python cell editor for the active Calc cell's ``=PY()`` formula.
+
+# =========================================================================================
+# WARNING: PARITY INVARIANT WITH MONACO calc_cell FRONTEND
+# Load payload keys, save modes, and toolbar labels must stay aligned with:
+#   - Native Dialog Layout:     extension/Dialogs/PythonCellEditorDialog.xdl
+#   - Native Controller:        plugin/calc/python/cell_editor_ui.py
+#   - Monaco HTML / Toolbar:    plugin/contrib/scripting/assets/editor/index.html
+#   - Monaco Editor Script:     plugin/contrib/scripting/assets/editor/editor.js
+#   - UI Strings Catalog:       plugin/scripting/editor_ui_strings.py (_calc_cell_ui_strings)
+# =========================================================================================
+"""
 
 from __future__ import annotations
 
@@ -29,8 +40,6 @@ from plugin.scripting.editor_host import (
     get_active_session,
     launch_monaco_editor,
     monaco_editor_available,
-    probe_webview_import,
-    resolve_editor_python,
     set_active_session,
 )
 from plugin.framework.config import get_config
@@ -320,7 +329,7 @@ def _launch_editor_with_code(
 
 
 def open_python_cell_editor(ctx: Any) -> None:
-    """Launch Monaco editor for the active Calc cell (creates or edits ``=PY()``)."""
+    """Launch Monaco or the native cell editor for the active Calc cell."""
     log.info("python_editor: open_python_cell_editor")
     try:
         from plugin.calc.python.editor_context_menu import install_calc_cell_context_menu
@@ -364,45 +373,32 @@ def _open_python_cell_editor_impl(ctx: Any) -> None:
         return
 
     exe, monaco_available = monaco_editor_available(ctx)
-    if not monaco_available:
-        if get_config("scripting.force_internal_script_editor"):
-            msgbox(
-                ctx,
-                product_display_name(ctx),
-                _(
-                    "Edit Python in Cell requires the Monaco editor, which is disabled by "
-                    "\"scripting.force_internal_script_editor\" in writeragent.json.\n\n"
-                    "Set it to false and restart LibreOffice to use this command, "
-                    "or edit PYTHON formulas in the Calc formula bar."
-                ),
-            )
-            return
-        if not exe:
-            _unused, err = resolve_editor_python(ctx)
-            msgbox(ctx, product_display_name(ctx), err or _("No Python interpreter available for the editor."))
-            return
-        webview_ok, webview_detail = probe_webview_import(exe)
-        log.info("python_editor: webview probe exe=%s ok=%s detail=%r", exe, webview_ok, webview_detail[:200] if webview_detail else "")
-        if not webview_ok:
-            summary = _(
-                "Cannot import webview (pywebview) or rocher with the Python from Settings → Python:\n"
-                "%(exe)s\n\n"
-                "In that venv run: uv pip install pywebview rocher\n"
-                "(import name is webview, package name is pywebview)."
-            ) % {"exe": exe}
-            msgbox(ctx, product_display_name(ctx), failure_message(summary, detail=webview_detail or _("unknown error")))
-            return
+    if monaco_available:
+        assert exe is not None
+        log.info("python_editor: using interpreter %s", exe)
+        log.info("python_editor: launching Monaco subprocess")
+        _launch_editor_with_code(
+            ctx,
+            doc,
+            cell,
+            initial_code=initial_code,
+            parsed_parts=parsed_parts,
+            exe=exe,
+        )
+        log.info("python_editor: editor session started")
+        return
 
-    assert exe is not None
+    from plugin.calc.python.cell_editor_ui import show_native_python_cell_editor
 
-    log.info("python_editor: using interpreter %s", exe)
-    log.info("python_editor: launching Monaco subprocess")
-    _launch_editor_with_code(
+    log.info("python_editor: Monaco unavailable; opening native cell editor")
+    opened, detail = show_native_python_cell_editor(
         ctx,
-        doc,
-        cell,
+        doc=doc,
+        cell=cell,
         initial_code=initial_code,
         parsed_parts=parsed_parts,
-        exe=exe,
     )
-    log.info("python_editor: editor session started")
+    if opened:
+        return
+    msg = detail or _("Could not open the built-in Python cell editor.")
+    msgbox(ctx, product_display_name(ctx), msg)

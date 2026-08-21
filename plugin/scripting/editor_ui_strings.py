@@ -10,6 +10,9 @@
 #   - JS Script Manager:        plugin/contrib/scripting/assets/editor/scripts_manager.js
 #   - Monaco Editor Script:     plugin/contrib/scripting/assets/editor/editor.js
 #   - Monaco HTML / Toolbar:    plugin/contrib/scripting/assets/editor/index.html
+#   - Native Cell Editor:       plugin/calc/python/cell_editor_ui.py
+#   - Native Cell Dialog:       extension/Dialogs/PythonCellEditorDialog.xdl
+# calc_cell msgids (Save without =PY(), Data:, status) must stay identical in native UI.
 # =========================================================================================
 
 from __future__ import annotations

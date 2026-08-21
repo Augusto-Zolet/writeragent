@@ -916,6 +916,7 @@ def update_dialog_xlb(library_dir, dialog_names, tpl_path=None):
         "SearchDialog",
         "SpreadsheetImportDialog",
         "PythonScriptDialog",
+        "PythonCellEditorDialog",
         "PythonSidebarDialog",
         "ServerStatusDialog",
         "WebSearchQueryEditDialog",

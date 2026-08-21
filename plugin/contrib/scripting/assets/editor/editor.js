@@ -14,6 +14,8 @@
 //   - IPC Message Protocol:      plugin/scripting/editor_protocol.py
 //   - UI Strings Catalog:        plugin/scripting/editor_ui_strings.py
 //   - Script Manager Frontend:   plugin/contrib/scripting/assets/editor/scripts_manager.js
+//   - Native Cell Editor:        plugin/calc/python/cell_editor_ui.py
+//     (calc_cell Save / Save without =PY() / Data enablement / status)
 // =========================================================================================
 
 (function () {
