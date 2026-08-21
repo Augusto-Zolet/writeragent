@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-20 14:31-0400\n"
+"POT-Creation-Date: 2026-08-21 11:45-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Chinese (Simplified) <LL@li.org>\n"
@@ -2646,12 +2646,12 @@ msgid "General"
 msgstr "通用"
 
 #: plugin/xdl_strings.py
-msgid "Get API Key (1-click):"
-msgstr "获取 API Key (一键式)："
+msgid "Get API Key:"
+msgstr "获取 API 密钥："
 
 #: plugin/xdl_strings.py
-msgid "Hugging Face ↗"
-msgstr "Hugging Face ↗"
+msgid "Hugging Face"
+msgstr "Hugging Face"
 
 #: plugin/xdl_strings.py
 msgid "Image Model:"
@@ -2702,6 +2702,10 @@ msgid "Multimodal"
 msgstr "多模态"
 
 #: plugin/xdl_strings.py
+msgid "NVIDIA NIM"
+msgstr "NVIDIA NIM"
+
+#: plugin/xdl_strings.py
 msgid "New Sheet (PythonImport)"
 msgstr "新建工作表 (PythonImport)"
 
@@ -2714,8 +2718,8 @@ msgid "OK"
 msgstr "确定"
 
 #: plugin/xdl_strings.py
-msgid "OpenRouter ↗"
-msgstr "OpenRouter ↗"
+msgid "OpenRouter"
+msgstr "OpenRouter"
 
 #: plugin/xdl_strings.py
 msgid "Options"
@@ -2842,8 +2846,8 @@ msgid "Timeout (s):"
 msgstr "超时 (秒)："
 
 #: plugin/xdl_strings.py
-msgid "Together AI ↗"
-msgstr "Together AI ↗"
+msgid "Together AI"
+msgstr "Together AI"
 
 #: plugin/xdl_strings.py
 msgid "Topics"

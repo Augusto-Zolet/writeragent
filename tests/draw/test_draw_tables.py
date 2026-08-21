@@ -3,7 +3,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from plugin.draw.tables import fill_table_cells, insert_draw_table, parse_a1
+from plugin.draw.tables import fill_table_cells, insert_draw_table, parse_a1, _ensure_table_dims
 from plugin.writer.specialized.tables import TableInsert
 
 
@@ -18,19 +18,48 @@ class _Cell:
         self._s = val
 
 
+class _Band:
+    def __init__(self, count):
+        self._count = count
+
+    def getCount(self):
+        return self._count
+
+    def insertByIndex(self, idx, n):
+        self._count += n
+
+
 class _Table:
-    def __init__(self):
+    def __init__(self, rows=1, cols=1):
         self.cells = {}
+        self._rows = _Band(rows)
+        self._cols = _Band(cols)
+
+    def getRows(self):
+        return self._rows
+
+    def getColumns(self):
+        return self._cols
 
     def getCellByPosition(self, col, row):
+        if col < 0 or col >= self._cols.getCount() or row < 0 or row >= self._rows.getCount():
+            raise IndexError("col %s out of range 0..%s" % (col, self._cols.getCount()))
         key = (col, row)
         if key not in self.cells:
             self.cells[key] = _Cell()
         return self.cells[key]
 
 
+def test_ensure_table_dims_grows_from_1x1():
+    table = _Table(1, 1)
+    assert _ensure_table_dims(table, 2, 2) == (2, 2)
+    n = fill_table_cells(table, [["a", "b"], ["c", "d"]])
+    assert n == 4
+    assert table.cells[(1, 1)]._s == "d"
+
+
 def test_fill_table_cells():
-    table = _Table()
+    table = _Table(2, 2)
     n = fill_table_cells(table, [["a", "b"], ["c", "d"]])
     assert n == 4
     assert table.cells[(0, 0)]._s == "a"
@@ -53,7 +82,7 @@ def test_insert_table_ok():
         bridge = bridge_cls.return_value
         bridge.get_active_page_index.return_value = 0
         bridge.get_pages.return_value.getByIndex.return_value = page
-        with patch("plugin.draw.tables._table_model", return_value=_Table()):
+        with patch("plugin.draw.tables._table_model", return_value=_Table(1, 1)):
             with patch("com.sun.star.awt.Point", MagicMock(), create=True), patch(
                 "com.sun.star.awt.Size", MagicMock(), create=True
             ):

@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: WriterAgent 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-20 14:31-0400\n"
+"POT-Creation-Date: 2026-08-21 11:45-0400\n"
 "PO-Revision-Date: 2024-03-21 12:00+0000\n"
 "Last-Translator: \n"
 "Language-Team: German\n"
@@ -2789,12 +2789,12 @@ msgid "General"
 msgstr "Allgemein"
 
 #: plugin/xdl_strings.py
-msgid "Get API Key (1-click):"
-msgstr "API-Schlüssel abrufen (1-Klick):"
+msgid "Get API Key:"
+msgstr "API-Schlüssel abrufen:"
 
 #: plugin/xdl_strings.py
-msgid "Hugging Face ↗"
-msgstr "Hugging Face ↗"
+msgid "Hugging Face"
+msgstr "Hugging Face"
 
 #: plugin/xdl_strings.py
 msgid "Image Model:"
@@ -2845,6 +2845,10 @@ msgid "Multimodal"
 msgstr "Multimodal"
 
 #: plugin/xdl_strings.py
+msgid "NVIDIA NIM"
+msgstr "NVIDIA NIM"
+
+#: plugin/xdl_strings.py
 msgid "New Sheet (PythonImport)"
 msgstr "Neues Tabellenblatt (PythonImport)"
 
@@ -2857,8 +2861,8 @@ msgid "OK"
 msgstr "OK"
 
 #: plugin/xdl_strings.py
-msgid "OpenRouter ↗"
-msgstr "OpenRouter ↗"
+msgid "OpenRouter"
+msgstr "OpenRouter"
 
 #: plugin/xdl_strings.py
 msgid "Options"
@@ -2985,8 +2989,8 @@ msgid "Timeout (s):"
 msgstr "Zeitüberschreitung (s):"
 
 #: plugin/xdl_strings.py
-msgid "Together AI ↗"
-msgstr "Together AI ↗"
+msgid "Together AI"
+msgstr "Together AI"
 
 #: plugin/xdl_strings.py
 msgid "Topics"

@@ -255,6 +255,7 @@ def test_align_and_insert_table(ctx, doc):
     })
     data = json.loads(result)
     assert data.get("status") == "ok", result
+    assert data.get("cells_written") == 4, result
 
 
 @native_test

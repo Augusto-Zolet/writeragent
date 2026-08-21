@@ -44,15 +44,10 @@ def test_goal_seek(ctx, doc):
     # B1: Formula (=A1*A1)
     active_sheet.getCellByPosition(0, 0).setValue(1.0) # Initial guess
     active_sheet.getCellByPosition(1, 0).setFormula("=A1*A1")
-    
-    res = _execute_calc_tool(doc, ctx, "calc_goal_seek", {
-        "formula_cell": "A1.B1", # Testing sheet name prefix (assuming default sheet name is Sheet1 or similar)
-        "variable_cell": "B1",   # Wait, _get_cell_address might fail if sheet name is wrong. 
-                                 # Let's get the real sheet name.
-    })
-    
+
+    # Direct execute (analysis tools are ToolBaseDummy) does not swallow missing
+    # kwargs the way TestingFactory.execute_tool used to.
     sheet_name = active_sheet.getName()
-    
     res = _execute_calc_tool(doc, ctx, "calc_goal_seek", {
         "formula_cell": f"{sheet_name}.B1",
         "variable_cell": f"{sheet_name}.A1",

@@ -262,14 +262,13 @@ def insert_result_into_draw(doc: Any, uno_ctx: Any, result: Any) -> None:
                 table = shape.Table
             
             if table:
-                # We assume setPropertyValue set the correct dimensions.
-                for r_idx, row in enumerate(final_data):
-                    for c_idx, val in enumerate(row):
-                        try:
-                            cell = table.getCellByPosition(c_idx, r_idx)
-                            cell.getText().setString(val)
-                        except Exception as e:
-                            log.error(f"Error filling table cell ({r_idx}, {c_idx}): {e}")
+                from plugin.draw.tables import _ensure_table_dims, fill_table_cells
+
+                try:
+                    _ensure_table_dims(table, num_rows, num_cols)
+                    fill_table_cells(table, final_data)
+                except Exception as e:
+                    log.error(f"Error filling table cells: {e}")
             else:
                 # Fallback to text if table model is inaccessible
                 shape.setString(str(result))

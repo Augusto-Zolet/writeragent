@@ -82,6 +82,25 @@ def _model_dims(model) -> tuple[int, int]:
     return int(rows), int(cols)
 
 
+def _ensure_table_dims(model, rows: int, columns: int) -> tuple[int, int]:
+    """Grow a TableShape model to at least ``rows`` x ``columns``.
+
+    TableShape defaults to 1x1 after ``page.add``. ``Rows``/``Columns``
+    properties on a detached shape are often ignored, so insert uses the
+    same ``insertByIndex`` path as ``manage_draw_structure``. Does not shrink.
+    """
+    nrows, ncols = _model_dims(model)
+    band = model.getRows()
+    while nrows < rows:
+        band.insertByIndex(nrows, 1)
+        nrows += 1
+    band = model.getColumns()
+    while ncols < columns:
+        band.insertByIndex(ncols, 1)
+        ncols += 1
+    return nrows, ncols
+
+
 def iter_table_shapes(doc) -> list[dict[str, Any]]:
     """List TableShapes as dicts: page, index, name, rows, cols, shape, model."""
     out: list[dict[str, Any]] = []
@@ -262,9 +281,9 @@ def insert_draw_table(ctx, **kwargs) -> dict[str, Any]:
 
     written = 0
     data = kwargs.get("data")
-    if data:
-        table = _table_model(shape)
-        if table is None:
+    table = _table_model(shape)
+    if table is None:
+        if data:
             return {
                 "status": "ok",
                 "message": "Table inserted but cell model was unavailable; data not filled",
@@ -272,10 +291,20 @@ def insert_draw_table(ctx, **kwargs) -> dict[str, Any]:
                 "index": page.getCount() - 1,
                 "warning": "table_model_unavailable",
             }
+    else:
         try:
-            written = fill_table_cells(table, data)
+            _ensure_table_dims(table, rows, columns)
         except Exception as exc:
-            return {"status": "error", "message": "Failed to fill table cells: %s" % exc, "code": "TOOL_EXECUTION_ERROR"}
+            return {"status": "error", "message": "Failed to size table: %s" % exc, "code": "TOOL_EXECUTION_ERROR"}
+        if data:
+            try:
+                written = fill_table_cells(table, data)
+            except Exception as exc:
+                return {
+                    "status": "error",
+                    "message": "Failed to fill table cells: %s" % exc,
+                    "code": "TOOL_EXECUTION_ERROR",
+                }
 
     return {
         "status": "ok",

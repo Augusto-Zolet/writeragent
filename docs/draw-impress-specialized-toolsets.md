@@ -340,7 +340,7 @@ class InsertTable(ToolDrawSpecialBase):
 ```
 **Implementation:**
 - Create instance of `com.sun.star.drawing.TableShape`.
-- Access model via `table_shape.getModel()`, set row/column counts, and populate cells via `table.getCellByPosition(col, row).setString(val)`.
+- After `page.add`, grow the TableShape model with row/column `insertByIndex` (Rows/Columns properties on a detached shape are unreliable), then populate cells via `getCellByPosition(col, row)`.
 
 ---
 
