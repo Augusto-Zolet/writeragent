@@ -18,7 +18,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from typing import Any
+from typing import Any, Callable
 
 from plugin.doc.doc_type import is_calc, is_draw, is_writer
 from plugin.doc.udprops import get_document_property, set_document_property
@@ -426,11 +426,7 @@ def build_scripts_list_message(
     status_ok_text: str | None = None,
     status_error_text: str | None = None,
 ) -> dict[str, Any]:
-    from plugin.framework.config import get_config
-
-    user_scripts = get_config("saved_python_scripts")
-    if not isinstance(user_scripts, dict):
-        user_scripts = {}
+    user_scripts = get_user_scripts()
 
     doc = session_doc
     if doc is None:
@@ -485,3 +481,164 @@ def build_scripts_list_message(
     if status_error_text:
         msg["status_error_text"] = status_error_text
     return msg
+
+
+SCRIPT_PICKER_MESSAGE_TYPES = frozenset(
+    {
+        "request_scripts",
+        "select_script",
+        "save_script",
+        "attach_script",
+        "copy_script_to_user",
+        "delete_script",
+    }
+)
+
+
+def _script_code_from_message(msg: dict[str, Any]) -> str:
+    raw = msg.get("code", "")
+    return raw if isinstance(raw, str) else ""
+
+
+def get_user_scripts() -> dict[str, str]:
+    from plugin.framework.config import get_config
+
+    scripts = get_config("saved_python_scripts")
+    if not isinstance(scripts, dict):
+        return {}
+    return dict(scripts)
+
+
+def save_user_script(name: str, code: str) -> None:
+    from plugin.framework.config import set_config
+
+    scripts = get_user_scripts()
+    scripts[name] = code
+    set_config("saved_python_scripts", scripts)
+
+
+def delete_user_script(name: str) -> None:
+    from plugin.framework.config import set_config
+
+    scripts = get_user_scripts()
+    scripts.pop(name, None)
+    set_config("saved_python_scripts", scripts)
+
+
+def handle_editor_script_message(
+    kind: str,
+    msg: dict[str, Any],
+    *,
+    ctx: Any,
+    session_doc: Any | None,
+    session_doc_url: str | None,
+    send: Callable[[dict[str, Any]], None],
+) -> bool:
+    """Apply a Monaco script-picker IPC message. Return True if *kind* was handled."""
+    if kind not in SCRIPT_PICKER_MESSAGE_TYPES:
+        return False
+
+    def _send_list(*, status_ok_text: str | None = None, status_error_text: str | None = None) -> None:
+        send(
+            build_scripts_list_message(
+                ctx,
+                session_doc=session_doc,
+                session_doc_url=session_doc_url,
+                status_ok_text=status_ok_text,
+                status_error_text=status_error_text,
+            )
+        )
+
+    if kind == "request_scripts":
+        log.info("scripts picker: request_scripts")
+        _send_list()
+        return True
+
+    if kind == "select_script":
+        from plugin.framework.config import set_config
+        from plugin.scripting.python_runner import resolve_run_script_name_config_key
+
+        name = str(msg.get("name", "") or "").strip()
+        name_config_key = resolve_run_script_name_config_key(session_doc)
+        set_config(name_config_key, name)
+        return True
+
+    if kind == "save_script":
+        name = str(msg.get("name", "") or "").strip()
+        script_code = _script_code_from_message(msg)
+        origin = str(msg.get("origin", "") or "").strip()
+        if not name:
+            _send_list(status_error_text=_("Script name cannot be empty."))
+            return True
+        if origin == SCRIPT_ORIGIN_DOCUMENT:
+            if session_doc is None:
+                _send_list(status_error_text=_("No document is open to save scripts."))
+                return True
+            err = save_document_script(session_doc, name, script_code)
+            if err:
+                save_user_script(name, script_code)
+                _send_list(
+                    status_ok_text=_("Saved script '{0}' to My Scripts.").format(name),
+                    status_error_text=err,
+                )
+                return True
+            _send_list(status_ok_text=_("Saved script '{0}' to this document.").format(name))
+            return True
+        save_user_script(name, script_code)
+        log.info("scripts picker: save_script '%s' (user)", name)
+        _send_list(status_ok_text=_("Saved script '{0}'.").format(name))
+        return True
+
+    if kind == "attach_script":
+        name = str(msg.get("name", "") or "").strip()
+        script_code = _script_code_from_message(msg)
+        overwrite = bool(msg.get("overwrite"))
+        if session_doc is None:
+            _send_list(status_error_text=_("No document is open to attach scripts."))
+            return True
+        err = attach_document_script(session_doc, name, script_code, overwrite=overwrite)
+        if err:
+            _send_list(status_error_text=err)
+            return True
+        _send_list(status_ok_text=_("Attached script '{0}' to this document.").format(name))
+        return True
+
+    if kind == "copy_script_to_user":
+        name = str(msg.get("name", "") or "").strip()
+        script_code = _script_code_from_message(msg)
+        overwrite = bool(msg.get("overwrite"))
+        if not name:
+            _send_list(status_error_text=_("Script name cannot be empty."))
+            return True
+        scripts = get_user_scripts()
+        if name in scripts and not overwrite:
+            _send_list(
+                status_error_text=_("A script named '{0}' already exists in My Scripts.").format(name)
+            )
+            return True
+        save_user_script(name, script_code)
+        _send_list(status_ok_text=_("Copied script '{0}' to My Scripts.").format(name))
+        return True
+
+    if kind == "delete_script":
+        name = str(msg.get("name", "") or "").strip()
+        origin = str(msg.get("origin", "") or "").strip()
+        if not name:
+            _send_list(status_error_text=_("Script name cannot be empty."))
+            return True
+        if origin == SCRIPT_ORIGIN_DOCUMENT:
+            if session_doc is None:
+                _send_list(status_error_text=_("No document is open."))
+                return True
+            err = delete_document_script(session_doc, name)
+            if err:
+                _send_list(status_error_text=err)
+                return True
+            _send_list(status_ok_text=_("Deleted document script '{0}'.").format(name))
+            return True
+        delete_user_script(name)
+        log.info("scripts picker: delete_script '%s' (user)", name)
+        _send_list(status_ok_text=_("Deleted script '{0}'.").format(name))
+        return True
+
+    return False

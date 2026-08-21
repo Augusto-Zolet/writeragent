@@ -49,14 +49,10 @@ from plugin.scripting.editor_ipc import (
     target_identity_key,
     write_message,
 )
+from plugin.scripting.document_scripts import SCRIPT_PICKER_MESSAGE_TYPES, handle_editor_script_message
 from plugin.scripting.venv_worker import resolve_venv_python, warm_venv_worker, scrub_subprocess_env, wrap_command_for_sandbox
 
 log = logging.getLogger(__name__)
-
-
-def _script_code_from_message(msg: dict[str, Any]) -> str:
-    raw = msg.get("code", "")
-    return raw if isinstance(raw, str) else ""
 
 
 # --- Launcher ---
@@ -481,167 +477,21 @@ class PersistentEditor:
                 return active
         return self.run_script_doc
 
-    def _send_scripts_list(
-        self,
-        *,
-        status_ok_text: str | None = None,
-        status_error_text: str | None = None,
-    ) -> None:
-        from plugin.scripting.document_scripts import build_scripts_list_message
-
-        doc = self._resolve_run_script_doc()
-        self.send(
-            build_scripts_list_message(
-                self.ctx,
-                session_doc=doc,
-                session_doc_url=self.run_script_doc_url,
-                status_ok_text=status_ok_text,
-                status_error_text=status_error_text,
-            )
-        )
-
-    def _save_user_script(self, name: str, code: str) -> None:
-        from plugin.framework.config import get_config, set_config
-
-        scripts = get_config("saved_python_scripts")
-        if not isinstance(scripts, dict):
-            scripts = {}
-        scripts[name] = code
-        set_config("saved_python_scripts", scripts)
-
     def _dispatch_incoming(self, msg: dict[str, Any]) -> None:
         kind = message_type(msg)
-        if kind == "request_scripts":
-            def _handle_request() -> None:
-                log.info("editor_host: request_scripts")
-                self._send_scripts_list()
-            self.executor.execute(_handle_request)
-            return
+        if kind in SCRIPT_PICKER_MESSAGE_TYPES:
 
-        if kind == "select_script":
-            name = str(msg.get("name", "") or "").strip()
+            def _handle_picker() -> None:
+                handle_editor_script_message(
+                    kind,
+                    msg,
+                    ctx=self.ctx,
+                    session_doc=self._resolve_run_script_doc(),
+                    session_doc_url=self.run_script_doc_url,
+                    send=self.send,
+                )
 
-            def _handle_select() -> None:
-                from plugin.framework.config import set_config
-                from plugin.scripting.python_runner import resolve_run_script_name_config_key
-
-                doc = self._resolve_run_script_doc()
-                name_config_key = resolve_run_script_name_config_key(doc)
-                set_config(name_config_key, name)
-
-            self.executor.execute(_handle_select)
-            return
-
-        if kind == "save_script":
-            name = str(msg.get("name", "") or "").strip()
-            script_code = _script_code_from_message(msg)
-
-            def _handle_save_named() -> None:
-                from plugin.scripting.domain_registry import SCRIPT_ORIGIN_DOCUMENT
-
-                origin = str(msg.get("origin", "") or "").strip()
-                if not name:
-                    self._send_scripts_list(status_error_text=_("Script name cannot be empty."))
-                    return
-                if origin == SCRIPT_ORIGIN_DOCUMENT:
-                    doc = self._resolve_run_script_doc()
-                    if doc is None:
-                        self._send_scripts_list(status_error_text=_("No document is open to save scripts."))
-                        return
-                    from plugin.scripting.document_scripts import save_document_script
-
-                    err = save_document_script(doc, name, script_code)
-                    if err:
-                        self._save_user_script(name, script_code)
-                        self._send_scripts_list(
-                            status_ok_text=_("Saved script '{0}' to My Scripts.").format(name),
-                            status_error_text=err,
-                        )
-                        return
-                    self._send_scripts_list(status_ok_text=_("Saved script '{0}' to this document.").format(name))
-                    return
-                self._save_user_script(name, script_code)
-                log.info("editor_host: save_script '%s' (user)", name)
-                self._send_scripts_list(status_ok_text=_("Saved script '{0}'.").format(name))
-            self.executor.execute(_handle_save_named)
-            return
-
-        if kind == "attach_script":
-            name = str(msg.get("name", "") or "").strip()
-            script_code = _script_code_from_message(msg)
-            overwrite = bool(msg.get("overwrite"))
-
-            def _handle_attach() -> None:
-                from plugin.scripting.document_scripts import attach_document_script
-
-                doc = self._resolve_run_script_doc()
-                if doc is None:
-                    self._send_scripts_list(status_error_text=_("No document is open to attach scripts."))
-                    return
-                err = attach_document_script(doc, name, script_code, overwrite=overwrite)
-                if err:
-                    self._send_scripts_list(status_error_text=err)
-                    return
-                self._send_scripts_list(status_ok_text=_("Attached script '{0}' to this document.").format(name))
-            self.executor.execute(_handle_attach)
-            return
-
-        if kind == "copy_script_to_user":
-            name = str(msg.get("name", "") or "").strip()
-            script_code = _script_code_from_message(msg)
-            overwrite = bool(msg.get("overwrite"))
-
-            def _handle_copy() -> None:
-                from plugin.framework.config import get_config
-
-                if not name:
-                    self._send_scripts_list(status_error_text=_("Script name cannot be empty."))
-                    return
-                scripts = get_config("saved_python_scripts")
-                if not isinstance(scripts, dict):
-                    scripts = {}
-                if name in scripts and not overwrite:
-                    self._send_scripts_list(
-                        status_error_text=_("A script named '{0}' already exists in My Scripts.").format(name)
-                    )
-                    return
-                self._save_user_script(name, script_code)
-                self._send_scripts_list(status_ok_text=_("Copied script '{0}' to My Scripts.").format(name))
-            self.executor.execute(_handle_copy)
-            return
-
-        if kind == "delete_script":
-            name = str(msg.get("name", "") or "").strip()
-            origin = str(msg.get("origin", "") or "").strip()
-
-            def _handle_delete() -> None:
-                from plugin.scripting.document_scripts import delete_document_script
-                from plugin.scripting.domain_registry import SCRIPT_ORIGIN_DOCUMENT
-
-                if not name:
-                    self._send_scripts_list(status_error_text=_("Script name cannot be empty."))
-                    return
-                if origin == SCRIPT_ORIGIN_DOCUMENT:
-                    doc = self._resolve_run_script_doc()
-                    if doc is None:
-                        self._send_scripts_list(status_error_text=_("No document is open."))
-                        return
-                    err = delete_document_script(doc, name)
-                    if err:
-                        self._send_scripts_list(status_error_text=err)
-                        return
-                    self._send_scripts_list(status_ok_text=_("Deleted document script '{0}'.").format(name))
-                    return
-                from plugin.framework.config import get_config, set_config
-
-                scripts = get_config("saved_python_scripts")
-                if not isinstance(scripts, dict):
-                    scripts = {}
-                scripts.pop(name, None)
-                set_config("saved_python_scripts", scripts)
-                log.info("editor_host: delete_script '%s' (user)", name)
-                self._send_scripts_list(status_ok_text=_("Deleted script '{0}'.").format(name))
-            self.executor.execute(_handle_delete)
+            self.executor.execute(_handle_picker)
             return
 
         if kind == "dirty":

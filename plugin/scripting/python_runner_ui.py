@@ -33,8 +33,11 @@ from plugin.scripting.document_scripts import (
     attach_document_script,
     build_xdl_script_picker_state,
     delete_document_script,
+    delete_user_script,
+    get_user_scripts,
     resolve_script_picker_entry,
     save_document_script,
+    save_user_script,
 )
 from plugin.scripting.domain_registry import SCRIPT_ORIGIN_DOCUMENT, SCRIPT_ORIGIN_USER
 from plugin.scripting.venv_worker import warm_venv_worker
@@ -161,10 +164,7 @@ class NativePythonScriptDialog:
         select_ctrl = self._select_ctrl
         if select_ctrl is None:
             return
-        saved = get_config("saved_python_scripts")
-        if not isinstance(saved, dict):
-            saved = {}
-        names, merged, origin_map = build_xdl_script_picker_state(self._ctx, self._doc, saved)
+        names, merged, origin_map = build_xdl_script_picker_state(self._ctx, self._doc, get_user_scripts())
         self._current_scripts = merged
         self._script_origin_map = origin_map
         select_ctrl.removeItems(0, select_ctrl.getItemCount())
@@ -216,11 +216,8 @@ class NativePythonScriptDialog:
             select_ctrl = dlg.getControl("ScriptSelect")
             self._select_ctrl = select_ctrl
 
-            saved_scripts = get_config("saved_python_scripts")
-            if not isinstance(saved_scripts, dict):
-                saved_scripts = {}
             doc = self._doc
-            _script_names, merged_scripts, origin_map = build_xdl_script_picker_state(ctx, doc, saved_scripts)
+            _script_names, merged_scripts, origin_map = build_xdl_script_picker_state(ctx, doc, get_user_scripts())
 
             self._current_scripts = dict(merged_scripts)
             self._script_origin_map = dict(origin_map)
@@ -294,19 +291,11 @@ class NativePythonScriptDialog:
                     return _("No document is open to save scripts.")
                 err = save_document_script(self._doc, real_name, t)
                 if err:
-                    user_scripts = get_config("saved_python_scripts")
-                    if not isinstance(user_scripts, dict):
-                        user_scripts = {}
-                    user_scripts[real_name] = t
-                    set_config("saved_python_scripts", user_scripts)
+                    save_user_script(real_name, t)
                     return _("%s Saved to My Scripts instead.") % err
                 return _("Script '%s' saved to this document.") % real_name
             else:
-                user_scripts = get_config("saved_python_scripts")
-                if not isinstance(user_scripts, dict):
-                    user_scripts = {}
-                user_scripts[real_name] = t
-                set_config("saved_python_scripts", user_scripts)
+                save_user_script(real_name, t)
                 return _("Script '%s' saved successfully.") % real_name
         return None
 
@@ -415,17 +404,13 @@ class NativePythonScriptDialog:
                         owner._refresh_script_dropdown(document_script_display_name(name))
                         set_control_text(lbl, _("Script '%s' saved to this document.") % name)
                     else:
-                        user_scripts = get_config("saved_python_scripts")
-                        if not isinstance(user_scripts, dict):
-                            user_scripts = {}
-                        if name in user_scripts and not show_approval_dialog(
+                        if name in get_user_scripts() and not show_approval_dialog(
                             ctx,
                             _("A script named '{0}' already exists in My Scripts. Overwrite?").format(name),
                             _("Save Script As"),
                         ):
                             return
-                        user_scripts[name] = t
-                        set_config("saved_python_scripts", user_scripts)
+                        save_user_script(name, t)
                         owner._refresh_script_dropdown(name)
                         set_control_text(lbl, _("Script '%s' saved to My Scripts.") % name)
                 except Exception:
@@ -457,11 +442,7 @@ class NativePythonScriptDialog:
                                 return
                             delete_document_script(doc, real_name)
                         else:
-                            user_scripts = get_config("saved_python_scripts")
-                            if not isinstance(user_scripts, dict):
-                                user_scripts = {}
-                            user_scripts.pop(real_name, None)
-                            set_config("saved_python_scripts", user_scripts)
+                            delete_user_script(real_name)
                         owner._refresh_script_dropdown()
                         set_control_text(lbl, _("Script '%s' deleted.") % real_name)
                 except Exception:
@@ -507,17 +488,13 @@ class NativePythonScriptDialog:
                         owner._refresh_script_dropdown(document_script_display_name(name))
                         set_control_text(lbl, _("Script '%s' created in this document.") % name)
                     else:
-                        user_scripts = get_config("saved_python_scripts")
-                        if not isinstance(user_scripts, dict):
-                            user_scripts = {}
-                        if name in user_scripts and not show_approval_dialog(
+                        if name in get_user_scripts() and not show_approval_dialog(
                             ctx,
                             _("A script named '{0}' already exists in My Scripts. Overwrite?").format(name),
                             _("New Script"),
                         ):
                             return
-                        user_scripts[name] = starter_code
-                        set_config("saved_python_scripts", user_scripts)
+                        save_user_script(name, starter_code)
                         if ec is not None:
                             set_control_text(ec, starter_code)
                         owner._refresh_script_dropdown(name)

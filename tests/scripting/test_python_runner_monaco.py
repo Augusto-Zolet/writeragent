@@ -63,13 +63,13 @@ def test_run_python_dialog_falls_back_to_native_dialog():
                             with patch.object(pr, "monaco_open_expected", return_value=(None, False)):
                                 with patch.object(pr, "_run_python_monaco") as mock_monaco:
                                     with patch.object(pr, "show_python_input_dialog") as mock_native:
-                                        with patch.object(pr, "set_config") as mock_set:
+                                        with patch("plugin.scripting.document_scripts.save_user_script") as mock_save:
                                             with patch.object(pr, "execute_and_insert_result") as mock_execute:
                                                 pr.run_python_dialog()
 
     mock_monaco.assert_not_called()
     mock_native.assert_called_once()
-    mock_set.assert_not_called()
+    mock_save.assert_not_called()
     mock_execute.assert_not_called()
 
 
@@ -249,10 +249,10 @@ def test_run_python_monaco_on_save_persists_and_executes():
         return True
 
     with patch.object(pr, "launch_monaco_editor", side_effect=fake_launch):
-        with patch.object(pr, "set_config") as mock_set:
+        with patch("plugin.scripting.document_scripts.save_user_script") as mock_save:
             with patch.object(pr, "execute_and_insert_result", return_value={"ok": True, "status_ok_text": "done"}):
                 with patch.object(pr, "get_config_str", return_value="Prime Numbers"):
-                    with patch("plugin.framework.config.get_config", return_value={"Prime Numbers": "print(1)"}):
+                    with patch("plugin.scripting.document_scripts.get_user_scripts", return_value={"Prime Numbers": "print(1)"}):
                         ok = pr._run_python_monaco(
                             ctx,
                             doc,
@@ -276,11 +276,41 @@ def test_run_python_monaco_on_save_persists_and_executes():
                         assert enriched["ui"]["script_label"]
 
                         response = captured["on_save"]("result = 2", False, None, "run")
-                        mock_set.assert_called_with("saved_python_scripts", {"Prime Numbers": "result = 2"})
+                        mock_save.assert_called_with("Prime Numbers", "result = 2")
                         assert response == {"type": "saved", "ok": True, "status_ok_text": "done"}
 
                         save_response = captured["on_save"]("result = 3", False, None, "save")
                         assert save_response == {"type": "saved", "ok": True, "status_ok_text": "Script saved."}
+
+
+def test_run_python_monaco_on_save_does_not_upsert_unknown_user_name():
+    """Document/domain picker names must not be written into My Scripts."""
+    ctx = MagicMock()
+    doc = MagicMock()
+    captured: dict = {}
+
+    def fake_launch(_ctx, *, exe, load_message, on_save, on_closed=None):
+        captured["on_save"] = on_save
+        return True
+
+    with patch.object(pr, "launch_monaco_editor", side_effect=fake_launch):
+        with patch("plugin.scripting.document_scripts.save_user_script") as mock_save:
+            with patch("plugin.scripting.document_scripts.save_document_script") as mock_doc_save:
+                with patch.object(pr, "execute_and_insert_result", return_value={"ok": True}):
+                    with patch.object(pr, "get_config_str", return_value="Regional"):
+                        with patch("plugin.scripting.document_scripts.get_user_scripts", return_value={}):
+                            with patch("plugin.scripting.document_scripts.get_document_scripts", return_value={"Regional": "old"}):
+                                pr._run_python_monaco(
+                                    ctx,
+                                    doc,
+                                    initial_code="old",
+                                    selected_script_name="Regional",
+                                    exe="/venv/bin/python",
+                                )
+                                captured["on_save"]("new", False, None, "save")
+
+    mock_save.assert_not_called()
+    mock_doc_save.assert_called_once_with(doc, "Regional", "new")
 
 
 def test_execute_and_insert_result_returns_error_on_failure():
@@ -348,23 +378,24 @@ def test_show_python_input_dialog_run_button_keeps_dialog_open():
     with patch("plugin.framework.uno_context.get_desktop", return_value=desktop):
         with _patch_modal_native():
             with patch.object(ui, "set_config") as mock_set:
-                with patch.object(ui, "get_config", return_value={"Universal Sample": "result = 42"}):
-                    with patch.object(ui, "get_config_str", return_value=""):
-                        with patch("plugin.scripting.python_runner.execute_and_insert_result", return_value={"ok": True, "status_ok_text": "done"}) as mock_execute:
-                            def fake_execute_dialog():
-                                for listener in listeners:
-                                    if "RunListener" in type(listener).__name__:
-                                        listener.actionPerformed(MagicMock())
+                with patch.object(ui, "get_user_scripts", return_value={"Universal Sample": "result = 42"}):
+                    with patch.object(ui, "save_user_script") as mock_save:
+                        with patch.object(ui, "get_config_str", return_value=""):
+                            with patch("plugin.scripting.python_runner.execute_and_insert_result", return_value={"ok": True, "status_ok_text": "done"}) as mock_execute:
+                                def fake_execute_dialog():
+                                    for listener in listeners:
+                                        if "RunListener" in type(listener).__name__:
+                                            listener.actionPerformed(MagicMock())
 
-                            dlg.execute.side_effect = fake_execute_dialog
+                                dlg.execute.side_effect = fake_execute_dialog
 
-                            ui.show_python_input_dialog(ctx, "result = 1", "last_python_script_writer")
+                                ui.show_python_input_dialog(ctx, "result = 1", "last_python_script_writer")
 
-                            dlg.endDialog.assert_not_called()
-                            dlg.setVisible.assert_not_called()
-                            mock_set.assert_any_call("last_python_script_name_writer", "Universal Sample")
-                            mock_set.assert_any_call("saved_python_scripts", {"Universal Sample": "result = 42"})
-                            mock_execute.assert_called_once_with(ctx, None, "result = 42")
+                                dlg.endDialog.assert_not_called()
+                                dlg.setVisible.assert_not_called()
+                                mock_set.assert_any_call("last_python_script_name_writer", "Universal Sample")
+                                mock_save.assert_called_with("Universal Sample", "result = 42")
+                                mock_execute.assert_called_once_with(ctx, None, "result = 42")
 
 
 def test_show_python_input_dialog_save_button():
@@ -418,18 +449,19 @@ def test_show_python_input_dialog_save_button():
 
     with patch("plugin.framework.uno_context.get_desktop", return_value=desktop):
         with _patch_modal_native():
-            with patch.object(ui, "set_config") as mock_set:
-                with patch.object(ui, "get_config", return_value={"Universal Sample": "print('hello')"}):
-                    with patch.object(ui, "get_config_str", return_value=""):
-                        def fake_execute():
-                            for listener in listeners:
-                                if "SaveListener" in type(listener).__name__:
-                                    listener.actionPerformed(MagicMock())
-                        dlg.execute.side_effect = fake_execute
+            with patch.object(ui, "set_config"):
+                with patch.object(ui, "get_user_scripts", return_value={"Universal Sample": "print('hello')"}):
+                    with patch.object(ui, "save_user_script") as mock_save:
+                        with patch.object(ui, "get_config_str", return_value=""):
+                            def fake_execute():
+                                for listener in listeners:
+                                    if "SaveListener" in type(listener).__name__:
+                                        listener.actionPerformed(MagicMock())
+                            dlg.execute.side_effect = fake_execute
 
-                        ui.show_python_input_dialog(ctx, "print('hello')", "last_python_script_writer")
+                            ui.show_python_input_dialog(ctx, "print('hello')", "last_python_script_writer")
 
-                        mock_set.assert_any_call("saved_python_scripts", {"Universal Sample": "print('hello world')"})
+                            mock_save.assert_called_with("Universal Sample", "print('hello world')")
 
 
 def test_persistent_editor_dispatches_script_actions():
@@ -441,9 +473,21 @@ def test_persistent_editor_dispatches_script_actions():
     pe.send = MagicMock()
     doc = MagicMock()
 
-    with patch("plugin.framework.config.get_config", return_value={"MyScript": "print(123)"}) as mock_get:
+    user_scripts = {"MyScript": "print(123)"}
+
+    def _get_config(key):
+        if key == "saved_python_scripts":
+            return dict(user_scripts)
+        return None
+
+    def _set_config(key, value):
+        if key == "saved_python_scripts":
+            user_scripts.clear()
+            user_scripts.update(value)
+
+    with patch("plugin.framework.config.get_config", side_effect=_get_config) as mock_get:
         with patch("plugin.framework.config.get_config_str", return_value="MyScript"):
-            with patch("plugin.framework.config.set_config") as mock_set:
+            with patch("plugin.framework.config.set_config", side_effect=_set_config) as mock_set:
                 with patch("plugin.scripting.document_scripts.get_active_document_for_scripts", return_value=None):
                     pe._dispatch_incoming({"type": "request_scripts"})
                     mock_get.assert_any_call("saved_python_scripts")
@@ -456,10 +500,10 @@ def test_persistent_editor_dispatches_script_actions():
                 mock_set.assert_called_with("last_python_script_name_writer", "MyScript")
 
                 pe._dispatch_incoming({"type": "save_script", "name": "NewScript", "code": "x = 1", "origin": SCRIPT_ORIGIN_USER})
-                mock_set.assert_called_with("saved_python_scripts", {"MyScript": "print(123)", "NewScript": "x = 1"})
+                assert user_scripts == {"MyScript": "print(123)", "NewScript": "x = 1"}
 
                 pe._dispatch_incoming({"type": "delete_script", "name": "MyScript", "origin": SCRIPT_ORIGIN_USER})
-                mock_set.assert_called_with("saved_python_scripts", {"NewScript": "x = 1"})
+                assert user_scripts == {"NewScript": "x = 1"}
 
     with patch("plugin.scripting.document_scripts.get_active_document_for_scripts", return_value=doc):
         with patch("plugin.scripting.document_scripts.save_document_script", return_value=None) as mock_save_doc:
@@ -522,20 +566,21 @@ def test_show_python_input_dialog_save_as_button():
 
     with patch("plugin.framework.uno_context.get_desktop", return_value=desktop):
         with _patch_modal_native():
-            with patch.object(ui, "get_config", return_value={}):
+            with patch.object(ui, "get_user_scripts", return_value={}):
                 with patch.object(ui, "get_config_str", return_value=""):
-                    with patch.object(ui, "set_config") as mock_set:
-                        with patch.object(ui, "show_new_script_dialog", return_value=("scriptk", False)) as mock_input:
-                            def fake_execute():
-                                for listener in listeners:
-                                    if "SaveAsListener" in type(listener).__name__:
-                                        listener.actionPerformed(MagicMock())
-                            dlg.execute.side_effect = fake_execute
+                    with patch.object(ui, "set_config"):
+                        with patch.object(ui, "save_user_script") as mock_save:
+                            with patch.object(ui, "show_new_script_dialog", return_value=("scriptk", False)) as mock_input:
+                                def fake_execute():
+                                    for listener in listeners:
+                                        if "SaveAsListener" in type(listener).__name__:
+                                            listener.actionPerformed(MagicMock())
+                                dlg.execute.side_effect = fake_execute
 
-                            ui.show_python_input_dialog(ctx, "print('hello')", "last_python_script_writer")
+                                ui.show_python_input_dialog(ctx, "print('hello')", "last_python_script_writer")
 
-                            mock_input.assert_called_once()
-                            mock_set.assert_any_call("saved_python_scripts", {"scriptk": "print('hello world')"})
+                                mock_input.assert_called_once()
+                                mock_save.assert_called_with("scriptk", "print('hello world')")
 
 
 def test_native_dialog_btn_new_action_creates_script():
@@ -587,21 +632,25 @@ def test_native_dialog_btn_new_action_creates_script():
 
     with patch("plugin.framework.uno_context.get_desktop", return_value=desktop):
         with _patch_modal_native():
-            with patch.object(ui, "get_config", return_value={}):
+            with patch.object(ui, "get_user_scripts", return_value={}):
                 with patch.object(ui, "get_config_str", return_value=""):
-                    with patch.object(ui, "set_config") as mock_set:
-                        with patch.object(ui, "show_new_script_dialog", return_value=("BrandNewScript", False)) as mock_new_dlg:
-                            def fake_execute():
-                                for listener in listeners:
-                                    if "NewListener" in type(listener).__name__:
-                                        listener.actionPerformed(MagicMock())
+                    with patch.object(ui, "set_config"):
+                        with patch.object(ui, "save_user_script") as mock_save:
+                            with patch.object(ui, "show_new_script_dialog", return_value=("BrandNewScript", False)) as mock_new_dlg:
+                                def fake_execute():
+                                    for listener in listeners:
+                                        if "NewListener" in type(listener).__name__:
+                                            listener.actionPerformed(MagicMock())
 
-                            dlg.execute.side_effect = fake_execute
+                                dlg.execute.side_effect = fake_execute
 
-                            ui.show_python_input_dialog(ctx, "print('hello')", "last_python_script_writer")
+                                ui.show_python_input_dialog(ctx, "print('hello')", "last_python_script_writer")
 
-                            mock_new_dlg.assert_called_once()
-                            mock_set.assert_any_call("saved_python_scripts", {"BrandNewScript": '# A simple script\nresult = "Hello from Python!"\n'})
+                                mock_new_dlg.assert_called_once()
+                                mock_save.assert_called_with(
+                                    "BrandNewScript",
+                                    '# A simple script\nresult = "Hello from Python!"\n',
+                                )
 
 
 def test_show_python_input_dialog_modeless_uses_set_visible():
@@ -634,7 +683,7 @@ def test_show_python_input_dialog_modeless_uses_set_visible():
 
     with patch("plugin.framework.uno_context.get_desktop", return_value=desktop):
         with _patch_modeless_native():
-            with patch.object(ui, "get_config", return_value={}):
+            with patch.object(ui, "get_user_scripts", return_value={}):
                 with patch.object(ui, "get_config_str", return_value=""):
                     with patch.object(ui, "set_config"):
                         ui.show_python_input_dialog(ctx, "x = 1", "last_python_script_writer")

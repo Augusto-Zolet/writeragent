@@ -15,20 +15,20 @@ class TestPythonRunnerConfig(unittest.TestCase):
     @patch('plugin.scripting.python_runner.is_writer')
     @patch('plugin.scripting.python_runner.is_calc')
     @patch('plugin.scripting.python_runner.is_draw')
-    @patch('plugin.scripting.python_runner.get_config', return_value={})
+    @patch('plugin.scripting.document_scripts.get_user_scripts', return_value={})
     @patch('plugin.framework.config.get_config_str')
     @patch('plugin.scripting.python_runner.resolve_run_script_name_config_key')
     @patch('plugin.scripting.python_runner.execute_and_insert_result')
-    @patch('plugin.scripting.python_runner.set_config')
+    @patch('plugin.scripting.document_scripts.save_user_script')
     @patch('plugin.scripting.python_runner.show_python_input_dialog', return_value=(True, None))
     def test_run_python_dialog_keys(
         self,
         mock_show,
-        mock_set,
+        mock_save_user,
         mock_execute,
         mock_name_key,
         mock_get_str,
-        mock_get_config,
+        mock_get_user,
         mock_is_draw,
         mock_is_calc,
         mock_is_writer,
@@ -52,7 +52,7 @@ class TestPythonRunnerConfig(unittest.TestCase):
         mock_name_key.assert_called_with(mock_doc)
         mock_get_str.assert_called_with("last_python_script_name_writer")
         mock_show.assert_called()
-        mock_set.assert_not_called()
+        mock_save_user.assert_not_called()
         mock_execute.assert_not_called()
 
         # Test Calc
@@ -63,7 +63,7 @@ class TestPythonRunnerConfig(unittest.TestCase):
         
         run_python_dialog()
         mock_get_str.assert_called_with("last_python_script_name_calc")
-        mock_set.assert_not_called()
+        mock_save_user.assert_not_called()
         mock_execute.assert_not_called()
 
         # Test Draw
@@ -74,7 +74,7 @@ class TestPythonRunnerConfig(unittest.TestCase):
         
         run_python_dialog()
         mock_get_str.assert_called_with("last_python_script_name_draw")
-        mock_set.assert_not_called()
+        mock_save_user.assert_not_called()
         mock_execute.assert_not_called()
 
     def test_config_defaults(self):

@@ -17,7 +17,7 @@ import time
 from typing import Any
 
 from plugin.framework.uno_context import get_ctx, get_desktop
-from plugin.framework.config import get_config, get_config_str, set_config
+from plugin.framework.config import get_config_str
 from plugin.framework.i18n import _
 from plugin.chatbot.dialogs import msgbox
 from plugin.scripting.editor_ipc import exception_traceback
@@ -518,15 +518,16 @@ def _run_python_monaco(
         name_config_key = resolve_run_script_name_config_key(doc)
         last_name = get_config_str(name_config_key)
         if last_name:
-            from plugin.framework.config import get_config
-            saved_scripts = get_config("saved_python_scripts")
-            if not isinstance(saved_scripts, dict):
-                saved_scripts = {}
-            if last_name in saved_scripts:
-                saved_scripts[last_name] = code
-                set_config("saved_python_scripts", saved_scripts)
+            from plugin.scripting.document_scripts import (
+                get_document_scripts,
+                get_user_scripts,
+                save_document_script,
+                save_user_script,
+            )
+
+            if last_name in get_user_scripts():
+                save_user_script(last_name, code)
             else:
-                from plugin.scripting.document_scripts import save_document_script, get_document_scripts
                 doc_scripts = get_document_scripts(doc)
                 if last_name in doc_scripts:
                     save_document_script(doc, last_name, code)
@@ -608,13 +609,10 @@ def run_python_dialog(uno_ctx: Any = None) -> None:
         desktop = get_desktop(uno_ctx)
         doc = desktop.getCurrentComponent()
 
-        from plugin.scripting.document_scripts import resolve_run_script_selection
+        from plugin.scripting.document_scripts import get_user_scripts, resolve_run_script_selection
 
         name_config_key = resolve_run_script_name_config_key(doc)
-        saved_scripts = get_config("saved_python_scripts")
-        if not isinstance(saved_scripts, dict):
-            saved_scripts = {}
-        last_name, initial_code, _merged_scripts = resolve_run_script_selection(uno_ctx, doc, saved_scripts)
+        last_name, initial_code, _merged_scripts = resolve_run_script_selection(uno_ctx, doc, get_user_scripts())
 
         user_alerted = False
         if monaco_expected and exe:

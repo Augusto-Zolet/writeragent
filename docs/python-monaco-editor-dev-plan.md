@@ -149,7 +149,7 @@ plugin/
 │           ├── scripts_manager.js  # Run Python Script picker (Sample + My Scripts)
 │           └── style.css
 └── scripting/
-    ├── document_scripts.py         # scripts_list IPC + document-attached scripts
+    ├── document_scripts.py         # scripts_list IPC, document-attached scripts, Monaco picker handlers
     ├── editor_host.py                # Spawn, PersistentEditor, session launch
     ├── editor_ipc.py                 # Pickle protocol 5 + failure formatting
     └── editor_main.py                # pywebview child entry (+ JediSession)

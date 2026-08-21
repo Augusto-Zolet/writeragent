@@ -12,19 +12,23 @@ from unittest.mock import MagicMock, patch
 
 from plugin.scripting.document_scripts import (
     DOCUMENT_SCRIPTS_UDPROP,
+    SCRIPT_PICKER_MESSAGE_TYPES,
     _MAX_DOCUMENT_SCRIPTS_BYTES,
     attach_document_script,
     build_scripts_list_message,
     build_xdl_script_picker_state,
     delete_document_script,
+    delete_user_script,
     document_script_display_name,
     get_document_scripts,
+    handle_editor_script_message,
     has_document_scripts,
     parse_analysis_script_display_name,
     parse_document_script_display_name,
     parse_vision_script_display_name,
     resolve_run_script_selection,
     resolve_script_picker_entry,
+    save_user_script,
     set_document_scripts,
 )
 from plugin.scripting.domain_registry import (
@@ -345,3 +349,100 @@ def test_build_xdl_script_picker_excludes_text_analytics_for_writer():
     text_items = [name for name in items if name.startswith("[Text] ")]
     assert text_items == []
     assert not any(origin == "text" for origin in origin_map.values())
+
+
+def test_save_and_delete_user_script():
+    store = {"Mine": "a = 1"}
+    with patch("plugin.framework.config.get_config", side_effect=lambda key: store if key == "saved_python_scripts" else None), patch(
+        "plugin.framework.config.set_config"
+    ) as mock_set:
+        save_user_script("New", "b = 2")
+        mock_set.assert_called_with("saved_python_scripts", {"Mine": "a = 1", "New": "b = 2"})
+        store["New"] = "b = 2"
+        delete_user_script("Mine")
+        mock_set.assert_called_with("saved_python_scripts", {"New": "b = 2"})
+
+
+def test_handle_editor_script_message_unknown_kind():
+    sent: list = []
+    assert handle_editor_script_message("save", {}, ctx=MagicMock(), session_doc=None, session_doc_url=None, send=sent.append) is False
+    assert sent == []
+
+
+def test_handle_editor_script_message_save_user_and_empty_name():
+    ctx = MagicMock()
+    sent: list = []
+    store = {"Mine": "a = 1"}
+    with patch("plugin.framework.config.get_config", side_effect=lambda key: store if key == "saved_python_scripts" else {}), patch(
+        "plugin.framework.config.set_config"
+    ) as mock_set, patch("plugin.framework.config.get_config_str", return_value="Mine"), patch(
+        "plugin.scripting.python_runner.resolve_run_script_name_config_key",
+        return_value="last_python_script_name_writer",
+    ):
+        assert handle_editor_script_message(
+            "save_script",
+            {"name": "New", "code": "x = 1", "origin": "user"},
+            ctx=ctx,
+            session_doc=None,
+            session_doc_url=None,
+            send=sent.append,
+        )
+        mock_set.assert_any_call("saved_python_scripts", {"Mine": "a = 1", "New": "x = 1"})
+        assert sent[-1]["type"] == "scripts_list"
+        assert "Saved script" in sent[-1]["status_ok_text"]
+
+        sent.clear()
+        assert handle_editor_script_message(
+            "save_script",
+            {"name": "  ", "code": "x = 1"},
+            ctx=ctx,
+            session_doc=None,
+            session_doc_url=None,
+            send=sent.append,
+        )
+        assert sent[-1]["status_error_text"]
+
+
+def test_handle_editor_script_message_copy_refuses_overwrite():
+    ctx = MagicMock()
+    sent: list = []
+    with patch("plugin.framework.config.get_config", return_value={"Mine": "a = 1"}), patch(
+        "plugin.framework.config.get_config_str", return_value=""
+    ), patch(
+        "plugin.scripting.python_runner.resolve_run_script_name_config_key",
+        return_value="last_python_script_name_writer",
+    ), patch("plugin.framework.config.set_config") as mock_set:
+        handle_editor_script_message(
+            "copy_script_to_user",
+            {"name": "Mine", "code": "new", "overwrite": False},
+            ctx=ctx,
+            session_doc=None,
+            session_doc_url=None,
+            send=sent.append,
+        )
+        mock_set.assert_not_called()
+        assert "already exists" in sent[-1]["status_error_text"]
+
+
+def test_handle_editor_script_message_attach_requires_doc():
+    sent: list = []
+    with patch("plugin.framework.config.get_config", return_value={}), patch(
+        "plugin.framework.config.get_config_str", return_value=""
+    ), patch(
+        "plugin.scripting.python_runner.resolve_run_script_name_config_key",
+        return_value="last_python_script_name_writer",
+    ):
+        handle_editor_script_message(
+            "attach_script",
+            {"name": "A", "code": "x"},
+            ctx=MagicMock(),
+            session_doc=None,
+            session_doc_url=None,
+            send=sent.append,
+        )
+    assert sent[-1]["status_error_text"]
+
+
+def test_script_picker_message_types():
+    assert "request_scripts" in SCRIPT_PICKER_MESSAGE_TYPES
+    assert "save" not in SCRIPT_PICKER_MESSAGE_TYPES
