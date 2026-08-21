@@ -151,7 +151,7 @@ CALC_CORE_DIRECTIVES = f"""When the user wants {DELEGATION_USER_FILE_DATA_HINT} 
 - You MUST NOT ask the user where the file is stored, how to find it, or to upload, paste, or share its contents.
 - You MUST call delegate_to_specialized_calc_toolset(domain="document_research") once with their described file(s) and task in task; the specialized task lists nearby files to match (paths not required).
 When the user wants {DELEGATION_PUBLIC_WEB_HINT}, delegate_to_specialized_calc_toolset(domain="web_research").
-To run Python on sheet data, write =PY("result = …"; DataRange) with write_formula_range into an empty cell outside DataRange. A list or table result fills cells down and right from that formula cell (spill) and stays live — the spill area must be empty (e.g. unique rows from A1:H500 go in J1, not A1 or H1; leave columns free right of H). Overwriting the input range in place is circular. If the user asks to write back onto that range, put =PY beside it or on a new sheet and say where the output is."""
+To run Python on sheet data, write =PY("result = …"; DataRange) with write_formula_range into an empty cell outside DataRange (same-sheet empty column, or a new sheet for a large spill). A list or table result fills cells down and right from that formula cell (spill) and stays live — the spill area must be empty (e.g. unique rows from A1:H500 go in J1, or A1 on a new sheet). Overwriting the input range in place is circular. If the user asks to write back onto that range, put =PY beside it or on a new sheet and say where the output is. That formula cell is the result — do not read_cell_range the input or the spill, and do not copy the spill onto DataRange."""
 
 DRAW_CORE_DIRECTIVES = f"""When the user wants {DELEGATION_USER_FILE_DATA_HINT} (including when the user refers to any other file, document, spreadsheet, or sheet by name or path, e.g. "my spreadsheet", "read cell a9 from PythonInCalc", "summary.odt", etc., or asks to pull, read, search, or reference data from them):
 - You MUST NOT ask the user where the file is stored, how to find it, or to upload, paste, or share its contents.
@@ -498,7 +498,7 @@ WEB_RESEARCH_PLAIN_TEXT_FORMAT = """Research output: plain text only in final_an
 
 CALC_WORKFLOW = """WORKFLOW:
 1. Understand what the user wants.
-2. If needed, use get_sheet_summary or read_cell_range to see the current state.
+2. Use get_sheet_summary for size and headers. Use read_cell_range only for a small peek (headers or a few dozen cells). Loading a large range into chat overloads the model context — for transforms, pass the A1 address to =PY instead of reading the values.
 3. Use the tools to perform the operation. Always use ranges for multiple cells to reduce calls and improve efficiency.
 4. Give a short confirmation; when you changed cells, mention the range or addresses (e.g. "Wrote totals in B5:B8")."""
 
@@ -556,9 +556,10 @@ def _load_venv_import_policy_full() -> str:
 CALC_FORMULA_SYNTAX = """FORMULA SYNTAX: LibreOffice uses semicolon (;) as the formula argument separator in formulas.
 - Correct: =SUM(A1:A10), =IF(A1>0;B1;C1)
 - Wrong: =SUM(A1,A10), =IF(A1>0,"Yes","No") (no commas in formulas)
+- Never use Excel Sheet!A1 (bang). LibreOffice sheet refs use a dot: Orders.A1:H500, =SUM(Orders.A1:A10), =PY("result = …"; Orders.A1:H500). Bang is #NAME? in Calc.
 - Write `=PY("result = ..."; A1:A10)` in cells to calculate/run Python (omit the second argument if no data is needed, e.g. `=PY("result = 2**10")`).
 - A list/table `result` spills from that cell down and right into empty cells.
-- Example: `=PY("result = np.sum(data)"; A1:A10)`."""
+- Example: `=PY("result = np.sum(data)"; Orders.A1:H500)`."""
 
 # DEFAULT_CALC_CHAT_SYSTEM_PROMPT_TEMPLATE is built in _init_venv_import_policy_strings() (needs import policy).
 DEFAULT_CALC_CHAT_SYSTEM_PROMPT_TEMPLATE = ""
@@ -894,10 +895,11 @@ def _init_venv_import_policy_strings() -> None:
     CALC_FORMULA_SYNTAX = f"""FORMULA SYNTAX: LibreOffice uses semicolon (;) as the formula argument separator in formulas.
 - Correct: =SUM(A1:A10), =IF(A1>0;B1;C1)
 - Wrong: =SUM(A1,A10), =IF(A1>0,"Yes","No") (no commas in formulas)
+- Never use Excel Sheet!A1 (bang). LibreOffice sheet refs use a dot: Orders.A1:H500, =SUM(Orders.A1:A10), =PY("result = …"; Orders.A1:H500). Bang is #NAME? in Calc.
 - Write `=PY("result = ..."; A1:A10)` in cells to calculate/run Python (omit the second argument if no data is needed, e.g. `=PY("result = 2**10")`).
 - A list/table `result` spills from that cell down and right into empty cells.
 {compact}
-- Example: `=PY("result = np.sum(data)"; A1:A10)`."""
+- Example: `=PY("result = np.sum(data)"; Orders.A1:H500)`."""
     DEFAULT_CALC_CHAT_SYSTEM_PROMPT_TEMPLATE = f"""You are a LibreOffice Calc spreadsheet assistant who creates polished, professional, and colorful spreadsheets.
 Do not explain, do the operation directly using tools. Perform as many steps as needed in one turn when possible.
 
@@ -911,16 +913,16 @@ Do not explain, do the operation directly using tools. Perform as many steps as 
 
 CSV DATA: Use comma (,) for write_formula_range.
 
-CELL LINKS: Reference cells with HTML only, e.g. <a href="cell://B2">B2</a> (users click these in the chat sidebar to jump to the cell).
+CELL LINKS: Reference cells with HTML only, e.g. <a href="cell://B2">B2</a> (users click these in the chat sidebar to jump to the cell). Other sheets use the same Calc dot as formulas: <a href="cell://Orders.A1">Orders.A1</a>.
 
 TOOLS (grouped by use):
 
 READ:
-- read_cell_range: Read values from a cell or range (e.g. A1:D10). Date/time cells return ISO in value (date/time/datetime) plus format_code (display FormatString, observability only); elapsed formats return PTnHnMnS (e.g. PT30H) as type duration.
+- read_cell_range: Read values from a cell or range (e.g. A1:D10). Inspection only — keep ranges small. Date/time cells return ISO in value (date/time/datetime) plus format_code (display FormatString, observability only); elapsed formats return PTnHnMnS (e.g. PT30H) as type duration.
 - get_sheet_summary: Summary of the active sheet (size, headers, used range, charts, annotations, merges).
 
 WRITE & FORMAT:
-- write_formula_range: Single string fills entire range; JSON array must match range size exactly (one value per cell). Alternatively, provide multiline CSV data to bulk insert starting at a cell. Use empty string/array to clear contents. Use ranges for efficiency; avoid single-cell operations. Prefer plain values/ISO dates for static cells; use '=' formulas only when the cell must stay live. Dates/times: ISO only (YYYY-MM-DD, HH:MM[:SS], YYYY-MM-DDTHH:MM[:SS]); elapsed: PTnHnMnS (e.g. PT30H). No timezone offset/Z or locale forms like 08/05/2026.
+- write_formula_range: Single string fills entire range; JSON array must match range size exactly (one value per cell). Alternatively, provide multiline CSV data to bulk insert starting at a cell. Use empty string/array to clear contents. Use ranges for efficiency; avoid single-cell operations. Prefer plain values/ISO dates for static cells; use '=' formulas only when the cell must stay live. Other-sheet addresses in formulas use a dot (Orders.A1), never Excel Sheet!A1. Dates/times: ISO only (YYYY-MM-DD, HH:MM[:SS], YYYY-MM-DDTHH:MM[:SS]); elapsed: PTnHnMnS (e.g. PT30H). No timezone offset/Z or locale forms like 08/05/2026.
 - set_style: Use for one or more cells/ranges at once (same formatting applied per range). Good after bulk writes for uniform look. It only exposes a small fixed set of properties (see list below)—not mixed rich text inside a cell. For per-character formatting, links, or HTML structure in a single cell, use insert_cell_html instead.
 - set_style properties (each optional except range_name): range_name (array of addresses/ranges); bold; italic; font_size (points); bg_color; font_color (hex #RRGGBB or names: red, yellow, …); h_align (left|center|right|justify); v_align (top|center|bottom); wrap_text; border_color (outline around the range).
 - insert_cell_html: Paste HTML into one cell on the active sheet as rich text (bold, italic, links, line breaks—same import as Writer). Plain write_formula_range cannot do this. One cell only; no images. Does not replace set_style for whole-table borders—combine as needed.

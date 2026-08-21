@@ -98,8 +98,8 @@ All planned modules are implemented in `core/` and integrated into the **Chat Si
 - **Status:** **IMPLEMENTED** in [plugin/framework/prompts.py](plugin/framework/prompts.py).
 - **Implementation:** `DEFAULT_CALC_CHAT_SYSTEM_PROMPT` plus `get_chat_system_prompt_for_document(model, additional_instructions)` so the correct prompt is chosen by document type (Calc vs Writer). The Calc prompt includes:
   - “Do not explain—do the operation directly using tools” and “Perform as many steps as needed in one turn when possible.”
-  - A 4-step **WORKFLOW**: understand → get state (get_sheet_summary/read_cell_range) if needed → use tools → short confirmation (mention cell/range addresses when changing).
-  - **FORMULA SYNTAX**: Semicolon (;) as argument separator; correct vs wrong examples.
+  - A 4-step **WORKFLOW**: understand → `get_sheet_summary` (and a small `read_cell_range` peek only) → tools → short confirmation (mention cell/range addresses when changing). Large ranges must not be loaded into chat (they overload context); pass the A1 address to `=PY` instead.
+  - **FORMULA SYNTAX**: Semicolon (;) as argument separator; cross-sheet refs use a **dot** (`Orders.A1`), never Excel `Sheet!A1` (`#NAME?` in Calc). Prompted only — no automatic bang rewrite.
   - **TOOLS** grouped by use: READ / WRITE & FORMAT / SHEET MANAGEMENT / CHART / ERRORS (only tools we expose).
 - Structure inspired by libre_calc_ai’s prompt_templates (workflow, grouped tools).
 
@@ -230,7 +230,7 @@ Your current 11 tools cover the essentials, but expanding to more advanced opera
 - **Cross-Session State**: Your global `_get_tools` instances are good, but add loading/saving of sheet state for resumed sessions.
 
 #### 5. **Performance and Scaling**
-- **Lazy Reading**: For large ranges, `read_cell_range` should page results or sample (e.g., max 1000 cells; warn if truncated).
+- **Lazy Reading**: **Shipped.** Chat/MCP `read_cell_range` dumps full per-cell dicts only up to 80 cells; larger ranges return a 10-row preview plus `truncated` and a message that a full dump would overload model context. `CellInspector.read_range` itself is uncapped (UNO tests / internal).
 - **Bulk Operations**: Already covered by `write_formula_range`, which commits a whole range in one `setDataArray` call; prefer it over per-cell writes in loops.
 - **Caching**: Cache sheet summaries and headers for 30s to avoid redundant UNO calls in rapid tool chains.
 
@@ -261,7 +261,7 @@ Your current 11 tools cover the essentials, but expanding to more advanced opera
 - Updated `DEFAULT_CALC_CHAT_SYSTEM_PROMPT` to reference new tools: "Use `write_formula_range` for bulk writes or bulk CSV data inserts. `set_cell_style` works on ranges (e.g. 'A1:D10') for efficient formatting."
 
 **Next Steps** (Future Enhancements):
-- Enhance `read_cell_range` with paging (e.g., `max_cells: int` parameter, warn if truncated) for large ranges.
+- (Done) Chat `read_cell_range` truncates large ranges; optional later: caller-supplied `max_cells`.
 
 
 

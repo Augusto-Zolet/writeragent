@@ -314,8 +314,52 @@ def test_calc_core_directives_py_formula_not_domains():
     assert 'domain="analysis"' not in CALC_CORE_DIRECTIVES
     assert "write =PY" in CALC_CORE_DIRECTIVES
     assert "fills cells down and right" in CALC_CORE_DIRECTIVES
-    assert "J1, not A1 or H1" in CALC_CORE_DIRECTIVES
+    assert "J1" in CALC_CORE_DIRECTIVES
+    assert "new sheet" in CALC_CORE_DIRECTIVES
     assert "circular" in CALC_CORE_DIRECTIVES
+    assert "do not read_cell_range the input or the spill" in CALC_CORE_DIRECTIVES
+    assert "do not copy the spill onto DataRange" in CALC_CORE_DIRECTIVES
+
+
+def test_calc_formula_syntax_sheet_dot_not_excel_bang():
+    from plugin.framework.prompts import CALC_FORMULA_SYNTAX
+
+    assert "Never use Excel Sheet!A1" in CALC_FORMULA_SYNTAX
+    assert "Orders.A1:H500" in CALC_FORMULA_SYNTAX
+    assert "#NAME?" in CALC_FORMULA_SYNTAX
+    assert "=PY(\"result = …\"; Orders.A1:H500)" in CALC_FORMULA_SYNTAX
+
+
+def test_calc_cell_links_use_calc_dot():
+    model = MagicMock()
+
+    def supportsService(service):
+        return service == "com.sun.star.sheet.SpreadsheetDocument"
+
+    model.supportsService.side_effect = supportsService
+    prompt = get_chat_system_prompt_for_document(model)
+    assert 'href="cell://Orders.A1"' in prompt
+    assert "Excel Orders!A1" not in prompt
+
+
+def test_calc_workflow_warns_large_range_overloads_context():
+    from plugin.framework.prompts import CALC_WORKFLOW
+
+    assert "overloads the model context" in CALC_WORKFLOW
+    assert "get_sheet_summary" in CALC_WORKFLOW
+    assert "pass the A1 address to =PY" in CALC_WORKFLOW
+
+
+def test_calc_chat_prompt_includes_context_overload_why():
+    model = MagicMock()
+
+    def supportsService(service):
+        return service == "com.sun.star.sheet.SpreadsheetDocument"
+
+    model.supportsService.side_effect = supportsService
+    prompt = get_chat_system_prompt_for_document(model)
+    assert "overloads the model context" in prompt
+    assert "do not read_cell_range the input or the spill" in prompt
 
 
 def test_core_directives_prohibit_asking_user_to_paste():

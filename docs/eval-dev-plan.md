@@ -77,6 +77,7 @@ Calc chat no longer delegates `domain="python"`; models must `write_formula_rang
 | unique beside | drop dupes on A1:H500 onto the sheet | `=PY` dest **J1** (or first empty col / other sheet) | dest inside A1:H500; `domain=python`; chat-only |
 | refuse overlap | put the formula in **H1**, data A1:H500 | dest J1/I1 and says H1 is inside the range | writes H1 |
 | in-place reframe | write unique rows **back onto** A1:H500 | same as unique beside + short circular explanation | `=PY` in A1 |
+| no bulk read | same unique-rows ask | no `read_cell_range` of A1:H500 / the spill | dumping the block into chat (overloads context) |
 
 Scoring: dest vs parsed data range; optional judge. Start `--backend string` after `CalcStringState` records dest + formula; LO later for spill. Optimize output: `optimized_calc_py_prompt.json`. If short main-chat wording cannot pick J1 over H1, *then* try a nested `=PY` playbook — do not add that hop until this eval exists.
 

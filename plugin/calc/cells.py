@@ -29,10 +29,20 @@ from typing import Any
 
 from plugin.framework.errors import ToolExecutionError
 from plugin.framework.tool import ToolBase
+from plugin.calc.address_utils import index_to_column, split_sheet_prefix
 from plugin.calc.bridge import CalcBridge
 from plugin.calc.base import ToolCalcRangeBase
 from plugin.calc.inspector import CellInspector
 from plugin.calc.manipulator import CellManipulator
+
+# Verbose per-cell dicts blow chat/tool context (issue 405: A1:H500 → HTTP 400).
+# Inspector.read_range stays uncapped for UNO tests and internal callers.
+_READ_CELL_RANGE_MAX_CELLS = 80
+_READ_CELL_RANGE_PREVIEW_ROWS = 10
+_READ_CELL_RANGE_TRUNCATED_MSG = (
+    "Range is too large to load into chat (would overload the model context). "
+    "The sample below is a peek only — pass this A1 address to =PY instead of re-reading."
+)
 
 from plugin.doc.visual_helpers import parse_color_to_uno_int
 from plugin.framework.deal_shim import deal
@@ -57,14 +67,59 @@ def _parse_color(color_str):
     return parse_color_to_uno_int(color_str)
 
 
-# ── Tools ──────────────────────────────────────────────────────────────
+def _format_sheet_address(range_name: str, local_addr: str) -> str:
+    """Keep the original sheet prefix (dot or bang, quoted or not) on a clipped address."""
+    sheet, _unused_local = split_sheet_prefix(range_name)
+    if not sheet:
+        return local_addr
+    quoted = range_name.lstrip().startswith("'")
+    sep = "!" if "!" in range_name else "."
+    name = f"'{sheet}'" if quoted else sheet
+    return f"{name}{sep}{local_addr}"
+
+
+def _preview_if_large(bridge, range_name: str) -> dict[str, Any] | None:
+    """Return clip metadata when the range is too big for a full chat dump, else None."""
+    try:
+        cell_range = bridge.resolve_range_or_address(range_name)
+        if not hasattr(cell_range, "getRangeAddress"):
+            return None
+        addr = cell_range.getRangeAddress()
+        rows = int(addr.EndRow) - int(addr.StartRow) + 1
+        cols = int(addr.EndColumn) - int(addr.StartColumn) + 1
+        cells = rows * cols
+        if cells <= _READ_CELL_RANGE_MAX_CELLS:
+            return None
+        preview_rows = min(rows, _READ_CELL_RANGE_PREVIEW_ROWS)
+        end_row = int(addr.StartRow) + preview_rows - 1
+        local = (
+            f"{index_to_column(int(addr.StartColumn))}{int(addr.StartRow) + 1}:"
+            f"{index_to_column(int(addr.EndColumn))}{end_row + 1}"
+        )
+        return {
+            "rows": rows,
+            "columns": cols,
+            "cells": cells,
+            "preview_range": _format_sheet_address(range_name, local),
+        }
+    except Exception:
+        logger.exception("Could not size range %s for read_cell_range cap; reading in full", range_name)
+        return None
 
 
 class ReadCellRange(ToolBase):
     """Read values from one or more cell ranges."""
 
     name = "read_cell_range"
-    description = "Reads values from the specified cell range(s). Date/time-formatted numeric cells return an ISO 8601 string in `value` with `type` and `format_category` of date, time, or datetime, plus `format_code` (Calc FormatString, observability only). Elapsed/stopwatch formats (`[HH]:MM:SS`, …) return `PTnHnMnS` (e.g. PT30H) with type/format_category duration. Supports lists for non-contiguous areas."
+    description = (
+        "Reads values from the specified cell range(s). Inspection only — keep ranges small "
+        "(headers or a few dozen cells). A large dump overloads chat context; for bulk work "
+        "write =PY(..., DataRange) instead of reading the block. Date/time-formatted numeric "
+        "cells return an ISO 8601 string in `value` with `type` and `format_category` of date, "
+        "time, or datetime, plus `format_code` (Calc FormatString, observability only). "
+        "Elapsed/stopwatch formats (`[HH]:MM:SS`, …) return `PTnHnMnS` (e.g. PT30H) with "
+        "type/format_category duration. Supports lists for non-contiguous areas."
+    )
     parameters = {
         "type": "object",
         "properties": {
@@ -93,10 +148,31 @@ class ReadCellRange(ToolBase):
         if len(rn) == 0:
             return self._tool_error("range is required")
         if len(rn) == 1:
-            result = inspector.read_range(rn[0], include_format_info=True)
-            return {"status": "ok", "result": [result]}
-        results = [inspector.read_range(r, include_format_info=True) for r in rn]
+            return self._read_one(bridge, inspector, rn[0])
+        results = [self._read_one(bridge, inspector, r) for r in rn]
+        # Preserve the old list-of-grids shape when nothing was truncated.
+        if all(item.get("status") == "ok" and not item.get("truncated") for item in results):
+            return {"status": "ok", "result": [item["result"][0] for item in results]}
         return {"status": "ok", "result": results}
+
+    def _read_one(self, bridge, inspector, range_name: str) -> dict:
+        """Read one range; preview-only when the full grid would swamp chat context."""
+        preview = _preview_if_large(bridge, range_name)
+        if preview is None:
+            grid = inspector.read_range(range_name, include_format_info=True)
+            return {"status": "ok", "result": [grid]}
+        grid = inspector.read_range(preview["preview_range"], include_format_info=True)
+        return {
+            "status": "ok",
+            "truncated": True,
+            "message": _READ_CELL_RANGE_TRUNCATED_MSG,
+            "range": range_name,
+            "preview_range": preview["preview_range"],
+            "rows": preview["rows"],
+            "columns": preview["columns"],
+            "cells": preview["cells"],
+            "result": [grid],
+        }
 
 
 class WriteCellRange(ToolBase):
@@ -112,12 +188,19 @@ class WriteCellRange(ToolBase):
                 "items": {"type": "string"},
                 "description": (
                     'Target range(s) (e.g. ["A1:A10"], ["Sheet1.B2:D2"]). '
+                    "Use a dot for other sheets (Sheet1.B2), never Excel Sheet1!B2. "
                     "Sheet prefixes target that sheet without switching the active sheet."
                 ),
             },
             "values": {
                 "type": "string",
-                "description": ("Single string: fills the entire range with that value or formula (use '=' prefix for formulas). JSON array: must have exactly as many elements as cells in the range (e.g. '[\"a\", \"b\"]' for 2 cells). Empty string/array clears the range."),
+                "description": (
+                    "Single string: fills the entire range with that value or formula "
+                    "(use '=' prefix for formulas). In formulas, other sheets are Sheet.A1 "
+                    "(dot), not Excel Sheet!A1. JSON array: must have exactly as many "
+                    "elements as cells in the range (e.g. '[\"a\", \"b\"]' for 2 cells). "
+                    "Empty string/array clears the range."
+                ),
             },
         },
         "required": ["range", "values"],

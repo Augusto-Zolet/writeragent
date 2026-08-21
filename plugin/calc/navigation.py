@@ -33,9 +33,10 @@ _CELL_LINK_ANCHOR_RE = re.compile(
     r"""<a\s+[^>]*href\s*=\s*(["'])(?:cell://|writeragent-cell://)([^"']+)\1[^>]*>(.*?)</a>""",
     re.IGNORECASE | re.DOTALL,
 )
-# Plain cell address (optional sheet prefix): Sheet1.B2 or B2
+# Plain cell address (optional sheet prefix): Sheet1.B2, Excel Sheet1!B2, or B2.
+# Canonical form is always the Calc dot (Sheet1.B2).
 _CELL_ADDRESS_RE = re.compile(
-    r"^(?:([A-Za-z0-9_]+)\.)?([A-Z]{1,3})(\d{1,7})$",
+    r"^(?:([A-Za-z0-9_]+)[.!])?([A-Z]{1,3})(\d{1,7})$",
     re.IGNORECASE,
 )
 WRITERAGENT_CELL_URL_PREFIX = "writeragent-cell://"

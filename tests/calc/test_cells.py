@@ -280,16 +280,92 @@ def test_inspector_format_info_survives_queryContentCells_failure():
     formats.getByKey.assert_called_once_with(11)
 
 
+def _range_addr(*, start_col, end_col, start_row, end_row):
+    mock_range = MagicMock()
+    mock_range.getRangeAddress.return_value = MagicMock(
+        StartColumn=start_col, EndColumn=end_col, StartRow=start_row, EndRow=end_row
+    )
+    return mock_range
+
+
 def test_read_cell_range_tool_opts_into_format_info():
     from plugin.calc.cells import ReadCellRange
 
     ctx = SimpleNamespace(doc=MagicMock())
-    with patch("plugin.calc.cells.CellInspector") as inspector_cls:
+    with (
+        patch("plugin.calc.cells.CalcBridge") as bridge_cls,
+        patch("plugin.calc.cells.CellInspector") as inspector_cls,
+    ):
+        bridge_cls.return_value.resolve_range_or_address.return_value = _range_addr(
+            start_col=0, end_col=0, start_row=0, end_row=0
+        )
         inspector_cls.return_value.read_range.return_value = [[{"value": 1.0}]]
         result = ReadCellRange().execute(ctx, range=["A1"])
 
     assert result["status"] == "ok"
+    assert not result.get("truncated")
     inspector_cls.return_value.read_range.assert_called_once_with("A1", include_format_info=True)
+
+
+def test_read_cell_range_tool_truncates_large_range():
+    """A1:H500 must not dump thousands of cell dicts into chat (issue 405)."""
+    from plugin.calc.cells import ReadCellRange, _READ_CELL_RANGE_TRUNCATED_MSG
+
+    ctx = SimpleNamespace(doc=MagicMock())
+    sample = [[{"value": "OrderID"}] * 8]
+    with (
+        patch("plugin.calc.cells.CalcBridge") as bridge_cls,
+        patch("plugin.calc.cells.CellInspector") as inspector_cls,
+    ):
+        # A1:H500 → 8 cols × 500 rows
+        bridge_cls.return_value.resolve_range_or_address.return_value = _range_addr(
+            start_col=0, end_col=7, start_row=0, end_row=499
+        )
+        inspector_cls.return_value.read_range.return_value = sample
+        result = ReadCellRange().execute(ctx, range=["A1:H500"])
+
+    assert result["status"] == "ok"
+    assert result["truncated"] is True
+    assert result["cells"] == 4000
+    assert result["rows"] == 500
+    assert result["columns"] == 8
+    assert result["preview_range"] == "A1:H10"
+    assert result["message"] == _READ_CELL_RANGE_TRUNCATED_MSG
+    assert "overload" in result["message"]
+    inspector_cls.return_value.read_range.assert_called_once_with("A1:H10", include_format_info=True)
+
+
+def test_read_cell_range_tool_keeps_small_range_full():
+    from plugin.calc.cells import ReadCellRange, _READ_CELL_RANGE_MAX_CELLS
+
+    ctx = SimpleNamespace(doc=MagicMock())
+    with (
+        patch("plugin.calc.cells.CalcBridge") as bridge_cls,
+        patch("plugin.calc.cells.CellInspector") as inspector_cls,
+    ):
+        # Exactly the cap (8×10) still returns the full grid.
+        bridge_cls.return_value.resolve_range_or_address.return_value = _range_addr(
+            start_col=0, end_col=7, start_row=0, end_row=9
+        )
+        inspector_cls.return_value.read_range.return_value = [[{"value": 1}]]
+        result = ReadCellRange().execute(ctx, range=["A1:H10"])
+
+    assert _READ_CELL_RANGE_MAX_CELLS == 80
+    assert result["status"] == "ok"
+    assert not result.get("truncated")
+    inspector_cls.return_value.read_range.assert_called_once_with("A1:H10", include_format_info=True)
+
+
+def test_preview_if_large_keeps_sheet_prefix():
+    from plugin.calc.cells import _preview_if_large
+
+    bridge = MagicMock()
+    bridge.resolve_range_or_address.return_value = _range_addr(
+        start_col=0, end_col=7, start_row=0, end_row=499
+    )
+    preview = _preview_if_large(bridge, "'Data Sheet'!A1:H500")
+    assert preview is not None
+    assert preview["preview_range"] == "'Data Sheet'!A1:H10"
 
 
 def test_set_style_rejects_mistyped_bold():
