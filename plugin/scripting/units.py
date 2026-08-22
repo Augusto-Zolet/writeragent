@@ -157,7 +157,7 @@ def is_units_result(value: Any) -> bool:
     helper = value.get("helper")
     if isinstance(helper, str) and helper in HELPER_NAMES:
         return True
-    return "formatted" in value and "magnitude" in value
+    return ("formatted" in value and "magnitude" in value) or ("values" in value and "magnitudes" in value)
 
 
 def format_units_for_calc(result: dict[str, Any], *, output_style: str | None = None) -> list[list[Any]]:
@@ -166,6 +166,10 @@ def format_units_for_calc(result: dict[str, Any], *, output_style: str | None = 
         code = str(result.get("code") or "ERROR")
         message = str(result.get("message") or "Units helper failed.")
         return [[f"Units error ({code})"], [message]]
+
+    if "values" in result and isinstance(result["values"], list):
+        from plugin.scripting.calc_range import ensure_rectangular_2d
+        return ensure_rectangular_2d(result["values"])
 
     helper = str(result.get("helper") or "units")
     formatted = str(result.get("formatted") or result.get("text") or "").strip()

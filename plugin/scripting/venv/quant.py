@@ -54,16 +54,39 @@ def fetch_historical_data(params: dict[str, Any], context: dict[str, Any]) -> di
     except ImportError:
         return _missing_package_error("fetch_historical_data", "yfinance")
     
-    tickers = params.get("tickers", [])
-    if isinstance(tickers, str):
-        tickers = [tickers]
+    from plugin.scripting.venv.coerce import is_missing_value
+
+    raw_tickers = params.get("tickers", [])
+    if isinstance(raw_tickers, str):
+        tickers = [raw_tickers.strip()] if raw_tickers.strip() else []
+    elif hasattr(raw_tickers, "values") and isinstance(raw_tickers.values, list):
+        tickers = [
+            str(c).strip()
+            for row in raw_tickers.values
+            if isinstance(row, (list, tuple))
+            for c in row
+            if not is_missing_value(c) and str(c).strip()
+        ]
+    elif isinstance(raw_tickers, (list, tuple)):
+        clean_list: list[str] = []
+        for item in raw_tickers:
+            if isinstance(item, (list, tuple)):
+                for sub in item:
+                    if not is_missing_value(sub) and str(sub).strip():
+                        clean_list.append(str(sub).strip())
+            elif not is_missing_value(item) and str(item).strip():
+                clean_list.append(str(item).strip())
+        tickers = clean_list
+    else:
+        tickers = []
+
+    if not tickers:
+        return _error_result("INVALID_PARAMS", "tickers parameter is required.")
+
     start_date = params.get("start_date")
     end_date = params.get("end_date")
     interval = params.get("interval", "1d")
-    
-    if not tickers:
-        return _error_result("INVALID_PARAMS", "tickers parameter is required.")
-        
+
     try:
         data = yf.download(tickers, start=start_date, end=end_date, interval=interval)
         data = data.reset_index()

@@ -60,6 +60,8 @@ ranges                                           # always list[CalcRange]; len 1
 
 Returning a **pandas DataFrame** spills/writes with its **column header row** included. Returning a list/ndarray writes values only.
 
+**Vectorized lightweight helpers:** Trusted elementwise helpers (e.g. `convert_quantity`, `format_currency`, `format_percent`) accept `data` directly and preserve orientation ($N \times 1$ column in $\to$ $N \times 1$ list out; $1 \times N$ row in $\to$ $1 \times N$ list out; $1 \times 1$ single cell $\to$ scalar).
+
 Payload size cap: `scripting.python_max_data_cells` ([serialization config](numpy-serialization.md#subprocess-module-map-and-config)). Host↔venv pipeline: [Current pipeline](numpy-serialization.md#current-pipeline-and-costs).
 
 **Gaps vs LibrePythonista (workarounds):** chat tool still single `data_range` (use multiple `=PY` cells or formula varargs); no `collapse` (tighter range or strip `None` in Python); DataFrame conversion is explicit via `data.to_pandas()` (not automatic).

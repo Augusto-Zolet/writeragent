@@ -10,13 +10,13 @@ import logging
 from typing import Any
 
 from plugin.scripting.calc_functions_common import UNITS_HELPER_NAMES as HELPER_NAMES
+from plugin.scripting.calc_range import ensure_rectangular_2d
+from plugin.scripting.venv.coerce import error_result as _error_result
+from plugin.scripting.venv.map_range import inspect_input, map_over_range
 
 log = logging.getLogger(__name__)
 
 _UREG: Any | None = None
-
-
-from plugin.scripting.venv.coerce import error_result as _error_result
 
 
 def _ok_result(
@@ -100,83 +100,129 @@ def _parse_unit_or_quantity(ureg: Any, text: str, *, helper: str, param: str) ->
         return _parse_quantity_value(ureg, raw, helper=helper)
 
 
+def _scalar_convert(val: Any, from_u: Any, to_u: Any) -> float:
+    """Convert a single scalar value between units."""
+    if val is None or val == "":
+        raise ValueError("empty value")
+    from_text = str(from_u or "").strip()
+    to_text = str(to_u or "").strip()
+    if not from_text or not to_text:
+        raise ValueError("missing units")
+    ureg = _get_ureg()
+    num = float(str(val).strip())
+    qty = ureg.Quantity(f"{num} {from_text}")
+    converted = qty.to(to_text)
+    return float(converted.magnitude)
+
+
 def convert_quantity(
-    value: str,
-    from_unit: str = "",
-    to_unit: str = "",
+    value: Any,
+    from_unit: Any = "",
+    to_unit: Any = "",
     *,
-    from_unit_kw: str = "",
-    to_unit_kw: str = "",
+    from_unit_kw: Any = "",
+    to_unit_kw: Any = "",
     **kwargs: Any,
-) -> dict[str, Any]:
+) -> Any:
+    """Convert a numeric value or range between units.
+
+    Direct/``=PY()`` returns numeric magnitude float or 1D/2D list of floats.
+    """
     helper = "convert_quantity"
     if _require_pint(helper) is None:
         return _missing_package(helper)
-    from_text = str(
+
+    from_text = (
         from_unit
-        or from_unit_kw
-        or kwargs.get("from")
-        or kwargs.get("from_unit")
-        or ""
-    ).strip()
-    to_text = str(
+        if from_unit != ""
+        else (
+            from_unit_kw
+            if from_unit_kw != ""
+            else kwargs.get("from", kwargs.get("from_unit", ""))
+        )
+    )
+    to_text = (
         to_unit
-        or to_unit_kw
-        or kwargs.get("to")
-        or kwargs.get("to_unit")
-        or ""
-    ).strip()
-    if not from_text or not to_text:
+        if to_unit != ""
+        else (
+            to_unit_kw
+            if to_unit_kw != ""
+            else kwargs.get("to", kwargs.get("to_unit", ""))
+        )
+    )
+
+    if from_text == "" or to_text == "":
         return _error_result("MISSING_PARAM", "from and to units are required", helper=helper)
-    try:
-        ureg = _get_ureg()
-        qty = ureg.Quantity(f"{float(str(value or '0').strip())} {from_text}")
-        converted = qty.to(to_text)
-        return _quantity_payload(converted, helper=helper, display_unit=to_text)
-    except ValueError as exc:
-        if str(exc) == "MISSING_PACKAGE":
-            return _missing_package(helper)
-        return _error_result("PARSE_ERROR", str(exc), helper=helper)
-    except Exception as exc:
-        return _error_result("UNITS_ERROR", str(exc), helper=helper)
+
+    return map_over_range(
+        _scalar_convert,
+        value,
+        from_text,
+        to_text,
+        handle_blanks=True,
+    )
 
 
-def parse_quantity(*, quantity: str) -> dict[str, Any]:
+def _scalar_parse(quantity: Any) -> float:
+    """Parse a single quantity string into its numeric magnitude."""
+    ureg = _get_ureg()
+    qty = _parse_quantity_value(ureg, str(quantity or ""), helper="parse_quantity")
+    return float(qty.magnitude)
+
+
+def parse_quantity(*, quantity: Any = "", **kwargs: Any) -> Any:
+    """Parse a quantity string or range of quantity strings into magnitudes."""
     helper = "parse_quantity"
     if _require_pint(helper) is None:
         return _missing_package(helper)
-    try:
-        ureg = _get_ureg()
-        qty = _parse_quantity_value(ureg, quantity, helper=helper)
-        return _quantity_payload(qty, helper=helper)
-    except ValueError as exc:
-        if str(exc) == "MISSING_PACKAGE":
-            return _missing_package(helper)
-        return _error_result("PARSE_ERROR", str(exc), helper=helper)
-    except Exception as exc:
-        return _error_result("UNITS_ERROR", str(exc), helper=helper)
+
+    raw_quantity = quantity if quantity != "" else kwargs.get("quantity", "")
+    if raw_quantity == "":
+        return _error_result("MISSING_PARAM", "quantity is required", helper=helper)
+
+    return map_over_range(
+        _scalar_parse,
+        quantity=raw_quantity,
+        handle_blanks=True,
+    )
 
 
-def format_quantity(*, magnitude: str, units: str, format_spec: str = "") -> dict[str, Any]:
+def _scalar_format(magnitude: Any, units: Any, format_spec: Any = "") -> str:
+    """Format a single magnitude and unit string."""
+    ureg = _get_ureg()
+    mag = float(str(magnitude or "0").strip())
+    units_text = str(units or "").strip()
+    qty = ureg.Quantity(f"{mag} {units_text}")
+    spec = str(format_spec or "").strip()
+    return f"{qty.magnitude:{spec}} {qty.units}" if spec else f"{qty.magnitude:g} {qty.units}"
+
+
+def format_quantity(
+    *,
+    magnitude: Any = "",
+    units: Any = "",
+    format_spec: Any = "",
+    **kwargs: Any,
+) -> Any:
+    """Format magnitude and units for a scalar or range."""
     helper = "format_quantity"
     if _require_pint(helper) is None:
         return _missing_package(helper)
-    units_text = str(units or "").strip()
-    if not units_text:
+
+    raw_mag = magnitude if magnitude != "" else kwargs.get("magnitude", "")
+    raw_units = units if units != "" else kwargs.get("units", "")
+    raw_spec = format_spec if format_spec != "" else kwargs.get("format_spec", "")
+
+    if raw_units == "":
         return _error_result("MISSING_PARAM", "units is required", helper=helper)
-    try:
-        ureg = _get_ureg()
-        mag = float(str(magnitude or "0").strip())
-        qty = ureg.Quantity(f"{mag} {units_text}")
-        spec = str(format_spec or "").strip()
-        formatted = f"{qty.magnitude:{spec}} {qty.units}" if spec else f"{qty.magnitude:g} {qty.units}"
-        return _ok_result(helper, magnitude=mag, units=units_text, formatted=formatted)
-    except ValueError as exc:
-        if str(exc) == "MISSING_PACKAGE":
-            return _missing_package(helper)
-        return _error_result("PARSE_ERROR", str(exc), helper=helper)
-    except Exception as exc:
-        return _error_result("UNITS_ERROR", str(exc), helper=helper)
+
+    return map_over_range(
+        _scalar_format,
+        magnitude=raw_mag,
+        units=raw_units,
+        format_spec=raw_spec,
+        handle_blanks=True,
+    )
 
 
 def check_dimensionality(
@@ -218,19 +264,145 @@ def check_dimensionality(
 
 def _dispatch_helper(name: str, params: dict[str, Any]) -> dict[str, Any]:
     if name == "convert_quantity":
-        return convert_quantity(
-            value=str(params.get("value") or ""),
-            from_unit=str(params.get("from") or params.get("from_unit") or ""),
-            to_unit=str(params.get("to") or params.get("to_unit") or ""),
-        )
+        raw_val = params.get("value")
+        raw_from = params.get("from") or params.get("from_unit") or ""
+        raw_to = params.get("to") or params.get("to_unit") or ""
+
+        # Check if all inputs are scalar
+        insp_val = inspect_input(raw_val)
+        insp_from = inspect_input(raw_from)
+        insp_to = inspect_input(raw_to)
+
+        if insp_val.is_scalar and insp_from.is_scalar and insp_to.is_scalar:
+            # Traditional scalar RPC return shape
+            if _require_pint("convert_quantity") is None:
+                return _missing_package("convert_quantity")
+            from_text = str(raw_from or "").strip()
+            to_text = str(raw_to or "").strip()
+            if not from_text or not to_text:
+                return _error_result("MISSING_PARAM", "from and to units are required", helper=name)
+            try:
+                ureg = _get_ureg()
+                val_str = str(insp_val.flat_items[0] if insp_val.flat_items else "0")
+                qty = ureg.Quantity(f"{float(val_str.strip() or '0')} {from_text}")
+                converted = qty.to(to_text)
+                return _quantity_payload(converted, helper=name, display_unit=to_text)
+            except ValueError as exc:
+                if str(exc) == "MISSING_PACKAGE":
+                    return _missing_package(name)
+                return _error_result("PARSE_ERROR", str(exc), helper=name)
+            except Exception as exc:
+                return _error_result("UNITS_ERROR", str(exc), helper=name)
+
+        # Vector RPC return shape
+        try:
+            res = convert_quantity(raw_val, from_unit=raw_from, to_unit=raw_to)
+            if isinstance(res, dict) and res.get("status") == "error":
+                return res
+            # Wrap into one compact vector payload
+            grid = ensure_rectangular_2d(res)
+            flat_magnitudes = [cell for row in grid for cell in row]
+            to_text = str(raw_to or "")
+            formatted_list = [
+                f"{c:g} {to_text}" if isinstance(c, (int, float)) else str(c)
+                for c in flat_magnitudes
+            ]
+            return {
+                "status": "ok",
+                "helper": name,
+                "values": grid,
+                "magnitudes": flat_magnitudes,
+                "formatted": formatted_list,
+                "units": to_text,
+                "text": f"{len(flat_magnitudes)} quantities converted",
+                "writer_cleanup_hints": [],
+            }
+        except ValueError as exc:
+            return _error_result("UNITS_ERROR", str(exc), helper=name)
+        except Exception as exc:
+            return _error_result("UNITS_ERROR", str(exc), helper=name)
+
     if name == "parse_quantity":
-        return parse_quantity(quantity=str(params.get("quantity") or ""))
+        raw_qty = params.get("quantity")
+        insp = inspect_input(raw_qty)
+        if insp.is_scalar:
+            if _require_pint("parse_quantity") is None:
+                return _missing_package("parse_quantity")
+            try:
+                ureg = _get_ureg()
+                qty_str = str(insp.flat_items[0] if insp.flat_items else "")
+                qty = _parse_quantity_value(ureg, qty_str, helper=name)
+                return _quantity_payload(qty, helper=name)
+            except ValueError as exc:
+                if str(exc) == "MISSING_PACKAGE":
+                    return _missing_package(name)
+                return _error_result("PARSE_ERROR", str(exc), helper=name)
+            except Exception as exc:
+                return _error_result("UNITS_ERROR", str(exc), helper=name)
+
+        # Vector parse_quantity
+        try:
+            res = parse_quantity(quantity=raw_qty)
+            if isinstance(res, dict) and res.get("status") == "error":
+                return res
+            grid = ensure_rectangular_2d(res)
+            flat = [cell for row in grid for cell in row]
+            return {
+                "status": "ok",
+                "helper": name,
+                "values": grid,
+                "magnitudes": flat,
+                "text": f"{len(flat)} quantities parsed",
+                "writer_cleanup_hints": [],
+            }
+        except Exception as exc:
+            return _error_result("UNITS_ERROR", str(exc), helper=name)
+
     if name == "format_quantity":
-        return format_quantity(
-            magnitude=str(params.get("magnitude") or ""),
-            units=str(params.get("units") or ""),
-            format_spec=str(params.get("format_spec") or ""),
-        )
+        raw_mag = params.get("magnitude")
+        raw_units = params.get("units")
+        raw_spec = str(params.get("format_spec") or "")
+        insp_mag = inspect_input(raw_mag)
+        insp_u = inspect_input(raw_units)
+        if insp_mag.is_scalar and insp_u.is_scalar:
+            if _require_pint("format_quantity") is None:
+                return _missing_package("format_quantity")
+            units_text = str(insp_u.flat_items[0] if insp_u.flat_items else "").strip()
+            if not units_text:
+                return _error_result("MISSING_PARAM", "units is required", helper=name)
+            try:
+                ureg = _get_ureg()
+                mag_str = str(insp_mag.flat_items[0] if insp_mag.flat_items else "0").strip()
+                mag = float(mag_str or "0")
+                qty = ureg.Quantity(f"{mag} {units_text}")
+                spec = raw_spec.strip()
+                formatted = f"{qty.magnitude:{spec}} {qty.units}" if spec else f"{qty.magnitude:g} {qty.units}"
+                return _ok_result(name, magnitude=mag, units=units_text, formatted=formatted)
+            except ValueError as exc:
+                if str(exc) == "MISSING_PACKAGE":
+                    return _missing_package(name)
+                return _error_result("PARSE_ERROR", str(exc), helper=name)
+            except Exception as exc:
+                return _error_result("UNITS_ERROR", str(exc), helper=name)
+
+        # Vector format_quantity
+        try:
+            res = format_quantity(magnitude=raw_mag, units=raw_units, format_spec=raw_spec)
+            if isinstance(res, dict) and res.get("status") == "error":
+                return res
+            grid = ensure_rectangular_2d(res)
+            flat = [cell for row in grid for cell in row]
+            return {
+                "status": "ok",
+                "helper": name,
+                "values": grid,
+                "formatted": flat,
+                "text": f"{len(flat)} quantities formatted",
+                "writer_cleanup_hints": [],
+            }
+        except Exception as exc:
+            return _error_result("UNITS_ERROR", str(exc), helper=name)
+
     if name == "check_dimensionality":
         return check_dimensionality(
             quantity_a=str(params.get("quantity_a") or ""),
@@ -268,7 +440,6 @@ def run_units(
         params = {}
 
     # Inlined from host split_helper_params: strip the egress-only "output_style" key
-    # (the host facade uses this for Calc sheet formatting; the worker does not need it).
     clean = dict(params)
     raw_style = clean.pop("output_style", None)
     output_style = str(raw_style).strip() if raw_style is not None else None

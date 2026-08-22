@@ -189,8 +189,22 @@ def test_quick_stats_tooltip():
 
 
 def test_format_currency_and_percent():
-    assert analysis.format_currency([1234.5]) == ["$1,234.50"]
-    assert analysis.format_percent([0.125]) == ["12.5%"]
+    # 1D list
+    assert analysis.format_currency([1234.5, 500]) == ["$1,234.50", "$500.00"]
+    assert analysis.format_percent([0.125, 0.5]) == ["12.5%", "50.0%"]
+
+    # Scalar
+    assert analysis.format_currency(1234.5) == "$1,234.50"
+    assert analysis.format_percent(0.125) == "12.5%"
+
+    # 1x1 CalcRange -> scalar string
+    from plugin.scripting.calc_range import CalcRange
+    assert analysis.format_currency(CalcRange([[1234.5]])) == "$1,234.50"
+    assert analysis.format_percent(CalcRange([[0.125]])) == "12.5%"
+
+    # Nx1 CalcRange column -> Nx1 2D list
+    assert analysis.format_currency(CalcRange([[1234.5], [None], [500]])) == [["$1,234.50"], [""], ["$500.00"]]
+    assert analysis.format_percent(CalcRange([[0.125], [None], [0.5]])) == [["12.5%"], [""], ["50.0%"]]
 
 
 def test_clean_and_prepare_fills_missing():

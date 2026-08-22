@@ -93,6 +93,7 @@ CLUSTER_GRID: list[list[Any]] = [
 
 CURRENCY_GRID: list[list[Any]] = [[1234.5]]
 PERCENT_GRID: list[list[Any]] = [[0.125]]
+SPEED_GRID: list[list[Any]] = [[10], [20], [30]]
 
 # Optimize grids (tests/scripting/test_optimize.py)
 LP_GRID: list[list[Any]] = [
@@ -771,6 +772,21 @@ def _units_cases() -> list[DomainDemoCase]:
             chat_prompt=None,
             requires_package="pint",
             check_mode="formatted_cell",
+        ),
+        DomainDemoCase(
+            id="convert_quantity_vector",
+            domain="units",
+            helper="convert_quantity",
+            description="Convert column of values m/s → km/h",
+            input_grid=SPEED_GRID,
+            params={"value": [10, 20, 30], "from_unit": "m/s", "to_unit": "km/h"},
+            python_expr='from writeragent.scripting.units import convert_quantity; convert_quantity(data, "m/s", "km/h")',
+            expected_scalar="[[36.0], [72.0], [108.0]]",
+            script_hint="Units Helpers → [Units] convert_quantity",
+            chat_prompt=None,
+            requires_package="pint",
+            check_mode="grid_egress",
+            notes="Vectorized range input spills down column in Calc",
         ),
         DomainDemoCase(
             id="parse_quantity",

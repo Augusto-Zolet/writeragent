@@ -55,6 +55,23 @@ def test_run_quant_invalid_params(monkeypatch):
     assert result["code"] == "INVALID_PARAMS"
 
 
+def test_fetch_historical_data_calc_range(monkeypatch):
+    import sys
+    from plugin.scripting.calc_range import CalcRange
+    import pandas as pd
+
+    fake_yf = MagicMock()
+    fake_df = pd.DataFrame({"Date": ["2023-01-01"], "Close": [150.0]})
+    fake_yf.download.return_value = fake_df
+    monkeypatch.setitem(sys.modules, "yfinance", fake_yf)
+
+    cr = CalcRange([["AAPL"], ["MSFT"], [None]])
+    result = venv_run_quant({"helper": "fetch_historical_data", "params": {"tickers": cr}})
+    assert result["status"] == "ok"
+    fake_yf.download.assert_called_once()
+    assert fake_yf.download.call_args[0][0] == ["AAPL", "MSFT"]
+
+
 @pytest.fixture
 def ctx():
     return MagicMock()

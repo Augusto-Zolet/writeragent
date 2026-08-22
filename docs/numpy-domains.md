@@ -521,7 +521,25 @@ Magnitude | 36
 Units     | kilometer / hour
 ```
 
-**Tests:** [`test_units.py`](../tests/scripting/test_units.py), [`test_units_templates.py`](../tests/scripting/test_units_templates.py), [`test_python_runner_units.py`](../tests/scripting/test_python_runner_units.py).
+**Vectorized / Range Inputs in `=PY()`:**
+Units helpers (`convert_quantity`, `parse_quantity`, `format_quantity`) accept either a scalar or a Calc cell range (`data`), 1D list, or 2D column vector. When a column is passed as a trailing formula argument, the converted numeric magnitudes spill directly down the spreadsheet column without requiring Python list comprehensions:
+
+```text
+# Convert a column of values from m/s to km/h (spills down column):
+=PY("convert_quantity(data, 'm/s', 'km/h')"; A1:A10)
+
+# Single cell (1x1 CalcRange unwraps to scalar float):
+=PY("convert_quantity(data, 'm/s', 'km/h')"; A1)
+
+# Pairwise conversion with matching units column:
+=PY("convert_quantity(data[0], data[1], 'km/h')"; A1:A10; B1:B10)
+```
+
+- **Shape preservation:** $N \times 1$ column in $\to$ $N \times 1$ column out; $1 \times N$ row in $\to$ $1 \times N$ row out; 1×1 single cell $\to$ scalar float.
+- **Blanks & Errors:** Missing/blank cells produce empty cells; individual invalid units emit `"#VALUE!"` without aborting the rest of the column.
+- **Dual returns:** Direct `=PY()` calls return numeric magnitudes/lists for native Calc matrix spilling; RPC calls (`run_units`) return a single compact vector payload.
+
+**Tests:** [`test_units.py`](../tests/scripting/test_units.py), [`test_units_templates.py`](../tests/scripting/test_units_templates.py), [`test_python_runner_units.py`](../tests/scripting/test_python_runner_units.py), [`test_map_range.py`](../tests/scripting/test_map_range.py).
 
 **Out of scope (deferred):** `calc.convert()` Calc-parity wrapper, `pyarrow` / `plugin/scripting/io.py`.
 

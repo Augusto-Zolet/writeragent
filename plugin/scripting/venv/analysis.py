@@ -80,40 +80,48 @@ def _numeric_columns(df: Any, columns: list[str] | None = None) -> list[str]:
     return [str(c) for c in df.select_dtypes(include="number").columns]
 
 
-def format_currency(values: Any, *, symbol: str = "$", decimals: int = 2) -> list[str]:
+from plugin.scripting.venv.map_range import map_over_range
+
+
+def _format_single_currency(value: Any, symbol: str = "$", decimals: int = 2) -> str:
+    if value is None or value == "":
+        return ""
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    return f"{symbol}{num:,.{decimals}f}"
+
+
+def format_currency(values: Any, *, symbol: str = "$", decimals: int = 2) -> Any:
     """Format numeric values as currency strings (Excel init-script helper)."""
-    if not isinstance(values, (list, tuple)):
-        values = [values]
-    out: list[str] = []
-    for value in values:
-        if value is None:
-            out.append("")
-            continue
-        try:
-            num = float(value)
-        except (TypeError, ValueError):
-            out.append(str(value))
-            continue
-        out.append(f"{symbol}{num:,.{decimals}f}")
-    return out
+    return map_over_range(
+        _format_single_currency,
+        values,
+        symbol=symbol,
+        decimals=decimals,
+        handle_blanks=True,
+    )
 
 
-def format_percent(values: Any, *, decimals: int = 1) -> list[str]:
+def _format_single_percent(value: Any, decimals: int = 1) -> str:
+    if value is None or value == "":
+        return ""
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    return f"{num * 100:.{decimals}f}%"
+
+
+def format_percent(values: Any, *, decimals: int = 1) -> Any:
     """Format numeric values as percentage strings."""
-    if not isinstance(values, (list, tuple)):
-        values = [values]
-    out: list[str] = []
-    for value in values:
-        if value is None:
-            out.append("")
-            continue
-        try:
-            num = float(value)
-        except (TypeError, ValueError):
-            out.append(str(value))
-            continue
-        out.append(f"{num * 100:.{decimals}f}%")
-    return out
+    return map_over_range(
+        _format_single_percent,
+        values,
+        decimals=decimals,
+        handle_blanks=True,
+    )
 
 
 def _describe_columns_from_profile(

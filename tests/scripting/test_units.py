@@ -10,8 +10,14 @@ from unittest.mock import patch
 
 import pytest
 
+from plugin.scripting.calc_range import CalcRange
 from plugin.scripting.units import format_units_for_calc, resolve_output_style, split_helper_params
 from plugin.scripting.units import run_units
+from plugin.scripting.venv.units import (
+    convert_quantity,
+    format_quantity,
+    parse_quantity,
+)
 
 pytest.importorskip("pint")
 
@@ -26,6 +32,93 @@ def test_run_units_convert_quantity():
     assert result["helper"] == "convert_quantity"
     assert result["magnitude"] == pytest.approx(36.0)
     assert result["formatted"] == "36 km/h"
+
+
+def test_direct_convert_quantity_scalar():
+    # Direct scalar float / int
+    assert convert_quantity(10, "m/s", "km/h") == pytest.approx(36.0)
+    assert convert_quantity("10", "m/s", "km/h") == pytest.approx(36.0)
+
+    # 1x1 CalcRange -> scalar float
+    assert convert_quantity(CalcRange([[10]]), "m/s", "km/h") == pytest.approx(36.0)
+
+
+def test_direct_convert_quantity_1d_list():
+    res = convert_quantity([10, 20, 30], "m/s", "km/h")
+    assert isinstance(res, list)
+    assert res == pytest.approx([36.0, 72.0, 108.0])
+
+
+def test_direct_convert_quantity_column_vector():
+    cr = CalcRange([[10], [20], [30]])
+    res = convert_quantity(cr, "m/s", "km/h")
+    assert res == [[36.0], [72.0], [108.0]]
+
+
+def test_direct_convert_quantity_pairwise_units():
+    res = convert_quantity([10, 100], ["m/s", "cm"], ["km/h", "m"])
+    assert res == [36.0, 1.0]
+
+
+def test_direct_convert_quantity_blanks_and_errors():
+    # Missing cells (None, "", "#N/A") become ""
+    res = convert_quantity([10, None, 20, "", "#N/A", 30], "m/s", "km/h")
+    assert res[0] == pytest.approx(36.0)
+    assert res[1] == ""
+    assert res[2] == pytest.approx(72.0)
+    assert res[3] == ""
+    assert res[4] == ""
+    assert res[5] == pytest.approx(108.0)
+
+    # Bad unit per-element in vector -> #VALUE! for that element
+    res_err = convert_quantity([10, 20], ["m/s", "bad_unit"], "km/h")
+    assert res_err[0] == pytest.approx(36.0)
+    assert res_err[1] == "#VALUE!"
+
+
+def test_run_units_vector_rpc_single_payload():
+    result = run_units(
+        {
+            "helper": "convert_quantity",
+            "params": {"value": [10, 20], "from_unit": "m/s", "to_unit": "km/h"},
+        },
+        None,
+        {},
+    )
+    assert result["status"] == "ok"
+    assert result["helper"] == "convert_quantity"
+    assert result["magnitudes"] == [36.0, 72.0]
+    assert result["formatted"] == ["36 km/h", "72 km/h"]
+    assert result["values"] == [[36.0, 72.0]]
+
+    # Host format_units_for_calc egress returns rectangular grid
+    grid = format_units_for_calc(result)
+    assert grid == [[36.0, 72.0]]
+
+
+def test_direct_parse_quantity_scalar_and_vector():
+    # Scalar
+    assert parse_quantity(quantity="5 km/h") == pytest.approx(5.0)
+
+    # 1D list
+    res_1d = parse_quantity(quantity=["5 km/h", "10 m/s"])
+    assert res_1d == [5.0, 10.0]
+
+    # CalcRange column
+    cr = CalcRange([["5 km/h"], ["10 m/s"]])
+    res_col = parse_quantity(quantity=cr)
+    assert res_col == [[5.0], [10.0]]
+
+
+def test_direct_format_quantity_scalar_and_vector():
+    # Scalar
+    assert "3.5" in format_quantity(magnitude=3.5, units="m")
+
+    # 1D list
+    res = format_quantity(magnitude=[1, 2], units="m")
+    assert isinstance(res, list)
+    assert len(res) == 2
+    assert "1" in res[0] and "2" in res[1]
 
 
 def test_resolve_output_style_defaults():
