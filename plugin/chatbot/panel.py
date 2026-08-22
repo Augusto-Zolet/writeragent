@@ -326,8 +326,8 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
 
             event_bus = getattr(get_tools()._services, "events", None)
             if event_bus:
-                event_bus.subscribe("mcp:request", self._on_mcp_request)
-                event_bus.subscribe("mcp:result", self._on_mcp_result)
+                event_bus.subscribe("mcp:request", self._on_mcp_request, weak=True)
+                event_bus.subscribe("mcp:result", self._on_mcp_result, weak=True)
                 log.debug(f"*** SendButtonListener subscribed to MCP events on services.events (id={id(event_bus)}) ***")
             global_event_bus.subscribe("grammar:status", self._on_grammar_status, weak=True)
         except Exception:

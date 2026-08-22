@@ -65,6 +65,28 @@ class DocumentFormulaCache:
             if not coords:
                 del self._cache[code_str]
 
+    def clear_sheet(self, sheet_name: str) -> None:
+        """Remove all coordinates associated with sheet_name."""
+        self.last_accessed = time.monotonic()
+        to_delete: list[str] = []
+        for code_str, coords in list(self._cache.items()):
+            new_coords = [c for c in coords if c[0] != sheet_name]
+            if new_coords:
+                self._cache[code_str] = new_coords
+            else:
+                to_delete.append(code_str)
+        for code_str in to_delete:
+            del self._cache[code_str]
+
+    def rename_sheet(self, old_sheet_name: str, new_sheet_name: str) -> None:
+        """Update coordinates when a sheet is renamed."""
+        self.last_accessed = time.monotonic()
+        for code_str, coords in list(self._cache.items()):
+            self._cache[code_str] = [
+                (new_sheet_name if c[0] == old_sheet_name else c[0], c[1], c[2])
+                for c in coords
+            ]
+
     def clear(self) -> None:
         self._cache.clear()
 
@@ -133,6 +155,22 @@ class FormulaLocationCache:
                 doc_cache.remove_coordinate(code_str, sheet_name, row, col)
                 if len(doc_cache) == 0:
                     self._docs.pop(doc_url, None)
+
+    def clear_sheet(self, doc_url: str, sheet_name: str) -> None:
+        """Release cached formula locations for a specific sheet within a document."""
+        with self._lock:
+            doc_cache = self._docs.get(doc_url)
+            if doc_cache is not None:
+                doc_cache.clear_sheet(sheet_name)
+                if len(doc_cache) == 0:
+                    self._docs.pop(doc_url, None)
+
+    def rename_sheet(self, doc_url: str, old_sheet_name: str, new_sheet_name: str) -> None:
+        """Update cached sheet coordinates when a sheet is renamed."""
+        with self._lock:
+            doc_cache = self._docs.get(doc_url)
+            if doc_cache is not None:
+                doc_cache.rename_sheet(old_sheet_name, new_sheet_name)
 
     def clear_document(self, doc_url: str) -> None:
         """Release all cached formula locations for a specific document (e.g. on close)."""

@@ -62,9 +62,16 @@ class EventBus:
         if event not in self._subscribers:
             self._subscribers[event] = []
 
-        if weak and hasattr(callback, "__self__"):
-            ref = weakref.WeakMethod(callback, lambda r: self._cleanup(event, r))
-            self._subscribers[event].append((ref, True))
+        if weak:
+            if hasattr(callback, "__self__"):
+                ref = weakref.WeakMethod(callback, lambda r: self._cleanup(event, r))
+                self._subscribers[event].append((ref, True))
+            else:
+                try:
+                    ref = weakref.ref(callback, lambda r: self._cleanup(event, r))
+                    self._subscribers[event].append((ref, True))
+                except TypeError:
+                    self._subscribers[event].append((callback, False))
         else:
             self._subscribers[event].append((callback, False))
 

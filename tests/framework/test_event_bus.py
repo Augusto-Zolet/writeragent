@@ -121,3 +121,25 @@ def test_multiple_subscribers():
 
     assert received1 == ["hello"]
     assert received2 == ["hello"]
+
+
+def test_weakref_subscribe_callable():
+    bus = EventBus()
+    received = []
+
+    def make_handler():
+        def _handler(event_data):
+            received.append(event_data)
+        return _handler
+
+    handler = make_handler()
+    bus.subscribe("test:event", handler, weak=True)
+    bus.emit("test:event", event_data="first")
+    assert received == ["first"]
+
+    del handler
+    gc.collect()
+
+    bus.emit("test:event", event_data="second")
+    assert received == ["first"]
+

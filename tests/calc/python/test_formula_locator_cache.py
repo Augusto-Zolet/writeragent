@@ -304,3 +304,29 @@ def test_untitled_docs_do_not_share_formula_cache():
     cache.clear_document(key1)
     assert cache.get(key1, code) == []
     assert cache.get(key2, code) == [("Sheet1", 5, 5)]
+
+
+def test_clear_sheet():
+    cache = FormulaLocationCache()
+    cache.put("doc1", "code_a", "Sheet1", 0, 0)
+    cache.put("doc1", "code_a", "Sheet2", 1, 1)
+    cache.put("doc1", "code_b", "Sheet1", 2, 2)
+
+    cache.clear_sheet("doc1", "Sheet1")
+    assert cache.get("doc1", "code_a") == [("Sheet2", 1, 1)]
+    assert cache.get("doc1", "code_b") == []
+
+    cache.clear_sheet("doc1", "Sheet2")
+    assert cache.get("doc1", "code_a") == []
+    assert cache.document_count() == 0
+
+
+def test_rename_sheet():
+    cache = FormulaLocationCache()
+    cache.put("doc1", "code_a", "Sheet1", 0, 0)
+    cache.put("doc1", "code_b", "Sheet2", 1, 1)
+
+    cache.rename_sheet("doc1", "Sheet1", "RenamedSheet")
+    assert cache.get("doc1", "code_a") == [("RenamedSheet", 0, 0)]
+    assert cache.get("doc1", "code_b") == [("Sheet2", 1, 1)]
+
