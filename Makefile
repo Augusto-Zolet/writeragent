@@ -220,7 +220,7 @@ help:
 	@echo "  make eval-deps              uv pip install dspy-ai (after uv sync)"
 	@echo "  make run_eval               Run benchmark CLI (pass EVAL_ARGS=...)"
 	@echo "  make run_eval-smoke         Quick smoke: one model, one example"
-	@echo "  make test-run               PySpector + pytest + LO tests (skip typecheck/bandit; for quick reruns)"
+	@echo "  make test-run               pytest + LO tests (skip typecheck/bandit/pyspector; for quick reruns)"
 	@echo "  make test-durations         Same pytest filter as test-run with --durations=40 (profile hotspots)"
 	@echo "  make slowtests              Slow serialization once each: A/B fixtures, contracts/CrossHair, Hypothesis (vhs)"
 	@echo "  make vhs                    Hypothesis serialization fuzz with verbose output (Hypothesis step of slowtests)"
@@ -239,12 +239,12 @@ help:
 	@echo "  make opengrep-rules-audit   Live registry sweep (p/python; manual triage only)"
 	@echo "  make uno-thread-lint        Alias for make opengrep-lint"
 	@echo "  make opengrep-install       Install Opengrep CLI (~/.local/bin or bin/opengrep)"
-	@echo "  make typecheck              Run ruff-for-build, ty, mypy, basedpyright"
+	@echo "  make typecheck              Run ruff-for-build, ty, mypy, basedpyright, pyspector"
 	@echo "  make ensure-uno             Link system UNO into .venv if import uno fails (auto-run by typecheck/test)"
 	@echo "  make fix-uno                Same as ensure-uno with verbose output"
 	@echo "  make mypy / make basedpyright / make pyrefly / make bandit   Single-tool runs (bandit: plugin/, excludes contrib + tests)"
 	@echo "  make pyrefly                Experimental Meta Pyrefly checker (same scope as ty; not part of make test)"
-	@echo "  make pyspector              PySpector AI/taint SAST on plugin/ (--ai; part of make test-run / make test)"
+	@echo "  make pyspector              PySpector AI/taint SAST on plugin/ (--ai; part of make typecheck / make test)"
 	@echo "  make pyspector-report       Same scan, write build/pyspector-report.json (optional report)"
 	@echo "  make ruff                   Ruff lint (plugin tests scripts; excludes contrib/lib/demos; see pyproject.toml)"
 	@echo "  make ruff-fix               Ruff with --fix; make ruff-format-check = ruff format --check plugin/"
@@ -656,9 +656,9 @@ typecheck: manifest ruff-for-build
 	@$(MAKE) ty-run
 	@$(MAKE) mypy-run
 	@$(MAKE) basedpyright-run
+	@$(MAKE) pyspector
 
 test-run:
-	@$(MAKE) pyspector
 	$(PYTHON) -m pytest tests -m "not slow and not integration"
 	@$(MAKE) lo-kill
 	$(LO_PYTHON) -m plugin.testing_runner; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
@@ -874,7 +874,7 @@ pyrefly-run: ensure-uno
 bandit:
 	$(PYTHON) -m bandit -r plugin -c pyproject.toml --severity-level medium
 
-# Cross-file / AI-agent SAST (part of make test-run / make test; not build/release).
+# Cross-file / AI-agent SAST (part of make typecheck / make test; not build/release).
 # Wrapper disables reviewed FP rules; see scripts/run_pyspector.py.
 pyspector:
 	@$(PYTHON) -c "import pyspector" 2>/dev/null || (echo "pyspector not found — run: uv sync" && exit 1)

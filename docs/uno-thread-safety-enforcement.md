@@ -113,8 +113,9 @@ def assert_main_thread(what: str) -> None:
     log.warning(msg, stack_info=True)
 ```
 - Decorates primary UNO entry points (`get_desktop`, `get_active_document`, `confirm_unsaved_cell_edit`, etc.).
-- When `GUARD_ON` is active, displays a deduplicated modal error box on the UI thread (dev builds only) and raises `RuntimeError`.
-- When `GUARD_ON` is inactive (e.g. `WRITERAGENT_UNO_THREAD_GUARD=0` in dev or release builds with logging), logs `log.warning(msg, stack_info=True)` so call sites are captured in logs without crashing user sessions.
+- **Dev Builds (`GUARD_ON=1`)**: Displays a deduplicated modal error box on the UI thread and raises `RuntimeError`.
+- **Dev Builds with Guard Disabled (`GUARD_ON=0`)**: Logs `log.warning(msg, stack_info=True)` so call sites are captured in logs without crashing user sessions.
+- **Production Release OXTs (`make release`)**: Code packaging via `scripts/strip_code.py` replaces `thread_guard.py` with a minimal zero-overhead stub (`GUARD_ON = False`, `assert_main_thread` no-op, proxy unwrapped), while keeping `sync_host_dispatch()` and `in_sync_host_dispatch()` active for deadlock prevention.
 
 ### A2. Thread Tagging at Birth
 In `run_in_background`, a thread-local task name is stamped on the worker thread for the duration of the task. Pooled workers (`wa-bg-*`) clear the tag in a `finally` block so recycled threads do not carry stale task identifiers. The runtime error message explicitly names the culprit task (e.g. `"touched UNO from background task 'web-search-embeddings'"`).
@@ -128,8 +129,8 @@ Decorators only guard functions we remember to decorate. To protect arbitrary UN
 ### A4. Yellow Context Refusal (`sync_host_dispatch`)
 When Calc evaluates an add-in formula like `=PY("1+1")` or `=PROMPT(...)` via a remote PyUNO bridge, execution occurs in a **Yellow Context**:
 - **Wrapped Entry Roots**:
-  1. [`plugin/calc/python/function.py`](../plugin/calc/python/function.py): `execute_python_addin` enters `with sync_host_dispatch():`.
-  2. [`plugin/calc/prompt_function.py`](../plugin/calc/prompt_function.py): `execute_prompt_addin` enters `with sync_host_dispatch():`.
+  1. [`plugin/calc/python/function.py`](../plugin/calc/python/function.py): `execute_python_addin` enters `with sync_host_dispatch():`. Public add-in entry points `py()` and `python()` forward directly to `execute_python_addin`.
+  2. [`plugin/calc/prompt_function.py`](../plugin/calc/prompt_function.py): `execute_prompt_addin` enters `with sync_host_dispatch():`. Public add-in entry point `prompt()` forwards directly to `execute_prompt_addin`.
   3. [`plugin/framework/thread_guard.py`](../plugin/framework/thread_guard.py): `_notify_thread_violation` enters `with sync_host_dispatch():`.
 - **Why UI Listeners Are NOT Wrapped**: Standard UNO listeners (e.g. `actionPerformed` in `uno_listeners.py`) execute on LibreOffice's main UI thread during interactive user operations. Wrapping them would unnecessarily tag normal UI thread execution as host dispatches.
 - **Refusal Mechanism**: Inside [`QueueExecutor.execute()`](../plugin/framework/queue_executor.py), if `in_sync_host_dispatch()` is True on a non-main thread, execution is **refused immediately** with:
@@ -210,17 +211,9 @@ Parses Python ASTs across add-in and scripting boundary modules to enforce:
 ### C3. Static Lock Hierarchy & Transition Analyzer ([`scripts/analyze_thread_deadlocks.py`](../scripts/analyze_thread_deadlocks.py))
 Builds a global class-aware function call graph across `plugin/` starting from `SYNC_HOST_ENTRYPOINTS`:
 - **Add-ins & Scripting Roots**: `execute_python_addin`, `execute_prompt_addin`, `py`, `python`, `prompt`, `session_key`, `_notify_thread_violation`.
-- **UNO Listener Callbacks**: `actionPerformed`, `itemStateChanged`, `textChanged`, `keyPressed`, `keyReleased`, `windowResized`, `windowMoved`, `windowShown`, `windowHidden`, `documentEventOccured`, `queryClosing`, `notifyClosing`, `queryTermination`, `notifyTermination`, `activeSpreadsheetChanged`.
-- **Job & Dispatch Interfaces**: `trigger`, `disposing`, `queryDispatch`.
-
-**Class-Aware Resolution & Suppression**:
-- `CallGraphBuilder` tracks enclosing `ClassDef` blocks to resolve `self.method()` within their respective classes, preventing false cross-class collisions.
-- **Inline False-Positive Marking (`# nodeadlock`)**: When an interactive UI event handler (such as a sidebar button `actionPerformed`) initiates an asynchronous dispatch chain that marshals updates, developers annotate the handler with `# nodeadlock: <reason>`:
-  ```python
-  def on_action_performed(self, rEvent):  # nodeadlock: UI click handler on main thread
-      self.dispatch(SendEvent(SendEventKind.SEND_CLICKED))
-  ```
-  The deadlock analyzer skips alerting on paths originating from or passing through annotated nodes.
+- Walks call edges to detect if any synchronous host dispatch can reach `BLOCKING_OPERATIONS` (`execute_on_main_thread`).
+- **Why Listeners Are Excluded from Static Yellow Roots**: Standard listener methods (`actionPerformed`, `textChanged`) are UI handlers on the main thread that legitimately initiate asynchronous worker pipelines. Treating them as static Yellow roots creates ongoing false positives across UI code. Static analysis focuses strictly on wrapped add-in and bridge roots; runtime Layer A (`in_sync_host_dispatch()`) protects against any off-main dispatch.
+- **Suppression Mechanism**: Supports inline `# nodeadlock: <reason>` annotations if an edge needs manual verification override.
 
 ---
 

@@ -1,4 +1,4 @@
-"""Smoke tests for optional PySpector config (make pyspector; not part of make test gates)."""
+"""Smoke tests for PySpector config (make pyspector; part of make typecheck / make test)."""
 
 from __future__ import annotations
 

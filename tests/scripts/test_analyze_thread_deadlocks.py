@@ -46,16 +46,16 @@ def helper(ctx):
         assert any(h.blocking_op == "execute_on_main_thread" for h in hazards)
 
 
-def test_listener_entrypoint_deadlock_detected():
+def test_addin_entrypoint_deadlock_detected():
     with tempfile.TemporaryDirectory() as tmp_dir:
-        p = Path(tmp_dir) / "listener.py"
+        p = Path(tmp_dir) / "addin.py"
         p.write_text(
             """
-class CustomListener:
-    def actionPerformed(self, ev):
-        self.handle_event()
+class CalcAddin:
+    def py(self, formula):
+        self.handle_formula()
 
-    def handle_event(self):
+    def handle_formula(self):
         from plugin.framework.queue_executor import execute_on_main_thread
         return execute_on_main_thread(lambda: "blocked")
 """,
@@ -64,7 +64,7 @@ class CustomListener:
         analyzer = DeadlockAnalyzer(Path(tmp_dir))
         hazards = analyzer.find_deadlock_hazards()
         assert hazards
-        assert any("actionPerformed" in h.entrypoint for h in hazards)
+        assert any("py" in h.entrypoint for h in hazards)
         assert any(h.blocking_op == "execute_on_main_thread" for h in hazards)
 
 
@@ -73,8 +73,8 @@ def test_nodeadlock_suppression_comment():
         p = Path(tmp_dir) / "suppressed.py"
         p.write_text(
             """
-class UIListener:
-    def actionPerformed(self, ev):  # nodeadlock: UI click handler on main thread
+class CustomAddin:
+    def py(self, formula):  # nodeadlock: audited safe path
         self.do_action()
 
     def do_action(self):
@@ -93,12 +93,12 @@ def test_class_aware_resolution_prevents_false_collision():
         p = Path(tmp_dir) / "classes.py"
         p.write_text(
             """
-class SafeJob:
-    def trigger(self, args):
+class SafeAddin:
+    def py(self, code):
         self.step()
 
     def step(self):
-        return "safe in SafeJob"
+        return "safe in SafeAddin"
 
 class OtherClass:
     def step(self):
@@ -109,7 +109,7 @@ class OtherClass:
         )
         analyzer = DeadlockAnalyzer(Path(tmp_dir))
         hazards = analyzer.find_deadlock_hazards()
-        # SafeJob.trigger -> SafeJob.step does NOT call execute_on_main_thread
+        # SafeAddin.py -> SafeAddin.step does NOT call execute_on_main_thread
         assert not hazards
 
 

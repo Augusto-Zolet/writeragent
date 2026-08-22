@@ -24,7 +24,7 @@ from typing import NamedTuple
 
 # Functions executed synchronously while holding a host/bridge dispatch context (Yellow context)
 SYNC_HOST_ENTRYPOINTS = {
-    # Add-in and Scripting Calculation Roots
+    # Add-in and Scripting Calculation Roots (wrapped with sync_host_dispatch)
     "execute_python_addin",
     "_execute_python_addin_impl",
     "execute_prompt_addin",
@@ -34,26 +34,6 @@ SYNC_HOST_ENTRYPOINTS = {
     "prompt",
     "session_key",
     "_notify_thread_violation",
-    # UNO Listener Interface Callbacks
-    "actionPerformed",
-    "itemStateChanged",
-    "textChanged",
-    "keyPressed",
-    "keyReleased",
-    "windowResized",
-    "windowMoved",
-    "windowShown",
-    "windowHidden",
-    "documentEventOccured",
-    "queryClosing",
-    "notifyClosing",
-    "queryTermination",
-    "notifyTermination",
-    "activeSpreadsheetChanged",
-    # UNO Job & Dispatch Interfaces
-    "trigger",
-    "disposing",
-    "queryDispatch",
 }
 
 # Operations that block the calling thread waiting for the UI/main thread or other locks

@@ -910,7 +910,7 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
             case _:
                 log.debug("SendButtonListener: unhandled effect type %s", type(effect).__name__)
 
-    def on_action_performed(self, rEvent):  # nodeadlock: UI click handler on main thread
+    def on_action_performed(self, rEvent):
         from plugin.framework.i18n import _
 
         if getattr(self, "_approval_event", None) is not None and self.send_control and self.send_control.getModel():
