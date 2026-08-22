@@ -9,11 +9,11 @@
 
 **Python, NumPy, and Agentic AI for LibreOffice (Writer, Calc, and Draw)**
 
-Run Python and scientific compute directly in spreadsheet formulas, edit documents with private local-first AI, conduct autonomous web research, generate diagrams, and automate office workflows — without cloud lock-in.
+Run Python and scientific compute directly in spreadsheet formulas, edit documents with private local-first AI, conduct web research, generate diagrams, and automate office workflows — without cloud lock-in.
 
 The project is distributed as three standalone extension packages (*install only one at a time*):
 
-- 🤖 **[WriterAgent](docs/features.md)** (`WriterAgent.oxt`) — The **full stack**. Includes the **AI sidebar assistant, multi-turn document editing, autonomous web research, real-time grammar checking, MCP server, and the Calc → Python spreadsheet converter**, plus the full Python & NumPy compute runtime.
+- 🤖 **[WriterAgent](docs/features.md)** (`WriterAgent.oxt`) — The **full stack**. Includes the **AI sidebar assistant, multi-turn document editing, web research, real-time grammar checking, MCP server, and the Calc → Python spreadsheet converter**, plus the full Python & NumPy compute runtime.
 - 🐍 **[LibrePy](docs/libreoffice-core-python-extension-split.md)** (`LibrePy.oxt`) — Pure Python & Data Science environment. Brings **NumPy, pandas, SymPy, SciPy, Monaco code editing, OCR, and `=PY()` spreadsheet formulas** into LibreOffice. *Zero AI keys, endpoints, or models required.*
 - ✍️ **LibreHarper** (`LibreHarper.oxt`) — Lightweight standalone grammar checker. Embeds the local, fast [Harper](https://github.com/Automattic/harper) grammar engine for Writer proofreading with zero cloud dependencies.
 
