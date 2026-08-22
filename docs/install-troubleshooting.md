@@ -1,25 +1,27 @@
 # Install and usage
 
-This page walks through installing, opening Settings and the sidebar, turning on optional grammar checking, and finding the debug log if something goes wrong.
+This page walks through installing, configuring settings and the sidebar, enabling grammar checking, and finding the debug log if something goes wrong.
 
 ---
 
 ## 1. Download and install
 
-Download from [Release Assets](https://github.com/KeithCu/writeragent/releases/latest). Install **one** of these at a time.
+Download from [Release Assets](https://github.com/KeithCu/writeragent/releases/latest). Install **one** package at a time.
 
 | File | What you get |
 |------|----------------|
-| **WriterAgent.oxt** | Full product: **WriterAgent** menu, sidebar chat, Settings, Calc `=PROMPT()` / `=PY()`, and grammar (Harper / LanguageTool / LLM). Use this unless you know you want a slimmer package. |
-| **LibrePy.oxt** | Python / `=PY()` only. **No** chat menu and **no** WriterAgent Settings. |
-| **LibreHarper.oxt** | Grammar checker only. The only UI is in **Languages → Writing Aids**. |
+| **WriterAgent.oxt** | Full product: menubar menu, sidebar chat, Settings, Calc `=PROMPT()` / `=PY()`, and grammar (Harper / LanguageTool / LLM). Use this unless you want a slimmer package. |
+| **LibrePy.oxt** | Python / `=PY()` only. **No** chat menu and **no** settings dialog. |
+| **LibreHarper.oxt** | Grammar checker only. Integrates directly into **Languages → Writing Aids**. |
 
-1. Download **WriterAgent.oxt** and double-click it.
-2. **Tools → Extension Manager**: **WriterAgent** should be listed and enabled.
+1. Download the `.oxt` package and double-click to install.
+2. In **Tools → Extension Manager**, verify the extension is listed and enabled.
 
-![Extension Manager with WriterAgent installed](images/extension-manager.png)
+![Extension Manager with extension installed](images/extension-manager.png)
 
-3. Open a **Writer document** (**File → New → Text Document**). The **WriterAgent** menu is on that window’s menubar (Calc, Draw, and Impress too).
+3. Open a document (**File → New → Text Document**):
+   - With the full extension, the **WriterAgent** menu appears on the menubar (Calc, Draw, and Impress too).
+   - With standalone grammar checking (**LibreHarper**), proofreading is available directly in Writer with no extra menus.
 
 ![WriterAgent menubar with Settings](images/writeragent-menu.png)
 
@@ -27,47 +29,47 @@ Download from [Release Assets](https://github.com/KeithCu/writeragent/releases/l
 
 ## 2. Settings and sidebar chat
 
-With a document open:
+For the full extension, open a document to configure AI features:
 
 - **Settings:** **WriterAgent → Settings**. Set an OpenAI-compatible **endpoint** and **model**. Local example: `http://localhost:11434` for [Ollama](https://ollama.com/). Cloud (OpenRouter, Together.AI, …): paste an API key in the same dialog.
-- **Sidebar:** **View → Sidebar**, then choose the **WriterAgent** deck (sidebar icon).
+- **Sidebar:** **View → Sidebar**, then choose the sidebar deck.
 
 **No GPU?** Use [OpenRouter free models](https://openrouter.ai/collections/free-models) or [Together.AI](https://www.together.ai/)’s free tier.
 
 ![Settings with endpoint and model](images/settings-endpoint.png)
 
-![WriterAgent sidebar chat](images/sidebar-chat.jpg)
+![Sidebar chat](images/sidebar-chat.jpg)
 
 ---
 
-## 3. Optional: Harper grammar checker
+## 3. Harper grammar checker
 
-Grammar checking is **optional**. [Harper](https://github.com/Automattic/harper) is the fast local engine and WriterAgent / LibreHarper download it automatically when you select it if not already installed.
+[Harper](https://github.com/Automattic/harper) is a fast, offline grammar and style checker. The engine binary is downloaded automatically the first time it is used.
 
-### In WriterAgent Settings
+### In Settings (Full extension)
 
-**WriterAgent → Settings → Doc** (grammar / proofreader): set **Enable grammar checker (Writer)** to **Harper**. LanguageTool and LLM proofreading are also available; Harper is the local default.
+In **WriterAgent → Settings → Doc** (grammar / proofreader), verify **Enable grammar checker (Writer)** is set to **Harper**. LanguageTool and LLM proofreading are also available.
 
 ![Harper selected in Settings](images/settings-harper.png)
 
 ### In LibreOffice Writing Aids
 
-LibreOffice will not draw grammar underlines until the WriterAgent proofreader is enabled for **your document language**.
+LibreOffice will not draw grammar underlines until the proofreader is enabled for **your document language**.
 
 **Linux:**
 
 1. **Tools → Options → Languages and Locales → Writing Aids**
-2. Under available language modules, select **WriterAgent**
-3. Open the language list (Edit / the language checkboxes)
+2. Under **Available language modules**, check the proofreader entry
+3. Open the language list (**Edit...** / language checkboxes)
 4. Enable the language you write in (for example English)
 
-![WriterAgent enabled for English in Writing Aids](images/writing-aids.png)
+![Proofreader enabled for English in Writing Aids](images/writing-aids.png)
 
-**Windows:** **Tools → Options**, then **Languages and Locales** (or **Language Settings** on some versions) → **Writing Aids**, same WriterAgent + language ticks.
+**Windows:** **Tools → Options → Languages and Locales** (or **Language Settings**) → **Writing Aids**, ensuring the proofreader module and your language are checked.
 
-**macOS:** **LibreOffice → Preferences → Languages and Locales → Writing Aids**, then the same steps.
+**macOS:** **LibreOffice → Preferences → Languages and Locales → Writing Aids**, then follow the same steps.
 
-If there are no underlines: the document language (status bar or **Tools → Language**) must match a ticked locale.
+If underlines do not appear, ensure the document language (shown in the status bar or **Tools → Language**) matches an enabled locale.
 
 ---
 
@@ -83,5 +85,9 @@ When something fails, the log is **`writeragent_debug.log`**, in the same folder
 
 If the file does not exist, the extension probably never started (wrong `.oxt`, no restart, or install did not load).
 
-**WriterAgent → Report bug…** opens a GitHub issue form with version, LibreOffice version, OS, endpoint, model, and the log **path**. Paste a **short snippet** of the log if you can. Do not attach API keys, full documents, or the entire log if it contains private text. Details: [bug-reporting.md](bug-reporting.md).
+**Reporting issues:**
+- In the full extension, **WriterAgent → Report bug…** opens a prefilled GitHub issue form with version, LibreOffice version, OS, endpoint, model, and the log path.
+- Alternatively, open an issue on the [GitHub repository](https://github.com/KeithCu/writeragent/issues).
+
+Paste a **short snippet** of the log if you can. Do not attach API keys, full documents, or the entire log if it contains private text. Details: [bug-reporting.md](bug-reporting.md).
 
