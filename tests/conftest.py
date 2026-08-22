@@ -95,7 +95,16 @@ class MockPoint:
         self.Y = y
 
 
+class MockRectangle:
+    def __init__(self, x=0, y=0, width=0, height=0):
+        self.X = x
+        self.Y = y
+        self.Width = width
+        self.Height = height
+
+
 setattr(awt, "Point", MockPoint)
+setattr(awt, "Rectangle", MockRectangle)
 setattr(awt, "Size", MockSize)
 setattr(awt, "FontWeight", MockBase)
 setattr(awt, "FontSlant", MockBase)

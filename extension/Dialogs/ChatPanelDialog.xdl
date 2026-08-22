@@ -5,6 +5,10 @@
   dlg:closeable="false" dlg:moveable="false" dlg:resizeable="false" dlg:withtitlebar="false" dlg:title="">
  <dlg:bulletinboard>
   <dlg:button dlg:id="btn_settings" dlg:left="4" dlg:top="2" dlg:width="16" dlg:height="12" dlg:value="⚙" dlg:tabstop="true"/>
+  <dlg:button dlg:id="btn_python" dlg:left="22" dlg:top="2" dlg:width="16" dlg:height="12" dlg:value="" dlg:tabstop="true"/>
+  <dlg:button dlg:id="btn_latex" dlg:left="40" dlg:top="2" dlg:width="16" dlg:height="12" dlg:value="√x" dlg:tabstop="true"/>
+  <dlg:button dlg:id="btn_search" dlg:left="58" dlg:top="2" dlg:width="16" dlg:height="12" dlg:value="🔍" dlg:tabstop="true"/>
+  <dlg:button dlg:id="btn_hamburger" dlg:left="76" dlg:top="2" dlg:width="16" dlg:height="12" dlg:value="☰" dlg:tabstop="true"/>
   <dlg:text dlg:id="backend_indicator" dlg:left="120" dlg:top="4" dlg:width="56" dlg:height="10" dlg:value="" dlg:align="right"/>
   <dlg:textfield dlg:id="response" dlg:left="4" dlg:top="16" dlg:width="142" dlg:height="110" dlg:tabstop="true" dlg:value="" dlg:readonly="true" dlg:multiline="true" dlg:vscroll="true"/>
   <dlg:textfield dlg:id="status" dlg:left="4" dlg:top="128" dlg:width="142" dlg:height="10" dlg:value="" dlg:readonly="true" dlg:border="none" dlg:tabstop="false"/>

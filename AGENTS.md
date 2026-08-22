@@ -13,7 +13,15 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 > **Tests:** New features and bugfixes **must** include tests.
 > - **Unit:** `tests/`, **pytest** when logic can be mocked. Test files should match the source module name (e.g. `foo.py` -> `test_foo.py`). **Always add new test cases to the matching `test_` file to maintain consistent naming and visible coverage.**
 > - **UNO / LibreOffice:** `tests/uno/` or `_uno.py` suffix via **`testing_runner.py`** (no pytest)—use **`@native_test`**, **`@setup`**, **`@teardown`**; test functions take **`ctx`**. **Follow the same module-matching rule (e.g. `foo.py` -> `test_foo_uno.py`).**
-> - **Execution Policy:** Run tests for the specific files modified plus **`make typecheck`**. Run typecheck **only at the end** — never before edits; assume the tree is already clean. Run full **`make test`** ONLY IF making large refactors or cross-cutting changes.
+> - **Execution Policy:** Do **not** run tests or **`make typecheck`** before starting work unless you need output from a test to understand a failure. Assume the tree and tests are already green. After edits, run tests for the files you changed plus **`make typecheck`**. Typecheck takes about **one minute** — wait for it; do not poll every few seconds. Run full **`make test`** ONLY IF making large refactors or cross-cutting changes.
+
+> [!TIP]
+> **When unsure of LibreOffice / UNO API behavior, inspect it directly!**
+> Do not guess, add layers of speculative fallback code, or flail. You have a full running LibreOffice instance and a fast native test runner:
+> ```bash
+> .venv/bin/python plugin/testing_runner.py tests/chatbot/test_hamburger_menu_uno.py
+> ```
+> See `tests/chatbot/test_hamburger_menu_uno.py` as an example: write a quick `@native_test` function (takes `ctx`), instantiate the UNO service, and inspect `dir(obj)` or test the exact call directly. In seconds you get the real runtime methods, argument counts, and types.
 
 > [!IMPORTANT]
 > **Comments:** Write why this code is there for the reader who would otherwise be **lost**. **Good comments are the bridge** from opaque to understandable and maintainable code. Some files have no comments: inserting footnotes is standard, little different from other UNO objects. Meanwhile some comments are critical to understanding why the code is there. Write clear, short comments.

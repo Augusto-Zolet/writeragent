@@ -1,0 +1,59 @@
+# WriterAgent - AI Writing Assistant for LibreOffice
+# Copyright (c) 2026 KeithCu
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for the hamburger popup menu."""
+
+from unittest.mock import MagicMock, patch
+
+from plugin.chatbot.hamburger_menu import show_hamburger_menu
+
+
+class TestHamburgerMenu:
+    def test_show_hamburger_menu_none_ctx(self):
+        # Should cleanly do nothing when ctx is None
+        show_hamburger_menu(None, None, MagicMock())
+
+    def test_show_hamburger_menu_executes_selected_action(self):
+        ctx = MagicMock()
+        smgr = MagicMock()
+        popup = MagicMock()
+        ctx.getServiceManager.return_value = smgr
+        smgr.createInstanceWithContext.return_value = popup
+
+        # Simulate user selecting item ID 1 (Extend Selection)
+        popup.execute.return_value = 1
+
+        button_ctrl = MagicMock()
+        pos_size = MagicMock(X=76, Y=2, Width=16, Height=12)
+        button_ctrl.getPosSize.return_value = pos_size
+        button_ctrl.getPeer.return_value = MagicMock()
+
+        frame = MagicMock()
+        mock_handler = MagicMock()
+
+        with patch("plugin.chatbot.hamburger_menu.get_action_handler", return_value=mock_handler) as mock_get_handler:
+            with patch("plugin.chatbot.hamburger_menu.is_writer", return_value=True), patch("plugin.chatbot.hamburger_menu.is_calc", return_value=False), patch("plugin.chatbot.hamburger_menu.is_draw", return_value=False):
+                show_hamburger_menu(ctx, frame, button_ctrl)
+                mock_get_handler.assert_called_with("chatbot.extend_selection")
+                mock_handler.assert_called_once_with(frame)
+
+    def test_show_hamburger_menu_calc_includes_calc_items(self):
+        ctx = MagicMock()
+        smgr = MagicMock()
+        popup = MagicMock()
+        ctx.getServiceManager.return_value = smgr
+        smgr.createInstanceWithContext.return_value = popup
+        popup.execute.return_value = 0  # Cancelled
+
+        button_ctrl = MagicMock()
+        button_ctrl.getPosSize.return_value = MagicMock(X=76, Y=2, Width=16, Height=12)
+        button_ctrl.getPeer.return_value = MagicMock()
+
+        frame = MagicMock()
+
+        with patch("plugin.chatbot.hamburger_menu.is_writer", return_value=False), patch("plugin.chatbot.hamburger_menu.is_calc", return_value=True), patch("plugin.chatbot.hamburger_menu.is_draw", return_value=False):
+            show_hamburger_menu(ctx, frame, button_ctrl)
+            # Verify insertItem was called on popup
+            assert popup.insertItem.call_count > 5
+

@@ -36,6 +36,10 @@ def _xdl_snapshot():
     """Positions from extension/Dialogs/ChatPanelDialog.xdl."""
     return {
         "btn_settings": (4, 2, 16, 12),
+        "btn_python": (22, 2, 16, 12),
+        "btn_latex": (40, 2, 16, 12),
+        "btn_search": (58, 2, 16, 12),
+        "btn_hamburger": (76, 2, 16, 12),
         "response": (4, 16, 142, 110),
         "status": (4, 128, 142, 10),
         "query_label": (4, 140, 142, 10),
@@ -154,8 +158,8 @@ class TestPanelResizeListenerIntegration:
         assert response.x + response.width <= 180 - 4
 
 
-class TestSettingsButtonListener:
-    def test_on_action_performed_calls_main_settings_handler(self):
+class TestSidebarHeaderButtonListeners:
+    def test_settings_button_listener(self):
         from plugin.chatbot.panel import SettingsButtonListener
 
         mock_handler = MagicMock()
@@ -163,4 +167,49 @@ class TestSettingsButtonListener:
             listener = SettingsButtonListener()
             listener.on_action_performed(MagicMock())
             mock_handler.assert_called_once()
+
+    def test_python_button_listener(self):
+        from plugin.chatbot.panel import PythonButtonListener
+
+        mock_handler = MagicMock()
+        with patch("plugin.framework.main_shared.get_action_handler", return_value=mock_handler):
+            listener = PythonButtonListener()
+            listener.on_action_performed(MagicMock())
+            mock_handler.assert_called_once()
+
+    def test_latex_button_listener(self):
+        from plugin.chatbot.panel import LatexButtonListener
+
+        mock_handler = MagicMock()
+        with patch("plugin.framework.main_shared.get_action_handler", return_value=mock_handler):
+            listener = LatexButtonListener()
+            listener.on_action_performed(MagicMock())
+            mock_handler.assert_called_once()
+
+    def test_search_button_listener(self):
+        from plugin.chatbot.panel import SearchButtonListener
+
+        mock_handler = MagicMock()
+        with patch("plugin.framework.main_shared.get_action_handler", return_value=mock_handler):
+            listener = SearchButtonListener()
+            listener.on_action_performed(MagicMock())
+            mock_handler.assert_called_once()
+
+    def test_python_cell_button_listener(self):
+        from plugin.chatbot.panel import PythonCellButtonListener
+
+        mock_handler = MagicMock()
+        with patch("plugin.framework.main_shared.get_action_handler", return_value=mock_handler):
+            listener = PythonCellButtonListener()
+            listener.on_action_performed(MagicMock())
+            mock_handler.assert_called_once()
+
+    def test_hamburger_button_listener(self):
+        from plugin.chatbot.panel import HamburgerButtonListener
+
+        with patch("plugin.chatbot.hamburger_menu.show_hamburger_menu") as mock_show:
+            listener = HamburgerButtonListener()
+            listener.on_action_performed(MagicMock())
+            mock_show.assert_called_once()
+
 

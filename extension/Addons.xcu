@@ -331,66 +331,7 @@
     </node>
     <node oor:name="OfficeToolBar">
       <node oor:name="org.extension.writeragent.toolbar" oor:op="replace">
-        <prop oor:name="Title" oor:type="xs:string">
-          <value xml:lang="en-US">WriterAgent</value>
-        </prop>
         <node oor:name="t1" oor:op="replace">
-          <prop oor:name="URL">
-            <value>org.extension.writeragent:scripting.run_python_dialog</value>
-          </prop>
-          <prop oor:name="Title">
-            <value xml:lang="en-US">Run Python Script...</value>
-          </prop>
-          <prop oor:name="Context" oor:type="xs:string">
-            <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
-          </prop>
-          <prop oor:name="Target" oor:type="xs:string">
-            <value>_self</value>
-          </prop>
-          <prop oor:name="ImageIdentifier" oor:type="xs:string">
-            <value />
-          </prop>
-        </node>
-        <node oor:name="t2" oor:op="replace">
-          <prop oor:name="URL">
-            <value>org.extension.writeragent:writer.insert_latex_dialog</value>
-          </prop>
-          <prop oor:name="Title">
-            <value xml:lang="en-US">Insert LaTeX Math...</value>
-          </prop>
-          <prop oor:name="Context" oor:type="xs:string">
-            <value>com.sun.star.text.TextDocument</value>
-          </prop>
-          <prop oor:name="Target" oor:type="xs:string">
-            <value>_self</value>
-          </prop>
-          <prop oor:name="ImageIdentifier" oor:type="xs:string">
-            <value />
-          </prop>
-        </node>
-        <node oor:name="t3" oor:op="replace">
-          <prop oor:name="URL">
-            <value>org.extension.writeragent:embeddings.search_dialog</value>
-          </prop>
-          <prop oor:name="Title">
-            <value xml:lang="en-US">Search Nearby Files...</value>
-          </prop>
-          <prop oor:name="Context" oor:type="xs:string">
-            <value>com.sun.star.sheet.SpreadsheetDocument,com.sun.star.text.GlobalDocument,com.sun.star.text.TextDocument,com.sun.star.text.WebDocument,com.sun.star.drawing.DrawingDocument,com.sun.star.presentation.PresentationDocument</value>
-          </prop>
-          <prop oor:name="Target" oor:type="xs:string">
-            <value>_self</value>
-          </prop>
-          <prop oor:name="ImageIdentifier" oor:type="xs:string">
-            <value />
-          </prop>
-        </node>
-      </node>
-      <node oor:name="org.extension.writeragent.review_toolbar" oor:op="replace">
-        <prop oor:name="Title" oor:type="xs:string">
-          <value xml:lang="en-US">WriterAgent Review</value>
-        </prop>
-        <node oor:name="r1" oor:op="replace">
           <prop oor:name="URL">
             <value>org.extension.writeragent:writer.review_prev</value>
           </prop>
@@ -407,7 +348,7 @@
             <value />
           </prop>
         </node>
-        <node oor:name="r2" oor:op="replace">
+        <node oor:name="t2" oor:op="replace">
           <prop oor:name="URL">
             <value>org.extension.writeragent:writer.review_next</value>
           </prop>
@@ -429,7 +370,7 @@
             <value>private:separator</value>
           </prop>
         </node>
-        <node oor:name="r3" oor:op="replace">
+        <node oor:name="t3" oor:op="replace">
           <prop oor:name="URL">
             <value>org.extension.writeragent:writer.review_accept_all</value>
           </prop>
@@ -446,7 +387,7 @@
             <value />
           </prop>
         </node>
-        <node oor:name="r4" oor:op="replace">
+        <node oor:name="t4" oor:op="replace">
           <prop oor:name="URL">
             <value>org.extension.writeragent:writer.review_reject_all</value>
           </prop>
@@ -489,29 +430,16 @@
           </prop>
         </node>
       </node>
-      <node oor:name="org.extension.writeragent.writer.insert_latex_dialog.img" oor:op="replace">
+      <node oor:name="org.extension.writeragent.scripting.edit_python_cell.img" oor:op="replace">
         <prop oor:name="URL">
-          <value>org.extension.writeragent:writer.insert_latex_dialog</value>
+          <value>org.extension.writeragent:scripting.edit_python_cell</value>
         </prop>
         <node oor:name="UserDefinedImages">
           <prop oor:name="ImageSmallURL">
-            <value>%origin%/assets/math_32.png</value>
+            <value>%origin%/assets/python_cell_32.png</value>
           </prop>
           <prop oor:name="ImageBigURL">
-            <value>%origin%/assets/math_32.png</value>
-          </prop>
-        </node>
-      </node>
-      <node oor:name="org.extension.writeragent.embeddings.search_dialog.img" oor:op="replace">
-        <prop oor:name="URL">
-          <value>org.extension.writeragent:embeddings.search_dialog</value>
-        </prop>
-        <node oor:name="UserDefinedImages">
-          <prop oor:name="ImageSmallURL">
-            <value>%origin%/assets/search_32.png</value>
-          </prop>
-          <prop oor:name="ImageBigURL">
-            <value>%origin%/assets/search_32.png</value>
+            <value>%origin%/assets/python_cell_32.png</value>
           </prop>
         </node>
       </node>

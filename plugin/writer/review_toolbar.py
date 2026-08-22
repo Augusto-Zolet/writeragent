@@ -17,8 +17,8 @@ from com.sun.star.util import XModifyListener
 
 log = logging.getLogger("writeragent.review_toolbar")
 
-# LO derives this from the OfficeToolBar node oor:name="org.extension.writeragent.review_toolbar".
-TOOLBAR_RESOURCE_URL = "private:resource/toolbar/addon_org.extension.writeragent.review_toolbar"
+# LO derives this from the OfficeToolBar node oor:name="org.extension.writeragent.toolbar".
+TOOLBAR_RESOURCE_URL = "private:resource/toolbar/addon_org.extension.writeragent.toolbar"
 
 _doc_listener = None
 _modify_listeners: dict[str, Any] = {}  # RuntimeUID -> _ReviewModifyListener (removed on close)

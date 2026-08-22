@@ -12,14 +12,6 @@
     <node oor:name="States">
       <node oor:name="private:resource/toolbar/addon_org.extension.writeragent.toolbar" oor:op="replace">
         <prop oor:name="UIName" oor:type="xs:string">
-          <value xml:lang="en-US">WriterAgent</value>
-        </prop>
-        <prop oor:name="Visible" oor:type="xs:boolean">
-          <value>true</value>
-        </prop>
-      </node>
-      <node oor:name="private:resource/toolbar/addon_org.extension.writeragent.review_toolbar" oor:op="replace">
-        <prop oor:name="UIName" oor:type="xs:string">
           <value xml:lang="en-US">WriterAgent Review</value>
         </prop>
         <prop oor:name="Visible" oor:type="xs:boolean">

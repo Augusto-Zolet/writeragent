@@ -815,19 +815,51 @@ class ChatPanelElement(unohelper.Base, XUIElement):
         self.session = self.doc_session
 
     def _wire_buttons(self, controls, model, initial_mode, mode_flags, toggle_image_ui):
-        """Wires up the Send, Stop, Clear, Settings, and chat mode selector."""
-        from plugin.chatbot.panel import ClearButtonListener, SendButtonListener, SettingsButtonListener, StopButtonListener
+        """Wires up the Send, Stop, Clear, Settings, Python, LaTeX, Search, and chat mode selector."""
+        from plugin.chatbot.panel import (
+            ClearButtonListener,
+            HamburgerButtonListener,
+            LatexButtonListener,
+            PythonButtonListener,
+            PythonCellButtonListener,
+            SearchButtonListener,
+            SendButtonListener,
+            SettingsButtonListener,
+            StopButtonListener,
+        )
+        from plugin.doc.doc_type import is_calc
+        from plugin.framework.uno_context import get_extension_url
 
-        if controls.get("btn_settings"):
-            try:
-                bs_ctrl = controls["btn_settings"]
-                if hasattr(bs_ctrl, "getModel"):
-                    bs_m = bs_ctrl.getModel()
-                    if bs_m and hasattr(bs_m, "HelpText"):
-                        bs_m.HelpText = _("Settings")
-                bs_ctrl.addActionListener(SettingsButtonListener(self.ctx))
-            except Exception as e:
-                log.exception("Settings button wiring error: %s", e)
+        ext_url = get_extension_url(self.ctx)
+        calc_doc = is_calc(model)
+
+        if calc_doc:
+            third_btn = ("btn_latex", PythonCellButtonListener(self.ctx), _("Edit Python in Cell..."), "assets/python_cell_32.png", "")
+        else:
+            third_btn = ("btn_latex", LatexButtonListener(self.ctx), _("Insert LaTeX Math..."), None, "√x")
+
+        for btn_id, listener_obj, tooltip_text, icon_rel_path, label_text in (
+            ("btn_settings", SettingsButtonListener(self.ctx), _("Settings"), None, None),
+            ("btn_python", PythonButtonListener(self.ctx), _("Run Python Script..."), "assets/python_32.png", ""),
+            third_btn,
+            ("btn_search", SearchButtonListener(self.ctx), _("Search Nearby Files..."), None, None),
+            ("btn_hamburger", HamburgerButtonListener(self.ctx, self.xFrame), _("More actions..."), None, None),
+        ):
+            if controls.get(btn_id):
+                try:
+                    btn_ctrl = controls[btn_id]
+                    if hasattr(btn_ctrl, "getModel"):
+                        btn_m = btn_ctrl.getModel()
+                        if btn_m:
+                            if hasattr(btn_m, "HelpText"):
+                                btn_m.HelpText = tooltip_text
+                            if label_text is not None and hasattr(btn_m, "Label"):
+                                btn_m.Label = label_text
+                            if icon_rel_path and ext_url and hasattr(btn_m, "ImageURL"):
+                                btn_m.ImageURL = ext_url.rstrip("/") + "/" + icon_rel_path
+                    btn_ctrl.addActionListener(listener_obj)
+                except Exception as e:
+                    log.exception("Button %s wiring error: %s", btn_id, e)
 
         send_listener = None
         try:

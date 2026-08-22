@@ -1253,3 +1253,76 @@ class SettingsButtonListener(BaseActionListener):
 
         open_dialog_safely(settings_box, "Failed to open settings")
 
+
+class PythonButtonListener(BaseActionListener):
+    """Listener for the Run Python Script button in the Chat sidebar."""
+
+    def __init__(self, ctx=None):
+        self.ctx = ctx
+
+    def on_action_performed(self, rEvent):
+        from plugin.framework.main_shared import get_action_handler
+
+        handler = get_action_handler("scripting.run_python_dialog")
+        if handler:
+            handler()
+
+
+class LatexButtonListener(BaseActionListener):
+    """Listener for the Insert LaTeX Math button in the Chat sidebar."""
+
+    def __init__(self, ctx=None):
+        self.ctx = ctx
+
+    def on_action_performed(self, rEvent):
+        from plugin.framework.main_shared import get_action_handler
+
+        handler = get_action_handler("writer.insert_latex_dialog")
+        if handler:
+            handler()
+
+
+class SearchButtonListener(BaseActionListener):
+    """Listener for the Search Nearby Files button in the Chat sidebar."""
+
+    def __init__(self, ctx=None):
+        self.ctx = ctx
+
+    def on_action_performed(self, rEvent):
+        from plugin.framework.main_shared import get_action_handler
+
+        handler = get_action_handler("embeddings.search_dialog")
+        if handler:
+            handler()
+
+
+class PythonCellButtonListener(BaseActionListener):
+    """Listener for the Edit Python in Cell button in the Calc Chat sidebar."""
+
+    def __init__(self, ctx=None):
+        self.ctx = ctx
+
+    def on_action_performed(self, rEvent):
+        from plugin.framework.main_shared import get_action_handler
+
+        handler = get_action_handler("scripting.edit_python_cell")
+        if handler:
+            handler()
+
+
+class HamburgerButtonListener(BaseActionListener):
+    """Listener for the Hamburger menu button in the Chat sidebar."""
+
+    def __init__(self, ctx=None, frame=None):
+        self.ctx = ctx
+        self._frame = frame
+
+    def on_action_performed(self, rEvent):
+        from plugin.chatbot.hamburger_menu import show_hamburger_menu
+
+        button_ctrl = getattr(rEvent, "Source", None)
+        show_hamburger_menu(self.ctx, self._frame, button_ctrl)
+
+
+
+
