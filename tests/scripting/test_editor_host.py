@@ -293,3 +293,62 @@ def test_launch_monaco_spawn_oserror_uses_product_display_name():
     box.assert_called_once()
     assert box.call_args[0][1] == "LibrePy"
     assert box.call_args.kwargs.get("report_title") == "Python editor spawn failed"
+
+
+def test_scripts_manager_js_guards_save_and_resets_on_load():
+    js_path = os.path.join(_ASSETS_DIR, "scripts_manager.js")
+    assert os.path.isfile(js_path)
+    with open(js_path, "r", encoding="utf-8") as f:
+        js_content = f.read()
+
+    # Invariants:
+    # 1. Track currentMode in scripts_manager.js
+    assert "currentMode" in js_content
+    # 2. Guard btn-save listener to only intercept in run_script mode
+    assert "isRunScriptActive" in js_content or 'currentMode === "run_script"' in js_content
+    # 3. Reset dropdown state on non-run_script load
+    assert 'selectedScriptName = ""' in js_content
+    assert 'currentSelectedName = ""' in js_content
+
+
+def test_mode_switch_from_run_script_to_calc_cell_dispatches_save():
+    from plugin.scripting.editor_host import EditorSessionState
+
+    editor = PersistentEditor()
+    cell_saved: list[dict] = []
+
+    def on_cell_save(code: str, save_as_plain: bool, data_binding: str | None, action: str):
+        cell_saved.append({"code": code, "plain": save_as_plain, "binding": data_binding, "action": action})
+        return {"type": "saved", "ok": True, "status_ok_text": "Saved."}
+
+    # Simulate run_script session registering then ending (closing)
+    run_state = EditorSessionState("sid-run", "run_script", {"resource": "run_script"})
+    editor.register_session(run_state)
+    editor.end_session("sid-run", call_closed=True)
+
+    # Now open calc_cell session
+    cell_state = EditorSessionState("sid-cell", "calc_cell", {"cell_address": "A1"}, on_save=on_cell_save)
+    editor.register_session(cell_state)
+    editor.executor = MagicMock()
+    editor.executor.execute.side_effect = lambda fn, timeout=None: fn()
+
+    sent: list[tuple] = []
+    editor.send = lambda msg, session=None: sent.append((msg, session))  # type: ignore[method-assign]
+
+    # Dispatch incoming save from cell editor
+    editor._dispatch_incoming({
+        "type": "save",
+        "session_id": "sid-cell",
+        "code": "result = 42",
+        "save_as_plain": False,
+        "data_binding": "",
+        "action": "cell_save",
+    })
+
+    assert len(cell_saved) == 1
+    assert cell_saved[0]["code"] == "result = 42"
+    assert cell_saved[0]["action"] == "cell_save"
+    assert len(sent) == 1
+    assert sent[0][0]["type"] == "saved"
+    assert sent[0][0]["status_ok_text"] == "Saved."
+

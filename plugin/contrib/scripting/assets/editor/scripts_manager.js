@@ -17,6 +17,7 @@
   var currentSelectedName = "";
   var currentOrigin = "user";
   var selectedScriptName = "";
+  var currentMode = "";
   var syncDropdownOnly = false;
   var documentAvailable = false;
   var documentReadonly = false;
@@ -207,7 +208,8 @@
       }
       applyScriptManagerChrome();
 
-      var isRunScript = msg.mode === "run_script";
+      currentMode = msg.mode || "calc_cell";
+      var isRunScript = currentMode === "run_script";
       var container = getManagerContainer();
       if (container) {
         container.classList.toggle("toolbar-hidden", !isRunScript);
@@ -224,6 +226,15 @@
           window.pywebview.api.request_scripts();
           initialRequested = true;
         }
+      } else {
+        selectedScriptName = "";
+        currentSelectedName = "";
+        var select = getSelectEl();
+        if (select) {
+          select.innerHTML = "";
+          select.value = "";
+        }
+        closeScriptModal();
       }
     } else if (msg.type === "scripts_list") {
       applyScriptsList(msg);
@@ -497,7 +508,7 @@
     setupInterception();
     if (window.pywebview && window.pywebview.api && window.pywebview.api.request_scripts) {
       var btnRun = document.getElementById("btn-run");
-      var isRunScript = btnRun && !btnRun.classList.contains("toolbar-hidden");
+      var isRunScript = (currentMode === "run_script") || (btnRun && !btnRun.classList.contains("toolbar-hidden"));
       if (isRunScript) {
         var container = getManagerContainer();
         if (container) container.classList.remove("toolbar-hidden");
@@ -568,6 +579,11 @@
     var btnSave = document.getElementById("btn-save");
     if (btnSave) {
       btnSave.addEventListener("click", function(event) {
+        var container = getManagerContainer();
+        var isRunScriptActive = currentMode === "run_script" && container && !container.classList.contains("toolbar-hidden");
+        if (!isRunScriptActive) {
+          return;
+        }
         var selectEl = getSelectEl();
         var activeScript = selectEl ? selectEl.value : "";
         if (activeScript) {
