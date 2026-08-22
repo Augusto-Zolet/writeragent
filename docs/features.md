@@ -2,6 +2,8 @@
 
 Product overview lives in the root [README](../README.md). This page maps each area to deeper topic docs.
 
+**Getting started:** [Install and usage](install-troubleshooting.md) (menus, Settings, Harper grammar, `writeragent_debug.log`).
+
 ## Writer
 
 | Topic | Docs |

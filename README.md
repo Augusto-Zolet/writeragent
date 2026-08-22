@@ -57,11 +57,13 @@ Full catalog with doc links: **[docs/features.md](docs/features.md)**.
 
 ## Install
 
-1. Download **WriterAgent.oxt** (full AI suite) or **LibrePy.oxt** (Python/NumPy + analysis / OCR) from [Release Assets](https://github.com/KeithCu/writeragent/releases/latest), then double-click to install.
-2. Open **WriterAgent → Settings** and set an OpenAI-compatible endpoint and model (e.g. `http://localhost:11434` for [Ollama](https://ollama.com/)).
+1. Download **WriterAgent.oxt** (full AI suite) or **LibrePy.oxt** (Python/NumPy + analysis / OCR) from [Release Assets](https://github.com/KeithCu/writeragent/releases/latest), then double-click to install. Restart LibreOffice.
+2. Open a Writer (or Calc / Draw) document. On that window’s menubar, choose **WriterAgent → Settings** and set an OpenAI-compatible endpoint and model (e.g. `http://localhost:11434` for [Ollama](https://ollama.com/)).
 3. Open the sidebar: **View → Sidebar → WriterAgent**, or use **Ctrl+Q** / **Ctrl+E** for extend / edit selection.
 
 **No GPU?** Try [OpenRouter free models](https://openrouter.ai/collections/free-models) or [Together.AI](https://www.together.ai/)’s free tier.
+
+**[Install and usage](docs/install-troubleshooting.md)** — which `.oxt` to install, menus and sidebar, Harper grammar, debug log location.
 
 ---
 
