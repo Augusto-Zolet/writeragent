@@ -79,7 +79,7 @@ When something fails, the log is **`writeragent_debug.log`**, in the same folder
 
 | OS | Typical locations |
 |----|-------------------|
-| **Linux** | `~/.config/libreoffice/4/user/config/writeragent_debug.log` or `~/.config/libreoffice/4/user/writeragent_debug.log` (some builds use `24` instead of `4`) |
+| **Linux** | `~/.config/libreoffice/4/user/config/writeragent_debug.log` |
 | **macOS** | `~/Library/Application Support/LibreOffice/4/user/config/writeragent_debug.log` (or `…/4/user/`) |
 | **Windows** | `%APPDATA%\LibreOffice\4\user\config\writeragent_debug.log` (or `…\4\user\`) |
 
