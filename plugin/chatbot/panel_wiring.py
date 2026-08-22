@@ -87,6 +87,7 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):  
         "aspect_ratio_selector": get_optional("aspect_ratio_selector"),
         "base_size_input": get_optional("base_size_input"),
         "base_size_label": get_optional("base_size_label"),
+        "btn_settings": get_optional("btn_settings"),
         "response_label": get_optional("response_label"),
         "query_label": get_optional("query_label"),
         "backend_indicator": get_optional("backend_indicator"),

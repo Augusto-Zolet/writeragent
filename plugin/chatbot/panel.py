@@ -1229,3 +1229,27 @@ class ClearButtonListener(BaseActionListener):
             set_control_text(self.response_control, text)
         if self.status_control:
             self.status_control.setText("")
+
+
+# ---------------------------------------------------------------------------
+# SettingsButtonListener - opens Settings dialog from sidebar
+# ---------------------------------------------------------------------------
+
+
+class SettingsButtonListener(BaseActionListener):
+    """Listener for the Settings button in the Chat sidebar."""
+
+    def __init__(self, ctx=None):
+        self.ctx = ctx
+
+    def on_action_performed(self, rEvent):
+        from plugin.framework.main_shared import get_action_handler, open_dialog_safely
+
+        handler = get_action_handler("main.settings")
+        if handler:
+            handler()
+            return
+        from plugin.chatbot.dialog_views import settings_box
+
+        open_dialog_safely(settings_box, "Failed to open settings")
+

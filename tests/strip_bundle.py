@@ -62,3 +62,23 @@ def expect_pre_or_body(
         assert result == body_result
         return result
     pytest.fail("expected deal.PreContractError or a body guard, got %r" % (result,))
+
+
+def is_release_build() -> bool:
+    """True when running against a stripped release bundle."""
+    try:
+        from plugin.framework import thread_guard as tg
+
+        if not hasattr(tg, "_designated_main_thread"):
+            return True
+    except Exception:
+        pass
+    repo_root = Path(__file__).resolve().parent.parent
+    return not (repo_root / "scripts").is_dir()
+
+
+def skip_if_release_build(reason: str = "Test skipped in release builds") -> None:
+    """Skip test execution if running in a stripped release bundle."""
+    if is_release_build():
+        pytest.skip(reason)
+

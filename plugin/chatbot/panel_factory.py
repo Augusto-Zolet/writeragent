@@ -815,8 +815,19 @@ class ChatPanelElement(unohelper.Base, XUIElement):
         self.session = self.doc_session
 
     def _wire_buttons(self, controls, model, initial_mode, mode_flags, toggle_image_ui):
-        """Wires up the Send, Stop, Clear, and chat mode selector."""
-        from plugin.chatbot.panel import ClearButtonListener, SendButtonListener, StopButtonListener
+        """Wires up the Send, Stop, Clear, Settings, and chat mode selector."""
+        from plugin.chatbot.panel import ClearButtonListener, SendButtonListener, SettingsButtonListener, StopButtonListener
+
+        if controls.get("btn_settings"):
+            try:
+                bs_ctrl = controls["btn_settings"]
+                if hasattr(bs_ctrl, "getModel"):
+                    bs_m = bs_ctrl.getModel()
+                    if bs_m and hasattr(bs_m, "HelpText"):
+                        bs_m.HelpText = _("Settings")
+                bs_ctrl.addActionListener(SettingsButtonListener(self.ctx))
+            except Exception as e:
+                log.exception("Settings button wiring error: %s", e)
 
         send_listener = None
         try:

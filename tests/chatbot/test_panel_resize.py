@@ -35,6 +35,7 @@ def _mock_control(x, y, width, height):
 def _xdl_snapshot():
     """Positions from extension/Dialogs/ChatPanelDialog.xdl."""
     return {
+        "btn_settings": (4, 2, 16, 12),
         "response": (4, 16, 142, 110),
         "status": (4, 128, 142, 10),
         "query_label": (4, 140, 142, 10),
@@ -151,3 +152,15 @@ class TestPanelResizeListenerIntegration:
         layouts = compute_chat_panel_layout(180, 500, _xdl_snapshot())
         response = layouts["response"]
         assert response.x + response.width <= 180 - 4
+
+
+class TestSettingsButtonListener:
+    def test_on_action_performed_calls_main_settings_handler(self):
+        from plugin.chatbot.panel import SettingsButtonListener
+
+        mock_handler = MagicMock()
+        with patch("plugin.framework.main_shared.get_action_handler", return_value=mock_handler):
+            listener = SettingsButtonListener()
+            listener.on_action_performed(MagicMock())
+            mock_handler.assert_called_once()
+
