@@ -371,11 +371,25 @@ def replace_thread_guard_implementation(bundle_path: str, dry_run: bool = False)
 
     stubs = '''# Minimal stubs for production/release bundles to remove runtime check overhead.
 import threading
-from typing import Any
+from contextlib import contextmanager
+from typing import Any, Generator
 
 GUARD_ON = False
 
 _bg = threading.local()
+_sync_host = threading.local()
+
+@contextmanager
+def sync_host_dispatch() -> Generator[None, None, None]:
+    prev = getattr(_sync_host, "active", False)
+    _sync_host.active = True
+    try:
+        yield
+    finally:
+        _sync_host.active = prev
+
+def in_sync_host_dispatch() -> bool:
+    return getattr(_sync_host, "active", False)
 
 def assert_main_thread(what: str) -> None:
     pass
@@ -431,6 +445,23 @@ def _unwrap_uno(obj: Any) -> Any:
 
 def guard_uno(obj: Any) -> Any:
     return obj
+
+__all__ = [
+    "guard_uno",
+    "assert_main_thread",
+    "main_thread_only",
+    "background",
+    "sync_host_dispatch",
+    "in_sync_host_dispatch",
+    "set_background_task",
+    "get_background_task_name",
+    "set_designated_main_thread",
+    "get_designated_main_thread",
+    "on_main_thread",
+    "_wrap_uno",
+    "_unwrap_uno",
+    "GUARD_ON",
+]
 '''
     action = "Dry run: would replace" if dry_run else "Replacing"
     print(f"  {action} {target_file} with minimal stubs...")

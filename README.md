@@ -61,9 +61,9 @@ Full catalog with doc links: **[docs/features.md](docs/features.md)**.
 2. Open a Writer (or Calc / Draw) document. On that window’s menubar, choose **WriterAgent → Settings** and set an OpenAI-compatible endpoint and model (e.g. `http://localhost:11434` for [Ollama](https://ollama.com/)).
 3. Open the sidebar: **View → Sidebar → WriterAgent**, or use **Ctrl+Q** / **Ctrl+E** for extend / edit selection.
 
-**No GPU?** Try [OpenRouter free models](https://openrouter.ai/collections/free-models) or [Together.AI](https://www.together.ai/)’s free tier.
+**[Install and troubleshooting](docs/install-troubleshooting.md)** — which `.oxt` to install, menus and sidebar, Harper grammar, debug log location.
 
-**[Install and usage](docs/install-troubleshooting.md)** — which `.oxt` to install, menus and sidebar, Harper grammar, debug log location.
+**No GPU?** Try [OpenRouter free models](https://openrouter.ai/collections/free-models) or [Together.AI](https://www.together.ai/)’s free tier.
 
 ---
 

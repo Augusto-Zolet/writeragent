@@ -392,6 +392,16 @@ def test_replace_thread_guard_implementation(tmp_path: Path) -> None:
     stubbed = tg_file.read_text(encoding="utf-8")
     assert "GUARD_ON = False" in stubbed
     assert "def assert_main_thread(what: str) -> None:" in stubbed
-    assert "def guard_uno(obj):" in stubbed
-    assert "def background(fn):" in stubbed
+    assert "def guard_uno(obj: Any) -> Any:" in stubbed
+    assert "def background(fn: Any) -> Any:" in stubbed
+    assert "def sync_host_dispatch()" in stubbed
+    assert "def in_sync_host_dispatch() -> bool:" in stubbed
     assert "raise RuntimeError" not in stubbed
+
+    # Verify stub executes cleanly and provides functional sync_host_dispatch
+    ns: dict = {}
+    exec(stubbed, ns)
+    assert ns["in_sync_host_dispatch"]() is False
+    with ns["sync_host_dispatch"]():
+        assert ns["in_sync_host_dispatch"]() is True
+    assert ns["in_sync_host_dispatch"]() is False

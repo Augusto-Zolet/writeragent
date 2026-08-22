@@ -29,16 +29,16 @@ It is critical to understand why our formal verification toolchain ([`docs/forma
 - CrossHair executes functions under symbolic execution **in a single thread**. It models neither operating system threads, the Python GIL, nor UNO's C++ thread-affinity constraints. There is no `@deal.pre` contract that can express "this PyUNO object pointer may only be dereferenced from `threading.main_thread()`."
 - **Thread affinity is an effect / typestate property** ("which thread is the CPU executing on when this instruction runs"), not a data value property.
 
-The proper computer science model for thread affinity is **Function Coloring** (analogous to `async`/`await` in JavaScript/Python or `Send`/`!Send` in Rust):
-- **Red functions** are Main-Thread-Only (PyUNO, UI, document mutations).
-- **Blue functions** are Background Worker contexts (I/O, LLM requests, venv IPC).
-- **Yellow functions** are Synchronous Host/Bridge Dispatches (Calc `=PY()` / `=PROMPT()`, UNO event listeners, remote PyUNO calls).
+The proper computer science model for thread affinity is **Function Coloring & Execution Contexts** (analogous to `async`/`await` in JavaScript/Python or `Send`/`!Send` in Rust):
+- **Red functions** are Main-Thread-Only operations (PyUNO, UI, direct document mutations).
+- **Blue contexts** are Background Worker threads (I/O, LLM network requests, venv IPC).
+- **Yellow contexts** are Synchronous Host/Bridge Execution Contexts (Calc add-in evaluation `=PY()` / `=PROMPT()`, remote PyUNO socket dispatches).
 
-A Blue context may only transition to Red across an explicit recoloring boundary (`execute_on_main_thread`). A Yellow context is forbidden from calling blocking Red boundaries. This discipline is enforced through a combination of **runtime tripwires, thread-affine test fixtures, and static taint analysis**.
+A Blue context may transition to Red across an explicit recoloring boundary (`execute_on_main_thread`). A Yellow context is forbidden from calling blocking Red boundaries because the host/main thread is already waiting. This discipline is enforced through a combination of **runtime tripwires, thread-affine test fixtures, and static taint analysis**.
 
 ---
 
-## 3. Function Coloring & Concurrency Architecture
+## 3. Function Colors & Execution Contexts Architecture
 
 ```
   ┌─────────────────────────────────────────────────────────────┐
@@ -64,7 +64,6 @@ A Blue context may only transition to Red across an explicit recoloring boundary
   │                          YELLOW                             │
   │           (Synchronous Host/Bridge Dispatch)                │
   │  - Calc add-in formula eval: =PY(...), =PROMPT(...)         │
-  │  - UNO Event Listeners (actionPerformed, textChanged, ...)  │
   │  - Remote PyUNO bridge dispatches & XJob triggers           │
   │                                                             │
   │  INVARIANT: May run on worker threads while main thread is  │
@@ -72,20 +71,22 @@ A Blue context may only transition to Red across an explicit recoloring boundary
   └─────────────────────────────────────────────────────────────┘
 ```
 
-### The Three Concurrency Colors
+### Understanding Red vs Blue vs Yellow
 
-| Color | Context / Target | Permitted Operations | Forbidden Operations |
+| Color / Context | Execution Environment | Permitted Operations | Forbidden Operations |
 |---|---|---|---|
 | **RED** | LibreOffice Main UI Thread | Direct PyUNO calls, UI dialogs, document reads/edits, VCL pump. | Long-running blocking network calls or CPU-heavy loops (freezes UI). |
 | **BLUE** | Background Workers (`run_in_background`) | Network I/O, LLM calls, venv IPC, disk access. | Direct PyUNO access (must marshal to Red via `execute_on_main_thread`). |
-| **YELLOW** | Synchronous Host Dispatch (Calc Add-ins, Listeners) | In-memory computation, venv execution, non-blocking `post_to_main_thread`. | Calling `execute_on_main_thread` (deadlocks against waiting main thread). |
+| **YELLOW** | Synchronous Host Dispatch Context | In-memory computation, venv execution, non-blocking `post_to_main_thread`. | Calling `execute_on_main_thread` (deadlocks against waiting main thread). |
+
+**Note on Yellow as a Context**: Yellow is a dynamic **thread execution context**, not a static property of a function. Functions like `session_key()`, `confirm_unsaved_cell_edit()`, or helper routines may be executed on the main UI thread during user interaction (Red) or on a remote bridge worker thread during formula recalculation (Yellow). The runtime flag `in_sync_host_dispatch()` tracks whether the current thread is currently executing inside a synchronous host dispatch.
 
 ### The Two Foundational Facts That Make Enforcement Tractable
 
 1. **Background threads have a single birthplace**:
    All background work in WriterAgent is spawned through [`run_in_background`](../plugin/framework/worker_pool.py) (or a strictly allowlisted set of dedicated server/reader loops: `AsyncProcess` pipes, MCP server daemon, venv worker).
 2. **UNO objects have a finite set of sources**:
-   All PyUNO objects originate from the factory getters in [`plugin/framework/uno_context.py`](../plugin/framework/uno_context.py) (`get_ctx`, `get_desktop`, `get_toolkit`, `get_active_document`, `get_package_info`) and document model resolvers in [`plugin/doc/document_helpers.py`](../plugin/doc/document_helpers.py).
+   All PyUNO objects originate from factory getters in [`plugin/framework/uno_context.py`](../plugin/framework/uno_context.py) (`get_ctx`, `get_desktop`, `get_toolkit`, `get_active_document`, `get_package_info`) and document model resolvers in [`plugin/doc/document_helpers.py`](../plugin/doc/document_helpers.py).
 
 By wrapping the sources and tagging the birthplaces, we achieve complete defense-in-depth across three enforcement layers:
 
@@ -113,7 +114,7 @@ def assert_main_thread(what: str) -> None:
 ```
 - Decorates primary UNO entry points (`get_desktop`, `get_active_document`, `confirm_unsaved_cell_edit`, etc.).
 - When `GUARD_ON` is active, displays a deduplicated modal error box on the UI thread (dev builds only) and raises `RuntimeError`.
-- When `GUARD_ON` is inactive (field/release builds), logs `log.warning(msg, stack_info=True)` so call sites are captured in logs without crashing user sessions.
+- When `GUARD_ON` is inactive (e.g. `WRITERAGENT_UNO_THREAD_GUARD=0` in dev or release builds with logging), logs `log.warning(msg, stack_info=True)` so call sites are captured in logs without crashing user sessions.
 
 ### A2. Thread Tagging at Birth
 In `run_in_background`, a thread-local task name is stamped on the worker thread for the duration of the task. Pooled workers (`wa-bg-*`) clear the tag in a `finally` block so recycled threads do not carry stale task identifiers. The runtime error message explicitly names the culprit task (e.g. `"touched UNO from background task 'web-search-embeddings'"`).
@@ -125,13 +126,17 @@ Decorators only guard functions we remember to decorate. To protect arbitrary UN
 3. If a guarded proxy is passed back into a property setter on a UNO object, the proxy automatically unwraps itself (`_unwrap_uno`) to prevent wrapping overhead from leaking into LibreOffice C++.
 
 ### A4. Yellow Context Refusal (`sync_host_dispatch`)
-When Calc evaluates an add-in formula like `=PY("1+1")` or `=PROMPT(...)` via a remote PyUNO bridge, or when LibreOffice invokes a UNO listener callback, execution occurs in a **Yellow Context**:
-- Managed via `@contextmanager def sync_host_dispatch()` and `def in_sync_host_dispatch() -> bool`.
-- Inside `QueueExecutor.execute()`, if `in_sync_host_dispatch()` is True on a non-main thread, execution is **refused immediately** with:
+When Calc evaluates an add-in formula like `=PY("1+1")` or `=PROMPT(...)` via a remote PyUNO bridge, execution occurs in a **Yellow Context**:
+- **Wrapped Entry Roots**:
+  1. [`plugin/calc/python/function.py`](../plugin/calc/python/function.py): `execute_python_addin` enters `with sync_host_dispatch():`.
+  2. [`plugin/calc/prompt_function.py`](../plugin/calc/prompt_function.py): `execute_prompt_addin` enters `with sync_host_dispatch():`.
+  3. [`plugin/framework/thread_guard.py`](../plugin/framework/thread_guard.py): `_notify_thread_violation` enters `with sync_host_dispatch():`.
+- **Why UI Listeners Are NOT Wrapped**: Standard UNO listeners (e.g. `actionPerformed` in `uno_listeners.py`) execute on LibreOffice's main UI thread during interactive user operations. Wrapping them would unnecessarily tag normal UI thread execution as host dispatches.
+- **Refusal Mechanism**: Inside [`QueueExecutor.execute()`](../plugin/framework/queue_executor.py), if `in_sync_host_dispatch()` is True on a non-main thread, execution is **refused immediately** with:
   ```
   RuntimeError: marshal refused: execute_on_main_thread called from synchronous host dispatch context (deadlock hazard #402, fn=...)
   ```
-- This completely eliminates 30-second timeouts and lock inversions.
+- This prevents the 30-second timeout and lock inversion whenever the Yellow context is entered.
 
 ---
 
@@ -203,9 +208,19 @@ Parses Python ASTs across add-in and scripting boundary modules to enforce:
 2. `blocking-marshal-in-sync-dispatch`: Synchronous add-in functions (`execute_python_addin`, `execute_prompt_addin`, `session_key`) cannot contain calls to `execute_on_main_thread`.
 
 ### C3. Static Lock Hierarchy & Transition Analyzer ([`scripts/analyze_thread_deadlocks.py`](../scripts/analyze_thread_deadlocks.py))
-Builds a global function call graph across `plugin/` starting from `SYNC_HOST_ENTRYPOINTS` (`execute_python_addin`, `execute_prompt_addin`, `py`, listener callbacks like `actionPerformed`, `textChanged`, `disposing`, `trigger`).
-- Walks call edges to detect if any synchronous host dispatch can reach `BLOCKING_OPERATIONS` (`execute_on_main_thread`).
-- Uses a curated `GENERIC_METHOD_NAMES` filter to prevent false-positive call graph edges on common method names (`get`, `set`, `dispatch`, `forward`, `handle`, `step`).
+Builds a global class-aware function call graph across `plugin/` starting from `SYNC_HOST_ENTRYPOINTS`:
+- **Add-ins & Scripting Roots**: `execute_python_addin`, `execute_prompt_addin`, `py`, `python`, `prompt`, `session_key`, `_notify_thread_violation`.
+- **UNO Listener Callbacks**: `actionPerformed`, `itemStateChanged`, `textChanged`, `keyPressed`, `keyReleased`, `windowResized`, `windowMoved`, `windowShown`, `windowHidden`, `documentEventOccured`, `queryClosing`, `notifyClosing`, `queryTermination`, `notifyTermination`, `activeSpreadsheetChanged`.
+- **Job & Dispatch Interfaces**: `trigger`, `disposing`, `queryDispatch`.
+
+**Class-Aware Resolution & Suppression**:
+- `CallGraphBuilder` tracks enclosing `ClassDef` blocks to resolve `self.method()` within their respective classes, preventing false cross-class collisions.
+- **Inline False-Positive Marking (`# nodeadlock`)**: When an interactive UI event handler (such as a sidebar button `actionPerformed`) initiates an asynchronous dispatch chain that marshals updates, developers annotate the handler with `# nodeadlock: <reason>`:
+  ```python
+  def on_action_performed(self, rEvent):  # nodeadlock: UI click handler on main thread
+      self.dispatch(SendEvent(SendEventKind.SEND_CLICKED))
+  ```
+  The deadlock analyzer skips alerting on paths originating from or passing through annotated nodes.
 
 ---
 
@@ -223,9 +238,9 @@ All UNO objects must be wrapped at birth using `guard_uno(obj)` or obtained via 
 | Scripting Calc Resolver | `plugin/scripting/document_scripts.py` | `get_calc_document_from_ctx()` wraps active sheet document. |
 | Calc Add-in Doc Lookup | `plugin/calc/python/function.py` | `_get_calc_doc()` returns `None` off-main (#402), guards on-main. |
 | Calc Cell Editor Selection | `plugin/calc/python/editor.py` | `_get_active_calc_cell()` guards active cell interface. |
-| Graphic Export Bridge | `plugin/calc/image_tools.py` | `export_graphic_to_bytes()` resolves via `get_ctx()`. |
+| Graphic Export Bridge | `plugin/writer/images/image_tools.py` | `export_graphic_to_bytes()` resolves via `get_ctx()`. |
 | Locale Resolution | `plugin/framework/i18n.py` | `get_lo_locale()` uses `get_ctx()` on-main, falls back to `en_US` off-main. |
-| MCP Send Handlers | `plugin/mcp/server.py` | Context resolution uses `get_ctx()`, not raw bootstrap context. |
+| MCP Context Resolution | `plugin/mcp/mcp_protocol.py` | Context resolution uses `get_ctx()`, not raw bootstrap context. |
 
 ### Intentionally Unwrapped Boundaries (By Design)
 - `QueueExecutor._get_async_callback`: Unwraps context before creating `com.sun.star.awt.AsyncCallback` service to avoid bootstrap deadlocks during executor initialization.
@@ -242,12 +257,13 @@ All UNO objects must be wrapped at birth using `guard_uno(obj)` or obtained via 
   3. LibreOffice's main thread was synchronously blocked waiting for the remote UNO RPC dispatch to finish, so it could not pump the `QueueExecutor` work queue.
   4. `session_key()`, `get_python_init_kwargs()`, and `_diagnostics_workbook_key()` called `get_desktop` without checking `on_main_thread()`, tripping the Layer A guard.
   5. The runtime guard's `_notify_thread_violation()` attempted a blocking `execute_on_main_thread(_show_popup, timeout=5.0)`, freezing the thread.
-  6. When 30s elapsed, `_format_error_for_display()` mapped the timeout to a misleading `"Error: Python timed out"` message.
-- **The Fix**:
-  - `sync_host_dispatch()` context manager marks Yellow thread state; `QueueExecutor.execute` immediately refuses blocking calls off-main.
-  - `workbook_session_id()` checks `python_session_mode(ctx)` before touching threads or marshalling.
-  - Add-in UNO lookups check `on_main_thread()` and return safe no-UNO defaults off-main.
-  - `_notify_thread_violation()` uses non-blocking `post_to_main_thread()` only when `AsyncCallback` is ready.
+  6. When 30s elapsed, `_format_error_for_display()` mapped the timeout to a misleading `"Error: Python timed out. Open Settings → Python..."` message.
+- **The Fix Applied**:
+  - **Config-first mode check**: `workbook_session_id()` checks `python_session_mode(ctx)` before touching threads or marshalling.
+  - **Off-main guard on all add-in UNO lookups**: `session_key()`, `get_python_init_kwargs()`, and `_diagnostics_workbook_key()` check `on_main_thread()` and return safe no-UNO defaults off-main.
+  - **Yellow context refusal**: `sync_host_dispatch()` context manager marks Yellow thread state; `QueueExecutor.execute` immediately refuses blocking calls off-main.
+  - **Non-blocking guard notifications**: `_notify_thread_violation()` uses non-blocking `post_to_main_thread()` only when `AsyncCallback` is ready, and never blocks the worker thread.
+  - **Distinct timeout classification**: `TimeoutError` from host execution formats distinctly from venv worker execution timeouts.
 
 ### Case Study 2: Calc Charts Process Events Hang (Commit `0cfc6891`)
 - **The Bug**: `_process_events()` in `plugin/calc/charts.py` called `toolkit.processEventsToIdle()` on a path that could run without an active frame or on background worker threads.
@@ -268,9 +284,24 @@ Specialized sub-agents (`plugin/doc/specialized_base.py`) run `DelegateToSpecial
 
 1. **No PyUNO Off-Main**: All PyUNO service instantiation, method calls, property reads/writes, and interface queries must execute on `threading.main_thread()`.
 2. **Workers Spawn via `run_in_background`**: Raw `threading.Thread` and `threading.Timer` instantiation is banned outside vetted allowlists.
-3. **No Blocking Marshal in Yellow Context**: Functions executing inside synchronous host dispatches (Calc add-in evaluation, UNO listener callbacks) must never call `execute_on_main_thread()`.
+3. **No Blocking Marshal in Yellow Context**: Functions executing inside synchronous host dispatches (Calc add-in evaluation) must never call `execute_on_main_thread()`.
 4. **Viral Proxy on UNO Sources**: All new UNO object sources must return `guard_uno(obj)` to propagate runtime checking across object graph traversals.
 5. **Non-Blocking Error Reporting**: Concurrency guard notifications must use `post_to_main_thread()` and never block background workers.
+
+---
+
+## 11. Open Items & Ongoing Audits (Living Document)
+
+The following items are tracked for future enhancement:
+
+| Item | Description & Rationale |
+|---|---|
+| **Native Socket-Bridge `=PY("1+1")` under `lo-test-threadguard`** | GUI formula bar recalculation executes on the main thread and hides bridge worker issues. Adding a native test case that assigns formulas over a socket bridge will exercise remote bridge execution paths against live LibreOffice. |
+| **Opengrep Inter-File Taint (`--taint-interfile`)** | Opengrep inter-file taint is currently in alpha (`v1.28.0-interfile.alpha.2`). Until mature, the gate uses `--taint-intrafile` and cross-file workers rely on explicit `@background` decorators. |
+| **AST Linter Target Scope** | Default scan targets add-in and scripting directories (`plugin/calc/python`, `plugin/scripting`). As async tools expand in `plugin/chatbot` and `plugin/embeddings`, consider extending custom AST visitor rules to additional specialized tool modules. |
+| **`uno_thread_safety` Pytest Fixture Adoption** | The fixture is currently opt-in for unit tests. Expanding its default use in tests that touch document helpers ensures off-main mock access is caught early in unit suites. |
+| **Infection-Start Chokepoint Audits** | The viral proxy (`_UnoThreadGuardProxy`) relies on all factory origins wrapping returned objects in `guard_uno`. Any new UNO service factory or model loader must be audited to ensure it wraps returned objects at birth. |
+| **`MainThreadToken` Deprecation / Adoption** | `plugin/framework/thread_token.py` provides nominal type tokens for static checkers. Since type coloring is currently handled by Opengrep taint rules and runtime guards, evaluate whether to plumb strict tokens across red APIs or deprecate the module. |
 
 ---
 
