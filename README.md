@@ -75,7 +75,7 @@ For detailed setup instructions, see the **[Install and Troubleshooting Guide](d
 
 ## Showcase
 
-**Python in LibreOffice Calc**
+**Python in LibreOffice Writer**
 
 ![Python in LibreOffice](Showcase/PythonLibreOffice.png)
 
