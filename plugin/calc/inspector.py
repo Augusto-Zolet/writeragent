@@ -109,8 +109,8 @@ class CellInspector:
     def _safe_prop(cell, name, default=None):
         try:
             return cell.getPropertyValue(name)
-        except Exception as e:
-            logger.debug("_safe_prop exception for %s: %s", name, e)
+        except Exception:
+            logger.debug("_safe_prop read failed for %s", name, exc_info=True)
             return default
 
     def _format_meta(self, format_key, formats, cache: dict[int, tuple[str | None, str | None]]) -> tuple[str | None, str | None]:
@@ -267,7 +267,7 @@ class CellInspector:
                     logger.exception("Date/time format enrichment failed for cell %s; returning the raw value", address)
             return info
         except Exception as e:
-            logger.error("Cell reading error (%s): %s", address, str(e))
+            logger.exception("Cell reading failed for %s", address)
             raise ToolExecutionError(str(e)) from e
 
     def get_cell_details(self, address: str) -> dict:
@@ -320,7 +320,7 @@ class CellInspector:
                 "wrap_text": self._safe_prop(cell, "IsTextWrapped"),
             }
         except Exception as e:
-            logger.error("Cell detailed reading error (%s): %s", address, str(e))
+            logger.exception("Cell detailed reading failed for %s", address)
             raise ToolExecutionError(str(e)) from e
 
     def read_range(self, range_name: str, *, include_format_info: bool = False) -> list[list[dict]]:
@@ -406,7 +406,7 @@ class CellInspector:
 
             return result
         except Exception as e:
-            logger.error("Range reading error (%s): %s", range_name, str(e))
+            logger.exception("Range reading failed for %s", range_name)
             raise ToolExecutionError(str(e)) from e
 
     def get_all_formulas(self, sheet_name: str | None = None) -> list[dict]:
@@ -459,5 +459,5 @@ class CellInspector:
 
             return formulas
         except Exception as e:
-            logger.error("Formula listing error: %s", str(e))
+            logger.exception("Formula listing failed")
             raise ToolExecutionError(str(e)) from e

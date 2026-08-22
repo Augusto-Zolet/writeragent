@@ -48,7 +48,7 @@ class ListSheets(ToolCalcSheetBase):
             logger.info("Sheets listed: %s", sheet_names)
             return {"status": "ok", "result": sheet_names}
         except Exception as e:
-            logger.error("Sheet listing error: %s", str(e))
+            logger.exception("Sheet listing failed")
             raise ToolExecutionError(str(e)) from e
 
 
@@ -78,7 +78,7 @@ class SwitchSheet(ToolCalcSheetBase):
             result = f"Switched to sheet '{sheet_name}'."
             return {"status": "ok", "message": result}
         except Exception as e:
-            logger.error("Sheet switch error (%s): %s", sheet_name, str(e))
+            logger.exception("Sheet switch failed for %s", sheet_name)
             raise ToolExecutionError(str(e)) from e
 
 
@@ -106,7 +106,7 @@ class CreateSheet(ToolCalcSheetBase):
             result = f"New sheet named '{sheet_name}' created."
             return {"status": "ok", "message": result}
         except Exception as e:
-            logger.error("Sheet creation error (%s): %s", sheet_name, str(e))
+            logger.exception("Sheet creation failed for %s", sheet_name)
             raise ToolExecutionError(str(e)) from e
 
 
@@ -136,7 +136,7 @@ class RenameSheet(ToolCalcSheetBase):
             logger.info("Sheet renamed from '%s' to '%s'.", old_name, new_name)
             return {"status": "ok", "message": f"Sheet renamed to '{new_name}'."}
         except Exception as e:
-            logger.error("Sheet rename error (%s): %s", old_name, str(e))
+            logger.exception("Sheet rename failed (%s -> %s)", old_name, new_name)
             raise ToolExecutionError(str(e)) from e
 
 
@@ -164,7 +164,7 @@ class DeleteSheet(ToolCalcSheetBase):
             logger.info("Sheet deleted: %s", sheet_name)
             return {"status": "ok", "message": f"Sheet '{sheet_name}' deleted."}
         except Exception as e:
-            logger.error("Sheet deletion error (%s): %s", sheet_name, str(e))
+            logger.exception("Sheet deletion failed for %s", sheet_name)
             raise ToolExecutionError(str(e)) from e
 
 
@@ -202,7 +202,7 @@ class ProtectSheet(ToolCalcSheetBase):
             logger.info(msg)
             return {"status": "ok", "message": msg}
         except Exception as e:
-            logger.error("Sheet protection error: %s", str(e))
+            logger.exception("Sheet protection failed")
             raise ToolExecutionError(str(e)) from e
 
 

@@ -133,5 +133,5 @@ def _execute_prompt_addin_impl(
         log.warning("PROMPT empty response: %s", diagnostic)
         return diagnostic
     except Exception as e:
-        log.error("PROMPT error: %s", e)
+        log.exception("PROMPT function execution failed")
         return format_error_for_display(e)

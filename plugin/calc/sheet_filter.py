@@ -182,7 +182,7 @@ class ApplySheetFilter(ToolCalcSheetBase):
         except UnoObjectError:
             raise
         except Exception as e:
-            log.error("apply_sheet_filter: %s", e)
+            log.exception("apply_sheet_filter failed on %s", range_name)
             raise ToolExecutionError(str(e)) from e
 
 
@@ -221,7 +221,7 @@ class ClearSheetFilter(ToolCalcSheetBase):
         except UnoObjectError:
             raise
         except Exception as e:
-            log.error("clear_sheet_filter: %s", e)
+            log.exception("clear_sheet_filter failed on %s", range_name)
             raise ToolExecutionError(str(e)) from e
 
 
@@ -262,5 +262,5 @@ class GetSheetFilter(ToolCalcSheetBase):
         except UnoObjectError:
             raise
         except Exception as e:
-            log.error("get_sheet_filter: %s", e)
+            log.exception("get_sheet_filter failed on %s", range_name)
             raise ToolExecutionError(str(e)) from e

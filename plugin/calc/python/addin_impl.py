@@ -96,8 +96,8 @@ class PythonFunction(SingleFunctionAddInBase, _XPythonFunctionBase):  # pyright:
                         target_set.add(f"={name}()")
                         target_set.add(name)
                         target_set.add(name.capitalize())
-        except Exception as e:
-            log.debug("Failed to map localized booleans via UNO: %s", e)
+        except Exception:
+            log.debug("Failed to map localized booleans via UNO", exc_info=True)
 
         return true_strs, false_strs
 

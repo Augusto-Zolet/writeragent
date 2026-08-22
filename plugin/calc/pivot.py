@@ -313,8 +313,8 @@ class ListPivotTables(ToolCalcPivotBase):
                             ora = dpt.getOutputRange()
                             entry["output_sheet_index"] = ora.Sheet
                             entry["output_range"] = CalcBridge._range_to_str(ora)
-                    except Exception as e:
-                        log.debug("list_pivot_tables extra info: %s", e)
+                    except Exception:
+                        log.debug("list_pivot_tables extra info lookup failed", exc_info=True)
                     out.append(entry)
 
             return {"status": "ok", "pivot_tables": out, "count": len(out)}
