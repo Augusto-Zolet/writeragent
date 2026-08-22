@@ -166,6 +166,9 @@ def spawn_editor_process(exe: str, *, assets_dir: str | None = None) -> subproce
 
 # --- Pipe bridge ---
 
+# RLock is required: set_active_session() holds _SESSION_LOCK while invoking
+# _finish() or session transition callbacks, which re-enter _SESSION_LOCK on
+# the same thread to clear or check _ACTIVE_SESSION.
 _SESSION_LOCK = threading.RLock()
 _ACTIVE_SESSION: EditorSession | None = None
 

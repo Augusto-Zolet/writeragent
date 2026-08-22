@@ -37,7 +37,6 @@ except ImportError:
     pass
 
 _LOCK = threading.Lock()
-_REGISTERED_KEYS: set[str] = set()
 _LISTENERS: dict[str, "_CalcPythonUnloadListener"] = {}
 
 
@@ -76,7 +75,6 @@ class _CalcPythonUnloadListener(BaseDocumentEventListener):
             return
         self._teardown_done = True
         with _LOCK:
-            _REGISTERED_KEYS.discard(self._lifecycle_key)
             _LISTENERS.pop(self._lifecycle_key, None)
         try:
             from plugin.calc.python.formula_locator_cache import FORMULA_LOCATION_CACHE
@@ -103,17 +101,14 @@ def ensure_calc_workbook_unload_resets_python(ctx: Any, doc: Any) -> None:
     key = _lifecycle_key(doc)
     session_id = calc_workbook_base_session_id(doc)
     with _LOCK:
-        if key in _REGISTERED_KEYS:
+        if key in _LISTENERS:
             return
-        _REGISTERED_KEYS.add(key)
-    listener = _CalcPythonUnloadListener(ctx, session_id, key)
-    with _LOCK:
+        listener = _CalcPythonUnloadListener(ctx, session_id, key)
         _LISTENERS[key] = listener
     try:
         if hasattr(doc, "addDocumentEventListener"):
             doc.addDocumentEventListener(listener)
     except Exception:
         with _LOCK:
-            _REGISTERED_KEYS.discard(key)
             _LISTENERS.pop(key, None)
         log.warning("python_workbook_lifecycle: addDocumentEventListener failed", exc_info=True)

@@ -23,10 +23,8 @@ setup_uno_mocks()
 def _reset_lifecycle_registry():
     import plugin.calc.python.workbook_lifecycle as lifecycle
 
-    lifecycle._REGISTERED_KEYS.clear()
     lifecycle._LISTENERS.clear()
     yield
-    lifecycle._REGISTERED_KEYS.clear()
     lifecycle._LISTENERS.clear()
 
 
@@ -77,11 +75,11 @@ def test_unload_clears_registration_so_reopen_can_reregister():
         with patch("plugin.calc.python.workbook_lifecycle.reset_python_session") as mock_reset:
             mock_reset.return_value = {"status": "ok"}
             ensure_calc_workbook_unload_resets_python(ctx, doc)
-            assert "uid-reopen" in lifecycle._REGISTERED_KEYS
+            assert "uid-reopen" in lifecycle._LISTENERS
             doc._document_event_listeners[0].on_document_event(MagicMock(EventName="OnUnload"))
-            assert "uid-reopen" not in lifecycle._REGISTERED_KEYS
+            assert "uid-reopen" not in lifecycle._LISTENERS
             mock_reset.assert_called_once()
 
             ensure_calc_workbook_unload_resets_python(ctx, doc)
             assert len(doc._document_event_listeners) == 2
-            assert "uid-reopen" in lifecycle._REGISTERED_KEYS
+            assert "uid-reopen" in lifecycle._LISTENERS

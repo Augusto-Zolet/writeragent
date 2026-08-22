@@ -74,15 +74,11 @@ class GrammarRegistry:
         with self.lock:
             self.doc_locales_cache.pop(doc_id, None)
             dp = self.doc_persistence_instances.pop(doc_id, None)
-            if dp:
-                try:
-                    dp._unregister_listeners()
-                    with dp._lock:
-                        dp._session_accessed.clear()
-                except Exception as e:
-                    log.debug("[grammar] GrammarRegistry.clear_for_doc failure: %s", e)
-                dp._model = None
-                dp._teardown_done = True
+        if dp:
+            try:
+                dp._teardown()
+            except Exception as e:
+                log.debug("[grammar] GrammarRegistry.clear_for_doc failure: %s", e)
 
     def clear_all(self, ctx: Any | None = None) -> None:
         with self.lock:
@@ -92,16 +88,12 @@ class GrammarRegistry:
             self.lang_detect_cache.clear()
             snap = list(self.doc_persistence_instances.values())
             self.doc_persistence_instances.clear()
-        
+
         for dp in snap:
             try:
-                dp._unregister_listeners()
-                with dp._lock:
-                    dp._session_accessed.clear()
+                dp._teardown()
             except Exception as e:
                 log.debug("[grammar] GrammarRegistry.clear_all persistence cleanup failure: %s", e)
-            dp._model = None
-            dp._teardown_done = True
 
     def get_cached_language(self, text: str) -> str | None:
         with self.lock:
