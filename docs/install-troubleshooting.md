@@ -1,6 +1,6 @@
 # Install and usage
 
-This page walks through installing WriterAgent, opening Settings and the sidebar, turning on optional grammar checking, and finding the debug log if something goes wrong.
+This page walks through installing, opening Settings and the sidebar, turning on optional grammar checking, and finding the debug log if something goes wrong.
 
 ---
 
