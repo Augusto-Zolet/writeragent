@@ -9,13 +9,15 @@
 
 **Python, NumPy, and Agentic AI for LibreOffice (Writer, Calc, and Draw)**
 
-Run Python and scientific compute directly in spreadsheet formulas, edit documents with private local-first AI, conduct web research, generate diagrams, and automate office workflows — without cloud lock-in.
+Run Python and scientific compute directly in spreadsheet formulas, edit documents with private local-first AI, conduct autonomous web research, generate diagrams, and automate office workflows — without cloud lock-in.
 
 The project is distributed as three standalone extension packages (*install only one at a time*):
 
-- 🤖 **[WriterAgent](docs/features.md)** (`WriterAgent.oxt`) — The **full stack**. Includes the **AI sidebar assistant, multi-turn document editing, web research, real-time grammar checking, MCP server, and the Calc → Python spreadsheet converter**, plus the full Python & NumPy compute runtime.
-- 🐍 **[LibrePy](docs/libreoffice-core-python-extension-split.md)** (`LibrePy.oxt`) — Pure Python & Data Science environment. Brings **NumPy, pandas, SymPy, SciPy, Monaco code editing, OCR, and `=PY()` spreadsheet formulas** into LibreOffice. *Zero AI keys, endpoints, or models required.*
-- ✍️ **LibreHarper** (`LibreHarper.oxt`) — Lightweight standalone grammar checker. Embeds the local, fast [Harper](https://github.com/Automattic/harper) grammar engine for Writer proofreading with zero cloud dependencies.
+| Package | What's Included | Best For |
+| :--- | :--- | :--- |
+| 🤖 **[WriterAgent](docs/features.md)** (`WriterAgent.oxt`) *(Full stack)* | Everything in LibrePy and LibreHarper + AI sidebar, `=PROMPT()`, web research, Calc → Python converter, MCP server | Users wanting the complete AI assistant, spreadsheet converter, and scientific compute suite |
+| 🐍 **[LibrePy](docs/libreoffice-core-python-extension-split.md)** (`LibrePy.oxt`) | Python runtime, `=PY()`, NumPy, pandas, SymPy, Monaco code editor, domain helpers, OCR | Users who want Python and Data Science in Calc/Writer without AI or API keys |
+| ✍️ **LibreHarper** (`LibreHarper.oxt`) | Standalone offline [Harper](https://github.com/Automattic/harper) grammar engine for Writer | Users who only want fast, local grammar checking without AI or Python stacks |
 
 **[Download .oxt Releases](https://github.com/KeithCu/writeragent/releases/latest)** · [Feature Index](docs/features.md) · [NumPy in LibreOffice Guide](docs/enabling_numpy_in_libreoffice.md) · [Discussions](https://github.com/KeithCu/writeragent/discussions)
 
@@ -59,32 +61,11 @@ Full catalog of capabilities: **[docs/features.md](docs/features.md)**.
 
 ## Installation & Setup
 
-### 1. Choose Your Extension Package
-
-Download the appropriate `.oxt` package from the **[Latest Releases](https://github.com/KeithCu/writeragent/releases/latest)**:
-
-| Package | What's Included | Best For |
-| :--- | :--- | :--- |
-| **`WriterAgent.oxt`** *(Full stack)* | Everything in LibrePy and LibreHarper + AI sidebar, `=PROMPT()`, web research, Calc → Python converter, MCP | Users wanting the complete AI assistant, spreadsheet converter, and scientific compute suite |
-| **`LibrePy.oxt`** | Python runtime, `=PY()`, NumPy, pandas, SymPy, Monaco editor, domain helpers, OCR | Users who want Python and Data Science in Calc/Writer without AI or API keys |
-| **`LibreHarper.oxt`** | Standalone offline Harper grammar checker for Writer | Users who only want fast, local grammar checking without AI or Python stacks |
-
-> [!IMPORTANT]
-> **Install only one extension at a time.** `WriterAgent.oxt` is the full stack that already includes all capabilities of LibrePy and LibreHarper.
-
-### 2. Install in LibreOffice
-
-1. Double-click the downloaded `.oxt` file (or open LibreOffice and go to **Tools → Extension Manager → Add**).
-2. Restart LibreOffice.
-
-### 3. Quick Configuration
-
-- **For Python / LibrePy users:**
-  - Open Calc and check **Tools → LibrePy (or WriterAgent) → Settings → Python**.
-  - Click **Test** to verify your Python virtual environment and NumPy/pandas availability.
-- **For AI / WriterAgent users:**
-  - Open **WriterAgent → Settings** and enter your preferred endpoint (e.g. `http://localhost:11434` for local [Ollama](https://ollama.com/), or an [OpenRouter](https://openrouter.ai/) / [Together.AI](https://www.together.ai/) API key).
-  - Open the sidebar via **View → Sidebar → WriterAgent** or press **Ctrl+Q** / **Ctrl+E** to extend or edit selections.
+1. **Download** your chosen `.oxt` package from **[Latest Releases](https://github.com/KeithCu/writeragent/releases/latest)** and double-click to install (or open LibreOffice and go to **Tools → Extension Manager → Add**). *Remember to install only one extension package.*
+2. **Restart** LibreOffice.
+3. **Quick Configuration:**
+   - **Python / LibrePy users:** Open Calc, check **Tools → LibrePy (or WriterAgent) → Settings → Python**, and click **Test** to verify your environment and NumPy/pandas availability.
+   - **AI / WriterAgent users:** Open **WriterAgent → Settings** and enter your endpoint (e.g. `http://localhost:11434` for local [Ollama](https://ollama.com/), or an [OpenRouter](https://openrouter.ai/) / [Together.AI](https://www.together.ai/) API key). Open the sidebar via **View → Sidebar → WriterAgent** or press **Ctrl+Q** / **Ctrl+E**.
 
 > **UI Modes:** In classic toolbar mode, access tools through the top menubar. In tabbed/ribbon interfaces, all actions (Settings `⚙`, Python `🐍`, LaTeX math, search `🔍`, and full menus via `☰`) are available directly on the sidebar.
 
