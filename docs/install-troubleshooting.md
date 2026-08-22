@@ -2,8 +2,6 @@
 
 This page walks through installing WriterAgent, opening Settings and the sidebar, turning on optional grammar checking, and finding the debug log if something goes wrong.
 
-Settings are on the **WriterAgent** menubar of Writer, Calc, Draw / Impress document. The name **WriterAgent** under **Options → Languages** is the grammar proofreader, which is separate and optional.
-
 ---
 
 ## 1. Download and install
