@@ -1070,3 +1070,66 @@ def test_gemini_shim_inline_data():
             }
         }
 
+
+def test_stream_request_with_tools_tracks_used_model(client, caplog):
+    import logging
+    mock_responses = [
+        b'data: {"model": "deepseek/deepseek-r1:free", "choices": [{"delta": {"role": "assistant", "content": "Hello free world"}}]}\n\n',
+        b'data: {"model": "deepseek/deepseek-r1:free", "choices": [{"finish_reason": "stop", "delta": {}}]}\n\n',
+        b"data: [DONE]\n\n",
+    ]
+
+    with patch("http.client.HTTPSConnection") as mock_https:
+        mock_conn = MagicMock()
+        mock_https.return_value = mock_conn
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.__iter__.return_value = iter(mock_responses)
+        mock_conn.getresponse.return_value = mock_response
+
+        messages = [{"role": "user", "content": "Hi"}]
+
+        with caplog.at_level(logging.INFO):
+            result = client.stream_request_with_tools(
+                messages=messages,
+                max_tokens=100,
+                model="openrouter/free",
+            )
+
+        assert result["content"] == "Hello free world"
+        assert result["model"] == "deepseek/deepseek-r1:free"
+        assert any("LLM response stream started" in rec.message and "deepseek/deepseek-r1:free" in rec.message for rec in caplog.records)
+        assert any("LLM response stream finished" in rec.message and "deepseek/deepseek-r1:free" in rec.message for rec in caplog.records)
+
+
+def test_sync_request_with_tools_tracks_used_model(client, caplog):
+    import logging
+    sync_resp_body = json.dumps({
+        "id": "gen-123",
+        "model": "deepseek/deepseek-r1:free",
+        "choices": [{"message": {"role": "assistant", "content": "Sync response"}, "finish_reason": "stop"}],
+    }).encode("utf-8")
+
+    with patch("http.client.HTTPSConnection") as mock_https:
+        mock_conn = MagicMock()
+        mock_https.return_value = mock_conn
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.read.return_value = sync_resp_body
+        mock_conn.getresponse.return_value = mock_response
+
+        messages = [{"role": "user", "content": "Hi"}]
+
+        with caplog.at_level(logging.INFO):
+            result = client.request_with_tools(
+                messages=messages,
+                max_tokens=100,
+                stream=False,
+                model="openrouter/free",
+            )
+
+        assert result["content"] == "Sync response"
+        assert result["model"] == "deepseek/deepseek-r1:free"
+        assert any("LLM sync response received" in rec.message and "deepseek/deepseek-r1:free" in rec.message for rec in caplog.records)
+
+

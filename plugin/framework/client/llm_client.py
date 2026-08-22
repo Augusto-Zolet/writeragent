@@ -517,6 +517,8 @@ class LlmClient:
                     # LiteLLM: streaming_handler.py ~L198 safety_checker(), issue #5158
                     last_contents = collections.deque(maxlen=REPEATED_STREAMING_CHUNK_LIMIT)
                     think_tag_splitter = ThinkTagStreamSplitter()
+                    requested_model = _request_model_from_body(body)
+                    used_model = None
 
                     self._get_provider()
                     # Google Gemini stream is a JSON array of objects, not SSE.
@@ -535,6 +537,16 @@ class LlmClient:
                             if payload and payload != "{}":
                                 log.error("streaming_loop: JSON decode error in payload: %s" % payload)
                             continue
+
+                        chunk_model = chunk.get("model")
+                        if chunk_model and used_model is None:
+                            used_model = str(chunk_model)
+                            log.info(
+                                "LLM response stream started: provider=%s requested_model=%r used_model=%r",
+                                self._get_provider(),
+                                requested_model,
+                                used_model,
+                            )
 
                         # Log all chunks for debugging, even after content_finished
                         # (this might contain 'usage' data)
@@ -608,11 +620,21 @@ class LlmClient:
                                         )
                         if delta and on_delta:
                             _normalize_delta(delta)
+                            if chunk_model and "model" not in delta:
+                                delta["model"] = str(chunk_model)
                             on_delta(delta)
 
                         if finish_reason:
                             log.debug("streaming_loop: logical finish_reason=%s" % finish_reason)
                             last_finish_reason = finish_reason
+
+                    log.info(
+                        "LLM response stream finished: provider=%s requested_model=%r used_model=%r finish_reason=%s",
+                        self._get_provider(),
+                        requested_model,
+                        used_model or requested_model,
+                        last_finish_reason,
+                    )
 
                     # Flush any trailing buffered text from the think tag splitter
                     # (trailing buffer contains small tag prefix remnants like '<' at EOF)
@@ -704,9 +726,16 @@ class LlmClient:
         Returns a dict: {role, content, tool_calls, finish_reason, images, usage}
         """
         init_logging(self.ctx)
-        eff_model = model or self.config.get("model", "")
+        requested_model = model or self.config.get("model", "")
         n_tool_defs = len(tools) if isinstance(tools, list) else 0
-        log.debug("request_with_tools: model=%s stream=%s n_messages=%s n_tool_defs=%s", eff_model, stream, len(messages), n_tool_defs)
+        log.info(
+            "Sending LLM chat request: provider=%s requested_model=%r stream=%s n_messages=%d n_tool_defs=%d",
+            self._get_provider(),
+            requested_model,
+            stream,
+            len(messages),
+            n_tool_defs,
+        )
         method, path, body, headers = self.make_chat_request(
             messages,
             max_tokens,
@@ -720,7 +749,7 @@ class LlmClient:
         if body_override is not None:
             body = body_override.encode("utf-8") if isinstance(body_override, str) else body_override
 
-        eff_model = model or self.config.get("model") or "default"
+        requested_model = model or self.config.get("model") or "default"
         thinking_parts: list[str] = []
         thinking_meta = new_streaming_thinking_meta()
         message_snapshot: dict[str, Any] = {}
@@ -728,6 +757,7 @@ class LlmClient:
         tool_calls = None
         images: list[Any] = []
         usage: dict[str, Any] = {}
+        used_model: str = requested_model
 
         if stream:
             append_callback = append_callback or (lambda t: None)
@@ -738,6 +768,8 @@ class LlmClient:
                 accumulate_streaming_thinking(thinking_parts, thinking_meta, cast("dict[str, Any]", d))
                 d_for_snapshot = {k: v for k, v in d.items() if k not in THINKING_DELTA_KEYS}
                 accumulate_delta(message_snapshot, d_for_snapshot)
+                if "model" in d and "model" not in message_snapshot:
+                    message_snapshot["model"] = d["model"]
 
             log.debug("stream_request_with_tools: building request (%d messages)..." % len(messages))
             try:
@@ -759,10 +791,11 @@ class LlmClient:
             if tool_calls is not None:
                 log.debug(
                     "streaming_loop: accumulated tool_calls model=%r tool_calls=%s",
-                    eff_model,
+                    requested_model,
                     json.dumps(tool_calls, ensure_ascii=False),
                 )
             usage = cast("dict[str, Any]", message_snapshot.get("usage", {}))
+            used_model = str(message_snapshot.get("model") or requested_model)
             reasoning_replay = extract_reasoning_replay_from_response(
                 streaming_text="".join(thinking_parts),
                 streaming_meta=thinking_meta,
@@ -819,6 +852,14 @@ class LlmClient:
             if result is None:
                 result = {}
 
+            used_model = str(result.get("model") or requested_model) if isinstance(result, dict) else requested_model
+            log.info(
+                "LLM sync response received: provider=%s requested_model=%r used_model=%r",
+                self._get_provider(),
+                requested_model,
+                used_model,
+            )
+
             # Use unified extraction for shims/native providers
             raw_parsed_content, last_finish_reason, tool_calls, usage, images, message = self._get_shim().parse_sync_response(result)
             content, extracted_thinking = strip_think_tags(raw_parsed_content)
@@ -834,14 +875,14 @@ class LlmClient:
         if content:
             cleaned = strip_leaked_chat_template_control_tokens(content)
             if cleaned != content:
-                log.info("Stripped leaked <|...|> chat-template tokens from assistant content (model=%s, original_len=%d, cleaned_len=%d)", eff_model, len(content), len(cleaned))
+                log.info("Stripped leaked <|...|> chat-template tokens from assistant content (model=%s, original_len=%d, cleaned_len=%d)", requested_model, len(content), len(cleaned))
                 log.debug("Stripped leaked chat-template control tokens from model content. original=%r cleaned=%r", content, cleaned)
                 content = cleaned
 
         if not tool_calls and content:
             from plugin.contrib.tool_call_parsers import get_parser_for_model
 
-            parser = get_parser_for_model(eff_model)
+            parser = get_parser_for_model(requested_model)
             if parser:
                 p_content, p_tool_calls = parser.parse(content)
                 if p_tool_calls:
@@ -850,7 +891,7 @@ class LlmClient:
                     if last_finish_reason != "tool_calls":
                         last_finish_reason = "tool_calls"
 
-        out: dict[str, Any] = {"role": "assistant", "content": content, "tool_calls": tool_calls, "finish_reason": last_finish_reason, "images": images, "usage": usage}
+        out: dict[str, Any] = {"role": "assistant", "content": content, "tool_calls": tool_calls, "finish_reason": last_finish_reason, "images": images, "usage": usage, "model": used_model}
         out.update(reasoning_replay)
         return out
 

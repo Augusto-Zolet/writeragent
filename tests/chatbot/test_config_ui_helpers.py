@@ -227,8 +227,27 @@ class TestPopulateComboboxWithLruFetchOptions(unittest.TestCase):
             )
             mock_fetch.assert_not_called()
         items = ctrl.addItems.call_args[0][0]
+        self.assertEqual(items[0], 'openrouter/free')
         self.assertIn('openai/gpt-oss-120b:nitro', items)
         ctrl.setText.assert_called_with('openai/gpt-oss-120b:nitro')
+
+    def test_openrouter_free_model_prioritized_at_top(self):
+        ctrl = MagicMock()
+        ctrl.getItemCount.return_value = 0
+        ep = 'https://openrouter.ai/api'
+        with patch('plugin.framework.client.model_fetcher.fetch_available_models') as mock_fetch:
+            populate_combobox_with_lru(
+                self.ctx,
+                ctrl,
+                '',
+                'model_lru',
+                ep,
+                skip_remote_fetch=True,
+                api_key_override='test-key',
+            )
+            mock_fetch.assert_not_called()
+        items = ctrl.addItems.call_args[0][0]
+        self.assertEqual(items[0], 'openrouter/free')
 
     def test_openrouter_nitro_current_val_not_stray(self):
         ctx = MagicMock()

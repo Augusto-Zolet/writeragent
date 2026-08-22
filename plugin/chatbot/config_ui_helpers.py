@@ -192,8 +192,11 @@ def _merge_provider_default_models(to_show: list[str], provider: str, req_cap: s
         capability = m.get("capability", ModelCapability.CHAT)
         if not _default_model_row_matches_combo(capability, req_cap):
             continue
+        effective_id = resolve_model_id(m, provider)
+        if not effective_id:
+            continue
         is_default = False
-        if req_cap == "text" and m.get("default_text"):
+        if req_cap == "text" and (m.get("default_text") or effective_id == "openrouter/free"):
             is_default = True
         elif req_cap == "image" and m.get("default_image"):
             is_default = True
@@ -201,8 +204,7 @@ def _merge_provider_default_models(to_show: list[str], provider: str, req_cap: s
             is_default = True
         if not is_default:
             continue
-        effective_id = resolve_model_id(m, provider)
-        if effective_id and effective_id not in to_show:
+        if effective_id not in to_show:
             to_show.append(effective_id)
 
 
@@ -274,6 +276,10 @@ def populate_combobox_with_lru(
 
         if provider:
             _merge_provider_default_models(to_show, provider, req_cap)
+
+        if provider == "openrouter" and req_cap == "text" and "openrouter/free" in to_show:
+            to_show.remove("openrouter/free")
+            to_show.insert(0, "openrouter/free")
 
     curr_val_str = _sanitize_model_combobox_value(current_val)
     if not auth_blocked and not curr_val_str and req_cap == "text":

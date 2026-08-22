@@ -42,7 +42,7 @@ _PRESET_EXPECTED_PROVIDER = {
         ("zai", "glm-5.2", True),
         ("deepseek", "deepseek-chat", True),
         ("mistral", "mistral-large-latest", True),
-        ("groq", "llama-3.3-70b-versatile", True),
+        ("groq", "llama-3.1-8b-instant", True),
         ("ollama", "llama3.2", True),
         ("openrouter", "google/gemini-3.1-flash-lite", True),
         ("zai", "google/gemini-3.1-flash-lite", False),

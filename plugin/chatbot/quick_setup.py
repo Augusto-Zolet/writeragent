@@ -43,7 +43,7 @@ PROVIDER_STARTERS: list[dict[str, Any]] = [
         "name": "OpenRouter",
         "display_name": "OpenRouter (Hosted - Recommended)",
         "url": "https://openrouter.ai/api",
-        "models": ["google/gemini-2.0-flash-exp:free", "meta-llama/llama-3.3-70b-instruct:free", "deepseek/deepseek-chat"],
+        "models": ["openrouter/free", "google/gemini-3.1-flash-lite", "openai/gpt-oss-120b:nitro", "deepseek/deepseek-chat"],
         "signup_url": "https://openrouter.ai/keys",
     },
     {
@@ -51,7 +51,7 @@ PROVIDER_STARTERS: list[dict[str, Any]] = [
         "name": "Together AI",
         "display_name": "Together AI (Hosted)",
         "url": "https://api.together.xyz",
-        "models": ["meta-llama/Llama-3.3-70B-Instruct-Turbo", "deepseek-ai/DeepSeek-V3", "mistralai/Mixtral-8x7B-Instruct-v0.1"],
+        "models": ["openai/gpt-oss-120b", "deepseek-ai/DeepSeek-V4-Flash-0731", "MiniMaxAI/MiniMax-M3"],
         "signup_url": "https://api.together.ai/settings/api-keys",
     },
     {
@@ -59,7 +59,7 @@ PROVIDER_STARTERS: list[dict[str, Any]] = [
         "name": "Hugging Face",
         "display_name": "Hugging Face Inference (Hosted)",
         "url": "https://api-inference.huggingface.co/v1",
-        "models": ["Qwen/Qwen2.5-72B-Instruct", "meta-llama/Llama-3.3-70B-Instruct", "mistralai/Mistral-7B-Instruct-v0.3"],
+        "models": ["Qwen/Qwen2.5-72B-Instruct", "mistralai/Mistral-7B-Instruct-v0.3"],
         "signup_url": "https://huggingface.co/settings/tokens",
     },
     {
@@ -67,7 +67,7 @@ PROVIDER_STARTERS: list[dict[str, Any]] = [
         "name": "Groq",
         "display_name": "Groq (Hosted)",
         "url": "https://api.groq.com/openai",
-        "models": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"],
+        "models": ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"],
         "signup_url": "https://console.groq.com/keys",
     },
     {
@@ -91,7 +91,7 @@ PROVIDER_STARTERS: list[dict[str, Any]] = [
         "name": "Google Gemini",
         "display_name": "Google Gemini (Hosted)",
         "url": "https://generativelanguage.googleapis.com/v1beta/openai",
-        "models": ["gemini-2.0-flash", "gemini-1.5-pro"],
+        "models": ["gemini-3.1-flash-lite", "gemini-3.1-pro"],
         "signup_url": "https://aistudio.google.com/app/apikey",
     },
     {
@@ -115,7 +115,7 @@ PROVIDER_STARTERS: list[dict[str, Any]] = [
         "name": "NVIDIA NIM",
         "display_name": "NVIDIA NIM (Hosted)",
         "url": "https://integrate.api.nvidia.com/v1",
-        "models": ["meta/llama-3.3-70b-instruct", "mistralai/mistral-large-2-instruct"],
+        "models": ["mistralai/mistral-large-2-instruct", "deepseek-ai/deepseek-r1"],
         "signup_url": "https://build.nvidia.com/settings/api-keys",
     },
     {

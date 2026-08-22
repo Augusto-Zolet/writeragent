@@ -29,6 +29,13 @@ def test_provider_starters_structure():
         assert p["url"].startswith("http://") or p["url"].startswith("https://")
 
 
+def test_openrouter_starter_has_free_model():
+    """Ensure OpenRouter starter includes openrouter/free as its leading model."""
+    op = next((p for p in PROVIDER_STARTERS if p.get("id") == "openrouter"), None)
+    assert op is not None
+    assert op["models"][0] == "openrouter/free"
+
+
 def test_local_server_probes_structure():
     """Ensure all probe definitions specify name, port, path, kind, and url."""
     assert len(LOCAL_SERVER_PROBES) >= 15
@@ -135,7 +142,7 @@ def test_check_endpoint_connection_openrouter_headers(mock_urlopen):
     """Test check_endpoint_connection sends OpenRouter identification headers."""
     from plugin.framework.constants import APP_REFERER, APP_TITLE, USER_AGENT
 
-    resp_data = {"data": [{"id": "meta-llama/llama-3.3-70b-instruct"}]}
+    resp_data = {"data": [{"id": "openai/gpt-oss-120b"}]}
     mock_resp = MagicMock()
     mock_resp.status = 200
     mock_resp.read.return_value = json.dumps(resp_data).encode("utf-8")

@@ -13,7 +13,7 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 > **Tests:** New features and bugfixes **must** include tests.
 > - **Unit:** `tests/`, **pytest** when logic can be mocked. Test files should match the source module name (e.g. `foo.py` -> `test_foo.py`). **Always add new test cases to the matching `test_` file to maintain consistent naming and visible coverage.**
 > - **UNO / LibreOffice:** `tests/uno/` or `_uno.py` suffix via **`testing_runner.py`** (no pytest)—use **`@native_test`**, **`@setup`**, **`@teardown`**; test functions take **`ctx`**. **Follow the same module-matching rule (e.g. `foo.py` -> `test_foo_uno.py`).**
-> - **Execution Policy:** Run tests for the specific files modified plus **`make typecheck`**. Run full **`make test`** ONLY IF making large refactors or cross-cutting changes.
+> - **Execution Policy:** Run tests for the specific files modified plus **`make typecheck`**. Run typecheck **only at the end** — never before edits; assume the tree is already clean. Run full **`make test`** ONLY IF making large refactors or cross-cutting changes.
 
 > [!IMPORTANT]
 > **Comments:** Write why this code is there for the reader who would otherwise be **lost**. **Good comments are the bridge** from opaque to understandable and maintainable code. Some files have no comments: inserting footnotes is standard, little different from other UNO objects. Meanwhile some comments are critical to understanding why the code is there. Write clear, short comments.
