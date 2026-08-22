@@ -35,10 +35,14 @@ RED_UNO_SOURCES = {
 
 SYNC_ADDIN_FUNCTIONS = {
     "execute_python_addin",
+    "_execute_python_addin_impl",
     "execute_prompt_addin",
+    "_execute_prompt_addin_impl",
     "_notify_thread_violation",
     "session_key",
     "py",
+    "python",
+    "prompt",
 }
 
 BLOCKING_MARSHAL_FUNCS = {

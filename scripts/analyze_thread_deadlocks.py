@@ -22,13 +22,34 @@ from collections import defaultdict
 from pathlib import Path
 from typing import NamedTuple
 
-# Functions executed synchronously while holding a host/bridge dispatch context
+# Functions executed synchronously while holding a host/bridge dispatch context (Yellow context)
 SYNC_HOST_ENTRYPOINTS = {
     "execute_python_addin",
+    "_execute_python_addin_impl",
     "execute_prompt_addin",
+    "_execute_prompt_addin_impl",
     "py",
+    "python",
+    "prompt",
     "session_key",
     "_notify_thread_violation",
+    "actionPerformed",
+    "itemStateChanged",
+    "textChanged",
+    "keyPressed",
+    "keyReleased",
+    "windowResized",
+    "windowMoved",
+    "windowShown",
+    "windowHidden",
+    "documentEventOccured",
+    "queryClosing",
+    "notifyClosing",
+    "queryTermination",
+    "notifyTermination",
+    "activeSpreadsheetChanged",
+    "trigger",
+    "disposing",
 }
 
 # Operations that block the calling thread waiting for the UI/main thread or other locks
@@ -77,6 +98,11 @@ GENERIC_METHOD_NAMES = {
     "encode",
     "decode",
     "execute",
+    "dispatch",
+    "forward",
+    "handle",
+    "step",
+    "createUnoService",
     "createInstanceWithContext",
     "createInstance",
     "getCurrentComponent",

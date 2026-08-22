@@ -471,7 +471,7 @@ class QueueExecutor:
         Raises TimeoutError if the main thread doesn't process the item in time.
         Re-raises any exception thrown by *fn*.
         """
-        from plugin.framework.thread_guard import get_background_task_name
+        from plugin.framework.thread_guard import get_background_task_name, in_sync_host_dispatch
 
         fn_label = _fn_label(fn)
         tag = _marshal_thread_tag(self)
@@ -480,6 +480,14 @@ class QueueExecutor:
         if self._may_run_marshal_inline():
             log.debug("marshal route=inline_logical_main fn=%s %s", fn_label, tag)
             return fn(*args, **kwargs)
+
+        if in_sync_host_dispatch():
+            msg = (
+                "marshal refused: execute_on_main_thread called from synchronous host dispatch "
+                "context (deadlock hazard #402, fn=%s)" % fn_label
+            )
+            log.error("%s %s", msg, tag)
+            raise RuntimeError(msg)
 
         if bg_task:
             log.debug(

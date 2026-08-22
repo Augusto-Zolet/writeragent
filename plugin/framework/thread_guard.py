@@ -34,7 +34,8 @@ See docs/uno-thread-safety-enforcement.md (Layer A).
 import os
 import threading
 import logging
-from typing import Any
+from contextlib import contextmanager
+from typing import Any, Generator
 
 log = logging.getLogger("writeragent.threadguard")
 
@@ -45,6 +46,32 @@ GUARD_ON = os.environ.get("WRITERAGENT_UNO_THREAD_GUARD", "1") == "1"
 
 # Thread-local storage for background task identity (set at birth in run_in_background).
 _bg = threading.local()
+
+# Thread-local storage for synchronous host/bridge dispatch context (Yellow context).
+# When active on a non-main thread, execute_on_main_thread must refuse immediately
+# to prevent lock inversion deadlocks against the waiting main thread (#402).
+_sync_host = threading.local()
+
+
+@contextmanager
+def sync_host_dispatch() -> Generator[None, None, None]:
+    """Mark the calling thread as executing within a synchronous host/bridge dispatch (Yellow context).
+
+    While in this context off the main thread, blocking operations that wait on the
+    LibreOffice main thread (such as execute_on_main_thread) will immediately raise
+    RuntimeError rather than deadlocking for 30s.
+    """
+    prev = getattr(_sync_host, "active", False)
+    _sync_host.active = True
+    try:
+        yield
+    finally:
+        _sync_host.active = prev
+
+
+def in_sync_host_dispatch() -> bool:
+    """Return True if the current thread is executing within a synchronous host dispatch."""
+    return getattr(_sync_host, "active", False)
 
 # Layer B pytest: when set, on_main_thread() treats this thread as the UNO main thread
 # (typically the synthetic pump thread started by tests/framework/thread_safety.py).
@@ -301,6 +328,8 @@ __all__ = [
     "assert_main_thread",
     "main_thread_only",
     "background",
+    "sync_host_dispatch",
+    "in_sync_host_dispatch",
     "set_background_task",
     "get_background_task_name",
     "set_designated_main_thread",

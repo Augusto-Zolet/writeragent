@@ -116,8 +116,11 @@ def _catch_and_log(func):
 
     @functools.wraps(func)
     def wrapper(self, ev, *args, **kwargs):
+        from plugin.framework.thread_guard import sync_host_dispatch
+
         try:
-            return func(self, ev, *args, **kwargs)
+            with sync_host_dispatch():
+                return func(self, ev, *args, **kwargs)
         except TypeError:
             log.exception(f"{self.__class__.__name__} TypeError in {func.__name__}")
         except ValueError:
@@ -135,7 +138,13 @@ def _catch_and_log(func):
 
 class BaseListener(_BaseParent, _XEventListenerParent):
     def disposing(self, Source: Any) -> None:  # noqa: N802, N803 -- UNO signature
-        self.on_disposing(Source)
+        from plugin.framework.thread_guard import sync_host_dispatch
+
+        try:
+            with sync_host_dispatch():
+                self.on_disposing(Source)
+        except Exception:
+            log.exception(f"{self.__class__.__name__} unhandled exception in disposing")
 
     def on_disposing(self, Source: Any) -> None:
         pass

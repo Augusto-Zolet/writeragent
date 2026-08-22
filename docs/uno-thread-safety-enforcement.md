@@ -1,462 +1,281 @@
-# Enforcing UNO Main-Thread Safety (Compile / Test / Run time)
+# Enforcing UNO Main-Thread Safety & Deadlock Prevention (Compile / Test / Run time)
 
-## The problem we are trying to kill
+## 1. The Problem We Are Trying to Kill
 
-LibreOffice's VCL/UNO layer is **single-threaded**. A UNO call from a background
-thread can corrupt internal C++ state, draw black menus, or — most painfully —
-take an internal lock that the main thread is already waiting on and **deadlock**
-the whole application. See [`docs/threading_architecture.md`](threading_architecture.md)
-and [`docs/streaming-and-threading.md`](streaming-and-threading.md) for the model
-we already use to avoid this (worker threads do I/O only; UNO is marshalled back
-to the main thread via [`execute_on_main_thread`](../plugin/framework/queue_executor.py)).
+LibreOffice's internal architecture is written in C++ and relies heavily on VCL (Visual Class Library) and the UNO (Universal Network Objects) component model. **LibreOffice's VCL/UNO layer is strictly single-threaded.**
 
-The model is correct. The problem is **enforcement**. Today we find each
-violation by hand, usually after a hang. The fix in commit
-`0cfc6891b679f3fcc2ad4a47107763a1b5bd93d7` ("fix potential hangs in charts") is
-the canonical example: `_process_events()` in [`plugin/calc/charts.py`](../plugin/calc/charts.py)
-was calling `toolkit.processEventsToIdle()` on a path that could run without an
-active frame, and the patch added a guard plus a `WRITERAGENT_TESTING` short-circuit.
-That is whack-a-mole. Each such bug:
+When Python code running in the WriterAgent extension touches a PyUNO object from a background worker thread, catastrophic and erratic failures occur:
+- **C++ Memory Corruption & Crashes**: Concurrent invocation of UNO interfaces corrupts internal reference counters and dispatch tables.
+- **Visual Glitches**: Concurrent UI operations cause the VCL rendering pipeline to draw black menus, blank sidebars, or freeze desktop windows.
+- **Deadlocks (Lock Inversion)**: A background worker thread making a blocking UNO call can take an internal C++ solar mutex or dispatch lock while LibreOffice's main thread is waiting on the worker, deadlocking the entire office suite without a Python traceback.
 
-- May **not reproduce on the developer's machine** (timing/GIL/doc-size dependent).
-- Manifests far away from the cause (a deadlock has no useful stack at the call site).
-- Is invisible to our current test suite (UNO is mocked, and the executor runs
-  inline under `WRITERAGENT_TESTING=1`, so the thread boundary is never exercised).
+See [`docs/threading_architecture.md`](threading_architecture.md) and [`docs/streaming-and-threading.md`](streaming-and-threading.md) for the core architectural model: **worker threads perform network I/O, heavy LLM processing, and subprocess IPC; all PyUNO interactions are marshalled back to the main UI thread via [`execute_on_main_thread`](../plugin/framework/queue_executor.py) or [`post_to_main_thread`](../plugin/framework/queue_executor.py).**
 
-The goal of this document: **make an off-main-thread UNO call fail loudly and
-deterministically — ideally at author time, otherwise in CI, and at worst the
-instant it happens on the dev machine — instead of as a rare production deadlock.**
+### Why Concurrency Bugs Are "Whack-a-Mole"
+Historically, threading bugs in this codebase were uncovered only after mysterious production hangs:
+- **Timing & Doc-Size Dependent**: Race conditions often do not reproduce on a developer's machine with small documents, but reliably deadlock on large documents or slower machines under GIL contention.
+- **No Stack Traces**: When two threads deadlock, neither crashes; the process simply stops responding, leaving no stack trace or error log at the offending call site.
+- **Test Invisibility**: Standard unit tests mock UNO calls, and `QueueExecutor` runs inline under `WRITERAGENT_TESTING=1`, meaning unit tests never exercise real thread boundary crossings.
 
-## Why formal verification ([`docs/formal_verification.md`](formal_verification.md)) does **not** help here
-
-It is worth stating plainly so we don't spend effort in the wrong place.
-
-`deal` + CrossHair (our FV toolchain) prove **value-level** properties of **pure,
-single-threaded** functions: "for all inputs, this post-condition holds." CrossHair
-runs the function under symbolic execution **in one thread**; it models neither
-real threads, the GIL, nor UNO's thread affinity. There is no `@deal.pre` that can
-express "this object may only be touched from `threading.main_thread()`."
-
-Thread-affinity is not a value property — it is an **effect/typestate** property
-("which thread is the program counter on when this call happens"). The correct
-analogy is **function coloring** (like `async`/`await`, or Rust's `Send`/`!Send`):
-some functions are "red" (main-thread-only) and some contexts are "blue"
-(background). A blue context may not call a red function except through a
-recoloring boundary (`execute_on_main_thread`). That discipline is enforced by
-**linting + runtime guards**, not by an SMT solver. The rest of this doc is about
-building that coloring cheaply on top of what we already have.
-
-## The single invariant to enforce
-
-> **No PyUNO access off the LibreOffice main thread. A background thread that needs
-> UNO must cross the boundary via `execute_on_main_thread` / `post_to_main_thread`
-> (or the `QueueExecutor`).**
-
-"PyUNO access" = constructing a UNO service, or calling any method / reading any
-property on a UNO object (`ctx`, `desktop`, the document model, frames,
-controllers, the toolkit, text cursors, cells, shapes, dialogs, …).
-
-Two facts make enforcement tractable:
-
-1. **There is one place background threads are born:**
-   [`run_in_background`](../plugin/framework/worker_pool.py) (plus a small set of
-   siblings: `threading.Thread` direct use, `threading.Timer`, `AsyncProcess`
-   reader/exit callbacks, the `BatchingStreamQueue` timer, and smolagents worker
-   entrypoints). If those are the only "blue roots," the linter has a finite set
-   of roots to walk.
-2. **There is a small set of places UNO objects are born:** the getters in
-   [`plugin/framework/uno_context.py`](../plugin/framework/uno_context.py)
-   (`get_ctx`, `get_desktop`, `get_toolkit`, `get_active_document`,
-   `get_package_info`) and document resolution in
-   [`plugin/doc/document_helpers.py`](../plugin/doc/document_helpers.py). If those
-   are the only "red sources," a runtime guard can be viral from a handful of
-   chokepoints.
-
-We already have a partial version of this: the runtime guard in
-[`ToolBase.execute_safe`](../plugin/framework/tool.py) (≈ lines 320–325) raises a
-`Thread Safety Violation` if a **synchronous tool** runs off the main thread, with
-a `bypass_thread_guard` escape hatch for the DSPy eval worker. The weakness is that
-it only fires at the **tool boundary**. The charts hang, the grammar workers, the
-embeddings UI, and every direct `uno_context` getter live *below* or *beside* that
-boundary and are unguarded. The proposals below generalize that one check into a
-defense-in-depth system.
+**The Goal**: Make any off-main-thread UNO violation and any synchronous host-dispatch deadlock fail **loudly, deterministically, and immediately** — at author time via linters, in CI via thread-affine mocks, and at runtime via viral proxies — instead of surfacing as rare production deadlocks.
 
 ---
 
-## Layer A — Runtime tripwire (cheapest; deterministic "catch on my machine")
+## 2. Why Formal Verification (CrossHair / deal) Does Not Help Here
 
-**Status:** Implemented (A1+A2+A3). Guard module + tagging + decoration of sources + viral proxy in `plugin/framework/thread_guard.py`. See `tests/framework/test_thread_guard.py`.
+It is critical to understand why our formal verification toolchain ([`docs/formal_verification.md`](formal_verification.md)) cannot solve this problem:
 
-Make the **first** illegal UNO touch raise immediately, with a full Python stack
-trace pointing at the exact offending line — long before any lock is taken. This
-is the highest value-per-effort option and directly satisfies the user's
-"catch it on my machine rather than wait for a deadlock" requirement.
+- `deal` and CrossHair prove **value-level properties of pure, single-threaded functions** (e.g. "for all integer inputs $x > 0$, $f(x)$ returns a non-empty string").
+- CrossHair executes functions under symbolic execution **in a single thread**. It models neither operating system threads, the Python GIL, nor UNO's C++ thread-affinity constraints. There is no `@deal.pre` contract that can express "this PyUNO object pointer may only be dereferenced from `threading.main_thread()`."
+- **Thread affinity is an effect / typestate property** ("which thread is the CPU executing on when this instruction runs"), not a data value property.
 
-### A1. Reusable assert + `@main_thread_only` decorator (hours)
+The proper computer science model for thread affinity is **Function Coloring** (analogous to `async`/`await` in JavaScript/Python or `Send`/`!Send` in Rust):
+- **Red functions** are Main-Thread-Only (PyUNO, UI, document mutations).
+- **Blue functions** are Background Worker contexts (I/O, LLM requests, venv IPC).
+- **Yellow functions** are Synchronous Host/Bridge Dispatches (Calc `=PY()` / `=PROMPT()`, UNO event listeners, remote PyUNO calls).
 
-Extract the existing tool-boundary check into a tiny shared helper, e.g. in
-`plugin/framework/thread_guard.py`:
+A Blue context may only transition to Red across an explicit recoloring boundary (`execute_on_main_thread`). A Yellow context is forbidden from calling blocking Red boundaries. This discipline is enforced through a combination of **runtime tripwires, thread-affine test fixtures, and static taint analysis**.
 
-```python
-import os, threading, logging
-log = logging.getLogger("writeragent.threadguard")
+---
 
-GUARD_ON = os.environ.get("WRITERAGENT_UNO_THREAD_GUARD", "1") == "1"
+## 3. Function Coloring & Concurrency Architecture
 
-def on_main_thread() -> bool:
-    return threading.current_thread() is threading.main_thread()
+```
+  ┌─────────────────────────────────────────────────────────────┐
+  │                           RED                               │
+  │                  (Main-Thread / UNO)                        │
+  │  - PyUNO services & objects (ctx, desktop, doc models)      │
+  │  - UI controllers, frames, windows, dialogs                │
+  │  - Document modifications (format, insert, styles)          │
+  └──────────────────────────────▲──────────────────────────────┘
+                                 │
+     recoloring boundary via     │   ILLEGAL from Yellow Context
+     execute_on_main_thread()    │   (Deadlock Hazard #402)
+                                 │
+  ┌──────────────────────────────┴──────────────────────────────┐
+  │                           BLUE                              │
+  │                   (Background Workers)                      │
+  │  - HTTP requests & LLM streaming                            │
+  │  - File I/O, local caching, embeddings computation          │
+  │  - Subprocess IPC (venv worker, audio recorder)             │
+  └─────────────────────────────────────────────────────────────┘
 
-def assert_main_thread(what: str) -> None:
-    """Raise (guard on) or warn-with-stack (guard off) if off the main thread."""
-    if on_main_thread():
-        return
-    msg = ("UNO thread violation: %r touched UNO from %s; marshal via "
-           "execute_on_main_thread()." % (what, threading.current_thread().name))
-    if GUARD_ON:
-        raise RuntimeError(msg)
-    log.warning(msg, stack_info=True)   # full stack, no crash, for release/field logs
-
-def main_thread_only(fn):
-    def wrapper(*a, **k):
-        assert_main_thread(getattr(fn, "__qualname__", fn))
-        return fn(*a, **k)
-    return wrapper
+  ┌─────────────────────────────────────────────────────────────┐
+  │                          YELLOW                             │
+  │           (Synchronous Host/Bridge Dispatch)                │
+  │  - Calc add-in formula eval: =PY(...), =PROMPT(...)         │
+  │  - UNO Event Listeners (actionPerformed, textChanged, ...)  │
+  │  - Remote PyUNO bridge dispatches & XJob triggers           │
+  │                                                             │
+  │  INVARIANT: May run on worker threads while main thread is  │
+  │  synchronously waiting. MUST NOT block on main thread!      │
+  └─────────────────────────────────────────────────────────────┘
 ```
 
-Then:
+### The Three Concurrency Colors
 
-- Decorate the UNO **sources** in `uno_context.py` (`get_desktop`,
-  `get_active_document`, `get_toolkit`, `get_package_info`) and the hottest doc
-  helpers / appliers (`document_helpers` resolution, `format_support.apply_*`).
-- Have `ToolBase.execute_safe` call `assert_main_thread(self.name)` instead of its
-  inline check (single source of truth; keep `bypass_thread_guard`).
+| Color | Context / Target | Permitted Operations | Forbidden Operations |
+|---|---|---|---|
+| **RED** | LibreOffice Main UI Thread | Direct PyUNO calls, UI dialogs, document reads/edits, VCL pump. | Long-running blocking network calls or CPU-heavy loops (freezes UI). |
+| **BLUE** | Background Workers (`run_in_background`) | Network I/O, LLM calls, venv IPC, disk access. | Direct PyUNO access (must marshal to Red via `execute_on_main_thread`). |
+| **YELLOW** | Synchronous Host Dispatch (Calc Add-ins, Listeners) | In-memory computation, venv execution, non-blocking `post_to_main_thread`. | Calling `execute_on_main_thread` (deadlocks against waiting main thread). |
 
-Cost: a few decorators, one module. Payoff: any decorated function called from a
-worker aborts at the call site with a stack trace in non-release builds (guard on
-by default). **Release OXT bundles replace this module with a no-op stub** so
-production pays nothing. Opt out in dev: `WRITERAGENT_UNO_THREAD_GUARD=0`.
+### The Two Foundational Facts That Make Enforcement Tractable
 
-When the guard is on, violations also **log at ERROR** and show a **modal error
-message box** on the LibreOffice main thread (via blocking `execute_on_main_thread`
-→ `msgbox`; `post_to_main_thread` must not inline on workers when AsyncCallback
-is missing),
-deduped to once per background thread so the viral proxy cannot spam dialogs. UI is
-skipped under `WRITERAGENT_TESTING=1` so pytest and the native test runner stay
-headless. The popup is also skipped while `QueueExecutor` has not finished
-lazy-init (`_initialized` is false): `_get_async_callback` holds `_init_lock`
-and must getattr the **unwrapped** context, or the guard + `set_context` on the
-UI thread deadlock at startup.
+1. **Background threads have a single birthplace**:
+   All background work in WriterAgent is spawned through [`run_in_background`](../plugin/framework/worker_pool.py) (or a strictly allowlisted set of dedicated server/reader loops: `AsyncProcess` pipes, MCP server daemon, venv worker).
+2. **UNO objects have a finite set of sources**:
+   All PyUNO objects originate from the factory getters in [`plugin/framework/uno_context.py`](../plugin/framework/uno_context.py) (`get_ctx`, `get_desktop`, `get_toolkit`, `get_active_document`, `get_package_info`) and document model resolvers in [`plugin/doc/document_helpers.py`](../plugin/doc/document_helpers.py).
 
-### A2. Tag background threads at their one birthplace (≈1 hour)
-
-In `run_in_background`, set a thread-local marker at **job** start (and a clear
-thread name for dedicated threads). Pooled workers reuse `wa-bg-*` threads, so
-the task name is set per submit and cleared in `finally`. The guard message can
-then say *which* background task is at fault ("inside background task `run_search`"),
-which makes triage trivial. Also lets the guard distinguish "legitimately on a
-non-main thread that never touches UNO" from "a worker that reached a red function."
-
-### A3. Viral guarding proxy on the UNO sources (half day; strongest runtime option)
-
-A decorator only guards functions we remembered to decorate. To cover **arbitrary**
-UNO object graphs (e.g. `doc.getCurrentController().getViewCursor().getText()`),
-wrap the few UNO *sources* in a debug-only proxy that:
-
-1. On every attribute access / call, runs `assert_main_thread(...)`.
-2. **Recursively wraps** any returned PyUNO object, so the guard follows the object
-   graph from `ctx` / `desktop` / the document model outward.
-
-PyUNO objects are identifiable at runtime (e.g. `type(obj).__module__` is `pyuno`,
-or presence of `__pyunostruct__` / `XInterface` query support); the proxy only
-wraps those and passes plain Python values through untouched. Install it **only**
-when the guard is active (on by default in non-release bundles; release stubs
-disable it entirely).
-
-This converts "any UNO call anywhere off the main thread" into an immediate,
-located exception, with **zero per-call-site annotation**. It is the closest thing
-to a hardware watchpoint we can get in Python.
-
-> Note on the existing `WRITERAGENT_TESTING=1` shortcut: `QueueExecutor.execute`
-> and charts `_process_events` currently *skip* real behavior under testing. That
-> is fine for unit tests, but it means the thread boundary is never crossed in
-> tests. The guard must be exercised in a mode where marshalling actually happens
-> (see Layer B).
+By wrapping the sources and tagging the birthplaces, we achieve complete defense-in-depth across three enforcement layers:
 
 ---
 
-## Layer B — Test-time enforcement (deterministic in CI; no LibreOffice needed)
+## 4. Layer A — Runtime Tripwire & Viral Proxy (Catch Immediately on Dev Machine)
 
-**Status:** Implemented (B1+B2+B3). Makefile targets `lo-test-threadguard` /
-`lo-test-threadguard-visible`; pytest helpers in
-[`tests/framework/thread_safety.py`](../tests/framework/thread_safety.py) and
-opt-in fixture `uno_thread_safety` in
-[`tests/framework/conftest.py`](../tests/framework/conftest.py); tests in
-[`tests/framework/test_thread_affinity.py`](../tests/framework/test_thread_affinity.py).
+**Status:** Shipped in [`plugin/framework/thread_guard.py`](../plugin/framework/thread_guard.py).
+**Configuration**: Active by default in all dev and non-release builds (`WRITERAGENT_UNO_THREAD_GUARD=1`). Opt-out via `WRITERAGENT_UNO_THREAD_GUARD=0`.
 
-The aim: a `run_in_background` worker that forgets to marshal a UNO call should
-**fail a test**, not pass quietly.
+Layer A converts what would be a silent race condition or production freeze into an **immediate exception with a complete Python stack trace** pointing directly at the offending line.
 
-### B1. Run the real UNO suite with the guard on (low effort, high value)
+### A1. Reusable Assert & `@main_thread_only` Decorator
+```python
+def assert_main_thread(what: str) -> None:
+    """Raise (if guard on) or log warning+stack (if guard off) when off the main thread."""
+    if on_main_thread():
+        return
+    task = get_background_task_name() or threading.current_thread().name
+    msg = "UNO thread violation: %r touched UNO from background task %r; marshal via execute_on_main_thread()." % (what, task)
+    if GUARD_ON:
+        _notify_thread_violation(msg)
+        raise RuntimeError(msg)
+    log.warning(msg, stack_info=True)
+```
+- Decorates primary UNO entry points (`get_desktop`, `get_active_document`, `confirm_unsaved_cell_edit`, etc.).
+- When `GUARD_ON` is active, displays a deduplicated modal error box on the UI thread (dev builds only) and raises `RuntimeError`.
+- When `GUARD_ON` is inactive (field/release builds), logs `log.warning(msg, stack_info=True)` so call sites are captured in logs without crashing user sessions.
 
-**Status:** Done. `make lo-test-threadguard` runs the full native suite with the
-Layer A guard active (on by default in non-release bundles; the Makefile target
-still sets `WRITERAGENT_UNO_THREAD_GUARD=1` explicitly for clarity). `WRITERAGENT_TESTING=1` (set by
-[`plugin/testing_runner.py`](../plugin/testing_runner.py)) only short-circuits
-`QueueExecutor` inline execution — it does **not** disable the Layer A guard.
+### A2. Thread Tagging at Birth
+In `run_in_background`, a thread-local task name is stamped on the worker thread for the duration of the task. Pooled workers (`wa-bg-*`) clear the tag in a `finally` block so recycled threads do not carry stale task identifiers. The runtime error message explicitly names the culprit task (e.g. `"touched UNO from background task 'web-search-embeddings'"`).
 
-The native UNO tests (`plugin/testing_runner.py`, `make test-visible`) use **real
-PyUNO objects**. The Makefile target runs them with the guard on:
+### A3. Viral Guarding Proxy (`_UnoThreadGuardProxy` / `guard_uno`)
+Decorators only guard functions we remember to decorate. To protect arbitrary UNO object graphs (such as `doc.getCurrentController().getViewCursor().getText().getEnd()`), all UNO sources wrap returned objects in `_UnoThreadGuardProxy`:
+1. On every attribute lookup (`__getattr__`), method call (`__call__`), property setter (`__setattr__`), item lookup (`__getitem__`), and interface query (`queryInterface`), the proxy invokes `assert_main_thread(...)`.
+2. Any PyUNO object returned by an attribute access or method call is **recursively wrapped** in another `_UnoThreadGuardProxy`. Plain Python values (strings, integers, booleans, lists) pass through untouched.
+3. If a guarded proxy is passed back into a property setter on a UNO object, the proxy automatically unwraps itself (`_unwrap_uno`) to prevent wrapping overhead from leaking into LibreOffice C++.
 
+### A4. Yellow Context Refusal (`sync_host_dispatch`)
+When Calc evaluates an add-in formula like `=PY("1+1")` or `=PROMPT(...)` via a remote PyUNO bridge, or when LibreOffice invokes a UNO listener callback, execution occurs in a **Yellow Context**:
+- Managed via `@contextmanager def sync_host_dispatch()` and `def in_sync_host_dispatch() -> bool`.
+- Inside `QueueExecutor.execute()`, if `in_sync_host_dispatch()` is True on a non-main thread, execution is **refused immediately** with:
+  ```
+  RuntimeError: marshal refused: execute_on_main_thread called from synchronous host dispatch context (deadlock hazard #402, fn=...)
+  ```
+- This completely eliminates 30-second timeouts and lock inversions.
+
+---
+
+## 5. Layer B — Test-Time Enforcement & Determinism
+
+**Status:** Shipped in [`tests/framework/thread_safety.py`](../tests/framework/thread_safety.py) and [`tests/framework/test_thread_affinity.py`](../tests/framework/test_thread_affinity.py).
+
+### B1. Real PyUNO Test Suite with Active Guard (`make lo-test-threadguard`)
+Native UNO tests (`plugin/testing_runner.py`) run against a live LibreOffice instance with real C++ PyUNO objects. `make lo-test-threadguard` executes the full suite with `WRITERAGENT_UNO_THREAD_GUARD=1`:
 ```make
 lo-test-threadguard:
 	WRITERAGENT_UNO_THREAD_GUARD=1 $(LO_PYTHON) -m plugin.testing_runner; \
 	EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
 ```
+Any worker thread that reaches a real UNO object without marshalling aborts the test with a stack trace.
 
-Any test path that drives a real send / MCP call / grammar pass and touches UNO
-from a worker now aborts with a stack trace. This is the cheapest way to get real
-coverage because it reuses an existing harness.
+### B2. Pytest Thread-Affine Mocks & Synthetic Pump (`uno_thread_safety` Fixture)
+For fast CI tests where LibreOffice is not running:
+1. `make_thread_affine_mock(raw_mock)` wraps unit test mocks in a `ThreadAffineMock` that asserts access is only made from the designated main thread.
+2. `set_designated_main_thread(pump_thread)` instructs `thread_guard.on_main_thread()` to follow a synthetic test pump thread.
+3. `set_force_marshal_mode(True)` disables the `WRITERAGENT_TESTING=1` inline shortcut, forcing `QueueExecutor.execute` to enqueue real `_WorkItem` objects and block until the `TestMainPump` thread drains the queue.
+4. If a worker touches a mock directly without `execute_on_main_thread()`, the mock immediately raises `AssertionError`, turning concurrency bugs into deterministic red CI tests.
 
-### B2. Thread-affinity mocks for pytest (medium effort)
-
-**Status:** Done. Opt-in `uno_thread_safety` fixture:
-
-1. `make_thread_affine_mock` / `ThreadAffineMock` stamp mocks for the synthetic
-   main pump thread (`TestMainPump` in `tests/framework/thread_safety.py`).
-2. `set_designated_main_thread` in [`thread_guard.py`](../plugin/framework/thread_guard.py)
-   makes `on_main_thread()` follow the pump.
-3. `set_force_marshal_mode` + `set_test_poke_handler` in
-   [`queue_executor.py`](../plugin/framework/queue_executor.py) replace the
-   `WRITERAGENT_TESTING` inline shortcut for that session: workers enqueue and
-   block; the pump thread drains the queue.
-
-Now a worker that calls a UNO mock directly (instead of via
-`execute_on_main_thread`) touches the mock from the wrong thread → assertion →
-red test. This is the unit-level mirror of B1 and runs in plain CI.
-
-### B3. Targeted regression tests per fixed bug
-
-**Status:** Done (seed test). `test_charts_process_events_regression_must_marshal`
-in `test_thread_affinity.py` documents the charts hang class (commit
-`0cfc6891`). Add more tests here as violations are found.
-`tests/framework/test_tool_registry_bypass_thread.py` remains the template for
-`bypass_thread_guard` behavior.
+### B3. Concurrency Regression Test Suite
+- `test_yellow_context_refuses_execute_on_main_thread`: Asserts immediate `RuntimeError` when off-main host dispatch attempts blocking marshal.
+- `test_yellow_context_allows_inline_when_on_main_thread`: Asserts GUI formula evaluation on main thread executes inline without errors.
+- `test_notify_thread_violation_never_blocks`: Asserts guard violation reporting uses non-blocking `post_to_main_thread`.
+- `test_charts_process_events_regression_must_marshal`: Prevents regressions of the chart event loop hang (commit `0cfc6891`).
 
 ---
 
-## Layer C — Author-time / static analysis (Opengrep)
+## 6. Layer C — Build-Time Static Analysis & Linters
 
-**Status:** Implemented (C1+C2+C3). Custom Opengrep rules in
-[`tests/semgrep/uno_thread_safety.yml`](../tests/semgrep/uno_thread_safety.yml) (UNO taint) and
-[`tests/semgrep/writeragent_security.yml`](../tests/semgrep/writeragent_security.yml) (project-specific);
-vendored third-party rules under [`tests/semgrep/third_party/`](../tests/semgrep/third_party/) (pinned in
-[`SOURCES.json`](../tests/semgrep/third_party/SOURCES.json), refresh via **`make opengrep-rules-sync`**).
-`@background` in [`plugin/framework/thread_guard.py`](../plugin/framework/thread_guard.py);
-**`make opengrep-lint`** (alias **`make uno-thread-lint`**) runs as part of **`make test`** only
-(not `make typecheck`). Install Opengrep: **`make opengrep-install`**. UNO taint scan
-uses **`--taint-intrafile`**. On Windows, the installer uses upstream PowerShell support; Windows ARM64 currently installs the x64 Opengrep binary and runs it under emulation. Fixtures:
-[`tests/semgrep/uno_thread_safety.violations.py`](../tests/semgrep/uno_thread_safety.violations.py),
-[`tests/semgrep/uno_thread_safety.ok.py`](../tests/semgrep/uno_thread_safety.ok.py),
-[`tests/semgrep/security_rules.violations.py`](../tests/semgrep/security_rules.violations.py);
-pytest: [`tests/scripts/test_opengrep_lint.py`](../tests/scripts/test_opengrep_lint.py).
-Optional manual registry sweep: **`make opengrep-rules-audit`** (`p/python`; not in `make test`).
+Executed automatically via **`make test`** and **`make uno-thread-lint`** (**`make opengrep-lint`** + **`make thread-safety-lint`**).
 
-Stock type-checkers (ty / mypy / pyright) **cannot** catch this: UNO objects are
-typed `Any`, and no Python type encodes thread affinity. Layer C expresses the
-"function coloring" rule as Opengrep **taint** (sources / sinks / sanitizers).
+```
+                      ┌────────────────────────┐
+                      │    make uno-thread-lint │
+                      └───────────┬────────────┘
+                                  │
+         ┌────────────────────────┴────────────────────────┐
+         │                                                 │
+┌────────▼───────────────┐                     ┌───────────▼────────────┐
+│   make opengrep-lint   │                     │ make thread-safety-lint│
+│ (tests/semgrep/*.yml)  │                     └───────────┬────────────┘
+└────────────────────────┘                                 │
+                                   ┌───────────────────────┴───────────────────────┐
+                                   │                                               │
+                      ┌────────────▼───────────────┐                  ┌────────────▼───────────────┐
+                      │ scripts/lint_thread_safety │                  │ scripts/analyze_thread_     │
+                      │ (AST structural visitor)   │                  │  deadlocks.py (Call Graph) │
+                      └────────────────────────────┘                  └────────────────────────────┘
+```
 
-### C1. `@main_thread_only` / `@background` as the type system
+### C1. Opengrep Taint Analysis ([`tests/semgrep/uno_thread_safety.yml`](../tests/semgrep/uno_thread_safety.yml))
+Uses `opengrep scan --taint-intrafile` to track cross-function dataflow within files:
+- **Blue Roots (Taint Sources)**: Functions decorated with `@background`, worker functions passed to `run_in_background()`, and add-in entry points.
+- **Red Sinks (UNO Operations)**: `uno_context` getters, `createUnoService`, `createInstanceWithContext`, `uno.getComponentContext`, document format/edit helpers.
+- **Sanitizers**: `execute_on_main_thread()`, `post_to_main_thread()`, and enclosing `if on_main_thread():` branches.
+- **Core Rules**:
+  - `uno-off-main-thread` (ERROR): Flags direct UNO access in background workers.
+  - `raw-uno-thread-ban` (ERROR): Rejects raw `threading.Thread`/`Timer` instantiation outside approved subsystems.
+  - `blocking-marshal-in-sync-dispatch` (ERROR): Rejects `execute_on_main_thread` inside add-in evaluations and synchronous callbacks.
+  - `raw-process-events-to-idle` (ERROR): Rejects direct VCL event pumps outside approved queue drain points.
 
-Reuse the Layer A decorators as **machine-readable color annotations**:
+### C2. Custom AST Linter ([`scripts/lint_thread_safety.py`](../scripts/lint_thread_safety.py))
+Parses Python ASTs across add-in and scripting boundary modules to enforce:
+1. `unguarded-uno-access`: UNO source getters (`get_desktop`, `get_ctx`, `_get_calc_doc`) must be structurally protected by an `if on_main_thread():` block or `@main_thread_only` decorator.
+2. `blocking-marshal-in-sync-dispatch`: Synchronous add-in functions (`execute_python_addin`, `execute_prompt_addin`, `session_key`) cannot contain calls to `execute_on_main_thread`.
 
-- `@main_thread_only` → red (UNO-only). On [`uno_context`](../plugin/framework/uno_context.py)
-  getters and key [`document_helpers`](../plugin/doc/document_helpers.py) UNO functions.
-- `@background` → blue (warns if run on the main thread; Opengrep taint source).
-
-**Module-level worker entrypoints** passed to `run_in_background` carry `@background`
-(cross-file workers). UNO work inside a worker must go through
-`execute_on_main_thread` / `post_to_main_thread` (see `_update_menu_icons` /
-`run_periodic_embeddings_indexer` refactors).
-
-### C2. Opengrep taint rules in `make test`
-
-[`tests/semgrep/uno_thread_safety.yml`](../tests/semgrep/uno_thread_safety.yml) performs taint
-with **`opengrep scan --taint-intrafile`**:
-
-- **Blue roots (taint sources):** `@background` functions; lambdas passed to
-  `run_in_background(...)`; nested `def $F` + `run_in_background($F, ...)` in the
-  same outer function.
-- **Red sinks (UNO-only):** [`uno_context`](../plugin/framework/uno_context.py)
-  getters, [`document_helpers`](../plugin/doc/document_helpers.py) UNO readers,
-  and [`writer/format.py`](../plugin/writer/format.py) document mutators (see YAML).
-- **Sanitizers:** `execute_on_main_thread(...)`, `post_to_main_thread(...)`.
-
-**Cross-function (in-file):** with `--taint-intrafile`, Opengrep tracks
-`@background worker → nested helper → sink` within one file. Module-level helpers
-called from a worker still need marshalling or nested helpers. **Cross-file** still
-requires `@background` on the worker entrypoint; inter-file taint is out of scope.
-
-Advisory rules (WARNING, `make opengrep-lint-advisory`): `background-worker-missing-decorator`,
-`uno-source-needs-main-thread-decorator`, plus vendored WARNING rules (e.g. `exec-detected`,
-`eval-detected`, `insecure-file-permissions`). Suppress false positives with
-`# nosemgrep: rule-id`.
-
-### C2b. Vendored security rules (curated Semgrep Registry subset)
-
-**Do not** pull full registry rulesets (`p/default`, `p/security-audit`) into `make test` — too
-many false positives (pickle IPC, dynamic imports, grammar debug logs). Instead, nine rules are
-vendored from [semgrep/semgrep-rules](https://github.com/semgrep/semgrep-rules) and
-[trailofbits/semgrep-rules](https://github.com/trailofbits/semgrep-rules) at pinned commits
-(see [`SOURCES.json`](../tests/semgrep/third_party/SOURCES.json)):
-
-- **ERROR gate:** defused-xml / defused-xml-parse, subprocess-shell-true, avoid-pyyaml-load,
-  tarfile-extractall-traversal, `writeragent-no-tempfile-mktemp`
-- **Advisory:** exec-detected, eval-detected, hardcoded-password-default-argument,
-  insecure-file-permissions (with path excludes on vetted venv IPC in the sync script)
-
-Overlap with **Bandit** (`make test`): Bandit still owns broad HTTP/pickle/sql checks with
-project skips in [`pyproject.toml`](../pyproject.toml); Opengrep fills XXE/subprocess/YAML/tar
-gaps. Bump pins: edit SHAs in [`scripts/sync-opengrep-rules.sh`](../scripts/sync-opengrep-rules.sh),
-run **`make opengrep-rules-sync`**, triage new findings.
-
-### C3. Ban raw `threading.Thread` / `Timer` outside the chokepoint
-
-Rule `raw-uno-thread-ban` matches `threading.Thread`/`Timer` and bare `Thread`/`Timer`
-outside [`plugin/framework/worker_pool.py`](../plugin/framework/worker_pool.py) and a
-vetted allowlist (venv worker/editor/audio recorder, grammar queue, CDP supervisor,
-`async_stream` batch timer, settings debounce timer, calc deferred spill).
-`plugin/contrib/` is excluded via Makefile `--exclude` flags (documented in [`tests/semgrep/semgrepignore`](../tests/semgrep/semgrepignore)).
-
-Related reliability rules in [`tests/semgrep/uno_thread_safety.yml`](../tests/semgrep/uno_thread_safety.yml) include:
-- `raw-process-events-to-idle` (ERROR): rejects direct VCL pumps outside approved queue/UNO chokepoints (`pump_ui_idle` / `process_events_to_idle`).
-- `piped-stderr-needs-drain` (WARNING): flags long-lived `stderr=PIPE` subprocesses without continuous drains.
-- `uno-disposed-check-required` (WARNING): flags selected document-model access without disposal-check boundaries.
+### C3. Static Lock Hierarchy & Transition Analyzer ([`scripts/analyze_thread_deadlocks.py`](../scripts/analyze_thread_deadlocks.py))
+Builds a global function call graph across `plugin/` starting from `SYNC_HOST_ENTRYPOINTS` (`execute_python_addin`, `execute_prompt_addin`, `py`, listener callbacks like `actionPerformed`, `textChanged`, `disposing`, `trigger`).
+- Walks call edges to detect if any synchronous host dispatch can reach `BLOCKING_OPERATIONS` (`execute_on_main_thread`).
+- Uses a curated `GENERIC_METHOD_NAMES` filter to prevent false-positive call graph edges on common method names (`get`, `set`, `dispatch`, `forward`, `handle`, `step`).
 
 ---
 
-## Recommended rollout (least code first)
+## 7. Infection-Start Chokepoints (Layer A Reference)
 
-| Step | Layer | Effort | What you get |
-|------|-------|--------|--------------|
-| 1 | A1 + A2 | Hours | `assert_main_thread` / `@main_thread_only`, env toggle, tagged worker threads. Decorate `uno_context` getters + tool boundary. Immediate located failures on the dev machine with the guard on; harmless `log.warning(stack_info=True)` in the field with it off. |
-| 2 | A3 + B1 | ½–1 day | Viral guarding proxy on UNO sources; `make lo-test-threadguard` runs the real UNO suite with the guard on. Catches arbitrary object-graph violations with zero per-site annotation. **Done.** |
-| 3 | B2 + B3 | ~1 day | Thread-affinity mocks + synthetic main pump (`uno_thread_safety` fixture); deterministic CI coverage without LibreOffice. Seed regression in `test_thread_affinity.py`. **Done.** |
-| 4 | C1 + C2 + C3 | ~1 day | Opengrep `--taint-intrafile` + `@background` on workers + broad sinks + raw-thread ban in **`make test`**. **Done.** |
+All UNO objects must be wrapped at birth using `guard_uno(obj)` or obtained via `get_ctx()` (which is pre-wrapped). Direct unmanaged calls to `uno.getComponentContext()` are strictly prohibited.
 
-Each step is independently shippable and strictly additive. Step 1 alone already
-turns most "rare deadlock" reports into "deterministic exception with a stack
-trace," which is the bulk of the user's pain.
+| Location | File Path | Guard Mechanism / Role |
+|---|---|---|
+| Primary UNO getters | `plugin/framework/uno_context.py` | Wrapped via `guard_uno()` on `get_ctx()`, `get_desktop()`, `get_active_document()`, `get_toolkit()`, `get_package_info()`. |
+| Document Model Resolver | `plugin/doc/document_helpers.py` | `resolve_document_by_url()` returns `guard_uno(doc)`. |
+| Panel Frame Resolver | `plugin/chatbot/panel.py`, `panel_factory.py` | `_get_document_model()` resolves frame controller model with `guard_uno`. |
+| Hidden Document Loader | `plugin/doc/document_research.py` | `open_document_for_read()` guards hidden component model. |
+| Desktop Enumeration | `plugin/doc/document_research.py` | `_office_model_from_desktop_element()` guards enumerated desktop models. |
+| Scripting Calc Resolver | `plugin/scripting/document_scripts.py` | `get_calc_document_from_ctx()` wraps active sheet document. |
+| Calc Add-in Doc Lookup | `plugin/calc/python/function.py` | `_get_calc_doc()` returns `None` off-main (#402), guards on-main. |
+| Calc Cell Editor Selection | `plugin/calc/python/editor.py` | `_get_active_calc_cell()` guards active cell interface. |
+| Graphic Export Bridge | `plugin/calc/image_tools.py` | `export_graphic_to_bytes()` resolves via `get_ctx()`. |
+| Locale Resolution | `plugin/framework/i18n.py` | `get_lo_locale()` uses `get_ctx()` on-main, falls back to `en_US` off-main. |
+| MCP Send Handlers | `plugin/mcp/server.py` | Context resolution uses `get_ctx()`, not raw bootstrap context. |
 
-## Tradeoffs summary
-
-- **Runtime guard (A):** cheapest, most general (A3 needs no annotations), but only
-  catches paths that actually execute. On by default in dev; release stub ⇒ zero release cost. Best ROI.
-- **Test-time (B):** deterministic and automatable. B1 reuses real PyUNO (`make lo-test-threadguard`); B2 uses the `uno_thread_safety` fixture and synthetic pump (no LO required).
-- **Static (C):** catches bugs before they run (Opengrep `--taint-intrafile`, cross-function in-file).
-  `@background` on worker entrypoints; cross-file UNO still needs explicit marshalling.
-- **Formal verification:** not applicable — thread affinity is an effect, not a
-  value property; CrossHair/`deal` cannot model it.
-
-## Where this plugs into the existing code
-
-- Guard infra / reusable assert: [`plugin/framework/thread_guard.py`](../plugin/framework/thread_guard.py) (`set_designated_main_thread` for Layer B); replace the
-  inline check in [`plugin/framework/tool.py`](../plugin/framework/tool.py) `execute_safe`.
-- UNO sources to decorate / proxy: [`plugin/framework/uno_context.py`](../plugin/framework/uno_context.py),
-  [`plugin/doc/document_helpers.py`](../plugin/doc/document_helpers.py).
-- Background birthplace to tag / constrain: [`plugin/framework/worker_pool.py`](../plugin/framework/worker_pool.py).
-- Marshalling boundary (the only legal recoloring): [`plugin/framework/queue_executor.py`](../plugin/framework/queue_executor.py) (`set_force_marshal_mode`, `set_test_poke_handler` for Layer B pytest; **`pump_ui_idle`** co-drains the work queue from [`run_stream_drain_loop`](../plugin/framework/async_stream.py) so async tools do not deadlock). **Sync tools** are also marshaled centrally in [`ToolRegistry.execute`](../plugin/framework/tool.py) via `execute_on_main_thread` (async tools and `bypass_thread_guard` stay on the caller thread).
-- Layer B pytest: [`tests/framework/thread_safety.py`](../tests/framework/thread_safety.py), fixture in [`tests/framework/conftest.py`](../tests/framework/conftest.py), tests in [`tests/framework/test_thread_affinity.py`](../tests/framework/test_thread_affinity.py).
-- Layer C Opengrep: [`tests/semgrep/uno_thread_safety.yml`](../tests/semgrep/uno_thread_safety.yml),
-  [`tests/semgrep/writeragent_security.yml`](../tests/semgrep/writeragent_security.yml),
-  [`tests/semgrep/third_party/`](../tests/semgrep/third_party/), [`tests/semgrep/semgrepignore`](../tests/semgrep/semgrepignore),
-  `make opengrep-install`, `make opengrep-rules-sync`, `make opengrep-lint` (in `make test`).
-- Tests: extend [`tests/framework/test_tool_registry_bypass_thread.py`](../tests/framework/test_tool_registry_bypass_thread.py);
-  `make lo-test-threadguard` over [`plugin/testing_runner.py`](../plugin/testing_runner.py).
-- **Specialized sub-agents:** [`plugin/doc/specialized_base.py`](../plugin/doc/specialized_base.py)
-  (`DelegateToSpecializedBase.execute`) runs on a background worker when `is_async()`; UNO
-  scaffolding (`get_tools(doc=…)`, shapes canvas, open-documents list, embeddings index wakeup)
-  and sync domain tools (via `SmolToolAdapter(main_thread_sync=True)`) must marshal through
-  `execute_on_main_thread`. Async domain tools (`image_generate`, `delegate_read_document`, …)
-  must marshal UNO inside their own `execute()`. Tests:
-  [`tests/doc/test_specialized_delegation_threading.py`](../tests/doc/test_specialized_delegation_threading.py).
-
-## Case Study: Synchronous UNO Bridge & Add-in Deadlock (#402)
-
-In GitHub issue [#402](https://github.com/KeithCu/writeragent/issues/402), assigning `=PY(...)` via remote PyUNO (`sheet.getCellByPosition(...).FormulaLocal = '=PY("1+1")'`) deadlocked against `MainThread`:
-1. The remote UNO dispatch executed Calc formula recalculation synchronously on a UNO bridge worker thread (`Dummy-2`).
-2. `workbook_session_id()` called `execute_on_main_thread(_workbook_session_id_impl)` (waiting up to 30s) even in `isolated` mode.
-3. LibreOffice's main thread was synchronously waiting for the UNO RPC dispatch to finish, so it could not drain the `QueueExecutor` work queue.
-4. `session_key()`, `get_python_init_kwargs()`, and `_diagnostics_workbook_key()` called `get_desktop` without checking `on_main_thread()`, tripping the Layer A runtime guard.
-5. The runtime guard's `_notify_thread_violation()` attempted to show a modal error dialog via a blocking `execute_on_main_thread(_show_popup, timeout=5.0)`, freezing the thread for 5s.
-6. When the 30s timeout elapsed, `_format_error_for_display()` mapped the timeout string to a misleading `"Error: Python timed out. Open Settings → Python..."` message.
-
-### Fix applied:
-- **Config-first mode check**: `workbook_session_id()` checks `python_session_mode(ctx)` before touching threads or marshalling.
-- **Off-main guard on all add-in UNO lookups**: `session_key()`, `get_python_init_kwargs()`, and `_diagnostics_workbook_key()` check `on_main_thread()` and return safe no-UNO defaults off-main.
-- **Non-blocking guard notifications**: `_notify_thread_violation()` uses non-blocking `post_to_main_thread()` only when `AsyncCallback` is ready, and never blocks the worker thread.
-- **Distinct timeout classification**: `TimeoutError` from host execution formats distinctly from venv worker execution timeouts.
+### Intentionally Unwrapped Boundaries (By Design)
+- `QueueExecutor._get_async_callback`: Unwraps context before creating `com.sun.star.awt.AsyncCallback` service to avoid bootstrap deadlocks during executor initialization.
+- `main.py` Menu-Icon `GraphicProvider`: Runs exclusively on the main UI thread during extension load; does not leak document model references.
 
 ---
 
-## Build-Time Tools & Static Analysis for Deadlock Prevention (Shipped)
+## 8. Case Studies & Resolved Deadlocks
 
-While Layer A (runtime proxy/asserts) and Layer B (thread-affine test mocks) catch violations during execution, concurrency and thread-affinity hazards are prevented at **build time** through a multi-tiered verification suite:
+### Case Study 1: Synchronous Bridge & Add-in Deadlock (Issue #402)
+- **The Bug**: Assigning `=PY(...)` via remote PyUNO (`sheet.getCellByPosition(0, 0).FormulaLocal = '=PY("1+1")'`) deadlocked LibreOffice against `MainThread`:
+  1. The remote UNO dispatch executed Calc formula recalculation synchronously on a remote PyUNO bridge worker thread (`Dummy-2`).
+  2. `workbook_session_id()` called `execute_on_main_thread(_workbook_session_id_impl)` (waiting up to 30s).
+  3. LibreOffice's main thread was synchronously blocked waiting for the remote UNO RPC dispatch to finish, so it could not pump the `QueueExecutor` work queue.
+  4. `session_key()`, `get_python_init_kwargs()`, and `_diagnostics_workbook_key()` called `get_desktop` without checking `on_main_thread()`, tripping the Layer A guard.
+  5. The runtime guard's `_notify_thread_violation()` attempted a blocking `execute_on_main_thread(_show_popup, timeout=5.0)`, freezing the thread.
+  6. When 30s elapsed, `_format_error_for_display()` mapped the timeout to a misleading `"Error: Python timed out"` message.
+- **The Fix**:
+  - `sync_host_dispatch()` context manager marks Yellow thread state; `QueueExecutor.execute` immediately refuses blocking calls off-main.
+  - `workbook_session_id()` checks `python_session_mode(ctx)` before touching threads or marshalling.
+  - Add-in UNO lookups check `on_main_thread()` and return safe no-UNO defaults off-main.
+  - `_notify_thread_violation()` uses non-blocking `post_to_main_thread()` only when `AsyncCallback` is ready.
 
-### 1. Enhanced Static Taint Analysis (Opengrep / Semgrep)
-**Status:** Shipped in [`tests/semgrep/uno_thread_safety.yml`](../tests/semgrep/uno_thread_safety.yml).
-- **Expanded Blue Roots**: In addition to `@background` and `run_in_background`, add-in entry points (`execute_python_addin`, `execute_prompt_addin`, `_notify_thread_violation`) are recognized as taint sources.
-- **`blocking-marshal-in-sync-dispatch` Rule**: Enforces that synchronous host add-ins and notification callbacks cannot call blocking `execute_on_main_thread(...)` (deadlock hazard [#402](https://github.com/KeithCu/writeragent/issues/402)).
-- **Intra-file Sanitization**: Enclosing `if on_main_thread():` branches sanitize data flows.
-- **Execution**: Run via `make opengrep-lint` (or `make uno-thread-lint`).
-
-### 2. Compile-Time Type Coloring via `MainThreadToken`
-**Status:** Shipped in [`plugin/framework/thread_token.py`](../plugin/framework/thread_token.py).
-- Nominal token type `MainThreadToken = NewType("MainThreadToken", object)` minted via `require_main_thread()`.
-- Red functions declare `token: MainThreadToken | None = None` in their signatures to allow type-level verification in Mypy, Basedpyright, and Ty during `make typecheck`.
-- Tests in [`tests/framework/test_thread_token.py`](../tests/framework/test_thread_token.py).
-
-### 3. Custom AST Linter (`scripts/lint_thread_safety.py`)
-**Status:** Shipped in [`scripts/lint_thread_safety.py`](../scripts/lint_thread_safety.py).
-- **AST Visitor**: Parses AST across `plugin/calc/python/` and `plugin/scripting/`.
-- **Guard Detection (`unguarded-uno-access`)**: Verifies that any invocation of `get_desktop`, `get_ctx`, `_get_calc_doc`, or document getters is structurally enclosed within an `if on_main_thread():` check or decorated with `@main_thread_only`.
-- **Blocking Call Detection (`blocking-marshal-in-sync-dispatch`)**: Rejects `execute_on_main_thread` inside add-in evaluation and synchronous notification paths.
-- **Execution**: Run via `make thread-safety-lint`. Tests in [`tests/scripts/test_lint_thread_safety.py`](../tests/scripts/test_lint_thread_safety.py).
-
-### 4. Static Lock Hierarchy & Transition Call Graph Analyzer (`scripts/analyze_thread_deadlocks.py`)
-**Status:** Shipped in [`scripts/analyze_thread_deadlocks.py`](../scripts/analyze_thread_deadlocks.py).
-- Analyzes function call graphs across `plugin/` to detect synchronous cross-thread wait cycles where a synchronous host dispatch entrypoint (`execute_python_addin`, `py`, `session_key`, `_notify_thread_violation`) reaches a blocking operation (`execute_on_main_thread`).
-- **Execution**: Run via `make thread-safety-lint`. Tests in [`tests/scripts/test_analyze_thread_deadlocks.py`](../tests/scripts/test_analyze_thread_deadlocks.py).
+### Case Study 2: Calc Charts Process Events Hang (Commit `0cfc6891`)
+- **The Bug**: `_process_events()` in `plugin/calc/charts.py` called `toolkit.processEventsToIdle()` on a path that could run without an active frame or on background worker threads.
+- **The Fix**: Direct VCL event pumps are restricted to approved UI drain chokepoints (`pump_ui_idle` / `process_events_to_idle`) and verified by Semgrep rule `raw-process-events-to-idle`.
 
 ---
 
-## Current infection-start chokepoints (Layer A)
+## 9. Specialized Sub-Agents & Tools Threading
 
-Wrap **at resolver return** (`guard_uno`) or use **`get_ctx()`** (already wrapped). Do not call `uno.getComponentContext()` to obtain a ctx for document/graphic/locale work.
-
-| Location | What |
-|----------|------|
-| `uno_context.get_ctx` / `get_desktop` / `get_active_document` / `get_toolkit` / `get_package_info` | Sources |
-| `document_helpers.resolve_document_by_url` | Model |
-| `panel._get_document_model` / `panel_factory._get_document_model` | Frame → model |
-| `document_research.open_document_for_read` | Hidden load |
-| `document_research._office_model_from_desktop_element` | Desktop enum → model (`list_nearby_files` / `get_open_documents`) |
-| `document_scripts.get_calc_document_from_ctx` | Calc active + enum |
-| `calc.python.function._get_calc_doc` | Calc add-in doc lookup (None off-main, #402) |
-| `calc.python.editor._get_active_calc_cell` | Editor selection |
-| `image_tools.export_graphic_to_bytes` | `ctx is None` → `get_ctx()` |
-| `i18n.get_lo_locale` | `ctx is None` on-main → `get_ctx()`; off-main → `en_US` |
-| MCP `_get_context` / send_handlers | `get_ctx()` not bootstrap ctx |
-
-**Still not wrapped (by design):** `queue_executor._get_async_callback` unwraps before `AsyncCallback` create; `main.py` menu-icon GraphicProvider (UI thread, no model leak).
-
-Regression tests: [`tests/framework/test_guard_uno_boundaries.py`](../tests/framework/test_guard_uno_boundaries.py).
+Specialized sub-agents (`plugin/doc/specialized_base.py`) run `DelegateToSpecializedBase.execute` on background worker threads when `is_async()` is True.
+- **Scaffolding**: `get_tools(doc=...)`, shapes canvas, and open-documents enumeration must marshal through `execute_on_main_thread()`.
+- **Sync Domain Tools**: Run via `SmolToolAdapter(main_thread_sync=True)` which marshals tool execution to the main thread.
+- **Async Domain Tools** (`image_generate`, `delegate_read_document`): Run on caller worker threads and must marshal PyUNO access internally inside their own `execute()` methods. Verified in [`tests/doc/test_specialized_delegation_threading.py`](../tests/doc/test_specialized_delegation_threading.py).
 
 ---
 
-## Cross-references
+## 10. Summary of Architectural Invariants
 
-- [`docs/threading_architecture.md`](threading_architecture.md) — the model being enforced, drain ownership, and subprocess IPC pipe safety.
-- [`docs/streaming-and-threading.md`](streaming-and-threading.md) — drain loop, Stop/cancellation, the `execute_on_main_thread` checklist.
-- [`docs/formal_verification.md`](formal_verification.md) — why FV is the wrong tool for this class of bug.
-- Reference fixes: commit `0cfc6891b679f3fcc2ad4a47107763a1b5bd93d7` (charts hang) and Issue #402 (`=PY()` UNO bridge deadlock).
+1. **No PyUNO Off-Main**: All PyUNO service instantiation, method calls, property reads/writes, and interface queries must execute on `threading.main_thread()`.
+2. **Workers Spawn via `run_in_background`**: Raw `threading.Thread` and `threading.Timer` instantiation is banned outside vetted allowlists.
+3. **No Blocking Marshal in Yellow Context**: Functions executing inside synchronous host dispatches (Calc add-in evaluation, UNO listener callbacks) must never call `execute_on_main_thread()`.
+4. **Viral Proxy on UNO Sources**: All new UNO object sources must return `guard_uno(obj)` to propagate runtime checking across object graph traversals.
+5. **Non-Blocking Error Reporting**: Concurrency guard notifications must use `post_to_main_thread()` and never block background workers.
 
+---
+
+## Cross-References
+
+- [`docs/threading_architecture.md`](threading_architecture.md) — Pool architecture, drain ownership, and subprocess IPC pipe safety.
+- [`docs/streaming-and-threading.md`](streaming-and-threading.md) — Drain loop, cancellation, and `execute_on_main_thread` checklist.
+- [`docs/formal_verification.md`](formal_verification.md) — Why value-level formal verification (CrossHair/deal) does not apply to thread affinity effect typing.

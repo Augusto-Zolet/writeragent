@@ -15,6 +15,7 @@ from plugin.framework.client.llm_client import LlmClient
 from plugin.framework.config import get_api_config, get_config_int, get_config_str
 from plugin.framework.client.model_fetcher import get_text_model
 from plugin.framework.prompts import CALC_PROMPT_CELL_SYSTEM_PROMPT
+from plugin.framework.thread_guard import sync_host_dispatch
 
 log = logging.getLogger(__name__)
 
@@ -70,6 +71,21 @@ def execute_prompt_addin(
     client_holder: list[LlmClient | None],
 ) -> str:
     """Call the chat API for =PROMPT(); *client_holder* is a one-element list for reuse across recalcs."""
+    with sync_host_dispatch():
+        return _execute_prompt_addin_impl(
+            ctx, message, system_prompt, model, max_tokens, client_holder=client_holder
+        )
+
+
+def _execute_prompt_addin_impl(
+    ctx: Any,
+    message: str,
+    system_prompt: Any,
+    model: Any,
+    max_tokens: Any,
+    *,
+    client_holder: list[LlmClient | None],
+) -> str:
     # NOTE: We do not recommend HTML formatting in the system prompt for cell calculations
     # (unlike the sidebar chat window which supports rich HTML). Thus, we do not strip HTML
     # tags here. If users see raw tags in cells, they can prompt for plain text output.

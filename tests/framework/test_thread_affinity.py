@@ -181,3 +181,79 @@ def test_make_thread_affine_mock_standalone():
     raw = MagicMock()
     wrapped = make_thread_affine_mock(raw, main_thread=main, name="x")
     assert wrapped.foo._target is raw.foo
+
+
+def test_yellow_context_refuses_execute_on_main_thread(uno_thread_safety):
+    """Calling execute_on_main_thread from a worker in sync_host_dispatch must fail immediately (#402)."""
+    err: BaseException | None = None
+
+    def worker():
+        nonlocal err
+        try:
+            with tg.sync_host_dispatch():
+                assert tg.in_sync_host_dispatch() is True
+                execute_on_main_thread(lambda: 42)
+        except BaseException as e:
+            err = e
+
+    t = run_in_background(worker, name="yellow_bridge_worker", daemon=False)
+    t.join(timeout=3.0)
+    assert err is not None
+    assert isinstance(err, RuntimeError)
+    assert "deadlock hazard #402" in str(err) or "synchronous host dispatch" in str(err)
+
+
+def test_yellow_context_allows_inline_when_on_main_thread():
+    """On main thread, sync_host_dispatch allows inline execution without error."""
+    with tg.sync_host_dispatch():
+        assert tg.in_sync_host_dispatch() is True
+        result = execute_on_main_thread(lambda: 42)
+        assert result == 42
+    assert tg.in_sync_host_dispatch() is False
+
+
+def test_sync_host_dispatch_nesting_and_cleanup():
+    """Verify sync_host_dispatch cleanly handles nesting and exceptions."""
+    assert tg.in_sync_host_dispatch() is False
+    with tg.sync_host_dispatch():
+        assert tg.in_sync_host_dispatch() is True
+        with tg.sync_host_dispatch():
+            assert tg.in_sync_host_dispatch() is True
+        assert tg.in_sync_host_dispatch() is True
+    assert tg.in_sync_host_dispatch() is False
+
+    try:
+        with tg.sync_host_dispatch():
+            assert tg.in_sync_host_dispatch() is True
+            raise ValueError("simulated error")
+    except ValueError:
+        pass
+    assert tg.in_sync_host_dispatch() is False
+
+
+def test_notify_thread_violation_never_blocks(monkeypatch):
+    """_notify_thread_violation must post asynchronously and never execute_on_main_thread (#402)."""
+    from plugin.framework import queue_executor
+
+    execute_called = False
+    post_called = False
+
+    def fake_execute(fn, *a, **k):
+        nonlocal execute_called
+        execute_called = True
+        return fn(*a, **k)
+
+    def fake_post(fn, *a, **k):
+        nonlocal post_called
+        post_called = True
+
+    monkeypatch.setattr(queue_executor.default_executor, "_initialized", True)
+    monkeypatch.setattr(queue_executor.default_executor, "_async_callback_service", MagicMock())
+    monkeypatch.setattr(queue_executor, "execute_on_main_thread", fake_execute)
+    monkeypatch.setattr(queue_executor, "post_to_main_thread", fake_post)
+    monkeypatch.delenv("WRITERAGENT_TESTING", raising=False)
+
+    tg._notify_thread_violation("test violation from background worker")
+    assert execute_called is False
+    assert post_called is True
+

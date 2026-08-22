@@ -35,6 +35,7 @@ from plugin.calc.python.formula_edit import (
 from plugin.calc.python.xl_static_rewrite import apply_xl_static_rewrite
 from plugin.chatbot.dialogs import msgbox, msgbox_with_report
 from plugin.framework.i18n import _
+from plugin.framework.thread_guard import main_thread_only
 from plugin.framework.uno_context import get_desktop, product_display_name
 from plugin.scripting.editor_host import (
     calc_cell_session_needs_flush,
@@ -127,7 +128,6 @@ def _cell_has_unparsed_python(cell: Any) -> bool:
     return False
 
 
-from plugin.framework.thread_guard import main_thread_only
 
 
 def format_cell_a1(cell: Any) -> str:
@@ -142,6 +142,7 @@ def format_cell_a1(cell: Any) -> str:
         return ""
 
 
+@main_thread_only
 def confirm_unsaved_cell_edit(ctx: Any, cell_addr: str) -> str:
     """Ask Save / Don't save / Cancel. Returns ``save``, ``discard``, or ``cancel``."""
     from plugin.framework.uno_context import get_desktop
