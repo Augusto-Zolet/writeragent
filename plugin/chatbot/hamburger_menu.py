@@ -27,20 +27,37 @@ def _load_graphic(ctx: Any, icon_filename: str) -> Any:
         from com.sun.star.beans import PropertyValue
         from plugin.framework.uno_context import get_extension_url, menu_icon_asset_url
 
+        clean_name = icon_filename.replace("assets/", "").lstrip("/")
         ext_url = get_extension_url(ctx)
-        if not ext_url:
-            return None
         smgr = getattr(ctx, "getServiceManager", lambda: None)()
         if smgr is None:
             return None
         gp = smgr.createInstanceWithContext("com.sun.star.graphic.GraphicProvider", ctx)
         if gp is None:
             return None
-        clean_name = icon_filename.replace("assets/", "").lstrip("/")
-        pv = PropertyValue()
-        pv.Name = "URL"
-        pv.Value = menu_icon_asset_url(ext_url, clean_name)
-        return gp.queryGraphic((pv,))
+
+        # Primary: extension URL (vnd.sun.star.extension://... or file://...)
+        if ext_url:
+            pv = PropertyValue()
+            pv.Name = "URL"
+            pv.Value = menu_icon_asset_url(ext_url, clean_name)
+            graphic = gp.queryGraphic((pv,))
+            if graphic is not None:
+                return graphic
+
+        # Fallback for dev / test runner environments: direct project assets path
+        import os
+        import uno
+        from plugin.framework.constants import get_plugin_dir
+
+        dev_path = os.path.join(os.path.dirname(get_plugin_dir()), "extension", "assets", clean_name)
+        if os.path.isfile(dev_path):
+            pv = PropertyValue()
+            pv.Name = "URL"
+            pv.Value = uno.systemPathToFileUrl(dev_path)
+            return gp.queryGraphic((pv,))
+
+        return None
     except Exception:
         log.debug("_load_graphic failed for %s", icon_filename, exc_info=True)
         return None
@@ -120,11 +137,11 @@ def show_hamburger_menu(ctx: Any, frame: Any, button_ctrl: Any) -> None:
             add_item(popup, _("Convert Sheet to Python..."), "calc.convert_spreadsheet_to_python", pos)
             pos += 1
 
-        add_item(popup, _("Search Nearby Files..."), "embeddings.search_dialog", pos)
+        add_item(popup, _("Search Nearby Files..."), "embeddings.search_dialog", pos, "search_32.png")
         pos += 1
 
         if is_writer_doc:
-            add_item(popup, _("Insert LaTeX Math..."), "writer.insert_latex_dialog", pos)
+            add_item(popup, _("Insert LaTeX Math..."), "writer.insert_latex_dialog", pos, "latex_32.png")
             pos += 1
             add_item(popup, _("Text Analytics..."), "textanalytics.open_dialog", pos)
             pos += 1

@@ -16,9 +16,10 @@ def test_popup_menu_image_and_command(ctx):
     popup.setCommand(1, "org.extension.writeragent:scripting.run_python_dialog")
     assert popup.getCommand(1) == "org.extension.writeragent:scripting.run_python_dialog"
 
-    # Verify graphic loading and 3-arg setItemImage
+    # Verify graphic loading and 3-arg setItemImage for all menu icons
     from plugin.chatbot.hamburger_menu import _load_graphic
 
-    graphic = _load_graphic(ctx, "python_32.png")
-    assert graphic is not None, "Failed to load python_32.png graphic"
-    popup.setItemImage(1, graphic, False)
+    for icon in ("python_32.png", "python_cell_32.png", "search_32.png", "latex_32.png", "running_16.png", "stopped_16.png"):
+        g = _load_graphic(ctx, icon)
+        assert g is not None, f"Failed to load graphic for {icon}"
+    popup.setItemImage(1, g, False)
