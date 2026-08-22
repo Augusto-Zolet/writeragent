@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-21 11:45-0400\n"
+"POT-Creation-Date: 2026-08-22 16:30-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Latvian <LL@li.org>\n"
@@ -31,8 +31,8 @@ msgstr "Notiek vietējā OCR apstrāde atlasītajam(-iem) attēlam(-iem)..."
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Document research reads require specialized task delegation (USE_SUB_AGENT)."
-" Enable this in configuration."
+"Document research reads require specialized task delegation (USE_SUB_AGENT). "
+"Enable this in configuration."
 msgstr ""
 "Dokumentu izpētes lasījumiem ir nepieciešama specializēta uzdevumu "
 "deleģēšana (USE_SUB_AGENT). Iespējojiet to konfigurācijā."
@@ -40,8 +40,8 @@ msgstr ""
 #: plugin/doc/specialized_base.py
 #, python-brace-format
 msgid ""
-"Tool call switched to '{0}'. You are in a specialized toolset mode. You must"
-" call 'specialized_workflow_finished' when done to restore the full set of "
+"Tool call switched to '{0}'. You are in a specialized toolset mode. You must "
+"call 'specialized_workflow_finished' when done to restore the full set of "
 "APIs."
 msgstr ""
 "Rīka izsaukums pārslēgts uz '{0}'. Jūs atrodaties specializētā rīkkopas "
@@ -59,11 +59,11 @@ msgstr ""
 
 #: plugin/notebook/notebook_runner.py
 msgid ""
-"This document has no imported notebook. Use Tools → Import Jupyter Notebook…"
-" first."
+"This document has no imported notebook. Use Tools → Import Jupyter Notebook… "
+"first."
 msgstr ""
-"Šajā dokumentā nav importētas piezīmju grāmatiņas. Vispirms izmantojiet Rīki"
-" → Importēt Jupyter piezīmju grāmatiņu…"
+"Šajā dokumentā nav importētas piezīmju grāmatiņas. Vispirms izmantojiet Rīki "
+"→ Importēt Jupyter piezīmju grāmatiņu…"
 
 #: plugin/notebook/notebook_runner.py
 msgid "Could not find notebook cell for this control."
@@ -233,8 +233,7 @@ msgstr "API piekļuve liegta. Jūsu atslēgai var trūkt atļauju šim modelim."
 
 #: plugin/framework/errors.py
 msgid "Endpoint not found (404). Check your URL and Model name."
-msgstr ""
-"Galapunkts nav atrasts (404). Pārbaudiet savu URL un modeļa nosaukumu."
+msgstr "Galapunkts nav atrasts (404). Pārbaudiet savu URL un modeļa nosaukumu."
 
 #: plugin/framework/errors.py
 #, python-brace-format
@@ -275,8 +274,7 @@ msgstr ""
 "Pieprasījuma noildze. Mēģiniet palielināt \"Request Timeout\" iestatījumos."
 
 #: plugin/framework/errors.py
-msgid ""
-"Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
+msgid "Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
 msgstr ""
 "Savienojums atteikts. Vai jūsu lokālais AI serveris (Ollama/LM Studio) "
 "darbojas?"
@@ -311,8 +309,8 @@ msgstr "HTTP kļūda {0} no AI pakalpojumu sniedzēja: {1}"
 #: plugin/framework/client/errors.py
 #, python-brace-format
 msgid ""
-" If your API key is from a GLM Coding Plan subscription, set endpoint to {0}"
-" (not the general /api/paas URL)."
+" If your API key is from a GLM Coding Plan subscription, set endpoint to {0} "
+"(not the general /api/paas URL)."
 msgstr ""
 " Ja jūsu API atslēga ir no GLM Coding Plan abonementa, iestatiet galapunktu "
 "uz {0} (nevis vispārīgo /api/paas URL)."
@@ -340,11 +338,12 @@ msgstr ""
 "Modelis atkārto vienu un to pašu fragmentu (bezgalīga cilpa). Mēģiniet "
 "vēlreiz vai izmantojiet citu modeli."
 
-#: plugin/framework/main_shared.py plugin/writer/math/latex_dialog.py
-#: plugin/chatbot/panel.py plugin/chatbot/external_editor.py
-#: plugin/chatbot/send_handlers.py plugin/chatbot/dialog_views.py
-#: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
+#: plugin/framework/main_shared.py plugin/calc/python/cell_editor_ui.py
+#: plugin/writer/math/latex_dialog.py plugin/chatbot/panel.py
+#: plugin/chatbot/external_editor.py plugin/chatbot/send_handlers.py
+#: plugin/chatbot/dialog_views.py plugin/scripting/script_dialogs.py
+#: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py
 msgid "Error"
 msgstr "Kļūda"
 
@@ -372,7 +371,8 @@ msgstr "Lūdzu, iestatiet modeli iestatījumos."
 msgid "Please select a valid model in Settings (not a placeholder)."
 msgstr "Lūdzu, atlasiet derīgu modeli iestatījumos (nevis vietturi)."
 
-#: plugin/calc/python/editor_context_menu.py plugin/main.py
+#: plugin/calc/python/editor_context_menu.py plugin/chatbot/hamburger_menu.py
+#: plugin/chatbot/panel_factory.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr "Rediģēt Python šūnā..."
 
@@ -408,15 +408,68 @@ msgstr "Inicializācijas skripts saglabāts."
 msgid "Save initialization script"
 msgstr "Saglabāt inicializācijas skriptu"
 
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Status:"
+msgstr "Statuss:"
+
+#: plugin/calc/python/cell_editor_ui.py plugin/chatbot/panel_wiring.py
+#: plugin/scripting/editor_ui_strings.py plugin/xdl_strings.py
+msgid "Ready"
+msgstr "Gatavs"
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "A1:C1  or  A1:C1, C1:C5"
+msgstr "A1:C1 vai A1:C1, C1:C5"
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Data ranges apply only when saving as a =PY() formula."
+msgstr ""
+"Datu apgabali tiek piemēroti tikai tad, ja saglabājat kā =PY() formulu."
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Calc injects `data` and `ranges` from these range(s) at runtime."
+msgstr "Calc izpildlaikā ievada `data` un `ranges` no šī(iem) diapazona(-iem)."
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Saving…"
+msgstr "Saglabā…"
+
+#: plugin/calc/python/cell_editor_ui.py plugin/calc/python/editor.py
+#: plugin/scripting/editor_ui_strings.py
+msgid "Saved without =PY()."
+msgstr "Saglabāts bez =PY()."
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Saved."
+msgstr "Saglabāts."
+
+#: plugin/calc/python/cell_editor_ui.py
+msgid "PythonCellEditorDialog could not be loaded from the extension."
+msgstr "PythonCellEditorDialog nevarēja ielādēt no paplašinājuma."
+
 #: plugin/calc/python/editor.py
 msgid ""
-"Could not preserve this cell's PY formula arguments (e.g. data ranges). Edit"
-" the formula in Calc, or use a quoted code string like =PY(\"code\"; "
-"A1:B10)."
+"Could not preserve this cell's PY formula arguments (e.g. data ranges). Edit "
+"the formula in Calc, or use a quoted code string like =PY(\"code\"; A1:B10)."
 msgstr ""
-"Neizdevās saglabāt šīs šūnas PY formulas argumentus (piem., datu apgabalus)."
-" Rediģējiet formulu programmā Calc vai izmantojiet citētu koda virkni, "
+"Neizdevās saglabāt šīs šūnas PY formulas argumentus (piem., datu apgabalus). "
+"Rediģējiet formulu programmā Calc vai izmantojiet citētu koda virkni, "
 "piemēram, =PY(\"kods\"; A1:B10)."
+
+#: plugin/calc/python/editor.py
+msgid "this cell"
+msgstr "šī šūna"
+
+#: plugin/calc/python/editor.py
+#, python-brace-format
+msgid ""
+"Save changes to {0}?\n"
+"\n"
+"Yes saves. No discards and opens the new cell. Cancel keeps editing {0}."
+msgstr ""
+"Saglabāt izmaiņas {0}?\n"
+"\n"
+"Jā saglabā. Nē atmet un atver jauno šūnu. Atcelt turpina rediģēt {0}."
 
 #: plugin/calc/python/editor.py
 #, python-format
@@ -424,15 +477,12 @@ msgid "Could not rewrite xl() range literals into =PY data arguments: %s"
 msgstr ""
 "Neizdevās pārrakstīt xl() diapazona literāļus par =PY datu argumentiem: %s"
 
-#: plugin/calc/python/editor.py plugin/scripting/editor_ui_strings.py
-msgid "Saved without =PY()."
-msgstr "Saglabāts bez =PY()."
-
-#: plugin/calc/python/editor.py
+#: plugin/calc/python/editor.py plugin/xdl_strings.py
 msgid "Python cell editor"
 msgstr "Python šūnu redaktors"
 
 #: plugin/calc/python/editor.py plugin/scripting/editor_ui_strings.py
+#: plugin/xdl_strings.py
 msgid "Save without =PY()"
 msgstr "Saglabāt bez =PY()"
 
@@ -460,37 +510,8 @@ msgstr ""
 "apgabals) ar citētu kodu."
 
 #: plugin/calc/python/editor.py
-msgid ""
-"Edit Python in Cell requires the Monaco editor, which is disabled by \"scripting.force_internal_script_editor\" in writeragent.json.\n"
-"\n"
-"Set it to false and restart LibreOffice to use this command, or edit PYTHON formulas in the Calc formula bar."
-msgstr ""
-"Python rediģēšanai šūnā ir nepieciešams Monaco redaktors, kas ir atspējots ar \"scripting.force_internal_script_editor\" failā writeragent.json.\n"
-"\n"
-"Iestatiet to uz false un restartējiet LibreOffice, lai izmantotu šo komandu, vai rediģējiet PYTHON formulas Calc formulas joslā."
-
-#: plugin/calc/python/editor.py
-msgid "No Python interpreter available for the editor."
-msgstr "Redaktoram nav pieejams Python tulks."
-
-#: plugin/calc/python/editor.py
-#, python-format
-msgid ""
-"Cannot import webview (pywebview) or rocher with the Python from Settings → Python:\n"
-"%(exe)s\n"
-"\n"
-"In that venv run: uv pip install pywebview rocher\n"
-"(import name is webview, package name is pywebview)."
-msgstr ""
-"Neizdevās importēt webview (pywebview) vai rocher, izmantojot Python no Iestatījumi → Python:\n"
-"%(exe)s\n"
-"\n"
-"Šajā venv vidē izpildiet: uv pip install pywebview rocher\n"
-"(importēšanas nosaukums ir webview, pakotnes nosaukums ir pywebview)."
-
-#: plugin/calc/python/editor.py
-msgid "unknown error"
-msgstr "nezināma kļūda"
+msgid "Could not open the built-in Python cell editor."
+msgstr "Nevarēja atvērt iebūvēto Python šūnu redaktoru."
 
 #: plugin/calc/python/function.py
 #, python-brace-format
@@ -515,8 +536,8 @@ msgid ""
 "Error: Python timed out. Open Settings → Python to raise the timeout, or "
 "Test the venv."
 msgstr ""
-"Kļūda: Python darbības laiks ir beidzies. Atveriet Iestatījumi → Python, lai"
-" palielinātu taimautu, vai pārbaudiet venv."
+"Kļūda: Python darbības laiks ir beidzies. Atveriet Iestatījumi → Python, lai "
+"palielinātu taimautu, vai pārbaudiet venv."
 
 #: plugin/calc/python/function.py
 msgid "Image inserted"
@@ -532,14 +553,16 @@ msgid ""
 "Could not write Microsoft Excel Python package parts for:\n"
 "{0}\n"
 "\n"
-"The file was saved with LibreOffice =PY formulas. Excel will not see pythonScripts.xml / _xlws.PY until export succeeds.\n"
+"The file was saved with LibreOffice =PY formulas. Excel will not see "
+"pythonScripts.xml / _xlws.PY until export succeeds.\n"
 "\n"
 "{1}"
 msgstr ""
 "Neizdevās ierakstīt Microsoft Excel Python pakotnes daļas priekš:\n"
 "{0}\n"
 "\n"
-"Fails tika saglabāts ar LibreOffice =PY formulām. Excel neredzēs pythonScripts.xml / _xlws.PY, kamēr eksportēšana nebūs veiksmīga.\n"
+"Fails tika saglabāts ar LibreOffice =PY formulām. Excel neredzēs "
+"pythonScripts.xml / _xlws.PY, kamēr eksportēšana nebūs veiksmīga.\n"
 "\n"
 "{1}"
 
@@ -682,39 +705,33 @@ msgid "AI Grammar"
 msgstr "AI gramatika"
 
 #: plugin/writer/math/latex_dialog.py
-msgid "This command is only available in Writer documents."
-msgstr "Šī komanda ir pieejama tikai Writer dokumentos."
-
-#: plugin/writer/math/latex_dialog.py
-msgid "Unknown conversion error"
-msgstr "Nezināma konvertēšanas kļūda"
-
-#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
-msgid "Formula inserted."
-msgstr "Formula ievietota."
-
-#: plugin/writer/math/latex_dialog.py
-msgid "LaTeX Math Editor"
-msgstr "LaTeX matemātikas redaktors"
-
-#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
-#: plugin/xdl_strings.py
-msgid "Insert as display block (centered paragraph)"
-msgstr "Ievietot kā atsevišķu bloku (centrēta rindkopa)"
+msgid "Update"
+msgstr "Atjaunināt"
 
 #: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
 #: plugin/xdl_strings.py
 msgid "Insert"
 msgstr "Ievietot"
 
-#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
-#: plugin/scripting/python_runner.py plugin/xdl_strings.py
-msgid "Close"
-msgstr "Aizvērt"
+#: plugin/writer/math/latex_dialog.py
+msgid "Edit LaTeX Math"
+msgstr "Rediģēt LaTeX formulu"
 
 #: plugin/writer/math/latex_dialog.py
-msgid "LaTeX Conversion Error"
-msgstr "LaTeX konvertēšanas kļūda"
+msgid "Select a single formula to update. Multiple formulas are selected."
+msgstr "Atlasiet vienu formulu, ko atjaunināt. Ir atlasītas vairākas formulas."
+
+#: plugin/writer/math/latex_dialog.py
+msgid ""
+"Could not identify the selected formula. Click in the text, then insert a "
+"new formula."
+msgstr ""
+"Nevarēja identificēt atlasīto formulu. Noklikšķiniet tekstā un pēc tam "
+"ievietojiet jaunu formulu."
+
+#: plugin/writer/math/latex_dialog.py
+msgid "Unknown conversion error"
+msgstr "Nezināma konvertēšanas kļūda"
 
 #: plugin/writer/math/latex_dialog.py
 #, python-brace-format
@@ -726,6 +743,40 @@ msgstr ""
 "Neizdevās konvertēt LaTeX uz StarMath:\n"
 "\n"
 "{0}"
+
+#: plugin/writer/math/latex_dialog.py
+msgid "The selected formula is no longer in the document."
+msgstr "Atlasītā formula vairs nav dokumentā."
+
+#: plugin/writer/math/latex_dialog.py
+msgid "Formula updated."
+msgstr "Formula atjaunināta."
+
+#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
+msgid "Formula inserted."
+msgstr "Formula ievietota."
+
+#: plugin/writer/math/latex_dialog.py
+msgid "This command is only available in Writer documents."
+msgstr "Šī komanda ir pieejama tikai Writer dokumentos."
+
+#: plugin/writer/math/latex_dialog.py
+msgid "LaTeX Math Editor"
+msgstr "LaTeX matemātikas redaktors"
+
+#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
+#: plugin/xdl_strings.py
+msgid "Insert as display block (centered paragraph)"
+msgstr "Ievietot kā atsevišķu bloku (centrēta rindkopa)"
+
+#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Aizvērt"
+
+#: plugin/writer/math/latex_dialog.py
+msgid "LaTeX Conversion Error"
+msgstr "LaTeX konvertēšanas kļūda"
 
 #: plugin/writer/math/latex_dialog.py
 msgid "An unexpected error occurred during LaTeX insertion."
@@ -991,11 +1042,6 @@ msgstr "kāpēc"
 msgid "you"
 msgstr "jūs"
 
-#: plugin/chatbot/panel_wiring.py plugin/scripting/editor_ui_strings.py
-#: plugin/xdl_strings.py
-msgid "Ready"
-msgstr "Gatavs"
-
 #: plugin/chatbot/dialogs.py
 msgid "Agent requests approval"
 msgstr "Aģents pieprasa apstiprinājumu"
@@ -1017,9 +1063,93 @@ msgstr "Nokopēts!"
 msgid "Copy URL"
 msgstr "Kopēt URL"
 
-#: plugin/chatbot/dialogs.py plugin/main.py plugin/xdl_strings.py
+#: plugin/chatbot/dialogs.py plugin/chatbot/hamburger_menu.py plugin/main.py
+#: plugin/xdl_strings.py
 msgid "Report bug..."
 msgstr "Ziņot par kļūdu..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Extend Selection"
+msgstr "Paplašināt iezīmējumu"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Edit Selection"
+msgstr "Rediģēt atlasi"
+
+#: plugin/chatbot/hamburger_menu.py plugin/chatbot/panel_factory.py
+#: plugin/main.py
+msgid "Run Python Script..."
+msgstr "Palaist Python skriptu..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Convert Sheet to Python..."
+msgstr "Konvertēt lapu uz Python..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/chatbot/panel_factory.py
+#: plugin/main.py
+msgid "Search Nearby Files..."
+msgstr "Meklēt tuvumā esošos failus..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/chatbot/panel_factory.py
+msgid "Insert LaTeX Math..."
+msgstr "Ievietot LaTeX formulu..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Text Analytics..."
+msgstr "Teksta analīze..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/chatbot/dialog_views.py
+#: plugin/chatbot/panel_factory.py plugin/main.py plugin/xdl_strings.py
+msgid "Settings"
+msgstr "Iestatījumi"
+
+#: plugin/chatbot/hamburger_menu.py
+msgid "Vision OCR Settings..."
+msgstr "Vision OCR iestatījumi..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Toggle MCP Server"
+msgstr "Pārslēgt MCP serveri"
+
+#: plugin/chatbot/hamburger_menu.py
+msgid "MCP Server (Running)"
+msgstr "MCP serveris (darbojas)"
+
+#: plugin/chatbot/hamburger_menu.py
+msgid "MCP Server (Stopped)"
+msgstr "MCP serveris (apturēts)"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Reset Python Session"
+msgstr "Atiestatīt Python sesiju"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Run format tests"
+msgstr "Palaist formāta testus"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Run calc tests"
+msgstr "Palaist Calc testus"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Run Calc API integration tests"
+msgstr "Palaist Calc API integrācijas testus"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Run draw tests"
+msgstr "Palaist Draw testus"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Evaluation Dashboard"
+msgstr "Novērtēšanas informācijas panelis"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Import Jupyter Notebook..."
+msgstr "Importēt Jupyter piezīmju grāmatiņu..."
+
+#: plugin/chatbot/hamburger_menu.py
+msgid "Debug"
+msgstr "Atkļūdot"
 
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
@@ -1108,8 +1238,8 @@ msgid ""
 "[Internal Error: Could not identify document type for {0}. Please report "
 "this!]"
 msgstr ""
-"[Iekšēja kļūda: nevarēja identificēt dokumenta tipu {0}. Lūdzu, ziņojiet par"
-" to!]"
+"[Iekšēja kļūda: nevarēja identificēt dokumenta tipu {0}. Lūdzu, ziņojiet par "
+"to!]"
 
 #: plugin/chatbot/panel.py
 #, python-brace-format
@@ -1182,7 +1312,8 @@ msgid ""
 "No editor found (install Kate or Gedit, or set EDITOR). Path:\n"
 "{0}"
 msgstr ""
-"Redaktors nav atrasts (instalējiet Kate vai Gedit, vai iestatiet EDITOR). Ceļš:\n"
+"Redaktors nav atrasts (instalējiet Kate vai Gedit, vai iestatiet EDITOR). "
+"Ceļš:\n"
 "{0}"
 
 #: plugin/chatbot/external_editor.py
@@ -1219,8 +1350,7 @@ msgstr "[Aģenta aizmugursistēma '{0}' nav atrasta.]"
 
 #: plugin/chatbot/send_handlers.py
 #, python-brace-format
-msgid ""
-"[Agent backend '{0}' is not available. Check Settings (path, install).]"
+msgid "[Agent backend '{0}' is not available. Check Settings (path, install).]"
 msgstr ""
 "[Aģenta aizmugursistēma '{0}' nav pieejama. Pārbaudiet iestatījumus (ceļu, "
 "instalāciju).]"
@@ -1334,10 +1464,6 @@ msgstr ""
 msgid "Switching to document mode..."
 msgstr "Pārslēdzas uz dokumenta režīmu..."
 
-#: plugin/chatbot/dialog_views.py plugin/main.py plugin/xdl_strings.py
-msgid "Settings"
-msgstr "Iestatījumi"
-
 #: plugin/chatbot/dialog_views.py
 msgid "Invalid Setting"
 msgstr "Nederīgs iestatījums"
@@ -1379,6 +1505,10 @@ msgstr "Augstums:"
 msgid "Width:"
 msgstr "Platums:"
 
+#: plugin/chatbot/panel_factory.py
+msgid "More actions..."
+msgstr "Vairāk darbību..."
+
 #: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
 #: plugin/xdl_strings.py
 msgid "New Python Script"
@@ -1395,17 +1525,9 @@ msgid "Attach to this document"
 msgstr "Pievienot šim dokumentam"
 
 #: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
-#: plugin/scripting/document_scripts.py plugin/scripting/editor_host.py
+#: plugin/scripting/document_scripts.py
 msgid "Script name cannot be empty."
 msgstr "Skripta nosaukums nevar būt tukšs."
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Status:"
-msgstr "Statuss:"
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Saving…"
-msgstr "Saglabā…"
 
 #: plugin/scripting/editor_ui_strings.py
 msgid "Running…"
@@ -1428,27 +1550,9 @@ msgstr "Izpildīt"
 msgid "Cancel"
 msgstr "Atcelt"
 
-#: plugin/scripting/editor_ui_strings.py
+#: plugin/scripting/editor_ui_strings.py plugin/xdl_strings.py
 msgid "Data:"
 msgstr "Dati:"
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "A1:C1  or  A1:C1, C1:C5"
-msgstr "A1:C1 vai A1:C1, C1:C5"
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Calc injects `data` and `ranges` from these range(s) at runtime."
-msgstr ""
-"Calc izpildlaikā ievada `data` un `ranges` no šī(iem) diapazona(-iem)."
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Data ranges apply only when saving as a =PY() formula."
-msgstr ""
-"Datu apgabali tiek piemēroti tikai tad, ja saglabājat kā =PY() formulu."
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Saved."
-msgstr "Saglabāts."
 
 #: plugin/scripting/editor_ui_strings.py plugin/xdl_strings.py
 msgid "New"
@@ -1509,7 +1613,7 @@ msgstr ""
 msgid "Loaded script '{0}'."
 msgstr "Ielādēts skripts '{0}'."
 
-#: plugin/scripting/editor_ui_strings.py plugin/scripting/editor_host.py
+#: plugin/scripting/editor_ui_strings.py plugin/scripting/document_scripts.py
 msgid "No document is open to attach scripts."
 msgstr "Nav atvērts neviens dokuments, kuram pievienot skriptus."
 
@@ -1553,7 +1657,8 @@ msgstr "Kopēt uz \"Mani skripti\" kā:"
 #: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner_ui.py
 #, python-brace-format
 msgid "A script named '{0}' already exists in My Scripts. Overwrite?"
-msgstr "Skripts ar nosaukumu '{0}' mapē \"Mani skripti\" jau pastāv. Pārrakstīt?"
+msgstr ""
+"Skripts ar nosaukumu '{0}' mapē \"Mani skripti\" jau pastāv. Pārrakstīt?"
 
 #: plugin/scripting/editor_ui_strings.py
 #, python-brace-format
@@ -1567,8 +1672,7 @@ msgstr "Vai tiešām vēlaties dzēst skriptu '{0}'?"
 
 #: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner.py
 msgid "Select data range or enter A1 address (injected as data)."
-msgstr ""
-"Atlasiet datu apgabalu vai ievadiet A1 adresi (tiks ievadīta kā dati)."
+msgstr "Atlasiet datu apgabalu vai ievadiet A1 adresi (tiks ievadīta kā dati)."
 
 #: plugin/scripting/document_scripts.py
 #, python-brace-format
@@ -1577,7 +1681,6 @@ msgstr ""
 "Dokumenta skripti ir pārāk lieli, lai tos saglabātu dokumentā ({0} baiti)."
 
 #: plugin/scripting/document_scripts.py plugin/scripting/python_runner_ui.py
-#: plugin/scripting/editor_host.py
 msgid "No document is open to save scripts."
 msgstr "Nav atvērts neviens dokuments, kurā saglabāt skriptus."
 
@@ -1597,6 +1700,50 @@ msgstr "Skripts ar nosaukumu '{0}' šajā dokumentā jau pastāv."
 #: plugin/scripting/document_scripts.py
 msgid "This Document"
 msgstr "Šis dokuments"
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Saved script '{0}' to My Scripts."
+msgstr "Skripts '{0}' saglabāts mapē Mani skripti."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Saved script '{0}' to this document."
+msgstr "Skripts '{0}' saglabāts šajā dokumentā."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Saved script '{0}'."
+msgstr "Skripts '{0}' saglabāts."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Attached script '{0}' to this document."
+msgstr "Skripts '{0}' pievienots šim dokumentam."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "A script named '{0}' already exists in My Scripts."
+msgstr "Skripts ar nosaukumu '{0}' jau pastāv sadaļā \"Mani skripti\"."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Copied script '{0}' to My Scripts."
+msgstr "Skripts '{0}' nokopēts uz \"Mani skripti\"."
+
+#: plugin/scripting/document_scripts.py plugin/scripting/python_runner_ui.py
+msgid "No document is open."
+msgstr "Nav atvērts neviens dokuments."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Deleted document script '{0}'."
+msgstr "Dzēsts dokumenta skripts '{0}'."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Deleted script '{0}'."
+msgstr "Dzēsts skripts '{0}'."
 
 #: plugin/scripting/python_runner_ui.py
 msgid "PythonScriptDialog could not be loaded from the extension."
@@ -1630,10 +1777,6 @@ msgstr "Vai esat pārliecināts, ka vēlaties dzēst skriptu '%s'?"
 #: plugin/scripting/python_runner_ui.py
 msgid "Delete Script"
 msgstr "Dzēst skriptu"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/editor_host.py
-msgid "No document is open."
-msgstr "Nav atvērts neviens dokuments."
 
 #: plugin/scripting/python_runner_ui.py
 #, python-format
@@ -1696,12 +1839,12 @@ msgstr "Neizdevās"
 #: plugin/scripting/editor_host.py
 msgid ""
 "Set the Python venv path in Settings → Python (same venv where you ran 'uv "
-"pip install pywebview rocher'). LibreOffice's built-in Python cannot run the"
-" Monaco editor."
+"pip install pywebview rocher'). LibreOffice's built-in Python cannot run the "
+"Monaco editor."
 msgstr ""
-"Iestatiet Python venv ceļu sadaļā Iestatījumi → Python (tādu pašu venv, kurā"
-" izpildījāt 'uv pip install pywebview rocher'). LibreOffice iebūvētais "
-"Python nevar palaist Monaco redaktoru."
+"Iestatiet Python venv ceļu sadaļā Iestatījumi → Python (tādu pašu venv, kurā "
+"izpildījāt 'uv pip install pywebview rocher'). LibreOffice iebūvētais Python "
+"nevar palaist Monaco redaktoru."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
@@ -1711,46 +1854,6 @@ msgid ""
 msgstr ""
 "Konfigurētajā venv nav atrasts neviens Python izpildāmais fails: {0} (tika "
 "gaidīts bin/python, Scripts/python.exe vai env-root python.exe)."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Saved script '{0}' to My Scripts."
-msgstr "Skripts '{0}' saglabāts mapē Mani skripti."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Saved script '{0}' to this document."
-msgstr "Skripts '{0}' saglabāts šajā dokumentā."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Saved script '{0}'."
-msgstr "Skripts '{0}' saglabāts."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Attached script '{0}' to this document."
-msgstr "Skripts '{0}' pievienots šim dokumentam."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "A script named '{0}' already exists in My Scripts."
-msgstr "Skripts ar nosaukumu '{0}' jau pastāv sadaļā \"Mani skripti\"."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Copied script '{0}' to My Scripts."
-msgstr "Skripts '{0}' nokopēts uz \"Mani skripti\"."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Deleted document script '{0}'."
-msgstr "Dzēsts dokumenta skripts '{0}'."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Deleted script '{0}'."
-msgstr "Dzēsts skripts '{0}'."
 
 #: plugin/scripting/editor_host.py
 msgid "Could not start the Python editor."
@@ -1786,19 +1889,18 @@ msgid ""
 "Text/NLP probe timed out (spaCy or transformers cold import can take 10–30s "
 "on first check)."
 msgstr ""
-"Teksta/NLP zondes noildze (spaCy vai transformers aukstā importēšana pirmajā"
-" pārbaudē var aizņemt 10–30 s)."
+"Teksta/NLP zondes noildze (spaCy vai transformers aukstā importēšana pirmajā "
+"pārbaudē var aizņemt 10–30 s)."
 
 #: plugin/scripting/venv_diagnostics.py
 msgid "Text/NLP probe failed (see writeragent_debug.log)."
 msgstr "Teksta/NLP zonde neizdevās (skatiet writeragent_debug.log)."
 
 #: plugin/scripting/venv_diagnostics.py
-msgid ""
-"Vision probe timed out (Docling import can take 10–30s on first check)."
+msgid "Vision probe timed out (Docling import can take 10–30s on first check)."
 msgstr ""
-"Redzes zondes noildze (Docling importēšana pirmajā pārbaudē var aizņemt "
-"10–30 s)."
+"Redzes zondes noildze (Docling importēšana pirmajā pārbaudē var aizņemt 10–"
+"30 s)."
 
 #: plugin/scripting/venv_diagnostics.py
 msgid "Vision probe failed (see writeragent_debug.log)."
@@ -1809,8 +1911,8 @@ msgid ""
 "Vector Search probe timed out (sentence-transformers import can take 10–30s "
 "on first check)."
 msgstr ""
-"Vektoru meklēšanas zondes noildze (sentence-transformers importēšana pirmajā"
-" pārbaudē var aizņemt 10–30 s)."
+"Vektoru meklēšanas zondes noildze (sentence-transformers importēšana pirmajā "
+"pārbaudē var aizņemt 10–30 s)."
 
 #: plugin/scripting/venv_diagnostics.py
 msgid "Vector Search probe failed (see writeragent_debug.log)."
@@ -1887,8 +1989,7 @@ msgstr ""
 
 #: plugin/scripting/venv_diagnostics.py
 msgid "Vision Libraries: loading (first run may take a while)..."
-msgstr ""
-"Vision bibliotēkas: ielādē (pirmā palaišana var aizņemt kādu laiku)..."
+msgstr "Vision bibliotēkas: ielādē (pirmā palaišana var aizņemt kādu laiku)..."
 
 #: plugin/scripting/venv_diagnostics.py
 msgid "Vector Search Libraries: loading (first run may take a while)..."
@@ -1926,7 +2027,8 @@ msgid ""
 "Error from the Text Analytics worker:\n"
 "{err}\n"
 "\n"
-"The features in this dialog require these packages in the python it is using:\n"
+"The features in this dialog require these packages in the python it is "
+"using:\n"
 "  • spacy + a model          (entities, key phrases, basic stats)\n"
 "  • textdescriptives         (real Readability scores)\n"
 "  • transformers + torch     (Sentiment using the multilingual model)\n"
@@ -1934,20 +2036,25 @@ msgid ""
 "Install them with:\n"
 "  {install}\n"
 "\n"
-"The worker reported the module as missing. Verify the packages are installed in the exact python executable the worker resolved for your configured venv."
+"The worker reported the module as missing. Verify the packages are installed "
+"in the exact python executable the worker resolved for your configured venv."
 msgstr ""
 "Kļūda no teksta analīzes procesa:\n"
 "{err}\n"
 "\n"
-"Šī dialoglodziņa funkcijām ir nepieciešamas šādas pakotnes izmantotajā Python vidē:\n"
+"Šī dialoglodziņa funkcijām ir nepieciešamas šādas pakotnes izmantotajā "
+"Python vidē:\n"
 "  • spacy + modelis          (entītijas, atslēgfrāzes, pamata statistika)\n"
 "  • textdescriptives         (lasāmības rādītāji)\n"
-"  • transformers + torch     (noskaņojuma analīze, izmantojot daudzvalodu modeli)\n"
+"  • transformers + torch     (noskaņojuma analīze, izmantojot daudzvalodu "
+"modeli)\n"
 "\n"
 "Instalējiet tās ar:\n"
 "  {install}\n"
 "\n"
-"Procesā tika ziņots par trūkstošu moduli. Pārliecinieties, vai pakotnes ir instalētas tieši tajā Python izpildāmajā failā, kuru procesors izmanto jūsu konfigurētajai venv videi."
+"Procesā tika ziņots par trūkstošu moduli. Pārliecinieties, vai pakotnes ir "
+"instalētas tieši tajā Python izpildāmajā failā, kuru procesors izmanto jūsu "
+"konfigurētajai venv videi."
 
 #: plugin/scripting/text_analytics_ui.py
 msgid "Open a Writer document to analyze."
@@ -1966,11 +2073,17 @@ msgstr "Analizē..."
 msgid ""
 "Error: %s\n"
 "\n"
-"Required packages may be missing in your configured venv (Settings → Python). Click Check Venv in this dialog or use the full Test in Settings → Python for details on spacy, textdescriptives, transformers, torch etc."
+"Required packages may be missing in your configured venv (Settings → "
+"Python). Click Check Venv in this dialog or use the full Test in Settings → "
+"Python for details on spacy, textdescriptives, transformers, torch etc."
 msgstr ""
 "Kļūda: %s\n"
 "\n"
-"Iespējams, konfigurētajā virtuālajā vidē (venv) trūkst nepieciešamo pakotņu (Iestatījumi → Python). Noklikšķiniet uz \"Pārbaudīt venv\" šajā dialoglodziņā vai izmantojiet pilno testu sadaļā Iestatījumi → Python, lai iegūtu sīkāku informāciju par spacy, textdescriptives, transformers, torch u.c."
+"Iespējams, konfigurētajā virtuālajā vidē (venv) trūkst nepieciešamo pakotņu "
+"(Iestatījumi → Python). Noklikšķiniet uz \"Pārbaudīt venv\" šajā "
+"dialoglodziņā vai izmantojiet pilno testu sadaļā Iestatījumi → Python, lai "
+"iegūtu sīkāku informāciju par spacy, textdescriptives, transformers, torch "
+"u.c."
 
 #: plugin/scripting/text_analytics_ui.py
 msgid "No Writer document to insert into."
@@ -2038,8 +2151,7 @@ msgstr ""
 #: plugin/scripting/domain_registry.py plugin/scripting/python_runner.py
 #, python-brace-format
 msgid "Vision '{helper}' completed. Inserted formatted HTML. (took {time})"
-msgstr ""
-"Vision '{helper}' pabeigts. Ievietots formatēts HTML. (aizņēma {time})"
+msgstr "Vision '{helper}' pabeigts. Ievietots formatēts HTML. (aizņēma {time})"
 
 #: plugin/scripting/domain_registry.py
 #, python-brace-format
@@ -2057,8 +2169,8 @@ msgid ""
 "Reset Python Session for notebooks applies to LibreOffice Writer. Open a "
 "Writer document with an imported Jupyter notebook and try again."
 msgstr ""
-"Python sesijas atiestatīšana piezīmjdatoriem attiecas uz LibreOffice Writer."
-" Atveriet Writer dokumentu ar importētu Jupyter piezīmjdatoru un mēģiniet "
+"Python sesijas atiestatīšana piezīmjdatoriem attiecas uz LibreOffice Writer. "
+"Atveriet Writer dokumentu ar importētu Jupyter piezīmjdatoru un mēģiniet "
 "vēlreiz."
 
 #: plugin/scripting/session_manager.py
@@ -2194,8 +2306,8 @@ msgstr ""
 #: plugin/scripting/python_runner.py
 #, python-brace-format
 msgid ""
-"Script executed successfully, but returned no result and produced no output."
-" (took {time})"
+"Script executed successfully, but returned no result and produced no output. "
+"(took {time})"
 msgstr ""
 "Skripts izpildīts veiksmīgi, taču neatgrieza rezultātu un neizvadīja datus. "
 "(aizņēma {time})"
@@ -2247,8 +2359,8 @@ msgid ""
 "Image '{name}' not found. Use image_list or leave image_name empty and "
 "select the graphic."
 msgstr ""
-"Attēls '{name}' nav atrasts. Izmantojiet image_list vai atstājiet image_name"
-" tukšu un atlasiet grafisko elementu."
+"Attēls '{name}' nav atrasts. Izmantojiet image_list vai atstājiet image_name "
+"tukšu un atlasiet grafisko elementu."
 
 #: plugin/vision/vision_runner.py
 #, python-brace-format
@@ -2519,7 +2631,8 @@ msgstr ""
 "{0} binārais fails '{1}' ir instalēts un verificēts ({2}).\n"
 "\n"
 "MCP serveris darbojas lokāli portā {3}.\n"
-"Atzīmējiet 'Eksponēt caur publisko tuneli' un noklikšķiniet uz OK, lai aktivizētu publisko maršrutēšanu."
+"Atzīmējiet 'Eksponēt caur publisko tuneli' un noklikšķiniet uz OK, lai "
+"aktivizētu publisko maršrutēšanu."
 
 #: plugin/mcp/tunnel.py
 #, python-brace-format
@@ -2542,69 +2655,13 @@ msgstr "{0}: {1} izpildīts, {2} neizdevās."
 msgid "Tests failed to run: {0}"
 msgstr "Neizdevās izpildīt testus: {0}"
 
-#: plugin/main.py
-msgid "Extend Selection"
-msgstr "Paplašināt iezīmējumu"
-
-#: plugin/main.py
-msgid "Edit Selection"
-msgstr "Rediģēt atlasi"
-
-#: plugin/main.py
-msgid "Toggle MCP Server"
-msgstr "Pārslēgt MCP serveri"
-
 #: plugin/main.py plugin/xdl_strings.py
 msgid "MCP Server Status"
 msgstr "MCP servera statuss"
 
 #: plugin/main.py
-msgid "Run format tests"
-msgstr "Palaist formāta testus"
-
-#: plugin/main.py
-msgid "Run calc tests"
-msgstr "Palaist Calc testus"
-
-#: plugin/main.py
-msgid "Run Calc API integration tests"
-msgstr "Palaist Calc API integrācijas testus"
-
-#: plugin/main.py
-msgid "Run draw tests"
-msgstr "Palaist Draw testus"
-
-#: plugin/main.py
-msgid "Evaluation Dashboard"
-msgstr "Novērtēšanas informācijas panelis"
-
-#: plugin/main.py
-msgid "Run Python Script..."
-msgstr "Palaist Python skriptu..."
-
-#: plugin/main.py
-msgid "Reset Python Session"
-msgstr "Atiestatīt Python sesiju"
-
-#: plugin/main.py
-msgid "Import Jupyter Notebook..."
-msgstr "Importēt Jupyter piezīmju grāmatiņu..."
-
-#: plugin/main.py
-msgid "Insert LaTeX Math..."
-msgstr "Ievietot LaTeX formulu..."
-
-#: plugin/main.py
-msgid "Search Nearby Files..."
-msgstr "Meklēt tuvumā esošos failus..."
-
-#: plugin/main.py
-msgid "Text Analytics..."
-msgstr "Teksta analīze..."
-
-#: plugin/main.py
-msgid "Convert Sheet to Python..."
-msgstr "Konvertēt lapu uz Python..."
+msgid "Edit LaTeX Math..."
+msgstr "Rediģēt LaTeX formulu..."
 
 #: plugin/xdl_strings.py
 msgid "-1"
@@ -2665,10 +2722,6 @@ msgstr "Calc"
 #: plugin/xdl_strings.py
 msgid "Categories:"
 msgstr "Kategorijas:"
-
-#: plugin/xdl_strings.py
-msgid "Chat (Testing):"
-msgstr "Tērzēšana (testēšana):"
 
 #: plugin/xdl_strings.py
 msgid "Check Venv"
@@ -2934,6 +2987,10 @@ msgid "Status"
 msgstr "Statuss"
 
 #: plugin/xdl_strings.py
+msgid "Status: Ready"
+msgstr "Statuss: Gatavs"
+
+#: plugin/xdl_strings.py
 msgid "Steps:"
 msgstr "Soļi:"
 
@@ -2984,6 +3041,22 @@ msgstr "Writer"
 #: plugin/xdl_strings.py
 msgid "WriterAgent Evaluation Dashboard"
 msgstr "WriterAgent novērtēšanas panelis"
+
+#: plugin/xdl_strings.py
+msgid "√x"
+msgstr "√x"
+
+#: plugin/xdl_strings.py
+msgid "☰"
+msgstr "☰"
+
+#: plugin/xdl_strings.py
+msgid "⚙"
+msgstr "⚙"
+
+#: plugin/xdl_strings.py
+msgid "🔍"
+msgstr "🔍"
 
 msgid "Agent Communication Protocol"
 msgstr "Aģenta saziņas protokols"
@@ -3107,9 +3180,9 @@ msgstr "Humanizētāja prasme (dabiska proza)"
 msgid ""
 "When enabled, injects guidance into the system prompt so the model makes "
 "generated or revised document text sound more natural and human (removes AI "
-"slop patterns). Edit the rules in your LibreOffice profile under "
-"writeragent/skills/humanizer/SKILL.md (the file is auto-created on first "
-"use). A dedicated Skills tab can be added later."
+"slop patterns). Edit the rules in your LibreOffice profile under writeragent/"
+"skills/humanizer/SKILL.md (the file is auto-created on first use). A "
+"dedicated Skills tab can be added later."
 msgstr ""
 "Ja iespējots, sistēmas uzvednē tiek ievadīti norādījumi, lai modelis "
 "padarītu ģenerēto vai pārskatīto dokumenta tekstu dabiskāku un cilvēcīgāku "
@@ -3135,14 +3208,14 @@ msgid "Enable grammar checker (Writer)"
 msgstr "Iespējot gramatikas pārbaudītāju (Writer)"
 
 msgid ""
-"Off = disabled. AI (LLM) = use your configured text model/API. LanguageTool "
-"/ Vale = local engines via Settings → Python venv. Harper = offline Rust "
-"binary auto-downloaded to your profile (no venv required)."
+"Off = disabled. AI (LLM) = use your configured text model/API. "
+"LanguageTool / Vale = local engines via Settings → Python venv. Harper = "
+"offline Rust binary auto-downloaded to your profile (no venv required)."
 msgstr ""
 "Izslēgts = atspējots. AI (LLM) = izmantot konfigurēto teksta modeli/API. "
-"LanguageTool / Vale = lokālie dzinēji, izmantojot Iestatījumi → Python venv."
-" Harper = bezsaistes Rust binārais fails, kas tiek automātiski lejupielādēts"
-" jūsu profilā (venv nav nepieciešams)."
+"LanguageTool / Vale = lokālie dzinēji, izmantojot Iestatījumi → Python venv. "
+"Harper = bezsaistes Rust binārais fails, kas tiek automātiski lejupielādēts "
+"jūsu profilā (venv nav nepieciešams)."
 
 msgid "Off"
 msgstr "Izslēgts"
@@ -3173,8 +3246,8 @@ msgid ""
 "runs, to avoid concurrent API calls."
 msgstr ""
 "Ja ir ieslēgts, AI gramatikas pārbaude izlaiž fona pieprasījumus, kamēr "
-"darbojas sānjoslas tērzēšana vai aģents, lai izvairītos no vienlaicīgiem API"
-" izsaukumiem."
+"darbojas sānjoslas tērzēšana vai aģents, lai izvairītos no vienlaicīgiem API "
+"izsaukumiem."
 
 msgid "Batch sentences"
 msgstr "Pakešapstrādes teikumi"
@@ -3185,8 +3258,8 @@ msgid ""
 "cause model errors."
 msgstr ""
 "Vienā LLM pieprasījumā sūtāmo teikumu skaits (1-8). 1 (noklusējums) ir "
-"visuzticamākais; lielākas vērtības ir ātrākas un lētākas, taču var pārsniegt"
-" marķieru (token) limitus vai izraisīt modeļa kļūdas."
+"visuzticamākais; lielākas vērtības ir ātrākas un lētākas, taču var pārsniegt "
+"marķieru (token) limitus vai izraisīt modeļa kļūdas."
 
 msgid "Concurrent requests"
 msgstr "Vienlaicīgi pieprasījumi"
@@ -3210,10 +3283,10 @@ msgid ""
 "(Settings → Python; no API call). Mismatches update CharLocale and re-check "
 "grammar."
 msgstr ""
-"Pārbaudiet katra pilna teikuma valodu atbilstoši dokumenta lokalizācijai. AI"
-" izmanto jūsu gramatikas/tērzēšanas API; Local izmanto langdetect jūsu "
-"Python venv (Iestatījumi → Python; nav API izsaukuma). Neatbilstības "
-"atjaunina CharLocale un atkārtoti pārbauda gramatiku."
+"Pārbaudiet katra pilna teikuma valodu atbilstoši dokumenta lokalizācijai. AI "
+"izmanto jūsu gramatikas/tērzēšanas API; Local izmanto langdetect jūsu Python "
+"venv (Iestatījumi → Python; nav API izsaukuma). Neatbilstības atjaunina "
+"CharLocale un atkārtoti pārbauda gramatiku."
 
 msgid "Local (langdetect)"
 msgstr "Local (langdetect)"
@@ -3259,8 +3332,8 @@ msgid ""
 "Indexed semantic + keyword search for document_research (corpus.db). "
 "Requires embeddings venv — see Python Test."
 msgstr ""
-"Indeksēta semantiskā un atslēgvārdu meklēšana dokumentu izpētei (corpus.db)."
-" Nepieciešama iegultņu (embeddings) virtuālā vide — skatīt Python testu."
+"Indeksēta semantiskā un atslēgvārdu meklēšana dokumentu izpētei (corpus.db). "
+"Nepieciešama iegultņu (embeddings) virtuālā vide — skatīt Python testu."
 
 msgid "Embeddings + FTS"
 msgstr "Iegultnes + FTS"
@@ -3289,15 +3362,15 @@ msgid ""
 "Second-stage cross-encoder after hybrid retrieve (Embeddings + FTS and "
 "LlamaIndex). Off by default."
 msgstr ""
-"Otrā posma šķērsenkodētājs pēc hibrīdizguves (iegulumi + FTS un LlamaIndex)."
-" Pēc noklusējuma izslēgts."
+"Otrā posma šķērsenkodētājs pēc hibrīdizguves (iegulumi + FTS un LlamaIndex). "
+"Pēc noklusējuma izslēgts."
 
 msgid "Rerank model"
 msgstr "Pārrindošanas modelis"
 
 msgid ""
-"Used only when rerank is enabled. English MiniLM is fast; bge-reranker-v2-m3"
-" is multilingual and downloads ~2.3 GB."
+"Used only when rerank is enabled. English MiniLM is fast; bge-reranker-v2-m3 "
+"is multilingual and downloads ~2.3 GB."
 msgstr ""
 "Izmanto tikai tad, ja ir iespējota pārrindošana. Angļu valodas MiniLM ir "
 "ātrs; bge-reranker-v2-m3 ir daudzvalodu un lejupielādē ~2,3 GB."
@@ -3318,11 +3391,11 @@ msgid "Enable MCP Server"
 msgstr "Iespējot MCP serveri"
 
 msgid ""
-"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable"
-" HTTP)."
+"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable "
+"HTTP)."
 msgstr ""
-"Tikai localhost, bez autentifikācijas. Klienti izmanto "
-"http://localhost:<port>/mcp (straumējams HTTP)."
+"Tikai localhost, bez autentifikācijas. Klienti izmanto http://localhost:"
+"<port>/mcp (straumējams HTTP)."
 
 msgid "MCP Port"
 msgstr "MCP ports"
@@ -3338,12 +3411,12 @@ msgid ""
 "find_tools (domain catalog, then per-domain tool schemas; best for any "
 "client)."
 msgstr ""
-"Kā specializētie rīki tiek parādīti MCP klientiem. delegate=sasniedzami caur"
-" starpniekserveri (pašreizējā darbība); direct_flat=visi MCP sasniedzamie "
+"Kā specializētie rīki tiek parādīti MCP klientiem. delegate=sasniedzami caur "
+"starpniekserveri (pašreizējā darbība); direct_flat=visi MCP sasniedzamie "
 "specializētie rīki uzskaitīti tieši, izslēdzot sānjoslas plūsmas (labākais "
 "klientiem ar savu rīku meklēšanu); direct_discovery=mazs pamatsaraksts plus "
-"find_tools (domēna katalogs, tad katra domēna rīku shēmas; labākais jebkuram"
-" klientam)."
+"find_tools (domēna katalogs, tad katra domēna rīku shēmas; labākais jebkuram "
+"klientam)."
 
 msgid "Delegate (default)"
 msgstr "Starpnieks (noklusējums)"
@@ -3362,13 +3435,13 @@ msgstr "Eksponēt caur publisku tuneli"
 
 msgid ""
 "Requires the selected provider binary on PATH (cloudflared, bore, ngrok, or "
-"tailscale). MCP has no auth — anyone with the public URL can call tools. See"
-" MCP Server Status for the public /mcp URL when ready."
+"tailscale). MCP has no auth — anyone with the public URL can call tools. See "
+"MCP Server Status for the public /mcp URL when ready."
 msgstr ""
 "Nepieciešams izvēlētais pakalpojumu sniedzēja binārais fails PATH "
-"(cloudflared, bore, ngrok vai tailscale). MCP nav autentifikācijas — ikviens"
-" ar publisko URL var izsaukt rīkus. Skatiet MCP servera statusu, lai "
-"uzzinātu publisko /mcp URL, kad tas būs gatavs."
+"(cloudflared, bore, ngrok vai tailscale). MCP nav autentifikācijas — ikviens "
+"ar publisko URL var izsaukt rīkus. Skatiet MCP servera statusu, lai uzzinātu "
+"publisko /mcp URL, kad tas būs gatavs."
 
 msgid "Provider"
 msgstr "Pakalpojumu sniedzējs"
@@ -3399,8 +3472,8 @@ msgid ""
 "Ngrok authtoken; Cloudflare tunnel token; Bore server or 'server secret'. "
 "Empty = provider default / CLI config. Unused for Tailscale."
 msgstr ""
-"Ngrok authtoken; Cloudflare tunnel token; Bore serveris vai 'server secret'."
-" Tukšs = pakalpojumu sniedzēja noklusējums / CLI konfigurācija. Netiek "
+"Ngrok authtoken; Cloudflare tunnel token; Bore serveris vai 'server secret'. "
+"Tukšs = pakalpojumu sniedzēja noklusējums / CLI konfigurācija. Netiek "
 "izmantots Tailscale."
 
 msgid "Client config (copy into Claude / Hermes-Agent):"
@@ -3413,15 +3486,15 @@ msgid "Python venv path"
 msgstr "Python venv ceļš"
 
 msgid ""
-"If set, runs =PY() and Run Python Script in that venv (bin/python, "
-"Scripts/python.exe, or conda/pyenv-win env-root python.exe). Paste the path "
-"without surrounding quotes. If empty, uses this process's sys.executable "
-"(basic stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
+"If set, runs =PY() and Run Python Script in that venv (bin/python, Scripts/"
+"python.exe, or conda/pyenv-win env-root python.exe). Paste the path without "
+"surrounding quotes. If empty, uses this process's sys.executable (basic "
+"stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
 "paddlepaddle)."
 msgstr ""
 "Ja iestatīts, izpilda =PY() un Run Python Script šajā venv (bin/python, "
-"Scripts/python.exe vai conda/pyenv-win env-root python.exe). Ielīmējiet ceļu"
-" bez pēdiņām. Ja tukšs, izmanto šī procesa sys.executable (pamata stdlib); "
+"Scripts/python.exe vai conda/pyenv-win env-root python.exe). Ielīmējiet ceļu "
+"bez pēdiņām. Ja tukšs, izmanto šī procesa sys.executable (pamata stdlib); "
 "izmantojiet venv priekš numpy/pandas un Vision Helpers (paddleocr, "
 "paddlepaddle)."
 
@@ -3443,11 +3516,11 @@ msgid "Max Calc data cells"
 msgstr "Maksimālais Calc datu šūnu skaits"
 
 msgid ""
-"Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger"
-" values use more RAM and time; UNO range read still dominates."
+"Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger "
+"values use more RAM and time; UNO range read still dominates."
 msgstr ""
-"Maksimālais šūnu skaits =PYTHON() datos vai Run Python Script "
-"data/data_range. Lielākas vērtības patērē vairāk RAM un laika; UNO apgabala "
+"Maksimālais šūnu skaits =PYTHON() datos vai Run Python Script data/"
+"data_range. Lielākas vērtības patērē vairāk RAM un laika; UNO apgabala "
 "nolasīšana joprojām ir dominējošā."
 
 msgid "Python session mode"
@@ -3477,8 +3550,8 @@ msgid "Rewrite xl() ranges"
 msgstr "Pārrakstīt xl() apgabalus"
 
 msgid ""
-"On Edit Python in Cell save, lift static xl(\"A1:…\") onto =PY data args and"
-" rewrite to data / data[i] / .to_pandas()."
+"On Edit Python in Cell save, lift static xl(\"A1:…\") onto =PY data args and "
+"rewrite to data / data[i] / .to_pandas()."
 msgstr ""
 "Saglabājot Python šūnā, pacelt statiskos xl(\"A1:…\") uz =PY datu "
 "argumentiem un pārrakstīt uz data / data[i] / .to_pandas()."

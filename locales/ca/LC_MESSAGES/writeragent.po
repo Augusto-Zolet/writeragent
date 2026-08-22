@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-21 11:45-0400\n"
+"POT-Creation-Date: 2026-08-22 16:30-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Catalan <LL@li.org>\n"
@@ -31,8 +31,8 @@ msgstr "S'està executant l'OCR local en les imatges seleccionades..."
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Document research reads require specialized task delegation (USE_SUB_AGENT)."
-" Enable this in configuration."
+"Document research reads require specialized task delegation (USE_SUB_AGENT). "
+"Enable this in configuration."
 msgstr ""
 "Les lectures de recerca de documents requereixen una delegació de tasques "
 "especialitzada (USE_SUB_AGENT). Habiliteu-ho a la configuració."
@@ -40,8 +40,8 @@ msgstr ""
 #: plugin/doc/specialized_base.py
 #, python-brace-format
 msgid ""
-"Tool call switched to '{0}'. You are in a specialized toolset mode. You must"
-" call 'specialized_workflow_finished' when done to restore the full set of "
+"Tool call switched to '{0}'. You are in a specialized toolset mode. You must "
+"call 'specialized_workflow_finished' when done to restore the full set of "
 "APIs."
 msgstr ""
 "La crida a l'eina ha canviat a «{0}». Esteu en un mode d'eines "
@@ -58,11 +58,11 @@ msgstr "L'execució de quaderns només s'admet al LibreOffice Writer."
 
 #: plugin/notebook/notebook_runner.py
 msgid ""
-"This document has no imported notebook. Use Tools → Import Jupyter Notebook…"
-" first."
+"This document has no imported notebook. Use Tools → Import Jupyter Notebook… "
+"first."
 msgstr ""
-"Aquest document no té cap quadern importat. Utilitzeu primer Eines → Importa"
-" el quadern Jupyter…."
+"Aquest document no té cap quadern importat. Utilitzeu primer Eines → Importa "
+"el quadern Jupyter…."
 
 #: plugin/notebook/notebook_runner.py
 msgid "Could not find notebook cell for this control."
@@ -190,8 +190,8 @@ msgstr "Error: "
 msgid ""
 "Folder index is building in the background. Please retry search shortly."
 msgstr ""
-"L'índex de la carpeta s'està creant en segon pla. Torneu a intentar la cerca"
-" d'aquí a una estona."
+"L'índex de la carpeta s'està creant en segon pla. Torneu a intentar la cerca "
+"d'aquí a una estona."
 
 #: plugin/embeddings/search_ui.py
 msgid "No matches found."
@@ -251,8 +251,8 @@ msgstr "Error HTTP {0}: {1}"
 msgid ""
 "Python venv not found. Open Settings → Python, set the venv path, then Test."
 msgstr ""
-"No s'ha trobat el venv de Python. Obriu Paràmetres → Python, definiu el camí"
-" del venv i, tot seguit, feu la prova."
+"No s'ha trobat el venv de Python. Obriu Paràmetres → Python, definiu el camí "
+"del venv i, tot seguit, feu la prova."
 
 #: plugin/framework/errors.py
 msgid ""
@@ -264,8 +264,8 @@ msgstr ""
 #: plugin/framework/errors.py
 msgid "Formula spill collision: destination range contains non-empty cells."
 msgstr ""
-"Col·lisió de desbordament de fórmula: l'interval de destinació conté cel·les"
-" no buides."
+"Col·lisió de desbordament de fórmula: l'interval de destinació conté cel·les "
+"no buides."
 
 #: plugin/framework/errors.py
 #, python-brace-format
@@ -281,8 +281,7 @@ msgstr ""
 "d'espera de la sol·licitud» a la configuració."
 
 #: plugin/framework/errors.py
-msgid ""
-"Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
+msgid "Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
 msgstr ""
 "Connexió refusada. El vostre servidor d'IA local (Ollama/LM Studio) està en "
 "marxa?"
@@ -317,11 +316,11 @@ msgstr "Error HTTP {0} del proveïdor d'IA: {1}"
 #: plugin/framework/client/errors.py
 #, python-brace-format
 msgid ""
-" If your API key is from a GLM Coding Plan subscription, set endpoint to {0}"
-" (not the general /api/paas URL)."
+" If your API key is from a GLM Coding Plan subscription, set endpoint to {0} "
+"(not the general /api/paas URL)."
 msgstr ""
-" Si la vostra clau d'API prové d'una subscripció al pla GLM Coding, establiu"
-" el punt final a {0} (no l'URL general /api/paas)."
+" Si la vostra clau d'API prové d'una subscripció al pla GLM Coding, establiu "
+"el punt final a {0} (no l'URL general /api/paas)."
 
 #: plugin/framework/client/errors.py
 #, python-brace-format
@@ -346,11 +345,12 @@ msgstr ""
 "El model repeteix el mateix fragment (bucle infinit). Torneu-ho a provar o "
 "utilitzeu un model diferent."
 
-#: plugin/framework/main_shared.py plugin/writer/math/latex_dialog.py
-#: plugin/chatbot/panel.py plugin/chatbot/external_editor.py
-#: plugin/chatbot/send_handlers.py plugin/chatbot/dialog_views.py
-#: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
+#: plugin/framework/main_shared.py plugin/calc/python/cell_editor_ui.py
+#: plugin/writer/math/latex_dialog.py plugin/chatbot/panel.py
+#: plugin/chatbot/external_editor.py plugin/chatbot/send_handlers.py
+#: plugin/chatbot/dialog_views.py plugin/scripting/script_dialogs.py
+#: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py
 msgid "Error"
 msgstr "Error"
 
@@ -380,7 +380,8 @@ msgstr ""
 "Si us plau, seleccioneu un model vàlid a la configuració (no un marcador de "
 "posició)."
 
-#: plugin/calc/python/editor_context_menu.py plugin/main.py
+#: plugin/calc/python/editor_context_menu.py plugin/chatbot/hamburger_menu.py
+#: plugin/chatbot/panel_factory.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr "Edita el Python a la cel·la..."
 
@@ -416,15 +417,70 @@ msgstr "S'ha desat l'script d'inicialització."
 msgid "Save initialization script"
 msgstr "Desa l'script d'inicialització"
 
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Status:"
+msgstr "Estat:"
+
+#: plugin/calc/python/cell_editor_ui.py plugin/chatbot/panel_wiring.py
+#: plugin/scripting/editor_ui_strings.py plugin/xdl_strings.py
+msgid "Ready"
+msgstr "Preparat"
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "A1:C1  or  A1:C1, C1:C5"
+msgstr "A1:C1 o A1:C1, C1:C5"
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Data ranges apply only when saving as a =PY() formula."
+msgstr "Els intervals de dades només s'apliquen en desar com a fórmula =PY()."
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Calc injects `data` and `ranges` from these range(s) at runtime."
+msgstr ""
+"El Calc injecta `data` i `ranges` des d'aquest(s) rang(s) en temps "
+"d'execució."
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Saving…"
+msgstr "S'està desant…"
+
+#: plugin/calc/python/cell_editor_ui.py plugin/calc/python/editor.py
+#: plugin/scripting/editor_ui_strings.py
+msgid "Saved without =PY()."
+msgstr "Desat sense =PY()."
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Saved."
+msgstr "Desat."
+
+#: plugin/calc/python/cell_editor_ui.py
+msgid "PythonCellEditorDialog could not be loaded from the extension."
+msgstr "No s'ha pogut carregar PythonCellEditorDialog des de l'extensió."
+
 #: plugin/calc/python/editor.py
 msgid ""
-"Could not preserve this cell's PY formula arguments (e.g. data ranges). Edit"
-" the formula in Calc, or use a quoted code string like =PY(\"code\"; "
-"A1:B10)."
+"Could not preserve this cell's PY formula arguments (e.g. data ranges). Edit "
+"the formula in Calc, or use a quoted code string like =PY(\"code\"; A1:B10)."
 msgstr ""
-"No s'han pogut preservar els arguments de la fórmula PY d'aquesta cel·la (p."
-" ex., intervals de dades). Editeu la fórmula al Calc, o utilitzeu una cadena"
-" de codi entre cometes com ara =PY(\"codi\"; A1:B10)."
+"No s'han pogut preservar els arguments de la fórmula PY d'aquesta cel·la (p. "
+"ex., intervals de dades). Editeu la fórmula al Calc, o utilitzeu una cadena "
+"de codi entre cometes com ara =PY(\"codi\"; A1:B10)."
+
+#: plugin/calc/python/editor.py
+msgid "this cell"
+msgstr "aquesta cel·la"
+
+#: plugin/calc/python/editor.py
+#, python-brace-format
+msgid ""
+"Save changes to {0}?\n"
+"\n"
+"Yes saves. No discards and opens the new cell. Cancel keeps editing {0}."
+msgstr ""
+"Voleu desar els canvis a {0}?\n"
+"\n"
+"Sí els desa. No els descarta i obre la cel·la nova. Cancel·la manté l'edició "
+"de {0}."
 
 #: plugin/calc/python/editor.py
 #, python-format
@@ -433,15 +489,12 @@ msgstr ""
 "No s'han pogut reescriure els literals de rang xl() en arguments de dades "
 "=PY: %s"
 
-#: plugin/calc/python/editor.py plugin/scripting/editor_ui_strings.py
-msgid "Saved without =PY()."
-msgstr "Desat sense =PY()."
-
-#: plugin/calc/python/editor.py
+#: plugin/calc/python/editor.py plugin/xdl_strings.py
 msgid "Python cell editor"
 msgstr "Editor de cel·les Python"
 
 #: plugin/calc/python/editor.py plugin/scripting/editor_ui_strings.py
+#: plugin/xdl_strings.py
 msgid "Save without =PY()"
 msgstr "Desa sense =PY()"
 
@@ -470,37 +523,8 @@ msgstr ""
 "fórmules, o utilitzeu =PY(\"codi\"; interval) amb codi entre cometes."
 
 #: plugin/calc/python/editor.py
-msgid ""
-"Edit Python in Cell requires the Monaco editor, which is disabled by \"scripting.force_internal_script_editor\" in writeragent.json.\n"
-"\n"
-"Set it to false and restart LibreOffice to use this command, or edit PYTHON formulas in the Calc formula bar."
-msgstr ""
-"L'edició de Python a la cel·la requereix l'editor Monaco, que està desactivat per \"scripting.force_internal_script_editor\" a writeragent.json.\n"
-"\n"
-"Establiu-ho a false i reinicieu el LibreOffice per utilitzar aquesta ordre, o editeu les fórmules PYTHON a la barra de fórmules del Calc."
-
-#: plugin/calc/python/editor.py
-msgid "No Python interpreter available for the editor."
-msgstr "No hi ha cap intèrpret de Python disponible per a l'editor."
-
-#: plugin/calc/python/editor.py
-#, python-format
-msgid ""
-"Cannot import webview (pywebview) or rocher with the Python from Settings → Python:\n"
-"%(exe)s\n"
-"\n"
-"In that venv run: uv pip install pywebview rocher\n"
-"(import name is webview, package name is pywebview)."
-msgstr ""
-"No es pot importar webview (pywebview) o rocher amb el Python de Paràmetres → Python:\n"
-"%(exe)s\n"
-"\n"
-"En aquest entorn virtual (venv), executeu: uv pip install pywebview rocher\n"
-"(el nom d'importació és webview, el nom del paquet és pywebview)."
-
-#: plugin/calc/python/editor.py
-msgid "unknown error"
-msgstr "error desconegut"
+msgid "Could not open the built-in Python cell editor."
+msgstr "No s'ha pogut obrir l'editor de cel·les Python integrat."
 
 #: plugin/calc/python/function.py
 #, python-brace-format
@@ -526,8 +550,8 @@ msgid ""
 "Error: Python timed out. Open Settings → Python to raise the timeout, or "
 "Test the venv."
 msgstr ""
-"Error: el Python ha excedit el temps d'espera. Obriu Paràmetres → Python per"
-" augmentar el temps d'espera o proveu el venv."
+"Error: el Python ha excedit el temps d'espera. Obriu Paràmetres → Python per "
+"augmentar el temps d'espera o proveu el venv."
 
 #: plugin/calc/python/function.py
 msgid "Image inserted"
@@ -543,14 +567,17 @@ msgid ""
 "Could not write Microsoft Excel Python package parts for:\n"
 "{0}\n"
 "\n"
-"The file was saved with LibreOffice =PY formulas. Excel will not see pythonScripts.xml / _xlws.PY until export succeeds.\n"
+"The file was saved with LibreOffice =PY formulas. Excel will not see "
+"pythonScripts.xml / _xlws.PY until export succeeds.\n"
 "\n"
 "{1}"
 msgstr ""
-"No s'han pogut escriure les parts del paquet Python de Microsoft Excel per a:\n"
+"No s'han pogut escriure les parts del paquet Python de Microsoft Excel per "
+"a:\n"
 "{0}\n"
 "\n"
-"El fitxer s'ha desat amb fórmules =PY de LibreOffice. L'Excel no veurà pythonScripts.xml / _xlws.PY fins que l'exportació tingui èxit.\n"
+"El fitxer s'ha desat amb fórmules =PY de LibreOffice. L'Excel no veurà "
+"pythonScripts.xml / _xlws.PY fins que l'exportació tingui èxit.\n"
 "\n"
 "{1}"
 
@@ -683,8 +710,8 @@ msgstr ""
 #: plugin/writer/locale/grammar_proofread_text.py
 msgid "Suggested fix: replace with one space (the blank replacement below)."
 msgstr ""
-"Suggeriment de correcció: substituïu per un espai (la substitució en blanc a"
-" sota)."
+"Suggeriment de correcció: substituïu per un espai (la substitució en blanc a "
+"sota)."
 
 #: plugin/writer/locale/grammar_proofread_text.py
 msgid "Choose a replacement below."
@@ -695,39 +722,35 @@ msgid "AI Grammar"
 msgstr "Gramàtica d'IA"
 
 #: plugin/writer/math/latex_dialog.py
-msgid "This command is only available in Writer documents."
-msgstr "Aquesta ordre només està disponible en documents del Writer."
-
-#: plugin/writer/math/latex_dialog.py
-msgid "Unknown conversion error"
-msgstr "Error de conversió desconegut"
-
-#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
-msgid "Formula inserted."
-msgstr "Fórmula inserida."
-
-#: plugin/writer/math/latex_dialog.py
-msgid "LaTeX Math Editor"
-msgstr "Editor de matemàtiques LaTeX"
-
-#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
-#: plugin/xdl_strings.py
-msgid "Insert as display block (centered paragraph)"
-msgstr "Insereix com a bloc de visualització (paràgraf centrat)"
+msgid "Update"
+msgstr "Actualitza"
 
 #: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
 #: plugin/xdl_strings.py
 msgid "Insert"
 msgstr "Insereix"
 
-#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
-#: plugin/scripting/python_runner.py plugin/xdl_strings.py
-msgid "Close"
-msgstr "Tanca"
+#: plugin/writer/math/latex_dialog.py
+msgid "Edit LaTeX Math"
+msgstr "Edita la fórmula LaTeX"
 
 #: plugin/writer/math/latex_dialog.py
-msgid "LaTeX Conversion Error"
-msgstr "Error de conversió LaTeX"
+msgid "Select a single formula to update. Multiple formulas are selected."
+msgstr ""
+"Seleccioneu una única fórmula per actualitzar. Hi ha diverses fórmules "
+"seleccionades."
+
+#: plugin/writer/math/latex_dialog.py
+msgid ""
+"Could not identify the selected formula. Click in the text, then insert a "
+"new formula."
+msgstr ""
+"No s'ha pogut identificar la fórmula seleccionada. Feu clic al text i, a "
+"continuació, inseriu una fórmula nova."
+
+#: plugin/writer/math/latex_dialog.py
+msgid "Unknown conversion error"
+msgstr "Error de conversió desconegut"
 
 #: plugin/writer/math/latex_dialog.py
 #, python-brace-format
@@ -739,6 +762,40 @@ msgstr ""
 "Ha fallat la conversió de LaTeX a StarMath:\n"
 "\n"
 "{0}"
+
+#: plugin/writer/math/latex_dialog.py
+msgid "The selected formula is no longer in the document."
+msgstr "La fórmula seleccionada ja no és al document."
+
+#: plugin/writer/math/latex_dialog.py
+msgid "Formula updated."
+msgstr "Fórmula actualitzada."
+
+#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
+msgid "Formula inserted."
+msgstr "Fórmula inserida."
+
+#: plugin/writer/math/latex_dialog.py
+msgid "This command is only available in Writer documents."
+msgstr "Aquesta ordre només està disponible en documents del Writer."
+
+#: plugin/writer/math/latex_dialog.py
+msgid "LaTeX Math Editor"
+msgstr "Editor de matemàtiques LaTeX"
+
+#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
+#: plugin/xdl_strings.py
+msgid "Insert as display block (centered paragraph)"
+msgstr "Insereix com a bloc de visualització (paràgraf centrat)"
+
+#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Tanca"
+
+#: plugin/writer/math/latex_dialog.py
+msgid "LaTeX Conversion Error"
+msgstr "Error de conversió LaTeX"
 
 #: plugin/writer/math/latex_dialog.py
 msgid "An unexpected error occurred during LaTeX insertion."
@@ -1004,11 +1061,6 @@ msgstr "per què"
 msgid "you"
 msgstr "vostè"
 
-#: plugin/chatbot/panel_wiring.py plugin/scripting/editor_ui_strings.py
-#: plugin/xdl_strings.py
-msgid "Ready"
-msgstr "Preparat"
-
 #: plugin/chatbot/dialogs.py
 msgid "Agent requests approval"
 msgstr "L'agent sol·licita aprovació"
@@ -1030,9 +1082,93 @@ msgstr "Copiat!"
 msgid "Copy URL"
 msgstr "Copia l'URL"
 
-#: plugin/chatbot/dialogs.py plugin/main.py plugin/xdl_strings.py
+#: plugin/chatbot/dialogs.py plugin/chatbot/hamburger_menu.py plugin/main.py
+#: plugin/xdl_strings.py
 msgid "Report bug..."
 msgstr "Informa d'un error..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Extend Selection"
+msgstr "Estén la selecció"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Edit Selection"
+msgstr "Edita la selecció"
+
+#: plugin/chatbot/hamburger_menu.py plugin/chatbot/panel_factory.py
+#: plugin/main.py
+msgid "Run Python Script..."
+msgstr "Executa l'script de Python..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Convert Sheet to Python..."
+msgstr "Converteix el full a Python..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/chatbot/panel_factory.py
+#: plugin/main.py
+msgid "Search Nearby Files..."
+msgstr "Cerca fitxers propers..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/chatbot/panel_factory.py
+msgid "Insert LaTeX Math..."
+msgstr "Insereix matemàtiques LaTeX..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Text Analytics..."
+msgstr "Anàlisi de text..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/chatbot/dialog_views.py
+#: plugin/chatbot/panel_factory.py plugin/main.py plugin/xdl_strings.py
+msgid "Settings"
+msgstr "Configuració"
+
+#: plugin/chatbot/hamburger_menu.py
+msgid "Vision OCR Settings..."
+msgstr "Configuració de l'OCR de visió..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Toggle MCP Server"
+msgstr "Commuta el servidor MCP"
+
+#: plugin/chatbot/hamburger_menu.py
+msgid "MCP Server (Running)"
+msgstr "Servidor MCP (en execució)"
+
+#: plugin/chatbot/hamburger_menu.py
+msgid "MCP Server (Stopped)"
+msgstr "Servidor MCP (aturat)"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Reset Python Session"
+msgstr "Restableix la sessió de Python"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Run format tests"
+msgstr "Executa les proves de format"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Run calc tests"
+msgstr "Executa les proves de Calc"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Run Calc API integration tests"
+msgstr "Executa les proves d'integració de l'API de Calc"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Run draw tests"
+msgstr "Executa les proves de Draw"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Evaluation Dashboard"
+msgstr "Tauler d'avaluació"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Import Jupyter Notebook..."
+msgstr "Importa quadern Jupyter..."
+
+#: plugin/chatbot/hamburger_menu.py
+msgid "Debug"
+msgstr "Depura"
 
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
@@ -1112,8 +1248,8 @@ msgid ""
 "[No compatible LibreOffice document (Writer, Calc, or Draw) found in the "
 "active window.]"
 msgstr ""
-"[No s'ha trobat cap document de LibreOffice compatible (Writer, Calc o Draw)"
-" a la finestra activa.]"
+"[No s'ha trobat cap document de LibreOffice compatible (Writer, Calc o Draw) "
+"a la finestra activa.]"
 
 #: plugin/chatbot/panel.py
 #, python-brace-format
@@ -1195,7 +1331,8 @@ msgid ""
 "No editor found (install Kate or Gedit, or set EDITOR). Path:\n"
 "{0}"
 msgstr ""
-"No s'ha trobat cap editor (instal·leu Kate o Gedit, o definiu EDITOR). Camí:\n"
+"No s'ha trobat cap editor (instal·leu Kate o Gedit, o definiu EDITOR). "
+"Camí:\n"
 "{0}"
 
 #: plugin/chatbot/external_editor.py
@@ -1232,8 +1369,7 @@ msgstr "[No s'ha trobat el rerefons de l'agent '{0}'.]"
 
 #: plugin/chatbot/send_handlers.py
 #, python-brace-format
-msgid ""
-"[Agent backend '{0}' is not available. Check Settings (path, install).]"
+msgid "[Agent backend '{0}' is not available. Check Settings (path, install).]"
 msgstr ""
 "[El rerefons de l'agent '{0}' no està disponible. Comproveu la configuració "
 "(camí, instal·lació).]"
@@ -1347,10 +1483,6 @@ msgstr ""
 msgid "Switching to document mode..."
 msgstr "S'està canviant al mode de document..."
 
-#: plugin/chatbot/dialog_views.py plugin/main.py plugin/xdl_strings.py
-msgid "Settings"
-msgstr "Configuració"
-
 #: plugin/chatbot/dialog_views.py
 msgid "Invalid Setting"
 msgstr "Configuració no vàlida"
@@ -1392,6 +1524,10 @@ msgstr "Alçada:"
 msgid "Width:"
 msgstr "Amplada:"
 
+#: plugin/chatbot/panel_factory.py
+msgid "More actions..."
+msgstr "Més accions..."
+
 #: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
 #: plugin/xdl_strings.py
 msgid "New Python Script"
@@ -1408,17 +1544,9 @@ msgid "Attach to this document"
 msgstr "Adjunta a aquest document"
 
 #: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
-#: plugin/scripting/document_scripts.py plugin/scripting/editor_host.py
+#: plugin/scripting/document_scripts.py
 msgid "Script name cannot be empty."
 msgstr "El nom de l'script no pot estar buit."
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Status:"
-msgstr "Estat:"
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Saving…"
-msgstr "S'està desant…"
 
 #: plugin/scripting/editor_ui_strings.py
 msgid "Running…"
@@ -1441,27 +1569,9 @@ msgstr "Executa"
 msgid "Cancel"
 msgstr "Cancel·la"
 
-#: plugin/scripting/editor_ui_strings.py
+#: plugin/scripting/editor_ui_strings.py plugin/xdl_strings.py
 msgid "Data:"
 msgstr "Dades:"
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "A1:C1  or  A1:C1, C1:C5"
-msgstr "A1:C1 o A1:C1, C1:C5"
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Calc injects `data` and `ranges` from these range(s) at runtime."
-msgstr ""
-"El Calc injecta `data` i `ranges` des d'aquest(s) rang(s) en temps "
-"d'execució."
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Data ranges apply only when saving as a =PY() formula."
-msgstr "Els intervals de dades només s'apliquen en desar com a fórmula =PY()."
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Saved."
-msgstr "Desat."
 
 #: plugin/scripting/editor_ui_strings.py plugin/xdl_strings.py
 msgid "New"
@@ -1522,7 +1632,7 @@ msgstr ""
 msgid "Loaded script '{0}'."
 msgstr "S'ha carregat l'script «{0}»."
 
-#: plugin/scripting/editor_ui_strings.py plugin/scripting/editor_host.py
+#: plugin/scripting/editor_ui_strings.py plugin/scripting/document_scripts.py
 msgid "No document is open to attach scripts."
 msgstr "No hi ha cap document obert per adjuntar scripts."
 
@@ -1596,7 +1706,6 @@ msgstr ""
 "({0} bytes)."
 
 #: plugin/scripting/document_scripts.py plugin/scripting/python_runner_ui.py
-#: plugin/scripting/editor_host.py
 msgid "No document is open to save scripts."
 msgstr "No hi ha cap document obert per desar els scripts."
 
@@ -1616,6 +1725,50 @@ msgstr "Ja existeix un script anomenat «{0}» en aquest document."
 #: plugin/scripting/document_scripts.py
 msgid "This Document"
 msgstr "Aquest document"
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Saved script '{0}' to My Scripts."
+msgstr "S'ha desat l'script «{0}» a Els meus scripts."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Saved script '{0}' to this document."
+msgstr "S'ha desat l'script «{0}» en aquest document."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Saved script '{0}'."
+msgstr "S'ha desat l'script «{0}»."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Attached script '{0}' to this document."
+msgstr "S'ha adjuntat l'script «{0}» a aquest document."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "A script named '{0}' already exists in My Scripts."
+msgstr "Ja existeix un script anomenat «{0}» a Els meus scripts."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Copied script '{0}' to My Scripts."
+msgstr "S'ha copiat l'script «{0}» a Els meus scripts."
+
+#: plugin/scripting/document_scripts.py plugin/scripting/python_runner_ui.py
+msgid "No document is open."
+msgstr "No hi ha cap document obert."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Deleted document script '{0}'."
+msgstr "S'ha suprimit l'script del document «{0}»."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Deleted script '{0}'."
+msgstr "S'ha suprimit l'script «{0}»."
 
 #: plugin/scripting/python_runner_ui.py
 msgid "PythonScriptDialog could not be loaded from the extension."
@@ -1649,10 +1802,6 @@ msgstr "Esteu segur que voleu suprimir l'script «%s»?"
 #: plugin/scripting/python_runner_ui.py
 msgid "Delete Script"
 msgstr "Suprimeix l'script"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/editor_host.py
-msgid "No document is open."
-msgstr "No hi ha cap document obert."
 
 #: plugin/scripting/python_runner_ui.py
 #, python-format
@@ -1715,8 +1864,8 @@ msgstr "Ha fallat"
 #: plugin/scripting/editor_host.py
 msgid ""
 "Set the Python venv path in Settings → Python (same venv where you ran 'uv "
-"pip install pywebview rocher'). LibreOffice's built-in Python cannot run the"
-" Monaco editor."
+"pip install pywebview rocher'). LibreOffice's built-in Python cannot run the "
+"Monaco editor."
 msgstr ""
 "Definiu el camí del venv de Python a Paràmetres → Python (el mateix venv on "
 "heu executat 'uv pip install pywebview rocher'). El Python integrat de "
@@ -1730,46 +1879,6 @@ msgid ""
 msgstr ""
 "No s'ha trobat cap executable de Python al venv configurat: {0} (s'esperava "
 "bin/python, Scripts/python.exe o python.exe a l'arrel de l'entorn)."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Saved script '{0}' to My Scripts."
-msgstr "S'ha desat l'script «{0}» a Els meus scripts."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Saved script '{0}' to this document."
-msgstr "S'ha desat l'script «{0}» en aquest document."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Saved script '{0}'."
-msgstr "S'ha desat l'script «{0}»."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Attached script '{0}' to this document."
-msgstr "S'ha adjuntat l'script «{0}» a aquest document."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "A script named '{0}' already exists in My Scripts."
-msgstr "Ja existeix un script anomenat «{0}» a Els meus scripts."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Copied script '{0}' to My Scripts."
-msgstr "S'ha copiat l'script «{0}» a Els meus scripts."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Deleted document script '{0}'."
-msgstr "S'ha suprimit l'script del document «{0}»."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Deleted script '{0}'."
-msgstr "S'ha suprimit l'script «{0}»."
 
 #: plugin/scripting/editor_host.py
 msgid "Could not start the Python editor."
@@ -1816,11 +1925,10 @@ msgid "Text/NLP probe failed (see writeragent_debug.log)."
 msgstr "Ha fallat la sonda de text/NLP (vegeu writeragent_debug.log)."
 
 #: plugin/scripting/venv_diagnostics.py
-msgid ""
-"Vision probe timed out (Docling import can take 10–30s on first check)."
+msgid "Vision probe timed out (Docling import can take 10–30s on first check)."
 msgstr ""
-"La sonda de visió ha excedit el temps d'espera (la importació de Docling pot"
-" trigar entre 10 i 30 segons en la primera comprovació)."
+"La sonda de visió ha excedit el temps d'espera (la importació de Docling pot "
+"trigar entre 10 i 30 segons en la primera comprovació)."
 
 #: plugin/scripting/venv_diagnostics.py
 msgid "Vision probe failed (see writeragent_debug.log)."
@@ -1953,7 +2061,8 @@ msgid ""
 "Error from the Text Analytics worker:\n"
 "{err}\n"
 "\n"
-"The features in this dialog require these packages in the python it is using:\n"
+"The features in this dialog require these packages in the python it is "
+"using:\n"
 "  • spacy + a model          (entities, key phrases, basic stats)\n"
 "  • textdescriptives         (real Readability scores)\n"
 "  • transformers + torch     (Sentiment using the multilingual model)\n"
@@ -1961,20 +2070,25 @@ msgid ""
 "Install them with:\n"
 "  {install}\n"
 "\n"
-"The worker reported the module as missing. Verify the packages are installed in the exact python executable the worker resolved for your configured venv."
+"The worker reported the module as missing. Verify the packages are installed "
+"in the exact python executable the worker resolved for your configured venv."
 msgstr ""
 "Error del treballador d'anàlisi de text:\n"
 "{err}\n"
 "\n"
-"Les funcions d'aquest diàleg requereixen aquests paquets en el Python que s'està utilitzant:\n"
-"  • spacy + un model          (entitats, frases clau, estadístiques bàsiques)\n"
+"Les funcions d'aquest diàleg requereixen aquests paquets en el Python que "
+"s'està utilitzant:\n"
+"  • spacy + un model          (entitats, frases clau, estadístiques "
+"bàsiques)\n"
 "  • textdescriptives         (puntuacions de llegibilitat reals)\n"
 "  • transformers + torch     (sentiment utilitzant el model multilingüe)\n"
 "\n"
 "Instal·leu-los amb:\n"
 "  {install}\n"
 "\n"
-"El treballador ha informat que falta el mòdul. Verifiqueu que els paquets estiguin instal·lats en l'executable de Python exacte que el treballador ha resolt per al vostre entorn virtual configurat."
+"El treballador ha informat que falta el mòdul. Verifiqueu que els paquets "
+"estiguin instal·lats en l'executable de Python exacte que el treballador ha "
+"resolt per al vostre entorn virtual configurat."
 
 #: plugin/scripting/text_analytics_ui.py
 msgid "Open a Writer document to analyze."
@@ -1993,11 +2107,16 @@ msgstr "S'està analitzant..."
 msgid ""
 "Error: %s\n"
 "\n"
-"Required packages may be missing in your configured venv (Settings → Python). Click Check Venv in this dialog or use the full Test in Settings → Python for details on spacy, textdescriptives, transformers, torch etc."
+"Required packages may be missing in your configured venv (Settings → "
+"Python). Click Check Venv in this dialog or use the full Test in Settings → "
+"Python for details on spacy, textdescriptives, transformers, torch etc."
 msgstr ""
 "Error: %s\n"
 "\n"
-"És possible que faltin paquets necessaris en el vostre entorn virtual (venv) configurat (Configuració → Python). Feu clic a «Comprova el venv» en aquest diàleg o utilitzeu la prova completa a Configuració → Python per obtenir detalls sobre spacy, textdescriptives, transformers, torch, etc."
+"És possible que faltin paquets necessaris en el vostre entorn virtual (venv) "
+"configurat (Configuració → Python). Feu clic a «Comprova el venv» en aquest "
+"diàleg o utilitzeu la prova completa a Configuració → Python per obtenir "
+"detalls sobre spacy, textdescriptives, transformers, torch, etc."
 
 #: plugin/scripting/text_analytics_ui.py
 msgid "No Writer document to insert into."
@@ -2051,8 +2170,7 @@ msgstr "L'assistent de visualització ha fallat."
 
 #: plugin/scripting/viz.py
 msgid "Viz helper returned no image payload."
-msgstr ""
-"L'assistent de visualització no ha retornat cap càrrega útil d'imatge."
+msgstr "L'assistent de visualització no ha retornat cap càrrega útil d'imatge."
 
 #: plugin/scripting/domain_registry.py
 #, python-brace-format
@@ -2060,14 +2178,13 @@ msgid ""
 "Vision '{helper}' completed. Inserted HTML ({blocks} blocks, {tables} "
 "tables). (took {time})"
 msgstr ""
-"Vision '{helper}' completat. HTML inserit ({blocks} blocs, {tables} taules)."
-" (ha trigat {time})"
+"Vision '{helper}' completat. HTML inserit ({blocks} blocs, {tables} taules). "
+"(ha trigat {time})"
 
 #: plugin/scripting/domain_registry.py plugin/scripting/python_runner.py
 #, python-brace-format
 msgid "Vision '{helper}' completed. Inserted formatted HTML. (took {time})"
-msgstr ""
-"Vision '{helper}' completat. HTML formatat inserit. (ha trigat {time})"
+msgstr "Vision '{helper}' completat. HTML formatat inserit. (ha trigat {time})"
 
 #: plugin/scripting/domain_registry.py
 #, python-brace-format
@@ -2094,8 +2211,8 @@ msgid ""
 "This Writer document has no imported notebook registry. Use Tools → Import "
 "Jupyter Notebook… first."
 msgstr ""
-"Aquest document del Writer no té cap registre de quadern importat. Utilitzeu"
-" primer Eines → Importa el quadern Jupyter…."
+"Aquest document del Writer no té cap registre de quadern importat. Utilitzeu "
+"primer Eines → Importa el quadern Jupyter…."
 
 #: plugin/scripting/session_manager.py
 msgid "Could not resolve notebook Python session."
@@ -2146,8 +2263,8 @@ msgid ""
 "This Writer document has no imported notebook registry. Use Tools → Import "
 "Jupyter Notebook… to enable notebook Python session reset."
 msgstr ""
-"Aquest document del Writer no té cap registre de quadern importat. Utilitzeu"
-" Eines → Importa el quadern Jupyter… per habilitar el restabliment de la "
+"Aquest document del Writer no té cap registre de quadern importat. Utilitzeu "
+"Eines → Importa el quadern Jupyter… per habilitar el restabliment de la "
 "sessió de Python del quadern."
 
 #: plugin/scripting/units.py
@@ -2216,14 +2333,14 @@ msgid ""
 "Vision '{helper}' completed. Inserted formatted HTML for {count} images. "
 "(took {time})"
 msgstr ""
-"La visió «{helper}» s'ha completat. S'ha inserit HTML formatat per a {count}"
-" imatges. (ha trigat {time})"
+"La visió «{helper}» s'ha completat. S'ha inserit HTML formatat per a {count} "
+"imatges. (ha trigat {time})"
 
 #: plugin/scripting/python_runner.py
 #, python-brace-format
 msgid ""
-"Script executed successfully, but returned no result and produced no output."
-" (took {time})"
+"Script executed successfully, but returned no result and produced no output. "
+"(took {time})"
 msgstr ""
 "L'script s'ha executat correctament, però no ha retornat cap resultat ni ha "
 "produït cap sortida. (ha trigat {time})"
@@ -2232,8 +2349,7 @@ msgstr ""
 #, python-brace-format
 msgid "Unsupported document type for result insertion. (took {time})"
 msgstr ""
-"Tipus de document no admès per a la inserció del resultat. (ha trigat "
-"{time})"
+"Tipus de document no admès per a la inserció del resultat. (ha trigat {time})"
 
 #: plugin/scripting/python_runner.py
 #, python-brace-format
@@ -2550,7 +2666,8 @@ msgstr ""
 "El binari {0} «{1}» està instal·lat i verificat ({2}).\n"
 "\n"
 "El servidor MCP s'està executant localment al port {3}.\n"
-"Marqueu «Exposa mitjançant túnel públic» i feu clic a D'acord per activar l'encaminament públic."
+"Marqueu «Exposa mitjançant túnel públic» i feu clic a D'acord per activar "
+"l'encaminament públic."
 
 #: plugin/mcp/tunnel.py
 #, python-brace-format
@@ -2573,69 +2690,13 @@ msgstr "{0}: {1} correctes, {2} errònies."
 msgid "Tests failed to run: {0}"
 msgstr "No s'han pogut executar les proves: {0}"
 
-#: plugin/main.py
-msgid "Extend Selection"
-msgstr "Estén la selecció"
-
-#: plugin/main.py
-msgid "Edit Selection"
-msgstr "Edita la selecció"
-
-#: plugin/main.py
-msgid "Toggle MCP Server"
-msgstr "Commuta el servidor MCP"
-
 #: plugin/main.py plugin/xdl_strings.py
 msgid "MCP Server Status"
 msgstr "Estat del servidor MCP"
 
 #: plugin/main.py
-msgid "Run format tests"
-msgstr "Executa les proves de format"
-
-#: plugin/main.py
-msgid "Run calc tests"
-msgstr "Executa les proves de Calc"
-
-#: plugin/main.py
-msgid "Run Calc API integration tests"
-msgstr "Executa les proves d'integració de l'API de Calc"
-
-#: plugin/main.py
-msgid "Run draw tests"
-msgstr "Executa les proves de Draw"
-
-#: plugin/main.py
-msgid "Evaluation Dashboard"
-msgstr "Tauler d'avaluació"
-
-#: plugin/main.py
-msgid "Run Python Script..."
-msgstr "Executa l'script de Python..."
-
-#: plugin/main.py
-msgid "Reset Python Session"
-msgstr "Restableix la sessió de Python"
-
-#: plugin/main.py
-msgid "Import Jupyter Notebook..."
-msgstr "Importa quadern Jupyter..."
-
-#: plugin/main.py
-msgid "Insert LaTeX Math..."
-msgstr "Insereix matemàtiques LaTeX..."
-
-#: plugin/main.py
-msgid "Search Nearby Files..."
-msgstr "Cerca fitxers propers..."
-
-#: plugin/main.py
-msgid "Text Analytics..."
-msgstr "Anàlisi de text..."
-
-#: plugin/main.py
-msgid "Convert Sheet to Python..."
-msgstr "Converteix el full a Python..."
+msgid "Edit LaTeX Math..."
+msgstr "Edita matemàtiques LaTeX..."
 
 #: plugin/xdl_strings.py
 msgid "-1"
@@ -2696,10 +2757,6 @@ msgstr "Calc"
 #: plugin/xdl_strings.py
 msgid "Categories:"
 msgstr "Categories:"
-
-#: plugin/xdl_strings.py
-msgid "Chat (Testing):"
-msgstr "Xat (prova):"
 
 #: plugin/xdl_strings.py
 msgid "Check Venv"
@@ -2966,6 +3023,10 @@ msgid "Status"
 msgstr "Estat"
 
 #: plugin/xdl_strings.py
+msgid "Status: Ready"
+msgstr "Estat: Preparat"
+
+#: plugin/xdl_strings.py
 msgid "Steps:"
 msgstr "Passos:"
 
@@ -3016,6 +3077,22 @@ msgstr "Writer"
 #: plugin/xdl_strings.py
 msgid "WriterAgent Evaluation Dashboard"
 msgstr "Tauler d'avaluació de WriterAgent"
+
+#: plugin/xdl_strings.py
+msgid "√x"
+msgstr "√x"
+
+#: plugin/xdl_strings.py
+msgid "☰"
+msgstr "☰"
+
+#: plugin/xdl_strings.py
+msgid "⚙"
+msgstr "⚙"
+
+#: plugin/xdl_strings.py
+msgid "🔍"
+msgstr "🔍"
 
 msgid "Agent Communication Protocol"
 msgstr "Protocol de comunicació de l'agent"
@@ -3139,9 +3216,9 @@ msgstr "Habilitat d'humanització (prosa natural)"
 msgid ""
 "When enabled, injects guidance into the system prompt so the model makes "
 "generated or revised document text sound more natural and human (removes AI "
-"slop patterns). Edit the rules in your LibreOffice profile under "
-"writeragent/skills/humanizer/SKILL.md (the file is auto-created on first "
-"use). A dedicated Skills tab can be added later."
+"slop patterns). Edit the rules in your LibreOffice profile under writeragent/"
+"skills/humanizer/SKILL.md (the file is auto-created on first use). A "
+"dedicated Skills tab can be added later."
 msgstr ""
 "Quan s'habilita, injecta orientacions al missatge del sistema perquè el "
 "model faci que el text del document generat o revisat soni més natural i "
@@ -3168,9 +3245,9 @@ msgid "Enable grammar checker (Writer)"
 msgstr "Activa el corrector gramatical (Writer)"
 
 msgid ""
-"Off = disabled. AI (LLM) = use your configured text model/API. LanguageTool "
-"/ Vale = local engines via Settings → Python venv. Harper = offline Rust "
-"binary auto-downloaded to your profile (no venv required)."
+"Off = disabled. AI (LLM) = use your configured text model/API. "
+"LanguageTool / Vale = local engines via Settings → Python venv. Harper = "
+"offline Rust binary auto-downloaded to your profile (no venv required)."
 msgstr ""
 "Off = desactivat. AI (LLM) = utilitza el model de text/API configurat. "
 "LanguageTool / Vale = motors locals mitjançant Paràmetres → venv de Python. "
@@ -3219,8 +3296,7 @@ msgid ""
 msgstr ""
 "Nombre de frases a enviar per cada sol·licitud a l'LLM (1-8). 1 "
 "(predeterminat) és el més fiable; valors més alts són més ràpids i "
-"econòmics, però poden arribar als límits de tokens o causar errors del "
-"model."
+"econòmics, però poden arribar als límits de tokens o causar errors del model."
 
 msgid "Concurrent requests"
 msgstr "Peticions simultànies"
@@ -3273,8 +3349,8 @@ msgid ""
 "review."
 msgstr ""
 "Off = edicions directes. Record = canvis seguits que accepteu/rebutgeu "
-"vosaltres mateixos. Wait = apply_document_content es bloqueja (al fil de "
-"xat/treballador MCP) fins que reviseu."
+"vosaltres mateixos. Wait = apply_document_content es bloqueja (al fil de xat/"
+"treballador MCP) fins que reviseu."
 
 msgid "Record (track changes)"
 msgstr "Record (seguiment de canvis)"
@@ -3333,8 +3409,8 @@ msgid "Rerank model"
 msgstr "Model de reordenació"
 
 msgid ""
-"Used only when rerank is enabled. English MiniLM is fast; bge-reranker-v2-m3"
-" is multilingual and downloads ~2.3 GB."
+"Used only when rerank is enabled. English MiniLM is fast; bge-reranker-v2-m3 "
+"is multilingual and downloads ~2.3 GB."
 msgstr ""
 "S'utilitza només quan la reordenació està activada. El MiniLM anglès és "
 "ràpid; bge-reranker-v2-m3 és multilingüe i descarrega ~2,3 GB."
@@ -3355,11 +3431,11 @@ msgid "Enable MCP Server"
 msgstr "Activa el servidor MCP"
 
 msgid ""
-"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable"
-" HTTP)."
+"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable "
+"HTTP)."
 msgstr ""
-"Només localhost, sense autenticació. Els clients utilitzen "
-"http://localhost:<port>/mcp (HTTP transmissible)."
+"Només localhost, sense autenticació. Els clients utilitzen http://localhost:"
+"<port>/mcp (HTTP transmissible)."
 
 msgid "MCP Port"
 msgstr "Port MCP"
@@ -3400,8 +3476,8 @@ msgstr "Exposa mitjançant un túnel públic"
 
 msgid ""
 "Requires the selected provider binary on PATH (cloudflared, bore, ngrok, or "
-"tailscale). MCP has no auth — anyone with the public URL can call tools. See"
-" MCP Server Status for the public /mcp URL when ready."
+"tailscale). MCP has no auth — anyone with the public URL can call tools. See "
+"MCP Server Status for the public /mcp URL when ready."
 msgstr ""
 "Requereix el binari del proveïdor seleccionat al PATH (cloudflared, bore, "
 "ngrok o tailscale). L'MCP no té autenticació: qualsevol persona amb l'URL "
@@ -3437,9 +3513,9 @@ msgid ""
 "Ngrok authtoken; Cloudflare tunnel token; Bore server or 'server secret'. "
 "Empty = provider default / CLI config. Unused for Tailscale."
 msgstr ""
-"Token d'autenticació de Ngrok; token de túnel de Cloudflare; servidor Bore o"
-" «secret del servidor». Buit = per defecte del proveïdor / configuració de "
-"la CLI. No s'utilitza per a Tailscale."
+"Token d'autenticació de Ngrok; token de túnel de Cloudflare; servidor Bore o "
+"«secret del servidor». Buit = per defecte del proveïdor / configuració de la "
+"CLI. No s'utilitza per a Tailscale."
 
 msgid "Client config (copy into Claude / Hermes-Agent):"
 msgstr "Configuració del client (copieu-la al Claude / Hermes-Agent):"
@@ -3451,17 +3527,17 @@ msgid "Python venv path"
 msgstr "Camí del venv de Python"
 
 msgid ""
-"If set, runs =PY() and Run Python Script in that venv (bin/python, "
-"Scripts/python.exe, or conda/pyenv-win env-root python.exe). Paste the path "
-"without surrounding quotes. If empty, uses this process's sys.executable "
-"(basic stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
+"If set, runs =PY() and Run Python Script in that venv (bin/python, Scripts/"
+"python.exe, or conda/pyenv-win env-root python.exe). Paste the path without "
+"surrounding quotes. If empty, uses this process's sys.executable (basic "
+"stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
 "paddlepaddle)."
 msgstr ""
 "Si s'estableix, executa =PY() i «Executa l'script de Python» en aquest venv "
-"(bin/python, Scripts/python.exe o python.exe a l'arrel de l'entorn "
-"conda/pyenv-win). Enganxeu el camí sense cometes. Si es deixa buit, "
-"s'utilitza el sys.executable d'aquest procés (stdlib bàsic); utilitzeu un "
-"venv per a numpy/pandas i els ajudants de visió (paddleocr, paddlepaddle)."
+"(bin/python, Scripts/python.exe o python.exe a l'arrel de l'entorn conda/"
+"pyenv-win). Enganxeu el camí sense cometes. Si es deixa buit, s'utilitza el "
+"sys.executable d'aquest procés (stdlib bàsic); utilitzeu un venv per a numpy/"
+"pandas i els ajudants de visió (paddleocr, paddlepaddle)."
 
 msgid "Test"
 msgstr "Prova"
@@ -3481,8 +3557,8 @@ msgid "Max Calc data cells"
 msgstr "Màxim de cel·les de dades del Calc"
 
 msgid ""
-"Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger"
-" values use more RAM and time; UNO range read still dominates."
+"Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger "
+"values use more RAM and time; UNO range read still dominates."
 msgstr ""
 "Nombre màxim de cel·les en dades de =PYTHON() o dades/interval_de_dades de "
 "l'Execució de script de Python. Els valors més grans utilitzen més memòria "
@@ -3495,8 +3571,8 @@ msgid ""
 "Isolated: each =PYTHON() cell gets a fresh namespace. Shared: one namespace "
 "per workbook (variables carry between cells)."
 msgstr ""
-"Isolat: cada cel·la =PYTHON() obté un espai de noms nou. Compartit: un espai"
-" de noms per llibre de treball (les variables es mantenen entre cel·les)."
+"Isolat: cada cel·la =PYTHON() obté un espai de noms nou. Compartit: un espai "
+"de noms per llibre de treball (les variables es mantenen entre cel·les)."
 
 msgid "Isolated (default)"
 msgstr "Isolat (predeterminat)"
@@ -3515,11 +3591,11 @@ msgid "Rewrite xl() ranges"
 msgstr "Reescriu els intervals xl()"
 
 msgid ""
-"On Edit Python in Cell save, lift static xl(\"A1:…\") onto =PY data args and"
-" rewrite to data / data[i] / .to_pandas()."
+"On Edit Python in Cell save, lift static xl(\"A1:…\") onto =PY data args and "
+"rewrite to data / data[i] / .to_pandas()."
 msgstr ""
-"En desar l'edició de Python a la cel·la, eleva els xl(\"A1:…\") estàtics als"
-" arguments de dades =PY i reescriu-los a data / data[i] / .to_pandas()."
+"En desar l'edició de Python a la cel·la, eleva els xl(\"A1:…\") estàtics als "
+"arguments de dades =PY i reescriu-los a data / data[i] / .to_pandas()."
 
 msgid "Vision / OCR"
 msgstr "Visió / OCR"
@@ -3529,16 +3605,15 @@ msgstr "Escala de la imatge"
 
 msgid "Upscale before OCR/layout. Try 2.0 for small screenshots."
 msgstr ""
-"Escala abans de l'OCR/disseny. Proveu 2.0 per a captures de pantalla "
-"petites."
+"Escala abans de l'OCR/disseny. Proveu 2.0 per a captures de pantalla petites."
 
 msgid "Worker timeout (seconds)"
 msgstr "Temps d'espera del procés (segons)"
 
 msgid "Host subprocess limit for Vision Helpers (first model download)."
 msgstr ""
-"Límit de subprocessos amfitrió per als ajudants de visió (primera descàrrega"
-" del model)."
+"Límit de subprocessos amfitrió per als ajudants de visió (primera descàrrega "
+"del model)."
 
 msgid "Docling artifacts path"
 msgstr "Camí dels artefactes de Docling"

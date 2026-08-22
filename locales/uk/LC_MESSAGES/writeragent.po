@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-21 11:45-0400\n"
+"POT-Creation-Date: 2026-08-22 16:30-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Ukrainian <LL@li.org>\n"
@@ -29,13 +29,13 @@ msgstr ""
 #: plugin/doc/specialized_base.py
 msgid "Running local OCR on selected image(s)..."
 msgstr ""
-"Виконується локальне розпізнавання тексту (OCR) для вибраного "
-"зображення(-нь)..."
+"Виконується локальне розпізнавання тексту (OCR) для вибраного зображення(-"
+"нь)..."
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Document research reads require specialized task delegation (USE_SUB_AGENT)."
-" Enable this in configuration."
+"Document research reads require specialized task delegation (USE_SUB_AGENT). "
+"Enable this in configuration."
 msgstr ""
 "Читання результатів дослідження документа потребує спеціалізованого "
 "делегування завдань (USE_SUB_AGENT). Увімкніть це в налаштуваннях."
@@ -43,14 +43,14 @@ msgstr ""
 #: plugin/doc/specialized_base.py
 #, python-brace-format
 msgid ""
-"Tool call switched to '{0}'. You are in a specialized toolset mode. You must"
-" call 'specialized_workflow_finished' when done to restore the full set of "
+"Tool call switched to '{0}'. You are in a specialized toolset mode. You must "
+"call 'specialized_workflow_finished' when done to restore the full set of "
 "APIs."
 msgstr ""
 "Виклик інструмента перемкнуто на «{0}». Ви перебуваєте в режимі "
 "спеціалізованого набору інструментів. Ви повинні викликати "
-"«specialized_workflow_finished» після завершення, щоб відновити повний набір"
-" API."
+"«specialized_workflow_finished» після завершення, щоб відновити повний набір "
+"API."
 
 #: plugin/notebook/notebook_runner.py
 msgid "Cell execution failed."
@@ -62,8 +62,8 @@ msgstr "Запуск блокнота підтримується лише в Lib
 
 #: plugin/notebook/notebook_runner.py
 msgid ""
-"This document has no imported notebook. Use Tools → Import Jupyter Notebook…"
-" first."
+"This document has no imported notebook. Use Tools → Import Jupyter Notebook… "
+"first."
 msgstr ""
 "У цьому документі немає імпортованого блокнота. Спочатку скористайтеся "
 "Інструменти → Імпортувати Jupyter Notebook…"
@@ -278,12 +278,11 @@ msgstr "Виконання скрипта заблоковано політик�
 #: plugin/framework/errors.py
 msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
 msgstr ""
-"Час очікування запиту вичерпано. Спробуйте збільшити «Час очікування запиту»"
-" в налаштуваннях."
+"Час очікування запиту вичерпано. Спробуйте збільшити «Час очікування запиту» "
+"в налаштуваннях."
 
 #: plugin/framework/errors.py
-msgid ""
-"Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
+msgid "Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
 msgstr ""
 "У з'єднанні відмовлено. Чи запущено ваш локальний сервер ШІ (Ollama/LM "
 "Studio)?"
@@ -318,8 +317,8 @@ msgstr "Помилка HTTP {0} від постачальника ШІ: {1}"
 #: plugin/framework/client/errors.py
 #, python-brace-format
 msgid ""
-" If your API key is from a GLM Coding Plan subscription, set endpoint to {0}"
-" (not the general /api/paas URL)."
+" If your API key is from a GLM Coding Plan subscription, set endpoint to {0} "
+"(not the general /api/paas URL)."
 msgstr ""
 " Якщо ваш ключ API отримано за планом підписки GLM Coding, встановіть "
 "кінцеву точку на {0} (а не загальну URL-адресу /api/paas)."
@@ -344,14 +343,15 @@ msgid ""
 "The model is repeating the same chunk (infinite loop). Try again or use a "
 "different model."
 msgstr ""
-"Модель повторює той самий фрагмент (нескінченний цикл). Спробуйте ще раз або"
-" використайте іншу модель."
+"Модель повторює той самий фрагмент (нескінченний цикл). Спробуйте ще раз або "
+"використайте іншу модель."
 
-#: plugin/framework/main_shared.py plugin/writer/math/latex_dialog.py
-#: plugin/chatbot/panel.py plugin/chatbot/external_editor.py
-#: plugin/chatbot/send_handlers.py plugin/chatbot/dialog_views.py
-#: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
+#: plugin/framework/main_shared.py plugin/calc/python/cell_editor_ui.py
+#: plugin/writer/math/latex_dialog.py plugin/chatbot/panel.py
+#: plugin/chatbot/external_editor.py plugin/chatbot/send_handlers.py
+#: plugin/chatbot/dialog_views.py plugin/scripting/script_dialogs.py
+#: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py
 msgid "Error"
 msgstr "Помилка"
 
@@ -379,7 +379,8 @@ msgstr "Будь ласка, встановіть модель (Model) у нал
 msgid "Please select a valid model in Settings (not a placeholder)."
 msgstr "Будь ласка, виберіть дійсну модель у налаштуваннях (не заповнювач)."
 
-#: plugin/calc/python/editor_context_menu.py plugin/main.py
+#: plugin/calc/python/editor_context_menu.py plugin/chatbot/hamburger_menu.py
+#: plugin/chatbot/panel_factory.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr "Редагувати Python у клітинці..."
 
@@ -418,15 +419,69 @@ msgstr "Скрипт ініціалізації збережено."
 msgid "Save initialization script"
 msgstr "Зберегти скрипт ініціалізації"
 
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Status:"
+msgstr "Стан:"
+
+#: plugin/calc/python/cell_editor_ui.py plugin/chatbot/panel_wiring.py
+#: plugin/scripting/editor_ui_strings.py plugin/xdl_strings.py
+msgid "Ready"
+msgstr "Готово"
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "A1:C1  or  A1:C1, C1:C5"
+msgstr "A1:C1 або A1:C1, C1:C5"
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Data ranges apply only when saving as a =PY() formula."
+msgstr ""
+"Діапазони даних застосовуються лише під час збереження як формули =PY()."
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Calc injects `data` and `ranges` from these range(s) at runtime."
+msgstr "Calc вставляє `data` та `ranges` з цих діапазонів під час виконання."
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Saving…"
+msgstr "Збереження…"
+
+#: plugin/calc/python/cell_editor_ui.py plugin/calc/python/editor.py
+#: plugin/scripting/editor_ui_strings.py
+msgid "Saved without =PY()."
+msgstr "Збережено без =PY()."
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Saved."
+msgstr "Збережено."
+
+#: plugin/calc/python/cell_editor_ui.py
+msgid "PythonCellEditorDialog could not be loaded from the extension."
+msgstr "Не вдалося завантажити PythonCellEditorDialog з розширення."
+
 #: plugin/calc/python/editor.py
 msgid ""
-"Could not preserve this cell's PY formula arguments (e.g. data ranges). Edit"
-" the formula in Calc, or use a quoted code string like =PY(\"code\"; "
-"A1:B10)."
+"Could not preserve this cell's PY formula arguments (e.g. data ranges). Edit "
+"the formula in Calc, or use a quoted code string like =PY(\"code\"; A1:B10)."
 msgstr ""
-"Не вдалося зберегти аргументи формули PY цієї клітинки (наприклад, діапазони"
-" даних). Відредагуйте формулу в Calc або використайте рядок коду в лапках, "
+"Не вдалося зберегти аргументи формули PY цієї клітинки (наприклад, діапазони "
+"даних). Відредагуйте формулу в Calc або використайте рядок коду в лапках, "
 "наприклад =PY(\"code\"; A1:B10)."
+
+#: plugin/calc/python/editor.py
+msgid "this cell"
+msgstr "ця клітинка"
+
+#: plugin/calc/python/editor.py
+#, python-brace-format
+msgid ""
+"Save changes to {0}?\n"
+"\n"
+"Yes saves. No discards and opens the new cell. Cancel keeps editing {0}."
+msgstr ""
+"Зберегти зміни в {0}?\n"
+"\n"
+"«Так» зберігає. «Ні» скасовує зміни та відкриває нову клітинку. «Скасувати» "
+"продовжує редагування {0}."
 
 #: plugin/calc/python/editor.py
 #, python-format
@@ -434,15 +489,12 @@ msgid "Could not rewrite xl() range literals into =PY data arguments: %s"
 msgstr ""
 "Не вдалося переписати літерали діапазону xl() в аргументи даних =PY: %s"
 
-#: plugin/calc/python/editor.py plugin/scripting/editor_ui_strings.py
-msgid "Saved without =PY()."
-msgstr "Збережено без =PY()."
-
-#: plugin/calc/python/editor.py
+#: plugin/calc/python/editor.py plugin/xdl_strings.py
 msgid "Python cell editor"
 msgstr "Редактор клітинок Python"
 
 #: plugin/calc/python/editor.py plugin/scripting/editor_ui_strings.py
+#: plugin/xdl_strings.py
 msgid "Save without =PY()"
 msgstr "Зберегти без =PY()"
 
@@ -470,37 +522,8 @@ msgstr ""
 "використайте =PY(\"code\"; range) з кодом у лапках."
 
 #: plugin/calc/python/editor.py
-msgid ""
-"Edit Python in Cell requires the Monaco editor, which is disabled by \"scripting.force_internal_script_editor\" in writeragent.json.\n"
-"\n"
-"Set it to false and restart LibreOffice to use this command, or edit PYTHON formulas in the Calc formula bar."
-msgstr ""
-"Для редагування Python у клітинці потрібен редактор Monaco, який вимкнено параметром \"scripting.force_internal_script_editor\" у файлі writeragent.json.\n"
-"\n"
-"Встановіть для нього значення false і перезапустіть LibreOffice, щоб використовувати цю команду, або редагуйте формули PYTHON у рядку формул Calc."
-
-#: plugin/calc/python/editor.py
-msgid "No Python interpreter available for the editor."
-msgstr "Для редактора недоступний інтерпретатор Python."
-
-#: plugin/calc/python/editor.py
-#, python-format
-msgid ""
-"Cannot import webview (pywebview) or rocher with the Python from Settings → Python:\n"
-"%(exe)s\n"
-"\n"
-"In that venv run: uv pip install pywebview rocher\n"
-"(import name is webview, package name is pywebview)."
-msgstr ""
-"Не вдалося імпортувати webview (pywebview) або rocher за допомогою Python з Налаштування → Python:\n"
-"%(exe)s\n"
-"\n"
-"У цьому віртуальному середовищі (venv) виконайте: uv pip install pywebview rocher\n"
-"(назва для імпорту — webview, назва пакунка — pywebview)."
-
-#: plugin/calc/python/editor.py
-msgid "unknown error"
-msgstr "невідома помилка"
+msgid "Could not open the built-in Python cell editor."
+msgstr "Не вдалося відкрити вбудований редактор клітинок Python."
 
 #: plugin/calc/python/function.py
 #, python-brace-format
@@ -543,14 +566,16 @@ msgid ""
 "Could not write Microsoft Excel Python package parts for:\n"
 "{0}\n"
 "\n"
-"The file was saved with LibreOffice =PY formulas. Excel will not see pythonScripts.xml / _xlws.PY until export succeeds.\n"
+"The file was saved with LibreOffice =PY formulas. Excel will not see "
+"pythonScripts.xml / _xlws.PY until export succeeds.\n"
 "\n"
 "{1}"
 msgstr ""
 "Не вдалося записати частини пакета Python для Microsoft Excel для:\n"
 "{0}\n"
 "\n"
-"Файл було збережено з формулами LibreOffice =PY. Excel не побачить pythonScripts.xml / _xlws.PY, доки експорт не завершиться успішно.\n"
+"Файл було збережено з формулами LibreOffice =PY. Excel не побачить "
+"pythonScripts.xml / _xlws.PY, доки експорт не завершиться успішно.\n"
 "\n"
 "{1}"
 
@@ -694,39 +719,33 @@ msgid "AI Grammar"
 msgstr "AI Grammar"
 
 #: plugin/writer/math/latex_dialog.py
-msgid "This command is only available in Writer documents."
-msgstr "Ця команда доступна лише в документах Writer."
-
-#: plugin/writer/math/latex_dialog.py
-msgid "Unknown conversion error"
-msgstr "Невідома помилка перетворення"
-
-#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
-msgid "Formula inserted."
-msgstr "Формулу вставлено."
-
-#: plugin/writer/math/latex_dialog.py
-msgid "LaTeX Math Editor"
-msgstr "Редактор математичних формул LaTeX"
-
-#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
-#: plugin/xdl_strings.py
-msgid "Insert as display block (centered paragraph)"
-msgstr "Вставити як блок (центрований абзац)"
+msgid "Update"
+msgstr "Оновити"
 
 #: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
 #: plugin/xdl_strings.py
 msgid "Insert"
 msgstr "Вставити"
 
-#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
-#: plugin/scripting/python_runner.py plugin/xdl_strings.py
-msgid "Close"
-msgstr "Закрити"
+#: plugin/writer/math/latex_dialog.py
+msgid "Edit LaTeX Math"
+msgstr "Редагувати формулу LaTeX"
 
 #: plugin/writer/math/latex_dialog.py
-msgid "LaTeX Conversion Error"
-msgstr "Помилка перетворення LaTeX"
+msgid "Select a single formula to update. Multiple formulas are selected."
+msgstr "Виберіть одну формулу для оновлення. Вибрано кілька формул."
+
+#: plugin/writer/math/latex_dialog.py
+msgid ""
+"Could not identify the selected formula. Click in the text, then insert a "
+"new formula."
+msgstr ""
+"Не вдалося ідентифікувати вибрану формулу. Клацніть у тексті, а потім "
+"вставте нову формулу."
+
+#: plugin/writer/math/latex_dialog.py
+msgid "Unknown conversion error"
+msgstr "Невідома помилка перетворення"
 
 #: plugin/writer/math/latex_dialog.py
 #, python-brace-format
@@ -738,6 +757,40 @@ msgstr ""
 "Не вдалося перетворити LaTeX у StarMath:\n"
 "\n"
 "{0}"
+
+#: plugin/writer/math/latex_dialog.py
+msgid "The selected formula is no longer in the document."
+msgstr "Вибрана формула більше не міститься в документі."
+
+#: plugin/writer/math/latex_dialog.py
+msgid "Formula updated."
+msgstr "Формулу оновлено."
+
+#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
+msgid "Formula inserted."
+msgstr "Формулу вставлено."
+
+#: plugin/writer/math/latex_dialog.py
+msgid "This command is only available in Writer documents."
+msgstr "Ця команда доступна лише в документах Writer."
+
+#: plugin/writer/math/latex_dialog.py
+msgid "LaTeX Math Editor"
+msgstr "Редактор математичних формул LaTeX"
+
+#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
+#: plugin/xdl_strings.py
+msgid "Insert as display block (centered paragraph)"
+msgstr "Вставити як блок (центрований абзац)"
+
+#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Закрити"
+
+#: plugin/writer/math/latex_dialog.py
+msgid "LaTeX Conversion Error"
+msgstr "Помилка перетворення LaTeX"
 
 #: plugin/writer/math/latex_dialog.py
 msgid "An unexpected error occurred during LaTeX insertion."
@@ -1003,11 +1056,6 @@ msgstr "чому"
 msgid "you"
 msgstr "ви"
 
-#: plugin/chatbot/panel_wiring.py plugin/scripting/editor_ui_strings.py
-#: plugin/xdl_strings.py
-msgid "Ready"
-msgstr "Готово"
-
 #: plugin/chatbot/dialogs.py
 msgid "Agent requests approval"
 msgstr "Агент запитує підтвердження"
@@ -1029,9 +1077,93 @@ msgstr "Скопійовано!"
 msgid "Copy URL"
 msgstr "Копіювати URL"
 
-#: plugin/chatbot/dialogs.py plugin/main.py plugin/xdl_strings.py
+#: plugin/chatbot/dialogs.py plugin/chatbot/hamburger_menu.py plugin/main.py
+#: plugin/xdl_strings.py
 msgid "Report bug..."
 msgstr "Повідомити про помилку..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Extend Selection"
+msgstr "Розширити виділення"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Edit Selection"
+msgstr "Редагувати виділення"
+
+#: plugin/chatbot/hamburger_menu.py plugin/chatbot/panel_factory.py
+#: plugin/main.py
+msgid "Run Python Script..."
+msgstr "Запустити скрипт Python..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Convert Sheet to Python..."
+msgstr "Перетворити аркуш на Python..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/chatbot/panel_factory.py
+#: plugin/main.py
+msgid "Search Nearby Files..."
+msgstr "Шукати у сусідніх файлах..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/chatbot/panel_factory.py
+msgid "Insert LaTeX Math..."
+msgstr "Вставити формулу LaTeX..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Text Analytics..."
+msgstr "Аналіз тексту..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/chatbot/dialog_views.py
+#: plugin/chatbot/panel_factory.py plugin/main.py plugin/xdl_strings.py
+msgid "Settings"
+msgstr "Налаштування"
+
+#: plugin/chatbot/hamburger_menu.py
+msgid "Vision OCR Settings..."
+msgstr "Налаштування Vision OCR..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Toggle MCP Server"
+msgstr "Перемкнути сервер MCP"
+
+#: plugin/chatbot/hamburger_menu.py
+msgid "MCP Server (Running)"
+msgstr "Сервер MCP (працює)"
+
+#: plugin/chatbot/hamburger_menu.py
+msgid "MCP Server (Stopped)"
+msgstr "Сервер MCP (зупинено)"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Reset Python Session"
+msgstr "Скинути сеанс Python"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Run format tests"
+msgstr "Запустити тести форматування"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Run calc tests"
+msgstr "Запустити тести Calc"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Run Calc API integration tests"
+msgstr "Запустити інтеграційні тести API Calc"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Run draw tests"
+msgstr "Запустити тести Draw"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Evaluation Dashboard"
+msgstr "Панель оцінювання"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Import Jupyter Notebook..."
+msgstr "Імпортувати Jupyter Notebook..."
+
+#: plugin/chatbot/hamburger_menu.py
+msgid "Debug"
+msgstr "Налагодження"
 
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
@@ -1111,8 +1243,8 @@ msgid ""
 "[No compatible LibreOffice document (Writer, Calc, or Draw) found in the "
 "active window.]"
 msgstr ""
-"[У активному вікні не знайдено сумісного документа LibreOffice (Writer, Calc"
-" або Draw).]"
+"[У активному вікні не знайдено сумісного документа LibreOffice (Writer, Calc "
+"або Draw).]"
 
 #: plugin/chatbot/panel.py
 #, python-brace-format
@@ -1194,7 +1326,8 @@ msgid ""
 "No editor found (install Kate or Gedit, or set EDITOR). Path:\n"
 "{0}"
 msgstr ""
-"Редактор не знайдено (встановіть Kate або Gedit, або задайте змінну EDITOR). Шлях:\n"
+"Редактор не знайдено (встановіть Kate або Gedit, або задайте змінну EDITOR). "
+"Шлях:\n"
 "{0}"
 
 #: plugin/chatbot/external_editor.py
@@ -1231,8 +1364,7 @@ msgstr "[Серверний агент '{0}' не знайдено.]"
 
 #: plugin/chatbot/send_handlers.py
 #, python-brace-format
-msgid ""
-"[Agent backend '{0}' is not available. Check Settings (path, install).]"
+msgid "[Agent backend '{0}' is not available. Check Settings (path, install).]"
 msgstr ""
 "[Серверний агент '{0}' недоступний. Перевірте налаштування (шлях, "
 "встановлення).]"
@@ -1346,10 +1478,6 @@ msgstr ""
 msgid "Switching to document mode..."
 msgstr "Перемикання в режим документа..."
 
-#: plugin/chatbot/dialog_views.py plugin/main.py plugin/xdl_strings.py
-msgid "Settings"
-msgstr "Налаштування"
-
 #: plugin/chatbot/dialog_views.py
 msgid "Invalid Setting"
 msgstr "Недійсне налаштування"
@@ -1391,6 +1519,10 @@ msgstr "Висота:"
 msgid "Width:"
 msgstr "Ширина:"
 
+#: plugin/chatbot/panel_factory.py
+msgid "More actions..."
+msgstr "Більше дій..."
+
 #: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
 #: plugin/xdl_strings.py
 msgid "New Python Script"
@@ -1407,17 +1539,9 @@ msgid "Attach to this document"
 msgstr "Додати до цього документа"
 
 #: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
-#: plugin/scripting/document_scripts.py plugin/scripting/editor_host.py
+#: plugin/scripting/document_scripts.py
 msgid "Script name cannot be empty."
 msgstr "Назва скрипта не може бути порожньою."
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Status:"
-msgstr "Стан:"
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Saving…"
-msgstr "Збереження…"
 
 #: plugin/scripting/editor_ui_strings.py
 msgid "Running…"
@@ -1440,26 +1564,9 @@ msgstr "Запустити"
 msgid "Cancel"
 msgstr "Скасувати"
 
-#: plugin/scripting/editor_ui_strings.py
+#: plugin/scripting/editor_ui_strings.py plugin/xdl_strings.py
 msgid "Data:"
 msgstr "Дані:"
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "A1:C1  or  A1:C1, C1:C5"
-msgstr "A1:C1 або A1:C1, C1:C5"
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Calc injects `data` and `ranges` from these range(s) at runtime."
-msgstr "Calc вставляє `data` та `ranges` з цих діапазонів під час виконання."
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Data ranges apply only when saving as a =PY() formula."
-msgstr ""
-"Діапазони даних застосовуються лише під час збереження як формули =PY()."
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Saved."
-msgstr "Збережено."
 
 #: plugin/scripting/editor_ui_strings.py plugin/xdl_strings.py
 msgid "New"
@@ -1520,7 +1627,7 @@ msgstr ""
 msgid "Loaded script '{0}'."
 msgstr "Завантажено скрипт «{0}»."
 
-#: plugin/scripting/editor_ui_strings.py plugin/scripting/editor_host.py
+#: plugin/scripting/editor_ui_strings.py plugin/scripting/document_scripts.py
 msgid "No document is open to attach scripts."
 msgstr "Не відкрито жодного документа для прикріплення скриптів."
 
@@ -1588,7 +1695,6 @@ msgstr ""
 "Скрипти документа занадто великі для збереження в документі ({0} байтів)."
 
 #: plugin/scripting/document_scripts.py plugin/scripting/python_runner_ui.py
-#: plugin/scripting/editor_host.py
 msgid "No document is open to save scripts."
 msgstr "Немає відкритого документа для збереження скриптів."
 
@@ -1597,8 +1703,8 @@ msgid ""
 "Document is read-only or properties cannot be written. Script saved to your "
 "personal library instead."
 msgstr ""
-"Документ доступний лише для читання або властивості не можуть бути записані."
-" Скрипт збережено у вашій особистій бібліотеці."
+"Документ доступний лише для читання або властивості не можуть бути записані. "
+"Скрипт збережено у вашій особистій бібліотеці."
 
 #: plugin/scripting/document_scripts.py
 #, python-brace-format
@@ -1608,6 +1714,50 @@ msgstr "Скрипт з назвою «{0}» вже існує в цьому д�
 #: plugin/scripting/document_scripts.py
 msgid "This Document"
 msgstr "Цей документ"
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Saved script '{0}' to My Scripts."
+msgstr "Скрипт «{0}» збережено в «Мої скрипти»."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Saved script '{0}' to this document."
+msgstr "Скрипт «{0}» збережено в цьому документі."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Saved script '{0}'."
+msgstr "Скрипт «{0}» збережено."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Attached script '{0}' to this document."
+msgstr "Скрипт «{0}» прикріплено до цього документа."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "A script named '{0}' already exists in My Scripts."
+msgstr "Скрипт з назвою «{0}» вже існує в «Моїх скриптах»."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Copied script '{0}' to My Scripts."
+msgstr "Скрипт «{0}» скопійовано в «Мої скрипти»."
+
+#: plugin/scripting/document_scripts.py plugin/scripting/python_runner_ui.py
+msgid "No document is open."
+msgstr "Не відкрито жодного документа."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Deleted document script '{0}'."
+msgstr "Видалено скрипт документа «{0}»."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Deleted script '{0}'."
+msgstr "Видалено скрипт «{0}»."
 
 #: plugin/scripting/python_runner_ui.py
 msgid "PythonScriptDialog could not be loaded from the extension."
@@ -1641,10 +1791,6 @@ msgstr "Ви впевнені, що хочете видалити скрипт �
 #: plugin/scripting/python_runner_ui.py
 msgid "Delete Script"
 msgstr "Видалити скрипт"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/editor_host.py
-msgid "No document is open."
-msgstr "Не відкрито жодного документа."
 
 #: plugin/scripting/python_runner_ui.py
 #, python-format
@@ -1706,12 +1852,12 @@ msgstr "Помилка"
 #: plugin/scripting/editor_host.py
 msgid ""
 "Set the Python venv path in Settings → Python (same venv where you ran 'uv "
-"pip install pywebview rocher'). LibreOffice's built-in Python cannot run the"
-" Monaco editor."
+"pip install pywebview rocher'). LibreOffice's built-in Python cannot run the "
+"Monaco editor."
 msgstr ""
-"Вкажіть шлях до віртуального середовища Python у Параметри → Python (те саме"
-" середовище, де ви виконували 'uv pip install pywebview rocher'). Вбудований"
-" Python у LibreOffice не може запустити редактор Monaco."
+"Вкажіть шлях до віртуального середовища Python у Параметри → Python (те саме "
+"середовище, де ви виконували 'uv pip install pywebview rocher'). Вбудований "
+"Python у LibreOffice не може запустити редактор Monaco."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
@@ -1719,49 +1865,9 @@ msgid ""
 "No python executable found under configured venv: {0} (expected bin/python, "
 "Scripts/python.exe, or env-root python.exe)."
 msgstr ""
-"Виконуваний файл Python не знайдено у налаштованому віртуальному середовищі:"
-" {0} (очікується bin/python, Scripts/python.exe або python.exe у корені "
+"Виконуваний файл Python не знайдено у налаштованому віртуальному середовищі: "
+"{0} (очікується bin/python, Scripts/python.exe або python.exe у корені "
 "середовища)."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Saved script '{0}' to My Scripts."
-msgstr "Скрипт «{0}» збережено в «Мої скрипти»."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Saved script '{0}' to this document."
-msgstr "Скрипт «{0}» збережено в цьому документі."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Saved script '{0}'."
-msgstr "Скрипт «{0}» збережено."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Attached script '{0}' to this document."
-msgstr "Скрипт «{0}» прикріплено до цього документа."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "A script named '{0}' already exists in My Scripts."
-msgstr "Скрипт з назвою «{0}» вже існує в «Моїх скриптах»."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Copied script '{0}' to My Scripts."
-msgstr "Скрипт «{0}» скопійовано в «Мої скрипти»."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Deleted document script '{0}'."
-msgstr "Видалено скрипт документа «{0}»."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Deleted script '{0}'."
-msgstr "Видалено скрипт «{0}»."
 
 #: plugin/scripting/editor_host.py
 msgid "Could not start the Python editor."
@@ -1781,8 +1887,7 @@ msgstr "Не вдалося зв'язатися з редактором Python."
 
 #: plugin/scripting/venv_diagnostics.py
 msgid "On Linux also install system PortAudio: sudo pacman -S portaudio"
-msgstr ""
-"У Linux також встановіть системний PortAudio: sudo pacman -S portaudio"
+msgstr "У Linux також встановіть системний PortAudio: sudo pacman -S portaudio"
 
 #: plugin/scripting/venv_diagnostics.py
 msgid "Audio probe timed out (sounddevice import failed or hung)."
@@ -1807,8 +1912,7 @@ msgid "Text/NLP probe failed (see writeragent_debug.log)."
 msgstr "Збій зонда Text/NLP (див. writeragent_debug.log)."
 
 #: plugin/scripting/venv_diagnostics.py
-msgid ""
-"Vision probe timed out (Docling import can take 10–30s on first check)."
+msgid "Vision probe timed out (Docling import can take 10–30s on first check)."
 msgstr ""
 "Час очікування зонда бачення вичерпано (імпорт Docling може тривати 10–30 "
 "секунд під час першої перевірки)."
@@ -1939,7 +2043,8 @@ msgid ""
 "Error from the Text Analytics worker:\n"
 "{err}\n"
 "\n"
-"The features in this dialog require these packages in the python it is using:\n"
+"The features in this dialog require these packages in the python it is "
+"using:\n"
 "  • spacy + a model          (entities, key phrases, basic stats)\n"
 "  • textdescriptives         (real Readability scores)\n"
 "  • transformers + torch     (Sentiment using the multilingual model)\n"
@@ -1947,20 +2052,25 @@ msgid ""
 "Install them with:\n"
 "  {install}\n"
 "\n"
-"The worker reported the module as missing. Verify the packages are installed in the exact python executable the worker resolved for your configured venv."
+"The worker reported the module as missing. Verify the packages are installed "
+"in the exact python executable the worker resolved for your configured venv."
 msgstr ""
 "Помилка робочого процесу аналізу тексту:\n"
 "{err}\n"
 "\n"
-"Функції в цьому діалоговому вікні потребують наявності таких пакунків у використовуваному середовищі Python:\n"
+"Функції в цьому діалоговому вікні потребують наявності таких пакунків у "
+"використовуваному середовищі Python:\n"
 "  • spacy + модель          (сутності, ключові фрази, базова статистика)\n"
 "  • textdescriptives         (реальні показники читабельності)\n"
-"  • transformers + torch     (аналіз тональності за допомогою багатомовної моделі)\n"
+"  • transformers + torch     (аналіз тональності за допомогою багатомовної "
+"моделі)\n"
 "\n"
 "Встановіть їх за допомогою:\n"
 "  {install}\n"
 "\n"
-"Робочий процес повідомив про відсутність модуля. Перевірте, чи встановлені пакунки саме в тому виконуваному файлі Python, який використовується для налаштованого віртуального середовища."
+"Робочий процес повідомив про відсутність модуля. Перевірте, чи встановлені "
+"пакунки саме в тому виконуваному файлі Python, який використовується для "
+"налаштованого віртуального середовища."
 
 #: plugin/scripting/text_analytics_ui.py
 msgid "Open a Writer document to analyze."
@@ -1979,11 +2089,17 @@ msgstr "Аналіз..."
 msgid ""
 "Error: %s\n"
 "\n"
-"Required packages may be missing in your configured venv (Settings → Python). Click Check Venv in this dialog or use the full Test in Settings → Python for details on spacy, textdescriptives, transformers, torch etc."
+"Required packages may be missing in your configured venv (Settings → "
+"Python). Click Check Venv in this dialog or use the full Test in Settings → "
+"Python for details on spacy, textdescriptives, transformers, torch etc."
 msgstr ""
 "Помилка: %s\n"
 "\n"
-"Можливо, у налаштованому віртуальному середовищі (venv) відсутні необхідні пакунки (Налаштування → Python). Натисніть «Перевірити Venv» у цьому діалоговому вікні або скористайтеся повною перевіркою в розділі Налаштування → Python для отримання детальної інформації про spacy, textdescriptives, transformers, torch тощо."
+"Можливо, у налаштованому віртуальному середовищі (venv) відсутні необхідні "
+"пакунки (Налаштування → Python). Натисніть «Перевірити Venv» у цьому "
+"діалоговому вікні або скористайтеся повною перевіркою в розділі Налаштування "
+"→ Python для отримання детальної інформації про spacy, textdescriptives, "
+"transformers, torch тощо."
 
 #: plugin/scripting/text_analytics_ui.py
 msgid "No Writer document to insert into."
@@ -2071,8 +2187,7 @@ msgid ""
 "Writer document with an imported Jupyter notebook and try again."
 msgstr ""
 "Скидання сеансу Python для блокнотів застосовується до LibreOffice Writer. "
-"Відкрийте документ Writer з імпортованим блокнотом Jupyter і спробуйте "
-"знову."
+"Відкрийте документ Writer з імпортованим блокнотом Jupyter і спробуйте знову."
 
 #: plugin/scripting/session_manager.py
 msgid ""
@@ -2099,8 +2214,8 @@ msgid ""
 "Reset Python Session applies to Calc spreadsheets. Open a Calc workbook and "
 "try again."
 msgstr ""
-"Скидання сеансу Python застосовується до електронних таблиць Calc. Відкрийте"
-" книгу Calc і спробуйте знову."
+"Скидання сеансу Python застосовується до електронних таблиць Calc. Відкрийте "
+"книгу Calc і спробуйте знову."
 
 #: plugin/scripting/session_manager.py
 msgid "Python session reset for this workbook."
@@ -2206,8 +2321,8 @@ msgstr ""
 #: plugin/scripting/python_runner.py
 #, python-brace-format
 msgid ""
-"Script executed successfully, but returned no result and produced no output."
-" (took {time})"
+"Script executed successfully, but returned no result and produced no output. "
+"(took {time})"
 msgstr ""
 "Сценарій виконано успішно, але він не повернув результату та не створив "
 "виводу. (тривалість: {time})"
@@ -2216,8 +2331,7 @@ msgstr ""
 #, python-brace-format
 msgid "Unsupported document type for result insertion. (took {time})"
 msgstr ""
-"Непідтримуваний тип документа для вставлення результату. (тривалість: "
-"{time})"
+"Непідтримуваний тип документа для вставлення результату. (тривалість: {time})"
 
 #: plugin/scripting/python_runner.py
 #, python-brace-format
@@ -2253,8 +2367,8 @@ msgstr "Помилка диспетчеризації"
 msgid ""
 "Select an embedded image (or a range containing images), then Run again."
 msgstr ""
-"Виберіть вбудоване зображення (або діапазон, що містить зображення), а потім"
-" запустіть знову."
+"Виберіть вбудоване зображення (або діапазон, що містить зображення), а потім "
+"запустіть знову."
 
 #: plugin/vision/vision_runner.py
 #, python-brace-format
@@ -2533,7 +2647,8 @@ msgstr ""
 "Бінарний файл {0} '{1}' встановлено та перевірено ({2}).\n"
 "\n"
 "Сервер MCP працює локально на порту {3}.\n"
-"Позначте 'Надати доступ через публічний тунель' та натисніть OK, щоб активувати публічну маршрутизацію."
+"Позначте 'Надати доступ через публічний тунель' та натисніть OK, щоб "
+"активувати публічну маршрутизацію."
 
 #: plugin/mcp/tunnel.py
 #, python-brace-format
@@ -2556,69 +2671,13 @@ msgstr "{0}: {1} успішно, {2} помилок."
 msgid "Tests failed to run: {0}"
 msgstr "Не вдалося виконати тести: {0}"
 
-#: plugin/main.py
-msgid "Extend Selection"
-msgstr "Розширити виділення"
-
-#: plugin/main.py
-msgid "Edit Selection"
-msgstr "Редагувати виділення"
-
-#: plugin/main.py
-msgid "Toggle MCP Server"
-msgstr "Перемкнути сервер MCP"
-
 #: plugin/main.py plugin/xdl_strings.py
 msgid "MCP Server Status"
 msgstr "Статус сервера MCP"
 
 #: plugin/main.py
-msgid "Run format tests"
-msgstr "Запустити тести форматування"
-
-#: plugin/main.py
-msgid "Run calc tests"
-msgstr "Запустити тести Calc"
-
-#: plugin/main.py
-msgid "Run Calc API integration tests"
-msgstr "Запустити інтеграційні тести API Calc"
-
-#: plugin/main.py
-msgid "Run draw tests"
-msgstr "Запустити тести Draw"
-
-#: plugin/main.py
-msgid "Evaluation Dashboard"
-msgstr "Панель оцінювання"
-
-#: plugin/main.py
-msgid "Run Python Script..."
-msgstr "Запустити скрипт Python..."
-
-#: plugin/main.py
-msgid "Reset Python Session"
-msgstr "Скинути сеанс Python"
-
-#: plugin/main.py
-msgid "Import Jupyter Notebook..."
-msgstr "Імпортувати Jupyter Notebook..."
-
-#: plugin/main.py
-msgid "Insert LaTeX Math..."
-msgstr "Вставити формулу LaTeX..."
-
-#: plugin/main.py
-msgid "Search Nearby Files..."
-msgstr "Шукати у сусідніх файлах..."
-
-#: plugin/main.py
-msgid "Text Analytics..."
-msgstr "Аналіз тексту..."
-
-#: plugin/main.py
-msgid "Convert Sheet to Python..."
-msgstr "Перетворити аркуш на Python..."
+msgid "Edit LaTeX Math..."
+msgstr "Редагувати формулу LaTeX..."
 
 #: plugin/xdl_strings.py
 msgid "-1"
@@ -2679,10 +2738,6 @@ msgstr "Calc"
 #: plugin/xdl_strings.py
 msgid "Categories:"
 msgstr "Категорії:"
-
-#: plugin/xdl_strings.py
-msgid "Chat (Testing):"
-msgstr "Чат (тестування):"
 
 #: plugin/xdl_strings.py
 msgid "Check Venv"
@@ -2759,8 +2814,8 @@ msgstr "Збільшити макс. кількість токенів:"
 #: plugin/xdl_strings.py
 msgid "Extra tokens beyond original text length. 0 = same length as original."
 msgstr ""
-"Додаткові токени понад довжину початкового тексту. 0 = та сама довжина, що й"
-" у оригіналу."
+"Додаткові токени понад довжину початкового тексту. 0 = та сама довжина, що й "
+"у оригіналу."
 
 #: plugin/xdl_strings.py
 msgid "Filter:"
@@ -2947,6 +3002,10 @@ msgid "Status"
 msgstr "Статус"
 
 #: plugin/xdl_strings.py
+msgid "Status: Ready"
+msgstr "Стан: Готово"
+
+#: plugin/xdl_strings.py
 msgid "Steps:"
 msgstr "Кроки:"
 
@@ -2997,6 +3056,22 @@ msgstr "Writer"
 #: plugin/xdl_strings.py
 msgid "WriterAgent Evaluation Dashboard"
 msgstr "Панель оцінювання WriterAgent"
+
+#: plugin/xdl_strings.py
+msgid "√x"
+msgstr "√x"
+
+#: plugin/xdl_strings.py
+msgid "☰"
+msgstr "☰"
+
+#: plugin/xdl_strings.py
+msgid "⚙"
+msgstr "⚙"
+
+#: plugin/xdl_strings.py
+msgid "🔍"
+msgstr "🔍"
 
 msgid "Agent Communication Protocol"
 msgstr "Протокол зв'язку агента"
@@ -3117,9 +3192,9 @@ msgstr "Навичка «Гуманізатор» (природна проза)"
 msgid ""
 "When enabled, injects guidance into the system prompt so the model makes "
 "generated or revised document text sound more natural and human (removes AI "
-"slop patterns). Edit the rules in your LibreOffice profile under "
-"writeragent/skills/humanizer/SKILL.md (the file is auto-created on first "
-"use). A dedicated Skills tab can be added later."
+"slop patterns). Edit the rules in your LibreOffice profile under writeragent/"
+"skills/humanizer/SKILL.md (the file is auto-created on first use). A "
+"dedicated Skills tab can be added later."
 msgstr ""
 "Якщо ввімкнено, додає вказівки до системного запиту, щоб модель робила "
 "згенерований або відредагований текст документа більш природним і людяним "
@@ -3144,14 +3219,14 @@ msgid "Enable grammar checker (Writer)"
 msgstr "Увімкнути перевірку граматики (Writer)"
 
 msgid ""
-"Off = disabled. AI (LLM) = use your configured text model/API. LanguageTool "
-"/ Vale = local engines via Settings → Python venv. Harper = offline Rust "
-"binary auto-downloaded to your profile (no venv required)."
+"Off = disabled. AI (LLM) = use your configured text model/API. "
+"LanguageTool / Vale = local engines via Settings → Python venv. Harper = "
+"offline Rust binary auto-downloaded to your profile (no venv required)."
 msgstr ""
-"Вимкнено = вимкнено. ШІ (LLM) = використовувати налаштовану модель "
-"тексту/API. LanguageTool / Vale = локальні рушії через Налаштування → Python"
-" venv. Harper = офлайн-бінарний файл Rust, що автоматично завантажується у "
-"ваш профіль (venv не потрібен)."
+"Вимкнено = вимкнено. ШІ (LLM) = використовувати налаштовану модель тексту/"
+"API. LanguageTool / Vale = локальні рушії через Налаштування → Python venv. "
+"Harper = офлайн-бінарний файл Rust, що автоматично завантажується у ваш "
+"профіль (venv не потрібен)."
 
 msgid "Off"
 msgstr "Вимк."
@@ -3173,8 +3248,7 @@ msgstr "Модель (необов'язково)"
 
 msgid "Leave empty to use the same text model as chat."
 msgstr ""
-"Залиште порожнім, щоб використовувати ту саму текстову модель, що й для "
-"чату."
+"Залиште порожнім, щоб використовувати ту саму текстову модель, що й для чату."
 
 msgid "Pause grammar while chat/agent runs"
 msgstr "Призупинити перевірку граматики під час роботи чату/агента"
@@ -3248,9 +3322,9 @@ msgid ""
 "Wait = apply_document_content blocks (on chat/MCP worker thread) until you "
 "review."
 msgstr ""
-"Вимкнено = пряме редагування. Запис = відстеження змін, які ви "
-"приймаєте/відхиляєте самостійно. Очікування = блокування "
-"apply_document_content (у потоці чату/MCP) до моменту перегляду."
+"Вимкнено = пряме редагування. Запис = відстеження змін, які ви приймаєте/"
+"відхиляєте самостійно. Очікування = блокування apply_document_content (у "
+"потоці чату/MCP) до моменту перегляду."
 
 msgid "Record (track changes)"
 msgstr "Запис (відстеження змін)"
@@ -3308,11 +3382,11 @@ msgid "Rerank model"
 msgstr "Модель переранжування"
 
 msgid ""
-"Used only when rerank is enabled. English MiniLM is fast; bge-reranker-v2-m3"
-" is multilingual and downloads ~2.3 GB."
+"Used only when rerank is enabled. English MiniLM is fast; bge-reranker-v2-m3 "
+"is multilingual and downloads ~2.3 GB."
 msgstr ""
-"Використовується лише тоді, коли ввімкнено переранжування. Англійська MiniLM"
-" працює швидко; bge-reranker-v2-m3 є багатомовною та завантажує близько 2.3 "
+"Використовується лише тоді, коли ввімкнено переранжування. Англійська MiniLM "
+"працює швидко; bge-reranker-v2-m3 є багатомовною та завантажує близько 2.3 "
 "ГБ."
 
 msgid "cross-encoder/ms-marco-MiniLM-L-6-v2"
@@ -3331,11 +3405,11 @@ msgid "Enable MCP Server"
 msgstr "Увімкнути сервер MCP"
 
 msgid ""
-"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable"
-" HTTP)."
+"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable "
+"HTTP)."
 msgstr ""
-"Тільки localhost, без автентифікації. Клієнти використовують "
-"http://localhost:<port>/mcp (потоковий HTTP)."
+"Тільки localhost, без автентифікації. Клієнти використовують http://"
+"localhost:<port>/mcp (потоковий HTTP)."
 
 msgid "MCP Port"
 msgstr "Порт MCP"
@@ -3376,13 +3450,13 @@ msgstr "Надати доступ через публічний тунель"
 
 msgid ""
 "Requires the selected provider binary on PATH (cloudflared, bore, ngrok, or "
-"tailscale). MCP has no auth — anyone with the public URL can call tools. See"
-" MCP Server Status for the public /mcp URL when ready."
+"tailscale). MCP has no auth — anyone with the public URL can call tools. See "
+"MCP Server Status for the public /mcp URL when ready."
 msgstr ""
 "Потребує наявності бінарного файлу вибраного провайдера у змінній PATH "
 "(cloudflared, bore, ngrok або tailscale). MCP не має автентифікації — будь-"
-"хто з публічною URL-адресою може викликати інструменти. Див. «Статус сервера"
-" MCP» для отримання публічної URL-адреси /mcp, коли все буде готово."
+"хто з публічною URL-адресою може викликати інструменти. Див. «Статус сервера "
+"MCP» для отримання публічної URL-адреси /mcp, коли все буде готово."
 
 msgid "Provider"
 msgstr "Провайдер"
@@ -3413,8 +3487,8 @@ msgid ""
 "Ngrok authtoken; Cloudflare tunnel token; Bore server or 'server secret'. "
 "Empty = provider default / CLI config. Unused for Tailscale."
 msgstr ""
-"Токен автентифікації Ngrok; токен тунелю Cloudflare; сервер Bore або «секрет"
-" сервера». Порожньо = типовий провайдер / конфігурація CLI. Не "
+"Токен автентифікації Ngrok; токен тунелю Cloudflare; сервер Bore або «секрет "
+"сервера». Порожньо = типовий провайдер / конфігурація CLI. Не "
 "використовується для Tailscale."
 
 msgid "Client config (copy into Claude / Hermes-Agent):"
@@ -3427,10 +3501,10 @@ msgid "Python venv path"
 msgstr "Шлях до venv Python"
 
 msgid ""
-"If set, runs =PY() and Run Python Script in that venv (bin/python, "
-"Scripts/python.exe, or conda/pyenv-win env-root python.exe). Paste the path "
-"without surrounding quotes. If empty, uses this process's sys.executable "
-"(basic stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
+"If set, runs =PY() and Run Python Script in that venv (bin/python, Scripts/"
+"python.exe, or conda/pyenv-win env-root python.exe). Paste the path without "
+"surrounding quotes. If empty, uses this process's sys.executable (basic "
+"stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
 "paddlepaddle)."
 msgstr ""
 "Якщо встановлено, виконує =PY() та «Запустити сценарій Python» у цьому "
@@ -3458,8 +3532,8 @@ msgid "Max Calc data cells"
 msgstr "Макс. кількість клітинок даних Calc"
 
 msgid ""
-"Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger"
-" values use more RAM and time; UNO range read still dominates."
+"Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger "
+"values use more RAM and time; UNO range read still dominates."
 msgstr ""
 "Максимальна кількість клітинок у даних =PYTHON() або даних/діапазоні даних "
 "Run Python Script. Більші значення потребують більше оперативної пам'яті та "
@@ -3492,12 +3566,12 @@ msgid "Rewrite xl() ranges"
 msgstr "Перезаписати діапазони xl()"
 
 msgid ""
-"On Edit Python in Cell save, lift static xl(\"A1:…\") onto =PY data args and"
-" rewrite to data / data[i] / .to_pandas()."
+"On Edit Python in Cell save, lift static xl(\"A1:…\") onto =PY data args and "
+"rewrite to data / data[i] / .to_pandas()."
 msgstr ""
 "Під час збереження редагування Python у клітинці, перенести статичні "
-"xl(\"A1:…\") в аргументи даних =PY та перезаписати на data / data[i] / "
-".to_pandas()."
+"xl(\"A1:…\") в аргументи даних =PY та перезаписати на data / "
+"data[i] / .to_pandas()."
 
 msgid "Vision / OCR"
 msgstr "Бачення / OCR"
@@ -3506,15 +3580,13 @@ msgid "Image scale"
 msgstr "Масштаб зображення"
 
 msgid "Upscale before OCR/layout. Try 2.0 for small screenshots."
-msgstr ""
-"Збільшити перед OCR/розміткою. Спробуйте 2.0 для малих знімків екрана."
+msgstr "Збільшити перед OCR/розміткою. Спробуйте 2.0 для малих знімків екрана."
 
 msgid "Worker timeout (seconds)"
 msgstr "Час очікування робочого процесу (секунди)"
 
 msgid "Host subprocess limit for Vision Helpers (first model download)."
-msgstr ""
-"Ліміт хост-підпроцесів для Vision Helpers (перше завантаження моделі)."
+msgstr "Ліміт хост-підпроцесів для Vision Helpers (перше завантаження моделі)."
 
 msgid "Docling artifacts path"
 msgstr "Шлях до артефактів Docling"

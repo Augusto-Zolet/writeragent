@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-21 11:45-0400\n"
+"POT-Creation-Date: 2026-08-22 16:32-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -310,11 +310,12 @@ msgid ""
 "different model."
 msgstr ""
 
-#: plugin/framework/main_shared.py plugin/writer/math/latex_dialog.py
-#: plugin/chatbot/panel.py plugin/chatbot/external_editor.py
-#: plugin/chatbot/send_handlers.py plugin/chatbot/dialog_views.py
-#: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
+#: plugin/framework/main_shared.py plugin/calc/python/cell_editor_ui.py
+#: plugin/writer/math/latex_dialog.py plugin/chatbot/panel.py
+#: plugin/chatbot/external_editor.py plugin/chatbot/send_handlers.py
+#: plugin/chatbot/dialog_views.py plugin/scripting/script_dialogs.py
+#: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py
 msgid "Error"
 msgstr ""
 
@@ -342,7 +343,8 @@ msgstr ""
 msgid "Please select a valid model in Settings (not a placeholder)."
 msgstr ""
 
-#: plugin/calc/python/editor_context_menu.py plugin/main.py
+#: plugin/calc/python/editor_context_menu.py plugin/chatbot/hamburger_menu.py
+#: plugin/chatbot/panel_factory.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr ""
 
@@ -376,6 +378,44 @@ msgstr ""
 msgid "Save initialization script"
 msgstr ""
 
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Status:"
+msgstr ""
+
+#: plugin/calc/python/cell_editor_ui.py plugin/chatbot/panel_wiring.py
+#: plugin/scripting/editor_ui_strings.py plugin/xdl_strings.py
+msgid "Ready"
+msgstr ""
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "A1:C1  or  A1:C1, C1:C5"
+msgstr ""
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Data ranges apply only when saving as a =PY() formula."
+msgstr ""
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Calc injects `data` and `ranges` from these range(s) at runtime."
+msgstr ""
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Saving…"
+msgstr ""
+
+#: plugin/calc/python/cell_editor_ui.py plugin/calc/python/editor.py
+#: plugin/scripting/editor_ui_strings.py
+msgid "Saved without =PY()."
+msgstr ""
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Saved."
+msgstr ""
+
+#: plugin/calc/python/cell_editor_ui.py
+msgid "PythonCellEditorDialog could not be loaded from the extension."
+msgstr ""
+
 #: plugin/calc/python/editor.py
 msgid ""
 "Could not preserve this cell's PY formula arguments (e.g. data ranges). Edit"
@@ -384,19 +424,28 @@ msgid ""
 msgstr ""
 
 #: plugin/calc/python/editor.py
+msgid "this cell"
+msgstr ""
+
+#: plugin/calc/python/editor.py
+#, python-brace-format
+msgid ""
+"Save changes to {0}?\n"
+"\n"
+"Yes saves. No discards and opens the new cell. Cancel keeps editing {0}."
+msgstr ""
+
+#: plugin/calc/python/editor.py
 #, python-format
 msgid "Could not rewrite xl() range literals into =PY data arguments: %s"
 msgstr ""
 
-#: plugin/calc/python/editor.py plugin/scripting/editor_ui_strings.py
-msgid "Saved without =PY()."
-msgstr ""
-
-#: plugin/calc/python/editor.py
+#: plugin/calc/python/editor.py plugin/xdl_strings.py
 msgid "Python cell editor"
 msgstr ""
 
 #: plugin/calc/python/editor.py plugin/scripting/editor_ui_strings.py
+#: plugin/xdl_strings.py
 msgid "Save without =PY()"
 msgstr ""
 
@@ -421,28 +470,7 @@ msgid ""
 msgstr ""
 
 #: plugin/calc/python/editor.py
-msgid ""
-"Edit Python in Cell requires the Monaco editor, which is disabled by \"scripting.force_internal_script_editor\" in writeragent.json.\n"
-"\n"
-"Set it to false and restart LibreOffice to use this command, or edit PYTHON formulas in the Calc formula bar."
-msgstr ""
-
-#: plugin/calc/python/editor.py
-msgid "No Python interpreter available for the editor."
-msgstr ""
-
-#: plugin/calc/python/editor.py
-#, python-format
-msgid ""
-"Cannot import webview (pywebview) or rocher with the Python from Settings → Python:\n"
-"%(exe)s\n"
-"\n"
-"In that venv run: uv pip install pywebview rocher\n"
-"(import name is webview, package name is pywebview)."
-msgstr ""
-
-#: plugin/calc/python/editor.py
-msgid "unknown error"
+msgid "Could not open the built-in Python cell editor."
 msgstr ""
 
 #: plugin/calc/python/function.py
@@ -617,15 +645,54 @@ msgid "AI Grammar"
 msgstr ""
 
 #: plugin/writer/math/latex_dialog.py
-msgid "This command is only available in Writer documents."
+msgid "Update"
+msgstr ""
+
+#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
+#: plugin/xdl_strings.py
+msgid "Insert"
+msgstr ""
+
+#: plugin/writer/math/latex_dialog.py
+msgid "Edit LaTeX Math"
+msgstr ""
+
+#: plugin/writer/math/latex_dialog.py
+msgid "Select a single formula to update. Multiple formulas are selected."
+msgstr ""
+
+#: plugin/writer/math/latex_dialog.py
+msgid ""
+"Could not identify the selected formula. Click in the text, then insert a "
+"new formula."
 msgstr ""
 
 #: plugin/writer/math/latex_dialog.py
 msgid "Unknown conversion error"
 msgstr ""
 
+#: plugin/writer/math/latex_dialog.py
+#, python-brace-format
+msgid ""
+"Failed to convert LaTeX to StarMath:\n"
+"\n"
+"{0}"
+msgstr ""
+
+#: plugin/writer/math/latex_dialog.py
+msgid "The selected formula is no longer in the document."
+msgstr ""
+
+#: plugin/writer/math/latex_dialog.py
+msgid "Formula updated."
+msgstr ""
+
 #: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
 msgid "Formula inserted."
+msgstr ""
+
+#: plugin/writer/math/latex_dialog.py
+msgid "This command is only available in Writer documents."
 msgstr ""
 
 #: plugin/writer/math/latex_dialog.py
@@ -638,25 +705,12 @@ msgid "Insert as display block (centered paragraph)"
 msgstr ""
 
 #: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
-#: plugin/xdl_strings.py
-msgid "Insert"
-msgstr ""
-
-#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
 #: plugin/scripting/python_runner.py plugin/xdl_strings.py
 msgid "Close"
 msgstr ""
 
 #: plugin/writer/math/latex_dialog.py
 msgid "LaTeX Conversion Error"
-msgstr ""
-
-#: plugin/writer/math/latex_dialog.py
-#, python-brace-format
-msgid ""
-"Failed to convert LaTeX to StarMath:\n"
-"\n"
-"{0}"
 msgstr ""
 
 #: plugin/writer/math/latex_dialog.py
@@ -923,11 +977,6 @@ msgstr ""
 msgid "you"
 msgstr ""
 
-#: plugin/chatbot/panel_wiring.py plugin/scripting/editor_ui_strings.py
-#: plugin/xdl_strings.py
-msgid "Ready"
-msgstr ""
-
 #: plugin/chatbot/dialogs.py
 msgid "Agent requests approval"
 msgstr ""
@@ -949,8 +998,92 @@ msgstr ""
 msgid "Copy URL"
 msgstr ""
 
-#: plugin/chatbot/dialogs.py plugin/main.py plugin/xdl_strings.py
+#: plugin/chatbot/dialogs.py plugin/chatbot/hamburger_menu.py plugin/main.py
+#: plugin/xdl_strings.py
 msgid "Report bug..."
+msgstr ""
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Extend Selection"
+msgstr ""
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Edit Selection"
+msgstr ""
+
+#: plugin/chatbot/hamburger_menu.py plugin/chatbot/panel_factory.py
+#: plugin/main.py
+msgid "Run Python Script..."
+msgstr ""
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Convert Sheet to Python..."
+msgstr ""
+
+#: plugin/chatbot/hamburger_menu.py plugin/chatbot/panel_factory.py
+#: plugin/main.py
+msgid "Search Nearby Files..."
+msgstr ""
+
+#: plugin/chatbot/hamburger_menu.py plugin/chatbot/panel_factory.py
+msgid "Insert LaTeX Math..."
+msgstr ""
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Text Analytics..."
+msgstr ""
+
+#: plugin/chatbot/hamburger_menu.py plugin/chatbot/dialog_views.py
+#: plugin/chatbot/panel_factory.py plugin/main.py plugin/xdl_strings.py
+msgid "Settings"
+msgstr ""
+
+#: plugin/chatbot/hamburger_menu.py
+msgid "Vision OCR Settings..."
+msgstr ""
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Toggle MCP Server"
+msgstr ""
+
+#: plugin/chatbot/hamburger_menu.py
+msgid "MCP Server (Running)"
+msgstr ""
+
+#: plugin/chatbot/hamburger_menu.py
+msgid "MCP Server (Stopped)"
+msgstr ""
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Reset Python Session"
+msgstr ""
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Run format tests"
+msgstr ""
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Run calc tests"
+msgstr ""
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Run Calc API integration tests"
+msgstr ""
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Run draw tests"
+msgstr ""
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Evaluation Dashboard"
+msgstr ""
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Import Jupyter Notebook..."
+msgstr ""
+
+#: plugin/chatbot/hamburger_menu.py
+msgid "Debug"
 msgstr ""
 
 #: plugin/chatbot/tool_loop.py
@@ -1247,10 +1380,6 @@ msgstr ""
 msgid "Switching to document mode..."
 msgstr ""
 
-#: plugin/chatbot/dialog_views.py plugin/main.py plugin/xdl_strings.py
-msgid "Settings"
-msgstr ""
-
 #: plugin/chatbot/dialog_views.py
 msgid "Invalid Setting"
 msgstr ""
@@ -1292,6 +1421,10 @@ msgstr ""
 msgid "Width:"
 msgstr ""
 
+#: plugin/chatbot/panel_factory.py
+msgid "More actions..."
+msgstr ""
+
 #: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
 #: plugin/xdl_strings.py
 msgid "New Python Script"
@@ -1308,16 +1441,8 @@ msgid "Attach to this document"
 msgstr ""
 
 #: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
-#: plugin/scripting/document_scripts.py plugin/scripting/editor_host.py
+#: plugin/scripting/document_scripts.py
 msgid "Script name cannot be empty."
-msgstr ""
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Status:"
-msgstr ""
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Saving…"
 msgstr ""
 
 #: plugin/scripting/editor_ui_strings.py
@@ -1341,24 +1466,8 @@ msgstr ""
 msgid "Cancel"
 msgstr ""
 
-#: plugin/scripting/editor_ui_strings.py
+#: plugin/scripting/editor_ui_strings.py plugin/xdl_strings.py
 msgid "Data:"
-msgstr ""
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "A1:C1  or  A1:C1, C1:C5"
-msgstr ""
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Calc injects `data` and `ranges` from these range(s) at runtime."
-msgstr ""
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Data ranges apply only when saving as a =PY() formula."
-msgstr ""
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Saved."
 msgstr ""
 
 #: plugin/scripting/editor_ui_strings.py plugin/xdl_strings.py
@@ -1416,7 +1525,7 @@ msgstr ""
 msgid "Loaded script '{0}'."
 msgstr ""
 
-#: plugin/scripting/editor_ui_strings.py plugin/scripting/editor_host.py
+#: plugin/scripting/editor_ui_strings.py plugin/scripting/document_scripts.py
 msgid "No document is open to attach scripts."
 msgstr ""
 
@@ -1482,7 +1591,6 @@ msgid "Document scripts are too large to store in the document ({0} bytes)."
 msgstr ""
 
 #: plugin/scripting/document_scripts.py plugin/scripting/python_runner_ui.py
-#: plugin/scripting/editor_host.py
 msgid "No document is open to save scripts."
 msgstr ""
 
@@ -1499,6 +1607,50 @@ msgstr ""
 
 #: plugin/scripting/document_scripts.py
 msgid "This Document"
+msgstr ""
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Saved script '{0}' to My Scripts."
+msgstr ""
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Saved script '{0}' to this document."
+msgstr ""
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Saved script '{0}'."
+msgstr ""
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Attached script '{0}' to this document."
+msgstr ""
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "A script named '{0}' already exists in My Scripts."
+msgstr ""
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Copied script '{0}' to My Scripts."
+msgstr ""
+
+#: plugin/scripting/document_scripts.py plugin/scripting/python_runner_ui.py
+msgid "No document is open."
+msgstr ""
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Deleted document script '{0}'."
+msgstr ""
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Deleted script '{0}'."
 msgstr ""
 
 #: plugin/scripting/python_runner_ui.py
@@ -1532,10 +1684,6 @@ msgstr ""
 
 #: plugin/scripting/python_runner_ui.py
 msgid "Delete Script"
-msgstr ""
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/editor_host.py
-msgid "No document is open."
 msgstr ""
 
 #: plugin/scripting/python_runner_ui.py
@@ -1606,46 +1754,6 @@ msgstr ""
 msgid ""
 "No python executable found under configured venv: {0} (expected bin/python, "
 "Scripts/python.exe, or env-root python.exe)."
-msgstr ""
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Saved script '{0}' to My Scripts."
-msgstr ""
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Saved script '{0}' to this document."
-msgstr ""
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Saved script '{0}'."
-msgstr ""
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Attached script '{0}' to this document."
-msgstr ""
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "A script named '{0}' already exists in My Scripts."
-msgstr ""
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Copied script '{0}' to My Scripts."
-msgstr ""
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Deleted document script '{0}'."
-msgstr ""
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Deleted script '{0}'."
 msgstr ""
 
 #: plugin/scripting/editor_host.py
@@ -2350,68 +2458,12 @@ msgstr ""
 msgid "Tests failed to run: {0}"
 msgstr ""
 
-#: plugin/main.py
-msgid "Extend Selection"
-msgstr ""
-
-#: plugin/main.py
-msgid "Edit Selection"
-msgstr ""
-
-#: plugin/main.py
-msgid "Toggle MCP Server"
-msgstr ""
-
 #: plugin/main.py plugin/xdl_strings.py
 msgid "MCP Server Status"
 msgstr ""
 
 #: plugin/main.py
-msgid "Run format tests"
-msgstr ""
-
-#: plugin/main.py
-msgid "Run calc tests"
-msgstr ""
-
-#: plugin/main.py
-msgid "Run Calc API integration tests"
-msgstr ""
-
-#: plugin/main.py
-msgid "Run draw tests"
-msgstr ""
-
-#: plugin/main.py
-msgid "Evaluation Dashboard"
-msgstr ""
-
-#: plugin/main.py
-msgid "Run Python Script..."
-msgstr ""
-
-#: plugin/main.py
-msgid "Reset Python Session"
-msgstr ""
-
-#: plugin/main.py
-msgid "Import Jupyter Notebook..."
-msgstr ""
-
-#: plugin/main.py
-msgid "Insert LaTeX Math..."
-msgstr ""
-
-#: plugin/main.py
-msgid "Search Nearby Files..."
-msgstr ""
-
-#: plugin/main.py
-msgid "Text Analytics..."
-msgstr ""
-
-#: plugin/main.py
-msgid "Convert Sheet to Python..."
+msgid "Edit LaTeX Math..."
 msgstr ""
 
 #: plugin/xdl_strings.py
@@ -2472,10 +2524,6 @@ msgstr ""
 
 #: plugin/xdl_strings.py
 msgid "Categories:"
-msgstr ""
-
-#: plugin/xdl_strings.py
-msgid "Chat (Testing):"
 msgstr ""
 
 #: plugin/xdl_strings.py
@@ -2737,6 +2785,10 @@ msgid "Status"
 msgstr ""
 
 #: plugin/xdl_strings.py
+msgid "Status: Ready"
+msgstr ""
+
+#: plugin/xdl_strings.py
 msgid "Steps:"
 msgstr ""
 
@@ -2786,6 +2838,22 @@ msgstr ""
 
 #: plugin/xdl_strings.py
 msgid "WriterAgent Evaluation Dashboard"
+msgstr ""
+
+#: plugin/xdl_strings.py
+msgid "√x"
+msgstr ""
+
+#: plugin/xdl_strings.py
+msgid "☰"
+msgstr ""
+
+#: plugin/xdl_strings.py
+msgid "⚙"
+msgstr ""
+
+#: plugin/xdl_strings.py
+msgid "🔍"
 msgstr ""
 
 msgid "Agent Communication Protocol"

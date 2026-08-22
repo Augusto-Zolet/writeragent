@@ -27,12 +27,24 @@ Download from [Release Assets](https://github.com/KeithCu/writeragent/releases/l
 
 ---
 
-## 2. Settings and sidebar chat
+## 2. Settings, UI modes, and sidebar chat
 
 For the full extension, open a document to configure AI features:
 
-- **Settings:** **WriterAgent → Settings**. Set an OpenAI-compatible **endpoint** and **model**. Local example: `http://localhost:11434` for [Ollama](https://ollama.com/). Cloud (OpenRouter, Together.AI, …): paste an API key in the same dialog.
-- **Sidebar:** **View → Sidebar**, then choose the sidebar deck.
+- **Settings:** **WriterAgent → Settings** (or click the `⚙` gear icon at the top of the sidebar panel). Set an OpenAI-compatible **endpoint** and **model**. Local example: `http://localhost:11434` for [Ollama](https://ollama.com/). Cloud (OpenRouter, Together.AI, …): paste an API key in the same dialog.
+- **Sidebar:** **View → Sidebar**, then choose the **WriterAgent** sidebar deck.
+
+### LibreOffice UI Modes (Classic vs Tabbed / Ribbon)
+
+LibreOffice supports multiple user interface modes (**View → User Interface**):
+
+* **Classic (Standard Toolbar):** The top menubar includes the full **WriterAgent** menu with all tools and submenus.
+* **Tabbed (Notebookbar / Ribbon):** In tabbed interfaces where the standard menubar is hidden, all features are readily available directly from the **Sidebar header**:
+  * `[⚙]` **Settings:** Open configuration dialog.
+  * `[🐍]` **Run Python Script...:** Run Python scripts.
+  * `[√x]` / `[⊞🐍]` **Insert LaTeX Math...** (Writer) / **Edit Python in Cell...** (Calc).
+  * `[🔍]` **Search Nearby Files...:** Search embedding indexes.
+  * `[☰]` **More Actions (Hamburger Menu):** Pops up the full native WriterAgent menu, giving instant access to selection tools, MCP server controls, debug suites, and secondary utilities without needing the top menubar.
 
 **No GPU?** Use [OpenRouter free models](https://openrouter.ai/collections/free-models) or [Together.AI](https://www.together.ai/)’s free tier.
 

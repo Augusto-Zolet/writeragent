@@ -61,6 +61,8 @@ Full catalog with doc links: **[docs/features.md](docs/features.md)**.
 2. Open a Writer (or Calc / Draw) document. On that window’s menubar, choose **WriterAgent → Settings** and set an OpenAI-compatible endpoint and model (e.g. `http://localhost:11434` for [Ollama](https://ollama.com/)).
 3. Open the sidebar: **View → Sidebar → WriterAgent**, or use **Ctrl+Q** / **Ctrl+E** for extend / edit selection.
 
+> **UI Modes:** In classic toolbar mode, access tools through the top **WriterAgent** menubar. In tabbed/ribbon interfaces, all actions (Settings `⚙`, Python `🐍`, LaTeX/Cell Python, search `🔍`, and the full menu via the `☰` hamburger button) are available directly on the sidebar.
+
 **[Install and troubleshooting](docs/install-troubleshooting.md)** — which `.oxt` to install, menus and sidebar, Harper grammar, debug log location.
 
 **No GPU?** Try [OpenRouter free models](https://openrouter.ai/collections/free-models) or [Together.AI](https://www.together.ai/)’s free tier.

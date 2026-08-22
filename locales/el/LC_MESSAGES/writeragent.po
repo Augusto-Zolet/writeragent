@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-21 11:45-0400\n"
+"POT-Creation-Date: 2026-08-22 16:30-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Greek <LL@li.org>\n"
@@ -31,8 +31,8 @@ msgstr "Εκτέλεση τοπικού OCR στις επιλεγμένες ει
 
 #: plugin/doc/specialized_base.py
 msgid ""
-"Document research reads require specialized task delegation (USE_SUB_AGENT)."
-" Enable this in configuration."
+"Document research reads require specialized task delegation (USE_SUB_AGENT). "
+"Enable this in configuration."
 msgstr ""
 "Οι αναγνώσεις έρευνας εγγράφων απαιτούν εξειδικευμένη ανάθεση εργασιών "
 "(USE_SUB_AGENT). Ενεργοποιήστε το στις ρυθμίσεις."
@@ -40,8 +40,8 @@ msgstr ""
 #: plugin/doc/specialized_base.py
 #, python-brace-format
 msgid ""
-"Tool call switched to '{0}'. You are in a specialized toolset mode. You must"
-" call 'specialized_workflow_finished' when done to restore the full set of "
+"Tool call switched to '{0}'. You are in a specialized toolset mode. You must "
+"call 'specialized_workflow_finished' when done to restore the full set of "
 "APIs."
 msgstr ""
 "Η κλήση εργαλείου άλλαξε σε '{0}'. Βρίσκεστε σε λειτουργία εξειδικευμένου "
@@ -58,8 +58,8 @@ msgstr "Η εκτέλεση σημειωματάριου υποστηρίζετ�
 
 #: plugin/notebook/notebook_runner.py
 msgid ""
-"This document has no imported notebook. Use Tools → Import Jupyter Notebook…"
-" first."
+"This document has no imported notebook. Use Tools → Import Jupyter Notebook… "
+"first."
 msgstr ""
 "Αυτό το έγγραφο δεν έχει εισαγόμενο σημειωματάριο. Χρησιμοποιήστε πρώτα "
 "Εργαλεία → Εισαγωγή σημειωματάριου Jupyter…."
@@ -271,8 +271,7 @@ msgstr ""
 #: plugin/framework/errors.py
 #, python-brace-format
 msgid "Script execution blocked by sandbox policy: {0}"
-msgstr ""
-"Η εκτέλεση δέσμης ενεργειών αποκλείστηκε από την πολιτική sandbox: {0}"
+msgstr "Η εκτέλεση δέσμης ενεργειών αποκλείστηκε από την πολιτική sandbox: {0}"
 
 #: plugin/framework/errors.py
 msgid "Request Timed Out. Try increasing 'Request Timeout' in Settings."
@@ -281,8 +280,7 @@ msgstr ""
 "Ρυθμίσεις."
 
 #: plugin/framework/errors.py
-msgid ""
-"Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
+msgid "Connection Refused. Is your local AI server (Ollama/LM Studio) running?"
 msgstr ""
 "Η σύνδεση απορρίφθηκε. Είναι ενεργός ο τοπικός διακομιστής AI (Ollama/LM "
 "Studio);"
@@ -290,8 +288,7 @@ msgstr ""
 #: plugin/framework/errors.py
 msgid "DNS Error. Could not resolve the endpoint URL."
 msgstr ""
-"Σφάλμα DNS. Δεν ήταν δυνατή η ανάλυση της διεύθυνσης URL του τελικού "
-"σημείου."
+"Σφάλμα DNS. Δεν ήταν δυνατή η ανάλυση της διεύθυνσης URL του τελικού σημείου."
 
 #: plugin/framework/errors.py
 #, python-brace-format
@@ -319,11 +316,11 @@ msgstr "Σφάλμα HTTP {0} από τον πάροχο AI: {1}"
 #: plugin/framework/client/errors.py
 #, python-brace-format
 msgid ""
-" If your API key is from a GLM Coding Plan subscription, set endpoint to {0}"
-" (not the general /api/paas URL)."
+" If your API key is from a GLM Coding Plan subscription, set endpoint to {0} "
+"(not the general /api/paas URL)."
 msgstr ""
-" Εάν το κλειδί API προέρχεται από συνδρομή GLM Coding Plan, ορίστε το τελικό"
-" σημείο (endpoint) στο {0} (όχι στο γενικό URL /api/paas)."
+" Εάν το κλειδί API προέρχεται από συνδρομή GLM Coding Plan, ορίστε το τελικό "
+"σημείο (endpoint) στο {0} (όχι στο γενικό URL /api/paas)."
 
 #: plugin/framework/client/errors.py
 #, python-brace-format
@@ -348,11 +345,12 @@ msgstr ""
 "Το μοντέλο επαναλαμβάνει το ίδιο τμήμα (άπειρος βρόχος). Προσπαθήστε ξανά ή "
 "χρησιμοποιήστε ένα διαφορετικό μοντέλο."
 
-#: plugin/framework/main_shared.py plugin/writer/math/latex_dialog.py
-#: plugin/chatbot/panel.py plugin/chatbot/external_editor.py
-#: plugin/chatbot/send_handlers.py plugin/chatbot/dialog_views.py
-#: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
-#: plugin/scripting/python_runner_ui.py plugin/scripting/python_runner.py
+#: plugin/framework/main_shared.py plugin/calc/python/cell_editor_ui.py
+#: plugin/writer/math/latex_dialog.py plugin/chatbot/panel.py
+#: plugin/chatbot/external_editor.py plugin/chatbot/send_handlers.py
+#: plugin/chatbot/dialog_views.py plugin/scripting/script_dialogs.py
+#: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner_ui.py
+#: plugin/scripting/python_runner.py
 msgid "Error"
 msgstr "Σφάλμα"
 
@@ -382,7 +380,8 @@ msgstr ""
 "Παρακαλώ επιλέξτε ένα έγκυρο μοντέλο στις Ρυθμίσεις (όχι ένα σύμβολο "
 "κράτησης θέσης)."
 
-#: plugin/calc/python/editor_context_menu.py plugin/main.py
+#: plugin/calc/python/editor_context_menu.py plugin/chatbot/hamburger_menu.py
+#: plugin/chatbot/panel_factory.py plugin/main.py
 msgid "Edit Python in Cell..."
 msgstr "Επεξεργασία Python στο κελί..."
 
@@ -418,15 +417,71 @@ msgstr "Το σενάριο αρχικοποίησης αποθηκεύτηκε.
 msgid "Save initialization script"
 msgstr "Αποθήκευση σεναρίου αρχικοποίησης"
 
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Status:"
+msgstr "Κατάσταση:"
+
+#: plugin/calc/python/cell_editor_ui.py plugin/chatbot/panel_wiring.py
+#: plugin/scripting/editor_ui_strings.py plugin/xdl_strings.py
+msgid "Ready"
+msgstr "Έτοιμο"
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "A1:C1  or  A1:C1, C1:C5"
+msgstr "A1:C1  ή  A1:C1, C1:C5"
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Data ranges apply only when saving as a =PY() formula."
+msgstr ""
+"Οι περιοχές δεδομένων εφαρμόζονται μόνο κατά την αποθήκευση ως τύπος =PY()."
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Calc injects `data` and `ranges` from these range(s) at runtime."
+msgstr ""
+"Το Calc εισάγει `data` και `ranges` από αυτά τα εύρη κατά τον χρόνο "
+"εκτέλεσης."
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Saving…"
+msgstr "Αποθήκευση…"
+
+#: plugin/calc/python/cell_editor_ui.py plugin/calc/python/editor.py
+#: plugin/scripting/editor_ui_strings.py
+msgid "Saved without =PY()."
+msgstr "Αποθηκεύτηκε χωρίς =PY()."
+
+#: plugin/calc/python/cell_editor_ui.py plugin/scripting/editor_ui_strings.py
+msgid "Saved."
+msgstr "Αποθηκεύτηκε."
+
+#: plugin/calc/python/cell_editor_ui.py
+msgid "PythonCellEditorDialog could not be loaded from the extension."
+msgstr "Δεν ήταν δυνατή η φόρτωση του PythonCellEditorDialog από την επέκταση."
+
 #: plugin/calc/python/editor.py
 msgid ""
-"Could not preserve this cell's PY formula arguments (e.g. data ranges). Edit"
-" the formula in Calc, or use a quoted code string like =PY(\"code\"; "
-"A1:B10)."
+"Could not preserve this cell's PY formula arguments (e.g. data ranges). Edit "
+"the formula in Calc, or use a quoted code string like =PY(\"code\"; A1:B10)."
 msgstr ""
 "Δεν ήταν δυνατή η διατήρηση των ορισμάτων τύπου PY αυτού του κελιού (π.χ. "
 "περιοχές δεδομένων). Επεξεργαστείτε τον τύπο στο Calc ή χρησιμοποιήστε μια "
 "συμβολοσειρά κώδικα σε εισαγωγικά, όπως =PY(\"code\"; A1:B10)."
+
+#: plugin/calc/python/editor.py
+msgid "this cell"
+msgstr "αυτό το κελί"
+
+#: plugin/calc/python/editor.py
+#, python-brace-format
+msgid ""
+"Save changes to {0}?\n"
+"\n"
+"Yes saves. No discards and opens the new cell. Cancel keeps editing {0}."
+msgstr ""
+"Αποθήκευση αλλαγών στο {0};\n"
+"\n"
+"Το Ναι αποθηκεύει. Το Όχι απορρίπτει και ανοίγει το νέο κελί. Το Άκυρο "
+"διατηρεί την επεξεργασία του {0}."
 
 #: plugin/calc/python/editor.py
 #, python-format
@@ -435,15 +490,12 @@ msgstr ""
 "Δεν ήταν δυνατή η επανεγγραφή των κυριολεκτικών τιμών εύρους xl() σε "
 "ορίσματα δεδομένων =PY: %s"
 
-#: plugin/calc/python/editor.py plugin/scripting/editor_ui_strings.py
-msgid "Saved without =PY()."
-msgstr "Αποθηκεύτηκε χωρίς =PY()."
-
-#: plugin/calc/python/editor.py
+#: plugin/calc/python/editor.py plugin/xdl_strings.py
 msgid "Python cell editor"
 msgstr "Πρόγραμμα επεξεργασίας κελιών Python"
 
 #: plugin/calc/python/editor.py plugin/scripting/editor_ui_strings.py
+#: plugin/xdl_strings.py
 msgid "Save without =PY()"
 msgstr "Αποθήκευση χωρίς =PY()"
 
@@ -473,37 +525,10 @@ msgstr ""
 "γραμμή τύπων ή χρησιμοποιήστε =PY(\"code\"; range) με κώδικα σε εισαγωγικά."
 
 #: plugin/calc/python/editor.py
-msgid ""
-"Edit Python in Cell requires the Monaco editor, which is disabled by \"scripting.force_internal_script_editor\" in writeragent.json.\n"
-"\n"
-"Set it to false and restart LibreOffice to use this command, or edit PYTHON formulas in the Calc formula bar."
+msgid "Could not open the built-in Python cell editor."
 msgstr ""
-"Η επεξεργασία Python σε κελί απαιτεί τον επεξεργαστή Monaco, ο οποίος είναι απενεργοποιημένος από το \"scripting.force_internal_script_editor\" στο writeragent.json.\n"
-"\n"
-"Ορίστε το σε false και επανεκκινήστε το LibreOffice για να χρησιμοποιήσετε αυτήν την εντολή ή επεξεργαστείτε τους τύπους PYTHON στη γραμμή τύπων του Calc."
-
-#: plugin/calc/python/editor.py
-msgid "No Python interpreter available for the editor."
-msgstr "Δεν υπάρχει διαθέσιμος διερμηνέας Python για τον επεξεργαστή."
-
-#: plugin/calc/python/editor.py
-#, python-format
-msgid ""
-"Cannot import webview (pywebview) or rocher with the Python from Settings → Python:\n"
-"%(exe)s\n"
-"\n"
-"In that venv run: uv pip install pywebview rocher\n"
-"(import name is webview, package name is pywebview)."
-msgstr ""
-"Δεν είναι δυνατή η εισαγωγή του webview (pywebview) ή του rocher με την Python από τις Ρυθμίσεις → Python:\n"
-"%(exe)s\n"
-"\n"
-"Σε αυτό το venv εκτελέστε: uv pip install pywebview rocher\n"
-"(το όνομα εισαγωγής είναι webview, το όνομα του πακέτου είναι pywebview)."
-
-#: plugin/calc/python/editor.py
-msgid "unknown error"
-msgstr "άγνωστο σφάλμα"
+"Δεν ήταν δυνατό το άνοιγμα του ενσωματωμένου προγράμματος επεξεργασίας "
+"κελιών Python."
 
 #: plugin/calc/python/function.py
 #, python-brace-format
@@ -545,14 +570,17 @@ msgid ""
 "Could not write Microsoft Excel Python package parts for:\n"
 "{0}\n"
 "\n"
-"The file was saved with LibreOffice =PY formulas. Excel will not see pythonScripts.xml / _xlws.PY until export succeeds.\n"
+"The file was saved with LibreOffice =PY formulas. Excel will not see "
+"pythonScripts.xml / _xlws.PY until export succeeds.\n"
 "\n"
 "{1}"
 msgstr ""
-"Δεν ήταν δυνατή η εγγραφή των τμημάτων του πακέτου Python για το Microsoft Excel για το:\n"
+"Δεν ήταν δυνατή η εγγραφή των τμημάτων του πακέτου Python για το Microsoft "
+"Excel για το:\n"
 "{0}\n"
 "\n"
-"Το αρχείο αποθηκεύτηκε με τύπους =PY του LibreOffice. Το Excel δεν θα βλέπει τα pythonScripts.xml / _xlws.PY μέχρι να ολοκληρωθεί η εξαγωγή.\n"
+"Το αρχείο αποθηκεύτηκε με τύπους =PY του LibreOffice. Το Excel δεν θα βλέπει "
+"τα pythonScripts.xml / _xlws.PY μέχρι να ολοκληρωθεί η εξαγωγή.\n"
 "\n"
 "{1}"
 
@@ -699,39 +727,33 @@ msgid "AI Grammar"
 msgstr "Γραμματική AI"
 
 #: plugin/writer/math/latex_dialog.py
-msgid "This command is only available in Writer documents."
-msgstr "Αυτή η εντολή είναι διαθέσιμη μόνο σε έγγραφα του Writer."
-
-#: plugin/writer/math/latex_dialog.py
-msgid "Unknown conversion error"
-msgstr "Άγνωστο σφάλμα μετατροπής"
-
-#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
-msgid "Formula inserted."
-msgstr "Ο τύπος εισήχθη."
-
-#: plugin/writer/math/latex_dialog.py
-msgid "LaTeX Math Editor"
-msgstr "Επεξεργαστής μαθηματικών τύπων LaTeX"
-
-#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
-#: plugin/xdl_strings.py
-msgid "Insert as display block (centered paragraph)"
-msgstr "Εισαγωγή ως μπλοκ εμφάνισης (στοιχισμένη παράγραφος)"
+msgid "Update"
+msgstr "Ενημέρωση"
 
 #: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
 #: plugin/xdl_strings.py
 msgid "Insert"
 msgstr "Εισαγωγή"
 
-#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
-#: plugin/scripting/python_runner.py plugin/xdl_strings.py
-msgid "Close"
-msgstr "Κλείσιμο"
+#: plugin/writer/math/latex_dialog.py
+msgid "Edit LaTeX Math"
+msgstr "Επεξεργασία μαθηματικού τύπου LaTeX"
 
 #: plugin/writer/math/latex_dialog.py
-msgid "LaTeX Conversion Error"
-msgstr "Σφάλμα μετατροπής LaTeX"
+msgid "Select a single formula to update. Multiple formulas are selected."
+msgstr "Επιλέξτε έναν μόνο τύπο για ενημέρωση. Έχουν επιλεγεί πολλαπλοί τύποι."
+
+#: plugin/writer/math/latex_dialog.py
+msgid ""
+"Could not identify the selected formula. Click in the text, then insert a "
+"new formula."
+msgstr ""
+"Δεν ήταν δυνατή η αναγνώριση του επιλεγμένου τύπου. Κάντε κλικ στο κείμενο "
+"και, στη συνέχεια, εισαγάγετε έναν νέο τύπο."
+
+#: plugin/writer/math/latex_dialog.py
+msgid "Unknown conversion error"
+msgstr "Άγνωστο σφάλμα μετατροπής"
 
 #: plugin/writer/math/latex_dialog.py
 #, python-brace-format
@@ -743,6 +765,40 @@ msgstr ""
 "Αποτυχία μετατροπής LaTeX σε StarMath:\n"
 "\n"
 "{0}"
+
+#: plugin/writer/math/latex_dialog.py
+msgid "The selected formula is no longer in the document."
+msgstr "Ο επιλεγμένος τύπος δεν βρίσκεται πλέον στο έγγραφο."
+
+#: plugin/writer/math/latex_dialog.py
+msgid "Formula updated."
+msgstr "Ο τύπος ενημερώθηκε."
+
+#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
+msgid "Formula inserted."
+msgstr "Ο τύπος εισήχθη."
+
+#: plugin/writer/math/latex_dialog.py
+msgid "This command is only available in Writer documents."
+msgstr "Αυτή η εντολή είναι διαθέσιμη μόνο σε έγγραφα του Writer."
+
+#: plugin/writer/math/latex_dialog.py
+msgid "LaTeX Math Editor"
+msgstr "Επεξεργαστής μαθηματικών τύπων LaTeX"
+
+#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
+#: plugin/xdl_strings.py
+msgid "Insert as display block (centered paragraph)"
+msgstr "Εισαγωγή ως μπλοκ εμφάνισης (στοιχισμένη παράγραφος)"
+
+#: plugin/writer/math/latex_dialog.py plugin/scripting/editor_ui_strings.py
+#: plugin/scripting/python_runner.py plugin/xdl_strings.py
+msgid "Close"
+msgstr "Κλείσιμο"
+
+#: plugin/writer/math/latex_dialog.py
+msgid "LaTeX Conversion Error"
+msgstr "Σφάλμα μετατροπής LaTeX"
 
 #: plugin/writer/math/latex_dialog.py
 msgid "An unexpected error occurred during LaTeX insertion."
@@ -1008,11 +1064,6 @@ msgstr "γιατί"
 msgid "you"
 msgstr "εσείς"
 
-#: plugin/chatbot/panel_wiring.py plugin/scripting/editor_ui_strings.py
-#: plugin/xdl_strings.py
-msgid "Ready"
-msgstr "Έτοιμο"
-
 #: plugin/chatbot/dialogs.py
 msgid "Agent requests approval"
 msgstr "Ο πράκτορας ζητά έγκριση"
@@ -1034,9 +1085,93 @@ msgstr "Αντιγράφηκε!"
 msgid "Copy URL"
 msgstr "Αντιγραφή URL"
 
-#: plugin/chatbot/dialogs.py plugin/main.py plugin/xdl_strings.py
+#: plugin/chatbot/dialogs.py plugin/chatbot/hamburger_menu.py plugin/main.py
+#: plugin/xdl_strings.py
 msgid "Report bug..."
 msgstr "Αναφορά σφάλματος..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Extend Selection"
+msgstr "Επέκταση επιλογής"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Edit Selection"
+msgstr "Επεξεργασία επιλογής"
+
+#: plugin/chatbot/hamburger_menu.py plugin/chatbot/panel_factory.py
+#: plugin/main.py
+msgid "Run Python Script..."
+msgstr "Εκτέλεση σεναρίου Python..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Convert Sheet to Python..."
+msgstr "Μετατροπή φύλλου σε Python..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/chatbot/panel_factory.py
+#: plugin/main.py
+msgid "Search Nearby Files..."
+msgstr "Αναζήτηση σε κοντινά αρχεία..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/chatbot/panel_factory.py
+msgid "Insert LaTeX Math..."
+msgstr "Εισαγωγή μαθηματικού τύπου LaTeX..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Text Analytics..."
+msgstr "Ανάλυση κειμένου..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/chatbot/dialog_views.py
+#: plugin/chatbot/panel_factory.py plugin/main.py plugin/xdl_strings.py
+msgid "Settings"
+msgstr "Ρυθμίσεις"
+
+#: plugin/chatbot/hamburger_menu.py
+msgid "Vision OCR Settings..."
+msgstr "Ρυθμίσεις Vision OCR..."
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Toggle MCP Server"
+msgstr "Εναλλαγή διακομιστή MCP"
+
+#: plugin/chatbot/hamburger_menu.py
+msgid "MCP Server (Running)"
+msgstr "Διακομιστής MCP (Σε εκτέλεση)"
+
+#: plugin/chatbot/hamburger_menu.py
+msgid "MCP Server (Stopped)"
+msgstr "Διακομιστής MCP (Σε διακοπή)"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Reset Python Session"
+msgstr "Επαναφορά συνεδρίας Python"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Run format tests"
+msgstr "Εκτέλεση δοκιμών μορφοποίησης"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Run calc tests"
+msgstr "Εκτέλεση δοκιμών Calc"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Run Calc API integration tests"
+msgstr "Εκτέλεση δοκιμών ενσωμάτωσης API του Calc"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Run draw tests"
+msgstr "Εκτέλεση δοκιμών Draw"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Evaluation Dashboard"
+msgstr "Πίνακας ελέγχου αξιολόγησης"
+
+#: plugin/chatbot/hamburger_menu.py plugin/main.py
+msgid "Import Jupyter Notebook..."
+msgstr "Εισαγωγή Jupyter Notebook..."
+
+#: plugin/chatbot/hamburger_menu.py
+msgid "Debug"
+msgstr "Αποσφαλμάτωση"
 
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
@@ -1134,8 +1269,8 @@ msgid ""
 "[Model {0} does not support native audio. Please select an STT Model in "
 "Settings.]"
 msgstr ""
-"[Το μοντέλο {0} δεν υποστηρίζει εγγενή ήχο. Παρακαλούμε επιλέξτε ένα μοντέλο"
-" STT στις Ρυθμίσεις.]"
+"[Το μοντέλο {0} δεν υποστηρίζει εγγενή ήχο. Παρακαλούμε επιλέξτε ένα μοντέλο "
+"STT στις Ρυθμίσεις.]"
 
 #: plugin/chatbot/web_research_chat.py
 #, python-format
@@ -1199,8 +1334,8 @@ msgid ""
 "No editor found (install Kate or Gedit, or set EDITOR). Path:\n"
 "{0}"
 msgstr ""
-"Δεν βρέθηκε επεξεργαστής κειμένου (εγκαταστήστε το Kate ή το Gedit, ή ορίστε"
-" τη μεταβλητή EDITOR). Διαδρομή: {0}"
+"Δεν βρέθηκε επεξεργαστής κειμένου (εγκαταστήστε το Kate ή το Gedit, ή ορίστε "
+"τη μεταβλητή EDITOR). Διαδρομή: {0}"
 
 #: plugin/chatbot/external_editor.py
 #, python-brace-format
@@ -1236,11 +1371,10 @@ msgstr "[Το υποσύστημα του πράκτορα '{0}' δεν βρέθ
 
 #: plugin/chatbot/send_handlers.py
 #, python-brace-format
-msgid ""
-"[Agent backend '{0}' is not available. Check Settings (path, install).]"
+msgid "[Agent backend '{0}' is not available. Check Settings (path, install).]"
 msgstr ""
-"[Το υποσύστημα του πράκτορα '{0}' δεν είναι διαθέσιμο. Ελέγξτε τις Ρυθμίσεις"
-" (διαδρομή, εγκατάσταση).]"
+"[Το υποσύστημα του πράκτορα '{0}' δεν είναι διαθέσιμο. Ελέγξτε τις Ρυθμίσεις "
+"(διαδρομή, εγκατάσταση).]"
 
 #: plugin/chatbot/send_handlers.py
 msgid "Perfect! I'm switching you to the main assistant now."
@@ -1351,10 +1485,6 @@ msgstr ""
 msgid "Switching to document mode..."
 msgstr "Μετάβαση σε λειτουργία εγγράφου..."
 
-#: plugin/chatbot/dialog_views.py plugin/main.py plugin/xdl_strings.py
-msgid "Settings"
-msgstr "Ρυθμίσεις"
-
 #: plugin/chatbot/dialog_views.py
 msgid "Invalid Setting"
 msgstr "Μη έγκυρη ρύθμιση"
@@ -1396,6 +1526,10 @@ msgstr "Ύψος:"
 msgid "Width:"
 msgstr "Πλάτος:"
 
+#: plugin/chatbot/panel_factory.py
+msgid "More actions..."
+msgstr "Περισσότερες ενέργειες..."
+
 #: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
 #: plugin/xdl_strings.py
 msgid "New Python Script"
@@ -1412,17 +1546,9 @@ msgid "Attach to this document"
 msgstr "Επισύναψη σε αυτό το έγγραφο"
 
 #: plugin/scripting/script_dialogs.py plugin/scripting/editor_ui_strings.py
-#: plugin/scripting/document_scripts.py plugin/scripting/editor_host.py
+#: plugin/scripting/document_scripts.py
 msgid "Script name cannot be empty."
 msgstr "Το όνομα του σεναρίου δεν μπορεί να είναι κενό."
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Status:"
-msgstr "Κατάσταση:"
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Saving…"
-msgstr "Αποθήκευση…"
 
 #: plugin/scripting/editor_ui_strings.py
 msgid "Running…"
@@ -1445,28 +1571,9 @@ msgstr "Εκτέλεση"
 msgid "Cancel"
 msgstr "Άκυρο"
 
-#: plugin/scripting/editor_ui_strings.py
+#: plugin/scripting/editor_ui_strings.py plugin/xdl_strings.py
 msgid "Data:"
 msgstr "Δεδομένα:"
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "A1:C1  or  A1:C1, C1:C5"
-msgstr "A1:C1  ή  A1:C1, C1:C5"
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Calc injects `data` and `ranges` from these range(s) at runtime."
-msgstr ""
-"Το Calc εισάγει `data` και `ranges` από αυτά τα εύρη κατά τον χρόνο "
-"εκτέλεσης."
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Data ranges apply only when saving as a =PY() formula."
-msgstr ""
-"Οι περιοχές δεδομένων εφαρμόζονται μόνο κατά την αποθήκευση ως τύπος =PY()."
-
-#: plugin/scripting/editor_ui_strings.py
-msgid "Saved."
-msgstr "Αποθηκεύτηκε."
 
 #: plugin/scripting/editor_ui_strings.py plugin/xdl_strings.py
 msgid "New"
@@ -1527,7 +1634,7 @@ msgstr ""
 msgid "Loaded script '{0}'."
 msgstr "Φορτώθηκε το σενάριο '{0}'."
 
-#: plugin/scripting/editor_ui_strings.py plugin/scripting/editor_host.py
+#: plugin/scripting/editor_ui_strings.py plugin/scripting/document_scripts.py
 msgid "No document is open to attach scripts."
 msgstr "Δεν υπάρχει ανοιχτό έγγραφο για την επισύναψη σεναρίων."
 
@@ -1589,18 +1696,15 @@ msgstr "Είστε βέβαιοι ότι θέλετε να διαγράψετε 
 #: plugin/scripting/editor_ui_strings.py plugin/scripting/python_runner.py
 msgid "Select data range or enter A1 address (injected as data)."
 msgstr ""
-"Επιλέξτε περιοχή δεδομένων ή εισαγάγετε διεύθυνση A1 (εισάγεται ως "
-"δεδομένα)."
+"Επιλέξτε περιοχή δεδομένων ή εισαγάγετε διεύθυνση A1 (εισάγεται ως δεδομένα)."
 
 #: plugin/scripting/document_scripts.py
 #, python-brace-format
 msgid "Document scripts are too large to store in the document ({0} bytes)."
 msgstr ""
-"Τα σενάρια εγγράφου είναι πολύ μεγάλα για αποθήκευση στο έγγραφο ({0} "
-"bytes)."
+"Τα σενάρια εγγράφου είναι πολύ μεγάλα για αποθήκευση στο έγγραφο ({0} bytes)."
 
 #: plugin/scripting/document_scripts.py plugin/scripting/python_runner_ui.py
-#: plugin/scripting/editor_host.py
 msgid "No document is open to save scripts."
 msgstr "Δεν υπάρχει ανοιχτό έγγραφο για την αποθήκευση σεναρίων."
 
@@ -1620,6 +1724,50 @@ msgstr "Ένα σενάριο με το όνομα '{0}' υπάρχει ήδη �
 #: plugin/scripting/document_scripts.py
 msgid "This Document"
 msgstr "Αυτό το έγγραφο"
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Saved script '{0}' to My Scripts."
+msgstr "Το σενάριο '{0}' αποθηκεύτηκε στα Σενάριά μου."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Saved script '{0}' to this document."
+msgstr "Το σενάριο '{0}' αποθηκεύτηκε σε αυτό το έγγραφο."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Saved script '{0}'."
+msgstr "Το σενάριο '{0}' αποθηκεύτηκε."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Attached script '{0}' to this document."
+msgstr "Το σενάριο '{0}' επισυνάφθηκε σε αυτό το έγγραφο."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "A script named '{0}' already exists in My Scripts."
+msgstr "Ένα σενάριο με το όνομα '{0}' υπάρχει ήδη στα «Τα σενάριά μου»."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Copied script '{0}' to My Scripts."
+msgstr "Το σενάριο '{0}' αντιγράφηκε στα «Τα σενάριά μου»."
+
+#: plugin/scripting/document_scripts.py plugin/scripting/python_runner_ui.py
+msgid "No document is open."
+msgstr "Δεν υπάρχει ανοιχτό έγγραφο."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Deleted document script '{0}'."
+msgstr "Το σενάριο εγγράφου '{0}' διαγράφηκε."
+
+#: plugin/scripting/document_scripts.py
+#, python-brace-format
+msgid "Deleted script '{0}'."
+msgstr "Το σενάριο '{0}' διαγράφηκε."
 
 #: plugin/scripting/python_runner_ui.py
 msgid "PythonScriptDialog could not be loaded from the extension."
@@ -1653,10 +1801,6 @@ msgstr "Είστε βέβαιοι ότι θέλετε να διαγράψετε 
 #: plugin/scripting/python_runner_ui.py
 msgid "Delete Script"
 msgstr "Διαγραφή σεναρίου"
-
-#: plugin/scripting/python_runner_ui.py plugin/scripting/editor_host.py
-msgid "No document is open."
-msgstr "Δεν υπάρχει ανοιχτό έγγραφο."
 
 #: plugin/scripting/python_runner_ui.py
 #, python-format
@@ -1719,12 +1863,12 @@ msgstr "Απέτυχε"
 #: plugin/scripting/editor_host.py
 msgid ""
 "Set the Python venv path in Settings → Python (same venv where you ran 'uv "
-"pip install pywebview rocher'). LibreOffice's built-in Python cannot run the"
-" Monaco editor."
+"pip install pywebview rocher'). LibreOffice's built-in Python cannot run the "
+"Monaco editor."
 msgstr ""
 "Ορίστε τη διαδρομή του Python venv στις Ρυθμίσεις → Python (το ίδιο venv "
-"όπου εκτελέσατε το 'uv pip install pywebview rocher'). Η ενσωματωμένη Python"
-" του LibreOffice δεν μπορεί να εκτελέσει τον επεξεργαστή Monaco."
+"όπου εκτελέσατε το 'uv pip install pywebview rocher'). Η ενσωματωμένη Python "
+"του LibreOffice δεν μπορεί να εκτελέσει τον επεξεργαστή Monaco."
 
 #: plugin/scripting/editor_host.py
 #, python-brace-format
@@ -1734,46 +1878,6 @@ msgid ""
 msgstr ""
 "Δεν βρέθηκε εκτελέσιμο αρχείο python στο ρυθμισμένο venv: {0} (αναμενόταν "
 "bin/python, Scripts/python.exe ή env-root python.exe)."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Saved script '{0}' to My Scripts."
-msgstr "Το σενάριο '{0}' αποθηκεύτηκε στα Σενάριά μου."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Saved script '{0}' to this document."
-msgstr "Το σενάριο '{0}' αποθηκεύτηκε σε αυτό το έγγραφο."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Saved script '{0}'."
-msgstr "Το σενάριο '{0}' αποθηκεύτηκε."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Attached script '{0}' to this document."
-msgstr "Το σενάριο '{0}' επισυνάφθηκε σε αυτό το έγγραφο."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "A script named '{0}' already exists in My Scripts."
-msgstr "Ένα σενάριο με το όνομα '{0}' υπάρχει ήδη στα «Τα σενάριά μου»."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Copied script '{0}' to My Scripts."
-msgstr "Το σενάριο '{0}' αντιγράφηκε στα «Τα σενάριά μου»."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Deleted document script '{0}'."
-msgstr "Το σενάριο εγγράφου '{0}' διαγράφηκε."
-
-#: plugin/scripting/editor_host.py
-#, python-brace-format
-msgid "Deleted script '{0}'."
-msgstr "Το σενάριο '{0}' διαγράφηκε."
 
 #: plugin/scripting/editor_host.py
 msgid "Could not start the Python editor."
@@ -1820,8 +1924,7 @@ msgid "Text/NLP probe failed (see writeragent_debug.log)."
 msgstr "Το κείμενο/NLP probe απέτυχε (δείτε το writeragent_debug.log)."
 
 #: plugin/scripting/venv_diagnostics.py
-msgid ""
-"Vision probe timed out (Docling import can take 10–30s on first check)."
+msgid "Vision probe timed out (Docling import can take 10–30s on first check)."
 msgstr ""
 "Το χρονικό όριο του ανιχνευτή όρασης έληξε (η εισαγωγή Docling μπορεί να "
 "διαρκέσει 10–30 δευτερόλεπτα κατά τον πρώτο έλεγχο)."
@@ -1911,20 +2014,19 @@ msgstr "Ηχογράφηση: έλεγχος sounddevice..."
 #: plugin/scripting/venv_diagnostics.py
 msgid "Text / NLP Libraries: loading (first run may take a while)..."
 msgstr ""
-"Βιβλιοθήκες κειμένου / NLP: φόρτωση (η πρώτη εκτέλεση ενδέχεται να διαρκέσει"
-" λίγο)..."
+"Βιβλιοθήκες κειμένου / NLP: φόρτωση (η πρώτη εκτέλεση ενδέχεται να διαρκέσει "
+"λίγο)..."
 
 #: plugin/scripting/venv_diagnostics.py
 msgid "Vision Libraries: loading (first run may take a while)..."
 msgstr ""
-"Βιβλιοθήκες Vision: φόρτωση (η πρώτη εκτέλεση ενδέχεται να διαρκέσει "
-"λίγο)..."
+"Βιβλιοθήκες Vision: φόρτωση (η πρώτη εκτέλεση ενδέχεται να διαρκέσει λίγο)..."
 
 #: plugin/scripting/venv_diagnostics.py
 msgid "Vector Search Libraries: loading (first run may take a while)..."
 msgstr ""
-"Βιβλιοθήκες διανυσματικής αναζήτησης: φόρτωση (η πρώτη εκτέλεση ενδέχεται να"
-" διαρκέσει λίγο)..."
+"Βιβλιοθήκες διανυσματικής αναζήτησης: φόρτωση (η πρώτη εκτέλεση ενδέχεται να "
+"διαρκέσει λίγο)..."
 
 #: plugin/scripting/venv_diagnostics.py
 msgid "Using LibreOffice process Python..."
@@ -1956,7 +2058,8 @@ msgid ""
 "Error from the Text Analytics worker:\n"
 "{err}\n"
 "\n"
-"The features in this dialog require these packages in the python it is using:\n"
+"The features in this dialog require these packages in the python it is "
+"using:\n"
 "  • spacy + a model          (entities, key phrases, basic stats)\n"
 "  • textdescriptives         (real Readability scores)\n"
 "  • transformers + torch     (Sentiment using the multilingual model)\n"
@@ -1964,20 +2067,26 @@ msgid ""
 "Install them with:\n"
 "  {install}\n"
 "\n"
-"The worker reported the module as missing. Verify the packages are installed in the exact python executable the worker resolved for your configured venv."
+"The worker reported the module as missing. Verify the packages are installed "
+"in the exact python executable the worker resolved for your configured venv."
 msgstr ""
 "Σφάλμα από τον εργάτη ανάλυσης κειμένου:\n"
 "{err}\n"
 "\n"
-"Οι λειτουργίες σε αυτόν τον διάλογο απαιτούν αυτά τα πακέτα στην Python που χρησιμοποιεί:\n"
-"  • spacy + ένα μοντέλο          (οντότητες, φράσεις-κλειδιά, βασικά στατιστικά)\n"
+"Οι λειτουργίες σε αυτόν τον διάλογο απαιτούν αυτά τα πακέτα στην Python που "
+"χρησιμοποιεί:\n"
+"  • spacy + ένα μοντέλο          (οντότητες, φράσεις-κλειδιά, βασικά "
+"στατιστικά)\n"
 "  • textdescriptives         (πραγματικά σκορ αναγνωσιμότητας)\n"
-"  • transformers + torch     (Ανάλυση συναισθήματος χρησιμοποιώντας το πολύγλωσσο μοντέλο)\n"
+"  • transformers + torch     (Ανάλυση συναισθήματος χρησιμοποιώντας το "
+"πολύγλωσσο μοντέλο)\n"
 "\n"
 "Εγκαταστήστε τα με:\n"
 "  {install}\n"
 "\n"
-"Ο εργάτης ανέφερε ότι η ενότητα λείπει. Επαληθεύστε ότι τα πακέτα είναι εγκατεστημένα στο ακριβές εκτελέσιμο αρχείο Python που επέλυσε ο εργάτης για το ρυθμισμένο venv σας."
+"Ο εργάτης ανέφερε ότι η ενότητα λείπει. Επαληθεύστε ότι τα πακέτα είναι "
+"εγκατεστημένα στο ακριβές εκτελέσιμο αρχείο Python που επέλυσε ο εργάτης για "
+"το ρυθμισμένο venv σας."
 
 #: plugin/scripting/text_analytics_ui.py
 msgid "Open a Writer document to analyze."
@@ -1996,11 +2105,16 @@ msgstr "Ανάλυση..."
 msgid ""
 "Error: %s\n"
 "\n"
-"Required packages may be missing in your configured venv (Settings → Python). Click Check Venv in this dialog or use the full Test in Settings → Python for details on spacy, textdescriptives, transformers, torch etc."
+"Required packages may be missing in your configured venv (Settings → "
+"Python). Click Check Venv in this dialog or use the full Test in Settings → "
+"Python for details on spacy, textdescriptives, transformers, torch etc."
 msgstr ""
 "Σφάλμα: %s\n"
 "\n"
-"Ενδέχεται να λείπουν απαιτούμενα πακέτα από το ρυθμισμένο venv (Ρυθμίσεις → Python). Κάντε κλικ στο «Έλεγχος Venv» σε αυτό το παράθυρο διαλόγου ή χρησιμοποιήστε τον πλήρη έλεγχο (Test) στις Ρυθμίσεις → Python για λεπτομέρειες σχετικά με τα spacy, textdescriptives, transformers, torch κ.λπ."
+"Ενδέχεται να λείπουν απαιτούμενα πακέτα από το ρυθμισμένο venv (Ρυθμίσεις → "
+"Python). Κάντε κλικ στο «Έλεγχος Venv» σε αυτό το παράθυρο διαλόγου ή "
+"χρησιμοποιήστε τον πλήρη έλεγχο (Test) στις Ρυθμίσεις → Python για "
+"λεπτομέρειες σχετικά με τα spacy, textdescriptives, transformers, torch κ.λπ."
 
 #: plugin/scripting/text_analytics_ui.py
 msgid "No Writer document to insert into."
@@ -2107,8 +2221,7 @@ msgstr "Δεν ήταν δυνατή η επίλυση της συνεδρίας
 
 #: plugin/scripting/session_manager.py
 msgid "Notebook Python session reset for this document."
-msgstr ""
-"Η συνεδρία Python του σημειωματαρίου επαναφέρθηκε για αυτό το έγγραφο."
+msgstr "Η συνεδρία Python του σημειωματαρίου επαναφέρθηκε για αυτό το έγγραφο."
 
 #: plugin/scripting/session_manager.py
 msgid "Could not reset Python session."
@@ -2228,8 +2341,8 @@ msgstr ""
 #: plugin/scripting/python_runner.py
 #, python-brace-format
 msgid ""
-"Script executed successfully, but returned no result and produced no output."
-" (took {time})"
+"Script executed successfully, but returned no result and produced no output. "
+"(took {time})"
 msgstr ""
 "Το σενάριο εκτελέστηκε με επιτυχία, αλλά δεν επέστρεψε αποτέλεσμα και δεν "
 "παρήγαγε έξοδο. (διάρκεια {time})"
@@ -2545,7 +2658,8 @@ msgid ""
 msgstr ""
 "Το δυαδικό αρχείο {0} '{1}' επαληθεύτηκε ({2}).\n"
 "\n"
-"(Σημείωση: Μια ενεργή σήραγγα {3} εκτελείται αυτήν τη στιγμή στη διεύθυνση {4}.)"
+"(Σημείωση: Μια ενεργή σήραγγα {3} εκτελείται αυτήν τη στιγμή στη διεύθυνση "
+"{4}.)"
 
 #: plugin/mcp/tunnel.py
 #, python-brace-format
@@ -2558,7 +2672,8 @@ msgstr ""
 "Το δυαδικό αρχείο {0} '{1}' είναι εγκατεστημένο και επαληθευμένο ({2}).\n"
 "\n"
 "Ο διακομιστής MCP εκτελείται τοπικά στη θύρα {3}.\n"
-"Επιλέξτε 'Έκθεση μέσω δημόσιας σήραγγας' και κάντε κλικ στο OK για να ενεργοποιήσετε τη δημόσια δρομολόγηση."
+"Επιλέξτε 'Έκθεση μέσω δημόσιας σήραγγας' και κάντε κλικ στο OK για να "
+"ενεργοποιήσετε τη δημόσια δρομολόγηση."
 
 #: plugin/mcp/tunnel.py
 #, python-brace-format
@@ -2581,69 +2696,13 @@ msgstr "{0}: {1} επιτυχίες, {2} αποτυχίες."
 msgid "Tests failed to run: {0}"
 msgstr "Αποτυχία εκτέλεσης δοκιμών: {0}"
 
-#: plugin/main.py
-msgid "Extend Selection"
-msgstr "Επέκταση επιλογής"
-
-#: plugin/main.py
-msgid "Edit Selection"
-msgstr "Επεξεργασία επιλογής"
-
-#: plugin/main.py
-msgid "Toggle MCP Server"
-msgstr "Εναλλαγή διακομιστή MCP"
-
 #: plugin/main.py plugin/xdl_strings.py
 msgid "MCP Server Status"
 msgstr "Κατάσταση διακομιστή MCP"
 
 #: plugin/main.py
-msgid "Run format tests"
-msgstr "Εκτέλεση δοκιμών μορφοποίησης"
-
-#: plugin/main.py
-msgid "Run calc tests"
-msgstr "Εκτέλεση δοκιμών Calc"
-
-#: plugin/main.py
-msgid "Run Calc API integration tests"
-msgstr "Εκτέλεση δοκιμών ενσωμάτωσης API του Calc"
-
-#: plugin/main.py
-msgid "Run draw tests"
-msgstr "Εκτέλεση δοκιμών Draw"
-
-#: plugin/main.py
-msgid "Evaluation Dashboard"
-msgstr "Πίνακας ελέγχου αξιολόγησης"
-
-#: plugin/main.py
-msgid "Run Python Script..."
-msgstr "Εκτέλεση σεναρίου Python..."
-
-#: plugin/main.py
-msgid "Reset Python Session"
-msgstr "Επαναφορά συνεδρίας Python"
-
-#: plugin/main.py
-msgid "Import Jupyter Notebook..."
-msgstr "Εισαγωγή Jupyter Notebook..."
-
-#: plugin/main.py
-msgid "Insert LaTeX Math..."
-msgstr "Εισαγωγή μαθηματικού τύπου LaTeX..."
-
-#: plugin/main.py
-msgid "Search Nearby Files..."
-msgstr "Αναζήτηση σε κοντινά αρχεία..."
-
-#: plugin/main.py
-msgid "Text Analytics..."
-msgstr "Ανάλυση κειμένου..."
-
-#: plugin/main.py
-msgid "Convert Sheet to Python..."
-msgstr "Μετατροπή φύλλου σε Python..."
+msgid "Edit LaTeX Math..."
+msgstr "Επεξεργασία μαθηματικών LaTeX..."
 
 #: plugin/xdl_strings.py
 msgid "-1"
@@ -2704,10 +2763,6 @@ msgstr "Calc"
 #: plugin/xdl_strings.py
 msgid "Categories:"
 msgstr "Κατηγορίες:"
-
-#: plugin/xdl_strings.py
-msgid "Chat (Testing):"
-msgstr "Συνομιλία (Δοκιμή):"
 
 #: plugin/xdl_strings.py
 msgid "Check Venv"
@@ -2974,6 +3029,10 @@ msgid "Status"
 msgstr "Κατάσταση"
 
 #: plugin/xdl_strings.py
+msgid "Status: Ready"
+msgstr "Κατάσταση: Έτοιμο"
+
+#: plugin/xdl_strings.py
 msgid "Steps:"
 msgstr "Βήματα:"
 
@@ -3024,6 +3083,22 @@ msgstr "Writer"
 #: plugin/xdl_strings.py
 msgid "WriterAgent Evaluation Dashboard"
 msgstr "Πίνακας αξιολόγησης WriterAgent"
+
+#: plugin/xdl_strings.py
+msgid "√x"
+msgstr "√x"
+
+#: plugin/xdl_strings.py
+msgid "☰"
+msgstr "☰"
+
+#: plugin/xdl_strings.py
+msgid "⚙"
+msgstr "⚙"
+
+#: plugin/xdl_strings.py
+msgid "🔍"
+msgstr "🔍"
 
 msgid "Agent Communication Protocol"
 msgstr "Πρωτόκολλο επικοινωνίας πράκτορα"
@@ -3149,9 +3224,9 @@ msgstr "Δεξιότητα εξανθρωπισμού (φυσικός λόγος
 msgid ""
 "When enabled, injects guidance into the system prompt so the model makes "
 "generated or revised document text sound more natural and human (removes AI "
-"slop patterns). Edit the rules in your LibreOffice profile under "
-"writeragent/skills/humanizer/SKILL.md (the file is auto-created on first "
-"use). A dedicated Skills tab can be added later."
+"slop patterns). Edit the rules in your LibreOffice profile under writeragent/"
+"skills/humanizer/SKILL.md (the file is auto-created on first use). A "
+"dedicated Skills tab can be added later."
 msgstr ""
 "Όταν είναι ενεργοποιημένο, εισάγει καθοδήγηση στο σύστημα προτροπών (system "
 "prompt) ώστε το μοντέλο να κάνει το παραγόμενο ή αναθεωρημένο κείμενο του "
@@ -3178,14 +3253,14 @@ msgid "Enable grammar checker (Writer)"
 msgstr "Ενεργοποίηση ελέγχου γραμματικής (Writer)"
 
 msgid ""
-"Off = disabled. AI (LLM) = use your configured text model/API. LanguageTool "
-"/ Vale = local engines via Settings → Python venv. Harper = offline Rust "
-"binary auto-downloaded to your profile (no venv required)."
+"Off = disabled. AI (LLM) = use your configured text model/API. "
+"LanguageTool / Vale = local engines via Settings → Python venv. Harper = "
+"offline Rust binary auto-downloaded to your profile (no venv required)."
 msgstr ""
-"Off = απενεργοποιημένο. AI (LLM) = χρήση του ρυθμισμένου μοντέλου "
-"κειμένου/API. LanguageTool / Vale = τοπικές μηχανές μέσω Ρυθμίσεις → Python "
-"venv. Harper = δυαδικό αρχείο Rust εκτός σύνδεσης που λαμβάνεται αυτόματα "
-"στο προφίλ σας (δεν απαιτείται venv)."
+"Off = απενεργοποιημένο. AI (LLM) = χρήση του ρυθμισμένου μοντέλου κειμένου/"
+"API. LanguageTool / Vale = τοπικές μηχανές μέσω Ρυθμίσεις → Python venv. "
+"Harper = δυαδικό αρχείο Rust εκτός σύνδεσης που λαμβάνεται αυτόματα στο "
+"προφίλ σας (δεν απαιτείται venv)."
 
 msgid "Off"
 msgstr "Απενεργοποίηση"
@@ -3257,10 +3332,10 @@ msgid ""
 "grammar."
 msgstr ""
 "Επαλήθευση της γλώσσας κάθε ολοκληρωμένης πρότασης με βάση τις ρυθμίσεις "
-"τοπικών ρυθμίσεων του εγγράφου. Το AI χρησιμοποιεί το API "
-"γραμματικής/συνομιλίας σας· το Local χρησιμοποιεί το langdetect στο Python "
-"venv σας (Ρυθμίσεις → Python· χωρίς κλήση API). Οι αναντιστοιχίες "
-"ενημερώνουν το CharLocale και επανελέγχουν τη γραμματική."
+"τοπικών ρυθμίσεων του εγγράφου. Το AI χρησιμοποιεί το API γραμματικής/"
+"συνομιλίας σας· το Local χρησιμοποιεί το langdetect στο Python venv σας "
+"(Ρυθμίσεις → Python· χωρίς κλήση API). Οι αναντιστοιχίες ενημερώνουν το "
+"CharLocale και επανελέγχουν τη γραμματική."
 
 msgid "Local (langdetect)"
 msgstr "Τοπικό (langdetect)"
@@ -3272,8 +3347,8 @@ msgid ""
 "When on, Enter in the sidebar query runs the same action as Send; "
 "Shift+Enter inserts a newline. When off, Enter inserts a newline."
 msgstr ""
-"Όταν είναι ενεργοποιημένο, το Enter στο ερώτημα της πλευρικής στήλης εκτελεί"
-" την ίδια ενέργεια με την Αποστολή· το Shift+Enter εισάγει μια νέα γραμμή. "
+"Όταν είναι ενεργοποιημένο, το Enter στο ερώτημα της πλευρικής στήλης εκτελεί "
+"την ίδια ενέργεια με την Αποστολή· το Shift+Enter εισάγει μια νέα γραμμή. "
 "Όταν είναι απενεργοποιημένο, το Enter εισάγει μια νέα γραμμή."
 
 msgid "Agent edit review"
@@ -3284,9 +3359,9 @@ msgid ""
 "Wait = apply_document_content blocks (on chat/MCP worker thread) until you "
 "review."
 msgstr ""
-"Off = απευθείας επεξεργασίες. Record = παρακολούθηση αλλαγών που "
-"αποδέχεστε/απορρίπτετε εσείς. Wait = το apply_document_content αναμένει (στο"
-" νήμα συνομιλίας/MCP) μέχρι να ελέγξετε."
+"Off = απευθείας επεξεργασίες. Record = παρακολούθηση αλλαγών που αποδέχεστε/"
+"απορρίπτετε εσείς. Wait = το apply_document_content αναμένει (στο νήμα "
+"συνομιλίας/MCP) μέχρι να ελέγξετε."
 
 msgid "Record (track changes)"
 msgstr "Record (παρακολούθηση αλλαγών)"
@@ -3345,8 +3420,8 @@ msgid "Rerank model"
 msgstr "Μοντέλο ανακατάταξης"
 
 msgid ""
-"Used only when rerank is enabled. English MiniLM is fast; bge-reranker-v2-m3"
-" is multilingual and downloads ~2.3 GB."
+"Used only when rerank is enabled. English MiniLM is fast; bge-reranker-v2-m3 "
+"is multilingual and downloads ~2.3 GB."
 msgstr ""
 "Χρησιμοποιείται μόνο όταν η ανακατάταξη είναι ενεργοποιημένη. Το αγγλικό "
 "MiniLM είναι γρήγορο· το bge-reranker-v2-m3 είναι πολύγλωσσο και απαιτεί "
@@ -3368,11 +3443,11 @@ msgid "Enable MCP Server"
 msgstr "Ενεργοποίηση διακομιστή MCP"
 
 msgid ""
-"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable"
-" HTTP)."
+"Localhost only, no auth. Clients use http://localhost:<port>/mcp (streamable "
+"HTTP)."
 msgstr ""
-"Μόνο localhost, χωρίς έλεγχο ταυτότητας. Οι πελάτες χρησιμοποιούν το "
-"http://localhost:<port>/mcp (HTTP με δυνατότητα ροής)."
+"Μόνο localhost, χωρίς έλεγχο ταυτότητας. Οι πελάτες χρησιμοποιούν το http://"
+"localhost:<port>/mcp (HTTP με δυνατότητα ροής)."
 
 msgid "MCP Port"
 msgstr "Θύρα MCP"
@@ -3413,14 +3488,13 @@ msgstr "Έκθεση μέσω δημόσιου τούνελ"
 
 msgid ""
 "Requires the selected provider binary on PATH (cloudflared, bore, ngrok, or "
-"tailscale). MCP has no auth — anyone with the public URL can call tools. See"
-" MCP Server Status for the public /mcp URL when ready."
+"tailscale). MCP has no auth — anyone with the public URL can call tools. See "
+"MCP Server Status for the public /mcp URL when ready."
 msgstr ""
 "Απαιτεί το δυαδικό αρχείο του επιλεγμένου παρόχου στη διαδρομή PATH "
 "(cloudflared, bore, ngrok ή tailscale). Το MCP δεν διαθέτει έλεγχο "
 "ταυτότητας — οποιοσδήποτε έχει το δημόσιο URL μπορεί να καλέσει εργαλεία. "
-"Δείτε την Κατάσταση διακομιστή MCP για το δημόσιο URL /mcp όταν είναι "
-"έτοιμο."
+"Δείτε την Κατάσταση διακομιστή MCP για το δημόσιο URL /mcp όταν είναι έτοιμο."
 
 msgid "Provider"
 msgstr "Πάροχος"
@@ -3452,8 +3526,8 @@ msgid ""
 "Empty = provider default / CLI config. Unused for Tailscale."
 msgstr ""
 "Ngrok authtoken· Cloudflare tunnel token· Διακομιστής Bore ή 'server "
-"secret'. Κενό = προεπιλογή παρόχου / ρύθμιση CLI. Δεν χρησιμοποιείται για το"
-" Tailscale."
+"secret'. Κενό = προεπιλογή παρόχου / ρύθμιση CLI. Δεν χρησιμοποιείται για το "
+"Tailscale."
 
 msgid "Client config (copy into Claude / Hermes-Agent):"
 msgstr "Ρύθμιση πελάτη (αντιγραφή στο Claude / Hermes-Agent):"
@@ -3465,17 +3539,17 @@ msgid "Python venv path"
 msgstr "Διαδρομή venv Python"
 
 msgid ""
-"If set, runs =PY() and Run Python Script in that venv (bin/python, "
-"Scripts/python.exe, or conda/pyenv-win env-root python.exe). Paste the path "
-"without surrounding quotes. If empty, uses this process's sys.executable "
-"(basic stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
+"If set, runs =PY() and Run Python Script in that venv (bin/python, Scripts/"
+"python.exe, or conda/pyenv-win env-root python.exe). Paste the path without "
+"surrounding quotes. If empty, uses this process's sys.executable (basic "
+"stdlib); use a venv for numpy/pandas and Vision Helpers (paddleocr, "
 "paddlepaddle)."
 msgstr ""
-"Εάν οριστεί, εκτελεί το =PY() και το Run Python Script σε αυτό το venv "
-"(bin/python, Scripts/python.exe ή conda/pyenv-win env-root python.exe). "
+"Εάν οριστεί, εκτελεί το =PY() και το Run Python Script σε αυτό το venv (bin/"
+"python, Scripts/python.exe ή conda/pyenv-win env-root python.exe). "
 "Επικολλήστε τη διαδρομή χωρίς εισαγωγικά. Εάν είναι κενό, χρησιμοποιεί το "
-"sys.executable αυτής της διεργασίας (βασική stdlib)· χρησιμοποιήστε ένα venv"
-" για numpy/pandas και Vision Helpers (paddleocr, paddlepaddle)."
+"sys.executable αυτής της διεργασίας (βασική stdlib)· χρησιμοποιήστε ένα venv "
+"για numpy/pandas και Vision Helpers (paddleocr, paddlepaddle)."
 
 msgid "Test"
 msgstr "Δοκιμή"
@@ -3494,8 +3568,8 @@ msgid "Max Calc data cells"
 msgstr "Μέγιστα κελιά δεδομένων Calc"
 
 msgid ""
-"Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger"
-" values use more RAM and time; UNO range read still dominates."
+"Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger "
+"values use more RAM and time; UNO range read still dominates."
 msgstr ""
 "Μέγιστος αριθμός κελιών σε δεδομένα =PYTHON() ή δεδομένα/data_range του Run "
 "Python Script. Μεγαλύτερες τιμές καταναλώνουν περισσότερη μνήμη RAM και "
@@ -3508,8 +3582,8 @@ msgid ""
 "Isolated: each =PYTHON() cell gets a fresh namespace. Shared: one namespace "
 "per workbook (variables carry between cells)."
 msgstr ""
-"Απομονωμένο: κάθε κελί =PYTHON() αποκτά έναν νέο χώρο ονομάτων. Κοινόχρηστο:"
-" ένας χώρος ονομάτων ανά βιβλίο εργασίας (οι μεταβλητές μεταφέρονται μεταξύ "
+"Απομονωμένο: κάθε κελί =PYTHON() αποκτά έναν νέο χώρο ονομάτων. Κοινόχρηστο: "
+"ένας χώρος ονομάτων ανά βιβλίο εργασίας (οι μεταβλητές μεταφέρονται μεταξύ "
 "των κελιών)."
 
 msgid "Isolated (default)"
@@ -3529,8 +3603,8 @@ msgid "Rewrite xl() ranges"
 msgstr "Αναγραφή περιοχών xl()"
 
 msgid ""
-"On Edit Python in Cell save, lift static xl(\"A1:…\") onto =PY data args and"
-" rewrite to data / data[i] / .to_pandas()."
+"On Edit Python in Cell save, lift static xl(\"A1:…\") onto =PY data args and "
+"rewrite to data / data[i] / .to_pandas()."
 msgstr ""
 "Κατά την αποθήκευση του Python in Cell, μεταφορά των στατικών xl(\"A1:…\") "
 "στα ορίσματα δεδομένων =PY και αναγραφή σε data / data[i] / .to_pandas()."
