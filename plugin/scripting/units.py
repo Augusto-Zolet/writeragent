@@ -27,8 +27,8 @@ UNITS_HEADER_PREFIX = header_prefix("units")
 _SHIPPED_TEMPLATES = frozenset({"convert_quantity", "parse_quantity", "check_dimensionality"})
 
 _DEFAULT_PARAMS: dict[str, dict[str, Any]] = {
-    "convert_quantity": {"value": 10, "from": "m/s", "to": "km/h"},
-    "parse_quantity": {"quantity": "10 m/s"},
+    "convert_quantity": {"value": "data", "from": "m/s", "to": "km/h"},
+    "parse_quantity": {"quantity": "data"},
     "check_dimensionality": {"quantity_a": "10 m/s", "quantity_b": "5 km/h"},
 }
 
@@ -70,7 +70,7 @@ _API = make_template_api(
         import_module="writeragent.scripting.units",
         run_name="run_units",
         shipped_templates=_SHIPPED_TEMPLATES,
-        data_expr="None",
+        data_expr="data",
         positional_args={
             "convert_quantity": ("value", "from", "to"),
             "parse_quantity": ("quantity",),

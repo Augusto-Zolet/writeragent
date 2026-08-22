@@ -507,7 +507,7 @@ Optional second table `all_scores` (truncated) for debugging — keep behind `pa
 
 **Packages:** `pint` (required). Settings → Python **Data Engineering Libraries** group lists pint.
 
-**Run Python Script templates:** **Units Helpers →** `[Units] convert_quantity`, `[Units] parse_quantity`, `[Units] check_dimensionality`. Edit positional or keyword arguments in the direct helper function call (e.g. `convert_quantity(10, "m/s", "km/h")`).
+**Run Python Script templates:** **Units Helpers →** `[Units] convert_quantity`, `[Units] parse_quantity`, `[Units] check_dimensionality`. Edit positional or keyword arguments in the direct helper function call (e.g. `convert_quantity(data, "m/s", "km/h")`).
 
 **Calc egress:** By default, `convert_quantity` and `parse_quantity` write a **single formatted cell** at the selection anchor (e.g. `36 km/h`). Writer inserts the same formatted string as plain text. For a debug/report layout, pass `output_style="detailed"` in the function call — this writes a key-value grid (formatted value on the first row, then magnitude/units or compatibility fields). `check_dimensionality` defaults to `detailed`.
 

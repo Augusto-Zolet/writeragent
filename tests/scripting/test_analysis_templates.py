@@ -24,6 +24,9 @@ def test_template_body_round_trip():
     assert "# writeragent:analysis" not in code
     assert "from writeragent.scripting.analysis import describe_data" in code
 
+    assert 'format_currency(data, "$", 2)' in templates["format_currency"]
+    assert 'format_percent(data, 1)' in templates["format_percent"]
+
 
 def test_parse_header_with_params():
     code = '# writeragent:analysis helper=kpi_summary params={"metrics":["Revenue"]}\nresult = 1\n'

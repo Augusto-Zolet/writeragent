@@ -31,8 +31,8 @@ _DEFAULT_PARAMS: dict[str, dict[str, Any]] = {
     "kpi_summary": {"metrics": ["Column1"]},
     "detect_outliers": {},
     "quick_stats": {},
-    "format_currency": {},
-    "format_percent": {},
+    "format_currency": {"values": "data", "symbol": "$", "decimals": 2},
+    "format_percent": {"values": "data", "decimals": 1},
     "clean_and_prepare": {},
     "pivot_aggregate": {"index": "Category", "values": "Amount"},
     "group_summary": {"by": "Region", "metrics": ["Sales"]},
@@ -106,7 +106,10 @@ _API = make_template_api(
         import_module="writeragent.scripting.analysis",
         run_name="run_analysis",
         data_expr="data",
-        extra_comment_lines=("# Set the data range in the toolbar (or select cells), then Run.",),
+        positional_args={
+            "format_currency": ("values", "symbol", "decimals"),
+            "format_percent": ("values", "decimals"),
+        },
     )
 )
 

@@ -91,9 +91,11 @@ CLUSTER_GRID: list[list[Any]] = [
     [5.2, 4.8],
 ]
 
-CURRENCY_GRID: list[list[Any]] = [[1234.5]]
-PERCENT_GRID: list[list[Any]] = [[0.125]]
+CURRENCY_GRID: list[list[Any]] = [[1234.5], [500.0]]
+PERCENT_GRID: list[list[Any]] = [[0.125], [0.85]]
 SPEED_GRID: list[list[Any]] = [[10], [20], [30]]
+QUANTITY_GRID: list[list[Any]] = [["5 km/h"], ["10 m/s"]]
+TICKERS_GRID: list[list[Any]] = [["AAPL"], ["MSFT"]]
 
 # Optimize grids (tests/scripting/test_optimize.py)
 LP_GRID: list[list[Any]] = [
@@ -555,7 +557,7 @@ def _math_cases() -> list[DomainDemoCase]:
 
 def _quant_cases() -> list[DomainDemoCase]:
     fetch_params = {
-        "tickers": ["AAPL", "MSFT"],
+        "tickers": "data",
         "start_date": "2023-01-01",
         "end_date": "2024-01-01",
         "interval": "1d",
@@ -566,9 +568,9 @@ def _quant_cases() -> list[DomainDemoCase]:
             domain="quant",
             helper="fetch_historical_data",
             description="Fetch OHLCV via yfinance (requires internet)",
-            input_grid=None,
+            input_grid=TICKERS_GRID,
             params=fetch_params,
-            python_expr=_quant_expr("fetch_historical_data", fetch_params, '["status"]', use_data=False),
+            python_expr=_quant_expr("fetch_historical_data", fetch_params, '["status"]', use_data=True),
             expected_scalar="ok (table rows > 0)",
             script_hint="Quant Helpers → [Quant] fetch_historical_data",
             chat_prompt=None,
@@ -759,27 +761,9 @@ def _units_cases() -> list[DomainDemoCase]:
             id="convert_quantity",
             domain="units",
             helper="convert_quantity",
-            description="Convert 10 m/s → km/h (single formatted cell)",
-            input_grid=None,
-            params={"value": "10", "from_unit": "m/s", "to_unit": "km/h"},
-            python_expr=_units_expr(
-                "convert_quantity",
-                {"value": "10", "from_unit": "m/s", "to_unit": "km/h"},
-                '["formatted"]',
-            ),
-            expected_scalar="36 km/h",
-            script_hint="Units Helpers → [Units] convert_quantity",
-            chat_prompt=None,
-            requires_package="pint",
-            check_mode="formatted_cell",
-        ),
-        DomainDemoCase(
-            id="convert_quantity_vector",
-            domain="units",
-            helper="convert_quantity",
-            description="Convert column of values m/s → km/h",
+            description="Convert column of values from m/s to km/h",
             input_grid=SPEED_GRID,
-            params={"value": [10, 20, 30], "from_unit": "m/s", "to_unit": "km/h"},
+            params={"value": "data", "from_unit": "m/s", "to_unit": "km/h"},
             python_expr='from writeragent.scripting.units import convert_quantity; convert_quantity(data, "m/s", "km/h")',
             expected_scalar="[[36.0], [72.0], [108.0]]",
             script_hint="Units Helpers → [Units] convert_quantity",
@@ -792,15 +776,15 @@ def _units_cases() -> list[DomainDemoCase]:
             id="parse_quantity",
             domain="units",
             helper="parse_quantity",
-            description="Parse quantity string",
-            input_grid=None,
-            params={"quantity": "5 km/h"},
-            python_expr=_units_expr("parse_quantity", {"quantity": "5 km/h"}, '["magnitude"]'),
-            expected_scalar="5",
+            description="Parse quantity column into magnitudes",
+            input_grid=QUANTITY_GRID,
+            params={"quantity": "data"},
+            python_expr='from writeragent.scripting.units import parse_quantity; parse_quantity(quantity=data)',
+            expected_scalar="[[5.0], [10.0]]",
             script_hint="Units Helpers → [Units] parse_quantity",
             chat_prompt=None,
             requires_package="pint",
-            check_mode="formatted_cell",
+            check_mode="grid_egress",
         ),
         DomainDemoCase(
             id="format_quantity",

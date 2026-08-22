@@ -140,7 +140,7 @@ endif
 
 # ── Phony targets ────────────────────────────────────────────────────────────
 
-.PHONY: help build build-no-recording release release-no-test release-build repack repack-deploy register-built-oxt manifest manifest-core manifest-harper rdb-core build-core build-core-native deploy-core register-librepy-oxt build-harper deploy-harper register-libreharper-oxt xcu clean \
+.PHONY: help build build-no-recording release release-no-test release-build update-xml repack repack-deploy register-built-oxt manifest manifest-core manifest-harper rdb-core build-core build-core-native deploy-core register-librepy-oxt build-harper deploy-harper register-libreharper-oxt xcu clean \
         native build-native clean-native update-vec sync-vec \
         proxy-stubs \
         openrouter-catalog \
@@ -339,7 +339,10 @@ openrouter-catalog:
 	$(PYTHON) scripts/sync_orca_openrouter_catalog.py
 	$(PYTHON) -m ruff format plugin/framework/default_models.py
 
-release-build: auto-translate vendor manifest openrouter-catalog compile-translations
+update-xml:
+	$(PYTHON) -c "import sys; sys.path.insert(0, '$(SCRIPTS)'); from manifest_registry import generate_update_xml; generate_update_xml('$(PROJECT_ROOT)', 'update.xml')"
+
+release-build: auto-translate vendor manifest openrouter-catalog compile-translations update-xml
 	@echo "Building $(EXTENSION_NAME).oxt (release, bundle without tests)..."
 	$(PYTHON) $(SCRIPTS)/build_oxt.py --no-tests --output build/$(EXTENSION_NAME).oxt $(if $(filter 1,$(NO_RECORDING)),--no-recording)
 	@echo "Done: build/$(EXTENSION_NAME).oxt  (bundle in build/bundle/)"

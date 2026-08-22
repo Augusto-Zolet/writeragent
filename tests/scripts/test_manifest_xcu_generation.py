@@ -63,3 +63,39 @@ def test_generate_xdl_files_preserves_settings_and_standalone(tmp_path):
     assert "VisionSettingsDialog.xdl" in names
     assert "chatbot.xdl" in names
     assert "old_gone.xdl" not in names
+
+
+def test_generate_update_xml_default_only_generates_writeragent(tmp_path):
+    """Default generate_update_xml must generate update.xml only, not update-librepy or update-libreharper."""
+    from manifest_registry import generate_update_xml
+
+    plugin_dir = tmp_path / "plugin"
+    plugin_dir.mkdir()
+    (plugin_dir / "update.xml.tpl").write_text("<feed>{{VERSION}}</feed>", encoding="utf-8")
+    (plugin_dir / "update-librepy.xml.tpl").write_text("<feed>{{VERSION}}</feed>", encoding="utf-8")
+    (plugin_dir / "update-libreharper.xml.tpl").write_text("<feed>{{VERSION}}</feed>", encoding="utf-8")
+
+    generate_update_xml(str(tmp_path))
+
+    assert (tmp_path / "update.xml").exists()
+    assert not (tmp_path / "update-librepy.xml").exists()
+    assert not (tmp_path / "update-libreharper.xml").exists()
+
+
+def test_generate_update_xml_specific_targets(tmp_path):
+    """generate_update_xml with specific targets generates only the requested feed."""
+    from manifest_registry import generate_update_xml
+
+    plugin_dir = tmp_path / "plugin"
+    plugin_dir.mkdir()
+    (plugin_dir / "update.xml.tpl").write_text("<feed>{{VERSION}}</feed>", encoding="utf-8")
+    (plugin_dir / "update-librepy.xml.tpl").write_text("<feed>{{VERSION}}</feed>", encoding="utf-8")
+    (plugin_dir / "update-libreharper.xml.tpl").write_text("<feed>{{VERSION}}</feed>", encoding="utf-8")
+
+    generate_update_xml(str(tmp_path), "update-librepy.xml")
+    assert (tmp_path / "update-librepy.xml").exists()
+    assert not (tmp_path / "update.xml").exists()
+    assert not (tmp_path / "update-libreharper.xml").exists()
+
+    generate_update_xml(str(tmp_path), "update-libreharper.xml")
+    assert (tmp_path / "update-libreharper.xml").exists()

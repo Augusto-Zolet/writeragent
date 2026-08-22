@@ -197,7 +197,6 @@ from manifest_registry import (
     generate_settings_dialog_tabs,
     generate_manifest_xml,
     patch_description_xml,
-    generate_update_xml,
 )
 
 def main():
@@ -211,7 +210,7 @@ def main():
         help="Write _manifest.py to this path (default: plugin/_manifest.py)")
     parser.add_argument(
         "--skip-writeragent-extension", action="store_true",
-        help="Do not update extension/ description.xml, META-INF, or update.xml")
+        help="Do not update extension/ description.xml or META-INF")
     parser.add_argument(
         "--skip-addons", action="store_true",
         help="Do not generate build/generated/Addons.xcu or Accelerators.xcu")
@@ -296,7 +295,6 @@ def main():
     # 8. Patch version
     if not args.skip_writeragent_extension:
         patch_description_xml(os.path.join(PROJECT_ROOT, "extension"))
-        generate_update_xml(PROJECT_ROOT)
 
     print("Done.")
     return 0

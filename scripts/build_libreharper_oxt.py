@@ -31,7 +31,7 @@ from scripts.libreharper_bundle_paths import (  # noqa: E402
     iter_libreharper_vendor_packages,
     slim_libreharper_package_inits,
 )
-from scripts.manifest_registry import patch_description_xml  # noqa: E402
+from scripts.manifest_registry import generate_update_xml, patch_description_xml  # noqa: E402
 
 LIBREHARPER_BUNDLE_DIR = "build/bundle-libreharper"
 LIBREHARPER_EXTENSION_ID = "org.extension.libreharper"
@@ -77,6 +77,7 @@ def assemble_libreharper_bundle(base_dir: str, *, with_tests: bool = False, stri
 
     _ensure_libreharper_manifest(base_dir)
     patch_description_xml(os.path.join(base_dir, "extension-harper"))
+    generate_update_xml(base_dir, "update-libreharper.xml")
 
     plugin_paths = collect_libreharper_plugin_paths(base_dir)
     manifest_src = os.path.join(base_dir, LIBREHARPER_MANIFEST)

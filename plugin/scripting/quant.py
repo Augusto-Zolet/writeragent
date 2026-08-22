@@ -29,7 +29,7 @@ from plugin.scripting.calc_functions_common import QUANT_HELPER_NAMES as HELPER_
 QUANT_HEADER_PREFIX = header_prefix("quant")
 
 _DEFAULT_PARAMS: dict[str, dict[str, Any]] = {
-    "fetch_historical_data": {"tickers": ["AAPL", "MSFT"], "start_date": "2023-01-01", "end_date": "2024-01-01", "interval": "1d"},
+    "fetch_historical_data": {"tickers": "data", "start_date": "2023-01-01", "end_date": "2024-01-01", "interval": "1d"},
     "technical_analysis": {"indicators": ["macd", "rsi", "bbands"]},
     "portfolio_tearsheet": {},
     "efficient_frontier": {},
@@ -70,7 +70,6 @@ _API = make_template_api(
         run_name="run_quant",
         style="run_import",
         data_expr="data",
-        extra_comment_lines=("# Set the data range in the toolbar (or select cells), then Run.",),
     )
 )
 

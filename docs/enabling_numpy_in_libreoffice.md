@@ -308,7 +308,7 @@ The **AST sandbox** (`LocalPythonExecutor` + `VENV_AUTHORIZED_IMPORTS`) applies 
 1. **Ship a normal module** under `plugin/scripting/venv/` (implementation) with a public facade at `plugin/scripting/*.py`, or under `plugin/embeddings/venv/`.
 2. **Host calls** `[run_trusted_worker_action](../plugin/scripting/trusted_rpc.py)` with `action: "run_trusted_action"` and a `domain` + `helper` packet — not LLM output.
 3. `[worker_harness.py](../plugin/scripting/venv/worker_harness.py)` looks up the domain in `[trusted_action_registry.py](../plugin/scripting/trusted_action_registry.py)` and calls the dispatcher **directly** (zero AST). Long-running maintain jobs can stream heartbeats (`allow_heartbeat`).
-4. **Run Python Script templates** execute visible helper calls (e.g. `convert_quantity(10, "m/s", "km/h")`). The host injects `data` / `text` / `image` before execution; results use insert handlers in `[domain_registry.py](../plugin/scripting/domain_registry.py)`.
+4. **Run Python Script templates** execute visible helper calls (e.g. `convert_quantity(data, "m/s", "km/h")`). The host injects `data` / `text` / `image` before execution; results use insert handlers in `[domain_registry.py](../plugin/scripting/domain_registry.py)`.
 5. **Bulk data** travels in the action `data` dict (Pickle5). Trusted code opens host-supplied paths (for example the per-folder `corpus.db`).
 
 **Embeddings worker pool:** Folder maintain, hybrid search, and grammar **Local (langdetect)** use `WORKER_POOL_EMBEDDINGS` — a second warm venv child isolated from Calc `=PY()` ([embeddings.md](embeddings.md#dedicated-embeddings-subprocess)). Registry / dispatch detail: [scripting-domain-debt-dev-plan.md](scripting-domain-debt-dev-plan.md).

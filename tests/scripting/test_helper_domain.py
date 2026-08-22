@@ -77,6 +77,21 @@ def test_build_run_import_template_has_header_and_import():
     assert "from writeragent.scripting.units import convert_quantity" in body
 
 
+def test_build_run_import_template_with_data():
+    body = build_helper_script_template(
+        tag="units",
+        helper="convert_quantity",
+        params={"value": "data", "from": "m/s", "to": "km/h"},
+        description="Convert",
+        style="run_import",
+        import_module="writeragent.scripting.units",
+        run_name="run_units",
+        data_expr="data",
+        positional_args=("value", "from", "to"),
+    )
+    assert 'convert_quantity(data, "m/s", "km/h")' in body
+
+
 def test_parse_run_import_call_params_reads_body():
     code = (
         'result = run_units({"helper": "convert_quantity", "params": {"value":"20","to_unit":"mm/h"}}, None, {})\n'

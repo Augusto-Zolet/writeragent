@@ -634,15 +634,29 @@ def patch_description_xml(extension_dir):
     print("  Generated description.xml with version %s" % EXTENSION_VERSION)
 
 
-def generate_update_xml(root_dir):
+def generate_update_xml(root_dir, feed="update.xml"):
     """Generate WriterAgent / LibrePy / LibreHarper update.xml feeds from .tpl files."""
     from plugin.version import EXTENSION_VERSION
 
-    feeds = (
-        ("update.xml.tpl", "update.xml"),
-        ("update-librepy.xml.tpl", "update-librepy.xml"),
-        ("update-libreharper.xml.tpl", "update-libreharper.xml"),
-    )
+    feed_map = {
+        "update.xml": ("update.xml.tpl", "update.xml"),
+        "writeragent": ("update.xml.tpl", "update.xml"),
+        "update-librepy.xml": ("update-librepy.xml.tpl", "update-librepy.xml"),
+        "librepy": ("update-librepy.xml.tpl", "update-librepy.xml"),
+        "update-libreharper.xml": ("update-libreharper.xml.tpl", "update-libreharper.xml"),
+        "libreharper": ("update-libreharper.xml.tpl", "update-libreharper.xml"),
+    }
+    if feed == "all":
+        feeds = [
+            ("update.xml.tpl", "update.xml"),
+            ("update-librepy.xml.tpl", "update-librepy.xml"),
+            ("update-libreharper.xml.tpl", "update-libreharper.xml"),
+        ]
+    elif isinstance(feed, (list, tuple)):
+        feeds = [feed_map[f] for f in feed if f in feed_map]
+    else:
+        feeds = [feed_map.get(feed, (f"{feed}.tpl", feed))]
+
     for tpl_name, out_name in feeds:
         tpl_path = os.path.join(root_dir, "plugin", tpl_name)
         update_path = os.path.join(root_dir, out_name)

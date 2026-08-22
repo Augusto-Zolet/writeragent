@@ -92,6 +92,8 @@ def parse_helper_script_header(
 
 def _literal_value(node: ast.AST) -> Any:
     """Best-effort static value for template-style literal AST nodes."""
+    if isinstance(node, ast.Name):
+        return node.id
     if isinstance(node, ast.Constant):
         return node.value
     if isinstance(node, ast.Dict):
@@ -245,10 +247,15 @@ def build_helper_script_template(
         raise ValueError("import_module required for style='run_import'")
     default_extra = extra_comment_lines or ("# Edit the call below, then Run.",)
 
+    def _format_param_val(val: Any) -> str:
+        if val == "data":
+            return "data"
+        return json.dumps(val, ensure_ascii=False)
+
     if positional_args:
-        args_str = ", ".join(json.dumps(params[k], ensure_ascii=False) for k in positional_args if k in params)
+        args_str = ", ".join(_format_param_val(params[k]) for k in positional_args if k in params)
     elif params:
-        args_str = ", ".join(f"{k}={json.dumps(v, ensure_ascii=False)}" for k, v in params.items())
+        args_str = ", ".join(f"{k}={_format_param_val(v)}" for k, v in params.items())
     else:
         args_str = ""
 
